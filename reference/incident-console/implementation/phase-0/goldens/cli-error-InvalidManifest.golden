@@ -1,0 +1,1 @@
+{"command":null,"diagnostic":{"category":"gateway","code":"InvalidManifest","details":{"importSpecifier":null,"path":null},"message":"InvalidManifest"},"kind":"flow-state-cli-error","version":"flow-state/cli-result.v1"}

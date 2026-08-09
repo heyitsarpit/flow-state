@@ -97,10 +97,11 @@ remain inert until their later phases.
 
 ## Deletion obligations
 
-Delete the custom in-flight Deferred/waiter maps, subscription-count activity policy,
-custom wall clock, TanStack resource source, global ref registry, resource projected-key and
-descriptor-ID promotion, canonical-key invalidation filters, and indefinite resource Map
-ownership.
+Delete these owners from the package-private vNext resource kernel: custom in-flight
+Deferred/waiter maps, subscription-count activity policy, custom wall clock, TanStack resource
+source, global ref registry, resource projected-key and descriptor-ID promotion, canonical-key
+invalidation filters, and indefinite resource Map ownership. The frozen legacy owners stay
+reachable only through the unchanged public routes until their atomic Phase 7 deletion.
 
 ## Gates and receipt
 

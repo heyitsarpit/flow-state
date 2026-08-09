@@ -1,0 +1,1 @@
+{"command":null,"diagnostic":{"category":"artifact","code":"WrongArtifactKind","details":{"actual":null,"limit":null,"path":[]},"message":"WrongArtifactKind"},"kind":"flow-state-cli-error","version":"flow-state/cli-result.v1"}

@@ -119,9 +119,11 @@ forbidden except for minimal internal interfaces consumed by later phases.
 
 ## Deletion obligations
 
-Delete the React-style actor shell from runtime construction paths, custom ready-work/FIFO
-scheduling, owned-effect runner, split issue source, manual cleanup registry, mutable
-`hydrateBoot`, zero-argument/test-default runtime creation, and abortable disposal semantics.
+Delete these owners from the package-private vNext runtime: the React-style actor shell, custom
+ready-work/FIFO scheduling, owned-effect runner, split issue source, manual cleanup registry,
+mutable `hydrateBoot`, zero-argument/test-default runtime creation, and abortable disposal
+semantics. The frozen legacy public shell and runtime stay reachable only through the unchanged
+legacy routes until their atomic Phase 7 deletion.
 
 ## Gates and receipt
 

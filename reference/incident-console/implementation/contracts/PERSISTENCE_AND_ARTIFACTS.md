@@ -377,7 +377,7 @@ trust an incomplete latest hint as a historical diff.
 A behavior artifact has exactly `kind`, `version`, `appId`, `persistenceVersion`,
 `appPlanFingerprint`, `machines`, and `stories`. `machines` is in compiled AppPlan order and each
 entry has exactly `machineId`, ordered `states`, ordered `events`, ordered `activitySlots`, and
-ordered `timerSlots`; a slot contains only its durable structured identity from GLO-07. `stories`
+ordered `timerSlots`; a slot contains only its durable structured identity from GLO-09. `stories`
 is ordered by raw UTF-16 external ID and each entry has exactly `id`, `machineId`, `title`,
 `description`, and ordered deduplicated `tags`, with absent optional authored strings encoded as
 `null`. It contains declarations and coverage identity only, never callbacks, Effects, fixtures,

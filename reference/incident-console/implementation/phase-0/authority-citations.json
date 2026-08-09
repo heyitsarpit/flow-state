@@ -1,0 +1,236 @@
+{
+  "governingAuthority": [
+    "README.md",
+    "contracts/*.md",
+    "tasks/README.md",
+    "tasks/PHASE_*.md",
+    "PRE_CODING_AUDIT.md",
+    "REQUIRED_TESTS.md",
+    "USER_WORKFLOW_COVERAGE.md",
+    "QUICK_EXAMPLES.md"
+  ],
+  "excludedAsGoverningAuthority": [
+    "../DESIGN_DECISIONS.md",
+    "../IMPLEMENTATION_BLOCKERS.md",
+    "../../TASK.md",
+    "../../tasks/**"
+  ],
+  "historicalCitations": [
+    {
+      "file": "PRE_CODING_AUDIT.md",
+      "line": 22,
+      "historicalFile": "DESIGN_DECISIONS.md",
+      "role": "historical-evidence-or-removal-target"
+    },
+    {
+      "file": "PRE_CODING_AUDIT.md",
+      "line": 22,
+      "historicalFile": "IMPLEMENTATION_BLOCKERS.md",
+      "role": "historical-evidence-or-removal-target"
+    },
+    {
+      "file": "PRE_CODING_AUDIT.md",
+      "line": 91,
+      "historicalFile": "IMPLEMENTATION_BLOCKERS.md",
+      "role": "historical-evidence-or-removal-target"
+    },
+    {
+      "file": "README.md",
+      "line": 16,
+      "historicalFile": "DESIGN_DECISIONS.md",
+      "role": "historical-evidence-or-removal-target"
+    },
+    {
+      "file": "README.md",
+      "line": 17,
+      "historicalFile": "IMPLEMENTATION_BLOCKERS.md",
+      "role": "historical-evidence-or-removal-target"
+    },
+    {
+      "file": "README.md",
+      "line": 26,
+      "historicalFile": "DESIGN_DECISIONS.md",
+      "role": "historical-evidence-or-removal-target"
+    },
+    {
+      "file": "README.md",
+      "line": 26,
+      "historicalFile": "IMPLEMENTATION_BLOCKERS.md",
+      "role": "historical-evidence-or-removal-target"
+    },
+    {
+      "file": "README.md",
+      "line": 31,
+      "historicalFile": "DESIGN_DECISIONS.md",
+      "role": "historical-evidence-or-removal-target"
+    },
+    {
+      "file": "README.md",
+      "line": 31,
+      "historicalFile": "IMPLEMENTATION_BLOCKERS.md",
+      "role": "historical-evidence-or-removal-target"
+    },
+    {
+      "file": "contracts/COMPATIBILITY_AND_DELETIONS.md",
+      "line": 102,
+      "historicalFile": "DESIGN_DECISIONS.md",
+      "role": "historical-evidence-or-removal-target"
+    },
+    {
+      "file": "contracts/COMPATIBILITY_AND_DELETIONS.md",
+      "line": 111,
+      "historicalFile": "IMPLEMENTATION_BLOCKERS.md",
+      "role": "historical-evidence-or-removal-target"
+    },
+    {
+      "file": "contracts/COMPATIBILITY_AND_DELETIONS.md",
+      "line": 168,
+      "historicalFile": "DESIGN_DECISIONS.md",
+      "role": "historical-evidence-or-removal-target"
+    },
+    {
+      "file": "contracts/COMPATIBILITY_AND_DELETIONS.md",
+      "line": 176,
+      "historicalFile": "DESIGN_DECISIONS.md",
+      "role": "historical-evidence-or-removal-target"
+    },
+    {
+      "file": "contracts/COMPATIBILITY_AND_DELETIONS.md",
+      "line": 232,
+      "historicalFile": "DESIGN_DECISIONS.md",
+      "role": "historical-evidence-or-removal-target"
+    },
+    {
+      "file": "contracts/COMPATIBILITY_AND_DELETIONS.md",
+      "line": 270,
+      "historicalFile": "IMPLEMENTATION_BLOCKERS.md",
+      "role": "historical-evidence-or-removal-target"
+    },
+    {
+      "file": "contracts/COMPATIBILITY_AND_DELETIONS.md",
+      "line": 277,
+      "historicalFile": "IMPLEMENTATION_BLOCKERS.md",
+      "role": "historical-evidence-or-removal-target"
+    },
+    {
+      "file": "contracts/PROOF_MATRIX.md",
+      "line": 401,
+      "historicalFile": "IMPLEMENTATION_BLOCKERS.md",
+      "role": "historical-evidence-or-removal-target"
+    },
+    {
+      "file": "contracts/PUBLIC_API.md",
+      "line": 216,
+      "historicalFile": "DESIGN_DECISIONS.md",
+      "role": "historical-evidence-or-removal-target"
+    },
+    {
+      "file": "contracts/PUBLIC_API.md",
+      "line": 387,
+      "historicalFile": "DESIGN_DECISIONS.md",
+      "role": "historical-evidence-or-removal-target"
+    },
+    {
+      "file": "contracts/PUBLIC_API.md",
+      "line": 549,
+      "historicalFile": "DESIGN_DECISIONS.md",
+      "role": "historical-evidence-or-removal-target"
+    },
+    {
+      "file": "contracts/PUBLIC_API.md",
+      "line": 570,
+      "historicalFile": "DESIGN_DECISIONS.md",
+      "role": "historical-evidence-or-removal-target"
+    },
+    {
+      "file": "contracts/PUBLIC_API.md",
+      "line": 740,
+      "historicalFile": "DESIGN_DECISIONS.md",
+      "role": "historical-evidence-or-removal-target"
+    },
+    {
+      "file": "contracts/REACT_AND_HOSTS.md",
+      "line": 26,
+      "historicalFile": "IMPLEMENTATION_BLOCKERS.md",
+      "role": "historical-evidence-or-removal-target"
+    },
+    {
+      "file": "contracts/REACT_AND_HOSTS.md",
+      "line": 27,
+      "historicalFile": "DESIGN_DECISIONS.md",
+      "role": "historical-evidence-or-removal-target"
+    },
+    {
+      "file": "contracts/REACT_AND_HOSTS.md",
+      "line": 116,
+      "historicalFile": "IMPLEMENTATION_BLOCKERS.md",
+      "role": "historical-evidence-or-removal-target"
+    },
+    {
+      "file": "contracts/REACT_AND_HOSTS.md",
+      "line": 180,
+      "historicalFile": "IMPLEMENTATION_BLOCKERS.md",
+      "role": "historical-evidence-or-removal-target"
+    },
+    {
+      "file": "contracts/REACT_AND_HOSTS.md",
+      "line": 258,
+      "historicalFile": "IMPLEMENTATION_BLOCKERS.md",
+      "role": "historical-evidence-or-removal-target"
+    },
+    {
+      "file": "contracts/REACT_AND_HOSTS.md",
+      "line": 276,
+      "historicalFile": "IMPLEMENTATION_BLOCKERS.md",
+      "role": "historical-evidence-or-removal-target"
+    },
+    {
+      "file": "contracts/REACT_AND_HOSTS.md",
+      "line": 297,
+      "historicalFile": "IMPLEMENTATION_BLOCKERS.md",
+      "role": "historical-evidence-or-removal-target"
+    },
+    {
+      "file": "contracts/REACT_AND_HOSTS.md",
+      "line": 374,
+      "historicalFile": "IMPLEMENTATION_BLOCKERS.md",
+      "role": "historical-evidence-or-removal-target"
+    },
+    {
+      "file": "contracts/TYPE_SYSTEM.md",
+      "line": 13,
+      "historicalFile": "IMPLEMENTATION_BLOCKERS.md",
+      "role": "historical-evidence-or-removal-target"
+    },
+    {
+      "file": "contracts/TYPE_SYSTEM.md",
+      "line": 88,
+      "historicalFile": "IMPLEMENTATION_BLOCKERS.md",
+      "role": "historical-evidence-or-removal-target"
+    },
+    {
+      "file": "contracts/TYPE_SYSTEM.md",
+      "line": 254,
+      "historicalFile": "IMPLEMENTATION_BLOCKERS.md",
+      "role": "historical-evidence-or-removal-target"
+    },
+    {
+      "file": "tasks/PHASE_8_MIGRATION_AND_DELETION.md",
+      "line": 54,
+      "historicalFile": "IMPLEMENTATION_BLOCKERS.md",
+      "role": "historical-evidence-or-removal-target"
+    },
+    {
+      "file": "tasks/PHASE_8_MIGRATION_AND_DELETION.md",
+      "line": 131,
+      "historicalFile": "IMPLEMENTATION_BLOCKERS.md",
+      "role": "historical-evidence-or-removal-target"
+    },
+    {
+      "file": "tasks/README.md",
+      "line": 26,
+      "historicalFile": "IMPLEMENTATION_BLOCKERS.md",
+      "role": "historical-evidence-or-removal-target"
+    }
+  ]
+}

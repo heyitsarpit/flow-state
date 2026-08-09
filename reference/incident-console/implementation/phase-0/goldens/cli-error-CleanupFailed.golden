@@ -1,0 +1,1 @@
+{"command":null,"diagnostic":{"category":"cleanup","code":"CleanupFailed","details":{"cause":{"_tag":"Fail","error":"cleanup"},"operation":"dispose"},"message":"CleanupFailed"},"kind":"flow-state-cli-error","version":"flow-state/cli-result.v1"}

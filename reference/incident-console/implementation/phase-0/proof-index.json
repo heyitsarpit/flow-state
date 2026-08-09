@@ -1,0 +1,896 @@
+{
+  "schemaVersion": "flow-state/phase-0-proof-index.v1",
+  "proofCases": [
+    {
+      "caseId": "PROOF-001.01",
+      "centralProofIds": ["PROOF-001"],
+      "contractIds": ["API-001", "TYPE-001", "TYPE-003", "TYPE-005"],
+      "closingPhase": 1,
+      "currentDisposition": "replacement",
+      "currentTests": ["packages/flow-state/src/public-api-types.test.ts"],
+      "targetTests": ["packages/flow-state/src/vnext/definition-types.test.ts"]
+    },
+    {
+      "caseId": "PROOF-001.02",
+      "centralProofIds": ["PROOF-001"],
+      "contractIds": ["HOST-011", "HOST-012", "TYPE-011"],
+      "closingPhase": 5,
+      "currentDisposition": "missing",
+      "currentTests": [],
+      "targetTests": [
+        "packages/flow-state/proof/react-18.tsx",
+        "packages/flow-state/proof/react-19.tsx"
+      ]
+    },
+    {
+      "caseId": "PROOF-001.03",
+      "centralProofIds": ["PROOF-001"],
+      "contractIds": ["TEST-001", "TEST-002", "TYPE-012"],
+      "closingPhase": 6,
+      "currentDisposition": "missing",
+      "currentTests": [],
+      "targetTests": [
+        "packages/flow-state/src/story-types.test.ts",
+        "packages/flow-state/src/story-model-types.test.ts"
+      ]
+    },
+    {
+      "caseId": "PROOF-001.04",
+      "centralProofIds": ["PROOF-001"],
+      "contractIds": ["TYPE-010", "TYPE-012"],
+      "closingPhase": 6,
+      "currentDisposition": "missing",
+      "currentTests": [],
+      "targetTests": ["packages/flow-state/scripts/check-type-performance.mjs"]
+    },
+    {
+      "caseId": "PROOF-001.05",
+      "centralProofIds": ["PROOF-001"],
+      "contractIds": ["API-001", "API-013A", "API-017", "CUT-003"],
+      "closingPhase": 7,
+      "currentDisposition": "replacement",
+      "currentTests": ["packages/flow-state/scripts/check-packed-consumers.mjs"],
+      "targetTests": ["packages/flow-state/scripts/check-packed-consumers.mjs"]
+    },
+    {
+      "caseId": "PROOF-002.01",
+      "centralProofIds": ["PROOF-002"],
+      "contractIds": ["ARCH-001", "ARCH-003", "ARCH-005"],
+      "closingPhase": 1,
+      "currentDisposition": "replacement",
+      "currentTests": ["packages/flow-state/src/app-validation.test.ts"],
+      "targetTests": ["packages/flow-state/src/vnext/app-plan.test.ts"]
+    },
+    {
+      "caseId": "PROOF-002.02",
+      "centralProofIds": ["PROOF-002"],
+      "contractIds": ["GLO-001", "GLO-009", "TYPE-009"],
+      "closingPhase": 1,
+      "currentDisposition": "replacement",
+      "currentTests": ["packages/flow-state/src/app-validation.test.ts"],
+      "targetTests": ["packages/flow-state/src/vnext/app-plan-identity.test.ts"]
+    },
+    {
+      "caseId": "PROOF-002.03",
+      "centralProofIds": ["PROOF-002"],
+      "contractIds": ["API-003", "CUT-004"],
+      "closingPhase": 1,
+      "currentDisposition": "missing",
+      "currentTests": [],
+      "targetTests": ["packages/flow-state/src/vnext/machine-grammar.test.ts"]
+    },
+    {
+      "caseId": "PROOF-003.01",
+      "centralProofIds": ["PROOF-003"],
+      "contractIds": ["SEM-004", "SEM-005", "HOST-004"],
+      "closingPhase": 2,
+      "currentDisposition": "replacement",
+      "currentTests": ["packages/flow-state/src/runtime-transition-parity.test.ts"],
+      "targetTests": ["packages/flow-state/src/vnext/actor-publication.test.ts"]
+    },
+    {
+      "caseId": "PROOF-003.02",
+      "centralProofIds": ["PROOF-003"],
+      "contractIds": ["API-003", "SNAP-001", "SEM-006"],
+      "closingPhase": 2,
+      "currentDisposition": "missing",
+      "currentTests": [],
+      "targetTests": ["packages/flow-state/src/vnext/actor-memory-final.test.ts"]
+    },
+    {
+      "caseId": "PROOF-003.03",
+      "centralProofIds": ["PROOF-003"],
+      "contractIds": ["SEM-006A", "WIRE-007", "WIRE-010"],
+      "closingPhase": 3,
+      "currentDisposition": "missing",
+      "currentTests": [],
+      "targetTests": ["packages/flow-state/src/vnext/resource-outcome-mailbox.test.ts"]
+    },
+    {
+      "caseId": "PROOF-003.04",
+      "centralProofIds": ["PROOF-003"],
+      "contractIds": ["SEM-006A", "WIRE-007", "WIRE-010"],
+      "closingPhase": 4,
+      "currentDisposition": "missing",
+      "currentTests": [],
+      "targetTests": ["packages/flow-state/src/vnext/activity-outcome-mailbox.test.ts"]
+    },
+    {
+      "caseId": "PROOF-003.05",
+      "centralProofIds": ["PROOF-003"],
+      "contractIds": ["HOST-004", "TEST-007"],
+      "closingPhase": 6,
+      "currentDisposition": "missing",
+      "currentTests": [],
+      "targetTests": ["packages/flow-state/src/story-runner.test.ts"]
+    },
+    {
+      "caseId": "PROOF-003.06",
+      "centralProofIds": ["PROOF-003"],
+      "contractIds": ["WIRE-010", "HOST-013"],
+      "closingPhase": 7,
+      "currentDisposition": "missing",
+      "currentTests": [],
+      "targetTests": ["packages/flow-state/src/vnext/runtime-hydration-outcomes.test.ts"]
+    },
+    {
+      "caseId": "PROOF-004.01",
+      "centralProofIds": ["PROOF-004"],
+      "contractIds": ["HOST-001", "HOST-018", "SEM-024"],
+      "closingPhase": 2,
+      "currentDisposition": "replacement",
+      "currentTests": ["packages/flow-state/src/runtime-lifecycle.test.ts"],
+      "targetTests": ["packages/flow-state/src/vnext/runtime-lifecycle.test.ts"]
+    },
+    {
+      "caseId": "PROOF-004.02",
+      "centralProofIds": ["PROOF-004"],
+      "contractIds": ["SEM-021", "SNAP-010"],
+      "closingPhase": 4,
+      "currentDisposition": "replacement",
+      "currentTests": ["packages/flow-state/src/child-lifecycle.test.ts"],
+      "targetTests": ["packages/flow-state/src/vnext/child-lifecycle.test.ts"]
+    },
+    {
+      "caseId": "PROOF-004.03",
+      "centralProofIds": ["PROOF-004"],
+      "contractIds": ["TEST-010", "WIRE-022"],
+      "closingPhase": 6,
+      "currentDisposition": "missing",
+      "currentTests": [],
+      "targetTests": ["packages/flow-state/src/story-runner.test.ts"]
+    },
+    {
+      "caseId": "PROOF-005.01",
+      "centralProofIds": ["PROOF-005"],
+      "contractIds": ["GLO-005", "WIRE-001", "WIRE-002"],
+      "closingPhase": 1,
+      "currentDisposition": "replacement",
+      "currentTests": ["packages/flow-state/src/canonical-key-hostile-reflection.test.ts"],
+      "targetTests": ["packages/flow-state/src/vnext/canonical-ref.test.ts"]
+    },
+    {
+      "caseId": "PROOF-005.02",
+      "centralProofIds": ["PROOF-005"],
+      "contractIds": ["SNAP-002", "SNAP-003", "SNAP-P01"],
+      "closingPhase": 3,
+      "currentDisposition": "replacement",
+      "currentTests": ["packages/flow-state/src/resource-store.test.ts"],
+      "targetTests": ["packages/flow-state/src/vnext/resource-snapshot.test.ts"]
+    },
+    {
+      "caseId": "PROOF-005.03",
+      "centralProofIds": ["PROOF-005"],
+      "contractIds": ["SEM-011", "SNAP-005"],
+      "closingPhase": 3,
+      "currentDisposition": "replacement",
+      "currentTests": ["packages/flow-state/src/resource-store-generation-race.test.ts"],
+      "targetTests": ["packages/flow-state/src/vnext/resource-generation.test.ts"]
+    },
+    {
+      "caseId": "PROOF-005.04",
+      "centralProofIds": ["PROOF-005"],
+      "contractIds": ["SEM-018", "SEM-019", "SNAP-006"],
+      "closingPhase": 4,
+      "currentDisposition": "replacement",
+      "currentTests": [
+        "packages/flow-state/src/transaction-interleaving-oracle.test.ts",
+        "packages/flow-state/src/stream-interleaving-oracle.test.ts"
+      ],
+      "targetTests": ["packages/flow-state/src/vnext/activity-generation.test.ts"]
+    },
+    {
+      "caseId": "PROOF-005.05",
+      "centralProofIds": ["PROOF-005"],
+      "contractIds": ["WIRE-002", "WIRE-020A", "CLI-005"],
+      "closingPhase": 7,
+      "currentDisposition": "missing",
+      "currentTests": [],
+      "targetTests": ["packages/flow-state/src/vnext/artifact-identity.test.ts"]
+    },
+    {
+      "caseId": "PROOF-006.01",
+      "centralProofIds": ["PROOF-006"],
+      "contractIds": ["SEM-009", "SEM-010", "SEM-026"],
+      "closingPhase": 3,
+      "currentDisposition": "replacement",
+      "currentTests": ["packages/flow-state/src/resource-store.test.ts"],
+      "targetTests": ["packages/flow-state/src/vnext/resource-lifetime.test.ts"]
+    },
+    {
+      "caseId": "PROOF-006.02",
+      "centralProofIds": ["PROOF-006"],
+      "contractIds": ["SEM-011A", "SEM-011B", "SNAP-004"],
+      "closingPhase": 3,
+      "currentDisposition": "missing",
+      "currentTests": [],
+      "targetTests": ["packages/flow-state/src/vnext/resource-outcomes.test.ts"]
+    },
+    {
+      "caseId": "PROOF-006.03",
+      "centralProofIds": ["PROOF-006"],
+      "contractIds": ["SEM-012", "TYPE-008"],
+      "closingPhase": 3,
+      "currentDisposition": "missing",
+      "currentTests": [],
+      "targetTests": ["packages/flow-state/src/vnext/resource-invalidation.test.ts"]
+    },
+    {
+      "caseId": "PROOF-007.01",
+      "centralProofIds": ["PROOF-007"],
+      "contractIds": ["SEM-016", "SEM-018"],
+      "closingPhase": 4,
+      "currentDisposition": "replacement",
+      "currentTests": ["packages/flow-state/src/transaction-interleaving-oracle.test.ts"],
+      "targetTests": ["packages/flow-state/src/vnext/transaction-concurrency.test.ts"]
+    },
+    {
+      "caseId": "PROOF-007.02",
+      "centralProofIds": ["PROOF-007"],
+      "contractIds": ["SEM-017", "CUT-005"],
+      "closingPhase": 4,
+      "currentDisposition": "replacement",
+      "currentTests": ["packages/flow-state/src/optimistic-overlay.test.ts"],
+      "targetTests": ["packages/flow-state/src/vnext/transaction-overlay.test.ts"]
+    },
+    {
+      "caseId": "PROOF-007.03",
+      "centralProofIds": ["PROOF-007"],
+      "contractIds": ["SEM-023", "TYPE-008"],
+      "closingPhase": 4,
+      "currentDisposition": "missing",
+      "currentTests": [],
+      "targetTests": ["packages/flow-state/src/vnext/activity-cause.test.ts"]
+    },
+    {
+      "caseId": "PROOF-008.01",
+      "centralProofIds": ["PROOF-008"],
+      "contractIds": ["TEST-005", "TEST-006"],
+      "closingPhase": 6,
+      "currentDisposition": "missing",
+      "currentTests": [],
+      "targetTests": ["packages/flow-state/src/story-fixture.test.ts"]
+    },
+    {
+      "caseId": "PROOF-008.02",
+      "centralProofIds": ["PROOF-008"],
+      "contractIds": ["TEST-006", "TEST-008"],
+      "closingPhase": 6,
+      "currentDisposition": "replacement",
+      "currentTests": ["packages/flow-state/src/testing/controlled-stream.test.ts"],
+      "targetTests": ["packages/flow-state/src/story-controls.test.ts"]
+    },
+    {
+      "caseId": "PROOF-009.01",
+      "centralProofIds": ["PROOF-009"],
+      "contractIds": ["TEST-007", "TEST-009"],
+      "closingPhase": 6,
+      "currentDisposition": "replacement",
+      "currentTests": ["packages/flow-state/src/testing/flow-test-progress-controls.test.ts"],
+      "targetTests": ["packages/flow-state/src/story-controls.test.ts"]
+    },
+    {
+      "caseId": "PROOF-009.02",
+      "centralProofIds": ["PROOF-009"],
+      "contractIds": ["TEST-009", "WIRE-021"],
+      "closingPhase": 6,
+      "currentDisposition": "replacement",
+      "currentTests": ["packages/flow-state/src/testing/flow-test-progress-controls.test.ts"],
+      "targetTests": ["packages/flow-state/src/story-runner.test.ts"]
+    },
+    {
+      "caseId": "PROOF-010.01",
+      "centralProofIds": ["PROOF-010"],
+      "contractIds": ["TEST-007", "WIRE-021"],
+      "closingPhase": 6,
+      "currentDisposition": "missing",
+      "currentTests": [],
+      "targetTests": ["packages/flow-state/src/story-runner.test.ts"]
+    },
+    {
+      "caseId": "PROOF-010.02",
+      "centralProofIds": ["PROOF-010"],
+      "contractIds": ["TEST-010", "WIRE-022", "WIRE-023"],
+      "closingPhase": 6,
+      "currentDisposition": "replacement",
+      "currentTests": ["packages/flow-state/src/testing/scenario-evidence.test.ts"],
+      "targetTests": ["packages/flow-state/src/story-runner.test.ts"]
+    },
+    {
+      "caseId": "PROOF-011.01",
+      "centralProofIds": ["PROOF-011"],
+      "contractIds": ["TEST-011", "WIRE-024"],
+      "closingPhase": 6,
+      "currentDisposition": "replacement",
+      "currentTests": ["packages/flow-state/src/testing/flow-model.test.ts"],
+      "targetTests": ["packages/flow-state/src/story-model.test.ts"]
+    },
+    {
+      "caseId": "PROOF-011.02",
+      "centralProofIds": ["PROOF-011"],
+      "contractIds": ["TEST-011"],
+      "closingPhase": 6,
+      "currentDisposition": "replacement",
+      "currentTests": ["packages/flow-state/src/testing/flow-model.test.ts"],
+      "targetTests": ["packages/flow-state/src/story-model.test.ts"]
+    },
+    {
+      "caseId": "PROOF-012.01",
+      "centralProofIds": ["PROOF-012"],
+      "contractIds": ["API-011", "API-012", "HOST-001"],
+      "closingPhase": 2,
+      "currentDisposition": "missing",
+      "currentTests": [],
+      "targetTests": ["packages/flow-state/src/vnext/runtime-actors.test.ts"]
+    },
+    {
+      "caseId": "PROOF-012.02",
+      "centralProofIds": ["PROOF-012"],
+      "contractIds": ["HOST-010", "HOST-011", "HOST-012"],
+      "closingPhase": 5,
+      "currentDisposition": "replacement",
+      "currentTests": [
+        "packages/flow-state/src/react/provider.test.ts",
+        "packages/flow-state/src/react/use-actor.test.ts",
+        "packages/flow-state/src/react/use-view.test.ts"
+      ],
+      "targetTests": ["packages/flow-state/src/vnext/react-host.test.ts"]
+    },
+    {
+      "caseId": "PROOF-012.03",
+      "centralProofIds": ["PROOF-012"],
+      "contractIds": ["API-012", "WIRE-008"],
+      "closingPhase": 5,
+      "currentDisposition": "missing",
+      "currentTests": [],
+      "targetTests": ["packages/flow-state/src/vnext/dynamic-actor-host.test.ts"]
+    },
+    {
+      "caseId": "PROOF-012.04",
+      "centralProofIds": ["PROOF-012"],
+      "contractIds": ["HOST-013", "CLI-004"],
+      "closingPhase": 7,
+      "currentDisposition": "missing",
+      "currentTests": [],
+      "targetTests": [
+        "packages/flow-state/src/runtime/request-runtime.test.ts",
+        "packages/flow-state/src/cli-test/vnext-cli.test.ts"
+      ]
+    },
+    {
+      "caseId": "PROOF-013.01",
+      "centralProofIds": ["PROOF-013"],
+      "contractIds": ["WIRE-017"],
+      "closingPhase": 2,
+      "currentDisposition": "missing",
+      "currentTests": [],
+      "targetTests": ["packages/flow-state/src/vnext/turn-record.test.ts"]
+    },
+    {
+      "caseId": "PROOF-013.02",
+      "centralProofIds": ["PROOF-013"],
+      "contractIds": ["WIRE-018"],
+      "closingPhase": 7,
+      "currentDisposition": "replacement",
+      "currentTests": ["packages/flow-state/src/runtime-inspection.test.ts"],
+      "targetTests": ["packages/flow-state/src/vnext/inspection-sink.test.ts"]
+    },
+    {
+      "caseId": "PROOF-013.03",
+      "centralProofIds": ["PROOF-013"],
+      "contractIds": ["WIRE-019", "WIRE-020", "WIRE-020A"],
+      "closingPhase": 7,
+      "currentDisposition": "replacement",
+      "currentTests": ["packages/flow-state/src/flow-trace.test.ts"],
+      "targetTests": ["packages/flow-state/src/vnext/trace-artifact.test.ts"]
+    },
+    {
+      "caseId": "PROOF-014.01",
+      "centralProofIds": ["PROOF-014"],
+      "contractIds": ["WIRE-014", "WIRE-016", "WIRE-020A", "WIRE-020B"],
+      "closingPhase": 0,
+      "currentDisposition": "missing",
+      "currentTests": [],
+      "targetTests": ["reference/incident-console/implementation/phase-0/validate.ts"]
+    },
+    {
+      "caseId": "PROOF-014.02",
+      "centralProofIds": ["PROOF-014"],
+      "contractIds": ["CLI-007", "CLI-008"],
+      "closingPhase": 0,
+      "currentDisposition": "missing",
+      "currentTests": [],
+      "targetTests": ["reference/incident-console/implementation/phase-0/validate.ts"]
+    },
+    {
+      "caseId": "PROOF-014.03",
+      "centralProofIds": ["PROOF-014"],
+      "contractIds": ["WIRE-004", "WIRE-009", "WIRE-010", "WIRE-011A", "WIRE-012"],
+      "closingPhase": 7,
+      "currentDisposition": "replacement",
+      "currentTests": [
+        "packages/flow-state/src/runtime-boot-decoder.test.ts",
+        "packages/flow-state/src/runtime-rehydration.test.ts"
+      ],
+      "targetTests": ["packages/flow-state/src/vnext/runtime-artifact.test.ts"]
+    },
+    {
+      "caseId": "PROOF-014.04",
+      "centralProofIds": ["PROOF-014"],
+      "contractIds": ["HOST-013", "HOST-017"],
+      "closingPhase": 7,
+      "currentDisposition": "missing",
+      "currentTests": [],
+      "targetTests": ["packages/flow-state/src/runtime/request-runtime.test.ts"]
+    },
+    {
+      "caseId": "PROOF-014.05",
+      "centralProofIds": ["PROOF-014"],
+      "contractIds": ["CLI-001", "CLI-004", "CLI-012"],
+      "closingPhase": 7,
+      "currentDisposition": "replacement",
+      "currentTests": ["packages/flow-state/src/cli-test/flow-state-cli.test.ts"],
+      "targetTests": ["packages/flow-state/src/cli-test/vnext-packed-cli.test.ts"]
+    },
+    {
+      "caseId": "PROOF-014.06",
+      "centralProofIds": ["PROOF-014"],
+      "contractIds": ["CLI-005", "CLI-006", "WIRE-016"],
+      "closingPhase": 7,
+      "currentDisposition": "missing",
+      "currentTests": [],
+      "targetTests": ["packages/flow-state/src/cli-test/vnext-artifacts.test.ts"]
+    },
+    {
+      "caseId": "PROOF-015.01",
+      "centralProofIds": ["PROOF-015"],
+      "contractIds": ["ARCH-023", "SEM-022"],
+      "closingPhase": 4,
+      "currentDisposition": "missing",
+      "currentTests": [],
+      "targetTests": ["packages/flow-state/src/vnext/scoped-lease.test.ts"]
+    },
+    {
+      "caseId": "PROOF-016.01",
+      "centralProofIds": ["PROOF-016"],
+      "contractIds": ["APP-001"],
+      "closingPhase": 8,
+      "currentDisposition": "missing",
+      "currentTests": [],
+      "targetTests": ["examples/todo-essentials"]
+    },
+    {
+      "caseId": "PROOF-016.02",
+      "centralProofIds": ["PROOF-016"],
+      "contractIds": ["APP-002"],
+      "closingPhase": 8,
+      "currentDisposition": "replacement",
+      "currentTests": ["examples/incident-console"],
+      "targetTests": ["examples/incident-console"]
+    },
+    {
+      "caseId": "PROOF-016.03",
+      "centralProofIds": ["PROOF-016"],
+      "contractIds": ["APP-003"],
+      "closingPhase": 8,
+      "currentDisposition": "replacement",
+      "currentTests": ["examples/offline-recovery", "examples/server-prefetch-hydration"],
+      "targetTests": ["examples/hydrated-offline-notes"]
+    },
+    {
+      "caseId": "PROOF-017.01",
+      "centralProofIds": ["PROOF-017"],
+      "contractIds": ["CUT-001", "CUT-003", "CUT-P01", "CUT-P02"],
+      "closingPhase": 7,
+      "currentDisposition": "replacement",
+      "currentTests": [
+        "packages/flow-state/src/package-hygiene.test.ts",
+        "packages/flow-state/scripts/check-packed-consumers.mjs"
+      ],
+      "targetTests": [
+        "packages/flow-state/src/vnext/package-cutover.test.ts",
+        "packages/flow-state/scripts/check-packed-consumers.mjs"
+      ]
+    },
+    {
+      "caseId": "PROOF-017.02",
+      "centralProofIds": ["PROOF-017"],
+      "contractIds": ["CUT-P05"],
+      "closingPhase": 8,
+      "currentDisposition": "replacement",
+      "currentTests": ["packages/flow-state/src/package-hygiene.test.ts"],
+      "targetTests": ["packages/flow-state/src/vnext/repository-hygiene.test.ts"]
+    },
+    {
+      "caseId": "PROOF-017.03",
+      "centralProofIds": ["PROOF-017"],
+      "contractIds": ["CUT-P06"],
+      "closingPhase": 8,
+      "currentDisposition": "missing",
+      "currentTests": [],
+      "targetTests": ["reference/incident-console/implementation/phase-0/inventory-authority.mjs"]
+    }
+  ],
+  "localProofCases": [
+    {
+      "caseId": "API-P01.01",
+      "localProofId": "API-P01",
+      "closingPhase": 7,
+      "centralProofIds": ["PROOF-001", "PROOF-017"],
+      "contractIds": ["API-001", "CUT-001"],
+      "mechanism": "six-route export and declaration cutover"
+    },
+    {
+      "caseId": "API-P01.02",
+      "localProofId": "API-P01",
+      "closingPhase": 8,
+      "centralProofIds": ["PROOF-017"],
+      "contractIds": ["CUT-P05"],
+      "mechanism": "residual deep-import and repository absence"
+    },
+    {
+      "caseId": "API-P02.01",
+      "localProofId": "API-P02",
+      "closingPhase": 1,
+      "centralProofIds": ["PROOF-001", "PROOF-002"],
+      "contractIds": ["API-002", "API-003"],
+      "mechanism": "definition and machine grammar"
+    },
+    {
+      "caseId": "API-P02.02",
+      "localProofId": "API-P02",
+      "closingPhase": 3,
+      "centralProofIds": ["PROOF-001", "PROOF-002"],
+      "contractIds": ["API-005", "API-006"],
+      "mechanism": "resource grammar"
+    },
+    {
+      "caseId": "API-P02.03",
+      "localProofId": "API-P02",
+      "closingPhase": 4,
+      "centralProofIds": ["PROOF-001", "PROOF-002"],
+      "contractIds": ["API-007", "API-008"],
+      "mechanism": "transaction and activity grammar"
+    },
+    {
+      "caseId": "API-P02.04",
+      "localProofId": "API-P02",
+      "closingPhase": 5,
+      "centralProofIds": ["PROOF-001", "PROOF-002"],
+      "contractIds": ["API-014", "API-015"],
+      "mechanism": "React grammar"
+    },
+    {
+      "caseId": "API-P02.05",
+      "localProofId": "API-P02",
+      "closingPhase": 6,
+      "centralProofIds": ["PROOF-001", "PROOF-002"],
+      "contractIds": ["API-013A"],
+      "mechanism": "story and model grammar"
+    },
+    {
+      "caseId": "API-P03.01",
+      "localProofId": "API-P03",
+      "closingPhase": 2,
+      "centralProofIds": ["PROOF-003"],
+      "contractIds": ["HOST-004"],
+      "mechanism": "actor execution semantics"
+    },
+    {
+      "caseId": "API-P03.02",
+      "localProofId": "API-P03",
+      "closingPhase": 3,
+      "centralProofIds": ["PROOF-005", "PROOF-006"],
+      "contractIds": ["SEM-009", "SEM-011"],
+      "mechanism": "resource semantics"
+    },
+    {
+      "caseId": "API-P03.03",
+      "localProofId": "API-P03",
+      "closingPhase": 4,
+      "centralProofIds": ["PROOF-005", "PROOF-007"],
+      "contractIds": ["SEM-016", "SEM-023"],
+      "mechanism": "activity semantics"
+    },
+    {
+      "caseId": "API-P03.04",
+      "localProofId": "API-P03",
+      "closingPhase": 6,
+      "centralProofIds": ["PROOF-008", "PROOF-011"],
+      "contractIds": ["TEST-005", "TEST-011"],
+      "mechanism": "story and model semantics"
+    },
+    {
+      "caseId": "API-P03.05",
+      "localProofId": "API-P03",
+      "closingPhase": 7,
+      "centralProofIds": ["PROOF-014"],
+      "contractIds": ["WIRE-020A", "CLI-004"],
+      "mechanism": "artifact, server, and CLI semantics"
+    },
+    {
+      "caseId": "TYPE-P01.01",
+      "localProofId": "TYPE-P01",
+      "closingPhase": 1,
+      "centralProofIds": ["PROOF-001"],
+      "contractIds": ["TYPE-001", "TYPE-003"],
+      "mechanism": "definition and primitive positive types"
+    },
+    {
+      "caseId": "TYPE-P01.02",
+      "localProofId": "TYPE-P01",
+      "closingPhase": 5,
+      "centralProofIds": ["PROOF-001"],
+      "contractIds": ["TYPE-011"],
+      "mechanism": "React positive types"
+    },
+    {
+      "caseId": "TYPE-P01.03",
+      "localProofId": "TYPE-P01",
+      "closingPhase": 6,
+      "centralProofIds": ["PROOF-001"],
+      "contractIds": ["TYPE-012"],
+      "mechanism": "story and model positive types"
+    },
+    {
+      "caseId": "TYPE-P02.01",
+      "localProofId": "TYPE-P02",
+      "closingPhase": 1,
+      "centralProofIds": ["PROOF-001"],
+      "contractIds": ["TYPE-002", "TYPE-004"],
+      "mechanism": "definition and primitive negative types"
+    },
+    {
+      "caseId": "TYPE-P02.02",
+      "localProofId": "TYPE-P02",
+      "closingPhase": 7,
+      "centralProofIds": ["PROOF-001", "PROOF-017"],
+      "contractIds": ["CUT-003"],
+      "mechanism": "deleted route types and overloads"
+    },
+    {
+      "caseId": "TYPE-P03.01",
+      "localProofId": "TYPE-P03",
+      "closingPhase": 1,
+      "centralProofIds": ["PROOF-001"],
+      "contractIds": ["TYPE-003", "TYPE-005"],
+      "mechanism": "no erasure through core constructors"
+    },
+    {
+      "caseId": "TYPE-P04.01",
+      "localProofId": "TYPE-P04",
+      "closingPhase": 1,
+      "centralProofIds": ["PROOF-001"],
+      "contractIds": ["TYPE-009", "TYPE-010"],
+      "mechanism": "acyclic AppPlan carrier cost"
+    },
+    {
+      "caseId": "TYPE-P04.02",
+      "localProofId": "TYPE-P04",
+      "closingPhase": 6,
+      "centralProofIds": ["PROOF-001"],
+      "contractIds": ["TYPE-012"],
+      "mechanism": "story and model inference cost"
+    },
+    {
+      "caseId": "SNAP-P01.01",
+      "localProofId": "SNAP-P01",
+      "closingPhase": 3,
+      "centralProofIds": ["PROOF-001", "PROOF-005", "PROOF-006"],
+      "contractIds": ["SNAP-001", "SNAP-003", "SNAP-006"],
+      "mechanism": "snapshot discriminants and passive readers"
+    },
+    {
+      "caseId": "SNAP-P01.02",
+      "localProofId": "SNAP-P01",
+      "closingPhase": 7,
+      "centralProofIds": ["PROOF-005"],
+      "contractIds": ["WIRE-020A"],
+      "mechanism": "snapshot artifact projection"
+    },
+    {
+      "caseId": "HOST-P01.01",
+      "localProofId": "HOST-P01",
+      "closingPhase": 2,
+      "centralProofIds": ["PROOF-003", "PROOF-004", "PROOF-012"],
+      "contractIds": ["HOST-001", "HOST-002"],
+      "mechanism": "runtime readiness and early dispatch"
+    },
+    {
+      "caseId": "HOST-P02.01",
+      "localProofId": "HOST-P02",
+      "closingPhase": 2,
+      "centralProofIds": ["PROOF-003"],
+      "contractIds": ["HOST-004"],
+      "mechanism": "production acknowledged turn"
+    },
+    {
+      "caseId": "HOST-P02.02",
+      "localProofId": "HOST-P02",
+      "closingPhase": 6,
+      "centralProofIds": ["PROOF-003", "PROOF-010"],
+      "contractIds": ["TEST-007", "WIRE-021"],
+      "mechanism": "story send and checkpoint boundary"
+    },
+    {
+      "caseId": "HOST-P03.01",
+      "localProofId": "HOST-P03",
+      "closingPhase": 2,
+      "centralProofIds": ["PROOF-003"],
+      "contractIds": ["SEM-004", "SEM-005"],
+      "mechanism": "actor/store publication order"
+    },
+    {
+      "caseId": "HOST-P03.02",
+      "localProofId": "HOST-P03",
+      "closingPhase": 3,
+      "centralProofIds": ["PROOF-003", "PROOF-005"],
+      "contractIds": ["SEM-011A"],
+      "mechanism": "resource publication"
+    },
+    {
+      "caseId": "HOST-P03.03",
+      "localProofId": "HOST-P03",
+      "closingPhase": 4,
+      "centralProofIds": ["PROOF-003", "PROOF-005"],
+      "contractIds": ["SEM-019"],
+      "mechanism": "activity publication"
+    },
+    {
+      "caseId": "HOST-P04.01",
+      "localProofId": "HOST-P04",
+      "closingPhase": 5,
+      "centralProofIds": ["PROOF-012"],
+      "contractIds": ["HOST-010", "HOST-011", "HOST-012"],
+      "mechanism": "React and SSR lifecycle"
+    },
+    {
+      "caseId": "HOST-P05.01",
+      "localProofId": "HOST-P05",
+      "closingPhase": 2,
+      "centralProofIds": ["PROOF-004", "PROOF-012"],
+      "contractIds": ["HOST-018"],
+      "mechanism": "runtime disposal"
+    },
+    {
+      "caseId": "HOST-P05.02",
+      "localProofId": "HOST-P05",
+      "closingPhase": 4,
+      "centralProofIds": ["PROOF-004"],
+      "contractIds": ["SEM-022"],
+      "mechanism": "activity and lease disposal"
+    },
+    {
+      "caseId": "HOST-P05.03",
+      "localProofId": "HOST-P05",
+      "closingPhase": 5,
+      "centralProofIds": ["PROOF-004", "PROOF-012"],
+      "contractIds": ["HOST-014"],
+      "mechanism": "React host disposal independence"
+    },
+    {
+      "caseId": "CUT-P01.01",
+      "localProofId": "CUT-P01",
+      "closingPhase": 7,
+      "centralProofIds": ["PROOF-001", "PROOF-017"],
+      "contractIds": ["CUT-P01"],
+      "mechanism": "runtime export absence"
+    },
+    {
+      "caseId": "CUT-P02.01",
+      "localProofId": "CUT-P02",
+      "closingPhase": 7,
+      "centralProofIds": ["PROOF-001", "PROOF-017"],
+      "contractIds": ["CUT-P02"],
+      "mechanism": "declaration absence"
+    },
+    {
+      "caseId": "CUT-P03.01",
+      "localProofId": "CUT-P03",
+      "closingPhase": 1,
+      "centralProofIds": ["PROOF-001", "PROOF-017"],
+      "contractIds": ["CUT-004"],
+      "mechanism": "legacy grammar absent from private vNext"
+    },
+    {
+      "caseId": "CUT-P03.02",
+      "localProofId": "CUT-P03",
+      "closingPhase": 2,
+      "centralProofIds": ["PROOF-001", "PROOF-017"],
+      "contractIds": ["CUT-006"],
+      "mechanism": "public send and private acknowledgment split"
+    },
+    {
+      "caseId": "CUT-P03.03",
+      "localProofId": "CUT-P03",
+      "closingPhase": 4,
+      "centralProofIds": ["PROOF-001", "PROOF-017"],
+      "contractIds": ["CUT-005"],
+      "mechanism": "preview success does not become canonical"
+    },
+    {
+      "caseId": "CUT-P03.04",
+      "localProofId": "CUT-P03",
+      "closingPhase": 5,
+      "centralProofIds": ["PROOF-001", "PROOF-017"],
+      "contractIds": ["CUT-005"],
+      "mechanism": "React creates no actor or lease"
+    },
+    {
+      "caseId": "CUT-P03.05",
+      "localProofId": "CUT-P03",
+      "closingPhase": 6,
+      "centralProofIds": ["PROOF-001", "PROOF-017"],
+      "contractIds": ["CUT-007"],
+      "mechanism": "stories/models have no legacy harness or Effect discovery"
+    },
+    {
+      "caseId": "CUT-P03.06",
+      "localProofId": "CUT-P03",
+      "closingPhase": 7,
+      "centralProofIds": ["PROOF-001", "PROOF-017"],
+      "contractIds": ["CUT-008"],
+      "mechanism": "mutable hydration and CLI payload fabrication absent"
+    },
+    {
+      "caseId": "CUT-P04.01",
+      "localProofId": "CUT-P04",
+      "closingPhase": 7,
+      "centralProofIds": ["PROOF-001", "PROOF-012", "PROOF-014", "PROOF-017"],
+      "contractIds": ["CUT-P04"],
+      "mechanism": "installed package retained compatibility"
+    },
+    {
+      "caseId": "CUT-P04.02",
+      "localProofId": "CUT-P04",
+      "closingPhase": 8,
+      "centralProofIds": ["PROOF-017"],
+      "contractIds": ["CUT-P04"],
+      "mechanism": "post-cleanup retained compatibility rerun"
+    },
+    {
+      "caseId": "CUT-P05.01",
+      "localProofId": "CUT-P05",
+      "closingPhase": 7,
+      "centralProofIds": ["PROOF-017"],
+      "contractIds": ["CUT-P05"],
+      "mechanism": "legacy engine and public helper owners removed"
+    },
+    {
+      "caseId": "CUT-P05.02",
+      "localProofId": "CUT-P05",
+      "closingPhase": 8,
+      "centralProofIds": ["PROOF-016", "PROOF-017"],
+      "contractIds": ["CUT-P05"],
+      "mechanism": "residual repository owners removed"
+    },
+    {
+      "caseId": "CUT-P06.01",
+      "localProofId": "CUT-P06",
+      "closingPhase": 8,
+      "centralProofIds": ["PROOF-016", "PROOF-017"],
+      "contractIds": ["CUT-P06"],
+      "mechanism": "one repository authority survives"
+    }
+  ]
+}

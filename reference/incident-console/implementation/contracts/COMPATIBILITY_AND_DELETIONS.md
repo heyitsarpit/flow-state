@@ -267,7 +267,7 @@ builders, actor shells, mutable resource hooks, parallel harnesses, replay wrapp
 registries, and duplicate formatters MUST be removed. Source-text tests that assert obsolete
 file names or token strings MUST be replaced by public type, lifecycle, race, isolation, and
 artifact round-trip proofs. The cleanup inventory is recorded at
-`reference/incident-console/IMPLEMENTATION_BLOCKERS.md:725-745`.
+`reference/incident-console/IMPLEMENTATION_BLOCKERS.md:719-753`.
 
 ### CUT-P06 — One repository authority survives
 

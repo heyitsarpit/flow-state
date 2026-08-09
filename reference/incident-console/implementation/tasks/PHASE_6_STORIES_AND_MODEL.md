@@ -119,7 +119,8 @@ TEST-016 inspection retention and artifact/CLI integration remain Phase 7 work.
 
 ## Deletion obligations
 
-After replacement proofs pass, delete or fully replace:
+After replacement proofs pass, record these legacy owners for atomic deletion in Phase 7; Phase 6
+removes them only from the package-private vNext tree:
 
 - `testing/test.ts`, `testing/flow-test.ts`, `testing/flow-test-builder.ts`,
   `testing/flow-stories.ts`, `testing/flow-story-test.ts`, `testing/focused-app.ts`,
@@ -135,8 +136,8 @@ After replacement proofs pass, delete or fully replace:
 - module fixture metadata, production fixture registries, and fixture string lookup.
 
 Capabilities such as pending-work diagnostics or normalized parity helpers may survive only
-inside the new implementation with one owner and no legacy public surface. No deprecated
-alias survives phase closure.
+inside the new implementation with one owner. No deprecated alias may enter the package-private
+vNext tree; the unchanged legacy testing route remains frozen through Phase 6.
 
 ## Exact gates
 
@@ -170,4 +171,6 @@ Write `reference/incident-console/implementation/receipts/PHASE_6.md` with:
 - exact deleted files, exports, aliases, and zero-match deletion search;
 - every command with exit code and test count, diff names, skips, and remaining IDs.
 
-The phase remains pending if any legacy public executor or model replay path remains.
+The phase remains pending if any legacy executor or model replay path is reachable from the
+package-private vNext tree. The unchanged legacy public testing route remains the sole public
+implementation until the atomic Phase 7 cutover.

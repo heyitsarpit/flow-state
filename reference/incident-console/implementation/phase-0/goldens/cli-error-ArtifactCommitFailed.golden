@@ -1,0 +1,1 @@
+{"command":null,"diagnostic":{"category":"io","code":"ArtifactCommitFailed","details":{"errno":null,"operation":"write","path":null},"message":"ArtifactCommitFailed"},"kind":"flow-state-cli-error","version":"flow-state/cli-result.v1"}

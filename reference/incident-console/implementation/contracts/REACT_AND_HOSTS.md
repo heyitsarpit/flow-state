@@ -177,7 +177,7 @@ During render, Provider MUST throw an acquisition failure or the stable disposed
 diagnostic to the nearest React error boundary.
 While acquisition is pending, Provider MUST expose the root actors' pure initial or hydrated
 snapshots and MUST NOT suspend the tree or expose a generic loading value. This resolves Q5
-(`reference/incident-console/IMPLEMENTATION_BLOCKERS.md:541-549`).
+(`reference/incident-console/IMPLEMENTATION_BLOCKERS.md:534-539`).
 
 ## React
 
@@ -255,7 +255,7 @@ opaque values MUST remain identity-compared. Neither views nor hooks may configu
 A selector exception MUST be memoized for that actor revision and rethrown to the nearest
 React error boundary. Re-reading one revision MUST NOT rerun a failing selector indefinitely
 or return inconsistent values. This resolves Q6
-(`reference/incident-console/IMPLEMENTATION_BLOCKERS.md:551-556`).
+(`reference/incident-console/IMPLEMENTATION_BLOCKERS.md:544-548`).
 
 ### HOST-012 — Capabilities are reactive view projections
 

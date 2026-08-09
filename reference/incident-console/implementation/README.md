@@ -31,12 +31,14 @@ This implementation folder is the sole normative authority from Phase 0 onward. 
 root contracts, old phases, `DESIGN_DECISIONS.md`, or `IMPLEMENTATION_BLOCKERS.md` are historical
 evidence only and never create a prerequisite to follow their superseded API or task language.
 
-Phase 0 is ready. Phase 1 starts only after the Phase 0 receipt proves the live export, proof,
-issue, and deletion-owner inventory. There are no open scratch decisions; authority cleanup and
-host-recipe proof remain explicit Phase 8 execution obligations.
+Phase 0 is complete and its receipt promotes Phase 1 to Ready. The reviewed mechanical baseline
+is under `phase-0/`; there are no open scratch decisions, while authority cleanup and host-recipe
+proof remain explicit Phase 8 execution obligations.
 
 ## Contract map
 
+- [Phase 0 mechanical baseline](./phase-0/README.md)
+- [Phase 0 receipt](./receipts/PHASE_0.md)
 - [Implementation scratchpad](./SCRATCHPAD.md)
 - [Glossary and identity](./contracts/GLOSSARY_AND_IDENTITY.md)
 - [Public API](./contracts/PUBLIC_API.md)

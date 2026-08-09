@@ -1,6 +1,6 @@
 # Phase 1 — Definitions, identity, types, and AppPlan
 
-Status: waiting on Phase 0
+Status: ready
 
 ## Objective
 
@@ -84,11 +84,12 @@ cutover: `vocabulary`/`Vocabulary`, nested machine `define`, machine-owned memor
 legacy machine overloads, standalone activity constructors, `createKey`, `createTag`, `outcomes`,
 `after`, `patch`, `selectView`, resource key/equality projections, transaction `scope`, stream
 `pressure`, module inventory/meta, derived app IDs, app-owned Layer assembly, and the process-global
-resource registry. They remain frozen only on the legacy public route until Phase 4.
+resource registry. They remain frozen only on the legacy public route until the atomic Phase 7
+cutover.
 
 ## Gates and receipt
 
 Run focused definition/ref/compiler runtime tests, all positive/negative type fixtures,
 source typecheck, package build, isolated private-vNext declaration proof, and the frozen legacy
-packed consumers. The receipt includes the planned Phase 4 root export list, compiler collision matrix,
+packed consumers. The receipt includes the planned Phase 7 root export list, compiler collision matrix,
 declaration excerpts, deleted symbols, and exact command exits.

@@ -1,0 +1,1 @@
+{"command":null,"diagnostic":{"category":"gateway","code":"UnsupportedGatewayImport","details":{"importSpecifier":null,"path":null},"message":"UnsupportedGatewayImport"},"kind":"flow-state-cli-error","version":"flow-state/cli-result.v1"}

@@ -1,0 +1,1 @@
+{"command":null,"diagnostic":{"category":"io","code":"UnsupportedAtomicPublication","details":{"errno":null,"operation":"write","path":null},"message":"UnsupportedAtomicPublication"},"kind":"flow-state-cli-error","version":"flow-state/cli-result.v1"}

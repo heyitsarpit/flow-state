@@ -1,0 +1,1 @@
+{"command":null,"diagnostic":{"category":"internal","code":"InternalInvariant","details":{"invariant":"unexpected"},"message":"InternalInvariant"},"kind":"flow-state-cli-error","version":"flow-state/cli-result.v1"}

@@ -16,6 +16,8 @@ the target actor engine.
 The broad `PROOF-*` rows are requirements, not receipt closure units. Phase 0 must assign stable
 subcase IDs and exactly one closing phase to every independently executable case; later phases may
 rerun an earlier subcase as dependency evidence but cannot claim a second closure.
+The normative atomic case and local-proof index is
+[`../phase-0/proof-index.json`](../phase-0/proof-index.json).
 
 ## PROOF-001: Public typing and inference
 
@@ -396,4 +398,4 @@ layer:
 
 The live script owners are `packages/flow-state/package.json:59-69` and root
 `package.json:6-30`. The required architecture invariants originate in
-`reference/incident-console/IMPLEMENTATION_BLOCKERS.md:765-800`.
+`reference/incident-console/IMPLEMENTATION_BLOCKERS.md:757-800`.

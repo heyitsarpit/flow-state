@@ -1,6 +1,6 @@
 # Implementation task index
 
-Status: phase 0 ready
+Status: phase 1 ready
 
 Only one phase may be active. A phase becomes complete only when its receipt exists and
 every acceptance, deletion, and gate in its manifest is satisfied.
@@ -11,8 +11,8 @@ assigns them to a later phase.
 
 | Phase | Manifest                                                                           | Initial status |
 | ----- | ---------------------------------------------------------------------------------- | -------------- |
-| 0     | [Baseline and contract cutover](./PHASE_0_BASELINE_AND_CONTRACT_CUTOVER.md)        | Ready          |
-| 1     | [Definitions, identity, types, and AppPlan](./PHASE_1_DEFINITIONS_AND_APP_PLAN.md) | Waiting        |
+| 0     | [Baseline and contract cutover](./PHASE_0_BASELINE_AND_CONTRACT_CUTOVER.md)        | Complete       |
+| 1     | [Definitions, identity, types, and AppPlan](./PHASE_1_DEFINITIONS_AND_APP_PLAN.md) | Ready          |
 | 2     | [Managed runtime and actor engine](./PHASE_2_RUNTIME_AND_ACTOR_ENGINE.md)          | Waiting        |
 | 3     | [Resource kernel](./PHASE_3_RESOURCE_KERNEL.md)                                    | Waiting        |
 | 4     | [Transactions and activities](./PHASE_4_TRANSACTIONS_AND_ACTIVITIES.md)            | Waiting        |
@@ -27,28 +27,28 @@ The confirmed issues in `../../IMPLEMENTATION_BLOCKERS.md` close in exactly one 
 phase receipt must name its owned issue IDs and the Phase 0-assigned executable proof subcases that
 closed them; broad `PROOF-*` family IDs describe requirements but are never receipt closure units.
 
-| Issue         | Owning phase | Required proof                        |
-| ------------- | ------------ | ------------------------------------- |
-| `I1`          | 6            | `PROOF-002`, `PROOF-011`              |
-| `I2`          | 5            | `PROOF-003`, `PROOF-012`              |
-| `I3`          | 3            | `PROOF-005`, `PROOF-006`              |
-| `I4`          | 3            | `PROOF-006`                           |
-| `I5.resource` | 3            | `PROOF-006`                           |
-| `I5.react`    | 5            | `PROOF-012`                           |
-| `I6`          | 3            | `PROOF-006`                           |
-| `I7`          | 3            | `PROOF-006`                           |
-| `I8`          | 1            | `PROOF-002`, `PROOF-005`              |
-| `I9`          | 1            | `PROOF-002`                           |
-| `I10.runtime` | 4            | `PROOF-005`, `PROOF-007`              |
-| `I10.model`   | 6            | `PROOF-001`, `PROOF-011`              |
-| `I11`         | 6            | `PROOF-004`, `PROOF-008`, `PROOF-009` |
-| `I12`         | 4            | `PROOF-007`                           |
-| `I13`         | 2            | `PROOF-001`, `PROOF-004`              |
-| `I14`         | 5            | `PROOF-004`, `PROOF-012`              |
-| `I15`         | 7            | `PROOF-014`                           |
-| `I16`         | 1            | `PROOF-002`, `PROOF-005`              |
-| `I17`         | 5            | `PROOF-004`, `PROOF-012`              |
-| `I18`         | 8            | `PROOF-016`, `PROOF-017`              |
+| Issue         | Owning phase | Required proof                                     |
+| ------------- | ------------ | -------------------------------------------------- |
+| `I1`          | 6            | `PROOF-002`, `PROOF-011`                           |
+| `I2`          | 5            | `PROOF-003`, `PROOF-012`                           |
+| `I3`          | 3            | `PROOF-005`, `PROOF-006`                           |
+| `I4`          | 3            | `PROOF-006`                                        |
+| `I5.resource` | 3            | `PROOF-006`                                        |
+| `I5.react`    | 5            | `PROOF-012`                                        |
+| `I6`          | 3            | `PROOF-006`                                        |
+| `I7`          | 3            | `PROOF-006`                                        |
+| `I8`          | 1            | `PROOF-002`, `PROOF-005`                           |
+| `I9`          | 1            | `PROOF-002`                                        |
+| `I10.runtime` | 4            | `PROOF-005`, `PROOF-007`                           |
+| `I10.model`   | 6            | `PROOF-001`, `PROOF-011`                           |
+| `I11`         | 6            | `PROOF-004`, `PROOF-008`, `PROOF-009`, `PROOF-010` |
+| `I12`         | 4            | `PROOF-007`                                        |
+| `I13`         | 2            | `PROOF-001`, `PROOF-004`                           |
+| `I14`         | 5            | `PROOF-004`, `PROOF-012`                           |
+| `I15`         | 7            | `PROOF-014`                                        |
+| `I16`         | 1            | `PROOF-002`, `PROOF-005`                           |
+| `I17`         | 5            | `PROOF-004`, `PROOF-012`                           |
+| `I18`         | 8            | `PROOF-016`, `PROOF-017`                           |
 
 Phase 0 verifies this mapping against the live files and records exact initial test owners;
 the dotted I5/I10 sub-IDs split one historical finding by implementation owner and are the

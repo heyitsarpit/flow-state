@@ -151,23 +151,25 @@ export another public `FlowCli*` result or diagnostic hierarchy.
 JSON success has this private structural shape:
 
 ```ts
-type CliResultEnvelope = Readonly<{
+type CliResultEnvelope<Command extends CliCommand = CliCommand> = Readonly<{
   version: "flow-state/cli-result.v1";
   kind: "flow-state-cli-result";
-  command:
-    | "behavior.build"
-    | "behavior.render"
-    | "behavior.diff"
-    | "behavior.check"
-    | "story.list"
-    | "story.describe"
-    | "story.run"
-    | "trace.summarize"
-    | "trace.proof"
-    | "trace.diff";
+  command: Command;
   outcome: "completed" | "different" | "incomplete";
-  data: unknown;
+  data: CliResultDataByCommand[Command];
 }>;
+
+type CliCommand =
+  | "behavior.build"
+  | "behavior.render"
+  | "behavior.diff"
+  | "behavior.check"
+  | "story.list"
+  | "story.describe"
+  | "story.run"
+  | "trace.summarize"
+  | "trace.proof"
+  | "trace.diff";
 ```
 
 `data` is not an open extension point. Its exact member follows `command`: build returns
@@ -185,22 +187,8 @@ JSON failure has this private structural shape:
 type CliErrorEnvelope = Readonly<{
   version: "flow-state/cli-result.v1";
   kind: "flow-state-cli-error";
-  command: string;
-  diagnostic: Readonly<{
-    category:
-      | "usage"
-      | "gateway"
-      | "artifact"
-      | "story-execution"
-      | "cleanup"
-      | "io"
-      | "interruption"
-      | "internal";
-    code: string;
-    message: string;
-    cause?: unknown;
-    details?: unknown;
-  }>;
+  command: CliCommand | null;
+  diagnostic: CliDiagnostic;
 }>;
 ```
 
@@ -209,8 +197,14 @@ A story diagnostic retains its phase, command index, completed checkpoints, mutu
 `atFailure` or `final`, primary Cause, and cleanup status. The CLI MUST NOT reconstruct Scenario,
 expected-state, matcher, pending-work-wrapper, or PASS/FAIL vocabulary.
 
-Diagnostic `code` is a closed private union grouped by the eight categories, not an arbitrary
-string. Phase 0 MUST check in the union and a golden envelope for every code before Phase 7; adding
+The normative `CliResultDataByCommand`, `CliDiagnostic`, and `CliDiagnosticCode` unions are
+the reviewed Effect Schemas in
+[`../phase-0/contract-fixtures.ts`](../phase-0/contract-fixtures.ts). They close every nested
+result, Cause, detail, path, bound, cleanup, checkpoint, timeline, and evidence member; the type
+names above are explanatory projections of those Schemas rather than open extension points.
+
+Diagnostic `code` is a closed private union grouped by the eight categories. Phase 0 MUST check
+in the union and a golden envelope for every code before Phase 7; adding
 or renaming a code is an artifact-contract change. At minimum it distinguishes invalid grammar,
 selector, project root, manifest, gateway type/escape/import/package identity, artifact kind,
 version, UTF-8, JSON, duplicate key, compression, compressed/decompressed/canonical bound,

@@ -126,8 +126,9 @@ Record `packages/flow-state/src/react/use-resource.ts`,
 Phase 7 deletion manifest. Phase 5 changes no public legacy owner. Remove them only during the
 all-route cutover after PROOF-012's private behavior and packed fixtures pass.
 
-Do not delete a legacy path until its replacement test passes in the same change. No deprecated
-alias survives phase closure.
+Do not delete a legacy path until its replacement test passes in the Phase 7 cutover change. No
+deprecated alias may enter the package-private vNext tree; the unchanged legacy route remains
+frozen through Phase 5.
 
 ## Exact gates
 
