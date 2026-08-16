@@ -1,6 +1,13 @@
 import { defineConfig } from "vite-plus";
 
 export default defineConfig({
+  pack: {
+    dts: {
+      generator: "tsgo",
+      tsconfig: "tsconfig.pack.json",
+    },
+    tsconfig: "tsconfig.pack.json",
+  },
   staged: {
     "*.{js,jsx,ts,tsx,json,jsonc,md,css,html,yaml,yml}": "vp check --fix",
   },

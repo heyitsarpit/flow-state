@@ -16,6 +16,7 @@
     "check": "vp check",
     "check:example-cli": "node ./scripts/check-example-cli-acceptance.mjs",
     "check:fix": "vp check --fix",
+    "check:toolchain": "node ./scripts/check-toolchain.mjs",
     "dev": "nub run --filter @flow-state/incident-console dev",
     "docs:build": "nub run --filter @flow-state/docs build",
     "docs:dev": "nub run --filter @flow-state/docs dev",
@@ -27,13 +28,14 @@
     "lint:prepare": "nub run --filter flow-state build",
     "test": "vp test",
     "test:browser": "nub run --filter @flow-state/incident-console test:browser",
-    "verify": "nub run check && nub run test && nub run build && nub run test:browser && nub run docs:build"
+    "verify": "nub run check:toolchain && nub run check && nub run test && nub run build && nub run test:browser && nub run docs:build"
   },
   "devDependencies": {
+    "@effect/language-service": "0.86.4",
     "@oxlint/plugins": "1.78.0",
-    "@types/node": "latest",
+    "@types/node": "26.2.0",
     "happy-dom": "^20.10.6",
-    "typescript": "6.0.3",
+    "typescript": "7.0.2",
     "vite-plus": "0.2.9",
     "vitest": "4.1.10"
   },
@@ -41,7 +43,7 @@
     "packageManager": {
       "name": "nub",
       "version": "^0.7.5",
-      "onFail": "ignore"
+      "onFail": "error"
     }
   },
   "engines": {
