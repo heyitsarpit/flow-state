@@ -19,5 +19,9 @@ apps/docs/src/pages.gen.ts
 /docs/
 /planning/
 
+# Cloned research repositories; keep only their GitHub origins.
+/codebases/*
+!/codebases/repos.json
+
 # Local evaluation orchestration and run artifacts.
 /evaluations/

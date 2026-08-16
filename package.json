@@ -22,16 +22,11 @@
     "docs:preview": "nub run --filter @flow-state/docs preview",
     "fmt": "vp fmt",
     "fmt:check": "vp fmt --check",
-    "format": "nub run fmt",
-    "format:check": "nub run fmt:check",
     "lint": "nub run lint:prepare && vp lint",
     "lint:fix": "vp lint --fix",
     "lint:prepare": "nub run --filter flow-state build",
-    "check:lint-build-resolution": "node ./scripts/check-lint-build-resolution.mjs",
-    "pack": "nub run --filter flow-state pack",
     "test": "vp test",
     "test:browser": "nub run --filter @flow-state/incident-console test:browser",
-    "test:browser:headed": "nub run --filter @flow-state/incident-console test:browser:headed",
     "verify": "nub run check && nub run test && nub run build && nub run test:browser && nub run docs:build"
   },
   "devDependencies": {

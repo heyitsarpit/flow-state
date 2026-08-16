@@ -1,0 +1,11 @@
+[
+  "https://github.com/Effect-TS/effect-smol.git",
+  "https://github.com/Effect-TS/examples.git",
+  "https://github.com/TanStack/query.git",
+  "https://github.com/TanStack/store.git",
+  "https://github.com/TanStack/tanstack.com.git",
+  "https://github.com/kamp-us/phoenix.git",
+  "https://github.com/mikearnaldi/accountability.git",
+  "https://github.com/pmndrs/zustand.git",
+  "https://github.com/statelyai/xstate.git"
+]
