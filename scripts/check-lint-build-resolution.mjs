@@ -16,16 +16,16 @@ const expectEqual = (label, actual, expected) => {
   }
 };
 
-expectEqual("root lint script", rootPackage.scripts?.lint, "pnpm lint:prepare && vp lint");
+expectEqual("root lint script", rootPackage.scripts?.lint, "nub run lint:prepare && vp lint");
 expectEqual(
   "root lint:prepare script",
   rootPackage.scripts?.["lint:prepare"],
-  "pnpm --filter flow-state build",
+  "nub run --filter flow-state build",
 );
 expectEqual(
   "flow-state build script",
   flowPackage.scripts?.build,
-  "pnpm check:cli-source-types && vp pack --logLevel warn --no-report src/index.ts src/react-entry.ts src/testing.ts src/server.ts src/inspect.ts && pnpm prepare:build-output && pnpm check:build-output",
+  "nub run check:cli-source-types && vp pack --logLevel warn --no-report src/index.ts src/react-entry.ts src/testing.ts src/server.ts src/inspect.ts && nub run prepare:build-output && nub run check:build-output",
 );
 expectEqual("flow-state esbuild devDependency", flowPackage.devDependencies?.esbuild, "0.28.1");
 expectEqual(

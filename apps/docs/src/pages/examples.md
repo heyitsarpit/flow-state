@@ -17,8 +17,8 @@ package and uses public package entrypoints.
 Run a recipe from the repository root:
 
 ```sh
-pnpm --filter @flow-state/basic-cached-posts test
-pnpm --filter @flow-state/basic-cached-posts build
+nub run --filter @flow-state/basic-cached-posts test
+nub run --filter @flow-state/basic-cached-posts build
 ```
 
 ## Incident Console
@@ -29,15 +29,15 @@ cursor-paged incidents, optimistic version conflicts, live timelines, and remote
 runbook jobs; development controls only arrange deterministic external faults.
 
 ```sh
-pnpm --filter @flow-state/incident-console dev
-pnpm --filter @flow-state/incident-console test:acceptance
+nub run --filter @flow-state/incident-console dev
+nub run --filter @flow-state/incident-console test:acceptance
 ```
 
 The development command starts the API on `127.0.0.1:5190` and Next on
 `127.0.0.1:5187`. Set `INCIDENT_API_PORT`, `INCIDENT_WEB_PORT`,
 `NEXT_PUBLIC_INCIDENT_API_URL`, and `INCIDENT_WEB_ORIGIN` to override that
 boundary. Install Chromium once with
-`pnpm --filter @flow-state/incident-console browser:install`.
+`nub run --filter @flow-state/incident-console browser:install`.
 
 The isolated acceptance command allocates ports, runs ordinary and adversarial
 browser workflows, restarts the actual API process, and terminates the server,
@@ -47,7 +47,7 @@ the manual U1-U10 journeys and reproducible X1-X10 fault scenarios.
 Run the package CLI evidence for all six applications with:
 
 ```sh
-pnpm check:example-cli
+nub run check:example-cli
 ```
 
 Use [Agent Workflow](/guide/agent-workflow) when an automated client needs the

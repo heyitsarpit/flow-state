@@ -279,7 +279,7 @@ test("recovers after the standalone API process restarts", async ({ page, reques
   await arm(request, "delayed-runbook");
   await delayedRunbookRequest;
 
-  await run("pnpm", ["scenario", "restart-api"], {
+  await run("nub", ["run", "scenario", "restart-api"], {
     cwd: process.cwd(),
     env: { ...process.env, INCIDENT_API_URL: apiUrl },
   });

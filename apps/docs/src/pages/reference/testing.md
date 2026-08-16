@@ -40,7 +40,7 @@ an unavailable service or missing seed fails the release gate.
 
 Use happy-dom for focused component rendering and interaction. Use the
 package-owned Incident Console Playwright suite for real HTTP/SSE journeys and
-installed Chromium behavior; root `pnpm test:browser` only delegates to it.
+installed Chromium behavior; root `nub run test:browser` only delegates to it.
 
 Current evidence is indexed by `examples/FEATURE_COVERAGE.md` and summarized on
 [Current Status](/reference/status).

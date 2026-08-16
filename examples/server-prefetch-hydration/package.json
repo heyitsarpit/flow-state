@@ -4,10 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check:typescript-mode-proofs": "pnpm exec tsc -p tsconfig.json --pretty false",
+    "check:typescript-mode-proofs": "nubx tsc -p tsconfig.json --pretty false",
     "check:behavior-diff": "node ./scripts/check-behavior-diff.mjs",
     "dev": "next dev --port 5185",
-    "build": "pnpm check:typescript-mode-proofs && next build && pnpm check:behavior-diff",
+    "build": "nub run check:typescript-mode-proofs && next build && nub run check:behavior-diff",
     "test": "cd ../.. && vp test examples/server-prefetch-hydration/src"
   },
   "dependencies": {

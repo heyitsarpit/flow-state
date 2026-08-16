@@ -8,5 +8,5 @@ machine owns feedback plus its dismissal timer.
 
 The upstream example appends random list items. This rebuild edits one deterministic entity so
 overlapping preview layers and exact rollback are visible without a second application cache.
-Run `pnpm --filter @flow-state/optimistic-transactions dev` or
-`pnpm --filter @flow-state/optimistic-transactions test`.
+Run `nub run --filter @flow-state/optimistic-transactions dev` or
+`nub run --filter @flow-state/optimistic-transactions test`.

@@ -28,8 +28,8 @@ const startApi = () => {
 
 startApi();
 const web = spawn(
-  "pnpm",
-  ["exec", "next", "dev", "--webpack", "--hostname", "127.0.0.1", "--port", webPort],
+  "nubx",
+  ["next", "dev", "--webpack", "--hostname", "127.0.0.1", "--port", webPort],
   {
     cwd: root,
     stdio: "inherit",

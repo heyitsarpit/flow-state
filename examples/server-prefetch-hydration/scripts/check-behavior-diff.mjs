@@ -7,9 +7,8 @@ const comparisonRoot = path.resolve(exampleRoot, "../basic-cached-posts");
 
 function execute(format, extra = []) {
   return spawnSync(
-    "pnpm",
+    "nubx",
     [
-      "exec",
       "flow-state",
       "behavior",
       "diff",

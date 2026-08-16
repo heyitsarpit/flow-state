@@ -34,7 +34,7 @@ testing, request-scoped server helpers, inspection, and the `flow-state` CLI.
 ## Install
 
 ```sh
-pnpm add flow-state@0.1.0-alpha.0 effect@4.0.0-beta.86
+nub add flow-state@0.1.0-alpha.0 effect@4.0.0-beta.86
 ```
 
 Add React 18 or React 19 only when importing `flow-state/react`.

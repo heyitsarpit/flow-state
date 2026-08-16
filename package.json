@@ -2,32 +2,37 @@
   "name": "flow-state-workspace",
   "version": "0.0.0",
   "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "examples/*"
+  ],
   "type": "module",
   "scripts": {
-    "build": "pnpm build:library && pnpm build:examples && pnpm check:example-cli",
-    "build:examples": "pnpm --filter @flow-state/basic-cached-posts build && pnpm --filter @flow-state/optimistic-transactions build && pnpm --filter @flow-state/bounded-infinite-feed build && pnpm --filter @flow-state/server-prefetch-hydration build && pnpm --filter @flow-state/offline-recovery build && pnpm --filter @flow-state/incident-console build",
-    "build:library": "pnpm --filter flow-state build && pnpm --filter flow-state check:typescript-mode-proofs && pnpm --filter flow-state check:packed-consumers",
-    "browser:install": "pnpm --filter @flow-state/incident-console browser:install",
+    "build": "nub run build:library && nub run build:examples && nub run check:example-cli",
+    "build:examples": "nub run --filter @flow-state/basic-cached-posts build && nub run --filter @flow-state/optimistic-transactions build && nub run --filter @flow-state/bounded-infinite-feed build && nub run --filter @flow-state/server-prefetch-hydration build && nub run --filter @flow-state/offline-recovery build && nub run --filter @flow-state/incident-console build",
+    "build:library": "nub run --filter flow-state build && nub run --filter flow-state check:typescript-mode-proofs && nub run --filter flow-state check:packed-consumers",
+    "browser:install": "nub run --filter @flow-state/incident-console browser:install",
     "check": "vp check",
     "check:example-cli": "node ./scripts/check-example-cli-acceptance.mjs",
     "check:fix": "vp check --fix",
-    "dev": "pnpm --filter @flow-state/incident-console dev",
-    "docs:build": "pnpm --filter @flow-state/docs build",
-    "docs:dev": "pnpm --filter @flow-state/docs dev",
-    "docs:preview": "pnpm --filter @flow-state/docs preview",
+    "dev": "nub run --filter @flow-state/incident-console dev",
+    "docs:build": "nub run --filter @flow-state/docs build",
+    "docs:dev": "nub run --filter @flow-state/docs dev",
+    "docs:preview": "nub run --filter @flow-state/docs preview",
     "fmt": "vp fmt",
     "fmt:check": "vp fmt --check",
-    "format": "pnpm fmt",
-    "format:check": "pnpm fmt:check",
-    "lint": "pnpm lint:prepare && vp lint",
+    "format": "nub run fmt",
+    "format:check": "nub run fmt:check",
+    "lint": "nub run lint:prepare && vp lint",
     "lint:fix": "vp lint --fix",
-    "lint:prepare": "pnpm --filter flow-state build",
+    "lint:prepare": "nub run --filter flow-state build",
     "check:lint-build-resolution": "node ./scripts/check-lint-build-resolution.mjs",
-    "pack": "pnpm --filter flow-state pack",
+    "pack": "nub run --filter flow-state pack",
     "test": "vp test",
-    "test:browser": "pnpm --filter @flow-state/incident-console test:browser",
-    "test:browser:headed": "pnpm --filter @flow-state/incident-console test:browser:headed",
-    "verify": "pnpm check && pnpm test && pnpm build && pnpm test:browser && pnpm docs:build"
+    "test:browser": "nub run --filter @flow-state/incident-console test:browser",
+    "test:browser:headed": "nub run --filter @flow-state/incident-console test:browser:headed",
+    "verify": "nub run check && nub run test && nub run build && nub run test:browser && nub run docs:build"
   },
   "devDependencies": {
     "@types/node": "latest",
@@ -36,16 +41,21 @@
     "vite-plus": "0.2.1",
     "vitest": "4.1.9"
   },
+  "devEngines": {
+    "packageManager": {
+      "name": "nub",
+      "version": "^0.7.5",
+      "onFail": "ignore"
+    }
+  },
   "engines": {
     "node": ">=22.18.0"
   },
-  "packageManager": "pnpm@10.13.1",
-  "pnpm": {
-    "ignoredBuiltDependencies": [
-      "es5-ext",
-      "esbuild",
-      "msgpackr-extract",
-      "vue-demi"
-    ]
+  "packageManager": "nub@0.7.5",
+  "allowBuilds": {
+    "es5-ext": false,
+    "esbuild": false,
+    "msgpackr-extract": false,
+    "vue-demi": false
   }
 }

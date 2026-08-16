@@ -57,13 +57,13 @@
     "access": "public"
   },
   "scripts": {
-    "build": "pnpm check:cli-source-types && vp pack --logLevel warn --no-report src/index.ts src/react-entry.ts src/testing.ts src/server.ts src/inspect.ts && pnpm prepare:build-output && pnpm check:build-output",
+    "build": "nub run check:cli-source-types && vp pack --logLevel warn --no-report src/index.ts src/react-entry.ts src/testing.ts src/server.ts src/inspect.ts && nub run prepare:build-output && nub run check:build-output",
     "check:build-output": "node ./scripts/check-build-output.mjs",
     "check:packed-consumers": "node ./scripts/check-packed-consumers.mjs",
-    "check:cli-source-types": "pnpm exec tsc -p tsconfig.json --noEmit",
+    "check:cli-source-types": "nubx tsc -p tsconfig.json --noEmit",
     "check:typescript-mode-proofs": "node ./scripts/check-typescript-mode-proofs.mjs",
     "inspect:local-proof": "node ./scripts/inspect-local-proof.mjs",
-    "pack": "pnpm check:cli-source-types && vp pack --logLevel warn --no-report src/index.ts src/react-entry.ts src/testing.ts src/server.ts src/inspect.ts && pnpm prepare:build-output && pnpm check:build-output",
+    "pack": "nub run check:cli-source-types && vp pack --logLevel warn --no-report src/index.ts src/react-entry.ts src/testing.ts src/server.ts src/inspect.ts && nub run prepare:build-output && nub run check:build-output",
     "prepare:build-output": "node ./scripts/prepare-build-output.mjs",
     "release:candidate": "node ./scripts/prepare-alpha-release.mjs",
     "test": "cd ../.. && vp test packages/flow-state/src"

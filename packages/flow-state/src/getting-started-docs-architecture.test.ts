@@ -28,8 +28,8 @@ describe("getting started docs architecture", () => {
     expect(source).toContain("useEffect(() => () => void appRuntime.dispose()");
     expect(source).toContain("test.app(App).scenario(machine)");
     expect(source).not.toContain("Launch Workspace");
-    expect(source).toContain("pnpm --filter @flow-state/basic-cached-posts test");
-    expect(source).toContain("pnpm check:example-cli");
+    expect(source).toContain("nub run --filter @flow-state/basic-cached-posts test");
+    expect(source).toContain("nub run check:example-cli");
     expect(source).toContain("[Current Status](/reference/status)");
   });
 });

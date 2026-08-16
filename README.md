@@ -25,15 +25,15 @@ compatibility rules remain in [API_CONTRACT.md](API_CONTRACT.md).
 ## Commands
 
 ```sh
-pnpm install
-pnpm check
-pnpm check:fix
-pnpm lint
-pnpm fmt:check
-pnpm fmt
-pnpm test
-pnpm build
-pnpm dev
+nub install
+nub run check
+nub run check:fix
+nub run lint
+nub run fmt:check
+nub run fmt
+nub run test
+nub run build
+nub run dev
 ```
 
 Vite+ is installed locally through `vite-plus`; scripts call its `vp` binary from `node_modules/.bin`. Formatting is handled by Oxfmt and linting is handled by Oxlint through Vite+.

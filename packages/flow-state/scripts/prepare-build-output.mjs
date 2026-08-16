@@ -72,9 +72,8 @@ function ensureCliDistribution() {
   mkdirSync(cliDistRoot, { recursive: true });
 
   execFileSync(
-    "pnpm",
+    "nubx",
     [
-      "exec",
       "esbuild",
       "src/cli/index.ts",
       "src/cli/behavior-contract.ts",

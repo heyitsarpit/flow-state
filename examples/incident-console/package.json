@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "browser:install": "playwright install chromium",
-    "build": "pnpm check:typescript-mode-proofs && next build",
-    "check:typescript-mode-proofs": "pnpm exec tsc -p tsconfig.json --pretty false",
+    "build": "nub run check:typescript-mode-proofs && next build",
+    "check:typescript-mode-proofs": "nubx tsc -p tsconfig.json --pretty false",
     "dev": "node ./scripts/dev.mjs",
     "dev:api": "tsx server/index.ts",
     "dev:web": "next dev --webpack --hostname 127.0.0.1 --port 5187",

@@ -35,8 +35,8 @@ const typecheckConfigs = [
 
 function runTypecheck(packageDir) {
   return spawnSync(
-    "pnpm",
-    ["exec", "tsc", "--pretty", "false", "-p", resolve(packageDir, "tsconfig.json")],
+    "nubx",
+    ["tsc", "--pretty", "false", "-p", resolve(packageDir, "tsconfig.json")],
     {
       cwd: repoRoot,
       encoding: "utf8",

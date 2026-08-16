@@ -11,8 +11,8 @@ Flow State is ESM-only and requires Node 22.18 or newer. React is optional unles
 you import `flow-state/react`.
 
 ```sh
-pnpm add flow-state@0.1.0-alpha.0 effect@4.0.0-beta.86
-pnpm add react@^18 react-dom@^18
+nub add flow-state@0.1.0-alpha.0 effect@4.0.0-beta.86
+nub add react@^18 react-dom@^18
 ```
 
 ## 2. Put I/O behind an Effect service
@@ -175,9 +175,9 @@ The maintained recipe executes the full load, keyed-detail, refresh, typed
 failure, and cleanup cases:
 
 ```sh
-pnpm --filter @flow-state/basic-cached-posts test
-pnpm --filter @flow-state/basic-cached-posts build
-pnpm check:example-cli
+nub run --filter @flow-state/basic-cached-posts test
+nub run --filter @flow-state/basic-cached-posts build
+nub run check:example-cli
 ```
 
 The last command invokes the installed package bin through a clean consumer and

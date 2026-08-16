@@ -35,7 +35,7 @@ function buildInto(path) {
 }
 
 function formatArtifact(path) {
-  execFileSync("pnpm", ["exec", "vp", "check", "--fix", path], {
+  execFileSync("nubx", ["vp", "check", "--fix", path], {
     cwd: repoRoot,
     encoding: "utf8",
     stdio: "pipe",

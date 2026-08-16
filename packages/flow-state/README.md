@@ -6,7 +6,7 @@ transactions, workflows, streams, deterministic tests, and inspection under one
 scoped owner.
 
 ```sh
-pnpm add flow-state@0.1.0-alpha.0 effect@4.0.0-beta.86
+nub add flow-state@0.1.0-alpha.0 effect@4.0.0-beta.86
 ```
 
 The package is ESM-only and requires Node 22.18 or newer. React is an optional

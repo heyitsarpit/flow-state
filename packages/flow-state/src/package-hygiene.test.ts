@@ -92,7 +92,7 @@ describe("flow-state package hygiene", () => {
 
     for (const scriptName of requiredScripts) {
       const script = rootPackageJson.scripts[scriptName];
-      const filters = Array.from(script.matchAll(/pnpm --filter ([^ ]+)/g), (match) => match[1]);
+      const filters = Array.from(script.matchAll(/nub run --filter ([^ ]+)/g), (match) => match[1]);
       expect(filters.length).toBeGreaterThan(0);
       for (const filter of filters) expect(packageNames.has(filter!)).toBe(true);
     }
@@ -151,7 +151,7 @@ describe("flow-state package hygiene", () => {
 
     expect(corePackageJson.scripts).toMatchObject({
       "check:build-output": expect.any(String),
-      "check:cli-source-types": "pnpm exec tsc -p tsconfig.json --noEmit",
+      "check:cli-source-types": "nubx tsc -p tsconfig.json --noEmit",
       "check:typescript-mode-proofs": expect.any(String),
     });
     expect(corePackageJson.scripts?.build).toContain("check:cli-source-types");

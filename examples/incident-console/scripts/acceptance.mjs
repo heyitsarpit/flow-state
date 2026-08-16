@@ -18,7 +18,7 @@ const availablePort = () =>
 
 const apiPort = String(await availablePort());
 const webPort = String(await availablePort());
-const child = spawn("pnpm", ["exec", "playwright", "test", ...process.argv.slice(2)], {
+const child = spawn("nubx", ["playwright", "test", ...process.argv.slice(2)], {
   stdio: "inherit",
   env: {
     ...process.env,

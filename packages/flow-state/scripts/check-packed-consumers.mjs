@@ -46,7 +46,7 @@ function writeJson(path, value) {
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);
 }
 
-const packageOverride = (name) => `link:${join(packageRoot, "node_modules", ...name.split("/"))}`;
+const packageOverride = (name) => `link:${join(repoRoot, "node_modules", ...name.split("/"))}`;
 
 function createConsumer(name, dependencies, devDependencies = {}, overrides = {}) {
   const root = join(workspace, name);
@@ -57,31 +57,19 @@ function createConsumer(name, dependencies, devDependencies = {}, overrides = {}
     type: "module",
     dependencies,
     devDependencies,
-    pnpm: {
-      overrides: {
-        "@effect/platform-node": packageOverride("@effect/platform-node"),
-        "@tanstack/store": packageOverride("@tanstack/store"),
-        effect: packageOverride("effect"),
-        esbuild: packageOverride("esbuild"),
-        ...overrides,
-      },
+    overrides: {
+      "@effect/platform-node": packageOverride("@effect/platform-node"),
+      "@tanstack/store": packageOverride("@tanstack/store"),
+      effect: packageOverride("effect"),
+      esbuild: packageOverride("esbuild"),
+      ...overrides,
     },
   });
   return root;
 }
 
 function install(root) {
-  run(
-    "pnpm",
-    [
-      "install",
-      "--offline",
-      "--ignore-scripts",
-      "--no-frozen-lockfile",
-      "--strict-peer-dependencies",
-    ],
-    { cwd: root },
-  );
+  run("nub", ["install", "--offline", "--ignore-scripts", "--no-frozen-lockfile"], { cwd: root });
 }
 
 function typecheck(root) {
@@ -123,10 +111,10 @@ function writeTypeScriptConfig(root, overrides = {}) {
 try {
   if (requestedTarball === undefined) {
     mkdirSync(packDir, { recursive: true });
-    run("pnpm", ["pack", "--pack-destination", packDir], { cwd: packageRoot });
+    run("nub", ["pack", "--pack-destination", packDir], { cwd: packageRoot });
     const tarballs = readdirSync(packDir).filter((entry) => entry.endsWith(".tgz"));
     if (tarballs.length !== 1) {
-      throw new Error(`pnpm pack produced ${tarballs.length} tarballs instead of one.`);
+      throw new Error(`nub pack produced ${tarballs.length} tarballs instead of one.`);
     }
     tarball = join(packDir, tarballs[0]);
   } else {
@@ -136,7 +124,7 @@ try {
     tarball = requestedTarball;
   }
   if (readFileSync(tarball).length === 0) {
-    throw new Error("pnpm pack produced an empty tarball.");
+    throw new Error("nub pack produced an empty tarball.");
   }
   const tarballSpec = `file:${tarball}`;
 
@@ -384,29 +372,12 @@ await runtime.dispose();
       {
         effect: "4.0.0-beta.86",
         "flow-state": tarballSpec,
-        react: `link:${join(
-          repoRoot,
-          "examples",
-          `typescript-proof-packed-react-${major}`,
-          "node_modules/react",
-        )}`,
+        react: major === 18 ? "18.3.1" : packageOverride("react"),
       },
       {
-        "@types/react": `link:${join(
-          repoRoot,
-          "examples",
-          `typescript-proof-packed-react-${major}`,
-          "node_modules/@types/react",
-        )}`,
+        "@types/react": major === 18 ? "18.3.31" : packageOverride("@types/react"),
       },
-      {
-        react: `link:${join(
-          repoRoot,
-          "examples",
-          `typescript-proof-packed-react-${major}`,
-          "node_modules/react",
-        )}`,
-      },
+      major === 18 ? {} : { react: packageOverride("react") },
     );
     cpSync(
       resolve(repoRoot, "examples", `typescript-proof-packed-react-${major}`, "src", "index.ts"),
@@ -418,8 +389,7 @@ await runtime.dispose();
   }
 
   const incidentSourceRoot = resolve(repoRoot, "examples", "incident-console");
-  const incidentDependency = (name) =>
-    `link:${join(incidentSourceRoot, "node_modules", ...name.split("/"))}`;
+  const incidentDependency = packageOverride;
   const flagshipRoot = createConsumer(
     "incident-console",
     {
@@ -488,24 +458,18 @@ await runtime.dispose();
     {
       effect: "4.0.0-beta.86",
       "flow-state": tarballSpec,
-      next: `link:${join(repoRoot, "examples/basic-cached-posts/node_modules/next")}`,
-      react: `link:${join(repoRoot, "examples/basic-cached-posts/node_modules/react")}`,
-      "react-dom": `link:${join(repoRoot, "examples/basic-cached-posts/node_modules/react-dom")}`,
+      next: packageOverride("next"),
+      react: packageOverride("react"),
+      "react-dom": packageOverride("react-dom"),
     },
     {
-      "@types/react": `link:${join(
-        repoRoot,
-        "examples/basic-cached-posts/node_modules/@types/react",
-      )}`,
-      "@types/react-dom": `link:${join(
-        repoRoot,
-        "examples/basic-cached-posts/node_modules/@types/react-dom",
-      )}`,
+      "@types/react": `link:${join(repoRoot, "node_modules/@types/react")}`,
+      "@types/react-dom": `link:${join(repoRoot, "node_modules/@types/react-dom")}`,
     },
     {
-      next: `link:${join(repoRoot, "examples/basic-cached-posts/node_modules/next")}`,
-      react: `link:${join(repoRoot, "examples/basic-cached-posts/node_modules/react")}`,
-      "react-dom": `link:${join(repoRoot, "examples/basic-cached-posts/node_modules/react-dom")}`,
+      next: packageOverride("next"),
+      react: packageOverride("react"),
+      "react-dom": packageOverride("react-dom"),
     },
   );
   cpSync(resolve(repoRoot, "examples", "basic-cached-posts", "src"), join(recipeRoot, "src"), {

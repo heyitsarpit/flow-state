@@ -1,4 +1,4 @@
-import { access, mkdtemp, rm, symlink } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readdir, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, parse, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -153,17 +153,49 @@ export function resolveGatewayPath(projectRoot: string, gatewayOption?: string):
 async function findNodeModulesRoot(projectRoot: string): Promise<string | undefined> {
   let directory = projectRoot;
   const root = parse(directory).root;
+  let fallback: string | undefined;
 
   while (true) {
     const candidate = join(directory, "node_modules");
     try {
-      await access(candidate);
+      await access(join(candidate, "effect", "package.json"));
       return candidate;
     } catch {
-      if (directory === root) {
-        return undefined;
+      try {
+        await access(join(candidate, "flow-state", "package.json"));
+        fallback ??= candidate;
+      } catch {
+        // Keep walking until a shared dependency root is found.
       }
-      directory = dirname(directory);
+    }
+    if (directory === root) break;
+    directory = dirname(directory);
+  }
+
+  return fallback;
+}
+
+async function mergeNodeModules(sourceRoot: string, targetRoot: string): Promise<void> {
+  let entries;
+  try {
+    entries = await readdir(sourceRoot, { withFileTypes: true });
+  } catch {
+    return;
+  }
+
+  for (const entry of entries) {
+    if (entry.name === ".bin") continue;
+    const source = join(sourceRoot, entry.name);
+    const target = join(targetRoot, entry.name);
+    if (entry.name.startsWith("@") && entry.isDirectory()) {
+      await mkdir(target, { recursive: true });
+      await mergeNodeModules(source, target);
+      continue;
+    }
+    try {
+      await access(target);
+    } catch {
+      await symlink(source, target, "dir");
     }
   }
 }
@@ -177,9 +209,10 @@ export async function loadBehaviorGateway(
 
   try {
     const nodeModulesRoot = await findNodeModulesRoot(projectRoot);
-    if (nodeModulesRoot !== undefined) {
-      await symlink(nodeModulesRoot, join(tempRoot, "node_modules"), "dir");
-    }
+    const temporaryModules = join(tempRoot, "node_modules");
+    await mkdir(temporaryModules, { recursive: true });
+    await mergeNodeModules(resolve(projectRoot, "node_modules"), temporaryModules);
+    if (nodeModulesRoot !== undefined) await mergeNodeModules(nodeModulesRoot, temporaryModules);
 
     try {
       await build({

@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check:typescript-mode-proofs": "pnpm exec tsc -p tsconfig.json --pretty false",
+    "check:typescript-mode-proofs": "nubx tsc -p tsconfig.json --pretty false",
     "dev": "next dev --port 5184",
-    "build": "pnpm check:typescript-mode-proofs && next build",
+    "build": "nub run check:typescript-mode-proofs && next build",
     "test": "cd ../.. && vp test examples/bounded-infinite-feed/src"
   },
   "dependencies": {

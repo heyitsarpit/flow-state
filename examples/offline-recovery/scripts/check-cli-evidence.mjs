@@ -10,7 +10,7 @@ const leftTrace = path.join(evidenceRoot, "left.trace.json");
 const rightTrace = path.join(evidenceRoot, "right.trace.json");
 
 function execute(args) {
-  return spawnSync("pnpm", ["exec", "flow-state", ...args], {
+  return spawnSync("nubx", ["flow-state", ...args], {
     cwd: exampleRoot,
     encoding: "utf8",
   });

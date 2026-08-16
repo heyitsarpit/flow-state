@@ -383,7 +383,7 @@ The proof includes:
 For a first-party local proof run, use:
 
 ```sh
-pnpm --silent --filter flow-state inspect:local-proof > /tmp/inspect-proof.json
+nub run --silent --filter flow-state inspect:local-proof > /tmp/inspect-proof.json
 ```
 
 That command prints a first-party local inspection proof JSON bundle containing

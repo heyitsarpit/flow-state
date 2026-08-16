@@ -28,7 +28,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "pnpm dev",
+    command: "nub run dev",
     url: appUrl,
     reuseExistingServer: process.env.ACCEPTANCE !== "1",
     timeout: 120_000,

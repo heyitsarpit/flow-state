@@ -9,7 +9,7 @@ for cached resources, optimistic writes, workflows, testing, and inspection.
 From this package directory:
 
 ```sh
-pnpm dev
+nub run dev
 ```
 
 The command starts the API at `http://127.0.0.1:5190` and the frontend at
@@ -20,17 +20,17 @@ API boundary, while `INCIDENT_WEB_ORIGIN` configures API CORS.
 The verification commands are:
 
 ```sh
-pnpm test
-pnpm test:cli
-pnpm test:browser
-pnpm test:acceptance
-pnpm build
+nub run test
+nub run test:cli
+nub run test:browser
+nub run test:acceptance
+nub run build
 ```
 
 `test:browser` uses the fixed development ports and skips the process-restart
 case. `test:acceptance` allocates isolated ports, runs every browser case, restarts
 the actual API process, and terminates the API and frontend. Install Chromium once
-with `pnpm browser:install`.
+with `nub run browser:install`.
 
 ## Architecture
 
@@ -76,7 +76,7 @@ because they teach one isolated concept rather than the network boundary.
 
 ## Ordinary manual journey
 
-1. **U1:** Start `pnpm dev`, open the printed frontend URL, and wait for the first
+1. **U1:** Start `nub run dev`, open the printed frontend URL, and wait for the first
    five incidents and the `connected` badge.
 2. **U2:** Set all four filters, confirm the empty state, then press **Clear** and
    confirm the first page returns.
@@ -102,7 +102,7 @@ because they teach one isolated concept rather than the network boundary.
 Reset before each scenario:
 
 ```sh
-pnpm scenario reset normal
+nub run scenario reset normal
 ```
 
 - **X1:** Open `INC-002` in two browser contexts, arm `delayed-patch`, assign in
@@ -124,7 +124,7 @@ pnpm scenario reset normal
   `runbook-cancel-race`, replace it, and cancel the replacement. Only the current
   terminal result remains.
 - **X8:** Start a runbook, arm `delayed-runbook`, then run
-  `pnpm scenario restart-api`. The UI becomes degraded/reconnecting and recovers
+  `nub run scenario restart-api`. The UI becomes degraded/reconnecting and recovers
   without an active ghost job.
 - **X9:** Open a detail, arm `malformed-detail`, and refresh. The last valid
   incident remains while the decode failure is announced.
@@ -132,6 +132,6 @@ pnpm scenario reset normal
   it is pending. Reopen, start a runbook, and exit again; the server status returns
   zero subscribers and active jobs after each generation.
 
-`pnpm scenario list` prints every seed and fault. `timeline-burst` proves a real
+`nub run scenario list` prints every seed and fault. `timeline-burst` proves a real
 bounded SSE burst and visible gap; `shift-before-list` removes a row between cursor
 pages; the remaining names correspond directly to the scenarios above.

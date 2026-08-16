@@ -51,11 +51,11 @@ function runProcess(command, args, options = {}) {
 function preparePackedConsumers() {
   const packRoot = join(outputRoot, "pack");
   mkdirSync(packRoot);
-  runProcess("pnpm", ["pack", "--pack-destination", packRoot], { cwd: packageRoot });
+  runProcess("nub", ["pack", "--pack-destination", packRoot], { cwd: packageRoot });
   const tarballs = readdirSync(packRoot).filter((entry) => entry.endsWith(".tgz"));
-  assert(tarballs.length === 1, `pnpm pack produced ${tarballs.length} tarballs instead of one.`);
+  assert(tarballs.length === 1, `nub pack produced ${tarballs.length} tarballs instead of one.`);
   const tarball = join(packRoot, tarballs[0]);
-  assert(readFileSync(tarball).length > 0, "pnpm pack did not produce a non-empty tarball.");
+  assert(readFileSync(tarball).length > 0, "nub pack did not produce a non-empty tarball.");
 
   for (const example of examples) {
     const sourceRoot = resolve(repoRoot, "examples", example);
@@ -69,33 +69,22 @@ function preparePackedConsumers() {
     for (const section of ["dependencies", "devDependencies"]) {
       for (const name of Object.keys(manifest[section] ?? {})) {
         if (name !== "flow-state") {
-          manifest[section][name] = `link:${join(sourceRoot, "node_modules", ...name.split("/"))}`;
+          manifest[section][name] = `link:${join(repoRoot, "node_modules", ...name.split("/"))}`;
         }
       }
     }
     manifest.dependencies["flow-state"] = `file:${tarball}`;
-    manifest.pnpm = {
-      ...manifest.pnpm,
-      overrides: {
-        ...manifest.pnpm?.overrides,
-        "@effect/platform-node": `link:${join(packageRoot, "node_modules/@effect/platform-node")}`,
-        "@tanstack/store": `link:${join(packageRoot, "node_modules/@tanstack/store")}`,
-        effect: `link:${join(sourceRoot, "node_modules/effect")}`,
-        esbuild: `link:${join(packageRoot, "node_modules/esbuild")}`,
-      },
+    manifest.overrides = {
+      ...manifest.overrides,
+      "@effect/platform-node": `link:${join(repoRoot, "node_modules/@effect/platform-node")}`,
+      "@tanstack/store": `link:${join(repoRoot, "node_modules/@tanstack/store")}`,
+      effect: `link:${join(repoRoot, "node_modules/effect")}`,
+      esbuild: `link:${join(repoRoot, "node_modules/esbuild")}`,
     };
     writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
-    runProcess(
-      "pnpm",
-      [
-        "install",
-        "--offline",
-        "--ignore-scripts",
-        "--no-frozen-lockfile",
-        "--strict-peer-dependencies",
-      ],
-      { cwd: consumerRoot },
-    );
+    runProcess("nub", ["install", "--offline", "--ignore-scripts", "--no-frozen-lockfile"], {
+      cwd: consumerRoot,
+    });
     consumerRoots.set(example, consumerRoot);
   }
 }
@@ -103,7 +92,7 @@ function preparePackedConsumers() {
 function execute(example, args, options = {}) {
   const consumerRoot = consumerRoots.get(example);
   assert(consumerRoot !== undefined, `${example}: packed consumer was not prepared.`);
-  return executeProcess("pnpm", ["exec", "flow-state", ...args], {
+  return executeProcess("nubx", ["flow-state", ...args], {
     cwd: consumerRoot,
     ...options,
   });

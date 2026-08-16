@@ -30,7 +30,7 @@ for (const entry of readdirSync(artifactRoot)) {
   }
 }
 
-execFileSync("pnpm", ["pack", "--pack-destination", artifactRoot], {
+execFileSync("nub", ["pack", "--pack-destination", artifactRoot], {
   cwd: packageRoot,
   stdio: "inherit",
 });
@@ -95,8 +95,8 @@ process.stdout.write(
   [
     `artifact: ${tarball}`,
     `sha256: ${checksum}`,
-    `install: pnpm add ./${join("artifacts", basename(tarball))}`,
-    `publish: pnpm publish ./${join("artifacts", basename(tarball))} --tag alpha --access public`,
+    `install: nub add ./${join("artifacts", basename(tarball))}`,
+    `publish: nub publish ./${join("artifacts", basename(tarball))} --tag alpha --access public`,
     "publish command was printed only; no external release was created.",
   ].join("\n") + "\n",
 );

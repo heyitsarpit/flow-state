@@ -1,5 +1,6 @@
 node_modules/
 .pnpm-store/
+.nub-state/
 .next/
 .incident-api.pid
 behavior-contract.json

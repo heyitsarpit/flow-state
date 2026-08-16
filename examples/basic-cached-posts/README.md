@@ -8,5 +8,5 @@ actor, resources, and view.
 
 The upstream persistent browser cache is intentionally omitted: this example teaches in-memory
 runtime ownership, while the offline-recovery example owns persistence. Run it with
-`pnpm --filter @flow-state/basic-cached-posts dev` and test it with
-`pnpm --filter @flow-state/basic-cached-posts test`.
+`nub run --filter @flow-state/basic-cached-posts dev` and test it with
+`nub run --filter @flow-state/basic-cached-posts test`.
