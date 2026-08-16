@@ -35,11 +35,12 @@
     "verify": "nub run check && nub run test && nub run build && nub run test:browser && nub run docs:build"
   },
   "devDependencies": {
+    "@oxlint/plugins": "1.78.0",
     "@types/node": "latest",
     "happy-dom": "^20.10.6",
     "typescript": "6.0.3",
-    "vite-plus": "0.2.1",
-    "vitest": "4.1.9"
+    "vite-plus": "0.2.9",
+    "vitest": "4.1.10"
   },
   "devEngines": {
     "packageManager": {

@@ -5,15 +5,35 @@ export default defineConfig({
     "*.{js,jsx,ts,tsx,json,jsonc,md,css,html,yaml,yml}": "vp check --fix",
   },
   lint: {
-    jsPlugins: [{ name: "vite-plus", specifier: "vite-plus/oxlint-plugin" }],
-    rules: { "vite-plus/prefer-vite-plus-imports": "error" },
+    jsPlugins: [
+      { name: "vite-plus", specifier: "vite-plus/oxlint-plugin" },
+      { name: "anti-slop", specifier: "./tools/oxlint/anti-slop/index.ts" },
+    ],
+    rules: {
+      "vite-plus/prefer-vite-plus-imports": "error",
+      "anti-slop/no-chained-type-assertions": "error",
+      "anti-slop/no-conditional-empty-object-spread": "error",
+      "anti-slop/no-known-value-widening": "error",
+      "anti-slop/no-module-mocking": "error",
+      "anti-slop/no-object-parameters": "error",
+      "anti-slop/no-reflect-apply": "error",
+      "anti-slop/no-reflect-get": "error",
+      "anti-slop/no-runtime-typeof": "error",
+      "anti-slop/no-shape-in-symbol-names": "error",
+      "anti-slop/no-unknown-parameters": "error",
+      "anti-slop/no-unknown-returns": "error",
+      "anti-slop/no-unknown-type-aliases": "error",
+      "anti-slop/no-unsafe-dictionary-type": "error",
+      "anti-slop/no-widen-then-assert": "error",
+      "anti-slop/require-safety-comment-for-type-assertion": "error",
+    },
     options: { typeAware: true, typeCheck: true },
     // Reference applications intentionally use APIs that the library has not
     // implemented yet. They remain formatted and syntax-checked separately.
-    ignorePatterns: ["reference/**"],
+    ignorePatterns: ["reference/**", "tools/oxlint/anti-slop/**"],
   },
   fmt: {
-    ignorePatterns: [],
+    ignorePatterns: ["tools/oxlint/anti-slop/**"],
   },
   test: {
     include: ["packages/**/*.test.ts", "examples/**/*.test.ts", "examples/**/*.test.tsx"],
