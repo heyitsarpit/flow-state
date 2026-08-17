@@ -20,7 +20,7 @@ The reviewed Phase 0 artifacts live in [`../phase-0/`](../phase-0/README.md):
 - `export-inventory.json` records the six package routes, the binary, 344 package-route exports,
   and 96 package-private CLI-module exports. `export-dispositions.json` gives every one exactly
   one disposition: 87 change and 353 delete rows, with new target names recorded separately.
-- `proof-index.json` replaces broad receipt claims with 56 stable central cases and 45 local
+- `proof-index.json` replaces broad receipt claims with 57 stable central cases and 46 local
   subcases. Every case has one closing phase, contract owner, current evidence disposition, and
   target test; only `PROOF-014.01` and `PROOF-014.02` close in Phase 0.
 - `issue-deletion-index.json` records all 20 atomic issue identities, all 24 B1-B12/Q1-Q12
@@ -33,7 +33,8 @@ The reviewed Phase 0 artifacts live in [`../phase-0/`](../phase-0/README.md):
   inventories 14 design-decision and 22 blocker-ledger historical citations for Phase 8.
 - `contract-fixtures.ts` freezes closed Effect Schemas for boot, behavior, trace, TurnRecord
   facts, Cause projection, every command result, and all 42 diagnostic codes. The 71 compact
-  `.golden` files cover minimal boot/behavior/complete trace/truncated trace, every Cause member,
+  `.golden` files cover minimal boot/behavior/complete trace/truncated trace, empty Cause reasons,
+  each Effect v4 reason member, ordered mixed reasons, duplicate reasons,
   every command success and comparison variant, and one error envelope per diagnostic code.
 
 `validate.ts` rejects missing or duplicate exports, issues, deletion rows, proof families, local
@@ -41,7 +42,7 @@ proofs, open result members, noncanonical bytes, excess Schema properties, and i
 diagnostic goldens. Its final result was:
 
 ```text
-Phase 0 contract validated: 344 package exports, 96 CLI module exports, 56 proof cases, 45 local cases, 71 byte goldens.
+Phase 0 contract validated: 344 package exports, 96 CLI module exports, 57 proof cases, 46 local cases, 71 byte goldens.
 ```
 
 ## Authority corrections
@@ -66,7 +67,7 @@ files and public symbols: none.
 
 | Layer                    | Exact command                                                                                                                                                                                                                                                                                                                                                     | Exit and evidence                                                                                                       |
 | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Phase 0 fixtures         | `node --import ./node_modules/.pnpm/tsx@4.22.4/node_modules/tsx/dist/loader.mjs reference/incident-console/implementation/phase-0/validate.ts`                                                                                                                                                                                                                    | 0; 344 package exports, 96 CLI exports, 56 central cases, 45 local cases, 71 goldens                                    |
+| Phase 0 fixtures         | `node --import ./node_modules/.pnpm/tsx@4.22.4/node_modules/tsx/dist/loader.mjs reference/incident-console/implementation/phase-0/validate.ts`                                                                                                                                                                                                                    | 0; 344 package exports, 96 CLI exports, 57 central cases, 46 local cases, 71 goldens                                    |
 | Fixture types            | `node node_modules/.pnpm/typescript@6.0.3/node_modules/typescript/lib/tsc.js --ignoreConfig --noEmit --module NodeNext --moduleResolution NodeNext --target ES2022 --allowImportingTsExtensions --skipLibCheck --types node reference/incident-console/implementation/phase-0/contract-fixtures.ts reference/incident-console/implementation/phase-0/validate.ts` | 0                                                                                                                       |
 | Package tests            | `pnpm --filter flow-state test`                                                                                                                                                                                                                                                                                                                                   | 0; 113 files, 1,019 tests                                                                                               |
 | Package build            | `pnpm --filter flow-state build`                                                                                                                                                                                                                                                                                                                                  | 0                                                                                                                       |
@@ -92,3 +93,12 @@ sources, and rerunning produced the final exit 0 above.
 The scratchpad still has no open items. All Phase 0 tasks, acceptance conditions, and live gates
 pass, and the final diff contains no production or example path. Phase 1 is Ready; no Phase 1
 implementation has begun.
+
+## Post-closeout contract correction
+
+The pre-Phase-2 Effect v4 audit replaced the impossible recursive Cause artifact model with the
+installed v4 flat ordered-reasons model, preserving duplicate reasons. It also added one central
+request-helper case and one local runtime-bridge type case. The Phase 0 validator was rerun after
+the schema, seven Cause goldens, embedded CLI goldens, proof index, and authority citations were
+updated; its current result is the 57/46/71 count recorded above. This addendum changes contract
+evidence only and does not imply that the later Phase 1 review corrections are complete.

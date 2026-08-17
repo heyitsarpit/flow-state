@@ -29,46 +29,35 @@ const NullableInteger = Schema.NullOr(NonNegativeSafeInteger);
 const StringArray = Schema.Array(Schema.String);
 const CanonicalArray = Schema.Array(CanonicalCarrier);
 
-export type CauseProjection =
-  | Readonly<{ _tag: "Empty" }>
+export type CauseReasonProjection =
   | Readonly<{ _tag: "Fail"; error: CanonicalCarrier }>
   | Readonly<{
       _tag: "Die";
       defect: CanonicalCarrier | Readonly<{ _tag: "Error"; name: string; message: string }>;
     }>
-  | Readonly<{ _tag: "Interrupt"; fiberOrdinal: number }>
-  | Readonly<{ _tag: "Sequential"; left: CauseProjection; right: CauseProjection }>
-  | Readonly<{ _tag: "Parallel"; left: CauseProjection; right: CauseProjection }>;
+  | Readonly<{ _tag: "Interrupt"; fiberOrdinal: number }>;
 
-export const CauseProjection: Schema.Codec<CauseProjection> = Schema.suspend(
-  () =>
-    Schema.Union([
-      Schema.Struct({ _tag: Schema.Literal("Empty") }),
-      Schema.Struct({ _tag: Schema.Literal("Fail"), error: CanonicalCarrier }),
+export const CauseReasonProjection: Schema.Codec<CauseReasonProjection> = Schema.Union([
+  Schema.Struct({ _tag: Schema.Literal("Fail"), error: CanonicalCarrier }),
+  Schema.Struct({
+    _tag: Schema.Literal("Die"),
+    defect: Schema.Union([
+      CanonicalCarrier,
       Schema.Struct({
-        _tag: Schema.Literal("Die"),
-        defect: Schema.Union([
-          CanonicalCarrier,
-          Schema.Struct({
-            _tag: Schema.Literal("Error"),
-            name: Schema.String,
-            message: Schema.String,
-          }),
-        ]),
+        _tag: Schema.Literal("Error"),
+        name: Schema.String,
+        message: Schema.String,
       }),
-      Schema.Struct({ _tag: Schema.Literal("Interrupt"), fiberOrdinal: NonNegativeSafeInteger }),
-      Schema.Struct({
-        _tag: Schema.Literal("Sequential"),
-        left: CauseProjection,
-        right: CauseProjection,
-      }),
-      Schema.Struct({
-        _tag: Schema.Literal("Parallel"),
-        left: CauseProjection,
-        right: CauseProjection,
-      }),
-    ]) as Schema.Codec<CauseProjection>,
-);
+    ]),
+  }),
+  Schema.Struct({ _tag: Schema.Literal("Interrupt"), fiberOrdinal: NonNegativeSafeInteger }),
+]);
+
+export type CauseProjection = Readonly<{ reasons: ReadonlyArray<CauseReasonProjection> }>;
+
+export const CauseProjection: Schema.Codec<CauseProjection> = Schema.Struct({
+  reasons: Schema.Array(CauseReasonProjection),
+});
 
 export const FlowIssueSchema = Schema.Struct({
   kind: Schema.Literals(["failure", "defect", "interrupt", "cleanup", "invariant"]),

@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { Schema } from "../../../../packages/flow-state/node_modules/effect/dist/index.js";
@@ -16,6 +16,7 @@ import {
 
 const directory = import.meta.dirname;
 const root = resolve(directory, "../../../..");
+const contractsDirectory = resolve(directory, "../contracts");
 
 function fail(message: string): never {
   throw new Error(message);
@@ -150,6 +151,24 @@ assert(
 
 const proofIndex = readJson("proof-index.json");
 const proofCases = proofIndex.proofCases;
+const contractIds = new Set(
+  readdirSync(contractsDirectory)
+    .filter((name) => name.endsWith(".md"))
+    .flatMap((name) =>
+      readFileSync(resolve(contractsDirectory, name), "utf8")
+        .split("\n")
+        .flatMap((line) => {
+          const match =
+            /^#{2,4} ((?:GLO|API|TYPE|SEM|SNAP|ARCH|WIRE|HOST|TEST|CLI|CUT|PROOF|APP)-[^\s—:]+)/u.exec(
+              line,
+            );
+          return match?.[1] === undefined ? [] : [match[1].replace(/\.$/u, "")];
+        }),
+    ),
+);
+const assertKnownContractIds = (ids: readonly string[], owner: string): void => {
+  for (const id of ids) assert(contractIds.has(id), `${owner} references unknown contract ${id}`);
+};
 assert(
   new Set(proofCases.map((row: any) => row.caseId)).size === proofCases.length,
   "duplicate proof case",
@@ -172,6 +191,14 @@ assert(
   ),
   "an atomic proof case lacks one owner, contract, disposition, or target",
 );
+for (const row of proofCases) assertKnownContractIds(row.contractIds, row.caseId);
+for (const row of proofCases)
+  if (row.currentDisposition !== "missing")
+    for (const path of row.currentTests)
+      assert(
+        existsSync(resolve(root, path)),
+        `${row.caseId} current proof owner does not exist: ${path}`,
+      );
 assert(
   proofCases
     .filter((row: any) => row.closingPhase === 0)
@@ -218,6 +245,9 @@ assert(
     ),
   "local proof cases are duplicate or incomplete",
 );
+for (const row of proofIndex.localProofCases) assertKnownContractIds(row.contractIds, row.caseId);
+for (const row of issueIndex.blockerResolutions)
+  assertKnownContractIds(row.contractIds, row.blockerId);
 
 const architecture = readJson("architecture-evidence.json");
 assert(architecture.tests.length === 19, "source-text/filename architecture inventory drifted");
@@ -244,8 +274,8 @@ const requiredCauses = [
   "die-error",
   "die-value",
   "interrupt",
-  "sequential",
-  "parallel",
+  "ordered",
+  "duplicate",
 ];
 for (const tag of requiredCauses)
   assert(goldenFiles.includes(`cause.${tag}.golden`), `missing Cause golden ${tag}`);

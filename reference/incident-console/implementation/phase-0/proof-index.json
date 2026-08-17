@@ -4,7 +4,15 @@
     {
       "caseId": "PROOF-001.01",
       "centralProofIds": ["PROOF-001"],
-      "contractIds": ["API-001", "TYPE-001", "TYPE-003", "TYPE-005"],
+      "contractIds": [
+        "API-003",
+        "API-005",
+        "API-009",
+        "TYPE-001",
+        "TYPE-003",
+        "TYPE-005",
+        "TYPE-007"
+      ],
       "closingPhase": 1,
       "currentDisposition": "replacement",
       "currentTests": ["packages/flow-state/src/public-api-types.test.ts"],
@@ -13,7 +21,7 @@
     {
       "caseId": "PROOF-001.02",
       "centralProofIds": ["PROOF-001"],
-      "contractIds": ["HOST-011", "HOST-012", "TYPE-011"],
+      "contractIds": ["HOST-011", "HOST-012", "TYPE-013"],
       "closingPhase": 5,
       "currentDisposition": "missing",
       "currentTests": [],
@@ -58,16 +66,16 @@
       "contractIds": ["ARCH-001", "ARCH-003", "ARCH-005"],
       "closingPhase": 1,
       "currentDisposition": "replacement",
-      "currentTests": ["packages/flow-state/src/app-validation.test.ts"],
+      "currentTests": ["packages/flow-state/src/app-inventory.test.ts"],
       "targetTests": ["packages/flow-state/src/vnext/app-plan.test.ts"]
     },
     {
       "caseId": "PROOF-002.02",
       "centralProofIds": ["PROOF-002"],
-      "contractIds": ["GLO-001", "GLO-009", "TYPE-009"],
+      "contractIds": ["GLO-01", "GLO-09", "TYPE-009"],
       "closingPhase": 1,
       "currentDisposition": "replacement",
-      "currentTests": ["packages/flow-state/src/app-validation.test.ts"],
+      "currentTests": ["packages/flow-state/src/app-inventory.test.ts"],
       "targetTests": ["packages/flow-state/src/vnext/app-plan-identity.test.ts"]
     },
     {
@@ -136,7 +144,7 @@
     {
       "caseId": "PROOF-004.01",
       "centralProofIds": ["PROOF-004"],
-      "contractIds": ["HOST-001", "HOST-018", "SEM-024"],
+      "contractIds": ["API-012A", "HOST-001", "HOST-016", "HOST-018", "SEM-024", "TYPE-011"],
       "closingPhase": 2,
       "currentDisposition": "replacement",
       "currentTests": ["packages/flow-state/src/runtime-lifecycle.test.ts"],
@@ -148,7 +156,7 @@
       "contractIds": ["SEM-021", "SNAP-010"],
       "closingPhase": 4,
       "currentDisposition": "replacement",
-      "currentTests": ["packages/flow-state/src/child-lifecycle.test.ts"],
+      "currentTests": ["packages/flow-state/src/flow-test-child-helpers.test.ts"],
       "targetTests": ["packages/flow-state/src/vnext/child-lifecycle.test.ts"]
     },
     {
@@ -163,7 +171,7 @@
     {
       "caseId": "PROOF-005.01",
       "centralProofIds": ["PROOF-005"],
-      "contractIds": ["GLO-005", "WIRE-001", "WIRE-002"],
+      "contractIds": ["GLO-05", "WIRE-001", "WIRE-002"],
       "closingPhase": 1,
       "currentDisposition": "replacement",
       "currentTests": ["packages/flow-state/src/canonical-key-hostile-reflection.test.ts"],
@@ -184,7 +192,7 @@
       "contractIds": ["SEM-011", "SNAP-005"],
       "closingPhase": 3,
       "currentDisposition": "replacement",
-      "currentTests": ["packages/flow-state/src/resource-store-generation-race.test.ts"],
+      "currentTests": ["packages/flow-state/src/resource-store.test.ts"],
       "targetTests": ["packages/flow-state/src/vnext/resource-generation.test.ts"]
     },
     {
@@ -250,7 +258,7 @@
       "contractIds": ["SEM-017", "CUT-005"],
       "closingPhase": 4,
       "currentDisposition": "replacement",
-      "currentTests": ["packages/flow-state/src/optimistic-overlay.test.ts"],
+      "currentTests": ["packages/flow-state/src/transaction-parameterized-preview.test.ts"],
       "targetTests": ["packages/flow-state/src/vnext/transaction-overlay.test.ts"]
     },
     {
@@ -277,25 +285,25 @@
       "contractIds": ["TEST-006", "TEST-008"],
       "closingPhase": 6,
       "currentDisposition": "replacement",
-      "currentTests": ["packages/flow-state/src/testing/controlled-stream.test.ts"],
+      "currentTests": ["packages/flow-state/src/flow-test-streams.test.ts"],
       "targetTests": ["packages/flow-state/src/story-controls.test.ts"]
     },
     {
       "caseId": "PROOF-009.01",
       "centralProofIds": ["PROOF-009"],
-      "contractIds": ["TEST-007", "TEST-009"],
+      "contractIds": ["TEST-007", "TEST-009", "TEST-012", "TYPE-014"],
       "closingPhase": 6,
       "currentDisposition": "replacement",
-      "currentTests": ["packages/flow-state/src/testing/flow-test-progress-controls.test.ts"],
+      "currentTests": ["packages/flow-state/src/flow-test-developer-loop.test.ts"],
       "targetTests": ["packages/flow-state/src/story-controls.test.ts"]
     },
     {
       "caseId": "PROOF-009.02",
       "centralProofIds": ["PROOF-009"],
-      "contractIds": ["TEST-009", "WIRE-021"],
+      "contractIds": ["TEST-009", "TEST-012", "WIRE-021"],
       "closingPhase": 6,
       "currentDisposition": "replacement",
-      "currentTests": ["packages/flow-state/src/testing/flow-test-progress-controls.test.ts"],
+      "currentTests": ["packages/flow-state/src/flow-test-developer-loop.test.ts"],
       "targetTests": ["packages/flow-state/src/story-runner.test.ts"]
     },
     {
@@ -313,7 +321,7 @@
       "contractIds": ["TEST-010", "WIRE-022", "WIRE-023"],
       "closingPhase": 6,
       "currentDisposition": "replacement",
-      "currentTests": ["packages/flow-state/src/testing/scenario-evidence.test.ts"],
+      "currentTests": ["packages/flow-state/src/flow-test-scenario-combinators.test.ts"],
       "targetTests": ["packages/flow-state/src/story-runner.test.ts"]
     },
     {
@@ -322,7 +330,7 @@
       "contractIds": ["TEST-011", "WIRE-024"],
       "closingPhase": 6,
       "currentDisposition": "replacement",
-      "currentTests": ["packages/flow-state/src/testing/flow-model.test.ts"],
+      "currentTests": ["packages/flow-state/src/flow-test-model.test.ts"],
       "targetTests": ["packages/flow-state/src/story-model.test.ts"]
     },
     {
@@ -331,7 +339,7 @@
       "contractIds": ["TEST-011"],
       "closingPhase": 6,
       "currentDisposition": "replacement",
-      "currentTests": ["packages/flow-state/src/testing/flow-model.test.ts"],
+      "currentTests": ["packages/flow-state/src/flow-test-model.test.ts"],
       "targetTests": ["packages/flow-state/src/story-model.test.ts"]
     },
     {
@@ -376,6 +384,15 @@
         "packages/flow-state/src/runtime/request-runtime.test.ts",
         "packages/flow-state/src/cli-test/vnext-cli.test.ts"
       ]
+    },
+    {
+      "caseId": "PROOF-012.05",
+      "centralProofIds": ["PROOF-012"],
+      "contractIds": ["HOST-015", "TYPE-010"],
+      "closingPhase": 5,
+      "currentDisposition": "missing",
+      "currentTests": [],
+      "targetTests": ["packages/flow-state/src/vnext/request-runtime.test.ts"]
     },
     {
       "caseId": "PROOF-013.01",
@@ -633,7 +650,7 @@
       "localProofId": "TYPE-P01",
       "closingPhase": 1,
       "centralProofIds": ["PROOF-001"],
-      "contractIds": ["TYPE-001", "TYPE-003"],
+      "contractIds": ["TYPE-001", "TYPE-003", "TYPE-007"],
       "mechanism": "definition and primitive positive types"
     },
     {
@@ -641,7 +658,7 @@
       "localProofId": "TYPE-P01",
       "closingPhase": 5,
       "centralProofIds": ["PROOF-001"],
-      "contractIds": ["TYPE-011"],
+      "contractIds": ["TYPE-013"],
       "mechanism": "React positive types"
     },
     {
@@ -653,11 +670,19 @@
       "mechanism": "story and model positive types"
     },
     {
+      "caseId": "TYPE-P01.04",
+      "localProofId": "TYPE-P01",
+      "closingPhase": 2,
+      "centralProofIds": ["PROOF-001", "PROOF-004"],
+      "contractIds": ["API-012A", "HOST-016", "TYPE-011"],
+      "mechanism": "runtime Effect bridge positive types"
+    },
+    {
       "caseId": "TYPE-P02.01",
       "localProofId": "TYPE-P02",
       "closingPhase": 1,
       "centralProofIds": ["PROOF-001"],
-      "contractIds": ["TYPE-002", "TYPE-004"],
+      "contractIds": ["TYPE-002", "TYPE-004", "TYPE-007"],
       "mechanism": "definition and primitive negative types"
     },
     {

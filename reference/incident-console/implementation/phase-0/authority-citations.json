@@ -30,7 +30,7 @@
     },
     {
       "file": "PRE_CODING_AUDIT.md",
-      "line": 91,
+      "line": 95,
       "historicalFile": "IMPLEMENTATION_BLOCKERS.md",
       "role": "historical-evidence-or-removal-target"
     },
@@ -114,7 +114,7 @@
     },
     {
       "file": "contracts/PROOF_MATRIX.md",
-      "line": 401,
+      "line": 431,
       "historicalFile": "IMPLEMENTATION_BLOCKERS.md",
       "role": "historical-evidence-or-removal-target"
     },
@@ -132,19 +132,19 @@
     },
     {
       "file": "contracts/PUBLIC_API.md",
-      "line": 549,
+      "line": 553,
       "historicalFile": "DESIGN_DECISIONS.md",
       "role": "historical-evidence-or-removal-target"
     },
     {
       "file": "contracts/PUBLIC_API.md",
-      "line": 570,
+      "line": 574,
       "historicalFile": "DESIGN_DECISIONS.md",
       "role": "historical-evidence-or-removal-target"
     },
     {
       "file": "contracts/PUBLIC_API.md",
-      "line": 740,
+      "line": 751,
       "historicalFile": "DESIGN_DECISIONS.md",
       "role": "historical-evidence-or-removal-target"
     },
@@ -192,7 +192,7 @@
     },
     {
       "file": "contracts/REACT_AND_HOSTS.md",
-      "line": 374,
+      "line": 379,
       "historicalFile": "IMPLEMENTATION_BLOCKERS.md",
       "role": "historical-evidence-or-removal-target"
     },
@@ -210,7 +210,7 @@
     },
     {
       "file": "contracts/TYPE_SYSTEM.md",
-      "line": 254,
+      "line": 260,
       "historicalFile": "IMPLEMENTATION_BLOCKERS.md",
       "role": "historical-evidence-or-removal-target"
     },
