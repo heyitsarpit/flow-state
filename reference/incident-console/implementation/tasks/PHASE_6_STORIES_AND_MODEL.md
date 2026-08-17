@@ -43,6 +43,13 @@ TEST-016 inspection retention and artifact/CLI integration remain Phase 7 work.
 - Do not let controls assign Flow-owned snapshots, statuses, generations, receipts, or issues.
 - Do not run Effects during model discovery.
 
+## Implementation hints (non-normative)
+
+ARCH-028 recommends one acquire/use/release runner, the production runtime with Effect TestClock,
+the shared duration normalizer, and exhaustive matching over the closed command AST. Story and
+model construction remain inert plain TypeScript; these recommendations do not constrain an
+equivalent implementation that satisfies the same tests.
+
 ## Tasks
 
 - [ ] Implement the TEST-001/002 immutable story AST and builder. Bind app and machine at
@@ -73,6 +80,9 @@ TEST-016 inspection retention and artifact/CLI integration remain Phase 7 work.
 - [ ] Expose the exact frozen error class from API-013A and validate non-negative safe-integer
       time, forward-only `setTime`, no-next-timer failure, equal deadlines, and positive safe-integer
       `maxTurns` before acquisition where applicable.
+- [ ] Accept Effect `Duration.Input` for `advance`, normalize it while constructing the immutable
+      story plan, and keep `setTime` restricted to forward non-negative safe-integer epoch
+      milliseconds.
 - [ ] Replace progress controls with TEST-012/013 lifetime inventories. Remove aggregate fibers,
       per-command bounds, implicit timer jumps, arbitrary predicates, and waiting for continuing
       work.
@@ -107,6 +117,9 @@ TEST-016 inspection retention and artifact/CLI integration remain Phase 7 work.
   blocked operation remains pending.
 - `flush` drains ready work only; `settle` does not fire a future timer; explicit advance drives
   timers, freshness, GC, retries, and serialized work through one TestClock.
+- `advance("250 millis")` and the other legal Duration inputs normalize during plan construction;
+  invalid durations fail synchronously before any fixture or runtime exists, while `setTime`
+  remains an absolute safe-integer epoch millisecond.
 - Host cancellation and simultaneous cleanup failure preserve partial evidence and both Causes;
   every other successful run proves completed disposal.
 - The pure model has no Effect import or `Effect.run*`, side-effect spies remain zero during

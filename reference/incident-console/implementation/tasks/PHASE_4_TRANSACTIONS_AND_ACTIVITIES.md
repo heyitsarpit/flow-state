@@ -24,11 +24,19 @@ receipts/issues, and deterministic tests.
 
 React, story runner, artifact formats, and CLI are forbidden.
 
+## Implementation hints (non-normative)
+
+ARCH-028 recommends `Effect.suspend`/`Stream.suspend` at authored factories, FiberMap for keyed
+replacement, FiberSet for independent attempts, one keyed Queue worker for serialization, and
+`acquireRelease` for scoped leases. These choices must preserve Flow-owned PendingOutcome,
+overlay, TimerCoordinator, generation, and stable-order laws rather than redefine them.
+
 ## Tasks
 
 - [ ] Implement child completion: final child publication precedes one durably
-      admitted completion outcome; release the child exactly once, retain its consumed complete
-      projection, and restore without restarting or replaying completion.
+      admitted completion outcome typed as `ActorSnapshot<ChildMachine>`; preserve exact timer
+      and primitive-binding registries, release the child exactly once, retain its consumed
+      complete projection, and restore without restarting or replaying completion.
 - [ ] Keep managed children autonomous and expose no
       parent-to-child command path. Only a changed canonical key replaces a generation; equal key
       retains the original materialized input, and independently

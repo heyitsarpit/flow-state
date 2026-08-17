@@ -25,6 +25,13 @@ and focused tests.
 Transaction overlays, React, and testing controls are forbidden except for interfaces that
 remain inert until their later phases.
 
+## Implementation hints (non-normative)
+
+ARCH-028 recommends `Effect.suspend` at lookup invocation, StoreKernel-owned `FiberMap`, actor-owned
+`RcMap` registrations, one `SubscriptionRef<StoreState>`, and the shared duration normalizer.
+Effect Cache, Resource, or RequestResolver may inform the design but should not replace Flow's
+contracted generations, lease epochs, persistence, routing, or StoreKernel authority.
+
 ## Tasks
 
 - [ ] Make online state advisory. Offline never blocks explicit resource

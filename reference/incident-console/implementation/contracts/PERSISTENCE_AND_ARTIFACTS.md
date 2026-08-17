@@ -395,20 +395,22 @@ command, evidence, and Cause projection; cleanup is exactly `{ status: "complete
 present as `undefined`.
 
 Phase 0 MUST check in complete private Schema declarations and one minimal canonical byte golden
-for boot, behavior, complete trace, truncated trace, and every Cause member before Phase 7
-implementation begins. This section freezes the envelopes; those reviewed Schemas freeze every
+for boot, behavior, complete trace, truncated trace, every Cause reason member, empty reasons,
+ordered mixed reasons, and duplicate reasons before Phase 7 implementation begins. This section freezes the envelopes; those reviewed Schemas freeze every
 nested snapshot and fact member and are the sole source for import, export, CLI rendering, and
 diffing.
 
 ### WIRE-020B — Artifact Cause projection is stable and explicit
 
-In-memory inspection retains the original `Cause`. Artifact projection recursively preserves
-Effect's empty, fail, die, interrupt, sequential, and parallel structure. `fail` payloads and
-non-`Error` defects must pass WIRE-001; an `Error` defect becomes exactly
-`{ _tag: "Error", name, message }` with no stack or host fields; interruptors use the stable
-runtime-local fiber ordinal assigned by the trace owner. Sequential and parallel children retain
-Cause order. If any payload cannot be represented, export fails with `NonCanonicalTraceCause` at
-the exact record/Cause path and MUST NOT stringify, inspect, or drop it.
+In-memory inspection retains the original Effect v4 `Cause`. Artifact projection is exactly
+`{ reasons: readonly CauseReasonProjection[] }`, where each reason is one ordered `Fail`, `Die`, or
+`Interrupt` member. An empty array represents an empty Cause. Projection MUST retain the deliberate
+reason order and duplicate multiplicity present at the Flow boundary; it MUST NOT invent recursive
+composition nodes or deduplicate equal reasons. `Fail` payloads and non-`Error` defects must pass
+WIRE-001; an `Error` defect becomes exactly `{ _tag: "Error", name, message }` with no stack or host
+fields; interruptors use the stable runtime-local fiber ordinal assigned by the trace owner. If any
+payload cannot be represented, export fails with `NonCanonicalTraceCause` at the exact
+record/reason path and MUST NOT stringify, inspect, or drop it.
 
 Gzip import accepts exactly one member and rejects trailing bytes or additional members. The
 compressed-input and decompressed-output counters are independent streaming caps and stop reading

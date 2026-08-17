@@ -254,7 +254,8 @@ type ChildSnapshot<Child, Key> =
   | { readonly status: "stopped"; readonly key: Key; readonly generation: number };
 ```
 
-`Child` is the exact child actor snapshot. Child machines have no typed error channel, so child
+`Child` is exactly `ActorSnapshot<ChildMachine>`, including the child machine's exact timer
+names and primitive-binding registries rather than a definition-derived widened snapshot. Child machines have no typed error channel, so child
 snapshots have no `failure` member; a contained child execution defect uses `defect`. Fields absent
 from a member are absent rather than optional placeholders. Public stream and child
 snapshots MUST NOT expose Cause; full failure evidence belongs to their TurnRecord facts.
@@ -264,8 +265,8 @@ only a changed canonical key replaces its generation, while equal key retains th
 materialized opaque params/input. Reusing two distinct definitions with one ID is
 an AppPlan collision, while reading an inactive definition returns idle.
 
-A managed child that reaches a final token publishes `status: "complete"` with its exact final
-child snapshot. The parent binding may retain that frozen terminal projection after the child
+A managed child that reaches a final token publishes `status: "complete"` with that exact final
+machine-family snapshot. The parent binding may retain that frozen terminal projection after the child
 actor itself has been released; later reads do not expose a command handle or revive the child.
 
 ### SNAP-009 — Timer identity is machine-wide and typed

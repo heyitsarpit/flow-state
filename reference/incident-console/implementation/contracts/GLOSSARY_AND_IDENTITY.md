@@ -115,9 +115,10 @@ until a host attempts to use it.
 ### GLO-08. Actor identity
 
 Each unique compiled module-root machine has exactly one automatic root actor with ID
-`root|<app-segment>|<machine-segment>`. Re-exporting one shared root through more than one module
-does not create another actor; presenting distinct machine values with the same root identity is
-an AppPlan collision. Module order or property names MUST NOT affect root identity.
+`root|<app-segment>|<machine-segment>`. One shared root presented by more than one module has
+ambiguous public ownership and is an AppPlan collision; presenting distinct machine values with
+the same root identity is also an AppPlan collision. Module order or property names MUST NOT
+affect root identity.
 
 A dynamic actor with an explicit host ID has identity
 `dynamic|<app-segment>|<host-id-segment>`. An omitted ID receives an opaque runtime-local identity

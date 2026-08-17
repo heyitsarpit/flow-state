@@ -44,6 +44,13 @@ discriminant owned by the corresponding envelope.
   programmatic traversal calls are the sole model candidate boundary.
 - Do not silently accept or guess v1 artifacts as v2.
 
+## Implementation hints (non-normative)
+
+ARCH-028 recommends one reviewed Schema owner plus the bounded hostile-input walker, one shared
+Effect v4 Cause reason projector, exhaustive matching for closed CLI diagnostics, and one final
+Promise/process adapter. These are consolidation hints; the wire bytes and failure laws remain the
+actual requirements.
+
 ## Tasks
 
 - [ ] Implement `CLI-001` through `CLI-012`. Do not retain a legacy flag, result envelope, exit
@@ -71,8 +78,9 @@ discriminant owned by the corresponding envelope.
       existing boot Schema for boot import/export and preserve domain memory and payloads as
       application-owned opaque values.
 - [ ] Consume the Phase 0-reviewed exact nested Schemas and canonical byte goldens for boot,
-      behavior, trace, Cause, CLI result, and diagnostics; reject noncanonical Cause payloads,
-      gzip extra members, and trailing bytes instead of adding fallback stringification.
+      behavior, trace, flat Effect v4 Cause reasons, CLI result, and diagnostics; preserve reason
+      order and duplicate multiplicity, reject noncanonical Cause payloads, gzip extra members,
+      and trailing bytes instead of adding fallback stringification.
 - [ ] Prove that artifact import and request boot call the Phase 2 constructor decoder and the
       Phase 3/4 normalizers. Resolve identities through AppPlan and reject incompatible input
       before activation without creating a second hydration path.

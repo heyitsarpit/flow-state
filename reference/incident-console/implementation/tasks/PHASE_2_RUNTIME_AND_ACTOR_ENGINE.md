@@ -1,6 +1,6 @@
 # Phase 2 — Managed runtime and actor engine
 
-Status: waiting on Phase 1
+Status: waiting on Phase 1 review corrections
 
 ## Objective
 
@@ -25,6 +25,32 @@ focused lifecycle/race tests.
 
 Resource lookup policy, optimistic transaction semantics, React, stories, and CLI are
 forbidden except for minimal internal interfaces consumed by later phases.
+
+## Mandatory inherited preflight
+
+Read `../SCRATCHPAD.md` before changing runtime code. `SP-B026`–`SP-B029` contradict Phase 1 proof
+claims, so Phase 2 MUST NOT begin until their production fixes, hostile tests, Phase 1 gates, and
+receipt addendum pass. `SP-N004` records the bounded cleanup/review work; do not turn it into a
+rewrite or combine the Phase 1 correction and Phase 2 runtime in one commit. The current Phase 1
+worktree is uncommitted, so establish and preserve its exact live baseline first.
+
+Once that dependency is approved, follow `SP-N005` as the Effect ownership checklist. In
+particular, keep definition/AppPlan/canonical compilation synchronous; use Effect primitives only
+where Phase 2 owns concurrency, service provision, interruption, publication, and cleanup. Finish
+with the independent review protocol in `SP-N006`; the implementation agent does not
+self-promote Phase 3.
+
+Required review references are
+`skills/thermo-nuclear-code-quality-review/SKILL.md` and
+`/Users/arpit/.codex/skills/effect-ts/SKILL.md`. Read both before coding and again during final
+self-review.
+
+## Implementation hints (non-normative)
+
+Use ARCH-028 as review guidance, not an additional gate. The simplest expected composition is one
+Layer graph and ManagedRuntime, one Queue/SubscriptionRef pair per actor, one callback adapter, one
+ordered Cause module, exhaustive private-union matching, and the fixed commit-permit order; an
+equivalent implementation remains valid when it proves the same contract behavior.
 
 ## Tasks
 
@@ -61,10 +87,11 @@ forbidden except for minimal internal interfaces consumed by later phases.
       closure seeded by roots and `app.dynamicMachines`. A machine object never presented to AppPlan fails with
       `UnreachableMachine`; no process-global registry participates.
 - [ ] Replace the custom ready-work scheduler with one ManagedRuntime-owned consumer per actor;
-      public send uses `Queue.offerUnsafe` and internal acknowledged dispatch offers to the same
-      Queue through Effect.
-- [ ] Implement package-private acknowledged dispatch using Deferred while public `send`
-      remains synchronous.
+      public send and internal acknowledged dispatch admit to the same Queue through the
+      service-free shell edge.
+- [ ] Implement package-private acknowledged dispatch by synchronously creating its Deferred with
+      `Deferred.makeUnsafe`, applying the shell admission CAS, offering with `Queue.offerUnsafe`,
+      and returning `Deferred.await(deferred)`; public `send` remains synchronous.
 - [ ] Implement one actor-owned durable `PendingOutcome` map and stable-ID mailbox command.
       Projection/cursor publication adds the materialized event atomically; processing removes it
       in the event turn; duplicate IDs no-op; boot restores records before scheduling them once.
@@ -83,6 +110,8 @@ forbidden except for minimal internal interfaces consumed by later phases.
       those credits, then spend disposal credits in raw actor-ID order.
 - [ ] Implement full-Cause classification and preserve typed failure, defect, interruption,
       and cleanup lanes.
+- [ ] Make `runPromiseExit` total across Effect execution and Layer acquisition by resolving
+      `Exit<A, E | LayerError>`; keep `runPromise` as the rejecting JavaScript boundary.
 - [ ] Implement idempotent disposal: stop admission, settle buffered acknowledgments,
       interrupt/await all work, publish disposed, complete snapshots, and close the runtime.
 - [ ] Prove the permanently pending-Layer path discards buffered public sends without executing
@@ -111,6 +140,8 @@ forbidden except for minimal internal interfaces consumed by later phases.
   mailbox drain enacts the staged ownership.
 - Observer or inspection failure cannot roll back or block an actor publication.
 - Mixed failure-plus-defect Causes classify as defect while retaining the complete Cause.
+- `runPromiseExit` resolves exact success, typed failure, defect, interruption, and Layer
+  acquisition exits without rejecting; `runPromise` remains the rejecting boundary.
 - Disposal runs every finalizer once, never abandons cleanup, settles buffered Deferreds
   before Queue shutdown, clears pending outcomes without routing them, publishes one disposed
   snapshot, and is idempotent.

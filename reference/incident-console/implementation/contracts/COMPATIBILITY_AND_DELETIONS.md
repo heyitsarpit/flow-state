@@ -45,49 +45,49 @@ that remains callable does not satisfy deletion.
 
 ## Root cutover matrix
 
-| Current surface                                          | vNext decision | Normative replacement                                             |
-| -------------------------------------------------------- | -------------- | ----------------------------------------------------------------- |
-| `machine(config)`                                        | DELETE         | `definition(...)` plus `machine(definition, callback)`            |
-| `machine<Context, Event>()(config)`                      | DELETE         | definition-inferred input, memory, states, and events             |
-| machine `id` or `memory` inside behavior config          | DELETE         | inherited unchanged from the definition                           |
-| `vocabulary(...)` / `Vocabulary`                         | RENAME         | `definition(...)` / `Definition`                                  |
-| machine `context`                                        | DELETE         | actor-local `memory`                                              |
-| transition `update`                                      | DELETE         | `updateMemory`                                                    |
-| `actions`, `entry`, `exit`                               | DELETE         | transitions, inspectable activities, views, or observers          |
-| state `invoke`                                           | DELETE         | `activities`                                                      |
-| state `always`                                           | DELETE         | `redirect`                                                        |
-| `after` and `flow.after`                                 | DELETE         | named `timers` entries                                            |
-| transition `submit`                                      | DELETE         | `activities: [activity.run(transaction, ...)]`                    |
-| standalone `ensure/observe/refresh/invalidate/run`       | DELETE         | machine-local `activity` kit                                      |
-| canonical-key or predicate resource invalidation         | DELETE         | exact resource refs, nominal tags, or computed target vectors     |
-| `createKey`                                              | DELETE         | return `CanonicalKeyInput` directly                               |
-| `createTag`                                              | RENAME         | `tag(id)`                                                         |
-| resource `key` / custom identity projection              | DELETE         | descriptor ID plus canonical lookup-argument tuple                |
-| resource `schema`                                        | DELETE         | application boundary decoder                                      |
-| transaction `scope`                                      | DELETE         | actor-local concurrency per exact transaction ref                 |
-| stream `pressure`                                        | DELETE         | Effect Stream or application-authored buffering policy            |
-| `freshness.staleAfter`                                   | RENAME         | `staleTime`                                                       |
-| `freshness.onInvalidate`                                 | DELETE         | observation ownership plus invalidation policy                    |
-| `outcomes(...)`                                          | DELETE         | direct contextual `outcomes` literals                             |
-| `patch(ref, patch)` activity                             | DELETE         | memory, transaction preview, observation, or internal store patch |
-| `selectView`                                             | INTERNALIZE    | actor observer, checkpoint projection, or inspect projection      |
-| `store.memory/test`                                      | DELETE         | runtime internal store selection                                  |
-| `orchestrators.live/test`                                | DELETE         | runtime and story internal orchestration                          |
-| `module(id, inventory, meta?)`                           | DELETE         | `module({ id, machines, views })`                                 |
-| generic module inventory/meta                            | DELETE         | inferred graph plus exact root/view ownership                     |
-| `app({ modules })` without ID                            | DELETE         | `app({ id, persistenceVersion, modules, dynamicMachines? })`      |
-| `app.layer(...)`                                         | DELETE         | `runtime({ app, layer })`                                         |
-| `runtime(layer)`                                         | DELETE         | `runtime({ app, layer, boot? })`                                  |
-| zero-argument `runtime()`                                | DELETE         | explicit app and closed Layer                                     |
-| `runtime.resources.*`                                    | DELETE         | machine activities, views, fixtures, and boot                     |
-| `runtime.orchestrators.*`                                | DELETE         | `runtime.actor` and `runtime.createActor`                         |
-| public `managedRuntime`                                  | INTERNALIZE    | `ready`, Effect bridges, and `dispose`                            |
-| mutable `hydrateBoot`                                    | DELETE         | immutable runtime `boot` input                                    |
-| public runtime inspection object                         | DELETE         | `actor.snapshots` and `/inspect` sinks                            |
-| exported runtime service types                           | INTERNALIZE    | inferred app requirements and application Layer                   |
-| resource and transaction snapshot `.status`              | KEEP           | same readonly literal discriminant                                |
-| `isPlaceholderData`, `paused`, `availability: "failure"` | DELETE         | `availability`, `activity`, `freshness`, and TurnRecord issues    |
-| standalone snapshot status-alias type exports            | DELETE         | inferred literal domains on snapshot fields                       |
+| Current surface                                          | vNext decision | Normative replacement                                               |
+| -------------------------------------------------------- | -------------- | ------------------------------------------------------------------- |
+| `machine(config)`                                        | DELETE         | `definition(...)` plus `machine(definition, callback)`              |
+| `machine<Context, Event>()(config)`                      | DELETE         | definition-inferred input, memory, states, and events               |
+| machine `id` or `memory` inside behavior config          | DELETE         | inherited unchanged from the definition                             |
+| `vocabulary(...)` / `Vocabulary`                         | RENAME         | `definition(...)` / `Definition`                                    |
+| machine `context`                                        | DELETE         | actor-local `memory`                                                |
+| transition `update`                                      | DELETE         | `updateMemory`                                                      |
+| `actions`, `entry`, `exit`                               | DELETE         | transitions, inspectable activities, views, or observers            |
+| state `invoke`                                           | DELETE         | `activities`                                                        |
+| state `always`                                           | DELETE         | `redirect`                                                          |
+| `after` and `flow.after`                                 | DELETE         | named `timers` entries                                              |
+| transition `submit`                                      | DELETE         | `activities: [activity.run(transaction, ...)]`                      |
+| standalone `ensure/observe/refresh/invalidate/run`       | DELETE         | machine-local `activity` kit                                        |
+| canonical-key or predicate resource invalidation         | DELETE         | exact resource refs, nominal tags, or computed target vectors       |
+| `createKey`                                              | DELETE         | return `CanonicalKeyInput` directly                                 |
+| `createTag`                                              | RENAME         | `tag(id)`                                                           |
+| resource `key` / custom identity projection              | DELETE         | descriptor ID plus canonical lookup-argument tuple                  |
+| resource `schema`                                        | DELETE         | application boundary decoder                                        |
+| transaction `scope`                                      | DELETE         | actor-local concurrency per exact transaction ref                   |
+| stream `pressure`                                        | DELETE         | Effect Stream or application-authored buffering policy              |
+| `freshness.staleAfter`                                   | RENAME         | `staleTime`                                                         |
+| `freshness.onInvalidate`                                 | DELETE         | observation ownership plus invalidation policy                      |
+| `outcomes(...)`                                          | DELETE         | direct contextual `outcomes` literals                               |
+| `patch(ref, patch)` activity                             | DELETE         | memory, transaction preview, observation, or internal store patch   |
+| `selectView`                                             | INTERNALIZE    | actor observer, checkpoint projection, or inspect projection        |
+| `store.memory/test`                                      | DELETE         | runtime internal store selection                                    |
+| `orchestrators.live/test`                                | DELETE         | runtime and story internal orchestration                            |
+| `module(id, inventory, meta?)`                           | DELETE         | `module({ id, machines, views })`                                   |
+| generic module inventory/meta                            | DELETE         | inferred graph plus exact root/view ownership                       |
+| `app({ modules })` without ID                            | DELETE         | `app({ id, persistenceVersion, modules, dynamicMachines? })`        |
+| `app.layer(...)`                                         | DELETE         | `runtime({ app, layer })`                                           |
+| `runtime(layer)`                                         | DELETE         | `runtime({ app, layer, boot? })`                                    |
+| zero-argument `runtime()`                                | DELETE         | explicit app; closed Layer only when app requirements are non-never |
+| `runtime.resources.*`                                    | DELETE         | machine activities, views, fixtures, and boot                       |
+| `runtime.orchestrators.*`                                | DELETE         | `runtime.actor` and `runtime.createActor`                           |
+| public `managedRuntime`                                  | INTERNALIZE    | `ready`, Effect bridges, and `dispose`                              |
+| mutable `hydrateBoot`                                    | DELETE         | immutable runtime `boot` input                                      |
+| public runtime inspection object                         | DELETE         | `actor.snapshots` and `/inspect` sinks                              |
+| exported runtime service types                           | INTERNALIZE    | inferred app requirements and application Layer                     |
+| resource and transaction snapshot `.status`              | KEEP           | same readonly literal discriminant                                  |
+| `isPlaceholderData`, `paused`, `availability: "failure"` | DELETE         | `availability`, `activity`, `freshness`, and TurnRecord issues      |
+| standalone snapshot status-alias type exports            | DELETE         | inferred literal domains on snapshot fields                         |
 
 The weak current root values are visibly exported at
 `packages/flow-state/src/index.ts:1-24`. Current mutable runtime resources, orchestrators,
@@ -190,12 +190,12 @@ list/check envelopes, renderers, command wiring, and CLI-only model adapter as o
 
 ## Server cutover matrix
 
-| Current surface                                  | vNext decision | Normative replacement                                |
-| ------------------------------------------------ | -------------- | ---------------------------------------------------- |
-| `withRequestRuntime(layer, handler)`             | REPLACE        | `withRequestRuntime({ app, layer, boot? }, handler)` |
-| v1 boot types                                    | DELETE         | root `RuntimeBootPayload<App>`                       |
-| server-side mutable resource seeding             | DELETE         | fixture-only test seeds or root-machine preload      |
-| direct service preload plus fabricated snapshots | DELETE         | typed root events plus actor observation             |
+| Current surface                                  | vNext decision | Normative replacement                                                          |
+| ------------------------------------------------ | -------------- | ------------------------------------------------------------------------------ |
+| `withRequestRuntime(layer, handler)`             | REPLACE        | inferred `{ app, layer?, boot?, mode? }`; omit Layer only for service-free app |
+| v1 boot types                                    | DELETE         | root `RuntimeBootPayload<App>`                                                 |
+| server-side mutable resource seeding             | DELETE         | fixture-only test seeds or root-machine preload                                |
+| direct service preload plus fabricated snapshots | DELETE         | typed root events plus actor observation                                       |
 
 The current raw-Layer helper is `packages/flow-state/src/runtime/request-runtime.ts:6-20`, and
 the current server route exports v1 boot types at `packages/flow-state/src/server.ts:1-9`.

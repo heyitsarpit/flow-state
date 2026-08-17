@@ -312,28 +312,32 @@ live concurrently and each is disposed by its host scope.
 
 ### HOST-015 — Request runtimes have one scoped helper
 
-The server route MUST expose exactly:
+The server route MUST expose these two inferred shapes:
 
 ```ts
-await withRequestRuntime(
-  { app, layer, boot?, mode: "active" | "render" },
-  async (runtime) => {
-    await runtime.ready();
-    const actor = runtime.actor(rootMachine);
-    actor.send(AppEvents.E.PrefetchRequested());
-    await runtime.runPromise(
-      actor.snapshots.pipe(
-        Stream.filter((snapshot) => snapshot.value === AppStates.S.READY),
-        Stream.take(1),
-        Stream.runDrain,
-      ),
-    );
-    return runtime.dehydrate();
-  },
-);
+withRequestRuntime({ app }, handler); // only when RequirementsOf<App> is never
+withRequestRuntime({ app, layer, boot, mode: "render" }, handler);
 ```
 
-`mode` defaults to `"active"`. The helper MUST construct one request-scoped runtime, await readiness before invoking the
+A serviceful preload uses the helper as follows:
+
+```ts
+await withRequestRuntime({ app, layer, boot, mode: "active" }, async (runtime) => {
+  const actor = runtime.actor(rootMachine);
+  actor.send(AppEvents.E.PrefetchRequested());
+  await runtime.runPromise(
+    actor.snapshots.pipe(
+      Stream.filter((snapshot) => snapshot.value === AppStates.S.READY),
+      Stream.take(1),
+      Stream.runDrain,
+    ),
+  );
+  return runtime.dehydrate();
+});
+```
+
+The helper has a no-Layer overload only when `RequirementsOf<App>` is `never`; otherwise `layer`
+is required and must close every application requirement. `mode` defaults to `"active"`. The helper MUST construct one request-scoped runtime, await readiness before invoking the
 handler, await the handler, and await disposal in every exit path. If the handler and disposal
 both fail, it MUST throw `AggregateError([primary, cleanup], message, { cause: primary })` in that
 order even when both values are reference-equal. A readiness failure is primary and the handler is
@@ -347,8 +351,9 @@ The current helper already preserves handler and cleanup failures but accepts on
 ### HOST-016 — Effect bridges retain runtime service and error truth
 
 The runtime MUST expose `runPromise` and `runPromiseExit` over Effects whose requirements are
-satisfied by the runtime Context. `runPromiseExit` MUST retain both the Effect error and Layer
-acquisition error. These bridges MUST reuse the one ManagedRuntime and MUST NOT create an
+satisfied by the runtime Context. `runPromiseExit` MUST resolve an Exit whose error channel retains
+both the Effect error and Layer acquisition error; Layer acquisition failure MUST NOT reject this
+Promise. These bridges MUST reuse the one ManagedRuntime and MUST NOT create an
 unowned execution Scope.
 
 ### HOST-017 — Dehydration is revision-consistent
@@ -406,7 +411,8 @@ actor publication and is recorded as a runtime TurnRecord/diagnostic. After read
 dispose and await every actor/activity/store execution Scope before invoking
 `ManagedRuntime.disposeEffect`, so an application Layer finalizer cannot race service-using actor
 finalizers. The shared dispose Promise
-rejects with one `FlowDisposeError` containing the combined Cause. A half-published store/actor turn
+rejects with one `FlowDisposeError` containing one ordered aggregate Cause that retains duplicate
+reasons. A half-published store/actor turn
 is impossible under SEM-004's uninterruptible commit boundary.
 
 If disposal begins from the acknowledged waiter while the actor is still completing that

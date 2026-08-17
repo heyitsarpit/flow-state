@@ -492,12 +492,14 @@ activity.child(childDescriptor, {
 });
 ```
 
-A zero-argument transaction exposes `activity.run(transaction, { outcomes? })` and uses the
-singleton ref; each activation/event/timer edge admitted under SEM-019 supplies the empty parameter
-tuple. A zero-parameter stream exposes `activity.stream(streamDescriptor, { outcomes? })` with the
-empty-tuple key. A `void`-input child exposes `activity.child(childDescriptor, { outcomes? })` with
-void input and the empty-tuple key. Parameterized forms always require their selector and canonical
-key projection; no arity is inferred from an optional callback at runtime.
+A zero-argument transaction exposes `activity.run(transaction)` and
+`activity.run(transaction, { outcomes })` and uses the singleton ref; each activation/event/timer
+edge admitted under SEM-019 supplies the empty parameter tuple. A zero-parameter stream exposes
+`activity.stream(streamDescriptor)` and `activity.stream(streamDescriptor, { outcomes })` with the
+empty-tuple key. A `void`-input child exposes `activity.child(childDescriptor)` and
+`activity.child(childDescriptor, { outcomes })` with void input and the empty-tuple key.
+Parameterized forms always require their selector and canonical key projection; no arity is
+inferred from an optional callback at runtime.
 
 Managed children are autonomous supervised workflows. Their binding does not accept a
 parent-to-child command mapper, actor-handle selector, or send callback. A workflow that needs
@@ -510,7 +512,9 @@ opaque params/input.
 
 Transaction outcomes map `success(A)`, `failure(E)`, `defect()`, and `interrupt()`. Stream outcomes
 map `value(A)`, `complete()`, `failure(E)`, `defect()`, and `interrupt()`. Child outcomes map
-`complete(exactFinalChildSnapshot)`, `defect()`, and `interrupt()`; child machines have no typed
+`complete(ActorSnapshot<ChildMachine>)`, `defect()`, and `interrupt()`; the completion value is
+the complete machine-family snapshot, including the exact timer-name and primitive-binding
+registries, and MUST NOT widen through `ChildMachine["definition"]`. Child machines have no typed
 failure channel. A mapper is unavailable where its typed channel is `never`, and no mapper receives
 Cause or a synthetic error. Planned stop/release never routes an outcome.
 
@@ -645,9 +649,11 @@ creates, adopts, supplies input, or changes disposal ownership. It rejects a mis
 mismatch, opaque non-durable identity, disposed incarnation, and foreign machine.
 `dehydrate()` MUST return `Promise<RuntimeBootPayload<App>>`; runtime and dynamic-actor
 `dispose()` MUST return `Promise<void>` and every repeated call MUST return the same Promise.
-`runPromise` returns `Promise<A>` using Effect's ordinary Cause-to-rejection boundary, while
-`runPromiseExit` returns `Promise<Exit.Exit<A, E>>` and never rejects for an Effect failure; both
-may reject with the original shared Layer acquisition failure before an Effect begins. Root and dynamic actors MUST
+`runPromise` returns `Promise<A>` using Effect's ordinary Cause-to-rejection boundary and may reject
+with the original shared Layer acquisition failure before an Effect begins. `runPromiseExit`
+returns `Promise<Exit.Exit<A, E | LayerError>>`; it resolves with Layer acquisition failure in the
+Exit, retains defects and interruption in the Exit Cause, and never rejects for Effect execution or
+Layer acquisition failure. Root and dynamic actors MUST
 expose `id`, `machine`, `getSnapshot()`, `snapshots`, and synchronous `send(event): void`;
 only a dynamic actor exposes `dispose()`. Exact readiness, acknowledgment, observation, SSR,
 and disposal semantics are owned by `REACT_AND_HOSTS.md`.
@@ -657,7 +663,8 @@ and disposal semantics are owned by `REACT_AND_HOSTS.md`.
 `scope: "actor" | "runtime"`. Runtime scope combines actor-owned cleanup and application-Layer or
 global-scope finalizer Causes without squashing either. Internally every owner exposes one
 package-private `disposeExit(): Exit<void, unknown>`; runtime composition orders actor Causes by raw
-actor ID, then StoreKernel, then application-Layer/global scope, and combines them sequentially.
+actor ID, then StoreKernel, then application-Layer/global scope, retaining the ordered reasons and
+duplicate multiplicity from every Cause.
 Public `dispose()` maps that complete Cause to one cached `FlowDisposeError`; repeated calls return
 the identical Promise and, on failure, the identical error object.
 
@@ -734,6 +741,10 @@ run.final;
 
 The builder commands MUST be exactly `with`, `send`, `perform`, `flush`, `settle`, `advance`,
 `setTime`, `advanceToNextTimer`, `checkpoint`, and `run`. Plans MUST be immutable and linear.
+`advance` accepts Effect `Duration.Input` and synchronously normalizes it to checked safe-integer
+milliseconds while constructing the next plan; invalid input throws `FlowUsageError` before a run
+exists. `setTime` accepts an absolute non-negative safe-integer epoch millisecond and is validated
+under TEST-012.
 They MUST NOT contain runtime branches, loops, predicates, arbitrary callbacks, promises,
 Effects, matcher callbacks, or live actor readers. `checkpoint` MUST capture immediately and
 MUST NOT progress execution. The consolidated story contract is settled at

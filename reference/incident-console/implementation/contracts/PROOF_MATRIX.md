@@ -30,6 +30,10 @@ acknowledgment APIs. Run the same declarations through source TypeScript, packed
 strict mode, isolated modules, isolated declarations, multi-entry consumers, and packed React
 18 and React 19 consumers.
 
+Include descriptor-only bindings for zero-argument transactions, zero-parameter streams, and
+void-input children, plus exact `ActorSnapshot<ChildMachine>` completion inference with timer
+names and primitive registries intact.
+
 Required negative proofs include invalid start combinations, wrong-machine events, missing
 control channels when error is `never`, duplicate literal checkpoint names where statically
 detectable, resource `key` or canonical-key invalidation filters, unsatisfied app services,
@@ -113,6 +117,14 @@ Prove early sends wait on one lazy Layer acquisition and execute exactly once, a
 failure reaches all waiters, every activity is reachable from the ManagedRuntime Scope, and
 runtime disposal interrupts owned work, runs each finalizer once, reports full cleanup Causes,
 and is idempotent.
+
+Prove `runPromiseExit` resolves `Exit<A, E | LayerError>` for success, typed failure, defect,
+interruption, and Layer acquisition failure and never rejects, while `runPromise` remains the
+ordinary rejecting host boundary.
+
+When several owners fail cleanup, prove the aggregate preserves raw actor-ID, StoreKernel, then
+application-Layer reason order and duplicate multiplicity; no squashing or union-style Cause
+combination may erase evidence.
 
 Cover normal completion, typed failure, defect, interruption, state exit, replacement, actor
 stop, runtime disposal, story cancellation, and simultaneous execution plus cleanup failure.
@@ -200,6 +212,11 @@ serialized activities, and controlled dependencies without wall-clock sleeps. `f
 only ready work, `settle` stays at current time, and only `advance`, `setTime`, or
 `advanceToNextTimer` moves time.
 
+Prove `advance` accepts every legal Effect `Duration.Input`, normalizes it during immutable plan
+construction without requiring an Effect import in consumer code, and synchronously rejects an
+invalid result before acquisition. `setTime` remains an absolute non-negative safe-integer epoch
+millisecond and never accepts a broad DateTime input.
+
 Continuing observations, streams, child actors, and future timers do not block settlement.
 Finite lookups and transactions do. Every looping command enforces the story's one `maxTurns`
 bound and reports exact finite and continuing pending work on exhaustion.
@@ -282,6 +299,10 @@ descriptor predicate, current-view heuristic, or unreferenced-warmth omission. E
 `ConcurrentDehydrate` is retryable, while non-durable ownership/params, identity closure, payload
 encoding, bounds, and disposed runtime are terminal.
 
+Prove the artifact Cause projection follows Effect v4's flat ordered `reasons` model, including an
+empty array, each `Fail`/`Die`/`Interrupt` member, mixed reason order, and duplicate multiplicity.
+No recursive composition member, Cause squashing, or reason deduplication may enter stable bytes.
+
 Prove a running stream round trip persists canonical concrete params, does not serialize or
 resume its old fiber/Scope/cursor, records the old generation as an unrouted restoration
 interruption, and starts exactly one fresh scoped generation after hydrated publication and
@@ -328,11 +349,20 @@ cannot be erased with `Effect.ignore`.
 
 ## PROOF-016: Final proving applications
 
+### APP-001 — Todo Essentials proving application
+
 Todo Essentials proves ordinary resource, transaction, optimistic overlay, machine, view,
-React, fixture, story, checkpoint, and TestClock paths. Incident Console proves multiple refs,
-transaction conflicts, Effect Stream backpressure, children, scoped leases, inspection, diagnostics,
-CLI, and browser lifetime. Hydrated Offline Notes proves request isolation, root-machine
-preload, v2 boot, first-render consistency, persisted outbox, reconnect drain, and disposal.
+React, fixture, story, checkpoint, and TestClock paths.
+
+### APP-002 — Incident Console proving application
+
+Incident Console proves multiple refs, transaction conflicts, Effect Stream backpressure,
+children, scoped leases, inspection, diagnostics, CLI, and browser lifetime.
+
+### APP-003 — Hydrated Offline Notes proving application
+
+Hydrated Offline Notes proves request isolation, root-machine preload, v2 boot, first-render
+consistency, persisted outbox, reconnect drain, and disposal.
 
 Bounded-feed behavior remains a package contract fixture with dropping/coalescing authored inside
 the application Stream rather than a Flow `pressure` option. React 18/19 and isolated TypeScript

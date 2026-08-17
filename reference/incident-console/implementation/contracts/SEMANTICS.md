@@ -104,7 +104,9 @@ captured through an independently mutable source.
 for Layer acquisition, the actor turn, or asynchronous work. A package-private acknowledged
 dispatch MUST use a command `Deferred` that completes after SEM-004 actor publication and
 TurnRecord hub acceptance, but before sink processing or later asynchronous work. Story `.send`
-MUST await that Deferred and nothing later.
+MUST await that Deferred and nothing later. The dispatch allocates the Deferred and admits the
+command synchronously at the shell edge before returning the awaiting Effect, so it remains usable
+while the shared Layer is still acquiring.
 
 ### SEM-006A — Mapped activity outcomes have durable mailbox admission
 

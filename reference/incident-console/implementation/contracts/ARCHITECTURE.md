@@ -105,8 +105,13 @@ Public `send` MUST synchronously use `Queue.offerUnsafe` on that real unbounded 
 made before acquisition retain FIFO order without a no-op shell or separate JavaScript
 buffer. The one Queue consumer MUST be forked through ManagedRuntime; it waits on the shared
 Layer build before interpreting commands. It drains restored outcomes, then the barrier activates
-current desired ownership, then any early host commands. Package-private acknowledged dispatch MUST offer to the same Queue through Effect. Acquisition failure MUST close admission, fail acknowledged
-waiters, and reach readiness without executing queued commands.
+current desired ownership, then any early host commands. Package-private acknowledged dispatch MUST
+synchronously allocate its command Deferred with `Deferred.makeUnsafe`, pass the same shell
+admission/lifetime check as public `send`, and admit with `Queue.offerUnsafe` before returning
+`Deferred.await(deferred)` as an Effect. This is the sole service-free pre-readiness admission path; it MUST
+NOT create another runtime or await ManagedRuntime acquisition before offering. Acquisition failure
+MUST close admission, fail acknowledged waiters, and reach readiness without executing queued
+commands.
 
 ### ARCH-010 — Runtime construction always names app and Layer
 
@@ -278,6 +283,10 @@ their consumers and all Effectful execution; host callbacks MUST NOT run Effects
 synchronously or mutate actor state. Shell disposal settles acknowledgments and closes the
 cells exactly once after managed consumers stop.
 
+The same shell-only coordination boundary owns `Deferred.makeUnsafe` and `Queue.offerUnsafe` for
+pre-readiness command admission. These unsafe constructors and offers do not authorize arbitrary
+Effect execution or actor-state mutation outside the managed consumer.
+
 Pre-readiness acquisition failure/disposal is the one terminalization exception: because pinned
 ManagedRuntime does not start even requirement-free `runFork` bodies before its Context resolves,
 the shell may synchronously compare-and-set terminal state, complete buffered Deferreds with their
@@ -326,3 +335,45 @@ outcomes, snapshots, and persistence together.
 VNext exposes explicit inspection sinks and artifacts but no built-in browser/WebSocket inspector
 transport. An application may forward sink projections to its own tool without changing runtime
 ownership.
+
+### ARCH-028 — Recommended Effect v4 composition is non-normative
+
+This section is implementation guidance, not observable semantics. An equivalent implementation
+that satisfies every `MUST` law and proof remains valid; proofs, rather than the primitive choices
+below, govern conformance.
+
+- Prefer package-private `Context.Service` values for runtime-wide capabilities, composed once with
+  `Layer.succeed` and `Layer.effect(Service, Effect.acquireRelease(...))`, then installed through
+  the single ManagedRuntime boundary. Pure definition compilation, AppPlan construction, canonical
+  identity, and TurnPlan calculation remain ordinary synchronous TypeScript.
+- Prefer one synchronous authored-callback adapter built with `Result.try`, followed by exhaustive
+  `Match` for classification; defer an Effect-returning callback with
+  `Effect.suspend(() => callback(input)).pipe(Effect.exit)`, and use
+  `Stream.suspend`. This keeps throw timing, typed failure, defect, and interruption classification
+  in one place without changing the callback's public contract.
+- Prefer one `Queue` consumer and one `SubscriptionRef<ActorState>` per actor. When a store commit
+  needs both owners, acquire them in fixed order `TurnRecord commit permit -> DehydrateBarrier`;
+  capture takes only DehydrateBarrier and no path acquires the commit permit while holding it.
+  Protect only the non-suspending publication tail with `Effect.uninterruptibleMask`.
+- Prefer StoreKernel ownership of shared lookup fibers with `FiberMap` and registrations with `RcMap`;
+  transaction `cancel`, `allow`, and `serialize` can use `FiberMap`, `FiberSet`, and one keyed
+  `Queue` worker respectively. Flow's generation checks and admission policy remain authoritative.
+- Prefer one Effect-native `acquire/use/release` program below each Promise adapter for host and
+  request lifetimes, normally using `Effect.acquireRelease` or `Effect.scoped`. Prefer one duration
+  normalizer (`Duration.Input` to checked safe-integer milliseconds, allowing Infinity only where
+  the public field permits it), one Cause module whose ordered `cause.reasons` traversal feeds
+  classification and projection, and one private Schema owner reused by runtime, stories,
+  artifacts, and CLI.
+- Prefer exhaustive `Match` for closed private unions. Artifact decoding should combine reviewed
+  Schema codecs with the bounded hostile-value walker rather than replace either one.
+- Flow should retain its custom RuntimeShell, StoreKernel, PendingOutcome, StoreState, Flow generations,
+  StoreFanout, DehydrateBarrier, lease epochs, TurnRecord release gates, per-key serialization
+  admission, TimerCoordinator, and compiled executable table. Independent Clock sleeps cannot
+  guarantee Flow's stable equal-deadline actor/timer-slot order, so TimerCoordinator remains the
+  intended owner unless a later proof establishes an equivalent primitive.
+
+Where ordered cleanup multiplicity matters, prefer an ordered list of v4
+Causes or Exits and, only when one Cause value is required, construct it with
+`Cause.fromReasons(causes.flatMap((cause) => cause.reasons))`. Avoid `Cause.combine` at
+that boundary because it deduplicates reasons. Keep `Cause.squash` restricted to a deliberately
+lossy host rejection boundary.

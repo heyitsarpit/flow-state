@@ -1,6 +1,6 @@
 # Implementation task index
 
-Status: phase 1 ready
+Status: Phase 1 review corrections; Phase 2 waiting
 
 Only one phase may be active. A phase becomes complete only when its receipt exists and
 every acceptance, deletion, and gate in its manifest is satisfied.
@@ -12,7 +12,7 @@ assigns them to a later phase.
 | Phase | Manifest                                                                           | Initial status |
 | ----- | ---------------------------------------------------------------------------------- | -------------- |
 | 0     | [Baseline and contract cutover](./PHASE_0_BASELINE_AND_CONTRACT_CUTOVER.md)        | Complete       |
-| 1     | [Definitions, identity, types, and AppPlan](./PHASE_1_DEFINITIONS_AND_APP_PLAN.md) | Ready          |
+| 1     | [Definitions, identity, types, and AppPlan](./PHASE_1_DEFINITIONS_AND_APP_PLAN.md) | Review blocked |
 | 2     | [Managed runtime and actor engine](./PHASE_2_RUNTIME_AND_ACTOR_ENGINE.md)          | Waiting        |
 | 3     | [Resource kernel](./PHASE_3_RESOURCE_KERNEL.md)                                    | Waiting        |
 | 4     | [Transactions and activities](./PHASE_4_TRANSACTIONS_AND_ACTIVITIES.md)            | Waiting        |

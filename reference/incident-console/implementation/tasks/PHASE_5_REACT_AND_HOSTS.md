@@ -46,6 +46,13 @@ primitive state outside the actor snapshot.
   acknowledgment API.
 - Do not retain inspection history in the provider, observer, actor, or hook.
 
+## Implementation hints (non-normative)
+
+ARCH-028 recommends `acquireRelease` for host listeners, scoped Stream lifetimes, and one
+Effect-native acquire/use/release request program below the Promise helper. React remains a passive
+resolver/subscriber, and an equivalent host adapter is valid when it proves the same ownership and
+cleanup laws.
+
 ## Tasks
 
 - [ ] Publish advisory online/focus facts through managed ownership; offline does not pause work
@@ -86,7 +93,9 @@ primitive state outside the actor snapshot.
       resource ownership, refresh, stale time, or GC.
 - [ ] Move browser runtime creation outside React initializers. Request-scoped and future story
       runtimes remain Scope-owned rather than module singletons.
-- [ ] Implement `withRequestRuntime({ app, layer, boot?, mode? }, handler)` as the one scoped request host.
+- [ ] Implement `withRequestRuntime({ app, layer?, boot?, mode? }, handler)` as the one scoped
+      request host. Omit `layer` only for an app whose inferred requirements are `never`; require a
+      closing Layer for every serviceful app.
       It creates one runtime, exposes root lookup to the handler, and awaits disposal after success,
       failure, or interruption. It does not preload services or own artifact rendering.
 - [ ] Prove SSR as two sequential helper lifetimes: preload through typed events, dehydrate and
@@ -117,6 +126,8 @@ primitive state outside the actor snapshot.
   dispatch.
 - Two concurrent request helpers share no runtime, actor, store, Layer acquisition, sink, or
   finalizer state, and both await disposal on success and failure.
+- A service-free request helper infers from `{ app }`, while a serviceful app rejects omission of
+  its closing Layer in source and packed consumers.
 
 ## Deletion obligations
 

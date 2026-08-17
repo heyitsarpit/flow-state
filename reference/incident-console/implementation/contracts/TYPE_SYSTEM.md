@@ -236,6 +236,12 @@ child completion receives the exact child snapshot. Failure mappings MUST be abs
 channel. Child bindings may type exact complete, defect, and interrupt mappings, while planned stop
 has no route.
 
+For a zero-argument transaction, zero-parameter stream, or `void`-input child, the descriptor-only
+activity overload MUST compile and the optional second argument may contain only exact outcomes.
+The child completion parameter MUST be `ActorSnapshot<ChildMachine>`, preserving its exact
+timer-name and primitive-binding registries; deriving it as
+`MachineSnapshot<ChildMachine["definition"]>` is forbidden because that widens the machine family.
+
 Stream params MAY be any exact tuple during ordinary execution. A running stream can participate
 in durable capture only when its materialized tuple satisfies the canonical carrier; otherwise
 `dehydrate()` fails with `NonDurableActiveStreamParams`. This restriction MUST be visible in the
@@ -335,8 +341,8 @@ and acquisition errors remain exact (`packages/flow-state/src/public-api-types.t
 
 For `Runtime<App, LayerError>`, `runPromise` and `runPromiseExit` MUST accept only Effects
 whose requirements are satisfied by the runtime's installed application Context.
-`runPromiseExit` MUST return an Exit whose error channel includes both the Effect error and
-`LayerError`. It MUST NOT claim that arbitrary services are installed. The current negative
+`runPromiseExit` MUST return `Promise<Exit.Exit<A, E | LayerError>>`, including Layer acquisition
+failure in the resolved Exit rather than rejecting its Promise. It MUST NOT claim that arbitrary services are installed. The current negative
 proof is `packages/flow-state/src/public-api-types.test.ts:287-333`.
 
 ## Views, actors, stories, fixtures, and models
@@ -381,6 +387,9 @@ may omit `start`. `send` MUST accept the
 machine's exact event union. `perform` MUST accept only branded inert commands belonging to
 installed fixture controls. Literal checkpoint names MUST accumulate as keys of
 `run.checkpoints`, and duplicate literal names MUST fail while the plan is built.
+`advance` MUST accept Effect `Duration.Input` without requiring an Effect import at the call site;
+its returned plan type remains the same checkpoint accumulator. `setTime` accepts only the
+absolute safe-integer epoch-millisecond type.
 
 ```ts
 const plan = story({ app: ProjectApp, machine: projectMachine })
@@ -434,8 +443,8 @@ Compile fixtures MUST prove:
 - state-key, event-key, event-narrowing, target-token, memory, and input inference;
 - resource parameter tuples and resource `A/E/R`;
 - transaction key/ref arity, preview values, commit `A/E/R`, and binding params/outcomes;
-- stream descriptor params and `A/E/R`, binding outcomes, child input, and child completion
-  snapshot types;
+- stream descriptor params and `A/E/R`, descriptor-only zero-parameter activity overloads,
+  binding outcomes, child input, and exact `ActorSnapshot<ChildMachine>` completion types;
 - machine → module → app requirements union and Layer closure;
 - exact app-level dynamic-machine admission, its transitive requirements, and its exclusion from
   root lookup;
@@ -485,13 +494,16 @@ test already rejects explicit `any` in key public runtime and provider surfaces
 
 ### TYPE-P04 — Acyclic carrier and inference-cost proof
 
-A generated packed consumer MUST compile an app with at least 25 root machines, 100 total
-resource/transaction/stream/child descriptors, cross-module shared descriptors, exact views,
-fixtures, and stories under strict and isolated-declarations modes. The proof MUST assert exact
-`RequirementsOf<App>` and declaration emit, run `tsc --extendedDiagnostics`, and record a
-checked-in baseline tied to the exact checked-in TypeScript version. The measured instantiation
-count MUST NOT exceed the approved baseline by more than 10%. A paired fixture that doubles
-only unrelated roots while preserving per-root shape MUST NOT exceed 2.25 times the smaller
-fixture's instantiation count. Peak memory MUST be recorded for trend evidence but MUST NOT gate
-the proof because it varies by host. A negative fixture MUST also reject a recursive child
-carrier graph without reaching an excessive-instantiation error.
+Phase 1 MUST compile an isolated private-vNext consumer with at least 25 root machines, 100 total
+resource/transaction/stream/child descriptors, cross-module shared descriptors, and exact views
+under strict and isolated-declarations modes. Phase 6 MUST extend the same command and carrier
+baseline with exact fixture and story types after those definitions exist; Phase 1 MUST NOT invent
+their later-phase declarations to satisfy this proof early.
+
+The proof MUST assert exact `RequirementsOf<App>` and declaration emit, run
+`tsc --extendedDiagnostics`, and record a checked-in baseline tied to the exact checked-in
+TypeScript version. The measured instantiation count MUST NOT exceed the approved baseline by more
+than 10%. A paired fixture that doubles only unrelated roots while preserving per-root shape MUST
+NOT exceed 2.25 times the smaller fixture's instantiation count. Peak memory MUST be recorded for
+trend evidence but MUST NOT gate the proof because it varies by host. A negative fixture MUST also
+reject a recursive child carrier graph without reaching an excessive-instantiation error.

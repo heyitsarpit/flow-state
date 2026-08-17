@@ -54,7 +54,8 @@ The supported commands are:
 - `flush()` for ready work at the current time;
 - `settle()` for finite current-time work;
 - `advance(duration)`, `setTime(instant)`, and `advanceToNextTimer()` for explicit TestClock
-  movement;
+  movement; `advance` accepts Effect `Duration.Input` and normalizes it while building the frozen
+  plan, while `setTime` accepts only a non-negative safe-integer epoch millisecond;
 - `checkpoint(name)` for immediate immutable capture.
 
 ## TEST-003: Story starts are one exclusive union
@@ -243,9 +244,11 @@ starts at Effect's epoch zero for fresh stories and boot `capturedAt` for boot s
 to `TestClock.setTime`, and next-timer advancement adjusts that clock to the next recorded
 deadline. No deterministic story uses wall-clock sleep.
 
-`advance`, `setTime`, and progress configuration accept only non-negative safe-integer
-milliseconds. `advance` rejects a negative duration; `setTime` rejects a value earlier than the
-current TestClock and permits an equal value. `advanceToNextTimer()` throws a command-phase
+`advance` accepts Effect `Duration.Input`, normalizes it to non-negative safe-integer milliseconds
+during immutable plan construction, and rejects negative, fractional, sub-millisecond,
+non-finite, or unsafe results. `setTime` accepts only a non-negative safe-integer epoch millisecond,
+rejects a value earlier than the current TestClock, and permits an equal value. Progress
+configuration accepts only the safe-integer forms specified below. `advanceToNextTimer()` throws a command-phase
 `FlowStoryExecutionError` containing current pending work when no recorded Flow-owned deadline
 exists. Flow-owned timer, freshness, GC, and retry owners register those deadlines explicitly;
 pinned beta.86 does not expose arbitrary TestClock sleeps, so application-authored `Effect.sleep`
