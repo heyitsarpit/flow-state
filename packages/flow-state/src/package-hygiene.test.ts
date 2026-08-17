@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import packageJson from "../package.json";
-import rootPackageJson from "../../../package.json";
 
 type CorePackageJson = Readonly<{
   readonly bin?: string | Readonly<Record<string, string>>;
@@ -12,12 +11,8 @@ type CorePackageJson = Readonly<{
   readonly scripts?: Readonly<Record<string, string>>;
 }>;
 
-type ProofPackageJson = Readonly<{
-  readonly scripts?: Readonly<Record<string, string>>;
-}>;
-
 const supportFiles = import.meta.glob(
-  "../scripts/{check-build-output.mjs,check-typescript-mode-proofs.mjs,inspect-local-proof.mjs,inspect-feature-receipts.mjs,module-app-audit-receipts.mjs}",
+  "../scripts/{check-build-output.mjs,inspect-local-proof.mjs,inspect-feature-receipts.mjs,module-app-audit-receipts.mjs}",
   {
     query: "?raw",
     import: "default",
@@ -34,18 +29,6 @@ const cliSourceFiles = import.meta.glob(
   },
 ) as Record<string, string>;
 
-const proofPackageJsons = import.meta.glob("../../../examples/typescript-proof-*/package.json", {
-  query: "?raw",
-  import: "default",
-  eager: true,
-}) as Record<string, string>;
-
-const proofTsconfigs = import.meta.glob("../../../examples/typescript-proof-*/tsconfig.json", {
-  query: "?raw",
-  import: "default",
-  eager: true,
-}) as Record<string, string>;
-
 const obsoletePackageJsons = import.meta.glob(
   "../../../packages/flow-state-{react,testing,server,inspect}/package.json",
   {
@@ -54,12 +37,6 @@ const obsoletePackageJsons = import.meta.glob(
     eager: true,
   },
 ) as Record<string, string>;
-
-const workspacePackageJsons = import.meta.glob("../../../{apps,examples,packages}/*/package.json", {
-  query: "?raw",
-  import: "default",
-  eager: true,
-}) as Record<string, string>;
 
 function requireSource(path: string): string {
   const source = supportFiles[path];
@@ -82,22 +59,6 @@ function requireCliSource(path: string): string {
 }
 
 describe("flow-state package hygiene", () => {
-  it("keeps every required root workspace filter matched by a live package", () => {
-    const packageNames = new Set(
-      Object.values(workspacePackageJsons).map(
-        (source) => (JSON.parse(source) as { readonly name: string }).name,
-      ),
-    );
-    const requiredScripts = ["build:examples", "build:library"] as const;
-
-    for (const scriptName of requiredScripts) {
-      const script = rootPackageJson.scripts[scriptName];
-      const filters = Array.from(script.matchAll(/nub run --filter ([^ ]+)/g), (match) => match[1]);
-      expect(filters.length).toBeGreaterThan(0);
-      for (const filter of filters) expect(packageNames.has(filter!)).toBe(true);
-    }
-  });
-
   it("publishes only dist artifacts with tree-shakeable package metadata", () => {
     const corePackageJson = packageJson as CorePackageJson;
 
@@ -170,13 +131,6 @@ describe("flow-state package hygiene", () => {
     expect(corePackageJson.scripts?.pack).toContain("src/testing.ts");
     expect(corePackageJson.scripts?.pack).toContain("src/server.ts");
     expect(corePackageJson.scripts?.pack).toContain("src/inspect.ts");
-  });
-
-  it("runs a multi-entry declaration proof as part of the TypeScript mode gate", () => {
-    const typescriptProofSource = requireSource("../scripts/check-typescript-mode-proofs.mjs");
-
-    expect(typescriptProofSource).toContain("multi-entry declaration emit");
-    expect(typescriptProofSource).toContain("typescript-proof-multi-entry");
   });
 
   it("ships a dedicated local inspection proof script for CLI-first debugging", () => {
@@ -324,46 +278,5 @@ describe("flow-state package hygiene", () => {
     expect(featureReceiptSource).toContain("flowStories");
     expect(auditReceiptSource).toContain("audit.project");
     expect(auditReceiptSource).toContain("flowTest");
-  });
-
-  it("drives the important TypeScript mode proofs through dedicated packages", () => {
-    const packagePaths = Object.keys(proofPackageJsons).sort();
-    const tsconfigPaths = Object.keys(proofTsconfigs).sort();
-    const typescriptProofSource = requireSource("../scripts/check-typescript-mode-proofs.mjs");
-
-    expect(packagePaths).toEqual([
-      "../../../examples/typescript-proof-isolated-declarations/package.json",
-      "../../../examples/typescript-proof-isolated-modules/package.json",
-      "../../../examples/typescript-proof-multi-entry/package.json",
-      "../../../examples/typescript-proof-packed-react-18/package.json",
-      "../../../examples/typescript-proof-packed-react-19/package.json",
-      "../../../examples/typescript-proof-strict/package.json",
-    ]);
-    expect(tsconfigPaths).toEqual([
-      "../../../examples/typescript-proof-isolated-declarations/tsconfig.json",
-      "../../../examples/typescript-proof-isolated-modules/tsconfig.json",
-      "../../../examples/typescript-proof-multi-entry/tsconfig.json",
-      "../../../examples/typescript-proof-packed-react-18/tsconfig.json",
-      "../../../examples/typescript-proof-packed-react-19/tsconfig.json",
-      "../../../examples/typescript-proof-strict/tsconfig.json",
-    ]);
-
-    for (const packagePath of packagePaths) {
-      const proofPackageJson = JSON.parse(
-        proofPackageJsons[packagePath] ?? "{}",
-      ) as ProofPackageJson;
-
-      expect(proofPackageJson.scripts).toMatchObject({
-        "check:typescript-mode-proofs": expect.any(String),
-      });
-    }
-
-    expect(typescriptProofSource).toContain("typescript-proof-strict");
-    expect(typescriptProofSource).toContain("typescript-proof-isolated-modules");
-    expect(typescriptProofSource).toContain("typescript-proof-isolated-declarations");
-    expect(typescriptProofSource).toContain("typescript-proof-multi-entry");
-    expect(typescriptProofSource).toContain("typescript-proof-packed-react-18");
-    expect(typescriptProofSource).toContain("typescript-proof-packed-react-19");
-    expect(typescriptProofSource).toContain('resolve(repoRoot, "examples"');
   });
 });

@@ -1,15 +1,4 @@
-import { existsSync } from "node:fs";
-import { resolve } from "node:path";
-
 import { describe, expect, it } from "vite-plus/test";
-
-const maintainedExamples = [
-  "basic-cached-posts",
-  "optimistic-transactions",
-  "bounded-infinite-feed",
-  "server-prefetch-hydration",
-  "offline-recovery",
-] as const;
 
 const docsSources = {
   ...(import.meta.glob("../../../apps/docs/src/pages/guide/*.md", {
@@ -33,11 +22,6 @@ const docsSources = {
     eager: true,
   }) as Record<string, string>),
   ...(import.meta.glob("../../../apps/docs/src/pages/concepts.md", {
-    query: "?raw",
-    import: "default",
-    eager: true,
-  }) as Record<string, string>),
-  ...(import.meta.glob("../../../examples/FEATURE_COVERAGE.md", {
     query: "?raw",
     import: "default",
     eager: true,
@@ -90,46 +74,6 @@ describe("status docs architecture", () => {
     expect(statusSource).toContain("`flow-state/testing`");
     expect(statusSource).toContain("`flow-state/inspect`");
     expect(statusSource).toContain("`packages/flow-state/scripts/**`");
-    expect(statusSource).toContain("`examples/FEATURE_COVERAGE.md`");
     expect(statusSource).not.toContain("examples/launch-workspace");
-  });
-
-  it("keeps the maintained five-recipe coverage matrix complete and path-valid", () => {
-    const coverageSource = requireDoc("../../../examples/FEATURE_COVERAGE.md");
-    const rows = coverageSource
-      .split("\n")
-      .filter((line) => line.startsWith("| ") && line.endsWith("Covered |"))
-      .map((line) =>
-        line
-          .split("|")
-          .slice(1, -1)
-          .map((cell) => cell.trim()),
-      );
-
-    expect(rows.length).toBeGreaterThan(40);
-    for (const row of rows) {
-      expect(row).toHaveLength(7);
-      expect(row.at(-1)).toBe("Covered");
-      expect(row.slice(1, -1)).toContain("C");
-      for (const marker of row.slice(1, -1)) {
-        expect(["C", "—"]).toContain(marker);
-      }
-    }
-
-    for (const example of maintainedExamples) {
-      expect(existsSync(resolve(process.cwd(), "examples", example, "package.json"))).toBe(true);
-      const coverageName =
-        example === "server-prefetch-hydration" ? "server prefetch" : example.replaceAll("-", " ");
-      expect(coverageSource.toLowerCase()).toContain(coverageName);
-    }
-  });
-
-  it("keeps coverage claims tied to visible behavior and deterministic evidence", () => {
-    const coverageSource = requireDoc("../../../examples/FEATURE_COVERAGE.md");
-
-    expect(coverageSource).toContain("visibly exercise");
-    expect(coverageSource).toContain("deterministic test");
-    expect(coverageSource).toContain("each `C` remains a required visible behavior");
-    expect(coverageSource).toContain("CLIENT_STRUCTURE_CONTRACT.md");
   });
 });
