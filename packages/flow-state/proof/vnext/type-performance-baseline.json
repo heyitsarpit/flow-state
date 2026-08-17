@@ -1,0 +1,11 @@
+{
+  "typescriptVersion": "7.0.2",
+  "instantiations25": 179459,
+  "instantiations50": 334594,
+  "types25": 30833,
+  "types50": 48971,
+  "memoryKilobytes25": 118080,
+  "memoryKilobytes50": 135826,
+  "totalSeconds25": 0.091,
+  "totalSeconds50": 0.145
+}
