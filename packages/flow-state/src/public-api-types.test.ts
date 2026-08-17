@@ -520,13 +520,10 @@ describe("public API builders and descriptor contracts", () => {
     const loadProject = (
       id: SentinelProjectId,
     ): EffectType.Effect<SentinelProject, "missing", ProjectConfig> =>
-      Effect.map(
-        ProjectConfig,
-        (config): SentinelProject => ({
-          id,
-          name: config.projectId,
-        }),
-      );
+      Effect.map(ProjectConfig, (config): SentinelProject => ({
+        id,
+        name: config.projectId,
+      }));
 
     const projectResource = flow.resource<
       [id: SentinelProjectId],
@@ -1061,13 +1058,10 @@ describe("public API builders and descriptor contracts", () => {
       params: ({ context }: { readonly context: SentinelContext }) => context.activeProjectId,
       subscribe: ({ params }) =>
         Stream.fromEffect(
-          Effect.map(
-            ProjectConfig,
-            (config): SentinelProject => ({
-              id: params,
-              name: config.projectId,
-            }),
-          ),
+          Effect.map(ProjectConfig, (config): SentinelProject => ({
+            id: params,
+            name: config.projectId,
+          })),
         ),
       routes: {
         value: (project) => ({ type: "LOADED", project }),
