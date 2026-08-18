@@ -1,431 +1,462 @@
 # Normative proof matrix
 
-Status: normative
+Status: normative revision overlay
 
-This matrix defines the evidence required to claim the target implementation correct. A green
-test count does not close a proof unless the test exercises the named mechanism through its
-production owner. Source-text assertions about filenames, exported token strings, or helper
-placement are not substitutes for type, behavior, race, interruption, lifetime, or artifact
-proof.
+This matrix defines the evidence required to claim the accepted revision surface correct. A green test
+count does not close a proof unless the test exercises the named mechanism through its production owner.
+Source-text assertions about filenames, exported token strings, or helper placement are not substitutes for
+type, behavior, race, interruption, lifetime, or artifact proof.
 
-Every implementation phase must list the `PROOF-*` IDs it changes, name the exact executable
-tests that cover them, and carry unresolved IDs into its receipt. No phase may mark an ID
-closed from prose, snapshots fabricated by a test helper, or a legacy harness that bypasses
-the target actor engine.
+`REV-MIG-003` requires compile-time proofs to preserve exact machine, actor-ref, event, input, context,
+memory, operation, selected-value, Story-target, observation, and checkpoint types. Runtime proofs MUST
+exercise the real production actor lifecycle, mailbox, context graph, scheduler, operation kernels,
+inspection, persistence, evidence capture, and cleanup paths. Focused source-text or type checks MUST NOT
+stand in for behavior proofs.
 
-The broad `PROOF-*` rows are requirements, not receipt closure units. Phase 0 must assign stable
-subcase IDs and exactly one closing phase to every independently executable case; later phases may
-rerun an earlier subcase as dependency evidence but cannot claim a second closure.
-The normative atomic case and local-proof index is
-[`../phase-0/proof-index.json`](../phase-0/proof-index.json).
+The broad `PROOF-*` rows are requirements, not receipt closure units. The historical Phase 0 material assigned
+stable subcase IDs and one closing phase to independently executable cases; later phases could rerun an
+earlier subcase as dependency evidence but could not claim a second closure. The atomic case and local-proof
+index remain historical evidence and case indexing in [`../phase-0/proof-index.json`](../phase-0/proof-index.json);
+that index is not current status, does not add semantic authority, and does not choose active ownership.
+
+## Accepted revision ownership
+
+These are the accepted revision owners; the proof rows below refine their obligations without adding a second
+semantic owner.
+
+| Accepted source area      | Revision IDs                                            | Central proof rows                                                                        |
+| ------------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Composition and app plans | `REV-COMP-001`–`REV-COMP-015`                           | `PROOF-001`, `PROOF-002`, `PROOF-004`, `PROOF-005`, `PROOF-012`, `PROOF-014`, `PROOF-015` |
+| Machine authoring         | `REV-MACH-001`–`REV-MACH-011`                           | `PROOF-001`, `PROOF-002`, `PROOF-003`, `PROOF-017`                                        |
+| Operations                | `REV-OPS-001`–`REV-OPS-015`                             | `PROOF-001`, `PROOF-003`, `PROOF-005`–`PROOF-007`, `PROOF-009`, `PROOF-014`               |
+| React and hosts           | `REV-HOST-001`–`REV-HOST-007`                           | `PROOF-001`, `PROOF-003`, `PROOF-004`, `PROOF-012`, `PROOF-013`                           |
+| Stories and testing       | `REV-TEST-001`–`REV-TEST-010`                           | `PROOF-001`, `PROOF-003`, `PROOF-004`, `PROOF-008`–`PROOF-011`                            |
+| Migration and proofs      | `REV-MIG-001`–`REV-MIG-003`                             | all affected rows, with cross-cutting closure in `PROOF-017`                              |
+| Deletions and cutover     | `REV-MIG-004`, `DEL-001`–`DEL-011`, `RET-001`–`RET-005` | `PROOF-017`                                                                               |
+
+## Revision-specific receipt obligations
+
+The accepted revisions below refine central proof rows; they do not create runtime receipt paths. An
+implementation receipt MUST name the exact executable test, fixture, example, or artifact evidence when
+that evidence exists and MUST carry the item as an open obligation when it does not. The named obligations
+are:
+
+| Accepted revision | Named obligation                                                                                                                                                                                                                                              | Central proof rows                    |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| `REV-OPS-015`     | `StoreFanout ordering`: canonical-only fanout enters actor mailboxes, initiating publication precedes recipients, stale or unrelated revisions do not publish, and only adjacent projection-only facts may coalesce.                                          | `PROOF-003`, `PROOF-006`              |
+| `REV-OPS-015`     | `Actor-scoped preview/CAS`: preview visibility is owner-only; promotion, rollback, post-boundary unknown, and canonical-base compare-and-set conflict behavior preserve canonical truth and issue evidence.                                                   | `PROOF-005`, `PROOF-007`              |
+| `REV-OPS-015`     | `Projection-only publication`: external facts publish a complete immutable snapshot without transition evaluation; mapped events are later ordinary mailbox turns.                                                                                            | `PROOF-003`, `PROOF-006`, `PROOF-007` |
+| `REV-OPS-015`     | `Latest stream projection/hydration`: latest value, `hasValue`, emission count, generation, and terminal status update without emission replay; live executable input is required for rematerialization.                                                      | `PROOF-007`, `PROOF-014`              |
+| `REV-OPS-015`     | `Timer polling`: the existing `after` timer targets an explicit refresh event, permits one exact-key refresh in flight, schedules after settlement, and fences suspension/disposal without an implicit retry or `poll` API.                                   | `PROOF-009`                           |
+| `REV-HOST-007`    | `Passive useView dependency replacement`: exact descriptor/`K` reads are tracked per evaluation, the dependency set is replaced after each evaluation, matching StoreFanout reruns at one tear-free boundary, and passive selection does no work or mutation. | `PROOF-012`                           |
 
 ## PROOF-001: Public typing and inference
 
-Prove definition and machine inference, including definition-owned input and initial memory,
-descriptor-plus-argument resource refs, exact transaction refs, fixture and control channel types,
-exclusive story starts, typed events, literal checkpoint result keys, inferred model path shapes,
-root versus statically admitted dynamic-machine authority, computed invalidation targets,
-lookup-only durable dynamic actors, `FlowDehydrateError` narrowing, and inaccessible internal
-acknowledgment APIs. Run the same declarations through source TypeScript, packed declarations,
-strict mode, isolated modules, isolated declarations, multi-entry consumers, and packed React
-18 and React 19 consumers.
-
-Include descriptor-only bindings for zero-argument transactions, zero-parameter streams, and
-void-input children, plus exact `ActorSnapshot<ChildMachine>` completion inference with timer
-names and primitive registries intact.
-
-Required negative proofs include invalid start combinations, wrong-machine events, missing
-control channels when error is `never`, duplicate literal checkpoint names where statically
-detectable, resource `key` or canonical-key invalidation filters, unsatisfied app services,
-dynamic-machine factories or inputs in AppPlan, unreachable actor creation, and import attempts for
-removed legacy testing exports. Packed consumers MUST prove `FlowStoryExecutionError` is the
-only named testing runtime class and reject named run-result, path, command, evidence,
-pending-work, cleanup, model-diagnostic, and general diagnostic imports.
-
-Root and secondary entry-point consumers MUST also reject imports of `ActorState`,
-`PendingOutcome`, and acknowledged outcome-command types.
-
-Packed consumers MUST import `story`, `fixture`, `control`, `model`, `behavior`, and
-`FlowStoryExecutionError` from `flow-state/testing` and prove that none of those values is
-available from the root route.
-
-Run a representative small, medium, and large story/model compile fixture through
-`tsc --extendedDiagnostics`. Record wall time, type count, instantiation count, and memory, and
-fail the package-owned type-performance gate when growth is superlinear across the fixtures or
-the checked-in type/instantiation ceiling is exceeded. Wall time and peak memory are recorded as
-trend evidence and never gate because they vary by host. A declaration that is correct but impractical to instantiate
-does not close this proof.
-
-## PROOF-002: Pure compilation and identity
-
-Prove app and story compilation executes no Effect and registers nothing globally. Repeating
-the same fixture or endpoint definition reference deduplicates in first-seen order; distinct
-definitions with the same ID fail deterministically; endpoint collisions fail across endpoint
-kinds; duplicate exact-ref seeds fail; and independent app compilations cannot resolve through
-one another.
-
-Prove `dynamicMachines` is an inert exact tuple: it contributes the admitted machine's complete
-closure and Effect requirements, creates no actor, does not make the machine a root, deduplicates
-the same machine value, and rejects colliding distinct definitions before Layer acquisition.
-
-Prove final nodes accept only `{ type: "final" }`. Prove flat machine grammar rejects hierarchy,
-parallel regions, and history; AppPlan rejects post-construction extension; activity declarations
-reject runtime-sized keyed collection forms. Asynchronous pre-bootstrap module assembly remains
-ordinary userland composition and mutates no compiled app.
-
-Use acquisition counters and hostile definition objects in addition to ordinary equality
-cases. Failure must occur before Layer acquisition, fixture instantiation, actor creation, or
-control-state allocation.
-
-## PROOF-003: Actor turn acknowledgment and publication
-
-Prove a package-private acknowledged send completes after redirect stabilization, immediate
-reconciliation, one immutable snapshot publication, and command acknowledgment. It must
-complete before a deliberately blocked resource, transaction, stream, timer, or child outcome.
-
-Prove reentrant sends retain mailbox order, one command produces one published revision,
-store fan-out reaches other actors only after the initiating actor publishes, and public
-`actor.send(event): void` exposes no Promise or acknowledgment. Actor snapshots contain current
-public facts, not receipt history; the post-publication TurnRecord owns receipt and inspection
-projection. Disposal must fail buffered acknowledgments before Queue shutdown.
-
-Prove every fresh root, dynamic actor, child, and story actor invokes its definition memory
-factory once when present before its first snapshot and activity start; an omitted factory
-produces the canonical empty readonly record. Hydration and snapshot restoration must invoke it
-zero times; a throwing factory must publish no partial actor and start no work.
-
-Prove CommitPlan interpretation cannot start a user Effect before the pending actor snapshot
-and TurnRecord exist. The package-private post-commit reconciliation fact is queued before
-acknowledgment, so a story `.send()` observes the pending turn and a following `.flush()` starts
-the staged work deterministically without waiting for it to settle.
-
-For every activity kind, prove the projection/cursor turn atomically records one durable pending
-outcome before offering its mailbox command. Capture between publication and command processing,
-hydrate, and drain must apply the materialized event exactly once without rerunning its mapper;
-duplicate outcome-ID commands are stale no-ops, and an inapplicable event still clears its record.
-Ordinary binding release must not drop an admitted outcome. Actor/runtime disposal may clear it as
-cleanup. On boot, restored IDs must precede the activation barrier and every early host event; the
-barrier must prevent restored activity work from starting until those IDs drain.
-
-Entering a final state MUST publish its final token once, release prior activities after
-publication, remain readable and persistable as an active root, and produce ordinary no-transition
-turns for later events. It MUST NOT publish output, auto-dispose, or complete the snapshot stream.
-
-## PROOF-004: Runtime and scope lifetime
-
-Prove early sends wait on one lazy Layer acquisition and execute exactly once, acquisition
-failure reaches all waiters, every activity is reachable from the ManagedRuntime Scope, and
-runtime disposal interrupts owned work, runs each finalizer once, reports full cleanup Causes,
-and is idempotent.
-
-Prove `runPromiseExit` resolves `Exit<A, E | LayerError>` for success, typed failure, defect,
-interruption, and Layer acquisition failure and never rejects, while `runPromise` remains the
-ordinary rejecting host boundary.
-
-When several owners fail cleanup, prove the aggregate preserves raw actor-ID, StoreKernel, then
-application-Layer reason order and duplicate multiplicity; no squashing or union-style Cause
-combination may erase evidence.
-
-Cover normal completion, typed failure, defect, interruption, state exit, replacement, actor
-stop, runtime disposal, story cancellation, and simultaneous execution plus cleanup failure.
-After a successful dispose, no owned fiber, lease, queue worker, controlled endpoint waiter, or
-host subscription remains live, and no pending outcome remains routable.
-
-Prove a managed child reaches final through one ordinary child turn, the parent observes one
-complete projection and one durably admitted completion outcome, the child is released exactly
-once, and the terminal projection remains consumed until reentry. Boot MUST not restart a terminal
-child or replay completion. Parent-to-managed-child command syntax and handles MUST not compile.
-
-## PROOF-005: Exact primitive identity and stale-generation safety
-
-Prove two canonically different resource argument tuples in one descriptor family remain distinct
-in runtime snapshots, stories, model starts, inspection, persistence, and CLI artifact rendering,
-including a hostile pair that a removed projected key would have collapsed. Two actors may execute the
-same transaction ref without generation collision, while shared resource lookup generation
-remains store-global.
-
-Prove the `SNAP-*` reader laws: a missing read is frozen idle and side-effect-free, placeholder
-never satisfies `require`, terminal transaction projection follows its consumed binding rather
-than accumulating by actor lifetime, and old immutable snapshots cannot change after later
-turns.
-
-Compile and execute every legal `ResourceSnapshot` member. Prove `value`, `error`, and
-`generation` narrow only on their contracted discriminants, illegal combinations do not compile,
-and a large resource family remains within the checked-in declaration-instantiation budget.
-
-Every late completion compares actor, ref, and generation immediately before publication.
-Older resource, transaction, stream, child, timer, lease, and collection generations cannot
-overwrite or evict newer ownership.
-
-## PROOF-006: Resource ownership, freshness, and collection
-
-Prove machine activity leases, rather than React observers, own refresh and retention.
-TestClock drives stale publication, `gcTime: 0`, finite GC, infinite GC, exact-deadline
-reacquisition, reconnect and focus rules, in-flight retention, hydration freshness, and
-lease-epoch eviction.
-
-Explicit ensure, observe, and refresh MUST still admit while the host is offline, and going
-offline MUST NOT cancel in-flight work. Reconnect MUST refresh only actively observed missing or
-stale refs without an existing generation. Fresh refs, joined generations, and public snapshot
-types MUST gain no paused state.
-
-Placeholder data exists only during an active lookup projection, never becomes canonical or
-persisted data, and never emits a success outcome. A late store subscriber receives the latest
-state; a revision gap causes a full reread instead of trusting the latest ordered changed-ref vector.
-
-Prove the complete resource outcome matrix. A fresh `ensure` settles once without lookup; stale
-retained data waits for its registered generation; joined owners share execution but receive
-their own mapped result; observe replays the current canonical value once and emits only changed
-`valueRevision`s. Equal-value success, invalidation, freshness, overlay, generation, collection,
-restoration, planned release, and stale completion MUST produce exactly the outcomes specified by
-`SEM-011A/B`. Computed invalidation MUST materialize and deduplicate exact refs/tags, commit them
-atomically, and never retain or execute a store predicate.
-
-## PROOF-007: Transaction concurrency, overlays, and Causes
-
-Prove exact-ref generation ownership for `reject`, `cancel`, `allow`, and `serialize` policies.
-Serialized queues prove admission, FIFO order, generation allocation,
-state-exit handling, and work that was queued but never started.
-
-Overlapping optimistic attempts preserve global overlay order and remove only their own
-generation on success, typed failure, defect, interruption, restore, or disposal. Success
-invalidates canonical data, and no transaction or stream outcome may publish an authoritative
-resource base. Typed
-failure, defect, mixed Cause, and interruption-only exits project to distinct lanes while the
-full original Cause remains inspectable.
-
-## PROOF-008: Fixture and controlled endpoint isolation
-
-Prove each story run receives new fixture instances, endpoint ordinals, invocation logs,
-Deferreds, queues, subscriptions, and cancellation state. Concurrent executions of one plan
-cannot share any of them.
-
-Prove `call(1)` may complete before `call(0)`, repeated equal arguments still receive distinct
-ordinals, missing and terminated targets fail immediately with exact pending-work diagnostics,
-and every control outcome reaches the real application service and production primitive before
-Flow publishes evidence.
-
-## PROOF-009: Story progress and TestClock
-
-Prove one TestClock drives machine timers, resource stale and GC clocks, retries, schedules,
-serialized activities, and controlled dependencies without wall-clock sleeps. `flush` drains
-only ready work, `settle` stays at current time, and only `advance`, `setTime`, or
-`advanceToNextTimer` moves time.
-
-Prove `advance` accepts every legal Effect `Duration.Input`, normalizes it during immutable plan
-construction without requiring an Effect import in consumer code, and synchronously rejects an
-invalid result before acquisition. `setTime` remains an absolute non-negative safe-integer epoch
-millisecond and never accepts a broad DateTime input.
-
-Continuing observations, streams, child actors, and future timers do not block settlement.
-Finite lookups and transactions do. Every looping command enforces the story's one `maxTurns`
-bound and reports exact finite and continuing pending work on exhaustion.
-
-## PROOF-010: Checkpoint and run-result integrity
-
-Prove `.send(event).checkpoint(name)` captures the acknowledged event turn without flushing a
-later operation completion. A checkpoint never progresses execution. Its snapshot,
-pending-work roots, time, and derived projections remain frozen after later publications,
-retention pruning, and disposal.
-
-Checkpoint and final observations contain no receipt, trace, or inspection history. When a
-proof needs those projections it installs a run-local TurnRecord sink and correlates by turn
-identity rather than reading receipts from an actor snapshot.
-
-Completed product failures return ordinary story evidence with no Flow-owned correctness
-status. Prepare, command, cancellation, and disposal failures throw `FlowStoryExecutionError`
-with the correct phase, command index, completed checkpoints, mutually exclusive `atFailure`
-or `final`, primary Cause, and cleanup status.
-
-## PROOF-011: Pure model and live-path parity
-
-Use both a structural test and behavioral spies. The pure model package must have no Effect
-import or `Effect.run*` call, and discovery must leave service, lookup, transaction, stream,
-Layer, and control counters at zero. The base story must be command-empty, and each traversal
-call's concrete typed event array must be the sole candidate source. Fixture seeds may establish
-pure initial facts; fixtures, controls, outcomes, registered stories, and CLI input must not
-produce candidates.
-
-For representative guarded, redirected, memory-updating, and fresh fixture-seeded paths,
-compare each predicted final snapshot with `path.story.run().final`. Compare intermediate steps
-by running the corresponding model-generated prefix stories and checking each prefix's `final`.
-The live proof must use the ordinary story runner and actor engine, without invented model
-checkpoint names or a replay-specific harness.
-
-## PROOF-012: View, React, and host boundaries
-
-Prove `runtime.actor(machine)` accepts only roots, dynamic creation accepts only app-reachable
-machines, early command handles never drop sends, and command-only `useActor` does not
-subscribe. `useView` reads one atomic actor snapshot through `useSyncExternalStore` and applies
-one internal structural-sharing policy.
-
-Prove an app-level dynamic seed is creatable but not root-addressable, carries its exact input and
-requirements, and cannot be installed or replaced after runtime construction.
-
-Prove `runtime.actor(dynamicMachine, { id })` returns the exact restored durable handle without
-creating or adopting it and rejects missing, foreign, mismatched, opaque, disposed, and ambiguous
-identities. `createActor` MUST continue to reject collisions.
-
-React 18 and 19 proofs must cover readiness, acquisition failure, subscribe/unsubscribe races,
-Strict Mode, SSR server snapshots, selector failure, actor replacement attempts, and mount or
-unmount independence from resource leases, stale time, refresh, and GC. Server and CLI hosts
-must use root lookup without creating a duplicate dynamic actor.
-
-## PROOF-013: TurnRecord and inspection sink retention
-
-Prove one immutable TurnRecord is derived from each committed actor turn after publication and
-drives receipt, inspection, and trace projections. No independently mutable trace or inspection
-history may disagree with it.
-
-For pending outcomes, the causal record must identify admission and the later event turn must
-identify applied, inapplicable-and-cleared, stale-duplicate, or cleanup-cleared disposition. No
-sink may infer delivery merely from the resource or activity projection.
-
-`createInspectionBufferSink()` retains 256 records by default, validates explicit capacities,
-supports zero, drops the oldest records deterministically, and exposes
-`truncatedBeforeSequence` after loss. Captured sink snapshots remain stable. Actors and runtimes
-without a buffer sink retain no inspection history. Runtime boot excludes sink history, while
-explicit v2 trace artifacts round-trip records and truncation markers.
-
-## PROOF-014: Boot, artifacts, server, and CLI
-
-Prove v2 boot decoding finishes before root activity starts; incompatible artifact version,
-app ID, persistence version, descriptor ID, token ID, and canonical ref fail with structured
-typed diagnostics. Domain memory and payload validation remains application-owned.
-
-Prove successful dehydration captures the complete canonical StoreState and never applies a
-descriptor predicate, current-view heuristic, or unreferenced-warmth omission. Every
-`FlowDehydrateError.kind` MUST narrow through the packed declaration; only
-`ConcurrentDehydrate` is retryable, while non-durable ownership/params, identity closure, payload
-encoding, bounds, and disposed runtime are terminal.
-
-Prove the artifact Cause projection follows Effect v4's flat ordered `reasons` model, including an
-empty array, each `Fail`/`Die`/`Interrupt` member, mixed reason order, and duplicate multiplicity.
-No recursive composition member, Cause squashing, or reason deduplication may enter stable bytes.
-
-Prove a running stream round trip persists canonical concrete params, does not serialize or
-resume its old fiber/Scope/cursor, records the old generation as an unrouted restoration
-interruption, and starts exactly one fresh scoped generation after hydrated publication and
-readiness without rerunning the selector. Active noncanonical params must fail capture as
-`NonDurableActiveStreamParams`; terminal streams must remain consumed.
-
-Round-trip pending resource, transaction, stream, timer, and child outcomes captured after their
-causal projection but before mailbox processing. Boot must restore the materialized token/payload,
-schedule the stable outcome ID once after readiness, and clear it only in the resulting actor turn.
-Boot and trace payloads must never serialize Queue cells or rerun outcome mappers.
-
-Server requests use an isolated preload runtime, dehydrate/dispose it, and construct a separate
-immutable render runtime from that boot; both dispose after render or failure and the client first
-selection matches the render cut. CLI discovery finds registered stories through behavior,
-executes the same story runner, renders checkpoints and execution errors, and never fabricates
-arbitrary payload-bearing events. CLI help and invocation tests MUST prove `story paths`,
-path-check/list flags, and `--event` are unsupported and that no deleted helper is reachable.
-
-The CLI proof implements `CLI-001` through `CLI-012`. It MUST pair source-level
-handler/parser/codec tests with a freshly built binary invoked
-through an installed packed-consumer shim. It MUST run from a read-only project root, prove
-temporary gateway output is cleaned, and fail if the binary predates checked-in source. Text and
-JSON MUST derive from one result and prove the contracted stdout/stderr and exit behavior for
-success, comparison mismatch, usage, artifact decode, gateway load, story execution, cleanup,
-interruption, local I/O, and internal defects.
-
-Gateway loading MUST validate the branded behavior value before access and acquire no Layer,
-runtime, story fixture, or inspection sink for discovery commands. Direct story execution and CLI
-execution MUST produce identical checkpoints, final observation, execution error, primary Cause,
-and cleanup truth. A trace-output run MAY add exactly one bounded run-local sink; a run without it
-MUST retain no history. Artifact proofs MUST include v1, wrong-kind, oversized, over-deep,
-compressed, hostile-identity, malformed, and truncated inputs through the packed binary. A trace
-diff over truncated windows MUST NOT report complete equality.
-
-## PROOF-015: Scoped remote leases
-
-Prove a domain-significant remote lease is owned by a child actor and its activity Scope, with
-no new operation kind. Cover acquisition, normal remote completion, local navigation,
-replacement, parent disposal, runtime disposal, and external interruption.
-
-Release runs exactly once. Planned release does not synthesize an interruption outcome.
-Cancellation failure and finalizer defect retain their full Cause as actor cleanup issues and
-cannot be erased with `Effect.ignore`.
+Prove definition-owned input and memory inference, inherited readonly context and exact context bindings,
+recursive state declarations and configuration through the accepted ten-level bound, named module records,
+closed `App.M` admission, exact operation `O` catalogues, descriptor `P`/canonical `K` identity, actor refs
+and owner leases, React hook surfaces, closed Story constructor options, exact Story targets and observations,
+and checkpoint and `run.end` evidence types. Include the accepted machine, event, selected-value, resource,
+transaction, stream, input, context, memory, and lifecycle domains.
+
+Run the declarations through source TypeScript, packed declarations, strict mode, isolated modules,
+isolated declarations, multi-entry consumers, and packed React 18 and React 19 consumers. Packed consumers
+MUST prove the accepted Story values through the testing route, preserve the typed failure boundary without
+naming an unresolved failure class, and reject deleted testing names, types, overloads, properties, and
+authoring shapes under `DEL-009`.
+
+Required negative proofs include invalid recursive configuration, missing or extra compound nodes, non-direct
+defaults, depth eleven, wrong-machine events, missing required input or context, extra closed-option fields,
+invalid context-binding keys, incompatible recipe or ref bindings, invalid Story targets, operation `P`/`K`
+misuse, per-registration selector comparators, and imports for deleted surfaces. A declaration that is
+correct but impractical to instantiate does not close this proof.
+
+Story option proofs MUST cover every conditionally required or forbidden `input`, selected `context`,
+`contextBindings`, `fixtures`, and app-only `boot` field, exact fixture-requirement closure, app/runtime-factory
+compatibility, metadata placement, and rejection of fields not belonging to the selected constructor.
+
+Shared selector proofs MUST cover the required selected-value type, explicit nullable domains, an initial
+result with no previous value, changed results with the immediately preceding selected value, complete-value
+`Object.is` suppression, named-record field suppression, fresh structured results, selector purity, and
+rejection of per-registration comparators. Context proofs MUST additionally show one current/previous
+selected-value pair per selected-value change, no intermediate projection combination, and no context work for
+an equal result.
+
+Run representative small, medium, and large Story/model compile fixtures through `tsc --extendedDiagnostics`.
+Record wall time, type count, instantiation count, and memory; wall time and peak memory are trend evidence
+and never gate because they vary by host. The checked-in type and instantiation ceiling remains the package
+proof boundary.
+
+## PROOF-002: Pure compilation, admission, and graph identity
+
+Prove app and Story construction is immutable and inert: app compilation creates zero actors, descriptor
+declarations and plans cause no acquisition or external work, and the compiled `AppPlan` contains the
+complete admitted machine and operation graph. Repeating the same fixture or named descriptor reference
+deduplicates in first-seen order; distinct definitions with the same required identity fail deterministically;
+independent app compilations cannot resolve through one another.
+
+Prove named module records flatten into one exact `App.M` catalogue, duplicate machine property names are
+rejected, module IDs remain tooling identity only, and a running runtime cannot expand the statically compiled
+machine-admission universe. Prove context dependency validation rejects missing or ambiguous providers,
+foreign refs, and instance cycles before the accepted bootstrap barrier can expose a handle or start work.
+The exact one-tooling-owner rule for admitted machine families, including ambiguous repeated machine values,
+remains unresolved under `BEH-006`; this proof row MUST NOT infer it.
+
+Runtime proofs MUST show that entering a compound target follows its authored default path and that execution
+uses the compiled tables rather than runtime parent lookup. Compile proofs MUST accept recursive named
+substates, reject parallel-region and history forms, reject post-construction extension, reject duplicate
+nodes and ancestor/descendant handler ambiguity, and reject runtime-sized keyed collection forms. Runtime
+proofs MUST match the exact active leaf, keep terminal-looking leaves as ordinary active actors without
+completion semantics, and validate that each `reenter` token names the exact active restart boundary.
+
+Compile and runtime proofs MUST use hostile definitions and acquisition counters where the accepted owner
+requires pre-activation rejection. They MUST NOT add an automatic root, a dynamic-machine admission path, or
+any testing-only registration path.
+
+## PROOF-003: Actor turns, mailbox acknowledgment, and publication
+
+Prove the package-private Story acknowledgment completes after the ordinary event turn stabilizes and MUST
+NOT invoke transition logic directly or drain unrelated ready work. Reentrant sends retain production mailbox
+order, public `actor.send(event): void` exposes no Promise or acknowledgment, and equivalent live-host and
+Story commands use the same production mailbox and actor implementation.
+
+Prove event macrostep planning reads one pre-turn snapshot, evaluates guard, `updateMemory`, and `actions`
+in the accepted order, validates the complete finite-action batch before publication, publishes actor and
+synchronous store changes atomically, and starts or joins asynchronous work only after publication. A
+planning, redirect, key, target, or batch-validation failure publishes no valid prefix.
+
+Under `REV-OPS-015`, the `StoreFanout ordering` proof MUST show that canonical revision facts use the
+StoreFanout path into actor mailboxes, that the initiating actor publishes before other actors receive the
+fact, that stale or out-of-dependency revisions do not publish, and that adjacent projection-only facts may
+coalesce without reordering lifecycle, terminal-operation, cancellation, stream-terminal, or mapped-event
+facts. The `projection-only publication` proof MUST show one complete immutable actor snapshot with no
+transition, guard, `always`, action, redirect, memory, finite-work, or hidden-event evaluation; any mapped
+event is a later ordinary mailbox turn.
+
+Context-bootstrap proofs MUST show that the initial selected value is recorded without invoking its handler or
+emitting an event, that a later change receives defined current and immediately preceding selected values,
+and that returning `false` or `null` emits no event.
+
+Terminal-looking leaves MUST remain ordinary active actors: they MUST NOT publish completion, stop their
+mailbox, or acquire final-node semantics.
+
+## PROOF-004: Runtime, actor, lease, and cleanup lifetime
+
+Prove live hosts and Stories use one production `RuntimeFactory`, `FlowRuntime`, actor creation and lookup,
+mailbox, operation kernel, context propagation, scheduler, inspection, read barrier, and disposal path. Story
+code MUST NOT contain a stateful second runtime, actor, mailbox, scheduler, operation store, transition engine,
+cache, snapshot implementation, or cleanup engine.
+
+Prove `runtime.ensureActor` and `runtime.createActor` return separate owner leases, lookup does not create or
+grant disposal authority, ordinary handles and refs do not dispose, and lease disposal is asynchronous,
+idempotent, terminal, and production-owned. Cover boot-restored and freshly ensured leases, concurrent ensure
+or create disposal, runtime shutdown, dependent-consumer rejection without partial cleanup, terminal command
+rejection through escaped handles, stable-ref tombstones, and absence of disposal on non-owner surfaces.
+The stable-ref tombstone MUST be installed only after successful cleanup; rejected disposal MUST leave no
+tombstone, and a separately constructed runtime MUST be able to restore or create the same durable ref.
+
+## PROOF-005: Exact operation identity and generation fencing
+
+Prove every operation identity uses the exact descriptor and canonical `K`, while complete executable `P`
+remains available to the admitted binding or occurrence. Cover every accepted canonical category, record-order
+equivalence, `-0`, every rejected category, cycles, exact rejection paths, the depth/node/byte bounds, and
+invalid-input failure before ownership, actor/store mutation, admission, or external work. Exact canonical
+encoding and mutable-structure behavior remain blocked on `BEH-027`; the proof MUST carry that unresolved ID
+and MUST NOT choose an encoding.
+
+Prove equal descriptor-and-`K` resource owners join one shared generation without replacing its pinned `P`,
+explicit `refetch(P)` creates a replacement generation, hydrated key-only data remains passive until a live
+binding supplies `P`, and a supplying binding release cannot switch a running generation. Cover deterministic
+equal-key ordering across hydration, simultaneous eligibility, first admission, equal-key joining, later
+automatic admission, explicit refetch, settlement cleanup, and inert hydrated key-only data; a later automatic
+generation MUST use the oldest remaining eligible binding.
+
+Prove every successful authoritative `setData` write fences older lookup generations, retains attached
+continuing subscribers, suppresses hostile late success, failure, and finalization, and applies through every
+accepted machine, transaction, stream, or trusted-host writer. An updater returning `undefined` MUST decline
+with no change. The `actor-scoped preview/CAS` proof MUST show owner-only effective reads, promotion and
+failure/defect/pre-boundary rollback of only the initiating layer, post-boundary `unknown` or reconciliation
+truth, canonical-base compare-and-set conflict handling, preservation of remote canonical success, and an
+initiating-actor conflict issue without preview facts reaching other actors. Also prove equal-value revision
+rules and the separate trusted-host boundary in `BEH-032`.
+
+## PROOF-006: Runtime resource store, passive reads, and continuing ownership
+
+Prove one canonical resource store per Flow runtime, same-runtime sharing and cross-actor fanout, independent
+actor ownership and release, and isolation between runtimes, SSR requests, tests, and browser roots. Prove
+the exact resource, transaction, and stream family methods, descriptor-specific `P` versus `K` arguments,
+passive `key`, `getData`, and `getState` reads, absence of generic registries, operation refs, lanes, status
+aliases, enumeration, and custom selection comparators.
+
+Prove finite transition `actions` admit only inert returned plans, continuing resources and streams remain
+state `activities` or independent `onMemory` declarations, and only accepted event transitions admit finite
+work. Cover activation, re-entry, memory changes, independent entries, `false`, `null`, state exit, actor
+stop, exact-once release, equal normalized identity retention, and replacement on field, kind, descriptor, or
+key change.
+
+Prove actor-owned cancellation affects only the calling actor's matching finite occurrence, preserves
+canonical data, continues shared work while another owner remains, interrupts the final owner, fences late
+completion, and does not cancel a continuing resource subscription or map a planned release to a domain
+outcome. Cover first-, middle-, and final-owner cancellation, including truthful adapter behavior before and
+after its point of no return and the absence of a mapped planned outcome.
+
+For `onMemory.select`, prove the shared selector contract, nullable selected domains, initial invocation with
+`previous: undefined`, current and immediately preceding handler values, field-wise named-record suppression,
+fresh equal-plan retention, replacement on field/kind/descriptor/key change, selector purity, and no custom
+comparator. Equality MUST suppress the factory and `false` or `null` MUST release only that declaration.
+
+Prove exact, tag, family, and mixed invalidation/clear targets, first-seen deduplication, whole-batch
+validation, atomic mutation, generation fencing/interruption, surviving subscriptions, logout, and runtime
+disposal. Expansion bounds, zero-match behavior, active-lookup interaction, and closed state unions remain
+under `BEH-023` and `BEH-030`. Prove duplicate stream reads, tags, placeholders, effective reads, updater
+input, equal-value writes, and hydration restart under the accepted `REV-OPS-015` rules.
+Negative proofs MUST reject resource-family invalidation methods, zero-argument or wildcard clear, and
+ordinary runtime cache clear.
+
+## PROOF-007: Transition actions, transactions, streams, and Causes
+
+Prove event-only finite admission, winning/declined/losing transitions, omitted/null/empty/single/list action
+results, returned versus merely constructed plans, pre-turn reads, redirect retention, mixed memory/cache
+changes, atomic publication, no valid prefix, and work starting only after publication.
+
+Prove transaction `key`, passive `getState`, finite `commit`, actor-owned `cancel`, and each accepted
+`reject`, `cancel`, `allow`, and `serialize` policy. Prove no automatic retry or readmission, current-generation
+suppression, explicit writes before mapped outcomes, no implicit canonical writes, and no unaccepted mapping
+options. Prove the adapter's pre-effect and post-point-of-no-return cancellation behavior, durable remote
+operation identity before dispatch, reconciliation without a new remote request, and separate compensation
+identity. Prove stream emission, equal-key retention, key replacement, release/disposal, completion/failure,
+exact finalization, late-emission suppression, explicit writes before outcomes, latest-value coalescing, and
+hydration without emission replay. The `latest stream projection/hydration` proof MUST cover `hasValue`, the
+latest value, emission count, generation, terminal status, pressure coalescing, rematerialization from live
+executable input, missing-input failure, and terminal non-restart.
+
+Closed transaction and stream settlement, occurrence, action-batch conflict, completion publication, and
+hydration proofs are required by `REV-OPS-015`. Exact public state unions remain `BEH-023`; expansion and
+zero-match behavior remain `BEH-030`. Timer-owned finite actions remain forbidden; polling proofs use
+`after` plus an explicit refresh event.
+
+## PROOF-008: Story fixtures, actor recipes, and controlled observations
+
+Prove each Story run materializes fresh recipe actors through the production runtime, validates the complete
+recipe dependency graph, creates providers before consumers, retains owner leases, and cleans up consumers
+before providers in reverse dependency order. Cover repeated bindings to one provider, separate recipes with
+equal machine and input, stable-ref providers, transitive providers, missing providers, cycles, and unadmitted
+machines.
+
+The recipe itself MUST be deeply frozen and inert: it may contain only the exact machine, required fresh input,
+and required context bindings, with no runtime, mailbox, snapshot, operation binding, disposal authority, or
+live actor handle.
+
+Prove `simulate` matches an already pending controlled operation without creating work, identifies the exact
+actor target, descriptor, canonical input or key, and one-based occurrence, and enters through the production
+completion path without directly mutating memory, cache, snapshots, generations, pending work, or evidence.
+Cover finite terminal observations, stream emissions followed by terminal observations, missing or mismatched
+occurrences, already-settled occurrences, and shared-resource-generation settlement. Exact interception,
+occurrence allocation and retention, suspension, and hydration behavior remain under `BEH-019` and `BEH-020`.
+
+## PROOF-009: Story processing and TestClock
+
+Prove the closed Story command surface: `process`, `advance`, `advanceTo`, `advanceToNextTimer`, `checkpoint`,
+`run`, target-aware app `send` and `simulate`, and target-free machine Story forms. `process` MUST drain ready
+production work without advancing time or inventing external results; clock movement and `simulate` MUST NOT
+process unrelated work implicitly. Prove continuing observations, streams, and future deadlines remain
+visible while finite work is processed, and repeated unknown finite work is bounded by the Story's `maxTurns`.
+
+Prove the `maxTurns` default of `100` and explicit-time command behavior. The exact exhaustion failure envelope
+and cleanup aggregation remain unresolved under `BEH-022`.
+
+Under `REV-OPS-015`, the `timer polling` implementation receipt obligation MUST prove that one exact key has
+at most one refresh in flight, the next `after` timer is scheduled only after settlement, failures wait for
+the next scheduled refresh, and suspension or disposal cancels and fences the timer. Resume MUST perform at
+most one overdue refresh. The proof MUST use an explicit refresh event and MUST reject timer-owned finite
+actions, implicit retry, and a new `poll` API.
+
+Machine Story proofs MUST cover one production-created actor, the production memory initializer, exact input and
+selected initial context, and rejection of boot, refs, additional actors, raw memory, initial state, and
+snapshot overrides. App Story proofs MUST use the typed production runtime factory and MUST not inject selected
+context directly.
+
+## PROOF-010: Atomic checkpoints, end evidence, and failures
+
+Prove app checkpoints and end evidence address exact Story recipes or app-owned stable refs through
+`actor(...)`, while machine checkpoints expose the single actor snapshot. Prove reserved `runtime.now` and
+`runtime.pendingWork`, actor issues in actor snapshots, deeply frozen checkpoint and successful `run.end`
+evidence, and one atomic production read barrier for the captured instant.
+
+Failed execution MUST retain completed checkpoints and typed failure-boundary and cleanup evidence and MUST
+NOT manufacture a successful `run.end`. The exact capture set, lock order, lifecycle-evidence cut, cleanup
+aggregation, and failed-run envelope remain unresolved under `BEH-021` and `BEH-022`.
+
+## PROOF-011: Pure model and live-host parity
+
+Prove pure model discovery accepts only a command-empty fresh `story.machine` plan. App Stories MUST exercise
+real cross-actor orchestration and MUST NOT be reduced to one predicted machine model. Structural and
+behavioral tests MUST show that model discovery has no runtime work or production side effects and that live
+hosts and Stories share the same production runtime implementation.
+
+Parity proofs MUST execute equivalent domain-command sequences through live and Story hosts and compare
+snapshots, `TurnRecord`s, pending work, operation facts and generations, context turns, and cleanup
+evidence. React attachment lifecycle evidence remains outside the machine timeline and does not require
+synthetic Story suspend or resume commands.
+
+## PROOF-012: Actor refs, React, and host boundaries
+
+Prove `actorRef` is inert stable identity, `useActor` creates one fresh local actor, `useActorByRef` performs
+lookup-only shared resolution, and `useView(actor, selector)` is the sole ordinary reactive subscription
+path. Prove handles expose exact refs without disposal authority and that hooks cannot create, dispose, or
+recover an owner lease through lookup or observation.
+
+Prove render prepares one final actor with its final ref, snapshot, handle, and command-buffering mailbox;
+commit attaches that same actor; abandoned preparation is inert; and imperative `runtime.createActor` remains
+the immediately attached non-React path. Cover the exact `prepared | active | suspended | disposed` lifecycle,
+coherent lifecycle snapshots before inspection evidence, `actor:start`, `actor:restore`, `actor:suspend`,
+`actor:resume`, and `actor:dispose`, with no `actor:prepare` evidence.
+
+Prove suspension rejects commands without buffering, releases attachment-owned resources, preserves ref,
+handle, memory, context baseline, cursors, occurrences, and absolute timer deadlines, and resumes through
+production kernels without replaying input, initialization, events, finite actions, or baseline context.
+Prove exact passive `useView` selection and shared `Object.is` equality, named-record field suppression,
+declared-value preservation, no comparator argument, optional `useShallow` shared record equality, and no
+operation acquisition or mutation from selectors. Under `REV-HOST-007`, the `passive useView dependency
+replacement` proof MUST show that each evaluation records every exact descriptor and canonical `K` read,
+replaces the dependency set after the evaluation, reruns only for actor publication or matching StoreFanout,
+and reads one tear-free actor/store boundary. The runtime-owned dependency lease MUST be balanced with the
+actor view lifetime; no manual subscription is required for actor correctness, and a projection-only rerun
+MUST NOT evaluate transitions. Strict Mode and Activity cleanup MUST be balanced, live generations MUST NOT
+overlap, resume MUST perform one context reconciliation, and final unmount MUST leave no active runtime work.
+Prepared context/SSR, lifecycle publication identity, suspended dependency cleanup, hook tuple changes,
+prepared mailbox bounds, selector defects, and handle capabilities remain under `BEH-007`, `BEH-009` through
+`BEH-014`, and `BEH-016`; passive-read reactivity is owned by `REV-HOST-007`.
+
+## PROOF-013: Lifecycle and inspection evidence
+
+Prove each lifecycle transition publishes one coherent immutable snapshot through the existing handle before
+its inspection event, that inspection retains start/restore/dispose and adds suspend/resume without a prepare
+event, and that lifecycle evidence creates neither a machine revision nor a `TurnRecord`. An inspection
+listener reading the actor after the event MUST observe the event's `to` lifecycle.
+
+Equivalent live-host and Story execution proofs MUST compare accepted `TurnRecord` facts without introducing
+a second mutable trace or inspection history. Exact ordered lifecycle evidence, sequence allocation, sink
+overflow, drain, and failure behavior remain under `BEH-008`.
+
+## PROOF-014: Boot, persistence, artifacts, server, and CLI
+
+Prove the accepted production bootstrap installs and validates boot actors, completes initial factory ensures,
+resolves exact context-provider refs, rejects missing providers, duplicate registrations, foreign machines,
+and instance cycles before activation or handle escape, and restores context-derived projections in dependency
+order without replaying `onContext` events. Prove that baseline installation is silent, later context changes
+provide defined current and previous values to handlers, and `false` or `null` handlers emit no event.
+
+Prove dehydration captures a context-closed cut with exact binding refs and provider revisions, rejects an
+opaque local provider for an included durable consumer with `NonDurableContextProvider`, and restores derived
+context from provider truth. The runtime factory lifecycle, durable capture membership, and exact host seeding
+remain under `BEH-001`, `BEH-004`, and `BEH-032`.
+
+Continuing-stream persistence MUST capture the contracted latest projection and terminal status without
+serializing or replaying old emissions. Hydration MUST rematerialize an active declaration from live executable
+input, fail closed when that input is missing, and never restart a terminal stream. The implementation receipt
+for this obligation is owned by `REV-OPS-015`; this matrix does not invent a receipt path.
+
+Artifact, persistence, inspect, and CLI proofs MUST update schemas and evidence for app Stories, exact actor
+lookup, `run.end`, module tooling identity, compound states, context requirements, lifecycle records, and
+operation identities without preserving deleted surfaces. They MUST retain accepted bounds, inspection sinks,
+CLI formatting, and production-owner proof discipline only where compatible. Exact representation, byte
+stability, and parity remain under `BEH-033`; this row does not prescribe a version or decoder behavior.
+
+## PROOF-015: Individual actor ownership without child capability
+
+Prove individual disposal is owned only by explicit leases, dependent consumers block provider disposal with
+exact refs and binding paths, cleanup is idempotent, stable-ref tombstones prevent same-runtime recreation,
+and a new runtime may use the durable ref under ordinary boot rules.
+
+This row defines no remote-lease behavior. Child-machine APIs, child lifecycles, child mailboxes, child
+memory, child completion, and child-equivalent Story surfaces are absent under `DEL-002`; the behavioral
+consequence for existing subordinate-workflow examples remains unresolved under `BEH-034`.
 
 ## PROOF-016: Final proving applications
 
-### APP-001 — Todo Essentials proving application
+Todo Essentials proves ordinary definitions, compound machine states, actor refs and leases, named operation
+families, transition actions, views, React, fixtures, Stories, checkpoints, and TestClock paths.
 
-Todo Essentials proves ordinary resource, transaction, optimistic overlay, machine, view,
-React, fixture, story, checkpoint, and TestClock paths.
+Incident Console proves multiple exact refs, context bindings, transaction conflicts, continuing streams,
+scoped leases, inspection, diagnostics, CLI/artifact integration, and browser lifetime through accepted
+production owners. Hydrated Offline Notes proves request isolation, context-closed persistence, first-render
+consistency, persisted outbox behavior, reconnect behavior, and disposal; unresolved hydration and
+host-seeding details remain blockers rather than inferred application requirements.
 
-### APP-002 — Incident Console proving application
+Bounded-feed behavior remains a package contract fixture with dropping or coalescing authored inside the
+application Stream rather than a Flow `pressure` option. React 18/19 and isolated TypeScript modes remain
+packed/type proof packages, not showcase applications.
 
-Incident Console proves multiple refs, transaction conflicts, Effect Stream backpressure,
-children, scoped leases, inspection, diagnostics, CLI, and browser lifetime.
+## PROOF-017: Deletion, retained boundaries, and package hygiene
 
-### APP-003 — Hydrated Offline Notes proving application
+Prove the complete old-contract disposition audit for `DEL-001` through `DEL-011` and `RET-001` through
+`RET-005`. Runtime export inspection and packed declaration negatives MUST show that every deleted value,
+namespace, type, overload, property, deep import, file-level registry, example, proof, and task reference is
+absent from active authority, while retained package routes, ESM/import conditions, Effect peer identity,
+React peer compatibility, synchronous send, status discriminants, canonical operation methods, transition
+actions, and revised host surfaces remain available.
 
-Hydrated Offline Notes proves request isolation, root-machine preload, v2 boot, first-render
-consistency, persisted outbox, reconnect drain, and disposal.
+Prove deleted authoring shapes fail before actor creation, memory mutation, operation acquisition, event
+publication, external work, or evidence. Prove active documents, examples, Stories, fixtures, tests, and task
+files use only accepted replacements or retained boundaries; no alias, adapter, registry, translator, parser
+branch, second runtime, mutable harness, child capability, registered view, or old Story/operation surface
+survives solely for compatibility. Replacement behavior MUST execute through the production owners.
 
-Bounded-feed behavior remains a package contract fixture with dropping/coalescing authored inside
-the application Stream rather than a Flow `pressure` option. React 18/19 and isolated TypeScript
-modes remain packed/type proof packages, not showcase applications.
-
-## PROOF-017: Deletion and package hygiene
-
-Prove removed exports cannot be imported from source or packed declarations, deleted files and
-example packages are absent, package export maps contain only supported entries, root scripts
-delegate to live packages, and no legacy executor, mutable harness, controlled stream,
-production fixture registry, actor shell, direct resource hook, mutable hydration API,
-parallel trace history, CLI path request/envelope/renderer/model helpers, or source-text
-architecture assertion survives.
-
-Deletion proof must combine exact filesystem or export inspection with package typecheck,
-packed consumers, package tests, example tests, browser tests, and the broad workspace gate.
-
-Before deleting root tasks, contracts, audit ledgers, receipts, or historical documentation, map
-every still-live packed-route, peer identity, React 18/19, exact-inference, isolation, capacity,
-hostile-input, lifecycle, and independent-oracle obligation to a current proof. Exact inbound-link
-and filesystem checks MUST then show that the deleted authority has no remaining consumer.
+Deletion proof MUST combine runtime export inspection with package typecheck, packed consumers,
+package tests, example tests, browser tests, and the broad workspace gate. Before deleting historical
+authority, map every still-live route, peer identity, React compatibility, exact-inference, isolation,
+capacity, hostile-input, lifecycle, and independent-oracle obligation to a current proof, then prove that
+the deleted authority has no remaining consumer. Source scans support this audit but do not replace runtime
+or declaration absence proofs.
 
 ## Local proof crosswalk
 
-Local `*-P*` sections refine the central proof rows and MUST be named by the same phase receipt:
+Local `*-P*` sections refine the central proof rows and MUST be named by the same phase receipt. The IDs below
+are the active stable crosswalk; phase-0 proof-index, receipt, and task files are historical evidence only and
+do not choose current ownership. `CLI-P01` covers current CLI grammar, gateway, execution, artifact, and
+formatting behavior; `CLI-P02` covers fresh packaged-binary and deleted-surface cutover evidence.
 
-| Local obligation     | Central proof owner                                            |
-| -------------------- | -------------------------------------------------------------- |
-| `API-P01`            | `PROOF-001`, `PROOF-017`                                       |
-| `API-P02`            | `PROOF-001`, `PROOF-002`                                       |
-| `API-P03`            | `PROOF-003`, `PROOF-005`–`PROOF-008`, `PROOF-011`, `PROOF-014` |
-| `TYPE-P01`           | `PROOF-001`                                                    |
-| `TYPE-P02`           | `PROOF-001`, `PROOF-017`                                       |
-| `TYPE-P03`           | `PROOF-001`                                                    |
-| `TYPE-P04`           | `PROOF-001`                                                    |
-| `SNAP-P01`           | `PROOF-001`, `PROOF-005`, `PROOF-006`                          |
-| `HOST-P01`           | `PROOF-003`, `PROOF-004`, `PROOF-012`                          |
-| `HOST-P02`           | `PROOF-003`, `PROOF-010`                                       |
-| `HOST-P03`           | `PROOF-003`, `PROOF-005`                                       |
-| `HOST-P04`           | `PROOF-012`                                                    |
-| `HOST-P05`           | `PROOF-004`, `PROOF-012`                                       |
-| `CUT-P01`–`CUT-P03`  | `PROOF-001`, `PROOF-017`                                       |
-| `CUT-P04`            | `PROOF-001`, `PROOF-012`, `PROOF-014`, `PROOF-017`             |
-| `CUT-P05`, `CUT-P06` | `PROOF-016`, `PROOF-017`                                       |
+| Local obligation | Central proof owner                                            |
+| ---------------- | -------------------------------------------------------------- |
+| `API-P01`        | `PROOF-001`, `PROOF-017`                                       |
+| `API-P02`        | `PROOF-001`, `PROOF-002`                                       |
+| `API-P03`        | `PROOF-003`, `PROOF-005`–`PROOF-008`, `PROOF-011`, `PROOF-014` |
+| `CLI-P01`        | `PROOF-014`                                                    |
+| `CLI-P02`        | `PROOF-014`, `PROOF-017`                                       |
+| `TYPE-P01`       | `PROOF-001`                                                    |
+| `TYPE-P02`       | `PROOF-001`, `PROOF-017`                                       |
+| `TYPE-P03`       | `PROOF-001`                                                    |
+| `TYPE-P04`       | `PROOF-001`                                                    |
+| `SNAP-P01`       | `PROOF-001`, `PROOF-005`, `PROOF-006`                          |
+| `HOST-P01`       | `PROOF-003`, `PROOF-004`, `PROOF-012`                          |
+| `HOST-P02`       | `PROOF-003`, `PROOF-010`                                       |
+| `HOST-P03`       | `PROOF-003`, `PROOF-005`                                       |
+| `HOST-P04`       | `PROOF-012`                                                    |
+| `HOST-P05`       | `PROOF-004`, `PROOF-012`                                       |
+| `CUT-P01`        | `PROOF-001`, `PROOF-017`                                       |
+| `CUT-P02`        | `PROOF-001`, `PROOF-017`                                       |
+| `CUT-P03`        | `PROOF-001`, `PROOF-017`                                       |
+| `CUT-P04`        | `PROOF-001`, `PROOF-012`, `PROOF-014`, `PROOF-017`             |
+| `CUT-P05`        | `PROOF-017`                                                    |
+| `CUT-P06`        | `PROOF-017`                                                    |
 
-Phase 0 MUST record this crosswalk in its proof index. A local proof section is normative and
-cannot disappear merely because its prefix is not `PROOF-*`.
+A local proof section is normative and cannot disappear merely because its prefix is not `PROOF-*`.
 
 ## Required gate layers
 
-Focused tests establish one proof mechanism quickly, but closure requires the next owning
-layer:
+Focused tests establish one proof mechanism quickly, but closure requires the next owning layer:
 
 1. focused proof files for the affected `PROOF-*` IDs;
-2. `pnpm --filter flow-state check:cli-source-types`;
-3. `pnpm --filter flow-state test`;
-4. `pnpm --filter flow-state build`;
-5. `pnpm --filter flow-state check:typescript-mode-proofs` and
-   `pnpm --filter flow-state check:packed-consumers` for public or declaration changes;
+2. `nub run --filter flow-state check:cli-source-types`;
+3. `nub run --filter flow-state test`;
+4. `nub run --filter flow-state build`;
+5. `nub run --filter flow-state check:typescript-mode-proofs` and
+   `nub run --filter flow-state check:packed-consumers` for public or declaration changes;
 6. affected example tests and builds;
-7. `pnpm test:browser` for browser ownership or lifecycle changes;
-8. `pnpm verify` for final phase closure.
+7. `nub run test:browser` for browser ownership or lifecycle changes;
+8. `nub run verify` for final phase closure.
 
-The live script owners are `packages/flow-state/package.json:59-69` and root
-`package.json:6-30`. The required architecture invariants originate in
-`reference/incident-console/IMPLEMENTATION_BLOCKERS.md:757-800`.
+The live script owners are `packages/flow-state/package.json:59-69` and root `package.json:6-30`. These gate
+commands are unchanged by the revision overlay. The accepted architecture and parity proof boundary is
+`REV-MIG-003`; unresolved behavior IDs must remain carried in the phase receipt until explicitly closed.

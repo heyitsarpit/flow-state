@@ -172,12 +172,12 @@ supplies executable `P`.
 supplies the running client. Releasing `A` cannot switch that generation to `B`; `B` may supply only a later
 automatic generation.
 
-**Unresolved boundary:** `BEH-028` owns which newly produced equal-key candidate `P` is retained for a later
-generation and how acquisition order survives hydration.
+Equal-key candidate selection for a later generation uses the oldest eligible binding and the same stable
+acquisition order after hydration; `REV-OPS-015` owns the completed rule.
 
 **Proof obligations:** Cover simultaneous eligibility, first admission, equal-key joining, supplying-owner
-release, later automatic admission, explicit refetch, settlement cleanup, and inert hydrated key-only data.
-Durable ordering remains blocked on `BEH-028`.
+release, later automatic admission, explicit refetch, settlement cleanup, deterministic post-hydration order,
+and inert hydrated key-only data.
 
 ## REV-OPS-004 — Runtime-scoped shared resource store
 
@@ -256,7 +256,9 @@ This interface block is schematic local notation, not a declaration of exported 
 Pascal-cased options and plan name in it stands for the descriptor-specific inferred type at that position.
 `StateShapeNotYetAccepted` is a documentation sentinel, not a public type: each `getState(K)` result must be
 descriptor- and key-typed, but its closed union remains unresolved under `BEH-023`. In particular, this
-notation does not place stream emission `V` in stream status. The accepted revision fixes the family
+sentinel does not decide whether a stream status includes latest emission `V`; that exact public union and
+read projection remain unresolved under `BEH-023`. `REV-OPS-015` separately accepts the runtime latest-value
+projection behavior. The accepted revision fixes the family
 methods, their `P` versus `K` arguments, descriptor-specific value/failure/event relationships, and finite
 versus continuing result categories. It does not accept exports with these support names or generic
 parameter orders for them.
@@ -403,8 +405,8 @@ machine code MUST NOT manually unsubscribe.
 
 There is no operation `onEvent`, `onSnapshot`, `onEnter`, or `onMemory.once` combinator in this revision.
 
-**Unresolved boundary:** Only event handlers have accepted `actions`. `BEH-024` records timer-owned finite
-actions as an authority conflict requiring separate design acceptance; implementations MUST NOT infer them.
+Only event handlers admit finite `actions`; timer facts remain event-targeting only. Polling uses an existing
+`after` timer and an explicit refresh event under `REV-OPS-015`; implementations MUST NOT infer timer actions.
 
 **Proof obligations:** Prove winning/declined/losing transitions; omitted, `null`, empty, single, and list
 results; returned versus merely constructed plans; finite versus continuing ownership; and coordinated
@@ -437,8 +439,9 @@ validation aborts the unpublished whole turn; no valid prefix survives.
 **Example:** A valid `setData` followed by an invalid key publishes neither state nor write and starts no
 work. A redirect away from the initial target does not cancel that edge's valid finite commit.
 
-**Unresolved boundary:** `BEH-026` owns conflicts among repeated or mixed commands and exact transaction and
-stream completion-side publication order. This rule fixes event macrosteps, not that conflict algebra.
+Mixed-command conflicts and transaction/stream completion-side publication order follow `REV-OPS-015`:
+conflicting target-changing intentions reject the whole candidate before mutation, while accepted completion
+facts publish canonical writes, owner projections, and mapped events in the defined order.
 
 **Proof obligations:** Cover pre-turn reads, guard decline, redirect retention, mixed memory/cache changes,
 synchronous/asynchronous plans, every planning failure, one atomic publication, no valid prefix, and work
@@ -489,12 +492,13 @@ Runtime-sized arrays, `subscribeMany`, `subscribeEach`, and implicit array-to-ma
 deferred. Dynamic membership currently uses one aggregate resource or separately owned actors. A future
 collection contract must define membership, duplicates, bounds, per-key outcomes, persistence, and release.
 
-**Unresolved boundary:** `BEH-031` owns hydration-time input rematerialization; `BEH-028` owns future-
-generation candidate `P`. This rule defines only live reconciliation.
+Hydration drains pending outcomes, rematerializes continuing declarations from live executable `P`, and
+uses the oldest eligible binding for a later generation. This rule defines the live and hydrated
+reconciliation boundary under `REV-OPS-015`.
 
 **Proof obligations:** Cover activation/re-entry, memory changes, independent entries, `false`, `null`,
-state exit, actor stop, exact-once release, equal live identity retention, and rejection of deferred
-collection returns and helpers. Hydration proofs remain blocked on `BEH-031`.
+state exit, actor stop, exact-once release, equal live identity retention, hydration without emission replay,
+and rejection of deferred collection returns and helpers.
 
 ## REV-OPS-009 — Selector suppression and operation-identity reconciliation
 
@@ -537,8 +541,8 @@ Authors SHOULD select one stable immutable value, use a named record for one pla
 independently changing values, split independently owned plans into separate entries, or use direct
 `onMemory` when the plan genuinely depends on the whole memory object.
 
-**Unresolved boundary:** `BEH-028` decides which new equal-key `P` a future generation uses and how order
-survives hydration.
+Equal-key future generations use the oldest eligible retained binding and stable acquisition order across
+hydration under `REV-OPS-015`.
 
 **Proof obligations:** Distinguish selection suppression from plan retention; prove initial factory
 invocation on activation and re-entry with `previous: undefined`, scalar current/previous values,
@@ -568,9 +572,9 @@ Updater `undefined` declines with no change. A fenced finite occurrence settles 
 inspection evidence, emits no mapped domain interruption, and suppresses every late success, failure, and
 finalization. A later explicit lookup/refetch may admit normally.
 
-**Unresolved boundary:** `BEH-029` owns updater input, overlay behavior, and equal-value revisions/emissions.
-`BEH-032` owns the trusted host API, authority, seeding, and evidence. Trusted writes are accepted writers
-and obey the same fencing/fanout, but this chapter invents no host surface.
+Updater input, actor-scoped overlay behavior, and equal-value revisions/emissions follow `REV-OPS-015`.
+`BEH-032` still owns the trusted host API, authority, seeding, and evidence. Trusted writes are accepted
+writers and obey the same fencing/fanout, but this chapter invents no host surface.
 
 **Proof obligations:** Hostile races MUST deliver late success/failure/finalization and prove no overwrite or
 republication. Cover updater decline, retained subscribers, all accepted write origins, and blocked
@@ -602,9 +606,9 @@ status such as submitted, unknown, or requiring reconciliation.
 **Example:** With actors `A`, `B`, and `C` on one lookup generation, cancelling `B` settles only `B`. Work
 continues for `A` and `C`; cancelling the final owner interrupts the shared controller.
 
-**Unresolved boundary:** `BEH-025` owns occurrence settlement, supersession, suspension, disposal, retention
-bounds, and same-actor same-key cancellation cardinality. This rule fixes cross-actor ownership and MUST NOT
-select one same-key occurrence arbitrarily.
+Occurrence settlement, supersession, suspension, disposal, retention bounds, and same-actor same-key
+cancellation cardinality follow `REV-OPS-015`. This rule fixes cross-actor ownership and MUST NOT select one
+same-key occurrence arbitrarily.
 
 **Proof obligations:** Cover first/middle/final owner cancellation, late completion, canonical data
 retention, finite versus continuing ownership, point-of-no-return truth, and no mapped planned outcome.
@@ -681,9 +685,9 @@ zero-argument clear, AppPlan-external wildcard, or whole-runtime clear. Complete
 `runtime.cache.clear()`. Logout-like transitions MUST release account-scoped continuing work and clear its
 data in the same macrostep.
 
-**Unresolved boundary:** `BEH-030` owns expansion bounds, missing/zero-match behavior, and interaction with
-active lookup, including whether a valid zero-match command advances a store revision. `BEH-026` owns
-mixed-command conflicts. Family targets for both commands are already accepted.
+`BEH-030` remains the boundary for expansion bounds, missing/zero-match behavior, and interaction with
+active lookup, including whether a valid zero-match command advances a store revision. Mixed-command
+conflicts follow `REV-OPS-015`. Family targets for both commands are already accepted.
 
 **Proof obligations:** Cover exact/tag/family/mixed targets, first-seen deduplication, invalid/unauthorized
 targets, whole-batch rejection, atomic mutation, fencing/interruption, surviving subscriptions, logout, and
@@ -722,8 +726,8 @@ Concurrency is evaluated per actor, transaction descriptor, and canonical `K`:
 | `allow`     | Admit independent generations; only the current generation may update the current projection or route an outcome. |
 | `serialize` | Materialize each admitted `P` and run the exact-key queue FIFO.                                                   |
 
-This policy table does not decide the occurrence retention or key-only cancel cardinality left open by
-`BEH-025`.
+Occurrence retention and key-only cancel cardinality follow `REV-OPS-015`; no targeted occurrence-cancel
+API is added.
 
 ```ts
 on: {
@@ -759,18 +763,20 @@ O.submitIntent.commit(params, {
 The accepted mapping includes exact `setData` plans, not completion-side `invalidates` or `clears` options.
 Cancellation follows `REV-OPS-011`.
 
-**Unresolved boundary:** `BEH-023` owns exact transaction state. `BEH-025` owns occurrence lifetime and
-cancel cardinality. `BEH-026` owns overlays, completion-side invalidation/clear, publication, callback
-materialization, and conflicts. Writes-before-outcome is accepted; the larger settlement sequence is not.
+`BEH-023` remains the exact public transaction-state boundary. Occurrence lifetime, cancellation, overlays,
+completion-side publication, callback materialization, and conflicts follow `REV-OPS-015`. Writes-before-
+outcome is accepted.
 
 **Proof obligations:** Prove event-only admission, passive status, each concurrency policy, no automatic
 retry/readmission, current-generation suppression, fenced writes before mapped outcome, no implicit writes,
-and no unaccepted mapping options. Remaining occurrence and settlement proofs are blocked on `BEH-023`,
-`BEH-025`, and `BEH-026`.
+and no unaccepted mapping options. Exact public state-union proofs remain `BEH-023`; occurrence and
+settlement proofs follow `REV-OPS-015`.
 
-## REV-OPS-014 — Stream ownership, explicit resource mappings, and value-free status
+## REV-OPS-014 — Stream ownership and explicit resource mappings (historical baseline; amended by REV-OPS-015)
 
-**Change:** Define actor-owned continuing streams and forbid latest-emission retention in status.
+**Change:** Define actor-owned continuing streams and explicit resource mappings. The earlier value-free
+stream-status restriction is superseded by `REV-OPS-015`; it remains in this section only as historical
+provenance.
 
 **Provenance:** `DESIGN_REVISIONS.md:405-409,481-483,528-541,1427-1428,1466-1468`;
 `OPERATIONS_SPEC.md:648-758`.
@@ -814,8 +820,10 @@ activities: [
 ```
 
 `getState(K)` exposes actor-owned idle, connecting, running, complete, typed failure, defect, interruption,
-and inspection identity, but MUST NOT contain the latest `V`. Exact union shape, generation fields, and
-duplicate-live-binding reads remain under `BEH-023`.
+and inspection identity. Its exact public union, including whether it carries the latest `V`, remains
+unresolved under `BEH-023`; the accepted runtime behavior is the latest-value projection specified by
+`REV-OPS-015`, not the earlier value-free restriction. Generation fields and duplicate-live-binding reads
+remain under `BEH-023`.
 
 Emissions become durable observable state only through mapped events that later commit memory or explicit
 authoritative resource writes. Values never enter the resource store implicitly. Flow verifies current key
@@ -835,18 +843,16 @@ O.walletChanges.subscribe(
 );
 ```
 
-Planned release stores no latest value. Hydration MUST NOT reconstruct a prior emission. The direction
-requires an owned-stream restart rather than continuation of captured transport, but exact eligibility,
-executable-`P` source, ordering, terminal-stream interaction, selector/key mismatch, and failures remain
-under `BEH-031`. This chapter does not decide whether a distinct canonical restart representation is
-persisted or continuing declarations are rerun, and it selects no rematerialization algorithm.
-
-**Unresolved boundary:** `BEH-026` owns exact completion publication; `BEH-031` owns restart/input;
-`BEH-023` owns state and duplicate reads.
+Planned release stores no further value. Hydration rematerializes an active declaration from live executable
+`P` after pending outcomes drain, creates a new generation, and does not replay emissions. Terminal streams
+do not restart; missing input fails closed. Completion publication follows `REV-OPS-015`; exact public
+state and duplicate-read fields remain under `BEH-023`.
 
 **Proof obligations:** Cover emission, equal-key live retention, key replacement, release/disposal,
-completion/failure, exact finalization, late emissions, writes before outcomes, and no hidden latest value in
-status, completion, failure, release, dehydration, or hydration. Remaining exact proofs track the three BEHs.
+completion/failure, exact finalization, late emissions, writes before outcomes, latest-value coalescing,
+and no historical emission replay during completion, failure, release, dehydration, or hydration. Remaining
+exact public-state and declaration-slot proofs track `BEH-023`; runtime latest-value behavior follows
+`REV-OPS-015`.
 
 ## Closed exclusions and deferred surfaces
 
@@ -869,20 +875,91 @@ baseline. Timer-owned finite actions are not inferred from event actions and req
 
 ## Unresolved behavior register
 
-These are mandatory closure problems, not accepted answers:
+These are mandatory closure problems, not accepted answers. `BEH-023` remains open for exact public state
+unions and read projections; `REV-OPS-015` closes adjacent runtime behavior without closing that public-shape
+boundary. `BEH-024`, `BEH-025`, `BEH-026`, `BEH-028`,
+`BEH-029`, and `BEH-031` are closed by the later `REV-OPS-015` amendment; their rows remain here only as
+historical indexing.
 
-| Item      | Unresolved behavior                                                                                                                                                         |
-| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `BEH-023` | Closed operation state unions, generation/failure/collection projection, cross-actor resource read visibility, and unambiguous stream reads with declaration-slot identity. |
-| `BEH-024` | Whether timers gain finite actions and, only if accepted, their ordering and failure behavior.                                                                              |
-| `BEH-025` | Finite occurrence settlement, supersession, suspension, disposal, retention, and same-key cancel cardinality.                                                               |
-| `BEH-026` | Action-batch conflicts and transaction/stream completion-side write, overlay, status, revision, and outcome ordering.                                                       |
-| `BEH-027` | Canonical byte grammar, counting, hostile input, copying/freezing, and mutable-input conflict.                                                                              |
-| `BEH-028` | Equal-key candidate-`P` retention and acquisition order across hydration.                                                                                                   |
-| `BEH-029` | Tags/placeholders, base versus effective reads, updater input, overlays, and equal-value writes.                                                                            |
-| `BEH-030` | Tag/family expansion bounds, missing/zero-match behavior, and active-lookup interaction.                                                                                    |
-| `BEH-031` | Stream restart eligibility, executable input after hydration, terminal behavior, selector/key mismatch, and failures.                                                       |
-| `BEH-032` | Boot/SSR/fixture seeding and trusted host-write owner, API, authority, and evidence.                                                                                        |
+| Item      | Unresolved behavior                                                                                                                                                                                                                                                                                                                             |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `BEH-023` | Exact public operation state unions, generation/failure/collection projection, cross-actor resource read visibility, and unambiguous stream reads with declaration-slot identity remain unresolved. Adjacent runtime behavior, including latest-value projection, is closed by `REV-OPS-015`; this row remains open for the exact public shape. |
+| `BEH-024` | Closed by `REV-OPS-015`: timers remain event-targeting only; polling uses `after` plus an explicit refresh event.                                                                                                                                                                                                                               |
+| `BEH-025` | Closed by `REV-OPS-015`: occurrence settlement, supersession, cancellation, disposal, and bounded retention.                                                                                                                                                                                                                                    |
+| `BEH-026` | Closed by `REV-OPS-015`: action conflicts and transaction/stream completion-side ordering.                                                                                                                                                                                                                                                      |
+| `BEH-027` | Canonical byte grammar, counting, hostile input, copying/freezing, and mutable-input conflict.                                                                                                                                                                                                                                                  |
+| `BEH-028` | Closed by `REV-OPS-015`: equal-key candidate-`P` retention and deterministic acquisition order across hydration.                                                                                                                                                                                                                                |
+| `BEH-029` | Closed by `REV-OPS-015`: tags, base/effective reads, updater input, overlays, promotion, and equal-value writes.                                                                                                                                                                                                                                |
+| `BEH-030` | Tag/family expansion bounds, missing/zero-match behavior, and active-lookup interaction.                                                                                                                                                                                                                                                        |
+| `BEH-031` | Closed by `REV-OPS-015`: stream rematerialization from live `P` without emission replay and terminal behavior.                                                                                                                                                                                                                                  |
+| `BEH-032` | Boot/SSR/fixture seeding and trusted host-write owner, API, authority, and evidence.                                                                                                                                                                                                                                                            |
 
 Closing any BEH MUST preserve this chapter's public method sets, `P`/`K` boundary, ownership, event-action
 admission, and deferred surfaces unless a separate accepted design decision revises them.
+
+## REV-OPS-015 — Runtime-owned reactivity, actor-scoped previews, and continuing projections
+
+**Change:** Close the operation-runtime behavior needed for reactive actor projections, optimistic
+transaction previews, canonical cross-actor fanout, and continuing-operation hydration. This amendment
+does not add a manual subscription API, a polling helper, a transaction rollback API, or a second operation
+registry.
+
+**Supersedes:** The conflicting value-free stream-status, shared-effective-overlay, direct-store-observer,
+and unresolved completion-order statements in `REV-OPS-004`, `REV-OPS-014`, `BEH-024` through `BEH-026`,
+`BEH-028`, `BEH-029`, and `BEH-031`, and their owning implementation-contract clauses.
+
+**Rule:** Every external callback, timer fact, stream emission, transaction settlement, context wave, and
+StoreFanout fact MUST enter the owning actor mailbox. A projection-only fact rereads authoritative current
+state, publishes one complete immutable actor snapshot, and MUST NOT evaluate transitions, guards,
+`always`, actions, redirects, memory updates, finite work, or hidden events. A continuing-operation outcome
+mapper may enqueue one typed event only after that projection publication; the event is a later ordinary
+mailbox turn.
+
+StoreKernel owns committed canonical bases and one shared overlay ledger. Store mutation MUST pass through
+one package-private commit coordinator. StoreFanout is the sole actor-facing path for canonical revisions;
+actors MUST NOT subscribe directly to StoreState. A canonical revision fact contains only a monotonic
+revision, changed canonical refs, and its kind. Recipients ignore revisions at or below their cursor,
+ignore refs outside their registered dependency set, reread current StoreState, and may coalesce adjacent
+projection facts. Lifecycle, terminal operation, cancellation, stream terminal, and mapped events are not
+coalesced. StoreFanout never runs transitions or mutates snapshots.
+
+An optimistic transaction layer is scoped to the exact initiating actor incarnation, transaction occurrence,
+descriptor, and canonical `K`. Only that actor sees the uncommitted effective projection. A successful
+occurrence promotes its layer into the canonical base atomically and then emits one canonical StoreFanout
+revision. Failure, defect, and pre-boundary interruption remove only that layer and replay remaining owner
+layers without changing canonical state. Post-boundary cancellation removes local provisional state,
+publishes `unknown` or reconciliation-required truth, and MUST NOT claim that a remote effect was undone.
+Promotion uses a canonical-base compare-and-set; if the base changed, the remote success remains canonical,
+the local layer is removed or marked conflicted, and the initiating actor receives a conflict issue. Non-
+initiating actors never receive preview or preview-rollback facts.
+
+Transaction concurrency is actor-local and exact-keyed: `reject` declines a second occurrence, `cancel`
+removes the prior local layer before admitting its replacement, `allow` keeps independently ordered layers
+while only the current generation controls the public projection and mapped event, and `serialize` admits
+FIFO with preview application at dequeue. Retry is a new explicit commit event; no policy retries
+automatically. A restored nonterminal occurrence is never replayed. If its remote identity is durable, it
+becomes `unknown` and must reconcile using the same remote identity.
+
+Continuing resource declarations own their runtime subscriptions; callers MUST NOT manually subscribe for
+actor correctness. Resource routes are `value`, `failure`, `defect`, and `interrupt`. The initial
+canonical value is delivered once on activation, later canonical replacements may deliver `value`, equal
+values are suppressed, and overlay-only changes do not deliver `value`. Planned release emits no
+interruption route. Runtime resource observation remains an external escape hatch and is not required for
+actor synchronization.
+
+Continuing streams publish a latest-value projection with `hasValue`, emission count, generation, and
+terminal status. Emissions are projection-only until a mapped event or explicit `setData` makes them durable
+machine or canonical state. Pressure is coalesced to the latest emission. Planned release emits no outcome,
+and hydration rematerializes an active declaration from its live executable input without replaying an old
+emission; terminal streams do not restart. A missing executable input after hydration fails closed with a
+precise diagnostic rather than reconstructing `P` from `K`.
+
+Polling uses the existing `after` timer and an explicit refresh event: one exact key may have one refresh in
+flight, the next timer is scheduled only after settlement, failures wait for the next scheduled refresh, and
+there is no implicit retry or new `poll` API. Suspension and disposal cancel and fence the timer; resume
+performs at most one overdue refresh.
+
+**Proof obligations:** Add runtime and React proofs for mailbox ordering, canonical-only cross-actor fanout,
+owner-only preview visibility, promotion/rollback/CAS conflict behavior, projection-only publications,
+continuing route ordering, stream latest-value coalescing and terminal hydration, explicit timer-driven
+refresh, and the absence of required user subscriptions.

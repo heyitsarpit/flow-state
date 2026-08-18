@@ -2,22 +2,21 @@
 
 Status: normative vNext contract
 
-This contract defines the supported package routes, public values, descriptor grammar,
-testing plan surface, inspection surface, and CLI surface. Type propagation is specified in
-[`TYPE_SYSTEM.md`](./TYPE_SYSTEM.md), host and React behavior in
-[`REACT_AND_HOSTS.md`](./REACT_AND_HOSTS.md), and removals in
-[`COMPATIBILITY_AND_DELETIONS.md`](./COMPATIBILITY_AND_DELETIONS.md).
+This contract defines the supported package routes, public values, definition and machine grammar,
+operation families, actor and host surface, Story surface, inspection surface, and CLI surface. Type
+propagation is specified in [`TYPE_SYSTEM.md`](./TYPE_SYSTEM.md), host behavior in
+[`REACT_AND_HOSTS.md`](./REACT_AND_HOSTS.md), and old-surface dispositions in
+[`revision-spec/accepted/07-deletions-and-cutover.md`](../revision-spec/accepted/07-deletions-and-cutover.md).
 
-The live package already publishes exactly the root, React, testing, server, inspect, and
-package-manifest routes (`packages/flow-state/package.json:33-54`). Those route names are the
-vNext package boundary.
+The live package publishes the root, React, testing, server, inspect, and package-manifest routes
+(`packages/flow-state/package.json:33-54`). Those route names remain the vNext package boundary.
 
 ## Package routes
 
 ### API-001 — Routes are isolated named-export surfaces
 
-The package MUST publish these runtime-value exports and MUST NOT publish a package-owned
-`flow`, `test`, `inspect`, or `hooks` namespace object. Consumers choose aliases locally.
+The package MUST publish these runtime-value exports and MUST NOT publish a package-owned `flow`,
+`test`, `inspect`, or `hooks` namespace object. Consumers choose aliases locally.
 
 ```ts
 import * as flow from "flow-state";
@@ -28,9 +27,9 @@ import * as inspect from "flow-state/inspect";
 ```ts
 // flow-state
 export {
+  actorRef,
   app,
   can,
-  child,
   decodeRuntimeBoot,
   definition,
   FlowBootDecodeError,
@@ -41,13 +40,11 @@ export {
   resource,
   runtime,
   stream,
-  tag,
   transaction,
-  view,
 };
 
 // flow-state/react
-export { FlowProvider, useActor, useView };
+export { FlowProvider, useActor, useActorByRef, useView };
 
 // flow-state/testing
 export { behavior, control, fixture, model, story };
@@ -88,514 +85,430 @@ export {
 };
 ```
 
-The current route-negative tests are the compatibility baseline: non-root routes do not
-export root builders, and no route exports a package-owned `flow` object
+Non-root routes MUST NOT export root builders, and no route exports a package-owned namespace object
 (`packages/flow-state/src/public-api-types.test.ts:63-106`).
 
 ### API-002 — Root type exports are consumer-facing contracts only
 
-The root MUST export the companion types needed to name or infer its values:
-`Definition`, `StateToken`, `EventToken`, `StateOf`, `EventOf`, `Machine`, `MemoryOf`,
-`InputOf`, `RequirementsOf`, `Resource`, `ResourceRef`, `ResourceSnapshot`, `Transaction`,
-`TransactionRef`, `TransactionSnapshot`, `View`, `SelectedOf`, `Module`, `App`, `Runtime`,
-`RootActor`, `DynamicActor`, `ActorSnapshot`, the small active `FlowIssue` summary, and
-`CanonicalKeyInput`, `Tag`, and `InvalidationTarget`, plus the app-branded
-`RuntimeBootPayload` returned by runtime dehydration or the app-bound unknown decoder and accepted
-as immutable boot input. `FlowBootDecodeError`, `FlowDehydrateError`, and `FlowDisposeError` are
-the named root error classes needed to discriminate synchronous boot decoding, asynchronous
-dehydration, and host cleanup at their JavaScript boundaries.
+The root MUST export the companion types needed to name or infer its accepted values, including
+`Definition`, `StateToken`, `EventToken`, `StateOf`, `EventOf`, `Machine`, `MemoryOf`, `InputOf`,
+`RequirementsOf`, `Resource`, `Transaction`, `ActorRef`, `ActorSnapshot`, `Module`, `App`, `Runtime`,
+and `CanonicalKeyInput`, together with the app-branded
+`RuntimeBootPayload` accepted as immutable boot input. Exact operation-family state shapes remain
+subject to `BEH-023`; this contract does not invent support aliases for them.
 
-The root MUST NOT export `FlowReceipt`, standalone status aliases, full diagnostic facts,
-Cause aliases, or TurnRecord types. The one `Cause.Cause<unknown>` field on `FlowDisposeError` is
-the explicit host-cleanup exception; ordinary snapshots expose their literal discriminants directly;
-full receipt and diagnostic facts belong to `flow-state/inspect`.
+The root MUST NOT export `FlowReceipt`, standalone status aliases, full diagnostic facts, public Cause
+or TurnRecord types, registered-view types, child-machine types, root/dynamic actor category types,
+generic operation-ref types, or testing and inspect artifact types. Ordinary actor handles expose their
+exact `ActorRef` but carry no individual disposal authority; the owner lease is the separate construction
+result and does not require a parallel exported helper type.
 
-The root MUST NOT export internal service tags, store or orchestrator implementations,
-`ManagedRuntime`, pending outcome records, boot artifact types, test harness types, or inspect artifact types. The
-current root leaks internal runtime service contracts at `packages/flow-state/src/index.ts:26-40`;
-vNext removes that leakage.
+The root MUST NOT export internal service tags, store or orchestrator implementations, `ManagedRuntime`,
+pending outcome records, boot artifact types, test harness types, or inspect artifact types. The public
+package boundary exposes only the consumer-facing routes and values above.
 
 ## Definition and machine grammar
 
 ### API-003 — One definition owns the complete static actor shape
 
-`definition` MUST have exactly this authoring shape:
+`definition` MUST own the durable machine identity, recursive state and event schemas, optional inherited
+context selectors, input-to-memory initialization, and one flat named operation record:
 
 ```ts
-const Incident = definition({
+const NewIntent = definition({
   id: "Incidents/Console",
-  states: ["QUEUE", "DETAIL", "FAILED"],
+  states: ["INACTIVE", { ACTIVE: ["EDITING", "SUBMITTING"] }],
   events: {
-    IncidentOpened: (incidentId: string) => ({ incidentId }),
-    IncidentLoaded: (incident: Incident) => ({ incident }),
-    IncidentLoadFailed: (error: IncidentFailure) => ({ error }),
-    IncidentSaveRequested: (patch: IncidentPatch) => ({ patch }),
-    RetryRequested: null,
+    SessionEnded: null,
+    IntentOpened: (intentId: string) => ({ intentId }),
   },
-  memory: () => ({
-    selectedIncidentId: null as string | null,
-    retryCount: 0,
+  context: {
+    sessionState: Session.select(({ state }) => state),
+    themeMode: Theme.select(({ memory }) => memory.mode),
+  },
+  operations: {
+    routeConfig,
+    orderById,
+    submitIntent,
+    submissionProgress,
+  },
+  memory: ({ input }: { readonly input: { readonly draftId: string } }) => ({
+    draftId: input.draftId,
+    mode: "dark",
   }),
 });
 ```
 
-`Incident.S.QUEUE` MUST be a frozen `{ kind: "state", name: "QUEUE", id: fullId }` token.
-`Incident.E.IncidentOpened` MUST be a frozen callable token with
-`{ kind: "event", name: "IncidentOpened", id: fullId }`, and calling it MUST return a frozen plain
-record `{ type: fullId, ...payload }`. Member IDs use GLO-01's namespace-tagged length-prefixed
-encoding. An event payload constructor MUST return a readonly plain record, MUST NOT own `type`,
-and MUST fail synchronously for any other result. A `null` event declaration MUST produce a
-zero-argument constructor. The optional pure `memory` factory owns fresh actor initialization and infers
-`Input` and `Memory`; omitting it means `Input = void` and an empty readonly memory record.
-`definition` MUST NOT accept a type-only memory marker or a separate `initialMemory`; the factory
-is both the inference source and fresh value constructor.
+The ordered state declaration MUST accept a string leaf or a recursive single-key compound group. Every
+node MUST receive one exact definition-derived token preserving its complete path, such as
+`S.ACTIVE.S.EDITING`; transitions MUST use those tokens rather than relative strings or runtime path
+lookup. Flow MUST accept at most ten state levels, counting the top-level state as depth one.
+
+Definition event members MUST be frozen nominal tokens. A callable event token MUST return a frozen
+readonly plain event envelope whose `type` is the full event identity and whose payload constructor does
+not own `type`; a `null` declaration MUST produce a zero-argument constructor. The `id` and event/state
+names remain definition-owned and MUST NOT be repeated in a second declaration.
+
+`context` MAY declare readonly pure selectors over other actor definitions. These selectors create typed
+definition-level provider edges; they are not long-lived registrations. `memory` MUST be the single
+inference and fresh-initialization source: `memory: ({ input }) => Memory` consumes input exactly once,
+while omitting the initializer argument fixes `Input = void`. An absent initializer means `Input = void`
+and a readonly empty memory record. Restoration installs persisted memory without replaying input or
+invoking the initializer. Input MUST NOT classify actors as local or shared.
+
+The `operations` record MUST be flat, named, and inert. Listing a descriptor does not acquire a resource,
+run a transaction, or subscribe to a stream; it makes the named operation part of static AppPlan
+reachability and preserves its exact value, failure, and requirement types.
+
+### API-004 — Machine construction compiles one behavior callback
+
+The public machine constructor MUST be `machine(definition, callback)`. Its callback receives the exact
+definition-derived `S`, `E`, `O`, `onContext`, `onMemory`, `invalidate`, and `clear` capabilities and
+returns the machine configuration:
 
 ```ts
-// INVALID: state and event identity cannot be repeated in a second declaration.
-machine({
-  id: "Incidents/Console",
-  states: ["QUEUE", "DETAIL"],
-  events: ["IncidentOpened"],
-});
-```
+const newIntentMachine = machine(
+  NewIntent,
+  ({ S, E, O, onContext, onMemory, invalidate, clear }) => {
+    onContext.select(
+      ({ context }) => context.sessionState,
+      (current) => current === Session.S.SIGNED_OUT && E.SessionEnded(),
+    );
 
-### API-004 — Machine construction has one behavior callback
-
-The only public machine constructor MUST be
-`machine(definition, ({ S, E, activity }) => config)`. The first argument already fixes exact
-state, event, input, and memory types, so every transition and activity selector in the second
-callback is contextually typed without referring back to the machine being declared. The
-callback MUST NOT declare or replace memory initialization.
-The returned machine inherits `definition.id` unchanged. Calling `machine` twice for one
-definition produces colliding machine identities if both values are presented to one app.
-
-```ts
-const incidentMachine = machine(Incident, ({ S }) => ({
-  initial: S.QUEUE,
-  states: {
-    QUEUE: {
-      on: {
-        IncidentOpened: {
-          target: S.DETAIL,
-          updateMemory: ({ event }) => ({ selectedIncidentId: event.incidentId }),
+    return {
+      default: S.INACTIVE,
+      states: {
+        INACTIVE: {},
+        ACTIVE: {
+          default: S.ACTIVE.S.EDITING,
+          states: {
+            EDITING: {},
+            SUBMITTING: {},
+          },
         },
       },
-    },
-    DETAIL: {
-      redirect: {
-        when: ({ memory }) => memory.selectedIncidentId === null,
-        target: S.QUEUE,
-      },
-      timers: {
-        stale: {
-          delay: "30 seconds",
-          target: S.FAILED,
-        },
-      },
-    },
-    FAILED: {
-      on: {
-        RetryRequested: {
-          target: S.QUEUE,
-        },
-      },
-    },
+    };
   },
-}));
+);
 ```
 
-Machine state nodes MAY contain only `type`, `on`, `redirect`, `activities`, and `timers`.
-`type`, when present, MUST be `"final"`. An `on` entry MAY be a state-token shorthand, one
-transition, or an ordered readonly list of transitions. Transitions MAY contain only
-`target`, `guard`, `updateMemory`, and `reenter`. `redirect` MAY be one redirect or an
-ordered readonly list; each redirect MAY contain only `when` and required `target`. Timer
-entries MAY contain only `delay`, `guard`, required `target`, and `updateMemory`. The
-machine grammar MUST NOT expose
-`context`, `update`, `actions`, `entry`, `exit`, `invoke`, `always`, `after`, transition
-`submit`, or anonymous Effect callbacks. The selected grammar and lifecycle ownership are
-specified at `reference/incident-console/DESIGN_DECISIONS.md:93-111,222-243,370-419`.
+The root configuration MUST contain `default` and an exact `states` record for every root declaration.
+Each compound node MUST contain its required direct-child `default` and exact nested `states` record;
+leaf nodes remain explicit, so `{}` means an empty leaf configuration. Event handlers, activities, timers,
+and redirects on a compound node are siblings of its nested `states`. The compiler MUST join the
+definition and configuration trees, reject missing, extra, misplaced, duplicate, and non-direct nodes,
+and compile the result into static handler and lifecycle tables rather than doing a runtime tree walk.
 
-The callback objects are exact and frozen. An event-transition guard/update receives
-`{ state, memory, snapshot, event }`, where `event` is narrowed to the matching event token's
-envelope. A redirect `when` receives `{ state, memory, snapshot }` and never receives a prior
-event. A timer guard/update receives `{ state, memory, snapshot, timer }`, where `timer` is
-`{ name, startedAt, dueAt }`; Flow never invents a domain event for a timer. Activity `params`,
-`input`, and invalidation selectors receive `{ state, memory, snapshot, event }` with
-`event: EventOf<Machine> | null` plus a frozen `cause` discriminated as `activation`, `event`,
-`timer`, `store`, or `internal`: the accepted domain event remains available for the final
-post-stabilization activity selection, while fresh activation, timer, store-fanout, and internal
-reconciliation use `null`. Hydration restores materialized bindings and does not call selectors.
-`snapshot` is the complete pre-turn public snapshot for a
-transition and the stabilized candidate snapshot for redirects and activity selection.
+Machine state nodes MAY contain the existing behavior fields `on`, `redirect`, `activities`, and `timers`,
+plus the recursive `default` and `states` fields required by compound nodes. An event `on` entry MAY be a
+state-token shorthand, one transition, or an ordered readonly list. Transitions MAY contain only `target`,
+`guard`, `updateMemory`, `actions`, and exact-token `reenter`. A redirect MAY be one redirect or an ordered
+readonly list with `when` and required `target`. Timer entries retain `delay`, `guard`, required `target`,
+and `updateMemory`; timers target events only, and timer-owned finite `actions` MUST NOT be inferred under
+`REV-OPS-015`.
 
-`delay` accepts one fixed Effect `Duration.Input`, never a callback. Machine construction converts
-it once with `Duration.toMillis` and rejects a negative, fractional, sub-millisecond, non-finite,
-or unsafe-integer result. Zero is valid but fires through a later mailbox turn after the scheduled
-snapshot publishes. A timer name is unique across the machine, and its stable compiled identity is
-machine ID plus state token plus timer name.
+The machine grammar MUST NOT expose a final-state kind, `onDone`, final output, child actor, `context`
+mutation, `entry`, `exit`, `invoke`, `always`, Boolean `reentry`, transition `submit`, or anonymous
+Effect callbacks. A terminal-looking state is an ordinary leaf and does not complete the actor, close its
+mailbox, or stop its subscriptions.
 
-A final state node MUST be exactly `{ type: "final" }`. It has no event transitions, redirect,
-activities, timers, or output callback. The final actor snapshot is its completion value; vNext
-does not add a separate final-output type.
+`onContext.select` is a machine-level registration. Its initial selected value is recorded silently from
+the bootstrapped context baseline; a later changed selection invokes the handler with defined
+`(current, previous)`, and the handler returns one typed self-event, `false`, or `null`. The emitted event
+enters the ordinary mailbox, whose handler owns legality, guards, memory updates, and finite actions.
 
-```ts
-// INVALID
-machine(Incident, ({ S }) => ({
-  initial: S.QUEUE,
-  states: {
-    QUEUE: {
-      entry: () => console.log("hidden work"),
-      always: S.DETAIL,
-    },
-  },
-}));
-```
+`onMemory` and `onMemory.select` own continuing resource or stream plans independently by declaration
+slot. Each entry receives current immutable memory, returns one continuing plan, `false`, or `null`, and
+releases only that entry when its state exits, normalized identity changes, or the callback returns a
+sentinel. A single entry MUST NOT return a runtime-sized array. `onMemory.select` uses the shared selector
+equality and receives `(current, previous)` selected values; equal normalized operation identity retains
+the existing generation and materialized executable input.
 
-## Resources, transactions, streams, and children
+The shared selector MUST be synchronous, pure, and side-effect-free. Scalar and non-record results use
+complete-value `Object.is`; named non-null plain-record results use fixed-key, field-by-field `Object.is`.
+Selectors do not accept per-registration comparators, and `false` or `null` are no-output sentinels only
+for callbacks that map a selection to an event or continuing plan.
 
-### API-005 — Resource identity is descriptor plus canonical argument tuple
+Every event macrostep selects the winning transition, evaluates its guard, evaluates `updateMemory` and
+then `actions` from the same immutable pre-turn snapshot and event, applies target and memory to a
+candidate, stabilizes redirects, validates the complete finite-action batch, stages actor and synchronous
+store changes, publishes them atomically, and only then starts or joins asynchronous work. A callback,
+redirect, key, target, or batch-validation defect aborts the unpublished whole turn. Timer redirect and
+duration behavior remains explicit and bounded by the existing timer contract.
 
-`resource` MUST accept one exact parameter tuple inferred from `lookup`. That tuple is both the
-lookup input and the complete parameterized identity input; a resource MUST NOT declare a second
-`key`, hash, equality, or identity projection.
+## Named operation families
+
+### API-005 — Resources separate executable input `P` from canonical key `K`
+
+`resource` MUST accept a descriptor ID, one synchronous canonical key projection, a lookup adapter, and
+descriptor-owned freshness or collection policy:
 
 ```ts
-const incidentDetail = resource({
-  id: "incidents.detail",
-  lookup: (incidentId: string) => IncidentApi.get(incidentId),
-  tags: (incidentId) => [tag("incidents"), tag(`incident:${incidentId}`)],
-  staleTime: "30 seconds",
-  gcTime: "5 minutes",
-  placeholder: (incidentId) => makeIncidentPlaceholder(incidentId),
-});
-
-const detailRef = incidentDetail.ref("incident-1");
-```
-
-Every argument MUST be a finite canonical JSON-like value. `resource.ref(...args)` MUST retain a
-frozen canonical copy of the exact tuple, and ref equality MUST be canonical equality of
-`[descriptor.id, args]`. Canonically equal tuples from one descriptor identify one ref; distinct
-tuples remain distinct even when their lookups happen to contact the same endpoint. A
-zero-argument lookup exposes only `resource.ref()` and uses the empty tuple. This identity MUST
-round-trip through boot and artifacts without calling user code.
-
-`tags` and `placeholder`, when present, MUST accept the same exact parameter tuple as `lookup`;
-`placeholder` MUST return the lookup success type. Its value is governed by `SEM-012` and is never
-canonical data. The descriptor MUST reject `key`, a domain `schema`, `freshness.staleAfter`,
-`onInvalidate`, and custom equality or hashing. Live tests already prove exact parameter and
-`Effect<A, E, R>` preservation
-(`packages/flow-state/src/public-api-types.test.ts:1319-1401`); vNext retains those proofs while
-removing the duplicate resource identity projection.
-
-`staleTime` and `gcTime` accept non-negative Effect `Duration.Input`; `gcTime` additionally
-accepts `Infinity`. Defaults are `staleTime: 0` and `gcTime: "5 minutes"`. Policy belongs to
-the descriptor family and cannot be overridden by an activity, view, hook, fixture seed, or
-runtime call. Descriptor construction converts durations once with `Duration.toMillis`; finite
-values MUST be non-negative safe-integer milliseconds, and `Infinity` is valid only for `gcTime`.
-Fractional, sub-millisecond, non-finite, negative, or overflowing results reject synchronously.
-
-### API-006 — Resource activities are contextually typed machine bindings
-
-`ensure`, `observe`, `refresh`, and `invalidate` MUST exist only on the `activity` kit passed to
-the `machine(definition, callback)` behavior callback. They MUST NOT be standalone package
-exports. The kit methods are:
-
-```ts
-activity.ensure(ref, { outcomes? }?);
-activity.observe(ref, { outcomes? }?);
-activity.refresh(ref, { outcomes? }?);
-
-activity.ensure(resource, { params: (snapshot) => tupleOrNull, outcomes? });
-activity.observe(resource, { params: (snapshot) => tupleOrNull, outcomes? });
-activity.refresh(resource, { params: (snapshot) => tupleOrNull, outcomes? });
-
-activity.invalidate(refOrTag);
-activity.invalidate({
-  targets: (snapshot) => readonlyRefOrTagArrayOrNull,
-});
-```
-
-Finite `ensure` and `refresh` MAY map `success`, `failure`, `defect`, and `interrupt`.
-Continuing `observe` MAY map `value`, `failure`, `defect`, and `interrupt`. The property MUST
-be named `outcomes`, and an activity MUST NOT target a state or update memory directly.
-Each mapped event is emitted at most once for the exact binding activation or lookup generation
-specified by `SEM-011A` and `SEM-011B`; mapping an outcome never turns a store commit into an
-inline or reentrant actor transition.
-
-The mapper signatures are exact: resource `success`/`value` receive only `A`, `failure` receives
-only `E`, and `defect`/`interrupt` receive no argument. A mapper is absent when its channel is
-`never`; no mapper receives an `Exit`, `Cause`, generation, ref, snapshot, or synthetic error.
-Direct-ref options contain only `outcomes`; selector options contain only `params` and optional
-`outcomes`. Per-binding freshness, GC, retry, equality, and concurrency overrides are rejected.
-
-`tag(id)` MUST create an immutable nominal tag with a non-empty stable string ID and no
-schema overload. An `InvalidationTarget` is exactly one resource ref or one tag. A ref matches
-only its descriptor-plus-argument-tuple identity; a tag matches refs whose descriptor produced
-that tag ID for their retained arguments. Canonical-key filters and arbitrary predicates are not
-part of resource invalidation.
-
-The selector form is a contextually typed finite binding. Its `targets` callback receives the exact parent
-snapshot plus `event: EventOf<Machine> | null` and returns a readonly target list or `null` to
-decline. An empty list also normalizes to no binding. Flow MUST canonicalize refs, deduplicate
-equal targets in first-seen order, and include the resulting non-empty target vector in binding
-identity. The selector is pure and MUST NOT enumerate the store. Static and selector forms mark
-all matched bases invalidated in one store revision; active
-`activity.observe` ownership may then authorize refresh, while passive views and finite
-`activity.ensure` ownership do not.
-
-`ensure` emits a finite result from a fresh canonical hit or from the one lookup generation it
-starts or joins; retained stale data remains readable but does not settle the binding. `refresh`
-uses the same finite outcome rules but always requests a replacement generation. `observe` is
-continuing ownership: it emits the current canonical value once on activation, ensures missing
-or stale data, emits later canonical value replacements, and authorizes stale focus/reconnect
-refresh while active. Concurrent owners of one exact ref join the store-global current lookup
-generation rather than starting duplicate Effects. Placeholder, invalidation-only, overlay-only,
-and equal-value metadata commits do not emit value or success outcomes by themselves.
-
-### API-007 — Transaction descriptors are machine-independent
-
-`transaction` MUST retain only external execution and instance policy: `id`, `key`, `preview`,
-`commit`, `invalidates`, and `concurrency`. Parent snapshot selection and routed
-`outcomes` belong to the machine activity binding in API-009.
-
-```ts
-type SaveIncidentParams = Readonly<{
-  incidentId: string;
-  patch: IncidentPatch;
+type OrderInput = Readonly<{
+  orderId: string;
+  client: OrderClient;
 }>;
 
-const saveIncident = transaction({
-  id: "incidents.save",
-  key: ({ incidentId }: SaveIncidentParams) => ({ incidentId }),
-  preview: {
-    apply: ({ params }) => [
-      { ref: incidentDetail.ref(params.incidentId), replace: optimisticIncident },
-    ],
-  },
-  commit: ({ incidentId, patch }) => IncidentApi.patch(incidentId, patch),
-  invalidates: ({ params }) => [incidentDetail.ref(params.incidentId)],
-  concurrency: "serialize",
-});
-
-saveIncident.ref({ incidentId: "incident-1" });
-```
-
-When `key` is present, `transaction.ref(keyInput)` MUST require exactly the key function's
-return type. When `key` is absent, the transaction MUST be a singleton and expose only
-`transaction.ref()`. A zero-argument `commit` creates a singleton transaction. The descriptor
-MUST NOT accept `params`, `routes`, a parent machine, parent memory, or parent events. The
-transaction model is retained by `reference/incident-console/DESIGN_DECISIONS.md:499-537`,
-and exact preview replacement typing already has a live proof at
-`packages/flow-state/src/public-api-types.test.ts:3896-4014`.
-
-`invalidates`, when present, MUST be either a readonly `InvalidationTarget` list or a callback
-receiving `{ readonly params: P }` for the exact transaction params and returning that readonly
-list. It uses the same exact-ref and nominal-tag semantics as `activity.invalidate`; it MUST NOT
-accept a canonical-key filter or arbitrary store predicate.
-
-`preview.apply` returns only a readonly list of exact `{ readonly ref; readonly replace }` entries.
-VNext does not support `{ patch }`, mutable drafts, or an authoritative-result mapper. Flow freezes
-the list, validates that every ref's descriptor was already admitted by AppPlan, and rejects two
-canonically equal target refs before StoreState mutation; an empty list is a valid no-op preview.
-Opaque replacement values are retained by identity and are application-owned immutable data.
-After concurrency admission, Flow materializes and validates preview entries and invalidation
-targets before starting an external commit. It applies the generation's complete ordered preview
-atomically in the admission turn, including for a queued serialized attempt; `reject` evaluates no
-callback and creates no overlay. A callback defect admits no attempt, applies no overlay, and starts
-no external commit. Success later removes only that generation's overlay and applies the already
-materialized invalidation vector without rerunning user code.
-
-Concurrency is actor-local and keyed by the exact transaction ref. `reject`, `cancel`, `allow`,
-and `serialize` therefore coordinate only attempts owned by one actor and one exact ref; there is
-no public `scope` or cross-actor scheduler. Applications that require cross-command or cross-actor
-serialization MUST model it as one command-owning machine/transaction or enforce it in the
-external service.
-
-On successful commit, the runtime MUST remove that generation's optimistic overlays and
-invalidate the authoritative base. It MUST NOT promote preview output to canonical server
-truth. vNext does not include an authoritative-result mapping.
-
-### API-008 — Stream and child descriptors are machine-independent
-
-The public descriptors MUST contain only reusable external or child-machine identity:
-
-```ts
-stream({
-  id,
-  subscribe: (...params) => Stream.Stream<Value, Error, Requirements>,
-});
-
-child({
-  id,
-  machine,
+const orderById = resource({
+  id: "everclear.order-by-id",
+  key: ({ orderId }: OrderInput) => [orderId] as const,
+  lookup: ({ orderId, client }: OrderInput, { signal }) => client.getOrder(orderId, { signal }),
+  staleTime: "30 seconds",
+  gcTime: "5 minutes",
 });
 ```
 
-`stream` MUST NOT accept a parent selector, key, or outcomes. `child` MUST NOT accept parent
-input, key, or outcomes. Those fields belong to `activity.stream` and `activity.child`, whose
-selectors are contextually typed by the parent machine. Parameterized stream and child
-bindings MUST provide a canonical `key` projection. Stream normal exhaustion MUST be named
-`complete`, not `done`. Flow adds no `pressure` option or buffering scheduler: Effect Stream's
-pull/backpressure semantics are authoritative, and an application that needs bounded dropping or
-coalescing authors that policy explicitly inside its Stream. Scoped remote leases MUST use an Effect-scoped stream when they are
-continuing operational work or a child actor when their lifecycle changes application
-behavior; the public API MUST NOT add a third lease primitive.
+`P` is complete immutable executable input retained by a lookup, transaction attempt, or stream
+subscription; it may contain clients and functions and is never identity. `K` is the ordered readonly
+canonical tuple returned by `key(P)`. Exact resource identity is descriptor ID plus canonical `K`.
+Projection, validation, canonicalization, and defensive freezing MUST finish before ownership, actor/store
+mutation, admission, or external work.
 
-### API-009 — Activity bindings own parent selection and routed outcomes
+Canonical `K` values MUST contain only `null`, booleans, strings, finite numbers, readonly arrays, and
+plain readonly records. Canonicalization sorts record keys and normalizes `-0` to `0`; it rejects
+`undefined`, non-finite numbers, bigint, symbols, functions, accessors, class instances, mutable
+structures, cycles, and branded secret values. One key is limited to 16 nested levels, 256 total value
+nodes, and 8 KiB in the tagged canonical byte encoding. Failure names the exact `K[index]` or nested
+record path and aborts the candidate turn. `BEH-027` remains the unresolved authority conflict over the
+exact byte grammar and mutable-structure interpretation; this contract adds no answer.
 
-The contextually typed kit MUST expose `activity.run`, `activity.stream`, and `activity.child`.
-Their `params` or `input` selectors receive the exact parent snapshot plus
-`event: EventOf<Machine> | null`; they return a concrete immutable input or `null` to decline
-the binding. Their direct `outcomes` literal maps operation results back into exact parent
-events. Descriptors MUST NOT own those parent-specific callbacks.
+The descriptor MUST NOT expose a second identity projection, custom hash, or equality callback. Explicit
+freshness and collection policy belong to the descriptor family; this revision establishes no new policy
+defaults. Tags derive from canonical `K`, and placeholders remain passive descriptor-owned projection
+metadata; neither adds an identity or read method.
 
-Any ref returned by a selector, preview, or invalidation callback MUST belong to a descriptor
-already admitted by an explicit binding or graph seed in AppPlan. Callback execution never expands
-the app graph; an out-of-plan ref fails before actor or StoreState mutation. VNext exposes no
-static dependency tuple for callback-only reachability.
+### API-006 — Families expose exact passive and executable methods
+
+The machine callback receives the exact named `O` catalogue from the definition. The following notation is
+schematic local notation, not a declaration of exported support aliases:
 
 ```ts
-SAVING: {
-  activities: [
-    activity.run(saveIncident, {
-      params: ({ memory, event }) =>
-        memory.selectedIncidentId === null ||
-        event === null ||
-        event.type !== E.IncidentSaveRequested.id
-          ? null
-          : {
-              incidentId: memory.selectedIncidentId,
-              patch: event.patch,
-            },
-      outcomes: {
-        success: (incident) => E.IncidentLoaded(incident),
-        failure: (error) => E.IncidentLoadFailed(error),
-      },
-    }),
-  ],
+interface ResourceFamily<P, K extends readonly unknown[], A, E> {
+  key(params: P): K;
+  getData(key: K): A | undefined;
+  getState(key: K): StateShapeNotYetAccepted;
+  lookup(params: P, options?: FiniteResourceOptions<A, E>): FiniteOperationPlan;
+  subscribe(params: P, options?: ResourceSubscriptionOptions<A, E>): ContinuingOperationPlan;
+  refetch(params: P, options?: FiniteResourceOptions<A, E>): FiniteOperationPlan;
+  setData(key: K, value: A | ((current: A | undefined) => A | undefined)): CacheWritePlan;
+  cancel(key: K): CancellationPlan;
+}
+
+interface TransactionFamily<P, K extends readonly unknown[], A, E> {
+  key(params: P): K;
+  getState(key: K): StateShapeNotYetAccepted;
+  commit(params: P, options?: CommitOptions<P, A, E>): TransactionCommitPlan;
+  cancel(key: K): CancellationPlan;
+}
+
+interface StreamFamily<P, K extends readonly unknown[], V, E> {
+  key(params: P): K;
+  getState(key: K): StateShapeNotYetAccepted;
+  subscribe(params: P, options?: StreamSubscriptionOptions<P, K, V, E>): ContinuingOperationPlan;
 }
 ```
 
-The exact remaining binding shapes are:
+`StateShapeNotYetAccepted` and the option and plan names are documentation sentinels, not public types;
+the family-specific state unions are discriminated by the named operation and canonical `K`. Resources
+may expose retained data while refreshing; transactions expose finite terminal lanes including uncertain
+or reconciliation-required truth; streams expose continuing status, latest value presence, emission count,
+generation, and terminal lanes. `lookup`, `commit`, and `subscribe` are the accepted verbs. An omitted
+transaction key projector behaves as `key(P) => []`, giving one actor-local identity.
+
+`key`, `getData`, and `getState` are passive: they start no work, acquire no ownership, change no
+freshness or collection state, and perform no mutation. Methods that execute descriptor work accept
+complete `P`; `K` need not reconstruct it. A `useView` selector receives only passive `O` capabilities.
+Operation plans are inert until an accepted event transition action or continuing declaration returns
+them.
+
+### API-007 — Transition actions admit finite plans and `onMemory` owns continuing plans
+
+An event transition MAY return one inert finite plan, a readonly list, `null`, or an empty list through
+`actions`. Omission, `null`, and an empty list admit no finite work. Actions may admit resource lookup or
+refetch, transaction commit or cancel, cache writes, invalidation, and clear. They MUST NOT be inferred on
+timers, state activation, passive reads, memory/store revisions, completion, or reconciliation.
 
 ```ts
-activity.stream(streamDescriptor, {
-  params: (snapshot) => parameterTupleOrNull,
-  key: (params) => canonicalKey,
-  outcomes?,
-});
+on: {
+  SubmitRequested: {
+    target: S.SUBMITTING,
+    actions: ({ event, memory }) => [
+      O.submitIntent.commit(
+        buildSubmissionInput(event, memory),
+        { outcomes: submitOutcomes },
+      ),
+    ],
+  },
+}
+```
 
-activity.child(childDescriptor, {
-  input: (snapshot) => childInputOrNull,
-  key: (input) => canonicalKey,
-  outcomes?,
+Finite resource outcomes are `success(A)`, `failure(E)`, `defect()`, and `interrupt()`. Continuing
+resource outcomes are `value(A)`, `failure(E)`, `defect()`, and `interrupt()`. Each mapper returns one
+typed machine event and receives no `Exit`, `Cause`, state, or lifecycle metadata. A finite occurrence is
+admitted once by the accepted event transition; ordinary reconciliation does not restart a consumed
+occurrence.
+
+Continuing resource plans remain state `activities`; memory-derived continuing plans remain independent
+`onMemory` declarations. These declarations own their runtime subscriptions; machine code MUST NOT manually
+unsubscribe for actor correctness. Runtime resource observation remains an explicit external observation
+escape hatch and is not required to synchronize actor state. An `after` timer targets an explicit refresh
+event; it does not directly admit finite actions or create a polling API.
+
+### API-008 — Transactions are keyed finite actor-owned operations
+
+```ts
+const submitIntent = transaction({
+  id: "everclear.submit-intent",
+  key: ({ submissionId }: SubmitIntentInput) => [submissionId] as const,
+  commit: (params: SubmitIntentInput, { signal }) => IntentSubmitter.submit(params, { signal }),
+  concurrency: "reject",
 });
 ```
 
-A zero-argument transaction exposes `activity.run(transaction)` and
-`activity.run(transaction, { outcomes })` and uses the singleton ref; each activation/event/timer
-edge admitted under SEM-019 supplies the empty parameter tuple. A zero-parameter stream exposes
-`activity.stream(streamDescriptor)` and `activity.stream(streamDescriptor, { outcomes })` with the
-empty-tuple key. A `void`-input child exposes `activity.child(childDescriptor)` and
-`activity.child(childDescriptor, { outcomes })` with void input and the empty-tuple key.
-Parameterized forms always require their selector and canonical key projection; no arity is
-inferred from an optional callback at runtime.
+The transaction family exposes only `key`, passive `getState`, finite `commit`, and actor-owned
+`cancel`. A missing key projector uses `[]`. `commit(P, options?)` is inert and is admitted only by an
+accepted event `actions` declaration. Concurrency is actor-local by transaction descriptor and canonical
+`K`; accepted policies are `reject`, `cancel`, `allow`, and `serialize`. Retry is a new `commit(P)` from
+a new accepted event, not a retry helper.
 
-Managed children are autonomous supervised workflows. Their binding does not accept a
-parent-to-child command mapper, actor-handle selector, or send callback. A workflow that needs
-independent host commands must be an app-admitted dynamic actor; changing a managed child's
-canonical key replaces its generation. Stream and child key is the sole equality projection: when
-a later selector returns the same key with different opaque params/input, Flow retains the existing
-generation and its originally materialized params/input. Authors MUST include every replacement-
-significant fact in the canonical key; Flow never applies structural or reference equality to
-opaque params/input.
-
-Transaction outcomes map `success(A)`, `failure(E)`, `defect()`, and `interrupt()`. Stream outcomes
-map `value(A)`, `complete()`, `failure(E)`, `defect()`, and `interrupt()`. Child outcomes map
-`complete(ActorSnapshot<ChildMachine>)`, `defect()`, and `interrupt()`; the completion value is
-the complete machine-family snapshot, including the exact timer-name and primitive-binding
-registries, and MUST NOT widen through `ChildMachine["definition"]`. Child machines have no typed
-failure channel. A mapper is unavailable where its typed channel is `never`, and no mapper receives
-Cause or a synthetic error. Planned stop/release never routes an outcome.
-
-Restoration uses the persisted materialized binding and MUST NOT rerun its selector for an
-already active or consumed generation. A running stream's concrete params are persisted only as
-restart input. Ordinary stream params remain exact and unrestricted, but `dehydrate()` MUST fail
-with `NonDurableActiveStreamParams` when an active binding's materialized tuple is outside the
-canonical durable carrier; it MUST NOT emit an unrestorable boot payload.
-
-## Views, modules, and applications
-
-### API-010 — A view is bound to one machine and selects one actor snapshot
+Transaction outcomes map `success(A)`, `failure(E)`, `defect()`, and `interrupt()`. A commit MAY declare
+authoritative writes, but results never become canonical data implicitly:
 
 ```ts
-const incidentView = view(incidentMachine, {
-  id: "incidents.detail.view",
-  select: (snapshot) => {
-    const incidentId = snapshot.memory.selectedIncidentId;
-    const detail =
-      incidentId === null ? null : snapshot.resources.get(incidentDetail.ref(incidentId));
-    const save =
-      incidentId === null ? null : snapshot.transactions.get(saveIncident.ref({ incidentId }));
-    return {
-      state: snapshot.value,
-      detail,
-      saveStatus: save?.status ?? "idle",
-      canRetry: can(snapshot, Incident.E.RetryRequested()),
-    };
+O.submitIntent.commit(params, {
+  writes: ({ value }) => [O.orderById.setData([value.order.id], value.order)],
+  outcomes: {
+    success: (receipt) => E.SubmitSucceeded(receipt),
+    failure: (error) => E.SubmitFailed(error),
   },
 });
 ```
 
-A view MUST receive the complete readonly actor snapshot directly and MUST return its
-authored projection directly. It MUST NOT declare `sources`, acquire work, accept an equality
-function, receive injected `can` or `whyNot`, or return a prescribed query-shaped wrapper.
-The settled observer contract is at `reference/incident-console/DESIGN_DECISIONS.md:1001-1084`.
+The accepted mapping includes explicit `setData` plans, not completion-side `invalidates` or `clears`
+options. Exact public state union fields remain the `BEH-023` boundary; occurrence terminality and
+completion-side preview ordering follow `SEM-016` and `SEM-018`.
 
-### API-011 — Modules declare public roots and views only
+### API-009 — Streams are keyed continuing subscriptions
 
 ```ts
-const IncidentsModule = module({
-  id: "Incidents",
-  machines: [incidentMachine],
-  views: [incidentView],
+const submissionProgress = stream({
+  id: "everclear.submission-progress",
+  key: ({ submissionId }: ProgressInput) => [submissionId] as const,
+  subscribe: ({ submissionId, client }: ProgressInput, { signal }) =>
+    client.progress(submissionId, { signal }),
 });
 ```
 
-`machines` MUST be public root machine entry points. `views` MUST bind those roots. Resources,
-transactions, streams, children, and services MUST be inferred from the root graphs and any
-app-level dynamic-machine seeds.
-The static carrier graph MUST be acyclic: every descriptor is declared before the machine that
-binds it, and every child descriptor refers to an already-declared reachable child machine.
-Self-recursive and mutually recursive definition graphs, lazy descriptor thunks, and
-post-construction graph mutation are not part of vNext.
-Modules MUST NOT accept a generic inventory, metadata bucket, fixtures, screens,
-permissions, dependency strings, or actor factories. This is the settled module boundary at
-`reference/incident-console/DESIGN_DECISIONS.md:878-922`.
+The stream family exposes only passive `key`, passive `getState`, and continuing `subscribe`; it has no
+actor `cancel` and does not become a runtime resource entry. Its state retains status, `hasValue`, the
+latest value when present, emission count, generation, and terminal status. Equal keys in one live
+declaration retain the generation and original `P`; changed keys release exactly once and start another.
+Different actors subscribe independently. State exit, selector replacement, actor disposal, `false`, or
+`null` finalizes the stream once, and late emissions are suppressed by slot, key, and generation. Emissions
+coalesce to the latest projection and become durable state only through mapped events or explicit
+authoritative resource writes.
 
-### API-012 — Apps have explicit durable identity
+Stream outcomes map `value(V)`, `complete()`, `failure(E)`, `defect()`, and `interrupt()`. Planned release
+maps no outcome. Hydration rematerializes an active declaration from live executable input without replaying
+old emissions; terminal streams do not restart, and missing executable input fails closed rather than being
+reconstructed from `K`.
+
+Invalidation and clearing are actor-level finite actions over exact `[O.resource, K]` targets, declared
+reachable nominal tags, and admitted resource families. Planning resolves, validates, and deduplicates
+targets before mutation. Invalidation retains data and marks matches stale without starting work directly;
+clear removes matched data and metadata, fences generations, interrupts work, and publishes atomically.
+There is no zero-argument, wildcard, whole-runtime, or ordinary cache-clear escape hatch. Complete removal
+belongs to `runtime.dispose()`.
+
+## Actors, modules, applications, and hosts
+
+### API-010 — Modules preserve named machine records in `App.M`
 
 ```ts
-const IncidentApp = app({
-  id: "incident-console",
+const CoreModule = module({
+  id: "core",
+  machines: {
+    router: routerMachine,
+    auth: authMachine,
+  },
+});
+
+const TodoApp = app({
+  id: "todo-app",
   persistenceVersion: "1",
-  modules: [IncidentsModule],
-  dynamicMachines: [incidentEditorMachine],
+  modules: [CoreModule, TodosModule],
 });
+
+TodoApp.M.router;
+TodoApp.M.auth;
+TodoApp.M.todos;
 ```
 
-An app MUST require a collision-free `id`, an application-owned `persistenceVersion`, and an
-exact module tuple. Optional `dynamicMachines` MUST be an exact tuple of statically admitted
-machine families. It contributes those graphs and Effect requirements to AppPlan but creates no
-actor, supplies no input or ID, adds no root, and permits no post-construction registration. The
-app MUST remain inert and MUST NOT expose `.layer(...)`. App compilation MUST reject duplicate
-IDs within each named resolver namespace, ambiguous root ownership, views bound outside their module roots, and foreign
-references from inside the presented transitive closure. It MUST NOT reject an unseen definition
-merely because another definition exists elsewhere in the process.
+`module({ id, machines })` MUST accept an exact keyed machine record and preserve each property name.
+`app({ id, persistenceVersion, modules })` MUST accept an ordered array of unaliased modules and flatten
+their records into one exact `App.M` catalogue. Duplicate machine property names across modules MUST be
+rejected. Module IDs are unique tooling identity for CLI slicing, trace and inspection grouping, behavior
+artifact sections, and module-scoped diffs; they contribute to no machine, actor, persistence, context, or
+operation identity.
 
-### API-012A — Runtime and actors expose commands, evidence, and host lifetime
+Renaming a module ID is artifact-breaking: the new build MUST use a different tooling group and artifact
+path and MUST NOT silently compare or alias the old module section. The rename remains runtime- and
+persistence-compatible because admitted machines, stable actor refs, restored actor state, context
+bindings, and operation addresses do not contain the module ID; preserving history requires explicit
+artifact migration.
 
-Unknown persisted input MUST enter through:
+`App.M` is the complete machine-admission catalogue. Every local, shared, and Story-local actor MUST use a
+listed machine, and every listed machine contributes its complete operation graph and requirements to the
+immutable AppPlan. App compilation creates no actor and a listed machine is not an automatic root. The app
+MUST NOT accept `dynamicMachines`, automatic-root identity, or a runtime machine-family actor lookup.
+
+Flow MUST NOT add an XState-style `setup()` or `machine.provide()` layer. Definitions own static actor
+shape and the reachable operation catalogue; machines own behavior; apps close ownership and reachability;
+runtime Layers supply services; and Story fixtures control test boundaries. Behavior variants require a
+distinct definition and durable machine identity.
+
+### API-011 — Actor refs, owner leases, and exact construction authority
+
+```ts
+const ref = actorRef(editorMachine, "primary-editor");
+const sharedLease = runtime.ensureActor(ref, { input, contextBindings });
+const sharedActor = runtime.getActor(ref);
+const localLease = runtime.createActor(editorMachine, { input, contextBindings });
+
+sharedLease.actor.send(Editor.E.SessionEnded());
+await sharedLease.dispose();
+
+const existingActor = runtime.getActor(ref);
+```
+
+Every actor backed by machine `M` carries one exact `ActorRef<M>` exposed as `actor.ref`. A stable ref is an
+inert durable address made by `actorRef(machine, id)`; an opaque ref is generated for a local actor and is
+runtime-local, non-durable, and non-restorable. Refs contain no input, context bindings, callbacks,
+ownership, subscription, or disposal authority. Several refs may address independent actors of one
+machine, and refs are branded to the exact machine rather than to an app.
+
+`runtime.ensureActor(ref, { input, contextBindings? })` is the durable restore-or-create boundary and
+returns an owner lease `{ actor, dispose }`. A restored actor keeps its exact memory and bindings without
+rerunning initialization. Otherwise the supplied input and exact bindings create the actor. Concurrent
+ensures for one identity join one construction and return authority over that actor. `runtime.getActor(ref)`
+is lookup-only, returns the ordinary actor handle, rejects missing, foreign, mismatched, and disposed refs,
+and grants no disposal authority.
+
+`runtime.createActor(machine, { input, contextBindings? })` always creates one fresh local actor, accepts
+no stable ID, assigns an opaque ref, and returns an owner lease. The actor handle may be passed
+independently, but `dispose` exists only on the lease. Dropping a lease does not dispose its actor. A
+successful stable-actor disposal tombstones that ref for the current runtime incarnation; lookup and ensure
+reject it until runtime shutdown, while a later runtime may reuse the durable ref under ordinary boot rules.
+
+Actor construction MUST bind every declared context slot one-for-one through exact provider refs. Missing,
+ambiguous, foreign, and cyclic providers are rejected, and a context edge creates no actor parentage,
+lifetime ownership, or command channel. A consumer cannot be rebound while retaining its memory or context
+history. Initial runtime construction validates boot actors, completes initial ensures, resolves providers,
+seals the graph, and only then activates actors or escapes handles.
+
+### API-012 — Runtime and React expose one production lifecycle
+
+Unknown persisted input enters through the app-bound decoder and returns an immutable branded boot payload:
 
 ```ts
 const boot = decodeRuntimeBoot(IncidentApp, unknownStoredValue, {
@@ -604,323 +517,234 @@ const boot = decodeRuntimeBoot(IncidentApp, unknownStoredValue, {
 });
 ```
 
-`decodeRuntimeBoot(app, value, { decodeDomain })` MUST synchronously run the same bounded
-service-free v2 Schema as runtime construction, validate the exact app and persistence identity,
-visit every opaque domain slot through WIRE-003's frozen locator union in canonical path order,
-validate every callback result against the shared bounds, and return the app-branded
-`RuntimeBootPayload<App>`. The callback is required for unknown storage and its throw escapes with
-the original identity; it may validate/normalize current-version domain values but cannot migrate
-Flow identities or another `persistenceVersion`. On Flow-owned failure the decoder MUST throw this
-frozen package-constructed error shape:
+The decoder validates the exact app and persistence identity and visits opaque domain slots in canonical
+path order. It returns `RuntimeBootPayload<App>` or throws the frozen package-owned `FlowBootDecodeError`;
+unknown values MUST NOT be assertion-cast directly into `runtime`.
+
+Runtime construction retains the app/layer requirement boundary:
 
 ```ts
-class FlowBootDecodeError extends Error {
-  readonly _tag: "FlowBootDecodeError";
-  readonly kind:
-    | "Malformed"
-    | "BoundExceeded"
-    | "FlowVersionMismatch"
-    | "DefinitionVersionMismatch"
-    | "AppMismatch"
-    | "PersistenceVersionMismatch"
-    | "AppPlanMismatch"
-    | "UnresolvableIdentity";
-  readonly path: readonly (string | number)[];
-}
-```
-
-The first failing structural or identity check in canonical traversal order owns `kind` and
-`path`; the decoder never aggregates or retries errors. Assertion-casting the brand and accepting
-unknown directly in `runtime` are unsupported. A payload returned directly by
-`runtime.dehydrate()` is already app-branded and does not pass through `decodeDomain` again.
-
-Runtime construction MUST behave as these two overloads:
-
-```ts
-runtime({ app, boot? }); // only when RequirementsOf<App> is never
+runtime({ app, boot? }); // only when the app has no requirements
 runtime({ app, layer, boot? });
 ```
 
-The runtime MUST expose `actor(rootMachine)`, `createActor(machine, { input, id? })`,
-`ready()`, `runPromise(effect)`, `runPromiseExit(effect)`, `dehydrate()`, and `dispose()`.
-It MUST additionally expose lookup-only `actor(dynamicMachine, { id })` for a durable dynamic
-actor already present in the registry. This overload returns the exact existing handle and never
-creates, adopts, supplies input, or changes disposal ownership. It rejects a missing ID, machine
-mismatch, opaque non-durable identity, disposed incarnation, and foreign machine.
-`dehydrate()` MUST return `Promise<RuntimeBootPayload<App>>`; runtime and dynamic-actor
-`dispose()` MUST return `Promise<void>` and every repeated call MUST return the same Promise.
-`runPromise` returns `Promise<A>` using Effect's ordinary Cause-to-rejection boundary and may reject
-with the original shared Layer acquisition failure before an Effect begins. `runPromiseExit`
-returns `Promise<Exit.Exit<A, E | LayerError>>`; it resolves with Layer acquisition failure in the
-Exit, retains defects and interruption in the Exit Cause, and never rejects for Effect execution or
-Layer acquisition failure. Root and dynamic actors MUST
-expose `id`, `machine`, `getSnapshot()`, `snapshots`, and synchronous `send(event): void`;
-only a dynamic actor exposes `dispose()`. Exact readiness, acknowledgment, observation, SSR,
-and disposal semantics are owned by `REACT_AND_HOSTS.md`.
+The runtime exposes the existing readiness, Effect bridge, dehydration, and asynchronous disposal
+operations, plus `createActor`, `ensureActor`, and lookup-only `getActor`. It MUST NOT expose
+`runtime.actor(machine)`, automatic roots, a public ManagedRuntime, mutable resource/orchestrator services,
+test controls, or a public acknowledged-dispatch operation. `dehydrate()` returns an app-branded boot
+payload and MUST capture a context-closed cut; `FlowDehydrateError` includes the accepted non-retryable
+`NonDurableContextProvider` case. Stream restart after hydration rematerializes from live executable `P`
+without replaying emissions; terminal streams do not restart and missing input fails closed.
 
-`FlowDisposeError` MUST be a frozen package-constructed `Error` with
-`_tag: "FlowDisposeError"`, full `cause: Cause.Cause<unknown>`, and
-`scope: "actor" | "runtime"`. Runtime scope combines actor-owned cleanup and application-Layer or
-global-scope finalizer Causes without squashing either. Internally every owner exposes one
-package-private `disposeExit(): Exit<void, unknown>`; runtime composition orders actor Causes by raw
-actor ID, then StoreKernel, then application-Layer/global scope, retaining the ordered reasons and
-duplicate multiplicity from every Cause.
-Public `dispose()` maps that complete Cause to one cached `FlowDisposeError`; repeated calls return
-the identical Promise and, on failure, the identical error object.
+The production actor lifecycle is the closed union `prepared | active | suspended | disposed`. Prepared
+actors are inert and buffer commands; active actors admit commands and own live resources; suspended actors
+preserve continuity while rejecting commands and owning no live attachment resources; disposed actors are
+terminal. React `useActor(machine, options?)` creates one fresh local actor, `useActorByRef(ref)` resolves
+one already-registered shared actor without ownership, and `useView(actor, selector)` is the sole ordinary
+reactive observation path. `useActor` and `useActorByRef` are command-only and non-reactive.
 
-`createActor` MUST reject a machine absent from the app's compiled transitive closure; this is
-a runtime authority check over the presented app, not an app-compilation search for process-wide
-unseen definitions.
+Render preparation creates one final prepared actor with its final ref, handle, snapshot, and command-
+buffering mailbox without runtime registration or work. Commit attaches that actor, installs its context
+baseline, activates it, and drains buffered commands once. Cleanup suspends the same actor; it does not shell-
+swap, grace-period, or terminally dispose it. Imperative `createActor` is immediately attached and running.
 
-The runtime MUST NOT expose mutable resource or orchestrator services, `hydrateBoot`, a
-public ManagedRuntime, test controls, or a public acknowledged-dispatch operation.
+`useView(actor, selector)` receives one atomic passive actor context containing state, readonly memory,
+inherited context, lifecycle, issues, bound `can(event)`, and snapshot-bound read-only `O`. The selector
+cannot acquire, refresh, subscribe, commit, write, invalidate, clear, or otherwise mutate runtime state.
+Scalar and non-record selected values use complete-value `Object.is`; named records use fixed-key,
+field-by-field `Object.is`; no comparator is accepted. Registered view values, view IDs, module view
+registration, per-actor React Context, and view-object hooks are removed.
 
-### API-012B — Synchronous host misuse has one stable structural error
+Lifecycle transitions publish one coherent immutable snapshot before inspection evidence. Inspection retains
+`actor:start`, `actor:restore`, and `actor:dispose`, adds `actor:suspend` and `actor:resume`, and adds no
+`actor:prepare`. Lifecycle evidence is not a machine turn or `TurnRecord`. During each `useView` selector
+evaluation, Flow tracks every exact descriptor/`K` read through passive `O.getData` or `O.getState`, replaces
+the dependency set after evaluation, and reruns the selector for matching actor or canonical StoreFanout
+publications against one tear-free actor/store boundary. This tracking is internal; callers do not manually
+subscribe for machine correctness. Projection-only reruns publish a complete actor snapshot and do not
+evaluate machine transitions. Exact publication identity, suspended context dependency handling, cleanup
+normalization, and prepared SSR bounds remain governed by their existing clauses.
 
-Flow-owned synchronous declaration, lookup, admission, and passive-reader failures throw a frozen
-package-constructed error whose constructor is not exported but whose shape is exact:
+`FlowDisposeError` remains the frozen package-owned cleanup error with `_tag: "FlowDisposeError"`, the
+complete `Cause.Cause<unknown>`, and `scope: "actor" | "runtime"`. Lease and runtime disposal are
+asynchronous, idempotent, terminal, and cached; a failed active-consumer disposal leaves the actor active
+and identifies the dependent refs and context paths.
+
+### API-013 — Story is a non-callable namespace with three constructors
+
+The public Story constructors MUST be:
 
 ```ts
-type FlowUsageErrorShape = Readonly<{
-  _tag: "FlowUsageError";
-  code:
-    | "InvalidDefinition"
-    | "InvalidCanonicalValue"
-    | "AppPlanCollision"
-    | "UnreachableMachine"
-    | "ActorNotFound"
-    | "ActorIdCollision"
-    | "ActorDisposed"
-    | "RuntimeDisposed"
-    | "ForeignIdentity"
-    | "AmbiguousRoot"
-    | "ResourceUnavailable"
-    | "InspectionSinkAlreadyAttached"
-    | "RenderModeMutation";
-  operation: string;
-  details: Readonly<Record<string, CanonicalKeyInput>>;
-  cause?: unknown;
-}>;
+story.app(runtimeFactory, options?);
+story.machine(machine, options?);
+story.actor(machine, options?);
 ```
 
-Only a user callback defect may populate `cause`, preserving the thrown value by identity. The
-shape covers `definition`/descriptor/ref construction, AppPlan compilation, root/dynamic/view
-resolution, `send`, render-mode mutation, inspection attachment, and `resources.require`; it does
-not replace typed Effect failures, boot/dehydrate/dispose errors, or story errors. Tests MUST assert
-tag/code/details and side-effect boundaries rather than message prose.
+`story.app` accepts `boot?`, `fixtures?`, `maxTurns?`, `title?`, `description?`, and `tags?`.
+`story.machine` accepts exact required `input`, selected initial `context`, `fixtures?`, `maxTurns?`,
+`title?`, `description?`, and `tags?`, with conditionally forbidden fields rejected. `story.actor` accepts
+only exact required `input` and `contextBindings` for the recipe. Focused Stories reject boot, refs, extra
+actors, raw memory, initial state, and actor snapshots. A void-input machine rejects authored `input`.
 
-## Testing definitions
+`story.app` accepts the same typed `RuntimeFactory<App>` used by live hosts, not a bare app or created
+runtime. Every run uses production bootstrap, fixture-backed capabilities, TestClock, boot restoration,
+factory ensures, AppPlan validation, graph sealing, activation, and cleanup. `story.machine` uses a
+package-private one-machine AppPlan and the same production runtime, actor engine, operation kernels,
+context-turn path, scheduler, inspection, read barrier, and cleanup. `maxTurns` bounds repeated processing
+and defaults to `100` when omitted.
 
-### API-013 — Story is the only public declarative execution plan
+Plans are immutable and inert until `run()`; they contain no live actor handles, loops, predicates,
+arbitrary execution callbacks, embedded assertions, or behavior branches. Runtime factories are bootstrap
+authority, not command callbacks.
 
-`story` MUST be exported from `flow-state/testing` and MUST bind its app and machine before
-commands are appended.
+### API-014 — Story commands, controlled observations, and evidence
+
+The complete command surface is:
 
 ```ts
-const assignIncident = story({
-  app: IncidentApp,
-  machine: incidentMachine,
-  start: { kind: "fresh" },
-  title: "assign an incident",
-  tags: ["smoke"],
-})
-  .with({
-    fixtures: [incidentApiFixture],
-    progress: { maxTurns: 100 },
-  })
-  .send(Incident.E.IncidentOpened("incident-1"))
-  .flush()
-  .checkpoint("opened")
-  .settle()
-  .checkpoint("settled");
+// Both Story kinds
+process();
+advance(duration);
+advanceTo(epochMilliseconds);
+advanceToNextTimer();
+checkpoint(name);
+run({ signal? });
 
-const run = await assignIncident.run();
-run.checkpoints.opened;
-run.final;
+// App Story
+send(target, event);
+simulate(target, operationPlan, observation);
+
+// Machine Story
+send(event);
+simulate(operationPlan, observation);
+setContext(context);
 ```
 
-The builder commands MUST be exactly `with`, `send`, `perform`, `flush`, `settle`, `advance`,
-`setTime`, `advanceToNextTimer`, `checkpoint`, and `run`. Plans MUST be immutable and linear.
-`advance` accepts Effect `Duration.Input` and synchronously normalizes it to checked safe-integer
-milliseconds while constructing the next plan; invalid input throws `FlowUsageError` before a run
-exists. `setTime` accepts an absolute non-negative safe-integer epoch millisecond and is validated
-under TEST-012.
-They MUST NOT contain runtime branches, loops, predicates, arbitrary callbacks, promises,
-Effects, matcher callbacks, or live actor readers. `checkpoint` MUST capture immediately and
-MUST NOT progress execution. The consolidated story contract is settled at
-`reference/incident-console/DESIGN_DECISIONS.md:1198-1358,1484-1511`.
+`send` targets an exact app-owned `ActorRef` or exact Story actor recipe in app Stories and omits a target
+only in machine Stories. A machine family is never a Story target. `setContext` exists only on machine
+Stories and injects exact already-selected values through the production context-turn path; app Stories do
+not inject context.
 
-The constructor options are exactly `app`, `machine`, optional `start`, `title`,
-`description`, and `tags`. `start` is the exclusive `fresh | boot` union in
-TEST-003. It MAY be omitted only for a `void`-input machine; a non-void-input machine MUST
-receive either fresh input or a compatible boot actor. `.with(...)`
-accepts only direct `fixtures` and one `progress.maxTurns` policy; app, start, raw Layers,
-seeds, clocks, and runtimes MUST NOT be supplied there.
+`process()` replaces `flush()` and `settle()` and drains ready production work until no work can progress
+without another command or future time. It does not advance time or invent external results. Clock movement
+and `simulate` do not process implicitly. `advance` moves duration, `advanceTo` moves to an absolute
+epoch-millisecond value, and `advanceToNextTimer` moves the TestClock to the next timer. `checkpoint` reads
+evidence immediately without progressing or creating restoration input.
 
-### API-013A — Testing runtime shapes are inferred
+`simulate` matches an already-pending controlled operation by exact actor target, descriptor, canonical
+input or key, and required one-based occurrence. It replaces only external execution and routes the
+observation through production completion; it creates no work and directly mutates no actor, cache,
+snapshot, generation, or evidence state. Accepted observations are `success`, `failure`, `defect`,
+`interruption`, `emission`, and `completion` only where the operation family supports them. Missing,
+mismatched, unsettled, or wrong-kind occurrences fail deterministically. Exact interception and occurrence
+retention remain unresolved under `BEH-019` and `BEH-020`.
 
-`FlowStoryExecutionError` MUST be the only named runtime class exported by
-`flow-state/testing`. Story plans, run results, checkpoints, fixture definitions, controls,
-models, and model paths MUST be inferred from their constructors and values; the testing route
-MUST NOT export parallel named result, path, status, phase, evidence, or diagnostic classes.
-`FlowStoryExecutionError` is the single host-rejection class for a plan that cannot execute as
-authored. It MUST extend `Error`, expose frozen `_tag: "FlowStoryExecutionError"`, `phase:
-"prepare" | "command" | "dispose"`, full `Cause.Cause<unknown>`, optional frozen
-`command: { index: number; value: unknown }`, a frozen checkpoint record, exactly one frozen
-evidence member (`{ kind: "none" } | { kind: "at-failure"; value: unknown } | { kind: "final";
-value: unknown }`), and frozen cleanup
-`{ status: "complete" } | { status: "failed"; cause: Cause.Cause<unknown> }`. Its constructor is
-package-owned; callers inspect readonly fields and do not synthesize instances. Product outcomes
-remain inferred immutable evidence rather than named status wrappers.
-
-### API-014 — Fixture is the only reusable story environment input
+App checkpoints and end evidence use exact actor lookup:
 
 ```ts
-const saveCall = control.effect<
-  readonly [incidentId: string, patch: IncidentPatch],
-  Incident,
-  IncidentFailure
->({ id: "IncidentApi.save" });
+appRun.checkpoints["signed-out"].actor(editor).snapshot;
+appRun.checkpoints["signed-out"].actor(PrimarySessionRef).snapshot;
+appRun.checkpoints["signed-out"].runtime.now;
+appRun.checkpoints["signed-out"].runtime.pendingWork;
+appRun.end.actor(editor).snapshot;
 
-const incidentEvents = control.stream<IncidentEvent, IncidentFailure>({
-  id: "IncidentApi.events",
+machineRun.checkpoints["signed-out"].snapshot;
+machineRun.end.snapshot;
+```
+
+Checkpoints and successful `run.end` are deeply frozen, captured through the production atomic read
+barrier, and do not imply actor completion. Failed execution retains completed checkpoints and truthful
+failure-boundary and cleanup evidence but does not manufacture a successful `run.end`. Exact capture,
+cleanup aggregation, and failed-run envelope remain unresolved under `BEH-021` and `BEH-022`.
+
+### API-015 — Fixtures and models remain inferred production inputs
+
+Fixtures remain the reusable Story environment input. Stories install fixture capabilities through their
+closed constructor options; a Story layer MUST close the app or focused-machine requirements. Existing
+control refs retain typed success, failure, defect, interruption, emission, and completion capabilities
+only where their endpoint supports them, and ordinals remain run-local.
+
+```ts
+const baseStory = story.machine(incidentMachine, {
+  fixtures: [incidentApiFixture],
 });
 
-const incidentApiFixture = fixture({
-  id: "incidents.fixture.api",
-  controls: [saveCall, incidentEvents],
-  seeds: [{ ref: incidentDetail.ref("incident-1"), value: initialIncident }],
-  layer: ({ control }) =>
-    Layer.succeed(IncidentApi, {
-      save: control.effect(saveCall),
-      events: control.stream(incidentEvents),
-    }),
-});
-```
-
-Effect call refs MUST expose `succeed`, `fail` when the endpoint error is not `never`, `die`,
-and `interrupt`. Stream subscription refs MUST expose `emit`, `complete`, `fail` when
-available, `die`, and `interrupt`. Call and subscription ordinals MUST be zero-based,
-endpoint-local, and reset for every run. Stories MUST install environment capabilities only
-through `.with({ fixtures })`.
-
-### API-015 — Model discovery is pure and returns executable stories
-
-```ts
-const baseStory = story({ app: IncidentApp, machine: incidentMachine });
 const incidentModel = model(baseStory, {
   stateKey: ({ value, memory }) => [value.id, memory],
 });
+
 const result = incidentModel.getShortestPaths({
-  events: [Incident.E.IncidentOpened("incident-1"), Incident.E.RetryRequested()],
+  events: [NewIntent.E.IntentOpened("incident-1"), NewIntent.E.SessionEnded()],
   maxDepth: 20,
   limit: 100,
 });
 
 await result.paths[0]!.story.run();
-await result.paths[0]!.story.flush().run();
 ```
 
-`model(baseStory, { stateKey })` MUST accept only a command-empty fresh-start story: app, machine,
-fresh input/memory override, fixtures, and
-progress policy may already be bound, but no `send`, `perform`, progress, clock, or checkpoint
-command may have been appended; boot starts are rejected. `stateKey` is required, pure, and returns
-the canonical identity for every predicted state, as specified by TEST-014. Candidate events belong solely to each `getShortestPaths` or
-`getSimplePaths` call; the model and base story MUST NOT retain a candidate registry between
-traversals.
+`model(baseStory, { stateKey })` accepts only a command-empty fresh machine Story. Candidate events
+belong solely to each traversal call and are not retained by the model or base Story. The model exposes
+only `getShortestPaths` and `getSimplePaths`, returns frozen inferred path collections, and does not run
+Effects, synthesize asynchronous routes, or expose replay/provide/clock helpers. Each `path.story` extends
+the base with that call's exact candidate events and starts with no checkpoints.
 
-The model MUST expose only those two traversal methods, with only `events`, `maxDepth`, and `limit`
-as call options. Each call returns frozen `{ paths, truncated, explored }`. Each inferred path value MUST retain
-predicted pure machine projections/state keys, steps, issues, weight, description, and `path.story`; path collections,
-path entries, traversal results, and their metadata MUST NOT gain named runtime classes or
-required public type exports beyond API-013A. The model MUST NOT run Effects, synthesize
-asynchronous success routes, or expose `replay`, `replayFlushed`, `provide`, `clock`, or
-`resolveSyncSuccessRoutes`. The unsafe current replay surface is visible at
-`packages/flow-state/src/core/api/testing-types.ts:299-378`.
-
-### API-016 — Behavior is the sole discovery gateway
-
-```ts
-export const BehaviorGateway = behavior({
-  stories: {
-    "assign-incident": assignIncident,
-  },
-});
-```
-
-`behavior` MUST infer one shared app from its stories and MUST reject mixed-app stories.
-Registered object keys are unique by JavaScript construction, must be non-empty stable
-external IDs, and MUST NOT be synthesized from titles or property order. It MUST NOT accept a
-separate app, fixture registry, model registry, or machine inventory. Registration MUST NOT
-change execution.
+`FlowStoryExecutionError` is the only named testing runtime class. Run, path, checkpoint, status, phase,
+evidence, and diagnostic shapes remain inferred unless accepted elsewhere. The exact failure envelope and
+cleanup aggregation remain unresolved under `BEH-022`.
 
 ## Inspection and CLI
 
-### API-017 — Inspection derives from AppPlan, TurnRecord, and v2 artifacts
+### API-016 — Inspection derives from production records and bounded artifacts
 
-Pure graph and transition functions MUST accept inert definitions or immutable snapshots.
-Live inspection MUST consume committed `TurnRecord`s after actor publication. Trace and
-behavior artifacts MUST use the shared private v2 codecs and preserve typed decode failures.
-Inspection MUST NOT maintain a second mutable history or fabricate a trace from an arbitrary
-snapshot.
+Pure graph and transition functions accept inert definitions or immutable snapshots. Live inspection
+consumes committed `TurnRecord`s after actor publication and uses the shared private v2 codecs for trace
+and behavior artifacts. Inspection MUST NOT maintain a second mutable history or fabricate a trace from an
+arbitrary snapshot.
 
-Each pure transition inspection performs exactly one planner pass and may report transition
-selection, redirect microsteps, memory patch, and desired authored activity bindings. It cannot
-report actual starts, releases, generations, pending outcomes, or finalizers because those facts
-exist only after CommitPlan interpretation and are available only from TurnRecords. The function is
-therefore named `inspectActivities`, not `inspectActions`. A foreign snapshot or callback defect
-returns/throws the same stable frozen inspect diagnostic on every call; helpers MUST NOT rerun a
-no-match plan to format its explanation.
+Pure transition inspection performs one planner pass and may report transition selection, redirect
+microsteps, memory patches, and desired authored operation plans. It cannot report actual starts, releases,
+generations, pending outcomes, or finalizers that exist only after production interpretation. `TurnRecord`
+remains package-private; inspect exports inferred immutable receipt, Cause-bearing diagnostic, trace,
+behavior, and artifact projections without recreating a parallel public hierarchy.
 
-`TurnRecord` remains package-private. `flow-state/inspect` exposes immutable receipt,
-Cause-bearing diagnostic, trace, behavior, and artifact projections only as the inferred inputs
-and outputs of the named values in API-001; it MUST NOT recreate a parallel exported hierarchy
-of TurnRecord, receipt, fact, trace-result, or formatter-option aliases. Those rich projections
-MUST NOT leak back through root actor snapshots. A custom sink protocol is not part of vNext.
-`attachInspectionSink(runtime, sink)` accepts only a sink created by this route and returns a
-frozen attachment with `drain(): Promise<void>` and `dispose(): Promise<void>`. Attachment observes
-only records admitted after successful attachment; disposal stops admission, drains the accepted
-prefix, detaches once, and is idempotent. Slow sink processing MUST NOT delay actor acknowledgment
-or StoreFanout. A sink failure MUST preserve committed state, reject `drain` and `dispose` with its
-Cause-bearing inspect diagnostic, detach the failed sink, and leave other sinks active.
+`attachInspectionSink(runtime, sink)` accepts only a sink created by this route and observes records admitted
+after attachment. It returns a frozen attachment with `drain()` and `dispose()`; slow processing does not
+delay actor acknowledgement or StoreFanout. A failed sink detaches after preserving committed state and
+leaves other sinks active. `createInspectionBufferSink({ capacity })` owns explicit bounded retention and
+does not make the runtime retain an implicit unbounded history. Formatters remain one per projection.
 
-`createInspectionBufferSink({ capacity })` MUST own explicit bounded retention. The runtime
-MUST NOT retain an implicit unbounded turn history. Its frozen public value MUST expose
-`snapshot()` and `clear()`; snapshots contain the retained ordered records plus
-`truncatedBeforeSequence`, where capacity zero retains none but advances that marker. `clear()`
-removes the current retained prefix without resetting global sequence or truncation truth. One formatter per projection MUST accept
-format options; duplicate `format*Pretty` functions MUST NOT exist.
+### API-017 — CLI consumes registered behavior and typed artifacts only
 
-### API-018 — CLI consumes registered behavior and typed artifacts only
+The installed `flow-state` binary MUST implement the exact grammar, TypeScript gateway boundary, bounded
+v2 artifact path, Story-executor parity, immutable result envelopes, stdout/stderr, exit, signal,
+atomic-file, and truncation laws in [`CLI.md`](./CLI.md). `behavior check` is the only new leaf beyond
+the retained behavior, Story, and trace families. Model path discovery remains programmatic.
 
-The installed `flow-state` binary MUST implement the exact grammar, TypeScript gateway boundary,
-bounded v2 artifact path, story-executor parity, immutable result envelopes, stdout/stderr, exit,
-signal, atomic-file, and truncation laws in [`CLI.md`](./CLI.md). `behavior check` is the only new
-leaf beyond the retained behavior, story, and trace families.
-
-Model path discovery remains a typed programmatic API and MUST NOT be exposed as a CLI command.
-The CLI MUST NOT accept arbitrary payload-bearing event JSON, Scenario/local-proof compatibility
-input, batch story execution, or another history/runner owner. The current `parseEventJson` and
-`--event` path input at `packages/flow-state/src/cli/index.ts:200-214,851-909` are removed.
+The CLI MUST NOT accept arbitrary payload-bearing event JSON, old Scenario/local-proof compatibility input,
+batch Story execution, or another history/runner owner. Artifact and CLI schemas MUST represent app Stories,
+exact actor evidence lookup, `run.end`, module tooling ownership, compound states, context requirements,
+lifecycle records, and named operation identities before promotion.
 
 ## Proof obligations
 
-### API-P01 — Export-map proof
+### API-P01 — Export-map and deletion proof
 
-Packed-package tests MUST assert the exact six public routes and exact root runtime-value list,
-reject standalone `ensure`, `observe`, `refresh`, `invalidate`, and `run` imports, reject
-private deep imports, and assert that non-root routes cannot import root builders. The existing
-packed proof does this for route names and import conditions at
-`packages/flow-state/scripts/check-packed-consumers.mjs:259-267`.
+Packed-package tests MUST assert the exact public routes and root runtime-value list, reject private deep
+imports, and prove absence of deleted child, registered-view, automatic-root/dynamic-actor, generic
+operation-ref/activity-kit, and old Story constructor/command surfaces. Non-root routes cannot import root
+builders, and ordinary actor handles and refs cannot recover owner-lease disposal authority.
 
-### API-P02 — Grammar proof
+### API-P02 — Grammar and inference proof
 
-Positive and negative compile fixtures MUST cover every valid and invalid example in
-API-003 through API-016 under strict, isolated-modules, isolated-declarations, and packed
-consumer modes.
+Positive and negative compile fixtures MUST cover recursive states through depth ten, exact default paths,
+compound handlers, exact leaf matching, `actions`, `onContext`, `onMemory`, `P`/`K`, named `O` families,
+actor refs and leases, exact context bindings, four lifecycle states, passive `useView`, all three Story
+constructors, exact Story targets, `simulate`, `process`, `advanceTo`, checkpoints, and model restrictions.
 
-### API-P03 — Semantic proof
+### API-P03 — Production semantic proof
 
-Runtime tests MUST prove descriptor collision rejection, exact ref identity, no preview
-promotion, route ownership, model purity, fixture isolation, story disposal, and CLI refusal
-of arbitrary event payload fabrication.
+Runtime tests MUST prove inert descriptor/key/passive reads, canonical identity bounds, atomic event/action
+publication, runtime-scoped resource sharing, generation fencing, actor-owned cancellation, context graph
+bootstrap, lease disposal and tombstones, prepared/active/suspended/disposed lifecycle, Story production
+parity, exact controlled observations, evidence cuts, and CLI refusal of arbitrary event fabrication. Open
+`BEH-*` items remain blockers and MUST NOT be filled by this contract.

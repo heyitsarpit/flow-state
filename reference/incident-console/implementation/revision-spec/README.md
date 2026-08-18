@@ -7,8 +7,9 @@ resolved.
 
 This folder is the self-contained formal replacement for the accepted revision ledger. A reader MUST be
 able to understand every accepted change and every known unresolved boundary using this folder alone.
-Historical files are provenance only: no normative rule, type shape, lifecycle, failure, example, or
-proof obligation is defined by following a link outside this folder. When the accepted material did not
+Historical files are retained under [`../archive/provenance/`](../archive/README.md) for provenance only:
+no normative rule, type shape, lifecycle, failure, example, or proof obligation is defined by following
+a link outside this folder. When the accepted material did not
 finish an implementable shape, this folder records that omission explicitly instead of inventing it.
 
 An accepted rule here overrides every conflicting clause in the existing implementation contracts.
@@ -80,19 +81,19 @@ This vocabulary summarizes the accepted model so later chapters can use exact te
 
 ## Revision catalogue
 
-| Area                                                                    | Revisions                                       | Contract effect                                                                                          |
-| ----------------------------------------------------------------------- | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| [Composition and app plans](./accepted/01-composition-and-app-plans.md) | `REV-COMP-001`–`015`                            | Definition dependencies, reactive context, modules, apps, actor admission, identity, and construction    |
-| [Machine authoring](./accepted/02-machine-authoring.md)                 | `REV-MACH-001`–`011`                            | Definition grammar, compound states, transitions, timers, redirects, and reentry                         |
-| [Operations](./accepted/03-operations.md)                               | `REV-OPS-001`–`014`                             | Operation families, canonical identity, finite actions, continuing work, selection, and cache semantics  |
-| [React and hosts](./accepted/04-react-and-hosts.md)                     | `REV-HOST-001`–`006`                            | React attachment ownership, focused reads, render safety, suspension, resumption, and host behavior      |
-| [Stories and testing](./accepted/05-stories-and-testing.md)             | `REV-TEST-001`–`010`                            | Story constructors, commands, controlled operations, processing, time, checkpoints, evidence, and models |
-| [Migration and proofs](./accepted/06-migration-and-proofs.md)           | `REV-MIG-001`–`003`                             | Required contract rewrites, compatibility effects, artifact work, and executable proof obligations       |
-| [Deletions and cutover](./accepted/07-deletions-and-cutover.md)         | `REV-MIG-004`, `DEL-001`–`011`, `RET-001`–`005` | Exhaustive old-surface dispositions, no-residue rules, retained boundaries, and absence proofs           |
+| Area                                                                    | Revisions                                       | Contract effect                                                                                                      |
+| ----------------------------------------------------------------------- | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| [Composition and app plans](./accepted/01-composition-and-app-plans.md) | `REV-COMP-001`–`015`                            | Definition dependencies, reactive context, modules, apps, actor admission, identity, and construction                |
+| [Machine authoring](./accepted/02-machine-authoring.md)                 | `REV-MACH-001`–`011`                            | Definition grammar, compound states, transitions, timers, redirects, and reentry                                     |
+| [Operations](./accepted/03-operations.md)                               | `REV-OPS-001`–`015`                             | Operation families, canonical identity, finite actions, continuing work, store fanout, previews, and cache semantics |
+| [React and hosts](./accepted/04-react-and-hosts.md)                     | `REV-HOST-001`–`007`                            | React attachment ownership, focused reads, render safety, suspension, resumption, and passive reactivity             |
+| [Stories and testing](./accepted/05-stories-and-testing.md)             | `REV-TEST-001`–`010`                            | Story constructors, commands, controlled operations, processing, time, checkpoints, evidence, and models             |
+| [Migration and proofs](./accepted/06-migration-and-proofs.md)           | `REV-MIG-001`–`003`                             | Required contract rewrites, compatibility effects, artifact work, and executable proof obligations                   |
+| [Deletions and cutover](./accepted/07-deletions-and-cutover.md)         | `REV-MIG-004`, `DEL-001`–`011`, `RET-001`–`005` | Exhaustive old-surface dispositions, no-residue rules, retained boundaries, and absence proofs                       |
 
 Unresolved behavior is indexed separately in
 [`UNRESOLVED_BEHAVIOR.md`](./UNRESOLVED_BEHAVIOR.md). Most entries close internal semantics beneath the
-accepted public surface. `BEH-024` and `BEH-027` record source-authority conflicts that require explicit
+accepted public surface. `BEH-027` records the remaining source-authority conflict that requires explicit
 design review. The compound-node configuration shape, complete Story constructor options, and Story-local
 context graph were accepted during formalization and are now owned by `REV-MACH-003`, `REV-TEST-001`, and
 `REV-TEST-003`; they are no longer blockers. No remaining open entry acquires a normative answer from the
@@ -148,7 +149,8 @@ proposal files.
 - `REV-OPS-011` limits cancellation to the calling actor's finite occurrence.
 - `REV-OPS-012` makes invalidation and clearing scoped, validated, and atomic.
 - `REV-OPS-013` uses keyed finite transaction commits and explicit resource mappings.
-- `REV-OPS-014` keeps streams continuing, explicitly mapped, and free of retained latest values.
+- `REV-OPS-014` keeps streams continuing and explicitly mapped; `REV-OPS-015` amends stream status to retain
+  the latest projection and defines runtime-owned reactivity, previews, fanout, and hydration.
 
 ### React and hosts
 
@@ -158,6 +160,8 @@ proposal files.
 - `REV-HOST-004` publishes coherent lifecycle snapshots before ordered inspection evidence.
 - `REV-HOST-005` releases live resources during suspension while preserving actor continuity.
 - `REV-HOST-006` removes registered views and constrains `useView` to exact passive projections.
+- `REV-HOST-007` makes passive operation reads dependency-reactive through internal runtime leases and
+  projection-only actor publications.
 
 ### Stories and testing
 

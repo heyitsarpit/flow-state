@@ -1,11 +1,26 @@
 # Command-line interface contract
 
-Status: normative vNext contract
+Status: normative target vNext contract; not shipped
 
-The installed `flow-state` binary is a host for compiled behavior discovery, registered story
-execution, and bounded v2 artifacts. It consumes the same behavior registry, story executor,
-TurnRecords, inspection projections, and Schema codecs as the library. It must not create another
+The installed `flow-state` binary is a host for compiled behavior discovery, Story execution,
+and bounded artifacts. It consumes the same Story executor, TurnRecords, inspection projections,
+and production artifact-validation paths as the library. It must not create another
 runtime, runner, history, validator, matcher language, or artifact interpretation path.
+
+Artifact and trace schema authority belongs to [`PERSISTENCE_AND_ARTIFACTS.md`](./PERSISTENCE_AND_ARTIFACTS.md).
+This contract owns CLI grammar, gateway loading, file/stream I/O, formatting, exit status, and proof
+obligations. The CLI consumes the one Flow-owned package-private decoded vNext model shared with the
+Story runner; it MUST NOT define a CLI-only artifact decoder, Story-evidence model, result schema, or
+legacy `final`/`children` compatibility shape. This target contract does not claim that the package,
+Phase 0 fixtures, phase receipts, or installed binary already ship the target schema; `BEH-033` remains
+open until the coordinated closure is promoted and proved.
+
+The CLI is a process host over compiled behavior inspection, runtime inspection and trace projections,
+static source analysis, the shared Story executor, bounded artifact codecs, and process/file I/O. It owns
+arguments, gateway selection, formatting, files, signals, and exit status; it MUST NOT own machine
+semantics, actors, schedulers, stores, transition evaluation, runtime evidence history, or a competing
+Story/runtime model. `story run` remains a host entry point into the shared production Story executor;
+artifact-only commands remain execution-free as defined below.
 
 ## Command grammar
 
@@ -30,11 +45,10 @@ flow-state trace diff <left> <right> [--section <section>] [--format text|json]
 its canonical artifact with the supplied expected artifact through the same diff projection as
 `behavior diff`.
 
-The binary MUST NOT expose `story paths`, `--event`, story `--check`, `--pending-work`,
-`trace summarize --contextualize`, live/live behavior-diff flags, `story run --all`, watch mode,
-live inspection transport, cache mutation, arbitrary event sending, artifact migration, remote
-gateway loading, a generic query language, or compressed-output flags. Pure model traversal stays
-in `flow-state/testing`; host test runners own batch execution and assertions.
+The binary MUST NOT expose the deleted Story and scenario surfaces in `DEL-009` or the conflicting
+server, persistence, artifact, inspect, and CLI surfaces in `DEL-010`; it stays within the accepted
+`REV-TEST-001`–`010` and `REV-MIG-004` boundaries. Pure model traversal stays in
+`flow-state/testing`; host test runners own batch execution and assertions.
 
 ### CLI-002 — Trace selectors are data, not expressions
 
@@ -47,11 +61,11 @@ failure. Selector parsing MUST NOT load a gateway or evaluate application code.
 
 ### CLI-003 — Gateway discovery supports trusted local TypeScript
 
-`--project-root` defaults to the current working directory and is canonicalized before use.
-`--gateway` defaults to `src/app/behavior.ts`, resolves relative to that root, and MUST remain
-inside it after symlink resolution. The root MUST be an existing directory and its manifest is
-exactly `<canonical-project-root>/package.json`; discovery never searches an ancestor. The gateway
-MUST be an existing regular `.ts` or `.mts` file.
+`--project-root` names the project root and is canonicalized before use. `--gateway` names the
+gateway TypeScript file, resolves relative to that root, and MUST remain inside it after symlink
+resolution. The root MUST be an existing directory and its manifest is exactly
+`<canonical-project-root>/package.json`; discovery never searches an ancestor. The gateway MUST be
+an existing regular `.ts` or `.mts` file.
 
 Loading a gateway executes trusted local application code. The loader MAY bundle project-local
 TypeScript into an OS temporary directory, but it MUST:
@@ -83,27 +97,25 @@ gateway code may perform any operation available to the host process.
 runtime, fixture, actor, inspection sink, or story executor. Registration and discovery remain
 pure.
 
-`story run` MUST use the package-private executor that also implements the registered plan's
-public `.run()`. It MUST produce the same checkpoints, final observation, execution error, primary
-Cause projection, and cleanup truth. The CLI MUST NOT call the deleted Scenario runner or add a
-public sink option to `StoryPlan.run()`.
+`story run` MUST use the package-private executor that also implements the plan's public `.run()`.
+It MUST produce the same checkpoints, `run.end` evidence, execution error, primary Cause
+projection, and cleanup truth. The CLI MUST NOT call the deleted Scenario runner or add a public
+sink option to `StoryPlan.run()`.
+
+The Story runner and CLI MUST consume the same package-private decoded evidence model for checkpoints,
+end evidence, failure evidence, cleanup truth, and retained trace records. Neither surface may add a
+second decoded model or expose that internal model as a public package type.
 
 ## Artifacts and files
 
-### CLI-005 — One bounded v2 codec path owns input
+### CLI-005 — One bounded artifact path owns input
 
-Behavior artifacts use `kind: "behavior-contract"` and version
-`"flow-state/behavior-contract.v2"`. Trace artifacts use `kind: "trace-artifact"` and version
-`"flow-state/trace-artifact.v2"`. All command input MUST pass through the shared bounded Schema
-codecs and WIRE-016 structural limits before projection.
-
-Input may be canonical UTF-8 JSON or gzip-compressed JSON, detected by content rather than file
-extension. Malformed UTF-8 and duplicate JSON object keys are rejected before Schema decoding;
-negative zero is rejected by WIRE-001. Compressed input has an independent 2,097,152-byte input
-limit in addition to the decompressed and canonical bounds. V1, wrong-kind, malformed JSON,
-decompression, bound, and identity failures remain distinct. Artifact-only commands do not load an
-application or run a boot-domain decoder. Scenario envelopes and local-proof bundles are not accepted
-artifact formats.
+Behavior and trace input MUST pass through the retained bounded artifact-validation path and WIRE-016
+structural limits before projection. Artifact-only commands MUST NOT load an application or run a boot-domain
+decoder. The accepted artifact kinds, versions, compression representation, and exact nested schemas remain
+part of the coordinated artifact and CLI closure under `BEH-033`; this contract MUST NOT invent an envelope,
+codec, format migration, public field, or diagnostic shape, and deleted Scenario/local-proof formats MUST NOT
+be accepted. The target decoded model has no legacy `final` or `children` members.
 
 `-` means stdin only for an artifact input. Every named artifact operand MUST be an existing
 regular file; FIFOs and devices are accepted only through stdin. A command with two artifact
@@ -148,17 +160,9 @@ Help and version output are conventional unversioned text. Every executed leaf c
 creates one immutable package-private result and derives both formats from it. The CLI MUST NOT
 export another public `FlowCli*` result or diagnostic hierarchy.
 
-JSON success has this private structural shape:
+The private JSON result retains the exact leaf-command discriminant:
 
 ```ts
-type CliResultEnvelope<Command extends CliCommand = CliCommand> = Readonly<{
-  version: "flow-state/cli-result.v1";
-  kind: "flow-state-cli-result";
-  command: Command;
-  outcome: "completed" | "different" | "incomplete";
-  data: CliResultDataByCommand[Command];
-}>;
-
 type CliCommand =
   | "behavior.build"
   | "behavior.render"
@@ -172,45 +176,25 @@ type CliCommand =
   | "trace.diff";
 ```
 
-`data` is not an open extension point. Its exact member follows `command`: build returns
-`{ output, appId, fingerprint }`; render returns `{ section, lines }`; diff/check returns
-`{ equal, sections }`; list returns `{ stories }`; describe returns `{ story }`; run returns
-`{ storyId, checkpoints, final, traceOutput }`; summarize returns
-`{ complete, truncatedBeforeSequence, counts, timeline }`; proof returns
-`{ selector, complete, evidence }`; and trace diff returns `{ equal, complete, sections }`.
-Every collection uses the ordering of its artifact projection, optional file outputs use `null`,
-and reviewed Phase 0 private Schemas fix every nested field before handler implementation.
+The private result data remains closed by command. Build and render expose compiled app/module identity;
+diff and check expose comparison sections; Story list and describe expose registered Story data; Story run
+exposes exact actor-targeted checkpoints, `run.end`, and optional trace output; and trace commands expose
+retained evidence and comparison sections. Every collection uses the ordering of its artifact projection,
+optional file outputs use `null`, and the exact nested result and failure members remain subject to the
+coordinated `BEH-033` artifact and CLI closure.
 
-JSON failure has this private structural shape:
+Failure and diagnostic data MUST reuse the accepted Cause-bearing inspection and Story evidence
+projections. The exact nested diagnostic/result members, Cause projection, cleanup aggregation, and
+artifact/CLI representation remain unresolved under `BEH-022` and `BEH-033`; the CLI MUST NOT reconstruct
+Scenario, expected-state, matcher, or the deleted Story/scenario vocabulary.
 
-```ts
-type CliErrorEnvelope = Readonly<{
-  version: "flow-state/cli-result.v1";
-  kind: "flow-state-cli-error";
-  command: CliCommand | null;
-  diagnostic: CliDiagnostic;
-}>;
-```
+The Story vocabulary is `run.end`; it does not imply actor completion, and the CLI MUST NOT introduce a
+legacy `final` alias in text, JSON, or decoded evidence.
 
-`cause` and `details` reuse Cause-bearing inspection and `FlowStoryExecutionError` projections.
-A story diagnostic retains its phase, command index, completed checkpoints, mutually exclusive
-`atFailure` or `final`, primary Cause, and cleanup status. The CLI MUST NOT reconstruct Scenario,
-expected-state, matcher, pending-work-wrapper, or PASS/FAIL vocabulary.
-
-The normative `CliResultDataByCommand`, `CliDiagnostic`, and `CliDiagnosticCode` unions are
-the reviewed Effect Schemas in
-[`../phase-0/contract-fixtures.ts`](../phase-0/contract-fixtures.ts). They close every nested
-result, Cause, detail, path, bound, cleanup, checkpoint, timeline, and evidence member; the type
-names above are explanatory projections of those Schemas rather than open extension points.
-
-Diagnostic `code` is a closed private union grouped by the eight categories. Phase 0 MUST check
-in the union and a golden envelope for every code before Phase 7; adding
-or renaming a code is an artifact-contract change. At minimum it distinguishes invalid grammar,
-selector, project root, manifest, gateway type/escape/import/package identity, artifact kind,
-version, UTF-8, JSON, duplicate key, compression, compressed/decompressed/canonical bound,
-identity, noncanonical Cause, incompatibility, evidence unavailable, destination exists,
-unsupported atomic publication, read/write/flush/close, broken pipe, story execution, cleanup,
-interruption, and internal invariant.
+The exact private result and diagnostic unions, including nested Cause, checkpoint, actor-evidence,
+cleanup, timeline, and bound members, remain part of the coordinated `BEH-033` artifact and CLI closure.
+This contract preserves one immutable result for text and JSON and MUST NOT add a second public result or
+diagnostic hierarchy, invent diagnostic codes, or imply that unresolved representation work is complete.
 
 ### CLI-008 — Stdout, stderr, and formatting are exact
 
@@ -242,7 +226,7 @@ immutable result only after the CLI Effect runtime and every owned resource disp
 ### CLI-010 — Signals interrupt work but not cleanup
 
 The first `SIGINT` or `SIGTERM` interrupts current work. A story run stops later commands,
-captures `atFailure`, awaits non-abortable cleanup, writes a requested partial trace atomically,
+captures failure-boundary evidence, awaits non-abortable cleanup, writes a requested partial trace atomically,
 then emits the interruption diagnostic. Cleanup or trace-write failure remains attached, but the
 signal exit code remains 130 or 143. Discovery and artifact commands finalize temporary gateway
 or output files before returning. A second signal may terminate immediately; `SIGKILL` and host
@@ -272,9 +256,9 @@ match but either input is truncated. It MUST NOT print “equal” or “no chan
 evidence.
 
 The `--section` domain is exactly `event-sequence`, `transitions`, `state-changes`, `issues`,
-`resource-patches`, `resource-freshness`, `transaction-outcomes`, `stream-outcomes`,
-`child-outcomes`, or `timer-behavior`. Comparing artifacts with different app identity or AppPlan
-fingerprint is an incompatibility diagnostic with exit 2, never an ordinary difference.
+`resource-patches`, `resource-freshness`, `transaction-outcomes`, `stream-outcomes`, or
+`timer-behavior`. Comparing artifacts with different app identity or incompatible compiled AppPlan identity
+is an incompatibility diagnostic with exit 2, never an ordinary difference.
 
 ### CLI-012 — Binary proof is fresh and installed
 
@@ -284,6 +268,25 @@ project; no checked-in or previously generated `dist` may satisfy acceptance.
 
 Proof MUST cover the exact grammar and rejected legacy flags, gateway containment and inertness,
 temporary cleanup, undeclared imports, package identity, text/JSON parity, stdout/stderr, every
-exit status, stdin, gzip, all WIRE-016 bounds, hostile identity, atomic replacement, direct/CLI
-story parity, zero-history and one-sink runs, partial traces, real signals, and complete,
-different, and truncated comparisons.
+exit status, stdin, all WIRE-016 bounds, hostile identity, atomic replacement, direct/CLI
+story parity, zero-history and one-sink runs, partial traces, exact actor evidence lookup,
+`run.end`, module tooling ownership, compound states, context requirements, lifecycle records,
+operation identities, real signals, and complete, different, and truncated comparisons.
+
+## Local proof obligations
+
+### CLI-P01 — Source and runtime behavior proof
+
+Prove the closed command grammar, selector-as-data parsing, gateway containment and inertness, shared
+Story/CLI decoded evidence model, text/JSON parity, stdout/stderr ownership, exit-status mapping, signal
+cleanup, bounded artifact input, exact actor lookup, `run.end`, lifecycle and operation evidence, and
+complete/different/incomplete trace comparisons through the production CLI owner. The proof MUST cover
+rejected legacy Story/scenario flags and MUST NOT use a CLI-only artifact decoder or result hierarchy.
+
+### CLI-P02 — Fresh packaged cutover proof
+
+Prove a newly built and installed binary against a read-only consumer, including package identity,
+declaration/export absence for deleted surfaces, source/packed parity, temporary-file cleanup, and the
+current examples and root gate. A checked-in or stale `dist` artifact MUST NOT satisfy this proof. Exact
+artifact envelope, version, nested field, Cause, and diagnostic choices remain under `BEH-033` until their
+coordinated closure is accepted.

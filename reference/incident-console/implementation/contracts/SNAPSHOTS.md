@@ -2,277 +2,157 @@
 
 Status: normative vNext contract
 
-This contract fixes the public immutable read surface consumed by views, hosts, stories, and
-inspection. Snapshots report machine and primitive truth; they do not create ownership, start
-work, or retain execution history.
+This contract fixes the public immutable read surface consumed by passive views, hosts, Stories, and
+inspection. Snapshots report machine and primitive truth; they do not create ownership, start work, or
+retain execution history.
 
 ## Actor publication
 
 ### SNAP-001 — One actor snapshot is one revision
 
-Every actor snapshot MUST contain the exact machine token in `value`, readonly `memory`, a
-monotonic safe-integer `revision`, the `storeRevision` observed by that actor turn,
-`lifecycle: "active" | "disposed"`, typed primitive readers, and currently active issues. No
+Every actor snapshot MUST contain the exact active leaf in `state`, readonly `memory`, a monotonic
+safe-integer `revision`, the `storeRevision` observed by that actor publication, the closed lifecycle
+`prepared | active | suspended | disposed`, typed named-operation readers, and currently active issues. No
 field may read through to mutable live state.
 
-The public active issue type MUST be exactly:
+The public snapshot MAY expose the accepted active issue summary, but the exact `FlowIssue` fields,
+occurrence identity, clearing ownership, generation clearing, and terminal retention remain unresolved
+under `BEH-023` and `BEH-033`.
 
-```ts
-type FlowIssue = Readonly<{
-  kind: "failure" | "defect" | "interrupt" | "cleanup" | "invariant";
-  source: "runtime" | "machine" | "resource" | "transaction" | "stream" | "timer" | "child";
-  id: string;
-}>;
-```
+Every lifecycle transition MUST publish one coherent immutable snapshot through the existing handle before
+appending its inspection event. Lifecycle evidence MUST NOT create a machine revision or `TurnRecord`; an
+inspection listener MUST observe the event's `to` lifecycle after receiving that event. The exact lifecycle
+publication revision and correlation rules remain unresolved under `BEH-007` and `BEH-008`.
 
-`id` is an immutable occurrence identity containing source, owning actor, exact binding/ref when
-present, generation when present, and issue kind. Package-private issue state separately retains a
-clearing-owner key containing actor, source, and binding/ref but no attempt generation. A later
-success or release for that owner clears its prior operational occurrences, including failures
-from older generations; success for another ref/binding cannot clear them. Fatal invariant and
-cleanup issues remain on the
-terminal disposed snapshot. Actor snapshots MUST NOT expose receipts, diagnostic
-facts, pending outcome records, `handled` booleans, errors, Causes, or a failure lifecycle. Full
-TurnRecords and diagnostic facts belong to explicitly installed `flow-state/inspect` sinks.
+Actor snapshots MUST NOT expose receipts, diagnostic facts, pending outcome records, `handled` booleans,
+errors, Causes, or a failure lifecycle. Full TurnRecords and diagnostic facts belong to explicitly
+installed `flow-state/inspect` sinks. Child-specific issue and snapshot surfaces are removed by
+`REV-MACH-001` and `DEL-002`.
 
-A final machine token remains an ordinary active actor snapshot value. Finality does not add an
-actor lifecycle or output field, complete the snapshot stream, or auto-dispose a root. Static
-machine metadata determines that the token is final; `flow.can` rejects every event there.
+`state` and every callback state value are the exact active leaf token. `state.matches(token)` may match
+that leaf or any active ancestor. Flow MUST NOT expose an XState-style nested state value or a separate
+callback field identifying the declaration node. A terminal-looking state is an ordinary active actor state: it does not
+add an actor lifecycle or output field, complete the snapshot stream, auto-dispose the actor, emit parent
+completion, or close the mailbox. Static machine metadata and the compiled transition table determine its
+behavior; Flow MUST NOT expose a final-state node kind under `REV-MACH-010` and `DEL-005`.
 
 ### SNAP-002 — Public readers are passive and exact
 
-Primitive readers expose typed `get` operations and no mutation, subscription, retry, reset,
-seed, enumeration, or retention method. A missing exact identity returns that primitive's
-frozen idle snapshot and MUST NOT insert a record, acquire a lease, or advance a revision.
+Primitive readers expose only typed passive operations for the named `O` catalogue. Resource, transaction,
+and stream families expose their accepted `key(P)`, `getData(K)`, and `getState(K)` relationships, with
+execution methods remaining unavailable to a snapshot selector. A missing exact identity MUST NOT insert a
+record, acquire a lease, change freshness, advance a revision, or start external work.
 
 ```ts
-const todo = snapshot.resources.get(todoDetail.ref(todoId));
-const save = snapshot.transactions.get(saveTodo.ref({ todoId }));
+const orderKey = O.orderById.key({ orderId, client });
+const order = O.orderById.getData(orderKey);
+const orderState = O.orderById.getState(orderKey);
+const submitState = O.submitIntent.getState([submissionId]);
 ```
 
-Resource readers additionally expose `require(ref)`. It returns only a canonical value whose
-availability is `"value"`; idle, placeholder, and `status: "failure"` projections throw a
-structured Flow invariant diagnostic. Inspection and persistence may enumerate through
-package-private AppPlan-aware adapters, not through the component read surface.
+These are named-family reads over canonical `K`; they do not imply generic `resources.get`,
+`transactions.get`, public operation enumeration, bound entries, `ref`, `byKey`, `byLane`, `require`,
+subscription, retry, reset, seed, retention, or mutation methods. Any actor may passively read an admitted
+shared canonical entry it never materialized; missing reads are synthetic absent/idle and remain passive.
+Only the exact closed state union remains under `BEH-023`.
 
 ## Resources
 
-### SNAP-003 — Resource snapshots use one bounded factored union
+### SNAP-003 — Resource state remains a bounded descriptor/K projection
 
-The public type MUST have this semantic shape. `Ref` is the exact resource-ref type passed to
-`get`; helper aliases are explanatory and MUST NOT be standalone exports.
+Resource status discriminants remain part of the retained resource surface under `RET-003`, but the exact
+closed `getState(K)` union is not accepted by this revision. `getState(K)` MUST be descriptor- and
+canonical-key typed, and its state MUST preserve the accepted distinction between passive canonical data,
+active lookup work, and typed terminal lanes without inventing a generic registry or a descriptor-specific
+cross-product. The exact public members for generation, failure, retained-value refresh, collection, and
+stream declaration-slot reads remain unresolved under `BEH-023`; cross-actor canonical visibility is defined
+by `SNAP-004`.
 
-```ts
-type ResourceFetchActivity =
-  | { readonly activity: "idle"; readonly generation?: never }
-  | { readonly activity: "fetching"; readonly generation: number };
+`P` is complete immutable executable input and `K` is the ordered readonly canonical tuple returned by
+`key(P)`. Resource identity is descriptor namespace plus canonical `K`; methods that execute lookup work
+accept complete `P`, while passive reads accept `K`. Equal keys do not switch the pinned `P` of a running
+generation, and a hydrated key-only entry remains passive until a live binding supplies executable `P`.
 
-type ResourceValueState<A, Ref> = Readonly<{
-  ref: Ref;
-  availability: "value";
-  value: A;
-  updatedAt: number;
-  expiresAt: number;
-}> &
-  (
-    | { readonly status: "success"; readonly freshness: "fresh"; readonly invalidatedAt?: never }
-    | { readonly status: "stale"; readonly freshness: "stale"; readonly invalidatedAt?: never }
-    | {
-        readonly status: "stale";
-        readonly freshness: "invalidated";
-        readonly invalidatedAt: number;
-      }
-  ) &
-  ResourceFetchActivity;
+The public snapshot contract MUST NOT generate a distributive conditional cross-product from value,
+failure, descriptor policy, or activity kinds, recursively inspect those types, or add helper aliases as
+standalone exports. The exact operation-state shape remains blocked on `BEH-023`, not a reason to invent a
+replacement union here.
 
-type ResourceSnapshot<A, E, Ref = ResourceRef> =
-  | Readonly<{
-      ref: Ref;
-      status: "idle";
-      availability: "empty";
-      activity: "idle";
-      freshness: "stale";
-      generation?: never;
-    }>
-  | Readonly<{
-      ref: Ref;
-      status: "loading";
-      availability: "empty";
-      activity: "fetching";
-      freshness: "stale";
-      generation: number;
-    }>
-  | Readonly<{
-      ref: Ref;
-      status: "loading";
-      availability: "placeholder";
-      activity: "fetching";
-      freshness: "stale";
-      generation: number;
-      value: A;
-    }>
-  | Readonly<{
-      ref: Ref;
-      status: "failure";
-      availability: "empty";
-      activity: "idle";
-      freshness: "stale";
-      generation: number;
-      error: E;
-    }>
-  | ResourceValueState<A, Ref>;
-```
+### SNAP-004 — Canonical and actor-effective reads are distinct
 
-This union is exhaustive. `value` exists exactly when `availability` is `"placeholder"` or
-`"value"`; `error` exists only on empty typed failure; `generation` exists exactly for an active
-fetch or the terminal empty failure that records its attempt. Canonical data is `status:
-"success"` only while fresh and `status: "stale"` when expired or invalidated. A manual refresh
-may therefore be a fresh value with `activity: "fetching"`. A failed refresh that retains
-canonical data remains in the appropriate value member, with no `error`; its binding outcome,
-active issue summary, and TurnRecord carry the attempt failure. Defects and interruptions enter
-active issue summaries and TurnRecords rather than widening `E`.
+Canonical truth remains in the runtime-scoped resource store, and passive resource reads never create
+ownership or external work. An unbound store read returns committed canonical base state. An actor snapshot
+read returns the committed base plus that actor's own ordered optimistic layers for the exact descriptor/K;
+it never includes another actor's preview. Transaction updaters read canonical base, not effective overlay
+values. Tags derive from canonical `K`, and an equal authoritative write may refresh freshness/store
+publication but advances value revision and effective fanout only when the effective value changes.
 
-`expiresAt` is present on every canonical base because `staleTime` is always finite. Descriptor
-construction validates the duration, and each update validates `updatedAt + staleTime` as a safe
-integer before committing the base.
+### SNAP-005 — Resource projection follows actor ownership and store retention
 
-The declaration implementation MUST preserve this fixed top-level union and the two small
-factored unions directly. It MUST NOT generate a distributive conditional cross-product from
-`A`, `E`, descriptor policy, or activity kinds, recursively inspect those types, or add
-descriptor-specific status members. Narrowing by `status`, `availability`, `activity`, and
-`freshness` MUST work without a cast, and declaration/type-instantiation growth per resource MUST
-remain constant.
+An actor's resource projection is derived from its current actor-owned operation bindings and the shared
+StoreState for the exact descriptor/K identity. Releasing a binding releases that actor's ownership; it does
+not by itself define canonical-data deletion. Same-runtime actors may share canonical data and lookup
+generations while retaining independent bindings, occurrences, projections, and lifetimes. Separate runtime
+instances remain isolated.
 
-### SNAP-004 — Placeholder and canonical value are never confused
-
-`require(ref)` MUST reject `availability: "placeholder"`. Placeholder projections MUST NOT
-set `updatedAt`, become `success`, emit a finite success/value outcome, persist, or survive the
-active lookup generation. When canonical data exists, a placeholder is absent rather than
-shadowing it.
-
-### SNAP-005 — Resource projection follows machine reference and store collection
-
-An actor projects refs materialized by its current or prior machine-owned bindings while the
-shared StoreState still retains those entries. Releasing a binding does not delete canonical
-data; StoreState collection later causes a new actor turn that removes the projection. A view
-read of a ref the actor never materialized returns idle even if another actor happens to own
-the same store ref.
+After binding release, the actor's local projection is removed while canonical data remains until normal
+collection policy evicts it. Any actor may passively read an admitted shared canonical entry it never
+materialized; a missing read is synthetic absent/idle and does not materialize an entry. This clause does
+not preserve the old generic-ref or unconditional-idle rule.
 
 ## Transactions
 
-### SNAP-006 — Transaction snapshots are exact-ref discriminated unions
+### SNAP-006 — Transaction snapshots use actor-local descriptor/K identity
 
-Every `TransactionSnapshot<A, E, Ref>` exposes its exact `ref`, and every non-idle attempt exposes
-its actor-local `generation`:
+Every transaction state projection MUST expose the exact transaction descriptor and canonical `K` that
+identify its actor-local status, together with a generation when the accepted state shape requires one.
+The public projection retains the accepted typed success, failure, defect, and interruption lanes and MUST
+NOT expose `Cause`; the complete Cause stays in package-private issue backing and TurnRecord facts. Exact
+failure-versus-defect classification and the closed public union remain unresolved under `BEH-023`.
 
-```ts
-type TransactionSnapshot<A, E, Ref = TransactionRef> =
-  | { readonly status: "idle"; readonly ref: Ref }
-  | {
-      readonly status: "queued" | "pending";
-      readonly ref: Ref;
-      readonly generation: number;
-    }
-  | {
-      readonly status: "success";
-      readonly ref: Ref;
-      readonly generation: number;
-      readonly value: A;
-    }
-  | {
-      readonly status: "failure";
-      readonly ref: Ref;
-      readonly generation: number;
-      readonly error: E;
-    }
-  | {
-      readonly status: "defect";
-      readonly ref: Ref;
-      readonly generation: number;
-    }
-  | {
-      readonly status: "interrupt";
-      readonly ref: Ref;
-      readonly generation: number;
-    };
-```
+The exact closed `TransactionSnapshot<A, E, K>` union, field presence, generation exposure, terminal
+retention, and collection behavior remain unresolved under `BEH-023`; occurrence lifetime follows `SEM-018`.
+Absent fields MUST remain absent when the final union is accepted; this contract MUST NOT use a generic
+transaction registry or accumulate old attempts in an ordinary actor snapshot.
 
-A public transaction snapshot MUST expose typed `error` only on the `failure` member and MUST
-NOT expose `Cause` on any member. A mixed failure-plus-defect exit uses the defect member; the
-complete original Cause remains in package-private issue backing and inspect TurnRecord facts.
-Fields absent from a union member MUST remain absent rather than `undefined` placeholders.
+### SNAP-007 — Transaction projection follows the current actor binding
 
-### SNAP-007 — Transaction projection follows the current binding generation
+An actor exposes transaction state for an actor-owned descriptor/K identity in its current stabilized
+configuration. State activation, passive reads, completion,
+and reconciliation MUST NOT admit or readmit a transaction attempt; finite commits are admitted only by an
+accepted event transition `actions` result. Attempt history may belong in TurnRecords and inspection
+evidence, but exact ordinary-snapshot retention and occurrence projection remain unresolved under
+`BEH-023`; no generic actor-lifetime attempt map is accepted.
 
-The actor registry publishes only the latest generation for each exact ref materialized by a
-binding in the current stabilized configuration. A terminal finite binding becomes consumed
-and retains its terminal snapshot while that same configuration activation remains current.
-When the binding is removed, replaced, or explicitly reentered, its old projection is removed
-or replaced in that actor turn; later `get(oldRef)` returns idle.
+The exact projection when a binding is removed, replaced, suspended, disposed, or reentered remains under
+`BEH-023`; occurrence retention across those boundaries follows `SEM-018`.
 
-Attempt history, older generations, and projections from prior configurations belong in
-TurnRecords and inspection. They MUST NOT accumulate in the ordinary actor snapshot. Scope and
-concurrency keys never replace the exact transaction ref as observable identity.
+## Streams and timers
 
-## Streams, timers, and children
+### SNAP-008 — Continuing operation snapshots use named families and declaration identity
 
-### SNAP-008 — Continuing activity snapshots use declaration identity
+Resource subscriptions and stream subscriptions are actor-owned continuing operation declarations. Their
+passive state is read through the exact named family and canonical `K`, not through a generic
+`snapshot.streams.get(streamDefinition)` registry. A continuing resource may observe canonical values;
+streams are not runtime resource entries and are not deduplicated across actors.
 
-`snapshot.streams.get(streamDefinition)` and `snapshot.children.get(childDefinition)` use the
-exact reachable definition object, not a string ID. Their exact semantic unions are:
+Equal normalized declaration identity retains the existing generation and originally retained executable
+`P`. A changed declaration slot, operation kind, descriptor, or canonical key releases the old declaration
+exactly once and admits the replacement. Stream status retains `hasValue`, latest `V` when present, emission
+count, generation, and terminal status in addition to its status. Emissions become durable state only
+through mapped events or explicit authoritative resource writes. The accepted stream status discriminants
+include idle, connecting, running, complete, typed failure, defect, and interruption.
 
-```ts
-type StreamSnapshot<A, E, Key> =
-  | { readonly status: "idle" }
-  | { readonly status: "running"; readonly key: Key; readonly generation: number }
-  | { readonly status: "complete"; readonly key: Key; readonly generation: number }
-  | {
-      readonly status: "failure";
-      readonly key: Key;
-      readonly generation: number;
-      readonly error: E;
-    }
-  | { readonly status: "defect"; readonly key: Key; readonly generation: number }
-  | { readonly status: "interrupt"; readonly key: Key; readonly generation: number };
-
-type ChildSnapshot<Child, Key> =
-  | { readonly status: "idle" }
-  | {
-      readonly status: "active";
-      readonly key: Key;
-      readonly generation: number;
-      readonly snapshot: Child;
-    }
-  | {
-      readonly status: "complete";
-      readonly key: Key;
-      readonly generation: number;
-      readonly snapshot: Child;
-    }
-  | { readonly status: "defect"; readonly key: Key; readonly generation: number }
-  | { readonly status: "interrupt"; readonly key: Key; readonly generation: number }
-  | { readonly status: "stopped"; readonly key: Key; readonly generation: number };
-```
-
-`Child` is exactly `ActorSnapshot<ChildMachine>`, including the child machine's exact timer
-names and primitive-binding registries rather than a definition-derived widened snapshot. Child machines have no typed error channel, so child
-snapshots have no `failure` member; a contained child execution defect uses `defect`. Fields absent
-from a member are absent rather than optional placeholders. Public stream and child
-snapshots MUST NOT expose Cause; full failure evidence belongs to their TurnRecord facts.
-
-One actor may materialize at most one binding from one stream or child declaration at a time;
-only a changed canonical key replaces its generation, while equal key retains the originally
-materialized opaque params/input. Reusing two distinct definitions with one ID is
-an AppPlan collision, while reading an inactive definition returns idle.
-
-A managed child that reaches a final token publishes `status: "complete"` with that exact final
-machine-family snapshot. The parent binding may retain that frozen terminal projection after the child
-actor itself has been released; later reads do not expose a command handle or revive the child.
+Hydration MUST NOT silently invent a prior stream emission or a generic key-to-input inverse. It
+rematerializes a live declaration from its current executable `P` after pending outcomes drain; terminal
+streams do not restart, and missing executable input fails closed with a precise diagnostic. Child snapshots,
+child addressing, child completion, child lifecycle, child persistence, and child Story/model surfaces are
+removed by `REV-MACH-001` and `DEL-002`; recursive substates do not create a second snapshot source.
 
 ### SNAP-009 — Timer identity is machine-wide and typed
 
-Timer record keys MUST be unique across one machine definition. `snapshot.timers.get(name)`
-accepts only that machine's inferred timer-name union and returns:
+Timer record keys MUST be unique across one machine definition. `snapshot.timers.get(name)` accepts only
+that machine's inferred timer-name union and returns:
 
 ```ts
 type TimerSnapshot<State, Name> =
@@ -304,35 +184,43 @@ type TimerSnapshot<State, Name> =
     };
 ```
 
-Fields absent from a member remain absent. Timer history belongs in TurnRecords. This machine-wide uniqueness
-rule prevents state-local string lookup from becoming ambiguous in views and artifacts.
+The `state` in every timer record is the exact active leaf token. A timer authored on a compound state
+starts when that compound becomes active, retains its original deadline across transitions among its
+descendants, and is cancelled when that compound exits. Exact `reenter` restarts the named active boundary;
+ordinary descendant transitions do not reset an unchanged compound timer. Timer history belongs in
+TurnRecords. Timer facts target explicit events only; polling uses an existing `after` timer plus an explicit
+refresh event and never admits finite actions directly.
 
 ## Time, immutability, and proof
 
 ### SNAP-010 — Snapshot time uses the runtime Clock
 
-All public timestamps are integer epoch milliseconds read from the runtime's Effect Clock.
-Story snapshots therefore use TestClock time. A snapshot and every nested collection or value
-created by Flow MUST be frozen or otherwise observably immutable; later turns cannot mutate a
-previous reference.
+All public timestamps are integer epoch milliseconds read from the runtime's Effect Clock. Story snapshots
+and evidence therefore use TestClock time. A snapshot and every nested collection or value created by Flow
+MUST be frozen or otherwise observably immutable; later turns cannot mutate a previous reference.
 
-Flow shallow-copies and freezes every envelope/record/array it creates, including event envelopes,
-canonical argument/key copies, readers, issue vectors, and snapshot containers. Opaque application
-memory fields, event payload members, resource/transaction/stream values and errors, transaction
-params, preview replacements, and child inputs remain application-owned immutable values: Flow
-retains their identity, never mutates them, and does not recursively freeze a class instance or
-arbitrary domain graph. Mutating one after admission is unsupported and may bypass revision or
-observer detection; durable decoding is stricter and copies only WIRE-001-compatible data.
+Flow shallow-copies and freezes every envelope, record, array, canonical argument/key copy, reader, issue
+vector, and snapshot container it creates. Opaque application memory fields, event payload members,
+resource/transaction/stream values and errors, transaction params, preview replacements, and actor inputs
+remain application-owned immutable values: Flow retains their identity, never mutates them, and does not
+recursively freeze a class instance or arbitrary domain graph. Mutating one after admission is unsupported
+and may bypass revision or observer detection.
+
+Every Story checkpoint and successful `run.end` is deeply frozen and captured through the production
+runtime's atomic read barrier. The exact lock order, actor capture set, lifecycle-evidence cut, cleanup
+failure aggregation, and failed-run envelope remain unresolved under `BEH-021` and `BEH-022`.
 
 ### SNAP-P01 — Discriminant and reader proof
 
-Compile proofs MUST narrow every resource, transaction, stream, timer, and child union without
-casts; reject foreign refs/definitions and unavailable fields; and preserve `A`, `E`, state,
-memory, and timer-name literals. They MUST also prove that resource snapshots expose no
-`isPlaceholderData`, `paused`, or `availability: "failure"`, and that actor snapshots expose no
-receipts, public Cause, full facts, or failure lifecycle. Primitive compile proofs MUST show
-that typed `error` exists only on a typed-failure member and no member exposes `cause`. Runtime
-proofs MUST show missing reads are
-side-effect-free, placeholder is not canonical, failed refresh does not duplicate an error on
-retained canonical data, transaction projections leave with their bindings, and captured
-snapshots never change after later turns, collection, or disposal.
+Compile proofs MUST preserve exact machine state tokens, actor refs, event, input, context, memory,
+descriptor, canonical `K`, selected-value, and timer-name types. They MUST prove that named family passive
+reads accept `K`, execution plans require complete `P`, and deleted generic registries, refs, bound entries,
+child surfaces, final-node fields, registered views, and ordinary actor disposal are absent.
+
+Runtime proofs MUST show that missing reads are side-effect-free, same-runtime canonical sharing preserves
+independent actor ownership, explicit authoritative writes fence older generations, mapped operation
+outcomes use production completion paths, and captured snapshots never change after later turns, collection,
+suspension, resumption, or disposal. Proofs MUST cover actor-scoped effective reads, preview promotion and
+rollback, occurrence fencing, stream latest-value projections, hydration restart without emission replay,
+and passive operation-read reactivity. Remaining unrelated lifecycle, operation-union, and collection
+proofs retain their owning unresolved entries.

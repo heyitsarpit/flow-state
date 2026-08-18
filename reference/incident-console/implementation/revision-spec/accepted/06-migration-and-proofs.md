@@ -18,10 +18,11 @@ the actor/ref/lease capability split MUST NOT be reopened merely to resolve the 
 
 Most `BEH-*` items are lifecycle, ordering, ownership, persistence, observation, evidence, cleanup,
 compatibility, and proof problems under the accepted surface. Resolving one MUST NOT rename, overload,
-replace, or add a competing public API. `BEH-024` and `BEH-027` instead record source-authority conflicts
-and MUST return to explicit design review before any public surface or accepted rule changes. A failed
-proof MAY reopen only the exact guarantee that cannot be implemented; it does not authorize silent API or
-semantic substitution.
+replace, or add a competing public API. `BEH-027` remains the source-authority conflict that MUST return to
+explicit design review before any public surface or accepted rule changes. `BEH-024` is closed by
+`REV-OPS-015`, which accepts timer event-targeting and explicit-refresh polling. A failed proof MAY reopen
+only the exact guarantee that cannot be implemented; it does not authorize silent API or semantic
+substitution.
 
 Runtime-sized keyed subscription collections remain explicitly deferred and outside this migration.
 
@@ -134,7 +135,7 @@ Each detailed proof obligation remains owned by the semantic `REV-*` clause that
 this migration clause aggregates their completion status and MUST NOT add or weaken an obligation. In
 particular, actor/ref/lease and bootstrap proofs are owned by `REV-COMP-011` through `REV-COMP-015`, React
 lifecycle proofs by `REV-HOST-002` through `REV-HOST-005`, Story construction and evidence proofs by
-`REV-TEST-001` through `REV-TEST-009`, and operation proofs by `REV-OPS-001` through `REV-OPS-014`.
+`REV-TEST-001` through `REV-TEST-009`, and operation proofs by `REV-OPS-001` through `REV-OPS-015`.
 
 The cross-cutting parity proof MUST execute equivalent domain-command sequences through live and Story
 hosts and compare snapshots, `TurnRecord`s, pending work, operation facts and generations, context turns,
@@ -146,8 +147,8 @@ Story suspend or resume commands.
 ## Promotion blockers that remain unresolved
 
 The revision MUST NOT be described as mechanically migratable while an applicable entry in
-[`UNRESOLVED_BEHAVIOR.md`](../UNRESOLVED_BEHAVIOR.md) remains open. `BEH-024` and `BEH-027` require explicit
-design review; the other remaining entries require internal behavioral closure without public API
-redesign. Closing an entry requires one exact behavior, coordinated old-clause updates, and named
-compile-time, runtime, Story, React, persistence, or artifact evidence. A failing proof reopens only the
-guarantee it disproves.
+[`UNRESOLVED_BEHAVIOR.md`](../UNRESOLVED_BEHAVIOR.md) remains open. `BEH-027` remains the explicit
+source-authority design-review boundary; `BEH-024` is closed by `REV-OPS-015`. The other remaining entries
+require internal behavioral closure without public API redesign. Closing an entry requires one exact
+behavior, coordinated old-clause updates, and named compile-time, runtime, Story, React, persistence, or
+artifact evidence. A failing proof reopens only the guarantee it disproves.

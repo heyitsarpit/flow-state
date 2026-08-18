@@ -1,284 +1,201 @@
 # Compatibility and deletion contract
 
-Status: normative vNext contract
+Status: normative target overlay; not shipped runtime behavior
 
-vNext is a deliberate breaking contract replacement. Compatibility MUST preserve the live
-package route names, ESM import conditions, core Effect peer identity, React 18/19 peer range,
-and semantic capabilities explicitly retained below. Compatibility MUST NOT preserve an old
-name or overload when doing so creates a second ownership model.
+Implementation status: target only. This vNext contract describes the intended replacement, not shipped
+package source, public API, or runtime behavior. It MUST NOT be cited as evidence that vNext is implemented
+or promoted. It remains a target until the coordinated migration and proof gate required by `REV-MIG-002`,
+`REV-MIG-003`, and `REV-MIG-004` passes, including applicable unresolved-behavior closure under the normative
+revision specification.
 
-The live route map is `packages/flow-state/package.json:33-54`; current runtime exports are
-listed in `packages/flow-state/src/index.ts:1-24`, React exports in
-`packages/flow-state/src/react-entry.ts:1-7`, testing exports in
-`packages/flow-state/src/testing.ts:1-56`, server exports in
-`packages/flow-state/src/server.ts:1-9`, and inspect exports in
-`packages/flow-state/src/inspect.ts:1-178`.
+This contract applies the accepted revision specification to the former compatibility and deletion
+surface. `REV-MIG-001` keeps accepted public decisions closed while behavioral gaps are resolved;
+`REV-MIG-002` requires contracts, public types, artifacts, and proofs to move as one replacement;
+`REV-MIG-003` requires proofs through the production owners; and `REV-MIG-004` owns the exhaustive
+old-surface disposition. An accepted rule in the revision specification overrides a conflicting clause here.
+An untouched clause remains authoritative.
+
+Migration is not mechanically ready while an applicable entry in
+[`../revision-spec/UNRESOLVED_BEHAVIOR.md`](../revision-spec/UNRESOLVED_BEHAVIOR.md) remains open.
+Unresolved behavior is a closure blocker, not permission to add a public API, default, exception, alias, or
+proof requirement that the revision specification did not accept.
+
+Active clauses in this file point to the current `REV-*`, `BEH-*`, `DEL-*`, and `RET-*` owners in the
+normative revision specification. Legacy contract IDs are retained only in the historical/deletion mappings
+below; they do not own active semantics.
 
 ## Compatibility policy
 
-### CUT-001 — Keep routes, replace contracts atomically
+### CUT-001 — Retain environmental boundaries and replace contracts atomically
 
-The package MUST keep `.`, `./react`, `./testing`, `./server`, `./inspect`, and
-`./package.json`. It MUST keep the `flow-state` CLI binary. The vNext cutover MUST replace
-runtime values and declarations on those routes in one version boundary; it MUST NOT expose
-parallel `legacy`, `experimental`, `v2`, or compatibility namespace objects.
+The package MUST retain the package routes, ESM/import conditions, core Effect peer identity, and supported
+React peer compatibility named by `RET-001`. The replacement MUST occur at one contract boundary. Generated
+and handwritten public types MUST NOT expose both old and accepted constructors, commands, targets,
+lifecycle values, view registries, child-machine fields, result fields, or operation grammar.
 
-Phases 1–6 build and test vNext through package-private entry points while the unchanged legacy
-routes remain the only public implementation. They MUST NOT translate legacy grammar into vNext or
-publish a mixed route set. Phase 7 performs one atomic source/export/declaration/binary switch for
-all six routes and deletes the legacy execution owners in that same closeable slice; a checkout may
-contain both implementations during development, but no installed package or runtime may expose or
-compose both.
+No installed package, active contract, or runtime may expose or compose the deleted surface with its
+replacement. Live hosts and Stories MUST use the production runtime owners required by the accepted revisions.
 
-### CUT-002 — Retain semantics, not ceremonial wrappers
+### CUT-002 — A replacement is a hard deletion of the old surface
 
-Implementations MAY reuse private code and semantic tests for exact refs, optimistic overlays,
-transaction concurrency, traces, graphs, deterministic time, fixtures, and packed consumers.
-They MUST NOT retain a public wrapper whose only purpose is preserving an obsolete spelling,
-builder family, or mutable escape hatch.
+`REPLACE` means that the old capability disappears completely while the accepted replacement continues the
+capability. Migration MUST NOT preserve an old authoring shape through an alias, overload, adapter,
+compatibility namespace, parser branch, or deprecated wrapper.
 
 ### CUT-003 — Removed values fail closed
 
-Every deleted runtime value MUST be absent from JavaScript exports and TypeScript declarations.
-Every deleted overload or property MUST have an `@ts-expect-error` proof. A deprecated alias
-that remains callable does not satisfy deletion.
+Every `DELETE` or `REPLACE` value, type, overload, property, deep import, file-level registry, example,
+proof, and task reference MUST be removed from active authority or classified by the deletion ledger. Runtime
+export proofs MUST show deleted values and namespaces absent; declaration proofs MUST reject deleted types,
+overloads, properties, deep imports, and authoring shapes. A deleted authoring shape MUST be rejected before
+it can create an actor, mutate memory, acquire an operation, publish an event, start external work, or write
+evidence.
 
-## Root cutover matrix
+### CUT-004 — No compatibility behavior for deleted authoring shapes
 
-| Current surface                                          | vNext decision | Normative replacement                                               |
-| -------------------------------------------------------- | -------------- | ------------------------------------------------------------------- |
-| `machine(config)`                                        | DELETE         | `definition(...)` plus `machine(definition, callback)`              |
-| `machine<Context, Event>()(config)`                      | DELETE         | definition-inferred input, memory, states, and events               |
-| machine `id` or `memory` inside behavior config          | DELETE         | inherited unchanged from the definition                             |
-| `vocabulary(...)` / `Vocabulary`                         | RENAME         | `definition(...)` / `Definition`                                    |
-| machine `context`                                        | DELETE         | actor-local `memory`                                                |
-| transition `update`                                      | DELETE         | `updateMemory`                                                      |
-| `actions`, `entry`, `exit`                               | DELETE         | transitions, inspectable activities, views, or observers            |
-| state `invoke`                                           | DELETE         | `activities`                                                        |
-| state `always`                                           | DELETE         | `redirect`                                                          |
-| `after` and `flow.after`                                 | DELETE         | named `timers` entries                                              |
-| transition `submit`                                      | DELETE         | `activities: [activity.run(transaction, ...)]`                      |
-| standalone `ensure/observe/refresh/invalidate/run`       | DELETE         | machine-local `activity` kit                                        |
-| canonical-key or predicate resource invalidation         | DELETE         | exact resource refs, nominal tags, or computed target vectors       |
-| `createKey`                                              | DELETE         | return `CanonicalKeyInput` directly                                 |
-| `createTag`                                              | RENAME         | `tag(id)`                                                           |
-| resource `key` / custom identity projection              | DELETE         | descriptor ID plus canonical lookup-argument tuple                  |
-| resource `schema`                                        | DELETE         | application boundary decoder                                        |
-| transaction `scope`                                      | DELETE         | actor-local concurrency per exact transaction ref                   |
-| stream `pressure`                                        | DELETE         | Effect Stream or application-authored buffering policy              |
-| `freshness.staleAfter`                                   | RENAME         | `staleTime`                                                         |
-| `freshness.onInvalidate`                                 | DELETE         | observation ownership plus invalidation policy                      |
-| `outcomes(...)`                                          | DELETE         | direct contextual `outcomes` literals                               |
-| `patch(ref, patch)` activity                             | DELETE         | memory, transaction preview, observation, or internal store patch   |
-| `selectView`                                             | INTERNALIZE    | actor observer, checkpoint projection, or inspect projection        |
-| `store.memory/test`                                      | DELETE         | runtime internal store selection                                    |
-| `orchestrators.live/test`                                | DELETE         | runtime and story internal orchestration                            |
-| `module(id, inventory, meta?)`                           | DELETE         | `module({ id, machines, views })`                                   |
-| generic module inventory/meta                            | DELETE         | inferred graph plus exact root/view ownership                       |
-| `app({ modules })` without ID                            | DELETE         | `app({ id, persistenceVersion, modules, dynamicMachines? })`        |
-| `app.layer(...)`                                         | DELETE         | `runtime({ app, layer })`                                           |
-| `runtime(layer)`                                         | DELETE         | `runtime({ app, layer, boot? })`                                    |
-| zero-argument `runtime()`                                | DELETE         | explicit app; closed Layer only when app requirements are non-never |
-| `runtime.resources.*`                                    | DELETE         | machine activities, views, fixtures, and boot                       |
-| `runtime.orchestrators.*`                                | DELETE         | `runtime.actor` and `runtime.createActor`                           |
-| public `managedRuntime`                                  | INTERNALIZE    | `ready`, Effect bridges, and `dispose`                              |
-| mutable `hydrateBoot`                                    | DELETE         | immutable runtime `boot` input                                      |
-| public runtime inspection object                         | DELETE         | `actor.snapshots` and `/inspect` sinks                              |
-| exported runtime service types                           | INTERNALIZE    | inferred app requirements and application Layer                     |
-| resource and transaction snapshot `.status`              | KEEP           | same readonly literal discriminant                                  |
-| `isPlaceholderData`, `paused`, `availability: "failure"` | DELETE         | `availability`, `activity`, `freshness`, and TurnRecord issues      |
-| standalone snapshot status-alias type exports            | DELETE         | inferred literal domains on snapshot fields                         |
+The runtime MUST NOT translate a deleted authoring shape into an accepted one. A deleted surface may appear
+in a ledger, historical provenance, or negative absence proof, but MUST NOT appear as supported API,
+replacement guidance, an active glossary definition, or a positive example. No compatibility alias, adapter,
+registry, translator, parser branch, or implementation file may remain solely to preserve a deleted surface.
 
-The weak current root values are visibly exported at
-`packages/flow-state/src/index.ts:1-24`. Current mutable runtime resources, orchestrators,
-hydration, and ManagedRuntime exposure are defined at
-`packages/flow-state/src/core/api/runtime-types.ts:51-67,117-165`.
+### CUT-005 — Authoritative writes remain explicit
 
-### CUT-004 — No machine-grammar compatibility parser
+Operation results MUST NOT become canonical resource data implicitly. Accepted transaction and stream
+surfaces may declare explicit `setData` mappings, and every successful authoritative write MUST apply the
+generation-fencing rule in `REV-OPS-010`. The exact completion-side ordering, overlays, equal-value behavior,
+and related conflicts remain under the applicable unresolved behavior entries; this contract does not choose
+among them.
 
-The runtime MUST NOT detect old `context`, `invoke`, `always`, `after`, action, or string-target
-objects and translate them at runtime. The compiler MUST reject them before app construction.
-The withdrawn grammar is recorded at
-`reference/incident-console/DESIGN_DECISIONS.md:1930-1968`.
+### CUT-006 — Public actor commands remain synchronous
 
-### CUT-005 — No preview-to-authoritative compatibility behavior
+The retained public mailbox boundary is `actor.send(event): void`. Story commands may use a package-private
+acknowledgment over that same production mailbox, but the acknowledgment MUST NOT become a public Promise-
+returning send overload or a second actor engine.
 
-Transaction success MUST NOT retain the current behavior of promoting optimistic preview
-output into canonical data. Success removes that generation's overlay and invalidates the
-base. This semantic correction MUST apply even when a transaction otherwise preserves its
-current `params`, `preview`, `commit`, `invalidates`, `routes`, and `concurrency`
-shape. The blocker is explicit at
-`reference/incident-console/IMPLEMENTATION_BLOCKERS.md:35-59`.
+### CUT-007 — Stories use the accepted constructors and evidence
 
-## React cutover matrix
+The accepted Story surface is `story.app(runtimeFactory, options?)`, `story.machine(machine, options?)`, and
+`story.actor(machine, options?)`, with the closed option objects and target rules in `REV-TEST-001` through
+`REV-TEST-005`. The accepted command and evidence boundary is `simulate`, `process`, `advance`,
+`advanceTo`, `advanceToNextTimer`, `checkpoint.actor(...)`, and `run.end` as defined by
+`REV-TEST-006` through `REV-TEST-008`. Deleted Story names MUST NOT remain as aliases or parallel harnesses.
 
-| Current surface                              | vNext decision         | Normative replacement                          |
-| -------------------------------------------- | ---------------------- | ---------------------------------------------- |
-| `FlowProvider` with explicit runtime         | KEEP, tighten behavior | same prop shape; private readiness adapter     |
-| `useActor(machine, options?)`                | DELETE overload        | `useActor(rootMachine)`                        |
-| React-owned actor shell                      | DELETE                 | synchronous runtime root handle                |
-| hook-authored actor ID/input/snapshot/policy | DELETE                 | runtime creation or immutable boot             |
-| broad `useActor` subscription                | DELETE                 | command-only actor handle                      |
-| `useView(actor, view, equal?)`               | DELETE comparator      | `useView(view)` or `useView(actor, view)`      |
-| `useResource`                                | DELETE                 | machine-bound view projection                  |
-| future `useTransaction`                      | FORBID                 | machine-bound view projection                  |
-| future `useCan`                              | FORBID                 | `can` inside a reactive view                   |
-| Suspense/promise-throwing view behavior      | FORBID                 | explicit machine behavior and error boundaries |
+### CUT-007A — Artifacts and CLI follow the accepted Story surface
 
-The current shell and layout-effect attachment are at
-`packages/flow-state/src/react/use-actor.ts:20-57,86-206`; the comparator is at
-`packages/flow-state/src/react/use-view.ts:13-46`; `useResource` is exported at
-`packages/flow-state/src/react-entry.ts:5-7`.
+The conflicting server, persistence, artifact, inspect, and CLI surfaces classified by `DEL-010` MUST be
+updated to represent app Stories, exact actor evidence lookup, `run.end`, module tooling ownership,
+compound states, context requirements, lifecycle records, and accepted operation identities. Retained
+persistence codecs, artifact bounds, inspection sinks, and CLI formatting may remain only where they do not
+preserve a deleted surface. Exact representation and parity remain closure work under `BEH-033`; this clause
+does not invent a command, schema, or migration algorithm.
 
-### CUT-006 — Public actor send remains synchronous
+### CUT-008 — Artifact migration does not guess deleted or unresolved shapes
 
-Migration MUST preserve ordinary React command ergonomics as `actor.send(event): void`.
-It MUST NOT expose the story runner's acknowledgment as a Promise-returning send overload.
-Stories use a package-private acknowledged dispatch over the same mailbox, so deleting the
-old mutable test harness does not create a second actor engine.
+Artifact and persistence schemas MUST move with the accepted contract replacement. They MUST NOT preserve
+deleted root, child, final-node, replay, mutable-harness, or old Story fields as supported shapes. The
+revision specification does not accept an artifact-version migration algorithm here, so implementations
+MUST leave unresolved artifact behavior under `BEH-033` rather than guessing it.
 
-## Testing cutover matrix
+## Historical/deletion mappings and exhaustive ledger
 
-| Current surface                          | vNext decision | Normative replacement                                   |
-| ---------------------------------------- | -------------- | ------------------------------------------------------- |
-| `test`                                   | DELETE         | `story({ app, machine })`                               |
-| `flowTest`                               | DELETE         | `story({ app, machine })`                               |
-| `runFlowScenario`                        | DELETE         | `story.run()`                                           |
-| `runFlowScenarioWithDiagnostics`         | DELETE         | `story.run()` / thrown `FlowStoryExecutionError`        |
-| `scenarioToReport`                       | DELETE         | immutable story run evidence and inspect renderers      |
-| `createScenarioEvidence`                 | DELETE         | checkpoints, final evidence, or error evidence          |
-| `createControlledStream`                 | DELETE         | `control.stream` installed by a fixture                 |
-| mutable controlled Effect/stream state   | DELETE         | inert ordinal control commands                          |
-| `formatHarnessTracePretty`               | DELETE         | `/inspect` trace formatter                              |
-| `formatPendingWorkPretty`                | DELETE         | structured checkpoint `pendingWork`                     |
-| `formatScenarioTranscript`               | DELETE         | story run evidence renderer                             |
-| `formatTransactionEventsPretty`          | DELETE         | TurnRecord/trace projection                             |
-| live harness `state/context/getSnapshot` | DELETE         | named checkpoint snapshots and `final`                  |
-| harness `runtime/actor`                  | DELETE         | package-private runner ownership                        |
-| `until*`, `advanceUntilIdle`             | DELETE         | controls, `flush`, `settle`, and explicit time commands |
-| test-only transaction retry/reset        | DELETE         | typed production machine events                         |
-| test `provide`, raw Layer, raw seeds     | DELETE         | `fixture` definitions only                              |
-| model `replay`                           | DELETE         | `path.story.run()`                                      |
-| model `replayFlushed`                    | DELETE         | `path.story.flush().run()`                              |
-| model `resolveSyncSuccessRoutes`         | DELETE         | explicit candidate events and live `path.story` proof   |
-| custom test clock option                 | DELETE         | one Effect `TestClock` per story run                    |
+The following `DEL-*` entries are the current deletion owners from `REV-MIG-004`; this file does not create a
+second owner. They are exhaustive for old surfaces affected by the revision. Legacy `API-*`, `GLO-*`,
+`TYPE-*`, `HOST-*`, `SEM-*`, `SNAP-*`, and `TEST-*` IDs occur only in the `Old surface and contract inventory`
+column as historical mappings. Each affected old surface has exactly one disposition.
 
-The current testing route exports the superseded families at
-`packages/flow-state/src/testing.ts:1-56`. The consolidated removal boundary is settled at
-`reference/incident-console/DESIGN_DECISIONS.md:1198-1358,1484-1506`.
+| ID        | Disposition  | Old surface and contract inventory                                                                                                                                                                                                                                                                                                                                                                                                        | Accepted replacement or boundary                                                                                                                                                                                                                                                                    |
+| --------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DEL-001` | `DELETE`     | Registered Flow views: `flow.view`, exported `View`, view IDs, `module.views`, registered view lookup, `useView(view)`, and view-bound `can` APIs. Old inventory: `PUBLIC_API.md` `API-010`–`API-012`, `GLOSSARY_AND_IDENTITY.md` `GLO-07`–`GLO-14`, `TYPE_SYSTEM.md` `TYPE-013`, and the old view-hook portions of `REACT_AND_HOSTS.md`.                                                                                                 | `REV-HOST-006` retains only passive `useView(actor, selector)` projections.                                                                                                                                                                                                                         |
+| `DEL-002` | `DELETE`     | Child-machine model: `child(...)`, child descriptors, child inputs, child actor IDs, child lifecycle and completion, child snapshots, child addressing, child persistence, child Story commands, and child model surfaces. Old inventory: `PUBLIC_API.md` `API-008`, `TYPE_SYSTEM.md` `TYPE-007`, child completion clauses in `SEMANTICS.md`, `SNAPSHOTS.md` `SNAP-008`, and child portions of `ARCHITECTURE.md`.                         | `REV-MACH-001` and `REV-MACH-002` express hierarchy through recursive substates inside one actor.                                                                                                                                                                                                   |
+| `DEL-003` | `DELETE`     | Automatic roots and dynamic actor categories: `dynamicMachines`, `RootActor`, `DynamicActor`, automatic-root identity, `runtime.actor(machine)`, ID-bearing local creation, and dynamic root persistence categories. Old inventory: root and dynamic entries in `ARCHITECTURE.md`, `GLOSSARY_AND_IDENTITY.md`, `REACT_AND_HOSTS.md`, and `TYPE_SYSTEM.md` `TYPE-009`–`TYPE-010`.                                                          | `REV-COMP-006`–`REV-COMP-008` retain named module machine records and closed `App.M`; `REV-COMP-011`–`REV-COMP-015` define explicit actor identity and ownership.                                                                                                                                   |
+| `DEL-004` | `REPLACE`    | Old actor ownership and lifecycle: the complete `active \| disposed` model, disposal on ordinary actor handles, `DynamicActor.dispose()`, automatic-root ownership, and category-specific actor identity. Old inventory: lifecycle entries in `GLOSSARY_AND_IDENTITY.md`, disposal clauses in `REACT_AND_HOSTS.md`, `SEMANTICS.md` `SEM-024`–`SEM-024A`, `TYPE_SYSTEM.md` `TYPE-012`, and `PUBLIC_API.md` `API-012A`.                     | `REV-COMP-013` and `REV-HOST-003` replace it with owner leases and `prepared \| active \| suspended \| disposed`.                                                                                                                                                                                   |
+| `DEL-005` | `REPLACE`    | Old machine grammar: root `initial`, flat-only configuration, final-node kind, `onDone`, final output, completion-driven mailbox shutdown, Boolean reentry, and contradictory recursive-handler semantics. The old prohibition on transition `actions` is removed, not retained. Old inventory: `PUBLIC_API.md` `API-004`, state grammar in `TYPE_SYSTEM.md`, `SEMANTICS.md` `SEM-002`, and related proof rows.                           | `REV-MACH-002`–`REV-MACH-011` and `REV-OPS-006` define recursive states, `default`, exact reentry, ordinary terminal-looking leaves, and transition actions.                                                                                                                                        |
+| `DEL-006` | `DELETE`     | Generic operation registries and refs: the general `activity` kit, `activity.ensure/observe/refresh/run/stream/invalidate`, public `ref`, `byKey`, `byLane`, bound entries, generic `resources.get`, generic `transactions.get`, and public operation enumeration. Old inventory: `PUBLIC_API.md` `API-005`–`API-009`, `TYPE_SYSTEM.md` `TYPE-005`–`TYPE-008`, and operation portions of `SEMANTICS.md`.                                  | `REV-OPS-001`, `REV-OPS-002`, and `REV-OPS-005` retain named `O` families, `P`/`K`, `key(...)`, `getState(...)`, and `getData(...)`.                                                                                                                                                                |
+| `DEL-007` | `REPLACE`    | Old shared selector equality and custom comparator paths: recursive structural-sharing guarantees, comparator overloads, and selector-specific equality hooks. Operation parameter tuples are not included in this deletion.                                                                                                                                                                                                              | `REV-COMP-002`, the shared selector semantics in `01-composition-and-app-plans.md`, and `REV-HOST-006` define one scalar/non-record and named-record `Object.is` contract.                                                                                                                          |
+| `DEL-008` | `REPLACE`    | Old React runtime ownership: React-created actor shells, shell swapping, root-only `useActor` lookup, `useResource`, broad actor subscriptions, per-actor React Context, binding components, and view-object hooks. Old inventory: `REACT_AND_HOSTS.md` `HOST-001`–`HOST-012` and the former React compatibility matrix.                                                                                                                  | `REV-HOST-001`–`REV-HOST-005` retain `FlowProvider`, `useActor`, `useActorByRef`, and the production actor lifecycle without a React-owned runtime.                                                                                                                                                 |
+| `DEL-009` | `REPLACE`    | Old Story and scenario surfaces: callable `story({ ... })`, `.with(...)`, bare-app Stories, live runtime inputs, `perform`, `deliver`, `receive`, `flush`, `settle`, `setTime`, `run.final`, replay helpers, mutable harnesses, and old scenario runners. Old inventory: `PUBLIC_API.md` `API-013`–`API-016`, `TYPE_SYSTEM.md` `TYPE-014`–`TYPE-017`, `TESTING.md` `TEST-001`–`TEST-018`, and Story rows in the former `PROOF_MATRIX.md`. | `REV-TEST-001`–`REV-TEST-010` define the three constructors, `simulate`, `process`, `advanceTo`, `checkpoint.actor`, and `run.end`.                                                                                                                                                                 |
+| `DEL-010` | `REPLACE`    | Conflicting server, persistence, artifact, inspect, and CLI surfaces: mutable v1 boot/hydration, fabricated root/child/final snapshot fields, replay-oriented inspection records, duplicate formatters, arbitrary scenario-runner commands, and old Story artifact schemas.                                                                                                                                                               | Retain persistence codecs, artifact bounds, inspection sinks, CLI formatting, and proof discipline only where they do not preserve a deleted surface; update schemas to the accepted app, actor, compound-state, lifecycle, and operation identities. Exact representation remains under `BEH-033`. |
+| `DEL-011` | `HISTORICAL` | The pre-revision `implementation/contracts/` pack, obsolete compatibility matrix, and phase/task documents that continue to prescribe deleted surfaces.                                                                                                                                                                                                                                                                                   | After retained material and provenance are transferred into this revision overlay, those pre-revision documents MUST be removed from active authority or explicitly marked historical. Git history remains the archive.                                                                             |
 
-### CUT-007 — Story results do not retain scenario status unions
+## Explicit retained ledger
 
-A completed plan MUST return captured product evidence regardless of domain outcome. Broken
-plan execution MUST throw `FlowStoryExecutionError`. vNext MUST NOT preserve returned
-`success`, `domain-failure`, `defect`, `interruption`, `blocked`, or `internal-error` status
-unions, because the host test runner owns pass/fail semantics. The settled result boundary is
-`reference/incident-console/DESIGN_DECISIONS.md:1513-1579`.
+These are `RETAIN` dispositions, not permissions inferred from silence.
 
-`FlowStoryExecutionError` is the sole named testing runtime class. Named `StoryRun`, scenario,
-result, path, command, evidence, pending-work, cleanup, model-diagnostic, and general diagnostic
-aliases MUST NOT replace the deleted surface; their structural shapes remain inferred from
-the public constructors and methods.
+| ID        | Disposition | Retained boundary                                                                                                                                                                                                                                  |
+| --------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `RET-001` | `RETAIN`    | Package routes, ESM/import conditions, Effect peer identity, and supported React peer compatibility.                                                                                                                                               |
+| `RET-002` | `RETAIN`    | Synchronous `actor.send(event): void`, the production mailbox boundary, runtime-scoped stores, generation fencing, Cause classification, and cleanup ordering, except for fields that encode deleted roots, children, final nodes, or Story forms. |
+| `RET-003` | `RETAIN`    | Resource and transaction status discriminants.                                                                                                                                                                                                     |
+| `RET-004` | `RETAIN`    | Canonical operation `key(...)`, `getState(...)`, `getData(...)`, transition `actions`, and the accepted `O`/`P`/`K` identity model.                                                                                                                |
+| `RET-005` | `RETAIN`    | `FlowProvider`, revised `useActor`, `useActorByRef`, and passive selector observation.                                                                                                                                                             |
 
-### CUT-007A — CLI model exploration is deleted
+## No-residue requirements
 
-Model candidates are application-owned typed values supplied directly to a programmatic model
-traversal call. Registered stories are linear examples, not an event-domain or payload registry,
-so the CLI MUST NOT expose `story paths`, path checking, `--event`, or another mechanism that
-derives or fabricates candidates from a behavior gateway. Delete the path request normalizer,
-list/check envelopes, renderers, command wiring, and CLI-only model adapter as one helper family.
+For every `DELETE` or `REPLACE` entry, migration MUST satisfy all of the following requirements from
+`REV-MIG-004`:
 
-## Server cutover matrix
+1. Active contract documents, glossaries, examples, Stories, fixtures, tests, and task files use only the
+   accepted replacement or an explicitly retained surface.
+2. Runtime export proofs show that the deleted value or namespace is absent.
+3. Declaration proofs reject deleted types, overloads, properties, deep imports, and authoring shapes.
+4. A deleted authoring shape is rejected before it can create an actor, mutate memory, acquire an operation,
+   publish an event, start external work, or write evidence.
+5. No compatibility alias, adapter, registry, translator, parser branch, or implementation file remains
+   solely to preserve the deleted surface.
+6. Live examples and Stories exercise the replacement through the production owners. A source-text scan may
+   support the audit, but it MUST NOT replace runtime or declaration absence proofs.
 
-| Current surface                                  | vNext decision | Normative replacement                                                          |
-| ------------------------------------------------ | -------------- | ------------------------------------------------------------------------------ |
-| `withRequestRuntime(layer, handler)`             | REPLACE        | inferred `{ app, layer?, boot?, mode? }`; omit Layer only for service-free app |
-| v1 boot types                                    | DELETE         | root `RuntimeBootPayload<App>`                                                 |
-| server-side mutable resource seeding             | DELETE         | fixture-only test seeds or root-machine preload                                |
-| direct service preload plus fabricated snapshots | DELETE         | typed root events plus actor observation                                       |
+The old contract name may occur in a negative absence proof only when the proof tests that the name is
+unavailable. It MUST NOT occur in a positive example, supported overload, active glossary definition,
+compatibility recommendation, or replacement recipe. A retained boundary remains authoritative unless a
+later accepted revision gives it a new disposition.
 
-The current raw-Layer helper is `packages/flow-state/src/runtime/request-runtime.ts:6-20`, and
-the current server route exports v1 boot types at `packages/flow-state/src/server.ts:1-9`.
-
-## Inspect and CLI cutover matrix
-
-| Current surface                                     | vNext decision | Normative replacement                      |
-| --------------------------------------------------- | -------------- | ------------------------------------------ |
-| graph, transition, action, and microstep inspection | KEEP, rebuild  | pure AppPlan/machine projections           |
-| behavior build/slice/diff/render                    | KEEP, rebuild  | registered behavior gateway                |
-| trace analyze/diff/summarize/artifacts              | KEEP, rebuild  | committed TurnRecords and v2 codecs        |
-| inspection sinks                                    | KEEP, rebuild  | post-publication TurnRecord stream         |
-| `captureTrace(snapshot)`                            | DELETE         | TurnRecord capture through a sink/artifact |
-| `createLocalInspectionProof`                        | DELETE         | trace proof projection                     |
-| `flowStories`                                       | DELETE         | `behavior({ stories })`                    |
-| `storyToDoc`                                        | DELETE         | behavior contract renderer                 |
-| `format*Pretty` duplicates                          | DELETE         | one formatter with format options          |
-| parallel mutable trace and inspection histories     | DELETE         | one committed TurnRecord source            |
-| exported TurnRecord/receipt/result type hierarchies | DELETE         | inferred `/inspect` value projections      |
-| arbitrary CLI `--event` JSON                        | DELETE         | typed programmatic model candidates        |
-| CLI `story paths` and path-check/list helper family | DELETE         | typed programmatic model traversal         |
-| CLI `behavior`, story list/describe/run, and trace  | KEEP           | registered behavior and v2 artifacts       |
-
-The current inspect route contains the parallel helpers at
-`packages/flow-state/src/inspect.ts:1-37`, while the current CLI parses arbitrary event JSON
-and accepts it in path commands at `packages/flow-state/src/cli/index.ts:200-214,851-909`.
-
-### CUT-008 — Artifact v1 is rejected, not guessed
-
-Boot, trace, and behavior artifacts MUST move together to v2. Import MUST reject v1 with a
-structured version diagnostic. Flow MUST NOT guess a v1 payload into v2 or claim that its
-private envelope decoder validates opaque domain memory or event payloads. Application code
-owns explicit migration before v2 construction. This follows
-`reference/incident-console/DESIGN_DECISIONS.md:1838-1851`.
-
-## Required deletion proofs
+## Required cutover proofs
 
 ### CUT-P01 — Runtime export absence
 
-JavaScript export tests MUST prove absence of `after`, `createKey`, `createTag`, `outcomes`,
-`patch`, `selectView`, `store`, `orchestrators`, `test`, `flowTest`, scenario executors,
-controlled mutable helpers, `useResource`, `captureTrace`, `flowStories`, `storyToDoc`, and all
-duplicate pretty formatters.
+Runtime export tests MUST cover every `DELETE` and `REPLACE` surface in `DEL-001` through `DEL-010` and
+prove that retained boundaries remain available through their accepted owners.
 
 ### CUT-P02 — Declaration absence
 
-Packed declaration tests MUST prove that deleted values, types, overloads, object properties,
-and deep imports fail with `@ts-expect-error`. Runtime absence alone is insufficient.
+Packed declaration tests MUST reject every deleted value, type, overload, property, deep import, and
+authoring shape with negative type proofs. Runtime absence alone is insufficient.
 
 ### CUT-P03 — No compatibility behavior
 
-Behavioral tests MUST prove that old machine grammar is rejected, `send` does not expose an
-acknowledgment, preview success does not become canonical data, mutable hydration is absent,
-React mounts do not create actors or resource leases, stories cannot read a live harness,
-models cannot execute Effects, and the CLI cannot fabricate payload events.
+Behavioral proofs MUST show that deleted authoring shapes fail before side effects and that no compatibility
+alias, adapter, parser branch, or second runtime, actor, Story, operation, or selector implementation
+survives. Replacement behavior MUST run through the accepted production owner.
 
 ### CUT-P04 — Retained compatibility
 
-Packed consumers MUST continue to prove ESM-only `types` and `import` conditions, exact Effect
-peer identity, optional React for core-only installs, React 18 and React 19 compatibility,
-private deep-import rejection, and executable root/testing/server/inspect/CLI routes. The live
-runner currently enforces these package facts at
-`packages/flow-state/scripts/check-packed-consumers.mjs:250-270,293-417`.
+Packed consumers MUST prove the `RET-001` package boundaries, `RET-002` synchronous mailbox and runtime
+ownership boundaries, `RET-003` status discriminants, `RET-004` operation identity and action surface, and
+`RET-005` host surfaces. These proofs MUST preserve the supported ESM/import, Effect peer, and React peer
+compatibility claims without preserving deleted API names.
 
 ### CUT-P05 — Repository cleanup
 
-After replacement proofs pass, implementation files dedicated only to deleted public
-builders, actor shells, mutable resource hooks, parallel harnesses, replay wrappers, global
-registries, and duplicate formatters MUST be removed. Source-text tests that assert obsolete
-file names or token strings MUST be replaced by public type, lifecycle, race, isolation, and
-artifact round-trip proofs. The cleanup inventory is recorded at
-`reference/incident-console/IMPLEMENTATION_BLOCKERS.md:719-753`.
+After replacement proofs pass, implementation files dedicated only to deleted surfaces MUST be removed or
+classified historical under `DEL-011`. Source-text tests that merely assert obsolete filenames or token
+strings MUST be replaced by the accepted public type, behavior, lifecycle, race, isolation, and artifact
+proofs; source scans cannot replace runtime or declaration absence proofs.
 
 ### CUT-P06 — One repository authority survives
 
-The vNext cutover MUST remove the old root task system and competing contract corpus after their
-still-live proof obligations have migrated. Root `TASK.md` becomes a short pointer to
-`reference/incident-console/implementation/tasks/README.md`; the old `tasks/**` phases, goals,
-receipts, and ledgers are then deleted. `IMPLEMENTATION_BLOCKERS.md` is deleted after all remaining
-citations are replaced by stable contract or proof IDs.
+The old contract and task material covered by `DEL-011` MUST cease to be active authority after retained
+material and provenance have been transferred. Before deletion, every still-live obligation MUST be mapped to
+an accepted contract or proof, and the material MUST then be removed from active authority or explicitly marked
+historical. Git history, not stale working-tree documents, is the archive.
 
-The exact keep/migrate/delete inventory is maintained in the Phase 8 manifest. Deletion MUST preserve the
-proofs for package routes, Effect peer identity, React 18/19, exact inference, request/runtime
-isolation, bounded owners, hostile canonical/wire inputs, lifecycle cleanup, transaction/stream
-oracles, packed CLI execution, and the documentation framework if still selected. Git history,
-not stale working-tree documents, is the archive.
+## Unresolved boundaries
+
+The open behavior register remains a blocker register, not a source of compatibility choices. `BEH-027`
+remains the explicit source-authority design-review boundary. `BEH-024` is closed by `REV-OPS-015`, which
+accepts timer event-targeting and explicit-refresh polling. Internal target clauses for runtime admission,
+lifecycle evidence, suspension, prepared hosts, occurrence fencing, and disposal drain are now stated in the
+owning contracts; their behavior-register entries remain migration and proof blockers until those clauses
+are promoted and proved. Public operation state unions, controlled-operation interception, canonical-key
+encoding, invalidation bounds, trusted host writes, artifact/CLI representation, and the behavioral
+consequence of child deletion remain unresolved and MUST NOT be promoted here as requirements.

@@ -6,13 +6,30 @@ This register contains the unresolved remainder of the inherited `BEH-001` throu
 inventory. The former old-clause disposition item is closed by `REV-MIG-004`; it is no longer an open
 behavior gap. This register makes the revision specification self-contained without accepting an answer to
 any remaining open gap. Most entries are behavior problems under the accepted public surface, not public
-API redesign proposals. `BEH-024` and `BEH-027` are explicit exceptions that require design review before
+API redesign proposals. `BEH-027` is the remaining explicit exception that requires design review before
 the accepted surface or rule can change.
 
 Every entry below remains unresolved until an exact behavior is explicitly accepted, the affected old
 contract clauses are updated, and the required compile, runtime, Story, React, persistence, or artifact
-proofs are named. Separate historical solution and disposition drafts remain non-normative proposals:
-neither supplies, accepts, or closes an answer in this register.
+proofs are named. The accepted closures below are the exception: their owning `REV-*` clauses now supply
+the behavior and supersede the corresponding problem statement. Separate historical solution and
+disposition drafts remain non-normative proposals: neither supplies, accepts, or closes an answer in this
+register.
+
+## Accepted closures
+
+The following entries are closed by the 2026-08-18 runtime-reactivity amendment. Their original problem
+statements remain below as historical provenance; they no longer authorize an implementation choice.
+
+| Entry     | Closure                                                                                                         |
+| --------- | --------------------------------------------------------------------------------------------------------------- |
+| `BEH-015` | `REV-HOST-007` — internal dependency tracking, tear-free passive reads, replacement, and projection-only reruns |
+| `BEH-024` | `REV-OPS-015` — timers remain event-targeting only; polling uses `after` plus an explicit refresh event         |
+| `BEH-025` | `REV-OPS-015` — occurrence terminality, cancellation, supersession, disposal, and bounded public retention      |
+| `BEH-026` | `REV-OPS-015` — preview, completion, conflict, and mapped-event ordering                                        |
+| `BEH-028` | `REV-OPS-015` — equal-key input pinning and deterministic post-hydration selection                              |
+| `BEH-029` | `REV-OPS-015` — actor-scoped overlays, base/effective reads, promotion, rollback, and equal-write behavior      |
+| `BEH-031` | `REV-OPS-015` — post-hydration continuing declaration rematerialization without emission replay                 |
 
 Closing an entry may add an internal owner, record type, ordering law, diagnostic, persistence rule, or
 proof, but it MUST NOT silently rename, replace, overload, or add a competing public API. If an accepted
@@ -156,7 +173,7 @@ retroactively claim that an already published provider turn did not occur.
 
 **Provenance:** `DESIGN_BEHAVIOR_GAPS.md:122-127`.
 
-### BEH-015 — Reactive passive operation reads
+### BEH-015 — Reactive passive operation reads [closed by REV-HOST-007]
 
 **Problem and required closure:** Define how `useView(actor, selector)` stays reactive when snapshot-bound
 `O.getData(K)` or `O.getState(K)` observes a shared entry changed by another actor. The solution must
@@ -238,7 +255,7 @@ registry API.
 
 **Provenance:** `DESIGN_BEHAVIOR_GAPS.md:192-198`.
 
-### BEH-024 — Timer-owned finite actions
+### BEH-024 — Timer-owned finite actions [closed by REV-OPS-015]
 
 **Problem and required closure:** The accepted surface adds `actions` only to event handlers, while this
 gap asks timer facts to admit finite operation plans. That is an authority conflict, not a purely internal
@@ -249,7 +266,7 @@ and failure behavior must be reconciled with the event macrostep.
 
 **Provenance:** `DESIGN_BEHAVIOR_GAPS.md:200-205`.
 
-### BEH-025 — Finite occurrence lifetime and cancellation cardinality
+### BEH-025 — Finite occurrence lifetime and cancellation cardinality [closed by REV-OPS-015]
 
 **Problem and required closure:** Finite actions are actor-owned occurrences independent of later state
 membership. Define settlement, supersession, suspension, disposal, bounded terminal retention, and how
@@ -258,7 +275,7 @@ individual occurrence handle is added, cancellation must have one deterministic 
 
 **Provenance:** `DESIGN_BEHAVIOR_GAPS.md:207-212`.
 
-### BEH-026 — Atomic action-batch conflict algebra
+### BEH-026 — Atomic action-batch conflict algebra [closed by REV-OPS-015]
 
 **Problem and required closure:** After exact target expansion, define conflicts and ordering for repeated
 writes, write plus invalidation, write plus clear, cancel plus refetch, and overlapping tag/family targets.
@@ -279,7 +296,7 @@ is not an implementable compatibility contract.
 
 **Provenance:** `DESIGN_BEHAVIOR_GAPS.md:222-228`.
 
-### BEH-028 — Equal-key binding refresh
+### BEH-028 — Equal-key binding refresh [closed by REV-OPS-015]
 
 **Problem and required closure:** When continuing reconciliation produces equal `K` with a new executable
 `P`, pin the current generation's input and outcome mapping while defining which candidate input is
@@ -288,7 +305,7 @@ accidentally on current map iteration order.
 
 **Provenance:** `DESIGN_BEHAVIOR_GAPS.md:230-235`.
 
-### BEH-029 — Tags, placeholders, overlays, and equal-value writes
+### BEH-029 — Tags, placeholders, overlays, and equal-value writes [closed by REV-OPS-015]
 
 **Problem and required closure:** Make tags and placeholders deterministic from canonical `K` so
 equal-key owners cannot disagree. Define whether reads return base or overlay-effective values, which
@@ -307,7 +324,7 @@ clearing remains owned only by runtime disposal under the accepted API.
 **Provenance:** `DESIGN_BEHAVIOR_GAPS.md:244-249`, corrected by the accepted authority at
 `DESIGN_REVISIONS.md:447-451` and `DESIGN_REVISIONS.md:1459-1465`.
 
-### BEH-031 — Continuing-operation hydration input
+### BEH-031 — Continuing-operation hydration input [closed by REV-OPS-015]
 
 **Problem and required closure:** Choose how an active stream obtains executable `P` after hydration even
 though `K` is not invertible. Either preserve canonical restart input and reject non-durable active

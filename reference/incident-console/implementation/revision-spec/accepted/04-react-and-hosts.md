@@ -234,7 +234,33 @@ engine.
 **Failure behavior:** Passing a machine family or `ActorRef` where an actor handle is required MUST fail
 through the type system. A selector exception MUST NOT be converted into a mutation, subscription change,
 or operation acquisition. Exact exception memoization and recovery behavior remain unresolved under
-`BEH-014`; tear-free reactivity for passive operation reads remains unresolved under `BEH-015`.
+`BEH-014`; tear-free reactivity for passive operation reads is closed by `REV-HOST-007`.
+
+## REV-HOST-007 — Dependency-tracked passive views and projection publication
+
+**Change:** Close passive operation-read reactivity without broadening the React API or moving actor state
+into React.
+
+**Supersedes:** The `BEH-015` deferral in `REV-HOST-006` and the conflicting implementation-contract
+language that requires selectors to declare passive operation dependencies manually.
+
+**Rule:** During each `useView(actor, selector)` evaluation, Flow records every exact descriptor and
+canonical `K` read through snapshot-bound `O.getData(K)` or `O.getState(K)`. The dependency set is replaced
+after every completed evaluation. The selector is evaluated against one tear-free actor/store boundary;
+it never acquires ownership, starts work, changes freshness, mutates state, or creates a user-visible
+subscription. Actor publication or a matching canonical StoreFanout revision reruns the selector, and the
+shared selector equality suppresses an unchanged selected result.
+
+The runtime installs and releases the dependency lease internally with the actor view lifetime. There is no
+manual subscription requirement for machine correctness. `runtime.resources.subscribe()` or equivalent
+runtime observation remains an explicit external observation escape hatch and does not synchronize actor
+state. A projection-only rerun publishes a complete immutable actor snapshot and does not evaluate machine
+transitions. Continuing-operation mappers and `onContext.select` enqueue typed events only after that
+publication, through the ordinary actor mailbox.
+
+**Proof obligations:** Cover cross-actor canonical writes, dependency replacement after selector changes,
+tear-free reads at a store revision boundary, equality suppression, cleanup on actor suspension/disposal,
+and the absence of work or mutation from passive selector evaluation.
 
 ## Provenance appendix (non-normative)
 

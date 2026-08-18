@@ -2,39 +2,46 @@
 
 Status: normative vNext contract
 
-This contract defines inference, variance, `Effect<A, E, R>` propagation, Layer closure, and
-the required positive and negative compile proofs. Public authoring shapes are defined in
-[`PUBLIC_API.md`](./PUBLIC_API.md).
+This contract defines inference, variance, Effect<A, E, R> propagation, canonical operation identity,
+Layer closure, actor/ref/lease types, host selectors, Story constructors, and the required positive and
+negative compile proofs. Public authoring shapes are defined in PUBLIC_API.md.
 
-The live package already preserves descriptor-local `A/E/R` for resources, transactions,
-and streams (`packages/flow-state/src/core/api/flow-core.ts:72-86`,
-`packages/flow-state/src/core/api/transaction-factory.ts:19-24`). The missing vNext rule is
-transitive propagation through machines, modules, apps, runtimes, fixtures, and stories, as
-identified by `reference/incident-console/IMPLEMENTATION_BLOCKERS.md:213-227`.
+The live package preserves descriptor-local A/E/R for resources, transactions, and streams
+(packages/flow-state/src/core/api/flow-core.ts:72-86,
+packages/flow-state/src/core/api/transaction-factory.ts:19-24). The vNext requirement is that those
+exact types propagate through named operation catalogues, machines, modules, apps, runtimes, fixtures,
+and Stories without erasing the accepted actor and host boundaries.
 
 ## Definition and machine inference
 
 ### TYPE-001 — Definition literals are inference anchors
 
-`definition({ id, states, events, memory? })` MUST preserve the literal `id`, exact state-name
-tuple, event-property names, constructor parameter tuples, constructor result payloads, input,
-and memory without requiring `as const`. Its implementation signature MUST use TypeScript
-`const` type parameters for literal-bearing inputs, or an equivalently precise
-implementation-owned inference mechanism. Userland MUST NOT need `as const`, `satisfies`,
-explicit generic arguments, or a helper wrapped around the definition literal to prevent
-widening.
+definition({ id, states, events, context?, operations?, memory? }) MUST preserve the literal id, recursive
+state declaration and exact state-token paths, event-property names, constructor parameter tuples,
+constructor result payloads, context selector values, named operation families, input, and memory without
+requiring as const. Its implementation signature MUST use TypeScript const type parameters or an
+equivalently precise implementation-owned inference mechanism. Userland MUST NOT need as const, satisfies,
+explicit generic arguments, or a wrapper helper to prevent widening.
 
 ```ts
 const Todo = definition({
   id: "Todos/Editor",
-  states: ["READY", "SAVING"],
+  states: ["READY", { SAVING: ["REQUESTED", "COMMITTING"] }],
   events: {
     SaveRequested: (title: string) => ({ title }),
     SaveCompleted: null,
   },
+  operations: {
+    todo: todoResource,
+  },
 });
 
-type _State = Expect<Equal<StateOf<typeof Todo>, typeof Todo.S.READY | typeof Todo.S.SAVING>>;
+type _State = Expect<
+  Equal<
+    StateOf<typeof Todo>,
+    typeof Todo.S.READY | typeof Todo.S.SAVING.S.REQUESTED | typeof Todo.S.SAVING.S.COMMITTING
+  >
+>;
 type _Event = Expect<
   Equal<
     EventOf<typeof Todo>,
@@ -43,49 +50,67 @@ type _Event = Expect<
 >;
 ```
 
-Event tokens MUST be nominal Flow values. A structurally similar function or object MUST NOT
-be assignable as a token.
-`StateOf<T>` and `EventOf<T>` MUST accept either the definition or its machine and return the
-same exact token unions.
+Event tokens MUST be nominal Flow values. A structurally similar function or object MUST NOT be
+assignable as a token. StateOf<T> and EventOf<T> MUST accept either the definition or its machine and
+return the same exact token unions. Recursive state inference and runtime validation MUST use the same
+ten-level bound.
 
 ### TYPE-002 — The definition is the sole static inference universe
 
-`machine(definition, ({ S, E, activity }) => config)` MUST anchor state, event, input, and memory
-inference to the first argument with `NoInfer` or an equivalent one-way inference boundary. The
-second callback MUST receive the exact kit and MUST NOT widen or redefine the definition. Local
-`states` and `on` record keys MUST be checked against the definition, while initial states,
-targets, routed outcomes, and capability checks MUST use the exact tokens.
+machine(definition, callback) MUST anchor state, event, input, memory, context, and operation inference to
+the first argument with NoInfer or an equivalent one-way inference boundary. The callback MUST receive the
+exact S, E, O, onContext, onMemory, invalidate, and clear kit and MUST NOT widen or redefine the definition.
+Local states and on record keys MUST be checked against the recursive definition, while defaults, targets,
+routed outcomes, and capability checks MUST use exact tokens.
 
 ```ts
-machine(Todo, ({ S }) => ({
-  initial: S.READY,
-  states: {
-    READY: { on: { SaveRequested: S.SAVING } },
-    SAVING: {},
-  },
-}));
+machine(Todo, ({ S, E, O, onContext, onMemory }) => {
+  onContext.select(
+    ({ context }) => context.sessionState,
+    (current) => current === Session.S.SIGNED_OUT && E.SessionEnded(),
+  );
 
-// INVALID
+  return {
+    default: S.READY,
+    states: {
+      READY: {
+        on: {
+          SaveRequested: {
+            target: S.SAVING.S.REQUESTED,
+            actions: ({ event }) => [O.todo.lookup({ id: event.title })],
+          },
+        },
+      },
+      SAVING: {
+        default: S.SAVING.S.REQUESTED,
+        states: {
+          REQUESTED: {},
+          COMMITTING: {},
+        },
+      },
+    },
+  };
+});
+
+// INVALID: the definition's exact universe rejects this event and target.
 machine(Todo, ({ S }) => ({
-  initial: S.READY,
-  states: {
-    READY: { on: { UnknownEvent: S.SAVING } },
-    SAVING: {},
-  },
+  default: S.READY,
+  states: { READY: { on: { UnknownEvent: S.SAVING } } },
 }));
 ```
 
+Compound handlers compile into the one machine-wide event protocol. An ancestor and descendant handler
+for the same event on one active path is ambiguous and MUST be rejected; runtime leaf-to-parent fallback
+or override is not inferred. snapshot.state and callback state are the exact active leaf, while matches
+accepts the leaf and its active ancestors.
+
 ### TYPE-003 — Definition input and memory have one inference path
 
-When definition `memory` consumes actor input, its exact public shape MUST be
-`memory: ({ input }: { readonly input: Input }) => Memory`. `InputOf<Definition>`,
-`MemoryOf<Definition>`, `InputOf<Machine>`, and `MemoryOf<Machine>` MUST all resolve from that
-one callback. A callback that omits its argument, `memory: () => Memory`, fixes `Input = void`.
-When `memory` is absent, input MUST be `void` and memory MUST be a readonly empty record.
-
-Automatically created module roots MUST require `InputOf<Machine> = void`. Dynamic actors,
-child activities, and fresh stories MUST require the exact inferred input. This resolves B9
-(`reference/incident-console/IMPLEMENTATION_BLOCKERS.md:228-235`).
+When definition memory consumes actor input, its exact public shape MUST be
+memory: ({ input }: { readonly input: Input }) => Memory. InputOf<Definition>, MemoryOf<Definition>,
+InputOf<Machine>, and MemoryOf<Machine> MUST all resolve from that callback. A callback that omits its
+argument, memory: () => Memory, fixes Input = void. When memory is absent, input MUST be void and memory
+MUST be a readonly empty record.
 
 ```ts
 const Editor = definition({
@@ -98,211 +123,173 @@ const Editor = definition({
   }),
 });
 
-const editor = machine(Editor, ({ S }) => ({
-  initial: S.READY,
-  states: { READY: {}, SAVING: {} },
-}));
-
 type _DefinitionInput = Expect<Equal<InputOf<typeof Editor>, { readonly todoId: string }>>;
 type _DefinitionMemory = Expect<Equal<MemoryOf<typeof Editor>, { todoId: string; draft: string }>>;
-type _Input = Expect<Equal<InputOf<typeof editor>, { readonly todoId: string }>>;
-type _Memory = Expect<Equal<MemoryOf<typeof editor>, { todoId: string; draft: string }>>;
+
+// App.M admission is independent of input and app compilation creates no actor.
+module({ id: "Todos", machines: { editor } });
 ```
 
-```ts
-// INVALID: a non-void-input machine cannot be an automatic app root.
-module({ id: "Todos", machines: [editor], views: [] });
-```
+Input is supplied once for each fresh actor and is consumed only by the pure memory initializer.
+Machine behavior receives memory, inherited context, state, and events, not original input. Restoration
+installs persisted memory without invoking the initializer. Input does not classify local versus shared actors.
 
 ### TYPE-004 — Transition callbacks narrow by causal event
 
-Inside an `on.EventName` transition, `event` MUST be the exact return type of that event
-token. Guards and `updateMemory` MUST receive readonly state, memory, snapshot, and primitive
-registries. `updateMemory` MUST return `Partial<Memory>` and MUST reject unknown fields or
-wrong field values.
+Inside an on.EventName transition, event MUST be the exact return type of that event token. Guards,
+updateMemory, and actions MUST receive readonly state, memory, snapshot, and primitive registries.
+updateMemory MUST return Partial<Memory> and reject unknown fields or wrong values. Guard, memory, and
+action planning MUST read the same immutable pre-turn snapshot and event; actions cannot see candidate
+memory. reenter MUST accept an exact active state token and MUST reject Boolean values, foreign tokens,
+inactive boundaries, and boundaries that do not contain the target.
 
 ```ts
 SaveRequested: {
   target: S.SAVING,
   updateMemory: ({ event }) => ({ draft: event.title }),
+  actions: ({ event, memory }) => [O.save.commit({ title: event.title, id: memory.id })],
+  reenter: S.SAVING,
 }
 ```
 
-The current package already proves event narrowing and invalid state targets in its older
-grammar (`packages/flow-state/src/public-api-types.test.ts:4017-4066`); vNext MUST preserve
-the proof while replacing string targets with tokens.
+## Named operation inference and P/K
 
-## Descriptor `A/E/R`
+### TYPE-005 — Resources infer one executable tuple and canonical key tuple
 
-### TYPE-005 — Resources infer one exact parameter tuple and `Effect<A, E, R>`
-
-For `lookup: (...params: P) => Effect.Effect<A, E, R>`, the resource MUST carry `P`, `A`,
-`E`, and `R` without widening. `lookup`, `tags`, and `placeholder` MUST accept the same
-directional tuple `P`. `resource.ref` MUST accept exactly `P`, preserve `A` and `E` for typed
-snapshot lookup, and use the canonical tuple itself as identity. A second resource `key`,
-custom hash, or equality callback MUST be rejected.
+For a resource key: (params: P) => K and lookup adapter returning Effect.Effect<A, E, R>, the resource
+MUST carry exact P, K, A, E, and R without widening. lookup, freshness or collection configuration,
+and any resource plan that executes work MUST preserve exact P; key, getData, and getState use exact K.
+resource.ref MUST NOT exist, and a second resource key, custom hash, or equality callback MUST be rejected.
 
 ```ts
+type ProjectInput = Readonly<{ id: string; client: ProjectClient }>;
+
 const project = resource({
   id: "projects.by-id",
-  lookup: (id: `project-${number}`): Effect.Effect<Project, "missing", ProjectRepo> =>
-    ProjectRepo.get(id),
+  key: ({ id }: ProjectInput) => [id] as const,
+  lookup: (
+    { id, client }: ProjectInput,
+    { signal },
+  ): Effect.Effect<Project, "missing", ProjectRepo> => client.get(id, { signal }),
 });
 
-project.ref("project-1");
+const key = project.key({ id: "project-1", client });
+project.getData(key);
+project.lookup({ id: "project-1", client });
 // @ts-expect-error
-project.ref("workspace-1");
+project.lookup({ id: "workspace-1", client });
 ```
 
-The live directional proof is `packages/flow-state/src/public-api-types.test.ts:1372-1431`.
-
-`tag(id)` MUST retain the literal non-empty ID as `Tag<Id>`.
-`activity.invalidate` MUST accept only an exact resource ref or nominal `Tag`; it MUST reject
-canonical-key filters, arbitrary class instances, functions, and the removed standalone
-`invalidate`, `createKey`, and schema-tag forms.
-
-In addition to a direct static target, the machine-local activity kit MUST accept one computed
-invalidation binding with this semantic shape:
-
-```ts
-activity.invalidate({
-  targets: (snapshot) => readonlyInvalidationTargetsOrNull,
-});
-```
-
-The selector MUST be contextually typed from the exact parent machine snapshot, including the
-causal `event: EventOf<Machine> | null`, and MUST return only a readonly
-`InvalidationTarget` list or `null`. `null` means that no binding exists. A concrete list MUST be
-canonically deduplicated in first-seen order; an empty result normalizes to no binding and a
-non-empty result is materialized into binding identity. The app and machine carriers MUST NOT
-retain the selector's authored type graph as a recursive generic
-argument. Arbitrary store predicates, Effects, Promises, nested target arrays, canonical-key
-filters, and untyped strings MUST remain invalid.
+K MUST contain only the accepted canonical categories, with sorted record keys, normalized -0, the
+16-level, 256-node, and 8 KiB bounds, and rejection of undefined, non-finite numbers, bigint, symbols,
+functions, accessors, class instances, mutable structures, cycles, and branded secret values. The exact
+encoding and mutable-structure interpretation remain unresolved under BEH-027; no type layer may add a
+competing interpretation.
 
 ### TYPE-006 — Transactions infer execution independently from parent bindings
 
-For `commit: (params: P) => Effect.Effect<A, E, R>`, the transaction descriptor MUST carry
-exact `P/A/E/R`. `key: (params: P) => K` MUST infer the sole argument type of
-`transaction.ref(K)`, and preview replacement values MUST be checked against their resource
-refs. The descriptor MUST carry no parent machine, memory, event, selector, or route type.
-
-`activity.run(transaction, binding)` MUST contextually type `binding.params` with the parent
-machine's exact readonly snapshot and `event: EventOf<Machine> | null`. Its result MUST be
-`P | null`. `outcomes.success` MUST receive `A`, `outcomes.failure` MUST receive `E`, and the
-failure mapping MUST be absent when `E = never`.
-
-`invalidates` MUST accept either a readonly `InvalidationTarget` list or a callback whose
-`params` field is the exact `P` and whose return is that readonly list. Exact resource refs and
-nominal tags are the only invalidation targets; the callback MUST NOT widen transaction params or
-introduce a canonical-key filter or store predicate type.
+For commit: (params: P, options) => Effect.Effect<A, E, R>, the transaction descriptor MUST carry exact
+P/A/E/R. key: (params: P) => K MUST infer the exact input of transaction.key, commit, and the actor-bound O
+family. The descriptor MUST carry no parent machine, memory, event, selector, route, preview, or invalidation
+type.
 
 ```ts
 type SaveParams = Readonly<{ id: string; title: string }>;
 
 const save = transaction({
   id: "projects.save",
-  key: ({ id }: SaveParams) => ({ id }),
-  commit: ({ id, title }): Effect.Effect<Project, SaveError, ProjectRepo> =>
-    ProjectRepo.save(id, title),
+  key: ({ id }: SaveParams) => [id] as const,
+  commit: ({ id, title }: SaveParams, { signal }): Effect.Effect<Project, SaveError, ProjectRepo> =>
+    ProjectRepo.save(id, title, { signal }),
 });
 
-activity.run(save, {
-  params: ({ event }) =>
-    event?.type === ProjectEvents.E.SaveRequested.id ? { id: event.id, title: event.title } : null,
-  outcomes: {
-    success: (value) => ProjectEvents.E.Saved(value),
-    failure: (error) => ProjectEvents.E.SaveFailed(error),
+O.save.commit(
+  { id: "project-1", title: "Updated" },
+  {
+    outcomes: {
+      success: (value) => ProjectEvents.E.Saved(value),
+      failure: (error) => ProjectEvents.E.SaveFailed(error),
+    },
   },
-});
-
-save.ref({ id: "project-1" });
-// @ts-expect-error
-save.ref();
+);
 ```
 
-The current transaction inference proof already derives params, success, error,
-requirements, and routed event types at
-`packages/flow-state/src/public-api-types.test.ts:4069-4101`.
+The transaction family exposes exact key, passive getState, finite commit, and actor-owned cancel. An
+omitted key projector has K = []. commit is admitted only by event-transition actions. Concurrency is
+actor-local and its exact accepted policies are reject, cancel, allow, and serialize. The failure mapper is
+absent when E = never; defect and interruption are separate channels. Authoritative writes are explicit
+setData plans and never implicit result promotion.
 
-### TYPE-007 — Stream and child descriptors do not infer through a parent
+### TYPE-007 — Streams infer exact execution without a parent type graph
 
-For `subscribe: (...params: P) => Stream.Stream<A, E, R>`, the stream descriptor MUST carry
-exact `P/A/E/R` and no parent selector or routed event. A child descriptor MUST carry only its
-stable ID, exact child machine, and the child machine's requirements. `activity.stream` and
-`activity.child` contextually type the parent selectors and outcomes: stream values receive
-`A`, stream failures receive `E`, child input returns exactly `InputOf<ChildMachine>`, and
-child completion receives the exact child snapshot. Failure mappings MUST be absent for
-`E = never`; that rule applies to streams only because child machines have no typed failure
-channel. Child bindings may type exact complete, defect, and interrupt mappings, while planned stop
-has no route.
+For subscribe: (params: P, options) => Stream.Stream<V, E, R>, the stream descriptor MUST carry exact
+P/K/V/E/R and no parent selector, routed event, or child actor. The actor-bound family exposes passive key,
+passive getState, and continuing subscribe; it has no actor cancel. Its passive stream projection retains
+status, `hasValue`, the latest `V` when present, emission count, generation, and terminal status. Exact
+state-union members, field optionality, failure/defect/interruption representation, and declaration-slot
+identity remain under BEH-023.
 
-For a zero-argument transaction, zero-parameter stream, or `void`-input child, the descriptor-only
-activity overload MUST compile and the optional second argument may contain only exact outcomes.
-The child completion parameter MUST be `ActorSnapshot<ChildMachine>`, preserving its exact
-timer-name and primitive-binding registries; deriving it as
-`MachineSnapshot<ChildMachine["definition"]>` is forbidden because that widens the machine family.
+```ts
+type ProgressInput = Readonly<{ submissionId: string; client: ProgressClient }>;
 
-Stream params MAY be any exact tuple during ordinary execution. A running stream can participate
-in durable capture only when its materialized tuple satisfies the canonical carrier; otherwise
-`dehydrate()` fails with `NonDurableActiveStreamParams`. This restriction MUST be visible in the
-host failure contract without weakening ordinary stream parameter inference.
+const progress = stream({
+  id: "projects.progress",
+  key: ({ submissionId }: ProgressInput) => [submissionId] as const,
+  subscribe: ({ submissionId, client }: ProgressInput, { signal }) =>
+    client.progress(submissionId, { signal }),
+});
+```
 
-The current stream proof derives params, item, error, requirements, and routed event at
-`packages/flow-state/src/public-api-types.test.ts:4103-4135`.
+Stream values receive V, failures receive E, and defect, interruption, completion, and value mappings are
+available only where the family supports them. Emissions become durable state only through mapped events
+and explicit writes. Hydration rematerializes an active declaration from its live executable P after pending
+outcomes drain without replaying an old emission; terminal streams do not restart, and missing executable
+input fails closed with a precise diagnostic.
 
 ### TYPE-008 — Typed failures, defects, and interruptions remain distinct
 
-Operation completion MUST inspect the complete `Cause`. Classification precedence MUST be:
-defect when any defect exists, otherwise typed failure when any failure exists, otherwise
-interruption when the Cause is interruption-only. Typed failure is `E`; defect and
-interruption MUST NOT be widened into `E`. Runtime implementation MUST use `Effect.exit`,
-not `Effect.result`, for operation completion. This is the B10 contract at
-`reference/incident-console/IMPLEMENTATION_BLOCKERS.md:237-255`.
+Operation completion MUST inspect the complete Cause. Classification precedence MUST be: defect when any
+defect exists, otherwise typed failure when any failure exists, otherwise interruption when the Cause is
+interruption-only. Typed failure is E; defect and interruption MUST NOT be widened into E. Runtime
+implementation MUST use Effect.exit, not Effect.result, for operation completion. This clause is self-contained;
+its production proof MUST cover the stated precedence and the `Effect.exit` boundary.
 
 ## Transitive requirements and Layers
 
 ### TYPE-009 — Every reachable definition carries hidden requirements
 
-Resource, transaction, stream, child, machine, module, app, fixture, story, and model types
-MUST carry a hidden covariant requirements member. `RequirementsOf<T>` MUST expose the
-resulting application-provided union without exposing the implementation brand. Descriptor
-internals retain their raw `R`, but Flow executes activities through `Effect.scoped`, so
-`RequirementsOf<T>` MUST remove `Scope.Scope`; callers never provide the Scope owned by Flow's
-ManagedRuntime.
+Resource, transaction, stream, machine, module, app, fixture, Story, and model types MUST carry a hidden
+covariant requirements member. RequirementsOf<T> MUST expose the application-provided union without
+exposing the implementation brand. Descriptor internals retain raw R; Flow executes activities through
+Effect.scoped, so RequirementsOf<T> removes Scope.Scope owned by Flow's ManagedRuntime.
 
-For a machine, requirements MUST be the union of every resource lookup, transaction commit,
-stream subscription, child-machine graph, and other Effectful descriptor reachable from its
-states. A module MUST union its root graphs. An app MUST union its module graphs and every graph
-seeded by its exact `dynamicMachines` tuple. Public views MUST be validated against the graph and
-MUST NOT add requirements merely by selecting a ref.
+For a machine, requirements are the union of every named operation descriptor reachable from its states and
+every reachable machine graph. A module unions its exact named machine record. An app unions its module
+machine records into App.M; every listed machine contributes its complete operation graph and requirements
+to AppPlan. Context selectors add typed provider edges, not actor parentage.
 
 ```ts
 type _MachineR = Expect<Equal<RequirementsOf<typeof projectMachine>, ProjectRepo | AuditLog>>;
 type _AppR = Expect<Equal<RequirementsOf<typeof ProjectApp>, ProjectRepo | AuditLog>>;
 ```
 
-`app({ ..., dynamicMachines: [editorMachine] })` MUST preserve the exact admitted machine tuple
-without `as const`. Admission contributes the machine and its transitive requirements to the app
-carrier, but it MUST NOT widen the machine family, require a construction input at app definition
-time, or make the machine a root accepted by `runtime.actor` or `useActor`.
+App compilation creates no actors and MUST NOT accept dynamicMachines. A module machine record is a closed
+admission universe, not an automatic root and not an actor address. No requirement may be added by passive
+reads or by a callback that is not already part of the named static catalogue.
 
 ### TYPE-009A — Public carriers are normalized and acyclic
 
-Resource, transaction, stream, child, machine, module, and app declarations MUST carry their
-already-computed type slots through private covariant brands. `RequirementsOf<T>` MUST read the
-normalized carrier directly; it MUST NOT recursively re-walk an authored state config, selector,
-outcome map, preview patch list, or child config whenever a consumer asks for requirements.
-Public `Machine` types MUST NOT retain their complete authored config as a generic argument.
+Resource, transaction, stream, machine, module, and app declarations MUST carry already-computed type
+slots through private covariant brands. RequirementsOf<T> reads the normalized carrier directly; it MUST
+NOT recursively re-walk authored state config, selectors, outcome maps, or plan values whenever a consumer
+asks for requirements. Public Machine types MUST NOT retain complete authored config as a generic argument.
 
-The static carrier direction MUST be definition and machine-independent descriptors → machine
-bindings → module or explicit app dynamic seed → app. A child descriptor may point only to an
-already-declared machine, so self-recursive and mutually recursive child definition graphs MUST
-fail without a public lazy thunk or deferred-definition overload. `dynamicMachines` is a flat
-readonly tuple of machine values and MUST NOT accept thunks, factories, actor input, or conditional
-registrations. This acyclic direction is required both for pure app compilation and bounded
-TypeScript instantiation.
+The static carrier direction is definition and machine-independent descriptors -> machine bindings -> named
+module record -> app. A child-machine carrier graph is not part of the accepted surface. The carrier graph
+MUST remain acyclic and bounded for pure app compilation and TypeScript instantiation. A running runtime
+MUST NOT expand AppPlan.
 
-### TYPE-010 — Runtime construction closes the app requirements exactly
+### TYPE-010 — Runtime construction closes app requirements exactly
 
 The public overloads MUST behave as if declared:
 
@@ -319,9 +306,10 @@ function runtime<App extends AppDefinition<unknown>, LayerError>(options: {
 }): Runtime<App, LayerError>;
 ```
 
-Equivalent subtyping that permits a Layer to provide a strict superset of app requirements
-is valid, but the supplied Layer MUST have no remaining input requirements. Layer acquisition
-errors MUST remain `LayerError`; they MUST NOT become `unknown` or disappear.
+Equivalent subtyping that permits a Layer to provide a strict superset of app requirements is valid, but
+the supplied Layer MUST have no remaining input requirements. Layer acquisition errors remain LayerError.
+Runtime actor creation and ensuring MUST accept only exact machines from App.M; lookup is ref-only and does
+not create or adopt an actor.
 
 ```ts
 runtime({ app: PublicApp }); // valid only when RequirementsOf<PublicApp> is never
@@ -334,104 +322,134 @@ runtime({ app: ProjectApp });
 runtime({ app: ProjectApp, layer: ProjectLayerRequiringConfig });
 ```
 
-The live package already tests that unresolved Layer requirements reject runtime construction
-and acquisition errors remain exact (`packages/flow-state/src/public-api-types.test.ts:358-385`).
-
 ### TYPE-011 — Runtime Effect bridges accept only installed services
 
-For `Runtime<App, LayerError>`, `runPromise` and `runPromiseExit` MUST accept only Effects
-whose requirements are satisfied by the runtime's installed application Context.
-`runPromiseExit` MUST return `Promise<Exit.Exit<A, E | LayerError>>`, including Layer acquisition
-failure in the resolved Exit rather than rejecting its Promise. It MUST NOT claim that arbitrary services are installed. The current negative
-proof is `packages/flow-state/src/public-api-types.test.ts:287-333`.
+For Runtime<App, LayerError>, runPromise and runPromiseExit MUST accept only Effects whose requirements are
+satisfied by the runtime's installed application Context. runPromiseExit MUST return
+Promise<Exit.Exit<A, E | LayerError>>, including Layer acquisition failure in the resolved Exit rather
+than rejecting its Promise. It MUST NOT claim that arbitrary services are installed. The current negative
+proof is packages/flow-state/src/public-api-types.test.ts:287-333.
 
-## Views, actors, stories, fixtures, and models
+## Actors, views, Stories, fixtures, and models
 
-### TYPE-012 — Actor snapshots retain the exact machine family
+### TYPE-012 — Actor handles and snapshots retain the exact machine family
 
-`RootActor<Machine>` and `DynamicActor<Machine>` MUST preserve `StateOf`, `EventOf`,
-`MemoryOf`, and all typed primitive registries reachable from `Machine`. `actor.send` MUST
-accept only `EventOf<Machine>`. `actor.getSnapshot()` and `actor.snapshots` MUST expose the
-same exact snapshot type. Registry `get` and resource `require` MUST preserve the ref or
-definition's exact success and error types, and every discriminated union in `SNAPSHOTS.md`
-MUST narrow without a cast. Actor lifecycle MUST be exactly `"active" | "disposed"`.
-`snapshot.issues` MUST contain only the exact active `FlowIssue` summary from `SNAPSHOTS.md`;
-receipts, pending outcomes, binding cursors, public Causes, and full diagnostic facts MUST NOT
-enter the actor type. Transaction
-snapshots MUST expose typed `error` only after narrowing to `status: "failure"`; defect and
-interrupt members carry no public Cause.
+Every actor handle backed by Machine MUST preserve StateOf, EventOf, MemoryOf, context, and all typed named
+operation families reachable from that machine. actor.ref MUST be ActorRef<Machine> for the exact machine,
+actor.send MUST accept only EventOf<Machine>, and actor.getSnapshot() and actor.snapshots MUST expose the
+same exact ActorSnapshot<Machine> family. Registry-free operation reads preserve exact descriptor and key
+types, and discriminated status unions narrow without casts where accepted.
 
-### TYPE-013 — Views and React overloads reject foreign families
+Actor lifecycle MUST be exactly "prepared" | "active" | "suspended" | "disposed". Prepared actors buffer
+commands, suspended actors reject commands and own no live attachment resources, and disposed actors are
+terminal. Ordinary actor handles and refs MUST NOT expose dispose; only an owner lease has individual
+disposal authority. snapshot.issues contains the active FlowIssue summary, while receipts, pending outcomes,
+binding cursors, public Causes, and full diagnostic facts do not enter actor types.
 
-`view(machine, config)` MUST infer its selected type from `select`. Because a view is declared
-before a module decides whether it is public, `useView(view)` keeps exact selection typing and
-resolves the view through the provider runtime's AppPlan at runtime. It MUST require exactly one
-public root match and throw the stable zero-or-ambiguous-root diagnostic otherwise.
-`useView(actor, view)` MUST require that the actor and view share the same machine family. No
-overload MAY infer through an equality callback.
+### TYPE-013 — Passive React selectors reject foreign actor families
 
-```ts
-const selected = useView(projectView);
-const dynamicSelected = useView(projectActor, projectView);
+The React surface MUST expose useActor(machine, options?), useActorByRef(ref), and useView(actor, selector).
+useActor creates a fresh local actor and does not accept a stable ID; useActorByRef is lookup-only and does
+not recover a lease. useView MUST require one exact actor handle, not a machine, ref, registered view, or
+view ID.
 
-// @ts-expect-error foreign actor/view pair
-useView(todoActor, projectView);
-```
-
-### TYPE-014 — Story command and checkpoint types accumulate immutably
-
-`story({ app, machine, start? })` MUST reject a machine outside the app graph. For a non-void
-machine input, the constructor MUST require either fresh exact input or a compatible boot start;
-public actor snapshots are observations and are never restoration input. Only a void-input machine
-may omit `start`. `send` MUST accept the
-machine's exact event union. `perform` MUST accept only branded inert commands belonging to
-installed fixture controls. Literal checkpoint names MUST accumulate as keys of
-`run.checkpoints`, and duplicate literal names MUST fail while the plan is built.
-`advance` MUST accept Effect `Duration.Input` without requiring an Effect import at the call site;
-its returned plan type remains the same checkpoint accumulator. `setTime` accepts only the
-absolute safe-integer epoch-millisecond type.
+The selector MUST receive one atomic passive actor context containing state, readonly memory, inherited
+readonly context, lifecycle, issues, bound can(event), and snapshot-bound read-only O. Its result MUST
+preserve the exact declared Value type without implicit null or undefined. O exposes only passive key,
+getData, and getState; acquisition and mutation methods are rejected. No comparator argument is accepted.
+Scalar/non-record values use complete-value Object.is; named records use fixed-key, field-by-field Object.is.
 
 ```ts
-const plan = story({ app: ProjectApp, machine: projectMachine })
-  .send(Project.E.Opened("project-1"))
-  .checkpoint("opened")
-  .checkpoint("settled");
+const selected = useView(projectActor, ({ state, O }) => ({
+  state,
+  project: O.project.getData(O.project.key({ id: "project-1", client })),
+}));
 
-const run = await plan.run();
-run.checkpoints.opened;
-run.checkpoints.settled;
-// @ts-expect-error
-run.checkpoints.missing;
+// @ts-expect-error a machine is not an actor handle
+useView(projectMachine, ({ state }) => state);
 ```
 
-### TYPE-015 — Fixture output closes story app requirements
+### TYPE-014 — Story constructors and commands accumulate exact scope
 
-Fixture definitions MUST carry their Layer output, typed error, controls, and seed refs. The
-union of fixtures installed by `.with({ fixtures })` MUST satisfy the story app's
-requirements. A story with missing services MUST fail to compile. Fixture Layer input MUST be
-`never`; a fixture MAY compose its own dependencies internally.
+The public constructors are story.app(runtimeFactory, options?), story.machine(machine, options?), and
+story.actor(machine, options?). Their closed option objects MUST behave as follows:
 
-### TYPE-016 — Control commands expose only possible outcomes
+```ts
+type InputOptions<M> =
+  InputOf<M> extends void ? { readonly input?: never } : { readonly input: InputOf<M> };
 
-`control.effect<Args, A, E>` MUST preserve the service argument tuple and `A/E`. Its call ref
-MUST omit `.fail` when `E = never`. `control.stream<A, E>` MUST preserve emitted and failure
-types and omit `.fail` when `E = never`. `perform` MUST reject raw Effects, promises,
-callbacks, commands from an uninstalled fixture, and primitive status objects.
+type ContextBindingOptions<M> = keyof SelectedContextOf<M> extends never
+  ? { readonly contextBindings?: never }
+  : { readonly contextBindings: StoryContextBindingsOf<M> };
 
-### TYPE-017 — Model paths retain the base story contract
+type AppStoryOptions<App> = FixtureOptions<App> & {
+  readonly boot?: RuntimeBootPayload<App>;
+  readonly maxTurns?: number;
+  readonly title?: string;
+  readonly description?: string;
+  readonly tags?: readonly string[];
+};
 
-`model(baseStory, { stateKey })` MUST preserve the base app, machine, fixtures, fresh start,
-progress policy, and an empty command tuple. It MUST reject a boot base or a base story containing
-any command. The state-key callback receives the exact predicted snapshot and returns
-`CanonicalKeyInput`. Each
-traversal call MUST infer its candidate event tuple independently; candidates MUST NOT become
-model-level generic state. A valid model base therefore has no checkpoint keys to preserve.
-Every discovered `path.story` MUST extend the base story with that call's exact candidate
-events, start with an empty checkpoint record, permit later checkpoint appends, and run to the
-ordinary inferred result shape. Pure model options MUST NOT add an Effect requirement.
-`FlowStoryExecutionError` MUST be the only named testing runtime class; run, traversal, path,
-and path-collection shapes MUST remain inferred from their values rather than exported as
-parallel named classes.
+type MachineStoryOptions<M> = InputOptions<M> &
+  SelectedContextOptions<M> &
+  FixtureOptions<M> & {
+    readonly maxTurns?: number;
+    readonly title?: string;
+    readonly description?: string;
+    readonly tags?: readonly string[];
+  };
+
+type ActorRecipeOptions<M> = InputOptions<M> & ContextBindingOptions<M>;
+```
+
+These helper aliases are specification notation rather than required exports. Required input is required,
+void input rejects an authored input, focused context is exact and required when declared, boot exists only
+on story.app, and fixtures close the corresponding requirements. maxTurns defaults to 100.
+
+Story plans are immutable and inert until run(). Both Story kinds expose process, advance, advanceTo,
+advanceToNextTimer, checkpoint, and run; app Stories additionally expose target-taking send and simulate,
+while machine Stories expose target-free send, simulate, and setContext. simulate requires an exact
+operation plan and one-based occurrence observation and never creates work. advance and advanceTo do not
+process implicitly. Checkpoint names accumulate immutably, and duplicate literal names fail while the plan
+is built.
+
+### TYPE-015 — Story-local actor recipes are exact and inert
+
+story.actor(machine, options?) MUST return a deeply frozen inert recipe carrying exactly the machine, required
+fresh input, and exact contextBindings. It carries no runtime, mailbox, snapshot, operation binding,
+disposal authority, or live handle. A binding key MUST match one declared context slot and its value MUST be
+an exact compatible app-owned ActorRef or Story actor recipe. Reusing one recipe object resolves one actor
+per run; separate recipes create independent actors even when machine and input match.
+
+App Story targets accept only exact recipes or stable refs. Machine families, foreign refs, missing refs, and
+unadmitted recipes are rejected before command execution. Recipe actors are materialized with production
+runtime.createActor, their owner leases are retained, commands observe only lease.actor, and cleanup disposes
+leases in reverse dependency order. App-owned shared actors remain owned by runtime factory leases.
+
+### TYPE-016 — Fixture controls and observations expose only supported outcomes
+
+control.effect<Args, A, E> MUST preserve the service argument tuple and A/E; its control ref exposes
+success and failure only when those channels exist, plus accepted defect and interruption controls.
+control.stream<A, E> MUST preserve emitted and failure types and expose emission, completion, failure,
+defect, and interruption only where supported. simulate MUST accept only a branded inert operation plan
+from an installed fixture and an applicable observation. Raw Effects, promises, callbacks, primitive status
+objects, and controls from uninstalled fixtures are rejected. The Story layer replaces external execution
+only; admission, ownership, concurrency, completion classification, writes, outcomes, and evidence stay
+on production kernels.
+
+### TYPE-017 — Pure models retain a command-empty machine Story
+
+model(baseStory, { stateKey }) MUST preserve the base machine Story's machine, exact fresh input, selected
+context, fixtures, progress policy, and empty command tuple. It MUST reject an app Story, boot start, extra
+command, non-fresh restoration, or a non-pure stateKey. The callback receives the exact predicted snapshot
+and returns CanonicalKeyInput. Candidate event tuples belong to individual traversal calls and MUST NOT
+become model-level generic state.
+
+Each path.story MUST extend the base with that call's exact candidate events, begin with an empty checkpoint
+record, permit later checkpoint appends, and run through the ordinary production result shape. The model
+MUST expose only getShortestPaths and getSimplePaths; it MUST NOT run Effects, synthesize asynchronous
+routes, expose replay/provide/clock helpers, or export parallel named path/result classes. FlowStoryExecutionError
+is the only named testing runtime class; exact failed-run envelope details remain under BEH-022.
 
 ## Required compile proofs
 
@@ -439,71 +457,68 @@ parallel named classes.
 
 Compile fixtures MUST prove:
 
-- exact definition IDs, state tokens, event constructor args, event payloads, input, and memory;
-- state-key, event-key, event-narrowing, target-token, memory, and input inference;
-- resource parameter tuples and resource `A/E/R`;
-- transaction key/ref arity, preview values, commit `A/E/R`, and binding params/outcomes;
-- stream descriptor params and `A/E/R`, descriptor-only zero-parameter activity overloads,
-  binding outcomes, child input, and exact `ActorSnapshot<ChildMachine>` completion types;
-- machine → module → app requirements union and Layer closure;
-- exact app-level dynamic-machine admission, its transitive requirements, and its exclusion from
-  root lookup;
-- direct and computed invalidation targets, including causal-event narrowing and `null` decline;
-- actor snapshot/ref readers, view selection, and both valid React overloads;
-- story fixture closure, command types, literal checkpoint accumulation, and command-empty
-  model bases whose `path.story` starts with no checkpoint keys;
-- strict, isolated-modules, isolated-declarations, packed package, React 18, and React 19
-  consumer modes. The live packed runner already owns those mode boundaries at
-  `packages/flow-state/scripts/check-packed-consumers.mjs:367-417`.
+- exact definition IDs, recursive state tokens, event constructor args and payloads, context selectors,
+  operation names, input, and memory;
+- compound defaults, exact direct-child targets, active-leaf matching, event narrowing, memory updates,
+  actions, onContext, and onMemory inference;
+- resource P/K tuples, A/E/R, passive reads, finite lookup/refetch, continuing subscribe, writes, and
+  actor-owned cancellation;
+- transaction key/commit P/K/A/E/R, concurrency, explicit writes, binding outcomes, and cancellation;
+- stream P/K/V/E/R, continuing outcomes, latest-value projection (`hasValue`, latest `V` when present,
+  emission count, generation, and terminal status), and no actor cancellation; exact state-union members,
+  field optionality, failure/defect/interruption representation, and declaration-slot identity remain under
+  BEH-023;
+- machine -> named module record -> App.M requirements union and Layer closure;
+- exact actor refs, local/shared owner leases, context-binding keys, and four lifecycle states;
+- passive actor-bound useView, exact selector values, and command-only useActor/useActorByRef;
+- app and machine Story option closure, exact Story targets, controlled observations, command types,
+  immutable checkpoints, run.end, and command-empty model bases;
+- strict, isolated-modules, isolated-declarations, packed package, React 18, and React 19 consumer modes.
 
 ### TYPE-P02 — Negative proofs
 
-Compile fixtures using `@ts-expect-error` MUST prove rejection of:
+Compile fixtures using @ts-expect-error MUST prove rejection of:
 
-- unknown states, events, targets, payloads, memory fields, and timer targets;
-- a type-only memory marker, separate `initialMemory`, or a `memory` property returned from the
-  machine behavior callback;
-- root machines with non-void input;
-- final state nodes with transitions, redirects, activities, timers, or output callbacks;
-- dynamic-machine thunks, factories, construction inputs, and foreign or widened admission values;
-- inconsistent resource callback tuples and noncanonical ref inputs;
-- computed invalidation Effects, Promises, predicates, nested arrays, canonical-key filters,
-  untyped strings, and foreign refs;
-- wrong transaction ref arity, key input, commit params, preview values, binding outcomes, and the
-  removed transaction `scope` or stream `pressure` properties;
-- parent selectors or routes on transaction/stream/child descriptors, standalone activity
-  imports, `failure` outcomes, and control `.fail` when `E = never`;
-- foreign view/actor families and module views bound to non-roots;
-- transaction `error` outside failure, public snapshot `cause`, receipts, and a failed actor
-  lifecycle;
-- missing Layer services, Layers with remaining inputs, and wrong-app boot payloads;
-- dynamic actor lookup with input, missing stable ID, wrong machine family, or an attempt to use
-  lookup as creation/adoption;
-- story machines outside an app, missing fixture services, duplicate checkpoints, raw
-  Effects/promises/callbacks in `perform`, and commands from uninstalled controls;
-- model construction from a non-empty command plan, cross-call candidate retention, model
-  replay APIs, named testing/TurnRecord/inspection-result type hierarchies, core builders from
-  non-root routes, and private deep imports.
+- unknown states, compound nodes, events, targets, payloads, memory fields, timer targets, non-direct
+  defaults, depth eleven, ambiguous ancestor/descendant handlers, Boolean reentry, and timer actions;
+- a type-only memory marker, separate initialMemory, or a memory property returned from machine behavior;
+- implicit input classification, an authored input for a void machine, and automatic-root admission;
+- inconsistent resource P/K callbacks, noncanonical key inputs, resource refs, custom equality/hash, and
+  unsupported canonical values or bounds;
+- generic operation registries, byKey, byLane, bound refs, descriptor parent selectors, and operation
+  enumeration;
+- transaction/stream family parent routes, stream cancellation, failure mappings when E = never, and
+  completion values widened away from the exact stream family;
+- dynamicMachines, machine-family runtime lookup, stable IDs on local creation, foreign/mismatched refs,
+  input or bindings embedded in refs, and dispose on ordinary actor handles;
+- missing, extra, foreign, or cyclic context bindings and a changing construction tuple;
+- registered views, view IDs, machine/ref arguments to useView, comparator arguments, and mutating O methods
+  inside passive selectors;
+- callable Story construction, .with, bare app or live-runtime Story inputs, focused boot/memory/state/
+  snapshot overrides, machine-family Story targets, perform, deliver, receive, flush, settle, setTime,
+  replay helpers, and run.final;
+- duplicate checkpoints, raw Effects/promises/callbacks in simulate, uninstalled fixture controls, missing
+  fixture services, app Stories with direct context injection, and app Stories without exact targets;
+- model construction from an app or non-empty command plan, cross-call candidate retention, and named
+  testing, path, TurnRecord, receipt, or inspection-result type hierarchies;
+- public snapshot causes, receipts, child-machine types, root/dynamic actor categories, missing Layer
+  services, Layers with remaining inputs, and wrong-app boot payloads;
+- any or assertion-based erasure in provider, runtime, descriptor, actor, selector, Story, fixture, or
+  model boundaries.
 
-### TYPE-P03 — No erasure proof
+### TYPE-P03 — Acyclic carrier and inference-cost proof
 
-Public declaration output MUST contain no `any` or assertion-based erasure in provider,
-runtime, descriptor, actor, view, story, fixture, or model boundaries. The live architecture
-test already rejects explicit `any` in key public runtime and provider surfaces
-(`packages/flow-state/src/public-typing-architecture.test.ts:40-59`).
+Phase 1 MUST compile an isolated private-vNext consumer with at least 25 named module-root machines, 100
+total resource/transaction/stream descriptors, cross-module shared descriptors, exact actor-bound passive
+views, and strict and isolated-declarations modes. The proof MUST assert exact RequirementsOf<App> and
+declaration emit, run tsc --extendedDiagnostics, and record a baseline tied to the checked-in TypeScript
+version. Instantiation count MUST remain within 10% of the approved baseline, and a paired fixture that
+doubles only unrelated roots MUST remain below 2.25 times the smaller fixture. Peak memory is trend evidence
+only. A negative fixture MUST reject recursive carrier expansion without an excessive-instantiation error.
 
-### TYPE-P04 — Acyclic carrier and inference-cost proof
+### TYPE-P04 — Production-owner declaration proof
 
-Phase 1 MUST compile an isolated private-vNext consumer with at least 25 root machines, 100 total
-resource/transaction/stream/child descriptors, cross-module shared descriptors, and exact views
-under strict and isolated-declarations modes. Phase 6 MUST extend the same command and carrier
-baseline with exact fixture and story types after those definitions exist; Phase 1 MUST NOT invent
-their later-phase declarations to satisfy this proof early.
-
-The proof MUST assert exact `RequirementsOf<App>` and declaration emit, run
-`tsc --extendedDiagnostics`, and record a checked-in baseline tied to the exact checked-in
-TypeScript version. The measured instantiation count MUST NOT exceed the approved baseline by more
-than 10%. A paired fixture that doubles only unrelated roots while preserving per-root shape MUST
-NOT exceed 2.25 times the smaller fixture's instantiation count. Peak memory MUST be recorded for
-trend evidence but MUST NOT gate the proof because it varies by host. A negative fixture MUST also
-reject a recursive child carrier graph without reaching an excessive-instantiation error.
+Public declaration output MUST contain no any or assertion-based erasure in provider, runtime, descriptor,
+actor, passive selector, Story, fixture, or model boundaries. Declaration proofs MUST be paired with the
+production-owner runtime, React, Story, persistence, and deletion absence proofs; focused source-text or
+type checks cannot stand in for those behavior proofs.
