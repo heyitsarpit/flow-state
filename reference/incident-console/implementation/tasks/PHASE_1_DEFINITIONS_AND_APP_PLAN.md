@@ -26,9 +26,9 @@ and CLI execution are forbidden.
 
 ## Tasks
 
-- [x] Enforce the flat grammar: final nodes are the only special state form; hierarchy, parallel regions,
-      and shallow/deep history are rejected vNext grammar, while children and concurrent
-      activities remain ownership tools rather than statechart emulation.
+- [x] Enforce the recursive compound-state grammar: ordinary leaves have no final-node completion
+      semantics, compound states own direct `default` entries, and hierarchy is represented inside one
+      actor. Subordinate-machine descriptors and child completion surfaces are rejected.
 - [x] Ensure resource descriptors expose no persistence predicate or selective
       omission policy; vNext captures complete canonical StoreState or fails its bound.
 - [x] Make AppPlan complete before runtime construction. Userland may
@@ -46,11 +46,11 @@ and CLI execution are forbidden.
 - [x] Remove resource `key`, hashing, and equality projections. Resource identity is descriptor
       ID plus the frozen canonical lookup-argument tuple; transaction and activity key projections
       remain separate concepts.
-- [x] Implement exact machine-independent resource, transaction, stream, and child descriptors,
+- [x] Implement exact machine-independent resource, transaction, and stream descriptors,
       plus view, module, and app definitions, without executing Effectful client callbacks.
       Machine-local selectors and outcome routes belong to inert activity bindings.
 - [x] Compile module roots and views, the transitive closure presented by their activity
-      bindings and children, collisions, foreign references, routes, durable resolution,
+      bindings, collisions, foreign references, routes, durable resolution,
       persistence version, and hidden Effect requirements into one immutable `AppPlan`.
 - [x] Implement optional exact `app.dynamicMachines` as an inert reachability and requirements
       seed. It creates no actor, supplies no input, adds no root, and accepts no thunk, factory,
@@ -92,10 +92,12 @@ They are Phase 1 corrections, not permission to start runtime work:
 - [ ] Make `FlowUsageError` recognition nominal so hostile reflection failures cannot spoof the
       package-owned error surface.
 - [ ] Validate event payload descriptors without invoking accessors or copying symbol properties.
-- [ ] Add descriptor-only activity overloads for zero-argument transactions, zero-parameter
-      streams, and `void`-input children, with an optional exact outcomes object and no selector/key.
-- [ ] Preserve child completion as `ActorSnapshot<ChildMachine>` rather than deriving it from
-      the child definition and losing exact timer or primitive-binding registry inference.
+- [ ] Add descriptor-only activity overloads for zero-argument transactions and zero-parameter
+      streams, with an optional exact outcomes object and no selector/key; reject subordinate-machine
+      descriptors and child completion options.
+- [ ] Add negative declaration and compiler proofs for deleted child inputs, lifecycle, completion,
+      snapshot, address, persistence, Story, and artifact fields; prove recursive substates remain one
+      actor with no child-equivalent owner.
 - [ ] Clean declaration/performance temporary directories and run the named thermo-nuclear review
       before rerunning every Phase 1 gate and amending the receipt.
 

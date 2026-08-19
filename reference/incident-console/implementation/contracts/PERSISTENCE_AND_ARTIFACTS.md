@@ -10,11 +10,10 @@ This contract is the sole Flow-owned vNext internal schema authority for boot, b
 artifacts, Story evidence, and the package-private decoded model consumed by the Story runner and CLI. It
 owns the shared validation/codec boundary and semantic invariants; [`CLI.md`](./CLI.md) owns command and
 transport behavior but does not define a competing artifact or evidence schema. The shared decoded model
-is internal and is not a public package type or a promise that any unresolved member is exported.
+is internal and is not a public package type or a promise that any private member is exported.
 
-`BEH-033` status: open — exact artifact, trace, and CLI schema closure is incomplete and not shipped. Until
-that item closes, this contract MUST NOT freeze an exact envelope, version, field set, Cause projection,
-diagnostic union, or codec representation that the accepted public contracts have not resolved. The
+`BEH-033` status: closed by `REV-MIG-005` — the exact artifact, trace, and CLI schema is defined here as a
+package-private v2 model and is not a public package type. The
 non-normative [`DESIGN_BEHAVIOR_DISPOSITIONS.md`](../archive/provenance/DESIGN_BEHAVIOR_DISPOSITIONS.md) and
 [`DESIGN_BEHAVIOR_SOLUTIONS.md`](../archive/provenance/DESIGN_BEHAVIOR_SOLUTIONS.md), and
 [`OPEN_QUESTIONS_AND_FUTURE_EXPLORATIONS.md`](../OPEN_QUESTIONS_AND_FUTURE_EXPLORATIONS.md), Phase 0
@@ -31,22 +30,21 @@ ordered readonly canonical tuple returned synchronously by `key(P)`; exact opera
 descriptor ID plus `K`. `P` MUST NOT be reconstructed from `K`, and equal `K` values MUST NOT be used to
 switch clients or other omitted capabilities.
 
-Canonical `K` MUST contain only `null`, booleans, strings, finite numbers, readonly arrays, and plain readonly
-records. Canonicalization MUST sort record keys and normalize `-0` to `0`. It MUST reject `undefined`,
-non-finite numbers, bigint, symbols, functions, accessors, class instances, mutable structures, cycles, and
-branded secret values. It MUST be validated synchronously before ownership, mutation, admission, or external
-work, using the accepted limits of 16 nested levels, 256 total value nodes, and 8 KiB in the canonical
-encoding. The exact byte grammar, hostile-reflection behavior, and copying/freezing rule remain unresolved
-under `BEH-027`; this contract MUST NOT choose among those alternatives. Secret material remains observable in
-persistence, inspection, diagnostics, and artifacts unless the application hashes or replaces it before key
-projection.
+Canonical `K` MUST follow `REV-OPS-016`. Flow accepts ordinary dense arrays and plain records, copies them
+into Flow-owned containers, recursively freezes them, and freezes the top-level tuple. It sorts record keys,
+normalizes `-0` to `0`, rejects hostile reflection and unsupported values, and validates the exact UTF-8
+`KBytes` encoding synchronously before ownership, mutation, admission, or external work. The limits are 16
+nested levels, 256 total value nodes, and 8 KiB of encoded bytes. Capability, tenant, account, network,
+permission, session, and other result-changing discriminators MUST be in `K`; runtime partitioning does not
+replace that requirement. Secret material remains observable in persistence, inspection, diagnostics, and
+artifacts unless the application hashes or replaces it before key projection.
 
-### WIRE-001A — Canonical encoding remains unresolved
+### WIRE-001A — Canonical encoding is defined by REV-OPS-016
 
-Canonical key equality MUST use the accepted ordered `K` result. The exact canonical byte grammar and
-encoding used for equality, persistence, diagnostics, and artifacts remain owned by `BEH-027`; this
-contract MUST NOT prescribe a JSON spelling, a string normalizer, a duplicate-key policy, or an artifact
-newline rule beyond any separately retained file-publication clause.
+Canonical key equality MUST use the accepted ordered `K` result and the exact `KBytes` UTF-8 encoding defined
+by `REV-OPS-016`. `KBytes` has no whitespace or trailing newline; the artifact file boundary may add its
+own required newline after encoding the containing artifact. `-0` normalization occurs before the general
+artifact walker, so `WIRE-016` sees canonical `0` and does not reject a canonical key for negative zero.
 
 ### WIRE-002 — Persisted operation facts preserve descriptor identity
 
@@ -58,8 +56,8 @@ by `REV-OPS-003`; `K` alone is not executable input and does not authorize a loo
 Persisted transaction and stream records MUST retain only the accepted descriptor, actor, binding, generation,
 occurrence, and canonical-identity facts needed by their owning production kernels. They MUST NOT be treated
 as generic operation refs or as serialized executable work. Descriptor resolution MUST use the receiving
-runtime's compiled `AppPlan`; exact occurrence and post-hydration input behavior remains under the applicable
-unresolved operation boundaries.
+runtime's compiled `AppPlan`; occurrence and post-hydration input behavior follow `REV-OPS-015` and
+`REV-OPS-017`.
 
 ### WIRE-003 — Flow validates structure; applications validate domain data
 
@@ -92,18 +90,22 @@ application validation boundary; an unknown or incompatible payload MUST be reje
 the current plan. Flow MUST NOT expose mutable `hydrateBoot`. Boot installation MUST use materialized actor
 memory and MUST NOT invoke a definition's fresh-memory initializer.
 
-Initial construction MUST install and validate boot actors, complete the production factory's initial
-`ensureActor` calls, resolve exact context-provider refs, seal the instance graph, and only then activate or
-expose a runtime or actor handle. Hydration MUST establish each consumer's silent context baseline before
-initial continuing-activity reconciliation or handle escape.
+Initial construction MUST validate the boot payload, acquire the application Layer, install and validate
+boot actors, complete the production factory's initial `ensureActor` calls, resolve exact context-provider
+refs, seal the instance graph, and only then activate or expose a runtime or actor handle. RuntimeFactory discovery MUST be
+synchronous and inert: it may retain app identity, Clock, external capabilities, boot input, and initial
+actor claims, but MUST NOT acquire a Layer, create or register actors, start work, or expose handles.
+Hydration MUST establish each consumer's silent context baseline before initial continuing-activity
+reconciliation or handle escape.
 
 ### WIRE-005 — Boot carries compatibility identity
 
 Boot compatibility MUST retain the receiving app identity, its application-owned `persistenceVersion`, and
 the durable machine, state/event, descriptor, and actor identity facts required to resolve the payload through
 the receiving compiled `AppPlan`. A changed durable identity or persistence version MUST NOT be silently
-aliased to the current app. The exact envelope members and any plan-fingerprint representation remain part of
-the coordinated artifact closure and MUST NOT be invented here.
+aliased to the current app. The exact behavior/trace envelope members and package-private `appPlanFingerprint`
+representation are owned by `WIRE-020B`; boot remains compatible through the receiving compiled `AppPlan` and
+does not expose a fingerprint API.
 
 ### WIRE-006 — Boot carries one canonical store
 
@@ -140,12 +142,15 @@ input fails closed with a precise diagnostic.
 ### WIRE-008 — Durable actors require explicit stable identity
 
 Each actor MUST carry one exact machine-branded `ActorRef`. An authored stable ref may identify a durable
-shared actor across runtime restarts; a generated opaque ref identifies a local actor and is neither durable nor
-restorable. `actorRef(machine, id)` is an inert identity and MUST NOT create an actor. Durable restoration MUST
-resolve the stable machine identity through the receiving app's `App.M` and MUST use `runtime.ensureActor(ref,
-...)` for restore-or-create ownership. `runtime.createActor(machine, ...)` remains ID-free and always creates a
-fresh local actor with an opaque ref. The deleted `runtime.actor(machine, { id })`, automatic-root, dynamic-root,
-and parent-child persistence surfaces MUST NOT survive as aliases.
+shared actor across runtime restarts; its wire form is the fixed `actor:` namespace tag followed by the
+GLO-01 length-prefixed UTF-8 machine-ID segment and authored stable-ID segment, in that order. A generated
+opaque ref identifies a local actor and is neither durable nor restorable; it MUST NOT appear in boot,
+dehydration, artifacts, or CLI selectors. `actorRef(machine, id)` is an inert identity and MUST NOT create an
+actor. Durable restoration MUST resolve the stable machine identity through the receiving app's `App.M` and
+MUST use `runtime.ensureActor(ref, ...)` for restore-or-create ownership. `runtime.createActor(machine, ...)`
+remains ID-free and always creates a fresh local actor with an opaque ref. The deleted
+`runtime.actor(machine, { id })`, automatic-root, dynamic-root, and parent-child persistence surfaces MUST
+NOT survive as aliases.
 
 ## Capture and restoration
 
@@ -166,10 +171,13 @@ for each binding; every referenced provider snapshot MUST be present at that exa
 mismatch MUST fail with retryable `ConcurrentDehydrate`. Unrelated actors MAY still represent different
 state-only instants, but the stronger closure applies along context edges.
 
-The exact durable actor membership, including treatment of suspended stable actors and runtime-local
-tombstones, remains unresolved under `BEH-004`. This contract MUST NOT derive membership from automatic roots,
-dynamic actor categories, child actors, or current actor projections. An included durable consumer with a direct
-or transitive dependency on an opaque local provider MUST fail terminally with the accepted
+Dehydration MUST capture every registered durable stable actor whose lifecycle is not `disposed`, including
+suspended stable actors, plus the transitive closure of exact context-provider refs. Membership MUST be derived
+from runtime registration and fixed bindings, not automatic roots, dynamic actor categories, child actors,
+current projections, or whether the current factory called `ensureActor`. Runtime-local actors, runtime-incarnation
+tombstones, and disposed stable actors MUST be excluded; a boot-restored stable actor remains captureable even
+when the current factory does not repeat `ensureActor`. An included durable consumer with a direct or transitive
+dependency on an opaque local provider MUST fail terminally with the accepted
 `NonDurableContextProvider` behavior; Flow MUST NOT serialize, promote, recreate, substitute, or rebind that
 provider automatically. Partial or orphaned payloads are forbidden.
 
@@ -211,9 +219,9 @@ Terminal transaction state may restore only through the accepted production oper
 
 ### WIRE-013 — Restored collection gets a new owned lifetime
 
-Collection, ownership, and retained-value behavior for restored resources remain part of the unresolved
-operation state and collection contract under `BEH-023`. This contract does not choose a restored idle
-countdown, a `gcTime` default, or a collection publication rule.
+Collection, ownership, and retained-value behavior for restored resources follow the exact operation state
+and collection contract in `REV-OPS-017`; this contract does not choose a restored idle countdown or a
+`gcTime` default beyond the descriptor's existing policy.
 
 ## Artifact codecs and failures
 
@@ -221,12 +229,10 @@ countdown, a `gcTime` default, or a collection publication rule.
 
 Boot and artifact import/export MUST use one Flow-owned validation and encoding path that preserves the
 distinction between structural Flow failures and application-owned opaque-domain validation. Artifact and
-trace decoding MUST produce the shared package-private vNext decoded model owned by this contract, which is
+trace decoding MUST produce the shared package-private v2 decoded model owned by this contract, which is
 consumed by both Story and CLI. The runtime constructor remains a synchronous host boundary and MUST apply
 the same boot-structure rules as the accepted application boot boundary before any actor or external work
-begins. Raw implementation-library parse failures MUST NOT escape a public Flow API, but the accepted
-revisions do not prescribe a codec library, method name, version, envelope, or internal error translation
-shape.
+begins. Raw implementation-library parse failures MUST NOT escape a public Flow API.
 
 The production bootstrap owns boot validation, constructor phase ordering, and prepared installation. The
 resource, transaction, stream, artifact, and Story owners MUST use the production kernels and accepted
@@ -237,8 +243,9 @@ schemas rather than a second hydration, operation, Story, or artifact interpreta
 Artifact import MUST preserve the distinction between structural, bound, identity, external-input, and
 application-domain failures required by the retained artifact path. Opaque-domain validation happens before
 runtime construction, so Flow MUST preserve an application-reported failure rather than relabel it as a Flow
-decode failure. The exact closed diagnostic categories remain part of `BEH-033`; import MUST NOT collapse a
-failure to `undefined` or an invented generic corrupt-artifact result.
+decode failure. `DiagnosticCode` below is the closed code vocabulary for artifact, gateway, usage, Story,
+cleanup, interruption, I/O, and invariant failures; import MUST NOT collapse a failure to `undefined` or an
+invented generic corrupt-artifact result.
 
 ### WIRE-016 — Durable envelopes are bounded
 
@@ -275,8 +282,9 @@ order. After the gate opens, receipt, inspection, trace, CLI, and optional artif
 sink processing and failure MUST NOT delay StoreFanout or mutate committed state. No second
 runtime-owned mutable history may compete with TurnRecords.
 
-Prepared fresh and hydrated revision-zero snapshots are construction facts, not committed turns, and create
-no `TurnRecord`. Actor lifecycle transitions, including `actor:start`, `actor:restore`, `actor:suspend`,
+Prepared fresh snapshots start at publication revision zero. Hydrated snapshots restore their persisted
+publication and machine-turn revisions without resetting them; neither is a committed turn or creates a
+`TurnRecord`. Actor lifecycle transitions, including `actor:start`, `actor:restore`, `actor:suspend`,
 `actor:resume`, and `actor:dispose`, are inspection evidence and MUST NOT create a machine revision or
 `TurnRecord`. Each later committed mailbox turn creates one. Actor admission and ordinary commits MUST
 preflight any changing actor, store, and sequence reserves required by the retained cleanup contract; runtime
@@ -314,8 +322,8 @@ Hub acceptance atomically snapshots the attachment registry. Attach returns only
 CAS. `drain()` snapshots that attachment's highest accepted sequence and waits only through that
 prefix. Attachment `dispose()` performs one stop-admission CAS, drains its accepted prefix,
 detaches, and returns one cached Promise. `clear()` removes only records already processed into the
-buffer; accepted queued records may arrive afterward. Runtime disposal admits and opens the gate
-for every terminal actor TurnRecord, then stops sink admission and gracefully drains/detaches
+buffer; accepted queued records may arrive afterward. Runtime disposal admits and opens the gate for every
+already-linearized terminal lifecycle record and TurnRecord, then stops sink admission and gracefully drains/detaches
 active attachments before closing ManagedRuntime. A slow sink may delay runtime disposal, but a
 sink callback failure remains isolated to that attachment and does not make runtime cleanup fail.
 
@@ -344,25 +352,657 @@ A trace artifact MUST preserve app and persistence compatibility, ordered TurnRe
 truncation evidence, operation identities and facts, inspection lifecycle records, and Story evidence through
 exact actor lookup. App Story checkpoints MUST support `checkpoint.actor(storyActor | actorRef)` and reserved
 `runtime` metadata; successful evidence MUST use `run.end`, whose evidence does not imply actor completion.
-Failure evidence MUST retain completed checkpoints, the failure boundary, primary Cause, and cleanup truth.
-The exact artifact envelopes and nested members remain part of the coordinated artifact closure under
-`BEH-033`; this contract MUST NOT invent a field, codec, envelope version, or replacement for the accepted
-Story and actor identities. The shared decoded model is the sole internal handoff between artifact decoding,
-Story evidence, and CLI projections; text, JSON, and file publication are projections of that model, not
-independent schema authorities.
+Failure evidence MUST retain completed checkpoints, the failure boundary, the package-owned primary
+diagnostic, and cleanup truth. The shared decoded model is the sole internal handoff between artifact
+decoding, Story evidence, and CLI projections; text, JSON, and file publication are projections of that
+model, not independent schema authorities.
 
-### WIRE-020B — Artifact Cause projection remains unresolved
+### WIRE-020B — Behavior and trace v2 envelopes are exact
 
-In-memory inspection retains the original Effect v4 `Cause`. Export and import MUST preserve complete
-failure evidence rather than stringify, drop, or silently collapse it. The artifact Cause projection,
-accepted reason envelope, handling of defects and interruptors, noncanonical-payload diagnostics, and
-exact nested members remain unresolved under `BEH-033`; this contract does not choose a projection
-shape, codec, or diagnostic name.
+The internal JSON envelopes are exact. Object keys are sorted by their UTF-8 byte sequences. Finite JSON
+numbers use the `JSON.stringify(number)` serialization, strings use JSON string escaping without Unicode
+normalization, and strings MUST be strict UTF-8 with no lone surrogates. Duplicate keys, non-finite numbers,
+negative zero, accessors, sparse arrays, and reserved prototype keys reject. ID-indexed declaration arrays are
+sorted by their UTF-8 byte comparator. Authored state-child order, authored event order, checkpoint order,
+record sequence order, Cause-reason order, and fact order are preserved. Requirement-ID lists are sorted by
+the same comparator because they are identity indexes. The file boundary adds one trailing newline only after
+canonical encoding.
 
-If compressed artifact input is retained by the coordinated artifact path, its compressed-input and
-decompressed-output counters MUST remain independent streaming caps and stop reading as soon as their own
-limit is exceeded; canonical encoded size is checked again after artifact encoding. The accepted revisions do
-not choose a compression member format or import representation.
+These rejection rules apply to serialized artifact carriers. Canonical operation keys are validated by
+`REV-OPS-016`, which defensively copies and freezes accepted dense arrays and plain records and normalizes
+`-0` to `0` before applying its separate `KBytes` bounds.
+
+A behavior artifact contains `kind: "behavior-contract"`, `version: "flow-state/behavior-contract.v2"`,
+`appId`, `persistenceVersion`, `appPlanFingerprint`, `requirements`, `modules`, `machines`, and `stories`.
+`requirements` is the normalized package-private static requirement table; every operation requirement ID
+MUST resolve to exactly one record. `modules` is an ID-indexed array of `{ id, machineIds }`; each machine
+contains its recursive state tree, root default, events, context-provider requirements, operation requirements,
+activity slots, and timer slots. Each Story is an app or machine metadata record. Actor recipes are run-local
+construction inputs and are not artifact Story kinds. The artifact contains declarations and coverage identity
+only: no callbacks, Effects, fixtures, runtime actors, live refs, or runtime state.
+
+`appPlanFingerprint` is package-private lowercase hexadecimal SHA-256. Its preimage is the exact canonical
+UTF-8 JSON encoding, without a trailing newline, of `{ appId, persistenceVersion, requirements, modules, machines }`
+after ID-indexed sorting and semantic-order preservation; `stories` are artifact metadata and are not part
+of the plan preimage. The encoder recomputes and verifies the field. Empty IDs, duplicate IDs, duplicate
+machine values, duplicate module ownership, missing module references, invalid direct-child defaults,
+duplicate operation or slot IDs, unresolved requirement IDs, invalid Story metadata, malformed trace records,
+invalid lifecycle tuples, and inconsistent Story evidence reject compilation or artifact construction with
+the following closed codes: invalid IDs use `InvalidDescriptorId`; duplicate IDs and duplicate operation or
+slot IDs use `DuplicateDescriptorId`; duplicate machine values use `DuplicateMachineValue`; duplicate module
+ownership uses `DuplicateModuleOwnership`; missing module references use `MissingModuleReference`; invalid
+defaults use `InvalidStateDefault`; unresolved operation requirements use `UnresolvedRequirementId`; invalid
+Story metadata uses `InvalidStoryMetadata`; malformed trace records use `InvalidTraceRecord`; impossible
+lifecycle combinations use `InvalidLifecycleTransition`; and inconsistent end/failure/cleanup invariants use
+`InvalidStoryEvidence`. A mismatched fingerprint rejects import with `ArtifactIdentityMismatch`. No fingerprint
+or collision-resolution API is public.
+
+Trace artifacts are Story-run artifacts and contain `kind: "trace-artifact"`,
+`version: "flow-state/trace-artifact.v2"`, `storyId`, `appId`, `persistenceVersion`, `appPlanFingerprint`,
+`capturedAt`, `truncatedBeforeSequence`, `records`, `checkpoints`, `outcome`, `end`, `failure`, and `cleanup`.
+Records are an ordered discriminated union of exact TurnRecord and LifecycleRecord projections. A checkpoint
+is an app or machine projection; in-process named checkpoint lookup is serialized as an ordered array and
+duplicate names reject. `end` is named `end`, never `final`, and never implies actor completion. A completed
+artifact has a non-null `end`, `failure: null`, and complete cleanup. A failed artifact has a non-null
+`failure`; its root cleanup status MUST agree with the failure cleanup diagnostics.
+
+`failure` is either `null` or `{ phase, commandIndex, completedCheckpoints, end, diagnostic, secondary,
+cleanup, cancellation, evidence }`, where phase is `prepare`, `command`, `cancellation`, `cleanup`, or
+`artifact`, `commandIndex` is a non-negative safe integer or `null`, `secondary` and `cleanup` are ordered
+diagnostic arrays, `cancellation` is either `null`, `{ kind: "signal", signal: "SIGINT" | "SIGTERM" }`, or
+`{ kind: "programmatic" }`, and `evidence` is `{ acceptedThrough, drainedThrough }`. A cancellation phase
+MUST carry cancellation evidence; a non-cancellation phase MUST NOT invent it. Both sequence values are the
+last accepted/drained runtime-global evidence sequence for this run, zero means no evidence was accepted,
+and `drainedThrough` MUST NOT exceed `acceptedThrough`. `cleanup` at the artifact root is either
+`{ status: "complete" }` or `{ status: "failed", diagnostics }`, and failed diagnostics MUST equal the
+failure cleanup diagnostics.
+
+The following TypeScript-like aliases are exact local wire notation, not exported package types:
+
+```ts
+type StableId = string;
+type RunLocalId = string;
+type ActorIncarnationId = string;
+type Nullable<T> = T | null;
+type StringList = readonly string[];
+type NonNegative = number;
+type CanonicalCarrier =
+  | null
+  | string
+  | boolean
+  | number
+  | readonly CanonicalCarrier[]
+  | { readonly [key: string]: CanonicalCarrier };
+
+type Slot = {
+  machineId: StableId;
+  stateId: StableId;
+  kind: "activity" | "timer";
+  name: StableId;
+};
+
+type Requirement = {
+  id: StableId;
+  operationIds: StringList;
+};
+
+type StateNode =
+  | { token: StableId; kind: "leaf"; default: null; states: readonly [] }
+  | { token: StableId; kind: "compound"; default: StableId; states: readonly StateNode[] };
+type ContextRequirement = {
+  key: StableId;
+  providerMachineId: StableId;
+  providerRef: Nullable<StableId>;
+};
+type Operation = {
+  id: StableId;
+  kind: "resource" | "transaction" | "stream";
+  requirementIds: StringList;
+};
+type BehaviorMachine = {
+  machineId: StableId;
+  moduleId: StableId;
+  default: StableId;
+  states: readonly StateNode[];
+  events: StringList;
+  contextRequirements: readonly ContextRequirement[];
+  operations: readonly Operation[];
+  activitySlots: readonly Slot[];
+  timerSlots: readonly Slot[];
+};
+type StorySummary =
+  | {
+      id: StableId;
+      kind: "app";
+      machineId: null;
+      title: Nullable<string>;
+      description: Nullable<string>;
+      tags: StringList;
+    }
+  | {
+      id: StableId;
+      kind: "machine";
+      machineId: StableId;
+      title: Nullable<string>;
+      description: Nullable<string>;
+      tags: StringList;
+    };
+type BehaviorArtifact = {
+  kind: "behavior-contract";
+  version: "flow-state/behavior-contract.v2";
+  appId: StableId;
+  persistenceVersion: string;
+  appPlanFingerprint: string;
+  requirements: readonly Requirement[];
+  modules: readonly { id: StableId; machineIds: StringList }[];
+  machines: readonly BehaviorMachine[];
+  stories: readonly StorySummary[];
+};
+
+type CauseReasonProjection =
+  | { _tag: "Fail"; error: CanonicalCarrier }
+  | { _tag: "Die"; defect: CanonicalCarrier | { _tag: "Error"; name: string; message: string } }
+  | { _tag: "Interrupt"; fiberOrdinal: NonNegative };
+type CauseProjection = { reasons: readonly CauseReasonProjection[] };
+type DiagnosticCode =
+  | "InvalidCommand"
+  | "InvalidOption"
+  | "InvalidSelector"
+  | "UnknownSelector"
+  | "InvalidArtifactOperand"
+  | "InvalidProjectRoot"
+  | "ManifestNotFound"
+  | "InvalidManifest"
+  | "InvalidGatewayFile"
+  | "GatewayEscape"
+  | "UnsupportedGatewayImport"
+  | "UndeclaredGatewayImport"
+  | "PackageIdentityMismatch"
+  | "InvalidGatewayExport"
+  | "MixedAppBehavior"
+  | "StoryNotFound"
+  | "WrongArtifactKind"
+  | "UnsupportedArtifactVersion"
+  | "MalformedUtf8"
+  | "MalformedJson"
+  | "DuplicateJsonKey"
+  | "DecompressionFailed"
+  | "CompressedInputBoundExceeded"
+  | "DecompressedOutputBoundExceeded"
+  | "CanonicalEncodingBoundExceeded"
+  | "StructuralBoundExceeded"
+  | "InvalidCanonicalValue"
+  | "InvalidDescriptorId"
+  | "DuplicateDescriptorId"
+  | "DuplicateMachineValue"
+  | "DuplicateModuleOwnership"
+  | "MissingModuleReference"
+  | "InvalidStateDefault"
+  | "UnresolvedRequirementId"
+  | "InvalidStoryMetadata"
+  | "InvalidTraceRecord"
+  | "InvalidLifecycleTransition"
+  | "InvalidStoryEvidence"
+  | "ArtifactIdentityMismatch"
+  | "ArtifactIncompatible"
+  | "NonCanonicalTraceCause"
+  | "EvidenceUnavailable"
+  | "StoryExecutionFailed"
+  | "CleanupFailed"
+  | "ApplicationValidationFailed"
+  | "ArtifactInputReadFailed"
+  | "DestinationExists"
+  | "UnsupportedAtomicPublication"
+  | "ArtifactTempCreateFailed"
+  | "ArtifactWriteFailed"
+  | "ArtifactFlushFailed"
+  | "ArtifactCloseFailed"
+  | "ArtifactCommitFailed"
+  | "BrokenPipe"
+  | "Interrupted"
+  | "InternalInvariant";
+type UsageCode = "InvalidCommand" | "InvalidOption" | "InvalidSelector";
+type GatewayCode =
+  | "InvalidProjectRoot"
+  | "ManifestNotFound"
+  | "InvalidManifest"
+  | "InvalidGatewayFile"
+  | "GatewayEscape"
+  | "UnsupportedGatewayImport"
+  | "UndeclaredGatewayImport"
+  | "PackageIdentityMismatch"
+  | "InvalidGatewayExport"
+  | "MixedAppBehavior";
+type ArtifactCode =
+  | "InvalidArtifactOperand"
+  | "WrongArtifactKind"
+  | "UnsupportedArtifactVersion"
+  | "MalformedUtf8"
+  | "MalformedJson"
+  | "DuplicateJsonKey"
+  | "DecompressionFailed"
+  | "CompressedInputBoundExceeded"
+  | "DecompressedOutputBoundExceeded"
+  | "CanonicalEncodingBoundExceeded"
+  | "StructuralBoundExceeded"
+  | "InvalidCanonicalValue"
+  | "InvalidDescriptorId"
+  | "DuplicateDescriptorId"
+  | "DuplicateMachineValue"
+  | "DuplicateModuleOwnership"
+  | "MissingModuleReference"
+  | "InvalidStateDefault"
+  | "UnresolvedRequirementId"
+  | "InvalidStoryMetadata"
+  | "InvalidTraceRecord"
+  | "InvalidLifecycleTransition"
+  | "InvalidStoryEvidence"
+  | "ArtifactIdentityMismatch"
+  | "ArtifactIncompatible"
+  | "NonCanonicalTraceCause";
+type StoryCode = "StoryNotFound";
+type StoryExecutionCode = "StoryExecutionFailed";
+type CleanupCode = "CleanupFailed";
+type ApplicationCode = "ApplicationValidationFailed";
+type IoCode =
+  | "ArtifactInputReadFailed"
+  | "DestinationExists"
+  | "UnsupportedAtomicPublication"
+  | "ArtifactTempCreateFailed"
+  | "ArtifactWriteFailed"
+  | "ArtifactFlushFailed"
+  | "ArtifactCloseFailed"
+  | "ArtifactCommitFailed"
+  | "BrokenPipe";
+type InterruptionCode = "Interrupted";
+type InternalCode = "InternalInvariant";
+type DiagnosticBase = { message: string; cause: Nullable<CauseProjection> };
+type ArtifactDetails = {
+  path: readonly (string | NonNegative)[];
+  limit: Nullable<NonNegative>;
+  actual: Nullable<NonNegative>;
+};
+type Diagnostic =
+  | (DiagnosticBase & {
+      category: "usage";
+      code: UsageCode;
+      details: { argument: Nullable<string> };
+    })
+  | (DiagnosticBase & {
+      category: "gateway";
+      code: GatewayCode;
+      details: { path: Nullable<string>; importSpecifier: Nullable<string> };
+    })
+  | (DiagnosticBase & { category: "artifact"; code: ArtifactCode; details: ArtifactDetails })
+  | (DiagnosticBase & {
+      category: "artifact";
+      code: "UnknownSelector";
+      details: ArtifactDetails & { selector: string };
+    })
+  | (DiagnosticBase & {
+      category: "artifact";
+      code: "EvidenceUnavailable";
+      details: ArtifactDetails & { truncatedBeforeSequence: NonNegative };
+    })
+  | (DiagnosticBase & { category: "story"; code: StoryCode; details: { storyId: StableId } })
+  | (DiagnosticBase & {
+      category: "story-execution";
+      code: StoryExecutionCode;
+      details: { storyId: StableId; failure: StoryFailure };
+    })
+  | (DiagnosticBase & { category: "cleanup"; code: CleanupCode; details: { operation: string } })
+  | (DiagnosticBase & {
+      category: "application";
+      code: ApplicationCode;
+      details: { path: StringList; value: CanonicalCarrier };
+    })
+  | (DiagnosticBase & {
+      category: "io";
+      code: IoCode;
+      details: { path: Nullable<string>; operation: string; errno: Nullable<string> };
+    })
+  | (DiagnosticBase & {
+      category: "interruption";
+      code: InterruptionCode;
+      details: { kind: "signal"; signal: "SIGINT" | "SIGTERM" } | { kind: "programmatic" };
+    })
+  | (DiagnosticBase & { category: "internal"; code: InternalCode; details: { invariant: string } });
+type DiffSection = { name: string; equal: boolean; lines: StringList };
+type EqualDiffData = { equal: true; sections: readonly DiffSection[] };
+type DifferentDiffData = { equal: false; sections: readonly DiffSection[] };
+type TraceDiffData =
+  | { equal: true; complete: true; sections: readonly DiffSection[] }
+  | { equal: false; complete: true; sections: readonly DiffSection[] }
+  | { equal: true; complete: false; sections: readonly DiffSection[] }
+  | { equal: false; complete: false; sections: readonly DiffSection[] };
+type RunLocalRecipeId = { runId: RunLocalId; recipeId: RunLocalId };
+type ActorEvidenceId =
+  { kind: "stable-ref"; value: StableId } | { kind: "story-recipe"; value: RunLocalRecipeId };
+type ActorLifecycle = "prepared" | "active" | "suspended" | "disposed";
+type IssueProjection = {
+  id: StableId;
+  kind: StableId;
+  message: string;
+  cause: Nullable<CauseProjection>;
+};
+type ActorSnapshotProjection = {
+  state: StableId;
+  memory: CanonicalCarrier;
+  context: CanonicalCarrier;
+  lifecycle: ActorLifecycle;
+  issues: readonly IssueProjection[];
+  publicationRevision: NonNegative;
+  storeRevision: NonNegative;
+};
+type ActorEvidence = {
+  actor: ActorEvidenceId;
+  machineId: StableId;
+  snapshot: ActorSnapshotProjection;
+};
+type PendingWork = {
+  finite: readonly { kind: string; id: StableId }[];
+  continuing: readonly { kind: string; id: StableId }[];
+  nextTimerAt: Nullable<NonNegative>;
+};
+type RuntimeEvidence = { now: NonNegative; pendingWork: PendingWork };
+type AppCheckpoint = {
+  kind: "app";
+  name: string;
+  commandIndex: NonNegative;
+  actors: readonly ActorEvidence[];
+  runtime: RuntimeEvidence;
+};
+type MachineCheckpoint = {
+  kind: "machine";
+  name: string;
+  commandIndex: NonNegative;
+  snapshot: ActorSnapshotProjection;
+  runtime: RuntimeEvidence;
+};
+type Checkpoint = AppCheckpoint | MachineCheckpoint;
+type LifecycleCause =
+  | "fresh-creation"
+  | "boot-restoration"
+  | "attachment-commit"
+  | "attachment-cleanup"
+  | "attachment-reacquisition"
+  | "owner-disposal"
+  | "runtime-disposal";
+type StoryFailure = {
+  phase: "prepare" | "command" | "cancellation" | "cleanup" | "artifact";
+  commandIndex: Nullable<NonNegative>;
+  completedCheckpoints: readonly Checkpoint[];
+  end: Nullable<Checkpoint>;
+  diagnostic: Diagnostic;
+  secondary: readonly Diagnostic[];
+  cleanup: readonly Diagnostic[];
+  cancellation: Nullable<
+    { kind: "signal"; signal: "SIGINT" | "SIGTERM" } | { kind: "programmatic" }
+  >;
+  evidence: { acceptedThrough: NonNegative; drainedThrough: NonNegative };
+};
+type OperationTraceIdentity = {
+  operationId: StableId;
+  operationKind: "resource" | "transaction" | "stream";
+  actor: ActorEvidenceId;
+  generation: NonNegative;
+  occurrence: Nullable<NonNegative>;
+  key: CanonicalCarrier;
+};
+type TraceFact =
+  | {
+      kind: "operation";
+      identity: OperationTraceIdentity;
+      status: StableId;
+      value: CanonicalCarrier;
+    }
+  | {
+      kind: "context";
+      consumer: ActorEvidenceId;
+      key: StableId;
+      provider: ActorEvidenceId;
+      providerRevision: NonNegative;
+      value: CanonicalCarrier;
+    }
+  | {
+      kind: "store";
+      revision: NonNegative;
+      changedRefs: StringList;
+      value: CanonicalCarrier;
+    }
+  | { kind: "timer"; timerId: StableId; dueAt: NonNegative; status: StableId }
+  | { kind: "issue"; issueId: StableId; source: StableId; value: CanonicalCarrier };
+type TraceRecordBase = {
+  sequence: NonNegative;
+  actor: ActorEvidenceId;
+  actorIncarnation: ActorIncarnationId;
+  appId: StableId;
+  appPlanFingerprint: string;
+  publicationRevision: NonNegative;
+  machineTurnRevision: NonNegative;
+  snapshot: ActorSnapshotProjection;
+  timestamp: NonNegative;
+};
+type TurnRecordProjection = TraceRecordBase & {
+  kind: "turn";
+  cause: Nullable<CauseProjection>;
+  facts: readonly TraceFact[];
+};
+type LifecycleRecordProjection = TraceRecordBase &
+  (
+    | {
+        kind: "lifecycle";
+        event: "actor:restore";
+        from: "prepared";
+        to: "prepared";
+        cause: "boot-restoration";
+      }
+    | {
+        kind: "lifecycle";
+        event: "actor:start";
+        from: "prepared";
+        to: "active";
+        cause: "fresh-creation" | "boot-restoration" | "attachment-commit";
+      }
+    | {
+        kind: "lifecycle";
+        event: "actor:suspend";
+        from: "active";
+        to: "suspended";
+        cause: "attachment-cleanup";
+      }
+    | {
+        kind: "lifecycle";
+        event: "actor:resume";
+        from: "suspended";
+        to: "active";
+        cause: "attachment-reacquisition";
+      }
+    | {
+        kind: "lifecycle";
+        event: "actor:dispose";
+        from: "prepared" | "active" | "suspended";
+        to: "disposed";
+        cause: "owner-disposal" | "runtime-disposal";
+      }
+  );
+type TraceRecord = TurnRecordProjection | LifecycleRecordProjection;
+type TraceArtifactBase = {
+  kind: "trace-artifact";
+  version: "flow-state/trace-artifact.v2";
+  storyId: StableId;
+  appId: StableId;
+  persistenceVersion: string;
+  appPlanFingerprint: string;
+  capturedAt: NonNegative;
+  truncatedBeforeSequence: Nullable<NonNegative>;
+  records: readonly TraceRecord[];
+  checkpoints: readonly Checkpoint[];
+};
+type TraceArtifact =
+  | (TraceArtifactBase & {
+      outcome: "completed";
+      end: Checkpoint;
+      failure: null;
+      cleanup: { status: "complete" };
+    })
+  | (TraceArtifactBase & {
+      outcome: "failed";
+      end: Nullable<Checkpoint>;
+      failure: StoryFailure;
+      cleanup: { status: "complete" } | { status: "failed"; diagnostics: readonly Diagnostic[] };
+    });
+```
+
+`truncatedBeforeSequence` is `null` exactly when the trace contains the complete retained prefix; a
+non-null value marks the first omitted runtime-global sequence. Decoding rejects a missing or inconsistent
+truncation marker, and summary projection preserves the same null/non-null distinction.
+
+The same decoded model projects CLI results through one package-private `flow-state/cli-result.v2` envelope.
+The envelope is exactly:
+
+```ts
+type CliCommand =
+  | "behavior.build"
+  | "behavior.render"
+  | "behavior.diff"
+  | "behavior.check"
+  | "story.list"
+  | "story.describe"
+  | "story.run"
+  | "trace.summarize"
+  | "trace.proof"
+  | "trace.diff";
+type CliDataByCommand = {
+  "behavior.build": { artifact: BehaviorArtifact; appId: StableId; appPlanFingerprint: string };
+  "behavior.render": {
+    appId: StableId;
+    moduleId: Nullable<StableId>;
+    section: "contract" | "coverage";
+    lines: StringList;
+  };
+  "behavior.diff": EqualDiffData | DifferentDiffData;
+  "behavior.check": EqualDiffData | DifferentDiffData;
+  "story.list": { stories: readonly StorySummary[] };
+  "story.describe": { story: StorySummary };
+  "story.run": {
+    storyId: StableId;
+    checkpoints: readonly Checkpoint[];
+    end: Checkpoint;
+    failure: null;
+    traceOutput: Nullable<string>;
+  };
+  "trace.summarize": TraceSummaryData;
+  "trace.proof": TraceProofData;
+  "trace.diff": TraceDiffData;
+};
+type CliData = CliDataByCommand[CliCommand];
+type TraceSummaryData =
+  | {
+      complete: true;
+      truncatedBeforeSequence: null;
+      counts: { records: NonNegative; issues: NonNegative; actors: NonNegative };
+      timeline: readonly { sequence: NonNegative; actor: ActorEvidenceId; summary: string }[];
+    }
+  | {
+      complete: false;
+      truncatedBeforeSequence: NonNegative;
+      counts: { records: NonNegative; issues: NonNegative; actors: NonNegative };
+      timeline: readonly { sequence: NonNegative; actor: ActorEvidenceId; summary: string }[];
+    };
+type TraceProofData = {
+  selector: string;
+  complete: true;
+  evidence: readonly {
+    sequence: NonNegative;
+    actor: ActorEvidenceId;
+    facts: readonly TraceFact[];
+  }[];
+};
+type CliEnvelope<C extends CliCommand, O extends string, D> = {
+  version: "flow-state/cli-result.v2";
+  kind: "result";
+  command: C;
+  outcome: O;
+  data: D;
+};
+type CliResultByCommand = {
+  "behavior.build": CliEnvelope<"behavior.build", "completed", CliDataByCommand["behavior.build"]>;
+  "behavior.render": CliEnvelope<
+    "behavior.render",
+    "completed",
+    CliDataByCommand["behavior.render"]
+  >;
+  "behavior.diff":
+    | CliEnvelope<"behavior.diff", "equal", EqualDiffData>
+    | CliEnvelope<"behavior.diff", "different", DifferentDiffData>;
+  "behavior.check":
+    | CliEnvelope<"behavior.check", "equal", EqualDiffData>
+    | CliEnvelope<"behavior.check", "different", DifferentDiffData>;
+  "story.list": CliEnvelope<"story.list", "completed", CliDataByCommand["story.list"]>;
+  "story.describe": CliEnvelope<"story.describe", "completed", CliDataByCommand["story.describe"]>;
+  "story.run": CliEnvelope<"story.run", "completed", CliDataByCommand["story.run"]>;
+  "trace.summarize":
+    | CliEnvelope<"trace.summarize", "completed", Extract<TraceSummaryData, { complete: true }>>
+    | CliEnvelope<"trace.summarize", "incomplete", Extract<TraceSummaryData, { complete: false }>>;
+  "trace.proof": CliEnvelope<
+    "trace.proof",
+    "completed",
+    Extract<TraceProofData, { complete: true }>
+  >;
+  "trace.diff":
+    | CliEnvelope<"trace.diff", "equal", Extract<TraceDiffData, { equal: true; complete: true }>>
+    | CliEnvelope<
+        "trace.diff",
+        "different",
+        Extract<TraceDiffData, { equal: false; complete: true }>
+      >
+    | CliEnvelope<
+        "trace.diff",
+        "different",
+        Extract<TraceDiffData, { equal: false; complete: false }>
+      >
+    | CliEnvelope<
+        "trace.diff",
+        "incomplete",
+        Extract<TraceDiffData, { equal: true; complete: false }>
+      >;
+};
+type CliResult = CliResultByCommand[CliCommand];
+type CliError = {
+  version: "flow-state/cli-result.v2";
+  kind: "error";
+  command: Nullable<CliCommand>;
+  diagnostic: Diagnostic;
+  secondary: readonly Diagnostic[];
+};
+```
+
+The envelope `command` member discriminates the `data` union; it is not serialized a second time inside
+`data`. A successful command uses `outcome: "completed"`; comparison commands use `"equal"`, `"different"`, or
+`"incomplete"` according to their data, and `trace.summarize` uses `"completed"` or `"incomplete"`.
+`trace.proof` is successful only for complete evidence; truncation emits `CliError` with
+`code: "EvidenceUnavailable"`. A successful `story.run` has `outcome: "completed"`, a non-null `end`, and
+`failure: null`.
+Execution, cancellation, cleanup, and trace-write failures use `CliError` with the partial Story failure in
+the primary diagnostic and ordered `secondary` diagnostics. Every nullable field is present with `null`;
+omitted fields, unknown members, and duplicate keys reject before projection. The envelopes are package-private,
+deeply frozen, and are not public artifact types or exported CLI API.
+
+Raw Effect `Cause` is public only on the declared in-process Flow error boundaries `FlowDisposeError` and
+`FlowStoryExecutionError`. It is not JSON data: artifact and CLI projections use the
+ordered `CauseProjection` above, preserving Effect v4 traversal order and duplicate multiplicity. Full
+Effect `Cause`, fiber objects, closures, and runtime references never enter a serialized envelope.
+
+Opaque application memory, event payloads, operation values/errors, and diagnostic carriers use the owning
+application codec and the bounded canonical carrier walker; they contain no callbacks, Effects, fibers,
+Queues, Scopes, actor handles, or live refs. Unknown fields, duplicate JSON keys, reserved prototype keys,
+unsupported versions/kinds, and legacy `final`, `children`, Scenario, and v1 trace shapes reject before
+projection. Artifact input is either stable-key UTF-8 JSON or exactly one gzip member. Gzip is detected by
+the standard magic header, concatenated members and trailing bytes are rejected as `DecompressionFailed`,
+compressed and decompressed streams are each capped at 2,097,152 bytes. Artifact files are always
+uncompressed stable-key UTF-8 JSON with exactly one trailing newline at the file boundary; CLI command
+output follows the selected `--format` rules in `CLI-008`.
 
 ## Story evidence
 
@@ -375,10 +1015,14 @@ NOT process work, move time, or copy an independently mutable issue or resource 
 
 ### WIRE-022 — Cancellation preserves partial evidence and cleanup truth
 
-Story cancellation MUST retain completed checkpoints and truthful failure and cleanup evidence, await
-production disposal, and fail rather than return success. The exact public failure-result members, cleanup
-aggregation, and primary/secondary Cause representation remain unresolved under `BEH-022` and `BEH-033`;
-this contract does not choose them.
+Story cancellation MUST close command admission, retain completed checkpoints and truthful failure and
+cleanup evidence, await non-abortable production disposal, and fail rather than return success. The
+package-owned deeply frozen `FlowStoryExecutionError` envelope contains the failure boundary, primary
+diagnostic, ordered cleanup diagnostics, cancellation evidence when applicable, and accepted/drained
+evidence-sequence facts. A captured `end` remains in the error when cleanup fails, but no successful result
+is returned; failure before end capture does not manufacture `run.end`. Only `FlowDisposeError` and
+`FlowStoryExecutionError` preserve the complete Effect `Cause.Cause<unknown>`; the artifact Cause projection uses the ordered private
+`CauseProjection` in WIRE-020B.
 
 ### WIRE-023 — Story success implies completed cleanup
 

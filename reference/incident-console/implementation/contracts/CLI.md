@@ -9,11 +9,11 @@ runtime, runner, history, validator, matcher language, or artifact interpretatio
 
 Artifact and trace schema authority belongs to [`PERSISTENCE_AND_ARTIFACTS.md`](./PERSISTENCE_AND_ARTIFACTS.md).
 This contract owns CLI grammar, gateway loading, file/stream I/O, formatting, exit status, and proof
-obligations. The CLI consumes the one Flow-owned package-private decoded vNext model shared with the
+obligations. The CLI consumes the one Flow-owned package-private decoded v2 model shared with the
 Story runner; it MUST NOT define a CLI-only artifact decoder, Story-evidence model, result schema, or
 legacy `final`/`children` compatibility shape. This target contract does not claim that the package,
-Phase 0 fixtures, phase receipts, or installed binary already ship the target schema; `BEH-033` remains
-open until the coordinated closure is promoted and proved.
+Phase 0 fixtures, phase receipts, or installed binary already ship the target schema; `REV-MIG-005` and
+WIRE-020B are the current schema authority, while executable gates still prove the implementation.
 
 The CLI is a process host over compiled behavior inspection, runtime inspection and trace projections,
 static source analysis, the shared Story executor, bounded artifact codecs, and process/file I/O. It owns
@@ -27,14 +27,14 @@ artifact-only commands remain execution-free as defined below.
 ### CLI-001 — The leaf command set is exact
 
 ```text
-flow-state behavior build --output <path> [--force] [--project-root <dir>] [--gateway <path>] [--format text|json]
+flow-state behavior build --output <path> [--force] [--project-root <dir>] --gateway <path> [--format text|json]
 flow-state behavior render <artifact|-> [--section contract|coverage] [--module <id>] [--format text|json]
 flow-state behavior diff <left> <right> [--module <id>] [--format text|json]
-flow-state behavior check <expected|-> [--project-root <dir>] [--gateway <path>] [--format text|json]
+flow-state behavior check <expected|-> [--project-root <dir>] --gateway <path> [--format text|json]
 
-flow-state story list [--project-root <dir>] [--gateway <path>] [--machine <id>] [--tag <tag>] [--format text|json]
-flow-state story describe <story-id> [--project-root <dir>] [--gateway <path>] [--format text|json]
-flow-state story run <story-id> [--project-root <dir>] [--gateway <path>] [--trace-output <path>] [--force] [--format text|json]
+flow-state story list [--project-root <dir>] --gateway <path> [--machine <id>] [--tag <tag>] [--format text|json]
+flow-state story describe <story-id> [--project-root <dir>] --gateway <path> [--format text|json]
+flow-state story run <story-id> [--project-root <dir>] --gateway <path> [--trace-output <path>] [--force] [--format text|json]
 
 flow-state trace summarize <artifact|-> [--format text|json]
 flow-state trace proof <artifact|-> --selector <selector> [--format text|json]
@@ -44,6 +44,13 @@ flow-state trace diff <left> <right> [--section <section>] [--format text|json]
 `behavior check` is the only new vNext leaf. It builds the live behavior in memory and compares
 its canonical artifact with the supplied expected artifact through the same diff projection as
 `behavior diff`.
+
+`--project-root` defaults to the canonicalized current working directory. `--gateway` is required for
+every gateway-loading command and resolves only relative to that root; no ancestor search or implicit
+gateway filename is permitted. `--format` defaults to `text`; `behavior render --section` defaults to
+`contract`, and `trace diff --section` defaults to the complete ordered section set. `--force` is valid only
+with `--trace-output`. An option may occur once only; unknown options, missing option values, conflicting
+repeated operands, and `--force` without its output target are usage failures.
 
 The binary MUST NOT expose the deleted Story and scenario surfaces in `DEL-009` or the conflicting
 server, persistence, artifact, inspect, and CLI surfaces in `DEL-010`; it stays within the accepted
@@ -98,9 +105,14 @@ runtime, fixture, actor, inspection sink, or story executor. Registration and di
 pure.
 
 `story run` MUST use the package-private executor that also implements the plan's public `.run()`.
-It MUST produce the same checkpoints, `run.end` evidence, execution error, primary Cause
+It MUST produce the same checkpoints, `run.end` evidence, execution error, private ordered `CauseProjection`
 projection, and cleanup truth. The CLI MUST NOT call the deleted Scenario runner or add a public
 sink option to `StoryPlan.run()`.
+
+A successful `story run` emits the WIRE-020B `CliResult` with `outcome: "completed"`, a non-null `end`,
+and `failure: null`. Execution, cancellation, cleanup, or trace-write failure emits `CliError` for
+`command: "story.run"` with the partial Story failure in its primary diagnostic and ordered secondary
+diagnostics; it never emits an incomplete successful Story result.
 
 The Story runner and CLI MUST consume the same package-private decoded evidence model for checkpoints,
 end evidence, failure evidence, cleanup truth, and retained trace records. Neither surface may add a
@@ -112,10 +124,15 @@ second decoded model or expose that internal model as a public package type.
 
 Behavior and trace input MUST pass through the retained bounded artifact-validation path and WIRE-016
 structural limits before projection. Artifact-only commands MUST NOT load an application or run a boot-domain
-decoder. The accepted artifact kinds, versions, compression representation, and exact nested schemas remain
-part of the coordinated artifact and CLI closure under `BEH-033`; this contract MUST NOT invent an envelope,
-codec, format migration, public field, or diagnostic shape, and deleted Scenario/local-proof formats MUST NOT
-be accepted. The target decoded model has no legacy `final` or `children` members.
+decoder. The accepted artifact kinds, versions, compression representation, and exact nested schemas are
+defined by WIRE-020B; this contract MUST NOT invent a competing envelope, codec, format migration, public
+field, or diagnostic shape, and deleted Scenario/local-proof formats MUST NOT be accepted. The target decoded
+model has no legacy `final` or `children` members. Inputs are either stable-key UTF-8 JSON or exactly one
+gzip member; concatenated gzip members, trailing bytes, unsupported compression, and decompression-bound
+violations are `DecompressionFailed` or the applicable bounded-input diagnostic. Artifact files are always
+uncompressed stable-key UTF-8 JSON with exactly one trailing newline at the file boundary. Command output
+uses the selected `--format`; text is the deterministic line document defined by CLI-008 and JSON is the
+canonical WIRE-020B envelope.
 
 `-` means stdin only for an artifact input. Every named artifact operand MUST be an existing
 regular file; FIFOs and devices are accepted only through stdin. A command with two artifact
@@ -135,7 +152,8 @@ same-directory hard link from the temporary to the absent destination and then u
 temporary; a destination created after preflight makes the link fail without clobbering it. With
 `--force`, commit uses atomic same-directory rename and may replace the destination entry. Failure
 or interruption before the link/rename commit point leaves the prior destination unchanged and
-removes the temporary file; after commit, cleanup may only remove the sibling temporary. VNext's
+attempts to remove the temporary file; a failed removal is a named cleanup diagnostic and MUST NOT alter the
+destination guarantee. After commit, cleanup may only remove the sibling temporary. VNext's
 guarantee is POSIX same-filesystem link/rename semantics, never truncate-in-place writing;
 unsupported filesystems fail with a named local-I/O diagnostic rather than weakening the
 guarantee.
@@ -143,11 +161,10 @@ guarantee.
 A story run without `--trace-output` installs no inspection sink and retains no history. A traced
 run installs exactly one `createInspectionBufferSink()` at its default capacity of 256. The
 artifact preserves retained TurnRecords, `truncatedBeforeSequence`, completed checkpoints,
-partial failure evidence, primary Cause, and cleanup truth. Execution failure MUST NOT suppress
-requested trace output. If execution and artifact writing both fail, the diagnostic retains both
-failures without replacing the execution Cause.
-Execution remains the primary Cause when execution, sink drain, artifact write, and cleanup fail
-together; every secondary Cause is retained in deterministic operation order.
+partial failure evidence, private `CauseProjection`, and cleanup truth. Execution failure MUST NOT suppress
+requested trace output. If execution and artifact writing both fail, the primary diagnostic retains the
+execution failure and `secondary` retains artifact-write, sink-drain, and cleanup diagnostics in deterministic
+operation order.
 Destination and parent-directory preflight MUST finish before story runtime or fixture acquisition,
 so a known no-force conflict has no application side effect. A race discovered at hard-link commit
 is a later local-I/O failure and leaves the newly created destination untouched.
@@ -180,21 +197,21 @@ The private result data remains closed by command. Build and render expose compi
 diff and check expose comparison sections; Story list and describe expose registered Story data; Story run
 exposes exact actor-targeted checkpoints, `run.end`, and optional trace output; and trace commands expose
 retained evidence and comparison sections. Every collection uses the ordering of its artifact projection,
-optional file outputs use `null`, and the exact nested result and failure members remain subject to the
-coordinated `BEH-033` artifact and CLI closure.
+optional file outputs use `null`, and the exact nested result and failure members are the WIRE-020B model.
 
-Failure and diagnostic data MUST reuse the accepted Cause-bearing inspection and Story evidence
-projections. The exact nested diagnostic/result members, Cause projection, cleanup aggregation, and
-artifact/CLI representation remain unresolved under `BEH-022` and `BEH-033`; the CLI MUST NOT reconstruct
+Failure and diagnostic data MUST reuse the accepted package-owned Story error envelope and
+`CauseProjection`-bearing
+inspection/artifact projections. Cleanup aggregation and the Story failure boundary are closed by the Story
+contracts; the artifact Cause projection and remaining artifact/CLI representation are fixed by WIRE-020B.
+The CLI MUST NOT reconstruct
 Scenario, expected-state, matcher, or the deleted Story/scenario vocabulary.
 
 The Story vocabulary is `run.end`; it does not imply actor completion, and the CLI MUST NOT introduce a
 legacy `final` alias in text, JSON, or decoded evidence.
 
-The exact private result and diagnostic unions, including nested Cause, checkpoint, actor-evidence,
-cleanup, timeline, and bound members, remain part of the coordinated `BEH-033` artifact and CLI closure.
-This contract preserves one immutable result for text and JSON and MUST NOT add a second public result or
-diagnostic hierarchy, invent diagnostic codes, or imply that unresolved representation work is complete.
+The exact private result and diagnostic unions, including the WIRE-020B `flow-state/cli-result.v2` envelope,
+Cause projection, checkpoint, actor-evidence, cleanup, timeline, and bound members, are owned by WIRE-020B.
+This contract MUST NOT define a second result/data/outcome/diagnostic schema or invent diagnostic codes.
 
 ### CLI-008 — Stdout, stderr, and formatting are exact
 
@@ -206,19 +223,31 @@ An `EPIPE` from stdout or stderr selects exit 2 and MUST NOT recurse into a seco
 constructs each stream's output as one complete buffer and attempts one write, but cannot promise
 an envelope or zero accepted bytes on the stream whose write failed.
 
-A completed story always has `outcome: "completed"`, including typed product failures, contained
-primitive defects, or interruptions represented in its product evidence. Machine state is product
-truth; the CLI does not decide whether that state passes a test.
+Text output is a deterministic UTF-8 line document. Each line is `path = scalar`, where paths use dot
+segments and zero-based `[index]` segments, scalar strings use JSON escaping, and null/boolean/number
+values use canonical JSON tokens. Lines follow the WIRE-020B field and collection order, contain no blank
+lines or ANSI escapes, and end with exactly one newline. JSON output is the exact canonical WIRE-020B
+envelope with exactly one trailing newline.
+
+A successful Story result always has `outcome: "completed"`; typed product failures and contained domain
+defects remain product evidence rather than CLI assertion failures. Runtime execution, cancellation, cleanup,
+or trace-write failure uses `CliError` instead. Machine state is product truth; the CLI does not decide
+whether that state passes a test.
 
 ### CLI-009 — One process owner selects exit status
 
 Exit status is exactly:
 
-- `0` for a completed non-comparison command or a complete equal comparison;
-- `1` when `behavior check`, `behavior diff`, or `trace diff` is `different` or `incomplete`;
+- `0` for a completed non-comparison command, an incomplete `trace summarize`, or a complete equal comparison;
+- `1` when `behavior check` or `behavior diff` is `different`, or when `trace diff` is `different` or
+  `incomplete`;
 - `2` for usage, gateway, artifact, story execution, cleanup, local I/O, or internal failure;
 - `130` after first `SIGINT` cleanup;
 - `143` after first `SIGTERM` cleanup.
+
+Behavior artifacts are complete declaration artifacts: `behavior check` and `behavior diff` produce only
+`equal` or `different`. They never use the trace-only `incomplete` outcome; an invalid or incompatible
+behavior artifact is an exit-2 artifact failure.
 
 Leaf handlers MUST NOT mutate `process.exitCode` or call `process.exit`. One main owner maps the
 immutable result only after the CLI Effect runtime and every owned resource dispose.
@@ -227,7 +256,8 @@ immutable result only after the CLI Effect runtime and every owned resource disp
 
 The first `SIGINT` or `SIGTERM` interrupts current work. A story run stops later commands,
 captures failure-boundary evidence, awaits non-abortable cleanup, writes a requested partial trace atomically,
-then emits the interruption diagnostic. Cleanup or trace-write failure remains attached, but the
+then emits a `CliError` with `category: "interruption"` and the signal-specific diagnostic. Cleanup or
+trace-write failure remains in ordered secondary diagnostics, but the
 signal exit code remains 130 or 143. Discovery and artifact commands finalize temporary gateway
 or output files before returning. A second signal may terminate immediately; `SIGKILL` and host
 loss provide no cleanup or output guarantee.
@@ -235,7 +265,7 @@ loss provide no cleanup or output guarantee.
 The link/rename is the exact artifact commit boundary for signal handling. A first signal observed
 before it prevents publication, removes the sibling temporary, and preserves the prior or absent
 destination. A first signal observed after it never rolls back or deletes the committed artifact;
-Flow completes cleanup and emits the interruption result with the signal exit code. Deterministic
+Flow completes cleanup and emits the interruption `CliError` with the signal exit code. Deterministic
 tests MUST gate both sides of the filesystem call rather than infer the boundary from wall-clock
 timing.
 
@@ -244,16 +274,18 @@ timing.
 ### CLI-011 — Truncated evidence cannot prove completeness
 
 `trace summarize` succeeds with exit 0 but labels its counts and timeline as retained-window
-evidence and exposes `truncatedBeforeSequence`.
+evidence and exposes `truncatedBeforeSequence`. This remains exit 0 for both complete and incomplete
+summaries; incompleteness is evidence metadata, not a command failure.
 
-`trace proof` MUST NOT report an absent actor or correlation as unknown when the artifact is
-truncated. It fails with an `EvidenceUnavailable` artifact diagnostic carrying the truncation
-marker. The same absence in a complete artifact is an ordinary unknown-selector diagnostic.
+`trace proof` MUST fail for every truncated artifact with an `EvidenceUnavailable` artifact diagnostic carrying
+the non-null `truncatedBeforeSequence` marker. It MUST NOT report retained evidence as a complete proof and
+MUST NOT report an absent actor or correlation as an ordinary unknown while the artifact is truncated. The
+same absence in a complete artifact is an ordinary `UnknownSelector` diagnostic.
 
-`trace diff` returns `completed` only when both inputs are complete and every selected section is
-equal, `different` when any retained compared fact differs, and `incomplete` when retained facts
-match but either input is truncated. It MUST NOT print “equal” or “no changes” for incomplete
-evidence.
+`trace diff` returns `equal` only when both inputs are complete and every selected section is equal. It returns
+`different` when any retained compared fact differs, even when either input is truncated, and returns
+`incomplete` only when retained facts match but either input is truncated. It MUST NOT print “equal” or “no
+changes” for incomplete evidence.
 
 The `--section` domain is exactly `event-sequence`, `transitions`, `state-changes`, `issues`,
 `resource-patches`, `resource-freshness`, `transaction-outcomes`, `stream-outcomes`, or
@@ -288,5 +320,5 @@ rejected legacy Story/scenario flags and MUST NOT use a CLI-only artifact decode
 Prove a newly built and installed binary against a read-only consumer, including package identity,
 declaration/export absence for deleted surfaces, source/packed parity, temporary-file cleanup, and the
 current examples and root gate. A checked-in or stale `dist` artifact MUST NOT satisfy this proof. Exact
-artifact envelope, version, nested field, Cause, and diagnostic choices remain under `BEH-033` until their
-coordinated closure is accepted.
+artifact envelope, version, nested field, Cause, and diagnostic choices are fixed by WIRE-020B; this proof
+verifies the fresh implementation against that model.

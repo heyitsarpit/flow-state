@@ -41,7 +41,7 @@ with the independent review protocol in `SP-N006`; the implementation agent does
 self-promote Phase 3.
 
 Required review references are
-`skills/thermo-nuclear-code-quality-review/SKILL.md` and
+`.agents/skills/thermo-nuclear-code-quality-review/SKILL.md` and
 `/Users/arpit/.codex/skills/effect-ts/SKILL.md`. Read both before coding and again during final
 self-review.
 

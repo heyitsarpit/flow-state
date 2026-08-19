@@ -26,13 +26,14 @@ non-empty string of at most 256 UTF-8 bytes with no C0 control, DEL, lone-surrog
 point. Flow MUST NOT apply Unicode normalization or locale-sensitive comparison: composed and
 decomposed spellings remain distinct identities. Composite authored IDs use the canonical segment
 encoding `<utf8ByteLength>:<segment>` and a fixed namespace tag; raw delimiter concatenation is
-forbidden. This authored-ID rule does not prescribe the internal encoding of stable or opaque
-`ActorRef` values; that boundary remains open under `BEH-005`.
+forbidden. A durable stable `ActorRef` uses the fixed `actor:` namespace tag followed by two such
+UTF-8 segments in order: machine ID, then authored stable ID. Opaque `ActorRef` values are runtime-local
+and have no durable encoding.
 
 State tokens are exact definition-derived tokens that preserve the complete readable state path,
 including compound ancestors, such as `S.ACTIVE.S.EDITING`. Event tokens remain one machine-wide
-event protocol. The exact stable-ref and canonical identity encodings remain subject to their
-accepted boundaries, including `BEH-005` and `BEH-027`.
+event protocol. Stable-ref encoding follows `WIRE-008`; canonical identity encoding follows
+`REV-OPS-016`.
 
 ### GLO-02. Machine and actor
 
@@ -84,18 +85,11 @@ the ordered readonly canonical tuple projected synchronously from `P`; resource 
 identity use descriptor ID plus canonical `K`, while a live stream binding also retains its
 declaration slot.
 
-Canonical `K` contains only `null`, booleans, strings, finite numbers, readonly arrays, and plain
-readonly records. Canonicalization sorts record keys and normalizes `-0` to `0`. It rejects
-`undefined`, non-finite numbers, bigint, symbols, functions, accessors, class instances, mutable
-structures, cycles, and branded secret values. One key is limited to 16 nested levels, 256 total
-value nodes, and 8 KiB in the tagged canonical byte encoding. Projection, validation,
-canonicalization, and defensive freezing MUST finish before ownership, actor/store mutation,
-admission, or external work; failure names the exact key path and aborts the whole candidate turn.
-
-`BEH-027` remains unresolved for the exact byte grammar, hostile-reflection behavior, copying and
-freezing details, and the conflict between rejecting mutable structures and copying ordinary
-containers into Flow-owned immutable containers. This glossary selects no answer beyond the
-accepted public `P`/`K` boundary.
+Canonical `K` follows `REV-OPS-016`: Flow accepts ordinary dense arrays and plain records, copies them
+into Flow-owned containers, recursively freezes them, and freezes the top-level tuple. It sorts record
+keys, normalizes `-0` to `0`, rejects hostile reflection and unsupported values, and uses the exact
+bounded UTF-8 `KBytes` grammar. Capability, tenant, account, network, permission, session, and every
+other result-changing discriminator MUST be represented in `K`; runtime partitioning is not a substitute.
 
 ### GLO-06. Machine, actor, and operation identity
 
@@ -111,6 +105,11 @@ runtime-local actor and is neither durable nor restorable. A Story-local actor r
 by recipe object identity for one run. Refs carry no input, context bindings, construction policy,
 ownership, subscription, or disposal authority. A recipe contains its exact machine, required
 fresh input, and exact compatible context bindings, but no runtime or live ownership authority.
+
+`RunLocalId` identifies a Story run or recipe within one run. `ActorIncarnationId` identifies one
+runtime lifetime of an actor and is allocated independently for each actor lifetime. The two IDs MUST
+not be substituted for one another: a recipe may materialize multiple actor incarnations, and a later
+incarnation MUST NOT inherit the identity of an earlier one.
 
 ### GLO-07. App, module, `App.M`, and `AppPlan`
 
@@ -150,15 +149,24 @@ the ordinary actor handle without an owner lease. `runtime.createActor(machine, 
 contextBindings? })` always creates a fresh local actor and returns the owner lease. The actor
 handle exposes its exact `actor.ref`; neither the handle nor the ref exposes individual disposal.
 
+Only the production runtime factory or an explicit runtime owner may invoke the ownership-capable ensure
+path. One stable ref in one runtime incarnation has one shared owner lease and actor lifetime; concurrent
+ensures join that authority without per-caller reference counts. A boot-restored stable actor receives its
+runtime-owned lease before any public handle escapes, and a later factory ensure joins it. If the factory
+does not ensure it, runtime ownership lasts until explicit disposal or runtime shutdown.
+
 Owner-lease disposal is asynchronous, idempotent, and terminal. It is rejected before disposal
-begins while any non-disposed consumer, including a suspended consumer, remains bound to the actor's
-ref. Successful disposal tombstones a
+begins while any active or suspended consumer remains bound to the actor's ref. A suspended consumer
+retains its exact logical provider edge, provider ref, binding key, provider incarnation, last projection,
+and provider revision. Successful disposal tombstones a
 stable ref for the current runtime incarnation, so lookup and ensure reject that ref until runtime
 shutdown; a later runtime may reuse the authored stable ref under ordinary boot rules. Runtime
 factory-owned shared leases and Story-local creation leases retain their own disposal authority.
 Post-bootstrap admission validates the complete binding graph atomically and rolls back in reverse
-order on failure; concurrent ensures join one actor lifetime. Durable capture membership remains
-`BEH-004`, and stable-ref encoding remains `BEH-005`.
+order on failure; concurrent ensures join one actor lifetime. Dehydration captures every registered
+non-disposed durable stable actor, including suspended and boot-restored actors, plus the transitive
+stable-provider closure. Local actors, disposed actors, and runtime-incarnation tombstones are excluded;
+opaque providers fail closed under `NonDurableContextProvider`.
 
 ### GLO-09. Binding, operation occurrence, and timer identity
 
@@ -287,7 +295,8 @@ field-by-field `Object.is`. `useView` accepts no comparator, and `useShallow(sel
 explicit React memoization adapter for named records. `MachineObserver` is the package-private
 exact-actor subscription and sharing adapter; it owns no actor, cache lease, operation, retry, or
 query-result state machine. Passive operation-read reactivity is dependency-tracked internally by
-`REV-HOST-007`; selector defects remain `BEH-014`.
+`REV-HOST-007`; selector defects use revision-scoped memoization and retry under `REV-COMP-003` and
+`REV-HOST-006`.
 
 ### GLO-15. Story, fixture, recipe, command, and checkpoint
 
@@ -315,8 +324,9 @@ immediate deeply frozen capture through the production atomic read barrier and n
 execution. App evidence uses exact `checkpoint.actor(recipe | ActorRef)` lookup; machine evidence
 uses its single `snapshot`. Both reserve `runtime.now` and `runtime.pendingWork`. `run.end` is
 automatic final run evidence and does not imply actor completion. Focused-context installation,
-controlled-operation interception, occurrence persistence, capture sets, and cleanup failure
-evidence remain `BEH-018` through `BEH-022`.
+controlled-operation interception, occurrence persistence, capture sets, and cleanup failure evidence are
+closed by `REV-TEST-005` through `REV-TEST-008`; their package-private mechanisms are not additional
+public API.
 
 ### GLO-16. Boot and artifact
 
@@ -328,8 +338,8 @@ its structure and identity; applications validate and migrate their domain paylo
 An artifact is an explicitly exported versioned behavior or trace envelope. Artifact and CLI
 schemas must represent the accepted app Stories, exact actor evidence lookup, `run.end`, module
 tooling ownership, compound states, context requirements, lifecycle records, and operation
-identities. Exact artifact/CLI closure remains `BEH-033`; host seeding and trusted writes remain
-`BEH-032`.
+identities. Exact artifact/CLI closure is `REV-MIG-005`; host seeding and trusted writes are
+`REV-HOST-008`.
 
 ### GLO-17. Runtime phase and admission transaction
 

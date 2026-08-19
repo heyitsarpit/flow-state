@@ -18,8 +18,7 @@ the actor/ref/lease capability split MUST NOT be reopened merely to resolve the 
 
 Most `BEH-*` items are lifecycle, ordering, ownership, persistence, observation, evidence, cleanup,
 compatibility, and proof problems under the accepted surface. Resolving one MUST NOT rename, overload,
-replace, or add a competing public API. `BEH-027` remains the source-authority conflict that MUST return to
-explicit design review before any public surface or accepted rule changes. `BEH-024` is closed by
+replace, or add a competing public API. `BEH-027` is closed by `REV-OPS-016`; `BEH-024` is closed by
 `REV-OPS-015`, which accepts timer event-targeting and explicit-refresh polling. A failed proof MAY reopen
 only the exact guarantee that cannot be implemented; it does not authorize silent API or semantic
 substitution.
@@ -135,7 +134,8 @@ Each detailed proof obligation remains owned by the semantic `REV-*` clause that
 this migration clause aggregates their completion status and MUST NOT add or weaken an obligation. In
 particular, actor/ref/lease and bootstrap proofs are owned by `REV-COMP-011` through `REV-COMP-015`, React
 lifecycle proofs by `REV-HOST-002` through `REV-HOST-005`, Story construction and evidence proofs by
-`REV-TEST-001` through `REV-TEST-009`, and operation proofs by `REV-OPS-001` through `REV-OPS-015`.
+`REV-TEST-001` through `REV-TEST-010`, operation proofs by `REV-OPS-001` through `REV-OPS-018`, host-write
+proofs by `REV-HOST-008`, and artifact/CLI and child-removal proofs by `REV-MIG-005` and `REV-MIG-006`.
 
 The cross-cutting parity proof MUST execute equivalent domain-command sequences through live and Story
 hosts and compare snapshots, `TurnRecord`s, pending work, operation facts and generations, context turns,
@@ -144,11 +144,60 @@ scheduler, operation store or kernel, transition engine, cache, snapshot impleme
 React lifecycle inspection evidence remains outside the machine timeline, so parity MUST NOT add synthetic
 Story suspend or resume commands.
 
-## Promotion blockers that remain unresolved
+## REV-MIG-005 — Freeze one private v2 artifact and CLI model
 
-The revision MUST NOT be described as mechanically migratable while an applicable entry in
-[`UNRESOLVED_BEHAVIOR.md`](../UNRESOLVED_BEHAVIOR.md) remains open. `BEH-027` remains the explicit
-source-authority design-review boundary; `BEH-024` is closed by `REV-OPS-015`. The other remaining entries
-require internal behavioral closure without public API redesign. Closing an entry requires one exact
-behavior, coordinated old-clause updates, and named compile-time, runtime, Story, React, persistence, or
-artifact evidence. A failing proof reopens only the guarantee it disproves.
+**Change:** Close `BEH-033` by promoting one bounded artifact/CLI schema authority without adding public
+artifact types, AppPlan fingerprint APIs, or commands, while preserving complete Cause values on the
+declared public Flow error boundaries.
+
+**Provenance (non-normative):** User-directed Cause-visibility amendment and the WIRE-020B schema-closure
+repair recorded in this accepted revision. This pointer records the override and adds no separate behavior.
+
+**Rule:** `PERSISTENCE_AND_ARTIFACTS.md` WIRE-020B owns the exact package-private behavior-contract v2,
+trace-artifact v2, serialized Cause projection, Story failure projection, and decoded evidence model. `CLI.md` owns only the existing
+ten-leaf command grammar, transport, rendering, exit status, and file publication. Direct Story execution
+and CLI `story run` MUST consume that one decoded model; no CLI-only decoder, result hierarchy, legacy `final`
+or `children` alias, Scenario surface, or new source-analysis command is permitted.
+
+Behavior and trace artifacts use the exact WIRE-020B canonical JSON grammar: UTF-8 lexicographic object keys,
+strict finite-number and string encoding, semantic ordering for authored state, checkpoints, records, facts,
+and Cause reasons, ID ordering for declaration arrays, one trailing newline at the file boundary, the
+WIRE-016 structural limits, exact app/persistence/module/machine/Story identity, and the accepted lifecycle,
+operation, checkpoint, end, cleanup, truncation, and evidence fields.
+Effect Cause is projected to ordered duplicate-preserving `Fail`/`Die`/`Interrupt` reasons for JSON artifact
+and CLI boundaries. The complete Effect `Cause.Cause<unknown>` remains public on `FlowDisposeError` and
+`FlowStoryExecutionError`; it is not serialized. Unknown fields, duplicate keys, unsupported versions,
+noncanonical Cause payloads, and all legacy
+v1/Scenario/final/children shapes reject before application or runtime acquisition. CLI text and JSON are
+projections of one immutable private result. A successful `story run` is a completed result with non-null
+`end` and null `failure`; execution, cancellation, cleanup, and trace-write failures are `CliError` values
+with partial Story evidence in the primary diagnostic and ordered secondary diagnostics.
+
+**Proof obligations:** Round-trip behavior and trace v2, Cause reason order and multiplicity, opaque-domain
+codec boundaries, malformed/hostile/bounded input, truncation completeness, direct Story/CLI parity, all
+existing command and exit vectors, atomic file publication, signal boundaries, fresh packed-binary parity,
+and absence of legacy artifact/CLI vocabulary.
+
+## REV-MIG-006 — Remove subordinate-machine capability completely
+
+**Change:** Close `BEH-034` by making recursive substates one actor and requiring explicit actors for
+independent workflows.
+
+**Rule:** No public or package-private vNext contract may expose child actor creation, child inputs, child
+lifecycles, child completion, child snapshots, child addresses, child persistence, child Story commands,
+child model nodes, or `children` artifact/CLI fields. Recursive compound states share one actor's memory,
+context, event protocol, mailbox, operations, and lifetime. An independent workflow is either an explicitly
+owned actor admitted by the AppPlan or unsupported; it is never synthesized from a nested state. Legacy child
+fields and subordinate-machine artifact records are rejected at compile, boot, artifact, and CLI decode
+boundaries rather than ignored or aliased.
+
+**Proof obligations:** Compile negative proofs for child fields and child routes, recursive-state single-actor
+runtime proofs, persistence/artifact/CLI rejection of `children`, deletion searches across source/tests/docs,
+and explicit-actor parity for any surviving subordinate workflow.
+
+## Promotion blocker status
+
+No inherited `BEH-*` entry remains open in [`UNRESOLVED_BEHAVIOR.md`](../UNRESOLVED_BEHAVIOR.md). The
+operation, host-write, artifact/CLI, and child-removal closures above provide the exact behavior and
+coordinated proof ownership; implementation phases still need to execute those proofs before a shipped
+phase may be marked complete. A failing proof reopens only the guarantee it disproves.

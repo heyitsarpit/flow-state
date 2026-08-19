@@ -21,8 +21,10 @@ executable universe.
 
 Every admitted machine's durable `id` MUST be unique within one `AppPlan`. Compilation MUST reject
 two distinct machine values, or two authored machine entries, that claim the same durable machine ID
-even when their `App.M` property names or module IDs differ. A machine family MUST have one tooling
-owner in the compiled plan; duplicate ownership is a compile-time failure, not a runtime ambiguity.
+even when their `App.M` property names or module IDs differ. It MUST also reject the same machine value
+appearing under multiple module keys or modules; Flow MUST NOT silently deduplicate one value into several
+tooling owners. A machine family MUST have one tooling owner in the compiled plan; duplicate ownership is
+a compile-time failure, not a runtime ambiguity.
 
 Callbacks may materialize only operation plans and context bindings admitted by the compiled
 machine definitions and exact graph. An out-of-plan machine, descriptor, or provider is rejected
@@ -120,10 +122,10 @@ activation barrier.
 
 No attached actor handle or owner lease may escape before the instance graph is sealed; the inert
 prepared React handle is the sole exception and is governed by ARCH-018. After graph sealing but
-while the shared Layer is still acquiring, an already-attached actor MAY expose its real mailbox for
-pre-readiness command admission; those commands remain queued and no user Effect starts before
-`ready`. The runtime object itself exposes no phase union or second readiness API: existing readiness
-and Effect-bridge surfaces observe this private phase.
+while the shared Layer is still acquiring, private queues and activation state MAY exist, but no real
+actor handle, owner lease, or public command admission may escape. The runtime object itself exposes
+no phase union or second readiness API: existing readiness and Effect-bridge surfaces observe this
+private phase.
 
 Any boot or Layer failure moves the phase to `failed`, closes admission, and rolls back every owner,
 context edge, actor registration, and queued acknowledgment in reverse acquisition order. Disposal
@@ -139,10 +141,13 @@ structure with its service-free v2 boot Schema and install one PreparedBoot befo
 Application code migrates and validates opaque domain values first. Resource normalization
 is supplied by StoreKernel; transaction and overlay normalization are supplied by the
 transaction kernel; the artifact boundary reuses the boot codec and MUST NOT implement a
-second hydration path. Initial runtime construction MUST install and validate boot actors,
-complete the production factory's initial `ensureActor` calls, resolve every exact
-context-provider ref, reject missing, foreign, duplicate, and cyclic registrations, seal the
-graph, and only then activate or expose public runtime and actor handles. Mutable post-start
+second hydration path. RuntimeFactory discovery MUST remain synchronous and inert: it may retain app
+identity, Clock, external capabilities, boot input, and initial actor claims, but MUST NOT acquire a
+Layer, create or register actors, start work, or expose handles. Initial runtime construction MUST
+validate the boot payload, acquire the application Layer, install and validate boot actors, complete the
+production factory's initial `ensureActor` calls, resolve every exact context-provider ref, reject
+missing, foreign, duplicate, and cyclic registrations, seal the graph, and only then activate or expose
+public runtime and actor handles. Mutable post-start
 hydration is forbidden.
 
 If any bootstrap validation, Layer acquisition, initial ensure, provider resolution, or graph seal
@@ -157,26 +162,24 @@ mismatch fails with retryable `ConcurrentDehydrate`. An included durable consume
 opaque local provider fails with non-retryable `NonDurableContextProvider`; Flow MUST NOT promote,
 recreate, substitute, or rebind that provider automatically.
 
-### ARCH-009 — Attached actor dispatch enters the real mailbox before the shared Layer build
+### ARCH-009 — Attached actor dispatch enters the real mailbox after readiness
 
 The runtime MUST create each attached actor's one Effect Queue before exposing its handle. The
-initial graph seal in ARCH-008 precedes imperative handle escape; a prepared React actor is an
+initial graph seal and application Layer acquisition in ARCH-008 precede imperative handle escape; a prepared React actor is an
 inert exception governed by ARCH-018 and is not a registered runtime actor.
 After installing the prepared snapshot, it MUST synchronously install the restored actor facts needed
 for activation and then one boot-activation barrier command; a fresh actor installs only the barrier.
-The exact pending-outcome ordering and hydration rematerialization rules remain owned by the applicable
-unresolved operation and persistence boundaries. Only then may its handle escape.
-Public `send` MUST synchronously use `Queue.offerUnsafe` on that real unbounded Queue, so calls
-made before acquisition retain FIFO order without a no-op shell or separate JavaScript
-buffer. The one Queue consumer MUST be forked through ManagedRuntime; it waits on the shared
-Layer build before interpreting commands. It drains restored outcomes, then the barrier activates
-current desired ownership, then any early host commands. Package-private acknowledged dispatch MUST
-synchronously allocate its command Deferred with `Deferred.makeUnsafe`, pass the same shell
-admission/lifetime check as public `send`, and admit with `Queue.offerUnsafe` before returning
-`Deferred.await(deferred)` as an Effect. This is the sole service-free pre-readiness admission path; it MUST
-NOT create another runtime or await ManagedRuntime acquisition before offering. Acquisition failure
-MUST close admission, fail acknowledged waiters, and reach readiness without executing queued
-commands.
+The exact pending-outcome ordering and hydration rematerialization rules are owned by `REV-OPS-015`,
+`REV-OPS-017`, and `WIRE-011`/`WIRE-012`. Only then may its handle escape.
+The one Queue consumer MUST be forked through ManagedRuntime; it waits on the shared Layer build before
+interpreting commands. It drains restored outcomes, then the barrier activates current desired
+ownership. Once `ready`, public `send` MUST synchronously use `Queue.offerUnsafe` on that real unbounded
+Queue. Package-private acknowledged dispatch MUST synchronously allocate its command Deferred with
+`Deferred.makeUnsafe`, pass the same shell admission/lifetime check as public `send`, and admit with
+`Queue.offerUnsafe` before returning `Deferred.await(deferred)` as an Effect. Before `ready`, this
+acknowledged path is reserved for bootstrap and activation, not arbitrary host commands. Acquisition
+failure MUST close admission, fail acknowledged waiters, and complete reverse rollback without executing
+queued commands.
 
 ### ARCH-010 — Runtime construction always names app and Layer
 
@@ -315,10 +318,13 @@ logical graph edge. Commit rechecks provider identity and revision, installs the
 baseline atomically, activates that same actor, and drains buffered commands once. A changed machine,
 runtime, input, or context-binding identity during one component incarnation fails synchronously with a
 keyed-remount diagnostic; it never replaces the actor or reuses its memory. Prepared command buffering
-is bounded to 64 commands; overflow rejects without mutation. Abandoned preparation leaves no runtime
-registration, logical dependency, subscription, work, evidence, or terminal-disposal obligation. React
-owns only the attachment lease: cleanup suspends the actor, while runtime or explicit owner disposal
-remains the sole terminal authority.
+is bounded to 64 commands; the 65th command rejects synchronously through the package-owned diagnostic
+envelope without mutation. Abandonment closes the prepared mailbox at one internal linearization point;
+buffered commands are never delivered, later commands reject, and the handle creates no runtime
+registration, logical dependency, subscription, work, evidence, or terminal-disposal obligation. A
+changed `useActorByRef` ref resolves the new already-registered handle without construction, ownership,
+disposal, or subscription authority. React owns only the attachment lease: cleanup suspends the actor,
+while runtime or explicit owner disposal remains the sole terminal authority.
 
 ### ARCH-019 — Passive actor selectors are the only React subscription path
 
@@ -483,20 +489,27 @@ ordinary production disposal path and retains its cleanup truth.
 
 ### ARCH-030 — The lifecycle lane normalizes suspension
 
-Each actor has one serialized lifecycle lane ordered against its mailbox. Suspension closes new
-command admission at its linearization point; commands admitted before that point retain FIFO order
-and finish before suspension, while later commands reject and are never buffered. The lane drains
-queued finite occurrences without starting their adapters, interrupts unsettled finite work through
-the production kernels, closes continuing streams, detaches subscriptions and timers, and retains
-pending-outcome and occurrence cursors needed for truthful settlement. It publishes `suspended`
+Each actor has one serialized lifecycle lane ordered against its mailbox. Suspension closes new command
+admission at its linearization point; commands admitted before that point settle FIFO before the suspended
+snapshot publishes, while later commands reject and are never buffered. Settlement does not imply external
+success. The lane drains queued finite occurrences without starting their adapters, interrupts unsettled
+finite work through the production kernels, closes continuing streams, detaches subscriptions and timers,
+and retains pending-outcome and occurrence cursors needed for truthful settlement. It publishes `suspended`
 only after structural detach and finalizer settlement.
 
 Resume waits for that serialized cleanup, reacquires continuing declarations and subscriptions,
-reinstalls timers against their absolute deadlines, and routes changed provider values through one
-ordinary context wave. It never replays finite work, reruns input or initialization, or claims that an
-irreversible external effect was undone. A cleanup defect leaves the actor suspended and blocks resume
-until explicit owner or runtime disposal. Logical context edges remain retained while the actor is
-suspended, even though live subscriptions and work are detached.
+reinstalls timers against their absolute deadlines, and routes changed provider values through one ordinary
+context wave. Queued finite resource and transaction occurrences settle as planned interruption without
+starting adapters or automatic retry. Running finite resources release only this actor's ownership; shared
+StoreKernel work is interrupted only under its existing final-owner policy. Continuing streams close
+without a mapped domain outcome, and resume creates a new generation from live executable input without
+replaying emissions. Timers are fenced while retaining absolute deadlines, and resume performs at most one
+overdue refresh. A transaction interrupted after its remote boundary retains remote identity and settles
+as accepted `unknown` or reconciliation-required truth without claiming rollback or issuing a new request.
+The lane never replays finite work, reruns input or initialization, or claims that an irreversible external
+effect was undone. A cleanup defect leaves the actor suspended and blocks resume until explicit owner or
+runtime disposal. Logical context edges remain retained while the actor is suspended, even though live
+subscriptions and work are detached.
 
 ### ARCH-031 — Operation occurrences carry actor-incarnation fencing
 
@@ -509,9 +522,9 @@ reused ref, collected store entry, or current mapped event.
 
 The actor-incarnation token is allocated for each actor lifetime, is never reused within a runtime, and
 is replaced on a later restored runtime incarnation. Consumed occurrence cursors remain sufficient to
-reject duplicate observations, while public operation-state unions, transaction `unknown` or
-reconciliation representation, and Cause wire shape remain governed by their existing unresolved
-contracts. This is an internal fence, not a new public occurrence handle or operation API.
+reject duplicate observations. Public operation-state unions and transaction `unknown`/
+`reconcileRequired` representation follow `REV-OPS-017`; Cause wire shape follows WIRE-020B. This is an
+internal fence, not a new public occurrence handle or operation API.
 
 ### ARCH-032 — Integration layers preserve one Flow runtime
 

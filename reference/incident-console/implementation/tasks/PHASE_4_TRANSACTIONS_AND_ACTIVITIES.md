@@ -5,8 +5,9 @@ Status: waiting on Phase 3
 ## Objective
 
 Implement exact transaction identity and concurrency, the global ordered optimistic
-overlay ledger, activity reconciliation, streams, timers, children, and scoped remote
-leases on the Phase 2 actor and Phase 3 store owners.
+overlay ledger, activity reconciliation, streams, timers, explicitly owned actors, and
+scoped remote leases on the Phase 2 actor and Phase 3 store owners. Recursive machine
+states never create child-machine owners.
 
 ## Governing contracts
 
@@ -19,7 +20,7 @@ and the activity portions of `PROOF-003` and `PROOF-004`.
 ## Allowed scope
 
 Transaction runner, exact transaction refs, overlay commands, concurrency supervisors,
-activity reconciliation, streams, timers, children, scoped lease pattern, snapshots,
+activity reconciliation, streams, timers, explicit actor lifecycles, scoped lease pattern, snapshots,
 receipts/issues, and deterministic tests.
 
 React, story runner, artifact formats, and CLI are forbidden.
@@ -33,15 +34,14 @@ overlay, TimerCoordinator, generation, and stable-order laws rather than redefin
 
 ## Tasks
 
-- [ ] Implement child completion: final child publication precedes one durably
-      admitted completion outcome typed as `ActorSnapshot<ChildMachine>`; preserve exact timer
-      and primitive-binding registries, release the child exactly once, retain its consumed
-      complete projection, and restore without restarting or replaying completion.
-- [ ] Keep managed children autonomous and expose no
-      parent-to-child command path. Only a changed canonical key replaces a generation; equal key
-      retains the original materialized input, and independently
-      commanded workflows use host-owned admitted dynamic actors.
-- [ ] Materialize at most one keyed stream or child binding per declaration;
+- [ ] Reject subordinate-machine descriptors, child completion, child snapshots, and child
+      persistence at compile, runtime, Story, and artifact boundaries. Recursive substates share one
+      actor mailbox, memory, context, operation ownership, and lifetime.
+- [ ] Keep explicitly owned actors autonomous and expose no
+      parent-to-actor command path. Only a changed canonical key replaces a generation; equal key
+      retains the original materialized input, and independently commanded workflows use explicitly
+      admitted actor owners.
+- [ ] Materialize at most one keyed stream binding per declaration;
       no runtime-sized membership/outcome collection API enters vNext.
 - [ ] Encode the complete canonical store or fail `ArtifactBoundExceeded`; do not
       introduce resource persistence selectors.
@@ -53,8 +53,8 @@ overlay, TimerCoordinator, generation, and stable-order laws rather than redefin
       payload encoding, bound, and disposed-runtime failures.
 - [ ] Use exact transaction refs for generations, actor snapshots, routes, TurnRecords,
       concurrency, persistence, and cleanup.
-- [ ] Bind machine-independent transactions, streams, and children through the machine-local
-      activity kit. Parent memory/event selectors and routed outcomes live on bindings, while
+- [ ] Bind machine-independent transactions and streams through the machine-local activity kit.
+      Memory/event selectors and routed outcomes live on bindings, while
       descriptors retain only execution, identity, policy, and Effect requirements.
 - [ ] Implement `reject`, `cancel`, `allow`, and unbounded FIFO
       `serialize` per actor-local exact transaction ref without deduplication. Remove transaction
@@ -69,21 +69,16 @@ overlay, TimerCoordinator, generation, and stable-order laws rather than redefin
       authoritative bases and never promotes preview data.
 - [ ] Reconcile activity identity from the stable compiled binding slot and exact ref/key; source
       order is the persistence boundary and outcome functions never contribute allocation identity.
-- [ ] Route transaction, stream, timer, and child mappings through Phase 2's durable
+- [ ] Route transaction, stream, and timer mappings through Phase 2's durable
       `PendingOutcome` admission. The causal projection and materialized event record commit
       together; mailbox processing clears by stable ID without rerunning the mapper.
 - [ ] Enact staged activity starts and releases only from Phase 2's post-commit reconciliation
       fact; never run a user Effect during CommitPlan interpretation or before actor publication.
 - [ ] Use `FiberMap` for replaceable work, `FiberSet` for independent work, and Queue plus one
       supervised worker for serialized work. Run each program as `Effect.scoped` without a
-      second manually owned child Scope.
-- [ ] Implement keyed streams, timers, and children with generation-gated mailbox completion.
-      A fresh child receives its exact binding input and invokes its definition memory factory
-      once when present through the Phase 2 actor engine; an omitted factory uses empty memory,
-      while restored children use materialized memory.
-- [ ] Implement exact child complete/defect/interrupt/stopped projections and mappings; planned
-      stopped release never routes, child machines expose no typed failure lane, and every terminal
-      path releases the child Scope once.
+      second manually managed Scope.
+- [ ] Implement keyed streams and timers with generation-gated mailbox completion. Explicit actor
+      lifecycles use the Phase 2 actor owner and lease rules; no activity binding creates a child Scope.
 - [ ] Expose no Flow stream `pressure` option or buffer; prove Effect Stream/application-authored
       backpressure works through the ordinary stream activity lifecycle.
 - [ ] Persist the concrete params of every running durable stream binding. On hydration, record
@@ -92,16 +87,16 @@ overlay, TimerCoordinator, generation, and stable-order laws rather than redefin
       without rerunning selectors.
       Noncanonical active params fail capture as `NonDurableActiveStreamParams`; terminal streams
       remain consumed.
-- [ ] Implement continuing remote leases through scoped streams; use a child actor when the
+- [ ] Implement continuing remote leases through scoped streams; use an explicitly owned actor when the
       lease lifecycle is domain behavior.
 - [ ] Normalize pending/queued transaction restoration to interruption with no route and no
       automatic retry before first hydrated publication.
-- [ ] Complete referentially closed dehydration across durable actors, child links, activity
+- [ ] Complete referentially closed dehydration across durable actors, actor refs, activity
       identities, exact refs, transaction bindings, and optimistic overlays. Reject opaque actors
       that own persistent state and retryable concurrent graph replacement rather than emitting
       an orphaned payload.
 - [ ] Finish the executable private vNext root owner and prove its hosts delegate to the same
-      runtime, store, transaction, stream, timer, and child engine. Keep every public route on
+      runtime, store, transaction, stream, timer, and actor engine. Keep every public route on
       legacy until the atomic Phase 7 switch.
 
 ## Acceptance
@@ -116,9 +111,9 @@ overlay, TimerCoordinator, generation, and stable-order laws rather than redefin
   only owned overlays and preserve the complete Cause where applicable.
 - Serialized attempts run FIFO, allocate stable queued identities, and never route work
   that did not start.
-- Stream, timer, child, and lease replacement cannot accept stale completion.
-- A present fresh child initializer runs once before its first snapshot and work; an omitted
-  initializer uses empty memory, while restored child initialization runs zero times.
+- Stream, timer, explicitly owned actor, and lease replacement cannot accept stale completion.
+- Recursive substates never have an initializer, snapshot, completion, or persistence lifecycle
+  separate from their containing actor.
 - Planned state exit releases work once without synthesizing an external interruption
   outcome; cleanup defects become issues and do not roll back published transitions.
 - Capturing after any activity projection but before its mapped event turn restores that pending
@@ -138,7 +133,7 @@ ignored-cancellation runbook pattern. Do not delete public legacy owners before 
 ## Gates and receipt
 
 Run transaction identity/concurrency/overlay interleaving tests, multi-actor store tests,
-application-authored Stream backpressure and completion tests, timer TestClock tests, child supervision tests,
+application-authored Stream backpressure and completion tests, timer TestClock tests, explicit actor lifecycle tests,
 remote-lease exit matrix, restoration tests, package test/typecheck/build. The receipt
 also runs private packed vNext root consumers plus frozen-facade consumers and proves both reach the
 same engine; it includes overlay timelines, queue order, stale-completion evidence, Cause/finalizer matrix,

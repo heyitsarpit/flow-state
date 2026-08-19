@@ -54,8 +54,9 @@ Actor identity, imperative construction and lookup, owner leases, disposal, tomb
 defined once by `REV-COMP-011` through `REV-COMP-015`. React MUST consume those exact capabilities without
 altering them: `useActor` receives a local actor handle without exposing its owner lease,
 `useActorByRef` uses lookup-only authority, every returned handle exposes its exact ref, and neither hook
-MUST add terminal-disposal authority. Suspended-consumer dependency behavior remains unresolved under
-`BEH-009`; this chapter does not broaden the active-consumer disposal rule.
+MUST add terminal-disposal authority. Suspended consumers retain their fixed logical provider edges and
+block provider disposal under the exact rules in REV-COMP-004 and REV-HOST-005; React cleanup does not
+alter graph ownership.
 
 ## REV-HOST-002 — Prepare actors during render and attach the same actor during commit
 
@@ -70,17 +71,29 @@ MUST add terminal-disposal authority. Suspended-consumer dependency behavior rem
 **Rule:** During render, `useActor` MUST create one package-private prepared actor with its final opaque
 ref, pure initial snapshot, stable public handle, and real command-buffering mailbox. Preparation MUST
 NOT create a runtime registry entry, execution scope, subscription fanout, external work, or inspection
-evidence.
+evidence. It MAY carry a passive provisional context cut with exact provider refs and observed provider
+publication revisions. The cut is render-only and MUST NOT be an installed baseline, provider publication,
+persistence input, or ownership edge.
 
-Commit MUST atomically attach that exact actor, validate and install its context baseline, activate it,
-and drain buffered commands exactly once. It MUST NOT replace a shell with another live handle.
+Commit MUST recheck provider identity and revisions, replace stale provisional projections with current
+provider truth, atomically install the context baseline, activate that exact actor, and drain buffered
+commands exactly once. It MUST NOT replace a shell with another live handle. A selector defect during
+attachment MUST abort admission without exposing a partial actor.
+`useActor` MUST capture the exact construction tuple for one component incarnation: runtime identity,
+machine identity, input, and context-binding identities. A later change to any member MUST synchronously
+report the keyed-remount diagnostic, MUST NOT replace or reinitialize the actor, and MUST leave the
+original actor untouched. A keyed remount creates a new actor. `useActorByRef` remains lookup-only; a
+changed ref resolves the new already-registered handle without construction, ownership, disposal, or
+subscription authority.
 Abandoned concurrent and server renders MUST leave no runtime registration, subscription, timer,
 activity, operation attempt, lifecycle evidence, external work, or terminal-disposal obligation.
 Imperative `runtime.createActor` MUST remain the immediately attached and running path for non-React
 owners.
 
-**Proof obligations:** Prove final ref and handle identity across prepare and attachment, delivery of
-commands buffered before first attachment, and complete inertness of abandoned preparation.
+**Proof obligations:** Prove final ref and handle identity across prepare and attachment, provisional
+context recheck, construction-tuple keyed-remount rejection, delivery of commands buffered before first
+attachment, the 64-command bound and synchronous overflow rejection, atomic abandonment closure, and
+complete inertness of abandoned preparation.
 
 ## REV-HOST-003 — Use one truthful production actor lifecycle
 
@@ -103,15 +116,28 @@ terminal transition to `disposed`. Public actor snapshots and the `lifecycle` va
   resources.
 - `disposed` MUST be terminal and reject every later operation.
 
+Each actor owns private `publicationRevision` and `machineTurnRevision` counters. The construction
+snapshot starts at publication revision `0`; hydration restores persisted counters without resetting
+them. Every later immutable snapshot publication increments `publicationRevision` exactly once and
+exposes it as `snapshot.revision`. A committed machine turn increments both counters once. Lifecycle,
+issue-only, and projection-only publications increment only `publicationRevision` and retain the
+preceding `machineTurnRevision`. Selectors, hydration consistency, and checkpoints use publication
+revision; inspection correlates publication revision, machine-turn revision, and the runtime-global
+evidence sequence. No second public revision field exists.
+
 React Effect setup MUST activate a prepared actor or resume a suspended actor. Effect cleanup MUST
 genuinely suspend the same actor. It MUST NOT suppress cleanup, introduce a grace period, predict a later
 setup, or terminally dispose the actor. Strict Effects and Activity hide/reveal MUST use this same
 production lifecycle because cleanup cannot distinguish reconnection from permanent removal.
 
 A snapshot read, subscription, command, capability check, or other handle operation MUST observe the
-actor's truthful lifecycle rather than treating a prepared or suspended actor as active. The exact
-capability-by-lifecycle matrix and selector-exception publication identity remain unresolved under
-`BEH-007` and `BEH-016`; this chapter does not infer either answer.
+actor's truthful lifecycle rather than treating a prepared or suspended actor as active. A prepared
+snapshot subscription replays the prepared snapshot and becomes live on activation; a suspended
+subscription replays the suspended snapshot once and completes; a disposed subscription replays the
+terminal snapshot and completes. Prepared commands buffer up to 64 entries, active commands admit, and
+suspended or disposed commands reject without buffering. `can(event)` remains pure transition legality
+and is independent of command admission. Selector-exception publication identity follows REV-HOST-006
+and does not add a second public error surface.
 
 ## REV-HOST-004 — Publish coherent lifecycle evidence
 
@@ -133,6 +159,19 @@ a separate boot-installation fact and precede its `actor:start`.
 
 Lifecycle evidence MUST NOT create a machine revision or `TurnRecord`. An inspection listener reading the
 actor after receiving an event MUST already observe the event's `to` lifecycle.
+
+`actor:restore`, `actor:start`, `actor:suspend`, `actor:resume`, and `actor:dispose` MUST use immutable
+`LifecycleRecord`s admitted through the same runtime-global evidence hub and sequence allocator as
+`TurnRecord`s. The private cause tags are `fresh-creation`, `boot-restoration`, `attachment-commit`,
+`attachment-cleanup`, `attachment-reacquisition`, `owner-disposal`, and `runtime-disposal`.
+`actor:restore` is an installation fact with `from: "prepared"` and `to: "prepared"` and precedes its
+matching `actor:start`. Lifecycle records contain the published snapshot, exact actor/app/plan and
+actor-incarnation provenance, `from`, `to`, cause, timestamp, publication revision, machine-turn
+revision, and evidence sequence. Sequence allocation occurs under one publication barrier; sink
+delivery is asynchronous behind the record release gate. Sink overflow truncates only that sink with
+`truncatedBeforeSequence`; sink failure detaches only that sink. `drain()` waits through the accepted
+sequence prefix. Runtime disposal stops new admission, drains accepted evidence, then closes sinks and
+queues; sequence exhaustion fails before publication without partial evidence or a second history.
 
 **Proof obligations:** Cover the exact lifecycle union in `getSnapshot`, `useView`, SSR preparation,
 Strict Mode reconnection, Activity hiding, explicit disposal, command diagnostics for every non-active
@@ -162,16 +201,33 @@ actions, or `onContext` for the preserved baseline. Suspension and resume MUST N
 operation attempt, machine revision, or `TurnRecord`; a later real queued fact may do so normally.
 
 Suspension MUST interrupt attachment-owned execution through the production operation kernel's existing
-cancellation and recovery rules. The exact per-kind normalization for queued or irreversible transactions,
-finite resources, streams, timers, pending outcomes, and context waves remains unresolved under `BEH-010`.
+cancellation and recovery rules. Each actor has one serialized lifecycle lane ordered with its mailbox.
+Suspension closes admission at one linearization point; previously admitted mailbox work settles FIFO
+before the suspended snapshot publishes, while settlement does not imply external success. Queued finite
+resource and transaction occurrences settle as planned interruption without starting adapters and without
+automatic retry. Running finite resources release only this actor's ownership; shared StoreKernel work is
+interrupted only under its existing final-owner policy. Late completion is fenced from the suspended actor.
+Transactions interrupted before the remote boundary remove local previews and settle as interrupted. After
+the boundary, cancellation stops local observation, retains remote identity, publishes the accepted
+`unknown` or reconciliation-required truth, and never claims rollback or issues a new remote request.
+Continuing streams close without a mapped domain outcome; their latest projection remains available, and
+resume creates a new generation from live executable input without replaying emissions. Timers are
+cancelled and fenced while retaining absolute deadlines; resume performs at most one overdue refresh.
+Pending outcomes and occurrence cursors retain only facts required for truthful settlement. An in-flight
+context wave completes atomically before suspension; provider changes while detached reconcile through
+one ordinary context wave on resume. No baseline `onContext`, finite action, event, or emission is
+replayed. A cleanup defect publishes cleanup truth, leaves the actor suspended, and blocks resume until
+explicit owner or runtime disposal.
 
 A permanently discarded hook MUST leave no registration or runtime work after suspension cleanup. A
 retained escaped handle remains the same inert suspended handle. Only an explicit production-runtime or
 owner action MAY terminally dispose it.
 
-**Proof obligations:** Prove balanced Strict Mode and Activity cleanup/reacquisition, no overlapping live
-generations, preserved timer deadlines, one context reconciliation after resume, no replay, and no active
-runtime work after final unmount.
+**Proof obligations:** Prove balanced Strict Mode and Activity cleanup/reacquisition, retained suspended
+provider edges and disposal rejection, resume failure for missing/foreign/tombstoned providers, one
+serialized lifecycle lane, FIFO settlement at the suspension boundary, no overlapping live generations,
+per-kind finite normalization, preserved timer deadlines, one context reconciliation after resume, no
+replay, late-completion fencing, cleanup-failure truth, and no active runtime work after final unmount.
 
 ## REV-HOST-006 — Make views exact, passive actor projections
 
@@ -199,6 +255,13 @@ records, but it MUST use the same field comparison and MUST NOT change the selec
 or add custom equality to context or memory registrations.
 `useView` MUST accept no comparator argument, and selector identity changes MUST NOT replace the actor
 subscription.
+
+If a view selector throws, the exception MUST be memoized by the exact actor publication and passive-store
+read cut. Repeated evaluation against that unchanged cut MUST rethrow the same exception without mutating
+actor state, issuing an issue-only actor publication, or retrying in a loop. A later actor publication or
+matching StoreFanout revision MUST retry the selector. Initial attachment and hydration selector defects
+MUST abort admission without exposing a partial actor. This behavior adds no public error or subscription
+surface; it preserves the existing selector call boundary.
 
 **Proof obligations:** Type proofs MUST show that `useView` preserves the selector's declared `Value`
 type without implicitly adding `null` or `undefined`. Reactive proofs MUST show equal selected results do
@@ -233,8 +296,8 @@ engine.
 
 **Failure behavior:** Passing a machine family or `ActorRef` where an actor handle is required MUST fail
 through the type system. A selector exception MUST NOT be converted into a mutation, subscription change,
-or operation acquisition. Exact exception memoization and recovery behavior remain unresolved under
-`BEH-014`; tear-free reactivity for passive operation reads is closed by `REV-HOST-007`.
+or operation acquisition. Exact exception memoization and recovery follow `REV-HOST-006`; tear-free
+reactivity for passive operation reads is closed by `REV-HOST-007`.
 
 ## REV-HOST-007 — Dependency-tracked passive views and projection publication
 
@@ -261,6 +324,32 @@ publication, through the ordinary actor mailbox.
 **Proof obligations:** Cover cross-actor canonical writes, dependency replacement after selector changes,
 tear-free reads at a store revision boundary, equality suppression, cleanup on actor suspension/disposal,
 and the absence of work or mutation from passive selector evaluation.
+
+## REV-HOST-008 — Construction-owned seeding and trusted host writes
+
+**Change:** Close `BEH-032` without exposing a general post-start cache-writer API.
+
+**Rule:** Boot, SSR dehydration, and Story fixture seeds are construction-owned inputs. Before actor
+activation, the receiving runtime validates each seed's app, descriptor, canonical `K`, and resource value,
+rejects duplicate descriptor/K seeds even when values are equal, and installs the seed through the one
+StoreKernel commit coordinator. A seed creates no operation occurrence, generation, adapter work, mapped
+event, or actor command turn; its StoreState publication is part of the construction barrier. Seed values
+are Flow-owned immutable copies where Flow owns the container and application-opaque values retain their
+application ownership.
+
+The only post-start host write is a package-private capability-scoped `HostWriteLease` issued by the
+production RuntimeFactory or Story fixture owner for one live runtime, one compiled app, and one declared
+resource family. It accepts only an exact descriptor/K and a non-`undefined` resource value or updater result;
+it rejects foreign runtimes, unadmitted families, malformed keys, disposed leases, and transaction/stream
+targets. It uses the same authoritative StoreKernel write and generation fencing as actor-authored
+`setData`, publishes one StoreFanout revision and one host-write evidence fact, and emits no machine event,
+operation occurrence, or implicit retry. The lease is not exported from public runtime, actor, React, Story,
+or CLI routes; disposal revokes it idempotently.
+
+**Proof obligations:** Cover seed validation before acquisition, duplicate rejection, no-work/no-occurrence
+seeding, host capability provenance and revocation, exact key/resource-family fencing, cross-actor fanout,
+one revision and evidence fact per accepted write, rejection after disposal, and absence of a general public
+post-start writer.
 
 ## Provenance appendix (non-normative)
 
@@ -289,12 +378,9 @@ runtime semantics:
 Flow adopts the observable continuity guarantee while keeping the implementation inside Flow's production
 runtime; it does not depend on XState's private machinery.
 
-## Unresolved boundaries
+## Historical closure note
 
-The following internal questions remain open and MUST NOT be answered by this chapter: post-bootstrap actor
-admission and ensure ownership (`BEH-002`, `BEH-003`); lifecycle publication identity and ordered evidence
-(`BEH-007`, `BEH-008`); suspended context dependencies and serialized per-kind cleanup (`BEH-009`,
-`BEH-010`); prepared context/SSR, hook construction-tuple changes, and prepared mailbox bounds (`BEH-011`
-through `BEH-013`); and selector defects, passive operation-read reactivity, and the complete handle
-capability matrix (`BEH-014` through `BEH-016`). Their problem statements are recorded in
-[`UNRESOLVED_BEHAVIOR.md`](../UNRESOLVED_BEHAVIOR.md).
+The historical blocker register is recorded in [`UNRESOLVED_BEHAVIOR.md`](../UNRESOLVED_BEHAVIOR.md).
+The lifecycle, suspension, prepared-host, construction-tuple, prepared-mailbox, selector-defect,
+handle-capability, and trusted-host entries owned by this chapter are closed; their implementation proof
+obligations remain in the proof matrix and phase receipts.

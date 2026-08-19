@@ -221,6 +221,13 @@ directly target a state, update memory, execute an action, or expose an actor re
 reads current context in views, future guards, or continuing activities need not register
 `onContext`.
 
+If a committed provider publication causes a bound context selector to throw, the provider publication
+MUST remain committed. The consumer MUST retain its last valid projection and fixed binding, publish one
+issue-only snapshot, emit no `onContext` event, start no work, and perform no finite action. The selector
+MUST retry only against a later provider publication with a newer provider revision. A successful retry
+MUST replace the projection and clear the issue through the ordinary context-turn path. A selector defect
+during bootstrap, attachment, or hydration MUST abort admission without exposing a partial actor.
+
 **Example:**
 
 ```ts
@@ -274,16 +281,20 @@ context history.
 A context edge MUST NOT create actor parentage, lifetime ownership, or a command channel. React,
 tests, Stories, hosts, and non-React applications MUST use the same compiled context graph.
 
-Individual actor disposal MUST be rejected before disposal begins while any active consumer remains
-bound to that actor's ref. The diagnostic MUST identify every dependent actor ref and bound context
-key. Rejected disposal MUST NOT retain stale projections or cascade disposal across context edges.
+Individual actor disposal MUST be rejected before disposal begins while any active or suspended consumer
+remains bound to that actor's ref. The diagnostic MUST identify every dependent actor ref and bound context
+key. Rejected disposal MUST leave the provider, consumers, projections, and logical edges unchanged; it
+MUST NOT cascade disposal across context edges. A suspended consumer retains its exact provider ref,
+binding key, provider-incarnation identity, last committed projection, and provider revision. Resume MUST
+fail closed and leave the consumer suspended if that provider is missing, foreign, or tombstoned; Flow
+MUST NOT rebind or recreate it automatically.
 Whole-runtime disposal MUST tear the graph down in reverse dependency order, consumers before
 providers. A terminal-looking machine state MUST NOT trigger this rule because it neither completes
 nor disposes its actor.
 
 **Proof obligations:** No additional clause-specific proof was accepted.
 
-## REV-COMP-005 — Persistence captures a context-closed cut
+## REV-COMP-005 — Persistence captures a durable, context-closed cut
 
 **Change:** Add persistence and restoration rules for context graphs.
 
@@ -293,12 +304,19 @@ nor disposes its actor.
 old-clause disposition.
 
 **Rule:** Selected context values are derived runtime data and MUST NOT be serialized as duplicate
-consumer state. Dehydration MUST begin only between completed context-propagation waves and MUST
-capture a context-closed cut. Every included consumer MUST record its exact `contextBindings` refs and
-the provider revision observed for each binding; every referenced provider snapshot MUST be present at
-that exact revision. A concurrent mismatch MUST fail the attempt with retryable
-`ConcurrentDehydrate`. Unrelated actors MAY still represent different state-only instants; the
-stronger closure applies only along context edges.
+consumer state. A successful dehydration MUST capture every registered durable stable actor whose
+lifecycle is not `disposed`, including suspended stable actors, plus the transitive closure of its exact
+context-provider refs. The closure MUST be computed from runtime registration and fixed bindings, not
+automatic roots, child categories, current projections, or whether the current factory called
+`ensureActor` during this runtime. Runtime-local actors, runtime-incarnation tombstones, and disposed
+stable actors MUST NOT be captured. A boot-restored stable actor MUST remain runtime-owned and captureable
+even when the current factory does not repeat `ensureActor` for it.
+
+Dehydration MUST begin only between completed context-propagation waves and MUST capture a context-closed
+cut. Every included consumer MUST record its exact `contextBindings` refs and the provider revision
+observed for each binding; every referenced provider snapshot MUST be present at that exact revision. A
+concurrent mismatch MUST fail the attempt with retryable `ConcurrentDehydrate`. Unrelated actors MAY
+still represent different state-only instants; the stronger closure applies only along context edges.
 
 Hydration MUST restore the included context graph in dependency order, evaluate selectors from the
 restored provider snapshots, and install the derived projections as the consumer's silent baseline
@@ -315,7 +333,10 @@ and direct the host to declare `actorRef(providerMachine, id)`, create or restor
 that `runtime.createActor` accepts an ID. The other valid host remedy is to dispose and replace the
 durable consumer without the dependency before capture.
 
-**Proof obligations:** No additional clause-specific proof was accepted.
+**Proof obligations:** Prove membership for fresh, boot-restored, suspended, disposed, local, and
+tombstoned actors; exact transitive stable-provider closure; factory omission not removing a restored
+actor; opaque-provider fail-closed diagnostics; and dependency-ordered hydration with no context-event
+replay. Prove the context-closed revision cut and retry on concurrent mismatch.
 
 ## REV-COMP-006 — Modules preserve machine property names in `App.M`
 
@@ -332,7 +353,9 @@ old-clause disposition.
 each authored property name. `app({ id, persistenceVersion, modules })` MUST accept an ordered array of
 unaliased modules and MUST flatten their machine records into one exact `App.M` catalogue. Compilation
 MUST reject duplicate machine property names across modules so every `App.M.<name>` resolves to one
-exact machine family.
+exact machine family. It MUST also reject the same machine value appearing under multiple module keys or
+multiple modules, and MUST reject duplicate tooling ownership even when the property names and module IDs
+differ. Flow MUST NOT silently deduplicate one machine value into several tooling owners.
 
 An `App.M` property name MUST be an ergonomic catalogue and TypeScript inference key, not an actor
 instance address. A machine's explicit `id` MUST remain its durable machine and artifact identity.
@@ -480,12 +503,17 @@ address without creating an actor. Two separately constructed refs with the same
 stable ID MUST denote the same logical actor identity within an app runtime.
 
 An `ActorRef` MUST be identity only. A stable ref MUST contain the exact machine and authored stable ID
-required for equality, persistence, and lookup; the accepted rules do not prescribe the internal
-representation of a generated opaque ref. Neither ref kind MAY contain input, context bindings,
-ownership, construction callbacks, or other creation policy. A ref MUST NOT grant ownership,
-subscription, or disposal authority.
+required for equality, persistence, and lookup. Its durable wire form is the fixed `actor:` namespace tag
+followed by two GLO-01 length-prefixed UTF-8 segments in order: machine ID, then authored stable ID. Each
+segment retains exact source spelling and byte length; no delimiter concatenation or Unicode normalization is
+allowed. A generated opaque ref is an internal runtime-local identity and MUST NOT have a durable wire form.
+Neither ref kind MAY contain input, context bindings, ownership, construction callbacks, or other creation
+policy. A ref MUST NOT grant ownership, subscription, or disposal authority.
 
-**Proof obligations:** Stable-identity proofs are specified by REV-COMP-014.
+**Proof obligations:** Stable-identity proofs MUST cover exact segment encoding, round-trip equality,
+same-ID/different-machine inequality, malformed length and Unicode rejection, AppPlan-based resolution, and
+the absence of opaque refs from durable output. Owner-lease and tombstone proofs remain specified by
+REV-COMP-014.
 
 ## REV-COMP-012 — Shared construction, lookup, and local creation have distinct authority
 
@@ -501,8 +529,17 @@ for the affected old-clause disposition.
 
 **Rule:** `runtime.ensureActor(ref, { input, contextBindings? })` MUST be the durable
 restore-or-create boundary used by the production runtime factory or another explicit runtime owner.
+Only that production factory or an explicit runtime owner MAY invoke the ownership-capable ensure path;
+an ordinary actor handle, ref, `getActor`, `useActorByRef`, `useView`, Story checkpoint, or inspection
+surface MUST NOT recover or delegate its authority. One stable ref in one runtime incarnation MUST have
+one shared owner lease and one actor lifetime. Concurrent ensures MUST join that shared lease; returned
+lease views MUST target the same terminal authority, with no per-caller reference count and no duplicate
+disposal capability.
 It MUST return an owner lease `{ actor, dispose }`. If boot restored the ref, `lease.actor` MUST be
 that exact actor, and Flow MUST NOT rerun the fresh memory initializer or replace its context bindings.
+The bootstrap runtime MUST install the shared owner lease before any public handle escapes. A later
+factory ensure joins it; if the factory does not ensure the ref, the runtime retains that lease until
+explicit owner disposal or runtime shutdown.
 Otherwise, Flow MUST create the actor from the supplied fresh input and exact `contextBindings` refs.
 Concurrent ensures for one identity MUST join one construction and return authority over that same
 actor and idempotent disposal; they MUST NOT create duplicate actors or independent lifetimes.
@@ -553,14 +590,16 @@ context graph, Story ownership, and runtime shutdown.
 surfaces; see `REV-MIG-004` for the affected old-clause disposition.
 
 **Rule:** `lease.dispose()` MUST be asynchronous, idempotent, and terminal for local and shared
-actors. Its first successful call MUST close command admission, release the actor through the
+actors. For a stable ref, every returned lease view targets the one shared owner lease; that shared
+authority is the sole terminal disposal capability and Flow MUST NOT use per-caller reference counts.
+Its first successful call MUST close command admission, release the actor through the
 production runtime cleanup path, and make every escaped handle reject later commands with the stable
 disposed-actor diagnostic. Concurrent and later calls MUST join or observe the same disposal
 completion and MUST NOT execute cleanup twice.
 
-Before disposal begins, the context-graph integrity rule in REV-COMP-004 MUST run. If active consumers
-remain, disposal MUST reject with their refs and binding paths, the actor MUST remain active, and the
-owner MAY retry after disposing or replacing those consumers.
+Before disposal begins, the context-graph integrity rule in REV-COMP-004 MUST run. If active or suspended
+consumers remain, disposal MUST reject with their refs and binding paths, the actor MUST remain in its
+current lifecycle, and the owner MAY retry after disposing or replacing those consumers.
 
 Dropping a lease MUST NOT dispose its actor implicitly. Runtime registration MUST keep the actor alive
 until its owner calls `dispose` or the runtime shuts down; Flow MUST NOT use a garbage-collector
@@ -573,10 +612,10 @@ Each Story `run()` that materializes a `story.actor` recipe MUST retain its crea
 shared actor resolved through `getActor` MUST remain owned by the production runtime factory's retained
 lease and MUST NOT be disposed by the Story.
 
-**Proof obligations:** Prove boot-restored and freshly ensured leases; single cleanup under concurrent
-ensure or create lease disposal and runtime shutdown; rejection for a dependent consumer without
-partial cleanup; terminal command rejection through escaped handles; and absence of a disposal method
-on all non-owner actor surfaces.
+**Proof obligations:** Prove boot-restored runtime ownership, factory ensure joining, and freshly
+ensured leases; single cleanup under concurrent ensure or create lease disposal and runtime shutdown;
+rejection for a dependent consumer without partial cleanup; terminal command rejection through escaped
+handles; and absence of a disposal method on all non-owner actor surfaces.
 
 ## REV-COMP-014 — Shared disposal tombstones a ref for one runtime incarnation
 
@@ -602,7 +641,7 @@ incarnation under ordinary boot rules. Tombstones MUST NOT be dehydrated as acto
 NOT shadow a valid actor in a later runtime.
 
 **Proof obligations:** Prove that disposal installs the tombstone only after all cleanup succeeds;
-rejected disposal due to active consumers installs no tombstone; concurrent `ensureActor` cannot race
+rejected disposal due to active or suspended consumers installs no tombstone; concurrent `ensureActor` cannot race
 terminal disposal into a replacement actor; lookup and ensure both report the disposed ref after
 successful cleanup; and a separately constructed runtime can restore or create the same durable ref
 without observing the prior runtime's tombstone.
@@ -616,12 +655,23 @@ without observing the prior runtime's tombstone.
 **Supersedes:** Directly conflicting automatic-root startup and pre-seal handle exposure; see
 `REV-MIG-004` for the affected old-clause disposition.
 
-**Rule:** Initial runtime construction MUST be one atomic bootstrap phase. The runtime MUST install and
-validate boot actors first, then the production factory MUST complete every initial `ensureActor`, and
-then Flow MUST resolve all exact context-provider refs and reject missing providers, duplicate
-registrations, foreign machines, and instance cycles. Only after the graph is sealed MAY any actor
-activate, external operation begin, or public runtime or actor handle escape. Live hosts and app
-Stories MUST cross the same production barrier; Stories MUST NOT use a testing-only registration or
-activation path.
+**Rule:** RuntimeFactory discovery MUST be synchronous and inert: it MAY retain app identity, Clock,
+external capabilities, boot input, and its initial actor claims, but MUST NOT acquire a Layer, create or
+register actors, start work, or expose handles. Initial runtime construction MUST then be one atomic
+bootstrap phase that validates the boot payload, acquires the application Layer, validates and installs
+the initial actor claims, completes the production factory's initial `ensureActor` calls, and resolves
+all exact context-provider refs. Missing providers, duplicate registrations, foreign machines, and
+instance cycles MUST be rejected before the graph is sealed. Only after the graph is sealed, the Layer is
+available, and every attached actor crosses its activation barrier MAY any actor activate, external
+operation begin, or public runtime or actor handle escape. Live hosts and app Stories MUST cross the
+same production barrier; Stories MUST NOT use a testing-only registration or activation path.
 
-**Proof obligations:** No additional clause-specific proof was accepted.
+Any validation, acquisition, admission, provider-resolution, activation, or disposal race MUST close
+admission and reverse-roll back owners, context edges, actor registrations, queues, and staged work.
+Failed and cancelled bootstrap state is private and MUST expose no partial handle, snapshot, lifecycle
+evidence, or external operation.
+
+**Proof obligations:** Prove inert discovery, exact bootstrap order, Layer and provider failure,
+duplicate and foreign claims, instance cycles, cancellation and disposal races, reverse rollback, and
+the absence of partial public or external evidence. Prove that live hosts and Stories use the same
+production barrier.

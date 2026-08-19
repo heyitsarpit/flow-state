@@ -25,11 +25,11 @@ no-residue requirements; this file records the surviving boundaries and their ac
 tooling records; modules do not create automatic root actors, and app compilation creates no
 actor instances. The app closes machine and operation reachability before runtime execution.
 
-Initial runtime construction MUST install and validate boot actors first, then the production
-runtime factory MUST complete every initial `ensureActor`, and then Flow MUST resolve every exact
-context-provider ref. Missing providers, duplicate registrations, foreign machines, and instance
-cycles MUST be rejected before activation, external operation, or public runtime or actor handle
-escape. Live hosts and app Stories MUST cross this same production bootstrap barrier; a Story MUST
+Initial runtime construction MUST validate the boot payload, acquire the application Layer, install and
+validate boot actors, complete every initial production-factory `ensureActor`, and resolve every exact
+context-provider ref. Missing providers, duplicate registrations, foreign machines, and instance cycles
+MUST be rejected before activation, external operation, or public runtime or actor handle escape. Live
+hosts and app Stories MUST cross this same production bootstrap barrier; a Story MUST
 not use a testing-only registration or activation path. The runtime phase is `booting` during this
 transaction; any failure closes admission and rolls back owners, dependency edges, actor registrations,
 and queued acknowledgments in reverse acquisition order before entering `failed` (or `disposed` when
@@ -105,11 +105,14 @@ cleanup path, and make every escaped handle reject later commands with the stabl
 diagnostic. Concurrent and later calls MUST join or observe the same disposal completion and MUST
 NOT execute cleanup twice.
 
-Before disposal begins, the context-graph integrity rule MUST run. If any non-disposed consumers remain,
-including suspended consumers, disposal MUST reject with their refs and binding paths, the actor MUST
-remain in its current lifecycle, and the owner MAY retry after disposing or replacing those consumers.
-Suspension detaches live subscriptions and work but retains the logical dependency edge, so provider
-disposal cannot race React cleanup. Dropping a lease MUST NOT dispose its actor implicitly. Whole-runtime
+Before disposal begins, the context-graph integrity rule MUST run. If any active or suspended consumer
+remains bound, disposal MUST reject with its refs and binding paths, the actor MUST remain in its current
+lifecycle, and the owner MAY retry after disposing or replacing those consumers. Suspension detaches live
+subscriptions and work but retains the exact logical dependency edge, provider ref, binding key, provider
+incarnation, last projection, and provider revision. React cleanup MUST NOT remove edges, rebind consumers,
+or dispose providers. Resume fails closed and leaves the consumer suspended when the provider is missing,
+foreign, or tombstoned; Flow MUST NOT rebind or recreate it automatically. Dropping a lease MUST NOT
+dispose its actor implicitly. Whole-runtime
 disposal MUST subsume outstanding leases and tear down the context graph in reverse dependency order.
 
 Successful disposal of a stable shared actor MUST leave a tombstone for that ref until the current
@@ -143,7 +146,7 @@ boundary are defined by `REV-TEST-006`; no second execution path is permitted.
 An ordinary actor handle MUST expose its exact `ref`, synchronous command access, and the public
 actor snapshot used by host observation. Snapshots MUST retain the actor's coherent state, immutable
 memory, inherited context, lifecycle, and issues for one actor publication; exact operation-state
-projections remain subject to `BEH-023`. Actor state MUST remain in Flow's production runtime; React
+projections follow `REV-OPS-017`. Actor state MUST remain in Flow's production runtime; React
 MUST NOT store actor state, mailboxes, operation bindings, or cleanup ownership.
 
 Lifecycle changes publish immutable snapshots but are not machine turns. The public `snapshot.revision`
@@ -235,9 +238,10 @@ it, and drain buffered commands exactly once. Attachment rechecks provider ident
 uses the current provider snapshots if the provisional cut is stale. A machine, runtime, input, or
 context-binding identity change during one component incarnation fails with a keyed-remount diagnostic;
 it never replaces the prepared actor or reuses its memory. Prepared buffering is bounded to 64 commands;
-overflow rejects synchronously without mutation. Abandoned concurrent and server renders MUST leave no
-runtime registration, subscription, timer, activity, operation attempt, lifecycle evidence,
-external work, or terminal-disposal obligation. Imperative `runtime.createActor` remains the
+the 65th command rejects synchronously through the package-owned diagnostic envelope without mutation.
+Abandonment closes the prepared mailbox at one internal linearization point; buffered commands are never
+delivered, later commands reject, and the handle creates no runtime registration, subscription, timer,
+activity, operation attempt, lifecycle evidence, external work, or terminal-disposal obligation. Imperative `runtime.createActor` remains the
 immediately attached path for non-React owners. These rules are `REV-HOST-001` and `REV-HOST-002`.
 
 The prepared actor remains inert until attachment; React owns only its attachment lease. Cleanup
@@ -306,9 +310,10 @@ useActorByRef(ref);
 ```
 
 It MUST synchronously resolve one already-registered shared actor from the Provider runtime and
-return its stable command handle. It MUST NOT call `ensureActor`, construct an actor, acquire
-ownership, or dispose an actor. Missing, foreign, disposed, opaque-local, and machine-mismatched
-refs MUST fail with stable diagnostics. The hook is command-only and non-reactive.
+return its stable command handle. A changed ref MUST resolve the new already-registered handle without
+construction, ownership, disposal, or subscription authority. It MUST NOT call `ensureActor`, construct
+an actor, acquire ownership, or dispose an actor. Missing, foreign, disposed, opaque-local, and
+machine-mismatched refs MUST fail with stable diagnostics. The hook is command-only and non-reactive.
 
 ### HOST-011 — `useView` is the sole ordinary React read path
 
@@ -334,8 +339,12 @@ state.
 `useView` MUST use the shared selector equality: scalar and non-record results use complete-value
 `Object.is`, and named record results use fixed-key, field-by-field `Object.is`. `useShallow(selector)`
 MAY remain an explicit React-only memoization adapter for named records, using that same field
-comparison. `useView` MUST accept no comparator argument, and selector identity changes MUST NOT
-replace the actor subscription.
+comparison. `useView` MUST accept no comparator argument, and selector identity changes MUST NOT replace
+the actor subscription. A view selector exception MUST be memoized by the exact actor publication and
+passive-store read cut; repeated evaluation against that unchanged cut MUST rethrow the same exception
+without mutating actor state, issuing an issue-only actor publication, or retrying in a loop. A later actor
+publication or matching StoreFanout revision MUST retry the selector. Initial attachment and hydration
+selector defects abort admission without exposing a partial actor.
 
 ```ts
 const intentActor = useActor(newIntentMachine, {
@@ -363,8 +372,7 @@ StoreFanout revision reruns the selector against one tear-free actor/store bound
 equality suppresses an unchanged result. The dependency lease is installed and released internally with
 the view lifetime, so callers do not manually subscribe for machine correctness. Projection-only reruns
 publish a complete immutable actor snapshot and do not evaluate machine transitions. These rules are
-`REV-HOST-006`, `REV-HOST-007`, and `REV-OPS-015`; selector defect memoization and recovery remain
-unresolved under `BEH-014`.
+`REV-HOST-006`, `REV-HOST-007`, and `REV-OPS-015`.
 
 ## SSR, requests, and persistence
 
@@ -379,7 +387,8 @@ The committed host MUST attach that same actor rather than replacing a render-ti
 Attachment atomically rechecks provider identity and publication revisions, installs the current derived
 context baseline before active publication, and then drains the bounded prepared mailbox. A stale
 provisional cut is replaced by current provider truth; it is never persisted or emitted as lifecycle
-evidence. Prepared command buffering is bounded to 64 entries and abandoned server renders remain inert.
+evidence. A selector defect aborts attachment without partial exposure. Prepared command buffering is
+bounded to 64 entries and abandoned server renders close their mailbox and remain inert.
 
 ### HOST-013 — Request hosts use production runtime construction
 
@@ -421,9 +430,12 @@ and direct the host to declare `actorRef(providerMachine, id)`, create or restor
 accepts an ID. The other remedy is to dispose and replace the durable consumer without the dependency
 before capture. This is `REV-COMP-005`.
 
-The exact durable actor capture membership, treatment of suspended stable actors and runtime-local
-tombstones, restored ownership, and transitive actor set remain unresolved under `BEH-004`. Stable
-and opaque ref encoding details remain unresolved under `BEH-005`.
+Dehydration captures every registered non-disposed durable stable actor, including suspended and
+boot-restored actors, plus the transitive closure of exact stable context-provider refs. Local actors,
+disposed actors, and runtime-incarnation tombstones are excluded. A restored stable actor remains
+runtime-owned even when the current factory does not repeat `ensureActor`; an opaque provider in the
+captured closure fails closed under `NonDurableContextProvider`. Stable and opaque ref encoding follows
+the durable `actor:` representation in `WIRE-008`.
 
 ### HOST-015 — Effect bridges retain runtime service and error truth
 
@@ -462,10 +474,10 @@ automatic roots and disposal on ordinary handles.
 
 Proofs MUST cover final ref and handle identity across preparation and attachment, provisional context
 recheck, construction-tuple keyed-remount rejection, prepared command delivery and the 64-command
-bound, inert abandoned preparation, the exact `prepared | active | suspended | disposed` lifecycle,
+bound, atomic inert abandoned preparation, the exact `prepared | active | suspended | disposed` lifecycle,
 Strict Mode reconnection, Activity hide/reveal, serialized suspension normalization, retained provider
-edges, no active work after final unmount, and lookup-only `useActorByRef` behavior. Selector defects
-remain their named unresolved boundary; passive operation-read reactivity MUST cover dependency
+edges, fail-closed missing-provider resume, no active work after final unmount, lookup-only changed-ref
+`useActorByRef` behavior, and revision-scoped selector defect memoization/retry. Passive operation-read reactivity MUST cover dependency
 replacement, cross-actor StoreFanout, tear-free reads, and cleanup on suspension/disposal.
 
 ### HOST-P03 — Selector and host parity proof
@@ -487,7 +499,7 @@ context events or exposes selected context as a second source of truth.
 ### HOST-P05 — Disposal and evidence-drain proof
 
 Proofs MUST cover owner-lease cleanup, runtime shutdown, ordered lifecycle evidence with asynchronous
-payloads, admission closure, accepted-record drain, synthetic-terminal-`TurnRecord` absence, and
-retained Effect error truth. Exact cleanup failure evidence remains a proof obligation of the existing
-cleanup contract; disposal MUST NOT be declared complete while accepted evidence or owned finalizers
-remain unprocessed.
+payloads, admission closure, accepted-record drain, synthetic-terminal-`TurnRecord` absence, the frozen
+package-owned `FlowStoryExecutionError` envelope, deterministic cleanup diagnostics, and retained Effect
+error truth. Disposal MUST NOT be declared complete while accepted evidence or owned finalizers remain
+unprocessed; a cleanup failure retains captured end evidence but never returns Story success.

@@ -199,8 +199,8 @@ production factory returns. It MUST retain each returned owner lease, expose onl
 command execution and evidence capture, and call the leases' asynchronous idempotent `dispose` in
 reverse dependency order during run cleanup. Dropping a lease MUST NOT count as cleanup, and
 app-owned shared actors MUST remain owned by leases retained by the runtime factory. A recipe whose
-machine is not admitted by the compiled AppPlan MUST be rejected. Post-bootstrap actor admission
-remains governed by `BEH-002`; this rule adds no alternate creation path.
+machine is not admitted by the compiled AppPlan MUST be rejected. Post-bootstrap actor admission follows
+the shared atomic transaction in `SEM-029`; this rule adds no alternate creation path.
 
 **Proof obligations:** Compile proofs MUST reject missing, extra, and provider-incompatible binding
 keys. Runtime proofs MUST cover recipe and stable-ref providers, repeated bindings to one provider,
@@ -265,10 +265,19 @@ through the production context-turn path. It MUST NOT impersonate provider actor
 selectors. App Stories MUST prove production provider resolution and MUST NOT inject context directly.
 
 The focused one-machine AppPlan MUST use the production compiler, actor engine, operation kernels,
-context-turn coordinator, scheduler, inspection surface, and cleanup path. Injected selected context
-MUST exercise that production context-turn path, while the Story MUST NOT claim to prove provider
-selectors, provider refs, app bootstrap, or a production context graph. The exact package-private
-focused-context installation mechanism remains unresolved under `BEH-018`.
+context-turn coordinator, scheduler, inspection surface, and cleanup path. Focused compilation is a
+package-private exception to provider-backed construction for `story.machine` only: it creates one run-local
+focused-context source containing exactly `SelectedContextOf<M>`. That source is not an actor, `ActorRef`,
+fixture provider, registration, ownership edge, or context-graph node and performs no provider selection or
+lookup. On `run()`, production `runtime.createActor` creates the single actor and the focused context is
+installed as a silent baseline through the context-turn coordinator before activation, first observable
+snapshot, or handle escape. Baseline installation emits no `onContext` event, machine event, evidence,
+finite action, or external work. `setContext(next)` accepts only the exact declared selected-context shape
+and submits one focused-context publication through that same coordinator: equal values are silent and
+changed values use the existing current/previous, `onContext`, mailbox, issue, and reconciliation rules.
+The Story does not directly mutate memory, state, operations, or evidence. Focused Stories prove
+production actor execution and context-turn behavior only; they do not prove provider selectors, refs,
+app bootstrap, or a production context graph. App Stories retain normal provider-backed rules.
 
 ```ts
 const signedOutStory = story
@@ -333,18 +342,50 @@ creating restoration input. `run({ signal? })` MUST acquire a fresh production r
 immutable plan, and guarantee cancellation and scoped cleanup through production disposal.
 
 `maxTurns` MUST bound repeated processing of unknown finite work. Exhaustion MUST fail the run rather
-than silently treating remaining finite work as settled. The exact failure envelope and cleanup
-aggregation are unresolved under `BEH-022`.
+than silently treating remaining finite work as settled. `run()` MUST close command admission after
+execution, cancellation, or failure and perform non-abortable finalization. Story-local owner leases MUST
+be disposed in reverse dependency order, runtime disposal MUST complete actor/store/operation/context/
+lifecycle cleanup, accept terminal lifecycle evidence, drain the accepted evidence prefix, and close sinks
+and queues. Fixture and host scopes MUST finalize only after Flow-owned dependents no longer use them. Every
+cleanup phase MUST run even when an earlier phase fails. Cleanup failures MUST be collected
+in deterministic phase and dependency order; an existing execution or cancellation failure remains primary,
+otherwise the first cleanup failure is primary. The run rejects in either case.
+
+`FlowStoryExecutionError` MUST carry one deeply frozen package-owned failure envelope containing completed
+checkpoints, optional captured `end`, failure boundary, primary diagnostic, ordered cleanup diagnostics,
+cancellation evidence when applicable, accepted/drained evidence-sequence facts, and the complete public
+Effect `Cause.Cause<unknown>` for the failed execution. A completed execution with cleanup failure retains
+its captured `end` in the error but never returns a successful run; failure before end capture retains
+completed checkpoints and the failure boundary without manufacturing `run.end`.
 
 ## REV-TEST-007 — Simulate admitted operation occurrences through production completion
 
 **Change:** Replace `perform`, `deliver`, and `receive` with one exact controlled-observation command.
 
-**Rule:** `simulate` MUST match an already-pending controlled operation and MUST NOT create work. Its
-operation plan MUST identify the exact descriptor and canonical input or key; a required one-based
-`occurrence` MUST distinguish repeated matching admissions for the exact actor target. The
-observation MUST enter through the production completion path and MUST NOT directly mutate actor
-memory, cache state, snapshots, generations, or pending-work evidence.
+**Rule:** `simulate` MUST use one package-private interception point at the production external-execution
+boundary. Before interception, Flow MUST atomically validate the exact actor incarnation, operation family,
+descriptor, canonical `K`, one-based occurrence, and, for shared work, store generation and lease epoch.
+Interception is allowed only for an admitted pending occurrence owned by an active actor. Missing, foreign,
+mismatched, not-yet-admitted, already-settled, wrong-kind, suspended, and disposed targets MUST fail through
+the existing package diagnostic before external execution is replaced. The supplied observation MUST use an
+accepted family-specific variant and enter the ordinary production completion kernel, which alone settles
+the occurrence or shared generation, releases ownership, applies writes and overlays, updates projections
+and status, maps authored events, and emits evidence. `simulate` MUST NOT create, cancel, retry, process
+unrelated work, bypass lifecycle admission, or mutate runtime state directly. A shared-generation terminal
+observation settles that generation once and updates every attached actor occurrence; later terminal
+observations fail as already settled. Live hosts retain ordinary adapter execution.
+
+On successful actor-local operation admission, Flow MUST allocate the next one-based ordinal within the
+actor incarnation, operation kind, descriptor identity, and canonical `K`. The ordinal is monotonic and
+non-reused for that actor incarnation; executable `P`, plan-object identity, and callback identity never
+contribute. `reject` consumes no occurrence; `cancel` settles the prior occurrence and gives a replacement a
+new ordinal; `allow` and `serialize` retain separate ordinals for every admitted occurrence. A continuing
+stream's existing occurrence identifies the actor-local declaration occurrence, while shared execution is
+identified separately by generation and lease epoch; emissions do not create new actor occurrences.
+Cancellation, supersession, suspension, and hydration retain bounded occurrence facts and cursors needed
+to reject duplicate observations and fence late completions. Hydration never replays external work: restored
+nonterminal transactions follow WIRE-012 and restored streams create a new generation without replaying
+emissions. Occurrence history is bounded evidence, not a public registry or handle.
 
 The accepted anonymous observation shapes are:
 
@@ -369,10 +410,8 @@ canonical resource generation, one terminal simulation MUST settle that generati
 every attached actor; another terminal observation MUST fail as already settled.
 
 The Story layer MAY replace only external execution. Admission, ownership, concurrency, canonical
-identity, lifecycle publication, completion classification, authoritative writes, mapped outcomes,
-and evidence MUST continue through the production operation kernels. Exact interception, occurrence
-allocation and retention, suspension interaction, and hydration behavior remain unresolved under
-`BEH-019` and `BEH-020`.
+identity, lifecycle publication, completion classification, authoritative writes, mapped outcomes, and
+evidence MUST continue through the production operation kernels.
 
 ## REV-TEST-008 — Capture atomic checkpoint and end evidence
 
@@ -398,16 +437,29 @@ machineRun.end.snapshot;
 machineRun.end.runtime.pendingWork;
 ```
 
-Every checkpoint and successful `run.end` MUST be deeply frozen and captured through the production
-runtime's atomic read barrier so all actor snapshots and runtime metadata describe one instant.
-`run.end` MUST NOT imply actor finality or completion. Failed execution MUST retain completed
-checkpoints plus typed failure-boundary and cleanup evidence and MUST NOT manufacture a successful
-`run.end`.
+Every checkpoint and successful `run.end` MUST be deeply frozen and captured through one production
+`DehydrateBarrier` read cut. Store commits acquire their commit permit before that barrier; the barrier
+acquires stable actor-registry leases, one StoreState revision, published actor snapshots, pending-work
+facts, TestClock time, and the accepted runtime evidence prefix through one evidence-sequence fence. The
+capture set is the complete static closure of the Story plan: the single machine actor, every app recipe,
+and every exact ActorRef in boot payloads, context bindings, command targets, and transitive providers;
+unrelated runtime actors are excluded. `actor(...)` reads the frozen capture and never performs a live
+lookup. Captured roots are deeply frozen before leases are released. Checkpoint and `run.end` capture does
+not process work, move time, create, dispose, restore, or perform external work; `run.end` does not imply
+actor finality or completion. `run.end` is captured after commands and before cleanup.
 
-The exact atomic-read lock order, actor capture set, lifecycle-evidence cut, cleanup-error
-aggregation, and failed-run envelope remain unresolved under `BEH-021` and `BEH-022`. Those gaps
-MUST preserve the accepted single-cut, frozen-evidence, completed-checkpoint retention, and
-no-fabricated-success requirements.
+Failed execution MUST retain completed checkpoints plus truthful failure-boundary and cleanup evidence and
+MUST NOT manufacture a successful `run.end`. The runner closes command admission after execution,
+cancellation, or failure, then performs non-abortable finalization. Story-local leases are released in
+reverse dependency order; runtime disposal cleans actors, stores, operations, context, lifecycle evidence,
+sinks, and queues. Every phase runs even when an earlier phase fails. Cleanup failures are collected in
+deterministic phase and dependency order; an existing execution or cancellation failure remains primary,
+otherwise the first cleanup failure is primary. `FlowStoryExecutionError` carries one deeply frozen
+package-owned envelope with completed checkpoints, optional captured `end`, failure boundary, primary
+diagnostic, ordered cleanup diagnostics, cancellation evidence when applicable, accepted/drained
+evidence-sequence facts, and the complete public Effect `Cause.Cause<unknown>`. A completed execution with
+cleanup failure retains its captured `end` in the error but never returns success; failure before end
+capture retains completed checkpoints and the failure boundary without manufacturing `run.end`.
 
 ## REV-TEST-009 — Limit pure model discovery to fresh machine plans
 
@@ -467,8 +519,8 @@ Both stop before expanding beyond `maxDepth` or returning more than `limit`, and
 `{ paths, truncated, explored }` result; `truncated` is true when either bound hid an otherwise
 reachable candidate. State-key defects or noncanonical results throw synchronously before returning
 a partial collection. Filters, source/target selectors, weights, duplicate policies, custom event
-serializers, and hidden candidate registries are not vNext options. Exact canonical-key encoding
-and the mutable-structure boundary remain subject to `BEH-027`.
+serializers, and hidden candidate registries are not vNext options. Exact canonical-key encoding and
+container behavior follow `REV-OPS-016`.
 
 ## TEST-015 — A model path becomes an ordinary live Story
 
@@ -499,8 +551,9 @@ contain evidence, not expectations; Vitest and other host runners call ordinary 
 
 The actor engine publishes one immutable `TurnRecord` after each atomic machine-turn snapshot.
 Lifecycle evidence is not a machine turn and MUST NOT create a `TurnRecord`; lifecycle transitions
-MUST publish their coherent snapshot before appending inspection evidence, while the ordered
-evidence path and its sequencing remain unresolved under `BEH-008`.
+MUST publish their coherent snapshot before appending immutable `LifecycleRecord` evidence through the
+same globally sequenced asynchronous hub. Both records use the accepted publication barrier and bounded
+sink drain rules; lifecycle evidence never creates a second mutable history.
 Core runtime, actor snapshots, Story checkpoints, and Story results MUST NOT own a second mutable
 inspection or trace history.
 
@@ -516,12 +569,10 @@ buffer; durable history belongs only in an explicitly encoded trace artifact. Th
 actor-owned `setRetention`, global mutable inspection log, or separate mutable `TraceLog`. These
 retained boundaries are subject to `DEL-010` and MUST NOT preserve a deleted Story or replay surface.
 
-## Unresolved boundaries
+## Historical closure note
 
-The following internal questions remain open and MUST NOT be answered by this chapter: focused-context
-installation (`BEH-018`); controlled-operation interception and exact occurrence persistence
-(`BEH-019`, `BEH-020`); and the checkpoint capture set, evidence cut, cleanup failure, and failed-run
-envelope (`BEH-021`, `BEH-022`). Their problem statements are recorded in
-`reference/incident-console/implementation/revision-spec/UNRESOLVED_BEHAVIOR.md`. Post-bootstrap
-recipe admission also depends on the open internal transaction in `BEH-002`; no new Story surface
-follows from that dependency.
+The historical problem statements are recorded in
+`reference/incident-console/implementation/revision-spec/UNRESOLVED_BEHAVIOR.md`; this chapter's focused-
+context, controlled-operation, occurrence, checkpoint, and cleanup entries are closed by the accepted
+`REV-TEST-*` clauses. Post-bootstrap recipe admission follows the shared atomic transaction in `SEM-029`; no
+new Story surface follows from that dependency.

@@ -94,14 +94,19 @@ The root MUST export the companion types needed to name or infer its accepted va
 `Definition`, `StateToken`, `EventToken`, `StateOf`, `EventOf`, `Machine`, `MemoryOf`, `InputOf`,
 `RequirementsOf`, `Resource`, `Transaction`, `ActorRef`, `ActorSnapshot`, `Module`, `App`, `Runtime`,
 and `CanonicalKeyInput`, together with the app-branded
-`RuntimeBootPayload` accepted as immutable boot input. Exact operation-family state shapes remain
-subject to `BEH-023`; this contract does not invent support aliases for them.
+`RuntimeBootPayload` accepted as immutable boot input. Exact operation-family state shapes are the inferred
+unions defined by `REV-OPS-017`; this contract does not export support aliases for them.
 
-The root MUST NOT export `FlowReceipt`, standalone status aliases, full diagnostic facts, public Cause
-or TurnRecord types, registered-view types, child-machine types, root/dynamic actor category types,
+The root MUST NOT export `FlowReceipt`, standalone status aliases, full diagnostic facts, or TurnRecord
+types, registered-view types, child-machine types, root/dynamic actor category types,
 generic operation-ref types, or testing and inspect artifact types. Ordinary actor handles expose their
 exact `ActorRef` but carry no individual disposal authority; the owner lease is the separate construction
 result and does not require a parallel exported helper type.
+
+`FlowDisposeError` and `FlowStoryExecutionError` are public error boundaries and may carry the installed
+Effect `Cause.Cause<unknown>` value without Flow re-exporting a standalone `Cause` namespace or type. Raw
+Cause is not part of actor snapshots, passive selector inputs, or serialized artifact and CLI projections;
+those boundaries use the package-owned diagnostic or `CauseProjection` shape defined elsewhere.
 
 The root MUST NOT export internal service tags, store or orchestrator implementations, `ManagedRuntime`,
 pending outcome records, boot artifact types, test harness types, or inspect artifact types. The public
@@ -264,13 +269,15 @@ canonical tuple returned by `key(P)`. Exact resource identity is descriptor ID p
 Projection, validation, canonicalization, and defensive freezing MUST finish before ownership, actor/store
 mutation, admission, or external work.
 
-Canonical `K` values MUST contain only `null`, booleans, strings, finite numbers, readonly arrays, and
-plain readonly records. Canonicalization sorts record keys and normalizes `-0` to `0`; it rejects
-`undefined`, non-finite numbers, bigint, symbols, functions, accessors, class instances, mutable
-structures, cycles, and branded secret values. One key is limited to 16 nested levels, 256 total value
-nodes, and 8 KiB in the tagged canonical byte encoding. Failure names the exact `K[index]` or nested
-record path and aborts the candidate turn. `BEH-027` remains the unresolved authority conflict over the
-exact byte grammar and mutable-structure interpretation; this contract adds no answer.
+Canonical `K` follows `REV-OPS-016`. Flow accepts ordinary dense arrays and plain records, copies them
+into Flow-owned containers, recursively freezes them, and freezes the top-level tuple. It sorts record
+keys, normalizes `-0` to `0`, and rejects `undefined`, non-finite numbers, bigint, symbols, functions,
+accessors, class instances, unsupported objects, cycles, branded secret values, sparse arrays, extra
+array properties, symbol keys, and hostile or inconsistent reflection. The exact UTF-8 `KBytes` grammar
+has no whitespace or trailing newline, and the limits are 16 nested levels, 256 value nodes, and 8192
+encoded bytes. Failure names the exact `K[index]` or nested record path and aborts the candidate turn.
+Every result-changing capability, tenant, account, network, permission, or session discriminator MUST be
+represented in `K`; runtime partitioning is not a substitute.
 
 The descriptor MUST NOT expose a second identity projection, custom hash, or equality callback. Explicit
 freshness and collection policy belong to the descriptor family; this revision establishes no new policy
@@ -385,8 +392,8 @@ O.submitIntent.commit(params, {
 ```
 
 The accepted mapping includes explicit `setData` plans, not completion-side `invalidates` or `clears`
-options. Exact public state union fields remain the `BEH-023` boundary; occurrence terminality and
-completion-side preview ordering follow `SEM-016` and `SEM-018`.
+options. Exact public state union fields follow `REV-OPS-017`; occurrence terminality and completion-side
+preview ordering follow `SEM-016` and `SEM-018`.
 
 ### API-009 — Streams are keyed continuing subscriptions
 
@@ -446,8 +453,8 @@ TodoApp.M.todos;
 
 `module({ id, machines })` MUST accept an exact keyed machine record and preserve each property name.
 `app({ id, persistenceVersion, modules })` MUST accept an ordered array of unaliased modules and flatten
-their records into one exact `App.M` catalogue. Duplicate machine property names across modules MUST be
-rejected. Module IDs are unique tooling identity for CLI slicing, trace and inspection grouping, behavior
+their records into one exact `App.M` catalogue. Duplicate machine property names, repeated machine values,
+and duplicate tooling ownership across modules MUST be rejected. Module IDs are unique tooling identity for CLI slicing, trace and inspection grouping, behavior
 artifact sections, and module-scoped diffs; they contribute to no machine, actor, persistence, context, or
 operation identity.
 
@@ -482,10 +489,11 @@ const existingActor = runtime.getActor(ref);
 ```
 
 Every actor backed by machine `M` carries one exact `ActorRef<M>` exposed as `actor.ref`. A stable ref is an
-inert durable address made by `actorRef(machine, id)`; an opaque ref is generated for a local actor and is
-runtime-local, non-durable, and non-restorable. Refs contain no input, context bindings, callbacks,
-ownership, subscription, or disposal authority. Several refs may address independent actors of one
-machine, and refs are branded to the exact machine rather than to an app.
+inert durable address made by `actorRef(machine, id)`; its wire form is the fixed `actor:` namespace tag
+followed by the GLO-01 length-prefixed UTF-8 machine-ID and authored stable-ID segments, in that order. An
+opaque ref is generated for a local actor and is runtime-local, non-durable, and non-restorable. Refs contain
+no input, context bindings, callbacks, ownership, subscription, or disposal authority. Several refs may
+address independent actors of one machine, and refs are branded to the exact machine rather than to an app.
 
 `runtime.ensureActor(ref, { input, contextBindings? })` is the durable restore-or-create boundary and
 returns an owner lease `{ actor, dispose }`. A restored actor keeps its exact memory and bindings without
@@ -565,10 +573,10 @@ subscribe for machine correctness. Projection-only reruns publish a complete act
 evaluate machine transitions. Exact publication identity, suspended context dependency handling, cleanup
 normalization, and prepared SSR bounds remain governed by their existing clauses.
 
-`FlowDisposeError` remains the frozen package-owned cleanup error with `_tag: "FlowDisposeError"`, the
-complete `Cause.Cause<unknown>`, and `scope: "actor" | "runtime"`. Lease and runtime disposal are
-asynchronous, idempotent, terminal, and cached; a failed active-consumer disposal leaves the actor active
-and identifies the dependent refs and context paths.
+`FlowDisposeError` remains the frozen package-owned cleanup error with `_tag: "FlowDisposeError"`,
+`cause: Cause.Cause<unknown>`, and `scope: "actor" | "runtime"`. Lease and runtime disposal are
+asynchronous, idempotent, terminal, and cached; disposal rejected because an active or suspended
+consumer remains leaves the actor in its current lifecycle and identifies the dependent refs and context paths.
 
 ### API-013 — Story is a non-callable namespace with three constructors
 
@@ -631,13 +639,21 @@ and `simulate` do not process implicitly. `advance` moves duration, `advanceTo` 
 epoch-millisecond value, and `advanceToNextTimer` moves the TestClock to the next timer. `checkpoint` reads
 evidence immediately without progressing or creating restoration input.
 
-`simulate` matches an already-pending controlled operation by exact actor target, descriptor, canonical
-input or key, and required one-based occurrence. It replaces only external execution and routes the
-observation through production completion; it creates no work and directly mutates no actor, cache,
-snapshot, generation, or evidence state. Accepted observations are `success`, `failure`, `defect`,
-`interruption`, `emission`, and `completion` only where the operation family supports them. Missing,
-mismatched, unsettled, or wrong-kind occurrences fail deterministically. Exact interception and occurrence
-retention remain unresolved under `BEH-019` and `BEH-020`.
+`simulate` uses one package-private interception point at the production external-execution boundary.
+Flow atomically validates actor incarnation, operation family, descriptor, canonical `K`, one-based
+occurrence, and shared generation/lease epoch when applicable. It accepts only an admitted pending
+occurrence owned by an active actor; missing, foreign, mismatched, not-yet-admitted, already-settled,
+wrong-kind, suspended, and disposed targets fail through the package diagnostic before external execution
+is replaced. The family-specific observation enters the ordinary completion kernel, which alone settles
+the occurrence or shared generation, releases ownership, applies writes and overlays, updates projections
+and status, maps authored events, and emits evidence. `simulate` creates no work and does not cancel, retry,
+process unrelated work, bypass lifecycle admission, or mutate runtime state directly. A terminal shared
+generation observation updates every attached actor occurrence once; later terminal observations fail as
+already settled. Live hosts retain ordinary adapter execution. Actor-local ordinals are one-based,
+monotonic, and non-reused within an incarnation and are independent of executable `P`, plan identity, and
+callback identity; streams retain declaration occurrences while generations and lease epochs identify shared
+execution. Bounded occurrence facts fence cancellation, supersession, suspension, and hydration, and
+hydration never replays external work. Occurrence history is not a public registry or handle.
 
 App checkpoints and end evidence use exact actor lookup:
 
@@ -652,10 +668,20 @@ machineRun.checkpoints["signed-out"].snapshot;
 machineRun.end.snapshot;
 ```
 
-Checkpoints and successful `run.end` are deeply frozen, captured through the production atomic read
-barrier, and do not imply actor completion. Failed execution retains completed checkpoints and truthful
-failure-boundary and cleanup evidence but does not manufacture a successful `run.end`. Exact capture,
-cleanup aggregation, and failed-run envelope remain unresolved under `BEH-021` and `BEH-022`.
+Checkpoints and successful `run.end` are deeply frozen through one production `DehydrateBarrier` read cut.
+The barrier follows the Store commit permit, captures the complete static Story-plan closure (single
+machine actor or every app recipe plus exact refs in boot, context bindings, command targets, and
+transitive providers), one StoreState revision, published snapshots, pending work, TestClock time, and
+the accepted runtime evidence prefix, then deeply freezes the roots before releasing registry leases.
+Unrelated runtime actors are excluded and `actor(...)` performs no live lookup. Capture does not process,
+move time, create, dispose, restore, or perform external work; `run.end` is captured after commands and
+before cleanup and does not imply actor completion. Failed execution retains completed checkpoints and a
+package-owned frozen `FlowStoryExecutionError` envelope with `cause: Cause.Cause<unknown>`, optional end evidence, failure boundary,
+primary and ordered cleanup diagnostics, cancellation evidence, and accepted/drained evidence-sequence
+facts. Command admission closes before non-abortable finalization; cleanup runs in reverse dependency and
+deterministic phase order even after failures. A cleanup failure retains captured end evidence but never
+returns success; failure before end capture never manufactures `run.end`. Its public failure envelope carries
+the complete Effect `Cause.Cause<unknown>` alongside the package-owned diagnostic facts.
 
 ### API-015 — Fixtures and models remain inferred production inputs
 
@@ -689,22 +715,23 @@ Effects, synthesize asynchronous routes, or expose replay/provide/clock helpers.
 the base with that call's exact candidate events and starts with no checkpoints.
 
 `FlowStoryExecutionError` is the only named testing runtime class. Run, path, checkpoint, status, phase,
-evidence, and diagnostic shapes remain inferred unless accepted elsewhere. The exact failure envelope and
-cleanup aggregation remain unresolved under `BEH-022`.
+evidence, and diagnostic shapes remain inferred unless accepted elsewhere. Its package-owned frozen failure
+envelope is accepted by REV-TEST-006 and REV-TEST-008 and carries the complete public
+`Cause.Cause<unknown>` value for the failed execution.
 
 ## Inspection and CLI
 
 ### API-016 — Inspection derives from production records and bounded artifacts
 
 Pure graph and transition functions accept inert definitions or immutable snapshots. Live inspection
-consumes committed `TurnRecord`s after actor publication and uses the shared private v2 codecs for trace
-and behavior artifacts. Inspection MUST NOT maintain a second mutable history or fabricate a trace from an
-arbitrary snapshot.
+consumes committed `TurnRecord`s and immutable `LifecycleRecord`s after actor publication and uses the
+shared private v2 codecs for trace and behavior artifacts. Inspection MUST NOT maintain a second mutable
+history or fabricate a trace from an arbitrary snapshot.
 
 Pure transition inspection performs one planner pass and may report transition selection, redirect
 microsteps, memory patches, and desired authored operation plans. It cannot report actual starts, releases,
 generations, pending outcomes, or finalizers that exist only after production interpretation. `TurnRecord`
-remains package-private; inspect exports inferred immutable receipt, Cause-bearing diagnostic, trace,
+remains package-private; inspect exports inferred immutable receipt, `CauseProjection`-bearing diagnostic, trace,
 behavior, and artifact projections without recreating a parallel public hierarchy.
 
 `attachInspectionSink(runtime, sink)` accepts only a sink created by this route and observes records admitted
@@ -746,5 +773,6 @@ constructors, exact Story targets, `simulate`, `process`, `advanceTo`, checkpoin
 Runtime tests MUST prove inert descriptor/key/passive reads, canonical identity bounds, atomic event/action
 publication, runtime-scoped resource sharing, generation fencing, actor-owned cancellation, context graph
 bootstrap, lease disposal and tombstones, prepared/active/suspended/disposed lifecycle, Story production
-parity, exact controlled observations, evidence cuts, and CLI refusal of arbitrary event fabrication. Open
-`BEH-*` items remain blockers and MUST NOT be filled by this contract.
+parity, exact controlled observations, evidence cuts, and CLI refusal of arbitrary event fabrication. The
+historical `BEH-*` register and its accepted `REV-*` closures remain outside this public API contract; this
+file MUST NOT invent a public surface to satisfy a proof obligation.

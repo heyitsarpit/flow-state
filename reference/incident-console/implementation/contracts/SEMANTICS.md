@@ -12,7 +12,9 @@ Each actor MUST own one mailbox. An active actor MUST have one unbounded Effect 
 Accepted external events, asynchronous completion facts, store-change facts, timer facts, and
 context-propagation facts MUST enter through that Queue. Reentrant sends MUST preserve FIFO order. A
 prepared React actor MUST have the real command-buffering mailbox required by `REV-HOST-002`, bounded to
-64 entries; overflow rejects synchronously without mutation and abandoned handles remain inert. Child facts
+64 entries; the 65th command rejects synchronously through the package-owned diagnostic envelope without
+mutation. Abandonment closes the prepared mailbox at one internal linearization point; buffered commands
+are never delivered, later commands reject, and abandoned handles remain inert. Child facts
 are not an accepted surface:
 recursive substates share the actor's mailbox, memory, context, operations, and lifetime under
 `REV-MACH-001` and `DEL-002`.
@@ -36,7 +38,8 @@ A callback defect or redirect bound failure during initial construction fails ac
 publishing a partial active actor or starting owned work. A prepared React actor MUST expose the pure
 initial snapshot required by `REV-HOST-002` and MAY carry a passive provisional context cut. Attachment
 rechecks provider identity and publication revisions, installs current provider-derived context before
-activation, and never persists or emits the provisional cut.
+activation, and never persists or emits the provisional cut. A selector defect during attachment or
+hydration aborts admission without exposing a partial actor.
 
 ### SEM-002 — Event macrosteps plan before commit
 
@@ -125,13 +128,13 @@ consumer lifetime; changing a provider requires replacing or re-keying the consu
 its memory and context history. Context edges do not create actor parentage, lifetime ownership, or a
 command channel.
 
-Individual actor disposal MUST be rejected before disposal begins while any non-disposed consumer,
-including a suspended consumer, remains bound to that actor's ref. The rejection MUST identify every
-dependent actor ref and bound context key. Suspension detaches live subscriptions and work but retains
-the logical context edge and provider-incarnation dependency; it MUST NOT allow provider disposal
-underneath the consumer. It MUST not retain stale projections or cascade disposal across context edges.
-Whole-runtime disposal tears the graph down in reverse dependency order, consumers before providers,
-including suspended consumers.
+Individual actor disposal MUST be rejected before disposal begins while any active or suspended consumer
+remains bound to that actor's ref. The rejection MUST identify every dependent actor ref and bound context
+key. Suspension detaches live subscriptions and work but retains the logical context edge and
+provider-incarnation dependency. React cleanup MUST NOT remove that edge, rebind the consumer, or dispose
+the provider. Resume fails closed and leaves the consumer suspended if the provider is missing, foreign, or
+tombstoned; Flow MUST NOT rebind or recreate it automatically. Whole-runtime disposal tears the graph down
+in reverse dependency order, consumers before providers.
 
 During bootstrap, Flow MUST install each consumer's initial context projection after its exact providers
 are installed or restored and before activation, initial continuing-work reconciliation, the first
@@ -140,6 +143,12 @@ externally observable snapshot, or handle escape. This baseline is silent. A mac
 `(current, previous)` to one typed self-event, `false`, or `null`; it MUST NOT target state, update memory,
 execute an operation, or expose an actor ref. The emitted event enters the ordinary mailbox and its
 ordinary handler remains the owner of legality, guards, memory updates, and finite actions.
+
+If a committed provider publication causes a bound context selector to throw, the provider publication MUST
+remain committed. The consumer MUST retain its last valid projection and fixed binding, publish one issue-only
+snapshot, emit no `onContext` event, start no work, and perform no finite action. The selector MUST retry only
+against a later provider publication with a newer provider revision. A successful retry MUST replace the
+projection and clear the issue through the ordinary context-turn path.
 
 When a provider publication changes several selected values, Flow MUST install all changed projections in
 one ordered, atomic consumer context turn, publish one consumer revision, expose the latest context to
@@ -232,11 +241,13 @@ Every admitted occurrence is internally fenced by actor incarnation, operation k
 canonical `K`, one-based ordinal, and—when shared work is involved—the exact store generation and lease
 epoch. A late completion may settle only its bounded old evidence and MUST NOT publish into a later actor
 incarnation or collected/reused store entry.
-Exact controlled interception remains unresolved under `BEH-019` and `BEH-020`. Occurrences settle once;
-queued cancellation does not start external work, late results are fenced, and terminal history remains
-bounded evidence rather than an actor-lifetime registry. Completion-side writes, overlays, status, revision,
-and mapped-event ordering follow `SEM-016` and `SEM-018`. Stream hydration rematerializes live declarations
-from executable input without replaying emissions; no child outcome surface exists under `DEL-002`.
+Controlled interception is closed by `REV-TEST-007`: it validates the full actor-incarnation, descriptor,
+canonical-key, occurrence, generation, and lease fences at one external boundary, then uses the production
+completion kernel. Occurrences settle once; queued cancellation does not start external work, late results
+are fenced, and terminal history remains bounded evidence rather than an actor-lifetime registry.
+Completion-side writes, overlays, status, revision, and mapped-event ordering follow `SEM-016` and `SEM-018`.
+Stream hydration rematerializes live declarations from executable input without replaying emissions; no child
+outcome surface exists under `DEL-002`.
 
 ### SEM-007 — Snapshot streams replay the current truth
 
@@ -288,18 +299,15 @@ input `P` is retained by each live binding or operation generation and is never 
 owner MUST NOT replace the pinned `P` of a running resource generation or duplicate its work. An explicit
 `refetch(P)` admits a replacement generation with its own `P`.
 
-Canonical `K` MUST contain only `null`, booleans, strings, finite numbers, readonly arrays, and plain
-readonly records. Canonicalization MUST sort record keys and normalize `-0`. It MUST reject `undefined`,
-non-finite numbers, bigint, symbols, functions, accessors, class instances, mutable structures, cycles,
-and branded secret values. Unbranded strings are observable in persistence, inspection, diagnostics, and
-artifacts and authors MUST hash or replace secret material. One key is limited to 16 nested levels, 256
-total value nodes, and 8 KiB in the tagged canonical byte encoding. These are not state, actor, descriptor,
-or cache-entry-count limits. Projection, validation, canonicalization, and defensive freezing MUST finish
-before ownership, actor/store mutation, admission, or external work. Failure MUST name the exact `K[index]`
-or nested record path and abort the whole candidate turn.
-
-The exact byte grammar, counting, hostile-reflection behavior, copying/freezing behavior, and the
-mutable-structure boundary remain unresolved under `BEH-027`; no implementation detail may fill that gap.
+Canonical `K` MUST follow `REV-OPS-016`. Flow MUST accept ordinary dense arrays and plain records, copy
+accepted containers into Flow-owned containers, recursively freeze them, and freeze the top-level tuple.
+Record keys are sorted, `-0` is normalized to `0`, and hostile reflection or unsupported values are rejected.
+The exact `KBytes` UTF-8 grammar, defensive-copy behavior, hostile-reflection rules, and 16-level/256-node/
+8192-byte limits are owned by `REV-OPS-016`. These are not state, actor, descriptor, or cache-entry-count
+limits. Projection, validation, canonicalization, and defensive freezing MUST finish before ownership,
+actor/store mutation, admission, or external work. Failure MUST name the exact `K[index]` or nested record
+path and abort the whole candidate turn. Unbranded strings are observable in persistence, inspection,
+diagnostics, and artifacts and authors MUST hash or replace secret material.
 Simultaneous eligibility uses stable runtime acquisition order. Releasing the supplying binding cannot
 switch the running generation. A later automatic generation uses the oldest remaining eligible binding;
 an explicit refetch uses its caller's `P`. The same stable acquisition order is retained across hydration.
@@ -323,7 +331,7 @@ not runtime resource entries, and have no actor `cancel(K)`.
 Descriptor freshness and collection policy remain descriptor configuration. This revision establishes no
 new policy defaults. Exact resource, transaction, and stream state unions, generation and failure
 projections, retained-value refresh, collection, cross-actor read visibility, and duplicate stream-read
-behavior remain unresolved under `BEH-023`.
+behavior are defined by `REV-OPS-017`.
 
 Browser online state is an advisory refresh signal, not lookup-admission authority. An offline fact MUST
 NOT block explicit lookup, subscription, or refetch activation and MUST NOT cancel or pause an in-flight
@@ -387,8 +395,8 @@ revision; a surviving subscription observes missing data and may reacquire under
 
 Clear exists only as `clear([...targets])` returned by an accepted event transition. Machines receive no
 zero-argument clear, AppPlan-external wildcard, or whole-runtime clear; complete removal belongs to
-`runtime.dispose()`. Expansion bounds, missing or zero-match behavior, and active-lookup interaction remain
-unresolved under `BEH-030`; mixed command conflicts follow `SEM-018`.
+`runtime.dispose()`. Expansion bounds, missing or zero-match behavior, and active-lookup interaction follow
+`REV-OPS-018`; mixed command conflicts follow `SEM-018`.
 
 ### SEM-012 — Placeholder projection remains passive and actor-scoped
 
@@ -404,7 +412,7 @@ method is added.
 RcMap MUST own exact operation-identity activity leases and idle-GC timing only. RcMap invalidation MUST
 NOT implement Flow stale-data invalidation. An expiry finalizer MAY evict canonical data only when its
 lease epoch still owns the exact descriptor/K entry, so an old scope cannot evict a reacquired lease.
-The accepted collection projection remains bounded by `BEH-023`.
+The accepted collection projection is the exact family-specific projection in `REV-OPS-017`.
 
 ### SEM-014 — FiberMap replacement still needs Flow generations
 
@@ -419,8 +427,8 @@ MUST delete an in-flight entry only when it still owns that generation.
 Transaction execution, actor-visible projections, routes, receipts, pending work, and persistence MUST
 use the exact transaction descriptor plus canonical `K`, with actor-local generations for attempts. Every
 completion MUST match actor ownership, exact descriptor/K identity, and generation before it may publish or
-route. The exact public transaction state union remains under `BEH-023`; occurrence terminality follows
-`SEM-018`, and older generations belong in inspection evidence rather than an actor-lifetime generic registry.
+route. The exact public transaction state union is `REV-OPS-017`; occurrence terminality follows `SEM-018`,
+and older generations belong in inspection evidence rather than an actor-lifetime generic registry.
 
 ### SEM-015A — External transaction cancellation is truthful across the irreversible boundary
 
@@ -435,8 +443,9 @@ repeatable reconciliation read confirms the remote outcome.
 An uncertain operation MUST NOT be automatically retried as a new remote request. Reconciliation reuses the
 same remote idempotency identity, while compensation is a separate explicit domain operation with its own
 identity and outcome. The actor projection exposes `unknown` or reconciliation-required truth without
-claiming remote rollback; the full Cause and remote identity remain package-private evidence. This clause
-adds no generic outbox, saga, or rollback API.
+claiming remote rollback; the remote identity remains package-private evidence, while only the declared
+`FlowDisposeError` and `FlowStoryExecutionError` boundaries preserve complete Effect Cause. This clause adds
+no generic outbox, saga, or rollback API.
 
 ### SEM-016 — Optimistic overlays remain shared-store state
 
@@ -461,9 +470,9 @@ identity, clear invalidation and current failure metadata, advance the entry rev
 publish once, and leave continuing subscribers attached to observe the base. An updater result of
 `undefined` declines with no change. Server-returned values may enter typed machine events and memory,
 while canonical resource truth changes only through lookup or an explicit accepted authoritative write.
-Arbitrary cache mutation and implicit response mapping remain outside the accepted surface. Boot/SSR/fixture seeding and
-the trusted host-write owner, API, authority, and evidence remain unresolved under `BEH-032`; this clause
-does not authorize a generic runtime registry or ordinary cache-clear escape hatch.
+Arbitrary cache mutation and implicit response mapping remain outside the accepted surface. Boot/SSR/fixture
+seeding and the package-private capability-scoped trusted host-write owner, authority, and evidence follow
+`REV-HOST-008`; this clause does not authorize a generic runtime registry or ordinary cache-clear escape hatch.
 
 ### SEM-017A — Child-machine surfaces are removed
 
@@ -471,7 +480,7 @@ Flow MUST NOT expose child machines, child inputs, child lifecycles, child compl
 child addressing, child persistence, child Story commands, or child model surfaces. Recursive substates
 share one actor's memory, context, event protocol, mailbox, operations, and lifetime. An independent
 workflow MUST use an explicitly owned actor admitted by the `AppPlan`, or remain unsupported under
-`BEH-034`; no child-equivalent internal owner may be smuggled back into this contract.
+`REV-MIG-006`; no child-equivalent internal owner may be smuggled back into this contract.
 
 ### SEM-018 — Transaction concurrency is actor-local and keyed
 
@@ -547,8 +556,8 @@ interruption request, continuing streams close without a mapped domain outcome, 
 absolute deadlines, pending outcomes and occurrence cursors remain, and an ignored interruption retains
 only the minimum fact needed for truthful settlement. Resume waits for finalizers, reconciles continuing
 declarations and due timers, and never replays finite work or claims reversal of an irreversible effect.
-The public transaction state union and any `unknown` or reconciliation representation remain unresolved
-under `BEH-023`; this internal normalization does not add a public lane. A cleanup defect leaves the
+The public transaction state union and its `unknown`/`reconcileRequired` representation are defined by
+`REV-OPS-017`; this internal normalization does not add a competing public lane. A cleanup defect leaves the
 actor suspended and blocks resume until owner or runtime disposal.
 
 ### SEM-021 — Planned release is cleanup, not a routed outcome
@@ -568,12 +577,14 @@ exactly once. The accepted material does not authorize a child-equivalent replac
 
 ## Failure, disposal, and observation
 
-### SEM-023 — Full Cause determines classification
+### SEM-023 — Full Cause determines classification and public error truth
 
-Runtime operation completion MUST retain `Exit` and full `Cause`. Classification precedence is defect,
-then typed failure, then interruption-only. Empty or unclassifiable failure is an internal defect. Cause
-squashing is allowed only while adapting to a JavaScript throw or rejection boundary. Public snapshots do
-not expose `Cause`; complete failure evidence belongs in inspection TurnRecords.
+Runtime operation completion MUST retain `Exit` and full `Cause` through classification. Classification
+precedence is defect, then typed failure, then interruption-only. Empty or unclassifiable failure is an
+internal defect. Only the declared `FlowDisposeError` and `FlowStoryExecutionError` boundaries MUST preserve
+the complete installed Effect `Cause.Cause<unknown>` value; Cause squashing is allowed only while adapting to a JavaScript throw or
+rejection boundary. Public snapshots and actor types do not expose `Cause`; package-private inspection
+TurnRecords and serialized artifacts retain only the ordered `CauseProjection`.
 
 ### SEM-024 — Owner-lease disposal and the production actor lifecycle
 
@@ -591,7 +602,7 @@ cleanup, settles buffered acknowledged commands, interrupts owned work, awaits a
 publishes the disposed snapshot with cleanup truth, and makes escaped handles reject later commands.
 Dropping a lease MUST NOT dispose the actor. Whole-runtime disposal MUST subsume outstanding leases and
 tear down the context graph in reverse dependency order. Disposal MUST be rejected before it begins when
-any non-disposed consumers, including suspended consumers, remain bound to the actor's ref, and the
+any active or suspended consumer covered by the context-graph integrity rule remains bound to the actor's ref, and the
 rejection MUST identify every dependent actor ref and bound context key. A suspended consumer retains its
 logical provider edge even though it owns no live attachment subscription. A terminal-looking machine
 state does not complete or dispose the actor.
@@ -599,8 +610,10 @@ state does not complete or dispose the actor.
 Stable shared actor disposal MUST leave a runtime-incarnation tombstone. `getActor(ref)` and
 `ensureActor(ref, ...)` MUST reject that disposed ref until the runtime itself is disposed; a new runtime
 may restore or create a fresh incarnation from the same durable ref. Post-bootstrap admission and owner
-authority follow SEM-029; durable capture membership and stable-ref encoding remain unresolved under
-`BEH-004` and `BEH-005`.
+authority follow SEM-029; dehydration captures the registered, non-disposed durable stable-actor set and
+its transitive stable-provider closure, including suspended and boot-restored actors, while excluding
+local, disposed, and tombstoned actors. Opaque providers fail closed under `NonDurableContextProvider`;
+stable-ref encoding follows `WIRE-008`.
 
 React Effect setup activates or resumes the same prepared or suspended actor, while Effect cleanup
 genuinely suspends it. Suspension releases attachment-owned registrations, observer fanout, context
@@ -630,7 +643,7 @@ publication and never manufactures a terminal TurnRecord.
 
 A user callback defect contained before the StoreState commit MUST first discard the candidate, retaining
 the prior state, memory, bindings, and observed store revision. It then publishes one issue-only active
-snapshot with the minimal public issue summary while retaining the full Cause in its TurnRecord. The
+snapshot with the minimal public issue summary while retaining the private ordered CauseProjection in its TurnRecord. The
 issue-only publication increments publication revision, not machine-turn revision; it admits no finite
 occurrence, changes no StoreState, starts no staged work, and does not retry user callbacks. The
 acknowledged dispatch resolves after that publication and TurnRecord are accepted. A Flow invariant
@@ -643,8 +656,11 @@ Transition guards, redirects, timer guards, memory updates, binding selectors, k
 invalidation target selectors fail before StoreState commit and retain prior actor/store facts. Resource
 placeholder and tag behavior follows the canonical-key and actor-effective read rules in `SEM-016` and
 `SNAP-004`. Outcome-mapper normalization after canonical settlement and completion-side writes follow
-`SEM-016` and `SEM-018`. A view selector
-changes no runtime state; selector exception memoization and recovery remain unresolved under `BEH-014`.
+`SEM-016` and `SEM-018`. A view selector changes no runtime state. A view selector exception MUST be
+memoized by the exact actor publication and passive-store read cut; repeated evaluation against that
+unchanged cut MUST rethrow the same exception without an issue-only actor publication or retry loop. A
+later actor publication or matching StoreFanout revision MUST retry the selector. Initial attachment and
+hydration selector defects abort admission without exposing a partial actor.
 
 ### SEM-024B — Issue identity has one clearing owner
 
@@ -654,7 +670,9 @@ Its clearing-owner key contains actor incarnation, source, and exact binding ide
 generation. A later actor lifetime cannot clear, inherit, or republish an older occurrence.
 Success or release by a later generation of that same owner clears older operational
 occurrences; unrelated success cannot clear them. Invariant and cleanup issues survive through the
-terminal disposed snapshot. Full Cause remains in TurnRecords even after an operational summary clears.
+terminal disposed snapshot. The private CauseProjection remains in TurnRecords even after an operational
+summary clears; the raw Effect Cause remains outside actor snapshots and is public only through the declared
+Flow error boundaries.
 
 ### SEM-025 — Views are exact passive actor projections
 
@@ -683,7 +701,7 @@ A selector's exact descriptor/K reads through passive `O.getData` and `O.getStat
 view runtime. The dependency set is replaced after each completed evaluation, and a matching actor or
 canonical StoreFanout publication reruns the selector against one tear-free boundary. Handlers do not
 create implicit dependencies. Selector evaluation remains passive and cannot acquire ownership, start work,
-or mutate state. Selector exception memoization and recovery remain unresolved under `BEH-014`.
+or mutate state. Selector exceptions use the revision-scoped memoization and retry rules in `REV-HOST-006`.
 
 ### SEM-027 — Runtime readiness remains host state
 
@@ -725,9 +743,13 @@ no partial handle, snapshot, operation generation, StoreState mutation, or lifec
 ### SEM-030 — Occurrence fences include actor incarnation
 
 An occurrence is internally identified by actor incarnation, operation kind, descriptor ID, canonical `K`,
-and a one-based non-reused ordinal. Shared resource work additionally carries its exact store generation
-and lease epoch. Completion and controlled simulation MUST match all applicable fences before publishing;
-stale facts may settle only bounded old evidence and MUST NOT touch a later actor lifetime, a reused stable
-ref, or a collected/reused store entry. This internal identity does not add a public occurrence handle,
-change the accepted operation unions, choose the transaction `unknown` representation, or change Cause
-wire shape.
+and a one-based monotonic non-reused ordinal allocated only after successful admission. `reject` consumes no
+ordinal; `cancel` settles the prior occurrence and a replacement receives a new ordinal; `allow` and
+`serialize` retain separate ordinals for every admitted occurrence. Shared resource work additionally
+carries its exact store generation and lease epoch. A continuing stream's occurrence identifies the
+actor-local declaration, while emissions do not create occurrences. Completion and controlled simulation
+MUST match all applicable fences before publishing; stale facts may settle only bounded old evidence and
+MUST NOT touch a later actor lifetime, a reused stable ref, or a collected/reused store entry. Hydration
+retains bounded cursors and never replays external work; restored streams create a new generation. This
+internal identity does not add a public occurrence handle, change the accepted operation unions, choose the
+transaction `unknown` representation, or change Cause wire shape.

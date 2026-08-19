@@ -63,7 +63,7 @@ cleanup laws.
       `ConcurrentDehydrate`, without exposing StoreKernel or internal Cause.
 - [ ] Consume Phase 2's root/dynamic `runtime.actor` overloads and constrained
       `runtime.createActor` without a
-      React registry or alternate lookup path. Re-prove zero, ambiguous, root, reachable child,
+      React registry or alternate lookup path. Re-prove zero, ambiguous, root, reachable machine,
       and unreachable host cases.
 - [ ] Prove `createActor` accepts an app-level dynamic seed with exact input while root lookup and
       `useActor(machine)` reject it as a non-root; explicit stable-ID dynamic lookup accepts only an

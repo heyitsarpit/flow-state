@@ -6,7 +6,7 @@ Only one phase may be active. A phase becomes complete only when its receipt exi
 every acceptance, deletion, and gate in its manifest is satisfied.
 
 Working findings live in [`../SCRATCHPAD.md`](../SCRATCHPAD.md). Review it before starting or
-closing a phase; unresolved blockers prevent phase completion unless a contract explicitly
+closing a phase; open contract or proof blockers prevent phase completion unless a contract explicitly
 assigns them to a later phase.
 
 | Phase | Manifest                                                                           | Initial status |
@@ -20,6 +20,13 @@ assigns them to a later phase.
 | 6     | [Stories and model](./PHASE_6_STORIES_AND_MODEL.md)                                | Waiting        |
 | 7     | [Artifacts, inspection, and CLI](./PHASE_7_ARTIFACTS_INSPECTION_CLI.md)            | Waiting        |
 | 8     | [Migration and deletion](./PHASE_8_MIGRATION_AND_DELETION.md)                      | Waiting        |
+
+## Current contract status
+
+The live inherited behavior register contains 33 entries and zero open contract blockers. The latest
+closures are owned by `REV-OPS-017`/`018`, `REV-HOST-008`, `REV-MIG-005`/`006`, and `DEL-002`; their
+implementation proofs remain queued in the phase manifests below. A phase status is implementation status,
+not a reopening of a closed contract decision.
 
 ## Confirmed-issue ownership
 

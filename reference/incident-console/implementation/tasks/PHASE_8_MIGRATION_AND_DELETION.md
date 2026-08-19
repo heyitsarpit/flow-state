@@ -15,7 +15,7 @@ Phase 0-assigned Phase 8 subcases under PROOF-016 and PROOF-017 plus final repos
 under API-001, API-002, CUT-001 through CUT-008, and CUT-007A. API-001/API-002 closure means the
 packed root and secondary routes expose exactly the values and types implemented by their owning
 phases, with every removed or internal symbol absent. It may close another proof only when that ID arrives as
-an explicitly unresolved carried item; the broad gate does not transfer ordinary ownership here.
+an explicitly reopened contract item; the broad gate does not transfer ordinary ownership here.
 
 ## Allowed scope
 
@@ -28,7 +28,7 @@ an explicitly unresolved carried item; the broad gate does not transfer ordinary
 - delete superseded examples, exports, source systems, dependencies, tests, scripts, generated
   assumptions, and manual coverage ledgers after replacement proofs pass;
 - run the entire proof matrix as regression evidence and close the final application/deletion
-  proofs plus any explicitly carried unresolved ID.
+  proofs plus any explicitly reopened contract item.
 
 ## Forbidden work
 
@@ -60,10 +60,11 @@ an explicitly unresolved carried item; the broad gate does not transfer ordinary
       optimistic overlays, invalidation, machine behavior, views, React, fixtures, controlled
       Effects, stories, checkpoints, and TestClock.
 - [ ] Finish **Incident Console** as the flagship. It must prove multiple refs, transaction
-      conflicts and application-authored Stream backpressure, controlled streams, children, diagnostics, TurnRecord inspection,
+      conflicts and application-authored Stream backpressure, controlled streams, explicitly owned
+      independent actors (never child-machine capability), diagnostics, TurnRecord inspection,
       CLI registered stories, browser lifetime, and the scoped runbook lease.
-- [ ] Implement and prove the already selected B12/Q12 contract without a new operation kind. Move the runbook remote lease under a child
-      actor and its activity Scope. Distinguish normal completion, navigation, replacement,
+- [ ] Implement and prove the already selected B12/Q12 contract without a new operation kind. Move the runbook remote lease under an explicitly
+      owned actor and its activity Scope. Distinguish normal completion, navigation, replacement,
       external interruption, parent disposal, and runtime disposal. Release exactly once and
       publish cancellation/finalizer Cause instead of using `Effect.ignore`.
 - [ ] Build **Hydrated Offline Notes** by merging server prefetch/hydration and offline recovery.
@@ -109,7 +110,7 @@ an explicitly unresolved carried item; the broad gate does not transfer ordinary
   Chromium acceptance.
 - The runbook lease proof distinguishes completion and every cancellation boundary, runs release
   once, retains cleanup Cause, and leaves no remote lease or fiber after disposal.
-- Todo overlay, Incident conflict/stream/child, and Hydrated Offline request/outbox paths execute
+- Todo overlay, Incident conflict/stream/independent-actor, and Hydrated Offline request/outbox paths execute
   through imported registered stories and ordinary host assertions.
 - React 18/19 packed proofs share the same public declarations and Strict Mode behavior.
 - Removed exports fail negative packed-consumer imports; removed files, examples, dependencies,
@@ -187,7 +188,7 @@ Write `reference/incident-console/implementation/receipts/PHASE_8.md`
 with:
 
 - prerequisite phase receipts, every TEST/PROOF ID status, and explicit identification of the
-  PROOF-016/017 ownership versus carried unresolved IDs;
+  PROOF-016/017 ownership versus any reopened contract item;
 - final showcase and type-proof package inventory;
 - a mapping from each deleted example capability to its replacement proof and application;
 - the scoped lease exit matrix, release counts, and cleanup Cause evidence;

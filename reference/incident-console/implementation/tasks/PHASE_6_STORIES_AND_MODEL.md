@@ -73,9 +73,9 @@ equivalent implementation that satisfies the same tests.
 - [ ] Interpret `send` through package-private acknowledged dispatch. Prove the Deferred completes
       after one published actor turn and before blocked async completion. Public actor send remains
       synchronous and void.
-- [ ] Implement checkpoint and final capture as the three frozen roots from TEST-008. Implement
-      `FlowStoryExecutionError`, partial evidence, combined execution/cleanup Causes, AbortSignal
-      handling, and non-abortable cleanup from TEST-009 through TEST-011. Keep receipt, trace, and
+- [ ] Implement checkpoint and final capture as the one `DehydrateBarrier` evidence cut from TEST-008.
+      Implement the package-owned `FlowStoryExecutionError` envelope, partial evidence, ordered cleanup
+      diagnostics, AbortSignal handling, and non-abortable cleanup from TEST-009 through TEST-011. Keep receipt, trace, and
       inspection history out of actor snapshots and checkpoint roots.
 - [ ] Expose the exact frozen error class from API-013A and validate non-negative safe-integer
       time, forward-only `setTime`, no-next-timer failure, equal deadlines, and positive safe-integer
@@ -120,8 +120,9 @@ equivalent implementation that satisfies the same tests.
 - `advance("250 millis")` and the other legal Duration inputs normalize during plan construction;
   invalid durations fail synchronously before any fixture or runtime exists, while `setTime`
   remains an absolute safe-integer epoch millisecond.
-- Host cancellation and simultaneous cleanup failure preserve partial evidence and both Causes;
-  every other successful run proves completed disposal.
+- Host cancellation and simultaneous cleanup failure preserve partial evidence, ordered diagnostics, and
+  accepted evidence-sequence facts; every other successful run proves completed disposal. Full Effect Cause
+  remains package-private.
 - The pure model has no Effect import or `Effect.run*`, side-effect spies remain zero during
   discovery, and representative final and prefix `path.story` runs match predicted snapshots
   without generated checkpoint names.

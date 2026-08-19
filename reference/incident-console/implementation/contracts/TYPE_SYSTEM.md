@@ -180,11 +180,11 @@ project.lookup({ id: "project-1", client });
 project.lookup({ id: "workspace-1", client });
 ```
 
-K MUST contain only the accepted canonical categories, with sorted record keys, normalized -0, the
-16-level, 256-node, and 8 KiB bounds, and rejection of undefined, non-finite numbers, bigint, symbols,
-functions, accessors, class instances, mutable structures, cycles, and branded secret values. The exact
-encoding and mutable-structure interpretation remain unresolved under BEH-027; no type layer may add a
-competing interpretation.
+K MUST follow `REV-OPS-016`: ordinary dense arrays and plain records are accepted as source containers,
+copied into Flow-owned recursively frozen containers, and frozen at the top-level tuple. Canonicalization
+sorts record keys and normalizes `-0`; hostile reflection and unsupported values are rejected. The exact
+`KBytes` UTF-8 grammar, discriminator requirement, 16-level/256-node/8192-byte bounds, and exact path
+diagnostics are normative. No type layer may add a competing interpretation.
 
 ### TYPE-006 — Transactions infer execution independently from parent bindings
 
@@ -227,7 +227,7 @@ P/K/V/E/R and no parent selector, routed event, or child actor. The actor-bound 
 passive getState, and continuing subscribe; it has no actor cancel. Its passive stream projection retains
 status, `hasValue`, the latest `V` when present, emission count, generation, and terminal status. Exact
 state-union members, field optionality, failure/defect/interruption representation, and declaration-slot
-identity remain under BEH-023.
+identity follow `REV-OPS-017` and are not exported as standalone aliases.
 
 ```ts
 type ProgressInput = Readonly<{ submissionId: string; client: ProgressClient }>;
@@ -344,7 +344,7 @@ Actor lifecycle MUST be exactly "prepared" | "active" | "suspended" | "disposed"
 commands, suspended actors reject commands and own no live attachment resources, and disposed actors are
 terminal. Ordinary actor handles and refs MUST NOT expose dispose; only an owner lease has individual
 disposal authority. snapshot.issues contains the active FlowIssue summary, while receipts, pending outcomes,
-binding cursors, public Causes, and full diagnostic facts do not enter actor types.
+binding cursors, raw public Effect `Cause.Cause<unknown>` values, and full diagnostic facts do not enter actor types.
 
 ### TYPE-013 — Passive React selectors reject foreign actor families
 
@@ -449,7 +449,9 @@ Each path.story MUST extend the base with that call's exact candidate events, be
 record, permit later checkpoint appends, and run through the ordinary production result shape. The model
 MUST expose only getShortestPaths and getSimplePaths; it MUST NOT run Effects, synthesize asynchronous
 routes, expose replay/provide/clock helpers, or export parallel named path/result classes. FlowStoryExecutionError
-is the only named testing runtime class; exact failed-run envelope details remain under BEH-022.
+is the only named testing runtime class; it carries the package-owned deeply frozen failure envelope accepted
+by REV-TEST-006 and REV-TEST-008, including the complete public Effect `Cause.Cause<unknown>` for the failed
+execution. Actor snapshots and inferred result values still do not expose raw Cause.
 
 ## Required compile proofs
 
@@ -466,8 +468,8 @@ Compile fixtures MUST prove:
 - transaction key/commit P/K/A/E/R, concurrency, explicit writes, binding outcomes, and cancellation;
 - stream P/K/V/E/R, continuing outcomes, latest-value projection (`hasValue`, latest `V` when present,
   emission count, generation, and terminal status), and no actor cancellation; exact state-union members,
-  field optionality, failure/defect/interruption representation, and declaration-slot identity remain under
-  BEH-023;
+  field optionality, failure/defect/interruption representation, and declaration-slot identity follow
+  `REV-OPS-017`;
 - machine -> named module record -> App.M requirements union and Layer closure;
 - exact actor refs, local/shared owner leases, context-binding keys, and four lifecycle states;
 - passive actor-bound useView, exact selector values, and command-only useActor/useActorByRef;
@@ -501,7 +503,7 @@ Compile fixtures using @ts-expect-error MUST prove rejection of:
   fixture services, app Stories with direct context injection, and app Stories without exact targets;
 - model construction from an app or non-empty command plan, cross-call candidate retention, and named
   testing, path, TurnRecord, receipt, or inspection-result type hierarchies;
-- public snapshot causes, receipts, child-machine types, root/dynamic actor categories, missing Layer
+- public snapshot raw Effect `Cause.Cause<unknown>` values, receipts, child-machine types, root/dynamic actor categories, missing Layer
   services, Layers with remaining inputs, and wrong-app boot payloads;
 - any or assertion-based erasure in provider, runtime, descriptor, actor, selector, Story, fixture, or
   model boundaries.

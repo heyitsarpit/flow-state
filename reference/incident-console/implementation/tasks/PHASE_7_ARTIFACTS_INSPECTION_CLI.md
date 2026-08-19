@@ -70,15 +70,15 @@ actual requirements.
       status envelopes with the one package-private story executor. A completed product-defined
       failure state exits as completed evidence; only execution inability follows the chosen CLI
       failure contract. An explicit trace output installs exactly one bounded run-local sink and
-      retains partial failure, Cause, truncation, and cleanup truth.
+      retains partial failure, private CauseProjection, truncation, and cleanup truth.
 - [ ] Implement no built-in browser/WebSocket inspector transport
       and no runtime-sized keyed collection reconciliation. Inspection sinks may be forwarded by
       applications; CLI/artifact projections must not imply dynamic collection ownership.
-- [ ] Define private Schema-v2 envelopes for trace artifacts and behavior contracts. Reuse the
-      existing boot Schema for boot import/export and preserve domain memory and payloads as
+- [ ] Implement the private WIRE-020B v2 envelopes for trace artifacts, behavior contracts, and CLI
+      results. Reuse the existing boot Schema for boot import/export and preserve domain memory and payloads as
       application-owned opaque values.
-- [ ] Consume the Phase 0-reviewed exact nested Schemas and canonical byte goldens for boot,
-      behavior, trace, flat Effect v4 Cause reasons, CLI result, and diagnostics; preserve reason
+- [ ] Implement the WIRE-020B exact nested schemas and canonical byte goldens for boot,
+      behavior, trace, ordered private CauseProjection reasons, CLI result, and diagnostics; preserve reason
       order and duplicate multiplicity, reject noncanonical Cause payloads, gzip extra members,
       and trailing bytes instead of adding fallback stringification.
 - [ ] Prove that artifact import and request boot call the Phase 2 constructor decoder and the
@@ -144,7 +144,7 @@ actual requirements.
   stderr; every selected exit category, Ctrl-C cleanup, stdin rule, atomic output rule, and
   truncated-diff claim has executable coverage.
 - A story run without trace output retains no history. A run with trace output installs one sink
-  and preserves partial TurnRecords, `truncatedBeforeSequence`, primary Cause, and cleanup status
+  and preserves partial TurnRecords, `truncatedBeforeSequence`, the private CauseProjection, and cleanup status
   even when execution rejects.
 - Boot is decoded before any root activity counter increments; invalid version, app,
   persistence version, machine, token, and canonical ref fail through typed diagnostics.
@@ -210,6 +210,6 @@ Write `reference/incident-console/implementation/receipts/PHASE_7.md` with:
 - direct story versus CLI output/error parity;
 - unsupported `story paths`, `--event`, and path-check/list command evidence;
 - exact deleted histories, setters, codecs, commands, and architecture tests;
-- every gate with exit code/test count, diff names, skips, and unresolved IDs.
+- every gate with exit code/test count, diff names, skips, and any reopened contract IDs.
 
 Do not close the phase while any tool maintains a second execution or history owner.

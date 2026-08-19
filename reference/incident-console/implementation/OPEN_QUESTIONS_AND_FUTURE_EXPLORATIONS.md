@@ -1,43 +1,36 @@
 # Open Questions and Future Explorations
 
-This file is a non-normative review register. It records decisions the current
-contract pack does not close and possible future API/use-case work. It does not
-override `revision-spec/accepted/`, change an accepted clause, or turn a
-proposal into implementation authority.
+This file is a non-normative review register. It records future API/use-case work and
+implementation proof prompts; it contains no open inherited contract blocker. It does not
+override `revision-spec/accepted/`, change an accepted clause, or turn a proposal into
+implementation authority.
 
 ## Locked decisions
 
 - `phase-0/` and its proof index are outdated historical material, not current
   authority. All phase TODO files and manifests will be rewritten later; their
   current proof IDs and ownership mappings do not constrain the revised design.
-- `BEH-027` is resolved in principle as strict canonical JSON/JCS-style
-  encoding for `K` identity and artifacts: bounded JSON-like values, sorted
+- `BEH-027` is closed by `REV-OPS-016`: bounded JSON-like values, sorted
   record keys, normalized `-0`, hostile-structure rejection, defensive
   copying/freezing, compact UTF-8 bytes, and one trailing newline only at the
-  artifact file boundary. The exact normative clause and executable proof still
-  need promotion from this decision.
+  artifact file boundary. The exact grammar and proof obligations now live in
+  the revision authority and owning contracts.
 - Historical superseded direction: every actor in the current vNext surface
   must have an explicitly authored stable ID. `REV-COMP-011` instead separates
   durable shared actors, which require authored stable IDs, from local actors,
   which may receive generated opaque runtime-local refs. Those generated refs
   remain an internal option: they are not durable or restorable and are not used
   for the current Story or hydration identity surface.
-- For the current implementation pass, handcoded actor IDs per durable actor
-  are the accepted interim unblocker. The final relationship between runtime
-  session IDs, stable logical addresses, rerun correlation, and hydration
-  identity is deliberately deferred for later design review.
-- Duplicate authored-ID behavior is deferred as a documented footgun for the
-  implementation pass. `ensureActor` is ref-based, and equivalent refs for the
-  same machine-qualified identity are expected to resolve to the same logical
-  actor; the final create-versus-join error policy remains open.
+- Durable actor IDs use the accepted machine-qualified stable-ref rules; runtime session,
+  correlation, and hydration facts do not create a second identity. Duplicate authored IDs
+  reject AppPlan compilation, while concurrent `ensureActor` calls for one exact ref join the
+  existing actor and lease.
 - Runtime dehydration captures every registered durable actor with an authored
   ID and the transitive context-provider closure, including suspended stable
   actors. Disposed/runtime-only actors are excluded, and an included durable
-  actor with an opaque provider fails closed. The exact checkpoint capture rule
-  remains a separate decision.
-- Story checkpoints use revision-consistent, context-closed cuts with recorded
-  per-actor and store revisions. They do not promise one global wall-clock
-  instant and do not advance timers, process commands, or perform cleanup.
+  actor with an opaque provider fails closed. Story checkpoints use one
+  `DehydrateBarrier` cut over the complete static Story-plan target closure;
+  unrelated runtime actors are excluded.
 - Runtime bootstrap owns every successfully restored actor through the runtime
   lease. Factory `ensureActor` calls join those actors; an actor absent from the
   receiving `AppPlan` fails boot before activation, and Flow never silently
@@ -60,13 +53,15 @@ proposal into implementation authority.
   materialized. Missing reads remain passive; reads never acquire ownership,
   start work, refresh data, or change retention. Cross-actor visibility is
   bounded by the exact descriptor and canonical `K` identity.
-- Public operation reads use small family-specific discriminated unions:
+- Public operation reads use the exact `REV-OPS-017` family-specific discriminated unions:
   resources distinguish `missing`, `pending`, `ready`, `refreshing`, typed
   `failure`, `defect`, and `interrupted`; transactions and streams retain their
   corresponding finite/continuing lanes. Retained data is allowed during
   refresh and terminal outcomes, collection returns resources to `missing`,
   and stream projections retain `hasValue`, latest value, emission count,
-  generation, and terminal status. Emissions coalesce to the latest projection.
+  generation, and terminal status. Emissions coalesce to the latest projection; a transaction
+  crossing its external boundary is `unknown` with `reconcileRequired: true`, and `undefined`
+  is reserved for missing resource data or updater decline.
 - `cancel(K)` is actor-local bulk cancellation for every currently cancellable
   active or queued finite occurrence matching the exact descriptor and
   canonical `K`. Successful admissions receive monotonic internal occurrence
@@ -117,20 +112,16 @@ proposal into implementation authority.
 - Public `cancel(K)` remains bulk-only. Targeted cancellation is deferred to a
   future `cancel(K, { occurrence })` or `cancelOccurrence`/handle surface; the
   current inert `commit` operation does not return a cancellation handle.
-- Family invalidation targets are part of the public target type. The API will
-  add a typed family target such as `O.orders.family()` rather than relying on
-  untyped escape hatches.
-- No general public post-start runtime cache writer is exposed. Boot, SSR, and
-  fixture seeding remain construction-owned; a future capability-scoped host
-  surface may provide trusted writes.
-- Behavior and trace artifacts remain Flow-owned vNext output until a stable
-  external compatibility promise is made. Artifact/CLI v1 is rebaselined
-  together; legacy `trace-artifact.v1`, `final`, and `children` vocabulary is
-  not adopted as the new schema.
-- Story and CLI consume one decoded evidence model. The model uses `end`, not
-  legacy `final`; compatibility version, locator, Cause projection, cleanup,
-  partial-failure, and private-result fields are owned by the rebaselined
-  internal schema until an external versioned surface is explicitly accepted.
+- Family invalidation targets are already part of the accepted typed target type. `REV-OPS-018`
+  fixes their bounded expansion and no-op behavior; no new family-target API is required.
+- No general public post-start runtime cache writer is exposed. Boot, SSR, and fixture seeding
+  are construction-owned; trusted post-start writes use the package-private capability-scoped
+  `HostWriteLease` in `REV-HOST-008`.
+- `REV-MIG-005`/`WIRE-020B` now freeze the Flow-owned private v2 behavior, trace, Story failure,
+  CauseProjection, and CLI result schemas. Legacy `trace-artifact.v1`, `final`, and `children`
+  vocabulary is rejected, not adopted.
+- Story and CLI consume one decoded evidence model with exact `end`, cleanup, partial-failure,
+  CauseProjection, and private-result fields; no public artifact or CLI result type is added.
 - Stream completion is a public terminal `complete` state and is observable
   through `simulate` completion. It is not reduced to an inspection-only fact.
 - Selector defects expose a stable summary issue object without raw Cause.
@@ -153,26 +144,6 @@ These questions appeared in the deeper operation/API review. They do not reopen
 the already locked semantic directions above; they concern exact public type
 shapes, authoring syntax, and compatibility fields.
 
-#### Operation surface
-
-- Decide the exact exported `getState()` unions, including whether a lost
-  external transaction is represented as public `unknown`/`reconcileRequired`
-  or as `interrupted` with a reconciliation field. Resource, transaction, and
-  stream state fields must be usable for type narrowing.
-- Decide how `P` capability partitions are represented when equal descriptor/`K`
-  values must not share data across tenants, clients, authorization scopes,
-  endpoints, or locales. The runtime/tenant partition remains the preferred
-  boundary if those discriminators intentionally stay out of `K`.
-- Define the branded operation-plan type accepted by `simulate`. Matching must
-  use descriptor, canonical `K`, actor target, and occurrence; it must never
-  require reconstructing `P` from `K` or accept an unbranded descriptor object.
-- Confirm that same-actor duplicate live stream declarations with equal
-  descriptor/`K` are rejected before binding replacement, so passive stream
-  reads do not need to expose declaration-slot identity.
-- Decide whether resource values may be `undefined`. If they may, `getData()`
-  needs an explicit missing/present result and `setData` needs a distinct
-  decline sentinel; otherwise `undefined` is excluded from `A`.
-
 #### Authoring, compatibility, and diagnostics
 
 - Promote the typed `invalidate`/`clear` target algebra and mixed-action
@@ -180,11 +151,12 @@ shapes, authoring syntax, and compatibility fields.
   signatures and compile proofs.
 - Define the public context-selector source shape and exact `contextBindings`
   authoring path used by `Session.select`-style examples.
-- Resolve the Cause boundary: the root forbids public Cause types while
-  `FlowDisposeError` currently exposes `Cause.Cause<unknown>`. Use either a
-  deliberately public Cause projection or a package-owned diagnostic envelope.
-- Define descriptor-ID collision handling during AppPlan compilation and the
-  deterministic compiled-AppPlan fingerprint carried by boot/artifacts.
+- The Cause boundary is closed by the package-owned `FlowDisposeError` and
+  `FlowStoryExecutionError` envelopes carrying the complete public Effect Cause;
+  `WIRE-020B` fixes the ordered serialized artifact CauseProjection and the
+  package-private compiled-AppPlan fingerprint.
+- Descriptor-ID collisions reject AppPlan compilation with `DuplicateDescriptorId`; the
+  fingerprint is deterministic SHA-256 over the exact WIRE-020B plan preimage. Neither is public API.
 
 ### Autonomously resolved behavior
 
@@ -238,11 +210,14 @@ and Effect behavior. They add no public API names.
   execution after production admission and status publication.
 - Story occurrence identity is a one-based, non-reused ordinal allocated only
   after admission, scoped by actor, operation kind, descriptor, and canonical
-  `K`. Checkpoints capture every actor target in the complete Story plan plus its
-  transitive context closure using revision-consistent context-closed cuts.
-  Cleanup stops new work, captures atFailure or run.end, disposes Story leases
-  in reverse order, disposes the runtime, drains sinks, and closes fixtures and
-  clock; cleanup is attempted exactly once in fixed order.
+  `K`; streams retain declaration occurrences while shared generations identify
+  shared execution, and hydration never replays external work. Checkpoints use
+  one `DehydrateBarrier` cut over the complete static Story-plan closure.
+  Cleanup closes admission, captures end before cleanup, disposes Story leases
+  in reverse dependency order, disposes the runtime, drains accepted evidence,
+  and closes sinks and queues. Failures use one frozen package-owned envelope carrying the complete
+  Effect `Cause.Cause<unknown>`; actor snapshots and serialized artifact/CLI projections remain
+  Cause-free and use their declared diagnostic/CauseProjection shapes.
 
 #### Operations, persistence, and store behavior
 
@@ -321,42 +296,30 @@ and Effect behavior. They add no public API names.
 The following changes were safe because they corrected stale metadata or
 removed an obsolete authority pointer without choosing runtime behavior:
 
-- `revision-spec/TRACEABILITY.md` now reports 33 open behavior entries, matching
-  the live unresolved register after `BEH-017` was accepted.
+- `revision-spec/TRACEABILITY.md` now reports zero open and 33 closed inherited
+  behavior entries after the runtime, identity, operation, host, Story, artifact,
+  CLI, and child-removal closures were accepted.
 - `contracts/TYPE_SYSTEM.md` no longer delegates the Cause law to the missing
   `IMPLEMENTATION_BLOCKERS.md`; the rule and its required proof boundary are
   stated locally.
-- `contracts/PERSISTENCE_AND_ARTIFACTS.md` now labels `WIRE-001A` as unresolved
-  instead of naming a byte-exact law whose grammar remains deferred to
-  `BEH-027`.
+- `contracts/PERSISTENCE_AND_ARTIFACTS.md` now binds `WIRE-001A` to the exact
+  canonical `KBytes` law in `REV-OPS-016`.
 
-## Remaining internal follow-up
+## Remaining non-blocking implementation follow-up
 
-- Promote the autonomous behavior closures into the affected normative
-  contracts and assign executable proof owners. This is contract maintenance,
-  not a new behavior choice.
-- Include suspension mailbox normalization, React final-teardown ownership,
-  suspended-provider dependency retention, passive `useView` dependency
-  tracking, generation lifetime epochs, hydration ordering, checkpoint cuts,
-  cleanup/end evidence, and byte-based retention limits in that promotion pass.
+- Execute the named proof owners for the accepted operation, host-write, artifact,
+  CLI, and child-removal clauses in their phase receipts; these are implementation
+  gates, not unresolved contract decisions.
+- Keep the closed Story checkpoint and cleanup evidence rules aligned with the
+  artifact Cause projection and byte-based retention owners.
 - Resolve the defect-turn distinction between discarding an unpublished
   candidate and publishing an issue-only actor revision; define its
   acknowledgment, evidence, and work-start rules.
-- Define lifecycle publication identity separately from machine-turn revision,
-  include the immutable lifecycle publication in asynchronously delivered
-  evidence, and state that disposal drains accepted records without creating a
-  synthetic terminal `TurnRecord`.
-- Add explicit runtime phases and post-bootstrap admission linearization,
-  reverse-order bootstrap rollback, duplicate durable machine-ID rejection,
-  and actor/app/plan provenance checks.
-- Make occurrence identity include actor incarnation/lifetime, descriptor, `K`,
-  and ordinal/generation as needed to fence shared-generation simulation and
-  collection reuse.
 - Do not reopen the locked bulk `cancel(K)` direction, automatic passive-read
   dependency tracking, typed family invalidation, public stream completion, or
   the Flow-owned vNext artifact boundary while promoting the clauses.
-- Rebaseline artifact and CLI schemas together; do not adopt the legacy
-  trace-artifact.v1 implementation or its final/children vocabulary.
+- Keep artifact and CLI implementation rebaselined to WIRE-020B; reject the legacy
+  trace-artifact.v1 implementation and its final/children vocabulary.
 - Keep external-transaction reconciliation inside the transaction kernel and
   adapter boundary. Do not add a generic outbox, saga, or compensation API in
   this slice; preserve full internal `Exit`/`Cause`, expose only classified
@@ -430,9 +393,9 @@ freezing new result/artifact fields.
 
 ## Future explorations
 
-- Consider an explicit runtime or tenant partition for resources whose
-  executable input contains client, authorization, or capability context that
-  is intentionally absent from `K`.
+- Runtime or tenant partitioning is rejected for this pass: result-changing
+  client, authorization, capability, account, network, permission, session, and
+  tenant discriminators belong in `K` under `REV-OPS-016`.
 - Consider per-occurrence operation handles for inspection and targeted
   cancellation when one canonical key has multiple live operations; this is
   not part of the current API pass.

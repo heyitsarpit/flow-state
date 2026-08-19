@@ -15,17 +15,18 @@ safe-integer `revision`, the `storeRevision` observed by that actor publication,
 `prepared | active | suspended | disposed`, typed named-operation readers, and currently active issues. No
 field may read through to mutable live state.
 
-The public snapshot MAY expose the accepted active issue summary, but the exact `FlowIssue` fields,
-occurrence identity, clearing ownership, generation clearing, and terminal retention remain unresolved
-under `BEH-023` and `BEH-033`.
+The public snapshot MAY expose the accepted active issue summary. Operation state, occurrence identity,
+clearing ownership, generation clearing, and terminal retention follow `REV-OPS-017` and `REV-OPS-018`; the
+artifact projection of those facts follows WIRE-020B.
 
 Every lifecycle transition MUST publish one coherent immutable snapshot through the existing handle before
 appending its inspection event. Lifecycle evidence MUST NOT create a machine revision or `TurnRecord`; an
-inspection listener MUST observe the event's `to` lifecycle after receiving that event. The exact lifecycle
-publication revision and correlation rules remain unresolved under `BEH-007` and `BEH-008`.
+inspection listener MUST observe the event's `to` lifecycle after receiving that event. Lifecycle snapshots
+increment the private/public publication revision, retain the preceding machine-turn revision, and carry
+the runtime-global evidence sequence through their `LifecycleRecord`; no second public revision field exists.
 
 Actor snapshots MUST NOT expose receipts, diagnostic facts, pending outcome records, `handled` booleans,
-errors, Causes, or a failure lifecycle. Full TurnRecords and diagnostic facts belong to explicitly
+errors, raw Effect `Cause.Cause<unknown>`, or a failure lifecycle. Full TurnRecords and diagnostic facts belong to explicitly
 installed `flow-state/inspect` sinks. Child-specific issue and snapshot surfaces are removed by
 `REV-MACH-001` and `DEL-002`.
 
@@ -54,19 +55,15 @@ These are named-family reads over canonical `K`; they do not imply generic `reso
 `transactions.get`, public operation enumeration, bound entries, `ref`, `byKey`, `byLane`, `require`,
 subscription, retry, reset, seed, retention, or mutation methods. Any actor may passively read an admitted
 shared canonical entry it never materialized; missing reads are synthetic absent/idle and remain passive.
-Only the exact closed state union remains under `BEH-023`.
+The exact closed state union is defined by `REV-OPS-017`.
 
 ## Resources
 
 ### SNAP-003 — Resource state remains a bounded descriptor/K projection
 
-Resource status discriminants remain part of the retained resource surface under `RET-003`, but the exact
-closed `getState(K)` union is not accepted by this revision. `getState(K)` MUST be descriptor- and
-canonical-key typed, and its state MUST preserve the accepted distinction between passive canonical data,
-active lookup work, and typed terminal lanes without inventing a generic registry or a descriptor-specific
-cross-product. The exact public members for generation, failure, retained-value refresh, collection, and
-stream declaration-slot reads remain unresolved under `BEH-023`; cross-actor canonical visibility is defined
-by `SNAP-004`.
+Resource status discriminants remain part of the retained resource surface under `RET-003`. The exact
+descriptor/K-typed `getState(K)` union, generation, failure, retained-value refresh, collection, and stream
+declaration laws are defined by `REV-OPS-017`; cross-actor canonical visibility is defined by `SNAP-004`.
 
 `P` is complete immutable executable input and `K` is the ordered readonly canonical tuple returned by
 `key(P)`. Resource identity is descriptor namespace plus canonical `K`; methods that execute lookup work
@@ -75,8 +72,8 @@ generation, and a hydrated key-only entry remains passive until a live binding s
 
 The public snapshot contract MUST NOT generate a distributive conditional cross-product from value,
 failure, descriptor policy, or activity kinds, recursively inspect those types, or add helper aliases as
-standalone exports. The exact operation-state shape remains blocked on `BEH-023`, not a reason to invent a
-replacement union here.
+standalone exports. `REV-OPS-017` fixes the family-specific inferred union without exporting a parallel
+state alias.
 
 ### SNAP-004 — Canonical and actor-effective reads are distinct
 
@@ -106,13 +103,14 @@ not preserve the old generic-ref or unconditional-idle rule.
 
 Every transaction state projection MUST expose the exact transaction descriptor and canonical `K` that
 identify its actor-local status, together with a generation when the accepted state shape requires one.
-The public projection retains the accepted typed success, failure, defect, and interruption lanes and MUST
-NOT expose `Cause`; the complete Cause stays in package-private issue backing and TurnRecord facts. Exact
-failure-versus-defect classification and the closed public union remain unresolved under `BEH-023`.
+The public projection retains the accepted typed success, failure, defect, interruption, and post-boundary
+`unknown`/`reconcileRequired` lanes and MUST NOT expose raw Effect `Cause.Cause<unknown>`; the complete Cause stays in package-private
+issue backing and TurnRecord facts. Failure-versus-defect classification and the closed public union follow
+`REV-OPS-017`.
 
 The exact closed `TransactionSnapshot<A, E, K>` union, field presence, generation exposure, terminal
-retention, and collection behavior remain unresolved under `BEH-023`; occurrence lifetime follows `SEM-018`.
-Absent fields MUST remain absent when the final union is accepted; this contract MUST NOT use a generic
+retention, and collection behavior follow `REV-OPS-017` and `SEM-018`. Absent fields MUST remain absent;
+this contract MUST NOT use a generic
 transaction registry or accumulate old attempts in an ordinary actor snapshot.
 
 ### SNAP-007 — Transaction projection follows the current actor binding
@@ -121,11 +119,11 @@ An actor exposes transaction state for an actor-owned descriptor/K identity in i
 configuration. State activation, passive reads, completion,
 and reconciliation MUST NOT admit or readmit a transaction attempt; finite commits are admitted only by an
 accepted event transition `actions` result. Attempt history may belong in TurnRecords and inspection
-evidence, but exact ordinary-snapshot retention and occurrence projection remain unresolved under
-`BEH-023`; no generic actor-lifetime attempt map is accepted.
+evidence, while exact ordinary-snapshot retention and occurrence projection follow `REV-OPS-017`; no generic
+actor-lifetime attempt map is accepted.
 
-The exact projection when a binding is removed, replaced, suspended, disposed, or reentered remains under
-`BEH-023`; occurrence retention across those boundaries follows `SEM-018`.
+The exact projection when a binding is removed, replaced, suspended, disposed, or reentered follows
+`REV-OPS-017`; occurrence retention across those boundaries follows `SEM-018`.
 
 ## Streams and timers
 
@@ -206,9 +204,17 @@ remain application-owned immutable values: Flow retains their identity, never mu
 recursively freeze a class instance or arbitrary domain graph. Mutating one after admission is unsupported
 and may bypass revision or observer detection.
 
-Every Story checkpoint and successful `run.end` is deeply frozen and captured through the production
-runtime's atomic read barrier. The exact lock order, actor capture set, lifecycle-evidence cut, cleanup
-failure aggregation, and failed-run envelope remain unresolved under `BEH-021` and `BEH-022`.
+Every Story checkpoint and successful `run.end` is deeply frozen and captured through one production
+`DehydrateBarrier` read cut after the Store commit permit. The barrier captures the complete static
+Story-plan closure, one StoreState revision, published actor snapshots, pending work, TestClock time, and
+the accepted runtime evidence prefix through one sequence fence; unrelated runtime actors are excluded.
+Captured roots are deeply frozen before registry leases are released, and `actor(...)` never performs a
+live lookup. Capture does not process, move time, create, dispose, restore, or perform external work;
+`run.end` is captured after commands and before cleanup. The package-owned frozen
+`FlowStoryExecutionError` envelope retains completed checkpoints, optional end evidence, the failure
+boundary, primary and ordered cleanup diagnostics, cancellation evidence, and accepted/drained sequence
+facts. The complete Effect `Cause.Cause<unknown>` remains public on the declared Flow error boundaries;
+actor snapshots do not expose it, and artifact projection follows WIRE-020B.
 
 ### SNAP-P01 — Discriminant and reader proof
 
@@ -222,5 +228,5 @@ independent actor ownership, explicit authoritative writes fence older generatio
 outcomes use production completion paths, and captured snapshots never change after later turns, collection,
 suspension, resumption, or disposal. Proofs MUST cover actor-scoped effective reads, preview promotion and
 rollback, occurrence fencing, stream latest-value projections, hydration restart without emission replay,
-and passive operation-read reactivity. Remaining unrelated lifecycle, operation-union, and collection
-proofs retain their owning unresolved entries.
+and passive operation-read reactivity. Operation-union and collection proofs are owned by `REV-OPS-017` and
+`REV-OPS-018`; lifecycle and host-write proofs retain their owning `REV-*` clauses and phase receipts.

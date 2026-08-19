@@ -6,8 +6,9 @@ This chapter is the complete operations revision. It defines the accepted public
 admission, ownership, lifecycle, mutation, examples, and proof obligations without delegating semantics to
 an older operations document.
 
-`Provenance` is non-normative trace metadata. The `BEH-*` boundaries remain unresolved behavior problems;
-they add no public API and authorize no implementation choice.
+`Provenance` is non-normative trace metadata. Historical `BEH-*` problem statements below add no public
+API and authorize no implementation choice; their accepted closure rows and owning `REV-*` clauses are
+the current behavioral authority.
 
 ## Deletion disposition
 
@@ -113,17 +114,22 @@ omitted capabilities, test the assertion, switch clients, or fail over between e
 result-changing account, network, tenant, permission, session, or other discriminator MUST be in `K` or
 separated by runtime.
 
-Canonical `K` MUST contain only `null`, booleans, strings, finite numbers, readonly arrays, and plain readonly
-records. Canonicalization MUST sort record keys and normalize `-0` to `0`. It MUST reject `undefined`,
-non-finite numbers, bigint, symbols, functions, accessors, class instances, mutable structures, cycles, and
-branded secret values. Unbranded strings cannot be classified by intent, so authors MUST treat every key as
-observable in persistence, inspection, diagnostics, and artifacts and MUST hash or replace secret material.
+Canonical `K` MUST contain only `null`, booleans, strings, finite numbers, arrays, and plain records. Flow
+MUST accept ordinary dense arrays and ordinary records whose own properties are enumerable data properties
+on `Object.prototype` or `null`, then copy every accepted container into a Flow-owned container, recursively
+freeze it, and freeze the top-level tuple. Canonicalization MUST sort record keys and normalize `-0` to `0`.
+It MUST reject `undefined`, non-finite numbers, bigint, symbols, functions, accessors, class instances,
+unsupported objects, cycles, branded secret values, sparse arrays, extra array properties, symbol keys, and
+hostile or inconsistent reflection. Unbranded strings cannot be classified by intent, so authors MUST treat
+every key as observable in persistence, inspection, diagnostics, and artifacts and MUST hash or replace secret
+material.
 
-One key is limited to 16 nested levels, 256 total value nodes, and 8 KiB in the tagged canonical byte
-encoding. These are not state, actor, descriptor, or cache-entry-count limits. Projection, validation,
-canonicalization, and defensive freezing MUST finish before ownership, actor/store mutation, admission, or
-external work. Failure MUST name the exact `K[index]` or nested record path and abort the whole candidate
-turn. Changing grammar, normalization, or limits is an identity compatibility change.
+One key is limited to 16 nested levels, 256 total value nodes, and 8 KiB in the exact UTF-8 bytes of the
+`KBytes` grammar defined by `REV-OPS-016`. These are not state, actor, descriptor, or cache-entry-count
+limits. Projection, guarded reflection, validation, canonicalization, defensive copying, and freezing MUST
+finish before ownership, actor/store mutation, admission, or external work. Failure MUST name the exact
+`K[index]` or nested record path and abort the whole candidate turn. Changing grammar, normalization, or
+limits is an identity compatibility change.
 
 ```ts
 interface OrderInput {
@@ -138,14 +144,12 @@ const orderById = flow.resource({
 });
 ```
 
-`client` remains executable `P`; only `orderId` is canonical `K`.
-
-**Unresolved boundary:** `BEH-027` owns the exact byte grammar, counting, hostile-reflection behavior, and
-how rejection of mutable structures relates to copying ordinary arrays and records into frozen containers.
+`client` remains executable `P`; only `orderId` is canonical `K`. Any result-changing client, account,
+network, tenant, permission, session, or capability discriminator MUST also be represented in `K`.
 
 **Proof obligations:** Cover every canonical category, record-order equivalence, `-0`, every rejection,
-cycles, exact paths, and each bound. Invalid input MUST publish and mutate nothing and start no work. Exact
-encoder proofs remain blocked on `BEH-027`.
+cycles, hostile reflection, defensive-copy isolation, exact paths, and each bound. Invalid input MUST publish
+and mutate nothing and start no work. Exact encoder proofs are owned by `REV-OPS-016`.
 
 ## REV-OPS-003 — Executable-input retention and shared-generation admission
 
@@ -208,8 +212,8 @@ releases only that actor's ownership. Another actor may keep the entry active. I
 writes MUST fan out to every affected actor. Separate runtimes, SSR requests, tests, and browser roots MUST
 remain isolated. Flow MUST NOT create an actor-local copy to compensate for a bad key.
 
-Descriptor configuration may own freshness and collection policy, but exact public state, collection
-projection, and never-materialized-entry read visibility remain under `BEH-023`.
+Descriptor configuration may own freshness and collection policy, while exact public state, collection
+projection, and never-materialized-entry read visibility follow `REV-OPS-017`.
 
 **Proof obligations:** Prove same-runtime sharing, independent release, cross-actor fanout, and isolation
 between runtimes, SSR requests, tests, and browser roots.
@@ -254,11 +258,10 @@ interface StreamFamily<P, K extends readonly unknown[], V, E> {
 
 This interface block is schematic local notation, not a declaration of exported support types. Every
 Pascal-cased options and plan name in it stands for the descriptor-specific inferred type at that position.
-`StateShapeNotYetAccepted` is a documentation sentinel, not a public type: each `getState(K)` result must be
-descriptor- and key-typed, but its closed union remains unresolved under `BEH-023`. In particular, this
-sentinel does not decide whether a stream status includes latest emission `V`; that exact public union and
-read projection remain unresolved under `BEH-023`. `REV-OPS-015` separately accepts the runtime latest-value
-projection behavior. The accepted revision fixes the family
+`StateShapeNotYetAccepted` is a documentation sentinel, not a public type: each `getState(K)` result is
+descriptor- and key-typed, and its closed union is fixed by `REV-OPS-017`. That revision also fixes whether a
+stream status includes latest emission `V`; `REV-OPS-015` separately owns the runtime latest-value projection
+behavior. The accepted revision fixes the family
 methods, their `P` versus `K` arguments, descriptor-specific value/failure/event relationships, and finite
 versus continuing result categories. It does not accept exports with these support names or generic
 parameter orders for them.
@@ -360,11 +363,10 @@ const submitState = O.submitIntent.getState([submissionId]);
 
 These expressions remain passive for missing, stale, failed, and active identities.
 
-**Unresolved boundary:** `BEH-023` owns the closed state unions, generation and failure projection,
-retained-value refresh, collection, cross-actor read visibility, and stream declaration-slot ambiguity.
-`BEH-029` owns base versus overlay-effective `getData` and placeholder projection. Signatures and passivity
-plus the existence of typed outcome mappers are accepted; exact public state members and the remaining read
-projection details are not.
+The closed state unions, generation and failure projection, retained-value refresh, collection, cross-actor
+read visibility, and stream declaration-slot law are owned by `REV-OPS-017`. `BEH-029` owns base versus
+overlay-effective `getData` and placeholder projection. Signatures, passivity, exact public state members,
+and typed outcome mappers are accepted. `REV-OPS-018` owns bounded invalidation and clear expansion.
 
 **Proof obligations:** Prove exact methods and descriptor-specific types, the `P`/`K` boundary, passive view
 subset, `K = []`, side-effect-free reads, and absence of removed refs, registries, lanes, status aliases, and
@@ -573,12 +575,12 @@ inspection evidence, emits no mapped domain interruption, and suppresses every l
 finalization. A later explicit lookup/refetch may admit normally.
 
 Updater input, actor-scoped overlay behavior, and equal-value revisions/emissions follow `REV-OPS-015`.
-`BEH-032` still owns the trusted host API, authority, seeding, and evidence. Trusted writes are accepted
-writers and obey the same fencing/fanout, but this chapter invents no host surface.
+`REV-HOST-008` owns the package-private trusted host capability, authority, seeding, and evidence. Trusted
+writes obey the same fencing/fanout, but this chapter invents no public host surface.
 
 **Proof obligations:** Hostile races MUST deliver late success/failure/finalization and prove no overwrite or
 republication. Cover updater decline, retained subscribers, all accepted write origins, and blocked
-equal-value/host details under `BEH-029`/`BEH-032`.
+equal-value/host details under `BEH-029`/`REV-HOST-008`.
 
 ## REV-OPS-011 — Actor-owned finite cancellation
 
@@ -685,9 +687,9 @@ zero-argument clear, AppPlan-external wildcard, or whole-runtime clear. Complete
 `runtime.cache.clear()`. Logout-like transitions MUST release account-scoped continuing work and clear its
 data in the same macrostep.
 
-`BEH-030` remains the boundary for expansion bounds, missing/zero-match behavior, and interaction with
-active lookup, including whether a valid zero-match command advances a store revision. Mixed-command
-conflicts follow `REV-OPS-015`. Family targets for both commands are already accepted.
+`REV-OPS-018` fixes expansion bounds, missing/zero-match behavior, and interaction with active lookup,
+including that a valid zero-match command does not advance a store revision. Mixed-command conflicts follow
+`REV-OPS-015`. Family targets for both commands are already accepted.
 
 **Proof obligations:** Cover exact/tag/family/mixed targets, first-seen deduplication, invalid/unauthorized
 targets, whole-batch rejection, atomic mutation, fencing/interruption, surviving subscriptions, logout, and
@@ -763,13 +765,13 @@ O.submitIntent.commit(params, {
 The accepted mapping includes exact `setData` plans, not completion-side `invalidates` or `clears` options.
 Cancellation follows `REV-OPS-011`.
 
-`BEH-023` remains the exact public transaction-state boundary. Occurrence lifetime, cancellation, overlays,
+`REV-OPS-017` is the exact public transaction-state boundary. Occurrence lifetime, cancellation, overlays,
 completion-side publication, callback materialization, and conflicts follow `REV-OPS-015`. Writes-before-
 outcome is accepted.
 
 **Proof obligations:** Prove event-only admission, passive status, each concurrency policy, no automatic
 retry/readmission, current-generation suppression, fenced writes before mapped outcome, no implicit writes,
-and no unaccepted mapping options. Exact public state-union proofs remain `BEH-023`; occurrence and
+and no unaccepted mapping options. Exact public state-union proofs follow `REV-OPS-017`; occurrence and
 settlement proofs follow `REV-OPS-015`.
 
 ## REV-OPS-014 — Stream ownership and explicit resource mappings (historical baseline; amended by REV-OPS-015)
@@ -819,11 +821,10 @@ activities: [
 ];
 ```
 
-`getState(K)` exposes actor-owned idle, connecting, running, complete, typed failure, defect, interruption,
-and inspection identity. Its exact public union, including whether it carries the latest `V`, remains
-unresolved under `BEH-023`; the accepted runtime behavior is the latest-value projection specified by
-`REV-OPS-015`, not the earlier value-free restriction. Generation fields and duplicate-live-binding reads
-remain under `BEH-023`.
+`getState(K)` exposes the exact stream union in `REV-OPS-017`, including latest-value presence, emission
+count, generation, and terminal status. The accepted runtime behavior is the latest-value projection
+specified by `REV-OPS-015`, not the earlier value-free restriction. Declaration-slot identity remains
+package-private and same-actor duplicate-live declarations reject before replacement.
 
 Emissions become durable observable state only through mapped events that later commit memory or explicit
 authoritative resource writes. Values never enter the resource store implicitly. Flow verifies current key
@@ -846,12 +847,12 @@ O.walletChanges.subscribe(
 Planned release stores no further value. Hydration rematerializes an active declaration from live executable
 `P` after pending outcomes drain, creates a new generation, and does not replay emissions. Terminal streams
 do not restart; missing input fails closed. Completion publication follows `REV-OPS-015`; exact public
-state and duplicate-read fields remain under `BEH-023`.
+state and duplicate-read fields follow `REV-OPS-017`.
 
 **Proof obligations:** Cover emission, equal-key live retention, key replacement, release/disposal,
 completion/failure, exact finalization, late emissions, writes before outcomes, latest-value coalescing,
-and no historical emission replay during completion, failure, release, dehydration, or hydration. Remaining
-exact public-state and declaration-slot proofs track `BEH-023`; runtime latest-value behavior follows
+and no historical emission replay during completion, failure, release, dehydration, or hydration. Exact
+public-state and declaration-slot proofs follow `REV-OPS-017`; runtime latest-value behavior follows
 `REV-OPS-015`.
 
 ## Closed exclusions and deferred surfaces
@@ -875,24 +876,22 @@ baseline. Timer-owned finite actions are not inferred from event actions and req
 
 ## Unresolved behavior register
 
-These are mandatory closure problems, not accepted answers. `BEH-023` remains open for exact public state
-unions and read projections; `REV-OPS-015` closes adjacent runtime behavior without closing that public-shape
-boundary. `BEH-024`, `BEH-025`, `BEH-026`, `BEH-028`,
-`BEH-029`, and `BEH-031` are closed by the later `REV-OPS-015` amendment; their rows remain here only as
-historical indexing.
+These rows are retained as historical indexing. `BEH-023` and `BEH-030` are closed by `REV-OPS-017` and
+`REV-OPS-018`; `BEH-027` is closed by `REV-OPS-016`. `BEH-024`, `BEH-025`, `BEH-026`, `BEH-028`,
+`BEH-029`, and `BEH-031` are closed by the later `REV-OPS-015` amendment.
 
-| Item      | Unresolved behavior                                                                                                                                                                                                                                                                                                                             |
-| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `BEH-023` | Exact public operation state unions, generation/failure/collection projection, cross-actor resource read visibility, and unambiguous stream reads with declaration-slot identity remain unresolved. Adjacent runtime behavior, including latest-value projection, is closed by `REV-OPS-015`; this row remains open for the exact public shape. |
-| `BEH-024` | Closed by `REV-OPS-015`: timers remain event-targeting only; polling uses `after` plus an explicit refresh event.                                                                                                                                                                                                                               |
-| `BEH-025` | Closed by `REV-OPS-015`: occurrence settlement, supersession, cancellation, disposal, and bounded retention.                                                                                                                                                                                                                                    |
-| `BEH-026` | Closed by `REV-OPS-015`: action conflicts and transaction/stream completion-side ordering.                                                                                                                                                                                                                                                      |
-| `BEH-027` | Canonical byte grammar, counting, hostile input, copying/freezing, and mutable-input conflict.                                                                                                                                                                                                                                                  |
-| `BEH-028` | Closed by `REV-OPS-015`: equal-key candidate-`P` retention and deterministic acquisition order across hydration.                                                                                                                                                                                                                                |
-| `BEH-029` | Closed by `REV-OPS-015`: tags, base/effective reads, updater input, overlays, promotion, and equal-value writes.                                                                                                                                                                                                                                |
-| `BEH-030` | Tag/family expansion bounds, missing/zero-match behavior, and active-lookup interaction.                                                                                                                                                                                                                                                        |
-| `BEH-031` | Closed by `REV-OPS-015`: stream rematerialization from live `P` without emission replay and terminal behavior.                                                                                                                                                                                                                                  |
-| `BEH-032` | Boot/SSR/fixture seeding and trusted host-write owner, API, authority, and evidence.                                                                                                                                                                                                                                                            |
+| Item      | Unresolved behavior                                                                                                                                                                                |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `BEH-023` | Closed by `REV-OPS-017`: exact resource, transaction, and stream state discriminants, cross-actor passive reads, retained values, generation/terminal fields, and duplicate-live-stream rejection. |
+| `BEH-024` | Closed by `REV-OPS-015`: timers remain event-targeting only; polling uses `after` plus an explicit refresh event.                                                                                  |
+| `BEH-025` | Closed by `REV-OPS-015`: occurrence settlement, supersession, cancellation, disposal, and bounded retention.                                                                                       |
+| `BEH-026` | Closed by `REV-OPS-015`: action conflicts and transaction/stream completion-side ordering.                                                                                                         |
+| `BEH-027` | Closed by `REV-OPS-016`: Flow-owned defensive copies/freezes, canonical JSON grammar, UTF-8 encoding, bounds, discriminator ownership, and hostile-reflection rejection.                           |
+| `BEH-028` | Closed by `REV-OPS-015`: equal-key candidate-`P` retention and deterministic acquisition order across hydration.                                                                                   |
+| `BEH-029` | Closed by `REV-OPS-015`: tags, base/effective reads, updater input, overlays, promotion, and equal-value writes.                                                                                   |
+| `BEH-030` | Closed by `REV-OPS-018`: bounded pre-mutation expansion, stable first-seen deduplication, no-op missing/zero-match targets, and invalidation/clear interaction with active work.                   |
+| `BEH-031` | Closed by `REV-OPS-015`: stream rematerialization from live `P` without emission replay and terminal behavior.                                                                                     |
+| `BEH-032` | Closed by `REV-HOST-008`: construction-owned boot/SSR/fixture seeding and package-private capability-scoped trusted host writes.                                                                   |
 
 Closing any BEH MUST preserve this chapter's public method sets, `P`/`K` boundary, ownership, event-action
 admission, and deferred surfaces unless a separate accepted design decision revises them.
@@ -963,3 +962,140 @@ performs at most one overdue refresh.
 owner-only preview visibility, promotion/rollback/CAS conflict behavior, projection-only publications,
 continuing route ordering, stream latest-value coalescing and terminal hydration, explicit timer-driven
 refresh, and the absence of required user subscriptions.
+
+## REV-OPS-016 — Canonical key ownership and encoding
+
+**Change:** Close `BEH-027` by defining the canonical key container boundary, deterministic byte grammar,
+hostile-reflection behavior, discriminator ownership, and exact bounds.
+
+**Supersedes:** The unresolved canonical-key boundary in `REV-OPS-002`, `WIRE-001`, and the affected
+operation contracts. This revision does not add a public method, registry, partition, or alternate key
+projection.
+
+**Rule:** `key(P)` MUST produce one top-level tuple and Flow MUST validate it synchronously before any
+ownership, actor/store mutation, admission, or external work. The source tuple and nested containers MAY be
+ordinary arrays and plain records. Flow MUST copy every accepted array and record into new containers,
+recursively freeze those containers, and freeze the top-level tuple. Later mutation of the source input MUST
+NOT change canonical identity or encoded bytes.
+
+The canonical bytes are the exact UTF-8 bytes of this grammar, with no whitespace and no trailing newline:
+
+```text
+KBytes ::= "[" [ Value *( "," Value ) ] "]"
+
+Value ::= "null"
+        | "true"
+        | "false"
+        | Number
+        | String
+        | "[" [ Value *( "," Value ) ] "]"
+        | "{" [ Member *( "," Member ) ] "}"
+
+Member ::= String ":" Value
+```
+
+`Number` uses the finite-number serialization of `JSON.stringify(number)` and therefore encodes `-0` as
+`0`. `String` uses JSON string escaping without Unicode normalization. Record members sort by raw UTF-16
+code-unit key order. A record MUST have prototype `Object.prototype` or `null`, enumerable own data
+properties only, and no symbol keys. An array MUST be dense and ordinary, with no extra string or symbol
+properties. Flow MUST read only data descriptors: it MUST NOT invoke getters, coercion, `toJSON`, or user
+iteration. Guarded prototype, key, and descriptor snapshots MUST reject thrown reflection, inconsistent
+snapshots, proxies that change observations, accessors, cycles, and invalid descriptors.
+
+Flow MUST reject `undefined`, non-finite numbers, bigint, symbols, functions, class instances, unsupported
+objects, branded secret values, sparse arrays, extra array properties, and any rejected reflection shape.
+The top-level tuple, every nested array or record, and every scalar count as one value node; record property
+names do not count as nodes. The root is depth zero, nested values MUST NOT exceed depth 16, and encoded UTF-8
+bytes MUST NOT exceed 8192. Capability, tenant, account, network, permission, session, and every other
+result-changing discriminator MUST be represented in `K`; runtime partitioning MUST NOT substitute for it.
+
+**Proof obligations:** Prove byte-identical encoding, record-order equivalence, `-0`/`0` equivalence,
+defensive-copy and freeze isolation, exact rejection paths, hostile-reflection non-execution, discriminator
+identity separation, equal-byte identity sharing, differing-byte identity separation, and depth 16/node 256/
+byte 8192 boundaries with the next value rejected. Invalid input MUST publish and mutate nothing and start no
+work.
+
+## REV-OPS-017 — Exact operation state unions and passive read projections
+
+**Change:** Close `BEH-023` without adding a generic registry, operation ref, or declaration-slot read API.
+
+**Rule:** The inferred result of each named family's passive `getState(K)` is one exact family-specific
+discriminated union. The following local notation fixes the public shape; the aliases are not required to be
+exported:
+
+```ts
+type ResourceRetention<A> = { data?: never } | { data: A };
+
+type ResourceState<A, E, K extends readonly unknown[]> =
+  | { status: "missing"; key: K }
+  | { status: "pending"; key: K; generation: number }
+  | { status: "ready"; key: K; generation: number; data: A }
+  | { status: "refreshing"; key: K; generation: number; data: A }
+  | ({ status: "failure"; key: K; generation: number; error: E } & ResourceRetention<A>)
+  | ({ status: "defect"; key: K; generation: number; defect: unknown } & ResourceRetention<A>)
+  | ({ status: "interrupted"; key: K; generation: number } & ResourceRetention<A>);
+
+type TransactionState<A, E, K extends readonly unknown[]> =
+  | { status: "idle"; key: K }
+  | { status: "pending"; key: K; generation: number }
+  | { status: "success"; key: K; generation: number; value: A }
+  | { status: "failure"; key: K; generation: number; error: E }
+  | { status: "defect"; key: K; generation: number; defect: unknown }
+  | { status: "interrupted"; key: K; generation: number }
+  | { status: "unknown"; key: K; generation: number; reconcileRequired: true };
+
+type StreamValue<V> =
+  | { hasValue: false; latest?: never; emissionCount: 0 }
+  | { hasValue: true; latest: V; emissionCount: number };
+
+type StreamState<V, E, K extends readonly unknown[]> =
+  | ({ status: "idle"; key: K; generation: null } & StreamValue<V>)
+  | ({ status: "running"; key: K; generation: number } & StreamValue<V>)
+  | ({ status: "complete"; key: K; generation: number } & StreamValue<V>)
+  | ({ status: "failure"; key: K; generation: number; error: E } & StreamValue<V>)
+  | ({ status: "defect"; key: K; generation: number; defect: unknown } & StreamValue<V>)
+  | ({ status: "interrupted"; key: K; generation: number } & StreamValue<V>);
+```
+
+`A`, `V`, and `E` are inferred from the descriptor. `undefined` is not an `A` value: it is reserved for
+missing `getData` and the updater-decline result. Optional retained `data` or `latest` fields are absent
+when no value is present, and `hasValue` is the stream value-presence discriminator. Resource failure,
+defect, and interruption may retain the last canonical `data`; refreshing always retains the usable `data`.
+The transaction `unknown` lane is the public post-boundary truth and MUST carry `reconcileRequired: true`;
+it is not an alias for interruption. All generation and count fields are non-negative safe integers.
+
+Passive reads of any admitted same-runtime resource identity are allowed across actors and never acquire
+ownership, start work, refresh, mutate, or alter collection. A missing read returns the exact `missing` or
+`idle` lane and does not materialize a store entry. A second live stream declaration by the same actor for
+the same descriptor and canonical `K` MUST reject before replacing or releasing the existing declaration;
+different actors remain independent. Declaration-slot identity remains package-private and is not exposed by
+`getState(K)`.
+
+**Proof obligations:** Compile the exact narrowing and value-presence rules, cross-actor passive reads,
+missing no-op reads, resource retained-value terminal lanes, transaction post-boundary unknown truth, stream
+latest/count/generation/terminal projections, and same-actor duplicate stream rejection before replacement.
+
+## REV-OPS-018 — Bounded invalidation and clear expansion
+
+**Change:** Close `BEH-030` while preserving actor-owned `invalidate(targets)` and `clear(targets)`.
+
+**Rule:** Each action expands its readonly target mixture against one pre-mutation store index snapshot in
+stable descriptor/K insertion order. Exact `[O.resource, K]` targets, reachable tags, and admitted resource
+families are validated before expansion; invalid or unauthorized targets reject the entire candidate before
+any allocation, store mutation, fencing, or external work. First-seen descriptor/K identities deduplicate
+overlapping exact, tag, and family matches. A resolved expansion MUST contain no more than 256 identities;
+the next identity fails with a package-owned bounded-expansion diagnostic before mutation. Missing exact
+targets and zero-match tags or families are successful no-ops with no revision.
+
+`invalidate` retains canonical data and overlays, marks each matched identity stale, publishes one atomic
+store revision, and starts no lookup directly. Existing active generations are not replaced or cancelled;
+an eligible continuing binding may reacquire under ordinary lookup policy. `clear` fences the matched
+generations, interrupts cancellable work under final-owner rules, removes base data, failure/freshness
+metadata, and overlays, then publishes one atomic store revision. A surviving subscription observes the
+exact missing lane and may reacquire normally. Mixed action conflicts are rejected by `SEM-018` against
+the same pre-mutation target snapshot.
+
+**Proof obligations:** Cover malformed/foreign/unauthorized targets, exact missing and zero-match no-ops,
+overlap deduplication, stable order, the 256-match boundary, no partial mutation on overflow, invalidation
+of active work, clear fencing and final-owner cancellation, one revision per nonempty action, and no direct
+lookup or external work from invalidation.

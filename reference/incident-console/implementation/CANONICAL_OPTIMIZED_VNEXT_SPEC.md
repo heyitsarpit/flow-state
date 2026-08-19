@@ -2,8 +2,10 @@
 
 Status: non-normative research synthesis. This is the single combined
 optimization specification selected from four independent alternatives. It
-does not amend a contract, close a `BEH-*` item, authorize an unresolved
-behavior, or claim implementation proof.
+does not amend a contract, authorize an unresolved behavior, or claim implementation proof. Its crosswalk is
+a pre-2026-08-18 research snapshot; current `BEH-*` status and closure authority are in
+`revision-spec/UNRESOLVED_BEHAVIOR.md` and the accepted `REV-*` clauses. The current register has no open
+inherited behavior entry.
 
 The objective is fewer semantic owners, fewer repeated algorithms, fewer
 allocations, and substantially less code while retaining every accepted
@@ -1081,46 +1083,46 @@ referenced by the current revision register. “Closed” means closed by the
 named revision; it does not mean this research file re-closes it. “Blocked”
 means preserve the representational slot and wait for explicit authority.
 
-| BEH       | Current status                                 | Optimization treatment                                                          |
+| BEH       | Historical synthesis status                    | Optimization treatment                                                          |
 | --------- | ---------------------------------------------- | ------------------------------------------------------------------------------- |
-| `BEH-001` | blocked                                        | RuntimeFactory lifecycle; no second runtime kind                                |
-| `BEH-002` | blocked                                        | post-bootstrap admission through RuntimeDirectory                               |
-| `BEH-003` | blocked                                        | ensure ownership and concurrent join protocol                                   |
-| `BEH-004` | blocked                                        | capture membership remains explicit, not inferred from directory                |
-| `BEH-005` | blocked                                        | stable/opaque ref encoding; no object identity                                  |
-| `BEH-006` | blocked                                        | tooling ownership stays at package boundary                                     |
-| `BEH-007` | blocked                                        | lifecycle publication revision is actor-owned                                   |
-| `BEH-008` | blocked                                        | lifecycle evidence remains distinct from turn evidence                          |
-| `BEH-009` | blocked                                        | suspended logical context edges remain representable                            |
-| `BEH-010` | blocked                                        | serialized suspension and finite-work normalization                             |
-| `BEH-011` | blocked                                        | prepared context/SSR attach path                                                |
-| `BEH-012` | blocked                                        | hook construction tuple remains host contract                                   |
-| `BEH-013` | blocked                                        | prepared command bounds and abandoned handles                                   |
-| `BEH-014` | blocked                                        | context selector defect and error retention                                     |
+| `BEH-001` | closed by `REV-COMP-015`                       | RuntimeFactory lifecycle; no second runtime kind                                |
+| `BEH-002` | closed by `SEM-029`/`REV-COMP-015`             | post-bootstrap admission through RuntimeDirectory                               |
+| `BEH-003` | closed by `REV-COMP-012`/`REV-COMP-013`        | ensure ownership and concurrent join protocol                                   |
+| `BEH-004` | closed by `REV-COMP-005`                       | capture membership remains explicit, not inferred from directory                |
+| `BEH-005` | closed by `REV-COMP-011`/`WIRE-008`            | stable/opaque ref encoding; no object identity                                  |
+| `BEH-006` | closed by `REV-COMP-006`/`REV-COMP-008`        | tooling ownership stays at package boundary                                     |
+| `BEH-007` | closed by `REV-HOST-003`/`REV-HOST-004`        | lifecycle publication revision is actor-owned                                   |
+| `BEH-008` | closed by `REV-HOST-004`                       | lifecycle evidence remains distinct from turn evidence                          |
+| `BEH-009` | closed by `REV-COMP-004`/`REV-HOST-005`        | suspended logical context edges remain representable                            |
+| `BEH-010` | closed by `REV-HOST-005`/`ARCH-030`            | serialized suspension and finite-work normalization                             |
+| `BEH-011` | closed by `REV-HOST-002`                       | prepared context/SSR attach path                                                |
+| `BEH-012` | closed by `REV-HOST-002`/`ARCH-018`            | hook construction tuple remains host contract                                   |
+| `BEH-013` | closed by `REV-HOST-002`/`SEM-001`             | prepared command bounds and abandoned handles                                   |
+| `BEH-014` | closed by `REV-COMP-003`/`REV-HOST-006`        | context selector defect and error retention                                     |
 | `BEH-015` | closed by `REV-HOST-007`                       | use commit epoch/read-cut protocol; do not reopen                               |
-| `BEH-016` | blocked                                        | actor-handle lifecycle matrix and attachment ownership                          |
+| `BEH-016` | closed by `REV-HOST-003`                       | actor-handle lifecycle matrix and attachment ownership                          |
 | `BEH-017` | no active entry in current unresolved register | no new semantic choice; verify against revision authority before implementation |
-| `BEH-018` | blocked                                        | focused-machine context remains separate from actor identity                    |
-| `BEH-019` | blocked                                        | controlled-operation interception remains policy-owned                          |
-| `BEH-020` | blocked                                        | Story occurrence identity remains distinct from lifecycle/turn identity         |
-| `BEH-021` | blocked                                        | CheckpointCut and capture set remain separate from EvidenceHub history          |
-| `BEH-022` | blocked                                        | cleanup/end evidence follows one Scope ownership path                           |
-| `BEH-023` | blocked                                        | exact operation unions/read visibility stay typed and owner-specific            |
+| `BEH-018` | closed by `REV-TEST-005`                       | focused-machine context remains separate from actor identity                    |
+| `BEH-019` | closed by `REV-TEST-007`                       | controlled-operation interception remains policy-owned                          |
+| `BEH-020` | closed by `REV-TEST-007`/`SEM-030`             | Story occurrence identity remains distinct from lifecycle/turn identity         |
+| `BEH-021` | closed by `REV-TEST-008`                       | CheckpointCut and capture set remain separate from EvidenceHub history          |
+| `BEH-022` | closed by `REV-TEST-006`/`REV-TEST-008`        | cleanup/end evidence follows one Scope ownership path                           |
+| `BEH-023` | closed by `REV-OPS-017`                        | exact operation unions/read visibility stay typed and owner-specific            |
 | `BEH-024` | closed by `REV-OPS-015`                        | timers target events; no timer-owned hidden action                              |
 | `BEH-025` | closed by `REV-OPS-015`                        | occurrence terminality and cancellation cardinality are preserved               |
 | `BEH-026` | closed by `REV-OPS-015`                        | action-batch conflict algebra maps to all-key StorePatch/CAS                    |
-| `BEH-027` | blocked                                        | exact canonical-key grammar and mutable-container rules                         |
+| `BEH-027` | closed by `REV-OPS-016`                        | exact canonical-key grammar and mutable-container rules                         |
 | `BEH-028` | closed by `REV-OPS-015`                        | equal-key pinning and post-hydration selection                                  |
 | `BEH-029` | closed by `REV-OPS-015`                        | actor overlays, base/effective reads, promotion, rollback                       |
-| `BEH-030` | blocked                                        | invalidation and clearing bounds remain explicit policy                         |
+| `BEH-030` | closed by `REV-OPS-018`                        | invalidation and clearing bounds remain explicit policy                         |
 | `BEH-031` | closed by `REV-OPS-015`                        | continuing hydration rematerializes without finite replay                       |
-| `BEH-032` | blocked                                        | host seeding/trusted writes remain auditable boundaries                         |
-| `BEH-033` | blocked                                        | artifact/result/signal representation; no universal decoded schema              |
-| `BEH-034` | blocked                                        | removed child capability remains absent with negative proof                     |
+| `BEH-032` | closed by `REV-HOST-008`                       | host seeding/trusted writes remain auditable boundaries                         |
+| `BEH-033` | closed by `REV-MIG-005`                        | artifact/result/signal representation; one private decoded schema authority     |
+| `BEH-034` | closed by `REV-MIG-006`                        | removed child capability remains absent with negative proof                     |
 
-Several untouched contract paragraphs appear to answer blocked rows. This
-spec records the useful data-shape candidates but does not promote those
-paragraphs over the revision register.
+The status column is retained as a cross-check against the accepted revisions.
+The accepted revisions and `revision-spec/UNRESOLVED_BEHAVIOR.md` remain
+authoritative, and the current register has no open inherited behavior entry.
 
 ## 14. Rejected, deferred, and promotion rules
 
