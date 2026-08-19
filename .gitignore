@@ -25,3 +25,9 @@ apps/docs/src/pages.gen.ts
 
 # Local evaluation orchestration and run artifacts.
 /evaluations/
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key
+.beads/proxieddb/
