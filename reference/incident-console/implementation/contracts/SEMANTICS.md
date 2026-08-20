@@ -212,12 +212,12 @@ modification; no fact may be exposed or captured through an independently mutabl
 
 ### SEM-006 — Public send is synchronous; story acknowledgment is private
 
-`actor.send(event)` MUST synchronously admit the event and return `void`. It MUST NOT wait for Layer
+`actor.send(event)` MUST synchronously admit the event and return `void`. It MUST NOT wait for Implementation
 acquisition, the actor turn, or asynchronous work. A package-private acknowledged dispatch MUST use a
 command `Deferred` that completes after actor publication and TurnRecord hub acceptance, but before sink
 processing or later asynchronous work. Story `.send` MUST await that Deferred and nothing later. The
 dispatch allocates the Deferred and admits the command synchronously at the shell edge before returning
-the awaiting Effect, so it remains usable while the shared Layer is still acquiring.
+the awaiting Effect, so it remains usable while the shared Implementation is still acquiring.
 
 When planning contains a contained callback defect, the acknowledged dispatch resolves only after the
 separate issue-only publication and its TurnRecord are accepted; it does not acknowledge discarded
@@ -234,17 +234,14 @@ omitted mapper enqueues no event for that lane, and a mapper receives no `Exit`,
 lifecycle metadata.
 
 Operation completion, authoritative writes, canonical projections, ownership, occurrence identity, and
-mapped events MUST pass through the same production operation kernels for live hosts and Stories. A Story
-`simulate` command replaces only external execution; it MUST match an already-pending exact operation
-occurrence and MUST NOT directly mutate actor memory, canonical data, snapshots, generations, or evidence.
-Every admitted occurrence is internally fenced by actor incarnation, operation kind, descriptor ID,
-canonical `K`, one-based ordinal, and—when shared work is involved—the exact store generation and lease
-epoch. A late completion may settle only its bounded old evidence and MUST NOT publish into a later actor
-incarnation or collected/reused store entry.
-Controlled interception is closed by `REV-TEST-007`: it validates the full actor-incarnation, descriptor,
-canonical-key, occurrence, generation, and lease fences at one external boundary, then uses the production
-completion kernel. Occurrences settle once; queued cancellation does not start external work, late results
-are fenced, and terminal history remains bounded evidence rather than an actor-lifetime registry.
+mapped events MUST pass through the same production operation kernels for live hosts and Stories. Complete
+service Implementations provide Story external behavior; Story plans MUST NOT inject results into pending
+operations or bypass the production completion path. Every admitted occurrence is internally fenced by actor
+incarnation, operation kind, descriptor ID, canonical `K`, one-based ordinal, and—when shared work is
+involved—the exact store generation and lease epoch. A late completion may settle only its bounded old
+evidence and MUST NOT publish into a later actor incarnation or collected/reused store entry. Occurrences
+settle once; queued cancellation does not start external work, late results are fenced, and terminal history
+remains bounded evidence rather than an actor-lifetime registry.
 Completion-side writes, overlays, status, revision, and mapped-event ordering follow `SEM-016` and `SEM-018`.
 Stream hydration rematerializes live declarations from executable input without replaying emissions; no child
 outcome surface exists under `DEL-002`.
@@ -299,11 +296,11 @@ input `P` is retained by each live binding or operation generation and is never 
 owner MUST NOT replace the pinned `P` of a running resource generation or duplicate its work. An explicit
 `refetch(P)` admits a replacement generation with its own `P`.
 
-Canonical `K` MUST follow `REV-OPS-016`. Flow MUST accept ordinary dense arrays and plain records, copy
+Canonical `K` MUST follow `PUBLIC_API.md` `API-005`. Flow MUST accept ordinary dense arrays and plain records, copy
 accepted containers into Flow-owned containers, recursively freeze them, and freeze the top-level tuple.
 Record keys are sorted, `-0` is normalized to `0`, and hostile reflection or unsupported values are rejected.
 The exact `KBytes` UTF-8 grammar, defensive-copy behavior, hostile-reflection rules, and 16-level/256-node/
-8192-byte limits are owned by `REV-OPS-016`. These are not state, actor, descriptor, or cache-entry-count
+8192-byte limits are owned by `PUBLIC_API.md` `API-005`. These are not state, actor, descriptor, or cache-entry-count
 limits. Projection, validation, canonicalization, and defensive freezing MUST finish before ownership,
 actor/store mutation, admission, or external work. Failure MUST name the exact `K[index]` or nested record
 path and abort the whole candidate turn. Unbranded strings are observable in persistence, inspection,
@@ -331,7 +328,7 @@ not runtime resource entries, and have no actor `cancel(K)`.
 Descriptor freshness and collection policy remain descriptor configuration. This revision establishes no
 new policy defaults. Exact resource, transaction, and stream state unions, generation and failure
 projections, retained-value refresh, collection, cross-actor read visibility, and duplicate stream-read
-behavior are defined by `REV-OPS-017`.
+behavior are defined by `PUBLIC_API.md` `API-006`.
 
 Browser online state is an advisory refresh signal, not lookup-admission authority. An offline fact MUST
 NOT block explicit lookup, subscription, or refetch activation and MUST NOT cancel or pause an in-flight
@@ -383,20 +380,26 @@ from `K`.
 ### SEM-011C — Invalidation and clearing are scoped actor actions
 
 `invalidate(targets)` and `clear(targets)` MUST accept only the accepted readonly mixture of exact
-`[O.resource, K]` targets, declared reachable resource tags, and admitted resource families. Planning MUST
-resolve all targets, validate authority and keys, expand tags and families, deduplicate first-seen matches,
-and reject the whole action batch before mutation when any target is invalid or unauthorized.
+`[O.resource, K]` targets, declared reachable resource tags, and admitted resource families. Each action
+MUST expand its readonly target mixture against one pre-mutation store-index snapshot in stable
+descriptor/K insertion order. Exact targets, reachable tags, and admitted resource families MUST be
+validated before expansion; invalid or unauthorized targets reject the entire candidate before any
+allocation, store mutation, fencing, or external work. First-seen descriptor/K identities deduplicate
+overlapping exact, tag, and family matches. A resolved expansion MUST contain no more than 256 identities;
+the next identity fails with a package-owned bounded-expansion diagnostic before mutation. Missing exact
+targets and zero-match tags or families are successful no-ops with no revision.
 
-For a nonempty resolved match set, invalidation retains canonical data, marks every matched identity stale,
-publishes all matched mutations atomically in one store revision, and starts no lookup directly. A surviving
-subscription may authorize replacement. Clear atomically removes matched bases, failure/freshness metadata,
-and overlays, fences generations, interrupts work, and publishes all matched mutations in one store
-revision; a surviving subscription observes missing data and may reacquire under ordinary rules.
+For a nonempty resolved match set, `invalidate` retains canonical data and overlays, marks every matched
+identity stale, publishes one atomic store revision, and starts no lookup directly. Existing active
+generations are not replaced or cancelled; an eligible continuing binding may reacquire under ordinary
+lookup policy. `clear` fences matched generations, interrupts cancellable work under final-owner rules,
+removes base data, failure/freshness metadata, and overlays, then publishes one atomic store revision. A
+surviving subscription observes the exact `missing` lane and may reacquire normally.
 
 Clear exists only as `clear([...targets])` returned by an accepted event transition. Machines receive no
 zero-argument clear, AppPlan-external wildcard, or whole-runtime clear; complete removal belongs to
-`runtime.dispose()`. Expansion bounds, missing or zero-match behavior, and active-lookup interaction follow
-`REV-OPS-018`; mixed command conflicts follow `SEM-018`.
+`runtime.dispose()`. Mixed action conflicts are rejected by `SEM-018` against the same pre-mutation target
+snapshot.
 
 ### SEM-012 — Placeholder projection remains passive and actor-scoped
 
@@ -412,7 +415,7 @@ method is added.
 RcMap MUST own exact operation-identity activity leases and idle-GC timing only. RcMap invalidation MUST
 NOT implement Flow stale-data invalidation. An expiry finalizer MAY evict canonical data only when its
 lease epoch still owns the exact descriptor/K entry, so an old scope cannot evict a reacquired lease.
-The accepted collection projection is the exact family-specific projection in `REV-OPS-017`.
+The accepted collection projection is the exact family-specific projection in `PUBLIC_API.md` `API-006`.
 
 ### SEM-014 — FiberMap replacement still needs Flow generations
 
@@ -427,7 +430,7 @@ MUST delete an in-flight entry only when it still owns that generation.
 Transaction execution, actor-visible projections, routes, receipts, pending work, and persistence MUST
 use the exact transaction descriptor plus canonical `K`, with actor-local generations for attempts. Every
 completion MUST match actor ownership, exact descriptor/K identity, and generation before it may publish or
-route. The exact public transaction state union is `REV-OPS-017`; occurrence terminality follows `SEM-018`,
+route. The exact public transaction state union is `PUBLIC_API.md` `API-006`; occurrence terminality follows `SEM-018`,
 and older generations belong in inspection evidence rather than an actor-lifetime generic registry.
 
 ### SEM-015A — External transaction cancellation is truthful across the irreversible boundary
@@ -502,6 +505,9 @@ retains independently ordered layers while only the current generation controls 
 mapped event, and `serialize` admits exact-key FIFO with preview application at dequeue. Retry is a new
 explicit commit event and never an automatic policy action.
 
+Mixed target-changing invalidation and clear commands MUST use the same pre-mutation target snapshot;
+conflicting changes MUST reject the candidate rather than observe a partially changed expansion.
+
 ### SEM-019 — Activity identity uses stable declaration slots
 
 Continuing activity identity MUST include the stable compiled AppPlan declaration slot, operation kind,
@@ -557,7 +563,7 @@ absolute deadlines, pending outcomes and occurrence cursors remain, and an ignor
 only the minimum fact needed for truthful settlement. Resume waits for finalizers, reconciles continuing
 declarations and due timers, and never replays finite work or claims reversal of an irreversible effect.
 The public transaction state union and its `unknown`/`reconcileRequired` representation are defined by
-`REV-OPS-017`; this internal normalization does not add a competing public lane. A cleanup defect leaves the
+`PUBLIC_API.md` `API-006`; this internal normalization does not add a competing public lane. A cleanup defect leaves the
 actor suspended and blocks resume until owner or runtime disposal.
 
 ### SEM-021 — Planned release is cleanup, not a routed outcome
@@ -610,9 +616,9 @@ state does not complete or dispose the actor.
 Stable shared actor disposal MUST leave a runtime-incarnation tombstone. `getActor(ref)` and
 `ensureActor(ref, ...)` MUST reject that disposed ref until the runtime itself is disposed; a new runtime
 may restore or create a fresh incarnation from the same durable ref. Post-bootstrap admission and owner
-authority follow SEM-029; dehydration captures the registered, non-disposed durable stable-actor set and
-its transitive stable-provider closure, including suspended and boot-restored actors, while excluding
-local, disposed, and tombstoned actors. Opaque providers fail closed under `NonDurableContextProvider`;
+authority follow SEM-029; Persistence captures the registered, non-disposed persist-enabled stable-actor set and
+its transitive stable-provider closure, including suspended persist-enabled actors, while excluding
+local, disposed, tombstoned, and non-persist-enabled actors. Opaque providers fail closed under `NonDurableContextProvider`;
 stable-ref encoding follows `WIRE-008`.
 
 React Effect setup activates or resumes the same prepared or suspended actor, while Effect cleanup
@@ -708,11 +714,21 @@ or mutate state. Selector exceptions use the revision-scoped memoization and ret
 Runtime acquisition and readiness are host/runtime concerns and MUST NOT be represented as a user-authored
 machine loading state. Internally, the runtime phase is the private closed union
 `constructed | booting | ready | failed | disposed`. `constructed` owns only service-free shell cells;
-`booting` validates boot data, acquires the Layer, and admits the initial graph; `ready` permits ordinary
-work; `failed` closes admission after reverse-order rollback; and `disposed` is terminal. Post-bootstrap
-admission uses the same atomic transaction and rollback law as initial admission. No public phase union,
-new readiness API, or machine state is added; existing host readiness and Effect bridges observe the
-private phase. Actor snapshots use the separate production lifecycle in `SEM-024`.
+`booting` validates the optional Persistence record, acquires the Implementation, and admits the initial graph;
+`ready` permits ordinary work; `failed` closes admission after reverse-order rollback; and `disposed` is terminal.
+Post-bootstrap admission uses the same atomic transaction and rollback law as initial admission. The public
+Runtime exposes only `runtime.ready()` as the readiness Effect; it does not expose the phase union or add
+machine state. Host and React integrations observe that same cached boundary. Actor snapshots use the
+separate production lifecycle in `SEM-024`.
+
+### SEM-027A — Persistence intent belongs to declarations
+
+Persistence intent is declaration-owned and opt-in. `persist: true` on a stable actor ref opts in its complete
+snapshot; `persist: true` on a resource opts in its committed canonical entries; and `persist: true` on a
+transaction or stream opts in only that family-specific actor-owned projection when the owning stable actor
+is also persistable. All declarations default to `false`. The Persistence provider supplies storage and
+lifecycle and may only narrow this declared set through identity-only filtering. It never infers durability
+from reads, active bindings, operation use, or mutable runtime state.
 
 ### SEM-028 — Lifecycle evidence is ordered and asynchronously payloaded
 
@@ -747,7 +763,7 @@ and a one-based monotonic non-reused ordinal allocated only after successful adm
 ordinal; `cancel` settles the prior occurrence and a replacement receives a new ordinal; `allow` and
 `serialize` retain separate ordinals for every admitted occurrence. Shared resource work additionally
 carries its exact store generation and lease epoch. A continuing stream's occurrence identifies the
-actor-local declaration, while emissions do not create occurrences. Completion and controlled simulation
+actor-local declaration, while emissions do not create occurrences. Completion handling
 MUST match all applicable fences before publishing; stale facts may settle only bounded old evidence and
 MUST NOT touch a later actor lifetime, a reused stable ref, or a collected/reused store entry. Hydration
 retains bounded cursors and never replays external work; restored streams create a new generation. This

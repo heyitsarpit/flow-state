@@ -26,6 +26,10 @@ appearing under multiple module keys or modules; Flow MUST NOT silently deduplic
 tooling owners. A machine family MUST have one tooling owner in the compiled plan; duplicate ownership is
 a compile-time failure, not a runtime ambiguity.
 
+The compiled AppPlan indexes are the shared source for admission, ownership, inspection, fixture
+validation, and tooling. A runtime or adapter MUST reuse those indexes; a duplicate graph walk is
+permitted only when its independent completeness, ordering, and cost are proved.
+
 Callbacks may materialize only operation plans and context bindings admitted by the compiled
 machine definitions and exact graph. An out-of-plan machine, descriptor, or provider is rejected
 before actor or StoreState mutation. The old `dynamicMachines` admission seed has no replacement.
@@ -84,9 +88,9 @@ break multiple-runtime, test, and hot-reload isolation.
 The hidden `R` of every resource, transaction, stream, and machine admitted by `App.M` MUST flow
 through machine, module, and app types. The app MUST include the complete requirements of every
 listed machine, even when no actor instance is created. `flow.runtime` MUST constrain its
-application Layer to provide the entire inferred environment after removing Flow-owned
+application Implementation to provide the entire inferred environment after removing Flow-owned
 `Scope.Scope`. Descriptor types retain raw `R`, while `RequirementsOf` reports only services the
-application Layer supplies. Layer acquisition errors remain runtime readiness failures; descriptor
+application Implementation supplies. Implementation acquisition errors remain runtime readiness failures; descriptor
 `E` values remain operation outcomes.
 
 ### ARCH-006 — Machine construction uses typed input
@@ -104,58 +108,56 @@ initializer or replaying input.
 
 ### ARCH-007 — One ManagedRuntime owns the graph
 
-`flow.runtime({ app, layer?, boot? })` MUST create one FlowRuntimeShell and exactly one Effect
-ManagedRuntime. FlowRuntimeShell owns only the non-scoped Queue and SubscriptionRef cells
-required before the synchronous handle returns. ManagedRuntime owns Flow's internal Layer,
-the optional application Layer, every Scope, consumer fiber, activity, and finalizer. The
-application Layer MAY be omitted only when requirements are `never`. Flow MUST NOT add a
-competing top-level Scope, custom Layer memoization, or parallel finalizer registry.
+`flow.runtimeSetup({ app, implementation?, persistence? }).construct()` MUST create one FlowRuntimeShell and
+exactly one Effect ManagedRuntime. FlowRuntimeShell owns only the non-scoped Queue and SubscriptionRef cells
+required before the synchronous handle returns. ManagedRuntime owns Flow's internal provider graph,
+the optional application Implementation, every Scope, consumer fiber, activity, and finalizer. The
+application Implementation MAY be omitted only when requirements are `never`. Flow MUST NOT add a
+competing top-level Scope, custom provider-graph memoization, or parallel finalizer registry.
 
 ### ARCH-007A — Runtime phases are private and linearized
 
 The runtime shell MUST own one private phase cell with the closed union
 `constructed | booting | ready | failed | disposed`. `constructed` contains only the synchronous
-service-free shell cells and immutable app/boot inputs. The phase MUST enter `booting` before boot
-installation, Layer acquisition, or initial actor admission begins; it MUST enter `ready` only after
-the graph is sealed, the application Layer is available, and attached actors have crossed their
+service-free shell cells and immutable app/Persistence inputs. The phase MUST enter `booting` before
+restoration, Implementation acquisition, or initial actor admission begins; it MUST enter `ready` only after
+the graph is sealed, the application Implementation is available, and attached actors have crossed their
 activation barrier.
 
 No attached actor handle or owner lease may escape before the instance graph is sealed; the inert
 prepared React handle is the sole exception and is governed by ARCH-018. After graph sealing but
-while the shared Layer is still acquiring, private queues and activation state MAY exist, but no real
+while the shared Implementation is still acquiring, private queues and activation state MAY exist, but no real
 actor handle, owner lease, or public command admission may escape. The runtime object itself exposes
-no phase union or second readiness API: existing readiness and Effect-bridge surfaces observe this
-private phase.
+no phase union or second readiness API: `runtime.ready()` is the sole public readiness Effect and the
+existing host and Effect-bridge surfaces observe this private phase.
 
-Any boot or Layer failure moves the phase to `failed`, closes admission, and rolls back every owner,
+Any boot or Implementation failure moves the phase to `failed`, closes admission, and rolls back every owner,
 context edge, actor registration, and queued acknowledgment in reverse acquisition order. Disposal
 during `constructed` or `booting` wins the phase linearization, cancels bootstrap, performs the same
 reverse rollback, and reaches `disposed`. `failed` rejects further actor admission; only cleanup may
 still complete after the failed phase. A phase transition is published through the runtime-owned
 readiness boundary and never through a user machine event.
 
-### ARCH-008 — Boot precedes actor activation
+### ARCH-008 — Persistence restoration precedes actor activation
 
-The package-private BootCoordinator MUST synchronously decode and validate Flow-owned boot
-structure with its service-free v2 boot Schema and install one PreparedBoot before actor activity.
-Application code migrates and validates opaque domain values first. Resource normalization
-is supplied by StoreKernel; transaction and overlay normalization are supplied by the
-transaction kernel; the artifact boundary reuses the boot codec and MUST NOT implement a
-second hydration path. RuntimeFactory discovery MUST remain synchronous and inert: it may retain app
-identity, Clock, external capabilities, boot input, and initial actor claims, but MUST NOT acquire a
-Layer, create or register actors, start work, or expose handles. Initial runtime construction MUST
-validate the boot payload, acquire the application Layer, install and validate boot actors, complete the
-production factory's initial `ensureActor` calls, resolve every exact context-provider ref, reject
-missing, foreign, duplicate, and cyclic registrations, seal the graph, and only then activate or expose
-public runtime and actor handles. Mutable post-start
-hydration is forbidden.
+The package-private PersistenceCoordinator MUST validate the provider record with its service-free v2
+schema, apply the default or supplied application codec, and install one PreparedBoot before actor activity.
+Resource normalization is supplied by StoreKernel; transaction and overlay normalization are supplied by
+the transaction kernel; the artifact boundary reuses this internal codec path and MUST NOT implement a
+second hydration path. RuntimeSetup discovery MUST remain synchronous and inert: it may retain app identity,
+Clock, external capabilities, and the optional Persistence provider, but MUST NOT acquire an Implementation,
+create or register actors, start work, or expose handles. Runtime readiness/bootstrap MUST restore only
+declared persistable actors and operations, acquire the application Implementation, complete the `Runtime`'s
+initial `ensureActor` calls, resolve every exact context-provider ref, reject missing, foreign,
+duplicate, and cyclic registrations, seal the graph, and only then activate or expose public runtime and
+actor handles. Mutable post-start hydration is forbidden.
 
-If any bootstrap validation, Layer acquisition, initial ensure, provider resolution, or graph seal
+If any bootstrap validation, Implementation acquisition, initial ensure, provider resolution, or graph seal
 step fails, the booting phase MUST close admission and roll back owners, dependency edges, actor
 registrations, and queued acknowledgments in reverse acquisition order. No partially validated graph,
 actor handle, external operation, or public lifecycle evidence may survive that rollback.
 
-Dehydration MUST begin only between completed context-propagation waves and MUST capture a
+Persistence capture MUST begin only between completed context-propagation waves and MUST capture a
 context-closed cut. Included consumers record exact `contextBindings` refs and provider revisions;
 hydration restores providers before consumers and installs derived context silently. A concurrent
 mismatch fails with retryable `ConcurrentDehydrate`. An included durable consumer depending on an
@@ -165,13 +167,13 @@ recreate, substitute, or rebind that provider automatically.
 ### ARCH-009 — Attached actor dispatch enters the real mailbox after readiness
 
 The runtime MUST create each attached actor's one Effect Queue before exposing its handle. The
-initial graph seal and application Layer acquisition in ARCH-008 precede imperative handle escape; a prepared React actor is an
+initial graph seal and application Implementation acquisition in ARCH-008 precede imperative handle escape; a prepared React actor is an
 inert exception governed by ARCH-018 and is not a registered runtime actor.
 After installing the prepared snapshot, it MUST synchronously install the restored actor facts needed
 for activation and then one boot-activation barrier command; a fresh actor installs only the barrier.
-The exact pending-outcome ordering and hydration rematerialization rules are owned by `REV-OPS-015`,
-`REV-OPS-017`, and `WIRE-011`/`WIRE-012`. Only then may its handle escape.
-The one Queue consumer MUST be forked through ManagedRuntime; it waits on the shared Layer build before
+The exact pending-outcome ordering and hydration rematerialization rules are owned by `SEMANTICS.md`
+`SEM-016`/`SEM-018`, `PUBLIC_API.md` `API-006`, and `WIRE-011`/`WIRE-012`. Only then may its handle escape.
+The one Queue consumer MUST be forked through ManagedRuntime; it waits on the shared Implementation build before
 interpreting commands. It drains restored outcomes, then the barrier activates current desired
 ownership. Once `ready`, public `send` MUST synchronously use `Queue.offerUnsafe` on that real unbounded
 Queue. Package-private acknowledged dispatch MUST synchronously allocate its command Deferred with
@@ -181,11 +183,11 @@ acknowledged path is reserved for bootstrap and activation, not arbitrary host c
 failure MUST close admission, fail acknowledged waiters, and complete reverse rollback without executing
 queued commands.
 
-### ARCH-010 — Runtime construction always names app and Layer
+### ARCH-010 — Runtime construction always names app and Implementation
 
 The public zero-argument runtime constructor is forbidden. Production, request, story, and
-test runtimes all provide an app and provide a Layer whenever its compiled requirements are
-not `never`; fixture and test services are installed only through the corresponding Layer.
+test runtimes all provide an app and provide an Implementation whenever its compiled requirements are
+not `never`; fixture and test services are installed only through the corresponding Implementation.
 
 ### ARCH-011 — Host callbacks reenter managed ownership
 
@@ -210,6 +212,10 @@ have distinct revision effects.
 Every actor has one exact `actor.ref`, and its individual disposal authority
 is held only by the separate owner lease. Async completions carry exact identity and generation
 back into the mailbox.
+
+Synchronous snapshot reads MUST use immutable runtime-owned state and MUST NOT execute Effect,
+`runSync`, or any other effectful acquisition path. Snapshot projection is passive; all external
+facts and state changes enter through the actor mailbox.
 Activity starts and releases are staged during CommitPlan interpretation
 and enacted only by a package-private post-commit reconciliation fact queued after publication
 and before command acknowledgment. These implementation types and TurnPlan/CommitPlan MUST remain
@@ -238,7 +244,8 @@ tags; it MUST NOT receive or retain a user selector. Timer-owned finite actions 
 ### ARCH-013 — StoreKernel owns one SubscriptionRef
 
 One `SubscriptionRef<StoreState>` owns authoritative resource bases, lookup generations, a shared ordered
-overlay ledger, the canonical revision, and changed refs. Overlay layers retain their exact initiating actor
+overlay ledger, the canonical revision, and changed refs. One package-private commit coordinator owns every
+store mutation and publication permit. Overlay layers retain their exact initiating actor
 incarnation, occurrence, descriptor, and canonical `K`; their effective values are actor-scoped projections,
 not shared canonical truth. Store mutation and replaying publication MUST occur through one
 `SubscriptionRef.modify` or `modifyEffect`; a `SynchronizedRef + PubSub` split is forbidden. StoreKernel
@@ -247,7 +254,9 @@ returns commit revision, changed refs, and projections but MUST NOT invoke actor
 ### ARCH-013A — StoreFanout owns cross-actor notification
 
 A package-private StoreFanout coordinator owns the live actor-mailbox registry and exact dependency reverse
-indexes. It is the sole actor-facing delivery path for canonical StoreState revisions. For an
+indexes. It is the sole actor-facing delivery path for canonical StoreState revisions. A canonical revision
+fact contains only a monotonic revision, changed canonical refs, and its kind. StoreFanout never runs
+transitions or mutates snapshots. For an
 actor-originated commit, it MUST wait until the initiating actor snapshot is published, its TurnRecord is
 accepted, and its acknowledgment completes; it then offers one compact canonical revision fact to each
 other affected live actor Queue. Owner-overlay facts target only the initiating actor. Recipients ignore
@@ -283,6 +292,16 @@ exact-ref FiberMap generation and its temporary in-flight lease, while each acto
 its registration and RcMap activity lease. Releasing the first actor cannot interrupt joined work;
 the StoreKernel generation may settle and warm canonical data after every registration releases,
 while only exact-ref generation replacement or runtime disposal cancels it.
+
+Fiber and resource ownership lookup MUST use an exact-key index or prove a bounded cardinality
+before scanning. An unbounded global scan is forbidden on a hot path.
+
+### ARCH-015A — Cancellation registration linearizes before synchronous execution
+
+Cancellation registration and its generation/fencing record MUST be committed before a scheduler
+can execute the associated work synchronously. The implementation MUST prove the ordering for both
+synchronous and asynchronous schedulers so a synchronously completed task cannot escape cancellation,
+replacement, or disposal ownership.
 
 ### ARCH-016 — Beta.86 startImmediately is not a contract
 
@@ -338,9 +357,9 @@ mutate runtime state. `MachineObserver` remains package-private.
 
 ### ARCH-020 — Stories run the real scoped architecture
 
-One immutable Story plan and one scoped runner MUST use the real runtime factory, fixture Layer,
-production Flow runtime, exact app-owned actor refs, Story-local actor recipes, and Effect
-TestClock. The public constructors are `story.app(runtimeFactory, options?)`,
+One immutable Story plan and one scoped runner MUST use the typed `RuntimeSetup`, constructed production `Runtime`,
+fixture Implementation, exact app-owned actor refs, Story-local actor recipes, and Effect
+TestClock. The public constructors are `story.app(runtimeSetup, options?)`,
 `story.machine(machine, options?)`, and `story.actor(machine, options?)`. Story commands use
 acknowledged actor dispatch. A recipe run materializes providers before consumers, retains owner
 leases, exposes only their actor handles, and disposes those leases in reverse dependency order.
@@ -426,9 +445,9 @@ the actor Queues. Queue shutdown MUST NOT be represented by a synthetic terminal
 ### ARCH-024A — Internal runtime concepts stay private
 
 AppPlan, StoreState, ActorState, TurnPlan, CommitPlan, TurnRecord, StoreFanout, the TurnRecord hub,
-and MachineObserver MUST remain package-private. Public APIs expose definitions,
-commands, snapshots, actor refs, passive actor selectors, boot payloads, and inspect projections
-without exposing runtime owners or registered view definitions.
+MachineObserver, boot payloads, PersistenceCoordinator, and codec carriers MUST remain package-private.
+Public APIs expose definitions, commands, snapshots, actor refs, passive actor selectors, the inert
+Persistence provider, and inspect projections without exposing runtime owners or registered view definitions.
 
 ### ARCH-025 — Queue shutdown follows acknowledgment settlement
 
@@ -436,7 +455,7 @@ Effect Queue shutdown discards buffered messages. Disposal MUST therefore begin 
 band RuntimeShell compare-and-set rather than a Queue command, close admission immediately, race a
 pending readiness wait with that signal, interrupt/await the consumer, fail its current and every
 drained buffered command Deferred, and only then call `Queue.shutdown`. This path must work even
-when Layer acquisition never completes.
+when Implementation acquisition never completes.
 
 ### ARCH-026 — Exit and Cause remain intact internally
 
@@ -457,7 +476,7 @@ parent completion, final output, automatic actor completion, or mailbox shutdown
 not implement hierarchy; recursive substates share one actor.
 
 VNext runtimes cannot extend AppPlan after construction. A host may asynchronously import modules
-before calling `app(...)` and `runtime(...)`, or create a separately scoped runtime for a lazy
+before calling `app(...)` and `runtimeSetup(...).construct()`, or create a separately scoped runtime for a lazy
 application island. It cannot register a route module, service requirement, descriptor, or machine
 into a running runtime.
 
@@ -515,7 +534,7 @@ subscriptions and work are detached.
 
 Every admitted finite occurrence carries a private actor-incarnation token, operation kind, descriptor
 ID, canonical `K`, and one-based non-reused ordinal. When it joins shared resource work it also carries
-the exact runtime-store generation and lease epoch. Completion and controlled simulation MUST match the
+the exact runtime-store generation and lease epoch. Completion handling MUST match the
 actor incarnation, operation identity, occurrence status, and generation fence before publishing an
 outcome; a stale fact may settle only its bounded evidence and MUST NOT touch a later actor incarnation,
 reused ref, collected store entry, or current mapped event.
@@ -523,7 +542,7 @@ reused ref, collected store entry, or current mapped event.
 The actor-incarnation token is allocated for each actor lifetime, is never reused within a runtime, and
 is replaced on a later restored runtime incarnation. Consumed occurrence cursors remain sufficient to
 reject duplicate observations. Public operation-state unions and transaction `unknown`/
-`reconcileRequired` representation follow `REV-OPS-017`; Cause wire shape follows WIRE-020B. This is an
+`reconcileRequired` representation follow `PUBLIC_API.md` `API-006`; Cause wire shape follows WIRE-020B. This is an
 internal fence, not a new public occurrence handle or operation API.
 
 ### ARCH-032 — Integration layers preserve one Flow runtime
@@ -540,7 +559,7 @@ and evidence model appropriate to its role and MUST NOT create a competing Flow 
 registry, scheduler, store, transition evaluator, mutable evidence history, artifact decoder, or
 semantic model.
 
-A host-owned Effect runtime for process I/O, a fixture Layer, `TestClock`, or a framework readiness store
+A host-owned Effect runtime for process I/O, a fixture Implementation, `TestClock`, or a framework readiness store
 is permitted only when it does not own Flow domain state, ordering, or lifetimes. The Flow runtime MUST
 NOT depend on React, Story/testing, inspection, static analysis, or CLI code. Runtime code may emit the
 raw package-private evidence protocol consumed by inspection; inspection report, retention, formatting,

@@ -13,12 +13,166 @@ transport behavior but does not define a competing artifact or evidence schema. 
 is internal and is not a public package type or a promise that any private member is exported.
 
 `BEH-033` status: closed by `REV-MIG-005` — the exact artifact, trace, and CLI schema is defined here as a
-package-private v2 model and is not a public package type. The
-non-normative [`DESIGN_BEHAVIOR_DISPOSITIONS.md`](../archive/provenance/DESIGN_BEHAVIOR_DISPOSITIONS.md) and
-[`DESIGN_BEHAVIOR_SOLUTIONS.md`](../archive/provenance/DESIGN_BEHAVIOR_SOLUTIONS.md), and
-[`OPEN_QUESTIONS_AND_FUTURE_EXPLORATIONS.md`](../OPEN_QUESTIONS_AND_FUTURE_EXPLORATIONS.md), Phase 0
-fixtures/goldens, and phase receipts are inputs or evidence only; none is schema authority or
-shipped-behavior evidence by itself.
+package-private v2 model and is not a public package type. Historical design notes, retired Phase 0
+fixtures/goldens, and retired phase records are inputs or migration evidence only; none is schema authority
+or shipped-behavior evidence by itself.
+
+## Persistence provider and declaration ownership
+
+### WIRE-000 — Persistence is one optional RuntimeSetup provider
+
+The public persistence surface MUST be one inert `Persistence` provider attached to `RuntimeSetup`:
+
+```ts
+const persistenceProvider = persistence({
+  storage: webStorage(window.localStorage),
+  scope: "user:42",
+  codec: todoPersistenceCodec, // optional
+  filter: ({ kind, id, key }) => kind !== "stream" || id === "todo.updates", // optional narrowing
+});
+
+const setup = runtimeSetup({
+  app: TodoApp,
+  implementation: TodoLive,
+  persistence: persistenceProvider,
+});
+```
+
+The provider options are `storage`, required `scope`, optional `codec`, and optional identity-only
+`filter`. The filter receives only stable declaration metadata (`kind`, descriptor or actor identity, and
+canonical `K` when applicable); it receives no mutable actor state, executable `P`, service, or operation
+result. Omitting the filter keeps every declaration whose owning actor/resource/operation explicitly opted in.
+
+The public type notation is:
+
+```ts
+type PersistenceStorage = {
+  read(): Effect.Effect<Uint8Array | undefined, PersistenceStorageError>;
+  write(value: Uint8Array): Effect.Effect<void, PersistenceStorageError>;
+  remove(): Effect.Effect<void, PersistenceStorageError>;
+};
+
+type PersistenceCodec = {
+  encode(value: unknown, slot: PersistenceSlot): PersistenceValue;
+  decode(value: PersistenceValue, slot: PersistenceSlot): unknown;
+};
+
+type Persistence = Readonly<{
+  storage: PersistenceStorage;
+  scope: string;
+  codec: PersistenceCodec;
+  filter?: (entry: PersistenceEntry) => boolean;
+}>;
+
+declare function persistence(options: {
+  storage: PersistenceStorage;
+  scope: string;
+  codec?: PersistenceCodec;
+  filter?: (entry: PersistenceEntry) => boolean;
+}): Persistence;
+```
+
+These aliases describe the public contract. `PersistenceValue` is the bounded canonical JSON union;
+`PersistenceSlot` identifies an actor, resource, transaction, or stream value; `PersistenceEntry` exposes
+only its kind, stable identity, owning stable actor when applicable, and canonical `K`; and
+`PersistenceStorageError` is the typed adapter failure. The codec methods are pure and synchronous;
+the provider catches validation failures and reports them as `FlowPersistenceError`. `webStorage(...)` and
+`indexedDbStorage(...)` are the supplied adapters for browser Web Storage and IndexedDB.
+
+`Persistence` is host configuration, not an `Implementation`, `AppPlan` input, or second runtime. It is
+inert until `RuntimeSetup.construct()` attaches it to one `Runtime`. The provider supplies storage access,
+scope, codec, and the identity-only filter. The `Runtime` owns restoration, observation, ordered writes, and
+cleanup through that provider; the provider does not own a second lifecycle. No provider means no persistence
+reads, writes, or storage access.
+
+The provider MUST NOT decide which application values are durable. Stable actor refs and resource,
+transaction, and stream descriptors declare persistence intent with `persist: true`; machines never opt their
+actors in implicitly. The provider persists only declared values. An optional provider filter MAY further exclude already-declared entries by stable
+actor or descriptor identity, but it MUST NOT opt an undeclared value into persistence or inspect mutable `P`
+values to make that decision.
+
+### WIRE-000A — Persistable declarations are explicit and default off
+
+The following declarations MAY carry `persist: true`, which defaults to `false`:
+
+```ts
+const todos = resource({
+  id: "todo.todos",
+  key: ({ listId }: { readonly listId: string }) => [listId] as const,
+  lookup: loadTodos,
+  persist: true,
+});
+
+const saveTodo = transaction({
+  id: "todo.save",
+  key: ({ id }: { readonly id: string }) => [id] as const,
+  commit: saveTodoEffect,
+  persist: true,
+});
+
+const updates = stream({
+  id: "todo.updates",
+  key: ({ listId }: { readonly listId: string }) => [listId] as const,
+  subscribe: subscribeToTodoUpdates,
+  persist: true,
+});
+
+const PrimaryTodoActor = actorRef(TodoMachine, "primary", { persist: true });
+```
+
+`actorRef(..., { persist: true })` declares that the stable actor identity is eligible for complete actor
+snapshot persistence. It does not create an actor. Opaque local actor refs are never restorable, even when
+the machine or operation declaration is persistable. A persistable actor snapshot includes the exact stable
+ref, machine state, memory, durable bindings, and the operation facts required by its declared persistable
+bindings; it never includes a mailbox, queue, fiber, Scope, callback, service, or pending command.
+
+Persistable resources retain committed canonical entries by descriptor ID and `K`. Persistable transactions
+and streams retain only their contracted actor-owned facts and projections, and only for a persistable stable
+actor. A transaction or stream declaration MUST NOT cause its owning actor to become durable implicitly.
+
+### WIRE-000B — Codec is optional application-value translation
+
+A codec is a pure application-value encoder/decoder. It translates opaque application values such as actor
+memory, resource data, operation outcomes, and diagnostic payloads to and from the bounded persisted
+representation. It does not access storage, create actors, run Effects, resume work, or decode a complete
+runtime/boot payload.
+
+When omitted, `Persistence` MUST use the package's default JSON-safe persistence codec. The default accepts
+only the bounded canonical JSON value family and MUST reject unsupported values rather than stringify them
+or silently lose information. An application MAY supply one codec for non-JSON domain values; the codec's
+validation or migration failure MUST remain a typed persistence failure. Flow continues to own envelope,
+app identity, `persistenceVersion`, plan compatibility, structural bounds, and executable-work rejection.
+
+### WIRE-000C — Storage adapters share one Effect-backed contract
+
+The public storage adapter MUST expose one logical record with `read`, `write`, and `remove` operations.
+Synchronous Web Storage and asynchronous IndexedDB adapters MUST normalize to the same typed Effect failure,
+cancellation, and lifetime boundary. A provider MUST attach one storage record to one runtime and scope;
+the first implementation does not define cross-tab synchronization, conflict resolution, or concurrent
+same-scope writers.
+
+### WIRE-000E — Persistence failures retain typed ownership
+
+`FlowPersistenceError` MUST distinguish storage failure, codec failure, incompatible app or persistence
+identity, malformed persisted data, concurrent capture, and non-durable context-provider closure failure.
+The error MUST carry the stable kind and structured details needed for programmatic recovery; a raw Effect
+Cause MAY be retained only at the readiness or disposal boundary. A persistence write failure MUST NOT
+mutate the Runtime's canonical state or make an actor turn fail after its committed publication; it remains
+the provider's reported write failure and preserves the last successfully stored record.
+
+### WIRE-000D — Restore, observation, and disposal order
+
+`RuntimeSetup.construct()` MUST perform no storage I/O. Runtime readiness MUST restore and validate the
+provider record once, install the canonical store, restore persistable actors in provider-before-consumer
+context order, and complete the existing bootstrap barrier before any actor handle or external work escapes.
+The provider MUST subscribe to committed runtime publications only after restore succeeds. It MUST capture
+through the existing revision/context-closed `DehydrateBarrier`, coalesce notifications, serialize writes
+per scope, and prevent an older asynchronous write from overwriting a newer one. Runtime disposal MUST stop
+observation, finalize the latest accepted persistence write, and then release the provider lifecycle.
+
+Stories have no persistence by default. An app Story MAY use an explicitly supplied provider, preferably an
+isolated in-memory storage adapter for persistence tests; `story.machine` and Story fixtures never inherit
+browser or session storage implicitly.
 
 ## Canonical durable values
 
@@ -30,7 +184,7 @@ ordered readonly canonical tuple returned synchronously by `key(P)`; exact opera
 descriptor ID plus `K`. `P` MUST NOT be reconstructed from `K`, and equal `K` values MUST NOT be used to
 switch clients or other omitted capabilities.
 
-Canonical `K` MUST follow `REV-OPS-016`. Flow accepts ordinary dense arrays and plain records, copies them
+Canonical `K` MUST follow `PUBLIC_API.md` `API-005`. Flow accepts ordinary dense arrays and plain records, copies them
 into Flow-owned containers, recursively freezes them, and freezes the top-level tuple. It sorts record keys,
 normalizes `-0` to `0`, rejects hostile reflection and unsupported values, and validates the exact UTF-8
 `KBytes` encoding synchronously before ownership, mutation, admission, or external work. The limits are 16
@@ -39,10 +193,10 @@ permission, session, and other result-changing discriminators MUST be in `K`; ru
 replace that requirement. Secret material remains observable in persistence, inspection, diagnostics, and
 artifacts unless the application hashes or replaces it before key projection.
 
-### WIRE-001A — Canonical encoding is defined by REV-OPS-016
+### WIRE-001A — Canonical encoding follows the PUBLIC_API contract
 
 Canonical key equality MUST use the accepted ordered `K` result and the exact `KBytes` UTF-8 encoding defined
-by `REV-OPS-016`. `KBytes` has no whitespace or trailing newline; the artifact file boundary may add its
+by [`PUBLIC_API.md` API-005](./PUBLIC_API.md#api-005--identity-and-canonical-key-k). `KBytes` has no whitespace or trailing newline; the artifact file boundary may add its
 own required newline after encoding the containing artifact. `-0` normalization occurs before the general
 artifact walker, so `WIRE-016` sees canonical `0` and does not reject a canonical key for negative zero.
 
@@ -56,45 +210,43 @@ by `REV-OPS-003`; `K` alone is not executable input and does not authorize a loo
 Persisted transaction and stream records MUST retain only the accepted descriptor, actor, binding, generation,
 occurrence, and canonical-identity facts needed by their owning production kernels. They MUST NOT be treated
 as generic operation refs or as serialized executable work. Descriptor resolution MUST use the receiving
-runtime's compiled `AppPlan`; occurrence and post-hydration input behavior follow `REV-OPS-015` and
-`REV-OPS-017`.
+runtime's compiled `AppPlan`; occurrence and post-hydration input behavior follow `WIRE-011`, `WIRE-012`,
+and `PUBLIC_API.md` `API-006`.
 
 ### WIRE-003 — Flow validates structure; applications validate domain data
 
 Flow owns validation of artifact versions, app identity, exact machine-branded actor identities, descriptor
 IDs, token IDs, primitive statuses, revisions, and structural bounds. Actor memory and domain payloads remain
-opaque. Unknown boot storage MUST enter through the app-branded boot boundary, where Flow validates the
-structure first and the application validates or normalizes each opaque slot before the value reaches the
-production runtime. Application code MUST NOT assertion-cast the brand or pass unknown data directly to the
-runtime.
+opaque. Unknown persisted storage MUST enter through the package-private provider boundary, where Flow
+validates the structure first and the default or application-supplied codec validates or normalizes each
+opaque slot before the value reaches the production runtime. Application code MUST NOT assertion-cast
+persisted input or pass unknown data directly to the runtime.
 
-Boot MUST be compatible with the receiving app and its compiled `AppPlan`. Changing durable machine IDs,
+Persisted input MUST be compatible with the receiving app and its compiled `AppPlan`. Changing durable machine IDs,
 declaration slots, state/event tokens, or the app's `persistenceVersion` MUST NOT be silently guessed into
-the new plan. The accepted revision does not add a generic Flow identity-migration API; incompatible boot
-must remain a rejected input for the owning application/runtime path.
+the new plan. The accepted revision does not add a generic Flow identity-migration API; incompatible input
+must remain a rejected input for the owning Persistence provider/runtime path.
 
-The application domain-decoder boundary MUST preserve the distinction between Flow-owned structural
-validation and application-owned opaque values. Its exact locator union, callback mechanics, and artifact
-encoding are not redefined by the accepted revisions. The deleted subordinate-machine persistence surface
-has no replacement here and MUST NOT survive as active contract fields. Any application decoder used for
-boot MUST be synchronous at the host boundary and MUST return data accepted by the receiving app; this
-contract does not add a codec, envelope, default, or diagnostic shape.
+The application codec boundary MUST preserve the distinction between Flow-owned structural validation and
+application-owned opaque values. It MUST be synchronous and pure at the value boundary, return data accepted
+by the receiving app, and never encode executable work. The deleted subordinate-machine persistence surface
+has no replacement here and MUST NOT survive as active contract fields.
 
-## Runtime boot
+## Internal runtime restoration
 
-### WIRE-004 — Boot is immutable runtime input
+### WIRE-004 — Provider restoration is immutable runtime input
 
-The production runtime and `story.app` MUST consume only an app-compatible, app-branded boot payload for
-the receiving `App`. A boot payload may come from the same app's dehydration boundary or the accepted
-application validation boundary; an unknown or incompatible payload MUST be rejected rather than guessed into
-the current plan. Flow MUST NOT expose mutable `hydrateBoot`. Boot installation MUST use materialized actor
-memory and MUST NOT invoke a definition's fresh-memory initializer.
+The production runtime and `story.app` MUST consume only the optional Persistence provider for restoration.
+The provider record MUST be app-compatible and MUST be validated rather than guessed into the current plan.
+Flow MUST NOT expose mutable hydration, a public boot payload, or a public decoder. Internal installation MUST
+use materialized actor memory and MUST NOT invoke a definition's fresh-memory initializer.
 
-Initial construction MUST validate the boot payload, acquire the application Layer, install and validate
-boot actors, complete the production factory's initial `ensureActor` calls, resolve exact context-provider
-refs, seal the instance graph, and only then activate or expose a runtime or actor handle. RuntimeFactory discovery MUST be
-synchronous and inert: it may retain app identity, Clock, external capabilities, boot input, and initial
-actor claims, but MUST NOT acquire a Layer, create or register actors, start work, or expose handles.
+Runtime readiness/bootstrap MUST validate the provider record, acquire the application Implementation, install and
+validate declared persistable actors, complete the `Runtime`'s initial `ensureActor` calls, resolve
+exact context-provider refs, seal the instance graph, and only then activate or expose a runtime or actor
+handle. RuntimeSetup discovery MUST be synchronous and inert: it may retain app identity, Clock, external
+capabilities, and the optional Persistence provider, but MUST NOT acquire an Implementation, create or register
+actors, start work, or expose handles.
 Hydration MUST establish each consumer's silent context baseline before initial continuing-activity
 reconciliation or handle escape.
 
@@ -113,8 +265,10 @@ The store section MUST represent the one runtime-scoped canonical resource store
 and canonical `K`; actors MUST retain ownership and projections rather than private canonical resource caches.
 It MUST preserve committed bases, generation fencing, actor-scoped overlay provenance, and stale-completion
 facts needed by the production kernels. Uncommitted previews are never restored as executable work or made
-visible to another actor; a restored nonterminal owner becomes `unknown` or reconciliation-required. This
-contract MUST NOT invent a descriptor persistence predicate, a selective warm-data rule, or a new cache API.
+visible to another actor; a restored nonterminal owner becomes `unknown` or reconciliation-required. A
+resource descriptor's explicit `persist: true` declaration is the sole opt-in for its committed canonical
+entries. The provider MAY apply an additional identity-only exclusion filter, but it MUST NOT replace the
+descriptor declaration with a provider-owned persistence predicate or silently persist an undeclared resource.
 
 ### WIRE-007 — Actor entries retain ownership and observation identity
 
@@ -145,8 +299,9 @@ Each actor MUST carry one exact machine-branded `ActorRef`. An authored stable r
 shared actor across runtime restarts; its wire form is the fixed `actor:` namespace tag followed by the
 GLO-01 length-prefixed UTF-8 machine-ID segment and authored stable-ID segment, in that order. A generated
 opaque ref identifies a local actor and is neither durable nor restorable; it MUST NOT appear in boot,
-dehydration, artifacts, or CLI selectors. `actorRef(machine, id)` is an inert identity and MUST NOT create an
-actor. Durable restoration MUST resolve the stable machine identity through the receiving app's `App.M` and
+dehydration, artifacts, or CLI selectors. `actorRef(machine, id, { persist?: boolean })` is an inert identity
+and MUST NOT create an actor; `persist` defaults to `false` and is declaration metadata, not part of the
+actor wire identity. Durable restoration MUST resolve the stable machine identity through the receiving app's `App.M` and
 MUST use `runtime.ensureActor(ref, ...)` for restore-or-create ownership. `runtime.createActor(machine, ...)`
 remains ID-free and always creates a fresh local actor with an opaque ref. The deleted
 `runtime.actor(machine, { id })`, automatic-root, dynamic-root, and parent-child persistence surfaces MUST
@@ -171,13 +326,13 @@ for each binding; every referenced provider snapshot MUST be present at that exa
 mismatch MUST fail with retryable `ConcurrentDehydrate`. Unrelated actors MAY still represent different
 state-only instants, but the stronger closure applies along context edges.
 
-Dehydration MUST capture every registered durable stable actor whose lifecycle is not `disposed`, including
-suspended stable actors, plus the transitive closure of exact context-provider refs. Membership MUST be derived
-from runtime registration and fixed bindings, not automatic roots, dynamic actor categories, child actors,
-current projections, or whether the current factory called `ensureActor`. Runtime-local actors, runtime-incarnation
-tombstones, and disposed stable actors MUST be excluded; a boot-restored stable actor remains captureable even
-when the current factory does not repeat `ensureActor`. An included durable consumer with a direct or transitive
-dependency on an opaque local provider MUST fail terminally with the accepted
+Persistence MUST capture only registered non-disposed stable actors whose `actorRef(..., { persist: true })`
+declaration opts them in, including suspended stable actors, plus the transitive closure of exact context-provider
+refs. Membership MUST be derived from declaration metadata, runtime registration, and fixed bindings, not
+automatic roots, dynamic actor categories, child actors, current projections, or whether the current `Runtime`
+called `ensureActor`. Runtime-local actors, runtime-incarnation tombstones, and disposed stable actors MUST be
+excluded; a restored stable actor remains captureable even when the current `Runtime` does not repeat `ensureActor`.
+An included durable consumer with a direct or transitive dependency on an opaque local provider MUST fail terminally with the accepted
 `NonDurableContextProvider` behavior; Flow MUST NOT serialize, promote, recreate, substitute, or rebind that
 provider automatically. Partial or orphaned payloads are forbidden.
 
@@ -220,21 +375,21 @@ Terminal transaction state may restore only through the accepted production oper
 ### WIRE-013 — Restored collection gets a new owned lifetime
 
 Collection, ownership, and retained-value behavior for restored resources follow the exact operation state
-and collection contract in `REV-OPS-017`; this contract does not choose a restored idle countdown or a
+and collection contract in `PUBLIC_API.md` `API-006`; this contract does not choose a restored idle countdown or a
 `gcTime` default beyond the descriptor's existing policy.
 
 ## Artifact codecs and failures
 
-### WIRE-014 — Flow owns one validated boot and artifact path
+### WIRE-014 — Flow owns one validated persistence and artifact path
 
-Boot and artifact import/export MUST use one Flow-owned validation and encoding path that preserves the
+Internal restoration and artifact import/export MUST use one Flow-owned validation and encoding path that preserves the
 distinction between structural Flow failures and application-owned opaque-domain validation. Artifact and
 trace decoding MUST produce the shared package-private v2 decoded model owned by this contract, which is
-consumed by both Story and CLI. The runtime constructor remains a synchronous host boundary and MUST apply
-the same boot-structure rules as the accepted application boot boundary before any actor or external work
-begins. Raw implementation-library parse failures MUST NOT escape a public Flow API.
+consumed by both Story and CLI. Runtime readiness/bootstrap MUST apply the same persisted-structure rules as
+the Persistence provider boundary before any actor or external work begins. Raw implementation-library parse
+failures MUST NOT escape a public Flow API.
 
-The production bootstrap owns boot validation, constructor phase ordering, and prepared installation. The
+The production bootstrap owns provider validation, constructor phase ordering, and prepared installation. The
 resource, transaction, stream, artifact, and Story owners MUST use the production kernels and accepted
 schemas rather than a second hydration, operation, Story, or artifact interpretation path.
 
@@ -369,7 +524,7 @@ the same comparator because they are identity indexes. The file boundary adds on
 canonical encoding.
 
 These rejection rules apply to serialized artifact carriers. Canonical operation keys are validated by
-`REV-OPS-016`, which defensively copies and freezes accepted dense arrays and plain records and normalizes
+`PUBLIC_API.md` `API-005`, which defensively copies and freezes accepted dense arrays and plain records and normalizes
 `-0` to `0` before applying its separate `KBytes` bounds.
 
 A behavior artifact contains `kind: "behavior-contract"`, `version: "flow-state/behavior-contract.v2"`,
@@ -745,17 +900,105 @@ type OperationTraceIdentity = {
   operationId: StableId;
   operationKind: "resource" | "transaction" | "stream";
   actor: ActorEvidenceId;
-  generation: NonNegative;
+  generation: Nullable<NonNegative>;
   occurrence: Nullable<NonNegative>;
   key: CanonicalCarrier;
 };
-type TraceFact =
-  | {
-      kind: "operation";
-      identity: OperationTraceIdentity;
-      status: StableId;
-      value: CanonicalCarrier;
-    }
+type TraceOperationBase = {
+  kind: "operation";
+  identity: OperationTraceIdentity;
+};
+type TraceRetention = { data?: never } | { data: CanonicalCarrier };
+type ResourceTraceFact = TraceOperationBase &
+  (
+    | {
+        identity: OperationTraceIdentity & { operationKind: "resource"; generation: null; occurrence: null };
+        status: "missing";
+      }
+    | {
+        identity: OperationTraceIdentity & { operationKind: "resource"; generation: NonNegative };
+        status: "pending";
+      }
+    | {
+        identity: OperationTraceIdentity & { operationKind: "resource"; generation: NonNegative };
+        status: "ready" | "refreshing";
+        data: CanonicalCarrier;
+      }
+    | ({
+        identity: OperationTraceIdentity & { operationKind: "resource"; generation: NonNegative };
+        status: "failure";
+        error: CanonicalCarrier;
+      } & TraceRetention)
+    | ({
+        identity: OperationTraceIdentity & { operationKind: "resource"; generation: NonNegative };
+        status: "defect";
+        defect: CanonicalCarrier;
+      } & TraceRetention)
+    | ({
+        identity: OperationTraceIdentity & { operationKind: "resource"; generation: NonNegative };
+        status: "interrupted";
+      } & TraceRetention)
+  );
+type TransactionTraceFact = TraceOperationBase &
+  (
+    | {
+        identity: OperationTraceIdentity & { operationKind: "transaction"; generation: null; occurrence: null };
+        status: "idle";
+      }
+    | {
+        identity: OperationTraceIdentity & { operationKind: "transaction"; generation: NonNegative; occurrence: NonNegative };
+        status: "pending";
+      }
+    | {
+        identity: OperationTraceIdentity & { operationKind: "transaction"; generation: NonNegative; occurrence: NonNegative };
+        status: "success";
+        value: CanonicalCarrier;
+      }
+    | {
+        identity: OperationTraceIdentity & { operationKind: "transaction"; generation: NonNegative; occurrence: NonNegative };
+        status: "failure";
+        error: CanonicalCarrier;
+      }
+    | {
+        identity: OperationTraceIdentity & { operationKind: "transaction"; generation: NonNegative; occurrence: NonNegative };
+        status: "defect";
+        defect: CanonicalCarrier;
+      }
+    | {
+        identity: OperationTraceIdentity & { operationKind: "transaction"; generation: NonNegative; occurrence: NonNegative };
+        status: "interrupted";
+      }
+    | {
+        identity: OperationTraceIdentity & { operationKind: "transaction"; generation: NonNegative; occurrence: NonNegative };
+        status: "unknown";
+        reconcileRequired: true;
+      }
+  );
+type StreamTraceValue =
+  | { hasValue: false; latest?: never; emissionCount: 0 }
+  | { hasValue: true; latest: CanonicalCarrier; emissionCount: NonNegative };
+type StreamTraceFact = TraceOperationBase &
+  (
+    | ({
+        identity: OperationTraceIdentity & { operationKind: "stream"; generation: null; occurrence: null };
+        status: "idle";
+      } & StreamTraceValue)
+    | ({
+        identity: OperationTraceIdentity & { operationKind: "stream"; generation: NonNegative };
+        status: "running" | "complete" | "interrupted";
+      } & StreamTraceValue)
+    | ({
+        identity: OperationTraceIdentity & { operationKind: "stream"; generation: NonNegative };
+        status: "failure";
+        error: CanonicalCarrier;
+      } & StreamTraceValue)
+    | ({
+        identity: OperationTraceIdentity & { operationKind: "stream"; generation: NonNegative };
+        status: "defect";
+        defect: CanonicalCarrier;
+      } & StreamTraceValue)
+  );
+type TraceFact = ResourceTraceFact | TransactionTraceFact | StreamTraceFact
   | {
       kind: "context";
       consumer: ActorEvidenceId;
@@ -772,6 +1015,17 @@ type TraceFact =
     }
   | { kind: "timer"; timerId: StableId; dueAt: NonNegative; status: StableId }
   | { kind: "issue"; issueId: StableId; source: StableId; value: CanonicalCarrier };
+
+Operation facts are the closed projection of the exact resource, transaction, and stream state unions in
+`PUBLIC_API.md` `API-006`; they are not a generic status/value record. Missing and idle lanes have `null` generation and
+`null` occurrence. Resource and stream lanes carry a generation except when missing or idle; a trace occurrence
+is either `null` or a non-negative value and is present when the owning kernel has an associated
+finite/declaration occurrence. Transaction non-idle lanes carry both generation and occurrence. `hasValue`,
+`latest`, and `emissionCount` follow the stream value union. Failure, defect, success, unknown, and retention
+fields are present only on the matching discriminant. Raw Effect `Cause` never enters these carriers. The
+WIRE-020B decoder MUST reject missing, extra, or inconsistent fields—including impossible generation,
+occurrence, retention, `latest`, or `reconcileRequired` combinations—with `InvalidTraceRecord` before
+application or runtime acquisition.
 type TraceRecordBase = {
   sequence: NonNegative;
   actor: ActorEvidenceId;

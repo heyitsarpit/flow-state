@@ -6,9 +6,9 @@ This contract defines the supported package routes, public values, definition an
 operation families, actor and host surface, Story surface, inspection surface, and CLI surface. Type
 propagation is specified in [`TYPE_SYSTEM.md`](./TYPE_SYSTEM.md), host behavior in
 [`REACT_AND_HOSTS.md`](./REACT_AND_HOSTS.md), and old-surface dispositions in
-[`revision-spec/accepted/07-deletions-and-cutover.md`](../revision-spec/accepted/07-deletions-and-cutover.md).
+[`COMPATIBILITY_AND_DELETIONS.md`](./COMPATIBILITY_AND_DELETIONS.md).
 
-The live package publishes the root, React, testing, server, inspect, and package-manifest routes
+The live package publishes the root, React, testing, inspect, and package-manifest routes
 (`packages/flow-state/package.json:33-54`). Those route names remain the vNext package boundary.
 
 ## Package routes
@@ -30,28 +30,27 @@ export {
   actorRef,
   app,
   can,
-  decodeRuntimeBoot,
   definition,
-  FlowBootDecodeError,
-  FlowDehydrateError,
   FlowDisposeError,
+  FlowPersistenceError,
+  FlowUsageError,
+  indexedDbStorage,
   machine,
   module,
+  persistence,
   resource,
-  runtime,
+  runtimeSetup,
   stream,
   transaction,
+  webStorage,
 };
 
 // flow-state/react
 export { FlowProvider, useActor, useActorByRef, useView };
 
 // flow-state/testing
-export { behavior, control, fixture, model, story };
+export { behavior, fixture, model, story };
 export { FlowStoryExecutionError };
-
-// flow-state/server
-export { withRequestRuntime };
 
 // flow-state/inspect
 export {
@@ -92,10 +91,11 @@ Non-root routes MUST NOT export root builders, and no route exports a package-ow
 
 The root MUST export the companion types needed to name or infer its accepted values, including
 `Definition`, `StateToken`, `EventToken`, `StateOf`, `EventOf`, `Machine`, `MemoryOf`, `InputOf`,
-`RequirementsOf`, `Resource`, `Transaction`, `ActorRef`, `ActorSnapshot`, `Module`, `App`, `Runtime`,
-and `CanonicalKeyInput`, together with the app-branded
-`RuntimeBootPayload` accepted as immutable boot input. Exact operation-family state shapes are the inferred
-unions defined by `REV-OPS-017`; this contract does not export support aliases for them.
+`RequirementsOf`, `Resource`, `Transaction`, `ActorRef`, `ActorSnapshot`, `Module`, `App`, `RuntimeSetup`,
+`Runtime`, `Implementation`, `Persistence`, `PersistenceStorage`, `PersistenceStorageError`, `PersistenceCodec`,
+`PersistenceSlot`, `PersistenceValue`, `PersistenceEntry`, `CanonicalKeyInput`, `FlowPath`, `FlowUsageCode`,
+and `FlowUsageError`. Exact operation-family state shapes are the inferred
+unions defined in `API-006`; this contract does not export support aliases for them.
 
 The root MUST NOT export `FlowReceipt`, standalone status aliases, full diagnostic facts, or TurnRecord
 types, registered-view types, child-machine types, root/dynamic actor category types,
@@ -107,6 +107,42 @@ result and does not require a parallel exported helper type.
 Effect `Cause.Cause<unknown>` value without Flow re-exporting a standalone `Cause` namespace or type. Raw
 Cause is not part of actor snapshots, passive selector inputs, or serialized artifact and CLI projections;
 those boundaries use the package-owned diagnostic or `CauseProjection` shape defined elsewhere.
+
+### API-002A — Usage diagnostics have one stable public shape
+
+```ts
+type FlowPath = readonly (string | number)[];
+type FlowUsageCode =
+  | "InvalidCanonicalValue"
+  | "ForeignActorRef"
+  | "MismatchedActorRef"
+  | "MissingActorRef"
+  | "DisposedActorRef"
+  | "RuntimeNotReady"
+  | "RuntimeDisposed"
+  | "MissingContextProvider"
+  | "ContextDependencyCycle"
+  | "DuplicateActorClaim"
+  | "UnadmittedMachine"
+  | "ActorNotActive"
+  | "InvalidOperationPlan"
+  | "WrongOperationKind"
+  | "OperationNotPending"
+  | "OperationAlreadySettled"
+  | "DuplicateStreamDeclaration"
+  | "BlockedByDependents";
+
+class FlowUsageError extends Error {
+  readonly _tag: "FlowUsageError";
+  readonly code: FlowUsageCode;
+  readonly path: FlowPath;
+  readonly details: Readonly<Record<string, string | number | boolean | null>>;
+}
+```
+
+Usage and admission failures MUST use this immutable shape. `FlowPersistenceError` owns storage, codec,
+identity, and restoration failures. Raw Effect `Cause` remains public only on `FlowDisposeError` and
+`FlowStoryExecutionError`; serialized diagnostics use the private ordered `CauseProjection`.
 
 The root MUST NOT export internal service tags, store or orchestrator implementations, `ManagedRuntime`,
 pending outcome records, boot artifact types, test harness types, or inspect artifact types. The public
@@ -251,25 +287,31 @@ descriptor-owned freshness or collection policy:
 ```ts
 type OrderInput = Readonly<{
   orderId: string;
-  client: OrderClient;
 }>;
 
 const orderById = resource({
   id: "everclear.order-by-id",
   key: ({ orderId }: OrderInput) => [orderId] as const,
-  lookup: ({ orderId, client }: OrderInput, { signal }) => client.getOrder(orderId, { signal }),
+  lookup: ({ orderId }: OrderInput, { signal }) =>
+    Effect.gen(function* () {
+      const client = yield* OrderClient;
+      return yield* client.getOrder(orderId, { signal });
+    }),
+  persist: true,
   staleTime: "30 seconds",
   gcTime: "5 minutes",
 });
 ```
 
 `P` is complete immutable executable input retained by a lookup, transaction attempt, or stream
-subscription; it may contain clients and functions and is never identity. `K` is the ordered readonly
+subscription. It MAY contain clients and functions and is never operation identity. Runtime-owned
+capabilities remain outside `P`; service dependencies belong to the inferred Effect/Stream requirement `R`.
+`K` is the ordered readonly
 canonical tuple returned by `key(P)`. Exact resource identity is descriptor ID plus canonical `K`.
 Projection, validation, canonicalization, and defensive freezing MUST finish before ownership, actor/store
 mutation, admission, or external work.
 
-Canonical `K` follows `REV-OPS-016`. Flow accepts ordinary dense arrays and plain records, copies them
+Canonical `K` follows `API-005`. Flow accepts ordinary dense arrays and plain records, copies them
 into Flow-owned containers, recursively freezes them, and freezes the top-level tuple. It sorts record
 keys, normalizes `-0` to `0`, and rejects `undefined`, non-finite numbers, bigint, symbols, functions,
 accessors, class instances, unsupported objects, cycles, branded secret values, sparse arrays, extra
@@ -284,6 +326,43 @@ freshness and collection policy belong to the descriptor family; this revision e
 defaults. Tags derive from canonical `K`, and placeholders remain passive descriptor-owned projection
 metadata; neither adds an identity or read method.
 
+The canonical bytes are the exact UTF-8 bytes of this grammar, with no whitespace and no trailing newline:
+
+```text
+KBytes ::= "[" [ Value *( "," Value ) ] "]"
+
+Value ::= "null"
+        | "true"
+        | "false"
+        | Number
+        | String
+        | "[" [ Value *( "," Value ) ] "]"
+        | "{" [ Member *( "," Member ) ] "}"
+
+Member ::= String ":" Value
+```
+
+`Number` uses the finite-number serialization of `JSON.stringify(number)` and therefore encodes `-0` as
+`0`. `String` uses JSON string escaping without Unicode normalization. Record members sort by raw UTF-16
+code-unit key order. A record MUST have prototype `Object.prototype` or `null`, enumerable own data
+properties only, and no symbol keys. An array MUST be dense and ordinary, with no extra string or symbol
+properties. Flow MUST read only data descriptors: it MUST NOT invoke getters, coercion, `toJSON`, or user
+iteration. Guarded prototype, key, and descriptor snapshots MUST reject thrown reflection, inconsistent
+snapshots, proxies that change observations, accessors, cycles, and invalid descriptors.
+
+Flow MUST reject `undefined`, non-finite numbers, bigint, symbols, functions, class instances, unsupported
+objects, branded secret values, sparse arrays, extra array properties, and any rejected reflection shape.
+The top-level tuple, every nested array or record, and every scalar count as one value node; record property
+names do not count as nodes. The root is depth zero, nested values MUST NOT exceed depth 16, and encoded UTF-8
+bytes MUST NOT exceed 8192. Capability, tenant, account, network, permission, session, and every other
+result-changing discriminator MUST be represented in `K`; runtime partitioning MUST NOT substitute for it.
+
+**Proof obligations:** Prove byte-identical encoding, record-order equivalence, `-0`/`0` equivalence,
+defensive-copy and freeze isolation, exact rejection paths, hostile-reflection non-execution, discriminator
+identity separation, equal-byte identity sharing, differing-byte identity separation, and depth 16/node 256/
+byte 8192 boundaries with the next value rejected. Invalid input MUST publish and mutate nothing and start no
+work.
+
 ### API-006 — Families expose exact passive and executable methods
 
 The machine callback receives the exact named `O` catalogue from the definition. The following notation is
@@ -293,7 +372,7 @@ schematic local notation, not a declaration of exported support aliases:
 interface ResourceFamily<P, K extends readonly unknown[], A, E> {
   key(params: P): K;
   getData(key: K): A | undefined;
-  getState(key: K): StateShapeNotYetAccepted;
+  getState(key: K): ResourceState<A, E, K>;
   lookup(params: P, options?: FiniteResourceOptions<A, E>): FiniteOperationPlan;
   subscribe(params: P, options?: ResourceSubscriptionOptions<A, E>): ContinuingOperationPlan;
   refetch(params: P, options?: FiniteResourceOptions<A, E>): FiniteOperationPlan;
@@ -303,20 +382,69 @@ interface ResourceFamily<P, K extends readonly unknown[], A, E> {
 
 interface TransactionFamily<P, K extends readonly unknown[], A, E> {
   key(params: P): K;
-  getState(key: K): StateShapeNotYetAccepted;
+  getState(key: K): TransactionState<A, E, K>;
   commit(params: P, options?: CommitOptions<P, A, E>): TransactionCommitPlan;
   cancel(key: K): CancellationPlan;
 }
 
 interface StreamFamily<P, K extends readonly unknown[], V, E> {
   key(params: P): K;
-  getState(key: K): StateShapeNotYetAccepted;
+  getState(key: K): StreamState<V, E, K>;
   subscribe(params: P, options?: StreamSubscriptionOptions<P, K, V, E>): ContinuingOperationPlan;
 }
 ```
 
-`StateShapeNotYetAccepted` and the option and plan names are documentation sentinels, not public types;
-the family-specific state unions are discriminated by the named operation and canonical `K`. Resources
+The following state aliases are local contract notation and are not required standalone exports:
+
+```ts
+type ResourceRetention<A> = { data?: never } | { data: A };
+
+type ResourceState<A, E, K extends readonly unknown[]> =
+  | { status: "missing"; key: K }
+  | { status: "pending"; key: K; generation: number }
+  | { status: "ready"; key: K; generation: number; data: A }
+  | { status: "refreshing"; key: K; generation: number; data: A }
+  | ({ status: "failure"; key: K; generation: number; error: E } & ResourceRetention<A>)
+  | ({ status: "defect"; key: K; generation: number; defect: unknown } & ResourceRetention<A>)
+  | ({ status: "interrupted"; key: K; generation: number } & ResourceRetention<A>);
+
+type TransactionState<A, E, K extends readonly unknown[]> =
+  | { status: "idle"; key: K }
+  | { status: "pending"; key: K; generation: number }
+  | { status: "success"; key: K; generation: number; value: A }
+  | { status: "failure"; key: K; generation: number; error: E }
+  | { status: "defect"; key: K; generation: number; defect: unknown }
+  | { status: "interrupted"; key: K; generation: number }
+  | { status: "unknown"; key: K; generation: number; reconcileRequired: true };
+
+type StreamValue<V> =
+  | { hasValue: false; latest?: never; emissionCount: 0 }
+  | { hasValue: true; latest: V; emissionCount: number };
+
+type StreamState<V, E, K extends readonly unknown[]> =
+  | ({ status: "idle"; key: K; generation: null } & StreamValue<V>)
+  | ({ status: "running"; key: K; generation: number } & StreamValue<V>)
+  | ({ status: "complete"; key: K; generation: number } & StreamValue<V>)
+  | ({ status: "failure"; key: K; generation: number; error: E } & StreamValue<V>)
+  | ({ status: "defect"; key: K; generation: number; defect: unknown } & StreamValue<V>)
+  | ({ status: "interrupted"; key: K; generation: number } & StreamValue<V>);
+```
+
+`A`, `V`, and `E` are inferred from the descriptor. `undefined` is not an `A` value: it is reserved for
+missing `getData` and the updater-decline result. Optional retained `data` or `latest` fields are absent
+when no value is present, and `hasValue` is the stream value-presence discriminator. Resource failure,
+defect, and interruption may retain the last canonical `data`; refreshing always retains usable `data`.
+The transaction `unknown` lane is the public post-boundary truth and MUST carry `reconcileRequired: true`;
+it is not an alias for interruption. All generation and count fields are non-negative safe integers.
+
+Passive reads of any admitted same-runtime resource identity are allowed across actors and never acquire
+ownership, start work, refresh, mutate, or alter collection. A missing read returns the exact `missing` or
+`idle` lane and does not materialize a store entry. A second live stream declaration by the same actor for
+the same descriptor and canonical `K` MUST reject before replacing or releasing the existing declaration;
+different actors remain independent. Declaration-slot identity remains package-private and is not exposed by
+`getState(K)`.
+
+The family-specific state unions are discriminated by the named operation and canonical `K`. Resources
 may expose retained data while refreshing; transactions expose finite terminal lanes including uncertain
 or reconciliation-required truth; streams expose continuing status, latest value presence, emission count,
 generation, and terminal lanes. `lookup`, `commit`, and `subscribe` are the accepted verbs. An omitted
@@ -327,6 +455,16 @@ freshness or collection state, and perform no mutation. Methods that execute des
 complete `P`; `K` need not reconstruct it. A `useView` selector receives only passive `O` capabilities.
 Operation plans are inert until an accepted event transition action or continuing declaration returns
 them.
+
+`invalidate(targets)` and `clear(targets)` expand exact resource/K targets, reachable tags, and admitted
+resource families against one pre-mutation store-index snapshot in stable descriptor/K insertion order.
+Targets are validated before allocation or mutation, overlapping identities are deduplicated in first-seen
+order, and an expansion over 256 identities fails with a package-owned bounded-expansion diagnostic before
+mutation. Missing exact targets and zero-match tags or families are successful no-ops. Invalidation retains
+canonical data and overlays without replacing or cancelling active generations; clear fences generations,
+applies final-owner cancellation, removes canonical data and overlays, and leaves surviving subscriptions
+observing the exact `missing` lane. Mixed target-changing actions use the same pre-mutation snapshot and
+reject conflicting changes.
 
 ### API-007 — Transition actions admit finite plans and `onMemory` owns continuing plans
 
@@ -368,6 +506,7 @@ const submitIntent = transaction({
   id: "everclear.submit-intent",
   key: ({ submissionId }: SubmitIntentInput) => [submissionId] as const,
   commit: (params: SubmitIntentInput, { signal }) => IntentSubmitter.submit(params, { signal }),
+  persist: true,
   concurrency: "reject",
 });
 ```
@@ -392,7 +531,7 @@ O.submitIntent.commit(params, {
 ```
 
 The accepted mapping includes explicit `setData` plans, not completion-side `invalidates` or `clears`
-options. Exact public state union fields follow `REV-OPS-017`; occurrence terminality and completion-side
+options. Exact public state union fields follow `API-006`; occurrence terminality and completion-side
 preview ordering follow `SEM-016` and `SEM-018`.
 
 ### API-009 — Streams are keyed continuing subscriptions
@@ -401,8 +540,12 @@ preview ordering follow `SEM-016` and `SEM-018`.
 const submissionProgress = stream({
   id: "everclear.submission-progress",
   key: ({ submissionId }: ProgressInput) => [submissionId] as const,
-  subscribe: ({ submissionId, client }: ProgressInput, { signal }) =>
-    client.progress(submissionId, { signal }),
+  subscribe: ({ submissionId }: ProgressInput, { signal }) =>
+    Effect.gen(function* () {
+      const progressClient = yield* ProgressClient;
+      return yield* progressClient.progress(submissionId, { signal });
+    }),
+  persist: true,
 });
 ```
 
@@ -471,13 +614,13 @@ MUST NOT accept `dynamicMachines`, automatic-root identity, or a runtime machine
 
 Flow MUST NOT add an XState-style `setup()` or `machine.provide()` layer. Definitions own static actor
 shape and the reachable operation catalogue; machines own behavior; apps close ownership and reachability;
-runtime Layers supply services; and Story fixtures control test boundaries. Behavior variants require a
+runtime Implementations supply services; and Story fixtures define test boundaries. Behavior variants require a
 distinct definition and durable machine identity.
 
 ### API-011 — Actor refs, owner leases, and exact construction authority
 
 ```ts
-const ref = actorRef(editorMachine, "primary-editor");
+const ref = actorRef(editorMachine, "primary-editor", { persist: true });
 const sharedLease = runtime.ensureActor(ref, { input, contextBindings });
 const sharedActor = runtime.getActor(ref);
 const localLease = runtime.createActor(editorMachine, { input, contextBindings });
@@ -489,8 +632,10 @@ const existingActor = runtime.getActor(ref);
 ```
 
 Every actor backed by machine `M` carries one exact `ActorRef<M>` exposed as `actor.ref`. A stable ref is an
-inert durable address made by `actorRef(machine, id)`; its wire form is the fixed `actor:` namespace tag
-followed by the GLO-01 length-prefixed UTF-8 machine-ID and authored stable-ID segments, in that order. An
+inert durable address made by `actorRef(machine, id, { persist?: boolean })`; its wire form is the fixed
+`actor:` namespace tag followed by the GLO-01 length-prefixed UTF-8 machine-ID and authored stable-ID
+segments, in that order. `persist` defaults to `false`, is declaration metadata, and is not part of the wire
+identity. An
 opaque ref is generated for a local actor and is runtime-local, non-durable, and non-restorable. Refs contain
 no input, context bindings, callbacks, ownership, subscription, or disposal authority. Several refs may
 address independent actors of one machine, and refs are branded to the exact machine rather than to an app.
@@ -511,38 +656,46 @@ reject it until runtime shutdown, while a later runtime may reuse the durable re
 Actor construction MUST bind every declared context slot one-for-one through exact provider refs. Missing,
 ambiguous, foreign, and cyclic providers are rejected, and a context edge creates no actor parentage,
 lifetime ownership, or command channel. A consumer cannot be rebound while retaining its memory or context
-history. Initial runtime construction validates boot actors, completes initial ensures, resolves providers,
+history. Runtime readiness/bootstrap restores declared persistable actors, completes initial ensures, resolves providers,
 seals the graph, and only then activates actors or escapes handles.
 
 ### API-012 — Runtime and React expose one production lifecycle
 
-Unknown persisted input enters through the app-bound decoder and returns an immutable branded boot payload:
+Runtime construction retains the app/Implementation requirement boundary and accepts one optional Persistence
+provider:
 
 ```ts
-const boot = decodeRuntimeBoot(IncidentApp, unknownStoredValue, {
-  decodeDomain: ({ kind, value, machineId, descriptorId }) =>
-    decodeIncidentDomainValue({ kind, value, machineId, descriptorId }),
+const setup = runtimeSetup({
+  app: IncidentApp,
+  implementation: IncidentLive,
+  persistence: persistence({
+    storage: webStorage(window.localStorage),
+    scope: "user:42",
+  }),
 });
+
+const runtime = setup.construct();
 ```
 
-The decoder validates the exact app and persistence identity and visits opaque domain slots in canonical
-path order. It returns `RuntimeBootPayload<App>` or throws the frozen package-owned `FlowBootDecodeError`;
-unknown values MUST NOT be assertion-cast directly into `runtime`.
+`construct()` is synchronous, inert, and performs no storage I/O. Runtime readiness internally validates the
+provider record, applies the default or supplied application codec, restores declared persistable actors and
+resource/operation state through the app's compiled `AppPlan`, and only then permits handles or external work
+to escape. Transaction and stream state is restored only when both the declaration and owning stable actor
+are persistable.
 
-Runtime construction retains the app/layer requirement boundary:
+`runtime.ready()` is the public readiness Effect. A host MAY run it eagerly through the Runtime's Effect bridge
+before exposing handles or rendering; the same readiness boundary is observed internally by `FlowProvider`.
+Readiness is idempotent and caches either successful bootstrap or its terminal failure.
+Boot payloads, decoders, hydration coordinators, and `DehydrateBarrier` remain package-private internals.
 
-```ts
-runtime({ app, boot? }); // only when the app has no requirements
-runtime({ app, layer, boot? });
-```
-
-The runtime exposes the existing readiness, Effect bridge, dehydration, and asynchronous disposal
-operations, plus `createActor`, `ensureActor`, and lookup-only `getActor`. It MUST NOT expose
+The runtime exposes readiness, its Effect bridge, asynchronous disposal, `createActor`, `ensureActor`, and
+lookup-only `getActor`. It MUST NOT expose boot payloads, `decodeRuntimeBoot`, mutable hydration,
+`runtime.dehydrate`,
 `runtime.actor(machine)`, automatic roots, a public ManagedRuntime, mutable resource/orchestrator services,
-test controls, or a public acknowledged-dispatch operation. `dehydrate()` returns an app-branded boot
-payload and MUST capture a context-closed cut; `FlowDehydrateError` includes the accepted non-retryable
-`NonDurableContextProvider` case. Stream restart after hydration rematerializes from live executable `P`
-without replaying emissions; terminal streams do not restart and missing input fails closed.
+test-only control registries, or a public acknowledged-dispatch operation. Persistence failures use the
+package-owned `FlowPersistenceError` at the readiness/disposal boundary. Stream restart after restoration
+rematerializes from live executable `P` without replaying emissions; terminal streams do not restart and
+missing input fails closed.
 
 The production actor lifecycle is the closed union `prepared | active | suspended | disposed`. Prepared
 actors are inert and buffer commands; active actors admit commands and own live resources; suspended actors
@@ -583,29 +736,61 @@ consumer remains leaves the actor in its current lifecycle and identifies the de
 The public Story constructors MUST be:
 
 ```ts
-story.app(runtimeFactory, options?);
+story.app(runtimeSetup, options?);
 story.machine(machine, options?);
 story.actor(machine, options?);
 ```
 
-`story.app` accepts `boot?`, `fixtures?`, `maxTurns?`, `title?`, `description?`, and `tags?`.
+`story.app` accepts `fixtures?`, `maxTurns?`, `title?`, `description?`, and `tags?`.
 `story.machine` accepts exact required `input`, selected initial `context`, `fixtures?`, `maxTurns?`,
 `title?`, `description?`, and `tags?`, with conditionally forbidden fields rejected. `story.actor` accepts
 only exact required `input` and `contextBindings` for the recipe. Focused Stories reject boot, refs, extra
 actors, raw memory, initial state, and actor snapshots. A void-input machine rejects authored `input`.
 
-`story.app` accepts the same typed `RuntimeFactory<App>` used by live hosts, not a bare app or created
-runtime. Every run uses production bootstrap, fixture-backed capabilities, TestClock, boot restoration,
-factory ensures, AppPlan validation, graph sealing, activation, and cleanup. `story.machine` uses a
+`story.app` accepts the same typed `RuntimeSetup<App>` used by live hosts, not a bare app or created
+runtime. Every run uses production bootstrap, fixture-backed capabilities, TestClock, Persistence restoration,
+`Runtime.ensureActor` calls, AppPlan validation, graph sealing, activation, and cleanup. `story.machine` uses a
 package-private one-machine AppPlan and the same production runtime, actor engine, operation kernels,
 context-turn path, scheduler, inspection, read barrier, and cleanup. `maxTurns` bounds repeated processing
 and defaults to `100` when omitted.
 
 Plans are immutable and inert until `run()`; they contain no live actor handles, loops, predicates,
-arbitrary execution callbacks, embedded assertions, or behavior branches. Runtime factories are bootstrap
-authority, not command callbacks.
+arbitrary execution callbacks, embedded assertions, or behavior branches. `Runtime` is bootstrap authority,
+not a command callback.
 
-### API-014 — Story commands, controlled observations, and evidence
+### API-013A — Behavior binds one App to an external Story catalog
+
+The testing route MUST export one inert gateway constructor:
+
+```ts
+const gateway = behavior({
+  app: IncidentApp,
+  stories: {
+    smoke: incidentStory,
+    "machine-model": incidentMachineStory,
+  },
+});
+```
+
+`behavior` MUST require one explicit `app` and a non-empty readonly record of external Story IDs to Story
+plans. Record keys are the only external Story IDs; Story titles, tags, filenames, and object identity do
+not become discovery identity. The returned value carries a package-private brand consumed by the CLI and
+shared Story executor; the brand, compiled `AppPlan`, and gateway internals are not public construction
+types.
+
+The gateway MUST perform only synchronous validation and registration. It MUST acquire no Implementation,
+construct no Runtime, create no actor, execute no Story, and own no evidence sink or cleanup lifetime. It
+MUST reject empty keys, duplicate keys, mixed-app registration, a missing app, an ActorRecipe value, and a
+Story whose app or machine is not compatible with the supplied app's `App.M`. App Stories use the supplied
+app's typed `RuntimeSetup`. Machine Stories are admitted only when their machine is in the supplied app's
+`App.M`; their package-private focused execution plan remains derived from that admitted machine and does
+not create a second public app identity. Discovery and execution MUST retain the one supplied App identity.
+
+The CLI is the only public consumer of the branded gateway. Direct Story `.run()` and CLI `story run` MUST
+share the same production Runtime, operation kernels, evidence model, and cleanup path; the gateway is not a
+second runner or runtime boundary.
+
+### API-014 — Story commands and evidence
 
 The complete command surface is:
 
@@ -620,11 +805,9 @@ run({ signal? });
 
 // App Story
 send(target, event);
-simulate(target, operationPlan, observation);
 
 // Machine Story
 send(event);
-simulate(operationPlan, observation);
 setContext(context);
 ```
 
@@ -635,25 +818,14 @@ not inject context.
 
 `process()` replaces `flush()` and `settle()` and drains ready production work until no work can progress
 without another command or future time. It does not advance time or invent external results. Clock movement
-and `simulate` do not process implicitly. `advance` moves duration, `advanceTo` moves to an absolute
+does not process implicitly. `advance` moves duration, `advanceTo` moves to an absolute
 epoch-millisecond value, and `advanceToNextTimer` moves the TestClock to the next timer. `checkpoint` reads
 evidence immediately without progressing or creating restoration input.
 
-`simulate` uses one package-private interception point at the production external-execution boundary.
-Flow atomically validates actor incarnation, operation family, descriptor, canonical `K`, one-based
-occurrence, and shared generation/lease epoch when applicable. It accepts only an admitted pending
-occurrence owned by an active actor; missing, foreign, mismatched, not-yet-admitted, already-settled,
-wrong-kind, suspended, and disposed targets fail through the package diagnostic before external execution
-is replaced. The family-specific observation enters the ordinary completion kernel, which alone settles
-the occurrence or shared generation, releases ownership, applies writes and overlays, updates projections
-and status, maps authored events, and emits evidence. `simulate` creates no work and does not cancel, retry,
-process unrelated work, bypass lifecycle admission, or mutate runtime state directly. A terminal shared
-generation observation updates every attached actor occurrence once; later terminal observations fail as
-already settled. Live hosts retain ordinary adapter execution. Actor-local ordinals are one-based,
-monotonic, and non-reused within an incarnation and are independent of executable `P`, plan identity, and
-callback identity; streams retain declaration occurrences while generations and lease epochs identify shared
-execution. Bounded occurrence facts fence cancellation, supersession, suspension, and hydration, and
-hydration never replays external work. Occurrence history is not a public registry or handle.
+Story runs do not inject results into pending operations. External behavior is supplied by complete service
+Implementations, while admission, ownership, concurrency, operation completion, writes, projections, and
+evidence continue through the production kernels. A Story plan contains only builder commands and immutable
+metadata; `.run()` is its sole execution boundary.
 
 App checkpoints and end evidence use exact actor lookup:
 
@@ -670,7 +842,7 @@ machineRun.end.snapshot;
 
 Checkpoints and successful `run.end` are deeply frozen through one production `DehydrateBarrier` read cut.
 The barrier follows the Store commit permit, captures the complete static Story-plan closure (single
-machine actor or every app recipe plus exact refs in boot, context bindings, command targets, and
+machine actor or every app recipe plus exact refs in context bindings, command targets, and
 transitive providers), one StoreState revision, published snapshots, pending work, TestClock time, and
 the accepted runtime evidence prefix, then deeply freezes the roots before releasing registry leases.
 Unrelated runtime actors are excluded and `actor(...)` performs no live lookup. Capture does not process,
@@ -685,10 +857,19 @@ the complete Effect `Cause.Cause<unknown>` alongside the package-owned diagnosti
 
 ### API-015 — Fixtures and models remain inferred production inputs
 
-Fixtures remain the reusable Story environment input. Stories install fixture capabilities through their
-closed constructor options; a Story layer MUST close the app or focused-machine requirements. Existing
-control refs retain typed success, failure, defect, interruption, emission, and completion capabilities
-only where their endpoint supports them, and ordinals remain run-local.
+Fixtures remain the reusable Story environment input. The accepted shape is
+`fixture({ id, implementation, seeds? })`: `implementation` supplies the complete service providers needed
+to close the app or focused-machine requirements, while optional `seeds` preload Runtime-owned resource
+state. A Fixture Implementation overrides an App Implementation for the same service identity; duplicate
+Fixture providers are rejected rather than resolved by ordering. Seeds do not satisfy requirements, mock
+service functions, create global mutable state, or authorize arbitrary cache mutation.
+
+Stories keep authored resource, transaction, and stream operation kernels live. An Implementation replaces
+complete service functions resolved by those adapters; the Story does not register argument/output pairs,
+operation mocks, or a control registry. Typed Effects and Streams returned by the Implementation retain the
+declared input, success, failure, cancellation, and resource-lifetime types. The Story builder and `.run()`
+are the only testing boundary; no separate pending-external-work command or function-mocking registry is
+part of the public API.
 
 ```ts
 const baseStory = story.machine(incidentMachine, {
@@ -740,6 +921,10 @@ delay actor acknowledgement or StoreFanout. A failed sink detaches after preserv
 leaves other sinks active. `createInspectionBufferSink({ capacity })` owns explicit bounded retention and
 does not make the runtime retain an implicit unbounded history. Formatters remain one per projection.
 
+Artifact import/export uses one route-owned file-neutral byte carrier. Any `Uint8Array` exposed by that carrier
+is a defensive copy; callers cannot mutate validated artifact bytes. Import/export returns immutable inferred
+projections and never exposes the private v2 decoded model, TurnRecords, runtime ownership, or raw Cause.
+
 ### API-017 — CLI consumes registered behavior and typed artifacts only
 
 The installed `flow-state` binary MUST implement the exact grammar, TypeScript gateway boundary, bounded
@@ -766,13 +951,13 @@ builders, and ordinary actor handles and refs cannot recover owner-lease disposa
 Positive and negative compile fixtures MUST cover recursive states through depth ten, exact default paths,
 compound handlers, exact leaf matching, `actions`, `onContext`, `onMemory`, `P`/`K`, named `O` families,
 actor refs and leases, exact context bindings, four lifecycle states, passive `useView`, all three Story
-constructors, exact Story targets, `simulate`, `process`, `advanceTo`, checkpoints, and model restrictions.
+constructors, exact Story targets, `process`, `advanceTo`, checkpoints, and model restrictions.
 
 ### API-P03 — Production semantic proof
 
 Runtime tests MUST prove inert descriptor/key/passive reads, canonical identity bounds, atomic event/action
 publication, runtime-scoped resource sharing, generation fencing, actor-owned cancellation, context graph
 bootstrap, lease disposal and tombstones, prepared/active/suspended/disposed lifecycle, Story production
-parity, exact controlled observations, evidence cuts, and CLI refusal of arbitrary event fabrication. The
+parity, Implementation-backed operation outcomes, evidence cuts, and CLI refusal of arbitrary event fabrication. The
 historical `BEH-*` register and its accepted `REV-*` closures remain outside this public API contract; this
 file MUST NOT invent a public surface to satisfy a proof obligation.

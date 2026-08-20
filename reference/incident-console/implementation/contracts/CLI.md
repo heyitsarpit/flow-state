@@ -11,9 +11,9 @@ Artifact and trace schema authority belongs to [`PERSISTENCE_AND_ARTIFACTS.md`](
 This contract owns CLI grammar, gateway loading, file/stream I/O, formatting, exit status, and proof
 obligations. The CLI consumes the one Flow-owned package-private decoded v2 model shared with the
 Story runner; it MUST NOT define a CLI-only artifact decoder, Story-evidence model, result schema, or
-legacy `final`/`children` compatibility shape. This target contract does not claim that the package,
-Phase 0 fixtures, phase receipts, or installed binary already ship the target schema; `REV-MIG-005` and
-WIRE-020B are the current schema authority, while executable gates still prove the implementation.
+legacy `final`/`children` compatibility shape. This target contract does not claim that the package, retired
+baseline fixtures/records, or installed binary already ship the target schema; `REV-MIG-005` and WIRE-020B are
+the current schema authority, while executable gates still prove the implementation.
 
 The CLI is a process host over compiled behavior inspection, runtime inspection and trace projections,
 static source analysis, the shared Story executor, bounded artifact codecs, and process/file I/O. It owns
@@ -27,14 +27,14 @@ artifact-only commands remain execution-free as defined below.
 ### CLI-001 — The leaf command set is exact
 
 ```text
-flow-state behavior build --output <path> [--force] [--project-root <dir>] --gateway <path> [--format text|json]
+flow-state behavior build --output <path> [--overwrite] [--project-root <dir>] --gateway <path> [--format text|json]
 flow-state behavior render <artifact|-> [--section contract|coverage] [--module <id>] [--format text|json]
 flow-state behavior diff <left> <right> [--module <id>] [--format text|json]
 flow-state behavior check <expected|-> [--project-root <dir>] --gateway <path> [--format text|json]
 
 flow-state story list [--project-root <dir>] --gateway <path> [--machine <id>] [--tag <tag>] [--format text|json]
 flow-state story describe <story-id> [--project-root <dir>] --gateway <path> [--format text|json]
-flow-state story run <story-id> [--project-root <dir>] --gateway <path> [--trace-output <path>] [--force] [--format text|json]
+flow-state story run <story-id> [--project-root <dir>] --gateway <path> [--trace-output <path>] [--overwrite] [--format text|json]
 
 flow-state trace summarize <artifact|-> [--format text|json]
 flow-state trace proof <artifact|-> --selector <selector> [--format text|json]
@@ -48,9 +48,10 @@ its canonical artifact with the supplied expected artifact through the same diff
 `--project-root` defaults to the canonicalized current working directory. `--gateway` is required for
 every gateway-loading command and resolves only relative to that root; no ancestor search or implicit
 gateway filename is permitted. `--format` defaults to `text`; `behavior render --section` defaults to
-`contract`, and `trace diff --section` defaults to the complete ordered section set. `--force` is valid only
-with `--trace-output`. An option may occur once only; unknown options, missing option values, conflicting
-repeated operands, and `--force` without its output target are usage failures.
+`contract`, and `trace diff --section` defaults to the complete ordered section set. `--overwrite` is
+valid only with an output-producing `behavior build --output` or `story run --trace-output` command.
+An option may occur once only; unknown options, missing option values, conflicting repeated operands,
+and `--overwrite` without its output target are usage failures.
 
 The binary MUST NOT expose the deleted Story and scenario surfaces in `DEL-009` or the conflicting
 server, persistence, artifact, inspect, and CLI surfaces in `DEL-010`; it stays within the accepted
@@ -87,20 +88,39 @@ TypeScript into an OS temporary directory, but it MUST:
   executing CLI;
 - remove every temporary file through scoped cleanup after success, failure, or interruption;
 - require the named `BehaviorGateway` export to carry the package-private brand produced by
-  `behavior({ stories })`;
+  `behavior({ app, stories })`;
 - reject structural lookalikes, mixed-app registrations, empty registered keys, path escape, and
   Flow or Effect package-identity mismatch before accessing the compiled registry.
+- reject a missing `app`, a mixed-app registration, or `behavior({ app, stories: {} })`; an empty gateway is
+  invalid and MUST NOT create a second App identity or an app-only registry.
 
 Gateway discovery MUST NOT maintain a second shape validator, application compiler, or story
-registry. It consumes the branded behavior value's already compiled app and external-ID record.
+registry. It consumes the branded behavior value's explicitly supplied compiled `app` and external-ID record.
 Only `behavior build`, `behavior check`, and the three `story` commands load gateway source.
 Artifact-only commands never execute application code.
 The read-only promise describes Flow's loader and bundler writes, not a security sandbox: trusted
 gateway code may perform any operation available to the host process.
 
+The public gateway construction shape is:
+
+```ts
+const BehaviorGateway = behavior({
+  app: IncidentApp,
+  stories: {
+    smoke: incidentAppStory,
+    "machine-model": incidentMachineStory,
+  },
+});
+```
+
+Record keys are the external Story IDs. App Stories MUST use the supplied app's RuntimeSetup. Machine Stories
+MUST target machines admitted by the supplied app and may execute through a package-private focused AppPlan
+derived from that admitted machine; the gateway still exposes one supplied App identity and MUST reject any
+foreign machine or Story. No focused plan creates a second public app identity.
+
 ### CLI-004 — Discovery is inert; execution is shared
 
-`behavior build`, `behavior check`, `story list`, and `story describe` MUST acquire no Layer,
+`behavior build`, `behavior check`, `story list`, and `story describe` MUST acquire no Implementation,
 runtime, fixture, actor, inspection sink, or story executor. Registration and discovery remain
 pure.
 
@@ -142,15 +162,15 @@ stdout; stdout is reserved for the one command result.
 ### CLI-006 — Artifact output is explicit and atomic
 
 `behavior build --output` is required. `story run --trace-output` accepts a filesystem path only.
-An existing destination, including a symlink, is rejected unless `--force` is present. Under
-`--force`, a symlink entry itself is replaced; its referent is never opened or overwritten.
+An existing destination, including a symlink, is rejected unless `--overwrite` is present. Under
+`--overwrite`, a symlink entry itself is replaced; its referent is never opened or overwritten.
 
 Before changing a destination, the CLI MUST drain every accepted sink record, encode and
 bound-check stable-key UTF-8 JSON with exactly one trailing newline, create a sibling temporary at
-mode `0600`, write it, flush and close it, then commit it. Without `--force`, commit uses an atomic
+mode `0600`, write it, flush and close it, then commit it. Without `--overwrite`, commit uses an atomic
 same-directory hard link from the temporary to the absent destination and then unlinks the
 temporary; a destination created after preflight makes the link fail without clobbering it. With
-`--force`, commit uses atomic same-directory rename and may replace the destination entry. Failure
+`--overwrite`, commit uses atomic same-directory rename and may replace the destination entry. Failure
 or interruption before the link/rename commit point leaves the prior destination unchanged and
 attempts to remove the temporary file; a failed removal is a named cleanup diagnostic and MUST NOT alter the
 destination guarantee. After commit, cleanup may only remove the sibling temporary. VNext's

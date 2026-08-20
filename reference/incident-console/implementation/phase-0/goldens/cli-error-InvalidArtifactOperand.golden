@@ -1,1 +1,0 @@
-{"command":null,"diagnostic":{"category":"usage","code":"InvalidArtifactOperand","details":{"argument":null},"message":"InvalidArtifactOperand"},"kind":"flow-state-cli-error","version":"flow-state/cli-result.v1"}

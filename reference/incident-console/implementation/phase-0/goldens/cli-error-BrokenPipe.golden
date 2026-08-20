@@ -1,1 +1,0 @@
-{"command":null,"diagnostic":{"category":"io","code":"BrokenPipe","details":{"errno":null,"operation":"write","path":null},"message":"BrokenPipe"},"kind":"flow-state-cli-error","version":"flow-state/cli-result.v1"}

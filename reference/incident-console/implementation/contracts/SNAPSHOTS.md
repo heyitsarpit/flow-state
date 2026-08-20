@@ -16,7 +16,8 @@ safe-integer `revision`, the `storeRevision` observed by that actor publication,
 field may read through to mutable live state.
 
 The public snapshot MAY expose the accepted active issue summary. Operation state, occurrence identity,
-clearing ownership, generation clearing, and terminal retention follow `REV-OPS-017` and `REV-OPS-018`; the
+clearing ownership, generation clearing, and terminal retention follow `PUBLIC_API.md` `API-006` and
+`SEMANTICS.md` `SEM-011C`; the
 artifact projection of those facts follows WIRE-020B.
 
 Every lifecycle transition MUST publish one coherent immutable snapshot through the existing handle before
@@ -44,8 +45,11 @@ and stream families expose their accepted `key(P)`, `getData(K)`, and `getState(
 execution methods remaining unavailable to a snapshot selector. A missing exact identity MUST NOT insert a
 record, acquire a lease, change freshness, advance a revision, or start external work.
 
+Synchronous snapshot reads MUST use immutable runtime-owned state and MUST NOT execute Effect,
+`runSync`, or any acquisition, scheduling, or mutation path.
+
 ```ts
-const orderKey = O.orderById.key({ orderId, client });
+const orderKey = O.orderById.key({ orderId });
 const order = O.orderById.getData(orderKey);
 const orderState = O.orderById.getState(orderKey);
 const submitState = O.submitIntent.getState([submissionId]);
@@ -55,7 +59,7 @@ These are named-family reads over canonical `K`; they do not imply generic `reso
 `transactions.get`, public operation enumeration, bound entries, `ref`, `byKey`, `byLane`, `require`,
 subscription, retry, reset, seed, retention, or mutation methods. Any actor may passively read an admitted
 shared canonical entry it never materialized; missing reads are synthetic absent/idle and remain passive.
-The exact closed state union is defined by `REV-OPS-017`.
+The exact closed state union is defined by the family-specific notation in `PUBLIC_API.md` `API-006`.
 
 ## Resources
 
@@ -63,7 +67,7 @@ The exact closed state union is defined by `REV-OPS-017`.
 
 Resource status discriminants remain part of the retained resource surface under `RET-003`. The exact
 descriptor/K-typed `getState(K)` union, generation, failure, retained-value refresh, collection, and stream
-declaration laws are defined by `REV-OPS-017`; cross-actor canonical visibility is defined by `SNAP-004`.
+declaration laws are defined by `PUBLIC_API.md` `API-006`; cross-actor canonical visibility is defined by `SNAP-004`.
 
 `P` is complete immutable executable input and `K` is the ordered readonly canonical tuple returned by
 `key(P)`. Resource identity is descriptor namespace plus canonical `K`; methods that execute lookup work
@@ -72,8 +76,8 @@ generation, and a hydrated key-only entry remains passive until a live binding s
 
 The public snapshot contract MUST NOT generate a distributive conditional cross-product from value,
 failure, descriptor policy, or activity kinds, recursively inspect those types, or add helper aliases as
-standalone exports. `REV-OPS-017` fixes the family-specific inferred union without exporting a parallel
-state alias.
+standalone exports. `PUBLIC_API.md` `API-006` fixes the family-specific inferred union without exporting a
+parallel state alias.
 
 ### SNAP-004 — Canonical and actor-effective reads are distinct
 
@@ -106,10 +110,10 @@ identify its actor-local status, together with a generation when the accepted st
 The public projection retains the accepted typed success, failure, defect, interruption, and post-boundary
 `unknown`/`reconcileRequired` lanes and MUST NOT expose raw Effect `Cause.Cause<unknown>`; the complete Cause stays in package-private
 issue backing and TurnRecord facts. Failure-versus-defect classification and the closed public union follow
-`REV-OPS-017`.
+`PUBLIC_API.md` `API-006`.
 
 The exact closed `TransactionSnapshot<A, E, K>` union, field presence, generation exposure, terminal
-retention, and collection behavior follow `REV-OPS-017` and `SEM-018`. Absent fields MUST remain absent;
+retention, and collection behavior follow `PUBLIC_API.md` `API-006` and `SEM-018`. Absent fields MUST remain absent;
 this contract MUST NOT use a generic
 transaction registry or accumulate old attempts in an ordinary actor snapshot.
 
@@ -119,11 +123,11 @@ An actor exposes transaction state for an actor-owned descriptor/K identity in i
 configuration. State activation, passive reads, completion,
 and reconciliation MUST NOT admit or readmit a transaction attempt; finite commits are admitted only by an
 accepted event transition `actions` result. Attempt history may belong in TurnRecords and inspection
-evidence, while exact ordinary-snapshot retention and occurrence projection follow `REV-OPS-017`; no generic
+evidence, while exact ordinary-snapshot retention and occurrence projection follow `PUBLIC_API.md` `API-006`; no generic
 actor-lifetime attempt map is accepted.
 
 The exact projection when a binding is removed, replaced, suspended, disposed, or reentered follows
-`REV-OPS-017`; occurrence retention across those boundaries follows `SEM-018`.
+`PUBLIC_API.md` `API-006`; occurrence retention across those boundaries follows `SEM-018`.
 
 ## Streams and timers
 
@@ -139,7 +143,11 @@ Equal normalized declaration identity retains the existing generation and origin
 exactly once and admits the replacement. Stream status retains `hasValue`, latest `V` when present, emission
 count, generation, and terminal status in addition to its status. Emissions become durable state only
 through mapped events or explicit authoritative resource writes. The accepted stream status discriminants
-include idle, connecting, running, complete, typed failure, defect, and interruption.
+include idle, running, complete, typed failure, defect, and interruption. A second live stream declaration
+by the same actor for the same descriptor and canonical `K` MUST reject before replacing or releasing the
+existing declaration; different actors remain independent. Any actor may passively read an admitted
+same-runtime resource identity without acquiring ownership, starting work, refreshing, mutating, or altering
+collection, and a missing read does not materialize a store entry.
 
 Hydration MUST NOT silently invent a prior stream emission or a generic key-to-input inverse. It
 rematerializes a live declaration from its current executable `P` after pending outcomes drain; terminal
@@ -228,5 +236,6 @@ independent actor ownership, explicit authoritative writes fence older generatio
 outcomes use production completion paths, and captured snapshots never change after later turns, collection,
 suspension, resumption, or disposal. Proofs MUST cover actor-scoped effective reads, preview promotion and
 rollback, occurrence fencing, stream latest-value projections, hydration restart without emission replay,
-and passive operation-read reactivity. Operation-union and collection proofs are owned by `REV-OPS-017` and
-`REV-OPS-018`; lifecycle and host-write proofs retain their owning `REV-*` clauses and phase receipts.
+and passive operation-read reactivity. Operation-union and collection proofs are owned by `PUBLIC_API.md`
+`API-006` and `SEMANTICS.md` `SEM-011C`; lifecycle and host-write proofs retain their owning contract clauses
+and executable proof records.

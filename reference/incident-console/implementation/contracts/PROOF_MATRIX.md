@@ -1,6 +1,6 @@
 # Normative proof matrix
 
-Status: normative revision overlay
+Status: normative contract proof matrix
 
 This matrix defines the evidence required to claim the accepted revision surface correct. A green test
 count does not close a proof unless the test exercises the named mechanism through its production owner.
@@ -13,11 +13,10 @@ exercise the real production actor lifecycle, mailbox, context graph, scheduler,
 inspection, persistence, evidence capture, and cleanup paths. Focused source-text or type checks MUST NOT
 stand in for behavior proofs.
 
-The broad `PROOF-*` rows are requirements, not receipt closure units. The historical Phase 0 material assigned
-stable subcase IDs and one closing phase to independently executable cases; later phases could rerun an
-earlier subcase as dependency evidence but could not claim a second closure. The atomic case and local-proof
-index remain historical evidence and case indexing in [`../phase-0/proof-index.json`](../phase-0/proof-index.json);
-that index is not current status, does not add semantic authority, and does not choose active ownership.
+The broad `PROOF-*` rows are requirements, not task closure units. The retired Phase 0 material assigned
+stable subcase IDs and phase ownership to historical executable cases; those labels are no longer current
+status, do not add semantic authority, and do not choose active ownership. Current executable proofs are
+owned by the production code and tests named by the implementation task and this matrix.
 
 ## Accepted revision ownership
 
@@ -34,11 +33,11 @@ semantic owner.
 | Migration and proofs      | `REV-MIG-001`–`REV-MIG-006`                             | all affected rows, with cross-cutting closure in `PROOF-017`                              |
 | Deletions and cutover     | `REV-MIG-004`, `DEL-001`–`DEL-011`, `RET-001`–`RET-005` | `PROOF-017`                                                                               |
 
-## Revision-specific receipt obligations
+## Revision-specific proof obligations
 
-The accepted revisions below refine central proof rows; they do not create runtime receipt paths. An
-implementation receipt MUST name the exact executable test, fixture, example, or artifact evidence when
-that evidence exists and MUST carry the item as an open obligation when it does not. The named obligations
+The accepted revisions below refine central proof rows; they do not create a runtime receipt system. An
+implementation proof record MUST name the exact executable test, fixture, example, or artifact evidence
+when that evidence exists and MUST carry the item as an open obligation when it does not. The named obligations
 are:
 
 | Accepted revision | Named obligation                                                                                                                                                                                                                                              | Central proof rows                                                                        |
@@ -77,8 +76,9 @@ misuse, per-registration selector comparators, and imports for deleted surfaces.
 correct but impractical to instantiate does not close this proof.
 
 Story option proofs MUST cover every conditionally required or forbidden `input`, selected `context`,
-`contextBindings`, `fixtures`, and app-only `boot` field, exact fixture-requirement closure, app/runtime-factory
-compatibility, metadata placement, and rejection of fields not belonging to the selected constructor.
+`contextBindings`, and `fixtures`, exact fixture-requirement closure, app/RuntimeSetup compatibility,
+metadata placement, absence of public boot fields, and rejection of fields not belonging to the selected
+constructor.
 
 Shared selector proofs MUST cover the required selected-value type, explicit nullable domains, an initial
 result with no previous value, changed results with the immediately preceding selected value, complete-value
@@ -107,9 +107,10 @@ Prove context dependency validation rejects missing or ambiguous providers, fore
 before the accepted bootstrap barrier can expose a handle or start work. A repeated machine value MUST NOT be
 deduplicated into several module owners.
 
-RuntimeFactory discovery MUST be synchronous and inert: prove that retaining app identity, Clock,
-external capabilities, boot input, and initial actor claims acquires no Layer, creates no actor, starts no
-work, and exposes no handle. Bootstrap proofs MUST cover boot validation, application Layer acquisition,
+RuntimeSetup discovery MUST be synchronous and inert: prove that retaining app identity, Clock,
+external capabilities, the optional Persistence provider, and initial actor claims acquires no Implementation,
+creates no actor, starts no work, and exposes no handle. Bootstrap proofs MUST cover provider validation,
+application Implementation acquisition,
 initial ensure ownership, graph sealing, actor activation, and handle escape in that order, with reverse
 rollback on failure or disposal race.
 
@@ -153,19 +154,23 @@ mailbox, or acquire final-node semantics.
 
 ## PROOF-004: Runtime, actor, lease, and cleanup lifetime
 
-Prove live hosts and Stories use one production `RuntimeFactory`, `FlowRuntime`, actor creation and lookup,
+Prove live hosts and Stories use one production `RuntimeSetup`, `Runtime`, actor creation and lookup,
 mailbox, operation kernel, context propagation, scheduler, inspection, read barrier, and disposal path. Story
 code MUST NOT contain a stateful second runtime, actor, mailbox, scheduler, operation store, transition engine,
 cache, snapshot implementation, or cleanup engine.
 
 Prove `runtime.ensureActor` and `runtime.createActor` return separate owner leases, lookup does not create or
 grant disposal authority, ordinary handles and refs do not dispose, and lease disposal is asynchronous,
-idempotent, terminal, and production-owned. Cover one shared stable-ref owner lease, boot-restored runtime
-ownership, factory ensure joining, freshly ensured leases, concurrent ensure or create disposal, runtime
+idempotent, terminal, and production-owned. Cover one shared stable-ref owner lease, Persistence-restored runtime
+ownership, `Runtime.ensureActor` joining, freshly ensured leases, concurrent ensure or create disposal, runtime
 shutdown, dependent-consumer rejection without partial cleanup, terminal command rejection through escaped
-handles, stable-ref tombstones, and absence of disposal on non-owner surfaces. Prove dehydration membership
-for every registered non-disposed durable stable actor, including suspended and boot-restored actors, exact
-transitive stable-provider closure, exclusion of local/disposed/tombstoned actors, and opaque-provider failure.
+handles, stable-ref tombstones, and absence of disposal on non-owner surfaces. Prove Persistence membership
+for only declared non-disposed stable actors, including suspended actors, exact transitive stable-provider
+closure, exclusion of local/disposed/tombstoned actors, and opaque-provider failure. Prove `persist: false`
+defaults for actors and all operation families, descriptor-owned opt-in, provider filters that can only
+exclude declared entries, default JSON codec rejection of unsupported values, custom codec success,
+restore-before-subscribe ordering, ordered/coalesced writes, stale-write fencing, fresh isolated Story
+providers, and final disposal flush.
 The stable-ref tombstone MUST be installed only after successful cleanup; rejected disposal MUST leave no
 tombstone, and a separately constructed runtime MUST be able to restore or create the same durable ref.
 
@@ -251,7 +256,7 @@ hydration proofs are required by `REV-OPS-015`. Exact public state unions and ex
 follow `REV-OPS-017` and `REV-OPS-018`. Timer-owned finite actions remain forbidden; polling proofs use
 `after` plus an explicit refresh event.
 
-## PROOF-008: Story fixtures, actor recipes, and controlled observations
+## PROOF-008: Story Implementations, seeds, and actor recipes
 
 Prove each Story run materializes fresh recipe actors through the production runtime, validates the complete
 recipe dependency graph, creates providers before consumers, retains owner leases, and cleans up consumers
@@ -259,33 +264,34 @@ before providers in reverse dependency order. Cover repeated bindings to one pro
 equal machine and input, stable-ref providers, transitive providers, missing providers, cycles, and unadmitted
 machines.
 
+Prove each Fixture closes every declared service requirement through complete Implementation providers,
+rejects duplicate providers within one Fixture set, applies Fixture-over-App precedence by service identity,
+constructs each provider once per Runtime, and isolates provider state across fresh Story Runtimes. Prove
+resource seeds preload only the named Runtime-owned resource/key state, do not satisfy service requirements,
+do not invoke service functions, and do not authorize arbitrary cache mutation.
+
 The recipe itself MUST be deeply frozen and inert: it may contain only the exact machine, required fresh input,
 and required context bindings, with no runtime, mailbox, snapshot, operation binding, disposal authority, or
 live actor handle.
 
-Prove `simulate` uses one package-private external-boundary interception point, atomically validates actor
-incarnation, family, descriptor, canonical `K`, occurrence, and shared generation/lease epoch, and accepts
-only an active actor's admitted pending occurrence. Cover missing, foreign, mismatched, not-yet-admitted,
-already-settled, wrong-kind, suspended, and disposed targets; finite terminal observations; stream emissions
-and terminal observations; shared-generation settlement; monotonic non-reused occurrence allocation;
-cancellation/supersession/suspension/hydration fencing; and no replay of external work. The observation must
-enter the production completion kernel without direct mutation, while live hosts retain adapter execution.
+Story execution MUST have no separate pending-external-work or result-injection command. Prove that complete
+service Implementations provide typed Effects or Streams while operation admission, completion, writes,
+projections, and evidence remain owned by the production kernels.
 
 ## PROOF-009: Story processing and TestClock
 
 Prove the closed Story command surface: `process`, `advance`, `advanceTo`, `advanceToNextTimer`, `checkpoint`,
-`run`, target-aware app `send` and `simulate`, and target-free machine Story forms. `process` MUST drain ready
-production work without advancing time or inventing external results; clock movement and `simulate` MUST NOT
-process unrelated work implicitly. Prove continuing observations, streams, and future deadlines remain
+`run`, target-aware app `send`, and target-free machine Story forms. `process` MUST drain ready production
+work without advancing time or inventing external results. Prove continuing observations, streams, and future deadlines remain
 visible while finite work is processed, and repeated unknown finite work is bounded by the Story's `maxTurns`.
 
-Prove the `maxTurns` default of `100` and explicit-time command behavior. Clock movement and `simulate` MUST
-have executable negative proofs showing that they do not call `process()` or drain any queued work implicitly;
+Prove the `maxTurns` default of `100` and explicit-time command behavior. Clock movement MUST have executable
+negative proofs showing that it does not call `process()` or drain any queued work implicitly;
 only an explicit `process()` command may drain ready work. Prove command-admission closure,
 non-abortable finalization, reverse dependency cleanup, deterministic cleanup diagnostics, and the frozen
 package-owned `FlowStoryExecutionError` envelope for execution, cancellation, and cleanup failure.
 
-Under `REV-OPS-015`, the `timer polling` implementation receipt obligation MUST prove that one exact key has
+Under `REV-OPS-015`, the `timer polling` implementation proof obligation MUST prove that one exact key has
 at most one refresh in flight, the next `after` timer is scheduled only after settlement, failures wait for
 the next scheduled refresh, and suspension or disposal cancels and fences the timer. Resume MUST perform at
 most one overdue refresh. The proof MUST use an explicit refresh event and MUST reject timer-owned finite
@@ -293,7 +299,7 @@ actions, implicit retry, and a new `poll` API.
 
 Machine Story proofs MUST cover one production-created actor, the production memory initializer, exact input and
 selected initial context, and rejection of boot, refs, additional actors, raw memory, initial state, and
-snapshot overrides. App Story proofs MUST use the typed production runtime factory and MUST not inject selected
+snapshot overrides. App Story proofs MUST use the typed production `RuntimeSetup` and constructed `Runtime`, and MUST not inject selected
 context directly.
 
 ## PROOF-010: Atomic checkpoints, end evidence, and failures
@@ -321,6 +327,9 @@ Parity proofs MUST execute equivalent domain-command sequences through live and 
 snapshots, `TurnRecord`s, pending work, operation facts and generations, context turns, and cleanup
 evidence. React attachment lifecycle evidence remains outside the machine timeline and does not require
 synthetic Story suspend or resume commands.
+
+Parity may ignore only fields explicitly declared nondeterministic by the relevant contract. It MUST
+preserve contract-relevant ordering, ownership, lifecycle, generation, and cleanup evidence.
 
 ## PROOF-012: Actor refs, React, and host boundaries
 
@@ -380,23 +389,29 @@ Equivalent live-host and Story execution proofs MUST compare accepted `TurnRecor
 facts without introducing a second mutable trace or inspection history. Exact ordered lifecycle evidence,
 sequence allocation, sink overflow, drain, and failure behavior are owned by `REV-HOST-004`.
 
-## PROOF-014: Boot, persistence, artifacts, server, and CLI
+## PROOF-014: Persistence, artifacts, server, and CLI
 
-Prove the accepted production bootstrap installs and validates boot actors, completes initial factory ensures,
+Prove the accepted production bootstrap restores and validates declared persistable actors, completes initial `Runtime.ensureActor` calls,
 resolves exact context-provider refs, rejects missing providers, duplicate registrations, foreign machines,
 and instance cycles before activation or handle escape, and restores context-derived projections in dependency
 order without replaying `onContext` events. Prove that baseline installation is silent, later context changes
 provide defined current and previous values to handlers, and `false` or `null` handlers emit no event.
 
-Prove dehydration captures a context-closed cut with exact binding refs and provider revisions, rejects an
-opaque local provider for an included durable consumer with `NonDurableContextProvider`, and restores derived
-context from provider truth. RuntimeFactory discovery and bootstrap ownership are covered above; exact host
+Prove Persistence captures a context-closed cut with exact binding refs and provider revisions, rejects an
+opaque local provider for an included persistable consumer with `NonDurableContextProvider`, and restores derived
+context from provider truth. RuntimeSetup discovery and bootstrap ownership are covered above; exact host
 seeding follows `REV-HOST-008`.
 
 Continuing-stream persistence MUST capture the contracted latest projection and terminal status without
 serializing or replaying old emissions. Hydration MUST rematerialize an active declaration from live executable
-input, fail closed when that input is missing, and never restart a terminal stream. The implementation receipt
+input, fail closed when that input is missing, and never restart a terminal stream. The implementation proof
 for this obligation is owned by `REV-OPS-015`; this matrix does not invent a receipt path.
+
+Persistence proofs MUST also cover synchronous Web Storage and asynchronous IndexedDB normalization,
+`read`/`write`/`remove` storage failures, malformed data, app/persistence identity mismatch, default-codec
+rejection, custom-codec failure, `ConcurrentDehydrate`, `NonDurableContextProvider`, and preservation of the
+last successfully stored record after a write failure. These failures MUST be reported without mutating
+committed runtime state or allowing an older asynchronous write to replace a newer record.
 
 Artifact, persistence, inspect, and CLI proofs MUST update schemas and evidence for app Stories, exact actor
 lookup, `run.end`, module tooling identity, compound states, context requirements, lifecycle records, and
@@ -444,10 +459,16 @@ React peer compatibility, synchronous send, status discriminants, canonical oper
 actions, and revised host surfaces remain available.
 
 Prove deleted authoring shapes fail before actor creation, memory mutation, operation acquisition, event
-publication, external work, or evidence. Prove active documents, examples, Stories, fixtures, tests, and task
-files use only accepted replacements or retained boundaries; no alias, adapter, registry, translator, parser
-branch, second runtime, mutable harness, child capability, registered view, or old Story/operation surface
-survives solely for compatibility. Replacement behavior MUST execute through the production owners.
+publication, external work, or evidence. Prove active documents, glossaries, examples, Stories, fixtures,
+tests, and task files use only accepted replacements or retained boundaries; live examples and Stories MUST
+exercise replacements through the production owners; no alias, adapter, registry, translator, parser branch,
+second runtime, mutable harness, child capability, registered view, or old Story/operation surface survives
+solely for compatibility. Replacement behavior MUST execute through the production owners.
+
+`REV-MIG-003` remains the cross-cutting proof boundary. Deletion proof does not authorize a second runtime,
+actor, Story, operation, or selector implementation. Old names may appear only in negative absence proofs;
+they MUST NOT appear in positive examples, supported overloads, active glossary definitions, or replacement
+recipes.
 
 Deletion proof MUST combine runtime export inspection with package typecheck, packed consumers,
 package tests, example tests, browser tests, and the broad workspace gate. Before deleting historical
@@ -458,9 +479,9 @@ or declaration absence proofs.
 
 ## Local proof crosswalk
 
-Local `*-P*` sections refine the central proof rows and MUST be named by the same phase receipt. The IDs below
-are the active stable crosswalk; phase-0 proof-index, receipt, and task files are historical evidence only and
-do not choose current ownership. `CLI-P01` covers current CLI grammar, gateway, execution, artifact, and
+Local `*-P*` sections refine the central proof rows and MUST be named by the same implementation task or proof
+record. The IDs below are the active stable crosswalk; retired phase, receipt, and task files are historical
+evidence only and do not choose current ownership. `CLI-P01` covers current CLI grammar, gateway, execution, artifact, and
 formatting behavior; `CLI-P02` covers fresh packaged-binary and deleted-surface cutover evidence.
 
 | Local obligation | Central proof owner                                            |
@@ -489,9 +510,44 @@ formatting behavior; `CLI-P02` covers fresh packaged-binary and deleted-surface 
 
 A local proof section is normative and cannot disappear merely because its prefix is not `PROOF-*`.
 
+## Contract-family closure crosswalk
+
+Every contract family below MUST be represented by one or more dependency-ordered implementation issues.
+The issue description MUST copy the listed contract clauses, proof rows, source owner, focused proof path,
+and non-goals; proposal files and retired receipts are evidence only.
+
+| Contract family | Normative sources | Central proof rows | Greenfield dependency |
+| --- | --- | --- | --- |
+| Static foundation | `GLOSSARY_AND_IDENTITY.md`; `PUBLIC_API.md` API-001–010; `TYPE_SYSTEM.md` TYPE-001–009; accepted composition/machine revisions | `PROOF-001`, `PROOF-002`, `TYPE-P01`–`TYPE-P04` | first |
+| Runtime ownership | `ARCHITECTURE.md` ARCH-007–020; `SEMANTICS.md` admission/mailbox/lifecycle clauses; `REACT_AND_HOSTS.md` HOST-001–006; `TYPE_SYSTEM.md` TYPE-010–015 | `PROOF-003`, `PROOF-004`, `PROOF-015`, `HOST-P01`–`HOST-P05` | after static foundation |
+| Operation kernels | `TYPE_SYSTEM.md` operation inference; `SEMANTICS.md` SEM-011–021 and SEM-029–030; `SNAPSHOTS.md`; accepted operations revision | `PROOF-005`–`PROOF-007`, `SNAP-P01` | after runtime ownership |
+| Persistence and evidence | `PERSISTENCE_AND_ARTIFACTS.md` WIRE-000–023; capture/hydration clauses in `SNAPSHOTS.md` | `PROOF-009`, `PROOF-010`, `PROOF-014`, `CLI-P01` | after runtime and operation kernels |
+| Hosts, Stories, and CLI | `TESTING.md` REV-TEST-001–010; `REACT_AND_HOSTS.md`; `CLI.md`; `PUBLIC_API.md` API-011–017 | `PROOF-008`, `PROOF-010`, `PROOF-012`, `PROOF-014`, `CLI-P01` | after runtime; operation/evidence edges where used |
+| Cutover and absence | `COMPATIBILITY_AND_DELETIONS.md`; `PROOF-016`–`PROOF-017`; accepted migration/deletion revisions | `PROOF-016`, `PROOF-017`, `CLI-P02`, `CUT-P01`–`CUT-P06` | after every prior family |
+
+The crosswalk is a decomposition boundary, not a second semantic specification. Splitting a row into
+multiple issues is valid only when each child retains its exact contract references, proof ownership,
+acceptance behavior, dependencies, and non-goals.
+
+### Greenfield proof boundary
+
+Before the replacement becomes a package, focused proof issues MUST run against
+`packages/flow-state-rewrite/`:
+
+```sh
+nubx tsc -p packages/flow-state-rewrite/tsconfig.json --noEmit
+vp test packages/flow-state-rewrite/src/<focused-proof>.test.ts
+vp lint packages/flow-state-rewrite/src
+```
+
+The frozen `packages/flow-state/` package is migration evidence and its green gates do not prove
+replacement conformance. Once the replacement has package entrypoints, its package-local type, test, lint,
+build, and packed-consumer gates become the active proof boundary. The existing published-package, example,
+browser, and full-workspace gates are late cutover obligations under `PROOF-016` and `PROOF-017`.
+
 ## Required gate layers
 
-Focused tests establish one proof mechanism quickly, but closure requires the next owning layer:
+Focused tests establish one proof mechanism quickly, but closure requires the next owning boundary:
 
 1. focused proof files for the affected `PROOF-*` IDs;
 2. `nub run --filter flow-state check:cli-source-types`;
@@ -505,5 +561,5 @@ Focused tests establish one proof mechanism quickly, but closure requires the ne
 
 The live script owners are `packages/flow-state/package.json:59-69` and root `package.json:6-30`. These gate
 commands are unchanged by the revision overlay. The accepted architecture and parity proof boundary is
-`REV-MIG-003`; any reopened behavior or contract ID must remain carried in the phase receipt until explicitly
-closed.
+`REV-MIG-003`; any reopened behavior or contract ID must remain carried in an explicit blocking implementation
+task until the contract authority is updated or the proof is complete.

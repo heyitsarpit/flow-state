@@ -8,8 +8,8 @@ Each entry must cite its exact source and must not infer reasons or future accep
 that source.
 
 This file does not classify old contract clauses or define deletion scope. Removed and replaced old
-surfaces are governed only by [`REV-MIG-004`](./accepted/07-deletions-and-cutover.md) and its `DEL-*` and
-`RET-*` entries.
+surfaces are governed only by [`COMPATIBILITY_AND_DELETIONS.md`](../contracts/COMPATIBILITY_AND_DELETIONS.md)
+and its `DEL-*` and `RET-*` entries.
 
 ## Rejected
 

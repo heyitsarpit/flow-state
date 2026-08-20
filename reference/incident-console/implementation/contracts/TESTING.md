@@ -3,18 +3,18 @@
 Status: normative vNext contract
 
 This contract defines app and focused-machine construction, Story-local actor recipes, immutable
-planning, commands, controlled observations, processing, virtual time, checkpoints, end and failure
-evidence, cleanup, pure models, and the production-runtime boundary. The revision specification is
-normative authority; source locations and provenance citations within it are historical evidence only
-and add no semantics beyond the accepted rule they document.
+planning, commands, operation outcomes, processing, virtual time, checkpoints, end and failure
+evidence, cleanup, pure models, and the production-runtime boundary. This contract is normative
+authority; archived revision sources and provenance citations are historical evidence only and add
+no semantics.
 
 ## Deletion disposition
 
 The old Story constructors, commands, result fields, replay helpers, and mutable harness surfaces
-are replaced by `DEL-009`. Conflicting server, persistence, artifact, inspect, and CLI surfaces are
-governed by `DEL-010`; child-machine Story and model surfaces are deleted by `DEL-002`. Those entries
-own the complete old-clause inventory and no-residue requirements. This file records the accepted
-replacement and the retained host-runner and inspection boundaries.
+are replaced by `DEL-009` in `COMPATIBILITY_AND_DELETIONS.md`. Conflicting server, persistence, artifact,
+inspect, and CLI surfaces are governed by `DEL-010`; child-machine Story and model surfaces are deleted by
+`DEL-002`. That contract owns the complete old-clause inventory and no-residue requirements. This file
+records the accepted replacement and the retained host-runner and inspection boundaries.
 
 ## REV-TEST-001 — Split Story construction by scope
 
@@ -24,7 +24,7 @@ constructors.
 **Rule:** The public Story constructors MUST be:
 
 ```ts
-story.app(runtimeFactory, options?);
+story.app(runtimeSetup, options?);
 story.machine(machine, options?);
 story.actor(machine, options?);
 ```
@@ -59,15 +59,25 @@ type FixtureOptions<Owner> =
 
 `StoryContextBindingsOf`, `ProviderMachineAt`, and `StoryActorRecipe` describe the exact contextual
 type relationship; they do not require public helper exports. In this notation, `FixtureDefinition`
-denotes an immutable value returned by the existing `fixture(...)` constructor, and
-`FixtureTupleClosing<R>` denotes a readonly tuple whose combined Layer outputs satisfy `R`; neither
+denotes an immutable value returned by `fixture({ id, implementation, seeds? })`. Its `implementation`
+provides the complete service identities required by the owner; its optional `seeds` are preloaded
+Runtime-owned resource state and do not satisfy a missing service requirement. A Fixture Implementation
+overrides an App Implementation for the same service identity, while duplicate Fixture providers are
+rejected rather than resolved by ordering. The provider is constructed once per Runtime and Story runs
+receive fresh Runtime-scoped provider state.
+
+In this notation, `Implementation<Output, ImplementationError>` denotes the provider graph whose combined outputs
+satisfy `Output` and whose acquisition may fail with `ImplementationError`; it is the accepted semantic name for the
+implementation-layer boundary, not a second testing runtime or a required public helper constructor. An
+Implementation supplies complete service functions. It does not replace resource, transaction, or stream
+operation kernels, and the Story does not install argument/output matchers or a control registry. The
+`FixtureTupleClosing<R>` denotes a readonly tuple whose combined provider outputs satisfy `R`; neither
 needs to be an exported alias.
 
 The three complete option shapes are:
 
 ```ts
 type AppStoryOptions<App> = FixtureOptions<App> & {
-  readonly boot?: RuntimeBootPayload<App>;
   readonly maxTurns?: number;
   readonly title?: string;
   readonly description?: string;
@@ -96,8 +106,7 @@ conditionally required fields remain.
 Representative calls are:
 
 ```ts
-story.app(runtimeFactory, {
-  boot,
+story.app(runtimeSetup, {
   fixtures,
   maxTurns,
   title: "document session",
@@ -120,35 +129,38 @@ story.actor(machine, {
 Required machine input MUST remain required, while a void-input machine MUST reject an authored
 `input`. Focused-machine `context` MUST contain exactly the selected values declared by the
 definition and MUST be required when those declarations are nonempty; a context-free machine MUST
-reject it. `boot` MUST be the existing app-branded `RuntimeBootPayload<App>` and MUST exist only on
-`story.app`; the removed fresh-or-boot `start` union MUST NOT return. `title`, `description`, and
+reject it. Persistence is supplied only through `RuntimeSetup` and is absent by default; the removed
+fresh-or-boot `start` union MUST NOT return. `title`, `description`, and
 `tags` are descriptive metadata on app and machine plans only and MUST NOT become discovery identity.
 `maxTurns` MUST bound repeated processing and MUST default to `100` when omitted.
 
-`story.app` MUST accept the same typed `RuntimeFactory<App>` used by the live host. It MUST accept
-neither a bare app definition nor an already-created runtime. Every `run()` MUST invoke that factory
-once with a deterministic host containing the TestClock, fixture-backed external capabilities, and
-compatible Story boot. Boot restoration, factory ensures, source-graph validation, graph sealing,
-and activation MUST use the production bootstrap.
+`story.app` MUST accept the same typed `RuntimeSetup<App>` used by the live host. It MUST accept
+neither a bare app definition nor an already-created runtime. Every `run()` MUST call
+`RuntimeSetup.construct()` once with a deterministic host containing the TestClock, fixture-backed external capabilities, and the
+optional explicitly supplied Persistence provider. Any persistence test MUST use an isolated in-memory
+storage adapter. Persistence restoration, `Runtime.ensureActor` calls, source-graph validation, graph sealing, and
+activation MUST use the production bootstrap.
 
-`story.machine` MUST compile a package-private one-machine AppPlan through the production app
-compiler and execute it through the same production `FlowRuntime`, actor engine, operation kernels,
+`story.machine` MUST compile a package-private one-machine focused AppPlan through the production app
+compiler. When registered in a gateway, its machine MUST already be admitted by the gateway app's `App.M`;
+the focused plan is derived execution detail and creates no second public app identity. It MUST execute through
+the same production `Runtime`, actor engine, operation kernels,
 context-turn path, scheduler, inspection surface, atomic read barrier, and cleanup path used by live
 hosts.
 
 A missing shared actor during bootstrap or command targeting MUST fail through the same `getActor`
 diagnostic used by a live host.
 
-The production bootstrap MUST install and validate boot actors, complete the runtime factory's
+The production bootstrap MUST install and validate declared persistable actors, complete the `Runtime`'s
 initial `ensureActor` calls, resolve every exact context-provider ref, and reject missing providers,
 duplicate registrations, foreign machines, and instance cycles before activation, external work, or
-public handle escape. The Story layer MUST NOT provide a second registration, activation, actor,
+public handle escape. The Story adapter MUST NOT provide a second registration, activation, actor,
 mailbox, scheduler, operation, cache, snapshot, or cleanup implementation.
 
 **Proof obligations:** Compile proofs MUST cover every conditionally required or forbidden option,
-fixture-requirement closure, exact boot/app compatibility, metadata placement, and rejection of extra
-fields. Runtime proofs MUST cover the `100`-turn default and route app boot through production
-bootstrap.
+fixture-requirement closure, exact Persistence/app compatibility, metadata placement, and rejection of
+extra fields. Runtime proofs MUST cover the `100`-turn default and route Persistence restoration through
+production bootstrap.
 
 ## REV-TEST-002 — Keep Story plans immutable and inert
 
@@ -156,9 +168,14 @@ bootstrap.
 
 **Rule:** Builder calls MUST return new immutable plans without modifying their receiver. Plans MUST
 NOT contain embedded assertions, behavior branches, loops, predicates, arbitrary execution callbacks,
-or live actor handles. A runtime factory MUST be production bootstrap authority rather than a command
+or live actor handles. A `Runtime` MUST remain the production bootstrap authority rather than a command
 callback. `run()` MUST be the sole execution boundary and MUST return immutable checkpoints and
 automatic end evidence for assertions in an ordinary test runner.
+
+At Story materialization, `AppPlan`, `RuntimeSetup`, `Implementation`, `Persistence`, `Clock`,
+fixtures, seeds, and runner options MUST be frozen as one construction snapshot. Late mutation of
+any materialized input MUST fail or be rejected; a run MUST NOT observe configuration changes made
+after materialization.
 
 ## REV-TEST-003 — Represent Story-local actors as recipes
 
@@ -195,10 +212,10 @@ binding to the opaque ref of that recipe's materialized actor while leaving app-
 unchanged.
 
 Each `run()` MUST materialize providers before consumers with `runtime.createActor` after the
-production factory returns. It MUST retain each returned owner lease, expose only `lease.actor` to
+production `Runtime` construction completes. It MUST retain each returned owner lease, expose only `lease.actor` to
 command execution and evidence capture, and call the leases' asynchronous idempotent `dispose` in
 reverse dependency order during run cleanup. Dropping a lease MUST NOT count as cleanup, and
-app-owned shared actors MUST remain owned by leases retained by the runtime factory. A recipe whose
+app-owned shared actors MUST remain owned by leases retained by the `Runtime`. A recipe whose
 machine is not admitted by the compiled AppPlan MUST be rejected. Post-bootstrap actor admission follows
 the shared atomic transaction in `SEM-029`; this rule adds no alternate creation path.
 
@@ -211,9 +228,9 @@ missing providers, and unadmitted machines.
 
 **Change:** Replace machine-family targeting with exact actor targets.
 
-**Rule:** App Story `send` and `simulate` MUST target either one exact `story.actor` recipe or one
+**Rule:** App Story `send` MUST target either one exact `story.actor` recipe or one
 exact app-owned `ActorRef`. A ref MUST resolve through `runtime.getActor`; a missing ref MUST fail
-rather than create an actor. App-owned shared actors MUST remain owned by the runtime factory and
+rather than create an actor. App-owned shared actors MUST remain owned by the `Runtime` and
 MUST NOT be disposed by Story cleanup. Machine families MUST be invalid targets because one machine
 can back several actors. Story recipes MUST NOT be accepted by React hooks, `useView`, or ordinary
 runtime APIs.
@@ -227,24 +244,11 @@ execution. No target failure may acquire ownership or begin command execution.
 
 ```ts
 const saveDocument = story
-  .app(createDocumentsRuntime, {
+  .app(createDocumentsRuntimeSetup, {
     fixtures: [documentsFixture],
     maxTurns: 100,
   })
   .send(editor, Editor.E.EditRequested("Updated"))
-  .process()
-  .simulate(
-    editor,
-    Editor.O.save.commit({
-      documentId: "document-1",
-      body: "Updated",
-    }),
-    {
-      occurrence: 1,
-      type: "success",
-      value: savedDocument,
-    },
-  )
   .process()
   .send(PrimarySessionRef, Session.E.SignOutRequested())
   .process()
@@ -255,7 +259,7 @@ const saveDocument = story
 
 **Change:** Replace raw state restoration and extra-actor inputs with exact input and selected context.
 
-**Rule:** A machine Story MUST own one implicit fresh actor, so its `send` and `simulate` commands
+**Rule:** A machine Story MUST own one implicit fresh actor, so its `send` command
 MUST omit a target. It MAY accept exact fresh input and exact selected initial context required by
 the definition. It MUST invoke the production memory initializer and MUST NOT accept a runtime boot
 payload, `ActorRef`, additional actor, raw memory, initial state, or actor-snapshot override.
@@ -316,11 +320,9 @@ run({ signal? });
 
 // App Story
 send(target, event);
-simulate(target, operationPlan, observation);
 
 // Machine Story
 send(event);
-simulate(operationPlan, observation);
 setContext(context);
 ```
 
@@ -331,12 +333,13 @@ MUST NOT invoke transition logic directly or drain unrelated ready work.
 `process()` MUST replace both `flush()` and `settle()`. It MUST repeatedly ask the production runtime
 to drain ready mailboxes, context turns, reconciliation, same-time deadlines, scheduler work, and
 finite operation fibers until no work can progress without another command or future time. It MUST
-stop while controlled calls, continuing streams or observations, and future TestClock deadlines
-remain visible. Unknown finite work MUST continue until completion or `maxTurns` exhaustion.
+stop while pending external calls, continuing streams, and future TestClock deadlines
+remain visible, including continuing streams and observations. Unknown finite work MUST continue until
+completion or `maxTurns` exhaustion.
 `process()` MUST NOT advance time or invent an external result.
 
 `advance(duration)`, `advanceTo(epochMilliseconds)`, and `advanceToNextTimer()` MUST move the
-injected TestClock. Clock movement and `simulate` MUST NOT call `process()` implicitly.
+injected TestClock. Clock movement MUST NOT call `process()` implicitly.
 `checkpoint(name)` MUST capture evidence immediately without progressing work, moving time, or
 creating restoration input. `run({ signal? })` MUST acquire a fresh production runtime, execute the
 immutable plan, and guarantee cancellation and scoped cleanup through production disposal.
@@ -358,60 +361,19 @@ Effect `Cause.Cause<unknown>` for the failed execution. A completed execution wi
 its captured `end` in the error but never returns a successful run; failure before end capture retains
 completed checkpoints and the failure boundary without manufacturing `run.end`.
 
-## REV-TEST-007 — Simulate admitted operation occurrences through production completion
+## REV-TEST-007 — Story execution uses complete Implementations
 
-**Change:** Replace `perform`, `deliver`, and `receive` with one exact controlled-observation command.
+**Change:** Delete `perform`, `deliver`, `receive`, `simulate`, and every result-injection command.
 
-**Rule:** `simulate` MUST use one package-private interception point at the production external-execution
-boundary. Before interception, Flow MUST atomically validate the exact actor incarnation, operation family,
-descriptor, canonical `K`, one-based occurrence, and, for shared work, store generation and lease epoch.
-Interception is allowed only for an admitted pending occurrence owned by an active actor. Missing, foreign,
-mismatched, not-yet-admitted, already-settled, wrong-kind, suspended, and disposed targets MUST fail through
-the existing package diagnostic before external execution is replaced. The supplied observation MUST use an
-accepted family-specific variant and enter the ordinary production completion kernel, which alone settles
-the occurrence or shared generation, releases ownership, applies writes and overlays, updates projections
-and status, maps authored events, and emits evidence. `simulate` MUST NOT create, cancel, retry, process
-unrelated work, bypass lifecycle admission, or mutate runtime state directly. A shared-generation terminal
-observation settles that generation once and updates every attached actor occurrence; later terminal
-observations fail as already settled. Live hosts retain ordinary adapter execution.
+**Rule:** Story plans MUST NOT intercept pending operation occurrences or inject external observations.
+Complete service Implementations and Fixtures provide typed Effects or Streams; the production resource,
+transaction, and stream kernels alone own admission, execution, completion classification, authoritative
+writes, projections, mapped events, evidence, cancellation, and cleanup. Story commands remain limited to
+the accepted builder and runtime-processing surface. Live hosts retain ordinary adapter execution.
 
-On successful actor-local operation admission, Flow MUST allocate the next one-based ordinal within the
-actor incarnation, operation kind, descriptor identity, and canonical `K`. The ordinal is monotonic and
-non-reused for that actor incarnation; executable `P`, plan-object identity, and callback identity never
-contribute. `reject` consumes no occurrence; `cancel` settles the prior occurrence and gives a replacement a
-new ordinal; `allow` and `serialize` retain separate ordinals for every admitted occurrence. A continuing
-stream's existing occurrence identifies the actor-local declaration occurrence, while shared execution is
-identified separately by generation and lease epoch; emissions do not create new actor occurrences.
-Cancellation, supersession, suspension, and hydration retain bounded occurrence facts and cursors needed
-to reject duplicate observations and fence late completions. Hydration never replays external work: restored
-nonterminal transactions follow WIRE-012 and restored streams create a new generation without replaying
-emissions. Occurrence history is bounded evidence, not a public registry or handle.
-
-The accepted anonymous observation shapes are:
-
-```ts
-type ObservationShape =
-  | { occurrence: number; type: "success"; value: Success }
-  | { occurrence: number; type: "failure"; error: Failure }
-  | { occurrence: number; type: "defect"; defect: unknown }
-  | { occurrence: number; type: "interruption" }
-  | { occurrence: number; type: "emission"; value: Emission }
-  | { occurrence: number; type: "completion" };
-```
-
-`ObservationShape` is local explanatory notation, not an accepted exported name or universal generic
-parameter order. Each operation family admits only the variants and value types that apply to that
-family.
-
-Finite operations MUST accept terminal observations. Streams MUST accept emissions followed by
-completion, failure, defect, or interruption. Missing, mismatched, not-yet-admitted, already-settled,
-and wrong-kind occurrences MUST fail deterministically. When several actor occurrences share one
-canonical resource generation, one terminal simulation MUST settle that generation once and update
-every attached actor; another terminal observation MUST fail as already settled.
-
-The Story layer MAY replace only external execution. Admission, ownership, concurrency, canonical
-identity, lifecycle publication, completion classification, authoritative writes, mapped outcomes, and
-evidence MUST continue through the production operation kernels.
+Hydration never replays external work: restored nonterminal transactions follow WIRE-012 and restored
+streams create a new generation without replaying emissions. Persistence facts remain package-private and
+are never a public operation registry or control handle.
 
 ## REV-TEST-008 — Capture atomic checkpoint and end evidence
 
@@ -442,7 +404,7 @@ Every checkpoint and successful `run.end` MUST be deeply frozen and captured thr
 acquires stable actor-registry leases, one StoreState revision, published actor snapshots, pending-work
 facts, TestClock time, and the accepted runtime evidence prefix through one evidence-sequence fence. The
 capture set is the complete static closure of the Story plan: the single machine actor, every app recipe,
-and every exact ActorRef in boot payloads, context bindings, command targets, and transitive providers;
+and every exact ActorRef in context bindings, command targets, and transitive providers;
 unrelated runtime actors are excluded. `actor(...)` reads the frozen capture and never performs a live
 lookup. Captured roots are deeply frozen before leases are released. Checkpoint and `run.end` capture does
 not process work, move time, create, dispose, restore, or perform external work; `run.end` does not imply
@@ -476,8 +438,9 @@ model.
 **Rule:** A Story MAY create a fresh runtime instance for isolation, but live execution, Stories,
 and tests MUST share the same production runtime implementation. Story code MUST be limited to
 immutable plan construction, deterministic host capabilities, command interpretation, acknowledgement
-waiting, and evidence collection. Every stateful action MUST pass through the production runtime
-factory, `FlowRuntime`, actor creation and lookup, mailbox, operation kernels, context propagation,
+waiting, and evidence collection. Every stateful action MUST pass through the production `RuntimeSetup`,
+constructed `Runtime`,
+actor creation and lookup, mailbox, operation kernels, context propagation,
 scheduler, inspection, atomic read barrier, and disposal paths.
 
 Equivalent domain commands executed by a live host and a Story MUST produce the same snapshots,
@@ -493,7 +456,7 @@ records, pending work, operation generations, and cleanup evidence.
 
 `model(baseStory, { stateKey })` accepts only a command-empty fresh `story.machine` plan. The
 machine, exact fresh input, selected context, metadata, fixtures, and `maxTurns` policy may already
-be bound, but no `send`, `simulate`, processing, clock movement, `setContext`, or checkpoint command
+be bound, but no `send`, processing, clock movement, `setContext`, or checkpoint command
 may have been appended. App Stories MUST NOT be reduced to one predicted machine model. A boot
 payload cannot satisfy this focused fresh-machine boundary; boot parity remains an ordinary live
 Story concern. The required pure `stateKey(predictedSnapshot)` returns a `CanonicalKeyInput`
@@ -504,10 +467,10 @@ guard, redirect, and memory logic.
 
 The pure model implementation MUST NOT import `effect`, call `Effect.run*`, acquire a service, run a
 resource lookup or transaction commit, subscribe to a stream, synthesize a success route, instantiate
-a fixture Layer, or mutate runtime or fixture state. Each programmatic `getShortestPaths` or
+a fixture Implementation, or mutate runtime or fixture state. Each programmatic `getShortestPaths` or
 `getSimplePaths` call solely owns its concrete typed candidate-event array. Fixture definitions MAY
 contribute inert exact-ref seed facts when the pure fixture compiler can read them without
-instantiation; fixture Layers, registered Stories, and CLI inputs never contribute or infer
+instantiation; fixture Implementations, registered Stories, and CLI inputs never contribute or infer
 candidates.
 
 Traversal options are exactly `{ events, maxDepth?, limit? }`; `maxDepth` defaults to 20 and is a
@@ -520,7 +483,7 @@ Both stop before expanding beyond `maxDepth` or returning more than `limit`, and
 reachable candidate. State-key defects or noncanonical results throw synchronously before returning
 a partial collection. Filters, source/target selectors, weights, duplicate policies, custom event
 serializers, and hidden candidate registries are not vNext options. Exact canonical-key encoding and
-container behavior follow `REV-OPS-016`.
+container behavior follow `PUBLIC_API.md` `API-005`.
 
 ## TEST-015 — A model path becomes an ordinary live Story
 
@@ -537,7 +500,7 @@ second resource, transaction, or stream interpreter. Paths that depend on asynch
 include their already-authored domain events as candidate events; the model never synthesizes them
 or invents checkpoint names or a second evidence shape.
 
-There are no model-owned replay methods or replay-only Layer or clock options. Live model proof
+There are no model-owned replay methods or replay-only Implementation or clock options. Live model proof
 returns the same run value, execution error, checkpoints, and cleanup guarantees as any authored
 Story. Live and Story execution share the production runtime implementation under `REV-TEST-010`,
 and React attachment lifecycle evidence remains outside the machine timeline without synthetic Story
@@ -564,7 +527,7 @@ an explicit `truncatedBeforeSequence` marker identifying the greatest sequence n
 Captured sink snapshots are immutable and do not change after later pruning.
 
 Hosts that need history explicitly install the sink. The Story runner and CLI MAY install one
-run-local sink when their requested evidence needs turn history. Boot payloads MUST NOT persist the
+run-local sink when their requested evidence needs turn history. Persistence records MUST NOT persist the
 buffer; durable history belongs only in an explicitly encoded trace artifact. There is no
 actor-owned `setRetention`, global mutable inspection log, or separate mutable `TraceLog`. These
 retained boundaries are subject to `DEL-010` and MUST NOT preserve a deleted Story or replay surface.
@@ -573,6 +536,6 @@ retained boundaries are subject to `DEL-010` and MUST NOT preserve a deleted Sto
 
 The historical problem statements are recorded in
 `reference/incident-console/implementation/revision-spec/UNRESOLVED_BEHAVIOR.md`; this chapter's focused-
-context, controlled-operation, occurrence, checkpoint, and cleanup entries are closed by the accepted
+context, external-operation, occurrence, checkpoint, and cleanup entries are closed by the accepted
 `REV-TEST-*` clauses. Post-bootstrap recipe admission follows the shared atomic transaction in `SEM-029`; no
 new Story surface follows from that dependency.

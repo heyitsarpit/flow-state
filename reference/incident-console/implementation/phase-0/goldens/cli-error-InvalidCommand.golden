@@ -1,1 +1,0 @@
-{"command":null,"diagnostic":{"category":"usage","code":"InvalidCommand","details":{"argument":null},"message":"InvalidCommand"},"kind":"flow-state-cli-error","version":"flow-state/cli-result.v1"}

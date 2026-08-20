@@ -1,24 +1,24 @@
 # Flow State vNext revision specification
 
-Status: normative revision authority
+Status: historical revision index; contract semantics are fully integrated
 
 Migration readiness: the inherited `BEH-*` register is closed by the accepted revisions; implementation
 readiness depends on the named proof obligations and does not reopen design work.
 
-This folder is the self-contained formal replacement for the accepted revision ledger. A reader MUST be
-able to understand every accepted change and every known unresolved boundary using this folder alone.
-Historical files are retained under [`../archive/provenance/`](../archive/README.md) for provenance only:
-no normative rule, type shape, lifecycle, failure, example, or proof obligation is defined by following
-a link outside this folder. When the accepted material did not
-finish an implementable shape, this folder records that omission explicitly instead of inventing it.
+The contract files are the current normative authority. The accepted revision chapters are retained under
+[`../archive/`](../archive/README.md) for provenance only. No normative rule, type shape, lifecycle,
+failure, example, or proof obligation is defined by following a link into this historical index or archive.
+When the accepted material did not finish an implementable shape, the contracts record that omission
+explicitly instead of inventing it.
 
-An accepted rule here overrides every conflicting clause in the existing implementation contracts.
-Contract clauses that this specification does not change remain authoritative.
+The archived accepted rules have been merged into the contracts. Contract clauses are now the sole
+normative authority for this implementation baseline.
 
-The deletion ledger in [`accepted/07-deletions-and-cutover.md`](./accepted/07-deletions-and-cutover.md) is
-the normative owner for every old surface that this revision removes or replaces. `NON_GOALS.md` records
-rejected and deferred directions but does not classify old clauses. An accepted clause MUST NOT leave an
-affected old surface without a disposition; it MUST defer to the applicable `DEL-*` entry.
+The transferred deletion ledger in [`../contracts/COMPATIBILITY_AND_DELETIONS.md`](../contracts/COMPATIBILITY_AND_DELETIONS.md)
+is now the normative owner for every old surface that the accepted revisions remove or replace.
+`NON_GOALS.md` records rejected and deferred directions but does not classify old clauses. An accepted
+clause MUST NOT leave an affected old surface without a disposition; it MUST defer to the applicable
+`DEL-*` entry in that contract.
 
 This specification does not reopen design work. It may restate, organize, and connect already accepted
 decisions, but it must not add a public API, behavior, default, exception, or proof obligation that the
@@ -83,13 +83,13 @@ This vocabulary summarizes the accepted model so later chapters can use exact te
 
 | Area                                                                    | Revisions                                       | Contract effect                                                                                                          |
 | ----------------------------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| [Composition and app plans](./accepted/01-composition-and-app-plans.md) | `REV-COMP-001`–`015`                            | Definition dependencies, reactive context, modules, apps, actor admission, identity, and construction                    |
-| [Machine authoring](./accepted/02-machine-authoring.md)                 | `REV-MACH-001`–`011`                            | Definition grammar, compound states, transitions, timers, redirects, and reentry                                         |
-| [Operations](./accepted/03-operations.md)                               | `REV-OPS-001`–`018`                             | Operation families, canonical identity, finite actions, continuing work, state unions, invalidation, and cache semantics |
-| [React and hosts](./accepted/04-react-and-hosts.md)                     | `REV-HOST-001`–`008`                            | React attachment ownership, focused reads, render safety, suspension, resumption, passive reactivity, and host writes    |
-| [Stories and testing](./accepted/05-stories-and-testing.md)             | `REV-TEST-001`–`010`                            | Story constructors, commands, controlled operations, processing, time, checkpoints, evidence, and models                 |
-| [Migration and proofs](./accepted/06-migration-and-proofs.md)           | `REV-MIG-001`–`006`                             | Required rewrites, v2 artifact/CLI authority, child removal, compatibility effects, and proof obligations                |
-| [Deletions and cutover](./accepted/07-deletions-and-cutover.md)         | `REV-MIG-004`, `DEL-001`–`011`, `RET-001`–`005` | Exhaustive old-surface dispositions, no-residue rules, retained boundaries, and absence proofs                           |
+| [Composition and app plans](../archive/revision-spec/accepted/01-composition-and-app-plans.md) | `REV-COMP-001`–`015` | Fully integrated into the contracts; archived as provenance. |
+| [Machine authoring](../archive/revision-spec/accepted/02-machine-authoring.md)                 | `REV-MACH-001`–`011` | Fully integrated into the contracts; archived as provenance. |
+| [Operations](../archive/revision-spec/accepted/03-operations.md)        | `REV-OPS-001`–`018`                             | Fully integrated into the contracts; archived as provenance. |
+| [React and hosts](../archive/revision-spec/accepted/04-react-and-hosts.md) | `REV-HOST-001`–`008` | Fully integrated into the contracts; archived as provenance. |
+| [Stories and testing](../archive/revision-spec/accepted/05-stories-and-testing.md) | `REV-TEST-001`–`010` | Fully integrated into the contracts; archived as provenance. |
+| [Migration and proofs](../archive/revision-spec/accepted/06-migration-and-proofs.md) | `REV-MIG-001`–`006` | Fully integrated into the contracts; archived as provenance. |
+| [Deletions and cutover](../archive/revision-spec/accepted/07-deletions-and-cutover.md) | `REV-MIG-004`, `DEL-001`–`011`, `RET-001`–`005` | Fully integrated into `COMPATIBILITY_AND_DELETIONS.md`; archived as provenance. |
 
 Unresolved behavior is indexed separately in
 [`UNRESOLVED_BEHAVIOR.md`](./UNRESOLVED_BEHAVIOR.md). Most entries close internal semantics beneath the

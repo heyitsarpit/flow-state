@@ -13,9 +13,10 @@ tests, contracts, and proofs before making implementation or status claims.
 - `examples/` — maintained consumers and TypeScript compiler proofs.
 - `apps/docs/` — Vocs documentation and generated reference artifacts.
 - `reference/incident-console/implementation/` — normative Incident Console
-  contract pack: its README maps authority, `tasks/` names the active slice,
-  `contracts/` define behavior, `receipts/` prove phases, and
-  `SCRATCHPAD.md` records findings.
+  contract pack. Its `README.md` maps authority; `contracts/` define behavior;
+  `revision-spec/accepted/` overrides conflicts; and the greenfield, review,
+  and test requirement files define execution discipline. Beads will hold the
+  task plan after the inventory is approved.
 - `codebases/` — research input only; installed packages and the lockfile
   are authoritative for dependency APIs.
 

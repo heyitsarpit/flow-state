@@ -4,8 +4,8 @@ Status: normative vNext contract
 
 This contract defines actor identity and ownership, runtime bootstrap, synchronous commands,
 React attachment and observation, SSR and request hosts, persistence, disposal, and non-React
-host parity. The accepted revision authority is `reference/incident-console/implementation/revision-spec`;
-its `REV-*` rules override conflicting clauses below, and its unresolved `BEH-*` entries do not
+host parity. The active clauses in this contract pack are authoritative. The revision specification,
+accepted decisions, and archived records preserve provenance only; unresolved `BEH-*` entries do not
 authorize an implementation choice.
 
 ## Deletion disposition
@@ -25,8 +25,8 @@ no-residue requirements; this file records the surviving boundaries and their ac
 tooling records; modules do not create automatic root actors, and app compilation creates no
 actor instances. The app closes machine and operation reachability before runtime execution.
 
-Initial runtime construction MUST validate the boot payload, acquire the application Layer, install and
-validate boot actors, complete every initial production-factory `ensureActor`, and resolve every exact
+Runtime readiness/bootstrap MUST restore the optional Persistence provider, acquire the application
+Implementation, install and validate declared persistable actors, complete every initial `Runtime.ensureActor`, and resolve every exact
 context-provider ref. Missing providers, duplicate registrations, foreign machines, and instance cycles
 MUST be rejected before activation, external operation, or public runtime or actor handle escape. Live
 hosts and app Stories MUST cross this same production bootstrap barrier; a Story MUST
@@ -50,14 +50,15 @@ The runtime surface MUST be:
 
 ```ts
 actorRef(machine, id);
+actorRef(machine, id, { persist?: boolean });
 runtime.ensureActor(ref, { input, contextBindings? });
 runtime.getActor(ref);
 runtime.createActor(machine, { input, contextBindings? });
 ```
 
-`actorRef(machine, id)` MUST create an inert durable address without creating an actor. Stable
-refs MUST be branded to their exact machine, not to one app, and the app identity qualifies their
-persisted actor identity.
+`actorRef(machine, id, { persist?: boolean })` MUST create an inert durable address without creating an actor.
+`persist` defaults to `false`, is declaration metadata, and is not part of ActorRef identity. Stable refs MUST
+be branded to their exact machine, not to one app, and the app identity qualifies their persisted actor identity.
 
 `runtime.ensureActor` MUST be the durable restore-or-create boundary for an explicit runtime owner
 and MUST return an owner lease `{ actor, dispose }`. A boot-restored ref MUST resolve to that exact
@@ -136,7 +137,7 @@ synchronous admission failure. It MUST NOT return a Promise, Effect, Fiber, snap
 acknowledgment handle, and it MUST NOT subscribe the caller. Equivalent domain commands through a
 live host and a Story MUST use the same production mailbox and actor engine.
 
-The Story layer MAY use a package-private acknowledgment on that same mailbox command. The
+The Story adapter MAY use a package-private acknowledgment on that same mailbox command. The
 acknowledgment MUST complete after the ordinary event turn stabilizes and MUST NOT invoke transition
 logic directly or drain unrelated ready work. The Story command surface and its explicit processing
 boundary are defined by `REV-TEST-006`; no second execution path is permitted.
@@ -146,7 +147,7 @@ boundary are defined by `REV-TEST-006`; no second execution path is permitted.
 An ordinary actor handle MUST expose its exact `ref`, synchronous command access, and the public
 actor snapshot used by host observation. Snapshots MUST retain the actor's coherent state, immutable
 memory, inherited context, lifecycle, and issues for one actor publication; exact operation-state
-projections follow `REV-OPS-017`. Actor state MUST remain in Flow's production runtime; React
+projections follow `PUBLIC_API.md` `API-006`. Actor state MUST remain in Flow's production runtime; React
 MUST NOT store actor state, mailboxes, operation bindings, or cleanup ownership.
 
 Lifecycle changes publish immutable snapshots but are not machine turns. The public `snapshot.revision`
@@ -166,21 +167,21 @@ before appending its inspection event. Inspection MUST retain `actor:start`, `ac
 `actor:dispose`, add `actor:suspend` and `actor:resume`, and MUST NOT add `actor:prepare`.
 `actor:start` records first activation, `actor:suspend` records `active -> suspended`,
 `actor:resume` records `suspended -> active`, and `actor:dispose` records a terminal transition
-from any non-disposed lifecycle. `actor:restore` remains a separate boot-installation fact and
+from any non-disposed lifecycle. `actor:restore` remains a separate Persistence-restoration fact and
 precedes `actor:start`. Each event MUST carry exact actor metadata, `from`, `to`, and a
-discriminated `cause`; first activation distinguishes fresh creation, boot restoration, and
+discriminated `cause`; first activation distinguishes fresh creation, Persistence restoration, and
 attachment commit, while disposal distinguishes owner disposal from whole-runtime disposal.
 Lifecycle evidence MUST NOT create a machine-turn revision or `TurnRecord`; runtime disposal drains
 accepted lifecycle and TurnRecord evidence without manufacturing a terminal `TurnRecord`.
 
-### HOST-006 — Runtime factories cross bootstrap before host escape
+### HOST-006 — RuntimeSetup and Runtime cross bootstrap before host escape
 
-Live hosts MUST use the production runtime factory and cross the `REV-COMP-015` bootstrap barrier.
+Live hosts MUST use the production RuntimeSetup and cross the `REV-COMP-015` bootstrap barrier.
 The private runtime phase is `constructed | booting | ready | failed | disposed`: booting validates
-boot data, acquires the Layer, completes initial ensures, and seals the graph; ready admits ordinary
-work; failed closes admission after reverse-order rollback; and disposed is terminal. The runtime
-does not expose this phase union or add a readiness API. Any retained `runtime.ready()` surface
-observes the existing readiness boundary, with automatic-root assumptions removed.
+the Persistence provider, acquires the Implementation, completes initial ensures, and seals the graph; ready
+admits ordinary work; failed closes admission after reverse-order rollback; and disposed is terminal. The
+runtime does not expose this phase union. `runtime.ready()` is the one public readiness Effect and observes
+this boundary; automatic-root assumptions remain removed.
 
 After bootstrap, `ensureActor` and `createActor` use one linearized admission transaction. It validates
 exact app/plan provenance, ref and machine identity, input, bindings, provider graph, tombstones, and
@@ -201,7 +202,38 @@ The public Provider shape MUST remain:
 </FlowProvider>
 ```
 
-`FlowProvider` MUST NOT accept an app, Layer, boot payload, factory callback, actor ID, or startup
+Persistence is injected before React through the same `RuntimeSetup` used by live and Story hosts:
+
+```ts
+const setup = runtimeSetup({
+  app: TodoApp,
+  implementation: TodoLive,
+  persistence: persistence({
+    storage: webStorage(window.localStorage),
+    scope: "user:42",
+  }),
+});
+
+const runtime = setup.construct();
+
+root.render(
+  <FlowProvider runtime={runtime}>
+    <TodoAppView />
+  </FlowProvider>,
+);
+```
+
+Nested `FlowProvider` instances that point at unrelated runtime instances MUST be treated as an
+explicit host boundary. The implementation MUST diagnose that boundary rather than silently
+combining actor lookup, persistence, subscriptions, or lifecycle ownership across runtimes.
+
+`FlowProvider` is the sole React context wrapper. There is no separate React persistence provider. The
+Runtime owns persistence readiness, restoration, committed-change observation, and disposal; React receives
+the already-created Runtime and never receives storage, a codec, a boot payload, or a restore callback.
+`FlowProvider` observes the Runtime's cached `ready()` result before exposing ordinary actor/view use and does
+not create, start, or dispose the Runtime.
+
+`FlowProvider` MUST NOT accept an app, Implementation, boot payload, factory callback, actor ID, or startup
 policy. It MUST NOT assemble services, create actors, hydrate mutable state, or own runtime
 disposal. Browser runtimes MUST be constructed once outside React bootstrap; request and Story
 runtimes MUST remain scope-owned.
@@ -392,7 +424,7 @@ bounded to 64 entries and abandoned server renders close their mailbox and remai
 
 ### HOST-013 — Request hosts use production runtime construction
 
-Request-scoped preload and render hosts MUST use the same production runtime factory and AppPlan
+Request-scoped preload and render hosts MUST use the same production `RuntimeSetup`, constructed `Runtime`, and AppPlan
 bootstrap as live hosts. Request runtimes MUST be isolated from browser and other request runtimes,
 and a request host MUST dispose the runtime it owns through the production cleanup path. Request
 helpers MUST NOT create automatic roots, install a testing-only actor engine, fabricate child or
@@ -402,12 +434,13 @@ The existing request helper's retained handler and cleanup-failure guarantees re
 an accepted revision changes them. Prepared SSR uses HOST-012's passive provisional context cut and
 same-actor attachment; it does not acquire a second runtime or introduce a server-only lifecycle.
 
-### HOST-014 — Boot is immutable constructor input and context-closed persistence
+### HOST-014 — Persistence is provider-owned and context-closed
 
-Boot MUST be decoded, version-checked, app-checked, normalized, and installed during production
-runtime construction. Runtime MUST NOT expose mutable hydration or use an assertion-cast boot
-payload. Restoration MUST install persisted actor memory and exact stable refs without replaying
-input or invoking the fresh memory initializer.
+Persistence MUST be supplied through the optional `RuntimeSetup.persistence` provider. Runtime MUST NOT
+expose a mutable hydration API, public boot payload, public decoder, or assertion-cast persisted input.
+Restoration MUST install declared persistable actor memory and exact stable refs without replaying input or
+invoking the fresh memory initializer. The default provider codec accepts only bounded JSON-safe values;
+applications may supply a custom codec through the provider for opaque domain values.
 
 Selected context values are derived runtime data and MUST NOT be serialized as duplicate consumer
 state. Dehydration MUST begin only between completed context-propagation waves and MUST capture a
@@ -420,9 +453,9 @@ restored provider snapshots, and install the derived projections as the consumer
 before initial continuing-activity reconciliation or handle escape. It MUST NOT replay or
 manufacture `onContext` events, and serialized selected values MUST NOT override provider truth.
 
-Dehydration MUST fail terminally when an included durable consumer depends directly or transitively
+Persistence capture MUST fail terminally when an included durable consumer depends directly or transitively
 on an opaque local provider. It MUST NOT serialize, promote, recreate, substitute, or rebind that
-provider automatically. `FlowDehydrateError` MUST add the non-retryable kind
+provider automatically. `FlowPersistenceError` MUST add the non-retryable kind
 `NonDurableContextProvider`, carrying the durable consumer ID, opaque provider diagnostic ID, provider
 machine ID, and every failing `contextBindings.<key>` path. Its message MUST identify those exact paths
 and direct the host to declare `actorRef(providerMachine, id)`, create or restore that provider through
@@ -430,19 +463,33 @@ and direct the host to declare `actorRef(providerMachine, id)`, create or restor
 accepts an ID. The other remedy is to dispose and replace the durable consumer without the dependency
 before capture. This is `REV-COMP-005`.
 
-Dehydration captures every registered non-disposed durable stable actor, including suspended and
-boot-restored actors, plus the transitive closure of exact stable context-provider refs. Local actors,
-disposed actors, and runtime-incarnation tombstones are excluded. A restored stable actor remains
-runtime-owned even when the current factory does not repeat `ensureActor`; an opaque provider in the
-captured closure fails closed under `NonDurableContextProvider`. Stable and opaque ref encoding follows
-the durable `actor:` representation in `WIRE-008`.
+Persistence captures only non-disposed stable actors whose `actorRef(..., { persist: true })` declaration
+opts them in, plus the transitive closure of exact stable context-provider refs. Local actors, disposed
+actors, and runtime-incarnation tombstones are excluded. A restored stable actor remains runtime-owned even
+when the current `Runtime` does not repeat `ensureActor`; an opaque provider in the captured closure fails
+closed under `NonDurableContextProvider`. Persistable resource, transaction, and stream declarations are
+included only according to `WIRE-000A`; stable and opaque ref encoding follows `WIRE-008`.
 
 ### HOST-015 — Effect bridges retain runtime service and error truth
 
 The runtime MUST expose the retained Effect bridges over Effects whose requirements are satisfied by
 the installed runtime Context. `runPromiseExit` MUST resolve an Exit that retains both Effect and
-Layer/runtime failure truth, rather than hiding an acquisition failure in a second execution Scope.
+Implementation/runtime failure truth, rather than hiding an acquisition failure in a second execution Scope.
 The bridges MUST reuse the production runtime and MUST NOT create an unowned execution Scope.
+
+### HOST-017 — Trusted host writes are construction-scoped
+
+Boot, SSR, and Fixture seeding MAY use a package-private capability-scoped host-write lease to install
+authoritative Runtime-owned resource state. The lease MUST be minted only by the owning `RuntimeSetup`
+or `Runtime` Scope for its exact `AppPlan`, runtime identity, and allowed write boundary; it MUST NOT
+be constructible, storable, or callable through the public package surface.
+
+Each host-write lease MUST carry its owning runtime/capability epoch and MUST validate the exact admitted
+resource descriptor and canonical `K` before entering the StoreKernel authoritative write path. Closing
+the owning Scope or disposing the runtime revokes the lease; a revoked, foreign, or stale lease MUST
+fail before StoreState mutation or publication. Writes use the same generation fencing, fanout, and
+revision rules as an accepted `setData` write, but MUST NOT create an actor occurrence, domain event,
+machine turn, or public writer API.
 
 ## Disposal and proof obligations
 
@@ -464,11 +511,13 @@ normalization follows HOST-009 without changing public operation unions or Cause
 
 ### HOST-P01 — Bootstrap and ownership proof
 
-Proofs MUST cover closed `App.M` admission, unique durable machine IDs, stable and opaque exact refs, boot restoration, fresh
+Proofs MUST cover closed `App.M` admission, unique durable machine IDs, stable and opaque exact refs, Persistence restoration, fresh
 input initialization, exact context bindings, shared lookup, local creation, owner-lease transfer,
 non-disposed-consumer disposal rejection, stable-ref tombstones, bootstrap graph sealing, reverse-order
 rollback, runtime phases, and absence of
-automatic roots and disposal on ordinary handles.
+automatic roots and disposal on ordinary handles. They MUST also cover trusted host-write capability
+provenance, exact descriptor/`K` validation, revocation and stale-epoch rejection, StoreKernel fencing
+and fanout, and the absence of occurrences, machine turns, and public writers.
 
 ### HOST-P02 — React lifecycle proof
 
@@ -479,6 +528,9 @@ Strict Mode reconnection, Activity hide/reveal, serialized suspension normalizat
 edges, fail-closed missing-provider resume, no active work after final unmount, lookup-only changed-ref
 `useActorByRef` behavior, and revision-scoped selector defect memoization/retry. Passive operation-read reactivity MUST cover dependency
 replacement, cross-actor StoreFanout, tear-free reads, and cleanup on suspension/disposal.
+
+The proof MUST also show that unrelated nested `FlowProvider` runtimes are diagnosed and never
+share actor, persistence, subscription, or lifecycle ownership implicitly.
 
 ### HOST-P03 — Selector and host parity proof
 

@@ -1,1 +1,0 @@
-{"command":null,"diagnostic":{"category":"artifact","code":"StructuralBoundExceeded","details":{"actual":null,"limit":null,"path":[]},"message":"StructuralBoundExceeded"},"kind":"flow-state-cli-error","version":"flow-state/cli-result.v1"}

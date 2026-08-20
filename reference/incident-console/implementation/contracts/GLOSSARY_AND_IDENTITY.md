@@ -5,10 +5,11 @@ Status: locked
 This contract gives every Flow concept one name and every durable or concurrent entity one
 identity. Other contracts reference these rules rather than redefining the terms.
 
-The accepted revision specification overrides conflicting clauses in this file. Affected removed
-or replaced surfaces defer to `DEL-001` through `DEL-011`; a `REPLACE` entry removes the old surface
-and does not permit an alias, overload, adapter, or compatibility wrapper. Explicitly retained
-boundaries remain authoritative under `RET-001` through `RET-005`.
+The active clauses in this contract pack are authoritative. The revision specification, accepted
+decisions, proposals, and archived records preserve provenance only and do not override a contract
+clause. Affected removed or replaced surfaces defer to `DEL-001` through `DEL-011`; a `REPLACE` entry
+removes the old surface and does not permit an alias, overload, adapter, or compatibility wrapper.
+Explicitly retained boundaries remain authoritative under `RET-001` through `RET-005`.
 
 ## Definitions
 
@@ -32,8 +33,8 @@ and have no durable encoding.
 
 State tokens are exact definition-derived tokens that preserve the complete readable state path,
 including compound ancestors, such as `S.ACTIVE.S.EDITING`. Event tokens remain one machine-wide
-event protocol. Stable-ref encoding follows `WIRE-008`; canonical identity encoding follows
-`REV-OPS-016`.
+event protocol. Stable-ref encoding follows `WIRE-008`; canonical identity encoding follows the
+canonical-key rules in `PUBLIC_API.md` `API-005`.
 
 ### GLO-02. Machine and actor
 
@@ -80,12 +81,15 @@ registry, operation-reference, bound-entry, and public-enumeration surfaces do n
 ### GLO-05. Executable input and canonical key domain
 
 `P` is complete immutable executable input retained by a live lookup, transaction attempt, or
-stream subscription. It may contain clients and functions and is never operation identity. `K` is
+stream subscription. It MAY contain clients and functions and is never operation identity. Service
+dependencies also belong to the inferred Effect/Stream requirement `R`; runtime-owned capabilities remain
+outside `P`. `P` is
+never operation identity. `K` is
 the ordered readonly canonical tuple projected synchronously from `P`; resource and transaction
 identity use descriptor ID plus canonical `K`, while a live stream binding also retains its
 declaration slot.
 
-Canonical `K` follows `REV-OPS-016`: Flow accepts ordinary dense arrays and plain records, copies them
+Canonical `K` follows `PUBLIC_API.md` `API-005`: Flow accepts ordinary dense arrays and plain records, copies them
 into Flow-owned containers, recursively freezes them, and freezes the top-level tuple. It sorts record
 keys, normalizes `-0` to `0`, rejects hostile reflection and unsupported values, and uses the exact
 bounded UTF-8 `KBytes` grammar. Capability, tenant, account, network, permission, session, and every
@@ -149,10 +153,10 @@ the ordinary actor handle without an owner lease. `runtime.createActor(machine, 
 contextBindings? })` always creates a fresh local actor and returns the owner lease. The actor
 handle exposes its exact `actor.ref`; neither the handle nor the ref exposes individual disposal.
 
-Only the production runtime factory or an explicit runtime owner may invoke the ownership-capable ensure
+Only the owning production `Runtime` or an explicitly designated runtime owner may invoke the ownership-capable ensure
 path. One stable ref in one runtime incarnation has one shared owner lease and actor lifetime; concurrent
 ensures join that authority without per-caller reference counts. A boot-restored stable actor receives its
-runtime-owned lease before any public handle escapes, and a later factory ensure joins it. If the factory
+runtime-owned lease before any public handle escapes, and a later `Runtime.ensureActor` joins it. If the `Runtime`
 does not ensure it, runtime ownership lasts until explicit disposal or runtime shutdown.
 
 Owner-lease disposal is asynchronous, idempotent, and terminal. It is rejected before disposal
@@ -161,7 +165,7 @@ retains its exact logical provider edge, provider ref, binding key, provider inc
 and provider revision. Successful disposal tombstones a
 stable ref for the current runtime incarnation, so lookup and ensure reject that ref until runtime
 shutdown; a later runtime may reuse the authored stable ref under ordinary boot rules. Runtime
-factory-owned shared leases and Story-local creation leases retain their own disposal authority.
+`Runtime`-owned shared leases and Story-local creation leases retain their own disposal authority.
 Post-bootstrap admission validates the complete binding graph atomically and rolls back in reverse
 order on failure; concurrent ensures join one actor lifetime. Dehydration captures every registered
 non-disposed durable stable actor, including suspended and boot-restored actors, plus the transitive
@@ -270,10 +274,24 @@ canonical StoreFanout publications rerun the selector against one tear-free boun
 reruns do not evaluate machine transitions.
 
 `ActorState` is the package-private atomic owner containing that public snapshot plus durable
-binding facts. Public readers project the snapshot. Dehydration captures a
+binding facts. Public readers project the snapshot. Persistence captures a
 context-closed cut: selected context values are derived and are not serialized as duplicate
 consumer state, while exact provider refs and observed revisions are retained for included
 consumers. These facts MUST NOT live in separately mutable owners.
+
+### GLO-08A. Persistence declaration and provider
+
+`persist: true` is declaration metadata on a stable `ActorRef` or named resource, transaction, or stream
+descriptor. It is false by default and does not change operation or actor identity. A persistable actor is
+captured as a complete stable snapshot; a persistable operation contributes only the family-specific facts
+defined by `PERSISTENCE_AND_ARTIFACTS.md`. A local actor can never become restorable through an operation
+declaration.
+
+`Persistence` is one inert host provider retained by `RuntimeSetup`. It owns storage access, the default or
+application-supplied codec, restoration, observation, ordered writes, and cleanup, but it does not choose
+the durable application set. Its optional filter can only exclude declared entries. A codec is a pure
+application-value encoder/decoder; the default codec accepts bounded JSON-safe values and rejects unsupported
+values rather than silently changing them.
 
 ### GLO-13. Issue, receipt, and pending work
 
@@ -300,7 +318,7 @@ query-result state machine. Passive operation-read reactivity is dependency-trac
 
 ### GLO-15. Story, fixture, recipe, command, and checkpoint
 
-The public Story constructors are `story.app(runtimeFactory, options?)`,
+The public Story constructors are `story.app(runtimeSetup, options?)`,
 `story.machine(machine, options?)`, and `story.actor(machine, options?)`. A Story plan is immutable
 and inert until `run()`. An actor recipe is a deeply frozen run-local description containing its
 exact machine, required fresh input, and exact compatible context bindings; it contains no runtime,
@@ -310,30 +328,29 @@ App Stories target one exact actor recipe or app-owned stable `ActorRef`. Machin
 implicit fresh actor and use target-free commands; they alone accept selected initial context and
 `setContext`. Story-local recipes materialize through the production runtime in provider-first
 dependency order and dispose retained owner leases in reverse dependency order. App Stories use
-the same typed production runtime factory and do not inject selected context directly.
+the same typed production `RuntimeSetup` and constructed `Runtime`, and do not inject selected context directly.
 
 The closed command surface is `process`, `advance`, `advanceTo`, `advanceToNextTimer`,
-`checkpoint`, `run`, `send`, and `simulate`, with `setContext` only for machine Stories.
-`process` drains ready production work without advancing time; clock movement and `simulate` do not
-process implicitly. `simulate` matches an already-pending controlled operation occurrence and
-enters through production completion; it creates no work and directly mutates no actor, store, or
-evidence.
+`checkpoint`, `run`, and `send`, with `setContext` only for machine Stories.
+`process` drains ready production work without advancing time; clock movement does not
+process implicitly. Story plans do not inject results into pending operations; complete service
+Implementations provide external behavior and `.run()` is the sole execution boundary.
 
 A fixture is an immutable directly referenced per-run environment definition. A checkpoint is an
 immediate deeply frozen capture through the production atomic read barrier and never progresses
 execution. App evidence uses exact `checkpoint.actor(recipe | ActorRef)` lookup; machine evidence
 uses its single `snapshot`. Both reserve `runtime.now` and `runtime.pendingWork`. `run.end` is
 automatic final run evidence and does not imply actor completion. Focused-context installation,
-controlled-operation interception, occurrence persistence, capture sets, and cleanup failure evidence are
+external adapter execution, occurrence persistence, capture sets, and cleanup failure evidence are
 closed by `REV-TEST-005` through `REV-TEST-008`; their package-private mechanisms are not additional
 public API.
 
-### GLO-16. Boot and artifact
+### GLO-16. Internal boot and artifact
 
-Boot is immutable runtime-constructor input carrying Flow-owned structural data and opaque
-application payloads. Compatible app Stories use the app-branded `RuntimeBootPayload<App>` through
-the accepted `boot` option and the same production runtime factory as live hosts. Flow validates
-its structure and identity; applications validate and migrate their domain payloads.
+Boot is package-private immutable runtime-constructor data carrying Flow-owned structural data and opaque
+application payloads. It is produced and consumed by the RuntimeSetup Persistence provider; consumers do not
+provide `boot`, call a decoder, or invoke hydration directly. Flow validates its structure and identity;
+applications validate opaque domain values through the provider's default or supplied codec.
 
 An artifact is an explicitly exported versioned behavior or trace envelope. Artifact and CLI
 schemas must represent the accepted app Stories, exact actor evidence lookup, `run.end`, module
@@ -344,7 +361,7 @@ identities. Exact artifact/CLI closure is `REV-MIG-005`; host seeding and truste
 ### GLO-17. Runtime phase and admission transaction
 
 The runtime phase is a private linearized lifecycle: `constructed` owns only service-free shell
-cells, `booting` validates boot data, acquires the application Layer, and admits the initial graph,
+cells, `booting` validates boot data, acquires the application Implementation, and admits the initial graph,
 `ready` permits ordinary activation and work, `failed` rejects further admission after rollback, and
 `disposed` is terminal. These phases are not a user-authored machine state or a new public phase union.
 

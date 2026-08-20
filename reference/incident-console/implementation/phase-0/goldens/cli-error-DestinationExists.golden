@@ -1,1 +1,0 @@
-{"command":null,"diagnostic":{"category":"io","code":"DestinationExists","details":{"errno":null,"operation":"write","path":null},"message":"DestinationExists"},"kind":"flow-state-cli-error","version":"flow-state/cli-result.v1"}

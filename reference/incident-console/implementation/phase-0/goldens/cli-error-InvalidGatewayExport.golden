@@ -1,1 +1,0 @@
-{"command":null,"diagnostic":{"category":"gateway","code":"InvalidGatewayExport","details":{"importSpecifier":null,"path":null},"message":"InvalidGatewayExport"},"kind":"flow-state-cli-error","version":"flow-state/cli-result.v1"}
