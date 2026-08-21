@@ -9,126 +9,161 @@ or promoted. It remains a target until the coordinated migration and proof gate 
 revision specification.
 
 This contract applies the integrated vNext decisions to the former compatibility and deletion surface.
-`REV-MIG-001` keeps accepted public decisions closed while behavioral gaps are resolved;
-`REV-MIG-002` requires contracts, public types, artifacts, and proofs to move as one replacement;
-`REV-MIG-003` requires proofs through the production owners; and this contract owns the transferred
-exhaustive old-surface disposition. The contract clauses here are authoritative. Archived revision
-chapters are provenance only and do not override or supplement this file.
+`REV-MIG-001` keeps accepted public decisions closed while behavioral gaps are resolved; `REV-MIG-002`
+requires contracts, public types, artifacts, and proofs to move as one replacement; `REV-MIG-003` requires
+proofs through the production owners; and this contract owns the transferred exhaustive old-surface
+disposition. The contract clauses here are authoritative. Archived revision chapters are provenance only
+and do not override or supplement this file.
 
-All inherited entries in [`../revision-spec/UNRESOLVED_BEHAVIOR.md`](../revision-spec/UNRESOLVED_BEHAVIOR.md)
-are now closed by accepted revisions. Migration is still not mechanically complete until the named
-implementation proofs pass. A future proof failure may reopen only its disproved guarantee; it is never
-permission to add a public API, default, exception, alias, or proof requirement that the revision
-specification did not accept.
+The corresponding file under `contracts/provenance/` is retained as the current semantic source and
+provenance record for this transfer. It supplies the wording and IDs restored here, but is not a competing
+active authority.
 
-Active clauses in this file contain the transferred `DEL-*` and `RET-*` owners and the compatibility-specific
-`CUT-*` rules. Legacy contract and revision IDs are retained as trace labels in the historical mappings below;
-they do not displace the active clauses in this file.
+All inherited entries in the historical behavior register indexed by
+[`../revision-spec/README.md`](../revision-spec/README.md) are now closed by accepted revisions. Migration is
+still not mechanically complete until the named implementation proofs pass. A future proof failure may reopen
+only its disproved guarantee; it is never permission to add a public API, default, exception, alias, or proof
+requirement that the revision specification did not accept.
+
+Active clauses contain the transferred `DEL-*`, `RET-*`, and `CUT-*` owners. Legacy IDs remain trace labels in
+the disposition and history below; they do not replace the active rules.
 
 ## Compatibility policy
 
-### CUT-001 — Retain environmental boundaries and replace contracts atomically
+### CUT-001 — Environmental boundaries and atomic replacement
 
-The package MUST retain the package routes, ESM/import conditions, core Effect peer identity, and supported
-React peer compatibility named by `RET-001`. The replacement MUST occur at one contract boundary. Generated
-and handwritten public types MUST NOT expose both old and accepted constructors, commands, targets,
-lifecycle values, view registries, child-machine fields, result fields, or operation grammar.
+- Surface: package routes, ESM/import conditions, core Effect peer identity, supported React peer compatibility,
+  public constructors, commands, targets, lifecycle values, view registries, child-machine fields, result fields,
+  and operation grammar.
+- Rule: retain the boundaries named by `RET-001`; replace the contract at one boundary.
+- Accepts: retained package/import/peer boundaries and live hosts or Stories using accepted production owners.
+- Rejects: installed packages, active contracts, or runtimes that expose or compose deleted and replacement
+  surfaces together; generated or handwritten types exposing both vocabularies. No installed package,
+  active contract, or runtime may expose or compose the deleted surface with its replacement.
+- Observable guarantee: the package has one accepted public surface at the cutover boundary.
+- Proof: `CUT-P04`, `PROOF-017`, packed consumers, runtime owners.
+- Trace: `RET-001`, `REV-MIG-001`–`REV-MIG-003`.
 
-No installed package, active contract, or runtime may expose or compose the deleted surface with its
-replacement. Live hosts and Stories MUST use the production runtime owners required by the accepted revisions.
+### CUT-002 — Replacement is hard deletion
 
-### CUT-002 — A replacement is a hard deletion of the old surface
-
-`REPLACE` means that the old capability disappears completely while the accepted replacement continues the
-capability. Migration MUST NOT preserve an old authoring shape through an alias, overload, adapter,
-compatibility namespace, parser branch, or deprecated wrapper.
+- Surface: every old capability classified `REPLACE`.
+- Rule: the old authoring shape disappears while the accepted capability continues.
+- Accepts: the accepted replacement only.
+- Rejects: aliases, overloads, adapters, compatibility namespaces, parser branches, and deprecated wrappers.
+- Observable guarantee: no compatibility path preserves the old shape.
+- Proof: `CUT-P01`–`CUT-P03`, `PROOF-017`.
+- Trace: `DEL-004`, `DEL-005`, `DEL-007`–`DEL-010`.
 
 ### CUT-003 — Removed values fail closed
 
-Every `DELETE` or `REPLACE` value, type, overload, property, deep import, file-level registry, example,
-proof, and task reference MUST be removed from active authority or classified by the deletion ledger. Runtime
-export proofs MUST show deleted values and namespaces absent; declaration proofs MUST reject deleted types,
-overloads, properties, deep imports, and authoring shapes. A deleted authoring shape MUST be rejected before
-it can create an actor, mutate memory, acquire an operation, publish an event, start external work, or write
-evidence.
+- Surface: every `DELETE`/`REPLACE` value, type, overload, property, deep import, file registry, example,
+  proof, and task reference.
+- Rule: remove it from active authority or classify it in the ledger.
+- Accepts: negative absence proofs, ledgers, and historical provenance.
+- Rejects: deleted exports, declarations, deep imports, authoring shapes, and any deleted shape that reaches
+  actor creation, memory mutation, operation acquisition, event publication, external work, or evidence.
+- Observable guarantee: runtime exports are absent and declaration consumers reject the deleted surface before
+  side effects.
+- Proof: `CUT-P01`, `CUT-P02`, `CUT-P03`, `PROOF-001`, `PROOF-017`.
+- Trace: `DEL-001`–`DEL-011`.
 
 ### CUT-004 — No compatibility behavior for deleted authoring shapes
 
-The runtime MUST NOT translate a deleted authoring shape into an accepted one. A deleted surface may appear
-in a ledger, historical provenance, or negative absence proof, but MUST NOT appear as supported API,
-replacement guidance, an active glossary definition, or a positive example. No compatibility alias, adapter,
-registry, translator, parser branch, or implementation file may remain solely to preserve a deleted surface.
+- Surface: deleted authoring shapes and implementation support kept only for them.
+- Rule: the runtime does not translate a deleted shape into an accepted one.
+- Accepts: a deleted name in a ledger, historical provenance, or negative absence proof.
+- Rejects: supported API or replacement guidance, active glossary definitions, positive examples, aliases,
+  adapters, registries, translators, parser branches, and implementation files kept solely for compatibility.
+- Observable guarantee: deleted terminology has no positive active path.
+- Proof: `CUT-P03`, `CUT-P05`, `CUT-P06`, `PROOF-017`.
+- Trace: `REV-MIG-004`, `DEL-011`.
 
 ### CUT-005 — Authoritative writes remain explicit
 
-Operation results MUST NOT become canonical resource data implicitly. Accepted transaction and stream
-surfaces may declare explicit `setData` mappings, and every successful authoritative write MUST apply the
-generation-fencing rule in `REV-OPS-010`. Completion-side ordering, overlays, equal-value behavior, and
-related conflicts follow `SEMANTICS.md` `SEM-016` and `SEM-018`; exact state projections and
-invalidation/clear behavior follow `PUBLIC_API.md` `API-006` and `SEMANTICS.md` `SEM-011C`.
+- Surface: operation results, transaction/stream writes, generation fencing, completion ordering, overlays,
+  equal values, state projections, and invalidation/clear.
+- Rule: operation results never become canonical resource data implicitly.
+- Accepts: explicit `setData` mappings on accepted transaction and stream surfaces; generation fencing under
+  `REV-OPS-010`; `SEM-016`/`SEM-018` ordering and `API-006`/`SEM-011C` projections and invalidation.
+- Rejects: implicit canonical writes or unaccepted completion mappings.
+- Observable guarantee: every authoritative write is explicit and generation-safe.
+- Proof: `PROOF-005`–`PROOF-007`.
+- Trace: `REV-OPS-010`, `SEM-016`, `SEM-018`, `API-006`, `SEM-011C`.
 
-### CUT-006 — Public actor commands remain synchronous
+### CUT-006 — Public actor commands stay synchronous
 
-The retained public mailbox boundary is `actor.send(event): void`. Story commands may use a package-private
-acknowledgment over that same production mailbox, but the acknowledgment MUST NOT become a public Promise-
-returning send overload or a second actor engine.
+- Surface: public mailbox boundary and Story acknowledgment.
+- Rule: `actor.send(event): void` remains public; Story acknowledgment is package-private over the same
+  production mailbox.
+- Accepts: synchronous public send and private stabilization acknowledgment.
+- Rejects: Promise-returning public send overloads and a second actor engine.
+- Observable guarantee: live hosts and Stories use one production mailbox boundary.
+- Proof: `PROOF-003`, `PROOF-011`, `PROOF-017`.
+- Trace: `RET-002`, `REV-TEST-006`.
 
-### CUT-007 — Stories use the accepted constructors and evidence
+### CUT-007 — Stories use accepted constructors and evidence
 
-The accepted Story surface is `story.app(runtimeSetup, options?)`, `story.machine(machine, options?)`, and
-`story.actor(machine, options?)`, with the closed option objects and target rules in `REV-TEST-001` through
-`REV-TEST-005`. The accepted Story command and evidence boundary is `process`, `advance`,
-`advanceTo`, `advanceToNextTimer`, `checkpoint.actor(...)`, and `run.end` as defined by
-`REV-TEST-006` through `REV-TEST-008`. Deleted Story names MUST NOT remain as aliases or parallel harnesses.
+- Surface: Story construction, commands, targets, checkpoints, and end evidence.
+- Rule: use `story.app(runtimeSetup, options?)`, `story.machine(machine, options?)`, and
+  `story.actor(machine, options?)`, with closed options and target rules from `REV-TEST-001`–`REV-TEST-005`.
+- Accepts: `process`, `advance`, `advanceTo`, `advanceToNextTimer`, `checkpoint.actor(...)`, and `run.end`
+  under `REV-TEST-006`–`REV-TEST-008`.
+- Rejects: deleted Story names, aliases, parallel harnesses, and result-injection commands.
+- Observable guarantee: Story commands and evidence are the accepted production-owned surface.
+- Proof: `PROOF-001`, `PROOF-008`–`PROOF-011`, `PROOF-017`.
+- Trace: `DEL-009`, `REV-TEST-001`–`REV-TEST-010`.
 
 ### CUT-007A — Artifacts and CLI follow the accepted Story surface
 
-The conflicting server, persistence, artifact, inspect, and CLI surfaces classified by `DEL-010` MUST be
-updated to represent app Stories, exact actor evidence lookup, `run.end`, module tooling ownership,
-compound states, context requirements, lifecycle records, and accepted operation identities. Retained
-persistence codecs, artifact bounds, inspection sinks, and CLI formatting may remain only where they do not
-preserve a deleted surface. Exact representation and parity follow `REV-MIG-005`; this clause
-does not invent a command, schema, or migration algorithm.
+- Surface: server, persistence, artifact, inspect, and CLI representations.
+- Rule: update them for app Stories, exact actor evidence lookup, `run.end`, module tooling ownership,
+  compound states, context requirements, lifecycle records, and accepted operation identities.
+- Accepts: retained persistence codecs, artifact bounds, inspection sinks, and CLI formatting only where they
+  do not preserve deleted surfaces; exact representation and parity under `REV-MIG-005`.
+- Rejects: invented commands, schemas, migration algorithms, or old Story/artifact identities.
+- Observable guarantee: artifacts and CLI describe the accepted app/actor/evidence model.
+- Proof: `PROOF-014`, `CLI-P01`, `CLI-P02`, `PROOF-017`.
+- Trace: `DEL-010`, `REV-MIG-005`, `WIRE-020B`.
 
-### CUT-008 — Artifact migration does not guess deleted or unsupported shapes
+### CUT-008 — Artifact migration does not guess
 
-Artifact and persistence schemas MUST move with the accepted contract replacement. They MUST NOT preserve
-deleted root, child, final-node, replay, mutable-harness, or old Story fields as supported shapes. The
-revision specification does not authorize a second artifact-version migration algorithm, so implementations
-MUST use the exact WIRE-020B artifact behavior rather than guessing or reviving a legacy shape.
+- Surface: persistence and artifact schemas.
+- Rule: move schemas with the accepted replacement and use exact `WIRE-020B` behavior.
+- Accepts: accepted bounds, ordering, codecs, and exact v2 representation.
+- Rejects: deleted root, child, final-node, replay, mutable-harness, or old Story fields as supported shapes;
+  a second migration algorithm; revived legacy shapes.
+- Observable guarantee: unsupported or deleted artifact shapes fail closed at the exact wire boundary.
+- Proof: `PROOF-010`, `PROOF-014`, `PROOF-017`, `CLI-P01`, `CLI-P02`.
+- Trace: `REV-MIG-005`, `DEL-010`, `WIRE-020B`.
 
 ## Deletion and retention ownership
 
-Every old public or authoring surface affected by this contract MUST have exactly one disposition in this
-ledger:
+Every affected old public or authoring surface has exactly one disposition:
 
-- `DELETE` means the old capability has no replacement and MUST disappear completely.
-- `REPLACE` means the old surface MUST disappear completely, while the capability continues under the
-  accepted replacement named in the entry.
-- `RETAIN` means the old clause remains authoritative and is not changed by this contract.
-- `HISTORICAL` means the material MAY remain for provenance in Git history or an explicitly historical
-  location, but MUST NOT remain an active contract authority.
+- `DELETE`: no replacement; disappear completely.
+- `REPLACE`: disappear completely; capability continues under the accepted replacement.
+- `RETAIN`: old clause remains authoritative and is unchanged here.
+- `HISTORICAL`: may remain only in Git history or an explicitly historical location, never as active authority.
 
-`REPLACE` is still a hard deletion of the old surface. It does not permit an alias, overload, adapter,
-compatibility namespace, parser branch, or deprecated wrapper that preserves the old authoring shape.
-Environmental compatibility such as package routes, module formats, peer identity, and supported React
-peer ranges is retained only where a `RETAIN` entry says so; it MUST NOT be used to preserve a deleted
-public API name.
+`REPLACE` is hard deletion. It permits no alias, overload, adapter, compatibility namespace, parser branch, or
+deprecated wrapper. Environmental compatibility is retained only by an explicit `RETAIN` row. An unassigned
+old clause remains authoritative under the overlay rule; migration cannot be promoted until every affected
+clause, symbol, overload, registry, example, proof, and task reference is classified or recorded unchanged.
 
-An old clause not yet assigned a disposition remains authoritative under the overlay rule. Migration MUST
-NOT be promoted until the old contract inventory is complete and every affected clause, symbol, overload,
-file-level registry, example, proof, and task reference is either classified here or explicitly recorded as
-unchanged. A deleted surface MAY be named in this ledger, the non-normative rejected and deferred record,
-historical provenance, and a negative absence proof; it MUST NOT appear as supported active API or
-replacement guidance.
+Deleted names may occur only in this ledger, the non-normative rejected/deferred record, historical provenance,
+or a negative absence proof—not as supported API, replacement guidance, active glossary definition, or positive
+example. The ledger does not remove a `RETAIN` row. Reference examples must rewrite deleted consumers; selector
+files may be redistributed and unused host examples removed or promoted, but folder layout is not a public
+deletion rule.
 
-### Deletion ledger
+### Disposition table
 
-Every document path and clause label in the inventory column is a historical pre-revision reference. Reused
-labels in current contracts MUST NOT be resolved as the source of an active rule; the accepted replacement
-column and current revision IDs are trace labels for the active replacement clauses in this contract.
+This is the deletion ledger. Every document path and clause label in the inventory column is a historical
+pre-revision reference. Reused labels in current contracts MUST NOT be resolved as the source of an active
+rule; the accepted replacement column and current revision IDs are trace labels for the active replacement
+clauses in this contract.
 
-| ID | Disposition | Old surface and contract inventory | Accepted replacement or boundary |
+| ID | Disposition | Old surface and inventory | Accepted replacement or boundary |
 | --- | --- | --- | --- |
 | `DEL-001` | `DELETE` | Registered Flow views: `flow.view`, exported `View`, view IDs, `module.views`, registered view lookup, `useView(view)`, and view-bound `can` APIs. Old inventory: `PUBLIC_API.md` `API-010`–`API-012`, `GLOSSARY_AND_IDENTITY.md` `GLO-07`–`GLO-14`, `TYPE_SYSTEM.md` `TYPE-013`, and the old view-hook portions of `REACT_AND_HOSTS.md`. | `REV-HOST-006` retains only passive `useView(actor, selector)` projections. |
 | `DEL-002` | `DELETE` | Child-machine model: `child(...)`, child descriptors, child inputs, child actor IDs, child lifecycle and completion, child snapshots, child addressing, child persistence, child Story commands, and child model surfaces. Old inventory: `PUBLIC_API.md` `API-008`, `TYPE_SYSTEM.md` `TYPE-007`, `SEMANTICS.md` child completion clauses, `SNAPSHOTS.md` `SNAP-008`, and child portions of `ARCHITECTURE.md`. | `REV-MACH-001`, `REV-MACH-002`, and `REV-MIG-006` express hierarchy through recursive substates inside one actor and require explicitly owned actors for independent workflows. |
@@ -142,87 +177,111 @@ column and current revision IDs are trace labels for the active replacement clau
 | `DEL-010` | `REPLACE` | Conflicting server, persistence, artifact, inspect, and CLI surfaces: mutable v1 boot/hydration, fabricated root/child/final snapshot fields, replay-oriented inspection records, duplicate formatters, arbitrary scenario-runner commands, and old Story artifact schemas. | Retain persistence codecs, artifact bounds, inspection sinks, CLI formatting, and proof discipline only where they do not preserve a deleted surface; update their schemas to the accepted app, actor, compound-state, lifecycle, and operation identities. |
 | `DEL-011` | `HISTORICAL` | The old `implementation/contracts/` pack, obsolete compatibility matrix, and phase/task documents that continue to prescribe deleted surfaces. | After retained material and provenance are transferred, these documents MUST be removed from active authority or explicitly marked historical. Git history remains the archive. |
 
-### Retained dispositions
-
-These are explicit `RETAIN` dispositions, not permissions inferred from the absence of a deletion row:
+### Retained boundary table
 
 | ID | Disposition | Retained boundary |
 | --- | --- | --- |
-| `RET-001` | `RETAIN` | Package routes, ESM/import conditions, Effect peer identity, and supported React peer compatibility. |
-| `RET-002` | `RETAIN` | Synchronous `actor.send(event): void`, the production mailbox boundary, runtime-scoped stores, generation fencing, Cause classification, and cleanup ordering, except for fields that specifically encode deleted roots, children, final nodes, or Story forms. |
+| `RET-001` | `RETAIN` | Package routes, ESM/import conditions, Effect peer identity, supported React peer compatibility. |
+| `RET-002` | `RETAIN` | Synchronous `actor.send(event): void`, production mailbox, runtime-scoped stores, generation fencing, Cause classification, cleanup ordering, except fields encoding deleted roots, children, final nodes, or Story forms. |
 | `RET-003` | `RETAIN` | Resource and transaction status discriminants. |
-| `RET-004` | `RETAIN` | Canonical operation `key(...)`, `getState(...)`, `getData(...)`, transition `actions`, and the accepted `O`/`P`/`K` identity model. |
+| `RET-004` | `RETAIN` | Canonical `key(...)`, `getState(...)`, `getData(...)`, transition `actions`, and accepted `O`/`P`/`K` identity. |
 | `RET-005` | `RETAIN` | `FlowProvider`, revised `useActor`, `useActorByRef`, and passive selector observation. |
 
-### No-residue requirements
+## No-residue requirements
 
-For every `DELETE` or `REPLACE` entry, migration MUST satisfy all of the following:
+For every `DELETE` or `REPLACE` entry, migration MUST prove all of the following:
 
-1. Active contract documents, glossaries, examples, stories, fixtures, tests, and task files use only the
-   accepted replacement or an explicitly retained surface.
-2. Runtime export proofs show that the deleted value or namespace is absent.
+1. Active contracts, glossaries, examples, Stories, fixtures, tests, and task files use only accepted or
+   explicitly retained surfaces.
+2. Runtime export proofs show the deleted value or namespace absent.
 3. Declaration proofs reject deleted types, overloads, properties, deep imports, and authoring shapes.
-4. A deleted authoring shape is rejected before it can create an actor, mutate memory, acquire an operation,
-   publish an event, start external work, or write evidence.
-5. No compatibility alias, adapter, registry, translator, parser branch, or implementation file remains
-   solely to preserve the deleted surface.
-6. Live examples and Stories exercise the replacement through the production owners. A source-text scan MAY
-   support the audit, but it MUST NOT replace runtime or declaration absence proofs.
+4. Deleted authoring shapes fail before actor creation, memory mutation, operation acquisition, event
+   publication, external work, or evidence.
+5. No alias, adapter, registry, translator, parser branch, or implementation file remains solely for deletion
+   compatibility.
+6. Live examples and Stories exercise replacements through production owners; source scans may support but
+   cannot replace runtime or declaration absence proofs.
 
-The old contract name MAY occur in a negative absence proof only when the proof is testing that the name is
-unavailable. It MUST NOT occur in a positive example, supported overload, active glossary definition,
-compatibility recommendation, or replacement recipe.
-
-The deletion ledger MUST NOT be interpreted to remove a `RETAIN` row. A retained boundary remains
-authoritative unless a later accepted revision gives it a new disposition.
-
-The reference examples MUST remove or rewrite consumers of deleted surfaces. A selector file may be
-redistributed by feature, and an unused host example may be removed or promoted into a tested host, but
-folder layout itself is not a public deletion rule.
+The old contract name may occur in a negative absence proof only when testing unavailability. It may not occur
+in a positive example, supported overload, active glossary definition, compatibility recommendation, or
+replacement recipe. The deletion ledger MUST NOT be interpreted to remove a `RETAIN` row. A retained boundary
+remains authoritative unless a later accepted revision gives it a new disposition. The reference examples MUST
+remove or rewrite consumers of deleted surfaces; selector files may be redistributed and an unused host example
+may be removed or promoted into a tested host, but folder layout itself is not a public deletion rule.
 
 ## Required cutover proofs
 
 ### CUT-P01 — Runtime export absence
 
-Runtime export tests MUST cover every `DELETE` and `REPLACE` surface in `DEL-001` through `DEL-010` and
-prove that retained boundaries remain available through their accepted owners.
+- Surface: every `DELETE` and `REPLACE` surface in `DEL-001`–`DEL-010`.
+- Rule: runtime exports and namespaces are absent while retained boundaries remain available through accepted
+  owners.
+- Accepts: runtime export inspection through package entrypoints and retained owners.
+- Rejects: deleted exports or namespaces, including deep imports and file-level registries.
+- Observable guarantee: all deleted runtime surfaces are unavailable.
+- Proof: runtime export tests covering every ledger row; see `PROOF-017`.
+- Trace: `DEL-001`–`DEL-010`, `RET-001`–`RET-005`.
 
 ### CUT-P02 — Declaration absence
 
-Packed declaration tests MUST reject every deleted value, type, overload, property, deep import, and
-authoring shape with negative type proofs. Runtime absence alone is insufficient.
+- Surface: packed declarations and public type consumers.
+- Rule: reject every deleted value, type, overload, property, deep import, and authoring shape.
+- Accepts: accepted public types and retained boundaries.
+- Rejects: deleted declarations even when runtime exports are absent.
+- Observable guarantee: type-level compatibility cannot preserve a deleted surface.
+- Proof: packed declaration negative tests and `PROOF-001`/`PROOF-017`.
+- Trace: `DEL-001`–`DEL-010`, especially `DEL-009`.
 
 ### CUT-P03 — No compatibility behavior
 
-Behavioral proofs MUST show that deleted authoring shapes fail before side effects and that no compatibility
-alias, adapter, parser branch, or second runtime, actor, Story, operation, or selector implementation
-survives. Replacement behavior MUST run through the accepted production owner.
+- Surface: deleted authoring inputs and possible compatibility machinery.
+- Rule: fail before side effects and run replacements through production owners.
+- Accepts: negative rejection plus accepted replacement behavior.
+- Rejects: aliases, adapters, parser branches, second runtimes, actors, Stories, operation engines, or selector
+  implementations kept for compatibility.
+- Observable guarantee: rejection is side-effect-free and replacement behavior has one owner.
+- Proof: behavioral lifecycle/side-effect proofs, `PROOF-003`, `PROOF-004`, `PROOF-017`.
+- Trace: `CUT-002`–`CUT-004`, `REV-MIG-003`–`REV-MIG-004`.
 
 ### CUT-P04 — Retained compatibility
 
-Packed consumers MUST prove the `RET-001` package boundaries, `RET-002` synchronous mailbox and runtime
-ownership boundaries, `RET-003` status discriminants, `RET-004` operation identity and action surface, and
-`RET-005` host surfaces. These proofs MUST preserve the supported ESM/import, Effect peer, and React peer
-compatibility claims without preserving deleted API names.
+- Surface: retained package, mailbox, status, operation, action, and host boundaries.
+- Rule: preserve `RET-001`–`RET-005` without preserving deleted names.
+- Accepts: supported ESM/import, Effect peer, React peer, synchronous mailbox, runtime ownership, status
+  discriminants, canonical operation identity/actions, `FlowProvider`, revised actor hooks, passive views.
+- Rejects: using environmental compatibility to retain deleted public APIs.
+- Observable guarantee: retained consumers continue to work through accepted owners.
+- Proof: packed consumers and package/runtime proofs; `PROOF-001`, `PROOF-012`, `PROOF-014`, `PROOF-017`.
+- Trace: `RET-001`–`RET-005`.
 
 ### CUT-P05 — Repository cleanup
 
-After replacement proofs pass, implementation files dedicated only to deleted surfaces MUST be removed or
-classified historical under `DEL-011`. Source-text tests that merely assert obsolete filenames or token
-strings MUST be replaced by the accepted public type, behavior, lifecycle, race, isolation, and artifact
-proofs; source scans cannot replace runtime or declaration absence proofs.
+- Surface: implementation files and source-text tests dedicated only to deleted surfaces.
+- Rule: after replacement proofs pass, remove them or classify them historical under `DEL-011`.
+- Accepts: source scans as audit support and accepted public type, behavior, lifecycle, race, isolation, and
+  artifact proofs; tests that only assert obsolete filenames or token strings are replaced by those proofs.
+- Rejects: filename/token scans presented as runtime or declaration proof.
+- Observable guarantee: no active implementation residue remains solely for deleted behavior.
+- Proof: repository audit plus `PROOF-017`; source scans are non-substitutive.
+- Trace: `DEL-011`, `CUT-003`, `CUT-004`.
 
 ### CUT-P06 — One repository authority survives
 
-The old contract and task material covered by `DEL-011` MUST cease to be active authority after retained
-material and provenance have been transferred. Before deletion, every still-live obligation MUST be mapped to
-an accepted contract or proof, and the material MUST then be removed from active authority or explicitly marked
-historical. Git history, not stale working-tree documents, is the archive.
+- Surface: old contract and task material under `DEL-011`.
+- Rule: The old contract and task material covered by `DEL-011` MUST cease to be active authority after
+  retained material and provenance have been transferred. Before deletion, every still-live obligation MUST
+  be mapped to an accepted contract or proof, and the material MUST then be removed from active authority or
+  explicitly marked historical. Git history, not stale working-tree documents, is the archive.
+- Accepts: Git history as archive and explicit historical locations.
+- Rejects: stale working-tree documents remaining active authority.
+- Observable guarantee: one current repository authority remains for each live obligation.
+- Proof: complete cross-contract mapping in `PROOF_MATRIX.md` and `PROOF-017` before deletion.
+- Trace: `DEL-011`, `REV-MIG-002`–`REV-MIG-004`.
 
-## Historical behavior boundaries
+## Historical behavior boundary
 
-The historical behavior register is not a source of compatibility choices. `BEH-024` through `BEH-031` and
-`BEH-027` are closed by their accepted operation amendments; `BEH-023`, `BEH-030`, and `BEH-032` are closed
-by `REV-OPS-017`, `REV-OPS-018`, and `REV-HOST-008`; and `BEH-033` and `BEH-034` are closed by
-`REV-MIG-005`/`WIRE-020B` and `REV-MIG-006`. Beads issues and executable proof records still need to carry
-the named obligations, but no inherited `BEH-*` entry remains an open compatibility blocker.
+This register is not a source of compatibility choices. `BEH-024`–`BEH-031` and `BEH-027` are closed by
+accepted operation amendments; `BEH-023`, `BEH-030`, and `BEH-032` are closed by `REV-OPS-017`, `REV-OPS-018`,
+and `REV-HOST-008`; `BEH-033` and `BEH-034` are closed by `REV-MIG-005`/`WIRE-020B` and `REV-MIG-006`.
+Beads issues and executable proof records still carry the named obligations, but no inherited `BEH-*` entry is
+an open compatibility blocker.

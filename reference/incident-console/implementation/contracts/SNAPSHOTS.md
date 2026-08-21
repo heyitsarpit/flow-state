@@ -3,239 +3,164 @@
 Status: normative vNext contract
 
 This contract fixes the public immutable read surface consumed by passive views, hosts, Stories, and
-inspection. Snapshots report machine and primitive truth; they do not create ownership, start work, or
-retain execution history.
+inspection. Snapshots report machine and primitive truth. They are immutable passive reads: they do not
+create ownership, start work, retain execution history, or expose runtime internals. `SEMANTICS.md` owns
+publication ordering; `REACT_AND_HOSTS.md` owns host attachment and selector integration.
+
+## Snapshot-first examples
+
+```ts
+const snapshot = actor.getSnapshot();
+const orderKey = snapshot.O.orderById.key({ orderId });
+const order = snapshot.O.orderById.getData(orderKey);
+const orderState = snapshot.O.orderById.getState(orderKey);
+const submitState = snapshot.O.submitIntent.getState([submissionId]);
+```
+
+The named family readers above accept canonical `K`; execution plans retain complete executable `P`.
+They are passive and do not imply a generic registry, bound entry, subscription, retry, reset, seed,
+retention, or mutation method.
 
 ## Actor publication
 
 ### SNAP-001 — One actor snapshot is one revision
 
-Every actor snapshot MUST contain the exact active leaf in `state`, readonly `memory`, a monotonic
-safe-integer `revision`, the `storeRevision` observed by that actor publication, the closed lifecycle
-`prepared | active | suspended | disposed`, typed named-operation readers, and currently active issues. No
-field may read through to mutable live state.
-
-The public snapshot MAY expose the accepted active issue summary. Operation state, occurrence identity,
-clearing ownership, generation clearing, and terminal retention follow `PUBLIC_API.md` `API-006` and
-`SEMANTICS.md` `SEM-011C`; the
-artifact projection of those facts follows WIRE-020B.
-
-Every lifecycle transition MUST publish one coherent immutable snapshot through the existing handle before
-appending its inspection event. Lifecycle evidence MUST NOT create a machine revision or `TurnRecord`; an
-inspection listener MUST observe the event's `to` lifecycle after receiving that event. Lifecycle snapshots
-increment the private/public publication revision, retain the preceding machine-turn revision, and carry
-the runtime-global evidence sequence through their `LifecycleRecord`; no second public revision field exists.
-
-Actor snapshots MUST NOT expose receipts, diagnostic facts, pending outcome records, `handled` booleans,
-errors, raw Effect `Cause.Cause<unknown>`, or a failure lifecycle. Full TurnRecords and diagnostic facts belong to explicitly
-installed `flow-state/inspect` sinks. Child-specific issue and snapshot surfaces are removed by
-`REV-MACH-001` and `DEL-002`.
-
-`state` and every callback state value are the exact active leaf token. `state.matches(token)` may match
-that leaf or any active ancestor. Flow MUST NOT expose an XState-style nested state value or a separate
-callback field identifying the declaration node. A terminal-looking state is an ordinary active actor state: it does not
-add an actor lifecycle or output field, complete the snapshot stream, auto-dispose the actor, emit parent
-completion, or close the mailbox. Static machine metadata and the compiled transition table determine its
-behavior; Flow MUST NOT expose a final-state node kind under `REV-MACH-010` and `DEL-005`.
+- Surface: public `ActorSnapshot` and `actor.snapshots`.
+- Rule: Every snapshot contains exact active leaf `state`, readonly `memory`, monotonic safe-integer `revision`, observed `storeRevision`, lifecycle `prepared | active | suspended | disposed`, typed named-operation readers, and active issues. Every container Flow creates is frozen/immutable; no field reads mutable live state. `state` and every callback state value are the exact active leaf token; `state.matches(token)` may match that leaf or any active ancestor.
+- Accepts: Accepted public issue summary, passive operation readers, lifecycle snapshots with new publication revision and prior machine-turn revision.
+- Rejects: Receipts, diagnostics, pending outcome records, `handled`, errors, raw `Cause.Cause<unknown>`, failure lifecycle, child projections, nested XState-style state values, final-node kind, actor output, or second public revision field.
+- Observable guarantee: Lifecycle snapshot is published before lifecycle evidence; lifecycle does not advance machine-turn revision or create a TurnRecord. A terminal-looking state remains an ordinary active actor state and does not complete/dispose/close the stream/mailbox.
+- Proof: `SNAP-P01`, `HOST-P05`.
+- Trace: `SEM-005`, `SEM-011C`, `SEM-024`, `SEM-028`, `REV-MACH-001`, `REV-MACH-010` (historical/trace-only;
+  no active contract clause), `DEL-005`, `WIRE-020B`.
 
 ### SNAP-002 — Public readers are passive and exact
 
-Primitive readers expose only typed passive operations for the named `O` catalogue. Resource, transaction,
-and stream families expose their accepted `key(P)`, `getData(K)`, and `getState(K)` relationships, with
-execution methods remaining unavailable to a snapshot selector. A missing exact identity MUST NOT insert a
-record, acquire a lease, change freshness, advance a revision, or start external work.
-
-Synchronous snapshot reads MUST use immutable runtime-owned state and MUST NOT execute Effect,
-`runSync`, or any acquisition, scheduling, or mutation path.
+- Surface: named `O` readers in actor snapshots/selectors.
+- Rule: Resource, transaction, and stream families expose typed `key(P)`, `getData(K)`, and `getState(K)` relationships. A missing exact identity returns synthetic absent/idle without inserting a record, acquiring a lease, changing freshness, advancing revision, or starting work. Synchronous readers are observational only: they cannot run an Effect, call `runSync`, acquire a Scope, schedule work, or mutate runtime/store state.
 
 ```ts
-const orderKey = O.orderById.key({ orderId });
-const order = O.orderById.getData(orderKey);
-const orderState = O.orderById.getState(orderKey);
-const submitState = O.submitIntent.getState([submissionId]);
+const key = O.orderById.key({ orderId });
+const data = O.orderById.getData(key);
+const state = O.orderById.getState(key);
 ```
 
-These are named-family reads over canonical `K`; they do not imply generic `resources.get`,
-`transactions.get`, public operation enumeration, bound entries, `ref`, `byKey`, `byLane`, `require`,
-subscription, retry, reset, seed, retention, or mutation methods. Any actor may passively read an admitted
-shared canonical entry it never materialized; missing reads are synthetic absent/idle and remain passive.
-The exact closed state union is defined by the family-specific notation in `PUBLIC_API.md` `API-006`.
+- Accepts: An actor passively reading an admitted same-runtime canonical entry it never materialized; exact named family reads.
+- Rejects: `resources.get`, `transactions.get`, public operation enumeration, `ref`, `byKey`, `byLane`, `require`, subscription, retry, reset, seed, retention, mutation, generic registries, and execution methods in a selector.
+- Observable guarantee: A passive missing read has no runtime/store/ownership effect.
+- Proof: `SNAP-P01`, `HOST-P03`.
+- Trace: `SEM-011`, `SEM-025`, `SNAP-004`, `PUBLIC_API.md` `API-006`.
 
 ## Resources
 
 ### SNAP-003 — Resource state remains a bounded descriptor/K projection
 
-Resource status discriminants remain part of the retained resource surface under `RET-003`. The exact
-descriptor/K-typed `getState(K)` union, generation, failure, retained-value refresh, collection, and stream
-declaration laws are defined by `PUBLIC_API.md` `API-006`; cross-actor canonical visibility is defined by `SNAP-004`.
-
-`P` is complete immutable executable input and `K` is the ordered readonly canonical tuple returned by
-`key(P)`. Resource identity is descriptor namespace plus canonical `K`; methods that execute lookup work
-accept complete `P`, while passive reads accept `K`. Equal keys do not switch the pinned `P` of a running
-generation, and a hydrated key-only entry remains passive until a live binding supplies executable `P`.
-
-The public snapshot contract MUST NOT generate a distributive conditional cross-product from value,
-failure, descriptor policy, or activity kinds, recursively inspect those types, or add helper aliases as
-standalone exports. `PUBLIC_API.md` `API-006` fixes the family-specific inferred union without exporting a
-parallel state alias.
+- Surface: resource `getState(K)`, `getData(K)`, descriptor namespace, canonical tuple.
+- Rule: `P` is complete immutable executable input; `K` is the ordered readonly tuple from `key(P)`; identity is descriptor namespace + `K`. Resource execution accepts `P`; passive reads accept `K`. Equal keys do not switch a running generation's pinned `P`; hydrated key-only entries remain passive until a live binding supplies `P`.
+- Resource status discriminants remain part of the retained resource surface under `RET-003`; the exact descriptor/`K`-typed `getState(K)` union, generation, failure, retained-value refresh, collection, and stream declaration laws are defined by `PUBLIC_API.md` `API-006`, while cross-actor canonical visibility is defined by `SNAP-004`.
+- Accepts: Family-specific status/generation/failure/retained-value/collection projection defined by `PUBLIC_API.md` `API-006`; bounded dense arrays/plain records and sorted record keys under `API-005`.
+- Rejects: Public parallel state aliases/cross-product conditional types, recursive type inspection, or limits confused with state/cache-entry counts.
+- Observable guarantee: Canonicalization, validation, projection, defensive copy, and freezing finish before ownership/store mutation/external work; key failures identify exact tuple/nested path.
+- Proof: `SNAP-P01` and `PUBLIC_API.md` `API-005`/`API-006`.
+- Trace: `SEM-010`, `SEM-011`, `SNAP-004`.
 
 ### SNAP-004 — Canonical and actor-effective reads are distinct
 
-Canonical truth remains in the runtime-scoped resource store, and passive resource reads never create
-ownership or external work. An unbound store read returns committed canonical base state. An actor snapshot
-read returns the committed base plus that actor's own ordered optimistic layers for the exact descriptor/K;
-it never includes another actor's preview. Transaction updaters read canonical base, not effective overlay
-values. Tags derive from canonical `K`, and an equal authoritative write may refresh freshness/store
-publication but advances value revision and effective fanout only when the effective value changes.
+- Surface: unbound store read versus bound actor snapshot read.
+- Rule: Unbound reads return committed canonical base. Actor reads return canonical base plus only that actor's ordered optimistic layers for exact descriptor/`K`. Transaction updaters read canonical base, not effective overlay. Tags derive only from canonical `K`.
+- Accepts: Equal authoritative write refreshing freshness/store publication; effective value change only when effective value differs.
+- Rejects: Another actor's preview in a read, overlay treated as canonical, or passive read acquiring ownership/work.
+- Observable guarantee: Same-runtime actors share canonical truth but never each other's previews.
+- Proof: `SNAP-P01`.
+- Trace: `SEM-008`, `SEM-012`, `SEM-016`.
 
 ### SNAP-005 — Resource projection follows actor ownership and store retention
 
-An actor's resource projection is derived from its current actor-owned operation bindings and the shared
-StoreState for the exact descriptor/K identity. Releasing a binding releases that actor's ownership; it does
-not by itself define canonical-data deletion. Same-runtime actors may share canonical data and lookup
-generations while retaining independent bindings, occurrences, projections, and lifetimes. Separate runtime
-instances remain isolated.
-
-After binding release, the actor's local projection is removed while canonical data remains until normal
-collection policy evicts it. Any actor may passively read an admitted shared canonical entry it never
-materialized; a missing read is synthetic absent/idle and does not materialize an entry. This clause does
-not preserve the old generic-ref or unconditional-idle rule.
+- Surface: actor resource projection and shared canonical StoreState.
+- Rule: Actor projection derives from current actor-owned bindings plus shared exact descriptor/`K` store state. Releasing a binding removes that actor's local projection but does not define canonical deletion; normal collection policy owns canonical eviction.
+- Accepts: Any actor passively reading an admitted shared canonical entry it never materialized; synthetic absent/idle for a missing read.
+- Rejects: Generic refs or unconditional idle as the retention rule; actor release deleting canonical data by itself; cross-runtime sharing.
+- Observable guarantee: Independent actor bindings/occurrences/projections/lifetimes coexist over shared canonical data.
+- Proof: `SEM-008`, `SEM-013`, `SNAP-P01`.
+- Trace: `ARCH-014`, `SEM-009`, `SEM-020`.
 
 ## Transactions
 
 ### SNAP-006 — Transaction snapshots use actor-local descriptor/K identity
 
-Every transaction state projection MUST expose the exact transaction descriptor and canonical `K` that
-identify its actor-local status, together with a generation when the accepted state shape requires one.
-The public projection retains the accepted typed success, failure, defect, interruption, and post-boundary
-`unknown`/`reconcileRequired` lanes and MUST NOT expose raw Effect `Cause.Cause<unknown>`; the complete Cause stays in package-private
-issue backing and TurnRecord facts. Failure-versus-defect classification and the closed public union follow
-`PUBLIC_API.md` `API-006`.
-
-The exact closed `TransactionSnapshot<A, E, K>` union, field presence, generation exposure, terminal
-retention, and collection behavior follow `PUBLIC_API.md` `API-006` and `SEM-018`. Absent fields MUST remain absent;
-this contract MUST NOT use a generic
-transaction registry or accumulate old attempts in an ordinary actor snapshot.
+- Surface: transaction snapshot/projection.
+- Rule: Expose exact transaction descriptor and canonical `K`, plus generation where required by `PUBLIC_API.md` `API-006`. Preserve accepted success/failure/defect/interruption and post-boundary `unknown`/`reconcileRequired` lanes; keep complete Cause in private issue/TurnRecord facts. The exact closed `TransactionSnapshot<A, E, K>` union, field presence, generation exposure, terminal retention, and collection behavior follow `PUBLIC_API.md` `API-006` and `SEM-018`; absent fields remain absent.
+- Accepts: Exact closed `TransactionSnapshot<A, E, K>` shape, absent fields remaining absent, bounded terminal retention.
+- Rejects: Raw Effect Cause, generic transaction registry, accumulated old attempts in ordinary snapshots, or a new public union/occurrence handle.
+- Observable guarantee: Snapshot truth distinguishes typed failure, defect, interruption, and remote uncertainty without claiming rollback.
+- Proof: `SEM-015`, `SEM-015A`, `SEM-023`, `SNAP-P01`.
+- Trace: `SEM-018`, `SEM-024A`.
 
 ### SNAP-007 — Transaction projection follows the current actor binding
 
-An actor exposes transaction state for an actor-owned descriptor/K identity in its current stabilized
-configuration. State activation, passive reads, completion,
-and reconciliation MUST NOT admit or readmit a transaction attempt; finite commits are admitted only by an
-accepted event transition `actions` result. Attempt history may belong in TurnRecords and inspection
-evidence, while exact ordinary-snapshot retention and occurrence projection follow `PUBLIC_API.md` `API-006`; no generic
-actor-lifetime attempt map is accepted.
-
-The exact projection when a binding is removed, replaced, suspended, disposed, or reentered follows
-`PUBLIC_API.md` `API-006`; occurrence retention across those boundaries follows `SEM-018`.
+- Surface: actor-owned transaction descriptor/`K` projection.
+- Rule: Projection follows the current stabilized binding. Activation, passive reads, completion, and reconciliation never admit/readmit a finite commit; finite commits enter only through accepted event `actions`. The exact projection when a binding is removed, replaced, suspended, disposed, or reentered follows `PUBLIC_API.md` `API-006`; occurrence retention across those boundaries follows `SEM-018`.
+- Accepts: Attempt history in TurnRecords/inspection; family-specific projection/retention during binding removal, replacement, suspension, disposal, and reentry as defined by `API-006`/`SEM-018`.
+- Rejects: Generic actor-lifetime attempt maps, state activation as implicit commit, or a second snapshot source.
+- Observable guarantee: Removing/replacing a binding changes the defined projection without inventing a new attempt.
+- Proof: `SEM-018`, `SNAP-P01`.
+- Trace: `SEM-006A`, `SEM-019`, `SEM-020`.
 
 ## Streams and timers
 
 ### SNAP-008 — Continuing operation snapshots use named families and declaration identity
 
-Resource subscriptions and stream subscriptions are actor-owned continuing operation declarations. Their
-passive state is read through the exact named family and canonical `K`, not through a generic
-`snapshot.streams.get(streamDefinition)` registry. A continuing resource may observe canonical values;
-streams are not runtime resource entries and are not deduplicated across actors.
-
-Equal normalized declaration identity retains the existing generation and originally retained executable
-`P`. A changed declaration slot, operation kind, descriptor, or canonical key releases the old declaration
-exactly once and admits the replacement. Stream status retains `hasValue`, latest `V` when present, emission
-count, generation, and terminal status in addition to its status. Emissions become durable state only
-through mapped events or explicit authoritative resource writes. The accepted stream status discriminants
-include idle, running, complete, typed failure, defect, and interruption. A second live stream declaration
-by the same actor for the same descriptor and canonical `K` MUST reject before replacing or releasing the
-existing declaration; different actors remain independent. Any actor may passively read an admitted
-same-runtime resource identity without acquiring ownership, starting work, refreshing, mutating, or altering
-collection, and a missing read does not materialize a store entry.
-
-Hydration MUST NOT silently invent a prior stream emission or a generic key-to-input inverse. It
-rematerializes a live declaration from its current executable `P` after pending outcomes drain; terminal
-streams do not restart, and missing executable input fails closed with a precise diagnostic. Child snapshots,
-child addressing, child completion, child lifecycle, child persistence, and child Story/model surfaces are
-removed by `REV-MACH-001` and `DEL-002`; recursive substates do not create a second snapshot source.
+- Surface: named resource subscriptions and stream subscriptions.
+- Rule: Read continuing state through the named family and `K`, not a generic stream registry. Equal compiled declaration identity retains generation and original `P`; changed slot/kind/descriptor/`K` releases old exactly once and admits replacement. Stream projection retains `hasValue`, latest value when present, emission count, generation, and terminal status.
+- Accepts: Resource subscriptions observing canonical values; independent streams across actors; accepted status discriminants idle/running/complete/typed failure/defect/interruption.
+- Rejects: Generic `snapshot.streams.get`, cross-actor stream deduplication, duplicate live stream declaration for one actor/descriptor/`K`, emission replay, key-to-input inverse, child surfaces, or terminal restart.
+- Observable guarantee: Hydration rematerializes live stream declarations from executable `P` after pending outcomes drain; missing `P` fails closed and does not invent history.
+- Emissions become durable state only through mapped events or explicit authoritative resource writes. A second live stream declaration by the same actor for the same descriptor and canonical `K` rejects before replacing or releasing the existing declaration; different actors remain independent. Any actor may passively read an admitted same-runtime resource identity without acquiring ownership, starting work, refreshing, mutating, or altering collection, and a missing read does not materialize a store entry.
+- Hydration does not silently invent a prior stream emission or a generic key-to-input inverse. Terminal streams do not restart, and missing executable input fails closed with a precise diagnostic. Child snapshots, child addressing, child completion, child lifecycle, child persistence, and child Story/model surfaces remain removed by `REV-MACH-001` and `DEL-002`; recursive substates do not create a second snapshot source.
+- Proof: `SEM-011B`, `SEM-011D`, `SEM-030`, `SNAP-P01`.
+- Trace: `SEM-019`, `SEM-020`, `HOST-014`.
 
 ### SNAP-009 — Timer identity is machine-wide and typed
 
-Timer record keys MUST be unique across one machine definition. `snapshot.timers.get(name)` accepts only
-that machine's inferred timer-name union and returns:
+- Surface: `snapshot.timers.get(name)` and timer facts.
+- Rule: Timer names are unique across a machine and `name` accepts only the inferred timer-name union. Timer `state` is the exact active leaf. Compound timers start on compound activation, retain deadline through descendant changes, cancel on compound exit, and restart only on exact `reenter`.
 
 ```ts
 type TimerSnapshot<State, Name> =
   | { readonly status: "idle"; readonly name: Name }
-  | {
-      readonly status: "scheduled";
-      readonly name: Name;
-      readonly state: State;
-      readonly generation: number;
-      readonly startedAt: number;
-      readonly dueAt: number;
-    }
-  | {
-      readonly status: "fired";
-      readonly name: Name;
-      readonly state: State;
-      readonly generation: number;
-      readonly startedAt: number;
-      readonly dueAt: number;
-      readonly firedAt: number;
-    }
-  | {
-      readonly status: "interrupt";
-      readonly name: Name;
-      readonly state: State;
-      readonly generation: number;
-      readonly startedAt: number;
-      readonly dueAt: number;
-    };
+  | { readonly status: "scheduled"; readonly name: Name; readonly state: State;
+      readonly generation: number; readonly startedAt: number; readonly dueAt: number }
+  | { readonly status: "fired"; readonly name: Name; readonly state: State;
+      readonly generation: number; readonly startedAt: number; readonly dueAt: number;
+      readonly firedAt: number }
+  | { readonly status: "interrupt"; readonly name: Name; readonly state: State;
+      readonly generation: number; readonly startedAt: number; readonly dueAt: number };
 ```
 
-The `state` in every timer record is the exact active leaf token. A timer authored on a compound state
-starts when that compound becomes active, retains its original deadline across transitions among its
-descendants, and is cancelled when that compound exits. Exact `reenter` restarts the named active boundary;
-ordinary descendant transitions do not reset an unchanged compound timer. Timer history belongs in
-TurnRecords. Timer facts target explicit events only; polling uses an existing `after` timer plus an explicit
-refresh event and never admits finite actions directly.
+- Accepts: One-shot configuration generation, explicit event targeting, `after` refresh polling.
+- Rejects: Timer-owned finite actions, fake domain events, deadline reset on unrelated descendant turn, or timer identity outside the machine.
+- Observable guarantee: Due consumes its generation once and publishes `fired` whether its guard accepts/rejects; timer history remains evidence, not ordinary snapshot history. Timer facts target explicit events only; polling uses an existing `after` timer plus an explicit refresh event and never admits finite actions directly.
+- Proof: `SNAP-P01`, `HOST-P02`.
+- Trace: `SEM-002`, `SEM-019`, `SEM-020`.
 
 ## Time, immutability, and proof
 
 ### SNAP-010 — Snapshot time uses the runtime Clock
 
-All public timestamps are integer epoch milliseconds read from the runtime's Effect Clock. Story snapshots
-and evidence therefore use TestClock time. A snapshot and every nested collection or value created by Flow
-MUST be frozen or otherwise observably immutable; later turns cannot mutate a previous reference.
-
-Flow shallow-copies and freezes every envelope, record, array, canonical argument/key copy, reader, issue
-vector, and snapshot container it creates. Opaque application memory fields, event payload members,
-resource/transaction/stream values and errors, transaction params, preview replacements, and actor inputs
-remain application-owned immutable values: Flow retains their identity, never mutates them, and does not
-recursively freeze a class instance or arbitrary domain graph. Mutating one after admission is unsupported
-and may bypass revision or observer detection.
-
-Every Story checkpoint and successful `run.end` is deeply frozen and captured through one production
-`DehydrateBarrier` read cut after the Store commit permit. The barrier captures the complete static
-Story-plan closure, one StoreState revision, published actor snapshots, pending work, TestClock time, and
-the accepted runtime evidence prefix through one sequence fence; unrelated runtime actors are excluded.
-Captured roots are deeply frozen before registry leases are released, and `actor(...)` never performs a
-live lookup. Capture does not process, move time, create, dispose, restore, or perform external work;
-`run.end` is captured after commands and before cleanup. The package-owned frozen
-`FlowStoryExecutionError` envelope retains completed checkpoints, optional end evidence, the failure
-boundary, primary and ordered cleanup diagnostics, cancellation evidence, and accepted/drained sequence
-facts. The complete Effect `Cause.Cause<unknown>` remains public on the declared Flow error boundaries;
-actor snapshots do not expose it, and artifact projection follows WIRE-020B.
+- Surface: timestamps, snapshots, checkpoints, Story `TestClock`.
+- Rule: Public timestamps are integer epoch milliseconds from runtime Effect Clock; Stories/evidence use TestClock. Flow shallow-copies/freezes every envelope, record, array, canonical argument/key copy, reader, issue vector, and snapshot container. Application-owned opaque values are retained by identity and not recursively frozen. Checkpoint capture excludes unrelated actors, performs no live lookup from `actor(...)`, releases its read leases after `run.end` is captured, and runs `run.end` before cleanup.
+- Accepts: Deeply frozen Story checkpoints and successful `run.end` captured through one DehydrateBarrier cut after Store commit permit; capture includes static Story closure, one StoreState revision, published actor snapshots, pending work, time, and accepted evidence prefix, then releases leases.
+- Rejects: Mutating prior snapshots, live lookup during `actor(...)` capture, moving time, creating/restoring/disposing actors, external work during capture, or selected context serialized as a second truth source.
+- Observable guarantee: Later turns, collection, suspension, resume, and disposal cannot mutate an earlier snapshot/checkpoint. `FlowStoryExecutionError` retains frozen checkpoints/end evidence, failure boundary, ordered cleanup diagnostics, cancellation evidence, and sequence facts; declared Flow errors retain complete Cause. Actor snapshots do not expose that Cause, and artifact projection follows `WIRE-020B`.
+- Proof: `SNAP-P01`, `HOST-P04`, `HOST-P05`.
+- Trace: `ARCH-013B`, `SEM-004`, `HOST-014`.
 
 ### SNAP-P01 — Discriminant and reader proof
 
-Compile proofs MUST preserve exact machine state tokens, actor refs, event, input, context, memory,
-descriptor, canonical `K`, selected-value, and timer-name types. They MUST prove that named family passive
-reads accept `K`, execution plans require complete `P`, and deleted generic registries, refs, bound entries,
-child surfaces, final-node fields, registered views, and ordinary actor disposal are absent.
-
-Runtime proofs MUST show that missing reads are side-effect-free, same-runtime canonical sharing preserves
-independent actor ownership, explicit authoritative writes fence older generations, mapped operation
-outcomes use production completion paths, and captured snapshots never change after later turns, collection,
-suspension, resumption, or disposal. Proofs MUST cover actor-scoped effective reads, preview promotion and
-rollback, occurrence fencing, stream latest-value projections, hydration restart without emission replay,
-and passive operation-read reactivity. Operation-union and collection proofs are owned by `PUBLIC_API.md`
-`API-006` and `SEMANTICS.md` `SEM-011C`; lifecycle and host-write proofs retain their owning contract clauses
-and executable proof records.
+- Surface: compile/runtime proof obligations for snapshots and passive readers.
+- Rule: Prove exact machine state tokens, refs, event/input/context/memory, descriptors, canonical `K`, selected values, and timer names; named family reads accept `K`, execution plans require `P`, and deleted generic/child/final-node/registered-view/disposal surfaces are absent.
+- Accepts: Runtime proofs for passive missing reads, canonical sharing with independent ownership, explicit write fencing, production completion mapping, frozen capture, actor-effective reads, overlay promotion/rollback, occurrence fencing, latest stream projection, hydration without emission replay, and passive operation-read reactivity.
+- Rejects: Type-only or source-text proof of runtime behavior; receipts/operation-union/collection semantics duplicated here; source truth from a second contract owner.
+- Observable guarantee: Snapshot/read proof covers observable semantics without exposing internal runtime owners.
+- Proof: This is the snapshot proof index; operation unions/collection remain `PUBLIC_API.md` `API-006`, host writes remain `HOST-017`.
+- Trace: `SEM-005`, `SEM-025`, `HOST-P01`–`HOST-P04`.

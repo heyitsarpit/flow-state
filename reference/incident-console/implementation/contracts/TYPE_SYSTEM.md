@@ -1,29 +1,16 @@
+
 # Type-system contract
 
 Status: normative vNext contract
 
-This contract defines inference, variance, Effect<A, E, R> propagation, canonical operation identity,
-Implementation closure, actor/ref/lease types, host selectors, Story constructors, and the required positive and
-negative compile proofs. Public authoring shapes are defined in PUBLIC_API.md.
+This file owns inference, variance, `Effect<A, E, R>` propagation, canonical operation typing,
+Implementation closure, actor/ref/lease typing, host selector typing, Story typing, and compile proofs.
+Public authoring shapes are owned by [PUBLIC_API.md](./PUBLIC_API.md); terminology and identity by
+[GLOSSARY_AND_IDENTITY.md](./GLOSSARY_AND_IDENTITY.md).
 
-The live package preserves descriptor-local A/E/R for resources, transactions, and streams
-(packages/flow-state/src/core/api/flow-core.ts:72-86,
-packages/flow-state/src/core/api/transaction-factory.ts:19-24). The vNext requirement is that those
-exact types propagate through named operation catalogues, machines, modules, apps, runtimes, fixtures,
-and Stories without erasing the accepted actor and host boundaries.
+## TYPE-001 — Definition literals
 
-## Definition and machine inference
-
-### TYPE-001 — Definition literals are inference anchors
-
-definition({ id, states, events, context?, operations?, memory? }) MUST preserve the literal id, recursive
-state declaration and exact state-token paths, event-property names, constructor parameter tuples,
-constructor result payloads, context selector values, named operation families, input, and memory without
-requiring as const. Its implementation signature MUST use TypeScript const type parameters or an
-equivalently precise implementation-owned inference mechanism. Userland MUST NOT need as const, satisfies,
-explicit generic arguments, or a wrapper helper to prevent widening.
-
-```ts
+~~~ts
 const Todo = definition({
   id: "Todos/Editor",
   states: ["READY", { SAVING: ["REQUESTED", "COMMITTING"] }],
@@ -35,7 +22,6 @@ const Todo = definition({
     todo: todoResource,
   },
 });
-
 type _State = Expect<
   Equal<
     StateOf<typeof Todo>,
@@ -48,158 +34,216 @@ type _Event = Expect<
     ReturnType<typeof Todo.E.SaveRequested> | ReturnType<typeof Todo.E.SaveCompleted>
   >
 >;
-```
+~~~
 
-Event tokens MUST be nominal Flow values. A structurally similar function or object MUST NOT be
-assignable as a token. StateOf<T> and EventOf<T> MUST accept either the definition or its machine and
-return the same exact token unions. Recursive state inference and runtime validation MUST use the same
-ten-level bound.
+### Surface
 
-### TYPE-002 — The definition is the sole static inference universe
+- `definition` preserves literal ID, recursive exact state tokens, event names/parameter tuples/result
+  payloads, context values, named operation families, input, and memory without `as const`.
 
-machine(definition, callback) MUST anchor state, event, input, memory, context, and operation inference to
-the first argument with NoInfer or an equivalent one-way inference boundary. The callback MUST receive the
-exact S, E, O, onContext, onMemory, invalidate, and clear kit and MUST NOT widen or redefine the definition.
-Local states and on record keys MUST be checked against the recursive definition, while defaults, targets,
-routed outcomes, and capability checks MUST use exact tokens.
+### Rule
 
-```ts
-machine(Todo, ({ S, E, O, onContext, onMemory }) => {
-  onContext.select(
-    ({ context }) => context.sessionState,
-    (current) => current === Session.S.SIGNED_OUT && E.SessionEnded(),
-  );
+- Use const type parameters or equivalently precise package-owned inference. User code needs no `as const`,
+  `satisfies`, explicit generics, or wrapper to prevent widening.
+- Event tokens are nominal; structurally similar functions/objects are not assignable. `StateOf` and
+  `EventOf` accept definition or machine and return same exact unions. Ten-level bound is shared runtime/type.
 
-  return {
-    default: S.READY,
-    states: {
-      READY: {
-        on: {
-          SaveRequested: {
-            target: S.SAVING.S.REQUESTED,
-            actions: ({ event }) => [O.todo.lookup({ id: event.title })],
-          },
-        },
-      },
-      SAVING: {
-        default: S.SAVING.S.REQUESTED,
-        states: {
-          REQUESTED: {},
-          COMMITTING: {},
-        },
-      },
-    },
-  };
-});
+### Accepts
 
-// INVALID: the definition's exact universe rejects this event and target.
-machine(Todo, ({ S }) => ({
+- Literal authoring with inferred recursive token/event unions.
+
+### Rejects
+
+- Widened IDs/tokens, structural event impostors, and depth eleven.
+
+### Observable guarantee
+
+- Downstream machine/API inference preserves the authored literal universe.
+
+### Proof
+
+- Exact positive token/event and depth-bound compile fixtures.
+
+### Trace
+
+- Provenance: `provenance/TYPE_SYSTEM.md#TYPE-001`; public shape: `PUBLIC_API.md#API-003`.
+
+## TYPE-002 — Definition-anchored machine inference
+
+~~~ts
+machine(Todo, ({ S, E, O, onContext, onMemory }) => ({
   default: S.READY,
-  states: { READY: { on: { UnknownEvent: S.SAVING } } },
+  states: { READY: { on: { SaveRequested: { target: S.SAVING.S.REQUESTED } } } },
 }));
-```
+~~~
 
-Compound handlers compile into the one machine-wide event protocol. An ancestor and descendant handler
-for the same event on one active path is ambiguous and MUST be rejected; runtime leaf-to-parent fallback
-or override is not inferred. snapshot.state and callback state are the exact active leaf, while matches
-accepts the leaf and its active ancestors.
+### Surface
 
-### TYPE-003 — Definition input and memory have one inference path
+- `machine(definition, callback)` anchors all inference to the first argument and supplies exact `S`,
+  `E`, `O`, `onContext`, `onMemory`, `invalidate`, `clear`.
 
-When definition memory consumes actor input, its exact public shape MUST be
-memory: ({ input }: { readonly input: Input }) => Memory. InputOf<Definition>, MemoryOf<Definition>,
-InputOf<Machine>, and MemoryOf<Machine> MUST all resolve from that callback. A callback that omits its
-argument, memory: () => Memory, fixes Input = void. When memory is absent, input MUST be void and memory
-MUST be a readonly empty record.
+### Rule
 
-```ts
+- Use `NoInfer` or equivalent one-way boundary. Local states/on keys check against recursive definition;
+  defaults/targets/outcomes/capabilities use exact tokens.
+- Compound handlers form one event protocol. Ancestor+descendant handler for same event on active path
+  is ambiguous; no leaf fallback/override inference. State is exact active leaf; `matches` accepts leaf/ancestors.
+
+### Accepts
+
+- Exact callback kit and static behavior configuration.
+
+### Rejects
+
+- Unknown event/target, widened/redefined definition, ambiguous ancestor/descendant handling.
+
+### Observable guarantee
+
+- Machine callback cannot enlarge or replace the definition's static universe.
+
+### Proof
+
+- Positive and `@ts-expect-error` callback grammar fixtures.
+
+### Trace
+
+- Provenance: `provenance/TYPE_SYSTEM.md#TYPE-002`; public grammar: `PUBLIC_API.md#API-004`.
+
+## TYPE-003 — One input/memory inference path
+
+~~~ts
 const Editor = definition({
-  id: "Todos/Editor",
-  states: ["READY", "SAVING"],
-  events: { SaveRequested: null },
+  id: "Todos/Editor", states: ["READY", "SAVING"], events: { SaveRequested: null },
   memory: ({ input }: { readonly input: { readonly todoId: string } }) => ({
-    todoId: input.todoId,
-    draft: "",
+    todoId: input.todoId, draft: "",
   }),
 });
+type _Input = Expect<Equal<InputOf<typeof Editor>, { readonly todoId: string }>>;
+type _Memory = Expect<Equal<MemoryOf<typeof Editor>, { todoId: string; draft: string }>>;
+~~~
 
-type _DefinitionInput = Expect<Equal<InputOf<typeof Editor>, { readonly todoId: string }>>;
-type _DefinitionMemory = Expect<Equal<MemoryOf<typeof Editor>, { todoId: string; draft: string }>>;
+### Surface
 
-// App.M admission is independent of input and app compilation creates no actor.
-module({ id: "Todos", machines: { editor } });
-```
+- Input/memory infer from exactly `memory: ({ input }: { readonly input: Input }) => Memory`.
 
-Input is supplied once for each fresh actor and is consumed only by the pure memory initializer.
-Machine behavior receives memory, inherited context, state, and events, not original input. Restoration
-installs persisted memory without invoking the initializer. Input does not classify local versus shared actors.
+### Rule
 
-### TYPE-004 — Transition callbacks narrow by causal event
+- Omitting argument fixes `Input=void`; absent initializer fixes input void and readonly empty memory.
+- Input is supplied once to fresh actor and only initializer consumes it; behavior receives memory/context/
+  state/events, not original input. Restore installs memory without initializer/input replay. App.M admission
+  is independent of input and app compilation creates no actor.
 
-Inside an on.EventName transition, event MUST be the exact return type of that event token. Guards,
-updateMemory, and actions MUST receive readonly state, memory, snapshot, and primitive registries.
-updateMemory MUST return Partial<Memory> and reject unknown fields or wrong values. Guard, memory, and
-action planning MUST read the same immutable pre-turn snapshot and event; actions cannot see candidate
-memory. reenter MUST accept an exact active state token and MUST reject Boolean values, foreign tokens,
-inactive boundaries, and boundaries that do not contain the target.
+### Accepts
 
-```ts
+- Exact `InputOf`/`MemoryOf` from definition or machine.
+
+### Rejects
+
+- Type-only memory markers, separate `initialMemory`, memory returned from behavior, implicit input class,
+  authored input for void machine, and input mutation/classification.
+
+### Observable guarantee
+
+- Fresh and restored actors share one typed memory contract with no hidden input path.
+
+### Proof
+
+- Input/memory positive/negative and restoration compile/runtime proofs.
+
+### Trace
+
+- Provenance: `provenance/TYPE_SYSTEM.md#TYPE-003`; identity: `GLOSSARY_AND_IDENTITY.md#GLO-03`.
+
+## TYPE-004 — Causal event narrowing
+
+~~~ts
 SaveRequested: {
   target: S.SAVING,
   updateMemory: ({ event }) => ({ draft: event.title }),
   actions: ({ event, memory }) => [O.save.commit({ title: event.title, id: memory.id })],
   reenter: S.SAVING,
 }
-```
+~~~
 
-## Named operation inference and P/K
+### Surface
 
-### TYPE-005 — Resources infer one executable tuple and canonical key tuple
+- Event transition callbacks receive exact causal event and readonly state/memory/snapshot/primitive
+  registries.
 
-For a resource key: (params: P) => K and lookup adapter returning Effect.Effect<A, E, R>, the resource
-MUST carry exact P, K, A, E, and R without widening. lookup, freshness or collection configuration,
-and any resource plan that executes work MUST preserve exact P; key, getData, and getState use exact K.
-resource.ref MUST NOT exist, and a second resource key, custom hash, or equality callback MUST be rejected.
-A resource MAY declare `persist: true`, defaulting to `false`, to opt its committed canonical entries into
-the RuntimeSetup Persistence provider.
+### Rule
 
-```ts
-type ProjectInput = Readonly<{ id: string }>;
+- `updateMemory` returns `Partial<Memory>` only; same pre-turn snapshot/event feed guard, memory, actions;
+  actions cannot see candidate memory. `reenter` is exact active state token only.
 
+### Accepts
+
+- Exact event payload, known memory fields, active token reentry.
+
+### Rejects
+
+- Unknown fields/values, Boolean/foreign/inactive/outside-boundary reentry, candidate-memory visibility.
+
+### Observable guarantee
+
+- Callback types describe one immutable pre-turn causal input.
+
+### Proof
+
+- Event narrowing, update/action visibility, reentry negative fixtures.
+
+### Trace
+
+- Provenance: `provenance/TYPE_SYSTEM.md#TYPE-004`.
+
+## TYPE-005 — Resource `P`/`K`/`A`/`E`/`R`
+
+~~~ts
 const project = resource({
   id: "projects.by-id",
-  key: ({ id }: ProjectInput) => [id] as const,
-  lookup: (
-    { id }: ProjectInput,
-    { signal },
-  ): Effect.Effect<Project, "missing", ProjectRepo> =>
+  key: ({ id }: Readonly<{ id: string }>) => [id] as const,
+  lookup: ({ id }, { signal }): Effect.Effect<Project, "missing", ProjectRepo> =>
     Effect.gen(function* () {
       const repo = yield* ProjectRepo;
       return yield* repo.get(id, { signal });
     }),
 });
+project.getData(project.key({ id: "project-1" }));
+~~~
 
-const key = project.key({ id: "project-1" });
-project.getData(key);
-project.lookup({ id: "project-1" });
-// @ts-expect-error
-project.lookup({ id: "workspace-1" });
-```
+### Surface
 
-K MUST follow `PUBLIC_API.md` `API-005`: ordinary dense arrays and plain records are accepted as source containers,
-copied into Flow-owned recursively frozen containers, and frozen at the top-level tuple. Canonicalization
-sorts record keys and normalizes `-0`; hostile reflection and unsupported values are rejected. The exact
-`KBytes` UTF-8 grammar, discriminator requirement, 16-level/256-node/8192-byte bounds, and exact path
-diagnostics are normative. No type layer may add a competing interpretation.
+- Resource carries exact executable `P`, canonical `K`, success `A`, typed failure `E`, requirements `R`.
 
-### TYPE-006 — Transactions infer execution independently from parent bindings
+### Rule
 
-For commit: (params: P, options) => Effect.Effect<A, E, R>, the transaction descriptor MUST carry exact
-P/A/E/R. key: (params: P) => K MUST infer the exact input of transaction.key, commit, and the actor-bound O
-family. The descriptor MUST carry no parent machine, memory, event, selector, route, preview, or invalidation
-type.
+- Lookup/config/plans preserve P; key/getData/getState use K. No resource ref, second key, custom hash,
+  or equality. `persist` false by default; true opts committed canonical entries into Persistence.
+- K uses `PUBLIC_API.md#API-005` exact copied/frozen canonical containers, grammar, discriminator, bounds,
+  and diagnostics; no type layer adds another interpretation.
 
-```ts
+### Accepts
+
+- Exact P/K/A/E/R through descriptor, named O, machine, app, runtime, fixture, and Story.
+
+### Rejects
+
+- Inconsistent callbacks, noncanonical key values, resource refs, custom identity, unsupported values/bounds.
+
+### Observable guarantee
+
+- Executable methods retain complete P; passive/key methods never pretend K reconstructs P.
+
+### Proof
+
+- Resource tuple, canonical boundary, `@ts-expect-error`, and requirement propagation fixtures.
+
+### Trace
+
+- Provenance: `provenance/TYPE_SYSTEM.md#TYPE-005`; canonical owner: `PUBLIC_API.md#API-005`.
+
+## TYPE-006 — Transaction inference independent of parent
+
+~~~ts
 type SaveParams = Readonly<{ id: string; title: string }>;
 
 const save = transaction({
@@ -218,28 +262,44 @@ O.save.commit(
     },
   },
 );
-```
+~~~
 
-The transaction family exposes exact key, passive getState, finite commit, and actor-owned cancel. An
-omitted key projector has K = []. commit is admitted only by event-transition actions. Concurrency is
-actor-local and its exact accepted policies are reject, cancel, allow, and serialize. The failure mapper is
-absent when E = never; defect and interruption are separate channels. Authoritative writes are explicit
-setData plans and never implicit result promotion.
-A transaction MAY declare `persist: true`, defaulting to `false`, to opt its actor-owned durable occurrence
-and reconciliation facts into persistence when its owning stable actor is also declared persistable. The
-transaction declaration never makes a local or otherwise non-persistable actor durable.
+### Surface
 
-### TYPE-007 — Streams infer exact execution without a parent type graph
+- Transaction carries exact P/A/E/R and key's exact P/K; actor O family preserves them.
 
-For subscribe: (params: P, options) => Stream.Stream<V, E, R>, the stream descriptor MUST carry exact
-P/K/V/E/R and no parent selector, routed event, or child actor. The actor-bound family exposes passive key,
-passive getState, and continuing subscribe; it has no actor cancel. Its passive stream projection retains
-status, `hasValue`, the latest `V` when present, emission count, generation, and terminal status. Exact
-state-union members, field optionality, failure/defect/interruption representation, and declaration-slot
-identity follow the exact family-specific unions in `PUBLIC_API.md` `API-006` and are not exported as
-standalone aliases.
+### Rule
 
-```ts
+- No parent machine/memory/event/selector/route/preview/invalidation type. Family is exact key/passive
+  getState/commit/cancel; K defaults to `[]`; commit only from actions. Concurrency is
+  `reject | cancel | allow | serialize`; failure mapper absent for `E=never`; defect/interruption distinct.
+- Explicit setData writes only. `persist` false by default; true opts actor-owned durable facts only
+  when owning stable actor is persistable.
+
+### Accepts
+
+- Typed success/failure mappings and explicit writes.
+
+### Rejects
+
+- Parent-type capture, missing/widened params, failure mapping when E never, implicit result promotion,
+  local actor durability through descriptor alone.
+
+### Observable guarantee
+
+- Transaction types remain independent of where a machine binds the descriptor.
+
+### Proof
+
+- Transaction P/K/A/E/R, concurrency, writes, persistence, and negative parent-route fixtures.
+
+### Trace
+
+- Provenance: `provenance/TYPE_SYSTEM.md#TYPE-006`; public owner: `PUBLIC_API.md#API-008`.
+
+## TYPE-007 — Stream inference
+
+~~~ts
 type ProgressInput = Readonly<{ submissionId: string }>;
 
 const progress = stream({
@@ -251,284 +311,611 @@ const progress = stream({
       return yield* progressClient.progress(submissionId, { signal });
     }),
 });
-```
+~~~
 
-Stream values receive V, failures receive E, and defect, interruption, completion, and value mappings are
-available only where the family supports them. Emissions become durable state only through mapped events
-and explicit writes. Hydration rematerializes an active declaration from its live executable P after pending
-outcomes drain without replaying an old emission; terminal streams do not restart, and missing executable
-input fails closed with a precise diagnostic.
-A stream MAY declare `persist: true`, defaulting to `false`, to opt its latest projection, terminal status,
-generation, and accepted declaration facts into persistence when its owning stable actor is also declared
-persistable. Fibers, scopes, cursors, transports, and emission history remain non-persistable.
+### Surface
 
-### TYPE-008 — Typed failures, defects, and interruptions remain distinct
+- Stream carries exact P/K/V/E/R with no parent selector/routed event/child actor. Family is passive
+  key/getState and continuing subscribe, no actor cancel.
 
-Operation completion MUST inspect the complete Cause. Classification precedence MUST be: defect when any
-defect exists, otherwise typed failure when any failure exists, otherwise interruption when the Cause is
-interruption-only. Typed failure is E; defect and interruption MUST NOT be widened into E. Runtime
-implementation MUST use Effect.exit, not Effect.result, for operation completion. This clause is self-contained;
-its production proof MUST cover the stated precedence and the `Effect.exit` boundary.
+### Rule
 
-## Transitive requirements and Implementations
+- Projection retains status, hasValue, latest V when present, emission count, generation, terminal status;
+  exact union/optionality follows `PUBLIC_API.md#API-006`, not exported aliases. Emissions become durable
+  only through mapped events/explicit writes. `persist` false by default; true opts latest/terminal/
+  generation/declaration facts when stable owner is persistable; fibers/scopes/cursors/transports/history
+  are non-persistable.
+- Hydration uses live P after pending outcomes drain, no old emission replay; terminal no restart; missing P
+  fails closed with precise diagnostic.
 
-### TYPE-009 — Every reachable definition carries hidden requirements
+### Accepts
 
-Resource, transaction, stream, machine, module, app, fixture, Story, and model types MUST carry a hidden
-covariant requirements member. RequirementsOf<T> MUST expose the application-provided union without
-exposing the implementation brand. Descriptor internals retain raw R; Flow executes activities through
-Effect.scoped, so RequirementsOf<T> removes Scope.Scope owned by Flow's ManagedRuntime.
+- Exact stream values/failures and family-supported complete/defect/interruption mappings.
 
-For a machine, requirements are the union of every named operation descriptor reachable from its states and
-every reachable machine graph. A module unions its exact named machine record. An app unions its module
-machine records into App.M; every listed machine contributes its complete operation graph and requirements
-to AppPlan. Context selectors add typed provider edges, not actor parentage.
+### Rejects
 
-```ts
+- Parent type graph, child actor, stream cancellation, terminal restart, K reconstruction, and widened
+  completion values.
+
+### Observable guarantee
+
+- Stream latest-value and terminal fields narrow without casts and preserve exact descriptor types.
+
+### Proof
+
+- Stream P/K/V/E/R, projection, hydration, persistence, and no-cancel compile/runtime proofs.
+
+### Trace
+
+- Provenance: `provenance/TYPE_SYSTEM.md#TYPE-007`; public owner: `PUBLIC_API.md#API-009`.
+
+## TYPE-008 — Cause classification
+
+~~~ts
+const exit = yield* Effect.exit(operation);
+// defect > typed failure > interruption-only
+~~~
+
+### Surface
+
+- Operation completion classifies complete Effect Cause into typed failure `E`, defect, or interruption.
+
+### Rule
+
+- Precedence: any defect, else any failure, else interruption-only. Defect/interruption are not widened
+  into E. Production uses `Effect.exit`, not `Effect.result`.
+
+### Accepts
+
+- Distinct typed failure/defect/interruption channels.
+
+### Rejects
+
+- Cause flattening into E or `Effect.result` completion boundary.
+
+### Observable guarantee
+
+- Runtime outcome unions preserve the first applicable classification precedence.
+
+### Proof
+
+- Cause precedence and `Effect.exit` production-owner proof.
+
+### Trace
+
+- Provenance: `provenance/TYPE_SYSTEM.md#TYPE-008`; public lanes: `PUBLIC_API.md#API-006`–`API-009`.
+
+## TYPE-009 — Transitive requirements
+
+~~~ts
 type _MachineR = Expect<Equal<RequirementsOf<typeof projectMachine>, ProjectRepo | AuditLog>>;
 type _AppR = Expect<Equal<RequirementsOf<typeof ProjectApp>, ProjectRepo | AuditLog>>;
-```
+~~~
 
-App compilation creates no actors and MUST NOT accept dynamicMachines. A module machine record is a closed
-admission universe, not an automatic root and not an actor address. No requirement may be added by passive
-reads or by a callback that is not already part of the named static catalogue.
+### Surface
 
-### TYPE-009A — Public carriers are normalized and acyclic
+- Resource/transaction/stream/machine/module/app/fixture/Story/model carry hidden covariant requirements.
 
-Resource, transaction, stream, machine, module, and app declarations MUST carry already-computed type
-slots through private covariant brands. RequirementsOf<T> reads the normalized carrier directly; it MUST
-NOT recursively re-walk authored state config, selectors, outcome maps, or plan values whenever a consumer
-asks for requirements. Public Machine types MUST NOT retain complete authored config as a generic argument.
+### Rule
 
-The static carrier direction is definition and machine-independent descriptors -> machine bindings -> named
-module record -> app. A child-machine carrier graph is not part of the accepted surface. The carrier graph
-MUST remain acyclic and bounded for pure app compilation and TypeScript instantiation. A running runtime
-MUST NOT expand AppPlan.
+- `RequirementsOf<T>` exposes application union without implementation brand. Descriptor internals retain
+  raw R; Flow owns Scope.Scope via `Effect.scoped`, so RequirementsOf removes Scope. Machine unions every
+  reachable named descriptor/machine graph; module unions exact record; app unions App.M. Context selectors
+  add typed provider edges, not parentage. Passive reads/callbacks add no requirements.
+- App compilation creates no actor and rejects dynamicMachines/automatic roots.
 
-### TYPE-009B — Implementations are inert, composable service providers
+### Accepts
 
-`Implementation` is the public provider value formerly described as a Layer. It is an immutable provider graph
-keyed by typed service identity. The package MUST expose the following construction semantics under the
-`Implementation` namespace; the exact service-identity token is the one used by the Effect service definition:
+- Exact machine→module→app requirement closure.
 
-```ts
+### Rejects
+
+- Hidden unresolved requirements, dynamic admission, and child/root actor categories.
+
+### Observable guarantee
+
+- Requirements are visible at the app boundary without exposing provider implementation branding.
+
+### Proof
+
+- Requirements union and closure positive/negative fixtures.
+
+### Trace
+
+- Provenance: `provenance/TYPE_SYSTEM.md#TYPE-009`; public admission: `PUBLIC_API.md#API-010`.
+
+## TYPE-009A — Normalized acyclic carriers
+
+The following is private schematic/non-exported notation for the inferred carrier boundary; it is not a
+required public export.
+
+~~~ts
+type NormalizedCarrier<R> = Readonly<{ readonly _requirements?: (r: R) => R }>;
+~~~
+
+### Surface
+
+- Resource/transaction/stream/machine/module/app declarations carry precomputed private covariant slots.
+
+### Rule
+
+- RequirementsOf reads carrier directly; it does not re-walk authored config/selectors/outcomes/plans.
+  Public Machine does not retain complete authored config as generic. Direction is descriptors→machine
+  bindings→named module→app; no child-machine carrier graph. Graph is acyclic/bounded; runtime never expands AppPlan.
+
+### Accepts
+
+- Normalized private carriers and exact public output.
+
+### Rejects
+
+- Recursive carrier expansion, repeated authored-tree traversal, child-machine carrier edges.
+
+### Observable guarantee
+
+- App compilation/inference cost is bounded by normalized static graph.
+
+### Proof
+
+- Acyclic carrier and inference-cost proof `TYPE-P03`.
+
+### Trace
+
+- Provenance: `provenance/TYPE_SYSTEM.md#TYPE-009A`.
+
+## TYPE-009B — Inert Implementations
+
+~~~ts
 const TodoLive = Implementation.succeed(TodoGateway, TodoGateway.of({
   list: ({ listId }, { signal }) => fetchTodos(listId, { signal }),
   add: ({ listId, title }, { signal }) => createTodo(listId, title, { signal }),
 }));
-
-const TodoStoryGateway = Implementation.succeed(TodoGateway, TodoGateway.of({
+const TodoStory = Implementation.succeed(TodoGateway, TodoGateway.of({
   list: () => Effect.succeed(initialTodos),
   add: ({ title }) => Effect.succeed({ id: "todo-1", title, completed: false }),
 }));
+const TodoWithClock = Implementation.merge(TodoLive, ClockLive);
+~~~
 
-const TodoLiveWithClock = Implementation.merge(TodoLive, ClockLive);
-```
+### Surface
 
-`Implementation.succeed(service, value)` provides one complete service synchronously and cannot fail during
-acquisition. `Implementation.effect(service, acquire)` provides one complete service through a typed Effect;
-the Effect is acquired at most once per Runtime, its typed error remains `ImplementationError`, and its scope
-and finalizer are owned by that Runtime. `Implementation.merge(...providers)` composes provider graphs without
-changing service identity. Construction is inert: none of these calls acquires services, performs I/O, creates
-actors, or starts work.
+- Public `Implementation` is immutable typed provider graph under namespace `Implementation`.
 
-Provider graphs MUST reject duplicate service identities rather than choose by order. A RuntimeSetup passed to
-`runtimeSetup` MUST contain a complete graph for `RequirementsOf<App>`; a partial graph or a graph with remaining
-requirements is a type error or readiness failure at the declared boundary. Fixture implementations use the
-same construction and composition rules and override App providers by service identity for one fresh Runtime.
+### Rule
 
-### TYPE-010 — Runtime construction closes app requirements exactly
+- `succeed(service, value)` is complete synchronous non-failing provider. `effect(service, acquire)` is
+  acquired at most once per Runtime; typed error is `ImplementationError`, scope/finalizer Runtime-owned.
+  `merge` composes without changing identity. All construction is inert: no acquire/I/O/actors/work.
+- Duplicate service identity rejects, never order-selects. RuntimeSetup must close RequirementsOf<App>;
+  partial/remaining graph is type/readiness failure. Fixtures use same rules and override by identity.
 
-The overloads below are requirement-closure notation. `RuntimeSetup` is the inert public construction
-carrier; its optional `persistence` provider is a host capability and does not enter `RequirementsOf<App>`.
-`construct()` creates the one Runtime shell and performs no storage I/O or external work. The Runtime exposes
-one public readiness boundary, `ready(): Effect.Effect<void, ImplementationError | FlowPersistenceError>`;
-running that Effect performs bootstrap and restoration exactly once and caches its terminal result.
+### Accepts
 
-The public overloads MUST behave as if declared:
+- Complete service providers and strict supersets with no remaining input requirements.
 
-```ts
+### Rejects
+
+- Duplicate providers, unresolved input services, Layer-like opaque semantics, operation-kernel replacement,
+  argument/output matchers, or control registry.
+
+### Observable guarantee
+
+- Provider construction has no runtime effect until Runtime acquisition owns it.
+
+### Proof
+
+- Provider variance, duplicate identity, inertness, and fixture closure proofs.
+
+### Trace
+
+- Provenance: `provenance/TYPE_SYSTEM.md#TYPE-009B`; public API: `PUBLIC_API.md#API-015`.
+
+## TYPE-010 — Runtime requirement closure
+
+~~~ts
 function runtimeSetup<A extends App>(options: {
-  readonly app: A;
-  readonly persistence?: Persistence;
+  readonly app: A; readonly persistence?: Persistence;
 }): RuntimeSetup<A, never>;
-
 function runtimeSetup<A extends App, ImplementationError>(options: {
   readonly app: A;
   readonly implementation: Implementation<RequirementsOf<A>, ImplementationError>;
   readonly persistence?: Persistence;
 }): RuntimeSetup<A, ImplementationError>;
-```
+~~~
 
-The first overload is applicable only when `RequirementsOf<A>` is `never`; otherwise the second overload
-requiring a complete `Implementation` applies. `App` is the public authored app type; this notation does not
-introduce another authored-app type or runtime field.
+### Surface
 
-Equivalent subtyping that permits an Implementation to provide a strict superset of app requirements is valid,
-but the supplied Implementation MUST have no remaining input requirements. Implementation acquisition errors
-remain ImplementationError.
-Runtime actor creation and ensuring MUST accept only exact machines from App.M; lookup is ref-only and does
-not create or adopt an actor.
+- `RuntimeSetup` is inert carrier. `construct()` makes shell/no I/O. `ready(): Effect<void,
+  ImplementationError | FlowPersistenceError>` performs bootstrap/restoration once and caches terminal result.
 
-```ts
-runtimeSetup({ app: PublicApp }); // valid only when RequirementsOf<PublicApp> is never
+### Rule
+
+- First overload applies only when requirements are never; second requires complete Implementation.
+  Strict superset providers are valid only with no remaining inputs. Persistence is host capability and
+  does not enter RequirementsOf/App Implementation closure. Runtime create/ensure accept exact App.M machines;
+  lookup is ref-only/no create/adopt.
+- `persistence(options)` returns an inert `Persistence`; storage is a host capability, codec defaults to
+  the package JSON-safe codec, and its filter can only exclude declaration-owned entries. Persistence does
+  not contribute to RequirementsOf<App> or change Implementation closure.
+
+### Accepts
+
+~~~ts
+runtimeSetup({ app: PublicApp });
 runtimeSetup({ app: ProjectApp, implementation: ProjectLive });
+~~~
 
+### Rejects
+
+~~~ts
 // @ts-expect-error ProjectRepo remains unsatisfied
 runtimeSetup({ app: ProjectApp });
-
-// @ts-expect-error the Implementation still requires DatabaseConfig
+// @ts-expect-error remaining DatabaseConfig requirement
 runtimeSetup({ app: ProjectApp, implementation: ProjectImplementationRequiringConfig });
+~~~
 
-```
+### Observable guarantee
 
-`persistence(options)` MUST return an inert `Persistence` value. Its `storage` adapter is a host capability,
-its optional `codec` defaults to the package JSON-safe codec, and its optional filter can only exclude
-declaration-owned persistence entries. `Persistence` MUST NOT contribute to `RequirementsOf<App>` or change
-the inferred `Implementation` requirement closure.
+- Readiness is one idempotent cached boundary; implementation acquisition errors remain `ImplementationError`.
 
-### TYPE-011 — Runtime Effect bridges accept only installed services
+### Proof
 
-For Runtime<App, ImplementationError>, runPromise and runPromiseExit MUST accept only Effects whose requirements are
-satisfied by the runtime's installed application Context. runPromiseExit MUST return
-Promise<Exit.Exit<A, E | ImplementationError>>, including Implementation acquisition failure in the resolved Exit rather
-than rejecting its Promise. It MUST NOT claim that arbitrary services are installed. The current negative
-proof is packages/flow-state/src/public-api-types.test.ts:287-333.
+- Runtime overload/closure, exact App.M, persistence exclusion, and readiness proofs.
 
-## Actors, views, Stories, fixtures, and models
+### Trace
 
-### TYPE-012 — Actor handles and snapshots retain the exact machine family
+- Provenance: `provenance/TYPE_SYSTEM.md#TYPE-010`; public host: `PUBLIC_API.md#API-012`.
 
-Every actor handle backed by Machine MUST preserve StateOf, EventOf, MemoryOf, context, and all typed named
-operation families reachable from that machine. actor.ref MUST be ActorRef<Machine> for the exact machine,
-actor.send MUST accept only EventOf<Machine>, and actor.getSnapshot() and actor.snapshots MUST expose the
-same exact ActorSnapshot<Machine> family. Registry-free operation reads preserve exact descriptor and key
-types, and discriminated status unions narrow without casts where accepted.
+## TYPE-011 — Runtime Effect bridge
 
-`actorRef(machine, id, { persist?: boolean })` MUST preserve the exact machine brand and stable ID type;
-`persist` defaults to `false`, is not part of ActorRef identity, and only declares eligibility for complete
-stable-actor persistence. A local actor's opaque ref can never satisfy a persistable ActorRef requirement.
+The following is private schematic/non-exported notation for the runtime result shape; it is not a
+required public export.
 
-Actor lifecycle MUST be exactly "prepared" | "active" | "suspended" | "disposed". Prepared actors buffer
-commands, suspended actors reject commands and own no live attachment resources, and disposed actors are
-terminal. Ordinary actor handles and refs MUST NOT expose dispose; only an owner lease has individual
-disposal authority. snapshot.issues contains the active FlowIssue summary, while receipts, pending outcomes,
-binding cursors, raw public Effect `Cause.Cause<unknown>` values, and full diagnostic facts do not enter actor types.
+~~~ts
+type Result<A, E, IE> = Promise<Exit.Exit<A, E | IE>>;
+~~~
 
-### TYPE-013 — Passive React selectors reject foreign actor families
+### Surface
 
-The React surface MUST expose useActor(machine, options?), useActorByRef(ref), and useView(actor, selector).
-useActor creates a fresh local actor and does not accept a stable ID; useActorByRef is lookup-only and does
-not recover a lease. useView MUST require one exact actor handle, not a machine, ref, registered view, or
-view ID.
+- For `Runtime<App, ImplementationError>`, `runPromise`/`runPromiseExit` accept only Effects satisfied
+  by installed application Context.
 
-The selector MUST receive one atomic passive actor context containing state, readonly memory, inherited
-readonly context, lifecycle, issues, bound can(event), and snapshot-bound read-only O. Its result MUST
-preserve the exact declared Value type without implicit null or undefined. O exposes only passive key,
-getData, and getState; acquisition and mutation methods are rejected. No comparator argument is accepted.
-Scalar/non-record values use complete-value Object.is; named records use fixed-key, field-by-field Object.is.
+### Rule
 
-```ts
+- `runPromiseExit` resolves `Promise<Exit.Exit<A, E | ImplementationError>>`, including acquisition failure
+  in Exit rather than rejecting Promise; it cannot claim arbitrary services installed.
+
+### Accepts
+
+- Effects whose requirements are closed by runtime context.
+
+### Rejects
+
+- Arbitrary unsatisfied service requirements or Promise rejection used to represent Implementation acquisition.
+
+### Observable guarantee
+
+- Runtime bridge types expose exact installed-service boundary.
+
+### Proof
+
+- Historical/reference negative proof from the frozen package: `packages/flow-state/src/public-api-types.test.ts:287-333`.
+  The replacement proof belongs under `packages/flow-state-rewrite/`, per `IMPLEMENTATION_WORKFLOW.md:26-28`.
+
+### Trace
+
+- Provenance: `provenance/TYPE_SYSTEM.md#TYPE-011`.
+
+## TYPE-012 — Exact actor family
+
+~~~ts
+const actor: Actor<Machine> = runtime.getActor(ref);
+actor.ref satisfies ActorRef<Machine>;
+actor.send(/* EventOf<Machine> */);
+actor.getSnapshot();
+~~~
+
+### Surface
+
+- Actor handle preserves StateOf, EventOf, MemoryOf, context, and all exact named operation families.
+
+### Rule
+
+- `ref: ActorRef<Machine>`, send accepts EventOf, snapshot/snapshots expose exact ActorSnapshot family,
+  registry-free reads retain descriptor/K types, status unions narrow without casts.
+- `actorRef(machine,id,{persist?:boolean})` preserves machine/stable-ID type; persist false default/not
+  identity/only stable eligibility. Local opaque ref cannot satisfy persistable ref.
+- Lifecycle exact four states. Prepared buffers; suspended rejects commands/no live attachments; disposed terminal.
+  No dispose on actor/ref. Snapshot issues only active FlowIssue summary; receipts/pending/binding cursors/
+  raw Cause/full diagnostics absent.
+
+### Accepts
+
+- Exact machine-branded handles/refs/leases and exact lifecycle union.
+
+### Rejects
+
+- Foreign/mismatched refs, local persistability, handle disposal, raw Cause/receipts in actor types.
+
+### Observable guarantee
+
+- Actor family types never widen across machine identity.
+
+### Proof
+
+- Actor family, lifecycle, ref persist flag, and absence compile fixtures.
+
+### Trace
+
+- Provenance: `provenance/TYPE_SYSTEM.md#TYPE-012`; public owner: `PUBLIC_API.md#API-011`–`API-012`.
+
+## TYPE-013 — Passive React selectors
+
+~~~ts
 const selected = useView(projectActor, ({ state, O }) => ({
   state,
   project: O.project.getData(O.project.key({ id: "project-1" })),
 }));
-
-// @ts-expect-error a machine is not an actor handle
+// @ts-expect-error machine is not actor handle
 useView(projectMachine, ({ state }) => state);
-```
+~~~
 
-### TYPE-014 — Story constructors and commands accumulate exact scope
+### Surface
 
-The public constructors are story.app(runtimeSetup, options?), story.machine(machine, options?), and
-story.actor(machine, options?). Their closed option objects MUST behave as follows:
+- React exports `useActor(machine, options?)`, `useActorByRef(ref)`, `useView(actor, selector)`.
+
+### Rule
+
+- useActor creates fresh local/no stable ID; by-ref lookup-only/no lease. useView requires exact actor
+  handle. Selector receives atomic passive state/readonly memory/context/lifecycle/issues/bound can/O.
+  Result preserves exact Value, without implicit null/undefined. O only key/getData/getState; no comparator.
+- Scalar/non-record equality complete-value Object.is; named records fixed-key field-by-field Object.is.
+
+### Accepts
+
+- Exact actor-bound passive selectors and exact inferred result.
+
+### Rejects
+
+- Machine/ref/registered-view/view-ID arguments, comparator, acquisition/mutation O methods, implicit
+  null/undefined widening.
+
+### Observable guarantee
+
+- Selector cannot acquire/mutate and reruns only for matching tracked actor/store publication.
+
+### Proof
+
+- React type and runtime passive-selector proofs, including the negative example.
+
+### Trace
+
+- Provenance: `provenance/TYPE_SYSTEM.md#TYPE-013`; public owner: `PUBLIC_API.md#API-012`.
+
+## TYPE-014 — Story option/command closure
+
+The constructors MUST use three closed option-object shapes. The following helper names are
+specification notation and need not be exported:
 
 ```ts
 type InputOptions<M> =
   InputOf<M> extends void ? { readonly input?: never } : { readonly input: InputOf<M> };
 
+type SelectedContextOptions<M> = keyof SelectedContextOf<M> extends never
+  ? { readonly context?: never }
+  : { readonly context: SelectedContextOf<M> };
+
 type ContextBindingOptions<M> = keyof SelectedContextOf<M> extends never
   ? { readonly contextBindings?: never }
   : { readonly contextBindings: StoryContextBindingsOf<M> };
 
+type StoryContextBindingsOf<M> = {
+  readonly [K in keyof SelectedContextOf<M>]:
+    ActorRef<ProviderMachineAt<M, K>> | StoryActorRecipe<ProviderMachineAt<M, K>>;
+};
+
+type FixtureOptions<Owner> =
+  RequirementsOf<Owner> extends never
+    ? { readonly fixtures?: readonly FixtureDefinition[] }
+    : {
+        readonly fixtures: FixtureTupleClosing<RequirementsOf<Owner>>;
+      };
+```
+
+`StoryContextBindingsOf`, `ProviderMachineAt`, and `StoryActorRecipe` describe the exact contextual
+type relationship; they do not require public helper exports. In this notation, `FixtureDefinition`
+denotes an immutable value returned by `fixture({ id, implementation, seeds? })`. Its `implementation`
+provides the complete service identities required by the owner; its optional `seeds` are preloaded
+Runtime-owned resource state and do not satisfy a missing service requirement. A Fixture Implementation
+overrides an App Implementation for the same service identity, while duplicate Fixture providers are
+rejected rather than resolved by ordering. The provider is constructed once per Runtime and Story runs
+receive fresh Runtime-scoped provider state.
+
+In this notation, `Implementation<Output, ImplementationError>` denotes the provider graph whose combined outputs
+satisfy `Output` and whose acquisition may fail with `ImplementationError`; it is the accepted semantic name for the
+implementation-layer boundary, not a second testing runtime or a required public helper constructor. An
+Implementation supplies complete service functions. It does not replace resource, transaction, or stream
+operation kernels, and the Story does not install argument/output matchers or a control registry. The
+`FixtureTupleClosing<R>` denotes a readonly tuple whose combined provider outputs satisfy `R`; neither
+needs to be an exported alias.
+
+The three complete option shapes are:
+
+```ts
 type AppStoryOptions<App> = FixtureOptions<App> & {
   readonly maxTurns?: number;
   readonly title?: string;
   readonly description?: string;
   readonly tags?: readonly string[];
 };
-
-type MachineStoryOptions<M> = InputOptions<M> &
-  SelectedContextOptions<M> &
-  FixtureOptions<M> & {
-    readonly maxTurns?: number;
-    readonly title?: string;
-    readonly description?: string;
-    readonly tags?: readonly string[];
-  };
-
+type MachineStoryOptions<M> = InputOptions<M> & SelectedContextOptions<M> & FixtureOptions<M> & {
+  readonly maxTurns?: number;
+  readonly title?: string;
+  readonly description?: string;
+  readonly tags?: readonly string[];
+};
 type ActorRecipeOptions<M> = InputOptions<M> & ContextBindingOptions<M>;
 ```
 
-These helper aliases are specification notation rather than required exports. Required input is required,
-void input rejects an authored input, focused context is exact and required when declared, and fixtures close
-the corresponding requirements. Persistence is supplied only through RuntimeSetup; maxTurns defaults to 100.
+### Surface
 
-Story plans are immutable and inert until run(). Both Story kinds expose process, advance, advanceTo,
-advanceToNextTimer, checkpoint, and run; app Stories additionally expose target-taking send, while machine
-Stories expose target-free send and setContext. Story plans do not inject results into pending operations;
-complete service Implementations provide external behavior. advance and advanceTo do not process implicitly.
-Checkpoint names accumulate immutably, and duplicate literal names fail while the plan is built.
+- These aliases are specification notation, not required exports. Constructors are
+  `story.app(runtimeSetup, options?)`, `story.machine(machine, options?)`, `story.actor(machine, options?)`.
 
-### TYPE-015 — Story-local actor recipes are exact and inert
+### Rule
 
-story.actor(machine, options?) MUST return a deeply frozen inert recipe carrying exactly the machine, required
-fresh input, and exact contextBindings. It carries no runtime, mailbox, snapshot, operation binding,
-disposal authority, or live handle. A binding key MUST match one declared context slot and its value MUST be
-an exact compatible app-owned ActorRef or Story actor recipe. Reusing one recipe object resolves one actor
-per run; separate recipes create independent actors even when machine and input match.
+- Required input required; void input rejects authored input; focused context exact/required when declared;
+  fixtures close requirements; Persistence only RuntimeSetup; maxTurns default 100.
+- Plans immutable/inert until run. Checkpoint names accumulate immutably, and duplicate literal names fail
+  while the plan is built. Both Story kinds: process/advance/advanceTo/advanceToNextTimer/
+  checkpoint/run; app adds target-taking send; machine adds target-free send/setContext. No implicit process.
 
-App Story targets accept only exact recipes or stable refs. Machine families, foreign refs, missing refs, and
-unadmitted recipes are rejected before command execution. Recipe actors are materialized with production
-runtime.createActor, their owner leases are retained, commands observe only lease.actor, and cleanup disposes
-leases in reverse dependency order. App-owned shared actors remain owned by `Runtime` leases.
+### Accepts
 
-### TYPE-016 — Fixture Implementations close service requirements
+- Exact conditional option closure, immutable checkpoints, command types, and run.end.
 
-`fixture({ id, implementation, seeds? })` MUST return an immutable, inert Fixture definition. Its
-`implementation` MUST provide the complete service interfaces required by the owning App or focused machine;
-an App Implementation is overridden by a Fixture Implementation for the same service identity, and duplicate
-Fixture providers MUST be rejected rather than resolved by ordering. Every declared service requirement MUST
-remain closed even when a resource seed causes a particular lookup to be skipped.
+### Rejects
 
-An Implementation provider MUST replace complete service functions while preserving their authored input,
-success, failure, cancellation, and resource-lifetime types. It MUST NOT replace resource, transaction, or
-stream operation kernels, install argument/output matchers, or create a control registry. Optional `seeds`
-are preloaded Runtime-owned resource state only; they are not service results, global mutable state, or
-arbitrary cache mutation. Each provider is constructed once per Runtime and Story runs receive fresh
-Runtime-scoped provider state unless application-level ownership explicitly shares it.
+- Bare app/live runtime, focused boot/memory/state/snapshot overrides, machine-family targets, and old
+  perform/deliver/receive/flush/settle/setTime/replay/run.final surfaces.
 
-Story plans have no separate pending-external-work or result-injection command. Complete service
-Implementations provide typed Effects or Streams; operation admission, completion, writes, projections,
-and evidence remain owned by the production kernels.
+### Observable guarantee
 
-### TYPE-017 — Pure models retain a command-empty machine Story
+- Story command scope accumulates exactly and cannot inject pending operation results.
 
-model(baseStory, { stateKey }) MUST preserve the base machine Story's machine, exact fresh input, selected
-context, fixtures, progress policy, and empty command tuple. It MUST reject an app Story, boot start, extra
-command, non-fresh restoration, or a non-pure stateKey. The callback receives the exact predicted snapshot
-and returns CanonicalKeyInput. Candidate event tuples belong to individual traversal calls and MUST NOT
-become model-level generic state.
+### Proof
 
-Each path.story MUST extend the base with that call's exact candidate events, begin with an empty checkpoint
-record, permit later checkpoint appends, and run through the ordinary production result shape. The model
-MUST expose only getShortestPaths and getSimplePaths; it MUST NOT run Effects, synthesize asynchronous
-routes, expose replay/provide/clock helpers, or export parallel named path/result classes. FlowStoryExecutionError
-is the only named testing runtime class; it carries the package-owned deeply frozen failure envelope accepted
-by REV-TEST-006 and REV-TEST-008, including the complete public Effect `Cause.Cause<unknown>` for the failed
-execution. Actor snapshots and inferred result values still do not expose raw Cause.
+- Positive/negative Story option, target, command, checkpoint, and run.end fixtures.
+
+### Trace
+
+- Provenance: `provenance/TYPE_SYSTEM.md#TYPE-014`; public owner: `PUBLIC_API.md#API-013`–`API-014`.
+
+## TYPE-015 — Story-local recipes
+
+~~~ts
+const recipe = story.actor(machine, { input, contextBindings });
+~~~
+
+### Surface
+
+- Recipe is deeply frozen inert exact machine/input/bindings; no runtime/mailbox/snapshot/operation/
+  disposal/live handle.
+
+### Rule
+
+- Binding key is declared slot and value exact compatible app-owned ActorRef or Story recipe. Same recipe
+  object resolves one actor per run; distinct recipes are independent. App targets accept exact recipe or
+  stable ref only. Materialize with production createActor, retain leases, observe only lease.actor,
+  dispose reverse dependency. App-owned shared actors remain Runtime-owned.
+
+### Accepts
+
+- Exact fresh input/context bindings and admitted refs/recipes.
+
+### Rejects
+
+- Missing/extra/foreign/cyclic bindings, machine families as targets, foreign refs, unadmitted recipes,
+  runtime/ownership in recipe.
+
+### Observable guarantee
+
+- Recipe identity, not structural equality, controls per-run actor materialization.
+
+### Proof
+
+- Exact binding, target, inertness, materialization, and lease-cleanup fixtures.
+
+### Trace
+
+- Provenance: `provenance/TYPE_SYSTEM.md#TYPE-015`; identity: `GLOSSARY_AND_IDENTITY.md#GLO-06`.
+
+## TYPE-016 — Fixture Implementation closure
+
+~~~ts
+const fixtureDef = fixture({ id: "test-api", implementation: TestApi, seeds });
+~~~
+
+### Surface
+
+- Fixture is immutable/inert and its Implementation closes complete App/focused-machine services.
+
+### Rule
+
+- App provider overridden by fixture provider by identity; duplicates reject. Seeds do not remove a
+  requirement even when lookup skipped. Providers replace complete service functions preserving authored
+  input/success/failure/cancellation/lifetime; never kernels, matchers, registries. Seeds are preloaded
+  Runtime-owned resource state. Provider constructed once per Runtime; Story runs get fresh scoped state
+  unless application ownership shares it. Kernels own admission/completion/writes/projections/evidence.
+
+### Accepts
+
+- Complete typed provider graphs and optional seed state.
+
+### Rejects
+
+- Missing/duplicate services, seeds as requirements, kernel replacement, mock registries, arbitrary cache
+  mutation, and result-injection commands.
+
+### Observable guarantee
+
+- Fixture setup cannot weaken application requirement closure or take kernel ownership.
+
+### Proof
+
+- Fixture service closure, duplicate identity, provider variance, freshness, and kernel ownership proofs.
+
+### Trace
+
+- Provenance: `provenance/TYPE_SYSTEM.md#TYPE-016`; public owner: `PUBLIC_API.md#API-015`.
+
+## TYPE-017 — Pure model base
+
+~~~ts
+const modelDef = model(machineStory, { stateKey: ({ value, memory }) => [value.id, memory] });
+~~~
+
+### Surface
+
+- `model(baseStory,{stateKey})` preserves machine, exact fresh input, selected context, fixtures, progress
+  policy, empty command tuple. `path.story` extends base with exact candidate events and empty checkpoints.
+
+### Rule
+
+- Reject app Story, boot, extra command, non-fresh restoration, non-pure stateKey. Candidate events are
+  per traversal call. Expose only `getShortestPaths`/`getSimplePaths`; no Effects, async route synthesis,
+  replay/provide/clock helpers, or parallel named path/result classes. `FlowStoryExecutionError` is sole
+  named testing runtime class, with package-owned frozen envelope accepted by REV-TEST-006/008 including
+  complete public `Cause.Cause<unknown>`. Snapshots/inferred values still hide raw Cause.
+
+### Accepts
+
+- Command-empty machine Story and pure CanonicalKeyInput state key.
+
+### Rejects
+
+- App/non-empty model, cross-call candidate retention, testing/path/TurnRecord/receipt/inspection
+  hierarchies, Effects, and raw Cause in snapshots.
+
+### Observable guarantee
+
+- Path exploration remains pure; each returned path is an ordinary runnable Story extension.
+
+### Proof
+
+- Model construction, path isolation, purity, and failure-envelope compile/runtime proofs.
+
+### Trace
+
+- Provenance: `provenance/TYPE_SYSTEM.md#TYPE-017`; public owner: `PUBLIC_API.md#API-015`.
 
 ## Required compile proofs
+
+The following union is schematic local proof-index notation and is not a required public export.
+
+~~~ts
+type TypeProof = "TYPE-P01" | "TYPE-P02" | "TYPE-P03" | "TYPE-P04";
+~~~
 
 ### TYPE-P01 — Positive proofs
 
@@ -554,7 +941,7 @@ Compile fixtures MUST prove:
 
 ### TYPE-P02 — Negative proofs
 
-Compile fixtures using @ts-expect-error MUST prove rejection of:
+Compile fixtures using `@ts-expect-error` MUST prove rejection of:
 
 - unknown states, compound nodes, events, targets, payloads, memory fields, timer targets, non-direct
   defaults, depth eleven, ambiguous ancestor/descendant handlers, Boolean reentry, and timer actions;
@@ -574,13 +961,13 @@ Compile fixtures using @ts-expect-error MUST prove rejection of:
 - callable Story construction, .with, bare app or live-runtime Story inputs, focused boot/memory/state/
   snapshot overrides, machine-family Story targets, perform, deliver, receive, flush, settle, setTime,
   replay helpers, and run.final;
-- duplicate checkpoints, result-injection commands, missing or duplicate Fixture
-  Implementations, missing fixture services, app Stories with direct context injection, and app Stories
-  without exact targets;
+- duplicate checkpoints, result-injection commands, missing or duplicate Fixture Implementations, missing
+  fixture services, app Stories with direct context injection, and app Stories without exact targets;
 - model construction from an app or non-empty command plan, cross-call candidate retention, and named
   testing, path, TurnRecord, receipt, or inspection-result type hierarchies;
-- public snapshot raw Effect `Cause.Cause<unknown>` values, receipts, child-machine types, root/dynamic actor categories, missing Implementation
-  services, Implementations with remaining inputs, and wrong-app boot payloads;
+- public snapshot raw Effect `Cause.Cause<unknown>` values, receipts, child-machine types, root/dynamic
+  actor categories, missing Implementation services, Implementations with remaining inputs, and wrong-app
+  boot payloads;
 - any or assertion-based erasure in provider, runtime, descriptor, actor, selector, Story, fixture, or
   model boundaries.
 
@@ -589,14 +976,14 @@ Compile fixtures using @ts-expect-error MUST prove rejection of:
 Phase 1 MUST compile an isolated private-vNext consumer with at least 25 named module-root machines, 100
 total resource/transaction/stream descriptors, cross-module shared descriptors, exact actor-bound passive
 views, and strict and isolated-declarations modes. The proof MUST assert exact RequirementsOf<App> and
-declaration emit, run tsc --extendedDiagnostics, and record a baseline tied to the checked-in TypeScript
+declaration emit, run `tsc --extendedDiagnostics`, and record a baseline tied to the checked-in TypeScript
 version. Instantiation count MUST remain within 10% of the approved baseline, and a paired fixture that
 doubles only unrelated roots MUST remain below 2.25 times the smaller fixture. Peak memory is trend evidence
 only. A negative fixture MUST reject recursive carrier expansion without an excessive-instantiation error.
 
 ### TYPE-P04 — Production-owner declaration proof
 
-Public declaration output MUST contain no any or assertion-based erasure in provider, runtime, descriptor,
+Public declaration output MUST contain no `any` or assertion-based erasure in provider, runtime, descriptor,
 actor, passive selector, Story, fixture, or model boundaries. Declaration proofs MUST be paired with the
 production-owner runtime, React, Story, persistence, and deletion absence proofs; focused source-text or
 type checks cannot stand in for those behavior proofs.
