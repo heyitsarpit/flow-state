@@ -58,6 +58,57 @@ import * as inspect from "flow-state/inspect";
 
 - Provenance: `provenance/PUBLIC_API.md#API-001`.
 
+## AMEND-API-001 — Maintained common-path quickstart
+
+Status: vNext additive amendment; this section is new target guidance and is not transferred provenance.
+
+- Surface: The maintained consumer quickstart for the existing root, React, testing, and inspection routes.
+- Rule: The quickstart MUST show one complete common path from `definition`/`machine` authoring through
+  `app`, `runtimeSetup`, readiness, actor command/snapshot use, and one focused proof. It MUST use only
+  the named package routes and public values in this file, remain valid against the packed package, and
+  be updated with any accepted public-surface change.
+- Accepts: A minimal root-runtime example plus a React or Story continuation where the route is relevant.
+- Rejects: Private deep imports, compatibility aliases, deleted APIs, invented helper builders, or examples
+  that bypass readiness, ownership, or the production runtime.
+- Observable guarantee: A new consumer can reach the first successful actor turn by following one current,
+  checked-in path without reconstructing package topology from separate contract sections.
+- Proof: `AMEND-P05` quickstart compile/run and packed-consumer proof.
+- Trace: vNext additive amendment; no provenance source.
+
+~~~ts
+import { Effect } from "effect";
+import { app, definition, machine, module, runtimeSetup } from "flow-state";
+
+const Counter = definition({
+  id: "Quickstart/Counter",
+  states: ["IDLE"],
+  events: { Increment: null },
+  memory: () => ({ count: 0 }),
+});
+
+const CounterMachine = machine(Counter, ({ S }) => ({
+  default: S.IDLE,
+  states: {
+    IDLE: {
+      on: { Increment: { target: S.IDLE, updateMemory: ({ memory }) => ({ count: memory.count + 1 }) } },
+    },
+  },
+}));
+
+const CounterApp = app({
+  id: "quickstart",
+  persistenceVersion: "1",
+  modules: [module({ id: "counter", machines: { counter: CounterMachine } })],
+});
+
+const runtime = runtimeSetup({ app: CounterApp }).construct();
+await Effect.runPromise(runtime.ready());
+const lease = runtime.createActor(CounterMachine);
+lease.actor.send(Counter.E.Increment());
+const snapshot = lease.actor.getSnapshot();
+await lease.dispose();
+~~~
+
 ## API-002 — Public type boundary
 
 ~~~ts
@@ -153,6 +204,45 @@ class FlowUsageError extends Error {
 ### Trace
 
 - Provenance: `provenance/PUBLIC_API.md#API-002A`.
+
+## AMEND-API-002 — Usage-diagnostic remediation
+
+Status: vNext additive amendment; API-002A remains the exact machine-readable error shape.
+
+- Surface: `FlowUsageError.message` and the per-code remediation documentation for API-002A.
+- Rule: Every one of the exact 18 `FlowUsageCode` values MUST have a maintained documentation row naming
+  the failure meaning, the relevant `path`/`details`, and the next corrective action. The inherited
+  `Error.message` MUST be human-readable and action-oriented, but is not a stable parsing surface.
+  Consumers MUST discriminate with `_tag` and `code`, then use `path` and `details` for programmatic data.
+- Accepts: Rich message text, code-linked documentation, and scalar/null details that explain the failing
+  boundary without exposing raw Cause.
+- Rejects: A new public `cause` member, alternate error shape, message parsing as control flow, or a
+  message-stability guarantee that would make prose a second API.
+- Observable guarantee: Every usage/admission failure gives a consumer both a stable diagnostic code and
+  a practical human remediation path.
+- Proof: `AMEND-P03` exhaustive code/message/documentation proof.
+- Trace: vNext additive amendment; API-002A remains the transferred shape authority.
+
+| Code | Failure meaning | Example path/details | Human message | Corrective action |
+| --- | --- | --- | --- | --- |
+| `InvalidCanonicalValue` | A canonical key/value contains an unsupported or non-canonical value. | `path: ["key"]`; `details: { "reason": "unsupported" }` | `The operation key contains a value that cannot be canonicalized.` | Replace it with a bounded JSON-safe canonical value. |
+| `ForeignActorRef` | The ref belongs to another app or runtime. | `path: ["actorRef"]`; `details: { "reason": "foreign" }` | `This actor ref belongs to a different runtime.` | Use a ref created by the receiving app/runtime. |
+| `MismatchedActorRef` | The ref is branded for a different machine. | `path: ["actorRef"]`; `details: { "machine": "Editor" }` | `This actor ref is for a different machine.` | Pass the exact machine-branded ref required by the operation. |
+| `MissingActorRef` | An operation requires an actor ref that was not supplied. | `path: ["actorRef"]`; `details: { "required": true }` | `An actor ref is required for this operation.` | Provide the admitted stable ref or use the explicit local-actor path. |
+| `DisposedActorRef` | A command addressed an actor after terminal disposal. | `path: ["actorRef"]`; `details: { "disposed": true }` | `This actor has been disposed and cannot accept commands.` | Acquire a valid owner/runtime and do not reuse the disposed ref. |
+| `RuntimeNotReady` | A handle or command escaped before readiness completed. | `path: ["runtime"]`; `details: { "phase": "booting" }` | `The runtime is still booting.` | Await the sole public `runtime.ready()` Effect before use. |
+| `RuntimeDisposed` | A command or lookup targeted a disposed runtime. | `path: ["runtime"]`; `details: { "phase": "disposed" }` | `The runtime is disposed and cannot accept work.` | Construct and own a new runtime execution scope. |
+| `MissingContextProvider` | A declared context binding has no admitted provider. | `path: ["contextBindings", "session"]`; `details: { "provider": "missing" }` | `The required context provider is not admitted.` | Admit the exact provider ref before constructing the consumer. |
+| `ContextDependencyCycle` | Context bindings contain a dependency cycle. | `path: ["contextBindings"]`; `details: { "cycle": "Session>Theme>Session" }` | `Context bindings contain a dependency cycle.` | Remove the cycle and keep provider dependencies acyclic. |
+| `DuplicateActorClaim` | Two admissions claim one stable actor identity incompatibly. | `path: ["actorRef"]`; `details: { "claim": "duplicate" }` | `This stable actor is already claimed incompatibly.` | Join the existing ensure or use a distinct stable identity. |
+| `UnadmittedMachine` | A machine is not part of the closed `AppPlan`. | `path: ["machine"]`; `details: { "machine": "Editor" }` | `This machine is not admitted by the application plan.` | Include the machine in the app before runtime construction. |
+| `ActorNotActive` | Work was sent while the actor was not active. | `path: ["actor"]`; `details: { "lifecycle": "suspended" }` | `The actor is not active and cannot accept this work.` | Resume through its owning host or wait for runtime activation. |
+| `InvalidOperationPlan` | An authored operation plan is structurally invalid. | `path: ["operation"]`; `details: { "reason": "invalid-plan" }` | `The operation plan is invalid.` | Fix the descriptor-owned operation fields before admission. |
+| `WrongOperationKind` | A resource, transaction, or stream API received another family. | `path: ["operation", "kind"]`; `details: { "expected": "resource" }` | `The operation belongs to a different operation family.` | Use the API matching the declaration's exact operation kind. |
+| `OperationNotPending` | An action requires a pending operation but none is pending. | `path: ["operation"]`; `details: { "status": "idle" }` | `This operation is not pending.` | Start or observe the correct occurrence before acting on it. |
+| `OperationAlreadySettled` | A completion/cancellation attempted to settle an occurrence twice. | `path: ["operation", "occurrence"]`; `details: { "settled": true }` | `This operation occurrence is already settled.` | Do not reuse the settled occurrence; issue a new authored attempt. |
+| `DuplicateStreamDeclaration` | One actor declaration installed the same stream slot twice. | `path: ["streams", "progress"]`; `details: { "duplicate": true }` | `This stream declaration is duplicated.` | Keep one declaration per slot or give the declarations distinct identities. |
+| `BlockedByDependents` | Disposal would violate active or suspended context dependents. | `path: ["actorRef"]`; `details: { "dependents": 1 }` | `This actor cannot be disposed while dependents remain bound.` | Dispose or rebind every named dependent before disposal. |
 
 ## API-003 — Definition authoring
 
@@ -1079,6 +1169,51 @@ const artifact = exportTraceArtifact(trace);
 ### Trace
 
 - Provenance: `provenance/PUBLIC_API.md#API-016`.
+
+## AMEND-API-003 — Opt-in redacted artifact exports
+
+Status: vNext additive amendment; raw runtime truth and the exact WIRE-020B export remain unchanged.
+
+~~~ts
+type ArtifactExportOptions = Readonly<{
+  redactions?: readonly Readonly<{
+    path: ArtifactValuePath;
+    replacement: "[REDACTED]";
+  }>[];
+}>;
+
+type ArtifactCanonicalPath = readonly (string | number)[];
+type ArtifactValuePath =
+  | readonly ["records", number, "snapshot", "memory" | "context", ...ArtifactCanonicalPath]
+  | readonly ["records", number, "facts", number, "data" | "value" | "error" | "defect" | "latest", ...ArtifactCanonicalPath]
+  | readonly ["checkpoints", number, "actors", number, "snapshot", "memory" | "context", ...ArtifactCanonicalPath]
+  | readonly ["checkpoints", number, "snapshot", "memory" | "context", ...ArtifactCanonicalPath];
+
+declare function exportTraceArtifact(
+  trace: ReturnType<typeof importTraceArtifact>,
+  options?: ArtifactExportOptions,
+): Uint8Array;
+~~~
+
+- Surface: An optional redaction policy on the existing `exportTraceArtifact` inspection route.
+- Rule: Redaction MUST be explicit, pure, and applied to a defensive export projection. An omitted or empty
+  policy returns the exact importable WIRE-020B bytes. A non-empty policy emits the share-only envelope
+  defined by `AMEND-WIRE-001`. A redaction policy may replace only application-owned value carriers at
+  named `ArtifactValuePath`s with the fixed `"[REDACTED]"` replacement; it MUST NOT target identity,
+  app-plan fingerprint, version, discriminants, ordering, sequence, truncation, diagnostic codes, or
+  cleanup/status structure. The resulting share projection is not persistence or boot input and is rejected
+  by `importTraceArtifact` as the wrong artifact kind.
+- Accepts: An omitted or empty policy for raw export, or an explicit finite list of value paths with
+  deterministic replacement. Paths use the artifact grammar in `ARTIFACT_WIRE.md`; array segments are
+  exact non-negative indexes, wildcards are forbidden, paths MUST exist, and duplicate or ancestor/descendant
+  overlaps reject as `InvalidArtifactOperand`.
+- Rejects: In-place mutation of runtime state, canonical persistence, the live decoded model, missing-path
+  redaction, structural/identity paths, or an export that changes identity/fingerprint/ordering semantics.
+- Observable guarantee: Teams can share a privacy-reduced inspection export while the runtime, persisted
+  record, raw artifact, and canonical evidence remain unchanged.
+- Proof: `AMEND-P04` default-equivalence, path-bound, non-mutation, deterministic-output, and wrong-kind
+  import-rejection proofs.
+- Trace: vNext additive amendment; WIRE-020A/B remains the raw artifact authority.
 
 ## API-017 — CLI boundary
 
