@@ -47,7 +47,7 @@ Use Ponytail as the final minimalism pass after correctness is established:
 
 1. `flow-state-contract-slice-review` — active-contract conformance.
 2. `performance-quality-bug-hunt` — correctness, performance, lifecycle, and adversarial bugs.
-3. `thermo-nuclear-code-quality-review` — Effect-native TypeScript quality.
+3. `reviewer` — independent Flow State contract, correctness, and Effect-quality review.
 4. `ponytail-review` — removable complexity only.
 
 Ponytail does not replace the Bead's `nub` checks or `verify` closeout gate.
