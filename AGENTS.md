@@ -10,6 +10,8 @@ tests, contracts, and proofs before making implementation or status claims.
   `server.ts`, and `inspect.ts` — public package entrypoints.
 - `packages/flow-state/src/core/` — runtime behavior; `src/react/`,
   `src/testing/`, and `src/cli/` — integration surfaces.
+- `packages/flow-state-rewrite/src/` — greenfield rewrite package; `internal/`
+  owns implementation and `public/` owns explicit package entrypoint modules.
 - `examples/` — maintained consumers and TypeScript compiler proofs.
 - `apps/docs/` — Vocs documentation and generated reference artifacts.
 - `reference/incident-console/implementation/` — normative Incident Console
@@ -17,8 +19,9 @@ tests, contracts, and proofs before making implementation or status claims.
   `revision-spec/accepted/` overrides conflicts; and the greenfield, review,
   and test requirement files define execution discipline. Beads will hold the
   task plan after the inventory is approved.
-- `codebases/` — research input only; installed packages and the lockfile
-  are authoritative for dependency APIs.
+- `codebases/` — research input only; `codebases/effect-v4/` is the primary
+  reference for how Effect features are used. Installed packages and the
+  lockfile remain authoritative for exact dependency APIs.
 
 Development uses Node 22.18+, `nub@0.7.5`, TypeScript 7.0.2, Vite Plus, and
 Effect 4.0.0-beta.86.
@@ -28,6 +31,7 @@ Effect 4.0.0-beta.86.
 ```sh
 nub install                                      # install dependencies
 nub run check:toolchain                          # after dependency/compiler changes
+nub run check:anti-slop                          # custom anti-slop rule fixtures
 nub run check                                    # formatting, lint, and type checks
 nub run --filter flow-state check:cli-source-types
 nub run --filter flow-state check:typescript-mode-proofs
@@ -61,14 +65,24 @@ is complete.
 
 ## Skills
 
-- Use `.agents/skills/effect-systems-design/SKILL.md` when choosing Effect boundaries,
-  services, layers, ownership, or public api and internal implementation details.
-- Use `.agents/skills/api-design/SKILL.md` when designing or reviewing public API shape,
-  ergonomics, defaults, compatibility, or evolution.
-- Use `.agents/skills/thermo-nuclear-code-quality-review/SKILL.md` before implementing and
-  when reviewing flow-state code changes.
-- Use the environment-provided `effect-ts` skill when checking an exact Effect v4
-  import, signature, or behavior against the pinned installed version.
+Use only the matching skill. The `orchestrator`, `coder`, and `reviewer`
+entrypoints define delegation, implementation, and independent review.
+
+| Skill | Agent | Reach for it when | Do not reach for it when |
+| --- | --- | --- | --- |
+| `.agents/skills/typescript-style-guide/SKILL.md` | coder, reviewer (`reviewer_type=style`) | Writing Flow State TypeScript, or running the dedicated style review for ownership, boundaries, composition, APIs, examples, and proofs. | The task is unrelated to Flow State TypeScript, or the reviewer is running another mode. |
+| `.agents/skills/effect-systems-design/SKILL.md` | coder, reviewer (`reviewer_type=effect`) | Choosing plain TypeScript versus Effect, or reviewing Effect services, Layers, resources, concurrency, time, host adapters, or public APIs. | The task only needs ordinary deterministic TypeScript, or the reviewer is running another mode. |
+| `.agents/skills/effect-api-documentation/SKILL.md` | coder, reviewer (`reviewer_type=effect`) | Writing or reviewing exact Effect v4 module docs, exports, signatures, examples, and version-specific behavior. | Choosing architecture or introducing an Effect abstraction; use `effect-systems-design` for those decisions. |
+| `~/.agents/skills/tdd/SKILL.md` | coder | The user requests test-first/red-green-refactor work or explicitly requests integration tests. | Read-only review or ordinary focused behavior-proof additions. |
+| `.agents/skills/beads/SKILL.md` | coder, reviewer | The repository uses Beads or the task includes issue IDs, claiming, dependencies, blockers, or durable handoff. | A current-turn execution checklist with no shared task state. |
+| `.agents/skills/flow-state-contract-slice-review/SKILL.md` | reviewer (`reviewer_type=contract`) | Reviewing one `packages/flow-state-rewrite` Bead against its active contracts, proof IDs, and deletion obligations. | General maintainability or performance review, or a reviewer running another mode. |
+| `.agents/skills/performance-quality-bug-hunt/SKILL.md` | reviewer (`reviewer_type=bug`) | Hunting correctness, regression, lifecycle, concurrency, performance, or adversarial-test failures in a bounded diff. | Contract conformance, Effect design, or style validation is the only question. |
+
+Agent entrypoints:
+
+- `.agents/agents/coder.md` — implementation and focused verification.
+- `.agents/agents/reviewer.md` — independent read-only verification; pass exactly one `reviewer_type` (`style`, `effect`, `contract`, or `bug`).
+- `.agents/agents/orchestrator.md` — bounded coder/reviewer loop with fixed per-role model and reasoning settings.
 
 ## Boundaries
 
@@ -166,3 +180,95 @@ This protocol applies when ending a Beads implementation workflow. It is subordi
 - If a required sync or push is blocked, stop and report the exact command and error.
 
 <!-- END BEADS INTEGRATION -->
+
+<!-- bv-agent-instructions-v3 -->
+
+---
+
+## Beads Workflow Integration
+
+This project uses Beads (`bd`) for issue tracking and [beads_viewer](https://github.com/Dicklesworthstone/beads_viewer) (`bv`) for graph-aware triage. Issues are stored in `.beads/` and tracked in git. Regenerate `.beads/issues.jsonl` with `bd export -o .beads/issues.jsonl` after mutations. `bv` auto-discovers the supported JSONL files, so agents should use `bd` for issue state and robot-mode `bv` for graph analysis instead of parsing JSONL directly.
+
+### Using bv as an AI sidecar
+
+bv is a graph-aware triage engine for Beads projects. Instead of parsing .beads/issues.jsonl / .beads/beads.jsonl directly or hallucinating graph traversal, use robot flags for deterministic, dependency-aware outputs with precomputed metrics (PageRank, betweenness, critical path, cycles, HITS, eigenvector, k-core).
+
+**Scope boundary:** `bv` advises on *what to work on* through graph metrics. `bd` remains authoritative for readiness and handles creating, modifying, and closing beads. Contract authority, explicit user scope, and phase gates override graph rankings.
+
+**CRITICAL: Use ONLY --robot-* flags. Bare bv launches an interactive TUI that blocks your session.**
+
+#### The Workflow: Start With Triage
+
+**`bv --robot-triage` is your single entry point.** It returns everything you need in one call:
+
+- `quick_ref`: at-a-glance counts + top 3 picks
+- `recommendations`: ranked actionable items with scores, reasons, unblock info
+- `quick_wins`: low-effort high-impact items
+- `blockers_to_clear`: items that unblock the most downstream work
+- `project_health`: status/type/priority distributions, graph metrics
+- `commands`: copy-paste shell commands for next steps
+
+```bash
+bv --robot-triage        # THE MEGA-COMMAND: start here
+bv --robot-next          # Minimal: just the single top pick + claim command
+
+# Token-optimized output (TOON) for lower LLM context usage:
+bv --robot-triage --format toon
+```
+
+Before claiming, verify current state with `bd show <id> --json` and `bd ready`. Recommendations can include graph-important blocked or assigned work, and generated claim commands may target unavailable tools. Never claim from `bv` output alone.
+
+#### Other bv Commands
+
+| Command | Returns |
+|---------|---------|
+| `--robot-plan` | Parallel execution tracks with unblocks lists |
+| `--robot-priority` | Priority misalignment detection with confidence |
+| `--robot-insights` | Full metrics: PageRank, betweenness, HITS, eigenvector, critical path, cycles, k-core |
+| `--robot-alerts` | Stale issues, blocking cascades, priority mismatches |
+| `--robot-suggest` | Hygiene: duplicates, missing deps, label suggestions, cycle breaks |
+| `--robot-diff --diff-since <ref>` | Changes since ref: new/closed/modified issues |
+| `--robot-graph [--graph-format=json\|dot\|mermaid]` | Dependency graph export |
+
+#### Scoping & Filtering
+
+```bash
+bv --robot-plan --label backend              # Scope to label's subgraph
+bv --robot-insights --as-of HEAD~30          # Historical point-in-time
+bv --recipe actionable --robot-plan          # Pre-filter: ready to work (no blockers)
+bv --recipe high-impact --robot-triage       # Pre-filter: top PageRank scores
+```
+
+### bd Commands for Issue Management
+
+```bash
+bd ready                              # Show issues ready to work (no blockers)
+bd list --status=open --json          # All open issues
+bd show <id> --json                   # Full issue details with dependencies
+bd create --title="..." --type=task --priority=2 --json
+bd update <id> --claim                # Claim atomically
+bd close <id> --reason="Completed"
+bd close <id1> <id2> --reason="Completed"
+bd export -o .beads/issues.jsonl      # Refresh the passive JSONL export
+```
+
+### Workflow Pattern
+
+1. **Triage**: Run `bv --robot-triage` to find the highest-impact actionable work
+2. **Verify and claim**: Use `bd show <id>`, confirm it appears in `bd ready`, then run `bd update <id> --claim`
+3. **Work**: Implement the task
+4. **Complete**: Use `bd close <id> --reason="Completed"`
+5. **Export**: Run `bd export -o .beads/issues.jsonl` after Beads mutations so `bv` reads current state
+
+### Key Concepts
+
+- **Dependencies**: Issues can block other issues. `bd ready` shows only unblocked work.
+- **Priority**: P0=critical, P1=high, P2=medium, P3=low, P4=backlog (use numbers 0-4, not words)
+- **Types**: task, bug, feature, epic, chore, docs, question
+- **Blocking**: `bd dep add <issue> <depends-on>` adds dependencies
+
+### Git Policy
+
+`bd` does not grant permission to commit or push. Follow this repository's git instructions before staging, committing, or pushing. If the repository says "commit only when asked," that rule overrides any generic workflow advice.
+
+<!-- end-bv-agent-instructions -->
