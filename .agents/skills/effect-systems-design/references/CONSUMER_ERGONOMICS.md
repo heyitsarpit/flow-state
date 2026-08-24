@@ -392,37 +392,38 @@ Check these from a real external call site:
 
 ## Source anchors
 
-Use the vendored Effect v4 checkout for design discovery, then verify imports and behavior against
-the consuming project's installed version.
+Use `codebases/effect-v4/` as the primary Effect feature-usage reference for
+design discovery, then verify imports and behavior against the consuming
+project's installed version.
 
-- Effect v4 [Config.ts](/Users/arpit/Developer/flow-state/docs/codebases/effect-v4/packages/effect/src/Config.ts),
-  [Duration.ts](/Users/arpit/Developer/flow-state/docs/codebases/effect-v4/packages/effect/src/Duration.ts),
-  [Effect.ts](/Users/arpit/Developer/flow-state/docs/codebases/effect-v4/packages/effect/src/Effect.ts),
-  [Match.ts](/Users/arpit/Developer/flow-state/docs/codebases/effect-v4/packages/effect/src/Match.ts),
-  and [Schema.ts](/Users/arpit/Developer/flow-state/docs/codebases/effect-v4/packages/effect/src/Schema.ts)
+- Effect v4 [Config.ts](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Config.ts),
+  [Duration.ts](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Duration.ts),
+  [Effect.ts](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Effect.ts),
+  [Match.ts](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Match.ts),
+  and [Schema.ts](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Schema.ts)
   for inputs, decoding, outcomes, matching, timeout, retry, and cancellation.
-- Effect v4 [Cache.ts](/Users/arpit/Developer/flow-state/docs/codebases/effect-v4/packages/effect/src/Cache.ts),
-  [RequestResolver.ts](/Users/arpit/Developer/flow-state/docs/codebases/effect-v4/packages/effect/src/RequestResolver.ts),
-  [Resource.ts](/Users/arpit/Developer/flow-state/docs/codebases/effect-v4/packages/effect/src/Resource.ts),
-  [Stream.ts](/Users/arpit/Developer/flow-state/docs/codebases/effect-v4/packages/effect/src/Stream.ts),
-  and [SubscriptionRef.ts](/Users/arpit/Developer/flow-state/docs/codebases/effect-v4/packages/effect/src/SubscriptionRef.ts)
+- Effect v4 [Cache.ts](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Cache.ts),
+  [RequestResolver.ts](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/RequestResolver.ts),
+  [Resource.ts](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Resource.ts),
+  [Stream.ts](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Stream.ts),
+  and [SubscriptionRef.ts](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/SubscriptionRef.ts)
   for hidden coordination and multi-value APIs.
-- Effect v4 [HTTP client](/Users/arpit/Developer/flow-state/docs/codebases/effect-v4/ai-docs/src/50_http-client/10_basics.ts),
-  [HTTP contract](/Users/arpit/Developer/flow-state/docs/codebases/effect-v4/ai-docs/src/51_http-server/10_basics.ts),
-  [batching](/Users/arpit/Developer/flow-state/docs/codebases/effect-v4/ai-docs/src/05_batching/10_request-resolver.ts),
-  and [tests](/Users/arpit/Developer/flow-state/docs/codebases/effect-v4/ai-docs/src/09_testing/20_layer-tests.ts)
+- Effect v4 [HTTP client](/Users/arpit/Developer/flow-state/codebases/effect-v4/ai-docs/src/50_http-client/10_basics.ts),
+  [HTTP contract](/Users/arpit/Developer/flow-state/codebases/effect-v4/ai-docs/src/51_http-server/10_basics.ts),
+  [batching](/Users/arpit/Developer/flow-state/codebases/effect-v4/ai-docs/src/05_batching/10_request-resolver.ts),
+  and [tests](/Users/arpit/Developer/flow-state/codebases/effect-v4/ai-docs/src/09_testing/20_layer-tests.ts)
   for complete consumer call sites.
-- Phoenix [CurrentUser.ts](/Users/arpit/Developer/flow-state/docs/codebases/phoenix/packages/fate-effect/src/CurrentUser.ts),
-  [Walk.ts](/Users/arpit/Developer/flow-state/docs/codebases/phoenix/packages/fate-effect/src/Walk.ts),
-  and [orphan-sweep CLI](/Users/arpit/Developer/flow-state/docs/codebases/phoenix/packages/orphan-sweep/src/bin.ts)
+- Phoenix [CurrentUser.ts](/Users/arpit/Developer/flow-state/codebases/phoenix/packages/fate-effect/src/CurrentUser.ts),
+  [Walk.ts](/Users/arpit/Developer/flow-state/codebases/phoenix/packages/fate-effect/src/Walk.ts),
+  and [orphan-sweep CLI](/Users/arpit/Developer/flow-state/codebases/phoenix/packages/orphan-sweep/src/bin.ts)
   for contextual auth, transparent request batching, and typed CLI inputs.
-- Effect examples [TodosApi.ts](/Users/arpit/Developer/flow-state/docs/codebases/effect-examples/templates/monorepo/packages/domain/src/TodosApi.ts),
-  [TodosClient.ts](/Users/arpit/Developer/flow-state/docs/codebases/effect-examples/templates/monorepo/packages/cli/src/TodosClient.ts),
-  [GitHub.ts](/Users/arpit/Developer/flow-state/docs/codebases/effect-examples/packages/create-effect-app/src/GitHub.ts),
-  and [Groups.ts](/Users/arpit/Developer/flow-state/docs/codebases/effect-examples/examples/http-server/src/Groups.ts)
+- Effect examples [TodosApi.ts](/Users/arpit/Developer/flow-state/codebases/effect-examples/templates/monorepo/packages/domain/src/TodosApi.ts),
+  [TodosClient.ts](/Users/arpit/Developer/flow-state/codebases/effect-examples/templates/monorepo/packages/cli/src/TodosClient.ts),
+  [GitHub.ts](/Users/arpit/Developer/flow-state/codebases/effect-examples/packages/create-effect-app/src/GitHub.ts),
+  and [Groups.ts](/Users/arpit/Developer/flow-state/codebases/effect-examples/examples/http-server/src/Groups.ts)
   for contract-derived clients, Stream/Sink pipelines, and domain callback combinators.
-- Accountability [AuthMiddleware.ts](/Users/arpit/Developer/flow-state/docs/codebases/accountability/packages/api/src/Definitions/AuthMiddleware.ts)
-  and [MembershipApi.ts](/Users/arpit/Developer/flow-state/docs/codebases/accountability/packages/api/src/Definitions/MembershipApi.ts)
+- Accountability [AuthMiddleware.ts](/Users/arpit/Developer/flow-state/codebases/accountability/packages/api/src/Definitions/AuthMiddleware.ts)
+  and [MembershipApi.ts](/Users/arpit/Developer/flow-state/codebases/accountability/packages/api/src/Definitions/MembershipApi.ts)
   for request-scoped services and a useful counterexample where unbranded paths force repeated
   handler decoding. These codebases may use older Effect versions; copy the design, then recheck the
   exact v4 symbol.

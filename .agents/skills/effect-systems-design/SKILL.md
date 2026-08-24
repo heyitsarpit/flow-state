@@ -1,6 +1,6 @@
 ---
 name: effect-systems-design
-description: Design and review purposeful Effect use and ergonomic Effect-native APIs in TypeScript through procedural IF/THEN decisions and import-first recipes covering values, errors, services, Layers, concurrency, resources, host integration, and deterministic tests. Use when deciding what should remain plain TypeScript, designing Effect-returning public functions, improving consumer call sites, selecting and composing Effect concepts, replacing ad hoc async or lifecycle machinery, or auditing an Effect codebase. Pair with effect-ts for exact version-specific APIs.
+description: Design and review purposeful Effect use and ergonomic Effect-native APIs in TypeScript through procedural IF/THEN decisions and import-first recipes covering values, errors, services, Layers, concurrency, resources, host integration, and deterministic tests. Use when deciding what should remain plain TypeScript, designing Effect-returning public functions, improving consumer call sites, selecting and composing Effect concepts, replacing ad hoc async or lifecycle machinery, or auditing an Effect codebase. Use codebases/effect-v4 as the primary Effect feature-usage reference, the effect-api-documentation skill for exact module and API documentation, and the consuming package for exact exports.
 ---
 
 # Purposeful Effect design
@@ -14,8 +14,19 @@ Count a choice as an ergonomic improvement only when the caller no longer has to
 branch, wire dependencies, coordinate concurrency, retry, unsubscribe, clean up, or translate a
 host boundary. A primitive that only simplifies the implementation belongs behind the API.
 
-Use `$effect-ts` to verify every exact symbol against the consuming project's installed Effect
-version. Let this skill choose the design; let `$effect-ts` confirm the API.
+Use the [effect-api-documentation skill](../effect-api-documentation/SKILL.md)
+and its per-module reference files to find the native Effect module or concept.
+Verify exact exports and signatures in the consuming project's installed package
+and tests; this skill chooses the design, while live source confirms the API.
+
+For member-level API documentation, use the separate `effect-api-documentation` skill and its
+reference files under `.agents/skills/effect-api-documentation/references/`.
+
+Use `codebases/effect-v4/` as the primary reference for how Effect features are
+used and composed. Read its `AGENTS.md` before consulting its source, tests,
+type tests, or `ai-docs` examples. The checkout is a usage and design reference;
+the consuming project's installed package and lockfile remain authoritative when
+versions differ.
 
 ## Use one decision grammar
 
@@ -47,9 +58,12 @@ the system boundary, and stop when the design is complete.
 7. **IF the code is reusable, design its call site before its implementation.** Write down what
    Effect removes from the caller, accept familiar domain inputs, preserve inferred `A`, `E`, and
    `R`, and make recovery, provision, timeout, retry, and tracing compose around the result.
-8. **IF the answer depends on a particular API, inspect source.** Use [SOURCES.md](./references/SOURCES.md)
-   and `$effect-ts`, then add deterministic proof for the claimed failure, race, time, or cleanup
-   behavior.
+8. **IF the answer depends on a particular API, inspect source.** Use the
+   [effect-api-documentation skill](../effect-api-documentation/SKILL.md) and its
+   per-module reference files to locate the concept, inspect `codebases/effect-v4/`
+   for the intended usage and composition, verify the exact export and signature in
+   the consuming package's source and tests, then add deterministic proof for the
+   claimed failure, race, time, or cleanup behavior.
 
 ## Route by question
 
@@ -64,8 +78,12 @@ the system boundary, and stop when the design is complete.
 - Read [CONSUMER_ERGONOMICS.md](./references/CONSUMER_ERGONOMICS.md) when designing a public
   Effect-returning function, service method, options object, decoder, or host adapter from its
   caller's point of view.
-- Read [SOURCES.md](./references/SOURCES.md) when an exact v4 signature or a production composition
-  example would improve the answer.
+- Read the [effect-api-documentation skill](../effect-api-documentation/SKILL.md) when choosing
+  an Effect module, reviewing Flow-versus-Effect naming, or checking the native API family for a
+  problem. Use `codebases/effect-v4/` as the main feature-usage reference, then verify the exact
+  API in the consuming package.
+- Read [SOURCES.md](./references/SOURCES.md) when a production composition example would improve
+  the answer; it is an example index, not exact-version authority.
 
 ## Invariants
 

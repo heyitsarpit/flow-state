@@ -1,7 +1,7 @@
 # Import-first recipes
 
 These are the canonical code examples for this skill. Copy only the smallest recipe whose
-semantics match, then verify its signatures with `$effect-ts` against the consuming package.
+semantics match, then verify its signatures in the consuming package and its tests.
 Detailed Effect and Phoenix evidence lives in [SOURCES.md](./SOURCES.md).
 
 ## Contents
@@ -87,9 +87,9 @@ const notified = notify.pipe(Effect.asVoid);
 ```
 
 **Source examples:** Effect v4
-[Effect.ts](/Users/arpit/Developer/flow-state/docs/codebases/effect-v4/packages/effect/src/Effect.ts)
+[Effect.ts](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Effect.ts)
 and Phoenix
-[captureAndUpload](/Users/arpit/Developer/flow-state/docs/codebases/phoenix/packages/design-capture/src/orchestrate.ts).
+[captureAndUpload](/Users/arpit/Developer/flow-state/codebases/phoenix/packages/design-capture/src/orchestrate.ts).
 
 ## Option and Result
 
@@ -147,10 +147,10 @@ const captured = loadUser.pipe(Effect.result);
 ```
 
 **Source examples:** Effect v4
-[Option.ts](/Users/arpit/Developer/flow-state/docs/codebases/effect-v4/packages/effect/src/Option.ts),
-[Result.ts](/Users/arpit/Developer/flow-state/docs/codebases/effect-v4/packages/effect/src/Result.ts), and
+[Option.ts](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Option.ts),
+[Result.ts](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Result.ts), and
 Phoenix
-[decodeCaptureManifest](/Users/arpit/Developer/flow-state/docs/codebases/phoenix/packages/fabrika-cli/src/eval/runner.ts).
+[decodeCaptureManifest](/Users/arpit/Developer/flow-state/codebases/phoenix/packages/fabrika-cli/src/eval/runner.ts).
 
 ## Collections and loops
 
@@ -191,9 +191,9 @@ const outcomes = Effect.forEach(inputs, (input) => validateInput(input).pipe(Eff
 ```
 
 **Source examples:** Effect v4
-[Effect.test.ts](/Users/arpit/Developer/flow-state/docs/codebases/effect-v4/packages/effect/test/Effect.test.ts)
+[Effect.test.ts](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/test/Effect.test.ts)
 and Phoenix
-[peer.send](/Users/arpit/Developer/flow-state/docs/codebases/phoenix/packages/pipeline-crew-mcp/src/peer/peer.ts).
+[peer.send](/Users/arpit/Developer/flow-state/codebases/phoenix/packages/pipeline-crew-mcp/src/peer/peer.ts).
 
 ## Errors and outcomes
 
@@ -240,9 +240,9 @@ const completeOutcome = Effect.exit(loadUser);
 ```
 
 **Source examples:** Effect v4
-[01_error-handling.ts](/Users/arpit/Developer/flow-state/docs/codebases/effect-v4/ai-docs/src/01_effect/04_errors/01_error-handling.ts)
+[01_error-handling.ts](/Users/arpit/Developer/flow-state/codebases/effect-v4/ai-docs/src/01_effect/04_errors/01_error-handling.ts)
 and Phoenix
-[translateVoteMiss](/Users/arpit/Developer/flow-state/docs/codebases/phoenix/apps/web/worker/features/vote/translate-vote-miss.ts).
+[translateVoteMiss](/Users/arpit/Developer/flow-state/codebases/phoenix/apps/web/worker/features/vote/translate-vote-miss.ts).
 
 ## Duration and Schedule
 
@@ -274,9 +274,9 @@ The policy has a name, units, bound, backoff, and retry classifier, so a reader 
 without reconstructing timer arithmetic.
 
 **Source examples:** Effect v4
-[10_schedules.ts](/Users/arpit/Developer/flow-state/docs/codebases/effect-v4/ai-docs/src/06_schedule/10_schedules.ts)
+[10_schedules.ts](/Users/arpit/Developer/flow-state/codebases/effect-v4/ai-docs/src/06_schedule/10_schedules.ts)
 and Phoenix
-[coldStartRetrySchedule](/Users/arpit/Developer/flow-state/docs/codebases/phoenix/apps/web/worker/features/fate-live/cold-start-retry.ts).
+[coldStartRetrySchedule](/Users/arpit/Developer/flow-state/codebases/phoenix/apps/web/worker/features/fate-live/cold-start-retry.ts).
 
 ## Services and Layers
 
@@ -309,9 +309,9 @@ The deepest function states the capability it needs, intermediate callers preser
 composition edge chooses the implementation once.
 
 **Source examples:** Effect v4
-[20_layer-composition.ts](/Users/arpit/Developer/flow-state/docs/codebases/effect-v4/ai-docs/src/01_effect/03_services/20_layer-composition.ts)
+[20_layer-composition.ts](/Users/arpit/Developer/flow-state/codebases/effect-v4/ai-docs/src/01_effect/03_services/20_layer-composition.ts)
 and Phoenix
-[Drizzle.ts](/Users/arpit/Developer/flow-state/docs/codebases/phoenix/apps/web/worker/db/Drizzle.ts).
+[Drizzle.ts](/Users/arpit/Developer/flow-state/codebases/phoenix/apps/web/worker/db/Drizzle.ts).
 
 ## State and coordination
 
@@ -333,9 +333,9 @@ Keep these separate in real code unless one owner genuinely coordinates all thre
 in a demo hides which primitive supplies which guarantee.
 
 **Source:** Effect v4
-[Ref.ts](/Users/arpit/Developer/flow-state/docs/codebases/effect-v4/packages/effect/src/Ref.ts),
-[Deferred.ts](/Users/arpit/Developer/flow-state/docs/codebases/effect-v4/packages/effect/src/Deferred.ts), and
-[Queue.ts](/Users/arpit/Developer/flow-state/docs/codebases/effect-v4/packages/effect/src/Queue.ts).
+[Ref.ts](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Ref.ts),
+[Deferred.ts](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Deferred.ts), and
+[Queue.ts](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Queue.ts).
 
 ## Resources and fibers
 
@@ -374,9 +374,9 @@ const localResourceProgram = Effect.scoped(openAndUseResource);
 ```
 
 **Source examples:** Effect v4
-[10_acquire-release.ts](/Users/arpit/Developer/flow-state/docs/codebases/effect-v4/ai-docs/src/01_effect/05_resources/10_acquire-release.ts)
+[10_acquire-release.ts](/Users/arpit/Developer/flow-state/codebases/effect-v4/ai-docs/src/01_effect/05_resources/10_acquire-release.ts)
 and Phoenix
-[crewHeartbeatLayer](/Users/arpit/Developer/flow-state/docs/codebases/phoenix/packages/pipeline-crew-mcp/src/crew/heartbeat.ts).
+[crewHeartbeatLayer](/Users/arpit/Developer/flow-state/codebases/phoenix/packages/pipeline-crew-mcp/src/crew/heartbeat.ts).
 
 ## Streams and host edges
 
@@ -416,10 +416,10 @@ const shutdown = () => runtime.dispose();
 ```
 
 **Source examples:** Effect v4
-[Stream.ts](/Users/arpit/Developer/flow-state/docs/codebases/effect-v4/packages/effect/src/Stream.ts),
-[ManagedRuntime.ts](/Users/arpit/Developer/flow-state/docs/codebases/effect-v4/packages/effect/src/ManagedRuntime.ts), and
+[Stream.ts](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Stream.ts),
+[ManagedRuntime.ts](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/ManagedRuntime.ts), and
 Phoenix
-[makeFateRuntime](/Users/arpit/Developer/flow-state/docs/codebases/phoenix/apps/web/worker/features/fate/layers.ts).
+[makeFateRuntime](/Users/arpit/Developer/flow-state/codebases/phoenix/apps/web/worker/features/fate/layers.ts).
 
 ## Observability
 
@@ -441,9 +441,9 @@ const observed = loadUser.pipe(
 ```
 
 **Source examples:** Effect v4
-[20_otlp-tracing.ts](/Users/arpit/Developer/flow-state/docs/codebases/effect-v4/ai-docs/src/08_observability/20_otlp-tracing.ts)
+[20_otlp-tracing.ts](/Users/arpit/Developer/flow-state/codebases/effect-v4/ai-docs/src/08_observability/20_otlp-tracing.ts)
 and Phoenix
-[buildRealFlags](/Users/arpit/Developer/flow-state/docs/codebases/phoenix/apps/web/worker/features/flagship/Flags.ts).
+[buildRealFlags](/Users/arpit/Developer/flow-state/codebases/phoenix/apps/web/worker/features/flagship/Flags.ts).
 
 ## Deterministic tests
 
@@ -472,6 +472,6 @@ The checkpoint proves order and virtual time proves the deadline, so the test de
 instead of depending on scheduler luck.
 
 **Source examples:** Effect v4
-[10_effect-tests.ts](/Users/arpit/Developer/flow-state/docs/codebases/effect-v4/ai-docs/src/09_testing/10_effect-tests.ts)
+[10_effect-tests.ts](/Users/arpit/Developer/flow-state/codebases/effect-v4/ai-docs/src/09_testing/10_effect-tests.ts)
 and Phoenix
-[heartbeat.test.ts](/Users/arpit/Developer/flow-state/docs/codebases/phoenix/packages/pipeline-crew-mcp/src/crew/heartbeat.test.ts).
+[heartbeat.test.ts](/Users/arpit/Developer/flow-state/codebases/phoenix/packages/pipeline-crew-mcp/src/crew/heartbeat.test.ts).

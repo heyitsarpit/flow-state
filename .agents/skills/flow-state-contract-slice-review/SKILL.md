@@ -100,8 +100,8 @@ proves runtime behavior.
 ## Separation from other reviews
 
 - This skill proves contract conformance and proof ownership.
-- `thermo-nuclear-code-quality-review` separately judges Effect-native design,
-  abstraction quality, and structural simplification.
+- `effect-systems-design` separately judges Effect-native design and API choices;
+  the `reviewer` entrypoint judges structural simplification and maintainability.
 - `performance-quality-bug-hunt` separately searches for regressions, edge-case
   bugs, leaks, races, and performance risks not fully specified by the Bead.
 - A minimalism/deletion review is a final independent pass; deleting required

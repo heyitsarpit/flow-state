@@ -135,4 +135,5 @@ Use one compact chain:
 - **IF:** Identify the current semantic owner and the concrete mismatch.
 - **THEN:** Give the smaller Effect composition and state what remains plain TypeScript.
 - **BECAUSE:** Explain the change to failure, interruption, lifetime, or concurrency behavior.
-- **CHECK:** Name the focused regression test and verify exact APIs with `$effect-ts`.
+- **CHECK:** Name the focused regression test and verify exact APIs in the consuming package and
+  its tests.
