@@ -2,6 +2,8 @@ import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree, Scope, SourceCode, Variable } from "@oxlint/plugins";
 
+import { isTestFile } from "../shared/file-scope.ts";
+
 const moduleMockMethods = new Set(["doMock", "mock", "unstable_mockModule"]);
 
 function resolveVariable(
@@ -22,11 +24,23 @@ function importedName(node: ESTree.Node): string | null {
   return node.imported.type === "Identifier" ? node.imported.name : node.imported.value;
 }
 
+function isTestNamespaceImport(sourceCode: SourceCode, expression: ESTree.IdentifierReference): boolean {
+	const variable = resolveVariable(sourceCode, expression);
+	return variable !== null && variable.defs.some((definition) => {
+		if (definition.type !== "ImportBinding" || definition.node.type !== "ImportNamespaceSpecifier") return false;
+		const source = definition.parent?.type === "ImportDeclaration" ? definition.parent.source.value : "";
+		return source === "vitest" || source === "@jest/globals";
+	});
+}
+
 function isTestFrameworkObject(
-  sourceCode: SourceCode,
-  expression: ESTree.Expression,
-): expression is ESTree.IdentifierReference {
-  if (expression.type !== "Identifier") return false;
+	sourceCode: SourceCode,
+	expression: ESTree.Expression,
+): boolean {
+	if (expression.type === "MemberExpression" && !expression.computed && expression.property.type === "Identifier" &&
+		(expression.property.name === "vi" || expression.property.name === "jest") &&
+		expression.object.type === "Identifier" && isTestNamespaceImport(sourceCode, expression.object)) return true;
+	if (expression.type !== "Identifier") return false;
   if (
     (expression.name === "vi" || expression.name === "jest") &&
     sourceCode.isGlobalReference(expression)
@@ -35,16 +49,20 @@ function isTestFrameworkObject(
   }
 
   const variable = resolveVariable(sourceCode, expression);
-  if (variable === null || variable.defs.length === 0) {
-    return expression.name === "vi" || expression.name === "jest";
-  }
-  return variable.defs.some((definition) => {
-    if (definition.type !== "ImportBinding" || definition.parent?.type !== "ImportDeclaration") {
-      return false;
-    }
-    const source = definition.parent.source.value;
-    const name = importedName(definition.node);
-    return (source === "vitest" && name === "vi") || (source === "@jest/globals" && name === "jest");
+	if (variable === null || variable.defs.length === 0) {
+		return expression.name === "vi" || expression.name === "jest";
+	}
+	return variable.defs.some((definition) => {
+		if (definition.type !== "ImportBinding" || definition.parent?.type !== "ImportDeclaration") {
+			return false;
+		}
+		const source = definition.parent.source.value;
+		if (definition.node.type === "ImportNamespaceSpecifier") {
+			return source === "vitest" || source === "@jest/globals";
+		}
+		const name = importedName(definition.node);
+		return (source === "vitest" && name === "vi") ||
+			(source === "@jest/globals" && name === "jest");
   });
 }
 
@@ -79,8 +97,14 @@ export const noModuleMockingRule = defineRule({
     },
   },
   createOnce(context) {
+    let testFile = false;
+
     return {
+      Program() {
+        testFile = isTestFile(context.filename);
+      },
       CallExpression(node) {
+        if (!testFile) return;
         if (node.callee.type === "Super" || node.callee.type === "V8IntrinsicExpression") return;
         if (moduleMockCall(context.sourceCode, node.callee)) {
           context.report({ node, messageId: "moduleMock" });

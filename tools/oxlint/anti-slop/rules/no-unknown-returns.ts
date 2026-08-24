@@ -1,6 +1,6 @@
 import { defineRule } from "@oxlint/plugins";
 
-import type { ESTree } from "@oxlint/plugins";
+import type { ESTree, Scope, SourceCode } from "@oxlint/plugins";
 
 import { lexicalTypeParameterNames } from "../shared/lexical-type-parameters.ts";
 
@@ -21,6 +21,16 @@ function referencedAliasName(type: ESTree.TSType): string | null {
     type.typeArguments.params.length === 0
     ? type.typeName.name
     : null;
+}
+
+function isGlobalTypeName(sourceCode: SourceCode, identifier: ESTree.IdentifierReference): boolean {
+	let scope: Scope | null = sourceCode.getScope(identifier);
+	while (scope !== null) {
+		const variable = scope.set.get(identifier.name);
+		if (variable !== undefined) return variable.defs.length === 0;
+		scope = scope.upper;
+	}
+	return true;
 }
 
 /** Ban function contracts that return unknown instead of a parsed domain type. */
@@ -53,11 +63,16 @@ export const noUnknownReturnsRule = defineRule({
           resolvesToUnknown(member, shadowedAliases, visited),
         );
       }
-      if (
-        type.type === "TSTypeReference" &&
-        type.typeName.type === "Identifier" &&
-        (type.typeName.name === "Promise" || type.typeName.name === "PromiseLike")
-      ) {
+				if (
+					type.type === "TSTypeReference" &&
+					type.typeName.type === "Identifier" &&
+					(type.typeName.name === "Promise" || type.typeName.name === "PromiseLike")
+				) {
+					if (
+						shadowedAliases.has(type.typeName.name) ||
+						aliases.has(type.typeName.name) ||
+						!isGlobalTypeName(context.sourceCode, type.typeName)
+					) return false;
         const value = type.typeArguments?.params[0];
         return value !== undefined && resolvesToUnknown(value, shadowedAliases, visited);
       }

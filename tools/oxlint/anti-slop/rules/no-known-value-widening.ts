@@ -83,7 +83,7 @@ function annotationTarget(
 ): WideningTarget | null {
 	return annotation === null || annotation === undefined
 		? null
-		: classifyWideningTarget(annotation.typeAnnotation, environment);
+		: classifyWideningTarget(annotation.typeAnnotation, environment, annotation.typeAnnotation);
 }
 
 function enclosingFunction(node: ESTree.Node): FunctionExpression | null {
@@ -145,6 +145,7 @@ export const noKnownValueWideningRule = defineRule({
 	},
 	createOnce(context) {
 		let environment: TypeEnvironment | null = null;
+		const reportedExpressions = new Set<string>();
 
 		const reportFlow = (
 			expression: ESTree.Expression,
@@ -159,6 +160,9 @@ export const noKnownValueWideningRule = defineRule({
 				return;
 			}
 			if (!hasKnownEvidence(context.sourceCode, expression)) return;
+			const key = `${expression.start}:${expression.end}`;
+			if (reportedExpressions.has(key)) return;
+			reportedExpressions.add(key);
 			context.report({
 				node: expression,
 				messageId: "widening",
@@ -173,8 +177,13 @@ export const noKnownValueWideningRule = defineRule({
 			Program(node) {
 				environment = createTypeEnvironment(node);
 			},
-			VariableDeclarator(node) {
-				if (node.init === null || node.id.type !== "Identifier") return;
+				VariableDeclarator(node) {
+					if (
+						node.init === null ||
+						node.id.type !== "Identifier" ||
+						node.init.type === "TSAsExpression" ||
+						node.init.type === "TSTypeAssertion"
+					) return;
 				reportFlow(
 					node.init,
 					targetFromAnnotation(node.id.typeAnnotation),
@@ -230,7 +239,7 @@ export const noKnownValueWideningRule = defineRule({
 				if (environment === null || hasParentAssertion(node)) return;
 				reportFlow(
 					node.expression,
-					classifyWideningTarget(node.typeAnnotation, environment),
+						classifyWideningTarget(node.typeAnnotation, environment, node.typeAnnotation),
 					"assertion",
 				);
 			},
@@ -238,7 +247,7 @@ export const noKnownValueWideningRule = defineRule({
 				if (environment === null || hasParentAssertion(node)) return;
 				reportFlow(
 					node.expression,
-					classifyWideningTarget(node.typeAnnotation, environment),
+						classifyWideningTarget(node.typeAnnotation, environment, node.typeAnnotation),
 					"assertion",
 				);
 			},

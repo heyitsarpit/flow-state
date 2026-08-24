@@ -4,6 +4,7 @@ import {
 	classifyUnsafeDictionary,
 	classifyUnsafeDictionaryValue,
 	createTypeEnvironment,
+	hasVisibleAlias,
 	type TypeEnvironment,
 } from "../shared/dictionary-types.ts";
 
@@ -69,15 +70,15 @@ function isInsideTypeAliasDeclaration(node: ESTree.Node): boolean {
 function isPlainAliasConsumerUse(node: ESTree.TSType, environment: TypeEnvironment): boolean {
 	if (node.type !== "TSTypeReference" || node.typeArguments?.params.length) return false;
 	const name = typeReferenceName(node);
-	return name !== null && environment.aliases.has(name) && !isInsideTypeAliasDeclaration(node);
+	return name !== null && hasVisibleAlias(environment, name, node) && !isInsideTypeAliasDeclaration(node);
 }
 
 function shouldReportType(node: ESTree.TSType, environment: TypeEnvironment): boolean {
 	if (isPlainAliasConsumerUse(node, environment)) return false;
-	if (classifyUnsafeDictionary(node, environment) === null) return false;
+	if (classifyUnsafeDictionary(node, environment, node) === null) return false;
 	let current: ESTree.Node | null = node.parent;
 	while (current !== null && current.type !== "Program") {
-		if (isTypeNode(current) && classifyUnsafeDictionary(current, environment) !== null)
+			if (isTypeNode(current) && classifyUnsafeDictionary(current, environment, current) !== null)
 			return false;
 		current = current.parent;
 	}
@@ -104,7 +105,7 @@ export const noUnsafeDictionaryTypeRule = defineRule({
 		};
 		const reportIfUnsafe = (node: ESTree.TSType) => {
 			if (environment === null || !shouldReportType(node, environment)) return;
-			const unsafe = classifyUnsafeDictionary(node, environment);
+			const unsafe = classifyUnsafeDictionary(node, environment, node);
 			if (unsafe === null) return;
 			report(node, unsafe.unsafeValue);
 		};
@@ -125,7 +126,8 @@ export const noUnsafeDictionaryTypeRule = defineRule({
 					return;
 				const unsafe = classifyUnsafeDictionaryValue(
 					node.typeAnnotation.typeAnnotation,
-					environment,
+						 environment,
+						 node,
 				);
 				if (unsafe !== null) report(node, unsafe.unsafeValue);
 			},
