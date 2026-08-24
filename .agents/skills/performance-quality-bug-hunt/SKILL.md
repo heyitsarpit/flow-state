@@ -120,8 +120,9 @@ whole-repository correctness.
 
 - Domain contracts and proof ownership belong to the relevant contract-review
   skill.
-- Effect-native architecture, type-system ambition, and structural code-judo
-  belong to `thermo-nuclear-code-quality-review`.
+- Effect-native architecture and Effect API choices belong to
+  `effect-systems-design`; exact module and API documentation belongs to
+  `effect-api-documentation` and its per-module reference files.
 - Mechanical Flow State TypeScript bans belong to
   `typescript-style-guide` and the repository linter.
 - A deletion-only minimalism pass may run after correctness reviews. It must not
