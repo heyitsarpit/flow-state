@@ -16,10 +16,19 @@ Source: [Effect v4 `Stream` API](https://www.effect.website/docs/v4/api/effect/S
 10. [Stream.runCollect](#streamruncollect)
 11. [Stream.runForEach](#streamrunforeach)
 12. [Stream.runDrain](#streamrundrain)
+13. [Stream.succeed](#streamsucceed)
+14. [Stream.make](#streammake)
+15. [Stream.empty](#streamempty)
+16. [Stream.fromQueue](#streamfromqueue)
+17. [Stream.concat](#streamconcat)
+18. [Stream.drain](#streamdrain)
+19. [Stream.take](#streamtake)
+20. [Stream.runHead](#streamrunhead)
+21. [Stream.runCount](#streamruncount)
 
 ### Additional known APIs (not expanded)
 
-`TypeId`, `isStream`, `DefaultChunkSize`, `fromChannel`, `service`, `serviceOption`, `fromEffectDrain`, `fromEffectRepeat`, `fromEffectSchedule`, `tick`, `fromPull`, `toChannel`, `callback`, `empty`, `make`, `sync`, `suspend`, `fail`, `failSync`, `failCause`, `die`, `fromIteratorSucceed`, `fromArray`, `fromArrayEffect`, `fromArrays`, `fromQueue`, `fromPubSub`, `fromReadableStream`, `fromAsyncIterable`, `fromSchedule`, `fromSubscription`, `fromEventListener`, `unfold`, `paginate`, `iterate`, `range`, `never`, `unwrap`, `scoped`, `mapBoth`, `mapArray`, `flattenEffect`, `tap`, `tapBoth`, `tapSink`, `result`, `switchMap`, `flatten`, `drain`, `drainFork`, `repeat`, `schedule`, `timeout`, `timeoutOrElse`, `forever`, `flattenIterable`, `flattenTake`, `concat`, `prepend`, `mergeEffect`, `mergeResult`, `mergeLeft`, `mergeRight`, `mergeAll`, `cross`, `crossWith`, `zipWithArray`, `zip`, `zipLeft`, `zipRight`, `zipFlatten`, `zipWithIndex`, `zipWithNext`, `zipWithPrevious`, `zipWithPreviousAndNext`, `zipLatest`, `zipLatestWith`, `raceAll`, `race`, `filterMap`, `filterEffect`, `filterMapEffect`, `partitionQueue`, `partitionEffect`, `partition`, `when`, `peel`, `buffer`, `bufferArray`, `mapError`, `tapCause`, `tapError`, `run`, `runCount`, `runSum`, `runFold`, `runFoldEffect`, `runHead`, `runLast`, `runForEachWhile`, `runForEachArray`, `toPubSub`, `toPubSubTake`, `toQueue`, `runIntoPubSub`, `runIntoQueue`
+`TypeId`, `isStream`, `DefaultChunkSize`, `fromChannel`, `service`, `serviceOption`, `fromEffectDrain`, `fromEffectRepeat`, `fromEffectSchedule`, `tick`, `fromPull`, `toChannel`, `callback`, `sync`, `suspend`, `fail`, `failSync`, `failCause`, `die`, `fromIteratorSucceed`, `fromArray`, `fromArrayEffect`, `fromArrays`, `fromPubSub`, `fromReadableStream`, `fromAsyncIterable`, `fromSchedule`, `fromSubscription`, `fromEventListener`, `unfold`, `paginate`, `iterate`, `range`, `never`, `unwrap`, `scoped`, `mapBoth`, `mapArray`, `flattenEffect`, `tap`, `tapBoth`, `tapSink`, `result`, `switchMap`, `flatten`, `drainFork`, `repeat`, `schedule`, `timeout`, `timeoutOrElse`, `forever`, `flattenIterable`, `flattenTake`, `prepend`, `mergeEffect`, `mergeResult`, `mergeLeft`, `mergeRight`, `mergeAll`, `cross`, `crossWith`, `zipWithArray`, `zip`, `zipLeft`, `zipRight`, `zipFlatten`, `zipWithIndex`, `zipWithNext`, `zipWithPrevious`, `zipWithPreviousAndNext`, `zipLatest`, `zipLatestWith`, `raceAll`, `race`, `filterMap`, `filterEffect`, `filterMapEffect`, `partitionQueue`, `partitionEffect`, `partition`, `when`, `peel`, `buffer`, `bufferArray`, `mapError`, `tapCause`, `tapError`, `run`, `runSum`, `runFold`, `runFoldEffect`, `runLast`, `runForEachWhile`, `runForEachArray`, `toPubSub`, `toPubSubTake`, `toQueue`, `runIntoPubSub`, `runIntoQueue`
 
 ### [Stream.Stream](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Stream.ts:126)
 
@@ -123,4 +132,100 @@ Runs a stream for its effects while discarding all emitted values.
 
 ```ts
 yield* Stream.runDrain(Stream.fromEffect(Effect.log("warm cache")));
+```
+
+### [Stream.succeed](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Stream.ts:827)
+
+Creates a pure stream that emits one value and then completes.
+
+```ts
+const stream = Stream.succeed("ready");
+const values = yield* Stream.runCollect(stream);
+console.log(values); // ["ready"]
+```
+
+### [Stream.make](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Stream.ts:850)
+
+Creates a pure stream from a variadic sequence of values.
+
+```ts
+const values = yield* Stream.runCollect(Stream.make(1, 2, 3));
+console.log(values); // [1, 2, 3]
+```
+
+### [Stream.empty](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Stream.ts:805)
+
+Creates a stream that completes without emitting any values.
+
+```ts
+const values = yield* Stream.runCollect(Stream.empty);
+console.log(values); // []
+```
+
+### [Stream.fromQueue](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Stream.ts:1293)
+
+Creates a stream that pulls values from a queue until the queue completes or fails.
+
+```ts
+import { Cause, Effect, Queue, Stream } from "effect";
+
+const program = Effect.gen(function*() {
+  const queue = yield* Queue.unbounded<number, Cause.Done>();
+  yield* Queue.offerAll(queue, [1, 2]);
+  yield* Queue.end(queue);
+  return yield* Stream.runCollect(Stream.fromQueue(queue));
+});
+```
+
+### [Stream.concat](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Stream.ts:3059)
+
+Runs one stream to completion and then emits the values from the next stream.
+
+```ts
+const values = yield* Stream.runCollect(
+  Stream.concat(Stream.make(1, 2), Stream.make(3, 4)),
+);
+console.log(values); // [1, 2, 3, 4]
+```
+
+### [Stream.drain](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Stream.ts:2624)
+
+Runs a stream while discarding its emitted values, preserving its effects and failures.
+
+```ts
+const warmed = Stream.make("cache", "index").pipe(Stream.drain);
+yield* Stream.runDrain(warmed);
+```
+
+### [Stream.take](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Stream.ts:6328)
+
+Keeps at most the first `n` emitted values and then ends the stream.
+
+```ts
+const values = yield* Stream.runCollect(
+  Stream.range(1, 10).pipe(Stream.take(3)),
+);
+console.log(values); // [1, 2, 3]
+```
+
+### [Stream.runHead](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Stream.ts:10813)
+
+Runs a stream and returns its first value as an `Option`.
+
+```ts
+import { Option } from "effect";
+
+const head = yield* Stream.runHead(Stream.make("first", "second"));
+if (Option.isSome(head)) {
+  console.log(head.value); // "first"
+}
+```
+
+### [Stream.runCount](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Stream.ts:10652)
+
+Runs a stream and returns the number of values it emitted.
+
+```ts
+const count = yield* Stream.runCount(Stream.make("a", "b", "c"));
+console.log(count); // 3
 ```

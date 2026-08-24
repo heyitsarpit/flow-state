@@ -19,10 +19,15 @@ Source: [Effect v4 `Result` API](https://www.effect.website/docs/v4/api/effect/R
 13. [Result.getSuccess](#resultgetsuccess)
 14. [Result.getFailure](#resultgetfailure)
 15. [Result.mapError](#resultmaperror)
+16. [Result.isResult](#resultisresult)
+17. [Result.isFailure](#resultisfailure)
+18. [Result.isSuccess](#resultissuccess)
+19. [Result.mapBoth](#resultmapboth)
+20. [Result.merge](#resultmerge)
 
 ### Additional known APIs (not expanded)
 
-`Failure`, `Success`, `failVoid`, `isResult`, `isFailure`, `isSuccess`, `makeEquivalence`, `mapBoth`, `filterOrFail`, `merge`, `getOrNull`, `getOrUndefined`, `getOrThrowWith`, `getOrThrow`, `andThen`, `flip`, `gen`, `Do`, `bindTo`, `bind`, `tap`, `transposeOption`, `transposeMapOption`, `succeedNone`, `succeedSome`
+`Failure`, `Success`, `failVoid`, `makeEquivalence`, `filterOrFail`, `getOrNull`, `getOrUndefined`, `getOrThrowWith`, `getOrThrow`, `andThen`, `flip`, `gen`, `Do`, `bindTo`, `bind`, `tap`, `transposeOption`, `transposeMapOption`, `succeedNone`, `succeedSome`
 
 ### [Result.Result](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Result.ts:70)
 
@@ -155,4 +160,67 @@ Transforms only the failure channel while preserving successful values.
 
 ```ts
 const normalized = Result.fail("timeout").pipe(Result.mapError((error) => new Error(error)));
+```
+
+### [Result.isResult](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Result.ts:559)
+
+Checks whether an unknown value is a `Result` and narrows it to the result type.
+
+```ts
+const input: unknown = Result.succeed(42);
+
+if (Result.isResult(input)) {
+  const value: Result.Result<unknown, unknown> = input;
+  console.log(value);
+}
+```
+
+### [Result.isFailure](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Result.ts:592)
+
+Narrows a `Result` to its failure variant so code can read the `.failure` value.
+
+```ts
+const result: Result.Result<number, string> = Math.random() > 0.5
+  ? Result.succeed(42)
+  : Result.fail("unavailable");
+
+if (Result.isFailure(result)) {
+  console.log(result.failure);
+}
+```
+
+### [Result.isSuccess](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Result.ts:625)
+
+Narrows a `Result` to its success variant so code can read the `.success` value.
+
+```ts
+const result: Result.Result<number, string> = Result.succeed(42);
+
+if (Result.isSuccess(result)) {
+  console.log(result.success);
+}
+```
+
+### [Result.mapBoth](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Result.ts:768)
+
+Transforms both channels while preserving whether the result is a success or a failure.
+
+```ts
+const result = Result.fail("unavailable").pipe(
+  Result.mapBoth({
+    onFailure: (error) => new Error(error),
+    onSuccess: (value: never) => String(value),
+  }),
+);
+```
+
+### [Result.merge](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Result.ts:1069)
+
+Unwraps either channel directly as a union when both values can be handled the same way.
+
+```ts
+const value: number | string = Result.merge(
+  Math.random() > 0.5 ? Result.succeed(42) : Result.fail("unavailable"),
+);
+console.log(value);
 ```

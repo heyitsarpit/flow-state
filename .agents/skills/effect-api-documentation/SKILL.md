@@ -23,6 +23,8 @@ selection or deciding whether a design should use Effect.
 - Include a compact, names-only inventory of confirmed public APIs that are not
   expanded into full sections; keep it separate from the API index and method
   bodies, with no signatures, descriptions, or examples.
+- Search `/Users/arpit/Developer/flow-state/codebases/effect-v4` to explore or verify additional known APIs.
+When exploring an additional known API, search codebases/effect-v4 to verify its real exports and usage.
 - Preserve overloads and distinguish confirmed behavior from design guidance;
   do not invent semantics.
 

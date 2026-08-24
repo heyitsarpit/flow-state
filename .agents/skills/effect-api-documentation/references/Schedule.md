@@ -19,10 +19,16 @@ Source: [Effect v4 `Schedule` API](https://www.effect.website/docs/v4/api/effect
 13. [Schedule.cron](#schedulecron)
 14. [Schedule.duration](#scheduleduration)
 15. [Schedule.forever](#scheduleforever)
+16. [Schedule.isSchedule](#scheduleisschedule)
+17. [Schedule.addDelay](#scheduleadddelay)
+18. [Schedule.min](#schedulemin)
+19. [Schedule.fibonacci](#schedulefibonacci)
+20. [Schedule.modifyDelay](#schedulemodifydelay)
+21. [Schedule.windowed](#schedulewindowed)
 
 ### Additional known APIs (not expanded)
 
-`isSchedule`, `fromStep`, `fromStepWithMetadata`, `toStep`, `toStepWithMetadata`, `toStepWithSleep`, `addDelay`, `andThenResult`, `min`, `fibonacci`, `modifyDelay`, `passthrough`, `windowed`, `identity`, `while`, `setInputType`
+`fromStep`, `fromStepWithMetadata`, `toStep`, `toStepWithMetadata`, `toStepWithSleep`, `andThenResult`, `passthrough`, `identity`, `while`, `setInputType`
 
 ### [Schedule.Schedule](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Schedule.ts:78)
 
@@ -152,4 +158,73 @@ Repeats forever and emits the current recurrence count.
 
 ```ts
 const limitedDemo = Schedule.forever.pipe(Schedule.upTo({ times: 3 }));
+```
+
+### [Schedule.isSchedule](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Schedule.ts:258)
+
+Checks whether an unknown value is a `Schedule` and narrows it to the schedule type.
+
+```ts
+const input: unknown = Schedule.recurs(3);
+
+if (Schedule.isSchedule(input)) {
+  yield* Effect.repeat(Effect.log("attempt"), input);
+}
+```
+
+### [Schedule.addDelay](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Schedule.ts:572)
+
+Adds an effectfully computed delay to each delay already produced by a schedule.
+
+```ts
+const delayed = Schedule.recurs(3).pipe(
+  Schedule.addDelay(() => Effect.succeed("100 millis")),
+);
+
+yield* Effect.retry(Effect.fail("temporary"), delayed);
+```
+
+### [Schedule.min](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Schedule.ts:1174)
+
+Combines schedules and continues while at least one continues, choosing the shortest next delay.
+
+```ts
+const earliest = Schedule.min([
+  Schedule.fixed("1 second"),
+  Schedule.fixed("5 seconds"),
+]);
+
+yield* Effect.repeat(Effect.log("poll"), earliest);
+```
+
+### [Schedule.fibonacci](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Schedule.ts:1350)
+
+Produces delays that grow according to the Fibonacci sequence from the supplied initial duration.
+
+```ts
+const backoff = Schedule.fibonacci("100 millis");
+yield* Effect.retry(Effect.fail("temporary"), backoff);
+```
+
+### [Schedule.modifyDelay](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Schedule.ts:1595)
+
+Replaces each schedule delay with an effectfully computed duration based on its metadata.
+
+```ts
+const adaptive = Schedule.exponential("100 millis").pipe(
+  Schedule.modifyDelay(({ attempt }) =>
+    Effect.succeed(attempt > 2 ? "1 second" : "100 millis")
+  ),
+);
+
+yield* Effect.retry(Effect.fail("temporary"), adaptive);
+```
+
+### [Schedule.windowed](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Schedule.ts:2090)
+
+Aligns recurrences to fixed time windows instead of delaying from the previous completion.
+
+```ts
+const everyMinute = Schedule.windowed("1 minute");
+yield* Effect.repeat(Effect.log("refresh"), everyMinute);
 ```

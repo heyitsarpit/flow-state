@@ -17,10 +17,18 @@ Source: [Effect v4 `Cause` API](https://www.effect.website/docs/v4/api/effect/Ca
 11. [Cause.squash](#causesquash)
 12. [Cause.pretty](#causepretty)
 13. [Cause](#cause)
+14. [Cause.Reason](#causereason)
+15. [Cause.isCause](#causeiscause)
+16. [Cause.isReason](#causeisreason)
+17. [Cause.empty](#causeempty)
+18. [Cause.hasInterruptsOnly](#causehasinterruptsonly)
+19. [Cause.findFail](#causefindfail)
+20. [Cause.findDie](#causefinddie)
+21. [Cause.findInterrupt](#causefindinterrupt)
 
 ### Additional known APIs (not expanded)
 
-`TypeId`, `ReasonTypeId`, `Reason`, `Fail`, `Die`, `Interrupt`, `fromReasons`, `empty`, `makeFailReason`, `makeDieReason`, `makeInterruptReason`, `hasInterruptsOnly`, `findFail`, `findError`, `findDie`, `hasInterrupts`, `findInterrupt`, `interruptors`, `filterInterruptors`, `prettyErrors`, `isCause`, `isReason`, `isFailReason`, `isDieReason`, `isInterruptReason`, `annotate`, `reasonAnnotations`, `annotations`, `NoSuchElementError`, `TimeoutError`, `UnknownError`
+`TypeId`, `ReasonTypeId`, `Fail`, `Die`, `Interrupt`, `fromReasons`, `makeFailReason`, `makeDieReason`, `makeInterruptReason`, `findError`, `hasInterrupts`, `interruptors`, `filterInterruptors`, `prettyErrors`, `isFailReason`, `isDieReason`, `isInterruptReason`, `annotate`, `reasonAnnotations`, `annotations`, `NoSuchElementError`, `TimeoutError`, `UnknownError`
 
 ### [Cause.fail](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Cause.ts:490)
 
@@ -124,4 +132,98 @@ const message = Cause.pretty(Cause.fail(new Error("request failed")));
 
 ```ts
 const cause: Cause.Cause<string> = Cause.fail("invalid");
+```
+
+### [Cause.Reason](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Cause.ts:146)
+
+Represents one structured reason: a typed failure, an unexpected defect, or an interruption.
+
+```ts
+const reason: Cause.Reason<string> = Cause.fail("invalid").reasons[0];
+
+if (Cause.isFailReason(reason)) {
+  console.log(reason.error);
+}
+```
+
+### [Cause.isCause](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Cause.ts:97)
+
+Checks whether an unknown value is a `Cause` and narrows it to the structured cause type.
+
+```ts
+const input: unknown = Cause.die(new Error("bug"));
+
+if (Cause.isCause(input)) {
+  console.log(input.reasons.length);
+}
+```
+
+### [Cause.isReason](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Cause.ts:115)
+
+Checks whether an unknown value is one of the public reason variants carried by a cause.
+
+```ts
+const reason: unknown = Cause.interrupt(7).reasons[0];
+
+if (Cause.isReason(reason)) {
+  console.log(reason._tag);
+}
+```
+
+### [Cause.empty](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Cause.ts:464)
+
+Provides the empty cause, which contains no failure, defect, or interruption reasons.
+
+```ts
+const cause = Cause.empty;
+console.log(cause.reasons.length); // 0
+```
+
+### [Cause.hasInterruptsOnly](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Cause.ts:642)
+
+Checks whether every reason in a cause is an interruption and there are no typed failures or defects.
+
+```ts
+const interrupted = Cause.interrupt(7);
+console.log(Cause.hasInterruptsOnly(interrupted)); // true
+console.log(Cause.hasInterruptsOnly(Cause.fail("stop"))); // false
+```
+
+### [Cause.findFail](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Cause.ts:811)
+
+Finds the first typed failure and returns the remaining cause as the failure channel when none is found.
+
+```ts
+import { Cause, Result } from "effect";
+
+const found = Cause.findFail(Cause.fail("invalid"));
+if (Result.isSuccess(found)) {
+  console.log(found.success.error);
+}
+```
+
+### [Cause.findDie](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Cause.ts:923)
+
+Finds the first defect in a cause and preserves the original cause when no defect exists.
+
+```ts
+import { Cause, Result } from "effect";
+
+const found = Cause.findDie(Cause.die(new Error("bug")));
+if (Result.isSuccess(found)) {
+  console.log(found.success.defect);
+}
+```
+
+### [Cause.findInterrupt](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Cause.ts:1001)
+
+Finds the first interruption reason in a cause and reports the cause if none is present.
+
+```ts
+import { Cause, Result } from "effect";
+
+const found = Cause.findInterrupt(Cause.interrupt(7));
+if (Result.isSuccess(found)) {
+  console.log(found.success.fiberId);
+}
 ```
