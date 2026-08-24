@@ -148,7 +148,3 @@ In lieu of a traditional abstract, I’ve tried to distill the essence of the ta
 **Categories & Subject Descriptors:** D.2.13 Reusable Software
 
 **General Terms:** Design, Documentation, Performance.
-
-## Bio
-
-Joshua Bloch is Chief Java Architect at Google, author of the Jolt Award-winning _Effective Java_ (Addison-Wesley, 2001), and coauthor of _Java Puzzlers: Traps, Pitfalls, and Corner Cases_ (Addison-Wesley, 2005). He was a Distinguished Engineer at Sun Microsystems, where he led the design and implementation of numerous Java platform features including JDK 5.0 language enhancements and the Java Collections Framework. He holds a Ph.D. from Carnegie-Mellon and a B.S from Columbia.

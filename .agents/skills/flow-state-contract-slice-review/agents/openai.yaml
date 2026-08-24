@@ -1,0 +1,4 @@
+interface:
+  display_name: "Flow State Contract Slice Review"
+  short_description: "Verify one bead against its exact contracts"
+  default_prompt: "Use $flow-state-contract-slice-review to review this bead and its changed files for contract conformance."

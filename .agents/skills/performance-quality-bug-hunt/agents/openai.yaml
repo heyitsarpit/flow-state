@@ -1,0 +1,4 @@
+interface:
+  display_name: "Performance Quality Bug Hunt"
+  short_description: "Hunt regressions, bugs, and performance risks"
+  default_prompt: "Use $performance-quality-bug-hunt to inspect this change for bugs, regressions, performance risks, and missing adversarial tests."
