@@ -380,6 +380,7 @@ useView(actor, selector)
 
 ```ts
 WIRE-020B
+WIRE-020C
 CLI-P01
 CLI-P02
 ```
@@ -388,8 +389,9 @@ CLI-P02
 
 - Surface: production bootstrap, persistable actors, context-provider refs, context-closed cuts, host seeding,
   stream hydration, Web Storage/IndexedDB, codecs, artifacts, inspection, CLI, and failure envelopes.
-- Rule: restore and validate before activation or handle escape; baseline installation is silent; exact wire and
-  CLI representation follows `WIRE-020B`; this row does not create a second decoder/result owner.
+- Rule: restore and validate before activation or handle escape; baseline installation is silent; exact raw wire
+  and CLI representation follows `WIRE-020B`, and the export-only redacted projection follows `WIRE-020C`; this
+  row does not create a second decoder/result owner.
 - Accepts: declared persistable actors; completed initial `Runtime.ensureActor`; exact provider refs; dependency-
   ordered context-derived projections without replaying `onContext`; later defined current/previous context
   values; `false`/`null` no event; context-closed cuts with binding refs/provider revisions; `NonDurableContextProvider`
@@ -398,17 +400,22 @@ CLI-P02
   failures; malformed data; identity mismatch; default/custom codec outcomes; `ConcurrentDehydrate`; last good
   record retention; accepted app Story, actor lookup, `run.end`, module ownership, compound state, context,
   lifecycle, operation identity, bounds, sinks, and formatting; custom-codec failure is reported without mutating
-  committed runtime state.
+  committed runtime state; omitted/empty redaction byte equivalence; exact protected tuple paths; deterministic
+  share manifest/bytes; and WIRE-020C wrong-kind raw-import rejection.
 - Rejects: missing providers, duplicate registrations, foreign machines, instance cycles, missing live stream
   input, terminal stream restart, older async writes replacing newer records, mutation of committed runtime on
   failure, deleted root/child/final/replay/old Story shapes, invalid descriptor IDs, duplicate IDs/machines/module
   ownership, missing module refs, invalid defaults, unresolved requirements, invalid Story metadata, malformed
-  traces, impossible lifecycle tuples, inconsistent end/failure/cleanup evidence.
+  traces, impossible lifecycle tuples, inconsistent end/failure/cleanup evidence, missing/duplicate/overlapping/
+  structural redaction paths, mutation of raw/runtime/persisted truth, or share artifacts used as CLI, import,
+  replay, persistence, boot, or evidence-authority input.
 - Observable guarantee: invalid vectors report exact rejection code/category/path/bound; `EvidenceUnavailable`
-  has a non-null truncation marker; artifact/CLI Cause projection is ordered and byte-stable under WIRE-020B.
+  has a non-null truncation marker; artifact/CLI Cause projection is ordered and byte-stable under WIRE-020B;
+  WIRE-020C is deterministic privacy-reduced output that cannot be mistaken for raw evidence.
 - Proof: bootstrap, persistence, hydration, codec/storage, write-fencing, artifact round-trip/negative, inspect,
-  CLI grammar/gateway/execution/formatting, and Story/CLI parity evidence. This is the owner of current `CLI-P01`.
-- Trace: `REV-OPS-015`, `REV-HOST-008`, `REV-MIG-005`, `WIRE-020B`, `CLI-P01`, `DEL-010`.
+  API-P04 redacted-export production tests, CLI grammar/gateway/execution/formatting, and Story/CLI parity
+  evidence. This is the owner of current `API-P04` and `CLI-P01`.
+- Trace: `REV-OPS-015`, `REV-HOST-008`, `REV-MIG-005`, `WIRE-020B`, `WIRE-020C`, `API-P04`, `CLI-P01`, `DEL-010`.
 
 ### PROOF-015 — Individual actor ownership without child capability
 
@@ -477,6 +484,7 @@ the same implementation task or proof record; retired phase, receipt, and task f
 | `API-P01` | `PROOF-001`, `PROOF-017` |
 | `API-P02` | `PROOF-001`, `PROOF-002` |
 | `API-P03` | `PROOF-003`, `PROOF-005`–`PROOF-008`, `PROOF-011`, `PROOF-014` |
+| `API-P04` | `PROOF-014` |
 | `CLI-P01` | `PROOF-014` |
 | `CLI-P02` | `PROOF-014`, `PROOF-017` |
 | `TYPE-P01` | `PROOF-001` |
@@ -507,7 +515,7 @@ are evidence only. This is a decomposition boundary, not a second semantic speci
 | Static foundation | `GLOSSARY_AND_IDENTITY.md`; `PUBLIC_API.md` `API-001`–`API-010`; `TYPE_SYSTEM.md` `TYPE-001`–`TYPE-009`; accepted composition/machine revisions | `PROOF-001`, `PROOF-002`, `TYPE-P01`–`TYPE-P04` | first |
 | Runtime ownership | `ARCHITECTURE.md` `ARCH-007`–`ARCH-020`; `SEMANTICS.md` admission/mailbox/lifecycle; `REACT_AND_HOSTS.md` `HOST-001`–`HOST-006`; `TYPE_SYSTEM.md` `TYPE-010`–`TYPE-015` | `PROOF-003`, `PROOF-004`, `PROOF-015`, `HOST-P01`–`HOST-P05` | after static foundation |
 | Operation kernels | `TYPE_SYSTEM.md` operation inference; `SEMANTICS.md` `SEM-011`–`SEM-021`, `SEM-029`–`SEM-030`; `SNAPSHOTS.md`; accepted operations revision | `PROOF-005`–`PROOF-007`, `SNAP-P01` | after runtime ownership |
-| Persistence and evidence | `PERSISTENCE_AND_ARTIFACTS.md` `WIRE-000`–`WIRE-023`; exact v2 model in `ARTIFACT_WIRE.md`; capture/hydration clauses in `SNAPSHOTS.md` | `PROOF-009`, `PROOF-010`, `PROOF-011`, `PROOF-014`, `CLI-P01` | after runtime and operation kernels |
+| Persistence and evidence | `PERSISTENCE_AND_ARTIFACTS.md` `WIRE-000`–`WIRE-023`, including `WIRE-020C`, as sole schema authority; v2 notation mirror in `ARTIFACT_WIRE.md`; capture/hydration clauses in `SNAPSHOTS.md` | `PROOF-009`, `PROOF-010`, `PROOF-011`, `PROOF-014`, `API-P04`, `CLI-P01` | after runtime and operation kernels |
 | Hosts, Stories, and CLI | `TESTING.md` `REV-TEST-001`–`REV-TEST-010`; `REACT_AND_HOSTS.md`; `CLI.md`; `PUBLIC_API.md` `API-011`–`API-017` | `PROOF-008`, `PROOF-010`, `PROOF-012`, `PROOF-014`, `CLI-P01` | after runtime; operation/evidence edges where used |
 | Cutover and absence | `COMPATIBILITY_AND_DELETIONS.md`; `PROOF-016`–`PROOF-017`; accepted migration/deletion revisions | `PROOF-016`, `PROOF-017`, `CLI-P02`, `CUT-P01`–`CUT-P06` | after every prior family |
 

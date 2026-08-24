@@ -4,8 +4,8 @@ Status: normative target vNext contract; not shipped
 
 This file is the single Flow-owned semantic and schema authority for persistence, boot, capture/hydration,
 publication, artifact boundaries, Story evidence timing, the package-private model handoff, and the exact
-nested WIRE-020A/B rules. `ARTIFACT_WIRE.md` is the enhanced-format relocated notation mirror used by Story
-and CLI; it does not extend or override this file, and any mismatch resolves to this file. This file does not
+nested WIRE-020A/B/C rules. `ARTIFACT_WIRE.md` is the enhanced-format relocated notation mirror used by Story,
+CLI, and the share-export encoder; it does not extend or override this file, and any mismatch resolves to this file. This file does not
 define CLI transport or duplicate runtime, operation, or public API contracts.
 The corresponding file under `contracts/provenance/` is the current semantic source and provenance record
 for this restoration; it is retained for traceability, not as a competing active authority. Its transferred
@@ -392,6 +392,64 @@ an incomplete latest hint into a historical diff.
 - Trace: WIRE-020A, WIRE-020B; exact unions, nullable fields, bounds, and diagnostic codes are owned by
   this file and mirrored by `ARTIFACT_WIRE.md`; BEH-033 closed by REV-MIG-005.
 
+### Rule card — WIRE-020C
+
+```ts
+type ArtifactCanonicalPath = readonly (string | number)[];
+type ArtifactValuePath =
+  | readonly ["records", number, "snapshot", "memory" | "context", ...ArtifactCanonicalPath]
+  | readonly ["records", number, "facts", number, "data" | "value" | "error" | "defect" | "latest", ...ArtifactCanonicalPath]
+  | readonly ["checkpoints", number, "actors", number, "snapshot", "memory" | "context", ...ArtifactCanonicalPath]
+  | readonly ["checkpoints", number, "snapshot", "memory" | "context", ...ArtifactCanonicalPath];
+
+type TraceShareArtifactBase = {
+  kind: "trace-share-artifact";
+  version: "flow-state/trace-share-artifact.v2";
+  storyId: StableId;
+  appId: StableId;
+  persistenceVersion: string;
+  appPlanFingerprint: string;
+  capturedAt: NonNegative;
+  truncatedBeforeSequence: Nullable<NonNegative>;
+  records: readonly TraceRecord[];
+  checkpoints: readonly Checkpoint[];
+  redactions: readonly ArtifactValuePath[];
+};
+type TraceShareArtifact =
+  | (TraceShareArtifactBase & { outcome: "completed"; end: Checkpoint; failure: null; cleanup: { status: "complete" } })
+  | (TraceShareArtifactBase & { outcome: "failed"; end: Nullable<Checkpoint>; failure: StoryFailure; cleanup: { status: "complete" } | { status: "failed"; diagnostics: readonly Diagnostic[] } });
+```
+
+- Surface: The exact export-only privacy-reduced projection produced by a non-empty AMEND-API-003 redaction
+  policy. It is not part of the raw WIRE-020B decoded model.
+- Rule: `TraceShareArtifact` copies every WIRE-020B base and outcome field without changing identity,
+  fingerprint, captured time, truncation, record/checkpoint order, sequence, diagnostics, outcome, end, failure,
+  or cleanup, then changes only `kind`, `version`, the values selected by the policy, and the required non-empty
+  `redactions` manifest. Each manifest entry is the exact tuple supplied by the caller, names an existing
+  application-owned value carrier, and resolves to the fixed string `"[REDACTED]"` in the output. A naturally
+  occurring unmanifested `"[REDACTED]"` application value remains legal. Duplicate paths and ancestor/descendant
+  overlaps reject as `InvalidArtifactOperand` before projection.
+- Canonical manifest order: Compare paths segment by segment. At the first unequal segment, numbers sort before
+  strings; numbers sort numerically; strings sort by UTF-8 bytes without Unicode normalization. If every compared
+  segment is equal, the shorter path sorts first. Numeric segments address arrays and MUST be non-negative safe
+  integers within the existing array; string segments address object members. Wildcards and string path input
+  are forbidden. Human diagnostics may render a tuple as `records[3].snapshot.context.tokens.secret[4].first`;
+  non-identifier string segments use JSON-quoted brackets, and that display form is never parsed as input.
+- Encoding and bounds: The share artifact uses the WIRE-020A/B stable-key canonical JSON rules, exactly one
+  trailing newline, and all WIRE-014/015/016 depth, node, array, string/key, and byte bounds, including the
+  manifest itself. It is always emitted uncompressed by `exportTraceArtifact`.
+- Accepts: A validated WIRE-020B trace plus one finite non-empty valid redaction policy. Omitted or empty policy
+  bypasses WIRE-020C and returns byte-identical WIRE-020B output.
+- Rejects: A share importer or decoder, CLI input, replay, persistence, boot, evidence-authority use, mutation of
+  the decoded trace/runtime/persisted/raw artifact, missing paths, structural or identity targets, and changes to
+  protected fields or ordering. `importTraceArtifact` checks the top-level kind first and rejects WIRE-020C as
+  `WrongArtifactKind` before WIRE-020B unknown-member, identity, or fingerprint validation.
+- Observable guarantee: A recipient can receive deterministic privacy-reduced bytes without those bytes being
+  accepted as raw trace evidence or executable input.
+- Proof: `PUBLIC_API.md` API-P04 through the production WIRE-020B decoder and WIRE-020C encoder; central owner
+  `PROOF_MATRIX.md` PROOF-014.
+- Trace: WIRE-020C; `PUBLIC_API.md` AMEND-API-003/API-P04. WIRE-020A/B and CLI input remain unchanged.
+
 The package-private behavior builder owns the plan fingerprint's preimage and the artifact encoder owns
 recomputation and verification of the emitted field. Import compares the decoded fingerprint with the
 receiving compiled AppPlan and rejects a mismatch as `ArtifactIdentityMismatch`; boot and the public API do
@@ -408,9 +466,10 @@ category, path, and bound details for the selected diagnostic rather than collap
 `undefined` or a generic corrupt-artifact result.
 
 The complete local wire notation, including nested behavior declarations, lifecycle records, StoryFailure,
-operation-fact unions, diagnostics, and CLI result/error unions, is mirrored in `ARTIFACT_WIRE.md` for Story
-and CLI. That file does not extend or override this contract; any mismatch resolves to this file, which remains
-the semantic and schema authority for WIRE-020A/B, capture, and publication.
+operation-fact unions, diagnostics, CLI result/error unions, and the export-only TraceShareArtifact, is mirrored
+in `ARTIFACT_WIRE.md` for Story, CLI, and the share encoder. That file does not extend or override this contract;
+any mismatch resolves to this file, which remains the semantic and schema authority for WIRE-020A/B/C, capture,
+and publication.
 
 Resource facts are missing, pending, ready, refreshing, failure, defect, or interrupted; transaction
 facts are idle, pending, success, failure, defect, interrupted, or unknown with reconcileRequired true;

@@ -6,18 +6,17 @@ Sibling contracts own runtime, API, persistence, CLI, host, Story, deletion, and
 This file defines implementation order, ownership, review, tests, and promotion. It is not a second
 runtime or API specification.
 
-The corresponding file under `contracts/provenance/` is the current semantic source and provenance
-record for this restoration. It is retained for traceability, not as a competing implementation
-authority; the enhanced clauses below MUST preserve its transferred wording, semantics, and IDs.
+The active sibling contract pack is the sole semantic authority for this restoration. Archived revision
+material and traceability records are provenance only and cannot define or override implementation semantics.
+This workflow preserves the wording, semantics, and IDs already transferred into the active contracts.
 
 ## Authority and greenfield boundary
 
 ### Rule card — authority and source ownership
 
 - Surface: Contract interpretation and implementation location.
-- Rule: The active sibling contract pack is semantic authority for implementation. The corresponding
-  provenance file supplies the transferred semantic wording and IDs and remains trace material;
-  archived revisions, proposals, audits, research, the frozen package, and historical examples are
+- Rule: The active sibling contract pack is the sole semantic authority for implementation. Archived
+  revisions, proposals, audits, research, traceability records, the frozen package, and historical examples are
   provenance only. The replacement is built in packages/flow-state-rewrite/. Existing
   packages/flow-state/ code, tests, examples, entrypoints, and records remain frozen reference
   material until late cutover.
@@ -38,7 +37,7 @@ authority; the enhanced clauses below MUST preserve its transferred wording, sem
 | Static foundation | GLOSSARY_AND_IDENTITY, PUBLIC_API API-001–010, TYPE_SYSTEM TYPE-001–009 | Branded identities, schemas, errors, definitions, operation types, pure App/module compilation | PROOF-001, PROOF-002, TYPE-P01–P04 | None |
 | Runtime ownership | ARCHITECTURE ARCH-007–020, SEMANTICS admission/mailbox/lifecycle, REACT_AND_HOSTS HOST-001–006, TYPE_SYSTEM TYPE-010–015 | RuntimeSetup, Runtime.ready, closed AppPlan, admission, leases, mailbox, context, scheduling, cleanup | PROOF-003, PROOF-004, PROOF-015, HOST-P01–P05 | Static foundation |
 | Operation kernels | TYPE_SYSTEM operation inference, SEMANTICS SEM-011–021/029–030, SNAPSHOTS operation projections | K, resource store, generations, operation kernels, overlays, cancellation, invalidation, fanout, fencing | PROOF-005, PROOF-006, PROOF-007, SNAP-P01 | Runtime ownership |
-| Persistence and evidence | PERSISTENCE_AND_ARTIFACTS WIRE-000–023, SNAPSHOTS capture/hydration, diagnostic clauses | Persistence provider, declaration restoration, private v2 codecs/models, exact trace facts, bounded sinks, artifacts | PROOF-009, PROOF-010, PROOF-014, CLI-P01 | Runtime ownership and operation kernels |
+| Persistence and evidence | PERSISTENCE_AND_ARTIFACTS WIRE-000–023 including WIRE-020C, SNAPSHOTS capture/hydration, diagnostic clauses | Persistence provider, declaration restoration, private v2 codecs/models, exact trace facts, bounded sinks, raw and share-only artifacts | PROOF-009, PROOF-010, PROOF-014, API-P04, CLI-P01 | Runtime ownership and operation kernels |
 | Hosts/Stories/CLI | TESTING REV-TEST-001–010, REACT_AND_HOSTS, CLI, PUBLIC_API API-011–017 | React attachment, Story builders/run, Fixtures/Implementations/seeds, gateway, shared CLI executor | PROOF-008, PROOF-010, PROOF-012, PROOF-014, CLI-P01 | Runtime + kernels + persistence/evidence |
 | Cutover/absence | COMPATIBILITY_AND_DELETIONS, PROOF_MATRIX PROOF-016–017 | Entrypoints, examples, packed consumers, browser behavior, deleted-surface absence, final package cutover | PROOF-016, PROOF-017, CLI-P02, CUT-P01–P06 | All prior phases |
 
@@ -61,6 +60,25 @@ authority; the enhanced clauses below MUST preserve its transferred wording, sem
   implementation. Dependent work starts only after the required focused proof is recorded.
 - Proof: Slice readiness review and dependency-order check.
 - Trace: Dependency order, readiness, and inferred-shape clauses.
+
+### Rule card — static Implementation route ownership
+
+- Surface: The root `Implementation` runtime value, its same-name public type, and the inert provider graph.
+- Rule: Route assembly has one owner: `packages/flow-state-rewrite/package.json`, `src/index.ts`,
+  `src/public/root.ts`, and `src/public/types.ts`, plus the packed API-P01 proof. Provider-graph construction has
+  a separate owner: `src/public/implementation.ts` and its focused API/type tests. The route owner only re-exports
+  the provider owner; it does not duplicate constructors or provider state. Runtime acquisition, Scope,
+  finalization, and `ready()` remain TYPE-010 Runtime-ownership work.
+- Accepts: One root runtime value with exactly `succeed`, `effect`, and `merge`, alongside the same-name public
+  type, with inert construction and no acquisition in the static phase.
+- Rejects: `Object.freeze` as namespace behavior, aliases, secondary/deep routes, duplicate constructor owners,
+  provider construction in route files, or TYPE-010 acquisition work in the static slice.
+- Observable guarantee: Packed consumers see one exact root route while provider semantics remain owned by
+  TYPE-009B and runtime acquisition remains owned by TYPE-010.
+- Proof: API-P01 and TYPE-009B provider variance/duplicate/inertness proofs. Focused commands:
+  `nub run --filter flow-state-rewrite check:types` and
+  `nubx vp test packages/flow-state-rewrite/src/api/tests/public-routes.test.ts`.
+- Trace: PUBLIC_API API-001/API-002/API-P01; TYPE_SYSTEM TYPE-009B/TYPE-010.
 
 ## Single-owner guardrails
 

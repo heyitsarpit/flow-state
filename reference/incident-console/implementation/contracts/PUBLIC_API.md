@@ -20,7 +20,7 @@ import * as inspect from "flow-state/inspect";
 ### Surface
 
 - Root runtime values: `actorRef`, `app`, `can`, `definition`, `FlowDisposeError`,
-  `FlowPersistenceError`, `FlowUsageError`, `indexedDbStorage`, `machine`, `module`, `persistence`,
+  `FlowPersistenceError`, `FlowUsageError`, `Implementation`, `indexedDbStorage`, `machine`, `module`, `persistence`,
   `resource`, `runtimeSetup`, `stream`, `transaction`, `webStorage`.
 - `flow-state/react`: `FlowProvider`, `useActor`, `useActorByRef`, `useView`.
 - `flow-state/testing`: `behavior`, `fixture`, `model`, `story`, `FlowStoryExecutionError`.
@@ -36,6 +36,8 @@ import * as inspect from "flow-state/inspect";
 ### Rule
 
 - Routes are isolated named-export surfaces. Consumers alias locally.
+- Root `Implementation` is the runtime namespace for exactly `succeed`, `effect`, and `merge`; the same-named
+  public type remains owned by API-002 and TYPE-009B. It is not an umbrella package namespace or alternate route.
 
 ### Accepts
 
@@ -1197,8 +1199,8 @@ declare function exportTraceArtifact(
 
 - Surface: An optional redaction policy on the existing `exportTraceArtifact` inspection route.
 - Rule: Redaction MUST be explicit, pure, and applied to a defensive export projection. An omitted or empty
-  policy returns the exact importable WIRE-020B bytes. A non-empty policy emits the share-only envelope
-  defined by `AMEND-WIRE-001`. A redaction policy may replace only application-owned value carriers at
+  policy returns the exact importable WIRE-020B bytes. A non-empty policy emits the exact export-only
+  `TraceShareArtifact` envelope defined by WIRE-020C. A redaction policy may replace only application-owned value carriers at
   named `ArtifactValuePath`s with the fixed `"[REDACTED]"` replacement; it MUST NOT target identity,
   app-plan fingerprint, version, discriminants, ordering, sequence, truncation, diagnostic codes, or
   cleanup/status structure. The resulting share projection is not persistence or boot input and is rejected
@@ -1211,9 +1213,10 @@ declare function exportTraceArtifact(
   redaction, structural/identity paths, or an export that changes identity/fingerprint/ordering semantics.
 - Observable guarantee: Teams can share a privacy-reduced inspection export while the runtime, persisted
   record, raw artifact, and canonical evidence remain unchanged.
-- Proof: `AMEND-P04` default-equivalence, path-bound, non-mutation, deterministic-output, and wrong-kind
-  import-rejection proofs.
-- Trace: vNext additive amendment; WIRE-020A/B remains the raw artifact authority.
+- Proof: `API-P04` default-equivalence, path-bound, non-mutation, deterministic-output, manifest-consistency,
+  and wrong-kind import-rejection proofs.
+- Trace: vNext additive amendment; `PERSISTENCE_AND_ARTIFACTS.md` remains the sole semantic and schema authority:
+  WIRE-020A/B own raw importable artifacts and WIRE-020C owns only the share projection.
 
 ## API-017 — CLI boundary
 
@@ -1258,7 +1261,7 @@ const command: "flow-state behavior check" = "flow-state behavior check";
 The following union is schematic local proof-index notation and is not a required public export.
 
 ~~~ts
-type PublicProof = "API-P01" | "API-P02" | "API-P03";
+type PublicProof = "API-P01" | "API-P02" | "API-P03" | "API-P04";
 ~~~
 
 ### API-P01 — Export-map and deletion proof
@@ -1267,6 +1270,9 @@ Packed-package tests MUST assert the exact public routes and root runtime-value 
 imports, and prove absence of deleted child, registered-view, automatic-root/dynamic-actor, generic
 operation-ref/activity-kit, and old Story constructor/command surfaces. Non-root routes cannot import root
 builders, and ordinary actor handles and refs cannot recover owner-lease disposal authority.
+Root `Implementation` MUST be a runtime value whose own exported members are exactly `succeed`, `effect`, and
+`merge`; the same root declaration MUST also expose the public `Implementation` type. No alias, secondary route,
+or private deep route may expose either constructor access or another provider-graph authority.
 
 ### API-P02 — Grammar and inference proof
 
@@ -1283,6 +1289,17 @@ bootstrap, lease disposal and tombstones, prepared/active/suspended/disposed lif
 parity, Implementation-backed operation outcomes, evidence cuts, and CLI refusal of arbitrary event fabrication.
 The historical `BEH-*` register and its accepted `REV-*` closures remain outside this public API contract;
 this file MUST NOT invent a public surface to satisfy a proof obligation.
+
+### API-P04 — Redacted trace-share export proof
+
+Production-path tests MUST prove that omitted and empty policies return byte-identical WIRE-020B output;
+non-empty policies emit only the WIRE-020C `trace-share-artifact` envelope; every manifest path exists,
+targets an application-owned carrier, and resolves to `"[REDACTED]"`; manifest order and bytes are deterministic;
+the live decoded model, runtime truth, persisted record, raw artifact, identity, fingerprint, sequence, ordering,
+truncation, diagnostics, outcome, failure, and cleanup remain unchanged; invalid, duplicate, overlapping, missing,
+or structural paths reject as `InvalidArtifactOperand`; and `importTraceArtifact` rejects share output as
+`WrongArtifactKind` before raw-envelope member or identity validation. No share importer, CLI input, replay,
+persistence, boot, or evidence-authority route exists.
 
 ### Rule
 

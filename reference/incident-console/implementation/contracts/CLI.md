@@ -6,9 +6,9 @@ The CLI is a process host over the compiled behavior, shared Story executor, bou
 inspection/trace projections, and file/stream I/O. It owns grammar, gateway selection, formatting,
 files, signals, and exit status. It does not own machine semantics, actors, schedulers, stores,
 transition evaluation, runtime history, artifact schemas, or a competing Story/runtime model.
-PERSISTENCE_AND_ARTIFACTS.md owns the capture/publication and codec boundary; ARTIFACT_WIRE.md owns the
-exact package-private v2 model projected by Story and CLI. `REV-MIG-005` and `WIRE-020B` are the current
-schema authority; executable gates still prove the implementation.
+`PERSISTENCE_AND_ARTIFACTS.md` is the sole semantic and schema authority for the WIRE-020A/B/C artifact
+boundary. `ARTIFACT_WIRE.md` is its package-private notation mirror for Story, CLI, and the share encoder;
+`REV-MIG-005` is provenance only. Executable gates still prove the implementation.
 
 ## Grammar and gateway
 
@@ -140,9 +140,9 @@ second decoded model or expose that internal model as a public package type.
   not load an app or run a boot decoder. - means stdin only; named operands must be existing regular
   files; FIFOs/devices are stdin-only; at most one operand may be -.
 - Accepts: Stable-key UTF-8 JSON or exactly one gzip member; existing parent directories for outputs.
-- Rejects: deleted Scenario/local-proof formats, competing envelopes/codecs, legacy final/children,
-  concatenated gzip members, trailing bytes, unsupported compression, and all bound/identity/schema
-  violations.
+- Rejects: deleted Scenario/local-proof formats, competing envelopes/codecs, WIRE-020C share-only output,
+  legacy final/children, concatenated gzip members, trailing bytes, unsupported compression, and all
+  bound/identity/schema violations.
 - Observable guarantee: Files are uncompressed canonical JSON with exactly one trailing newline;
   stdout carries only the command result.
 - Proof: Bounded input, stdin, compression, schema, and artifact-only no-execution tests.
@@ -156,6 +156,8 @@ field, or diagnostic shape, and deleted Scenario/local-proof formats MUST NOT be
 model has no legacy `final` or `children` members. Inputs are either stable-key UTF-8 JSON or exactly one
 gzip member; concatenated gzip members, trailing bytes, unsupported compression, and decompression-bound
 violations are `DecompressionFailed` or the applicable bounded-input diagnostic.
+WIRE-020C is deliberately export-only and MUST reject as an unknown/wrong artifact kind before any trace CLI
+projection; CLI does not sanitize, summarize, diff, prove, compress, or otherwise consume share output.
 
 ### Rule card — CLI-006
 

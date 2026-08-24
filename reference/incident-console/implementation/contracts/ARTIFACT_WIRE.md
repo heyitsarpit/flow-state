@@ -2,15 +2,16 @@
 
 Status: enhanced-format package-private wire notation mirror; not an exported package API.
 
-`PERSISTENCE_AND_ARTIFACTS.md` is the sole semantic and schema authority for WIRE-020A/B, including the exact
+`PERSISTENCE_AND_ARTIFACTS.md` is the sole semantic and schema authority for WIRE-020A/B/C, including the exact
 nested wire rules and when artifacts are captured, validated, and published. This file is the enhanced-format
-relocated notation mirror used by Story and CLI; it does not extend or override `PERSISTENCE_AND_ARTIFACTS.md`,
+relocated notation mirror used by Story, CLI, and the share-export encoder; it does not extend or override `PERSISTENCE_AND_ARTIFACTS.md`,
 and any mismatch resolves to that file. The aliases below preserve its transferred v2 decoded model as
 TypeScript-like notation for implementation and proof; they are not public types.
 
 ## Surface and rule
 
-- Surface: package-private behavior/trace v2 envelopes, decoded Story evidence, closed diagnostics, and CLI results.
+- Surface: package-private behavior/trace v2 envelopes, export-only trace-share v2 envelope, decoded Story
+  evidence, closed diagnostics, and CLI results.
 - Rule: One canonical decoded model feeds artifact validation, Story evidence, CLI text, and CLI JSON. This
   notation mirrors every nested field and discriminant from `PERSISTENCE_AND_ARTIFACTS.md`; callers do not add
   envelope members or alternate unions.
@@ -20,8 +21,8 @@ TypeScript-like notation for implementation and proof; they are not public types
   nullable fields, duplicate keys, legacy `final`/`children`/Scenario/v1 shapes, and malformed operation facts.
 - Observable guarantee: Decoding fails before application or Runtime acquisition with the closed diagnostic
   and exact path; successful envelopes are deeply frozen package-private values.
-- Proof: `PERSISTENCE_AND_ARTIFACTS.md` WIRE-014–020 and `PROOF_MATRIX.md` PROOF-010/014.
-- Trace: WIRE-020A, WIRE-020B; `CLI.md` CLI-007/CLI-008.
+- Proof: `PERSISTENCE_AND_ARTIFACTS.md` WIRE-014–020C and `PROOF_MATRIX.md` PROOF-010/014.
+- Trace: WIRE-020A, WIRE-020B, WIRE-020C; `CLI.md` CLI-007/CLI-008.
 
 ## Canonical carrier and identity
 
@@ -336,6 +337,28 @@ type TraceArtifactBase = {
 type TraceArtifact =
   | (TraceArtifactBase & { outcome: "completed"; end: Checkpoint; failure: null; cleanup: { status: "complete" } })
   | (TraceArtifactBase & { outcome: "failed"; end: Nullable<Checkpoint>; failure: StoryFailure; cleanup: { status: "complete" } | { status: "failed"; diagnostics: readonly Diagnostic[] } });
+type ArtifactCanonicalPath = readonly (string | number)[];
+type ArtifactValuePath =
+  | readonly ["records", number, "snapshot", "memory" | "context", ...ArtifactCanonicalPath]
+  | readonly ["records", number, "facts", number, "data" | "value" | "error" | "defect" | "latest", ...ArtifactCanonicalPath]
+  | readonly ["checkpoints", number, "actors", number, "snapshot", "memory" | "context", ...ArtifactCanonicalPath]
+  | readonly ["checkpoints", number, "snapshot", "memory" | "context", ...ArtifactCanonicalPath];
+type TraceShareArtifactBase = {
+  kind: "trace-share-artifact";
+  version: "flow-state/trace-share-artifact.v2";
+  storyId: StableId;
+  appId: StableId;
+  persistenceVersion: string;
+  appPlanFingerprint: string;
+  capturedAt: NonNegative;
+  truncatedBeforeSequence: Nullable<NonNegative>;
+  records: readonly TraceRecord[];
+  checkpoints: readonly Checkpoint[];
+  redactions: readonly ArtifactValuePath[];
+};
+type TraceShareArtifact =
+  | (TraceShareArtifactBase & { outcome: "completed"; end: Checkpoint; failure: null; cleanup: { status: "complete" } })
+  | (TraceShareArtifactBase & { outcome: "failed"; end: Nullable<Checkpoint>; failure: StoryFailure; cleanup: { status: "complete" } | { status: "failed"; diagnostics: readonly Diagnostic[] } });
 type CliCommand =
   | "behavior.build" | "behavior.render" | "behavior.diff" | "behavior.check"
   | "story.list" | "story.describe" | "story.run"
@@ -385,6 +408,22 @@ type CliResultByCommand = {
 type CliResult = CliResultByCommand[CliCommand];
 type CliError = { version: "flow-state/cli-result.v2"; kind: "error"; command: Nullable<CliCommand>; diagnostic: Diagnostic; secondary: readonly Diagnostic[] };
 ```
+
+WIRE-020C `TraceShareArtifact` is emitted only by a non-empty AMEND-API-003 redaction policy. It mirrors every
+WIRE-020B field and outcome union, changes the top-level kind/version, and adds a required non-empty canonically
+sorted `redactions` tuple manifest. Every manifest path names an existing application-owned carrier whose output
+value is exactly `"[REDACTED]"`; unmanifested application values equal to that string remain legal. Tuple paths
+sort segment-wise with numbers before strings, numbers numeric ascending, strings by UTF-8 bytes, and shorter
+equal-prefix paths first. They use only exact non-negative array indexes and object-member strings; wildcards and
+display-string input are forbidden. Diagnostics may display an identifier path with dot notation, array indexes
+with brackets, and non-identifier strings with JSON-quoted brackets, but only tuples are accepted.
+
+The share envelope uses the same canonical stable-key JSON encoding, one trailing newline, and WIRE-014/015/016
+bounds as raw artifacts, including its manifest, and `exportTraceArtifact` emits it uncompressed. It is never
+decoded as a share model: no share importer, CLI consumer, replay, persistence, boot, or evidence-authority route
+exists. `importTraceArtifact` inspects the top-level kind first and rejects it as `WrongArtifactKind` before raw
+WIRE-020B member, identity, or fingerprint validation. Omitted or empty redaction policies never construct this
+envelope and return byte-identical WIRE-020B output.
 
 `TraceArtifact.truncatedBeforeSequence` is null only for a complete retained prefix. A non-null value marks the first omitted
 runtime-global sequence, the earliest sequence not retained, under the retained window convention. Artifact files use canonical stable-key UTF-8
