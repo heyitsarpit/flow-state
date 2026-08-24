@@ -18,19 +18,22 @@ worktree edits, and leave independent review to `reviewer`.
 
 ## Skill routing
 
-Read only the skills that match the change, in this order:
+Matching skill routing order:
 
-1. Read `typescript-style-guide` for every Flow State TypeScript change,
-   including anti-slop rules and fixtures.
-2. Read `effect-systems-design` when choosing between plain TypeScript and
-   Effect, or when designing services, Layers, resources, concurrency, time,
-   host adapters, or Effect-returning APIs.
-3. Read `.agents/skills/effect-api-documentation/SKILL.md` and its per-module
-   reference files when selecting an Effect module or deciding whether Flow
-   should add a wrapper. Use `codebases/effect-v4/` as the primary usage
+1. Every Flow State TypeScript change, including anti-slop rules and fixtures:
+   Call the Skill tool with `typescript-style-guide`.
+2. When choosing between plain TypeScript and Effect, or when designing services,
+   Layers, resources, concurrency, time, host adapters, or Effect-returning APIs:
+   Call the Skill tool with `effect-systems-design`.
+3. When selecting an Effect module or deciding whether Flow should add a wrapper:
+   Call the Skill tool with `effect-api-documentation`.
+   Then read its per-module
+   reference files. Use `codebases/effect-v4/` as the primary usage
    reference, then verify the exact export in the consuming package before using it.
-4. Read `tdd` only when the user requests test-first/red-green-refactor work or
-   explicitly asks for integration tests. Ordinary behavior proofs still belong
+4. When the user requests test-first/red-green-refactor work or explicitly asks
+   for integration tests:
+   Call the Skill tool with `tdd`.
+   Ordinary behavior proofs still belong
    at the smallest real seam.
 
 Do not load review-only skills while implementing your own change.

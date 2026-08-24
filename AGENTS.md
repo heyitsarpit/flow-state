@@ -65,8 +65,8 @@ is complete.
 
 ## Skills
 
-Use only the matching skill. The `orchestrator`, `coder`, and `reviewer`
-entrypoints define delegation, implementation, and independent review.
+Only the matching skill applies to each task. The `orchestrator`, `coder`, and
+`reviewer` entrypoints define delegation, implementation, and independent review.
 
 | Skill | Agent | Reach for it when | Do not reach for it when |
 | --- | --- | --- | --- |
@@ -101,7 +101,9 @@ Agent entrypoints:
 
 ## Beads Issue Tracker
 
-Use Beads (`bd`) for durable task tracking in repositories that include it. Use the `beads` skill at `.agents/skills/beads/SKILL.md` (project install) or `~/.agents/skills/beads/SKILL.md` (global install) for Beads workflow guidance, then use the `bd` CLI for issue operations.
+Use Beads (`bd`) for durable task tracking in repositories that include it. Beads workflow guidance applies here.
+Call the Skill tool with `beads`.
+Then use the `bd` CLI for issue operations.
 
 ### Quick Reference
 

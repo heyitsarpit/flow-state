@@ -41,7 +41,15 @@ another specialist skill, `api-design`, or a review skill for a different
    the reviewed slice from the repository-wide diff.
 2. If an issue or Bead is named, inspect it with the repository's Beads
    workflow and do not claim, close, or otherwise mutate it.
-3. Read only the specialist skill mapped by `reviewer_type`.
+3. The `reviewer_type` mapping is:
+   - `style`:
+     Call the Skill tool with `typescript-style-guide`.
+   - `effect`:
+     Call the Skill tool with `effect-systems-design`.
+   - `contract`:
+     Call the Skill tool with `flow-state-contract-slice-review`.
+   - `bug`:
+     Call the Skill tool with `performance-quality-bug-hunt`.
 4. Keep the review read-only. Do not edit source, tests, contracts, skills,
    Beads, generated output, or the reviewed diff.
 
