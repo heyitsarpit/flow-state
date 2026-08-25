@@ -377,7 +377,8 @@ broad lint exemption merely to satisfy a mechanical rule.
 
 ## Enforcement and review
 
-Anti-slop rules own deterministic syntax, type shape, and configured imports.
+Preserve the `Effect<A, E, R>` story. Typed failures or service requirements must be preserved.
+Anti-slop lint rules own deterministic syntax, type shape, and configured imports.
 Formatters own layout. This skill owns composition, API shape, service cohesion,
 Effect boundaries, lifetime, failure meaning, copying, decomposition, fixture
 design, comments, spacing, and proof quality.

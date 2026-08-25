@@ -5,55 +5,25 @@ description: Coordinate Flow State coder and single-mode reviewer subagents thro
 
 # Orchestrator
 
-Build the requested Flow State change by delegating implementation to the
-declared `coder` role and independent verification to declared `reviewer`
-roles.
+Build the entire Flow State Rewrite project as described in
+
+beads: read beads via `bv` and `bd` commands.
+contracts: reference/incident-console/implementation/contracts
+
+Delegate implementation to the declared `coder` role and
+independent verification to declared `reviewer` roles.
 
 ## Agent models
 
-- `coder`: `gpt-5.6-terra`
-- `reviewer:style`: `gpt-5.6-sol`
-- `reviewer:effect`: `gpt-5.6-sol`
-- `reviewer:contract`: `gpt-5.6-sol`
-- `reviewer:bug`: `gpt-5.6-sol`
-
-Always pass the configured model and `reasoning_effort=high` as actual
-`multi_agent_v1__spawn_agent` arguments on every spawn:
-
-- the initial coder;
-- replacement or retry coders;
-- every style, Effect, contract, or bug reviewer.
-
-If a repair uses `multi_agent_v1__send_input` instead of a new spawn, record
-that it continues the existing agent with the original model and reasoning
-effort.
-
-Declare the role in each spawn prompt as `coder` or `reviewer:<mode>`. Use the
-returned `AGENT_ID` for coordination; do not depend on an agent name.
-
-After every spawn, record:
-
-```text
-AGENT_ID:
-ROLE:
-REQUESTED_MODEL:
-REQUESTED_REASONING_EFFORT:
-DISPATCH_ACCEPTED:
-EFFECTIVE_MODEL:
-EFFECTIVE_REASONING_EFFORT:
-```
-
-The current dispatcher returns an agent ID but does not return effective model
-or reasoning metadata. Therefore:
-
-- `DISPATCH_ACCEPTED=true` means the spawn call accepted the requested values;
-- set effective fields to `unconfirmed` when the tool does not return them;
-- never claim effective model or reasoning confirmation from the prompt alone;
-- stop and report the mismatch if returned metadata disagrees with the request.
+- `coder`: `gpt-5.6 luna xhigh`
+- `reviewer:style`: `gpt-5.6 luna xhigh`
+- `reviewer:effect`: `gpt-5.6 luna xhigh`
+- `reviewer:contract`: `gpt-5.6 luna xhigh`
+- `reviewer:bug`: `gpt-5.6 luna xhigh`
 
 ## Loop
 
-1. Read `AGENTS.md`, inspect the worktree, and identify the exact task boundary.
+1. Read `AGENTS.md`, inspect the worktree, open beads and identify the exact task boundary.
 2. Spawn the declared `coder` following `.agents/agents/coder.md` with the
    task, allowed files, acceptance criteria, proofs, and its configured model
    and reasoning effort.
@@ -69,6 +39,7 @@ or reasoning metadata. Therefore:
 7. If all selected reviewers pass, stop successfully.
 8. If findings exist, send only the structured findings to the coder and repeat
    from step 3.
+9. Mark the completed beads as closed.
 
 ## Stop rules
 
