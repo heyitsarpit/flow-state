@@ -7,7 +7,7 @@ description: Coordinate Flow State coder and single-mode reviewer subagents thro
 
 Build the entire Flow State Rewrite project as described in
 
-beads: read beads via `bv` and `bd` commands.
+beads: read beads via `bv` commands.
 contracts: reference/incident-console/implementation/contracts
 
 Delegate implementation to the declared `coder` role and
@@ -39,7 +39,7 @@ independent verification to declared `reviewer` roles.
 7. If all selected reviewers pass, stop successfully.
 8. If findings exist, send only the structured findings to the coder and repeat
    from step 3.
-9. Mark the completed beads as closed.
+9. Mark the completed beads as closed and commit that slice of work.
 
 ## Stop rules
 
