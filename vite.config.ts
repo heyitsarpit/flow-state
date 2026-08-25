@@ -9,7 +9,8 @@ export default defineConfig({
     tsconfig: "tsconfig.pack.json",
   },
   staged: {
-    "*.{js,jsx,ts,tsx,json,jsonc,md,css,html,yaml,yml}": "vp check --fix",
+    "packages/flow-state-rewrite/**/*.{js,jsx,ts,tsx,json,jsonc,md,css,html,yaml,yml}":
+      "vp check --fix",
   },
   lint: {
     jsPlugins: [
