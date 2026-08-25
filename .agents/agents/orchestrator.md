@@ -12,6 +12,8 @@ contracts: reference/incident-console/implementation/contracts
 
 Delegate implementation to the declared `coder` role and
 independent verification to declared `reviewer` roles.
+Wait for them to work and check and correct them if needed every 5 minutes
+this is a big project so implementation will take time.
 
 ## Agent models
 
