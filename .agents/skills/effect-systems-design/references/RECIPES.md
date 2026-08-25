@@ -1,17 +1,19 @@
 # Import-first recipes
 
-These are the canonical code examples for this skill. Copy only the smallest recipe whose
-semantics match, then verify its signatures in the consuming package and its tests.
-Detailed Effect and Phoenix evidence lives in [SOURCES.md](./SOURCES.md).
+These are the canonical use-case recipes for this skill. Copy only the smallest composition whose
+semantics match, then verify exact APIs in the consuming package and its tests. Member semantics
+and signatures live in the [Effect API references](../../effect-api-documentation/SKILL.md).
 
 ## Contents
 
 - [Pipe and transformations](#pipe-and-transformations)
+- [Pure pipelines, matching, and data shape](#pure-pipelines-matching-and-data-shape)
 - [Option and Result](#option-and-result)
 - [Collections and loops](#collections-and-loops)
 - [Errors and outcomes](#errors-and-outcomes)
 - [Duration and Schedule](#duration-and-schedule)
 - [Services and Layers](#services-and-layers)
+- [Request and RequestResolver](#request-and-requestresolver)
 - [State and coordination](#state-and-coordination)
 - [Resources and fibers](#resources-and-fibers)
 - [Streams and host edges](#streams-and-host-edges)
@@ -239,10 +241,128 @@ const typedOutcome = Effect.result(loadUser);
 const completeOutcome = Effect.exit(loadUser);
 ```
 
-**Source examples:** Effect v4
-[01_error-handling.ts](/Users/arpit/Developer/flow-state/codebases/effect-v4/ai-docs/src/01_effect/04_errors/01_error-handling.ts)
-and Phoenix
-[translateVoteMiss](/Users/arpit/Developer/flow-state/codebases/phoenix/apps/web/worker/features/vote/translate-vote-miss.ts).
+See [Effect error handling](../../effect-api-documentation/references/Effect.md).
+
+## Pure pipelines, matching, and data shape
+
+These routes choose the smallest plain-data composition. Use the
+[effect-api-documentation skill](../../effect-api-documentation/SKILL.md) for exact exports,
+signatures, and member semantics; the linked `Option`, `Result`, `Match`, `Predicate`, and `Struct`
+references remain the API authority.
+
+### IF a value needs one immediate left-to-right transformation
+
+- **THEN:** Use `pipe`; keep each step a unary pure function.
+- **BECAUSE:** The value is transformed now without creating a reusable pipeline.
+- **CHECK:** Use a direct call or native method when it is clearer than a pipeline.
+
+### IF the same unary pipeline will be reused
+
+- **THEN:** Use `flow`; use `Function.compose` when explicit function-after-function composition is
+  the clearest statement of order.
+- **BECAUSE:** `flow` names a reusable left-to-right pipeline, while `compose` names a deliberate
+  function composition.
+- **CHECK:** Verify direction and arity; do not create a reusable closure for one call.
+
+```ts
+import { Function, pipe } from "effect";
+
+const normalized = pipe(input, trim, normalize);
+const normalizeInput = Function.flow(trim, normalize);
+const explicit = Function.compose(trim, normalize);
+```
+
+### IF a custom abstraction should support the same fluent `.pipe` surface
+
+- **THEN:** Implement `Pipeable` and use `Pipeable.pipeArguments` inside the abstraction's owning
+  implementation.
+- **BECAUSE:** Callers can compose the abstraction without learning a second pipeline convention.
+- **CHECK:** Add it only when the abstraction has stable value semantics and repeated pipeline use;
+  route exact member details to the API handoff and pinned source.
+
+### IF an `Option` or `Result` already exists
+
+- **THEN:** Use `Option.match` or `Result.match` to handle both branches and return the boundary's
+  output type.
+- **BECAUSE:** Both outcomes stay visible until the caller deliberately classifies them.
+- **CHECK:** Do not replace a two-branch policy with a default merely to shorten the code.
+
+```ts
+import { Option, Result } from "effect";
+
+const optionLabel = Option.match(option, {
+  onNone: () => "missing",
+  onSome: (value) => `value:${value}`,
+});
+const resultLabel = Result.match(result, {
+  onFailure: (error) => `error:${error}`,
+  onSuccess: (value) => `value:${value}`,
+});
+```
+
+### IF an `Option` or `Result` must be collapsed at an intentional boundary
+
+- **THEN:** Use `getOrElse` with a policy-owned fallback.
+- **BECAUSE:** The caller has explicitly decided that absence or failure no longer needs to remain
+  distinguishable.
+- **CHECK:** Do not use `getOrElse` in the middle of a pipeline when later code still needs the
+  original outcome.
+
+### IF a closed tagged union needs total handling
+
+- **THEN:** Use `Match.typeTags` for a reusable total function over `_tag`, or
+  `Match.tagsExhaustive` when completing a composed matcher.
+- **BECAUSE:** Adding or removing a tag becomes a type-checked change at the match boundary.
+- **CHECK:** Keep the union closed and make every tag handler explicit; use an ordinary `switch` for
+  a small one-off union with no reusable matching policy.
+
+### IF only some patterns intentionally apply
+
+- **THEN:** Finish the matcher with `Match.option` when no match means `Option.none`, or
+  `Match.result` when no match should remain a typed failure.
+- **BECAUSE:** Partial matching preserves the distinction between “not applicable” and a chosen
+  default.
+- **CHECK:** Do not use a partial matcher where the domain requires exhaustive handling.
+
+### IF input narrowing or validation is reused
+
+- **THEN:** Build a `Predicate` refinement and compose it; use a decoder such as Schema when
+  untrusted data also needs structural decoding or error reporting.
+- **BECAUSE:** Reusable predicates centralize narrowing without introducing an Effect for pure
+  checks.
+- **CHECK:** Keep the refinement sound and test both the runtime predicate and the narrowed type.
+
+### IF immutable record reshaping gains type-level value
+
+- **THEN:** Use `Struct` for typed picks, omits, renames, assignments, or mapped fields.
+- **BECAUSE:** Its type transformations can preserve the resulting shape more precisely than ad hoc
+  object operations.
+- **CHECK:** Prefer object spread, destructuring, or a plain function when native TypeScript already
+  expresses the shape clearly.
+
+### IF pure data is transformed in an Array, Record, Tuple, or Iterable
+
+- **THEN:** Use the corresponding Effect collection module when its type/value behavior solves a
+  real problem; otherwise keep native TypeScript collections and methods.
+- **BECAUSE:** Pure data work does not need an Effect wrapper, and the native operation is often the
+  clearest contract.
+- **CHECK:** Choose the abstraction for a concrete law such as typed key preservation, tuple shape,
+  or iterable composition; do not import a collection module for naming alone.
+
+See [Function](../../effect-api-documentation/references/Function.md) and
+[Pipeable](../../effect-api-documentation/references/Pipeable.md),
+[Option](../../effect-api-documentation/references/Option.md),
+[Result](../../effect-api-documentation/references/Result.md),
+[Match](../../effect-api-documentation/references/Match.md),
+[Predicate](../../effect-api-documentation/references/Predicate.md), and
+[Struct](../../effect-api-documentation/references/Struct.md). Verify `pipe`, `flow`,
+and `Function.compose` in the pinned
+[Function.ts](../../../../codebases/effect-v4/packages/effect/src/Function.ts), `Pipeable` in
+[Pipeable.ts](../../../../codebases/effect-v4/packages/effect/src/Pipeable.ts), and collection
+exports in [Array.ts](../../../../codebases/effect-v4/packages/effect/src/Array.ts),
+[Record.ts](../../../../codebases/effect-v4/packages/effect/src/Record.ts),
+[Tuple.ts](../../../../codebases/effect-v4/packages/effect/src/Tuple.ts), and
+[Iterable.ts](../../../../codebases/effect-v4/packages/effect/src/Iterable.ts).
 
 ## Duration and Schedule
 
@@ -258,7 +378,7 @@ import { Duration, Effect, Schedule } from "effect";
 const requestTimeout: Duration.Input = "5 seconds";
 const retryPolicy = Schedule.exponential("100 millis").pipe(
   Schedule.jittered,
-  Schedule.both(Schedule.recurs(4)),
+  Schedule.upTo({ times: 4 }),
 );
 
 const response = request.pipe(
@@ -270,13 +390,9 @@ const heartbeatEvery = Duration.seconds(10);
 const heartbeat = beat.pipe(Effect.repeat(Schedule.spaced(heartbeatEvery)));
 ```
 
-The policy has a name, units, bound, backoff, and retry classifier, so a reader can review it
-without reconstructing timer arithmetic.
+The named policy makes its units, bound, backoff, and retry classifier reviewable.
 
-**Source examples:** Effect v4
-[10_schedules.ts](/Users/arpit/Developer/flow-state/codebases/effect-v4/ai-docs/src/06_schedule/10_schedules.ts)
-and Phoenix
-[coldStartRetrySchedule](/Users/arpit/Developer/flow-state/codebases/phoenix/apps/web/worker/features/fate-live/cold-start-retry.ts).
+See the [Schedule API recipe](../../effect-api-documentation/references/Schedule.md).
 
 ## Services and Layers
 
@@ -308,10 +424,97 @@ const tested = findUser("42").pipe(Effect.provide(UsersTest));
 The deepest function states the capability it needs, intermediate callers preserve `R`, and the
 composition edge chooses the implementation once.
 
-**Source examples:** Effect v4
-[20_layer-composition.ts](/Users/arpit/Developer/flow-state/codebases/effect-v4/ai-docs/src/01_effect/03_services/20_layer-composition.ts)
-and Phoenix
-[Drizzle.ts](/Users/arpit/Developer/flow-state/codebases/phoenix/apps/web/worker/db/Drizzle.ts).
+### IF the same capability needs live, test, and request-specific variants
+
+- **THEN:** Use an effectful `Layer` for live construction, `Layer.succeed` for a test value, and
+  `Effect.provideService` for one request's override.
+- **CHECK:** Keep request data as arguments; use a request-scoped Layer only when its construction
+  owns resources that must close with the request.
+
+```ts
+const UsersLive = Layer.effect(Users, loadUsersService);
+const UsersTest = Layer.succeed(Users, { find: (id) => Effect.succeed({ id }) });
+
+const live = findUser("42").pipe(Effect.provide(UsersLive));
+const test = findUser("42").pipe(Effect.provide(UsersTest));
+const requestOverride = Effect.provideService(
+  findUser("42"),
+  Users,
+  { find: (id) => Effect.succeed({ id, source: "request" }) },
+);
+```
+
+### IF a service Layer needs implementation dependencies
+
+- **THEN:** Capture them during Layer construction and finish with `Layer.provide` so callers see
+  only the remaining public requirements.
+- **CHECK:** Retain a dependency with `Layer.provideMerge` only when downstream composition needs it.
+
+```ts
+const UsersLive = Layer.effect(
+  Users,
+  Effect.gen(function* () {
+    const database = yield* Database;
+    return { find: (id: string) => database.find(id) };
+  }),
+).pipe(Layer.provide(DatabaseLive));
+```
+
+### IF a non-Effect host runs many programs against one environment
+
+- **THEN:** Compose the requirements into one application Layer, create one `ManagedRuntime`, and
+  dispose it from the host owner.
+- **CHECK:** Do not build or dispose the runtime per request, operation, or render.
+
+```ts
+import { ManagedRuntime } from "effect";
+
+const AppLive = UsersTest;
+const runtime = ManagedRuntime.make(AppLive);
+const runUser = (id: string) => runtime.runPromise(findUser(id));
+const shutdown = () => runtime.dispose();
+```
+
+See [Layer composition](../../effect-api-documentation/references/Layer.md) and
+[ManagedRuntime](../../effect-api-documentation/references/ManagedRuntime.md).
+
+## Request and RequestResolver
+
+### IF many Effects ask for the same request-shaped data in one turn
+
+- **THEN:** Define a `Request`, resolve it with `RequestResolver`, and use `Effect.request`; use a
+  batched resolver when the backing operation accepts several keys at once.
+- **CHECK:** Preserve entry order, complete every entry, and set delay, grouping, cache, and batch
+  bounds as explicit policy.
+
+```ts
+import { Effect, Request, RequestResolver } from "effect";
+
+interface GetUser extends Request.Request<User, UserError> {
+  readonly _tag: "GetUser";
+  readonly id: string;
+}
+const GetUser = Request.tagged<GetUser>("GetUser");
+const resolver = RequestResolver.make<GetUser>((entries) =>
+  Effect.gen(function* () {
+    const users = yield* loadUsers(entries.map(({ request }) => request.id));
+    for (const entry of entries) {
+      const user = users.get(entry.request.id);
+      yield* Request.completeEffect(
+        entry,
+        user === undefined
+          ? Effect.fail(missingUser(entry.request.id))
+          : Effect.succeed(user),
+      );
+    }
+  }),
+);
+
+const getUser = (id: string) => Effect.request(GetUser({ id }), resolver);
+```
+
+Use `RequestResolver.make` when one batch performs effectful I/O and must complete each entry;
+route exact resolver constructors and completion APIs to the [RequestResolver reference](../../effect-api-documentation/references/RequestResolver.md).
 
 ## State and coordination
 
@@ -322,41 +525,42 @@ and Phoenix
   acknowledgment, and shutdown for the mailbox.
 
 ```ts
-import { Deferred, Queue, Ref } from "effect";
+import { Deferred, Effect, Queue, Ref } from "effect";
 
-const counter = Ref.make(0);
-const ready = Deferred.make<void>();
-const inbox = Queue.bounded<Command>(32);
+const program = Effect.gen(function* () {
+  const counter = yield* Ref.make(0);
+  const ready = yield* Deferred.make<void>();
+  const inbox = yield* Queue.bounded<Command>(32);
+  return { counter, ready, inbox };
+});
 ```
 
 Keep these separate in real code unless one owner genuinely coordinates all three; combining them
 in a demo hides which primitive supplies which guarantee.
 
-**Source:** Effect v4
-[Ref.ts](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Ref.ts),
-[Deferred.ts](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Deferred.ts), and
-[Queue.ts](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Queue.ts).
+See [Ref](../../effect-api-documentation/references/Ref.md),
+[Deferred](../../effect-api-documentation/references/Deferred.md), and
+[Queue](../../effect-api-documentation/references/Queue.md).
 
 ## Resources and fibers
 
-### IF acquisition owns cleanup and background work
+### IF one use must acquire and release a resource
 
-- **THEN:** Register cleanup with `acquireRelease`, then attach the worker to a parent or Scope.
-- **CHECK:** Use a handshake when callers depend on startup, and close the Scope in tests.
+- **THEN:** Use `acquireUseRelease`; use `acquireRelease` plus `Effect.scoped` when the resource
+  must remain available to several operations.
+- **CHECK:** Prove release after success, typed failure, interruption, and acquisition failure.
 
 ```ts
-import { Effect, Layer } from "effect";
+import { Effect } from "effect";
 
-const WorkerLive = Layer.effectDiscard(
-  Effect.acquireRelease(connectWorker, (worker) => worker.close).pipe(
-    Effect.flatMap((worker) => worker.run),
-    Effect.forkScoped,
-  ),
+const program = Effect.acquireUseRelease(
+  connectWorker,
+  (worker) => worker.run,
+  (worker, _exit) => worker.close,
 );
 ```
 
-Acquisition, use, worker lifetime, and cleanup read in ownership order. A detached Promise would
-hide every one of those relationships.
+Acquisition, use, and cleanup remain one owned operation; a detached Promise does not.
 
 ### IF one operation needs unconditional cleanup without exposing a reusable resource
 
@@ -373,10 +577,9 @@ const recordOutcome = operation.pipe(Effect.onExit(writeAuditRecord));
 const localResourceProgram = Effect.scoped(openAndUseResource);
 ```
 
-**Source examples:** Effect v4
-[10_acquire-release.ts](/Users/arpit/Developer/flow-state/codebases/effect-v4/ai-docs/src/01_effect/05_resources/10_acquire-release.ts)
-and Phoenix
-[crewHeartbeatLayer](/Users/arpit/Developer/flow-state/codebases/phoenix/packages/pipeline-crew-mcp/src/crew/heartbeat.ts).
+See [Effect resource management](../../effect-api-documentation/references/Effect.md).
+
+For Layer-to-Scope-to-runtime ownership, see [ResourceManagement.md](./ResourceManagement.md).
 
 ## Streams and host edges
 
@@ -404,22 +607,11 @@ what the host needs.
 
 ### IF a non-Effect host runs many programs against one environment
 
-- **THEN:** Build one `ManagedRuntime` from the host-lived Layer and dispose it from that owner.
-- **CHECK:** Do not create a runtime per request, operation, or component render.
+- **THEN:** Reuse the host-owned runtime from [Services and Layers](#services-and-layers).
+- **CHECK:** Keep Promise, response, and framework conversion at this final edge.
 
-```ts
-import { ManagedRuntime } from "effect";
-
-const runtime = ManagedRuntime.make(AppLive);
-const handle = (request: Request) => runtime.runPromise(route(request));
-const shutdown = () => runtime.dispose();
-```
-
-**Source examples:** Effect v4
-[Stream.ts](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Stream.ts),
-[ManagedRuntime.ts](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/ManagedRuntime.ts), and
-Phoenix
-[makeFateRuntime](/Users/arpit/Developer/flow-state/codebases/phoenix/apps/web/worker/features/fate/layers.ts).
+See [Stream](../../effect-api-documentation/references/Stream.md) and
+[ManagedRuntime](../../effect-api-documentation/references/ManagedRuntime.md).
 
 ## Observability
 
@@ -440,10 +632,25 @@ const observed = loadUser.pipe(
 );
 ```
 
-**Source examples:** Effect v4
-[20_otlp-tracing.ts](/Users/arpit/Developer/flow-state/codebases/effect-v4/ai-docs/src/08_observability/20_otlp-tracing.ts)
-and Phoenix
-[buildRealFlags](/Users/arpit/Developer/flow-state/codebases/phoenix/apps/web/worker/features/flagship/Flags.ts).
+See [Layer-owned Logger](../../effect-api-documentation/references/Logger.md) and
+[Tracer](../../effect-api-documentation/references/Tracer.md).
+
+### IF logging, tracing, or metrics are application-wide policy
+
+- **THEN:** Install exporters and formatting in the application Layer; keep operation annotations and
+  spans in the Effect pipeline.
+- **CHECK:** Do not thread Logger, Tracer, or Metric through domain signatures.
+
+```ts
+import { Effect, Logger } from "effect";
+
+const ObservabilityLive = Logger.layer([Logger.consolePretty()]);
+const observed = operation.pipe(Effect.provide(ObservabilityLive));
+```
+
+See [Logger](../../effect-api-documentation/references/Logger.md),
+[Tracer](../../effect-api-documentation/references/Tracer.md), and
+[Metric](../../effect-api-documentation/references/Metric.md).
 
 ## Deterministic tests
 
@@ -465,13 +672,11 @@ const test = Effect.gen(function* () {
   yield* Deferred.await(started);
   yield* TestClock.adjust(Duration.seconds(10));
   yield* Fiber.await(fiber);
-});
+}).pipe(Effect.provide(TestClock.layer()));
 ```
 
-The checkpoint proves order and virtual time proves the deadline, so the test describes behavior
-instead of depending on scheduler luck.
+The checkpoint proves order and the installed virtual clock proves the deadline without scheduler
+luck.
 
-**Source examples:** Effect v4
-[10_effect-tests.ts](/Users/arpit/Developer/flow-state/codebases/effect-v4/ai-docs/src/09_testing/10_effect-tests.ts)
-and Phoenix
-[heartbeat.test.ts](/Users/arpit/Developer/flow-state/codebases/phoenix/packages/pipeline-crew-mcp/src/crew/heartbeat.test.ts).
+See [TestClock](../../effect-api-documentation/references/TestClock.md) and
+[Effect testing](../../effect-api-documentation/references/Effect.md).

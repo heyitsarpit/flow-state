@@ -38,12 +38,11 @@ pollEvery({ minutes: 1 });
 pollEvery(Duration.seconds(30));
 ```
 
-`Duration.Input` also accepts numbers as milliseconds, bigints as nanoseconds, tuples, additive
-objects, negative values, and infinity. Validate positive-finite requirements after normalization.
-A dynamic string from config or the wire should use `Config.duration` or
-`Schema.DurationFromString`; the template-literal type only checks literal strings. Treat
-`DateTime.Input` more cautiously because it accepts arbitrary strings, epoch numbers, and partial
-date objects; domain operations usually benefit from accepting `DateTime` after boundary decoding.
+Validate positive-finite requirements after normalization. For dynamic configuration or wire input,
+decode at the boundary with `Config.duration` or the relevant Schema codec; keep exact accepted forms
+in the [Duration](../../effect-api-documentation/references/Duration.md),
+[Config](../../effect-api-documentation/references/Config.md), and
+[Schema](../../effect-api-documentation/references/Schema.md) references.
 
 ### IF unknown input crosses HTTP, CLI, storage, or message boundaries
 
@@ -58,22 +57,13 @@ date objects; domain operations usually benefit from accepting `DateTime` after 
 import { Schema } from "effect";
 
 const UserId = Schema.String.pipe(Schema.brand("UserId"));
-export type UserId = typeof UserId.Type;
-
 export const decodeUserId = Schema.decodeUnknownEffect(UserId);
-
-class CreateUser extends Schema.Class<CreateUser>("CreateUser")({
-  email: Schema.String,
-  displayName: Schema.optionalKey(Schema.String),
-}) {}
 ```
 
-When the same protocol has client and server consumers, prefer one declarative HTTP contract that
-owns path and payload decoding, success and error schemas, middleware, generated client methods,
-and OpenAPI. The payoff is a call such as `client.users.get({ path: { id } })`, with no method/URL,
-JSON, status, or DTO drift at the call site. The same rule applies to typed CLI declarations: parse,
-defaults, aliases, cardinality, prompts, and help should produce a ready handler input rather than
-an `argv` array.
+For shared HTTP protocols, prefer one schema-backed contract that owns decoding, typed errors, and
+client/server adaptation; keep CLI parsing at the CLI boundary. See the
+[Schema](../../effect-api-documentation/references/Schema.md) and
+[HttpApi](../../effect-api-documentation/references/HttpApi.md) references.
 
 ### IF application configuration is currently read and parsed at use sites
 
@@ -84,20 +74,21 @@ an `argv` array.
   deployment values. Keep `ConfigProvider` at the composition root.
 
 ```ts
-import { Config, Duration, Effect, Redacted } from "effect";
+import { Config, ConfigProvider, Duration, Effect } from "effect";
 
-const AppConfig = Config.unwrap({
+const AppConfig = Config.all({
   timeout: Config.duration("REQUEST_TIMEOUT").pipe(Config.withDefault(Duration.seconds(5))),
   token: Config.redacted("API_TOKEN"),
 });
 
-const program = AppConfig.pipe(
-  Effect.map(({ timeout, token }) => ({ timeout, token: Redacted.value(token) })),
-);
+const program = Effect.gen(function* () {
+  return yield* AppConfig;
+}).pipe(Effect.provide(ConfigProvider.layer(ConfigProvider.fromEnv())));
 ```
 
-Use `Redacted<A>` in public inputs when a password or token must remain hard to log or inspect by
-accident. Unwrap it only at the adapter that needs the raw value.
+Choose `ConfigProvider` at the composition root; use `withDefault` only for missing values and keep
+secrets redacted until the adapter that needs them. See [Config](../../effect-api-documentation/references/Config.md)
+and [ConfigProvider](../../effect-api-documentation/references/ConfigProvider.md).
 
 ## Make outcomes easy to consume
 
@@ -134,9 +125,12 @@ const runnable = loadUser("42").pipe(
 // Effect<User>
 ```
 
-Use `Effect.fn("Name")` for ordinary callable domain functions that deserve a trace boundary.
+Use `Effect.fn("Name")` for an intentional trace boundary; use `Effect.fnUntraced` for an ordinary
+reusable function that only wraps a generator.
 Use `Function.dual` only for library operators whose data-first and data-last forms are both common;
 optional parameters need predicate dispatch because arity dispatch counts supplied arguments.
+
+See [Effect functions](../../effect-api-documentation/references/Effect.md).
 
 ### IF callers branch over a closed domain union
 
@@ -184,13 +178,9 @@ const outcomes = Effect.all(
 );
 ```
 
-- `Effect.all(record)` preserves names and fails fast.
-- `Effect.all(record, { mode: "result" })` preserves each name with its `Result<A, E>`.
-- `Effect.partition` returns all failures and successes but loses input association unless values
-  carry identity.
-- `Effect.validate` returns successes only when every operation succeeds, otherwise it fails with
-  a non-empty collection of errors.
-- `Effect.forEach` replaces a manual async loop and can declare concurrency or `discard: true`.
+Use named `Effect.all` for fail-fast results, `{ mode: "result" }` for per-operation outcomes, and
+`partition`, `validate`, or `forEach` when their distinct continuation policies are required. See
+[Effect collections](../../effect-api-documentation/references/Effect.md).
 
 ### IF absence or timeout is part of the domain contract
 
@@ -204,21 +194,11 @@ const outcomes = Effect.all(
 ```ts
 import { Effect } from "effect";
 
-Effect.fromOption(cache.get(id), () => new UserMissing({ id }));
-
-operation.pipe(Effect.timeout("2 seconds"));
-operation.pipe(Effect.timeoutOption("2 seconds"));
-operation.pipe(
-  Effect.timeoutOrElse({
-    duration: "2 seconds",
-    orElse: () => cachedValue,
-  }),
-);
+const bounded = operation.pipe(Effect.timeout("2 seconds"));
 ```
 
-Keep purely synchronous composition in `Option` or `Result`; `Option.all`, `Result.all`, their
-generators, and `Result.try` avoid introducing Effect when there is no async, dependency, time, or
-lifetime behavior.
+Choose `timeoutOption`, `timeoutOrElse`, or `fromOption` only when their domain result is intended;
+keep purely synchronous composition in `Option` or `Result`. See [Effect outcomes](../../effect-api-documentation/references/Effect.md).
 
 ## Remove dependency and policy plumbing
 
@@ -276,20 +256,26 @@ loadUser(id).pipe(Effect.annotateLogs("requestId", requestId), Effect.withSpan("
   genuinely own invalidation, refresh, inspection, and key identity.
 
 ```ts
-const users = yield * Users;
-
-const result =
-  yield *
-  Effect.forEach(ids, users.find, {
-    concurrency: "unbounded",
-  });
+const result = Effect.gen(function* () {
+  const users = yield* Users;
+  return yield* Effect.forEach(ids, users.find, { concurrency: "unbounded" });
+});
 ```
 
-The implementation may coalesce concurrent misses through `Cache.get` or turn independent
-`Effect.request` calls into one resolver batch. Neither mechanism needs to appear at this call site.
-The same rule applies to refreshable values and pools: expose `catalog.current`/`catalog.refresh` or
-`withConnection(use)`, while `Resource` and `Pool` retain scheduling, replacement, leasing, health,
-and cleanup internally.
+The implementation may coalesce misses through `Cache` or `RequestResolver`; neither mechanism
+belongs at this call site. Keep refresh, leasing, health, and cleanup behind the service API. See
+[Cache](../../effect-api-documentation/references/Cache.md),
+[RequestResolver](../../effect-api-documentation/references/RequestResolver.md),
+[Resource](../../effect-api-documentation/references/Resource.md), and
+[Pool](../../effect-api-documentation/references/Pool.md).
+
+### IF concurrent requests can share one backend batch
+
+- **THEN:** Hide a `RequestResolver` behind the domain service and choose delay, grouping, and batch
+  bounds in the adapter.
+- **CONSUMER GAIN:** Callers keep making ordinary requests; batching and result correlation stay
+  private.
+- **CHECK:** Prove grouping keys, maximum batch size, delay, cancellation, and per-request failures.
 
 ### IF an API produces values over time
 
@@ -310,8 +296,20 @@ const recent = watchOrders().pipe(
 ```
 
 For “current value plus future changes,” back the implementation with `SubscriptionRef.changes` and
-return the Stream. That removes the consumer's racy `get()` then `subscribe()` sequence while
-keeping mutation and shutdown private.
+return the Stream. That removes the consumer's racy `get()` then `subscribe()` sequence while keeping
+mutation and shutdown private.
+
+### IF state must survive process boundaries
+
+- **THEN:** Use `KeyValueStore` for durable keyed data or `PersistedQueue` for retryable work, and
+  select the backend Layer at the composition root.
+- **CONSUMER GAIN:** Domain code keeps typed reads or queue operations while storage, encoding, and
+  retry ownership stay behind one capability.
+- **CHECK:** These are unstable v4 APIs; verify the pinned package and prove schema compatibility,
+  missing keys, retries, and shutdown.
+
+See [KeyValueStore](../../effect-api-documentation/references/KeyValueStore.md) and
+[PersistedQueue](../../effect-api-documentation/references/PersistedQueue.md).
 
 ### IF a domain operation repeatedly needs lookup, authorization, transaction, and cleanup
 
@@ -337,9 +335,9 @@ export const withConnection = <A, E, R>(use: (connection: Connection) => Effect.
   Effect.acquireUseRelease(openConnection, use, closeConnection);
 ```
 
-Use `Effect.tryPromise({ try: signal => ..., catch })` for abortable Promise APIs and
-`Effect.callback` with interruption cleanup for callback APIs. Then consumers can apply timeout or
-cancellation without constructing `AbortController`, unsubscribe registries, or `finally` blocks.
+Use `Effect.tryPromise` or `Effect.callback` at the adapter so consumers can compose timeout and
+cancellation without owning AbortControllers, unsubscribe registries, or `finally` blocks. See
+[Effect boundaries](../../effect-api-documentation/references/Effect.md).
 
 ### IF a Promise, framework, process, or browser host executes the program
 
@@ -349,14 +347,9 @@ cancellation without constructing `AbortController`, unsubscribe registries, or 
 - **CHECK:** Give a `ManagedRuntime` one host owner; don't expose it or construct/dispose it per
   request.
 
-```ts
-export const loadUserPromise = (id: string) => runtime.runPromise(loadUser(id));
-```
-
-An Effect HTTP contract can remove more host work than a raw framework adapter: it keeps wire
-decoding, typed errors, client generation, middleware, and OpenAPI in one definition. Use the raw
-adapter when the foreign framework is fixed, but count its manual parsing and translation as a
-consumer cost.
+Reuse one host-owned `ManagedRuntime` and translate only at the final boundary. See
+[ManagedRuntime](../../effect-api-documentation/references/ManagedRuntime.md) and
+[HttpApi](../../effect-api-documentation/references/HttpApi.md).
 
 ### IF tests currently need globals, real sleeps, or production-only hooks
 
@@ -390,40 +383,9 @@ Check these from a real external call site:
 - Tests substitute services, control time, and prove interruption and cleanup without special
   production hooks.
 
-## Source anchors
+## API handoff
 
-Use `codebases/effect-v4/` as the primary Effect feature-usage reference for
-design discovery, then verify imports and behavior against the consuming
-project's installed version.
-
-- Effect v4 [Config.ts](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Config.ts),
-  [Duration.ts](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Duration.ts),
-  [Effect.ts](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Effect.ts),
-  [Match.ts](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Match.ts),
-  and [Schema.ts](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Schema.ts)
-  for inputs, decoding, outcomes, matching, timeout, retry, and cancellation.
-- Effect v4 [Cache.ts](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Cache.ts),
-  [RequestResolver.ts](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/RequestResolver.ts),
-  [Resource.ts](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Resource.ts),
-  [Stream.ts](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Stream.ts),
-  and [SubscriptionRef.ts](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/SubscriptionRef.ts)
-  for hidden coordination and multi-value APIs.
-- Effect v4 [HTTP client](/Users/arpit/Developer/flow-state/codebases/effect-v4/ai-docs/src/50_http-client/10_basics.ts),
-  [HTTP contract](/Users/arpit/Developer/flow-state/codebases/effect-v4/ai-docs/src/51_http-server/10_basics.ts),
-  [batching](/Users/arpit/Developer/flow-state/codebases/effect-v4/ai-docs/src/05_batching/10_request-resolver.ts),
-  and [tests](/Users/arpit/Developer/flow-state/codebases/effect-v4/ai-docs/src/09_testing/20_layer-tests.ts)
-  for complete consumer call sites.
-- Phoenix [CurrentUser.ts](/Users/arpit/Developer/flow-state/codebases/phoenix/packages/fate-effect/src/CurrentUser.ts),
-  [Walk.ts](/Users/arpit/Developer/flow-state/codebases/phoenix/packages/fate-effect/src/Walk.ts),
-  and [orphan-sweep CLI](/Users/arpit/Developer/flow-state/codebases/phoenix/packages/orphan-sweep/src/bin.ts)
-  for contextual auth, transparent request batching, and typed CLI inputs.
-- Effect examples [TodosApi.ts](/Users/arpit/Developer/flow-state/codebases/effect-examples/templates/monorepo/packages/domain/src/TodosApi.ts),
-  [TodosClient.ts](/Users/arpit/Developer/flow-state/codebases/effect-examples/templates/monorepo/packages/cli/src/TodosClient.ts),
-  [GitHub.ts](/Users/arpit/Developer/flow-state/codebases/effect-examples/packages/create-effect-app/src/GitHub.ts),
-  and [Groups.ts](/Users/arpit/Developer/flow-state/codebases/effect-examples/examples/http-server/src/Groups.ts)
-  for contract-derived clients, Stream/Sink pipelines, and domain callback combinators.
-- Accountability [AuthMiddleware.ts](/Users/arpit/Developer/flow-state/codebases/accountability/packages/api/src/Definitions/AuthMiddleware.ts)
-  and [MembershipApi.ts](/Users/arpit/Developer/flow-state/codebases/accountability/packages/api/src/Definitions/MembershipApi.ts)
-  for request-scoped services and a useful counterexample where unbranded paths force repeated
-  handler decoding. These codebases may use older Effect versions; copy the design, then recheck the
-  exact v4 symbol.
+Keep this skill use-case-first. Use the [Effect API documentation index](../../effect-api-documentation/SKILL.md)
+and its per-module references for exact exports, signatures, member semantics, and version checks;
+use `codebases/effect-v4` only to validate the selected composition and the consuming package for
+the final version.

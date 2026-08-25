@@ -2,6 +2,10 @@
 
 Design from capabilities, owners, and lifetimes, then choose constructors. Load
 [RECIPES.md](./RECIPES.md) only when code makes the chosen composition easier to see.
+These are use-case routes, not an API catalog. For exact exports, signatures, and member behavior,
+use the [effect-api-documentation skill](../../effect-api-documentation/SKILL.md), verify the
+consuming package's pinned `effect` version and installed source/declarations, and use the local
+v4 checkout as usage guidance when its version matches.
 
 ## Contents
 
@@ -9,9 +13,21 @@ Design from capabilities, owners, and lifetimes, then choose constructors. Load
 - [State and coordination](#state-and-coordination)
 - [Fibers and background work](#fibers-and-background-work)
 - [Time, caches, streams, and pools](#time-caches-streams-and-pools)
+- [Streams, persistence, and observability](#streams-persistence-and-observability)
 - [Transactions and host boundaries](#transactions-and-host-boundaries)
 
 ## Services, Layers, and deep injection
+
+### IF a value is a contextual capability rather than ordinary operation data
+
+- **THEN:** Define a `Context.Service`; let `Layer` own how it is constructed, composed, provided,
+  and released. Keep IDs, commands, payloads, and filters as arguments.
+- **BECAUSE:** Context carries substitutable requirements while Layer makes ownership visible at the
+  composition edge.
+- **CHECK:** Verify the service's `R` at the deepest use and the Layer's residual requirements before
+  hiding or providing anything.
+- **CODE:** See [`Context`](../../effect-api-documentation/references/Context.md) and
+  [`Layer`](../../effect-api-documentation/references/Layer.md).
 
 ### IF a capability value already exists and owns no Effect-managed construction
 
@@ -31,6 +47,26 @@ Design from capabilities, owners, and lifetimes, then choose constructors. Load
 - **BECAUSE:** Successful acquisition immediately registers one release with the owning Scope.
 - **CHECK:** Prove release once after success, construction failure, use failure, and interruption.
 
+### IF several resources and finalizers share one lifetime
+
+- **THEN:** Make one `Scope` the owner and attach every finalizer to it; close that Scope from the
+  owner that can observe and await cleanup.
+- **BECAUSE:** Scope gives related resources one explicit release boundary and preserves cleanup
+  outcomes.
+- **CHECK:** Close on success, typed failure, interruption, host shutdown, and partial acquisition;
+  assert that each finalizer runs exactly once.
+- **CODE:** See [`Scope`](../../effect-api-documentation/references/Scope.md).
+
+### IF one acquired value must be refreshed manually or on a schedule
+
+- **THEN:** Use `Resource` under an owning Scope and make refresh, replacement, and release policy
+  explicit.
+- **BECAUSE:** Refreshable acquisition has different semantics from a permanently constructed
+  service or an unscoped mutable value.
+- **CHECK:** Prove overlap policy, stale-value visibility, failed refresh behavior, and release of
+  the replaced value.
+- **CODE:** See [`Resource`](../../effect-api-documentation/references/Resource.md).
+
 ### IF a deep operation needs a capability
 
 - **THEN:** Yield the service in the deepest operation, let intermediate functions return the
@@ -45,7 +81,19 @@ Design from capabilities, owners, and lifetimes, then choose constructors. Load
   it, and compose with `Layer.provide`.
 - **BECAUSE:** Callers see the capability they use while the composition root owns its dependency.
 - **CHECK:** Use `Layer.provideMerge` only when downstream code intentionally consumes both
-  services.
+  services. Otherwise keep the lower service private to preserve Layer visibility.
+
+### IF a service must be shared or refreshed at a known lifetime
+
+- **THEN:** Build it in the Layer graph owned by that lifetime: keep one memoized graph or
+  `ManagedRuntime` for shared application state, and rebuild at an explicit request or reload owner
+  when freshness is required.
+- **BECAUSE:** Layer visibility does not by itself define instance freshness.
+- **CHECK:** Test instance identity, refresh boundaries, failure caching, and disposal; use
+  `Resource` or `Cache` when refresh or retention is the actual contract.
+- **CODE:** See [`ManagedRuntime`](../../effect-api-documentation/references/ManagedRuntime.md),
+  [`Resource`](../../effect-api-documentation/references/Resource.md), and
+  [`Cache`](../../effect-api-documentation/references/Cache.md).
 
 ### IF a non-Effect host repeatedly executes programs against one environment
 
@@ -60,16 +108,22 @@ Design from capabilities, owners, and lifetimes, then choose constructors. Load
 
 ### IF only atomic private current state is needed
 
-- **THEN:** Use `Ref`; use a synchronized form only when the update itself must suspend.
+- **THEN:** Give one owner mutation authority and use `Ref`; use `SynchronizedRef` only when the
+  update itself must suspend.
 - **BECAUSE:** A mailbox or event stream adds ordering and lifetime laws current state does not
   need.
-- **CHECK:** Define atomicity, visibility, and whether callbacks may run while serialized.
+- **CHECK:** Define atomicity, visibility, and whether callbacks may run while serialized. Do not
+  expose a `Ref` merely because consumers need to observe changes.
+- **CODE:** See [`Ref`](../../effect-api-documentation/references/Ref.md) and
+  [`SynchronizedRef`](../../effect-api-documentation/references/SynchronizedRef.md).
 
 ### IF consumers need the current value and future changes
 
-- **THEN:** Use `SubscriptionRef` or the pinned subscription-aware reference.
+- **THEN:** Let one owner update a `SubscriptionRef`; let consumers read its current value or
+  subscribe to its changes.
 - **BECAUSE:** It owns both initial replay and the update stream.
 - **CHECK:** Define equality, replay, subscriber cleanup, and slow-consumer behavior.
+- **CODE:** See [`SubscriptionRef`](../../effect-api-documentation/references/SubscriptionRef.md).
 
 ### IF consumers need events without current-state replay
 
@@ -85,9 +139,10 @@ Design from capabilities, owners, and lifetimes, then choose constructors. Load
 
 ### IF only a one-shot result or gate is needed
 
-- **THEN:** Use `Deferred` or the pinned latch-like primitive.
+- **THEN:** Let one producer own completion of a `Deferred`; let dependent fibers await it.
 - **BECAUSE:** Exactly one completion owns the coordination contract.
 - **CHECK:** Prove winner selection, duplicate completion, waiter interruption, and shutdown.
+- **CODE:** See [`Deferred`](../../effect-api-documentation/references/Deferred.md).
 
 ### IF the requirement is only bounded admission
 
@@ -95,6 +150,16 @@ Design from capabilities, owners, and lifetimes, then choose constructors. Load
 - **BECAUSE:** Capacity control does not imply mailbox ordering or a consumer fiber.
 - **CHECK:** Define fairness and cancellation while waiting for a permit.
 - **CODE:** See [State and coordination](./RECIPES.md#state-and-coordination).
+
+### IF a value represents a typed request that may be batched or scheduled
+
+- **THEN:** Use `Request` for the request data and direct execution; use `RequestResolver` when
+  batching, grouping, delay, caching, or request-level concurrency is part of the policy.
+- **BECAUSE:** The request stays domain data while the resolver owns execution policy and completion.
+- **CHECK:** Define deduplication, batch boundaries, ordering, cancellation, failure fan-out, and
+  resolver shutdown.
+- **CODE:** See [`Request`](../../effect-api-documentation/references/Request.md) and
+  [`RequestResolver`](../../effect-api-documentation/references/RequestResolver.md).
 
 ## Fibers and background work
 
@@ -112,10 +177,11 @@ Design from capabilities, owners, and lifetimes, then choose constructors. Load
 
 ### IF work is keyed and newer work replaces older work
 
-- **THEN:** Investigate `FiberMap` or the pinned keyed-supervision primitive.
+- **THEN:** Use `FiberMap` when keyed fiber ownership makes replacement and cancellation the law.
 - **BECAUSE:** A keyed owner can prevent stale completion and centralize cancellation.
 - **CHECK:** Compare duplicate-key, replacement, completion, failure, and Scope-close laws before
   deleting custom machinery.
+- **CODE:** See [`FiberMap`](../../effect-api-documentation/references/FiberMap.md).
 
 ### IF work must outlive the current parent and Scope
 
@@ -129,32 +195,89 @@ Design from capabilities, owners, and lifetimes, then choose constructors. Load
 
 ### IF behavior retries, repeats, polls, or sleeps
 
-- **THEN:** Use Effect Clock and compose a `Schedule` that states cadence, retryability, bounds,
-  backoff, and jitter.
+- **THEN:** Use `Clock` and compose a `Schedule` that states cadence, retryability, bounds, backoff,
+  and jitter.
 - **BECAUSE:** Time becomes controllable and policy becomes inspectable.
 - **CHECK:** Retry only classified transient failures and only safe-to-repeat operations.
+- **CODE:** See [`Clock`](../../effect-api-documentation/references/Clock.md) and
+  [`Schedule`](../../effect-api-documentation/references/Schedule.md).
 
-### IF sharing work by key is the requirement
+### IF keyed values may be reused as results with expiry or invalidation
 
-- **THEN:** Consider `Cache`, `RcMap`, or a request resolver only after matching the required law.
-- **BECAUSE:** Freshness, error caching, reference counting, batching, and authoritative domain state
-  are different contracts.
+- **THEN:** Use `Cache` when memoized result reuse is the law.
+- **BECAUSE:** Cache freshness and error-caching policy differ from resource ownership and request
+  batching.
 - **CHECK:** Define key identity, capacity, expiry, invalidation, release, and failure caching.
+- **CODE:** See [`Cache`](../../effect-api-documentation/references/Cache.md).
+
+### IF keyed resources are shared only while references use them
+
+- **THEN:** Use `RcMap`; let its owning Scope release idle keyed resources and let the resource
+  factory define acquisition and cleanup.
+- **BECAUSE:** Reference-counted keyed lifetime is different from result memoization, a Pool's
+  interchangeable leases, or a `RequestResolver`'s batching policy.
+- **CHECK:** Define key identity, duplicate acquisition, reference release, invalidation, failed
+  acquisition, and Scope close.
+- **CODE:** See [`RcMap`](../../effect-api-documentation/references/RcMap.md).
 
 ### IF values form a resource-safe temporal process
 
-- **THEN:** Use Stream.
+- **THEN:** Use `Stream`.
 - **BECAUSE:** Stream owns pull, completion, failure, cancellation, and scoped acquisition.
 - **CHECK:** Define hot/cold, single-consumer/broadcast, replay, buffering, overflow, and bounded test
   consumption.
+- **CODE:** See [`Stream`](../../effect-api-documentation/references/Stream.md).
 
-### IF finite resources are borrowed under a capacity limit
+### IF finite interchangeable resources are borrowed and returned under a capacity limit
 
-- **THEN:** Use a Pool or keyed Pool when borrow/release is the domain law.
-- **BECAUSE:** A singleton service or Semaphore does not own per-item acquisition and release.
+- **THEN:** Use `Pool`; use `Semaphore` when the only law is admission and no resource is acquired
+  per permit.
+- **BECAUSE:** Pool owns reusable resource acquisition, borrowing, invalidation, and shutdown;
+  Semaphore owns permits, not resources.
 - **CHECK:** Prove invalidation, waiter cancellation, capacity, and pool shutdown.
 - **CODE:** See [Duration and Schedule](./RECIPES.md#duration-and-schedule) and
-  [Streams and host edges](./RECIPES.md#streams-and-host-edges).
+  [`Pool`](../../effect-api-documentation/references/Pool.md) and
+  [`Semaphore`](../../effect-api-documentation/references/Semaphore.md).
+
+## Streams, persistence, and observability
+
+### IF a Stream's consumer owns the fold, collection, or termination policy
+
+- **THEN:** Express that policy as a `Sink`; keep production and consumption separate.
+- **BECAUSE:** A Sink makes the result, leftover handling, completion, and failure policy explicit.
+- **CHECK:** Bound collection, define early termination, and close the stream's resources when the
+  sink stops.
+- **CODE:** See [`Sink`](../../effect-api-documentation/references/Sink.md).
+
+### IF direct pull/push control, custom backpressure, or bidirectional composition is required
+
+- **THEN:** Use `Channel`; otherwise keep the design at `Stream` plus `Sink`.
+- **BECAUSE:** Channel is the lower-level coordination boundary and carries more protocol detail.
+- **CHECK:** Prove pull ownership, buffering, interruption, completion, and failure propagation.
+- **CODE:** See [`Channel`](../../effect-api-documentation/references/Channel.md).
+
+### IF state must survive process restart or be shared across process boundaries
+
+- **THEN:** Choose an explicit persistence service such as `KeyValueStore`, `PersistedCache`, or
+  `PersistedQueue` according to the durability, encoding, expiry, and retry contract.
+- **BECAUSE:** `Ref`, `Cache`, `RcMap`, `Queue`, and `Pool` are runtime state, not durable storage.
+- **CHECK:** Define write atomicity, crash recovery, schema/version handling, idempotency, and
+  cleanup of abandoned work.
+- **CODE:** See [`KeyValueStore`](../../effect-api-documentation/references/KeyValueStore.md),
+  [`PersistedCache`](../../effect-api-documentation/references/PersistedCache.md), and
+  [`PersistedQueue`](../../effect-api-documentation/references/PersistedQueue.md).
+
+### IF operators need logs, traces, or measurements to explain production behavior
+
+- **THEN:** Add `Logger`, `Tracer`, and `Metric` at service and host boundaries; keep domain results
+  and typed errors independent of telemetry.
+- **BECAUSE:** Observability should follow work across fibers and boundaries without changing its
+  business contract.
+- **CHECK:** Preserve correlation, sampling, sensitive-data redaction, cancellation, and test
+  capture; do not log a `Cause` by stringifying away its classification.
+- **CODE:** See [`Logger`](../../effect-api-documentation/references/Logger.md),
+  [`Tracer`](../../effect-api-documentation/references/Tracer.md), and
+  [`Metric`](../../effect-api-documentation/references/Metric.md).
 
 ## Transactions and host boundaries
 
@@ -179,3 +302,15 @@ Design from capabilities, owners, and lifetimes, then choose constructors. Load
   boundary.
 - **CHECK:** Do not call `runPromise` inside a service and then re-enter Effect; translate final
   `Exit` only where the host requires it.
+
+### IF a boundary must distinguish typed failure, defect, interruption, and cleanup failure
+
+- **THEN:** Use `Effect.result` when only `A` versus `E` should become data; use `Effect.exit` and
+  inspect the resulting `Exit` and `exit.cause` when the complete terminal outcome matters.
+- **BECAUSE:** `Cause` retains structured reasons, including `cause.reasons`, instead of collapsing
+  failure, defect, interruption, or finalizer information into one error or string.
+- **CHECK:** Classify at the boundary, preserve interruption as cancellation, and delay
+  `Cause.squash` or stringification until the host protocol explicitly requires it.
+- **CODE:** See [`Cause`](../../effect-api-documentation/references/Cause.md),
+  [`Exit`](../../effect-api-documentation/references/Exit.md), and
+  [`Effect`](../../effect-api-documentation/references/Effect.md).

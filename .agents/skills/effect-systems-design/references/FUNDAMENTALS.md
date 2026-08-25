@@ -2,13 +2,19 @@
 
 Use this file to decide what the code should mean. Load the matching section of
 [RECIPES.md](./RECIPES.md) only when an implementation example would make the choice clearer.
+These are decision routes, not an API catalog: use the [effect-api-documentation skill](../../effect-api-documentation/SKILL.md)
+and its linked module references for exact exports, signatures, and member behavior. Verify those
+names against the consuming package's pinned `effect` version, installed declarations/source, and
+tests; `codebases/effect-v4/` is the primary usage reference but is not a substitute when versions differ.
 
 ## Contents
 
 - [Values and absence](#values-and-absence)
+- [Plain TypeScript or Effect](#plain-typescript-or-effect)
 - [Transformations and loops](#transformations-and-loops)
 - [Foreign APIs and failures](#foreign-apis-and-failures)
-- [Arguments and services](#arguments-and-services)
+- [Arguments, requirements, and services](#arguments-requirements-and-services)
+- [Deterministic tests](#deterministic-tests)
 
 ## Values and absence
 
@@ -23,20 +29,47 @@ Use this file to decide what the code should mean. Load the matching section of
 const displayName = user.displayName?.trim() || "Anonymous";
 ```
 
+## Plain TypeScript or Effect
+
+### IF an operation is deterministic, local, and has no capability, cancellation, time, or resource lifetime
+
+- **THEN:** Keep it a plain TypeScript function.
+- **BECAUSE:** Effect adds value when its success, failure, requirement, or lifetime semantics compose;
+  it does not improve ordinary construction, branching, validation, encoding, or loops.
+- **CHECK:** Reclassify it if it performs I/O, waits, forks, acquires, retries, or emits observable work.
+
+### IF the only recoverable outcome is a local typed success or failure
+
+- **THEN:** Use v4 `Result` or the project's established discriminated result type.
+- **BECAUSE:** Typed failure alone does not require an Effect runtime.
+- **CHECK:** Keep parsing and validation exhaustive; do not throw and then wrap the throw.
+- **CODE:** See [Option and Result](./RECIPES.md#option-and-result) and
+  [`Result`](../../effect-api-documentation/references/Result.md).
+
+### IF the operation needs capabilities, asynchrony, interruption, time, resource lifetime, concurrency, or observability
+
+- **THEN:** Use `Effect<A, E, R>` and keep all three channels honest until a boundary handles them.
+- **BECAUSE:** The type exposes what the caller must provide, recover, await, cancel, or release.
+- **CHECK:** Do not erase `R` with globals or nested host runners; do not turn defects or interruption
+  into ordinary domain errors without an explicit boundary policy.
+- **CODE:** See [`Effect`](../../effect-api-documentation/references/Effect.md) and
+  [Requirements management](../../effect-api-documentation/references/guides/RequirementsManagement.md).
+
+### IF one operation acquires something that must be released
+
+- **THEN:** Give it one owner and a scoped release path, usually `Effect.acquireRelease` inside a
+  service `Layer` or another scoped constructor.
+- **BECAUSE:** Acquisition, interruption, failure, and shutdown must converge on cleanup.
+- **CHECK:** Prove release after successful use, construction failure, interruption, and Scope close.
+- **CODE:** See [`Scope`](../../effect-api-documentation/references/Scope.md) and
+  [`Layer`](../../effect-api-documentation/references/Layer.md).
+
 ### IF absence must be mapped, filtered, combined, or handled exhaustively
 
 - **THEN:** Convert once to `Option` or the project's established optional type.
 - **BECAUSE:** Composable absence is now part of the operation's model.
 - **CHECK:** Eliminate the `Option` only at a boundary with a deliberate fallback, error, or wire
   representation.
-- **CODE:** See [Option and Result](./RECIPES.md#option-and-result).
-
-### IF deterministic work can recoverably fail
-
-- **THEN:** Use v4 `Result` or the project's established discriminated result type.
-- **BECAUSE:** Typed failure alone does not need Effect when there is no asynchrony, dependency,
-  cancellation, lifetime, or observability.
-- **CHECK:** Keep parsing and validation exhaustive; do not throw and then wrap the throw.
 - **CODE:** See [Option and Result](./RECIPES.md#option-and-result).
 
 ### IF input is `unknown`, serialized, or untrusted
@@ -84,7 +117,9 @@ const displayName = user.displayName?.trim() || "Anonymous";
   fixed group of independent Effects.
 - **BECAUSE:** Traversal owns failure propagation, result order, and sibling interruption.
 - **CHECK:** State the bound, fail-fast versus error collection, output order, and foreign
-  cancellation behavior.
+  cancellation behavior. If only admission is bounded, use a `Semaphore`; if ordering,
+  acknowledgment, or backpressure is part of the contract, route to the coordination choices in
+  [SYSTEMS.md](./SYSTEMS.md).
 - **CODE:** See [Collections and loops](./RECIPES.md#collections-and-loops).
 
 ### IF every item must run even when some fail
@@ -105,8 +140,7 @@ const displayName = user.displayName?.trim() || "Anonymous";
 
 ### IF a synchronous foreign API may throw
 
-- **THEN:** Adapt it once with the v4 `Effect.try` form and translate the cause into a useful typed
-  error.
+- **THEN:** Adapt it once with v4 `Effect.try` and translate the cause into a useful typed error.
 - **BECAUSE:** Foreign exceptions become an explicit expected-failure boundary.
 - **CHECK:** Do not catch unrelated Effect defects later to compensate for a missing adapter.
 
@@ -120,8 +154,8 @@ const displayName = user.displayName?.trim() || "Anonymous";
 
 ### IF a callback settles once
 
-- **THEN:** Use the pinned callback constructor, guard exactly-once settlement, and return cleanup
-  that unregisters on completion and interruption.
+- **THEN:** Use `Effect.callback`, guard exactly-once settlement, and return cleanup that unregisters
+  on completion and interruption.
 - **BECAUSE:** The adapter owns both callback settlement and cancellation.
 - **CHECK:** Test synchronous callback invocation, duplicates, abort-before-registration, and
   interruption-after-registration.
@@ -152,7 +186,7 @@ const displayName = user.displayName?.trim() || "Anonymous";
 - **CHECK:** Test mixed reasons and finalizer failures; JavaScript `try/catch` around `yield*` does
   not catch Effect failures.
 
-## Arguments and services
+## Arguments, requirements, and services
 
 ### IF a value is ordinary input to one operation
 
@@ -167,7 +201,11 @@ const displayName = user.displayName?.trim() || "Anonymous";
   intermediate functions preserve that requirement.
 - **BECAUSE:** Capability requirements stay visible without threading a dependency bag through
   every function.
-- **CHECK:** Do not erase `R` with casts, globals, or nested `runPromise` calls.
+- **CHECK:** Do not erase `R` with casts, globals, or nested `runPromise` calls. Provide the
+  implementation at the composition edge with a `Layer`; keep ordinary operation data as arguments.
+- **CODE:** See [`Context`](../../effect-api-documentation/references/Context.md),
+  [`Layer`](../../effect-api-documentation/references/Layer.md), and
+  [Requirements management](../../effect-api-documentation/references/guides/RequirementsManagement.md).
 
 ### IF a lower dependency is stable for a higher service's whole lifetime
 
@@ -177,3 +215,16 @@ const displayName = user.displayName?.trim() || "Anonymous";
 - **CHECK:** Leave request-specific or operation-specific dependencies in `R` instead of capturing
   stale context.
 - **CODE:** See [Services and Layers](./RECIPES.md#services-and-layers).
+
+## Deterministic tests
+
+### IF behavior depends on time, I/O, services, or fiber coordination
+
+- **THEN:** Replace those capabilities with test Layers, drive time with `TestClock`, and use an
+  explicit `Deferred` or other owned handshake for readiness and completion.
+- **BECAUSE:** Tests should prove policy without real waiting, network access, or timing races.
+- **CHECK:** Assert typed failure, interruption, result ordering, and cleanup; close every Scope or
+  runtime created by the test.
+- **CODE:** See [`TestClock`](../../effect-api-documentation/references/TestClock.md),
+  [`Deferred`](../../effect-api-documentation/references/Deferred.md), and
+  [Runtime composition](../../effect-api-documentation/references/guides/RuntimeComposition.md).
