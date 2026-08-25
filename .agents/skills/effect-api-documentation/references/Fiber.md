@@ -1,6 +1,6 @@
 # `Fiber`
 
-Source: [Effect v4 `Fiber` API](https://www.effect.website/docs/v4/api/effect/Fiber). Examples assume `import { Effect, Fiber } from "effect"`.
+Source: [Effect v4 `Fiber` API](https://www.effect.website/docs/v4/api/effect/Fiber). Examples assume `import { Effect, Exit, Fiber } from "effect"`.
 
 ## API index
 
@@ -38,7 +38,20 @@ Waits for a fiber and returns its outcome as an `Exit` without failing the curre
 const program = Effect.gen(function*() {
   const fiber = yield* Effect.forkChild(Effect.fail("bad"));
   const exit = yield* Fiber.await(fiber);
-  return exit._tag;
+  return Exit.match(exit, {
+    onSuccess: (value) => `ok:${value}`,
+    onFailure: () => "failed",
+  });
+});
+```
+
+Use `await` when a supervisor must inspect a child outcome without turning the child failure into its own failure.
+
+```ts
+const supervised = Effect.gen(function*() {
+  const child = yield* Effect.forkChild(Effect.fail("unavailable"));
+  const outcome = yield* Fiber.await(child);
+  return outcome._tag === "Failure";
 });
 ```
 
@@ -62,6 +75,22 @@ const program = Effect.gen(function*() {
   const fibers = yield* Effect.all([Effect.forkChild(Effect.never), Effect.forkChild(Effect.never)]);
   yield* Fiber.interruptAll(fibers);
 });
+```
+
+Keep the group cleanup in a finalizer so shutdown interrupts every child even when the supervisor fails.
+
+```ts
+const program = Effect.scoped(
+  Effect.gen(function*() {
+    const fibers = yield* Effect.all([
+      Effect.forkChild(Effect.never),
+      Effect.forkChild(Effect.never),
+    ]);
+
+    yield* Effect.addFinalizer(() => Fiber.interruptAll(fibers));
+    yield* Effect.sleep("1 second");
+  }),
+);
 ```
 
 ### [Fiber.awaitAll](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Fiber.ts:230)

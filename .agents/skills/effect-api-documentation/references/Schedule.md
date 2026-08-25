@@ -62,6 +62,17 @@ Produces exponentially increasing delays for backoff policies.
 const backoff = Schedule.exponential("100 millis").pipe(Schedule.upTo({ times: 5 }));
 ```
 
+Compose exponential backoff with jitter and a retry limit for transient network work.
+
+```ts
+const retryPolicy = Schedule.exponential("100 millis").pipe(
+  Schedule.jittered,
+  Schedule.take(5),
+);
+
+const resilientRequest = Effect.retry(request, retryPolicy);
+```
+
 ### [Schedule.recurs](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Schedule.ts:1763)
 
 Limits a counter schedule to a fixed number of recurrences, with no added delay.

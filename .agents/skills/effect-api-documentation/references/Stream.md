@@ -72,6 +72,20 @@ const enriched = Stream.make("a", "b").pipe(
 );
 ```
 
+For bounded concurrent enrichment, pass the concurrency policy and continue composing the resulting stream.
+
+```ts
+const users = Stream.fromIterable(["u1", "u2", "u3"]).pipe(
+  Stream.mapEffect(
+    (id) => Effect.succeed({ id, active: true }),
+    { concurrency: 2 },
+  ),
+  Stream.filter((user) => user.active),
+);
+
+const activeUsers = yield* Stream.runCollect(users);
+```
+
 ### [Stream.flatMap](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Stream.ts:2436)
 
 Replaces each element with a stream and flattens the resulting streams into one stream.
@@ -124,6 +138,21 @@ Runs an effect for every emitted element and completes when the stream completes
 
 ```ts
 yield* Stream.runForEach(Stream.make("a", "b"), (value) => Effect.log(value));
+```
+
+Use the consumer as the final stage of a filtered event pipeline when each accepted event has an effectful side effect.
+
+```ts
+const persist = (event: { readonly kind: string }) =>
+  Effect.log(`persisting ${event.kind}`);
+
+yield* Stream.fromIterable([
+  { kind: "updated" },
+  { kind: "ignored" },
+]).pipe(
+  Stream.filter((event) => event.kind === "updated"),
+  Stream.runForEach(persist),
+);
 ```
 
 ### [Stream.runDrain](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Stream.ts:11005)

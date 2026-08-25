@@ -141,6 +141,21 @@ const decode = Schema.decodeUnknownEffect(Schema.Number);
 const program = decode("42").pipe(Effect.catchAll(() => Effect.succeed(0)));
 ```
 
+Decode at an external boundary, then keep the rest of the workflow typed instead
+of passing `unknown` into domain logic.
+
+```ts
+const Request = Schema.Struct({
+  userId: Schema.String.pipe(Schema.brand("UserId")),
+  limit: Schema.NumberFromString,
+});
+
+const handle = (input: unknown) =>
+  Schema.decodeUnknownEffect(Request)(input).pipe(
+    Effect.map(({ userId, limit }) => `load ${limit} items for ${userId}`),
+  );
+```
+
 ### [Schema.decodeUnknownSync](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Schema.ts:1767)
 
 Decodes unknown input synchronously and throws when the schema rejects it.
@@ -204,6 +219,21 @@ const Event = Schema.TaggedUnion({
   Deleted: { id: Schema.String },
 });
 const event = Schema.decodeUnknownSync(Event)({ _tag: "Created", id: "u1" });
+```
+
+The same tagged schema can validate an incoming event and dispatch each case to
+an effectful handler.
+
+```ts
+const handleEvent = (input: unknown) =>
+  Schema.decodeUnknownEffect(Event)(input).pipe(
+    Effect.flatMap(
+      Event.match({
+        Created: ({ id }) => Effect.log(`index ${id}`),
+        Deleted: ({ id }) => Effect.log(`remove ${id}`),
+      }),
+    ),
+  );
 ```
 
 ### [Schema.Array](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Schema.ts:4534)

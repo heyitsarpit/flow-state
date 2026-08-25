@@ -27,6 +27,23 @@ const current = Effect.scoped(
 );
 ```
 
+For resources that own external handles, put acquisition and release inside the
+resource's scope so replacement and final shutdown clean up the previous value.
+
+```ts
+const client = Effect.scoped(
+  Effect.gen(function*() {
+    const resource = yield* Resource.manual(
+      Effect.acquireRelease(
+        Effect.succeed({ version: "v1" }),
+        (value) => Effect.log(`close ${value.version}`),
+      ),
+    );
+    return yield* Resource.get(resource);
+  }),
+);
+```
+
 ### [Resource.get](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Resource.ts:154)
 
 Reads the latest acquisition result. A failed acquisition is returned as an effect failure until a later refresh succeeds.
@@ -48,6 +65,29 @@ const refreshClient = (resource: Resource.Resource<string>) =>
   });
 ```
 
+If reacquisition fails, handle the failure while continuing to serve the last
+successful value.
+
+```ts
+const current = Effect.scoped(
+  Effect.gen(function*() {
+    let attempts = 0;
+    const resource = yield* Resource.manual(
+      Effect.suspend(() =>
+        attempts++ === 0
+          ? Effect.succeed("cached")
+          : Effect.fail("refresh failed"),
+      ),
+    );
+    const first = yield* Resource.get(resource);
+    yield* Resource.refresh(resource).pipe(
+      Effect.catchAll(() => Effect.succeed(undefined)),
+    );
+    return [first, yield* Resource.get(resource)];
+  }),
+);
+```
+
 ### [Resource.auto](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Resource.ts:128)
 
 Creates a resource that refreshes in the background according to a `Schedule` for the lifetime of its scope.
@@ -58,6 +98,24 @@ const current = Effect.scoped(
     const resource = yield* Resource.auto(
       Effect.succeed("client-v1"),
       Schedule.fixed("1 minute"),
+    );
+    return yield* Resource.get(resource);
+  }),
+);
+```
+
+Use automatic refresh for credentials or metadata that must rotate while the
+application keeps reading the latest successful value.
+
+```ts
+const token = Effect.scoped(
+  Effect.gen(function*() {
+    const resource = yield* Resource.auto(
+      Effect.gen(function*() {
+        const issuedAt = yield* Effect.sync(() => Date.now());
+        return `token-${issuedAt}`;
+      }),
+      Schedule.fixed("5 minutes"),
     );
     return yield* Resource.get(resource);
   }),

@@ -1,6 +1,6 @@
 # `Queue`
 
-Source: [Effect v4 `Queue` API](https://www.effect.website/docs/v4/api/effect/Queue). Examples assume `import { Effect, Queue } from "effect"`.
+Source: [Effect v4 `Queue` API](https://www.effect.website/docs/v4/api/effect/Queue). Examples assume `import { Effect, Fiber, Queue } from "effect"`.
 
 ## API index
 
@@ -44,6 +44,26 @@ Creates a fixed-capacity queue that applies backpressure when full.
 
 ```ts
 const queue = yield* Queue.bounded<string>(100);
+```
+
+Use a bounded queue between a producer and a worker so offers apply backpressure while the worker processes jobs.
+
+```ts
+const program = Effect.gen(function*() {
+  const queue = yield* Queue.bounded<string>(2);
+  const worker = yield* Effect.forkChild(
+    Effect.gen(function*() {
+      for (let index = 0; index < 3; index++) {
+        const job = yield* Queue.take(queue);
+        yield* Effect.log(`processed ${job}`);
+      }
+    }),
+  );
+
+  yield* Queue.offerAll(queue, ["a", "b", "c"]);
+  yield* Fiber.join(worker);
+  yield* Queue.shutdown(queue);
+});
 ```
 
 ### [Queue.unbounded](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Queue.ts:599)

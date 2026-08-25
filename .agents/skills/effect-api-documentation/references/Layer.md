@@ -1,6 +1,6 @@
 # `Layer`
 
-Source: [Effect v4 `Layer` API](https://www.effect.website/docs/v4/api/effect/Layer). Examples assume `import { Context, Effect, Layer } from "effect"`.
+Source: [Effect v4 `Layer` API](https://www.effect.website/docs/v4/api/effect/Layer). Examples assume `import { Context, Effect, Layer } from "effect"`. Effect v4 beta.86 does not export `Layer.scoped`; resource-backed services use `Layer.effect` with a scoped acquisition effect.
 
 ## API index
 
@@ -299,6 +299,22 @@ Creates one service from an Effect, supporting dependencies and scoped acquisiti
 ```ts
 const Port = Context.Service<number>("Port")
 const live = Layer.effect(Port, Effect.sync(() => 8080))
+```
+
+`Layer.effect` runs its construction effect in the layer scope. In beta.86, use `Effect.acquireRelease` inside this constructor for a resource-backed service; `Layer.scoped` is an Effect 3 name and is intentionally not documented as a v4 export.
+
+```ts
+class Connection extends Context.Service<Connection, {
+  readonly query: (sql: string) => Effect.Effect<string>
+}>()("Connection") {}
+
+const connectionLayer = Layer.effect(
+  Connection,
+  Effect.acquireRelease(
+    Effect.sync(() => ({ query: (sql: string) => Effect.succeed(`rows:${sql}`) })),
+    () => Effect.log("connection closed"),
+  ),
+)
 ```
 
 ### [Layer.effectContext](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Layer.ts:1031)

@@ -47,6 +47,19 @@ const total = Sink.fold(
 );
 ```
 
+Run the sink against a stream when an aggregate should stop at a domain limit instead of consuming every input.
+
+```ts
+const totalUnderLimit = Stream.run(
+  Stream.fromIterable([3, 4, 5, 100]),
+  Sink.fold(
+    () => 0,
+    (sum) => sum < 10,
+    (sum, value) => Effect.succeed(sum + value),
+  ),
+);
+```
+
 ### [Sink.reduce](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Sink.ts:1358)
 
 Reduces all input elements into a value with a pure accumulator.
@@ -101,6 +114,15 @@ Runs an effect for every input element and completes with `void`.
 
 ```ts
 const write = Sink.forEach((line: string) => Effect.log(line));
+```
+
+Attach the sink to a stream to make the consuming effect the program boundary.
+
+```ts
+const program = Stream.run(
+  Stream.fromIterable(["started", "ready"]),
+  Sink.forEach((line) => Effect.log(`status: ${line}`)),
+);
 ```
 
 ### [Sink.drain](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Sink.ts:694)

@@ -1,6 +1,6 @@
 # `Deferred`
 
-Source: [Effect v4 `Deferred` API](https://www.effect.website/docs/v4/api/effect/Deferred). Examples assume `import { Deferred, Effect } from "effect"`.
+Source: [Effect v4 `Deferred` API](https://www.effect.website/docs/v4/api/effect/Deferred). Examples assume `import { Deferred, Effect, Fiber } from "effect"`.
 
 ## API index
 
@@ -37,9 +37,17 @@ Suspends until the deferred is completed, then resumes with its success or failu
 
 ```ts
 const program = Effect.gen(function*() {
-  const result = yield* Deferred.make<number>();
-  yield* Deferred.succeed(result, 42);
-  return yield* Deferred.await(result);
+  const ready = yield* Deferred.make<void>();
+  const worker = yield* Effect.forkChild(
+    Effect.gen(function*() {
+      yield* Effect.sleep("10 millis");
+      yield* Deferred.succeed(ready, undefined);
+      return "started";
+    }),
+  );
+
+  yield* Deferred.await(ready);
+  return yield* Fiber.join(worker);
 });
 ```
 
@@ -50,8 +58,18 @@ Runs an effect once and memoizes its `Exit` result for all awaiters.
 ```ts
 const program = Effect.gen(function*() {
   const result = yield* Deferred.make<number, string>();
-  yield* Deferred.complete(result, Effect.succeed(42));
-  return yield* Deferred.await(result);
+  const initialization = yield* Effect.forkChild(
+    Deferred.complete(
+      result,
+      Effect.delay("10 millis")(Effect.succeed(42)),
+    ),
+  );
+  const values = yield* Effect.all([
+    Deferred.await(result),
+    Deferred.await(result),
+  ]);
+  yield* Fiber.join(initialization);
+  return values;
 });
 ```
 

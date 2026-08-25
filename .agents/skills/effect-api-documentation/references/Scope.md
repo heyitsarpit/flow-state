@@ -77,6 +77,25 @@ const scoped = Effect.gen(function*() {
 });
 ```
 
+The scope also brackets nested acquisitions, so cleanup still runs when the
+work fails or is interrupted.
+
+```ts
+const request = Effect.gen(function*() {
+  const scope = yield* Scope.make();
+  return yield* Scope.use(scope)(
+    Effect.gen(function*() {
+      const connection = yield* Effect.acquireRelease(
+        Effect.succeed("connection"),
+        () => Effect.log("close connection"),
+      );
+      yield* Effect.log(`query with ${connection}`);
+      return connection;
+    }),
+  );
+});
+```
+
 ### [Scope.provide](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Scope.ts:317)
 
 Provides an existing scope to an effect without closing it automatically.
@@ -99,6 +118,18 @@ const program = Effect.gen(function*() {
   const child = yield* Scope.fork(parent, "sequential");
   yield* Scope.close(parent, Exit.void);
   return child.state._tag;
+});
+```
+
+Closing the parent also closes an attached child and runs the child's
+finalizers.
+
+```ts
+const parentOwnsChild = Effect.gen(function*() {
+  const parent = yield* Scope.make();
+  const child = yield* Scope.fork(parent);
+  yield* Scope.addFinalizer(child, Effect.log("child cleanup"));
+  yield* Scope.close(parent, Exit.void);
 });
 ```
 

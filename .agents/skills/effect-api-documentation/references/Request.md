@@ -5,16 +5,17 @@ Source: [Effect v4 `Request` API](https://www.effect.website/docs/v4/api/effect/
 ## API index
 
 1. [Request.tagged](#requesttagged)
-2. [Request.TaggedClass](#requesttaggedclass)
-3. [Request.completeEffect](#requestcompleteeffect)
-4. [Request.succeed](#requestsucceed)
-5. [Request.fail](#requestfail)
-6. [Request.of](#requestof)
-7. [Request.isRequest](#requestisrequest)
+2. [Request.Class](#requestclass)
+3. [Request.TaggedClass](#requesttaggedclass)
+4. [Request.completeEffect](#requestcompleteeffect)
+5. [Request.succeed](#requestsucceed)
+6. [Request.fail](#requestfail)
+7. [Request.of](#requestof)
+8. [Request.isRequest](#requestisrequest)
 
 ### Additional known APIs (not expanded)
 
-`Request`, `Any`, `Error`, `Success`, `Services`, `Result`, `Constructor`, `Class`, `complete`, `failCause`, `makeEntry`, `Entry`
+`Request`, `Any`, `Error`, `Success`, `Services`, `Result`, `Constructor`, `complete`, `failCause`, `makeEntry`, `Entry`
 
 ### [Request.tagged](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Request.ts:327)
 
@@ -27,6 +28,20 @@ interface GetUser extends Request.Request<string, Error> {
 }
 const GetUser = Request.tagged<GetUser>("GetUser");
 const request = GetUser({ id: "user-1" });
+```
+
+### [Request.Class](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Request.ts:363)
+
+Creates a class base for request values. Subclasses call `super` with their data fields, which keeps class-based domain requests compatible with the resolver protocol without adding a tag automatically.
+
+```ts
+class GetUser extends Request.Class<{ readonly id: number }, string, Error> {
+  constructor(readonly id: number) {
+    super({ id })
+  }
+}
+
+const request = new GetUser(123)
 ```
 
 ### [Request.TaggedClass](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Request.ts:401)

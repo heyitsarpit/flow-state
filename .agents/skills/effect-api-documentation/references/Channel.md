@@ -1,6 +1,6 @@
 # `Channel`
 
-Source: [Effect v4 `Channel` API](https://www.effect.website/docs/v4/api/effect/Channel). `Channel` is an advanced low-level stream abstraction; prefer `Stream` and `Sink` until direct control of pulls, backpressure, or bidirectional composition is needed. Examples assume `import { Channel, Effect, Scope } from "effect"`.
+Source: [Effect v4 `Channel` API](https://www.effect.website/docs/v4/api/effect/Channel). `Channel` is an advanced low-level stream abstraction; prefer `Stream` and `Sink` until direct control of pulls, backpressure, or bidirectional composition is needed. Examples assume `import { Channel, Deferred, Effect, Scope } from "effect"`.
 
 ## API index
 
@@ -107,6 +107,23 @@ const transform = Channel.identity<number, never, void>().pipe(
 const piped = Channel.pipeTo(Channel.fromIterable([1, 2, 3]), transform);
 ```
 
+Build reusable stages once, then pipe a source through multiple transformations before execution.
+
+```ts
+const trim = Channel.identity<string, never, void>().pipe(
+  Channel.map((value) => value.trim()),
+);
+const nonEmpty = Channel.identity<string, never, void>().pipe(
+  Channel.filter((value) => value.length > 0),
+);
+
+const normalized = Channel.fromIterable([" a ", "", "b "]).pipe(
+  Channel.pipeTo(trim),
+  Channel.pipeTo(nonEmpty),
+  Channel.runCollect,
+);
+```
+
 ### [Channel.buffer](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Channel.ts:6747)
 
 Buffers output elements so a faster producer can progress independently of a slower consumer.
@@ -122,9 +139,19 @@ const buffered = Channel.fromIterable([1, 2, 3]).pipe(
 Stops a channel when a separate effect completes, useful for cancellation and external shutdown signals.
 
 ```ts
-const timed = Channel.fromIterable([1, 2, 3]).pipe(
-  Channel.interruptWhen(Effect.sleep("1 second")),
-);
+const program = Effect.gen(function*() {
+  const stop = yield* Deferred.make<void>();
+  const channel = Channel.fromEffect(
+    Effect.delay("1 second")(Effect.succeed(1)),
+  ).pipe(
+    Channel.interruptWhen(Deferred.await(stop)),
+  );
+
+  yield* Effect.forkChild(
+    Effect.delay("100 millis")(Deferred.succeed(stop, undefined)),
+  );
+  return yield* Channel.runCollect(channel);
+});
 ```
 
 ### [Channel.scoped](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Channel.ts:6648)

@@ -50,12 +50,39 @@ Parses `.env` contents supplied as a string, with optional variable expansion an
 const provider = ConfigProvider.fromDotEnvContents("HOST=localhost\nPORT=3000");
 ```
 
+Parse checked-in or remotely fetched `.env` text, then provide it to the same
+config program used by the live environment.
+
+```ts
+const provider = ConfigProvider.fromDotEnvContents(`
+HOST=localhost
+PORT=3000
+`);
+
+const program = Effect.gen(function*() {
+  return yield* Config.number("PORT");
+}).pipe(
+  Effect.provideService(ConfigProvider.ConfigProvider, provider),
+);
+```
+
 ### [ConfigProvider.fromDotEnv](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/ConfigProvider.ts:1110)
 
 Creates an effect that reads and parses a `.env` file using the `FileSystem` service.
 
 ```ts
 const provider = ConfigProvider.fromDotEnv({ path: ".env.local" });
+```
+
+Resolve config through the provider effect at application startup.
+
+```ts
+const config = Effect.gen(function*() {
+  const provider = yield* ConfigProvider.fromDotEnv({ path: ".env.local" });
+  return yield* Config.string("API_HOST").pipe(
+    Effect.provideService(ConfigProvider.ConfigProvider, provider),
+  );
+});
 ```
 
 ### [ConfigProvider.fromDir](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/ConfigProvider.ts:1166)
@@ -117,6 +144,23 @@ const testConfig = ConfigProvider.layer(
 );
 ```
 
+Install the provider around the effect that reads it, which makes the same
+configuration program reusable with production, test, or preview values.
+
+```ts
+const port = Effect.gen(function*() {
+  return yield* Config.number("PORT");
+});
+
+const testPort = port.pipe(
+  Effect.provide(
+    ConfigProvider.layer(
+      ConfigProvider.fromUnknown({ PORT: 8080 }),
+    ),
+  ),
+);
+```
+
 ### [ConfigProvider.layerAdd](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/ConfigProvider.ts:672)
 
 Adds a provider to the active provider as a fallback, or makes it primary with `asPrimary: true`.
@@ -125,6 +169,25 @@ Adds a provider to the active provider as a fallback, or makes it primary with `
 const defaults = ConfigProvider.layerAdd(
   ConfigProvider.fromUnknown({ PORT: 3000 }),
 );
+```
+
+Add defaults without replacing the active environment provider, so deployed
+values win while missing keys still receive safe local values.
+
+```ts
+const withDefaults = ConfigProvider.layerAdd(
+  ConfigProvider.fromUnknown({
+    HOST: "localhost",
+    PORT: "3000",
+  }),
+);
+
+const config = Effect.gen(function*() {
+  return yield* Config.all({
+    host: Config.string("HOST"),
+    port: Config.number("PORT"),
+  });
+}).pipe(Effect.provide(withDefaults));
 ```
 
 ### [ConfigProvider.make](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/ConfigProvider.ts:400)

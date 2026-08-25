@@ -23,8 +23,12 @@ selection or deciding whether a design should use Effect.
 - Include a compact, names-only inventory of confirmed public APIs that are not
   expanded into full sections; keep it separate from the API index and method
   bodies, with no signatures, descriptions, or examples.
-- Search `/Users/arpit/Developer/flow-state/codebases/effect-v4` to explore or verify additional known APIs.
-When exploring an additional known API, search codebases/effect-v4 to verify its real exports and usage.
+- Inspect package-root exports and utility modules, and search
+  `/Users/arpit/Developer/flow-state/codebases/effect-v4` to verify additional
+  APIs and their real usage.
+- In each `Additional known APIs (not expanded)` list, include confirmed root-level
+  and utility exports such as `Function` and `Pipeable` names when they are not
+  expanded into full sections.
 - Preserve overloads and distinguish confirmed behavior from design guidance;
   do not invent semantics.
 
@@ -35,9 +39,12 @@ When exploring an additional known API, search codebases/effect-v4 to verify its
 | Module or guide | Reference | General use |
 | --- | --- | --- |
 | `Effect` | [references/Effect.md](references/Effect.md) | Composes synchronous and asynchronous work while tracking its success value, failure channel, and service requirements. |
+| `Function` | [references/Function.md](references/Function.md) | Provides root-level and namespaced function composition, adaptation, and small type-level helpers. |
+| `Pipeable` | [references/Pipeable.md](references/Pipeable.md) | Defines the type-level contract and implementation helpers for custom `.pipe(...)` support. |
 | `Context` | [references/Context.md](references/Context.md) | Defines typed service keys and retrieves the services that an Effect program requires. |
 | `Layer` | [references/Layer.md](references/Layer.md) | Builds and composes service implementations while managing the resources they acquire. |
 | `ManagedRuntime` | [references/ManagedRuntime.md](references/ManagedRuntime.md) | Keeps a Layer-built service environment alive so host code can run multiple effects against one managed runtime. |
+| [Service patterns](references/guides/Service.md) | Guide | Connects Context services, Layers, managed runtimes, request-scoped overrides, tests, and ownership. |
 | `Runtime` | [references/Runtime.md](references/Runtime.md) | Executes effects from host code with an explicit runtime environment and exposes their completion as an Exit. |
 | `NodeRuntime` | [references/NodeRuntime.md](references/NodeRuntime.md) | Connects an Effect program to Node.js process startup, execution, and shutdown. |
 | [Requirements management](references/guides/RequirementsManagement.md) | Guide | Shows how to declare A/E/R requirements, compose service Layers, memoize graphs, and replace dependencies in tests. |
@@ -69,6 +76,7 @@ When exploring an additional known API, search codebases/effect-v4 to verify its
 | `Cache` | [references/Cache.md](references/Cache.md) | Memoizes effectful lookups with bounded capacity and expiration so repeated requests can reuse results. |
 | `RcMap` | [references/RcMap.md](references/RcMap.md) | Keeps keyed resources alive while they are referenced and releases idle entries when their scopes no longer use them. |
 | `RequestResolver` | [references/RequestResolver.md](references/RequestResolver.md) | Defines how Effect requests are batched, grouped, delayed, cached, and completed. |
+| [Request resolution](references/guides/RequestResolution.md) | Guide | Connects typed requests to resolvers, batching, caching, service requirements, and boundary failures. |
 | `Resource` | [references/Resource.md](references/Resource.md) | Represents a scoped value that can be acquired once and refreshed manually or on a schedule. |
 | `Pool` | [references/Pool.md](references/Pool.md) | Manages a bounded set of reusable resources and leases them to concurrent effects. |
 | [Resource management](references/guides/ResourceManagement.md) | Guide | Shows how to bracket acquisition, use, and release, attach finalizers to Scope, roll back failures, and scope stream resources. |
@@ -95,6 +103,10 @@ When exploring an additional known API, search codebases/effect-v4 to verify its
 | --- | --- | --- |
 | `Schema` | [references/Schema.md](references/Schema.md) | Defines runtime-checked data models for decoding external input, encoding output, and deriving TypeScript types. |
 | `Data` | [references/Data.md](references/Data.md) | Defines structural and tagged data values with predictable equality and hashing behavior. |
+| `Array` | [references/Array.md](references/Array.md) | Provides immutable array transformations, safe lookups, non-empty array types, and collection utilities. |
+| `Iterable` | [references/Iterable.md](references/Iterable.md) | Provides lazy iteration, range, search, transformation, grouping, and folding utilities. |
+| `Record` | [references/Record.md](references/Record.md) | Provides typed immutable transformations and lookups for string- or symbol-keyed records. |
+| `Tuple` | [references/Tuple.md](references/Tuple.md) | Constructs and transforms fixed-position arrays while preserving tuple element types. |
 | `Brand` | [references/Brand.md](references/Brand.md) | Adds nominal meaning to structural TypeScript values so distinct domain identifiers are not mixed accidentally. |
 | `Types` | [references/Types.md](references/Types.md) | Provides type-level helpers for expressing and transforming generic TypeScript relationships without runtime data. |
 | `Struct` | [references/Struct.md](references/Struct.md) | Provides helpers for working with record-like object values and their fields. |
@@ -149,6 +161,10 @@ When exploring an additional known API, search codebases/effect-v4 to verify its
 
 The table is an index. Keep module API content, source links, and examples in
 the linked reference file rather than in this skill entrypoint.
+
+### Top-level and utility exports
+
+Inspect package-root exports and utility modules before assuming every API is `Topic.method`; verify each name against the consuming package declarations as root-level, namespaced, or both.
 
 These are recipe guides, not module catalogs. Keep them compact and link each
 recipe to the exact local website recipe and pinned source that support it.

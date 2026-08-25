@@ -1,6 +1,6 @@
 # `Context`
 
-Source: [Effect v4 `Context` API](https://www.effect.website/docs/v4/api/effect/Context). Examples assume `import { Context } from "effect"`.
+Source: [Effect v4 `Context` API](https://www.effect.website/docs/v4/api/effect/Context). Examples import modules as needed.
 
 ## API index
 
@@ -19,29 +19,33 @@ Source: [Effect v4 `Context` API](https://www.effect.website/docs/v4/api/effect/
 ### Common construction and access
 
 10. [Context.Service (constructor)](#contextservice-constructor)
-11. [Context.Reference (constructor)](#contextreference-constructor)
-12. [Context.empty](#contextempty)
-13. [Context.make](#contextmake)
-14. [Context.add](#contextadd)
-15. [Context.addOrOmit](#contextaddoromit)
-16. [Context.get](#contextget)
-17. [Context.getOption](#contextgetoption)
-18. [Context.getOrElse](#contextgetorelse)
-19. [Context.getOrUndefined](#contextgetorundefined)
+11. [Context.Service.of](#contextserviceof)
+12. [Context.Service.context](#contextservicecontext)
+13. [Context.Service.use](#contextserviceuse)
+14. [Context.Service.useSync](#contextserviceusesync)
+15. [Context.Reference (constructor)](#contextreference-constructor)
+16. [Context.empty](#contextempty)
+17. [Context.make](#contextmake)
+18. [Context.add](#contextadd)
+19. [Context.addOrOmit](#contextaddoromit)
+20. [Context.get](#contextget)
+21. [Context.getOption](#contextgetoption)
+22. [Context.getOrElse](#contextgetorelse)
+23. [Context.getOrUndefined](#contextgetorundefined)
 
 ### Composition, guards, and low-level utilities
 
-20. [Context.merge](#contextmerge)
-21. [Context.mergeAll](#contextmergeall)
-22. [Context.pick](#contextpick)
-23. [Context.omit](#contextomit)
-24. [Context.isContext](#contextiscontext)
-25. [Context.isKey](#contextiskey)
-26. [Context.isReference](#contextisreference)
-27. [Context.makeUnsafe](#contextmakeunsafe)
-28. [Context.getUnsafe](#contextgetunsafe)
-29. [Context.getReferenceUnsafe](#contextgetreferenceunsafe)
-30. [Context.mutate](#contextmutate)
+24. [Context.merge](#contextmerge)
+25. [Context.mergeAll](#contextmergeall)
+26. [Context.pick](#contextpick)
+27. [Context.omit](#contextomit)
+28. [Context.isContext](#contextiscontext)
+29. [Context.isKey](#contextiskey)
+30. [Context.isReference](#contextisreference)
+31. [Context.makeUnsafe](#contextmakeunsafe)
+32. [Context.getUnsafe](#contextgetunsafe)
+33. [Context.getReferenceUnsafe](#contextgetreferenceunsafe)
+34. [Context.mutate](#contextmutate)
 
 ### Additional known APIs (not expanded)
 
@@ -141,6 +145,51 @@ Creates a required service key with `Context.Service("Key")`, or a class-style k
 ```ts
 const Database = Context.Service<{ query: (sql: string) => string }>("Database")
 class Config extends Context.Service<Config, { readonly port: number }>()("Config") {}
+```
+
+### [Context.Service.of](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Context.ts:99)
+
+`Service.of` is a type-level helper that accepts an implementation with the service shape inferred from the key. It is useful when a class-style service implementation is passed to `Layer.succeed`.
+
+```ts
+class FeatureFlags extends Context.Service<FeatureFlags, {
+  readonly enabled: (name: string) => boolean
+}>()("FeatureFlags") {}
+
+const flags = FeatureFlags.of({ enabled: (name) => name === "new-ui" })
+const layer = Layer.succeed(FeatureFlags, flags)
+```
+
+### [Context.Service.context](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Context.ts:99)
+
+`Service.context` turns one implementation into a one-service `Context`. Use it when a host boundary already owns a concrete implementation and needs to provide a context directly.
+
+```ts
+const Logger = Context.Service<{ readonly log: (message: string) => void }>("Logger")
+const loggerContext = Logger.context({ log: console.log })
+const program = Logger.useSync((logger) => logger.log("started")).pipe(
+  Effect.provideContext(loggerContext),
+)
+```
+
+### [Context.Service.use](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Context.ts:99)
+
+`Service.use` reads the service and applies an effectful function to it. The returned effect keeps the service identifier in its requirements until a Layer or context supplies it.
+
+```ts
+const Database = Context.Service<{
+  readonly query: (sql: string) => Effect.Effect<ReadonlyArray<string>>
+}>("Database")
+const rows = Database.use((database) => database.query("select id from users"))
+```
+
+### [Context.Service.useSync](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Context.ts:99)
+
+`Service.useSync` reads the service and maps it with an ordinary synchronous function. It is still an Effect and still requires the service identifier.
+
+```ts
+const Config = Context.Service<{ readonly region: string }>("Config")
+const region = Config.useSync((config) => config.region)
 ```
 
 ### [Context.Reference (constructor)](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Context.ts:1335)

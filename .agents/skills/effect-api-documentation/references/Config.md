@@ -30,6 +30,34 @@ Builds a typed config from a `Schema` codec, decoding raw provider values into t
 const server = Config.schema(Schema.Struct({ port: Schema.Int }), "server");
 ```
 
+Resolve a structured config once at the application boundary and keep the
+validated value typed inside the program.
+
+```ts
+const AppConfig = Config.schema(
+  Schema.Struct({
+    host: Schema.String,
+    port: Schema.Int,
+  }),
+  "server",
+);
+
+const program = Effect.gen(function*() {
+  const config = yield* AppConfig;
+  return `http://${config.host}:${config.port}`;
+});
+
+const test = program.pipe(
+  Effect.provide(
+    ConfigProvider.layer(
+      ConfigProvider.fromUnknown({
+        server: { host: "localhost", port: 3000 },
+      }),
+    ),
+  ),
+);
+```
+
 ### [Config.string](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Config.ts:904)
 
 Reads one string value from the active `ConfigProvider`.
@@ -62,6 +90,20 @@ Combines configs into a tuple, iterable, or named record while preserving the in
 const database = Config.all({
   host: Config.string("DB_HOST"),
   port: Config.number("DB_PORT"),
+});
+```
+
+Compose a complete application configuration with defaults and optional
+overrides, rather than resolving each setting independently.
+
+```ts
+const AppConfig = Config.all({
+  database: Config.all({
+    host: Config.string("DB_HOST"),
+    port: Config.number("DB_PORT"),
+  }),
+  region: Config.string("REGION").pipe(Config.withDefault("local")),
+  tracing: Config.option(Config.boolean("TRACING")),
 });
 ```
 

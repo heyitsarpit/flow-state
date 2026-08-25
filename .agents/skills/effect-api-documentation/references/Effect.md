@@ -33,26 +33,28 @@ Source: [Effect v4 `Effect` API](https://www.effect.website/docs/v4/api/effect/E
 27. [Effect.provide](#effectprovide)
 28. [Effect.provideContext](#effectprovidecontext)
 29. [Effect.service](#effectservice)
-30. [Effect.contextWith](#effectcontextwith)
-31. [Effect.provideService](#effectprovideservice)
-32. [Effect.acquireRelease](#effectacquirerelease)
-33. [Effect.acquireUseRelease](#effectacquireuserelease)
-34. [Effect.ensuring](#effectensuring)
-35. [Effect.onExit](#effectonexit)
-36. [Effect.addFinalizer](#effectaddfinalizer)
-37. [Effect.scoped](#effectscoped)
-38. [Effect.forkChild](#effectforkchild)
-39. [Effect.runPromise](#effectrunpromise)
-40. [Effect.runPromiseExit](#effectrunpromiseexit)
-41. [Effect.runSync](#effectrunsync)
-42. [Effect.runForkWith](#effectrunforkwith)
-43. [Effect.fn](#effectfn)
-44. [Effect.fnUntraced](#effectfnuntraced)
-45. [Effect.callback](#effectcallback)
+30. [Effect.serviceOption](#effectserviceoption)
+31. [Effect.contextWith](#effectcontextwith)
+32. [Effect.provideService](#effectprovideservice)
+33. [Effect.request](#effectrequest)
+34. [Effect.acquireRelease](#effectacquirerelease)
+35. [Effect.acquireUseRelease](#effectacquireuserelease)
+36. [Effect.ensuring](#effectensuring)
+37. [Effect.onExit](#effectonexit)
+38. [Effect.addFinalizer](#effectaddfinalizer)
+39. [Effect.scoped](#effectscoped)
+40. [Effect.forkChild](#effectforkchild)
+41. [Effect.runPromise](#effectrunpromise)
+42. [Effect.runPromiseExit](#effectrunpromiseexit)
+43. [Effect.runSync](#effectrunsync)
+44. [Effect.runForkWith](#effectrunforkwith)
+45. [Effect.fn](#effectfn)
+46. [Effect.fnUntraced](#effectfnuntraced)
+47. [Effect.callback](#effectcallback)
 
 ### Additional known APIs (not expanded)
 
-`isEffect`, `partition`, `validate`, `findFirst`, `findFirstFilter`, `forEach`, `whileLoop`, `succeedNone`, `succeedSome`, `Do`, `bindTo`, `bind`, `failSync`, `failCause`, `failCauseSync`, `die`, `dieSync`, `yieldNow`, `never`, `fromResult`, `fromOption`, `fromNullishOr`, `transposeOption`, `flatten`, `andThen`, `result`, `option`, `exit`, `as`, `asSome`, `asVoid`, `flip`, `catchTags`, `catchReason`, `catchReasons`, `catchCause`, `catchDefect`, `catchIf`, `mapBoth`, `orDie`, `tapError`, `retryOrElse`, `eventually`, `ignore`, `ignoreCause`, `orElseSucceed`, `firstSuccessOf`, `timeoutOption`, `timeoutOrElse`, `delay`, `timed`, `raceFirst`, `raceAll`, `raceAllFirst`, `filter`, `filterMap`, `filterOrElse`, `filterOrFail`, `when`, `context`, `setContext`, `serviceOption`, `updateContext`, `updateService`, `provideServiceEffect`, `withConcurrency`, `scopedWith`, `acquireDisposable`, `onError`, `cached`, `cachedWithTTL`, `interrupt`, `interruptible`, `onInterrupt`, `uninterruptible`, `uninterruptibleMask`, `forever`, `repeat`, `replicate`, `schedule`, `tracer`, `withTracer`, `makeSpan`, `withSpan`, `request`, `forkScoped`, `forkDetach`, `awaitAllChildren`, `fiber`, `fiberId`, `runFork`, `runCallback`
+`isEffect`, `partition`, `validate`, `findFirst`, `findFirstFilter`, `forEach`, `whileLoop`, `succeedNone`, `succeedSome`, `Do`, `bindTo`, `bind`, `failSync`, `failCause`, `failCauseSync`, `die`, `dieSync`, `yieldNow`, `never`, `fromResult`, `fromOption`, `fromNullishOr`, `transposeOption`, `flatten`, `andThen`, `result`, `option`, `exit`, `as`, `asSome`, `asVoid`, `flip`, `catchTags`, `catchReason`, `catchReasons`, `catchCause`, `catchDefect`, `catchIf`, `mapBoth`, `orDie`, `tapError`, `retryOrElse`, `eventually`, `ignore`, `ignoreCause`, `orElseSucceed`, `firstSuccessOf`, `timeoutOption`, `timeoutOrElse`, `delay`, `timed`, `raceFirst`, `raceAll`, `raceAllFirst`, `filter`, `filterMap`, `filterOrElse`, `filterOrFail`, `when`, `context`, `setContext`, `updateContext`, `updateService`, `provideServiceEffect`, `withConcurrency`, `scopedWith`, `acquireDisposable`, `onError`, `cached`, `cachedWithTTL`, `interrupt`, `interruptible`, `onInterrupt`, `uninterruptible`, `uninterruptibleMask`, `forever`, `repeat`, `replicate`, `schedule`, `tracer`, `withTracer`, `makeSpan`, `withSpan`, `forkScoped`, `forkDetach`, `awaitAllChildren`, `fiber`, `fiberId`, `runFork`, `runCallback`
 
 ### [Effect.Effect](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Effect.ts:116)
 
@@ -320,6 +322,15 @@ const program = Effect.gen(function*() {
 });
 ```
 
+### [Effect.serviceOption](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Effect.ts:6072)
+
+Reads a service when it is present and returns `Option.none()` when it is absent. Unlike `Effect.service`, the resulting effect has no service requirement, so it is appropriate for optional host capabilities.
+
+```ts
+const Metrics = Context.Service<{ readonly count: (name: string) => void }>("Metrics")
+const maybeMetrics = Effect.serviceOption(Metrics)
+```
+
 ### [Effect.contextWith](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Effect.ts:5824)
 
 Derives an effect from the complete current service context.
@@ -338,6 +349,23 @@ const Logger = Context.Service<{ log: (message: string) => void }>("Logger");
 const program = Effect.service(Logger).pipe(
   Effect.provideService(Logger, { log: console.log }),
 );
+```
+
+### [Effect.request](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Effect.ts:8457)
+
+Enqueues a typed `Request` through a `RequestResolver`. The returned effect preserves the request success, error, and service requirement types; batching and completion are owned by the resolver.
+
+```ts
+import { Effect, Request, RequestResolver } from "effect"
+
+interface GetUser extends Request.Request<string> {
+  readonly _tag: "GetUser"
+  readonly id: string
+}
+const GetUser = Request.tagged<GetUser>("GetUser")
+declare const resolver: RequestResolver.RequestResolver<GetUser>
+
+const user = Effect.request(GetUser({ id: "user-1" }), resolver)
 ```
 
 ### [Effect.acquireRelease](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Effect.ts:6545)

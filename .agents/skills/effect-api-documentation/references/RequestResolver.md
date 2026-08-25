@@ -6,20 +6,21 @@ Source: [Effect v4 `RequestResolver` API](https://www.effect.website/docs/v4/api
 
 1. [RequestResolver.RequestResolver](#requestresolverrequestresolver)
 2. [RequestResolver.make](#requestresolvermake)
-3. [RequestResolver.makeGrouped](#requestresolvermakegrouped)
-4. [RequestResolver.fromFunction](#requestresolverfromfunction)
-5. [RequestResolver.fromFunctionBatched](#requestresolverfromfunctionbatched)
-6. [RequestResolver.fromEffect](#requestresolverfromeffect)
-7. [RequestResolver.setDelay](#requestresolversetdelay)
-8. [RequestResolver.around](#requestresolveraround)
-9. [RequestResolver.batchN](#requestresolverbatchn)
-10. [RequestResolver.grouped](#requestresolvergrouped)
-11. [RequestResolver.race](#requestresolverrace)
-12. [RequestResolver.withCache](#requestresolverwithcache)
+3. [RequestResolver.makeWith](#requestresolvermakewith)
+4. [RequestResolver.makeGrouped](#requestresolvermakegrouped)
+5. [RequestResolver.fromFunction](#requestresolverfromfunction)
+6. [RequestResolver.fromFunctionBatched](#requestresolverfromfunctionbatched)
+7. [RequestResolver.fromEffect](#requestresolverfromeffect)
+8. [RequestResolver.setDelay](#requestresolversetdelay)
+9. [RequestResolver.around](#requestresolveraround)
+10. [RequestResolver.batchN](#requestresolverbatchn)
+11. [RequestResolver.grouped](#requestresolvergrouped)
+12. [RequestResolver.race](#requestresolverrace)
+13. [RequestResolver.withCache](#requestresolverwithcache)
 
 ### Additional known APIs (not expanded)
 
-`isRequestResolver`, `makeWith`, `fromEffectTagged`, `setDelayEffect`, `never`, `withSpan`, `asCache`, `persisted`
+`isRequestResolver`, `fromEffectTagged`, `setDelayEffect`, `never`, `withSpan`, `asCache`, `persisted`
 
 ### [RequestResolver.RequestResolver](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/RequestResolver.ts:77)
 
@@ -33,7 +34,7 @@ const resolver: RequestResolver.RequestResolver<MyRequest> = RequestResolver.fro
 
 ### [RequestResolver.make](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/RequestResolver.ts:232)
 
-Builds a resolver from a function that completes every entry in a batch.
+Builds a resolver from a function that receives a non-empty batch and completes every entry. The returned effect may fail with the request's error type. A successful resolver run that leaves an entry incomplete is a boundary failure for the waiting request, so every accepted entry must be completed with `Request.complete`, `entry.completeUnsafe`, or another completion helper.
 
 ```ts
 const resolver = RequestResolver.make<MyRequest>((entries) =>
@@ -41,6 +42,21 @@ const resolver = RequestResolver.make<MyRequest>((entries) =>
     for (const entry of entries) entry.completeUnsafe(Exit.succeed(entry.request.id));
   }),
 );
+```
+
+### [RequestResolver.makeWith](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/RequestResolver.ts:181)
+
+Builds a resolver with explicit batching controls: `batchKey`, optional `preCheck`, a delay effect, `collectWhile`, and the `runAll` batch runner. Use it when the simpler constructors cannot express admission or collection rules.
+
+```ts
+const resolver = RequestResolver.makeWith<MyRequest>({
+  batchKey: ({ request }) => request.tenantId,
+  delay: Effect.sleep("2 millis"),
+  collectWhile: (entries) => entries.size < 25,
+  runAll: (entries) => Effect.forEach(entries, (entry) =>
+    Effect.sync(() => entry.completeUnsafe(Exit.succeed(entry.request.id))),
+  ).pipe(Effect.asVoid),
+})
 ```
 
 ### [RequestResolver.makeGrouped](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/RequestResolver.ts:279)
@@ -130,8 +146,11 @@ const fastest = RequestResolver.race(cacheResolver, databaseResolver);
 
 ### [RequestResolver.withCache](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/RequestResolver.ts:1077)
 
-Adds an in-memory LRU or FIFO cache around a resolver while preserving the resolver interface.
+Adds an in-memory LRU or FIFO cache around a resolver while preserving the resolver interface. The function returns an Effect because the cache is created when that effect runs; repeated equal request values reuse completed success or failure results up to `capacity`.
 
 ```ts
-const cached = yield* RequestResolver.withCache(resolver, { capacity: 100, strategy: "lru" });
+const program = Effect.gen(function*() {
+  const cached = yield* RequestResolver.withCache(resolver, { capacity: 100, strategy: "lru" })
+  return yield* Effect.request(MyRequest({ id: "user-1" }), cached)
+})
 ```
