@@ -7,8 +7,8 @@ inspection/trace projections, and file/stream I/O. It owns grammar, gateway sele
 files, signals, and exit status. It does not own machine semantics, actors, schedulers, stores,
 transition evaluation, runtime history, artifact schemas, or a competing Story/runtime model.
 `PERSISTENCE_AND_ARTIFACTS.md` is the sole semantic and schema authority for the WIRE-020A/B/C artifact
-boundary. `ARTIFACT_WIRE.md` is its package-private notation mirror for Story, CLI, and the share encoder;
-`REV-MIG-005` is provenance only. Executable gates still prove the implementation.
+boundary. `ARTIFACT_WIRE.md` is a package-private pointer with no independent schema; `REV-MIG-005` is
+provenance only. Executable gates still prove the implementation.
 
 ## Grammar and gateway
 

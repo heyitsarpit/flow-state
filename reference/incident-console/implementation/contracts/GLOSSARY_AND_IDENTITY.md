@@ -25,9 +25,15 @@ Explicitly retained boundaries remain authoritative under `RET-001` through `RET
 
 - Context is pure derived data from an exact provider actor; mutable actor-local domain data is memory.
 - Authored IDs and local state/event names preserve spelling; each is non-empty and at most 256 UTF-8
-  bytes, with no C0 control, DEL, lone surrogate, or NUL code point.
+  bytes, with no C0 control, DEL, lone surrogate, or NUL code point. These constraints are enforced at
+  runtime before the value becomes definition-derived or durable identity; compile-time inference
+  preserves exact authored literals but does not encode UTF-8 or reject by encoded byte length.
 - No Unicode normalization or locale-sensitive comparison. Composite IDs use
   `<utf8ByteLength>:<segment>` plus a fixed namespace tag; delimiter concatenation is forbidden.
+- Runtime validation and length-prefixing MUST produce identical results in every supported package host.
+  Shared code uses the host-neutral WHATWG UTF-8 semantics exposed by `TextEncoder`; lone surrogates
+  are rejected before encoding with `String.prototype.isWellFormed` when available or an equivalent
+  small fallback check. Node-only `Buffer` APIs are not part of the package contract.
 - Durable stable refs use `actor:` plus machine-ID then authored-ID segments. Opaque refs are
   runtime-local and have no durable encoding. State tokens preserve complete paths, for example
   `S.ACTIVE.S.EDITING`; events use one machine-wide protocol.
@@ -49,7 +55,9 @@ Explicitly retained boundaries remain authoritative under `RET-001` through `RET
 
 ### Proof
 
-- Definition, recursive-token, event-nominality, name-bound, and stable-ref compile/runtime proofs.
+- Definition, recursive-token, event-nominality, exact-name, runtime name-bound, stable-ref, and
+  artifact-codec proofs. Compile-time proofs preserve exact literal spelling and structural name
+  closure; UTF-8 byte arithmetic and lone-surrogate rejection are runtime-owner proofs.
 
 ### Trace
 

@@ -62,7 +62,9 @@ type _Event = Expect<
 
 ### Proof
 
-- Exact positive token/event and depth-bound compile fixtures.
+- Exact positive token/event and depth-bound compile fixtures, including exact preservation of accepted
+  non-ASCII literals. UTF-8 byte validity and lone-surrogate rejection are runtime proofs owned by
+  `GLOSSARY_AND_IDENTITY.md` `GLO-01`.
 
 ### Trace
 
@@ -757,6 +759,68 @@ type MachineStoryOptions<M> = InputOptions<M> & SelectedContextOptions<M> & Fixt
 type ActorRecipeOptions<M> = InputOptions<M> & ContextBindingOptions<M>;
 ```
 
+Checkpoint-name accumulation uses the following specification-only notation. `CheckpointEvidence` and
+`EndEvidence` stand for the existing App- or Machine-Story evidence shapes; these aliases do not require new
+public exports:
+
+```ts
+type NewCheckpointName<Names extends string, Name extends string> =
+  string extends Name
+    ? never
+    : Extract<Name, Names> extends never
+      ? Name
+      : never;
+
+interface StoryPlan<Names extends string = never> {
+  checkpoint<const Name extends string>(
+    name: NewCheckpointName<Names, Name>,
+  ): StoryPlan<Names | Name>;
+  run(options?: { readonly signal?: AbortSignal }): Promise<StoryRun<Names>>;
+}
+
+type StoryRun<Names extends string> = {
+  readonly checkpoints: {
+    readonly [Name in Names]: CheckpointEvidence;
+  };
+  readonly end: EndEvidence;
+};
+```
+
+Every other builder command preserves `Names` while returning a new plan value. A literal checkpoint name or
+known string union extends `Names`; a widened `string` is rejected and MUST NOT erase already known names.
+
+```ts
+const common = story.machine(editorMachine, options)
+  .send(Editor.E.Opened())
+  .process()
+  .checkpoint("opened");
+
+const saved = common.send(Editor.E.SaveRequested()).process().checkpoint("saved");
+const discarded = common.send(Editor.E.Discarded()).checkpoint("discarded");
+const cancelled = common.send(Editor.E.Cancelled()).checkpoint("cancelled");
+
+const savedRun = await saved.run();
+const discardedRun = await discarded.run();
+savedRun.checkpoints.opened; // valid
+savedRun.checkpoints.saved; // valid
+savedRun.checkpoints.typo; // TypeScript error
+
+// @ts-expect-error duplicate literal checkpoint name
+common.checkpoint("opened");
+
+declare const runtimeName: string;
+// @ts-expect-error widened string cannot erase the known-name map
+common.checkpoint(runtimeName);
+
+// Specification notation for the package-private defensive path only.
+declare function lookupCheckpointInternal<Names extends string>(
+  run: StoryRun<Names>,
+  name: string,
+): CheckpointEvidence;
+declare const untrustedCheckpointName: string;
+lookupCheckpointInternal(savedRun, untrustedCheckpointName); // unknown own key throws existing FlowUsageError
+```
+
 ### Surface
 
 - These aliases are specification notation, not required exports. Constructors are
@@ -767,8 +831,17 @@ type ActorRecipeOptions<M> = InputOptions<M> & ContextBindingOptions<M>;
 - Required input required; void input rejects authored input; focused context exact/required when declared;
   fixtures close requirements; Persistence only RuntimeSetup; maxTurns default 100.
 - Plans immutable/inert until run. Checkpoint names accumulate immutably, and duplicate literal names fail
-  while the plan is built. Both Story kinds: process/advance/advanceTo/advanceToNextTimer/
-  checkpoint/run; app adds target-taking send; machine adds target-free send/setContext. No implicit process.
+  while the plan is built. Every builder command returns a new plan and leaves its prefix unchanged. Derived
+  plans replay that prefix independently in fresh isolated production Runtimes; this is static plan branching,
+  never a live Runtime fork, and no live state, handle, or Runtime is shared between runs. Both Story kinds:
+  process/advance/advanceTo/advanceToNextTimer/checkpoint/run; app adds target-taking send; machine adds
+  target-free send/setContext. No implicit process.
+- Checkpoints are frozen evidence cuts only, never resumable Runtime snapshots. `run().checkpoints` is a
+  readonly mapped type keyed exactly by accumulated literal names; known names compile and unknown literal
+  indexing fails while the existing evidence shape, `run.end`, and failure behavior remain unchanged.
+- Package-private runtime-string lookup for JavaScript, CLI, or untrusted input checks own-key membership and
+  rejects unknown names with existing `FlowUsageError` semantics. It adds no public dynamic-string getter or
+  new error type.
 
 ### Accepts
 
@@ -777,7 +850,9 @@ type ActorRecipeOptions<M> = InputOptions<M> & ContextBindingOptions<M>;
 ### Rejects
 
 - Bare app/live runtime, focused boot/memory/state/snapshot overrides, machine-family targets, and old
-  perform/deliver/receive/flush/settle/setTime/replay/run.final surfaces.
+  perform/deliver/receive/flush/settle/setTime/replay/run.final surfaces; duplicate checkpoint literals;
+  widened-string checkpoint names; unknown literal checkpoint indexing; `fork`, `restore`, `fromCheckpoint`,
+  public dynamic-string checkpoint lookup, and shared live state/handles/Runtimes between derived runs.
 
 ### Observable guarantee
 
@@ -785,7 +860,8 @@ type ActorRecipeOptions<M> = InputOptions<M> & ContextBindingOptions<M>;
 
 ### Proof
 
-- Positive/negative Story option, target, command, checkpoint, and run.end fixtures.
+- Positive/negative Story option, target, command, exact checkpoint-name accumulation/run-key inference,
+  duplicate-name, widened-string, unknown-index, immutable-prefix, fresh-run isolation, and run.end fixtures.
 
 ### Trace
 
@@ -941,6 +1017,11 @@ Compile fixtures MUST prove:
 
 ### TYPE-P02 — Negative proofs
 
+The compile-time portion of this proof does not require conditional types to perform UTF-8 byte
+arithmetic or lone-surrogate validation. Those are runtime definition/codec failures owned and
+proved by the relevant production boundary; compile fixtures still prove exact literal spelling and
+the structural name closure required by the public API.
+
 Compile fixtures using `@ts-expect-error` MUST prove rejection of:
 
 - unknown states, compound nodes, events, targets, payloads, memory fields, timer targets, non-direct
@@ -980,6 +1061,8 @@ declaration emit, run `tsc --extendedDiagnostics`, and record a baseline tied to
 version. Instantiation count MUST remain within 10% of the approved baseline, and a paired fixture that
 doubles only unrelated roots MUST remain below 2.25 times the smaller fixture. Peak memory is trend evidence
 only. A negative fixture MUST reject recursive carrier expansion without an excessive-instantiation error.
+The approved baseline MUST NOT include type-level UTF-8 encoders, exhaustive Unicode code-unit unions, or
+encoded-byte tuple counters. Runtime `GLO-01` validation is outside this inference-cost proof.
 
 ### TYPE-P04 — Production-owner declaration proof
 

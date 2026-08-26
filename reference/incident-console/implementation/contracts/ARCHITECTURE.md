@@ -443,7 +443,7 @@ replaced on a later restored incarnation. Public operation unions and transactio
 ### ARCH-028 — Recommended Effect v4 composition is non-normative
 
 - Surface: implementation guidance only.
-- Rule: Prefer package-private `Context.Service`/`Layer` composition through one ManagedRuntime; plain TypeScript for definitions, AppPlan, identity, and plans; `Result.try`/`Match`, `Effect.suspend`, `Stream.suspend`, one Queue + `SubscriptionRef` per actor, FiberMap/FiberSet/keyed Queue by policy, one duration normalizer, one Cause module, one Schema owner, and the custom RuntimeShell/StoreKernel/StoreFanout/DehydrateBarrier/TimerCoordinator. Acquire Store commit permit before DehydrateBarrier; never invert that order.
+- Rule: Prefer package-private `Context.Service`/`Layer` composition through one ManagedRuntime; plain TypeScript for definitions, AppPlan, identity, and plans; `Result.try`/`Match`, `Effect.suspend`, `Stream.suspend`, one Queue + `SubscriptionRef` per actor, FiberMap/FiberSet/keyed Queue by policy, one duration normalizer, one Cause module, and one Schema owner. Use package-private Flow wrappers only where a normative ownership, ordering, or fencing law is not directly represented by the selected Effect primitive. Acquire Store commit permit before DehydrateBarrier; never invert that order.
 - Accepts: Equivalent implementations that satisfy every normative law and proof.
 - Rejects: Treating primitive choice as contract, independent Clock sleeps as proof of equal-deadline order, `Cause.combine` where ordered multiplicity matters, or `Cause.squash` before a host boundary.
 - Observable guarantee: Primitive substitutions do not change ownership, ordering, fencing, or failure truth.

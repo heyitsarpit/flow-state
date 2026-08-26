@@ -4,12 +4,12 @@ Status: normative target vNext contract; not shipped
 
 This file is the single Flow-owned semantic and schema authority for persistence, boot, capture/hydration,
 publication, artifact boundaries, Story evidence timing, the package-private model handoff, and the exact
-nested WIRE-020A/B/C rules. `ARTIFACT_WIRE.md` is the enhanced-format relocated notation mirror used by Story,
-CLI, and the share-export encoder; it does not extend or override this file, and any mismatch resolves to this file. This file does not
+nested WIRE-020A/B/C rules. `ARTIFACT_WIRE.md` is a package-private pointer used by Story, CLI, and the
+share-export encoder; it contains no independent schema or notation, and any mismatch resolves to this file. This file does not
 define CLI transport or duplicate runtime, operation, or public API contracts.
 The corresponding file under `contracts/provenance/` is the current semantic source and provenance record
 for this restoration; it is retained for traceability, not as a competing active authority. Its transferred
-wording and WIRE-* clause IDs remain represented by this file and `ARTIFACT_WIRE.md`. Historical records,
+wording and WIRE-* clause IDs remain represented by this file; `ARTIFACT_WIRE.md` only points to this authority. Historical records,
 retired fixtures, and unrelated provenance notes add no semantics. BEH-033 is closed by REV-MIG-005: the
 v2 model is package-private, not a public type.
 
@@ -175,6 +175,8 @@ behavior/trace fingerprint is owned and verified by WIRE-020B during artifact co
 - Accepts: Registered non-disposed stable actors, including suspended ones, and the transitive exact
   context-provider closure. Stable actor wire identity uses the actor: namespace and GLO-01 length-
   prefixed machine and authored-ID segments.
+- The length prefix and segment bytes use the shared portable UTF-8 boundary from the implementation
+  workflow; stable-ref behavior never depends on Node-only `Buffer` APIs or UTF-16 string length.
 - Rejects: opaque refs in boot, dehydration, artifacts, or CLI selectors; automatic roots, dynamic
   actors, subordinate-machine or parent-child persistence; mailbox, queue, fiber, Scope, callback,
   service, cursor, transport, buffered emission, or pending command serialization; implicit durable
@@ -281,6 +283,9 @@ idle countdown or new `gcTime` default.
 - Accepts: Stable-key UTF-8 JSON or exactly one gzip member; bounded canonical carriers; non-negative
   safe integer revisions, generations, sequences, timestamps, and counts; strict UTF-8 without lone
   surrogates.
+- Canonical encoding and byte ordering use the shared portable `TextEncoder` boundary and reject
+  lone surrogates before encoding; this is a runtime codec obligation, not a compile-time UTF-8 type
+  calculation.
 - Rejects: raw parser failures escaping Flow, unsupported prototypes, accessors, symbol keys, sparse
   arrays, cycles, reserved prototype keys, throwing proxies, negative zero in serialized artifact carriers,
   non-finite numbers,
@@ -360,7 +365,7 @@ an incomplete latest hint into a historical diff.
 ### Rule card — WIRE-020A, WIRE-020B
 
 - Surface: BehaviorArtifact, TraceArtifact, Story evidence, Cause projection, and CliResult; the complete
-  nested wire model is mirrored in `ARTIFACT_WIRE.md`.
+  nested wire model is defined by this contract. `ARTIFACT_WIRE.md` is a pointer only.
 - Rule: Behavior and trace artifacts use one exact package-private schema. Canonical JSON sorts object
   keys by UTF-8 bytes, sorts ID-indexed declaration arrays and requirement lists by the same comparator,
   preserves authored child/event/checkpoint/record/Cause/fact order, uses JSON.stringify finite numbers,
@@ -390,7 +395,7 @@ an incomplete latest hint into a historical diff.
 - Proof: Exact canonical encoding, fingerprint, schema rejection, operation-fact discriminants,
   lifecycle tuples, Story evidence invariants, and direct Story/CLI decoded-model parity.
 - Trace: WIRE-020A, WIRE-020B; exact unions, nullable fields, bounds, and diagnostic codes are owned by
-  this file and mirrored by `ARTIFACT_WIRE.md`; BEH-033 closed by REV-MIG-005.
+  this file; `ARTIFACT_WIRE.md` is a pointer only. BEH-033 closed by REV-MIG-005.
 
 ### Rule card — WIRE-020C
 
@@ -465,11 +470,11 @@ inconsistent end/failure/cleanup evidence uses `InvalidStoryEvidence`. A valid a
 category, path, and bound details for the selected diagnostic rather than collapsing the failure to
 `undefined` or a generic corrupt-artifact result.
 
-The complete local wire notation, including nested behavior declarations, lifecycle records, StoryFailure,
-operation-fact unions, diagnostics, CLI result/error unions, and the export-only TraceShareArtifact, is mirrored
-in `ARTIFACT_WIRE.md` for Story, CLI, and the share encoder. That file does not extend or override this contract;
-any mismatch resolves to this file, which remains the semantic and schema authority for WIRE-020A/B/C, capture,
-and publication.
+The complete local wire model, including nested behavior declarations, lifecycle records, StoryFailure,
+operation-fact unions, diagnostics, CLI result/error unions, and the export-only TraceShareArtifact, is defined
+in this contract for Story, CLI, and the share encoder. `ARTIFACT_WIRE.md` is a pointer only and does not extend
+or override this contract, which remains the semantic and schema authority for WIRE-020A/B/C, capture, and
+publication.
 
 Resource facts are missing, pending, ready, refreshing, failure, defect, or interrupted; transaction
 facts are idle, pending, success, failure, defect, interrupted, or unknown with reconcileRequired true;

@@ -9,10 +9,16 @@ not close a proof unless it exercises the named mechanism through its production
 exported-token scans, and helper-placement assertions cannot substitute for type, behavior, race,
 interruption, lifetime, or artifact evidence.
 
-`REV-MIG-003` requires compile-time proofs to preserve exact machine, actor-ref, event, input, context, memory,
-operation, selected-value, Story-target, observation, and checkpoint types. Runtime proofs exercise the real
-actor lifecycle, mailbox, context graph, scheduler, operation kernels, inspection, persistence, evidence
-capture, and cleanup paths. Focused source-text or type checks never stand in for behavior proofs.
+`REV-MIG-003` requires compile-time proofs to preserve exact machine, actor-ref, event, input, context,
+memory, operation, selected-value, Story-target, observation, and checkpoint types. Compile proofs preserve
+exact authored string literals but do not perform UTF-8 encoding, encoded-byte validation, or lone-surrogate
+analysis. Runtime proofs exercise `GLO-01` authored-name validation and exact length-prefixed identity bytes
+through the production definition/identity owners, alongside the real actor lifecycle, mailbox, context graph,
+scheduler, operation kernels, inspection, persistence, evidence capture, and cleanup paths. Focused
+source-text or type checks never stand in for behavior proofs.
+
+Canonical `KBytes` and artifact-carrier encoding remain owned by `PROOF-005` and `PROOF-014`; this amendment
+does not change their bounds, ordering, or wire semantics.
 
 `PROOF-*` rows are requirements, not task-closure units. Retired Phase 0 subcase IDs and receipts are historical
 evidence only: they add no semantic authority and do not choose current ownership. Current executable proofs
@@ -65,15 +71,19 @@ actorRef // stable identity
 
 - Surface: definition-owned input/memory inference; inherited readonly context and exact bindings; recursive
   states/configuration through the ten-level bound; named modules; closed `App.M`; exact `O`; `P`/`K`; refs,
-  leases, hooks, closed Story options, targets, observations, checkpoints, `run.end`, and machine/event/
-  selected-value/resource/transaction/stream/input/context/memory/lifecycle domains.
+  leases, hooks, closed Story options, targets, observations, exact checkpoint-name accumulation and readonly
+  run-key inference, `run.end`, and machine/event/selected-value/resource/transaction/stream/input/context/
+  memory/lifecycle domains.
 - Rule: public declarations preserve exact accepted types and remain practical to instantiate.
+- Exact literal preservation does not require a type-level UTF-8 encoder or encoded-byte rejection.
 - Accepts: source and packed declarations, strict, isolated modules, isolated declarations, multi-entry
   consumers, packed React 18/19 consumers, accepted Story values through the testing route, and the typed
-  failure boundary without naming an unresolved failure class.
+  failure boundary without naming an unresolved failure class. Literal checkpoint names accumulate without
+  mutation, known run keys compile, and a known string union does not erase names already accumulated.
 - Rejects: invalid recursive config; missing/extra compound nodes; non-direct defaults; depth eleven;
   wrong-machine events; missing input/context; extra closed-option fields; invalid binding keys or recipe/ref
-  bindings; invalid Story targets; `P`/`K` misuse; per-registration selector comparators; deleted imports.
+  bindings; invalid Story targets; duplicate literal checkpoint names; widened-string checkpoint names;
+  unknown literal checkpoint indexing; `P`/`K` misuse; per-registration selector comparators; deleted imports.
 - Observable guarantee: selectors require the selected-value type and explicit nullable domains; initial
   results have no previous value; changes expose the immediately preceding selected value; complete values use
   `Object.is`; named-record fields suppress independently; structured results are fresh; selectors are pure;
@@ -81,7 +91,9 @@ actorRef // stable identity
   context work.
 - Proof: compile small, medium, and large Story/model fixtures with `tsc --extendedDiagnostics`; record wall
   time, type count, instantiations, and memory. Wall time/peak memory are trend evidence, never gates; the
-  checked-in type and instantiation ceiling is the package boundary.
+  checked-in type and instantiation ceiling is the package boundary. Positive fixtures prove exact
+  checkpoint-name accumulation and readonly run-key inference; negative fixtures prove duplicate-name,
+  widened-string, and unknown-key rejection.
 - Trace: `REV-COMP-001`–`REV-COMP-015`, `REV-MACH-001`–`REV-MACH-011`, `REV-OPS-001`–`REV-OPS-018`,
   `REV-HOST-001`–`REV-HOST-008`, `REV-TEST-001`–`REV-TEST-010`, `DEL-009`, `PROOF-017`.
 
@@ -100,7 +112,9 @@ actorRef // stable identity
 - Observable guarantee: compound entry follows authored default through compiled tables; terminal-looking leaves
   are ordinary active actors with no completion semantics; `reenter` names the exact active restart boundary.
 - Proof: hostile definitions and acquisition counters prove rejection before activation; runtime behavior proves
-  exact active leaf and bootstrap rollback. No testing-only owner is added.
+  exact active leaf and bootstrap rollback. Runtime name vectors cover empty, C0/DEL/NUL, lone-surrogate,
+  over-256-byte, exact-256-byte one-/two-/three-/four-byte, composed/decomposed, exact-prefix, and
+  native/fallback-parity cases before app admission or activation. No testing-only owner is added.
 - Trace: `REV-COMP-001`–`REV-COMP-015`, `REV-MACH-001`–`REV-MACH-011`, `REV-MIG-006`.
 
 ## Proof family: runtime ownership, turns, and publication
@@ -171,6 +185,9 @@ setData
   hydration, equal-key admission, authoritative writes, preview layers, CAS, and trusted host writes.
 - Rule: identity always uses exact descriptor plus canonical `K`; `P` remains available to admitted bindings or
   occurrences; generation ownership and authoritative writes are fenced.
+- Canonical `K` and stable-ref vectors use one shared portable UTF-8 boundary. Exact bytes and length
+  prefixes agree for ASCII, 2-byte, 3-byte, and 4-byte characters, composed/decomposed spellings, and
+  lone-surrogate rejection; UTF-16 length and Node-only encoders are forbidden.
 - Accepts: all accepted canonical categories; record-order equivalence; `key(-0)` canonical `0`; defensive
   copying/freezing; exact `REV-OPS-016` bytes; equal descriptor/`K` owners joining without replacing pinned `P`;
   explicit `refetch(P)` replacement; passive hydrated key-only data until live `P`; deterministic oldest-eligible
@@ -265,39 +282,48 @@ run.end
 ### PROOF-009 — Story processing and TestClock
 
 - Surface: closed Story commands, processing, TestClock movement, timers, command admission, finalization,
-  cleanup diagnostics, machine/app construction, and `REV-OPS-015` timer polling.
+  cleanup diagnostics, machine/app construction, immutable persistent prefix derivation, fresh-run isolation,
+  and `REV-OPS-015` timer polling.
 - Rule: `process` drains ready production work without advancing time or inventing external results; clock
-  movement never calls `process` implicitly; explicit time commands remain explicit.
+  movement never calls `process` implicitly; explicit time commands remain explicit. Every builder command
+  returns a new plan without changing its prefix. Each derived-plan run creates a fresh isolated production
+  Runtime and independently replays the shared prefix; this is static plan branching, not a live Runtime fork.
 - Accepts: `process`, `advance`, `advanceTo`, `advanceToNextTimer`, `checkpoint`, `run`, target-aware app
   `send`, target-free machine forms; continuing observations/streams/future deadlines visible during finite work;
-  `maxTurns` default `100`; reverse dependency cleanup; frozen package-owned `FlowStoryExecutionError`.
+  assignment and independent extension of a common prefix; `maxTurns` default `100`; reverse dependency
+  cleanup; frozen package-owned `FlowStoryExecutionError`.
 - Rejects: implicit queue draining on clock movement; unbounded unknown finite work; abortable finalization;
   implicit retry; timer-owned finite action; `poll`; machine boot/refs/additional actors/raw memory/initial state/
-  snapshot overrides; direct selected-context injection into App Stories.
+  snapshot overrides; direct selected-context injection into App Stories; live Runtime forks or sharing live
+  state, handles, or Runtime ownership between derived runs.
 - Observable guarantee: one exact key has at most one refresh in flight; next `after` timer follows settlement;
   failure waits for the next scheduled refresh; suspension/disposal cancels and fences; resume has at most one
   overdue refresh; cleanup failure is deterministic.
 - Proof: negative clock tests, `maxTurns` bounds, command-admission and finalization tests, timer fencing tests,
-  machine Story construction, and typed App Story RuntimeSetup/Runtime tests.
+  machine Story construction, typed App Story RuntimeSetup/Runtime tests, immutable prefix derivation with the
+  original plan unchanged, independent prefix replay, and fresh production-Runtime isolation across runs.
 - Trace: `REV-OPS-015`, `REV-TEST-001`–`REV-TEST-010`.
 
 ### PROOF-010 — Atomic checkpoints, end evidence, and failures
 
 - Surface: app/machine checkpoints, exact Story recipes or app-owned stable refs, `runtime.now`,
   `runtime.pendingWork`, actor issues, read barrier, static Story-plan capture, `run.end`, cleanup, Cause, and
-  WIRE-020B artifact/CLI projection.
+  WIRE-020B artifact/CLI projection; package-private defensive lookup for JavaScript, CLI, and untrusted names.
 - Rule: capture one atomic production read barrier; successful evidence is deeply frozen and failure never
-  fabricates a successful `run.end`.
+  fabricates a successful `run.end`. A checkpoint is evidence only, not a resumable Runtime snapshot. Internal
+  runtime-string lookup checks own-key membership and rejects unknown names with existing `FlowUsageError`
+  semantics.
 - Accepts: `actor(...)` lookup for app checkpoints; single actor machine checkpoint; completed checkpoints on
   failure; typed failure-boundary and cleanup evidence; one `DehydrateBarrier` cut after Store commit permit;
   complete static Story-plan closure; evidence-sequence fence; deep freeze before lease release; pre-cleanup
-  `run.end`; deterministic cleanup aggregation.
+  `run.end`; deterministic cleanup aggregation; package-private lookup of a known own key.
 - Rejects: live lookup or external work during capture; successful end evidence after failure; incomplete Cause;
-  alternate artifact/CLI Cause owner.
+  alternate artifact/CLI Cause owner; `fork`, `restore`, `fromCheckpoint`, any public dynamic-string checkpoint
+  getter, inherited-key lookup, unknown internal names without `FlowUsageError`, or a new checkpoint error type.
 - Observable guarantee: only `FlowDisposeError` and `FlowStoryExecutionError` preserve complete
   `Effect Cause.Cause<unknown>`; WIRE-020B supplies the artifact/CLI CauseProjection.
 - Proof: checkpoint/evidence immutability, capture-barrier, sequence-fence, failure, cleanup, and artifact/CLI
-  Cause tests.
+  Cause tests; evidence-only API absence checks; internal known-own-key and unknown/inherited-name rejection.
 - Trace: `REV-MIG-005`, `WIRE-020B`, `REV-TEST-006`–`REV-TEST-010`.
 
 ### PROOF-011 — Pure model and live-host parity
@@ -414,7 +440,10 @@ CLI-P02
   WIRE-020C is deterministic privacy-reduced output that cannot be mistaken for raw evidence.
 - Proof: bootstrap, persistence, hydration, codec/storage, write-fencing, artifact round-trip/negative, inspect,
   API-P04 redacted-export production tests, CLI grammar/gateway/execution/formatting, and Story/CLI parity
-  evidence. This is the owner of current `API-P04` and `CLI-P01`.
+  evidence. The shared production codec and stable-ref vectors run with equivalent results under Node >=22.18,
+  Bun, Deno, one supported Chromium, one supported Gecko, and one supported WebKit; the receipt records exact
+  versions. Coverage includes ASCII, 2/3/4-byte UTF-8 boundaries, composed/decomposed spellings, lone
+  surrogates, and exact-limit plus limit-plus-one cases. This is the owner of current `API-P04` and `CLI-P01`.
 - Trace: `REV-OPS-015`, `REV-HOST-008`, `REV-MIG-005`, `WIRE-020B`, `WIRE-020C`, `API-P04`, `CLI-P01`, `DEL-010`.
 
 ### PROOF-015 — Individual actor ownership without child capability
@@ -515,7 +544,7 @@ are evidence only. This is a decomposition boundary, not a second semantic speci
 | Static foundation | `GLOSSARY_AND_IDENTITY.md`; `PUBLIC_API.md` `API-001`–`API-010`; `TYPE_SYSTEM.md` `TYPE-001`–`TYPE-009`; accepted composition/machine revisions | `PROOF-001`, `PROOF-002`, `TYPE-P01`–`TYPE-P04` | first |
 | Runtime ownership | `ARCHITECTURE.md` `ARCH-007`–`ARCH-020`; `SEMANTICS.md` admission/mailbox/lifecycle; `REACT_AND_HOSTS.md` `HOST-001`–`HOST-006`; `TYPE_SYSTEM.md` `TYPE-010`–`TYPE-015` | `PROOF-003`, `PROOF-004`, `PROOF-015`, `HOST-P01`–`HOST-P05` | after static foundation |
 | Operation kernels | `TYPE_SYSTEM.md` operation inference; `SEMANTICS.md` `SEM-011`–`SEM-021`, `SEM-029`–`SEM-030`; `SNAPSHOTS.md`; accepted operations revision | `PROOF-005`–`PROOF-007`, `SNAP-P01` | after runtime ownership |
-| Persistence and evidence | `PERSISTENCE_AND_ARTIFACTS.md` `WIRE-000`–`WIRE-023`, including `WIRE-020C`, as sole schema authority; v2 notation mirror in `ARTIFACT_WIRE.md`; capture/hydration clauses in `SNAPSHOTS.md` | `PROOF-009`, `PROOF-010`, `PROOF-011`, `PROOF-014`, `API-P04`, `CLI-P01` | after runtime and operation kernels |
+| Persistence and evidence | `PERSISTENCE_AND_ARTIFACTS.md` `WIRE-000`–`WIRE-023`, including `WIRE-020C`, as sole schema authority; `ARTIFACT_WIRE.md` is a pointer only; capture/hydration clauses in `SNAPSHOTS.md` | `PROOF-009`, `PROOF-010`, `PROOF-011`, `PROOF-014`, `API-P04`, `CLI-P01` | after runtime and operation kernels |
 | Hosts, Stories, and CLI | `TESTING.md` `REV-TEST-001`–`REV-TEST-010`; `REACT_AND_HOSTS.md`; `CLI.md`; `PUBLIC_API.md` `API-011`–`API-017` | `PROOF-008`, `PROOF-010`, `PROOF-012`, `PROOF-014`, `CLI-P01` | after runtime; operation/evidence edges where used |
 | Cutover and absence | `COMPATIBILITY_AND_DELETIONS.md`; `PROOF-016`–`PROOF-017`; accepted migration/deletion revisions | `PROOF-016`, `PROOF-017`, `CLI-P02`, `CUT-P01`–`CUT-P06` | after every prior family |
 

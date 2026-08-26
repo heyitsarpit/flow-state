@@ -272,8 +272,10 @@ const NewIntent = definition({
 ### Rule
 
 - State declarations are string leaves or recursive single-key compounds, max ten levels, with exact
-  path tokens such as `S.ACTIVE.S.EDITING`. Event members are frozen nominal tokens. Callable events
-  return frozen readonly envelopes with full `type`; null events are zero-argument constructors.
+  path tokens such as `S.ACTIVE.S.EDITING`. Event members are nominal tokens. Callable events return
+  readonly envelopes with full `type`; null events are zero-argument constructors. Definition values,
+  tokens, and envelopes are not runtime-frozen; readonly types and ownership-boundary copies provide the
+  protection.
 - Context selectors are typed definition-level provider edges, not registrations. `memory` is the sole
   input/memory source; absent initializer means `Input=void` and readonly empty memory. Restoration
   installs memory without input replay.
@@ -1000,6 +1002,23 @@ send(event);
 setContext(context);
 ~~~
 
+~~~ts
+const common = story.machine(editorMachine, options)
+  .send(Editor.E.Opened())
+  .process()
+  .checkpoint("opened");
+
+const saved = common.send(Editor.E.SaveRequested()).process().checkpoint("saved");
+const discarded = common.send(Editor.E.Discarded()).checkpoint("discarded");
+const cancelled = common.send(Editor.E.Cancelled()).checkpoint("cancelled");
+
+const savedRun = await saved.run();
+const discardedRun = await discarded.run();
+savedRun.checkpoints.opened; // valid
+savedRun.checkpoints.saved; // valid
+savedRun.checkpoints.typo; // TypeScript error
+~~~
+
 ### Surface
 
 - Both: `process`, `advance`, `advanceTo`, `advanceToNextTimer`, `checkpoint`, `run`.
@@ -1010,6 +1029,17 @@ setContext(context);
 - App targets exact app-owned ref or recipe; machine family is never target. App does not inject context.
 - `process` replaces flush/settle and drains ready work without time/results; clock movement does not
   process. Checkpoint reads evidence immediately. `.run()` sole execution boundary.
+- Story plans are immutable persistent values. Every builder command returns a new plan and leaves the
+  previous plan unchanged, so one common prefix can be retained and extended into multiple derived plans.
+  Each derived plan run creates a fresh isolated production Runtime and replays the shared prefix
+  independently. This is static plan branching, not a live Runtime fork; derived runs share no live state,
+  handles, or Runtime.
+- `checkpoint(name)` captures a frozen read cut as evidence only. It is not a resumable Runtime snapshot and
+  does not expose `fork()`, `restore()`, or `fromCheckpoint()`. Literal checkpoint names accumulate in the
+  inferred plan type, duplicate literals reject while building, and widened `string` names cannot erase the
+  known-name map; a literal or known string union is required. `run()` exposes `checkpoints` as a readonly
+  mapped type with exactly those accumulated names while preserving the existing evidence shape, `run.end`,
+  and failure behavior.
 - Runs never inject pending results; complete Implementations provide behavior. Capture uses exact closure,
   one StoreState revision, snapshots, pending work, TestClock, and accepted runtime evidence prefix;
   the closure includes the single machine actor or every app recipe plus exact refs in bindings, targets,
@@ -1050,10 +1080,15 @@ machineRun.checkpoints["signed-out"].snapshot;
 machineRun.end.snapshot;
 ~~~
 
+- Package-private checkpoint lookup may accept a runtime string for JavaScript, CLI, or other untrusted
+  input. It MUST test own-key membership and reject an unknown name with the existing `FlowUsageError`
+  semantics. There is no public dynamic-string checkpoint getter.
+
 ### Rejects
 
 - `flush`, `settle`, `perform`, `deliver`, `receive`, `setTime`, replay/final helpers, result injection,
-  implicit time processing, machine-family targets, and false successful cleanup.
+  implicit time processing, machine-family targets, false successful cleanup, live Runtime forks, resumable
+  checkpoint APIs, public dynamic-string checkpoint lookup, and a checkpoint-specific error type.
 
 ### Observable guarantee
 
@@ -1206,7 +1241,7 @@ declare function exportTraceArtifact(
   cleanup/status structure. The resulting share projection is not persistence or boot input and is rejected
   by `importTraceArtifact` as the wrong artifact kind.
 - Accepts: An omitted or empty policy for raw export, or an explicit finite list of value paths with
-  deterministic replacement. Paths use the artifact grammar in `ARTIFACT_WIRE.md`; array segments are
+  deterministic replacement. Paths use the artifact grammar in `PERSISTENCE_AND_ARTIFACTS.md` WIRE-020C; array segments are
   exact non-negative indexes, wildcards are forbidden, paths MUST exist, and duplicate or ancestor/descendant
   overlaps reject as `InvalidArtifactOperand`.
 - Rejects: In-place mutation of runtime state, canonical persistence, the live decoded model, missing-path

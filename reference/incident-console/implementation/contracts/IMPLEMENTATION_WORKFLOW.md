@@ -21,12 +21,12 @@ This workflow preserves the wording, semantics, and IDs already transferred into
   packages/flow-state/ code, tests, examples, entrypoints, and records remain frozen reference
   material until late cutover.
 - Accepts: Copied legacy code only after its current owner, types, failure lanes, cleanup, and tests are
-  checked; each slice naming its contract owner, production owner, allowed source boundary, acceptance
-  behavior, and decisive proof before code.
+  checked; each slice naming its contract IDs, bounded module boundary, allowed files, semantic/runtime
+  ownership where required, acceptance behavior, and decisive proof before code.
 - Rejects: incremental upgrades to the frozen package, hidden compatibility imports, aliases, overloads,
   adapters, parser branches, deprecated wrappers, or semantics inferred from historical material.
-- Observable guarantee: A slice can be reviewed against one live owner and one named proof; source scans,
-  focused typechecks, or lint do not close a required behavior proof.
+- Observable guarantee: A slice can be reviewed against its live semantic/runtime ownership and one named
+  proof; source scans, focused typechecks, or lint do not close a required behavior proof.
 - Proof: Owner/source-boundary review and named production-path proof.
 - Trace: Authority and source-boundary clauses of this contract.
 
@@ -41,15 +41,52 @@ This workflow preserves the wording, semantics, and IDs already transferred into
 | Hosts/Stories/CLI | TESTING REV-TEST-001–010, REACT_AND_HOSTS, CLI, PUBLIC_API API-011–017 | React attachment, Story builders/run, Fixtures/Implementations/seeds, gateway, shared CLI executor | PROOF-008, PROOF-010, PROOF-012, PROOF-014, CLI-P01 | Runtime + kernels + persistence/evidence |
 | Cutover/absence | COMPATIBILITY_AND_DELETIONS, PROOF_MATRIX PROOF-016–017 | Entrypoints, examples, packed consumers, browser behavior, deleted-surface absence, final package cutover | PROOF-016, PROOF-017, CLI-P02, CUT-P01–P06 | All prior phases |
 
+### Rule card — portable text and byte boundaries
+
+- Surface: Shared definition, persistence, artifact, stable-ref, and CLI codec code.
+- Rule: Cross-runtime code MUST use host-neutral ECMAScript/Web APIs available to the declared
+  Node, Bun, Deno, CLI, and browser targets. UTF-8 byte counts and bytes use the WHATWG
+  `TextEncoder` semantics; lone surrogates are rejected before encoding with
+  `String.prototype.isWellFormed` when available or an equivalent fallback. Node-only `Buffer`
+  and runtime-specific encoders are forbidden in shared package code. The minimum compatibility
+  receipt covers Node >=22.18, Bun, Deno, and one supported Chromium browser, one supported Gecko browser, and one supported WebKit browser;
+  the receipt records exact host versions.
+- Accepts: One shared UTF-8 boundary helper reused by definition, stable-ref, persistence, and
+  artifact owners, with host-specific adapters limited to the host boundary.
+- Rejects: UTF-16 `.length` for byte limits, `TextEncoder` output after silent surrogate replacement,
+  Node-only byte-counting in browser/Deno code, and a second handwritten encoder for a separate owner.
+- Observable guarantee: Equal accepted inputs produce identical UTF-8 bytes and length-prefixed
+  identities across supported hosts; invalid durable input fails before serialization or activation.
+- Proof: Runtime-owner vectors cover ASCII, 2-byte, 3-byte, and 4-byte characters, 256/257-byte
+  authored-name boundaries, lone surrogates, exact composed/decomposed spelling, and the declared
+  Node/Bun/Deno/browser host matrix under `PROOF-001`, `PROOF-010`, and `PROOF-014`.
+- Trace: GLO-01, WIRE-007/WIRE-008, WIRE-014–WIRE-020, and the declared package host matrix.
+
+### Rule card — recursive module layout
+
+- Surface: Greenfield source and focused tests.
+- Rule: Keep small features flat at their parent. Create a recursive feature folder only for a major
+  self-contained module, and co-locate its implementation, validation/private helpers, local codecs such as
+  a local UTF-8 helper, and a local `test/` subtree under that module. Folder names describe modules, not
+  compile-time/runtime/API proof roles. A module may contain both type-level declarations and runtime
+  behavior. Re-export files exist only when a real public route requires them.
+- Rejects: Treating `model`, `type`, or `api` as a required taxonomy or as three production owners; splitting
+  one module into proof-role folders; or placing a module's private helpers/codecs/tests in unrelated global
+  directories without a contract reason.
+- Observable guarantee: A slice has one bounded module boundary and a small, discoverable local test tree;
+  semantic/runtime ownership guardrails remain independent of folder layout.
+- Trace: Source-boundary and slice-readiness clauses of this contract.
+
 ### Rule card — dependency and readiness
 
 - Surface: Implementation slice readiness.
 - Rule: Implementation work MUST preserve these dependency edges. The future Beads graph may split a
   row into smaller issues, but it MUST NOT combine unrelated semantic owners or reverse an edge. A slice
-  is ready only when it identifies exact contract IDs, one production owner under
-  packages/flow-state-rewrite/ and its allowed files, public/internal output including Effect A/E/R,
-  success/typed-failure/defect/interruption/ownership/cleanup/ordering acceptance, proof IDs and
-  focused command, dependencies/non-goals/deleted-surface absence, and reviewer handback fields.
+  is ready only when it identifies exact contract IDs, one bounded module boundary under
+  packages/flow-state-rewrite/ and its allowed files, semantic/runtime ownership where required,
+  public/internal output including Effect A/E/R, success/typed-failure/defect/interruption/ownership/
+  cleanup/ordering acceptance, proof IDs and focused command, dependencies/non-goals/deleted-surface
+  absence, and reviewer handback fields.
 - Accepts: Inferred shapes when a public helper alias would create a second authority; a blocker when
   implementation requires a missing public name, carrier field, target constructor, inspection route,
   or error member.
@@ -138,9 +175,13 @@ This workflow preserves the wording, semantics, and IDs already transferred into
 ### Rule card — decisive tests
 
 - Surface: New tests and behavior proof.
-- Rule: Every test names its contract/proof ID, the unique invariant/failure, the production owner,
-  and why an existing test is insufficient. Default budget is one to three decisive tests per slice;
-  more requires distinct lanes, races, public type cases, or required boundary vectors.
+- Rule: Every test names its unique invariant/failure. Definition tests use behavior names only; their
+  contract IDs, proof IDs, production owner, and rationale are mapped in Bead and reviewer metadata.
+  Other slices record those fields with the test as required. Default budget is one to three decisive tests
+  per slice; more requires distinct lanes, races, public type cases, or required boundary vectors.
+- One executable test may satisfy multiple proof IDs when it exercises the same invariant through the same
+  production owner; record every satisfied ID in external Bead or reviewer metadata instead of duplicating
+  the vector.
 - Accepts: Tests prioritizing ownership, ordering, atomicity, cleanup, failure, interruption, hostile
   input, exact typing, and deleted behavior; production Runtime for runtime proof; TestClock or Flow
   testing time instead of sleeps; bounded Deferred/Queue/PubSub controls; minimal immutable fixtures.
