@@ -10,8 +10,7 @@ tests, contracts, and proofs before making implementation or status claims.
   `server.ts`, and `inspect.ts` — public package entrypoints.
 - `packages/flow-state/src/core/` — runtime behavior; `src/react/`,
   `src/testing/`, and `src/cli/` — integration surfaces.
-- `packages/flow-state-rewrite/src/` — greenfield rewrite package; `internal/`
-  owns implementation and `public/` owns explicit package entrypoint modules.
+- `packages/flow-state-rewrite/src/` — greenfield rewrite package
 - `examples/` — maintained consumers and TypeScript compiler proofs.
 - `apps/docs/` — Vocs documentation and generated reference artifacts.
 - `reference/incident-console/implementation/` — normative Incident Console
@@ -50,7 +49,7 @@ generators derive API reference data from public entrypoints and behavior data f
 `examples/basic-cached-posts`. Run `verify` before claiming a workspace slice
 is complete.
 
-## Working practices
+## Coding practices
 
 - Read `git status`, relevant source and tests, README guidance, and the active
   contract/task before editing. Preserve unrelated worktree changes.
@@ -58,6 +57,16 @@ is complete.
   affected entrypoints, tests, examples, packed consumers, and docs.
 - Add or update executable behavior proofs with semantic changes; source-text checks
   and typechecking alone do not prove runtime behavior.
+- Use vertical space for clean looking code. Put one empty line between adjacent top-level
+  declaration groups. Always separate a top-level type alias, interface, class, enum,
+  or function from the next top-level declaration. Closely related one-line constants
+  may remain one group. Do not insert blank lines inside a single declaration or
+  mechanically between statements in one phase.
+- Keep small features flat at their parent. Create a recursive feature folder only
+  for a major self-contained module; co-locate its implementation, validation/private
+  helpers, local codecs, and a local `test/` subtree. Folder names describe modules,
+  not compile-time/runtime/API proof roles. A module may contain both type-level and
+  runtime behavior; add re-export files only for a real public route.
 - Regenerate generated docs and package output through their commands. Do not hand-edit
   `dist/`, `apps/docs/src/generated/`, or `apps/docs/src/pages.gen.ts`.
 - For contract work, read only the active task and its named contracts. Reconcile
