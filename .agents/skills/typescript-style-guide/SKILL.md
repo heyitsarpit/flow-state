@@ -183,7 +183,7 @@ operation and configuration at the composition root/host.
 ## Keep contract metadata external to the code.
 
 Do not put project names, contract IDs, proof IDs, module paths, boundary
-labels, or owner labels in production code, comments, or behavior-test names.
+labels, "Flow" or "Flow State" name, or owner labels in production code, comments, or behavior-test names.
 Map that metadata in the task tracker and review record. Use neutral symbols and
 behavior names in the source:
 
