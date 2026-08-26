@@ -1,3 +1,5 @@
+/* oxlint-disable -- This file is a temporary stub. Remove this file-level lint ignore when the file is implemented. */
+
 export type Definition = Readonly<Record<string, unknown>>;
 export type StateToken = string & { readonly __flowStateRewriteStateToken: "StateToken" };
 export type EventToken = string & { readonly __flowStateRewriteEventToken: "EventToken" };

@@ -413,6 +413,16 @@ importers:
         specifier: 19.2.7
         version: 19.2.7(react@19.2.7)
 
+  packages/flow-state-rewrite:
+    dependencies:
+      effect:
+        specifier: 4.0.0-beta.86
+        version: 4.0.0-beta.86
+    devDependencies:
+      '@effect/vitest':
+        specifier: 4.0.0-beta.86
+        version: 4.0.0-beta.86(effect@4.0.0-beta.86)(vitest@4.1.10(@types/node@26.2.0)(@vitest/browser-preview@4.1.10)(happy-dom@20.11.2)(vite@8.0.16(@types/node@26.2.0)))
+
 packages:
 
   '@alloc/quick-lru@5.2.0':

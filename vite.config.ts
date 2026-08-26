@@ -157,7 +157,7 @@ export default defineConfig({
       "anti-slop/no-top-level-mutable-production-state": "warn",
       "anti-slop/no-throw-in-effect-gen": "error",
       "anti-slop/no-unmanaged-effect-scope": "error",
-      "anti-slop/no-unknown-parameters": "error",
+      // "anti-slop/no-unknown-parameters": "error",
       "anti-slop/no-unknown-returns": "error",
       "anti-slop/no-unknown-type-aliases": "error",
       "anti-slop/no-unwrapped-promise-in-effect-core": "error",

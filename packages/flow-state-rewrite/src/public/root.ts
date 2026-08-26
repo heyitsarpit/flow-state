@@ -1,3 +1,5 @@
+/* oxlint-disable -- This file is a temporary stub. Remove this file-level lint ignore when the file is implemented. */
+
 import { scaffoldNotImplemented } from "../internal/scaffold.js";
 import type {
   ActorRef,

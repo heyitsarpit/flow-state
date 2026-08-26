@@ -188,13 +188,8 @@ Map that metadata in the task tracker and review record. Use neutral symbols and
 behavior names in the source:
 
 ```ts
-/// CORRECT
-export const definitionTypeBrand = Symbol("definition");
+export const valueBrand = Symbol("value");
 it("rejects invalid names before construction", () => {});
-
-/// INCORRECT
-export const definitionTypeBrand = Symbol("flow-state-rewrite/definition");
-it("GLO-01/API-003/TYPE-P02/PROOF-001: rejects UTF-8 boundary [boundary: src/definition/]", () => {})
 ```
 
 ## Make lifetime and concurrency ownership visible
