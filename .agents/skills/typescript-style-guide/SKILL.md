@@ -246,7 +246,8 @@ beside a schema when drift can break the contract.
 Keep mutable state private. Local mutation is good for a bounded algorithm when
 it clarifies order and ownership; publish once. Copy once at a real boundary.
 Do not use `Object.freeze`: readonly types and ownership boundaries are the
-project standard.
+project standard. freezing objects in general is not useful so do not invent 
+new alternative ways for doing it.
 
 ```typescript
 // Good: mutation is private; the published snapshot is readonly by type.
