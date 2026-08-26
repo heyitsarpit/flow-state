@@ -155,8 +155,11 @@ useActorByRef(ref);
 
 - Surface: `useActor(machine, options?)`.
 - Rule: Create one fresh local actor per component incarnation, including void-input machines; options supply exact fresh input and declared bindings, never a stable ID. Render preparation creates final opaque ref, pure initial snapshot, stable handle, bounded real command mailbox, and optional passive provisional context cut, but no runtime registration/edge/ownership/scope/subscription/work/evidence.
-- Accepts: Commit-time provider identity/revision recheck, current provider truth replacing stale provisional cut, atomic baseline install/activation, exactly-once command drain, 64 buffered commands.
-- Rejects: >64 commands, changed construction tuple without keyed-remount diagnostic, prepared actor replacement/reused memory, abandoned registration/work/evidence/disposal obligation, or `useActorByRef` construction.
+- Accepts: Commit-time provider identity/revision recheck, current provider truth replacing stale provisional cut,
+  atomic baseline install/activation, exactly-once command drain, and a finite buffer supporting at least 64 commands.
+- Rejects: overflow beyond the implementation's documented finite bound, changed construction tuple without a
+  keyed-remount diagnostic, prepared actor replacement/reused memory, abandoned
+  registration/work/evidence/disposal obligation, or `useActorByRef` construction.
 - Observable guarantee: Abandoned preparation closes once and remains inert; imperative `runtime.createActor` remains the immediately attached non-React path.
 - Proof: `HOST-P02`, `HOST-P04`.
 - Trace: `ARCH-018`, `SEM-001A`, `HOST-009`, `REV-HOST-002`.
@@ -203,7 +206,7 @@ cleanup defect leaves the actor suspended and blocks resume until owner or runti
 
 | Lifecycle | Commands | Subscriptions |
 | --- | --- | --- |
-| `prepared` | Buffer up to 64 | Replay and become live on activation |
+| `prepared` | Buffer at least 64; exact internal bound is implementation-defined | Replay and become live on activation |
 | `active` | Admit | Remain live |
 | `suspended` | Reject without buffering | Replay once and complete |
 | `disposed` | Reject without buffering | Replay terminal snapshot and complete |

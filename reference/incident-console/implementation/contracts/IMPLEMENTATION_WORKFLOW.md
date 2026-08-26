@@ -48,18 +48,22 @@ This workflow preserves the wording, semantics, and IDs already transferred into
   Node, Bun, Deno, CLI, and browser targets. UTF-8 byte counts and bytes use the WHATWG
   `TextEncoder` semantics; lone surrogates are rejected before encoding with
   `String.prototype.isWellFormed` when available or an equivalent fallback. Node-only `Buffer`
-  and runtime-specific encoders are forbidden in shared package code. The minimum compatibility
-  receipt covers Node >=22.18, Bun, Deno, and one supported Chromium browser, one supported Gecko browser, and one supported WebKit browser;
-  the receipt records exact host versions.
+  and runtime-specific encoders are forbidden in shared package code. The complete canonical-codec
+  vector suite runs against the shared production codec on the pinned Node toolchain. Bun, Deno, and
+  one supported Chromium, Gecko, and WebKit browser each execute that same compiled codec against a
+  compact portability fixture containing valid ASCII, multibyte UTF-8, one rejected lone surrogate,
+  and one canonical artifact whose bytes or digest match the normative fixture. Receipts record exact
+  host versions; host-specific adapters retain focused tests.
 - Accepts: One shared UTF-8 boundary helper reused by definition, stable-ref, persistence, and
   artifact owners, with host-specific adapters limited to the host boundary.
 - Rejects: UTF-16 `.length` for byte limits, `TextEncoder` output after silent surrogate replacement,
   Node-only byte-counting in browser/Deno code, and a second handwritten encoder for a separate owner.
 - Observable guarantee: Equal accepted inputs produce identical UTF-8 bytes and length-prefixed
   identities across supported hosts; invalid durable input fails before serialization or activation.
-- Proof: Runtime-owner vectors cover ASCII, 2-byte, 3-byte, and 4-byte characters, 256/257-byte
-  authored-name boundaries, lone surrogates, exact composed/decomposed spelling, and the declared
-  Node/Bun/Deno/browser host matrix under `PROOF-001`, `PROOF-010`, and `PROOF-014`.
+- Proof: The Node owner suite covers ASCII, 2-byte, 3-byte, and 4-byte characters, 256/257-byte
+  authored-name boundaries, lone surrogates, and exact composed/decomposed spelling. Compact portability
+  receipts execute the shared codec under the declared Bun/Deno/browser hosts for `PROOF-001`, `PROOF-010`,
+  and `PROOF-014`; they do not repeat the complete owner vector matrix.
 - Trace: GLO-01, WIRE-007/WIRE-008, WIRE-014–WIRE-020, and the declared package host matrix.
 
 ### Rule card — recursive module layout
@@ -182,6 +186,9 @@ This workflow preserves the wording, semantics, and IDs already transferred into
 - One executable test may satisfy multiple proof IDs when it exercises the same invariant through the same
   production owner; record every satisfied ID in external Bead or reviewer metadata instead of duplicating
   the vector.
+- Packed consumers, examples, browser tests, Stories, and installed-CLI tests prove public reachability and
+  host integration. They repeat an owner's semantic matrix only when that integration adds a distinct failure,
+  race, cleanup, or wire boundary.
 - Accepts: Tests prioritizing ownership, ordering, atomicity, cleanup, failure, interruption, hostile input at
   untrusted wire/artifact boundaries, ordinary malformed input at the caller-controlled definition-authoring
   boundary, exact typing, and deleted behavior; production Runtime for runtime proof; TestClock or Flow

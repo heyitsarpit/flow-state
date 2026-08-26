@@ -261,42 +261,46 @@ Terminal transaction state restores only through the accepted production operati
 collection and retained-value behavior follow `PUBLIC_API.md` API-006; this contract chooses no restored
 idle countdown or new `gcTime` default.
 
-## Artifact path, bounds, history, and Cause
+## Artifact path, bounds, history, and diagnostics
 
     type NonNegative = number; // accepted only when Number.isSafeInteger(value) && value >= 0
-    type CauseProjection = {
-      reasons: readonly (
-        | { _tag: "Fail"; error: CanonicalCarrier }
-        | { _tag: "Die"; defect: CanonicalCarrier | { _tag: "Error"; name: string; message: string } }
-        | { _tag: "Interrupt"; fiberOrdinal: NonNegative }
-      )[];
+    type DiagnosticProjection = {
+      classification: "Failure" | "Defect" | "Interruption";
+      code: DiagnosticCode;
+      path: FlowPath;
+      details: CanonicalCarrier;
+      summary: string | null;
     };
 
 ### Rule card — WIRE-014, WIRE-015, WIRE-016
 
 - Surface: Persistence/artifact validation and failure categories.
 - Rule: Restoration and artifact import/export share one Flow-owned structural validation and encoding
-  path and produce the same package-private v2 decoded model. Flow validates versions, identities,
-  descriptors, tokens, revisions, and bounds; the application codec validates opaque values before
-  runtime construction. DiagnosticCode is closed and failures retain structural, bound, identity,
-  decompression, external-input, application, cleanup, interruption, I/O, or invariant ownership.
+  path and produce the same package-private v2 decoded model. Public bytes pass through strict UTF-8,
+  at most one supported compression member, decompressed-byte limits, JSON parsing, and one package-private
+  Effect Schema decoder into fresh package-owned canonical data. Flow validates versions, identities,
+  descriptors, tokens, revisions, and bounds; the application codec validates opaque values before runtime
+  construction. DiagnosticCode is closed and failures retain structural, bound, identity, decompression,
+  external-input, application, cleanup, interruption, I/O, or invariant ownership.
 - Accepts: Stable-key UTF-8 JSON or exactly one gzip member; bounded canonical carriers; non-negative
   safe integer revisions, generations, sequences, timestamps, and counts; strict UTF-8 without lone
   surrogates.
 - Canonical encoding and byte ordering use the shared portable `TextEncoder` boundary and reject
   lone surrogates before encoding; this is a runtime codec obligation, not a compile-time UTF-8 type
   calculation.
-- Rejects: raw parser failures escaping Flow, unsupported prototypes, accessors, symbol keys, sparse
-  arrays, cycles, reserved prototype keys, throwing proxies, negative zero in serialized artifact carriers,
-  non-finite numbers,
-  duplicate keys, concatenated gzip members, trailing bytes, and any envelope exceeding:
+- Rejects: raw parser failures escaping Flow, malformed or cyclic decoded data, negative zero in serialized
+  artifact carriers, non-finite numbers, duplicate keys when the parser can detect them, concatenated gzip
+  members, trailing bytes, and any envelope exceeding:
   depth 32 (root zero), 10,000 visited nodes, array length 4,096, one string/key 262,144 UTF-8 bytes,
   or 2,097,152 decompressed/canonical bytes. A boot counter at MAX_SAFE_INTEGER is invalid because
   terminal-publication and runtime-cleanup credits must remain available.
 - Observable guarantee: A bound diagnostic reports its limit and path separately from version, identity,
   decompression, and application validation. No failure becomes undefined or a generic corrupt-artifact
-  result. Raw Effect Cause never enters a carrier.
-- Proof: Hostile carrier, gzip, duplicate-key, bound, application-codec, and cause-projection tests.
+  result. Raw Effect Cause never enters a carrier. Behavior of proxies, getters, custom prototypes,
+  descriptors, symbol properties, sparse arrays, or concurrent mutation supplied directly to private
+  decoder functions is unspecified.
+- Proof: Public byte-path UTF-8, gzip, detectable duplicate-key, bound, Schema, application-codec, and
+  diagnostic-projection tests.
 - Trace: WIRE-014, WIRE-015, WIRE-016.
 
 Internal restoration and artifact import/export use one Flow-owned validation and encoding path. Artifact
@@ -312,13 +316,14 @@ decompression, and application-domain failures.
 ### Rule card — WIRE-017, WIRE-018, WIRE-019, WIRE-020
 
 - Surface: Committed runtime evidence, bounded inspection, and export.
-- Rule: One immutable TurnRecord is accepted after actor publication and before acknowledgement and
-  StoreFanout release, using one runtime-global sequence behind a release gate. The global commit permit
-  and next sequence reservation are acquired before StoreState mutation; publication/capture, TurnRecord
-  acceptance, acknowledgement, gate opening, and StoreFanout release then occur in that order. Lifecycle records are
+- Rule: Every successful turn exposes one atomic committed actor/store cut. Accepted evidence uses one
+  runtime-global sequence, corresponds only to committed cuts, and is globally ordered. Story
+  acknowledgement completes after actor/store publication and evidence acceptance without waiting for user
+  Effects. StoreFanout preserves causal order with the initiating publication. Lifecycle records are
   inspection evidence, not machine turns. Inspection buffering is explicit, bounded, and attach-once;
-  capacity defaults to 256 and zero retains no records but preserves truncation. Runtime observation is
-  not persistence; only explicit export makes records durable.
+  public caller-supplied capacity is honored exactly, the default remains 256, and zero retains no records
+  while preserving truncation. Runtime observation is not persistence; only explicit export makes records
+  durable. Permit, reservation, queue, gate, attachment, and drain algorithms are implementation details.
 - Accepts: Frozen inspection-sink snapshots with records and `truncatedBeforeSequence`; attachment drain/dispose
   ordered through the accepted prefix; changed refs as revision-local hints; late attachment markers set
   to the greatest unseen runtime-global sequence.
@@ -326,15 +331,14 @@ decompression, and application-domain failures.
   mixed-runtime attachment, actor-owned retention, persisted inspection buffers, or treating a skipped
   revision-local hint as a complete historical diff.
 - Observable guarantee: Inspection-buffer snapshots expose `truncatedBeforeSequence` as the greatest
-  dropped or explicitly cleared runtime-global sequence; this WIRE-018 inspection marker is not the
-  WIRE-020B `TraceArtifact` marker. Clear does not reset sequence. Sink failure cannot roll back runtime
-  state and is isolated to that attachment. `clear()` advances only through the retained tail; accepted
-  queued records may arrive afterward. Attachment uses one CAS, attaches once, and drains only its accepted
-  prefix before detaching. Disposal drains accepted evidence before detaching. A fresh snapshot starts at
+  omitted or explicitly cleared runtime-global sequence. Clear does not reset sequence. Sink failure cannot
+  roll back runtime state and is isolated to that attachment. `clear()` advances only through the retained
+  tail; accepted queued records may arrive afterward. One sink attaches once and drain/disposal wait through
+  their accepted prefixes before detaching. A fresh snapshot starts at
   publication revision zero; hydration restores persisted publication and machine-turn revisions.
   actor:start, actor:restore, actor:suspend, actor:resume, and actor:dispose are lifecycle evidence only,
   never machine revisions or TurnRecords. The exact sink surface is snapshot() plus clear(); one sink
-  attaches once to one Runtime. After the release gate opens, receipt, inspection, trace, CLI, and optional
+  attaches once to one Runtime. After the commit is accepted, receipt, inspection, trace, CLI, and optional
   artifact sinks may process the record; sink processing or failure never delays StoreFanout or mutates
   committed state. The buffer surface is exactly `snapshot(): { records: readonly InspectionRecord[];
   truncatedBeforeSequence: number | null }` and `clear(): void`; a pre-attachment snapshot is empty with a
@@ -343,15 +347,13 @@ decompression, and application-domain failures.
   failure is isolated to that attachment. Actor admission and ordinary commits preflight the changing
   actor, store, and sequence reserves required by the cleanup contract. Runtime disposal preserves
   reverse-dependency cleanup ordering and never manufactures a terminal actor-disposal turn.
-- Truncation boundary: Inspection-buffer and trace-artifact truncation markers are different surfaces and
-  are not interchangeable. `TraceArtifact.truncatedBeforeSequence` is null exactly when the trace contains
-  the complete retained prefix; otherwise it is the first omitted runtime-global sequence. An export MUST
-  derive the trace marker from the first sequence omitted by the trace's retained prefix rather than copy
-  the inspection marker or apply a fixed increment/decrement; the contract defines no arithmetic conversion
-  between the two fields. A WIRE-020B decoder MUST interpret its field using the first-omitted rule and
-  reject a marker inconsistent with the trace's retained prefix.
-- Proof: Publication ordering, lifecycle/turn distinction, capacity/truncation, late attachment,
-  sink failure, drain, and explicit-export tests.
+- Truncation boundary: Inspection buffers and trace artifacts use the same convention.
+  `truncatedBeforeSequence` is null exactly when no accepted evidence was omitted; otherwise it is the
+  greatest omitted runtime-global sequence. `trace proof` rejects every non-null marker. A WIRE-020B decoder
+  rejects a marker inconsistent with the retained records.
+- Proof: Atomic-cut ordering, lifecycle/turn distinction, caller-supplied capacity and truncation, late
+  attachment, sink failure, drain, and explicit-export tests. Tests do not assert private CAS, queue, gate,
+  or drain choreography.
 - Trace: WIRE-017, WIRE-018, WIRE-019, WIRE-020.
 
 TurnRecords become durable only when a caller explicitly exports records from a configured sink. Ordinary
@@ -364,11 +366,11 @@ an incomplete latest hint into a historical diff.
 
 ### Rule card — WIRE-020A, WIRE-020B
 
-- Surface: BehaviorArtifact, TraceArtifact, Story evidence, Cause projection, and CliResult; the complete
+- Surface: BehaviorArtifact, TraceArtifact, Story evidence, stable diagnostic projection, and CliResult; the complete
   nested wire model is defined by this contract. `ARTIFACT_WIRE.md` is a pointer only.
 - Rule: Behavior and trace artifacts use one exact package-private schema. Canonical JSON sorts object
   keys by UTF-8 bytes, sorts ID-indexed declaration arrays and requirement lists by the same comparator,
-  preserves authored child/event/checkpoint/record/Cause/fact order, uses JSON.stringify finite numbers,
+  preserves authored child/event/checkpoint/record/diagnostic/fact order, uses JSON.stringify finite numbers,
   performs no Unicode normalization, and adds exactly one trailing newline only at the file boundary.
   The shared decoded model is the only handoff to Story and CLI; text, JSON, and file publication are
   projections, not schemas. `CLI.md` `CLI-008` owns deterministic text/JSON formatting and this contract
@@ -491,7 +493,9 @@ facts match but either trace is truncated; trace.summarize uses completed or inc
 requires complete evidence. Story-run execution, cancellation, cleanup, and trace-write failures use
 CliError with partial Story failure primary and ordered secondary diagnostics. Only in-process
 FlowDisposeError and FlowStoryExecutionError retain complete Effect Cause.Cause<unknown>; serialized
-Cause is the ordered CauseProjection above, preserving Effect v4 traversal order and multiplicity.
+evidence contains ordered `DiagnosticProjection` values and does not mirror Effect Cause tree shape,
+traversal order, or fiber ordinals. Full Cause remains internal until classification and cleanup aggregation
+complete. Independently actionable cleanup diagnostics preserve order and multiplicity.
 FlowStoryExecutionError carries one deeply frozen package-owned envelope with completed checkpoints,
 optional end, failure boundary, primary diagnostic, ordered cleanup diagnostics, cancellation evidence,
 accepted/drained evidence-sequence facts, and the complete public Cause. A cleanup failure retains end

@@ -168,8 +168,9 @@ const signedOutStory = story
   without another command or future time. It does not advance time or invent results. Clock commands move
   the injected TestClock only and never call process implicitly. checkpoint captures immediately. run
   creates a fresh Runtime, executes the plan, and owns cancellation/finalization. Every committed turn
-  obtains the global commit permit and reserves its sequence before StoreState mutation; the DehydrateBarrier
-  captures only after publication and before the acknowledgement/release boundary required by WIRE-017.
+  publishes one atomic actor/store cut with its accepted evidence before acknowledgement. The
+  DehydrateBarrier captures only committed published state and its accepted evidence prefix, as required
+  by WIRE-017; its private locking and sequencing choreography is not a proof surface.
 - Accepts: Continuing streams, pending external calls, future TestClock deadlines, and unknown finite
   work visible to process; maxTurns as the bound for repeated unknown finite work.
 - Rejects: implicit time movement, invented external results, silent maxTurns exhaustion, commands after

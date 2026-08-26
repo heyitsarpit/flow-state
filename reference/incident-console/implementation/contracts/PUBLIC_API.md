@@ -134,7 +134,7 @@ type PublicRootNames =
 
 - Ordinary handles expose exact `ActorRef` but no disposal; owner lease is a separate construction result.
 - Raw Cause is not in snapshots, passive selectors, serialized artifacts, or CLI; those use the
-  package-owned diagnostic/`CauseProjection` shape.
+  package-owned serialized-diagnostic shape.
 
 ### Accepts
 
@@ -185,7 +185,7 @@ class FlowUsageError extends Error {
 ### Rule
 
 - Usage/admission failures use this shape. `FlowPersistenceError` owns storage, codec, identity, and
-  restoration failures. Serialized diagnostics use private ordered `CauseProjection`.
+  restoration failures. Serialized diagnostics use private ordered stable Flow diagnostic projections.
 
 ### Accepts
 
@@ -222,8 +222,12 @@ Status: vNext additive amendment; API-002A remains the exact machine-readable er
   message-stability guarantee that would make prose a second API.
 - Observable guarantee: Every usage/admission failure gives a consumer both a stable diagnostic code and
   a practical human remediation path.
-- Proof: `AMEND-P03` exhaustive code/message/documentation proof.
+- Proof: `AMEND-P03` exhaustive code/documentation-row proof plus representative actionable-message tests.
+  Exact prose and whitespace are not compatibility assertions.
 - Trace: vNext additive amendment; API-002A remains the transferred shape authority.
+
+The human-message cells below are maintained examples, not required string literals. `_tag`, `code`, `path`,
+and structured `details` remain the machine-readable compatibility surface.
 
 | Code | Failure meaning | Example path/details | Human message | Corrective action |
 | --- | --- | --- | --- | --- |

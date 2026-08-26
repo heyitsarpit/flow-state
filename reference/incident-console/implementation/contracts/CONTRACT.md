@@ -14,6 +14,10 @@ promote this document. This proposal MUST NOT add an API, behavior, default, exc
 obligation. Where an active contract supplies only a name or behavior, this proposal records that limitation instead
 of fabricating a signature or example.
 
+`DEFERRED.md` is the non-normative record of guarantees deliberately removed or relaxed during simplification.
+It does not remove any public route or feature family listed here, create future work, or override the retained
+normative behavior in the active contract files.
+
 Examples are source-faithful. Undeclared names represent definitions, services, refs, implementations, or fixtures
 specified by their owning active contract; their appearance adds no overload or public route.
 
@@ -547,7 +551,7 @@ Lifecycle is exactly prepared | active | suspended | disposed:
 
 | Lifecycle | Commands | Attachments |
 | --- | --- | --- |
-| prepared | Buffer up to 64 | Become live on activation |
+| prepared | Buffer at least 64; exact internal bound is implementation-defined | Become live on activation |
 | active | Admit | Remain live |
 | suspended | Reject without buffering | Release live attachments and retain continuity |
 | disposed | Reject | Terminal snapshot/replay and completion |
@@ -635,6 +639,10 @@ identity/versions/bounds, and context closure before activation or handle escape
 consumers, installs derived context silently, seals the graph, activates actors, and exposes handles last. One
 production Runtime owns provider graph, scopes, fibers, activities, finalizers, readiness, cleanup, canonical
 StoreState, and runtime-global evidence. Stories, React, SSR, requests, live hosts, and CLI use these same owners.
+The implementation may choose its private phases, Effect runtime composition, cells, queues, and shell layout;
+those choices are not compatibility surfaces provided construction remains inert, readiness starts at most once and
+caches its terminal Exit, no usable handle escapes early, and failure/interruption/disposal release every acquired
+owner exactly once without partial graph or evidence.
 
 ## 6. React route and host integration
 
@@ -803,10 +811,22 @@ explicit bounded sink; capacity defaults to 256 and zero retains no records whil
 surface is snapshot(): { records: readonly InspectionRecord[]; truncatedBeforeSequence: number | null } and
 clear(): void. Sink failure detaches only that sink and never delays acknowledgment, StoreFanout, or committed truth.
 
+Inspection and trace use one truncation convention: `truncatedBeforeSequence` is null exactly when no accepted
+record was omitted and otherwise is the greatest omitted runtime-global sequence. `trace proof` requires a null
+marker. Internal attachment, retention, and drain algorithms are not compatibility surfaces.
+
 importTraceArtifact(bytes) accepts one defensive Uint8Array WIRE-020B trace and returns the private validated model.
 exportTraceArtifact(trace, options?) returns Uint8Array. The active contract specifies no complete signatures for
 compressTraceArtifact or decompressTraceArtifact. Artifact import/export MUST validate the bounded v2 model and
 MUST NOT expose private TurnRecords, ownership, raw Cause, persistence, boot, replay, or a CLI-only decoder.
+
+Public persistence and artifact bytes pass through strict UTF-8, one supported compression member, decompressed
+byte limits, JSON parsing, and one package-private Effect Schema decoder into fresh package-owned canonical data.
+Malformed, unsupported, cyclic, or over-bound public input fails before runtime mutation with stable diagnostic
+category and available path/bound data. Behavior of proxies, getters, custom prototypes, descriptors, symbol
+properties, sparse arrays, or concurrent mutation supplied directly to private decoder functions is unspecified.
+Serialized evidence contains ordered stable Flow diagnostics rather than an Effect Cause tree projection; full
+Cause remains available only at the two documented in-process error boundaries.
 
 PERSISTENCE_AND_ARTIFACTS.md WIRE-020A/B/C is the sole artifact schema authority. Raw WIRE-020B is canonical
 stable-key UTF-8 JSON, bounded, byte-stable v2 evidence with exactly one trailing newline. WIRE-020C is export-only
@@ -1230,10 +1250,10 @@ legacy Story/scenario flags, and overwrite without an output target are usage fa
 
 Gateway loading is trusted local TypeScript, not a sandbox. The project root MUST contain its exact `package.json`;
 the gateway MUST be an existing regular `.ts` or `.mts` file remaining under the root after symlink resolution.
-Computed dynamic imports, non-literal `require`, undeclared transitive bare imports, Flow/Effect package identity
-mismatch, structural gateway lookalikes, and mixed/foreign app content MUST reject before registry access or Story
-execution. Temporary bundle files MUST be outside the project and removed after success, failure, or interruption.
-Artifact-only commands MUST NOT load application code.
+Loading uses normal host or bundler module resolution. Flow/Effect package identity mismatch, structural gateway
+lookalikes, and mixed/foreign app content MUST reject before registry access or Story execution. Temporary bundle
+files MUST be outside the project and removed after success, failure, or interruption. Artifact-only commands MUST
+NOT load application code.
 
 ### Artifact publication, output, signals, and exit status
 
@@ -1251,8 +1271,10 @@ interruption preserves the previous/absent destination; post-commit artifacts ar
 Each leaf creates one immutable private `flow-state/cli-result.v2` result. Text and JSON derive from that same result;
 the exact `CliCommand` union and result schema are private and MUST NOT become public `FlowCli*` types. Success or
 comparison writes one newline-terminated document to stdout and nothing to stderr. Failure writes one document to
-stderr and nothing to stdout. Each stream is one complete buffer attempted with one write; EPIPE exits 2 without
-recursive output.
+stderr and nothing to stdout. JSON is the stable machine-readable projection. Text MUST be deterministic within one
+invocation, readable, actionable, newline-terminated, and free of ANSI when non-interactive; its exact prose,
+whitespace, and human-field order may evolve. Each stream is one complete buffer attempted with one write; EPIPE
+exits 2 without recursive output.
 
 Exit status is exact:
 
@@ -1274,6 +1296,11 @@ exists for SIGKILL or host loss.
 This is a proposal checklist, not a proof receipt. Every item remains unchecked until its named executable proof and
 the required focused/broad gates have run against an implementation. Source review, typechecking, generated output,
 or `git diff --check` alone MUST NOT mark an item complete.
+
+Each normative invariant has one executable production-owner proof. Packed consumers, examples, browser tests,
+Stories, and installed-CLI tests prove reachability and integration and do not repeat that owner's complete negative,
+race, codec, or boundary matrix unless the integration adds a distinct failure mode. Final verification aggregates
+the required receipts; it does not create a second semantic proof owner.
 
 ### Types, compilation, and runtime ownership
 
@@ -1297,7 +1324,7 @@ or `git diff --check` alone MUST NOT mark an item complete.
 - [ ] `PROOF-006`: one Runtime-scoped canonical StoreState, passive reads, continuing ownership, cancellation,
   invalidation/clear, StoreFanout, and no hidden work from reads.
 - [ ] `PROOF-007`: event-owned finite action batches, transaction policies, stream settlement/projection, writes,
-  occurrence settlement, interruption, and Cause projection.
+  occurrence settlement, interruption, and stable serialized diagnostics after in-process Cause classification.
 - [ ] `PROOF-008`: fresh Story Implementations/fixtures/seeds, inert recipes, provider graphs, leases, reverse cleanup,
   and app/focused execution through production owners.
 - [ ] `PROOF-009`: exact Story commands, `process`, TestClock movement, maxTurns, timers, cancellation, finalization,

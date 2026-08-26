@@ -55,7 +55,7 @@ the obligation open when it does not.
 | `REV-OPS-017` | Exact resource/transaction/stream unions narrow with typed `K`; retained values, post-boundary `unknown`, stream latest/count/generation, passive cross-actor reads, and duplicate-live-stream rejection. | `PROOF-001`, `PROOF-005`, `PROOF-014` |
 | `REV-OPS-018` | Bounded invalidation/clear: target validation, stable expansion/deduplication, 256-identity bound, missing/zero-match no-op, one revision, active-work fencing, no direct lookup. | `PROOF-006`, `PROOF-007` |
 | `REV-HOST-008` | Construction-owned seeding/trusted host writes: seed validation and duplicate rejection, capability provenance/revocation, StoreKernel fencing/fanout, no occurrence or public writer. | `PROOF-005`, `PROOF-006`, `PROOF-014` |
-| `REV-MIG-005` | V2 artifact/CLI and public error Cause: bounded round-trip, ordered CauseProjection, Story/CLI parity, exact result envelope, Cause preservation, atomic publication, legacy-shape rejection. | `PROOF-001`, `PROOF-008`, `PROOF-010`, `PROOF-014`, `PROOF-017`, `CLI-P01`, `CLI-P02` |
+| `REV-MIG-005` | V2 artifact/CLI and public error truth: bounded round-trip, ordered stable diagnostics, Story/CLI parity, exact result envelope, in-process Cause preservation, atomic publication, legacy-shape rejection. | `PROOF-001`, `PROOF-008`, `PROOF-010`, `PROOF-014`, `PROOF-017`, `CLI-P01`, `CLI-P02` |
 | `REV-MIG-006` | Child-capability removal: compile/runtime single-actor recursive states, explicit-actor replacement, persistence/artifact/CLI absence. | `PROOF-001`, `PROOF-002`, `PROOF-003`, `PROOF-011`, `PROOF-014`, `PROOF-015`, `PROOF-017` |
 
 ## Proof family: types, composition, and admission
@@ -315,16 +315,17 @@ run.end
   runtime-string lookup checks own-key membership and rejects unknown names with existing `FlowUsageError`
   semantics.
 - Accepts: `actor(...)` lookup for app checkpoints; single actor machine checkpoint; completed checkpoints on
-  failure; typed failure-boundary and cleanup evidence; one `DehydrateBarrier` cut after Store commit permit;
+  failure; typed failure-boundary and cleanup evidence; one `DehydrateBarrier` cut over committed published state;
   complete static Story-plan closure; evidence-sequence fence; deep freeze before lease release; pre-cleanup
   `run.end`; deterministic cleanup aggregation; package-private lookup of a known own key.
-- Rejects: live lookup or external work during capture; successful end evidence after failure; incomplete Cause;
-  alternate artifact/CLI Cause owner; `fork`, `restore`, `fromCheckpoint`, any public dynamic-string checkpoint
+- Rejects: live lookup or external work during capture; successful end evidence after failure; incomplete
+  in-process Cause classification or cleanup truth; alternate artifact/CLI diagnostic owner; `fork`, `restore`, `fromCheckpoint`, any public dynamic-string checkpoint
   getter, inherited-key lookup, unknown internal names without `FlowUsageError`, or a new checkpoint error type.
 - Observable guarantee: only `FlowDisposeError` and `FlowStoryExecutionError` preserve complete
-  `Effect Cause.Cause<unknown>`; WIRE-020B supplies the artifact/CLI CauseProjection.
+  `Effect Cause.Cause<unknown>`; WIRE-020B supplies ordered stable Flow diagnostics rather than Effect Cause
+  tree traversal.
 - Proof: checkpoint/evidence immutability, capture-barrier, sequence-fence, failure, cleanup, and artifact/CLI
-  Cause tests; evidence-only API absence checks; internal known-own-key and unknown/inherited-name rejection.
+  diagnostic projection tests; evidence-only API absence checks; internal known-own-key and unknown/inherited-name rejection.
 - Trace: `REV-MIG-005`, `WIRE-020B`, `REV-TEST-006`–`REV-TEST-010`.
 
 ### PROOF-011 — Pure model and live-host parity
@@ -361,7 +362,8 @@ useView(actor, selector)
   machines distinct; opaque refs excluded from durable output; `useActor` one fresh local actor; lookup-only
   `useActorByRef`; exact `prepared | active | suspended | disposed`; render prepares one final actor with its
   final ref, snapshot, handle, and command-buffering mailbox; commit attaches that actor; imperative
-  `runtime.createActor` immediately attached; passive provisional context recheck; prepared mailbox capacity 64;
+  `runtime.createActor` immediately attached; passive provisional context recheck; prepared mailbox supports at
+  least 64 commands while its exact internal bound remains private;
   suspended provider edges, resource release, state/ref/handle/memory/context/cursors/occurrences/deadlines
   retained; production-kernel resume without replay; one context reconciliation on resume; shared `Object.is`,
   named-record suppression, optional `useShallow`; balanced dependency lease and lifecycle; one tear-free
@@ -389,12 +391,12 @@ useView(actor, selector)
 ### PROOF-013 — Lifecycle and inspection evidence
 
 - Surface: lifecycle snapshots, inspection events/sinks, publication and machine-turn counters, hydration,
-  `LifecycleRecord`, sequence allocation, release gates, truncation, failure isolation, drain, and disposal.
+  `LifecycleRecord`, sequence allocation, accepted evidence, truncation, failure isolation, drain, and disposal.
 - Rule: each lifecycle transition publishes one coherent immutable snapshot through the existing handle before
   its inspection event; lifecycle evidence is not a machine turn.
 - Accepts: start/restore/dispose plus suspend/resume; listener reads observing event `to` lifecycle; private
   publication and machine-turn counters; hydration counter restoration; exact cause tags including restore
-  `prepared -> prepared`; one publication barrier/global sequence allocator; async release gates; per-sink
+  `prepared -> prepared`; one publication barrier/global sequence allocator; causal asynchronous evidence release; per-sink
   truncation/failure isolation; accepted-prefix drain; sequence-exhaustion refusal; runtime disposal drain.
 - Rejects: prepare event; machine revision or `TurnRecord` for lifecycle evidence; second mutable trace/history;
   synthetic terminal `TurnRecord` during disposal.
@@ -437,14 +439,14 @@ CLI-P02
   structural redaction paths, mutation of raw/runtime/persisted truth, or share artifacts used as CLI, import,
   replay, persistence, boot, or evidence-authority input.
 - Observable guarantee: invalid vectors report exact rejection code/category/path/bound; `EvidenceUnavailable`
-  has a non-null truncation marker; artifact/CLI Cause projection is ordered and byte-stable under WIRE-020B;
+  has a non-null truncation marker; artifact/CLI Flow diagnostics are ordered and byte-stable under WIRE-020B;
   WIRE-020C is deterministic privacy-reduced output that cannot be mistaken for raw evidence.
 - Proof: bootstrap, persistence, hydration, codec/storage, write-fencing, artifact round-trip/negative, inspect,
   API-P04 redacted-export production tests, CLI grammar/gateway/execution/formatting, and Story/CLI parity
-  evidence. The shared production codec and stable-ref vectors run with equivalent results under Node >=22.18,
-  Bun, Deno, one supported Chromium, one supported Gecko, and one supported WebKit; the receipt records exact
-  versions. Coverage includes ASCII, 2/3/4-byte UTF-8 boundaries, composed/decomposed spellings, lone
-  surrogates, and exact-limit plus limit-plus-one cases. This is the owner of current `API-P04` and `CLI-P01`.
+  evidence. The full shared production-codec and stable-ref vector suite runs on the pinned Node toolchain.
+  Bun, Deno, and one supported Chromium, Gecko, and WebKit browser execute the same compiled codec against the
+  compact portability fixture defined by `IMPLEMENTATION_WORKFLOW.md`; receipts record exact versions. Host
+  adapters retain focused tests. This is the owner of current `API-P04` and `CLI-P01`.
 - Trace: `REV-OPS-015`, `REV-HOST-008`, `REV-MIG-005`, `WIRE-020B`, `WIRE-020C`, `API-P04`, `CLI-P01`, `DEL-010`.
 
 ### PROOF-015 — Individual actor ownership without child capability
@@ -497,10 +499,10 @@ CLI-P02
   examples, supported overloads, active glossary, or replacement recipes.
 - Observable guarantee: one active authority survives for each live obligation; deleted surfaces fail closed;
   retained boundaries remain available without deleted API names.
-- Proof: runtime export inspection; package typecheck; packed consumers; package tests; example tests; browser
-  tests; broad workspace gate; final mapping and no-consumer audit before `DEL-011` removal/classification. The
-  mapping explicitly covers live routes, peer identity, React compatibility, exact inference, isolation,
-  capacity, hostile input, lifecycle, races, and independent-oracle obligations.
+- Proof: runtime export inspection and packed declaration negatives own removed public surfaces. Feature owners
+  prove only deleted behavior intersecting their changed boundary. One final mapping and no-consumer audit runs
+  before `DEL-011` removal/classification; package, example, browser, and broad workspace gates prove reachability
+  and integration without repeating the complete historical name matrix.
 - Trace: `REV-MIG-003`/`REV-MIG-004`, `DEL-001`–`DEL-011`, `RET-001`–`RET-005`, `CUT-P01`–`CUT-P06`,
   `CLI-P02`.
 
@@ -569,7 +571,9 @@ cutover obligations under `PROOF-016` and `PROOF-017`.
 
 ## Required gate layers
 
-Focused tests establish one mechanism quickly; closure requires the next owning boundary:
+Focused tests establish one mechanism quickly; closure requires the next owning boundary. Each invariant has one
+production-owner semantic proof. Later gates prove public reachability or distinct integration behavior and do not
+repeat that owner's complete negative, race, codec, or historical-absence matrix:
 
 1. Focused proof files for affected `PROOF-*` IDs.
 2. `nub run --filter flow-state check:cli-source-types`.

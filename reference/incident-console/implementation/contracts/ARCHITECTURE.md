@@ -11,7 +11,7 @@ observable turn, snapshot, and host details linked below.
 | Owner | Owns | Must not be duplicated by |
 | --- | --- | --- |
 | `AppPlan` | closed machine/operation graph, IDs, requirements, ownership and reachability | runtime, adapter, Story, CLI |
-| `FlowRuntimeShell` + one `ManagedRuntime` | boot, provider graph, scopes, runtime readiness, cleanup | React, Story, host callback |
+| `FlowRuntimeShell` + private Effect runtime composition | boot, provider graph, scopes, runtime readiness, cleanup | React, Story, host callback |
 | `ActorEngine` | one actor mailbox, actor state, publication, occurrence cursors, activity reconciliation | StoreKernel, React, inspection |
 | `StoreKernel` | one canonical `StoreState`, generations, overlays, revisions | actor-local caches, `RcMap`, adapters |
 | `StoreFanout` | canonical revision delivery to actor mailboxes | direct StoreState subscriptions |
@@ -105,23 +105,28 @@ activation occur at the readiness boundary. `runtime.ready()` is the only public
 - Proof: Fresh/restore and type proofs in `HOST-P01`, `HOST-P04`, `SNAP-P01`.
 - Trace: `SEM-001A`, `SEM-024`, `HOST-002`.
 
-### ARCH-007 — One ManagedRuntime owns the graph
+### ARCH-007 — One coherent runtime owner owns the graph
 
-- Surface: `runtimeSetup(...).construct()`, `FlowRuntimeShell`, Effect `ManagedRuntime`.
-- Rule: Construction creates one shell and exactly one ManagedRuntime. The shell owns only requirement-free non-scoped `Queue` and `SubscriptionRef` cells needed before synchronous return. ManagedRuntime owns Flow's provider graph, optional Implementation, every Scope, fiber, activity, and finalizer.
+- Surface: `runtimeSetup(...).construct()`, `FlowRuntimeShell`, private Effect runtime composition.
+- Rule: Construction returns synchronously without application I/O, acquisition, actors, or external work.
+  One coherent runtime lifetime owns Flow's provider graph, optional Implementation, every Scope, fiber,
+  activity, and finalizer. Private runtime count, shell cells, and primitive choices are implementation details.
 - Accepts: One runtime per execution scope; host-owned Effect runtime for process I/O only when it does not own Flow state/order/lifetimes.
 - Rejects: Competing top-level scopes, custom provider-graph memoization, parallel finalizer registries, or a public zero-argument runtime constructor.
 - Observable guarantee: Every Flow scope has one coherent runtime owner.
 - Proof: Runtime topology and cleanup proofs in `HOST-P01`, `HOST-P05`.
 - Trace: `ARCH-007A`, `ARCH-010`, `ARCH-032`, `HOST-006`.
 
-### ARCH-007A — Runtime phases are private and linearized
+### ARCH-007A — Runtime readiness is private and linearized
 
-- Surface: private runtime phase; public `runtime.ready()`.
-- Rule: The phase is `constructed | booting | ready | failed | disposed`. Booting begins before restoration/acquisition/admission; ready follows graph seal, Implementation availability, and attached-actor activation barriers. No real handle/lease/command escapes before seal and readiness; inert prepared React handles are the sole exception.
-- Accepts: Shell cells in `constructed`; private queues/activation state after seal while Implementation acquires.
-- Rejects: A public phase union, second readiness API, handle escape before seal, or admission after `failed`.
-- Observable guarantee: Boot failure enters `failed` after reverse rollback; disposal during `constructed`/`booting` wins, cancels bootstrap, rolls back, and reaches `disposed`. Phase changes never become machine events.
+- Surface: private runtime readiness state; public `runtime.ready()`.
+- Rule: `runtime.ready()` starts bootstrap at most once and caches its terminal `Exit`. Readiness follows
+  graph seal, Implementation availability, and attached-actor activation barriers. No real
+  handle/lease/command escapes before seal and readiness; inert prepared React handles are the sole exception.
+- Accepts: Any private state representation that linearizes readiness and disposal.
+- Rejects: A public phase union, second readiness API, handle escape before seal, or admission after terminal failure.
+- Observable guarantee: Boot failure completes after reverse rollback; disposal during construction/bootstrap
+  wins, cancels bootstrap, rolls back, and reaches terminal disposal. Private state changes never become machine events.
 - Proof: Phase, rollback, and readiness proofs in `HOST-P01`, `HOST-006`.
 - Trace: `ARCH-008`, `ARCH-009`, `SEM-027`.
 
@@ -145,8 +150,11 @@ activation occur at the readiness boundary. `runtime.ready()` is the only public
 
 ### ARCH-009 — Attached dispatch enters the real mailbox after readiness
 
-- Surface: actor `send`, package-private acknowledged dispatch, actor Queue consumer.
-- Rule: Create one Queue before handle escape; install restored facts and one boot-activation barrier (fresh actors install only the barrier); fork the one consumer through ManagedRuntime; drain restored outcomes and activate desired ownership before the next Queue item. After ready, `send` uses synchronous `Queue.offerUnsafe`; acknowledged dispatch uses `Deferred.makeUnsafe`, the same admission check, `Queue.offerUnsafe`, then awaits the Deferred.
+- Surface: actor `send`, package-private acknowledged dispatch, actor mailbox consumer.
+- Rule: Create one FIFO mailbox before handle escape; install restored facts and one boot-activation barrier
+  (fresh actors install only the barrier); start one runtime-owned consumer; drain restored outcomes and
+  activate desired ownership before the next mailbox item. Public and acknowledged dispatch share one
+  synchronous admission check and mailbox. Queue and acknowledgement primitives are implementation details.
 - Accepts: Acknowledged bootstrap/activation dispatch before readiness; ordinary public commands only after readiness.
 - Rejects: Direct transition execution, a second queue, arbitrary pre-ready host commands, or executing queued commands after acquisition failure.
 - Observable guarantee: FIFO mailbox order and activation-before-early-command order; acquisition failure fails waiters and rolls back.
@@ -170,7 +178,8 @@ restored facts and the activation barrier are installed may the handle escape.
 ### ARCH-011 — Host callbacks reenter managed ownership
 
 - Surface: browser focus/online and non-browser host signals.
-- Rule: Enter through a scoped Effect stream or runtime-owned Queue. Browser listeners use `Effect.acquireRelease`, synchronously offer immutable facts to one internal Queue, and a ManagedRuntime-owned consumer applies policy.
+- Rule: Enter through a scoped Effect stream or runtime-owned ingress. Browser listeners use scoped
+  acquisition, synchronously offer immutable facts to that ingress, and a runtime-owned consumer applies policy.
 - Accepts: Private static/controlled sources for non-browser and Story hosts.
 - Rejects: Callback `Effect.runSync` mutation, public host-signal mutators, or host-owned Flow state.
 - Observable guarantee: Host facts cannot publish reentrantly outside the runtime owner; offline is advisory and never cancels/blocks explicit operation admission.
@@ -179,8 +188,12 @@ restored facts and the activation barrier are installed may the handle escape.
 
 ### ARCH-012 — ActorEngine owns mailbox and snapshot publisher
 
-- Surface: `ActorEngine`, `ActorState`, actor Queue and `SubscriptionRef<ActorState>`.
-- Rule: One actor owns one unbounded Queue, consumer, atomic `SubscriptionRef`, acknowledged Deferreds, pure planner, reconciler, occurrence cursors, private bindings, revisions, and supervised activities. All external facts enter that mailbox. Projection-only facts publish complete snapshots without transition evaluation; mapped events are later ordinary turns. Activity start/release is staged in `CommitPlan` and reconciled after publication, before acknowledgment, except boot activation's nonblocking continuation.
+- Surface: `ActorEngine`, `ActorState`, actor mailbox and atomic snapshot publisher.
+- Rule: One actor owns one FIFO mailbox, consumer, atomic state publisher, acknowledged commands, pure planner,
+  reconciler, occurrence cursors, private bindings, revisions, and supervised activities. Primitive choices and
+  mailbox capacity are private. All external facts enter that mailbox. Projection-only facts publish complete
+  snapshots without transition evaluation; mapped events are later ordinary turns. Activity start/release is
+  reconciled only after the corresponding committed publication.
 - Accepts: Event, callback, timer, stream, transaction, context, store, hydration, and operation facts through the mailbox.
 - Rejects: Independent mutable occurrence/snapshot stores, direct actor invocation by StoreKernel, timer-inferred finite actions, or selectors retained by StoreKernel.
 - Observable guarantee: Public snapshots are passive projections of one atomic owner; owner-overlay reads remain actor-scoped.
@@ -192,12 +205,14 @@ or an acquisition path. Every external callback, timer fact, stream emission, tr
 context wave, and store revision enters this mailbox; asynchronous completions carry exact identity and
 generation back into it.
 
-### ARCH-013 — StoreKernel owns one SubscriptionRef
+### ARCH-013 — StoreKernel owns one atomic StoreState
 
 - Surface: canonical `StoreState`, overlay ledger, commit coordinator.
-- Rule: One `SubscriptionRef<StoreState>` owns bases, lookup generations, ordered overlays, canonical revision, and changed refs. Every mutation/publication uses one `SubscriptionRef.modify`/`modifyEffect`; StoreKernel returns projections/revision and never invokes actors.
+- Rule: One atomic StoreState owner holds bases, lookup generations, ordered overlays, canonical revision, and
+  changed refs. Every mutation/publication passes through that owner; the concrete Effect primitive is private.
+  StoreKernel returns projections/revision and never invokes actors.
 - Accepts: Actor-scoped overlays carrying initiating incarnation, occurrence, descriptor, and canonical `K`.
-- Rejects: `SynchronizedRef + PubSub` split, actor-private canonical caches, or shared truth in overlays.
+- Rejects: competing canonical stores, actor-private canonical caches, or shared truth in overlays.
 - Observable guarantee: Canonical data is shared only within one runtime; overlay promotion/rollback is atomic and explicit.
 - Proof: `SEM-008`–`SEM-017`, `SNAP-004`.
 - Trace: `ARCH-013A`, `ARCH-013B`, `SEM-016`.
@@ -281,8 +296,10 @@ StoreState and may coalesce only adjacent projection-only facts.
 
 - Surface: private React readiness adapter, prepared `useActor` handle.
 - Rule: React may own one tiny immutable external store for runtime acquisition state only. During render, `useActor` prepares one final opaque local actor with pure initial snapshot, stable handle, real bounded command mailbox, and optional passive provisional context cut; no registry, edge, ownership, subscription, work, or evidence exists until commit attachment.
-- Accepts: One prepared actor per component incarnation; 64 buffered commands; one atomic attachment recheck/activation/drain; keyed-remount diagnostic on machine/runtime/input/binding identity changes.
-- Rejects: React-owned actor engine/state/lease, >64 buffered commands, replacement/reused memory, abandoned-handle registration, or a second `useActorByRef` construction path.
+- Accepts: One prepared actor per component incarnation; a finite buffer supporting at least 64 commands;
+  one atomic attachment recheck/activation/drain; keyed-remount diagnostic on machine/runtime/input/binding identity changes.
+- Rejects: React-owned actor engine/state/lease, overflow beyond the implementation's documented finite bound,
+  replacement/reused memory, abandoned-handle registration, or a second `useActorByRef` construction path.
 - Observable guarantee: Abandonment is inert; cleanup suspends the same actor; runtime/owner remains terminal disposal authority.
 - Proof: `HOST-P02`, `HOST-012`.
 - Trace: `ARCH-019`, `HOST-007`–`HOST-009`.
@@ -322,8 +339,11 @@ buffered commands are never delivered, later commands reject, and the abandoned 
 
 ### ARCH-022 — TurnRecords feed explicit sinks
 
-- Surface: runtime-global evidence hub, TurnRecord, LifecycleRecord, sink release gate.
-- Rule: Reserve the evidence sequence and commit permit before StoreState mutation; hold through actor publication and hub acceptance. Queue immutable records behind a release gate; acknowledge, open the gate, then release StoreFanout. Sinks process asynchronously and never mutate runtime truth.
+- Surface: runtime-global evidence hub, TurnRecord, LifecycleRecord, and accepted sink evidence.
+- Rule: Every successful turn exposes one atomic committed actor/store cut. Accepted evidence corresponds only
+  to committed cuts and is globally ordered. Acknowledgement follows publication and evidence acceptance without
+  waiting for user Effects; StoreFanout preserves causal order with the initiating publication. Sinks process
+  asynchronously and never mutate runtime truth. Permit, reservation, queue, and gate choreography is private.
 - Accepts: Bounded observational sinks; lifecycle records in the same global sequence; sink-local retained-prefix truncation.
 - Rejects: Inline sink invocation, separate mutable histories, post-publication sequence exhaustion, sink overflow blocking/rolling back publication, synthetic terminal TurnRecords.
 - Observable guarantee: Accepted evidence is ordered, lifecycle snapshots precede their events, disposal drains the accepted prefix after terminal lifecycle records.
@@ -340,12 +360,16 @@ buffered commands are never delivered, later commands reject, and the abandoned 
 - Proof: `SEM-022`, `HOST-P01`.
 - Trace: `ARCH-032`, `SEM-017A`.
 
-### ARCH-024 — RuntimeShell bootstraps service-free cells synchronously
+### ARCH-024 — RuntimeShell construction stays inert
 
-- Surface: shell-only `Queue.make`, `SubscriptionRef.make`, `Deferred.makeUnsafe`, `Queue.offerUnsafe`.
-- Rule: The shell may use `Effect.runSync` only once for requirement-free construction and shell terminalization. ManagedRuntime owns all consumers/effectful execution; host callbacks never use synchronous Effects to mutate actor state.
-- Accepts: Shell compare-and-set terminal state, buffered Deferred settlement, terminal SubscriptionRef/PubSub publication, queue drain/shutdown before readiness when ManagedRuntime cannot start.
-- Rejects: General synchronous Effect execution, user callbacks, or post-ready shell mutation.
+- Surface: package-private synchronous runtime shell construction and terminalization.
+- Rule: Construction and pre-readiness terminalization may use requirement-free synchronous primitives.
+  Runtime-owned asynchronous execution owns consumers and effectful work; host callbacks never use synchronous
+  Effects to mutate actor state. Primitive types and the number of synchronous runner calls are implementation details.
+- Accepts: Atomic terminal state, acknowledged-command settlement, terminal publication, and queue drain/shutdown
+  before readiness when asynchronous execution cannot start.
+- Rejects: User callbacks or application effects during construction, host-callback mutation of actor state,
+  or competing shell/runtime state owners.
 - Observable guarantee: Pre-readiness failure/disposal settles exactly once; ordinary ready cleanup remains managed.
 - Proof: `HOST-P05`, `ARCH-025`.
 - Trace: `ARCH-007`, `ARCH-009`, `SEM-004`.
@@ -362,10 +386,10 @@ buffered commands are never delivered, later commands reject, and the abandoned 
 
 ### ARCH-025 — Queue shutdown follows acknowledgment settlement
 
-- Surface: runtime disposal and actor Queue shutdown.
-- Rule: Disposal begins with an out-of-band shell CAS, closes admission, races readiness, interrupts/awaits consumers, fails current and drained acknowledged commands, then shuts queues. Before queue shutdown it stops evidence admission, opens accepted release gates, drains bounded sinks, and closes ManagedRuntime/queues.
+- Surface: runtime disposal and actor mailbox shutdown.
+- Rule: Disposal atomically closes admission, races readiness, interrupts/awaits consumers, fails current and drained acknowledged commands, then shuts mailboxes. Before mailbox shutdown it stops evidence admission, releases accepted evidence, drains bounded sinks, and closes the runtime owner and mailboxes. The private atomic primitive and shutdown choreography are implementation details.
 - Accepts: Disposal even while Implementation acquisition never completes.
-- Rejects: Queue-command disposal, dropped Deferreds, or synthetic terminal TurnRecords.
+- Rejects: mailbox-command disposal, dropped acknowledgements, or synthetic terminal TurnRecords.
 - Observable guarantee: No buffered acknowledgment is silently lost and no accepted evidence remains undrained at close.
 - Proof: `HOST-P05`.
 - Trace: `ARCH-022`, `ARCH-024`, `SEM-024`, `SEM-028`.
@@ -374,7 +398,7 @@ buffered commands are never delivered, later commands reject, and the abandoned 
 
 - Surface: operation and cleanup fibers; host error boundaries.
 - Rule: Retain `Exit` and full `Cause` through classification with `Effect.exit`/`Effect.onExit`. Use `FlowDisposeError` and `FlowStoryExecutionError` for complete Cause preservation; squash only at an intentionally lossy JS throw/rejection boundary.
-- Accepts: Ordered private `CauseProjection` in TurnRecords/artifacts.
+- Accepts: Ordered private stable Flow diagnostic projections in TurnRecords/artifacts.
 - Rejects: `Effect.result` as complete classification, `Cause.squash` as internal truth, or Cause in public actor snapshots.
 - Observable guarantee: Defect, typed failure, and interruption remain distinguishable.
 - Proof: `SEM-023`, `HOST-015`, `SNAP-006`.
@@ -448,7 +472,7 @@ replaced on a later restored incarnation. Public operation unions and transactio
 ### ARCH-028 — Recommended Effect v4 composition is non-normative
 
 - Surface: implementation guidance only.
-- Rule: Prefer package-private `Context.Service`/`Layer` composition through one ManagedRuntime; plain TypeScript for definitions, AppPlan, identity, and plans; `Result.try`/`Match`, `Effect.suspend`, `Stream.suspend`, one Queue + `SubscriptionRef` per actor, FiberMap/FiberSet/keyed Queue by policy, one duration normalizer, one Cause module, and one Schema owner. Use package-private Flow wrappers only where a normative ownership, ordering, or fencing law is not directly represented by the selected Effect primitive. Acquire Store commit permit before DehydrateBarrier; never invert that order.
+- Rule: Prefer package-private `Context.Service`/`Layer` composition under one coherent runtime owner; plain TypeScript for definitions, AppPlan, identity, and plans; `Result.try`/`Match`, `Effect.suspend`, `Stream.suspend`, appropriate Effect concurrency primitives, one duration normalizer, one Cause module, and one Schema owner. Use package-private Flow wrappers only where a normative ownership, ordering, or fencing law is not directly represented by the selected Effect primitive. Choose private commit/capture choreography that proves the atomic published cut directly.
 - Accepts: Equivalent implementations that satisfy every normative law and proof.
 - Rejects: Treating primitive choice as contract, independent Clock sleeps as proof of equal-deadline order, `Cause.combine` where ordered multiplicity matters, or `Cause.squash` before a host boundary.
 - Observable guarantee: Primitive substitutions do not change ownership, ordering, fencing, or failure truth.

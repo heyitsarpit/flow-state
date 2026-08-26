@@ -20,6 +20,10 @@ is now the normative owner for every old surface that the accepted revisions rem
 clause MUST NOT leave an affected old surface without a disposition; it MUST defer to the applicable
 `DEL-*` entry in that contract.
 
+[`../contracts/DEFERRED.md`](../contracts/DEFERRED.md) is the non-normative register for implementation and
+proof guarantees deliberately removed or relaxed after integration. It preserves the public feature inventory,
+does not promise later work, and has no authority over the retained normative clauses.
+
 This specification does not reopen design work. It may restate, organize, and connect already accepted
 decisions, but it must not add a public API, behavior, default, exception, or proof obligation that the
 source material did not decide. Rejected, superseded, and deliberately deferred directions are recorded

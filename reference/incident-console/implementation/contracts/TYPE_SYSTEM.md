@@ -1027,7 +1027,8 @@ the structural name closure required by the public API.
 Compile fixtures using `@ts-expect-error` MUST prove rejection of:
 
 - unknown states, compound nodes, events, targets, payloads, memory fields, timer targets, non-direct
-  defaults, depth eleven, ambiguous ancestor/descendant handlers, Boolean reentry, and timer actions;
+  defaults, ambiguous ancestor/descendant handlers, Boolean reentry, and timer actions; depth eleven remains
+  a synchronous runtime construction rejection rather than type-level recursive arithmetic;
 - a type-only memory marker, separate initialMemory, or a memory property returned from machine behavior;
 - implicit input classification, an authored input for a void machine, and automatic-root admission;
 - inconsistent resource P/K callbacks, noncanonical key inputs, resource refs, custom equality/hash, and
@@ -1056,15 +1057,15 @@ Compile fixtures using `@ts-expect-error` MUST prove rejection of:
 
 ### TYPE-P03 — Acyclic carrier and inference-cost proof
 
-Phase 1 MUST compile an isolated private-vNext consumer with at least 25 named module-root machines, 100
-total resource/transaction/stream descriptors, cross-module shared descriptors, exact actor-bound passive
-views, and strict and isolated-declarations modes. The proof MUST assert exact RequirementsOf<App> and
-declaration emit, run `tsc --extendedDiagnostics`, and record a baseline tied to the checked-in TypeScript
-version. Instantiation count MUST remain within 10% of the approved baseline, and a paired fixture that
-doubles only unrelated roots MUST remain below 2.25 times the smaller fixture. Peak memory is trend evidence
-only. A negative fixture MUST reject recursive carrier expansion without an excessive-instantiation error.
-The approved baseline MUST NOT include type-level UTF-8 encoders, exhaustive Unicode code-unit unions, or
-encoded-byte tuple counters. Runtime `GLO-01` validation is outside this inference-cost proof.
+Phase 1 MUST compile representative small and medium isolated consumers covering every public inference family,
+cross-module shared descriptors, exact actor-bound passive views, strict mode, and isolated declarations. The
+proof MUST assert exact RequirementsOf<App> and declaration emit, run `tsc --extendedDiagnostics`, and record a
+baseline tied to the checked-in TypeScript version. The medium fixture fails on a material regression against its
+checked-in ceiling or any excessive-instantiation/declaration error. Exact fixture cardinality, percentage, and
+growth-ratio arithmetic are proof policy rather than public contract. Peak memory and wall time are trend evidence.
+A negative fixture MUST reject recursive carrier expansion without an excessive-instantiation error. The baseline
+MUST NOT include type-level UTF-8 encoders, exhaustive Unicode code-unit unions, or encoded-byte tuple counters.
+Runtime `GLO-01` validation is outside this inference-cost proof.
 
 ### TYPE-P04 — Production-owner declaration proof
 

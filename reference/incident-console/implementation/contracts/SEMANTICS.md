@@ -10,17 +10,18 @@ fixed in `REACT_AND_HOSTS.md`.
 
 ### SEM-001 — One mailbox orders every actor fact
 
-- Surface: active actor Queue/consumer and prepared React command mailbox.
+- Surface: active actor mailbox/consumer and prepared React command mailbox.
 - Rule: Every accepted event, async completion, store revision, timer, stream emission, context wave, hydration fact, and lifecycle control fact enters the actor mailbox. Lifecycle control is one serialized lane ordered with it, never a second queue. Recursive substates share the actor mailbox, memory, context, operations, and lifetime.
-- Accepts: FIFO reentrant sends; prepared buffering up to 64 commands.
-- Rejects: The 65th prepared command, abandoned handles, suspended/disposed commands, child facts, and any bypass of the publication barrier.
+- Accepts: FIFO reentrant sends; finite prepared buffering supporting at least 64 commands.
+- Rejects: Overflow beyond the documented implementation bound, abandoned handles, suspended/disposed commands, child facts, and any bypass of the publication barrier.
 - Observable guarantee: Accepted facts are processed in mailbox order; abandonment closes the prepared mailbox once, drops buffered commands, and rejects later commands without side effects.
 - Proof: `HOST-P02`, `SEM-007`, `HOST-004`.
 - Trace: `ARCH-009`, `ARCH-012`, `SEM-024`.
 
-An active actor owns one unbounded Effect Queue and one consumer. The prepared React mailbox is the
-real command-buffering mailbox required by `REV-HOST-002`; its 65th command rejects synchronously
-without mutation. Abandonment closes it at one internal linearization point, never delivers buffered
+An active actor owns one FIFO mailbox and one logical consumer. The concrete Effect primitive and
+internal capacity are implementation details. The prepared React mailbox is the real command-buffering
+mailbox required by `REV-HOST-002`; overflow beyond its documented implementation bound rejects
+synchronously without mutation. Abandonment closes it at one internal linearization point, never delivers buffered
 commands, and leaves the handle inert. Recursive substates share the actor mailbox under
 `REV-MACH-001` and `DEL-002`; lifecycle control is one serialized lane, never a second queue.
 
@@ -103,9 +104,14 @@ order.
 ### SEM-004 — Store commit precedes one actor publication
 
 - Surface: actor publication, StoreKernel commit, TurnRecord hub, acknowledgment, StoreFanout.
-- Rule: Acquire the global TurnRecord commit permit and reserve/preflight evidence sequence; submit one atomic store command; materialize issues/TurnRecord; publish one immutable actor snapshot; accept the TurnRecord; enqueue post-commit reconciliation; complete acknowledgment; open sink gate; release StoreFanout. The critical section is non-suspending and uninterruptible across store commit, actor publication, and hub acceptance.
+- Rule: A successful turn exposes one atomic committed actor/store cut. No observer sees an initiating store
+  revision without its corresponding committed actor snapshot. Accepted evidence corresponds only to the
+  committed cut and is globally ordered. Acknowledgement completes after actor/store publication and evidence
+  acceptance without waiting for user Effects. StoreFanout preserves causal order with the initiating
+  publication. Permit, reservation, queue, gate, and reconciliation choreography is implementation-defined.
 - Accepts: Issue-only publication without StoreState mutation; staged work suppressed by disposal after the boundary; autonomous StoreKernel commits without an initiating actor barrier.
-- Rejects: Sequence overflow after mutation, inline sinks, acknowledgment after async work, disposal interrupting a half-published turn, or StoreFanout before acknowledgment.
+- Rejects: Sequence overflow after mutation, inline sinks, acknowledgment after user Effect settlement,
+  disposal interrupting a half-published turn, or StoreFanout exposing stale/half-published truth.
 - Observable guarantee: Normal machine publication advances actor publication and machine-turn revisions; issue-only publication advances only publication revision. `.send()` never waits for user Effects to start/settle.
 - Proof: `SEM-005`, `SEM-006`, `HOST-P05`.
 - Trace: `ARCH-022`, `ARCH-013B`, `SEM-028`.
@@ -123,8 +129,8 @@ order.
 ### SEM-006 — Public send is synchronous; Story acknowledgment is private
 
 - Surface: `actor.send(event): void`; package-private acknowledged dispatch.
-- Rule: Public send admits synchronously and returns `void`; it does not await Implementation, a turn, or async work. Internal/Story dispatch allocates and admits a Deferred synchronously, then resolves after actor publication and TurnRecord acceptance but before sink processing or later work.
-- Accepts: Story `.send` waiting only for that Deferred; contained-defect acknowledgment after issue-only publication/TurnRecord.
+- Rule: Public send admits synchronously and returns `void`; it does not await Implementation, a turn, or async work. Internal/Story dispatch creates one private acknowledgement synchronously, then resolves it after actor publication and TurnRecord acceptance but before sink processing or later work. Its concrete Effect primitive is private.
+- Accepts: Story `.send` waiting only for that acknowledgement; contained-defect acknowledgment after issue-only publication/TurnRecord.
 - Rejects: Promise/Effect/Fiber/snapshot/actor/ack handles from public send, direct transition invocation, unrelated ready-work draining, or acknowledgment of discarded candidate work.
 - Observable guarantee: Command admission is synchronous while Story checkpoints can observe the production publication boundary.
 - Proof: `HOST-P02`, `HOST-P03`, `HOST-004`.
@@ -154,7 +160,8 @@ type OperationExamples = {
 
 - Surface: `actor.snapshots`, `getSnapshot()`, lifecycle command admission.
 - Rule: Snapshot streams emit atomic immutable snapshots, replay the latest value to late subscribers, emit through disposed, then complete. Prepared subscriptions replay prepared and become live on activation; suspended subscriptions replay suspended once and complete; disposed subscriptions replay terminal and complete.
-- Accepts: Prepared buffer up to 64; active command admission; pure `can(event)` independent of command admission.
+- Accepts: A finite prepared buffer supporting at least 64 commands; active command admission; pure
+  `can(event)` independent of command admission.
 - Rejects: Commands in suspended/disposed lifecycles, buffering after preparation, or a terminal-looking machine state completing the stream.
 - Observable guarantee: `getSnapshot()` is the same latest immutable truth and `snapshot.revision` identifies every distinct publication.
 - Proof: `SNAP-001`, `SNAP-010`, `HOST-P02`.
@@ -396,7 +403,9 @@ child-equivalent internal owner may be smuggled back into the contract.
 
 - Surface: operation completion, cleanup, public error boundaries.
 - Rule: Retain Exit/full Cause through classification; precedence is defect, typed failure, then interruption-only; empty/unclassifiable failure is invariant defect. Only `FlowDisposeError` and `FlowStoryExecutionError` preserve complete `Cause.Cause<unknown>`; snapshots expose neither raw Cause nor failure lifecycle.
-- Accepts: Ordered private `CauseProjection` in TurnRecords/artifacts; squashing only at JS throw/rejection boundary.
+- Accepts: Ordered stable Flow diagnostic projections in TurnRecords/artifacts; squashing only at the JS
+  throw/rejection boundary. Serialized diagnostics do not mirror Effect Cause tree shape, traversal order,
+  or fiber ordinals.
 - Rejects: `Effect.result` as complete truth, `Cause.squash` internally, or raw Cause in actor types.
 - Observable guarantee: Failure class and cleanup truth remain recoverable at the declared boundaries.
 - Proof: `HOST-015`, `HOST-P05`, `SNAP-006`.
@@ -429,7 +438,11 @@ excluding local, disposed, tombstoned, and non-persist-enabled actors. Opaque pr
 ### SEM-024A — Callback defects retain committed truth
 
 - Surface: user callback defect before/after StoreState commit.
-- Rule: Before commit, discard candidate and retain prior state/memory/bindings/store revision; publish one issue-only active snapshot with minimal issue summary and private ordered CauseProjection. It admits no occurrence/work/store change and does not retry. An invariant defect closes admission, fails current/buffered acknowledgments, finalizes work, and publishes disposed fatal/cleanup truth. After commit, publication uses non-failing primitives; abandoning it is invariant failure.
+- Rule: Before commit, discard candidate and retain prior state/memory/bindings/store revision; publish one
+  issue-only active snapshot with minimal issue summary and private ordered stable diagnostics. It admits no
+  occurrence/work/store change and does not retry. An invariant defect closes admission, fails current/buffered
+  acknowledgments, finalizes work, and publishes disposed fatal/cleanup truth. After commit, publication uses
+  non-failing primitives; abandoning it is invariant failure.
 - Accepts: Guard, redirect, timer, memory, binding, key, target, and selector failures before commit under the same prior-truth rule; passive view selector memoization is governed by `SEM-026`.
 - Rejects: Partial candidate publication, issue-only retry loops, or claiming a committed StoreState write was rolled back because snapshot publication failed.
 - Observable guarantee: A contained defect is visible as one issue-only publication; invariant failure preserves terminal cleanup truth.
@@ -440,7 +453,8 @@ excluding local, disposed, tombstoned, and non-persist-enabled actors. Opaque pr
 
 - Surface: operational issue identity and clearing-owner key.
 - Rule: Identity includes source, actor incarnation, exact binding identity when present, generation when present, and issue kind. Clearing owner omits attempt generation but retains actor incarnation/source/binding. Later actor lifetimes cannot clear/inherit/republish older occurrences; later generation success/release by the same owner clears older operational occurrences.
-- Accepts: Invariant/cleanup issues surviving disposed snapshot; private CauseProjection surviving operational-summary clearing.
+- Accepts: Invariant/cleanup issues surviving disposed snapshot; private stable diagnostics surviving
+  operational-summary clearing.
 - Rejects: Unrelated success clearing issues, later lifetime clearing old identity, raw Effect Cause in snapshots.
 - Observable guarantee: Issue clearing is deterministic and ownership-scoped.
 - Proof: `SEM-023`, `SEM-024A`, `SNAP-P01`.
@@ -494,7 +508,7 @@ Selector exceptions use the revision-scoped memoization and retry rules in `REV-
 ### SEM-028 — Lifecycle evidence is ordered and asynchronously payloaded
 
 - Surface: lifecycle snapshot, `LifecycleRecord`, global sequence/hub/sinks.
-- Rule: Lifecycle and machine publications have separate actor ordering fields but one runtime-global sequence. Hold the publication barrier while allocating sequence, publishing immutable snapshot, and accepting immutable record; release to sinks asynchronously behind the same gate. Record carries snapshot, exact actor/app/plan/incarnation provenance, `from`, `to`, cause, timestamp, publication revision, machine-turn revision, and evidence sequence.
+- Rule: Lifecycle and machine publications have separate actor ordering fields but one runtime-global sequence. Publish the immutable snapshot and accept its immutable record as one observable cut; release accepted evidence to sinks asynchronously. Record carries snapshot, exact actor/app/plan/incarnation provenance, `from`, `to`, cause, timestamp, publication revision, machine-turn revision, and evidence sequence. Allocation, locking, and release choreography is private.
 - Accepts: `actor:start`, `actor:restore`, `actor:suspend`, `actor:resume`, `actor:dispose`; sink-local retained-prefix truncation and sink detachment on failure.
 - Rejects: `actor:prepare`, lifecycle as machine turn/TurnRecord, live-state reread as payload, sink overflow blocking/rollback, or synthetic terminal TurnRecord.
 - Observable guarantee: Snapshot precedes evidence; runtime disposal drains accepted evidence after terminal lifecycle publication.
