@@ -18,6 +18,7 @@ export default defineConfig({
       { name: "anti-slop", specifier: "./tools/oxlint/anti-slop/index.ts" },
     ],
     rules: {
+      "complexity": "error",
       "no-else-return": "error",
       "no-unneeded-ternary": "error",
       "typescript/no-empty-object-type": "warn",
