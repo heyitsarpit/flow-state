@@ -180,19 +180,21 @@ stable dependencies once at Layer construction; keep request values in the
 operation and configuration at the composition root/host.
 
 
-## Do not let contract meta details bleed into the code.
+## Keep contract metadata external to the code.
 
-Do not put contract details, in the code or file names or tests or anywhere.
-the project name or folder name should only appear if needed.
+Do not put project names, contract IDs, proof IDs, module paths, boundary
+labels, or owner labels in production code, comments, or behavior-test names.
+Map that metadata in the task tracker and review record. Use neutral symbols and
+behavior names in the source:
 
-Examples code that should not be allowed:
 ```ts
-// flow-state-rewrite is the current name of the project and folder the code internally does not need to be aware of it.
-export const definitionTypeBrand = Symbol("flow-state-rewrite/definition");
-export const stateTokenBrand = Symbol("flow-state-rewrite/state-token");
+/// CORRECT
+export const definitionTypeBrand = Symbol("definition");
+it("rejects invalid names before construction", () => {});
 
-// contract language like GLO-01/API-003/TYPE-P02/PROOF-001 is noisy inside the codebase
-it("GLO-01/API-003/TYPE-P02/PROOF-001: rejects UTF-8 boundary, controls, lone surrogates, and recursive declarations [boundary: src/definition/]", () => {})
+/// INCORRECT
+export const definitionTypeBrand = Symbol("flow-state-rewrite/definition");
+it("GLO-01/API-003/TYPE-P02/PROOF-001: rejects UTF-8 boundary [boundary: src/definition/]", () => {})
 ```
 
 ## Make lifetime and concurrency ownership visible
@@ -256,6 +258,63 @@ const account = Schema.decodeUnknownSync(Account)(JSON.parse(input));
 Validate configuration, environment data, HTTP payloads, persisted data, and
 fixtures at their real boundary. Do not maintain an independently edited type
 beside a schema when drift can break the contract.
+
+## Model expected failures with tagged errors
+
+Use `Data.TaggedError` when a caller should discriminate an expected failure by
+stable tag and structured fields. Keep defects and cancellation separate from
+that typed failure channel.
+
+```ts
+import { Data } from "effect";
+
+class InvalidInput extends Data.TaggedError("InvalidInput")<{
+  readonly field: string;
+  readonly reason: string;
+}> {}
+```
+
+## Use Result for explicit local success and failure
+
+Use `Result` when a small local computation should carry both outcomes as data.
+Use `Effect` when the operation also needs requirements, interruption,
+asynchrony, resources, or other effect semantics.
+
+```ts
+import { Result } from "effect";
+
+const parseCount = (value: string): Result.Result<number, "invalid"> =>
+  /^\d+$/u.test(value) ? Result.succeed(Number(value)) : Result.fail("invalid");
+```
+
+## Use Predicate for reusable narrowing
+
+Use an Effect `Predicate` when a type guard or boolean check has a stable name,
+will be reused, or composes with other predicates. Inline a one-use condition.
+
+```ts
+import { Predicate } from "effect";
+
+const isText = Predicate.isString;
+const input: unknown = "ready";
+if (isText(input)) input.toUpperCase();
+```
+
+## Use @effect/vitest for Effect tests
+
+Use `@effect/vitest` for Effect-aware test declarations and assertions. Use
+`it.effect` for an Effect-returning test and regular `it` for pure synchronous
+behavior.
+
+```ts
+import { assert, describe, it } from "@effect/vitest";
+import { Effect } from "effect";
+
+describe("lookup", () => {
+  it.effect("returns the value", () =>
+    Effect.sync(() => assert.strictEqual("ready", "ready")));
+});
+```
 
 ## Treat mutation and readonly as semantic choices
 
