@@ -24,6 +24,10 @@ Explicitly retained boundaries remain authoritative under `RET-001` through `RET
 ### Rule
 
 - Context is pure derived data from an exact provider actor; mutable actor-local domain data is memory.
+- Definition authoring is a trusted in-process TypeScript boundary. One package-private Effect Schema
+  synchronously decodes the ordinary authored object before the library constructs nominal definition,
+  state-token, event-token, event-envelope, and context-selector values. Authors continue to declare events
+  with callbacks or `null`; they do not import or supply Schema values.
 - Authored IDs and local state/event names preserve spelling; each is non-empty and at most 256 UTF-8
   bytes, with no C0 control, DEL, lone surrogate, or NUL code point. These constraints are enforced at
   runtime before the value becomes definition-derived or durable identity; compile-time inference
@@ -45,8 +49,12 @@ Explicitly retained boundaries remain authoritative under `RET-001` through `RET
 
 ### Rejects
 
-- Invalid names, normalization-dependent identity, locale ordering, raw delimiter IDs, and partial
-  or duplicate declarations.
+- Invalid names, normalization-dependent identity, locale ordering, raw delimiter IDs, partial or duplicate
+  declarations, excess top-level fields, invalid declaration kinds, and event payload objects that are arrays,
+  custom-prototype instances, or contain an authored `type` field.
+- No stable rejection or error-translation contract exists for proxies, throwing getters, descriptor tricks,
+  symbols, sparse arrays, custom container prototypes, or mutation during construction. These are not a
+  security boundary for a library authoring API controlled by the caller.
 
 ### Observable guarantee
 
@@ -55,9 +63,10 @@ Explicitly retained boundaries remain authoritative under `RET-001` through `RET
 
 ### Proof
 
-- Definition, recursive-token, event-nominality, exact-name, runtime name-bound, stable-ref, and
-  artifact-codec proofs. Compile-time proofs preserve exact literal spelling and structural name
-  closure; UTF-8 byte arithmetic and lone-surrogate rejection are runtime-owner proofs.
+- Definition Schema, ordinary malformed-definition, recursive-token, event-nominality, exact-name, runtime
+  name-bound, stable-ref, and artifact-codec proofs. Compile-time proofs preserve exact literal spelling and
+  structural name closure; UTF-8 byte arithmetic, lone-surrogate rejection, and the depth bound are
+  runtime-owner proofs.
 
 ### Trace
 

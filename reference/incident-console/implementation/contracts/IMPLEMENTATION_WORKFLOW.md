@@ -182,8 +182,9 @@ This workflow preserves the wording, semantics, and IDs already transferred into
 - One executable test may satisfy multiple proof IDs when it exercises the same invariant through the same
   production owner; record every satisfied ID in external Bead or reviewer metadata instead of duplicating
   the vector.
-- Accepts: Tests prioritizing ownership, ordering, atomicity, cleanup, failure, interruption, hostile
-  input, exact typing, and deleted behavior; production Runtime for runtime proof; TestClock or Flow
+- Accepts: Tests prioritizing ownership, ordering, atomicity, cleanup, failure, interruption, hostile input at
+  untrusted wire/artifact boundaries, ordinary malformed input at the caller-controlled definition-authoring
+  boundary, exact typing, and deleted behavior; production Runtime for runtime proof; TestClock or Flow
   testing time instead of sleeps; bounded Deferred/Queue/PubSub controls; minimal immutable fixtures.
 - Rejects: source-text/typecheck-only proof for runtime races, cleanup, behavior, or artifacts; test
   runtimes replacing production owners.

@@ -276,6 +276,10 @@ const NewIntent = definition({
   readonly envelopes with full `type`; null events are zero-argument constructors. Definition values,
   tokens, and envelopes are not runtime-frozen; readonly types and ownership-boundary copies provide the
   protection.
+- Definition construction synchronously decodes the ordinary authored shape through one package-private
+  Effect Schema. `Schema.Struct`, `Schema.brand`, schema-authored events, and a `validatedEvent` helper are not
+  public authoring syntax. Runtime nominal values are constructed only after decoding; event payload objects
+  are decoded when their event constructor is called.
 - Context selectors are typed definition-level provider edges, not registrations. `memory` is the sole
   input/memory source; absent initializer means `Input=void` and readonly empty memory. Restoration
   installs memory without input replay.
@@ -283,12 +287,17 @@ const NewIntent = definition({
 
 ### Accepts
 
-- Exact state/event/context/operation names and the single memory factory.
+- Exact state/event/context/operation names, callback-or-`null` event declarations, and the single memory
+  factory without user-authored Schema imports.
 
 ### Rejects
 
-- Duplicate state/event declarations, relative string targets, runtime path lookup, operation work on
-  declaration, and input classification of actors.
+- Ordinary malformed authored shapes, duplicate states, depth eleven, invalid declaration kinds, excess
+  top-level fields, event payload arrays/custom-prototype objects/authored `type` fields, relative string
+  targets, runtime path lookup, operation work on declaration, and input classification of actors.
+- Defensive reflection semantics for proxies, throwing getters, descriptors, sparse arrays, symbols, custom
+  container prototypes, or mutation during construction. The authoring object is caller-controlled library
+  input, not an untrusted security boundary.
 
 ### Observable guarantee
 
@@ -296,7 +305,8 @@ const NewIntent = definition({
 
 ### Proof
 
-- Positive/negative recursive grammar, token, input, memory, and operation inference fixtures.
+- Positive/negative token, input, memory, and operation inference fixtures plus runtime private-Schema proofs
+  for ordinary malformed declarations, event payloads, authored-name bounds, and depth ten/eleven.
 
 ### Trace
 

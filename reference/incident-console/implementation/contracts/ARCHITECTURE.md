@@ -93,7 +93,12 @@ activation occur at the readiness boundary. `runtime.ready()` is the only public
 ### ARCH-006 — Machine construction uses typed input
 
 - Surface: definition input, `memory: ({ input }) => Memory`, state/events/context/operations.
-- Rule: The definition owns static actor shape and is the sole inference source for `InputOf` and `MemoryOf`. The pure initializer runs once for fresh construction; machine behavior thereafter receives memory, readonly context, state, and events, not original input. Restoration installs materialized memory without initialization or input replay.
+- Rule: The definition owns static actor shape and is the sole inference source for `InputOf` and `MemoryOf`.
+  Definition construction decodes that shape once. Machine construction consumes the resulting typed tokens,
+  selectors, operations, and retained initializer; it does not import the private definition Schema, re-decode
+  authored configuration, or repeat definition validation. The pure initializer runs once for fresh actor
+  construction; machine behavior thereafter receives memory, readonly context, state, and events, not original
+  input. Restoration installs materialized memory without initialization or input replay.
 - Accepts: Omitted initializer input as `void`; transitions, activities, timers, redirects, context selectors, and operations layered onto the static shape.
 - Rejects: Reclassifying local/shared actors from input, rerunning input on restore/resume, or redefining static shape in machine behavior.
 - Observable guarantee: Fresh and restored actors have deterministic, distinct initialization semantics.

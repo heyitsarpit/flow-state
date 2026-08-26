@@ -46,7 +46,9 @@ type _Event = Expect<
 - Use const type parameters or equivalently precise package-owned inference. User code needs no `as const`,
   `satisfies`, explicit generics, or wrapper to prevent widening.
 - Event tokens are nominal; structurally similar functions/objects are not assignable. `StateOf` and
-  `EventOf` accept definition or machine and return same exact unions. Ten-level bound is shared runtime/type.
+  `EventOf` accept definition or machine and return same exact unions. The private definition Schema validates
+  the ten-level bound synchronously during definition construction; the public authoring type does not encode
+  recursive depth arithmetic.
 
 ### Accepts
 
@@ -54,7 +56,7 @@ type _Event = Expect<
 
 ### Rejects
 
-- Widened IDs/tokens, structural event impostors, and depth eleven.
+- Widened IDs/tokens and structural event impostors at compile time; depth eleven at construction.
 
 ### Observable guarantee
 
@@ -62,9 +64,9 @@ type _Event = Expect<
 
 ### Proof
 
-- Exact positive token/event and depth-bound compile fixtures, including exact preservation of accepted
-  non-ASCII literals. UTF-8 byte validity and lone-surrogate rejection are runtime proofs owned by
-  `GLOSSARY_AND_IDENTITY.md` `GLO-01`.
+- Exact positive token/event compile fixtures and runtime depth-bound fixtures, including exact preservation
+  of accepted non-ASCII literals. UTF-8 byte validity and lone-surrogate rejection are runtime proofs owned
+  by `GLOSSARY_AND_IDENTITY.md` `GLO-01`.
 
 ### Trace
 

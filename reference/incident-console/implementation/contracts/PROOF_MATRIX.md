@@ -69,8 +69,8 @@ actorRef // stable identity
 
 ### PROOF-001 — Public typing and inference
 
-- Surface: definition-owned input/memory inference; inherited readonly context and exact bindings; recursive
-  states/configuration through the ten-level bound; named modules; closed `App.M`; exact `O`; `P`/`K`; refs,
+- Surface: definition-owned input/memory inference; inherited readonly context and exact bindings; exact
+  recursive state/configuration literals; named modules; closed `App.M`; exact `O`; `P`/`K`; refs,
   leases, hooks, closed Story options, targets, observations, exact checkpoint-name accumulation and readonly
   run-key inference, `run.end`, and machine/event/selected-value/resource/transaction/stream/input/context/
   memory/lifecycle domains.
@@ -80,7 +80,7 @@ actorRef // stable identity
   consumers, packed React 18/19 consumers, accepted Story values through the testing route, and the typed
   failure boundary without naming an unresolved failure class. Literal checkpoint names accumulate without
   mutation, known run keys compile, and a known string union does not erase names already accumulated.
-- Rejects: invalid recursive config; missing/extra compound nodes; non-direct defaults; depth eleven;
+- Rejects: unknown definition tokens; missing/extra compound nodes; non-direct defaults;
   wrong-machine events; missing input/context; extra closed-option fields; invalid binding keys or recipe/ref
   bindings; invalid Story targets; duplicate literal checkpoint names; widened-string checkpoint names;
   unknown literal checkpoint indexing; `P`/`K` misuse; per-registration selector comparators; deleted imports.
@@ -111,8 +111,9 @@ actorRef // stable identity
   ambiguity; runtime-sized keyed collections; automatic roots; dynamic admission; testing-only registration.
 - Observable guarantee: compound entry follows authored default through compiled tables; terminal-looking leaves
   are ordinary active actors with no completion semantics; `reenter` names the exact active restart boundary.
-- Proof: hostile definitions and acquisition counters prove rejection before activation; runtime behavior proves
-  exact active leaf and bootstrap rollback. Runtime name vectors cover empty, C0/DEL/NUL, lone-surrogate,
+- Proof: the private definition Schema rejects ordinary malformed declarations and depth eleven during
+  construction; acquisition counters prove no activation. Runtime behavior proves exact active leaf and
+  bootstrap rollback. Runtime name vectors cover empty, C0/DEL/NUL, lone-surrogate,
   over-256-byte, exact-256-byte one-/two-/three-/four-byte, composed/decomposed, exact-prefix, and
   native/fallback-parity cases before app admission or activation. No testing-only owner is added.
 - Trace: `REV-COMP-001`–`REV-COMP-015`, `REV-MACH-001`–`REV-MACH-011`, `REV-MIG-006`.
