@@ -15,6 +15,7 @@ worktree edits, and leave independent review to `reviewer`.
 2. Use beads_viewer(bv) for getting current issue tracking information.
 3. State the owning module, package boundary, public surface, expected outcomes,
    and proof you will add before changing code.
+4. The contracts[reference/incident-console/implementation/contracts] are read only, do not edit them.
 
 ## Skill routing
 
