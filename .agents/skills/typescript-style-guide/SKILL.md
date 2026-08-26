@@ -179,6 +179,22 @@ Use `Context.Service` and a `FooLive` Layer for a real dependency seam. Capture
 stable dependencies once at Layer construction; keep request values in the
 operation and configuration at the composition root/host.
 
+
+## Do not let contract meta details bleed into the code.
+
+Do not put contract details, in the code or file names or tests or anywhere.
+the project name or folder name should only appear if needed.
+
+Examples code that should not be allowed:
+```ts
+// flow-state-rewrite is the current name of the project and folder the code internally does not need to be aware of it.
+export const definitionTypeBrand = Symbol("flow-state-rewrite/definition");
+export const stateTokenBrand = Symbol("flow-state-rewrite/state-token");
+
+// contract language like GLO-01/API-003/TYPE-P02/PROOF-001 is noisy inside the codebase
+it("GLO-01/API-003/TYPE-P02/PROOF-001: rejects UTF-8 boundary, controls, lone surrogates, and recursive declarations [boundary: src/definition/]", () => {})
+```
+
 ## Make lifetime and concurrency ownership visible
 
 Every resource, fiber, timer, listener, queue, subscription, cache, and runtime
