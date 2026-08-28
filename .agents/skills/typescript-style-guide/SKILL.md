@@ -135,26 +135,6 @@ independent contract, or multiple meaningful consumers. Avoid `utils.ts`,
 `helpers.ts`, `manager.ts`, and `common.ts` as drawers. A `typeBrand` or
 `copyObject` helper is not an abstraction until it protects a named concept.
 
-## Use plain TypeScript until the boundary is Effectful
-
-Use plain functions for deterministic transformations, constructors, local
-projections, and already-validated parsing. Use `Effect` for typed failure,
-requirements, time, concurrency, interruption, resources, observability, or
-external effects.
-
-```typescript
-// Bad: a pure value is wrapped only to match its caller.
-const displayName = (name: string) => Effect.succeed(name.trim());
-
-// Good: keep pure work ordinary TypeScript.
-const displayName = (name: string): string => name.trim();
-```
-
-Choose primitives by purpose: `Effect.gen` for short sequential workflows,
-`Layer` for dependency construction, `acquireUseRelease` for resources,
-`forkChild`/`forkScoped` for owned work, `Queue`/`PubSub` for coordination,
-`Schedule` for time/retry policy, and `Schema` for decoding. Do not use Effect
-just because the surrounding file imports it.
 
 ## Make services narrow and implementations explicit
 
@@ -179,6 +159,52 @@ Use `Context.Service` and a `FooLive` Layer for a real dependency seam. Capture
 stable dependencies once at Layer construction; keep request values in the
 operation and configuration at the composition root/host.
 
+## Keep Promises at foreign boundaries
+
+Never use `Effect.promise`. Prefer an Effect API over `Effect.tryPromise`; use
+`tryPromise` only for an unavoidable foreign Promise. Add an adjacent
+`FLOW_STATE_ALLOW_EFFECT_TRY_PROMISE:` comment, use object form, and map the
+rejection to `Diagnostic`.
+
+```typescript
+// FLOW_STATE_ALLOW_EFFECT_TRY_PROMISE: vendor SDK exposes only Promise.
+const loadAccountFromVendor = (id: AccountId): Effect.Effect<Account, Diagnostic> =>
+  Effect.tryPromise({
+    try: (signal) => sdk.loadAccount(id, { signal }),
+    catch: (cause: unknown): Diagnostic => accountUnavailableDiagnostic({ id, cause }),
+  });
+```
+
+Pass the supplied `AbortSignal` when supported. For a proven impossible
+rejection, create an invariant `Diagnostic` and use `Effect.orDie`. Inline and
+extracted calls follow the same rule.
+
+## Keep raw `try/catch` at exceptional boundaries
+
+Library code returns `Result` or `Effect` instead of catching errors. Use native
+`try/catch` only at a final host boundary or unavoidable foreign interop, with a
+local suppression explaining why. `try/finally` is fine for cleanup.
+
+```typescript
+// oxlint-disable-next-line anti-slop/no-raw-try-catch -- CLI boundary maps the final defect to an exit status.
+try {
+  await runCli();
+} catch (cause) {
+  process.exitCode = renderExitStatus(cause);
+}
+```
+
+## Retry the smallest safe operation
+
+Retry only the smallest repeat-safe operation. Filter typed transient failures
+and bound the attempts. Never retry a whole non-idempotent workflow. Defects and
+interruption are not typed transient failures.
+
+## Execute Effects once at the host/runtime edge
+
+Build Layers once. Reuse one `ManagedRuntime` per host and dispose it on
+shutdown. Never call runners inside Effect code. Run only from the public
+Runtime bridge, final host adapter, test harness, or shutdown path.
 
 ## Keep contract metadata external to the code.
 
@@ -254,32 +280,35 @@ Validate configuration, environment data, HTTP payloads, persisted data, and
 fixtures at their real boundary. Do not maintain an independently edited type
 beside a schema when drift can break the contract.
 
-## Model expected failures with tagged errors
+## Use `unknown` and `never` deliberately
 
-Use `Data.TaggedError` when a caller should discriminate an expected failure by
-stable tag and structured fields. Keep defects and cancellation separate from
-that typed failure channel.
+Use `unknown` for unvalidated input and foreign failures, then narrow it once at
+the boundary. Do not publish unexplained `unknown` Effect channels. Use `never`
+for genuinely impossible states, not to skip validation.
 
-```ts
-import { Data } from "effect";
+## Model expected failures with the canonical Diagnostic
 
-class InvalidInput extends Data.TaggedError("InvalidInput")<{
-  readonly field: string;
-  readonly reason: string;
-}> {}
-```
+Use the canonical `Diagnostic` for expected failures. Its owner defines the one
+`Schema.TaggedError`; feature code maps failures through named projectors. Do
+not define feature-level `Data.TaggedError`, `Schema.TaggedError`, or error
+classes.
+
+Keep failure diagnostics in `E`. Keep defects and interruption separate until
+the final host renderer.
 
 ## Use Result for explicit local success and failure
 
-Use `Result` when a small local computation should carry both outcomes as data.
-Use `Effect` when the operation also needs requirements, interruption,
-asynchrony, resources, or other effect semantics.
+Use `Result.Result<A, Diagnostic>` for pure recoverable work. Convert it once
+with `Effect.fromResult`. Return Effect directly only when the operation needs
+Effect semantics.
 
 ```ts
-import { Result } from "effect";
+const parseCount = (value: string): Result.Result<number, Diagnostic> =>
+  /^\d+$/u.test(value)
+    ? Result.succeed(Number(value))
+    : Result.fail(invalidCountDiagnostic());
 
-const parseCount = (value: string): Result.Result<number, "invalid"> =>
-  /^\d+$/u.test(value) ? Result.succeed(Number(value)) : Result.fail("invalid");
+const program = Effect.fromResult(parseCount(input));
 ```
 
 ## Use Predicate for reusable narrowing
@@ -437,10 +466,11 @@ infer ownership later.
 
 These require context, so they are not blanket violations: classes, interfaces,
 type aliases, arrows, declarations, `readonly`, `Readonly<T>`, bounded local
-mutation, generics, `NoInfer`, `Parameters`, `ReturnType`,
-`Promise`, `throw`, `typeof`, `runSync`, `try/catch`, `Effect.gen`, `flatMap`,
-Layer composition, public facades, internal barrels, larger files, and default
-exports when deliberately owned.
+mutation, generics, `NoInfer`, `Parameters`, `ReturnType`, `Promise`, `throw`,
+`typeof`, `Effect.gen`, `flatMap`, `Effect.succeed`, `Effect.fail`, Layer
+composition, public facades, internal barrels, larger files, and default
+exports when deliberately owned. Restrict runners and native `try/catch` to the
+boundaries above. `Effect.promise` is always banned.
 
 Review them for meaning, ownership, and boundary placement. Never erase a useful
 type or failure contract with `unknown`, a cast, a meaningless comment, or a
@@ -457,9 +487,10 @@ design, comments, spacing, and proof quality.
 For each change: read the module, contract, callers, tests, and package boundary;
 apply mechanical replacements without erasing evidence; review dependency
 direction, `A/E/R`, scope, time, concurrency, runner placement, cleanup,
-exports, naming, copying, helper promotion, fixture identity, comments, and
-spacing; then run the smallest focused lint, type, and behavior checks. Record
-intentional exceptions with their owner and invariant.
+Promise cancellation, retry safety, trace names, exports, naming, copying,
+helper promotion, fixture identity, comments, and spacing; then run the smallest
+focused lint, type, and behavior checks. Record intentional exceptions with
+their owner and invariant.
 
 God dependency bags, duplicate fixture semantics, unstructured Layers,
 mixed-owner files, and accidental public exports are review findings—not reasons
