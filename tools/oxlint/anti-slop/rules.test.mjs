@@ -7,10 +7,12 @@ import { noChainedTypeAssertionsRule } from "./rules/no-chained-type-assertions.
 import { noConditionalEmptyObjectSpreadRule } from "./rules/no-conditional-empty-object-spread.ts";
 import { noConditionalSingletonArraySpreadRule } from "./rules/no-conditional-singleton-array-spread.ts";
 import { noContextTagRule } from "./rules/no-context-tag.ts";
-import { noDataTaggedErrorRule } from "./rules/no-data-taggederror.ts";
+import { noParallelDiagnosticErrorsRule } from "./rules/flow-state/no-parallel-diagnostic-errors.ts";
+import { noUnknownEffectChannelRule } from "./rules/flow-state/no-unknown-effect-channel.ts";
 import { noAnonymousDefaultExportRule } from "./rules/no-anonymous-default-export.ts";
 import { noDirectProcessEnvRule } from "./rules/no-direct-process-env.ts";
 import { noEffectPromiseRule } from "./rules/no-effect-promise.ts";
+import { noUnjustifiedEffectTryPromiseRule } from "./rules/no-unjustified-effect-try-promise.ts";
 import { noEffectPromiseMicrotaskRule } from "./rules/no-effect-promise-microtask.ts";
 import { noEffectRunnerInDomainRule } from "./rules/no-effect-runner-in-domain.ts";
 import { noEffectRefReadThenWriteRule } from "./rules/no-effect-ref-read-then-write.ts";
@@ -36,9 +38,7 @@ import { noObjectParametersRule } from "./rules/no-object-parameters.ts";
 import { noOptionalDomainPropertiesRule } from "./rules/no-optional-domain-properties.ts";
 import { noPackageDistOrSelfImportInSrcRule } from "./rules/no-package-dist-or-self-import-in-src.ts";
 import { noPromiseMicrotaskBarrierRule } from "./rules/no-promise-microtask-barrier.ts";
-import { noPureEffectWrapperRule } from "./rules/no-pure-effect-wrapper.ts";
 import { noPublicEntrypointExportDriftRule } from "./rules/no-public-entrypoint-export-drift.ts";
-import { noRawTryCatchRule } from "./rules/no-raw-try-catch.ts";
 import { noRedundantReadonlyWrapperRule } from "./rules/no-redundant-readonly-wrapper.ts";
 import { noShallowJsonDomainCastRule } from "./rules/no-shallow-json-domain-cast.ts";
 import { noServiceShapeParameterExtractionRule } from "./rules/no-service-shape-parameter-extraction.ts";
@@ -50,6 +50,7 @@ import { noThrowInEffectGenRule } from "./rules/no-throw-in-effect-gen.ts";
 import { noUnmanagedEffectScopeRule } from "./rules/no-unmanaged-effect-scope.ts";
 import { noUnsafeFiberMethodsRule } from "./rules/no-unsafe-fiber-methods.ts";
 import { noUnwrappedPromiseInEffectCoreRule } from "./rules/no-unwrapped-promise-in-effect-core.ts";
+import { noRawTryCatchRule } from "./rules/no-raw-try-catch.ts";
 import { noUnknownParametersRule } from "./rules/no-unknown-parameters.ts";
 import { noUnknownReturnsRule } from "./rules/no-unknown-returns.ts";
 import { noUnknownTypeAliasesRule } from "./rules/no-unknown-type-aliases.ts";
@@ -98,6 +99,7 @@ tester.run("no-for-each", noForEachRule, {
 		"for (const item of items) consume(item);",
 		'import { Effect } from "effect"; Effect.forEach(items, run, { concurrency: 1 });',
 		'import { Effect as E } from "effect"; E["forEach"](items, run, { concurrency: 1 });',
+		'import * as Fx from "effect"; Fx.Effect.forEach(items, run, { concurrency: 1 });',
 	],
 	invalid: [
 		{
@@ -252,20 +254,6 @@ tester.run("no-generic-utility-module", noGenericUtilityModuleRule, {
 			code: "export const parseValue = () => 1;",
 			filename: "/project/packages/demo/src/utils.ts",
 			errors: [{ messageId: "genericUtilityModule" }],
-		},
-	],
-});
-
-tester.run("no-pure-effect-wrapper", noPureEffectWrapperRule, {
-	valid: [
-		'import { Effect } from "effect"; Effect.succeed(load());',
-		{ code: 'import { Effect } from "effect"; Effect.succeed(value);', filename: "/project/packages/demo/docs/src/value.ts" },
-	],
-	invalid: [
-		{
-			code: 'import { Effect } from "effect"; const value = 1; Effect.succeed(value);',
-			filename: "/project/packages/demo/src/value.ts",
-			errors: [{ messageId: "pureEffectWrapper" }],
 		},
 	],
 });
@@ -633,6 +621,10 @@ tester.run("no-effect-promise-microtask", noEffectPromiseMicrotaskRule, {
 			filename: "/project/packages/flow-state/src/runtime/host.ts",
 		},
 		{
+			code: 'import { Effect } from "effect"; Effect.promise(() => Promise.resolve());',
+			filename: "/project/packages/flow-state/src/server.ts",
+		},
+		{
 			code: 'import { Effect } from "effect"; Promise.resolve();',
 			filename: "/project/packages/flow-state/src/core/domain.ts",
 		},
@@ -645,6 +637,11 @@ tester.run("no-effect-promise-microtask", noEffectPromiseMicrotaskRule, {
 		},
 		{
 			code: 'import { Effect } from "effect"; Effect.promise(() => { return Promise.resolve(); });',
+			filename: "/project/packages/flow-state/src/core/domain.ts",
+			errors: [{ messageId: "promiseMicrotask" }],
+		},
+		{
+			code: 'import * as Fx from "effect"; Fx.Effect.promise(() => Promise.resolve());',
 			filename: "/project/packages/flow-state/src/core/domain.ts",
 			errors: [{ messageId: "promiseMicrotask" }],
 		},
@@ -673,28 +670,23 @@ tester.run("no-context-tag", noContextTagRule, {
 			code: 'import { Context as C, Effect as E } from "effect"; C["Tag"]("Service"); E["Service"]("Service");',
 			errors: [{ messageId: "v3Service" }, { messageId: "v3Service" }],
 		},
-	],
-});
-
-tester.run("no-data-taggederror", noDataTaggedErrorRule, {
-	valid: ['import { Schema } from "effect"; Schema.TaggedErrorClass("Error");'],
-	invalid: [
 		{
-			code: 'import { Data } from "effect"; Data.TaggedError("Error");',
-			errors: [{ messageId: "taggedError" }],
-		},
-		{
-			code: 'import { Data as D } from "effect"; D["TaggedError"]("Error");',
-			errors: [{ messageId: "taggedError" }],
+			code: 'import * as Fx from "effect"; Fx.Context.Tag("Service"); Fx.Effect.Service("Service");',
+			errors: [{ messageId: "v3Service" }, { messageId: "v3Service" }],
 		},
 	],
 });
 
 tester.run("no-effect-promise", noEffectPromiseRule, {
 	valid: [
-		'import { Effect } from "effect"; Effect.tryPromise({ try: () => Promise.resolve(1), catch: String });',
-		'import { Effect } from "effect"; Effect.tryPromise(({ try: makeRequest, catch: String }));',
+		'import { Effect } from "effect"; Effect.tryPromise(() => Promise.resolve(1));',
+		'import { Effect } from "effect"; Effect.tryPromise({ try: makeRequest });',
 		'import { Effect as E } from "effect"; E.tryPromise({ try: makeRequest, catch: String });',
+		'import * as Fx from "effect"; Fx.Effect.tryPromise({ try: makeRequest, catch: String });',
+		'import { Effect } from "effect"; const E = Effect; E.tryPromise({ try: makeRequest, catch: String });',
+		'import { Effect } from "effect"; const tryPromise = Effect.tryPromise; tryPromise({ try: makeRequest, catch: String });',
+		'import * as Fx from "effect"; const tryPromise = Fx.Effect.tryPromise; tryPromise({ try: makeRequest, catch: String });',
+		'import { Effect } from "effect"; const local = { promise: () => Promise.resolve(1) }; local.promise();',
 	],
 	invalid: [
 		{
@@ -702,20 +694,277 @@ tester.run("no-effect-promise", noEffectPromiseRule, {
 			errors: [{ messageId: "promise" }],
 		},
 		{
-			code: 'import { Effect } from "effect"; Effect.tryPromise(() => Promise.resolve(1));',
-			errors: [{ messageId: "tryPromise" }],
+			code: 'import { Effect as E } from "effect"; E["promise"](() => Promise.resolve(1));',
+			errors: [{ messageId: "promise" }],
 		},
 		{
-			code: 'import { Effect } from "effect"; Effect.tryPromise(makeRequest);',
-			errors: [{ messageId: "tryPromise" }],
+			code: 'import * as Fx from "effect"; Fx.Effect.promise(() => Promise.resolve(1));',
+			errors: [{ messageId: "promise" }],
 		},
 		{
-			code: 'import { Effect } from "effect"; Effect.tryPromise({ try: makeRequest, catch: undefined });',
-			errors: [{ messageId: "tryPromise" }],
+			code: 'import { Effect } from "effect"; const E = Effect; E[`promise`](() => Promise.resolve(1));',
+			errors: [{ messageId: "promise" }],
 		},
 		{
-			code: 'import { Effect } from "effect"; Effect.tryPromise({ try: makeRequest });',
-			errors: [{ messageId: "tryPromise" }],
+			code: 'import { Effect } from "effect"; const E = Effect; E[`promise`].call(undefined, () => Promise.resolve(1));',
+			errors: [{ messageId: "promise" }],
+		},
+		{
+			code: 'import { Effect } from "effect"; const E = Effect; E.promise.apply(undefined, [() => Promise.resolve(1)]);',
+			errors: [{ messageId: "promise" }],
+		},
+		{
+			code: 'import { Effect } from "effect"; const promise = Effect.promise; promise(() => Promise.resolve(1));',
+			errors: [{ messageId: "promise" }],
+		},
+		{
+			code: 'import * as Fx from "effect"; const E = Fx.Effect; E.promise(() => Promise.resolve(1));',
+			errors: [{ messageId: "promise" }],
+		},
+		{
+			code: 'import * as Fx from "effect"; const promise = Fx.Effect.promise; promise(() => Promise.resolve(1));',
+			errors: [{ messageId: "promise" }],
+		},
+	],
+});
+
+tester.run("no-unjustified-effect-try-promise", noUnjustifiedEffectTryPromiseRule, {
+	valid: [
+		{
+			code: 'import { Effect } from "effect";\n// FLOW_STATE_ALLOW_EFFECT_TRY_PROMISE: vendor SDK exposes only Promise and accepts AbortSignal.\nconst load = Effect.tryPromise({ try: work, catch: mapError });',
+			filename: "/project/packages/flow-state-rewrite/src/adapter.ts",
+		},
+		{
+			code: 'import { Effect } from "effect";\nconst load = Effect.gen(function* () {\n  // FLOW_STATE_ALLOW_EFFECT_TRY_PROMISE: legacy client cannot return Effect.\n  yield* Effect.tryPromise({ try: work, catch: mapError });\n});',
+			filename: "/project/packages/flow-state-rewrite/src/workflow.ts",
+		},
+		{
+			code: 'import { Effect } from "effect";\n// FLOW_STATE_ALLOW_EFFECT_TRY_PROMISE: foreign Promise-only client.\nconst load = Effect.tryPromise.call(undefined, { try: work, catch: mapError });',
+			filename: "/project/packages/flow-state-rewrite/src/adapter.ts",
+		},
+		{
+			code: 'import * as Fx from "effect";\n// FLOW_STATE_ALLOW_EFFECT_TRY_PROMISE: foreign Promise-only client.\nconst load = Fx.Effect["tryPromise"].apply(undefined, [{ try: work, catch: mapError }]);',
+			filename: "/project/packages/flow-state-rewrite/src/adapter.ts",
+		},
+		{
+			code: 'import { Effect as E } from "effect";\n// FLOW_STATE_ALLOW_EFFECT_TRY_PROMISE: foreign Promise-only client.\nconst load = E.tryPromise.bind(undefined)({ try: work, catch: mapError });',
+			filename: "/project/packages/flow-state-rewrite/src/adapter.ts",
+		},
+		{
+			code: 'import { Effect } from "effect"; Effect.tryPromise({ try: work, catch: mapError });',
+			filename: "/project/packages/flow-state/src/adapter.ts",
+		},
+		{
+			code: 'const Effect = { tryPromise: (value) => value }; Effect.tryPromise({ try: work, catch: mapError });',
+			filename: "/project/packages/flow-state-rewrite/src/local.ts",
+		},
+		{
+			code: 'const first = second; const second = first; first.tryPromise({ try: work, catch: mapError });',
+			filename: "/project/packages/flow-state-rewrite/src/local.ts",
+		},
+	],
+	invalid: [
+		{
+			code: 'import { Effect } from "effect"; Effect.tryPromise({ try: work, catch: mapError });',
+			filename: "/project/packages/flow-state-rewrite/src/adapter.ts",
+			errors: [{ messageId: "unjustified" }],
+		},
+		{
+			code: 'import { Effect } from "effect"; Effect.tryPromise(work);',
+			filename: "/project/packages/flow-state-rewrite/src/adapter.ts",
+			errors: [{ messageId: "invalid" }],
+		},
+		{
+			code: 'import { Effect } from "effect";\n// FLOW_STATE_ALLOW_EFFECT_TRY_PROMISE: this is still malformed.\nEffect.tryPromise({ try: work });',
+			filename: "/project/packages/flow-state-rewrite/src/adapter.ts",
+			errors: [{ messageId: "invalid" }],
+		},
+		{
+			code: 'import { Effect } from "effect";\n// FLOW_STATE_ALLOW_EFFECT_TRY_PROMISE: this is still malformed.\nEffect.tryPromise({ catch: mapError });',
+			filename: "/project/packages/flow-state-rewrite/src/adapter.ts",
+			errors: [{ messageId: "invalid" }],
+		},
+		{
+			code: 'import { Effect } from "effect";\n// FLOW_STATE_ALLOW_EFFECT_TRY_PROMISE: this is still malformed.\nEffect.tryPromise({ try: 1, catch: mapError });',
+			filename: "/project/packages/flow-state-rewrite/src/adapter.ts",
+			errors: [{ messageId: "invalid" }],
+		},
+		{
+			code: 'import { Effect } from "effect";\n// FLOW_STATE_ALLOW_EFFECT_TRY_PROMISE: this is still malformed.\nEffect.tryPromise({ try: work, catch: undefined });',
+			filename: "/project/packages/flow-state-rewrite/src/adapter.ts",
+			errors: [{ messageId: "invalid" }],
+		},
+		{
+			code: 'import { Effect } from "effect";\n// FLOW_STATE_ALLOW_EFFECT_TRY_PROMISE: unrelated comment\nconst value = 1;\nEffect.tryPromise({ try: work, catch: mapError });',
+			filename: "/project/packages/flow-state-rewrite/src/adapter.ts",
+			errors: [{ messageId: "unjustified" }],
+		},
+		{
+			code: 'import { Effect } from "effect"; const value = 1; /* FLOW_STATE_ALLOW_EFFECT_TRY_PROMISE: trailing */\nEffect.tryPromise({ try: work, catch: mapError });',
+			filename: "/project/packages/flow-state-rewrite/src/adapter.ts",
+			errors: [{ messageId: "unjustified" }],
+		},
+		{
+			code: 'import { Effect } from "effect";\n// FLOW_STATE_ALLOW_EFFECT_TRY_PROMISE: non-adjacent\n\nEffect.tryPromise({ try: work, catch: mapError });',
+			filename: "/project/packages/flow-state-rewrite/src/adapter.ts",
+			errors: [{ messageId: "unjustified" }],
+		},
+		{
+			code: 'import { Effect as E } from "effect"; E.tryPromise({ try: work, catch: mapError });',
+			filename: "/project/packages/flow-state-rewrite/src/adapter.ts",
+			errors: [{ messageId: "unjustified" }],
+		},
+		{
+			code: 'import * as Fx from "effect"; Fx.Effect[`tryPromise`]({ try: work, catch: mapError });',
+			filename: "/project/packages/flow-state-rewrite/src/adapter.ts",
+			errors: [{ messageId: "unjustified" }],
+		},
+		{
+			code: 'import { Effect } from "effect"; const E = Effect; E.tryPromise.call(undefined, { try: work, catch: mapError });',
+			filename: "/project/packages/flow-state-rewrite/src/adapter.ts",
+			errors: [{ messageId: "unjustified" }],
+		},
+		{
+			code: 'import { Effect } from "effect"; const E = Effect; E.tryPromise.bind(undefined)({ try: work, catch: mapError });',
+			filename: "/project/packages/flow-state-rewrite/src/adapter.ts",
+			errors: [{ messageId: "unjustified" }],
+		},
+		{
+			code: 'import * as Fx from "effect"; const tryPromise = Fx.Effect.tryPromise; tryPromise({ try: work, catch: mapError });',
+			filename: "/project/packages/flow-state-rewrite/src/adapter.ts",
+			errors: [{ messageId: "unjustified" }],
+		},
+	],
+});
+
+tester.run("no-parallel-diagnostic-errors", noParallelDiagnosticErrorsRule, {
+	valid: [
+		{
+			code: 'import { Schema } from "effect"; class Diagnostic extends Schema.TaggedError<Diagnostic>()("Diagnostic", {}) {}',
+			filename: "/project/packages/flow-state-rewrite/src/diagnostic/diagnostic.ts",
+		},
+		{
+			code: 'import { Schema } from "effect"; class Diagnostic extends Schema.TaggedError<Diagnostic>("flow-state/Diagnostic")("Diagnostic", {}) {}',
+			filename: "/project/packages/flow-state-rewrite/src/diagnostic/diagnostic.ts",
+		},
+		{
+			code: 'import { Schema } from "effect"; const S = Schema; class Diagnostic extends S.TaggedError<Diagnostic>()("Diagnostic", {}) {}',
+			filename: "/project/packages/flow-state-rewrite/src/diagnostic/diagnostic.ts",
+		},
+		{ code: 'const Schema = { TaggedError: () => undefined }; Schema.TaggedError("local");', filename: "/project/packages/flow-state-rewrite/src/local.ts" },
+		{ code: 'class LocalErrorBase {} class FeatureFailure extends LocalErrorBase {}', filename: "/project/packages/flow-state-rewrite/src/local.ts" },
+		{
+			code: 'import { Data } from "effect"; let D = Data; D.TaggedError("local");',
+			filename: "/project/packages/flow-state-rewrite/src/feature.ts",
+		},
+		{
+			code: 'import { Data } from "effect"; let D = Data; D = unrelated; D.TaggedError("local");',
+			filename: "/project/packages/flow-state-rewrite/src/feature.ts",
+		},
+		{
+			code: 'const D = { TaggedError: () => undefined }; const DD = D; const Tagged = DD.TaggedError; Tagged("local");',
+			filename: "/project/packages/flow-state-rewrite/src/feature.ts",
+		},
+		{
+			code: 'const first = second; const second = first; first.TaggedError("local");',
+			filename: "/project/packages/flow-state-rewrite/src/feature.ts",
+		},
+	],
+	invalid: [
+		{
+			code: 'import { Schema } from "effect"; class Diagnostic { readonly factory = Schema.TaggedError("NotADeclaration"); }',
+			filename: "/project/packages/flow-state-rewrite/src/diagnostic/diagnostic.ts",
+			errors: [{ messageId: "parallel" }],
+		},
+		{
+			code: 'import { Data, Schema } from "effect"; class A extends Data.TaggedError("A") {} class B extends Schema.TaggedError<B>()("B", {}) {}',
+			filename: "/project/packages/flow-state-rewrite/src/feature.ts",
+			errors: [{ messageId: "parallel" }, { messageId: "parallel" }],
+		},
+		{
+			code: 'import { Data as D } from "effect"; class A extends D["TaggedError"]("A") {}',
+			filename: "/project/packages/flow-state-rewrite/src/feature.ts",
+			errors: [{ messageId: "parallel" }],
+		},
+		{
+			code: 'import { Schema as S } from "effect"; class A extends S["TaggedError"]<A>()("A", {}) {}',
+			filename: "/project/packages/flow-state-rewrite/src/feature.ts",
+			errors: [{ messageId: "parallel" }],
+		},
+		{
+			code: 'import { Schema } from "effect"; const S = Schema; class A extends (S)[`TaggedError`]<A>()("A", {}) {}',
+			filename: "/project/packages/flow-state-rewrite/src/feature.ts",
+			errors: [{ messageId: "parallel" }],
+		},
+		{
+			code: 'import { Data } from "effect"; class A extends Data[`TaggedError`]("A") {}',
+			filename: "/project/packages/flow-state-rewrite/src/feature.ts",
+			errors: [{ messageId: "parallel" }],
+		},
+		{
+			code: 'import * as Fx from "effect"; class A extends Fx.Data.TaggedError("A") {} class B extends Error {}',
+			filename: "/project/packages/flow-state-rewrite/src/feature.ts",
+			errors: [{ messageId: "parallel" }, { messageId: "parallel" }],
+		},
+		{
+			code: 'import * as Fx from "effect"; class A extends Fx["Schema"]["TaggedError"]<A>()("A", {}) {}',
+			filename: "/project/packages/flow-state-rewrite/src/feature.ts",
+			errors: [{ messageId: "parallel" }],
+		},
+		{
+			code: 'import { Data } from "effect"; const { TaggedError: makeError } = Data; class A extends makeError("A") {}',
+			filename: "/project/packages/flow-state-rewrite/src/feature.ts",
+			errors: [{ messageId: "parallel" }],
+		},
+		{
+			code: 'import { Data } from "effect"; const D = Data; const DD = D; const Tagged = DD.TaggedError; class A extends Tagged("A") {}',
+			filename: "/project/packages/flow-state-rewrite/src/feature.ts",
+			errors: [{ messageId: "parallel" }],
+		},
+		{
+			code: 'import { Schema } from "effect"; const S = Schema; const SS = S; const Tagged = SS["TaggedError"]; class A extends Tagged<A>()("A", {}) {}',
+			filename: "/project/packages/flow-state-rewrite/src/feature.ts",
+			errors: [{ messageId: "parallel" }],
+		},
+		{
+			code: 'class FeatureError extends Error {}',
+			filename: "C:\\project\\packages\\flow-state-rewrite\\src\\feature.ts",
+			errors: [{ messageId: "parallel" }],
+		},
+	],
+});
+
+tester.run("no-unknown-effect-channel", noUnknownEffectChannelRule, {
+	valid: [
+		{ code: 'import { Effect } from "effect"; type Good = Effect.Effect<string, Error, never>;', filename: "/project/packages/flow-state-rewrite/src/public.ts" },
+		{ code: 'import { Effect } from "effect";\n// FLOW_STATE_ALLOW_UNKNOWN_EFFECT_CHANNEL: internal erasure\ntype Internal = Effect.Effect<string, unknown, never>;', filename: "/project/packages/flow-state-rewrite/src/internal.ts" },
+		{ code: 'import { Effect } from "effect"; type Narrowed = Effect.Effect<string, unknown & Error, never>;', filename: "/project/packages/flow-state-rewrite/src/public.ts" },
+		{ code: 'import { Effect } from "effect"; type PromiseBox<T> = Promise<T>; type Good = Effect.Effect<string, PromiseBox<unknown>, never>;', filename: "/project/packages/flow-state-rewrite/src/public.ts" },
+	],
+	invalid: [
+		{ code: 'import { Effect } from "effect"; type Bad = Effect.Effect<string, unknown, never>;', filename: "/project/packages/flow-state-rewrite/src/public.ts", errors: [{ messageId: "unknownChannel" }] },
+		{ code: 'import * as Fx from "effect"; type Bad = Fx.Effect.Effect<string, Error, unknown>;', filename: "/project/packages/flow-state-rewrite/src/public.ts", errors: [{ messageId: "unknownChannel" }] },
+		{ code: 'import { Effect } from "effect"; type Hidden = unknown; type Bad = Effect.Effect<string, Hidden, never>;', filename: "/project/packages/flow-state-rewrite/src/public.ts", errors: [{ messageId: "unknownChannel" }] },
+		{ code: 'import { Effect } from "effect"; type Bad = Effect.Effect<string, string | unknown, never>;', filename: "/project/packages/flow-state-rewrite/src/public.ts", errors: [{ messageId: "unknownChannel" }] },
+		{ code: 'import { Effect } from "effect"; type Wrapped<T> = Effect.Effect<string, T, never>; type Bad = Wrapped<unknown>;', filename: "/project/packages/flow-state-rewrite/src/public.ts", errors: [{ messageId: "unknownChannel" }] },
+		{ code: 'import { Effect } from "effect"; type Identity<T> = T; type Bad = Effect.Effect<string, Identity<unknown>, never>;', filename: "/project/packages/flow-state-rewrite/src/public.ts", errors: [{ messageId: "unknownChannel" }] },
+		{ code: '// FLOW_STATE_ALLOW_UNKNOWN_EFFECT_CHANNEL: header\nimport { Effect } from "effect";\ntype Bad = Effect.Effect<string, unknown, never>;', filename: "/project/packages/flow-state-rewrite/src/public.ts", errors: [{ messageId: "unknownChannel" }] },
+		{ code: 'import { Effect } from "effect";\n// FLOW_STATE_ALLOW_UNKNOWN_EFFECT_CHANNEL: unrelated\nconst value = 1;\ntype Bad = Effect.Effect<string, unknown, never>;', filename: "/project/packages/flow-state-rewrite/src/public.ts", errors: [{ messageId: "unknownChannel" }] },
+		{ code: 'import { Effect } from "effect"; const value = 1; /* FLOW_STATE_ALLOW_UNKNOWN_EFFECT_CHANNEL: trailing */\ntype Bad = Effect.Effect<string, unknown, never>;', filename: "/project/packages/flow-state-rewrite/src/public.ts", errors: [{ messageId: "unknownChannel" }] },
+		{ code: 'import { Effect } from "effect"; /** @internal erasure */\ntype Bad = Effect.Effect<string, unknown, never>;', filename: "/project/packages/flow-state-rewrite/src/public.ts", errors: [{ messageId: "unknownChannel" }] },
+	],
+});
+
+const deepUnknownUnion = Array.from({ length: 26 }, (_, index) =>
+	index === 0 ? "type Channel0 = unknown;" : `type Channel${index} = string | Channel${index - 1} | Channel${index - 1};`,
+).join(" ");
+tester.run("no-unknown-effect-channel-performance", noUnknownEffectChannelRule, {
+	valid: [],
+	invalid: [
+		{
+			code: `import { Effect } from "effect"; ${deepUnknownUnion} type Bad = Effect.Effect<string, Channel25, never>;`,
+			filename: "/project/packages/flow-state-rewrite/src/public.ts",
+			errors: [{ messageId: "unknownChannel" }],
 		},
 	],
 });
@@ -725,6 +974,7 @@ tester.run("no-effect-ref-read-then-write", noEffectRefReadThenWriteRule, {
 		'import { Ref } from "effect"; function update(state: Ref.Ref<number>) { return Ref.modify(state, (value) => [value + 1, value]); }',
 		'import { Ref as R } from "effect"; function readOnly(state: R.Ref<number>) { return R.get(state); }',
 		'import * as E from "effect"; function separate(first: E.Ref.Ref<number>, second: E.Ref.Ref<number>) { E.Ref.get(first); E.Ref.set(second, 1); }',
+		'import * as E from "effect"; function separate(first: E.Ref.Ref<number>, second: E.Ref.Ref<number>) { E["Ref"].get(first); E["Ref"]["set"](second, 1); }',
 		'import { Ref } from "effect"; function firstWrites(state: Ref.Ref<number>) { Ref.set(state, 1); Ref.get(state); }',
 		'import { Ref } from "effect"; function outer(state: Ref.Ref<number>) { Ref.get(state); return () => Ref.set(state, 1); }',
 	],
@@ -741,16 +991,25 @@ tester.run("no-effect-ref-read-then-write", noEffectRefReadThenWriteRule, {
 			code: 'import * as E from "effect"; function update(state: E.Ref.Ref<number>) { E.Ref.get(state); E.Ref.set(state, 1); }',
 			errors: [{ messageId: "readThenWrite" }],
 		},
+		{
+			code: 'import * as E from "effect"; function update(state: E.Ref.Ref<number>) { E["Ref"]["get"](state); E.Ref["set"](state, 1); }',
+			errors: [{ messageId: "readThenWrite" }],
+		},
 	],
 });
 
 tester.run("no-unmanaged-effect-scope", noUnmanagedEffectScopeRule, {
 	valid: [
-		'import { Effect, Scope } from "effect"; Effect.acquireRelease(Scope.make(), (scope) => Scope.close(scope, "interrupt"));',
+		'import { Effect, Exit, Scope } from "effect"; Effect.acquireRelease(Scope.make(), (scope) => Scope.close(scope, Exit.void));',
 		'import { Effect as E, Scope as S } from "effect"; E.acquireRelease(S.make(), release);',
 		'import * as Fx from "effect"; Fx.acquireRelease(Fx.Scope.make(), release);',
-		'import { Scope } from "effect"; const value = Scope.close(scope, "interrupt");',
+		'import * as Fx from "effect"; Fx["acquireRelease"](Fx["Scope"]["make"](), release);',
+		'import { Exit, Scope } from "effect"; const value = Scope.close(scope, Exit.void);',
 		'const Scope = { make: () => effect }; Scope.make();',
+		{
+			code: 'import { Scope } from "effect"; const scope = Scope.make();',
+			filename: "/project/packages/flow-state/src/server.ts",
+		},
 	],
 	invalid: [
 		{
@@ -758,7 +1017,11 @@ tester.run("no-unmanaged-effect-scope", noUnmanagedEffectScopeRule, {
 			errors: [{ messageId: "unmanaged" }],
 		},
 		{
-			code: 'import * as Fx from "effect"; function open() { const scope = Fx.Scope.make(); Fx.Scope.close(scope, "interrupt"); }',
+			code: 'import * as Fx from "effect"; function open() { const scope = Fx.Scope.make(); Fx.Scope.close(scope, Fx.Exit.void); }',
+			errors: [{ messageId: "unmanaged" }],
+		},
+		{
+			code: 'import * as Fx from "effect"; function open() { const scope = Fx["Scope"]["make"](); return scope; }',
 			errors: [{ messageId: "unmanaged" }],
 		},
 	],
@@ -803,7 +1066,10 @@ tester.run("no-optional-domain-properties", noOptionalDomainPropertiesRule, {
 tester.run("no-implicit-effect-concurrency", noImplicitEffectConcurrencyRule, {
 	valid: [
 		'import { Effect } from "effect"; Effect.all(items, { concurrency: 1 });',
+		'import { Effect } from "effect"; Effect.filterMapEffect(items, run, { concurrency: 1 });',
 		'import { Effect } from "effect"; Effect.forEach(items, run, { concurrency: "unbounded" });',
+		'import { Effect } from "effect"; Effect.partition(items, run, { concurrency: 2 });',
+		'import { Effect } from "effect"; Effect.replicateEffect(work, 2, { concurrency: 2 });',
 		'import { Effect } from "effect"; Effect.validate(items, run, { concurrency: 4 });',
 		'import { Effect } from "effect"; Effect.all(items, { ["concurrency"]: 1 });',
 	],
@@ -813,11 +1079,31 @@ tester.run("no-implicit-effect-concurrency", noImplicitEffectConcurrencyRule, {
 			errors: [{ messageId: "concurrency" }],
 		},
 		{
+			code: 'import * as Fx from "effect"; Fx["Effect"]["all"](items);',
+			errors: [{ messageId: "concurrency" }],
+		},
+		{
+			code: 'import { Effect } from "effect"; Effect.filterMapEffect(items, run);',
+			errors: [{ messageId: "concurrency" }],
+		},
+		{
 			code: 'import { Effect } from "effect"; Effect.forEach(items, run);',
 			errors: [{ messageId: "concurrency" }],
 		},
 		{
+			code: 'import { Effect } from "effect"; Effect.partition(items, run);',
+			errors: [{ messageId: "concurrency" }],
+		},
+		{
+			code: 'import { Effect } from "effect"; Effect.replicateEffect(work, 2);',
+			errors: [{ messageId: "concurrency" }],
+		},
+		{
 			code: 'import { Effect } from "effect"; Effect.validate(items, run);',
+			errors: [{ messageId: "concurrency" }],
+		},
+		{
+			code: 'import * as Fx from "effect"; Fx.Effect.forEach(items, run);',
 			errors: [{ messageId: "concurrency" }],
 		},
 		{
@@ -835,6 +1121,9 @@ tester.run("no-numeric-duration", noNumericDurationRule, {
 	valid: [
 		'import { Duration, Effect, Schedule } from "effect"; Effect.sleep(Duration.seconds(1));',
 		'import { Effect } from "effect"; Effect.timeout("5 seconds");',
+		'import { Effect } from "effect"; Effect.timeoutOrElse({ duration: "5 seconds", orElse });',
+		'import { Effect } from "effect"; Effect.cachedWithTTL(effect, "5 seconds");',
+		'import { Schedule } from "effect"; Schedule.duration("5 seconds"); Schedule.upTo({ duration: "5 seconds" });',
 		'import { Schedule } from "effect"; Schedule.recurs(3);',
 		'import { Effect } from "effect"; const duration = 100; Effect.delay(duration);',
 	],
@@ -852,27 +1141,32 @@ tester.run("no-numeric-duration", noNumericDurationRule, {
 			errors: [{ messageId: "duration" }],
 		},
 		{
+			code: 'import { Effect } from "effect"; Effect.timeoutOption(100); Effect.cachedWithTTL(effect, 100); Effect.cachedInvalidateWithTTL(100);',
+			errors: [
+				{ messageId: "duration" },
+				{ messageId: "duration" },
+				{ messageId: "duration" },
+			],
+		},
+		{
+			code: 'import { Effect } from "effect"; Effect.timeoutOrElse({ duration: 100, orElse }); Effect.timeoutOrElse(effect, { duration: 100, orElse });',
+			errors: [{ messageId: "duration" }, { messageId: "duration" }],
+		},
+		{
+			code: 'import { Schedule } from "effect"; Schedule.duration(100); Schedule.during(100); Schedule.fibonacci(100); Schedule.fixed(100); Schedule.spaced(100); Schedule.windowed(100);',
+			errors: Array.from({ length: 6 }, () => ({ messageId: "duration" })),
+		},
+		{
+			code: 'import { Schedule } from "effect"; Schedule.upTo({ duration: 100 }); Schedule.upTo(schedule, { ["duration"]: 100 });',
+			errors: [{ messageId: "duration" }, { messageId: "duration" }],
+		},
+		{
 			code: 'import { Effect } from "effect"; Effect.sleep(-100);',
 			errors: [{ messageId: "duration" }],
 		},
-	],
-});
-
-tester.run("no-raw-try-catch", noRawTryCatchRule, {
-	valid: [
-		"try { work(); } catch (cause) { report(cause); }",
-		'import { Effect } from "effect"; const value = Effect.try({ try: work, catch: String });',
-		'import type { Effect } from "effect"; try { work(); } catch (cause) { report(cause); }',
-		'import { Effect } from "effect"; try { work(); } finally { cleanup(); }',
-	],
-	invalid: [
 		{
-			code: 'import { Effect } from "effect"; try { work(); } catch (cause) { report(cause); }',
-			errors: [{ messageId: "rawTryCatch" }],
-		},
-		{
-			code: 'import { Effect } from "effect/submodule"; try { work(); } catch (cause) { report(cause); }',
-			errors: [{ messageId: "rawTryCatch" }],
+			code: 'import * as Fx from "effect"; Fx.Effect.sleep(100); Fx.Schedule.fixed(100);',
+			errors: [{ messageId: "duration" }, { messageId: "duration" }],
 		},
 	],
 });
@@ -880,8 +1174,7 @@ tester.run("no-raw-try-catch", noRawTryCatchRule, {
 tester.run("no-throw-in-effect-gen", noThrowInEffectGenRule, {
 	valid: [
 		'import { Effect } from "effect"; Effect.gen(function* () { yield* Effect.succeed(1); });',
-		'import { Effect } from "effect"; Effect.gen(function* () { const helper = () => { throw cause; }; return helper; });',
-		'import { Effect } from "effect"; Effect.gen(function* () { function nested() { throw new Error("allowed nested function"); } yield* Effect.succeed(nested); });',
+		'import { Effect } from "effect"; Effect.gen(function* () { const helper = () => 1; return helper; });',
 	],
 	invalid: [
 		{
@@ -890,6 +1183,22 @@ tester.run("no-throw-in-effect-gen", noThrowInEffectGenRule, {
 		},
 		{
 			code: 'import { Effect } from "effect"; Effect.fn("work")(function* () { if (bad) throw cause; });',
+			errors: [{ messageId: "throw" }],
+		},
+		{
+			code: 'import { Effect } from "effect"; Effect.fnUntraced(function* () { throw cause; }); Effect.fnUntracedEager(function* () { throw cause; });',
+			errors: [{ messageId: "throw" }, { messageId: "throw" }],
+		},
+		{
+			code: 'import * as Fx from "effect"; Fx.Effect.fn("work")(function* () { throw cause; });',
+			errors: [{ messageId: "throw" }],
+		},
+		{
+			code: 'import { Effect } from "effect"; Effect.gen(((function* () { throw cause; }) as () => unknown));',
+			errors: [{ messageId: "throw" }],
+		},
+		{
+			code: 'import { Effect } from "effect"; Effect.gen(function* () { const callback = () => { throw cause; }; return callback; });',
 			errors: [{ messageId: "throw" }],
 		},
 	],
@@ -952,6 +1261,10 @@ tester.run("no-unsafe-fiber-methods", noUnsafeFiberMethodsRule, {
 			code: 'import { Fiber } from "effect"; declare const fiber: Fiber.Fiber<number, never>; fiber.interruptUnsafe();',
 			filename: "/project/packages/flow-state/src/runtime/host.ts",
 		},
+		{
+			code: 'import { Fiber } from "effect"; declare const fiber: Fiber.Fiber<number, never>; fiber.pollUnsafe();',
+			filename: "/project/packages/flow-state/src/server.ts",
+		},
 	],
 	invalid: [
 		{
@@ -961,6 +1274,11 @@ tester.run("no-unsafe-fiber-methods", noUnsafeFiberMethodsRule, {
 		},
 		{
 			code: 'import { Fiber } from "effect"; interface Holder { fiber: Fiber.Fiber<number, never> } declare const holder: Holder; holder.fiber["pollUnsafe"]();',
+			filename: "/project/packages/flow-state/src/core/domain.ts",
+			errors: [{ messageId: "unsafeFiberMethod" }],
+		},
+		{
+			code: 'import * as Fx from "effect"; declare const fiber: Fx.Fiber.Fiber<number, never>; fiber.pollUnsafe();',
 			filename: "/project/packages/flow-state/src/core/domain.ts",
 			errors: [{ messageId: "unsafeFiberMethod" }],
 		},
@@ -1030,6 +1348,10 @@ tester.run("no-service-shape-parameter-extraction", noServiceShapeParameterExtra
 		},
 		{
 			code: 'import { Context as C } from "effect"; class Service extends C["Service"]<Service>()("Service") {} type Value = Parameters<(typeof Service)["of"]>[0];',
+			errors: [{ messageId: "serviceShape" }],
+		},
+		{
+			code: 'import * as Fx from "effect"; class Service extends Fx.Context.Service<Service>()("Service") {} type Value = Parameters<(typeof Service)["of"]>[0];',
 			errors: [{ messageId: "serviceShape" }],
 		},
 	],
@@ -1109,6 +1431,22 @@ tester.run("no-effect-runner-in-domain", noEffectRunnerInDomainRule, {
 	valid: [
 		"const worker = { runSync() {} }; worker.runSync();",
 		{
+			code: 'const first = second; const second = first; first.runPromise(effect);',
+			filename: "/project/packages/flow-state-rewrite/src/implementation/live.ts",
+		},
+		{
+			code: 'import { Effect } from "effect"; let E = Effect; E.runPromise(effect);',
+			filename: "/project/packages/flow-state-rewrite/src/implementation/live.ts",
+		},
+		{
+			code: 'import { Effect } from "effect"; let E = Effect; E = unrelated; E.runPromise(effect);',
+			filename: "/project/packages/flow-state-rewrite/src/implementation/live.ts",
+		},
+		{
+			code: 'import { Effect } from "effect"; let run = Effect.runPromise; run = unrelated; run(effect);',
+			filename: "/project/packages/flow-state-rewrite/src/implementation/live.ts",
+		},
+		{
 			code: 'import { Effect } from "effect"; Effect.runSync(Effect.succeed(1));',
 			filename: "/project/packages/flow-state/src/runtime/host.ts",
 		},
@@ -1116,10 +1454,28 @@ tester.run("no-effect-runner-in-domain", noEffectRunnerInDomainRule, {
 			code: 'import { Effect } from "effect"; Effect.runSync(Effect.succeed(1));',
 			filename: "/project/packages/flow-state/src/core/orchestrator/orchestrator-system.ts",
 		},
+		{
+			code: 'import { Effect } from "effect"; Effect.runPromise(Effect.void);',
+			filename: "/project/packages/flow-state/src/server.ts",
+		},
+		{
+			code: 'import { Effect } from "effect"; Effect.gen(function* () { yield* Effect.succeed(1); });',
+			filename: "/project/packages/flow-state/src/runtime/host.ts",
+		},
 	],
 	invalid: [
 		{
+			code: 'import { Effect } from "effect"; Effect.gen(function* () { yield* Effect.runPromise(Effect.succeed(1)); });',
+			filename: "/project/packages/flow-state/src/runtime/host.ts",
+			errors: [{ messageId: "nestedRunner" }],
+		},
+		{
 			code: 'import { Effect } from "effect"; Effect.runSync(Effect.succeed(1));',
+			filename: "/project/packages/flow-state/src/core/machines/flow-paths.ts",
+			errors: [{ messageId: "runner" }],
+		},
+		{
+			code: 'import * as Fx from "effect"; Fx.Effect.runSync(Fx.Effect.succeed(1));',
 			filename: "/project/packages/flow-state/src/core/machines/flow-paths.ts",
 			errors: [{ messageId: "runner" }],
 		},
@@ -1128,6 +1484,82 @@ tester.run("no-effect-runner-in-domain", noEffectRunnerInDomainRule, {
 			filename: "/project/packages/flow-state/src/core/domain.ts",
 			errors: [{ messageId: "runner" }],
 		},
+		{
+			code: 'import { Effect, ManagedRuntime } from "effect"; const runtime = ManagedRuntime.make(layer); runtime["runPromise"](effect);',
+			filename: "/project/packages/flow-state-rewrite/src/implementation/live.ts",
+			errors: [{ messageId: "runner" }],
+		},
+		{
+			code: 'import * as Fx from "effect"; const run = Fx.Effect.runPromise; Fx.Effect.gen(function* () { run(effect); });',
+			filename: "/project/packages/flow-state-rewrite/src/implementation/live.ts",
+			errors: [{ messageId: "nestedRunner" }],
+		},
+		{
+			code: 'import { Effect } from "effect"; const run = Effect["runSync"]; run(effect);',
+			filename: "/project/packages/flow-state-rewrite/src/implementation/live.ts",
+			errors: [{ messageId: "runner" }],
+		},
+		{
+			code: 'import { Effect } from "effect"; const { runPromise: run } = Effect; run(effect);',
+			filename: "/project/packages/flow-state-rewrite/src/implementation/live.ts",
+			errors: [{ messageId: "runner" }],
+		},
+		{
+			code: 'import { Effect } from "effect"; const E = Effect; const EE = E; const run = EE.runPromise; run(effect);',
+			filename: "/project/packages/flow-state-rewrite/src/implementation/live.ts",
+			errors: [{ messageId: "runner" }],
+		},
+		{
+			code: 'import { Effect } from "effect"; const E = Effect; const cycle = E; const E2 = cycle; const run = E2.runPromise; run(effect);',
+			filename: "/project/packages/flow-state-rewrite/src/implementation/live.ts",
+			errors: [{ messageId: "runner" }],
+		},
+		{
+			code: 'import { ManagedRuntime } from "effect"; const runtime = ManagedRuntime.make(layer); const runtimeAlias = runtime; runtimeAlias.runPromise(effect);',
+			filename: "/project/packages/flow-state-rewrite/src/implementation/live.ts",
+			errors: [{ messageId: "runner" }],
+		},
+		{
+			code: 'import { Effect } from "effect"; const run = Effect.runPromiseWith(context); run(effect);',
+			filename: "/project/packages/flow-state-rewrite/src/implementation/live.ts",
+			errors: [{ messageId: "runner" }],
+		},
+		{
+			code: 'import { Effect } from "effect"; Effect.gen((function* () { yield* Effect.runPromise(effect); }) as () => unknown);',
+			filename: "/project/packages/flow-state-rewrite/src/implementation/live.ts",
+			errors: [{ messageId: "nestedRunner" }],
+		},
+		{
+			code: 'import { Effect } from "effect"; const E = Effect; E[`runPromise`].call(undefined, effect);',
+			filename: "/project/packages/flow-state-rewrite/src/implementation/live.ts",
+			errors: [{ messageId: "runner" }],
+		},
+		{
+			code: 'import { Effect } from "effect"; const E = Effect; E.runPromise.apply(undefined, [effect]);',
+			filename: "/project/packages/flow-state-rewrite/src/implementation/live.ts",
+			errors: [{ messageId: "runner" }],
+		},
+		{
+			code: 'import { Effect } from "effect"; const E = Effect; E.runPromise.bind(undefined)(effect);',
+			filename: "/project/packages/flow-state-rewrite/src/implementation/live.ts",
+			errors: [{ messageId: "runner" }],
+		},
+	],
+});
+
+tester.run("no-raw-try-catch", noRawTryCatchRule, {
+	valid: [
+		{ code: "try { work(); } finally { cleanup(); }", filename: "/project/packages/flow-state-rewrite/src/implementation/live.ts" },
+		{ code: "try { work(); } catch (error) { report(error); }", filename: "/project/packages/flow-state-rewrite/src/implementation/live.test.ts" },
+		{ code: "try { work(); } catch (error) { report(error); }", filename: "/project/packages/flow-state/src/runtime/host.ts" },
+	],
+	invalid: [
+		{ code: "try { work(); } catch (error) { report(error); }", filename: "/project/packages/flow-state-rewrite/src/implementation/live.ts", errors: [{ messageId: "rawTryCatch" }] },
+		{ code: "const value = 1; try { work(value); } catch { recover(); }", filename: "/project/packages/flow-state-rewrite/src/definition/domain.ts", errors: [{ messageId: "rawTryCatch" }] },
+		{ code: "try { work(); } catch (error) { report(error); }", filename: "/project/packages/flow-state-rewrite/src/runtime/host.ts", errors: [{ messageId: "rawTryCatch" }] },
+		{ code: "try { work(); } catch (error) { report(error); }", filename: "/project/packages/flow-state-rewrite/src/public/root.ts", errors: [{ messageId: "rawTryCatch" }] },
+		{ code: "try { work(); } catch (error) { report(error); }", filename: "/project/packages/flow-state-rewrite/src/react/component.ts", errors: [{ messageId: "rawTryCatch" }] },
+		{ code: "try { work(); } catch (error) { report(error); }", filename: "/project/packages/flow-state-rewrite/src/server/adapter.ts", errors: [{ messageId: "rawTryCatch" }] },
 	],
 });
 
@@ -1139,8 +1571,16 @@ tester.run("no-unwrapped-promise-in-effect-core", noUnwrappedPromiseInEffectCore
 			filename: "/project/packages/flow-state/src/core/domain.ts",
 		},
 		{
+			code: 'import * as Fx from "effect"; const value = Fx.Effect.tryPromise(() => Promise.resolve(1));',
+			filename: "/project/packages/flow-state/src/core/domain.ts",
+		},
+		{
 			code: 'import { Effect } from "effect"; const value = Promise.resolve(1);',
 			filename: "/project/packages/flow-state/src/core/inspection/trace-artifact.ts",
+		},
+		{
+			code: 'import { Effect } from "effect"; const value = Promise.resolve(1);',
+			filename: "/project/packages/flow-state/src/server.ts",
 		},
 	],
 	invalid: [
@@ -1195,10 +1635,18 @@ tester.run("no-unknown-parameters-regression", noUnknownParametersRule, {
 	valid: [
 		"function parse(cause: unknown) { return cause; }",
 		'import { Schema } from "effect"; function parseDomainValue(value: unknown) { return Schema.decodeUnknownSync(Schema.String)(value); }',
+		'import { Schema } from "effect"; function parseDomainValue(value: unknown) { return Schema.decodeUnknownEffect(Schema.String)(value); }',
+		'import { Schema } from "effect"; function parseDomainValue(value: unknown) { return Schema.decodeUnknownExit(Schema.String)(value); }',
+		'import { Schema } from "effect"; function parseDomainValue(value: unknown) { return Schema.decodeUnknownOption(Schema.String)(value); }',
+		'import { Schema } from "effect"; function parseDomainValue(value: unknown) { return Schema.decodeUnknownPromise(Schema.String)(value); }',
+		'import { Schema } from "effect"; function parseDomainValue(value: unknown) { return Schema.decodeUnknownResult(Schema.String)(value); }',
+		'import { Schema as S } from "effect"; function parseDomainValue(value: unknown) { return S.decodeUnknownSync(S.String)(value); }',
+		'import * as Fx from "effect"; function parseDomainValue(value: unknown) { return Fx.Schema.decodeUnknownSync(Fx.Schema.String)(value); }',
 	],
 	invalid: [
 		{ code: "function parse(value: unknown) { return value; }", errors: [{ messageId: "unknownParameter" }] },
 		{ code: "const Schema = { decodeUnknownSync: (value) => value }; function parse(value: unknown) { return Schema.decodeUnknownSync(value); }", errors: [{ messageId: "unknownParameter" }] },
+		{ code: 'import { Schema } from "effect"; function parse(value: unknown) { return Schema.decode(Schema.String)(value); }', errors: [{ messageId: "unknownParameter" }] },
 	],
 });
 
@@ -1214,10 +1662,27 @@ tester.run("no-unknown-returns-regression", noUnknownReturnsRule, {
 });
 
 tester.run("no-unknown-type-aliases-regression", noUnknownTypeAliasesRule, {
-	valid: ["type Value = string;", "function outer() { type Value = string; return null as Value; }"],
+	valid: [
+		"type Value = string;",
+		"function outer() { type Value = string; return null as Value; }",
+		"type AsyncPayload = Promise<unknown>; type UnknownList = Array<unknown>; type UnknownMap = Record<string, unknown>;",
+		"type First = Second; type Second = First;",
+	],
 	invalid: [
 		{ code: "type Value = string | unknown;", errors: [{ messageId: "unknownAlias" }] },
 		{ code: "type Box<T> = T; type Value = Box<unknown>;", errors: [{ messageId: "unknownAlias" }] },
+	],
+});
+
+let duplicateBranch = "unknown";
+for (let index = 0; index < 20; index += 1) duplicateBranch = `Branch<${duplicateBranch}>`;
+tester.run("no-unknown-type-aliases-performance", noUnknownTypeAliasesRule, {
+	valid: [],
+	invalid: [
+		{
+			code: `type Branch<T> = T | T; type Bad = ${duplicateBranch};`,
+			errors: [{ messageId: "unknownAlias" }],
+		},
 	],
 });
 
@@ -1294,7 +1759,23 @@ tester.run("no-shape-in-symbol-names-regression", noForbiddenTermInSymbolNamesRu
 
 tester.run("no-effect-promise-regression", noEffectPromiseRule, {
 	valid: ['import { Effect } from "effect"; Effect.tryPromise({ try: work, catch: String });'],
-	invalid: [{ code: 'import { Effect } from "effect"; Effect.tryPromise({ try: work });', errors: [{ messageId: "tryPromise" }] }],
+	invalid: [{ code: 'import { Effect } from "effect"; Effect.promise(work);', errors: [{ messageId: "promise" }] }],
+});
+
+tester.run("no-unjustified-effect-try-promise-regression", noUnjustifiedEffectTryPromiseRule, {
+	valid: [
+		{
+			code: 'import { Effect } from "effect";\n// FLOW_STATE_ALLOW_EFFECT_TRY_PROMISE: external Promise-only API.\nEffect.tryPromise({ try: work, catch: String });',
+			filename: "/project/packages/flow-state-rewrite/src/adapter.ts",
+		},
+	],
+	invalid: [
+		{
+			code: 'import { Effect } from "effect"; Effect.tryPromise({ try: work, catch: String });',
+			filename: "/project/packages/flow-state-rewrite/src/adapter.ts",
+			errors: [{ messageId: "unjustified" }],
+		},
+	],
 });
 
 tester.run("require-safety-comment-for-type-assertion-regression", requireSafetyCommentForTypeAssertionRule, {
@@ -1313,9 +1794,10 @@ const preferredFixtureRules = [
 	["no-conditional-empty-object-spread", noConditionalEmptyObjectSpreadRule],
 	["no-conditional-singleton-array-spread", noConditionalSingletonArraySpreadRule],
 	["no-context-tag", noContextTagRule],
-	["no-data-taggederror", noDataTaggedErrorRule],
+	["no-parallel-diagnostic-errors", noParallelDiagnosticErrorsRule],
 	["no-direct-process-env", noDirectProcessEnvRule],
 	["no-effect-promise", noEffectPromiseRule],
+	["no-unjustified-effect-try-promise", noUnjustifiedEffectTryPromiseRule],
 	["no-effect-promise-microtask", noEffectPromiseMicrotaskRule],
 	["no-effect-runner-in-domain", noEffectRunnerInDomainRule],
 	["no-effect-ref-read-then-write", noEffectRefReadThenWriteRule],
@@ -1340,7 +1822,6 @@ const preferredFixtureRules = [
 	["no-optional-domain-properties", noOptionalDomainPropertiesRule],
 	["no-package-dist-or-self-import-in-src", noPackageDistOrSelfImportInSrcRule],
 	["no-promise-microtask-barrier", noPromiseMicrotaskBarrierRule],
-	["no-pure-effect-wrapper", noPureEffectWrapperRule],
 	["no-public-entrypoint-export-drift", noPublicEntrypointExportDriftRule],
 	["no-raw-try-catch", noRawTryCatchRule],
 	["no-redundant-readonly-wrapper", noRedundantReadonlyWrapperRule],
@@ -1358,6 +1839,7 @@ const preferredFixtureRules = [
 	["no-unknown-parameters", noUnknownParametersRule],
 	["no-unknown-returns", noUnknownReturnsRule],
 	["no-unknown-type-aliases", noUnknownTypeAliasesRule],
+	["no-unknown-effect-channel", noUnknownEffectChannelRule],
 	["no-unsafe-dictionary-type", noUnsafeDictionaryTypeRule],
 	["no-unsafe-fiber-methods", noUnsafeFiberMethodsRule],
 	["no-unwrapped-promise-in-effect-core", noUnwrappedPromiseInEffectCoreRule],

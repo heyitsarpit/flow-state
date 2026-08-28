@@ -11,7 +11,7 @@
  * the reference file records cases where a rule has more than one good form.
  */
 
-import { Context, Data, Effect, Fiber, Ref, Schedule, Scope } from "effect";
+import { Context, Data, Effect, Fiber, Ref, Schedule, Schema, Scope } from "effect";
 
 // no-package-dist-or-self-import-in-src
 import * as selfPackage from "flow-state";
@@ -82,6 +82,7 @@ declare const fiber: Fiber.Fiber<unknown, never>;
 declare const items: readonly unknown[];
 declare const run: (item: unknown) => Effect.Effect<void>;
 declare const makeRequest: () => Promise<unknown>;
+declare const foreignCall: () => string;
 declare const bad: boolean;
 declare function callback(value: unknown): void;
 declare function register(handler: () => void): void;
@@ -98,10 +99,6 @@ const directEnvironmentValue = process.env.FLOW_STATE_MODE;
 // no-anonymous-default-export
 export default () => knownInput;
 // Prefer: a named export or a named default declaration.
-
-// no-pure-effect-wrapper
-const pureEffectWrapper = Effect.succeed(knownInput.id);
-// Prefer: keep the projection plain unless it intentionally enters an Effect boundary.
 
 // no-god-service-shape
 interface BroadDependencies {
@@ -124,6 +121,16 @@ interface BroadDependencies {
 	readonly seventeen: unknown;
 }
 // Prefer: split this bag into cohesive ports with separate owners.
+
+// no-parallel-diagnostic-errors
+class FeatureFailure extends Data.TaggedError("FeatureFailure") {}
+class AnotherFeatureFailure extends Schema.TaggedError<AnotherFeatureFailure>()("AnotherFeatureFailure", {}) {}
+class LegacyFeatureError extends Error {}
+// Prefer: use the canonical Diagnostic with an owned code and projector.
+
+// no-unknown-effect-channel
+type ErasedFeatureEffect = Effect.Effect<string, unknown, unknown>;
+// Prefer: name the Diagnostic failure and required service contract.
 
 // no-inward-module-dependency, no-generic-utility-module, and
 // no-large-production-file are represented by the path-aware RuleTester cases;
@@ -251,6 +258,7 @@ function returnsUnknown(): unknown {
 
 // no-unknown-type-aliases
 type UnknownAlias = unknown;
+type CollapsedUnknownAlias = string | unknown;
 // Prefer: name the actual domain contract; use unknown only as an input carrier.
 
 // no-unsafe-dictionary-type
@@ -382,51 +390,65 @@ const unwrappedPromise = Promise.resolve(input);
 const manuallyConstructedPromise = new Promise((resolve) => resolve(input));
 // Prefer: Effect.tryPromise/Effect.async in Effect code, or keep Promise conversion in the host adapter.
 
-// no-effect-promise-microtask
-const effectMicrotask = Effect.promise(() => Promise.resolve());
-// Prefer: Effect.yieldNow, Deferred, Latch, or a named scheduler boundary.
-
 // no-context-tag
 const legacyContextTag = Context.Tag("Legacy");
 const legacyContextGenericTag = Context.GenericTag("Legacy");
 const legacyEffectService = Effect.Service("Legacy");
 // Prefer: class Service extends Context.Service<Service>()("Service") {}.
 
-// no-data-taggederror
-const legacyTaggedError = Data.TaggedError("LegacyError");
-// Prefer: Schema.TaggedErrorClass with a named error contract.
-
 // no-effect-promise
-const untypedEffectPromise = Effect.promise(makeRequest);
-const untypedTryPromise = Effect.tryPromise(makeRequest);
-// Prefer: Effect.tryPromise({ try: makeRequest, catch: toDomainError }).
+const forbiddenEffectPromise = Effect.promise(() => Promise.resolve());
+// Prefer: make the operation Effect-native; use justified Effect.tryPromise({ try, catch }) only for unavoidable Promise interop.
+
+// no-unjustified-effect-try-promise
+const unjustifiedTryPromise = Effect.tryPromise({ try: makeRequest, catch: toDomainError });
+// Prefer: change the dependency to return Effect, or add an adjacent standalone FLOW_STATE_ALLOW_EFFECT_TRY_PROMISE: justification for unavoidable foreign interop.
 
 // no-implicit-effect-concurrency
 const implicitEffectAll = Effect.all(items);
+const implicitEffectFilterMap = Effect.filterMapEffect(items, () => Effect.succeed(undefined));
 const implicitEffectForEach = Effect.forEach(items, run);
+const implicitEffectPartition = Effect.partition(items, run);
+const implicitEffectReplicate = Effect.replicateEffect(Effect.void, 2);
 const implicitEffectValidate = Effect.validate(items, run);
 // Prefer: pass { concurrency: 1 }, a bounded number, or "unbounded" explicitly.
 
 // no-numeric-duration
 const numericSleep = Effect.sleep(100);
 const numericTimeout = Effect.timeout(100);
+const numericTimeoutOption = Effect.timeoutOption(100);
+const numericTimeoutFallback = Effect.timeoutOrElse({ duration: 100, orElse: () => Effect.void });
 const numericDelay = Effect.delay(100);
+const numericCache = Effect.cachedWithTTL(100);
+const numericInvalidatingCache = Effect.cachedInvalidateWithTTL(100);
+const numericScheduleDuration = Schedule.duration(100);
+const numericScheduleDuring = Schedule.during(100);
 const numericSchedule = Schedule.exponential(100);
+const numericFibonacciSchedule = Schedule.fibonacci(100);
+const numericFixedSchedule = Schedule.fixed(100);
+const numericSpacedSchedule = Schedule.spaced(100);
+const numericWindowedSchedule = Schedule.windowed(100);
+const numericBoundedSchedule = Schedule.upTo({ duration: 100 });
 // Prefer: Duration.millis(100), Duration.seconds(1), or a unit-tagged duration string.
-
-// no-raw-try-catch
-try {
-	makeRequest();
-} catch (cause) {
-	void cause;
-}
-// Prefer: Effect.try/Effect.tryPromise so the failure remains in the E channel.
 
 // no-throw-in-effect-gen
 const thrownEffect = Effect.gen(function* () {
 	if (bad) throw new Error("defect");
 });
+const thrownUntracedEffect = Effect.fnUntraced(function* () {
+	if (bad) throw new Error("defect");
+});
 // Prefer: yield* Effect.fail(error) for recovery or Effect.die(cause) for an explicit defect.
+
+// no-raw-try-catch
+const rawTryCatch = (() => {
+	try {
+		return foreignCall();
+	} catch (error) {
+		return error;
+	}
+})();
+// Prefer: return Result for pure validation or map foreign failure through Effect.tryPromise.
 
 // no-expect-in-if (reported when this source is linted as *.test.ts)
 test("conditional assertion", () => {
@@ -484,22 +506,40 @@ void localValue;
 void ExtractedServiceShape;
 void unwrappedPromise;
 void manuallyConstructedPromise;
-void effectMicrotask;
+void forbiddenEffectPromise;
 void legacyContextTag;
 void legacyContextGenericTag;
 void legacyEffectService;
-void legacyTaggedError;
-void untypedEffectPromise;
 void untypedTryPromise;
 void implicitEffectAll;
+void implicitEffectFilterMap;
 void implicitEffectForEach;
+void implicitEffectPartition;
+void implicitEffectReplicate;
 void implicitEffectValidate;
 void numericSleep;
 void numericTimeout;
+void numericTimeoutOption;
+void numericTimeoutFallback;
 void numericDelay;
+void numericCache;
+void numericInvalidatingCache;
+void numericScheduleDuration;
+void numericScheduleDuring;
 void numericSchedule;
+void numericFibonacciSchedule;
+void numericFixedSchedule;
+void numericSpacedSchedule;
+void numericWindowedSchedule;
+void numericBoundedSchedule;
 void thrownEffect;
+void thrownUntracedEffect;
 void moduleState;
 void directEnvironmentValue;
-void pureEffectWrapper;
 void BroadDependencies;
+void FeatureFailure;
+void AnotherFeatureFailure;
+void LegacyFeatureError;
+void ErasedFeatureEffect;
+void inlineTryPromise;
+void rawTryCatch;

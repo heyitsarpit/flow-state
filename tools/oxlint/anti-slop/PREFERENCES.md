@@ -33,7 +33,7 @@ ownership, type evidence, and failure behavior visible.
 | no-object-freeze | Do not call `Object.freeze`; keep mutation private, expose a readonly type, and copy once at the ownership boundary when a snapshot is needed. |
 | no-redundant-readonly-wrapper | Choose { readonly value: T } or Readonly<{ value: T }>; never both mechanically. |
 | no-runtime-typeof | Decode external data with Schema at its boundary; use a local type guard only when it owns that boundary. |
-| no-shallow-json-domain-cast | Parse JSON as unknown, then complete Schema.decodeUnknown or call a named complete decoder. |
+| no-shallow-json-domain-cast | Parse JSON as unknown, then complete `Schema.decodeUnknownSync` or call a named complete decoder. |
 
 ## Construction and control flow
 
@@ -65,23 +65,33 @@ ownership, type evidence, and failure behavior visible.
 | Rule | Prefer |
 | --- | --- |
 | no-context-tag | Effect-v4 class Service extends Context.Service<Service>()("Service") {}. |
-| no-data-taggederror | Schema.TaggedErrorClass with a named error contract. |
-| no-effect-promise | Effect.tryPromise({ try, catch }); for pure work, remove the Promise/Effect wrapper. |
-| no-effect-promise-microtask, no-promise-microtask-barrier | Effect.yieldNow, Deferred, Latch, TestClock, or joining the specific fiber whose progress is required. |
-| no-effect-runner-in-domain | Yield the Effect through core code; run it only at runtime, CLI, test, or host boundaries. |
+| no-effect-promise | Make the operation Effect-native. Use `Effect.tryPromise({ try, catch })` only for unavoidable Promise interop; its separate rule requires an adjacent justification. |
+| no-unjustified-effect-try-promise | Change the dependency/API to return Effect. If that is impossible, use object-form `Effect.tryPromise` with callable `try`/`catch` and an adjacent standalone `FLOW_STATE_ALLOW_EFFECT_TRY_PROMISE:` justification. Naming and extraction are optional; inline and extracted calls follow the same policy. |
+| no-effect-promise-microtask, no-promise-microtask-barrier | Effect.yieldNow, Deferred, Latch, TestClock, or joining the specific fiber whose progress is required. The microtask-specific Effect.promise rule is subsumed by no-effect-promise. |
+| no-effect-runner-in-domain | Return or yield the Effect; run it exactly once at Runtime, ManagedRuntime, CLI, test harness, or final host/shutdown boundaries. A host file does not permit a nested runner inside a workflow. |
 | no-effect-ref-read-then-write | Use Ref.modify or Ref.update so the read-transform-write transition is atomic. |
-| no-unmanaged-effect-scope | Pass Scope.make() directly as Effect.acquireRelease's acquisition argument. |
-| no-unwrapped-promise-in-effect-core | Effect.tryPromise({ try, catch }) or Effect.async; Promise conversion belongs at foreign/host edges. |
-| no-raw-try-catch | Effect.try for synchronous foreign code; Effect.tryPromise for Promise-returning foreign code. |
-| no-throw-in-effect-gen | yield* Effect.fail(error) for recovery; yield* Effect.die(cause) for an explicit defect. |
+| no-unmanaged-effect-scope | Pass Scope.make() directly as Effect.acquireRelease's acquisition argument in domain code; an explicit host/runtime owner may manage and close a Scope itself. |
+| no-unwrapped-promise-in-effect-core | Effect.tryPromise({ try, catch }) or Effect.async at the justified foreign boundary; Promise conversion belongs at that edge. |
+| no-throw-in-effect-gen | yield* Effect.fail(diagnostic) for expected failure; yield* Effect.die(defect) for an explicit invariant defect. |
 | no-implicit-effect-concurrency | { concurrency: 1 }, a bounded number, or { concurrency: "unbounded" }. |
 | no-numeric-duration | Duration.millis/seconds or a unit-tagged duration string. |
 | no-unsafe-fiber-methods | Safe Fiber operations; otherwise isolate the unsafe bridge in one named runtime adapter. |
-| no-pure-effect-wrapper | In production modules, keep deterministic projections as plain values/functions; use `Effect.succeed` when the value is intentionally entering an Effect boundary, not as a wrapper around ordinary computation. Test-support fixtures are excluded. |
 | no-direct-process-env | Read environment/configuration at a host boundary and pass a typed value inward. CLI/server/runtime adapters are the normal exceptions. |
 | no-inward-module-dependency | Core imports ports/domain code inward; adapters and host entrypoints depend on core, never the reverse. |
 | no-god-service-shape | Split a broad service into cohesive capability ports; do not use one dependency record as a substitute for ownership. |
 | no-large-production-file | Treat the warning as a decomposition prompt at 500 production lines; actual test files have a separate 1,000-line allowance for executable matrices and proofs. Split by owner, lifecycle, or boundary, not by arbitrary helper extraction. |
+| no-parallel-diagnostic-errors | Use the canonical Diagnostic union, adding a code and owned projector for a new expected failure. |
+| no-unknown-effect-channel | Name the Diagnostic failure and required service channels; keep unknown only at a documented internal erasure boundary. |
+
+Flow State has one canonical `Schema.TaggedError` owner: `Diagnostic` in the
+rewrite diagnostic module. Feature-specific error classes and `Data.TaggedError`
+are forbidden there; add a diagnostic code and projector instead. `Effect.succeed`
+and `Effect.fail` remain valid when the caller's contract is already Effectful.
+Native `try/catch` is forbidden in rewrite library source, including host-named
+folders. Use `Result` for pure recoverable work, `Effect.try` for synchronous
+throwing foreign APIs, and justified `Effect.tryPromise` for Promise-only APIs.
+Final host or unavoidable interop catches require an explicit local Oxlint
+suppression; path names do not create exemptions.
 
 ## Tests and dynamic boundaries
 

@@ -3,19 +3,7 @@ import { defineRule } from "@oxlint/plugins";
 import type { ESTree, Scope, SourceCode } from "@oxlint/plugins";
 
 import { isImportedFromEffect } from "../shared/effect-import.ts";
-import { isTestFile } from "../shared/file-scope.ts";
-
-function isAllowedBoundary(filename: string): boolean {
-	const normalized = filename.replaceAll("\\", "/");
-	return (
-		isTestFile(filename) ||
-		normalized.includes("/src/runtime/") ||
-		normalized.includes("/src/core/runtime/") ||
-		normalized.includes("/src/cli/") ||
-		normalized.includes("/src/react/") ||
-		normalized.includes("/src/testing/")
-	);
-}
+import { isEffectHostBoundaryFile } from "../shared/file-scope.ts";
 
 function unwrapParentheses(expression: ESTree.Expression): ESTree.Expression {
 	return expression.type === "ParenthesizedExpression"
@@ -95,7 +83,7 @@ export const noEffectPromiseMicrotaskRule = defineRule({
 
 		return {
 			Program() {
-				allowedBoundary = isAllowedBoundary(context.filename);
+				allowedBoundary = isEffectHostBoundaryFile(context.filename);
 			},
 			CallExpression(node: ESTree.CallExpression) {
 				if (!allowedBoundary && isEffectPromiseMicrotask(context.sourceCode, node)) {

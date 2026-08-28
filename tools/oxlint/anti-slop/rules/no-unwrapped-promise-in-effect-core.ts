@@ -4,22 +4,14 @@ import type { ESTree } from "@oxlint/plugins";
 import type { Scope, SourceCode } from "@oxlint/plugins";
 
 import { isImportedFromEffect } from "../shared/effect-import.ts";
-import { isTestFile } from "../shared/file-scope.ts";
+import { isEffectHostBoundaryFile, normalizedFilename } from "../shared/file-scope.ts";
 
 const adapterNames = new Set(["async", "promise", "tryPromise"]);
-
-function normalizedFilename(filename: string): string {
-	return filename.replaceAll("\\", "/");
-}
 
 function isAllowedBoundary(filename: string): boolean {
 	const normalized = normalizedFilename(filename);
 	return (
-		isTestFile(filename) ||
-		normalized.includes("/src/runtime/") ||
-		normalized.includes("/src/cli/") ||
-		normalized.includes("/src/react/") ||
-		normalized.includes("/src/testing/") ||
+		isEffectHostBoundaryFile(filename) ||
 		normalized.endsWith("/src/core/inspection/trace-artifact.ts") ||
 		normalized.endsWith("/src/core/scheduling/ready-work.ts")
 	);
@@ -79,7 +71,7 @@ export const noUnwrappedPromiseInEffectCoreRule = defineRule({
 		},
 		messages: {
 			promise:
-				"This Promise escapes the Effect adapter boundary. Use Effect.tryPromise, Effect.promise, or Effect.async, or move the host conversion outward.",
+				"This Promise escapes the Effect adapter boundary. Use object-form Effect.tryPromise in the named foreign adapter or Effect.async, or move the host conversion outward.",
 		},
 	},
 	createOnce(context) {
@@ -94,14 +86,16 @@ export const noUnwrappedPromiseInEffectCoreRule = defineRule({
 		return {
 			Program(node: ESTree.Program) {
 				allowedBoundary = isAllowedBoundary(context.filename);
-					effectFile = node.body.some(
-						(statement) =>
-							statement.type === "ImportDeclaration" &&
-							statement.importKind !== "type" &&
-								(statement.specifiers.length === 0 ||
-									statement.specifiers.some((specifier) => specifier.type !== "ImportSpecifier" || specifier.importKind !== "type")) &&
-							(statement.source.value === "effect" || statement.source.value.startsWith("effect/")),
-					);
+				effectFile = node.body.some(
+					(statement) =>
+						statement.type === "ImportDeclaration" &&
+						statement.importKind !== "type" &&
+						(statement.specifiers.length === 0 ||
+							statement.specifiers.some(
+								(specifier) => specifier.type !== "ImportSpecifier" || specifier.importKind !== "type",
+							)) &&
+						(statement.source.value === "effect" || statement.source.value.startsWith("effect/")),
+				);
 			},
 			NewExpression(node: ESTree.NewExpression) {
 				if (

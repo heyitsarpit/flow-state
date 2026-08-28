@@ -49,7 +49,7 @@ function isEffectServiceClass(sourceCode: SourceCode, node: ESTree.Node): boolea
 	if (node.type !== "ClassDeclaration") return false;
 	let current = node.superClass;
 	while (current !== null && current.type === "CallExpression") current = current.callee;
-	if (current === null || current.type !== "MemberExpression" || current.object.type !== "Identifier") return false;
+	if (current === null || current.type !== "MemberExpression") return false;
 	if (
 		(current.computed && (current.property.type !== "Literal" || current.property.value !== "Service")) ||
 		(!current.computed && (current.property.type !== "Identifier" || current.property.name !== "Service"))

@@ -41,7 +41,14 @@ function parameterName(parameter: Parameter, sourceText: string): string {
     : sourceText.replace(/\s*:\s*unknown\s*$/u, "");
 }
 
-const decoderMethodNames = new Set(["decode", "decodeUnknown", "decodeUnknownSync", "parse", "safeParse"]);
+const decoderMethodNames = new Set([
+	"decodeUnknownEffect",
+	"decodeUnknownExit",
+	"decodeUnknownOption",
+	"decodeUnknownPromise",
+	"decodeUnknownResult",
+	"decodeUnknownSync",
+]);
 
 function isDecoderCall(sourceCode: SourceCode, node: ESTree.CallExpression, parameter: string): boolean {
 	if (!node.arguments.some((argument) => argument.type === "Identifier" && argument.name === parameter)) return false;
@@ -50,8 +57,6 @@ function isDecoderCall(sourceCode: SourceCode, node: ESTree.CallExpression, para
 	return (
 		callee.type === "MemberExpression" &&
 			!callee.computed &&
-			callee.object.type === "Identifier" &&
-			callee.object.name === "Schema" &&
 			isImportedFromEffect(sourceCode, callee.object, new Set(["Schema"])) &&
 			callee.property.type === "Identifier" &&
 		decoderMethodNames.has(callee.property.name)

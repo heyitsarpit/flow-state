@@ -49,12 +49,17 @@ function isImportedRefNamespace(sourceCode: SourceCode, expression: ESTree.Expre
 	if (expression.type === "Identifier") {
 		return isImportedFromEffect(sourceCode, expression, new Set(["Ref"]));
 	}
+	if (expression.type !== "MemberExpression") return false;
+	const property = expression.computed
+		? expression.property.type === "Literal" && typeof expression.property.value === "string"
+			? expression.property.value
+			: null
+		: expression.property.type === "Identifier"
+			? expression.property.name
+			: null;
 	return (
-		expression.type === "MemberExpression" &&
-		!expression.computed &&
 		expression.object.type === "Identifier" &&
-		expression.property.type === "Identifier" &&
-		expression.property.name === "Ref" &&
+		property === "Ref" &&
 		isImportedFromEffect(sourceCode, expression.object, new Set(["Ref"]))
 	);
 }
@@ -68,14 +73,19 @@ function referenceIdentifier(argument: ESTree.Expression | ESTree.SpreadElement)
 function refOperation(sourceCode: SourceCode, node: ESTree.CallExpression): RefOperation | null {
 	if (
 		node.callee.type !== "MemberExpression" ||
-		node.callee.computed ||
-		node.callee.property.type !== "Identifier" ||
 		!isImportedRefNamespace(sourceCode, node.callee.object) ||
 		node.arguments.length === 0
 	) {
 		return null;
 	}
-	const method = node.callee.property.name;
+	const method = node.callee.computed
+		? node.callee.property.type === "Literal" && typeof node.callee.property.value === "string"
+			? node.callee.property.value
+			: null
+		: node.callee.property.type === "Identifier"
+			? node.callee.property.name
+			: null;
+	if (method === null) return null;
 	if (method !== "get" && method !== "set") return null;
 	const reference = referenceIdentifier(node.arguments[0]);
 	return reference === null ? null : { method, reference };

@@ -47,7 +47,7 @@ export default defineConfig({
       "anti-slop/no-conditional-empty-object-spread": "error",
       "anti-slop/no-conditional-singleton-array-spread": "error",
       "anti-slop/no-context-tag": "error",
-      "anti-slop/no-data-taggederror": "error",
+      // "anti-slop/no-data-taggederror": "error", // Superseded by no-parallel-diagnostic-errors.
       "anti-slop/no-direct-process-env": [
         "warn",
         {
@@ -55,7 +55,8 @@ export default defineConfig({
         },
       ],
       "anti-slop/no-effect-promise": "error",
-      "anti-slop/no-effect-promise-microtask": "error",
+      // "anti-slop/no-effect-promise-microtask": "error", // Subsumed by no-effect-promise.
+      "anti-slop/no-unjustified-effect-try-promise": "error",
       "anti-slop/no-effect-runner-in-domain": "error",
       "anti-slop/no-effect-ref-read-then-write": "error",
       "anti-slop/no-escape-hatch-assertion": "error",
@@ -128,7 +129,7 @@ export default defineConfig({
         },
       ],
       "anti-slop/no-promise-microtask-barrier": "error",
-      "anti-slop/no-pure-effect-wrapper": "warn",
+      "anti-slop/no-raw-try-catch": "error",
       "anti-slop/no-public-entrypoint-export-drift": [
         "error",
         {
@@ -144,7 +145,6 @@ export default defineConfig({
           ],
         },
       ],
-      "anti-slop/no-raw-try-catch": "error",
       "anti-slop/no-redundant-readonly-wrapper": "error",
       "anti-slop/no-reflect-apply": "error",
       "anti-slop/no-reflect-get": "error",
@@ -161,6 +161,8 @@ export default defineConfig({
       // "anti-slop/no-unknown-parameters": "error",
       "anti-slop/no-unknown-returns": "error",
       "anti-slop/no-unknown-type-aliases": "error",
+      "anti-slop/no-parallel-diagnostic-errors": "error",
+      "anti-slop/no-unknown-effect-channel": "error",
       "anti-slop/no-unwrapped-promise-in-effect-core": "error",
       "anti-slop/no-unsafe-dictionary-type": "error",
       "anti-slop/no-unsafe-fiber-methods": "error",

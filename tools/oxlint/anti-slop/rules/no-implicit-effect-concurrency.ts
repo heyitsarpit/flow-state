@@ -4,7 +4,21 @@ import type { ESTree } from "@oxlint/plugins";
 
 import { isImportedFromEffect } from "../shared/effect-import.ts";
 
-const combinators = new Set(["all", "forEach", "validate"]);
+const combinators = new Set([
+	"all",
+	"filterMapEffect",
+	"forEach",
+	"partition",
+	"replicateEffect",
+	"validate",
+]);
+
+function memberName(expression: ESTree.MemberExpression): string | null {
+	if (!expression.computed && expression.property.type === "Identifier") return expression.property.name;
+	return expression.computed && expression.property.type === "Literal" && typeof expression.property.value === "string"
+		? expression.property.value
+		: null;
+}
 
 function hasConcurrencyOption(node: ESTree.CallExpression): boolean {
 	const lastArgument = node.arguments.at(-1);
@@ -43,21 +57,20 @@ export const noImplicitEffectConcurrencyRule = defineRule({
 		return {
 			CallExpression(node: ESTree.CallExpression) {
 				const callee = node.callee;
+				const method = callee.type === "MemberExpression" ? memberName(callee) : null;
 				if (
 					callee.type !== "MemberExpression" ||
-					callee.computed ||
-					callee.object.type !== "Identifier" ||
-					callee.property.type !== "Identifier" ||
-					!combinators.has(callee.property.name) ||
+					method === null ||
+					!combinators.has(method) ||
 					!isImportedFromEffect(context.sourceCode, callee.object, new Set(["Effect"])) ||
-					 hasConcurrencyOption(node)
+					hasConcurrencyOption(node)
 				) {
 					return;
 				}
 				context.report({
 					node,
 					messageId: "concurrency",
-					data: { method: callee.property.name },
+					data: { method },
 				});
 			},
 		};

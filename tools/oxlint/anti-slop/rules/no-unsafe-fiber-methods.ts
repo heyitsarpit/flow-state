@@ -2,7 +2,7 @@ import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree, Scope, SourceCode, Variable } from "@oxlint/plugins";
 
-import { isTestFile } from "../shared/file-scope.ts";
+import { isEffectHostBoundaryFile, normalizedFilename } from "../shared/file-scope.ts";
 
 const unsafeMethodNames = new Set(["interruptUnsafe", "pollUnsafe"]);
 
@@ -12,18 +12,10 @@ type TypeEnvironment = Readonly<{
 	fiberImports: ReadonlySet<string>;
 }>;
 
-function normalizedFilename(filename: string): string {
-	return filename.replaceAll("\\", "/");
-}
-
 function isAllowedBoundary(filename: string): boolean {
 	const normalized = normalizedFilename(filename);
 	return (
-		isTestFile(filename) ||
-		normalized.includes("/src/runtime/") ||
-		normalized.includes("/src/cli/") ||
-		normalized.includes("/src/react/") ||
-		normalized.includes("/src/testing/") ||
+		isEffectHostBoundaryFile(filename) ||
 		normalized.endsWith("/src/core/orchestrator/orchestrator-system.ts") ||
 		normalized.endsWith("/src/core/runtime/owned-effect-runner.ts") ||
 		normalized.endsWith("/src/core/runtime/services/host-signals.ts")
@@ -101,6 +93,17 @@ function isFiberType(type: ESTree.TSType, environment: TypeEnvironment): boolean
 		return environment.fiberImports.has(resolved.typeName.name);
 	}
 	if (resolved.typeName.type !== "TSQualifiedName") return false;
+	if (
+		resolved.typeName.left.type === "TSQualifiedName" &&
+		resolved.typeName.left.left.type === "Identifier" &&
+		environment.fiberImports.has(resolved.typeName.left.left.name) &&
+		resolved.typeName.left.right.type === "Identifier" &&
+		resolved.typeName.left.right.name === "Fiber" &&
+		resolved.typeName.right.type === "Identifier" &&
+		resolved.typeName.right.name === "Fiber"
+	) {
+		return true;
+	}
 	return (
 		resolved.typeName.left.type === "Identifier" &&
 		environment.fiberImports.has(resolved.typeName.left.name) &&

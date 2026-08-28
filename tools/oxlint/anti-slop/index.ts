@@ -5,10 +5,11 @@ import { noArrayFromThenMapRule } from "./rules/no-array-from-then-map.ts";
 import { noConditionalEmptyObjectSpreadRule } from "./rules/no-conditional-empty-object-spread.ts";
 import { noConditionalSingletonArraySpreadRule } from "./rules/no-conditional-singleton-array-spread.ts";
 import { noContextTagRule } from "./rules/no-context-tag.ts";
-import { noDataTaggedErrorRule } from "./rules/no-data-taggederror.ts";
+// import { noDataTaggedErrorRule } from "./rules/no-data-taggederror.ts"; // Superseded by the Flow-State-specific Diagnostic rule.
 import { noEffectPromiseRule } from "./rules/no-effect-promise.ts";
 import { noEffectRunnerInDomainRule } from "./rules/no-effect-runner-in-domain.ts";
 import { noEffectRefReadThenWriteRule } from "./rules/no-effect-ref-read-then-write.ts";
+import { noUnjustifiedEffectTryPromiseRule } from "./rules/no-unjustified-effect-try-promise.ts";
 import { noExcessiveCognitiveComplexityRule } from "./rules/no-excessive-cognitive-complexity.ts";
 import { noEscapeHatchAssertionRule } from "./rules/no-escape-hatch-assertion.ts";
 import { noExplicitAnyRule } from "./rules/no-explicit-any.ts";
@@ -31,10 +32,9 @@ import { noGenericUtilityModuleRule } from "./rules/no-generic-utility-module.ts
 import { noGodServiceShapeRule } from "./rules/no-god-service-shape.ts";
 import { noLargeProductionFileRule } from "./rules/no-large-production-file.ts";
 import { noPackageDistOrSelfImportInSrcRule } from "./rules/no-package-dist-or-self-import-in-src.ts";
-import { noPureEffectWrapperRule } from "./rules/no-pure-effect-wrapper.ts";
-import { noBivariantCallbackRule } from "./rules/no-bivariant-callback.ts";
 import { noRawTryCatchRule } from "./rules/no-raw-try-catch.ts";
-import { noEffectPromiseMicrotaskRule } from "./rules/no-effect-promise-microtask.ts";
+import { noBivariantCallbackRule } from "./rules/no-bivariant-callback.ts";
+// import { noEffectPromiseMicrotaskRule } from "./rules/no-effect-promise-microtask.ts"; // Superseded by no-effect-promise.
 import { noLocalDefiniteAssignmentRule } from "./rules/no-local-definite-assignment.ts";
 import { noPromiseMicrotaskBarrierRule } from "./rules/no-promise-microtask-barrier.ts";
 import { noRedundantReadonlyWrapperRule } from "./rules/no-redundant-readonly-wrapper.ts";
@@ -62,6 +62,8 @@ import { requireSafetyCommentForTypeAssertionRule } from "./rules/require-safety
 import { useConsistentTypeDefinitionsRule } from "./rules/use-consistent-type-definitions.ts";
 import { useExportTypeRule } from "./rules/use-export-type.ts";
 import { useImportTypeRule } from "./rules/use-import-type.ts";
+import { noParallelDiagnosticErrorsRule } from "./rules/flow-state/no-parallel-diagnostic-errors.ts";
+import { noUnknownEffectChannelRule } from "./rules/flow-state/no-unknown-effect-channel.ts";
 
 /** Generic Oxlint rules that reject low-evidence and low-signal implementation patterns. */
 const antiSlopPlugin = eslintCompatPlugin({
@@ -73,9 +75,9 @@ const antiSlopPlugin = eslintCompatPlugin({
 		"no-conditional-singleton-array-spread": noConditionalSingletonArraySpreadRule,
 		"no-bivariant-callback": noBivariantCallbackRule,
 		"no-context-tag": noContextTagRule,
-		"no-data-taggederror": noDataTaggedErrorRule,
 		"no-effect-promise": noEffectPromiseRule,
-		"no-effect-promise-microtask": noEffectPromiseMicrotaskRule,
+		// "no-effect-promise-microtask": noEffectPromiseMicrotaskRule, // Superseded by no-effect-promise.
+		"no-unjustified-effect-try-promise": noUnjustifiedEffectTryPromiseRule,
 		"no-effect-runner-in-domain": noEffectRunnerInDomainRule,
 		"no-effect-ref-read-then-write": noEffectRefReadThenWriteRule,
 		"no-excessive-cognitive-complexity": noExcessiveCognitiveComplexityRule,
@@ -101,9 +103,8 @@ const antiSlopPlugin = eslintCompatPlugin({
 		"no-object-parameters": noObjectParametersRule,
 		"no-optional-domain-properties": noOptionalDomainPropertiesRule,
 		"no-package-dist-or-self-import-in-src": noPackageDistOrSelfImportInSrcRule,
-		"no-promise-microtask-barrier": noPromiseMicrotaskBarrierRule,
-		"no-pure-effect-wrapper": noPureEffectWrapperRule,
 		"no-raw-try-catch": noRawTryCatchRule,
+		"no-promise-microtask-barrier": noPromiseMicrotaskBarrierRule,
 		"no-redundant-readonly-wrapper": noRedundantReadonlyWrapperRule,
 		"no-reflect-apply": noReflectApplyRule,
 		"no-reflect-get": noReflectGetRule,
@@ -124,6 +125,8 @@ const antiSlopPlugin = eslintCompatPlugin({
 		"no-unknown-type-aliases": noUnknownTypeAliasesRule,
 		"no-unwrapped-promise-in-effect-core": noUnwrappedPromiseInEffectCoreRule,
 		"no-unsafe-fiber-methods": noUnsafeFiberMethodsRule,
+		"no-parallel-diagnostic-errors": noParallelDiagnosticErrorsRule,
+		"no-unknown-effect-channel": noUnknownEffectChannelRule,
 		"no-widen-then-assert": noWidenThenAssertRule,
 		"require-safety-comment-for-type-assertion": requireSafetyCommentForTypeAssertionRule,
 		"use-consistent-type-definitions": useConsistentTypeDefinitionsRule,

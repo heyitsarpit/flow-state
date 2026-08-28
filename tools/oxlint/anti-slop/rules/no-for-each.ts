@@ -12,10 +12,7 @@ function propertyName(node: ESTree.MemberExpression): string | null {
 }
 
 function isEffectForEach(sourceCode: SourceCode, node: ESTree.MemberExpression): boolean {
-	return (
-		node.object.type === "Identifier" &&
-		isImportedFromEffect(sourceCode, node.object, new Set(["Effect"]))
-	);
+	return isImportedFromEffect(sourceCode, node.object, new Set(["Effect"]));
 }
 
 /** Prefer visible iteration syntax so control flow, awaiting, and early exits remain explicit. */

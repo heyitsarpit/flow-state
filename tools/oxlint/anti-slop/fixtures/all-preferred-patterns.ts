@@ -11,6 +11,7 @@ import {
 	Deferred,
 	Duration,
 	Effect,
+	Exit,
 	Fiber,
 	Layer,
 	Option,
@@ -37,6 +38,8 @@ type App = { readonly start: () => void };
 type Value = { readonly id: string };
 
 type ParsedValue = { readonly id: string };
+type AsyncPayload = Promise<unknown>;
+type UnknownList = Array<unknown>;
 type Status = "ready" | "blocked";
 type GenericValue<T = string> = T;
 type AppOptions = { readonly id: string };
@@ -57,7 +60,12 @@ const processItem = (item: DomainItem) =>
 		try: () => item.id,
 		catch: (error) => error,
 	});
-declare const client: { fetchAccount: (id: AccountId) => Promise<Account> };
+declare const client: {
+	readonly fetchAccount: (
+		id: AccountId,
+		options: { readonly signal: AbortSignal },
+	) => Promise<Account>;
+};
 declare const id: AccountId;
 declare const resource: Resource;
 declare const callback: (value: DomainItem) => string;
@@ -70,6 +78,7 @@ type Expect = {
 declare const expect: Expect;
 declare const condition: boolean;
 declare const runtime: { dispose: () => Promise<void> };
+declare const release: (scope: Scope.Closeable, exit: Exit.Exit<unknown, unknown>) => Effect.Effect<void>;
 declare const record: { readonly key: string };
 declare const foreignCall: () => string;
 declare const cause: unknown;
@@ -159,14 +168,10 @@ class AccountRepository extends Context.Service<AccountRepository, AccountReposi
 	"AccountRepository",
 ) {}
 
-class AccountRequestFailed extends Schema.TaggedErrorClass<AccountRequestFailed>()(
-	"AccountRequestFailed",
-	{ cause: Schema.Unknown },
-) {}
-
+// FLOW_STATE_ALLOW_EFFECT_TRY_PROMISE: external client exposes only Promise and accepts an AbortSignal.
 const loadAccount = Effect.tryPromise({
-	try: () => client.fetchAccount(id),
-	catch: (error) => new AccountRequestFailed({ cause: error }),
+	try: (signal) => client.fetchAccount(id, { signal }),
+	catch: String,
 });
 
 const normalized = input.id.trim();

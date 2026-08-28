@@ -1,3 +1,5 @@
+// Superseded by rules/flow-state/no-parallel-diagnostic-errors.ts. Kept for
+// compatibility with restored work and historical rule references.
 import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree, SourceCode } from "@oxlint/plugins";
@@ -13,16 +15,16 @@ function isDataTaggedError(sourceCode: SourceCode, node: ESTree.MemberExpression
 	);
 }
 
-/** Require the Schema.TaggedErrorClass form used by the rewrite's error contracts. */
+/** Legacy rule retained for compatibility; Flow State uses the superseding Diagnostic rule. */
 export const noDataTaggedErrorRule = defineRule({
 	meta: {
 		type: "problem",
 		docs: {
-			description: "Disallow Data.TaggedError; use Schema.TaggedErrorClass for typed errors.",
+			description: "Superseded by the Flow State Diagnostic rule; retained for compatibility only.",
 		},
 		messages: {
 			taggedError:
-				"Data.TaggedError is not allowed. Define the error with Schema.TaggedErrorClass so its typed contract remains explicit.",
+				"This legacy rule is superseded. Use the canonical Diagnostic and its owned projector.",
 		},
 	},
 	createOnce(context) {

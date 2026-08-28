@@ -20,7 +20,6 @@ function isBannedContextForm(sourceCode: SourceCode, node: ESTree.MemberExpressi
 	}
 
 	const owner = node.object;
-	if (owner.type !== "Identifier") return false;
 
 	if (property === "Service") {
 		return isImportedFromEffect(sourceCode, owner, new Set(["Effect"]));
