@@ -26,15 +26,15 @@ testing, request-scoped server helpers, inspection, and the `flow-state` CLI.
 - Server support is limited to request-scoped prefetch, boot payloads,
   hydration, and actor restore; it is not a generic React Server Component
   runtime adapter.
-- The Effect peer is pinned to `4.0.0-beta.86`, so consumers must evaluate that
-  beta dependency as part of adoption.
+- The Effect peer is pinned to `4.0.0-rc.112`, so consumers must evaluate that
+  release-candidate dependency as part of adoption.
 - The CLI is a local behavior/story/trace proof surface, not a hosted console or
   visual editor.
 
 ## Install
 
 ```sh
-nub add flow-state@0.1.0-alpha.0 effect@4.0.0-beta.86
+nub add flow-state@0.1.0-alpha.0 effect@4.0.0-rc.112
 ```
 
 Add React 18 or React 19 only when importing `flow-state/react`.

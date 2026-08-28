@@ -67,7 +67,7 @@ describe("flow-state package hygiene", () => {
       "flow-state": "./dist/cli/index.mjs",
     });
     expect(corePackageJson.dependencies).toMatchObject({
-      "@effect/platform-node": "4.0.0-beta.86",
+      "@effect/platform-node": "4.0.0-rc.112",
     });
     expect(corePackageJson.sideEffects).toBe(false);
     expect(corePackageJson.exports).toMatchObject({

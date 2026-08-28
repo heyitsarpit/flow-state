@@ -129,7 +129,7 @@ try {
   const tarballSpec = `file:${tarball}`;
 
   const coreRoot = createConsumer("core", {
-    effect: "4.0.0-beta.86",
+    effect: "4.0.0-rc.112",
     "flow-state": tarballSpec,
   });
   writeTypeScriptConfig(coreRoot, { noEmit: true, declaration: false, emitDeclarationOnly: false });
@@ -238,7 +238,7 @@ if (!deepImportRejected) throw new Error("private deep import was not rejected b
   if (installedManifest.peerDependenciesMeta?.react?.optional !== true) {
     throw new Error("React must be an optional peer for core-only consumers.");
   }
-  if (installedManifest.peerDependencies?.effect !== "4.0.0-beta.86") {
+  if (installedManifest.peerDependencies?.effect !== "4.0.0-rc.112") {
     throw new Error("Packed consumers must share the package's exact Effect peer.");
   }
   if (installedManifest.peerDependencies?.react !== "^18.0.0 || ^19.0.0") {
@@ -279,7 +279,7 @@ if (!rejected) throw new Error("duplicate package resource identity crossed app 
   run("node", ["src/duplicate-owner.mjs"], { cwd: coreRoot });
 
   const testingRoot = createConsumer("testing", {
-    effect: "4.0.0-beta.86",
+    effect: "4.0.0-rc.112",
     "flow-state": tarballSpec,
   });
   writeFileSync(
@@ -296,7 +296,7 @@ if (harness.pendingWork().activeFibers !== 0) throw new Error("testing entrypoin
   run("node", ["src/index.mjs"], { cwd: testingRoot });
 
   const serverRoot = createConsumer("server", {
-    effect: "4.0.0-beta.86",
+    effect: "4.0.0-rc.112",
     "flow-state": tarballSpec,
   });
   writeFileSync(
@@ -318,7 +318,7 @@ await withRequestRuntime(layer, async (runtime) => {
   run("node", ["src/index.mjs"], { cwd: serverRoot });
 
   const inspectRoot = createConsumer("inspect", {
-    effect: "4.0.0-beta.86",
+    effect: "4.0.0-rc.112",
     "flow-state": tarballSpec,
   });
   writeFileSync(
@@ -341,7 +341,7 @@ await runtime.dispose();
   run("node", ["src/index.mjs"], { cwd: inspectRoot });
 
   const cliRoot = createConsumer("cli", {
-    effect: "4.0.0-beta.86",
+    effect: "4.0.0-rc.112",
     "flow-state": tarballSpec,
   });
   install(cliRoot);
@@ -354,7 +354,7 @@ await runtime.dispose();
 
   const multiRoot = createConsumer(
     "multi-entry",
-    { effect: "4.0.0-beta.86", "flow-state": tarballSpec, react: packageOverride("react") },
+    { effect: "4.0.0-rc.112", "flow-state": tarballSpec, react: packageOverride("react") },
     { "@types/react": packageOverride("@types/react") },
     { react: packageOverride("react") },
   );
@@ -370,7 +370,7 @@ await runtime.dispose();
     const reactRoot = createConsumer(
       `react-${major}`,
       {
-        effect: "4.0.0-beta.86",
+        effect: "4.0.0-rc.112",
         "flow-state": tarballSpec,
         react: major === 18 ? "18.3.1" : packageOverride("react"),
       },
@@ -394,7 +394,7 @@ await runtime.dispose();
     "incident-console",
     {
       clsx: incidentDependency("clsx"),
-      effect: "4.0.0-beta.86",
+      effect: "4.0.0-rc.112",
       "flow-state": tarballSpec,
       next: incidentDependency("next"),
       react: incidentDependency("react"),
@@ -456,7 +456,7 @@ await runtime.dispose();
   const recipeRoot = createConsumer(
     "basic-cached-posts",
     {
-      effect: "4.0.0-beta.86",
+      effect: "4.0.0-rc.112",
       "flow-state": tarballSpec,
       next: packageOverride("next"),
       react: packageOverride("react"),

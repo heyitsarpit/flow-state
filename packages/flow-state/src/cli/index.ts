@@ -105,6 +105,7 @@ const traceReadFormat = Flag.choice("format", ["text", "json"]).pipe(
 
 const traceContextualize = Flag.boolean("contextualize").pipe(
   Flag.withDescription("Attach codebase-linked machine context to the trace summary."),
+  Flag.withDefault(false),
 );
 
 const traceContextMachine = Flag.string("machine").pipe(
@@ -581,9 +582,11 @@ const storyRun = Command.make(
     ),
     check: Flag.boolean("check").pipe(
       Flag.withDescription("Add expectation-check deltas over the same run outcome."),
+      Flag.withDefault(false),
     ),
     "pending-work": Flag.boolean("pending-work").pipe(
       Flag.withDescription("Include pending-work diagnostics captured after the story run."),
+      Flag.withDefault(false),
     ),
     "save-trace": Flag.string("save-trace").pipe(
       Flag.withDescription("Write the run trace as trace-artifact JSON."),
@@ -790,9 +793,13 @@ const traceProof = Command.make(
       Flag.withDescription("Focus on one correlation by correlation id."),
       Flag.optional,
     ),
-    issues: Flag.boolean("issues").pipe(Flag.withDescription("Focus on the recorded issue slice.")),
+    issues: Flag.boolean("issues").pipe(
+      Flag.withDescription("Focus on the recorded issue slice."),
+      Flag.withDefault(false),
+    ),
     timeline: Flag.boolean("timeline").pipe(
       Flag.withDescription("Focus on the inspection timeline slice."),
+      Flag.withDefault(false),
     ),
     format: traceProofFormat,
   },
@@ -878,6 +885,7 @@ const storyPaths = Command.make(
     ),
     check: Flag.boolean("check").pipe(
       Flag.withDescription("Validate one exact event sequence instead of enumerating paths."),
+      Flag.withDefault(false),
     ),
     format: storyPathsFormat,
   },
