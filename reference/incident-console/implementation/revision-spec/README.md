@@ -20,6 +20,10 @@ is now the normative owner for every old surface that the accepted revisions rem
 clause MUST NOT leave an affected old surface without a disposition; it MUST defer to the applicable
 `DEL-*` entry in that contract.
 
+The typed diagnostic authority is [`../contracts/ERRORS.ts`](../contracts/ERRORS.ts). Readers MUST use its one
+package-owned `Diagnostic` model and its Schema/Result/Effect/Cause boundary rules when another contract mentions
+diagnostics; `DiagnosticProjection` is only a serialization alias and does not define a second schema.
+
 [`../contracts/DEFERRED.md`](../contracts/DEFERRED.md) is the non-normative register for implementation and
 proof guarantees deliberately removed or relaxed after integration. It preserves the public feature inventory,
 does not promise later work, and has no authority over the retained normative clauses.

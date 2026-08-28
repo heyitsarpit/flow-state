@@ -1,4 +1,3 @@
-
 # Public API contract
 
 Status: normative vNext contract
@@ -11,11 +10,11 @@ artifact/CLI laws remain in their named contracts.
 
 ## API-001 — Package routes
 
-~~~ts
+```ts
 import * as flow from "flow-state";
 import * as flowTest from "flow-state/testing";
 import * as inspect from "flow-state/inspect";
-~~~
+```
 
 ### Surface
 
@@ -77,7 +76,7 @@ Status: vNext additive amendment; this section is new target guidance and is not
 - Proof: `AMEND-P05` quickstart compile/run and packed-consumer proof.
 - Trace: vNext additive amendment; no provenance source.
 
-~~~ts
+```ts
 import { Effect } from "effect";
 import { app, definition, machine, module, runtimeSetup } from "flow-state";
 
@@ -92,7 +91,9 @@ const CounterMachine = machine(Counter, ({ S }) => ({
   default: S.IDLE,
   states: {
     IDLE: {
-      on: { Increment: { target: S.IDLE, updateMemory: ({ memory }) => ({ count: memory.count + 1 }) } },
+      on: {
+        Increment: { target: S.IDLE, updateMemory: ({ memory }) => ({ count: memory.count + 1 }) },
+      },
     },
   },
 }));
@@ -109,19 +110,42 @@ const lease = runtime.createActor(CounterMachine);
 lease.actor.send(Counter.E.Increment());
 const snapshot = lease.actor.getSnapshot();
 await lease.dispose();
-~~~
+```
 
 ## API-002 — Public type boundary
 
-~~~ts
+```ts
 type PublicRootNames =
-  | "Definition" | "StateToken" | "EventToken" | "StateOf" | "EventOf" | "Machine"
-  | "MemoryOf" | "InputOf" | "RequirementsOf" | "Resource" | "Transaction" | "ActorRef"
-  | "ActorSnapshot" | "Module" | "App" | "RuntimeSetup" | "Runtime" | "Implementation"
-  | "Persistence" | "PersistenceStorage" | "PersistenceStorageError" | "PersistenceCodec"
-  | "PersistenceSlot" | "PersistenceValue" | "PersistenceEntry" | "CanonicalKeyInput"
-  | "FlowPath" | "FlowUsageCode" | "FlowUsageError";
-~~~
+  | "Definition"
+  | "StateToken"
+  | "EventToken"
+  | "StateOf"
+  | "EventOf"
+  | "Machine"
+  | "MemoryOf"
+  | "InputOf"
+  | "RequirementsOf"
+  | "Resource"
+  | "Transaction"
+  | "ActorRef"
+  | "ActorSnapshot"
+  | "Module"
+  | "App"
+  | "RuntimeSetup"
+  | "Runtime"
+  | "Implementation"
+  | "Persistence"
+  | "PersistenceStorage"
+  | "PersistenceStorageError"
+  | "PersistenceCodec"
+  | "PersistenceSlot"
+  | "PersistenceValue"
+  | "PersistenceEntry"
+  | "CanonicalKeyInput"
+  | "FlowPath"
+  | "FlowUsageCode"
+  | "FlowUsageError";
+```
 
 ### Surface
 
@@ -157,26 +181,15 @@ type PublicRootNames =
 
 ### Trace
 
-- Provenance: `provenance/PUBLIC_API.md#API-002`; diagnostics: `API-002A`.
+- Provenance: `provenance/PUBLIC_API.md#API-002`; diagnostics: `API-002A`, with the typed authority in
+  [`ERRORS.ts`](./ERRORS.ts).
 
 ## API-002A — Usage diagnostics
 
-~~~ts
-type FlowPath = readonly (string | number)[];
-type FlowUsageCode =
-  | "InvalidCanonicalValue" | "ForeignActorRef" | "MismatchedActorRef" | "MissingActorRef"
-  | "DisposedActorRef" | "RuntimeNotReady" | "RuntimeDisposed" | "MissingContextProvider"
-  | "ContextDependencyCycle" | "DuplicateActorClaim" | "UnadmittedMachine" | "ActorNotActive"
-  | "InvalidOperationPlan" | "WrongOperationKind" | "OperationNotPending"
-  | "OperationAlreadySettled" | "DuplicateStreamDeclaration" | "BlockedByDependents";
-
-class FlowUsageError extends Error {
-  readonly _tag: "FlowUsageError";
-  readonly code: FlowUsageCode;
-  readonly path: FlowPath;
-  readonly details: Readonly<Record<string, string | number | boolean | null>>;
-}
-~~~
+The exact `FlowPath`, eighteen-member `FlowUsageCode`, and `FlowUsageError` declaration are owned by
+[`ERRORS.ts`](./ERRORS.ts). That file is also the sole typed `Diagnostic` model and owns the structural,
+semantic, Effect, Cause, and rendering boundary rules; this clause retains the public API-002A role and
+compatibility surface.
 
 ### Surface
 
@@ -184,8 +197,10 @@ class FlowUsageError extends Error {
 
 ### Rule
 
-- Usage/admission failures use this shape. `FlowPersistenceError` owns storage, codec, identity, and
-  restoration failures. Serialized diagnostics use private ordered stable Flow diagnostic projections.
+- Usage/admission failures use this shape. Storage, codec, identity, and restoration failures are canonical
+  `Diagnostic` values internally; `FlowPersistenceError` is retained only as a terminal host compatibility
+  envelope when an existing JS boundary requires that name. Serialized diagnostics use private ordered stable
+  Flow diagnostic projections.
 
 ### Accepts
 
@@ -205,11 +220,12 @@ class FlowUsageError extends Error {
 
 ### Trace
 
-- Provenance: `provenance/PUBLIC_API.md#API-002A`.
+- Provenance: `provenance/PUBLIC_API.md#API-002A`; typed authority: [`ERRORS.ts`](./ERRORS.ts).
 
 ## AMEND-API-002 — Usage-diagnostic remediation
 
-Status: vNext additive amendment; API-002A remains the exact machine-readable error shape.
+Status: vNext additive amendment; API-002A remains the exact machine-readable error shape and [`ERRORS.ts`](./ERRORS.ts)
+is the sole typed diagnostic authority.
 
 - Surface: `FlowUsageError.message` and the per-code remediation documentation for API-002A.
 - Rule: Every one of the exact 18 `FlowUsageCode` values MUST have a maintained documentation row naming
@@ -224,35 +240,36 @@ Status: vNext additive amendment; API-002A remains the exact machine-readable er
   a practical human remediation path.
 - Proof: `AMEND-P03` exhaustive code/documentation-row proof plus representative actionable-message tests.
   Exact prose and whitespace are not compatibility assertions.
-- Trace: vNext additive amendment; API-002A remains the transferred shape authority.
+- Trace: vNext additive amendment; API-002A remains the transferred public shape authority and `ERRORS.ts`
+  owns its typed implementation contract.
 
 The human-message cells below are maintained examples, not required string literals. `_tag`, `code`, `path`,
 and structured `details` remain the machine-readable compatibility surface.
 
-| Code | Failure meaning | Example path/details | Human message | Corrective action |
-| --- | --- | --- | --- | --- |
-| `InvalidCanonicalValue` | A canonical key/value contains an unsupported or non-canonical value. | `path: ["key"]`; `details: { "reason": "unsupported" }` | `The operation key contains a value that cannot be canonicalized.` | Replace it with a bounded JSON-safe canonical value. |
-| `ForeignActorRef` | The ref belongs to another app or runtime. | `path: ["actorRef"]`; `details: { "reason": "foreign" }` | `This actor ref belongs to a different runtime.` | Use a ref created by the receiving app/runtime. |
-| `MismatchedActorRef` | The ref is branded for a different machine. | `path: ["actorRef"]`; `details: { "machine": "Editor" }` | `This actor ref is for a different machine.` | Pass the exact machine-branded ref required by the operation. |
-| `MissingActorRef` | An operation requires an actor ref that was not supplied. | `path: ["actorRef"]`; `details: { "required": true }` | `An actor ref is required for this operation.` | Provide the admitted stable ref or use the explicit local-actor path. |
-| `DisposedActorRef` | A command addressed an actor after terminal disposal. | `path: ["actorRef"]`; `details: { "disposed": true }` | `This actor has been disposed and cannot accept commands.` | Acquire a valid owner/runtime and do not reuse the disposed ref. |
-| `RuntimeNotReady` | A handle or command escaped before readiness completed. | `path: ["runtime"]`; `details: { "phase": "booting" }` | `The runtime is still booting.` | Await the sole public `runtime.ready()` Effect before use. |
-| `RuntimeDisposed` | A command or lookup targeted a disposed runtime. | `path: ["runtime"]`; `details: { "phase": "disposed" }` | `The runtime is disposed and cannot accept work.` | Construct and own a new runtime execution scope. |
-| `MissingContextProvider` | A declared context binding has no admitted provider. | `path: ["contextBindings", "session"]`; `details: { "provider": "missing" }` | `The required context provider is not admitted.` | Admit the exact provider ref before constructing the consumer. |
-| `ContextDependencyCycle` | Context bindings contain a dependency cycle. | `path: ["contextBindings"]`; `details: { "cycle": "Session>Theme>Session" }` | `Context bindings contain a dependency cycle.` | Remove the cycle and keep provider dependencies acyclic. |
-| `DuplicateActorClaim` | Two admissions claim one stable actor identity incompatibly. | `path: ["actorRef"]`; `details: { "claim": "duplicate" }` | `This stable actor is already claimed incompatibly.` | Join the existing ensure or use a distinct stable identity. |
-| `UnadmittedMachine` | A machine is not part of the closed `AppPlan`. | `path: ["machine"]`; `details: { "machine": "Editor" }` | `This machine is not admitted by the application plan.` | Include the machine in the app before runtime construction. |
-| `ActorNotActive` | Work was sent while the actor was not active. | `path: ["actor"]`; `details: { "lifecycle": "suspended" }` | `The actor is not active and cannot accept this work.` | Resume through its owning host or wait for runtime activation. |
-| `InvalidOperationPlan` | An authored operation plan is structurally invalid. | `path: ["operation"]`; `details: { "reason": "invalid-plan" }` | `The operation plan is invalid.` | Fix the descriptor-owned operation fields before admission. |
-| `WrongOperationKind` | A resource, transaction, or stream API received another family. | `path: ["operation", "kind"]`; `details: { "expected": "resource" }` | `The operation belongs to a different operation family.` | Use the API matching the declaration's exact operation kind. |
-| `OperationNotPending` | An action requires a pending operation but none is pending. | `path: ["operation"]`; `details: { "status": "idle" }` | `This operation is not pending.` | Start or observe the correct occurrence before acting on it. |
-| `OperationAlreadySettled` | A completion/cancellation attempted to settle an occurrence twice. | `path: ["operation", "occurrence"]`; `details: { "settled": true }` | `This operation occurrence is already settled.` | Do not reuse the settled occurrence; issue a new authored attempt. |
-| `DuplicateStreamDeclaration` | One actor declaration installed the same stream slot twice. | `path: ["streams", "progress"]`; `details: { "duplicate": true }` | `This stream declaration is duplicated.` | Keep one declaration per slot or give the declarations distinct identities. |
-| `BlockedByDependents` | Disposal would violate active or suspended context dependents. | `path: ["actorRef"]`; `details: { "dependents": 1 }` | `This actor cannot be disposed while dependents remain bound.` | Dispose or rebind every named dependent before disposal. |
+| Code                         | Failure meaning                                                       | Example path/details                                                         | Human message                                                      | Corrective action                                                           |
+| ---------------------------- | --------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------ | --------------------------------------------------------------------------- |
+| `InvalidCanonicalValue`      | A canonical key/value contains an unsupported or non-canonical value. | `path: ["key"]`; `details: { "reason": "unsupported" }`                      | `The operation key contains a value that cannot be canonicalized.` | Replace it with a bounded JSON-safe canonical value.                        |
+| `ForeignActorRef`            | The ref belongs to another app or runtime.                            | `path: ["actorRef"]`; `details: { "reason": "foreign" }`                     | `This actor ref belongs to a different runtime.`                   | Use a ref created by the receiving app/runtime.                             |
+| `MismatchedActorRef`         | The ref is branded for a different machine.                           | `path: ["actorRef"]`; `details: { "machine": "Editor" }`                     | `This actor ref is for a different machine.`                       | Pass the exact machine-branded ref required by the operation.               |
+| `MissingActorRef`            | An operation requires an actor ref that was not supplied.             | `path: ["actorRef"]`; `details: { "required": true }`                        | `An actor ref is required for this operation.`                     | Provide the admitted stable ref or use the explicit local-actor path.       |
+| `DisposedActorRef`           | A command addressed an actor after terminal disposal.                 | `path: ["actorRef"]`; `details: { "disposed": true }`                        | `This actor has been disposed and cannot accept commands.`         | Acquire a valid owner/runtime and do not reuse the disposed ref.            |
+| `RuntimeNotReady`            | A handle or command escaped before readiness completed.               | `path: ["runtime"]`; `details: { "phase": "booting" }`                       | `The runtime is still booting.`                                    | Await the sole public `runtime.ready()` Effect before use.                  |
+| `RuntimeDisposed`            | A command or lookup targeted a disposed runtime.                      | `path: ["runtime"]`; `details: { "phase": "disposed" }`                      | `The runtime is disposed and cannot accept work.`                  | Construct and own a new runtime execution scope.                            |
+| `MissingContextProvider`     | A declared context binding has no admitted provider.                  | `path: ["contextBindings", "session"]`; `details: { "provider": "missing" }` | `The required context provider is not admitted.`                   | Admit the exact provider ref before constructing the consumer.              |
+| `ContextDependencyCycle`     | Context bindings contain a dependency cycle.                          | `path: ["contextBindings"]`; `details: { "cycle": "Session>Theme>Session" }` | `Context bindings contain a dependency cycle.`                     | Remove the cycle and keep provider dependencies acyclic.                    |
+| `DuplicateActorClaim`        | Two admissions claim one stable actor identity incompatibly.          | `path: ["actorRef"]`; `details: { "claim": "duplicate" }`                    | `This stable actor is already claimed incompatibly.`               | Join the existing ensure or use a distinct stable identity.                 |
+| `UnadmittedMachine`          | A machine is not part of the closed `AppPlan`.                        | `path: ["machine"]`; `details: { "machine": "Editor" }`                      | `This machine is not admitted by the application plan.`            | Include the machine in the app before runtime construction.                 |
+| `ActorNotActive`             | Work was sent while the actor was not active.                         | `path: ["actor"]`; `details: { "lifecycle": "suspended" }`                   | `The actor is not active and cannot accept this work.`             | Resume through its owning host or wait for runtime activation.              |
+| `InvalidOperationPlan`       | An authored operation plan is structurally invalid.                   | `path: ["operation"]`; `details: { "reason": "invalid-plan" }`               | `The operation plan is invalid.`                                   | Fix the descriptor-owned operation fields before admission.                 |
+| `WrongOperationKind`         | A resource, transaction, or stream API received another family.       | `path: ["operation", "kind"]`; `details: { "expected": "resource" }`         | `The operation belongs to a different operation family.`           | Use the API matching the declaration's exact operation kind.                |
+| `OperationNotPending`        | An action requires a pending operation but none is pending.           | `path: ["operation"]`; `details: { "status": "idle" }`                       | `This operation is not pending.`                                   | Start or observe the correct occurrence before acting on it.                |
+| `OperationAlreadySettled`    | A completion/cancellation attempted to settle an occurrence twice.    | `path: ["operation", "occurrence"]`; `details: { "settled": true }`          | `This operation occurrence is already settled.`                    | Do not reuse the settled occurrence; issue a new authored attempt.          |
+| `DuplicateStreamDeclaration` | One actor declaration installed the same stream slot twice.           | `path: ["streams", "progress"]`; `details: { "duplicate": true }`            | `This stream declaration is duplicated.`                           | Keep one declaration per slot or give the declarations distinct identities. |
+| `BlockedByDependents`        | Disposal would violate active or suspended context dependents.        | `path: ["actorRef"]`; `details: { "dependents": 1 }`                         | `This actor cannot be disposed while dependents remain bound.`     | Dispose or rebind every named dependent before disposal.                    |
 
 ## API-003 — Definition authoring
 
-~~~ts
+```ts
 const NewIntent = definition({
   id: "Incidents/Console",
   states: ["INACTIVE", { ACTIVE: ["EDITING", "SUBMITTING"] }],
@@ -263,10 +280,11 @@ const NewIntent = definition({
   },
   operations: { routeConfig, orderById, submitIntent, submissionProgress },
   memory: ({ input }: { readonly input: { readonly draftId: string } }) => ({
-    draftId: input.draftId, mode: "dark",
+    draftId: input.draftId,
+    mode: "dark",
   }),
 });
-~~~
+```
 
 ### Surface
 
@@ -284,6 +302,10 @@ const NewIntent = definition({
   Effect Schema. `Schema.Struct`, `Schema.brand`, schema-authored events, and a `validatedEvent` helper are not
   public authoring syntax. Runtime nominal values are constructed only after decoding; event payload objects
   are decoded when their event constructor is called.
+- Definition and machine builders keep expected validation/compilation failures as
+  `Result<A, Diagnostic>` data. The ordinary `definition`/`machine` convenience
+  functions unwrap that result once at the synchronous public boundary; they do not
+  return partial values, execute Effects, or use an intermediate Error carrier.
 - Context selectors are typed definition-level provider edges, not registrations. `memory` is the sole
   input/memory source; absent initializer means `Input=void` and readonly empty memory. Restoration
   installs memory without input replay.
@@ -318,7 +340,7 @@ const NewIntent = definition({
 
 ## API-004 — Machine behavior grammar
 
-~~~ts
+```ts
 const newIntentMachine = machine(
   NewIntent,
   ({ S, E, O, onContext, onMemory, invalidate, clear }) => {
@@ -342,7 +364,7 @@ const newIntentMachine = machine(
     };
   },
 );
-~~~
+```
 
 ### Surface
 
@@ -370,6 +392,11 @@ const newIntentMachine = machine(
   mutation, `entry`, `exit`, `invoke`, `always`, Boolean `reentry`, transition `submit`, or anonymous
   Effect callbacks. A terminal-looking state is an ordinary leaf and does not complete the actor, close its
   mailbox, or stop its subscriptions.
+
+  Expected machine-configuration failures propagate directly as `Result<Machine, Diagnostic>` from the
+  package-private result form. Authored callback exceptions are not caught or reclassified: they remain defects
+  at the synchronous authoring boundary. Only the canonical `Diagnostic` may enter a runtime Effect `E` channel.
+
 - `onContext.select` is a machine-level registration. Its initial selected value is recorded silently from
   the bootstrapped context baseline; a later changed selection invokes the handler with defined
   `(current, previous)`, and the handler returns one typed self-event, `false`, or `null`. The emitted event
@@ -418,7 +445,7 @@ const newIntentMachine = machine(
 
 ## API-005 — Resources and canonical `P`/`K`
 
-~~~ts
+```ts
 type OrderInput = Readonly<{
   orderId: string;
 }>;
@@ -435,7 +462,7 @@ const orderById = resource({
   staleTime: "30 seconds",
   gcTime: "5 minutes",
 });
-~~~
+```
 
 ### Surface
 
@@ -458,13 +485,13 @@ const orderById = resource({
   nested-record path names failure.
 - `KBytes` has no whitespace/trailing newline:
 
-~~~text
+```text
 KBytes ::= "[" [ Value *( "," Value ) ] "]"
 Value ::= "null" | "true" | "false" | Number | String
         | "[" [ Value *( "," Value ) ] "]"
         | "{" [ Member *( "," Member ) ] "}"
 Member ::= String ":" Value
-~~~
+```
 
 - Number uses finite `JSON.stringify` (`-0`→`0`); strings use JSON escaping/no normalization; records
   sort raw UTF-16 keys and require Object.prototype/null prototype, enumerable own data properties/no
@@ -498,9 +525,11 @@ Member ::= String ":" Value
 
 ## API-006 — Named operation families and states
 
-~~~ts
+```ts
 interface ResourceFamily<P, K extends readonly unknown[], A, E> {
-  key(params: P): K; getData(key: K): A | undefined; getState(key: K): ResourceState<A, E, K>;
+  key(params: P): K;
+  getData(key: K): A | undefined;
+  getState(key: K): ResourceState<A, E, K>;
   lookup(params: P, options?: FiniteResourceOptions<A, E>): FiniteOperationPlan;
   subscribe(params: P, options?: ResourceSubscriptionOptions<A, E>): ContinuingOperationPlan;
   refetch(params: P, options?: FiniteResourceOptions<A, E>): FiniteOperationPlan;
@@ -508,17 +537,19 @@ interface ResourceFamily<P, K extends readonly unknown[], A, E> {
   cancel(key: K): CancellationPlan;
 }
 interface TransactionFamily<P, K extends readonly unknown[], A, E> {
-  key(params: P): K; getState(key: K): TransactionState<A, E, K>;
+  key(params: P): K;
+  getState(key: K): TransactionState<A, E, K>;
   commit(params: P, options?: CommitOptions<P, A, E>): TransactionCommitPlan;
   cancel(key: K): CancellationPlan;
 }
 interface StreamFamily<P, K extends readonly unknown[], V, E> {
-  key(params: P): K; getState(key: K): StreamState<V, E, K>;
+  key(params: P): K;
+  getState(key: K): StreamState<V, E, K>;
   subscribe(params: P, options?: StreamSubscriptionOptions<P, K, V, E>): ContinuingOperationPlan;
 }
-~~~
+```
 
-~~~ts
+```ts
 type ResourceRetention<A> = { data?: never } | { data: A };
 type ResourceState<A, E, K extends readonly unknown[]> =
   | { status: "missing"; key: K }
@@ -546,12 +577,12 @@ type StreamState<V, E, K extends readonly unknown[]> =
   | ({ status: "failure"; key: K; generation: number; error: E } & StreamValue<V>)
   | ({ status: "defect"; key: K; generation: number; defect: unknown } & StreamValue<V>)
   | ({ status: "interrupted"; key: K; generation: number } & StreamValue<V>);
-~~~
+```
 
 Transaction outcomes map `success(A)`, `failure(E)`, `defect()`, and `interrupt()`. A commit MAY declare
 authoritative writes, but results never become canonical data implicitly:
 
-~~~ts
+```ts
 O.submitIntent.commit(params, {
   writes: ({ value }) => [O.orderById.setData([value.order.id], value.order)],
   outcomes: {
@@ -559,7 +590,7 @@ O.submitIntent.commit(params, {
     failure: (error) => E.SubmitFailed(error),
   },
 });
-~~~
+```
 
 The accepted mapping includes explicit `setData` plans, not completion-side `invalidates` or `clears`
 options. Exact public state union fields follow `API-006`; occurrence terminality and completion-side
@@ -616,11 +647,11 @@ preview ordering follow `SEM-016` and `SEM-018`.
 
 ## API-007 — Finite actions and continuing plans
 
-~~~ts
+```ts
 actions: ({ event, memory }) => [
   O.submitIntent.commit(buildSubmissionInput(event, memory), { outcomes: submitOutcomes }),
 ];
-~~~
+```
 
 ### Surface
 
@@ -661,14 +692,15 @@ actions: ({ event, memory }) => [
 
 ## API-008 — Transactions
 
-~~~ts
+```ts
 const submitIntent = transaction({
   id: "everclear.submit-intent",
   key: ({ submissionId }: SubmitIntentInput) => [submissionId] as const,
   commit: (params, { signal }) => IntentSubmitter.submit(params, { signal }),
-  persist: true, concurrency: "reject",
+  persist: true,
+  concurrency: "reject",
 });
-~~~
+```
 
 ### Surface
 
@@ -705,7 +737,7 @@ const submitIntent = transaction({
 
 ## API-009 — Streams
 
-~~~ts
+```ts
 const submissionProgress = stream({
   id: "everclear.submission-progress",
   key: ({ submissionId }: ProgressInput) => [submissionId] as const,
@@ -716,7 +748,7 @@ const submissionProgress = stream({
     }),
   persist: true,
 });
-~~~
+```
 
 ### Surface
 
@@ -764,16 +796,20 @@ belongs to `runtime.dispose()`.
 
 ## API-010 — Modules, apps, and `App.M`
 
-~~~ts
+```ts
 const CoreModule = module({ id: "core", machines: { router: routerMachine, auth: authMachine } });
-const TodoApp = app({ id: "todo-app", persistenceVersion: "1", modules: [CoreModule, TodosModule] });
+const TodoApp = app({
+  id: "todo-app",
+  persistenceVersion: "1",
+  modules: [CoreModule, TodosModule],
+});
 TodoApp.M.router;
-~~~
+```
 
 ### Surface
 
 - `module({ id, machines })` preserves exact keyed machine record. `app({ id, persistenceVersion,
-  modules })` flattens ordered unaliased modules into exact `App.M`.
+modules })` flattens ordered unaliased modules into exact `App.M`.
 
 ### Rule
 
@@ -808,13 +844,13 @@ TodoApp.M.router;
 
 ## API-011 — Actor refs, leases, and construction
 
-~~~ts
+```ts
 const ref = actorRef(editorMachine, "primary-editor", { persist: true });
 const sharedLease = runtime.ensureActor(ref, { input, contextBindings });
 const sharedActor = runtime.getActor(ref);
 const localLease = runtime.createActor(editorMachine, { input, contextBindings });
 await sharedLease.dispose();
-~~~
+```
 
 ### Surface
 
@@ -856,19 +892,24 @@ await sharedLease.dispose();
 
 ## API-012 — Runtime and React lifecycle
 
-~~~ts
+```ts
 const setup = runtimeSetup({
   app: IncidentApp,
   implementation: IncidentLive,
   persistence: persistence({ storage: webStorage(window.localStorage), scope: "user:42" }),
 });
 const runtime = setup.construct();
-~~~
+```
 
 ### Surface
 
 - `construct()` is synchronous/inert. `ready()` is the sole public readiness Effect; Runtime also has
   Effect bridge, async disposal, create/ensure, and lookup-only get.
+- Runtime bridges and final process/framework/CLI adapters are the only Effect execution edges. Reusable
+  services and orchestration return Effects with exact `A`, `Diagnostic` `E`, and `R`; they do not call
+  `runPromise*`, `runSync*`, or another runner. A foreign rejecting Promise is adapted once in a named
+  adapter with `Effect.tryPromise({ try, catch })`, mapping `unknown` to an owned `Diagnostic` and forwarding
+  `AbortSignal` when supported. `Effect.promise` is not part of the public implementation pattern.
 - Lifecycle is `prepared | active | suspended | disposed`.
 - React: `FlowProvider`, `useActor(machine, options?)`, `useActorByRef(ref)`, `useView(actor, selector)`.
 
@@ -915,11 +956,11 @@ const runtime = setup.construct();
 
 ## API-013 — Story constructors
 
-~~~ts
+```ts
 story.app(runtimeSetup, options?);
 story.machine(machine, options?);
 story.actor(machine, options?);
-~~~
+```
 
 ### Surface
 
@@ -957,12 +998,12 @@ story.actor(machine, options?);
 
 ## API-013A — Behavior gateway
 
-~~~ts
+```ts
 const gateway = behavior({
   app: IncidentApp,
   stories: { smoke: incidentStory, "machine-model": incidentMachineStory },
 });
-~~~
+```
 
 ### Surface
 
@@ -999,7 +1040,7 @@ const gateway = behavior({
 
 ## API-014 — Story commands and evidence
 
-~~~ts
+```ts
 // Both Story kinds
 process();
 advance(duration);
@@ -1014,10 +1055,11 @@ send(target, event);
 // Machine Story
 send(event);
 setContext(context);
-~~~
+```
 
-~~~ts
-const common = story.machine(editorMachine, options)
+```ts
+const common = story
+  .machine(editorMachine, options)
   .send(Editor.E.Opened())
   .process()
   .checkpoint("opened");
@@ -1031,7 +1073,7 @@ const discardedRun = await discarded.run();
 savedRun.checkpoints.opened; // valid
 savedRun.checkpoints.saved; // valid
 savedRun.checkpoints.typo; // TypeScript error
-~~~
+```
 
 ### Surface
 
@@ -1084,7 +1126,7 @@ retains captured end evidence but never returns success; failure before end capt
 
 - Exact command set and checkpoint access:
 
-~~~ts
+```ts
 appRun.checkpoints["signed-out"].actor(editor).snapshot;
 appRun.checkpoints["signed-out"].actor(PrimarySessionRef).snapshot;
 appRun.checkpoints["signed-out"].runtime.now;
@@ -1092,7 +1134,7 @@ appRun.checkpoints["signed-out"].runtime.pendingWork;
 appRun.end.actor(editor).snapshot;
 machineRun.checkpoints["signed-out"].snapshot;
 machineRun.end.snapshot;
-~~~
+```
 
 - Package-private checkpoint lookup may accept a runtime string for JavaScript, CLI, or other untrusted
   input. It MUST test own-key membership and reject an unknown name with the existing `FlowUsageError`
@@ -1118,7 +1160,7 @@ machineRun.end.snapshot;
 
 ## API-015 — Fixtures and models
 
-~~~ts
+```ts
 const baseStory = story.machine(incidentMachine, { fixtures: [incidentApiFixture] });
 const incidentModel = model(baseStory, {
   stateKey: ({ value, memory }) => [value.id, memory],
@@ -1131,7 +1173,7 @@ const result = incidentModel.getShortestPaths({
 });
 
 await result.paths[0]!.story.run();
-~~~
+```
 
 ### Surface
 
@@ -1176,13 +1218,13 @@ await result.paths[0]!.story.run();
 
 ## API-016 — Inspection and artifacts
 
-~~~ts
+```ts
 const attachment = attachInspectionSink(runtime, sink);
 await attachment.drain();
 const bytes = new Uint8Array(); // illustrative artifact input
 const trace = importTraceArtifact(bytes);
 const artifact = exportTraceArtifact(trace);
-~~~
+```
 
 ### Surface
 
@@ -1225,7 +1267,7 @@ const artifact = exportTraceArtifact(trace);
 
 Status: vNext additive amendment; raw runtime truth and the exact WIRE-020B export remain unchanged.
 
-~~~ts
+```ts
 type ArtifactExportOptions = Readonly<{
   redactions?: readonly Readonly<{
     path: ArtifactValuePath;
@@ -1236,15 +1278,30 @@ type ArtifactExportOptions = Readonly<{
 type ArtifactCanonicalPath = readonly (string | number)[];
 type ArtifactValuePath =
   | readonly ["records", number, "snapshot", "memory" | "context", ...ArtifactCanonicalPath]
-  | readonly ["records", number, "facts", number, "data" | "value" | "error" | "defect" | "latest", ...ArtifactCanonicalPath]
-  | readonly ["checkpoints", number, "actors", number, "snapshot", "memory" | "context", ...ArtifactCanonicalPath]
+  | readonly [
+      "records",
+      number,
+      "facts",
+      number,
+      "data" | "value" | "error" | "defect" | "latest",
+      ...ArtifactCanonicalPath,
+    ]
+  | readonly [
+      "checkpoints",
+      number,
+      "actors",
+      number,
+      "snapshot",
+      "memory" | "context",
+      ...ArtifactCanonicalPath,
+    ]
   | readonly ["checkpoints", number, "snapshot", "memory" | "context", ...ArtifactCanonicalPath];
 
 declare function exportTraceArtifact(
   trace: ReturnType<typeof importTraceArtifact>,
   options?: ArtifactExportOptions,
 ): Uint8Array;
-~~~
+```
 
 - Surface: An optional redaction policy on the existing `exportTraceArtifact` inspection route.
 - Rule: Redaction MUST be explicit, pure, and applied to a defensive export projection. An omitted or empty
@@ -1269,9 +1326,9 @@ declare function exportTraceArtifact(
 
 ## API-017 — CLI boundary
 
-~~~ts
+```ts
 const command: "flow-state behavior check" = "flow-state behavior check";
-~~~
+```
 
 ### Surface
 
@@ -1309,9 +1366,9 @@ const command: "flow-state behavior check" = "flow-state behavior check";
 
 The following union is schematic local proof-index notation and is not a required public export.
 
-~~~ts
+```ts
 type PublicProof = "API-P01" | "API-P02" | "API-P03" | "API-P04";
-~~~
+```
 
 ### API-P01 — Export-map and deletion proof
 

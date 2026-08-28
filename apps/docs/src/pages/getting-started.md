@@ -11,7 +11,7 @@ Flow State is ESM-only and requires Node 22.18 or newer. React is optional unles
 you import `flow-state/react`.
 
 ```sh
-nub add flow-state@0.1.0-alpha.0 effect@4.0.0-beta.86
+nub add flow-state@0.1.0-alpha.0 effect@4.0.0-rc.112
 nub add react@^18 react-dom@^18
 ```
 

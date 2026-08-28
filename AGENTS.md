@@ -5,7 +5,7 @@ tests, contracts, and proofs before making implementation or status claims.
 
 ## Useful structure
 
-- `packages/flow-state/` — runtime, public APIs, adapters, CLI, tests, and proofs.
+- `packages/flow-state/` — old read only, never edit this.
 - `packages/flow-state/src/index.ts`, `react-entry.ts`, `testing.ts`,
   `server.ts`, and `inspect.ts` — public package entrypoints.
 - `packages/flow-state/src/core/` — runtime behavior; `src/react/`,
@@ -13,17 +13,13 @@ tests, contracts, and proofs before making implementation or status claims.
 - `packages/flow-state-rewrite/src/` — greenfield rewrite package
 - `examples/` — maintained consumers and TypeScript compiler proofs.
 - `apps/docs/` — Vocs documentation and generated reference artifacts.
-- `reference/incident-console/implementation/` — normative Incident Console
-  contract pack. Its `README.md` maps authority; `contracts/` define behavior;
-  `revision-spec/accepted/` overrides conflicts; and the greenfield, review,
-  and test requirement files define execution discipline. Beads will hold the
-  task plan after the inventory is approved.
+- `reference/incident-console/implementation/contracts` — readonly contracts.
 - `codebases/` — research input only; `codebases/effect-v4/` is the primary
   reference for how Effect features are used. Installed packages and the
   lockfile remain authoritative for exact dependency APIs.
 
 Development uses Node 22.18+, `nub@0.7.5`, TypeScript 7.0.2, Vite Plus, and
-Effect 4.0.0-beta.86.
+Effect 4.0.0-rc.112.
 
 ## Commands
 

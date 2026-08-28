@@ -1,6 +1,6 @@
 # `Layer`
 
-Source: [Effect v4 `Layer` API](https://www.effect.website/docs/v4/api/effect/Layer). Examples assume `import { Context, Effect, Layer } from "effect"`. Effect v4 beta.86 does not export `Layer.scoped`; resource-backed services use `Layer.effect` with a scoped acquisition effect.
+Source: [Effect v4 `Layer` API](https://www.effect.website/docs/v4/api/effect/Layer). Examples assume `import { Context, Effect, Layer } from "effect"`. Effect v4 rc.112 does not export `Layer.scoped`; resource-backed services use `Layer.effect` with a scoped acquisition effect.
 
 ## API index
 
@@ -301,7 +301,7 @@ const Port = Context.Service<number>("Port")
 const live = Layer.effect(Port, Effect.sync(() => 8080))
 ```
 
-`Layer.effect` runs its construction effect in the layer scope. In beta.86, use `Effect.acquireRelease` inside this constructor for a resource-backed service; `Layer.scoped` is an Effect 3 name and is intentionally not documented as a v4 export.
+`Layer.effect` runs its construction effect in the layer scope. In rc.112, use `Effect.acquireRelease` inside this constructor for a resource-backed service; `Layer.scoped` is an Effect 3 name and is intentionally not documented as a v4 export.
 
 ```ts
 class Connection extends Context.Service<Connection, {

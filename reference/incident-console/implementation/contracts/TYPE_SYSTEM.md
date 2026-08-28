@@ -1,4 +1,3 @@
-
 # Type-system contract
 
 Status: normative vNext contract
@@ -8,9 +7,21 @@ Implementation closure, actor/ref/lease typing, host selector typing, Story typi
 Public authoring shapes are owned by [PUBLIC_API.md](./PUBLIC_API.md); terminology and identity by
 [GLOSSARY_AND_IDENTITY.md](./GLOSSARY_AND_IDENTITY.md).
 
+## TYPE-000 — Canonical failure channels
+
+- Pure definition and machine authoring carries expected validation and compilation failures as
+  `Result<A, Diagnostic>`. The `Diagnostic` type is the Schema-backed `Schema.TaggedError` class owned by
+  [`ERRORS.ts`](./ERRORS.ts); no feature-owned expected Error or `Data.TaggedError` carrier is permitted.
+- Effectful runtime operations preserve `Effect<A, Diagnostic, R>` at the owning boundary. `Diagnostic`
+  values may be yielded directly or supplied to `Effect.fail`; defects and interruption remain in `Cause`
+  until final classification. Convenience JS throws and Promise rejections are terminal host projections.
+- A foreign Promise conversion is one named adapter using `Effect.tryPromise({ try, catch })`; its `catch`
+  maps `unknown` exactly once to an owned `Diagnostic` and forwards `AbortSignal` when supported. `Effect.promise`
+  and nested runtime runners are not valid reusable implementation patterns.
+
 ## TYPE-001 — Definition literals
 
-~~~ts
+```ts
 const Todo = definition({
   id: "Todos/Editor",
   states: ["READY", { SAVING: ["REQUESTED", "COMMITTING"] }],
@@ -34,7 +45,7 @@ type _Event = Expect<
     ReturnType<typeof Todo.E.SaveRequested> | ReturnType<typeof Todo.E.SaveCompleted>
   >
 >;
-~~~
+```
 
 ### Surface
 
@@ -74,12 +85,12 @@ type _Event = Expect<
 
 ## TYPE-002 — Definition-anchored machine inference
 
-~~~ts
+```ts
 machine(Todo, ({ S, E, O, onContext, onMemory }) => ({
   default: S.READY,
   states: { READY: { on: { SaveRequested: { target: S.SAVING.S.REQUESTED } } } },
 }));
-~~~
+```
 
 ### Surface
 
@@ -115,16 +126,19 @@ machine(Todo, ({ S, E, O, onContext, onMemory }) => ({
 
 ## TYPE-003 — One input/memory inference path
 
-~~~ts
+```ts
 const Editor = definition({
-  id: "Todos/Editor", states: ["READY", "SAVING"], events: { SaveRequested: null },
+  id: "Todos/Editor",
+  states: ["READY", "SAVING"],
+  events: { SaveRequested: null },
   memory: ({ input }: { readonly input: { readonly todoId: string } }) => ({
-    todoId: input.todoId, draft: "",
+    todoId: input.todoId,
+    draft: "",
   }),
 });
 type _Input = Expect<Equal<InputOf<typeof Editor>, { readonly todoId: string }>>;
 type _Memory = Expect<Equal<MemoryOf<typeof Editor>, { todoId: string; draft: string }>>;
-~~~
+```
 
 ### Surface
 
@@ -160,14 +174,14 @@ type _Memory = Expect<Equal<MemoryOf<typeof Editor>, { todoId: string; draft: st
 
 ## TYPE-004 — Causal event narrowing
 
-~~~ts
+```ts
 SaveRequested: {
   target: S.SAVING,
   updateMemory: ({ event }) => ({ draft: event.title }),
   actions: ({ event, memory }) => [O.save.commit({ title: event.title, id: memory.id })],
   reenter: S.SAVING,
 }
-~~~
+```
 
 ### Surface
 
@@ -201,7 +215,7 @@ SaveRequested: {
 
 ## TYPE-005 — Resource `P`/`K`/`A`/`E`/`R`
 
-~~~ts
+```ts
 const project = resource({
   id: "projects.by-id",
   key: ({ id }: Readonly<{ id: string }>) => [id] as const,
@@ -212,7 +226,7 @@ const project = resource({
     }),
 });
 project.getData(project.key({ id: "project-1" }));
-~~~
+```
 
 ### Surface
 
@@ -247,7 +261,7 @@ project.getData(project.key({ id: "project-1" }));
 
 ## TYPE-006 — Transaction inference independent of parent
 
-~~~ts
+```ts
 type SaveParams = Readonly<{ id: string; title: string }>;
 
 const save = transaction({
@@ -266,7 +280,7 @@ O.save.commit(
     },
   },
 );
-~~~
+```
 
 ### Surface
 
@@ -303,7 +317,7 @@ O.save.commit(
 
 ## TYPE-007 — Stream inference
 
-~~~ts
+```ts
 type ProgressInput = Readonly<{ submissionId: string }>;
 
 const progress = stream({
@@ -315,7 +329,7 @@ const progress = stream({
       return yield* progressClient.progress(submissionId, { signal });
     }),
 });
-~~~
+```
 
 ### Surface
 
@@ -355,10 +369,10 @@ const progress = stream({
 
 ## TYPE-008 — Cause classification
 
-~~~ts
-const exit = yield* Effect.exit(operation);
+```ts
+const exit = yield * Effect.exit(operation);
 // defect > typed failure > interruption-only
-~~~
+```
 
 ### Surface
 
@@ -391,10 +405,10 @@ const exit = yield* Effect.exit(operation);
 
 ## TYPE-009 — Transitive requirements
 
-~~~ts
+```ts
 type _MachineR = Expect<Equal<RequirementsOf<typeof projectMachine>, ProjectRepo | AuditLog>>;
 type _AppR = Expect<Equal<RequirementsOf<typeof ProjectApp>, ProjectRepo | AuditLog>>;
-~~~
+```
 
 ### Surface
 
@@ -433,9 +447,9 @@ type _AppR = Expect<Equal<RequirementsOf<typeof ProjectApp>, ProjectRepo | Audit
 The following is private schematic/non-exported notation for the inferred carrier boundary; it is not a
 required public export.
 
-~~~ts
+```ts
 type NormalizedCarrier<R> = Readonly<{ readonly _requirements?: (r: R) => R }>;
-~~~
+```
 
 ### Surface
 
@@ -469,17 +483,23 @@ type NormalizedCarrier<R> = Readonly<{ readonly _requirements?: (r: R) => R }>;
 
 ## TYPE-009B — Inert Implementations
 
-~~~ts
-const TodoLive = Implementation.succeed(TodoGateway, TodoGateway.of({
-  list: ({ listId }, { signal }) => fetchTodos(listId, { signal }),
-  add: ({ listId, title }, { signal }) => createTodo(listId, title, { signal }),
-}));
-const TodoStory = Implementation.succeed(TodoGateway, TodoGateway.of({
-  list: () => Effect.succeed(initialTodos),
-  add: ({ title }) => Effect.succeed({ id: "todo-1", title, completed: false }),
-}));
+```ts
+const TodoLive = Implementation.succeed(
+  TodoGateway,
+  TodoGateway.of({
+    list: ({ listId }, { signal }) => fetchTodos(listId, { signal }),
+    add: ({ listId, title }, { signal }) => createTodo(listId, title, { signal }),
+  }),
+);
+const TodoStory = Implementation.succeed(
+  TodoGateway,
+  TodoGateway.of({
+    list: () => Effect.succeed(initialTodos),
+    add: ({ title }) => Effect.succeed({ id: "todo-1", title, completed: false }),
+  }),
+);
 const TodoWithClock = Implementation.merge(TodoLive, ClockLive);
-~~~
+```
 
 ### Surface
 
@@ -516,21 +536,25 @@ const TodoWithClock = Implementation.merge(TodoLive, ClockLive);
 
 ## TYPE-010 — Runtime requirement closure
 
-~~~ts
+```ts
 function runtimeSetup<A extends App>(options: {
-  readonly app: A; readonly persistence?: Persistence;
+  readonly app: A;
+  readonly persistence?: Persistence;
 }): RuntimeSetup<A, never>;
 function runtimeSetup<A extends App, ImplementationError>(options: {
   readonly app: A;
   readonly implementation: Implementation<RequirementsOf<A>, ImplementationError>;
   readonly persistence?: Persistence;
 }): RuntimeSetup<A, ImplementationError>;
-~~~
+```
 
 ### Surface
 
-- `RuntimeSetup` is inert carrier. `construct()` makes shell/no I/O. `ready(): Effect<void,
-  ImplementationError | FlowPersistenceError>` performs bootstrap/restoration once and caches terminal result.
+- `RuntimeSetup` is inert carrier. `construct()` makes shell/no I/O. `ready(): Effect<void, Diagnostic>`
+  performs bootstrap/restoration once and caches terminal result; implementation, storage, codec, and
+  restoration failures are mapped to canonical Failure diagnostics at their owning boundary. The public
+  `FlowPersistenceError` name, if retained, is a final host-only compatibility envelope and never an
+  additional expected Effect error family.
 
 ### Rule
 
@@ -544,23 +568,24 @@ function runtimeSetup<A extends App, ImplementationError>(options: {
 
 ### Accepts
 
-~~~ts
+```ts
 runtimeSetup({ app: PublicApp });
 runtimeSetup({ app: ProjectApp, implementation: ProjectLive });
-~~~
+```
 
 ### Rejects
 
-~~~ts
+```ts
 // @ts-expect-error ProjectRepo remains unsatisfied
 runtimeSetup({ app: ProjectApp });
 // @ts-expect-error remaining DatabaseConfig requirement
 runtimeSetup({ app: ProjectApp, implementation: ProjectImplementationRequiringConfig });
-~~~
+```
 
 ### Observable guarantee
 
-- Readiness is one idempotent cached boundary; implementation acquisition errors remain `ImplementationError`.
+- Readiness is one idempotent cached boundary; implementation acquisition errors become owned Failure
+  diagnostics and remain distinguishable from defects and interruption in the internal `Cause`.
 
 ### Proof
 
@@ -575,14 +600,17 @@ runtimeSetup({ app: ProjectApp, implementation: ProjectImplementationRequiringCo
 The following is private schematic/non-exported notation for the runtime result shape; it is not a
 required public export.
 
-~~~ts
+```ts
 type Result<A, E, IE> = Promise<Exit.Exit<A, E | IE>>;
-~~~
+```
 
 ### Surface
 
 - For `Runtime<App, ImplementationError>`, `runPromise`/`runPromiseExit` accept only Effects satisfied
   by installed application Context.
+- `runPromise*`, `runSync*`, and related Effect runners are legal only in the Runtime bridge, final
+  process/framework/CLI host adapters, tests, or explicitly owned shutdown code. Reusable services,
+  workflows, and foreign adapters return their Effect and preserve its `A`, `E`, and `R` channels.
 
 ### Rule
 
@@ -612,12 +640,12 @@ type Result<A, E, IE> = Promise<Exit.Exit<A, E | IE>>;
 
 ## TYPE-012 — Exact actor family
 
-~~~ts
+```ts
 const actor: Actor<Machine> = runtime.getActor(ref);
 actor.ref satisfies ActorRef<Machine>;
 actor.send(/* EventOf<Machine> */);
 actor.getSnapshot();
-~~~
+```
 
 ### Surface
 
@@ -655,14 +683,14 @@ actor.getSnapshot();
 
 ## TYPE-013 — Passive React selectors
 
-~~~ts
+```ts
 const selected = useView(projectActor, ({ state, O }) => ({
   state,
   project: O.project.getData(O.project.key({ id: "project-1" })),
 }));
 // @ts-expect-error machine is not actor handle
 useView(projectMachine, ({ state }) => state);
-~~~
+```
 
 ### Surface
 
@@ -752,12 +780,14 @@ type AppStoryOptions<App> = FixtureOptions<App> & {
   readonly description?: string;
   readonly tags?: readonly string[];
 };
-type MachineStoryOptions<M> = InputOptions<M> & SelectedContextOptions<M> & FixtureOptions<M> & {
-  readonly maxTurns?: number;
-  readonly title?: string;
-  readonly description?: string;
-  readonly tags?: readonly string[];
-};
+type MachineStoryOptions<M> = InputOptions<M> &
+  SelectedContextOptions<M> &
+  FixtureOptions<M> & {
+    readonly maxTurns?: number;
+    readonly title?: string;
+    readonly description?: string;
+    readonly tags?: readonly string[];
+  };
 type ActorRecipeOptions<M> = InputOptions<M> & ContextBindingOptions<M>;
 ```
 
@@ -766,12 +796,11 @@ Checkpoint-name accumulation uses the following specification-only notation. `Ch
 public exports:
 
 ```ts
-type NewCheckpointName<Names extends string, Name extends string> =
-  string extends Name
-    ? never
-    : Extract<Name, Names> extends never
-      ? Name
-      : never;
+type NewCheckpointName<Names extends string, Name extends string> = string extends Name
+  ? never
+  : Extract<Name, Names> extends never
+    ? Name
+    : never;
 
 interface StoryPlan<Names extends string = never> {
   checkpoint<const Name extends string>(
@@ -792,7 +821,8 @@ Every other builder command preserves `Names` while returning a new plan value. 
 known string union extends `Names`; a widened `string` is rejected and MUST NOT erase already known names.
 
 ```ts
-const common = story.machine(editorMachine, options)
+const common = story
+  .machine(editorMachine, options)
   .send(Editor.E.Opened())
   .process()
   .checkpoint("opened");
@@ -871,9 +901,9 @@ lookupCheckpointInternal(savedRun, untrustedCheckpointName); // unknown own key 
 
 ## TYPE-015 — Story-local recipes
 
-~~~ts
+```ts
 const recipe = story.actor(machine, { input, contextBindings });
-~~~
+```
 
 ### Surface
 
@@ -910,9 +940,9 @@ const recipe = story.actor(machine, { input, contextBindings });
 
 ## TYPE-016 — Fixture Implementation closure
 
-~~~ts
+```ts
 const fixtureDef = fixture({ id: "test-api", implementation: TestApi, seeds });
-~~~
+```
 
 ### Surface
 
@@ -949,9 +979,9 @@ const fixtureDef = fixture({ id: "test-api", implementation: TestApi, seeds });
 
 ## TYPE-017 — Pure model base
 
-~~~ts
+```ts
 const modelDef = model(machineStory, { stateKey: ({ value, memory }) => [value.id, memory] });
-~~~
+```
 
 ### Surface
 
@@ -991,9 +1021,9 @@ const modelDef = model(machineStory, { stateKey: ({ value, memory }) => [value.i
 
 The following union is schematic local proof-index notation and is not a required public export.
 
-~~~ts
+```ts
 type TypeProof = "TYPE-P01" | "TYPE-P02" | "TYPE-P03" | "TYPE-P04";
-~~~
+```
 
 ### TYPE-P01 — Positive proofs
 

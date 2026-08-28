@@ -264,13 +264,12 @@ idle countdown or new `gcTime` default.
 ## Artifact path, bounds, history, and diagnostics
 
     type NonNegative = number; // accepted only when Number.isSafeInteger(value) && value >= 0
-    type DiagnosticProjection = {
-      classification: "Failure" | "Defect" | "Interruption";
-      code: DiagnosticCode;
-      path: FlowPath;
-      details: CanonicalCarrier;
-      summary: string | null;
-    };
+
+`DiagnosticProjection` is the serialization alias of the sole typed diagnostic contract in
+[`ERRORS.ts`](./ERRORS.ts). It is not a second schema: `Diagnostic` owns the stable
+`classification`/`code`/`path`/`details` fields, evolving `summary`/`help`, and the safe projection/rendering
+rules. Artifact and trace encoders may order and bound those fields according to this contract's wire rules,
+but they MUST NOT introduce another diagnostic type or mirror the Effect Cause tree.
 
 ### Rule card — WIRE-014, WIRE-015, WIRE-016
 

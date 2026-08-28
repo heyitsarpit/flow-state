@@ -7,7 +7,7 @@ disagrees with a contract, follow the contract.
 
 Use the `effect-systems-design` skill for the plain-TypeScript-versus-Effect decision and ownership
 composition. Use `effect-api-documentation` for exact exports, signatures, overloads, and examples. The
-consuming package's installed `effect@4.0.0-beta.86` declarations, source, tests, and lockfile win over
+consuming package's installed `effect@4.0.0-rc.112` declarations, source, tests, and lockfile win over
 the skills, `codebases/effect-v4`, or this guide. Each recipe block is labeled `Contract pseudocode`;
 Flow-owned names remain illustrative.
 
@@ -17,7 +17,7 @@ Flow-owned names remain illustrative.
 - This file is a compact routing aid. It is not a second contract, API catalog, task plan, or proof.
 - Preserve `Effect<A, E, R>` requirements and failures until the owning runtime or host boundary handles them.
 - Keep `AppPlan`, definitions, canonical identity, selectors, codecs, and model traversal inert and plain.
-- A sketch is pseudocode unless its type and import are contract-defined and verified against beta.86.
+- A sketch is pseudocode unless its type and import are contract-defined and verified against rc.112.
 - Do not promote a recipe into a public facade, compatibility alias, or new contract surface.
 
 ## 2. Compact contract map
@@ -476,7 +476,7 @@ import { TestClock, TestConsole } from "effect/testing"
 declare const hostStorage: Storage
 declare const applicationPersistenceCodec: PersistenceCodec // synchronous, pure application codec
 declare const decodeWire020B: (bytes: Uint8Array) => Wire020B // package-private Flow-owned; verify-before-coding
-const HostAdapter = Context.Service<Host>("Incident/HostAdapter") // beta.86 service key
+const HostAdapter = Context.Service<Host>("Incident/HostAdapter") // rc.112 service key
 declare const fakeHost: Host
 declare const redactForLog: (value: Readonly<{ readonly status: string }>) => Readonly<{ readonly status: string }> // allowlist; secrets omitted
 declare const timerProgram: (onRegistered: Effect.Effect<void>) => Effect.Effect<void, IncidentError> // Flow-owned timer signals after registration
@@ -549,7 +549,7 @@ const storyRun = Effect.gen(function*() {
 Before coding a slice, verify:
 
 - [ ] Exact active contract clauses, accepted revisions, production owner, non-goals, and proof IDs are named.
-- [ ] Every selected beta.86 export, signature, import path, Layer output/error/requirements, and scope behavior is checked in the two Effect skills plus the consuming package.
+- [ ] Every selected rc.112 export, signature, import path, Layer output/error/requirements, and scope behavior is checked in the two Effect skills plus the consuming package.
 - [ ] A/E/R, input versus `P`, canonical `K`, ownership, bounds, cancellation, settlement, and host translation are explicit.
 - [ ] No handle escapes a closed scope; no Effect is ignored; no unbounded queue, `Schema.Unknown`, or unknown-based A/E/R erasure is hiding a design choice.
 - [ ] The focused executable proof can disprove ordering, failure, interruption, time, persistence, redaction, cleanup, or deletion claims before broader gates run.

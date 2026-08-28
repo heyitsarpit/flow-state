@@ -11,7 +11,7 @@ mutations, workflows, React views, persistence, and inspection.
 - `codebases/` — reference code bases for development.
 
 Development uses Node 22.18+, `nub@0.7.5`, TypeScript 7.0.2, Vite Plus, and
-Effect 4.0.0-beta.86. The repository's compiler and Effect conventions are in
+Effect 4.0.0-rc.112. The repository's compiler and Effect conventions are in
 [`AGENTS.md`](AGENTS.md), and the toolchain alignment check is
 `nub run check:toolchain`.
 

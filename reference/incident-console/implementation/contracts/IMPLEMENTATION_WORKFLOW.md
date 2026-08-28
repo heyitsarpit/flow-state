@@ -21,8 +21,8 @@ This workflow preserves the wording, semantics, and IDs already transferred into
   packages/flow-state/ code, tests, examples, entrypoints, and records remain frozen reference
   material until late cutover.
 - Accepts: Copied legacy code only after its current owner, types, failure lanes, cleanup, and tests are
-  checked; each slice naming its contract IDs, bounded module boundary, allowed files, semantic/runtime
-  ownership where required, acceptance behavior, and decisive proof before code.
+  checked; each slice naming its contract IDs, cohesive feature-owned module boundary, allowed files,
+  semantic/runtime ownership where required, acceptance behavior, and decisive proof before code.
 - Rejects: incremental upgrades to the frozen package, hidden compatibility imports, aliases, overloads,
   adapters, parser branches, deprecated wrappers, or semantics inferred from historical material.
 - Observable guarantee: A slice can be reviewed against its live semantic/runtime ownership and one named
@@ -69,11 +69,12 @@ This workflow preserves the wording, semantics, and IDs already transferred into
 ### Rule card — recursive module layout
 
 - Surface: Greenfield source and focused tests.
-- Rule: Keep small features flat at their parent. Create a recursive feature folder only for a major
-  self-contained module, and co-locate its implementation, validation/private helpers, local codecs such as
-  a local UTF-8 helper, and a local `test/` subtree under that module. Folder names describe modules, not
-  compile-time/runtime/API proof roles. A module may contain both type-level declarations and runtime
-  behavior. Re-export files exist only when a real public route requires them.
+- Rule: Each cohesive feature owns one top-level module folder. Keep small features flat at their parent;
+  create a recursive feature folder only for a major self-contained module. Co-locate that feature's public
+  types, implementation, validation/private helpers, local schema/codecs such as a local UTF-8 helper, and
+  local `test/` subtree under its folder. Folder names describe feature modules, not compile-time/runtime/API
+  proof roles. A module may contain both type-level declarations and runtime behavior. Re-export files exist
+  only when a real public route requires them, and `src/public/` plus package entrypoints are facade-only.
 - Rejects: Treating `model`, `type`, or `api` as a required taxonomy or as three production owners; splitting
   one module into proof-role folders; or placing a module's private helpers/codecs/tests in unrelated global
   directories without a contract reason.
@@ -106,10 +107,12 @@ This workflow preserves the wording, semantics, and IDs already transferred into
 
 - Surface: The root `Implementation` runtime value, its same-name public type, and the inert provider graph.
 - Rule: Route assembly has one owner: `packages/flow-state-rewrite/package.json`, `src/index.ts`,
-  `src/public/root.ts`, and `src/public/types.ts`, plus the packed API-P01 proof. Provider-graph construction has
-  a separate owner: `src/public/implementation.ts` and its focused API/type tests. The route owner only re-exports
-  the provider owner; it does not duplicate constructors or provider state. Runtime acquisition, Scope,
-  finalization, and `ready()` remain TYPE-010 Runtime-ownership work.
+  `src/public/root.ts`, and `src/public/types.ts`, plus the packed API-P01 proof. Those entrypoints and
+  `src/public/` files are facade-only re-exports. Provider-graph construction has a separate cohesive
+  feature-owned module under `src/implementation/`, with its public types, implementation, private helpers,
+  and local `test/` subtree co-located. The route owner only re-exports the provider owner; it does not
+  duplicate constructors or provider state. Runtime acquisition, Scope, finalization, and `ready()` remain
+  TYPE-010 Runtime-ownership work.
 - Accepts: One root runtime value with exactly `succeed`, `effect`, and `merge`, alongside the same-name public
   type, with inert construction and no acquisition in the static phase.
 - Rejects: `Object.freeze` as namespace behavior, aliases, secondary/deep routes, duplicate constructor owners,
@@ -118,7 +121,7 @@ This workflow preserves the wording, semantics, and IDs already transferred into
   TYPE-009B and runtime acquisition remains owned by TYPE-010.
 - Proof: API-P01 and TYPE-009B provider variance/duplicate/inertness proofs. Focused commands:
   `nub run --filter flow-state-rewrite check:types` and
-  `nubx vp test packages/flow-state-rewrite/src/api/tests/public-routes.test.ts`.
+  `nubx vp test packages/flow-state-rewrite/src/implementation/test/public-routes.test.ts`.
 - Trace: PUBLIC_API API-001/API-002/API-P01; TYPE_SYSTEM TYPE-009B/TYPE-010.
 
 ## Single-owner guardrails

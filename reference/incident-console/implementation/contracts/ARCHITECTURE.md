@@ -8,19 +8,21 @@ observable turn, snapshot, and host details linked below.
 
 ## Ownership map
 
-| Owner | Owns | Must not be duplicated by |
-| --- | --- | --- |
-| `AppPlan` | closed machine/operation graph, IDs, requirements, ownership and reachability | runtime, adapter, Story, CLI |
-| `FlowRuntimeShell` + private Effect runtime composition | boot, provider graph, scopes, runtime readiness, cleanup | React, Story, host callback |
-| `ActorEngine` | one actor mailbox, actor state, publication, occurrence cursors, activity reconciliation | StoreKernel, React, inspection |
-| `StoreKernel` | one canonical `StoreState`, generations, overlays, revisions | actor-local caches, `RcMap`, adapters |
-| `StoreFanout` | canonical revision delivery to actor mailboxes | direct StoreState subscriptions |
-| owner lease | individual terminal actor disposal | ordinary actor handle, `ActorRef`, React cleanup |
-| host adapter | entering Flow through the managed boundary | synchronous `runSync` mutation |
+| Owner                                                   | Owns                                                                                     | Must not be duplicated by                        |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| `AppPlan`                                               | closed machine/operation graph, IDs, requirements, ownership and reachability            | runtime, adapter, Story, CLI                     |
+| `FlowRuntimeShell` + private Effect runtime composition | boot, provider graph, scopes, runtime readiness, cleanup                                 | React, Story, host callback                      |
+| `ActorEngine`                                           | one actor mailbox, actor state, publication, occurrence cursors, activity reconciliation | StoreKernel, React, inspection                   |
+| `StoreKernel`                                           | one canonical `StoreState`, generations, overlays, revisions                             | actor-local caches, `RcMap`, adapters            |
+| `StoreFanout`                                           | canonical revision delivery to actor mailboxes                                           | direct StoreState subscriptions                  |
+| owner lease                                             | individual terminal actor disposal                                                       | ordinary actor handle, `ActorRef`, React cleanup |
+| host adapter                                            | entering Flow through the managed boundary                                               | synchronous `runSync` mutation                   |
 
 ## Runtime construction
 
 ```ts
+import { Effect } from "effect";
+
 const setup = flow.runtimeSetup({
   app: TodoApp,
   implementation: TodoLive,
@@ -28,7 +30,7 @@ const setup = flow.runtimeSetup({
 });
 
 const runtime = setup.construct();
-await runtime.ready();
+await Effect.runPromise(runtime.ready());
 const lease = runtime.ensureActor(TodoRefs.primary, {
   input: { userId: "user-42" },
   contextBindings,
@@ -39,6 +41,10 @@ lease.actor.send(Todo.E.RefreshRequested());
 `RuntimeSetup` discovery is synchronous and inert. `construct()` returns the runtime handle;
 bootstrap, restoration, Implementation acquisition, initial admission, graph sealing, and actor
 activation occur at the readiness boundary. `runtime.ready()` is the only public readiness Effect.
+Only a Runtime bridge or final host adapter may execute that Effect. Internal services and workflows
+return Effects with `Diagnostic` as the expected failure channel and preserve `Cause` for defects and
+interruption. Foreign Promise APIs are converted once by a named adapter using
+`Effect.tryPromise({ try, catch })`; orchestration never nests a Promise conversion or runner.
 
 ### ARCH-001 — AppPlan is inert and closed-world
 
@@ -90,6 +96,10 @@ activation occur at the readiness boundary. `runtime.ready()` is the only public
 - Proof: Type-mode and readiness proofs; see `HOST-006`, `HOST-015`.
 - Trace: `ARCH-007`, `ARCH-010`, `SEM-006A`.
 
+Expected failures use the canonical Schema-backed `Diagnostic` only. Pure definition and machine
+compilation uses `Result<A, Diagnostic>`; the synchronous convenience builders unwrap once at their
+public boundary. No feature-owned expected Error class or `Data.TaggedError` carrier is introduced.
+
 ### ARCH-006 — Machine construction uses typed input
 
 - Surface: definition input, `memory: ({ input }) => Memory`, state/events/context/operations.
@@ -130,13 +140,13 @@ activation occur at the readiness boundary. `runtime.ready()` is the only public
 - Proof: Phase, rollback, and readiness proofs in `HOST-P01`, `HOST-006`.
 - Trace: `ARCH-008`, `ARCH-009`, `SEM-027`.
 
-| Phase | Admission | Required boundary |
-| --- | --- | --- |
-| `constructed` | none | service-free shell only |
-| `booting` | bootstrap/activation only | persistence, Implementation, ensures, providers, seal |
-| `ready` | ordinary work | all attached actors crossed activation barrier |
-| `failed` | closed | cleanup only |
-| `disposed` | closed | terminal |
+| Phase         | Admission                 | Required boundary                                     |
+| ------------- | ------------------------- | ----------------------------------------------------- |
+| `constructed` | none                      | service-free shell only                               |
+| `booting`     | bootstrap/activation only | persistence, Implementation, ensures, providers, seal |
+| `ready`       | ordinary work             | all attached actors crossed activation barrier        |
+| `failed`      | closed                    | cleanup only                                          |
+| `disposed`    | closed                    | terminal                                              |
 
 ### ARCH-008 — Persistence restoration precedes actor activation
 
@@ -398,6 +408,10 @@ buffered commands are never delivered, later commands reject, and the abandoned 
 
 - Surface: operation and cleanup fibers; host error boundaries.
 - Rule: Retain `Exit` and full `Cause` through classification with `Effect.exit`/`Effect.onExit`. Use `FlowDisposeError` and `FlowStoryExecutionError` for complete Cause preservation; squash only at an intentionally lossy JS throw/rejection boundary.
+- Runtime bridges and final host adapters are the only runner edges. `runPromise*`, `runSync*`, and
+  related runners are forbidden inside reusable Effect workflows, services, and adapters; they return
+  the Effect to the owning host. `Effect.promise` is forbidden, and Promise rejection mapping belongs
+  to a named `Effect.tryPromise({ try, catch })` adapter.
 - Accepts: Ordered private stable Flow diagnostic projections in TurnRecords/artifacts.
 - Rejects: `Effect.result` as complete classification, `Cause.squash` as internal truth, or Cause in public actor snapshots.
 - Observable guarantee: Defect, typed failure, and interruption remain distinguishable.

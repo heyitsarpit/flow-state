@@ -31,9 +31,9 @@
     "verify": "nub run check:toolchain && nub run check && nub run test && nub run build && nub run test:browser && nub run docs:build"
   },
   "devDependencies": {
-    "@effect/language-service": "0.86.4",
+    "@effect/language-service": "0.87.2",
     "@oxlint/plugins": "1.78.0",
-    "effect": "4.0.0-beta.86",
+    "effect": "4.0.0-rc.112",
     "@types/node": "26.2.0",
     "happy-dom": "^20.10.6",
     "oxlint": "1.77.0",

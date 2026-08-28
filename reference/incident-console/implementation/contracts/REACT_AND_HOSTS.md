@@ -13,6 +13,8 @@ decisions, archived records, and the `provenance/` copies preserve provenance on
 ## Host-first examples
 
 ```ts
+import { Effect } from "effect";
+
 const setup = runtimeSetup({
   app: TodoApp,
   implementation: TodoLive,
@@ -22,7 +24,7 @@ const setup = runtimeSetup({
   }),
 });
 const runtime = setup.construct();
-await runtime.ready();
+await Effect.runPromise(runtime.ready());
 
 const shared = runtime.ensureActor(PrimarySessionRef, {
   input,
@@ -204,14 +206,15 @@ needed for truthful settlement and never claims reversal of an irreversible effe
 finalizers, then reconciles continuing declarations and due timers without replaying finite work. A
 cleanup defect leaves the actor suspended and blocks resume until owner or runtime disposal.
 
-| Lifecycle | Commands | Subscriptions |
-| --- | --- | --- |
-| `prepared` | Buffer at least 64; exact internal bound is implementation-defined | Replay and become live on activation |
-| `active` | Admit | Remain live |
-| `suspended` | Reject without buffering | Replay once and complete |
-| `disposed` | Reject without buffering | Replay terminal snapshot and complete |
+| Lifecycle   | Commands                                                           | Subscriptions                         |
+| ----------- | ------------------------------------------------------------------ | ------------------------------------- |
+| `prepared`  | Buffer at least 64; exact internal bound is implementation-defined | Replay and become live on activation  |
+| `active`    | Admit                                                              | Remain live                           |
+| `suspended` | Reject without buffering                                           | Replay once and complete              |
+| `disposed`  | Reject without buffering                                           | Replay terminal snapshot and complete |
 
 `can(event)` remains pure transition legality, separate from command admission.
+
 - Accepts: Strict Effects and Activity hide/reveal; commands admitted before close retaining FIFO; current provider changes through ordinary context wave; elapsed timer due on resume; suspended snapshots remaining readable.
 - Rejects: Buffering suspended commands, rerunning input/initializer/events/finite actions/baseline `onContext`, replaying finite work/emissions, automatic retry/remote rollback, new operation attempt, machine turn, or TurnRecord from suspend/resume alone.
 - Observable guarantee: Cleanup is an actual suspended lifecycle; cleanup defect leaves suspended and blocks resume until owner/runtime disposal. Prepared/active/suspended/disposed command and subscription matrix follows `SEM-007`.
@@ -266,10 +269,11 @@ cleanup defect leaves the actor suspended and blocks resume until owner or runti
 - Rule: Runtime owns persistence; no mutable hydration API, public boot payload/decoder, or assertion-cast persisted input. Restore declared persistable memory/refs without input/initializer replay. Capture only non-disposed stable actors opted in by declaration plus transitive stable provider closure; capture between completed context waves as one context-closed cut with exact bindings/provider revisions.
 - Accepts: Bounded JSON-safe default codec or provider-supplied custom codec; dependency-ordered provider-before-consumer hydration; derived context installed silently before continuing work/handle escape; retryable `ConcurrentDehydrate`.
 - Rejects: Serialized selected context overriding provider truth, opaque local provider serialization/promotion/recreation/substitution/rebinding, local/disposed/tombstoned actors, or `NonDurableContextProvider` treated as retryable.
-- Observable guarantee: Opaque provider failure carries a `FlowPersistenceError` with kind
+- Observable guarantee: Opaque provider failure carries the canonical `Diagnostic` with code
   `NonDurableContextProvider`, the durable consumer ID, opaque provider diagnostic ID, provider machine ID,
   and every failing `contextBindings.<key>` path. Its remediation names `actorRef(providerMachine, id)`
-  plus `runtime.ensureActor(ref, ...)`; it never suggests ID-bearing `runtime.createActor`. Hydration emits
+  plus `runtime.ensureActor(ref, ...)`; it never suggests ID-bearing `runtime.createActor`. A final host may
+  wrap that diagnostic in the compatibility-only `FlowPersistenceError` envelope. Hydration emits
   no `onContext` event and never invents selected context truth. A restored stable actor remains Runtime-
   owned even when the current Runtime did not repeat `ensureActor`.
 - Proof: `HOST-P04`, `SNAP-P01`.
@@ -278,7 +282,8 @@ cleanup defect leaves the actor suspended and blocks resume until owner or runti
 ### HOST-015 — Effect bridges retain runtime service and error truth
 
 - Surface: runtime Effect bridges, `runPromiseExit`.
-- Rule: Bridges execute Effects against the installed runtime Context and reuse the production runtime. `runPromiseExit` resolves an Exit retaining Effect and Implementation/runtime failure truth without a second execution Scope.
+- Rule: Bridges execute Effects against the installed runtime Context and reuse the production runtime. `runPromiseExit` resolves an Exit retaining Effect and Implementation/runtime failure truth without a second execution Scope. Runtime bridges and final host adapters are the only runner edges; reusable services and workflows return their Effect with exact `A`, canonical `Diagnostic` `E`, and `R` instead of running it.
+- Foreign Promise APIs are adapted once in a named adapter with `Effect.tryPromise({ try, catch })`, mapping rejection to an owned `Diagnostic` and forwarding the supplied `AbortSignal` when supported. `Effect.promise` is forbidden in reusable Flow code.
 - Accepts: Requirements satisfied by installed Context.
 - Rejects: Hidden acquisition failure in a second Scope or an unowned execution Scope.
 - Observable guarantee: Host bridge error truth matches runtime readiness/Effect truth.
