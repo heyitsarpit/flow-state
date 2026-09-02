@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `Duration` API](https://www.effect.website/docs/v4/api/effect/Duration). Examples assume `import { Duration } from "effect"`.
 
+`Duration` represents a time span in a normalized form that can be constructed, compared, transformed, and passed to Effect timing APIs.
+
 ## API index
 
 1. [Duration.Duration](#durationduration)

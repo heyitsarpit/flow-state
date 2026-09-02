@@ -4,6 +4,8 @@ Source: [Effect v4 `Function` API](https://www.effect.website/docs/v4/api/effect
 
 The package root re-exports `pipe`, `flow`, `identity`, `absurd`, `cast`, and `hole`. The same declarations are also available through the `Function` namespace.
 
+`Function` collects small, reusable helpers for composition, adaptation, identity, and type-level function manipulation.
+
 ## API index
 
 1. [root `pipe` / `Function.pipe`](#root-pipe--functionpipe)

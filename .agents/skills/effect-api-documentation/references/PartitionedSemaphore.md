@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `PartitionedSemaphore` API](https://www.effect.website/docs/v4/api/effect/PartitionedSemaphore). Examples assume `import { Effect, PartitionedSemaphore } from "effect"`.
 
+`PartitionedSemaphore` limits concurrent work with independent permit budgets selected by partition key.
+
 ## API index
 
 1. [PartitionedSemaphore.PartitionedSemaphore](#partitionedsemaphorepartitionedsemaphore)

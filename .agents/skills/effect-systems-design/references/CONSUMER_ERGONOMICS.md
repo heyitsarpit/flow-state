@@ -90,6 +90,13 @@ Choose `ConfigProvider` at the composition root; use `withDefault` only for miss
 secrets redacted until the adapter that needs them. See [Config](../../effect-api-documentation/references/Config.md)
 and [ConfigProvider](../../effect-api-documentation/references/ConfigProvider.md).
 
+### IF a reusable Layer should accept either explicit config or provider-backed config
+
+- **THEN:** Accept `Config.Wrap<Options>` and normalize it with `Config.unwrap`; callers can pass a
+  concrete record or a `Config<Options>` while the Layer still yields one typed options value.
+- **CHECK:** Keep provider selection at the application root and do not read environment variables
+  inside the service implementation.
+
 ## Make outcomes easy to consume
 
 ### IF an operation can fail, needs services, or can be interrupted
@@ -127,6 +134,9 @@ const runnable = loadUser("42").pipe(
 
 Use `Effect.fn("Name")` for an intentional trace boundary; use `Effect.fnUntraced` for an ordinary
 reusable function that only wraps a generator.
+Additional arguments to `Effect.fn` are whole-call transforms: each receives the previous Effect and
+the original function arguments. Use them for cross-cutting error classification, annotations,
+spans, retry, timeout, cleanup, or result mapping; keep the generator body focused on domain work.
 Use `Function.dual` only for library operators whose data-first and data-last forms are both common;
 optional parameters need predicate dispatch because arity dispatch counts supplied arguments.
 
@@ -338,6 +348,14 @@ export const withConnection = <A, E, R>(use: (connection: Connection) => Effect.
 Use `Effect.tryPromise` or `Effect.callback` at the adapter so consumers can compose timeout and
 cancellation without owning AbortControllers, unsubscribe registries, or `finally` blocks. See
 [Effect boundaries](../../effect-api-documentation/references/Effect.md).
+
+### IF an adapter calls an HTTP service
+
+- **THEN:** Use the pinned Effect HTTP client modules when typed request, response, service, and
+  retry policies are part of the contract. For a deliberately small or platform-specific adapter,
+  raw `fetch` may stay behind one named boundary.
+- **CHECK:** The adapter owns request construction, authentication, status classification before
+  decoding, Schema decoding, AbortSignal forwarding, and retries only for idempotent transient work.
 
 ### IF a Promise, framework, process, or browser host executes the program
 

@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `Effect` API](https://www.effect.website/docs/v4/api/effect/Effect). Examples import modules as needed.
 
+`Effect` describes a lazy computation whose success, typed failure, service requirements, interruption, and concurrency can be composed before execution.
+
 ## API index
 
 1. [Effect.Effect](#effecteffect)
@@ -484,6 +486,19 @@ Defines a reusable traced function whose body yields an `Effect` workflow.
 const getLength = Effect.fn("getLength")(function*(value: string) {
   return yield* Effect.succeed(value.length);
 });
+```
+
+Additional arguments to `Effect.fn` are whole-call transforms. Each transform receives the previous
+Effect and the original function arguments, so use them for call-wide annotations, spans, error
+classification, retry, timeout, cleanup, or result mapping while keeping the generator body focused.
+
+```ts
+const formatLength = Effect.fn("formatLength")(
+  function*(value: string) {
+    return yield* Effect.succeed(value.length);
+  },
+  (effect, value) => effect.pipe(Effect.map((length) => `${value}: ${length}`)),
+);
 ```
 
 ### [Effect.fnUntraced](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Effect.ts:13563)

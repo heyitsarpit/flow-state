@@ -140,6 +140,17 @@ signatures, and member behavior; keep this page focused on decisions and proofs.
 - **CHECK:** Prove construction failure blocks use, expected sharing versus freshness, release once,
   and contextual isolation across concurrent operations.
 
+### IF using `@effect/vitest`
+
+- **THEN:** Use `it.effect` for deterministic Effect tests and `it.live` only when a real clock or
+  live runtime is the behavior under test. Provide test Layers or a test `ConfigProvider`; do not
+  mutate process globals.
+- **BECAUSE:** The test harness owns the Effect runtime and fresh Scope, while the test chooses the
+  capability implementation.
+- **CHECK:** For reusable stateful fakes, define a `TestInterface`/`TestService` and let the same
+  implementation object satisfy the production and test tags. Use `Layer.mock` only for a small
+  partial mock whose unexercised methods are irrelevant.
+
 ### IF testing concurrency or ordering
 
 - **THEN:** Use [`Deferred`](../../effect-api-documentation/references/Deferred.md) checkpoints

@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `FiberMap` API](https://www.effect.website/docs/v4/api/effect/FiberMap). Examples assume `import { Effect, FiberMap } from "effect"`.
 
+`FiberMap` tracks running fibers by application key, making keyed replacement, lookup, interruption, and cleanup explicit.
+
 ## API index
 
 1. [FiberMap.FiberMap](#fibermapfibermap)

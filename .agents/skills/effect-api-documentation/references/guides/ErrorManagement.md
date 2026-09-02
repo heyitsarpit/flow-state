@@ -12,6 +12,10 @@ guide follows the local [expected-errors](/Users/arpit/Developer/flow-state/code
 4. [Fall back after a retry schedule](#fall-back-after-a-retry-schedule)
 5. [Accumulate validation failures](#accumulate-validation-failures)
 
+Use `Schema.TaggedError` when the error itself has a schema-backed encoding or decoding contract;
+use `Data.TaggedError` for internal expected errors that do not cross such a boundary. Both keep
+expected failure tagged and recoverable; choose based on the boundary contract, not preference.
+
 ### [Model typed errors as a union](/Users/arpit/Developer/flow-state/codebases/effect-website/apps/web/src/content/docs/v4/error-management/expected-errors.mdx:20)
 
 Use `Data.TaggedError` for expected domain failures. Sequential composition

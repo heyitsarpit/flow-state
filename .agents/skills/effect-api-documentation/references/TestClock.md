@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `TestClock` API](https://www.effect.website/docs/v4/api/effect/testing/TestClock). `TestClock` is imported from `effect/testing`; examples assume `import { Effect } from "effect"` and `import { TestClock } from "effect/testing"`.
 
+`TestClock` replaces the live `Clock` in tests so sleeps, timeouts, retries, expiry, and schedules can advance deterministically without waiting.
+
 ## API index
 
 1. [TestClock.TestClock](#testclocktestclock)

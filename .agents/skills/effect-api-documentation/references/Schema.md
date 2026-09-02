@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `Schema` API](https://www.effect.website/docs/v4/api/effect/Schema). Examples assume `import { Schema } from "effect"`.
 
+`Schema` defines runtime-checked data contracts for decoding unknown input, encoding output, validating values, and deriving TypeScript types.
+
 ## API index
 
 1. [Schema.Schema](#schemaschema)

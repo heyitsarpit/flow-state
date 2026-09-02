@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `Brand` API](https://www.effect.website/docs/v4/api/effect/Brand). Recipe: [branded types](/Users/arpit/Developer/flow-state/codebases/effect-website/apps/web/src/content/docs/v4/code-style/branded-types.mdx:190). Examples use `Brand` from `effect`.
 
+`Brand` adds nominal meaning to structural TypeScript values without changing their runtime representation, helping keep distinct domain identifiers from being mixed.
+
 ## API index
 
 1. [Brand.make](#brandmake)

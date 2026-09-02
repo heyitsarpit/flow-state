@@ -3,6 +3,8 @@
 **Unstable API.** Import this module from `effect/unstable/sql/Migrator`.
 The [official v4 API reference](https://www.effect.website/docs/v4/api/effect/unstable/sql/Migrator) is useful for orientation, but the local pinned source is authoritative when it differs. The local checkout currently identifies the package as `effect@4.0.0-beta.98`.
 
+`Migrator` discovers and runs ordered database migrations, recording enough state to bring a database schema up to date.
+
 ## API index
 
 1. [make](#make)

@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `FileSystem` API](https://www.effect.website/docs/v4/api/effect/FileSystem). Examples assume `import { Effect, FileSystem, Stream } from "effect"`.
 
+`FileSystem` provides an injectable service for effectful file and directory operations, including reading and writing file-backed streams.
+
 ## API index
 
 1. [FileSystem.FileSystem](#filesystemfilesystem)

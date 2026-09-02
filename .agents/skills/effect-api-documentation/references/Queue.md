@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `Queue` API](https://www.effect.website/docs/v4/api/effect/Queue). Examples assume `import { Effect, Fiber, Queue } from "effect"`.
 
+`Queue` coordinates producers and consumers through effectful offering and taking, with capacity, backpressure, shutdown, and failure semantics.
+
 ## API index
 
 1. [Queue.Queue](#queuequeue)

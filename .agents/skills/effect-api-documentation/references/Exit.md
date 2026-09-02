@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `Exit` API](https://www.effect.website/docs/v4/api/effect/Exit). Examples assume `import { Exit } from "effect"`.
 
+`Exit` is the final value of an Effect computation, representing either success or a structured failure `Cause`.
+
 ## API index
 
 1. [Exit.match](#exitmatch)

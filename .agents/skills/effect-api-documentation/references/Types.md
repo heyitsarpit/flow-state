@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `Types` API](https://www.effect.website/docs/v4/api/effect/Types). Examples use type-only imports from `effect`.
 
+`Types` contains type-level helpers for expressing and transforming generic TypeScript relationships without adding runtime data.
+
 ## API index
 
 1. [Types.ExtractTag](#typesextracttag)

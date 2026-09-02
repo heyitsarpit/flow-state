@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `Cache` API](https://www.effect.website/docs/v4/api/effect/Cache). Examples assume `import { Cache } from "effect"` and an enclosing `Effect.gen`.
 
+`Cache` memoizes effectful lookups by key, bounding entries and controlling their lifetime while sharing concurrent misses for the same key.
+
 ## API index
 
 1. [Cache.Cache](#cachecache)
@@ -22,7 +24,9 @@ Source: [Effect v4 `Cache` API](https://www.effect.website/docs/v4/api/effect/Ca
 
 ### [Cache.Cache](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Cache.ts:103)
 
-Represents a bounded, effectful cache that stores successful and failed lookup results.
+Represents a bounded, effectful cache that stores successful and failed lookup results. Concurrent
+gets for the same missing key share one in-flight lookup; the cached `Exit` remains until its TTL,
+invalidation, refresh, or eviction removes it.
 
 ```ts
 const cache: Cache.Cache<string, number, never> = yield* Cache.make({
@@ -44,7 +48,9 @@ const cache = yield* Cache.make({
 
 ### [Cache.makeWith](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Cache.ts:177)
 
-Creates a cache with lower-level control over lifetime, lookup, and service timing.
+Creates a cache with lower-level control over lifetime, lookup, and service timing. `capacity` is
+required, and `timeToLive` may inspect the lookup `Exit` and key so failures can have a shorter
+lifetime than successful values.
 
 ```ts
 const cache = yield* Cache.makeWith((key: string) => Effect.succeed(key.length), { capacity: 100 });

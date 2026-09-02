@@ -3,6 +3,8 @@
 **Unstable API.** Import this module from `effect/unstable/sql/SqlClient`.
 The [official v4 API reference](https://www.effect.website/docs/v4/api/effect/unstable/sql/SqlClient) is useful for orientation, but the local pinned source is authoritative when it differs. The local checkout currently identifies the package as `effect@4.0.0-beta.98`.
 
+`SqlClient` provides an injectable SQL execution boundary for database connections, statements, transactions, and driver-specific Layers.
+
 ## API index
 
 1. [SqlClient interface](#sqlclient-interface)

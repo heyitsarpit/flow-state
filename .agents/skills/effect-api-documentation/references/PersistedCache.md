@@ -3,6 +3,8 @@
 **Unstable API.** Import this module from `effect/unstable/persistence/PersistedCache`.
 The [official v4 API reference](https://www.effect.website/docs/v4/api/effect/unstable/persistence/PersistedCache) is useful for orientation, but the local pinned source is authoritative when it differs. The local checkout currently identifies the package as `effect@4.0.0-beta.98`.
 
+`PersistedCache` combines in-memory cache behavior with a named persistent store so cached values can survive process boundaries with schema and expiry policies.
+
 ## API index
 
 1. [make](#make)

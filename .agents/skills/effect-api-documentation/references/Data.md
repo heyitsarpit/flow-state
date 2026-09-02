@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `Data` API](https://www.effect.website/docs/v4/api/effect/Data). Examples assume `import { Data } from "effect"`.
 
+`Data` provides immutable data helpers with structural equality, hashing, and tagged or class-based constructors for domain values.
+
 ## API index
 
 1. [Data.Class](#dataclass)

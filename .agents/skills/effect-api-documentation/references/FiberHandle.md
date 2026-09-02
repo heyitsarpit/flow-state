@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `FiberHandle` API](https://www.effect.website/docs/v4/api/effect/FiberHandle). Examples assume `import { Effect, FiberHandle } from "effect"`.
 
+`FiberHandle` owns one replaceable background fiber, providing a focused boundary for starting, joining, interrupting, and observing that work.
+
 ## API index
 
 1. [FiberHandle.FiberHandle](#fiberhandlefiberhandle)

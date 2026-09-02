@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `Match` API](https://www.effect.website/docs/v4/api/effect/Match). Examples assume `import { Match } from "effect"`.
 
+`Match` builds composable pattern matches that narrow inputs and make partial or exhaustive handling of tagged and structural data explicit.
+
 ## API index
 
 1. [Match.type](#matchtype)

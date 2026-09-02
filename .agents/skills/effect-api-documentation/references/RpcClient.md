@@ -4,6 +4,8 @@ Import from `effect/unstable/rpc`. This API is unstable; the pinned local
 `effect@4.0.0-beta.86` source is authoritative. See the [official Effect v4
 RpcClient API](https://www.effect.website/docs/v4/api/effect/unstable/rpc/RpcClient).
 
+`RpcClient` derives typed client methods from RPC definitions and supplies protocol Layers for calling a remote endpoint.
+
 ## API index
 
 1. [RpcClient.make](#rpcclientmake)

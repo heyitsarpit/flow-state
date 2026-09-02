@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `Config` API](https://www.effect.website/docs/v4/api/effect/Config). Examples assume `import { Config } from "effect"`.
 
+`Config` describes typed settings and validation; a `ConfigProvider` supplies the values from an environment, object, or other source.
+
 ## API index
 
 1. [Config.schema](#configschema)

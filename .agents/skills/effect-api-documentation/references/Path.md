@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `Path` API](https://www.effect.website/docs/v4/api/effect/Path). Examples assume `import { Effect, Path } from "effect"` and use `Path.layer` for the built-in POSIX implementation.
 
+`Path` is an injectable service for joining, resolving, normalizing, and otherwise manipulating platform-specific filesystem paths.
+
 ## API index
 
 1. [Path.Path](#pathpath)

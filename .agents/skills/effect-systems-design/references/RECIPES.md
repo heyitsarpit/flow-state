@@ -9,6 +9,7 @@ and signatures live in the [Effect API references](../../effect-api-documentatio
 - [Pipe and transformations](#pipe-and-transformations)
 - [Pure pipelines, matching, and data shape](#pure-pipelines-matching-and-data-shape)
 - [Option and Result](#option-and-result)
+- [Schema boundaries and data modeling](#schema-boundaries-and-data-modeling)
 - [Collections and loops](#collections-and-loops)
 - [Errors and outcomes](#errors-and-outcomes)
 - [Duration and Schedule](#duration-and-schedule)
@@ -153,6 +154,35 @@ const captured = loadUser.pipe(Effect.result);
 [Result.ts](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Result.ts), and
 Phoenix
 [decodeCaptureManifest](/Users/arpit/Developer/flow-state/codebases/phoenix/packages/fabrika-cli/src/eval/runner.ts).
+
+## Schema boundaries and data modeling
+
+### IF data crosses an untrusted boundary
+
+- **THEN:** Decode with `Schema.decodeUnknownEffect`; use `Schema.decodeUnknown` only in a
+  synchronous script, test, or startup path. Use `schema.make` only after the value is trusted;
+  use `schema.makeEffect` when construction itself can fail in the Effect channel.
+- **CHECK:** Keep `Schema.decodeUnknownResult` for pure callers that intentionally keep failure as
+  a value, and never replace decoder failures with an unchecked cast.
+
+### IF a field may be absent, undefined, or null
+
+- **THEN:** Use `Schema.optionalKey` for an omitted-only encoded key, `Schema.optional` for a key
+  that may be absent or explicitly `undefined`, and `Null`/`Undefined`/`Nullish` only when that
+  representation is part of the encoded contract. Normalize defaults during decoding so the
+  trusted model can use required fields.
+- **CHECK:** Do not use optionality to model a value that the domain requires after normalization.
+
+### IF a schema or tagged union is reused
+
+- **THEN:** Reuse `.fields`, `fieldsAssign`, or `mapFields` only when the contracts are semantically
+  related; write an explicit mapping when the operation translates domain meaning. Use
+  `Data.TaggedEnum` for internal exhaustive control flow and `Schema.TaggedStruct`/
+  `Schema.TaggedUnion` at encoding, decoding, or persistence boundaries. Use `Schema.toTaggedUnion`
+  when the external discriminator is not `_tag`.
+- **CHECK:** Keep trusted closed owner unions separate from decoder-only records.
+
+See the [Schema API reference](../../effect-api-documentation/references/Schema.md).
 
 ## Collections and loops
 
@@ -392,6 +422,12 @@ const heartbeat = beat.pipe(Effect.repeat(Schedule.spaced(heartbeatEvery)));
 
 The named policy makes its units, bound, backoff, and retry classifier reviewable.
 
+`retry` responds to typed failures; defects and interruption are not retryable through that policy.
+`repeat` responds to success, runs the source once before scheduling repetitions, and stops on
+failure. `Schedule.recurs(n)` counts repetitions after the initial run; `spaced` waits after
+completion, while `jittered` and `Schedule.modifyDelay` cover randomized backoff and provider
+`Retry-After` hints.
+
 See the [Schedule API recipe](../../effect-api-documentation/references/Schedule.md).
 
 ## Services and Layers
@@ -518,20 +554,22 @@ route exact resolver constructors and completion APIs to the [RequestResolver re
 
 ## State and coordination
 
-### IF choosing current state, a one-shot gate, or an ordered mailbox
+### IF choosing current state, a gate, or an ordered mailbox
 
-- **THEN:** Use the primitive whose name states the law: `Ref`, `Deferred`, or `Queue`.
-- **CHECK:** Define atomicity for state, winner selection for the gate, and capacity,
-  acknowledgment, and shutdown for the mailbox.
+- **THEN:** Use the primitive whose name states the law: `Ref`, `Deferred` for one-shot completion,
+  `Latch` for a reusable open/close gate, or `Queue` for an ordered mailbox.
+- **CHECK:** Define atomicity for state, winner selection for `Deferred`, open/release behavior for
+  `Latch`, and capacity, acknowledgment, and shutdown for the mailbox.
 
 ```ts
-import { Deferred, Effect, Queue, Ref } from "effect";
+import { Deferred, Effect, Latch, Queue, Ref } from "effect";
 
 const program = Effect.gen(function* () {
   const counter = yield* Ref.make(0);
   const ready = yield* Deferred.make<void>();
+  const gate = yield* Latch.make(false);
   const inbox = yield* Queue.bounded<Command>(32);
-  return { counter, ready, inbox };
+  return { counter, ready, gate, inbox };
 });
 ```
 
@@ -540,6 +578,7 @@ in a demo hides which primitive supplies which guarantee.
 
 See [Ref](../../effect-api-documentation/references/Ref.md),
 [Deferred](../../effect-api-documentation/references/Deferred.md), and
+[Latch](../../effect-api-documentation/references/Latch.md), and
 [Queue](../../effect-api-documentation/references/Queue.md).
 
 ## Resources and fibers

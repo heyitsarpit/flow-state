@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `Layer` API](https://www.effect.website/docs/v4/api/effect/Layer). Examples assume `import { Context, Effect, Layer } from "effect"`. Effect v4 rc.112 does not export `Layer.scoped`; resource-backed services use `Layer.effect` with a scoped acquisition effect.
 
+`Layer` constructs and composes service implementations, hiding dependencies while owning the resources acquired by the resulting service graph.
+
 ## API index
 
 ### Type-level concepts

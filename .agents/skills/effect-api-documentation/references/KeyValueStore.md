@@ -3,6 +3,8 @@
 **Unstable API.** Import this module from `effect/unstable/persistence/KeyValueStore`.
 The [official v4 API reference](https://www.effect.website/docs/v4/api/effect/unstable/persistence/KeyValueStore) is useful for orientation, but the local pinned source is authoritative when it differs. The local checkout currently identifies the package as `effect@4.0.0-beta.98`.
 
+`KeyValueStore` defines an effectful key-value persistence boundary for encoded application data, leaving the storage backend to a provided Layer.
+
 ## API index
 
 1. [KeyValueStore service](#keyvaluestore-service)

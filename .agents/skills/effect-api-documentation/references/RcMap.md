@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `RcMap` API](https://www.effect.website/docs/v4/api/effect/RcMap). Examples assume `import { Effect, RcMap } from "effect"` and an enclosing scoped `Effect` program.
 
+`RcMap` shares keyed resources by reference count, releasing an entry when no owning Scope still holds it.
+
 ## API index
 
 1. [RcMap.RcMap](#rcmaprcmap)

@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `Redacted` API](https://www.effect.website/docs/v4/api/effect/Redacted). Examples assume `import { Equivalence, Redacted } from "effect"`.
 
+`Redacted` wraps sensitive values so they remain usable by the program while ordinary inspection, display, and logging avoid exposing them.
+
 ## API index
 
 1. [Redacted.make](#redactedmake)

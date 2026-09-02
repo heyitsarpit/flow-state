@@ -1,0 +1,4 @@
+interface:
+  display_name: "Flow State Module Refactor"
+  short_description: "Simplify one rewrite module at a time"
+  default_prompt: "Use $flow-state-module-refactor to simplify this Flow State rewrite module without premature project-wide abstractions."

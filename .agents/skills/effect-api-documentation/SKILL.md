@@ -69,11 +69,13 @@ selection or deciding whether a design should use Effect.
 | `SubscriptionRef` | [references/SubscriptionRef.md](references/SubscriptionRef.md) | Combines a current value with a stream of updates so consumers can observe state changes. |
 | `SynchronizedRef` | [references/SynchronizedRef.md](references/SynchronizedRef.md) | Provides a Ref whose updates are serialized through effectful operations that can depend on the current value. |
 | `Deferred` | [references/Deferred.md](references/Deferred.md) | Coordinates one-time completion between fibers by allowing one effect to supply a result and others to await it. |
+| `Latch` | [references/Latch.md](references/Latch.md) | Coordinates reusable open/close gates, including releasing current waiters without opening future waits. |
 | `Queue` | [references/Queue.md](references/Queue.md) | Buffers values between producers and consumers with effectful offering, taking, and shutdown behavior. |
 | `PubSub` | [references/PubSub.md](references/PubSub.md) | Broadcasts published values to multiple subscribers while keeping producer and subscriber lifetimes scoped. |
 | `Semaphore` | [references/Semaphore.md](references/Semaphore.md) | Bounds concurrent work with a fixed number of permits that effects acquire and release. |
 | `PartitionedSemaphore` | [references/PartitionedSemaphore.md](references/PartitionedSemaphore.md) | Allocates independent permit budgets by partition key for workloads that need differentiated concurrency limits. |
 | `Cache` | [references/Cache.md](references/Cache.md) | Memoizes effectful lookups with bounded capacity and expiration so repeated requests can reuse results. |
+| `ScopedCache` | [references/ScopedCache.md](references/ScopedCache.md) | Memoizes effectful lookups while giving each cached entry its own Scope for resource release on expiry, eviction, invalidation, or close. |
 | `RcMap` | [references/RcMap.md](references/RcMap.md) | Keeps keyed resources alive while they are referenced and releases idle entries when their scopes no longer use them. |
 | `RequestResolver` | [references/RequestResolver.md](references/RequestResolver.md) | Defines how Effect requests are batched, grouped, delayed, cached, and completed. |
 | [Request resolution](references/guides/RequestResolution.md) | Guide | Connects typed requests to resolvers, batching, caching, service requirements, and boundary failures. |

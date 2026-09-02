@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `Scope` API](https://www.effect.website/docs/v4/api/effect/Scope). Examples assume `import { Effect, Exit, Scope } from "effect"`.
 
+`Scope` is a lifetime boundary that owns finalizers and releases resources together when the scope closes.
+
 ## API index
 
 1. [Scope.make](#scopemake)

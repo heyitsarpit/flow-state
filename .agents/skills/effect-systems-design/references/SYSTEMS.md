@@ -144,6 +144,14 @@ v4 checkout as usage guidance when its version matches.
 - **CHECK:** Prove winner selection, duplicate completion, waiter interruption, and shutdown.
 - **CODE:** See [`Deferred`](../../effect-api-documentation/references/Deferred.md).
 
+### IF a gate must be opened, closed, or released more than once
+
+- **THEN:** Use `Latch`; `open` releases current and future waiters, `close` re-enables waiting,
+  and `release` resumes only the current waiters without opening the latch.
+- **BECAUSE:** A reusable gate has different semantics from a `Deferred`, which completes once.
+- **CHECK:** Prove whether later waiters should pass, suspend again, or be released only once.
+- **CODE:** See [`Latch`](../../effect-api-documentation/references/Latch.md).
+
 ### IF the requirement is only bounded admission
 
 - **THEN:** Use a Semaphore or bounded traversal instead of a Queue.
@@ -207,8 +215,13 @@ v4 checkout as usage guidance when its version matches.
 - **THEN:** Use `Cache` when memoized result reuse is the law.
 - **BECAUSE:** Cache freshness and error-caching policy differ from resource ownership and request
   batching.
-- **CHECK:** Define key identity, capacity, expiry, invalidation, release, and failure caching.
+- **CHECK:** Define key identity, required capacity, expiry, invalidation, release, and failure
+  caching. Same-key concurrent misses share one in-flight lookup; choose TTL from the `Exit` when
+  success and failure should have different lifetimes.
+- **CHECK:** Construct the cache once in its owning Layer or Scope. Use `ScopedCache` when cached
+  values own per-entry resources that must be released on expiry, eviction, invalidation, or close.
 - **CODE:** See [`Cache`](../../effect-api-documentation/references/Cache.md).
+  See also [`ScopedCache`](../../effect-api-documentation/references/ScopedCache.md).
 
 ### IF keyed resources are shared only while references use them
 

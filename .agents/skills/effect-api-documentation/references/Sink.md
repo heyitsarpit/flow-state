@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `Sink` API](https://www.effect.website/docs/v4/api/effect/Sink). Examples assume `import { Effect, Sink, Stream } from "effect"`.
 
+`Sink` consumes a `Stream` and defines how its inputs are folded, collected, transformed, or terminated.
+
 ## API index
 
 1. [Sink.collect](#sinkcollect)

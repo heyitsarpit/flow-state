@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `Request` API](https://www.effect.website/docs/v4/api/effect/Request). Examples assume `import { Effect, Request } from "effect"`.
 
+`Request` is a typed data value describing one lookup or operation that can execute directly or be handled by a `RequestResolver`.
+
 ## API index
 
 1. [Request.tagged](#requesttagged)

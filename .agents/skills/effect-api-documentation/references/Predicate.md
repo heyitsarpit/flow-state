@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `Predicate` API](https://www.effect.website/docs/v4/api/effect/Predicate). Examples assume `import { Predicate } from "effect"`.
 
+`Predicate` provides reusable boolean functions and type guards for classifying values and narrowing their TypeScript types.
+
 ## API index
 
 1. [Predicate.Predicate](#predicatepredicate)

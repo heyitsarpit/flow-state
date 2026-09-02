@@ -3,6 +3,8 @@
 **Unstable API.** Import this module from `effect/unstable/sql/SqlSchema`.
 The [official v4 API reference](https://www.effect.website/docs/v4/api/effect/unstable/sql/SqlSchema) is useful for orientation, but the local pinned source is authoritative when it differs. The local checkout currently identifies the package as `effect@4.0.0-beta.98`.
 
+`SqlSchema` turns SQL queries into typed operations by decoding rows and inputs through Effect Schema while preserving database failures.
+
 ## API index
 
 1. [findOneOption](#findoneoption)

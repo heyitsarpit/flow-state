@@ -4,6 +4,8 @@ Import from `effect/unstable/rpc`. This API is unstable; the pinned local
 `effect@4.0.0-beta.86` source is authoritative. See the [official Effect v4
 RpcServer API](https://www.effect.website/docs/v4/api/effect/unstable/rpc/RpcServer).
 
+`RpcServer` runs typed RPC handlers and exposes them through supported transport protocols such as HTTP, sockets, workers, or standard input.
+
 ## API index
 
 1. [RpcServer.layerHttp](#rpcserverlayerhttp)

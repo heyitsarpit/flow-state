@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `Metric` API](https://www.effect.website/docs/v4/api/effect/Metric). Examples assume `import { Metric } from "effect"`.
 
+`Metric` defines operational measurements such as counters, gauges, histograms, and summaries that can be updated through Effect programs.
+
 ## API index
 
 1. [Metric.counter](#metriccounter)
