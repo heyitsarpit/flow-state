@@ -24,7 +24,7 @@ import { noNumericDurationRule } from "./rules/no-numeric-duration.ts";
 import { noNestedConditionalExpressionRule } from "./rules/no-nested-conditional-expression.ts";
 import { noNullishFunctionContractsRule } from "./rules/no-nullish-function-contracts.ts";
 import { noObjectFreezeRule } from "./rules/no-object-freeze.ts";
-import { noObjectParametersRule } from "./rules/no-object-parameters.ts";
+import { noObjectTypeRule } from "./rules/no-object-type.ts";
 import { noOptionalDomainPropertiesRule } from "./rules/no-optional-domain-properties.ts";
 import { noAnonymousDefaultExportRule } from "./rules/no-anonymous-default-export.ts";
 import { noDirectProcessEnvRule } from "./rules/no-direct-process-env.ts";
@@ -100,7 +100,7 @@ const antiSlopPlugin = eslintCompatPlugin({
 		"no-generic-utility-module": noGenericUtilityModuleRule,
 		"no-god-service-shape": noGodServiceShapeRule,
 		"no-large-production-file": noLargeProductionFileRule,
-		"no-object-parameters": noObjectParametersRule,
+		"no-object-type": noObjectTypeRule,
 		"no-optional-domain-properties": noOptionalDomainPropertiesRule,
 		"no-package-dist-or-self-import-in-src": noPackageDistOrSelfImportInSrcRule,
 		"no-raw-try-catch": noRawTryCatchRule,

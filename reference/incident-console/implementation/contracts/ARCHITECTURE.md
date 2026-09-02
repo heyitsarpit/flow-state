@@ -97,14 +97,16 @@ interruption. Foreign Promise APIs are converted once by a named adapter using
 - Trace: `ARCH-007`, `ARCH-010`, `SEM-006A`.
 
 Expected failures use the canonical Schema-backed `Diagnostic` only. Pure definition and machine
-compilation uses `Result<A, Diagnostic>`; the synchronous convenience builders unwrap once at their
-public boundary. No feature-owned expected Error class or `Data.TaggedError` carrier is introduced.
+compilation uses `Result<A, Diagnostic>`; `definition` exposes that Result synchronously and event-token
+calls return `Result<EventEnvelope<...>, Diagnostic>`. Consumers pass successful values to machine/runtime
+boundaries. No feature-owned expected Error class or `Data.TaggedError` carrier is introduced.
 
 ### ARCH-006 — Machine construction uses typed input
 
 - Surface: definition input, `memory: ({ input }) => Memory`, state/events/context/operations.
 - Rule: The definition owns static actor shape and is the sole inference source for `InputOf` and `MemoryOf`.
-  Definition construction decodes that shape once. Machine construction consumes the resulting typed tokens,
+  Definition construction decodes that shape once and returns a Result. Machine construction consumes the
+  resulting typed success value and its typed tokens,
   selectors, operations, and retained initializer; it does not import the private definition Schema, re-decode
   authored configuration, or repeat definition validation. The pure initializer runs once for fresh actor
   construction; machine behavior thereafter receives memory, readonly context, state, and events, not original

@@ -77,39 +77,48 @@ Status: vNext additive amendment; this section is new target guidance and is not
 - Trace: vNext additive amendment; no provenance source.
 
 ```ts
-import { Effect } from "effect";
+import { Effect, Result } from "effect";
 import { app, definition, machine, module, runtimeSetup } from "flow-state";
 
-const Counter = definition({
+const CounterResult = definition({
   id: "Quickstart/Counter",
   states: ["IDLE"],
-  events: { Increment: null },
+  events: { Increment: "bare" },
   memory: () => ({ count: 0 }),
 });
 
-const CounterMachine = machine(Counter, ({ S }) => ({
-  default: S.IDLE,
-  states: {
-    IDLE: {
-      on: {
-        Increment: { target: S.IDLE, updateMemory: ({ memory }) => ({ count: memory.count + 1 }) },
+if (Result.isFailure(CounterResult)) {
+  console.error(CounterResult.failure);
+} else {
+  const Counter = CounterResult.success;
+  const CounterMachine = machine(Counter, ({ S }) => ({
+    default: S.IDLE,
+    states: {
+      IDLE: {
+        on: {
+          Increment: {
+            target: S.IDLE,
+            updateMemory: ({ memory }) => ({ count: memory.count + 1 }),
+          },
+        },
       },
     },
-  },
-}));
+  }));
 
-const CounterApp = app({
-  id: "quickstart",
-  persistenceVersion: "1",
-  modules: [module({ id: "counter", machines: { counter: CounterMachine } })],
-});
+  const CounterApp = app({
+    id: "quickstart",
+    persistenceVersion: "1",
+    modules: [module({ id: "counter", machines: { counter: CounterMachine } })],
+  });
 
-const runtime = runtimeSetup({ app: CounterApp }).construct();
-await Effect.runPromise(runtime.ready());
-const lease = runtime.createActor(CounterMachine);
-lease.actor.send(Counter.E.Increment());
-const snapshot = lease.actor.getSnapshot();
-await lease.dispose();
+  const runtime = runtimeSetup({ app: CounterApp }).construct();
+  await Effect.runPromise(runtime.ready());
+  const lease = runtime.createActor(CounterMachine);
+  const increment = Counter.E.Increment();
+  if (Result.isSuccess(increment)) lease.actor.send(increment.success);
+  const snapshot = lease.actor.getSnapshot();
+  await lease.dispose();
+}
 ```
 
 ## API-002 — Public type boundary
@@ -270,10 +279,12 @@ and structured `details` remain the machine-readable compatibility surface.
 ## API-003 — Definition authoring
 
 ```ts
-const NewIntent = definition({
+import { Result } from "effect";
+
+const NewIntentResult = definition({
   id: "Incidents/Console",
   states: ["INACTIVE", { ACTIVE: ["EDITING", "SUBMITTING"] }],
-  events: { SessionEnded: null, IntentOpened: (intentId: string) => ({ intentId }) },
+  events: { SessionEnded: "bare", IntentOpened: (intentId: string) => ({ intentId }) },
   context: {
     sessionState: Session.select(({ state }) => state),
     themeMode: Theme.select(({ memory }) => memory.mode),
@@ -284,6 +295,12 @@ const NewIntent = definition({
     mode: "dark",
   }),
 });
+if (Result.isFailure(NewIntentResult)) {
+  // handle NewIntentResult.failure
+} else {
+  const NewIntent = NewIntentResult.success;
+  // Pass NewIntent to machine(...) in the success branch.
+}
 ```
 
 ### Surface
@@ -295,17 +312,18 @@ const NewIntent = definition({
 
 - State declarations are string leaves or recursive single-key compounds, max ten levels, with exact
   path tokens such as `S.ACTIVE.S.EDITING`. Event members are nominal tokens. Callable events return
-  readonly envelopes with full `type`; null events are zero-argument constructors. Definition values,
+  `Result<EventEnvelope<...>, Diagnostic>` values containing readonly envelopes with full `type` on
+  success; `"bare"` events are zero-argument constructors. Definition values,
   tokens, and envelopes are not runtime-frozen; readonly types and ownership-boundary copies provide the
   protection.
 - Definition construction synchronously decodes the ordinary authored shape through one package-private
   Effect Schema. `Schema.Struct`, `Schema.brand`, schema-authored events, and a `validatedEvent` helper are not
   public authoring syntax. Runtime nominal values are constructed only after decoding; event payload objects
   are decoded when their event constructor is called.
-- Definition and machine builders keep expected validation/compilation failures as
-  `Result<A, Diagnostic>` data. The ordinary `definition`/`machine` convenience
-  functions unwrap that result once at the synchronous public boundary; they do not
-  return partial values, execute Effects, or use an intermediate Error carrier.
+- `definition` returns `Result<DefinitionFromConfig<Config>, Diagnostic>` synchronously. Callers inspect
+  the result before passing its success value to `machine`; event-token calls use the same result boundary.
+  Expected validation failures remain data, and defects are reported as `Diagnostic` Panic failures. These
+  functions do not return partial values, execute Effects, or use an intermediate Error carrier.
 - Context selectors are typed definition-level provider edges, not registrations. `memory` is the sole
   input/memory source; absent initializer means `Input=void` and readonly empty memory. Restoration
   installs memory without input replay.
@@ -313,7 +331,7 @@ const NewIntent = definition({
 
 ### Accepts
 
-- Exact state/event/context/operation names, callback-or-`null` event declarations, and the single memory
+- Exact state/event/context/operation names, exact `"bare"` or callable event declarations, and the single memory
   factory without user-authored Schema imports.
 
 ### Rejects
@@ -341,12 +359,17 @@ const NewIntent = definition({
 ## API-004 — Machine behavior grammar
 
 ```ts
+import { Result } from "effect";
+
 const newIntentMachine = machine(
   NewIntent,
   ({ S, E, O, onContext, onMemory, invalidate, clear }) => {
     onContext.select(
       ({ context }) => context.sessionState,
-      (current) => current === Session.S.SIGNED_OUT && E.SessionEnded(),
+      (current) => {
+        const event = E.SessionEnded();
+        return current === Session.S.SIGNED_OUT && Result.isSuccess(event) ? event.success : null;
+      },
     );
 
     return {

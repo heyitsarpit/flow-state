@@ -28,7 +28,7 @@ ownership, type evidence, and failure behavior visible.
 | no-known-value-widening | Keep inference; use satisfies Contract; annotate only when publishing the real owner contract. |
 | no-unknown-parameters, no-unknown-returns, no-unknown-type-aliases | Use a named domain type or generic. Keep unknown inside the decoder boundary. |
 | no-unsafe-dictionary-type | Use a named Record<Key, Value>, Map<Key, Value>, or an explicitly named opaque extension bag. |
-| no-object-parameters | Use a named options or domain type instead of the built-in object type. |
+| no-object-type | Use a named owner or domain type instead of the built-in TypeScript object type. |
 | no-nullish-function-contracts | Use `Option<T>` for expected absence, `Result`/`Either` for pure recoverable failure, and `Effect<A, E, R>` for effectful failure. Keep parameters required; use a tagged union or separate function when the operation has distinct modes. |
 | no-object-freeze | Do not call `Object.freeze`; keep mutation private, expose a readonly type, and copy once at the ownership boundary when a snapshot is needed. |
 | no-redundant-readonly-wrapper | Choose { readonly value: T } or Readonly<{ value: T }>; never both mechanically. |

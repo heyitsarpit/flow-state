@@ -57,7 +57,7 @@ namespace objects, private deep imports, root builders on non-root routes, or co
 
 | Public value         | Accepted purpose and signature/example                                                                                                      | Ownership and failure behavior                                                                                                               |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| definition           | definition({ id, states, events, context?, operations?, memory? }); see section 2.                                                          | Inert static authoring; creates no actor, runtime, operation, or work. Invalid grammar fails before side effects.                            |
+| definition           | `definition(config)` returns `Result<DefinitionFromConfig<Config>, Diagnostic>`; see section 2.                                             | Inert static authoring; no actor, runtime, operation, or work. Invalid grammar is a Result failure; defects are Panic failures.              |
 | machine              | machine(definition, callback); callback receives S, E, O, onContext, onMemory, invalidate, and clear; see section 2.                        | Inert reusable behavior. Planning defects leave prior published truth unchanged.                                                             |
 | module               | module({ id, machines }); exact keyed record preserved.                                                                                     | Inert tooling grouping; duplicate machine values or ownership reject.                                                                        |
 | app                  | app({ id, persistenceVersion, modules }); exact flattened App.M.                                                                            | Inert closed admission universe; compilation creates no actors.                                                                              |
@@ -78,39 +78,48 @@ namespace objects, private deep imports, root builders on non-root routes, or co
 Common accepted path:
 
 ```ts
-import { Effect } from "effect";
+import { Effect, Result } from "effect";
 import { app, definition, machine, module, runtimeSetup } from "flow-state";
 
-const Counter = definition({
+const CounterResult = definition({
   id: "Quickstart/Counter",
   states: ["IDLE"],
-  events: { Increment: null },
+  events: { Increment: "bare" },
   memory: () => ({ count: 0 }),
 });
 
-const CounterMachine = machine(Counter, ({ S }) => ({
-  default: S.IDLE,
-  states: {
-    IDLE: {
-      on: {
-        Increment: { target: S.IDLE, updateMemory: ({ memory }) => ({ count: memory.count + 1 }) },
+if (Result.isFailure(CounterResult)) {
+  console.error(CounterResult.failure);
+} else {
+  const Counter = CounterResult.success;
+  const CounterMachine = machine(Counter, ({ S }) => ({
+    default: S.IDLE,
+    states: {
+      IDLE: {
+        on: {
+          Increment: {
+            target: S.IDLE,
+            updateMemory: ({ memory }) => ({ count: memory.count + 1 }),
+          },
+        },
       },
     },
-  },
-}));
+  }));
 
-const CounterApp = app({
-  id: "quickstart",
-  persistenceVersion: "1",
-  modules: [module({ id: "counter", machines: { counter: CounterMachine } })],
-});
+  const CounterApp = app({
+    id: "quickstart",
+    persistenceVersion: "1",
+    modules: [module({ id: "counter", machines: { counter: CounterMachine } })],
+  });
 
-const runtime = runtimeSetup({ app: CounterApp }).construct();
-await Effect.runPromise(runtime.ready());
-const lease = runtime.createActor(CounterMachine);
-lease.actor.send(Counter.E.Increment());
-const snapshot = lease.actor.getSnapshot();
-await lease.dispose();
+  const runtime = runtimeSetup({ app: CounterApp }).construct();
+  await Effect.runPromise(runtime.ready());
+  const lease = runtime.createActor(CounterMachine);
+  const increment = Counter.E.Increment();
+  if (Result.isSuccess(increment)) lease.actor.send(increment.success);
+  const snapshot = lease.actor.getSnapshot();
+  await lease.dispose();
+}
 ```
 
 ## 2. Public types, definitions, and machines
@@ -200,8 +209,9 @@ FlowStoryExecutionError retain complete Cause.Cause<unknown> in process.
 `Diagnostic` is declared exactly once as `Schema.TaggedError<Diagnostic>("flow-state/Diagnostic")("Diagnostic", fields)`.
 Its schema owns `classification`, `code`, `path`, `details`, `summary`, and `help`; its TypeScript and encoded
 document types are derived from that schema. The same value is a real Error, a `Result` failure, and a directly
-yieldable Effect failure. Pure definition/machine builders return `Result<A, Diagnostic>` and unwrap only once at
-the synchronous convenience boundary. No `InvalidMachineConfiguration`, `Data.TaggedError`, `DiagnosticError`, or
+yieldable Effect failure. Pure definition/machine builders return `Result<A, Diagnostic>` at their synchronous
+boundary. Event-token calls return `Result<EventEnvelope<...>, Diagnostic>`; callers pass only successful values
+to machine/runtime consumers. No `InvalidMachineConfiguration`, `Data.TaggedError`, `DiagnosticError`, or
 feature-specific expected Error carrier exists.
 
 Only Runtime bridges and final process/framework/CLI adapters execute Effects. Reusable services and workflows
@@ -220,7 +230,7 @@ accepted/drained evidence facts, and complete public Cause. Their complete class
 const NewIntent = definition({
   id: "Incidents/Console",
   states: ["INACTIVE", { ACTIVE: ["EDITING", "SUBMITTING"] }],
-  events: { SessionEnded: null, IntentOpened: (intentId: string) => ({ intentId }) },
+  events: { SessionEnded: "bare", IntentOpened: (intentId: string) => ({ intentId }) },
   context: {
     sessionState: Session.select(({ state }) => state),
     themeMode: Theme.select(({ memory }) => memory.mode),
@@ -233,9 +243,12 @@ const NewIntent = definition({
 });
 ```
 
+`definition` returns `Result<DefinitionFromConfig<Config>, Diagnostic>`; callers inspect the result and use its
+success value for machine construction. Event-token calls likewise return `Result<EventEnvelope<...>, Diagnostic>`.
+
 definition owns durable identity, recursive states/events, readonly context selectors, one input-to-memory
 initializer, and one flat named operation record. State leaves are strings; compound states are recursive
-single-key declarations, max ten levels. Exact path tokens include S.ACTIVE.S.EDITING. Null events are
+single-key declarations, max ten levels. Exact path tokens include S.ACTIVE.S.EDITING. `"bare"` events are
 zero-argument nominal constructors; callable events return frozen readonly envelopes with full type.
 
 Definition values are inert. Duplicate declarations, relative targets, runtime path lookup, operation work during
@@ -245,56 +258,75 @@ empty. Restoration installs memory without replaying input.
 Accepted inference:
 
 ```ts
-const Todo = definition({
+import { Result } from "effect";
+import { definition, Diagnostic } from "flow-state";
+
+type EventResultValue<Value> = Value extends Diagnostic.Result<infer Success> ? Success : never;
+
+const TodoResult = definition({
   id: "Todos/Editor",
   states: ["READY", { SAVING: ["REQUESTED", "COMMITTING"] }],
   events: {
     SaveRequested: (title: string) => ({ title }),
-    SaveCompleted: null,
+    SaveCompleted: "bare",
   },
   operations: {
     todo: todoResource,
   },
 });
-type _State = Expect<
-  Equal<
-    StateOf<typeof Todo>,
-    typeof Todo.S.READY | typeof Todo.S.SAVING.S.REQUESTED | typeof Todo.S.SAVING.S.COMMITTING
-  >
->;
-type _Event = Expect<
-  Equal<
-    EventOf<typeof Todo>,
-    ReturnType<typeof Todo.E.SaveRequested> | ReturnType<typeof Todo.E.SaveCompleted>
-  >
->;
+if (Result.isFailure(TodoResult)) {
+  // handle TodoResult.failure
+} else {
+  const Todo = TodoResult.success;
+  type _State = Expect<
+    Equal<
+      StateOf<typeof Todo>,
+      typeof Todo.S.READY | typeof Todo.S.SAVING.S.REQUESTED | typeof Todo.S.SAVING.S.COMMITTING
+    >
+  >;
+  type _Event = Expect<
+    Equal<
+      EventOf<typeof Todo>,
+      | EventResultValue<ReturnType<typeof Todo.E.SaveRequested>>
+      | EventResultValue<ReturnType<typeof Todo.E.SaveCompleted>>
+    >
+  >;
+}
 ```
 
 Input and memory use the definition's one accepted inference path:
 
 ```ts
-const Editor = definition({
+const EditorResult = definition({
   id: "Todos/Editor",
   states: ["READY", "SAVING"],
-  events: { SaveRequested: null },
+  events: { SaveRequested: "bare" },
   memory: ({ input }: { readonly input: { readonly todoId: string } }) => ({
     todoId: input.todoId,
     draft: "",
   }),
 });
-type _Input = Expect<Equal<InputOf<typeof Editor>, { readonly todoId: string }>>;
-type _Memory = Expect<Equal<MemoryOf<typeof Editor>, { todoId: string; draft: string }>>;
+if (Result.isSuccess(EditorResult)) {
+  const Editor = EditorResult.success;
+  type _Input = Expect<Equal<InputOf<typeof Editor>, { readonly todoId: string }>>;
+  type _Memory = Expect<Equal<MemoryOf<typeof Editor>, { todoId: string; draft: string }>>;
+}
 ```
 
 ### machine
 
 ```ts
+import { Result } from "effect";
+
 const newIntentMachine = machine(
   NewIntent,
   ({ S, E, O, onContext, onMemory, invalidate, clear }) => {
     onContext.select(
       ({ context }) => context.sessionState,
-      (current) => current === Session.S.SIGNED_OUT && E.SessionEnded(),
+      (current) => {
+        const event = E.SessionEnded();
+        return current === Session.S.SIGNED_OUT && Result.isSuccess(event) ? event.success : null;
+      },
     );
 
     return {

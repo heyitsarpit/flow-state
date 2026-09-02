@@ -265,10 +265,19 @@ type CollapsedUnknownAlias = string | unknown;
 const unsafeDictionary: Record<string, unknown> = {};
 // Prefer: a named record with a concrete value type, Map, or an explicit opaque extension bag.
 
-// no-object-parameters
-function acceptsObject(value: object): void {
-	void value;
+// no-object-type
+function acceptsObject(value: object): object {
+	return value;
 }
+type ObjectAlias = object;
+type ObjectUnion = string | object;
+type ObjectGeneric<T extends object = object> = T;
+type ObjectArray = Array<object>;
+type ObjectTuple = [object, ...object[]];
+type ObjectConditional<T> = T extends object ? object : never;
+type ObjectProperty = { readonly value: object };
+type ObjectWeakMap = WeakMap<object, object>;
+type ObjectWeakSet = WeakSet<object>;
 // Prefer: a named options or domain type describing the accepted fields.
 
 // no-nullish-function-contracts

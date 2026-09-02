@@ -12,6 +12,9 @@ Public authoring shapes are owned by [PUBLIC_API.md](./PUBLIC_API.md); terminolo
 - Pure definition and machine authoring carries expected validation and compilation failures as
   `Result<A, Diagnostic>`. The `Diagnostic` type is the Schema-backed `Schema.TaggedError` class owned by
   [`ERRORS.ts`](./ERRORS.ts); no feature-owned expected Error or `Data.TaggedError` carrier is permitted.
+- `definition(config)` returns `Diagnostic.Result<DefinitionFromConfig<Config>>`, and each event token call
+  returns `Diagnostic.Result<EventEnvelope<...>>`. `EventOf<Definition>` extracts the successful envelope union;
+  it is not a union of Result wrappers.
 - Effectful runtime operations preserve `Effect<A, Diagnostic, R>` at the owning boundary. `Diagnostic`
   values may be yielded directly or supplied to `Effect.fail`; defects and interruption remain in `Cause`
   until final classification. Convenience JS throws and Promise rejections are terminal host projections.
@@ -22,35 +25,50 @@ Public authoring shapes are owned by [PUBLIC_API.md](./PUBLIC_API.md); terminolo
 ## TYPE-001 — Definition literals
 
 ```ts
-const Todo = definition({
+import { Result } from "effect";
+import { definition, Diagnostic } from "flow-state";
+
+type EventResultValue<Value> = Value extends Diagnostic.Result<infer Success> ? Success : never;
+
+const TodoResult = definition({
   id: "Todos/Editor",
   states: ["READY", { SAVING: ["REQUESTED", "COMMITTING"] }],
   events: {
     SaveRequested: (title: string) => ({ title }),
-    SaveCompleted: null,
+    SaveCompleted: "bare",
   },
   operations: {
     todo: todoResource,
   },
 });
-type _State = Expect<
-  Equal<
-    StateOf<typeof Todo>,
-    typeof Todo.S.READY | typeof Todo.S.SAVING.S.REQUESTED | typeof Todo.S.SAVING.S.COMMITTING
-  >
->;
-type _Event = Expect<
-  Equal<
-    EventOf<typeof Todo>,
-    ReturnType<typeof Todo.E.SaveRequested> | ReturnType<typeof Todo.E.SaveCompleted>
-  >
->;
+if (Result.isFailure(TodoResult)) {
+  // handle TodoResult.failure
+} else {
+  const Todo = TodoResult.success;
+  type _State = Expect<
+    Equal<
+      StateOf<typeof Todo>,
+      typeof Todo.S.READY | typeof Todo.S.SAVING.S.REQUESTED | typeof Todo.S.SAVING.S.COMMITTING
+    >
+  >;
+  type _Event = Expect<
+    Equal<
+      EventOf<typeof Todo>,
+      | EventResultValue<ReturnType<typeof Todo.E.SaveRequested>>
+      | EventResultValue<ReturnType<typeof Todo.E.SaveCompleted>>
+    >
+  >;
+}
 ```
+
+Here `EventResultValue<Value>` is the success-value projection of
+`Diagnostic.Result<Value>`. The `definition` result is checked before its success value is used.
 
 ### Surface
 
-- `definition` preserves literal ID, recursive exact state tokens, event names/parameter tuples/result
-  payloads, context values, named operation families, input, and memory without `as const`.
+- `definition` returns a `Diagnostic.Result` while preserving literal ID, recursive exact state tokens,
+  event names/parameter tuples/result payloads, context values, named operation families, input, and memory
+  without `as const`.
 
 ### Rule
 
@@ -127,17 +145,20 @@ machine(Todo, ({ S, E, O, onContext, onMemory }) => ({
 ## TYPE-003 — One input/memory inference path
 
 ```ts
-const Editor = definition({
+const EditorResult = definition({
   id: "Todos/Editor",
   states: ["READY", "SAVING"],
-  events: { SaveRequested: null },
+  events: { SaveRequested: "bare" },
   memory: ({ input }: { readonly input: { readonly todoId: string } }) => ({
     todoId: input.todoId,
     draft: "",
   }),
 });
-type _Input = Expect<Equal<InputOf<typeof Editor>, { readonly todoId: string }>>;
-type _Memory = Expect<Equal<MemoryOf<typeof Editor>, { todoId: string; draft: string }>>;
+if (Result.isSuccess(EditorResult)) {
+  const Editor = EditorResult.success;
+  type _Input = Expect<Equal<InputOf<typeof Editor>, { readonly todoId: string }>>;
+  type _Memory = Expect<Equal<MemoryOf<typeof Editor>, { todoId: string; draft: string }>>;
+}
 ```
 
 ### Surface

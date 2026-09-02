@@ -34,7 +34,7 @@ import { noNumericDurationRule } from "./rules/no-numeric-duration.ts";
 import { noNestedConditionalExpressionRule } from "./rules/no-nested-conditional-expression.ts";
 import { noNullishFunctionContractsRule } from "./rules/no-nullish-function-contracts.ts";
 import { noObjectFreezeRule } from "./rules/no-object-freeze.ts";
-import { noObjectParametersRule } from "./rules/no-object-parameters.ts";
+import { noObjectTypeRule } from "./rules/no-object-type.ts";
 import { noOptionalDomainPropertiesRule } from "./rules/no-optional-domain-properties.ts";
 import { noPackageDistOrSelfImportInSrcRule } from "./rules/no-package-dist-or-self-import-in-src.ts";
 import { noPromiseMicrotaskBarrierRule } from "./rules/no-promise-microtask-barrier.ts";
@@ -1694,11 +1694,49 @@ tester.run("no-unsafe-dictionary-type-regression", noUnsafeDictionaryTypeRule, {
 	],
 });
 
-tester.run("no-object-parameters-regression", noObjectParametersRule, {
-	valid: ["function read(value: { readonly id: string }) { return value.id; }"],
+tester.run("no-object-type-regression", noObjectTypeRule, {
+	valid: [
+		{ code: "function read(value: { readonly id: string }): { readonly id: string } { return value; }", filename: "/project/packages/flow-state-rewrite/src/value.ts" },
+		{ code: "const kind = typeof value; const text = \"object\";", filename: "/project/packages/flow-state-rewrite/src/value.ts" },
+		{ code: "function read(value: object): object { return value; }", filename: "/project/packages/flow-state/src/value.ts" },
+	],
 	invalid: [
-		{ code: "function read(value: object) { return value; }", errors: [{ messageId: "objectParameter" }] },
-		{ code: "function read() { type Input = object; function nested(value: Input) { return value; } return nested; }", errors: [{ messageId: "objectParameter" }] },
+		{
+			code: "function read(value: object): object { return value; }",
+			filename: "/project/packages/flow-state-rewrite/src/value.ts",
+			errors: [{ messageId: "objectType" }, { messageId: "objectType" }],
+		},
+		{
+			code: "type Value = object; type Union = string | object; type Alias<T extends object = object> = T;",
+			filename: "/project/packages/flow-state-rewrite/src/value.ts",
+			errors: [
+				{ messageId: "objectType" },
+				{ messageId: "objectType" },
+				{ messageId: "objectType" },
+				{ messageId: "objectType" },
+			],
+		},
+		{
+			code: "type Generic = Array<object>; type Tuple = [object, ...object[]]; type Conditional<T> = T extends object ? object : never;",
+			filename: "/project/packages/flow-state-rewrite/src/test/value.test.ts",
+			errors: [
+				{ messageId: "objectType" },
+				{ messageId: "objectType" },
+				{ messageId: "objectType" },
+				{ messageId: "objectType" },
+				{ messageId: "objectType" },
+			],
+		},
+		{
+			code: "type Properties = { value: object }; type MapValue = WeakMap<object, object>; type SetValue = WeakSet<object>;",
+			filename: "/project/packages/flow-state-rewrite/src/value.ts",
+			errors: [
+				{ messageId: "objectType" },
+				{ messageId: "objectType" },
+				{ messageId: "objectType" },
+				{ messageId: "objectType" },
+			],
+		},
 	],
 });
 
@@ -1818,7 +1856,7 @@ const preferredFixtureRules = [
 	["no-nested-conditional-expression", noNestedConditionalExpressionRule],
 	["no-nullish-function-contracts", noNullishFunctionContractsRule],
 	["no-object-freeze", noObjectFreezeRule],
-	["no-object-parameters", noObjectParametersRule],
+	["no-object-type", noObjectTypeRule],
 	["no-optional-domain-properties", noOptionalDomainPropertiesRule],
 	["no-package-dist-or-self-import-in-src", noPackageDistOrSelfImportInSrcRule],
 	["no-promise-microtask-barrier", noPromiseMicrotaskBarrierRule],

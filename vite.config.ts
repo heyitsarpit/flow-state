@@ -105,7 +105,10 @@ export default defineConfig({
         "warn",
         { productionThreshold: 500, testThreshold: 1000 },
       ],
-      "anti-slop/no-object-parameters": "error",
+      "anti-slop/no-object-type": [
+        "error",
+        { sourceRoots: ["packages/flow-state-rewrite"] },
+      ],
       "anti-slop/no-optional-domain-properties": [
         "error",
         {
