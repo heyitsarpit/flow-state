@@ -1,0 +1,14 @@
+{
+  "typescriptVersion": "7.0.2",
+  "fixture": "medium.ts",
+  "baseline": {
+    "instantiations": 30989,
+    "types": 18925,
+    "memoryKilobytes": 105488,
+    "totalSeconds": 0.036
+  },
+  "ceilings": {
+    "instantiations": 34088,
+    "types": 20818
+  }
+}

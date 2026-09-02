@@ -1,5 +1,5 @@
 import { assert, describe, it } from "@effect/vitest";
-import { Effect, Exit, Result, Schema } from "effect";
+import { Cause, Effect, Exit, Result, Schema } from "effect";
 
 import * as Diagnostic from "../diagnostic.js";
 
@@ -127,6 +127,25 @@ describe("diagnostic", () => {
     }
   });
 
+  it("preserves nested symbol-keyed schema paths in the rendered diagnostic", () => {
+    const outer = Symbol("outer");
+    const inner = Symbol("inner");
+    const schema = Schema.Struct({
+      [outer]: Schema.Struct({ [inner]: Schema.String }),
+    });
+    const decoded = Schema.decodeUnknownResult(schema)({ [outer]: { [inner]: 42 } });
+
+    assert.ok(Result.isFailure(decoded));
+    if (Result.isFailure(decoded)) {
+      const diagnostic = Diagnostic.fromSchemaError(decoded.failure);
+      assert.deepStrictEqual(diagnostic.path, [String(outer), String(inner)]);
+      assert.strictEqual(
+        Diagnostic.print(diagnostic),
+        'SchemaValidation: Schema validation failed\n  at $["Symbol(outer)"]["Symbol(inner)"]\n  details:\n    issue: "Composite"\n  help: Fix the value at the reported path.',
+      );
+    }
+  });
+
   it("keeps Panic safe, generic, and outside the encoded fields", () => {
     const defect = { token: Symbol() };
     const panic = Diagnostic.panic(defect);
@@ -151,7 +170,7 @@ describe("diagnostic", () => {
     );
   });
 
-  it.effect("maps defects to Panic while preserving typed failure and interruption", () => {
+  it.effect("preserves typed failures, defects, and interruption in Cause", () => {
     const typed = new Diagnostic.Error({
       code: "SchemaValidation",
       path: [],
@@ -162,21 +181,50 @@ describe("diagnostic", () => {
     const defect = new globalThis.Error("unexpected");
 
     return Effect.gen(function* () {
-      const typedFailure = yield* Diagnostic.catchPanic(Effect.fail(typed)).pipe(Effect.flip);
-      const defectFailure = yield* Diagnostic.catchPanic(
-        Effect.sync(() => {
-          // oxlint-disable-next-line anti-slop/no-throw-in-effect-gen -- this fixture creates a defect for catchPanic.
-          throw defect;
-        }),
-      ).pipe(Effect.flip);
-      const diedFailure = yield* Diagnostic.catchPanic(Effect.die(defect)).pipe(Effect.flip);
+      const typedExit = yield* Effect.exit(Diagnostic.catchPanic(Effect.fail(typed)));
+      const defectExit = yield* Effect.exit(
+        Diagnostic.catchPanic(
+          Effect.sync(() => {
+            // oxlint-disable-next-line anti-slop/no-throw-in-effect-gen -- this fixture creates a defect for catchPanic.
+            throw defect;
+          }),
+        ),
+      );
+      const diedExit = yield* Effect.exit(Diagnostic.catchPanic(Effect.die(defect)));
+      const mixedCause = Cause.combine(Cause.fail(typed), Cause.die(defect));
+      const mixedExit = yield* Effect.exit(Diagnostic.catchPanic(Effect.failCause(mixedCause)));
       const interrupted = yield* Effect.exit(Diagnostic.catchPanic(Effect.interrupt));
 
-      assert.strictEqual(typedFailure, typed);
-      assert.strictEqual(defectFailure.code, "Panic");
-      assert.strictEqual(defectFailure.cause, defect);
-      assert.strictEqual(diedFailure.code, "Panic");
-      assert.strictEqual(diedFailure.cause, defect);
+      assert.ok(Exit.isFailure(typedExit));
+      if (Exit.isFailure(typedExit)) {
+        const typedFailure = typedExit.cause.reasons.find(Cause.isFailReason);
+        assert.strictEqual(typedFailure?.error, typed);
+        assert.strictEqual(Cause.hasDies(typedExit.cause), false);
+      }
+
+      assert.ok(Exit.isFailure(defectExit));
+      if (Exit.isFailure(defectExit)) {
+        assert.ok(Cause.hasDies(defectExit.cause));
+        const defectFailure = Cause.findDefect(defectExit.cause);
+        assert.ok(Result.isSuccess(defectFailure));
+        if (Result.isSuccess(defectFailure)) assert.strictEqual(defectFailure.success, defect);
+      }
+
+      assert.ok(Exit.isFailure(diedExit));
+      if (Exit.isFailure(diedExit)) {
+        assert.ok(Cause.hasDies(diedExit.cause));
+        const diedFailure = Cause.findDefect(diedExit.cause);
+        assert.ok(Result.isSuccess(diedFailure));
+        if (Result.isSuccess(diedFailure)) assert.strictEqual(diedFailure.success, defect);
+      }
+
+      assert.ok(Exit.isFailure(mixedExit));
+      if (Exit.isFailure(mixedExit)) {
+        assert.deepStrictEqual(mixedExit.cause.reasons, mixedCause.reasons);
+        assert.strictEqual(mixedExit.cause.reasons.find(Cause.isFailReason)?.error, typed);
+        assert.strictEqual(mixedExit.cause.reasons.find(Cause.isDieReason)?.defect, defect);
+      }
+
       assert.ok(Exit.isFailure(interrupted));
       assert.ok(Exit.hasInterrupts(interrupted));
       assert.strictEqual(Exit.hasDies(interrupted), false);

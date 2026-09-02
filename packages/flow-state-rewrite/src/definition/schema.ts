@@ -11,8 +11,10 @@ import type {
 import { utf8ByteLength } from "./utf8.js";
 
 type RuntimeEventFactory = (...args: readonly DefinitionValue[]) => EventPayload;
+type RecordContainer = Readonly<Record<string, unknown>>;
 
-const contextSelectors = new WeakSet<object>();
+const contextSelectors = new WeakSet<ContextSelector>();
+const stateTokens = new WeakSet<object>();
 
 const isControlCharacter = (character: string): boolean => {
   const code = character.codePointAt(0);
@@ -35,6 +37,105 @@ const AuthoredName = Schema.String.pipe(
 const hasValidAuthoredKeys = <Value>(
   record: Readonly<Record<string, Value>>,
 ): record is Readonly<Record<string, Value>> => Object.keys(record).every(isAuthoredName);
+
+const isRecordContainer = (value: unknown): value is RecordContainer => {
+  if (!Predicate.isObject(value)) return false;
+
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) return false;
+
+  return Reflect.ownKeys(value).every((key) => {
+    if (!Predicate.isString(key)) return false;
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    return descriptor !== undefined && descriptor.enumerable && "value" in descriptor;
+  });
+};
+
+const RecordContainerSchema = Schema.declare(isRecordContainer, {
+  identifier: "RecordContainer",
+});
+
+const isArrayIndex = (key: string, length: number): boolean => {
+  const index = Number(key);
+  return (
+    Number.isInteger(index) &&
+    index >= 0 &&
+    index < 2 ** 32 - 1 &&
+    index < length &&
+    String(index) === key
+  );
+};
+
+const isDenseDataArray = (value: readonly unknown[]): boolean => {
+  const lengthDescriptor = Object.getOwnPropertyDescriptor(value, "length");
+  if (lengthDescriptor === undefined || !("value" in lengthDescriptor)) return false;
+
+  const length = lengthDescriptor.value;
+  if (!Predicate.isNumber(length) || !Number.isInteger(length) || length < 0) return false;
+
+  const keys = Reflect.ownKeys(value);
+  if (keys.length !== length + 1) return false;
+
+  return keys.every((key) => {
+    if (!Predicate.isString(key)) return false;
+    if (key === "length") return true;
+    if (!isArrayIndex(key, length)) return false;
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    return descriptor !== undefined && descriptor.enumerable && "value" in descriptor;
+  });
+};
+
+const isStateContainer = (value: unknown): value is object =>
+  Array.isArray(value) ? isDenseDataArray(value) : isRecordContainer(value);
+
+type PendingStateValue = {
+  readonly value: unknown;
+  readonly depth: number;
+  readonly compoundDepth: number;
+  readonly exit: boolean;
+};
+
+const hasSafeStateInput = (states: readonly unknown[]): boolean => {
+  const active = new Set<object>();
+  const pending: PendingStateValue[] = [{ value: states, depth: 0, compoundDepth: 0, exit: false }];
+
+  while (pending.length > 0) {
+    const current = pending.pop();
+    if (current === undefined) continue;
+    if (!isStateContainer(current.value)) {
+      if (Array.isArray(current.value) || Predicate.isObject(current.value)) return false;
+      continue;
+    }
+
+    if (current.exit) {
+      active.delete(current.value);
+      continue;
+    }
+    if (current.depth > 32 || current.compoundDepth > 10 || active.has(current.value)) return false;
+
+    active.add(current.value);
+    pending.push({ ...current, exit: true });
+
+    const compoundDepth = Array.isArray(current.value)
+      ? current.compoundDepth
+      : current.compoundDepth + 1;
+    for (const key of Reflect.ownKeys(current.value).reverse()) {
+      if (Array.isArray(current.value) && key === "length") continue;
+      const descriptor = Object.getOwnPropertyDescriptor(current.value, key);
+      if (!Predicate.isString(key) || descriptor === undefined || !("value" in descriptor)) {
+        return false;
+      }
+      pending.push({
+        value: descriptor.value,
+        depth: current.depth + 1,
+        compoundDepth,
+        exit: false,
+      });
+    }
+  }
+
+  return true;
+};
 
 const StateDeclarationSchema: Schema.Codec<StateDeclaration> = Schema.suspend(() =>
   Schema.Union([AuthoredName, Schema.Record(AuthoredName, Schema.Array(StateDeclarationSchema))]),
@@ -76,11 +177,14 @@ const States = Schema.Array(StateDeclarationSchema).pipe(
   }),
 );
 
+export const isSafeStateInput = (value: unknown): boolean =>
+  !Array.isArray(value) || hasSafeStateInput(value);
+
 const isRuntimeEventFactory = (value: unknown): value is RuntimeEventFactory =>
   Predicate.isFunction(value);
 
 const EventDeclaration = Schema.Union([
-  Schema.Null,
+  Schema.Literal("bare"),
   Schema.declare(isRuntimeEventFactory, { identifier: "EventFactory" }),
 ]);
 
@@ -88,8 +192,20 @@ const Events = Schema.Record(Schema.String, EventDeclaration).pipe(
   Schema.refine(hasValidAuthoredKeys, { message: "Expected valid authored event names" }),
 );
 
+const DecodedEvents = Schema.decodeTo(Events)(RecordContainerSchema);
+
+const isContextSelectorRecord = (value: unknown): value is ContextSelector => {
+  if (!Predicate.isObject(value) || value.kind !== "context-selector") return false;
+  const provider = value.provider;
+  return (
+    Predicate.isObject(provider) &&
+    Predicate.isString(provider.id) &&
+    Predicate.isFunction(value.selector)
+  );
+};
+
 const isContextSelector = (value: unknown): value is ContextSelector =>
-  Predicate.isObject(value) && contextSelectors.has(value);
+  isContextSelectorRecord(value) && contextSelectors.has(value);
 
 const ContextSelectorSchema = Schema.declare(isContextSelector, {
   identifier: "ContextSelector",
@@ -99,8 +215,25 @@ const Context = Schema.Record(Schema.String, ContextSelectorSchema).pipe(
   Schema.refine(hasValidAuthoredKeys, { message: "Expected valid authored context names" }),
 );
 
-const isOperationDeclaration = (value: unknown): value is OperationDeclaration =>
-  Predicate.isObject(value) && "kind" in value && Predicate.isString(value.kind);
+const isOperationDeclaration = (value: unknown): value is OperationDeclaration => {
+  if (!Predicate.isObject(value)) return false;
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) return false;
+
+  const kind = Object.getOwnPropertyDescriptor(value, "kind");
+  if (
+    kind === undefined ||
+    !kind.enumerable ||
+    !("value" in kind) ||
+    !Predicate.isString(kind.value)
+  )
+    return false;
+
+  return Reflect.ownKeys(value).every((key) => {
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    return descriptor !== undefined && descriptor.enumerable && "value" in descriptor;
+  });
+};
 
 const OperationDeclarationSchema = Schema.declare(isOperationDeclaration, {
   identifier: "OperationDeclaration",
@@ -110,34 +243,103 @@ const Operations = Schema.Record(Schema.String, OperationDeclarationSchema).pipe
   Schema.refine(hasValidAuthoredKeys, { message: "Expected valid authored operation names" }),
 );
 
+const DecodedOperations = Schema.decodeTo(Operations)(RecordContainerSchema);
+
+const MAX_DEFINITION_VALUE_DEPTH = 32;
+
+const isEventPayload = (
+  value: unknown,
+  active: Set<object>,
+  depth: number,
+): value is EventPayload => {
+  if (
+    depth > MAX_DEFINITION_VALUE_DEPTH ||
+    !isRecordContainer(value) ||
+    Object.hasOwn(value, "type") ||
+    active.has(value)
+  )
+    return false;
+  active.add(value);
+  const valid = Reflect.ownKeys(value).every((key) => {
+    if (!Predicate.isString(key)) return false;
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    return (
+      descriptor !== undefined &&
+      "value" in descriptor &&
+      isDefinitionValue(descriptor.value, active, depth + 1)
+    );
+  });
+  active.delete(value);
+  return valid;
+};
+
+const isDefinitionValue = (
+  value: unknown,
+  active = new Set<object>(),
+  depth = 0,
+): value is DefinitionValue => {
+  if (
+    value === null ||
+    Predicate.isBigInt(value) ||
+    Predicate.isBoolean(value) ||
+    Predicate.isNumber(value) ||
+    Predicate.isString(value) ||
+    Predicate.isSymbol(value) ||
+    value === undefined ||
+    Predicate.isFunction(value)
+  )
+    return true;
+  if (depth > MAX_DEFINITION_VALUE_DEPTH) return false;
+  if (Array.isArray(value)) {
+    if (active.has(value) || !isDenseDataArray(value)) return false;
+    active.add(value);
+    const valid = Reflect.ownKeys(value).every((key) => {
+      if (key === "length") return true;
+      if (!Predicate.isString(key)) return false;
+      const descriptor = Object.getOwnPropertyDescriptor(value, key);
+      return (
+        descriptor !== undefined &&
+        "value" in descriptor &&
+        isDefinitionValue(descriptor.value, active, depth + 1)
+      );
+    });
+    active.delete(value);
+    return valid;
+  }
+  if (!Predicate.isObject(value)) return false;
+  if (stateTokens.has(value) || isOperationDeclaration(value)) return true;
+  return isEventPayload(value, active, depth);
+};
+
 const isMemoryDeclaration = (value: unknown): value is MemoryDeclaration =>
   Predicate.isFunction(value);
 
 const DefinitionSchema = Schema.Struct({
   id: AuthoredName,
   states: States,
-  events: Events,
-  context: Schema.optional(Context),
-  operations: Schema.optional(Operations),
+  events: DecodedEvents,
+  context: Schema.optional(Schema.decodeTo(Context)(RecordContainerSchema)),
+  operations: Schema.optional(DecodedOperations),
   memory: Schema.optional(Schema.declare(isMemoryDeclaration, { identifier: "MemoryInitializer" })),
 });
 
 export type DecodedDefinitionConfig = typeof DefinitionSchema.Type;
 
-export const decodeDefinitionConfig = Schema.decodeUnknownSync(DefinitionSchema, {
+export const decodeDefinitionConfigResult = Schema.decodeUnknownResult(DefinitionSchema, {
   onExcessProperty: "error",
 });
 
-const isEventPayload = (value: unknown): value is EventPayload => {
-  if (!Predicate.isObject(value)) return false;
-
-  const prototype = Object.getPrototypeOf(value);
-  return (prototype === Object.prototype || prototype === null) && !Object.hasOwn(value, "type");
-};
-
-export const decodeEventPayload = Schema.decodeUnknownSync(
-  Schema.declare(isEventPayload, { identifier: "EventPayload" }),
+const EventPayloadSchema = Schema.declare(
+  (value: unknown): value is EventPayload => isEventPayload(value, new Set(), 0),
+  { identifier: "EventPayload" },
 );
+
+export const decodeEventPayloadResult = Schema.decodeUnknownResult(EventPayloadSchema);
+
+export const registerStateToken = <Token extends object>(token: Token): Token => {
+  stateTokens.add(token);
+  return token;
+};
 
 export const registerContextSelector = <Selector extends ContextSelector>(
   selector: Selector,

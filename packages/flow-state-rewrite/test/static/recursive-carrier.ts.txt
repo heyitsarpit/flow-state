@@ -1,0 +1,13 @@
+import type { RequirementsOf } from "../../src/app/app.js";
+import { RequirementsTypeId } from "../../src/operation/operation.js";
+
+// TYPE-P03 / PROOF-001.
+// Production owner: packages/flow-state-rewrite/src/app/app.ts requirement carrier.
+// Rationale: recursive requirement expansion must fail with a circularity diagnostic, not an excessive-instantiation diagnostic.
+// Blocked lanes: runtime GLO-01 validation and all later runtime/persistence/host proof owners.
+
+type RecursiveCarrier = {
+  readonly [RequirementsTypeId]: (_value: never) => RecursiveRequirements;
+};
+
+type RecursiveRequirements = RequirementsOf<RecursiveCarrier>;

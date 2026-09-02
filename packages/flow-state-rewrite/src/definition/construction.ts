@@ -1,4 +1,4 @@
-import { Brand, Predicate } from "effect";
+import { Brand, Cause, Predicate, Record, Result } from "effect";
 
 import type {
   AnyDefinition,
@@ -16,8 +16,19 @@ import type {
   StateDeclaration,
   StateToken,
 } from "./domain.js";
-import { decodeDefinitionConfig, decodeEventPayload, registerContextSelector } from "./schema.js";
-import { utf8ByteLength } from "./utf8.js";
+import {
+  decodeDefinitionConfigResult,
+  decodeEventPayloadResult,
+  isSafeStateInput,
+  registerContextSelector,
+  registerStateToken,
+} from "./schema.js";
+import type { DecodedDefinitionConfig } from "./schema.js";
+import { utf8EncodedByteLength } from "./utf8.js";
+import type { DefinitionMetadata, StateMetadata } from "./metadata.js";
+import { registerDefinitionMetadata } from "./metadata.js";
+import * as Diagnostic from "../diagnostic/diagnostic.js";
+import { isConstructedOperation, markConstructedOperation } from "../operation/operation.js";
 
 type RuntimeEventId = `E|${number}:${string}|${number}:${string}`;
 
@@ -25,7 +36,11 @@ type RuntimeEventEnvelope = EventEnvelope<RuntimeEventId>;
 
 type RuntimeEventToken = EventToken<string, string, readonly DefinitionValue[]>;
 
-type RuntimeStateEntry = readonly [string, StateToken | RuntimeStateBranch];
+type RuntimeStateToken = StateToken<string, string, string>;
+
+type RuntimeStateEntry = readonly [string, RuntimeStateToken | RuntimeStateBranch];
+
+type StatePath = readonly string[];
 
 const makeDefinition = Brand.nominal<AnyDefinition>();
 
@@ -35,54 +50,85 @@ const makeEventToken = Brand.nominal<RuntimeEventToken>();
 
 const makeEventEnvelope = Brand.nominal<RuntimeEventEnvelope>();
 
-const encodeSegment = (value: string): `${number}:${string}` => {
-  const byteLength = utf8ByteLength(value, Number.POSITIVE_INFINITY);
-  if (byteLength._tag === "Failure") throw new Error("Validated name became invalid");
-  return `${byteLength.success}:${value}`;
+const catchDefinitionDefect = (defect: unknown): Diagnostic.Error => {
+  const cause =
+    defect instanceof globalThis.Error && Cause.isCause(defect.cause)
+      ? Cause.squash(defect.cause)
+      : defect;
+  return cause instanceof Diagnostic.Error ? cause : Diagnostic.panic(cause);
 };
 
-const stateIdentifier = (definitionId: string, path: string) =>
-  `S|${encodeSegment(definitionId)}|${encodeSegment(path)}` as const;
+const tryDefinition = <Value>(make: () => Diagnostic.Result<Value>): Diagnostic.Result<Value> =>
+  Result.gen(function* () {
+    const result = yield* Result.try({ try: make, catch: catchDefinitionDefect });
+    return yield* result;
+  });
 
-const eventIdentifier = (definitionId: string, name: string) =>
-  `E|${encodeSegment(definitionId)}|${encodeSegment(name)}` as const;
+const segment = (value: string): `${number}:${string}` =>
+  `${utf8EncodedByteLength(value)}:${value}`;
 
-const statePath = (parentPath: string, name: string): string =>
-  parentPath === "" ? `S.${name}` : `${parentPath}.S.${name}`;
+const invalidStateInput = (): Diagnostic.Error =>
+  new Diagnostic.Error({
+    code: "SchemaValidation",
+    path: ["states"],
+    details: { issue: "Composite" },
+    summary: "Schema validation failed",
+    help: "Fix the value at the reported path.",
+  });
 
-const compoundEntry = (
-  declaration: Exclude<StateDeclaration, string>,
-): readonly [string, readonly StateDeclaration[]] => {
-  const entry = Object.entries(declaration)[0];
-  if (entry === undefined) throw new Error("Validated compound state became empty");
-  return entry;
+const decodeDefinitionConfig = (input: unknown): Diagnostic.Result<DecodedDefinitionConfig> => {
+  if (Predicate.isObject(input) && Object.hasOwn(input, "states")) {
+    const states = Reflect.get(input, "states");
+    if (!isSafeStateInput(states)) return Result.fail(invalidStateInput());
+  }
+
+  return decodeDefinitionConfigResult(input).pipe(Result.mapError(Diagnostic.fromSchemaError));
+};
+
+const stateName = (path: StatePath): string => `S.${path.join(".S.")}`;
+
+const stateIdentity = (path: StatePath): string =>
+  path.every((part) => !/[.[\]]/u.test(part) && part !== "S")
+    ? stateName(path)
+    : path.map(segment).join("|");
+
+type BuiltStateTable = {
+  readonly table: RuntimeStateTable;
+  readonly metadata: readonly StateMetadata[];
 };
 
 const buildStateTable = (
   declarations: readonly StateDeclaration[],
   definitionId: string,
-  parentPath: string,
-): RuntimeStateTable => {
+  parentPath: StatePath,
+): BuiltStateTable => {
   const entries: RuntimeStateEntry[] = [];
+  const metadata: StateMetadata[] = [];
 
   for (const declaration of declarations) {
     if (Predicate.isString(declaration)) {
-      const path = statePath(parentPath, declaration);
-      entries.push([
-        declaration,
-        makeStateToken({ kind: "state", name: path, id: stateIdentifier(definitionId, path) }),
-      ]);
+      const path = [...parentPath, declaration];
+      const id = `S|${segment(definitionId)}|${segment(stateIdentity(path))}` as const;
+      const token = registerStateToken(
+        makeStateToken({ kind: "state", name: stateName(path), id }),
+      );
+      entries.push([declaration, token]);
+      metadata.push({ name: declaration, path, token, children: [] });
       continue;
     }
 
-    const [name, children] = compoundEntry(declaration);
-    entries.push([
-      name,
-      { S: buildStateTable(children, definitionId, statePath(parentPath, name)) },
-    ]);
+    for (const [name, children] of Object.entries(declaration)) {
+      const nested = buildStateTable(children, definitionId, [...parentPath, name]);
+      entries.push([name, { S: nested.table }]);
+      metadata.push({
+        name,
+        path: [...parentPath, name],
+        children: nested.metadata,
+      });
+    }
   }
 
-  return Object.fromEntries(entries);
+  return { table: Object.fromEntries(entries), metadata };
 };
 
 const createEventToken = (
@@ -90,39 +136,32 @@ const createEventToken = (
   declaration: (...args: readonly DefinitionValue[]) => EventPayload,
   definitionId: string,
 ): RuntimeEventToken => {
-  const id = eventIdentifier(definitionId, name);
-  const constructors = {
-    [name](...args: readonly DefinitionValue[]): RuntimeEventEnvelope {
-      const authoredPayload = declaration(...args);
-      const payload = decodeEventPayload(authoredPayload);
-      return makeEventEnvelope({ ...payload, type: id });
-    },
-  };
-  const eventConstructor = constructors[name];
-  if (eventConstructor === undefined) throw new Error("Validated event became unavailable");
-
-  return makeEventToken(Object.assign(eventConstructor, { kind: "event" as const, id }));
+  const id: RuntimeEventId = `E|${segment(definitionId)}|${segment(name)}`;
+  const event = (...args: readonly DefinitionValue[]): Diagnostic.Result<RuntimeEventEnvelope> =>
+    tryDefinition(() =>
+      decodeEventPayloadResult(declaration(...args)).pipe(
+        Result.mapError(Diagnostic.fromSchemaError),
+        Result.map((payload) => makeEventEnvelope({ ...payload, type: id })),
+      ),
+    );
+  Object.defineProperty(event, "name", { value: name });
+  return makeEventToken(Object.assign(event, { kind: "event" as const, id }));
 };
 
 const buildEventTable = (
-  events: ReturnType<typeof decodeDefinitionConfig>["events"],
+  events: DecodedDefinitionConfig["events"],
   definitionId: string,
-): RuntimeEventTable =>
-  Object.fromEntries(
-    Object.entries(events).map(([name, declaration]) => {
-      const factory = declaration === null ? () => ({}) : declaration;
-      return [name, createEventToken(name, factory, definitionId)];
-    }),
+): RuntimeEventTable<EventToken> =>
+  Record.map(events, (declaration, name) =>
+    createEventToken(name, declaration === "bare" ? () => ({}) : declaration, definitionId),
   );
 
-const copyOperations = (
-  operations: ReturnType<typeof decodeDefinitionConfig>["operations"],
-): OperationDeclarations =>
-  operations === undefined
-    ? {}
-    : Object.fromEntries(
-        Object.entries(operations).map(([name, declaration]) => [name, { ...declaration }]),
-      );
+const copyOperations = (operations: DecodedDefinitionConfig["operations"]): OperationDeclarations =>
+  Record.map(operations ?? {}, (declaration) => {
+    const copied = { ...declaration };
+    if (isConstructedOperation(declaration)) markConstructedOperation(copied);
+    return copied;
+  });
 
 const createContextSelector = <
   Provider extends DefinitionIdentity,
@@ -139,21 +178,35 @@ const createContextSelector = <
     }),
   );
 
-export const createDefinitionRuntime = (input: DefinitionValue): AnyDefinition => {
-  const config = decodeDefinitionConfig(input);
-  const select = <const Value extends DefinitionValue>(
-    selector: (selectorInput: SelectorInput<AnyDefinition>) => Value,
-  ): ContextSelector<Value, AnyDefinition> => createContextSelector(result, selector);
+export const constructDefinitionResult = (input: unknown): Diagnostic.Result<AnyDefinition> =>
+  tryDefinition(() =>
+    decodeDefinitionConfig(input).pipe(
+      Result.map((config) => {
+        const builtStates = buildStateTable(config.states, config.id, []);
+        const states = builtStates.table;
+        const events = buildEventTable(config.events, config.id);
 
-  const result = makeDefinition({
-    id: config.id,
-    states: config.states,
-    S: buildStateTable(config.states, config.id, ""),
-    E: buildEventTable(config.events, config.id),
-    context: config.context ?? {},
-    operations: copyOperations(config.operations),
-    memory: config.memory,
-    select,
-  });
-  return result;
-};
+        const select = <const Value extends DefinitionValue>(
+          selector: (selectorInput: SelectorInput<AnyDefinition>) => Value,
+        ): ContextSelector<Value, AnyDefinition> => createContextSelector(result, selector);
+
+        const result = makeDefinition({
+          id: config.id,
+          states: config.states,
+          S: states,
+          E: events,
+          context: config.context ?? {},
+          operations: copyOperations(config.operations),
+          memory: config.memory,
+          select,
+        });
+
+        const definitionMetadata: DefinitionMetadata = {
+          states: { name: "", path: [], children: builtStates.metadata },
+        };
+        registerDefinitionMetadata(result, definitionMetadata);
+
+        return result;
+      }),
+    ),
+  );

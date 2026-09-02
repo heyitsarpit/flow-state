@@ -1,8 +1,10 @@
 import { scaffoldNotImplemented } from "../internal/scaffold.js";
+import * as Diagnostic from "../diagnostic/diagnostic.js";
 
-export class FlowStoryExecutionError extends Error {
-  readonly _tag = "FlowStoryExecutionError" as const;
-}
+/** The testing route's story failure is the canonical diagnostic error. */
+export const FlowStoryExecutionError = Diagnostic.Error;
+
+export type FlowStoryExecutionError = Diagnostic.Error;
 
 export function behavior(..._args: readonly unknown[]): never {
   return scaffoldNotImplemented("behavior");

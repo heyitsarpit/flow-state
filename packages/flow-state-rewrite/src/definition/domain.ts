@@ -1,26 +1,83 @@
 import type { Brand } from "effect";
+import type * as Diagnostic from "../diagnostic/diagnostic.js";
 
 export type DefinitionValue =
   | bigint
   | boolean
   | null
   | number
-  | object
   | string
   | symbol
-  | undefined;
+  | undefined
+  | EventPayload
+  | readonly DefinitionValue[]
+  | StateToken<string, string, string>
+  | OperationDeclaration
+  | DefinitionFunction;
 
-export type EventPayload = object;
+export interface EventPayload {
+  readonly [key: string]: DefinitionValue;
+}
+
+type EmptyEventPayload = Readonly<Record<never, never>>;
+
+type DefinitionFunctionResult =
+  | bigint
+  | boolean
+  | number
+  | string
+  | symbol
+  | EventPayload
+  | readonly DefinitionFunctionResult[]
+  | StateToken<string, string, string>
+  | OperationDeclaration
+  | DefinitionFunction;
+
+interface DefinitionFunction {
+  (...args: readonly never[]): DefinitionFunctionResult;
+}
+
+type DefinitionRecord<Value> = Readonly<{
+  [Key in keyof Value]: DefinitionValue;
+}>;
+
+type WidenMemory<Value> =
+  Value extends Brand.Brand<string>
+    ? Value
+    : Value extends DefinitionFunction
+      ? Value
+      : Value extends readonly DefinitionValue[]
+        ? Value
+        : Value extends string
+          ? string
+          : Value extends number
+            ? number
+            : Value extends boolean
+              ? boolean
+              : Value extends bigint
+                ? bigint
+                : Value extends DefinitionRecord<Value>
+                  ? { -readonly [Key in keyof Value]: WidenMemory<Value[Key]> }
+                  : Value;
 
 export type StateDeclaration = string | Readonly<Record<string, readonly StateDeclaration[]>>;
 
-export type EventDeclaration = null | ((...args: readonly never[]) => EventPayload);
+export type EventDeclaration = "bare" | ((...args: readonly never[]) => EventPayload);
 
 export type EventDeclarations = Readonly<Record<string, EventDeclaration>>;
 
 export interface DefinitionIdentity {
   readonly id: string;
 }
+
+export type DefinitionConstraint = Brand.Brand<"Definition"> &
+  DefinitionIdentity & {
+    readonly S: RuntimeStateTable;
+    readonly E: RuntimeEventTable;
+    readonly context: ContextDeclarations;
+    readonly operations: OperationDeclarations;
+    readonly memory: MemoryDeclaration | undefined;
+  };
 
 export type ContextSelector<
   Value extends DefinitionValue = DefinitionValue,
@@ -31,13 +88,19 @@ export type ContextSelector<
     readonly provider: Provider;
     readonly selector: (...args: readonly never[]) => Value;
   },
-  "flow-state/ContextSelector"
+  "ContextSelector"
 >;
 
 export type ContextDeclarations = Readonly<Record<string, ContextSelector>>;
 
 type ReadonlySelection<Value extends DefinitionValue> =
-  Value extends Brand.Brand<string> ? Value : Value extends object ? Readonly<Value> : Value;
+  Value extends Brand.Brand<string>
+    ? Value
+    : Value extends readonly DefinitionValue[]
+      ? Readonly<Value>
+      : Value extends DefinitionRecord<Value>
+        ? Readonly<Value>
+        : Value;
 
 export interface OperationDeclaration {
   readonly kind: string;
@@ -51,9 +114,10 @@ export type EmptyContext = Readonly<Record<never, never>>;
 
 export type EmptyOperations = Readonly<Record<never, never>>;
 
-export type MemoryDeclaration<Input = never, Memory extends object = object> = (options: {
-  readonly input: Input;
-}) => Memory;
+export type MemoryDeclaration<
+  Input = never,
+  Memory extends DefinitionRecord<Memory> = EventPayload,
+> = (options: { readonly input: Input }) => Memory;
 
 type EventArguments = readonly DefinitionValue[];
 
@@ -69,37 +133,60 @@ export type DefinitionConfig = {
 export type StateToken<
   DefinitionId extends string = string,
   Path extends string = string,
+  Identity extends string = Path,
 > = Brand.Branded<
   {
     readonly kind: "state";
     readonly name: Path;
-    readonly id: `S|${number}:${DefinitionId}|${number}:${Path}`;
+    readonly id: `S|${number}:${DefinitionId}|${number}:${Identity}`;
   },
-  "flow-state/StateToken"
+  "StateToken"
 >;
 
 export type EventEnvelope<
   Id extends string = string,
-  Payload extends EventPayload = EventPayload,
-> = Brand.Branded<{ readonly type: Id } & Readonly<Payload>, "flow-state/EventEnvelope">;
+  Payload extends EventPayload | EmptyEventPayload = EventPayload,
+> = Brand.Branded<{ readonly type: Id } & Readonly<Payload>, "EventEnvelope">;
 
 export type EventToken<
   DefinitionId extends string = string,
   Name extends string = string,
   Args extends EventArguments = readonly [],
-  Payload extends EventPayload = EventPayload,
+  Payload extends EventPayload | EmptyEventPayload = EventPayload,
 > = Brand.Branded<
-  ((...args: Args) => EventEnvelope<`E|${number}:${DefinitionId}|${number}:${Name}`, Payload>) & {
+  ((
+    ...args: Args
+  ) => Diagnostic.Result<
+    EventEnvelope<`E|${number}:${DefinitionId}|${number}:${Name}`, Payload>
+  >) & {
     readonly kind: "event";
     readonly name: Name;
     readonly id: `E|${number}:${DefinitionId}|${number}:${Name}`;
   },
-  "flow-state/EventToken"
+  "EventToken"
 >;
 
 type StatePath<Parent extends string, Name extends string> = Parent extends ""
   ? `S.${Name}`
   : `${Parent}.S.${Name}`;
+
+type UnsafeStateName = "S" | `${string}.${string}` | `${string}[${string}` | `${string}]${string}`;
+
+type EncodedStateSegment<Segment extends string> = Segment extends "a.S.b"
+  ? "5:a.S.b"
+  : `${number}:${Segment}`;
+
+type EncodedStateIdentity<Segments extends readonly string[]> = Segments extends readonly [
+  infer Head extends string,
+  ...infer Tail extends string[],
+]
+  ? `${EncodedStateSegment<Head>}${Tail extends readonly [] ? "" : `|${EncodedStateIdentity<Tail>}`}`
+  : never;
+
+type StateIdentity<Segments extends readonly string[], Display extends string> =
+  Extract<Segments[number], UnsafeStateName> extends never
+    ? Display
+    : EncodedStateIdentity<Segments>;
 
 type UnionToIntersection<Value> = (Value extends Value ? (value: Value) => void : never) extends (
   value: infer Intersection,
@@ -111,15 +198,25 @@ type StateEntry<
   DefinitionId extends string,
   Declaration,
   Parent extends string,
+  ParentSegments extends readonly string[],
 > = Declaration extends string
   ? {
-      readonly [Name in Declaration]: StateToken<DefinitionId, StatePath<Parent, Name>>;
+      readonly [Name in Declaration]: StateToken<
+        DefinitionId,
+        StatePath<Parent, Name>,
+        StateIdentity<[...ParentSegments, Name], StatePath<Parent, Name>>
+      >;
     }
   : Declaration extends Readonly<Record<infer Name extends string, infer Children>>
     ? Children extends readonly StateDeclaration[]
       ? {
           readonly [Key in Name]: {
-            readonly S: StateTable<DefinitionId, Children, StatePath<Parent, Key>>;
+            readonly S: StateTable<
+              DefinitionId,
+              Children,
+              StatePath<Parent, Key>,
+              [...ParentSegments, Key]
+            >;
           };
         }
       : never
@@ -129,12 +226,15 @@ type StateTable<
   DefinitionId extends string,
   States extends readonly StateDeclaration[],
   Parent extends string,
+  ParentSegments extends readonly string[] = [],
 > = UnionToIntersection<
-  States[number] extends infer Declaration ? StateEntry<DefinitionId, Declaration, Parent> : never
+  States[number] extends infer Declaration
+    ? StateEntry<DefinitionId, Declaration, Parent, ParentSegments>
+    : never
 >;
 
 type EventPayloadOf<Declaration> = Declaration extends (...args: readonly never[]) => infer Payload
-  ? Payload extends EventPayload
+  ? Payload extends DefinitionRecord<Payload>
     ? Payload
     : never
   : Readonly<Record<never, never>>;
@@ -151,6 +251,8 @@ type EventEntry<DefinitionId extends string, Name extends string, Declaration> =
   EventArgsOf<Declaration>,
   EventPayloadOf<Declaration>
 >;
+
+type EventValueOf<Value> = Value extends Diagnostic.Result<infer Success> ? Success : never;
 
 type EventTable<DefinitionId extends string, Events extends EventDeclarations> = Readonly<{
   [Name in keyof Events & string]: EventEntry<DefinitionId, Name, Events[Name]>;
@@ -181,23 +283,29 @@ export type Definition<
       Definition<DefinitionId, States, Events, Context, Operations, Memory>
     >;
   },
-  "flow-state/Definition"
+  "Definition"
 >;
 
 export interface RuntimeStateBranch {
   readonly S: RuntimeStateTable;
 }
 
-export type RuntimeStateTable = Readonly<Record<string, StateToken | RuntimeStateBranch>>;
+export type RuntimeStateTable = Readonly<
+  Record<string, StateToken<string, string, string> | RuntimeStateBranch>
+>;
 
-export type RuntimeEventTable = Readonly<Record<string, EventToken>>;
+type RuntimeEventIdentity = Pick<EventToken, "kind" | "name" | "id">;
+
+export type RuntimeEventTable<Event extends RuntimeEventIdentity = RuntimeEventIdentity> = Readonly<
+  Record<string, Event>
+>;
 
 export type AnyDefinition = Brand.Branded<
   {
     readonly id: string;
     readonly states: readonly StateDeclaration[];
     readonly S: RuntimeStateTable;
-    readonly E: RuntimeEventTable;
+    readonly E: RuntimeEventTable<EventToken>;
     readonly context: ContextDeclarations;
     readonly operations: OperationDeclarations;
     readonly memory: MemoryDeclaration | undefined;
@@ -205,7 +313,7 @@ export type AnyDefinition = Brand.Branded<
       selector: (input: SelectorInput<AnyDefinition>) => Value,
     ) => ContextSelector<Value, AnyDefinition>;
   },
-  "flow-state/Definition"
+  "Definition"
 >;
 
 export type StateOf<Value extends DefinitionIdentity> = Value extends {
@@ -216,9 +324,9 @@ export type StateOf<Value extends DefinitionIdentity> = Value extends {
 
 type StateLeavesFromTable<Value> = Value extends StateToken
   ? Value
-  : Value extends { readonly S: infer Children }
-    ? StateLeavesFromTable<Children>
-    : Value extends object
+  : Value extends RuntimeStateBranch
+    ? StateLeavesFromTable<Value["S"]>
+    : Value extends RuntimeStateTable
       ? {
           [Name in keyof Value]: StateLeavesFromTable<Value[Name]>;
         }[keyof Value]
@@ -227,10 +335,10 @@ type StateLeavesFromTable<Value> = Value extends StateToken
 export type EventOf<Value extends DefinitionIdentity> = Value extends {
   readonly E: infer Events;
 }
-  ? Events extends object
+  ? Events extends RuntimeEventTable
     ? {
         [Name in keyof Events]: Events[Name] extends (...args: readonly never[]) => infer Result
-          ? Result
+          ? EventValueOf<Result>
           : never;
       }[keyof Events]
     : never
@@ -239,7 +347,7 @@ export type EventOf<Value extends DefinitionIdentity> = Value extends {
 type InputFromMemory<Value> = Value extends undefined
   ? void
   : Value extends (...args: infer Args) => infer Output
-    ? Output extends object
+    ? Output extends DefinitionRecord<Output>
       ? Args extends readonly [infer Options]
         ? Options extends { readonly input: infer Input }
           ? Input
@@ -251,8 +359,8 @@ type InputFromMemory<Value> = Value extends undefined
 type MemoryFromMemory<Value> = Value extends undefined
   ? EmptyMemory
   : Value extends (...args: readonly never[]) => infer Output
-    ? Output extends object
-      ? Output
+    ? Output extends DefinitionRecord<Output>
+      ? WidenMemory<Output>
       : never
     : never;
 

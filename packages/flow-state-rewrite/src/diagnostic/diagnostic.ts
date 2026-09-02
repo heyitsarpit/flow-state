@@ -50,6 +50,7 @@ const schemaIssuePath = flow(
   schemaIssueFormatter,
   ({ issues }) => issues.find(({ path }) => path !== undefined && path.length > 0)?.path ?? [],
   Array.map((segment) => (Predicate.isObject(segment) ? segment.key : segment)),
+  Array.map((segment) => (Predicate.isSymbol(segment) ? String(segment) : segment)),
   Array.filter(isStringOrNumber),
 );
 
@@ -84,11 +85,12 @@ export const panic = (defect: unknown): Error => {
 };
 
 /**
- * Maps only Effect defects into Panic. Typed diagnostics retain identity and
- * interruption remains Effect cancellation.
+ * Re-emits failed Effects without changing their Cause. Typed diagnostics
+ * retain identity, defects remain defects, and interruption remains Effect
+ * cancellation.
  */
 export const catchPanic = <A, R>(effect: Effect.Effect<A, Error, R>): Effect.Effect<A, Error, R> =>
-  Effect.catchDefect(effect, (defect) => Effect.fail(panic(defect)));
+  Effect.catchCause(effect, (cause) => Effect.failCause(cause));
 
 export { Code } from "./codes.js";
 export { print } from "./render.js";

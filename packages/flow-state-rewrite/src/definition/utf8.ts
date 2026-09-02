@@ -24,12 +24,15 @@ export const isWellFormedText = (value: string): boolean => {
   return Predicate.isFunction(native) ? Boolean(native.call(value)) : isWellFormedFallback(value);
 };
 
+export const utf8EncodedByteLength = (value: string): number =>
+  utf8Encoder.encode(value).byteLength;
+
 export const utf8ByteLength = (
   value: string,
   maximumBytes: number,
 ): Result.Result<number, Utf8Failure> => {
   if (!isWellFormedText(value)) return Result.fail("lone-surrogate");
 
-  const byteLength = utf8Encoder.encode(value).byteLength;
+  const byteLength = utf8EncodedByteLength(value);
   return byteLength <= maximumBytes ? Result.succeed(byteLength) : Result.fail("too-large");
 };

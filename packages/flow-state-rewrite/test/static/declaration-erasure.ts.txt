@@ -1,0 +1,5 @@
+declare const unknownErasure: string as unknown;
+declare const constErasure: string as const;
+declare const anyErasure: string as any;
+const angleErasure = <unknown>value;
+declare const validGeneric: Array<unknown>[];
