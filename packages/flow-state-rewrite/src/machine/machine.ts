@@ -1,21 +1,47 @@
-import { Predicate, Result } from "effect";
+import { Result } from "effect";
 
 import type { DefinitionValue as DomainValue } from "../definition/domain.js";
+import type {
+  RequirementsCarrier,
+  RequirementsOf as OperationRequirementsOf,
+} from "../operation/operation.js";
 import type * as Diagnostic from "../diagnostic/diagnostic.js";
 import { compileMachine } from "./compiler.js";
 import type {
+  CompiledMachine,
   ContextRegistration,
-  Machine,
   MachineCallback,
   MachineConfiguration,
   MachineDefinition,
   MachineSelectorInput,
+  MachineStoreAction,
   MemoryHandler,
   MemoryRegistration,
   MemorySelectionHandler,
   OnMemory,
   ValidMachineConfiguration,
 } from "./grammar.js";
+import { makeSelection } from "./grammar.js";
+
+/*
+ * Machine authoring:
+ *
+ * Identity and public contracts:
+ *   OperationRequirements, Machine, MachineRequirementsOf, MachineRecordValue
+ *   constructedMachines, isMachineReference, isConstructedMachine
+ *
+ * Registration collection:
+ *   collectRegistrations, makeSelection
+ *
+ * Store plans:
+ *   makeStoreAction
+ *
+ * Compilation/publication:
+ *   compileMachine, publishMachine
+ *
+ * Public assembly:
+ *   machine
+ */
 
 export type {
   CompiledMachine,
@@ -24,94 +50,106 @@ export type {
   CompiledTimer,
   CompiledTransition,
   MachineAction,
+  MachineActivity,
+  MachineActivityPlan,
   MachineCallback,
-  MachineConfiguration,
   MachineSnapshot,
 } from "./grammar.js";
 
-export type { Machine } from "./grammar.js";
+type OperationRequirements<DefinitionValue extends MachineDefinition> = OperationRequirementsOf<
+  DefinitionValue["operations"][keyof DefinitionValue["operations"]]
+>;
 
-const machineIdentity: unique symbol = Symbol("machine identity");
+export type Machine<DefinitionValue extends MachineDefinition = MachineDefinition> = Readonly<{
+  definition: DefinitionValue;
+  compiled: CompiledMachine<DefinitionValue>;
+}> &
+  RequirementsCarrier<OperationRequirements<DefinitionValue>>;
 
-type MachineIdentity = { readonly [machineIdentity]: true };
+export type MachineRequirementsOf<Value> = OperationRequirementsOf<Value>;
 
-const constructedMachines = new WeakSet<MachineIdentity>();
+export type MachineRecordValue = RequirementsCarrier<unknown> & {
+  readonly definition: MachineDefinition;
+};
 
-const hasMachineIdentity = (value: unknown): value is MachineIdentity =>
-  Predicate.isObject(value) && machineIdentity in value;
+const constructedMachines = new WeakSet<MachineRecordValue>();
 
-/** Package-private nominal identity for constructed machines. */
-export const isConstructedMachine = (value: unknown): boolean =>
-  hasMachineIdentity(value) && constructedMachines.has(value);
+// RETURN_TYPE: Narrows unknown to WeakSet.has's MachineRecordValue input; removal produces TS2345.
+const isMachineReference = (value: unknown): value is MachineRecordValue =>
+  typeof value === "object" && value !== null;
 
-const makeStoreAction = (kind: "invalidate" | "clear", targets: readonly DomainValue[]) => ({
-  kind,
-  targets: [...targets],
-});
+// RETURN_TYPE: Preserves Machine narrowing after nominal WeakSet admission for runtime and app consumers.
+export const isConstructedMachine = (value: unknown): value is Machine =>
+  isMachineReference(value) && constructedMachines.has(value);
 
-export const machineResult = <
-  const DefinitionValue extends MachineDefinition,
-  const Configuration extends MachineConfiguration<DefinitionValue>,
->(
-  definition: DefinitionValue,
-  callback: (
-    input: MachineCallback<NoInfer<DefinitionValue>>,
-  ) => Configuration & ValidMachineConfiguration<NoInfer<DefinitionValue>, Configuration>,
-): Diagnostic.Result<Machine<DefinitionValue, Configuration>> => {
+const collectRegistrations = <DefinitionValue extends MachineDefinition>() => {
   const context: ContextRegistration<DefinitionValue>[] = [];
   const memory: MemoryRegistration<DefinitionValue>[] = [];
 
   const onContext: MachineCallback<DefinitionValue>["onContext"] = {
     select(selector, handler) {
-      context.push({ selector, handler });
+      context.push(makeSelection(selector, handler));
     },
   };
 
   const onMemory: OnMemory<DefinitionValue> = Object.assign(
-    (handler: MemoryHandler<DefinitionValue>): void => {
+    (handler: MemoryHandler<DefinitionValue>) => {
       memory.push({ kind: "handler", handler });
     },
     {
       select: <const Value extends DomainValue>(
         selector: (input: MachineSelectorInput<DefinitionValue>) => Value,
-        handler: MemorySelectionHandler<Value>,
-      ): void => {
-        memory.push({ kind: "selection", selector, handler });
+        handler: MemorySelectionHandler<DefinitionValue, Value>,
+      ) => {
+        memory.push({ kind: "selection", ...makeSelection(selector, handler) });
       },
     },
   );
 
-  const config: Configuration = callback({
-    S: definition.S,
-    E: definition.E,
-    O: definition.operations,
-    onContext,
-    onMemory,
-    invalidate: (...targets) => makeStoreAction("invalidate", targets),
-    clear: (...targets) => makeStoreAction("clear", targets),
-  });
+  return { context, memory, onContext, onMemory };
+};
 
-  return Result.gen(function* () {
-    const compiled = yield* compileMachine(definition, config, context, memory);
-    const machineValue = {
-      ...definition,
-      definition,
-      config,
-      compiled,
-      [machineIdentity]: true as const,
-    };
-    constructedMachines.add(machineValue);
-    return machineValue;
-  });
+// RETURN_TYPE: Preserves the readonly non-empty target tuple after array-spread construction.
+const makeStoreAction = <DefinitionValue extends MachineDefinition>(
+  kind: MachineStoreAction<DefinitionValue>["kind"],
+  targets: MachineStoreAction<DefinitionValue>["targets"],
+): MachineStoreAction<DefinitionValue> => ({ kind, targets: [...targets] });
+
+const publishMachine = <DefinitionValue extends MachineDefinition>(
+  definition: DefinitionValue,
+  compiled: CompiledMachine<DefinitionValue>,
+) => {
+  // SAFETY: the requirements carrier is package-private and type-only; runtime Machine owns this two-field shell.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the private type-only carrier has no runtime field; this shell is the complete admitted Machine value.
+  const machineValue = { definition, compiled } as Machine<DefinitionValue>;
+  constructedMachines.add(machineValue);
+  return machineValue;
 };
 
 export const machine = <
   const DefinitionValue extends MachineDefinition,
   const Configuration extends MachineConfiguration<DefinitionValue>,
 >(
-  definition: DefinitionValue,
+  definitionResult: Result.Result<DefinitionValue, Diagnostic.PublicDiagnostic>,
   callback: (
     input: MachineCallback<NoInfer<DefinitionValue>>,
   ) => Configuration & ValidMachineConfiguration<NoInfer<DefinitionValue>, Configuration>,
-): Machine<DefinitionValue, Configuration> =>
-  Result.getOrThrow(machineResult<DefinitionValue, Configuration>(definition, callback));
+) =>
+  Result.flatMap(definitionResult, (definition) => {
+    const registrations = collectRegistrations<DefinitionValue>();
+
+    const configuration = callback({
+      S: definition.S,
+      E: definition.E,
+      O: definition.operations,
+      onContext: registrations.onContext,
+      onMemory: registrations.onMemory,
+      invalidate: (...targets) => makeStoreAction<DefinitionValue>("invalidate", targets),
+      clear: (...targets) => makeStoreAction<DefinitionValue>("clear", targets),
+    });
+
+    return Result.map(
+      compileMachine(definition, configuration, registrations.context, registrations.memory),
+      (compiled) => publishMachine(definition, compiled),
+    );
+  });

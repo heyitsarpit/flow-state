@@ -1,11 +1,22 @@
 import { Array, flow, Order, Predicate } from "effect";
 
-import type { Details, Error as DiagnosticError, Path } from "./diagnostic.js";
+import type { Details, Diagnostic, Path } from "./diagnostic.js";
 
+/*
+ * Rendering:
+ *
+ * Character escaping
+ *
+ * Path and detail rendering
+ *
+ * Final message assembly
+ */
+
+// Character escaping
 const invisibleControl = /[\p{Cc}\p{Cf}\u2028\u2029]/gu;
 const identifier = /^[A-Za-z_$][\w$]*$/u;
 
-const unicodeEscape = (codePoint: number): string =>
+const unicodeEscape = (codePoint: number) =>
   codePoint <= 0xffff
     ? `\\u${codePoint.toString(16).padStart(4, "0")}`
     : `\\u{${codePoint.toString(16)}}`;
@@ -21,7 +32,8 @@ const quote = flow(
 
 const text = flow(quote, (value) => value.slice(1, -1));
 
-const property = (value: string): string => (identifier.test(value) ? value : quote(value));
+// Path and detail rendering
+const property = (value: string) => (identifier.test(value) ? value : quote(value));
 
 const printPath = flow(
   (path: Path) =>
@@ -32,7 +44,7 @@ const printPath = flow(
   (segments) => `$${segments.join("")}`,
 );
 
-const printDetailValue = (value: Details[string]): string =>
+const printDetailValue = (value: Details[string]) =>
   Predicate.isString(value) ? quote(value) : String(value);
 
 const printDetails = flow(
@@ -47,6 +59,7 @@ const printDetails = flow(
         ],
 );
 
+// Final message assembly
 /**
  * Prints a deterministic message for people while keeping every field easy to
  * scan. Simple path segments use property notation; unusual segments are JSON
@@ -66,12 +79,12 @@ const printDetails = flow(
  * A failure without details stays compact:
  *
  * ```text
- * Panic: Unexpected runtime defect
+ * Defect: Unexpected runtime defect
  *   at $
  *   help: Inspect the original cause at the host boundary.
  * ```
  */
-export const print = (diagnostic: DiagnosticError): string =>
+export const print = (diagnostic: Diagnostic) =>
   [
     `${diagnostic.code}: ${text(diagnostic.summary)}`,
     `  at ${printPath(diagnostic.path)}`,

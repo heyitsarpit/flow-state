@@ -1,41 +1,55 @@
-import { Context, Effect, Result, Stream } from "effect";
+import { Context, Effect, Result, Stream, type Types } from "effect";
 
-import { definition } from "../../src/definition/definition.js";
-import type { EventOf, InputOf, MemoryOf, StateOf } from "../../src/definition/domain.js";
-import { machine } from "../../src/machine/machine.js";
-import { app, module, type RequirementsOf } from "../../src/app/app.js";
-import { resource } from "../../src/operation/resource.js";
-import { stream } from "../../src/operation/stream.js";
-import { transaction } from "../../src/operation/transaction.js";
-import { Implementation } from "../../src/implementation/implementation.js";
 import type {
-  ImplementationErrorOf,
-  ImplementationRequirementsOf,
-  ImplementationServices,
-} from "../../src/implementation/implementation.js";
+  EventOf,
+  Implementation as ImplementationType,
+  InputOf,
+  MemoryOf,
+  RequirementsOf,
+  StateOf,
+} from "../../src/index.js";
+import {
+  Diagnostic,
+  Implementation,
+  app,
+  definition,
+  machine,
+  module,
+  resource,
+  stream,
+  transaction,
+} from "../../src/index.js";
 
-// TYPE-P03 / TYPE-P04 / PROOF-001.
-// Production owners: definition, machine, operation, app, and implementation feature modules.
-// Rationale: this medium consumer keeps exact inference connected across every available static owner.
-// Blocked lanes: packed public declarations, later root/runtime/persistence owners, API-P01/API-P02,
-// AMEND-P05 quickstart, and Phase 1 validation remain outside this partial harness.
-
-type Equal<Left, Right> =
-  (<Value>() => Value extends Left ? 1 : 2) extends <Value>() => Value extends Right ? 1 : 2
-    ? true
-    : false;
+// This medium consumer exercises exact inference across definitions, operations, apps, and implementations.
 
 type Expect<Value extends true> = Value;
 
+type PublicDiagnostic = ReturnType<typeof Diagnostic.Failure>;
+
 type ResultSuccess<Value> = Value extends Result.Result<infer Success, unknown> ? Success : never;
 
-const definitionSuccess = <Value>(result: Result.Result<Value, unknown>): Value => {
+const resultSuccess = <Value>(result: Result.Result<Value, PublicDiagnostic>) => {
   if (Result.isFailure(result)) throw result.failure;
   return result.success;
 };
 
+type ImplementationOutput<Value> =
+  Value extends ImplementationType<infer Output, infer _Error, infer _Requirements>
+    ? Output
+    : never;
+
+type ImplementationError<Value> =
+  Value extends ImplementationType<infer _Output, infer Error, infer _Requirements> ? Error : never;
+
+type ImplementationRequirements<Value> =
+  Value extends ImplementationType<infer _Output, infer _Error, infer Requirements>
+    ? Requirements
+    : never;
+
 type Project = { readonly id: string; readonly title: string };
+
 type ProjectInput = { readonly projectId: string };
+
 type AuditRecord = { readonly projectId: string; readonly action: "save" };
 
 class ProjectRepo extends Context.Service<
@@ -56,6 +70,7 @@ class ProjectFeed extends Context.Service<
 const projectResource = resource({
   id: "static/projects.by-id",
   key: ({ projectId }: ProjectInput) => [projectId] as const,
+  // RETURN_TYPE: Preserves ProjectRepo and the missing channel in the medium provider proof.
   lookup: (
     { projectId }: ProjectInput,
     { signal }: { readonly signal: AbortSignal },
@@ -68,6 +83,7 @@ const projectResource = resource({
 const saveProject = transaction({
   id: "static/projects.save",
   key: ({ projectId }: ProjectInput) => [projectId] as const,
+  // RETURN_TYPE: Preserves AuditSink and the rejected channel in the medium provider proof.
   commit: (
     { projectId }: ProjectInput,
     { signal }: { readonly signal: AbortSignal },
@@ -80,6 +96,7 @@ const saveProject = transaction({
 const projectUpdates = stream({
   id: "static/projects.updates",
   key: ({ projectId }: ProjectInput) => [projectId] as const,
+  // RETURN_TYPE: Preserves ProjectFeed and the offline channel in the medium provider proof.
   subscribe: (
     { projectId }: ProjectInput,
     { signal }: { readonly signal: AbortSignal },
@@ -89,51 +106,52 @@ const projectUpdates = stream({
   },
 });
 
-const Editor = definitionSuccess(
-  definition({
-    id: "static/editor",
-    states: ["idle", { ready: ["open", "closed"] }],
-    events: {
-      opened: (projectId: string) => ({ projectId }),
-      closed: "bare",
-    },
-    operations: {
-      project: projectResource,
-      save: saveProject,
-      updates: projectUpdates,
-    },
-    memory: ({ input }: { readonly input: ProjectInput }) => ({
-      projectId: input.projectId,
-      dirty: false,
-    }),
+const EditorResult = definition({
+  id: "static/editor",
+  states: ["idle", { ready: ["open", "closed"] }],
+  events: {
+    opened: (projectId: string) => ({ projectId }),
+    closed: "bare",
+  },
+  operations: {
+    project: projectResource,
+    save: saveProject,
+    updates: projectUpdates,
+  },
+  memory: ({ input }: { readonly input: ProjectInput }) => ({
+    projectId: input.projectId,
+    dirty: false,
+  }),
+});
+const Editor = resultSuccess(EditorResult);
+
+const editorMachine = resultSuccess(
+  machine(EditorResult, ({ S, E, O }) => {
+    void E.opened;
+    void O.project;
+    return {
+      default: S.idle,
+      states: {
+        idle: {
+          on: { opened: { target: S.ready.S.open } },
+        },
+        ready: {
+          default: S.ready.S.open,
+          states: {
+            open: {
+              on: { closed: S.ready.S.closed },
+            },
+            closed: {},
+          },
+        },
+      },
+    };
   }),
 );
 
-const editorMachine = machine(Editor, ({ S, E, O }) => {
-  void E.opened;
-  void O.project;
-  return {
-    default: S.idle,
-    states: {
-      idle: {
-        on: { opened: { target: S.ready.S.open } },
-      },
-      ready: {
-        default: S.ready.S.open,
-        states: {
-          open: {
-            on: { closed: S.ready.S.closed },
-          },
-          closed: {},
-        },
-      },
-    },
-  };
-});
-
 const EditorInput: InputOf<typeof Editor> = { projectId: "project-1" };
 const EditorMemory: MemoryOf<typeof Editor> = { projectId: "project-1", dirty: false };
-const EditorEvent: EventOf<typeof Editor> = definitionSuccess(Editor.E.opened("project-1"));
+const EditorEvent: EventOf<typeof Editor> = resultSuccess(Editor.E.opened("project-1"));
 const EditorState: StateOf<typeof Editor> = Editor.S.ready.S.open;
 void EditorInput;
 void EditorMemory;
@@ -141,19 +159,19 @@ void EditorEvent;
 void EditorState;
 
 const makeLeafMachine = <const Id extends string>(id: Id) => {
-  const current = definitionSuccess(
-    definition({
-      id,
-      states: ["ready"],
-      events: { refresh: "bare" },
-      operations: { project: projectResource, updates: projectUpdates },
-    }),
+  const currentResult = definition({
+    id,
+    states: ["ready"],
+    events: { refresh: "bare" },
+    operations: { project: projectResource, updates: projectUpdates },
+  });
+  return resultSuccess(
+    machine(currentResult, ({ S, E }) => ({
+      default: S.ready,
+      on: { refresh: S.ready },
+      states: { ready: { timers: { refresh: { delay: 250, target: E.refresh } } } },
+    })),
   );
-  return machine(current, ({ S, E }) => ({
-    default: S.ready,
-    on: { refresh: S.ready },
-    states: { ready: { timers: { refresh: { delay: 250, target: E.refresh } } } },
-  }));
 };
 
 const Viewer = makeLeafMachine("static/viewer");
@@ -185,6 +203,14 @@ const StaticApp = app({
   ],
 });
 
+type AppPlanDescriptor = (typeof StaticApp.plan.descriptors)[number];
+
+type AppPlanResource = Extract<AppPlanDescriptor, { readonly kind: "resource" }>;
+
+type AppPlanTransaction = Extract<AppPlanDescriptor, { readonly kind: "transaction" }>;
+
+type AppPlanStream = Extract<AppPlanDescriptor, { readonly kind: "stream" }>;
+
 const repoImplementation = Implementation.succeed(ProjectRepo, {
   find: (id: string) => Effect.succeed({ id, title: "loaded" }),
 });
@@ -205,66 +231,73 @@ const staticImplementation = Implementation.merge(
   feedImplementation,
 );
 
-type DefinitionProofs = readonly [
-  Expect<Equal<InputOf<typeof Editor>, ProjectInput>>,
-  Expect<Equal<MemoryOf<typeof Editor>, { projectId: string; dirty: boolean }>>,
+export type DefinitionProofs = readonly [
+  Expect<Types.Equals<InputOf<typeof Editor>, ProjectInput>>,
+  Expect<Types.Equals<MemoryOf<typeof Editor>, { projectId: string; dirty: boolean }>>,
   Expect<
-    Equal<
+    Types.Equals<
       EventOf<typeof Editor>,
       | ResultSuccess<ReturnType<typeof Editor.E.opened>>
       | ResultSuccess<ReturnType<typeof Editor.E.closed>>
     >
   >,
   Expect<
-    Equal<
+    Types.Equals<
       StateOf<typeof Editor>,
       typeof Editor.S.idle | typeof Editor.S.ready.S.open | typeof Editor.S.ready.S.closed
     >
   >,
+  Expect<Types.Equals<typeof Editor.operations.project, typeof projectResource>>,
+  Expect<Types.Equals<typeof Editor.operations.save, typeof saveProject>>,
+  Expect<Types.Equals<typeof Editor.operations.updates, typeof projectUpdates>>,
 ];
 
-type OperationProofs = readonly [
-  Expect<Equal<RequirementsOf<typeof projectResource>, ProjectRepo>>,
-  Expect<Equal<RequirementsOf<typeof saveProject>, AuditSink>>,
-  Expect<Equal<RequirementsOf<typeof projectUpdates>, ProjectFeed>>,
-  Expect<Equal<ReturnType<typeof projectResource.key>, readonly [string]>>,
-  Expect<Equal<ReturnType<typeof saveProject.key>, readonly [string]>>,
-  Expect<Equal<ReturnType<typeof projectUpdates.key>, readonly [string]>>,
+export type OperationProofs = readonly [
+  Expect<Types.Equals<RequirementsOf<typeof projectResource>, ProjectRepo>>,
+  Expect<Types.Equals<RequirementsOf<typeof saveProject>, AuditSink>>,
+  Expect<Types.Equals<RequirementsOf<typeof projectUpdates>, ProjectFeed>>,
+  Expect<Types.Equals<ReturnType<typeof projectResource.key>, readonly [string]>>,
+  Expect<Types.Equals<ReturnType<typeof saveProject.key>, readonly [string]>>,
+  Expect<Types.Equals<ReturnType<typeof projectUpdates.key>, readonly [string]>>,
 ];
 
-type AppProofs = readonly [
-  Expect<Equal<typeof StaticApp.M.editor, typeof editorMachine>>,
-  Expect<Equal<typeof StaticApp.M.viewer, typeof Viewer>>,
-  Expect<Equal<typeof StaticApp.M.dashboard, typeof Dashboard>>,
-  Expect<Equal<typeof StaticApp.M.reports, typeof Reports>>,
-  Expect<Equal<typeof StaticApp.M.importer, typeof Importer>>,
-  Expect<Equal<typeof StaticApp.M.exporter, typeof Exporter>>,
-  Expect<Equal<RequirementsOf<typeof StaticApp>, ProjectRepo | AuditSink | ProjectFeed>>,
-];
-
-type ImplementationProofs = readonly [
-  Expect<Equal<ImplementationServices<typeof repoImplementation>, ProjectRepo>>,
+export type AppProofs = readonly [
+  Expect<Types.Equals<typeof StaticApp.M.editor, typeof editorMachine>>,
+  Expect<Types.Equals<typeof StaticApp.M.viewer, typeof Viewer>>,
+  Expect<Types.Equals<typeof StaticApp.M.dashboard, typeof Dashboard>>,
+  Expect<Types.Equals<typeof StaticApp.M.reports, typeof Reports>>,
+  Expect<Types.Equals<typeof StaticApp.M.importer, typeof Importer>>,
+  Expect<Types.Equals<typeof StaticApp.M.exporter, typeof Exporter>>,
   Expect<
-    Equal<
-      ImplementationServices<typeof staticImplementation>,
+    Types.Equals<typeof StaticApp.M.editor.definition.operations.project, typeof projectResource>
+  >,
+  Expect<Types.Equals<typeof StaticApp.M.editor.definition.operations.save, typeof saveProject>>,
+  Expect<
+    Types.Equals<typeof StaticApp.M.editor.definition.operations.updates, typeof projectUpdates>
+  >,
+  Expect<Types.Equals<RequirementsOf<typeof editorMachine>, ProjectRepo | AuditSink | ProjectFeed>>,
+  Expect<Types.Equals<AppPlanResource, typeof projectResource>>,
+  Expect<Types.Equals<AppPlanTransaction, typeof saveProject>>,
+  Expect<Types.Equals<AppPlanStream, typeof projectUpdates>>,
+  Expect<Types.Equals<RequirementsOf<typeof StaticApp>, ProjectRepo | AuditSink | ProjectFeed>>,
+];
+
+export type ImplementationProofs = readonly [
+  Expect<Types.Equals<ImplementationOutput<typeof repoImplementation>, ProjectRepo>>,
+  Expect<
+    Types.Equals<
+      ImplementationOutput<typeof staticImplementation>,
       ProjectRepo | AuditSink | ProjectFeed
     >
   >,
   Expect<
-    Equal<
-      ImplementationErrorOf<typeof staticImplementation>,
+    Types.Equals<
+      ImplementationError<typeof staticImplementation>,
       "configuration-failed" | "feed-unavailable"
     >
   >,
-  Expect<Equal<ImplementationRequirementsOf<typeof staticImplementation>, ProjectRepo>>,
+  Expect<Types.Equals<ImplementationRequirements<typeof staticImplementation>, ProjectRepo>>,
 ];
 
-const proofCounts: readonly [
-  DefinitionProofs["length"],
-  OperationProofs["length"],
-  AppProofs["length"],
-  ImplementationProofs["length"],
-] = [4, 6, 7, 4];
-void proofCounts;
 void StaticApp;
 void staticImplementation;

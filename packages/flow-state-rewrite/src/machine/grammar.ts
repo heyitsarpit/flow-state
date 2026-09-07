@@ -5,35 +5,53 @@ import type {
   EventOf,
   MemoryOf,
   RuntimeStateTable,
-  SelectorInput,
   StateOf,
   StateToken,
 } from "../definition/domain.js";
+import type { Option, Result as EffectResult } from "effect";
 import type * as Diagnostic from "../diagnostic/diagnostic.js";
+import type { OperationKey } from "../operation/key.js";
+import type { OperationDeclaration, OperationMethodResult } from "../operation/operation.js";
+
+/*
+ * Type vocabulary:
+ *
+ * Authored configuration and callback inputs
+ *
+ * Operation actions and continuing activities
+ *
+ * Configuration exactness and recursive validation
+ *
+ * Context and memory registration
+ *
+ * Compiled state and machine output
+ */
+
+/*
+ * Component map — type vocabulary:
+ * MachineDefinition and StateNode describe the Definition-facing machine
+ * vocabulary. TokenLookup is the private lookup seam used by admission and
+ * compilation.
+ */
 
 export type MachineDefinition = DefinitionConstraint;
 
-type StateTable = RuntimeStateTable;
+export type TokenLookup<Token> = (value: unknown) => Option.Option<Token>;
 
-type DirectStateTokensInTable<Table> = {
-  [Name in keyof Table]: Table[Name] extends StateToken ? Table[Name] : never;
-}[keyof Table] extends never
-  ? string extends keyof Table
-    ? StateToken
-    : never
-  : {
-      [Name in keyof Table]: Table[Name] extends StateToken ? Table[Name] : never;
-    }[keyof Table];
-
-type StateConfigForNode<DefinitionValue extends MachineDefinition, Node> = Node extends StateToken
-  ? MachineLeafConfiguration<DefinitionValue>
-  : Node extends { readonly S: infer Children }
-    ? MachineCompoundConfiguration<DefinitionValue, Children>
-    : never;
-
-type StateConfigTable<DefinitionValue extends MachineDefinition, Table extends StateTable> = {
-  readonly [Name in keyof Table]: StateConfigForNode<DefinitionValue, Table[Name]>;
-};
+export type StateNode<DefinitionValue extends DefinitionConstraint = DefinitionConstraint> =
+  | {
+      readonly kind: "leaf";
+      readonly name: string;
+      readonly path: readonly string[];
+      readonly token: StateOf<DefinitionValue>;
+      readonly children: readonly [];
+    }
+  | {
+      readonly kind: "compound";
+      readonly name: string;
+      readonly path: readonly string[];
+      readonly children: readonly StateNode<DefinitionValue>[];
+    };
 
 export type MachineInput<
   DefinitionValue extends MachineDefinition,
@@ -46,14 +64,7 @@ export type MachineInput<
   readonly S: DefinitionValue["S"];
   readonly E: DefinitionValue["E"];
   readonly O: DefinitionValue["operations"];
-  readonly snapshot: Readonly<MachineSnapshot<DefinitionValue>>;
-};
-
-export type MachineSelectorInput<DefinitionValue extends MachineDefinition> = Omit<
-  SelectorInput<DefinitionValue>,
-  "memory"
-> & {
-  readonly memory: Readonly<MemoryOf<DefinitionValue>>;
+  readonly snapshot: MachineSnapshot<DefinitionValue>;
 };
 
 export type MachineSnapshot<DefinitionValue extends MachineDefinition> = Readonly<{
@@ -62,10 +73,13 @@ export type MachineSnapshot<DefinitionValue extends MachineDefinition> = Readonl
   context: ContextOf<DefinitionValue>;
 }>;
 
+export type MachineSelectorInput<DefinitionValue extends MachineDefinition> =
+  MachineSnapshot<DefinitionValue>;
+
 export type RedirectInput<DefinitionValue extends MachineDefinition> = Readonly<{
   state: StateOf<DefinitionValue>;
   memory: Readonly<MemoryOf<DefinitionValue>>;
-  snapshot: Readonly<MachineSnapshot<DefinitionValue>>;
+  snapshot: MachineSnapshot<DefinitionValue>;
 }>;
 
 export type TimerMetadata = Readonly<{
@@ -77,15 +91,122 @@ export type TimerMetadata = Readonly<{
 export type TimerInput<DefinitionValue extends MachineDefinition> = Readonly<{
   state: StateOf<DefinitionValue>;
   memory: Readonly<MemoryOf<DefinitionValue>>;
-  snapshot: Readonly<MachineSnapshot<DefinitionValue>>;
+  snapshot: MachineSnapshot<DefinitionValue>;
   timer: TimerMetadata;
 }>;
 
-export type MachineAction = Readonly<{ kind: string }>;
+/*
+ * Component map — operation actions and continuing activities:
+ * OperationOf and the three operation-family projections feed the finite
+ * MachineAction union. ResourceActivityPlanOf, MachineActivityPlan, and
+ * MachineActivity preserve continuing resource/stream plans; the action
+ * result helper preserves one-or-many action and null control semantics.
+ */
 
-export type MachineActivity = DomainValue;
+type OperationOf<DefinitionValue extends MachineDefinition> =
+  DefinitionValue["operations"][keyof DefinitionValue["operations"]];
 
-type MachineActionResult = MachineAction | readonly MachineAction[] | null;
+type ResourceOf<DefinitionValue extends MachineDefinition> = Extract<
+  OperationOf<DefinitionValue>,
+  { readonly kind: "resource" }
+>;
+
+type TransactionOf<DefinitionValue extends MachineDefinition> = Extract<
+  OperationOf<DefinitionValue>,
+  { readonly kind: "transaction" }
+>;
+
+type StreamOf<DefinitionValue extends MachineDefinition> = Extract<
+  OperationOf<DefinitionValue>,
+  { readonly kind: "stream" }
+>;
+
+type ResourcePlanOf<DefinitionValue extends MachineDefinition> =
+  ResourceOf<DefinitionValue> extends infer Operation
+    ? Operation extends OperationDeclaration
+      ?
+          | OperationMethodResult<Operation, "lookup">
+          | OperationMethodResult<Operation, "refetch">
+          | OperationMethodResult<Operation, "setData">
+          | OperationMethodResult<Operation, "cancel">
+      : never
+    : never;
+
+type TransactionPlanOf<DefinitionValue extends MachineDefinition> =
+  TransactionOf<DefinitionValue> extends infer Operation
+    ? Operation extends OperationDeclaration
+      ? OperationMethodResult<Operation, "commit"> | OperationMethodResult<Operation, "cancel">
+      : never
+    : never;
+
+type StreamPlanOf<DefinitionValue extends MachineDefinition> =
+  StreamOf<DefinitionValue> extends infer Operation
+    ? Operation extends OperationDeclaration
+      ? OperationMethodResult<Operation, "subscribe">
+      : never
+    : never;
+
+type OperationKeyOf<Operation> = Operation extends {
+  readonly key: (...args: never[]) => infer Key;
+}
+  ? Key extends OperationKey
+    ? Key
+    : never
+  : never;
+
+export type MachineStoreTarget<DefinitionValue extends MachineDefinition> =
+  ResourceOf<DefinitionValue> extends infer Operation
+    ? Operation extends OperationDeclaration
+      ? readonly [Operation, OperationKeyOf<Operation>]
+      : never
+    : never;
+
+export type MachineStoreAction<DefinitionValue extends MachineDefinition> =
+  | Readonly<{
+      kind: "invalidate";
+      targets: readonly [
+        MachineStoreTarget<DefinitionValue>,
+        ...MachineStoreTarget<DefinitionValue>[],
+      ];
+    }>
+  | Readonly<{
+      kind: "clear";
+      targets: readonly [
+        MachineStoreTarget<DefinitionValue>,
+        ...MachineStoreTarget<DefinitionValue>[],
+      ];
+    }>;
+
+export type MachineAction<DefinitionValue extends MachineDefinition = MachineDefinition> =
+  | ResourcePlanOf<DefinitionValue>
+  | TransactionPlanOf<DefinitionValue>
+  | MachineStoreAction<DefinitionValue>;
+
+type ResourceActivityPlanOf<DefinitionValue extends MachineDefinition> =
+  ResourceOf<DefinitionValue> extends infer Operation
+    ? Operation extends OperationDeclaration
+      ? OperationMethodResult<Operation, "subscribe">
+      : never
+    : never;
+
+export type MachineActivityPlan<DefinitionValue extends MachineDefinition> =
+  | ResourceActivityPlanOf<DefinitionValue>
+  | StreamPlanOf<DefinitionValue>;
+
+export type MachineActivity<DefinitionValue extends MachineDefinition = MachineDefinition> =
+  MachineActivityPlan<DefinitionValue>;
+
+type MachineActionResult<DefinitionValue extends MachineDefinition> =
+  | MachineAction<DefinitionValue>
+  | readonly MachineAction<DefinitionValue>[]
+  | null;
+
+/*
+ * Component map — authored machine configuration:
+ * EventName/EventValue anchor Transition and EventHandlers to the Definition;
+ * Redirect, Timer, ActivityConfiguration, and the leaf/compound configuration
+ * types preserve the recursive authoring grammar.
+ */
 
 export type EventName<DefinitionValue extends MachineDefinition> = keyof DefinitionValue["E"] &
   string;
@@ -94,7 +215,7 @@ export type EventValue<
   DefinitionValue extends MachineDefinition,
   Name extends EventName<DefinitionValue>,
 > = DefinitionValue["E"][Name] extends (...args: readonly never[]) => infer Result
-  ? Result extends Diagnostic.Result<infer Value>
+  ? Result extends EffectResult.Result<infer Value, Diagnostic.PublicDiagnostic>
     ? Value
     : never
   : never;
@@ -110,7 +231,7 @@ export type Transition<
   ) => Partial<MemoryOf<DefinitionValue>>;
   actions?: (
     input: MachineInput<DefinitionValue, EventValue<DefinitionValue, Name>>,
-  ) => MachineActionResult; // oxlint-disable-line anti-slop/no-nullish-function-contracts -- null intentionally means no action.
+  ) => MachineActionResult<DefinitionValue>;
   reenter?: StateOf<DefinitionValue>;
 }>;
 
@@ -126,10 +247,6 @@ export type Redirect<DefinitionValue extends MachineDefinition> = Readonly<{
   target: StateOf<DefinitionValue>;
 }>;
 
-type RedirectConfiguration<DefinitionValue extends MachineDefinition> =
-  | Redirect<DefinitionValue>
-  | readonly [Redirect<DefinitionValue>, ...Redirect<DefinitionValue>[]];
-
 export type Timer<DefinitionValue extends MachineDefinition> = Readonly<{
   delay: number;
   guard?: (input: TimerInput<DefinitionValue>) => boolean;
@@ -138,18 +255,18 @@ export type Timer<DefinitionValue extends MachineDefinition> = Readonly<{
   actions?: never;
 }>;
 
-type TimerConfiguration<DefinitionValue extends MachineDefinition> = Readonly<
-  Record<string, Timer<DefinitionValue>>
+// oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- authored activity services are indexed by their state-local names.
+type ActivityConfiguration<DefinitionValue extends MachineDefinition> = Readonly<
+  Record<string, MachineActivity<DefinitionValue>>
 >;
-
-// oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- authored activity services intentionally retain their arbitrary domain values.
-type ActivityConfiguration = Readonly<Record<string, MachineActivity>>;
 
 export type MachineStateBehavior<DefinitionValue extends MachineDefinition> = Readonly<{
   on?: EventHandlers<DefinitionValue>;
-  redirect?: RedirectConfiguration<DefinitionValue>;
-  activities?: ActivityConfiguration;
-  timers?: TimerConfiguration<DefinitionValue>;
+  redirect?:
+    | Redirect<DefinitionValue>
+    | readonly [Redirect<DefinitionValue>, ...Redirect<DefinitionValue>[]];
+  activities?: ActivityConfiguration<DefinitionValue>;
+  timers?: Readonly<Record<string, Timer<DefinitionValue>>>;
 }>;
 
 export type MachineNodeConfiguration<DefinitionValue extends MachineDefinition> =
@@ -168,178 +285,283 @@ type MachineCompoundConfiguration<
 > = MachineStateBehavior<DefinitionValue> &
   Readonly<{
     default: DirectStateTokensInTable<Table>;
-    states: StateConfigTable<DefinitionValue, Extract<Table, StateTable>>;
+    states: StateConfigTable<DefinitionValue, Extract<Table, RuntimeStateTable>>;
   }>;
 
 export type MachineConfiguration<DefinitionValue extends MachineDefinition> =
   MachineCompoundConfiguration<DefinitionValue, DefinitionValue["S"]>;
 
-type HasNoExtraKeys<Value, Shape> = Exclude<keyof Value, keyof Shape> extends never ? true : false;
+/*
+ * Component map — configuration exactness and recursive validation:
+ * DirectStateTokensInTable, StateConfigForNode, and StateConfigTable describe
+ * the definition-shaped configuration. The Valid* helpers then preserve exact
+ * keys, optional-property presence, distributive unions, and bounded recursion.
+ */
 
-type HasExactKeys<Value, Shape> =
-  HasNoExtraKeys<Value, Shape> extends true ? HasNoExtraKeys<Shape, Value> : false;
+type DirectStateTokensInTable<Table> = {
+  [Name in keyof Table]: Table[Name] extends StateToken ? Table[Name] : never;
+}[keyof Table] extends never
+  ? string extends keyof Table
+    ? StateToken
+    : never
+  : {
+      [Name in keyof Table]: Table[Name] extends StateToken ? Table[Name] : never;
+    }[keyof Table];
 
-type IsNever<Value> = [Value] extends [never] ? true : false;
+type StateConfigForNode<DefinitionValue extends MachineDefinition, Node> = Node extends StateToken
+  ? MachineLeafConfiguration<DefinitionValue>
+  : Node extends { readonly S: infer Children }
+    ? MachineCompoundConfiguration<DefinitionValue, Children>
+    : never;
+
+type StateConfigTable<
+  DefinitionValue extends MachineDefinition,
+  Table extends RuntimeStateTable,
+> = {
+  readonly [Name in keyof Table]: StateConfigForNode<DefinitionValue, Table[Name]>;
+};
+
+type NoExtra<Value, Shape> = keyof Value extends keyof Shape ? true : false;
+
+type HasNoExtraKeys<Value, Shape> = EveryTrue<Value extends Value ? NoExtra<Value, Shape> : never>;
+
+type ExactKeys<Value, Shape> = NoExtra<Value, Shape> extends true ? NoExtra<Shape, Value> : false;
+
+type HasExactKeys<Value, Shape> = EveryTrue<Value extends Value ? ExactKeys<Value, Shape> : never>;
 
 type EveryTrue<Value> = [Value] extends [true] ? true : false;
 
-type ExactTransition<
+type ValidTransition<
   DefinitionValue extends MachineDefinition,
   Name extends EventName<DefinitionValue>,
   Value,
 > =
   Value extends Transition<DefinitionValue, Name>
-    ? HasNoExtraKeys<Value, Transition<DefinitionValue, Name>> extends true
-      ? Value
-      : never
-    : never;
-
-type TransitionEntryValid<
-  DefinitionValue extends MachineDefinition,
-  Name extends EventName<DefinitionValue>,
-  Value,
-> =
-  Value extends Transition<DefinitionValue, Name>
-    ? IsNever<ExactTransition<DefinitionValue, Name, Value>> extends true
-      ? false
-      : true
+    ? HasNoExtraKeys<Value, Transition<DefinitionValue, Name>>
     : false;
 
-type ExactEventEntry<
+type ValidEventEntry<
   DefinitionValue extends MachineDefinition,
   Name extends EventName<DefinitionValue>,
   Value,
 > =
   Value extends StateOf<DefinitionValue>
-    ? Value
+    ? true
     : Value extends readonly [
           Transition<DefinitionValue, Name>,
           ...Transition<DefinitionValue, Name>[],
         ]
-      ? EveryTrue<TransitionEntryValid<DefinitionValue, Name, Value[number]>> extends true
-        ? Value
-        : never
-      : ExactTransition<DefinitionValue, Name, Value>;
+      ? EveryTrue<ValidTransition<DefinitionValue, Name, Value[number]>>
+      : ValidTransition<DefinitionValue, Name, Value>;
+
+type PresentProperty<Value, Name extends keyof Value> =
+  Pick<Value, Name> extends Required<Pick<Value, Name>>
+    ? Value[Name]
+    : Exclude<Value[Name], undefined>;
 
 type ValidEventHandlers<DefinitionValue extends MachineDefinition, Value> =
   HasNoExtraKeys<Value, EventHandlers<DefinitionValue>> extends true
     ? EveryTrue<
         {
-          [Name in keyof Value]: Name extends EventName<DefinitionValue>
-            ? IsNever<ExactEventEntry<DefinitionValue, Name, Value[Name]>> extends true
-              ? false
-              : true
-            : false;
-        }[keyof Value]
+          [Name in keyof Value & EventName<DefinitionValue>]: ValidEventEntry<
+            DefinitionValue,
+            Name,
+            PresentProperty<Value, Name>
+          >;
+        }[keyof Value & EventName<DefinitionValue>]
       >
     : false;
 
-type ValidOn<DefinitionValue extends MachineDefinition, Value> = [Value] extends [undefined]
-  ? true
-  : ValidEventHandlers<DefinitionValue, Value>;
+type ValidOn<DefinitionValue extends MachineDefinition, Value> = unknown extends Value
+  ? false
+  : [Value] extends [undefined]
+    ? true
+    : ValidEventHandlers<DefinitionValue, Value>;
 
-type ExactTimer<DefinitionValue extends MachineDefinition, Value> =
-  Value extends Timer<DefinitionValue>
-    ? HasNoExtraKeys<Value, Timer<DefinitionValue>> extends true
-      ? Value
-      : never
-    : never;
+type ValidTimer<DefinitionValue extends MachineDefinition, Value> =
+  Value extends Timer<DefinitionValue> ? HasNoExtraKeys<Value, Timer<DefinitionValue>> : false;
 
-type ValidTimers<DefinitionValue extends MachineDefinition, Value> = [Value] extends [undefined]
-  ? true
-  : EveryTrue<
-      {
-        [Name in keyof Value]: IsNever<ExactTimer<DefinitionValue, Value[Name]>> extends true
-          ? false
-          : true;
-      }[keyof Value]
-    >;
+type ValidTimers<DefinitionValue extends MachineDefinition, Value> = unknown extends Value
+  ? false
+  : [Value] extends [undefined]
+    ? true
+    : EveryTrue<
+        {
+          [Name in keyof Value]: ValidTimer<DefinitionValue, PresentProperty<Value, Name>>;
+        }[keyof Value]
+      >;
+
+type ValidRedirect<DefinitionValue extends MachineDefinition, Value> =
+  Value extends Redirect<DefinitionValue>
+    ? HasNoExtraKeys<Value, Redirect<DefinitionValue>>
+    : false;
+
+type RedirectEntry<Value> = Value extends readonly [unknown, ...unknown[]] ? Value[number] : Value;
+
+type ValidRedirects<DefinitionValue extends MachineDefinition, Value> = unknown extends Value
+  ? false
+  : [Value] extends [undefined]
+    ? true
+    : EveryTrue<ValidRedirect<DefinitionValue, RedirectEntry<Value>>>;
+
+type RedirectValueOf<Configuration> = "redirect" extends keyof Configuration
+  ? Configuration extends { readonly redirect?: infer Redirects }
+    ? Redirects
+    : never
+  : undefined;
 
 type ValidNodeBehavior<
   DefinitionValue extends MachineDefinition,
-  Configuration extends MachineNodeConfiguration<DefinitionValue>,
-> =
-  ValidOn<DefinitionValue, Configuration["on"]> extends true
-    ? ValidTimers<DefinitionValue, Configuration["timers"]>
-    : false;
+  Configuration,
+> = Configuration extends Configuration
+  ? ValidOn<
+      DefinitionValue,
+      "on" extends keyof Configuration
+        ? Configuration extends { readonly on?: infer On }
+          ? On
+          : never
+        : undefined
+    > extends true
+    ? ValidRedirects<DefinitionValue, RedirectValueOf<Configuration>> extends true
+      ? ValidTimers<
+          DefinitionValue,
+          "timers" extends keyof Configuration
+            ? Configuration extends { readonly timers?: infer Timers }
+              ? Timers
+              : never
+            : undefined
+        >
+      : false
+    : false
+  : never;
 
 type ValidStateTable<
   DefinitionValue extends MachineDefinition,
-  Table extends StateTable,
+  Table extends RuntimeStateTable,
   Configuration,
-> =
-  Configuration extends Readonly<Record<string, MachineNodeConfiguration<DefinitionValue>>>
+> = EveryTrue<
+  Configuration extends Configuration
     ? HasExactKeys<Configuration, Table> extends true
       ? EveryTrue<
           {
             [Name in keyof Table]: Name extends keyof Configuration
-              ? IsNever<
-                  ValidMachineNode<DefinitionValue, Table[Name], Configuration[Name]>
-                > extends true
-                ? false
-                : true
+              ? ValidMachineNode<DefinitionValue, Table[Name], Configuration[Name]>
               : false;
           }[keyof Table]
         >
       : false
-    : false;
+    : never
+>;
 
-type ValidRootConfiguration<
-  DefinitionValue extends MachineDefinition,
-  Configuration extends MachineConfiguration<DefinitionValue>,
-> =
-  HasNoExtraKeys<Configuration, MachineConfiguration<DefinitionValue>> extends true
+type ValidRootConfiguration<DefinitionValue extends MachineDefinition, Configuration> =
+  HasNoExtraKeys<
+    Configuration,
+    MachineStateBehavior<DefinitionValue> &
+      Readonly<{
+        default: StateToken;
+        states: RuntimeStateTable;
+      }>
+  > extends true
     ? ValidNodeBehavior<DefinitionValue, Configuration> extends true
       ? ValidStateTable<
           DefinitionValue,
-          Extract<DefinitionValue["S"], StateTable>,
-          Configuration["states"]
+          Extract<DefinitionValue["S"], RuntimeStateTable>,
+          Configuration extends Configuration
+            ? Configuration extends { readonly states: infer States }
+              ? States
+              : never
+            : never
         > extends true
         ? Configuration
         : never
       : never
     : never;
 
-type ValidMachineNode<DefinitionValue extends MachineDefinition, Node, Configuration> =
-  Configuration extends StateConfigForNode<DefinitionValue, Node>
-    ? HasNoExtraKeys<Configuration, StateConfigForNode<DefinitionValue, Node>> extends true
-      ? Configuration extends MachineNodeConfiguration<DefinitionValue>
-        ? ValidNodeBehavior<DefinitionValue, Configuration> extends true
-          ? Node extends StateToken
-            ? Configuration
-            : Node extends { readonly S: infer Children }
-              ? Configuration extends { readonly states: infer ChildConfiguration }
-                ? ValidStateTable<
-                    DefinitionValue,
-                    Extract<Children, StateTable>,
-                    ChildConfiguration
-                  > extends true
-                  ? Configuration
-                  : never
-                : never
-              : never
-          : never
-        : never
-      : never
+type ValidMachineNode<
+  DefinitionValue extends MachineDefinition,
+  Node,
+  Configuration,
+> = Node extends StateToken
+  ? ValidMachineNodeConfiguration<
+      DefinitionValue,
+      Node,
+      Configuration,
+      MachineLeafConfiguration<DefinitionValue>
+    >
+  : Node extends { readonly S: infer Children }
+    ? ValidMachineNodeConfiguration<
+        DefinitionValue,
+        Node,
+        Configuration,
+        MachineStateBehavior<DefinitionValue> &
+          Readonly<{
+            default: DirectStateTokensInTable<Extract<Children, RuntimeStateTable>>;
+            states: RuntimeStateTable;
+          }>
+      >
     : never;
+
+type ValidMachineNodeConfiguration<
+  DefinitionValue extends MachineDefinition,
+  Node,
+  Configuration,
+  Shape,
+> =
+  HasNoExtraKeys<Configuration, Shape> extends true
+    ? ValidNodeBehavior<DefinitionValue, Configuration> extends true
+      ? Node extends StateToken
+        ? true
+        : Node extends { readonly S: infer Children }
+          ? Configuration extends { readonly states: infer ChildConfiguration }
+            ? ValidStateTable<
+                DefinitionValue,
+                Extract<Children, RuntimeStateTable>,
+                ChildConfiguration
+              > extends true
+              ? true
+              : false
+            : false
+          : false
+      : false
+    : false;
 
 export type ValidMachineConfiguration<
   DefinitionValue extends MachineDefinition,
-  Configuration extends MachineConfiguration<DefinitionValue>,
+  Configuration,
 > = ValidRootConfiguration<DefinitionValue, Configuration>;
+
+/*
+ * Component map — context and memory registration:
+ * Selection/makeSelection construct the shared registration carrier;
+ * ContextRegistration, MemoryRegistration, OnContext, OnMemory, and
+ * MachineCallback expose the typed registration callbacks and their exact
+ * continuation contracts.
+ */
 
 type ContextSelectionHandler<
   DefinitionValue extends MachineDefinition,
   Value extends DomainValue,
-> = (current: Value, previous: Value | undefined) => EventOf<DefinitionValue> | false | null; // oxlint-disable-line anti-slop/no-nullish-function-contracts -- false and null intentionally suppress an event.
+> = (current: Value, previous: Value | undefined) => EventOf<DefinitionValue> | false | null;
 
-export type ContextRegistration<DefinitionValue extends MachineDefinition> = Readonly<{
-  selector: (input: MachineSelectorInput<DefinitionValue>) => DomainValue;
-  handler(
-    current: DomainValue,
-    previous: DomainValue | undefined, // oxlint-disable-line anti-slop/no-nullish-function-contracts -- previous models selection state.
-  ): EventOf<DefinitionValue> | false | null; // oxlint-disable-line anti-slop/no-nullish-function-contracts -- false and null model control signals.
-}>;
+export type Selection<Input, Output> = {
+  readonly use: <Return>(
+    consume: <Value extends DomainValue>(
+      selector: (input: Input) => Value,
+      handler: (current: Value, previous: Value | undefined) => Output,
+    ) => Return,
+  ) => Return;
+};
+
+// RETURN_TYPE: Contextually types the generic use callback; removing it leaves consume implicitly any (TS7006).
+export const makeSelection = <Input, Value extends DomainValue, Output>(
+  selector: (input: Input) => Value,
+  handler: (current: Value, previous: Value | undefined) => Output,
+): Selection<Input, Output> => ({ use: (consume) => consume(selector, handler) });
+
+export type ContextRegistration<DefinitionValue extends MachineDefinition> = Selection<
+  MachineSelectorInput<DefinitionValue>,
+  EventOf<DefinitionValue> | false | null
+>;
 
 type MemoryView<DefinitionValue extends MachineDefinition> = Readonly<{
   state: StateOf<DefinitionValue>;
@@ -350,34 +572,39 @@ type MemoryView<DefinitionValue extends MachineDefinition> = Readonly<{
   O: DefinitionValue["operations"];
 }>;
 
-type MemoryPlanResult = MachineAction | false | null;
+type MemoryPlanResult<DefinitionValue extends MachineDefinition> =
+  | MachineActivity<DefinitionValue>
+  | false
+  | null;
 
 export type MemoryHandler<DefinitionValue extends MachineDefinition> = (
   input: MemoryView<DefinitionValue>,
-) => MemoryPlanResult; // oxlint-disable-line anti-slop/no-nullish-function-contracts -- null intentionally means no memory action.
+) => MemoryPlanResult<DefinitionValue>;
 
-export type MemorySelectionHandler<Value extends DomainValue> = (
+export type MemorySelectionHandler<
+  DefinitionValue extends MachineDefinition,
+  Value extends DomainValue,
+> = (
   current: Value,
-  previous: Value | undefined, // oxlint-disable-line anti-slop/no-nullish-function-contracts -- previous models selection state.
-) => MemoryPlanResult; // oxlint-disable-line anti-slop/no-nullish-function-contracts -- null models a control signal.
+  previous: Value | undefined,
+) => MachineActivity<DefinitionValue> | false | null;
 
 type MemoryHandlerRegistration<DefinitionValue extends MachineDefinition> = {
   readonly kind: "handler";
   readonly handler: MemoryHandler<DefinitionValue>;
 };
 
-type MemorySelectionRegistration<
-  DefinitionValue extends MachineDefinition,
-  Value extends DomainValue,
-> = {
-  readonly kind: "selection";
-  readonly selector: (input: MachineSelectorInput<DefinitionValue>) => Value;
-  handler(current: Value, previous: Value | undefined): MemoryPlanResult; // oxlint-disable-line anti-slop/no-nullish-function-contracts -- previous models selection state.
-};
+type MemorySelectionRegistration<DefinitionValue extends MachineDefinition> = Selection<
+  MachineSelectorInput<DefinitionValue>,
+  MemoryPlanResult<DefinitionValue>
+> &
+  Readonly<{
+    kind: "selection";
+  }>;
 
 export type MemoryRegistration<DefinitionValue extends MachineDefinition> =
   | MemoryHandlerRegistration<DefinitionValue>
-  | MemorySelectionRegistration<DefinitionValue, DomainValue>;
+  | MemorySelectionRegistration<DefinitionValue>;
 
 type OnContext<DefinitionValue extends MachineDefinition> = Readonly<{
   select: <const Value extends DomainValue>(
@@ -390,7 +617,7 @@ export type OnMemory<DefinitionValue extends MachineDefinition> = {
   (handler: MemoryHandler<DefinitionValue>): void;
   select: <const Value extends DomainValue>(
     selector: (input: MachineSelectorInput<DefinitionValue>) => Value,
-    handler: MemorySelectionHandler<Value>,
+    handler: MemorySelectionHandler<DefinitionValue, Value>,
   ) => void;
 };
 
@@ -400,9 +627,20 @@ export type MachineCallback<DefinitionValue extends MachineDefinition> = Readonl
   O: DefinitionValue["operations"];
   onContext: OnContext<DefinitionValue>;
   onMemory: OnMemory<DefinitionValue>;
-  invalidate: (...targets: readonly DomainValue[]) => MachineAction;
-  clear: (...targets: readonly DomainValue[]) => MachineAction;
+  invalidate: (
+    ...targets: [MachineStoreTarget<DefinitionValue>, ...MachineStoreTarget<DefinitionValue>[]]
+  ) => MachineAction<DefinitionValue>;
+  clear: (
+    ...targets: [MachineStoreTarget<DefinitionValue>, ...MachineStoreTarget<DefinitionValue>[]]
+  ) => MachineAction<DefinitionValue>;
 }>;
+
+/*
+ * Component map — compiled state and machine output:
+ * CompiledTransition, CompiledRedirect, CompiledTimer, CompiledState, and
+ * CompiledMachine are the static output vocabulary produced by compilation;
+ * their private base/handler types retain the authored Definition parameter.
+ */
 
 export type CompiledTransition<
   DefinitionValue extends MachineDefinition = MachineDefinition,
@@ -422,33 +660,37 @@ type CompiledHandlers<DefinitionValue extends MachineDefinition> = Partial<{
 export type CompiledTimer<DefinitionValue extends MachineDefinition = MachineDefinition> =
   Timer<DefinitionValue>;
 
+type CompiledStateBase<DefinitionValue extends MachineDefinition> = Readonly<{
+  path: string;
+  handlers: CompiledHandlers<DefinitionValue>;
+  redirects: readonly CompiledRedirect<DefinitionValue>[];
+  activities: ActivityConfiguration<DefinitionValue>;
+  timers: Readonly<Record<string, CompiledTimer<DefinitionValue>>>;
+}>;
+
+type CompiledLeafState<DefinitionValue extends MachineDefinition> =
+  CompiledStateBase<DefinitionValue> &
+    Readonly<{
+      kind: "leaf";
+      state: StateOf<DefinitionValue>;
+      children: readonly [];
+    }>;
+
+type CompiledCompoundState<DefinitionValue extends MachineDefinition> =
+  CompiledStateBase<DefinitionValue> &
+    Readonly<{
+      kind: "compound";
+      default: StateOf<DefinitionValue>;
+      children: readonly string[];
+    }>;
+
 export type CompiledState<DefinitionValue extends MachineDefinition = MachineDefinition> =
-  Readonly<{
-    path: string;
-    kind: "leaf" | "compound";
-    state?: StateToken;
-    default?: StateToken;
-    children: readonly string[];
-    handlers: Readonly<CompiledHandlers<DefinitionValue>>;
-    redirects: readonly CompiledRedirect<DefinitionValue>[];
-    activities: ActivityConfiguration;
-    timers: Readonly<Record<string, CompiledTimer<DefinitionValue>>>;
-  }>;
+  | CompiledLeafState<DefinitionValue>
+  | CompiledCompoundState<DefinitionValue>;
 
 export type CompiledMachine<DefinitionValue extends MachineDefinition = MachineDefinition> =
   Readonly<{
     states: Readonly<Record<string, CompiledState<DefinitionValue>>>;
     context: readonly ContextRegistration<DefinitionValue>[];
     memory: readonly MemoryRegistration<DefinitionValue>[];
-  }>;
-
-export type Machine<
-  DefinitionValue extends MachineDefinition = MachineDefinition,
-  Configuration extends MachineConfiguration<DefinitionValue> =
-    MachineConfiguration<DefinitionValue>,
-> = DefinitionValue &
-  Readonly<{
-    definition: DefinitionValue;
-    config: Configuration;
-    compiled: CompiledMachine<DefinitionValue>;
   }>;

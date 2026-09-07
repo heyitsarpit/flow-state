@@ -4,11 +4,11 @@ export type Utf8Failure = "lone-surrogate" | "too-large";
 
 const utf8Encoder = new TextEncoder();
 
-const isHighSurrogate = (code: number): boolean => code >= 0xd800 && code <= 0xdbff;
+const isHighSurrogate = (code: number) => code >= 0xd800 && code <= 0xdbff;
 
-const isLowSurrogate = (code: number): boolean => code >= 0xdc00 && code <= 0xdfff;
+const isLowSurrogate = (code: number) => code >= 0xdc00 && code <= 0xdfff;
 
-export const isWellFormedFallback = (value: string): boolean => {
+export const isWellFormedFallback = (value: string) => {
   for (let index = 0; index < value.length; index += 1) {
     const code = value.charCodeAt(index);
     if (isLowSurrogate(code)) return false;
@@ -19,18 +19,14 @@ export const isWellFormedFallback = (value: string): boolean => {
   return true;
 };
 
-export const isWellFormedText = (value: string): boolean => {
+export const isWellFormedText = (value: string) => {
   const native = Object.getOwnPropertyDescriptor(String.prototype, "isWellFormed")?.value;
   return Predicate.isFunction(native) ? Boolean(native.call(value)) : isWellFormedFallback(value);
 };
 
-export const utf8EncodedByteLength = (value: string): number =>
-  utf8Encoder.encode(value).byteLength;
+export const utf8EncodedByteLength = (value: string) => utf8Encoder.encode(value).byteLength;
 
-export const utf8ByteLength = (
-  value: string,
-  maximumBytes: number,
-): Result.Result<number, Utf8Failure> => {
+export const utf8ByteLength = (value: string, maximumBytes: number) => {
   if (!isWellFormedText(value)) return Result.fail("lone-surrogate");
 
   const byteLength = utf8EncodedByteLength(value);

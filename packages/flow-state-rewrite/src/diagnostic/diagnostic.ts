@@ -1,76 +1,82 @@
-import {
-  Array,
-  Effect,
-  flow,
-  Predicate,
-  Result as EffectResult,
-  Schema,
-  SchemaIssue,
-} from "effect";
+import { Array, flow, Predicate, Schema, SchemaIssue } from "effect";
 
 import { Code } from "./codes.js";
+import type { FailureCode } from "./codes.js";
 import { print } from "./render.js";
 
+/*
+ * Diagnostics:
+ *
+ * Canonical schema and carrier
+ *
+ * Construction:
+ *   Failure, Defect, Interrupt
+ *
+ * Schema failure projection:
+ *   schemaIssuePath, fromSchemaError
+ *
+ * Rendering export:
+ *   print
+ */
+
+// Canonical schema and carrier
+const Classification = Schema.Literals(["Failure", "Defect", "Interruption"] as const);
+
 /**
- * The one typed failure value. It is simultaneously an Error, a Schema
- * codec, and a directly yield-able Effect failure.
+ * The one canonical diagnostic carrier. It is simultaneously an Error, a
+ * Schema codec, and a directly yield-able Effect failure.
  */
 /* oxlint-disable-next-line anti-slop/no-parallel-diagnostic-errors -- this is the sole canonical Schema.TaggedError. */
-export class Error extends Schema.TaggedError<Error>("Diagnostic")("Diagnostic", {
-  code: Code,
-  path: Schema.Array(Schema.Union([Schema.String, Schema.Finite])),
-  details: Schema.Record(
-    Schema.String,
-    Schema.Union([Schema.String, Schema.Finite, Schema.Boolean, Schema.Null]),
-  ),
-  summary: Schema.String,
-  help: Schema.String,
-}) {
-  override get message(): string {
+export class Diagnostic extends Schema.TaggedError<Diagnostic>("flow-state/Diagnostic")(
+  "Diagnostic",
+  {
+    classification: Classification,
+    code: Code,
+    path: Schema.Array(Schema.Union([Schema.String, Schema.Finite])),
+    details: Schema.Record(
+      Schema.String,
+      Schema.Union([Schema.String, Schema.Finite, Schema.Boolean, Schema.Null]),
+    ),
+    summary: Schema.String,
+    help: Schema.String,
+  },
+) {
+  override get message() {
     return print(this);
   }
 
-  override toString(): string {
+  override toString() {
     return this.message;
   }
 }
 
-export type Path = Error["path"];
+export type Path = Diagnostic["path"];
 
-export type Details = Error["details"];
+export type Details = Diagnostic["details"];
 
-/** A local pure success/failure value with the canonical diagnostic failure. */
-export type Result<A> = EffectResult.Result<A, Error>;
+export type FailureFields = Omit<
+  Pick<Diagnostic, "code" | "path" | "details" | "summary" | "help">,
+  "code"
+> & {
+  readonly code: FailureCode;
+};
 
-const schemaIssueFormatter = SchemaIssue.makeFormatterStandardSchemaV1();
+/** The public failure projection omits the internal classification field. */
+export type PublicDiagnostic = Omit<Diagnostic, "classification">;
 
-const isStringOrNumber = Predicate.or(Predicate.isString, Predicate.isNumber);
-
-const schemaIssuePath = flow(
-  schemaIssueFormatter,
-  ({ issues }) => issues.find(({ path }) => path !== undefined && path.length > 0)?.path ?? [],
-  Array.map((segment) => (Predicate.isObject(segment) ? segment.key : segment)),
-  Array.map((segment) => (Predicate.isSymbol(segment) ? String(segment) : segment)),
-  Array.filter(isStringOrNumber),
-);
-
-/** Converts an Effect Schema failure into the canonical typed failure. */
-export const fromSchemaError = (error: Schema.SchemaError): Error =>
-  new Error({
-    code: "SchemaValidation",
-    path: schemaIssuePath(error.issue),
-    details: { issue: error.issue._tag },
-    summary: "Schema validation failed",
-    help: "Fix the value at the reported path.",
-  });
+// Construction
+/** Constructs the expected typed-failure projection and injects its classification. */
+export const Failure = (fields: FailureFields) =>
+  new Diagnostic({ ...fields, classification: "Failure" });
 
 /**
  * Converts one unexpected defect into a generic, safe diagnostic. The native
  * Error `cause` keeps the original value off the schema and renderer fields.
  */
-export const panic = (defect: unknown): Error => {
-  const error = new Error({
-    code: "Panic",
+export const Defect = (defect: unknown) => {
+  const error = new Diagnostic({
+    classification: "Defect",
+    code: "Defect",
     path: [],
     details: {},
     summary: "Unexpected runtime defect",
@@ -84,13 +90,42 @@ export const panic = (defect: unknown): Error => {
   return error;
 };
 
-/**
- * Re-emits failed Effects without changing their Cause. Typed diagnostics
- * retain identity, defects remain defects, and interruption remains Effect
- * cancellation.
- */
-export const catchPanic = <A, R>(effect: Effect.Effect<A, Error, R>): Effect.Effect<A, Error, R> =>
-  Effect.catchCause(effect, (cause) => Effect.failCause(cause));
+/** Constructs the standard interruption projection. */
+export const Interrupt = () =>
+  new Diagnostic({
+    classification: "Interruption",
+    code: "Interruption",
+    path: [],
+    details: {},
+    summary: "Operation interrupted",
+    help: "Retry the operation.",
+  });
 
+const schemaIssueFormatter = SchemaIssue.makeFormatterStandardSchemaV1();
+
+const isStringOrNumber = Predicate.or(Predicate.isString, Predicate.isNumber);
+
+const schemaIssuePath = flow(
+  schemaIssueFormatter,
+  ({ issues }) => issues.find(({ path }) => path !== undefined && path.length > 0)?.path ?? [],
+  Array.map((segment) => {
+    const key = Predicate.isObject(segment) ? segment.key : segment;
+    return Predicate.isSymbol(key) ? String(key) : key;
+  }),
+  Array.filter(isStringOrNumber),
+);
+
+/** Converts an Effect Schema failure into the canonical typed failure. */
+export const fromSchemaError = (error: Schema.SchemaError) =>
+  Failure({
+    code: "SchemaValidation",
+    path: schemaIssuePath(error.issue),
+    details: { issue: error.issue._tag },
+    summary: "Schema validation failed",
+    help: "Fix the value at the reported path.",
+  });
+
+// Rendering export
 export { Code } from "./codes.js";
+export type { DiagnosticCode, FailureCode } from "./codes.js";
 export { print } from "./render.js";

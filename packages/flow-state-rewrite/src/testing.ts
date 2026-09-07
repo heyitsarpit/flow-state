@@ -1,1 +1,3 @@
-export { FlowStoryExecutionError, behavior, fixture, model, story } from "./public/testing.js";
+// Deferred testing route: the Story owner will restore these exports with their proofs.
+// FlowStoryExecutionError, behavior, fixture, model, story
+export {};

@@ -1,3 +1,3 @@
-export function scaffoldNotImplemented(name: string): never {
-  throw new Error(`${name} is not implemented`);
-}
+// This path is retained for future real route-owner restoration.
+
+export {};

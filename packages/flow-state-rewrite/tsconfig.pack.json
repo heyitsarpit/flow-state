@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "declaration": true,
+    "declarationMap": false,
+    "jsx": "react-jsx",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "noEmit": false,
+    "rootDir": "./src",
+    "strict": true,
+    "target": "ES2024"
+  },
+  "include": ["src/index.ts", "src/react-entry.ts", "src/testing.ts", "src/inspect.ts"]
+}

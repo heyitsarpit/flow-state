@@ -1,499 +1,307 @@
-import { Predicate, Result, Struct } from "effect";
+import { Option, Result } from "effect";
 
-import {
-  definitionMetadata,
-  type StateMetadata,
-} from "../definition/metadata.js";
 import type { StateOf } from "../definition/domain.js";
-import * as Diagnostic from "../diagnostic/diagnostic.js";
+import type * as Diagnostic from "../diagnostic/diagnostic.js";
+import {
+  admitStateBehavior,
+  admitStateConfiguration,
+  configurationPath,
+  invalidConfiguration,
+} from "./admission.js";
+import type { AdmittedStateBehavior, StateBehaviorConfiguration } from "./admission.js";
 import { invalidMachineConfigurationDiagnostic } from "./diagnostic.js";
+import { readTokenText } from "./reflection.js";
 import type {
   CompiledMachine,
   CompiledState,
-  CompiledTimer,
-  CompiledTransition,
   ContextRegistration,
-  EventName,
-  MachineActivity,
   MachineDefinition,
   MachineNodeConfiguration,
-  MachineStateBehavior,
   MemoryRegistration,
-  Redirect,
+  StateNode,
   Timer,
-  Transition,
+  TokenLookup,
 } from "./grammar.js";
+
+/*
+ * Compilation:
+ *
+ * Definition indexing:
+ *   indexDefinition, buildStateNodes, tokenLookup
+ *
+ * Structural admission:
+ *   admitStructure, validateStateToken
+ *   Completes the entire configuration tree before behavior resolution.
+ *
+ * Behavior resolution:
+ *   resolveBehavior, validateEventToken
+ *   Produces a trusted tree in preorder.
+ *
+ * Emission:
+ *   emitStates
+ *   Builds the published state index without expected validation failures.
+ *
+ * Assembly:
+ *   compileMachine
+ *   Publishes the index and copies collected registrations.
+ */
 
 type StatePath = readonly string[];
 
-type CompileResult<Value> = Diagnostic.Result<Value>;
-
-const isConfigurationRecord = <DefinitionValue extends MachineDefinition>(
-  value: unknown,
-): value is MachineNodeConfiguration<DefinitionValue> =>
-  Predicate.isObject(value) && !Array.isArray(value);
-
-const propertyName = (key: PropertyKey): string => String(key);
-
-const readDataProperty = <Value>(value: object, key: string): Value | undefined => {
-  const descriptor = Object.getOwnPropertyDescriptor(value, key);
-  return descriptor !== undefined && "value" in descriptor
-    ? (descriptor.value as Value)
-    : undefined;
+type MachineSymbols<DefinitionValue extends MachineDefinition> = {
+  readonly stateTokens: TokenLookup<StateOf<DefinitionValue>>;
+  readonly eventTokens: TokenLookup<Timer<DefinitionValue>["target"]>;
+  readonly events: DefinitionValue["E"];
+  readonly operations: DefinitionValue["operations"];
 };
 
-const stateDisplayPath = (path: StatePath): string =>
-  path.length === 0 ? "" : `S.${path.join(".S.")}`;
+type StateTree<DefinitionValue extends MachineDefinition, Behavior> =
+  | {
+      readonly kind: "leaf";
+      readonly path: StatePath;
+      readonly token: StateOf<DefinitionValue>;
+      readonly behavior: Behavior;
+    }
+  | {
+      readonly kind: "compound";
+      readonly path: StatePath;
+      readonly default: StateOf<DefinitionValue>;
+      readonly behavior: Behavior;
+      readonly children: readonly StateTree<DefinitionValue, Behavior>[];
+    };
 
-const stateKey = (path: StatePath): string => {
-  const display = stateDisplayPath(path);
-  return path.every((segment) => !/[.[\]]/u.test(segment) && segment !== "S")
-    ? display
-    : `@${JSON.stringify(path)}`;
+type StructuredState<DefinitionValue extends MachineDefinition> = StateTree<
+  DefinitionValue,
+  StateBehaviorConfiguration
+>;
+
+type ResolvedState<DefinitionValue extends MachineDefinition> = StateTree<
+  DefinitionValue,
+  AdmittedStateBehavior<DefinitionValue>
+>;
+
+// Definition indexing
+
+const tokenLookup =
+  <Token>(tokens: ReadonlyMap<unknown, Token>) =>
+  (value: unknown) =>
+    Option.fromNullishOr(tokens.get(value));
+
+// RETURN_TYPE: Recursive child construction needs an explicit array type to anchor StateNode inference.
+const buildStateNodes = <DefinitionValue extends MachineDefinition>(
+  table: DefinitionValue["S"],
+  parentPath: StatePath,
+  tokens: Map<unknown, StateOf<DefinitionValue>>,
+): readonly StateNode<DefinitionValue>[] =>
+  Object.entries(table).map(([name, value]) => {
+    const path = [...parentPath, name];
+    if ("kind" in value) {
+      // SAFETY: this token is read directly from the admitted Definition.S table.
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- Definition.S admission owns this exact state-token identity; the generic table view cannot retain the leaf union.
+      const token = value as StateOf<DefinitionValue>;
+      tokens.set(value, token);
+      return { kind: "leaf", name, path, token, children: [] } satisfies StateNode<DefinitionValue>;
+    }
+    return {
+      kind: "compound",
+      name,
+      path,
+      children: buildStateNodes<DefinitionValue>(value.S, path, tokens),
+    } satisfies StateNode<DefinitionValue>;
+  });
+
+const indexDefinition = <DefinitionValue extends MachineDefinition>(
+  definition: DefinitionValue,
+) => {
+  const stateTokenIndex = new Map<unknown, StateOf<DefinitionValue>>();
+  const root: StateNode<DefinitionValue> = {
+    kind: "compound",
+    name: "",
+    path: [],
+    children: buildStateNodes<DefinitionValue>(definition.S, [], stateTokenIndex),
+  };
+
+  // SAFETY: Definition.E is the exact event-token registry for this Definition identity.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the admitted registry's generic Object.values view widens its exact event-token values.
+  const registeredEvents = Object.values(definition.E) as Timer<DefinitionValue>["target"][];
+  const eventTokenIndex = new Map<unknown, Timer<DefinitionValue>["target"]>();
+  for (const event of registeredEvents) eventTokenIndex.set(event, event);
+
+  return {
+    root,
+    symbols: {
+      stateTokens: tokenLookup(stateTokenIndex),
+      eventTokens: tokenLookup(eventTokenIndex),
+      events: definition.E,
+      operations: definition.operations,
+    } satisfies MachineSymbols<DefinitionValue>,
+  };
 };
 
-const configurationPath = (
-  path: StatePath,
-  suffix: readonly (string | number)[],
-): Diagnostic.Path =>
-  path
-    .reduce<Diagnostic.Path>((result, segment) => [...result, "states", segment], [])
-    .concat(suffix);
+// Structural admission
 
-const invalidTimerDelay = (path: Diagnostic.Path): CompileResult<never> =>
-  Result.fail(
-    invalidMachineConfigurationDiagnostic("InvalidTimerDelay", path, {
-      constraint: "finite-non-negative",
-    }),
+const isForeignStateToken = (value: unknown) => {
+  const kind = readTokenText(value, "kind");
+  if (Result.isFailure(kind) || Option.isNone(kind.success) || kind.success.value !== "state")
+    return false;
+  const id = readTokenText(value, "id");
+  const name = readTokenText(value, "name");
+  return (
+    Result.isSuccess(id) &&
+    Option.isSome(id.success) &&
+    Result.isSuccess(name) &&
+    Option.isSome(name.success)
   );
-
-const invalidConfigurationKey = (
-  reason:
-    | "ExtraStateConfigurationKey"
-    | "ExtraTransitionKey"
-    | "ExtraTimerKey"
-    | "ForbiddenTimerActions"
-    | "UnexpectedConfigurationField",
-  path: Diagnostic.Path,
-  key: PropertyKey,
-): CompileResult<never> =>
-  Result.fail(
-    invalidMachineConfigurationDiagnostic(reason, [...path, propertyName(key)], {
-      key: propertyName(key),
-    }),
-  );
-
-const invalidConfiguration = (
-  reason: Parameters<typeof invalidMachineConfigurationDiagnostic>[0],
-  path: Diagnostic.Path,
-  details: Diagnostic.Details = {},
-): CompileResult<never> =>
-  Result.fail(invalidMachineConfigurationDiagnostic(reason, path, details));
-
-const validateExactDataKeys = (
-  value: object,
-  path: Diagnostic.Path,
-  allowedKeys: readonly string[],
-  extraKeyReason:
-    | "ExtraStateConfigurationKey"
-    | "ExtraTransitionKey"
-    | "ExtraTimerKey"
-    | "UnexpectedConfigurationField",
-): CompileResult<void> => {
-  for (const key of Reflect.ownKeys(value)) {
-    if (typeof key !== "string" || !allowedKeys.includes(key))
-      return invalidConfigurationKey(extraKeyReason, path, key);
-
-    const descriptor = Object.getOwnPropertyDescriptor(value, key);
-    if (descriptor === undefined || !("value" in descriptor) || descriptor.enumerable !== true)
-      return invalidConfigurationKey("UnexpectedConfigurationField", path, key);
-  }
-  return Result.succeed(undefined);
 };
-
-const collectStateTokens = (node: StateMetadata, tokens: Set<object>): void => {
-  if (node.token !== undefined) tokens.add(node.token);
-  for (const child of node.children) collectStateTokens(child, tokens);
-};
-
-const isOwnedStateToken = <DefinitionValue extends MachineDefinition>(
-  tokens: ReadonlySet<object>,
-  value: unknown,
-): value is StateOf<DefinitionValue> => Predicate.isObject(value) && tokens.has(value);
 
 const validateStateToken = <DefinitionValue extends MachineDefinition>(
-  tokens: ReadonlySet<object>,
+  tokens: TokenLookup<StateOf<DefinitionValue>>,
   value: unknown,
   path: Diagnostic.Path,
-): CompileResult<StateOf<DefinitionValue>> =>
-  isOwnedStateToken<DefinitionValue>(tokens, value)
-    ? Result.succeed(value)
-    : Result.fail(
-        invalidMachineConfigurationDiagnostic("InvalidStateToken", path, {
-          issue: "definition-identity",
-        }),
-      );
-
-const isStateToken = <DefinitionValue extends MachineDefinition>(
-  tokens: ReadonlySet<object>,
-  value: unknown,
-): value is StateOf<DefinitionValue> => isOwnedStateToken<DefinitionValue>(tokens, value);
-
-const compileTransition = <
-  DefinitionValue extends MachineDefinition,
-  Name extends EventName<DefinitionValue>,
->(
-  value: unknown,
-  path: Diagnostic.Path,
-  stateTokens: ReadonlySet<object>,
-): CompileResult<CompiledTransition<DefinitionValue, Name>> => {
-  return Result.gen(function* () {
-    if (isStateToken<DefinitionValue>(stateTokens, value)) return { target: value };
-    if (!isConfigurationRecord<DefinitionValue>(value))
-      return yield* invalidConfiguration("ExpectedTransition", path);
-    if (readDataProperty(value, "kind") === "state")
-      return yield* invalidConfiguration("InvalidStateToken", path, {
-        issue: "definition-identity",
-      });
-
-    yield* validateExactDataKeys(
-      value,
+) =>
+  Result.fromOption(tokens(value), () => {
+    const foreign = isForeignStateToken(value);
+    return invalidMachineConfigurationDiagnostic(
+      foreign ? "UnknownStateToken" : "InvalidStateToken",
       path,
-      ["target", "guard", "updateMemory", "actions", "reenter"],
-      "ExtraTransitionKey",
+      { issue: foreign ? "foreign-definition" : "definition-identity" },
     );
-    if (!Object.hasOwn(value, "target"))
-      return yield* invalidConfiguration("TransitionObjectRequired", path);
-
-    const target = yield* validateStateToken<DefinitionValue>(
-      stateTokens,
-      readDataProperty(value, "target"),
-      [...path, "target"],
-    );
-    const guard = readDataProperty<CompiledTransition<DefinitionValue, Name>["guard"]>(
-      value,
-      "guard",
-    );
-    const updateMemory = readDataProperty<
-      CompiledTransition<DefinitionValue, Name>["updateMemory"]
-    >(value, "updateMemory");
-    const actions = readDataProperty<CompiledTransition<DefinitionValue, Name>["actions"]>(
-      value,
-      "actions",
-    );
-    const reenter = readDataProperty<CompiledTransition<DefinitionValue, Name>["reenter"]>(
-      value,
-      "reenter",
-    );
-    for (const [key, callback] of [
-      ["guard", guard],
-      ["updateMemory", updateMemory],
-      ["actions", actions],
-    ] as const) {
-      if (callback !== undefined && !Predicate.isFunction(callback))
-        return yield* invalidConfiguration("ExpectedFunction", [...path, key], { field: key });
-    }
-    const validReenter =
-      reenter === undefined
-        ? undefined
-        : yield* validateStateToken<DefinitionValue>(stateTokens, reenter, [...path, "reenter"]);
-    return {
-      target,
-      ...(guard === undefined ? {} : { guard }),
-      ...(updateMemory === undefined ? {} : { updateMemory }),
-      ...(actions === undefined ? {} : { actions }),
-      ...(validReenter === undefined ? {} : { reenter: validReenter }),
-    } satisfies CompiledTransition<DefinitionValue, Name>;
-  });
-};
-
-type EventEntry<
-  DefinitionValue extends MachineDefinition,
-  Name extends EventName<DefinitionValue>,
-> =
-  | StateOf<DefinitionValue>
-  | Transition<DefinitionValue, Name>
-  | readonly [Transition<DefinitionValue, Name>, ...Transition<DefinitionValue, Name>[]];
-
-const isTransitionList = <
-  DefinitionValue extends MachineDefinition,
-  Name extends EventName<DefinitionValue>,
->(
-  value: EventEntry<DefinitionValue, Name>,
-): value is readonly [Transition<DefinitionValue, Name>, ...Transition<DefinitionValue, Name>[]] =>
-  Array.isArray(value);
-
-const compileEventEntry = <
-  DefinitionValue extends MachineDefinition,
-  Name extends EventName<DefinitionValue>,
->(
-  value: EventEntry<DefinitionValue, Name>,
-  path: Diagnostic.Path,
-  stateTokens: ReadonlySet<object>,
-): CompileResult<readonly CompiledTransition<DefinitionValue, Name>[]> => {
-  const list = isTransitionList(value);
-  const entries = list ? value : [value];
-  return Result.gen(function* () {
-    const transitions: CompiledTransition<DefinitionValue, Name>[] = [];
-    for (const [index, entry] of entries.entries()) {
-      transitions.push(
-        yield* compileTransition<DefinitionValue, Name>(
-          entry,
-          list ? [...path, index] : path,
-          stateTokens,
-        ),
-      );
-    }
-    return transitions;
-  });
-};
-
-const compileHandlers = <DefinitionValue extends MachineDefinition>(
-  behavior: MachineStateBehavior<DefinitionValue>,
-  path: StatePath,
-  stateTokens: ReadonlySet<object>,
-): CompileResult<
-  Readonly<Partial<{
-    [Name in EventName<DefinitionValue>]: readonly CompiledTransition<DefinitionValue, Name>[];
-  }>>
-> => {
-  const handlers: Partial<
-    {
-      [Name in EventName<DefinitionValue>]: readonly CompiledTransition<DefinitionValue, Name>[];
-    }
-  > = Object.create(null);
-  if (behavior.on === undefined) return Result.succeed(handlers);
-  const on = behavior.on;
-
-  return Result.gen(function* () {
-    for (const name of Struct.keys(on)) {
-      const entry = on[name];
-      if (entry === undefined) continue;
-      Object.assign(handlers, {
-        [name]: yield* compileEventEntry<DefinitionValue, typeof name>(
-          entry,
-          configurationPath(path, ["on", name]),
-          stateTokens,
-        ),
-      });
-    }
-    return handlers;
-  });
-};
-
-const collectOwnHandlers = <DefinitionValue extends MachineDefinition>(
-  node: StateMetadata,
-  configuration: MachineNodeConfiguration<DefinitionValue>,
-  inheritedHandlers: ReadonlySet<string>,
-): CompileResult<ReadonlySet<string>> =>
-  Result.gen(function* () {
-    const ownHandlers = new Set<string>();
-    if (configuration.on === undefined) return ownHandlers;
-
-    for (const name of Struct.keys(configuration.on)) {
-      if (inheritedHandlers.has(name)) {
-        return yield* Result.fail(
-          invalidMachineConfigurationDiagnostic(
-            "AmbiguousHandler",
-            configurationPath(node.path, []),
-            {
-              event: name,
-            },
-          ),
-        );
-      }
-      ownHandlers.add(name);
-    }
-    return ownHandlers;
   });
 
-const compileRedirects = <DefinitionValue extends MachineDefinition>(
-  behavior: MachineStateBehavior<DefinitionValue>,
-  path: StatePath,
-  stateTokens: ReadonlySet<object>,
-): CompileResult<readonly Redirect<DefinitionValue>[]> =>
-  Result.gen(function* () {
-    if (behavior.redirect === undefined) return [];
-    const redirects = Array.isArray(behavior.redirect) ? behavior.redirect : [behavior.redirect];
-    if (redirects.length === 0)
-      return yield* invalidConfiguration("EmptyRedirectList", configurationPath(path, ["redirect"]));
-
-    const compiled: Redirect<DefinitionValue>[] = [];
-    for (const [index, value] of redirects.entries()) {
-      const redirectPath = configurationPath(
-        path,
-        ["redirect", ...(Array.isArray(behavior.redirect) ? [index] : [])],
-      );
-      if (!isConfigurationRecord<DefinitionValue>(value))
-        return yield* invalidConfiguration("ExpectedRedirect", redirectPath);
-      yield* validateExactDataKeys(
-        value,
-        redirectPath,
-        ["when", "target"],
-        "UnexpectedConfigurationField",
-      );
-      if (!Object.hasOwn(value, "when") || !Object.hasOwn(value, "target"))
-        return yield* invalidConfiguration("ExpectedRedirect", redirectPath);
-
-      const when = readDataProperty<Redirect<DefinitionValue>["when"]>(value, "when");
-      if (!Predicate.isFunction(when))
-        return yield* invalidConfiguration("ExpectedFunction", [...redirectPath, "when"], {
-          field: "when",
-        });
-      const target = yield* validateStateToken<DefinitionValue>(
-        stateTokens,
-        readDataProperty(value, "target"),
-        [...redirectPath, "target"],
-      );
-      compiled.push({ when, target });
-    }
-    return compiled;
-  });
-
-const compileTimer = <DefinitionValue extends MachineDefinition>(
-  timer: Timer<DefinitionValue>,
-  path: Diagnostic.Path,
-): CompileResult<CompiledTimer<DefinitionValue>> => {
-  if (!Number.isFinite(timer.delay) || timer.delay < 0)
-    return invalidTimerDelay([...path, "delay"]);
-  for (const key of Object.keys(timer)) {
-    if (key === "actions") return invalidConfigurationKey("ForbiddenTimerActions", path, key);
-    if (!["delay", "guard", "target", "updateMemory"].some((name) => name === key))
-      return invalidConfigurationKey("ExtraTimerKey", path, key);
-  }
-  return Result.succeed({
-    delay: timer.delay,
-    target: timer.target,
-    ...(timer.guard === undefined ? {} : { guard: timer.guard }),
-    ...(timer.updateMemory === undefined ? {} : { updateMemory: timer.updateMemory }),
-  } satisfies CompiledTimer<DefinitionValue>);
-};
-
-const compileActivities = <DefinitionValue extends MachineDefinition>(
-  behavior: MachineStateBehavior<DefinitionValue>,
-): CompiledState<DefinitionValue>["activities"] => {
-  const activities: Record<string, MachineActivity> = Object.create(null);
-  if (behavior.activities === undefined) return activities;
-  for (const [name, value] of Object.entries(behavior.activities)) activities[name] = value;
-  return activities;
-};
-
-const compileTimers = <DefinitionValue extends MachineDefinition>(
-  behavior: MachineStateBehavior<DefinitionValue>,
-  path: StatePath,
-): CompileResult<CompiledState<DefinitionValue>["timers"]> => {
-  const timers: Record<string, CompiledTimer<DefinitionValue>> = Object.create(null);
-  if (behavior.timers === undefined) return Result.succeed(timers);
-  for (const [name, value] of Object.entries(behavior.timers)) {
-    const timer = compileTimer(value, [...configurationPath(path, ["timers", name])]);
-    if (Result.isFailure(timer)) return Result.fail(timer.failure);
-    timers[name] = timer.success;
-  }
-  return Result.succeed(timers);
-};
-
-const compileBehavior = <DefinitionValue extends MachineDefinition>(
-  behavior: MachineStateBehavior<DefinitionValue>,
-  path: StatePath,
-  stateTokens: ReadonlySet<object>,
-): CompileResult<
-  Pick<CompiledState<DefinitionValue>, "handlers" | "redirects" | "activities" | "timers">
-> =>
-  Result.gen(function* () {
-    return {
-      handlers: yield* compileHandlers(behavior, path, stateTokens),
-      redirects: yield* compileRedirects(behavior, path, stateTokens),
-      activities: compileActivities(behavior),
-      timers: yield* compileTimers(behavior, path),
-    };
-  });
-
-const compileState = <DefinitionValue extends MachineDefinition>(
-  node: StateMetadata,
+// RETURN_TYPE: Recursive Result.gen structural admission needs an explicit result to anchor StateTree's readonly union.
+const admitStructure = <DefinitionValue extends MachineDefinition>(
+  node: StateNode<DefinitionValue>,
   configuration: unknown,
-  inheritedHandlers: ReadonlySet<string>,
-  states: Record<string, CompiledState<DefinitionValue>>,
-  stateTokens: ReadonlySet<object>,
-): CompileResult<void> =>
+  symbols: MachineSymbols<DefinitionValue>,
+): Result.Result<StructuredState<DefinitionValue>, Diagnostic.PublicDiagnostic> =>
   Result.gen(function* () {
-    if (!isConfigurationRecord<DefinitionValue>(configuration))
-      return yield* invalidConfiguration("ExpectedStateConfiguration", configurationPath(node.path, []));
-    const allowedKeys =
-      node.token === undefined
-        ? ["default", "states", "on", "redirect", "activities", "timers"]
-        : ["on", "redirect", "activities", "timers"];
-    yield* validateExactDataKeys(
-      configuration,
-      configurationPath(node.path, []),
-      allowedKeys,
-      "ExtraStateConfigurationKey",
-    );
+    const statePath = configurationPath(node.path, []);
+    if (node.kind === "leaf") {
+      const admitted = yield* admitStateConfiguration(configuration, statePath, node);
+      return {
+        kind: "leaf",
+        path: node.path,
+        token: node.token,
+        behavior: admitted.behavior,
+      } satisfies StructuredState<DefinitionValue>;
+    }
 
-    const ownHandlers = yield* collectOwnHandlers(node, configuration, inheritedHandlers);
-    const behavior = yield* compileBehavior(configuration, node.path, stateTokens);
+    const admitted = yield* admitStateConfiguration(configuration, statePath, node);
+    const validDefault = yield* validateStateToken(symbols.stateTokens, admitted.default, [
+      ...statePath,
+      "default",
+    ]);
+    if (!node.children.some((child) => child.kind === "leaf" && child.token === validDefault))
+      return yield* invalidConfiguration("InvalidDefaultTarget", [...statePath, "default"]);
+
+    const children: StructuredState<DefinitionValue>[] = [];
+    for (const child of node.children)
+      children.push(yield* admitStructure(child, admitted.children.get(child.name), symbols));
+    return {
+      kind: "compound",
+      path: node.path,
+      default: validDefault,
+      behavior: admitted.behavior,
+      children,
+    } satisfies StructuredState<DefinitionValue>;
+  });
+
+// Behavior resolution
+
+const validateEventToken = <DefinitionValue extends MachineDefinition>(
+  tokens: TokenLookup<Timer<DefinitionValue>["target"]>,
+  value: unknown,
+  path: Diagnostic.Path,
+) =>
+  Result.fromOption(tokens(value), () =>
+    invalidMachineConfigurationDiagnostic("UnknownEventToken", path, {
+      issue: "definition-identity",
+    }),
+  );
+
+// RETURN_TYPE: Recursive Result.gen behavior resolution needs an explicit result to anchor the trusted StateTree union.
+const resolveBehavior = <DefinitionValue extends MachineDefinition>(
+  state: StructuredState<DefinitionValue>,
+  symbols: MachineSymbols<DefinitionValue>,
+  inheritedHandlers: ReadonlySet<string>,
+): Result.Result<ResolvedState<DefinitionValue>, Diagnostic.PublicDiagnostic> =>
+  Result.gen(function* () {
+    const behavior = yield* admitStateBehavior<DefinitionValue>(
+      state.behavior,
+      state.path,
+      symbols.events,
+      symbols.operations,
+      inheritedHandlers,
+      (value, path) => validateStateToken(symbols.stateTokens, value, path),
+      (value, path) => validateEventToken(symbols.eventTokens, value, path),
+    );
+    if (state.kind === "leaf")
+      return {
+        kind: "leaf",
+        path: state.path,
+        token: state.token,
+        behavior,
+      } satisfies ResolvedState<DefinitionValue>;
 
     const nextInheritedHandlers = new Set(inheritedHandlers);
-    for (const name of ownHandlers) nextInheritedHandlers.add(name);
-    if (node.token === undefined) {
-      const defaultToken = configuration.default;
-      const childConfigurations = configuration.states;
-      if (defaultToken === undefined || childConfigurations === undefined)
-        return yield* invalidConfiguration(
-          "MissingCompoundStateFields",
-          configurationPath(node.path, [defaultToken === undefined ? "default" : "states"]),
-        );
-      const validDefault = yield* validateStateToken<DefinitionValue>(
-        stateTokens,
-        defaultToken,
-        configurationPath(node.path, ["default"]),
-      );
-      if (!node.children.some((child) => child.token === validDefault))
-        return yield* invalidConfiguration(
-          "InvalidDefaultTarget",
-          configurationPath(node.path, ["default"]),
-        );
-      if (!isConfigurationRecord<DefinitionValue>(childConfigurations))
-        return yield* invalidConfiguration(
-          "InvalidCompoundState",
-          configurationPath(node.path, ["states"]),
-        );
+    for (const name of Object.keys(behavior.handlers)) nextInheritedHandlers.add(name);
+    const children: ResolvedState<DefinitionValue>[] = [];
+    for (const child of state.children)
+      children.push(yield* resolveBehavior(child, symbols, nextInheritedHandlers));
+    return {
+      kind: "compound",
+      path: state.path,
+      default: state.default,
+      behavior,
+      children,
+    } satisfies ResolvedState<DefinitionValue>;
+  });
 
-      yield* validateExactDataKeys(
-        childConfigurations,
-        configurationPath(node.path, ["states"]),
-        node.children.map((child) => child.name),
-        "ExtraStateConfigurationKey",
-      );
+// Emission
 
-      states[stateKey(node.path)] = {
-        path: stateDisplayPath(node.path),
+const stateDisplayPath = (path: StatePath) => (path.length === 0 ? "" : `S.${path.join(".S.")}`);
+
+const stateKey = (path: StatePath) =>
+  path.every((segment) => !/[.[\]]/u.test(segment) && segment !== "S")
+    ? stateDisplayPath(path)
+    : `@${JSON.stringify(path)}`;
+
+// RETURN_TYPE: Publishes a readonly state index after private preorder mutation.
+const emitStates = <DefinitionValue extends MachineDefinition>(
+  state: ResolvedState<DefinitionValue>,
+): Readonly<Record<string, CompiledState<DefinitionValue>>> => {
+  const states: Record<string, CompiledState<DefinitionValue>> = Object.create(null);
+  const emitState = (current: ResolvedState<DefinitionValue>) => {
+    if (current.kind === "compound") {
+      const compiledState = {
+        path: stateDisplayPath(current.path),
         kind: "compound",
-        default: validDefault,
-        children: node.children.map((child) => stateKey(child.path)),
-        ...behavior,
-      };
-
-      for (const child of node.children) {
-        if (!Object.hasOwn(childConfigurations, child.name))
-          return yield* invalidConfiguration(
-            "MissingCompoundStateFields",
-            configurationPath(node.path, ["states", child.name]),
-          );
-        const childConfiguration = readDataProperty<unknown>(childConfigurations, child.name);
-        yield* compileState(child, childConfiguration, nextInheritedHandlers, states, stateTokens);
-      }
+        default: current.default,
+        children: current.children.map((child) => stateKey(child.path)),
+        ...current.behavior,
+      } satisfies CompiledState<DefinitionValue>;
+      states[stateKey(current.path)] = compiledState;
+      for (const child of current.children) emitState(child);
       return;
     }
 
-    states[stateKey(node.path)] = {
-      path: stateDisplayPath(node.path),
+    const compiledState = {
+      path: stateDisplayPath(current.path),
       kind: "leaf",
-      state: node.token,
+      state: current.token,
       children: [],
-      ...behavior,
-    };
-  });
+      ...current.behavior,
+    } satisfies CompiledState<DefinitionValue>;
+    states[stateKey(current.path)] = compiledState;
+  };
 
+  emitState(state);
+  return states;
+};
+
+// Assembly
+
+// RETURN_TYPE: Preserves the generic CompiledMachine publication after inferred generic casting fails with TS2352.
 export const compileMachine = <
   DefinitionValue extends MachineDefinition,
   Configuration extends MachineNodeConfiguration<DefinitionValue>,
@@ -502,16 +310,15 @@ export const compileMachine = <
   configuration: Configuration,
   context: readonly ContextRegistration<DefinitionValue>[],
   memory: readonly MemoryRegistration<DefinitionValue>[],
-): CompileResult<CompiledMachine<DefinitionValue>> =>
+): Result.Result<CompiledMachine<DefinitionValue>, Diagnostic.PublicDiagnostic> =>
   Result.gen(function* () {
-    const metadata = yield* definitionMetadata(definition);
-    const stateTokens = new Set<object>();
-    collectStateTokens(metadata.states, stateTokens);
-    const states: Record<string, CompiledState<DefinitionValue>> = Object.create(null);
-    yield* compileState(metadata.states, configuration, new Set(), states, stateTokens);
+    const { root, symbols } = indexDefinition(definition);
+    const structured = yield* admitStructure(root, configuration, symbols);
+    const resolved = yield* resolveBehavior(structured, symbols, new Set());
+
     return {
-      states,
-      context: context.map((registration) => ({ ...registration })),
+      states: emitStates(resolved),
+      context: [...context],
       memory: [...memory],
-    };
+    } satisfies CompiledMachine<DefinitionValue>;
   });

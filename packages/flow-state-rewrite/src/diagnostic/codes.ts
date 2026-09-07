@@ -1,5 +1,56 @@
 import { Schema } from "effect";
 
-export const Code = Schema.Literals(["InvalidMachineConfiguration", "SchemaValidation", "Panic"]);
+export const Code = Schema.Literals([
+  "InvalidCanonicalValue",
+  "ForeignActorRef",
+  "MismatchedActorRef",
+  "MissingActorRef",
+  "DisposedActorRef",
+  "RuntimeNotReady",
+  "RuntimeDisposed",
+  "MissingContextProvider",
+  "ContextDependencyCycle",
+  "DuplicateActorClaim",
+  "UnadmittedMachine",
+  "ActorNotActive",
+  "InvalidOperationPlan",
+  "WrongOperationKind",
+  "OperationNotPending",
+  "OperationAlreadySettled",
+  "DuplicateStreamDeclaration",
+  "BlockedByDependents",
+  "InvalidMachineConfiguration",
+  "SchemaValidation",
+  "SemanticValidation",
+  "InvalidDescriptorId",
+  "DuplicateDescriptorId",
+  "DuplicateMachineValue",
+  "DuplicateModuleOwnership",
+  "MissingModuleReference",
+  "InvalidStateDefault",
+  "UnresolvedRequirementId",
+  "InvalidStoryMetadata",
+  "InvalidTraceRecord",
+  "InvalidLifecycleTransition",
+  "InvalidStoryEvidence",
+  "InvalidArtifactOperand",
+  "WrongArtifactKind",
+  "ArtifactIdentityMismatch",
+  "DecompressionFailed",
+  "BoundExceeded",
+  "StorageFailure",
+  "CodecFailure",
+  "IdentityVersionMismatch",
+  "MalformedData",
+  "ConcurrentCapture",
+  "NonDurableContextProvider",
+  "CleanupFailed",
+  "IoFailure",
+  "InvariantViolation",
+  "Defect",
+  "Interruption",
+] as const);
 
-export type Code = typeof Code.Type;
+export type DiagnosticCode = typeof Code.Type;
+
+export type FailureCode = Exclude<DiagnosticCode, "Defect" | "Interruption">;

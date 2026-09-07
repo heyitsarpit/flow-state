@@ -1,75 +1,116 @@
-/* oxlint-disable anti-slop/no-nullish-function-contracts -- AppPlan uses undefined for synchronous lookup misses. */
-import { Predicate, Result } from "effect";
-import { RequirementsTypeId, type RequirementsCarrier } from "../operation/operation.js";
-import type { RequirementsOf as OperationRequirementsOf } from "../operation/operation.js";
-import { utf8ByteLength } from "../definition/utf8.js";
-import type {
-  DefinitionConstraint,
-  DefinitionValue,
-  OperationDeclaration,
-  OperationDeclarations,
-} from "../definition/domain.js";
-import { isConstructedMachine } from "../machine/machine.js";
-import type { CompiledMachine, Machine } from "../machine/machine.js";
-import type { MachineNodeConfiguration } from "../machine/grammar.js";
-import { isConstructedOperation } from "../operation/operation.js";
+import { Effect, Predicate, Result, Schema, SchemaIssue } from "effect";
+import { requirements } from "../operation/operation.js";
+import { RequirementsTypeId } from "../operation/operation.js";
+import type { RequirementsCarrier, RequirementsOf } from "../operation/operation.js";
+import type { OperationDeclaration } from "../operation/operation.js";
+import { AuthoredName, isAuthoredName } from "../internal/authored-name.js";
+import { firstConfigurationField } from "../internal/schema-issue.js";
+import { isStableDataDescriptor, isStableKeyList } from "../internal/stable-observation.js";
+import { isConstructedMachine, type Machine, type MachineRecordValue } from "../machine/machine.js";
+
+/*
+ * Composition:
+ *
+ * Stable capture:
+ *   captureConfigurationRecord, readStableDataField
+ *   captureModuleConfiguration, captureAppConfiguration, captureAppModules
+ *
+ * Admission:
+ *   ModuleSchema, AppSchema, admitModuleConfiguration, admitAppConfiguration
+ *
+ * Indexing:
+ *   indexMachine, indexDescriptors, indexModule, indexModules
+ *
+ * Publication:
+ *   publishAppPlan
+ *
+ * Assembly:
+ *   module, app
+ */
+
+export type { RequirementsOf } from "../operation/operation.js";
 
 const moduleTypeId: unique symbol = Symbol("flow-state module");
+const appTypeId: unique symbol = Symbol("flow-state app");
 
-type MachineAdmission = Pick<Machine, "id" | "definition" | "operations">;
+export type AppOwner = {
+  readonly [appTypeId]: true;
+};
 
-type MachineRecord = Readonly<Record<string, MachineAdmission>>;
+const constructedApps = new WeakSet<AppOwner>();
+
+type AdmittedMachineRecord = Readonly<Record<string, MachineAdmission>>;
+type CapturedMachineRecord<RecordValue extends MachineRecord = MachineRecord> = {
+  readonly value: RecordValue;
+  readonly admitted: AdmittedMachineRecord;
+};
+const moduleMachineSnapshots = new WeakMap<AnyModule, AdmittedMachineRecord>();
+
+// RETURN_TYPE: Narrows the object reference before constructed-module membership lookup.
+const isModuleReference = (value: unknown): value is AnyModule =>
+  typeof value === "object" && value !== null;
+
+// SAFETY: only validated module construction marks module values; membership is the admission boundary.
+// RETURN_TYPE: Preserves the constructed-module predicate required by app module admission.
+const isConstructedModule = (value: unknown): value is AnyModule =>
+  isModuleReference(value) && moduleMachineSnapshots.has(value);
+
+type MachineAdmission = Machine;
+
+type MachineRecord = Readonly<Record<string, MachineRecordValue>>;
+
+type AppMachine<Modules extends readonly AnyModule[]> = Modules[number] extends infer ModuleValue
+  ? ModuleValue extends AnyModule
+    ? ModuleValue["machines"][keyof ModuleValue["machines"]] extends infer MachineValue
+      ? MachineValue extends Machine<infer _DefinitionValue>
+        ? MachineValue
+        : MachineValue extends MachineRecordValue
+          ? Machine
+          : never
+      : never
+    : never
+  : never;
+
+type AppDescriptor<Modules extends readonly AnyModule[]> =
+  AppMachine<Modules> extends infer MachineValue
+    ? MachineValue extends Machine<infer DefinitionValue>
+      ? DefinitionValue["operations"][keyof DefinitionValue["operations"]]
+      : never
+    : never;
+
+type PlanMachine<Modules extends readonly AnyModule[]> = AppMachine<Modules>;
 
 type AdmissionRecord = {
   readonly [moduleTypeId]?: true;
   readonly kind?: unknown;
   readonly id?: unknown;
   readonly machines?: unknown;
+  readonly persistenceVersion?: unknown;
+  readonly modules?: unknown;
 };
 
-type OperationRegistry<Value extends OperationDeclarations> = Readonly<{
-  [Key in keyof Value]: OperationDeclaration;
-}>;
+type ModuleConfiguration = {
+  readonly id: unknown;
+  readonly machines: unknown;
+};
 
-type RecordRequirements<Value> = Value extends OperationDeclarations
-  ? Value extends OperationRegistry<Value>
-    ? OperationRequirementsOf<Value[keyof Value]>
-    : never
-  : never;
-
-type MachineRequirements<Value> = Value extends {
-  readonly operations: infer Operations;
-}
-  ? RecordRequirements<Operations>
-  : never;
-
-export type RequirementsOf<Value> =
-  Value extends RequirementsCarrier<infer Requirements>
-    ? Requirements
-    : Value extends { readonly operations: infer Operations }
-      ? RecordRequirements<Operations>
-      : Value extends readonly unknown[]
-        ? MachineRequirements<Value[number]>
-        : never;
-
-type ModuleRequirements<Modules extends readonly AnyModule[]> =
-  Modules[number] extends infer ModuleValue
-    ? ModuleValue extends AnyModule
-      ? RequirementsOf<ModuleValue>
-      : never
-    : never;
+type AppConfiguration = {
+  readonly id: unknown;
+  readonly persistenceVersion: unknown;
+  readonly modules: unknown;
+};
 
 export type Module<
   Id extends string = string,
   Machines extends MachineRecord = MachineRecord,
-> = RequirementsCarrier<MachineRequirements<Machines[keyof Machines]>> & {
+> = RequirementsCarrier<RequirementsOf<Machines[keyof Machines]>> & {
   readonly kind: "module";
   readonly id: Id;
   readonly machines: Machines;
   readonly [moduleTypeId]: true;
 };
 
-export type AnyModule = {
+export type AnyModule = RequirementsCarrier<unknown> & {
   readonly kind: "module";
   readonly id: string;
   readonly machines: MachineRecord;
@@ -84,38 +125,36 @@ export type AppPlan<
   readonly appId: Id;
   readonly persistenceVersion: PersistenceVersion;
   readonly modules: Modules;
-  readonly machines: readonly MachineAdmission[];
-  readonly descriptors: readonly OperationDeclaration[];
-  readonly resolveMachine: (id: string) => MachineAdmission | undefined;
-  readonly admitsMachine: (machine: MachineAdmission) => boolean;
-  readonly resolveDescriptor: (id: string) => OperationDeclaration | undefined;
-  readonly admitsDescriptor: (descriptor: OperationDeclaration) => boolean;
+  readonly machines: readonly PlanMachine<Modules>[];
+  readonly descriptors: readonly AppDescriptor<Modules>[];
+  readonly resolveMachine: (id: string) => PlanMachine<Modules> | undefined;
+  readonly admitsMachine: (machine: PlanMachine<Modules>) => boolean;
+  readonly resolveDescriptor: (id: string) => AppDescriptor<Modules> | undefined;
+  readonly admitsDescriptor: (descriptor: AppDescriptor<Modules>) => boolean;
 };
 
 type FlattenModules<Modules extends readonly AnyModule[]> = number extends Modules["length"]
-  ? MachineRecord
-  : Modules extends readonly [infer Head, ...infer Tail]
-    ? Head extends AnyModule
-      ? Tail extends readonly AnyModule[]
-        ? Head["machines"] & FlattenModules<Tail>
-        : Head["machines"]
-      : FlattenModules<Tail extends readonly AnyModule[] ? Tail : readonly []>
+  ? Readonly<Record<never, never>>
+  : Modules extends readonly [
+        infer Head extends AnyModule,
+        ...infer Tail extends readonly AnyModule[],
+      ]
+    ? Head["machines"] & FlattenModules<Tail>
     : Readonly<Record<never, never>>;
 
 export type App<
   Id extends string = string,
   PersistenceVersion extends string = string,
   Modules extends readonly AnyModule[] = readonly AnyModule[],
-> = RequirementsCarrier<ModuleRequirements<Modules>> & {
-  readonly kind: "app";
-  readonly id: Id;
-  readonly persistenceVersion: PersistenceVersion;
-  readonly modules: Modules;
-  readonly M: FlattenModules<Modules>;
-  readonly plan: AppPlan<Id, PersistenceVersion, Modules>;
-};
-
-export type AnyApp = App;
+> = RequirementsCarrier<RequirementsOf<Modules[number]>> &
+  AppOwner & {
+    readonly kind: "app";
+    readonly id: Id;
+    readonly persistenceVersion: PersistenceVersion;
+    readonly modules: Modules;
+    readonly M: FlattenModules<Modules>;
+    readonly plan: AppPlan<Id, PersistenceVersion, Modules>;
+  };
 
 export type ModuleConfig<Id extends string, Machines extends MachineRecord> = {
   readonly id: Id;
@@ -132,277 +171,595 @@ export type AppConfig<
   readonly modules: Modules;
 };
 
-const invalid = (message: string): never => {
+// RETURN_TYPE: Narrows the object reference before constructed-app membership lookup.
+const isAppReference = (value: unknown): value is AppOwner =>
+  typeof value === "object" && value !== null;
+
+// SAFETY: only app construction records successful App identities in this package-private set.
+// RETURN_TYPE: Preserves the constructed-app predicate required by the public admission check.
+export const isConstructedApp = (value: unknown): value is App =>
+  isAppReference(value) && constructedApps.has(value);
+
+const invalid = (message: string) => {
   throw new Error(message);
 };
 
-type AppIndexes = {
+type AppIndexes<
+  Descriptor extends OperationDeclaration = OperationDeclaration,
+  MachineValue extends MachineAdmission = MachineAdmission,
+> = {
+  /** Authored module identifiers used to reject duplicate module records. */
   readonly moduleIds: Set<string>;
+  /** Authored machine properties used to reject duplicate App.M keys. */
   readonly machineKeys: Set<string>;
-  readonly machineValues: Set<MachineAdmission>;
-  readonly machineIds: Map<string, MachineAdmission>;
-  readonly machines: MachineAdmission[];
-  readonly descriptorIds: Map<string, OperationDeclaration>;
-  readonly descriptors: OperationDeclaration[];
+  /** Machine object identities used to reject the same machine value twice. */
+  readonly machineValues: Set<MachineValue>;
+  /** Machine definition identifiers used for plan machine lookup. */
+  readonly machineIds: Map<string, MachineValue>;
+  /** Authored machine properties used to publish the flattened App.M record. */
+  readonly machineRecord: Record<string, MachineValue>;
+  /** Operation descriptor identifiers used for plan descriptor lookup. */
+  readonly descriptorIds: Map<string, Descriptor>;
 };
 
-function freezeOwnedRecord<RecordValue extends MachineRecord>(value: RecordValue): RecordValue;
-function freezeOwnedRecord(value: MachineRecord) {
-  const snapshot = { ...value };
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- Flow-owned records are closed snapshots.
-  Object.freeze(snapshot);
-  return snapshot;
-}
-
-function freezeOwnedArray<
-  ArrayValue extends readonly (AnyModule | MachineAdmission | OperationDeclaration)[],
->(value: ArrayValue): ArrayValue;
-function freezeOwnedArray(
-  value: readonly (AnyModule | MachineAdmission | OperationDeclaration)[],
-): readonly (AnyModule | MachineAdmission | OperationDeclaration)[] {
-  const snapshot = [...value];
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- Flow-owned arrays are closed snapshots.
-  Object.freeze(snapshot);
-  return snapshot;
-}
-
+// RETURN_TYPE: Narrows decoded configuration to the owned admission record shape.
 const isRecord = (value: unknown): value is AdmissionRecord => {
   if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
   const prototype = Object.getPrototypeOf(value);
   return prototype === Object.prototype || prototype === null;
 };
 
-const hasOnlyStringKeys = (value: unknown): boolean =>
-  isRecord(value) && Reflect.ownKeys(value).every((key) => Predicate.isString(key));
+const captureConfigurationRecord = (value: unknown, expected: readonly string[], label: string) => {
+  const record = isRecord(value) ? value : undefined;
+  if (record === undefined) return Result.fail(`${label} must be an object`);
+  const actual = Reflect.ownKeys(record);
+  const repeated = Reflect.ownKeys(record);
+  if (!isStableKeyList(actual, repeated)) return Result.fail(`${label} changed during admission`);
+  if (actual.some((key) => !Predicate.isString(key)))
+    return Result.fail(`${label} cannot contain symbol keys`);
+  if (actual.length !== expected.length || expected.some((key) => !actual.includes(key))) {
+    return Result.fail(`${label} must contain exactly ${expected.join(", ")}`);
+  }
 
-const hasValidName = (value: unknown): value is string => {
-  if (!Predicate.isString(value) || value.length === 0) return false;
+  return Result.succeed(record);
+};
+
+const readStableDataField = (value: AdmissionRecord, name: string, label: string) => {
+  const descriptor = Object.getOwnPropertyDescriptor(value, name);
+  const repeatedDescriptor = Object.getOwnPropertyDescriptor(value, name);
   if (
-    value.split("").some((character) => {
-      const code = character.codePointAt(0);
-      return code !== undefined && (code <= 0x1f || code === 0x7f);
-    })
+    descriptor === undefined ||
+    repeatedDescriptor === undefined ||
+    !isStableDataDescriptor(descriptor, repeatedDescriptor)
   ) {
-    return false;
+    return Result.fail(`${label} field is invalid: ${name}`);
   }
-  return !Result.isFailure(utf8ByteLength(value, 256));
+  return Result.succeed(repeatedDescriptor.value);
 };
 
-const assertExactKeys = (
-  value: AdmissionRecord,
-  expected: readonly string[],
-  label: string,
-): void => {
-  const actual = Reflect.ownKeys(value).filter(Predicate.isString);
-  if (actual.length !== Reflect.ownKeys(value).length)
-    invalid(`${label} cannot contain symbol keys`);
-  const expectedSet = new Set(expected);
-  if (actual.length !== expected.length || actual.some((key) => !expectedSet.has(key))) {
-    invalid(`${label} must contain exactly ${expected.join(", ")}`);
-  }
+const captureModuleConfiguration = (value: unknown) => {
+  const record = captureConfigurationRecord(value, ["id", "machines"], "Module configuration");
+  if (Result.isFailure(record)) return record;
+  const id = readStableDataField(record.success, "id", "Module configuration");
+  if (Result.isFailure(id)) return id;
+  const machines = readStableDataField(record.success, "machines", "Module configuration");
+  if (Result.isFailure(machines)) return machines;
+
+  return Result.succeed({
+    id: id.success,
+    machines: machines.success,
+  } satisfies ModuleConfiguration);
 };
 
-const isMachineValue = (value: MachineAdmission): value is MachineAdmission & Machine =>
-  isConstructedMachine(value);
+const captureAppConfiguration = (value: unknown) => {
+  const record = captureConfigurationRecord(
+    value,
+    ["id", "persistenceVersion", "modules"],
+    "App configuration",
+  );
+  if (Result.isFailure(record))
+    return Result.fail({ path: [], message: record.failure } satisfies AppConfigurationFailure);
+  const id = readStableDataField(record.success, "id", "App configuration");
+  if (Result.isFailure(id))
+    return Result.fail({ path: ["id"], message: id.failure } satisfies AppConfigurationFailure);
+  const persistenceVersion = readStableDataField(
+    record.success,
+    "persistenceVersion",
+    "App configuration",
+  );
+  if (Result.isFailure(persistenceVersion))
+    return Result.fail({
+      path: ["persistenceVersion"],
+      message: persistenceVersion.failure,
+    } satisfies AppConfigurationFailure);
+  const modules = readStableDataField(record.success, "modules", "App configuration");
+  if (Result.isFailure(modules))
+    return Result.fail({
+      path: ["modules"],
+      message: modules.failure,
+    } satisfies AppConfigurationFailure);
 
-const isModuleValue = (value: unknown): value is AnyModule => {
-  if (!isRecord(value)) return false;
+  return Result.succeed({
+    id: id.success,
+    persistenceVersion: persistenceVersion.success,
+    modules: modules.success,
+  } satisfies AppConfiguration);
+};
+
+// RETURN_TYPE: Preserves the readonly tuple consumed by exact machine-record capture.
+const captureMachineEntry = (
+  record: AdmissionRecord,
+  name: string,
+): Result.Result<readonly [string, MachineAdmission], string> => {
+  const descriptor = Object.getOwnPropertyDescriptor(record, name);
+  const repeatedDescriptor = Object.getOwnPropertyDescriptor(record, name);
+  if (descriptor === undefined || repeatedDescriptor === undefined)
+    return Result.fail(`Module machine is invalid: ${name}`);
+  if (
+    isStableDataDescriptor(descriptor, repeatedDescriptor) &&
+    repeatedDescriptor.enumerable &&
+    isConstructedMachine(repeatedDescriptor.value)
+  ) {
+    return Result.succeed([name, repeatedDescriptor.value]);
+  }
+  return Result.fail(`Module machine is invalid: ${name}`);
+};
+
+function captureMachineRecord<RecordValue extends MachineRecord>(
+  value: RecordValue,
+): Result.Result<CapturedMachineRecord<RecordValue>, string>;
+function captureMachineRecord(value: unknown): Result.Result<CapturedMachineRecord, string>;
+// RETURN_TYPE: Keeps the generic capture overload compatible with its schema failure channel.
+function captureMachineRecord(value: unknown): Result.Result<CapturedMachineRecord, string> {
+  const record = isRecord(value) ? value : undefined;
+  if (record === undefined) return Result.fail("Module machines must be a plain record");
+  const keys = Reflect.ownKeys(record);
+  const repeatedKeys = Reflect.ownKeys(record);
+  if (!isStableKeyList(keys, repeatedKeys))
+    return Result.fail("Module machines changed during admission");
+
+  const entries: Array<readonly [string, MachineAdmission]> = [];
+  for (const key of repeatedKeys) {
+    const name = isAuthoredName(key) ? key : undefined;
+    if (name === undefined) return Result.fail("Module machine keys must be authored strings");
+    const entry = captureMachineEntry(record, name);
+    if (Result.isFailure(entry)) return Result.fail(entry.failure);
+    entries.push(entry.success);
+  }
+
+  const machineValues = new Set<MachineAdmission>();
+  const machineIds = new Set<string>();
+  for (const [, machine] of entries) {
+    if (machineValues.has(machine))
+      return Result.fail(`Module machine value is duplicated: ${String(machine.definition.id)}`);
+    if (machineIds.has(machine.definition.id))
+      return Result.fail(`Module machine id is duplicated: ${String(machine.definition.id)}`);
+    machineValues.add(machine);
+    machineIds.add(machine.definition.id);
+  }
+
+  // SAFETY: entries preserve every stable authored key and its constructed machine identity.
+  const snapshot: MachineRecord = Object.fromEntries(entries);
+  // SAFETY: snapshot preserves every authored key from the validated RecordValue input.
+  return Result.succeed({
+    // SAFETY: stable admitted entries preserve the caller's exact machine-record keys and values.
+    value: snapshot,
+    admitted: Object.fromEntries(entries),
+  });
+}
+
+type ModuleAdmission<
+  Id extends string = string,
+  RecordValue extends MachineRecord = MachineRecord,
+> = {
+  readonly id: Id;
+  readonly captured: CapturedMachineRecord<RecordValue>;
+};
+
+type AppConfigurationFailure = {
+  readonly path: readonly PropertyKey[];
+  readonly message: string;
+};
+
+type AppModulesFailure = {
+  readonly path: readonly number[];
+  readonly message: string;
+};
+
+// RETURN_TYPE: Preserves the reflected own-key list for dense indexed module capture.
+const readAppModuleKeys = (
+  array: readonly unknown[],
+): Result.Result<readonly PropertyKey[], AppModulesFailure> => {
+  const keys = Reflect.ownKeys(array);
+  const repeatedKeys = Reflect.ownKeys(array);
+  if (!isStableKeyList(keys, repeatedKeys))
+    return Result.fail({ path: [], message: "App modules changed during admission" });
+  return Result.succeed(repeatedKeys);
+};
+
+const isOrdinaryAppModuleArray = (array: readonly unknown[]) => {
+  const prototype = Object.getPrototypeOf(array);
+  const repeatedPrototype = Object.getPrototypeOf(array);
   return (
-    value[moduleTypeId] === true &&
-    value.kind === "module" &&
-    Predicate.isString(value.id) &&
-    isRecord(value.machines)
+    prototype === Array.prototype &&
+    repeatedPrototype === Array.prototype &&
+    prototype === repeatedPrototype
   );
 };
 
-const isDescriptor = (value: unknown): value is OperationDeclaration & { readonly id: string } =>
-  isConstructedOperation(value) &&
-  isRecord(value) &&
-  hasValidName(value.id) &&
-  (value.kind === "resource" || value.kind === "transaction" || value.kind === "stream");
+// RETURN_TYPE: Preserves the stable numeric length required by indexed module capture.
+const readAppModuleLength = (
+  array: readonly unknown[],
+): Result.Result<number, AppModulesFailure> => {
+  const length = Object.getOwnPropertyDescriptor(array, "length");
+  const repeatedLength = Object.getOwnPropertyDescriptor(array, "length");
+  if (length === undefined)
+    return Result.fail({ path: [], message: "App modules must be an array" });
+  if (repeatedLength === undefined)
+    return Result.fail({ path: [], message: "App modules must be an array" });
+  if (!isStableDataDescriptor(length, repeatedLength))
+    return Result.fail({ path: [], message: "App modules must be an array" });
+  if (
+    !Predicate.isNumber(repeatedLength.value) ||
+    !Number.isSafeInteger(repeatedLength.value) ||
+    repeatedLength.value < 0 ||
+    repeatedLength.value > 0xffff_ffff
+  )
+    return Result.fail({ path: [], message: "App modules must be an array" });
+  return Result.succeed(repeatedLength.value);
+};
 
-const validateMachineOperations = (machine: MachineAdmission): void => {
-  for (const [operationName, descriptor] of Object.entries(machine.operations)) {
-    if (!isDescriptor(descriptor))
-      invalid(`Module operation descriptor is invalid: ${String(operationName)}`);
+const isCanonicalAppModuleKeyList = (keys: readonly PropertyKey[], length: number) => {
+  const expectedKeyCount = length + 1;
+  if (
+    keys.length !== expectedKeyCount ||
+    keys.every((key, index) => (index === length ? key === "length" : key === String(index))) ===
+      false
+  )
+    return false;
+  return true;
+};
+
+// RETURN_TYPE: Preserves indexed descriptor admission and its public module failure path.
+const captureAppModuleEntry = (
+  array: readonly unknown[],
+  index: number,
+): Result.Result<AnyModule, AppModulesFailure> => {
+  const name = String(index);
+  const descriptor = Object.getOwnPropertyDescriptor(array, name);
+  const repeatedDescriptor = Object.getOwnPropertyDescriptor(array, name);
+  if (descriptor === undefined)
+    return Result.fail({
+      path: [index],
+      message: "App modules must be constructed module records",
+    });
+  if (repeatedDescriptor === undefined)
+    return Result.fail({
+      path: [index],
+      message: "App modules must be constructed module records",
+    });
+  if (!isStableDataDescriptor(descriptor, repeatedDescriptor) || !repeatedDescriptor.enumerable)
+    return Result.fail({
+      path: [index],
+      message: "App modules must be constructed module records",
+    });
+  if (!isConstructedModule(repeatedDescriptor.value))
+    return Result.fail({
+      path: [index],
+      message: "App modules must be constructed module records",
+    });
+  return Result.succeed(repeatedDescriptor.value);
+};
+
+// RETURN_TYPE: Publishes captured module entries as a readonly App admission collection.
+const captureAppModules = (
+  value: unknown,
+): Result.Result<readonly AnyModule[], AppModulesFailure> => {
+  if (!Array.isArray(value))
+    return Result.fail({ path: [], message: "App modules must be an array" });
+  const array = value;
+  const keys = readAppModuleKeys(array);
+  if (Result.isFailure(keys)) return Result.fail(keys.failure);
+  if (!isOrdinaryAppModuleArray(array))
+    return Result.fail({
+      path: [],
+      message: "App modules must be constructed module records",
+    });
+  const length = readAppModuleLength(array);
+  if (Result.isFailure(length)) return Result.fail(length.failure);
+  if (!isCanonicalAppModuleKeyList(keys.success, length.success))
+    return Result.fail({
+      path: [],
+      message: "App modules must be constructed module records",
+    });
+
+  const modules: AnyModule[] = [];
+  for (let index = 0; index < length.success; index += 1) {
+    const entry = captureAppModuleEntry(array, index);
+    if (Result.isFailure(entry)) return Result.fail(entry.failure);
+    modules.push(entry.success);
   }
+  return Result.succeed(modules);
 };
 
-type FlowOwnedGraphNode =
-  | Machine
-  | MachineAdmission
-  | MachineRecord
-  | AnyModule
-  | Module
-  | DefinitionConstraint
-  | MachineNodeConfiguration<DefinitionConstraint>
-  | CompiledMachine
-  | OperationDeclarations
-  | OperationDeclaration
-  | readonly DefinitionValue[]
-  | readonly (AnyModule | MachineAdmission | OperationDeclaration)[];
-
-type FlowOwnedValue = FlowOwnedGraphNode | DefinitionValue;
-
-const isFlowOwnedObject = (value: FlowOwnedValue): value is FlowOwnedGraphNode =>
-  Predicate.isObject(value);
-
-const freezeFlowNode = (value: FlowOwnedGraphNode): void => {
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- validated Flow-owned graph nodes are closed snapshots.
-  Object.freeze(value);
-};
-
-const freezeFlowGraph = (
-  value: FlowOwnedValue,
-  visited = new WeakSet<FlowOwnedGraphNode>(),
-): void => {
-  if (Predicate.isFunction(value) || !isFlowOwnedObject(value)) return;
-  if (Array.isArray(value)) {
-    if (visited.has(value)) return;
-    visited.add(value);
-    for (const child of value) freezeFlowGraph(child, visited);
-    freezeFlowNode(value);
-    return;
+// RETURN_TYPE: Recursive issue descent retains the first leaf for the module failure projector.
+const firstModuleSchemaIssue = (issue: SchemaIssue.Issue): SchemaIssue.Issue => {
+  if ("issues" in issue) {
+    const first = issue.issues.at(0);
+    return first === undefined ? issue : firstModuleSchemaIssue(first);
   }
-  if (visited.has(value)) return;
-  visited.add(value);
-  for (const [key, child] of Object.entries(value)) freezeFlowGraphChild(key, child, visited);
-  freezeFlowNode(value);
+  if ("issue" in issue) return firstModuleSchemaIssue(issue.issue);
+  return issue;
 };
 
-const freezeFlowGraphChild = (
-  key: string,
-  child: FlowOwnedValue,
-  visited: WeakSet<FlowOwnedGraphNode>,
-): void => {
-  if (key === "activities") {
-    if (isFlowOwnedObject(child)) {
-      // oxlint-disable-next-line anti-slop/no-object-freeze -- Activity containers are Flow-owned while their values are user-owned.
-      Object.freeze(child);
+const projectModuleConfigurationFailure = (failure: Schema.SchemaError) => {
+  if (firstConfigurationField(failure.issue) === "id")
+    return invalid("Module id must be a valid authored name");
+  const issue = firstModuleSchemaIssue(failure.issue);
+  if (issue._tag === "InvalidValue" && issue.annotations?.message !== undefined)
+    return invalid(issue.annotations.message);
+  return invalid("Invalid Module configuration");
+};
+
+const OwnedMachineRecordSchema = Schema.declareConstructor<CapturedMachineRecord, unknown>()(
+  [],
+  () => (value, _ast, options) => {
+    const captured = captureMachineRecord(value);
+    return Effect.fromResult(captured).pipe(
+      Effect.mapError((message) => new SchemaIssue.InvalidValue({ message }, value, options)),
+    );
+  },
+);
+
+const ModuleFieldsSchema = Schema.Struct({
+  id: AuthoredName,
+  machines: OwnedMachineRecordSchema,
+});
+
+const decodeModuleFields = Schema.decodeUnknownResult(ModuleFieldsSchema, {
+  onExcessProperty: "error",
+});
+
+const ModuleSchema = Schema.declareConstructor<ModuleAdmission, unknown>()(
+  [],
+  () => (value, _ast, options) => {
+    const capturedConfiguration = captureModuleConfiguration(value);
+    if (Result.isFailure(capturedConfiguration))
+      return Effect.fail(
+        new SchemaIssue.InvalidValue({ message: capturedConfiguration.failure }, value, options),
+      );
+    const decoded = decodeModuleFields(capturedConfiguration.success);
+    if (Result.isFailure(decoded)) return Effect.fail(decoded.failure.issue);
+    return Effect.succeed({ id: decoded.success.id, captured: decoded.success.machines });
+  },
+);
+
+const decodeModule = Schema.decodeUnknownResult(ModuleSchema);
+
+type AppAdmission<
+  Id extends string = string,
+  PersistenceVersion extends string = string,
+  Modules extends readonly AnyModule[] = readonly AnyModule[],
+> = {
+  readonly id: Id;
+  readonly persistenceVersion: PersistenceVersion;
+  readonly modules: Modules;
+};
+
+const ConstructedModuleArraySchema = Schema.declareConstructor<readonly AnyModule[], unknown>()(
+  [],
+  () => (value, _ast, options) => {
+    const captured = captureAppModules(value);
+    return Effect.fromResult(captured).pipe(
+      Effect.mapError(({ path, message }) => {
+        const issue = new SchemaIssue.InvalidValue({ message }, value, options);
+        return path.length === 0 ? issue : new SchemaIssue.Pointer(path, issue);
+      }),
+    );
+  },
+);
+
+const AppFieldsSchema = Schema.Struct({
+  id: AuthoredName,
+  persistenceVersion: AuthoredName,
+  modules: ConstructedModuleArraySchema,
+});
+
+const decodeAppFields = Schema.decodeUnknownResult(AppFieldsSchema, {
+  onExcessProperty: "error",
+});
+
+// RETURN_TYPE: Recursive issue descent retains the first leaf for the App failure projector.
+const firstAppSchemaIssue = (issue: SchemaIssue.Issue): SchemaIssue.Issue => {
+  if ("issues" in issue) {
+    const first = issue.issues.at(0);
+    return first === undefined ? issue : firstAppSchemaIssue(first);
+  }
+  if ("issue" in issue) return firstAppSchemaIssue(issue.issue);
+  return issue;
+};
+
+const projectAppConfigurationFailure = (failure: Schema.SchemaError) => {
+  const issue = firstAppSchemaIssue(failure.issue);
+  if (issue._tag === "InvalidValue" && issue.annotations?.message !== undefined)
+    return invalid(issue.annotations.message);
+  const field = firstConfigurationField(failure.issue);
+  if (field === "id") return invalid("App id must be a valid authored name");
+  if (field === "persistenceVersion")
+    return invalid("Persistence version must be a valid authored name");
+  return invalid("Invalid App configuration");
+};
+
+const AppSchema = Schema.declareConstructor<AppAdmission, unknown>()(
+  [],
+  () => (value, _ast, options) => {
+    const capturedConfiguration = captureAppConfiguration(value);
+    if (Result.isFailure(capturedConfiguration)) {
+      const issue = new SchemaIssue.InvalidValue(
+        { message: capturedConfiguration.failure.message },
+        value,
+        options,
+      );
+      return Effect.fail(
+        capturedConfiguration.failure.path.length === 0
+          ? issue
+          : new SchemaIssue.Pointer(capturedConfiguration.failure.path, issue),
+      );
     }
-    return;
-  }
-  if (key === "operations" && isFlowOwnedObject(child)) {
-    for (const descriptor of Object.values(child)) {
-      if (isFlowOwnedObject(descriptor)) {
-        // oxlint-disable-next-line anti-slop/no-object-freeze -- Operation descriptors are Flow-owned graph nodes.
-        Object.freeze(descriptor);
-      }
-    }
-    // oxlint-disable-next-line anti-slop/no-object-freeze -- Operation registries are Flow-owned graph nodes.
-    Object.freeze(child);
-    return;
-  }
-  freezeFlowGraph(child, visited);
-};
+    const decoded = decodeAppFields(capturedConfiguration.success);
+    if (Result.isFailure(decoded)) return Effect.fail(decoded.failure.issue);
+    return Effect.succeed(decoded.success);
+  },
+);
 
-const freezeMachine = (machine: MachineAdmission): void => {
-  freezeFlowGraph(machine);
-};
+const decodeApp = Schema.decodeUnknownResult(AppSchema);
 
-const validateModuleMachines = (machines: MachineRecord): void => {
-  const machineValues = new Set<MachineAdmission>();
-  const machineIds = new Set<string>();
-  for (const [name, machine] of Object.entries(machines)) {
-    if (!hasValidName(name)) invalid(`Module machine key is invalid: ${String(name)}`);
-    if (!isMachineValue(machine)) invalid(`Module machine is invalid: ${String(name)}`);
-    if (machineValues.has(machine))
-      invalid(`Module machine value is duplicated: ${String(machine.id)}`);
-    if (machineIds.has(machine.id))
-      invalid(`Module machine id is duplicated: ${String(machine.id)}`);
-    validateMachineOperations(machine);
-    freezeMachine(machine);
-    machineValues.add(machine);
-    machineIds.add(machine.id);
-  }
-};
-
-const moduleRequirements = <Machines extends MachineRecord>(
-  value: never,
-): MachineRequirements<Machines[keyof Machines]> => value;
-
-export const module = <const Id extends string, const Machines extends MachineRecord>(
+function admitModuleConfiguration<Id extends string, Machines extends MachineRecord>(
   config: ModuleConfig<Id, Machines>,
-): Module<Id, Machines> => {
-  if (!isRecord(config)) invalid("Module configuration must be an object");
-  assertExactKeys(config, ["id", "machines"], "Module configuration");
-  if (!hasValidName(config.id)) invalid("Module id must be a valid authored name");
-  if (!isRecord(config.machines)) invalid("Module machines must be a record");
-  if (!hasOnlyStringKeys(config.machines)) invalid("Module machine keys must be strings");
+): ModuleAdmission<Id, Machines>;
+function admitModuleConfiguration(input: unknown): ModuleAdmission;
+// RETURN_TYPE: Overload implementation return anchors the decoded module admission shape.
+function admitModuleConfiguration(input: unknown): ModuleAdmission {
+  return decodeModule(input).pipe(Result.getOrThrowWith(projectModuleConfigurationFailure));
+}
 
-  validateModuleMachines(config.machines);
+function admitAppConfiguration<
+  Id extends string,
+  PersistenceVersion extends string,
+  Modules extends readonly AnyModule[],
+>(
+  config: AppConfig<Id, PersistenceVersion, Modules>,
+): AppAdmission<Id, PersistenceVersion, Modules>;
+function admitAppConfiguration(input: unknown): AppAdmission;
+// RETURN_TYPE: Overload implementation return anchors the decoded app admission shape.
+function admitAppConfiguration(input: unknown): AppAdmission {
+  return decodeApp(input).pipe(Result.getOrThrowWith(projectAppConfigurationFailure));
+}
 
-  const moduleValue: Module<Id, Machines> = {
-    kind: "module",
-    id: config.id,
-    machines: freezeOwnedRecord(config.machines),
-    [moduleTypeId]: true,
-    [RequirementsTypeId]: moduleRequirements,
-  };
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- module metadata is a Flow-owned closed record.
-  return Object.freeze(moduleValue);
-};
-
-const appRequirements = <Modules extends readonly AnyModule[]>(
-  value: never,
-): ModuleRequirements<Modules> => value;
-
-const flattenMachines = <Modules extends readonly AnyModule[]>(
-  modules: Modules,
-): FlattenModules<Modules> => {
-  const entries: [string, MachineAdmission][] = [];
-  for (const moduleValue of modules) {
-    for (const [name, machine] of Object.entries(moduleValue.machines)) {
-      entries.push([name, machine]);
-    }
-  }
-  // SAFETY: every entry came from the validated exact module machine records; flattening preserves keys and values.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- validated exact records preserve the inferred keyed intersection.
-  const flattened = Object.fromEntries(entries) as FlattenModules<Modules>;
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- App.M is the immutable closed admission record.
-  Object.freeze(flattened);
-  return flattened;
-};
-
-const indexMachine = (name: string, machine: MachineAdmission, indexes: AppIndexes): void => {
+const indexMachine = <
+  Descriptor extends OperationDeclaration,
+  MachineValue extends MachineAdmission,
+>(
+  name: string,
+  machine: MachineValue,
+  indexes: AppIndexes<Descriptor, MachineValue>,
+) => {
   if (indexes.machineKeys.has(name)) invalid(`App machine property is duplicated: ${name}`);
   if (indexes.machineValues.has(machine))
-    invalid(`App machine value is duplicated: ${String(machine.id)}`);
-  if (indexes.machineIds.has(machine.id))
-    invalid(`App machine id is duplicated: ${String(machine.id)}`);
+    invalid(`App machine value is duplicated: ${String(machine.definition.id)}`);
+  if (indexes.machineIds.has(machine.definition.id))
+    invalid(`App machine id is duplicated: ${String(machine.definition.id)}`);
   indexes.machineKeys.add(name);
   indexes.machineValues.add(machine);
-  indexes.machineIds.set(machine.id, machine);
-  indexes.machines.push(machine);
+  indexes.machineIds.set(machine.definition.id, machine);
+  indexes.machineRecord[name] = machine;
 };
 
-const indexDescriptors = (machine: MachineAdmission, indexes: AppIndexes): void => {
-  for (const [operationName, descriptor] of Object.entries(machine.operations)) {
-    if (isDescriptor(descriptor)) {
-      const existing = indexes.descriptorIds.get(descriptor.id);
-      if (existing !== undefined && existing !== descriptor)
-        invalid(`App operation descriptor is duplicated: ${String(descriptor.id)}`);
-      if (existing === undefined) {
-        // oxlint-disable-next-line anti-slop/no-object-freeze -- admitted descriptors are immutable plan nodes.
-        Object.freeze(descriptor);
-        indexes.descriptorIds.set(descriptor.id, descriptor);
-        indexes.descriptors.push(descriptor);
-      }
-    } else {
-      invalid(`App operation descriptor is invalid: ${String(operationName)}`);
+const indexDescriptors = <
+  Descriptor extends OperationDeclaration,
+  MachineValue extends MachineAdmission,
+>(
+  machine: MachineValue,
+  indexes: AppIndexes<Descriptor, MachineValue>,
+) => {
+  // SAFETY: the machine definition is the single admitted owner of these descriptor identities.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the exact machine definition supplies this descriptor union.
+  const descriptors = Object.values(machine.definition.operations) as readonly Descriptor[];
+  for (const descriptor of descriptors) {
+    const existing = indexes.descriptorIds.get(descriptor.id);
+    if (existing !== undefined && existing !== descriptor)
+      invalid(`App operation descriptor is duplicated: ${String(descriptor.id)}`);
+    if (existing === undefined) {
+      indexes.descriptorIds.set(descriptor.id, descriptor);
     }
   }
 };
 
-const indexModule = (moduleValue: AnyModule, indexes: AppIndexes): void => {
+type AdmittedMachineRecordFor<ModuleValue extends AnyModule> = {
+  readonly [Key in keyof ModuleValue["machines"]]: ModuleValue["machines"][Key];
+};
+
+const indexModule = <Modules extends readonly AnyModule[], ModuleValue extends Modules[number]>(
+  moduleValue: ModuleValue,
+  indexes: AppIndexes<AppDescriptor<Modules>, PlanMachine<Modules>>,
+) => {
   if (indexes.moduleIds.has(moduleValue.id))
     invalid(`App module id is duplicated: ${String(moduleValue.id)}`);
   indexes.moduleIds.add(moduleValue.id);
 
-  for (const [name, machine] of Object.entries(moduleValue.machines)) {
+  const machines = moduleMachineSnapshots.get(moduleValue);
+  if (machines === undefined) invalid("App modules must be constructed module records");
+  // SAFETY: module construction stores this exact module's admitted machine values in the private snapshot.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the private snapshot preserves ModuleValue machine keys and values.
+  const admittedMachines = machines as AdmittedMachineRecordFor<ModuleValue>;
+  for (const [name, machine] of Object.entries(admittedMachines)) {
     indexMachine(name, machine, indexes);
     indexDescriptors(machine, indexes);
   }
+};
+
+const indexModules = <Modules extends readonly AnyModule[]>(modules: Modules) => {
+  const indexes: AppIndexes<AppDescriptor<Modules>, PlanMachine<Modules>> = {
+    moduleIds: new Set<string>(),
+    machineKeys: new Set<string>(),
+    machineValues: new Set(),
+    machineIds: new Map(),
+    machineRecord: Object.create(null),
+    descriptorIds: new Map(),
+  };
+
+  for (const moduleValue of modules) indexModule(moduleValue, indexes);
+
+  return indexes;
+};
+
+const publishAppPlan = <
+  Id extends string,
+  PersistenceVersion extends string,
+  Modules extends readonly AnyModule[],
+>(
+  admitted: AppAdmission<Id, PersistenceVersion, Modules>,
+  indexes: AppIndexes<AppDescriptor<Modules>, PlanMachine<Modules>>,
+) => {
+  // SAFETY: retain a publication copy; the private identity list remains owned by App construction.
+  const privateDescriptors: readonly AppDescriptor<Modules>[] = [...indexes.descriptorIds.values()];
+  const descriptors = privateDescriptors.slice();
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the admitted module tuple supplies this exact PlanMachine union.
+  const planMachines = [...indexes.machineValues];
+  // SAFETY: the ID map contains only machines admitted from the exact module tuple.
+  const resolveMachine = (id: string) => indexes.machineIds.get(id);
+
+  return {
+    appId: admitted.id,
+    persistenceVersion: admitted.persistenceVersion,
+    modules: admitted.modules,
+    machines: planMachines,
+    descriptors,
+    // SAFETY: the ID map contains only identities admitted from the exact module machine records.
+    resolveMachine,
+    admitsMachine: (candidate) =>
+      Predicate.isObject(candidate) && indexes.machineValues.has(candidate),
+    resolveDescriptor: (id: string) => indexes.descriptorIds.get(id),
+    admitsDescriptor: (candidate) =>
+      Predicate.isObject(candidate) &&
+      privateDescriptors.some((descriptor) => descriptor === candidate),
+  } satisfies AppPlan<Id, PersistenceVersion, Modules>;
+};
+
+export const module = <const Id extends string, const Machines extends MachineRecord>(
+  config: ModuleConfig<Id, Machines>,
+) => {
+  const admitted = admitModuleConfiguration(config);
+
+  const moduleValue: Module<Id, Machines> = {
+    kind: "module",
+    id: admitted.id,
+    machines: admitted.captured.value,
+    [moduleTypeId]: true,
+    [RequirementsTypeId]: requirements,
+  };
+  moduleMachineSnapshots.set(moduleValue, admitted.captured.admitted);
+  return moduleValue;
 };
 
 export const app = <
@@ -411,55 +768,25 @@ export const app = <
   const Modules extends readonly AnyModule[],
 >(
   config: AppConfig<Id, PersistenceVersion, Modules>,
-): App<Id, PersistenceVersion, Modules> => {
-  if (!isRecord(config)) invalid("App configuration must be an object");
-  assertExactKeys(config, ["id", "persistenceVersion", "modules"], "App configuration");
-  if (!hasValidName(config.id)) invalid("App id must be a valid authored name");
-  if (!hasValidName(config.persistenceVersion))
-    invalid("Persistence version must be a valid authored name");
-  if (!Array.isArray(config.modules)) invalid("App modules must be an array");
+) => {
+  const admitted = admitAppConfiguration(config);
+  const indexes = indexModules(admitted.modules);
+  const plan = publishAppPlan(admitted, indexes);
 
-  const modules = freezeOwnedArray(config.modules);
-  const indexes: AppIndexes = {
-    moduleIds: new Set<string>(),
-    machineKeys: new Set<string>(),
-    machineValues: new Set<Machine>(),
-    machineIds: new Map<string, Machine>(),
-    machines: [],
-    descriptorIds: new Map<string, OperationDeclaration>(),
-    descriptors: [],
-  };
-
-  for (const moduleValue of modules) {
-    if (!isModuleValue(moduleValue)) invalid("App modules must be constructed module records");
-    indexModule(moduleValue, indexes);
-  }
-
-  const machineSet = new Set(indexes.machines);
-  const descriptorSet = new Set(indexes.descriptors);
-  const plan: AppPlan<Id, PersistenceVersion, Modules> = {
-    appId: config.id,
-    persistenceVersion: config.persistenceVersion,
-    modules,
-    machines: freezeOwnedArray(indexes.machines),
-    descriptors: freezeOwnedArray(indexes.descriptors),
-    resolveMachine: (id) => indexes.machineIds.get(id),
-    admitsMachine: (machine) => machineSet.has(machine),
-    resolveDescriptor: (id) => indexes.descriptorIds.get(id),
-    admitsDescriptor: (descriptor) => descriptorSet.has(descriptor),
-  };
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- AppPlan is the immutable Flow-owned index.
-  Object.freeze(plan);
-
+  // SAFETY: every key and value was admitted by indexMachine in this traversal.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the admitted record retains the inferred keyed machine intersection.
+  const machineRecord = indexes.machineRecord as FlattenModules<Modules>;
+  // RETURN_TYPE: Preserves the exact generic App shell and requirement carrier at assembly.
   const appValue: App<Id, PersistenceVersion, Modules> = {
     kind: "app",
-    id: config.id,
-    persistenceVersion: config.persistenceVersion,
-    modules,
-    M: flattenMachines(modules),
+    id: admitted.id,
+    persistenceVersion: admitted.persistenceVersion,
+    modules: admitted.modules,
+    M: machineRecord,
     plan,
-    [RequirementsTypeId]: appRequirements,
+    [appTypeId]: true,
+    [RequirementsTypeId]: requirements,
   };
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- app metadata and admission are closed after compilation.
-  return Object.freeze(appValue);
+  constructedApps.add(appValue);
+  return appValue;
 };

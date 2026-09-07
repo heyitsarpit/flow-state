@@ -1,12 +1,15 @@
-import type { Duration, Effect } from "effect";
+import { Result, Schema } from "effect";
+import type { Duration } from "effect";
 
 import { canonicalizeKey } from "./key.js";
+import { CallableSchema, firstConfigurationField } from "./configuration.js";
+import { AuthoredName } from "../internal/authored-name.js";
 
 import {
-  OperationAdapterTypeId,
   RequirementsTypeId,
-  markConstructedOperation,
   operationPlan,
+  operationPlanForDescriptor,
+  publishOperation,
   requirements,
 } from "./operation.js";
 import type {
@@ -14,13 +17,31 @@ import type {
   CancellationPlan,
   DataValue,
   FiniteOutcomes,
+  OperationDescriptor,
   OperationOptions,
   OperationPlan,
-  RequirementsCarrier,
+  OperationErrorOf,
+  OperationProgram,
+  OperationRequirementsOf,
+  OperationValueOf,
+  ValidOperationProgram,
 } from "./operation.js";
-import type { CanonicalKeyInput, OperationKey } from "./key.js";
+import type { CanonicalKeyInput, OperationKey, ReadonlyCanonical } from "./key.js";
 
-type Present<Value> = [undefined] extends [Value] ? never : Value;
+/*
+ * Resources:
+ *
+ * Public contracts
+ * Configuration admission:
+ *   admitResourceConfiguration
+ * Admitted construction:
+ *   constructResource
+ * Bound methods:
+ *   keyFor, getData, getState, lookup, subscribe, refetch, setData, cancel
+ * Descriptor publication
+ * Assembly:
+ *   resource
+ */
 
 export type ResourceRetention<A> = Readonly<{ data?: never }> | Readonly<{ data: A }>;
 
@@ -94,35 +115,28 @@ export type ResourceRefetchPlan<
 export type ResourceLookupAdapter<P, A, E, R> = (
   params: P,
   options: OperationOptions,
-) => Effect.Effect<Present<A>, E, R>;
+) => OperationProgram<A, E, R>;
 
-export type ResourceAdapter<P, A, E, R> = Readonly<{
-  lookup: ResourceLookupAdapter<P, A, E, R>;
-}>;
+type ResourceLookup<Id extends string, P, K extends OperationKey, A, E> = <
+  const O extends FiniteResourceOptions<A, E> | undefined = undefined,
+>(
+  params: P,
+  options?: O,
+) => ResourceLookupPlan<Id, P, K, Exclude<O, undefined>>;
 
-type ResourceLookup<Id extends string, P, K extends OperationKey, A, E> = {
-  (params: P): ResourceLookupPlan<Id, P, K>;
-  <const Options extends FiniteResourceOptions<A, E>>(
-    params: P,
-    options: Options,
-  ): ResourceLookupPlan<Id, P, K, Options>;
-};
+type ResourceSubscribe<Id extends string, P, K extends OperationKey, A, E> = <
+  const O extends ResourceSubscriptionOptions<A, E> | undefined = undefined,
+>(
+  params: P,
+  options?: O,
+) => ResourceSubscriptionPlan<Id, P, K, Exclude<O, undefined>>;
 
-type ResourceSubscribe<Id extends string, P, K extends OperationKey, A, E> = {
-  (params: P): ResourceSubscriptionPlan<Id, P, K>;
-  <const Options extends ResourceSubscriptionOptions<A, E>>(
-    params: P,
-    options: Options,
-  ): ResourceSubscriptionPlan<Id, P, K, Options>;
-};
-
-type ResourceRefetch<Id extends string, P, K extends OperationKey, A, E> = {
-  (params: P): ResourceRefetchPlan<Id, P, K>;
-  <const Options extends FiniteResourceOptions<A, E>>(
-    params: P,
-    options: Options,
-  ): ResourceRefetchPlan<Id, P, K, Options>;
-};
+type ResourceRefetch<Id extends string, P, K extends OperationKey, A, E> = <
+  const O extends FiniteResourceOptions<A, E> | undefined = undefined,
+>(
+  params: P,
+  options?: O,
+) => ResourceRefetchPlan<Id, P, K, Exclude<O, undefined>>;
 
 type ResourceWriteValue<A> = DataValue<A> | ((current: DataValue<A>) => DataValue<A>);
 
@@ -133,11 +147,8 @@ export type Resource<
   A = never,
   E = never,
   R = never,
-> = RequirementsCarrier<R> &
+> = OperationDescriptor<"resource", Id, P, K, R> &
   Readonly<{
-    kind: "resource";
-    id: Id;
-    key: (params: P) => K;
     getData: (key: K) => DataValue<A>;
     getState: (key: K) => ResourceState<A, E, K>;
     lookup: ResourceLookup<Id, P, K, A, E>;
@@ -151,94 +162,150 @@ export type Resource<
     persist: boolean;
     staleTime?: Duration.Input;
     gcTime?: Duration.Input;
-    [OperationAdapterTypeId]: ResourceAdapter<P, A, E, R>;
   }>;
 
-export type ResourceConfig<Id extends string, P, K extends OperationKey, A, E, R> = Readonly<{
+type ResourceFields<Id extends string, P, K extends OperationKey, Adapter> = Readonly<{
   id: Id;
   key: (params: P) => K;
-  lookup: ResourceLookupAdapter<P, A, E, R>;
+  lookup: Adapter;
   staleTime?: Duration.Input;
   gcTime?: Duration.Input;
   persist?: boolean;
 }>;
 
-export const resource = <
+export type ResourceConfig<Id extends string, P, K extends OperationKey, A, E, R> = ResourceFields<
+  Id,
+  P,
+  K,
+  ResourceLookupAdapter<P, A, E, R>
+>;
+
+const ResourceConfigurationSchema = Schema.Struct({
+  id: AuthoredName,
+  key: CallableSchema,
+  lookup: CallableSchema,
+  staleTime: Schema.optional(Schema.Unknown),
+  gcTime: Schema.optional(Schema.Unknown),
+  persist: Schema.optional(Schema.Boolean),
+});
+
+const decodeResourceConfiguration = Schema.decodeUnknownResult(ResourceConfigurationSchema, {
+  onExcessProperty: "error",
+});
+
+const resourceConfigurationError = (failure: Schema.SchemaError) => {
+  const field = firstConfigurationField(failure.issue);
+  if (field === "id") return new TypeError("Operation id must be a valid authored name");
+  if (field === "key") return new TypeError("Resource key must be callable");
+  if (field === "lookup") return new TypeError("Resource lookup adapter must be callable");
+  return new TypeError("Invalid Resource configuration");
+};
+
+type ResourceAuthoringConfig<
+  Id extends string,
+  P,
+  K extends readonly CanonicalKeyInput[],
+  Program,
+> = ResourceFields<
+  Id,
+  P,
+  K,
+  (params: NoInfer<P>, options: OperationOptions) => Program & ValidOperationProgram<Program>
+>;
+
+type ResourceConstructionConfig<Id extends string, P, K extends OperationKey> = ResourceFields<
+  Id,
+  P,
+  K,
+  (params: P, options: OperationOptions) => void
+>;
+
+function admitResourceConfiguration<
   const Id extends string,
-  const P,
+  P,
+  const K extends OperationKey,
+  Program,
+>(config: ResourceAuthoringConfig<Id, P, K, Program>): ResourceAuthoringConfig<Id, P, K, Program>;
+function admitResourceConfiguration(input: unknown) {
+  return decodeResourceConfiguration(input).pipe(Result.getOrThrowWith(resourceConfigurationError));
+}
+
+const constructResource = <
+  const Id extends string,
+  P,
   const K extends readonly CanonicalKeyInput[],
   A,
   E,
   R,
 >(
-  config: ResourceConfig<Id, P, K, A, E, R>,
-): Resource<Id, P, K, A, E, R> => {
-  const { id, key: projectKey, lookup: lookupAdapter, staleTime, gcTime, persist } = config;
-  const keyFor = (params: P): K => canonicalizeKey(projectKey(params));
+  admitted: ResourceConstructionConfig<Id, P, K>,
+) => {
+  type CanonicalK = ReadonlyCanonical<K>;
+  const { id, key: projectKey, lookup: lookupAdapter, staleTime, gcTime, persist } = admitted;
+  const keyFor = (params: P) => canonicalizeKey(projectKey(params));
 
-  const getData = (key: K): DataValue<A> => {
-    canonicalizeKey(key);
+  // RETURN_TYPE: Preserves the public DataValue<A> result so the generic data channel is not collapsed to inferred undefined.
+  const getData = (key: CanonicalK): DataValue<A> => {
+    canonicalizeKey<K>(key);
     return undefined;
   };
-  const getState = (key: K): ResourceState<A, E, K> => ({
+
+  // RETURN_TYPE: Preserves the readonly ResourceState<A, E, CanonicalK> discriminant union; inferring this object caused TS2322.
+  const getState = (key: CanonicalK): ResourceState<A, E, CanonicalK> => ({
     status: "missing",
-    key: canonicalizeKey(key),
+    key: canonicalizeKey<K>(key),
   });
 
-  function lookup(params: P): ResourceLookupPlan<Id, P, K>;
-  function lookup<const Options extends FiniteResourceOptions<A, E>>(
+  function lookup<const O extends FiniteResourceOptions<A, E> | undefined = undefined>(
     params: P,
-    options: Options,
-  ): ResourceLookupPlan<Id, P, K, Options>;
-  function lookup<const Options extends FiniteResourceOptions<A, E>>(
-    ...args: [params: P] | [params: P, options: Options]
-  ): ResourceLookupPlan<Id, P, K, Options> {
-    return operationPlan("resource-lookup", id, projectKey, ...args);
+    options?: O,
+  ) {
+    return operationPlan("resource-lookup", id, projectKey, params, options);
   }
 
-  function subscribe(params: P): ResourceSubscriptionPlan<Id, P, K>;
-  function subscribe<const Options extends ResourceSubscriptionOptions<A, E>>(
+  const subscribe = <const O extends ResourceSubscriptionOptions<A, E> | undefined = undefined>(
     params: P,
-    options: Options,
-  ): ResourceSubscriptionPlan<Id, P, K, Options>;
-  function subscribe<const Options extends ResourceSubscriptionOptions<A, E>>(
-    ...args: [params: P] | [params: P, options: Options]
-  ): ResourceSubscriptionPlan<Id, P, K, Options> {
-    return operationPlan("resource-subscribe", id, projectKey, ...args);
-  }
+    options?: O,
+  ) =>
+    operationPlanForDescriptor(
+      resourceValue,
+      "resource-subscribe",
+      id,
+      projectKey,
+      params,
+      options,
+    );
 
-  function refetch(params: P): ResourceRefetchPlan<Id, P, K>;
-  function refetch<const Options extends FiniteResourceOptions<A, E>>(
+  const refetch = <const O extends FiniteResourceOptions<A, E> | undefined = undefined>(
     params: P,
-    options: Options,
-  ): ResourceRefetchPlan<Id, P, K, Options>;
-  function refetch<const Options extends FiniteResourceOptions<A, E>>(
-    ...args: [params: P] | [params: P, options: Options]
-  ): ResourceRefetchPlan<Id, P, K, Options> {
-    return operationPlan("resource-refetch", id, projectKey, ...args);
-  }
+    options?: O,
+  ) => operationPlan("resource-refetch", id, projectKey, params, options);
 
+  // RETURN_TYPE: Preserves the readonly CacheWritePlan<Id, CanonicalK, Value> publication and its generic value; inferring this object caused TS2322.
   const setData = <Value extends ResourceWriteValue<A>>(
-    key: K,
+    key: CanonicalK,
     value: Value,
-  ): CacheWritePlan<Id, K, Value> => ({
-    kind: "cache-write",
-    family: "resource",
-    descriptor: id,
-    key: canonicalizeKey(key),
-    value,
-  });
-  const cancel = (key: K): CancellationPlan<Id, K, "resource"> => ({
-    kind: "cancel",
-    family: "resource",
-    descriptor: id,
-    key: canonicalizeKey(key),
-  });
+  ): CacheWritePlan<Id, CanonicalK, Value> => {
+    return {
+      kind: "cache-write",
+      family: "resource",
+      descriptor: id,
+      key: canonicalizeKey<K>(key),
+      value,
+    };
+  };
 
-  const resourceValue: Omit<Resource<Id, P, K, A, E, R>, "staleTime" | "gcTime"> & {
-    staleTime?: Duration.Input;
-    gcTime?: Duration.Input;
-  } = {
+  // RETURN_TYPE: Preserves the readonly CancellationPlan<Id, CanonicalK, "resource"> family discriminant; inferring this object caused TS2322.
+  const cancel = (key: CanonicalK): CancellationPlan<Id, CanonicalK, "resource"> => {
+    return {
+      kind: "cancel",
+      family: "resource",
+      descriptor: id,
+      key: canonicalizeKey<K>(key),
+    };
+  };
+
+  const resourceValue: Resource<Id, P, CanonicalK, A, E, R> = {
     kind: "resource",
     id,
     getData,
@@ -248,12 +315,42 @@ export const resource = <
     refetch,
     setData,
     cancel,
-    [OperationAdapterTypeId]: { lookup: lookupAdapter },
     [RequirementsTypeId]: requirements<R>,
     persist: persist ?? false,
     key: keyFor,
+    // oxlint-disable-next-line anti-slop/no-conditional-empty-object-spread -- The exact conditional spread omits an absent optional field while preserving configured values.
+    ...(staleTime === undefined ? {} : { staleTime }),
+    // oxlint-disable-next-line anti-slop/no-conditional-empty-object-spread -- The exact conditional spread omits an absent optional field while preserving configured values.
+    ...(gcTime === undefined ? {} : { gcTime }),
   };
-  if (staleTime !== undefined) resourceValue.staleTime = staleTime;
-  if (gcTime !== undefined) resourceValue.gcTime = gcTime;
-  return markConstructedOperation(resourceValue);
+  return publishOperation(resourceValue, lookupAdapter);
 };
+
+export function resource<
+  const Id extends string,
+  P,
+  const K extends readonly CanonicalKeyInput[],
+  Program,
+>(
+  config: ResourceAuthoringConfig<Id, P, K, Program>,
+): Resource<
+  Id,
+  P,
+  ReadonlyCanonical<K>,
+  OperationValueOf<Program>,
+  OperationErrorOf<Program>,
+  OperationRequirementsOf<Program>
+>;
+
+export function resource<
+  const Id extends string,
+  P,
+  const K extends readonly CanonicalKeyInput[],
+  Program,
+>(config: ResourceAuthoringConfig<Id, P, K, Program>) {
+  const admitted = admitResourceConfiguration<Id, P, K, Program>(config);
+  type A = OperationValueOf<Program>;
+  type E = OperationErrorOf<Program>;
+  type R = OperationRequirementsOf<Program>;
+  return constructResource<Id, P, K, A, E, R>(admitted);
+}

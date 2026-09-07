@@ -6,16 +6,26 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { loadBehaviorGateway } from "./gateway.js";
 
+function linkGatewayDependencies(projectRoot: string): void {
+  const nodeModulesRoot = join(projectRoot, "node_modules");
+  mkdirSync(nodeModulesRoot, { recursive: true });
+
+  for (const [name, target] of [
+    ["flow-state", resolve("packages/flow-state")],
+    ["effect", resolve("node_modules/effect")],
+    ["@effect", resolve("node_modules/@effect")],
+    ["@tanstack", resolve("node_modules/@tanstack")],
+  ] as const) {
+    symlinkSync(target, join(nodeModulesRoot, name), "dir");
+  }
+}
+
 describe("behavior gateway loading", () => {
   it("loads from a read-only project without writing CLI artifacts into it", async () => {
     const projectRoot = mkdtempSync(join(tmpdir(), "flow-state-read-only-project-"));
     const appRoot = join(projectRoot, "src", "app");
     mkdirSync(appRoot, { recursive: true });
-    symlinkSync(
-      resolve("examples/basic-cached-posts/node_modules"),
-      join(projectRoot, "node_modules"),
-      "dir",
-    );
+    linkGatewayDependencies(projectRoot);
     const gatewayPath = join(appRoot, "behavior.ts");
     writeFileSync(
       gatewayPath,
@@ -66,11 +76,7 @@ describe("behavior gateway loading", () => {
   for (const [name, source, path] of invalidGateways) {
     it(`rejects a malformed ${name} boundary with its exact path`, async () => {
       const projectRoot = mkdtempSync(join(tmpdir(), "flow-state-invalid-gateway-"));
-      symlinkSync(
-        resolve("examples/basic-cached-posts/node_modules"),
-        join(projectRoot, "node_modules"),
-        "dir",
-      );
+      linkGatewayDependencies(projectRoot);
       const gatewayPath = join(projectRoot, "behavior.ts");
       writeFileSync(gatewayPath, `${source}\n`);
 

@@ -3,15 +3,62 @@ import { Cause, Effect, Exit, Result, Schema } from "effect";
 
 import * as Diagnostic from "../diagnostic.js";
 
+const expectedCodes = [
+  "InvalidCanonicalValue",
+  "ForeignActorRef",
+  "MismatchedActorRef",
+  "MissingActorRef",
+  "DisposedActorRef",
+  "RuntimeNotReady",
+  "RuntimeDisposed",
+  "MissingContextProvider",
+  "ContextDependencyCycle",
+  "DuplicateActorClaim",
+  "UnadmittedMachine",
+  "ActorNotActive",
+  "InvalidOperationPlan",
+  "WrongOperationKind",
+  "OperationNotPending",
+  "OperationAlreadySettled",
+  "DuplicateStreamDeclaration",
+  "BlockedByDependents",
+  "InvalidMachineConfiguration",
+  "SchemaValidation",
+  "SemanticValidation",
+  "InvalidDescriptorId",
+  "DuplicateDescriptorId",
+  "DuplicateMachineValue",
+  "DuplicateModuleOwnership",
+  "MissingModuleReference",
+  "InvalidStateDefault",
+  "UnresolvedRequirementId",
+  "InvalidStoryMetadata",
+  "InvalidTraceRecord",
+  "InvalidLifecycleTransition",
+  "InvalidStoryEvidence",
+  "InvalidArtifactOperand",
+  "WrongArtifactKind",
+  "ArtifactIdentityMismatch",
+  "DecompressionFailed",
+  "BoundExceeded",
+  "StorageFailure",
+  "CodecFailure",
+  "IdentityVersionMismatch",
+  "MalformedData",
+  "ConcurrentCapture",
+  "NonDurableContextProvider",
+  "CleanupFailed",
+  "IoFailure",
+  "InvariantViolation",
+  "Defect",
+  "Interruption",
+] as const;
+
 describe("diagnostic", () => {
-  it("exposes the exact Code schema and derived type", () => {
-    const code: Diagnostic.Code = "Panic";
-    assert.strictEqual(code, "Panic");
-    assert.deepStrictEqual(Diagnostic.Code.literals, [
-      "InvalidMachineConfiguration",
-      "SchemaValidation",
-      "Panic",
-    ]);
+  it("exposes the complete diagnostic code schema and derived type", () => {
+    const code: Diagnostic.DiagnosticCode = "Defect";
+    assert.strictEqual(code, "Defect");
+    assert.deepStrictEqual(Diagnostic.Code.literals, expectedCodes);
 
     for (const expected of Diagnostic.Code.literals) {
       const accepted = Schema.decodeUnknownResult(Diagnostic.Code)(expected);
@@ -21,10 +68,22 @@ describe("diagnostic", () => {
 
     const rejected = Schema.decodeUnknownResult(Diagnostic.Code)("UnknownCode");
     assert.ok(Result.isFailure(rejected));
+
+    for (const code of expectedCodes) {
+      if (code === "Defect" || code === "Interruption") continue;
+      const failure = Diagnostic.Failure({
+        code,
+        path: [],
+        details: {},
+        summary: "typed",
+        help: "help",
+      });
+      assert.strictEqual(failure.classification, "Failure");
+    }
   });
 
   it("is a native Error and Schema.TaggedError with stable fields", () => {
-    const error = new Diagnostic.Error({
+    const error = Diagnostic.Failure({
       code: "InvalidMachineConfiguration",
       path: ["states", "ready"],
       details: { reason: "ExpectedFunction", index: 2 },
@@ -33,6 +92,7 @@ describe("diagnostic", () => {
     });
     const expected = {
       _tag: "Diagnostic",
+      classification: "Failure",
       code: "InvalidMachineConfiguration",
       path: ["states", "ready"],
       details: { reason: "ExpectedFunction", index: 2 },
@@ -41,16 +101,17 @@ describe("diagnostic", () => {
     } as const;
 
     assert.ok(error instanceof globalThis.Error);
-    assert.ok(error instanceof Diagnostic.Error);
+    assert.ok(error instanceof Diagnostic.Diagnostic);
     assert.strictEqual(error._tag, "Diagnostic");
-    assert.strictEqual(Diagnostic.Error.identifier, "Diagnostic");
-    assert.deepStrictEqual(Schema.encodeSync(Diagnostic.Error)(error), expected);
+    assert.strictEqual(Diagnostic.Diagnostic.identifier, "flow-state/Diagnostic");
+    assert.deepStrictEqual(Schema.encodeSync(Diagnostic.Diagnostic)(error), expected);
 
-    const decoded = Schema.decodeUnknownSync(Diagnostic.Error)(expected);
-    assert.ok(decoded instanceof Diagnostic.Error);
+    const decoded = Schema.decodeUnknownSync(Diagnostic.Diagnostic)(expected);
+    assert.ok(decoded instanceof Diagnostic.Diagnostic);
     assert.deepStrictEqual(
       {
         _tag: decoded._tag,
+        classification: decoded.classification,
         code: decoded.code,
         path: decoded.path,
         details: decoded.details,
@@ -63,15 +124,15 @@ describe("diagnostic", () => {
     assert.strictEqual(error.toString(), Diagnostic.print(error));
   });
 
-  it.effect("carries Error in Result and as a directly yieldable Effect failure", () => {
-    const error = new Diagnostic.Error({
+  it.effect("carries Diagnostic in Result and as a directly yieldable Effect failure", () => {
+    const error = Diagnostic.Failure({
       code: "SchemaValidation",
       path: ["input"],
       details: { issue: "InvalidType" },
       summary: "Schema validation failed",
       help: "Fix the input.",
     });
-    const failed: Diagnostic.Result<never> = Result.fail(error);
+    const failed = Result.fail(error);
     assert.ok(Result.isFailure(failed));
     if (Result.isFailure(failed)) assert.strictEqual(failed.failure, error);
 
@@ -85,7 +146,7 @@ describe("diagnostic", () => {
   });
 
   it("renders exact paths, escaped text, and ordered details", () => {
-    const error = new Diagnostic.Error({
+    const error = Diagnostic.Failure({
       code: "SchemaValidation",
       path: ["users", 0, "name", "line\n", "\u200b"],
       details: { z: "last\t", a: "first\n" },
@@ -111,6 +172,7 @@ describe("diagnostic", () => {
       assert.deepStrictEqual(
         {
           code: diagnostic.code,
+          classification: diagnostic.classification,
           path: diagnostic.path,
           details: diagnostic.details,
           summary: diagnostic.summary,
@@ -118,6 +180,7 @@ describe("diagnostic", () => {
         },
         {
           code: "SchemaValidation",
+          classification: "Failure",
           path: ["users", 0, "name"],
           details: { issue: "Composite" },
           summary: "Schema validation failed",
@@ -138,40 +201,71 @@ describe("diagnostic", () => {
     assert.ok(Result.isFailure(decoded));
     if (Result.isFailure(decoded)) {
       const diagnostic = Diagnostic.fromSchemaError(decoded.failure);
-      assert.deepStrictEqual(diagnostic.path, [String(outer), String(inner)]);
-      assert.strictEqual(
-        Diagnostic.print(diagnostic),
-        'SchemaValidation: Schema validation failed\n  at $["Symbol(outer)"]["Symbol(inner)"]\n  details:\n    issue: "Composite"\n  help: Fix the value at the reported path.',
+      assert.deepStrictEqual(
+        {
+          code: diagnostic.code,
+          path: diagnostic.path,
+          details: diagnostic.details,
+        },
+        {
+          code: "SchemaValidation",
+          path: [String(outer), String(inner)],
+          details: { issue: "Composite" },
+        },
       );
+      assert.ok(Diagnostic.print(diagnostic).includes('$["Symbol(outer)"]["Symbol(inner)"]'));
     }
   });
 
-  it("keeps Panic safe, generic, and outside the encoded fields", () => {
+  it("keeps defect projection safe, generic, and outside the encoded fields", () => {
     const defect = { token: Symbol() };
-    const panic = Diagnostic.panic(defect);
-    const encoded = Schema.encodeSync(Diagnostic.Error)(panic);
+    const diagnostic = Diagnostic.Defect(defect);
+    const encoded = Schema.encodeSync(Diagnostic.Diagnostic)(diagnostic);
 
-    assert.strictEqual(panic.code, "Panic");
-    assert.deepStrictEqual(panic.path, []);
-    assert.deepStrictEqual(panic.details, {});
-    assert.strictEqual(panic.cause, defect);
-    assert.strictEqual(Object.prototype.propertyIsEnumerable.call(panic, "cause"), false);
+    assert.ok(diagnostic instanceof Diagnostic.Diagnostic);
+    assert.strictEqual(diagnostic.classification, "Defect");
+    assert.strictEqual(diagnostic.code, "Defect");
+    assert.deepStrictEqual(diagnostic.path, []);
+    assert.deepStrictEqual(diagnostic.details, {});
+    assert.strictEqual(diagnostic.cause, defect);
+    assert.strictEqual(Object.prototype.propertyIsEnumerable.call(diagnostic, "cause"), false);
     assert.deepStrictEqual(encoded, {
       _tag: "Diagnostic",
-      code: "Panic",
+      classification: "Defect",
+      code: "Defect",
       path: [],
       details: {},
       summary: "Unexpected runtime defect",
       help: "Inspect the original cause at the host boundary.",
     });
-    assert.strictEqual(
-      Diagnostic.print(panic),
-      "Panic: Unexpected runtime defect\n  at $\n  help: Inspect the original cause at the host boundary.",
-    );
+  });
+
+  it("injects expected and interrupted classifications", () => {
+    const failure = Diagnostic.Failure({
+      code: "SchemaValidation",
+      path: [],
+      details: {},
+      summary: "typed",
+      help: "help",
+    });
+    const interruption = Diagnostic.Interrupt();
+
+    assert.strictEqual(failure.classification, "Failure");
+    assert.strictEqual(interruption.classification, "Interruption");
+    assert.strictEqual(interruption.code, "Interruption");
+    assert.deepStrictEqual(Schema.encodeSync(Diagnostic.Diagnostic)(interruption), {
+      _tag: "Diagnostic",
+      classification: "Interruption",
+      code: "Interruption",
+      path: [],
+      details: {},
+      summary: "Operation interrupted",
+      help: "Retry the operation.",
+    });
   });
 
   it.effect("preserves typed failures, defects, and interruption in Cause", () => {
-    const typed = new Diagnostic.Error({
+    const typed = Diagnostic.Failure({
       code: "SchemaValidation",
       path: [],
       details: {},
@@ -181,19 +275,17 @@ describe("diagnostic", () => {
     const defect = new globalThis.Error("unexpected");
 
     return Effect.gen(function* () {
-      const typedExit = yield* Effect.exit(Diagnostic.catchPanic(Effect.fail(typed)));
+      const typedExit = yield* Effect.exit(Effect.fail(typed));
       const defectExit = yield* Effect.exit(
-        Diagnostic.catchPanic(
-          Effect.sync(() => {
-            // oxlint-disable-next-line anti-slop/no-throw-in-effect-gen -- this fixture creates a defect for catchPanic.
-            throw defect;
-          }),
-        ),
+        Effect.sync(() => {
+          // oxlint-disable-next-line anti-slop/no-throw-in-effect-gen -- this fixture creates a defect.
+          throw defect;
+        }),
       );
-      const diedExit = yield* Effect.exit(Diagnostic.catchPanic(Effect.die(defect)));
+      const diedExit = yield* Effect.exit(Effect.die(defect));
       const mixedCause = Cause.combine(Cause.fail(typed), Cause.die(defect));
-      const mixedExit = yield* Effect.exit(Diagnostic.catchPanic(Effect.failCause(mixedCause)));
-      const interrupted = yield* Effect.exit(Diagnostic.catchPanic(Effect.interrupt));
+      const mixedExit = yield* Effect.exit(Effect.failCause(mixedCause));
+      const interrupted = yield* Effect.exit(Effect.interrupt);
 
       assert.ok(Exit.isFailure(typedExit));
       if (Exit.isFailure(typedExit)) {

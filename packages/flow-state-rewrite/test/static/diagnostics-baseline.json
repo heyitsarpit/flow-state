@@ -1,14 +1,41 @@
 {
   "typescriptVersion": "7.0.2",
-  "fixture": "medium.ts",
+  "fixtureSha256": "5970290215f79dbbc5504465a5f3b97a64d2145cf10619105dd3defa73a562ab",
+  "provenance": {
+    "runner": "nubx",
+    "workingDirectory": "packages/flow-state-rewrite",
+    "arguments": [
+      "tsc",
+      "--ignoreConfig",
+      "--strict",
+      "--exactOptionalPropertyTypes",
+      "--noUncheckedIndexedAccess",
+      "--module",
+      "NodeNext",
+      "--moduleResolution",
+      "NodeNext",
+      "--target",
+      "ES2022",
+      "--skipLibCheck",
+      "--noEmit",
+      "--extendedDiagnostics",
+      "test/static/medium.ts"
+    ],
+    "sampleCount": 5,
+    "aggregation": "median",
+    "exitCode": 0,
+    "diagnosticCount": 0,
+    "instantiationsStable": true,
+    "typesStable": true
+  },
   "baseline": {
-    "instantiations": 30989,
-    "types": 18925,
-    "memoryKilobytes": 105488,
-    "totalSeconds": 0.036
+    "instantiations": 157946,
+    "types": 75875,
+    "memoryKilobytes": 164327,
+    "totalSeconds": 0.092
   },
   "ceilings": {
-    "instantiations": 34088,
-    "types": 20818
+    "instantiations": 1500000,
+    "types": 100000
   }
 }
