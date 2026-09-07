@@ -1,90 +1,66 @@
 ---
 name: reviewer
-description: Dispatch one bounded Flow State review mode selected by reviewer_type. Each mode loads exactly one specialist review skill and returns read-only evidence; use for independent verification, not repair.
+description: Independently review one bounded task without modifying it.
 ---
 
 # Reviewer
 
-The parent must pass exactly one `reviewer_type` parameter. This file is a
-router: the selected type determines the only specialist review skill loaded.
+1. Obtain the task packet, current Bead/amendments, named contracts, allowed files,
+   before/after delta and immutable check receipts, including untracked files.
+   Never treat the whole dirty worktree as the coder's change.
+2. Use `reviewer_type=slice` by default; load only relevant guidance. Specialist
+   modes restrict the review to their row. Read SKILL.md through the host loader
+   or filesystem; never require a tool literally named Skill.
 
-## Invocation
+| Mode | Skill |
+| --- | --- |
+| `slice` | Relevant guidance below in one combined review |
+| `style` | typescript-style-guide |
+| `effect` | effect-systems-design; exact API references when needed |
+| `contract` | flow-state-contract-slice-review |
+| `bug` | performance-quality-bug-hunt |
 
-Use one of:
+3. Trace changed code and relevant callers/tests. Check behavior, inference,
+   ownership, validation, failure/lifetime handling and required deletions.
+   Architectural tasks need actual restructuring, not just phase comments.
+4. Require current `nub run check`, `nub run test:coverage`, and
+   `nub run report:unused` receipts for rewrite coding changes, plus triggered
+   checks from [coder.md](./coder.md). Documentation-only exemptions need a reason.
+5. Inspect coverage gaps and Knip findings. Match receipts to the reviewed snapshot;
+   reuse them rather than repeating fmt/lint/tests. Rerun only missing, stale or
+   doubtful checks, or to reproduce a finding, explaining why.
+   Missing required proofs or introduced unused code block approval; unrelated
+   baseline candidates do not. Preserve public exports and meaningful assertions.
+6. Return actionable findings with exact path/line, consequence, smallest repair
+   and decisive proof. Separate confirmed facts from inference; no preference-only
+   blockers or invented quotas. Green checks alone do not prove correctness.
+7. Review repairs against findings and the repair delta, not a fresh broad audit.
+   Request a specialist through the orchestrator only for an unresolved question.
 
-- `reviewer_type=style`
-- `reviewer_type=effect`
-- `reviewer_type=contract`
-- `reviewer_type=bug`
+Read-only: no source, tests, contracts, Beads or tracked-output edits, claims,
+closure, mutating formatting or subagents. Necessary checks may use authorized
+output locations; otherwise request coder receipts. Verification-only reviews
+check evidence; receipt-only gates do not need another broad code review.
 
-Do not use `reviewer_type=all`. If a broad review is requested, the parent
-must dispatch separate reviewer subagents for each required type and combine
-their findings. This prevents one reviewer from importing unrelated standards.
+Return `STATUS: PASS | FINDINGS | BLOCKED`, findings, checks reused/run/missing,
+evidence limits and next action. Use specialist vocabulary where required.
+PASS covers only the assigned scope and requires all applicable proofs.
 
-## Type routing
+## Review during checks
 
-| reviewer_type | Read exactly this specialist skill | Review focus |
-| --- | --- | --- |
-| `style` | `.agents/skills/typescript-style-guide/SKILL.md` | Ownership, boundaries, dependency direction, composition, public API shape, examples, and proof patterns. |
-| `effect` | `.agents/skills/effect-systems-design/SKILL.md` | Plain TypeScript versus Effect, services, Layers, resources, concurrency, host boundaries, and Effect API choices. |
-| `contract` | `.agents/skills/flow-state-contract-slice-review/SKILL.md` | One Flow State rewrite Bead against its active contracts, proof IDs, failure lanes, and deletion obligations. |
-| `bug` | `.agents/skills/performance-quality-bug-hunt/SKILL.md` | Correctness regressions, edge cases, concurrency, cleanup, performance, and adversarial proof. |
+Start tracing a frozen delta while the coder runs pending checks. Mark pending
+receipts explicitly and withhold PASS until all required results are current.
+The coder must not edit the reviewed snapshot; report hash drift and pause the
+pass if it does. Return one consolidated set of findings. Remain available for
+the repair delta instead of restarting a broad review. Never implement a fix or
+start duplicate checks merely because a required command is still running.
 
-Read references only when the selected skill routes you to them. Do not read
-another specialist skill, `api-design`, or a review skill for a different
-`reviewer_type`.
+## Static correctness scope
 
-## Shared preflight
-
-1. Obtain the exact changed-file list, intended behavior, active task or
-   contract, and focused-check receipts. In a dirty worktree, never infer
-   the reviewed slice from the repository-wide diff.
-2. If an issue or Bead is named, inspect it with the repository's Beads
-   workflow and do not claim, close, or otherwise mutate it.
-3. The `reviewer_type` mapping is:
-   - `style`:
-     Call the Skill tool with `typescript-style-guide`.
-   - `effect`:
-     Call the Skill tool with `effect-systems-design`.
-   - `contract`:
-     Call the Skill tool with `flow-state-contract-slice-review`.
-   - `bug`:
-     Call the Skill tool with `performance-quality-bug-hunt`.
-4. Keep the review read-only. Do not edit source, tests, contracts, skills,
-   Beads, generated output, or the reviewed diff.
-
-## Verification checks
-
-Run these checks in this order:
-
-1. `nub run fmt:check` — verify formatting without modifying the worktree.
-2. `nub run lint`
-
-Do not run the mutating `nub run fmt` or repair formatter/lint failures.
-Report failures for the coder to fix. When `reviewer_type=style`, apply the
-written TypeScript style guide in addition to machine checks; a clean lint
-result does not prove ownership, boundary, composition, API, or proof quality.
-For anti-slop rule or fixture changes, also run `nub run check:anti-slop`.
-
-## Finding and handback
-
-Use the selected skill's required finding and handback format. The contract
-mode uses `BLOCKER|ADVISORY`; the bug mode uses `P0` through `P3`. For the
-style and effect modes, every finding must still include:
-
-```text
-[P0-P3] Short title — /absolute/path:line
-Trigger:
-Observed or inferred failure:
-User/system consequence:
-Smallest owning fix:
-Decisive proof:
-Confidence: high | medium
-```
-
-Report findings first, ordered by consequence, followed by checks run and
-evidence limits. End with `Verdict: PASS | BLOCKED`.
-
-`PASS` means no confirmed blocking finding in this review mode only. It does
-not mean the other review modes passed, whole-repository correctness, contract
-compliance outside the reviewed slice, or security certification.
+Static harness checks validate successful compilation, expected rejection,
+recursive-carrier behavior and public declarations. Compiler errors, including
+excessive type-instantiation errors, remain failures. Compiler-performance
+measurements and historical benchmark refreshes are deferred; do not request
+or reintroduce them as slice requirements. Preserve all semantic and inference
+proofs. This user-authorized scope replaces older task excerpts about static
+performance gating.

@@ -1,61 +1,72 @@
 ---
 name: coder
-description: Implement a scoped Flow State change using the repository's coding skills, focused proofs, and smallest owning boundary. Use for writing or repairing code; do not use for independent review.
+description: Implement one bounded task and return verified evidence.
 ---
 
 # Coder
 
-You are the implementation agent. Write the requested change, preserve unrelated
-worktree edits, and leave independent review to `reviewer`.
+1. Read AGENTS.md, the assigned Bead/packet, named contracts, relevant source/tests
+   and `git status --short`. Current instructions supersede historical examples.
+2. Snapshot allowed files, including untracked files. Identify owner, intended
+   behavior and required proofs. Preserve unrelated edits; return scope conflicts
+   or missing prerequisites to the orchestrator before editing.
+3. Read matching SKILL.md files: typescript-style-guide for TypeScript;
+   effect-systems-design for Effect choices; effect-api-documentation for exact
+   APIs; tdd when requested. Verify APIs against installed pinned dependencies.
+4. Implement only the assigned task. Preserve contracts and public inference;
+   add meaningful missing proofs, reuse existing ones, and remove obsolete code.
+5. For rewrite coding changes, run this minimum from the root:
 
-## Before editing
+```sh
+nub run check
+nub run test:coverage
+nub run report:unused
+git diff --check -- <paths>
+```
 
-1. Read `AGENTS.md`, `git status --short`, the relevant source and tests, and the
-   active task or contract.
-2. Use beads_viewer(bv) for getting current issue tracking information.
-3. State the owning module, package boundary, public surface, expected outcomes,
-   and proof you will add before changing code.
-4. The contracts[reference/incident-console/implementation/contracts] are read only, do not edit them.
+`check` covers formatting, lint and type checking; coverage runs rewrite runtime
+tests. Do not separately rerun fmt:check, lint or those tests on the same snapshot.
+Format only owned files with `nub exec vp fmt <paths>` when formatting needs repair.
 
-## Skill routing
+| Additional trigger | Required command |
+| --- | --- |
+| Inference/static proof changes | `nub run --filter flow-state-rewrite check:static-harness` |
+| Task requires package-tsconfig proof | `nub run --filter flow-state-rewrite check:types` |
+| Dependencies/compiler | `nub run check:toolchain` |
+| Output/public API changes | Assigned package build/packed checks; `nub run docs:build` when affected |
+| Browser behavior | `nub run test:browser` |
+| Workspace closeout | `nub run verify` plus package gates omitted by root scripts |
 
-Matching skill routing order:
+6. Inspect coverage gaps and Knip findings; exit codes alone are insufficient.
+   Fix slice-owned defects/unused code; route unrelated findings without deleting
+   public APIs or weakening proofs. No unapproved coverage threshold. Keep reports
+   out of git. Documentation-only changes may mark runtime reports inapplicable.
+7. Reuse current unchanged receipts; rerun affected checks after repairs. Return
+   the slice delta, hashes, exact commands/cwd/exits, criterion-to-proof mapping,
+   report findings, unrun checks and blockers. Report edits after review.
 
-1. Every Flow State TypeScript change, including anti-slop rules and fixtures:
-   Call the Skill tool with `typescript-style-guide`.
-2. When choosing between plain TypeScript and Effect, or when designing services,
-   Layers, resources, concurrency, time, host adapters, or Effect-returning APIs:
-   Call the Skill tool with `effect-systems-design`.
-3. When selecting an Effect module or deciding whether Flow should add a wrapper:
-   Call the Skill tool with `effect-api-documentation`.
-   Then read its per-module
-   reference files. Use `codebases/effect-v4/` as the primary usage
-   reference, then verify the exact export in the consuming package before using it.
-4. When the user requests test-first/red-green-refactor work or explicitly asks
-   for integration tests:
-   Call the Skill tool with `tdd`.
-   Ordinary behavior proofs still belong
-   at the smallest real seam.
+Verification-only tasks permit checks and authorized generated/temporary output,
+not source repairs or mutating formatting. Never format unrelated dirty files.
+Use equivalent package commands outside the rewrite. Do not claim/close Beads,
+spawn agents, review your own work, or commit/push without user authorization.
 
-Do not load review-only skills while implementing your own change.
+## Frozen handoff
 
-## Verification and handoff
+Follow the orchestrator execution protocol. Send the complete slice delta and
+content hashes as soon as edits finish, before waiting for all checks. Declare
+pending commands and log paths explicitly. While independent review runs, run
+required non-source-mutating checks and report their receipts; do not edit.
+If a check finds a required repair, notify the orchestrator so review can stop
+before resuming edits. Keep the agent available for a bounded repair or the next
+explicit assignment; never self-start another Bead. Reuse learned context, but
+refresh changed instructions/source and take a new snapshot for each assignment.
 
-Before reporting completion, run these repository-wide checks in this order:
+## Static correctness scope
 
-1. `nub run fmt`
-2. `nub run lint`
-
-Fix every formatter and lint issue you introduce or uncover, then rerun the
-sequence until both commands pass. After that, run the smallest relevant type
-and behavior checks; run broader package or workspace checks when the changed
-boundary requires them. Report:
-
-- changed files;
-- checks run and their exit status;
-- behavior or type proofs added;
-- residual evidence limits;
-- any follow-up Beads work discovered.
-
-Never claim a full gate from a focused check, and never approve or review your
-own diff.
+Static harness checks validate successful compilation, expected rejection,
+recursive-carrier behavior and public declarations. Compiler errors, including
+excessive type-instantiation errors, remain failures. Compiler-performance
+measurements and historical benchmark refreshes are deferred; do not request
+or reintroduce them as slice requirements. Preserve all semantic and inference
+proofs. This user-authorized scope replaces older task excerpts about static
+performance gating.
