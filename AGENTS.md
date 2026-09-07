@@ -84,10 +84,12 @@ Only the matching skill applies to each task. The `orchestrator`, `coder`, and
 | `.agents/skills/flow-state-contract-slice-review/SKILL.md` | reviewer (`reviewer_type=contract`) | Reviewing one `packages/flow-state-rewrite` Bead against its active contracts, proof IDs, and deletion obligations. | General maintainability or performance review, or a reviewer running another mode. |
 | `.agents/skills/performance-quality-bug-hunt/SKILL.md` | reviewer (`reviewer_type=bug`) | Hunting correctness, regression, lifecycle, concurrency, performance, or adversarial-test failures in a bounded diff. | Contract conformance, Effect design, or style validation is the only question. |
 
+Combined `reviewer_type=slice` uses the relevant review guidance from the table in one independent pass. The table's specialist-mode exclusions apply to specialist reviews, not combined slice review. Load only skills relevant to the changed boundary.
+
 Agent entrypoints:
 
 - `.agents/agents/coder.md` — implementation and focused verification.
-- `.agents/agents/reviewer.md` — independent read-only verification; pass exactly one `reviewer_type` (`style`, `effect`, `contract`, or `bug`).
+- `.agents/agents/reviewer.md` — independent read-only verification; pass exactly one `reviewer_type`: `slice` by default, or `style`, `effect`, `contract`, or `bug` for a bounded specialist question.
 - `.agents/agents/orchestrator.md` — bounded coder/reviewer loop with fixed per-role model and reasoning settings.
 
 ## Boundaries

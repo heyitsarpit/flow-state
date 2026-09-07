@@ -77,3 +77,7 @@ _Add a brief overview of your project architecture_
 ## Conventions & Patterns
 
 _Add your project-specific conventions here_
+
+## Agent workflow
+
+Follow [AGENTS.md](./AGENTS.md) and [.agents/agents/orchestrator.md](./.agents/agents/orchestrator.md) for the single-writer workflow. Independent review defaults to `reviewer_type=slice`, combining relevant guidance in one pass; specialist modes are reserved for bounded questions.
