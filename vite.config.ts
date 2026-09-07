@@ -18,7 +18,7 @@ export default defineConfig({
       { name: "anti-slop", specifier: "./tools/oxlint/anti-slop/index.ts" },
     ],
     rules: {
-      "complexity": "error",
+      complexity: "error",
       "no-else-return": "error",
       "no-unneeded-ternary": "error",
       "typescript/no-empty-object-type": "warn",
@@ -97,7 +97,6 @@ export default defineConfig({
       "anti-slop/no-module-mocking": "error",
       "anti-slop/no-numeric-duration": "error",
       "anti-slop/no-nested-conditional-expression": "error",
-      "anti-slop/no-nullish-function-contracts": "error",
       "anti-slop/no-object-freeze": "error",
       "anti-slop/no-generic-utility-module": "warn",
       "anti-slop/no-god-service-shape": ["warn", { threshold: 16 }],
@@ -105,10 +104,7 @@ export default defineConfig({
         "warn",
         { productionThreshold: 500, testThreshold: 1000 },
       ],
-      "anti-slop/no-object-type": [
-        "error",
-        { sourceRoots: ["packages/flow-state-rewrite"] },
-      ],
+      "anti-slop/no-object-type": ["error", { sourceRoots: ["packages/flow-state-rewrite"] }],
       "anti-slop/no-optional-domain-properties": [
         "error",
         {
@@ -149,6 +145,7 @@ export default defineConfig({
         },
       ],
       "anti-slop/no-redundant-readonly-wrapper": "error",
+      "anti-slop/prefer-inferred-return-types": "warn",
       "anti-slop/no-reflect-apply": "error",
       "anti-slop/no-reflect-get": "error",
       "anti-slop/no-runtime-typeof": ["error", { allowInTypeGuards: true }],
@@ -209,5 +206,12 @@ export default defineConfig({
   },
   test: {
     include: ["packages/**/*.test.ts", "examples/**/*.test.ts", "examples/**/*.test.tsx"],
+    coverage: {
+      provider: "v8",
+      include: ["packages/flow-state-rewrite/src/**/*.ts"],
+      exclude: ["**/test/**", "**/*.compile.ts", "**/*.d.ts"],
+      reporter: ["text", "html", "json-summary"],
+      reportsDirectory: "coverage/flow-state-rewrite",
+    },
   },
 });

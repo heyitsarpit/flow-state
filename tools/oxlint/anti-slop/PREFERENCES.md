@@ -25,6 +25,7 @@ ownership, type evidence, and failure behavior visible.
 | use-consistent-type-definitions | Opt in per package only when a module deliberately chooses one object spelling. Flow State's default is contextual: interfaces for stable ports/records, aliases for unions/functions/tuples/Schema-derived types. |
 | no-chained-type-assertions, no-escape-hatch-assertion, no-widen-then-assert | Decode with Schema.decodeUnknownSync; construct a domain value; or keep one narrow assertion next to a SAFETY invariant. |
 | no-explicit-any | Preserve a generic; use unknown only at an input boundary; isolate a genuine existential value behind a named adapter. |
+| prefer-inferred-return-types | Infer implementation returns. When annotation is necessary, put `// RETURN_TYPE: <specific contract or inference limitation>` immediately above the function or its single declaration/property. No automatic removal. |
 | no-known-value-widening | Keep inference; use satisfies Contract; annotate only when publishing the real owner contract. |
 | no-unknown-parameters, no-unknown-returns, no-unknown-type-aliases | Use a named domain type or generic. Keep unknown inside the decoder boundary. |
 | no-unsafe-dictionary-type | Use a named Record<Key, Value>, Map<Key, Value>, or an explicitly named opaque extension bag. |

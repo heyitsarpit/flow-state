@@ -1,3 +1,4 @@
+import { preferInferredReturnTypesRule } from "./rules/prefer-inferred-return-types.ts";
 import { RuleTester } from "oxlint/plugins-dev";
 import { readFileSync } from "node:fs";
 
@@ -1380,6 +1381,8 @@ tester.run("no-escape-hatch-assertion", noEscapeHatchAssertionRule, {
 	invalid: [
 		{ code: "const value = input as any;", errors: [{ messageId: "escapeHatch" }] },
 		{ code: "const value = input as unknown;", errors: [{ messageId: "escapeHatch" }] },
+		{ code: "const value = <any>input;", errors: [{ messageId: "escapeHatch" }] },
+		{ code: "const value = <unknown>input;", errors: [{ messageId: "escapeHatch" }] },
 		{
 			code: "const value = input as Record<string, unknown>;",
 			errors: [{ messageId: "escapeHatch" }],
@@ -1749,6 +1752,9 @@ tester.run("no-nullish-function-contracts-regression", noNullishFunctionContract
 		"function run(): Effect.Effect<string, Error, never> { return effect; }",
 		"function stop(): void {}",
 		"function decode(value: unknown): Result.Result<string, Error> { return result; }",
+		"type A<T> = T; type B<T> = A<T>; function safe(value: B<string>): string { return value; }",
+		"type A<T> = T; type B<T> = A<Wrapper<T>>; function safe(value: B<string>): string { return \"x\"; }",
+		"type Cycle<T> = Cycle<T>; function safe(value: Cycle<string>): string { return value; }",
 	],
 	invalid: [
 		{ code: "function find(value?: string): string { return value ?? \"fallback\"; }", errors: [{ messageId: "nullishContract" }] },
@@ -1760,6 +1766,21 @@ tester.run("no-nullish-function-contracts-regression", noNullishFunctionContract
 		{ code: "type Maybe<T> = T | null; function find(value: Maybe<string>): string { return value ?? \"fallback\"; }", errors: [{ messageId: "nullishContract" }] },
 		{ code: "type Handler = (value?: string) => void;", errors: [{ messageId: "nullishContract" }] },
 		{ code: "type Handler = () => string | null;", errors: [{ messageId: "nullishContract" }] },
+		{ code: "type A<T> = T; type B<T> = A<T>; function find(value: B<undefined>): string { return \"x\"; }", errors: [{ messageId: "nullishContract" }] },
+		{ code: "type A<T> = T; type B<T> = A<T>; function find(value: B<null>): string { return \"x\"; }", errors: [{ messageId: "nullishContract" }] },
+		{ code: "type A<T> = T; type B<T> = A<Wrapper<T>>; function find(value: B<undefined>): string { return \"x\"; }", errors: [{ messageId: "nullishContract" }] },
+		{ code: "type A<T> = T; type B<T> = A<[T]>; function find(value: B<undefined>): string { return \"x\"; }", errors: [{ messageId: "nullishContract" }] },
+		{ code: "type A<T> = T; type B<T> = A<string | T>; function find(value: B<undefined>): string { return \"x\"; }", errors: [{ messageId: "nullishContract" }] },
+		{
+			code: [
+				"type Recursive<T> = External<T>;",
+				"type Overloaded<T> = {",
+				"(value: Recursive<ReadonlyCanonical<T>>): T;",
+				"(value: Recursive<ReadonlyCanonical<T>>, options?: T): T;",
+				"};",
+			].join(" "),
+			errors: [{ messageId: "nullishContract" }],
+		},
 	],
 });
 
@@ -1894,3 +1915,38 @@ for (const [name, rule] of preferredFixtureRules) {
 }
 
 console.log("anti-slop rule tests passed");
+
+const returnTypeFilename = "/project/packages/flow-state-rewrite/src/example.ts";
+tester.run("prefer-inferred-return-types", preferInferredReturnTypesRule, {
+  valid: [
+    { code: "const size = (text: string) => text.length;", filename: returnTypeFilename },
+    { code: "type Read = () => string; interface Reader { read(): string; } declare function read(): string; abstract class Base { abstract read(): string; }", filename: returnTypeFilename },
+    { code: "function size(): number; function size() { return 1; }", filename: returnTypeFilename },
+    { code: "// RETURN_TYPE: Recursive inference requires an anchor.\nexport const depth = (n: number): number => n ? depth(n - 1) : 0;", filename: returnTypeFilename },
+    { code: "// RETURN_TYPE: Exposes only the public view.\nexport default function read(): string { return 'value'; }", filename: returnTypeFilename },
+    { code: "const reader = {\n// RETURN_TYPE: Preserves the readonly publication boundary.\nread(): readonly string[] { return []; }\n};", filename: returnTypeFilename },
+    { code: "class Reader {\n// RETURN_TYPE: Defines the narrowing contract.\nread(value: unknown): value is string { return typeof value === 'string'; }\n}", filename: returnTypeFilename },
+    { code: "class Reader {\n/* RETURN_TYPE: Preserves the public callback contract. */\nread = (): string => 'value';\n}", filename: returnTypeFilename },
+    { code: "// RETURN_TYPE: Keeps the getter public type stable.\nfunction read(): string { return 'value'; }", filename: "C:\\project\\packages\\flow-state-rewrite\\src\\example.ts" },
+    { code: "function read(): string { return 'value'; }", filename: "/project/packages/flow-state/src/example.ts" },
+  ],
+  invalid: [
+    { code: "const value = (): number => 1;", filename: "/project/packages/flow-state-rewrite/test/static/medium.ts", errors: [{ messageId: "infer" }] },
+    ...[
+      "const size = (text: string): number => text.length;",
+      "export function read(): string { return 'value'; }",
+      "const read = function (): string { return 'value'; };",
+      "const reader = { read(): string { return 'value'; } };",
+      "class Reader { get value(): string { return 'value'; } }",
+      "consume((): number => 1);",
+      "const isText = (value: unknown): value is string => typeof value === 'string';",
+      "function assertText(value: unknown): asserts value is string { if (typeof value !== 'string') throw Error(); }",
+      "// RETURN_TYPE:\nconst read = (): string => 'value';",
+      "// RETURN_TYPE:    \nconst read = (): string => 'value';",
+      "// RETURN_TYPE: stale comment\n\nconst read = (): string => 'value';",
+      "const previous = 1; // RETURN_TYPE: belongs to another statement\nconst read = (): string => 'value';",
+      "// RETURN_TYPE: Outer signature has a required contract.\nconst outer = (): string => { const inner = (): string => 'value'; return inner(); };",
+      "// RETURN_TYPE: Must not cover multiple declarations.\nconst a = (): string => 'a', b = () => 'b';",
+    ].map((code) => ({ code, filename: returnTypeFilename, errors: [{ messageId: "infer" }] })),
+  ],
+});

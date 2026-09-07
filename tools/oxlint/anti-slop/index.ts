@@ -1,3 +1,4 @@
+import { preferInferredReturnTypesRule } from "./rules/prefer-inferred-return-types.ts";
 import { eslintCompatPlugin } from "@oxlint/plugins";
 
 import { noChainedTypeAssertionsRule } from "./rules/no-chained-type-assertions.ts";
@@ -106,6 +107,7 @@ const antiSlopPlugin = eslintCompatPlugin({
 		"no-raw-try-catch": noRawTryCatchRule,
 		"no-promise-microtask-barrier": noPromiseMicrotaskBarrierRule,
 		"no-redundant-readonly-wrapper": noRedundantReadonlyWrapperRule,
+		"prefer-inferred-return-types": preferInferredReturnTypesRule,
 		"no-reflect-apply": noReflectApplyRule,
 		"no-reflect-get": noReflectGetRule,
 		"no-runtime-typeof": noRuntimeTypeofRule,

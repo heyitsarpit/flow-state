@@ -14,6 +14,11 @@ type FunctionWithContract =
 	| ESTree.TSFunctionType
 	| ESTree.TSMethodSignature;
 
+type TypeSubstitution = {
+	readonly type: ESTree.TSType;
+	readonly substitutions: ReadonlyMap<string, TypeSubstitution>;
+};
+
 function parameterAnnotation(parameter: Parameter): ESTree.TSTypeAnnotation | null | undefined {
 	if (parameter.type === "TSParameterProperty") return parameterAnnotation(parameter.parameter);
 	if (parameter.type === "RestElement") {
@@ -75,31 +80,35 @@ export const noNullishFunctionContractsRule = defineRule({
 		const containsNullish = (
 			type: ESTree.TSType,
 			shadowedAliases: ReadonlySet<string>,
-			substitutions = new Map<string, ESTree.TSType>(),
+			substitutions: ReadonlyMap<string, TypeSubstitution> = new Map(),
 			visitedAliases = new Set<string>(),
+			visitedTypes = new Set<ESTree.TSType>(),
 		): boolean => {
+			if (visitedTypes.has(type)) return false;
+			const nextVisitedTypes = new Set(visitedTypes);
+			nextVisitedTypes.add(type);
 			if (type.type === "TSNullKeyword" || type.type === "TSUndefinedKeyword") return true;
 			if (type.type === "TSParenthesizedType") {
-				return containsNullish(type.typeAnnotation, shadowedAliases, substitutions, visitedAliases);
+				return containsNullish(type.typeAnnotation, shadowedAliases, substitutions, visitedAliases, nextVisitedTypes);
 			}
 			if (type.type === "TSUnionType" || type.type === "TSIntersectionType") {
 				return type.types.some((member) =>
-					containsNullish(member, shadowedAliases, substitutions, visitedAliases),
+					containsNullish(member, shadowedAliases, substitutions, visitedAliases, nextVisitedTypes),
 				);
 			}
 			if (type.type === "TSConditionalType") {
 				return (
-					containsNullish(type.trueType, shadowedAliases, substitutions, visitedAliases) ||
-					containsNullish(type.falseType, shadowedAliases, substitutions, visitedAliases)
+					containsNullish(type.trueType, shadowedAliases, substitutions, visitedAliases, nextVisitedTypes) ||
+					containsNullish(type.falseType, shadowedAliases, substitutions, visitedAliases, nextVisitedTypes)
 				);
 			}
 			if (type.type === "TSArrayType") {
-				return containsNullish(type.elementType, shadowedAliases, substitutions, visitedAliases);
+				return containsNullish(type.elementType, shadowedAliases, substitutions, visitedAliases, nextVisitedTypes);
 			}
 			if (type.type === "TSTupleType") {
 				return type.elementTypes.some((element) =>
 					containsNullishTupleElement(element, (elementType) =>
-						containsNullish(elementType, shadowedAliases, substitutions, visitedAliases),
+						containsNullish(elementType, shadowedAliases, substitutions, visitedAliases, nextVisitedTypes),
 					),
 				);
 			}
@@ -109,8 +118,13 @@ export const noNullishFunctionContractsRule = defineRule({
 			if (name === null) return false;
 			const substitution = substitutions.get(name);
 			if (substitution !== undefined) {
-				if (substitution.type === "TSTypeReference" && typeReferenceName(substitution) === name) return false;
-				return containsNullish(substitution, shadowedAliases, substitutions, visitedAliases);
+				return containsNullish(
+					substitution.type,
+					shadowedAliases,
+					substitution.substitutions,
+					visitedAliases,
+					nextVisitedTypes,
+				);
 			}
 
 			if (!shadowedAliases.has(name) && !visitedAliases.has(name)) {
@@ -120,7 +134,7 @@ export const noNullishFunctionContractsRule = defineRule({
 					for (const [index, parameter] of (alias.typeParameters?.params ?? []).entries()) {
 						const argument = type.typeArguments?.params[index] ?? parameter.default;
 						if (argument !== null && argument !== undefined) {
-							nextSubstitutions.set(parameter.name.name, argument);
+							nextSubstitutions.set(parameter.name.name, { type: argument, substitutions });
 						}
 					}
 					return containsNullish(
@@ -128,6 +142,7 @@ export const noNullishFunctionContractsRule = defineRule({
 						shadowedAliases,
 						nextSubstitutions,
 						new Set([...visitedAliases, name]),
+						nextVisitedTypes,
 					);
 				}
 			}
@@ -135,7 +150,7 @@ export const noNullishFunctionContractsRule = defineRule({
 			// Inspect type arguments so Promise<T | undefined>, Effect<T | null, ...>,
 			// and named containers cannot hide the nullish contract.
 			return type.typeArguments?.params.some((argument) =>
-				containsNullish(argument, shadowedAliases, substitutions, visitedAliases),
+				containsNullish(argument, shadowedAliases, substitutions, visitedAliases, nextVisitedTypes),
 			) ?? false;
 		};
 
