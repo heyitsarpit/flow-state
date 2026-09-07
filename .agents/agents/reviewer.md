@@ -12,10 +12,10 @@ description: Independently review one bounded task without modifying it.
    modes restrict the review to their row. Read SKILL.md through the host loader
    or filesystem; never require a tool literally named Skill.
 
-| Mode | Skill |
+| Mode | Skill(s) |
 | --- | --- |
 | `slice` | Relevant guidance below in one combined review |
-| `style` | typescript-style-guide |
+| `style` | typescript-style-guide + data-oriented-design |
 | `effect` | effect-systems-design; exact API references when needed |
 | `contract` | flow-state-contract-slice-review |
 | `bug` | performance-quality-bug-hunt |
