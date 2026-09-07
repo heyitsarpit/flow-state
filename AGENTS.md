@@ -3,9 +3,48 @@
 Use this file to navigate, change, and verify Flow State. Read the live source,
 tests, contracts, and proofs before making implementation or status claims.
 
+## Task Execution & Autonomy
+
+- For implementation or fix requests, carry the authorized work through implementation
+  and relevant verification. Do not stop at a proposed plan when you can proceed.
+- Make reasonable assumptions for routine, reversible decisions. Ask a focused question
+  when missing information materially affects correctness, scope, or authorization.
+- Continue with authorized read-only actions, local worktrees, branch edits, and
+  appropriate tests without repeatedly asking.
+- Before requesting approval, finish the preparation that is already authorized and
+  present a concrete, reviewable result.
+- Respect required approval gates. Ask before destructive, irreversible, or otherwise
+  unauthorized actions.
+- Avoid boilerplate warnings about hypothetical risks. Explain concrete blockers or
+  material risks when relevant.
+
+Planning and read-only requests authorize inspection and proposals, not edits or
+task-state changes.
+
+## Instruction Conflicts
+
+- Explicit user instructions take precedence over conflicting skill guidelines,
+  subject to higher-priority instructions and actual permission boundaries.
+- If a skill causes a pause or deviation, identify the file and relevant rule, and
+  explain whether it is an explicit requirement or your interpretation. Continue
+  any unaffected authorized work.
+
+## Style & Output
+
+- Lead with the result. Use plain language, active voice, and concise paragraphs.
+  Include technical details that help assess the work.
+- Use lists when they improve readability; avoid repetitive transitions and stock
+  phrases such as "it's worth noting", "delve", "leverage", and "Bottom line".
+- Report what changed, what was verified, and any remaining uncertainty.
+
+## Verification
+
+- Match verification to the scope and impact of the change. Complete required checks;
+  expand testing when a concrete unresolved concern justifies it.
+
 ## Useful structure
 
-- `packages/flow-state/` — old read only, never edit this.
+- `packages/flow-state/` — frozen package; never edit.
 - `packages/flow-state/src/index.ts`, `react-entry.ts`, `testing.ts`,
   `server.ts`, and `inspect.ts` — public package entrypoints.
 - `packages/flow-state/src/core/` — runtime behavior; `src/react/`,
@@ -42,8 +81,11 @@ nub run verify                                   # full closeout gate
 Use the smallest relevant check while iterating. Run `build` when package, CLI,
 or example output changes; it also runs the example CLI acceptance gate. The docs
 generators derive API reference data from public entrypoints and behavior data from
-`examples/basic-cached-posts`. Run `verify` before claiming a workspace slice
-is complete.
+`examples/basic-cached-posts`.
+
+Run the required checks for the changed scope. Run `nub run verify` before claiming
+full workspace verification. For instruction-only changes, validate the diff, links,
+and metadata unless the task explicitly requires additional checks.
 
 ## Coding practices
 
@@ -53,16 +95,13 @@ is complete.
   affected entrypoints, tests, examples, packed consumers, and docs.
 - Add or update executable behavior proofs with semantic changes; source-text checks
   and typechecking alone do not prove runtime behavior.
-- Use vertical space for clean looking code. Put one empty line between adjacent top-level
-  declaration groups. Always separate a top-level type alias, interface, class, enum,
-  or function from the next top-level declaration. Closely related one-line constants
-  may remain one group. Do not insert blank lines inside a single declaration or
-  mechanically between statements in one phase.
-- Keep small features flat at their parent. Create a recursive feature folder only
-  for a major self-contained module; co-locate its implementation, validation/private
-  helpers, local codecs, and a local `test/` subtree. Folder names describe modules,
-  not compile-time/runtime/API proof roles. A module may contain both type-level and
-  runtime behavior; add re-export files only for a real public route.
+- Separate adjacent top-level declarations with one blank line. Closely related
+  one-line constants may stay together. Do not add blank lines mechanically within
+  a declaration or workflow phase.
+- Keep small features in their parent directory. Give a self-contained module its
+  own directory, with implementation, private helpers, codecs, and tests together.
+  Name directories by module, not by runtime or proof category.
+- Add re-export files only for a real public route.
 - Regenerate generated docs and package output through their commands. Do not hand-edit
   `dist/`, `apps/docs/src/generated/`, or `apps/docs/src/pages.gen.ts`.
 - For contract work, read only the active task and its named contracts. Reconcile
@@ -70,21 +109,22 @@ is complete.
 
 ## Skills
 
-Only the matching skill applies to each task. The `orchestrator`, `coder`, and
-`reviewer` entrypoints define delegation, implementation, and independent review.
+Load only skills relevant to the task; more than one may apply. The `orchestrator`,
+`coder`, and `reviewer` entrypoints define delegation, implementation, and independent
+review. Specialist reviewers use their assigned mode. Combined `reviewer_type=slice`
+reviewers load all guidance relevant to the changed boundary in one independent pass.
 
 | Skill | Agent | Reach for it when | Do not reach for it when |
 | --- | --- | --- | --- |
-| `.agents/skills/typescript-style-guide/SKILL.md` | coder, reviewer (`reviewer_type=style`) | Writing Flow State TypeScript, or running the dedicated style review for ownership, boundaries, composition, APIs, examples, and proofs. | The task is unrelated to Flow State TypeScript, or the reviewer is running another mode. |
-| `.agents/skills/flow-state-module-refactor/SKILL.md` | orchestrator, coder | Simplifying one `packages/flow-state-rewrite` source module completely before moving to the next or introducing shared abstractions. | The task targets the frozen package, authors contracts, or performs a project-wide cleanup pass. |
-| `.agents/skills/effect-systems-design/SKILL.md` | coder, reviewer (`reviewer_type=effect`) | Choosing plain TypeScript versus Effect, or reviewing Effect services, Layers, resources, concurrency, time, host adapters, or public APIs. | The task only needs ordinary deterministic TypeScript, or the reviewer is running another mode. |
-| `.agents/skills/effect-api-documentation/SKILL.md` | coder, reviewer (`reviewer_type=effect`) | Writing or reviewing exact Effect v4 module docs, exports, signatures, examples, and version-specific behavior. | Choosing architecture or introducing an Effect abstraction; use `effect-systems-design` for those decisions. |
-| `~/.agents/skills/tdd/SKILL.md` | coder | The user requests test-first/red-green-refactor work or explicitly requests integration tests. | Read-only review or ordinary focused behavior-proof additions. |
-| `.agents/skills/beads/SKILL.md` | coder, reviewer | The repository uses Beads or the task includes issue IDs, claiming, dependencies, blockers, or durable handoff. | A current-turn execution checklist with no shared task state. |
-| `.agents/skills/flow-state-contract-slice-review/SKILL.md` | reviewer (`reviewer_type=contract`) | Reviewing one `packages/flow-state-rewrite` Bead against its active contracts, proof IDs, and deletion obligations. | General maintainability or performance review, or a reviewer running another mode. |
-| `.agents/skills/performance-quality-bug-hunt/SKILL.md` | reviewer (`reviewer_type=bug`) | Hunting correctness, regression, lifecycle, concurrency, performance, or adversarial-test failures in a bounded diff. | Contract conformance, Effect design, or style validation is the only question. |
-
-Combined `reviewer_type=slice` uses the relevant review guidance from the table in one independent pass. The table's specialist-mode exclusions apply to specialist reviews, not combined slice review. Load only skills relevant to the changed boundary.
+| `.agents/skills/typescript-style-guide/SKILL.md` | coder, reviewer (`style`) | Writing Flow State TypeScript or reviewing its style and ownership. | Unrelated to Flow State TypeScript. |
+| `.agents/skills/api-design/SKILL.md` | coder, reviewer | Designing or reviewing APIs, usability, or compatibility. | No API design decision is involved. |
+| `.agents/skills/flow-state-module-refactor/SKILL.md` | orchestrator, coder | Simplifying one rewrite module before considering shared abstractions. | Frozen package, contract authoring, or project-wide cleanup. |
+| `.agents/skills/effect-systems-design/SKILL.md` | coder, reviewer (`effect`) | Choosing TypeScript versus Effect or reviewing services, lifetimes, and concurrency. | Ordinary deterministic TypeScript needs no Effect decision. |
+| `.agents/skills/effect-api-documentation/SKILL.md` | coder, reviewer (`effect`) | Verifying or documenting exact Effect v4 APIs. | Architectural selection; use `effect-systems-design`. |
+| `~/.agents/skills/tdd/SKILL.md` | coder | Requested test-first work or integration tests. | Read-only review or ordinary behavior-proof additions. |
+| `.agents/skills/beads/SKILL.md` | orchestrator, coder, reviewer | Durable tasks, dependencies, ownership, or handoff. | A current-turn checklist with no shared task state. |
+| `.agents/skills/flow-state-contract-slice-review/SKILL.md` | reviewer (`contract`) | Checking one rewrite Bead against its named contracts and proofs. | General maintainability review or contract authoring. |
+| `.agents/skills/performance-quality-bug-hunt/SKILL.md` | reviewer (`bug`) | Hunting concrete bugs, regressions, lifecycle failures, or performance risks. | Only contract conformance, Effect design, or style is in scope. |
 
 Agent entrypoints:
 
@@ -105,180 +145,63 @@ Agent entrypoints:
 
 - use `exa` cli for ls extensions like `exa -tree` to validate folder structures
 
-<!-- BEGIN BEADS CODEX SETUP: generated by bd setup codex -->
+## Beads
 
-## Beads Issue Tracker
-
-Use Beads (`bd`) for durable task tracking in repositories that include it. Beads workflow guidance applies here.
-Call the Skill tool with `beads`.
-Then use the `bd` CLI for issue operations.
-
-### Quick Reference
-
-```bash
-bd ready                # Find available work
-bd show <id>            # View issue details
-bd update <id> --claim  # Claim work
-bd close <id>           # Complete work
-bd prime                # Refresh Beads context
-```
+Read [the Beads skill](.agents/skills/beads/SKILL.md) using the available skill loader
+or filesystem, then use the `bd` CLI.
 
 ### Rules
 
-- Use `bd` for all task tracking; do not create markdown TODO lists.
-- Run `bd prime` when Beads context is missing or stale. Codex 0.129.0+ can load Beads context automatically through native hooks; use `/hooks` to inspect or toggle them.
-- Keep persistent project memory in Beads via `bd remember`; do not create ad hoc memory files.
+- Use Beads for durable task tracking and project knowledge; do not create markdown
+  TODO files or parallel project ledgers. Run `bd prime` when context is missing or stale.
+- Inspect the full task, ownership, and dependencies before claiming. Verify readiness
+  with `bd show <id> --json` and `bd ready`; never claim from graph recommendations alone.
+  In delegated work, follow the role files for task-state ownership.
+- Close work only after its acceptance criteria, required checks, and assigned review
+  pass. Record remaining work and blockers at handoff.
+- Issues live in the local Dolt database. `.beads/issues.jsonl` is a passive export;
+  regenerate it with `bd export -o .beads/issues.jsonl` after mutations. Do not edit it
+  by hand or treat it as live task state.
+- Beads does not authorize staging, committing, pushing, or Dolt remote sync. Follow
+  explicit user authorization. Report changed files, validation, and remaining task
+  state at handoff; report the exact command and error if an authorized action fails.
 
-**Architecture in one line:** issues live in a local Dolt DB; sync uses `refs/dolt/data` on your git remote; `.beads/issues.jsonl` is a passive export. See https://github.com/gastownhall/beads/blob/main/docs/SYNC_CONCEPTS.md for details and anti-patterns.
-<!-- END BEADS CODEX SETUP -->
+### Common commands
 
-<!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:970c3bf2 -->
-
-## Beads Issue Tracker
-
-This project uses **bd (beads)** for issue tracking. Run `bd prime` to see full workflow context and commands.
-
-### Quick Reference
-
-```bash
-bd ready              # Find available work
-bd show <id>          # View issue details
-bd update <id> --claim  # Claim work
-bd close <id>         # Complete work
+```sh
+bd prime                             # Refresh missing or stale context
+bd ready                             # Find unblocked work
+bd list --status=open --json          # List open issues
+bd show <id> --json                   # Inspect full task and dependencies
+bd update <id> --claim                # Claim work atomically
+bd create --title="..." --type=task --priority=2 --json
+bd dep add <issue> <depends-on>       # Record a dependency
+bd close <id> --reason="Completed"   # Close verified work
+bd remember "..."                    # Record durable project knowledge
+bd export -o .beads/issues.jsonl      # Refresh the passive export
 ```
 
-### Rules
+### Graph analysis
 
-- Use `bd` for ALL task tracking — do NOT use TodoWrite, TaskCreate, or markdown TODO lists
-- Run `bd prime` for detailed command reference and session close protocol
-- Use `bd remember` for persistent knowledge — do NOT use MEMORY.md files
+When selecting work, start with `bv --robot-triage`. For an assigned task, inspect
+it directly with `bd show`. Use only `bv --robot-*` modes; bare `bv` opens an
+interactive UI. Graph rankings advise selection; live `bd` state determines
+readiness. User scope, active contracts, and phase gates take precedence over rankings.
 
-**Architecture in one line:** issues live in a local Dolt DB; sync uses `refs/dolt/data` on your git remote; `.beads/issues.jsonl` is a passive export. See https://github.com/gastownhall/beads/blob/main/docs/SYNC_CONCEPTS.md for details and anti-patterns.
-
-## Agent Context Profiles
-
-The managed Beads block is task-tracking guidance, not permission to override repository, user, or orchestrator instructions.
-
-- **Conservative (default)**: Use `bd` for task tracking. Do not run git commits, git pushes, or Dolt remote sync unless explicitly asked. At handoff, report changed files, validation, and suggested next commands.
-- **Minimal**: Keep tool instruction files as pointers to `bd prime`; use the same conservative git policy unless active instructions say otherwise.
-- **Team-maintainer**: Only when the repository explicitly opts in, agents may close beads, run quality gates, commit, and push as part of session close. A current "do not commit" or "do not push" instruction still wins.
-
-## Session Completion
-
-This protocol applies when ending a Beads implementation workflow. It is subordinate to explicit user, repository, and orchestrator instructions.
-
-1. **File issues for remaining work** - Create beads for anything that needs follow-up
-2. **Run quality gates** (if code changed) - Tests, linters, builds
-3. **Update issue status** - Close finished work, update in-progress items
-4. **Handle git/sync by active profile**:
-   ```bash
-   # Conservative/minimal/default: report status and proposed commands; wait for approval.
-   git status
-
-   # Team-maintainer opt-in only, unless current instructions forbid it:
-   git pull --rebase
-   bd dolt push
-   git push
-   git status
-   ```
-5. **Hand off** - Summarize changes, validation, issue status, and any blocked sync/commit/push step
-
-**Critical rules:**
-
-- Explicit user or orchestrator instructions override this Beads block.
-- Do not commit or push without clear authority from the active profile or the current user request.
-- If a required sync or push is blocked, stop and report the exact command and error.
-
-<!-- END BEADS INTEGRATION -->
-
-<!-- bv-agent-instructions-v3 -->
-
----
-
-## Beads Workflow Integration
-
-This project uses Beads (`bd`) for issue tracking and [beads_viewer](https://github.com/Dicklesworthstone/beads_viewer) (`bv`) for graph-aware triage. Issues are stored in `.beads/` and tracked in git. Regenerate `.beads/issues.jsonl` with `bd export -o .beads/issues.jsonl` after mutations. `bv` auto-discovers the supported JSONL files, so agents should use `bd` for issue state and robot-mode `bv` for graph analysis instead of parsing JSONL directly.
-
-### Using bv as an AI sidecar
-
-bv is a graph-aware triage engine for Beads projects. Instead of parsing .beads/issues.jsonl / .beads/beads.jsonl directly or hallucinating graph traversal, use robot flags for deterministic, dependency-aware outputs with precomputed metrics (PageRank, betweenness, critical path, cycles, HITS, eigenvector, k-core).
-
-**Scope boundary:** `bv` advises on *what to work on* through graph metrics. `bd` remains authoritative for readiness and handles creating, modifying, and closing beads. Contract authority, explicit user scope, and phase gates override graph rankings.
-
-**CRITICAL: Use ONLY --robot-* flags. Bare bv launches an interactive TUI that blocks your session.**
-
-#### The Workflow: Start With Triage
-
-**`bv --robot-triage` is your single entry point.** It returns everything you need in one call:
-
-- `quick_ref`: at-a-glance counts + top 3 picks
-- `recommendations`: ranked actionable items with scores, reasons, unblock info
-- `quick_wins`: low-effort high-impact items
-- `blockers_to_clear`: items that unblock the most downstream work
-- `project_health`: status/type/priority distributions, graph metrics
-- `commands`: copy-paste shell commands for next steps
-
-```bash
-bv --robot-triage        # THE MEGA-COMMAND: start here
-bv --robot-next          # Minimal: just the single top pick + claim command
-
-# Token-optimized output (TOON) for lower LLM context usage:
-bv --robot-triage --format toon
+```sh
+bv --robot-triage                         # Ranked recommendations and project health
+bv --robot-next                           # Single top recommendation
+bv --robot-triage --format toon           # Compact output
+bv --robot-plan --label backend           # Plan within a label
+bv --recipe actionable --robot-plan       # Plan filtered actionable work
+bv --robot-diff --diff-since <ref>         # Issue changes since a revision
 ```
-
-Before claiming, verify current state with `bd show <id> --json` and `bd ready`. Recommendations can include graph-important blocked or assigned work, and generated claim commands may target unavailable tools. Never claim from `bv` output alone.
-
-#### Other bv Commands
 
 | Command | Returns |
-|---------|---------|
-| `--robot-plan` | Parallel execution tracks with unblocks lists |
-| `--robot-priority` | Priority misalignment detection with confidence |
-| `--robot-insights` | Full metrics: PageRank, betweenness, HITS, eigenvector, critical path, cycles, k-core |
-| `--robot-alerts` | Stale issues, blocking cascades, priority mismatches |
-| `--robot-suggest` | Hygiene: duplicates, missing deps, label suggestions, cycle breaks |
-| `--robot-diff --diff-since <ref>` | Changes since ref: new/closed/modified issues |
-| `--robot-graph [--graph-format=json\|dot\|mermaid]` | Dependency graph export |
-
-#### Scoping & Filtering
-
-```bash
-bv --robot-plan --label backend              # Scope to label's subgraph
-bv --robot-insights --as-of HEAD~30          # Historical point-in-time
-bv --recipe actionable --robot-plan          # Pre-filter: ready to work (no blockers)
-bv --recipe high-impact --robot-triage       # Pre-filter: top PageRank scores
-```
-
-### bd Commands for Issue Management
-
-```bash
-bd ready                              # Show issues ready to work (no blockers)
-bd list --status=open --json          # All open issues
-bd show <id> --json                   # Full issue details with dependencies
-bd create --title="..." --type=task --priority=2 --json
-bd update <id> --claim                # Claim atomically
-bd close <id> --reason="Completed"
-bd close <id1> <id2> --reason="Completed"
-bd export -o .beads/issues.jsonl      # Refresh the passive JSONL export
-```
-
-### Workflow Pattern
-
-1. **Triage**: Run `bv --robot-triage` to find the highest-impact actionable work
-2. **Verify and claim**: Use `bd show <id>`, confirm it appears in `bd ready`, then run `bd update <id> --claim`
-3. **Work**: Implement the task
-4. **Complete**: Use `bd close <id> --reason="Completed"`
-5. **Export**: Run `bd export -o .beads/issues.jsonl` after Beads mutations so `bv` reads current state
-
-### Key Concepts
-
-- **Dependencies**: Issues can block other issues. `bd ready` shows only unblocked work.
-- **Priority**: P0=critical, P1=high, P2=medium, P3=low, P4=backlog (use numbers 0-4, not words)
-- **Types**: task, bug, feature, epic, chore, docs, question
-- **Blocking**: `bd dep add <issue> <depends-on>` adds dependencies
-
-### Git Policy
-
-`bd` does not grant permission to commit or push. Follow this repository's git instructions before staging, committing, or pushing. If the repository says "commit only when asked," that rule overrides any generic workflow advice.
-
-<!-- end-bv-agent-instructions -->
+| --- | --- |
+| `--robot-plan` | Execution tracks and unblocked work |
+| `--robot-priority` | Priority mismatches |
+| `--robot-insights` | Dependency graph metrics |
+| `--robot-alerts` | Stale issues and blocking cascades |
+| `--robot-suggest` | Possible duplicates, missing dependencies, and cycles |
+| `--robot-graph --graph-format=mermaid` | Dependency graph export |
