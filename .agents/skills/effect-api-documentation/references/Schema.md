@@ -30,6 +30,11 @@ Source: [Effect v4 `Schema` API](https://www.effect.website/docs/v4/api/effect/S
 22. [Schema.optional](#schemaoptional)
 23. [Schema.brand](#schemabrand)
 24. [Schema.DateFromString](#schemadatefromstring)
+25. [Schema.OptionFromOptionalNullOr](#schemaoptionfromoptionalnullor)
+26. [Schema.makeFilter](#schemamakefilter)
+27. [Schema.Struct.mapFields](#schemastructmapfields)
+28. [Schema.withDecodingDefaultKey](#schemawithdecodingdefaultkey)
+29. [Schema.withConstructorDefault](#schemawithconstructordefault)
 
 ### Additional known APIs (not expanded)
 
@@ -289,4 +294,98 @@ Decodes string-encoded dates into JavaScript `Date` values.
 
 ```ts
 const date = Schema.decodeUnknownSync(Schema.DateFromString)("2024-01-01");
+```
+
+### [Schema.OptionFromOptionalNullOr](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Schema.ts:8786)
+
+Transforms an optional, nullable field into a required `Option` field. Available since
+v4.0.0; verified against installed `effect@4.0.0-rc.112`.
+
+```ts
+const User = Schema.Struct({ nickname: Schema.OptionFromOptionalNullOr(Schema.String) });
+const decodeUser = Schema.decodeResult(User);
+type UserInput = typeof User.Encoded;
+type User = typeof User.Type;
+```
+
+`UserInput` permits an omitted nickname, `null`, `undefined`, or a string. Decoding maps
+the first three cases to `Option.none()` and valid strings to `Option.some(value)`.
+`User.nickname` is required and has type `Option<string>`; invalid present values still
+fail the inner schema. Decoding applies any inner schema transformation before wrapping
+its output in `Some`.
+
+Encoding maps `Some` through the inner schema and encodes `None` according to the optional
+second argument, `{ onNoneEncoding: "omit" | null | undefined }`. The default is `"omit"`,
+which removes the key; the other choices emit an explicit `null` or `undefined`.
+
+```ts
+const UserWire = Schema.Struct({
+  nickname: Schema.OptionFromOptionalNullOr(Schema.String, { onNoneEncoding: null }),
+});
+```
+
+Use this transformation at the schema boundary when these absence forms have the same
+domain meaning. If omission and explicit null mean different operations, model that
+distinction before normalizing them into one `None` case.
+
+### [Schema.makeFilter](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Schema.ts:6448)
+
+Creates a custom check over decoded data. Return `true` for success or `{ path, issue }`
+to attach a relational failure to a field. An array of issues reports multiple failures;
+an empty array succeeds. Strings and SchemaIssue values are also supported failures.
+
+```ts
+const Window = Schema.Struct({ start: Schema.Int, end: Schema.Int }).check(
+  Schema.makeFilter(({ start, end }) =>
+    start <= end || { path: ["end"], issue: "Must follow start" }),
+);
+```
+
+Decoding with `{ errors: "all" }` collects available failures. The optional third argument,
+`abort: true`, stops subsequent checks when this filter fails. Choose accumulation or ordered
+failure deliberately; neither replaces algorithm-specific admission phases.
+
+### [Schema.Struct.mapFields](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Schema.ts:3395)
+
+Derives a struct by transforming its field definitions. Selected fields retain their own
+schemas, but parent-level checks are dropped by default. Rebuild relational checks that the
+new schema needs; `unsafePreserveChecks: true` requires proving they remain valid.
+
+```ts
+import { Struct } from "effect";
+const UserFields = Schema.Struct({ id: Schema.String, name: Schema.NonEmptyString });
+const UserIdentity = UserFields.mapFields(Struct.pick(["id"]));
+```
+
+Use `Schema.toType` instead when you need the decoded representation of the whole schema,
+including required Option fields, without replaying its input transformations.
+
+### [Schema.withDecodingDefaultKey](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Schema.ts:5772)
+
+Provides an encoded default for a missing struct key during decoding. The decoded field
+is required. Present `undefined` does not activate this default, and malformed present
+values still fail. The default passes through the field's decoding transformation.
+
+```ts
+import { Effect } from "effect";
+const RetryInput = Schema.Struct({
+  attempts: Schema.Int.pipe(Schema.withDecodingDefaultKey(Effect.succeed(3))),
+});
+```
+
+The optional `encodingStrategy` is `"passthrough"` by default; `"omit"` omits the field
+when encoding. Choose a default only when omission has that concrete domain meaning;
+represent meaningful absence with Option instead.
+
+### [Schema.withConstructorDefault](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Schema.ts:5695)
+
+Provides a default to the schema's constructor. It does not make missing encoded input
+valid during decoding. This example permits `RetryConstruction.make({})`, while its decoder
+still requires `attempts`.
+
+```ts
+import { Effect } from "effect";
+const RetryConstruction = Schema.Struct({
+  attempts: Schema.Int.pipe(Schema.withConstructorDefault(Effect.succeed(3))),
+});
 ```
