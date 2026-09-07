@@ -28,14 +28,18 @@
     "lint:fix": "vp lint packages/flow-state-rewrite --fix",
     "test": "vp test",
     "test:browser": "nub run --filter @flow-state/incident-console test:browser",
-    "verify": "nub run check:toolchain && nub run check && nub run test && nub run build && nub run test:browser && nub run docs:build"
+    "verify": "nub run check:toolchain && nub run check && nub run test && nub run build && nub run test:browser && nub run docs:build",
+    "test:coverage": "vp test run packages/flow-state-rewrite --coverage",
+    "report:unused": "knip --workspace packages/flow-state-rewrite --no-exit-code"
   },
   "devDependencies": {
     "@effect/language-service": "0.87.2",
     "@oxlint/plugins": "1.78.0",
-    "effect": "4.0.0-rc.112",
     "@types/node": "26.2.0",
+    "@vitest/coverage-v8": "4.1.10",
+    "effect": "4.0.0-rc.112",
     "happy-dom": "^20.10.6",
+    "knip": "6.34.0",
     "oxlint": "1.77.0",
     "typescript": "7.0.2",
     "vite-plus": "0.2.9",
