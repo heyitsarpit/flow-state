@@ -3,6 +3,26 @@ name: data-oriented-design
 description: Design programs data-first with Schema-owned validation and clean transformation phases. Use when modeling application data or simplifying scattered validation and procedural code.
 ---
 
+## Mental model
+
+Start with the data throughout the application: configuration, state, intermediate
+results, facts, plans, and outcomes. Schema defines their shapes and invariants. Plain
+functions transform these values and make decisions; Effect coordinates execution.
+Validate where values need admission, and preserve invariants as internal data changes.
+
+```text
+Application data ↔ transformations and decisions ↔ application data
+                              ↓
+                      Effect execution
+```
+
+Choose representations that simplify their consumers. Compute shared facts once per
+snapshot, and produce inspectable plans when preparation and execution benefit from
+separate owners. Prefer idempotent transformations when repeating them should have no
+additional effect. These are optional patterns, not required layers for every function.
+
+## Code examples: admission and ordinary operators
+
 1. **Define application data as Schema first.** Derive input and admitted types from
    schemas. Keep known data precisely typed; reserve unknown inputs for actual external
    boundaries. A typed input still needs validation of rules its static type cannot express.
@@ -264,3 +284,39 @@ private or add a brand when callers must prove admission. Keep data owned or imm
 while later phases trust it. Test validation failures, diagnostic paths, phase ordering,
 mutation isolation, and successful calculations. Monetary arithmetic here assumes safe
 integer totals; choose the domain's numeric representation and bounds in real code.
+
+## Optional downstream patterns
+
+The first two examples show code shapes; named helpers stand for domain algorithms.
+
+**Compute reusable facts.** Keep indexes and analysis results separate from the primary
+representation. Build them once per owned snapshot so updates cannot leave stale facts
+behind.
+
+```ts
+const facts = analyzeDefinition(definition);
+const resolved = resolveBehavior(structure, facts);
+const diagnostics = findUnreachableStates(resolved, facts);
+```
+
+**Interpret plans separately.** Decision code produces instructions that execution and
+explanation can both consume. Use the schema-derived exhaustive matcher shown above
+when it makes the interpreters clearer. Keep ordering and execution semantics explicit.
+
+```ts
+const steps = planChange(current, requested);
+const explanation = describeSteps(steps);
+const program = executeSteps(steps);
+```
+
+**Make functions idempotent when possible.** When an operation means “ensure this state,”
+repeating it should have no additional effect. For a transformation, f(f(x)) should equal
+f(x) by domain value. Determinism alone does not establish this property.
+
+```ts
+const ensureTarget = (targets: readonly string[], target: string): readonly string[] =>
+  targets.includes(target) ? targets : [...targets, target];
+```
+
+Ensuring the same target twice adds it only once. Keep intentionally cumulative operations
+cumulative; for external effects, idempotence must be enforced by the execution owner.
