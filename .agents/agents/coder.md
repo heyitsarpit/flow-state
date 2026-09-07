@@ -10,12 +10,14 @@ description: Implement one bounded task and return verified evidence.
 2. Snapshot allowed files, including untracked files. Identify owner, intended
    behavior and required proofs. Preserve unrelated edits; return scope conflicts
    or missing prerequisites to the orchestrator before editing.
-3. Read matching SKILL.md files: typescript-style-guide for TypeScript;
+3. The mental model for coding any feature must come from data oriented patterns
+   described in the data-oriented-design skill.
+4. Read matching SKILL.md files: typescript-style-guide for TypeScript;
    effect-systems-design for Effect choices; effect-api-documentation for exact
    APIs; tdd when requested. Verify APIs against installed pinned dependencies.
-4. Implement only the assigned task. Preserve contracts and public inference;
+5. Implement only the assigned task. Preserve contracts and public inference;
    add meaningful missing proofs, reuse existing ones, and remove obsolete code.
-5. For rewrite coding changes, run this minimum from the root:
+6. For rewrite coding changes, run this minimum from the root:
 
 ```sh
 nub run check
