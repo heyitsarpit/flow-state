@@ -115,6 +115,38 @@ export const runStageLifecycle = (
 Prefer a short linear sequence to a maze of generic helpers. Name phases after
 the domain rather than `step1` or `processData`.
 
+## Infer implementation return types by default
+
+Let named function implementations, methods, and callbacks infer their return
+values. Repeating the computed type adds maintenance and can hide more precise
+inference. Keep meaningful function names; do not inline helpers to avoid a type.
+Consumer callback contracts and type-only signatures remain explicit.
+
+The rewrite warning `anti-slop/prefer-inferred-return-types` covers `src/` and
+`test/`, including static compiler fixtures. It requires a local
+justification when an implementation needs an annotation. Put a standalone
+`// RETURN_TYPE: <specific reason>` immediately above the function or its single
+variable declaration, export, method, or property. The reason must identify the
+contract or inference limitation: recursive inference, contextual callback
+parameters, a predicate/assertion, overload compatibility, deliberate public
+abstraction, readonly publication, or a precise compile-proof fixture.
+"Readability" or "exported function" alone does not explain a required type.
+
+```ts
+const stateKey = (path: readonly string[]) => path.join(".");
+
+// RETURN_TYPE: Prevents callers from mutating the published collection.
+const collectNames = (names: readonly string[]): readonly string[] => [...names];
+```
+
+Do not mechanically delete annotations, replace them with casts, or move a
+redundant annotation onto a local variable to silence the warning. Check callers,
+readonly/literal/tuple information, predicates, Result/Effect channels, public
+declarations, and type proofs. An exception for an outer function does not cover
+nested callbacks. Existing examples elsewhere in this guide that show explicit
+implementation returns illustrate their own topic; they do not override this
+inference-first convention or its required local justification.
+
 ## Name domain helpers, not generic utilities
 
 ```typescript
