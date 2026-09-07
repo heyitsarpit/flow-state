@@ -12,8 +12,9 @@ Public authoring shapes are owned by [PUBLIC_API.md](./PUBLIC_API.md); terminolo
 - Pure definition and machine authoring carries expected validation and compilation failures as
   `Result<A, Diagnostic>`. The `Diagnostic` type is the Schema-backed `Schema.TaggedError` class owned by
   [`ERRORS.ts`](./ERRORS.ts); no feature-owned expected Error or `Data.TaggedError` carrier is permitted.
-- `definition(config)` returns `Diagnostic.Result<DefinitionFromConfig<Config>>`, and each event token call
-  returns `Diagnostic.Result<EventEnvelope<...>>`. `EventOf<Definition>` extracts the successful envelope union;
+- `definition(config)` returns the direct Effect `Result.Result<DefinitionFromConfig<Config>, ReturnType<typeof Diagnostic.Failure>>` value,
+  and each event token call returns `Result.Result<EventEnvelope<...>, ReturnType<typeof Diagnostic.Failure>>`. `EventOf<Definition>` extracts
+  the successful envelope union;
   it is not a union of Result wrappers.
 - Effectful runtime operations preserve `Effect<A, Diagnostic, R>` at the owning boundary. `Diagnostic`
   values may be yielded directly or supplied to `Effect.fail`; defects and interruption remain in `Cause`
@@ -28,7 +29,7 @@ Public authoring shapes are owned by [PUBLIC_API.md](./PUBLIC_API.md); terminolo
 import { Result } from "effect";
 import { definition, Diagnostic } from "flow-state";
 
-type EventResultValue<Value> = Value extends Diagnostic.Result<infer Success> ? Success : never;
+type EventResultValue<Value> = Value extends Result.Result<infer Success, ReturnType<typeof Diagnostic.Failure>> ? Success : never;
 
 const TodoResult = definition({
   id: "Todos/Editor",
@@ -61,12 +62,13 @@ if (Result.isFailure(TodoResult)) {
 }
 ```
 
-Here `EventResultValue<Value>` is the success-value projection of
-`Diagnostic.Result<Value>`. The `definition` result is checked before its success value is used.
+Here `EventResultValue<Value>` is the success-value projection of the direct Effect `Result.Result` value. The
+`definition` result is checked before its success value is used; `machine(definitionResult, callback)` performs the
+same internal `Result.match` and does not invoke the callback on a Definition failure.
 
 ### Surface
 
-- `definition` returns a `Diagnostic.Result` while preserving literal ID, recursive exact state tokens,
+- `definition` returns a direct Effect `Result.Result` while preserving literal ID, recursive exact state tokens,
   event names/parameter tuples/result payloads, context values, named operation families, input, and memory
   without `as const`.
 
@@ -104,7 +106,7 @@ Here `EventResultValue<Value>` is the success-value projection of
 ## TYPE-002 — Definition-anchored machine inference
 
 ```ts
-machine(Todo, ({ S, E, O, onContext, onMemory }) => ({
+machine(TodoResult, ({ S, E, O, onContext, onMemory }) => ({
   default: S.READY,
   states: { READY: { on: { SaveRequested: { target: S.SAVING.S.REQUESTED } } } },
 }));
@@ -112,7 +114,8 @@ machine(Todo, ({ S, E, O, onContext, onMemory }) => ({
 
 ### Surface
 
-- `machine(definition, callback)` anchors all inference to the first argument and supplies exact `S`,
+- `machine(definitionResult, callback)` matches the upstream Definition Result before callback execution,
+  anchors all inference to its successful value, and supplies exact `S`,
   `E`, `O`, `onContext`, `onMemory`, `invalidate`, `clear`.
 
 ### Rule
@@ -492,11 +495,11 @@ type NormalizedCarrier<R> = Readonly<{ readonly _requirements?: (r: R) => R }>;
 
 ### Observable guarantee
 
-- App compilation/inference cost is bounded by normalized static graph.
+- App inference reads the normalized static graph without recursive carrier expansion.
 
 ### Proof
 
-- Acyclic carrier and inference-cost proof `TYPE-P03`.
+- Acyclic carrier and inference correctness proof `TYPE-P03`.
 
 ### Trace
 
@@ -560,32 +563,36 @@ const TodoWithClock = Implementation.merge(TodoLive, ClockLive);
 ```ts
 function runtimeSetup<A extends App>(options: {
   readonly app: A;
-  readonly persistence?: Persistence;
+  // Deferred until the Persistence owner lands; retained for restoration.
+  // readonly persistence?: Persistence;
 }): RuntimeSetup<A, never>;
 function runtimeSetup<A extends App, ImplementationError>(options: {
   readonly app: A;
   readonly implementation: Implementation<RequirementsOf<A>, ImplementationError>;
-  readonly persistence?: Persistence;
+  // Deferred until the Persistence owner lands; retained for restoration.
+  // readonly persistence?: Persistence;
 }): RuntimeSetup<A, ImplementationError>;
 ```
 
 ### Surface
 
-- `RuntimeSetup` is inert carrier. `construct()` makes shell/no I/O. `ready(): Effect<void, Diagnostic>`
-  performs bootstrap/restoration once and caches terminal result; implementation, storage, codec, and
-  restoration failures are mapped to canonical Failure diagnostics at their owning boundary. The public
-  `FlowPersistenceError` name, if retained, is a final host-only compatibility envelope and never an
-  additional expected Effect error family.
+- The temporary `RuntimeSetup`/`Runtime` shell is an inert carrier with only `app`, `construct()`, and `ready()`.
+  `construct()` is synchronous/inert. `ready(): Effect<void, ImplementationError>` lazily acquires complete
+  Implementation providers sequentially once per shell. Each shell caches the first terminal `Exit` exactly
+  once—success, typed `ImplementationError` failure, defect, or interruption—and later runs reuse that `Exit`
+  without retry. Its `Cause` preserves typed failure, defect, and interruption as separate meanings. The temporary
+  shell has no persistence, actors, Effect bridges, lifecycle, or disposal behavior; no Diagnostic mapping is invented
+  for its error channel.
+- The complete bootstrap, restoration, persistence, actor, bridge, lifecycle, and disposal behavior described by
+  the future Runtime clauses remains a target only and is not claimed implemented by this shell.
 
 ### Rule
 
 - First overload applies only when requirements are never; second requires complete Implementation.
-  Strict superset providers are valid only with no remaining inputs. Persistence is host capability and
-  does not enter RequirementsOf/App Implementation closure. Runtime create/ensure accept exact App.M machines;
-  lookup is ref-only/no create/adopt.
-- `persistence(options)` returns an inert `Persistence`; storage is a host capability, codec defaults to
-  the package JSON-safe codec, and its filter can only exclude declaration-owned entries. Persistence does
-  not contribute to RequirementsOf<App> or change Implementation closure.
+  Strict superset providers are valid only with no remaining inputs. The commented persistence option and its
+  provider/storage rules are future target notation; they do not enter the temporary shell.
+- Future target only: Runtime create/ensure accept exact App.M machines; lookup is ref-only/no create/adopt, and
+  `persistence(options)` returns an inert `Persistence` without changing Implementation closure.
 
 ### Accepts
 
@@ -605,8 +612,10 @@ runtimeSetup({ app: ProjectApp, implementation: ProjectImplementationRequiringCo
 
 ### Observable guarantee
 
-- Readiness is one idempotent cached boundary; implementation acquisition errors become owned Failure
-  diagnostics and remain distinguishable from defects and interruption in the internal `Cause`.
+- Temporary readiness is one per-shell idempotent cached boundary: the first terminal `Exit`—success, typed
+  `ImplementationError` failure, defect, or interruption—is reused exactly once with no retry. Its `Cause` keeps
+  typed failure, defect, and interruption distinct, and typed provider failures remain the exact `ImplementationError`
+  value. Full Diagnostic mapping and Runtime ownership remain future target behavior.
 
 ### Proof
 
@@ -617,6 +626,9 @@ runtimeSetup({ app: ProjectApp, implementation: ProjectImplementationRequiringCo
 - Provenance: `provenance/TYPE_SYSTEM.md#TYPE-010`; public host: `PUBLIC_API.md#API-012`.
 
 ## TYPE-011 — Runtime Effect bridge
+
+**Future target only:** the temporary Runtime shell has no Effect bridge. The bridge, runtime runner, and
+acquisition-Exit clauses below remain preserved target specifications, not current implementation claims.
 
 The following is private schematic/non-exported notation for the runtime result shape; it is not a
 required public export.
@@ -661,11 +673,16 @@ type Result<A, E, IE> = Promise<Exit.Exit<A, E | IE>>;
 
 ## TYPE-012 — Exact actor family
 
+The inert `ActorRef` identity is current. The actor handle, snapshot, lease, and lifecycle family below is a future
+target; deferred `ActorSnapshot` remains commented out of the active public type list for restoration. The temporary
+Runtime shell has no actor methods.
+
 ```ts
-const actor: Actor<Machine> = runtime.getActor(ref);
-actor.ref satisfies ActorRef<Machine>;
-actor.send(/* EventOf<Machine> */);
-actor.getSnapshot();
+// Future target only; unavailable on the temporary shell:
+// const actor: Actor<Machine> = runtime.getActor(ref);
+// actor.ref satisfies ActorRef<Machine>;
+// actor.send(/* EventOf<Machine> */);
+// actor.getSnapshot();
 ```
 
 ### Surface
@@ -1106,17 +1123,15 @@ Compile fixtures using `@ts-expect-error` MUST prove rejection of:
 - any or assertion-based erasure in provider, runtime, descriptor, actor, selector, Story, fixture, or
   model boundaries.
 
-### TYPE-P03 — Acyclic carrier and inference-cost proof
+### TYPE-P03 — Acyclic carrier and inference correctness proof
 
 Phase 1 MUST compile representative small and medium isolated consumers covering every public inference family,
 cross-module shared descriptors, exact actor-bound passive views, strict mode, and isolated declarations. The
-proof MUST assert exact RequirementsOf<App> and declaration emit, run `tsc --extendedDiagnostics`, and record a
-baseline tied to the checked-in TypeScript version. The medium fixture fails on a material regression against its
-checked-in ceiling or any excessive-instantiation/declaration error. Exact fixture cardinality, percentage, and
-growth-ratio arithmetic are proof policy rather than public contract. Peak memory and wall time are trend evidence.
-A negative fixture MUST reject recursive carrier expansion without an excessive-instantiation error. The baseline
+proof MUST assert exact RequirementsOf<App> and declaration emit using the checked-in TypeScript version. The medium
+fixture compiles once and fails on any compiler error, including excessive-instantiation or declaration errors.
+A negative fixture MUST reject recursive carrier expansion without an excessive-instantiation error. The proof
 MUST NOT include type-level UTF-8 encoders, exhaustive Unicode code-unit unions, or encoded-byte tuple counters.
-Runtime `GLO-01` validation is outside this inference-cost proof.
+Runtime `GLO-01` validation is outside this inference correctness proof.
 
 ### TYPE-P04 — Production-owner declaration proof
 

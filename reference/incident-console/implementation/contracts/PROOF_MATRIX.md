@@ -101,11 +101,11 @@ actorRef; // stable identity
   `Object.is`; named-record fields suppress independently; structured results are fresh; selectors are pure;
   context has one current/previous pair per change, no intermediate projection combination, and no equal-result
   context work.
-- Proof: compile small, medium, and large Story/model fixtures with `tsc --extendedDiagnostics`; record wall
-  time, type count, instantiations, and memory. Wall time/peak memory are trend evidence, never gates; the
-  checked-in type and instantiation ceiling is the package boundary. Positive fixtures prove exact
-  checkpoint-name accumulation and readonly run-key inference; negative fixtures prove duplicate-name,
-  widened-string, and unknown-key rejection.
+- Proof: compile small, medium, and large Story/model fixtures with the pinned compiler.
+  Positive fixtures prove exact checkpoint-name accumulation and readonly run-key inference;
+  negative fixtures prove duplicate-name, widened-string, and unknown-key rejection.
+  Compiler errors remain blockers. Compiler-performance measurements and baseline refreshes
+  are deferred and are not acceptance gates.
 - Trace: `REV-COMP-001`–`REV-COMP-015`, `REV-MACH-001`–`REV-MACH-011`, `REV-OPS-001`–`REV-OPS-018`,
   `REV-HOST-001`–`REV-HOST-008`, `REV-TEST-001`–`REV-TEST-010`, `DEL-009`, `PROOF-017`.
 

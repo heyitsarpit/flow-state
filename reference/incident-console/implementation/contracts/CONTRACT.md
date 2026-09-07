@@ -32,15 +32,21 @@ import * as flowTest from "flow-state/testing";
 import * as inspect from "flow-state/inspect";
 ```
 
-The root flow-state route MUST expose exactly:
+The root flow-state route MUST expose exactly the active values below:
 
-actorRef, app, can, definition, FlowDisposeError, FlowPersistenceError, FlowUsageError, Implementation,
-indexedDbStorage, machine, module, persistence, resource, runtimeSetup, stream, transaction, and webStorage.
+actorRef, app, definition, Diagnostic, Implementation, machine, module, resource, runtimeSetup, stream, and transaction.
+<!-- Deferred until their owners land: FlowDisposeError, FlowPersistenceError, and FlowUsageError. Retained for restoration; not active exports. -->
+<!-- Deferred until their owners land: can, indexedDbStorage, persistence, and webStorage. Retained for restoration; not active exports. -->
 
-flow-state/react MUST expose FlowProvider, useActor, useActorByRef, and useView.
+<!-- Deferred until their owner lands; route remains published with no active exports:
+flow-state/react: FlowProvider, useActor, useActorByRef, and useView.
+-->
 
-flow-state/testing MUST expose behavior, fixture, model, story, and FlowStoryExecutionError.
+<!-- Deferred until their owner lands; route remains published with no active exports:
+flow-state/testing: behavior, fixture, model, story, and FlowStoryExecutionError.
+-->
 
+<!-- Deferred until their owner lands; route remains published with no active exports:
 flow-state/inspect MUST expose exactly:
 
 analyzeTrace, attachInspectionSink, buildBehaviorContract, compressTraceArtifact, createInspectionBufferSink,
@@ -49,6 +55,7 @@ formatInspectionTimeline, formatNoTransitionSummary, formatRehydrationSummary, f
 formatTrace, formatTransactionOverlapSummary, graphOf, importTraceArtifact, inspectActivities, inspectMicrosteps,
 inspectTransition, renderBehaviorContract, renderBehaviorCoverage, renderBehaviorDiff, sliceBehaviorContract,
 summarizeTrace, and whyNoTransition.
+-->
 
 Routes are isolated named-export surfaces. The package MUST NOT add package-owned flow, test, inspect, or hooks
 namespace objects, private deep imports, root builders on non-root routes, or compatibility aliases.
@@ -57,23 +64,28 @@ namespace objects, private deep imports, root builders on non-root routes, or co
 
 | Public value         | Accepted purpose and signature/example                                                                                                      | Ownership and failure behavior                                                                                                               |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| definition           | `definition(config)` returns `Result<DefinitionFromConfig<Config>, Diagnostic>`; see section 2.                                             | Inert static authoring; no actor, runtime, operation, or work. Invalid grammar is a Result failure; defects are Panic failures.              |
-| machine              | machine(definition, callback); callback receives S, E, O, onContext, onMemory, invalidate, and clear; see section 2.                        | Inert reusable behavior. Planning defects leave prior published truth unchanged.                                                             |
+| definition           | `definition(config)` returns `Result<DefinitionFromConfig<Config>, ReturnType<typeof Diagnostic.Failure>>`; see section 2.                | Inert static authoring; no actor, runtime, operation, or work. Invalid grammar is a Result failure; defects are Defect failures.              |
+| machine              | machine(definitionResult, callback); callback receives S, E, O, onContext, onMemory, invalidate, and clear; see section 2.                | Inert reusable behavior. It matches the upstream Definition Result before callback execution and propagates the same failure value.           |
 | module               | module({ id, machines }); exact keyed record preserved.                                                                                     | Inert tooling grouping; duplicate machine values or ownership reject.                                                                        |
 | app                  | app({ id, persistenceVersion, modules }); exact flattened App.M.                                                                            | Inert closed admission universe; compilation creates no actors.                                                                              |
 | actorRef             | actorRef(machine, id, { persist?: boolean }); persist defaults false.                                                                       | Inert machine-branded identity only; no input, bindings, ownership, callbacks, or disposal.                                                  |
 | resource             | Resource descriptor with id, key(P), lookup, and optional persist, staleTime, gcTime; see section 3.                                        | Inert declaration. Canonical input failure precedes ownership, mutation, admission, and external work.                                       |
 | transaction          | Transaction descriptor with id, key(P), commit(P, { signal }), optional persist, concurrency; see section 3.                                | Inert declaration. Commit is admitted only by an accepted action; writes are explicit.                                                       |
 | stream               | Stream descriptor with id, key(P), subscribe(P, { signal }), optional persist; see section 3.                                               | Inert declaration. Declaration slot and actor lifecycle own the subscription.                                                                |
-| runtimeSetup         | Exact overloads in section 5; returns inert RuntimeSetup.                                                                                   | construct() is synchronous/inert; only runtime.ready() bootstraps and restores.                                                              |
-| Implementation       | Namespace has exactly succeed, effect, and merge; see section 5.                                                                            | Inert provider graph. Runtime owns acquisition, scopes, and finalizers.                                                                      |
+| runtimeSetup         | Exact active overloads in section 5; returns inert RuntimeSetup.                                                                            | construct() is synchronous/inert; ready() lazily acquires complete Implementation providers sequentially once per shell and caches its exact result. No persistence, actors, bridges, lifecycle, or disposal. |
+| Implementation       | Namespace has exactly succeed, effect, and merge; see section 5.                                                                            | Inert provider graph; the temporary shell only acquires complete providers. Full Runtime ownership is a future target.                          |
+| Diagnostic           | Active canonical diagnostic namespace with `Defect`, `Failure`, and `Interrupt` factories.                                                   | Root-owned public diagnostic projection; internal classification remains private.                                                            |
+<!-- Deferred root values retained for restoration; not active exports.
 | persistence          | persistence({ storage, scope, codec?, filter? }); see section 7.                                                                            | Inert optional provider; Runtime owns restore, observation, writes, and cleanup.                                                             |
 | webStorage           | webStorage(storage: Storage): PersistenceStorage.                                                                                           | Host adapter to typed storage boundary; adapter failures remain persistence failures.                                                        |
 | indexedDbStorage     | indexedDbStorage(storage: IndexedDBStorage): PersistenceStorage.                                                                            | Same boundary; active contracts do not specify the IndexedDBStorage input shape.                                                             |
 | can                  | Root name is accepted by API-001. Active contracts only specify bound pure use as can(event); no standalone signature/example is specified. | No standalone behavior may be inferred. Bound legality reads remain pure and passive.                                                        |
+-->
+<!-- Deferred diagnostic values retained for restoration; not active exports.
 | FlowUsageError       | Existing synchronous boundary owned by [`ERRORS.ts`](./ERRORS.ts) and API-002A.                                                             | Stable usage/admission diagnostic; consumers use _tag and code, not message parsing.                                                         |
 | FlowPersistenceError | Terminal host-only compatibility envelope for persistence failures; complete class declaration is not specified.                            | It may wrap a rendered canonical `Diagnostic` at a final JS Promise/rejection boundary, but never forms a second expected Effect `E` family. |
 | FlowDisposeError     | Frozen _tag, cause, and scope; exact additional declaration is not specified.                                                               | Actor/runtime disposal boundary; disposal is async, idempotent, cached, terminal, and owner-scoped.                                          |
+-->
 
 Common accepted path:
 
@@ -91,8 +103,7 @@ const CounterResult = definition({
 if (Result.isFailure(CounterResult)) {
   console.error(CounterResult.failure);
 } else {
-  const Counter = CounterResult.success;
-  const CounterMachine = machine(Counter, ({ S }) => ({
+  const CounterMachineResult = machine(CounterResult, ({ S }) => ({
     default: S.IDLE,
     states: {
       IDLE: {
@@ -106,25 +117,32 @@ if (Result.isFailure(CounterResult)) {
     },
   }));
 
-  const CounterApp = app({
-    id: "quickstart",
-    persistenceVersion: "1",
-    modules: [module({ id: "counter", machines: { counter: CounterMachine } })],
-  });
+  if (Result.isFailure(CounterMachineResult)) {
+    console.error(CounterMachineResult.failure);
+  } else {
+    const CounterApp = app({
+      id: "quickstart",
+      persistenceVersion: "1",
+      modules: [
+        module({ id: "counter", machines: { counter: CounterMachineResult.success } }),
+      ],
+    });
 
-  const runtime = runtimeSetup({ app: CounterApp }).construct();
-  await Effect.runPromise(runtime.ready());
-  const lease = runtime.createActor(CounterMachine);
-  const increment = Counter.E.Increment();
-  if (Result.isSuccess(increment)) lease.actor.send(increment.success);
-  const snapshot = lease.actor.getSnapshot();
-  await lease.dispose();
+    const runtime = runtimeSetup({ app: CounterApp }).construct();
+    await Effect.runPromise(runtime.ready());
+    // Future Runtime target, not part of the temporary shell:
+    // const lease = runtime.createActor(CounterMachineResult.success);
+    // const increment = CounterResult.success.E.Increment();
+    // if (Result.isSuccess(increment)) lease.actor.send(increment.success);
+    // const snapshot = lease.actor.getSnapshot();
+    // await lease.dispose();
+  }
 }
 ```
 
 ## 2. Public types, definitions, and machines
 
-The public root type names are exactly:
+The active public root type names are exactly:
 
 ```ts
 type PublicRootNames =
@@ -140,23 +158,25 @@ type PublicRootNames =
   | "Resource"
   | "Transaction"
   | "ActorRef"
-  | "ActorSnapshot"
   | "Module"
   | "App"
   | "RuntimeSetup"
   | "Runtime"
   | "Implementation"
-  | "Persistence"
-  | "PersistenceStorage"
-  | "PersistenceStorageError"
-  | "PersistenceCodec"
-  | "PersistenceSlot"
-  | "PersistenceValue"
-  | "PersistenceEntry"
+  // Deferred until their owners land; retained for restoration, not active exports.
+  // | "ActorSnapshot"
+  // | "Persistence"
+  // | "PersistenceStorage"
+  // | "PersistenceStorageError"
+  // | "PersistenceCodec"
+  // | "PersistenceSlot"
+  // | "PersistenceValue"
+  // | "PersistenceEntry"
   | "CanonicalKeyInput"
-  | "FlowPath"
-  | "FlowUsageCode"
-  | "FlowUsageError";
+  // Deferred until diagnostic owners land; retained for restoration, not active exports.
+  // | "FlowPath"
+  // | "FlowUsageCode"
+  // | "FlowUsageError";
 ```
 
 The public types have these purposes. Where the active contracts do not publish a complete declaration, this table
@@ -190,16 +210,18 @@ intentionally records the accepted role without inventing generic parameters, me
 | `PersistenceValue`        | Public bounded canonical JSON value accepted/emitted by PersistenceCodec. Complete recursive declaration is not published and remains unspecified.                                                                                        |
 | `PersistenceEntry`        | Public metadata supplied to the persistence filter: stable kind/identity, owning stable actor, and canonical K as applicable. It carries no executable P. Complete declaration unspecified.                                               |
 | `CanonicalKeyInput`       | Bounded canonical JSON-safe value accepted by operation keys and model `stateKey`; canonicalization copies/freezes and applies the grammar and limits in section 3. Complete type declaration unspecified.                                |
+<!-- Deferred diagnostic types retained for restoration; not active exports.
 | `FlowPath`                | Exact immutable diagnostic path `readonly (string                                                                                                                                                                                         | number)[]`, owned by [`ERRORS.ts`](./ERRORS.ts). |
 | `FlowUsageCode`           | Exact 18-member usage/admission discriminant union owned by [`ERRORS.ts`](./ERRORS.ts).                                                                                                                                                   |
 | `FlowUsageError`          | Public immutable usage/admission Error whose exact shape and synchronous translation are owned by [`ERRORS.ts`](./ERRORS.ts). Message text is human remediation, not a parsing surface.                                                   |
+-->
 
 Internal AppPlan, TurnRecord, StoreState, ManagedRuntime, boot carriers, fixture artifacts, operation registries, and
 the private v2 artifact model MUST NOT become public types.
 
 ### Usage errors
 
-[`ERRORS.ts`](./ERRORS.ts) is the sole typed diagnostic authority. It owns the exact `FlowPath`, eighteen-member
+[`ERRORS.ts`](./ERRORS.ts) remains the future typed diagnostic authority. It owns the exact `FlowPath`, eighteen-member
 `FlowUsageCode`, `Diagnostic`, machine-configuration reasons, safe renderer, Schema/Result/Effect mappings, and
 `FlowUsageError` boundary. Persistence failures are canonical `Diagnostic` values internally;
 `FlowPersistenceError` is only a terminal host compatibility envelope. Raw Effect Cause MUST NOT
@@ -210,8 +232,9 @@ FlowStoryExecutionError retain complete Cause.Cause<unknown> in process.
 Its schema owns `classification`, `code`, `path`, `details`, `summary`, and `help`; its TypeScript and encoded
 document types are derived from that schema. The same value is a real Error, a `Result` failure, and a directly
 yieldable Effect failure. Pure definition/machine builders return `Result<A, Diagnostic>` at their synchronous
-boundary. Event-token calls return `Result<EventEnvelope<...>, Diagnostic>`; callers pass only successful values
-to machine/runtime consumers. No `InvalidMachineConfiguration`, `Data.TaggedError`, `DiagnosticError`, or
+boundary. Event-token calls return `Result<EventEnvelope<...>, Diagnostic>`; callers pass the Definition Result
+directly to `machine`, which matches it internally before callback execution, propagates the same failure, and does
+not invoke the callback on failure. No `InvalidMachineConfiguration`, `Data.TaggedError`, `DiagnosticError`, or
 feature-specific expected Error carrier exists.
 
 Only Runtime bridges and final process/framework/CLI adapters execute Effects. Reusable services and workflows
@@ -219,7 +242,7 @@ preserve `Effect<A, Diagnostic, R>`, while defects and interruption remain in `C
 Foreign Promise APIs use one named `Effect.tryPromise({ try, catch })` adapter that maps rejection to an owned
 `Diagnostic` and forwards `AbortSignal` when supported; `Effect.promise` and nested runners are forbidden.
 
-FlowDisposeError is frozen and has _tag: "FlowDisposeError", cause: Cause.Cause<unknown>, and
+Future target only: FlowDisposeError is frozen and has _tag: "FlowDisposeError", cause: Cause.Cause<unknown>, and
 scope: "actor" | "runtime". FlowStoryExecutionError has one deeply frozen package-owned failure envelope with
 completed checkpoints, optional end, failure boundary, primary/ordered cleanup diagnostics, cancellation evidence,
 accepted/drained evidence facts, and complete public Cause. Their complete class declarations are not specified.
@@ -243,8 +266,9 @@ const NewIntent = definition({
 });
 ```
 
-`definition` returns `Result<DefinitionFromConfig<Config>, Diagnostic>`; callers inspect the result and use its
-success value for machine construction. Event-token calls likewise return `Result<EventEnvelope<...>, Diagnostic>`.
+`definition` returns `Result<DefinitionFromConfig<Config>, ReturnType<typeof Diagnostic.Failure>>`; callers pass that
+Definition Result to `machine`, which matches it internally before invoking the callback. Event-token calls likewise
+return `Result<EventEnvelope<...>, ReturnType<typeof Diagnostic.Failure>>`.
 
 definition owns durable identity, recursive states/events, readonly context selectors, one input-to-memory
 initializer, and one flat named operation record. State leaves are strings; compound states are recursive
@@ -261,7 +285,7 @@ Accepted inference:
 import { Result } from "effect";
 import { definition, Diagnostic } from "flow-state";
 
-type EventResultValue<Value> = Value extends Diagnostic.Result<infer Success> ? Success : never;
+type EventResultValue<Value> = Value extends Result.Result<infer Success, ReturnType<typeof Diagnostic.Failure>> ? Success : never;
 
 const TodoResult = definition({
   id: "Todos/Editor",
@@ -319,7 +343,7 @@ if (Result.isSuccess(EditorResult)) {
 import { Result } from "effect";
 
 const newIntentMachine = machine(
-  NewIntent,
+  NewIntentResult,
   ({ S, E, O, onContext, onMemory, invalidate, clear }) => {
     onContext.select(
       ({ context }) => context.sessionState,
@@ -591,6 +615,9 @@ family lookup, late setup/provide layers, or a second app identity.
 
 ### actorRef, leases, and Runtime methods
 
+Future target only: this actor/lease example is retained for the complete Runtime. The temporary shell exposes only
+`app`, `construct()`, and `ready()`.
+
 ```ts
 const ref = actorRef(editorMachine, "primary-editor", { persist: true });
 const sharedLease = runtime.ensureActor(ref, { input, contextBindings });
@@ -663,17 +690,28 @@ no additional method is permitted. Duplicate service identity rejects and order 
 
 ### runtimeSetup, RuntimeSetup, and Runtime
 
+**Current temporary implementation boundary (AMEND-API-004):** `runtimeSetup` retains only `app` plus an optional
+complete `Implementation`; it returns inert `{ app, construct }`. `construct()` synchronously returns an inert
+`Runtime` carrying `{ app, ready }` and performs no I/O. `ready()` lazily acquires complete Implementation providers
+sequentially once per shell. Each shell caches the first terminal `Exit` exactly once—success, typed
+`ImplementationError` failure, defect, or interruption—and later runs reuse that `Exit` without retry. Its `Cause`
+preserves typed failure, defect, and interruption as separate meanings. The temporary shell has no persistence, actors,
+Effect bridges, lifecycle, or disposal behavior, and no Diagnostic mapping is invented for its error channel. The
+complete Runtime clauses below remain future targets, not implementation claims.
+
 The active type contract specifies:
 
 ```ts
 function runtimeSetup<A extends App>(options: {
   readonly app: A;
-  readonly persistence?: Persistence;
+  // Deferred until the Persistence owner lands; retained for restoration.
+  // readonly persistence?: Persistence;
 }): RuntimeSetup<A, never>;
 function runtimeSetup<A extends App, ImplementationError>(options: {
   readonly app: A;
   readonly implementation: Implementation<RequirementsOf<A>, ImplementationError>;
-  readonly persistence?: Persistence;
+  // Deferred until the Persistence owner lands; retained for restoration.
+  // readonly persistence?: Persistence;
 }): RuntimeSetup<A, ImplementationError>;
 ```
 
@@ -684,7 +722,8 @@ runtimeSetup({ app: PublicApp });
 runtimeSetup({ app: ProjectApp, implementation: ProjectLive });
 ```
 
-The active architecture contract also preserves this complete ownership path:
+Future target only: the complete architecture contract preserves this ownership path; the temporary shell has no
+persistence or actor methods:
 
 ```ts
 const setup = flow.runtimeSetup({
@@ -703,15 +742,11 @@ lease.actor.send(Todo.E.RefreshRequested());
 ```
 
 The first overload applies only when requirements are never; otherwise Implementation closes RequirementsOf<App>.
-construct() is synchronous and performs no I/O. runtime.ready() is the sole public readiness Effect and has the
-active shape `Effect<void, Diagnostic>`; implementation, storage, codec, and restoration failures are mapped to
-canonical Failure diagnostics at their owning boundary. It bootstraps/restores once and caches the
-terminal result. Runtime bridge methods accept only Effects whose requirements are closed by installed Context.
-runPromiseExit retains acquisition failure in Exit rather than rejecting for that reason. The active contract does
-not publish one complete Runtime declaration; accepted methods are ready, ensureActor, getActor, createActor, the
-Effect bridge, and async disposal.
+The current temporary `runtime.ready()` error channel is `ImplementationError`, and it does not map failures to
+Diagnostic. The future target readiness shape is `Effect<void, Diagnostic>` with provider/storage/codec/restoration
+mapping; the future target also includes Runtime bridge methods, actor methods, and async disposal.
 
-Readiness validates providers, codecs, AppPlan, refs, input, bindings, requirements, tombstones, cycles, persisted
+Future target only: readiness validates providers, codecs, AppPlan, refs, input, bindings, requirements, tombstones, cycles, persisted
 identity/versions/bounds, and context closure before activation or handle escape. It restores providers before
 consumers, installs derived context silently, seals the graph, activates actors, and exposes handles last. One
 production Runtime owns provider graph, scopes, fibers, activities, finalizers, readiness, cleanup, canonical
@@ -723,7 +758,7 @@ owner exactly once without partial graph or evidence.
 
 ## 6. React route and host integration
 
-Accepted host-first example:
+Future target host-first example only: the temporary shell has no persistence or actor methods:
 
 ```ts
 const setup = runtimeSetup({
@@ -801,7 +836,7 @@ is not a machine turn.
 
 ### Persistence provider, storage, codec, and declarations
 
-Accepted provider example:
+Future target provider example only; the deferred persistence names below are not active exports:
 
 ```ts
 const setup = runtimeSetup({
@@ -816,37 +851,38 @@ const setup = runtimeSetup({
 });
 ```
 
-The active public notation is:
+The future target public notation is retained in comments for restoration:
 
-    type PersistenceStorage = {
-      read(): Effect.Effect<Uint8Array | undefined, PersistenceStorageError>;
-      write(value: Uint8Array): Effect.Effect<void, PersistenceStorageError>;
-      remove(): Effect.Effect<void, PersistenceStorageError>;
-    };
+    // type PersistenceStorage = {
+    //   read(): Effect.Effect<Uint8Array | undefined, PersistenceStorageError>;
+    //   write(value: Uint8Array): Effect.Effect<void, PersistenceStorageError>;
+    //   remove(): Effect.Effect<void, PersistenceStorageError>;
+    // };
 
-    type Persistence = Readonly<{
-      storage: PersistenceStorage;
-      scope: string;
-      codec: PersistenceCodec;
-      filter?: (entry: PersistenceEntry) => boolean;
-    }>;
+    // type Persistence = Readonly<{
+    //   storage: PersistenceStorage;
+    //   scope: string;
+    //   codec: PersistenceCodec;
+    //   filter?: (entry: PersistenceEntry) => boolean;
+    // }>;
 
-    declare function webStorage(storage: Storage): PersistenceStorage;
-    declare function indexedDbStorage(storage: IndexedDBStorage): PersistenceStorage;
+    // declare function webStorage(storage: Storage): PersistenceStorage;
+    // declare function indexedDbStorage(storage: IndexedDBStorage): PersistenceStorage;
 
-    type PersistenceCodec = {
-      encode(value: unknown, slot: PersistenceSlot): PersistenceValue;
-      decode(value: PersistenceValue, slot: PersistenceSlot): unknown;
-    };
+    // type PersistenceCodec = {
+    //   encode(value: unknown, slot: PersistenceSlot): PersistenceValue;
+    //   decode(value: PersistenceValue, slot: PersistenceSlot): unknown;
+    // };
 
-    declare function persistence(options: {
-      storage: PersistenceStorage;
-      scope: string;
-      codec?: PersistenceCodec;
-      filter?: (entry: PersistenceEntry) => boolean;
-    }): Persistence;
+    // declare function persistence(options: {
+    //   storage: PersistenceStorage;
+    //   scope: string;
+    //   codec?: PersistenceCodec;
+    //   filter?: (entry: PersistenceEntry) => boolean;
+    // }): Persistence;
 
-PersistenceStorage owns only typed read, write, and remove Effects. PersistenceCodec is synchronous and pure; it
+The remainder of this persistence section is future target only and is not an implementation claim for the temporary
+shell. PersistenceStorage owns only typed read, write, and remove Effects. PersistenceCodec is synchronous and pure; it
 does not access storage, create actors, run Effects, resume work, or decode a complete runtime/boot payload.
 PersistenceValue, PersistenceSlot, and PersistenceEntry are public named types, but the active contract does not
 provide complete nested declarations; their behavior remains bounded canonical JSON, actor/resource/transaction/

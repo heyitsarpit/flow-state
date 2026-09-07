@@ -92,14 +92,15 @@ file records removed complexity; it does not promise future work.
 ## DEF-007 — Exact TypeScript benchmark arithmetic
 
 - Removed: the mandatory 25-machine/100-descriptor fixture, exact ten-percent
-  instantiation window, and doubled-root ratio below 2.25.
+  instantiation window, doubled-root ratio below 2.25, and cardinality/
+  percentage/growth arithmetic as material gates.
 - Previous owner: `TYPE_SYSTEM.md` `TYPE-P03`.
 - Retained: representative small and medium fixtures cover every public inference
-  family and ordinary invalid use. One medium fixture records extended diagnostics
-  on the pinned compiler and fails on a material checked-in regression or excessive
-  instantiation/declaration failure.
-- Revisit only if: inference-cost regressions escape the representative fixture or a
-  stable performance budget is derived from measured consumer projects.
+  family and ordinary invalid use with the pinned compiler. Successful compilation,
+  exact inference, negative assertions and declaration correctness remain required.
+- Deferred: compiler-performance measurements, repeated samples, baseline freshness
+  and numeric compiler-work budgets. These do not block Phase 1.5.
+- Revisit only after the library is built out and the user authorizes performance work.
 
 ## DEF-008 — Exact internal capacity cutoffs
 
