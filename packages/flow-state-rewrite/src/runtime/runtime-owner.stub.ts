@@ -3,8 +3,35 @@
 import type { Context, Deferred, Effect, Exit, Result, Scope } from "effect";
 
 import type { App } from "../app/app.js";
+import type { PublicDiagnostic } from "../diagnostic/diagnostic.js";
 import type { Implementation, ImplementationErrorOf } from "../implementation/implementation.js";
 import type { RuntimeServiceContext } from "./runtime-services.stub.js";
+
+/*
+ * Data
+ *
+ * Runtime readiness is a private state value: one phase, one terminal Exit,
+ * and one owner-scoped completion cell. The public shell exposes only app and
+ * ready; phase labels and cells never become application data.
+ *
+ * Admission and invariants
+ *
+ * Construction is inert. The first ready call becomes the leader, later calls
+ * join it, and every terminal—including defect, interruption, and disposal—is
+ * cached exactly once. Disposal closes admission before cleanup begins.
+ *
+ * Pure data operations
+ *
+ * Transition validation is a Result over the private phase value. It checks
+ * legal edges and records a canonical PublicDiagnostic on refusal without
+ * starting provider acquisition.
+ *
+ * Effect execution
+ *
+ * The leader acquires the already-closed Implementation graph sequentially in
+ * the owner Scope. Waiters await the shared Exit; cleanup retains Cause and
+ * runs through the same owner when readiness or disposal is interrupted.
+ */
 
 type RuntimeTerminal<Failure> = Exit.Exit<void, Failure>;
 
@@ -60,16 +87,11 @@ export type RuntimeOwner<A extends App, I extends Implementation> = {
   readonly dispose: RuntimeReadiness<ImplementationErrorOf<I>>["dispose"];
 };
 
-type RuntimeReadinessError = {
-  readonly _tag: "RuntimeReadinessError";
-  readonly reason: "invalid-transition" | "already-disposed" | "bootstrap-failed";
-};
-
 /** Internal transition proof for shared success, failure, defect, interruption, and disposal races. */
 declare const transitionReadiness: <Failure>(
   state: RuntimeReadinessState<Failure>,
   next: RuntimeReadinessState<Failure>,
-) => Result.Result<RuntimeReadinessState<Failure>, RuntimeReadinessError>;
+) => Result.Result<RuntimeReadinessState<Failure>, PublicDiagnostic>;
 
 /** Constructs an inert shell; implementation acquisition begins only through owner.ready(). */
 export declare const constructRuntimeOwner: <A extends App, I extends Implementation>(

@@ -9,8 +9,34 @@ import type {
   EvidenceDrain,
   EvidenceHub,
   EvidenceRecord,
-  EvidenceError,
+  EvidenceReservation,
 } from "./evidence.stub.js";
+import type { PublicDiagnostic } from "../diagnostic/diagnostic.js";
+
+/*
+ * Data
+ *
+ * These are replaceable capability values. They describe clock reads,
+ * owner-scoped work, and evidence delegation; they do not own actor state.
+ *
+ * Admission and invariants
+ *
+ * A composition root supplies one service identity per runtime. Registration
+ * precedes starting work, and every running fiber retains its completion cell
+ * and one reachable interruption owner.
+ *
+ * Pure data operations
+ *
+ * Service records can be checked for required fields and compatible channels
+ * without running an Effect. Expected failures project to PublicDiagnostic.
+ *
+ * Effect execution
+ *
+ * Only the scheduler and evidence ports execute asynchronous work. Scope owns
+ * their fibers; a layer assembles capabilities but is not itself a runner.
+ * Evidence acceptance receives the private reservation alongside the record,
+ * so equal sequence values from separate hubs cannot cross the owner boundary.
+ */
 
 /** Identifies the clock capability supplied by a runtime composition root. */
 export interface RuntimeClockIdentity {
@@ -40,20 +66,14 @@ export type RuntimeRunningFiber<Success, Failure> = {
   readonly fiber: Fiber.Fiber<Success, Failure>;
   // oxlint-disable-next-line typescript/no-unnecessary-type-arguments -- explicit never error channel makes registered completion non-failing.
   readonly completion: Deferred.Deferred<Exit.Exit<Success, Failure>, never>;
-  readonly interrupt: Effect.Effect<void, RuntimeSchedulerError>;
+  readonly interrupt: Effect.Effect<void, PublicDiagnostic>;
 };
 
 export interface RuntimeSchedulerService {
   readonly start: <Success, Failure>(
     request: RuntimeWorkRequest<Success, Failure>,
-  ) => Effect.Effect<RuntimeRunningFiber<Success, Failure>, RuntimeSchedulerError, Scope.Scope>;
+  ) => Effect.Effect<RuntimeRunningFiber<Success, Failure>, PublicDiagnostic, Scope.Scope>;
 }
-
-/** Typed scheduler failures retain the owner boundary. */
-export type RuntimeSchedulerError = {
-  readonly _tag: "RuntimeSchedulerError";
-  readonly reason: "start-failed" | "interrupt-failed";
-};
 
 /** Identifies the runtime evidence capability used by internal boundaries. */
 export interface RuntimeEvidenceIdentity {
@@ -68,16 +88,11 @@ export interface RuntimeEvidenceService<
 > {
   readonly hub: EvidenceHub<A, DefinitionValue, CleanupError>;
   readonly accept: (
+    reservation: EvidenceReservation<A, DefinitionValue, CleanupError>,
     record: EvidenceRecord<A, DefinitionValue, CleanupError>,
-  ) => Effect.Effect<EvidenceAcceptance<A, DefinitionValue, CleanupError>, EvidenceError>;
-  readonly drain: Effect.Effect<EvidenceDrain, EvidenceError>;
+  ) => Effect.Effect<EvidenceAcceptance<A, DefinitionValue, CleanupError>, PublicDiagnostic>;
+  readonly drain: Effect.Effect<EvidenceDrain, PublicDiagnostic>;
 }
-
-/** Typed construction failures from capability layers. */
-export type RuntimeServiceError = {
-  readonly _tag: "RuntimeServiceError";
-  readonly message: string;
-};
 
 /** Service keys are declarations only; a composition root supplies implementations. */
 export declare const RuntimeClock: Context.Service<RuntimeClockIdentity, RuntimeClockService>;
@@ -91,7 +106,7 @@ export declare const RuntimeScheduler: Context.Service<
 /** Service keys are declarations only; a composition root supplies implementations. */
 export declare const RuntimeEvidence: Context.Service<
   RuntimeEvidenceIdentity,
-  RuntimeEvidenceService<App, MachineDefinition, unknown>
+  RuntimeEvidenceService<App, MachineDefinition, PublicDiagnostic>
 >;
 
 /** The capability identities available to a runtime owner. */
@@ -101,7 +116,7 @@ export type RuntimeServiceContext =
   | RuntimeEvidenceIdentity;
 
 /** A Layer is the replaceable construction boundary for runtime capabilities. */
-export type RuntimeServicesLayer = Layer.Layer<RuntimeServiceContext, RuntimeServiceError>;
+export type RuntimeServicesLayer = Layer.Layer<RuntimeServiceContext, PublicDiagnostic>;
 
 /** Constructs a capability layer without creating a runtime or starting work. */
 export declare const makeRuntimeServicesLayer: <

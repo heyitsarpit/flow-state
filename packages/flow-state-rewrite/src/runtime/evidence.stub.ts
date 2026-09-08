@@ -3,11 +3,39 @@
 import type { Effect, Option, Queue, Result } from "effect";
 
 import type { App } from "../app/app.js";
+import type { PublicDiagnostic } from "../diagnostic/diagnostic.js";
 import type { MachineDefinition } from "../machine/grammar.js";
 import type { ActorFence, ActorIdentity } from "./actor-admission.stub.js";
 import type { ActorSnapshot } from "./actor-engine.stub.js";
 import type { ActorLifecycle, LifecycleCause, LifecycleSnapshot } from "./lifecycle.stub.js";
 import type { TurnCause } from "./turn-plan.stub.js";
+
+/*
+ * Data
+ *
+ * Evidence is an immutable record vocabulary: app identity, actor fence,
+ * before/after snapshot cut, publication revisions, lifecycle cause, and one
+ * hub-owned sequence. A record never owns a runtime, actor, or sink fiber.
+ *
+ * Admission and invariants
+ *
+ * Reserve a sequence before constructing a record; accept only records from
+ * that reservation and the matching hub. Acceptance preserves the monotonic
+ * prefix. Sink overflow or delivery failure is local and cannot roll back
+ * actor truth or another sink.
+ *
+ * Pure data operations
+ *
+ * Record construction validates provenance, snapshot ordering, and reservation
+ * identity without running an Effect. Internal absence uses Option; accepted
+ * null/undefined payloads remain values. Expected refusal uses PublicDiagnostic.
+ *
+ * Effect execution
+ *
+ * Acceptance offers to each bounded sink, acknowledgement follows acceptance,
+ * and close drains the accepted prefix before closing sinks. Full Exit/Cause is
+ * retained by lifecycle records and cleanup owners until host projection.
+ */
 
 declare const evidenceSequenceBrand: unique symbol;
 declare const sinkIdBrand: unique symbol;
@@ -18,10 +46,10 @@ export type EvidenceSequence = number & { readonly [evidenceSequenceBrand]: void
 /** Sink identity is local to one evidence hub. */
 export type SinkId = string & { readonly [sinkIdBrand]: void };
 
-/** Records derive app and plan provenance from the current App and AppPlan types. */
+/** Records retain only stable app identity; they do not depend on a public AppPlan field. */
 export type RuntimeProvenance<A extends App, DefinitionValue extends MachineDefinition> = {
-  readonly app: A;
-  readonly plan: A["plan"];
+  readonly appId: A["id"];
+  readonly persistenceVersion: A["persistenceVersion"];
   readonly actor: ActorIdentity<DefinitionValue>;
 };
 
@@ -98,9 +126,9 @@ export type EvidenceSink<A extends App, DefinitionValue extends MachineDefinitio
   readonly mailbox: Queue.Queue<EvidenceRecord<A, DefinitionValue, CleanupError>>;
   readonly offer: (
     record: EvidenceRecord<A, DefinitionValue, CleanupError>,
-  ) => Effect.Effect<SinkOfferResult, SinkError>;
-  readonly drain: (through: EvidenceSequence) => Effect.Effect<SinkDrainResult, SinkError>;
-  readonly close: () => Effect.Effect<void, SinkError>;
+  ) => Effect.Effect<SinkOfferResult, PublicDiagnostic>;
+  readonly drain: (through: EvidenceSequence) => Effect.Effect<SinkDrainResult, PublicDiagnostic>;
+  readonly close: () => Effect.Effect<void, PublicDiagnostic>;
 };
 
 /** Sink overflow is local; another sink and runtime truth continue independently. */
@@ -117,18 +145,14 @@ export type SinkDrainResult = {
   readonly status: "drained" | "truncated" | "failed";
 };
 
-export type SinkError = {
-  readonly _tag: "SinkError";
-  readonly sink: SinkId;
-  readonly reason: "overflow" | "delivery-failed" | "closed";
-};
-
 /** Acceptance is the barrier that private acknowledgement waits for. */
 export type EvidenceAcceptance<
   A extends App,
   DefinitionValue extends MachineDefinition,
   CleanupError,
 > = {
+  /** Private reservation identity is retained through acceptance. */
+  readonly reservation: EvidenceReservation<A, DefinitionValue, CleanupError>;
   readonly record: EvidenceRecord<A, DefinitionValue, CleanupError>;
   readonly sequence: EvidenceSequence;
   readonly sinks: readonly SinkOfferResult[];
@@ -141,12 +165,6 @@ export type EvidenceDrain = {
   readonly sinks: readonly SinkDrainResult[];
 };
 
-/** Sequence exhaustion is explicit and cannot erase already accepted records. */
-export type EvidenceError = {
-  readonly _tag: "EvidenceError";
-  readonly reason: "sequence-exhausted" | "closed" | "record-invalid" | "wrong-hub";
-};
-
 /** EvidenceHub owns sequence allocation and accepted-prefix drain. */
 export interface EvidenceHub<
   A extends App,
@@ -156,16 +174,17 @@ export interface EvidenceHub<
   readonly sequence: () => EvidenceSequence;
   readonly reserve: () => Result.Result<
     EvidenceReservation<A, DefinitionValue, CleanupError>,
-    EvidenceError
+    PublicDiagnostic
   >;
   readonly attach: (
     sink: EvidenceSink<A, DefinitionValue, CleanupError>,
-  ) => Result.Result<void, EvidenceError>;
+  ) => Result.Result<void, PublicDiagnostic>;
   readonly accept: (
+    reservation: EvidenceReservation<A, DefinitionValue, CleanupError>,
     record: EvidenceRecord<A, DefinitionValue, CleanupError>,
-  ) => Effect.Effect<EvidenceAcceptance<A, DefinitionValue, CleanupError>, EvidenceError>;
-  readonly drain: () => Effect.Effect<EvidenceDrain, EvidenceError>;
-  readonly close: () => Effect.Effect<EvidenceDrain, EvidenceError>;
+  ) => Effect.Effect<EvidenceAcceptance<A, DefinitionValue, CleanupError>, PublicDiagnostic>;
+  readonly drain: () => Effect.Effect<EvidenceDrain, PublicDiagnostic>;
+  readonly close: () => Effect.Effect<EvidenceDrain, PublicDiagnostic>;
 }
 
 /** Builds an immutable turn record only from a hub reservation and published snapshots. */
@@ -176,7 +195,7 @@ export declare const makeTurnRecord: <
 >(
   fact: TurnFact<A, DefinitionValue>,
   reservation: EvidenceReservation<A, DefinitionValue, CleanupError>,
-) => Result.Result<TurnRecord<A, DefinitionValue>, EvidenceError>;
+) => Result.Result<TurnRecord<A, DefinitionValue>, PublicDiagnostic>;
 
 /** Builds lifecycle evidence only from a hub reservation and its published lifecycle snapshot. */
 export declare const makeLifecycleRecord: <
@@ -186,7 +205,7 @@ export declare const makeLifecycleRecord: <
 >(
   fact: LifecycleFact<A, DefinitionValue, CleanupError>,
   reservation: EvidenceReservation<A, DefinitionValue, CleanupError>,
-) => Result.Result<LifecycleRecord<A, DefinitionValue, CleanupError>, EvidenceError>;
+) => Result.Result<LifecycleRecord<A, DefinitionValue, CleanupError>, PublicDiagnostic>;
 
 /** Validates and accepts one record before command acknowledgement. */
 export declare const acceptEvidence: <
@@ -195,8 +214,9 @@ export declare const acceptEvidence: <
   CleanupError,
 >(
   hub: EvidenceHub<A, DefinitionValue, CleanupError>,
+  reservation: EvidenceReservation<A, DefinitionValue, CleanupError>,
   record: EvidenceRecord<A, DefinitionValue, CleanupError>,
-) => Effect.Effect<EvidenceAcceptance<A, DefinitionValue, CleanupError>, EvidenceError>;
+) => Effect.Effect<EvidenceAcceptance<A, DefinitionValue, CleanupError>, PublicDiagnostic>;
 
 /** Drains exactly the accepted prefix after terminal lifecycle evidence. */
 export declare const drainAcceptedEvidence: <
@@ -205,7 +225,7 @@ export declare const drainAcceptedEvidence: <
   CleanupError,
 >(
   hub: EvidenceHub<A, DefinitionValue, CleanupError>,
-) => Effect.Effect<EvidenceDrain, EvidenceError>;
+) => Effect.Effect<EvidenceDrain, PublicDiagnostic>;
 
 /** Closes admission, drains sinks, and then closes each sink in isolation. */
 export declare const closeEvidence: <
@@ -214,7 +234,7 @@ export declare const closeEvidence: <
   CleanupError,
 >(
   hub: EvidenceHub<A, DefinitionValue, CleanupError>,
-) => Effect.Effect<EvidenceDrain, EvidenceError>;
+) => Effect.Effect<EvidenceDrain, PublicDiagnostic>;
 
 /** Constructs a hub without allocating sinks or publishing records. */
 export declare const makeEvidenceHub: <

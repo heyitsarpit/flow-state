@@ -1,4 +1,4 @@
-import { Effect, Result, Schema } from "effect";
+import { Effect } from "effect";
 
 import {
   implementationEntries,
@@ -22,7 +22,7 @@ import {
  *   Runtime, RuntimeSetup, RuntimeImplementation, CompleteImplementation
  *
  * Constructed-app admission:
- *   ConstructedAppSchema, decodeConstructedApp, admitConstructedApp
+ *   admitConstructedApp
  *
  * Provider acquisition:
  *   acquireImplementation
@@ -51,33 +51,27 @@ export type RuntimeSetup<A extends RuntimeApp, ImplementationError = never> = {
   readonly construct: () => Runtime<A, ImplementationError>;
 };
 
-const ConstructedAppSchema = Schema.declare<RuntimeApp>(
-  // RETURN_TYPE: Preserves the nominal RuntimeApp narrowing at the Schema admission boundary.
-  (value: unknown): value is RuntimeApp => isConstructedApp(value),
-  { identifier: "ConstructedApp" },
-);
-
-const decodeConstructedApp = Schema.decodeUnknownResult(ConstructedAppSchema);
-
-const projectConstructedAppFailure = (_failure: Schema.SchemaError) => {
-  return new TypeError("runtimeSetup app must be constructed by app()");
+const admitConstructedApp = <A extends RuntimeApp>(value: A) => {
+  if (!isConstructedApp(value))
+    throw new TypeError("runtimeSetup app must be constructed by app()");
+  return value;
 };
 
-function admitConstructedApp<A extends RuntimeApp>(value: A): A;
-function admitConstructedApp(value: unknown): RuntimeApp;
-function admitConstructedApp(value: unknown) {
-  return decodeConstructedApp(value).pipe(Result.getOrThrowWith(projectConstructedAppFailure));
-}
+type IsCompleteImplementation<
+  A extends RuntimeApp,
+  I extends RuntimeImplementation,
+> = I extends RuntimeImplementation
+  ? [unknown] extends [ImplementationServices<I>]
+    ? false
+    : [RequirementsOf<A>] extends [ImplementationServices<I>]
+      ? [ImplementationRequirementsOf<I>] extends [never]
+        ? true
+        : false
+      : false
+  : false;
 
-type CompleteImplementation<A extends RuntimeApp, I extends RuntimeImplementation> = [
-  unknown,
-] extends [ImplementationServices<I>]
-  ? never
-  : [RequirementsOf<A>] extends [ImplementationServices<I>]
-    ? [ImplementationRequirementsOf<I>] extends [never]
-      ? I
-      : never
-    : never;
+type CompleteImplementation<A extends RuntimeApp, I extends RuntimeImplementation> =
+  false extends IsCompleteImplementation<A, I> ? never : I;
 
 // FLOW_STATE_ALLOW_UNKNOWN_EFFECT_CHANNEL: the implementation graph intentionally erases heterogeneous provider channels at its private runtime boundary; Runtime restores the setup error channel after setup has proven that no provider requirements remain.
 const acquireImplementation = <ImplementationError>(
@@ -100,10 +94,24 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
   implementation: RuntimeImplementation | undefined,
 ) => {
   const readiness = acquireImplementation<ImplementationError>(implementation);
-  // Effect.cached allocation is Runtime-owned and per constructed instance; providers remain lazy until ready() executes.
-  const cachedReady = Effect.runSync(Effect.cached(readiness));
+  const cachedReadiness = Effect.cached(readiness);
+  let cachedReady: Effect.Effect<void, ImplementationError> | undefined;
 
-  return { app, ready: () => cachedReady };
+  const ready = Effect.suspend(() => {
+    if (cachedReady !== undefined) return cachedReady;
+
+    return cachedReadiness.pipe(
+      Effect.flatMap((effect) =>
+        Effect.sync(() => {
+          cachedReady = effect;
+          return effect;
+        }),
+      ),
+      Effect.flatMap((effect) => effect),
+    );
+  });
+
+  return { app, ready: () => ready };
 };
 
 export function runtimeSetup<A extends RuntimeApp>(
@@ -126,6 +134,7 @@ export function runtimeSetup<
 >(options: { readonly app: A; readonly implementation?: I }) {
   const app = admitConstructedApp(options.app);
   const implementation = options.implementation;
+
   return {
     app,
     construct: () => constructRuntime<A, ImplementationError>(app, implementation),

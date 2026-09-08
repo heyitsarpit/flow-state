@@ -3,35 +3,73 @@
 import type { Effect, Option, Result } from "effect";
 
 import type { App } from "../app/app.js";
+import type { EventOf } from "../definition/domain.js";
 import type { PublicDiagnostic } from "../diagnostic/diagnostic.js";
 import type {
-  EventName,
-  EventValue,
   MachineAction,
   MachineActivityPlan,
   MachineDefinition,
+  MachineStoreAction,
 } from "../machine/grammar.js";
-import type { ActorCommand, ActorSnapshot, OperationCompletionFact } from "./actor-engine.stub.js";
-import type { ActorFence } from "./actor-admission.stub.js";
-import type { EvidenceRecord } from "./evidence.stub.js";
+import type {
+  ActorCommand,
+  ActorSnapshot,
+  OperationCompletionFact,
+  StoreRevisionFact,
+  StreamProjectionFact,
+} from "./actor-engine.stub.js";
+import type { ActorFence, ProviderRevisionFence } from "./actor-admission.stub.js";
+import type { EvidenceRecord, TurnFact } from "./evidence.stub.js";
 
-/** A typed event value is ordinary data consumed by the event route only. */
-export type ActorEvent<DefinitionValue extends MachineDefinition> = {
-  readonly name: EventName<DefinitionValue>;
-  readonly value: EventValue<DefinitionValue, EventName<DefinitionValue>>;
-};
+/*
+ * Data
+ *
+ * A turn is a plain candidate cut: one admitted EventOf envelope or one
+ * passive projection, a before/after snapshot pair, staged actions, exact
+ * MachineStoreAction targets, and mapped EventOf envelopes. No Effect runs
+ * while this data is being shaped.
+ *
+ * Admission and invariants
+ *
+ * Event plans may evaluate transitions, actions, and callbacks; projection
+ * plans may publish passive values only. Validate the whole candidate before
+ * actor/store mutation. A planning defect drops every staged action and emits
+ * no partial snapshot, operation occurrence, or store change.
+ *
+ * Pure data operations
+ *
+ * Planning, action ordering, activity reconciliation, fence checks, and
+ * commit-plan validation are Result operations. Expected failures are mapped
+ * to canonical PublicDiagnostic values. `null` and `false` remain authored
+ * callback control values rather than missing data.
+ *
+ * Effect execution
+ *
+ * One serialized commit writes the actor/store cut, then publication accepts
+ * evidence, acknowledges private callers, and only afterward reconciles owned
+ * activity lifetimes. User work never becomes an implicit plan effect.
+ */
+
+/** A typed event value is the existing EventOf envelope from an event token. */
+export type ActorEvent<DefinitionValue extends MachineDefinition> = EventOf<DefinitionValue>;
 
 /** Projection facts never fabricate an event or request event-machine evaluation. */
-export type ProjectionFact<DefinitionValue extends MachineDefinition> =
+export type ProjectionFact<DefinitionValue extends MachineDefinition, StreamValue = never> =
   | { readonly _tag: "timer-projection"; readonly name: string; readonly dueAt: number }
   | {
       readonly _tag: "completion-projection";
       readonly fact: OperationCompletionFact<DefinitionValue>;
     }
-  | { readonly _tag: "stream-projection"; readonly descriptor: string; readonly value: unknown }
-  | { readonly _tag: "context-projection"; readonly providerRevision: number }
-  | { readonly _tag: "store-projection"; readonly revision: number }
-  | { readonly _tag: "lifecycle-projection"; readonly lifecycle: string };
+  | {
+      readonly _tag: "stream-projection";
+      readonly fact: StreamProjectionFact<DefinitionValue, StreamValue>;
+    }
+  | { readonly _tag: "context-projection"; readonly provider: ProviderRevisionFence }
+  | { readonly _tag: "store-projection"; readonly fact: StoreRevisionFact<DefinitionValue> }
+  | {
+      readonly _tag: "lifecycle-projection";
+      readonly lifecycle: ActorSnapshot<DefinitionValue>["lifecycle"];
+    };
 
 /** Causes distinguish event turns from passive projection publication. */
 export type TurnCause<DefinitionValue extends MachineDefinition> =
@@ -71,21 +109,12 @@ export type ActivityIntent<DefinitionValue extends MachineDefinition> = {
 };
 
 /** Canonical store changes remain staged plain data until the serialized commit. */
-export type StoreChange =
-  | { readonly _tag: "invalidate"; readonly descriptor: string; readonly key: string }
-  | { readonly _tag: "clear"; readonly descriptor: string; readonly key: string }
-  | {
-      readonly _tag: "write";
-      readonly descriptor: string;
-      readonly key: string;
-      readonly value: unknown;
-    };
+export type StoreChange<DefinitionValue extends MachineDefinition = MachineDefinition> =
+  MachineStoreAction<DefinitionValue>;
 
-/** Mapped outcomes become later ordinary mailbox turns, never hidden plan effects. */
-export type MappedEvent = {
-  readonly name: string;
-  readonly value: unknown;
-};
+/** Mapped outcomes become later ordinary EventOf mailbox turns. */
+export type MappedEvent<DefinitionValue extends MachineDefinition = MachineDefinition> =
+  EventOf<DefinitionValue>;
 
 /** The event route contains machine actions; projection routes contain no action fields. */
 export type EventTurnPlan<DefinitionValue extends MachineDefinition> = {
@@ -96,8 +125,8 @@ export type EventTurnPlan<DefinitionValue extends MachineDefinition> = {
   readonly candidate: ActorSnapshot<DefinitionValue>;
   readonly actions: readonly FiniteActionIntent<DefinitionValue>[];
   readonly activities: readonly ActivityIntent<DefinitionValue>[];
-  readonly storeChanges: readonly StoreChange[];
-  readonly mappedEvents: readonly MappedEvent[];
+  readonly storeChanges: readonly StoreChange<DefinitionValue>[];
+  readonly mappedEvents: readonly MappedEvent<DefinitionValue>[];
   readonly issues: readonly PublicDiagnostic[];
 };
 
@@ -123,8 +152,8 @@ export type NoopTurnPlan<DefinitionValue extends MachineDefinition> = {
   readonly cause: TurnCause<DefinitionValue>;
 };
 
-/** One commit plan contains every staged actor and store change before validation. */
-export type CommitPlan<A extends App, DefinitionValue extends MachineDefinition, CleanupError> = {
+/** One commit plan contains every staged actor/store change and an unsequenced fact. */
+export type CommitPlan<A extends App, DefinitionValue extends MachineDefinition, _CleanupError> = {
   readonly _tag: "commit-plan";
   readonly plan: TurnPlan<DefinitionValue>;
   readonly publication: {
@@ -132,8 +161,8 @@ export type CommitPlan<A extends App, DefinitionValue extends MachineDefinition,
     readonly machineTurnRevision: number;
     readonly storeRevision: number;
   };
-  readonly evidence: EvidenceRecord<A, DefinitionValue, CleanupError>;
-  readonly acknowledge: { readonly sequence: number };
+  readonly evidence: TurnFact<A, DefinitionValue>;
+  readonly acknowledge: { readonly publicationRevision: number };
   readonly reconcile: readonly ActivityIntent<DefinitionValue>[];
 };
 
@@ -153,7 +182,7 @@ export type CommittedTurn<
 > = {
   readonly _tag: "committed-turn";
   readonly plan: ValidatedCommitPlan<A, DefinitionValue, CleanupError>;
-  readonly record: EvidenceRecord<A, DefinitionValue, CleanupError>;
+  readonly fact: TurnFact<A, DefinitionValue>;
 };
 
 export type PublishedTurn<
@@ -163,42 +192,31 @@ export type PublishedTurn<
 > = {
   readonly _tag: "published-turn";
   readonly committed: CommittedTurn<A, DefinitionValue, CleanupError>;
+  readonly fact: TurnFact<A, DefinitionValue>;
   readonly snapshot: ActorSnapshot<DefinitionValue>;
 };
 
 export type AcceptedTurn<A extends App, DefinitionValue extends MachineDefinition, CleanupError> = {
   readonly _tag: "accepted-turn";
   readonly published: PublishedTurn<A, DefinitionValue, CleanupError>;
+  readonly record: EvidenceRecord<A, DefinitionValue, CleanupError>;
   readonly evidenceSequence: number;
-};
-
-/** Pure planner failures discard the whole candidate. */
-export type TurnPlanError = {
-  readonly _tag: "TurnPlanError";
-  readonly reason: "guard-defect" | "redirect-defect" | "invalid-action" | "candidate-defect";
-  readonly diagnostics: readonly PublicDiagnostic[];
-};
-
-/** Serialized commit failures retain a typed error boundary. */
-export type TurnExecutionError = {
-  readonly _tag: "TurnExecutionError";
-  readonly reason: "store-conflict" | "publication-failed" | "evidence-failed";
 };
 
 /** Event input evaluates transitions; projection input only computes passive publication. */
 export declare const planTurn: <DefinitionValue extends MachineDefinition>(
   input: TurnInput<DefinitionValue>,
-) => Result.Result<TurnPlan<DefinitionValue> | NoopTurnPlan<DefinitionValue>, TurnPlanError>;
+) => Result.Result<TurnPlan<DefinitionValue> | NoopTurnPlan<DefinitionValue>, PublicDiagnostic>;
 
-/** Completes every staged fact into one candidate commit plan. */
+/** Completes every staged fact into one candidate commit plan before sequence allocation. */
 export declare const completeCommitPlan: <
   A extends App,
   DefinitionValue extends MachineDefinition,
   CleanupError,
 >(
   plan: TurnPlan<DefinitionValue>,
-  evidence: EvidenceRecord<A, DefinitionValue, CleanupError>,
-) => Result.Result<CommitPlan<A, DefinitionValue, CleanupError>, TurnPlanError>;
+  evidence: TurnFact<A, DefinitionValue>,
+) => Result.Result<CommitPlan<A, DefinitionValue, CleanupError>, PublicDiagnostic>;
 
 /** Validates the complete action batch and store changes before any mutation. */
 export declare const validateCommitPlan: <
@@ -207,7 +225,7 @@ export declare const validateCommitPlan: <
   CleanupError,
 >(
   plan: CommitPlan<A, DefinitionValue, CleanupError>,
-) => Result.Result<ValidatedCommitPlan<A, DefinitionValue, CleanupError>, TurnPlanError>;
+) => Result.Result<ValidatedCommitPlan<A, DefinitionValue, CleanupError>, PublicDiagnostic>;
 
 /** Performs only the serialized actor/store commit. */
 export declare const commitTurn: <
@@ -216,7 +234,7 @@ export declare const commitTurn: <
   CleanupError,
 >(
   plan: ValidatedCommitPlan<A, DefinitionValue, CleanupError>,
-) => Effect.Effect<CommittedTurn<A, DefinitionValue, CleanupError>, TurnExecutionError>;
+) => Effect.Effect<CommittedTurn<A, DefinitionValue, CleanupError>, PublicDiagnostic>;
 
 /** Publishes the complete actor snapshot after the store cut is committed. */
 export declare const publishTurn: <
@@ -225,7 +243,7 @@ export declare const publishTurn: <
   CleanupError,
 >(
   turn: CommittedTurn<A, DefinitionValue, CleanupError>,
-) => Effect.Effect<PublishedTurn<A, DefinitionValue, CleanupError>, TurnExecutionError>;
+) => Effect.Effect<PublishedTurn<A, DefinitionValue, CleanupError>, PublicDiagnostic>;
 
 /** Accepts immutable evidence after publication without waiting for user work. */
 export declare const acceptTurnEvidence: <
@@ -234,7 +252,7 @@ export declare const acceptTurnEvidence: <
   CleanupError,
 >(
   turn: PublishedTurn<A, DefinitionValue, CleanupError>,
-) => Effect.Effect<AcceptedTurn<A, DefinitionValue, CleanupError>, TurnExecutionError>;
+) => Effect.Effect<AcceptedTurn<A, DefinitionValue, CleanupError>, PublicDiagnostic>;
 
 /** Resolves a private acknowledgement after publication and evidence acceptance. */
 export declare const acknowledgeTurn: <
@@ -243,7 +261,7 @@ export declare const acknowledgeTurn: <
   CleanupError,
 >(
   turn: AcceptedTurn<A, DefinitionValue, CleanupError>,
-) => Effect.Effect<void, TurnExecutionError>;
+) => Effect.Effect<void, PublicDiagnostic>;
 
 /** Reconciles owned activity starts/releases only after the published cut. */
 export declare const reconcileTurn: <
@@ -252,4 +270,4 @@ export declare const reconcileTurn: <
   CleanupError,
 >(
   turn: AcceptedTurn<A, DefinitionValue, CleanupError>,
-) => Effect.Effect<void, TurnExecutionError>;
+) => Effect.Effect<void, PublicDiagnostic>;
