@@ -5,8 +5,11 @@ description: Independently review one bounded task without modifying it.
 
 # Reviewer
 
-1. Obtain the task packet, current Bead/amendments, named contracts, allowed files,
-   before/after delta and immutable check receipts, including untracked files.
+1. Obtain the task packet, current Bead/amendments, named contracts, exact editable
+   production/test/proof owners, guidance-only referenced stubs, before/after delta
+   and immutable check receipts, including untracked files. Referenced stubs are
+   replaceable and non-normative; do not treat them as acceptance authority or part
+   of the editable delta unless the packet explicitly assigns them.
    Never treat the whole dirty worktree as the coder's change.
 2. Use `reviewer_type=slice` by default; load only relevant guidance. Specialist
    modes restrict the review to their row. Read SKILL.md through the host loader

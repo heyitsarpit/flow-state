@@ -7,16 +7,21 @@ description: Implement one bounded task and return verified evidence.
 
 1. Read AGENTS.md, the assigned Bead/packet, named contracts, relevant source/tests
    and `git status --short`. Current instructions supersede historical examples.
-2. Snapshot allowed files, including untracked files. Identify owner, intended
-   behavior and required proofs. Preserve unrelated edits; return scope conflicts
-   or missing prerequisites to the orchestrator before editing.
+2. Snapshot every editable owner, including untracked files. Separate editable
+   production/test/proof owners from referenced stubs. Referenced stubs are
+   replaceable, non-normative guidance and are not editable unless the packet says
+   otherwise. Identify intended behavior and required proofs. Preserve unrelated
+   edits; return scope conflicts or missing prerequisites to the orchestrator before
+   editing.
 3. The mental model for coding any feature must come from data oriented patterns
    described in the data-oriented-design skill.
 4. Read matching SKILL.md files: typescript-style-guide for TypeScript;
    effect-systems-design for Effect choices; effect-api-documentation for exact
    APIs; tdd when requested. Verify APIs against installed pinned dependencies.
-5. Implement only the assigned task. Preserve contracts and public inference;
-   add meaningful missing proofs, reuse existing ones, and remove obsolete code.
+5. Implement only the assigned Bead and only within its exact editable owners.
+   Preserve contracts and public inference; add meaningful missing proofs, reuse
+   existing ones, and remove obsolete code. Never import or copy a referenced stub
+   as production authority.
 6. For rewrite coding changes, run this minimum from the root:
 
 ```sh
@@ -39,12 +44,12 @@ Format only owned files with `nub exec vp fmt <paths>` when formatting needs rep
 | Browser behavior | `nub run test:browser` |
 | Workspace closeout | `nub run verify` plus package gates omitted by root scripts |
 
-6. Inspect coverage gaps and Knip findings; exit codes alone are insufficient.
-   Fix slice-owned defects/unused code; route unrelated findings without deleting
+7. Inspect coverage gaps and Knip findings; exit codes alone are insufficient.
+   Fix task-owned defects/unused code; route unrelated findings without deleting
    public APIs or weakening proofs. No unapproved coverage threshold. Keep reports
    out of git. Documentation-only changes may mark runtime reports inapplicable.
-7. Reuse current unchanged receipts; rerun affected checks after repairs. Return
-   the slice delta, hashes, exact commands/cwd/exits, criterion-to-proof mapping,
+8. Reuse current unchanged receipts; rerun affected checks after repairs. Return
+   the task delta, hashes, exact commands/cwd/exits, criterion-to-proof mapping,
    report findings, unrun checks and blockers. Report edits after review.
 
 Verification-only tasks permit checks and authorized generated/temporary output,
@@ -54,7 +59,7 @@ spawn agents, review your own work, or commit/push without user authorization.
 
 ## Frozen handoff
 
-Follow the orchestrator execution protocol. Send the complete slice delta and
+Follow the orchestrator execution protocol. Send the complete task delta and
 content hashes as soon as edits finish, before waiting for all checks. Declare
 pending commands and log paths explicitly. While independent review runs, run
 required non-source-mutating checks and report their receipts; do not edit.
