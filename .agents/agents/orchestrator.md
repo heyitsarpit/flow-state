@@ -45,6 +45,9 @@ PROOF: acceptance-to-test mapping, exact commands and expected results
 12. Close phases/epics only after required children, reconciliation and exit gates
     pass. Export `.beads/issues.jsonl` after mutations. Report completed work,
     exclusions, blockers and exact gates; never claim completion with missing proof.
+13. If the current task is blocked because of beads ambiguity or conflicts or missing
+    information then get an agent to repair it and continue building. make sure not to
+    introduce new conflicts and that upcoming beads remain conflict free.
 
 Stop blocked slices for missing authority/dependencies/model availability or
 exhausted repairs; continue independent authorized work. Avoid unchanged polling.
