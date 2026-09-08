@@ -1,12 +1,12 @@
 import { assert, describe, it } from "@effect/vitest";
-import { Cause, Context, Deferred, Effect, Exit, Fiber, Result } from "effect";
+import { Cause, Context, Deferred, Effect, Exit, Fiber, Result, type Types } from "effect";
 
 import { app, module } from "../../app/app.js";
 import { definition } from "../../definition/definition.js";
 import { Implementation, implementationEntries } from "../../implementation/implementation.js";
 import { machine } from "../../machine/machine.js";
 import { resource } from "../../operation/resource.js";
-import { runtimeSetup } from "../runtime.js";
+import { runtimeSetup, type Runtime, type RuntimeSetup } from "../runtime.js";
 
 /*
  * Proof organization:
@@ -22,12 +22,18 @@ type Repository = {
   readonly load: () => string;
 };
 
+type Expect<Value extends true> = Value;
+
 class RepositoryKey extends Context.Service<RepositoryKey, Repository>()(
   "RuntimeTest/Repository",
 ) {}
 
 class ConfigKey extends Context.Service<ConfigKey, { readonly region: string }>()(
   "RuntimeTest/Config",
+) {}
+
+class MissingKey extends Context.Service<MissingKey, { readonly value: string }>()(
+  "RuntimeTest/Missing",
 ) {}
 
 const repository: Repository = {
@@ -69,6 +75,61 @@ const RequiredApp = app({
 
 const completeImplementation = Implementation.succeed(RepositoryKey, repository);
 
+const emptyAppStrictSuperset = Implementation.merge(
+  completeImplementation,
+  Implementation.succeed(ConfigKey, { region: "test" }),
+);
+const emptyAppStrictSupersetSetup = runtimeSetup({
+  app: EmptyApp,
+  implementation: emptyAppStrictSuperset,
+});
+const emptyAppSetup = runtimeSetup({ app: EmptyApp });
+
+const typedFailureImplementation = Implementation.effect(
+  RepositoryKey,
+  Effect.fail("repository-failed" as const),
+);
+const typedFailureSetup = runtimeSetup({
+  app: RequiredApp,
+  implementation: typedFailureImplementation,
+});
+
+const strictSupersetFailureImplementation = Implementation.merge(
+  typedFailureImplementation,
+  Implementation.succeed(ConfigKey, { region: "test" }),
+);
+const strictSupersetFailureSetup = runtimeSetup({
+  app: RequiredApp,
+  implementation: strictSupersetFailureImplementation,
+});
+
+const broadServiceKey = Context.Service<unknown, Repository>("RuntimeTest/BroadRepository");
+const broadImplementation = Implementation.succeed(broadServiceKey, repository);
+
+// @ts-expect-error A provider with an unknown service identity cannot close RepositoryKey.
+runtimeSetup({ app: RequiredApp, implementation: broadImplementation });
+
+export type RuntimeSetupTypeProofs = readonly [
+  Expect<Types.Equals<typeof requiredSetup, RuntimeSetup<typeof RequiredApp>>>,
+  Expect<Types.Equals<typeof emptyAppStrictSupersetSetup, RuntimeSetup<typeof EmptyApp>>>,
+  Expect<Types.Equals<typeof emptyAppSetup, RuntimeSetup<typeof EmptyApp>>>,
+  Expect<
+    Types.Equals<typeof typedFailureSetup, RuntimeSetup<typeof RequiredApp, "repository-failed">>
+  >,
+  Expect<
+    Types.Equals<
+      typeof strictSupersetFailureSetup,
+      RuntimeSetup<typeof RequiredApp, "repository-failed">
+    >
+  >,
+  Expect<
+    Types.Equals<
+      ReturnType<typeof typedFailureSetup.construct>,
+      Runtime<typeof RequiredApp, "repository-failed">
+    >
+  >,
+];
+
 export type _RuntimeSetupApp = ReturnType<typeof runtimeSetup<typeof EmptyApp>>["app"];
 
 // @ts-expect-error RequiredApp still needs RepositoryKey.
@@ -79,6 +140,29 @@ const incompleteImplementation = Implementation.effect(
   Effect.service(ConfigKey).pipe(Effect.map(() => repository)),
 );
 
+const incompleteStrictSupersetImplementation = Implementation.merge(
+  completeImplementation,
+  Implementation.effect(
+    ConfigKey,
+    Effect.service(MissingKey).pipe(Effect.map(() => ({ region: "test" }))),
+  ),
+);
+
+// @ts-expect-error A strict-superset graph with residual requirements is not complete.
+runtimeSetup({ app: RequiredApp, implementation: incompleteStrictSupersetImplementation });
+
+const mismatchedImplementation = Implementation.succeed(ConfigKey, { region: "test" });
+
+const chooseImplementation = (useRepository: boolean) =>
+  useRepository ? completeImplementation : mismatchedImplementation;
+const conditionalImplementation = chooseImplementation(true);
+
+// @ts-expect-error A union that may omit RepositoryKey cannot close RequiredApp.
+runtimeSetup({ app: RequiredApp, implementation: conditionalImplementation });
+
+// @ts-expect-error RequiredApp requires RepositoryKey, not ConfigKey.
+runtimeSetup({ app: RequiredApp, implementation: mismatchedImplementation });
+
 // @ts-expect-error This provider graph retains an unsatisfied ConfigKey requirement.
 runtimeSetup({ app: RequiredApp, implementation: incompleteImplementation });
 
@@ -87,6 +171,52 @@ assert.strictEqual(requiredSetup.app, RequiredApp);
 
 describe("internal implementation runtime", () => {
   describe("readiness acquisition and caching", () => {
+    it.effect("keeps construction inert until readiness", () =>
+      Effect.gen(function* () {
+        const evidence: Array<string> = [];
+        const probes = {
+          providerAcquisitions: 0,
+          externalWork: 0,
+          actorCreations: 0,
+          evidence,
+        };
+        const implementation = Implementation.effect(
+          RepositoryKey,
+          Effect.sync(() => {
+            probes.providerAcquisitions += 1;
+            probes.externalWork += 1;
+            probes.actorCreations += 1;
+            probes.evidence.push("provider-acquired");
+            return repository;
+          }),
+        );
+
+        const setup = runtimeSetup({ app: EmptyApp, implementation });
+        assert.deepStrictEqual(probes, {
+          providerAcquisitions: 0,
+          externalWork: 0,
+          actorCreations: 0,
+          evidence: [],
+        });
+
+        const runtime = setup.construct();
+        assert.deepStrictEqual(probes, {
+          providerAcquisitions: 0,
+          externalWork: 0,
+          actorCreations: 0,
+          evidence: [],
+        });
+
+        yield* runtime.ready();
+        assert.deepStrictEqual(probes, {
+          providerAcquisitions: 1,
+          externalWork: 1,
+          actorCreations: 1,
+          evidence: ["provider-acquired"],
+        });
+      }),
+    );
+
     it.effect("reads a plain provider getter only during readiness", () =>
       Effect.gen(function* () {
         const implementation = Implementation.succeed(RepositoryKey, repository);

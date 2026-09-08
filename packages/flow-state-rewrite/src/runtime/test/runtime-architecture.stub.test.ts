@@ -1,83 +1,113 @@
-// STUB: Replaceable/deletable scenario prompts for future coders to refine or delete; not shipped behavior.
+// STUB: Replaceable/deletable future scenarios; none are executable behavior.
 
 import { describe, it } from "@effect/vitest";
 
-describe("runtime readiness", () => {
-  it.todo("constructing a runtime performs no acquisition or external work");
-  it.todo("concurrent readiness callers observe one shared terminal success");
-  it.todo("concurrent readiness callers observe one shared typed failure");
-  it.todo("defect and interruption remain distinguishable in the terminal result");
-  it.todo("disposal during bootstrap wins and leaves readiness terminal");
-});
+describe("runtime assembly", () => {
+  // Fixture: a constructed app with one machine, one implementation provider, and one actor ref.
+  // Control: call the synchronous setup and construct functions while acquisition counters are guarded.
+  // Assert: construction returns the exact app identity and performs no provider, actor, or host I/O.
+  // Regression: prevents an assembly helper from becoming an eager runtime or hidden actor factory.
+  it.todo("assembles a real app and actor reference without starting runtime work");
 
-describe("actor admission and ownership", () => {
-  it.todo("invalid provenance fails before any actor state is externally visible");
-  it.todo("duplicate identity joins one admission instead of creating an incarnation");
-  it.todo("a tombstoned stable reference cannot be recreated in the same runtime");
-  it.todo("provider dependencies are admitted in dependency order and rejected on cycles");
-  it.todo("only the returned owner lease can dispose an admitted actor");
-});
+  // Fixture: two setup values built from the same app value and separate implementation records.
+  // Control: construct both shells, then compare their owner identities before either is ready.
+  // Assert: each shell has one isolated owner while the app and admitted machine identities remain exact.
+  // Regression: catches accidental process-global runtime reuse and cross-scope graph sharing.
+  it.todo("keeps separate constructed shells isolated while preserving app identity");
 
-describe("command ordering and publication", () => {
-  it.todo("public command admission is synchronous and returns no acknowledgement handle");
-  it.todo("accepted commands are observed in FIFO order");
-  it.todo("reentrant sends preserve the same observed command order");
-  it.todo("accepted event changes appear only after the complete state and cache batch validates");
-  it.todo("a planning defect publishes no partial state, work, occurrence, or store change");
-});
+  // Fixture: a resource descriptor requiring one Context service and an Implementation that supplies it.
+  // Control: pass the real definition, machine, module, and app constructors through runtimeSetup.
+  // Assert: the complete provider requirement is accepted and the missing-provider variant is rejected before work.
+  // Regression: catches erased requirements or a setup overload that accepts an incomplete graph.
+  it.todo("closes implementation requirements at the real runtime setup boundary");
 
-describe("snapshots and acknowledgements", () => {
-  it.todo("one committed actor and store cut publishes one complete immutable snapshot");
-  it.todo("cache publication is never observable without its corresponding actor snapshot");
-  it.todo("acknowledgement follows recorded acceptance and does not await user work");
-  it.todo("projection-only facts publish without machine transition or user work");
-  it.todo("mapped operation outcomes reenter later as ordinary actor updates");
-});
+  // Fixture: a provider graph whose later provider reads a service produced by its predecessor.
+  // Control: release the real readiness gate one declaration at a time and record each service identity.
+  // Assert: the assembled owner exposes all predecessor services only after ordered acquisition completes.
+  // Regression: catches a detached provider graph or a parallel composition that hides dependency order.
+  it.todo("assembles predecessor-visible providers in declaration order");
 
-describe("stale operation outcomes", () => {
-  it.todo("a completion with the wrong actor incarnation cannot mutate current state");
-  it.todo("a completion with the wrong kind, descriptor, canonical key, or lease epoch is stale");
-  it.todo("an outcome from an old operation generation cannot overwrite current actor state");
-  it.todo("occurrence ordinals are one-based and never reused within an incarnation");
-  it.todo(
-    "cancellation registration wins synchronous completion and graceful shutdown settles admitted work",
-  );
-});
+  // Fixture: an app with a context selector bound to a distinct provider machine and consumer slot.
+  // Control: construct through the real definition and machine APIs, then cross the readiness barrier.
+  // Assert: the first active snapshot contains the selected slot without an intermediate consumer publication.
+  // Regression: catches provider/consumer selector confusion during actual assembly.
+  it.todo("installs a provider-selected context value before the first active snapshot");
 
-describe("context updates", () => {
-  it.todo("null, undefined, record, and function context values preserve authored semantics");
-  it.todo("context bindings retain exact provider identity for the consumer lifetime");
-  it.todo("bootstrap context installs silently before the first active snapshot");
-  it.todo(
-    "provider changes publish one dependency-ordered update without intermediate projections",
-  );
-  it.todo(
-    "equal values suppress publication while defects preserve the last value until a newer revision",
-  );
-});
+  // Fixture: clock, scheduler, and evidence services supplied through one composition root.
+  // Control: replace each capability with a recording implementation and construct two shells.
+  // Assert: service records are scope-local and the owner retains the exact replacement capabilities.
+  // Regression: catches a second service registry or host-owned state that bypasses the runtime owner.
+  it.todo("keeps replaceable runtime capabilities inside one owner scope");
 
-describe("suspension and resume", () => {
-  it.todo("start and restore produce prepared-to-active evidence with distinct causes");
-  it.todo("suspension rejects new commands and drains already-admitted commands FIFO");
-  it.todo(
-    "suspension cancels work before cleanup and retains dependencies, cursors, and operation records",
-  );
-  it.todo("resume reinstalls absolute timers without replaying input or initialization");
-  it.todo(
-    "blocked cleanup reports dependents and reverse finalization while resume and tombstone stay blocked",
-  );
-});
+  // Fixture: the same constructed app is handed to a request adapter and a Story adapter.
+  // Control: make each adapter call the same setup boundary and inspect their runtime references.
+  // Assert: host adapters share production ownership but do not share actor instances across scopes.
+  // Regression: catches Story-only engines and host-specific runtime forks.
+  it.todo("uses one production assembly path for request and Story hosts");
 
-describe("evidence and shutdown", () => {
-  it.todo(
-    "turn and lifecycle records carry app, plan, and actor provenance in one monotonic sequence",
-  );
-  it.todo("sequence exhaustion is explicit and cannot rewrite accepted evidence");
-  it.todo("lifecycle evidence follows its published snapshot before acknowledgement");
-  it.todo(
-    "one delivery target overflowing or failing does not block another target or runtime truth",
-  );
-  it.todo(
-    "runtime disposal drains the accepted prefix and emits no synthetic terminal actor record",
-  );
+  // Fixture: a setup whose provider acquires a service, then fails before actor or lease exposure.
+  // Control: release the acquisition gate and record registry, mailbox, and scope state at each phase.
+  // Assert: pre-exposure rollback leaves no actor handle, edge, snapshot, lease, or evidence record; exposed cleanup uses ordinary disposal.
+  // Regression: catches partial publication after a failed runtime bootstrap.
+  it.todo("rolls back an assembled runtime before any handle or evidence can escape");
+
+  // Fixture: a provider that defects after acquiring a predecessor and a cleanup that records Cause.
+  // Control: run the actual setup through readiness and inspect the terminal failure and cleanup ledger.
+  // Assert: the defect remains distinguishable and reverse cleanup runs once for the acquired prefix.
+  // Regression: catches typed-error projection that erases defects or cleanup order.
+  it.todo("retains a provider defect and reverse cleanup through assembled readiness");
+
+  // Fixture: a setup interrupted while its real provider is waiting on an owner-scoped gate.
+  // Control: interrupt the readiness fiber, then call ready again after the provider releases.
+  // Assert: interruption remains the cached terminal and no second provider acquisition starts.
+  // Regression: catches a retrying host bridge or a detached bootstrap fiber.
+  it.todo("caches interrupted assembly without retrying provider acquisition");
+
+  // Fixture: an assembled owner with an active actor, owner lease, and one dependent binding.
+  // Control: attempt disposal from the ordinary actor handle before releasing the owner lease.
+  // Assert: the handle cannot dispose the actor, and the owner reports the dependent block as a diagnostic.
+  // Regression: catches public-handle disposal authority leaks.
+  it.todo("keeps individual disposal authority on the returned owner lease");
+
+  // Fixture: a runtime that has accepted one actor turn and one lifecycle record through the real hub.
+  // Control: close the runtime while a sink remains attached and bounded.
+  // Assert: the accepted prefix drains before sink close and no synthetic actor record is manufactured.
+  // Regression: catches shutdown ordering that loses evidence or invents terminal facts.
+  it.todo("drains accepted assembly evidence before closing the runtime");
+
+  // Fixture: two host boundaries call construct and ready concurrently for one setup value.
+  // Control: hold the real implementation gate until both host callers have entered.
+  // Assert: one owner performs acquisition and both hosts observe the same terminal without divergent context.
+  // Regression: catches per-host runtime construction hidden behind a shared setup value.
+  it.todo("linearizes concurrent host readiness through one assembled owner");
+
+  // Fixture: a host callback receives a prepared actor handle before readiness and attempts a send.
+  // Control: keep bootstrap pending, invoke the callback, then complete or dispose the owner.
+  // Assert: no command reaches the mailbox before readiness and disposal settles the callback deterministically.
+  // Regression: catches host reentry that bypasses the readiness barrier.
+  it.todo("keeps prepared host handles inert until assembled readiness");
+
+  // Fixture: one live app and one Story app with equal definitions but distinct implementations and clocks.
+  // Control: run the same authored event through both real construction paths.
+  // Assert: observable state and evidence shape agree while service identities and scopes stay distinct.
+  // Regression: catches Story fixtures that reimplement runtime behavior instead of composing production owners.
+  it.todo("preserves live and Story parity across real construction paths");
+
+  // Fixture: an empty app with no actor admission and a setup without an Implementation requirement.
+  // Control: construct and close the shell without invoking any application callback.
+  // Assert: the shell remains inert, ready has no fabricated provider work, and close is idempotent.
+  // Regression: catches automatic roots or eager scheduler creation for an empty graph.
+  it.todo("keeps an empty constructed app inert through close");
+
+  // Fixture: a valid app plus a structurally similar machine created by a separate definition identity.
+  // Control: attempt to assemble the foreign machine through actorRef and admission.
+  // Assert: the real owner rejects it before registry or mailbox mutation and reports a canonical diagnostic.
+  // Regression: catches structural admission in place of nominal machine identity.
+  it.todo("rejects a foreign machine during real owner assembly");
+
+  // Fixture: a fully assembled app, implementation, context binding, actor lease, and evidence hub.
+  // Control: execute one ordinary event from host send through publication, acceptance, and owner close.
+  // Assert: every phase uses the same runtime owner and the final cleanup order is observable and complete.
+  // Regression: catches a split integration path that passes isolated type proofs but not end-to-end ownership.
+  it.todo("completes one real constructor-to-close runtime path");
 });
