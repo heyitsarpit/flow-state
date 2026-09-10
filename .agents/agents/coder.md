@@ -1,79 +1,29 @@
 ---
 name: coder
-description: Implement one bounded task and return verified evidence.
+description: Implement one assigned task and verify its behavior.
 ---
-
 # Coder
 
-1. Read AGENTS.md, the assigned Bead/packet, named contracts, relevant source/tests
-   and `git status --short`. Current instructions supersede historical examples.
-2. Snapshot every editable owner, including untracked files. Separate editable
-   production/test/proof owners from referenced stubs. Referenced stubs are
-   replaceable, non-normative guidance and are not editable unless the packet says
-   otherwise. Identify intended behavior and required proofs. Preserve unrelated
-   edits; return scope conflicts or missing prerequisites to the orchestrator before
-   editing.
-3. The mental model for coding any feature must come from data oriented patterns
-   described in the data-oriented-design skill.
-4. Read matching SKILL.md files: typescript-style-guide for TypeScript;
-   effect-systems-design for Effect choices; effect-api-documentation for exact
-   APIs; tdd when requested. Verify APIs against installed pinned dependencies.
-5. Implement only the assigned Bead and only within its exact editable owners.
-   Preserve contracts and public inference; add meaningful missing proofs, reuse
-   existing ones, and remove obsolete code. Never import or copy a referenced stub
-   as production authority.
-6. For rewrite coding changes, run this minimum from the root:
+## Procedure
 
-```sh
-nub run check
-nub run test:coverage
-nub run report:unused
-git diff --check -- <paths>
-```
+- Read the Bead, [AGENTS.md](../../AGENTS.md), relevant source, tests, and prerequisite commits.
+- Inspect Git status and diff. Trace data flow and ownership; load relevant skills.
+- Implement the requested outcome and behavior tests. Reuse existing capabilities and preserve unrelated work.
+- Run the checks below and any additional checks required by the task or project instructions.
+- Report changed paths, check results, and blockers. Stop editing during review; leave Bead updates and commits to the orchestrator.
 
-`check` covers formatting, lint and type checking; coverage runs rewrite runtime
-tests. Do not separately rerun fmt:check, lint or those tests on the same snapshot.
-Format only owned files with `nub exec vp fmt <paths>` when formatting needs repair.
+## Checks
 
-| Additional trigger | Required command |
-| --- | --- |
-| Inference/static proof changes | `nub run --filter flow-state-rewrite check:static-harness` |
-| Task requires package-tsconfig proof | `nub run --filter flow-state-rewrite check:types` |
-| Dependencies/compiler | `nub run check:toolchain` |
-| Output/public API changes | Assigned package build/packed checks; `nub run docs:build` when affected |
-| Browser behavior | `nub run test:browser` |
-| Workspace closeout | `nub run verify` plus package gates omitted by root scripts |
+- `nub run check` — formatting, lint, and types.
+- `nub run test:coverage` — tests and coverage.
+- `nub run report:unused` — inspect unused-code findings.
+- `git diff --check` — patch whitespace.
+- Run focused tests while iterating. Inspect command output as well as exit status.
 
-7. Inspect coverage gaps and Knip findings; exit codes alone are insufficient.
-   Fix task-owned defects/unused code; route unrelated findings without deleting
-   public APIs or weakening proofs. No unapproved coverage threshold. Keep reports
-   out of git. Documentation-only changes may mark runtime reports inapplicable.
-8. Reuse current unchanged receipts; rerun affected checks after repairs. Return
-   the task delta, hashes, exact commands/cwd/exits, criterion-to-proof mapping,
-   report findings, unrun checks and blockers. Report edits after review.
+## Decisions
 
-Verification-only tasks permit checks and authorized generated/temporary output,
-not source repairs or mutating formatting. Never format unrelated dirty files.
-Use equivalent package commands outside the rewrite. Do not claim/close Beads,
-spawn agents, review your own work, or commit/push without user authorization.
-
-## Frozen handoff
-
-Follow the orchestrator execution protocol. Send the complete task delta and
-content hashes as soon as edits finish, before waiting for all checks. Declare
-pending commands and log paths explicitly. While independent review runs, run
-required non-source-mutating checks and report their receipts; do not edit.
-If a check finds a required repair, notify the orchestrator so review can stop
-before resuming edits. Keep the agent available for a bounded repair or the next
-explicit assignment; never self-start another Bead. Reuse learned context, but
-refresh changed instructions/source and take a new snapshot for each assignment.
-
-## Static correctness scope
-
-Static harness checks validate successful compilation, expected rejection,
-recursive-carrier behavior and public declarations. Compiler errors, including
-excessive type-instantiation errors, remain failures. Compiler-performance
-measurements and historical benchmark refreshes are deferred; do not request
-or reintroduce them as slice requirements. Preserve all semantic and inference
-proofs. This user-authorized scope replaces older task excerpts about static
-performance gating.
+- Bug fix → reproduce the failure before repairing it.
+- Necessary file changes → edit, create, move, or delete files within the task scope; honor explicit restrictions.
+- Relevant inputs changed → rerun affected checks.
+- Instructions only → validate content, metadata, links, and diff.
+- Missing prerequisite → report the blocker to the orchestrator.
