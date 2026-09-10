@@ -654,7 +654,7 @@ describe("turn planner", () => {
       assert.deepStrictEqual(result.failure.path, ["projection", "store", "revision"]);
   });
 
-  it("commits actor and store state before publication", () => {
+  it("keeps commit revisions and evidence allocation out of the pure plan", () => {
     const plan = resultSuccess(planTurn(turnInput(opened)));
     assert.strictEqual("sequence" in plan, false);
     assert.strictEqual("evidence" in plan, false);
@@ -662,7 +662,7 @@ describe("turn planner", () => {
     if (plan._tag === "event-plan") assert.strictEqual(plan.candidate.revision, snapshot.revision);
   });
 
-  it("keeps failed commit cuts unpublished", () => {
+  it("rejects a timer projection whose deadline precedes its start", () => {
     const result = planTurn({
       _tag: "projection",
       snapshot,
@@ -804,7 +804,7 @@ describe("turn planner", () => {
     assert.strictEqual(result.before.revision, snapshot.revision);
   });
 
-  it("serializes candidate commits for one actor", () => {
+  it("plans independently from the same captured pre-turn snapshot", () => {
     const first = resultSuccess(planTurn(turnInput(opened)));
     const second = resultSuccess(planTurn(turnInput(opened, first.before)));
     assert.notStrictEqual(first, second);

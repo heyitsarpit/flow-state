@@ -167,7 +167,10 @@ const initialRequiredSnapshot = (): PreparedActorSnapshot<typeof requiredDefinit
 // Contracts: ARCH-007A, ARCH-012, SEM-001A, SEM-002A, SEM-029.
 // Proofs: HOST-P01, HOST-P05, PROOF-003, PROOF-004.
 describe("runtime assembly", () => {
-  it.effect("assembles a real app and actor reference without starting runtime work", () =>
+  // SETUP: A runtime shell retains the exact admitted app; construction alone exposes no assembly.
+  // ACTION: Run ready to acquire the owner, then close its lifetime.
+  // ASSERT: Assembly becomes available only after readiness completes.
+  it.effect("walkthrough: construction stays inert until readiness runs", () =>
     Effect.gen(function* () {
       const setup = runtimeSetup({ app: architectureApp });
       const runtime = setup.construct();
@@ -242,7 +245,10 @@ describe("runtime assembly", () => {
     }),
   );
 
-  it.effect("installs a provider-selected context value before the first active snapshot", () =>
+  // SETUP: Admit the provider before its consumer and bind one typed context slot to that provider.
+  // ACTION: Create the consumer through the real assembly.
+  // ASSERT: Its first exposed active snapshot already contains the selected provider value.
+  it.effect("walkthrough: a consumer starts with context selected from its provider", () =>
     Effect.gen(function* () {
       const runtime = runtimeSetup({ app: contextApp }).construct();
       yield* runtime.ready();
@@ -577,7 +583,10 @@ describe("runtime assembly", () => {
     }),
   );
 
-  it.effect("completes one real constructor-to-close runtime path", () =>
+  // SETUP: Construct and ready one runtime, then create one actor from its prepared snapshot.
+  // ACTION: Dispatch one event and await the real acknowledgement before reading actor truth.
+  // ASSERT: The receipt names publication revision 1 and evidence sequence 2, the actor reaches its authored state, and runtime close completes.
+  it.effect("walkthrough: one event commits one actor turn before runtime close", () =>
     Effect.gen(function* () {
       const runtime = runtimeSetup({ app: architectureApp }).construct();
       yield* runtime.ready();

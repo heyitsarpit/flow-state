@@ -1074,7 +1074,10 @@ describe("runtime assembly integration", () => {
     }),
   );
 
-  it.effect("suspends, resumes, and disposes through the same runtime owner", () =>
+  // SETUP: Create one actor under a runtime with recording provider acquisition, release and evidence.
+  // ACTION: Suspend, try a command, resume, complete a command, then close the runtime twice.
+  // ASSERT: Suspended admission fails, resumed work commits, close is idempotent, the provider releases once, and lifecycle/turn evidence retains its order.
+  it.effect("walkthrough: suspension rejects commands and resume restores admission", () =>
     Effect.gen(function* () {
       const counts = { acquisitions: 0, releases: 0 };
       const runtime = runtimeSetup({
@@ -1263,5 +1266,141 @@ describe("runtime assembly integration", () => {
       yield* Effect.provideContext(provider.dispose(), assembly.context);
       yield* runtimeOwner(runtime).close();
     }),
+  );
+});
+
+describe("pending regression scenarios", () => {
+  // Setup: Assemble provider P with active consumer C1 and suspended consumer C2, both bound to P; retain P's fence and C2's logical dependency edge.
+  // Action: Attempt P.lifecycle.command({ _tag: "actor:dispose" }) and P's owner lease dispose; after each rejection dispatch P's advance event and resume C2.
+  // Assert: Both attempts fail before mutation and identify every dependent actor ref and bound context key; P remains active and dispatchable, C1 receives the newest provider state, C2 resumes from its retained edge, and no tombstone or duplicate cleanup is emitted. Use separate route subcases so each begins with both active and suspended dependents.
+  it.todo("rejected provider disposal leaves active and suspended dependents live");
+
+  // Setup: Extend the existing active actor fixture with a pre-existing snapshot stream, onSnapshot callback, getter read, and evidence sink; capture the active snapshot and revisions before suspension.
+  // Action: Issue actor:suspend through the assembled lifecycle controller, drain the pre-existing stream, callback, getter read, and evidence, then subscribe a late stream and collect its replay.
+  // Assert: Every observer and the late subscriber report suspended from one immutable cut, the public revision advances exactly once, the machine-turn revision is unchanged, and the retained active snapshot remains unchanged.
+  it.todo("publishes lifecycle transitions through one coherent snapshot cut");
+
+  // Setup: Create independent actors A and B in one assembled runtime and attach one evidence sink; leave B untouched while A processes one ordinary machine event.
+  // Action: Drain A's turn evidence, suspend B, and drain the lifecycle evidence without resetting either actor or the runtime-global sequence allocator.
+  // Assert: A's machine-turn revision advances only for A, B's suspend record retains B's prior machine-turn revision while its publication revision advances, and evidence sequences remain globally monotonic with actor-specific provenance.
+  it.todo("keeps lifecycle evidence machine-turn revision actor-local");
+
+  // Setup: Run the assembled runtime's readiness and lifecycle operations under the provided TestClock with a known virtual time, then attach an evidence sink before lifecycle publication.
+  // Action: Read the assembled RuntimeClock and publish an actor lifecycle transition, then drain lifecycle evidence without consulting wall time.
+  // Assert: RuntimeClock.now and the LifecycleRecord timestamp equal the virtual clock value, and no Date.now epoch value appears in the assembled lifecycle evidence.
+  it.todo("uses the provided Effect Clock for assembled lifecycle evidence");
+
+  // Setup: Create a persist-enabled stable actor in runtime R1, retain its ref, fence, and lease, and verify the actor is registered and active.
+  // Action: Dispose the lease in R1, then assert a second `assembly.createActor` call for the same ref fails; construct and ready a separate runtime R2 and create the same stable ref there.
+  // Assert: R1 retains a DisposedActorRef tombstone and the stale engine rejects dispatch, while R2 receives a fresh incarnation and can dispatch independently.
+  it.todo("reuses a disposed stable ref only in a fresh runtime incarnation");
+
+  // Setup: Admit stable ref S through the assembled runtime and capture its actor snapshot, fence, lease, and accepted evidence count.
+  // Action: Call the actual assembled `assembly.createActor` method a second time for S with a distinct initial snapshot while the first actor remains active and dispatchable; leave shared stable ensure joining to the existing admission proof.
+  // Assert: The second admission fails as DuplicateActorClaim before exposure, the original lease and snapshot remain unchanged and dispatchable, and no duplicate actor, edge, mailbox, or evidence record is created.
+  it.todo("rejects duplicate stable create without replacing the existing lease");
+
+  // Setup: Ready one assembled runtime, create an active actor, attach evidence, and retain the actor lease and runtime owner as concurrent disposal authorities.
+  // Action: Start actor lease disposal and `assembly.dispose()` concurrently, await both terminal Effects, let runtime disposal drain the accepted prefix before closing the sink, and inspect the received records after close returns.
+  // Assert: Actor cleanup is shared once, each disposal authority reaches its own terminal outcome, late registration is rejected, and no duplicate terminal lifecycle evidence is emitted; runtime-only cleanup failures remain part of the runtime outcome.
+  it.todo("linearizes actor lease disposal against runtime shutdown");
+
+  // Setup: Attach a real runtime evidence sink whose first delivery blocks, capture the accepted prefix, and start a hub drain at that prefix.
+  // Action: While delivery of the captured record is blocked, admit and accept a newer actor lifecycle or turn record, then release the first delivery.
+  // Assert: The drain completes at the captured prefix, the newer record remains queued for the next drain, accepted records retain order and immutable payloads, and sink retention never blocks actor publication.
+  it.todo("drains a captured evidence prefix while newer runtime records arrive");
+
+  // SETUP: Assemble a real runtime with one actor, an attached bounded evidence sink whose deliver callback is gated, and an onCommand callback that records when user work begins.
+  // ACTION: Dispatch one event and await its private acknowledgement before starting the evidence hub drain; then drain the sink and release its callback.
+  // ASSERT: The receipt contains the committed publication/evidence sequence, user work has started after acknowledgement, sink delivery has not started before the explicit drain, and sink failure or delay cannot change the committed actor/store snapshot.
+  it.todo("keeps sink delivery after the committed-turn acknowledgement");
+
+  // SETUP: Assemble the real provider/consumer owners with two bindings: providerState maps ready to ready and every later state to changed, while providerChanged throws only at changed; record every consumer snapshot and its issue list.
+  // ACTION: Advance the provider to changed, drain provider and consumer, then advance it to final and drain again; use a Deferred or explicit engine drains, never a sleep.
+  // ASSERT: The first wave publishes one issue-only consumer snapshot retaining ready/false and does not expose providerState=changed; the second newer revision clears the issue and publishes changed/false exactly once, proving the valid sibling update was not lost or prematurely committed.
+  it.todo(
+    "retains all last-valid context slots through a sibling selector defect and recovers on a newer provider revision",
+  );
+
+  // SETUP: Assemble four real actors in a diamond A->B and A->C, with D bound to one selected slot from B and one from C; collect callback snapshots and provider revisions for every actor.
+  // ACTION: Commit one A provider update, drain the bounded dependency wave to quiescence, and inspect the ordered publication callbacks and evidence records.
+  // ASSERT: B and C each receive at most one combined context turn; D publishes at most once after both latest upstream values are available; no D snapshot contains B-new/C-old or B-old/C-new; all cross-actor delivery follows A's initiating publication/evidence/ack boundary.
+  it.todo("propagates one diamond wave without an intermediate context cut");
+
+  // SETUP: Assemble provider A with independent dependents B and C, fill B's real mailbox to its documented bound, and leave C healthy; record each provider/consumer snapshot and context delivery result.
+  // ACTION: Publish A revision 1, capture the provider completion and the exact context delivery failure, attempt both dependents, then release and drain B; publish a strictly newer A revision 2 and drain the wave again.
+  // ASSERT: A's committed snapshot, evidence, acknowledgement, and future synchronous admission survive; B receives no revision-1 projection and its last-valid context/ledger stays unchanged; C receives revision 1 once; the failed B lane retains InvariantViolation at ["mailbox","full"] without inventing an issue publication into B's full queue; after B is freed, A revision 2 reaches B and C with the new value.
+  it.todo("isolates one full context dependent while preserving a healthy fanout peer");
+
+  // Setup: Assemble a provider/consumer pair and suspend the consumer; use the new selected internal ContextCoordinator reconciliation capability introduced by this refactor, decorated with a Deferred while delegating the real production projection path.
+  // Action: Change the provider while the consumer is suspended, start consumer resume, attempt send while reconciliation is gated, then release the projection and await resume.
+  // Assert: Send rejects while reconciliation is pending; the same ref/handle resumes only after one current complete context cut is committed. Failed reconciliation rolls back newly acquired attachments and stays suspended. The capability is an internal production seam, not a public test-only hook.
+  it.todo("keeps admission closed until resume reconciliation commits");
+
+  // Setup: Create and dispose multiple real actors through assembly in one live runtime; decorate the new selected internal ActorInstance.make acquisition capability so it delegates actual mailbox/subscription acquisition and records a Scope finalizer.
+  // Action: Await each actor lease disposal before creating the next actor, observe its real lifetime release, then close the runtime.
+  // Assert: Actual actor fibers/registrations and the delegated acquisition finalizer release before each disposal returns, each finalizer runs once, and runtime close does not replay completed actor cleanup. Do not replace acquisition with a fabricated owner, use a public test hook, or query garbage collection.
+  it.todo("releases each actor lifetime before runtime shutdown");
+
+  // Setup: Build the real A-to-B/C-to-D diamond plus a healthy C-to-F branch; fill B's mailbox, publish A revision 1, and let C commit while B retains its A revision-0 lineage.
+  // Action: After the failed wave settles, release/drain B's blocked queue without retriggering A; publish ordinary local B and C events separately and drain each. Then publish A revision 2 and enqueue an ordinary B event immediately after its projection ticket completes but before the coordinator observes that completion.
+  // Assert: Draining B's queue does not clear A delivery debt. D keeps its prior complete cut through unrelated local events while F follows healthy C. Matching ancestor reconciliation publishes coherent D cuts with the latest local state. B inherits lineage atomically installed before its ticket, never stale coordinator metadata; no B-old/C-new combination or same-cut selector retry appears.
+  it.todo("holds diamond descendants when an upstream context delivery is rejected");
+
+  // Setup: Construct a machine, add an allowed descriptor before app construction, build the app, then mutate exposed machine definition, compiled containers, and plan arrays afterward.
+  // Action: Admit and dispatch an actor through that app, then construct a second app from the current authored inputs.
+  // Assert: The first runtime uses its captured app-time identities and compiled behavior, including the descriptor added before construction; mutations cannot change its admitted vocabulary, and the second app independently captures its own current inputs.
+  it.todo("uses app-time machine facts despite later exposed-container mutation");
+
+  // Setup: Create one fresh actor and restore one actor with nonzero publication and machine-turn revisions; attach snapshot and evidence observers before exposure.
+  // Action: Observe initial activation, then suspend and resume each actor without dispatching a machine event.
+  // Assert: The first fresh snapshot has revision zero, restore retains both persisted revisions, later lifecycle publications increment only publication revision, and start or restore creates lifecycle evidence without replaying events or finite work.
+  it.todo("preserves fresh and restored revision baselines before later lifecycle cuts");
+
+  // Setup: Use an active real actor with recording attachments and a provided Clock that fails its next lifecycle read. In a separate subcase admit the boundary publication counter through real private owner construction or restore input.
+  // Action: Request suspension/disposal through the real lifecycle owner and observe preflight failure, then remove the clock fault or use a separately valid counter fixture for a later attempt.
+  // Assert: Rejection runs no cancellation/finalizer/subscription removal, graph mutation or admission closure and accepts no partial cut/sequence. The valid attempt executes once; use constructor inputs or an actual private counter owner, never a public test-only setter.
+  it.todo("rejects lifecycle publication preflight before changing admission or resources");
+
+  // Setup: Initialize the real private Journal near safe-integer exhaustion with two real actor owners, their reserved terminal credits and one lifecycle outcome credit; hold one actor cleanup at a Deferred.
+  // Action: Start the lifecycle operation, consume unreserved ordinary capacity from the other actor, attempt one extra ordinary cut, then release cleanup and close the runtime.
+  // Assert: The extra ordinary cut fails before store/publication mutation; held cleanup and terminal records finalize in actual gate order without wrap or reuse. Another actor progresses during gated cleanup; close waits for credit owners, settles acknowledgements, drains terminal records and closes once.
+  it.todo("preserves terminal publication capacity while lifecycle cleanup is in flight");
+
+  // Setup: Build the real A-to-B/C-to-D diamond and hold one projection after wave capture at the internal coordinator/mailbox capability; record every D snapshot.
+  // Action: In separate subcases publish an ordinary intermediate-actor event or suspend B before the held ticket commits; settle the captured wave, then provide a strictly newer matching input or resume reconciliation.
+  // Assert: The affected ticket is explicitly stale/suspended, D retains its prior complete cut, independent C may finish and the first drain terminates. One later valid wave recovers without rerunning a defective selector at an identical provider cut.
+  it.todo("blocks stale or suspended diamond tickets without substituting a newer live cut");
+
+  // Setup: Hold a real dependency wave with its captured graph generation, one active and one pending root receipt; admit an independent actor and retain every accepted projection acknowledgement.
+  // Action: Suspend the affected delivery owner through its legal lifecycle route, then shut down while another projection is queued.
+  // Assert: Invalidated graph/fence data never reaches affected descendants; independent branches settle. Active, pending and queued tickets all receive explicit outcomes and actor/coordinator lifetimes release once without a mailbox, lifecycle or coordinator wait cycle.
+  it.todo("settles captured context receipts across graph changes and shutdown");
+
+  // Setup: Gate a real active wave, queue a second pending root generation, call drain and retain the captured receipt identities.
+  // Action: Release the active wave, wait for the pending generation capture handshake, publish further roots, then gate their later generation.
+  // Assert: The original drain finishes when its captured generations settle while the later generation remains gated. Pre-capture updates coalesce once, each delivered vector is coherent, and completed receipts are dropped from coordinator ownership rather than retained in a history.
+  it.todo("drains captured context generations while newer roots continue arriving");
+
+  // Setup: Use the real diamond with B still inheriting A revision 0 and C inheriting A revision 1 after a rejected delivery; retain a suspended D and a fresh D ref with the same authored bindings.
+  // Action: Attempt fresh D admission and existing D resume, then explicitly suspend/resume B to reconcile its current A revision-1 cut and retry both D routes.
+  // Assert: Incoherent attempts fail finitely before exposure/admission opening with MissingContextProvider at the first authored conflicting contextBindings slot, provider=stale and coherent-cut details. B reconciliation reuses cached selection for A revision 1, advances private lineage even on no-op, and lets both D routes succeed coherently without a new A event.
+  it.todo("rejects incoherent admission and resume until provider lineage reconciles");
+
+  // Setup: Subscribe to a real assembled actor stream in its own Scope; use the first observed snapshot as a subscription handshake, then gate the reader with a Deferred. Record actual subscriber Scope finalization.
+  // Action: While the reader is paused, complete several acknowledged actor turns and successful actor disposal; require disposal to finish before releasing the reader, then collect the remaining stream and close the subscriber Scope.
+  // Assert: The reader receives the promised snapshots in publication order through disposed and then completes; actor disposal never waits for consumption, the subscriber lifetime releases once, and no drop/coalescing policy is invented to bound unread lag.
+  it.todo("preserves ordered snapshot delivery without making disposal wait for a slow reader");
+
+  // Setup: Initialize the selected real private Journal near counter exhaustion through its construction input; start actual actor admission, observe its terminal-credit acquisition, then fail a later delegated attachment/acquisition before activation or acceptance of the start record.
+  // Action: Await complete reverse rollback, create another real actor using the reclaimed capacity, accept an ordinary turn when headroom permits, and dispose the actor and runtime.
+  // Assert: Failed admission releases its unused credit exactly once and exposes no actor or partial record; the next owner can use that headroom, accepted sequences remain contiguous in commit order, and close never waits on a credit whose acquisition was rolled back. Observe the real credit/acquisition capability, not a fabricated counter or public test setter.
+  it.todo("releases unused terminal credit when actor admission rolls back");
+
+  // Setup: Use the selected real Journal and actor lifecycle owner near counter exhaustion; gate successful individual disposal after its leader owns an outcome credit, and join that same attempt from a separate waiting fiber. Choose headroom so no ordinary credit remains while disposal is gated.
+  // Action: Interrupt only the follower and verify another actor's ordinary cut is rejected; release the leader and await successful disposal, then attempt two more ordinary cuts against the capacity released by disposal.
+  // Assert: Follower interruption neither cancels cleanup nor releases the leader's credit. Successful disposal consumes its terminal credit and releases exactly one unused outcome credit: the next ordinary cut succeeds and the following cut fails before mutation. Cleanup never replays, and close observes no leaked or doubly released credit.
+  it.todo(
+    "keeps lifecycle outcome credit owned by the attempt when a waiting caller is interrupted",
   );
 });

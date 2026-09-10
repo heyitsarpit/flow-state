@@ -1998,3 +1998,25 @@ describe("actor lifecycle", () => {
     }),
   );
 });
+
+describe("pending regression scenarios", () => {
+  // Setup: Extend the real lifecycle owner deadline fixture with a RuntimeClock adapter backed by the provided Effect Clock and an armed timer with a known absolute dueAt.
+  // Action: Suspend and resume the lifecycle owner, advance the controlled clock through the deadline, and observe scheduler registrations and refresh completion.
+  // Assert: The retained dueAt is unchanged, an overdue timer schedules at most one refresh, and all timestamps and sleeps come from the supplied clock rather than wall time.
+  it.todo("uses the provided Clock for retained timer deadlines across suspension");
+
+  // Setup: Use a real LifecycleController with two work participants. One has a failed cancel, a fiber already completed with interruption, and an explicit retryable finalizer that fails once; the independent participant cleans successfully. Keep Scope finalizers separate.
+  // Action: Dispose and capture all stage outcomes; repair the explicit failed cancel/finalizer stages and retry through the same owner, then repeat disposal after release settles.
+  // Assert: First outcome retains typed failure, unsuppressed interruption and defect in execution order; sibling cleanup continues. Retry executes only failed explicit stages, observes the cached completion rather than restarting it, releases lifetime once, and retains the original non-suppressed cleanup Cause in the terminal result. Successful stage effects never replay and the actor never resumes after cleanup failure.
+  it.todo("retains mixed cleanup Causes and retries only failed cleanup stages");
+
+  // Setup: Use real lifecycle owners with scoped resource acquisitions and one evidence hub; install a finalizer signal on each acquired resource and queue terminal lifecycle records.
+  // Action: Dispose the lifecycle owners, await every prompt finalizer signal, then call hub.close so its accepted-prefix drain completes before sink close; inspect the sink's received records after close returns.
+  // Assert: Each finalizer runs once before sink close, close reports the captured accepted prefix, every queued terminal record is present after close, and no record arrives after the sink has closed.
+  it.todo("closes retained lifecycle scopes before evidence sink close");
+
+  // Setup: Acquire a real scoped lifecycle resource whose Scope finalizer records one call and dies; keep explicit retryable release separate from that finalizer.
+  // Action: Dispose through the real owner, await lifetime release and its failed terminal Exit, then dispose again.
+  // Assert: The Scope finalizer runs once and both calls retain the same terminal cleanup Cause. No Scope-close retry or successful disposal result is fabricated; cleanup-failure truth remains suspended and resume is blocked.
+  it.todo("retains a Scope finalizer failure as terminal cleanup truth");
+});

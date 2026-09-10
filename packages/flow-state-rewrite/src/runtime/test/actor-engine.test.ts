@@ -1644,7 +1644,10 @@ const parityOccurrence = (
   }) satisfies OperationOccurrenceFence;
 
 describe("actor engine parity cases", () => {
-  it.effect("enqueues one typed command through synchronous send", () =>
+  // SETUP: Start one real engine with a recording command handler.
+  // ACTION: Send a typed event, inspect the void return, then await the owner drain.
+  // ASSERT: The command is observed once; the synchronous send result is not a turn-completion receipt.
+  it.effect("walkthrough: send returns immediately and drain observes completed work", () =>
     Effect.gen(function* () {
       const scope = yield* Scope.make("sequential");
       const received: string[] = [];
@@ -2223,7 +2226,7 @@ describe("actor engine parity cases", () => {
     }),
   );
 
-  it.effect("keeps snapshot backpressure local to the subscriber", () =>
+  it.effect("isolates a throwing snapshot callback from committed actor truth", () =>
     Effect.gen(function* () {
       const scope = yield* Scope.make("sequential");
       const observerFailure = Failure({
@@ -2274,7 +2277,7 @@ describe("actor engine parity cases", () => {
     }),
   );
 
-  it.effect("applies accepted-prefix shutdown without synthetic facts", () =>
+  it.effect("abandons a prepared engine without publication", () =>
     Effect.gen(function* () {
       const scope = yield* Scope.make("sequential");
       const published: ActorSnapshot<typeof testDefinition>[] = [];
@@ -2456,5 +2459,34 @@ describe("actor engine parity cases", () => {
       yield* engine.shutdown("hard");
       yield* Scope.close(scope, Exit.void);
     }),
+  );
+});
+
+describe("pending regression scenarios", () => {
+  // SETUP: Activate one real ActorEngine, hold its first onCommand at a Deferred, then dispatch that executing command and fill exactly ACTOR_MAILBOX_CAPACITY waiting command slots.
+  // ACTION: Dispatch one additional command and retain both the admitted flag and its private completion; release the executing command and drain the engine.
+  // ASSERT: One executing command plus 64 waiting commands run once in FIFO order; the next admission is admitted=false, its completion fails with path ["mailbox","full"], no rejected command runs, and the rejection changes no snapshot, store, or evidence sequence.
+  it.todo("rejects admission when 64 commands wait behind one executing command");
+
+  // SETUP: Extend the existing one-shot clock defect fixture with a candidate that would run an action, a counting store, snapshots, evidence, and an onCommand counter; retain the pre-turn snapshot for comparison.
+  // ACTION: Dispatch through the failing preflight, await its failed acknowledgement and drain; dispatch the same event again after the clock succeeds.
+  // ASSERT: The failed attempt invokes no store commit or user work, preserves state/memory/operations and observedStoreRevision, emits exactly one issue-only active publication with committed prior truth, and cancels its reserved evidence; the retry creates exactly one normal cut and one acknowledgement.
+  it.todo("retains the prior cut after evidence preflight failure and retries later");
+
+  // SETUP: Extend the existing ordering fixture with a real store owner returning a nonempty owned changed-ref set and a final store revision different from the prior revision, a publication observer, and gated user work; capture the acknowledgement handle before dispatch.
+  // ACTION: Dispatch one event, observe nonsequenced evidence preparation, store commit, publication, acknowledgement and user-work start as separate checkpoints; drain the resulting record only after acknowledgement.
+  // ASSERT: Evidence preparation precedes the single actor/store cut; final snapshot and delivered evidence contain the actual committed store revision and changed refs. Acknowledgement completes after publication/evidence acceptance and before user work or sink delivery; finalization never reruns projection/copy callbacks or exposes a partial candidate.
+  it.todo("acknowledges the committed cut before user work begins");
+
+  // Setup: Use a real engine with an attached evidence sink; retain its snapshot, private machine-turn revision and last accepted evidence sequence.
+  // Action: Apply one changed passive context/store projection, await its private publication ticket and drain evidence; then exercise a separate contained issue-only cut.
+  // Assert: The passive projection publishes one complete immutable snapshot with public revision plus one, unchanged machine-turn revision/evidence sequence, and no record. Its ticket contains that exact cut; the separate issue-only cut follows its TurnRecord rule.
+  it.todo("publishes a passive projection without allocating evidence or machine-turn revision");
+
+  // Setup: Use the selected internal ActorPublication and mailbox owners with consuming Scopes to establish subscriptions separately while prepared, active, suspended and disposed; control activation and turns with owned acknowledgement barriers. Prepared subscription is a selected internal production seam, not a current PreparedActorEngine API.
+  // Action: Observe prepared replay and activation, attach an active subscriber after a turn, subscribe anew while suspended, then dispose and subscribe anew to terminal truth.
+  // Assert: Prepared subscriptions replay prepared and become live on activation; active subscriptions replay the latest complete cut and follow later publications; newly suspended subscriptions replay suspended once and complete; newly disposed subscriptions replay disposed once and complete. Close every consuming Scope without timers or GC assertions.
+  it.todo(
+    "replays the correct lifecycle truth to prepared active suspended and disposed subscribers",
   );
 });

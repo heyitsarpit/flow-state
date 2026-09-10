@@ -1232,3 +1232,40 @@ describe("runtime evidence", () => {
     }),
   );
 });
+
+describe("pending regression scenarios", () => {
+  // SETUP: Use one real EvidenceHub and one sink with a first-record delivery Deferred; accept sequence 1, start drain, and wait until delivery 1 is blocked.
+  // ACTION: Accept sequence 2 while delivery 1 remains blocked, release delivery 1, await the first drain, then run a second drain.
+  // ASSERT: Sequence 2 acceptance completes without waiting for sequence 1 delivery; the first drain reports through=1 and delivers only record 1; record 2 remains queued and is delivered by the second drain. This is the F6 reproduction and must not use a timeout as synchronization.
+  it.todo("drains a captured evidence prefix while a newer record is accepted");
+
+  // SETUP: Use one real EvidenceHub and capacity-1 sink; capture each acceptance offer result and delivered record sequence while accepting global sequences 1, 2, and 3 without draining.
+  // ACTION: Drain the hub, accept one later record, then drain again using the existing drain result and delivered records; do not invoke Phase-4 snapshot or clear APIs.
+  // ASSERT: Offers are accepted,dropped,dropped and the first delivered sequence is 1; drain.truncatedBefore equals 3, the greatest omitted sequence. The later record is delivered in order and the marker never moves backward or resets the global sequence. Replace the weaker existing expectation of 2 when this case is implemented.
+  it.todo("isolates bounded sink overflow and reports the greatest omitted sequence");
+
+  // SETUP: Extend the two-sink failure fixture with a delivered-sequence array on the healthy sink and one accepted record shared by both attachments.
+  // ACTION: Drain both sinks after acceptance, then inspect hub sequence, each sink status, and the healthy sink's received records.
+  // ASSERT: The failing sink reports failed and detaches its own queue; the healthy sink receives the accepted record and reports drained; the hub sequence and committed evidence remain unchanged.
+  it.todo("delivers to healthy sinks after another sink fails");
+
+  // SETUP: Construct real sinks with omitted capacity, capacity 0 and explicit capacity 3; use the real EvidenceHub and accepted records to observe offers and retained delivery.
+  // ACTION: Assert the default bound, attach the explicit sinks, accept four records without draining, capture every offer result, then drain both attachments.
+  // ASSERT: Omitted capacity is exactly 256. Capacity 0 retains no records and drops every offer with the greatest omitted marker; capacity 3 accepts records 1/2/3 and drops 4, delivers exactly three records, and preserves global hub acceptance.
+  it.todo("accepts zero sink capacity while preserving an exact positive bound");
+
+  // SETUP: Create two real hubs and one sink; accept sequence 1 on hub A before attachment so the sink is late to that runtime.
+  // ACTION: Attach the sink once to A, attempt duplicate A and mixed-runtime B attachment, drain A, then detach and attempt reattachment; observe the existing single-sink hub drain result and delivered sequences.
+  // ASSERT: Late attachment replays no record 1 and its omitted marker equals the unseen runtime sequence. Duplicate, mixed-runtime and post-detach reattachment fail with the sink identity diagnostic; neither hub sequence changes and no module-private sinkInternals or future public inspection API is used.
+  it.todo("rejects duplicate and mixed-runtime sink attachment while marking a late attach");
+
+  // SETUP: Prepare a real accepted record with aliased/cyclic Flow-owned structural containers and separately identified application-opaque leaves, including a plain object, Map/Set/function/Error and nominal descriptor token.
+  // ACTION: Accept the record, mutate the caller source containers and opaque application object, then drain the real sink and inspect the delayed delivered record.
+  // ASSERT: Owned containers were copied/frozen before delivery; their aliases share one retained clone and supported cycles stay inside it. Opaque leaves, including the plain object, preserve Object.is identity and are not recursively frozen. Caller container mutation cannot change the accepted cut or its provenance.
+  it.todo("preserves record aliases, cycles, and opaque identity across acceptance");
+
+  // Setup: Use the real private Journal and two actor publication owners; prepare A first and B second from owned data, holding A before its synchronous commit gate.
+  // Action: Let B enter the gate and commit first, then release A; drain the real sink after both acknowledgements.
+  // Assert: Sequences follow actual B-then-A committed cuts, no number is allocated by preparation alone, and neither actor waits for an uncommitted numbered predecessor. Each accepted record contains its own final store/snapshot provenance exactly once.
+  it.todo("assigns evidence sequences in commit order despite reversed preparation order");
+});

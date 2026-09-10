@@ -1209,3 +1209,22 @@ describe("context waves", () => {
     });
   });
 });
+
+describe("pending regression scenarios", () => {
+  // SETUP: Build a two-provider graph with one consumer bound to both slots; make the left selector throw at provider revision 1 and count selector calls, while the right selector remains valid.
+  // ACTION: Apply the left revision-1 defect, then apply only a newer right-provider revision while the left vector entry remains 1; finally apply a newer left revision with the selector recovered.
+  // ASSERT: The left selector is not rerun for the same actor/provider cut and last-valid left context remains visible. A newer right-provider wave may publish its own issue-only/aggregate outcome, but it must not classify the unchanged left defect as a new retry; recovery at left revision 2 emits one clean aggregate publication containing the pending right change and recovered left value.
+  it.todo(
+    "suppresses a repeated selector defect at one provider revision while retaining a pending sibling change",
+  );
+
+  // SETUP: Extend the current scalar/named-record equality table with complete-value arrays, NaN, null, explicit undefined, function identity, symbol identity, missing fields, and reflective getters.
+  // ACTION: Compare same-reference and fresh-reference values, change one fixed record field, and run a selector through the normal defect capture path when a getter throws.
+  // ASSERT: Scalars and non-record values use Object.is; arrays compare as complete values by identity; named records compare only their fixed authored fields fieldwise with Object.is; missing differs from explicit undefined; NaN, functions, symbols, and null retain their authored identity semantics; selector defects stay in the diagnostic lane.
+  it.todo("uses exact authored equality for scalars, arrays, and fixed named records");
+
+  // Setup: Use the real selected context lineage/debt owner with a consumer depending on independent ancestors A and X; establish unresolved required cuts for A and then X through rejected projection outcomes.
+  // Action: Apply an unrelated local publication, reconcile only X, then reconcile A with an attested projection or no-op ticket; inspect compatibility through the actual lineage selection result.
+  // Assert: New X debt does not replace A debt, local publication clears neither, and reconciling X leaves A required. Only matching fence/revision coverage clears each watermark; incompatible shared ancestors stay blocked and no completed wave history is retained.
+  it.todo("retains every unresolved ancestor requirement when context debt is updated");
+});

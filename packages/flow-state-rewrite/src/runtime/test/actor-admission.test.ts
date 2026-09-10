@@ -1836,7 +1836,7 @@ describe("actor identity admission", () => {
     if (Result.isFailure(result)) assert.strictEqual(result.failure.details.provider, "stale");
   });
 
-  it.effect("stages bounded mailbox resources under the owner scope", () =>
+  it.effect("prepares resources before attachment and activation", () =>
     Effect.gen(function* () {
       const ref = actorRef(editorMachine, "bounded-mailbox");
       const harness = makeTransactionHarness(ref, { mode: "fresh-stable" });
@@ -2218,4 +2218,26 @@ describe("actor identity admission", () => {
     assert.ok(Result.isFailure(result));
     assert.ok(Result.isFailure(harness.registry.lookup(ref)));
   });
+});
+
+describe("pending regression scenarios", () => {
+  // Setup: Hold the leader's stable `admitActor` transaction after reservation or preparation with a Deferred, then start a second `admitActor` call for the identical stable ref so both callers share one completion.
+  // Action: Interrupt only the joined waiter, release the leader gate, and await the leader's terminal admission followed by the authority registry lookup of the ref.
+  // Assert: The leader succeeds once with one prepare, activation, exposure, and cleanup owner; the interrupted waiter does not replay preparation or cancel the shared transaction, and no pending reservation remains.
+  it.todo("interrupting a joined stable admission waiter does not replay or strand the leader");
+
+  // Setup: Use the real makeActorLease with a cleanup Deferred and counter; construct and discard one lease.dispose() Effect without executing it.
+  // Action: Execute a later disposal, wait for cleanup to begin, join from another caller and interrupt only that follower; release cleanup, await the owner and call disposal again after completion.
+  // Assert: Unexecuted Effect construction reserves nothing; cleanup starts exactly once, the interrupted follower cannot strand or cancel its owner, and the late caller receives the cached terminal Exit without replay or an uncompleted Deferred.
+  it.todo("constructing a disposal Effect does not reserve a cleanup attempt");
+
+  // Setup: Register two real runtime-disposal participants that fail with the same diagnostic value and a later participant that records successful cleanup; also exercise the admission rollback path.
+  // Action: Run disposal or rollback through the production owner and retain its complete Exit plus the release trace.
+  // Assert: Both identical failure reasons remain present in execution order, later cleanup still executes, and diagnostic classification does not squash the retained Cause.
+  it.todo("preserves repeated cleanup failures in execution order");
+
+  // Setup: Use the real app-time facts, Directory registry and admission transaction with stable refs whose IDs contain delimiter characters; retain the next observable incarnation/local identity allocation before malformed input.
+  // Action: Reject an invalid admission, then concurrently admit two distinct stable refs and construct their real provider graph; admit a local actor through its separate allocation seam.
+  // Assert: Stable keys are distinct canonical tuples of runtime nonce, stable namespace, owned machine ID and ref ID; local keys use a disjoint namespace. Validation consumes no incarnation/local ordinal, and concurrent admission preserves graph endpoints without placeholder rebasing or reading a provisional counter.
+  it.todo("derives stable keys without consuming allocation state during validation");
 });
