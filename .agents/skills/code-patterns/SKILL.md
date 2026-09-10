@@ -5,6 +5,18 @@ description: Review Flow State TypeScript and Effect code using bad/good pattern
 
 # Code patterns
 
+## Data rule
+
+- `Data` already provides immutable value types.
+- `readonly`, `Readonly`, `ReadonlyMap`, `ReadonlySet`, `ReadonlyArray`, and
+  custom `Readonly*` types are banned.
+- Use `Data` for immutable values. Keep mutation behind its owner.
+- The `anti-slop/no-readonly` rule enforces this boundary.
+- Do not add readonly fields to Data examples.
+- Use `Result` for success and failure.
+- Use `Option` for presence and absence.
+- Prefer `Data.TaggedEnum` for three or more domain variants.
+
 ## CP-01 — Return phase values
 
 - **Bad:** Workflow `let` bindings, outer placeholders, mutable phase bags, staged `Object.assign`, or a `Ref` used to transport a one-shot result.
@@ -29,21 +41,32 @@ return yield* expose(activated);
 ## CP-02 — Give persistent state one owner
 
 - **Bad:** Separate flags and completion cells describing one protocol, read-then-yield-then-write updates, or a `Ref` for every calculation.
-- **Good:** One discriminated state with atomic owner transitions. Use `MutableRef` for synchronous transitions, `Ref.modify` for atomic Effect updates, and `SynchronizedRef.modifyEffect` for effectful transitions. Never hold a lock while waiting on work that needs that owner.
+- **Good:** One `Data.TaggedEnum` state. Use atomic owner transitions. Use `MutableRef` for synchronous transitions, `Ref.modify` for atomic Effect updates, and `SynchronizedRef.modifyEffect` for effectful transitions. Never hold a lock while waiting on work that needs that owner.
 - **Keep:** Private `const` Map/Set/array builders in pure algorithms. Their mutators must not escape or be captured by asynchronous work. Persistent indexes mutate only through owner methods.
 
 ```ts
-// Bad: these can describe contradictory states.
+// Before: these can describe contradictory states.
 let running = false;
 let closed = false;
 let completion;
-
-// Good: one domain protocol, updated at a named linearization point.
-type Attempt<A, E> =
-  | { readonly _tag: "Idle" }
-  | { readonly _tag: "Running"; readonly completion: Deferred.Deferred<Exit.Exit<A, E>> }
-  | { readonly _tag: "Done"; readonly exit: Exit.Exit<A, E> };
 ```
+
+```ts
+// After: one complete data protocol.
+type Attempt = Data.TaggedEnum<{
+  Idle: {}
+  Running: { completion: Deferred.Deferred<Exit.Exit<unknown, unknown>> }
+  Done: { exit: Exit.Exit<unknown, unknown> }
+}>;
+
+const Attempt = Data.taggedEnum<Attempt>();
+const idle = Attempt.Idle();
+const running = Attempt.Running({ completion });
+const done = Attempt.Done({ exit });
+```
+
+The owner still updates the state at a named linearization point. `Data` defines the
+variants. `Ref` or `MutableRef` defines the transition.
 
 ## CP-03 — Constructing an Effect must not claim work
 
@@ -121,6 +144,7 @@ const timestamp = yield* clock.now;
 
 - **Bad:** `any`, `as unknown as`, broad definition/`unknown` storage erasing known types, or casting an untyped registry result to a caller-chosen generic.
 - **Good:** Carry definition, event, state, descriptor/key, and Effect A/E/R relationships through the owner. Use nominal witnesses for lookup; use closures and narrow existential capabilities when heterogeneous storage must hide a type.
+- **Data utilities:** Use `Data.TaggedEnum.Value` to select a full variant. Use `Data.TaggedEnum.Args` to select its constructor fields. Use `WithGenerics` and `Kind` for generic unions. Use `Constructor` for an exported constructor bundle.
 - **Keep:** `unknown` at external-input admission. Infer ordinary implementation returns; annotate genuine public, recursive, or inference boundaries. A "trusted registry" label does not prove a cast sound.
 
 ```ts
@@ -131,11 +155,41 @@ const actor = actors.get(key) as ActorInstance<D>;
 const actor = directory.lookup(machineWitness, stableRef);
 ```
 
+```ts
+// Before: repeat the extraction rules at every call site.
+type Done = Extract<Attempt, { _tag: "Done" }>;
+type DoneFields = Omit<Done, "_tag">;
+```
+
+```ts
+// After: derive both types from the tagged enum.
+type Done = Data.TaggedEnum.Value<Attempt, "Done">;
+type DoneFields = Data.TaggedEnum.Args<Attempt, "Done">;
+```
+
 ## CP-09 — Admit once, then transform trusted values
 
 - **Bad:** Repeating reflection, Schema decoding, membership scans, and copies inside a trusted transaction; assuming fresh external input is safe because its type is readonly.
 - **Good:** `unknown → owner-level Result/Schema admission → owned typed value → plain transforms or Effects`. Capture hostile accessors/proxies, diagnostic precedence, and required stability rereads at that boundary. Preserve opaque identity and reuse private membership indexes afterward.
+- **Data boundary:** `Data.taggedEnum` constructs trusted plain data. `$is` checks only `_tag`. It is not Schema admission. Decode unknown input first.
 - **Keep:** Capture App-owned machine facts at App construction, preserving allowed mutations before construction. Each phase consumes the previous admitted value; new external mailbox, store, or key data still needs admission.
+
+```ts
+// Before: a Data tag check is treated as full validation.
+if (Status.$is("Done")(unknownInput)) return unknownInput.exit;
+```
+
+```ts
+// After: admit first, then match the trusted value.
+const admitted = Schema.decodeUnknownResult(StatusSchema)(unknownInput);
+const result = Result.map(
+  admitted,
+  Status.$match({
+    Idle: () => undefined,
+    Done: ({ exit }) => exit,
+  }),
+);
+```
 
 ## CP-10 — Publish one committed cut
 
@@ -178,23 +232,40 @@ return prepareAdmission(admitted.success, graph);
 ## CP-14 — Express variants and invariants directly
 
 - **Bad:** Conditional empty-object/singleton-array spreads, nested workflow ternaries, numbered-phase or syntax-narrating comments, and vague names when the domain concept is known.
-- **Good:** Return complete variants. Use a short expression for a pure choice and named functions or explicit branches for larger/effectful choices. Name the operation, such as capture, publication, lineage merge, or cleanup.
+- **Good:** Return complete `Data.TaggedEnum` variants. Use `Data.taggedEnum` constructors and `$match` when they make the choice clear. Use named functions or explicit branches for larger or effectful choices. Name the operation, such as capture, publication, lineage merge, or cleanup.
 - **Keep:** Comments explaining ordering, ownership, cursor invariants, or sound narrowing. Do not extract a single expression merely to shorten a function.
 
 ```ts
-// Bad: the record's shape is implicit in construction tricks.
-const outcome = { ...base, ...(failed ? { cause } : {}) };
+// Before: the record's shape is implicit in construction tricks.
+const outcome = committed
+  ? { ...base, revision }
+  : { ...base, pending: true };
+```
 
-// Good: complete variants explain which fields belong together.
-const outcome = failed
-  ? { _tag: "Failed", value, cause }
-  : { _tag: "Released", value };
+```ts
+// After: four domain variants explain which fields belong together.
+type Publication = Data.TaggedEnum<{
+  Prepared: { snapshot: Snapshot }
+  Published: { snapshot: Snapshot; revision: number }
+  Superseded: { snapshot: Snapshot; replacement: Snapshot }
+  Rejected: { snapshot: Snapshot; cause: FailureCause }
+}>;
+
+const Publication = Data.taggedEnum<Publication>();
+const outcome = Publication.Published({ snapshot, revision });
+const describe = Publication.$match({
+  Prepared: () => "prepared",
+  Published: ({ revision }) => `published at ${revision}`,
+  Superseded: ({ replacement }) => `superseded by ${replacement}`,
+  Rejected: ({ cause }) => `rejected: ${cause}`,
+})(outcome);
 ```
 
 ## CP-15 — Test the real owner
 
 - **Bad:** Local Sets proving deduplication, fabricated mailboxes proving capacity, flags standing in for disposal, source/title parity as behavior proof, sleep-based synchronization, or counting pending tests as passes.
 - **Good:** Exercise actual owners with Deferred checkpoints, TestClock, scoped fibers, and explicit drains. Decorate real acquisition to observe or gate it; do not replace the behavior under test. Keep faults, revisions, identities, and expected outcomes visible.
+- **Data proofs:** Test every constructor and `$match` branch. Add a compile proof for exhaustive cases. Do not use `$is` as proof that untrusted input is valid.
 - **Keep:** Pure graph/equality/lineage unit tests and integration tests for cross-owner ordering/lifetimes. Reproduce bugs before repair; new characterization may already pass. Pending cases remain unproven. Consolidate weaker tests only after stronger owner proofs pass; extract only routine typed setup.
 
 ## CP-16 — Defaults must not invent missing state
@@ -237,6 +308,7 @@ const restored = exit;
 
 - **Bad:** Immutable-looking values used as command handles, with WeakMaps forwarding them to hidden current state, Scope, or revision. Freezing the value does not explain that mutation.
 - **Good:** Commands target a stable owner; reads return captured values. Older snapshots retain their meaning. Resource release belongs to the owner, not whichever snapshot a caller supplies.
+- **Keep distinct:** `Data.TaggedEnum` values are snapshots, outcomes, or commands as data. A controller handle remains a separate stable owner.
 - **Keep:** Nominal WeakSet/WeakMap mechanisms that prove admission. They are distinct from mutable state-forwarding tables; do not ban weak collections globally.
 
 ```ts
