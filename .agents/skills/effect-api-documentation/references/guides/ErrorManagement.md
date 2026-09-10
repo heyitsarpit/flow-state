@@ -48,7 +48,7 @@ errors in the error channel ([Effect.ts:2703](/Users/arpit/Developer/flow-state/
 import { Data, Effect } from "effect"
 
 class NetworkError extends Data.TaggedError("NetworkError")<{
-  readonly status: number
+  status: number
 }> {}
 class ValidationError extends Data.TaggedError("ValidationError")<{}> {}
 
@@ -72,7 +72,7 @@ failure is permanent; defects and interruption are not typed retry failures
 import { Data, Effect } from "effect"
 
 class RequestError extends Data.TaggedError("RequestError")<{
-  readonly retryable: boolean
+  retryable: boolean
 }> {}
 
 let attempts = 0

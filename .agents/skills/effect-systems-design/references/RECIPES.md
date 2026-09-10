@@ -238,7 +238,7 @@ and Phoenix
 ```ts
 import { Data, Effect } from "effect";
 
-class NotFound extends Data.TaggedError("NotFound")<{ readonly id: string }> {}
+class NotFound extends Data.TaggedError("NotFound")<{ id: string }> {}
 
 const user = loadById("42").pipe(Effect.catchTag("NotFound", () => Effect.succeed(defaultUser)));
 ```

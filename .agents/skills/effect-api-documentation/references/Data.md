@@ -4,6 +4,8 @@ Source: [Effect v4 `Data` API](https://www.effect.website/docs/v4/api/effect/Dat
 
 `Data` provides immutable data helpers with structural equality, hashing, and tagged or class-based constructors for domain values.
 
+Examples omit `readonly` because `Data` already provides immutable value types.
+
 ## API index
 
 1. [Data.Class](#dataclass)
@@ -27,7 +29,7 @@ Source: [Effect v4 `Data` API](https://www.effect.website/docs/v4/api/effect/Dat
 Defines an immutable data class with structural equality and hashing.
 
 ```ts
-class User extends Data.Class<{ readonly id: string }> {}
+class User extends Data.Class<{ id: string }> {}
 const user = new User({ id: "u1" });
 ```
 
@@ -36,20 +38,20 @@ const user = new User({ id: "u1" });
 Creates a `Data.Class` variant with a literal `_tag` discriminator.
 
 ```ts
-class Admin extends Data.TaggedClass("Admin")<{ readonly id: string }> {}
+class Admin extends Data.TaggedClass("Admin")<{ id: string }> {}
 const admin = new Admin({ id: "u1" });
 ```
 
 ### [Data.TaggedEnum](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Data.ts:149)
 
 Provides the type-level shape for a discriminated union of immutable variants.
-Each key becomes the variant's `readonly _tag`; variant records must not define
+Each key becomes the variant's immutable `_tag`; variant records must not define
 `_tag` themselves.
 
 ```ts
 type State = Data.TaggedEnum<{
-  Loading: { readonly startedAt: number };
-  Ready: { readonly value: string };
+  Loading: { startedAt: number };
+  Ready: { value: string };
 }>;
 ```
 
@@ -62,11 +64,11 @@ stand for those parameters.
 ```ts
 type Box<A> = Data.TaggedEnum<{
   Empty: {};
-  Value: { readonly value: A };
+  Value: { value: A };
 }>;
 
 interface BoxDefinition extends Data.TaggedEnum.WithGenerics<1> {
-  readonly taggedEnum: Box<this["A"]>;
+  taggedEnum: Box<this["A"]>;
 }
 ```
 
@@ -78,15 +80,15 @@ corresponding tagged union type.
 ```ts
 type Box<A> = Data.TaggedEnum<{
   Empty: {};
-  Value: { readonly value: A };
+  Value: { value: A };
 }>;
 
 interface BoxDefinition extends Data.TaggedEnum.WithGenerics<1> {
-  readonly taggedEnum: Box<this["A"]>;
+  taggedEnum: Box<this["A"]>;
 }
 
 type StringBox = Data.TaggedEnum.Kind<BoxDefinition, string>;
-// { readonly _tag: "Empty" } | { readonly _tag: "Value"; readonly value: string }
+// { _tag: "Empty" } | { _tag: "Value"; value: string }
 ```
 
 ### [Data.TaggedEnum.Args](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Data.ts:312)
@@ -96,11 +98,11 @@ to `void` for a variant with no other fields.
 
 ```ts
 type Result =
-  | { readonly _tag: "Ok"; readonly value: number }
-  | { readonly _tag: "Err"; readonly error: string };
+  | { _tag: "Ok"; value: number }
+  | { _tag: "Err"; error: string };
 
 type OkArgs = Data.TaggedEnum.Args<Result, "Ok">;
-// { readonly value: number }
+// { value: number }
 ```
 
 ### [Data.TaggedEnum.Value](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Data.ts:346)
@@ -109,11 +111,11 @@ Selects the complete variant type, including its `_tag`, from a tagged union.
 
 ```ts
 type Result =
-  | { readonly _tag: "Ok"; readonly value: number }
-  | { readonly _tag: "Err"; readonly error: string };
+  | { _tag: "Ok"; value: number }
+  | { _tag: "Err"; error: string };
 
 type Ok = Data.TaggedEnum.Value<Result, "Ok">;
-// { readonly _tag: "Ok"; readonly value: number }
+// { _tag: "Ok"; value: number }
 ```
 
 ### [Data.TaggedEnum.Constructor](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Data.ts:398)
@@ -124,8 +126,8 @@ matching in data-first or data-last form.
 
 ```ts
 type Shape =
-  | { readonly _tag: "Circle"; readonly radius: number }
-  | { readonly _tag: "Rect"; readonly width: number; readonly height: number };
+  | { _tag: "Circle"; radius: number }
+  | { _tag: "Rect"; width: number; height: number };
 
 const Shape: Data.TaggedEnum.Constructor<Shape> = Data.taggedEnum<Shape>();
 
@@ -144,8 +146,8 @@ Generates plain-object constructors and matchers for a `TaggedEnum` definition.
 
 ```ts
 type Result = Data.TaggedEnum<{
-  Ok: { readonly value: number };
-  Err: { readonly error: string };
+  Ok: { value: number };
+  Err: { error: string };
 }>;
 
 const Result = Data.taggedEnum<Result>();
@@ -162,7 +164,7 @@ const message = Result.$match(result, {
 Creates a yieldable error class with structural data behavior.
 
 ```ts
-class DecodeError extends Data.Error<{ readonly input: string }> {}
+class DecodeError extends Data.Error<{ input: string }> {}
 const error = new DecodeError({ input: "?" });
 ```
 
@@ -171,6 +173,6 @@ const error = new DecodeError({ input: "?" });
 Creates a yieldable error class with a stable `_tag` for tag-based recovery.
 
 ```ts
-class NotFound extends Data.TaggedError("NotFound")<{ readonly id: string }> {}
+class NotFound extends Data.TaggedError("NotFound")<{ id: string }> {}
 const error = new NotFound({ id: "u1" });
 ```

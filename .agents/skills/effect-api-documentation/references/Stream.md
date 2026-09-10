@@ -145,7 +145,7 @@ yield* Stream.runForEach(Stream.make("a", "b"), (value) => Effect.log(value));
 Use the consumer as the final stage of a filtered event pipeline when each accepted event has an effectful side effect.
 
 ```ts
-const persist = (event: { readonly kind: string }) =>
+const persist = (event: { kind: string }) =>
   Effect.log(`persisting ${event.kind}`);
 
 yield* Stream.fromIterable([

@@ -74,7 +74,7 @@ const add: Function.FunctionN<readonly [number, number], number> = (a, b) => a +
 ```ts
 import { Result, pipe } from "effect"
 
-type SignupInput = { readonly email: string; readonly age: string }
+type SignupInput = { email: string; age: string }
 
 const validateSignup = (input: SignupInput) =>
   pipe(
@@ -271,7 +271,7 @@ The declarations are [Function.constTrue](/Users/arpit/Developer/flow-state/code
 import { Function } from "effect"
 
 let calls = 0
-const read = Function.memoize((input: { readonly value: number }) => {
+const read = Function.memoize((input: { value: number }) => {
   calls++
   return input.value * 2
 })

@@ -110,7 +110,7 @@ and [ConfigProvider](../../effect-api-documentation/references/ConfigProvider.md
 ```ts
 import { Context, Data, Effect, Layer } from "effect";
 
-class UserMissing extends Data.TaggedError("UserMissing")<{ readonly id: string }> {}
+class UserMissing extends Data.TaggedError("UserMissing")<{ id: string }> {}
 
 class Users extends Context.Service<
   Users,

@@ -175,7 +175,7 @@ up with `Pick`.
 
 ```typescript
 // Bad: every consumer receives unrelated capabilities.
-type Dependencies = { readonly database: Database; readonly email: EmailClient; readonly metrics: Metrics };
+type Dependencies = { database: Database; email: EmailClient; metrics: Metrics };
 const readAccount = (deps: Pick<Dependencies, "database">) => {};
 
 // Good: the port is cohesive and its implementation preserves the contract.
@@ -390,9 +390,10 @@ const collectAccounts = (rows: readonly AccountRow[]): readonly Account[] => {
 ```
 
 Avoid a forest of shallow copies and runtime-freezing workarounds. Prefer a
-private mutable class field over a public mutable property. Use readonly forms
-when they communicate a boundary, not as redundant wrappers. Compute a summary,
-then construct one result object; use one spread copy for a persistent snapshot.
+private mutable class field over a public mutable property. Do not use readonly
+forms. Use `Data` for immutable values and keep mutation behind its owner. The
+`anti-slop/no-readonly` rule enforces this boundary. Compute a summary, then
+construct one result object; use one spread copy for a persistent snapshot.
 
 ## Design public entrypoints as a deliberate surface
 
@@ -497,7 +498,7 @@ infer ownership later.
 ## Explicit non-bans
 
 These require context, so they are not blanket violations: classes, interfaces,
-type aliases, arrows, declarations, `readonly`, `Readonly<T>`, bounded local
+type aliases, arrows, declarations, bounded local
 mutation, generics, `NoInfer`, `Parameters`, `ReturnType`, `Promise`, `throw`,
 `typeof`, `Effect.gen`, `flatMap`, `Effect.succeed`, `Effect.fail`, Layer
 composition, public facades, internal barrels, larger files, and default
