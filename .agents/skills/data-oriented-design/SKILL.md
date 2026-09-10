@@ -21,6 +21,23 @@ snapshot, and produce inspectable plans when preparation and execution benefit f
 separate owners. Prefer idempotent transformations when repeating them should have no
 additional effect. These are optional patterns, not required layers for every function.
 
+## Decision map: Schema or Data?
+
+- **Unknown input or authored configuration:** Use `Schema.TaggedUnion` or
+  `Schema.toTaggedUnion`. Decode once. Keep the decoded value as the admission result.
+- **Two-case success or failure:** Use `Result`.
+- **Two-case presence or absence:** Use `Option`.
+- **Three or more trusted domain variants:** Prefer `Data.TaggedEnum`. Use
+  `Data.taggedEnum` when constructors, tag checks, or exhaustive `$match` improve the code.
+- **The same domain crosses both boundaries:** Keep one admission owner. Decode with
+  Schema first. Then construct or match trusted Data values. Do not decode twice.
+- **Atomic state or lifetime:** Keep the owner in `Ref`, `MutableRef`, `Scope`, or an
+  owning service. `Data` defines values. It does not define transitions or lifetimes.
+- **Data rule:** `readonly`, `Readonly`, `ReadonlyMap`, `ReadonlySet`,
+  `ReadonlyArray`, and custom `Readonly*` types are banned. Use `Data` for
+  immutable values. Keep mutation behind its owner. The `anti-slop/no-readonly`
+  rule enforces this boundary.
+
 ## Code examples: admission and ordinary operators
 
 1. **Define application data as Schema first.** Derive input and admitted types from
@@ -28,7 +45,7 @@ additional effect. These are optional patterns, not required layers for every fu
    boundaries. A typed input still needs validation of rules its static type cannot express.
 
    ```ts
-   import { Effect, Option, Result, Schema, Struct, flow } from "effect";
+   import { Data, Effect, Option, Result, Schema, Struct, flow } from "effect";
 
    const Line = Schema.Struct({
      sku: Schema.NonEmptyString,
@@ -163,10 +180,38 @@ additional effect. These are optional patterns, not required layers for every fu
    Constructor defaults do not establish decoding defaults. Keep meaningful absence as
    Option; introduce a default only when the domain explicitly defines that meaning.
 
-5. **Represent phase outcomes and ownership explicitly.** Use tagged unions when success
-   variants carry different data. Share small mechanics only when their rules match;
-   keep domain-specific validation and error projection with their owner. Derive redundant
-   views, copy mutable data at ownership boundaries, and separate execution from preparation.
+5. **Represent phase outcomes and ownership explicitly.** Use `Result` or `Option` for
+   their canonical two-case meanings. Prefer `Data.TaggedEnum` for three or more trusted
+   variants. Use `Data.taggedEnum` for constructors and exhaustive `$match`. Share small
+   mechanics only when their rules match. Keep validation and error projection with their
+   owner. Derive redundant views. Copy mutable data at ownership boundaries. Separate
+   execution from preparation.
+
+   ```ts
+   // Before: the phase shape is rebuilt at each branch.
+   const outcome = approved
+     ? { stage: "finalized", invoiceId }
+     : { stage: "needs-approval", approver };
+   ```
+
+   ```ts
+   // After: four lifecycle variants are named once.
+   type QuoteLifecycle = Data.TaggedEnum<{
+     Draft: { lines: QuoteLine[] }
+     Calculated: { quote: Quote }
+     NeedsApproval: { quote: Quote; approver: string }
+     Finalized: { quote: Quote; invoiceId: string }
+   }>;
+
+   const QuoteLifecycle = Data.taggedEnum<QuoteLifecycle>();
+   const outcome = QuoteLifecycle.NeedsApproval({ quote, approver });
+   const label = QuoteLifecycle.$match({
+     Draft: ({ lines }) => `draft: ${lines.length} lines`,
+     Calculated: () => "calculated",
+     NeedsApproval: ({ approver }) => `awaiting ${approver}`,
+     Finalized: ({ invoiceId }) => `finalized: ${invoiceId}`,
+   })(outcome);
+   ```
 
    Introduce Effect when a phase performs work such as persistence. Lift the existing
    Result once; failed validation must skip the save. Pure quotation remains synchronous.
@@ -207,6 +252,11 @@ const firstTarget = (targets: typeof Targets.Type) => targets[0];
 **Branch-specific configuration:** when variants require different fields, a tagged union
 can make valid combinations explicit. Keep a simple struct when there are no such variants.
 
+- Use `Schema.TaggedUnion` when the variants are admitted from unknown configuration.
+- Use `Data.TaggedEnum` when trusted internal code creates and consumes three or more variants.
+- Use `Result` or `Option` when the domain has one of their canonical two-case meanings.
+- Do not maintain two independent definitions without an explicit conversion owner.
+
 ```ts
 const NodeConfig = Schema.TaggedUnion({
   leaf: {},
@@ -228,6 +278,12 @@ const ValidNode = NodeConfig.check(Schema.makeFilter(node =>
 **Schema-derived dispatch:** an existing union can expose exhaustive matching and typed
 variant selection. Use this for plan dispatch or compiler phases when it reads more clearly
 than a switch. Match and selection consume admitted data; they do not perform admission.
+
+Use this decision:
+
+- The union is still attached to its schema. Use `Plan.match` and `Plan.isAnyOf`.
+- The union is plain trusted data. Use `Data.taggedEnum` and `$match`.
+- The value is unknown. Decode first. Neither matcher is an admission boundary.
 
 ```ts
 const Plan = Schema.Union([
@@ -301,12 +357,34 @@ const diagnostics = findUnreachableStates(resolved, facts);
 
 **Interpret plans separately.** Decision code produces instructions that execution and
 explanation can both consume. Use the schema-derived exhaustive matcher shown above
-when it makes the interpreters clearer. Keep ordering and execution semantics explicit.
+when it makes the interpreters clearer. Use `Data.TaggedEnum` for trusted plan values when
+constructors make complete instructions easier to read. Keep ordering and execution
+semantics explicit.
 
 ```ts
+// Before: plan values are assembled by separate branches.
 const steps = planChange(current, requested);
 const explanation = describeSteps(steps);
 const program = executeSteps(steps);
+```
+
+```ts
+// After: trusted plan variants have named constructors and one matcher.
+type Step = Data.TaggedEnum<{
+  Create: { key: string; value: string }
+  Update: { key: string; value: string }
+  Remove: { key: string }
+  Skip: { key: string; reason: string }
+}>;
+const Step = Data.taggedEnum<Step>();
+const step = Step.Update({ key: "mode", value: "safe" });
+const explanation = Step.$match({
+  Create: ({ key }) => `create ${key}`,
+  Update: ({ key }) => `update ${key}`,
+  Remove: ({ key }) => `remove ${key}`,
+  Skip: ({ key, reason }) => `skip ${key}: ${reason}`,
+})(step);
+const program = executeSteps([step]);
 ```
 
 **Make functions idempotent when possible.** When an operation means “ensure this state,”
