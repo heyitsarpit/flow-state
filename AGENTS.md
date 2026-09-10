@@ -111,12 +111,14 @@ and metadata unless the task explicitly requires additional checks.
 
 Load only skills relevant to the task; more than one may apply. The `orchestrator`,
 `coder`, and `reviewer` entrypoints define delegation, implementation, and independent
-review. Specialist reviewers use their assigned mode. Combined `reviewer_type=slice`
-reviewers load all guidance relevant to the changed boundary in one independent pass.
+review. Each implementation Bead uses one coder followed by four independent
+reviewers in parallel: `style`, `effect`, `contract`, and `bug`. Each reviewer reads
+its assigned skills through the reviewer entrypoint. All four reviews must pass.
 
 | Skill | Agent | Reach for it when | Do not reach for it when |
 | --- | --- | --- | --- |
 | `.agents/skills/typescript-style-guide/SKILL.md` | coder, reviewer (`style`) | Writing Flow State TypeScript or reviewing its style and ownership. | Unrelated to Flow State TypeScript. |
+| `.agents/skills/code-patterns/SKILL.md` | reviewer (`style`) | Architecture-first Flow State TypeScript reviews against CP01–CP21. | Generic maintainability review without a Flow State TypeScript boundary. |
 | `.agents/skills/api-design/SKILL.md` | coder, reviewer | Designing or reviewing APIs, usability, or compatibility. | No API design decision is involved. |
 | `.agents/skills/flow-state-module-refactor/SKILL.md` | orchestrator, coder | Simplifying one rewrite module before considering shared abstractions. | Frozen package, contract authoring, or project-wide cleanup. |
 | `.agents/skills/effect-systems-design/SKILL.md` | coder, reviewer (`effect`) | Choosing TypeScript versus Effect or reviewing services, lifetimes, and concurrency. | Ordinary deterministic TypeScript needs no Effect decision. |
@@ -129,8 +131,8 @@ reviewers load all guidance relevant to the changed boundary in one independent 
 Agent entrypoints:
 
 - `.agents/agents/coder.md` — implementation and focused verification.
-- `.agents/agents/reviewer.md` — independent read-only verification; pass exactly one `reviewer_type`: `slice` by default, or `style`, `effect`, `contract`, or `bug` for a bounded specialist question.
-- `.agents/agents/orchestrator.md` — bounded coder/reviewer loop with fixed per-role model and reasoning settings.
+- `.agents/agents/reviewer.md` — independent read-only verification; assign exactly one `reviewer_type`: `style`, `effect`, `contract`, or `bug`.
+- `.agents/agents/orchestrator.md` — one coder and four specialist reviewers per Bead, with fixed model and reasoning settings.
 
 ## Boundaries
 
