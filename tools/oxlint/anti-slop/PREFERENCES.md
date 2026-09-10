@@ -32,7 +32,7 @@ ownership, type evidence, and failure behavior visible.
 | no-object-type | Use a named owner or domain type instead of the built-in TypeScript object type. |
 | no-nullish-function-contracts | Use `Option<T>` for expected absence, `Result`/`Either` for pure recoverable failure, and `Effect<A, E, R>` for effectful failure. Keep parameters required; use a tagged union or separate function when the operation has distinct modes. |
 | no-object-freeze | Do not call `Object.freeze`; keep mutation private, expose a readonly type, and copy once at the ownership boundary when a snapshot is needed. |
-| no-redundant-readonly-wrapper | Choose { readonly value: T } or Readonly<{ value: T }>; never both mechanically. |
+| no-readonly | Do not use `readonly`, `Readonly`, `ReadonlyMap`, `ReadonlySet`, `ReadonlyArray`, or custom `Readonly*` types. Use `Data` for immutable values and an owning boundary for mutable state. |
 | no-runtime-typeof | Decode external data with Schema at its boundary; use a local type guard only when it owns that boundary. |
 | no-shallow-json-domain-cast | Parse JSON as unknown, then complete `Schema.decodeUnknownSync` or call a named complete decoder. |
 

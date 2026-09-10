@@ -129,6 +129,7 @@ export default defineConfig({
       ],
       "anti-slop/no-promise-microtask-barrier": "error",
       "anti-slop/no-raw-try-catch": "error",
+      "anti-slop/no-readonly": "error",
       "anti-slop/no-public-entrypoint-export-drift": [
         "error",
         {
@@ -144,7 +145,7 @@ export default defineConfig({
           ],
         },
       ],
-      "anti-slop/no-redundant-readonly-wrapper": "error",
+      // "anti-slop/no-redundant-readonly-wrapper": "error",
       "anti-slop/prefer-inferred-return-types": "warn",
       "anti-slop/no-reflect-apply": "error",
       "anti-slop/no-reflect-get": "error",

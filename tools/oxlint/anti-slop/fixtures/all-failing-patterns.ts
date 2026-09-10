@@ -360,9 +360,11 @@ function shapeProjection(shapeValue: string): string {
 }
 // Prefer: name the domain concept, such as resourceDescriptor or projectionInput.
 
-// no-redundant-readonly-wrapper
-type RedundantReadonly = Readonly<{ readonly id: string }>;
-// Prefer: { readonly id: string } or Readonly<{ id: string }>, not both.
+// no-readonly
+class RedundantDataValue extends Data.Class<{ readonly id: string }> {}
+type RedundantReadonlyCollection = ReadonlyMap<string, ReadonlyArray<string>>;
+type RedundantReadonlyTuple = readonly [string, number];
+// Prefer: Data for immutable values and owned mutable state for transitions.
 
 // no-bivariant-callback
 type BivariantCallback = {
@@ -509,7 +511,9 @@ void acceptsObject;
 void narrowsRuntimeValue;
 void shapeSymbol;
 void shapeProjection;
-void RedundantReadonly;
+void RedundantDataValue;
+void RedundantReadonlyCollection;
+void RedundantReadonlyTuple;
 void BivariantCallback;
 void localValue;
 void ExtractedServiceShape;

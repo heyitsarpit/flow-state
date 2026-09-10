@@ -183,7 +183,7 @@ describe("readonly collection boundaries", () => {
   });
 
   it("keeps native identity keys and ordered iteration while HashMap uses structural keys", () => {
-    class Key extends Data.Class<{ readonly id: string }> {}
+    class Key extends Data.Class<{ id: string }> {}
 
     const first = { id: "same" };
     const equivalent = { id: "same" };

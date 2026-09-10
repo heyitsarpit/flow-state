@@ -38,6 +38,7 @@ import { noBivariantCallbackRule } from "./rules/no-bivariant-callback.ts";
 // import { noEffectPromiseMicrotaskRule } from "./rules/no-effect-promise-microtask.ts"; // Superseded by no-effect-promise.
 import { noLocalDefiniteAssignmentRule } from "./rules/no-local-definite-assignment.ts";
 import { noPromiseMicrotaskBarrierRule } from "./rules/no-promise-microtask-barrier.ts";
+import { noReadonlyRule } from "./rules/no-readonly.ts";
 import { noRedundantReadonlyWrapperRule } from "./rules/no-redundant-readonly-wrapper.ts";
 import { noReflectApplyRule } from "./rules/no-reflect-apply.ts";
 import { noReflectGetRule } from "./rules/no-reflect-get.ts";
@@ -106,6 +107,7 @@ const antiSlopPlugin = eslintCompatPlugin({
 		"no-package-dist-or-self-import-in-src": noPackageDistOrSelfImportInSrcRule,
 		"no-raw-try-catch": noRawTryCatchRule,
 		"no-promise-microtask-barrier": noPromiseMicrotaskBarrierRule,
+		"no-readonly": noReadonlyRule,
 		"no-redundant-readonly-wrapper": noRedundantReadonlyWrapperRule,
 		"prefer-inferred-return-types": preferInferredReturnTypesRule,
 		"no-reflect-apply": noReflectApplyRule,

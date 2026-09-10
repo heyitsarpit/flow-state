@@ -40,7 +40,7 @@ import { noOptionalDomainPropertiesRule } from "./rules/no-optional-domain-prope
 import { noPackageDistOrSelfImportInSrcRule } from "./rules/no-package-dist-or-self-import-in-src.ts";
 import { noPromiseMicrotaskBarrierRule } from "./rules/no-promise-microtask-barrier.ts";
 import { noPublicEntrypointExportDriftRule } from "./rules/no-public-entrypoint-export-drift.ts";
-import { noRedundantReadonlyWrapperRule } from "./rules/no-redundant-readonly-wrapper.ts";
+import { noReadonlyRule } from "./rules/no-readonly.ts";
 import { noShallowJsonDomainCastRule } from "./rules/no-shallow-json-domain-cast.ts";
 import { noServiceShapeParameterExtractionRule } from "./rules/no-service-shape-parameter-extraction.ts";
 import { noStagedObjectAssignRule } from "./rules/no-staged-object-assign.ts";
@@ -1390,16 +1390,40 @@ tester.run("no-escape-hatch-assertion", noEscapeHatchAssertionRule, {
 	],
 });
 
-tester.run("no-redundant-readonly-wrapper", noRedundantReadonlyWrapperRule, {
+tester.run("no-readonly", noReadonlyRule, {
 	valid: [
-		"type Value = Readonly<{ value: string }>;",
-		"type Value = Readonly<ValueFields>;",
-		"type Value = Readonly<{ readonly value: string } | { readonly other: string }>;",
+		'import { Data } from "effect"; class Value extends Data.Class<{ value: string }> {}',
+		"type Value = { value: string };",
+		"type Value = string[];",
 	],
 	invalid: [
 		{
-			code: "type Value = Readonly<{ readonly value: string }>;",
-			errors: [{ messageId: "redundant" }],
+			code: "type Value = { readonly value: string };",
+			errors: [{ messageId: "readonly" }],
+		},
+		{
+			code: "type Value = Readonly<{ value: string }>;",
+			errors: [{ messageId: "readonly" }],
+		},
+		{
+			code: "type Value = ReadonlyMap<string, number>; type Other = ReadonlySet<string>; type More = ReadonlyArray<string>;",
+			errors: [{ messageId: "readonly" }, { messageId: "readonly" }, { messageId: "readonly" }],
+		},
+		{
+			code: "type Value = readonly string[]; type Pair = readonly [string, number];",
+			errors: [{ messageId: "readonly" }, { messageId: "readonly" }],
+		},
+		{
+			code: "interface Value { readonly value: string; readonly [key: string]: string }",
+			errors: [{ messageId: "readonly" }, { messageId: "readonly" }],
+		},
+		{
+			code: "type Value<T> = { readonly [Key in keyof T]: T[Key] };",
+			errors: [{ messageId: "readonly" }],
+		},
+		{
+			code: "class Value { readonly value = 1; constructor(readonly label: string) {} }",
+			errors: [{ messageId: "readonly" }, { messageId: "readonly" }],
 		},
 	],
 });
@@ -1883,7 +1907,7 @@ const preferredFixtureRules = [
 	["no-promise-microtask-barrier", noPromiseMicrotaskBarrierRule],
 	["no-public-entrypoint-export-drift", noPublicEntrypointExportDriftRule],
 	["no-raw-try-catch", noRawTryCatchRule],
-	["no-redundant-readonly-wrapper", noRedundantReadonlyWrapperRule],
+	["no-readonly", noReadonlyRule],
 	["no-reflect-apply", noReflectApplyRule],
 	["no-reflect-get", noReflectGetRule],
 	["no-runtime-typeof", noRuntimeTypeofRule],

@@ -8,6 +8,7 @@
 
 import {
 	Context,
+	Data,
 	Deferred,
 	Duration,
 	Effect,
@@ -22,27 +23,33 @@ import {
 	Scope,
 } from "effect";
 
-type AccountId = string & { readonly AccountId: unique symbol };
-type Account = { readonly id: AccountId };
-type AccountNotFound = { readonly _tag: "AccountNotFound"; readonly accountId: AccountId };
+class DataValue extends Data.Class<{ id: string }> {}
+type DataState = Data.TaggedEnum<{
+	Loading: { startedAt: number };
+	Ready: { value: string };
+}>;
+
+type AccountId = string & { AccountId: unique symbol };
+type Account = { id: AccountId };
+type AccountNotFound = { _tag: "AccountNotFound"; accountId: AccountId };
 function accountNotFound(accountId: AccountId) {
 	return Effect.fail({ _tag: "AccountNotFound", accountId } satisfies AccountNotFound);
 }
 type AccountEffect = ReturnType<typeof accountNotFound>;
-type ResourceId = string & { readonly ResourceId: unique symbol };
-type Resource = { readonly id: ResourceId };
-type DomainItem = { readonly id: string };
-type DomainValue = { readonly id: string };
-type Snapshot = { readonly id: string };
-type App = { readonly start: () => void };
-type Value = { readonly id: string };
+type ResourceId = string & { ResourceId: unique symbol };
+type Resource = { id: ResourceId };
+type DomainItem = { id: string };
+type DomainValue = { id: string };
+type Snapshot = { id: string };
+type App = { start: () => void };
+type Value = { id: string };
 
-type ParsedValue = { readonly id: string };
+type ParsedValue = { id: string };
 type AsyncPayload = Promise<unknown>;
 type UnknownList = Array<unknown>;
 type Status = "ready" | "blocked";
 type GenericValue<T = string> = T;
-type AppOptions = { readonly id: string };
+type AppOptions = { id: string };
 type MaybeDomainValue = Option.Option<DomainValue>;
 
 const publicValue = "owned export";
@@ -53,17 +60,17 @@ declare const input: DomainValue;
 declare const iterable: Iterable<DomainItem>;
 declare const first: boolean;
 declare const second: boolean;
-declare const inventory: { readonly id: string };
-declare const items: readonly DomainItem[];
+declare const inventory: { id: string };
+declare const items: DomainItem[];
 const processItem = (item: DomainItem) =>
 	Effect.try({
 		try: () => item.id,
 		catch: (error) => error,
 	});
 declare const client: {
-	readonly fetchAccount: (
+	fetchAccount: (
 		id: AccountId,
-		options: { readonly signal: AbortSignal },
+		options: { signal: AbortSignal },
 	) => Promise<Account>;
 };
 declare const id: AccountId;
@@ -79,7 +86,7 @@ declare const expect: Expect;
 declare const condition: boolean;
 declare const runtime: { dispose: () => Promise<void> };
 declare const release: (scope: Scope.Closeable, exit: Exit.Exit<unknown, unknown>) => Effect.Effect<void>;
-declare const record: { readonly key: string };
+declare const record: { key: string };
 declare const foreignCall: () => string;
 declare const cause: unknown;
 declare const fiber: Fiber.Fiber<void, never>;
@@ -103,11 +110,11 @@ const decoded = Schema.decodeUnknownSync(
 
 const resources = {
 	[resource.id]: resource,
-} satisfies Readonly<Record<ResourceId, Resource>>;
-const values: readonly Value[] = [{ id: "value" }];
-const stableInventory: Readonly<typeof inventory> = { ...inventory };
+	} satisfies Record<ResourceId, Resource>;
+const values: Value[] = [{ id: "value" }];
+const stableInventory: typeof inventory = { ...inventory };
 
-const options = {} satisfies { readonly input?: string };
+const options = {} satisfies { input?: string };
 const namedResult: DomainValue = { id: decoded.id };
 const namedAlias: DomainValue = namedResult;
 
@@ -161,7 +168,7 @@ function branch(value: boolean): string {
 }
 
 interface AccountRepositoryContract {
-	readonly findById: (accountId: AccountId) => AccountEffect;
+	findById: (accountId: AccountId) => AccountEffect;
 }
 
 class AccountRepository extends Context.Service<AccountRepository, AccountRepositoryContract>()(
@@ -198,11 +205,11 @@ const atomicRefUpdate = Effect.gen(function* () {
 const managedScope = Effect.acquireRelease(Scope.make(), release);
 
 interface RequiredDomainProperties {
-	readonly maybeValue: Option.Option<string>;
+	maybeValue: Option.Option<string>;
 }
 
 class RequiredDomainClass {
-	readonly maybeValue: Option.Option<string> = Option.none();
+	maybeValue: Option.Option<string> = Option.none();
 }
 
 const safeFiberOperation = Effect.gen(function* () {
@@ -220,14 +227,14 @@ test("conditional assertions remain non-vacuous", () => {
 	if (condition) expect(condition).toBe(true);
 });
 
-const optionsProjection = { id: input.id } satisfies { readonly id: string };
+const optionsProjection = { id: input.id } satisfies { id: string };
 
 type Handler<Input> = (input: Input) => void;
 const handler: Handler<DomainItem> = (item) => void project(item);
 
 import type { DomainItem as ImportedDomainItem } from "./domain-types.js";
 export type { ImportedDomainItem };
-type ConsistentFields = { readonly id: string };
+type ConsistentFields = { id: string };
 for (const item of items) {
 	void processItem(item);
 }
