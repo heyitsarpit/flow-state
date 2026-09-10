@@ -1,6 +1,6 @@
 import { assert, describe, it } from "@effect/vitest";
 
-import { canonicalizeKey } from "../key.js";
+import { canonicalizeKey, equalCanonicalKey } from "../key.js";
 import type { CanonicalKeyInput, OperationKey } from "../key.js";
 
 const expectInvalidKey = (key: OperationKey, path: string) => {
@@ -95,6 +95,17 @@ describe("operation keys", () => {
 
   it("admits nested canonical containers", () => {
     assert.deepStrictEqual(canonicalizeKey([[{ stable: true }]] as const), [[{ stable: true }]]);
+  });
+
+  it("compares canonical containers by value and primitives with Object.is", () => {
+    const first = canonicalizeKey([{ scope: ["user", { id: 1 }] }] as const);
+    const equivalent = canonicalizeKey([{ scope: ["user", { id: 1 }] }] as const);
+    const different = canonicalizeKey([{ scope: ["user", { id: 2 }] }] as const);
+
+    assert.strictEqual(equalCanonicalKey(first, equivalent), true);
+    assert.strictEqual(equalCanonicalKey(first, different), false);
+    assert.strictEqual(equalCanonicalKey(canonicalizeKey([-0]), canonicalizeKey([0])), true);
+    assert.strictEqual(equalCanonicalKey(canonicalizeKey([null]), canonicalizeKey([0])), false);
   });
 
   it("rejects unsupported values, accessors, and hostile reflection without invoking user code", () => {

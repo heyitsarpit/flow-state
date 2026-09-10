@@ -122,4 +122,16 @@ describe("context waves", () => {
   // Assert: field presence and selected undefined follow the authored record contract.
   // Regression: catches record comparison treating optional field absence as a generic sentinel.
   it.todo("keeps authored record field presence distinct from selected undefined");
+
+  // Fixture: an admitted context graph with provider and consumer dependency maps exposed through a diagnostic snapshot.
+  // Control: attempt to mutate returned arrays, maps, and nested graph entries before the next wave.
+  // Assert: graph topology and dependency values remain unchanged through the public read boundary.
+  // Regression: catches SEM-002A/SEM-029/SNAP-001/PROOF-002 mutable graph projections corrupting later context waves.
+  it.todo("keeps exposed context dependency graphs immutable");
+
+  // Fixture: a context revision at the maximum safe integer with one pending provider publication.
+  // Control: process the revision before incrementing the provider vector.
+  // Assert: overflow is refused as a diagnostic before state mutation and no wrapped revision is published.
+  // Regression: catches SEM-029/SNAP-001/PROOF-002 unsafe revision arithmetic at the context-wave boundary.
+  it.todo("rejects context revision overflow before increment");
 });

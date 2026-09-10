@@ -1,12 +1,43 @@
 import { assert, describe, it } from "@effect/vitest";
-import { Cause, Context, Deferred, Effect, Exit, Fiber, Result, type Types } from "effect";
+import {
+  Cause,
+  Context,
+  Deferred,
+  Duration,
+  Effect,
+  Exit,
+  Fiber,
+  Result,
+  type Types,
+} from "effect";
 
 import { app, module } from "../../app/app.js";
 import { definition } from "../../definition/definition.js";
 import { Implementation, implementationEntries } from "../../implementation/implementation.js";
 import { machine } from "../../machine/machine.js";
 import { resource } from "../../operation/resource.js";
-import { runtimeSetup, type Runtime, type RuntimeSetup } from "../runtime.js";
+import { actorRef } from "../actor-ref.js";
+import {
+  makeActorIdentityRegistry,
+  type ActorContextBinding,
+  type ActorContextSnapshot,
+  type ActorDependencyGraph,
+  type ActorDependencyEdge,
+} from "../actor-admission.js";
+import { prepareActorSnapshot } from "../actor-engine.js";
+import type {
+  AcknowledgedDispatch,
+  ActorSnapshot,
+  PreparedActorSnapshot,
+} from "../actor-engine.js";
+import {
+  rebaseDependencyGraph,
+  runtimeOwner,
+  runtimeSetup,
+  type Runtime,
+  type RuntimeSetup,
+} from "../runtime.js";
+import { RuntimeEvidence } from "../runtime-services.js";
 
 /*
  * Proof organization:
@@ -169,8 +200,431 @@ runtimeSetup({ app: RequiredApp, implementation: incompleteImplementation });
 const requiredSetup = runtimeSetup({ app: RequiredApp, implementation: completeImplementation });
 assert.strictEqual(requiredSetup.app, RequiredApp);
 
+const HandshakeProviderDefinitionResult = definition({
+  id: "runtime-test/handshake-provider",
+  states: ["ready", "changed", "final"],
+  events: { advance: "bare", hold: "bare" },
+});
+const HandshakeProviderDefinition = Result.getOrThrow(HandshakeProviderDefinitionResult);
+const HandshakeProviderMachine = Result.getOrThrow(
+  machine(HandshakeProviderDefinitionResult, ({ S }) => ({
+    default: S.ready,
+    states: {
+      ready: {
+        on: {
+          advance: {
+            target: S.changed,
+          },
+        },
+      },
+      changed: { on: { advance: { target: S.final } } },
+      final: {},
+    },
+  })),
+);
+
+const HandshakeConsumerDefinitionResult = definition({
+  id: "runtime-test/handshake-consumer",
+  states: ["ready"],
+  events: {},
+  context: {
+    providerState: HandshakeProviderDefinition.select(({ state }) => state),
+    providerChanged: HandshakeProviderDefinition.select(
+      ({ state }) => state === HandshakeProviderDefinition.S.changed,
+    ),
+  },
+});
+const HandshakeConsumerDefinition = Result.getOrThrow(HandshakeConsumerDefinitionResult);
+const HandshakeConsumerMachine = Result.getOrThrow(
+  machine(HandshakeConsumerDefinitionResult, ({ S }) => ({
+    default: S.ready,
+    states: { ready: {} },
+  })),
+);
+const HandshakeApp = app({
+  id: "runtime-test/handshake",
+  persistenceVersion: "1",
+  modules: [
+    module({
+      id: "runtime-test/handshake-module",
+      machines: { provider: HandshakeProviderMachine, consumer: HandshakeConsumerMachine },
+    }),
+  ],
+});
+
+// RETURN_TYPE: This fixture pins the provider snapshot family used by the admission handshake.
+const initialHandshakeProviderSnapshot = (): PreparedActorSnapshot<
+  typeof HandshakeProviderDefinition
+> =>
+  Result.getOrThrow(
+    prepareActorSnapshot(HandshakeProviderMachine, {
+      state: HandshakeProviderDefinition.S.ready,
+      memory: {},
+      context: {},
+      lifecycle: "prepared",
+      operations: [],
+      timers: [],
+      issues: [],
+      revision: 0,
+      observedStoreRevision: 0,
+    }),
+  );
+
+// RETURN_TYPE: This fixture pins the consumer snapshot family before provider reconciliation.
+const initialHandshakeConsumerSnapshot = (): PreparedActorSnapshot<
+  typeof HandshakeConsumerDefinition
+> =>
+  Result.getOrThrow(
+    prepareActorSnapshot(HandshakeConsumerMachine, {
+      state: HandshakeConsumerDefinition.S.ready,
+      memory: {},
+      context: {
+        providerState: HandshakeProviderDefinition.S.ready,
+        providerChanged: false,
+      },
+      lifecycle: "prepared",
+      operations: [],
+      timers: [],
+      issues: [],
+      revision: 0,
+      observedStoreRevision: 0,
+    }),
+  );
+
+const HandshakeProviderEvent = Result.getOrThrow(HandshakeProviderDefinition.E.advance());
+const HandshakeProviderHoldEvent = Result.getOrThrow(HandshakeProviderDefinition.E.hold());
+
 describe("internal implementation runtime", () => {
+  it("keeps rebased dependency graph copies immutable", () => {
+    const registry = makeActorIdentityRegistry();
+    const from = Result.getOrThrow(
+      registry.reserveStable(actorRef(requiredMachine, "rebase-from", { persist: true })),
+    );
+    const to = Result.getOrThrow(
+      registry.reserveStable(actorRef(requiredMachine, "rebase-to", { persist: true })),
+    );
+    const provider = Result.getOrThrow(
+      registry.reserveStable(actorRef(requiredMachine, "rebase-provider", { persist: true })),
+    );
+    const edge = {
+      consumer: from.key,
+      provider: provider.key,
+      slot: "dependency",
+    } satisfies ActorDependencyEdge;
+    const graph = {
+      forward: new Map([[from.key, [edge]]]),
+      reverse: new Map([[provider.key, [edge]]]),
+      order: [provider.key, from.key],
+    } satisfies ActorDependencyGraph;
+
+    const rebased = rebaseDependencyGraph(graph, from.key, to.key);
+    const forwardEdges = rebased.forward.get(to.key);
+    const reverseEdges = rebased.reverse.get(provider.key);
+    if (forwardEdges === undefined || reverseEdges === undefined)
+      throw new Error("rebased graph lost dependency edges");
+    assert.deepStrictEqual(rebased.order, [provider.key, to.key]);
+    assert.deepStrictEqual(forwardEdges, [
+      { consumer: to.key, provider: provider.key, slot: "dependency" },
+    ]);
+    assert.deepStrictEqual(reverseEdges, forwardEdges);
+    assert.strictEqual(Object.isFrozen(rebased), true);
+    assert.strictEqual(Object.isFrozen(rebased.forward), true);
+    assert.strictEqual(Object.isFrozen(rebased.reverse), true);
+    assert.strictEqual(Object.isFrozen(rebased.order), true);
+    assert.strictEqual(Object.isFrozen(forwardEdges), true);
+    assert.strictEqual(Object.isFrozen(forwardEdges[0]), true);
+    assert.strictEqual("set" in rebased.forward, false);
+    assert.strictEqual("delete" in rebased.reverse, false);
+    assert.throws(() => Object.assign(forwardEdges, { 0: edge }), TypeError);
+    assert.throws(() => Object.assign(rebased.order, { 0: provider.key }), TypeError);
+    assert.deepStrictEqual(rebased.order, [provider.key, to.key]);
+    assert.deepStrictEqual(rebased.forward.get(to.key), forwardEdges);
+  });
+
+  it.effect("reconciles a queued provider publication before exposing the consumer", () =>
+    Effect.gen(function* () {
+      const runtime = runtimeSetup({ app: HandshakeApp }).construct();
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+      let providerDependentRegistrations = 0;
+      let providerDependentCleanups = 0;
+      let consumerContextPublished = false;
+      let consumerExposed = false;
+      let providerPublicationCount = 0;
+      let consumerStartEvidenceAccepted = false;
+      const providerHoldEntered = yield* Deferred.make<void>();
+      const providerHoldRelease = yield* Deferred.make<void>();
+      const providerPublicationObserved = yield* Deferred.make<void>();
+      const admissionTrace: string[] = [];
+      const providerPublicationPhases: Array<{
+        readonly dependentRegistrations: number;
+        readonly providerHoldEntered: boolean;
+        readonly consumerStartEvidenceAccepted: boolean;
+        readonly consumerContextPublished: boolean;
+        readonly consumerExposed: boolean;
+      }> = [];
+      let providerHoldDispatch: AcknowledgedDispatch | undefined;
+      let providerAdvanceDispatch: AcknowledgedDispatch | undefined;
+      const provider = yield* assembly.createActor({
+        ref: actorRef(HandshakeProviderMachine, "handshake-provider"),
+        initial: initialHandshakeProviderSnapshot(),
+        onCommand: (command) =>
+          command.type === HandshakeProviderHoldEvent.type
+            ? Effect.gen(function* () {
+                admissionTrace.push("provider-publication-held");
+                yield* Deferred.succeed(providerHoldEntered, undefined);
+                yield* Deferred.await(providerHoldRelease).pipe(
+                  Effect.timeout(Duration.seconds(5)),
+                  Effect.orDie,
+                );
+              })
+            : Effect.void,
+        onSnapshot: () => {
+          providerPublicationCount += 1;
+          admissionTrace.push("provider-published");
+          providerPublicationPhases.push({
+            dependentRegistrations: providerDependentRegistrations,
+            providerHoldEntered: Deferred.isDoneUnsafe(providerHoldEntered),
+            consumerStartEvidenceAccepted,
+            consumerContextPublished,
+            consumerExposed,
+          });
+          if (providerPublicationCount === 1)
+            Deferred.doneUnsafe(providerPublicationObserved, Effect.succeed(undefined));
+        },
+      });
+      type ProviderRegistrationHooks = {
+        addDependent: (dependent: never) => void;
+        removeDependent: (dependent: never) => void;
+      };
+      // SAFETY: The live runtime actor retains these package-private hooks; this test observes the exact registered provider boundary.
+      // oxlint-disable-next-line anti-slop/no-chained-type-assertions, typescript/no-unsafe-type-assertion -- the public actor view erases the package-private registration hooks used by this proof.
+      const providerRegistrationHooks = provider as unknown as ProviderRegistrationHooks;
+      const originalAddDependent = providerRegistrationHooks.addDependent;
+      const originalRemoveDependent = providerRegistrationHooks.removeDependent;
+      providerRegistrationHooks.addDependent = (dependent) => {
+        originalAddDependent(dependent);
+        providerDependentRegistrations += 1;
+        admissionTrace.push("dependent-registered");
+        providerHoldDispatch = provider.engine.dispatch(HandshakeProviderHoldEvent);
+        providerAdvanceDispatch = provider.engine.dispatch(HandshakeProviderEvent);
+      };
+      providerRegistrationHooks.removeDependent = (dependent) => {
+        providerDependentCleanups += 1;
+        admissionTrace.push("dependent-cleaned");
+        originalRemoveDependent(dependent);
+      };
+      const runtimeEvidence = Context.get(assembly.context, RuntimeEvidence);
+      const originalAccept = runtimeEvidence.accept;
+      type MutableRuntimeEvidence = { accept: typeof originalAccept };
+      // SAFETY: The runtime context contains the live evidence service used by this admission; the mutable view only restores its method for a bounded test gate.
+      // oxlint-disable-next-line anti-slop/no-chained-type-assertions, typescript/no-unsafe-type-assertion -- the readonly service surface must be wrapped at the live lifecycle evidence boundary.
+      const mutableRuntimeEvidence = runtimeEvidence as unknown as MutableRuntimeEvidence;
+      mutableRuntimeEvidence.accept = (record) =>
+        originalAccept(record).pipe(
+          Effect.andThen(
+            record.before.lifecycle === "prepared" &&
+              record.after.lifecycle === "active" &&
+              record.after.fence.key !== provider.fence.key
+              ? Effect.gen(function* () {
+                  yield* Deferred.await(providerHoldEntered).pipe(
+                    Effect.timeout(Duration.seconds(5)),
+                    Effect.orDie,
+                  );
+                  consumerStartEvidenceAccepted = true;
+                  admissionTrace.push("consumer-start-evidence-accepted");
+                  yield* Deferred.succeed(providerHoldRelease, undefined);
+                  yield* Deferred.await(providerPublicationObserved).pipe(
+                    Effect.timeout(Duration.seconds(5)),
+                    Effect.orDie,
+                  );
+                })
+              : Effect.void,
+          ),
+        );
+      const providerStateBinding = {
+        slot: "providerState",
+        provider: provider.identity.ref,
+        providerFence: provider.fence,
+        select: ({ state }: ActorContextSnapshot<typeof HandshakeProviderDefinition>) => state,
+      } satisfies ActorContextBinding<
+        typeof HandshakeConsumerDefinition,
+        typeof HandshakeProviderDefinition,
+        "providerState"
+      >;
+      const providerChangedBinding = {
+        slot: "providerChanged",
+        provider: provider.identity.ref,
+        providerFence: provider.fence,
+        select: ({ state }: ActorContextSnapshot<typeof HandshakeProviderDefinition>) =>
+          state === HandshakeProviderDefinition.S.changed,
+      } satisfies ActorContextBinding<
+        typeof HandshakeConsumerDefinition,
+        typeof HandshakeProviderDefinition,
+        "providerChanged"
+      >;
+      const consumerSnapshots: Array<ActorSnapshot<typeof HandshakeConsumerDefinition>> = [];
+      const consumerContextCuts: Array<{
+        readonly revision: number;
+        readonly providerState: ActorSnapshot<
+          typeof HandshakeConsumerDefinition
+        >["context"]["providerState"];
+        readonly providerChanged: ActorSnapshot<
+          typeof HandshakeConsumerDefinition
+        >["context"]["providerChanged"];
+        readonly exposed: boolean;
+      }> = [];
+      const consumerFiber = yield* Effect.forkChild(
+        Effect.exit(
+          Effect.gen(function* () {
+            const consumer = yield* assembly.createActor({
+              ref: actorRef(HandshakeConsumerMachine, "handshake-consumer"),
+              initial: initialHandshakeConsumerSnapshot(),
+              bindings: [providerStateBinding, providerChangedBinding],
+              onSnapshot: (snapshot) => {
+                consumerContextPublished = true;
+                consumerSnapshots.push(snapshot);
+                admissionTrace.push("consumer-context-published");
+                consumerContextCuts.push({
+                  revision: snapshot.revision,
+                  providerState: snapshot.context.providerState,
+                  providerChanged: snapshot.context.providerChanged,
+                  exposed: consumerExposed,
+                });
+              },
+            });
+            consumerExposed = true;
+            admissionTrace.push("consumer-exposed");
+            return consumer;
+          }),
+        ),
+        { startImmediately: true },
+      );
+      const consumerExit = yield* Fiber.join(consumerFiber);
+      if (Exit.isFailure(consumerExit))
+        return yield* Effect.die(new Error("consumer admission failed"));
+      const consumer = consumerExit.value;
+      assert.strictEqual(providerDependentRegistrations, 1);
+      assert.strictEqual(providerHoldDispatch?.admitted, true);
+      assert.strictEqual(providerAdvanceDispatch?.admitted, true);
+      yield* Deferred.await(providerHoldDispatch!.completion).pipe(
+        Effect.timeout(Duration.seconds(5)),
+      );
+      yield* Deferred.await(providerAdvanceDispatch!.completion).pipe(
+        Effect.timeout(Duration.seconds(5)),
+      );
+      yield* provider.engine.drain();
+      yield* consumer.engine.drain();
+
+      assert.strictEqual(consumerStartEvidenceAccepted, true);
+      assert.deepStrictEqual(admissionTrace.slice(0, 6), [
+        "dependent-registered",
+        "provider-publication-held",
+        "consumer-start-evidence-accepted",
+        "provider-published",
+        "consumer-context-published",
+        "consumer-exposed",
+      ]);
+      assert.strictEqual(providerPublicationCount, 1);
+      assert.deepStrictEqual(providerPublicationPhases, [
+        {
+          dependentRegistrations: 1,
+          providerHoldEntered: true,
+          consumerStartEvidenceAccepted: true,
+          consumerContextPublished: false,
+          consumerExposed: false,
+        },
+      ]);
+      assert.strictEqual(provider.engine.snapshot().state, HandshakeProviderDefinition.S.changed);
+      assert.strictEqual(
+        consumer.engine.snapshot().context.providerState,
+        HandshakeProviderDefinition.S.changed,
+      );
+      assert.strictEqual(consumer.engine.snapshot().context.providerChanged, true);
+      assert.strictEqual(consumerSnapshots.length, 1);
+      assert.strictEqual(consumerSnapshots[0]?.revision, 1);
+      assert.strictEqual(
+        consumerSnapshots[0]?.context.providerState,
+        HandshakeProviderDefinition.S.changed,
+      );
+      assert.strictEqual(consumerSnapshots[0]?.context.providerChanged, true);
+      assert.deepStrictEqual(consumerContextCuts, [
+        {
+          revision: 1,
+          providerState: HandshakeProviderDefinition.S.changed,
+          providerChanged: true,
+          exposed: false,
+        },
+      ]);
+
+      yield* Effect.provideContext(consumer.dispose(), assembly.context);
+      yield* Effect.provideContext(consumer.dispose(), assembly.context);
+      assert.strictEqual(providerDependentCleanups, 1);
+      const secondDispatch = provider.engine.dispatch(HandshakeProviderEvent);
+      assert.strictEqual(secondDispatch.admitted, true);
+      yield* Deferred.await(secondDispatch.completion);
+      yield* provider.engine.drain();
+      assert.strictEqual(providerPublicationCount, 2);
+      assert.strictEqual(consumerSnapshots.length, 1);
+      assert.deepStrictEqual(admissionTrace.slice(-2), ["dependent-cleaned", "provider-published"]);
+
+      yield* Effect.provideContext(provider.dispose(), assembly.context);
+      yield* runtimeOwner(runtime).close();
+      mutableRuntimeEvidence.accept = originalAccept;
+    }),
+  );
+
   describe("readiness acquisition and caching", () => {
+    it.effect("routes public readiness through the installed provider context", () =>
+      Effect.gen(function* () {
+        const entered = yield* Deferred.make<void>();
+        const release = yield* Deferred.make<void>();
+        const observations: Array<Repository> = [];
+        let acquisitions = 0;
+        let cleanups = 0;
+        const implementation = Implementation.merge(
+          Implementation.succeed(RepositoryKey, repository),
+          Implementation.effect(
+            ConfigKey,
+            Effect.acquireRelease(
+              Effect.gen(function* () {
+                acquisitions += 1;
+                yield* Deferred.succeed(entered, undefined);
+                yield* Deferred.await(release);
+                observations.push(yield* Effect.service(RepositoryKey));
+                return { region: "test" };
+              }),
+              () => Effect.sync(() => cleanups++),
+            ),
+          ),
+        );
+        const runtime = runtimeSetup({ app: RequiredApp, implementation }).construct();
+        const first = yield* Effect.forkChild(Effect.exit(runtime.ready()), {
+          startImmediately: true,
+        });
+        yield* Deferred.await(entered);
+        const second = yield* Effect.forkChild(Effect.exit(runtime.ready()), {
+          startImmediately: true,
+        });
+
+        assert.strictEqual(acquisitions, 1);
+        yield* Deferred.succeed(release, undefined);
+        const firstExit = yield* Fiber.join(first);
+        const secondExit = yield* Fiber.join(second);
+        assert.ok(Exit.isSuccess(firstExit));
+        assert.strictEqual(secondExit, firstExit);
+        assert.strictEqual(yield* Effect.exit(runtime.ready()), firstExit);
+        assert.strictEqual(acquisitions, 1);
+        assert.deepStrictEqual(observations, [repository]);
+
+        const firstClose = yield* Effect.exit(runtimeOwner(runtime).close());
+        const secondClose = yield* Effect.exit(runtimeOwner(runtime).close());
+        assert.ok(Exit.isSuccess(firstClose));
+        assert.strictEqual(secondClose, firstClose);
+        assert.strictEqual(cleanups, 1);
+      }),
+    );
+
     it.effect("keeps construction inert until readiness", () =>
       Effect.gen(function* () {
         const evidence: Array<string> = [];

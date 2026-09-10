@@ -37,7 +37,7 @@ export type AppOwner = {
   readonly [appTypeId]: true;
 };
 
-const constructedApps = new WeakSet<AppOwner>();
+const constructedAppPlans = new WeakMap<AppOwner, StoredAppPlan>();
 
 type AdmittedMachineRecord = Readonly<Record<string, MachineAdmission>>;
 type CapturedMachineRecord<RecordValue extends MachineRecord = MachineRecord> = {
@@ -117,7 +117,7 @@ export type AnyModule = RequirementsCarrier<unknown> & {
   readonly [moduleTypeId]: true;
 };
 
-export type AppPlan<
+type AppPlan<
   Id extends string = string,
   PersistenceVersion extends string = string,
   Modules extends readonly AnyModule[] = readonly AnyModule[],
@@ -131,6 +131,11 @@ export type AppPlan<
   readonly admitsMachine: (machine: PlanMachine<Modules>) => boolean;
   readonly resolveDescriptor: (id: string) => AppDescriptor<Modules> | undefined;
   readonly admitsDescriptor: (descriptor: AppDescriptor<Modules>) => boolean;
+};
+
+type StoredAppPlan = Omit<AppPlan, "admitsMachine" | "admitsDescriptor"> & {
+  readonly admitsMachine: (machine: never) => boolean;
+  readonly admitsDescriptor: (descriptor: never) => boolean;
 };
 
 type FlattenModules<Modules extends readonly AnyModule[]> = number extends Modules["length"]
@@ -153,7 +158,6 @@ export type App<
     readonly persistenceVersion: PersistenceVersion;
     readonly modules: Modules;
     readonly M: FlattenModules<Modules>;
-    readonly plan: AppPlan<Id, PersistenceVersion, Modules>;
   };
 
 export type ModuleConfig<Id extends string, Machines extends MachineRecord> = {
@@ -178,10 +182,25 @@ const isAppReference = (value: unknown): value is AppOwner =>
 // SAFETY: only app construction records successful App identities in this package-private set.
 // RETURN_TYPE: Preserves the constructed-app predicate required by the public admission check.
 export const isConstructedApp = (value: unknown): value is App =>
-  isAppReference(value) && constructedApps.has(value);
+  isAppReference(value) && constructedAppPlans.has(value);
 
 const invalid = (message: string) => {
   throw new Error(message);
+};
+
+export const appPlan = <
+  const Id extends string,
+  const PersistenceVersion extends string,
+  const Modules extends readonly AnyModule[],
+>(
+  appValue: App<Id, PersistenceVersion, Modules>,
+) => {
+  const plan = constructedAppPlans.get(appValue);
+  if (plan === undefined) invalid("App plan requires an App constructed by app()");
+
+  // SAFETY: app() stores this plan under the same nominal App identity with the same generic inputs.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the private identity map preserves the App and AppPlan generic correlation.
+  return plan as AppPlan<Id, PersistenceVersion, Modules>;
 };
 
 type AppIndexes<
@@ -783,10 +802,9 @@ export const app = <
     persistenceVersion: admitted.persistenceVersion,
     modules: admitted.modules,
     M: machineRecord,
-    plan,
     [appTypeId]: true,
     [RequirementsTypeId]: requirements,
   };
-  constructedApps.add(appValue);
+  constructedAppPlans.set(appValue, plan);
   return appValue;
 };

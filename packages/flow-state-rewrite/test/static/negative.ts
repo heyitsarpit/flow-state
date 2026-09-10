@@ -127,6 +127,7 @@ import {
   stream,
   transaction,
 } from "../../src/index.js";
+import { makeActorIdentityRegistry } from "../../src/runtime/actor-admission.js";
 
 // These compile-only cases cover invalid static shapes across the available type surface.
 
@@ -162,6 +163,15 @@ const validMachine = resultSuccess(
     states: { ready: {} },
   })),
 );
+
+const localIdentityResult = makeActorIdentityRegistry().createLocal(validMachine);
+if (Result.isSuccess(localIdentityResult)) {
+  const localPersistence: false = localIdentityResult.success.ref.persist;
+  void localPersistence;
+}
+
+// @ts-expect-error Local identity creation accepts only the exact admitted machine, never a durable ID.
+makeActorIdentityRegistry().createLocal(validMachine, "durable-id");
 
 type ValidMachineConfigurationMember = {
   readonly default: typeof ValidDefinition.S.ready;

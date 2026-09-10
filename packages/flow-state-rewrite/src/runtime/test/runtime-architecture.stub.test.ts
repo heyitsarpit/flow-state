@@ -110,4 +110,22 @@ describe("runtime assembly", () => {
   // Assert: every phase uses the same runtime owner and the final cleanup order is observable and complete.
   // Regression: catches a split integration path that passes isolated type proofs but not end-to-end ownership.
   it.todo("completes one real constructor-to-close runtime path");
+
+  // Fixture: a provider baseline and a publication callback for one admitted context slot.
+  // Control: attach the consumer, reconcile the provider baseline, then expose the runtime.
+  // Assert: registration and reconciliation complete before any consumer snapshot or host handle is visible.
+  // Regression: catches SEM-002A/SEM-029/HOST-P01/HOST-P05 provider publication races during assembly.
+  it.todo("reconciles provider baselines before exposure");
+
+  // Fixture: a fresh actor reference with authored initial input and no prepared snapshot.
+  // Control: cross admission and the initial-snapshot barrier through the real constructor.
+  // Assert: the initial actor snapshot is materialized from validated input, or the prepared seam is explicitly private and proven.
+  // Regression: catches SEM-001A/SNAP-001 unsafe initial-state casts at the assembly boundary.
+  it.todo("admits a fresh actor through an explicit initial snapshot seam");
+
+  // Fixture: runtime capabilities composed from the owner, actor, evidence, lifecycle, and context helpers.
+  // Control: replace one capability and inspect construction, publication, and close ownership.
+  // Assert: one owner remains authoritative after helper decomposition, with no duplicate registry or collection semantics.
+  // Regression: catches ARCH-003/ARCH-004 ownership drift and unreviewed Effect collection substitutions.
+  it.todo("keeps one owner boundary across runtime helper composition");
 });

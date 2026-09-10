@@ -1,0 +1,1234 @@
+import { assert, describe, it } from "@effect/vitest";
+import { Cause, Deferred, Effect, Exit, Fiber, Option, Result, Scope } from "effect";
+
+import { app, appPlan, module } from "../../app/app.js";
+import { definition } from "../../definition/definition.js";
+import type { PublicDiagnostic } from "../../diagnostic/diagnostic.js";
+import { Failure } from "../../diagnostic/diagnostic.js";
+import { machine } from "../../machine/machine.js";
+import { actorRef } from "../actor-ref.js";
+import {
+  acceptEvidence,
+  closeEvidence,
+  cancelRuntimeEvidence,
+  drainAcceptedEvidence,
+  makeEvidenceHub,
+  makeEvidenceSink,
+  makeLifecycleRecord,
+  makeRuntimeEvidenceOwner,
+  makeTurnRecord,
+  finalizePreparedActorPublication,
+  prepareActorPublication,
+  prepareLifecycleEvidence,
+  type EvidenceHub,
+  type EvidenceReservation,
+  type EvidenceRecord,
+  type LifecycleFact,
+  type TurnFact,
+} from "../evidence.js";
+import { makeActorIdentityRegistry, type ActorFence } from "../actor-admission.js";
+import {
+  activateLifecycle,
+  prepareLifecycle,
+  runLifecycleCommand,
+  type LifecycleResource,
+  type LifecycleSnapshot,
+} from "../lifecycle.js";
+import type { ActorPublication, ActorSnapshot } from "../actor-engine.js";
+import {
+  makeRuntimeScheduler,
+  makeRuntimeServicesLayer,
+  type RuntimeClockService,
+  type RuntimeEvidenceService,
+} from "../runtime-services.js";
+
+const resultSuccess = <Value>(result: Result.Result<Value, PublicDiagnostic>) => {
+  if (Result.isFailure(result)) throw result.failure;
+  return result.success;
+};
+
+const EvidenceDefinitionResult = definition({
+  id: "evidence/actor",
+  states: ["ready"],
+  events: { opened: "bare" },
+});
+const EvidenceDefinition = resultSuccess(EvidenceDefinitionResult);
+const EvidenceMachine = resultSuccess(
+  machine(EvidenceDefinitionResult, ({ S }) => ({
+    default: S.ready,
+    states: { ready: {} },
+  })),
+);
+const EvidenceModule = module({
+  id: "evidence/module",
+  machines: { actor: EvidenceMachine },
+});
+const EvidenceApp = app({
+  id: "evidence/app",
+  persistenceVersion: "1",
+  modules: [EvidenceModule],
+});
+const EvidencePlan = appPlan(EvidenceApp);
+const EvidenceEvent = resultSuccess(EvidenceDefinition.E.opened());
+
+type EvidenceSnapshot = ActorSnapshot<typeof EvidenceDefinition>;
+
+const immutable = <Value>(value: Value) => {
+  // oxlint-disable-next-line anti-slop/no-object-freeze -- the fixture supplies immutable published snapshots.
+  return Object.freeze(value);
+};
+
+const makeFixture = () => {
+  const registry = makeActorIdentityRegistry();
+  const ref = actorRef(EvidenceMachine, "actor");
+  const identity = resultSuccess(registry.reserveStable(ref));
+  const fence: ActorFence = {
+    key: identity.key,
+    incarnation: identity.incarnation,
+    generation: 0,
+    leaseEpoch: identity.leaseEpoch,
+  };
+  const snapshot = (revision: number) =>
+    immutable({
+      state: EvidenceDefinition.S.ready,
+      memory: immutable({}),
+      context: immutable({}),
+      lifecycle: "active" as const,
+      operations: immutable([]),
+      timers: immutable([]),
+      issues: immutable([]),
+      revision,
+      observedStoreRevision: 0,
+    } satisfies EvidenceSnapshot);
+  return { identity, fence, snapshot };
+};
+
+// RETURN_TYPE: The fixture preserves the concrete app and definition owners used by the evidence record.
+const turnFact = (
+  fixture: ReturnType<typeof makeFixture>,
+  reservation: EvidenceReservation,
+): TurnFact<typeof EvidenceApp, typeof EvidenceDefinition> => ({
+  fence: fixture.fence,
+  provenance: {
+    app: EvidenceApp,
+    plan: EvidencePlan,
+    actor: {
+      key: fixture.identity.key,
+      incarnation: fixture.identity.incarnation,
+      leaseEpoch: fixture.identity.leaseEpoch,
+    },
+  },
+  cause: { _tag: "event", event: EvidenceEvent },
+  before: fixture.snapshot(reservation.sequence - 1),
+  after: fixture.snapshot(reservation.sequence),
+  store: { revision: 0, changed: [] },
+  publicationRevision: reservation.sequence,
+  machineTurnRevision: reservation.sequence,
+  timestamp: 1000 + reservation.sequence,
+});
+
+// RETURN_TYPE: The fixture preserves the concrete lifecycle and cleanup owners used by the evidence record.
+const lifecycleFact = (
+  fence: ActorFence,
+  snapshot: LifecycleSnapshot<typeof EvidenceDefinition, string>,
+): LifecycleFact<typeof EvidenceDefinition, string> => ({
+  _tag: "lifecycle",
+  machineTurn: false,
+  from: "prepared",
+  to: "prepared",
+  cause: { _tag: "restore" },
+  before: snapshot,
+  after: snapshot,
+  timestamp: 2000,
+  publicationRevision: 0,
+  machineTurnRevision: 0,
+  provenance: {
+    app: EvidenceApp,
+    plan: EvidencePlan,
+    actor: {
+      key: fence.key,
+      incarnation: fence.incarnation,
+      leaseEpoch: fence.leaseEpoch,
+    },
+  },
+});
+
+const reserve = (hub: EvidenceHub) => resultSuccess(hub.reserve());
+
+const acceptTurn = (
+  hub: EvidenceHub,
+  fixture: ReturnType<typeof makeFixture>,
+  reservation: EvidenceReservation,
+) => {
+  const record = resultSuccess(makeTurnRecord(turnFact(fixture, reservation), reservation));
+  return { record, effect: acceptEvidence(hub, reservation, record) };
+};
+
+// Contracts: SEM-004, SEM-005.
+// Proofs: PROOF-003, PROOF-004, HOST-P05.
+describe("runtime evidence", () => {
+  it.effect("prepares publication evidence before finalizing its committed store cut", () =>
+    Effect.gen(function* () {
+      const fixture = makeFixture();
+      const owner = makeRuntimeEvidenceOwner({
+        app: EvidenceApp,
+        plan: EvidencePlan,
+        clock: { now: Effect.succeed(4_242), sleepUntil: () => Effect.void },
+      });
+      const prepared = prepareActorPublication<typeof EvidenceDefinition>({
+        snapshot: fixture.snapshot(1),
+        store: { revision: 0, changed: [] },
+        publicationRevision: 1,
+        machineTurnRevision: 1,
+        cause: { _tag: "event", event: EvidenceEvent },
+      } satisfies ActorPublication<typeof EvidenceDefinition>);
+      const preparation = owner.acceptPublication(
+        fixture.identity,
+        fixture.fence,
+        fixture.snapshot(0),
+        prepared,
+      );
+      assert.ok(Result.isSuccess(preparation));
+      if (Result.isSuccess(preparation)) assert.strictEqual(preparation.success, 1);
+
+      const finalized = finalizePreparedActorPublication(prepared, {
+        ...prepared,
+        snapshot: fixture.snapshot(1),
+        store: { revision: 9, changed: [] },
+      });
+      assert.strictEqual(finalized, 1);
+      yield* owner.close();
+    }),
+  );
+
+  it.effect("tombstones prepared actor evidence when record construction fails", () =>
+    Effect.gen(function* () {
+      const fixture = makeFixture();
+      let now = -1;
+      const owner = makeRuntimeEvidenceOwner({
+        app: EvidenceApp,
+        plan: EvidencePlan,
+        clock: { now: Effect.sync(() => now), sleepUntil: () => Effect.void },
+      });
+      const prepared = prepareActorPublication<typeof EvidenceDefinition>({
+        snapshot: fixture.snapshot(1),
+        store: { revision: 0, changed: [] },
+        publicationRevision: 1,
+        machineTurnRevision: 1,
+        cause: { _tag: "event", event: EvidenceEvent },
+      } satisfies ActorPublication<typeof EvidenceDefinition>);
+      const failedPreparation = owner.acceptPublication(
+        fixture.identity,
+        fixture.fence,
+        fixture.snapshot(0),
+        prepared,
+      );
+      assert.ok(Result.isFailure(failedPreparation));
+      assert.strictEqual(owner.hub.sequence(), 1);
+
+      now = 9_000;
+      const accepted = owner.acceptPublication(
+        fixture.identity,
+        fixture.fence,
+        fixture.snapshot(1),
+        {
+          snapshot: fixture.snapshot(2),
+          store: { revision: 1, changed: [] },
+          publicationRevision: 2,
+          machineTurnRevision: 2,
+          cause: { _tag: "event", event: EvidenceEvent },
+        } satisfies ActorPublication<typeof EvidenceDefinition>,
+      );
+      assert.ok(Result.isSuccess(accepted));
+      if (Result.isSuccess(accepted)) assert.strictEqual(accepted.success, 2);
+      yield* owner.close();
+    }),
+  );
+
+  it.effect("tombstones out-of-order prepared actor evidence", () =>
+    Effect.gen(function* () {
+      const fixture = makeFixture();
+      const owner = makeRuntimeEvidenceOwner({
+        app: EvidenceApp,
+        plan: EvidencePlan,
+        clock: { now: Effect.succeed(4_242), sleepUntil: () => Effect.void },
+      });
+      const publication = (revision: number) =>
+        prepareActorPublication<typeof EvidenceDefinition>({
+          snapshot: fixture.snapshot(revision),
+          store: { revision: 0, changed: [] },
+          publicationRevision: revision,
+          machineTurnRevision: revision,
+          cause: { _tag: "event", event: EvidenceEvent },
+        } satisfies ActorPublication<typeof EvidenceDefinition>);
+      const first = publication(1);
+      const second = publication(2);
+      assert.ok(
+        Result.isSuccess(
+          owner.acceptPublication(fixture.identity, fixture.fence, fixture.snapshot(0), first),
+        ),
+      );
+      const failedPreparation = owner.acceptPublication(
+        fixture.identity,
+        fixture.fence,
+        fixture.snapshot(1),
+        second,
+      );
+      assert.ok(Result.isFailure(failedPreparation));
+      assert.strictEqual(owner.hub.sequence(), 0);
+      assert.strictEqual(
+        finalizePreparedActorPublication(first, {
+          ...first,
+          snapshot: fixture.snapshot(1),
+          store: { revision: 0, changed: [] },
+        }),
+        1,
+      );
+      assert.strictEqual(owner.hub.sequence(), 2);
+      yield* owner.close();
+    }),
+  );
+
+  it.effect("uses the supplied runtime clock for publication timestamps", () =>
+    Effect.gen(function* () {
+      let now = 1_234;
+      const clock: RuntimeClockService = {
+        now: Effect.sync(() => now),
+        sleepUntil: () => Effect.void,
+      };
+      const owner = makeRuntimeEvidenceOwner({ app: EvidenceApp, plan: EvidencePlan, clock });
+      const timestamps: number[] = [];
+      const sink = yield* makeEvidenceSink({
+        id: "clock",
+        deliver: (record) => Effect.sync(() => timestamps.push(record.timestamp)),
+      });
+      assert.ok(Result.isSuccess(owner.hub.attach(sink)));
+      const fixture = makeFixture();
+      const publish = (beforeRevision: number, afterRevision: number) =>
+        owner.acceptPublication(fixture.identity, fixture.fence, fixture.snapshot(beforeRevision), {
+          snapshot: fixture.snapshot(afterRevision),
+          store: { revision: 0, changed: [] },
+          publicationRevision: afterRevision,
+          machineTurnRevision: afterRevision,
+          cause: { _tag: "event", event: EvidenceEvent },
+        } satisfies ActorPublication<typeof EvidenceDefinition>);
+
+      assert.ok(Result.isSuccess(publish(0, 1)));
+      now = 5_678;
+      assert.ok(Result.isSuccess(publish(1, 2)));
+      yield* owner.close();
+      assert.deepStrictEqual(timestamps, [1_234, 5_678]);
+    }),
+  );
+
+  it.effect("orders turn and lifecycle records through one accepted prefix", () =>
+    Effect.gen(function* () {
+      const fixture = makeFixture();
+      const hub = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
+      const firstReservation = reserve(hub);
+      const secondReservation = reserve(hub);
+      const first = acceptTurn(hub, fixture, firstReservation);
+      const prepared = resultSuccess(
+        prepareLifecycle<typeof EvidenceDefinition, string>(fixture.fence, { _tag: "restore" }),
+      );
+      const lifecycle = resultSuccess(
+        makeLifecycleRecord(lifecycleFact(fixture.fence, prepared), secondReservation),
+      );
+
+      const lifecycleFiber = yield* Effect.forkChild(
+        Effect.exit(acceptEvidence(hub, secondReservation, lifecycle)),
+        { startImmediately: true },
+      );
+      yield* Effect.yieldNow;
+      const firstFiber = yield* Effect.forkChild(Effect.exit(first.effect), {
+        startImmediately: true,
+      });
+      const firstAccepted = yield* Fiber.join(firstFiber);
+      const lifecycleAccepted = yield* Fiber.join(lifecycleFiber);
+
+      assert.ok(Exit.isSuccess(firstAccepted));
+      assert.ok(Exit.isSuccess(lifecycleAccepted));
+      if (Exit.isSuccess(firstAccepted) && Exit.isSuccess(lifecycleAccepted)) {
+        assert.strictEqual(firstAccepted.value.sequence, 1);
+        assert.strictEqual(lifecycleAccepted.value.sequence, 2);
+        assert.deepStrictEqual(
+          [firstAccepted.value.record._tag, lifecycleAccepted.value.record._tag],
+          ["turn", "lifecycle"],
+        );
+      }
+      assert.strictEqual(Object.isFrozen(first.record), true);
+      assert.strictEqual(hub.sequence(), 2);
+    }),
+  );
+
+  it.effect("tombstones a failed record and unblocks the next reservation", () =>
+    Effect.gen(function* () {
+      const fixture = makeFixture();
+      const hub = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
+      const failedReservation = reserve(hub);
+      const laterReservation = reserve(hub);
+      const failed = makeTurnRecord(
+        { ...turnFact(fixture, failedReservation), timestamp: -1 },
+        failedReservation,
+      );
+      assert.ok(Result.isFailure(failed));
+      assert.ok(Result.isSuccess(hub.cancel(failedReservation)));
+
+      const later = acceptTurn(hub, fixture, laterReservation);
+      const waiting = yield* Effect.forkChild(Effect.exit(later.effect), {
+        startImmediately: true,
+      });
+      yield* Effect.yieldNow;
+      const accepted = yield* Fiber.join(waiting);
+
+      assert.ok(Exit.isSuccess(accepted));
+      if (Exit.isSuccess(accepted)) assert.strictEqual(accepted.value.sequence, 2);
+      assert.strictEqual(hub.sequence(), 2);
+      const drained = yield* hub.drain();
+      assert.strictEqual(drained.through, 2);
+    }),
+  );
+
+  it.effect("keeps lifecycle and actor acceptance in global sequence order", () =>
+    Effect.gen(function* () {
+      const fixture = makeFixture();
+      const hub = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
+      const lifecycleReservation = reserve(hub);
+      const actorReservation = reserve(hub);
+      const prepared = resultSuccess(
+        prepareLifecycle<typeof EvidenceDefinition, string>(fixture.fence, { _tag: "restore" }),
+      );
+      const lifecycle = resultSuccess(
+        makeLifecycleRecord(lifecycleFact(fixture.fence, prepared), lifecycleReservation),
+      );
+      const actor = acceptTurn(hub, fixture, actorReservation);
+      const actorFiber = yield* Effect.forkChild(Effect.exit(actor.effect), {
+        startImmediately: true,
+      });
+      yield* Effect.yieldNow;
+      const lifecycleFiber = yield* Effect.forkChild(
+        Effect.exit(acceptEvidence(hub, lifecycleReservation, lifecycle)),
+        { startImmediately: true },
+      );
+      const lifecycleAccepted = yield* Fiber.join(lifecycleFiber);
+      const actorAccepted = yield* Fiber.join(actorFiber);
+
+      assert.ok(Exit.isSuccess(lifecycleAccepted));
+      assert.ok(Exit.isSuccess(actorAccepted));
+      assert.strictEqual(hub.sequence(), 2);
+      if (Exit.isSuccess(lifecycleAccepted) && Exit.isSuccess(actorAccepted)) {
+        assert.deepStrictEqual(
+          [lifecycleAccepted.value.sequence, actorAccepted.value.sequence],
+          [1, 2],
+        );
+      }
+    }),
+  );
+
+  it.effect("rejects lifecycle preparation without a runtime-owned reservation", () =>
+    Effect.gen(function* () {
+      const fixture = makeFixture();
+      const prepared = resultSuccess(
+        prepareLifecycle<typeof EvidenceDefinition, string>(fixture.fence, { _tag: "restore" }),
+      );
+      const unowned: RuntimeEvidenceService = {
+        hub: {},
+        provenance: { app: EvidenceApp, plan: EvidencePlan },
+        machineTurnRevision: 0,
+        nextEvidenceSequence: () => 1,
+        publish: () => Effect.succeed(undefined),
+        accept: () => Effect.succeed(undefined),
+        drain: Effect.succeed(undefined),
+      };
+
+      const result = prepareLifecycleEvidence(unowned, lifecycleFact(fixture.fence, prepared));
+      assert.ok(Result.isFailure(result));
+      if (Result.isFailure(result)) {
+        assert.deepStrictEqual(result.failure.path, ["evidence", "reservation"]);
+        assert.strictEqual(result.failure.details.reason, "owner-unavailable");
+      }
+      yield* Effect.void;
+    }),
+  );
+
+  it.effect("cancels a failed timestamp before the next actor publication", () =>
+    Effect.gen(function* () {
+      const fixture = makeFixture();
+      let failTimestamp = true;
+      const owner = makeRuntimeEvidenceOwner({
+        app: EvidenceApp,
+        plan: EvidencePlan,
+        clock: {
+          now: Effect.suspend(() =>
+            failTimestamp ? Effect.die("timestamp failure") : Effect.succeed(9_000),
+          ),
+          sleepUntil: () => Effect.void,
+        },
+      });
+      const publication = (revision: number) =>
+        ({
+          snapshot: fixture.snapshot(revision),
+          store: { revision: 0, changed: [] },
+          publicationRevision: revision,
+          machineTurnRevision: revision,
+          cause: { _tag: "event", event: EvidenceEvent },
+        }) satisfies ActorPublication<typeof EvidenceDefinition>;
+
+      assert.ok(
+        Result.isFailure(
+          owner.acceptPublication(
+            fixture.identity,
+            fixture.fence,
+            fixture.snapshot(0),
+            publication(1),
+          ),
+        ),
+      );
+      failTimestamp = false;
+      const accepted = owner.acceptPublication(
+        fixture.identity,
+        fixture.fence,
+        fixture.snapshot(1),
+        publication(2),
+      );
+      assert.ok(Result.isSuccess(accepted));
+      if (Result.isSuccess(accepted)) assert.strictEqual(accepted.success, 2);
+      yield* owner.close();
+    }),
+  );
+
+  it.effect("deep-copies structured envelopes while retaining app and plan identity", () =>
+    Effect.gen(function* () {
+      const fixture = makeFixture();
+      const hub = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
+      const reservation = reserve(hub);
+      const acceptedInput = acceptTurn(hub, fixture, reservation);
+      const accepted = yield* acceptedInput.effect;
+      if (accepted.record._tag !== "turn")
+        return yield* Effect.die(new Error("Expected turn evidence"));
+
+      assert.strictEqual(accepted.record.provenance.app, EvidenceApp);
+      assert.strictEqual(accepted.record.provenance.plan, EvidencePlan);
+      assert.strictEqual(Object.isFrozen(accepted.record), true);
+      assert.strictEqual(Object.isFrozen(accepted.record.provenance), true);
+      assert.strictEqual(Object.isFrozen(accepted.record.provenance.actor), true);
+      assert.strictEqual(Object.isFrozen(accepted.record.fence), true);
+
+      Object.assign(acceptedInput.record.fence, { generation: 99 });
+      Object.assign(acceptedInput.record.provenance.actor, { key: "mutated" });
+      assert.strictEqual(accepted.record.fence.generation, 0);
+      assert.strictEqual(accepted.record.provenance.actor.key, fixture.identity.key);
+    }),
+  );
+
+  it.effect("isolates bounded sink overflow and reports accepted-prefix truncation", () =>
+    Effect.gen(function* () {
+      const fixture = makeFixture();
+      const hub = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
+      const delivered: string[] = [];
+      const sink = yield* makeEvidenceSink({
+        id: "bounded",
+        capacity: 1,
+        deliver: (record) => Effect.sync(() => delivered.push(record._tag)),
+      });
+      assert.ok(Result.isSuccess(hub.attach(sink)));
+
+      for (let index = 0; index < 3; index += 1) {
+        const reservation = reserve(hub);
+        const accepted = acceptTurn(hub, fixture, reservation);
+        const result = yield* Effect.exit(accepted.effect);
+        assert.ok(Exit.isSuccess(result));
+      }
+
+      const drained = yield* drainAcceptedEvidence(hub);
+      assert.strictEqual(drained.through, 3);
+      assert.ok(Option.isSome(drained.truncatedBefore));
+      if (Option.isSome(drained.truncatedBefore))
+        assert.strictEqual(drained.truncatedBefore.value, 2);
+      assert.deepStrictEqual(delivered, ["turn"]);
+      assert.deepStrictEqual(
+        drained.sinks.map((result) => result.status),
+        ["truncated"],
+      );
+    }),
+  );
+
+  it.effect("keeps sink delivery failure local to that sink", () =>
+    Effect.gen(function* () {
+      const fixture = makeFixture();
+      const hub = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
+      const failedSink = yield* makeEvidenceSink({
+        id: "failed",
+        deliver: () =>
+          Effect.fail(
+            Failure({
+              code: "InvariantViolation",
+              path: ["evidence", "sink"],
+              details: {},
+              summary: "sink failed",
+              help: "inspect sink",
+            }),
+          ),
+      });
+      const healthySink = yield* makeEvidenceSink({
+        id: "healthy",
+        deliver: () => Effect.void,
+      });
+      assert.ok(Result.isSuccess(hub.attach(failedSink)));
+      assert.ok(Result.isSuccess(hub.attach(healthySink)));
+
+      const reservation = reserve(hub);
+      const accepted = acceptTurn(hub, fixture, reservation);
+      assert.ok(Exit.isSuccess(yield* Effect.exit(accepted.effect)));
+      const drained = yield* drainAcceptedEvidence(hub);
+
+      assert.deepStrictEqual(
+        drained.sinks.map((result) => [result.sink, result.status]),
+        [
+          [failedSink.id, "failed"],
+          [healthySink.id, "drained"],
+        ],
+      );
+      assert.strictEqual(drained.through, 1);
+    }),
+  );
+
+  it.effect("timestamps accepted publications from the supplied runtime clock", () =>
+    Effect.gen(function* () {
+      const fixture = makeFixture();
+      let now = 4_242;
+      const clock: RuntimeClockService = {
+        now: Effect.sync(() => now),
+        sleepUntil: () => Effect.void,
+      };
+      const owner = makeRuntimeEvidenceOwner({
+        app: EvidenceApp,
+        plan: EvidencePlan,
+        clock,
+      });
+      const timestamps: number[] = [];
+      const sink = yield* makeEvidenceSink({
+        id: "clock",
+        deliver: (record) =>
+          Effect.sync(() => {
+            if (record._tag === "turn") timestamps.push(record.timestamp);
+          }),
+      });
+      assert.ok(Result.isSuccess(owner.hub.attach(sink)));
+
+      const publish = (revision: number) =>
+        owner.acceptPublication(fixture.identity, fixture.fence, fixture.snapshot(revision - 1), {
+          snapshot: fixture.snapshot(revision),
+          store: { revision: 0, changed: [] },
+          publicationRevision: revision,
+          machineTurnRevision: revision,
+          cause: { _tag: "event", event: EvidenceEvent },
+        });
+
+      assert.ok(Result.isSuccess(publish(1)));
+      now = 8_484;
+      assert.ok(Result.isSuccess(publish(2)));
+      yield* owner.hub.drain();
+
+      assert.deepStrictEqual(timestamps, [4_242, 8_484]);
+      assert.ok(Result.isSuccess(cancelRuntimeEvidence(owner.service, 1)));
+    }),
+  );
+
+  it.effect("closes idempotently after draining accepted evidence", () =>
+    Effect.gen(function* () {
+      const fixture = makeFixture();
+      const hub = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
+      const sink = yield* makeEvidenceSink({ id: "close" });
+      assert.ok(Result.isSuccess(hub.attach(sink)));
+      const reservation = reserve(hub);
+      const accepted = acceptTurn(hub, fixture, reservation);
+      assert.ok(Exit.isSuccess(yield* Effect.exit(accepted.effect)));
+
+      const firstClose = yield* Effect.exit(closeEvidence(hub));
+      const secondClose = yield* Effect.exit(closeEvidence(hub));
+      assert.ok(Exit.isSuccess(firstClose));
+      assert.ok(Exit.isSuccess(secondClose));
+      if (Exit.isSuccess(firstClose) && Exit.isSuccess(secondClose)) {
+        assert.strictEqual(firstClose.value.through, 1);
+        assert.strictEqual(secondClose.value.through, 1);
+        assert.deepStrictEqual(
+          firstClose.value.sinks.map((result) => result.status),
+          ["drained"],
+        );
+      }
+      assert.ok(Result.isFailure(hub.reserve()));
+    }),
+  );
+
+  it("constructs a complete unsequenced turn fact from app provenance", () => {
+    const fixture = makeFixture();
+    const hub = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
+    const reservation = reserve(hub);
+    const fact = turnFact(fixture, reservation);
+    assert.strictEqual("sequence" in fact, false);
+    assert.strictEqual(fact.provenance.app, EvidenceApp);
+    assert.strictEqual(fact.provenance.plan, EvidencePlan);
+    assert.deepStrictEqual(fact.provenance.actor, {
+      key: fixture.identity.key,
+      incarnation: fixture.identity.incarnation,
+      leaseEpoch: fixture.identity.leaseEpoch,
+    });
+    const record = resultSuccess(makeTurnRecord(fact, reservation));
+    assert.strictEqual(record.sequence, reservation.sequence);
+  });
+
+  it.effect("accepts only hub-reserved evidence sequences", () =>
+    Effect.gen(function* () {
+      const fixture = makeFixture();
+      const hub = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
+      const reservation = reserve(hub);
+      const accepted = yield* acceptEvidence(
+        hub,
+        reservation,
+        resultSuccess(makeTurnRecord(turnFact(fixture, reservation), reservation)),
+      );
+      assert.strictEqual(accepted.sequence, reservation.sequence);
+      assert.strictEqual(accepted.record._tag, "turn");
+      assert.strictEqual(hub.sequence(), 1);
+    }),
+  );
+
+  it.effect("rejects equal-sequence evidence from a foreign reservation", () =>
+    Effect.gen(function* () {
+      const fixture = makeFixture();
+      const first = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
+      const second = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
+      const firstReservation = reserve(first);
+      const secondReservation = reserve(second);
+      assert.strictEqual(secondReservation.sequence, firstReservation.sequence);
+      const record = resultSuccess(
+        makeTurnRecord(turnFact(fixture, firstReservation), firstReservation),
+      );
+      const foreign = yield* Effect.exit(acceptEvidence(second, firstReservation, record));
+      assert.ok(Exit.isFailure(foreign));
+      assert.strictEqual(second.sequence(), 0);
+      const local = yield* acceptEvidence(first, firstReservation, record);
+      assert.strictEqual(local.sequence, 1);
+    }),
+  );
+
+  it.effect("drains the accepted evidence prefix before sink close", () =>
+    Effect.gen(function* () {
+      const fixture = makeFixture();
+      const delivered: number[] = [];
+      const hub = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
+      const sink = yield* makeEvidenceSink({
+        id: "prefix-drain",
+        deliver: (record) =>
+          Effect.sync(() =>
+            delivered.push(record._tag === "turn" ? record.sequence : record.evidenceSequence),
+          ),
+      });
+      assert.ok(Result.isSuccess(hub.attach(sink)));
+      const first = reserve(hub);
+      const second = reserve(hub);
+      yield* acceptEvidence(
+        hub,
+        first,
+        resultSuccess(makeTurnRecord(turnFact(fixture, first), first)),
+      );
+      yield* acceptEvidence(
+        hub,
+        second,
+        resultSuccess(makeTurnRecord(turnFact(fixture, second), second)),
+      );
+      const closed = yield* closeEvidence(hub);
+      assert.deepStrictEqual(delivered, [1, 2]);
+      assert.strictEqual(closed.through, 2);
+      assert.strictEqual(closed.sinks[0]?.status, "drained");
+    }),
+  );
+
+  it.effect("keeps sink overflow local to the failing sink", () =>
+    Effect.gen(function* () {
+      const fixture = makeFixture();
+      const hub = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
+      const small = yield* makeEvidenceSink({ id: "small", capacity: 1 });
+      const healthy = yield* makeEvidenceSink({ id: "healthy", capacity: 4 });
+      assert.ok(Result.isSuccess(hub.attach(small)));
+      assert.ok(Result.isSuccess(hub.attach(healthy)));
+      for (let index = 0; index < 2; index += 1) {
+        const reservation = reserve(hub);
+        yield* acceptEvidence(
+          hub,
+          reservation,
+          resultSuccess(makeTurnRecord(turnFact(fixture, reservation), reservation)),
+        );
+      }
+      const drained = yield* drainAcceptedEvidence(hub);
+      assert.strictEqual(drained.through, 2);
+      assert.deepStrictEqual(
+        drained.sinks.map((sink) => [sink.sink, sink.status]),
+        [
+          [small.id, "truncated"],
+          [healthy.id, "drained"],
+        ],
+      );
+    }),
+  );
+
+  it.effect("retains sink delivery failure after acceptance", () =>
+    Effect.gen(function* () {
+      const fixture = makeFixture();
+      const hub = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
+      const sink = yield* makeEvidenceSink({
+        id: "failing-delivery",
+        deliver: () =>
+          Effect.fail(
+            Failure({
+              code: "InvariantViolation",
+              path: ["sink"],
+              details: {},
+              summary: "delivery failed",
+              help: "inspect sink",
+            }),
+          ),
+      });
+      assert.ok(Result.isSuccess(hub.attach(sink)));
+      const reservation = reserve(hub);
+      yield* acceptEvidence(
+        hub,
+        reservation,
+        resultSuccess(makeTurnRecord(turnFact(fixture, reservation), reservation)),
+      );
+      const drained = yield* drainAcceptedEvidence(hub);
+      assert.strictEqual(hub.sequence(), 1);
+      assert.strictEqual(drained.sinks[0]?.status, "failed");
+    }),
+  );
+
+  it.effect("rejects evidence from a foreign app identity", () =>
+    Effect.gen(function* () {
+      const fixture = makeFixture();
+      const current = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
+      const foreignApp = app({ id: "evidence/foreign-app", persistenceVersion: "1", modules: [] });
+      const reservation = reserve(current);
+      const record = resultSuccess(makeTurnRecord(turnFact(fixture, reservation), reservation));
+      // SAFETY: The record is intentionally forged with a foreign app to exercise the rejection boundary.
+      const foreignRecord = {
+        ...record,
+        provenance: { ...record.provenance, app: foreignApp },
+      } as never;
+      const result = yield* Effect.exit(acceptEvidence(current, reservation, foreignRecord));
+      assert.ok(Exit.isFailure(result));
+      assert.strictEqual(current.sequence(), 0);
+    }),
+  );
+
+  it.effect("retains lifecycle cleanup Cause through evidence acceptance", () =>
+    Effect.gen(function* () {
+      const fixture = makeFixture();
+      const owner = makeRuntimeEvidenceOwner({
+        app: EvidenceApp,
+        plan: EvidencePlan,
+        clock: { now: Effect.succeed(2_000), sleepUntil: () => Effect.void },
+      });
+      const delivered: EvidenceRecord[] = [];
+      const sink = yield* makeEvidenceSink({
+        id: "lifecycle-cause",
+        deliver: (record) => Effect.sync(() => delivered.push(record)),
+      });
+      assert.ok(Result.isSuccess(owner.hub.attach(sink)));
+
+      const prepared = resultSuccess(
+        prepareLifecycle<typeof EvidenceDefinition, PublicDiagnostic>(fixture.fence, {
+          _tag: "fresh",
+        }),
+      );
+      const clock: RuntimeClockService = {
+        now: Effect.succeed(2_000),
+        sleepUntil: () => Effect.void,
+      };
+      const layer = makeRuntimeServicesLayer({
+        clock,
+        scheduler: makeRuntimeScheduler(),
+        evidence: owner.service,
+      });
+      const active = yield* Effect.provide(activateLifecycle(prepared), layer);
+      const cleanupFailure = Failure({
+        code: "InvariantViolation" as const,
+        path: ["cleanup"],
+        details: { owner: "resource" },
+        summary: "resource cleanup failed",
+        help: "Inspect the retained cleanup Cause.",
+      });
+      const resource: LifecycleResource<PublicDiagnostic> = {
+        name: "failing-resource",
+        scope: Scope.makeUnsafe(),
+        close: () =>
+          Effect.failCause(Cause.combine(Cause.fail(cleanupFailure), Cause.die(cleanupFailure))),
+        finalization: "pending",
+        cause: Option.none(),
+      };
+      const failed = yield* Effect.exit(
+        Effect.provide(
+          runLifecycleCommand(
+            {
+              ...active,
+              attachment: { ...active.attachment, resources: [resource] },
+            },
+            { _tag: "actor:dispose", cause: { _tag: "owner-disposal" } },
+          ),
+          layer,
+        ),
+      );
+      assert.ok(Exit.isFailure(failed));
+      yield* owner.hub.drain();
+      const record = delivered[0];
+      assert.ok(record !== undefined);
+      if (record?._tag === "lifecycle") {
+        // SAFETY: the lifecycle owner preserves the LifecycleCause envelope for this accepted record.
+        const retainedCause = record.cause as {
+          readonly _tag: string;
+          readonly cause: Cause.Cause<unknown>;
+        };
+        assert.strictEqual(retainedCause._tag, "cleanup-failure");
+        const retained = retainedCause.cause;
+        assert.strictEqual(Cause.hasFails(retained), true);
+        assert.strictEqual(Cause.hasDies(retained), true);
+      }
+      assert.strictEqual(owner.hub.sequence(), 1);
+      yield* owner.close();
+    }),
+  );
+
+  it("preserves null and undefined evidence payload values", () => {
+    const fixture = makeFixture();
+    const hub = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
+    const reservation = reserve(hub);
+    // SAFETY: The frozen payload is the immutable event value whose null and undefined fields are retained.
+    // SAFETY: The frozen payload is the immutable event value whose null and undefined fields are retained.
+    // oxlint-disable-next-line anti-slop/no-object-freeze -- this fixture supplies an immutable published payload.
+    const payload = Object.freeze({ payload: null, optional: undefined });
+    // SAFETY: The event payload deliberately crosses the private evidence fact union for this preservation proof.
+    const record = resultSuccess(
+      makeTurnRecord(
+        {
+          ...turnFact(fixture, reservation),
+          cause: { _tag: "event", event: payload },
+        } as never,
+        reservation,
+      ),
+    );
+    const accepted = resultSuccess(hub.acceptSync(reservation, record));
+    if (accepted.record._tag !== "turn") throw new Error("turn record was not retained");
+    if (accepted.record.cause._tag !== "event") throw new Error("event cause was not retained");
+    assert.deepStrictEqual(accepted.record.cause.event, payload);
+    // SAFETY: The preceding discriminant check establishes the retained event payload shape.
+    const retainedPayload = accepted.record.cause.event as typeof payload;
+    assert.strictEqual(retainedPayload.payload, null);
+    assert.strictEqual(retainedPayload.optional, undefined);
+  });
+
+  it.effect("closes an empty evidence hub without synthetic records", () =>
+    Effect.gen(function* () {
+      const hub = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
+      const first = yield* closeEvidence(hub);
+      const second = yield* closeEvidence(hub);
+      assert.strictEqual(first.through, 0);
+      assert.strictEqual(second.through, 0);
+      assert.deepStrictEqual(first.sinks, []);
+      assert.ok(Result.isFailure(hub.reserve()));
+    }),
+  );
+
+  it.effect("applies the late sink policy without hidden history replay", () =>
+    Effect.gen(function* () {
+      const fixture = makeFixture();
+      const hub = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
+      const first = reserve(hub);
+      yield* acceptEvidence(
+        hub,
+        first,
+        resultSuccess(makeTurnRecord(turnFact(fixture, first), first)),
+      );
+      const delivered: number[] = [];
+      const late = yield* makeEvidenceSink({
+        id: "late",
+        deliver: (record) =>
+          Effect.sync(() =>
+            delivered.push(record._tag === "turn" ? record.sequence : record.evidenceSequence),
+          ),
+      });
+      assert.ok(Result.isSuccess(hub.attach(late)));
+      yield* drainAcceptedEvidence(hub);
+      assert.deepStrictEqual(delivered, []);
+      assert.strictEqual(hub.sequence(), 1);
+    }),
+  );
+
+  it.effect("linearizes concurrent evidence acceptance by sequence", () =>
+    Effect.gen(function* () {
+      const fixture = makeFixture();
+      const hub = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
+      const delivered: number[] = [];
+      const sink = yield* makeEvidenceSink({
+        id: "concurrent",
+        deliver: (record) =>
+          Effect.sync(() =>
+            delivered.push(record._tag === "turn" ? record.sequence : record.evidenceSequence),
+          ),
+      });
+      assert.ok(Result.isSuccess(hub.attach(sink)));
+      const first = reserve(hub);
+      const second = reserve(hub);
+      const secondFiber = yield* Effect.forkChild(
+        acceptEvidence(
+          hub,
+          second,
+          resultSuccess(makeTurnRecord(turnFact(fixture, second), second)),
+        ),
+      );
+      yield* Effect.yieldNow;
+      const firstAccepted = yield* acceptEvidence(
+        hub,
+        first,
+        resultSuccess(makeTurnRecord(turnFact(fixture, first), first)),
+      );
+      const secondAccepted = yield* Fiber.join(secondFiber);
+      assert.deepStrictEqual([firstAccepted.sequence, secondAccepted.sequence], [1, 2]);
+      const drained = yield* hub.drain();
+      assert.strictEqual(drained.through, 2);
+      assert.deepStrictEqual(delivered, [1, 2]);
+    }),
+  );
+
+  it.effect("applies the no-op turn evidence policy explicitly", () =>
+    Effect.gen(function* () {
+      const fixture = makeFixture();
+      const hub = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
+      const reservation = reserve(hub);
+      const fact = turnFact(fixture, reservation);
+      const record = resultSuccess(makeTurnRecord({ ...fact, before: fact.after }, reservation));
+      const accepted = yield* acceptEvidence(hub, reservation, record);
+      assert.deepStrictEqual(accepted.record.before, accepted.record.after);
+      assert.strictEqual(accepted.sequence, 1);
+    }),
+  );
+
+  it.effect("drains evidence as part of owner disposal", () =>
+    Effect.gen(function* () {
+      const fixture = makeFixture();
+      const owner = makeRuntimeEvidenceOwner({
+        app: EvidenceApp,
+        plan: EvidencePlan,
+        clock: { now: Effect.succeed(1), sleepUntil: () => Effect.void },
+      });
+      const sink = yield* makeEvidenceSink({ id: "owner-drain" });
+      assert.ok(Result.isSuccess(owner.hub.attach(sink)));
+      const reservation = reserve(owner.hub);
+      const record = resultSuccess(makeTurnRecord(turnFact(fixture, reservation), reservation));
+      yield* acceptEvidence(owner.hub, reservation, record);
+      const closed = yield* owner.close();
+      assert.strictEqual(closed.through, 1);
+      assert.ok(Result.isFailure(owner.hub.reserve()));
+    }),
+  );
+
+  it("rejects mismatched actor provenance before sequence reservation", () => {
+    const fixture = makeFixture();
+    const owner = makeRuntimeEvidenceOwner({
+      app: EvidenceApp,
+      plan: EvidencePlan,
+      clock: { now: Effect.succeed(1), sleepUntil: () => Effect.void },
+    });
+    // SAFETY: The fence deliberately carries a foreign incarnation to exercise publication rejection.
+    const wrongFence = { ...fixture.fence, incarnation: fixture.fence.incarnation + 1 } as never;
+    const result = owner.acceptPublication(fixture.identity, wrongFence, fixture.snapshot(0), {
+      snapshot: fixture.snapshot(1),
+      store: { revision: 0, changed: [] },
+      publicationRevision: 1,
+      machineTurnRevision: 1,
+      cause: { _tag: "event", event: EvidenceEvent },
+    });
+    assert.ok(Result.isFailure(result));
+    assert.strictEqual(owner.hub.sequence(), 0);
+  });
+
+  it.effect("keeps later cleanup failure separate from prior accepted truth", () =>
+    Effect.gen(function* () {
+      const fixture = makeFixture();
+      const owner = makeRuntimeEvidenceOwner({
+        app: EvidenceApp,
+        plan: EvidencePlan,
+        clock: { now: Effect.succeed(1), sleepUntil: () => Effect.void },
+      });
+      const delivered: EvidenceRecord[] = [];
+      const sink = yield* makeEvidenceSink({
+        id: "later-cleanup",
+        deliver: (record) => Effect.sync(() => delivered.push(record)),
+      });
+      assert.ok(Result.isSuccess(owner.hub.attach(sink)));
+      const first = owner.acceptPublication(fixture.identity, fixture.fence, fixture.snapshot(0), {
+        snapshot: fixture.snapshot(1),
+        store: { revision: 0, changed: [] },
+        publicationRevision: 1,
+        machineTurnRevision: 1,
+        cause: { _tag: "event", event: EvidenceEvent },
+      } satisfies ActorPublication<typeof EvidenceDefinition>);
+      assert.ok(Result.isSuccess(first));
+
+      const lifecycle = resultSuccess(
+        prepareLifecycle<typeof EvidenceDefinition, string>(fixture.fence, {
+          _tag: "fresh",
+        }),
+      );
+      const cleanupCause = Cause.combine(Cause.fail("later cleanup"), Cause.die("later defect"));
+      const prepared = prepareLifecycleEvidence(owner.service, {
+        ...lifecycleFact(fixture.fence, lifecycle),
+        cause: { _tag: "cleanup-failure", exit: Exit.failCause(cleanupCause), cause: cleanupCause },
+      });
+      assert.ok(Result.isSuccess(prepared));
+      yield* owner.service.publish(lifecycle);
+      if (Result.isSuccess(prepared)) yield* owner.service.accept(prepared.success);
+      yield* owner.hub.drain();
+
+      assert.strictEqual(delivered.length, 2);
+      assert.strictEqual(delivered[0]?._tag, "turn");
+      assert.strictEqual(delivered[1]?._tag, "lifecycle");
+      if (delivered[0]?._tag === "turn" && delivered[1]?._tag === "lifecycle") {
+        assert.strictEqual(delivered[0].sequence, 1);
+        assert.strictEqual(delivered[0].provenance.actor.key, fixture.identity.key);
+        assert.strictEqual(delivered[1].evidenceSequence, 2);
+        // SAFETY: the second record was prepared with the cleanup-failure LifecycleCause envelope.
+        const cause = delivered[1].cause as { readonly _tag: string };
+        assert.strictEqual(cause._tag, "cleanup-failure");
+      }
+      yield* owner.close();
+    }),
+  );
+
+  it.effect("keeps evidence acknowledgement private and immutable", () =>
+    Effect.gen(function* () {
+      const fixture = makeFixture();
+      const hub = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
+      const reservation = reserve(hub);
+      const accepted = yield* acceptEvidence(
+        hub,
+        reservation,
+        resultSuccess(makeTurnRecord(turnFact(fixture, reservation), reservation)),
+      );
+      assert.strictEqual(Object.isFrozen(accepted.record), true);
+      assert.strictEqual(Object.isFrozen(accepted.sinks), true);
+      assert.strictEqual("completion" in accepted, false);
+    }),
+  );
+
+  it.effect("retains interrupted sink delivery during hub close", () =>
+    Effect.gen(function* () {
+      const fixture = makeFixture();
+      const hub = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
+      const entered = yield* Deferred.make<Fiber.Fiber<unknown, unknown>>();
+      const sink = yield* makeEvidenceSink({
+        id: "interrupted",
+        deliver: () =>
+          Effect.gen(function* () {
+            const deliveryFiber = yield* Effect.forkChild(Effect.never, {
+              startImmediately: true,
+            });
+            yield* Deferred.succeed(entered, deliveryFiber);
+            yield* Fiber.join(deliveryFiber);
+          }),
+      });
+      assert.ok(Result.isSuccess(hub.attach(sink)));
+      const reservation = reserve(hub);
+      yield* acceptEvidence(
+        hub,
+        reservation,
+        resultSuccess(makeTurnRecord(turnFact(fixture, reservation), reservation)),
+      );
+      const drain = yield* Effect.forkChild(Effect.exit(hub.drain()), { startImmediately: true });
+      const deliveryFiber = yield* Deferred.await(entered);
+      yield* Effect.exit(Fiber.interrupt(deliveryFiber));
+      const drainExit = yield* Fiber.join(drain);
+      assert.ok(Exit.isSuccess(drainExit));
+      if (Exit.isSuccess(drainExit)) {
+        assert.strictEqual(drainExit.value.sinks[0]?.status, "failed");
+        assert.strictEqual(drainExit.value.through, 1);
+      }
+      const closed = yield* closeEvidence(hub);
+      assert.strictEqual(closed.sinks[0]?.status, "failed");
+      assert.strictEqual(hub.sequence(), 1);
+    }),
+  );
+
+  it.effect("cancels failed evidence reservations without blocking the prefix", () =>
+    Effect.gen(function* () {
+      const fixture = makeFixture();
+      const hub = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
+      const failed = reserve(hub);
+      const later = reserve(hub);
+      assert.ok(Result.isSuccess(hub.cancel(failed)));
+      const accepted = yield* acceptEvidence(
+        hub,
+        later,
+        resultSuccess(makeTurnRecord(turnFact(fixture, later), later)),
+      );
+      assert.strictEqual(accepted.sequence, 2);
+      assert.strictEqual(hub.sequence(), 2);
+    }),
+  );
+
+  it.effect("preserves actor and lifecycle evidence order across one interleave", () =>
+    Effect.gen(function* () {
+      const fixture = makeFixture();
+      const tags: string[] = [];
+      const hub = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
+      const sink = yield* makeEvidenceSink({
+        id: "interleave",
+        deliver: (record) => Effect.sync(() => tags.push(record._tag)),
+      });
+      assert.ok(Result.isSuccess(hub.attach(sink)));
+      const actorReservation = reserve(hub);
+      const lifecycleReservation = reserve(hub);
+      const actorRecord = resultSuccess(
+        makeTurnRecord(turnFact(fixture, actorReservation), actorReservation),
+      );
+      const lifecycleRecord = resultSuccess(
+        makeLifecycleRecord(
+          lifecycleFact(
+            fixture.fence,
+            resultSuccess(
+              prepareLifecycle<typeof EvidenceDefinition, string>(fixture.fence, {
+                _tag: "restore",
+              }),
+            ),
+          ),
+          lifecycleReservation,
+        ),
+      );
+      const lifecycleFiber = yield* Effect.forkChild(
+        acceptEvidence(hub, lifecycleReservation, lifecycleRecord),
+      );
+      yield* Effect.yieldNow;
+      yield* acceptEvidence(hub, actorReservation, actorRecord);
+      yield* Fiber.join(lifecycleFiber);
+      yield* hub.drain();
+      assert.deepStrictEqual(tags, ["turn", "lifecycle"]);
+    }),
+  );
+
+  it.effect("drains the accepted prefix after a cancelled reservation", () =>
+    Effect.gen(function* () {
+      const fixture = makeFixture();
+      const hub = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
+      const first = reserve(hub);
+      const second = reserve(hub);
+      assert.ok(Result.isSuccess(hub.cancel(first)));
+      yield* acceptEvidence(
+        hub,
+        second,
+        resultSuccess(makeTurnRecord(turnFact(fixture, second), second)),
+      );
+      const drained = yield* drainAcceptedEvidence(hub);
+      assert.strictEqual(drained.through, 2);
+      assert.strictEqual(hub.sequence(), 2);
+    }),
+  );
+});

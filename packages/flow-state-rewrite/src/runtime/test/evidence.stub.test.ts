@@ -110,4 +110,22 @@ describe("runtime evidence", () => {
   // Assert: interruption is retained as sink cleanup state and accepted prefix policy remains explicit.
   // Regression: catches interrupted delivery being silently reported as success.
   it.todo("retains interrupted sink delivery during hub close");
+
+  // Fixture: a reservation whose timestamp or record construction fails before acceptance.
+  // Control: cancel the failed reservation, then reserve and accept the next record.
+  // Assert: the failed sequence does not permanently block the accepted prefix or sink delivery.
+  // Regression: catches SEM-004 evidence-prefix liveness failures after reservation cancellation.
+  it.todo("cancels failed evidence reservations without blocking the prefix");
+
+  // Fixture: lifecycle and actor facts from one accepted turn with adjacent sequence reservations.
+  // Control: interleave lifecycle publication and actor acceptance around one owner cut.
+  // Assert: the accepted prefix is [1, 2] in causal owner order and each fact has one reservation owner.
+  // Regression: catches SEM-004/SEM-005 interleavings that reorder lifecycle and actor evidence.
+  it.todo("preserves actor and lifecycle evidence order across one interleave");
+
+  // Fixture: a hub with one cancelled reservation before a later accepted reservation.
+  // Control: drain the hub after cancellation and inspect the prefix and sink acknowledgements.
+  // Assert: prefix advancement skips the tombstoned sequence deterministically and never waits forever.
+  // Regression: catches accepted-prefix drain deadlocks caused by missing cancellation tombstones.
+  it.todo("drains the accepted prefix after a cancelled reservation");
 });

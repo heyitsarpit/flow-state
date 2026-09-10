@@ -1,7 +1,7 @@
 import { Context, Effect, Result, type Types } from "effect";
 
 import { app, definition, machine, module, resource, runtimeSetup } from "../index.js";
-import type { Machine, Module, RequirementsOf } from "../index.js";
+import type { Module, RequirementsOf } from "../index.js";
 
 /*
  * Proof organization:
@@ -85,33 +85,39 @@ export type _MachineRequirements = Expect<
 export type _ModuleRequirements = Expect<Types.Equals<RequirementsOf<typeof requiredModule>, Repo>>;
 export type _TupleRequirements = Expect<Types.Equals<RequirementsOf<typeof tupleApp>, Repo>>;
 export type _TupleMachine = Expect<
-  Types.Equals<(typeof tupleApp.plan.machines)[number], typeof requiredMachine>
+  Types.Equals<typeof tupleApp.M.required, typeof requiredMachine>
 >;
 export type _TupleDescriptor = Expect<
-  Types.Equals<(typeof tupleApp.plan.descriptors)[number], typeof requiredResource>
+  Types.Equals<typeof tupleApp.M.required.definition.operations.repository, typeof requiredResource>
 >;
 export type _HomogeneousRequirements = Expect<
   Types.Equals<RequirementsOf<typeof homogeneousApp>, Repo>
 >;
 export type _HomogeneousMachine = Expect<
-  Types.Equals<(typeof homogeneousApp.plan.machines)[number], typeof requiredMachine>
+  Types.Equals<
+    (typeof homogeneousApp.modules)[number]["machines"]["required"],
+    typeof requiredMachine
+  >
 >;
 export type _HomogeneousDescriptor = Expect<
-  Types.Equals<(typeof homogeneousApp.plan.descriptors)[number], typeof requiredResource>
+  Types.Equals<
+    (typeof homogeneousApp.modules)[number]["machines"]["required"]["definition"]["operations"]["repository"],
+    typeof requiredResource
+  >
 >;
 
 export type _BroadRequirements = Expect<Types.Equals<RequirementsOf<typeof broadApp>, unknown>>;
 export type _ErasedRequirements = Expect<Types.Equals<RequirementsOf<Module>, unknown>>;
-export type _BroadMachine = Expect<Types.Equals<(typeof broadApp.plan.machines)[number], Machine>>;
+export type _BroadMachineKeys = Expect<Types.Equals<keyof typeof broadApp.M, never>>;
 
 export type _EmptyRequirements = Expect<Types.Equals<RequirementsOf<typeof emptyApp>, never>>;
-export type _EmptyMachine = Expect<Types.Equals<(typeof emptyApp.plan.machines)[number], never>>;
-export type _EmptyDescriptor = Expect<
-  Types.Equals<(typeof emptyApp.plan.descriptors)[number], never>
->;
+export type _EmptyMachineKeys = Expect<Types.Equals<keyof typeof emptyApp.M, never>>;
 
 // Negative authoring cases stay after the positive relationship assertions so their
 // Error directives remain attached to the exact rejected expressions.
+// @ts-expect-error AppPlan is package-private and absent from the public App value.
+export type _PrivateAppPlan = typeof tupleApp.plan;
+
 // @ts-expect-error Open module arrays do not guarantee a named App.M property.
 const namedHomogeneousMachine: typeof requiredMachine = homogeneousApp.M.required;
 

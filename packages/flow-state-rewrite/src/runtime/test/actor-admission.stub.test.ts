@@ -146,4 +146,10 @@ describe("actor admission", () => {
   // Assert: handle operations terminate through the actor fence and cannot revive the actor.
   // Regression: catches stale handles retaining mutation authority.
   it.todo("fences a public handle after its actor lease is released");
+
+  // Fixture: a hostile Proxy whose ownKeys or property descriptor trap throws during admission reflection.
+  // Control: submit it at the public admission boundary and inspect registry, mailbox, and lease state.
+  // Assert: the trap failure becomes a PublicDiagnostic/defect result without mutating admission state.
+  // Regression: catches PROOF-002/HOST-P01/SEM-029 reflection escaping Result-wrapped validation.
+  it.todo("contains hostile reflection during actor admission");
 });

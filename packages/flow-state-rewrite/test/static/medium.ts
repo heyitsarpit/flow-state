@@ -8,6 +8,23 @@ import type {
   RequirementsOf,
   StateOf,
 } from "../../src/index.js";
+import { actorRef } from "../../src/runtime/actor-ref.js";
+import {
+  makeActorIdentityRegistry,
+  type ActorContextSnapshot,
+  type ActorFence,
+  type ActorIdentity,
+  type ActorKey,
+  type LocalActorIdentity,
+} from "../../src/runtime/actor-admission.js";
+import type {
+  ContextBinding,
+  ContextProjection,
+  ContextSelection,
+  ContextWave,
+  PassiveObserver,
+  ProviderRevisionVector,
+} from "../../src/runtime/context-wave.js";
 import {
   Diagnostic,
   Implementation,
@@ -203,13 +220,112 @@ const StaticApp = app({
   ],
 });
 
-type AppPlanDescriptor = (typeof StaticApp.plan.descriptors)[number];
+const staticActorRegistry = makeActorIdentityRegistry();
+const staticStableRef = actorRef(editorMachine, "static-editor");
+const staticStableIdentity = staticActorRegistry.reserveStable(staticStableRef);
+const staticLocalIdentity = staticActorRegistry.createLocal(editorMachine);
 
-type AppPlanResource = Extract<AppPlanDescriptor, { readonly kind: "resource" }>;
+export type ActorIdentityProofs = readonly [
+  Expect<Types.Equals<ResultSuccess<typeof staticStableIdentity>, ActorIdentity<typeof Editor>>>,
+  Expect<
+    Types.Equals<ResultSuccess<typeof staticLocalIdentity>, LocalActorIdentity<typeof Editor>>
+  >,
+  Expect<
+    Types.Equals<
+      ResultSuccess<typeof staticStableIdentity>["ref"]["machine"],
+      typeof staticStableRef.machine
+    >
+  >,
+];
 
-type AppPlanTransaction = Extract<AppPlanDescriptor, { readonly kind: "transaction" }>;
+const staticContextProviderResult = definition({
+  id: "static/context-provider",
+  states: ["ready"],
+  events: {},
+});
+const StaticContextProvider = resultSuccess(staticContextProviderResult);
+const staticContextProviderMachine = resultSuccess(
+  machine(staticContextProviderResult, ({ S }) => ({
+    default: S.ready,
+    states: { ready: {} },
+  })),
+);
+const staticContextConsumerResult = definition({
+  id: "static/context-consumer",
+  states: ["ready"],
+  events: {},
+  context: {
+    selected: StaticContextProvider.select(({ state }) => state),
+  },
+});
+const StaticContextConsumer = resultSuccess(staticContextConsumerResult);
+const staticContextConsumerMachine = resultSuccess(
+  machine(staticContextConsumerResult, ({ S }) => ({
+    default: S.ready,
+    states: { ready: {} },
+  })),
+);
+const staticContextRegistry = makeActorIdentityRegistry();
+const staticContextProviderRef = actorRef(staticContextProviderMachine, "static-provider");
+const staticContextConsumerRef = actorRef(staticContextConsumerMachine, "static-consumer");
+const staticContextProviderIdentity = resultSuccess(
+  staticContextRegistry.reserveStable(staticContextProviderRef),
+);
+const staticContextConsumerIdentity = resultSuccess(
+  staticContextRegistry.reserveStable(staticContextConsumerRef),
+);
+const staticContextFence: ActorFence = {
+  key: staticContextProviderIdentity.key,
+  incarnation: staticContextProviderIdentity.incarnation,
+  generation: 0,
+  leaseEpoch: staticContextProviderIdentity.leaseEpoch,
+};
+const staticContextBinding = {
+  consumer: staticContextConsumerIdentity.key,
+  consumerIncarnation: staticContextConsumerIdentity.incarnation,
+  slot: "selected",
+  provider: staticContextProviderRef,
+  providerFence: staticContextFence,
+  select: ({ state }: ActorContextSnapshot<typeof StaticContextProvider>) => state,
+} satisfies ContextBinding<typeof StaticContextConsumer, typeof StaticContextProvider, "selected">;
+const staticContextSnapshot: ActorContextSnapshot<typeof StaticContextProvider> = {
+  state: StaticContextProvider.S.ready,
+  memory: {},
+  context: {},
+};
 
-type AppPlanStream = Extract<AppPlanDescriptor, { readonly kind: "stream" }>;
+export type ContextProofs = readonly [
+  Expect<Types.Equals<(typeof staticContextBinding)["slot"], "selected">>,
+  Expect<
+    Types.Equals<
+      (typeof staticContextBinding)["select"],
+      ContextBinding<
+        typeof StaticContextConsumer,
+        typeof StaticContextProvider,
+        "selected"
+      >["select"]
+    >
+  >,
+  Expect<
+    Types.Equals<typeof staticContextSnapshot, ActorContextSnapshot<typeof StaticContextProvider>>
+  >,
+  Expect<
+    Types.Equals<
+      ContextSelection<
+        typeof StaticContextConsumer,
+        typeof StaticContextProvider,
+        "selected"
+      >["value"],
+      StateOf<typeof StaticContextProvider>
+    >
+  >,
+  Expect<Types.Equals<ContextProjection<typeof StaticContextConsumer>["consumer"], ActorKey>>,
+  Expect<Types.Equals<ContextWave["providerRevision"], ProviderRevisionVector>>,
+  Expect<Types.Equals<PassiveObserver<ActorKey>["dependencies"], () => readonly ActorKey[]>>,
+];
+
+void staticContextBinding;
+void staticContextSnapshot;
 
 const repoImplementation = Implementation.succeed(ProjectRepo, {
   find: (id: string) => Effect.succeed({ id, title: "loaded" }),
@@ -276,9 +392,6 @@ export type AppProofs = readonly [
     Types.Equals<typeof StaticApp.M.editor.definition.operations.updates, typeof projectUpdates>
   >,
   Expect<Types.Equals<RequirementsOf<typeof editorMachine>, ProjectRepo | AuditSink | ProjectFeed>>,
-  Expect<Types.Equals<AppPlanResource, typeof projectResource>>,
-  Expect<Types.Equals<AppPlanTransaction, typeof saveProject>>,
-  Expect<Types.Equals<AppPlanStream, typeof projectUpdates>>,
   Expect<Types.Equals<RequirementsOf<typeof StaticApp>, ProjectRepo | AuditSink | ProjectFeed>>,
 ];
 

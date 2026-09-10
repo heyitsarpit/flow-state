@@ -6,7 +6,7 @@ import type { StateOf } from "../../definition/domain.js";
 import type * as Diagnostic from "../../diagnostic/diagnostic.js";
 import type { MachineSelectorInput } from "../../machine/grammar.js";
 import { machine, type Machine } from "../../machine/machine.js";
-import { app, module, type App, type AnyModule, type RequirementsOf } from "../app.js";
+import { app, appPlan, module, type App, type AnyModule, type RequirementsOf } from "../app.js";
 import { resource } from "../../operation/resource.js";
 import { stream } from "../../operation/stream.js";
 import { transaction } from "../../operation/transaction.js";
@@ -142,6 +142,9 @@ const OpenApp = app({
   persistenceVersion: "1",
   modules: openModules,
 });
+const AppValuePlan = appPlan(AppValue);
+const EmptyAppPlan = appPlan(EmptyApp);
+const OpenAppPlan = appPlan(OpenApp);
 
 export type _ModuleRequirements = Expect<
   Types.Equals<RequirementsOf<typeof EditorModule>, ProjectRepo>
@@ -159,35 +162,31 @@ export type _ProjectDescriptorId = Expect<
   Types.Equals<typeof AppValue.M.editor.definition.operations.project.id, "app-test/projects">
 >;
 export type _PlanDescriptorKind = Expect<
-  Types.Equals<(typeof AppValue.plan.descriptors)[number]["kind"], "resource">
+  Types.Equals<(typeof AppValuePlan.descriptors)[number]["kind"], "resource">
 >;
 export type _PlanDescriptorId = Expect<
-  Types.Equals<(typeof AppValue.plan.descriptors)[number]["id"], "app-test/projects">
+  Types.Equals<(typeof AppValuePlan.descriptors)[number]["id"], "app-test/projects">
 >;
 export type _PlanDescriptorRequirements = Expect<
-  Types.Equals<RequirementsOf<(typeof AppValue.plan.descriptors)[number]>, ProjectRepo>
+  Types.Equals<RequirementsOf<(typeof AppValuePlan.descriptors)[number]>, ProjectRepo>
 >;
 export type _PlanMachine = Expect<
-  Types.Equals<(typeof AppValue.plan.machines)[number], typeof editorMachine | typeof viewerMachine>
+  Types.Equals<(typeof AppValuePlan.machines)[number], typeof editorMachine | typeof viewerMachine>
 >;
 export type _PlanResolvedMachine = Expect<
   Types.Equals<
-    NonNullable<ReturnType<typeof AppValue.plan.resolveMachine>>,
+    NonNullable<ReturnType<typeof AppValuePlan.resolveMachine>>,
     typeof editorMachine | typeof viewerMachine
   >
 >;
 export type _PlanAdmittedMachine = Expect<
   Types.Equals<
-    Parameters<typeof AppValue.plan.admitsMachine>[0],
+    Parameters<typeof AppValuePlan.admitsMachine>[0],
     typeof editorMachine | typeof viewerMachine
   >
 >;
-export type _EmptyPlanMachine = Expect<
-  Types.Equals<(typeof EmptyApp.plan.machines)[number], never>
->;
-export type _OpenPlanMachine = Expect<
-  Types.Equals<(typeof OpenApp.plan.machines)[number], Machine>
->;
+export type _EmptyPlanMachine = Expect<Types.Equals<(typeof EmptyAppPlan.machines)[number], never>>;
+export type _OpenPlanMachine = Expect<Types.Equals<(typeof OpenAppPlan.machines)[number], Machine>>;
 
 const invalidApp = (modules: readonly AnyModule[]) => {
   assert.throws(() => app({ id: "app-test-invalid", persistenceVersion: "1", modules }));
@@ -202,32 +201,33 @@ describe("app composition", () => {
     it("preserves exact keyed admission and requirement closure", () => {
       const appValue: App<"app-test", "1", readonly [typeof EditorModule, typeof ViewerModule]> =
         AppValue;
+      const plan = appPlan(appValue);
 
       assert.strictEqual(appValue.kind, "app");
       assert.strictEqual(appValue.M.editor, editorMachine);
       assert.strictEqual(appValue.M.viewer, viewerMachine);
       assert.strictEqual(appValue.M.editor.definition, Editor);
       assert.strictEqual(appValue.M.editor.definition.operations.project, projectResource);
-      assert.deepStrictEqual(appValue.plan.machines, [editorMachine, viewerMachine]);
-      assert.strictEqual(appValue.plan.machines[0], appValue.M.editor);
-      assert.strictEqual(appValue.plan.machines[1], appValue.M.viewer);
-      assert.strictEqual(appValue.plan.descriptors[0], projectResource);
-      assert.strictEqual(appValue.plan.resolveDescriptor(projectResource.id), projectResource);
+      assert.deepStrictEqual(plan.machines, [editorMachine, viewerMachine]);
+      assert.strictEqual(plan.machines[0], appValue.M.editor);
+      assert.strictEqual(plan.machines[1], appValue.M.viewer);
+      assert.strictEqual(plan.descriptors[0], projectResource);
+      assert.strictEqual(plan.resolveDescriptor(projectResource.id), projectResource);
       assert.strictEqual(Reflect.set(projectResource, "kind", "stream"), false);
       assert.strictEqual(Reflect.set(projectResource, "id", "app-test/changed"), false);
-      assert.strictEqual(appValue.plan.descriptors[0], projectResource);
-      assert.strictEqual(appValue.plan.resolveDescriptor("app-test/projects"), projectResource);
-      assert.strictEqual(appValue.plan.resolveDescriptor("app-test/changed"), undefined);
-      assert.strictEqual(appValue.plan.resolveMachine(editorMachine.definition.id), editorMachine);
-      assert.strictEqual(appValue.plan.admitsMachine(editorMachine), true);
-      assert.strictEqual(appValue.plan.admitsMachine(viewerMachine), true);
+      assert.strictEqual(plan.descriptors[0], projectResource);
+      assert.strictEqual(plan.resolveDescriptor("app-test/projects"), projectResource);
+      assert.strictEqual(plan.resolveDescriptor("app-test/changed"), undefined);
+      assert.strictEqual(plan.resolveMachine(editorMachine.definition.id), editorMachine);
+      assert.strictEqual(plan.admitsMachine(editorMachine), true);
+      assert.strictEqual(plan.admitsMachine(viewerMachine), true);
       for (const candidate of [null, undefined, {}, { definition: null }]) {
         assert.strictEqual(
-          Function.prototype.call.call(appValue.plan.admitsMachine, undefined, candidate),
+          Function.prototype.call.call(plan.admitsMachine, undefined, candidate),
           false,
         );
         assert.strictEqual(
-          Function.prototype.call.call(appValue.plan.admitsDescriptor, undefined, candidate),
+          Function.prototype.call.call(plan.admitsDescriptor, undefined, candidate),
           false,
         );
       }
@@ -239,15 +239,16 @@ describe("app composition", () => {
         persistenceVersion: "1",
         modules: [EditorModule, ViewerModule],
       });
+      const plan = appPlan(appValue);
 
-      assert.deepStrictEqual(appValue.plan.machines, [editorMachine, viewerMachine]);
-      assert.deepStrictEqual(appValue.plan.descriptors, [projectResource]);
-      assert.strictEqual(Reflect.set(appValue.plan.machines, "length", 0), true);
-      assert.strictEqual(Reflect.set(appValue.plan.descriptors, "length", 0), true);
-      assert.strictEqual(appValue.plan.resolveMachine(editorMachine.definition.id), editorMachine);
-      assert.strictEqual(appValue.plan.resolveDescriptor(projectResource.id), projectResource);
-      assert.strictEqual(appValue.plan.admitsMachine(editorMachine), true);
-      assert.strictEqual(appValue.plan.admitsDescriptor(projectResource), true);
+      assert.deepStrictEqual(plan.machines, [editorMachine, viewerMachine]);
+      assert.deepStrictEqual(plan.descriptors, [projectResource]);
+      assert.strictEqual(Reflect.set(plan.machines, "length", 0), true);
+      assert.strictEqual(Reflect.set(plan.descriptors, "length", 0), true);
+      assert.strictEqual(plan.resolveMachine(editorMachine.definition.id), editorMachine);
+      assert.strictEqual(plan.resolveDescriptor(projectResource.id), projectResource);
+      assert.strictEqual(plan.admitsMachine(editorMachine), true);
+      assert.strictEqual(plan.admitsDescriptor(projectResource), true);
     });
 
     it("keeps every operation family identity stable in the AppPlan index", () => {
@@ -281,15 +282,16 @@ describe("app composition", () => {
           module({ id: "app-test/operation-families-module", machines: { editor: machineValue } }),
         ],
       });
-      const descriptors = appValue.plan.descriptors;
+      const plan = appPlan(appValue);
+      const descriptors = plan.descriptors;
 
       assert.strictEqual(appValue.M.editor.definition, definitionValue);
       assert.deepStrictEqual(descriptors, [projectResource, save, updates]);
       for (const descriptor of descriptors) {
-        assert.strictEqual(appValue.plan.resolveDescriptor(descriptor.id), descriptor);
+        assert.strictEqual(plan.resolveDescriptor(descriptor.id), descriptor);
         assert.strictEqual(Reflect.set(descriptor, "kind", "resource"), false);
         assert.strictEqual(Reflect.set(descriptor, "id", "app-test/changed"), false);
-        assert.strictEqual(appValue.plan.resolveDescriptor(descriptor.id), descriptor);
+        assert.strictEqual(plan.resolveDescriptor(descriptor.id), descriptor);
       }
     });
   });
@@ -413,12 +415,13 @@ describe("app composition", () => {
           persistenceVersion: "1",
           modules: [EditorModule],
         });
+        const plan = appPlan(capturedApp);
 
-        assert.deepStrictEqual(capturedApp.plan.machines, [editorMachine]);
+        assert.deepStrictEqual(plan.machines, [editorMachine]);
         assert.strictEqual(capturedApp.M.editor, editorMachine);
         assert.strictEqual(Object.hasOwn(capturedApp.M, "viewer"), false);
         assert.strictEqual(
-          Function.prototype.call.call(capturedApp.plan.admitsMachine, undefined, viewerMachine),
+          Function.prototype.call.call(plan.admitsMachine, undefined, viewerMachine),
           false,
         );
       } finally {
@@ -446,28 +449,21 @@ describe("app composition", () => {
           persistenceVersion: "1",
           modules: [EditorModule],
         });
+        const plan = appPlan(capturedApp);
 
         const descriptors: readonly (typeof projectResource | typeof addedDescriptor)[] = [
           projectResource,
           addedDescriptor,
         ];
-        assert.deepStrictEqual(capturedApp.plan.descriptors, descriptors);
-        assert.strictEqual(capturedApp.plan.resolveDescriptor(projectResource.id), projectResource);
+        assert.deepStrictEqual(plan.descriptors, descriptors);
+        assert.strictEqual(plan.resolveDescriptor(projectResource.id), projectResource);
         assert.strictEqual(
-          Function.prototype.call.call(
-            capturedApp.plan.resolveDescriptor,
-            undefined,
-            addedDescriptor.id,
-          ),
+          Function.prototype.call.call(plan.resolveDescriptor, undefined, addedDescriptor.id),
           addedDescriptor,
         );
-        assert.strictEqual(capturedApp.plan.admitsDescriptor(projectResource), true);
+        assert.strictEqual(plan.admitsDescriptor(projectResource), true);
         assert.strictEqual(
-          Function.prototype.call.call(
-            capturedApp.plan.admitsDescriptor,
-            undefined,
-            addedDescriptor,
-          ),
+          Function.prototype.call.call(plan.admitsDescriptor, undefined, addedDescriptor),
           true,
         );
       } finally {
@@ -776,10 +772,11 @@ describe("app composition", () => {
         persistenceVersion: "1",
         modules: [module({ id: "app-test/inert-module", machines: { inert: InertMachine } })],
       });
+      const plan = appPlan(InertApp);
 
       assert.strictEqual(initializerCalls, 0);
-      assert.strictEqual(InertApp.plan.admitsMachine(InertMachine), true);
-      assert.strictEqual(InertApp.plan.resolveMachine("missing"), undefined);
+      assert.strictEqual(plan.admitsMachine(InertMachine), true);
+      assert.strictEqual(plan.resolveMachine("missing"), undefined);
     });
 
     // App preserves retained identities without runtime freezes.
@@ -926,10 +923,10 @@ describe("app composition", () => {
     // Rationale: App indexes exact descriptor identities held by machine values.
     it("indexes only admitted descriptor identities", () => {
       const projectDescriptor = editorMachine.definition.operations.project;
-      assert.strictEqual(AppValue.plan.resolveDescriptor(projectResource.id), projectDescriptor);
-      assert.strictEqual(AppValue.plan.admitsDescriptor(projectDescriptor), true);
-      assert.strictEqual(AppValue.plan.admitsDescriptor(projectResource), true);
-      assert.strictEqual(AppValue.plan.admitsDescriptor(duplicateProjectResource), false);
+      assert.strictEqual(AppValuePlan.resolveDescriptor(projectResource.id), projectDescriptor);
+      assert.strictEqual(AppValuePlan.admitsDescriptor(projectDescriptor), true);
+      assert.strictEqual(AppValuePlan.admitsDescriptor(projectResource), true);
+      assert.strictEqual(AppValuePlan.admitsDescriptor(duplicateProjectResource), false);
       assert.throws(() =>
         app({
           id: "app-test/duplicate-descriptor-app",
@@ -957,7 +954,7 @@ describe("app composition", () => {
 
       assert.strictEqual(sharedApp.M.editor.definition.operations.project, projectResource);
       assert.strictEqual(sharedApp.M.shared.definition.operations.project, projectResource);
-      assert.strictEqual(sharedApp.plan.resolveDescriptor(projectResource.id), projectResource);
+      assert.strictEqual(appPlan(sharedApp).resolveDescriptor(projectResource.id), projectResource);
     });
 
     it("rejects lossy machine registry reflection before publication", () => {
@@ -1027,7 +1024,7 @@ describe("app composition", () => {
         }),
       );
 
-      assert.strictEqual(AppValue.plan.admitsMachine(editorMachine), true);
+      assert.strictEqual(AppValuePlan.admitsMachine(editorMachine), true);
     });
 
     it("reports a later malformed module before an earlier duplicate", () => {
@@ -1048,7 +1045,7 @@ describe("app composition", () => {
       assert.throws(() =>
         module({ id: "app-test/forged-machine", machines: { forged: forgedMachine } }),
       );
-      assert.strictEqual(AppValue.plan.admitsMachine(forgedMachine), false);
+      assert.strictEqual(AppValuePlan.admitsMachine(forgedMachine), false);
     });
 
     // Rationale: module keys, machine values, and machine IDs form one closed duplicate policy.
@@ -1072,7 +1069,7 @@ describe("app composition", () => {
     it("has no dynamic, automatic-root, or generic operation admission", () => {
       assert.strictEqual(Object.hasOwn(AppValue, "dynamicMachines"), false);
       assert.strictEqual(Object.hasOwn(AppValue.M, "missing"), false);
-      assert.strictEqual(AppValue.plan.admitsMachine(viewerMachine), true);
+      assert.strictEqual(AppValuePlan.admitsMachine(viewerMachine), true);
     });
   });
 });

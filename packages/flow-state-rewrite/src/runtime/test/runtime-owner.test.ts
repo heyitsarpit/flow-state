@@ -1,7 +1,14 @@
 import { assert, describe, it } from "@effect/vitest";
-import { Cause, Context, Deferred, Effect, Exit, Fiber, type Types } from "effect";
+import { Cause, Context, Deferred, Effect, Exit, Fiber, Result, type Types } from "effect";
 
+import { app, module } from "../../app/app.js";
+import { definition } from "../../definition/definition.js";
 import { makeRuntimeOwner } from "../runtime-owner.js";
+import { Failure } from "../../diagnostic/diagnostic.js";
+import { machine } from "../../machine/machine.js";
+import { actorRef } from "../actor-ref.js";
+import { prepareActorSnapshot } from "../actor-engine.js";
+import { runtimeOwner, runtimeSetup } from "../runtime.js";
 
 class FirstService extends Context.Service<FirstService, string>()(
   "RuntimeOwnerTest/FirstService",
@@ -26,6 +33,39 @@ class OrderedSecondService extends Context.Service<OrderedSecondService, Ordered
 class OrderedThirdService extends Context.Service<OrderedThirdService, OrderedThird>()(
   "RuntimeOwnerTest/OrderedThirdService",
 ) {}
+
+const HandleDefinitionResult = definition({
+  id: "runtime-owner/handle",
+  states: ["ready"],
+  events: { opened: "bare" },
+});
+const HandleDefinition = Result.getOrThrow(HandleDefinitionResult);
+const HandleMachine = Result.getOrThrow(
+  machine(HandleDefinitionResult, ({ S }) => ({
+    default: S.ready,
+    states: { ready: { on: { opened: { target: S.ready } } } },
+  })),
+);
+const HandleApp = app({
+  id: "runtime-owner/handle-app",
+  persistenceVersion: "1",
+  modules: [module({ id: "runtime-owner/handle-module", machines: { handle: HandleMachine } })],
+});
+const HandleEvent = Result.getOrThrow(HandleDefinition.E.opened());
+const initialHandleSnapshot = () =>
+  Result.getOrThrow(
+    prepareActorSnapshot(HandleMachine, {
+      state: HandleDefinition.S.ready,
+      memory: {},
+      context: {},
+      lifecycle: "prepared",
+      operations: [],
+      timers: [],
+      issues: [],
+      revision: 0,
+      observedStoreRevision: 0,
+    }),
+  );
 
 type Probe = {
   readonly acquisitions: Array<string>;
@@ -257,7 +297,8 @@ describe("runtime owner", () => {
         cleanups: ["first"],
         visible: [],
       });
-      yield* interruptionOwner.close();
+      const interruptionCloseExit = yield* Effect.exit(interruptionOwner.close());
+      assert.deepStrictEqual(interruptionCloseExit, interruptionExit);
       assert.deepStrictEqual(interruptionProbe.cleanups, ["first"]);
     }),
   );
@@ -633,6 +674,733 @@ describe("runtime owner", () => {
         assert.strictEqual(Cause.hasDies(interruptionExit.cause), false);
       }
       assert.deepStrictEqual(interruptionTrace, ["start1", "start2", "release1"]);
+    }),
+  );
+
+  it.effect("disposal wins bootstrap and cleans the acquired prefix once in reverse order", () =>
+    Effect.gen(function* () {
+      const secondAcquisitionGate = yield* Deferred.make<void>();
+      const thirdAcquisitionEntered = yield* Deferred.make<void>();
+      const thirdAcquisitionGate = yield* Deferred.make<void>();
+      const secondCleanupEntered = yield* Deferred.make<void>();
+      const secondCleanupGate = yield* Deferred.make<void>();
+      const firstCleanupEntered = yield* Deferred.make<void>();
+      const firstCleanupGate = yield* Deferred.make<void>();
+      const trace: Array<string> = [];
+      const visible: Array<string> = [];
+      const cleanupDefect = new Error("second-cleanup-defect");
+
+      const owner = makeRuntimeOwner({
+        providers: [
+          {
+            service: OrderedFirstService,
+            acquire: Effect.acquireRelease(
+              Effect.sync(() => {
+                trace.push("acquire:first");
+                return { id: "first" } as const;
+              }),
+              () =>
+                Effect.gen(function* () {
+                  trace.push("release:first:start");
+                  yield* Deferred.succeed(firstCleanupEntered, undefined);
+                  yield* Deferred.await(firstCleanupGate);
+                  trace.push("release:first:end");
+                }),
+            ),
+          },
+          {
+            service: OrderedSecondService,
+            acquire: Effect.acquireRelease(
+              Effect.gen(function* () {
+                trace.push("acquire:second:start");
+                yield* Deferred.await(secondAcquisitionGate);
+                trace.push("acquire:second:end");
+                return { id: "second" } as const;
+              }),
+              () =>
+                Effect.gen(function* () {
+                  trace.push("release:second:start");
+                  yield* Deferred.succeed(secondCleanupEntered, undefined);
+                  yield* Deferred.await(secondCleanupGate);
+                  trace.push("release:second:end");
+                  yield* Effect.die(cleanupDefect);
+                }),
+              { interruptible: true },
+            ),
+          },
+          {
+            service: OrderedThirdService,
+            acquire: Effect.acquireRelease(
+              Effect.gen(function* () {
+                trace.push("acquire:third:start");
+                yield* Deferred.succeed(thirdAcquisitionEntered, undefined);
+                yield* Deferred.await(thirdAcquisitionGate);
+                return { id: "third" } as const;
+              }),
+              () => Effect.sync(() => trace.push("release:third")),
+              { interruptible: true },
+            ),
+          },
+        ],
+        expose: Effect.sync(() => {
+          visible.push("exposed");
+          return "exposed";
+        }),
+      });
+
+      const readyLeader = yield* Effect.forkChild(owner.ready(), {
+        startImmediately: true,
+      });
+      yield* Deferred.succeed(secondAcquisitionGate, undefined);
+      yield* Deferred.await(thirdAcquisitionEntered);
+      const readyWaiter = yield* Effect.forkChild(Effect.exit(owner.ready()), {
+        startImmediately: true,
+      });
+
+      const disposeLeader = yield* Effect.forkChild(Effect.exit(owner.close()), {
+        startImmediately: true,
+      });
+      const disposeWaiter = yield* Effect.forkChild(Effect.exit(owner.close()), {
+        startImmediately: true,
+      });
+      yield* Deferred.succeed(thirdAcquisitionGate, undefined);
+      yield* Deferred.succeed(secondCleanupGate, undefined);
+      yield* Deferred.succeed(firstCleanupGate, undefined);
+
+      const readyLeaderExit = yield* Fiber.await(readyLeader);
+      const readyWaiterExit = yield* Fiber.join(readyWaiter);
+      const disposeLeaderExit = yield* Fiber.join(disposeLeader);
+      const disposeWaiterExit = yield* Fiber.join(disposeWaiter);
+
+      assert.strictEqual(readyWaiterExit, readyLeaderExit);
+      assert.ok(Exit.isFailure(readyLeaderExit));
+      if (Exit.isFailure(readyLeaderExit)) {
+        assert.strictEqual(Cause.hasInterrupts(readyLeaderExit.cause), true);
+        assert.strictEqual(Cause.hasFails(readyLeaderExit.cause), false);
+        assert.strictEqual(Cause.hasDies(readyLeaderExit.cause), true);
+        const cleanupReason = readyLeaderExit.cause.reasons.find(
+          (reason) => Cause.isDieReason(reason) && reason.defect === cleanupDefect,
+        );
+        assert.ok(cleanupReason !== undefined);
+      }
+      assert.strictEqual(disposeWaiterExit, disposeLeaderExit);
+      assert.ok(Exit.isFailure(disposeLeaderExit));
+      if (Exit.isFailure(disposeLeaderExit) && Exit.isFailure(readyLeaderExit)) {
+        assert.strictEqual(disposeLeaderExit.cause, readyLeaderExit.cause);
+      }
+      assert.strictEqual(yield* Effect.exit(owner.ready()), readyLeaderExit);
+      assert.strictEqual(yield* Effect.exit(owner.close()), disposeLeaderExit);
+      assert.deepStrictEqual(trace, [
+        "acquire:first",
+        "acquire:second:start",
+        "acquire:second:end",
+        "acquire:third:start",
+        "release:second:start",
+        "release:second:end",
+        "release:first:start",
+        "release:first:end",
+      ]);
+      assert.deepStrictEqual(visible, []);
+    }),
+  );
+
+  it.effect("preserves every terminal Cause lane without retry", () =>
+    Effect.gen(function* () {
+      const thrownDefect = new Error("thrown-defect");
+      const mixedDefect = new Error("mixed-defect");
+      const typedCause = Cause.fail("typed-failure");
+      const interruptCause = Cause.interrupt(17);
+      const typedAndInterruptCause = Cause.fromReasons([
+        Cause.makeInterruptReason(17),
+        Cause.makeFailReason("typed-and-interrupted"),
+      ]);
+      const mixedCause = Cause.fromReasons([
+        Cause.makeInterruptReason(17),
+        Cause.makeFailReason("mixed-failure"),
+        Cause.makeDieReason(mixedDefect),
+      ]);
+      const emptyCause = Cause.empty;
+
+      type TerminalClassification = "defect" | "typed" | "interruption" | "invariant-defect";
+      const cases: ReadonlyArray<{
+        readonly effect: Effect.Effect<never, string>;
+        readonly expectedCause: Cause.Cause<string>;
+        readonly expectedClassification: TerminalClassification;
+      }> = [
+        {
+          effect: Effect.failCause(typedCause),
+          expectedCause: typedCause,
+          expectedClassification: "typed",
+        },
+        {
+          effect: Effect.sync(() => {
+            // oxlint-disable-next-line anti-slop/no-throw-in-effect-gen -- this fixture proves callback throws remain defects.
+            throw thrownDefect;
+          }),
+          expectedCause: Cause.die(thrownDefect),
+          expectedClassification: "defect",
+        },
+        {
+          effect: Effect.failCause(interruptCause),
+          expectedCause: interruptCause,
+          expectedClassification: "interruption",
+        },
+        {
+          effect: Effect.failCause(typedAndInterruptCause),
+          expectedCause: typedAndInterruptCause,
+          expectedClassification: "typed",
+        },
+        {
+          effect: Effect.failCause(mixedCause),
+          expectedCause: mixedCause,
+          expectedClassification: "defect",
+        },
+        {
+          effect: Effect.failCause(emptyCause),
+          expectedCause: emptyCause,
+          expectedClassification: "invariant-defect",
+        },
+      ];
+
+      const classify = (cause: Cause.Cause<unknown>) => {
+        if (Cause.hasDies(cause)) return "defect";
+        if (Cause.hasFails(cause)) return "typed";
+        if (Cause.hasInterruptsOnly(cause)) return "interruption";
+        return "invariant-defect";
+      };
+
+      for (const scenario of cases) {
+        let acquisitions = 0;
+        const owner = makeRuntimeOwner({
+          providers: [
+            {
+              service: FirstService,
+              acquire: Effect.sync(() => {
+                acquisitions += 1;
+                return "service";
+              }),
+            },
+          ],
+          expose: scenario.effect,
+        });
+
+        const firstExit = yield* Effect.exit(owner.ready());
+        const repeatedExit = yield* Effect.exit(owner.ready());
+        assert.strictEqual(repeatedExit, firstExit);
+        assert.strictEqual(acquisitions, 1);
+        assert.ok(Exit.isFailure(firstExit));
+        if (Exit.isFailure(firstExit)) {
+          assert.strictEqual(classify(firstExit.cause), scenario.expectedClassification);
+          assert.deepStrictEqual(firstExit.cause, scenario.expectedCause);
+          assert.strictEqual(firstExit.cause.reasons.length, scenario.expectedCause.reasons.length);
+
+          for (const [index, expectedReason] of scenario.expectedCause.reasons.entries()) {
+            const actualReason = firstExit.cause.reasons[index];
+            if (actualReason === undefined) {
+              assert.fail(`Missing terminal Cause reason at index ${index}`);
+            }
+            assert.strictEqual(actualReason._tag, expectedReason._tag);
+            if (Cause.isFailReason(expectedReason) && Cause.isFailReason(actualReason)) {
+              assert.strictEqual(actualReason.error, expectedReason.error);
+            }
+            if (Cause.isDieReason(expectedReason) && Cause.isDieReason(actualReason)) {
+              assert.strictEqual(actualReason.defect, expectedReason.defect);
+            }
+            if (Cause.isInterruptReason(expectedReason) && Cause.isInterruptReason(actualReason)) {
+              assert.strictEqual(actualReason.fiberId, expectedReason.fiberId);
+            }
+          }
+        }
+      }
+
+      const primaryAcquisitionFailure = { _tag: "primary-acquisition-failure" } as const;
+      const primaryAcquisitionCause = Cause.fail(primaryAcquisitionFailure);
+      const typedCleanupFailure = { _tag: "typed-cleanup-failure" } as const;
+      const typedCleanupCause = Cause.fail(typedCleanupFailure);
+      const cleanupDefect = new Error("cleanup-defect");
+      const cleanupDefectCause = Cause.die(cleanupDefect);
+      const cleanupInterruptionCause = Cause.interrupt(23);
+      const cleanupCases = [
+        {
+          cleanup: "success",
+          expectedCause: primaryAcquisitionCause,
+          expectedClassification: "typed",
+        },
+        {
+          cleanup: "defect",
+          expectedCause: Cause.combine(primaryAcquisitionCause, cleanupDefectCause),
+          expectedClassification: "defect",
+        },
+        {
+          cleanup: "typed",
+          expectedCause: Cause.combine(primaryAcquisitionCause, typedCleanupCause),
+          expectedClassification: "typed",
+        },
+        {
+          cleanup: "interruption",
+          expectedCause: Cause.combine(primaryAcquisitionCause, cleanupInterruptionCause),
+          expectedClassification: "typed",
+        },
+      ] as const;
+
+      for (const cleanupCase of cleanupCases) {
+        let acquisitions = 0;
+        let cleanupRuns = 0;
+        const acquireService = Effect.sync(() => {
+          acquisitions += 1;
+          return "service";
+        });
+        const typedCleanupRelease = () => {
+          cleanupRuns += 1;
+          return Effect.fail(typedCleanupFailure);
+        };
+        const normalCleanupRelease = () =>
+          Effect.gen(function* () {
+            cleanupRuns += 1;
+            if (cleanupCase.cleanup === "defect") {
+              yield* Effect.die(cleanupDefect);
+            }
+            if (cleanupCase.cleanup === "interruption") {
+              yield* Effect.failCause(cleanupInterruptionCause);
+            }
+          });
+        const acquireWithRelease =
+          cleanupCase.cleanup === "typed"
+            ? Effect.acquireRelease(
+                acquireService,
+                // @ts-expect-error rc.112 finalizer errors are typed as never, but this fixture proves the runtime Cause is retained.
+                typedCleanupRelease,
+              )
+            : Effect.acquireRelease(acquireService, normalCleanupRelease);
+        const owner = makeRuntimeOwner({
+          providers: [
+            {
+              service: FirstService,
+              acquire: acquireWithRelease,
+            },
+            {
+              service: SecondService,
+              acquire: Effect.failCause(primaryAcquisitionCause),
+            },
+          ],
+          expose: Effect.succeed(undefined),
+        });
+
+        const firstExit = yield* Effect.exit(owner.ready());
+        const repeatedExit = yield* Effect.exit(owner.ready());
+        assert.strictEqual(repeatedExit, firstExit);
+        assert.strictEqual(acquisitions, 1);
+        assert.strictEqual(cleanupRuns, 1);
+        assert.ok(Exit.isFailure(firstExit));
+        if (Exit.isFailure(firstExit)) {
+          assert.strictEqual(classify(firstExit.cause), cleanupCase.expectedClassification);
+          assert.deepStrictEqual(firstExit.cause, cleanupCase.expectedCause);
+          assert.strictEqual(
+            firstExit.cause.reasons.length,
+            cleanupCase.expectedCause.reasons.length,
+          );
+
+          for (const [index, expectedReason] of cleanupCase.expectedCause.reasons.entries()) {
+            const actualReason = firstExit.cause.reasons[index];
+            if (actualReason === undefined) {
+              assert.fail(`Missing cleanup Cause reason at index ${index}`);
+            }
+            assert.strictEqual(actualReason._tag, expectedReason._tag);
+            if (Cause.isFailReason(expectedReason) && Cause.isFailReason(actualReason)) {
+              assert.strictEqual(actualReason.error, expectedReason.error);
+            }
+            if (Cause.isDieReason(expectedReason) && Cause.isDieReason(actualReason)) {
+              assert.strictEqual(actualReason.defect, expectedReason.defect);
+            }
+          }
+        }
+      }
+    }),
+  );
+
+  it.effect("constructs an inert owner shell with exact input identities", () =>
+    Effect.gen(function* () {
+      let acquisitions = 0;
+      const owner = makeRuntimeOwner({
+        providers: [{ kind: "succeed", service: FirstService, value: "inert" }],
+        expose: Effect.sync(() => {
+          acquisitions += 1;
+          return "exposed";
+        }),
+      });
+      assert.strictEqual(acquisitions, 0);
+      assert.ok(owner.ready);
+      assert.ok(owner.close);
+      yield* owner.close();
+      assert.strictEqual(acquisitions, 0);
+    }),
+  );
+
+  it.effect("starts one readiness leader for one owner", () =>
+    Effect.gen(function* () {
+      const entered = yield* Deferred.make<void>();
+      const gate = yield* Deferred.make<void>();
+      let acquisitions = 0;
+      const owner = makeRuntimeOwner({
+        providers: [
+          {
+            service: FirstService,
+            acquire: Effect.gen(function* () {
+              acquisitions += 1;
+              yield* Deferred.succeed(entered, undefined);
+              yield* Deferred.await(gate);
+              return "ready";
+            }),
+          },
+        ],
+        expose: Effect.service(FirstService),
+      });
+      const ready = yield* Effect.forkChild(owner.ready());
+      yield* Deferred.await(entered);
+      assert.strictEqual(acquisitions, 1);
+      yield* Deferred.succeed(gate, undefined);
+      assert.strictEqual(yield* Fiber.join(ready), "ready");
+      yield* owner.close();
+    }),
+  );
+
+  it.effect("joins concurrent readiness callers on one terminal", () =>
+    Effect.gen(function* () {
+      const entered = yield* Deferred.make<void>();
+      const gate = yield* Deferred.make<void>();
+      let acquisitions = 0;
+      const owner = makeRuntimeOwner({
+        providers: [
+          {
+            service: FirstService,
+            acquire: Effect.gen(function* () {
+              acquisitions += 1;
+              yield* Deferred.succeed(entered, undefined);
+              yield* Deferred.await(gate);
+              return "shared";
+            }),
+          },
+        ],
+        expose: Effect.service(FirstService),
+      });
+      const first = yield* Effect.forkChild(owner.ready());
+      yield* Deferred.await(entered);
+      const second = yield* Effect.forkChild(owner.ready());
+      yield* Deferred.succeed(gate, undefined);
+      assert.strictEqual(yield* Fiber.join(first), "shared");
+      assert.strictEqual(yield* Fiber.join(second), "shared");
+      assert.strictEqual(acquisitions, 1);
+      yield* owner.close();
+    }),
+  );
+
+  it.effect("caches successful readiness and preserves the assembled context", () =>
+    Effect.gen(function* () {
+      const service = "stable";
+      let acquisitions = 0;
+      const owner = makeRuntimeOwner({
+        providers: [
+          {
+            service: FirstService,
+            acquire: Effect.sync(() => {
+              acquisitions += 1;
+              return service;
+            }),
+          },
+        ],
+        expose: Effect.service(FirstService),
+      });
+      const first = yield* owner.ready();
+      const second = yield* owner.ready();
+      assert.strictEqual(first, service);
+      assert.strictEqual(second, service);
+      assert.strictEqual(acquisitions, 1);
+      yield* owner.close();
+    }),
+  );
+
+  it.effect("caches typed readiness failure without retry", () =>
+    Effect.gen(function* () {
+      let attempts = 0;
+      const failure = "typed-ready-failure" as const;
+      const owner = makeRuntimeOwner({
+        providers: [
+          {
+            service: FirstService,
+            acquire: Effect.sync(() => {
+              attempts += 1;
+              return Effect.fail(failure);
+            }).pipe(Effect.flatten),
+          },
+        ],
+        expose: Effect.service(FirstService),
+      });
+      const first = yield* Effect.exit(owner.ready());
+      const second = yield* Effect.exit(owner.ready());
+      assert.deepStrictEqual(second, first);
+      assert.strictEqual(attempts, 1);
+      assert.ok(Exit.isFailure(first));
+      yield* owner.close();
+    }),
+  );
+
+  it.effect("retains a readiness defect and cleans the acquired prefix once", () =>
+    Effect.gen(function* () {
+      const cleaned: string[] = [];
+      const owner = makeRuntimeOwner({
+        providers: [
+          {
+            service: FirstService,
+            acquire: Effect.acquireRelease(Effect.succeed("first"), () =>
+              Effect.sync(() => cleaned.push("first")),
+            ),
+          },
+          { service: SecondService, acquire: Effect.die("defect") },
+        ],
+        expose: Effect.succeed(undefined),
+      });
+      // SAFETY: The empty context deliberately violates the service requirement to prove defect classification.
+      const result = yield* Effect.exit(
+        Effect.provideContext(owner.ready(), Context.empty() as Context.Context<FirstService>),
+      );
+      assert.ok(Exit.isFailure(result));
+      if (Exit.isFailure(result)) assert.strictEqual(Cause.hasDies(result.cause), true);
+      assert.deepStrictEqual(cleaned, ["first"]);
+      yield* owner.close();
+    }),
+  );
+
+  it.effect("caches interrupted readiness and interrupts owned work", () =>
+    Effect.gen(function* () {
+      const entered = yield* Deferred.make<void>();
+      const gate = yield* Deferred.make<void>();
+      let cleaned = 0;
+      const owner = makeRuntimeOwner({
+        providers: [
+          {
+            service: FirstService,
+            acquire: Effect.acquireRelease(
+              Effect.gen(function* () {
+                yield* Deferred.succeed(entered, undefined);
+                return "acquired";
+              }),
+              () =>
+                Effect.sync(() => {
+                  cleaned += 1;
+                }),
+              { interruptible: true },
+            ),
+          },
+        ],
+        expose: Effect.gen(function* () {
+          yield* Deferred.await(gate);
+          return yield* Effect.service(FirstService);
+        }),
+      });
+      const fiber = yield* Effect.forkChild(owner.ready(), { startImmediately: true });
+      yield* Deferred.await(entered);
+      yield* Fiber.interrupt(fiber);
+      const result = yield* Fiber.await(fiber);
+      assert.ok(Exit.isFailure(result));
+      assert.strictEqual(cleaned, 1);
+      const closed = yield* Effect.exit(owner.close());
+      assert.ok(Exit.isFailure(closed));
+    }),
+  );
+
+  it.effect("disposes a failed owner without reopening admission", () =>
+    Effect.gen(function* () {
+      let attempts = 0;
+      const owner = makeRuntimeOwner({
+        providers: [
+          {
+            service: FirstService,
+            acquire: Effect.sync(() => {
+              attempts += 1;
+              return Effect.fail("failed" as const);
+            }).pipe(Effect.flatten),
+          },
+        ],
+        expose: Effect.service(FirstService),
+      });
+      const failed = yield* Effect.exit(owner.ready());
+      const closed = yield* Effect.exit(owner.close());
+      const repeated = yield* Effect.exit(owner.close());
+      const readyAgain = yield* Effect.exit(owner.ready());
+      assert.ok(Exit.isFailure(failed));
+      assert.ok(Exit.isSuccess(closed));
+      assert.deepStrictEqual(repeated, closed);
+      assert.deepStrictEqual(readyAgain, failed);
+      assert.strictEqual(attempts, 1);
+    }),
+  );
+
+  it.effect("blocks owner disposal while dependent leases remain", () =>
+    Effect.gen(function* () {
+      const blocked = Failure({
+        code: "BlockedByDependents",
+        path: ["owner"],
+        details: {},
+        summary: "dependent lease",
+        help: "release dependent",
+      });
+      const owner = makeRuntimeOwner({
+        providers: [],
+        expose: Effect.succeed(undefined),
+        close: Effect.fail(blocked),
+      });
+      yield* owner.ready();
+      const result = yield* Effect.exit(owner.close());
+      assert.ok(Exit.isFailure(result));
+      if (Exit.isFailure(result)) assert.strictEqual(Cause.hasFails(result.cause), true);
+    }),
+  );
+
+  it.effect("drains evidence before closing an owner", () =>
+    Effect.gen(function* () {
+      const order: string[] = [];
+      const owner = makeRuntimeOwner({
+        providers: [],
+        expose: Effect.succeed(undefined),
+        close: Effect.sync(() => order.push("evidence-close")),
+      });
+      yield* owner.ready();
+      yield* owner.close();
+      assert.deepStrictEqual(order, ["evidence-close"]);
+    }),
+  );
+
+  it.effect("interrupts owner-scoped fibers through running handles", () =>
+    Effect.gen(function* () {
+      const entered = yield* Deferred.make<void>();
+      const owner = makeRuntimeOwner({
+        providers: [
+          {
+            service: FirstService,
+            acquire: Effect.acquireRelease(
+              Effect.gen(function* () {
+                yield* Deferred.succeed(entered, undefined);
+                yield* Effect.never;
+                return "running";
+              }),
+              () => Effect.sync(() => undefined),
+              { interruptible: true },
+            ),
+          },
+        ],
+        expose: Effect.service(FirstService),
+      });
+      const ready = yield* Effect.forkChild(owner.ready(), { startImmediately: true });
+      yield* Deferred.await(entered);
+      const closed = yield* Effect.exit(owner.close());
+      assert.ok(Exit.isFailure(closed));
+      if (Exit.isFailure(closed)) assert.strictEqual(Cause.hasInterruptsOnly(closed.cause), true);
+      assert.ok(Exit.isFailure(yield* Fiber.await(ready)));
+    }),
+  );
+
+  it.effect("isolates replacement capabilities across owner instances", () =>
+    Effect.gen(function* () {
+      const firstValue = "first";
+      const secondValue = "second";
+      const first = makeRuntimeOwner({
+        providers: [{ kind: "succeed", service: FirstService, value: firstValue }],
+        expose: Effect.service(FirstService),
+      });
+      const second = makeRuntimeOwner({
+        providers: [{ kind: "succeed", service: FirstService, value: secondValue }],
+        expose: Effect.service(FirstService),
+      });
+      assert.strictEqual(yield* first.ready(), firstValue);
+      assert.strictEqual(yield* second.ready(), secondValue);
+      assert.notStrictEqual(yield* first.ready(), yield* second.ready());
+      yield* first.close();
+      yield* second.close();
+    }),
+  );
+
+  it.effect("acquires implementation providers in dependency order", () =>
+    Effect.gen(function* () {
+      const order: string[] = [];
+      const owner = makeRuntimeOwner({
+        providers: [
+          {
+            service: FirstService,
+            acquire: Effect.sync(() => {
+              order.push("first");
+              return "first";
+            }),
+          },
+          {
+            service: SecondService,
+            acquire: Effect.gen(function* () {
+              order.push(yield* Effect.service(FirstService));
+              return 2;
+            }),
+          },
+        ],
+        expose: Effect.all([Effect.service(FirstService), Effect.service(SecondService)], {
+          concurrency: 1,
+        }),
+      });
+      assert.deepStrictEqual(yield* owner.ready(), ["first", 2]);
+      assert.deepStrictEqual(order, ["first", "first"]);
+      yield* owner.close();
+    }),
+  );
+
+  it.effect("rejects missing implementation requirements before admission", () =>
+    Effect.gen(function* () {
+      const owner = makeRuntimeOwner({ providers: [], expose: Effect.service(FirstService) });
+      // SAFETY: The empty context deliberately violates the service requirement to prove defect classification.
+      const result = yield* Effect.exit(
+        Effect.provideContext(owner.ready(), Context.empty() as Context.Context<FirstService>),
+      );
+      assert.ok(Exit.isFailure(result));
+      if (Exit.isFailure(result)) assert.strictEqual(Cause.hasDies(result.cause), true);
+      yield* owner.close();
+    }),
+  );
+
+  it.effect("settles prepared handles when the owner is disposed", () =>
+    Effect.gen(function* () {
+      const runtime = runtimeSetup({ app: HandleApp }).construct();
+      assert.throws(() => runtimeOwner(runtime).assembly(), /Runtime is not ready/u);
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+      const ref = actorRef(HandleMachine, "disposed-handle");
+      const actor = yield* assembly.createActor({ ref, initial: initialHandleSnapshot() });
+      yield* Effect.provideContext(actor.dispose(), assembly.context);
+      assert.strictEqual(actor.engine.snapshot().lifecycle, "disposed");
+      assert.throws(() => actor.handle.send(HandleEvent), /Actor mailbox admission is closed/u);
+
+      const recreated = yield* Effect.exit(
+        assembly.createActor({ ref, initial: initialHandleSnapshot() }),
+      );
+      assert.ok(Exit.isFailure(recreated));
+      if (Exit.isFailure(recreated)) {
+        const reason = recreated.cause.reasons.find(Cause.isFailReason);
+        assert.ok(reason !== undefined);
+        if (reason !== undefined) assert.strictEqual(reason.error.code, "DisposedActorRef");
+      }
+      assert.ok(Exit.isSuccess(yield* Effect.exit(runtimeOwner(runtime).close())));
+    }),
+  );
+
+  it.effect("keeps request and Story setup on the same owner contract", () =>
+    Effect.gen(function* () {
+      const request = makeRuntimeOwner({
+        providers: [{ kind: "succeed", service: FirstService, value: "request" }],
+        expose: Effect.service(FirstService),
+      });
+      const story = makeRuntimeOwner({
+        providers: [{ kind: "succeed", service: FirstService, value: "story" }],
+        expose: Effect.service(FirstService),
+      });
+      assert.strictEqual(yield* request.ready(), "request");
+      assert.strictEqual(yield* story.ready(), "story");
+      yield* request.close();
+      yield* story.close();
     }),
   );
 });

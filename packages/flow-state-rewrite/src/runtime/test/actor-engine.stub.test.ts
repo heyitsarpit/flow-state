@@ -146,4 +146,22 @@ describe("actor engine", () => {
   // Assert: the complete snapshot is immutable and no mutation API escapes the public handle.
   // Regression: catches partial or mutable actor snapshots.
   it.todo("publishes complete immutable actor snapshots");
+
+  // Fixture: a candidate turn whose prepared evidence or post-commit invariant fails.
+  // Control: run the actor/store cut through the engine and inspect both owners.
+  // Assert: no fallible evidence preparation occurs after store commit, and a failed cut leaves actor and store truth aligned.
+  // Regression: catches SEM-004/SEM-024A atomic-cut violations that expose a store revision without its actor publication.
+  it.todo("prepares evidence before the atomic actor and store cut");
+
+  // Fixture: an active actor with a full bounded projection mailbox at capacity.
+  // Control: dispatch one context, stream, or timer fact and inspect the offer result.
+  // Assert: overflow is explicit or the approved coalescing policy is observable; no projection fact disappears silently.
+  // Regression: catches SEM-001/ARCH-012 passive-lane overflow being ignored by the actor engine.
+  it.todo("makes projection mailbox overflow explicit");
+
+  // Fixture: two operation keys with equal nested canonical content but distinct object identities.
+  // Control: route both keys through operation lookup and occurrence admission.
+  // Assert: structural canonical equality selects the same operation without JSON-stringification or identity-only matching.
+  // Regression: catches SEM-010/PROOF-003 nested operation keys diverging across planner and engine boundaries.
+  it.todo("matches nested operation keys structurally");
 });

@@ -415,3 +415,38 @@ export function canonicalizeKey<K extends OperationKey>(value: K): ReadonlyCanon
 export function canonicalizeKey(value: OperationKey) {
   return decodeCanonicalKey(value);
 }
+
+// RETURN_TYPE: Narrows the non-array canonical object branch for structural comparison.
+const isCanonicalRecord = (value: CanonicalKeyInput): value is CanonicalKeyRecord =>
+  value !== null && typeof value === "object" && !Array.isArray(value);
+
+const equalCanonicalArray = (
+  left: readonly CanonicalKeyInput[],
+  right: readonly CanonicalKeyInput[],
+) =>
+  left.length === right.length &&
+  left.every((value, index) => equalCanonicalValue(value, right[index]!));
+
+const equalCanonicalRecord = (left: CanonicalKeyRecord, right: CanonicalKeyRecord) => {
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  return (
+    leftKeys.length === rightKeys.length &&
+    leftKeys.every(
+      (key) => Object.hasOwn(right, key) && equalCanonicalValue(left[key]!, right[key]!),
+    )
+  );
+};
+
+// RETURN_TYPE: Recursive comparison needs a fixed boolean result while delegating nested containers.
+const equalCanonicalValue = (left: CanonicalKeyInput, right: CanonicalKeyInput): boolean => {
+  if (Array.isArray(left)) return Array.isArray(right) && equalCanonicalArray(left, right);
+  if (Array.isArray(right)) return false;
+  if (isCanonicalRecord(left)) return isCanonicalRecord(right) && equalCanonicalRecord(left, right);
+  if (isCanonicalRecord(right)) return false;
+  return Object.is(left, right);
+};
+
+/** Compares already-admitted canonical keys without relying on container identity. */
+export const equalCanonicalKey = (left: OperationKey, right: OperationKey) =>
+  equalCanonicalValue(left, right);
