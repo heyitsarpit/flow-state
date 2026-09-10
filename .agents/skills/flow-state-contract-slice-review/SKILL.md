@@ -1,6 +1,6 @@
 ---
 name: flow-state-contract-slice-review
-description: Read-only review of one packages/flow-state-rewrite coding bead against its exact active contract clauses, allowed files, production owner, proof IDs, failure lanes, and deletion obligations. Use after implementation and focused checks; do not use for general maintainability review or contract authoring.
+description: Read-only review of one packages/flow-state-rewrite coding bead against its exact active contract clauses, frozen changed-file inventory, production owner, proof IDs, failure lanes, and deletion obligations. Use after implementation and focused checks; do not use for general maintainability review or contract authoring.
 ---
 
 # Flow State Contract Slice Review
@@ -17,8 +17,9 @@ Obtain before reviewing:
 2. The implementer's explicit changed-file list and focused-check receipts.
 3. The Bead's named clauses under
    `reference/incident-console/implementation/contracts/`.
-4. `IMPLEMENTATION_WORKFLOW.md`, the applicable `PROOF_MATRIX.md` entries, and
-   any deletion or retention IDs named by the Bead.
+4. Any proof, deletion, or retention references explicitly named by the Bead or
+   an active contract. Read only the named sections; do not require unrelated
+   historical workflow documents or registers.
 
 If the changed-file list is missing, stop with a blocker. Do not infer the
 slice from the repository's full dirty diff.
@@ -30,16 +31,22 @@ slice from the repository's full dirty diff.
 - Read provenance only when an active clause explicitly requires a fidelity
   comparison. Proposals, historical code, the frozen package, and unresolved
   registers are not implementation authority.
-- Inspect only the Bead's allowed production files, its decisive tests, and the
-  minimum directly called owners needed to verify behavior.
+- Inspect the Bead's frozen changed-file inventory, decisive tests, relevant
+  callers and the minimum directly called owners needed to verify behavior.
+  Starting points describe general responsibilities rather than an allowlist;
+  recombination and integration edits are in scope when required by the Bead
+  outcome or active contracts.
 - Keep the review read-only. Do not edit source, tests, contracts, Beads, or
   generated output.
 
 ## Review procedure
 
-1. **Reconcile scope.** Confirm every changed file is allowed, every required
-   owner is represented, unrelated owners are untouched, and dependencies were
-   closed before work began.
+1. **Reconcile scope.** Compare the actual changed-file inventory with the
+   frozen coder inventory. Confirm every change serves the Bead outcome or an
+   active contract, every required owner is represented, relevant callers and
+   recombination edits are covered, unrelated owners are untouched, and
+   dependencies were closed before work began. Do not reject an outcome-required
+   integration edit solely because it was absent from the starting points.
 2. **Trace the law.** Map each acceptance statement and named contract clause to
    a production path and decisive proof. Tests that only restate implementation
    details do not count.
