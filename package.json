@@ -14,7 +14,7 @@
     "build:library": "nub run --filter flow-state build && nub run --filter flow-state check:typescript-mode-proofs && nub run --filter flow-state check:packed-consumers",
     "browser:install": "nub run --filter @flow-state/incident-console browser:install",
     "check": "nub run check:anti-slop && vp check packages/flow-state-rewrite",
-    "check:anti-slop": "node ./tools/oxlint/anti-slop/rules.test.mjs && tsc --ignoreConfig --noEmit --skipLibCheck --strict --noUnusedLocals --noUnusedParameters --module NodeNext --moduleResolution NodeNext --target ES2022 --allowImportingTsExtensions tools/oxlint/anti-slop/index.ts",
+    "check:anti-slop": "node ./tools/oxlint/anti-slop/rules.test.ts && tsc --ignoreConfig --noEmit --skipLibCheck --strict --noUnusedLocals --noUnusedParameters --types node --module NodeNext --moduleResolution NodeNext --target ES2022 --allowImportingTsExtensions tools/oxlint/anti-slop/index.ts tools/oxlint/anti-slop/rules.test.ts",
     "check:example-cli": "node ./scripts/check-example-cli-acceptance.mjs",
     "check:fix": "vp check packages/flow-state-rewrite --fix",
     "check:toolchain": "node ./scripts/check-toolchain.mjs",
@@ -34,16 +34,15 @@
   },
   "devDependencies": {
     "@effect/language-service": "0.87.2",
-    "@oxlint/plugins": "1.78.0",
+    "@oxlint/plugins": "1.79.0",
     "@types/node": "26.2.0",
-    "@vitest/coverage-v8": "4.1.10",
+    "@vitest/coverage-v8": "4.1.11",
     "effect": "4.0.0-rc.112",
     "happy-dom": "^20.10.6",
     "knip": "6.34.0",
-    "oxlint": "1.77.0",
+    "oxlint": "1.81.0",
     "typescript": "7.0.2",
-    "vite-plus": "0.2.9",
-    "vitest": "4.1.10"
+    "vite-plus": "0.3.1"
   },
   "devEngines": {
     "packageManager": {
