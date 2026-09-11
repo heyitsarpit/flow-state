@@ -1,9 +1,11 @@
+// anti-slop-fixture: text-only
 /**
  * Accepted anti-slop examples.
  *
- * This file is a teaching fixture, not a production module. The RuleTester
- * valid cases are the executable rule proof; this file keeps the preferred
- * forms visible beside all-failing-patterns.ts.
+ * This file is an intentionally raw teaching corpus, not a compilable
+ * production module. The RuleTester valid cases are the executable rule proof;
+ * this file keeps the preferred forms visible beside the individual rule
+ * tests. The fixture sweep loads it as source text and verifies the marker.
  */
 
 import {
@@ -45,8 +47,7 @@ type App = { start: () => void };
 type Value = { id: string };
 
 type ParsedValue = { id: string };
-type AsyncPayload = Promise<unknown>;
-type UnknownList = Array<unknown>;
+type IsUnknown<T> = unknown extends T ? true : false;
 type Status = "ready" | "blocked";
 type GenericValue<T = string> = T;
 type AppOptions = { id: string };
@@ -55,7 +56,7 @@ type MaybeDomainValue = Option.Option<DomainValue>;
 const publicValue = "owned export";
 export { publicValue };
 
-declare const raw: unknown;
+declare const raw: string;
 declare const input: DomainValue;
 declare const iterable: Iterable<DomainItem>;
 declare const first: boolean;
@@ -85,10 +86,10 @@ type Expect = {
 declare const expect: Expect;
 declare const condition: boolean;
 declare const runtime: { dispose: () => Promise<void> };
-declare const release: (scope: Scope.Closeable, exit: Exit.Exit<unknown, unknown>) => Effect.Effect<void>;
+declare const release: (scope: Scope.Closeable, exit: Exit.Exit<void, Error>) => Effect.Effect<void>;
 declare const record: { key: string };
 declare const foreignCall: () => string;
-declare const cause: unknown;
+declare const cause: Error;
 declare const fiber: Fiber.Fiber<void, never>;
 declare const maybeDomainValue: MaybeDomainValue;
 declare const domainResult: Result.Result<DomainValue, Error>;
@@ -148,6 +149,16 @@ function validateDomainValue(value: DomainValue): Result.Result<DomainValue, Err
 
 const dynamicValue = record.key;
 const callbackValue = callback(items[0]);
+const projectedItems = items.flatMap((item) => item.id.length > 0 ? [item.id] : []);
+const reducedIds = items.reduce<string[]>((accumulator, item) => {
+	accumulator.push(item.id);
+	return accumulator;
+}, []);
+const selectedOption = Option.some(input.id);
+const selectedOptionValue = Option.match(selectedOption, {
+	onNone: () => "none",
+	onSome: (value) => value,
+});
 
 const parsedValue: ParsedValue = { id: "parsed" };
 const inferredGeneric: GenericValue = "value";
@@ -184,6 +195,19 @@ const loadAccount = Effect.tryPromise({
 const normalized = input.id.trim();
 const explicitSchedule = Schedule.exponential(Duration.millis(100));
 const explicitSleep = Duration.seconds(1);
+
+const inertEffectFactory = (value: DomainValue) =>
+	Effect.suspend(() => Effect.succeed(value.id));
+const deferredMutation = Effect.sync(() => input.id);
+const constantProjection = Effect.succeed(input).pipe(Effect.as(false));
+const emptyContext = Context.empty();
+const concreteResourceConfig = {
+	staleTime: Schema.DurationFromMillis,
+	gcTime: Schema.Number,
+};
+const admittedObjectValues = Object.values({ value: raw }).map((value) =>
+	Schema.decodeUnknownSync(Schema.Struct({ id: Schema.String }))(value),
+);
 
 const coordinated = Effect.forEach(items, processItem, { concurrency: 1 });
 const parallel = Effect.forEach(items, processItem, { concurrency: 8 });
@@ -271,6 +295,12 @@ void callbackValue;
 void normalized;
 void explicitSchedule;
 void explicitSleep;
+void inertEffectFactory;
+void deferredMutation;
+void constantProjection;
+void emptyContext;
+void concreteResourceConfig;
+void admittedObjectValues;
 void coordinated;
 void parallel;
 void unbounded;

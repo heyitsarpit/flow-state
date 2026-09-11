@@ -41,11 +41,13 @@ export default defineConfig({
       "anti-slop/use-export-type": "warn",
       "anti-slop/use-import-type": "warn",
       "anti-slop/no-anonymous-default-export": "warn",
+      // These external rules are review signals: syntax alone cannot prove the owner-level performance or tagged-value contract.
+      "anti-slop/no-array-filter-map": "warn",
       "anti-slop/no-array-from-then-map": "error",
       "anti-slop/no-bivariant-callback": "error",
       "anti-slop/no-chained-type-assertions": "error",
       "anti-slop/no-conditional-empty-object-spread": "error",
-      "anti-slop/no-conditional-singleton-array-spread": "error",
+      "anti-slop/no-conditional-array-spread": "error",
       "anti-slop/no-context-tag": "error",
       // "anti-slop/no-data-taggederror": "error", // Superseded by no-parallel-diagnostic-errors.
       "anti-slop/no-direct-process-env": [
@@ -57,12 +59,66 @@ export default defineConfig({
       "anti-slop/no-effect-promise": "error",
       // "anti-slop/no-effect-promise-microtask": "error", // Subsumed by no-effect-promise.
       "anti-slop/no-unjustified-effect-try-promise": "error",
-      "anti-slop/no-effect-runner-in-domain": "error",
+      "anti-slop/no-effect-runner-in-domain": [
+        "error",
+        {
+          allowedFiles: [
+            "packages/flow-state/src/core/orchestrator/orchestrator-system.ts",
+            "packages/flow-state/src/core/runtime/services/host-signals.ts",
+            "packages/flow-state/src/public/root.ts",
+            "packages/flow-state/src/public/runtime.ts",
+            "packages/flow-state/src/runtime/contract-runtime.ts",
+          ],
+        },
+      ],
+      // These are review signals: syntax cannot establish owner semantics or expected failure classification.
+      "anti-slop/no-stateful-effect-construction": "warn",
+      "anti-slop/no-eager-stateful-effect-succeed": "warn",
+      "anti-slop/no-expected-failure-as-defect": "warn",
+      "anti-slop/no-constant-effect-flatmap": "warn",
+      "anti-slop/no-empty-context-make-unsafe": "warn",
+      "anti-slop/no-public-runtime-infrastructure": [
+        "error",
+        {
+          sourceRoots: ["packages/flow-state-rewrite/src/public"],
+          allowedPathFragments: ["/src/public/adapter/", "/src/public/host/"],
+        },
+      ],
+      "anti-slop/no-object-iteration-result-cast": "error",
       "anti-slop/no-effect-ref-read-then-write": "error",
       "anti-slop/no-escape-hatch-assertion": "error",
       "anti-slop/no-explicit-any": "error",
+      "anti-slop/no-unknown": [
+        "error",
+        {
+          // Adopt the unified rule at the public/domain boundary first; internal admission and runtime owners still contain intentional boundary erasure that must be migrated with their contracts.
+          sourceRoots: ["packages/flow-state-rewrite/src/public"],
+          allowedSchemaFields: [
+            {
+              file: "packages/flow-state-rewrite/src/machine/admission.ts",
+              fields: ["default", "states", "on", "redirect", "activities", "timers"],
+            },
+            {
+              file: "packages/flow-state-rewrite/src/operation/resource.ts",
+              fields: ["gcTime", "staleTime"],
+            },
+          ],
+          allowedParameters: [
+            {
+              file: "packages/flow-state-rewrite/src/diagnostic/diagnostic.ts",
+              fields: ["defect"],
+            },
+            {
+              file: "packages/flow-state-rewrite/src/public/root.ts",
+              fields: ["cause"],
+            },
+          ],
+        },
+      ],
       "anti-slop/no-expect-in-if": "error",
       "anti-slop/no-implicit-effect-concurrency": "error",
+      "anti-slop/no-manual-effect-error-tag": "warn",
+      "anti-slop/no-manual-tag-comparison": "warn",
       "anti-slop/no-inward-module-dependency": [
         "warn",
         {
@@ -97,7 +153,8 @@ export default defineConfig({
       "anti-slop/no-module-mocking": "error",
       "anti-slop/no-numeric-duration": "error",
       "anti-slop/no-nested-conditional-expression": "error",
-      "anti-slop/no-object-freeze": "error",
+      // Contract-required public snapshots may be frozen; keep this as a review signal for private boundaries.
+      "anti-slop/no-object-freeze": "warn",
       "anti-slop/no-generic-utility-module": "warn",
       "anti-slop/no-god-service-shape": ["warn", { threshold: 16 }],
       "anti-slop/no-large-production-file": [
@@ -129,7 +186,11 @@ export default defineConfig({
       ],
       "anti-slop/no-promise-microtask-barrier": "error",
       "anti-slop/no-raw-try-catch": "error",
-      "anti-slop/no-readonly": "error",
+      // Contract-required public shapes use readonly; keep this as a review signal for private state modeling.
+      "anti-slop/no-readonly": "warn",
+      "anti-slop/no-reduce-accumulator-copy": "warn",
+      // Enable manually when the repository is ready to adopt this formatting policy.
+      // "anti-slop/require-readable-spacing": "warn",
       "anti-slop/no-public-entrypoint-export-drift": [
         "error",
         {
@@ -159,11 +220,7 @@ export default defineConfig({
       "anti-slop/no-top-level-mutable-production-state": "warn",
       "anti-slop/no-throw-in-effect-gen": "error",
       "anti-slop/no-unmanaged-effect-scope": "error",
-      // "anti-slop/no-unknown-parameters": "error",
-      "anti-slop/no-unknown-returns": "error",
-      "anti-slop/no-unknown-type-aliases": "error",
       "anti-slop/no-parallel-diagnostic-errors": "error",
-      "anti-slop/no-unknown-effect-channel": "error",
       "anti-slop/no-unwrapped-promise-in-effect-core": "error",
       "anti-slop/no-unsafe-dictionary-type": "error",
       "anti-slop/no-unsafe-fiber-methods": "error",

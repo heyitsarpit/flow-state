@@ -2,7 +2,7 @@ import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree, Scope, SourceCode, Variable } from "@oxlint/plugins";
 
-import { isImportedFromEffect } from "../../shared/effect-import.ts";
+import { isImportedFromEffect } from "../../shared/effect/effect-import.ts";
 import { normalizedFilename } from "../../shared/file-scope.ts";
 
 const taggedErrorNames = new Set(["TaggedError", "TaggedErrorClass"]);
