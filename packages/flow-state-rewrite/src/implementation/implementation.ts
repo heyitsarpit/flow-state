@@ -15,7 +15,7 @@ import type { Context } from "effect";
 const implementationMarker: unique symbol = Symbol();
 const implementationGraphTypeId: unique symbol = Symbol("flow-state implementation graph");
 
-// FLOW_STATE_ALLOW_UNKNOWN_EFFECT_CHANNEL: this private graph stores heterogeneous provider acquisitions behind erased runtime dispatch; typed callers retain A/E/R on Implementation.
+// FLOW_STATE_ALLOW_UNKNOWN: this private graph stores heterogeneous provider acquisitions behind erased runtime dispatch; typed callers retain A/E/R on Implementation.
 type ImplementationProviderEntry =
   | {
       readonly kind: "succeed";

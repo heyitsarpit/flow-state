@@ -48,7 +48,7 @@ const Nested = resultSuccess(NestedResult);
 
 type UnknownMachineConstructor = <DefinitionValue extends MachineDefinition>(
   definitionResult: Result.Result<DefinitionValue, Diagnostic.PublicDiagnostic>,
-  // oxlint-disable-next-line anti-slop/no-unknown-returns -- invalid configuration is deliberately unknown at this test-only admission seam.
+  // oxlint-disable-next-line anti-slop/no-unknown -- invalid configuration is deliberately unknown at this test-only admission seam.
   callback: (input: MachineCallback<DefinitionValue>) => unknown,
 ) => Result.Result<Machine<DefinitionValue>, Diagnostic.PublicDiagnostic>;
 
