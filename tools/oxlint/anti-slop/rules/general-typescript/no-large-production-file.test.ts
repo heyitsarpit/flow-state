@@ -32,29 +32,29 @@ tester.run("no-large-production-file", noLargeProductionFileRule, {
 		{
 			code: largeProductionFile,
 			filename: "/project/packages/demo/src/value.ts",
-			errors: [{ messageId: "largeFile" }],
+			errors: [{ messageId: "largeFile", line: 1, column: 0 }],
 		},
 		{
 			code: largeTestFile,
 			filename: "/project/packages/demo/src/value.test.ts",
-			errors: [{ messageId: "largeFile" }],
+			errors: [{ messageId: "largeFile", line: 1, column: 0 }],
 		},
 		{
 			code: customProductionFile,
 			filename: "/project/packages/demo/src/custom.ts",
 			options: [{ productionThreshold: 3 }],
-			errors: [{ messageId: "largeFile" }],
+			errors: [{ messageId: "largeFile", line: 1, column: 0 }],
 		},
 		{
 			code: customTestFile,
 			filename: "/project/packages/demo/src/custom.test.ts",
 			options: [{ testThreshold: 3 }],
-			errors: [{ messageId: "largeFile" }],
+			errors: [{ messageId: "largeFile", line: 1, column: 0 }],
 		},
 		{
 			code: windowsProductionFile,
 			filename: "C:\\project\\packages\\demo\\src\\windows.ts",
-			errors: [{ messageId: "largeFile" }],
+			errors: [{ messageId: "largeFile", line: 1, column: 0 }],
 		},
 	],
 });

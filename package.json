@@ -16,7 +16,7 @@
     "check": "nub run check:anti-slop && vp check packages/flow-state-rewrite",
     "check:anti-slop": "node ./tools/oxlint/anti-slop/rules.test.ts && tsc --ignoreConfig --noEmit --skipLibCheck --strict --noUnusedLocals --noUnusedParameters --types node --module NodeNext --moduleResolution NodeNext --target ES2022 --allowImportingTsExtensions tools/oxlint/anti-slop/index.ts tools/oxlint/anti-slop/rules.test.ts",
     "check:example-cli": "node ./scripts/check-example-cli-acceptance.mjs",
-    "check:fix": "vp check packages/flow-state-rewrite --fix",
+    "check:fix": "vp check --fix packages/flow-state-rewrite",
     "check:toolchain": "node ./scripts/check-toolchain.mjs",
     "dev": "nub run --filter @flow-state/incident-console dev",
     "docs:build": "nub run --filter @flow-state/docs build",

@@ -14,7 +14,7 @@ description: Implement one assigned task and verify its behavior.
 
 ## Checks
 
-- `nub run check` — formatting, lint, and types.
+- `nub run check:fix` — format, lint, and type-check while applying available fixes.
 - `nub run test:coverage` — tests and coverage.
 - `nub run report:unused` — inspect unused-code findings.
 - `git diff --check` — patch whitespace.

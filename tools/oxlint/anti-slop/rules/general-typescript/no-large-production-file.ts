@@ -70,7 +70,7 @@ export const noLargeProductionFileRule = defineRule({
 					const lines = text === "" ? 0 : text.replace(/(?:\r\n|\n|\r)+$/u, "").split(/\r\n|\n|\r/u).length;
 				const threshold = isTestFile(context.filename) ? testThreshold : productionThreshold;
 				if (lines > threshold) {
-					context.report({ node, messageId: "largeFile", data: { lines } });
+					context.report({ loc: node.loc.start, messageId: "largeFile", data: { lines } });
 				}
 			},
 		};

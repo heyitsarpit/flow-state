@@ -190,7 +190,7 @@ export default defineConfig({
       "anti-slop/no-readonly": "warn",
       "anti-slop/no-reduce-accumulator-copy": "warn",
       // Enable manually when the repository is ready to adopt this formatting policy.
-      // "anti-slop/require-readable-spacing": "warn",
+      "anti-slop/require-readable-spacing": "warn",
       "anti-slop/no-public-entrypoint-export-drift": [
         "error",
         {
