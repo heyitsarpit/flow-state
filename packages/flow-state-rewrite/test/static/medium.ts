@@ -47,6 +47,7 @@ type ResultSuccess<Value> = Value extends Result.Result<infer Success, unknown> 
 
 const resultSuccess = <Value>(result: Result.Result<Value, PublicDiagnostic>) => {
   if (Result.isFailure(result)) throw result.failure;
+
   return result.success;
 };
 
@@ -93,6 +94,7 @@ const projectResource = resource({
     { signal }: { readonly signal: AbortSignal },
   ): Effect.Effect<Project, "missing", ProjectRepo> => {
     void signal;
+
     return Effect.succeed({ id: projectId, title: "example" });
   },
 });
@@ -106,6 +108,7 @@ const saveProject = transaction({
     { signal }: { readonly signal: AbortSignal },
   ): Effect.Effect<Project, "rejected", AuditSink> => {
     void signal;
+
     return Effect.succeed({ id: projectId, title: "saved" });
   },
 });
@@ -119,6 +122,7 @@ const projectUpdates = stream({
     { signal }: { readonly signal: AbortSignal },
   ): Stream.Stream<Project, "offline", ProjectFeed> => {
     void signal;
+
     return Stream.make({ id: projectId, title: "update" });
   },
 });
@@ -140,12 +144,14 @@ const EditorResult = definition({
     dirty: false,
   }),
 });
+
 const Editor = resultSuccess(EditorResult);
 
 const editorMachine = resultSuccess(
   machine(EditorResult, ({ S, E, O }) => {
     void E.opened;
     void O.project;
+
     return {
       default: S.idle,
       states: {
@@ -167,12 +173,19 @@ const editorMachine = resultSuccess(
 );
 
 const EditorInput: InputOf<typeof Editor> = { projectId: "project-1" };
+
 const EditorMemory: MemoryOf<typeof Editor> = { projectId: "project-1", dirty: false };
+
 const EditorEvent: EventOf<typeof Editor> = resultSuccess(Editor.E.opened("project-1"));
+
 const EditorState: StateOf<typeof Editor> = Editor.S.ready.S.open;
+
 void EditorInput;
+
 void EditorMemory;
+
 void EditorEvent;
+
 void EditorState;
 
 const makeLeafMachine = <const Id extends string>(id: Id) => {
@@ -182,6 +195,7 @@ const makeLeafMachine = <const Id extends string>(id: Id) => {
     events: { refresh: "bare" },
     operations: { project: projectResource, updates: projectUpdates },
   });
+
   return resultSuccess(
     machine(currentResult, ({ S, E }) => ({
       default: S.ready,
@@ -192,19 +206,28 @@ const makeLeafMachine = <const Id extends string>(id: Id) => {
 };
 
 const Viewer = makeLeafMachine("static/viewer");
+
 const Dashboard = makeLeafMachine("static/dashboard");
+
 const Reports = makeLeafMachine("static/reports");
+
 const Importer = makeLeafMachine("static/importer");
+
 const Exporter = makeLeafMachine("static/exporter");
 
 const EditorModule = module({ id: "static/editor-module", machines: { editor: editorMachine } });
+
 const ViewerModule = module({ id: "static/viewer-module", machines: { viewer: Viewer } });
+
 const DashboardModule = module({
   id: "static/dashboard-module",
   machines: { dashboard: Dashboard },
 });
+
 const ReportsModule = module({ id: "static/reports-module", machines: { reports: Reports } });
+
 const ImporterModule = module({ id: "static/importer-module", machines: { importer: Importer } });
+
 const ExporterModule = module({ id: "static/exporter-module", machines: { exporter: Exporter } });
 
 const StaticApp = app({
@@ -221,8 +244,11 @@ const StaticApp = app({
 });
 
 const staticActorRegistry = makeActorIdentityRegistry();
+
 const staticStableRef = actorRef(editorMachine, "static-editor");
+
 const staticStableIdentity = staticActorRegistry.reserveStable(staticStableRef);
+
 const staticLocalIdentity = staticActorRegistry.createLocal(editorMachine);
 
 export type ActorIdentityProofs = readonly [
@@ -243,13 +269,16 @@ const staticContextProviderResult = definition({
   states: ["ready"],
   events: {},
 });
+
 const StaticContextProvider = resultSuccess(staticContextProviderResult);
+
 const staticContextProviderMachine = resultSuccess(
   machine(staticContextProviderResult, ({ S }) => ({
     default: S.ready,
     states: { ready: {} },
   })),
 );
+
 const staticContextConsumerResult = definition({
   id: "static/context-consumer",
   states: ["ready"],
@@ -258,28 +287,37 @@ const staticContextConsumerResult = definition({
     selected: StaticContextProvider.select(({ state }) => state),
   },
 });
+
 const StaticContextConsumer = resultSuccess(staticContextConsumerResult);
+
 const staticContextConsumerMachine = resultSuccess(
   machine(staticContextConsumerResult, ({ S }) => ({
     default: S.ready,
     states: { ready: {} },
   })),
 );
+
 const staticContextRegistry = makeActorIdentityRegistry();
+
 const staticContextProviderRef = actorRef(staticContextProviderMachine, "static-provider");
+
 const staticContextConsumerRef = actorRef(staticContextConsumerMachine, "static-consumer");
+
 const staticContextProviderIdentity = resultSuccess(
   staticContextRegistry.reserveStable(staticContextProviderRef),
 );
+
 const staticContextConsumerIdentity = resultSuccess(
   staticContextRegistry.reserveStable(staticContextConsumerRef),
 );
+
 const staticContextFence: ActorFence = {
   key: staticContextProviderIdentity.key,
   incarnation: staticContextProviderIdentity.incarnation,
   generation: 0,
   leaseEpoch: staticContextProviderIdentity.leaseEpoch,
 };
+
 const staticContextBinding = {
   consumer: staticContextConsumerIdentity.key,
   consumerIncarnation: staticContextConsumerIdentity.incarnation,
@@ -288,6 +326,7 @@ const staticContextBinding = {
   providerFence: staticContextFence,
   select: ({ state }: ActorContextSnapshot<typeof StaticContextProvider>) => state,
 } satisfies ContextBinding<typeof StaticContextConsumer, typeof StaticContextProvider, "selected">;
+
 const staticContextSnapshot: ActorContextSnapshot<typeof StaticContextProvider> = {
   state: StaticContextProvider.S.ready,
   memory: {},
@@ -325,23 +364,29 @@ export type ContextProofs = readonly [
 ];
 
 void staticContextBinding;
+
 void staticContextSnapshot;
 
 const repoImplementation = Implementation.succeed(ProjectRepo, {
   find: (id: string) => Effect.succeed({ id, title: "loaded" }),
 });
+
 const auditAcquire: Effect.Effect<
   { readonly write: (record: AuditRecord) => Effect.Effect<void> },
   "configuration-failed",
   ProjectRepo
 > = Effect.succeed({ write: (_record: AuditRecord) => Effect.succeed(undefined) });
+
 const auditImplementation = Implementation.effect(AuditSink, auditAcquire);
+
 const feedAcquire: Effect.Effect<
   { readonly watch: (id: string) => Stream.Stream<Project> },
   "feed-unavailable",
   ProjectRepo
 > = Effect.succeed({ watch: (id: string) => Stream.make({ id, title: "watched" }) });
+
 const feedImplementation = Implementation.effect(ProjectFeed, feedAcquire);
+
 const staticImplementation = Implementation.merge(
   Implementation.merge(repoImplementation, auditImplementation),
   feedImplementation,
@@ -413,4 +458,5 @@ export type ImplementationProofs = readonly [
 ];
 
 void StaticApp;
+
 void staticImplementation;

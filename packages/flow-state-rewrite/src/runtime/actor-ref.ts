@@ -63,12 +63,16 @@ const captureActorRefOptions = (value: unknown) => {
 
     const keys = Reflect.ownKeys(value);
     const repeatedKeys = Reflect.ownKeys(value);
+
     if (!isStableKeyList(keys, repeatedKeys)) return Result.fail(undefined);
+
     if (repeatedKeys.length === 0) return Result.succeed({});
+
     if (repeatedKeys.length !== 1 || repeatedKeys[0] !== "persist") return Result.fail(undefined);
 
     const descriptor = Object.getOwnPropertyDescriptor(value, "persist");
     const repeatedDescriptor = Object.getOwnPropertyDescriptor(value, "persist");
+
     if (
       descriptor === undefined ||
       repeatedDescriptor === undefined ||
@@ -101,14 +105,17 @@ const ActorRefOptionsSchema = Schema.declareConstructor<ActorRefOptions, unknown
   [],
   () => (value, ast, options) => {
     const invalid = () => Effect.fail(new SchemaIssue.InvalidType(ast, value, options));
+
     const decodeCaptured = (captured: unknown) => {
       const decoded = decodeActorRefOptionsFields(captured, options);
+
       return Result.isSuccess(decoded)
         ? Effect.succeed(decoded.success)
         : Effect.fail(decoded.failure.issue);
     };
 
     const captured = captureActorRefOptions(value);
+
     return Result.isFailure(captured) ? invalid() : decodeCaptured(captured.success);
   },
 );
@@ -128,8 +135,11 @@ const firstActorRefInputField = (failure: Schema.SchemaError) =>
 
 const projectActorRefInputFailure = (failure: Schema.SchemaError) => {
   const field = firstActorRefInputField(failure);
+
   if (field === "machine") throw new TypeError("actorRef machine must be a constructed Machine");
+
   if (field === "id") throw new TypeError("actorRef id must be a valid authored name");
+
   return invalidActorRefOptions();
 };
 
@@ -152,6 +162,7 @@ export function actorRef<
 export function actorRef(machine: MachineRecordValue, id: string, options?: unknown) {
   const input = options === undefined ? { machine, id } : { machine, id, options };
   const decoded = decodeActorRefInput(input);
+
   if (Result.isFailure(decoded)) return projectActorRefInputFailure(decoded.failure);
 
   // SAFETY: this object is the complete inert actor-ref value; the brand is type-only.

@@ -24,6 +24,7 @@ import { invalidMachineConfigurationDiagnostic } from "./diagnostic.js";
 
 // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- reflection retains unknown children until each grammar validator promotes them.
 type PlainRecord = Readonly<Record<string, unknown>>;
+
 // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- reflection retains unknown array entries until each grammar validator promotes them.
 type ReflectionSource = readonly unknown[] | PlainRecord;
 
@@ -74,6 +75,7 @@ type RecordClassification =
 const classifyPlainRecord = (value: unknown): RecordClassification => {
   if (!isNonArrayObject(value)) return { _tag: "other" };
   const prototype: unknown = Object.getPrototypeOf(value);
+
   return prototype !== null && prototype !== Object.prototype
     ? { _tag: "other" }
     : { _tag: "record", record: value, prototype };
@@ -109,8 +111,10 @@ const invalidReflectionKey = (
 // RETURN_TYPE: Preserves the DataProperty discriminant required by callers; removal caused TS2322.
 const readDataProperty = (value: ReflectionSource, key: PropertyKey): DataProperty => {
   const descriptor = Object.getOwnPropertyDescriptor(value, key);
+
   if (descriptor === undefined) return { kind: "missing" };
   const { configurable = false, enumerable = false } = descriptor;
+
   return "value" in descriptor
     ? {
         kind: "data",
@@ -137,11 +141,14 @@ const captureProperties = (
 ): Result.Result<SnapshotProperty[], Diagnostic.PublicDiagnostic> =>
   Result.gen(function* () {
     const properties: SnapshotProperty[] = [];
+
     for (const key of keys) {
       const property = yield* readReflection(() => readDataProperty(record, key), path, reason);
+
       if (property.kind === "missing") return yield* invalidReflection(reason, path);
       properties.push([key, property]);
     }
+
     return properties;
   });
 
@@ -164,6 +171,7 @@ const sameSnapshotProperty = (left: PresentProperty, right: PresentProperty) => 
 
 const sameSnapshot = (left: ReflectionSnapshot, right: ReflectionSnapshot) => {
   if (left.properties.length !== right.properties.length) return false;
+
   for (const [index, [key]] of left.properties.entries()) {
     if (key !== right.properties[index]?.[0]) return false;
   }
@@ -172,9 +180,11 @@ const sameSnapshot = (left: ReflectionSnapshot, right: ReflectionSnapshot) => {
 
   for (const [index, [, property]] of left.properties.entries()) {
     const repeatedProperty = right.properties[index]?.[1];
+
     if (repeatedProperty === undefined || !sameSnapshotProperty(property, repeatedProperty))
       return false;
   }
+
   return true;
 };
 
@@ -195,23 +205,28 @@ const snapshotProperties = (
     const repeatedPrototype = yield* readReflection(
       () => {
         const prototype: ReflectionSnapshot["prototype"] = Object.getPrototypeOf(record);
+
         return prototype;
       },
       path,
       reason,
     );
+
     const first = { prototype, properties };
     const repeated = { prototype: repeatedPrototype, properties: repeatedProperties };
 
     if (!sameSnapshot(first, repeated)) return yield* invalidReflection(reason, path);
+
     for (const entry of first.properties) {
       // oxlint-disable-next-line anti-slop/no-object-freeze -- Snapshot descriptors are a shallow runtime boundary; their values remain caller-owned.
       Object.freeze(entry[1]);
       // oxlint-disable-next-line anti-slop/no-object-freeze -- Snapshot property tuples are a shallow runtime boundary.
       Object.freeze(entry);
     }
+
     // oxlint-disable-next-line anti-slop/no-object-freeze -- Snapshot properties are published as a runtime-immutable container.
     const frozenProperties = Object.freeze(first.properties);
+
     // oxlint-disable-next-line anti-slop/no-object-freeze -- Configuration snapshots are published as runtime-immutable containers.
     return Object.freeze({ properties: frozenProperties });
   });
@@ -221,6 +236,7 @@ const snapshotProperties = (
 const arrayOrdinal = (key: string) => {
   if (!/^(?:0|[1-9]\d*)$/u.test(key)) return undefined;
   const ordinal = Number(key);
+
   return Number.isSafeInteger(ordinal) && ordinal >= 0 && ordinal < 2 ** 32 - 1
     ? ordinal
     : undefined;
@@ -228,10 +244,15 @@ const arrayOrdinal = (key: string) => {
 
 const arrayLength = (property: DataProperty) => {
   if (property.kind !== "data") return undefined;
+
   if (property.enumerable || property.configurable) return undefined;
+
   if (!Predicate.isNumber(property.value)) return undefined;
+
   if (!Number.isSafeInteger(property.value)) return undefined;
+
   if (property.value < 0 || property.value >= 2 ** 32) return undefined;
+
   return property.value;
 };
 
@@ -242,17 +263,22 @@ const validateArrayKeys = (
   reason: "ExpectedTransition" | "ExpectedRedirect",
 ) => {
   const entries = new Map<number, DataDescriptor>();
+
   for (const [key, property] of properties) {
     if (key === "length") continue;
+
     if (!Predicate.isString(key))
       return invalidReflectionKey("NonStringConfigurationKey", path, key);
     const ordinal = arrayOrdinal(key);
+
     if (ordinal === undefined)
       return invalidReflectionKey("UnexpectedConfigurationField", path, key);
+
     if (ordinal >= length || property.kind !== "data" || !property.enumerable)
       return invalidReflection(reason, [...path, ordinal]);
     entries.set(ordinal, property);
   }
+
   return Result.succeed(entries);
 };
 
@@ -266,7 +292,9 @@ export const snapshotRecord = (
 ): Result.Result<ConfigurationSnapshot, Diagnostic.PublicDiagnostic> =>
   Result.gen(function* () {
     const classified = yield* readReflection(() => classifyPlainRecord(value), path, reason);
+
     if (classified._tag === "other") return yield* invalidReflection(reason, path);
+
     return yield* snapshotProperties(classified.record, classified.prototype, path, reason);
   });
 
@@ -286,28 +314,35 @@ export const readArrayValues = (
       path,
       reason,
     );
+
     if (array === undefined) return undefined;
 
     const prototype = yield* readReflection(
       () => {
         const prototype: ReflectionSnapshot["prototype"] = Object.getPrototypeOf(array);
+
         return prototype;
       },
       path,
       reason,
     );
+
     if (prototype !== Array.prototype) return yield* invalidReflection(reason, path);
     const snapshot = yield* snapshotProperties(array, prototype, path, reason);
     const length = arrayLength(readSnapshotProperty(snapshot, "length"));
+
     if (length === undefined) return yield* invalidReflection(reason, path);
     const entries = yield* validateArrayKeys(snapshot.properties, length, path, reason);
 
     const values: unknown[] = [];
+
     for (let index = 0; index < length; index += 1) {
       const property = entries.get(index);
+
       if (property === undefined) return yield* invalidReflection(reason, [...path, index]);
       values.push(property.value);
     }
+
     // oxlint-disable-next-line anti-slop/no-object-freeze -- Array projections are published as runtime-immutable containers; element values remain caller-owned.
     return Object.freeze(values);
   });
@@ -317,6 +352,7 @@ export const readTokenText = (value: unknown, key: "kind" | "id" | "name") =>
     try: () => {
       if (!Predicate.isObject(value)) return Option.none<string>();
       const descriptor = Object.getOwnPropertyDescriptor(value, key);
+
       return descriptor !== undefined &&
         "value" in descriptor &&
         Predicate.isString(descriptor.value)

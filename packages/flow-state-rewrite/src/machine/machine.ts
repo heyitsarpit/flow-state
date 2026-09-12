@@ -123,6 +123,7 @@ const publishMachine = <DefinitionValue extends MachineDefinition>(
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the private type-only carrier has no runtime field; this shell is the complete admitted Machine value.
   const machineValue = { definition, compiled } as Machine<DefinitionValue>;
   constructedMachines.add(machineValue);
+
   return machineValue;
 };
 

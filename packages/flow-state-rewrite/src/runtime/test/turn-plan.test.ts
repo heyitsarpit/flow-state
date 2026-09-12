@@ -19,6 +19,7 @@ import type { ActorSnapshot } from "../actor-engine.js";
 
 const resultSuccess = <Value, Error>(result: Result.Result<Value, Error>) => {
   if (Result.isFailure(result)) throw result.failure;
+
   return result.success;
 };
 
@@ -27,6 +28,7 @@ const item = resource({
   key: (value: number) => [value] as const,
   lookup: (value: number, _options) => Effect.succeed(value),
 });
+
 const nestedItem = resource({
   id: "turn-plan/nested-item",
   key: (value: number) => [{ value }] as const,
@@ -45,8 +47,11 @@ const planDefinitionResult = definition({
     count: input.seed,
   }),
 });
+
 const planDefinition = resultSuccess(planDefinitionResult);
+
 const opened = resultSuccess(planDefinition.E.opened(1));
+
 const mapped = resultSuccess(planDefinition.E.mapped());
 
 const asActionBatch = (value: readonly unknown[]) => {
@@ -56,6 +61,7 @@ const asActionBatch = (value: readonly unknown[]) => {
 };
 
 const trace: string[] = [];
+
 const planMachine = resultSuccess(
   machine(planDefinitionResult, ({ S, O }) => ({
     default: S.idle,
@@ -66,16 +72,19 @@ const planMachine = resultSuccess(
             target: S.working,
             guard: ({ event, memory }) => {
               trace.push(`guard:${event.value}:${memory.count}`);
+
               return event.value > 0;
             },
             updateMemory: ({ event, memory }) => {
               trace.push(`memory:${event.value}:${memory.count}`);
+
               return { count: memory.count + event.value };
             },
             actions: ({ memory, snapshot }) => {
               trace.push(`actions:${memory.count}:${snapshot.state.name}`);
               assert.strictEqual(Object.isFrozen(memory), true);
               assert.strictEqual(Object.isFrozen(snapshot), true);
+
               return asActionBatch([O.item.lookup(memory.count), mapped]);
             },
           },
@@ -85,6 +94,7 @@ const planMachine = resultSuccess(
         redirect: {
           when: ({ memory, snapshot }) => {
             trace.push(`redirect:${memory.count}:${snapshot.state.name}`);
+
             return memory.count === 2;
           },
           target: S.done,
@@ -96,7 +106,9 @@ const planMachine = resultSuccess(
 );
 
 const identityRegistry = makeActorIdentityRegistry();
+
 const identity = resultSuccess(identityRegistry.reserveStable(actorRef(planMachine, "turn-plan")));
+
 const fence: ActorFence = {
   key: identity.key,
   incarnation: identity.incarnation,
@@ -121,7 +133,9 @@ const contextProviderDefinitionResult = definition({
   states: ["ready", "changed"],
   events: {},
 });
+
 const contextProviderDefinition = resultSuccess(contextProviderDefinitionResult);
+
 const contextConsumerDefinitionResult = definition({
   id: "turn-plan/context-consumer",
   states: ["ready"],
@@ -130,23 +144,29 @@ const contextConsumerDefinitionResult = definition({
     provider: contextProviderDefinition.select(({ state }) => state),
   },
 });
+
 const contextConsumerDefinition = resultSuccess(contextConsumerDefinitionResult);
+
 const contextConsumerMachine = resultSuccess(
   machine(contextConsumerDefinitionResult, ({ S }) => ({
     default: S.ready,
     states: { ready: {} },
   })),
 );
+
 const contextRegistry = makeActorIdentityRegistry();
+
 const contextIdentity = resultSuccess(
   contextRegistry.reserveStable(actorRef(contextConsumerMachine, "turn-plan-context")),
 );
+
 const contextFence: ActorFence = {
   key: contextIdentity.key,
   incarnation: contextIdentity.incarnation,
   generation: 0,
   leaseEpoch: contextIdentity.leaseEpoch,
 };
+
 const contextSnapshot: ActorSnapshot<typeof contextConsumerDefinition> = {
   state: contextConsumerDefinition.S.ready,
   memory: {},
@@ -186,6 +206,7 @@ describe("turn planner", () => {
       "redirect:2:S.working",
     ]);
     assert.strictEqual(plan._tag, "event-plan");
+
     if (plan._tag === "event-plan") {
       assert.strictEqual(plan.before.state, planDefinition.S.idle);
       assert.strictEqual(plan.candidate.state, planDefinition.S.done);
@@ -198,6 +219,7 @@ describe("turn planner", () => {
       assert.strictEqual(Object.isFrozen(plan.before.memory), true);
       assert.strictEqual(Object.isFrozen(plan.candidate), true);
     }
+
     assert.deepStrictEqual(snapshot.memory, { count: 1 });
     assert.strictEqual(snapshot.state, planDefinition.S.idle);
   });
@@ -218,6 +240,7 @@ describe("turn planner", () => {
       states: ["idle"],
       events: { opened: (value: number) => ({ value }) },
     });
+
     const foreignDefinition = resultSuccess(foreignDefinitionResult);
     const foreignEvent = resultSuccess(foreignDefinition.E.opened(1));
     // @ts-expect-error EventOf is nominal and rejects another definition's event.
@@ -225,6 +248,7 @@ describe("turn planner", () => {
     const result = planTurn(foreignInput);
 
     assert.strictEqual(Result.isFailure(result), true);
+
     if (Result.isFailure(result)) {
       assert.deepStrictEqual(result.failure.path, ["event"]);
       assert.strictEqual(result.failure.details.issue, "foreign-event");
@@ -237,6 +261,7 @@ describe("turn planner", () => {
       descriptor: item.id,
       key: item.key(2),
     };
+
     const invalidMachine = resultSuccess(
       machine(planDefinitionResult, ({ S, O }) => ({
         default: S.idle,
@@ -254,9 +279,11 @@ describe("turn planner", () => {
         },
       })),
     );
+
     const result = planTurn({ ...turnInput(opened), machine: invalidMachine });
 
     assert.strictEqual(Result.isFailure(result), true);
+
     if (Result.isFailure(result)) {
       assert.deepStrictEqual(result.failure.path, ["actions", 1]);
       assert.strictEqual(result.failure.details.issue, "invalid-action");
@@ -274,6 +301,7 @@ describe("turn planner", () => {
         },
       ],
     };
+
     const result = planTurn<typeof planDefinition>({
       _tag: "projection",
       snapshot: keyedSnapshot,
@@ -291,9 +319,11 @@ describe("turn planner", () => {
         },
       },
     });
+
     const plan = resultSuccess(result);
 
     assert.strictEqual(plan._tag, "projection-plan");
+
     if (plan._tag === "projection-plan") {
       assert.strictEqual(plan.candidate.operations.length, 1);
       assert.strictEqual(plan.candidate.operations[0]?.descriptor, nestedItem);
@@ -319,6 +349,7 @@ describe("turn planner", () => {
       summary: "context selector failed",
       help: "Inspect the provider selector.",
     });
+
     const providers = [
       {
         fence: contextFence,
@@ -327,11 +358,13 @@ describe("turn planner", () => {
         value: contextProviderDefinition.S.ready,
       },
     ];
+
     const carrier: ContextProjectionCarrier = {
       providers,
       issueOnly: true,
       selectorDefects: [diagnostic],
     };
+
     const fact: Extract<ProjectionFact, { readonly _tag: "context-projection" }> = {
       _tag: "context-projection",
       provider: { ...providers[0]!, value: carrier },
@@ -344,9 +377,11 @@ describe("turn planner", () => {
       fact,
       fence: contextFence,
     });
+
     const plan = resultSuccess(result);
 
     assert.strictEqual(plan._tag, "projection-plan");
+
     if (plan._tag === "projection-plan") {
       assert.strictEqual(plan.candidate.revision, contextSnapshot.revision);
       assert.strictEqual(
@@ -365,6 +400,7 @@ describe("turn planner", () => {
       revision: 1,
       value: contextProviderDefinition.S.ready,
     };
+
     const carrier: ContextProjectionCarrier = {
       providers: [provider, provider],
       issueOnly: true,
@@ -378,6 +414,7 @@ describe("turn planner", () => {
         }),
       ],
     };
+
     const result = planTurn<typeof contextConsumerDefinition>({
       _tag: "projection",
       snapshot: contextSnapshot,
@@ -390,6 +427,7 @@ describe("turn planner", () => {
     });
 
     assert.strictEqual(Result.isFailure(result), true);
+
     if (Result.isFailure(result)) {
       assert.deepStrictEqual(result.failure.path, ["projection", "context", "slots"]);
       assert.strictEqual(
@@ -402,6 +440,7 @@ describe("turn planner", () => {
   it("builds a pure event turn candidate from an admitted event", () => {
     const result = resultSuccess(planTurn(turnInput(opened)));
     assert.strictEqual(result._tag, "event-plan");
+
     if (result._tag === "event-plan") {
       assert.strictEqual(result.cause.event, opened);
       assert.strictEqual(result.fence, fence);
@@ -413,6 +452,7 @@ describe("turn planner", () => {
 
   it("keeps passive projections separate from event planning", () => {
     trace.length = 0;
+
     const fact: ProjectionFact = {
       _tag: "timer-projection",
       fence,
@@ -420,15 +460,18 @@ describe("turn planner", () => {
       startedAt: 1,
       dueAt: 5,
     };
+
     const result = resultSuccess(planTurn({ _tag: "projection", snapshot, fence, fact }));
     assert.strictEqual(result._tag, "projection-plan");
     assert.deepStrictEqual(trace, []);
+
     if (result._tag === "projection-plan") assert.strictEqual(result.cause._tag, "projection");
   });
 
   it("orders machine actions and exact store targets", () => {
     const result = resultSuccess(planTurn(turnInput(opened)));
     assert.strictEqual(result._tag, "event-plan");
+
     if (result._tag === "event-plan") {
       assert.strictEqual(result.actions[0]?.ordinal, 0);
       assert.strictEqual(result.actions[0]?.action.kind, "resource-lookup");
@@ -454,6 +497,7 @@ describe("turn planner", () => {
       ...snapshot,
       operations: [{ descriptor: nestedItem, key: nestedItem.key(1), status: "succeeded" }],
     };
+
     const result = resultSuccess(
       planTurn<typeof planDefinition>({
         _tag: "projection",
@@ -468,7 +512,9 @@ describe("turn planner", () => {
         },
       }),
     );
+
     assert.strictEqual(result._tag, "projection-plan");
+
     if (result._tag === "projection-plan") {
       assert.strictEqual(result.candidate.operations.length, 1);
       assert.strictEqual(result.candidate.operations[0]?.status, "running");
@@ -478,6 +524,7 @@ describe("turn planner", () => {
   it.effect("cancels removed activity before late completion can apply", () =>
     Effect.gen(function* () {
       const scope = yield* Scope.make("sequential");
+
       const initial = resultSuccess(
         prepareActorSnapshot(planMachine, {
           ...snapshot,
@@ -487,13 +534,16 @@ describe("turn planner", () => {
           operations: [{ descriptor: nestedItem, key: nestedItem.key(1), status: "running" }],
         }),
       );
+
       const prepared = yield* prepareActorEngine({
         identity,
         fence,
         initial,
         scope,
       });
+
       const engine = yield* prepared.activate();
+
       const cancelled = engine.dispatchFact({
         _tag: "completion-projection",
         completion: {
@@ -501,6 +551,7 @@ describe("turn planner", () => {
           outcome: { _tag: "interrupt", exit: "removed" },
         },
       });
+
       assert.ok(Result.isSuccess(cancelled));
       yield* engine.drain();
       const afterCancel = engine.snapshot();
@@ -514,6 +565,7 @@ describe("turn planner", () => {
           outcome: { _tag: "success", value: 1 },
         },
       });
+
       assert.ok(Result.isSuccess(late));
       yield* engine.drain();
       assert.strictEqual(engine.snapshot(), afterCancel);
@@ -531,6 +583,7 @@ describe("turn planner", () => {
           outcome: { _tag: "success", value: 2 },
         },
       });
+
       assert.ok(Result.isSuccess(staleIncarnation));
       yield* engine.drain();
       assert.strictEqual(engine.snapshot(), afterCancel);
@@ -545,11 +598,13 @@ describe("turn planner", () => {
       states: ["idle"],
       events: { opened: "bare" },
     });
+
     const foreignDefinition = resultSuccess(foreignDefinitionResult);
     const foreignEvent = resultSuccess(foreignDefinition.E.opened());
     // @ts-expect-error This negative proof deliberately crosses the nominal event boundary.
     const result = planTurn(turnInput(foreignEvent));
     assert.ok(Result.isFailure(result));
+
     if (Result.isFailure(result)) assert.deepStrictEqual(result.failure.path, ["event"]);
   });
 
@@ -573,8 +628,10 @@ describe("turn planner", () => {
         },
       })),
     );
+
     const result = planTurn({ ...turnInput(opened), machine: defective });
     assert.ok(Result.isFailure(result));
+
     if (Result.isFailure(result)) {
       assert.strictEqual(result.failure.code, "Defect");
       assert.deepStrictEqual(result.failure.path, []);
@@ -585,6 +642,7 @@ describe("turn planner", () => {
     Effect.gen(function* () {
       const scope = yield* Scope.make("sequential");
       const published: ActorSnapshot<typeof planDefinition>[] = [];
+
       const initial = resultSuccess(
         prepareActorSnapshot(planMachine, {
           ...snapshot,
@@ -592,6 +650,7 @@ describe("turn planner", () => {
           operations: [{ descriptor: nestedItem, key: nestedItem.key(1), status: "running" }],
         }),
       );
+
       const prepared = yield* prepareActorEngine({
         identity,
         fence,
@@ -599,7 +658,9 @@ describe("turn planner", () => {
         scope,
         onSnapshot: (next) => published.push(next),
       });
+
       const engine = yield* prepared.activate();
+
       const cancelled = engine.dispatchFact({
         _tag: "completion-projection",
         completion: {
@@ -607,6 +668,7 @@ describe("turn planner", () => {
           outcome: { _tag: "interrupt", exit: "removed" },
         },
       });
+
       assert.ok(Result.isSuccess(cancelled));
       yield* engine.drain();
       const terminal = engine.snapshot();
@@ -620,7 +682,9 @@ describe("turn planner", () => {
           outcome: { _tag: "success", value: 1 },
         },
       });
+
       assert.ok(Result.isSuccess(late));
+
       const stale = engine.dispatchFact({
         _tag: "completion-projection",
         completion: {
@@ -634,6 +698,7 @@ describe("turn planner", () => {
           outcome: { _tag: "success", value: 2 },
         },
       });
+
       assert.ok(Result.isSuccess(stale));
       yield* engine.drain();
       assert.strictEqual(engine.snapshot(), terminal);
@@ -648,8 +713,10 @@ describe("turn planner", () => {
       _tag: "store-projection",
       fact: { fence, revision: -1, changed: [] },
     };
+
     const result = planTurn({ _tag: "projection", snapshot, fence, fact });
     assert.ok(Result.isFailure(result));
+
     if (Result.isFailure(result))
       assert.deepStrictEqual(result.failure.path, ["projection", "store", "revision"]);
   });
@@ -659,6 +726,7 @@ describe("turn planner", () => {
     assert.strictEqual("sequence" in plan, false);
     assert.strictEqual("evidence" in plan, false);
     assert.strictEqual(plan.before.revision, snapshot.revision);
+
     if (plan._tag === "event-plan") assert.strictEqual(plan.candidate.revision, snapshot.revision);
   });
 
@@ -669,7 +737,9 @@ describe("turn planner", () => {
       fence,
       fact: { _tag: "timer-projection", fence, name: "bad", startedAt: 4, dueAt: 3 },
     });
+
     assert.ok(Result.isFailure(result));
+
     if (Result.isFailure(result)) assert.strictEqual(result.failure.code, "SemanticValidation");
   });
 
@@ -688,7 +758,9 @@ describe("turn planner", () => {
         },
       }),
     );
+
     assert.strictEqual(result._tag, "projection-plan");
+
     if (result._tag === "projection-plan") {
       assert.strictEqual(result.candidate.operations[0]?.descriptor, nestedItem);
       assert.deepStrictEqual(result.candidate.operations[0]?.key, nestedItem.key(2));
@@ -702,11 +774,13 @@ describe("turn planner", () => {
       revision: 1,
       value: contextProviderDefinition.S.ready,
     };
+
     const carrier: ContextProjectionCarrier = {
       providers: [provider],
       issueOnly: false,
       selectorDefects: [],
     };
+
     const result = resultSuccess(
       planTurn<typeof contextConsumerDefinition>({
         _tag: "projection",
@@ -719,6 +793,7 @@ describe("turn planner", () => {
         },
       }),
     );
+
     assert.strictEqual(result._tag, "noop");
     assert.strictEqual(result.before.context.provider, contextProviderDefinition.S.ready);
   });
@@ -731,17 +806,20 @@ describe("turn planner", () => {
       summary: "selector",
       help: "inspect selector",
     });
+
     const provider = {
       fence: contextFence,
       slot: "provider",
       revision: 2,
       value: contextProviderDefinition.S.changed,
     };
+
     const carrier: ContextProjectionCarrier = {
       providers: [provider],
       issueOnly: true,
       selectorDefects: [diagnostic],
     };
+
     const result = resultSuccess(
       planTurn<typeof contextConsumerDefinition>({
         _tag: "projection",
@@ -754,7 +832,9 @@ describe("turn planner", () => {
         },
       }),
     );
+
     assert.strictEqual(result._tag, "projection-plan");
+
     if (result._tag === "projection-plan") {
       assert.strictEqual(result.candidate.context.provider, contextProviderDefinition.S.changed);
       assert.strictEqual(result.candidate.issues[0], diagnostic);
@@ -770,7 +850,9 @@ describe("turn planner", () => {
         fact: { _tag: "timer-projection", fence, name: "deadline", startedAt: 10, dueAt: 100 },
       }),
     );
+
     assert.strictEqual(result._tag, "projection-plan");
+
     if (result._tag === "projection-plan")
       assert.deepStrictEqual(result.candidate.timers, [
         { name: "deadline", startedAt: 10, dueAt: 100 },
@@ -786,7 +868,9 @@ describe("turn planner", () => {
         fact: { _tag: "lifecycle-projection", fence, lifecycle: "suspended" },
       }),
     );
+
     assert.strictEqual(result._tag, "projection-plan");
+
     if (result._tag === "projection-plan")
       assert.strictEqual(result.candidate.lifecycle, "suspended");
   });
@@ -800,6 +884,7 @@ describe("turn planner", () => {
         fact: { _tag: "lifecycle-projection", fence, lifecycle: snapshot.lifecycle },
       }),
     );
+
     assert.strictEqual(result._tag, "noop");
     assert.strictEqual(result.before.revision, snapshot.revision);
   });
@@ -816,6 +901,7 @@ describe("turn planner", () => {
   it("validates mapped event envelopes before scheduling them", () => {
     const result = resultSuccess(planTurn(turnInput(opened)));
     assert.strictEqual(result._tag, "event-plan");
+
     if (result._tag === "event-plan") {
       assert.strictEqual(result.mappedEvents.length, 1);
       assert.strictEqual(result.mappedEvents[0]?.type, mapped.type);

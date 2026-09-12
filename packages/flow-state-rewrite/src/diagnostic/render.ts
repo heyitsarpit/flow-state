@@ -14,6 +14,7 @@ import type { Details, Diagnostic, Path } from "./diagnostic.js";
 
 // Character escaping
 const invisibleControl = /[\p{Cc}\p{Cf}\u2028\u2029]/gu;
+
 const identifier = /^[A-Za-z_$][\w$]*$/u;
 
 const unicodeEscape = (codePoint: number) =>
@@ -26,6 +27,7 @@ const quote = flow(
   (value) =>
     value.replace(invisibleControl, (character) => {
       const codePoint = character.codePointAt(0);
+
       return codePoint === undefined ? "" : unicodeEscape(codePoint);
     }),
 );
@@ -39,6 +41,7 @@ const printPath = flow(
   (path: Path) =>
     path.map((segment) => {
       if (Predicate.isNumber(segment)) return `[${segment}]`;
+
       return identifier.test(segment) ? `.${segment}` : `[${quote(segment)}]`;
     }),
   (segments) => `$${segments.join("")}`,

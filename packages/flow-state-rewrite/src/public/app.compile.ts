@@ -34,6 +34,7 @@ const requiredDefinitionResult = definition({
   events: { refresh: "bare" },
   operations: { repository: requiredResource },
 });
+
 const requiredDefinition = Result.getOrThrow(requiredDefinitionResult);
 
 const requiredMachineResult = machine(requiredDefinitionResult, ({ S }) => ({
@@ -42,6 +43,7 @@ const requiredMachineResult = machine(requiredDefinitionResult, ({ S }) => ({
 }));
 
 const requiredMachine = Result.getOrThrow(requiredMachineResult);
+
 const requiredModule = module({
   id: "app-type/module",
   machines: { required: requiredMachine },
@@ -54,6 +56,7 @@ const tupleApp = app({
 });
 
 const homogeneousModules: readonly (typeof requiredModule)[] = [requiredModule];
+
 const homogeneousApp = app({
   id: "app-type/homogeneous",
   persistenceVersion: "1",
@@ -61,6 +64,7 @@ const homogeneousApp = app({
 });
 
 const broadModules: readonly Module[] = [requiredModule];
+
 const broadApp = app({
   id: "app-type/broad",
   persistenceVersion: "1",
@@ -76,29 +80,38 @@ const emptyApp = app({
 export type _OperationRequirements = Expect<
   Types.Equals<RequirementsOf<typeof requiredResource>, Repo>
 >;
+
 export type _DefinitionRequirements = Expect<
   Types.Equals<RequirementsOf<typeof requiredDefinition.operations.repository>, Repo>
 >;
+
 export type _MachineRequirements = Expect<
   Types.Equals<RequirementsOf<typeof requiredMachine>, Repo>
 >;
+
 export type _ModuleRequirements = Expect<Types.Equals<RequirementsOf<typeof requiredModule>, Repo>>;
+
 export type _TupleRequirements = Expect<Types.Equals<RequirementsOf<typeof tupleApp>, Repo>>;
+
 export type _TupleMachine = Expect<
   Types.Equals<typeof tupleApp.M.required, typeof requiredMachine>
 >;
+
 export type _TupleDescriptor = Expect<
   Types.Equals<typeof tupleApp.M.required.definition.operations.repository, typeof requiredResource>
 >;
+
 export type _HomogeneousRequirements = Expect<
   Types.Equals<RequirementsOf<typeof homogeneousApp>, Repo>
 >;
+
 export type _HomogeneousMachine = Expect<
   Types.Equals<
     (typeof homogeneousApp.modules)[number]["machines"]["required"],
     typeof requiredMachine
   >
 >;
+
 export type _HomogeneousDescriptor = Expect<
   Types.Equals<
     (typeof homogeneousApp.modules)[number]["machines"]["required"]["definition"]["operations"]["repository"],
@@ -107,10 +120,13 @@ export type _HomogeneousDescriptor = Expect<
 >;
 
 export type _BroadRequirements = Expect<Types.Equals<RequirementsOf<typeof broadApp>, unknown>>;
+
 export type _ErasedRequirements = Expect<Types.Equals<RequirementsOf<Module>, unknown>>;
+
 export type _BroadMachineKeys = Expect<Types.Equals<keyof typeof broadApp.M, never>>;
 
 export type _EmptyRequirements = Expect<Types.Equals<RequirementsOf<typeof emptyApp>, never>>;
+
 export type _EmptyMachineKeys = Expect<Types.Equals<keyof typeof emptyApp.M, never>>;
 
 // Negative authoring cases stay after the positive relationship assertions so their
@@ -123,7 +139,9 @@ const namedHomogeneousMachine: typeof requiredMachine = homogeneousApp.M.require
 
 // @ts-expect-error Erased module requirements cannot select the dependency-free overload.
 runtimeSetup({ app: broadApp });
+
 const broadOptions = { app: broadApp };
+
 // @ts-expect-error Erased module requirements cannot be hidden in a variable.
 runtimeSetup(broadOptions);
 

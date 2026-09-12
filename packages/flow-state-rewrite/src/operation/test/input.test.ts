@@ -23,12 +23,15 @@ describe("stable observation comparisons", () => {
       value: Number.NaN,
       writable: true,
     };
+
     let getterCalls = 0;
+
     const accessor = {
       configurable: true,
       enumerable: true,
       get: () => {
         getterCalls += 1;
+
         return Number.NaN;
       },
     };
@@ -46,6 +49,7 @@ describe("operation executable input ownership", () => {
     class Client {
       readonly tag = "client";
     }
+
     type Params = {
       scope: { id: string; tags: string[] };
       client: Client;
@@ -57,6 +61,7 @@ describe("operation executable input ownership", () => {
       client: new Client(),
       callback: () => "stable",
     });
+
     const assertSnapshot = (
       input: Params,
       plan: { readonly params: Params; readonly key: OperationKey },
@@ -78,36 +83,44 @@ describe("operation executable input ownership", () => {
     };
 
     const resourceInput = makeParams();
+
     const project = resource({
       id: "projects.snapshot-resource",
       key: (params: Params) => [params.scope.id] as const,
       lookup: (params: Params) => Effect.succeed(params.scope.id),
     });
+
     assertSnapshot(resourceInput, project.lookup(resourceInput));
 
     const transactionInput = makeParams();
+
     const save = transaction({
       id: "projects.snapshot-transaction",
       key: (params: Params) => [params.scope.id] as const,
       commit: (params: Params) => Effect.succeed(params.scope.id),
     });
+
     assertSnapshot(transactionInput, save.commit(transactionInput));
 
     const streamInput = makeParams();
+
     const updates = stream({
       id: "projects.snapshot-stream",
       key: (params: Params) => [params.scope.id] as const,
       subscribe: (params: Params) => Stream.make(params.scope.id),
     });
+
     assertSnapshot(streamInput, updates.subscribe(streamInput));
 
     const shared = { id: "shared" };
     const sharedInput = { left: shared, right: shared };
+
     const sharedResource = resource({
       id: "projects.snapshot-shared",
       key: (params: typeof sharedInput) => [params.left.id] as const,
       lookup: () => Effect.succeed("shared"),
     });
+
     const sharedPlan = sharedResource.lookup(sharedInput);
     assert.strictEqual(sharedPlan.params.left, sharedPlan.params.right);
     assert.strictEqual(Object.isFrozen(sharedPlan.params.left), true);
@@ -119,11 +132,13 @@ describe("operation executable input ownership", () => {
       parts?: string[];
       nested?: Params;
     };
+
     const project = resource({
       id: "projects.snapshot-validation",
       key: (params: Params) => [params.value] as const,
       lookup: () => Effect.succeed("ok"),
     });
+
     const expectRejected = (params: Params) => {
       assert.throws(() => project.lookup(params), TypeError);
     };
@@ -159,6 +174,7 @@ describe("operation executable input ownership", () => {
       enumerable: true,
       get: () => {
         getterCalls += 1;
+
         return "secret";
       },
     });
@@ -170,15 +186,18 @@ describe("operation executable input ownership", () => {
     expectRejected(revoked.proxy);
 
     let reflectionCalls = 0;
+
     const inconsistent = new Proxy(
       { value: "inconsistent" },
       {
         ownKeys: (target) => {
           reflectionCalls += 1;
+
           return reflectionCalls === 1 ? Reflect.ownKeys(target) : [];
         },
       },
     );
+
     expectRejected(inconsistent);
   });
 
@@ -188,6 +207,7 @@ describe("operation executable input ownership", () => {
       key: () => ["transparent-proxy"] as const,
       lookup: () => Effect.succeed("ok"),
     });
+
     const proxy = new Proxy({ value: "proxy" }, {});
 
     const plan = project.lookup(proxy);
@@ -197,9 +217,11 @@ describe("operation executable input ownership", () => {
 
   it("passes the owned frozen params to key before canonical admission", () => {
     type Params = { nested: { value: string } };
+
     const input: Params = { nested: { value: "stable" } };
     const order: string[] = [];
     let keyParams: Params | undefined;
+
     const project = resource({
       id: "projects.snapshot-before-key",
       key: (params: Params) => {
@@ -209,6 +231,7 @@ describe("operation executable input ownership", () => {
         assert.strictEqual(Object.isFrozen(params), true);
         assert.strictEqual(Object.isFrozen(params.nested), true);
         input.nested.value = "changed-before-k";
+
         return [params.nested.value] as const;
       },
       lookup: () => Effect.succeed("ok"),
@@ -224,15 +247,19 @@ describe("operation executable input ownership", () => {
 
   it("retains function leaves without invoking them", () => {
     let calls = 0;
+
     const leaf = () => {
       calls += 1;
       throw new Error("function leaf invoked");
     };
+
     const input = { leaf };
+
     const project = resource({
       id: "projects.snapshot-function-leaf",
       key: (params: typeof input) => {
         assert.strictEqual(params.leaf, leaf);
+
         return ["function-leaf"] as const;
       },
       lookup: () => Effect.succeed("ok"),
@@ -248,16 +275,20 @@ describe("operation executable input ownership", () => {
     class Client {
       readonly tag = "client";
     }
+
     const callback = () => "stable";
     const client = new Client();
     let descriptorReads = 0;
+
     const flapping = new Proxy(
       { callback, client },
       {
         getOwnPropertyDescriptor: (target, key) => {
           const descriptor = Reflect.getOwnPropertyDescriptor(target, key);
+
           if (key !== "callback" || descriptor === undefined) return descriptor;
           descriptorReads += 1;
+
           return {
             ...descriptor,
             value: descriptorReads === 1 ? callback : () => "changed",
@@ -265,6 +296,7 @@ describe("operation executable input ownership", () => {
         },
       },
     );
+
     const project = resource({
       id: "projects.snapshot-flapping-opaque",
       key: () => ["flapping"] as const,
@@ -279,17 +311,22 @@ describe("operation executable input ownership", () => {
     class Client {
       readonly tag = "client";
     }
+
     const callback = () => "stable";
     const client = new Client();
     let ownKeysReads = 0;
     const target = { value: "original", callback, client };
+
     const flapping = new Proxy(target, {
       ownKeys: (source) => {
         ownKeysReads += 1;
+
         if (ownKeysReads === 3) source.value = "changed";
+
         return Reflect.ownKeys(source);
       },
     });
+
     const project = resource({
       id: "projects.snapshot-final-reflection",
       key: () => ["final-reflection"] as const,
@@ -305,20 +342,25 @@ describe("operation executable input ownership", () => {
     class Client {
       readonly tag = "client";
     }
+
     const callback = () => "stable";
     const client = new Client();
     const shared = { value: "original" };
     let ownKeysReads = 0;
+
     const mutator = new Proxy(
       { callback, client },
       {
         ownKeys: (source) => {
           ownKeysReads += 1;
+
           if (ownKeysReads === 3) shared.value = "changed";
+
           return Reflect.ownKeys(source);
         },
       },
     );
+
     const project = resource({
       id: "projects.snapshot-shared-mutation",
       key: () => ["shared-mutation"] as const,
@@ -332,8 +374,10 @@ describe("operation executable input ownership", () => {
 
   it("snapshots deep ordinary parameters without recursive stack growth", () => {
     type Deep = { readonly next?: Deep; readonly value?: string };
+
     const depth = 2_048;
     let input: Deep = { value: "leaf" };
+
     for (let index = 0; index < depth; index += 1) input = { next: input };
 
     const project = resource({
@@ -341,15 +385,19 @@ describe("operation executable input ownership", () => {
       key: (_params: Deep) => ["deep"] as const,
       lookup: () => Effect.succeed("ok"),
     });
+
     const plan = project.lookup(input);
     assert.deepStrictEqual(plan.key, ["deep"]);
 
     let cursor: Deep = plan.params;
+
     for (let index = 0; index < depth; index += 1) {
       assert.strictEqual(Object.isFrozen(cursor), true);
+
       if (cursor.next === undefined) throw new Error("deep snapshot ended early");
       cursor = cursor.next;
     }
+
     assert.deepStrictEqual(cursor, { value: "leaf" });
     assert.strictEqual(Object.isFrozen(cursor), true);
   });

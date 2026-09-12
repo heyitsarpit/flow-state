@@ -5,9 +5,13 @@ import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
+
 const packageRoot = resolve(scriptDir, "..");
+
 const manifestPath = resolve(packageRoot, "package.json");
+
 const buildScript = resolve(scriptDir, "build.mjs");
+
 const distRoot = resolve(packageRoot, "dist");
 
 const expectedSurface = new Map([
@@ -34,6 +38,7 @@ const expectedSurface = new Map([
   ["./testing", { basename: "testing", runtimeExports: [] }],
   ["./inspect", { basename: "inspect", runtimeExports: [] }],
 ]);
+
 const expectedManifestExportKeys = [".", "./inspect", "./package.json", "./react", "./testing"];
 
 const fail = (message) => {
@@ -60,6 +65,7 @@ const targetPath = (target) => {
     path === packageRoot || path.startsWith(`${packageRoot}/`),
     `export target escapes package: ${target}`,
   );
+
   return path;
 };
 
@@ -71,6 +77,7 @@ const exportTargets = (manifest) => {
       value !== null &&
       value !== undefined &&
       (Object.hasOwn(value, "import") || Object.hasOwn(value, "types"));
+
     if (!conditional) {
       targets.push({ kind: "asset", route, path: targetPath(value) });
       continue;
@@ -78,6 +85,7 @@ const exportTargets = (manifest) => {
 
     for (const kind of ["import", "types"]) {
       const target = value[kind];
+
       if (target !== undefined) {
         targets.push({ kind, route, path: targetPath(target) });
       }
@@ -91,6 +99,7 @@ const assertManifestSurface = (manifest, targets) => {
   const actualExportKeys = Object.keys(manifest.exports).sort((left, right) =>
     left.localeCompare(right),
   );
+
   assert(
     actualExportKeys.length === expectedManifestExportKeys.length &&
       actualExportKeys.every((key, index) => key === expectedManifestExportKeys[index]),
@@ -102,6 +111,7 @@ const assertManifestSurface = (manifest, targets) => {
     artifactTargets.length === 8,
     `expected 8 runtime/type targets, got ${artifactTargets.length}`,
   );
+
   for (const [route, expected] of expectedSurface) {
     const routeValue = manifest.exports[route];
     assert(
@@ -114,6 +124,7 @@ const assertManifestSurface = (manifest, targets) => {
 
     const routeTargets = artifactTargets.filter((target) => target.route === route);
     assert(routeTargets.length === 2, `route ${route} must have exactly 2 targets`);
+
     for (const kind of ["import", "types"]) {
       const matchingTargets = routeTargets.filter((target) => target.kind === kind);
       assert(matchingTargets.length === 1, `route ${route} must have exactly one ${kind} target`);
@@ -142,12 +153,14 @@ const assertTargetFiles = (targets) => {
       statSync(target.path).isFile(),
       `export target is not a file: ${relativePath(target.path)}`,
     );
+
     if (target.kind === "import") {
       assert(
         target.path.endsWith(".mjs"),
         `runtime target must be .mjs: ${relativePath(target.path)}`,
       );
     }
+
     if (target.kind === "types") {
       assert(
         target.path.endsWith(".d.mts"),
@@ -160,9 +173,11 @@ const assertTargetFiles = (targets) => {
 const declarationSpecifiers = (declaration) => {
   const specifiers = [];
   const pattern = /(?:from\s+|import\(\s*)["']([^"']+)["']/g;
+
   for (const match of declaration.matchAll(pattern)) {
     specifiers.push(match[1]);
   }
+
   return specifiers;
 };
 
@@ -187,7 +202,9 @@ const assertDeclarationReferences = (targets) => {
         !specifier.includes("/src/"),
         `${relativePath(target.path)} references source specifier ${specifier}`,
       );
+
       if (!specifier.endsWith(".js") && !specifier.endsWith(".d.ts")) continue;
+
       if (!specifier.startsWith(".")) continue;
       const referenced = resolve(dirname(target.path), specifier);
       assert(
@@ -208,14 +225,17 @@ const inventory = (targets) =>
 
 const importRuntimeTargets = async (targets) => {
   const imported = [];
+
   for (const target of targets) {
     const module = await import(pathToFileURL(target.path).href);
     const keys = Object.keys(module).sort((left, right) => left.localeCompare(right));
     const expected = expectedSurface.get(target.route);
     assert(expected !== undefined, `unexpected runtime route: ${target.route}`);
+
     const expectedExports = [...expected.runtimeExports].sort((left, right) =>
       left.localeCompare(right),
     );
+
     assert(
       keys.length === expectedExports.length &&
         keys.every((key, index) => key === expectedExports[index]),
@@ -224,6 +244,7 @@ const importRuntimeTargets = async (targets) => {
     imported.push({ keys, target });
     console.log(`smoke-import\t${target.route}\t${relativePath(target.path)}\t${keys.join(",")}`);
   }
+
   for (const { keys, target } of imported) {
     if (keys.length === 0) continue;
     const runtime = readFileSync(target.path, "utf8");
@@ -243,6 +264,7 @@ const importRuntimeTargets = async (targets) => {
     effectImports.length === 1,
     `expected one external Effect import, got ${effectImports.length}`,
   );
+
   for (const owner of ["Diagnostic", "Implementation"]) {
     const ownerDefinitions = rootRuntime.match(new RegExp(`\\bconst ${owner} =`, "gu")) ?? [];
     assert(
@@ -257,10 +279,12 @@ const assertGeneratedOutput = (targets) => {
     .filter((path) => path.endsWith(".mjs") || path.endsWith(".d.mts"))
     .map((path) => relativePath(resolve(distRoot, path)))
     .sort((left, right) => left.localeCompare(right));
+
   const expected = targets
     .filter(({ kind }) => kind !== "asset")
     .map(({ path }) => relativePath(path))
     .sort((left, right) => left.localeCompare(right));
+
   assert(
     actual.length === expected.length && actual.every((path, index) => path === expected[index]),
     `generated runtime/type inventory differs: ${actual.join(",")}`,
@@ -272,12 +296,19 @@ const runBuild = () => {
 };
 
 runBuild();
+
 const manifest = readJson(manifestPath);
+
 const targets = exportTargets(manifest);
+
 assertManifestSurface(manifest, targets);
+
 assertTargetFiles(targets);
+
 assertGeneratedOutput(targets);
+
 assertDeclarationReferences(targets);
+
 await importRuntimeTargets(runtimeTargets(targets));
 
 for (const target of targets) {
@@ -285,14 +316,19 @@ for (const target of targets) {
     `hash\t${target.kind}\t${target.route}\t${relativePath(target.path)}\t${hashFile(target.path)}`,
   );
 }
+
 const sourceEntrypoints = new Set();
+
 for (const target of targets) {
   if (target.kind === "asset") continue;
+
   const sourceName = relativePath(target.path)
     .replace(/^dist\//u, "src/")
     .replace(/\.d\.mts$|\.mjs$/u, ".ts");
+
   sourceEntrypoints.add(sourceName);
 }
+
 for (const sourceName of [...sourceEntrypoints].sort((left, right) => left.localeCompare(right))) {
   const sourcePath = resolve(packageRoot, sourceName);
   assert(existsSync(sourcePath), `missing source entrypoint: ${sourceName}`);
@@ -300,15 +336,23 @@ for (const sourceName of [...sourceEntrypoints].sort((left, right) => left.local
 }
 
 const firstInventory = inventory(targets);
+
 runBuild();
+
 assertManifestSurface(manifest, targets);
+
 assertTargetFiles(targets);
+
 assertGeneratedOutput(targets);
+
 assertDeclarationReferences(targets);
+
 const secondInventory = inventory(targets);
+
 assert(
   firstInventory.length === secondInventory.length &&
     firstInventory.every((entry, index) => entry === secondInventory[index]),
   `repeated build export inventory differs:\n${firstInventory.join("\n")}\n---\n${secondInventory.join("\n")}`,
 );
+
 console.log(`deterministic-inventory\t${secondInventory.length} targets`);

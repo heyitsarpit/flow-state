@@ -89,9 +89,11 @@ const buildStateTable = (
     if (Predicate.isString(declaration)) {
       const path = [...parentPath, declaration];
       const id = `S|${segment(definitionId)}|${segment(stateIdentity(path))}` as const;
+
       const token = registerStateToken(
         makeStateToken({ kind: "state", name: stateName(path), id }),
       );
+
       entries.push([declaration, token]);
       continue;
     }
@@ -111,6 +113,7 @@ const createEventToken = (
   definitionId: string,
 ) => {
   const id: RuntimeEventId = `E|${segment(definitionId)}|${segment(name)}`;
+
   const event = (...args: readonly DefinitionValue[]) => {
     const payload = declaration(...args);
 
@@ -123,6 +126,7 @@ const createEventToken = (
   };
 
   Object.defineProperty(event, "name", { value: name });
+
   return makeEventToken(Object.assign(event, { kind: "event" as const, id }));
 };
 

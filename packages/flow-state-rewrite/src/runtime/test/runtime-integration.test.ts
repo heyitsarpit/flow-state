@@ -35,7 +35,9 @@ const IntegrationProviderDefinitionResult = definition({
   states: ["ready", "changed", "final"],
   events: { advance: "bare" },
 });
+
 const IntegrationProviderDefinition = Result.getOrThrow(IntegrationProviderDefinitionResult);
+
 const IntegrationProviderMachine = Result.getOrThrow(
   machine(IntegrationProviderDefinitionResult, ({ S }) => ({
     default: S.ready,
@@ -59,7 +61,9 @@ const IntegrationConsumerDefinitionResult = definition({
   },
   operations: { item: IntegrationResource },
 });
+
 const IntegrationConsumerDefinition = Result.getOrThrow(IntegrationConsumerDefinitionResult);
+
 const IntegrationConsumerMachine = Result.getOrThrow(
   machine(IntegrationConsumerDefinitionResult, ({ S, O }) => ({
     default: S.ready,
@@ -82,7 +86,9 @@ const IntegrationStandaloneDefinitionResult = definition({
   states: ["ready", "done"],
   events: { opened: "bare" },
 });
+
 const IntegrationStandaloneDefinition = Result.getOrThrow(IntegrationStandaloneDefinitionResult);
+
 const IntegrationStandaloneMachine = Result.getOrThrow(
   machine(IntegrationStandaloneDefinitionResult, ({ S }) => ({
     default: S.ready,
@@ -92,6 +98,7 @@ const IntegrationStandaloneMachine = Result.getOrThrow(
     },
   })),
 );
+
 const IntegrationModule = module({
   id: "runtime-integration/module",
   machines: {
@@ -100,6 +107,7 @@ const IntegrationModule = module({
     standalone: IntegrationStandaloneMachine,
   },
 });
+
 const IntegrationApp = app({
   id: "runtime-integration/app",
   persistenceVersion: "1",
@@ -107,7 +115,9 @@ const IntegrationApp = app({
 });
 
 const IntegrationProviderEvent = Result.getOrThrow(IntegrationProviderDefinition.E.advance());
+
 const IntegrationConsumerEvent = Result.getOrThrow(IntegrationConsumerDefinition.E.opened());
+
 const IntegrationStandaloneEvent = Result.getOrThrow(IntegrationStandaloneDefinition.E.opened());
 
 type IntegrationConsumerSnapshot = ActorSnapshot<typeof IntegrationConsumerDefinition>;
@@ -187,6 +197,7 @@ const makeImplementation = (counts: { acquisitions: number; releases: number }) 
     Effect.acquireRelease(
       Effect.sync(() => {
         counts.acquisitions += 1;
+
         return { name: "runtime-integration" } as const;
       }),
       () =>
@@ -210,17 +221,21 @@ describe("runtime assembly integration", () => {
       const assembly = runtimeOwner(runtime).assembly();
       const ref = actorRef(IntegrationProviderMachine, "prepared-admission");
       const valid = initialProviderSnapshot();
+
       const forgedByDescriptor = new Proxy(
         { ...valid },
         {
           getOwnPropertyDescriptor(target, property) {
             const descriptor = Reflect.getOwnPropertyDescriptor(target, property);
+
             if (property === "state" && descriptor !== undefined && "value" in descriptor)
               return { ...descriptor, value: { forged: true } };
+
             return descriptor;
           },
         },
       );
+
       const malformed = [
         { ...valid },
         { ...valid, state: { forged: true } },
@@ -229,7 +244,9 @@ describe("runtime assembly integration", () => {
         { ...valid, revision: -1 },
         forgedByDescriptor,
       ];
+
       let snapshots = 0;
+
       for (const snapshot of malformed) {
         const failed = yield* Effect.exit(
           assembly.createActor({
@@ -242,13 +259,16 @@ describe("runtime assembly integration", () => {
             },
           }),
         );
+
         assert.ok(Exit.isFailure(failed));
+
         if (Exit.isFailure(failed)) {
           const reason = failed.cause.reasons.find(Cause.isFailReason);
           assert.ok(reason !== undefined);
           assert.strictEqual(reason.error.code, "InvariantViolation");
         }
       }
+
       assert.strictEqual(snapshots, 0);
 
       const actor = yield* assembly.createActor({ ref, initial: valid });
@@ -264,17 +284,20 @@ describe("runtime assembly integration", () => {
       yield* runtime.ready();
       const assembly = runtimeOwner(runtime).assembly();
       const records: EvidenceRecord[] = [];
+
       const sink = yield* makeEvidenceSink({
         id: "runtime-restore-admission",
         capacity: 8,
         deliver: (record) => Effect.sync(() => records.push(record)),
       });
+
       assert.ok(Result.isSuccess(assembly.evidence.hub.attach(sink)));
 
       let snapshots = 0;
       let commands = 0;
       const ref = actorRef(IntegrationStandaloneMachine, "restored", { persist: true });
       const restored = restoredStandaloneSnapshot();
+
       const actor = yield* assembly.createActor({
         ref,
         restore: restored,
@@ -283,6 +306,7 @@ describe("runtime assembly integration", () => {
         },
         onCommand: () => {
           commands += 1;
+
           return Effect.void;
         },
       });
@@ -303,10 +327,12 @@ describe("runtime assembly integration", () => {
       assert.strictEqual(commands, 0);
 
       yield* assembly.evidence.hub.drain();
+
       const lifecycleRecords = records.filter(
         (record): record is Extract<EvidenceRecord, { readonly _tag: "lifecycle" }> =>
           record._tag === "lifecycle" && record.provenance.actor.key === actor.fence.key,
       );
+
       assert.strictEqual(lifecycleRecords.length, 2);
       assert.deepStrictEqual(
         lifecycleRecords.map((record) => [record.from, record.to]),
@@ -328,6 +354,7 @@ describe("runtime assembly integration", () => {
       yield* runtime.ready();
       const assembly = runtimeOwner(runtime).assembly();
       const ref = actorRef(IntegrationStandaloneMachine, "stateful-options");
+
       const initial = Result.getOrThrow(
         prepareActorSnapshot(IntegrationStandaloneMachine, {
           state: IntegrationStandaloneDefinition.S.ready,
@@ -343,20 +370,25 @@ describe("runtime assembly integration", () => {
       );
 
       let refDescriptorReads = 0;
+
       const unstable = new Proxy(
         { ref, initial },
         {
           getOwnPropertyDescriptor(target, property) {
             const descriptor = Reflect.getOwnPropertyDescriptor(target, property);
+
             if (property === "ref" && descriptor !== undefined && "value" in descriptor) {
               refDescriptorReads += 1;
+
               if (refDescriptorReads === 2)
                 return { ...descriptor, value: actorRef(IntegrationStandaloneMachine, "forged") };
             }
+
             return descriptor;
           },
         },
       );
+
       const failed = yield* Effect.exit(assembly.createActor(unstable));
       assert.ok(Exit.isFailure(failed));
 
@@ -364,12 +396,15 @@ describe("runtime assembly integration", () => {
       const committed: number[] = [];
       let snapshots = 0;
       let commands = 0;
+
       const store: ActorStore<typeof IntegrationStandaloneDefinition> = {
         commit: (actions) => {
           committed.push(actions.length);
+
           return Result.succeed({ revision: 1, changed: [] });
         },
       };
+
       const stableOptions = new Proxy(
         {
           ref,
@@ -381,6 +416,7 @@ describe("runtime assembly integration", () => {
           },
           onCommand: () => {
             commands += 1;
+
             return Effect.void;
           },
           bindings: [] as const,
@@ -391,9 +427,11 @@ describe("runtime assembly integration", () => {
             if (typeof property === "string" && property in target) {
               const reads = (optionReads.get(property) ?? 0) + 1;
               optionReads.set(property, reads);
+
               // oxlint-disable-next-line anti-slop/no-throw-in-effect-gen -- the proxy trap deliberately defects on a late caller-owned read.
               if (reads > 1) throw new Error(`late actor option read: ${property}`);
             }
+
             // oxlint-disable-next-line anti-slop/no-reflect-get -- the proxy test forwards an arbitrary property without widening the production boundary.
             return Reflect.get(target, property, receiver);
           },
@@ -401,6 +439,7 @@ describe("runtime assembly integration", () => {
       );
 
       const actor = yield* assembly.createActor(stableOptions);
+
       for (const key of ["ref", "initial", "input", "store", "onSnapshot", "onCommand", "bindings"])
         assert.strictEqual(optionReads.get(key), 1);
 
@@ -421,6 +460,7 @@ describe("runtime assembly integration", () => {
   it.effect("sends through the real owner, context, store cut, evidence, and acknowledgement", () =>
     Effect.gen(function* () {
       const counts = { acquisitions: 0, releases: 0 };
+
       const runtime = runtimeSetup({
         app: IntegrationApp,
         implementation: makeImplementation(counts),
@@ -431,27 +471,35 @@ describe("runtime assembly integration", () => {
       yield* runtime.ready();
       const assembly = runtimeOwner(runtime).assembly();
       const records: Array<{ readonly tag: string; readonly sequence: number | undefined }> = [];
+
       const sink = yield* makeEvidenceSink({
         id: "runtime-integration",
         capacity: 16,
         deliver: (record) =>
           Effect.sync(() => records.push({ tag: record._tag, sequence: sequenceOf(record) })),
       });
+
       assert.ok(Result.isSuccess(assembly.evidence.hub.attach(sink)));
 
       const committed: number[] = [];
+
       const store: ActorStore<typeof IntegrationConsumerDefinition> = {
         commit: (actions) => {
           committed.push(actions.length);
+
           return Result.succeed({ revision: 1, changed: [] });
         },
       };
+
       const providerRef = actorRef(IntegrationProviderMachine, "provider");
+
       const provider = yield* assembly.createActor({
         ref: providerRef,
         initial: initialProviderSnapshot(),
       });
+
       const consumerRef = actorRef(IntegrationConsumerMachine, "consumer");
+
       const providerStateBinding = {
         slot: "providerState",
         provider: providerRef,
@@ -462,6 +510,7 @@ describe("runtime assembly integration", () => {
         typeof IntegrationProviderDefinition,
         "providerState"
       >;
+
       const providerChangedBinding = {
         slot: "providerChanged",
         provider: providerRef,
@@ -472,13 +521,16 @@ describe("runtime assembly integration", () => {
         typeof IntegrationProviderDefinition,
         "providerChanged"
       >;
+
       const commandSeen = yield* Deferred.make<void>();
       const consumerSnapshots: IntegrationConsumerSnapshot[] = [];
+
       const serviceObservations: Array<{
         readonly evidenceHub: unknown;
         readonly clock: unknown;
         readonly scheduler: unknown;
       }> = [];
+
       const actor = yield* assembly.createActor({
         ref: consumerRef,
         initial: initialConsumerSnapshot(),
@@ -554,6 +606,7 @@ describe("runtime assembly integration", () => {
         }),
         assembly.context,
       );
+
       assert.strictEqual(suspended.lifecycle, "suspended");
       assert.strictEqual(actor.engine.snapshot().lifecycle, "suspended");
 
@@ -575,6 +628,7 @@ describe("runtime assembly integration", () => {
         }),
         assembly.context,
       );
+
       assert.strictEqual(resumed.lifecycle, "active");
       assert.strictEqual(actor.engine.snapshot().lifecycle, "active");
       assert.strictEqual(
@@ -592,9 +646,12 @@ describe("runtime assembly integration", () => {
           assembly.context,
         ),
       );
+
       assert.ok(Exit.isFailure(providerBlocked));
+
       if (Exit.isFailure(providerBlocked)) {
         const reason = providerBlocked.cause.reasons[0];
+
         if (reason?._tag === "Fail") {
           assert.strictEqual(reason.error.code, "BlockedByDependents");
           assert.strictEqual(
@@ -604,6 +661,7 @@ describe("runtime assembly integration", () => {
           assert.strictEqual(reason.error.details.bindingKeys, "providerState,providerChanged");
         }
       }
+
       const actorDisposed = yield* Effect.provideContext(actor.dispose(), assembly.context);
       const providerDisposed = yield* Effect.provideContext(provider.dispose(), assembly.context);
       const closed = yield* Effect.exit(runtimeOwner(runtime).close());
@@ -641,11 +699,13 @@ describe("runtime assembly integration", () => {
       yield* runtime.ready();
       const assembly = runtimeOwner(runtime).assembly();
       const records: EvidenceRecord[] = [];
+
       const sink = yield* makeEvidenceSink({
         id: "runtime-store-failure",
         capacity: 16,
         deliver: (record) => Effect.sync(() => records.push(record)),
       });
+
       assert.ok(Result.isSuccess(assembly.evidence.hub.attach(sink)));
 
       const storeFailure = Failure({
@@ -655,18 +715,24 @@ describe("runtime assembly integration", () => {
         summary: "Store commit failed.",
         help: "Retry after the store owner recovers.",
       });
+
       let failNextCommit = true;
       let commits = 0;
+
       const store: ActorStore<typeof IntegrationStandaloneDefinition> = {
         commit: () => {
           commits += 1;
+
           if (failNextCommit) {
             failNextCommit = false;
+
             return Result.fail(storeFailure);
           }
+
           return Result.succeed({ revision: 1, changed: [] });
         },
       };
+
       const actor = yield* assembly.createActor({
         ref: actorRef(IntegrationStandaloneMachine, "store-failure"),
         initial: initialStandaloneSnapshot(),
@@ -677,11 +743,13 @@ describe("runtime assembly integration", () => {
       assert.strictEqual(failedDispatch.admitted, true);
       const failedExit = yield* Effect.exit(Deferred.await(failedDispatch.completion));
       assert.ok(Exit.isFailure(failedExit));
+
       if (Exit.isFailure(failedExit)) {
         const reason = failedExit.cause.reasons.find(Cause.isFailReason);
         assert.ok(reason !== undefined);
         assert.strictEqual(reason.error, storeFailure);
       }
+
       yield* actor.engine.drain();
       yield* assembly.evidence.hub.drain();
 
@@ -689,6 +757,7 @@ describe("runtime assembly integration", () => {
         (record): record is Extract<EvidenceRecord, { readonly _tag: "turn" }> =>
           record._tag === "turn",
       );
+
       assert.strictEqual(commits, 1);
       assert.strictEqual(turnRecords.length, 1);
       const failedRecord = turnRecords[0];
@@ -711,6 +780,7 @@ describe("runtime assembly integration", () => {
         (record): record is Extract<EvidenceRecord, { readonly _tag: "turn" }> =>
           record._tag === "turn",
       );
+
       assert.strictEqual(commits, 2);
       assert.deepStrictEqual(retryReceipt, { publicationRevision: 2, evidenceSequence: 4 });
       assert.strictEqual(allTurnRecords.length, 2);
@@ -736,25 +806,30 @@ describe("runtime assembly integration", () => {
         yield* runtime.ready();
         const assembly = runtimeOwner(runtime).assembly();
         const records: EvidenceRecord[] = [];
+
         const sink = yield* makeEvidenceSink({
           id: "runtime-visible-lifecycle",
           capacity: 16,
           deliver: (record) => Effect.sync(() => records.push(record)),
         });
+
         assert.ok(Result.isSuccess(assembly.evidence.hub.attach(sink)));
 
         const callbackSnapshots: ActorSnapshot<typeof IntegrationStandaloneDefinition>[] = [];
+
         const actor = yield* assembly.createActor({
           ref: actorRef(IntegrationStandaloneMachine, "visible-lifecycle"),
           initial: initialStandaloneSnapshot(),
           onSnapshot: (snapshot) => callbackSnapshots.push(snapshot),
         });
+
         assert.strictEqual(actor.engine.snapshot().lifecycle, "active");
 
         const streamFiber = yield* Effect.forkChild(
           Stream.take(actor.engine.snapshots, 2).pipe(Stream.runCollect),
           { startImmediately: true },
         );
+
         const dispatch = actor.engine.dispatch(IntegrationStandaloneEvent);
         assert.strictEqual(dispatch.admitted, true);
         yield* Deferred.await(dispatch.completion);
@@ -770,10 +845,12 @@ describe("runtime assembly integration", () => {
         );
 
         yield* assembly.evidence.hub.drain();
+
         const turnRecords = records.filter(
           (record): record is Extract<EvidenceRecord, { readonly _tag: "turn" }> =>
             record._tag === "turn",
         );
+
         assert.strictEqual(turnRecords.length, 1);
         const turn = turnRecords[0];
         assert.ok(turn !== undefined);
@@ -795,18 +872,22 @@ describe("runtime assembly integration", () => {
   it.effect("preserves provider truth when the real consumer mailbox is full", () =>
     Effect.gen(function* () {
       const counts = { acquisitions: 0, releases: 0 };
+
       const runtime = runtimeSetup({
         app: IntegrationApp,
         implementation: makeImplementation(counts),
       }).construct();
+
       yield* runtime.ready();
       const assembly = runtimeOwner(runtime).assembly();
 
       const providerRef = actorRef(IntegrationProviderMachine, "overflow-provider");
+
       const provider = yield* assembly.createActor({
         ref: providerRef,
         initial: initialProviderSnapshot(),
       });
+
       const providerStateBinding = {
         slot: "providerState",
         provider: providerRef,
@@ -817,6 +898,7 @@ describe("runtime assembly integration", () => {
         typeof IntegrationProviderDefinition,
         "providerState"
       >;
+
       const providerChangedBinding = {
         slot: "providerChanged",
         provider: providerRef,
@@ -827,8 +909,10 @@ describe("runtime assembly integration", () => {
         typeof IntegrationProviderDefinition,
         "providerChanged"
       >;
+
       const firstCommandStarted = yield* Deferred.make<void>();
       const releaseFirstCommand = yield* Deferred.make<void>();
+
       const consumer = yield* assembly.createActor({
         ref: actorRef(IntegrationConsumerMachine, "overflow-consumer"),
         initial: initialConsumerSnapshot(),
@@ -862,7 +946,9 @@ describe("runtime assembly integration", () => {
           value: IntegrationProviderDefinition.S.changed,
         },
       });
+
       assert.ok(Result.isFailure(overflow));
+
       if (Result.isFailure(overflow)) {
         assert.strictEqual(overflow.failure.code, "InvariantViolation");
         assert.deepStrictEqual(overflow.failure.path, ["mailbox", "full"]);
@@ -921,26 +1007,33 @@ describe("runtime assembly integration", () => {
   it.effect("publishes one selector issue through the real context consumer", () =>
     Effect.gen(function* () {
       const counts = { acquisitions: 0, releases: 0 };
+
       const runtime = runtimeSetup({
         app: IntegrationApp,
         implementation: makeImplementation(counts),
       }).construct();
+
       yield* runtime.ready();
       const assembly = runtimeOwner(runtime).assembly();
       const evidenceRecords: EvidenceRecord[] = [];
+
       const sink = yield* makeEvidenceSink({
         id: "runtime-context-selector-defect",
         capacity: 16,
         deliver: (record) => Effect.sync(() => evidenceRecords.push(record)),
       });
+
       assert.ok(Result.isSuccess(assembly.evidence.hub.attach(sink)));
 
       const providerRef = actorRef(IntegrationProviderMachine, "selector-provider");
+
       const provider = yield* assembly.createActor({
         ref: providerRef,
         initial: initialProviderSnapshot(),
       });
+
       let shouldDefect = false;
+
       const selectorDiagnostic = Failure({
         code: "InvariantViolation" as const,
         path: ["context", "providerState"],
@@ -948,6 +1041,7 @@ describe("runtime assembly integration", () => {
         summary: "providerState selector failed",
         help: "Inspect the providerState selector.",
       });
+
       const providerStateBinding = {
         slot: "providerState",
         provider: providerRef,
@@ -955,6 +1049,7 @@ describe("runtime assembly integration", () => {
         select: ({ state }) => {
           // oxlint-disable-next-line anti-slop/no-throw-in-effect-gen -- this fixture proves selector defects remain issue-only context publications.
           if (shouldDefect) throw selectorDiagnostic;
+
           return state;
         },
       } satisfies ActorContextBinding<
@@ -962,6 +1057,7 @@ describe("runtime assembly integration", () => {
         typeof IntegrationProviderDefinition,
         "providerState"
       >;
+
       const providerChangedBinding = {
         slot: "providerChanged",
         provider: providerRef,
@@ -972,7 +1068,9 @@ describe("runtime assembly integration", () => {
         typeof IntegrationProviderDefinition,
         "providerChanged"
       >;
+
       const consumerSnapshots: IntegrationConsumerSnapshot[] = [];
+
       const actor = yield* assembly.createActor({
         ref: actorRef(IntegrationConsumerMachine, "selector-consumer"),
         initial: initialConsumerSnapshot(),
@@ -1007,11 +1105,14 @@ describe("runtime assembly integration", () => {
       assert.strictEqual(consumerSnapshots[0]?.issues[0], selectorDiagnostic);
 
       yield* assembly.evidence.hub.drain();
+
       const selectorIssueRecords = evidenceRecords.filter(
         (record) => record._tag === "turn" && record.provenance.actor.key === actor.fence.key,
       );
+
       assert.strictEqual(selectorIssueRecords.length, 1);
       const selectorIssueRecord = selectorIssueRecords[0];
+
       if (selectorIssueRecord?._tag !== "turn")
         return yield* Effect.die(new Error("Expected selector issue turn evidence"));
       assert.strictEqual(selectorIssueRecord.machineTurnRevision, 0);
@@ -1050,10 +1151,12 @@ describe("runtime assembly integration", () => {
       assert.strictEqual(consumerSnapshots[1]?.issues.length, 0);
 
       yield* assembly.evidence.hub.drain();
+
       const consumerTurnRecords = evidenceRecords.filter(
         (record): record is Extract<EvidenceRecord, { readonly _tag: "turn" }> =>
           record._tag === "turn" && record.provenance.actor.key === actor.fence.key,
       );
+
       assert.strictEqual(
         consumerTurnRecords.filter((record) => record.after.issues.length === 1).length,
         1,
@@ -1080,21 +1183,26 @@ describe("runtime assembly integration", () => {
   it.effect("walkthrough: suspension rejects commands and resume restores admission", () =>
     Effect.gen(function* () {
       const counts = { acquisitions: 0, releases: 0 };
+
       const runtime = runtimeSetup({
         app: IntegrationApp,
         implementation: makeImplementation(counts),
       }).construct();
+
       yield* runtime.ready();
       const owner = runtimeOwner(runtime);
       const assembly = owner.assembly();
       const records: Array<{ readonly tag: string; readonly sequence: number | undefined }> = [];
+
       const sink = yield* makeEvidenceSink({
         id: "runtime-lifecycle-integration",
         capacity: 8,
         deliver: (record) =>
           Effect.sync(() => records.push({ tag: record._tag, sequence: sequenceOf(record) })),
       });
+
       assert.ok(Result.isSuccess(assembly.evidence.hub.attach(sink)));
+
       const actor = yield* assembly.createActor({
         ref: actorRef(IntegrationStandaloneMachine, "lifecycle-actor"),
         initial: Result.getOrThrow(
@@ -1119,6 +1227,7 @@ describe("runtime assembly integration", () => {
         }),
         assembly.context,
       );
+
       assert.strictEqual(suspended.lifecycle, "suspended");
       const suspendedDispatch = actor.engine.dispatch(IntegrationStandaloneEvent);
       assert.strictEqual(suspendedDispatch.admitted, false);
@@ -1131,6 +1240,7 @@ describe("runtime assembly integration", () => {
         }),
         assembly.context,
       );
+
       assert.strictEqual(resumed.lifecycle, "active");
       const resumedDispatch = actor.engine.dispatch(IntegrationStandaloneEvent);
       assert.strictEqual(resumedDispatch.admitted, true);
@@ -1161,14 +1271,18 @@ describe("runtime assembly integration", () => {
       yield* runtime.ready();
       const assembly = runtimeOwner(runtime).assembly();
       const providerRef = actorRef(IntegrationProviderMachine, "cleanup-provider");
+
       const provider = yield* assembly.createActor({
         ref: providerRef,
         initial: initialProviderSnapshot(),
       });
+
       let dependentCleanups = 0;
+
       type ProviderRegistrationHooks = {
         removeDependent: (dependent: never) => void;
       };
+
       // SAFETY: The live runtime actor retains this package-private hook for the provider owner.
       // oxlint-disable-next-line anti-slop/no-chained-type-assertions, typescript/no-unsafe-type-assertion -- this proof observes the exact registered provider cleanup boundary.
       const providerRegistrationHooks = provider as unknown as ProviderRegistrationHooks;
@@ -1179,6 +1293,7 @@ describe("runtime assembly integration", () => {
       };
 
       const consumerRef = actorRef(IntegrationConsumerMachine, "cleanup-consumer");
+
       const binding = {
         slot: "providerState",
         provider: providerRef,
@@ -1189,6 +1304,7 @@ describe("runtime assembly integration", () => {
         typeof IntegrationProviderDefinition,
         "providerState"
       >;
+
       const changedBinding = {
         slot: "providerChanged",
         provider: providerRef,
@@ -1199,19 +1315,24 @@ describe("runtime assembly integration", () => {
         typeof IntegrationProviderDefinition,
         "providerChanged"
       >;
+
       const consumer = yield* assembly.createActor({
         ref: consumerRef,
         initial: initialConsumerSnapshot(),
         bindings: [binding, changedBinding],
       });
+
       assert.strictEqual((yield* provider.lifecycle.state()).attachment.dependencies.length, 2);
 
       const runtimeEvidence = Context.get(assembly.context, RuntimeEvidence);
       const originalPublish = runtimeEvidence.publish;
+
       type MutableRuntimeEvidence = { publish: typeof originalPublish };
+
       // SAFETY: The runtime context contains the live evidence service used by this assembly; the mutable view restores its method below.
       // oxlint-disable-next-line anti-slop/no-chained-type-assertions, typescript/no-unsafe-type-assertion -- the readonly service surface is deliberately opened for failure injection.
       const mutableRuntimeEvidence = runtimeEvidence as unknown as MutableRuntimeEvidence;
+
       const cleanupFailure = Failure({
         code: "InvariantViolation" as const,
         path: ["evidence", "publish"],
@@ -1219,6 +1340,7 @@ describe("runtime assembly integration", () => {
         summary: "Lifecycle evidence publication failed.",
         help: "Retry cleanup after the evidence owner recovers.",
       });
+
       mutableRuntimeEvidence.publish = (snapshot) =>
         snapshot.fence.key === consumer.fence.key && snapshot.lifecycle === "disposed"
           ? Effect.fail(cleanupFailure)
@@ -1227,13 +1349,16 @@ describe("runtime assembly integration", () => {
       const firstDispose = yield* Effect.exit(
         Effect.provideContext(consumer.dispose(), assembly.context),
       );
+
       assert.ok(Exit.isFailure(firstDispose));
+
       if (Exit.isFailure(firstDispose)) {
         const reason = firstDispose.cause.reasons.find(Cause.isFailReason);
         assert.ok(reason !== undefined);
         assert.strictEqual(reason.error, cleanupFailure);
         assert.deepStrictEqual(reason.error.path, ["evidence", "publish"]);
       }
+
       assert.strictEqual(consumer.engine.snapshot().lifecycle, "disposed");
       assert.strictEqual((yield* consumer.lifecycle.state()).lifecycle, "disposed");
       assert.strictEqual(
@@ -1249,6 +1374,7 @@ describe("runtime assembly integration", () => {
 
       mutableRuntimeEvidence.publish = originalPublish;
       yield* Effect.provideContext(consumer.dispose(), assembly.context);
+
       const recreated = yield* Effect.exit(
         assembly.createActor({
           ref: consumerRef,
@@ -1256,7 +1382,9 @@ describe("runtime assembly integration", () => {
           bindings: [binding, changedBinding],
         }),
       );
+
       assert.ok(Exit.isFailure(recreated));
+
       if (Exit.isFailure(recreated)) {
         const reason = recreated.cause.reasons.find(Cause.isFailReason);
         assert.ok(reason !== undefined);

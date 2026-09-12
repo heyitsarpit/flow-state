@@ -12,14 +12,23 @@ const Diagnostic = {
 } as const;
 
 export { app, module } from "../app/app.js";
+
 export { definition } from "../definition/definition.js";
+
 export { Diagnostic };
+
 export { Implementation } from "../implementation/implementation.js";
+
 export { machine } from "../machine/machine.js";
+
 export { resource } from "../operation/resource.js";
+
 export { stream } from "../operation/stream.js";
+
 export { transaction } from "../operation/transaction.js";
+
 export { actorRef } from "../runtime/actor-ref.js";
+
 export { runtimeSetup } from "../runtime/runtime.js";
 
 // Deferred public values: future persistence and storage owners will publish these names.

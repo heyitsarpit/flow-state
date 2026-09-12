@@ -14,6 +14,7 @@ import { RuntimeClock, RuntimeEvidence, RuntimeScheduler } from "../runtime-serv
 
 const resultSuccess = <Value, Error>(result: Result.Result<Value, Error>) => {
   if (Result.isFailure(result)) throw result.failure;
+
   return result.success;
 };
 
@@ -22,13 +23,16 @@ const architectureDefinitionResult = definition({
   states: ["ready", "done"],
   events: { opened: "bare" },
 });
+
 const architectureDefinition = resultSuccess(architectureDefinitionResult);
+
 const architectureMachine = resultSuccess(
   machine(architectureDefinitionResult, ({ S }) => ({
     default: S.ready,
     states: { ready: { on: { opened: { target: S.done } } }, done: {} },
   })),
 );
+
 const architectureApp = app({
   id: "runtime-architecture/app",
   persistenceVersion: "1",
@@ -36,6 +40,7 @@ const architectureApp = app({
     module({ id: "runtime-architecture/module", machines: { actor: architectureMachine } }),
   ],
 });
+
 const architectureEvent = resultSuccess(architectureDefinition.E.opened());
 
 const initialArchitectureSnapshot = (): PreparedActorSnapshot<typeof architectureDefinition> =>
@@ -56,6 +61,7 @@ const initialArchitectureSnapshot = (): PreparedActorSnapshot<typeof architectur
 class ArchitectureService extends Context.Service<ArchitectureService, { readonly name: string }>()(
   "RuntimeArchitecture/Service",
 ) {}
+
 class ArchitectureDependentService extends Context.Service<
   ArchitectureDependentService,
   { readonly predecessor: string }
@@ -67,16 +73,20 @@ const requiredResource = resource({
   lookup: (value: string) =>
     Effect.service(ArchitectureService).pipe(Effect.map((service) => `${service.name}:${value}`)),
 });
+
 const requiredDefinitionResult = definition({
   id: "runtime-architecture/required",
   states: ["ready"],
   events: {},
   operations: { required: requiredResource },
 });
+
 const requiredDefinition = resultSuccess(requiredDefinitionResult);
+
 const requiredMachine = resultSuccess(
   machine(requiredDefinitionResult, ({ S }) => ({ default: S.ready, states: { ready: {} } })),
 );
+
 const requiredApp = app({
   id: "runtime-architecture/required-app",
   persistenceVersion: "1",
@@ -84,28 +94,35 @@ const requiredApp = app({
     module({ id: "runtime-architecture/required-module", machines: { required: requiredMachine } }),
   ],
 });
+
 const providerDefinitionResult = definition({
   id: "runtime-architecture/provider",
   states: ["ready", "changed"],
   events: {},
 });
+
 const providerDefinition = resultSuccess(providerDefinitionResult);
+
 const providerMachine = resultSuccess(
   machine(providerDefinitionResult, ({ S }) => ({
     default: S.ready,
     states: { ready: {}, changed: {} },
   })),
 );
+
 const consumerDefinitionResult = definition({
   id: "runtime-architecture/consumer",
   states: ["ready"],
   events: {},
   context: { selected: providerDefinition.select(({ state }) => state) },
 });
+
 const consumerDefinition = resultSuccess(consumerDefinitionResult);
+
 const consumerMachine = resultSuccess(
   machine(consumerDefinitionResult, ({ S }) => ({ default: S.ready, states: { ready: {} } })),
 );
+
 const contextApp = app({
   id: "runtime-architecture/context-app",
   persistenceVersion: "1",
@@ -116,6 +133,7 @@ const contextApp = app({
     }),
   ],
 });
+
 const initialProviderSnapshot = (
   state:
     | typeof providerDefinition.S.ready
@@ -134,6 +152,7 @@ const initialProviderSnapshot = (
       observedStoreRevision: 0,
     }),
   );
+
 const initialConsumerSnapshot = (): PreparedActorSnapshot<typeof consumerDefinition> =>
   resultSuccess(
     prepareActorSnapshot(consumerMachine, {
@@ -204,10 +223,12 @@ describe("runtime assembly", () => {
       const runtime = setup.construct();
       yield* runtime.ready();
       const assembly = runtimeOwner(runtime).assembly();
+
       const actor = yield* assembly.createActor({
         ref: actorRef(requiredMachine, "required"),
         initial: initialRequiredSnapshot(),
       });
+
       // SAFETY: runtime assembly preserves the exact Implementation service in its owner Context.
       const resolved = Context.getUnsafe(assembly.context, ArchitectureService);
       assert.deepStrictEqual(resolved, { name: "provided" });
@@ -219,26 +240,32 @@ describe("runtime assembly", () => {
   it.effect("assembles predecessor-visible providers in declaration order", () =>
     Effect.gen(function* () {
       const acquired: string[] = [];
+
       const predecessor = Implementation.effect(
         ArchitectureService,
         Effect.sync(() => {
           acquired.push("predecessor");
+
           return { name: "predecessor" };
         }),
       );
+
       const dependent = Implementation.effect(
         ArchitectureDependentService,
         Effect.service(ArchitectureService).pipe(
           Effect.map((service) => {
             acquired.push("dependent");
+
             return { predecessor: service.name };
           }),
         ),
       );
+
       const runtime = runtimeSetup({
         app: architectureApp,
         implementation: Implementation.merge(predecessor, dependent),
       }).construct();
+
       yield* runtime.ready();
       assert.deepStrictEqual(acquired, ["predecessor", "dependent"]);
       yield* runtimeOwner(runtime).close();
@@ -253,10 +280,12 @@ describe("runtime assembly", () => {
       const runtime = runtimeSetup({ app: contextApp }).construct();
       yield* runtime.ready();
       const assembly = runtimeOwner(runtime).assembly();
+
       const provider = yield* assembly.createActor({
         ref: actorRef(providerMachine, "provider"),
         initial: initialProviderSnapshot(providerDefinition.S.changed),
       });
+
       const binding = {
         slot: "selected",
         provider: provider.identity.ref,
@@ -267,11 +296,13 @@ describe("runtime assembly", () => {
         typeof providerDefinition,
         "selected"
       >;
+
       const consumer = yield* assembly.createActor({
         ref: actorRef(consumerMachine, "consumer"),
         initial: initialConsumerSnapshot(),
         bindings: [binding],
       });
+
       assert.strictEqual(consumer.engine.snapshot().context.selected, providerDefinition.S.changed);
       assert.strictEqual(consumer.engine.snapshot().lifecycle, "active");
       yield* runtimeOwner(runtime).close();
@@ -303,18 +334,21 @@ describe("runtime assembly", () => {
       const story = runtimeSetup({ app: architectureApp }).construct();
       yield* live.ready();
       yield* story.ready();
+
       const liveActor = yield* runtimeOwner(live)
         .assembly()
         .createActor({
           ref: actorRef(architectureMachine, "live"),
           initial: initialArchitectureSnapshot(),
         });
+
       const storyActor = yield* runtimeOwner(story)
         .assembly()
         .createActor({
           ref: actorRef(architectureMachine, "story"),
           initial: initialArchitectureSnapshot(),
         });
+
       liveActor.handle.send(architectureEvent);
       storyActor.handle.send(architectureEvent);
       yield* liveActor.engine.drain();
@@ -332,6 +366,7 @@ describe("runtime assembly", () => {
         ArchitectureService,
         Effect.fail("bootstrap-failed" as const),
       );
+
       const runtime = runtimeSetup({ app: architectureApp, implementation: failed }).construct();
       const ready = yield* Effect.exit(runtime.ready());
       assert.ok(Exit.isFailure(ready));
@@ -344,6 +379,7 @@ describe("runtime assembly", () => {
   it.effect("retains a provider defect and reverse cleanup through assembled readiness", () =>
     Effect.gen(function* () {
       let released = 0;
+
       const runtime = runtimeSetup({
         app: architectureApp,
         implementation: Implementation.effect(
@@ -357,8 +393,10 @@ describe("runtime assembly", () => {
           ).pipe(Effect.andThen(Effect.die(new Error("provider defect")))),
         ),
       }).construct();
+
       const ready = yield* Effect.exit(runtime.ready());
       assert.ok(Exit.isFailure(ready));
+
       if (Exit.isFailure(ready)) assert.strictEqual(Cause.hasDies(ready.cause), true);
       assert.strictEqual(released, 1);
       yield* Effect.exit(runtimeOwner(runtime).close());
@@ -370,6 +408,7 @@ describe("runtime assembly", () => {
       const entered = yield* Deferred.make<void>();
       const release = yield* Deferred.make<void>();
       let acquisitions = 0;
+
       const runtime = runtimeSetup({
         app: architectureApp,
         implementation: Implementation.effect(
@@ -378,10 +417,12 @@ describe("runtime assembly", () => {
             acquisitions += 1;
             yield* Deferred.succeed(entered, undefined);
             yield* Deferred.await(release);
+
             return { name: "held" };
           }),
         ),
       }).construct();
+
       const first = yield* Effect.forkChild(runtime.ready(), { startImmediately: true });
       yield* Deferred.await(entered);
       yield* Fiber.interrupt(first);
@@ -397,12 +438,14 @@ describe("runtime assembly", () => {
     Effect.gen(function* () {
       const runtime = runtimeSetup({ app: architectureApp }).construct();
       yield* runtime.ready();
+
       const actor = yield* runtimeOwner(runtime)
         .assembly()
         .createActor({
           ref: actorRef(architectureMachine, "authority"),
           initial: initialArchitectureSnapshot(),
         });
+
       assert.deepStrictEqual(Object.keys(actor.handle).sort(), ["ref", "send"]);
       assert.strictEqual("dispose" in actor.handle, false);
       yield* runtimeOwner(runtime).close();
@@ -414,10 +457,12 @@ describe("runtime assembly", () => {
       const runtime = runtimeSetup({ app: architectureApp }).construct();
       yield* runtime.ready();
       const assembly = runtimeOwner(runtime).assembly();
+
       const actor = yield* assembly.createActor({
         ref: actorRef(architectureMachine, "evidence"),
         initial: initialArchitectureSnapshot(),
       });
+
       yield* Deferred.await(actor.engine.dispatch(architectureEvent).completion);
       yield* actor.engine.drain();
       assert.strictEqual(assembly.evidence.hub.sequence(), 2);
@@ -429,16 +474,19 @@ describe("runtime assembly", () => {
   it.effect("linearizes concurrent host readiness through one assembled owner", () =>
     Effect.gen(function* () {
       let acquisitions = 0;
+
       const runtime = runtimeSetup({
         app: architectureApp,
         implementation: Implementation.effect(
           ArchitectureService,
           Effect.sync(() => {
             acquisitions += 1;
+
             return { name: "shared" };
           }),
         ),
       }).construct();
+
       const first = yield* Effect.forkChild(runtime.ready(), { startImmediately: true });
       const second = yield* Effect.forkChild(runtime.ready(), { startImmediately: true });
       assert.strictEqual(yield* Fiber.join(first), undefined);
@@ -452,6 +500,7 @@ describe("runtime assembly", () => {
     Effect.gen(function* () {
       const entered = yield* Deferred.make<void>();
       const release = yield* Deferred.make<void>();
+
       const runtime = runtimeSetup({
         app: architectureApp,
         implementation: Implementation.effect(
@@ -459,21 +508,25 @@ describe("runtime assembly", () => {
           Effect.gen(function* () {
             yield* Deferred.succeed(entered, undefined);
             yield* Deferred.await(release);
+
             return { name: "pending" };
           }),
         ),
       }).construct();
+
       const readiness = yield* Effect.forkChild(runtime.ready(), { startImmediately: true });
       yield* Deferred.await(entered);
       assert.throws(() => runtimeOwner(runtime).assembly(), /Runtime is not ready/u);
       yield* Deferred.succeed(release, undefined);
       assert.strictEqual(yield* Fiber.join(readiness), undefined);
+
       const actor = yield* runtimeOwner(runtime)
         .assembly()
         .createActor({
           ref: actorRef(architectureMachine, "prepared"),
           initial: initialArchitectureSnapshot(),
         });
+
       assert.strictEqual(actor.engine.snapshot().revision, 0);
       const beforeClose = actor.engine.snapshot();
       yield* runtimeOwner(runtime).close();
@@ -481,14 +534,17 @@ describe("runtime assembly", () => {
       assert.strictEqual(rejected.admitted, false);
       const completion = yield* Effect.exit(Deferred.await(rejected.completion));
       assert.ok(Exit.isFailure(completion));
+
       if (Exit.isFailure(completion)) {
         const reason = completion.cause.reasons.find(Cause.isFailReason);
         assert.ok(reason !== undefined);
+
         if (reason !== undefined) {
           assert.strictEqual(reason.error.code, "InvariantViolation");
           assert.deepStrictEqual(reason.error.path, ["mailbox", "closed"]);
         }
       }
+
       const afterClose = actor.engine.snapshot();
       assert.strictEqual(afterClose.lifecycle, "disposed");
       assert.strictEqual(afterClose.state, beforeClose.state);
@@ -503,20 +559,24 @@ describe("runtime assembly", () => {
         runtimeSetup({ app: architectureApp }).construct(),
         runtimeSetup({ app: architectureApp }).construct(),
       ];
+
       yield* runtimes[0]!.ready();
       yield* runtimes[1]!.ready();
+
       const first = yield* runtimeOwner(runtimes[0]!)
         .assembly()
         .createActor({
           ref: actorRef(architectureMachine, "parity-live"),
           initial: initialArchitectureSnapshot(),
         });
+
       const second = yield* runtimeOwner(runtimes[1]!)
         .assembly()
         .createActor({
           ref: actorRef(architectureMachine, "parity-story"),
           initial: initialArchitectureSnapshot(),
         });
+
       first.handle.send(architectureEvent);
       second.handle.send(architectureEvent);
       yield* first.engine.drain();
@@ -536,12 +596,14 @@ describe("runtime assembly", () => {
       const assembly = runtimeOwner(runtime).assembly();
       yield* runtimeOwner(runtime).close();
       yield* runtimeOwner(runtime).close();
+
       const attempt = yield* Effect.exit(
         assembly.createActor({
           ref: actorRef(architectureMachine, "post-close"),
           initial: initialArchitectureSnapshot(),
         }),
       );
+
       assert.ok(Exit.isFailure(attempt));
       assert.strictEqual(assembly.evidence.hub.sequence(), 0);
     }),
@@ -554,10 +616,13 @@ describe("runtime assembly", () => {
         states: ["ready"],
         events: {},
       });
+
       const foreignDefinition = resultSuccess(foreignDefinitionResult);
+
       const foreignMachine = resultSuccess(
         machine(foreignDefinitionResult, ({ S }) => ({ default: S.ready, states: { ready: {} } })),
       );
+
       const foreignInitial = resultSuccess(
         prepareActorSnapshot(foreignMachine, {
           state: foreignDefinition.S.ready,
@@ -571,13 +636,16 @@ describe("runtime assembly", () => {
           observedStoreRevision: 0,
         }),
       );
+
       const runtime = runtimeSetup({ app: architectureApp }).construct();
       yield* runtime.ready();
+
       const failed = yield* Effect.exit(
         runtimeOwner(runtime)
           .assembly()
           .createActor({ ref: actorRef(foreignMachine, "foreign"), initial: foreignInitial }),
       );
+
       assert.ok(Exit.isFailure(failed));
       yield* runtimeOwner(runtime).close();
     }),
@@ -590,12 +658,14 @@ describe("runtime assembly", () => {
     Effect.gen(function* () {
       const runtime = runtimeSetup({ app: architectureApp }).construct();
       yield* runtime.ready();
+
       const actor = yield* runtimeOwner(runtime)
         .assembly()
         .createActor({
           ref: actorRef(architectureMachine, "round-trip"),
           initial: initialArchitectureSnapshot(),
         });
+
       const receipt = yield* Deferred.await(actor.engine.dispatch(architectureEvent).completion);
       assert.deepStrictEqual(receipt, { publicationRevision: 1, evidenceSequence: 2 });
       assert.strictEqual(actor.engine.snapshot().state, architectureDefinition.S.done);
@@ -608,10 +678,12 @@ describe("runtime assembly", () => {
       const runtime = runtimeSetup({ app: contextApp }).construct();
       yield* runtime.ready();
       const assembly = runtimeOwner(runtime).assembly();
+
       const provider = yield* assembly.createActor({
         ref: actorRef(providerMachine, "baseline-provider"),
         initial: initialProviderSnapshot(providerDefinition.S.changed),
       });
+
       const binding = {
         slot: "selected",
         provider: provider.identity.ref,
@@ -622,11 +694,13 @@ describe("runtime assembly", () => {
         typeof providerDefinition,
         "selected"
       >;
+
       const consumer = yield* assembly.createActor({
         ref: actorRef(consumerMachine, "baseline-consumer"),
         initial: initialConsumerSnapshot(),
         bindings: [binding],
       });
+
       assert.strictEqual(consumer.engine.snapshot().context.selected, providerDefinition.S.changed);
       assert.strictEqual(consumer.engine.snapshot().lifecycle, "active");
       yield* runtimeOwner(runtime).close();
@@ -637,12 +711,14 @@ describe("runtime assembly", () => {
     Effect.gen(function* () {
       const runtime = runtimeSetup({ app: architectureApp }).construct();
       yield* runtime.ready();
+
       const actor = yield* runtimeOwner(runtime)
         .assembly()
         .createActor({
           ref: actorRef(architectureMachine, "fresh"),
           initial: initialArchitectureSnapshot(),
         });
+
       assert.strictEqual(actor.engine.snapshot().state, architectureDefinition.S.ready);
       assert.strictEqual(actor.engine.snapshot().lifecycle, "active");
       yield* runtimeOwner(runtime).close();
@@ -658,10 +734,12 @@ describe("runtime assembly", () => {
       assert.strictEqual(Context.get(assembly.context, RuntimeEvidence), assembly.evidence.service);
       assert.ok(Context.get(assembly.context, RuntimeClock));
       assert.ok(Context.get(assembly.context, RuntimeScheduler));
+
       const actor = yield* assembly.createActor({
         ref: actorRef(architectureMachine, "one-owner"),
         initial: initialArchitectureSnapshot(),
       });
+
       assert.strictEqual(actor.lifecycle.state !== undefined, true);
       yield* owner.close();
     }),

@@ -110,16 +110,19 @@ const emptyAppStrictSuperset = Implementation.merge(
   completeImplementation,
   Implementation.succeed(ConfigKey, { region: "test" }),
 );
+
 const emptyAppStrictSupersetSetup = runtimeSetup({
   app: EmptyApp,
   implementation: emptyAppStrictSuperset,
 });
+
 const emptyAppSetup = runtimeSetup({ app: EmptyApp });
 
 const typedFailureImplementation = Implementation.effect(
   RepositoryKey,
   Effect.fail("repository-failed" as const),
 );
+
 const typedFailureSetup = runtimeSetup({
   app: RequiredApp,
   implementation: typedFailureImplementation,
@@ -129,12 +132,14 @@ const strictSupersetFailureImplementation = Implementation.merge(
   typedFailureImplementation,
   Implementation.succeed(ConfigKey, { region: "test" }),
 );
+
 const strictSupersetFailureSetup = runtimeSetup({
   app: RequiredApp,
   implementation: strictSupersetFailureImplementation,
 });
 
 const broadServiceKey = Context.Service<unknown, Repository>("RuntimeTest/BroadRepository");
+
 const broadImplementation = Implementation.succeed(broadServiceKey, repository);
 
 // @ts-expect-error A provider with an unknown service identity cannot close RepositoryKey.
@@ -186,6 +191,7 @@ const mismatchedImplementation = Implementation.succeed(ConfigKey, { region: "te
 
 const chooseImplementation = (useRepository: boolean) =>
   useRepository ? completeImplementation : mismatchedImplementation;
+
 const conditionalImplementation = chooseImplementation(true);
 
 // @ts-expect-error A union that may omit RepositoryKey cannot close RequiredApp.
@@ -198,6 +204,7 @@ runtimeSetup({ app: RequiredApp, implementation: mismatchedImplementation });
 runtimeSetup({ app: RequiredApp, implementation: incompleteImplementation });
 
 const requiredSetup = runtimeSetup({ app: RequiredApp, implementation: completeImplementation });
+
 assert.strictEqual(requiredSetup.app, RequiredApp);
 
 const HandshakeProviderDefinitionResult = definition({
@@ -205,7 +212,9 @@ const HandshakeProviderDefinitionResult = definition({
   states: ["ready", "changed", "final"],
   events: { advance: "bare", hold: "bare" },
 });
+
 const HandshakeProviderDefinition = Result.getOrThrow(HandshakeProviderDefinitionResult);
+
 const HandshakeProviderMachine = Result.getOrThrow(
   machine(HandshakeProviderDefinitionResult, ({ S }) => ({
     default: S.ready,
@@ -234,13 +243,16 @@ const HandshakeConsumerDefinitionResult = definition({
     ),
   },
 });
+
 const HandshakeConsumerDefinition = Result.getOrThrow(HandshakeConsumerDefinitionResult);
+
 const HandshakeConsumerMachine = Result.getOrThrow(
   machine(HandshakeConsumerDefinitionResult, ({ S }) => ({
     default: S.ready,
     states: { ready: {} },
   })),
 );
+
 const HandshakeApp = app({
   id: "runtime-test/handshake",
   persistenceVersion: "1",
@@ -292,25 +304,31 @@ const initialHandshakeConsumerSnapshot = (): PreparedActorSnapshot<
   );
 
 const HandshakeProviderEvent = Result.getOrThrow(HandshakeProviderDefinition.E.advance());
+
 const HandshakeProviderHoldEvent = Result.getOrThrow(HandshakeProviderDefinition.E.hold());
 
 describe("internal implementation runtime", () => {
   it("keeps rebased dependency graph copies immutable", () => {
     const registry = makeActorIdentityRegistry();
+
     const from = Result.getOrThrow(
       registry.reserveStable(actorRef(requiredMachine, "rebase-from", { persist: true })),
     );
+
     const to = Result.getOrThrow(
       registry.reserveStable(actorRef(requiredMachine, "rebase-to", { persist: true })),
     );
+
     const provider = Result.getOrThrow(
       registry.reserveStable(actorRef(requiredMachine, "rebase-provider", { persist: true })),
     );
+
     const edge = {
       consumer: from.key,
       provider: provider.key,
       slot: "dependency",
     } satisfies ActorDependencyEdge;
+
     const graph = {
       forward: new Map([[from.key, [edge]]]),
       reverse: new Map([[provider.key, [edge]]]),
@@ -320,6 +338,7 @@ describe("internal implementation runtime", () => {
     const rebased = rebaseDependencyGraph(graph, from.key, to.key);
     const forwardEdges = rebased.forward.get(to.key);
     const reverseEdges = rebased.reverse.get(provider.key);
+
     if (forwardEdges === undefined || reverseEdges === undefined)
       throw new Error("rebased graph lost dependency edges");
     assert.deepStrictEqual(rebased.order, [provider.key, to.key]);
@@ -356,6 +375,7 @@ describe("internal implementation runtime", () => {
       const providerHoldRelease = yield* Deferred.make<void>();
       const providerPublicationObserved = yield* Deferred.make<void>();
       const admissionTrace: string[] = [];
+
       const providerPublicationPhases: Array<{
         readonly dependentRegistrations: number;
         readonly providerHoldEntered: boolean;
@@ -363,8 +383,10 @@ describe("internal implementation runtime", () => {
         readonly consumerContextPublished: boolean;
         readonly consumerExposed: boolean;
       }> = [];
+
       let providerHoldDispatch: AcknowledgedDispatch | undefined;
       let providerAdvanceDispatch: AcknowledgedDispatch | undefined;
+
       const provider = yield* assembly.createActor({
         ref: actorRef(HandshakeProviderMachine, "handshake-provider"),
         initial: initialHandshakeProviderSnapshot(),
@@ -389,14 +411,17 @@ describe("internal implementation runtime", () => {
             consumerContextPublished,
             consumerExposed,
           });
+
           if (providerPublicationCount === 1)
             Deferred.doneUnsafe(providerPublicationObserved, Effect.succeed(undefined));
         },
       });
+
       type ProviderRegistrationHooks = {
         addDependent: (dependent: never) => void;
         removeDependent: (dependent: never) => void;
       };
+
       // SAFETY: The live runtime actor retains these package-private hooks; this test observes the exact registered provider boundary.
       // oxlint-disable-next-line anti-slop/no-chained-type-assertions, typescript/no-unsafe-type-assertion -- the public actor view erases the package-private registration hooks used by this proof.
       const providerRegistrationHooks = provider as unknown as ProviderRegistrationHooks;
@@ -409,14 +434,18 @@ describe("internal implementation runtime", () => {
         providerHoldDispatch = provider.engine.dispatch(HandshakeProviderHoldEvent);
         providerAdvanceDispatch = provider.engine.dispatch(HandshakeProviderEvent);
       };
+
       providerRegistrationHooks.removeDependent = (dependent) => {
         providerDependentCleanups += 1;
         admissionTrace.push("dependent-cleaned");
         originalRemoveDependent(dependent);
       };
+
       const runtimeEvidence = Context.get(assembly.context, RuntimeEvidence);
       const originalAccept = runtimeEvidence.accept;
+
       type MutableRuntimeEvidence = { accept: typeof originalAccept };
+
       // SAFETY: The runtime context contains the live evidence service used by this admission; the mutable view only restores its method for a bounded test gate.
       // oxlint-disable-next-line anti-slop/no-chained-type-assertions, typescript/no-unsafe-type-assertion -- the readonly service surface must be wrapped at the live lifecycle evidence boundary.
       const mutableRuntimeEvidence = runtimeEvidence as unknown as MutableRuntimeEvidence;
@@ -442,6 +471,7 @@ describe("internal implementation runtime", () => {
               : Effect.void,
           ),
         );
+
       const providerStateBinding = {
         slot: "providerState",
         provider: provider.identity.ref,
@@ -452,6 +482,7 @@ describe("internal implementation runtime", () => {
         typeof HandshakeProviderDefinition,
         "providerState"
       >;
+
       const providerChangedBinding = {
         slot: "providerChanged",
         provider: provider.identity.ref,
@@ -463,7 +494,9 @@ describe("internal implementation runtime", () => {
         typeof HandshakeProviderDefinition,
         "providerChanged"
       >;
+
       const consumerSnapshots: Array<ActorSnapshot<typeof HandshakeConsumerDefinition>> = [];
+
       const consumerContextCuts: Array<{
         readonly revision: number;
         readonly providerState: ActorSnapshot<
@@ -474,6 +507,7 @@ describe("internal implementation runtime", () => {
         >["context"]["providerChanged"];
         readonly exposed: boolean;
       }> = [];
+
       const consumerFiber = yield* Effect.forkChild(
         Effect.exit(
           Effect.gen(function* () {
@@ -493,14 +527,18 @@ describe("internal implementation runtime", () => {
                 });
               },
             });
+
             consumerExposed = true;
             admissionTrace.push("consumer-exposed");
+
             return consumer;
           }),
         ),
         { startImmediately: true },
       );
+
       const consumerExit = yield* Fiber.join(consumerFiber);
+
       if (Exit.isFailure(consumerExit))
         return yield* Effect.die(new Error("consumer admission failed"));
       const consumer = consumerExit.value;
@@ -582,6 +620,7 @@ describe("internal implementation runtime", () => {
         const observations: Array<Repository> = [];
         let acquisitions = 0;
         let cleanups = 0;
+
         const implementation = Implementation.merge(
           Implementation.succeed(RepositoryKey, repository),
           Implementation.effect(
@@ -592,17 +631,22 @@ describe("internal implementation runtime", () => {
                 yield* Deferred.succeed(entered, undefined);
                 yield* Deferred.await(release);
                 observations.push(yield* Effect.service(RepositoryKey));
+
                 return { region: "test" };
               }),
               () => Effect.sync(() => cleanups++),
             ),
           ),
         );
+
         const runtime = runtimeSetup({ app: RequiredApp, implementation }).construct();
+
         const first = yield* Effect.forkChild(Effect.exit(runtime.ready()), {
           startImmediately: true,
         });
+
         yield* Deferred.await(entered);
+
         const second = yield* Effect.forkChild(Effect.exit(runtime.ready()), {
           startImmediately: true,
         });
@@ -628,12 +672,14 @@ describe("internal implementation runtime", () => {
     it.effect("keeps construction inert until readiness", () =>
       Effect.gen(function* () {
         const evidence: Array<string> = [];
+
         const probes = {
           providerAcquisitions: 0,
           externalWork: 0,
           actorCreations: 0,
           evidence,
         };
+
         const implementation = Implementation.effect(
           RepositoryKey,
           Effect.sync(() => {
@@ -641,6 +687,7 @@ describe("internal implementation runtime", () => {
             probes.externalWork += 1;
             probes.actorCreations += 1;
             probes.evidence.push("provider-acquired");
+
             return repository;
           }),
         );
@@ -675,6 +722,7 @@ describe("internal implementation runtime", () => {
       Effect.gen(function* () {
         const implementation = Implementation.succeed(RepositoryKey, repository);
         const entry = implementationEntries(implementation)[0];
+
         if (entry === undefined || entry.kind !== "succeed") {
           return yield* Effect.die(new Error("Expected a synchronous implementation entry"));
         }
@@ -685,6 +733,7 @@ describe("internal implementation runtime", () => {
           enumerable: true,
           get: () => {
             reads += 1;
+
             return repository;
           },
         });
@@ -701,11 +750,13 @@ describe("internal implementation runtime", () => {
     it.effect("acquires providers lazily in declaration order", () =>
       Effect.gen(function* () {
         const order: Array<string> = [];
+
         const implementation = Implementation.merge(
           Implementation.effect(
             RepositoryKey,
             Effect.sync(() => {
               order.push("repository");
+
               return repository;
             }),
           ),
@@ -713,10 +764,12 @@ describe("internal implementation runtime", () => {
             ConfigKey,
             Effect.sync(() => {
               order.push("config");
+
               return { region: "test" };
             }),
           ),
         );
+
         const setup = runtimeSetup({ app: EmptyApp, implementation });
         assert.deepStrictEqual(order, []);
         const runtime = setup.construct();
@@ -732,13 +785,16 @@ describe("internal implementation runtime", () => {
     it.effect("allocates one readiness cache for each constructed Runtime", () =>
       Effect.gen(function* () {
         let acquisitions = 0;
+
         const implementation = Implementation.effect(
           RepositoryKey,
           Effect.sync(() => {
             acquisitions += 1;
+
             return repository;
           }),
         );
+
         const setup = runtimeSetup({ app: EmptyApp, implementation });
         const first = setup.construct();
         const second = setup.construct();
@@ -758,11 +814,13 @@ describe("internal implementation runtime", () => {
       Effect.gen(function* () {
         const failure = { readonly: "runtime-test/failure" } as const;
         const order: Array<string> = [];
+
         const implementation = Implementation.merge(
           Implementation.effect(
             RepositoryKey,
             Effect.sync(() => {
               order.push("failure");
+
               return repository;
             }).pipe(Effect.andThen(Effect.fail(failure))),
           ),
@@ -770,21 +828,25 @@ describe("internal implementation runtime", () => {
             ConfigKey,
             Effect.sync(() => {
               order.push("skipped");
+
               return { region: "test" };
             }),
           ),
         );
+
         const ready = runtimeSetup({ app: EmptyApp, implementation }).construct().ready();
 
         const first = yield* Effect.exit(ready);
         const second = yield* Effect.exit(ready);
         assert.strictEqual(first, second);
         assert.ok(Exit.isFailure(first));
+
         if (Exit.isFailure(first)) {
           const typedFailure = first.cause.reasons.find(Cause.isFailReason);
           assert.strictEqual(typedFailure?.error, failure);
           assert.strictEqual(Cause.hasDies(first.cause), false);
         }
+
         assert.deepStrictEqual(order, ["failure"]);
       }),
     );
@@ -794,23 +856,30 @@ describe("internal implementation runtime", () => {
         const entered = yield* Deferred.make<void>();
         const release = yield* Deferred.make<void>();
         let acquisitions = 0;
+
         const implementation = Implementation.effect(
           RepositoryKey,
           Effect.gen(function* () {
             acquisitions += 1;
             yield* Deferred.succeed(entered, undefined);
             yield* Deferred.await(release);
+
             return repository;
           }),
         );
+
         const runtime = runtimeSetup({ app: EmptyApp, implementation }).construct();
+
         const first = yield* Effect.forkChild(Effect.exit(runtime.ready()), {
           startImmediately: true,
         });
+
         yield* Deferred.await(entered);
+
         const second = yield* Effect.forkChild(Effect.exit(runtime.ready()), {
           startImmediately: true,
         });
+
         assert.strictEqual(acquisitions, 1);
         yield* Deferred.succeed(release, undefined);
 
@@ -828,15 +897,18 @@ describe("internal implementation runtime", () => {
         const entered = yield* Deferred.make<void>();
         const release = yield* Deferred.make<void>();
         let acquisitions = 0;
+
         const implementation = Implementation.effect(
           RepositoryKey,
           Effect.gen(function* () {
             acquisitions += 1;
             yield* Deferred.succeed(entered, undefined);
             yield* Deferred.await(release);
+
             return repository;
           }),
         );
+
         const runtime = runtimeSetup({ app: EmptyApp, implementation }).construct();
         const acquiring = yield* Effect.forkChild(runtime.ready(), { startImmediately: true });
         yield* Deferred.await(entered);
@@ -858,27 +930,35 @@ describe("internal implementation runtime", () => {
         const release = yield* Deferred.make<void>();
         const waiterEntered = yield* Deferred.make<void>();
         let acquisitions = 0;
+
         const implementation = Implementation.effect(
           RepositoryKey,
           Effect.gen(function* () {
             acquisitions += 1;
             yield* Deferred.succeed(entered, undefined);
             yield* Deferred.await(release);
+
             return repository;
           }),
         );
+
         const runtime = runtimeSetup({ app: EmptyApp, implementation }).construct();
+
         const first = yield* Effect.forkChild(Effect.exit(runtime.ready()), {
           startImmediately: true,
         });
+
         yield* Deferred.await(entered);
+
         const waiter = yield* Effect.forkChild(
           Effect.gen(function* () {
             yield* Deferred.succeed(waiterEntered, undefined);
+
             return yield* Effect.exit(runtime.ready());
           }),
           { startImmediately: true },
         );
+
         yield* Deferred.await(waiterEntered);
         yield* Effect.yieldNow;
 
@@ -909,6 +989,7 @@ describe("internal implementation runtime", () => {
 
     it("rejects an App-shaped proxy without structural reads", () => {
       let reads = 0;
+
       const forgedApp = new Proxy(
         { ...EmptyApp },
         {
@@ -932,10 +1013,13 @@ describe("internal implementation runtime", () => {
         persistenceVersion: "1",
         modules: [],
       });
+
       let reads = 0;
+
       const options = {
         get app() {
           reads += 1;
+
           return reads === 1 ? EmptyApp : alternateApp;
         },
       };
@@ -952,26 +1036,33 @@ describe("internal implementation runtime", () => {
       Effect.gen(function* () {
         const defect = new Error("runtime-test/defect");
         let calls = 0;
+
         const implementation = Implementation.effect(
           RepositoryKey,
           Effect.sync(() => {
             calls += 1;
+
             return repository;
           }).pipe(Effect.andThen(Effect.die(defect))),
         );
+
         const ready = runtimeSetup({ app: EmptyApp, implementation }).construct().ready();
 
         const first = yield* Effect.exit(ready);
         const second = yield* Effect.exit(ready);
         assert.strictEqual(first, second);
         assert.strictEqual(Exit.hasDies(first), true);
+
         if (!Exit.isFailure(first)) {
           return yield* Effect.die(new Error("Expected a terminal defect"));
         }
+
         const reason = first.cause.reasons[0];
+
         if (reason === undefined || !Cause.isDieReason(reason)) {
           return yield* Effect.die(new Error("Expected a defect cause"));
         }
+
         assert.strictEqual(reason.defect, defect);
         assert.strictEqual(calls, 1);
       }),
@@ -980,13 +1071,16 @@ describe("internal implementation runtime", () => {
     it.effect("caches interruption as one terminal result without retrying", () =>
       Effect.gen(function* () {
         let calls = 0;
+
         const implementation = Implementation.effect(
           RepositoryKey,
           Effect.sync(() => {
             calls += 1;
+
             return repository;
           }).pipe(Effect.andThen(Effect.interrupt)),
         );
+
         const ready = runtimeSetup({ app: EmptyApp, implementation }).construct().ready();
 
         const first = yield* Effect.exit(ready);

@@ -95,13 +95,16 @@ const buildStateNodes = <DefinitionValue extends MachineDefinition>(
 ): readonly StateNode<DefinitionValue>[] =>
   Object.entries(table).map(([name, value]) => {
     const path = [...parentPath, name];
+
     if ("kind" in value) {
       // SAFETY: this token is read directly from the admitted Definition.S table.
       // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- Definition.S admission owns this exact state-token identity; the generic table view cannot retain the leaf union.
       const token = value as StateOf<DefinitionValue>;
       tokens.set(value, token);
+
       return { kind: "leaf", name, path, token, children: [] } satisfies StateNode<DefinitionValue>;
     }
+
     return {
       kind: "compound",
       name,
@@ -114,6 +117,7 @@ const indexDefinition = <DefinitionValue extends MachineDefinition>(
   definition: DefinitionValue,
 ) => {
   const stateTokenIndex = new Map<unknown, StateOf<DefinitionValue>>();
+
   const root: StateNode<DefinitionValue> = {
     kind: "compound",
     name: "",
@@ -125,6 +129,7 @@ const indexDefinition = <DefinitionValue extends MachineDefinition>(
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the admitted registry's generic Object.values view widens its exact event-token values.
   const registeredEvents = Object.values(definition.E) as Timer<DefinitionValue>["target"][];
   const eventTokenIndex = new Map<unknown, Timer<DefinitionValue>["target"]>();
+
   for (const event of registeredEvents) eventTokenIndex.set(event, event);
 
   return {
@@ -142,10 +147,12 @@ const indexDefinition = <DefinitionValue extends MachineDefinition>(
 
 const isForeignStateToken = (value: unknown) => {
   const kind = readTokenText(value, "kind");
+
   if (Result.isFailure(kind) || Option.isNone(kind.success) || kind.success.value !== "state")
     return false;
   const id = readTokenText(value, "id");
   const name = readTokenText(value, "name");
+
   return (
     Result.isSuccess(id) &&
     Option.isSome(id.success) &&
@@ -161,6 +168,7 @@ const validateStateToken = <DefinitionValue extends MachineDefinition>(
 ) =>
   Result.fromOption(tokens(value), () => {
     const foreign = isForeignStateToken(value);
+
     return invalidMachineConfigurationDiagnostic(
       foreign ? "UnknownStateToken" : "InvalidStateToken",
       path,
@@ -176,8 +184,10 @@ const admitStructure = <DefinitionValue extends MachineDefinition>(
 ): Result.Result<StructuredState<DefinitionValue>, Diagnostic.PublicDiagnostic> =>
   Result.gen(function* () {
     const statePath = configurationPath(node.path, []);
+
     if (node.kind === "leaf") {
       const admitted = yield* admitStateConfiguration(configuration, statePath, node);
+
       return {
         kind: "leaf",
         path: node.path,
@@ -187,16 +197,20 @@ const admitStructure = <DefinitionValue extends MachineDefinition>(
     }
 
     const admitted = yield* admitStateConfiguration(configuration, statePath, node);
+
     const validDefault = yield* validateStateToken(symbols.stateTokens, admitted.default, [
       ...statePath,
       "default",
     ]);
+
     if (!node.children.some((child) => child.kind === "leaf" && child.token === validDefault))
       return yield* invalidConfiguration("InvalidDefaultTarget", [...statePath, "default"]);
 
     const children: StructuredState<DefinitionValue>[] = [];
+
     for (const child of node.children)
       children.push(yield* admitStructure(child, admitted.children.get(child.name), symbols));
+
     return {
       kind: "compound",
       path: node.path,
@@ -235,6 +249,7 @@ const resolveBehavior = <DefinitionValue extends MachineDefinition>(
       (value, path) => validateStateToken(symbols.stateTokens, value, path),
       (value, path) => validateEventToken(symbols.eventTokens, value, path),
     );
+
     if (state.kind === "leaf")
       return {
         kind: "leaf",
@@ -244,10 +259,13 @@ const resolveBehavior = <DefinitionValue extends MachineDefinition>(
       } satisfies ResolvedState<DefinitionValue>;
 
     const nextInheritedHandlers = new Set(inheritedHandlers);
+
     for (const name of Object.keys(behavior.handlers)) nextInheritedHandlers.add(name);
     const children: ResolvedState<DefinitionValue>[] = [];
+
     for (const child of state.children)
       children.push(yield* resolveBehavior(child, symbols, nextInheritedHandlers));
+
     return {
       kind: "compound",
       path: state.path,
@@ -271,6 +289,7 @@ const emitStates = <DefinitionValue extends MachineDefinition>(
   state: ResolvedState<DefinitionValue>,
 ): Readonly<Record<string, CompiledState<DefinitionValue>>> => {
   const states: Record<string, CompiledState<DefinitionValue>> = Object.create(null);
+
   const emitState = (current: ResolvedState<DefinitionValue>) => {
     if (current.kind === "compound") {
       const compiledState = {
@@ -280,8 +299,11 @@ const emitStates = <DefinitionValue extends MachineDefinition>(
         children: current.children.map((child) => stateKey(child.path)),
         ...current.behavior,
       } satisfies CompiledState<DefinitionValue>;
+
       states[stateKey(current.path)] = compiledState;
+
       for (const child of current.children) emitState(child);
+
       return;
     }
 
@@ -292,10 +314,12 @@ const emitStates = <DefinitionValue extends MachineDefinition>(
       children: [],
       ...current.behavior,
     } satisfies CompiledState<DefinitionValue>;
+
     states[stateKey(current.path)] = compiledState;
   };
 
   emitState(state);
+
   return states;
 };
 

@@ -33,6 +33,7 @@ type ResultSuccess<Value> = Value extends Result.Result<infer Success, unknown> 
 
 const definitionSuccess = <Value>(result: Result.Result<Value, Diagnostic.PublicDiagnostic>) => {
   if (Result.isFailure(result)) throw result.failure;
+
   return result.success;
 };
 
@@ -243,6 +244,7 @@ const diagnosticFrom = <Value>(result: Result.Result<Value, Diagnostic.PublicDia
   if (Result.isFailure(result) && result.failure instanceof Diagnostic.Diagnostic) {
     return result.failure;
   }
+
   throw new Error("expected a diagnostic result");
 };
 
@@ -268,7 +270,9 @@ const assertDiagnosticError = (error: Diagnostic.Diagnostic, expected: Diagnosti
   );
   assert.ok(error.summary.length > 0);
   assert.ok(error.help.length > 0);
+
   if (expected.summary !== undefined) assert.strictEqual(error.summary, expected.summary);
+
   if (expected.help !== undefined) assert.strictEqual(error.help, expected.help);
 };
 
@@ -281,9 +285,11 @@ const assertDiagnostic = <Value>(
 
 const makeNestedStates = (depth: number) => {
   let states: readonly StateDeclaration[] = ["leaf"];
+
   for (let level = depth; level > 0; level -= 1) {
     states = [{ ["level" + level]: states }];
   }
+
   return states;
 };
 
@@ -313,9 +319,11 @@ const assertAcceptedAuthoredName = (name: string) => {
   assert.strictEqual(value.E[name]?.name, name);
   assert.strictEqual(value.context[name]?.provider.id, "session");
   assert.strictEqual(Object.hasOwn(value.operations, name), true);
+
   if (name !== "__proto__") return;
 
   const state = value.S[name];
+
   if (state === undefined || !("kind" in state)) throw new Error("Expected an own state token");
   assert.strictEqual(Object.hasOwn(value.S, name), true);
   assert.strictEqual(state.name, "S.__proto__");
@@ -346,6 +354,7 @@ const assertRejectedAuthoredName = (name: string) => {
       },
     ],
   ];
+
   for (const [path, input] of invalidDefinitions) {
     assertDiagnostic(constructDefinitionResult(input), {
       code: "SchemaValidation",
@@ -378,21 +387,26 @@ describe("definition", () => {
       let eventCalls = 0;
       let selectorCalls = 0;
       const states = ["ready"];
+
       const operation = resource({
         id: "copied/save",
         key: () => [] as const,
         lookup: () => Effect.succeed("saved"),
       });
+
       const selector = Session.select(() => {
         selectorCalls += 1;
+
         return "selected";
       });
+
       const source = {
         id: "copied",
         states,
         events: {
           changed: () => {
             eventCalls += 1;
+
             return {};
           },
         },
@@ -402,6 +416,7 @@ describe("definition", () => {
         operations: { save: operation },
         memory: ({ input }: { readonly input: { readonly id: string } }) => {
           initializerCalls += 1;
+
           return { id: input.id };
         },
       };
@@ -437,6 +452,7 @@ describe("definition", () => {
       const first = definitionSuccess(
         definition({ id: "first-empty", states: ["ready"], events: {} }),
       );
+
       const second = definitionSuccess(
         definition({ id: "second-empty", states: ["ready"], events: {} }),
       );
@@ -455,10 +471,13 @@ describe("definition", () => {
 
     it("does not invoke a zero-argument memory initializer during construction", () => {
       let initializerCalls = 0;
+
       const memory = () => {
         initializerCalls += 1;
+
         return { count: 0 };
       };
+
       const value = definitionSuccess(
         definition({ id: "inert-zero-argument", states: ["ready"], events: {}, memory }),
       );
@@ -469,11 +488,13 @@ describe("definition", () => {
 
     it("retains constructed operation descriptors by identity", () => {
       const lookup = (projectId: string) => Effect.succeed(projectId);
+
       const projectResource = resource({
         id: "definition/project",
         key: (projectId: string) => [projectId] as const,
         lookup,
       });
+
       const value = definitionSuccess(
         definition({
           id: "definition-with-operation",
@@ -482,6 +503,7 @@ describe("definition", () => {
           operations: { project: projectResource },
         }),
       );
+
       const retained = value.operations.project;
 
       assert.strictEqual(retained.kind, "resource");
@@ -535,6 +557,7 @@ describe("definition", () => {
           details: { issue: "Composite" },
         });
       }
+
       assertDiagnostic(constructDefinitionResult({ id: "invalid", states: [], events: {} }), {
         code: "SchemaValidation",
         path: ["states"],
@@ -548,6 +571,7 @@ describe("definition", () => {
 
     it("preserves exact spelling and rejects invalid authored names", () => {
       for (const name of acceptedAuthoredNames) assertAcceptedAuthoredName(name);
+
       for (const name of rejectedAuthoredNames) assertRejectedAuthoredName(name);
       assert.notStrictEqual("café", "cafe\u0301");
     });
@@ -567,11 +591,13 @@ describe("definition", () => {
         enumerable: true,
         get: () => {
           getterCalls += 1;
+
           return "bare";
         },
       });
       const hiddenEvents = {};
       Object.defineProperty(hiddenEvents, "changed", { value: "bare" });
+
       const invalidContainers: readonly [string, unknown][] = [
         ["events", new Date()],
         ["events", Object(Symbol("events"))],
@@ -598,6 +624,7 @@ describe("definition", () => {
           },
         );
       }
+
       assert.strictEqual(getterCalls, 0);
 
       assert.strictEqual(
@@ -616,6 +643,7 @@ describe("definition", () => {
       const omitted = definitionSuccess(
         constructDefinitionResult({ id: "omitted", states: ["ready"], events: {} }),
       );
+
       const explicitUndefined = definitionSuccess(
         constructDefinitionResult({
           id: "explicit-undefined",
@@ -625,6 +653,7 @@ describe("definition", () => {
           operations: undefined,
         }),
       );
+
       assert.deepStrictEqual(explicitUndefined.context, {});
       assert.deepStrictEqual(explicitUndefined.operations, {});
       assert.notStrictEqual(omitted.context, explicitUndefined.context);
@@ -691,7 +720,9 @@ describe("definition", () => {
           },
         }),
       );
+
       const event = value.E.changed;
+
       if (!Predicate.isFunction(event)) throw new Error("Expected event constructor");
 
       assertDiagnostic(event(), {
@@ -707,7 +738,9 @@ describe("definition", () => {
           events: { changed: () => ({ state: Editor.S.ready }) },
         }),
       );
+
       const registeredStateEvent = registeredState.E.changed;
+
       if (!Predicate.isFunction(registeredStateEvent))
         throw new Error("Expected event constructor");
       const registeredStatePayload = definitionSuccess(registeredStateEvent());
@@ -724,7 +757,9 @@ describe("definition", () => {
           },
         }),
       );
+
       const forgedStateEvent = forgedState.E.changed;
+
       if (!Predicate.isFunction(forgedStateEvent)) throw new Error("Expected event constructor");
       assertDiagnostic(forgedStateEvent(), {
         code: "SchemaValidation",
@@ -741,7 +776,9 @@ describe("definition", () => {
           },
         }),
       );
+
       const symbolEvent = symbolPayload.E.changed;
+
       if (!Predicate.isFunction(symbolEvent)) throw new Error("Expected event constructor");
       assertDiagnostic(symbolEvent(), {
         code: "SchemaValidation",
@@ -769,6 +806,7 @@ describe("definition", () => {
 
     it("validates declarations and event payload objects with Schema", () => {
       const invalidMarker = null;
+
       const invalidDefinitions: readonly [string, DefinitionValue, readonly (string | number)[]][] =
         [
           ["extra", { id: "extra", states: ["ready"], events: {}, extra: true }, ["extra"]],
@@ -799,6 +837,7 @@ describe("definition", () => {
             ["events", "changed"],
           ],
         ];
+
       for (const [_field, input, path] of invalidDefinitions) {
         assertDiagnostic(constructDefinitionResult(input), {
           code: "SchemaValidation",
@@ -808,6 +847,7 @@ describe("definition", () => {
       }
 
       const invalidPayloads = [() => ({ type: "reserved" }), () => new Date()];
+
       for (const [index, factory] of invalidPayloads.entries()) {
         const value = definitionSuccess(
           constructDefinitionResult({
@@ -816,7 +856,9 @@ describe("definition", () => {
             events: { changed: factory },
           }),
         );
+
         const event = value.E.changed;
+
         if (!Predicate.isFunction(event)) throw new Error("Expected event constructor");
         assertDiagnostic(event(), {
           code: "SchemaValidation",
@@ -836,6 +878,7 @@ describe("definition", () => {
         events: {},
         extra: true,
       } as DefinitionConfig;
+
       assertDiagnostic(definition(invalid), {
         code: "SchemaValidation",
         path: ["extra"],
@@ -845,6 +888,7 @@ describe("definition", () => {
 
     it("lets authored event callbacks throw their original exception", () => {
       const failure = new Error("event failed");
+
       const value = definitionSuccess(
         definition({
           id: "throwing-event",
@@ -856,16 +900,20 @@ describe("definition", () => {
           },
         }),
       );
+
       const event = value.E.changed;
+
       if (!Predicate.isFunction(event)) throw new Error("Expected event constructor");
       assert.throws(() => event(), failure);
     });
 
     it("keeps native and fallback text validation in parity", () => {
       const values = ["plain", "é", "€", "😀", "\uD800", "\uDC00"];
+
       for (const value of values) {
         assert.strictEqual(isWellFormedText(value), isWellFormedFallback(value));
       }
+
       assert.deepStrictEqual(utf8ByteLength("😀".repeat(64), 256), Result.succeed(256));
       assert.deepStrictEqual(utf8ByteLength("a".repeat(257), 256), Result.fail("too-large"));
     });

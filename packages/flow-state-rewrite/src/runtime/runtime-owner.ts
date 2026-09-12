@@ -84,6 +84,7 @@ const makeRuntimeOwner = <
       ownedScope = scope;
       bootstrapFiber = fiber;
     });
+
     if (!isAdmissionOpen()) {
       return yield* Effect.interrupt;
     }
@@ -96,9 +97,11 @@ const makeRuntimeOwner = <
           for (const provider of options.providers) {
             const acquire =
               "acquire" in provider ? provider.acquire : Effect.sync(() => provider.value);
+
             const service = yield* Effect.provideContext(context)(acquire);
             context = Context.add(context, provider.service, service);
           }
+
           return context;
         }),
       ).pipe(
@@ -108,6 +111,7 @@ const makeRuntimeOwner = <
 
     if (Exit.isFailure(acquired)) {
       yield* Scope.close(scope, acquired);
+
       return yield* Effect.failCause(acquired.cause);
     }
 
@@ -124,12 +128,15 @@ const makeRuntimeOwner = <
         Effect.onExit((exit) => (Exit.isFailure(exit) ? Scope.close(scope, exit) : Effect.void)),
       ),
     );
+
     if (Exit.isFailure(exposed)) {
       yield* Scope.close(scope, exposed);
+
       return yield* Effect.failCause(exposed.cause);
     }
 
     ownedScope = scope;
+
     return exposed.value;
   }).pipe(
     Effect.onExit((exit) =>
@@ -145,6 +152,7 @@ const makeRuntimeOwner = <
   );
 
   const cachedBootstrap = Effect.cached(bootstrap);
+
   let cachedReady:
     | Effect.Effect<
         A,
@@ -163,6 +171,7 @@ const makeRuntimeOwner = <
       Effect.flatMap((effect) =>
         Effect.sync(() => {
           cachedReady = effect;
+
           return effect;
         }),
       ),
@@ -175,9 +184,11 @@ const makeRuntimeOwner = <
 
     const fiber = bootstrapFiber;
     const currentFiber = yield* Effect.fiber;
+
     if (fiber !== undefined && fiber !== currentFiber) {
       yield* Fiber.interrupt(fiber);
       yield* Fiber.await(fiber);
+
       if (bootstrapOutcome !== undefined && Exit.isFailure(bootstrapOutcome)) {
         retainDisposalOutcome(Exit.failCause(bootstrapOutcome.cause));
       }
@@ -189,6 +200,7 @@ const makeRuntimeOwner = <
     }
 
     const scope = ownedScope;
+
     if (scope !== undefined) {
       const scopeExit = yield* Effect.exit(Scope.close(scope, Exit.void));
       retainDisposalOutcome(scopeExit);
@@ -203,6 +215,7 @@ const makeRuntimeOwner = <
 
   const cachedClose = Effect.cached(closeOnce);
   let cachedCloseEffect: Effect.Effect<void, AcquireError | ExposureError | CloseError> | undefined;
+
   const close = Effect.suspend(() => {
     if (cachedCloseEffect !== undefined) return cachedCloseEffect;
 
@@ -210,6 +223,7 @@ const makeRuntimeOwner = <
       Effect.flatMap((effect) =>
         Effect.sync(() => {
           cachedCloseEffect = effect;
+
           return effect;
         }),
       ),

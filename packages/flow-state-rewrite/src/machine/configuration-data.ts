@@ -17,11 +17,14 @@ export const captureConfigurationEntries = (
   inaccessibleValue: unknown,
 ): Result.Result<ConfigurationEntry[], ConfigurationEntryFailure> => {
   const entries: ConfigurationEntry[] = [];
+
   for (const [key, property] of snapshot.properties) {
     if (!Predicate.isString(key)) return Result.fail({ reason: "NonStringConfigurationKey", key });
+
     if (!property.enumerable) return Result.fail({ reason: "UnexpectedConfigurationField", key });
     entries.push([key, property.kind === "data" ? property.value : inaccessibleValue]);
   }
+
   return Result.succeed(entries);
 };
 
@@ -32,10 +35,12 @@ export const captureConfigurationData = (
   inaccessibleValue: unknown,
 ): Result.Result<unknown, Diagnostic.PublicDiagnostic> => {
   const entryResult = captureConfigurationEntries(snapshot, inaccessibleValue);
+
   if (Result.isFailure(entryResult))
     return invalidConfigurationKey(entryResult.failure.reason, path, entryResult.failure.key);
 
   const entries = entryResult.success;
   const captured: unknown = Object.fromEntries(entries);
+
   return Result.succeed(captured);
 };

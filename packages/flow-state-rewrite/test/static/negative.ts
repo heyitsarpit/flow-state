@@ -7,111 +7,160 @@ import type * as TestingRoute from "../../src/testing.js";
 
 // @ts-expect-error Actor snapshot is deferred until its owner exists.
 export type _ActorSnapshot = Public.ActorSnapshot;
+
 // @ts-expect-error Persistence is deferred until its owner exists.
 export type _Persistence = Public.Persistence;
+
 // @ts-expect-error Persistence storage is deferred until its owner exists.
 export type _PersistenceStorage = Public.PersistenceStorage;
+
 // @ts-expect-error Persistence storage failure is deferred until its owner exists.
 export type _PersistenceStorageError = Public.PersistenceStorageError;
+
 // @ts-expect-error Persistence codec is deferred until its owner exists.
 export type _PersistenceCodec = Public.PersistenceCodec;
+
 // @ts-expect-error Persistence slot is deferred until its owner exists.
 export type _PersistenceSlot = Public.PersistenceSlot;
+
 // @ts-expect-error Persistence value is deferred until its owner exists.
 export type _PersistenceValue = Public.PersistenceValue;
+
 // @ts-expect-error Persistence entry is deferred until its owner exists.
 export type _PersistenceEntry = Public.PersistenceEntry;
+
 // @ts-expect-error FlowDisposeError is deferred until its owner exists.
 export type _FlowDisposeError = typeof Public.FlowDisposeError;
+
 // @ts-expect-error FlowPersistenceError is deferred until its owner exists.
 export type _FlowPersistenceError = typeof Public.FlowPersistenceError;
+
 // @ts-expect-error FlowUsageError is deferred until its owner exists.
 export type _FlowUsageError = typeof Public.FlowUsageError;
+
 // @ts-expect-error FlowPath is deferred until its owner exists.
 export type _FlowPath = Public.FlowPath;
+
 // @ts-expect-error FlowUsageCode is deferred until its owner exists.
 export type _FlowUsageCode = Public.FlowUsageCode;
+
 // @ts-expect-error can is deferred until its owner exists.
 export type _Can = typeof Public.can;
+
 // @ts-expect-error indexedDbStorage is deferred until its owner exists.
 export type _IndexedDbStorage = typeof Public.indexedDbStorage;
+
 // @ts-expect-error persistence is deferred until its owner exists.
 export type _PersistenceRoot = typeof Public.persistence;
+
 // @ts-expect-error webStorage is deferred until its owner exists.
 export type _WebStorage = typeof Public.webStorage;
 
 // @ts-expect-error FlowProvider is deferred until the React owner exists.
 export type _FlowProvider = typeof ReactRoute.FlowProvider;
+
 // @ts-expect-error useActor is deferred until the React owner exists.
 export type _UseActor = typeof ReactRoute.useActor;
+
 // @ts-expect-error useActorByRef is deferred until the React owner exists.
 export type _UseActorByRef = typeof ReactRoute.useActorByRef;
+
 // @ts-expect-error useView is deferred until the React owner exists.
 export type _UseView = typeof ReactRoute.useView;
 
 // @ts-expect-error FlowStoryExecutionError is deferred until the Story owner exists.
 export type _FlowStoryExecutionError = typeof TestingRoute.FlowStoryExecutionError;
+
 // @ts-expect-error behavior is deferred until the Story owner exists.
 export type _Behavior = typeof TestingRoute.behavior;
+
 // @ts-expect-error fixture is deferred until the Story owner exists.
 export type _Fixture = typeof TestingRoute.fixture;
+
 // @ts-expect-error model is deferred until the Story owner exists.
 export type _Model = typeof TestingRoute.model;
+
 // @ts-expect-error story is deferred until the Story owner exists.
 export type _Story = typeof TestingRoute.story;
 
 // @ts-expect-error analyzeTrace is deferred until the inspection owner exists.
 export type _AnalyzeTrace = typeof InspectRoute.analyzeTrace;
+
 // @ts-expect-error attachInspectionSink is deferred until the inspection owner exists.
 export type _AttachInspectionSink = typeof InspectRoute.attachInspectionSink;
+
 // @ts-expect-error buildBehaviorContract is deferred until the inspection owner exists.
 export type _BuildBehaviorContract = typeof InspectRoute.buildBehaviorContract;
+
 // @ts-expect-error compressTraceArtifact is deferred until the inspection owner exists.
 export type _CompressTraceArtifact = typeof InspectRoute.compressTraceArtifact;
+
 // @ts-expect-error createInspectionBufferSink is deferred until the inspection owner exists.
 export type _CreateInspectionBufferSink = typeof InspectRoute.createInspectionBufferSink;
+
 // @ts-expect-error decompressTraceArtifact is deferred until the inspection owner exists.
 export type _DecompressTraceArtifact = typeof InspectRoute.decompressTraceArtifact;
+
 // @ts-expect-error diffBehaviorContracts is deferred until the inspection owner exists.
 export type _DiffBehaviorContracts = typeof InspectRoute.diffBehaviorContracts;
+
 // @ts-expect-error diffTrace is deferred until the inspection owner exists.
 export type _DiffTrace = typeof InspectRoute.diffTrace;
+
 // @ts-expect-error exportTraceArtifact is deferred until the inspection owner exists.
 export type _ExportTraceArtifact = typeof InspectRoute.exportTraceArtifact;
+
 // @ts-expect-error formatInspectionEvent is deferred until the inspection owner exists.
 export type _FormatInspectionEvent = typeof InspectRoute.formatInspectionEvent;
+
 // @ts-expect-error formatInspectionTimeline is deferred until the inspection owner exists.
 export type _FormatInspectionTimeline = typeof InspectRoute.formatInspectionTimeline;
+
 // @ts-expect-error formatNoTransitionSummary is deferred until the inspection owner exists.
 export type _FormatNoTransitionSummary = typeof InspectRoute.formatNoTransitionSummary;
+
 // @ts-expect-error formatRehydrationSummary is deferred until the inspection owner exists.
 export type _FormatRehydrationSummary = typeof InspectRoute.formatRehydrationSummary;
+
 // @ts-expect-error formatResourceFreshnessReport is deferred until the inspection owner exists.
 export type _FormatResourceFreshnessReport = typeof InspectRoute.formatResourceFreshnessReport;
+
 // @ts-expect-error formatTrace is deferred until the inspection owner exists.
 export type _FormatTrace = typeof InspectRoute.formatTrace;
+
 // @ts-expect-error formatTransactionOverlapSummary is deferred until the inspection owner exists.
 export type _FormatTransactionOverlapSummary = typeof InspectRoute.formatTransactionOverlapSummary;
+
 // @ts-expect-error graphOf is deferred until the inspection owner exists.
 export type _GraphOf = typeof InspectRoute.graphOf;
+
 // @ts-expect-error importTraceArtifact is deferred until the inspection owner exists.
 export type _ImportTraceArtifact = typeof InspectRoute.importTraceArtifact;
+
 // @ts-expect-error inspectActivities is deferred until the inspection owner exists.
 export type _InspectActivities = typeof InspectRoute.inspectActivities;
+
 // @ts-expect-error inspectMicrosteps is deferred until the inspection owner exists.
 export type _InspectMicrosteps = typeof InspectRoute.inspectMicrosteps;
+
 // @ts-expect-error inspectTransition is deferred until the inspection owner exists.
 export type _InspectTransition = typeof InspectRoute.inspectTransition;
+
 // @ts-expect-error renderBehaviorContract is deferred until the inspection owner exists.
 export type _RenderBehaviorContract = typeof InspectRoute.renderBehaviorContract;
+
 // @ts-expect-error renderBehaviorCoverage is deferred until the inspection owner exists.
 export type _RenderBehaviorCoverage = typeof InspectRoute.renderBehaviorCoverage;
+
 // @ts-expect-error renderBehaviorDiff is deferred until the inspection owner exists.
 export type _RenderBehaviorDiff = typeof InspectRoute.renderBehaviorDiff;
+
 // @ts-expect-error sliceBehaviorContract is deferred until the inspection owner exists.
 export type _SliceBehaviorContract = typeof InspectRoute.sliceBehaviorContract;
+
 // @ts-expect-error summarizeTrace is deferred until the inspection owner exists.
 export type _SummarizeTrace = typeof InspectRoute.summarizeTrace;
+
 // @ts-expect-error whyNoTransition is deferred until the inspection owner exists.
 export type _WhyNoTransition = typeof InspectRoute.whyNoTransition;
 
@@ -135,6 +184,7 @@ type PublicDiagnostic = ReturnType<typeof Diagnostic.Failure>;
 
 const resultSuccess = <Value>(result: Result.Result<Value, PublicDiagnostic>) => {
   if (Result.isFailure(result)) throw result.failure;
+
   return result.success;
 };
 
@@ -148,6 +198,7 @@ const ValidDefinitionResult = definition({
   states: ["ready"],
   events: { opened: (id: string) => ({ id }) },
 });
+
 const ValidDefinition = resultSuccess(ValidDefinitionResult);
 
 const OtherDefinitionResult = definition({
@@ -155,6 +206,7 @@ const OtherDefinitionResult = definition({
   states: ["ready"],
   events: { opened: (id: string) => ({ id }) },
 });
+
 const OtherDefinition = resultSuccess(OtherDefinitionResult);
 
 const validMachine = resultSuccess(
@@ -165,6 +217,7 @@ const validMachine = resultSuccess(
 );
 
 const localIdentityResult = makeActorIdentityRegistry().createLocal(validMachine);
+
 if (Result.isSuccess(localIdentityResult)) {
   const localPersistence: false = localIdentityResult.success.ref.persist;
   void localPersistence;
@@ -303,8 +356,11 @@ const publicFailure = Diagnostic.Failure({
 });
 
 const publicResultFailure: Result.Result<never, PublicDiagnostic> = Result.fail(publicFailure);
+
 const publicEffectFailure: Effect.Effect<never, PublicDiagnostic> = Effect.fail(publicFailure);
+
 void publicResultFailure;
+
 void publicEffectFailure;
 
 const publicFailureWithClassification = Diagnostic.Failure({
@@ -316,6 +372,7 @@ const publicFailureWithClassification = Diagnostic.Failure({
   // @ts-expect-error Callers cannot supply internal classification.
   classification: "Failure",
 });
+
 void publicFailureWithClassification;
 
 const publicFailureWithReservedCode = Diagnostic.Failure({
@@ -326,6 +383,7 @@ const publicFailureWithReservedCode = Diagnostic.Failure({
   summary: "invalid reserved code",
   help: "unreachable",
 });
+
 void publicFailureWithReservedCode;
 
 const publicFailureWithInterruptionCode = Diagnostic.Failure({
@@ -336,6 +394,7 @@ const publicFailureWithInterruptionCode = Diagnostic.Failure({
   summary: "invalid reserved code",
   help: "unreachable",
 });
+
 void publicFailureWithInterruptionCode;
 
 // @ts-expect-error The defect factory accepts exactly one cause argument, not typed-failure fields.
@@ -366,6 +425,7 @@ const publicEventDefinitionResult = definition({
 
 if (Result.isSuccess(publicEventDefinitionResult)) {
   const publicEventResult = publicEventDefinitionResult.success.E.opened();
+
   if (Result.isFailure(publicEventResult)) {
     // @ts-expect-error Inferred public event failures hide the internal classification.
     void publicEventResult.failure.classification;
@@ -419,6 +479,7 @@ const invalidOwnerCompilations = () => {
     on: { opened: undefined },
     states: { ready: {} },
   };
+
   // @ts-expect-error A present event handler cannot be undefined.
   machine(ValidDefinitionResult, () => explicitUndefinedEventConfiguration);
 
@@ -426,6 +487,7 @@ const invalidOwnerCompilations = () => {
     default: ValidDefinition.S.ready,
     states: { ready: { timers: { opened: undefined } } },
   };
+
   // @ts-expect-error A present timer entry cannot be undefined.
   machine(ValidDefinitionResult, () => explicitUndefinedTimerConfiguration);
 
@@ -462,6 +524,7 @@ const invalidOwnerCompilations = () => {
   machine(ValidDefinitionResult, ({ E }) => {
     // @ts-expect-error Event constructors retain their authored argument tuple.
     E.opened(1);
+
     return { default: ValidDefinition.S.ready, states: { ready: {} } };
   });
 
@@ -499,6 +562,7 @@ const invalidOwnerCompilations = () => {
     // @ts-expect-error Modules admit constructed machines, not definitions.
     machines: { root: ValidDefinition },
   });
+
   void invalidMachineRecord;
 
   const invalidAppRecord = app({
@@ -507,6 +571,7 @@ const invalidOwnerCompilations = () => {
     // @ts-expect-error App modules must be constructed module records.
     modules: [{ id: "not-a-module", machines: {} }],
   });
+
   void invalidAppRecord;
 
   const structurallyForgedApp = {
@@ -527,6 +592,7 @@ const invalidOwnerCompilations = () => {
       admitsDescriptor: () => false,
     },
   };
+
   // @ts-expect-error RuntimeSetup requires an App constructed by app(), not a structural lookalike.
   runtimeSetup({ app: structurallyForgedApp });
 
@@ -535,6 +601,7 @@ const invalidOwnerCompilations = () => {
     // @ts-expect-error Implementation effects preserve the service value type.
     Effect.succeed(42),
   );
+
   void invalidImplementation;
 
   const invalidImplementationKey = Implementation.succeed(
@@ -542,6 +609,7 @@ const invalidOwnerCompilations = () => {
     { key: "not-a-context-key" },
     {},
   );
+
   void invalidImplementationKey;
 
   // @ts-expect-error Stream descriptors do not expose actor cancellation.

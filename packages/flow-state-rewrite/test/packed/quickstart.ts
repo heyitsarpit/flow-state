@@ -49,6 +49,7 @@ const editorModule = module({
   id: "packed-quickstart-module",
   machines: { editor: machineResult.success },
 });
+
 const editorApp = app({
   id: "packed-quickstart-app",
   persistenceVersion: "1",
@@ -56,14 +57,18 @@ const editorApp = app({
 });
 
 const state: AcquisitionState = { acquireCalls: 0 };
+
 const implementation = Implementation.effect(
   Repository,
   Effect.sync(() => {
     state.acquireCalls += 1;
+
     return Repository.of({ load: (id) => id });
   }),
 );
+
 const setup = runtimeSetup({ app: editorApp, implementation });
+
 const runtime = setup.construct();
 
 export const quickstart: Effect.Effect<void> = Effect.gen(function* () {
@@ -71,10 +76,12 @@ export const quickstart: Effect.Effect<void> = Effect.gen(function* () {
     yield* Effect.die(new Error(`acquired before ready(): ${state.acquireCalls}`));
   yield* runtime.ready();
   const firstReadyCalls = yield* Effect.sync(() => state.acquireCalls);
+
   if (firstReadyCalls !== 1)
     yield* Effect.die(new Error(`unexpected acquisition count: ${firstReadyCalls}`));
   yield* runtime.ready();
   const secondReadyCalls = yield* Effect.sync(() => state.acquireCalls);
+
   if (secondReadyCalls !== 1)
     yield* Effect.die(new Error(`readiness was not cached: ${secondReadyCalls}`));
 });

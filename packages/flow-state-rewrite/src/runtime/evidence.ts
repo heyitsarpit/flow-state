@@ -21,6 +21,7 @@ import type {
 import type { TurnCause } from "./turn-plan.js";
 
 declare const evidenceSequenceBrand: unique symbol;
+
 declare const sinkIdBrand: unique symbol;
 
 /** Runtime-global evidence order is allocated only by an EvidenceHub. */
@@ -142,16 +143,19 @@ export type EvidenceAcceptance = {
 };
 
 const preparedActorPublication = Symbol("prepared-actor-publication");
+
 type EvidenceReference = Exclude<WeakKey, symbol>;
 
 const preparedPublicationFinalizers = new WeakMap<
   EvidenceReference,
   (publication: unknown) => number
 >();
+
 const preparedPublicationCancellers = new WeakMap<
   EvidenceReference,
   () => Result.Result<void, PublicDiagnostic>
 >();
+
 const projectedPublicationSnapshots = new WeakMap<ActorPublication<MachineDefinition>, unknown>();
 
 /** Marks an actor publication whose evidence is prepared before store commit. */
@@ -159,6 +163,7 @@ export const prepareActorPublication = <DefinitionValue extends MachineDefinitio
   publication: ActorPublication<DefinitionValue>,
 ) => {
   Object.defineProperty(publication, preparedActorPublication, { value: true });
+
   return publication;
 };
 
@@ -171,9 +176,11 @@ export const finalizePreparedActorPublication = <DefinitionValue extends Machine
   publication: ActorPublication<DefinitionValue>,
 ) => {
   const finalize = preparedPublicationFinalizers.get(prepared);
+
   if (finalize === undefined) return undefined;
   preparedPublicationFinalizers.delete(prepared);
   preparedPublicationCancellers.delete(prepared);
+
   return finalize(publication);
 };
 
@@ -182,8 +189,10 @@ export const cancelPreparedActorPublication = <DefinitionValue extends MachineDe
   prepared: ActorPublication<DefinitionValue>,
 ) => {
   const cancel = preparedPublicationCancellers.get(prepared);
+
   if (cancel === undefined) return Result.succeed(undefined);
   preparedPublicationCancellers.delete(prepared);
+
   return cancel();
 };
 
@@ -210,18 +219,22 @@ export type EvidenceSink = {
 };
 
 const sinkInternals = new WeakMap<EvidenceSink, EvidenceSinkInternals>();
+
 const serviceCancellers = new WeakMap<
   EvidenceReference,
   (sequence: number) => Result.Result<void, PublicDiagnostic>
 >();
+
 const hubCancellers = new WeakMap<
   EvidenceReference,
   (sequence: number) => Result.Result<void, PublicDiagnostic>
 >();
+
 const serviceReservationLookups = new WeakMap<
   EvidenceReference,
   (sequence: number) => EvidenceReservation | undefined
 >();
+
 const hubReservationLookups = new WeakMap<
   EvidenceReference,
   (sequence: number) => EvidenceReservation | undefined
@@ -278,8 +291,10 @@ const isReference = (value: unknown): value is EvidenceReference =>
 // RETURN_TYPE: The copier only owns plain records and arrays; opaque references remain untouched.
 const isStructuredContainer = (value: unknown): value is EvidenceReference => {
   if (Array.isArray(value)) return true;
+
   if (!isReference(value)) return false;
   const prototype = Object.getPrototypeOf(value);
+
   return prototype === Object.prototype || prototype === null;
 };
 
@@ -305,6 +320,7 @@ const copyStructured = <Value>(value: Value, preserved: WeakSet<EvidenceReferenc
     for (const key of Reflect.ownKeys(current)) {
       if (Array.isArray(current) && key === "length") continue;
       const descriptor = Object.getOwnPropertyDescriptor(current, key);
+
       if (descriptor === undefined || !descriptor.enumerable || !("value" in descriptor)) continue;
       Object.defineProperty(clone, key, {
         value: copy(descriptor.value),
@@ -318,14 +334,17 @@ const copyStructured = <Value>(value: Value, preserved: WeakSet<EvidenceReferenc
   const copy = (current: unknown) => {
     if (!isStructuredContainer(current) || preserved.has(current)) return current;
     const previous = copied.get(current);
+
     if (previous !== undefined) return previous;
 
     const clone: EvidenceReference = Array.isArray(current)
       ? []
       : Object.create(Object.getPrototypeOf(current));
+
     copied.set(current, clone);
     copyArrayLength(clone, current);
     copyEnumerableProperties(clone, current);
+
     // oxlint-disable-next-line anti-slop/no-object-freeze -- accepted evidence envelopes are immutable copies.
     return Object.freeze(clone);
   };
@@ -389,8 +408,11 @@ const preserveSnapshotOpaque = (
   preserved: WeakSet<EvidenceReference>,
 ) => {
   preserveOpaque(preserved, snapshot.state);
+
   for (const value of Object.values(snapshot.context)) preserveOpaque(preserved, value);
+
   for (const operation of snapshot.operations) preserveOpaque(preserved, operation.descriptor);
+
   for (const issue of snapshot.issues) preserveOpaque(preserved, issue);
 };
 
@@ -401,16 +423,20 @@ const preserveCompletionOpaque = (
   preserved: WeakSet<EvidenceReference>,
 ) => {
   preserveOpaque(preserved, completion.fence.descriptor);
+
   switch (completion.outcome._tag) {
     case "success":
       preserveOpaque(preserved, completion.outcome.value);
+
       return;
     case "failure":
       preserveOpaque(preserved, completion.outcome.error);
+
       return;
     case "defect":
     case "interrupt":
       preserveOpaque(preserved, completion.outcome.exit);
+
       return;
   }
 };
@@ -422,16 +448,20 @@ const preserveProjectionOpaque = (
   switch (fact._tag) {
     case "completion-projection":
       preserveCompletionOpaque(fact.completion, preserved);
+
       return;
     case "stream-projection":
       preserveOpaque(preserved, fact.fact.fence.descriptor);
       preserveOpaque(preserved, fact.fact.value);
+
       return;
     case "context-projection":
       preserveOpaque(preserved, fact.provider.value);
+
       return;
     case "store-projection":
       for (const changed of fact.fact.changed) preserveOpaque(preserved, changed.descriptor);
+
       return;
     case "timer-projection":
     case "lifecycle-projection":
@@ -479,12 +509,14 @@ const preserveLifecycleOpaque = (
   const attachment = snapshot.attachment;
   preserveOpaque(preserved, attachment.providerRevisions);
   preserveOpaque(preserved, attachment.cursors);
+
   for (const resource of attachment.resources) {
     preserveOpaque(preserved, resource.scope);
     preserveOpaque(preserved, resource.close);
     preserveOpaque(preserved, resource.reacquire);
     preserveOpaque(preserved, resource.cause);
   }
+
   for (const work of attachment.work) {
     preserveOpaque(preserved, work.fiber);
     preserveOpaque(preserved, work.cancel);
@@ -493,12 +525,16 @@ const preserveLifecycleOpaque = (
     preserveOpaque(preserved, work.cause);
     preserveOpaque(preserved, work.completion);
   }
+
   for (const binding of attachment.bindings) {
     preserveOpaque(preserved, binding.provider);
     preserveOpaque(preserved, binding.select);
   }
+
   for (const operation of attachment.operations) preserveOpaque(preserved, operation.cause);
+
   for (const timer of attachment.timers) preserveOpaque(preserved, timer.refresh);
+
   for (const actor of attachment.blockedDisposal?.dependentActors ?? [])
     preserveOpaque(preserved, actor);
 };
@@ -507,24 +543,30 @@ const copyRecord = (record: EvidenceRecord) => {
   const preserved = new WeakSet<EvidenceReference>();
   preserveOpaque(preserved, record.provenance.app);
   preserveOpaque(preserved, record.provenance.plan);
+
   if (record._tag === "turn") {
     preserveSnapshotOpaque(record.before, preserved);
     preserveSnapshotOpaque(record.after, preserved);
     preserveCauseOpaque(record.cause, preserved);
+
     for (const changed of record.store.changed) preserveOpaque(preserved, changed.descriptor);
   } else {
     preserveLifecycleOpaque(record.before, preserved);
     preserveLifecycleOpaque(record.after, preserved);
   }
+
   return copyStructured(record, preserved);
 };
 
 const diagnosticFromCause = (cause: Cause.Cause<PublicDiagnostic>) => {
   const defect = cause.reasons.find(Cause.isDieReason);
+
   if (defect !== undefined) return Defect(defect.defect);
   const failure = cause.reasons.find(Cause.isFailReason);
+
   if (failure !== undefined)
     return failure.error instanceof Diagnostic ? failure.error : Defect(failure.error);
+
   return Interrupt();
 };
 
@@ -541,6 +583,7 @@ export const makeEvidenceSink = (
 ): Effect.Effect<EvidenceSink, PublicDiagnostic> =>
   Effect.gen(function* () {
     const capacity = options.capacity ?? 64;
+
     if (!Number.isSafeInteger(capacity) || capacity < 1)
       return yield* Effect.fail(
         Failure({
@@ -566,8 +609,11 @@ export const makeEvidenceSink = (
     // RETURN_TYPE: Sink status literals must remain narrow for the bounded offer contract.
     const offerUnsafe = (record: EvidenceRecord, sequence: EvidenceSequence): SinkOfferResult => {
       if (closed || failure !== undefined) return { sink: sinkId, sequence, status: "detached" };
+
       if (Queue.offerUnsafe(mailbox, record)) return { sink: sinkId, sequence, status: "accepted" };
+
       if (truncatedBefore === undefined) truncatedBefore = sequence;
+
       return { sink: sinkId, sequence, status: "dropped" };
     };
 
@@ -584,9 +630,12 @@ export const makeEvidenceSink = (
           while (Queue.sizeUnsafe(mailbox) > 0) {
             const record = yield* Queue.take(mailbox);
             const delivered = yield* Effect.exit(deliver(record));
+
             if (Exit.isFailure(delivered)) {
               failure = makeSinkFailure(delivered.cause);
+
               while (Queue.sizeUnsafe(mailbox) > 0) Queue.takeUnsafe(mailbox);
+
               return {
                 sink: sinkId,
                 through,
@@ -594,6 +643,7 @@ export const makeEvidenceSink = (
               } satisfies SinkDrainResult;
             }
           }
+
           return {
             sink: sinkId,
             through,
@@ -616,17 +666,20 @@ export const makeEvidenceSink = (
       mailbox,
       offer: (record) => {
         const sequence = sequenceOf(record);
+
         return Effect.succeed(offerUnsafe(record, sequenceValue(sequence)));
       },
       drain: (through) => drain(through),
       close: () => close,
     };
+
     sinkInternals.set(sink, {
       offerUnsafe,
       drain,
       close,
       truncatedBefore: () => truncatedBefore,
     });
+
     return sink;
   });
 
@@ -681,23 +734,29 @@ export const makeEvidenceHub = (options: {
   // RETURN_TYPE: This callback closes over the hub identity used by each reservation.
   const reserveUnsafe = (): Result.Result<EvidenceReservation, PublicDiagnostic> => {
     if (closed) return Result.fail(closedEvidence());
+
     if (allocated >= Number.MAX_SAFE_INTEGER) return Result.fail(counterOverflow("sequence"));
     allocated += 1;
+
     const reservation = {
       hub,
       sequence: sequenceValue(allocated),
     } satisfies EvidenceReservation;
+
     reservations.set(allocated, { reservation, status: "pending" });
+
     return Result.succeed(reservation);
   };
 
   const advancePrefix = () => {
     for (;;) {
       const next = reservations.get(accepted + 1);
+
       if (next === undefined || next.status === "pending") break;
       accepted += 1;
       reservations.delete(accepted);
     }
+
     for (const [sequence, waiter] of waiters) {
       if (sequence > accepted + 1) continue;
       waiters.delete(sequence);
@@ -707,54 +766,71 @@ export const makeEvidenceHub = (options: {
 
   const validateReservation = (reservation: EvidenceReservation, record: EvidenceRecord) => {
     if (closed) return Result.fail(closedEvidence());
+
     if (reservation.hub !== hub)
       return Result.fail(invalidEvidence("reservation", { reason: "foreign-hub" }));
     const sequence = sequenceOf(record);
+
     if (!Number.isSafeInteger(sequence) || sequence < 1)
       return Result.fail(invalidEvidence("sequence", { reason: "missing-or-invalid" }));
+
     if (sequence !== reservation.sequence)
       return Result.fail(invalidEvidence("sequence", { reason: "reservation-mismatch", sequence }));
     const retained = reservations.get(sequence);
+
     if (
       retained === undefined ||
       retained.reservation !== reservation ||
       retained.status !== "pending"
     )
       return Result.fail(invalidEvidence("reservation", { reason: "unknown" }));
+
     if (record.provenance.app !== options.app || record.provenance.plan !== options.plan)
       return Result.fail(invalidEvidence("provenance", { reason: "foreign-runtime" }));
+
     return Result.succeed(sequence);
   };
 
   const validate = (reservation: EvidenceReservation, record: EvidenceRecord) => {
     const validated = validateReservation(reservation, record);
+
     if (Result.isFailure(validated)) return Result.fail(validated.failure);
+
     if (validated.success !== accepted + 1)
       return Result.fail(
         invalidEvidence("prefix", { reason: "out-of-order", sequence: validated.success }),
       );
+
     return validated;
   };
 
   const acceptUnsafe = (reservation: EvidenceReservation, record: EvidenceRecord) => {
     const validation = validate(reservation, record);
+
     if (Result.isFailure(validation)) return Result.fail(validation.failure);
     const sequence = sequenceValue(validation.success);
+
     const immutable = Result.try({
       try: () => copyRecord(record),
       catch: () => invalidEvidence("record", { reason: "copy-failed" }),
     });
+
     if (Result.isFailure(immutable)) {
       cancelUnsafe(reservation);
+
       return Result.fail(immutable.failure);
     }
+
     const state = reservations.get(validation.success);
+
     if (state === undefined)
       return Result.fail(invalidEvidence("reservation", { reason: "unknown" }));
     state.status = "accepted";
     advancePrefix();
+
     const offers = sinks.map((sink) => {
       const internal = sinkInternals.get(sink);
+
       if (internal === undefined)
         return {
           sink: sink.id,
@@ -762,9 +838,12 @@ export const makeEvidenceHub = (options: {
           status: "detached",
         } satisfies SinkOfferResult;
       const offer = internal.offerUnsafe(immutable.success, sequence);
+
       if (offer.status === "dropped" && truncatedBefore === undefined) truncatedBefore = sequence;
+
       return offer;
     });
+
     return Result.succeed({
       reservation,
       record: immutable.success,
@@ -779,6 +858,7 @@ export const makeEvidenceHub = (options: {
   ): EvidenceAcceptance => {
     const sequence = reservation.sequence;
     const state = reservations.get(sequence);
+
     if (
       state === undefined ||
       state.reservation !== reservation ||
@@ -788,8 +868,10 @@ export const makeEvidenceHub = (options: {
       throw new Error("Prepared actor evidence was consumed outside its validated prefix");
     state.status = "accepted";
     advancePrefix();
+
     const offers = sinks.map((sink) => {
       const internal = sinkInternals.get(sink);
+
       if (internal === undefined)
         return {
           sink: sink.id,
@@ -797,9 +879,12 @@ export const makeEvidenceHub = (options: {
           status: "detached",
         } satisfies SinkOfferResult;
       const offer = internal.offerUnsafe(record, sequence);
+
       if (offer.status === "dropped" && truncatedBefore === undefined) truncatedBefore = sequence;
+
       return offer;
     });
+
     return {
       reservation,
       record,
@@ -813,6 +898,7 @@ export const makeEvidenceHub = (options: {
       return Result.fail(invalidEvidence("reservation", { reason: "foreign-hub" }));
     const sequence = reservation.sequence;
     const retained = reservations.get(sequence);
+
     if (
       retained === undefined ||
       retained.reservation !== reservation ||
@@ -821,6 +907,7 @@ export const makeEvidenceHub = (options: {
       return Result.fail(invalidEvidence("reservation", { reason: "unknown" }));
     retained.status = "tombstoned";
     advancePrefix();
+
     return Result.succeed(undefined);
   };
 
@@ -830,23 +917,30 @@ export const makeEvidenceHub = (options: {
     record: EvidenceRecord,
   ): AcceptAttempt | Result.Result<EvidenceAcceptance, PublicDiagnostic> => {
     const validated = validateReservation(reservation, record);
+
     if (Result.isFailure(validated)) return Result.fail(validated.failure);
     const sequence = validated.success;
+
     if (sequence === accepted + 1) {
       const acceptedRecord = acceptUnsafe(reservation, record);
+
       return Result.isFailure(acceptedRecord)
         ? acceptedRecord
         : { _tag: "done", acceptance: acceptedRecord.success };
     }
+
     if (sequence > accepted + 1) {
       let waiter = waiters.get(accepted + 1);
+
       if (waiter === undefined) {
         const created = Deferred.makeUnsafe<void, PublicDiagnostic>();
         waiters.set(accepted + 1, created);
         waiter = created;
       }
+
       return { _tag: "wait", waiter };
     }
+
     return acceptUnsafe(reservation, record);
   };
 
@@ -856,12 +950,16 @@ export const makeEvidenceHub = (options: {
         const attempted = yield* semaphore.withPermit(
           Effect.sync(() => attempt(reservation, record)),
         );
+
         if ("_tag" in attempted && attempted._tag === "wait") {
           yield* Deferred.await(attempted.waiter);
           continue;
         }
+
         if ("_tag" in attempted && attempted._tag === "done") return attempted.acceptance;
+
         if (Result.isFailure(attempted)) return yield* Effect.fail(attempted.failure);
+
         return attempted.success;
       }
     });
@@ -869,17 +967,23 @@ export const makeEvidenceHub = (options: {
   const drainUnsafe = () =>
     Effect.gen(function* () {
       const through = accepted === 0 ? 0 : sequenceValue(accepted);
+
       const sinkThrough: EvidenceSequence =
         accepted === 0 ? sequenceValue(1) : sequenceValue(accepted);
+
       const results: SinkDrainResult[] = [];
+
       for (const sink of sinks) {
         const internal = sinkInternals.get(sink);
+
         if (internal === undefined) {
           results.push({ sink: sink.id, through: sinkThrough, status: "failed" });
           continue;
         }
+
         results.push(yield* internal.drain(sinkThrough));
       }
+
       return {
         through,
         truncatedBefore: Option.fromNullishOr(truncatedBefore),
@@ -892,17 +996,22 @@ export const makeEvidenceHub = (options: {
   const closeOnce = Effect.uninterruptible(
     Effect.gen(function* () {
       closed = true;
+
       for (const state of reservations.values())
         if (state.status === "pending") state.status = "tombstoned";
       advancePrefix();
+
       for (const waiter of waiters.values())
         Deferred.doneUnsafe(waiter, Effect.fail(closedEvidence()));
       waiters.clear();
       const drained = yield* drainUnsafe();
+
       for (const sink of sinks) {
         const internal = sinkInternals.get(sink);
+
         if (internal !== undefined) yield* internal.close;
       }
+
       return drained;
     }),
   );
@@ -913,6 +1022,7 @@ export const makeEvidenceHub = (options: {
         return Deferred.await(closeCell).pipe(Effect.flatMap(resolveExit));
       const cell = Deferred.makeUnsafe<Exit.Exit<EvidenceDrain, PublicDiagnostic>>();
       closeCell = cell;
+
       return Effect.uninterruptible(
         Effect.exit(semaphore.withPermit(closeOnce)).pipe(
           Effect.flatMap((exit) => Deferred.succeed(cell, exit).pipe(Effect.as(exit))),
@@ -927,20 +1037,26 @@ export const makeEvidenceHub = (options: {
     cancel: cancelUnsafe,
     attach: (sink) => {
       if (closed) return Result.fail(closedEvidence());
+
       if (!sinkInternals.has(sink))
         return Result.fail(invalidEvidence("sink", { reason: "foreign-sink" }));
       sinks.push(sink);
+
       return Result.succeed(undefined);
     },
     acceptSync: (reservation, record) => {
       const attempted = attempt(reservation, record);
+
       if ("_tag" in attempted && attempted._tag === "wait")
         return Result.fail(
           invalidEvidence("prefix", { reason: "out-of-order", sequence: reservation.sequence }),
         );
+
       if ("_tag" in attempted && attempted._tag === "done")
         return Result.succeed(attempted.acceptance);
+
       if (Result.isFailure(attempted)) return Result.fail(attempted.failure);
+
       return attempted;
     },
     acceptPreparedSync: acceptPreparedUnsafe,
@@ -948,10 +1064,13 @@ export const makeEvidenceHub = (options: {
     drain,
     close,
   };
+
   hubCancellers.set(hub, (sequence) => {
     const reservation = reservations.get(sequence)?.reservation;
+
     return reservation === undefined ? Result.succeed(undefined) : cancelUnsafe(reservation);
   });
+
   return hub;
 };
 
@@ -967,9 +1086,11 @@ export const makeTurnRecord = <A extends App, DefinitionValue extends MachineDef
   if (!Number.isSafeInteger(fact.timestamp) || fact.timestamp < 0) {
     return Result.fail(invalidEvidence("timestamp", { reason: "invalid" }));
   }
+
   if (!Number.isSafeInteger(reservation.sequence) || reservation.sequence < 1) {
     return Result.fail(invalidEvidence("sequence", { reason: "invalid" }));
   }
+
   // oxlint-disable-next-line anti-slop/no-object-freeze -- turn records are immutable evidence boundary values.
   return Result.succeed(Object.freeze({ ...fact, _tag: "turn", sequence: reservation.sequence }));
 };
@@ -990,9 +1111,11 @@ export const makeLifecycleRecord = <
   if (!Number.isSafeInteger(fact.timestamp) || fact.timestamp < 0) {
     return Result.fail(invalidEvidence("timestamp", { reason: "invalid" }));
   }
+
   if (!Number.isSafeInteger(reservation.sequence) || reservation.sequence < 1) {
     return Result.fail(invalidEvidence("sequence", { reason: "invalid" }));
   }
+
   // oxlint-disable-next-line anti-slop/no-object-freeze -- lifecycle records are immutable evidence boundary values.
   return Result.succeed(Object.freeze({ ...fact, evidenceSequence: reservation.sequence }));
 };
@@ -1014,18 +1137,25 @@ export const cancelRuntimeEvidence = (
   sequence: number,
 ): Result.Result<void, PublicDiagnostic> => {
   const cancel = serviceCancellers.get(service);
+
   if (cancel !== undefined) return cancel(sequence);
+
   if (isReference(service.hub)) {
     const cancelHub = hubCancellers.get(service.hub);
+
     if (cancelHub !== undefined) return cancelHub(sequence);
   }
+
   return Result.succeed(undefined);
 };
 
 const reservationLookupForService = (service: RuntimeEvidenceService) => {
   const direct = serviceReservationLookups.get(service);
+
   if (direct !== undefined) return direct;
+
   if (!isReference(service.hub)) return undefined;
+
   return hubReservationLookups.get(service.hub);
 };
 
@@ -1045,24 +1175,34 @@ export const prepareLifecycleEvidence = <
     try: () => service.nextEvidenceSequence(),
     catch: () => invalidEvidence("sequence", { reason: "allocation-failed" }),
   });
+
   if (Result.isFailure(sequence)) return Result.fail(sequence.failure);
   const reservationLookup = reservationLookupForService(service);
+
   if (reservationLookup === undefined) {
     cancelRuntimeEvidence(service, sequence.success);
+
     return Result.fail(invalidEvidence("reservation", { reason: "owner-unavailable" }));
   }
+
   const reservation = reservationLookup(sequence.success);
+
   if (reservation === undefined) {
     cancelRuntimeEvidence(service, sequence.success);
+
     return Result.fail(invalidEvidence("reservation", { reason: "not-reserved" }));
   }
+
   const prepared = makeLifecycleRecord(fact, reservation);
+
   if (Result.isFailure(prepared)) {
     const cancelled = cancelRuntimeEvidence(service, sequence.success);
+
     return Result.isFailure(cancelled)
       ? Result.fail(cancelled.failure)
       : Result.fail(prepared.failure);
   }
+
   return prepared;
 };
 
@@ -1111,12 +1251,15 @@ export const makeRuntimeEvidenceOwner = (options: {
 
   const cancelReservation = (reservation: EvidenceReservation) => {
     const cancelled = hub.cancel(reservation);
+
     if (Result.isSuccess(cancelled)) reservations.delete(reservation.sequence);
+
     return cancelled;
   };
 
   const failReserved = (reservation: EvidenceReservation, failure: PublicDiagnostic) => {
     const cancelled = cancelReservation(reservation);
+
     return Result.isFailure(cancelled) ? Effect.fail(cancelled.failure) : Effect.fail(failure);
   };
 
@@ -1125,13 +1268,16 @@ export const makeRuntimeEvidenceOwner = (options: {
     cause: Cause.Cause<PublicDiagnostic>,
   ) => {
     const cancelled = cancelReservation(reservation);
+
     return Result.isFailure(cancelled) ? Effect.fail(cancelled.failure) : Effect.failCause(cause);
   };
 
   const nextEvidenceSequence = () => {
     const reservation = hub.reserve();
+
     if (Result.isFailure(reservation)) throw reservation.failure;
     reservations.set(reservation.success.sequence, reservation.success);
+
     return reservation.success.sequence;
   };
 
@@ -1147,7 +1293,9 @@ export const makeRuntimeEvidenceOwner = (options: {
   ) => {
     const project = projectedPublicationSnapshots.get(publication);
     projectedPublicationSnapshots.delete(publication);
+
     if (project === undefined) return (snapshot: ActorSnapshot<DefinitionValue>) => snapshot;
+
     // SAFETY: projectPublication stores only a projection for this exact publication identity;
     // the generic boundary is erased while the owner retains the precise callback.
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion
@@ -1163,6 +1311,7 @@ export const makeRuntimeEvidenceOwner = (options: {
   ) => {
     if (closed) return Result.fail(closedEvidence());
     const reservation = hub.reserve();
+
     if (Result.isFailure(reservation)) return Result.fail(reservation.failure);
     reservations.set(reservation.success.sequence, reservation.success);
 
@@ -1170,12 +1319,16 @@ export const makeRuntimeEvidenceOwner = (options: {
       try: timestamp,
       catch: () => invalidEvidence("timestamp", { reason: "read-failed" }),
     });
+
     if (Result.isFailure(timestampResult)) {
       cancelReservation(reservation.success);
+
       return Result.fail(timestampResult.failure);
     }
+
     if (!Number.isSafeInteger(timestampResult.success) || timestampResult.success < 0) {
       cancelReservation(reservation.success);
+
       return Result.fail(invalidEvidence("timestamp", { reason: "invalid" }));
     }
 
@@ -1185,11 +1338,13 @@ export const makeRuntimeEvidenceOwner = (options: {
       identity.leaseEpoch !== fence.leaseEpoch
     ) {
       cancelReservation(reservation.success);
+
       return Result.fail(invalidEvidence("provenance", { reason: "actor-mismatch" }));
     }
 
     if (reservation.success.sequence !== hub.sequence() + 1) {
       cancelReservation(reservation.success);
+
       return Result.fail(
         invalidEvidence("prefix", {
           reason: "out-of-order",
@@ -1220,8 +1375,10 @@ export const makeRuntimeEvidenceOwner = (options: {
       },
       reservation.success,
     );
+
     if (Result.isFailure(preflight)) {
       cancelReservation(reservation.success);
+
       return Result.fail(preflight.failure);
     }
 
@@ -1249,6 +1406,7 @@ export const makeRuntimeEvidenceOwner = (options: {
       // SAFETY: preparation validated every fallible field and the actor engine supplies the committed store cut.
       // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- package-private generic finalization preserves the actor boundary.
       const completed = finalPublication as ActorPublication<DefinitionValue>;
+
       // oxlint-disable-next-line anti-slop/no-object-freeze -- accepted evidence is an immutable boundary value.
       const record = Object.freeze({
         _tag: "turn" as const,
@@ -1263,12 +1421,15 @@ export const makeRuntimeEvidenceOwner = (options: {
         timestamp: preparedEvidence.timestamp,
         sequence: preparedEvidence.reservation.sequence,
       });
+
       const accepted = hub.acceptPreparedSync(preparedEvidence.reservation, record);
       reservations.delete(preparedEvidence.reservation.sequence);
       latestMachineTurnRevision = preparedEvidence.machineTurnRevision;
+
       return accepted.sequence;
     });
     preparedPublicationCancellers.set(publication, () => cancelReservation(reservation.success));
+
     return Result.succeed(reservation.success.sequence);
   };
 
@@ -1280,6 +1441,7 @@ export const makeRuntimeEvidenceOwner = (options: {
     snapshot: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
   ) => {
     if (closed) return Effect.fail(closedEvidence());
+
     return Effect.sync(() => {
       published.add(snapshot);
     });
@@ -1293,15 +1455,19 @@ export const makeRuntimeEvidenceOwner = (options: {
     record: RuntimeLifecycleEvidence<DefinitionValue, CleanupError, ProviderDefinition>,
   ) => {
     const reservation = reservations.get(record.evidenceSequence);
+
     if (reservation === undefined)
       return Effect.fail(invalidEvidence("reservation", { reason: "not-reserved" }));
+
     if (!published.has(record.after))
       return failReserved(
         reservation,
         invalidEvidence("publication", { reason: "snapshot-not-published" }),
       );
+
     if (!Number.isSafeInteger(record.timestamp) || record.timestamp < 0)
       return failReserved(reservation, invalidEvidence("timestamp", { reason: "invalid" }));
+
     if (
       record.provenance.app !== options.app ||
       record.provenance.plan !== options.plan ||
@@ -1313,12 +1479,15 @@ export const makeRuntimeEvidenceOwner = (options: {
         reservation,
         invalidEvidence("provenance", { reason: "lifecycle-mismatch" }),
       );
+
     return Effect.exit(hub.accept(reservation, record)).pipe(
       Effect.flatMap((exit) => {
         if (Exit.isSuccess(exit)) {
           reservations.delete(record.evidenceSequence);
+
           return Effect.succeed(undefined);
         }
+
         return cancelAndPreserveFailure(reservation, exit.cause);
       }),
     );
@@ -1335,8 +1504,10 @@ export const makeRuntimeEvidenceOwner = (options: {
     accept,
     drain: hub.drain().pipe(Effect.asVoid),
   };
+
   serviceCancellers.set(service, (sequence) => {
     const reservation = reservations.get(sequence);
+
     return reservation === undefined ? Result.succeed(undefined) : cancelReservation(reservation);
   });
   serviceReservationLookups.set(service, (sequence) => reservations.get(sequence));
@@ -1349,6 +1520,7 @@ export const makeRuntimeEvidenceOwner = (options: {
     publication: ActorPublication<DefinitionValue>,
   ) => {
     if (closed) return Result.fail(closedEvidence());
+
     if (
       identity.key !== fence.key ||
       identity.incarnation !== fence.incarnation ||
@@ -1356,18 +1528,24 @@ export const makeRuntimeEvidenceOwner = (options: {
     )
       return Result.fail(invalidEvidence("provenance", { reason: "actor-mismatch" }));
     const project = takePublicationProject(publication);
+
     if (isPreparedActorPublication(publication))
       return preparePublication(identity, fence, before, publication, project);
     const reservation = hub.reserve();
+
     if (Result.isFailure(reservation)) return Result.fail(reservation.failure);
+
     const timestampResult = Result.try({
       try: timestamp,
       catch: () => invalidEvidence("timestamp", { reason: "read-failed" }),
     });
+
     if (Result.isFailure(timestampResult)) {
       cancelReservation(reservation.success);
+
       return Result.fail(timestampResult.failure);
     }
+
     const record = makeTurnRecord(
       {
         fence,
@@ -1390,25 +1568,33 @@ export const makeRuntimeEvidenceOwner = (options: {
       },
       reservation.success,
     );
+
     if (Result.isFailure(record)) {
       const cancelled = cancelReservation(reservation.success);
+
       return Result.isFailure(cancelled)
         ? Result.fail(cancelled.failure)
         : Result.fail(record.failure);
     }
+
     const acceptedRecord = hub.acceptSync(reservation.success, record.success);
+
     if (Result.isFailure(acceptedRecord)) {
       cancelReservation(reservation.success);
+
       return Result.fail(acceptedRecord.failure);
     }
+
     reservations.delete(reservation.success.sequence);
     latestMachineTurnRevision = publication.machineTurnRevision;
+
     return Result.succeed(acceptedRecord.success.sequence);
   };
 
   const close = () =>
     Effect.suspend(() => {
       closed = true;
+
       return hub.close();
     });
 

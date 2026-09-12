@@ -65,7 +65,9 @@ const isCallable = (value: unknown): value is (...arguments_: never[]) => void =
 
 const nestedSchemaIssue = (issue: SchemaIssue.Issue) => {
   if ("issue" in issue) return issue.issue;
+
   if ("issues" in issue) return issue.issues[0];
+
   return undefined;
 };
 
@@ -78,6 +80,7 @@ const firstSchemaFailure = (issue: SchemaIssue.Issue) => {
     if (current._tag === "Pointer") path.push(...current.path);
 
     const nested = nestedSchemaIssue(current);
+
     if (nested === undefined) return { issue: current, path };
 
     current = nested;
@@ -97,6 +100,7 @@ export const invalidConfiguration = (
 // State configuration
 
 const inaccessibleStateProperty = Symbol("inaccessible state property");
+
 const stateConfigurationSchema = Schema.Struct({
   default: Schema.optional(Schema.Unknown),
   states: Schema.optional(Schema.Unknown),
@@ -105,6 +109,7 @@ const stateConfigurationSchema = Schema.Struct({
   activities: Schema.optional(Schema.Unknown),
   timers: Schema.optional(Schema.Unknown),
 });
+
 const decodeStateConfigurationFields = Schema.decodeUnknownResult(stateConfigurationSchema, {
   onExcessProperty: "error",
 });
@@ -135,12 +140,15 @@ const projectStateConfigurationSchemaFailure = (
   path: Diagnostic.Path,
 ) => {
   const { issue, path: issuePath } = firstSchemaFailure(failure.issue);
+
   if (issue instanceof MachineAdmissionIssue) return Result.fail(issue.diagnostic);
   const field = issuePath[0];
+
   if (issue._tag === "UnexpectedKey" && field !== undefined)
     return invalidConfiguration("UnexpectedConfigurationField", [...path, String(field)], {
       key: String(field),
     });
+
   return invalidConfiguration("ExpectedStateConfiguration", path);
 };
 
@@ -152,6 +160,7 @@ const admitStateChildren = (
   const childNames = new Set(children.map((child) => child.name));
   const values = new Map<string, unknown>();
   const entries = captureConfigurationEntries(snapshot, inaccessibleStateProperty);
+
   if (Result.isFailure(entries))
     return invalidConfiguration(entries.failure.reason, [...path, String(entries.failure.key)], {
       key: String(entries.failure.key),
@@ -160,11 +169,14 @@ const admitStateChildren = (
   for (const [key, value] of entries.success) {
     if (!childNames.has(key))
       return invalidConfiguration("StateConfigurationMismatch", [...path, key], { key });
+
     if (value === inaccessibleStateProperty)
       return invalidConfiguration("MissingCompoundStateFields", [...path, key]);
     values.set(key, value);
   }
+
   const missing = children.find((child) => !values.has(child.name));
+
   return missing === undefined
     ? Result.succeed(values)
     : invalidConfiguration("StateConfigurationMismatch", [...path, missing.name], {
@@ -185,8 +197,10 @@ const makeStateConfigurationSchema = <DefinitionValue extends DefinitionConstrai
           path,
           path.length === 0 ? "ConfigurationNotRecord" : "ExpectedStateConfiguration",
         );
+
         const captured = yield* captureConfigurationData(snapshot, path, inaccessibleStateProperty);
         const decoded = decodeStateConfigurationFields(captured);
+
         if (Result.isFailure(decoded))
           return yield* projectStateConfigurationSchemaFailure(decoded.failure, path);
 
@@ -199,12 +213,15 @@ const makeStateConfigurationSchema = <DefinitionValue extends DefinitionConstrai
 
         if (node.kind === "leaf") {
           let field: "default" | "states" | undefined;
+
           if (Object.hasOwn(decoded.success, "default")) field = "default";
           else if (Object.hasOwn(decoded.success, "states")) field = "states";
+
           if (field !== undefined)
             return yield* invalidConfiguration("ExpectedLeafConfiguration", [...path, field], {
               field,
             });
+
           return { kind: "leaf", behavior } satisfies LeafStateConfiguration;
         }
 
@@ -214,6 +231,7 @@ const makeStateConfigurationSchema = <DefinitionValue extends DefinitionConstrai
           decoded.success.default === inaccessibleStateProperty
         )
           return yield* invalidConfiguration("MissingCompoundStateFields", [...path, "default"]);
+
         if (
           !Object.hasOwn(decoded.success, "states") ||
           decoded.success.states === undefined ||
@@ -222,12 +240,15 @@ const makeStateConfigurationSchema = <DefinitionValue extends DefinitionConstrai
           return yield* invalidConfiguration("MissingCompoundStateFields", [...path, "states"]);
 
         const statesPath = [...path, "states"];
+
         const children = yield* snapshotRecord(
           decoded.success.states,
           statesPath,
           "InvalidCompoundState",
         );
+
         const childValues = yield* admitStateChildren(children, node.children, statesPath);
+
         return {
           kind: "compound",
           default: decoded.success.default,
@@ -235,6 +256,7 @@ const makeStateConfigurationSchema = <DefinitionValue extends DefinitionConstrai
           behavior,
         } satisfies CompoundStateConfiguration;
       });
+
       return Effect.fromResult(result).pipe(
         Effect.mapError((diagnostic) => new MachineAdmissionIssue(ast, input, options, diagnostic)),
       );
@@ -258,13 +280,16 @@ export function admitStateConfiguration<DefinitionValue extends DefinitionConstr
   node: StateNode<DefinitionValue>,
 ): Result.Result<StateConfigurationAdmission, Diagnostic.PublicDiagnostic> {
   const decoded = Schema.decodeUnknownResult(makeStateConfigurationSchema(node, path))(value);
+
   if (Result.isSuccess(decoded)) return Result.succeed(decoded.success);
+
   return projectStateConfigurationSchemaFailure(decoded.failure, path);
 }
 
 // Timers
 
 const inaccessibleTimerProperty = Symbol("inaccessible timer property");
+
 const TimerDelay = Schema.Number.check(Schema.isFinite(), Schema.isGreaterThanOrEqualTo(0));
 
 type TimerGuard<DefinitionValue extends MachineDefinition> = NonNullable<
@@ -304,6 +329,7 @@ const timerSchema = Schema.Struct({
 });
 
 type RawTimerConfiguration = typeof timerSchema.Type;
+
 const decodeTimerFields = Schema.decodeUnknownResult(timerSchema, {
   onExcessProperty: "error",
 });
@@ -316,20 +342,25 @@ const decodeTimerUpdateMemory = <DefinitionValue extends MachineDefinition>(valu
 
 const projectTimerSchemaFailure = (failure: Schema.SchemaError, path: Diagnostic.Path) => {
   const { issue, path: issuePath } = firstSchemaFailure(failure.issue);
+
   if (issue instanceof MachineAdmissionIssue) return Result.fail(issue.diagnostic);
   const field = issuePath[0];
+
   if (issue._tag === "UnexpectedKey" && field !== undefined)
     return invalidConfiguration("UnexpectedConfigurationField", [...path, String(field)], {
       key: String(field),
     });
+
   if (field === "delay")
     return invalidConfiguration("InvalidTimerDelay", [...path, "delay"], {
       constraint: "finite-non-negative",
     });
+
   if (field === "target")
     return invalidConfiguration("UnknownEventToken", [...path, "target"], {
       issue: "definition-identity",
     });
+
   return invalidConfiguration("ExpectedTimer", path);
 };
 
@@ -350,11 +381,13 @@ const makeTimerSchema = <DefinitionValue extends MachineDefinition>(
         const snapshot = yield* snapshotRecord(input, path, "ExpectedTimer");
         const captured = yield* captureConfigurationData(snapshot, path, inaccessibleTimerProperty);
         const decoded = decodeTimerFields(captured);
+
         if (Result.isFailure(decoded))
           return yield* projectTimerSchemaFailure(decoded.failure, path);
 
         const raw: RawTimerConfiguration = decoded.success;
         const target = yield* resolveTimerTarget(raw.target, [...path, "target"], validateTarget);
+
         const guard =
           raw.guard === undefined
             ? undefined
@@ -363,6 +396,7 @@ const makeTimerSchema = <DefinitionValue extends MachineDefinition>(
                   field: "guard",
                 }),
               );
+
         const updateMemory =
           raw.updateMemory === undefined
             ? undefined
@@ -380,10 +414,14 @@ const makeTimerSchema = <DefinitionValue extends MachineDefinition>(
           delay: raw.delay,
           target,
         };
+
         if (guard !== undefined) timer.guard = guard;
+
         if (updateMemory !== undefined) timer.updateMemory = updateMemory;
+
         return timer satisfies CompiledTimer<DefinitionValue>;
       });
+
       return Effect.fromResult(result).pipe(
         Effect.mapError((diagnostic) => new MachineAdmissionIssue(ast, input, options, diagnostic)),
       );
@@ -396,7 +434,9 @@ export const admitTimer = <DefinitionValue extends MachineDefinition>(
   validateTarget: TargetValidator<Timer<DefinitionValue>["target"]>,
 ) => {
   const decoded = Schema.decodeUnknownResult(makeTimerSchema(validateTarget, path))(value);
+
   if (Result.isSuccess(decoded)) return Result.succeed(decoded.success);
+
   return projectTimerSchemaFailure(decoded.failure, path);
 };
 
@@ -409,6 +449,7 @@ const admitTimers = <DefinitionValue extends MachineDefinition>(
     const configured = yield* admitBehaviorMap("timers", behavior.timers, path, "ExpectedTimer");
     const timers: Record<string, Timer<DefinitionValue>> = Object.create(null);
     const timersPath = configurationPath(path, ["timers"]);
+
     for (const [key, value] of configured) {
       timers[key] = yield* admitTimer<DefinitionValue>(
         value === inaccessibleBehaviorEntry ? undefined : value,
@@ -416,6 +457,7 @@ const admitTimers = <DefinitionValue extends MachineDefinition>(
         validateTarget,
       );
     }
+
     return timers;
   });
 
@@ -510,14 +552,18 @@ const decodeTransitionFields = Schema.decodeUnknownResult(transitionSchema, {
 
 const projectTransitionSchemaFailure = (failure: Schema.SchemaError, path: Diagnostic.Path) => {
   const { issue, path: issuePath } = firstSchemaFailure(failure.issue);
+
   if (issue instanceof MachineAdmissionIssue) return Result.fail(issue.diagnostic);
   const field = issuePath[0];
+
   if (issue._tag === "UnexpectedKey" && field !== undefined)
     return invalidConfiguration("UnexpectedConfigurationField", [...path, String(field)], {
       key: String(field),
     });
+
   if (issue._tag === "MissingKey" && field === "target")
     return invalidConfiguration("TransitionObjectRequired", path);
+
   return invalidConfiguration("ExpectedTransition", path);
 };
 
@@ -571,6 +617,7 @@ const makeTransitionSchema = <
       const result = Result.gen(function* () {
         const snapshot = yield* snapshotRecord(input, path, "ExpectedTransition");
         const kind = readSnapshotProperty(snapshot, "kind");
+
         if (kind.kind === "data" && kind.value === "state")
           return yield* invalidConfiguration("InvalidStateToken", path, {
             issue: "definition-identity",
@@ -581,16 +628,20 @@ const makeTransitionSchema = <
           path,
           inaccessibleTransitionProperty,
         );
+
         const decoded = decodeTransitionFields(captured);
+
         if (Result.isFailure(decoded))
           return yield* projectTransitionSchemaFailure(decoded.failure, path);
 
         const raw = decoded.success;
         const target = yield* validateTarget(raw.target, [...path, "target"]);
+
         const guard =
           raw.guard === undefined
             ? undefined
             : yield* decodeTransitionGuard<DefinitionValue, Name>(raw.guard, [...path, "guard"]);
+
         const updateMemory =
           raw.updateMemory === undefined
             ? undefined
@@ -598,6 +649,7 @@ const makeTransitionSchema = <
                 ...path,
                 "updateMemory",
               ]);
+
         const actions =
           raw.actions === undefined
             ? undefined
@@ -605,16 +657,23 @@ const makeTransitionSchema = <
                 ...path,
                 "actions",
               ]);
+
         const resolved: ResolvedTransitionConfiguration<DefinitionValue, Name> = { target };
+
         if (guard !== undefined) resolved.guard = guard;
+
         if (updateMemory !== undefined) resolved.updateMemory = updateMemory;
+
         if (actions !== undefined) resolved.actions = actions;
+
         if (raw.reenter === undefined)
           return resolved satisfies CompiledTransition<DefinitionValue, Name>;
 
         const reenter = yield* validateTarget(raw.reenter, [...path, "reenter"]);
+
         return { ...resolved, reenter } satisfies CompiledTransition<DefinitionValue, Name>;
       });
+
       return Effect.fromResult(result).pipe(
         Effect.mapError((diagnostic) => new MachineAdmissionIssue(ast, input, options, diagnostic)),
       );
@@ -633,7 +692,9 @@ export const admitTransition = <
   const decoded = Schema.decodeUnknownResult(
     makeTransitionSchema<DefinitionValue, Name>(validateTarget, path),
   )(value);
+
   if (Result.isSuccess(decoded)) return Result.succeed(decoded.success);
+
   return projectTransitionSchemaFailure(decoded.failure, path);
 };
 
@@ -649,17 +710,22 @@ const admitBehaviorMap = (
   reason: "ExpectedEventHandlers" | "ExpectedActivities" | "ExpectedTimer",
 ): Result.Result<ConfigurationEntry[], Diagnostic.PublicDiagnostic> => {
   const fieldPath = configurationPath(path, [field]);
+
   if (value === undefined) return Result.succeed([]);
+
   if (value === inaccessibleStateProperty) return invalidConfiguration(reason, fieldPath);
+
   return Result.gen(function* () {
     const snapshot = yield* snapshotRecord(value, fieldPath, reason);
     const entries = captureConfigurationEntries(snapshot, inaccessibleBehaviorEntry);
+
     if (Result.isFailure(entries))
       return yield* invalidConfiguration(
         entries.failure.reason,
         [...fieldPath, String(entries.failure.key)],
         { key: String(entries.failure.key) },
       );
+
     return entries.success;
   });
 };
@@ -673,6 +739,7 @@ const isEventName = <DefinitionValue extends MachineDefinition>(
 const isStateToken = (value: unknown) => {
   const kind = readTokenText(value, "kind");
   const id = readTokenText(value, "id");
+
   return (
     Result.isSuccess(kind) &&
     Result.isSuccess(id) &&
@@ -693,8 +760,10 @@ const admitEventHandlerTransition = <
   Result.gen(function* () {
     if (isStateToken(value)) {
       const target = yield* validateStateToken(value, path);
+
       return { target };
     }
+
     return yield* admitTransition<DefinitionValue, Name>(value, path, validateStateToken);
   });
 
@@ -710,6 +779,7 @@ const makeHandlerEntrySchema = <
     () => (input, ast, options) => {
       const result = Result.gen(function* () {
         const values = yield* readArrayValues(input, path, "ExpectedTransition");
+
         if (values === undefined) {
           return [
             yield* admitEventHandlerTransition<DefinitionValue, Name>(
@@ -722,10 +792,12 @@ const makeHandlerEntrySchema = <
 
         const eventHandlerListSchema = Schema.NonEmptyArray(Schema.Unknown);
         const decoded = Schema.decodeUnknownResult(eventHandlerListSchema)(values);
+
         if (!Result.isSuccess(decoded))
           return yield* invalidConfiguration("EmptyEventHandlerList", path);
 
         const transitions: CompiledTransition<DefinitionValue, Name>[] = [];
+
         for (const [index, value] of values.entries()) {
           transitions.push(
             yield* admitEventHandlerTransition<DefinitionValue, Name>(
@@ -735,8 +807,10 @@ const makeHandlerEntrySchema = <
             ),
           );
         }
+
         return transitions;
       });
+
       return Effect.fromResult(result).pipe(
         Effect.mapError((diagnostic) => new MachineAdmissionIssue(ast, input, options, diagnostic)),
       );
@@ -745,12 +819,15 @@ const makeHandlerEntrySchema = <
 
 const projectEventHandlerSchemaFailure = (failure: Schema.SchemaError, path: Diagnostic.Path) => {
   const { issue, path: issuePath } = firstSchemaFailure(failure.issue);
+
   if (issue instanceof MachineAdmissionIssue) return Result.fail(issue.diagnostic);
   const field = issuePath[0];
+
   if (issue._tag === "UnexpectedKey" && field !== undefined)
     return invalidConfiguration("UnexpectedConfigurationField", [...path, String(field)], {
       key: String(field),
     });
+
   return invalidConfiguration("ExpectedTransition", path);
 };
 
@@ -766,7 +843,9 @@ const admitEventHandlerEntry = <
   const decoded = Schema.decodeUnknownResult(
     makeHandlerEntrySchema<DefinitionValue, Name>(validateStateToken, path),
   )(value);
+
   if (Result.isSuccess(decoded)) return Result.succeed(decoded.success);
+
   return projectEventHandlerSchemaFailure(decoded.failure, path);
 };
 
@@ -779,25 +858,31 @@ export const admitEventHandlers = <DefinitionValue extends MachineDefinition>(
   validateStateToken: TargetValidator<StateOf<DefinitionValue>>,
 ): Result.Result<CompiledState<DefinitionValue>["handlers"], Diagnostic.PublicDiagnostic> => {
   const handlers: CompiledState<DefinitionValue>["handlers"] = Object.create(null);
+
   return Result.gen(function* () {
     const on = yield* admitBehaviorMap("on", behavior.on, path, "ExpectedEventHandlers");
     const onPath = configurationPath(path, ["on"]);
+
     for (const [key, value] of on) {
       if (!isEventName<DefinitionValue>(events, key))
         return yield* invalidConfiguration("UnknownEventHandler", [...onPath, key], {
           event: key,
         });
+
       if (inheritedHandlers.has(key))
         return yield* invalidConfiguration("AmbiguousHandler", configurationPath(path, []), {
           event: key,
         });
+
       const entry = yield* admitEventHandlerEntry<DefinitionValue, typeof key>(
         value === inaccessibleBehaviorEntry ? undefined : value,
         [...onPath, key],
         validateStateToken,
       );
+
       Object.assign(handlers, { [key]: entry });
     }
+
     return handlers;
   });
 };
@@ -805,10 +890,12 @@ export const admitEventHandlers = <DefinitionValue extends MachineDefinition>(
 // Redirects
 
 const inaccessibleRedirectProperty = Symbol("inaccessible redirect property");
+
 const redirectRecordSchema = Schema.Struct({
   when: Schema.Unknown,
   target: Schema.Unknown,
 });
+
 const redirectListSchema = Schema.NonEmptyArray(Schema.Unknown);
 
 const redirectCallbackSchema = <DefinitionValue extends MachineDefinition>() =>
@@ -827,14 +914,18 @@ const projectRedirectRecordSchemaFailure = (
   path: Diagnostic.Path,
 ): Result.Result<never, Diagnostic.PublicDiagnostic> => {
   const { issue, path: issuePath } = firstSchemaFailure(failure.issue);
+
   if (issue instanceof MachineAdmissionIssue) return Result.fail(issue.diagnostic);
   const field = issuePath[0];
+
   if (issue._tag === "UnexpectedKey" && field !== undefined)
     return invalidConfiguration("UnexpectedConfigurationField", [...path, String(field)], {
       key: String(field),
     });
+
   if (issue._tag !== "MissingKey" && field === "when")
     return invalidConfiguration("ExpectedFunction", [...path, "when"], { field: "when" });
+
   return invalidConfiguration("ExpectedRedirect", path);
 };
 
@@ -845,6 +936,7 @@ const captureRedirectRecord = (
 ): Result.Result<unknown, Diagnostic.PublicDiagnostic> =>
   Result.gen(function* () {
     const snapshot = yield* snapshotRecord(value, path, "ExpectedRedirect");
+
     return yield* captureConfigurationData(snapshot, path, inaccessibleRedirectProperty);
   });
 
@@ -855,11 +947,14 @@ const admitRedirectRecord = (
 ): Result.Result<RawRedirectRecord, Diagnostic.PublicDiagnostic> =>
   Result.gen(function* () {
     const captured = yield* captureRedirectRecord(value, path);
+
     const decoded = Schema.decodeUnknownResult(redirectRecordSchema, {
       onExcessProperty: "error",
     })(captured);
+
     if (!Result.isSuccess(decoded))
       return yield* projectRedirectRecordSchemaFailure(decoded.failure, path);
+
     return decoded.success;
   });
 
@@ -873,6 +968,7 @@ const admitRedirectEntry = <DefinitionValue extends MachineDefinition>(
     const decodedWhen = Schema.decodeUnknownResult(redirectCallbackSchema<DefinitionValue>())(
       record.when,
     );
+
     if (!Result.isSuccess(decodedWhen))
       return yield* invalidConfiguration("ExpectedFunction", [...path, "when"], {
         field: "when",
@@ -895,28 +991,35 @@ const makeRedirectSchema = <DefinitionValue extends MachineDefinition>(
     () => (input, ast, options) => {
       const result = Result.gen(function* () {
         const values = yield* readArrayValues(input, path, "ExpectedRedirect");
+
         if (values === undefined) {
           const record = yield* admitRedirectRecord(input, path);
+
           return [yield* admitRedirectEntry(record, path, validateTarget)];
         }
 
         const decoded = Schema.decodeUnknownResult(redirectListSchema, {
           onExcessProperty: "error",
         })(values);
+
         if (!Result.isSuccess(decoded))
           return yield* invalidConfiguration("EmptyRedirectList", path);
 
         const records: RawRedirectRecord[] = [];
+
         for (const [index, value] of values.entries())
           records.push(yield* admitRedirectRecord(value, [...path, index]));
 
         const redirects: Redirect<DefinitionValue>[] = [];
+
         for (const [index, record] of records.entries())
           redirects.push(
             yield* admitRedirectEntry<DefinitionValue>(record, [...path, index], validateTarget),
           );
+
         return redirects;
       });
+
       return Effect.fromResult(result).pipe(
         Effect.mapError((diagnostic) => new MachineAdmissionIssue(ast, input, options, diagnostic)),
       );
@@ -931,6 +1034,7 @@ export const admitRedirectConfiguration = <DefinitionValue extends MachineDefini
   const decoded = Schema.decodeUnknownResult(
     makeRedirectSchema<DefinitionValue>(validateTarget, path),
   )(value);
+
   return Result.isSuccess(decoded)
     ? Result.succeed(decoded.success)
     : projectRedirectRecordSchemaFailure(decoded.failure, path);
@@ -949,8 +1053,10 @@ const activityPlanSchema = <DefinitionValue extends MachineDefinition>(
     // RETURN_TYPE: Preserves MachineActivity<DefinitionValue> narrowing required by Schema.declare; removal produces TS2345 and TS2375.
     (value: unknown): value is MachineActivity<DefinitionValue> => {
       if (!isConstructedOperationPlan(value)) return false;
+
       if (value.kind !== "resource-subscribe" && value.kind !== "stream-subscribe") return false;
       const operationKind = value.kind === "resource-subscribe" ? "resource" : "stream";
+
       return Object.values(operations).some(
         (operation) =>
           operation.kind === operationKind &&
@@ -968,6 +1074,7 @@ const admitActivityPlan = <DefinitionValue extends MachineDefinition>(
   decodeActivity: ActivityPlanDecoder<DefinitionValue>,
 ): Result.Result<MachineActivity<DefinitionValue>, Diagnostic.PublicDiagnostic> => {
   const decoded = decodeActivity(value);
+
   return Result.isSuccess(decoded)
     ? Result.succeed(decoded.success)
     : invalidConfiguration("ExpectedActivities", path);
@@ -986,9 +1093,11 @@ const admitActivities = <DefinitionValue extends MachineDefinition>(
       path,
       "ExpectedActivities",
     );
+
     const activities: Record<string, MachineActivity<DefinitionValue>> = Object.create(null);
     const activitiesPath = configurationPath(path, ["activities"]);
     const decodeActivity = Schema.decodeUnknownResult(activityPlanSchema(operations));
+
     for (const [key, value] of configured) {
       if (value === inaccessibleBehaviorEntry)
         return yield* invalidConfiguration("ExpectedActivities", [...activitiesPath, key]);
@@ -998,6 +1107,7 @@ const admitActivities = <DefinitionValue extends MachineDefinition>(
         decodeActivity,
       );
     }
+
     return activities;
   });
 
@@ -1027,6 +1137,7 @@ export const admitStateBehavior = <DefinitionValue extends MachineDefinition>(
       inheritedHandlers,
       validateStateToken,
     );
+
     const redirects =
       behavior.redirect === undefined
         ? []
@@ -1035,7 +1146,9 @@ export const admitStateBehavior = <DefinitionValue extends MachineDefinition>(
             configurationPath(path, ["redirect"]),
             validateStateToken,
           );
+
     const activities = yield* admitActivities(behavior, path, operations);
     const timers = yield* admitTimers(behavior, path, validateTimerTarget);
+
     return { handlers, redirects, activities, timers };
   });

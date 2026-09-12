@@ -39,6 +39,7 @@ import type {
 
 const resultSuccess = <Value, Error>(result: Result.Result<Value, Error>) => {
   if (Result.isFailure(result)) throw result.failure;
+
   return result.success;
 };
 
@@ -59,7 +60,9 @@ const definitionResult = definition({
     }),
   },
 });
+
 const testDefinition = resultSuccess(definitionResult);
+
 const testMachine = resultSuccess(
   machine(definitionResult, ({ S, O }) => ({
     default: S.ready,
@@ -70,6 +73,7 @@ const testMachine = resultSuccess(
     },
   })),
 );
+
 const memoryDefinitionResult = definition({
   id: "actor-engine/memory",
   states: ["ready"],
@@ -79,18 +83,22 @@ const memoryDefinitionResult = definition({
     list: [{ label: "initial" }],
   }),
 });
+
 const memoryDefinition = resultSuccess(memoryDefinitionResult);
+
 const memoryMachine = resultSuccess(
   machine(memoryDefinitionResult, ({ S }) => ({
     default: S.ready,
     states: { ready: {} },
   })),
 );
+
 const testApp = app({
   id: "actor-engine/app",
   persistenceVersion: "1",
   modules: [module({ id: "actor-engine/module", machines: { test: testMachine } })],
 });
+
 void testApp;
 
 const makeInput = (
@@ -100,12 +108,14 @@ const makeInput = (
   const registry = makeActorIdentityRegistry();
   const ref = actorRef(testMachine, "editor");
   const identity = resultSuccess(registry.reserveStable(ref));
+
   const fence: ActorFence = {
     key: identity.key,
     incarnation: identity.incarnation,
     generation: 0,
     leaseEpoch: identity.leaseEpoch,
   };
+
   const initial: ActorSnapshot<typeof testDefinition> = {
     state: testDefinition.S.ready,
     memory: {},
@@ -117,6 +127,7 @@ const makeInput = (
     revision: 0,
     observedStoreRevision: 0,
   };
+
   return {
     input: {
       identity,
@@ -131,6 +142,7 @@ const makeInput = (
 };
 
 const opened = resultSuccess(testDefinition.E.opened());
+
 const closed = resultSuccess(testDefinition.E.closed());
 
 const contextProviderDefinitionResult = definition({
@@ -138,7 +150,9 @@ const contextProviderDefinitionResult = definition({
   states: ["ready", "changed"],
   events: {},
 });
+
 const contextProviderDefinition = resultSuccess(contextProviderDefinitionResult);
+
 const contextConsumerDefinitionResult = definition({
   id: "actor-engine/context-consumer",
   states: ["ready"],
@@ -148,7 +162,9 @@ const contextConsumerDefinitionResult = definition({
     right: contextProviderDefinition.select(({ state }) => state),
   },
 });
+
 const contextConsumerDefinition = resultSuccess(contextConsumerDefinitionResult);
+
 const contextConsumerMachine = resultSuccess(
   machine(contextConsumerDefinitionResult, ({ S }) => ({
     default: S.ready,
@@ -163,12 +179,14 @@ const makeContextInput = (
   const registry = makeActorIdentityRegistry();
   const ref = actorRef(contextConsumerMachine, "editor");
   const identity = resultSuccess(registry.reserveStable(ref));
+
   const fence: ActorFence = {
     key: identity.key,
     incarnation: identity.incarnation,
     generation: 0,
     leaseEpoch: identity.leaseEpoch,
   };
+
   const initial: ActorSnapshot<typeof contextConsumerDefinition> = {
     state: contextConsumerDefinition.S.ready,
     memory: {},
@@ -183,6 +201,7 @@ const makeContextInput = (
     revision: 0,
     observedStoreRevision: 0,
   };
+
   return {
     input: {
       identity,
@@ -200,6 +219,7 @@ const assertMailboxThrows = (action: () => void, reason: "closed" | "full") => {
     assert.fail(`Expected a ${reason} mailbox admission failure`);
   } catch (error) {
     assert.ok(error instanceof Error);
+
     if (error instanceof Error)
       assert.strictEqual(
         error.message.includes(
@@ -214,6 +234,7 @@ const failureFromExit = <Value, Error>(exit: Exit.Exit<Value, Error>) => {
   assert.ok(Exit.isFailure(exit));
   const reason = exit.cause.reasons.find(Cause.isFailReason);
   assert.ok(reason !== undefined);
+
   return reason.error;
 };
 
@@ -238,6 +259,7 @@ describe("actor engine", () => {
     const prepared = setup.input.initial;
     const admitted = prepareActorSnapshot(testMachine, prepared);
     assert.ok(Result.isSuccess(admitted));
+
     if (Result.isSuccess(admitted)) {
       assert.notStrictEqual(admitted.success, prepared);
       assert.strictEqual(Object.isFrozen(admitted.success), true);
@@ -258,9 +280,11 @@ describe("actor engine", () => {
         snapshot: { ...prepared, issues: [Object.create(Diagnostic.prototype)] },
       },
     ];
+
     for (const candidate of malformed) {
       const result = prepareActorSnapshot(testMachine, candidate.snapshot);
       assert.ok(Result.isFailure(result));
+
       if (Result.isFailure(result)) assert.deepStrictEqual(result.failure.path, candidate.path);
     }
   });
@@ -268,14 +292,17 @@ describe("actor engine", () => {
   it("captures data properties before copying a prepared snapshot", () => {
     const setup = makeInput(Scope.makeUnsafe("sequential"), () => Effect.void);
     let stateReads = 0;
+
     const proxy = new Proxy(
       { ...setup.input.initial },
       {
         get(target, property, receiver) {
           if (property === "state") {
             stateReads += 1;
+
             return stateReads === 1 ? setup.input.initial.state : { forged: true };
           }
+
           // SAFETY: This proxy forwards all non-state reads unchanged while the state getter is the hostile seam under test.
           // oxlint-disable-next-line anti-slop/no-reflect-get -- the proxy forwards arbitrary property reads for the negative proof.
           return Reflect.get(target, property, receiver);
@@ -285,6 +312,7 @@ describe("actor engine", () => {
 
     const prepared = prepareActorSnapshot(testMachine, proxy);
     assert.ok(Result.isSuccess(prepared));
+
     if (Result.isSuccess(prepared)) {
       assert.strictEqual(prepared.success.state, setup.input.initial.state);
       assert.strictEqual(stateReads, 0);
@@ -296,6 +324,7 @@ describe("actor engine", () => {
       nested: { count: 1 },
       list: [{ label: "initial" }],
     };
+
     const sourceIssue = Failure({
       code: "InvariantViolation",
       path: ["memory"],
@@ -303,6 +332,7 @@ describe("actor engine", () => {
       summary: "Source issue",
       help: "Keep the source issue owned.",
     });
+
     const initial: ActorSnapshot<typeof memoryDefinition> = {
       state: memoryDefinition.S.ready,
       memory: sourceMemory,
@@ -314,8 +344,10 @@ describe("actor engine", () => {
       revision: 0,
       observedStoreRevision: 0,
     };
+
     const prepared = prepareActorSnapshot(memoryMachine, initial);
     assert.ok(Result.isSuccess(prepared));
+
     if (Result.isSuccess(prepared)) {
       assert.notStrictEqual(prepared.success.memory.nested, sourceMemory.nested);
       assert.notStrictEqual(prepared.success.memory.list, sourceMemory.list);
@@ -339,6 +371,7 @@ describe("actor engine", () => {
 
       const replay = prepareActorSnapshot(memoryMachine, prepared.success);
       assert.ok(Result.isSuccess(replay));
+
       if (Result.isSuccess(replay)) assert.deepStrictEqual(replay.success, prepared.success);
     }
 
@@ -346,7 +379,9 @@ describe("actor engine", () => {
       ...initial,
       memory: { invalid: new Date() },
     });
+
     assert.ok(Result.isFailure(invalidMemory));
+
     if (Result.isFailure(invalidMemory))
       assert.deepStrictEqual(invalidMemory.failure.path, ["memory", "invalid"]);
 
@@ -354,7 +389,9 @@ describe("actor engine", () => {
       ...makeContextInput(Scope.makeUnsafe("sequential"), () => Effect.void).input.initial,
       context: { left: new Date(), right: contextProviderDefinition.S.ready },
     });
+
     assert.ok(Result.isFailure(invalidContext));
+
     if (Result.isFailure(invalidContext))
       assert.deepStrictEqual(invalidContext.failure.path, ["context", "left"]);
   });
@@ -364,10 +401,12 @@ describe("actor engine", () => {
       const scope = yield* Scope.make("sequential");
       const setup = makeInput(scope, () => Effect.void);
       const published: ActorSnapshot<typeof testDefinition>[] = [];
+
       const forged = {
         ...setup.input.initial,
         lifecycle: "active",
       };
+
       const configured: ActorEngineInput<typeof testDefinition> = {
         ...setup.input,
         // SAFETY: This is the adversarial unbranded snapshot passed through a runtime cast.
@@ -375,14 +414,17 @@ describe("actor engine", () => {
         initial: forged as ActorEngineInput<typeof testDefinition>["initial"],
         onSnapshot: (snapshot) => published.push(snapshot),
       };
+
       const prepared = yield* Effect.exit(prepareActorEngine(configured));
       assert.ok(Exit.isFailure(prepared));
+
       if (Exit.isFailure(prepared)) {
         const failure = prepared.cause.reasons.find(Cause.isFailReason);
         assert.ok(failure !== undefined);
         assert.strictEqual(failure.error.code, "InvariantViolation");
         assert.deepStrictEqual(failure.error.path, []);
       }
+
       assert.deepStrictEqual(published, []);
     }),
   );
@@ -394,19 +436,24 @@ describe("actor engine", () => {
       const firstStarted = yield* Deferred.make<void>();
       const releaseFirst = yield* Deferred.make<void>();
       const drained = yield* Deferred.make<void>();
+
       const setup = makeInput(scope, (command) =>
         Effect.gen(function* () {
           processed.push(command.type);
+
           if (processed.length === 1) {
             yield* Deferred.succeed(firstStarted, undefined);
             yield* Deferred.await(releaseFirst);
           }
+
           if (processed.length === ACTOR_MAILBOX_CAPACITY + 1) {
             yield* Deferred.succeed(drained, undefined);
           }
         }),
       );
+
       const prepared = yield* prepareActorEngine(setup.input);
+
       const buffered = Array.from({ length: ACTOR_MAILBOX_CAPACITY }, (_, index) =>
         index % 2 === 0 ? opened : closed,
       );
@@ -452,6 +499,7 @@ describe("actor engine", () => {
       const scope = yield* Scope.make("sequential");
       const firstStarted = yield* Deferred.make<void>();
       const releaseFirst = yield* Deferred.make<void>();
+
       const setup = makeInput(scope, (command) =>
         Effect.gen(function* () {
           if (command === opened) {
@@ -460,9 +508,11 @@ describe("actor engine", () => {
           }
         }),
       );
+
       const engine = yield* (yield* prepareActorEngine(setup.input)).activate();
       engine.send(opened);
       yield* Deferred.await(firstStarted);
+
       for (let index = 0; index < ACTOR_MAILBOX_CAPACITY; index += 1) engine.send(closed);
 
       const overflow = engine.dispatchFact({
@@ -472,11 +522,14 @@ describe("actor engine", () => {
         startedAt: 1,
         dueAt: 2,
       });
+
       assert.ok(Result.isFailure(overflow));
+
       if (Result.isFailure(overflow)) {
         assert.strictEqual(overflow.failure.code, "InvariantViolation");
         assert.deepStrictEqual(overflow.failure.path, ["mailbox", "full"]);
       }
+
       assert.strictEqual(engine.snapshot().revision, 1);
       yield* Deferred.succeed(releaseFirst, undefined);
       yield* engine.drain();
@@ -520,12 +573,14 @@ describe("actor engine", () => {
       const scope = yield* Scope.make("sequential");
       const processed: string[] = [];
       const done = yield* Deferred.make<void>();
+
       const setup = makeInput(scope, (command) =>
         Effect.gen(function* () {
           processed.push(command.type);
           yield* Deferred.succeed(done, undefined);
         }),
       );
+
       const prepared = yield* prepareActorEngine(setup.input);
       const first = yield* prepared.activate();
       const second = yield* prepared.activate();
@@ -543,6 +598,7 @@ describe("actor engine", () => {
     Effect.gen(function* () {
       const scope = yield* Scope.make("sequential");
       const entered = yield* Deferred.make<void>();
+
       const failure = Failure({
         code: "InvariantViolation",
         path: ["actor-engine"],
@@ -550,12 +606,14 @@ describe("actor engine", () => {
         summary: "consumer failed",
         help: "Inspect the actor engine failure.",
       });
+
       const setup = makeInput(scope, () =>
         Effect.gen(function* () {
           yield* Deferred.succeed(entered, undefined);
           yield* Effect.fail(failure);
         }),
       );
+
       const engine = yield* (yield* prepareActorEngine(setup.input)).activate();
       engine.send(opened);
       yield* Deferred.await(entered);
@@ -575,17 +633,21 @@ describe("actor engine", () => {
       const processed: string[] = [];
       const processedAll = yield* Deferred.make<void>();
       let sendReentrant: (command: ActorCommand<typeof testDefinition>) => void = () => undefined;
+
       const setup = makeInput(scope, (command) =>
         Effect.gen(function* () {
           processed.push(command.type);
+
           if (processed.length === 1) {
             yield* Deferred.succeed(firstStarted, undefined);
             yield* Deferred.await(releaseFirst);
             sendReentrant(opened);
           }
+
           if (processed.length === 3) yield* Deferred.succeed(processedAll, undefined);
         }),
       );
+
       const engine = yield* (yield* prepareActorEngine(setup.input)).activate();
       sendReentrant = engine.send;
 
@@ -606,15 +668,19 @@ describe("actor engine", () => {
       const scope = yield* Scope.make("sequential");
       const processed: string[] = [];
       const processedOne = yield* Deferred.make<void>();
+
       const setup = makeInput(scope, (command) =>
         Effect.gen(function* () {
           processed.push(command.type);
+
           if (processed.length === 1) yield* Deferred.succeed(processedOne, undefined);
         }),
       );
+
       const engine = yield* (yield* prepareActorEngine(setup.input)).activate();
       setup.registry.rollback(setup.input.identity);
       const nextIdentity = resultSuccess(setup.registry.reserveStable(setup.ref));
+
       const staleFacts: Extract<
         ActorMailboxFact<typeof testDefinition>,
         { readonly _tag: "command" }
@@ -635,6 +701,7 @@ describe("actor engine", () => {
           command: opened,
         },
       ];
+
       for (const fact of staleFacts) {
         assert.strictEqual(
           fenceActorFact<typeof testDefinition>(setup.input.fence, fact)._tag,
@@ -662,6 +729,7 @@ describe("actor engine", () => {
       let acknowledgedDispatch: AcknowledgedDispatch | undefined;
       const commandStarted = yield* Deferred.make<void>();
       const releaseCommand = yield* Deferred.make<void>();
+
       const setup = makeInput(scope, () =>
         Effect.gen(function* () {
           order.push("command");
@@ -669,12 +737,14 @@ describe("actor engine", () => {
           yield* Deferred.await(releaseCommand);
         }),
       );
+
       const configured: ActorEngineInput<typeof testDefinition> = {
         ...setup.input,
         store: {
           commit: (actions) => {
             order.push("store");
             committedActions.push(...actions);
+
             return Result.succeed({
               revision: 1,
               changed: [{ descriptor: testDefinition.operations.item, key: [1] }],
@@ -701,9 +771,11 @@ describe("actor engine", () => {
           assert.strictEqual(publication.store.revision, 0);
           assert.strictEqual(Object.isFrozen(publication.store), true);
           assert.strictEqual(Object.isFrozen(publication.store.changed), true);
+
           return Result.succeed(1);
         },
       };
+
       const engine = yield* (yield* prepareActorEngine(configured)).activate();
 
       const accepted = engine.dispatch(opened);
@@ -743,6 +815,7 @@ describe("actor engine", () => {
       let storeCalls = 0;
       const published: ActorSnapshot<typeof testDefinition>[] = [];
       const setup = makeInput(scope, () => Effect.void);
+
       const evidence = makeRuntimeEvidenceOwner({
         app: testApp,
         plan: appPlan(testApp),
@@ -753,30 +826,37 @@ describe("actor engine", () => {
               // oxlint-disable-next-line anti-slop/no-throw-in-effect-gen -- the clock fixture deliberately defects during preparation.
               throw new Error("timestamp failure");
             }
+
             return 4_242;
           }),
           sleepUntil: () => Effect.void,
         },
       });
+
       let previous: ActorSnapshot<typeof testDefinition> = setup.input.initial;
+
       const configured: ActorEngineInput<typeof testDefinition> = {
         ...setup.input,
         store: {
           commit: () => {
             order.push("store");
             storeCalls += 1;
+
             return Result.succeed({ revision: storeCalls, changed: [] });
           },
         },
         acceptEvidence: (publication) => {
           order.push("evidence");
+
           const accepted = evidence.acceptPublication(
             setup.input.identity,
             setup.input.fence,
             previous,
             publication,
           );
+
           if (Result.isSuccess(accepted)) previous = publication.snapshot;
+
           return accepted;
         },
         onSnapshot: (snapshot) => {
@@ -784,6 +864,7 @@ describe("actor engine", () => {
           published.push(snapshot);
         },
       };
+
       const engine = yield* (yield* prepareActorEngine(configured)).activate();
 
       const failed = engine.dispatch(opened);
@@ -827,24 +908,30 @@ describe("actor engine", () => {
       let commandCalls = 0;
       const published: ActorSnapshot<typeof testDefinition>[] = [];
       const evidenceMachineRevisions: number[] = [];
+
       const setup = makeInput(scope, () => {
         commandCalls += 1;
+
         return Effect.void;
       });
+
       const configured: ActorEngineInput<typeof testDefinition> = {
         ...setup.input,
         store: {
           commit: () => {
             storeRevision += 1;
+
             return Result.succeed({ revision: storeRevision, changed: [] });
           },
         },
         onSnapshot: (snapshot) => published.push(snapshot),
         acceptEvidence: (publication) => {
           evidenceMachineRevisions.push(publication.machineTurnRevision);
+
           return Result.succeed(evidenceMachineRevisions.length);
         },
       };
+
       const engine = yield* (yield* prepareActorEngine(configured)).activate();
 
       const first = engine.dispatch(opened);
@@ -879,6 +966,7 @@ describe("actor engine", () => {
         summary: "typed store failure",
         help: "Repair the store cut.",
       });
+
       const cases = ["failure", "defect", "interrupt"] as const;
 
       for (const kind of cases) {
@@ -887,16 +975,21 @@ describe("actor engine", () => {
         let commandCalls = 0;
         const published: ActorSnapshot<typeof testDefinition>[] = [];
         const evidenceMachineRevisions: number[] = [];
+
         const setup = makeInput(scope, () => {
           commandCalls += 1;
+
           return Effect.void;
         });
+
         const configured: ActorEngineInput<typeof testDefinition> = {
           ...setup.input,
           store: {
             commit: () => {
               storeCalls += 1;
+
               if (kind === "failure") return Result.fail(typedFailure);
+
               if (kind === "interrupt") return Result.fail(Interrupt());
               // oxlint-disable-next-line anti-slop/no-throw-in-effect-gen -- this fixture proves raw store defects are classified.
               throw new Error("raw store defect");
@@ -905,9 +998,11 @@ describe("actor engine", () => {
           onSnapshot: (snapshot) => published.push(snapshot),
           acceptEvidence: (publication) => {
             evidenceMachineRevisions.push(publication.machineTurnRevision);
+
             return Result.succeed(evidenceMachineRevisions.length);
           },
         };
+
         const engine = yield* (yield* prepareActorEngine(configured)).activate();
         const dispatched = engine.dispatch(opened);
         const firstExit = yield* Effect.exit(Deferred.await(dispatched.completion));
@@ -917,10 +1012,13 @@ describe("actor engine", () => {
 
         assert.deepStrictEqual(repeatedExit, firstExit);
         assert.ok(error instanceof Diagnostic);
+
         if (error instanceof Diagnostic) {
           assert.strictEqual(error.classification, diagnosticClassification(kind));
+
           if (kind === "failure") assert.strictEqual(error, typedFailure);
         }
+
         assert.strictEqual(storeCalls, 1);
         assert.strictEqual(commandCalls, 0);
         assert.strictEqual(published.length, 1);
@@ -947,26 +1045,34 @@ describe("actor engine", () => {
       let commandCalls = 0;
       const published: ActorSnapshot<typeof testDefinition>[] = [];
       const machineTurnRevisions: number[] = [];
+
       const setup = makeInput(scope, () => {
         commandCalls += 1;
+
         return Effect.void;
       });
+
       const configured: ActorEngineInput<typeof testDefinition> = {
         ...setup.input,
         onSnapshot: (snapshot) => published.push(snapshot),
         acceptEvidence: (publication) => {
           machineTurnRevisions.push(publication.machineTurnRevision);
+
           return Result.succeed(machineTurnRevisions.length);
         },
       };
+
       const engine = yield* (yield* prepareActorEngine(configured)).activate();
+
       const occurrenceFence = {
         actor: setup.input.fence,
         descriptor: testDefinition.operations.item,
         key: [1],
         ordinal: 1,
       };
+
       const streamOccurrenceFence = { ...occurrenceFence, ordinal: 2 };
+
       const facts: readonly ProjectionFact[] = [
         {
           _tag: "timer-projection",
@@ -1010,6 +1116,7 @@ describe("actor engine", () => {
         engine.dispatchFact(fact);
         yield* engine.drain();
       }
+
       const staleFence = { ...setup.input.fence, generation: 1 };
       engine.dispatchFact({
         _tag: "timer-projection",
@@ -1040,12 +1147,14 @@ describe("actor engine", () => {
       assert.strictEqual(engine.snapshot().observedStoreRevision, 1);
       assert.deepStrictEqual(engine.snapshot().context, { provider: "ready" });
       assert.strictEqual(Object.isFrozen(published[1]?.operations[0]?.key), true);
+
       for (const snapshot of published) {
         assert.strictEqual(Object.isFrozen(snapshot), true);
         assert.strictEqual(Object.isFrozen(snapshot.operations), true);
         assert.strictEqual(Object.isFrozen(snapshot.timers), true);
         assert.strictEqual(Object.isFrozen(snapshot.issues), true);
       }
+
       yield* engine.shutdown("hard");
       yield* Scope.close(scope, Exit.void);
     }),
@@ -1058,37 +1167,45 @@ describe("actor engine", () => {
       let storeCalls = 0;
       let evidenceCalls = 0;
       const published: ActorSnapshot<typeof contextConsumerDefinition>[] = [];
+
       const setup = makeContextInput(scope, () => {
         commandCalls += 1;
+
         return Effect.void;
       });
+
       const left = {
         fence: setup.input.fence,
         slot: "left",
         revision: 1,
         value: contextProviderDefinition.S.changed,
       };
+
       const right = {
         fence: setup.input.fence,
         slot: "right",
         revision: 1,
         value: contextProviderDefinition.S.changed,
       };
+
       const projection: ContextProjectionCarrier = {
         providers: [left, right],
         issueOnly: false,
         selectorDefects: [],
       };
+
       const aggregate: Extract<ProjectionFact, { readonly _tag: "context-projection" }> = {
         _tag: "context-projection",
         provider: { ...left, value: projection },
         projection,
       };
+
       const configured: ActorEngineInput<typeof contextConsumerDefinition> = {
         ...setup.input,
         store: {
           commit: () => {
             storeCalls += 1;
+
             return Result.succeed({ revision: storeCalls, changed: [] });
           },
         },
@@ -1096,9 +1213,11 @@ describe("actor engine", () => {
         acceptEvidence: (publication) => {
           evidenceCalls += 1;
           assert.strictEqual(publication.machineTurnRevision, 0);
+
           return Result.succeed(evidenceCalls);
         },
       };
+
       const engine = yield* (yield* prepareActorEngine(configured)).activate();
 
       engine.dispatchFact(aggregate);
@@ -1130,9 +1249,11 @@ describe("actor engine", () => {
       const evidenceMachineRevisions: number[] = [];
       const evidenceStoreRevisions: number[] = [];
       const evidenceIssues: PublicDiagnostic[][] = [];
+
       const setup = makeContextInput(scope, () =>
         Effect.die("context projections do not run commands"),
       );
+
       const configured: ActorEngineInput<typeof contextConsumerDefinition> = {
         ...setup.input,
         onSnapshot: (snapshot) => published.push(snapshot),
@@ -1140,10 +1261,13 @@ describe("actor engine", () => {
           evidenceMachineRevisions.push(publication.machineTurnRevision);
           evidenceStoreRevisions.push(publication.store.revision);
           evidenceIssues.push([...publication.snapshot.issues]);
+
           return Result.succeed(evidenceMachineRevisions.length);
         },
       };
+
       const engine = yield* (yield* prepareActorEngine(configured)).activate();
+
       const makeContextFact = (
         revision: number,
         leftValue:
@@ -1159,18 +1283,22 @@ describe("actor engine", () => {
           { fence: setup.input.fence, slot: "left", revision, value: leftValue },
           { fence: setup.input.fence, slot: "right", revision, value: rightValue },
         ];
+
         const carrier: ContextProjectionCarrier = {
           providers,
           issueOnly,
           selectorDefects,
         };
+
         assert.strictEqual(carrier.providers.length, 2);
+
         return {
           _tag: "context-projection" as const,
           provider: { ...providers[0]!, value: carrier },
           projection: carrier,
         } satisfies ProjectionFact;
       };
+
       const firstDefect = Failure({
         code: "InvariantViolation" as const,
         path: ["context", "left"],
@@ -1178,6 +1306,7 @@ describe("actor engine", () => {
         summary: "left selector failed",
         help: "Inspect the left context selector.",
       });
+
       const secondDefect = Failure({
         code: "InvariantViolation" as const,
         path: ["context", "left"],
@@ -1185,6 +1314,7 @@ describe("actor engine", () => {
         summary: "left selector failed again",
         help: "Inspect the left context selector.",
       });
+
       const firstIssue = makeContextFact(
         1,
         contextProviderDefinition.S.ready,
@@ -1192,6 +1322,7 @@ describe("actor engine", () => {
         true,
         [firstDefect],
       );
+
       engine.dispatchFact(firstIssue);
       yield* engine.drain();
       engine.dispatchFact(firstIssue);
@@ -1213,6 +1344,7 @@ describe("actor engine", () => {
         true,
         [secondDefect],
       );
+
       engine.dispatchFact(secondIssue);
       yield* engine.drain();
       assert.strictEqual(published.length, 2);
@@ -1229,6 +1361,7 @@ describe("actor engine", () => {
         false,
         [],
       );
+
       engine.dispatchFact(recovered);
       yield* engine.drain();
       assert.strictEqual(published.length, 3);
@@ -1252,21 +1385,26 @@ describe("actor engine", () => {
       const published: ActorSnapshot<typeof testDefinition>[] = [];
       let evidenceCalls = 0;
       const setup = makeInput(scope, () => Effect.void);
+
       const configured: ActorEngineInput<typeof testDefinition> = {
         ...setup.input,
         onSnapshot: (snapshot) => published.push(snapshot),
         acceptEvidence: () => {
           evidenceCalls += 1;
+
           return Result.succeed(evidenceCalls);
         },
       };
+
       const engine = yield* (yield* prepareActorEngine(configured)).activate();
+
       const occurrence = {
         actor: setup.input.fence,
         descriptor: testDefinition.operations.nestedItem,
         key: testDefinition.operations.nestedItem.key(1),
         ordinal: 1,
       };
+
       const failure = Failure({
         code: "InvariantViolation" as const,
         path: ["operation", "completion"],
@@ -1303,15 +1441,18 @@ describe("actor engine", () => {
       const scope = yield* Scope.make("sequential");
       const firstStarted = yield* Deferred.make<void>();
       const processed: string[] = [];
+
       const setup = makeInput(scope, (command) =>
         Effect.gen(function* () {
           processed.push(command.type);
+
           if (processed.length === 1) {
             yield* Deferred.succeed(firstStarted, undefined);
             yield* Deferred.await(Deferred.makeUnsafe<void>());
           }
         }),
       );
+
       const engine = yield* (yield* prepareActorEngine(setup.input)).activate();
       const first = engine.dispatch(opened);
       yield* Deferred.await(firstStarted);
@@ -1328,8 +1469,10 @@ describe("actor engine", () => {
 
       assert.ok(secondError instanceof Diagnostic);
       assert.ok(thirdError instanceof Diagnostic);
+
       if (secondError instanceof Diagnostic)
         assert.strictEqual(secondError.classification, "Interruption");
+
       if (thirdError instanceof Diagnostic)
         assert.strictEqual(thirdError.classification, "Interruption");
       assert.deepStrictEqual(yield* Effect.exit(Deferred.await(second.completion)), secondExit);
@@ -1366,21 +1509,26 @@ describe("actor engine", () => {
         let evidenceCalls = 0;
         let commandCalls = 0;
         let acknowledgedDispatch: AcknowledgedDispatch | undefined;
+
         const setup = makeInput(scope, () => {
           commandCalls += 1;
+
           return Effect.void;
         });
+
         const configured: ActorEngineInput<typeof testDefinition> = {
           ...setup.input,
           store: {
             commit: () => {
               storeCalls += 1;
+
               return Result.succeed({ revision: 1, changed: [] });
             },
           },
           onSnapshot: (snapshot) => {
             order.push("snapshot");
             observed.push(snapshot);
+
             if (kind === "observer") {
               assert.ok(acknowledgedDispatch !== undefined);
               assert.strictEqual(Deferred.isDoneUnsafe(acknowledgedDispatch.completion), true);
@@ -1391,9 +1539,11 @@ describe("actor engine", () => {
           acceptEvidence: () => {
             order.push("evidence");
             evidenceCalls += 1;
+
             return kind === "evidence" ? Result.fail(failures.evidence) : Result.succeed(1);
           },
         };
+
         const engine = yield* (yield* prepareActorEngine(configured)).activate();
         const dispatched = engine.dispatch(opened);
         acknowledgedDispatch = dispatched;
@@ -1411,6 +1561,7 @@ describe("actor engine", () => {
           kind === "observer" ? ["evidence", "snapshot"] : ["evidence", "evidence"],
         );
         assert.strictEqual(evidenceCalls, kind === "observer" ? 1 : 2);
+
         if (kind === "observer") {
           assert.ok(Exit.isSuccess(completion));
           assert.strictEqual(observed.length, 1);
@@ -1422,6 +1573,7 @@ describe("actor engine", () => {
           assert.strictEqual(observed.length, 0);
           assert.strictEqual(engine.snapshot().revision, 0);
         }
+
         assert.strictEqual(engine.snapshot().observedStoreRevision, kind === "observer" ? 1 : 0);
         assertMailboxThrows(() => engine.send(closed), "closed");
         yield* Scope.close(scope, Exit.void);
@@ -1435,6 +1587,7 @@ describe("actor engine", () => {
       let committed = false;
       const published: ActorSnapshot<typeof testDefinition>[] = [];
       const setup = makeInput(scope, () => Effect.void);
+
       const configured: ActorEngineInput<typeof testDefinition> = {
         ...setup.input,
         initial: resultSuccess(
@@ -1446,11 +1599,13 @@ describe("actor engine", () => {
         store: {
           commit: () => {
             committed = true;
+
             return Result.succeed({ revision: 3, changed: [] });
           },
         },
         onSnapshot: (snapshot) => published.push(snapshot),
       };
+
       const engine = yield* (yield* prepareActorEngine(configured)).activate();
       const dispatched = engine.dispatch(opened);
       const completion = yield* Effect.exit(Deferred.await(dispatched.completion));
@@ -1478,35 +1633,42 @@ describe("actor engine", () => {
       let storeMutated = false;
       const published: ActorSnapshot<typeof testDefinition>[] = [];
       const setup = makeInput(scope, () => Effect.void);
+
       const configured: ActorEngineInput<typeof testDefinition> = {
         ...setup.input,
         store: {
           commit: () => {
             storeCalls += 1;
+
             const hostileChanged = new Proxy([], {
               get: (target, property, receiver) => {
                 if (property === "map") {
                   // oxlint-disable-next-line anti-slop/no-throw-in-effect-gen -- the proxy deliberately defects during post-commit validation.
                   throw new Error("hostile changed-reference getter");
                 }
+
                 // SAFETY: This proxy forwards all non-map reads unchanged for the hostile-result proof.
                 // oxlint-disable-next-line anti-slop/no-reflect-get -- the proxy forwards arbitrary property reads for the negative proof.
                 return Reflect.get(target, property, receiver);
               },
             });
+
             const result = makeActorStoreResult<typeof testDefinition>({
               revision: 1,
               // SAFETY: The hostile proxy deliberately crosses the private changed-projection boundary.
               // oxlint-disable-next-line anti-slop/no-unsafe-type-assertion -- adversarial owner-result proof.
               changed: hostileChanged as never,
             });
+
             if (Result.isFailure(result)) return result;
             storeMutated = true;
+
             return result;
           },
         },
         onSnapshot: (snapshot) => published.push(snapshot),
       };
+
       const engine = yield* (yield* prepareActorEngine(configured)).activate();
       const dispatched = engine.dispatch(opened);
       const completion = yield* Effect.exit(Deferred.await(dispatched.completion));
@@ -1530,12 +1692,15 @@ describe("actor engine", () => {
       const scope = yield* Scope.make("sequential");
       const order: string[] = [];
       const setup = makeInput(scope, () => Effect.void);
+
       const evidence = makeRuntimeEvidenceOwner({
         app: testApp,
         plan: appPlan(testApp),
         clock: { now: Effect.succeed(4_242), sleepUntil: () => Effect.void },
       });
+
       const evidenceStoreRevisions: number[] = [];
+
       const sink = yield* makeEvidenceSink({
         id: "actor-engine-b15",
         deliver: (record) =>
@@ -1543,31 +1708,38 @@ describe("actor engine", () => {
             if (record._tag === "turn") evidenceStoreRevisions.push(record.store.revision);
           }),
       });
+
       assert.ok(Result.isSuccess(evidence.hub.attach(sink)));
       let previous: ActorSnapshot<typeof testDefinition> = setup.input.initial;
       let preparedStoreRevision = -1;
+
       const configured: ActorEngineInput<typeof testDefinition> = {
         ...setup.input,
         store: {
           commit: () => {
             order.push("store");
+
             return Result.succeed({ revision: 7, changed: [] });
           },
         },
         acceptEvidence: (publication) => {
           order.push("evidence");
           preparedStoreRevision = publication.store.revision;
+
           const accepted = evidence.acceptPublication(
             setup.input.identity,
             setup.input.fence,
             previous,
             publication,
           );
+
           if (Result.isSuccess(accepted)) previous = publication.snapshot;
+
           return accepted;
         },
         onSnapshot: () => order.push("snapshot"),
       };
+
       const engine = yield* (yield* prepareActorEngine(configured)).activate();
       const dispatched = engine.dispatch(opened);
       const receipt = yield* Deferred.await(dispatched.completion);
@@ -1589,6 +1761,7 @@ describe("actor engine", () => {
       let storeCalls = 0;
       const published: ActorSnapshot<typeof testDefinition>[] = [];
       const setup = makeInput(scope, () => Effect.void);
+
       const configured: ActorEngineInput<typeof testDefinition> = {
         ...setup.input,
         initial: resultSuccess(
@@ -1600,11 +1773,13 @@ describe("actor engine", () => {
         store: {
           commit: () => {
             storeCalls += 1;
+
             return Result.succeed({ revision: 1, changed: [] });
           },
         },
         onSnapshot: (snapshot) => published.push(snapshot),
       };
+
       const engine = yield* (yield* prepareActorEngine(configured)).activate();
       const dispatched = engine.dispatch(opened);
       const completion = yield* Effect.exit(Deferred.await(dispatched.completion));
@@ -1628,6 +1803,7 @@ const startParityEngine = (
     const setup = makeInput(scope, onCommand);
     const prepared = yield* prepareActorEngine(setup.input);
     const engine = yield* prepared.activate();
+
     return { engine, setup };
   });
 
@@ -1651,9 +1827,11 @@ describe("actor engine parity cases", () => {
     Effect.gen(function* () {
       const scope = yield* Scope.make("sequential");
       const received: string[] = [];
+
       const { engine } = yield* startParityEngine(scope, (command) =>
         Effect.sync(() => received.push(command.type)),
       );
+
       const result: void = engine.send(opened);
       assert.strictEqual(result, undefined);
       yield* engine.drain();
@@ -1670,6 +1848,7 @@ describe("actor engine parity cases", () => {
         states: ["ready"],
         events: { opened: "bare" },
       });
+
       const foreignDefinition = resultSuccess(foreignDefinitionResult);
       const foreignEvent = resultSuccess(foreignDefinition.E.opened());
       const scope = yield* Scope.make("sequential");
@@ -1690,9 +1869,11 @@ describe("actor engine parity cases", () => {
     Effect.gen(function* () {
       const scope = yield* Scope.make("sequential");
       const received: string[] = [];
+
       const { engine } = yield* startParityEngine(scope, (command) =>
         Effect.sync(() => received.push(command.type)),
       );
+
       engine.send(opened);
       engine.send(closed);
       engine.send(opened);
@@ -1708,9 +1889,11 @@ describe("actor engine parity cases", () => {
     Effect.gen(function* () {
       const scope = yield* Scope.make("sequential");
       const received: string[] = [];
+
       const { engine, setup } = yield* startParityEngine(scope, (command) =>
         Effect.sync(() => received.push(command.type)),
       );
+
       Queue.offerUnsafe(engine.mailbox, {
         _tag: "command",
         fence: { ...setup.input.fence, generation: setup.input.fence.generation + 1 },
@@ -1731,11 +1914,13 @@ describe("actor engine parity cases", () => {
       let committed = 0;
       const published: ActorPublication<typeof testDefinition>[] = [];
       const setup = makeInput(scope, () => Effect.void);
+
       const engine = yield* (yield* prepareActorEngine({
         ...setup.input,
         store: {
           commit: () => {
             committed += 1;
+
             return Result.succeed({
               revision: committed,
               changed: [{ descriptor: testDefinition.operations.item, key: [1] as const }],
@@ -1744,9 +1929,11 @@ describe("actor engine parity cases", () => {
         },
         acceptEvidence: (publication) => {
           published.push(publication);
+
           return Result.succeed(1);
         },
       })).activate();
+
       const receipt = yield* Deferred.await(engine.dispatch(opened).completion);
       yield* engine.drain();
       assert.deepStrictEqual(receipt, { publicationRevision: 1, evidenceSequence: 1 });
@@ -1763,6 +1950,7 @@ describe("actor engine parity cases", () => {
   it.effect("drops a failed plan without partial publication", () =>
     Effect.gen(function* () {
       const scope = yield* Scope.make("sequential");
+
       const failure = Failure({
         code: "InvariantViolation" as const,
         path: ["store"],
@@ -1770,12 +1958,16 @@ describe("actor engine parity cases", () => {
         summary: "store rejected",
         help: "Repair the store.",
       });
+
       let commands = 0;
       const published: ActorSnapshot<typeof testDefinition>[] = [];
+
       const setup = makeInput(scope, () => {
         commands += 1;
+
         return Effect.void;
       });
+
       const engine = yield* (yield* prepareActorEngine({
         ...setup.input,
         store: {
@@ -1785,6 +1977,7 @@ describe("actor engine parity cases", () => {
         },
         onSnapshot: (snapshot) => published.push(snapshot),
       })).activate();
+
       const exit = yield* Effect.exit(Deferred.await(engine.dispatch(opened).completion));
       yield* engine.drain();
       assert.ok(Exit.isFailure(exit));
@@ -1803,6 +1996,7 @@ describe("actor engine parity cases", () => {
       let storeCalls = 0;
       const published: ActorSnapshot<typeof testDefinition>[] = [];
       const setup = makeInput(scope, () => Effect.void);
+
       const engine = yield* (yield* prepareActorEngine({
         ...setup.input,
         store: {
@@ -1814,6 +2008,7 @@ describe("actor engine parity cases", () => {
         },
         onSnapshot: (snapshot) => published.push(snapshot),
       })).activate();
+
       const exit = yield* Effect.exit(Deferred.await(engine.dispatch(opened).completion));
       yield* engine.drain();
       assert.ok(Exit.isFailure(exit));
@@ -1831,10 +2026,12 @@ describe("actor engine parity cases", () => {
       const scope = yield* Scope.make("sequential");
       const { engine, setup } = yield* startParityEngine(scope);
       const occurrence = parityOccurrence(setup, [{ nested: true }], 4);
+
       const offered = engine.dispatchFact({
         _tag: "completion-projection",
         completion: { fence: occurrence, outcome: { _tag: "success", value: "ok" } },
       });
+
       assert.ok(Result.isSuccess(offered));
       yield* engine.drain();
       const operation = engine.snapshot().operations[0];
@@ -1885,13 +2082,16 @@ describe("actor engine parity cases", () => {
       const scope = yield* Scope.make("sequential");
       const published: ActorSnapshot<typeof testDefinition>[] = [];
       const setup = makeInput(scope, () => Effect.void);
+
       const engine = yield* (yield* prepareActorEngine({
         ...setup.input,
         onSnapshot: (snapshot) => published.push(snapshot),
       })).activate();
+
       setup.registry.rollback(setup.input.identity);
       const nextIdentity = resultSuccess(setup.registry.reserveStable(setup.ref));
       const stale = { ...setup.input.fence, incarnation: nextIdentity.incarnation };
+
       const result = engine.dispatchFact({
         _tag: "completion-projection",
         completion: {
@@ -1899,6 +2099,7 @@ describe("actor engine parity cases", () => {
           outcome: { _tag: "success", value: 1 },
         },
       });
+
       assert.ok(Result.isSuccess(result));
       yield* engine.drain();
       assert.deepStrictEqual(published, []);
@@ -1912,6 +2113,7 @@ describe("actor engine parity cases", () => {
     Effect.gen(function* () {
       const scope = yield* Scope.make("sequential");
       const { engine, setup } = yield* startParityEngine(scope);
+
       const expected = Failure({
         code: "SchemaValidation" as const,
         path: ["operation"],
@@ -1919,6 +2121,7 @@ describe("actor engine parity cases", () => {
         summary: "expected operation failure",
         help: "Inspect the operation.",
       });
+
       engine.dispatchFact({
         _tag: "completion-projection",
         completion: {
@@ -1967,6 +2170,7 @@ describe("actor engine parity cases", () => {
       const setup = makeInput(scope, () => Effect.void);
       const defect = new Error("operation defect");
       const defectExit = Exit.die(defect);
+
       const initial = resultSuccess(
         prepareActorSnapshot(testMachine, {
           ...setup.input.initial,
@@ -1979,12 +2183,15 @@ describe("actor engine parity cases", () => {
           ],
         }),
       );
+
       const evidence = makeRuntimeEvidenceOwner({
         app: testApp,
         plan: appPlan(testApp),
         clock: { now: Effect.succeed(4_242), sleepUntil: () => Effect.void },
       });
+
       const delivered: EvidenceRecord[] = [];
+
       const sink = yield* makeEvidenceSink({
         id: "actor-engine-defect",
         deliver: (record) =>
@@ -1992,13 +2199,16 @@ describe("actor engine parity cases", () => {
             delivered.push(record);
           }),
       });
+
       const interrupted = yield* makeEvidenceSink({
         id: "actor-engine-interrupted",
         deliver: () => Effect.fail(Interrupt()),
       });
+
       assert.ok(Result.isSuccess(evidence.hub.attach(sink)));
       assert.ok(Result.isSuccess(evidence.hub.attach(interrupted)));
       let previous: ActorSnapshot<typeof testDefinition> = setup.input.initial;
+
       const engine = yield* (yield* prepareActorEngine({
         ...setup.input,
         initial,
@@ -2009,10 +2219,13 @@ describe("actor engine parity cases", () => {
             previous,
             publication,
           );
+
           if (Result.isSuccess(accepted)) previous = publication.snapshot;
+
           return accepted;
         },
       })).activate();
+
       const accepted = engine.dispatchFact({
         _tag: "completion-projection",
         completion: {
@@ -2020,6 +2233,7 @@ describe("actor engine parity cases", () => {
           outcome: { _tag: "defect", exit: defectExit },
         },
       });
+
       assert.ok(Result.isSuccess(accepted));
       yield* engine.drain();
       const after = engine.snapshot();
@@ -2034,15 +2248,18 @@ describe("actor engine parity cases", () => {
       assert.strictEqual(delivered.length, 1);
       const record = delivered[0];
       assert.ok(record !== undefined);
+
       if (record?._tag === "turn") {
         assert.strictEqual(record.provenance.actor.key, setup.input.identity.key);
         assert.strictEqual(record.provenance.actor.incarnation, setup.input.identity.incarnation);
         assert.strictEqual(record.publicationRevision, after.revision);
         assert.strictEqual(record.store.revision, after.observedStoreRevision);
         assert.strictEqual(record.cause._tag, "projection");
+
         if (record.cause._tag === "projection") {
           const fact = record.cause.fact;
           assert.strictEqual(fact._tag, "completion-projection");
+
           if (fact._tag === "completion-projection") {
             assert.strictEqual(fact.completion.outcome._tag, "defect");
             assert.strictEqual(fact.completion.outcome.exit, defectExit);
@@ -2051,6 +2268,7 @@ describe("actor engine parity cases", () => {
       } else {
         assert.fail("Expected a turn evidence record");
       }
+
       yield* evidence.close();
       yield* engine.shutdown("hard");
       yield* Scope.close(scope, Exit.void);
@@ -2062,10 +2280,12 @@ describe("actor engine parity cases", () => {
       const scope = yield* Scope.make("sequential");
       const published: ActorSnapshot<typeof testDefinition>[] = [];
       const setup = makeInput(scope, () => Effect.void);
+
       const engine = yield* (yield* prepareActorEngine({
         ...setup.input,
         onSnapshot: (snapshot) => published.push(snapshot),
       })).activate();
+
       const fact = {
         _tag: "timer-projection" as const,
         fence: setup.input.fence,
@@ -2073,6 +2293,7 @@ describe("actor engine parity cases", () => {
         startedAt: 10,
         dueAt: 20,
       };
+
       assert.ok(Result.isSuccess(engine.dispatchFact(fact)));
       assert.ok(Result.isSuccess(engine.dispatchFact(fact)));
       yield* engine.drain();
@@ -2123,18 +2344,23 @@ describe("actor engine parity cases", () => {
       const contextOpened = resultSuccess(contextConsumerDefinition.E.opened());
       const seen: unknown[] = [];
       let activeEngine: ActorEngine<typeof contextConsumerDefinition> | undefined;
+
       const setup = makeContextInput(scope, () =>
         Effect.sync(() => seen.push(activeEngine?.snapshot().context)),
       );
+
       activeEngine = yield* prepareActorEngine({
         ...setup.input,
         onCommand: () => Effect.sync(() => seen.push(activeEngine?.snapshot().context)),
       }).pipe(Effect.flatMap((prepared) => prepared.activate()));
+
       if (activeEngine === undefined) {
         // oxlint-disable-next-line anti-slop/no-throw-in-effect-gen -- activation failure is an impossible fixture invariant.
         throw new Error("actor engine did not activate");
       }
+
       const engine = activeEngine;
+
       const providers = [
         {
           fence: setup.input.fence,
@@ -2149,11 +2375,13 @@ describe("actor engine parity cases", () => {
           value: contextProviderDefinition.S.changed,
         },
       ];
+
       const carrier: ContextProjectionCarrier = {
         providers,
         issueOnly: false,
         selectorDefects: [],
       };
+
       assert.ok(
         Result.isSuccess(
           engine.dispatchFact({
@@ -2181,6 +2409,7 @@ describe("actor engine parity cases", () => {
       const runtime = runtimeSetup({ app: testApp }).construct();
       yield* runtime.ready();
       const assembly = runtimeOwner(runtime).assembly();
+
       const initial = resultSuccess(
         prepareActorSnapshot(testMachine, {
           state: testDefinition.S.ready,
@@ -2194,11 +2423,13 @@ describe("actor engine parity cases", () => {
           observedStoreRevision: 0,
         }),
       );
+
       const actor = yield* assembly.createActor({
         ref: actorRef(testMachine, "suspended"),
         initial,
         onCommand: (command) => Effect.sync(() => received.push(command.type)),
       });
+
       yield* Effect.provideContext(
         actor.lifecycle.command({ _tag: "actor:suspend", cause: { _tag: "attachment" } }),
         assembly.context,
@@ -2208,14 +2439,17 @@ describe("actor engine parity cases", () => {
       assert.strictEqual(rejected.admitted, false);
       const completion = yield* Effect.exit(Deferred.await(rejected.completion));
       assert.ok(Exit.isFailure(completion));
+
       if (Exit.isFailure(completion)) {
         const reason = completion.cause.reasons.find(Cause.isFailReason);
         assert.ok(reason !== undefined);
+
         if (reason !== undefined) {
           assert.strictEqual(reason.error.code, "InvariantViolation");
           assert.deepStrictEqual(reason.error.path, ["mailbox", "closed"]);
         }
       }
+
       const after = actor.engine.snapshot();
       assert.strictEqual(after.lifecycle, "suspended");
       assert.strictEqual(after.state, before.state);
@@ -2229,6 +2463,7 @@ describe("actor engine parity cases", () => {
   it.effect("isolates a throwing snapshot callback from committed actor truth", () =>
     Effect.gen(function* () {
       const scope = yield* Scope.make("sequential");
+
       const observerFailure = Failure({
         code: "InvariantViolation" as const,
         path: ["subscriber"],
@@ -2236,13 +2471,16 @@ describe("actor engine parity cases", () => {
         summary: "subscriber failed",
         help: "Inspect the subscriber.",
       });
+
       let storeCalls = 0;
       const setup = makeInput(scope, () => Effect.void);
+
       const engine = yield* (yield* prepareActorEngine({
         ...setup.input,
         store: {
           commit: () => {
             storeCalls += 1;
+
             return Result.succeed({ revision: 1, changed: [] });
           },
         },
@@ -2251,6 +2489,7 @@ describe("actor engine parity cases", () => {
           throw observerFailure;
         },
       })).activate();
+
       const exit = yield* Effect.exit(Deferred.await(engine.dispatch(opened).completion));
       assert.ok(Exit.isSuccess(exit));
       assert.strictEqual(storeCalls, 1);
@@ -2264,10 +2503,12 @@ describe("actor engine parity cases", () => {
       const scope = yield* Scope.make("sequential");
       let evidence = 0;
       const setup = makeInput(scope, () => Effect.void);
+
       const engine = yield* (yield* prepareActorEngine({
         ...setup.input,
         acceptEvidence: () => Result.succeed(++evidence),
       })).activate();
+
       const receipt = yield* Deferred.await(engine.dispatch(opened).completion);
       assert.strictEqual(evidence, 1);
       assert.deepStrictEqual(receipt, { publicationRevision: 1, evidenceSequence: 1 });
@@ -2282,10 +2523,12 @@ describe("actor engine parity cases", () => {
       const scope = yield* Scope.make("sequential");
       const published: ActorSnapshot<typeof testDefinition>[] = [];
       const setup = makeInput(scope, () => Effect.void);
+
       const prepared = yield* prepareActorEngine({
         ...setup.input,
         onSnapshot: (snapshot) => published.push(snapshot),
       });
+
       prepared.send(opened);
       prepared.send(closed);
       prepared.abandon();
@@ -2300,12 +2543,14 @@ describe("actor engine parity cases", () => {
       const scope = yield* Scope.make("sequential");
       const entered = yield* Deferred.make<void>();
       const hold = yield* Deferred.make<void>();
+
       const { engine } = yield* startParityEngine(scope, () =>
         Effect.gen(function* () {
           yield* Deferred.succeed(entered, undefined);
           yield* Deferred.await(hold);
         }),
       );
+
       const pending = engine.dispatch(opened);
       yield* Deferred.await(entered);
       yield* engine.shutdown("hard");
@@ -2322,10 +2567,12 @@ describe("actor engine parity cases", () => {
       const scope = yield* Scope.make("sequential");
       const published: ActorSnapshot<typeof contextConsumerDefinition>[] = [];
       const setup = makeContextInput(scope, () => Effect.void);
+
       const engine = yield* prepareActorEngine({
         ...setup.input,
         onSnapshot: (snapshot) => published.push(snapshot),
       }).pipe(Effect.flatMap((prepared) => prepared.activate()));
+
       const providers = [
         {
           fence: setup.input.fence,
@@ -2340,16 +2587,19 @@ describe("actor engine parity cases", () => {
           value: contextProviderDefinition.S.changed,
         },
       ];
+
       const carrier: ContextProjectionCarrier = {
         providers,
         issueOnly: false,
         selectorDefects: [],
       };
+
       const fact = {
         _tag: "context-projection" as const,
         provider: { ...providers[0]!, value: carrier },
         projection: carrier,
       };
+
       assert.ok(Result.isSuccess(engine.dispatchFact(fact)));
       assert.ok(Result.isSuccess(engine.dispatchFact(fact)));
       yield* engine.drain();
@@ -2365,12 +2615,14 @@ describe("actor engine parity cases", () => {
       const scope = yield* Scope.make("sequential");
       const entered = yield* Deferred.make<void>();
       const hold = yield* Deferred.make<void>();
+
       const { engine } = yield* startParityEngine(scope, () =>
         Effect.gen(function* () {
           yield* Deferred.succeed(entered, undefined);
           yield* Deferred.await(hold);
         }),
       );
+
       engine.send(opened);
       yield* Deferred.await(entered);
       const shutdown = yield* Effect.forkChild(engine.shutdown("hard"), { startImmediately: true });
@@ -2405,20 +2657,24 @@ describe("actor engine parity cases", () => {
       const scope = yield* Scope.make("sequential");
       const order: string[] = [];
       const setup = makeInput(scope, () => Effect.void);
+
       const engine = yield* (yield* prepareActorEngine({
         ...setup.input,
         acceptEvidence: () => {
           order.push("evidence");
+
           return Result.succeed(1);
         },
         store: {
           commit: () => {
             order.push("store");
+
             return Result.succeed({ revision: 1, changed: [] });
           },
         },
         onSnapshot: () => order.push("snapshot"),
       })).activate();
+
       yield* Deferred.await(engine.dispatch(opened).completion);
       yield* engine.drain();
       assert.deepStrictEqual(order, ["evidence", "store", "snapshot"]);

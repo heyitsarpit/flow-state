@@ -5,12 +5,15 @@ import type { CanonicalKeyInput, OperationKey } from "../key.js";
 
 const expectInvalidKey = (key: OperationKey, path: string) => {
   let error: unknown;
+
   try {
     canonicalizeKey(key);
   } catch (cause) {
     error = cause;
   }
+
   assert.strictEqual(error instanceof TypeError, true);
+
   if (error instanceof TypeError)
     assert.strictEqual(error.message, `Invalid canonical operation key at ${path}`);
 };
@@ -125,6 +128,7 @@ describe("operation keys", () => {
       enumerable: true,
       get: () => {
         getterCalls += 1;
+
         return "secret";
       },
     });
@@ -132,32 +136,41 @@ describe("operation keys", () => {
     assert.strictEqual(getterCalls, 0);
 
     let toJsonCalls = 0;
+
     const toJsonValue = {
       toJSON: () => {
         toJsonCalls += 1;
+
         return "secret";
       },
     };
+
     expectInvalidElement(toJsonValue, "$[0][toJSON]");
     assert.strictEqual(toJsonCalls, 0);
 
     let valueOfCalls = 0;
+
     const valueOfValue = {
       valueOf: () => {
         valueOfCalls += 1;
+
         return "secret";
       },
     };
+
     expectInvalidElement(valueOfValue, "$[0][valueOf]");
     assert.strictEqual(valueOfCalls, 0);
 
     let iteratorCalls = 0;
+
     const iterableValue = {
       [Symbol.iterator]: () => {
         iteratorCalls += 1;
+
         return [][Symbol.iterator]();
       },
     };
+
     expectInvalidElement(iterableValue, "$[0]");
     assert.strictEqual(iteratorCalls, 0);
 
@@ -187,6 +200,7 @@ describe("operation keys", () => {
     class Unsupported {
       readonly marker = true;
     }
+
     expectInvalidElement(new Unsupported(), "$[0]");
 
     const throwingReflection = new Proxy(
@@ -197,24 +211,29 @@ describe("operation keys", () => {
         },
       },
     );
+
     expectInvalidElement(throwingReflection, "$[0]");
 
     const inconsistentReflection = new Proxy(
       { value: true },
       { getOwnPropertyDescriptor: () => undefined },
     );
+
     expectInvalidElement(inconsistentReflection, "$[0][value]");
 
     let proxyGetCalls = 0;
+
     const transparentProxy = Proxy.revocable(
       { value: true },
       {
         get: () => {
           proxyGetCalls += 1;
+
           return true;
         },
       },
     );
+
     assert.deepStrictEqual(canonicalizeKey([transparentProxy.proxy]), [{ value: true }]);
     assert.strictEqual(proxyGetCalls, 0);
     transparentProxy.revoke();
@@ -226,6 +245,7 @@ describe("operation keys", () => {
     expectInvalidElement(sparseProxy, "$[0]");
 
     const mutatedSymbol = Symbol("mutated");
+
     const mutatingReflection = new Proxy(
       { value: true },
       {
@@ -236,15 +256,18 @@ describe("operation keys", () => {
             value: true,
             writable: true,
           });
+
           return Reflect.ownKeys(target);
         },
       },
     );
+
     expectInvalidElement(mutatingReflection, "$[0]");
   });
 
   it("enforces exact depth, node, and UTF-8 byte boundaries", () => {
     let depthLimit: CanonicalKeyInput = "leaf";
+
     for (let index = 0; index < 15; index += 1) depthLimit = [depthLimit];
     assert.doesNotThrow(() => canonicalizeKey([depthLimit]));
 
@@ -252,6 +275,7 @@ describe("operation keys", () => {
     expectInvalidElement(tooDeep, `$${"[0]".repeat(17)}`);
 
     const nodeLimit: CanonicalKeyInput[] = [];
+
     for (let index = 0; index < 256; index += 1) nodeLimit.push(index);
     assert.doesNotThrow(() => canonicalizeKey(nodeLimit));
     const nextNode = [...nodeLimit, 256];

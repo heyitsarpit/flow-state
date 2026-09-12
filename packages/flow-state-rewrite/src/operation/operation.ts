@@ -60,8 +60,11 @@ export type OperationMethodResult<
   : never;
 
 type IsAny<Value> = 0 extends 1 & Value ? true : false;
+
 type IsUnknown<Value> = IsAny<Value> extends true ? false : unknown extends Value ? true : false;
+
 type DirectPromiseLikeProgram<Program> = Extract<Program, PromiseLike<unknown>>;
+
 type PromiseLikeSuccess<Program> = Extract<OperationValueOf<Program>, PromiseLike<unknown>>;
 
 export type ValidOperationProgram<Program> =
@@ -163,7 +166,9 @@ type InternalOperationDescriptor = OperationDeclaration & {
 };
 
 const constructedOperations = new WeakSet<OperationDeclaration>();
+
 const constructedOperationPlans = new WeakSet();
+
 const operationPlanDescriptors = new WeakMap<ConstructedOperationPlan, OperationDeclaration>();
 
 // oxlint-disable-next-line anti-slop/no-runtime-typeof -- identity membership must not probe revoked proxies.
@@ -193,6 +198,7 @@ const attachOperationAdapter = (descriptor: OperationDeclaration, adapter: unkno
 
 const markConstructedOperation = <Value extends OperationDeclaration>(value: Value) => {
   constructedOperations.add(value);
+
   return value;
 };
 
@@ -201,6 +207,7 @@ export const publishOperation = <Descriptor extends OperationDeclaration>(
   adapter: unknown,
 ) => {
   attachOperationAdapter(descriptor, adapter);
+
   return markConstructedOperation(descriptor);
 };
 
@@ -240,15 +247,18 @@ export function operationPlan<
 >(kind: Kind, descriptor: Id, key: (params: P) => OperationKey, params: P, options?: O) {
   const ownedParams = ownExecutableInput(params);
   const canonicalKey = canonicalizeKey(key(ownedParams));
+
   const base = {
     kind,
     descriptor,
     params: ownedParams,
     key: canonicalKey,
   };
+
   // oxlint-disable-next-line anti-slop/no-object-freeze -- this is the ownership seam that prevents reassignment of owned P/K references before work starts.
   const plan = options === undefined ? Object.freeze(base) : Object.freeze({ ...base, options });
   constructedOperationPlans.add(plan);
+
   return plan;
 }
 
@@ -269,6 +279,7 @@ export const operationPlanForDescriptor = <
 ): OperationPlan<Kind, Id, P, ReadonlyCanonical<K>, PlanOptions<O>> => {
   const plan = operationPlan(kind, id, key, params, options);
   operationPlanDescriptors.set(plan, descriptor);
+
   return plan;
 };
 
@@ -277,5 +288,6 @@ export const executeOperationProgram = <Value, Error, Requirements>(
 ) =>
   Effect.suspend(() => {
     const program = thunk();
+
     return Effect.isEffect(program) ? program : Effect.succeed(program);
   });

@@ -25,11 +25,13 @@ type Expect<Value extends true> = Value;
 
 const resultSuccess = <Value>(result: Result.Result<Value, Diagnostic.PublicDiagnostic>) => {
   if (Result.isFailure(result)) throw result.failure;
+
   return result.success;
 };
 
 const required = <Value>(value: Option.Option<Value>) => {
   if (Option.isNone(value)) throw new Error("expected a compiled graph value");
+
   return value.value;
 };
 
@@ -58,6 +60,7 @@ const EditorResult = definition({
   events: { opened: "bare" },
   operations: { project: projectResource },
 });
+
 const Editor = resultSuccess(EditorResult);
 
 const editorMachine = resultSuccess(
@@ -125,67 +128,89 @@ const sharedDescriptorMachine = resultSuccess(
 );
 
 const EditorModule = module({ id: "app-test/editor-tools", machines: { editor: editorMachine } });
+
 const ViewerModule = module({ id: "app-test/viewer-tools", machines: { viewer: viewerMachine } });
+
 const AppValue = app({
   id: "app-test",
   persistenceVersion: "1",
   modules: [EditorModule, ViewerModule],
 });
+
 const EmptyApp = app({
   id: "app-test/empty",
   persistenceVersion: "1",
   modules: [],
 });
+
 const openModules: AnyModule[] = [EditorModule];
+
 const OpenApp = app({
   id: "app-test/open",
   persistenceVersion: "1",
   modules: openModules,
 });
+
 const AppValuePlan = appPlan(AppValue);
+
 const EmptyAppPlan = appPlan(EmptyApp);
+
 const OpenAppPlan = appPlan(OpenApp);
 
 export type _ModuleRequirements = Expect<
   Types.Equals<RequirementsOf<typeof EditorModule>, ProjectRepo>
 >;
+
 export type _AppRequirements = Expect<Types.Equals<RequirementsOf<typeof AppValue>, ProjectRepo>>;
+
 export type _EditorAdmission = Expect<Types.Equals<typeof AppValue.M.editor, typeof editorMachine>>;
+
 export type _ViewerAdmission = Expect<Types.Equals<typeof AppValue.M.viewer, typeof viewerMachine>>;
+
 export type _MissingAdmission = Expect<
   Types.Equals<Extract<keyof typeof AppValue.M, "missing">, never>
 >;
+
 export type _ProjectDescriptorKind = Expect<
   Types.Equals<typeof AppValue.M.editor.definition.operations.project.kind, "resource">
 >;
+
 export type _ProjectDescriptorId = Expect<
   Types.Equals<typeof AppValue.M.editor.definition.operations.project.id, "app-test/projects">
 >;
+
 export type _PlanDescriptorKind = Expect<
   Types.Equals<(typeof AppValuePlan.descriptors)[number]["kind"], "resource">
 >;
+
 export type _PlanDescriptorId = Expect<
   Types.Equals<(typeof AppValuePlan.descriptors)[number]["id"], "app-test/projects">
 >;
+
 export type _PlanDescriptorRequirements = Expect<
   Types.Equals<RequirementsOf<(typeof AppValuePlan.descriptors)[number]>, ProjectRepo>
 >;
+
 export type _PlanMachine = Expect<
   Types.Equals<(typeof AppValuePlan.machines)[number], typeof editorMachine | typeof viewerMachine>
 >;
+
 export type _PlanResolvedMachine = Expect<
   Types.Equals<
     NonNullable<ReturnType<typeof AppValuePlan.resolveMachine>>,
     typeof editorMachine | typeof viewerMachine
   >
 >;
+
 export type _PlanAdmittedMachine = Expect<
   Types.Equals<
     Parameters<typeof AppValuePlan.admitsMachine>[0],
     typeof editorMachine | typeof viewerMachine
   >
 >;
+
 export type _EmptyPlanMachine = Expect<Types.Equals<(typeof EmptyAppPlan.machines)[number], never>>;
+
 export type _OpenPlanMachine = Expect<Types.Equals<(typeof OpenAppPlan.machines)[number], Machine>>;
 
 const invalidApp = (modules: readonly AnyModule[]) => {
@@ -193,6 +218,7 @@ const invalidApp = (modules: readonly AnyModule[]) => {
 };
 
 const invokeModule = (config: unknown) => Function.prototype.call.call(module, undefined, config);
+
 const invokeApp = (config: unknown) => Function.prototype.call.call(app, undefined, config);
 
 describe("app composition", () => {
@@ -201,6 +227,7 @@ describe("app composition", () => {
     it("preserves exact keyed admission and requirement closure", () => {
       const appValue: App<"app-test", "1", readonly [typeof EditorModule, typeof ViewerModule]> =
         AppValue;
+
       const plan = appPlan(appValue);
 
       assert.strictEqual(appValue.kind, "app");
@@ -221,6 +248,7 @@ describe("app composition", () => {
       assert.strictEqual(plan.resolveMachine(editorMachine.definition.id), editorMachine);
       assert.strictEqual(plan.admitsMachine(editorMachine), true);
       assert.strictEqual(plan.admitsMachine(viewerMachine), true);
+
       for (const candidate of [null, undefined, {}, { definition: null }]) {
         assert.strictEqual(
           Function.prototype.call.call(plan.admitsMachine, undefined, candidate),
@@ -239,6 +267,7 @@ describe("app composition", () => {
         persistenceVersion: "1",
         modules: [EditorModule, ViewerModule],
       });
+
       const plan = appPlan(appValue);
 
       assert.deepStrictEqual(plan.machines, [editorMachine, viewerMachine]);
@@ -257,24 +286,29 @@ describe("app composition", () => {
         key: (projectId: string) => [projectId] as const,
         commit: (projectId: string) => Effect.succeed(projectId),
       });
+
       const updates = stream({
         id: "app-test/updates",
         key: (projectId: string) => [projectId] as const,
         subscribe: (projectId: string) => Stream.make(projectId),
       });
+
       const definitionResult = definition({
         id: "app-test/operation-families",
         states: ["ready"],
         events: {},
         operations: { project: projectResource, save, updates },
       });
+
       const definitionValue = resultSuccess(definitionResult);
+
       const machineValue = resultSuccess(
         machine(definitionResult, ({ S }) => ({
           default: S.ready,
           states: { ready: {} },
         })),
       );
+
       const appValue = app({
         id: "app-test/operation-families-app",
         persistenceVersion: "1",
@@ -282,11 +316,13 @@ describe("app composition", () => {
           module({ id: "app-test/operation-families-module", machines: { editor: machineValue } }),
         ],
       });
+
       const plan = appPlan(appValue);
       const descriptors = plan.descriptors;
 
       assert.strictEqual(appValue.M.editor.definition, definitionValue);
       assert.deepStrictEqual(descriptors, [projectResource, save, updates]);
+
       for (const descriptor of descriptors) {
         assert.strictEqual(plan.resolveDescriptor(descriptor.id), descriptor);
         assert.strictEqual(Reflect.set(descriptor, "kind", "resource"), false);
@@ -302,21 +338,28 @@ describe("app composition", () => {
         id: "app-test/flapping-module-config",
         machines: { editor: editorMachine },
       };
+
       let moduleIdReads = 0;
       let moduleMachinesReads = 0;
+
       const flappingModuleConfig = new Proxy(moduleConfig, {
         get(target, property) {
           if (property === "id") {
             moduleIdReads += 1;
+
             return moduleIdReads === 1 ? target.id : "";
           }
+
           if (property === "machines") {
             moduleMachinesReads += 1;
+
             return moduleMachinesReads === 1 ? target.machines : {};
           }
+
           throw new Error(`Unexpected module configuration property: ${String(property)}`);
         },
       });
+
       const capturedModule = module(flappingModuleConfig);
 
       assert.strictEqual(moduleIdReads, 0);
@@ -329,26 +372,35 @@ describe("app composition", () => {
         persistenceVersion: "1",
         modules: [capturedModule],
       };
+
       let appIdReads = 0;
       let persistenceVersionReads = 0;
       let appModulesReads = 0;
+
       const flappingAppConfig = new Proxy(appConfig, {
         get(target, property) {
           if (property === "id") {
             appIdReads += 1;
+
             return appIdReads === 1 ? target.id : "";
           }
+
           if (property === "persistenceVersion") {
             persistenceVersionReads += 1;
+
             return persistenceVersionReads === 1 ? target.persistenceVersion : "";
           }
+
           if (property === "modules") {
             appModulesReads += 1;
+
             return appModulesReads === 1 ? target.modules : [];
           }
+
           throw new Error(`Unexpected app configuration property: ${String(property)}`);
         },
       });
+
       const capturedApp = app(flappingAppConfig);
 
       assert.strictEqual(appIdReads, 0);
@@ -366,6 +418,7 @@ describe("app composition", () => {
             return function* () {
               yield ViewerModule;
             };
+
           throw new Error(`Unexpected module array property: ${String(property)}`);
         },
       });
@@ -409,12 +462,14 @@ describe("app composition", () => {
         value: viewerMachine,
         writable: true,
       });
+
       try {
         const capturedApp = app({
           id: "app-test/module-snapshot",
           persistenceVersion: "1",
           modules: [EditorModule],
         });
+
         const plan = appPlan(capturedApp);
 
         assert.deepStrictEqual(plan.machines, [editorMachine]);
@@ -437,24 +492,28 @@ describe("app composition", () => {
         lookup: (projectId: string): Effect.Effect<string, "missing", ProjectRepo> =>
           Effect.succeed(projectId),
       });
+
       Object.defineProperty(editorMachine.definition.operations, "added", {
         configurable: true,
         enumerable: true,
         value: addedDescriptor,
         writable: true,
       });
+
       try {
         const capturedApp = app({
           id: "app-test/current-definition",
           persistenceVersion: "1",
           modules: [EditorModule],
         });
+
         const plan = appPlan(capturedApp);
 
         const descriptors: readonly (typeof projectResource | typeof addedDescriptor)[] = [
           projectResource,
           addedDescriptor,
         ];
+
         assert.deepStrictEqual(plan.descriptors, descriptors);
         assert.strictEqual(plan.resolveDescriptor(projectResource.id), projectResource);
         assert.strictEqual(
@@ -476,13 +535,17 @@ describe("app composition", () => {
         id: "app-test/flapping-module-keys",
         machines: { editor: editorMachine },
       };
+
       let moduleKeyReads = 0;
+
       const flappingModuleConfig = new Proxy(moduleConfig, {
         ownKeys: (target) => {
           moduleKeyReads += 1;
+
           return moduleKeyReads === 1 ? Reflect.ownKeys(target) : ["id", "extra"];
         },
       });
+
       assert.throws(() => module(flappingModuleConfig));
       assert.strictEqual(moduleKeyReads, 2);
 
@@ -491,15 +554,19 @@ describe("app composition", () => {
         persistenceVersion: "1",
         modules: [EditorModule],
       };
+
       let appKeyReads = 0;
+
       const flappingAppConfig = new Proxy(appConfig, {
         ownKeys: (target) => {
           appKeyReads += 1;
+
           return appKeyReads === 1
             ? Reflect.ownKeys(target)
             : ["id", "persistenceVersion", "extra"];
         },
       });
+
       assert.throws(() => app(flappingAppConfig));
       assert.strictEqual(appKeyReads, 2);
     });
@@ -536,6 +603,7 @@ describe("app composition", () => {
         persistenceVersion: "1",
         modules: [EditorModule],
       };
+
       const capturedApp = app(validConfig);
       assert.strictEqual(capturedApp.modules[0], EditorModule);
 
@@ -616,6 +684,7 @@ describe("app composition", () => {
         Object.setPrototypeOf([EditorModule], Object.create(Array.prototype)),
         Object.defineProperty([EditorModule], "0", { enumerable: false, value: EditorModule }),
       ];
+
       for (const modules of malformedArrays)
         assert.throws(
           () =>
@@ -626,6 +695,7 @@ describe("app composition", () => {
       const reflectedExtraKey = new Proxy([EditorModule], {
         ownKeys: () => ["extra", "length"],
       });
+
       assert.throws(
         () =>
           invokeApp({
@@ -641,6 +711,7 @@ describe("app composition", () => {
         persistenceVersion: "1",
         modules: [EditorModule],
       });
+
       assert.strictEqual(denseApp.modules[0], EditorModule);
     });
 
@@ -648,11 +719,13 @@ describe("app composition", () => {
       let idReads = 0;
       let persistenceVersionReads = 0;
       let modulesReads = 0;
+
       const config = {
         id: "app-test/accessor-app",
         persistenceVersion: "1",
         modules: [EditorModule],
       };
+
       Object.defineProperty(config, "id", {
         configurable: true,
         enumerable: true,
@@ -723,6 +796,7 @@ describe("app composition", () => {
 
     it("isolates authored machine records from the published module record", () => {
       const authoredMachines = { editor: editorMachine };
+
       const capturedModule = module({
         id: "app-test/authored-machine-copy",
         machines: authoredMachines,
@@ -737,6 +811,7 @@ describe("app composition", () => {
         machines: { editor: editorMachine },
         id: "app-test/reordered-module",
       });
+
       assert.strictEqual(reorderedModule.machines.editor, editorMachine);
 
       const reorderedApp = app({
@@ -744,6 +819,7 @@ describe("app composition", () => {
         persistenceVersion: "1",
         id: "app-test/reordered-app",
       });
+
       assert.strictEqual(reorderedApp.M.editor, editorMachine);
     });
   });
@@ -752,26 +828,31 @@ describe("app composition", () => {
     // Rationale: plan construction stores no actor or callback execution and remains closed.
     it("compiles inert closed plans without creating actors or walking callbacks", () => {
       let initializerCalls = 0;
+
       const InertDefinitionResult = definition({
         id: "app-test/inert",
         states: ["ready"],
         events: {},
         memory: () => {
           initializerCalls += 1;
+
           return { ready: true };
         },
       });
+
       const InertMachine = resultSuccess(
         machine(InertDefinitionResult, ({ S }) => ({
           default: S.ready,
           states: { ready: {} },
         })),
       );
+
       const InertApp = app({
         id: "app-test/inert-app",
         persistenceVersion: "1",
         modules: [module({ id: "app-test/inert-module", machines: { inert: InertMachine } })],
       });
+
       const plan = appPlan(InertApp);
 
       assert.strictEqual(initializerCalls, 0);
@@ -788,6 +869,7 @@ describe("app composition", () => {
         operations: { activity: projectResource },
         memory: () => ({ count: 0 }),
       });
+
       const ActivityDefinition = resultSuccess(ActivityDefinitionResult);
       const guard = Object.assign(() => true, { mutable: true });
       const updateMemory = Object.assign(() => ({ count: 1 }), { mutable: true });
@@ -795,8 +877,10 @@ describe("app composition", () => {
       const redirectWhen = Object.assign(() => true, { mutable: true });
       const timerGuard = Object.assign(() => true, { mutable: true });
       const timerUpdateMemory = Object.assign(() => ({ count: 1 }), { mutable: true });
+
       const contextSelector = (input: MachineSelectorInput<typeof ActivityDefinition>) =>
         input.state;
+
       const contextHandler = Object.assign(
         (
           _current: StateOf<typeof ActivityDefinition>,
@@ -804,21 +888,26 @@ describe("app composition", () => {
         ) => null,
         { mutable: true },
       );
+
       const memoryHandler = Object.assign(
         (_input: { readonly memory: { readonly count: number } }) => null,
         { mutable: true },
       );
+
       const memorySelector = (input: MachineSelectorInput<typeof ActivityDefinition>) =>
         input.memory.count;
+
       const memorySelectionHandler = Object.assign(
         (_current: number, _previous: number | undefined) => null,
         { mutable: true },
       );
+
       const ActivityMachine = resultSuccess(
         machine(ActivityDefinitionResult, ({ S, E, onContext, onMemory }) => {
           onContext.select(contextSelector, contextHandler);
           onMemory(memoryHandler);
           onMemory.select(memorySelector, memorySelectionHandler);
+
           return {
             default: S.idle,
             on: { tick: { target: S.idle, guard, updateMemory, actions } },
@@ -842,6 +931,7 @@ describe("app composition", () => {
           };
         }),
       );
+
       const ActivityApp = app({
         id: "app-test/activity-service-app",
         persistenceVersion: "1",
@@ -857,6 +947,7 @@ describe("app composition", () => {
       assert.strictEqual(Object.isFrozen(AppValue.M.editor.definition), false);
       assert.strictEqual(Object.isFrozen(AppValue.M.editor.definition.S), false);
       assert.strictEqual(Object.isFrozen(AppValue.M.editor.definition.S.ready), false);
+
       const assertActivityGraph = () => {
         const compiled = ActivityApp.M.activity.compiled;
         const root = required(Option.fromUndefinedOr(compiled.states[""]));
@@ -866,11 +957,13 @@ describe("app composition", () => {
         const redirect = required(Option.fromUndefinedOr(root.redirects[0]));
         const timer = required(Option.fromUndefinedOr(active.timers.refresh));
         const contextRegistration = required(Option.fromUndefinedOr(compiled.context[0]));
+
         const memoryHandlerRegistration = required(
           Option.fromUndefinedOr(
             compiled.memory.find((registration) => registration.kind === "handler"),
           ),
         );
+
         const memorySelectionRegistration = required(
           Option.fromUndefinedOr(
             compiled.memory.find((registration) => registration.kind === "selection"),
@@ -888,6 +981,7 @@ describe("app composition", () => {
           contextRegistration.use((selector, handler) => {
             assert.strictEqual(Object.is(selector, contextSelector), true);
             assert.strictEqual(Object.is(handler, contextHandler), true);
+
             return true;
           }),
           true,
@@ -897,6 +991,7 @@ describe("app composition", () => {
           memorySelectionRegistration.use((selector, handler) => {
             assert.strictEqual(Object.is(selector, memorySelector), true);
             assert.strictEqual(Object.is(handler, memorySelectionHandler), true);
+
             return true;
           }),
           true,
@@ -917,6 +1012,7 @@ describe("app composition", () => {
         guard.mutable = false;
         assert.strictEqual(guard.mutable, false);
       };
+
       assertActivityGraph();
     });
 
@@ -985,12 +1081,15 @@ describe("app composition", () => {
 
       const flappingSource = { editor: editorMachine };
       let keyReads = 0;
+
       const flappingMachines = new Proxy(flappingSource, {
         ownKeys: (target) => {
           keyReads += 1;
+
           return keyReads === 1 ? Reflect.ownKeys(target) : [];
         },
       });
+
       assert.throws(() => module({ id: "app-test/flapping-machines", machines: flappingMachines }));
       assert.strictEqual(keyReads, 2);
 
@@ -1016,6 +1115,7 @@ describe("app composition", () => {
           },
         },
       };
+
       assert.throws(() =>
         app({
           id: "app-test/copied-nested-module-app",

@@ -179,9 +179,13 @@ export type PreparedRestoreTransition<CleanupError> = LifecycleTransition<Cleanu
 type LifecycleStateKey = { readonly lifecycle: ActorLifecycle };
 
 const scopes = new WeakMap<LifecycleStateKey, Scope.Closeable>();
+
 const latestStates = new WeakMap<LifecycleStateKey, LifecycleStateKey>();
+
 const closedScopes = new WeakSet<Scope.Closeable>();
+
 const cleanupCauses = new WeakMap<LifecycleStateKey, Cause.Cause<unknown>>();
+
 const publicationRevisions = new WeakMap<LifecycleStateKey, number>();
 
 const copyFence = (fence: ActorFence) => immutableRecord({ ...fence });
@@ -263,10 +267,14 @@ const blockedByDependents = (
 // RETURN_TYPE: Public cleanup classification deliberately projects full Cause into a Diagnostic.
 const cleanupDiagnostic = (cause: Cause.Cause<unknown>): PublicDiagnostic => {
   const defect = cause.reasons.find(Cause.isDieReason);
+
   if (defect !== undefined) return Defect(defect.defect);
   const failure = cause.reasons.find(Cause.isFailReason);
+
   if (failure !== undefined && failure.error instanceof Diagnostic) return failure.error;
+
   if (Cause.hasInterruptsOnly(cause)) return Interrupt();
+
   return Failure({
     code: "CleanupFailed",
     path: ["lifecycle", "cleanup"],
@@ -284,7 +292,9 @@ const combineCauses = <Error>(
   next: Cause.Cause<Error> | undefined,
 ) => {
   if (current === undefined) return next;
+
   if (next === undefined) return current;
+
   return Cause.combine(current, next);
 };
 
@@ -292,13 +302,16 @@ const makeTerminalEffect = <Value, Error, Requirements>(
   operation: Effect.Effect<Value, Error, Requirements>,
 ) => {
   let completion: Deferred.Deferred<Exit.Exit<Value, Error>> | undefined;
+
   const resolve = (exit: Exit.Exit<Value, Error>) =>
     Exit.isSuccess(exit) ? Effect.succeed(exit.value) : Effect.failCause(exit.cause);
+
   return () => {
     if (completion !== undefined)
       return Deferred.await(completion).pipe(Effect.flatMap((exit) => resolve(exit)));
     const cell = Deferred.makeUnsafe<Exit.Exit<Value, Error>>();
     completion = cell;
+
     return Effect.uninterruptible(
       Effect.exit(operation).pipe(
         Effect.flatMap((exit) => Deferred.succeed(cell, exit).pipe(Effect.as(exit))),
@@ -319,6 +332,7 @@ const rememberState = <
   latestStates.set(input, next);
   latestStates.set(next, next);
   const scope = scopes.get(input);
+
   if (scope !== undefined) scopes.set(next, scope);
 };
 
@@ -330,7 +344,9 @@ const currentState = <
   state: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
 ) => {
   const retained = latestStates.get(state);
+
   if (retained === undefined) return state;
+
   // SAFETY: latestStates is written only by rememberState with the same generic snapshot key.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- WeakMap erases the private generic boundary.
   return retained as LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>;
@@ -358,6 +374,7 @@ const copyBinding = <
   binding: Readonly<ActorContextBinding<ConsumerDefinition, ProviderDefinition, Slot, ProviderRef>>,
 ): Readonly<ActorContextBinding<ConsumerDefinition, ProviderDefinition, Slot, ProviderRef>> => {
   const copied = immutableRecord({ ...binding, providerFence: copyFence(binding.providerFence) });
+
   // SAFETY: copied retains every binding field and replaces only its mutable fence with an immutable copy.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- conditional binding types cannot express this structural copy.
   return copied as Readonly<
@@ -389,17 +406,20 @@ const copyAttachment = <
     ),
     timers: immutableArray(attachment.timers.map((timer) => immutableRecord({ ...timer }))),
   };
+
   if (attachment.providerFences !== undefined) {
     copied.providerFences = readonlyMap(
       [...attachment.providerFences].map(([key, fence]) => [key, copyFence(fence)] as const),
     );
   }
+
   if (attachment.blockedDisposal !== undefined) {
     copied.blockedDisposal = immutableRecord({
       dependentActors: immutableArray(attachment.blockedDisposal.dependentActors),
       bindingKeys: immutableArray(attachment.blockedDisposal.bindingKeys),
     });
   }
+
   return immutableRecord(copied);
 };
 
@@ -424,9 +444,12 @@ const copySnapshot = <
     attachment,
     finalization,
   });
+
   rememberState(state, next);
   publicationRevisions.set(next, (publicationRevisions.get(state) ?? 0) + 1);
+
   if (cleanupCause !== undefined) cleanupCauses.set(next, cleanupCause);
+
   return next;
 };
 
@@ -438,9 +461,11 @@ const transitionTarget = <CleanupError>(
   switch (command._tag) {
     case "actor:restore":
       if (state !== "prepared") return undefined;
+
       return command.cause._tag === "restore" ? "prepared" : undefined;
     case "actor:start":
       if (state !== "prepared") return undefined;
+
       return command.cause._tag === "fresh" || command.cause._tag === "attachment"
         ? "active"
         : undefined;
@@ -450,6 +475,7 @@ const transitionTarget = <CleanupError>(
       return state === "suspended" ? "active" : undefined;
     case "actor:dispose":
       if (state === "disposed") return undefined;
+
       return command.cause._tag === "owner-disposal" || command.cause._tag === "runtime-disposal"
         ? "disposed"
         : undefined;
@@ -463,7 +489,9 @@ export const transitionLifecycle = <CleanupError>(
   command: LifecycleCommand<CleanupError>,
 ): Result.Result<LifecycleTransition<CleanupError>, PublicDiagnostic> => {
   const to = transitionTarget(state, command);
+
   if (to === undefined) return Result.fail(transitionFailure(state, command));
+
   return Result.succeed({ from: state, to, command, cause: command.cause });
 };
 
@@ -481,8 +509,10 @@ export const prepareLifecycle = <
   PublicDiagnostic
 > => {
   if (!validFence(fence)) return Result.fail(invalidSnapshot("fence"));
+
   if (cause._tag !== "fresh" && cause._tag !== "restore")
     return Result.fail(invalidSnapshot("prepare-cause"));
+
   const snapshot = immutableRecord({
     lifecycle: "prepared" as const,
     fence: copyFence(fence),
@@ -499,9 +529,11 @@ export const prepareLifecycle = <
     }),
     finalization: "not-started" as const,
   });
+
   scopes.set(snapshot, Scope.makeUnsafe("sequential"));
   latestStates.set(snapshot, snapshot);
   publicationRevisions.set(snapshot, 0);
+
   return Result.succeed(snapshot);
 };
 
@@ -518,8 +550,10 @@ export const installLifecycleMetadata = <
   PublicDiagnostic
 > => {
   const state = currentState(input);
+
   if (state.lifecycle !== "prepared" && state.lifecycle !== "active")
     return Result.fail(invalidSnapshot("attachment-install-state"));
+
   const attachment = copyAttachment({
     ...state.attachment,
     dependencies: metadata.dependencies,
@@ -527,26 +561,33 @@ export const installLifecycleMetadata = <
     providerRevisions: metadata.providerRevisions,
     providerFences: metadata.providerFences,
   });
+
   const next = immutableRecord({
     lifecycle: state.lifecycle,
     fence: copyFence(state.fence),
     attachment,
     finalization: state.finalization,
   });
+
   rememberState(state, next);
   publicationRevisions.set(next, publicationRevisions.get(state) ?? 0);
   const cleanupCause = cleanupCauses.get(state);
+
   if (cleanupCause !== undefined) cleanupCauses.set(next, cleanupCause);
+
   return Result.succeed(next);
 };
 
 // RETURN_TYPE: Scope closure retains the lifecycle cleanup error channel for Cause classification.
 const closeScope = <CleanupError>(state: LifecycleStateKey): Effect.Effect<void, CleanupError> => {
   const scope = scopes.get(state);
+
   if (scope === undefined || closedScopes.has(scope)) return Effect.succeed(undefined);
+
   return Effect.gen(function* () {
     const result = yield* Effect.exit(Scope.close(scope, Exit.void));
     closedScopes.add(scope);
+
     if (Exit.isFailure(result)) {
       // SAFETY: Scope finalizer failures are projected into this lifecycle's cleanup channel.
       // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- Scope has no generic cleanup error parameter.
@@ -563,15 +604,19 @@ const retainedCleanupCause = <
   state: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
 ) => {
   const retained = cleanupCauses.get(state);
+
   if (retained !== undefined) {
     // SAFETY: the cause is stored by copySnapshot for this exact snapshot and cleanup error.
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- WeakMap erases the private generic boundary.
     return retained as Cause.Cause<CleanupError>;
   }
+
   let cause: Cause.Cause<CleanupError> | undefined;
+
   for (const item of [...state.attachment.work, ...state.attachment.resources]) {
     if (Option.isSome(item.cause)) cause = addCause(cause, item.cause.value);
   }
+
   return cause;
 };
 
@@ -589,10 +634,12 @@ export const activateLifecycle = <
   RuntimeServiceContext
 > => {
   const state = currentState(input);
+
   if (state.lifecycle !== "prepared")
     return Effect.fail(
       transitionFailure(state.lifecycle, { _tag: "actor:start", cause: { _tag: "attachment" } }),
     );
+
   if (
     state.attachment.status !== "detached" ||
     state.attachment.resources.some((resource) => resource.finalization === "running") ||
@@ -600,6 +647,7 @@ export const activateLifecycle = <
   )
     return Effect.fail(invalidSnapshot("prepared-live-attachment"));
   const attachment = copyAttachment(state.attachment, "attached");
+
   return Effect.succeed(copySnapshot(state, "active", attachment, "not-started"));
 };
 
@@ -616,18 +664,22 @@ const cleanupWorkItem = <CleanupError>(item: LifecycleWork<CleanupError>) =>
   Effect.gen(function* () {
     let itemCause: Cause.Cause<CleanupError> | undefined;
     const cancelled = yield* Effect.exit(item.cancel);
+
     if (Exit.isFailure(cancelled)) itemCause = addCause(itemCause, cancelled.cause);
 
     const completed = yield* Effect.exit(Fiber.await(item.fiber));
     let completion: Exit.Exit<void, CleanupError>;
+
     if (Exit.isSuccess(completed)) completion = completed.value;
     else {
       // SAFETY: Fiber.await has no typed failure channel; only its Exit is observed here.
       // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- normalize an impossible outer interruption.
       completion = Exit.failCause(completed.cause);
     }
+
     if (item.completion !== undefined)
       yield* Deferred.succeed(item.completion, completion).pipe(Effect.asVoid);
+
     if (
       Exit.isFailure(completion) &&
       !(Exit.isSuccess(cancelled) && Cause.hasInterruptsOnly(completion.cause))
@@ -635,7 +687,9 @@ const cleanupWorkItem = <CleanupError>(item: LifecycleWork<CleanupError>) =>
       itemCause = addCause(itemCause, completion.cause);
 
     const finalized = yield* Effect.exit(item.finalizer);
+
     if (Exit.isFailure(finalized)) itemCause = addCause(itemCause, finalized.cause);
+
     return {
       item: copyWork(
         item,
@@ -650,14 +704,19 @@ const cleanupWork = <CleanupError>(items: readonly LifecycleWork<CleanupError>[]
   Effect.gen(function* () {
     let cleanupCause: Cause.Cause<CleanupError> | undefined;
     const work = items.map((item) => copyWork(item));
+
     for (let index = work.length - 1; index >= 0; index -= 1) {
       const item = work[index];
+
       if (item === undefined) continue;
+
       if (item.finalization !== "pending" && item.finalization !== "failed") continue;
       const cleaned = yield* cleanupWorkItem(item);
+
       if (cleaned.cause !== undefined) cleanupCause = addCause(cleanupCause, cleaned.cause);
       work[index] = cleaned.item;
     }
+
     return { work: immutableArray(work), cause: cleanupCause };
   });
 
@@ -665,13 +724,16 @@ const cleanupResource = <CleanupError>(resource: LifecycleResource<CleanupError>
   Effect.gen(function* () {
     let resourceCause: Cause.Cause<CleanupError> | undefined;
     const closed = yield* Effect.exit(resource.close(Exit.void));
+
     if (Exit.isFailure(closed)) resourceCause = addCause(resourceCause, closed.cause);
     const scopeClosed = yield* Effect.exit(Scope.close(resource.scope, Exit.void));
+
     if (Exit.isFailure(scopeClosed)) {
       // SAFETY: Scope.close has no typed failure channel; its defects are retained in Cause.
       // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- preserve scope cleanup Cause with the resource error type.
       resourceCause = addCause(resourceCause, scopeClosed.cause as Cause.Cause<CleanupError>);
     }
+
     return {
       resource: copyResource(
         resource,
@@ -686,14 +748,19 @@ const cleanupResources = <CleanupError>(items: readonly LifecycleResource<Cleanu
   Effect.gen(function* () {
     let cleanupCause: Cause.Cause<CleanupError> | undefined;
     const resources = items.map((resource) => copyResource(resource));
+
     for (let index = resources.length - 1; index >= 0; index -= 1) {
       const resource = resources[index];
+
       if (resource === undefined) continue;
+
       if (resource.finalization !== "pending" && resource.finalization !== "failed") continue;
       const cleaned = yield* cleanupResource(resource);
+
       if (cleaned.cause !== undefined) cleanupCause = addCause(cleanupCause, cleaned.cause);
       resources[index] = cleaned.resource;
     }
+
     return { resources: immutableArray(resources), cause: cleanupCause };
   });
 
@@ -709,6 +776,7 @@ const cleanupAttachment = <
     Effect.gen(function* () {
       const work = yield* cleanupWork(attachment.work);
       const resources = yield* cleanupResources(attachment.resources);
+
       return {
         attachment: immutableRecord({
           ...copyAttachment(attachment, "detached"),
@@ -752,6 +820,7 @@ const reacquireAttachment = <
 ): Effect.Effect<ReacquiredAttachment<CleanupError>, PublicDiagnostic, RuntimeServiceContext> =>
   Effect.gen(function* () {
     const scope = scopes.get(state) ?? Scope.makeUnsafe("sequential");
+
     if (!scopes.has(state)) scopes.set(state, scope);
     const resources: LifecycleResource<CleanupError>[] = [];
     const work: LifecycleWork<CleanupError>[] = [];
@@ -763,8 +832,10 @@ const reacquireAttachment = <
         const rolledBack = yield* Effect.exit(
           rollbackReacquired(state, acquiredResources, acquiredWork),
         );
+
         if (Exit.isFailure(rolledBack))
           return yield* Effect.fail(cleanupDiagnostic(Cause.combine(cause, rolledBack.cause)));
+
         return yield* Effect.fail(cleanupDiagnostic(cause));
       });
 
@@ -773,7 +844,9 @@ const reacquireAttachment = <
         resources.push(copyResource(retained));
         continue;
       }
+
       const acquired = yield* Effect.exit(Scope.provide(scope)(retained.reacquire()));
+
       if (Exit.isFailure(acquired)) return yield* failAfterRollback(acquired.cause);
       const resource = copyResource(acquired.value, "pending", Option.none());
       resources.push(resource);
@@ -785,7 +858,9 @@ const reacquireAttachment = <
         work.push(copyWork(retained));
         continue;
       }
+
       const acquired = yield* Effect.exit(Scope.provide(scope)(retained.reacquire()));
+
       if (Exit.isFailure(acquired)) return yield* failAfterRollback(acquired.cause);
       const item = copyWork(acquired.value, "pending", Option.none());
       work.push(item);
@@ -811,12 +886,16 @@ const validateProviders = <
   for (const binding of attachment.bindings) {
     const key = binding.providerFence.key;
     const current = attachment.providerFences?.get(key);
+
     if (current === undefined) return Result.fail(missingProvider(key));
+
     if (!sameFence(current, binding.providerFence)) return Result.fail(staleProvider(key));
     const revision = attachment.providerRevisions.get(key);
+
     if (revision === undefined || !Number.isSafeInteger(revision) || revision < 0)
       return Result.fail(missingProvider(key));
   }
+
   return Result.succeed(undefined);
 };
 
@@ -834,10 +913,12 @@ export const suspendLifecycle = <
   RuntimeServiceContext
 > => {
   const state = currentState(input);
+
   if (state.lifecycle !== "active")
     return Effect.fail(
       transitionFailure(state.lifecycle, { _tag: "actor:suspend", cause: { _tag: "attachment" } }),
     );
+
   return cleanupAttachment(state.attachment).pipe(
     Effect.flatMap((cleaned) => {
       const next = copySnapshot(
@@ -847,7 +928,9 @@ export const suspendLifecycle = <
         cleaned.cause === undefined ? "done" : "failed",
         cleaned.cause,
       );
+
       if (cleaned.cause !== undefined) return Effect.fail(cleanupDiagnostic(cleaned.cause));
+
       return Effect.succeed(next);
     }),
   );
@@ -866,34 +949,46 @@ const scheduleRetainedTimers = <
     const scheduler = yield* Effect.service(RuntimeScheduler);
     const now = yield* clock.now;
     const scope = scopes.get(state) ?? Scope.makeUnsafe("sequential");
+
     if (!scopes.has(state)) scopes.set(state, scope);
     const running: RuntimeRunningFiber<void, CleanupError>[] = [];
     const timerWork: LifecycleWork<CleanupError>[] = [];
     const scheduled = new Set<string>();
     let overdueRefreshScheduled = false;
+
     for (const timer of state.attachment.timers) {
       if (timer.status !== "armed") continue;
+
       if (timer.generation !== undefined && timer.generation !== state.fence.generation) continue;
       const timerKey = `${timer.name}\u0000${timer.startedAt}\u0000${timer.dueAt}\u0000${timer.generation ?? state.fence.generation}`;
+
       if (scheduled.has(timerKey)) continue;
       const overdue = now >= timer.dueAt;
+
       if (overdue && overdueRefreshScheduled) continue;
       scheduled.add(timerKey);
+
       if (overdue) overdueRefreshScheduled = true;
       const completion = Deferred.makeUnsafe<Exit.Exit<void, CleanupError>>();
+
       const work = Effect.gen(function* () {
         yield* clock.sleepUntil(timer.dueAt);
+
         if (overdue && timer.refresh !== undefined) yield* timer.refresh;
       });
+
       const started = yield* Effect.exit(
         Scope.provide(scope)(scheduler.start({ completion, work })),
       );
+
       if (Exit.isFailure(started)) {
         yield* Effect.uninterruptible(
           Effect.forEach(running, (item) => item.interrupt, { discard: true, concurrency: 1 }),
         );
+
         return yield* Effect.fail(cleanupDiagnostic(started.cause));
       }
+
       running.push(started.value);
       timerWork.push(
         immutableRecord({
@@ -908,6 +1003,7 @@ const scheduleRetainedTimers = <
         }),
       );
     }
+
     return immutableArray(timerWork);
   });
 
@@ -925,10 +1021,12 @@ export const resumeLifecycle = <
   RuntimeServiceContext
 > => {
   const state = currentState(input);
+
   if (state.lifecycle !== "suspended")
     return Effect.fail(
       transitionFailure(state.lifecycle, { _tag: "actor:resume", cause: { _tag: "attachment" } }),
     );
+
   if (state.finalization === "failed")
     return Effect.fail(
       Failure({
@@ -940,7 +1038,9 @@ export const resumeLifecycle = <
       }),
     );
   const providers = validateProviders(state.attachment);
+
   if (Result.isFailure(providers)) return Effect.fail(providers.failure);
+
   return reacquireAttachment(state).pipe(
     Effect.flatMap((reacquired) =>
       scheduleRetainedTimers(state).pipe(
@@ -984,13 +1084,17 @@ export const disposeLifecycle = <
   RuntimeServiceContext
 > => {
   const state = currentState(input);
+
   if (state.lifecycle === "disposed") return Effect.succeed(state);
   const blocked = state.attachment.blockedDisposal;
+
   const incoming = state.attachment.dependencies.filter(
     (edge) => edge.provider === state.fence.key,
   );
+
   if (blocked !== undefined && blocked.dependentActors.length > 0)
     return Effect.fail(blockedByDependents(blocked.dependentActors, blocked.bindingKeys));
+
   if (incoming.length > 0)
     return Effect.fail(
       blockedByDependents(
@@ -999,11 +1103,13 @@ export const disposeLifecycle = <
       ),
     );
   const cleanup = cleanupAttachment(state.attachment);
+
   return cleanup.pipe(
     Effect.flatMap((cleaned) =>
       closeScope(state).pipe(
         Effect.flatMap(() => {
           const failed = cleaned.cause !== undefined;
+
           const next = copySnapshot(
             state,
             failed ? state.lifecycle : "disposed",
@@ -1011,6 +1117,7 @@ export const disposeLifecycle = <
             failed ? "failed" : "done",
             cleaned.cause,
           );
+
           return failed ? Effect.fail(cleanupDiagnostic(cleaned.cause)) : Effect.succeed(next);
         }),
         Effect.catchCause((cause) => {
@@ -1018,6 +1125,7 @@ export const disposeLifecycle = <
           // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- Effect.catchCause widens the retained Cause.
           const retained = addCause(cleaned.cause, cause as Cause.Cause<CleanupError>);
           copySnapshot(state, state.lifecycle, cleaned.attachment, "failed", retained);
+
           return Effect.fail(cleanupDiagnostic(retained));
         }),
       ),
@@ -1075,18 +1183,23 @@ export const runLifecycleCommand = <
 > => {
   const state = currentState(input);
   const transition = transitionLifecycle(state.lifecycle, command);
+
   if (Result.isFailure(transition)) {
     if (state.lifecycle === "disposed" && command._tag === "actor:dispose")
       return Effect.succeed(state);
+
     return Effect.fail(transition.failure);
   }
+
   const transitionEffect = lifecycleCommandEffect(state, command);
 
   return Effect.exit(transitionEffect).pipe(
     Effect.flatMap((exit) => {
       const after = currentState(state);
+
       if (after === state) return resolveLifecycleExit(exit);
       const cleanupCause = retainedCleanupCause(after);
+
       const cause: LifecycleCause<CleanupError> =
         after.finalization === "failed" && cleanupCause !== undefined
           ? {
@@ -1095,12 +1208,15 @@ export const runLifecycleCommand = <
               cause: cleanupCause,
             }
           : command.cause;
+
       let evidenceSequence: number | undefined;
       let evidenceService: RuntimeEvidenceService | undefined;
+
       return Effect.gen(function* () {
         const clock = yield* Effect.service(RuntimeClock);
         const service = yield* Effect.service(RuntimeEvidence);
         evidenceService = service;
+
         const fact: Omit<
           RuntimeLifecycleEvidence<DefinitionValue, CleanupError, ProviderDefinition>,
           "evidenceSequence"
@@ -1124,20 +1240,26 @@ export const runLifecycleCommand = <
             },
           },
         };
+
         const prepared = prepareLifecycleEvidence(service, fact);
+
         if (Result.isFailure(prepared)) return yield* Effect.fail(prepared.failure);
         evidenceSequence = prepared.success.evidenceSequence;
         yield* service.publish(after);
         yield* service.accept(prepared.success);
+
         return exit;
       }).pipe(
         Effect.exit,
         Effect.flatMap((evidenceExit) => {
           if (evidenceSequence !== undefined && evidenceService !== undefined) {
             const cancelled = cancelRuntimeEvidence(evidenceService, evidenceSequence);
+
             if (Result.isFailure(cancelled)) return Effect.fail(cancelled.failure);
           }
+
           if (Exit.isFailure(evidenceExit)) return Effect.failCause(evidenceExit.cause);
+
           return resolveLifecycleExit(evidenceExit.value);
         }),
       );
@@ -1230,24 +1352,30 @@ export const makeProviderReconciler = <Value>(
       return Effect.succeed({ changed: false, revision, value });
 
     pending = Option.some(value);
+
     if (running !== undefined) return running();
 
     const operation = Effect.gen(function* () {
       let changed = false;
       let last = value;
+
       while (Option.isSome(pending)) {
         const next = pending.value;
         pending = Option.none();
         last = next;
+
         if (Option.isSome(current) && equals(current.value, next)) continue;
         yield* options.reconcile(next);
         current = Option.some(next);
         revision += 1;
         changed = true;
       }
+
       return { changed, revision, value: last } satisfies ProviderReconciliation<Value>;
     }).pipe(Effect.ensuring(Effect.sync(() => (running = undefined))));
+
     running = makeTerminalEffect(operation);
+
     return running();
   };
 
@@ -1286,6 +1414,7 @@ export const makeLifecycleController = <
   initial: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
 ): LifecycleController<DefinitionValue, CleanupError, ProviderDefinition> => {
   const state = SynchronizedRef.makeUnsafe(initial);
+
   return {
     state: () => SynchronizedRef.get(state),
     command: (command) =>

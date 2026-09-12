@@ -149,6 +149,7 @@ export const makeRuntimeClock = (): RuntimeClockService => ({
   sleepUntil: (dueAt) =>
     Effect.gen(function* () {
       const remaining = dueAt - (yield* Effect.sync(() => Date.now()));
+
       if (remaining > 0) yield* Effect.sleep(remaining);
     }),
 });
@@ -164,15 +165,19 @@ export const makeRuntimeScheduler = (): RuntimeSchedulerService => ({
     Effect.gen(function* () {
       const scope = yield* Effect.scope;
       const started = Deferred.makeUnsafe<void>();
+
       const observed = Effect.gen(function* () {
         yield* Deferred.succeed(started, undefined);
+
         return yield* request.work;
       }).pipe(
         Effect.onExit((exit) => Deferred.succeed(request.completion, exit).pipe(Effect.asVoid)),
       );
+
       const fiber = yield* Effect.forkIn(observed, scope);
       yield* Deferred.await(started);
       yield* Effect.yieldNow;
+
       return {
         fiber,
         completion: request.completion,

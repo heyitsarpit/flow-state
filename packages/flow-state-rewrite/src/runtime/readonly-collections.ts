@@ -19,6 +19,7 @@ export const readonlyMap = <Key, Value>(
   entries: Iterable<readonly [Key, Value]>,
 ): ReadonlyMap<Key, Value> => {
   const source = new Map(entries);
+
   const result: ReadonlyMap<Key, Value> = {
     get: (key) => source.get(key),
     has: (key) => source.has(key),
@@ -34,6 +35,7 @@ export const readonlyMap = <Key, Value>(
     },
     [Symbol.iterator]: () => source[Symbol.iterator](),
   };
+
   // oxlint-disable-next-line anti-slop/no-object-freeze -- the wrapper exposes no mutating Map methods.
   return Object.freeze(result);
 };

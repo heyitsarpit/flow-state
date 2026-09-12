@@ -33,14 +33,21 @@ const viewerMachine = Result.getOrThrow(
 );
 
 const editorRef = actorRef(editorMachine, "primary-editor");
+
 const undefinedOptionsEditorRef = actorRef(editorMachine, "undefined-options-editor", undefined);
+
 const emptyOptionsEditorRef = actorRef(editorMachine, "empty-options-editor", {});
+
 const persistedEditorRef = actorRef(editorMachine, "persisted-editor", { persist: true });
+
 const nonPersistedEditorRef = actorRef(editorMachine, "non-persisted-editor", { persist: false });
+
 const broadPersist: boolean = false;
+
 const broadPersistEditorRef = actorRef(editorMachine, "broad-persist-editor", {
   persist: broadPersist,
 });
+
 const viewerRef = actorRef(viewerMachine, "primary-viewer");
 
 const explicitlyTypedPersistedEditorRef = actorRef<
@@ -66,11 +73,17 @@ const invalidCompileProofs = () => {
 void invalidCompileProofs;
 
 type DefaultEditorRef = ActorRef<typeof editorMachine, "primary-editor", false>;
+
 type UndefinedOptionsEditorRef = ActorRef<typeof editorMachine, "undefined-options-editor", false>;
+
 type EmptyOptionsEditorRef = ActorRef<typeof editorMachine, "empty-options-editor", false>;
+
 type PersistedEditorRef = ActorRef<typeof editorMachine, "persisted-editor", true>;
+
 type NonPersistedEditorRef = ActorRef<typeof editorMachine, "non-persisted-editor", false>;
+
 type BroadPersistEditorRef = ActorRef<typeof editorMachine, "broad-persist-editor">;
+
 type ExplicitlyTypedPersistedEditorRef = ActorRef<
   typeof editorMachine,
   "explicitly-typed-persisted-editor",
@@ -78,18 +91,27 @@ type ExplicitlyTypedPersistedEditorRef = ActorRef<
 >;
 
 export type _Machine = Expect<Types.Equals<DefaultEditorRef["machine"], typeof editorMachine>>;
+
 export type _Id = Expect<Types.Equals<DefaultEditorRef["id"], "primary-editor">>;
+
 export type _DefaultPersist = Expect<Types.Equals<DefaultEditorRef["persist"], false>>;
+
 export type _UndefinedOptionsPersist = Expect<
   Types.Equals<UndefinedOptionsEditorRef["persist"], false>
 >;
+
 export type _EmptyOptionsPersist = Expect<Types.Equals<EmptyOptionsEditorRef["persist"], false>>;
+
 export type _ExplicitPersist = Expect<Types.Equals<PersistedEditorRef["persist"], true>>;
+
 export type _ExplicitNonPersist = Expect<Types.Equals<NonPersistedEditorRef["persist"], false>>;
+
 export type _BroadPersist = Expect<Types.Equals<BroadPersistEditorRef["persist"], boolean>>;
+
 export type _ExplicitlyTypedPersist = Expect<
   Types.Equals<ExplicitlyTypedPersistedEditorRef["persist"], true>
 >;
+
 export type _NoOwnershipFields = Expect<
   Types.Equals<
     Extract<
@@ -101,23 +123,37 @@ export type _NoOwnershipFields = Expect<
 >;
 
 const exactEditorRef: DefaultEditorRef = editorRef;
+
 const exactUndefinedOptionsEditorRef: UndefinedOptionsEditorRef = undefinedOptionsEditorRef;
+
 const exactEmptyOptionsEditorRef: EmptyOptionsEditorRef = emptyOptionsEditorRef;
+
 const exactPersistedEditorRef: PersistedEditorRef = persistedEditorRef;
+
 const exactNonPersistedEditorRef: NonPersistedEditorRef = nonPersistedEditorRef;
+
 const exactBroadPersistEditorRef: BroadPersistEditorRef = broadPersistEditorRef;
+
 const exactExplicitlyTypedPersistedEditorRef: ExplicitlyTypedPersistedEditorRef =
   explicitlyTypedPersistedEditorRef;
+
 void exactEditorRef;
+
 void exactUndefinedOptionsEditorRef;
+
 void exactEmptyOptionsEditorRef;
+
 void exactPersistedEditorRef;
+
 void exactNonPersistedEditorRef;
+
 void exactBroadPersistEditorRef;
+
 void exactExplicitlyTypedPersistedEditorRef;
 
 // @ts-expect-error actor refs retain the exact machine family.
 const foreignMachineRef: ActorRef<typeof editorMachine> = viewerRef;
+
 void foreignMachineRef;
 
 describe("actorRef", () => {
@@ -182,6 +218,7 @@ describe("actorRef", () => {
     for (const options of [null, [], "options", true, 1, Symbol("options"), () => true]) {
       assert.throws(() => actorRefWithOptions(options), TypeError);
     }
+
     for (const options of [
       { persist: "yes" },
       { persist: undefined },
@@ -207,6 +244,7 @@ describe("actorRef", () => {
       enumerable: true,
       get: () => {
         getterCalls += 1;
+
         return true;
       },
     });
@@ -214,30 +252,37 @@ describe("actorRef", () => {
     assert.strictEqual(getterCalls, 0);
 
     let keyReads = 0;
+
     const flappingKeys = new Proxy(
       { persist: true },
       {
         ownKeys: (target) => {
           keyReads += 1;
+
           return keyReads === 1 ? Reflect.ownKeys(target) : [];
         },
       },
     );
+
     assert.throws(() => actorRefWithOptions(flappingKeys), TypeError);
     assert.strictEqual(keyReads, 2);
 
     let descriptorReads = 0;
+
     const flappingDescriptor = new Proxy(
       { persist: true },
       {
         getOwnPropertyDescriptor: (target, key) => {
           const descriptor = Reflect.getOwnPropertyDescriptor(target, key);
+
           if (key !== "persist" || descriptor === undefined) return descriptor;
           descriptorReads += 1;
+
           return { ...descriptor, value: descriptorReads === 1 };
         },
       },
     );
+
     assert.throws(() => actorRefWithOptions(flappingDescriptor), TypeError);
     assert.strictEqual(descriptorReads, 2);
 

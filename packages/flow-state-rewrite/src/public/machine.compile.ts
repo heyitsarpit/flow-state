@@ -78,7 +78,9 @@ const EditorResult = definition({
 });
 
 if (!Result.isSuccess(EditorResult)) throw EditorResult.failure;
+
 const Editor = EditorResult.success;
+
 const EditorMachineResult = machine(EditorResult, ({ S, E, onContext, onMemory }) => {
   onContext.select(
     ({ memory }) => memory.draftId,
@@ -87,6 +89,7 @@ const EditorMachineResult = machine(EditorResult, ({ S, E, onContext, onMemory }
       const exactPrevious: string | undefined = previous;
       void exactCurrent;
       void exactPrevious;
+
       return null;
     },
   );
@@ -102,6 +105,7 @@ const EditorMachineResult = machine(EditorResult, ({ S, E, onContext, onMemory }
       const exactPrevious: string | undefined = previous;
       void exactCurrent;
       void exactPrevious;
+
       return Editor.operations.updates.subscribe({ draftId: current });
     },
   );
@@ -112,6 +116,7 @@ const EditorMachineResult = machine(EditorResult, ({ S, E, onContext, onMemory }
       const exactPrevious: number | undefined = previous;
       void exactCurrent;
       void exactPrevious;
+
       return null;
     },
   );
@@ -151,17 +156,20 @@ const EditorMachineResult = machine(EditorResult, ({ S, E, onContext, onMemory }
 });
 
 if (!Result.isSuccess(EditorMachineResult)) throw EditorMachineResult.failure;
+
 const EditorMachine = EditorMachineResult.success;
 
 const validRedirectList = [
   { when: () => true, target: Editor.S.idle },
   { when: () => false, target: Editor.S.ready },
 ] as const;
+
 const redirectWithExtraKey = {
   when: () => true,
   target: Editor.S.ready,
   extra: true,
 };
+
 const redirectsWithExtraKey = [
   { when: () => true, target: Editor.S.idle },
   redirectWithExtraKey,
@@ -178,7 +186,9 @@ const validRedirectListMachineResult = machine(EditorResult, ({ S }) => ({
 void validRedirectListMachineResult;
 
 const contextSelection = EditorMachine.compiled.context[0];
+
 if (contextSelection === undefined) throw new Error("expected a context selection");
+
 contextSelection.use((select, handler) =>
   handler(
     select({
@@ -189,21 +199,27 @@ contextSelection.use((select, handler) =>
     undefined,
   ),
 );
+
 contextSelection.use((_select, handler) => {
   // @ts-expect-error a string registration cannot accept an invented number.
   return handler(123, undefined);
 });
+
 // @ts-expect-error compiled selections do not publish widened selector fields.
 void contextSelection.selector;
+
 // @ts-expect-error compiled selections do not publish widened handler fields.
 void contextSelection.handler;
 
 const memorySelection = EditorMachine.compiled.memory.find(
   (registration) => registration.kind === "selection",
 );
+
 if (memorySelection === undefined) throw new Error("expected a memory selection");
+
 // @ts-expect-error memory selections do not publish widened selector fields.
 void memorySelection.selector;
+
 // @ts-expect-error memory selections do not publish widened handler fields.
 void memorySelection.handler;
 
@@ -219,12 +235,14 @@ if (!Result.isSuccess(ZeroArgumentDefinitionResult)) {
 }
 
 const ZeroArgumentDefinition = ZeroArgumentDefinitionResult.success;
+
 const ZeroArgumentMachineResult = machine(ZeroArgumentDefinitionResult, ({ S }) => ({
   default: S.ready,
   states: { ready: {} },
 }));
 
 if (!Result.isSuccess(ZeroArgumentMachineResult)) throw ZeroArgumentMachineResult.failure;
+
 const ZeroArgumentMachine = ZeroArgumentMachineResult.success;
 
 const NoInitializerDefinitionResult = definition({
@@ -238,118 +256,153 @@ if (!Result.isSuccess(NoInitializerDefinitionResult)) {
 }
 
 const NoInitializerDefinition = NoInitializerDefinitionResult.success;
+
 const NoInitializerMachineResult = machine(NoInitializerDefinitionResult, ({ S }) => ({
   default: S.ready,
   states: { ready: {} },
 }));
 
 if (!Result.isSuccess(NoInitializerMachineResult)) throw NoInitializerMachineResult.failure;
+
 const NoInitializerMachine = NoInitializerMachineResult.success;
 
 export type _Machine = Expect<Types.Equals<typeof EditorMachine, Machine<typeof Editor>>>;
+
 export type _Definition = Expect<Types.Equals<typeof EditorMachine.definition, typeof Editor>>;
+
 export type _MachineState = Expect<
   Types.Equals<StateOf<typeof EditorMachine>, StateOf<typeof Editor>>
 >;
+
 export type _MachineEvent = Expect<
   Types.Equals<EventOf<typeof EditorMachine>, EventOf<typeof Editor>>
 >;
+
 export type _Compiled = Expect<
   Types.Equals<typeof EditorMachine.compiled, Machine<typeof Editor>["compiled"]>
 >;
+
 export type _MachineRequirements = Expect<
   Types.Equals<RequirementsOf<typeof EditorMachine>, EditorRepo>
 >;
+
 export type _Input = Expect<
   Types.Equals<InputOf<typeof EditorMachine.definition>, { readonly draftId: string }>
 >;
+
 export type _MachineInput = Expect<
   Types.Equals<InputOf<typeof EditorMachine>, { readonly draftId: string }>
 >;
+
 export type _DefinitionInput = Expect<
   Types.Equals<InputOf<typeof Editor>, { readonly draftId: string }>
 >;
+
 export type _Memory = Expect<
   Types.Equals<MemoryOf<typeof EditorMachine.definition>, { draftId: string; count: number }>
 >;
+
 export type _MachineMemory = Expect<
   Types.Equals<MemoryOf<typeof EditorMachine>, { draftId: string; count: number }>
 >;
+
 export type _DefinitionMemory = Expect<
   Types.Equals<MemoryOf<typeof Editor>, { draftId: string; count: number }>
 >;
+
 export type _InputAgreement = Expect<
   Types.Equals<InputOf<typeof Editor>, InputOf<typeof EditorMachine.definition>>
 >;
+
 export type _MachineInputAgreement = Expect<
   Types.Equals<InputOf<typeof Editor>, InputOf<typeof EditorMachine>>
 >;
+
 export type _MemoryAgreement = Expect<
   Types.Equals<MemoryOf<typeof Editor>, MemoryOf<typeof EditorMachine.definition>>
 >;
+
 export type _MachineMemoryAgreement = Expect<
   Types.Equals<MemoryOf<typeof Editor>, MemoryOf<typeof EditorMachine>>
 >;
+
 export type _ZeroArgumentDefinitionInput = Expect<
   Types.Equals<InputOf<typeof ZeroArgumentDefinition>, void>
 >;
+
 export type _ZeroArgumentMachineInput = Expect<
   Types.Equals<InputOf<typeof ZeroArgumentMachine>, void>
 >;
+
 export type _ZeroArgumentMachineDefinitionInput = Expect<
   Types.Equals<InputOf<typeof ZeroArgumentMachine.definition>, void>
 >;
+
 export type _ZeroArgumentInputAgreement = Expect<
   Types.Equals<
     InputOf<typeof ZeroArgumentDefinition>,
     InputOf<typeof ZeroArgumentMachine.definition>
   >
 >;
+
 export type _ZeroArgumentMachineInputAgreement = Expect<
   Types.Equals<InputOf<typeof ZeroArgumentDefinition>, InputOf<typeof ZeroArgumentMachine>>
 >;
+
 export type _ZeroArgumentDefinitionMemory = Expect<
   Types.Equals<MemoryOf<typeof ZeroArgumentDefinition>, { count: number }>
 >;
+
 export type _ZeroArgumentMachineMemory = Expect<
   Types.Equals<MemoryOf<typeof ZeroArgumentMachine>, { count: number }>
 >;
+
 export type _ZeroArgumentMachineDefinitionMemory = Expect<
   Types.Equals<MemoryOf<typeof ZeroArgumentMachine.definition>, { count: number }>
 >;
+
 export type _ZeroArgumentMemoryAgreement = Expect<
   Types.Equals<
     MemoryOf<typeof ZeroArgumentDefinition>,
     MemoryOf<typeof ZeroArgumentMachine.definition>
   >
 >;
+
 export type _ZeroArgumentMachineMemoryAgreement = Expect<
   Types.Equals<MemoryOf<typeof ZeroArgumentDefinition>, MemoryOf<typeof ZeroArgumentMachine>>
 >;
+
 export type _NoInitializerDefinitionInput = Expect<
   Types.Equals<InputOf<typeof NoInitializerDefinition>, void>
 >;
+
 export type _NoInitializerMachineInput = Expect<
   Types.Equals<InputOf<typeof NoInitializerMachine>, void>
 >;
+
 export type _NoInitializerInputAgreement = Expect<
   Types.Equals<InputOf<typeof NoInitializerDefinition>, InputOf<typeof NoInitializerMachine>>
 >;
+
 export type _NoInitializerDefinitionMemory = Expect<
   Types.Equals<MemoryOf<typeof NoInitializerDefinition>, Readonly<Record<never, never>>>
 >;
+
 export type _NoInitializerMachineMemory = Expect<
   Types.Equals<MemoryOf<typeof NoInitializerMachine>, Readonly<Record<never, never>>>
 >;
+
 export type _NoInitializerMemoryAgreement = Expect<
   Types.Equals<MemoryOf<typeof NoInitializerDefinition>, MemoryOf<typeof NoInitializerMachine>>
 >;
+
 export type _State = Expect<
   Types.Equals<
     StateOf<typeof EditorMachine.definition>,
     typeof Editor.S.idle | typeof Editor.S.ready
   >
 >;
+
 export type _Event = Expect<
   Types.Equals<EventOf<typeof EditorMachine.definition>, EventOf<typeof Editor>>
 >;
@@ -368,10 +421,13 @@ type StructuralMachine = {
 
 // @ts-expect-error public extractors require the nominal Definition constraint.
 type _StructuralDefinitionInput = InputOf<StructuralDefinition>;
+
 // @ts-expect-error public extractors require the nominal Definition constraint.
 type _StructuralDefinitionMemory = MemoryOf<StructuralDefinition>;
+
 // @ts-expect-error public extractors do not recursively unwrap arbitrary objects.
 type _StructuralMachineInput = InputOf<StructuralMachine>;
+
 // @ts-expect-error public extractors do not recursively unwrap arbitrary objects.
 type _StructuralMachineMemory = MemoryOf<StructuralMachine>;
 
@@ -407,5 +463,7 @@ const invalidRedirectProofs = () => {
 void invalidRedirectProofs;
 
 void EditorMachine;
+
 void ZeroArgumentMachine;
+
 void NoInitializerMachine;

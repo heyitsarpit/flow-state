@@ -13,6 +13,7 @@ import type { Context } from "effect";
  *   Implementation
  */
 const implementationMarker: unique symbol = Symbol();
+
 const implementationGraphTypeId: unique symbol = Symbol("flow-state implementation graph");
 
 // FLOW_STATE_ALLOW_UNKNOWN: this private graph stores heterogeneous provider acquisitions behind erased runtime dispatch; typed callers retain A/E/R on Implementation.
@@ -80,6 +81,7 @@ const ImplementationGraphSchema = Schema.declareConstructor<
 
   for (const provider of providers) {
     const identity = provider.service.key;
+
     if (seen.has(identity)) throw new Error(`Implementation service is duplicated: ${identity}`);
     seen.add(identity);
   }
@@ -94,6 +96,7 @@ const makeImplementation = <Output, ImplementationError, Requirements>(
   providers: readonly ImplementationProviderEntry[],
 ): Implementation<Output, ImplementationError, Requirements> => {
   const admittedProviders = decodeImplementationGraph(providers);
+
   return {
     kind: "implementation",
     [implementationGraphTypeId]: admittedProviders,
@@ -113,6 +116,7 @@ const succeed = <Identifier, Service>(
     service,
     value,
   };
+
   return makeImplementation<Identifier, never, never>([provider]);
 };
 
@@ -125,6 +129,7 @@ const effect = <Identifier, Service, ImplementationError, Requirements>(
     service,
     acquire,
   };
+
   return makeImplementation<Identifier, ImplementationError, Requirements>([provider]);
 };
 

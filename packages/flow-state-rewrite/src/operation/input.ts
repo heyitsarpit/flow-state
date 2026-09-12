@@ -34,8 +34,10 @@ interface ExecutableInputRecord<Value = unknown> {
 }
 
 const executableInputChildProof: ExecutableInputRecord["child"] = undefined;
+
 // @ts-expect-error Recursive admission has not promoted carrier children to a domain type.
 const executableInputStringProof: string = executableInputChildProof;
+
 void executableInputStringProof;
 
 type ExecutableInputSource = readonly unknown[] | ExecutableInputRecord;
@@ -51,7 +53,9 @@ type SnapshotState = {
 };
 
 type SnapshotDataDescriptor = Omit<PropertyDescriptor, "value"> & { readonly value: unknown };
+
 type SnapshotContainer = unknown[] | ExecutableInputRecord;
+
 type SnapshotFrame = {
   readonly source: ExecutableInputSource;
   readonly target: SnapshotContainer;
@@ -68,6 +72,7 @@ type SnapshotStart =
   | { readonly kind: "frame"; readonly frame: SnapshotFrame };
 
 const snapshotPending = Symbol("snapshot pending");
+
 const invalidExecutableInput = () => {
   throw new TypeError("Operation params must be a stable executable input");
 };
@@ -84,6 +89,7 @@ const readInputReflection = <Value>(read: () => Value) => {
 const isDenseArrayKey = (key: PropertyKey, length: number) => {
   if (key === "length") return true;
   const index = Number(key);
+
   return Number.isSafeInteger(index) && index >= 0 && index < length && String(index) === key;
 };
 
@@ -96,26 +102,33 @@ const readStableInputKind = (source: ExecutableInputSource) => {
   const secondIsArray = readInputReflection(() => Array.isArray(source));
   const firstPrototype = readInputReflection(() => Object.getPrototypeOf(source));
   const secondPrototype = readInputReflection(() => Object.getPrototypeOf(source));
+
   if (firstIsArray !== secondIsArray || firstPrototype !== secondPrototype) {
     return invalidExecutableInput();
   }
+
   return { isArray: secondIsArray, prototype: secondPrototype };
 };
 
 const readStableInputKeys = (source: ExecutableInputSource) => {
   const keys = readInputReflection(() => Reflect.ownKeys(source));
   const repeatedKeys = readInputReflection(() => Reflect.ownKeys(source));
+
   if (!isStableKeyList(keys, repeatedKeys)) return invalidExecutableInput();
+
   return repeatedKeys.every(Predicate.isString) ? repeatedKeys : invalidExecutableInput();
 };
 
 const readStableInputDescriptor = (source: ExecutableInputSource, key: string) => {
   const first = readInputReflection(() => Object.getOwnPropertyDescriptor(source, key));
+
   if (first === undefined) return invalidExecutableInput();
   const second = readInputReflection(() => Object.getOwnPropertyDescriptor(source, key));
+
   if (second === undefined || !isStableDataDescriptor(first, second)) {
     return invalidExecutableInput();
   }
+
   return second;
 };
 
@@ -126,6 +139,7 @@ const readArraySnapshotKeys = (
 ) => {
   const lengthDescriptor = readStableInputDescriptor(source, "length");
   const length = lengthDescriptor.value;
+
   if (
     lengthDescriptor.enumerable ||
     lengthDescriptor.configurable ||
@@ -135,11 +149,15 @@ const readArraySnapshotKeys = (
   ) {
     return invalidExecutableInput();
   }
+
   const originalLength = sourceDescriptors.get("length");
+
   if (originalLength !== undefined && !isStableDataDescriptor(originalLength, lengthDescriptor)) {
     return invalidExecutableInput();
   }
+
   sourceDescriptors.set("length", lengthDescriptor);
+
   return Array.from({ length }, (_, index) => String(index));
 };
 
@@ -148,25 +166,31 @@ const beginSnapshot = (value: unknown, state: SnapshotState, parent: SnapshotFra
 
   const source = value;
   const kind = readStableInputKind(source);
+
   const isPlain = kind.isArray
     ? kind.prototype === Array.prototype
     : kind.prototype === Object.prototype || kind.prototype === null;
+
   if (!isPlain) return { kind: "value", value } satisfies SnapshotStart;
 
   if (state.active.has(source)) return invalidExecutableInput();
   const existing = state.copies.get(source);
+
   if (existing !== undefined) {
     return { kind: "value", value: existing.target } satisfies SnapshotStart;
   }
 
   const reflectedKeys = readStableInputKeys(source);
   const sourceDescriptors = new Map<string, SnapshotDataDescriptor>();
+
   const keys = kind.isArray
     ? readArraySnapshotKeys(source, reflectedKeys, sourceDescriptors)
     : reflectedKeys;
+
   // SAFETY: kind.prototype is restricted to Object.prototype/null by the plain-container admission above.
   const target: SnapshotContainer = kind.isArray ? [] : Object.create(kind.prototype);
   state.active.add(source);
+
   const frame: SnapshotFrame = {
     source,
     target,
@@ -177,8 +201,10 @@ const beginSnapshot = (value: unknown, state: SnapshotState, parent: SnapshotFra
     parent,
     index: 0,
   };
+
   state.copies.set(source, frame);
   state.frames.push(frame);
+
   return { kind: "frame", frame } satisfies SnapshotStart;
 };
 
@@ -193,6 +219,7 @@ const defineSnapshotProperty = (target: SnapshotContainer, key: string, value: u
 
 const completeSnapshotFrame = (stack: SnapshotFrame[], state: SnapshotState) => {
   const frame = stack.at(-1);
+
   if (frame === undefined) return invalidExecutableInput();
   // SAFETY: frame.target is a newly created array or plain record whose own data properties were copied above.
   // oxlint-disable-next-line anti-slop/no-object-freeze -- executable plan params are copied into immutable containers.
@@ -200,37 +227,50 @@ const completeSnapshotFrame = (stack: SnapshotFrame[], state: SnapshotState) => 
   const result: SnapshotResult = { value: frame.target };
   state.active.delete(frame.source);
   stack.pop();
+
   if (frame.parent === undefined) {
     verifySnapshotFrames(state.frames);
+
     return result;
   }
+
   defineSnapshotProperty(frame.parent.frame.target, frame.parent.key, result.value);
+
   return snapshotPending;
 };
 
 const advanceSnapshotFrame = (stack: SnapshotFrame[], state: SnapshotState) => {
   const frame = stack.at(-1);
+
   if (frame === undefined) return invalidExecutableInput();
+
   if (frame.index === frame.keys.length) return completeSnapshotFrame(stack, state);
 
   const key = frame.keys[frame.index];
+
   if (key === undefined) return invalidExecutableInput();
   frame.index += 1;
   const descriptor = readStableInputDescriptor(frame.source, key);
+
   if (!descriptor.enumerable) return invalidExecutableInput();
   frame.sourceDescriptors.set(key, descriptor);
   const child = beginSnapshot(descriptor.value, state, { frame, key });
+
   if (child.kind === "frame") {
     stack.push(child.frame);
+
     return snapshotPending;
   }
+
   defineSnapshotProperty(frame.target, key, child.value);
+
   return snapshotPending;
 };
 
 const verifySnapshotFrame = (frame: SnapshotFrame) => {
   const kind = readStableInputKind(frame.source);
   const reflectedKeys = readStableInputKeys(frame.source);
+
   if (
     kind.isArray !== frame.kind.isArray ||
     kind.prototype !== frame.kind.prototype ||
@@ -238,9 +278,11 @@ const verifySnapshotFrame = (frame: SnapshotFrame) => {
   ) {
     return invalidExecutableInput();
   }
+
   if (kind.isArray) {
     readArraySnapshotKeys(frame.source, reflectedKeys, frame.sourceDescriptors);
   }
+
   for (const key of frame.keys) {
     if (
       !isStableDataDescriptor(
@@ -257,19 +299,24 @@ const verifySnapshotFrames = (frames: readonly SnapshotFrame[]) => {
   // Recheck every captured frame twice after all copies exist: a later sibling's
   // reflection can mutate an earlier source, so completion alone is not stable.
   for (const frame of frames) verifySnapshotFrame(frame);
+
   for (const frame of frames) verifySnapshotFrame(frame);
 };
 
 function snapshotExecutableInput<Value>(value: Value, state: SnapshotState): SnapshotResult<Value>;
 function snapshotExecutableInput(value: unknown, state: SnapshotState) {
   const root = beginSnapshot(value, state, undefined);
+
   if (root.kind === "value") return { value: root.value };
 
   const stack: SnapshotFrame[] = [root.frame];
+
   while (stack.length > 0) {
     const result = advanceSnapshotFrame(stack, state);
+
     if (result !== snapshotPending) return result;
   }
+
   return invalidExecutableInput();
 }
 
@@ -280,6 +327,7 @@ const ExecutableInputSchema = Schema.declareConstructor<unknown, unknown>()([], 
     active: new WeakSet(),
     frames: [],
   });
+
   return Effect.succeed(snapshot.value);
 });
 

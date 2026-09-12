@@ -33,6 +33,7 @@ import { readArrayValues, snapshotRecord } from "../reflection.js";
 // RETURN_TYPE: Preserves the generic success value extracted by the behavior-proof helper.
 const resultSuccess = <Value>(result: Result.Result<Value, Diagnostic.PublicDiagnostic>): Value => {
   if (Result.isFailure(result)) throw result.failure;
+
   return result.success;
 };
 
@@ -44,6 +45,7 @@ const NestedResult = definition({
     tick: "bare",
   },
 });
+
 const Nested = resultSuccess(NestedResult);
 
 type UnknownMachineConstructor = <DefinitionValue extends MachineDefinition>(
@@ -61,6 +63,7 @@ const OtherEditorResult = definition({
   states: ["ready"],
   events: { opened: "bare" },
 });
+
 const OtherEditor = resultSuccess(OtherEditorResult);
 
 const ActivityResource = resource({
@@ -99,6 +102,7 @@ const ActivityDefinitionResult = definition({
   events: { tick: "bare" },
   operations: { resource: ActivityResource, stream: ActivityStream },
 });
+
 const ActivityDefinition = resultSuccess(ActivityDefinitionResult);
 
 const validNestedConfiguration = () => ({
@@ -139,6 +143,7 @@ const defineOwn = <Value extends Record<never, never>>(
   descriptor: PropertyDescriptor,
 ): Value => {
   Object.defineProperty(target, key, { configurable: true, enumerable: true, ...descriptor });
+
   return target;
 };
 
@@ -160,17 +165,21 @@ const assertUnknownFailure = (
 const withNestedActive = (value: unknown): MachineConfiguration<typeof Nested> => {
   const configuration = validNestedConfiguration();
   defineOwn(configuration.states, "active", { value });
+
   return configuration;
 };
 
 const activityConfiguration = <Value>(value: Value) => {
   const activities = {};
   defineOwn(activities, "service", { value });
+
   const configuration = {
     default: ActivityDefinition.S.idle,
     states: { idle: {} },
   };
+
   defineOwn(configuration, "activities", { value: activities });
+
   return configuration;
 };
 
@@ -180,6 +189,7 @@ const timerWith = (entry: unknown): MachineConfiguration<typeof Nested> => {
   defineOwn(timers, "refresh", { value: entry });
   const configuration = validNestedConfiguration();
   defineOwn(configuration, "timers", { value: timers });
+
   return configuration;
 };
 
@@ -189,6 +199,7 @@ const transitionWith = (entry: unknown): MachineConfiguration<typeof Nested> => 
   defineOwn(on, "tick", { value: entry });
   const configuration = validNestedConfiguration();
   defineOwn(configuration, "on", { value: on });
+
   return configuration;
 };
 
@@ -196,14 +207,18 @@ const transitionWith = (entry: unknown): MachineConfiguration<typeof Nested> => 
 const redirectWith = (entry: unknown): MachineConfiguration<typeof Nested> => {
   const configuration = validNestedConfiguration();
   defineOwn(configuration, "redirect", { value: entry });
+
   return configuration;
 };
 
 const validTransition = () => ({ target: Nested.S.idle });
+
 const validTimer = () => ({ delay: 1, target: Nested.E.tick });
+
 // RETURN_TYPE: Keeps the assertion helper explicitly void for transition failure proofs.
 const assertTransitionFailure = (value: unknown, reason: InvalidMachineConfigurationReason): void =>
   assertUnknownFailure(transitionWith(value), reason, ["on", "tick"], {});
+
 // RETURN_TYPE: Keeps the assertion helper explicitly void for timer failure proofs.
 const assertTimerFailure = (value: unknown, reason: InvalidMachineConfigurationReason): void =>
   assertUnknownFailure(timerWith(value), reason, ["timers", "refresh"], {});
@@ -212,7 +227,9 @@ type BehaviorField = "on" | "activities" | "timers";
 
 const behaviorMapTarget = (field: BehaviorField) => {
   if (field === "on") return { tick: Nested.S.idle };
+
   if (field === "activities") return { service: { opaque: true } };
+
   return { refresh: { delay: 1, target: Nested.E.tick } };
 };
 
@@ -238,6 +255,7 @@ describe("machine admission", () => {
   describe("snapshot and state admission", () => {
     it("rejects unregistered event identities without inspecting the token", () => {
       let reads = 0;
+
       const target = new Proxy(Nested.E.tick, {
         get: () => {
           reads += 1;
@@ -256,8 +274,10 @@ describe("machine admission", () => {
           throw new Error("token lookup must not read descriptors");
         },
       });
+
       const revoked = Proxy.revocable(Nested.E.tick, {});
       revoked.revoke();
+
       for (const candidate of [target, revoked.proxy]) {
         assertUnknownFailure(
           timerWith({ delay: 1, target: candidate }),
@@ -266,6 +286,7 @@ describe("machine admission", () => {
           { issue: "definition-identity" },
         );
       }
+
       assert.strictEqual(reads, 0);
     });
 
@@ -287,14 +308,17 @@ describe("machine admission", () => {
       const snapshot = resultSuccess(
         snapshotRecord(configuration, ["configuration"], "ExpectedTimer"),
       );
+
       Object.defineProperty(configuration, "first", {
         configurable: true,
         enumerable: true,
         value: 2,
       });
+
       const captured = resultSuccess(
         captureConfigurationData(snapshot, ["configuration"], inaccessible),
       );
+
       if (!Predicate.isObject(captured)) throw new Error("expected captured configuration object");
       assert.deepStrictEqual(Object.keys(captured), ["first", "accessor", "last"]);
       assert.strictEqual(Object.getOwnPropertyDescriptor(captured, "first")?.value, 1);
@@ -316,9 +340,11 @@ describe("machine admission", () => {
           enumerable,
           value: true,
         });
+
         const invalidSnapshot = resultSuccess(
           snapshotRecord(invalid, ["configuration"], "ExpectedTimer"),
         );
+
         assertExactMachineFailure(
           captureConfigurationData(invalidSnapshot, ["configuration"], inaccessible),
           reason,
@@ -337,6 +363,7 @@ describe("machine admission", () => {
 
       const admitted = resultSuccess(unknownMachine(NestedResult, () => configuration));
       const handlers = admitted.compiled.states[""]?.handlers;
+
       if (handlers === undefined) throw new Error("expected event handlers");
       assert.deepStrictEqual(Object.keys(handlers), ["changed", "tick"]);
       assert.strictEqual(handlers.changed?.[0]?.target, Nested.S.active.S.editing);
@@ -351,9 +378,12 @@ describe("machine admission", () => {
       const snapshot = resultSuccess(
         snapshotRecord(configuration, ["configuration"], "ExpectedTimer"),
       );
+
       const entry = snapshot.properties[0];
+
       if (entry === undefined) throw new Error("expected snapshot property");
       const property = entry[1];
+
       if (property.kind !== "data") throw new Error("expected data property");
 
       assert.isTrue(Object.isFrozen(snapshot));
@@ -370,6 +400,7 @@ describe("machine admission", () => {
 
       const input = [Nested.S.idle];
       const values = resultSuccess(readArrayValues(input, ["transition"], "ExpectedTransition"));
+
       if (values === undefined) throw new Error("expected array values");
       assert.isTrue(Object.isFrozen(values));
       assert.isFalse(Object.isFrozen(input));
@@ -388,6 +419,7 @@ describe("machine admission", () => {
       const admitted = resultSuccess(machine(NestedResult, () => validNestedConfiguration()));
       const editing = admitted.compiled.states["S.active.S.editing"];
       const open = admitted.compiled.states["S.active.S.dialog.S.open"];
+
       if (editing?.kind !== "leaf" || open?.kind !== "leaf")
         throw new Error("expected compiled leaf states");
       assert.strictEqual(admitted.definition.S, Nested.S);
@@ -400,6 +432,7 @@ describe("machine admission", () => {
     it("admits only plain root state records and maps reflection failures", () => {
       for (const value of [1, [], new Date(), new Map(), Object.create({})])
         assertUnknownFailure(value, "ConfigurationNotRecord", [], {});
+
       for (const trap of reflectionTraps)
         assertUnknownFailure(
           new Proxy(validNestedConfiguration(), trap),
@@ -417,6 +450,7 @@ describe("machine admission", () => {
           ["states", "active"],
           {},
         );
+
       for (const value of [null, [], new Date(), Object.create({})]) {
         const configuration = validNestedConfiguration();
         defineOwn(configuration, "states", { value });
@@ -465,6 +499,7 @@ describe("machine admission", () => {
       assertUnknownFailure(missingChild, "StateConfigurationMismatch", ["states", "idle"], {
         key: "idle",
       });
+
       for (const [field, path] of [
         ["default", ["states", "active", "states", "editing", "default"]],
         ["states", ["states", "active", "states", "editing", "states"]],
@@ -473,6 +508,7 @@ describe("machine admission", () => {
         defineOwn(leaf.states.active.states.editing, field, { value: {} });
         assertUnknownFailure(leaf, "ExpectedLeafConfiguration", path, { field });
       }
+
       const both = validNestedConfiguration();
       defineOwn(both.states.active.states.editing, "default", { value: {} });
       defineOwn(both.states.active.states.editing, "states", { value: {} });
@@ -506,6 +542,7 @@ describe("machine admission", () => {
       );
 
       const explicitUndefined = validNestedConfiguration();
+
       for (const field of ["on", "redirect", "activities", "timers"] as const)
         defineOwn(explicitUndefined, field, { value: undefined });
       const admitted = resultSuccess(machine(NestedResult, () => explicitUndefined));
@@ -547,13 +584,17 @@ describe("machine admission", () => {
     it("compiles from the captured child table", () => {
       let ownKeysReads = 0;
       const childStates = validNestedConfiguration().states;
+
       const captured = new Proxy(childStates, {
         ownKeys: (source) => {
           ownKeysReads += 1;
+
           if (ownKeysReads === 3) throw new Error("child table reread");
+
           return Reflect.ownKeys(source);
         },
       });
+
       const configuration = validNestedConfiguration();
       defineOwn(configuration, "states", { value: captured });
       resultSuccess(unknownMachine(NestedResult, () => configuration));
@@ -562,19 +603,25 @@ describe("machine admission", () => {
 
     it("rejects flapping own keys and descriptor values at each boundary", () => {
       let rootKeyReads = 0;
+
       const rootKeys = new Proxy(validNestedConfiguration(), {
         ownKeys: (source) => (rootKeyReads++ === 0 ? Reflect.ownKeys(source) : ["default"]),
       });
+
       assertUnknownFailure(rootKeys, "ConfigurationNotRecord", [], {});
       let prototypeReads = 0;
+
       const prototype = new Proxy(validNestedConfiguration(), {
         getPrototypeOf: () => (prototypeReads++ === 0 ? Object.prototype : null),
       });
+
       assertUnknownFailure(prototype, "ConfigurationNotRecord", [], {});
       let nestedDescriptorReads = 0;
+
       const nestedDescriptor = new Proxy(validNestedConfiguration().states.active, {
         getOwnPropertyDescriptor: (source, key) => {
           const descriptor = Object.getOwnPropertyDescriptor(source, key);
+
           return key === "default" &&
             nestedDescriptorReads++ === 0 &&
             descriptor !== undefined &&
@@ -583,6 +630,7 @@ describe("machine admission", () => {
             : descriptor;
         },
       });
+
       assertUnknownFailure(
         withNestedActive(nestedDescriptor),
         "ExpectedStateConfiguration",
@@ -590,12 +638,15 @@ describe("machine admission", () => {
         {},
       );
       let childKeyReads = 0;
+
       const childKeys = new Proxy(validNestedConfiguration().states, {
         ownKeys: (source) => {
           const keys = Reflect.ownKeys(source);
+
           return childKeyReads++ === 0 ? keys : keys.slice(0, 1);
         },
       });
+
       const childConfiguration = validNestedConfiguration();
       defineOwn(childConfiguration, "states", { value: childKeys });
       assertUnknownFailure(childConfiguration, "InvalidCompoundState", ["states"], {});
@@ -603,9 +654,11 @@ describe("machine admission", () => {
 
     it("rejects flapping writable flags and accessor identities", () => {
       let writableReads = 0;
+
       const flappingWritable = new Proxy(validTransition(), {
         getOwnPropertyDescriptor: (source, key) => {
           const descriptor = Object.getOwnPropertyDescriptor(source, key);
+
           return key === "target" &&
             descriptor !== undefined &&
             "value" in descriptor &&
@@ -614,6 +667,7 @@ describe("machine admission", () => {
             : descriptor;
         },
       });
+
       assertUnknownFailure(
         transitionWith(flappingWritable),
         "ExpectedTransition",
@@ -630,9 +684,11 @@ describe("machine admission", () => {
         get: firstGetter,
       });
       let accessorReads = 0;
+
       const flappingAccessor = new Proxy(accessor, {
         getOwnPropertyDescriptor: (source, key) => {
           const descriptor = Object.getOwnPropertyDescriptor(source, key);
+
           return key === "target" &&
             descriptor !== undefined &&
             !("value" in descriptor) &&
@@ -641,6 +697,7 @@ describe("machine admission", () => {
             : descriptor;
         },
       });
+
       assertUnknownFailure(
         transitionWith(flappingAccessor),
         "ExpectedTransition",
@@ -659,11 +716,13 @@ describe("machine admission", () => {
 
     it("uses exact Definition.S identity for every state reference lane", () => {
       const lookalike = { ...Nested.S.active.S.editing };
+
       const cases = [
         [
           (() => {
             const configuration = validNestedConfiguration();
             defineOwn(configuration, "default", { value: lookalike });
+
             return configuration;
           })(),
           ["default"],
@@ -728,16 +787,20 @@ describe("machine admission", () => {
       });
 
       const reads: PropertyKey[] = [];
+
       const throwingKind = new Proxy(
         { id: Nested.S.idle.id },
         {
           getOwnPropertyDescriptor: (source, key) => {
             reads.push(key);
+
             if (key === "kind") throw new Error("state-token kind inspection failed");
+
             return Object.getOwnPropertyDescriptor(source, key);
           },
         },
       );
+
       assertUnknownFailure(
         transitionWith(throwingKind),
         "UnexpectedConfigurationField",
@@ -754,12 +817,15 @@ describe("machine admission", () => {
     it("reads foreign token fields in order even when id inspection fails", () => {
       const reads: PropertyKey[] = [];
       let idReads = 0;
+
       const foreign = new Proxy(
         { kind: "state", id: OtherEditor.S.ready.id, name: "ready" },
         {
           getOwnPropertyDescriptor: (source, key) => {
             reads.push(key);
+
             if (key === "id" && idReads++ === 1) throw new Error("id inspection failure");
+
             return Object.getOwnPropertyDescriptor(source, key);
           },
         },
@@ -777,17 +843,21 @@ describe("machine admission", () => {
       const target = Nested.E.tick;
       const guard = () => true;
       let resolutions = 0;
+
       const resolveTarget = (value: unknown, path: Diagnostic.Path) => {
         resolutions += 1;
         assert.strictEqual(value, "tick");
         assert.deepStrictEqual(path, ["timers", "refresh", "target"]);
+
         return Result.succeed(target);
       };
+
       const path = ["timers", "refresh"];
 
       const admitted = resultSuccess(
         admitTimer<typeof Nested>({ delay: 1, target: "tick", guard }, path, resolveTarget),
       );
+
       assert.strictEqual(admitted.target, target);
       assert.strictEqual(admitted.guard, guard);
       assert.strictEqual(resolutions, 1);
@@ -858,6 +928,7 @@ describe("machine admission", () => {
         ["timers", "refresh", "delay"],
         { constraint: "finite-non-negative" },
       );
+
       for (const entry of [null, [], "invalid"]) assertTimerFailure(entry, "ExpectedTimer");
       let timerAccessorInvoked = false;
       const timerAccessor = {};
@@ -884,6 +955,7 @@ describe("machine admission", () => {
         ["timers", "refresh", "target"],
         { issue: "definition-identity" },
       );
+
       for (const field of ["guard", "updateMemory"] as const) {
         const invalidTimer = { delay: 1, target: Nested.E.tick, [field]: 1 };
         assertUnknownFailure(
@@ -918,17 +990,23 @@ describe("machine admission", () => {
 
     it("copies admitted timer fields and preserves optional callback publication", () => {
       let callbackCalls = 0;
+
       const guard = () => {
         callbackCalls += 1;
+
         return true;
       };
+
       const updateMemory = () => {
         callbackCalls += 1;
+
         return { count: 1 };
       };
+
       const authored = { delay: 1, target: Nested.E.tick, guard, updateMemory };
       const admitted = resultSuccess(machine(NestedResult, () => timerWith(authored)));
       const timer = admitted.compiled.states[""]?.timers.refresh;
+
       if (timer === undefined) throw new Error("expected compiled timer");
       assert.strictEqual(timer.delay, 1);
       assert.strictEqual(timer.target, Nested.E.tick);
@@ -946,11 +1024,13 @@ describe("machine admission", () => {
       const omitted = resultSuccess(
         machine(NestedResult, () => timerWith({ delay: 1, target: Nested.E.tick })),
       ).compiled.states[""]?.timers.refresh;
+
       const explicitUndefined = resultSuccess(
         machine(NestedResult, () =>
           timerWith({ delay: 1, target: Nested.E.tick, guard: undefined, updateMemory: undefined }),
         ),
       ).compiled.states[""]?.timers.refresh;
+
       if (omitted === undefined || explicitUndefined === undefined)
         throw new Error("expected compiled timer variants");
       assert.strictEqual(Object.hasOwn(omitted, "guard"), false);
@@ -973,23 +1053,30 @@ describe("machine admission", () => {
       ] as const) {
         for (const value of [new Date(), new Map(), Object.create({})])
           assertUnknownFailure(wrap(value), reason, path, {});
+
         for (const trap of reflectionTraps)
           assertUnknownFailure(wrap(new Proxy(make(), trap)), reason, path, {});
 
         let prototypeReads = 0;
+
         const flappingPrototype = new Proxy(make(), {
           getPrototypeOf: () => (prototypeReads++ === 0 ? Object.prototype : null),
         });
+
         assertUnknownFailure(wrap(flappingPrototype), reason, path, {});
         let keyReads = 0;
+
         const flappingKeys = new Proxy(make(), {
           ownKeys: (source) => (keyReads++ === 0 ? Reflect.ownKeys(source) : []),
         });
+
         assertUnknownFailure(wrap(flappingKeys), reason, path, {});
         let descriptorReads = 0;
+
         const flappingDescriptor = new Proxy(make(), {
           getOwnPropertyDescriptor: (source, key) => {
             const descriptor = Object.getOwnPropertyDescriptor(source, key);
+
             return key === changedKey &&
               descriptor !== undefined &&
               "value" in descriptor &&
@@ -998,6 +1085,7 @@ describe("machine admission", () => {
               : descriptor;
           },
         });
+
         assertUnknownFailure(wrap(flappingDescriptor), reason, path, {});
       }
     });
@@ -1060,10 +1148,13 @@ describe("machine admission", () => {
       const resolutions: string[] = [];
       const resolvedTarget = { id: "target" };
       const resolvedReenter = { id: "reenter" };
+
       const resolveTarget = (value: unknown, targetPath: Diagnostic.Path) => {
         resolutions.push(String(targetPath.at(-1)));
+
         return Result.succeed(value === "target" ? resolvedTarget : resolvedReenter);
       };
+
       const admitted = resultSuccess(
         admitTransition(
           { target: "target", guard, updateMemory, actions, reenter: "reenter" },
@@ -1071,6 +1162,7 @@ describe("machine admission", () => {
           resolveTarget,
         ),
       );
+
       assert.strictEqual(admitted.target, resolvedTarget);
       assert.strictEqual(admitted.reenter, resolvedReenter);
       assert.strictEqual(admitted.guard, guard);
@@ -1083,6 +1175,7 @@ describe("machine admission", () => {
           transitionWith({ target: Nested.S.idle, guard, updateMemory, actions }),
         ),
       ).compiled.states[""]?.handlers.tick?.[0];
+
       if (compiled === undefined) throw new Error("expected compiled transition");
       assert.strictEqual(compiled.target, Nested.S.idle);
       assert.strictEqual(compiled.guard, guard);
@@ -1101,7 +1194,9 @@ describe("machine admission", () => {
           }),
         ),
       ).compiled.states[""]?.handlers.tick?.[0];
+
       if (explicitUndefined === undefined) throw new Error("expected undefined transition variant");
+
       for (const field of ["guard", "updateMemory", "actions", "reenter"])
         assert.strictEqual(Object.hasOwn(explicitUndefined, field), false);
     });
@@ -1110,11 +1205,13 @@ describe("machine admission", () => {
       const originalResult = invalidConfiguration("UnknownStateToken", ["original", "target"], {
         issue: "foreign-definition",
       });
+
       if (Result.isSuccess(originalResult)) throw new Error("expected the original diagnostic");
 
       const result = admitTransition({ target: "foreign", guard: 1 }, ["on", "tick"], () =>
         Result.fail(originalResult.failure),
       );
+
       if (Result.isSuccess(result)) throw new Error("expected the target diagnostic");
       assert.strictEqual(result.failure, originalResult.failure);
       assert.deepStrictEqual(result.failure.path, ["original", "target"]);
@@ -1124,6 +1221,7 @@ describe("machine admission", () => {
         ["redirect"],
         () => Result.fail(originalResult.failure),
       );
+
       if (Result.isSuccess(redirectResult))
         throw new Error("expected the redirect target diagnostic");
       assert.strictEqual(redirectResult.failure, originalResult.failure);
@@ -1136,6 +1234,7 @@ describe("machine admission", () => {
         new Set(),
         () => Result.fail(originalResult.failure),
       );
+
       if (Result.isSuccess(handlerResult))
         throw new Error("expected the handler target diagnostic");
       assert.strictEqual(handlerResult.failure, originalResult.failure);
@@ -1146,6 +1245,7 @@ describe("machine admission", () => {
       const originalResult = invalidConfiguration("UnknownEventToken", ["original", "target"], {
         issue: "foreign-definition",
       });
+
       if (Result.isSuccess(originalResult)) throw new Error("expected the original diagnostic");
 
       const result = admitTimer(
@@ -1153,6 +1253,7 @@ describe("machine admission", () => {
         ["timers", "refresh"],
         () => Result.fail(originalResult.failure),
       );
+
       if (Result.isSuccess(result)) throw new Error("expected the timer target diagnostic");
       assert.strictEqual(result.failure, originalResult.failure);
       assert.deepStrictEqual(result.failure.path, ["original", "target"]);
@@ -1166,6 +1267,7 @@ describe("machine admission", () => {
         ["on", "tick", "target"],
         { issue: "foreign-definition" },
       );
+
       for (const [first, second] of [
         ["guard", "updateMemory"],
         ["updateMemory", "actions"],
@@ -1176,6 +1278,7 @@ describe("machine admission", () => {
           field: first,
         });
       }
+
       const extra = { target: OtherEditor.S.ready, extra: true };
       assertUnknownFailure(
         transitionWith(extra),
@@ -1231,6 +1334,7 @@ describe("machine admission", () => {
           },
         },
       }));
+
       assertExactMachineFailure(result, "AmbiguousHandler", ["states", "idle"], { event: "tick" });
     });
 
@@ -1277,12 +1381,14 @@ describe("machine admission", () => {
         { field: "activities", reason: "ExpectedActivities" },
         { field: "timers", reason: "ExpectedTimer" },
       ] as const;
+
       for (const { field, reason } of cases) {
         for (const value of [null, [], 1]) {
           const configuration = validNestedConfiguration();
           defineOwn(configuration, field, { value });
           assertUnknownFailure(configuration, reason, [field], {});
         }
+
         const configuration = validNestedConfiguration();
         defineOwn(configuration, field, {
           get: () => {
@@ -1304,12 +1410,15 @@ describe("machine admission", () => {
         }
 
         let keyReads = 0;
+
         const flappingKeys = new Proxy(behaviorMapTarget(field), {
           ownKeys: (source) => {
             keyReads += 1;
+
             return keyReads === 1 ? Reflect.ownKeys(source) : [];
           },
         });
+
         const keyConfiguration = validNestedConfiguration();
         defineOwn(keyConfiguration, field, { value: flappingKeys });
         assertUnknownFailure(keyConfiguration, reason, [field], {});
@@ -1317,9 +1426,11 @@ describe("machine admission", () => {
         let descriptorReads = 0;
         const descriptorTarget = behaviorMapTarget(field);
         const descriptorKey = Reflect.ownKeys(descriptorTarget)[0];
+
         const flappingDescriptor = new Proxy(descriptorTarget, {
           getOwnPropertyDescriptor: (source, key) => {
             const descriptor = Object.getOwnPropertyDescriptor(source, key);
+
             if (
               key === descriptorKey &&
               descriptorReads++ === 0 &&
@@ -1327,9 +1438,11 @@ describe("machine admission", () => {
               "value" in descriptor
             )
               return { ...descriptor, value: {} };
+
             return descriptor;
           },
         });
+
         const descriptorConfiguration = validNestedConfiguration();
         defineOwn(descriptorConfiguration, field, { value: flappingDescriptor });
         assertUnknownFailure(descriptorConfiguration, reason, [field], {});
@@ -1349,6 +1462,7 @@ describe("machine admission", () => {
           states: { idle: {} },
         })),
       );
+
       const activities = admitted.compiled.states[""]?.activities;
       assert.strictEqual(activities?.resource?.kind, "resource-subscribe");
       assert.strictEqual(activities?.resource?.descriptor, ActivityResource.id);
@@ -1361,6 +1475,7 @@ describe("machine admission", () => {
         ActivityResource.key,
         "direct",
       );
+
       assertExactMachineFailure(
         unknownMachine(ActivityDefinitionResult, () => activityConfiguration(directPlan)),
         "ExpectedActivities",
@@ -1369,12 +1484,14 @@ describe("machine admission", () => {
       );
 
       const forged = { ...ActivityResource.subscribe("forged") };
+
       const wrongFamily = operationPlan(
         "stream-subscribe",
         ActivityResource.id,
         ActivityResource.key,
         "wrong-family",
       );
+
       const wrongDescriptor = ForeignActivityResource.subscribe("wrong-descriptor");
       const accessor = {};
       let accessorInvoked = false;
@@ -1403,6 +1520,7 @@ describe("machine admission", () => {
           {},
         );
       }
+
       assert.strictEqual(accessorInvoked, false);
     });
 
@@ -1466,6 +1584,7 @@ describe("machine admission", () => {
       for (const entry of [undefined, null, "invalid"])
         assertUnknownFailure(transitionWith(entry), "ExpectedTransition", ["on", "tick"], {});
       assertUnknownFailure(transitionWith([]), "EmptyEventHandlerList", ["on", "tick"], {});
+
       for (const [entry, path] of [
         [OtherEditor.S.ready, ["on", "tick"]],
         [[OtherEditor.S.ready], ["on", "tick", 0]],
@@ -1487,6 +1606,7 @@ describe("machine admission", () => {
         enumerable: false,
         value: Nested.E.tick,
       });
+
       try {
         const hiddenEventOn = {};
         defineOwn(hiddenEventOn, "injected", { value: [] });
@@ -1531,11 +1651,13 @@ describe("machine admission", () => {
 
     it("admits event-handler lists through stable intrinsic snapshots", () => {
       const guard = () => true;
+
       const transitions = resultSuccess(
         machine(NestedResult, () =>
           transitionWith([Nested.S.idle, { target: Nested.S.active.S.editing, guard }]),
         ),
       ).compiled.states[""]?.handlers.tick;
+
       assert.deepStrictEqual(
         transitions?.map(({ target }) => target),
         [Nested.S.idle, Nested.S.active.S.editing],
@@ -1552,6 +1674,7 @@ describe("machine admission", () => {
             const sparse: unknown[] = [];
             sparse.length = 2;
             sparse[0] = Nested.S.idle;
+
             return sparse;
           })(),
           ["on", "tick", 1],
@@ -1609,12 +1732,15 @@ describe("machine admission", () => {
       assertUnknownFailure(transitionWith(revoked.proxy), "ExpectedTransition", ["on", "tick"], {});
 
       let prototypeReads = 0;
+
       const flappingPrototype = new Proxy([Nested.S.idle], {
         getPrototypeOf: () => {
           prototypeReads += 1;
+
           return prototypeReads === 1 ? Array.prototype : null;
         },
       });
+
       assertUnknownFailure(
         transitionWith(flappingPrototype),
         "ExpectedTransition",
@@ -1623,26 +1749,34 @@ describe("machine admission", () => {
       );
 
       let keyReads = 0;
+
       const flappingKeys = new Proxy([Nested.S.idle], {
         ownKeys: (source) => {
           keyReads += 1;
           const keys = Reflect.ownKeys(source);
+
           return keyReads === 1 ? keys : keys.reverse();
         },
       });
+
       assertUnknownFailure(transitionWith(flappingKeys), "ExpectedTransition", ["on", "tick"], {});
 
       let descriptorReads = 0;
+
       const flappingDescriptor = new Proxy([Nested.S.idle], {
         getOwnPropertyDescriptor: (source, key) => {
           const descriptor = Object.getOwnPropertyDescriptor(source, key);
+
           if (key === "0" && descriptor !== undefined && "value" in descriptor) {
             descriptorReads += 1;
+
             if (descriptorReads === 1) return { ...descriptor, value: Nested.S.active };
           }
+
           return descriptor;
         },
       });
+
       assertUnknownFailure(
         transitionWith(flappingDescriptor),
         "ExpectedTransition",
@@ -1690,10 +1824,13 @@ describe("machine admission", () => {
   describe("redirect admission", () => {
     it("admits redirect records and frozen lists through owned snapshots", () => {
       let callbackCalls = 0;
+
       const firstWhen = () => {
         callbackCalls += 1;
+
         return true;
       };
+
       const secondWhen = () => false;
       const first = { when: firstWhen, target: Nested.S.idle };
       const second = { when: secondWhen, target: Nested.S.active.S.editing };
@@ -1732,9 +1869,11 @@ describe("machine admission", () => {
         ["redirect", 1, "target"],
         { issue: "foreign-definition" },
       );
+
       if (Result.isSuccess(secondFailureResult)) throw new Error("expected a redirect diagnostic");
       const secondFailure = secondFailureResult.failure;
       const targetValidationPaths: Diagnostic.Path[] = [];
+
       const result = admitRedirectConfiguration<typeof Nested>(
         [
           { when: () => true, target: Nested.S.idle },
@@ -1744,6 +1883,7 @@ describe("machine admission", () => {
         ["redirect"],
         (target, path) => {
           targetValidationPaths.push(path);
+
           return target === Nested.S.idle
             ? Result.succeed(Nested.S.idle)
             : Result.fail(secondFailure);
@@ -1762,9 +1902,11 @@ describe("machine admission", () => {
       const semanticFailure = invalidConfiguration("UnknownStateToken", ["semantic", "target"], {
         issue: "foreign-definition",
       });
+
       if (Result.isSuccess(semanticFailure)) throw new Error("expected a semantic diagnostic");
 
       const targetValidationPaths: Diagnostic.Path[] = [];
+
       const structuralResult = admitRedirectConfiguration<typeof Nested>(
         [
           { when: () => true, target: OtherEditor.S.ready },
@@ -1773,9 +1915,11 @@ describe("machine admission", () => {
         ["redirect"],
         (_target, path) => {
           targetValidationPaths.push(path);
+
           return Result.fail(semanticFailure.failure);
         },
       );
+
       assertExactMachineFailure(
         structuralResult,
         "UnexpectedConfigurationField",
@@ -1785,14 +1929,17 @@ describe("machine admission", () => {
       assert.deepStrictEqual(targetValidationPaths, []);
 
       let targetValidationCalls = 0;
+
       const callbackResult = admitRedirectConfiguration<typeof Nested>(
         { when: 1, target: Nested.S.idle },
         ["redirect"],
         () => {
           targetValidationCalls += 1;
+
           return Result.succeed(Nested.S.idle);
         },
       );
+
       assertExactMachineFailure(callbackResult, "ExpectedFunction", ["redirect", "when"], {
         field: "when",
       });
@@ -1886,6 +2033,7 @@ describe("machine admission", () => {
           {},
         );
       }
+
       assertUnknownFailure(
         redirectWith([{ when: () => true, target: Nested.S.idle, extra: true }, null]),
         "UnexpectedConfigurationField",
@@ -1948,29 +2096,35 @@ describe("machine admission", () => {
         );
 
       let prototypeReads = 0;
+
       const flappingPrototype = new Proxy(
         { when: () => true, target: Nested.S.idle },
         {
           getPrototypeOf: () => (prototypeReads++ === 0 ? Object.prototype : null),
         },
       );
+
       assertUnknownFailure(redirectWith(flappingPrototype), "ExpectedRedirect", ["redirect"], {});
 
       let keyReads = 0;
+
       const flappingKeys = new Proxy(
         { when: () => true, target: Nested.S.idle },
         {
           ownKeys: (source) => (keyReads++ === 0 ? Reflect.ownKeys(source) : ["when"]),
         },
       );
+
       assertUnknownFailure(redirectWith(flappingKeys), "ExpectedRedirect", ["redirect"], {});
 
       let descriptorReads = 0;
+
       const flappingDescriptor = new Proxy(
         { when: () => true, target: Nested.S.idle },
         {
           getOwnPropertyDescriptor: (source, key) => {
             const descriptor = Object.getOwnPropertyDescriptor(source, key);
+
             return key === "target" &&
               descriptor !== undefined &&
               "value" in descriptor &&
@@ -1980,6 +2134,7 @@ describe("machine admission", () => {
           },
         },
       );
+
       assertUnknownFailure(redirectWith(flappingDescriptor), "ExpectedRedirect", ["redirect"], {});
     });
   });

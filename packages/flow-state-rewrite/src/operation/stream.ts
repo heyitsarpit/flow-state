@@ -150,9 +150,13 @@ const decodeStreamConfiguration = Schema.decodeUnknownResult(StreamConfiguration
 
 const streamConfigurationError = (failure: Schema.SchemaError) => {
   const field = firstConfigurationField(failure.issue);
+
   if (field === "id") return new TypeError("Operation id must be a valid authored name");
+
   if (field === "key") return new TypeError("Stream key must be callable");
+
   if (field === "subscribe") return new TypeError("Stream subscribe adapter must be callable");
+
   return new TypeError("Invalid Stream configuration");
 };
 
@@ -179,6 +183,7 @@ const constructStream = <
   admitted: StreamAuthoringConfig<Id, P, K, V, E, R>,
 ) => {
   type CanonicalK = ReadonlyCanonical<K>;
+
   const { id, key: projectKey, subscribe: subscribeAdapter, persist } = admitted;
 
   const key = (params: P) => canonicalizeKey(projectKey(params));
@@ -206,6 +211,7 @@ const constructStream = <
     [RequirementsTypeId]: requirements<R>,
     persist: persist ?? false,
   };
+
   return publishOperation(streamValue, subscribeAdapter);
 };
 
@@ -221,5 +227,6 @@ export const stream = <
   config: StreamAuthoringConfig<Id, P, K, V, E, R>,
 ): FlowStream<Id, P, ReadonlyCanonical<K>, V, E, R> => {
   const admitted = admitStreamConfiguration<Id, P, K, V, E, R>(config);
+
   return constructStream<Id, P, K, V, E, R>(admitted);
 };

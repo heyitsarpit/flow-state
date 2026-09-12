@@ -66,6 +66,7 @@ export type _MachineConfigurationReasons = Expect<
 
 const resultSuccess = <Value>(result: Result.Result<Value, Diagnostic.PublicDiagnostic>) => {
   if (Result.isFailure(result)) throw result.failure;
+
   return result.success;
 };
 
@@ -94,6 +95,7 @@ const EditorResult = definition({
   },
   operations: { save },
 });
+
 const Editor = resultSuccess(EditorResult);
 
 const OtherEditorResult = definition({
@@ -103,6 +105,7 @@ const OtherEditorResult = definition({
     opened: (draftId: string) => ({ draftId }),
   },
 });
+
 const OtherEditor = resultSuccess(OtherEditorResult);
 
 const editorMachine = resultSuccess(
@@ -127,31 +130,39 @@ const editorMachine = resultSuccess(
 export type _DefinitionIdentity = Expect<
   Types.Equals<typeof editorMachine.definition, typeof Editor>
 >;
+
 export type _Machine = Expect<Types.Equals<typeof editorMachine, Machine<typeof Editor>>>;
+
 export type _CompiledMachine = Expect<
   Types.Equals<typeof editorMachine.compiled, CompiledMachine<typeof Editor>>
 >;
+
 // @ts-expect-error Machine does not publish authored configuration.
 void editorMachine.config;
 
 const editorGuard = (
   _input: Parameters<NonNullable<CompiledTransition<typeof Editor, "opened">["guard"]>>[0],
 ) => true;
+
 export type _CompiledGuard = Expect<
   Types.Equals<
     NonNullable<CompiledTransition<typeof Editor, "opened">["guard"]>,
     typeof editorGuard
   >
 >;
+
 export type _CompiledRedirect = Expect<
   Types.Equals<CompiledRedirect<typeof Editor>["target"], typeof Editor.S.ready>
 >;
+
 export type _CompiledTimerTarget = Expect<
   Types.Equals<CompiledTimer<typeof Editor>["target"], typeof Editor.E.opened>
 >;
+
 export type _LeafCompiledStateChildren = Expect<
   Types.Equals<Extract<CompiledState<typeof Editor>, { kind: "leaf" }>["children"], readonly []>
 >;
+
 export type _CompoundCompiledStateChildren = Expect<
   Types.Equals<
     Extract<CompiledState<typeof Editor>, { kind: "compound" }>["children"],
@@ -168,6 +179,7 @@ const compiledStateNarrowingProofs = (state: CompiledState<typeof Editor>) => {
     // @ts-expect-error compiled leaf states retain their definition identity
     const foreignLeafState: typeof state.state = OtherEditor.S.ready;
     void foreignLeafState;
+
     return;
   }
 
@@ -230,46 +242,64 @@ const NestedResult = definition({
   operations: { save, project: nestedProject, updates: nestedUpdates },
   memory: (_options: { readonly input: { readonly draftId: string } }) => ({ count: 0 }),
 });
+
 const Nested = resultSuccess(NestedResult);
 
 const resourceAction: MachineAction<typeof Nested> = nestedProject.lookup(1);
+
 const resourceRefetchAction: MachineAction<typeof Nested> = nestedProject.refetch(1);
+
 const resourceSetDataAction: MachineAction<typeof Nested> = nestedProject.setData(
   nestedProject.key(1),
   1,
 );
+
 const resourceCancelAction: MachineAction<typeof Nested> = nestedProject.cancel(
   nestedProject.key(1),
 );
+
 const transactionAction: MachineAction<typeof Nested> = save.commit(undefined);
+
 const transactionCancelAction: MachineAction<typeof Nested> = save.cancel(save.key(undefined));
+
 const clearAction: MachineAction<typeof Nested> = {
   kind: "clear",
   targets: [[nestedProject, nestedProject.key(1)]],
 };
+
 const storeAction: MachineAction<typeof Nested> = {
   kind: "invalidate",
   targets: [[nestedProject, nestedProject.key(1)]],
 };
+
 const resourceActivity: MachineActivity<typeof Nested> = nestedProject.subscribe(1);
+
 const streamActivity: MachineActivity<typeof Nested> = nestedUpdates.subscribe(1);
+
 // @ts-expect-error continuing stream plans are not finite machine actions.
 const streamAction: MachineAction<typeof Nested> = nestedUpdates.subscribe(1);
+
 // @ts-expect-error finite resource plans are not machine activities.
 const finiteResourceActivity: MachineActivity<typeof Nested> = nestedProject.lookup(1);
+
 // @ts-expect-error operation descriptors are not machine activities.
 const transactionActivity: MachineActivity<typeof Nested> = save;
+
 // @ts-expect-error runtime-sized arrays are not machine activities.
 const activityArray: MachineActivity<typeof Nested> = [resourceActivity];
+
 // @ts-expect-error unknown plan kinds are not machine actions.
 const unknownAction: MachineAction<typeof Nested> = { kind: "unknown" };
+
 // @ts-expect-error store invalidation requires at least one exact resource target.
 const emptyStoreAction: MachineAction<typeof Nested> = { kind: "invalidate", targets: [] };
+
 const transactionStoreAction: MachineAction<typeof Nested> = {
   kind: "invalidate",
   // @ts-expect-error transaction descriptors cannot be invalidated.
   targets: [[save, save.key()]],
 };
+
 const wrongKeyStoreAction: MachineAction<typeof Nested> = {
   kind: "invalidate",
   // @ts-expect-error the key tuple must match the resource descriptor.
@@ -277,22 +307,39 @@ const wrongKeyStoreAction: MachineAction<typeof Nested> = {
 };
 
 void resourceAction;
+
 void resourceRefetchAction;
+
 void resourceSetDataAction;
+
 void resourceCancelAction;
+
 void transactionAction;
+
 void transactionCancelAction;
+
 void clearAction;
+
 void storeAction;
+
 void resourceActivity;
+
 void streamActivity;
+
 void streamAction;
+
 void transactionActivity;
+
 void finiteResourceActivity;
+
 void activityArray;
+
 void unknownAction;
+
 void emptyStoreAction;
+
 void transactionStoreAction;
+
 void wrongKeyStoreAction;
 
 const nestedMachine = resultSuccess(
@@ -436,11 +483,13 @@ void invalidGrammarProofs;
 
 const expectCompoundState = (state: CompiledState<typeof Nested>) => {
   if (state.kind !== "compound") throw new Error("expected a compound compiled state");
+
   return state;
 };
 
 const expectLeafState = (state: CompiledState<typeof Nested>) => {
   if (state.kind !== "leaf") throw new Error("expected a leaf compiled state");
+
   return state;
 };
 
@@ -450,12 +499,15 @@ describe("machine", () => {
       assert.strictEqual(isConstructedMachine(editorMachine), true);
       assert.strictEqual(isConstructedMachine({ ...editorMachine }), false);
       let hasTrapCalls = 0;
+
       const proxiedMachine = new Proxy(editorMachine, {
         has: () => {
           hasTrapCalls += 1;
+
           return true;
         },
       });
+
       assert.strictEqual(isConstructedMachine(proxiedMachine), false);
       assert.strictEqual(hasTrapCalls, 0);
       const revokedMachine = Proxy.revocable(editorMachine, {});
@@ -482,47 +534,58 @@ describe("machine", () => {
       let memoryPlanCalls = 0;
       let memorySelectorCalls = 0;
       let memorySelectionHandlerCalls = 0;
+
       const sourceResult = definition({
         id: "inert",
         states: ["ready"],
         events: {
           changed: () => {
             eventCalls += 1;
+
             return {};
           },
         },
         memory: (_options: { readonly input: void }) => {
           initializerCalls += 1;
+
           return { ready: true };
         },
       });
+
       const source = resultSuccess(sourceResult);
+
       const result = resultSuccess(
         machine(sourceResult, ({ S, onContext, onMemory }) => {
           onContext.select(
             () => {
               selectorCalls += 1;
+
               return S.ready;
             },
             () => {
               contextHandlerCalls += 1;
+
               return null;
             },
           );
           onMemory(() => {
             memoryPlanCalls += 1;
+
             return null;
           });
           onMemory.select(
             ({ memory }) => {
               memorySelectorCalls += 1;
+
               return memory.ready;
             },
             () => {
               memorySelectionHandlerCalls += 1;
+
               return null;
             },
           );
+
           return {
             default: S.ready,
             states: {
@@ -535,6 +598,7 @@ describe("machine", () => {
           };
         }),
       );
+
       assert.strictEqual(
         result.compiled.states["S.ready"]?.handlers.changed?.[0]?.target,
         source.S.ready,
@@ -556,30 +620,40 @@ describe("machine", () => {
 
     it("retains callable selection registrations", () => {
       const contextRegistration = nestedMachine.compiled.context[0];
+
       if (contextRegistration === undefined) throw new Error("expected a context selection");
       assert.deepStrictEqual(Object.keys(contextRegistration), ["use"]);
+
       const event = contextRegistration.use((select, handler) =>
         handler(select({ state: Nested.S.idle, memory: { count: 0 }, context: {} }), undefined),
       );
+
       if (event === null || event === false) throw new Error("expected a selected event");
       assert.strictEqual(event.type, resultSuccess(Nested.E.tick()).type);
 
       const memoryRegistration = nestedMachine.compiled.memory.find(
         (registration) => registration.kind === "selection",
       );
+
       if (memoryRegistration === undefined) throw new Error("expected a memory selection");
       assert.deepStrictEqual(Object.keys(memoryRegistration), ["kind", "use"]);
+
       const plan = memoryRegistration.use((select, handler) =>
         handler(select({ state: Nested.S.idle, memory: { count: 1 }, context: {} }), undefined),
       );
+
       assert.strictEqual(plan, null);
     });
 
     it("owns registration arrays at publication", () => {
       let registerContextLater = () => {};
+
       let registerMemoryLater = () => {};
+
       let registerMemorySelectionLater = () => {};
+
       const source = definition({ id: "registration", states: ["idle"], events: {} });
+
       const result = machine(source, ({ S, onContext, onMemory }) => {
         onContext.select(
           ({ state }) => state,
@@ -601,8 +675,10 @@ describe("machine", () => {
             ({ state }) => state,
             () => null,
           );
+
         return { default: S.idle, states: { idle: {} } };
       });
+
       const compiled = resultSuccess(result).compiled;
       assert.strictEqual(compiled.context.length, 1);
       assert.strictEqual(compiled.memory.length, 2);
@@ -617,11 +693,15 @@ describe("machine", () => {
 
     it("matches Definition Results and invokes only successful callbacks", () => {
       let successCallbackCalls = 0;
+
       const successfulMachine = machine(EditorResult, ({ S }) => {
         successCallbackCalls += 1;
+
         return { default: S.ready, states: { ready: {} } };
       });
+
       assert.strictEqual(successCallbackCalls, 1);
+
       if (Result.isFailure(successfulMachine)) throw successfulMachine.failure;
       assert.strictEqual(successfulMachine.success.definition, Editor);
 
@@ -629,13 +709,17 @@ describe("machine", () => {
         definition({ id: "failed-definition", states: [], events: {} }),
         () => Editor,
       );
+
       if (Result.isSuccess(definitionFailure)) throw new Error("expected Definition failure");
       let callbackCalls = 0;
+
       const machineResult = machine(definitionFailure, () => {
         callbackCalls += 1;
         throw new Error("machine callback must not run");
       });
+
       assert.strictEqual(callbackCalls, 0);
+
       if (Result.isSuccess(machineResult)) throw new Error("expected machine failure");
       assert.strictEqual(machineResult.failure, definitionFailure.failure);
     });
@@ -644,17 +728,22 @@ describe("machine", () => {
   describe("compiled behavior identity", () => {
     it("retains activity identity", () => {
       const states = nestedMachine.compiled.states;
+
       const stateAt = (key: string) => {
         const state = states[key];
+
         if (state === undefined) throw new Error(`missing compiled state: ${key}`);
+
         return state;
       };
+
       const root = expectCompoundState(stateAt(""));
       const active = expectCompoundState(stateAt("S.active"));
       const dialog = expectCompoundState(stateAt("S.active.S.dialog"));
       const editing = expectLeafState(stateAt("S.active.S.editing"));
       const changed = editing.handlers.changed?.[0];
       const refresh = active.timers.refresh;
+
       if (changed === undefined || refresh === undefined)
         throw new Error("compiled behavior is incomplete");
 
@@ -682,6 +771,7 @@ describe("machine", () => {
           toString: "bare",
         },
       });
+
       const result = resultSuccess(
         machine(sourceResult, ({ S, E }) => ({
           default: S["a.S.b"],
@@ -695,6 +785,7 @@ describe("machine", () => {
           },
         })),
       );
+
       assert.ok(result.compiled.states['@["a.S.b"]']);
       assert.ok(Object.hasOwn(result.compiled.states["S.constructor"]?.timers ?? {}, "__proto__"));
     });

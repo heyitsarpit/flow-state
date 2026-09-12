@@ -36,22 +36,27 @@ const isParameterlessAdapter = (value: unknown): value is ParameterlessAdapter =
 
 const expectInvalidOperation = (construct: () => void) => {
   let error: unknown;
+
   try {
     construct();
   } catch (cause) {
     error = cause;
   }
+
   assert.strictEqual(error instanceof TypeError, true);
 };
 
 const expectInvalidOperationMessage = (construct: () => void, message: string) => {
   let error: unknown;
+
   try {
     construct();
   } catch (cause) {
     error = cause;
   }
+
   assert.strictEqual(error instanceof TypeError, true);
+
   if (error instanceof TypeError) assert.strictEqual(error.message, message);
 };
 
@@ -62,10 +67,12 @@ describe("operation declarations", () => {
       const first = new SchemaIssue.Pointer(["first", 0], leaf);
       const second = new SchemaIssue.Pointer(["second"], leaf);
       const ordered = new SchemaIssue.Composite(Schema.String.ast, [leaf, second]);
+
       const nested = new SchemaIssue.Encoding(
         Schema.String.ast,
         new SchemaIssue.Composite(Schema.String.ast, [first, second]),
       );
+
       const empty = new SchemaIssue.Composite(Schema.String.ast, [leaf]);
       Object.defineProperty(empty, "issues", { value: [] });
 
@@ -93,14 +100,19 @@ describe("operation declarations", () => {
         _options: OperationOptions,
       ): OperationProgram<number, never, never> => {
         directCalls += 1;
+
         return 7;
       };
+
       const effectAdapter = (_input: string, _options: OperationOptions) => {
         effectCalls += 1;
+
         return Effect.succeed(11);
       };
+
       const failureAdapter = (_input: string, _options: OperationOptions) =>
         Effect.fail(expectedFailure);
+
       // RETURN_TYPE: Preserves never success/error/requirements channels while the fixture proves sync throws become defects.
       const defectAdapter = (
         _input: string,
@@ -109,6 +121,7 @@ describe("operation declarations", () => {
         // oxlint-disable-next-line anti-slop/no-throw-in-effect-gen -- this adapter fixture proves sync throws become defects.
         throw expectedDefect;
       };
+
       const direct = executeOperationProgram(() => directAdapter("project-1", options));
       const effect = executeOperationProgram(() => effectAdapter("project-1", options));
       const failure = executeOperationProgram(() => failureAdapter("project-1", options));
@@ -116,6 +129,7 @@ describe("operation declarations", () => {
 
       assert.strictEqual(directCalls, 0);
       assert.strictEqual(effectCalls, 0);
+
       return Effect.gen(function* () {
         assert.strictEqual(yield* direct, 7);
         assert.strictEqual(yield* effect, 11);
@@ -124,6 +138,7 @@ describe("operation declarations", () => {
 
         const failureExit = yield* Effect.exit(failure);
         assert.ok(Exit.isFailure(failureExit));
+
         if (Exit.isFailure(failureExit)) {
           const failureReason = failureExit.cause.reasons.find(Cause.isFailReason);
           assert.strictEqual(failureReason?.error, expectedFailure);
@@ -131,9 +146,11 @@ describe("operation declarations", () => {
 
         const defectExit = yield* Effect.exit(defect);
         assert.ok(Exit.isFailure(defectExit));
+
         if (Exit.isFailure(defectExit)) {
           const defectResult = Cause.findDefect(defectExit.cause);
           assert.ok(Result.isSuccess(defectResult));
+
           if (Result.isSuccess(defectResult))
             assert.strictEqual(defectResult.success, expectedDefect);
         }
@@ -144,28 +161,36 @@ describe("operation declarations", () => {
       let lookupCalls = 0;
       let receivedParams: ProjectInput | undefined;
       let receivedOptions: OperationOptions | undefined;
+
       const lookup = (params: ProjectInput, options: OperationOptions) => {
         lookupCalls += 1;
         receivedParams = params;
         receivedOptions = options;
+
         return params.id.length;
       };
+
       const project = resource({
         id: "projects.lazy-resource",
         key: (params: ProjectInput) => [params.id] as const,
         lookup,
       });
+
       const storedAdapter = readOperationAdapter(project);
       // RETURN_TYPE: Predicate return narrows the stored adapter to the captured Resource lookup callable before invocation.
       const isLookup = (value: unknown): value is typeof lookup => value === lookup;
       const options = { signal: new AbortController().signal };
 
       assert.ok(isLookup(storedAdapter));
+
       if (!isLookup(storedAdapter)) throw new Error("Resource adapter was not retained");
+
       const program = executeOperationProgram<number, never, never>(() =>
         storedAdapter({ id: "project-1" }, options),
       );
+
       assert.strictEqual(lookupCalls, 0);
+
       return Effect.gen(function* () {
         assert.strictEqual(yield* program, 9);
         assert.strictEqual(lookupCalls, 1);
@@ -176,25 +201,31 @@ describe("operation declarations", () => {
 
     it.effect("preserves an authored parameterless adapter for thunk execution", () => {
       let receivedOptions: OperationOptions | undefined;
+
       const authoredAdapter: ParameterlessAdapter = (options: OperationOptions) => {
         receivedOptions = options;
+
         return { refreshed: true };
       };
+
       const refresh = transaction({
         id: "projects.runtime-refresh",
         commit: authoredAdapter,
         persist: true,
         concurrency: "serialize",
       });
+
       const storedAdapter = readOperationAdapter(refresh);
       assert.strictEqual(storedAdapter, authoredAdapter);
       assert.ok(isParameterlessAdapter(storedAdapter));
+
       if (!isParameterlessAdapter(storedAdapter)) return Effect.void;
       const options = { signal: new AbortController().signal };
       assert.deepStrictEqual(refresh.key(undefined), []);
       assert.deepStrictEqual(refresh.commit(undefined).key, []);
       assert.strictEqual(refresh.persist, true);
       assert.strictEqual(refresh.concurrency, "serialize");
+
       return Effect.gen(function* () {
         const refreshed = yield* executeOperationProgram(() => storedAdapter(options));
         assert.deepStrictEqual(refreshed, { refreshed: true });
@@ -207,6 +238,7 @@ describe("operation declarations", () => {
       const options = { signal: new AbortController().signal };
       let receivedParams: ProjectInput | undefined;
       let receivedOptions: OperationOptions | undefined;
+
       // RETURN_TYPE: Preserves the authored keyed transaction's OperationProgram success channel while accepting optional input for default-key invocation.
       const authoredAdapter = (
         params: ProjectInput | undefined,
@@ -214,27 +246,35 @@ describe("operation declarations", () => {
       ): OperationProgram<ProjectInput, never, never> => {
         receivedParams = params;
         receivedOptions = adapterOptions;
+
         return params ?? defaultParams;
       };
+
       const projectKey = (params: ProjectInput = defaultParams) => [params.id] as const;
+
       const save = transaction({
         id: "projects.runtime-keyed",
         key: projectKey,
         commit: authoredAdapter,
       });
+
       const storedAdapter = readOperationAdapter(save);
+
       // RETURN_TYPE: Predicate return preserves the exact authored adapter function type required for stored-adapter invocation.
       const isAuthoredAdapter = (value: unknown): value is typeof authoredAdapter =>
         value === authoredAdapter;
 
       assert.strictEqual(storedAdapter, authoredAdapter);
       assert.ok(isAuthoredAdapter(storedAdapter));
+
       if (!isAuthoredAdapter(storedAdapter)) return Effect.void;
       assert.deepStrictEqual(save.key({ id: "project-1" }), ["project-1"]);
+
       return Effect.gen(function* () {
         const result = yield* executeOperationProgram(() =>
           storedAdapter({ id: "project-1" }, options),
         );
+
         assert.deepStrictEqual(result, { id: "project-1" });
         assert.deepStrictEqual(receivedParams, { id: "project-1" });
         assert.strictEqual(receivedOptions, options);
@@ -243,10 +283,13 @@ describe("operation declarations", () => {
 
     it("retain adapters without executing them during construction or planning", () => {
       let lookupCalls = 0;
+
       const lookup = (params: ProjectInput, _options: OperationOptions) => {
         lookupCalls += 1;
+
         return Effect.succeed({ id: params.id });
       };
+
       const project = resource({
         id: "projects.by-id",
         key: (params: ProjectInput) => [params.id] as const,
@@ -299,6 +342,7 @@ describe("operation declarations", () => {
         gcTime: 2_000,
         persist: true,
       });
+
       assert.strictEqual(configuredProject.staleTime, 1_000);
       assert.strictEqual(configuredProject.gcTime, 2_000);
       assert.strictEqual(configuredProject.persist, true);
@@ -312,6 +356,7 @@ describe("operation declarations", () => {
         key: (projectId: string) => [projectId] as const,
         lookup: (projectId: string) => Effect.succeed(projectId),
       });
+
       const forged = { ...constructed };
       const structural = { kind: "resource", id: constructed.id };
 
@@ -320,11 +365,13 @@ describe("operation declarations", () => {
       assert.strictEqual(isConstructedOperation(structural), false);
 
       const plan = constructed.subscribe("project-1");
+
       const sameIdForeign = resource({
         id: constructed.id,
         key: (projectId: string) => [projectId] as const,
         lookup: (projectId: string) => Effect.succeed(projectId),
       });
+
       assert.strictEqual(isOperationPlanForDescriptor(plan, constructed), true);
       assert.strictEqual(isOperationPlanForDescriptor(plan, sameIdForeign), false);
       assert.strictEqual(isOperationPlanForDescriptor({ ...plan }, constructed), false);
@@ -335,28 +382,37 @@ describe("operation declarations", () => {
       const lookup = (id: string, _options: OperationOptions) => Effect.succeed(id);
       const commit = (_options: OperationOptions) => Effect.succeed(true);
       const subscribe = (id: string, _options: OperationOptions) => Stream.make(id);
+
       const malformedResource = {
         id: "projects.invalid-resource",
         key,
         lookup,
       };
+
       Object.defineProperty(malformedResource, "lookup", { value: undefined });
+
       const malformedTransaction = {
         id: "projects.invalid-transaction",
         commit,
       };
+
       Object.defineProperty(malformedTransaction, "commit", { value: undefined });
+
       const malformedStream = {
         id: "projects.invalid-stream",
         key,
         subscribe,
       };
+
       Object.defineProperty(malformedStream, "subscribe", { value: undefined });
+
       const malformedKeyedTransaction = {
         id: "projects.invalid-key",
         commit,
       };
+
       Object.defineProperty(malformedKeyedTransaction, "key", { value: undefined });
+
       const malformedCallbacks: ReadonlyArray<() => void> = [
         () => resource(malformedResource),
         () => transaction(malformedTransaction),
@@ -365,11 +421,13 @@ describe("operation declarations", () => {
       ];
 
       for (const construct of malformedCallbacks) expectInvalidOperation(construct);
+
       const malformedId = {
         id: "projects.invalid-id",
         key,
         lookup,
       };
+
       Object.defineProperty(malformedId, "id", { value: 42 });
       expectInvalidOperation(() => resource(malformedId));
     });
@@ -447,14 +505,19 @@ describe("operation declarations", () => {
     it("admits Resource shape and optional fields without callback execution", () => {
       let keyCalls = 0;
       let lookupCalls = 0;
+
       const key = (id: string) => {
         keyCalls += 1;
+
         return [id] as const;
       };
+
       const lookup = (id: string, _options: OperationOptions) => {
         lookupCalls += 1;
+
         return Effect.succeed(id);
       };
+
       const base = { id: "projects.schema-resource", key, lookup };
       const omitted = resource(base);
       const explicitUndefined = { ...base };
@@ -481,14 +544,19 @@ describe("operation declarations", () => {
     it("admits Transaction shape and optional fields without callback execution", () => {
       let keyCalls = 0;
       let commitCalls = 0;
+
       const key = (id: string) => {
         keyCalls += 1;
+
         return [id] as const;
       };
+
       const commit = (id: string, _options: OperationOptions) => {
         commitCalls += 1;
+
         return Effect.succeed(id);
       };
+
       const base = { id: "projects.schema-transaction", key, commit };
       const keyed = transaction(base);
       const explicitUndefined = { ...base };
@@ -517,14 +585,19 @@ describe("operation declarations", () => {
     it("admits Stream shape and optional fields without callback execution", () => {
       let keyCalls = 0;
       let subscribeCalls = 0;
+
       const key = (id: string) => {
         keyCalls += 1;
+
         return [id] as const;
       };
+
       const subscribe = (id: string, _options: OperationOptions) => {
         subscribeCalls += 1;
+
         return Stream.make(id);
       };
+
       const base = { id: "projects.schema-stream", key, subscribe };
       const omitted = stream(base);
       const explicitUndefined = { ...base };
@@ -544,14 +617,17 @@ describe("operation declarations", () => {
 
     it("keeps omitted and explicit undefined Transaction keys distinct", () => {
       const commit = (_options: OperationOptions) => Effect.succeed(true);
+
       const parameterless = transaction({
         id: "projects.omitted-transaction-key",
         commit,
       });
+
       const explicitUndefined = {
         id: "projects.explicit-undefined-transaction-key",
         commit,
       };
+
       Object.defineProperty(explicitUndefined, "key", { value: undefined });
 
       assert.deepStrictEqual(parameterless.key(undefined), []);
@@ -666,6 +742,7 @@ describe("operation declarations", () => {
       let idReads = 0;
       let keyReads = 0;
       let lookupReads = 0;
+
       const config = new Proxy(
         {
           id: "projects.flapping-resource" as const,
@@ -675,15 +752,20 @@ describe("operation declarations", () => {
         {
           get(target, property) {
             if (property === "id") return idReads++ === 0 ? target.id : "projects.changed";
+
             if (property === "key") return keyReads++ === 0 ? target.key : secondKey;
+
             if (property === "lookup") return lookupReads++ === 0 ? target.lookup : secondLookup;
+
             if (property === "staleTime" || property === "gcTime" || property === "persist") {
               return undefined;
             }
+
             throw new Error(`Unexpected resource config property: ${String(property)}`);
           },
         },
       );
+
       const admitted = resource(config);
 
       assert.strictEqual(idReads, 1);
@@ -701,6 +783,7 @@ describe("operation declarations", () => {
       let idReads = 0;
       let keyReads = 0;
       let commitReads = 0;
+
       const config = new Proxy(
         {
           id: "projects.flapping-transaction" as const,
@@ -710,13 +793,17 @@ describe("operation declarations", () => {
         {
           get(target, property) {
             if (property === "id") return idReads++ === 0 ? target.id : "projects.changed";
+
             if (property === "key") return keyReads++ === 0 ? target.key : secondKey;
+
             if (property === "commit") return commitReads++ === 0 ? target.commit : secondCommit;
+
             if (property === "persist" || property === "concurrency") return undefined;
             throw new Error(`Unexpected transaction config property: ${String(property)}`);
           },
         },
       );
+
       const admitted = transaction(config);
 
       assert.strictEqual(idReads, 1);
@@ -734,6 +821,7 @@ describe("operation declarations", () => {
       let idReads = 0;
       let keyReads = 0;
       let subscribeReads = 0;
+
       const config = new Proxy(
         {
           id: "projects.flapping-stream" as const,
@@ -743,15 +831,19 @@ describe("operation declarations", () => {
         {
           get(target, property) {
             if (property === "id") return idReads++ === 0 ? target.id : "projects.changed";
+
             if (property === "key") return keyReads++ === 0 ? target.key : secondKey;
+
             if (property === "subscribe") {
               return subscribeReads++ === 0 ? target.subscribe : secondSubscribe;
             }
+
             if (property === "persist") return undefined;
             throw new Error(`Unexpected stream config property: ${String(property)}`);
           },
         },
       );
+
       const admitted = stream(config);
 
       assert.strictEqual(idReads, 1);
@@ -765,10 +857,13 @@ describe("operation declarations", () => {
   describe("plan publication and identity laws", () => {
     it("carries the exact key on parameterized and constant-key commit plans", () => {
       let commitCalls = 0;
+
       const commit = (params: ProjectInput, _options: OperationOptions) => {
         commitCalls += 1;
+
         return Effect.succeed({ id: params.id });
       };
+
       const save = transaction({
         id: "projects.save",
         key: (params: ProjectInput) => [params.id] as const,
@@ -776,8 +871,10 @@ describe("operation declarations", () => {
         persist: true,
         concurrency: "serialize",
       });
+
       const refreshCommit = () => Effect.succeed({ refreshed: true });
       const keyedPlan = save.commit({ id: "project-1" });
+
       const refresh = transaction({
         id: "projects.refresh",
         key: () => ["refresh"] as const,
@@ -808,16 +905,20 @@ describe("operation declarations", () => {
 
     it("retains stream subscriptions and exposes no cancel action", () => {
       let subscribeCalls = 0;
+
       const subscribe = (params: ProjectInput, _options: OperationOptions) => {
         subscribeCalls += 1;
+
         return Stream.make({ id: params.id });
       };
+
       const updates = stream({
         id: "projects.updates",
         key: (params: ProjectInput) => [params.id] as const,
         subscribe,
         persist: true,
       });
+
       const options = {};
       const plan = updates.subscribe({ id: "project-1" }, options);
 
@@ -842,20 +943,25 @@ describe("operation declarations", () => {
     it("publishes and locks only descriptor identity for each family", () => {
       const resourceKey = (projectId: string) => [projectId] as const;
       const resourceLookup = (projectId: string) => Effect.succeed(projectId);
+
       const project = resource({
         id: "projects.identity-resource",
         key: resourceKey,
         lookup: resourceLookup,
       });
+
       const transactionKey = (projectId: string) => [projectId] as const;
       const transactionCommit = (projectId: string) => Effect.succeed(projectId);
+
       const save = transaction({
         id: "projects.identity-transaction",
         key: transactionKey,
         commit: transactionCommit,
       });
+
       const streamKey = (projectId: string) => [projectId] as const;
       const streamSubscribe = (projectId: string) => Stream.make(projectId);
+
       const updates = stream({
         id: "projects.identity-stream",
         key: streamKey,
@@ -895,6 +1001,7 @@ describe("operation declarations", () => {
         const adapterSymbol = Object.getOwnPropertySymbols(descriptor).find(
           (symbol) => Object.getOwnPropertyDescriptor(descriptor, symbol)?.enumerable === false,
         );
+
         assert.ok(adapterSymbol !== undefined);
         assert.deepStrictEqual(Object.getOwnPropertyDescriptor(descriptor, adapterSymbol), {
           configurable: false,
@@ -923,10 +1030,12 @@ describe("operation declarations", () => {
         key: (projectId: string) => [projectId] as const,
         lookup: () => Effect.succeed({ mutable: true }),
       });
+
       const refresh = transaction({
         id: "projects.immutable-plan-transaction",
         commit: (_options: OperationOptions) => Effect.succeed(true),
       });
+
       const value = { mutable: true };
       const write = project.setData(["project-1"], value);
       const resourceCancellation = project.cancel(["project-1"]);
@@ -957,12 +1066,14 @@ describe("operation declarations", () => {
 
     it("captures descriptor config and publishes copied canonical keys", () => {
       const rawKey: CanonicalKeyInput[] = [-0, { z: "last", a: "first" }];
+
       const config = {
         id: "projects.captured",
         key: (_params: ProjectInput) => rawKey,
         lookup: (params: ProjectInput, _options: OperationOptions) =>
           Effect.succeed({ id: params.id }),
       };
+
       const captured = resource(config);
       const plan = captured.lookup({ id: "project-1" });
 

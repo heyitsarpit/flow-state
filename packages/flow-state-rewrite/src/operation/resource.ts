@@ -195,9 +195,13 @@ const decodeResourceConfiguration = Schema.decodeUnknownResult(ResourceConfigura
 
 const resourceConfigurationError = (failure: Schema.SchemaError) => {
   const field = firstConfigurationField(failure.issue);
+
   if (field === "id") return new TypeError("Operation id must be a valid authored name");
+
   if (field === "key") return new TypeError("Resource key must be callable");
+
   if (field === "lookup") return new TypeError("Resource lookup adapter must be callable");
+
   return new TypeError("Invalid Resource configuration");
 };
 
@@ -241,12 +245,14 @@ const constructResource = <
   admitted: ResourceConstructionConfig<Id, P, K>,
 ) => {
   type CanonicalK = ReadonlyCanonical<K>;
+
   const { id, key: projectKey, lookup: lookupAdapter, staleTime, gcTime, persist } = admitted;
   const keyFor = (params: P) => canonicalizeKey(projectKey(params));
 
   // RETURN_TYPE: Preserves the public DataValue<A> result so the generic data channel is not collapsed to inferred undefined.
   const getData = (key: CanonicalK): DataValue<A> => {
     canonicalizeKey<K>(key);
+
     return undefined;
   };
 
@@ -323,6 +329,7 @@ const constructResource = <
     // oxlint-disable-next-line anti-slop/no-conditional-empty-object-spread -- The exact conditional spread omits an absent optional field while preserving configured values.
     ...(gcTime === undefined ? {} : { gcTime }),
   };
+
   return publishOperation(resourceValue, lookupAdapter);
 };
 
@@ -349,8 +356,12 @@ export function resource<
   Program,
 >(config: ResourceAuthoringConfig<Id, P, K, Program>) {
   const admitted = admitResourceConfiguration<Id, P, K, Program>(config);
+
   type A = OperationValueOf<Program>;
+
   type E = OperationErrorOf<Program>;
+
   type R = OperationRequirementsOf<Program>;
+
   return constructResource<Id, P, K, A, E, R>(admitted);
 }

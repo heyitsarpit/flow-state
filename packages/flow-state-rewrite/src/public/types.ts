@@ -35,17 +35,21 @@ export type { App, Module, RequirementsOf } from "../app/app.js";
 export type { Definition, EventToken, StateToken } from "../definition/domain.js";
 
 export type { Implementation } from "../implementation/implementation.js";
+
 export type { Machine } from "../machine/machine.js";
 
 export type { CanonicalKeyInput } from "../operation/key.js";
+
 export type { OperationOptions } from "../operation/operation.js";
 
 export type { FlowStream } from "../operation/stream.js";
 
 export type { Resource } from "../operation/resource.js";
+
 export type { Transaction } from "../operation/transaction.js";
 
 export type { ActorRef } from "../runtime/actor-ref.js";
+
 export type { Runtime, RuntimeSetup } from "../runtime/runtime.js";
 
 // Deferred public types: future actor and persistence owners will publish these names.

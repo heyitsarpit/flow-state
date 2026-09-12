@@ -63,6 +63,7 @@ describe("diagnostic", () => {
     for (const expected of Diagnostic.Code.literals) {
       const accepted = Schema.decodeUnknownResult(Diagnostic.Code)(expected);
       assert.ok(Result.isSuccess(accepted));
+
       if (Result.isSuccess(accepted)) assert.strictEqual(accepted.success, expected);
     }
 
@@ -71,6 +72,7 @@ describe("diagnostic", () => {
 
     for (const code of expectedCodes) {
       if (code === "Defect" || code === "Interruption") continue;
+
       const failure = Diagnostic.Failure({
         code,
         path: [],
@@ -78,6 +80,7 @@ describe("diagnostic", () => {
         summary: "typed",
         help: "help",
       });
+
       assert.strictEqual(failure.classification, "Failure");
     }
   });
@@ -90,6 +93,7 @@ describe("diagnostic", () => {
       summary: "Invalid machine configuration",
       help: "Provide a function.",
     });
+
     const expected = {
       _tag: "Diagnostic",
       classification: "Failure",
@@ -132,12 +136,15 @@ describe("diagnostic", () => {
       summary: "Schema validation failed",
       help: "Fix the input.",
     });
+
     const failed = Result.fail(error);
     assert.ok(Result.isFailure(failed));
+
     if (Result.isFailure(failed)) assert.strictEqual(failed.failure, error);
 
     return Effect.gen(function* () {
       yield* error;
+
       return "unreachable";
     }).pipe(
       Effect.flip,
@@ -164,9 +171,11 @@ describe("diagnostic", () => {
     const schema = Schema.Struct({
       users: Schema.Array(Schema.Struct({ name: Schema.String })),
     });
+
     const decoded = Schema.decodeUnknownResult(schema)({ users: [{ name: 42 }] });
 
     assert.ok(Result.isFailure(decoded));
+
     if (Result.isFailure(decoded)) {
       const diagnostic = Diagnostic.fromSchemaError(decoded.failure);
       assert.deepStrictEqual(
@@ -193,12 +202,15 @@ describe("diagnostic", () => {
   it("preserves nested symbol-keyed schema paths in the rendered diagnostic", () => {
     const outer = Symbol("outer");
     const inner = Symbol("inner");
+
     const schema = Schema.Struct({
       [outer]: Schema.Struct({ [inner]: Schema.String }),
     });
+
     const decoded = Schema.decodeUnknownResult(schema)({ [outer]: { [inner]: 42 } });
 
     assert.ok(Result.isFailure(decoded));
+
     if (Result.isFailure(decoded)) {
       const diagnostic = Diagnostic.fromSchemaError(decoded.failure);
       assert.deepStrictEqual(
@@ -248,6 +260,7 @@ describe("diagnostic", () => {
       summary: "typed",
       help: "help",
     });
+
     const interruption = Diagnostic.Interrupt();
 
     assert.strictEqual(failure.classification, "Failure");
@@ -272,22 +285,26 @@ describe("diagnostic", () => {
       summary: "typed",
       help: "help",
     });
+
     const defect = new globalThis.Error("unexpected");
 
     return Effect.gen(function* () {
       const typedExit = yield* Effect.exit(Effect.fail(typed));
+
       const defectExit = yield* Effect.exit(
         Effect.sync(() => {
           // oxlint-disable-next-line anti-slop/no-throw-in-effect-gen -- this fixture creates a defect.
           throw defect;
         }),
       );
+
       const diedExit = yield* Effect.exit(Effect.die(defect));
       const mixedCause = Cause.combine(Cause.fail(typed), Cause.die(defect));
       const mixedExit = yield* Effect.exit(Effect.failCause(mixedCause));
       const interrupted = yield* Effect.exit(Effect.interrupt);
 
       assert.ok(Exit.isFailure(typedExit));
+
       if (Exit.isFailure(typedExit)) {
         const typedFailure = typedExit.cause.reasons.find(Cause.isFailReason);
         assert.strictEqual(typedFailure?.error, typed);
@@ -295,22 +312,27 @@ describe("diagnostic", () => {
       }
 
       assert.ok(Exit.isFailure(defectExit));
+
       if (Exit.isFailure(defectExit)) {
         assert.ok(Cause.hasDies(defectExit.cause));
         const defectFailure = Cause.findDefect(defectExit.cause);
         assert.ok(Result.isSuccess(defectFailure));
+
         if (Result.isSuccess(defectFailure)) assert.strictEqual(defectFailure.success, defect);
       }
 
       assert.ok(Exit.isFailure(diedExit));
+
       if (Exit.isFailure(diedExit)) {
         assert.ok(Cause.hasDies(diedExit.cause));
         const diedFailure = Cause.findDefect(diedExit.cause);
         assert.ok(Result.isSuccess(diedFailure));
+
         if (Result.isSuccess(diedFailure)) assert.strictEqual(diedFailure.success, defect);
       }
 
       assert.ok(Exit.isFailure(mixedExit));
+
       if (Exit.isFailure(mixedExit)) {
         assert.deepStrictEqual(mixedExit.cause.reasons, mixedCause.reasons);
         assert.strictEqual(mixedExit.cause.reasons.find(Cause.isFailReason)?.error, typed);

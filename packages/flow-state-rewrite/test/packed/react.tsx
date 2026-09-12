@@ -18,10 +18,13 @@ const rootApp = app({
   persistenceVersion: "1",
   modules: [],
 });
+
 const rootSetup = runtimeSetup({ app: rootApp });
 
 export const rootElement: ReactElement = createElement("div", null, rootSetup.app.id);
 
 void rootSetup;
+
 void can;
+
 void FlowProvider;

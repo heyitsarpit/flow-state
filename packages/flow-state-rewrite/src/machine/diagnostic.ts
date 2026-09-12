@@ -1,6 +1,7 @@
 import { Result } from "effect";
 
 import * as Diagnostic from "../diagnostic/diagnostic.js";
+
 export type InvalidMachineConfigurationReason =
   | "ConfigurationNotRecord"
   | "NonStringConfigurationKey"

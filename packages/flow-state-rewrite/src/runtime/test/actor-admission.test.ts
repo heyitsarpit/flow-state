@@ -39,6 +39,7 @@ type DeterministicGcHost = typeof globalThis & {
 
 const resultSuccess = <Value, Error>(result: Result.Result<Value, Error>) => {
   if (Result.isFailure(result)) throw result.failure;
+
   return result.success;
 };
 
@@ -47,6 +48,7 @@ const editorDefinitionResult = definition({
   states: ["ready"],
   events: { opened: "bare" },
 });
+
 const editorDefinition = resultSuccess(editorDefinitionResult);
 
 const editorMachine = resultSuccess(
@@ -61,6 +63,7 @@ const providerDefinitionResult = definition({
   states: ["ready"],
   events: {},
 });
+
 const providerDefinition = resultSuccess(providerDefinitionResult);
 
 const consumerDefinitionResult = definition({
@@ -71,6 +74,7 @@ const consumerDefinitionResult = definition({
     providerState: providerDefinition.select(({ state }) => state),
   },
 });
+
 const consumerDefinition = resultSuccess(consumerDefinitionResult);
 
 const providerMachine = resultSuccess(
@@ -89,6 +93,7 @@ const cycleConsumerDefinitionResult = definition({
     right: providerDefinition.select(({ state }) => state),
   },
 });
+
 const cycleConsumerDefinition = resultSuccess(cycleConsumerDefinitionResult);
 
 const consumerMachine = resultSuccess(
@@ -177,6 +182,7 @@ const makeAdmission = (
     providerFence: makeProviderFence(providerIdentity),
     select: selector,
   } satisfies ActorContextBinding<typeof consumerDefinition, typeof providerDefinition>;
+
   return {
     app: admissionApp,
     implementation,
@@ -193,26 +199,31 @@ const makeAdmission = (
 };
 
 type TransactionActor = { readonly label: string };
+
 type TransactionInput = ActorAdmissionInput<
   typeof noContextApp,
   typeof editorDefinition,
   typeof implementation
 >;
+
 type TransactionPrepared = PreparedActorAdmission<
   typeof noContextApp,
   typeof editorDefinition,
   typeof implementation
 >;
+
 type TransactionAttached = AttachedActorAdmission<
   typeof noContextApp,
   typeof editorDefinition,
   typeof implementation
 >;
+
 type TransactionActivated = ActivatedActorAdmission<
   typeof noContextApp,
   typeof editorDefinition,
   typeof implementation
 >;
+
 type TransactionRegistered = RegisteredActorAdmission<
   typeof noContextApp,
   typeof editorDefinition,
@@ -220,6 +231,7 @@ type TransactionRegistered = RegisteredActorAdmission<
   PublicDiagnostic,
   TransactionActor
 >;
+
 type TransactionExposed = ExposedActorAdmission<
   typeof noContextApp,
   typeof editorDefinition,
@@ -227,6 +239,7 @@ type TransactionExposed = ExposedActorAdmission<
   PublicDiagnostic,
   TransactionActor
 >;
+
 type TransactionAuthority = ActorAdmissionTransactionAuthority<
   typeof noContextApp,
   typeof editorDefinition,
@@ -236,17 +249,20 @@ type TransactionAuthority = ActorAdmissionTransactionAuthority<
 >;
 
 type TransactionStage = "prepare" | "attach" | "activate" | "register" | "expose";
+
 type TransactionFailure = {
   readonly stage: TransactionStage;
   readonly kind: "typed" | "defect" | "interrupt" | "empty";
   readonly message: string;
 };
+
 type TransactionStagedState = {
   snapshot: unknown;
   mailbox: unknown;
   graph: readonly ActorDependencyEdge[] | undefined;
   tombstone: boolean;
 };
+
 type TransactionHarnessOptions = {
   readonly mode: ActorAdmissionMode;
   readonly failure?: TransactionFailure;
@@ -276,13 +292,16 @@ const makeTransactionHarness = (
   const identity = resultSuccess(registry.reserveStable(ref));
   const calls: string[] = [];
   const cleanups: string[] = [];
+
   let completion:
-    | Deferred.Deferred<Exit.Exit<TransactionExposed, PublicDiagnostic>, never>
+    | Deferred.Deferred<Exit.Exit<TransactionExposed, PublicDiagnostic>>
     | undefined;
+
   let exposedCount = 0;
   let initializationCount = 0;
   let registeredInRegistry = false;
   let exposed = false;
+
   const stagedState: TransactionStagedState = {
     snapshot: undefined,
     mailbox: undefined,
@@ -295,13 +314,17 @@ const makeTransactionHarness = (
     message: string,
   ): Effect.Effect<never, PublicDiagnostic> => {
     if (kind === "typed") return Effect.fail(transactionDiagnostic(message));
+
     if (kind === "defect") return Effect.die(new Error(message));
+
     if (kind === "empty") return Effect.failCause(Cause.empty);
+
     return Effect.failCause(Cause.interrupt(17));
   };
 
   const stageFailure = (stage: TransactionStage) => {
     const failure = options.failure;
+
     return failure?.stage === stage ? failureEffect(failure.kind, failure.message) : undefined;
   };
 
@@ -309,13 +332,17 @@ const makeTransactionHarness = (
     name,
     release: Effect.gen(function* () {
       cleanups.push(name);
+
       if (name === "prepared") {
         stagedState.snapshot = undefined;
         stagedState.mailbox = undefined;
       }
+
       if (name === "attached") stagedState.graph = undefined;
+
       if (name === "registered") registeredInRegistry = false;
       const failure = options.cleanupFailure;
+
       if (failure?.name !== name) return;
       yield* failureEffect(failure.kind, failure.message);
     }),
@@ -334,9 +361,11 @@ const makeTransactionHarness = (
     reserveOrJoin: (validated) =>
       Effect.gen(function* () {
         calls.push("reserve");
+
         if (completion !== undefined) return { mode: "joined", existing: completion } as const;
         const complete = yield* Deferred.make<Exit.Exit<TransactionExposed, PublicDiagnostic>>();
         completion = complete;
+
         return {
           mode: "leader",
           admissionMode: options.mode,
@@ -347,11 +376,14 @@ const makeTransactionHarness = (
       }),
     prepare: (validated, mode) => {
       calls.push(`prepare:${mode}`);
+
       if (mode !== "restored-stable") initializationCount += 1;
       const failure = stageFailure("prepare");
+
       if (failure !== undefined) return failure;
       stagedState.snapshot = { baseline: "silent" };
       stagedState.mailbox = { capacity: 1 };
+
       return Effect.succeed({
         phase: "prepared",
         validated,
@@ -363,8 +395,10 @@ const makeTransactionHarness = (
     attach: (prepared) => {
       calls.push("attach");
       const failure = stageFailure("attach");
+
       if (failure !== undefined) return failure;
       stagedState.graph = prepared.validated.edges;
+
       return Effect.succeed({
         phase: "attached",
         prepared,
@@ -376,7 +410,9 @@ const makeTransactionHarness = (
     activate: (attached) => {
       calls.push("activate");
       const failure = stageFailure("activate");
+
       if (failure !== undefined) return failure;
+
       return Effect.succeed({
         phase: "activated",
         attached,
@@ -388,24 +424,32 @@ const makeTransactionHarness = (
       Effect.gen(function* () {
         calls.push("register");
         const failure = stageFailure("register");
+
         if (failure !== undefined) return yield* failure;
         const validated = activated.attached.prepared.validated;
+
         const actor: ActorHandle<typeof editorDefinition, TransactionActor> = {
           label: "actor",
           ref: validated.input.ref,
         };
+
         const registration = registry.register(validated.identity, actor);
+
         if (Result.isFailure(registration)) return yield* Effect.fail(registration.failure);
         registeredInRegistry = true;
+
         if (options.registeredEntered !== undefined)
           yield* Deferred.succeed(options.registeredEntered, undefined);
+
         if (options.registerGate !== undefined) yield* Deferred.await(options.registerGate);
+
         const lease = {
           actor,
           admission: validated,
           cleanup: Option.none(),
           dispose: () => Effect.void,
         } satisfies TransactionRegistered["lease"];
+
         return {
           phase: "registered",
           sealed: true,
@@ -418,9 +462,11 @@ const makeTransactionHarness = (
     expose: (registered) => {
       calls.push("expose");
       const failure = stageFailure("expose");
+
       if (failure !== undefined) return failure;
       exposedCount += 1;
       exposed = true;
+
       return Effect.succeed({
         phase: "exposed",
         registered,
@@ -513,12 +559,19 @@ const makeStatefulAdmissionInput = (input: TransactionInput, isLate: () => boole
         isLate()
       )
         throw new Error("late admission input read");
+
       if (property === "app") return target.app;
+
       if (property === "implementation") return target.implementation;
+
       if (property === "ref") return target.ref;
+
       if (property === "input") return target.input;
+
       if (property === "bindings") return target.bindings;
+
       if (property === "dependencies") return target.dependencies;
+
       return undefined;
     },
   });
@@ -545,11 +598,14 @@ describe("actor identity admission", () => {
     assert.strictEqual(Result.isFailure(firstRuntime.reserveStable(firstLocal.ref)), true);
 
     const foreignLocal = secondRuntime.reserveStable(firstLocal.ref);
+
     if (Result.isSuccess(foreignLocal)) throw new Error("foreign local ref was admitted");
     assert.strictEqual(foreignLocal.failure.code, "InvariantViolation");
+
     const secondRuntimeFirstStable = resultSuccess(
       secondRuntime.reserveStable(actorRef(editorMachine, "second-runtime-first")),
     );
+
     assert.strictEqual(secondRuntimeFirstStable.incarnation, 2);
   });
 
@@ -592,20 +648,25 @@ describe("actor identity admission", () => {
   it("releases a tombstoned actor reference when deterministic GC is available", async () => {
     const registry = makeActorIdentityRegistry<{ readonly name: string }>();
     const identity = resultSuccess(registry.reserveStable(actorRef(editorMachine, "gc")));
+
     const weakActor = (() => {
       const actor = { name: "gc" } as const;
       resultSuccess(registry.register(identity, actor));
+
       return new WeakRef(actor);
     })();
 
     resultSuccess(registry.tombstone(identity, 1));
     // SAFETY: Node --expose-gc supplies this optional host method; default test hosts omit it.
     const maybeGc = (globalThis as DeterministicGcHost).gc;
+
     if (maybeGc === undefined) return;
+
     for (let attempt = 0; attempt < 16; attempt += 1) {
       maybeGc();
       await new Promise((resolve) => setTimeout(resolve, 10));
     }
+
     assert.strictEqual(weakActor.deref(), undefined);
   });
 
@@ -621,6 +682,7 @@ describe("actor identity admission", () => {
 
   it("decodes one exact envelope without decoding or executing input and selectors", () => {
     const input = { draftId: "draft-1" };
+
     const decoded = decodeActorAdmissionEnvelope({
       app: admissionApp,
       implementation,
@@ -649,6 +711,7 @@ describe("actor identity admission", () => {
       ),
       true,
     );
+
     const malformed = decodeActorAdmissionEnvelope({
       app: admissionApp,
       implementation,
@@ -657,6 +720,7 @@ describe("actor identity admission", () => {
       bindings: {},
       dependencies: [],
     });
+
     if (Result.isSuccess(malformed)) throw new Error("malformed envelope was admitted");
     assert.strictEqual(malformed.failure.code, "SchemaValidation");
   });
@@ -664,11 +728,13 @@ describe("actor identity admission", () => {
   it("contains hostile reflection without mutating admission state", () => {
     const registry = makeActorIdentityRegistry();
     const ref = actorRef(editorMachine, "hostile");
+
     const hostileRef = new Proxy(ref, {
       ownKeys: () => {
         throw new Error("hostile ownKeys trap");
       },
     });
+
     const input = {
       app: noContextApp,
       implementation,
@@ -688,11 +754,14 @@ describe("actor identity admission", () => {
       lookup: registry.lookup,
       providerFences: new Map(),
     });
+
     assert.ok(Result.isFailure(validation));
+
     if (Result.isFailure(validation)) {
       assert.strictEqual(validation.failure.code, "SchemaValidation");
       assert.deepStrictEqual(validation.failure.path, ["actorAdmission"]);
     }
+
     assert.strictEqual(Result.isFailure(registry.lookup(ref)), true);
 
     const envelope = new Proxy(
@@ -710,13 +779,16 @@ describe("actor identity admission", () => {
         },
       },
     );
+
     const decoded = decodeActorAdmissionEnvelope(envelope);
     assert.ok(Result.isFailure(decoded));
+
     if (Result.isFailure(decoded)) assert.strictEqual(decoded.failure.code, "SchemaValidation");
   });
 
   it("maps own-key, descriptor, prototype, and property traps to typed admission failures", () => {
     const ref = actorRef(editorMachine, "reflection-traps");
+
     const traps = [
       {
         name: "ownKeys",
@@ -747,8 +819,11 @@ describe("actor identity admission", () => {
         ref: new Proxy(ref, {
           get: (target, key) => {
             if (key === "id") throw new Error("hostile property trap");
+
             if (key === "machine") return target.machine;
+
             if (key === "persist") return target.persist;
+
             return undefined;
           },
         }),
@@ -757,6 +832,7 @@ describe("actor identity admission", () => {
 
     for (const trap of traps) {
       const registry = makeActorIdentityRegistry();
+
       const validation = validateActorAdmission(
         {
           app: noContextApp,
@@ -773,11 +849,14 @@ describe("actor identity admission", () => {
           providerFences: new Map(),
         },
       );
+
       assert.ok(Result.isFailure(validation), `${trap.name} trap was admitted`);
+
       if (Result.isFailure(validation)) {
         assert.strictEqual(validation.failure.code, "SchemaValidation");
         assert.deepStrictEqual(validation.failure.path, ["actorAdmission"]);
       }
+
       assert.strictEqual(Result.isFailure(registry.lookup(ref)), true);
     }
   });
@@ -788,10 +867,12 @@ describe("actor identity admission", () => {
       const harness = makeTransactionHarness(ref, { mode: "fresh-stable" });
       const beforeIdentity = resultSuccess(harness.registry.reserveStable(ref));
       let admissionStage = false;
+
       const hostileInput = makeStatefulAdmissionInput(
         makeTransactionInput(ref),
         () => admissionStage,
       );
+
       const authority: TransactionAuthority = {
         ...harness.authority,
         prepare: (validated, mode) => {
@@ -800,6 +881,7 @@ describe("actor identity admission", () => {
           void validated.input.ref;
           void validated.input.bindings;
           void validated.input.dependencies;
+
           return Effect.fail(transactionDiagnostic("late-stage failure"));
         },
       };
@@ -807,14 +889,17 @@ describe("actor identity admission", () => {
       const terminal = yield* Effect.exit(admitActor(hostileInput, authority));
 
       assert.ok(Exit.isFailure(terminal));
+
       if (Exit.isFailure(terminal)) {
         const failure = Cause.findError(terminal.cause);
         assert.ok(Result.isSuccess(failure));
+
         if (Result.isSuccess(failure)) {
           assert.strictEqual(failure.success.code, "InvariantViolation");
           assert.deepStrictEqual(failure.success.details, { message: "late-stage failure" });
         }
       }
+
       assert.deepStrictEqual(harness.calls, ["reserve", "prepare:fresh-stable"]);
       assert.deepStrictEqual(harness.cleanups, ["reservation"]);
       assert.strictEqual(harness.exposedCount, 0);
@@ -831,6 +916,7 @@ describe("actor identity admission", () => {
 
   it("maps hostile thrown causes without escaping diagnostic conversion", () => {
     const ref = actorRef(editorMachine, "thrown-proxy");
+
     const thrownCause = new Proxy(
       {},
       {
@@ -839,12 +925,15 @@ describe("actor identity admission", () => {
         },
       },
     );
+
     const hostileRef = new Proxy(ref, {
       ownKeys: () => {
         throw thrownCause;
       },
     });
+
     const registry = makeActorIdentityRegistry();
+
     const reflection = validateActorAdmission(
       {
         ...makeTransactionInput(ref),
@@ -857,11 +946,14 @@ describe("actor identity admission", () => {
         providerFences: new Map(),
       },
     );
+
     assert.ok(Result.isFailure(reflection));
+
     if (Result.isFailure(reflection)) {
       assert.strictEqual(reflection.failure.code, "SchemaValidation");
       assert.deepStrictEqual(reflection.failure.path, ["actorAdmission"]);
     }
+
     assert.strictEqual(Result.isFailure(registry.lookup(ref)), true);
 
     const escapedLookup = validateActorAdmission(makeTransactionInput(ref), {
@@ -872,7 +964,9 @@ describe("actor identity admission", () => {
       },
       providerFences: new Map(),
     });
+
     assert.ok(Result.isFailure(escapedLookup));
+
     if (Result.isFailure(escapedLookup)) {
       assert.strictEqual(escapedLookup.failure.code, "SchemaValidation");
       assert.deepStrictEqual(escapedLookup.failure.path, ["actorAdmission"]);
@@ -886,23 +980,28 @@ describe("actor identity admission", () => {
         const ref = actorRef(editorMachine, "reflection-rollback");
         const harness = makeTransactionHarness(ref, { mode: "fresh-stable" });
         const beforeIdentity = resultSuccess(harness.registry.reserveStable(ref));
+
         const hostileRef = new Proxy(ref, {
           getPrototypeOf: () => {
             // oxlint-disable-next-line anti-slop/no-throw-in-effect-gen -- the proxy trap is the hostile input under test.
             throw new Error("hostile prototype trap");
           },
         });
+
         const terminal = yield* Effect.exit(
           admitActor({ ...makeTransactionInput(ref), ref: hostileRef }, harness.authority),
         );
 
         assert.ok(Exit.isFailure(terminal));
+
         if (Exit.isFailure(terminal)) {
           const failure = Cause.findError(terminal.cause);
           assert.ok(Result.isSuccess(failure));
+
           if (Result.isSuccess(failure))
             assert.strictEqual(failure.success.code, "SchemaValidation");
         }
+
         assert.deepStrictEqual(harness.calls, []);
         assert.deepStrictEqual(harness.cleanups, []);
         assert.strictEqual(harness.exposedCount, 0);
@@ -923,15 +1022,19 @@ describe("actor identity admission", () => {
     const providerIdentity = resultSuccess(registry.reserveStable(providerRef));
     resultSuccess(registry.register(providerIdentity, { name: "provider" }));
     const consumerRef = actorRef(consumerMachine, "consumer");
+
     const consumerKey = resultSuccess(
       registry.reserveStable(actorRef(consumerMachine, "consumer-key")),
     ).key;
+
     const edge = {
       consumer: consumerKey,
       provider: providerIdentity.key,
       slot: "providerState",
     } as const;
+
     const input = makeAdmission(consumerRef, providerRef, providerIdentity, [edge]);
+
     const validated = resultSuccess(
       validateActorAdmission(input, {
         app: admissionApp,
@@ -960,6 +1063,7 @@ describe("actor identity admission", () => {
     assert.strictEqual("set" in validated.graph.forward, false);
     assert.strictEqual("delete" in validated.graph.reverse, false);
     const forwardEdges = validated.graph.forward.get(consumerKey);
+
     if (forwardEdges === undefined) throw new Error("missing forward dependency edges");
     assert.strictEqual(Object.isFrozen(forwardEdges), true);
     assert.strictEqual(Object.isFrozen(forwardEdges[0]), true);
@@ -973,6 +1077,7 @@ describe("actor identity admission", () => {
 
     const foreignRegistry = makeActorIdentityRegistry();
     const foreignProviderIdentity = resultSuccess(foreignRegistry.reserveStable(providerRef));
+
     const extra = validateActorAdmission(
       {
         ...input,
@@ -986,6 +1091,7 @@ describe("actor identity admission", () => {
         providerFences: new Map([[providerIdentity.key, makeProviderFence(providerIdentity)]]),
       },
     );
+
     if (Result.isSuccess(extra)) throw new Error("extra dependency edge was admitted");
     assert.strictEqual(extra.failure.code, "InvariantViolation");
     assert.strictEqual(Result.isFailure(registry.lookup(consumerRef)), true);
@@ -999,9 +1105,11 @@ describe("actor identity admission", () => {
     resultSuccess(registry.register(providerIdentity, { name: "provider" }));
     const consumerRef = actorRef(consumerMachine, "consumer");
     const consumerIdentity = resultSuccess(registry.reserveStable(consumerRef));
+
     const wrongConsumerKey = resultSuccess(
       registry.reserveStable(actorRef(consumerMachine, "wrong-consumer-key")),
     ).key;
+
     const edge = {
       consumer: consumerIdentity.key,
       provider: providerIdentity.key,
@@ -1019,6 +1127,7 @@ describe("actor identity admission", () => {
         providerFences: new Map([[providerIdentity.key, makeProviderFence(providerIdentity)]]),
       },
     );
+
     if (Result.isSuccess(mismatch)) throw new Error("consumer-key mismatch was admitted");
     assert.strictEqual(mismatch.failure.code, "ForeignActorRef");
     assert.deepStrictEqual(mismatch.failure.details, { reason: "fence" });
@@ -1030,9 +1139,11 @@ describe("actor identity admission", () => {
     const registry = makeActorIdentityRegistry();
     const ref = actorRef(editorMachine, "no-context");
     const identity = resultSuccess(registry.reserveStable(ref));
+
     const consumerKey = resultSuccess(
       registry.reserveStable(actorRef(editorMachine, "wrong-consumer-key")),
     ).key;
+
     const input = {
       app: noContextApp,
       implementation,
@@ -1054,6 +1165,7 @@ describe("actor identity admission", () => {
       consumerKey,
       providerFences: new Map(),
     });
+
     if (Result.isSuccess(mismatch)) throw new Error("no-context mismatch was admitted");
     assert.strictEqual(mismatch.failure.code, "ForeignActorRef");
     assert.deepStrictEqual(mismatch.failure.details, { reason: "fence" });
@@ -1067,9 +1179,11 @@ describe("actor identity admission", () => {
     const consumerRef = actorRef(consumerMachine, "consumer");
     const missingRegistry = makeActorIdentityRegistry();
     const missingIdentity = resultSuccess(missingRegistry.reserveStable(providerRef));
+
     const missingConsumerKey = resultSuccess(
       missingRegistry.reserveStable(actorRef(consumerMachine, "consumer-key")),
     ).key;
+
     const missing = validateActorAdmission(
       makeAdmission(consumerRef, providerRef, missingIdentity, [
         {
@@ -1080,6 +1194,7 @@ describe("actor identity admission", () => {
       ]),
       { app: admissionApp, implementation, lookup: missingRegistry.lookup },
     );
+
     if (Result.isSuccess(missing)) throw new Error("missing provider was admitted");
     assert.strictEqual(missing.failure.code, "MissingContextProvider");
     assert.strictEqual(Result.isFailure(missingRegistry.lookup(consumerRef)), true);
@@ -1088,14 +1203,19 @@ describe("actor identity admission", () => {
     const staleIdentity = resultSuccess(staleRegistry.reserveStable(providerRef));
     resultSuccess(staleRegistry.register(staleIdentity, { name: "provider" }));
     const staleBefore = resultSuccess(staleRegistry.lookup(providerRef));
+
     const staleConsumerKey = resultSuccess(
       staleRegistry.reserveStable(actorRef(consumerMachine, "consumer-key")),
     ).key;
+
     const staleInput = makeAdmission(consumerRef, providerRef, staleIdentity, [
       { consumer: staleConsumerKey, provider: staleIdentity.key, slot: "providerState" },
     ]);
+
     const staleBinding = staleInput.bindings[0];
+
     if (staleBinding === undefined) throw new Error("missing test binding");
+
     const stale = validateActorAdmission(
       {
         ...staleInput,
@@ -1116,6 +1236,7 @@ describe("actor identity admission", () => {
         providerFences: new Map([[staleIdentity.key, makeProviderFence(staleIdentity)]]),
       },
     );
+
     if (Result.isSuccess(stale)) throw new Error("stale provider was admitted");
     assert.strictEqual(stale.failure.code, "MissingContextProvider");
     assert.deepStrictEqual(stale.failure.details, { provider: "stale" });
@@ -1130,6 +1251,7 @@ describe("actor identity admission", () => {
       lookup: staleRegistry.lookup,
       providerFences: new Map(),
     });
+
     if (Result.isSuccess(missingFence)) throw new Error("missing provider fence was admitted");
     assert.strictEqual(missingFence.failure.code, "MissingContextProvider");
     assert.deepStrictEqual(missingFence.failure.details, { provider: "missing" });
@@ -1137,6 +1259,7 @@ describe("actor identity admission", () => {
     const foreignRegistry = makeActorIdentityRegistry();
     const foreignIdentity = resultSuccess(foreignRegistry.reserveStable(providerRef));
     resultSuccess(foreignRegistry.register(foreignIdentity, { name: "provider" }));
+
     const foreign = validateActorAdmission(
       makeAdmission(consumerRef, providerRef, foreignIdentity, [
         {
@@ -1162,6 +1285,7 @@ describe("actor identity admission", () => {
           ),
       },
     );
+
     if (Result.isSuccess(foreign)) throw new Error("foreign provider was admitted");
     assert.strictEqual(foreign.failure.code, "ForeignActorRef");
 
@@ -1170,6 +1294,7 @@ describe("actor identity admission", () => {
     resultSuccess(duplicateRegistry.register(duplicateProviderIdentity, { name: "provider" }));
     const duplicateConsumerIdentity = resultSuccess(duplicateRegistry.reserveStable(consumerRef));
     resultSuccess(duplicateRegistry.register(duplicateConsumerIdentity, { name: "consumer" }));
+
     const duplicate = validateActorAdmission(
       makeAdmission(consumerRef, providerRef, duplicateProviderIdentity, [
         {
@@ -1180,6 +1305,7 @@ describe("actor identity admission", () => {
       ]),
       { app: admissionApp, implementation, lookup: duplicateRegistry.lookup },
     );
+
     if (Result.isSuccess(duplicate)) throw new Error("duplicate actor claim was admitted");
     assert.strictEqual(duplicate.failure.code, "DuplicateActorClaim");
 
@@ -1187,6 +1313,7 @@ describe("actor identity admission", () => {
     const tombstoneIdentity = resultSuccess(tombstoneRegistry.reserveStable(providerRef));
     resultSuccess(tombstoneRegistry.register(tombstoneIdentity, { name: "provider" }));
     resultSuccess(tombstoneRegistry.tombstone(tombstoneIdentity, 1));
+
     const tombstoned = validateActorAdmission(
       makeAdmission(consumerRef, providerRef, tombstoneIdentity, [
         {
@@ -1199,6 +1326,7 @@ describe("actor identity admission", () => {
       ]),
       { app: admissionApp, implementation, lookup: tombstoneRegistry.lookup },
     );
+
     if (Result.isSuccess(tombstoned)) throw new Error("tombstoned provider was admitted");
     assert.strictEqual(tombstoned.failure.code, "DisposedActorRef");
   });
@@ -1213,6 +1341,7 @@ describe("actor identity admission", () => {
     resultSuccess(registry.register(rightIdentity, { name: "right" }));
     const consumerRef = actorRef(cycleConsumerMachine, "cycle-consumer");
     const cycleConsumerKey = rightIdentity.key;
+
     const bindings = [
       {
         slot: "left",
@@ -1230,10 +1359,12 @@ describe("actor identity admission", () => {
       typeof cycleConsumerDefinition,
       typeof providerDefinition
     >[];
+
     const dependencies = [
       { consumer: cycleConsumerKey, provider: rightIdentity.key, slot: "left" },
       { consumer: cycleConsumerKey, provider: leftIdentity.key, slot: "right" },
     ] as const;
+
     const result = validateActorAdmission(
       {
         app: cycleApp,
@@ -1254,6 +1385,7 @@ describe("actor identity admission", () => {
         ]),
       },
     );
+
     if (Result.isSuccess(result)) throw new Error("cyclic graph was admitted");
     assert.strictEqual(result.failure.code, "ContextDependencyCycle");
     assert.strictEqual(result.failure.details.cycle, `${rightIdentity.key}>${rightIdentity.key}`);
@@ -1265,17 +1397,21 @@ describe("actor identity admission", () => {
     () =>
       Effect.gen(function* () {
         const modes = ["fresh-local", "fresh-stable", "restored-stable"] as const;
+
         for (const mode of modes) {
           const ref =
             mode === "fresh-local"
               ? actorRef(editorMachine, `local-${mode}`)
               : actorRef(editorMachine, `stable-${mode}`, { persist: true });
+
           const harness = makeTransactionHarness(ref, { mode });
+
           const terminal = yield* Effect.exit(
             admitActor(makeTransactionInput(ref), harness.authority),
           );
 
           assert.ok(Exit.isSuccess(terminal));
+
           if (Exit.isFailure(terminal)) continue;
           assert.strictEqual(terminal.value.phase, "exposed");
           assert.notStrictEqual(terminal.value.actor.ref, ref);
@@ -1303,20 +1439,25 @@ describe("actor identity admission", () => {
       const registeredEntered = yield* Deferred.make<void>();
       const registerGate = yield* Deferred.make<void>();
       const ref = actorRef(editorMachine, "concurrent-stable", { persist: true });
+
       const harness = makeTransactionHarness(ref, {
         mode: "fresh-stable",
         registeredEntered,
         registerGate,
       });
+
       const input = makeTransactionInput(ref);
+
       const first = yield* Effect.forkChild(Effect.exit(admitActor(input, harness.authority)), {
         startImmediately: true,
       });
+
       yield* Deferred.await(registeredEntered);
 
       const second = yield* Effect.forkChild(Effect.exit(admitActor(input, harness.authority)), {
         startImmediately: true,
       });
+
       yield* Effect.yieldNow;
       assert.strictEqual(harness.calls.filter((call) => call === "reserve").length, 2);
       assert.strictEqual(harness.initializationCount, 1);
@@ -1327,6 +1468,7 @@ describe("actor identity admission", () => {
       const secondTerminal = yield* Fiber.join(second);
       assert.ok(Exit.isSuccess(firstTerminal));
       assert.ok(Exit.isSuccess(secondTerminal));
+
       if (Exit.isSuccess(firstTerminal) && Exit.isSuccess(secondTerminal)) {
         assert.strictEqual(firstTerminal.value.actor, secondTerminal.value.actor);
         assert.strictEqual(firstTerminal.value.lease, secondTerminal.value.lease);
@@ -1336,6 +1478,7 @@ describe("actor identity admission", () => {
           secondTerminal.value.lease.admission.identity.incarnation,
         );
       }
+
       assert.strictEqual(harness.exposedCount, 1);
       assert.deepStrictEqual(harness.calls, [
         "reserve",
@@ -1347,10 +1490,12 @@ describe("actor identity admission", () => {
         "expose",
       ]);
       const completion = harness.completion;
+
       if (completion === undefined)
         return yield* Effect.die(new Error("leader completion was not retained"));
       const sharedTerminal = yield* Deferred.await(completion);
       assert.ok(Exit.isSuccess(sharedTerminal));
+
       if (Exit.isSuccess(sharedTerminal) && Exit.isSuccess(firstTerminal))
         assert.strictEqual(sharedTerminal.value.actor, firstTerminal.value.actor);
     }),
@@ -1367,6 +1512,7 @@ describe("actor identity admission", () => {
 
       for (const scenario of scenarios) {
         const ref = actorRef(editorMachine, `failure-${scenario.kind}`);
+
         const harness = makeTransactionHarness(
           ref,
           scenario.kind === "empty"
@@ -1384,17 +1530,21 @@ describe("actor identity admission", () => {
                 },
               },
         );
+
         const terminal = yield* Effect.exit(
           admitActor(makeTransactionInput(ref), harness.authority),
         );
 
         assert.ok(Exit.isFailure(terminal));
+
         if (Exit.isSuccess(terminal)) continue;
+
         if (scenario.kind === "empty") {
           assert.ok(Cause.hasDies(terminal.cause));
           const defect = Cause.findDefect(terminal.cause);
           assert.ok(Result.isSuccess(defect));
           assert.ok(defect.success instanceof Error);
+
           if (defect.success instanceof Error)
             assert.strictEqual(
               defect.success.message,
@@ -1402,33 +1552,42 @@ describe("actor identity admission", () => {
             );
         } else {
           assert.ok(Cause.hasFails(terminal.cause));
+
           if (scenario.kind === "defect") {
             assert.ok(Cause.hasDies(terminal.cause));
             const defect = Cause.findDefect(terminal.cause);
             assert.ok(Result.isSuccess(defect));
             assert.ok(defect.success instanceof Error);
+
             if (defect.success instanceof Error)
               assert.strictEqual(defect.success.message, scenario.message);
           }
+
           if (scenario.kind === "interrupt") assert.ok(Cause.hasInterrupts(terminal.cause));
+
           if (scenario.kind === "typed") {
             const primary = Cause.findError(terminal.cause);
             assert.ok(Result.isSuccess(primary));
             assert.strictEqual(primary.success.summary, scenario.message);
           }
+
           const cleanup = terminal.cause.reasons.find(
             (reason) =>
               Cause.isFailReason(reason) && reason.error.summary === `cleanup-${scenario.kind}`,
           );
+
           assert.ok(cleanup !== undefined);
         }
+
         assert.deepStrictEqual(harness.cleanups, ["attached", "prepared", "reservation"]);
         assert.strictEqual(harness.exposedCount, 0);
         const completion = harness.completion;
+
         if (completion === undefined)
           return yield* Effect.die(new Error("leader completion was not retained"));
         const sharedTerminal = yield* Deferred.await(completion);
         assert.ok(Exit.isFailure(sharedTerminal));
+
         if (Exit.isFailure(sharedTerminal))
           assert.deepStrictEqual(sharedTerminal.cause, terminal.cause);
       }
@@ -1443,6 +1602,7 @@ describe("actor identity admission", () => {
         const registry = makeActorIdentityRegistry<{ readonly label: string }>();
         const identity = resultSuccess(registry.reserveStable(ref));
         const input = makeTransactionInput(ref);
+
         const validated = resultSuccess(
           validateActorAdmission(input, {
             app: noContextApp,
@@ -1451,9 +1611,11 @@ describe("actor identity admission", () => {
             identity,
           }),
         );
+
         resultSuccess(registry.register(identity, { label: "lease-owner" }));
         const cleanupGate = yield* Deferred.make<void>();
         let cleanupRuns = 0;
+
         const lease = makeActorLease({
           actor: { label: "lease-owner", ref },
           admission: { ...validated, identity },
@@ -1463,6 +1625,7 @@ describe("actor identity admission", () => {
           }),
           tombstone: () => registry.tombstone(identity, 1),
         });
+
         const first = yield* Effect.forkChild(Effect.exit(lease.dispose()));
         yield* Effect.yieldNow;
         const second = yield* Effect.forkChild(Effect.exit(lease.dispose()));
@@ -1478,12 +1641,14 @@ describe("actor identity admission", () => {
         assert.strictEqual(cleanupRuns, 1);
         const disposed = registry.lookup(ref);
         assert.ok(Result.isFailure(disposed));
+
         if (Result.isFailure(disposed))
           assert.strictEqual(disposed.failure.code, "DisposedActorRef");
 
         const failedRef = actorRef(editorMachine, "lease-failure", { persist: true });
         const failedIdentity = resultSuccess(registry.reserveStable(failedRef));
         const failedInput = makeTransactionInput(failedRef);
+
         const failedValidated = resultSuccess(
           validateActorAdmission(failedInput, {
             app: noContextApp,
@@ -1492,23 +1657,28 @@ describe("actor identity admission", () => {
             identity: failedIdentity,
           }),
         );
+
         resultSuccess(registry.register(failedIdentity, { label: "lease-failure" }));
         let failedCleanupRuns = 0;
         let tombstoneRuns = 0;
+
         const failed = makeActorLease({
           actor: { label: "lease-failure", ref: failedRef },
           admission: { ...failedValidated, identity: failedIdentity },
           cleanup: Effect.suspend(() => {
             failedCleanupRuns += 1;
+
             return failedCleanupRuns === 1
               ? Effect.fail(transactionDiagnostic("cleanup-failure"))
               : Effect.succeed(undefined);
           }),
           tombstone: () => {
             tombstoneRuns += 1;
+
             return registry.tombstone(failedIdentity, 2);
           },
         });
+
         const failedExit = yield* Effect.exit(failed.dispose());
         assert.ok(Exit.isFailure(failedExit));
         assert.strictEqual(failedCleanupRuns, 1);
@@ -1521,6 +1691,7 @@ describe("actor identity admission", () => {
         assert.strictEqual(tombstoneRuns, 1);
         const tombstoned = registry.lookup(failedRef);
         assert.ok(Result.isFailure(tombstoned));
+
         if (Result.isFailure(tombstoned))
           assert.strictEqual(tombstoned.failure.code, "DisposedActorRef");
       }),
@@ -1529,9 +1700,11 @@ describe("actor identity admission", () => {
   it.effect("disposes runtime leases before evidence and providers, once", () =>
     Effect.gen(function* () {
       const order: Array<string> = [];
+
       const owner = makeRuntimeDisposalOwner({
         drain: Effect.sync(() => order.push("drain")),
       });
+
       owner.registerLease({ dispose: () => Effect.sync(() => order.push("consumer")) });
       owner.registerLease({ dispose: () => Effect.sync(() => order.push("provider-actor")) });
       owner.registerProvider(Effect.sync(() => order.push("provider-resource")));
@@ -1558,9 +1731,11 @@ describe("actor identity admission", () => {
   it("prepares one actor with exact nominal identities", () => {
     const ref = actorRef(editorMachine, "exact-prepared", { persist: true });
     const harness = makeTransactionHarness(ref, { mode: "fresh-stable" });
+
     const prepared = resultSuccess(
       validateActorAdmission(makeTransactionInput(ref), harness.authority),
     );
+
     assert.strictEqual(prepared.input.app, noContextApp);
     assert.strictEqual(prepared.input.implementation, implementation);
     assert.strictEqual(prepared.input.ref.machine, editorMachine);
@@ -1573,6 +1748,7 @@ describe("actor identity admission", () => {
     const ref = actorRef(editorMachine, "foreign-machine");
     const harness = makeTransactionHarness(ref, { mode: "fresh-stable" });
     const foreignRef = actorRef(providerMachine, "foreign-machine");
+
     const input = {
       ...makeTransactionInput(ref),
       // SAFETY: the foreign constructed machine is intentionally routed through the negative runtime seam.
@@ -1581,6 +1757,7 @@ describe("actor identity admission", () => {
       // oxlint-disable-next-line anti-slop/no-chained-type-assertions -- this proof must present a foreign machine at the typed boundary.
       ref: foreignRef as unknown as typeof ref,
     };
+
     const result = validateActorAdmission(input, harness.authority);
     assert.ok(Result.isFailure(result));
     assert.ok(Result.isFailure(harness.registry.lookup(foreignRef)));
@@ -1593,6 +1770,7 @@ describe("actor identity admission", () => {
     resultSuccess(harness.registry.register(harness.identity, actor));
     const result = validateActorAdmission(makeTransactionInput(ref), harness.authority);
     assert.ok(Result.isFailure(result));
+
     if (Result.isFailure(result)) assert.strictEqual(result.failure.code, "DuplicateActorClaim");
     const existing = resultSuccess(harness.registry.lookup(ref));
     assert.strictEqual(existing.actor, actor);
@@ -1607,10 +1785,12 @@ describe("actor identity admission", () => {
     resultSuccess(registry.tombstone(first, 12));
     const replacement = registry.reserveStable(ref);
     assert.ok(Result.isFailure(replacement));
+
     if (Result.isFailure(replacement))
       assert.strictEqual(replacement.failure.code, "DisposedActorRef");
     const lookup = registry.lookup(ref);
     assert.ok(Result.isFailure(lookup));
+
     if (Result.isFailure(lookup))
       assert.deepStrictEqual(lookup.failure.details, { disposed: true });
   });
@@ -1622,11 +1802,13 @@ describe("actor identity admission", () => {
     resultSuccess(registry.register(providerIdentity, { name: "provider" }));
     const consumerRef = actorRef(consumerMachine, "binding-consumer");
     const consumerIdentity = resultSuccess(registry.reserveStable(consumerRef));
+
     const edge = {
       consumer: consumerIdentity.key,
       provider: providerIdentity.key,
       slot: "providerState",
     } as const;
+
     const admitted = resultSuccess(
       validateActorAdmission(makeAdmission(consumerRef, providerRef, providerIdentity, [edge]), {
         app: admissionApp,
@@ -1636,7 +1818,9 @@ describe("actor identity admission", () => {
         providerFences: new Map([[providerIdentity.key, makeProviderFence(providerIdentity)]]),
       }),
     );
+
     const binding = admitted.input.bindings[0];
+
     if (binding === undefined) throw new Error("binding was not retained");
     assert.strictEqual(binding.provider.machine, providerMachine);
     assert.deepStrictEqual(binding.providerFence, makeProviderFence(providerIdentity));
@@ -1649,11 +1833,13 @@ describe("actor identity admission", () => {
     const providerIdentity = resultSuccess(registry.reserveStable(providerRef));
     resultSuccess(registry.register(providerIdentity, { name: "provider" }));
     const consumerRef = actorRef(consumerMachine, "null-consumer");
+
     const edge = {
       consumer: resultSuccess(registry.reserveStable(consumerRef)).key,
       provider: providerIdentity.key,
       slot: "providerState",
     } as const;
+
     const input = makeAdmission(
       consumerRef,
       providerRef,
@@ -1662,6 +1848,7 @@ describe("actor identity admission", () => {
       // SAFETY: The selector deliberately returns null outside its admitted generic output.
       () => null as never,
     );
+
     const admitted = resultSuccess(
       validateActorAdmission(input, {
         app: admissionApp,
@@ -1671,6 +1858,7 @@ describe("actor identity admission", () => {
         providerFences: new Map([[providerIdentity.key, makeProviderFence(providerIdentity)]]),
       }),
     );
+
     assert.strictEqual(
       admitted.input.bindings[0]?.select({
         state: providerDefinition.S.ready,
@@ -1687,11 +1875,13 @@ describe("actor identity admission", () => {
     const providerIdentity = resultSuccess(registry.reserveStable(providerRef));
     resultSuccess(registry.register(providerIdentity, { name: "provider" }));
     const consumerRef = actorRef(consumerMachine, "undefined-consumer");
+
     const edge = {
       consumer: resultSuccess(registry.reserveStable(consumerRef)).key,
       provider: providerIdentity.key,
       slot: "providerState",
     } as const;
+
     const input = makeAdmission(
       consumerRef,
       providerRef,
@@ -1700,6 +1890,7 @@ describe("actor identity admission", () => {
       // SAFETY: The selector deliberately returns undefined outside its admitted generic output.
       () => undefined as never,
     );
+
     const admitted = resultSuccess(
       validateActorAdmission(input, {
         app: admissionApp,
@@ -1709,6 +1900,7 @@ describe("actor identity admission", () => {
         providerFences: new Map([[providerIdentity.key, makeProviderFence(providerIdentity)]]),
       }),
     );
+
     assert.strictEqual(
       admitted.input.bindings[0]?.select({
         state: providerDefinition.S.ready,
@@ -1729,6 +1921,7 @@ describe("actor identity admission", () => {
     resultSuccess(registry.register(left, { name: "left" }));
     resultSuccess(registry.register(right, { name: "right" }));
     const consumerRef = actorRef(cycleConsumerMachine, "cycle-admission");
+
     const bindings = [
       {
         slot: "left",
@@ -1746,6 +1939,7 @@ describe("actor identity admission", () => {
       typeof cycleConsumerDefinition,
       typeof providerDefinition
     >[];
+
     const result = validateActorAdmission(
       {
         app: cycleApp,
@@ -1769,7 +1963,9 @@ describe("actor identity admission", () => {
         ]),
       },
     );
+
     assert.ok(Result.isFailure(result));
+
     if (Result.isFailure(result)) assert.strictEqual(result.failure.code, "ContextDependencyCycle");
   });
 
@@ -1780,6 +1976,7 @@ describe("actor identity admission", () => {
     resultSuccess(registry.register(providerIdentity, { name: "provider" }));
     const consumerRef = actorRef(consumerMachine, "invalid-slot-consumer");
     const valid = makeAdmission(consumerRef, providerRef, providerIdentity, []);
+
     // SAFETY: This fixture intentionally violates the context slot and dependency consumer contracts.
     const invalid = {
       ...valid,
@@ -1793,12 +1990,14 @@ describe("actor identity admission", () => {
         },
       ],
     } as never;
+
     const result = validateActorAdmission(invalid, {
       app: admissionApp,
       implementation,
       lookup: registry.lookup,
       providerFences: new Map([[providerIdentity.key, makeProviderFence(providerIdentity)]]),
     });
+
     assert.ok(Result.isFailure(result));
   });
 
@@ -1808,6 +2007,7 @@ describe("actor identity admission", () => {
     const providerIdentity = resultSuccess(registry.reserveStable(providerRef));
     resultSuccess(registry.register(providerIdentity, { name: "provider" }));
     const consumerRef = actorRef(consumerMachine, "stale-consumer");
+
     const valid = makeAdmission(consumerRef, providerRef, providerIdentity, [
       {
         // SAFETY: The consumer key is the exact synthetic key used to construct the stale-fence fixture.
@@ -1816,6 +2016,7 @@ describe("actor identity admission", () => {
         slot: "providerState",
       },
     ]);
+
     // SAFETY: This fixture intentionally mutates the provider generation to prove stale-fence rejection.
     const stale = {
       ...valid,
@@ -1826,13 +2027,16 @@ describe("actor identity admission", () => {
         },
       ],
     } as never;
+
     const result = validateActorAdmission(stale, {
       app: admissionApp,
       implementation,
       lookup: registry.lookup,
       providerFences: new Map([[providerIdentity.key, makeProviderFence(providerIdentity)]]),
     });
+
     assert.ok(Result.isFailure(result));
+
     if (Result.isFailure(result)) assert.strictEqual(result.failure.details.provider, "stale");
   });
 
@@ -1858,10 +2062,12 @@ describe("actor identity admission", () => {
   it.effect("rolls back staged resources after mailbox allocation failure", () =>
     Effect.gen(function* () {
       const ref = actorRef(editorMachine, "allocation-failure");
+
       const harness = makeTransactionHarness(ref, {
         mode: "fresh-stable",
         failure: { stage: "prepare", kind: "typed", message: "mailbox allocation failed" },
       });
+
       const exit = yield* Effect.exit(admitActor(makeTransactionInput(ref), harness.authority));
       assert.ok(Exit.isFailure(exit));
       assert.deepStrictEqual(harness.cleanups, ["reservation"]);
@@ -1873,10 +2079,12 @@ describe("actor identity admission", () => {
   it.effect("rolls back pre-exposure activation without consuming an exposed lease", () =>
     Effect.gen(function* () {
       const ref = actorRef(editorMachine, "activation-failure");
+
       const harness = makeTransactionHarness(ref, {
         mode: "fresh-stable",
         failure: { stage: "activate", kind: "typed", message: "activation failed" },
       });
+
       const exit = yield* Effect.exit(admitActor(makeTransactionInput(ref), harness.authority));
       assert.ok(Exit.isFailure(exit));
       assert.deepStrictEqual(harness.cleanups, ["attached", "prepared", "reservation"]);
@@ -1908,10 +2116,12 @@ describe("actor identity admission", () => {
       yield* runtime.ready();
       const assembly = runtimeOwner(runtime).assembly();
       const providerRef = actorRef(providerMachine, "dependent-provider");
+
       const provider = yield* assembly.createActor({
         ref: providerRef,
         initial: preparedProviderSnapshot(),
       });
+
       const binding = {
         slot: "providerState",
         provider: providerRef,
@@ -1922,19 +2132,25 @@ describe("actor identity admission", () => {
         typeof providerDefinition,
         "providerState"
       >;
+
       const consumer = yield* assembly.createActor({
         ref: actorRef(consumerMachine, "dependent-consumer"),
         initial: preparedConsumerSnapshot(),
         bindings: [binding],
       });
+
       const before = provider.engine.snapshot();
+
       const result = yield* Effect.exit(
         Effect.provideContext(provider.dispose(), assembly.context),
       );
+
       assert.ok(Exit.isFailure(result));
+
       if (Exit.isFailure(result)) {
         const reason = result.cause.reasons.find(Cause.isFailReason);
         assert.ok(reason !== undefined);
+
         if (reason !== undefined) {
           assert.strictEqual(reason.error.code, "BlockedByDependents");
           assert.deepStrictEqual(reason.error.details, {
@@ -1944,17 +2160,23 @@ describe("actor identity admission", () => {
           });
         }
       }
+
       assert.strictEqual(provider.engine.snapshot().lifecycle, "active");
       assert.strictEqual(provider.engine.snapshot().revision, before.revision);
+
       const duplicate = yield* Effect.exit(
         assembly.createActor({ ref: providerRef, initial: preparedProviderSnapshot() }),
       );
+
       assert.ok(Exit.isFailure(duplicate));
+
       if (Exit.isFailure(duplicate)) {
         const reason = duplicate.cause.reasons.find(Cause.isFailReason);
         assert.ok(reason !== undefined);
+
         if (reason !== undefined) assert.strictEqual(reason.error.code, "DuplicateActorClaim");
       }
+
       yield* Effect.provideContext(consumer.dispose(), assembly.context);
       yield* Effect.provideContext(provider.dispose(), assembly.context);
       yield* runtimeOwner(runtime).close();
@@ -1967,13 +2189,16 @@ describe("actor identity admission", () => {
     const providerIdentity = resultSuccess(registry.reserveStable(providerRef));
     resultSuccess(registry.register(providerIdentity, { name: "provider" }));
     const consumerRef = actorRef(consumerMachine, "detach-consumer");
+
     const edge = {
       // SAFETY: The consumer key is the exact synthetic key used by this detach proof.
       consumer: "actor:detach-consumer" as ActorKey,
       provider: providerIdentity.key,
       slot: "providerState",
     } as const;
+
     const input = makeAdmission(consumerRef, providerRef, providerIdentity, [edge]);
+
     const admitted = resultSuccess(
       validateActorAdmission(input, {
         app: admissionApp,
@@ -1983,6 +2208,7 @@ describe("actor identity admission", () => {
         providerFences: new Map([[providerIdentity.key, makeProviderFence(providerIdentity)]]),
       }),
     );
+
     assert.deepStrictEqual(admitted.edges, [edge]);
     assert.strictEqual(admitted.input.bindings.length, 1);
   });
@@ -1994,10 +2220,12 @@ describe("actor identity admission", () => {
       const assembly = runtimeOwner(runtime).assembly();
       const ref = actorRef(editorMachine, "restored-persisted", { persist: true });
       const restored = preparedEditorSnapshot(7);
+
       const actor = yield* assembly.createActor({
         ref,
         restore: restored,
       });
+
       assert.strictEqual(actor.identity.ref.machine, editorMachine);
       assert.strictEqual(actor.identity.ref.persist, true);
       assert.strictEqual(actor.engine.snapshot().lifecycle, "active");
@@ -2015,15 +2243,18 @@ describe("actor identity admission", () => {
       const runtime = runtimeSetup({ app: noContextApp }).construct();
       yield* runtime.ready();
       const assembly = runtimeOwner(runtime).assembly();
+
       const sentinel = yield* assembly.createActor({
         ref: actorRef(editorMachine, "restore-sentinel", { persist: false }),
         initial: preparedEditorSnapshot(),
       });
+
       const sentinelBefore = sentinel.engine.snapshot();
       const mailboxBefore = yield* Queue.size(sentinel.engine.mailbox);
       let snapshots = 0;
       let commands = 0;
       const ref = actorRef(editorMachine, "non-persisted-restore", { persist: false });
+
       const failed = yield* Effect.exit(
         assembly.createActor({
           ref,
@@ -2033,11 +2264,14 @@ describe("actor identity admission", () => {
           },
           onCommand: () => {
             commands += 1;
+
             return Effect.void;
           },
         }),
       );
+
       assert.ok(Exit.isFailure(failed));
+
       if (Exit.isFailure(failed)) {
         const reason = failed.cause.reasons.find(Cause.isFailReason);
         assert.ok(reason !== undefined);
@@ -2046,6 +2280,7 @@ describe("actor identity admission", () => {
         assert.deepStrictEqual(reason.error.details, { reason: "non-persisted-ref" });
         assert.strictEqual(Cause.hasDies(failed.cause), false);
       }
+
       assert.strictEqual(snapshots, 0);
       assert.strictEqual(commands, 0);
       assert.deepStrictEqual(sentinel.engine.snapshot(), sentinelBefore);
@@ -2066,6 +2301,7 @@ describe("actor identity admission", () => {
     Effect.gen(function* () {
       const entered = yield* Deferred.make<void>();
       const release = yield* Deferred.make<void>();
+
       const setup = runtimeSetup({
         app: noContextApp,
         implementation: Implementation.effect(
@@ -2073,25 +2309,31 @@ describe("actor identity admission", () => {
           Effect.gen(function* () {
             yield* Deferred.succeed(entered, undefined);
             yield* Deferred.await(release);
+
             return { ready: true } as const;
           }),
         ),
       });
+
       const runtime = setup.construct();
       assert.throws(() => runtimeOwner(runtime).assembly(), /Runtime is not ready/u);
+
       const readiness = yield* Effect.forkChild(Effect.exit(runtime.ready()), {
         startImmediately: true,
       });
+
       yield* Deferred.await(entered);
       assert.throws(() => runtimeOwner(runtime).assembly(), /Runtime is not ready/u);
       yield* Deferred.succeed(release, undefined);
       const ready = yield* Fiber.join(readiness);
       assert.ok(Exit.isSuccess(ready));
       const assembly = runtimeOwner(runtime).assembly();
+
       const actor = yield* assembly.createActor({
         ref: actorRef(editorMachine, "after-readiness"),
         initial: preparedEditorSnapshot(),
       });
+
       assert.strictEqual(actor.engine.snapshot().lifecycle, "active");
       yield* Effect.provideContext(actor.dispose(), assembly.context);
       yield* runtimeOwner(runtime).close();
@@ -2102,12 +2344,14 @@ describe("actor identity admission", () => {
     const ref = actorRef(editorMachine, "occurrence-fence");
     const registry = makeActorIdentityRegistry();
     const identity = resultSuccess(registry.reserveStable(ref));
+
     const fence = {
       key: identity.key,
       incarnation: identity.incarnation,
       generation: 2,
       leaseEpoch: identity.leaseEpoch,
     } satisfies ActorFence;
+
     const occurrence = {
       actor: fence,
       // SAFETY: The operation descriptor deliberately crosses the private lifecycle metadata seam.
@@ -2115,6 +2359,7 @@ describe("actor identity admission", () => {
       key: [1] as const,
       ordinal: 1,
     };
+
     assert.strictEqual(occurrence.actor, fence);
     assert.strictEqual(occurrence.ordinal, 1);
     assert.deepStrictEqual(occurrence.key, [1]);
@@ -2137,12 +2382,15 @@ describe("actor identity admission", () => {
   it.effect("maps expected admission refusal to the public diagnostic channel", () =>
     Effect.gen(function* () {
       const ref = actorRef(editorMachine, "expected-refusal");
+
       const harness = makeTransactionHarness(ref, {
         mode: "fresh-stable",
         failure: { stage: "prepare", kind: "typed", message: "expected refusal" },
       });
+
       const exit = yield* Effect.exit(admitActor(makeTransactionInput(ref), harness.authority));
       assert.ok(Exit.isFailure(exit));
+
       if (Exit.isFailure(exit)) {
         assert.strictEqual(Cause.hasFails(exit.cause), true);
         assert.strictEqual(Cause.hasDies(exit.cause), false);
@@ -2153,12 +2401,15 @@ describe("actor identity admission", () => {
   it.effect("retains admission defects while releasing reservations", () =>
     Effect.gen(function* () {
       const ref = actorRef(editorMachine, "defective-admission");
+
       const harness = makeTransactionHarness(ref, {
         mode: "fresh-stable",
         failure: { stage: "activate", kind: "defect", message: "admission defect" },
       });
+
       const exit = yield* Effect.exit(admitActor(makeTransactionInput(ref), harness.authority));
       assert.ok(Exit.isFailure(exit));
+
       if (Exit.isFailure(exit)) assert.strictEqual(Cause.hasDies(exit.cause), true);
       assert.deepStrictEqual(harness.cleanups, ["attached", "prepared", "reservation"]);
     }),
@@ -2185,22 +2436,29 @@ describe("actor identity admission", () => {
       yield* runtime.ready();
       const assembly = runtimeOwner(runtime).assembly();
       const ref = actorRef(editorMachine, "released-handle", { persist: true });
+
       const actor = yield* assembly.createActor({
         ref,
         initial: preparedEditorSnapshot(),
       });
+
       yield* Effect.provideContext(actor.dispose(), assembly.context);
       assert.strictEqual(actor.engine.snapshot().lifecycle, "disposed");
       assert.throws(() => actor.handle.send(resultSuccess(editorDefinition.E.opened())));
+
       const recreated = yield* Effect.exit(
         assembly.createActor({ ref, initial: preparedEditorSnapshot() }),
       );
+
       assert.ok(Exit.isFailure(recreated));
+
       if (Exit.isFailure(recreated)) {
         const reason = recreated.cause.reasons.find(Cause.isFailReason);
         assert.ok(reason !== undefined);
+
         if (reason !== undefined) assert.strictEqual(reason.error.code, "DisposedActorRef");
       }
+
       yield* runtimeOwner(runtime).close();
     }),
   );
@@ -2208,11 +2466,13 @@ describe("actor identity admission", () => {
   it("contains hostile reflection during actor admission", () => {
     const ref = actorRef(editorMachine, "hostile-reflection-parity");
     const harness = makeTransactionHarness(ref, { mode: "fresh-stable" });
+
     const hostileRef = new Proxy(ref, {
       ownKeys: () => {
         throw new Error("hostile ownKeys");
       },
     });
+
     const hostile = { ...makeTransactionInput(ref), ref: hostileRef };
     const result = validateActorAdmission(hostile, harness.authority);
     assert.ok(Result.isFailure(result));

@@ -231,6 +231,7 @@ const freezeSnapshot = <DefinitionValue extends MachineDefinition>(
 ): ActorSnapshot<DefinitionValue> => {
   const memory = freezeMemory<DefinitionValue>(snapshot.memory);
   const context: ContextOf<DefinitionValue> = { ...snapshot.context };
+
   // oxlint-disable-next-line anti-slop/no-object-freeze -- operation projections own canonical immutable keys at publication.
   const operations = Object.freeze(
     snapshot.operations.map((operation) => {
@@ -238,12 +239,14 @@ const freezeSnapshot = <DefinitionValue extends MachineDefinition>(
       return Object.freeze({ ...operation, key: canonicalizeKey(operation.key) });
     }),
   );
+
   // oxlint-disable-next-line anti-slop/no-object-freeze -- timer projections are immutable planning snapshots.
   const timers = Object.freeze(snapshot.timers.map((timer) => Object.freeze({ ...timer })));
   // oxlint-disable-next-line anti-slop/no-object-freeze -- issue lists are immutable planning snapshots.
   const issues = Object.freeze([...snapshot.issues]);
   // oxlint-disable-next-line anti-slop/no-object-freeze -- callback context must be a frozen snapshot container.
   Object.freeze(context);
+
   // oxlint-disable-next-line anti-slop/no-object-freeze -- one pre-turn snapshot must not change after capture.
   return Object.freeze({ ...snapshot, memory, context, operations, timers, issues });
 };
@@ -255,6 +258,7 @@ const candidateSnapshot = <DefinitionValue extends MachineDefinition>(
   memory: Readonly<MemoryOf<DefinitionValue>>,
 ): ActorSnapshot<DefinitionValue> => {
   const nextMemory = freezeMemory<DefinitionValue>(memory);
+
   return freezeSnapshot({ ...source, state, memory: nextMemory });
 };
 
@@ -278,9 +282,11 @@ const eventNameFor = <DefinitionValue extends MachineDefinition>(
 ) => {
   if (!isRecord(event) || !Predicate.isString(event.type)) return undefined;
   const type = event.type;
+
   for (const [name, token] of Object.entries(machine.definition.E)) {
     if (token.id === type) return name;
   }
+
   return undefined;
 };
 
@@ -302,6 +308,7 @@ const activeStateChain = <DefinitionValue extends MachineDefinition>(
 ) => {
   const states = machine.compiled.states;
   const root = states[""];
+
   if (root === undefined) return undefined;
 
   // RETURN_TYPE: Recursion returns the active compiled state chain or no match.
@@ -310,13 +317,18 @@ const activeStateChain = <DefinitionValue extends MachineDefinition>(
     chain: readonly CompiledState<DefinitionValue>[],
   ): readonly CompiledState<DefinitionValue>[] | undefined => {
     const next = [...chain, current];
+
     if (current.kind === "leaf") return current.state === state ? next : undefined;
+
     for (const childKey of current.children) {
       const child = states[childKey];
+
       if (child === undefined) continue;
       const match = visit(child, next);
+
       if (match !== undefined) return match;
     }
+
     return undefined;
   };
 
@@ -342,10 +354,14 @@ const validOperationPlan = <DefinitionValue extends MachineDefinition>(
   if (!isConstructedOperationPlan(value)) return false;
   const kind = value.kind;
   const operation = operationForId(machine, value.descriptor);
+
   if (operation === undefined || !isArrayKey(value.key)) return false;
+
   if (kind === "resource-lookup" || kind === "resource-refetch")
     return operation.kind === "resource";
+
   if (kind === "transaction-commit") return operation.kind === "transaction";
+
   return false;
 };
 
@@ -355,12 +371,16 @@ const validStoreAction = <DefinitionValue extends MachineDefinition>(
 ) => {
   if (!isRecord(value)) return false;
   const kind = value.kind;
+
   if (kind !== "invalidate" && kind !== "clear") return false;
   const targets = value.targets;
+
   if (!Array.isArray(targets) || targets.length === 0) return false;
+
   return targets.every((target: unknown) => {
     if (!Array.isArray(target) || target.length !== 2) return false;
     const [descriptor, key] = target;
+
     return (
       Object.values(machine.definition.operations).some(
         (operation) => operation === descriptor && operation.kind === "resource",
@@ -374,7 +394,9 @@ const validCacheWriteAction = <DefinitionValue extends MachineDefinition>(
   value: RuntimeRecord,
 ) => {
   const operation = operationForId(machine, value.descriptor);
+
   if (operation === undefined || !isArrayKey(value.key)) return false;
+
   return (
     value.family === "resource" && operation.kind === "resource" && Object.hasOwn(value, "value")
   );
@@ -385,7 +407,9 @@ const validCancelAction = <DefinitionValue extends MachineDefinition>(
   value: RuntimeRecord,
 ) => {
   const operation = operationForId(machine, value.descriptor);
+
   if (operation === undefined || !isArrayKey(value.key)) return false;
+
   return (
     ((value.family === "resource" && operation.kind === "resource") ||
       (value.family === "transaction" && operation.kind === "transaction")) &&
@@ -398,8 +422,11 @@ const validCacheOrCancelAction = <DefinitionValue extends MachineDefinition>(
   value: unknown,
 ) => {
   if (!isRecord(value)) return false;
+
   if (value.kind === "cache-write") return validCacheWriteAction(machine, value);
+
   if (value.kind === "cancel") return validCancelAction(machine, value);
+
   return false;
 };
 
@@ -427,11 +454,13 @@ const materializeActionBatch = <DefinitionValue extends MachineDefinition>(
   const values = Array.isArray(value) ? value : [value];
   const actions: FiniteActionIntent<DefinitionValue>[] = [];
   const mappedEvents: ActorEvent<DefinitionValue>[] = [];
+
   for (const [ordinal, item] of values.entries()) {
     if (eventForDefinition(machine, item)) {
       mappedEvents.push(item);
       continue;
     }
+
     if (!validFiniteAction(machine, item))
       return Result.fail(
         planningFailure(["actions", ordinal], "Finite action batch contains an invalid item", {
@@ -440,6 +469,7 @@ const materializeActionBatch = <DefinitionValue extends MachineDefinition>(
       );
     actions.push({ ordinal, action: item });
   }
+
   // oxlint-disable-next-line anti-slop/no-object-freeze -- the complete batch is immutable plan data.
   return Result.succeed({
     // oxlint-disable-next-line anti-slop/no-object-freeze -- the complete action list is immutable plan data.
@@ -472,9 +502,12 @@ const evaluateRedirect = <DefinitionValue extends MachineDefinition>(
   const redirectResult = runCallback(["redirect", stateIndex, redirectIndex], () =>
     redirect.when({ state: current.state, memory: current.memory, snapshot: current }),
   );
+
   if (Result.isFailure(redirectResult)) return Result.fail(redirectResult.failure);
+
   if (!redirectResult.success) return Result.succeed(undefined);
   const nextApplied = applied + 1;
+
   if (nextApplied > 100)
     return Result.fail(
       planningFailure(["redirect"], "Redirect stabilization exceeded the finite limit", {
@@ -482,6 +515,7 @@ const evaluateRedirect = <DefinitionValue extends MachineDefinition>(
       }),
     );
   const targetChain = activeStateChain(machine, redirect.target);
+
   if (targetChain === undefined)
     return Result.fail(
       planningFailure(
@@ -492,6 +526,7 @@ const evaluateRedirect = <DefinitionValue extends MachineDefinition>(
         },
       ),
     );
+
   return Result.succeed({
     _tag: "redirected",
     snapshot: candidateSnapshot(current, redirect.target, current.memory),
@@ -506,12 +541,14 @@ const applyFirstRedirect = <DefinitionValue extends MachineDefinition>(
   applied: number,
 ): Result.Result<RedirectAttempt<DefinitionValue>, PublicDiagnostic> => {
   const chain = activeStateChain(machine, current.state);
+
   if (chain === undefined)
     return Result.fail(
       planningFailure(["redirect"], "Redirect candidate has no machine state", {
         issue: "unknown-state",
       }),
     );
+
   for (const [stateIndex, state] of chain.entries()) {
     for (const [redirectIndex, redirect] of state.redirects.entries()) {
       const attempt = evaluateRedirect(
@@ -522,10 +559,13 @@ const applyFirstRedirect = <DefinitionValue extends MachineDefinition>(
         redirectIndex,
         applied,
       );
+
       if (Result.isFailure(attempt)) return Result.fail(attempt.failure);
+
       if (attempt.success !== undefined) return Result.succeed(attempt.success);
     }
   }
+
   return Result.succeed({ _tag: "stable", snapshot: current });
 };
 
@@ -540,8 +580,11 @@ const stabilizeRedirects = <DefinitionValue extends MachineDefinition>(
     applied: number,
   ): Result.Result<ActorSnapshot<DefinitionValue>, PublicDiagnostic> => {
     const attempt = applyFirstRedirect(machine, current, applied);
+
     if (Result.isFailure(attempt)) return Result.fail(attempt.failure);
+
     if (attempt.success._tag === "stable") return Result.succeed(attempt.success.snapshot);
+
     return stabilize(attempt.success.snapshot, attempt.success.applied);
   };
 
@@ -556,15 +599,21 @@ const findTransitionInState = <DefinitionValue extends MachineDefinition>(
   stateIndex: number,
 ): Result.Result<CompiledTransition<DefinitionValue> | undefined, PublicDiagnostic> => {
   const transitions = state.handlers[eventName];
+
   if (transitions === undefined) return Result.succeed(undefined);
+
   for (const [transitionIndex, transition] of transitions.entries()) {
     if (transition.guard === undefined) return Result.succeed(transition);
+
     const guard = runCallback(["guard", stateIndex, transitionIndex], () =>
       transition.guard!(input),
     );
+
     if (Result.isFailure(guard)) return Result.fail(guard.failure);
+
     if (guard.success) return Result.succeed(transition);
   }
+
   return Result.succeed(undefined);
 };
 
@@ -576,11 +625,15 @@ const findTransition = <DefinitionValue extends MachineDefinition>(
 ): Result.Result<CompiledTransition<DefinitionValue> | undefined, PublicDiagnostic> => {
   for (let stateIndex = chain.length - 1; stateIndex >= 0; stateIndex -= 1) {
     const state = chain[stateIndex];
+
     if (state === undefined) continue;
     const result = findTransitionInState(state, eventName, input, stateIndex);
+
     if (Result.isFailure(result)) return Result.fail(result.failure);
+
     if (result.success !== undefined) return result;
   }
+
   return Result.succeed(undefined);
 };
 
@@ -593,6 +646,7 @@ const planEventTurn = <DefinitionValue extends MachineDefinition>(
   // oxlint-disable-next-line anti-slop/no-object-freeze -- the event cause is immutable staged plan data.
   const cause = Object.freeze({ _tag: "event" as const, event: input.event });
   const eventName = eventNameFor(input.machine, input.event);
+
   if (eventName === undefined)
     return Result.fail(
       planningFailure(["event"], "Event belongs to a different machine definition", {
@@ -600,12 +654,14 @@ const planEventTurn = <DefinitionValue extends MachineDefinition>(
       }),
     );
   const chain = activeStateChain(input.machine, before.state);
+
   if (chain === undefined)
     return Result.fail(
       planningFailure(["snapshot", "state"], "Snapshot state is not in the machine", {
         issue: "unknown-state",
       }),
     );
+
   const machineInput = {
     state: before.state,
     event: input.event,
@@ -616,9 +672,12 @@ const planEventTurn = <DefinitionValue extends MachineDefinition>(
     O: input.machine.definition.operations,
     snapshot: before,
   } satisfies MachineInput<DefinitionValue, ActorEvent<DefinitionValue>>;
+
   const transitionResult = findTransition(chain, eventName, machineInput);
+
   if (Result.isFailure(transitionResult)) return Result.fail(transitionResult.failure);
   const transition = transitionResult.success;
+
   if (transition === undefined)
     return Result.succeed(
       // oxlint-disable-next-line anti-slop/no-object-freeze -- no-op plans are immutable staged data.
@@ -631,7 +690,9 @@ const planEventTurn = <DefinitionValue extends MachineDefinition>(
   > = transition.updateMemory === undefined
     ? Result.succeed({})
     : runCallback(["updateMemory"], () => transition.updateMemory!(machineInput));
+
   if (Result.isFailure(memoryResult)) return Result.fail(memoryResult.failure);
+
   if (!isRecord(memoryResult.success))
     return Result.fail(planningFailure(["updateMemory"], "Memory update must return a record"));
   const memory = freezeMemory<DefinitionValue>({ ...before.memory, ...memoryResult.success });
@@ -640,18 +701,24 @@ const planEventTurn = <DefinitionValue extends MachineDefinition>(
     transition.actions === undefined
       ? Result.succeed(null)
       : runCallback(["actions"], () => transition.actions!(machineInput));
+
   if (Result.isFailure(actionResult)) return Result.fail(actionResult.failure);
   const targetChain = activeStateChain(input.machine, transition.target);
+
   if (targetChain === undefined)
     return Result.fail(planningFailure(["target"], "Transition target is not in the machine"));
   const candidate = candidateSnapshot(before, transition.target, memory);
   const stabilized = stabilizeRedirects(input.machine, candidate);
+
   if (Result.isFailure(stabilized)) return Result.fail(stabilized.failure);
+
   const batchAttempt = runCallback(["actions"], () =>
     materializeActionBatch(input.machine, actionResult.success),
   );
+
   if (Result.isFailure(batchAttempt)) return Result.fail(batchAttempt.failure);
   const batchResult = batchAttempt.success;
+
   if (Result.isFailure(batchResult)) return Result.fail(batchResult.failure);
 
   const plan = {
@@ -663,6 +730,7 @@ const planEventTurn = <DefinitionValue extends MachineDefinition>(
     actions: batchResult.success.actions,
     mappedEvents: batchResult.success.mappedEvents,
   };
+
   // oxlint-disable-next-line anti-slop/no-object-freeze -- a TurnPlan is immutable staged data.
   return Result.succeed(Object.freeze(plan));
 };
@@ -715,12 +783,15 @@ const timerProjectionCandidate = <DefinitionValue extends MachineDefinition>(
   )
     return Result.fail(planningFailure(["projection", "timer"], "Timer projection is invalid"));
   const current = before.timers.find((timer) => timer.name === fact.name);
+
   if (current !== undefined && current.startedAt === fact.startedAt && current.dueAt === fact.dueAt)
     return Result.succeed(undefined);
+
   const timers = [
     ...before.timers.filter((timer) => timer.name !== fact.name),
     { name: fact.name, startedAt: fact.startedAt, dueAt: fact.dueAt },
   ];
+
   return Result.succeed(freezeSnapshot({ ...before, timers }));
 };
 
@@ -733,17 +804,21 @@ const operationProjectionCandidate = <DefinitionValue extends MachineDefinition>
     return Result.fail(
       planningFailure(["projection", "operation", "ordinal"], "Operation ordinal is invalid"),
     );
+
   const current = before.operations.find(
     (operation) =>
       operation.descriptor === occurrence.descriptor &&
       equalCanonicalKey(operation.key, occurrence.key),
   );
+
   if (current?.status === status) return Result.succeed(undefined);
+
   const projection: OperationProjection = {
     descriptor: occurrence.descriptor,
     key: canonicalizeKey(occurrence.key),
     status,
   };
+
   const operations = [
     ...before.operations.filter(
       (operation) =>
@@ -752,6 +827,7 @@ const operationProjectionCandidate = <DefinitionValue extends MachineDefinition>
     ),
     projection,
   ];
+
   return Result.succeed(freezeSnapshot({ ...before, operations }));
 };
 
@@ -765,8 +841,10 @@ const validateContextProjectionCarrier = <DefinitionValue extends MachineDefinit
   providers: readonly ProviderRevisionFence[],
 ) => {
   const carrier = fact.projection;
+
   if (carrier === undefined) return Result.succeed(undefined);
   const first = providers[0];
+
   if (
     first === undefined ||
     !sameFence(fact.provider.fence, first.fence) ||
@@ -780,6 +858,7 @@ const validateContextProjectionCarrier = <DefinitionValue extends MachineDefinit
         "Aggregate context projection has inconsistent provider truth",
       ),
     );
+
   if (carrier.issueOnly && carrier.selectorDefects.length === 0)
     return Result.fail(
       planningFailure(
@@ -787,6 +866,7 @@ const validateContextProjectionCarrier = <DefinitionValue extends MachineDefinit
         "Issue-only context projection must carry a selector defect",
       ),
     );
+
   if (!carrier.issueOnly && carrier.selectorDefects.length > 0)
     return Result.fail(
       planningFailure(
@@ -795,6 +875,7 @@ const validateContextProjectionCarrier = <DefinitionValue extends MachineDefinit
       ),
     );
   const slots = new Set(providers.map((provider) => provider.slot));
+
   if (slots.size !== providers.length)
     return Result.fail(
       planningFailure(
@@ -803,6 +884,7 @@ const validateContextProjectionCarrier = <DefinitionValue extends MachineDefinit
       ),
     );
   const expectedSlots = Object.keys(before.context);
+
   if (
     providers.length !== expectedSlots.length ||
     providers.some((provider) => !expectedSlots.includes(provider.slot))
@@ -813,6 +895,7 @@ const validateContextProjectionCarrier = <DefinitionValue extends MachineDefinit
         "Aggregate context projection must contain every fixed slot",
       ),
     );
+
   return Result.succeed(undefined);
 };
 
@@ -822,21 +905,25 @@ const contextProjectionCandidate = <DefinitionValue extends MachineDefinition>(
 ) => {
   const carrier = fact.projection;
   const providers = contextProjectionProviders(fact);
+
   if (providers.length === 0)
     return Result.fail(
       planningFailure(["projection", "context"], "Aggregate context projection is empty"),
     );
   const carrierValidation = validateContextProjectionCarrier(fact, before, providers);
+
   if (Result.isFailure(carrierValidation)) return Result.fail(carrierValidation.failure);
 
   const seenSlots = new Set<string>();
   let changed = false;
   const context = { ...before.context };
+
   for (const provider of providers) {
     if (!Number.isSafeInteger(provider.revision) || provider.revision < 0)
       return Result.fail(
         planningFailure(["projection", "context", "revision"], "Context revision is invalid"),
       );
+
     if (seenSlots.has(provider.slot))
       return Result.fail(
         planningFailure(
@@ -845,13 +932,17 @@ const contextProjectionCandidate = <DefinitionValue extends MachineDefinition>(
         ),
       );
     seenSlots.add(provider.slot);
+
     if (!Object.is(before.context[provider.slot], provider.value)) changed = true;
     Object.assign(context, { [provider.slot]: provider.value });
   }
+
   if (carrier?.issueOnly === true)
     return Result.succeed(freezeSnapshot({ ...before, context, issues: carrier.selectorDefects }));
+
   if (!changed) return Result.succeed(undefined);
   const issues = carrier === undefined ? before.issues : [];
+
   return Result.succeed(freezeSnapshot({ ...before, context, issues }));
 };
 
@@ -863,7 +954,9 @@ const storeProjectionCandidate = <DefinitionValue extends MachineDefinition>(
     return Result.fail(
       planningFailure(["projection", "store", "revision"], "Store revision is invalid"),
     );
+
   if (fact.fact.revision <= before.observedStoreRevision) return Result.succeed(undefined);
+
   return Result.succeed(freezeSnapshot({ ...before, observedStoreRevision: fact.fact.revision }));
 };
 
@@ -880,6 +973,7 @@ const projectionCandidate = <DefinitionValue extends MachineDefinition, StreamVa
   before: ActorSnapshot<DefinitionValue>,
 ) => {
   const fact = input.fact;
+
   if (fact._tag !== "context-projection" && !sameFence(input.fence, projectionFence(fact)))
     return Result.succeed(undefined);
 
@@ -909,14 +1003,17 @@ export const planProjection = <DefinitionValue extends MachineDefinition, Stream
 ): Result.Result<TurnPlan<DefinitionValue>, PublicDiagnostic> => {
   const before = freezeSnapshot(input.snapshot);
   const candidate = projectionCandidate(input, before);
+
   if (Result.isFailure(candidate)) return Result.fail(candidate.failure);
   // oxlint-disable-next-line anti-slop/no-object-freeze -- a projection cause is immutable plan data.
   const cause = Object.freeze({ _tag: "projection" as const, fact: input.fact });
+
   if (candidate.success === undefined)
     return Result.succeed(
       // oxlint-disable-next-line anti-slop/no-object-freeze -- a no-op plan is immutable plan data.
       Object.freeze({ _tag: "noop" as const, fence: input.fence, before, cause }),
     );
+
   return Result.succeed(
     // oxlint-disable-next-line anti-slop/no-object-freeze -- a projection plan is immutable plan data.
     Object.freeze({

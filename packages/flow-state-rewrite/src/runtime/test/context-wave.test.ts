@@ -24,6 +24,7 @@ import { runtimeOwner, runtimeSetup } from "../runtime.js";
 
 const resultSuccess = <Value, Error>(result: Result.Result<Value, Error>) => {
   if (Result.isFailure(result)) throw result.failure;
+
   return result.success;
 };
 
@@ -32,7 +33,9 @@ const providerDefinitionResult = definition({
   states: ["ready", "changed", "final"],
   events: { advance: "bare" },
 });
+
 const providerDefinition = resultSuccess(providerDefinitionResult);
+
 const providerMachine = resultSuccess(
   machine(providerDefinitionResult, ({ S }) => ({
     default: S.ready,
@@ -52,7 +55,9 @@ const consumerDefinitionResult = definition({
     selected: providerDefinition.select(({ state }) => state),
   },
 });
+
 const consumerDefinition = resultSuccess(consumerDefinitionResult);
+
 const consumerMachine = resultSuccess(
   machine(consumerDefinitionResult, ({ S }) => ({
     default: S.ready,
@@ -72,6 +77,7 @@ const contextWaveApp = app({
 });
 
 const contextAdvance = resultSuccess(providerDefinition.E.advance());
+
 const contextOpened = resultSuccess(consumerDefinition.E.opened());
 
 const preparedProviderSnapshot = () =>
@@ -112,12 +118,14 @@ const makeFixture = () => {
   const consumerRef = actorRef(consumerMachine, "consumer");
   const providerIdentity = resultSuccess(registry.reserveStable(providerRef));
   const consumerIdentity = resultSuccess(registry.reserveStable(consumerRef));
+
   const providerFence: ActorFence = {
     key: providerIdentity.key,
     incarnation: providerIdentity.incarnation,
     generation: 0,
     leaseEpoch: providerIdentity.leaseEpoch,
   };
+
   const binding = {
     consumer: consumerIdentity.key,
     consumerIncarnation: consumerIdentity.incarnation,
@@ -126,15 +134,19 @@ const makeFixture = () => {
     providerFence,
     select: ({ state }) => state,
   } satisfies ContextBinding<typeof consumerDefinition, typeof providerDefinition, "selected">;
+
   const graph = resultSuccess(
     buildContextGraph<typeof consumerDefinition, typeof providerDefinition>([binding]),
   );
+
   const snapshots = new Map([
     [providerIdentity.key, { state: providerDefinition.S.ready, memory: {}, context: {} }],
   ]);
+
   const baseline = resultSuccess(
     installContextBaseline(graph, snapshots, revisionVector([[providerIdentity.key, 0]])),
   );
+
   return { binding, consumerIdentity, graph, providerIdentity, snapshots, baseline };
 };
 
@@ -143,7 +155,9 @@ const chainSourceDefinitionResult = definition({
   states: ["ready", "changed"],
   events: {},
 });
+
 const chainSourceDefinition = resultSuccess(chainSourceDefinitionResult);
+
 const chainNodeDefinitionResult = definition({
   id: "context-wave/chain-node",
   states: ["ready"],
@@ -152,7 +166,9 @@ const chainNodeDefinitionResult = definition({
     value: chainSourceDefinition.select(({ state }) => state),
   },
 });
+
 const chainNodeDefinition = resultSuccess(chainNodeDefinitionResult);
+
 const chainNodeMachine = resultSuccess(
   machine(chainNodeDefinitionResult, ({ S }) => ({
     default: S.ready,
@@ -164,12 +180,14 @@ const makeChainFixture = () => {
   const registry = makeActorIdentityRegistry();
   const actorRefs = ["a", "b", "c"].map((id) => actorRef(chainNodeMachine, id));
   const identities = actorRefs.map((ref) => resultSuccess(registry.reserveStable(ref)));
+
   const fence = (identity: (typeof identities)[number]): ActorFence => ({
     key: identity.key,
     incarnation: identity.incarnation,
     generation: 0,
     leaseEpoch: identity.leaseEpoch,
   });
+
   const makeBinding = (
     consumer: (typeof identities)[number],
     provider: (typeof identities)[number],
@@ -182,13 +200,16 @@ const makeChainFixture = () => {
       providerFence: fence(provider),
       select: ({ context }) => context.value,
     }) satisfies ContextBinding<typeof chainNodeDefinition, typeof chainNodeDefinition, "value">;
+
   const bindings = [
     makeBinding(identities[1]!, identities[0]!),
     makeBinding(identities[2]!, identities[1]!),
   ];
+
   const graph = resultSuccess(
     buildContextGraph<typeof chainNodeDefinition, typeof chainNodeDefinition>(bindings),
   );
+
   const snapshots = new Map<ActorKey, ActorContextSnapshot<typeof chainNodeDefinition>>([
     // The chain's provider snapshots intentionally widen the selected context to both authored states.
     [
@@ -208,6 +229,7 @@ const makeChainFixture = () => {
       },
     ],
   ]);
+
   const baseline = resultSuccess(
     installContextBaseline(
       graph,
@@ -218,6 +240,7 @@ const makeChainFixture = () => {
       ]),
     ),
   );
+
   return { baseline, graph, identities, snapshots };
 };
 
@@ -243,6 +266,7 @@ describe("context waves", () => {
 
   it("derives one bounded provider-first wave and coalesces unchanged revisions", () => {
     const fixture = makeFixture();
+
     const wave = resultSuccess(
       planContextWave(
         fixture.graph,
@@ -251,6 +275,7 @@ describe("context waves", () => {
         Option.none(),
       ),
     );
+
     assert.deepStrictEqual(wave.order, [
       fixture.providerIdentity.key,
       fixture.consumerIdentity.key,
@@ -265,12 +290,14 @@ describe("context waves", () => {
         Option.some(wave),
       ),
     );
+
     assert.strictEqual(repeated.coalesced, true);
     assert.strictEqual(repeated.dirty.size, 0);
   });
 
   it("publishes one complete changed projection without an intermediate cut", () => {
     const fixture = makeFixture();
+
     const wave = resultSuccess(
       planContextWave(
         fixture.graph,
@@ -279,15 +306,18 @@ describe("context waves", () => {
         Option.none(),
       ),
     );
+
     const changedSnapshots = new Map([
       [
         fixture.providerIdentity.key,
         { state: providerDefinition.S.changed, memory: {}, context: {} },
       ],
     ]);
+
     const result = resultSuccess(
       applyContextWave(wave, fixture.graph, changedSnapshots, fixture.baseline.ledger),
     );
+
     assert.strictEqual(result.publications.length, 1);
     assert.strictEqual(result.publications[0]?.issueOnly, false);
     assert.strictEqual(result.publications[0]?.machineTurnRevision, 1);
@@ -299,6 +329,7 @@ describe("context waves", () => {
   it("carries each settled projection through an A-to-B-to-C wave", () => {
     const fixture = makeChainFixture();
     const [a, b, c] = fixture.identities;
+
     const wave = resultSuccess(
       planContextWave(
         fixture.graph,
@@ -310,6 +341,7 @@ describe("context waves", () => {
         Option.none(),
       ),
     );
+
     const changedSnapshots = new Map([
       [
         a!.key,
@@ -328,9 +360,11 @@ describe("context waves", () => {
         },
       ],
     ]);
+
     const result = resultSuccess(
       applyContextWave(wave, fixture.graph, changedSnapshots, fixture.baseline.ledger),
     );
+
     assert.deepStrictEqual(
       result.publications.map((publication) => publication.consumer),
       [b!.key, c!.key],
@@ -363,16 +397,20 @@ describe("context waves", () => {
   it("retains last-valid selection for one issue-only defect and retries a newer vector", () => {
     const fixture = makeFixture();
     let shouldDefect = false;
+
     const defectiveBinding = {
       ...fixture.binding,
       select: ({ state }) => {
         if (shouldDefect) throw new Error("selector defect");
+
         return state;
       },
     } satisfies ContextBinding<typeof consumerDefinition, typeof providerDefinition, "selected">;
+
     const graph = resultSuccess(
       buildContextGraph<typeof consumerDefinition, typeof providerDefinition>([defectiveBinding]),
     );
+
     const baseline = resultSuccess(
       installContextBaseline(
         graph,
@@ -380,7 +418,9 @@ describe("context waves", () => {
         revisionVector([[fixture.providerIdentity.key, 0]]),
       ),
     );
+
     shouldDefect = true;
+
     const firstWave = resultSuccess(
       planContextWave(
         graph,
@@ -389,9 +429,11 @@ describe("context waves", () => {
         Option.none(),
       ),
     );
+
     const issue = resultSuccess(
       applyContextWave(firstWave, graph, fixture.snapshots, baseline.ledger),
     );
+
     assert.strictEqual(issue.publications.length, 1);
     assert.strictEqual(issue.publications[0]?.issueOnly, true);
     assert.strictEqual(issue.publications[0]?.publicationRevision, 1);
@@ -400,6 +442,7 @@ describe("context waves", () => {
     assert.strictEqual(issue.selectorDefects.length, 1);
 
     shouldDefect = false;
+
     const retryWave = resultSuccess(
       planContextWave(
         graph,
@@ -408,12 +451,14 @@ describe("context waves", () => {
         Option.some(firstWave),
       ),
     );
+
     const retrySnapshots = new Map([
       [
         fixture.providerIdentity.key,
         { state: providerDefinition.S.changed, memory: {}, context: {} },
       ],
     ]);
+
     const retry = resultSuccess(applyContextWave(retryWave, graph, retrySnapshots, issue.ledger));
     assert.strictEqual(retry.publications.length, 1);
     assert.strictEqual(retry.publications[0]?.issueOnly, false);
@@ -423,10 +468,13 @@ describe("context waves", () => {
   it("rejects dependency cycles before retaining a graph", () => {
     const fixture = makeFixture();
     const selfBinding = { ...fixture.binding, consumer: fixture.providerIdentity.key };
+
     const selfResult = buildContextGraph<typeof consumerDefinition, typeof providerDefinition>([
       selfBinding,
     ]);
+
     assert.strictEqual(Result.isFailure(selfResult), true);
+
     if (Result.isFailure(selfResult))
       assert.strictEqual(selfResult.failure.code, "ContextDependencyCycle");
   });
@@ -442,6 +490,7 @@ describe("context waves", () => {
     assert.strictEqual("clear" in fixture.graph.bindings, false);
     assert.strictEqual(Object.isFrozen(graphBinding), true);
     const consumerBindings = fixture.graph.bindings.get(fixture.consumerIdentity.key);
+
     if (consumerBindings === undefined) throw new Error("missing consumer bindings");
     assert.strictEqual(Object.isFrozen(consumerBindings), true);
     assert.throws(() => Object.assign(consumerBindings, { 0: graphBinding }), TypeError);
@@ -458,7 +507,9 @@ describe("context waves", () => {
         Option.none(),
       ),
     );
+
     assert.strictEqual(Object.isFrozen(wave), true);
+
     const result = resultSuccess(
       applyContextWave(
         wave,
@@ -472,6 +523,7 @@ describe("context waves", () => {
         fixture.baseline.ledger,
       ),
     );
+
     assert.strictEqual(Object.isFrozen(result), true);
     assert.strictEqual(Object.isFrozen(result.ledger), true);
     assert.strictEqual(Object.isFrozen(result.publications[0]), true);
@@ -480,16 +532,20 @@ describe("context waves", () => {
   it("rejects issue-only revision overflow before changing the input cut", () => {
     const fixture = makeFixture();
     let shouldDefect = false;
+
     const defectiveBinding = {
       ...fixture.binding,
       select: ({ state }) => {
         if (shouldDefect) throw new Error("selector defect");
+
         return state;
       },
     } satisfies ContextBinding<typeof consumerDefinition, typeof providerDefinition, "selected">;
+
     const graph = resultSuccess(
       buildContextGraph<typeof consumerDefinition, typeof providerDefinition>([defectiveBinding]),
     );
+
     const baseline = resultSuccess(
       installContextBaseline(
         graph,
@@ -497,13 +553,16 @@ describe("context waves", () => {
         revisionVector([[fixture.providerIdentity.key, 0]]),
       ),
     );
+
     shouldDefect = true;
+
     const revisions = new Map([
       [
         fixture.consumerIdentity.key,
         { publicationRevision: Number.MAX_SAFE_INTEGER, machineTurnRevision: 4 },
       ],
     ]);
+
     const result = applyContextWave(
       resultSuccess(
         planContextWave(
@@ -518,12 +577,15 @@ describe("context waves", () => {
       baseline.ledger,
       revisions,
     );
+
     assert.ok(Result.isFailure(result));
+
     if (Result.isFailure(result)) {
       assert.strictEqual(result.failure.code, "InvariantViolation");
       assert.deepStrictEqual(result.failure.path, ["publicationRevision"]);
       assert.strictEqual(result.failure.summary, "Revision counter cannot advance");
     }
+
     assert.deepStrictEqual(revisions.get(fixture.consumerIdentity.key), {
       publicationRevision: Number.MAX_SAFE_INTEGER,
       machineTurnRevision: 4,
@@ -537,12 +599,14 @@ describe("context waves", () => {
 
   it("rejects normal revision overflow before changing the input cut", () => {
     const fixture = makeFixture();
+
     const revisions = new Map([
       [
         fixture.consumerIdentity.key,
         { publicationRevision: Number.MAX_SAFE_INTEGER, machineTurnRevision: 0 },
       ],
     ]);
+
     const result = applyContextWave(
       resultSuccess(
         planContextWave(
@@ -562,12 +626,15 @@ describe("context waves", () => {
       fixture.baseline.ledger,
       revisions,
     );
+
     assert.ok(Result.isFailure(result));
+
     if (Result.isFailure(result)) {
       assert.strictEqual(result.failure.code, "InvariantViolation");
       assert.deepStrictEqual(result.failure.path, ["publicationRevision"]);
       assert.strictEqual(result.failure.summary, "Revision counter cannot advance");
     }
+
     assert.deepStrictEqual(revisions.get(fixture.consumerIdentity.key), {
       publicationRevision: Number.MAX_SAFE_INTEGER,
       machineTurnRevision: 0,
@@ -584,6 +651,7 @@ describe("context waves", () => {
       read("next", 2);
       throw new Error("observer defect");
     });
+
     assert.strictEqual(defect._tag, "passive-defect");
     assert.deepStrictEqual(observer.dependencies(), ["provider"]);
 
@@ -611,8 +679,10 @@ describe("context waves", () => {
   it("propagates one provider revision in dependency order", () => {
     const fixture = makeChainFixture();
     const [source, middle, leaf] = fixture.identities;
+
     if (source === undefined || middle === undefined || leaf === undefined)
       throw new Error("chain identities are incomplete");
+
     const wave = resultSuccess(
       planContextWave(
         fixture.graph,
@@ -624,6 +694,7 @@ describe("context waves", () => {
         Option.none(),
       ),
     );
+
     const applied = resultSuccess(
       applyContextWave(
         wave,
@@ -649,6 +720,7 @@ describe("context waves", () => {
         fixture.baseline.ledger,
       ),
     );
+
     assert.deepStrictEqual(
       applied.publications.map((publication) => publication.consumer),
       [middle.key, leaf.key],
@@ -657,15 +729,20 @@ describe("context waves", () => {
 
   it("rejects direct and indirect context cycles before publication", () => {
     const fixture = makeFixture();
+
     const direct = buildContextGraph<typeof consumerDefinition, typeof providerDefinition>([
       { ...fixture.binding, consumer: fixture.providerIdentity.key },
     ]);
+
     assert.ok(Result.isFailure(direct));
+
     if (Result.isFailure(direct)) assert.strictEqual(direct.failure.code, "ContextDependencyCycle");
 
     const chain = makeChainFixture();
     const [a, b] = chain.identities;
+
     if (a === undefined || b === undefined) throw new Error("chain identities are incomplete");
+
     const cyclicBindings = [
       {
         consumer: a.key,
@@ -694,9 +771,11 @@ describe("context waves", () => {
         select: ({ context }: { readonly context: { readonly value: unknown } }) => context.value,
       },
     ];
+
     // SAFETY: This fixture deliberately violates the admitted binding type to exercise cycle rejection.
     const indirect = buildContextGraph(cyclicBindings as never);
     assert.ok(Result.isFailure(indirect));
+
     if (Result.isFailure(indirect))
       assert.strictEqual(indirect.failure.code, "ContextDependencyCycle");
     assert.ok(
@@ -708,16 +787,16 @@ describe("context waves", () => {
 
   it("selects scalar provider state from one immutable snapshot", () => {
     const fixture = makeFixture();
+
     const selected = resultSuccess(
       selectContext<typeof consumerDefinition, typeof providerDefinition, "selected">(
         fixture.binding,
         // SAFETY: The provider snapshot is the exact provider definition used by this binding fixture.
-        { state: providerDefinition.S.changed, memory: {}, context: {} } as ActorContextSnapshot<
-          typeof providerDefinition
-        >,
+        { state: providerDefinition.S.changed, memory: {}, context: {} },
         7,
       ),
     );
+
     assert.strictEqual(selected.value, providerDefinition.S.changed);
     assert.strictEqual(selected.providerRevision, 7);
     assert.strictEqual(selected.binding, fixture.binding);
@@ -733,6 +812,7 @@ describe("context waves", () => {
 
   it("publishes one wave when one named field changes", () => {
     const fixture = makeFixture();
+
     const wave = resultSuccess(
       planContextWave(
         fixture.graph,
@@ -741,6 +821,7 @@ describe("context waves", () => {
         Option.none(),
       ),
     );
+
     const next = resultSuccess(
       applyContextWave(
         wave,
@@ -754,6 +835,7 @@ describe("context waves", () => {
         fixture.baseline.ledger,
       ),
     );
+
     assert.strictEqual(next.publications.length, 1);
     assert.deepStrictEqual([...next.publications[0]!.projection.changedSlots], ["selected"]);
   });
@@ -762,6 +844,7 @@ describe("context waves", () => {
     assert.strictEqual(equalContextSelection(null, null), true);
     assert.strictEqual(equalContextSelection(null, undefined), false);
     const fixture = makeFixture();
+
     const selected = resultSuccess(
       selectContext(
         // SAFETY: The selector deliberately returns a null value outside its generic output to prove null is retained.
@@ -770,6 +853,7 @@ describe("context waves", () => {
         1,
       ),
     );
+
     assert.strictEqual(selected.value, null);
   });
 
@@ -777,6 +861,7 @@ describe("context waves", () => {
     assert.strictEqual(equalContextSelection(undefined, undefined), true);
     assert.strictEqual(equalContextSelection(undefined, null), false);
     const fixture = makeFixture();
+
     const selected = resultSuccess(
       selectContext(
         // SAFETY: The selector deliberately returns undefined outside its generic output to prove undefined is retained.
@@ -785,12 +870,15 @@ describe("context waves", () => {
         2,
       ),
     );
+
     assert.strictEqual(selected.value, undefined);
     // SAFETY: The duplicate fixture preserves the deliberately undefined selector for a separate baseline ledger.
     const undefinedBinding = { ...fixture.binding, select: () => undefined as never };
+
     const undefinedGraph = resultSuccess(
       buildContextGraph<typeof consumerDefinition, typeof providerDefinition>([undefinedBinding]),
     );
+
     const undefinedBaseline = resultSuccess(
       installContextBaseline(
         undefinedGraph,
@@ -798,10 +886,13 @@ describe("context waves", () => {
         revisionVector([[fixture.providerIdentity.key, 0]]),
       ),
     );
+
     const entry = [...undefinedBaseline.ledger.entries.values()][0];
     assert.ok(entry !== undefined);
+
     if (entry !== undefined) {
       assert.ok(Option.isSome(entry.lastValid));
+
       if (Option.isSome(entry.lastValid))
         assert.strictEqual(entry.lastValid.value.value, undefined);
     }
@@ -813,22 +904,27 @@ describe("context waves", () => {
     const observer = makePassiveObserver<string>();
     const observed = observer.evaluate((read) => read("diagnostic", diagnostic));
     assert.strictEqual(observed._tag, "passive-observation");
+
     if (observed._tag === "passive-observation") assert.strictEqual(observed.value, diagnostic);
   });
 
   it("retains thrown selector defects without clearing consumer state", () => {
     const fixture = makeFixture();
     let defect = false;
+
     const binding = {
       ...fixture.binding,
       select: ({ state }: ActorContextSnapshot<typeof providerDefinition>) => {
         if (defect) throw new Error("selector defect");
+
         return state;
       },
     } satisfies ContextBinding<typeof consumerDefinition, typeof providerDefinition, "selected">;
+
     const graph = resultSuccess(
       buildContextGraph<typeof consumerDefinition, typeof providerDefinition>([binding]),
     );
+
     const baseline = resultSuccess(
       installContextBaseline(
         graph,
@@ -836,7 +932,9 @@ describe("context waves", () => {
         revisionVector([[fixture.providerIdentity.key, 0]]),
       ),
     );
+
     defect = true;
+
     const wave = resultSuccess(
       planContextWave(
         graph,
@@ -845,6 +943,7 @@ describe("context waves", () => {
         Option.none(),
       ),
     );
+
     const issue = resultSuccess(applyContextWave(wave, graph, fixture.snapshots, baseline.ledger));
     assert.strictEqual(issue.publications[0]?.issueOnly, true);
     assert.strictEqual(issue.projections[0]?.values.get("selected"), providerDefinition.S.ready);
@@ -852,6 +951,7 @@ describe("context waves", () => {
 
   it("coalesces adjacent provider revisions into one wave", () => {
     const fixture = makeFixture();
+
     const first = resultSuccess(
       planContextWave(
         fixture.graph,
@@ -860,6 +960,7 @@ describe("context waves", () => {
         Option.none(),
       ),
     );
+
     const latest = resultSuccess(
       planContextWave(
         fixture.graph,
@@ -868,6 +969,7 @@ describe("context waves", () => {
         Option.some(first),
       ),
     );
+
     assert.strictEqual(latest.providerRevision.get(fixture.providerIdentity.key), 3);
     assert.strictEqual(latest.coalesced, true);
     assert.deepStrictEqual([...latest.dirty], [fixture.providerIdentity.key]);
@@ -877,6 +979,7 @@ describe("context waves", () => {
     const fixture = makeFixture();
     // SAFETY: This synthetic key is intentionally outside the fixture registry to prove unrelated waves are ignored.
     const unrelated = "context-wave/unrelated" as ActorKey;
+
     const wave = resultSuccess(
       planContextWave(
         fixture.graph,
@@ -885,6 +988,7 @@ describe("context waves", () => {
         Option.none(),
       ),
     );
+
     assert.strictEqual(wave.dirty.size, 0);
     assert.deepStrictEqual(wave.order, []);
   });
@@ -892,7 +996,9 @@ describe("context waves", () => {
   it("publishes affected consumers from one atomic wave cut", () => {
     const fixture = makeChainFixture();
     const source = fixture.identities[0];
+
     if (source === undefined) throw new Error("missing source identity");
+
     const wave = resultSuccess(
       planContextWave(
         fixture.graph,
@@ -904,15 +1010,18 @@ describe("context waves", () => {
         Option.none(),
       ),
     );
+
     const snapshots = new Map(fixture.snapshots);
     snapshots.set(source.key, {
       state: chainNodeDefinition.S.ready,
       memory: {},
       context: { value: chainSourceDefinition.S.changed },
     });
+
     const result = resultSuccess(
       applyContextWave(wave, fixture.graph, snapshots, fixture.baseline.ledger),
     );
+
     assert.strictEqual(result.projections.length, result.publications.length);
     assert.strictEqual(
       result.publications.every((publication) => publication.projection.values.size === 1),
@@ -926,11 +1035,14 @@ describe("context waves", () => {
       yield* runtime.ready();
       const assembly = runtimeOwner(runtime).assembly();
       const providerRef = actorRef(providerMachine, "real-provider");
+
       const provider = yield* assembly.createActor({
         ref: providerRef,
         initial: preparedProviderSnapshot(),
       });
+
       const snapshots: Array<{ readonly revision: number; readonly state: unknown }> = [];
+
       const binding = {
         slot: "selected",
         provider: providerRef,
@@ -941,6 +1053,7 @@ describe("context waves", () => {
         typeof providerDefinition,
         "selected"
       >;
+
       const consumer = yield* assembly.createActor({
         ref: actorRef(consumerMachine, "real-consumer"),
         initial: preparedConsumerSnapshot(),
@@ -968,6 +1081,7 @@ describe("context waves", () => {
           value: providerDefinition.S.ready,
         },
       });
+
       assert.ok(Result.isSuccess(stale));
       yield* consumer.engine.drain();
       assert.deepStrictEqual(consumer.engine.snapshot(), afterFirst);
@@ -993,10 +1107,12 @@ describe("context waves", () => {
       yield* runtime.ready();
       const assembly = runtimeOwner(runtime).assembly();
       const providerRef = actorRef(providerMachine, "overflow-provider");
+
       const provider = yield* assembly.createActor({
         ref: providerRef,
         initial: preparedProviderSnapshot(),
       });
+
       const binding = {
         slot: "selected",
         provider: providerRef,
@@ -1007,8 +1123,10 @@ describe("context waves", () => {
         typeof providerDefinition,
         "selected"
       >;
+
       const started = yield* Deferred.make<void>();
       const release = yield* Deferred.make<void>();
+
       const consumer = yield* assembly.createActor({
         ref: actorRef(consumerMachine, "overflow-consumer"),
         initial: preparedConsumerSnapshot(),
@@ -1023,6 +1141,7 @@ describe("context waves", () => {
       const first = consumer.engine.dispatch(contextOpened);
       assert.strictEqual(first.admitted, true);
       yield* Deferred.await(started);
+
       for (let index = 0; index < 64; index += 1) consumer.engine.send(contextOpened);
       const providerDispatch = provider.engine.dispatch(contextAdvance);
       assert.strictEqual(providerDispatch.admitted, true);
@@ -1051,6 +1170,7 @@ describe("context waves", () => {
 
   it("fences a late wave after consumer disposal", () => {
     const fixture = makeFixture();
+
     const wave = resultSuccess(
       planContextWave(
         fixture.graph,
@@ -1059,15 +1179,18 @@ describe("context waves", () => {
         Option.none(),
       ),
     );
+
     const result = resultSuccess(
       applyContextWave(wave, fixture.graph, fixture.snapshots, fixture.baseline.ledger),
     );
+
     assert.deepStrictEqual(result.publications, []);
     assert.strictEqual(result.ledger.providerRevisions.get(fixture.providerIdentity.key), 1);
   });
 
   it("handles provider disposal without stale selection", () => {
     const fixture = makeFixture();
+
     const wave = resultSuccess(
       planContextWave(
         fixture.graph,
@@ -1076,8 +1199,10 @@ describe("context waves", () => {
         Option.none(),
       ),
     );
+
     const result = applyContextWave(wave, fixture.graph, new Map(), fixture.baseline.ledger);
     assert.ok(Result.isFailure(result));
+
     if (Result.isFailure(result)) {
       assert.deepStrictEqual(result.failure.path, ["context", "provider"]);
       assert.strictEqual(result.failure.code, "MissingContextProvider");
@@ -1086,6 +1211,7 @@ describe("context waves", () => {
 
   it("distinguishes provider incarnations at one actor key", () => {
     const fixture = makeFixture();
+
     const replacement = {
       ...fixture.binding,
       provider: { ...fixture.binding.provider, id: `${fixture.binding.provider.id}-replacement` },
@@ -1095,11 +1221,14 @@ describe("context waves", () => {
         incarnation: (fixture.binding.providerFence.incarnation + 1) as never,
       },
     };
+
     const result = buildContextGraph<typeof consumerDefinition, typeof providerDefinition>([
       fixture.binding,
       replacement,
     ]);
+
     assert.ok(Result.isFailure(result));
+
     if (Result.isFailure(result)) {
       assert.deepStrictEqual(result.failure.path, ["context"]);
       assert.strictEqual(result.failure.details.reason, "provider-incarnation");
@@ -1108,6 +1237,7 @@ describe("context waves", () => {
 
   it("keeps an empty context wave free of synthetic publication", () => {
     const fixture = makeFixture();
+
     const wave = resultSuccess(
       planContextWave(
         fixture.graph,
@@ -1116,15 +1246,18 @@ describe("context waves", () => {
         Option.none(),
       ),
     );
+
     const result = resultSuccess(
       applyContextWave(wave, fixture.graph, fixture.snapshots, fixture.baseline.ledger),
     );
+
     assert.deepStrictEqual(result.projections, []);
     assert.deepStrictEqual(result.publications, []);
   });
 
   it("keeps context delivery backpressure local", () => {
     const fixture = makeFixture();
+
     const wave = resultSuccess(
       planContextWave(
         fixture.graph,
@@ -1133,16 +1266,20 @@ describe("context waves", () => {
         Option.none(),
       ),
     );
+
     const snapshotBefore = fixture.snapshots.get(fixture.providerIdentity.key);
+
     const changedSnapshots = new Map([
       [
         fixture.providerIdentity.key,
         { state: providerDefinition.S.changed, memory: {}, context: {} },
       ],
     ]);
+
     const result = resultSuccess(
       applyContextWave(wave, fixture.graph, changedSnapshots, fixture.baseline.ledger),
     );
+
     assert.strictEqual(result.publications.length, 1);
     assert.strictEqual(fixture.snapshots.get(fixture.providerIdentity.key), snapshotBefore);
   });
@@ -1164,6 +1301,7 @@ describe("context waves", () => {
   it("keeps exposed context dependency graphs immutable", () => {
     const fixture = makeFixture();
     const binding = fixture.graph.bindings.get(fixture.consumerIdentity.key)?.[0];
+
     if (binding === undefined) throw new Error("missing graph binding");
     assert.strictEqual(Object.isFrozen(fixture.graph), true);
     assert.strictEqual(Object.isFrozen(binding), true);
@@ -1177,12 +1315,14 @@ describe("context waves", () => {
 
   it("rejects context revision overflow before increment", () => {
     const fixture = makeFixture();
+
     const revisions = new Map([
       [
         fixture.consumerIdentity.key,
         { publicationRevision: Number.MAX_SAFE_INTEGER, machineTurnRevision: 0 },
       ],
     ]);
+
     const result = applyContextWave(
       resultSuccess(
         planContextWave(
@@ -1202,6 +1342,7 @@ describe("context waves", () => {
       fixture.baseline.ledger,
       revisions,
     );
+
     assert.ok(Result.isFailure(result));
     assert.deepStrictEqual(revisions.get(fixture.consumerIdentity.key), {
       publicationRevision: Number.MAX_SAFE_INTEGER,

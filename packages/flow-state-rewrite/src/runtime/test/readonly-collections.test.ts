@@ -20,6 +20,7 @@ declare global {
 }
 
 const immutablePackageName = "immutable";
+
 const packageManifestSources = import.meta.glob<string>(
   [
     "../../../../../package.json",
@@ -29,16 +30,19 @@ const packageManifestSources = import.meta.glob<string>(
   ],
   { eager: true, query: "?raw", import: "default" },
 );
+
 const lockfileSources = import.meta.glob<string>("../../../../../nub.lock", {
   eager: true,
   query: "?raw",
   import: "default",
 });
+
 const sourceSources = import.meta.glob<string>(["../../**/*.ts", "../../../test/**/*.ts"], {
   eager: true,
   query: "?raw",
   import: "default",
 });
+
 const installedPackageSources = import.meta.glob<string>(
   [
     "../../../../../node_modules/immutable/package.json",
@@ -187,10 +191,12 @@ describe("readonly collection boundaries", () => {
 
     const first = { id: "same" };
     const equivalent = { id: "same" };
+
     const native = readonlyMap([
       [first, "first"],
       [equivalent, "equivalent"],
     ] as const);
+
     const structural = HashMap.make([new Key({ id: "same" }), "value"] as const);
     const structuralLookup = HashMap.get(structural, new Key({ id: "same" }));
     const missingLookup = HashMap.get(structural, new Key({ id: "missing" }));

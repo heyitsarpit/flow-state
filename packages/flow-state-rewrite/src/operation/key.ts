@@ -105,8 +105,11 @@ type CanonicalContainer =
 type KeyPath = readonly (string | number)[];
 
 const MAX_DEPTH = 16;
+
 const MAX_NODES = 256;
+
 const MAX_BYTES = 8192;
+
 const MAX_ARRAY_LENGTH = 0xffff_ffff;
 
 type CanonicalizationContext = {
@@ -145,6 +148,7 @@ const readReflection = <Value>(path: KeyPath, read: () => Value) => {
 
 const addByteCount = (bytes: number, context: CanonicalizationContext) => {
   context.bytes += bytes;
+
   if (context.bytes > MAX_BYTES) canonicalKeyDefect([]);
 };
 
@@ -161,22 +165,29 @@ const isShortJsonEscape = (code: number) =>
 
 const utf8CodeUnitBytes = (code: number) => {
   if (code < 0x80) return 1;
+
   if (code < 0x800) return 2;
+
   return 3;
 };
 
 const jsonStringCodeUnitBytes = (code: number) => {
   if (code === 0x22 || code === 0x5c) return 2;
+
   if (isShortJsonEscape(code)) return 2;
+
   if (code < 0x20) return 6;
+
   return utf8CodeUnitBytes(code);
 };
 
 const measureJsonStringBytes = (value: string, path: KeyPath, baseBytes: number) => {
   let bytes = 2;
+
   for (let index = 0; index < value.length; index += 1) {
     const code = value.charCodeAt(index);
     const nextCode = index + 1 < value.length ? value.charCodeAt(index + 1) : -1;
+
     if (isHighSurrogate(code)) {
       if (!isLowSurrogate(nextCode)) canonicalKeyDefect(path);
       bytes += 4;
@@ -186,8 +197,10 @@ const measureJsonStringBytes = (value: string, path: KeyPath, baseBytes: number)
     } else {
       bytes += jsonStringCodeUnitBytes(code);
     }
+
     if (baseBytes + bytes > MAX_BYTES) canonicalKeyDefect([]);
   }
+
   return bytes;
 };
 
@@ -198,12 +211,16 @@ const encodePrimitive = (
 ) => {
   if (Predicate.isString(value)) {
     addByteCount(measureJsonStringBytes(value, path, context.bytes), context);
+
     return;
   }
+
   if (value === true || value === false) {
     addBytes(value ? "true" : "false", context);
+
     return;
   }
+
   addBytes(JSON.stringify(Object.is(value, -0) ? 0 : value), context);
 };
 
@@ -216,6 +233,7 @@ interface MeasuredCanonicalRecordKey {
 const isRecordContainer = (value: unknown, path: KeyPath): value is CanonicalRecordInput => {
   if (value === null || typeof value !== "object") return false;
   const prototype = readReflection(path, () => Object.getPrototypeOf(value));
+
   return prototype === Object.prototype || prototype === null;
 };
 
@@ -227,10 +245,14 @@ const isArrayContainer = (value: unknown, path: KeyPath): value is CanonicalArra
 const admitCanonicalContainer = (value: unknown, path: KeyPath): CanonicalContainer => {
   if (isArrayContainer(value, path)) {
     const prototype = readReflection(path, () => Object.getPrototypeOf(value));
+
     if (prototype !== Array.prototype) canonicalKeyDefect(path);
+
     return { kind: "array", value };
   }
+
   if (!isRecordContainer(value, path)) return canonicalKeyDefect(path);
+
   return { kind: "record", value };
 };
 
@@ -243,6 +265,7 @@ const isSafeArrayLength = (value: unknown): value is number =>
 
 const arrayLength = (value: CanonicalArrayInput, path: KeyPath) => {
   const descriptor = readReflection(path, () => Object.getOwnPropertyDescriptor(value, "length"));
+
   if (
     descriptor === undefined ||
     !isDataProperty(descriptor) ||
@@ -252,11 +275,13 @@ const arrayLength = (value: CanonicalArrayInput, path: KeyPath) => {
   ) {
     return canonicalKeyDefect(path);
   }
+
   return descriptor.value;
 };
 
 const isArrayIndexKey = (key: string, length: number) => {
   const index = Number(key);
+
   return Number.isSafeInteger(index) && index >= 0 && index < length && String(index) === key;
 };
 
@@ -273,8 +298,10 @@ const compareKeys = (left: string, right: string) =>
 const enforceArrayLength = (length: number, path: KeyPath, context: CanonicalizationContext) => {
   if (path.length === 0) {
     if (length > MAX_NODES) canonicalKeyDefect([...path, MAX_NODES]);
+
     return;
   }
+
   if (length > MAX_NODES - context.nodes) canonicalKeyDefect(path);
 };
 
@@ -287,23 +314,30 @@ function canonicalizeValue(
   if (depth > MAX_DEPTH) canonicalKeyDefect(path);
 
   context.nodes += 1;
+
   if (context.nodes > MAX_NODES) canonicalKeyDefect(path);
 
   if (value === null) {
     addBytes("null", context);
+
     return value;
   }
+
   if (value === true || value === false || Predicate.isString(value)) {
     encodePrimitive(value, path, context);
+
     return value;
   }
+
   if (Predicate.isNumber(value) && Number.isFinite(value)) {
     const normalized = Object.is(value, -0) ? 0 : value;
     encodePrimitive(normalized, path, context);
+
     return normalized;
   }
 
   const container = admitCanonicalContainer(value, path);
+
   if (context.seen.has(container.value)) canonicalKeyDefect(path);
   context.seen.add(container.value);
 
@@ -313,6 +347,7 @@ function canonicalizeValue(
       : canonicalizeRecord(container.value, path, depth, context);
 
   context.seen.delete(container.value);
+
   return copy;
 }
 
@@ -325,19 +360,24 @@ function canonicalizeArray(
   const length = arrayLength(value, path);
   enforceArrayLength(length, path, context);
   const ownKeys = readReflection(path, () => Reflect.ownKeys(value));
+
   if (!hasDenseArrayKeys(ownKeys, length)) canonicalKeyDefect(path);
 
   addBytes("[", context);
   const array: CanonicalKeyInput[] = [];
+
   for (let index = 0; index < length; index += 1) {
     const childPath = [...path, index];
     const key = String(index);
     const descriptor = readReflection(childPath, () => Object.getOwnPropertyDescriptor(value, key));
+
     if (descriptor === undefined || !isEnumerableDataProperty(descriptor))
       return canonicalKeyDefect(childPath);
+
     if (index > 0) addBytes(",", context);
     array.push(canonicalizeValue(descriptor.value, childPath, depth + 1, context));
   }
+
   addBytes("]", context);
 
   // oxlint-disable-next-line anti-slop/no-object-freeze -- canonical arrays are recursively copied before this contract-required ownership freeze.
@@ -351,27 +391,35 @@ function canonicalizeRecord(
   context: CanonicalizationContext,
 ) {
   const ownKeys = readReflection(path, () => Reflect.ownKeys(value));
+
   if (ownKeys.length > MAX_NODES - context.nodes) canonicalKeyDefect(path);
   const keys = ownKeys.filter(Predicate.isString);
+
   if (keys.length !== ownKeys.length) canonicalKeyDefect(path);
 
   const measuredKeys: MeasuredCanonicalRecordKey[] = [];
   let recordBytes = context.bytes + 2 + keys.length + Math.max(0, keys.length - 1);
+
   if (recordBytes > MAX_BYTES) canonicalKeyDefect([]);
+
   for (const key of keys) {
     const bytes = measureJsonStringBytes(key, [...path, key], recordBytes);
     recordBytes += bytes;
     measuredKeys.push({ key, bytes });
   }
+
   measuredKeys.sort((left, right) => compareKeys(left.key, right.key));
 
   addBytes("{", context);
   const record: Record<string, CanonicalKeyInput> = {};
+
   for (const [index, { key, bytes }] of measuredKeys.entries()) {
     const childPath = [...path, key];
     const descriptor = readReflection(childPath, () => Object.getOwnPropertyDescriptor(value, key));
+
     if (descriptor === undefined || !isEnumerableDataProperty(descriptor))
       return canonicalKeyDefect(childPath);
+
     if (index > 0) addBytes(",", context);
     addByteCount(bytes, context);
     addBytes(":", context);
@@ -382,6 +430,7 @@ function canonicalizeRecord(
       writable: true,
     });
   }
+
   addBytes("}", context);
 
   // oxlint-disable-next-line anti-slop/no-object-freeze -- canonical records are recursively copied before this contract-required ownership freeze.
@@ -390,6 +439,7 @@ function canonicalizeRecord(
 
 const canonicalizeKeyValue = (value: unknown) => {
   const container = admitCanonicalContainer(value, []);
+
   if (container.kind !== "array") return canonicalKeyDefect([]);
 
   const context: CanonicalizationContext = {
@@ -398,6 +448,7 @@ const canonicalizeKeyValue = (value: unknown) => {
     encoder: new TextEncoder(),
     seen: new WeakSet<CanonicalContainer["value"]>(),
   };
+
   return canonicalizeArray(container.value, [], 0, context);
 };
 
@@ -430,6 +481,7 @@ const equalCanonicalArray = (
 const equalCanonicalRecord = (left: CanonicalKeyRecord, right: CanonicalKeyRecord) => {
   const leftKeys = Object.keys(left);
   const rightKeys = Object.keys(right);
+
   return (
     leftKeys.length === rightKeys.length &&
     leftKeys.every(
@@ -441,9 +493,13 @@ const equalCanonicalRecord = (left: CanonicalKeyRecord, right: CanonicalKeyRecor
 // RETURN_TYPE: Recursive comparison needs a fixed boolean result while delegating nested containers.
 const equalCanonicalValue = (left: CanonicalKeyInput, right: CanonicalKeyInput): boolean => {
   if (Array.isArray(left)) return Array.isArray(right) && equalCanonicalArray(left, right);
+
   if (Array.isArray(right)) return false;
+
   if (isCanonicalRecord(left)) return isCanonicalRecord(right) && equalCanonicalRecord(left, right);
+
   if (isCanonicalRecord(right)) return false;
+
   return Object.is(left, right);
 };
 

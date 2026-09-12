@@ -19,6 +19,7 @@ type DefinitionFunction = Extract<DefinitionValue, (...args: readonly never[]) =
 type PlainRecord = Readonly<Record<string, unknown>>;
 
 const contextSelectors = new WeakSet();
+
 const stateTokens = new WeakSet();
 
 // Common boundary predicates.
@@ -32,11 +33,13 @@ const hasValidAuthoredKeys = <Value>(
 const isPlainRecord = (value: unknown): value is PlainRecord => {
   if (!Predicate.isObject(value) || Array.isArray(value)) return false;
   const prototype = Object.getPrototypeOf(value);
+
   return (
     (prototype === Object.prototype || prototype === null) &&
     Reflect.ownKeys(value).every((key) => {
       if (!Predicate.isString(key)) return false;
       const descriptor = Object.getOwnPropertyDescriptor(value, key);
+
       return descriptor !== undefined && descriptor.enumerable && "value" in descriptor;
     })
   );
@@ -59,12 +62,15 @@ const checkState = (state: StateDeclaration, depth: number): StateCheck => {
   if (Predicate.isString(state)) return { valid: true, name: state };
 
   const entries = Object.entries(state);
+
   if (entries.length !== 1 || depth >= 10) return { valid: false };
 
   const entry = entries[0];
+
   if (entry === undefined) return { valid: false };
 
   const [name, children] = entry;
+
   return hasValidStateLevel(children, depth + 1) ? { valid: true, name } : { valid: false };
 };
 
@@ -72,11 +78,14 @@ const hasValidStateLevel = (states: readonly StateDeclaration[], depth: number) 
   if (states.length === 0) return false;
 
   const names = new Set<string>();
+
   for (const state of states) {
     const check = checkState(state, depth);
+
     if (!check.valid || names.has(check.name)) return false;
     names.add(check.name);
   }
+
   return true;
 };
 
@@ -208,10 +217,12 @@ export const decodeEventPayloadResult = Schema.decodeUnknownResult(EventPayloadS
 
 export const registerContextSelector = <Selector extends ContextSelector>(selector: Selector) => {
   contextSelectors.add(selector);
+
   return selector;
 };
 
 export const registerStateToken = <Token extends StateToken>(token: Token) => {
   stateTokens.add(token);
+
   return token;
 };

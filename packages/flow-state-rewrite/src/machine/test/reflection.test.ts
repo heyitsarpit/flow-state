@@ -7,19 +7,23 @@ const inferredTokenRead: Result.Result<Option.Option<string>, undefined> = readT
   {},
   "kind",
 );
+
 void inferredTokenRead;
 
 describe("token reflection", () => {
   it("returns Some for own string data properties", () => {
     const token = { kind: "state", id: "state-id", name: "idle" };
+
     for (const [key, expected] of [
       ["kind", "state"],
       ["id", "state-id"],
       ["name", "idle"],
     ] as const) {
       const result = readTokenText(token, key);
+
       if (Result.isFailure(result)) throw result.failure;
       assert.isTrue(Option.isSome(result.success));
+
       if (Option.isSome(result.success)) assert.strictEqual(result.success.value, expected);
     }
   });
@@ -32,6 +36,7 @@ describe("token reflection", () => {
       enumerable: true,
       get: () => {
         getterCalls += 1;
+
         return "state";
       },
     });
@@ -46,22 +51,28 @@ describe("token reflection", () => {
       [1, "kind"],
     ] as const) {
       const result = readTokenText(value, key);
+
       if (Result.isFailure(result)) throw result.failure;
       assert.isTrue(Option.isNone(result.success));
     }
+
     assert.strictEqual(getterCalls, 0);
   });
 
   it("reads one descriptor in order and preserves descriptor failures", () => {
     const reads: PropertyKey[] = [];
     const target = { kind: "state" };
+
     const proxy = new Proxy(target, {
       getOwnPropertyDescriptor: (source, key) => {
         reads.push(key);
+
         return Object.getOwnPropertyDescriptor(source, key);
       },
     });
+
     const result = readTokenText(proxy, "kind");
+
     if (Result.isFailure(result)) throw result.failure;
     assert.isTrue(Option.isSome(result.success));
     assert.deepStrictEqual(reads, ["kind"]);
@@ -71,6 +82,7 @@ describe("token reflection", () => {
         throw new Error("descriptor failure");
       },
     });
+
     assert.isTrue(Result.isFailure(readTokenText(throwing, "kind")));
 
     const revoked = Proxy.revocable(target, {});

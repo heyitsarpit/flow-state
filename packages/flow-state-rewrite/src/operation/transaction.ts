@@ -189,9 +189,13 @@ const decodeTransactionConfiguration = Schema.decodeUnknownResult(TransactionCon
 
 const transactionConfigurationError = (failure: Schema.SchemaError) => {
   const field = firstConfigurationField(failure.issue);
+
   if (field === "id") return new TypeError("Operation id must be a valid authored name");
+
   if (field === "key") return new TypeError("Transaction key must be callable");
+
   if (field === "commit") return new TypeError("Transaction commit adapter must be callable");
+
   return new TypeError("Invalid Transaction configuration");
 };
 
@@ -231,9 +235,13 @@ const createTransaction = <Id extends string, P, K extends OperationKey, Program
 ) => {
   // Normalized construction
   type A = OperationValueOf<Program>;
+
   type E = OperationErrorOf<Program>;
+
   type R = OperationRequirementsOf<Program>;
+
   type CanonicalK = ReadonlyCanonical<K>;
+
   const { id, key: projectKey, commit: commitAdapter, persist, concurrency } = config;
 
   // Bound methods
@@ -270,6 +278,7 @@ const createTransaction = <Id extends string, P, K extends OperationKey, Program
     concurrency: concurrency ?? "cancel",
     [RequirementsTypeId]: requirements<R>,
   };
+
   return publishOperation(transactionValue, commitAdapter);
 };
 
@@ -344,6 +353,7 @@ export function transaction(
       persist: config.persist,
       concurrency: config.concurrency,
     };
+
     if (
       Reflect.ownKeys(config).some(
         (property) =>
@@ -359,6 +369,7 @@ export function transaction(
     const admitted = admitTransactionConfiguration(captured);
     const { id, key, commit, persist, concurrency } = admitted;
     const normalizedConfig = { id, key, commit, persist, concurrency };
+
     return createTransaction(normalizedConfig);
   }
 
@@ -368,6 +379,7 @@ export function transaction(
     persist: config.persist,
     concurrency: config.concurrency,
   };
+
   if (
     Reflect.ownKeys(config).some(
       (property) =>
@@ -384,5 +396,6 @@ export function transaction(
   const { id, commit, persist, concurrency } = admitted;
   const key = () => [] as const;
   const normalizedConfig = { id, key, commit, persist, concurrency };
+
   return createTransaction(normalizedConfig);
 }

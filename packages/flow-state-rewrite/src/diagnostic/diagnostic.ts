@@ -82,11 +82,13 @@ export const Defect = (defect: unknown) => {
     summary: "Unexpected runtime defect",
     help: "Inspect the original cause at the host boundary.",
   });
+
   Object.defineProperty(error, "cause", {
     configurable: true,
     enumerable: false,
     value: defect,
   });
+
   return error;
 };
 
@@ -110,6 +112,7 @@ const schemaIssuePath = flow(
   ({ issues }) => issues.find(({ path }) => path !== undefined && path.length > 0)?.path ?? [],
   Array.map((segment) => {
     const key = Predicate.isObject(segment) ? segment.key : segment;
+
     return Predicate.isSymbol(key) ? String(key) : key;
   }),
   Array.filter(isStringOrNumber),
@@ -127,5 +130,7 @@ export const fromSchemaError = (error: Schema.SchemaError) =>
 
 // Rendering export
 export { Code } from "./codes.js";
+
 export type { DiagnosticCode, FailureCode } from "./codes.js";
+
 export { print } from "./render.js";

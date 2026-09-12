@@ -37,6 +37,7 @@ const EditorResult = definition({
 });
 
 if (!Result.isSuccess(EditorResult)) throw EditorResult.failure;
+
 const Editor = EditorResult.success;
 
 const validMachineResult = machine(EditorResult, ({ S, E }) => ({
@@ -59,12 +60,14 @@ const validMachineResult = machine(EditorResult, ({ S, E }) => ({
             void previousState;
             void idle;
             void opened;
+
             return event.draftId.length > 0;
           },
           updateMemory: ({ event, memory }) => {
             const draftId: string = event.draftId;
             const count: number = memory.count;
             void count;
+
             return { draftId };
           },
           actions: ({ event, memory, snapshot }) => {
@@ -74,6 +77,7 @@ const validMachineResult = machine(EditorResult, ({ S, E }) => ({
             void draftId;
             void count;
             void state;
+
             return null;
           },
           reenter: S.done,
@@ -87,6 +91,7 @@ const validMachineResult = machine(EditorResult, ({ S, E }) => ({
           void currentState;
           void count;
           void snapshotState;
+
           return true;
         },
         target: S.idle,
@@ -104,6 +109,7 @@ const validMachineResult = machine(EditorResult, ({ S, E }) => ({
             void currentState;
             void count;
             void snapshotState;
+
             return timer.startedAt <= timer.dueAt;
           },
           updateMemory: ({ timer }) => ({ count: timer.dueAt - timer.startedAt }),
@@ -121,13 +127,16 @@ const idleNode = {
   token: Editor.S.idle,
   children: [],
 } as const satisfies StateNode<typeof Editor>;
+
 const rootNode = {
   kind: "compound",
   name: "",
   path: [],
   children: [idleNode],
 } as const satisfies StateNode<typeof Editor>;
+
 const leafAdmission = admitStateConfiguration({}, ["states", "idle"], idleNode);
+
 const compoundAdmission = admitStateConfiguration(
   { default: Editor.S.idle, states: { idle: {} } },
   [],
@@ -137,14 +146,19 @@ const compoundAdmission = admitStateConfiguration(
 export type _LeafConfiguration = Expect<
   Types.Equals<Result.Result.Success<typeof leafAdmission>, LeafStateConfiguration>
 >;
+
 export type _CompoundConfiguration = Expect<
   Types.Equals<Result.Result.Success<typeof compoundAdmission>, CompoundStateConfiguration>
 >;
 
 type OpenedTransition = CompiledTransition<typeof Editor, "opened">;
+
 type OpenedInput = Parameters<NonNullable<OpenedTransition["guard"]>>[0];
+
 type OpenedEvent = OpenedInput["event"];
+
 type OpenedMemory = OpenedInput["memory"];
+
 type OpenedSnapshot = OpenedInput["snapshot"];
 
 const handlerAdmission = admitEventHandlers<typeof Editor>(
@@ -165,10 +179,12 @@ const redirectInput: Redirect<typeof Editor> = {
     void currentState;
     void count;
     void snapshotState;
+
     return true;
   },
   target: Editor.S.idle,
 };
+
 const redirectAdmission = admitRedirectConfiguration<typeof Editor>(
   redirectInput,
   ["redirect"],
@@ -180,10 +196,13 @@ export type _RedirectOutput = Expect<
 >;
 
 export type _OpenedEvent = Expect<OpenedEvent extends { readonly draftId: string } ? true : false>;
+
 export type _OpenedMemory = Expect<
   Types.Equals<OpenedMemory, { readonly draftId: string; readonly count: number }>
 >;
+
 export type _OpenedSnapshot = Expect<Types.Equals<OpenedSnapshot, MachineSnapshot<typeof Editor>>>;
+
 export type _OpenedHandler = Expect<
   Types.Equals<OpenedHandler, readonly CompiledTransition<typeof Editor, "opened">[]>
 >;
