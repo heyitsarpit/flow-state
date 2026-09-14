@@ -16,14 +16,14 @@ This workflow preserves the wording, semantics, and IDs already transferred into
 
 - Surface: Contract interpretation and implementation location.
 - Rule: The active sibling contract pack is the sole semantic authority for implementation. Archived
-  revisions, proposals, audits, research, traceability records, the frozen package, and historical examples are
+  revisions, proposals, audits, research, traceability records, the reference package, and historical examples are
   provenance only. The replacement is built in packages/flow-state-rewrite/. Existing
-  packages/flow-state/ code, tests, examples, entrypoints, and records remain frozen reference
+  packages/flow-state/ code, tests, examples, entrypoints, and records remain reference
   material until late cutover.
 - Accepts: Copied legacy code only after its current owner, types, failure lanes, cleanup, and tests are
   checked; each slice naming its contract IDs, cohesive feature-owned module boundary, allowed files,
   semantic/runtime ownership where required, acceptance behavior, and decisive proof before code.
-- Rejects: incremental upgrades to the frozen package, hidden compatibility imports, aliases, overloads,
+- Rejects: incremental upgrades to the reference package, hidden compatibility imports, aliases, overloads,
   adapters, parser branches, deprecated wrappers, or semantics inferred from historical material.
 - Observable guarantee: A slice can be reviewed against its live semantic/runtime ownership and one named
   proof; source scans, focused typechecks, or lint do not close a required behavior proof.
@@ -95,7 +95,7 @@ This workflow preserves the wording, semantics, and IDs already transferred into
 - Accepts: Inferred shapes when a public helper alias would create a second authority; a blocker when
   implementation requires a missing public name, carrier field, target constructor, inspection route,
   or error member.
-- Rejects: citing a proposal, retired phase receipt, frozen implementation, or historical audit as
+- Rejects: citing a proposal, retired phase receipt, reference implementation, or historical audit as
   semantic authority; inventing public aliases or fields in code/tests/retired documents; reversing
   dependency edges; combining unrelated semantic owners.
 - Observable guarantee: Contract ambiguity is surfaced to the owning contract instead of hidden in
@@ -115,7 +115,7 @@ This workflow preserves the wording, semantics, and IDs already transferred into
   TYPE-010 Runtime-ownership work.
 - Accepts: One root runtime value with exactly `succeed`, `effect`, and `merge`, alongside the same-name public
   type, with inert construction and no acquisition in the static phase.
-- Rejects: `Object.freeze` as namespace behavior, aliases, secondary/deep routes, duplicate constructor owners,
+- Rejects: namespace mutation, aliases, secondary/deep routes, duplicate constructor owners,
   provider construction in route files, or TYPE-010 acquisition work in the static slice.
 - Observable guarantee: Packed consumers see one exact root route while provider semantics remain owned by
   TYPE-009B and runtime acquisition remains owned by TYPE-010.
@@ -195,7 +195,7 @@ This workflow preserves the wording, semantics, and IDs already transferred into
 - Accepts: Tests prioritizing ownership, ordering, atomicity, cleanup, failure, interruption, hostile input at
   untrusted wire/artifact boundaries, ordinary malformed input at the caller-controlled definition-authoring
   boundary, exact typing, and deleted behavior; production Runtime for runtime proof; TestClock or Flow
-  testing time instead of sleeps; bounded Deferred/Queue/PubSub controls; minimal immutable fixtures.
+  testing time instead of sleeps; bounded Deferred/Queue/PubSub controls; minimal fixtures.
 - Rejects: source-text/typecheck-only proof for runtime races, cleanup, behavior, or artifacts; test
   runtimes replacing production owners.
 - Observable guarantee: Tests prove the named invariant through the owner whose behavior is contractual.

@@ -84,7 +84,7 @@ namespace objects, private deep imports, root builders on non-root routes, or co
 <!-- Deferred diagnostic values retained for restoration; not active exports.
 | FlowUsageError       | Existing synchronous boundary owned by [`ERRORS.ts`](./ERRORS.ts) and API-002A.                                                             | Stable usage/admission diagnostic; consumers use _tag and code, not message parsing.                                                         |
 | FlowPersistenceError | Terminal host-only compatibility envelope for persistence failures; complete class declaration is not specified.                            | It may wrap a rendered canonical `Diagnostic` at a final JS Promise/rejection boundary, but never forms a second expected Effect `E` family. |
-| FlowDisposeError     | Frozen _tag, cause, and scope; exact additional declaration is not specified.                                                               | Actor/runtime disposal boundary; disposal is async, idempotent, cached, terminal, and owner-scoped.                                          |
+| FlowDisposeError     | _tag, cause, and scope; exact additional declaration is not specified.                                                               | Actor/runtime disposal boundary; disposal is async, idempotent, cached, terminal, and owner-scoped.                                          |
 -->
 
 Common accepted path:
@@ -186,7 +186,7 @@ intentionally records the accepted role without inventing generic parameters, me
 | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Definition`              | Inert static actor shape produced by `definition`; retains literal durable ID, recursive state/event schema, selected context, named operations, input, and memory. Complete generic declaration unspecified.                             |
 | `StateToken`              | Nominal exact state-path token, including recursive paths such as `S.ACTIVE.S.EDITING`; it is not a relative string or runtime lookup key. Complete generic declaration unspecified.                                                      |
-| `EventToken`              | Nominal frozen event constructor/envelope retaining the exact event name, parameter tuple, readonly payload, and full `type`; structural impostors reject. Complete generic declaration unspecified.                                      |
+| `EventToken`              | Nominal event constructor/envelope retaining the exact event name, parameter tuple, payload, and full `type`; structural impostors reject. Complete generic declaration unspecified.                                      |
 | `StateOf`                 | Type-level extractor accepting a Definition or Machine and returning its exact active-leaf token union. Complete declaration unspecified beyond that behavior.                                                                            |
 | `EventOf`                 | Type-level extractor accepting a Definition or Machine and returning its exact event-envelope union. Complete declaration unspecified beyond that behavior.                                                                               |
 | `Machine`                 | Inert reusable behavior compiled from one Definition and exact machine grammar; retains input, memory, events, context, operations, and requirements. Complete generic declaration unspecified.                                           |
@@ -196,24 +196,24 @@ intentionally records the accepted role without inventing generic parameters, me
 | `Resource`                | Public inert resource descriptor type carrying exact executable P, canonical K, success A, typed failure E, and requirements R. Its family methods are inferred through named O, not exported as a generic operation ref.                 |
 | `Transaction`             | Public inert transaction descriptor type carrying exact P/K/A/E/R and explicit concurrency/persistence policy. Its family remains independent of the parent Machine.                                                                      |
 | `ActorRef`                | Exact machine-branded inert actor identity. Stable refs may carry authored identity and persistence declaration metadata; refs carry no input, bindings, ownership, subscriptions, or disposal. Complete generic declaration unspecified. |
-| `ActorSnapshot`           | Deeply immutable current actor projection containing exact active leaf, readonly memory/context, revision/storeRevision, lifecycle, issues, and passive named O readers. Complete generic declaration unspecified.                        |
+| `ActorSnapshot`           | Current actor projection containing exact active leaf, memory/context, revision/storeRevision, lifecycle, issues, and passive named O readers. Complete generic declaration unspecified.                        |
 | `Module`                  | Inert exact keyed machine record plus tooling ID; module identity does not enter machine, actor, operation, Runtime, or persistence identity. Complete generic declaration unspecified.                                                   |
 | `App`                     | Inert closed application description with exact flattened `App.M`, app ID, persistence version, requirements, ownership, and reachability. Complete generic declaration unspecified.                                                      |
 | `RuntimeSetup`            | Inert result of `runtimeSetup`; `construct()` synchronously returns one Runtime without I/O. Its App and ImplementationError parameters are fixed by the runtimeSetup overloads in section 5.                                             |
 | `Runtime`                 | Public host handle over one production owner. Accepted operations are readiness, exact actor ensure/lookup/create, requirement-closed Effect bridges, and async idempotent disposal; no complete interface declaration is published.      |
 | `Implementation`          | Inert typed provider graph whose outputs close `RequirementsOf<App>` and whose acquisition may fail with its typed ImplementationError. The same root name is also the value namespace with exactly `succeed`, `effect`, and `merge`.     |
-| `Persistence`             | Deeply readonly inert provider `{ storage, scope, codec, filter? }`; exact notation is in section 7. It is not a Runtime, AppPlan input, or synchronization/conflict protocol.                                                            |
+| `Persistence`             | Inert provider `{ storage, scope, codec, filter? }`; exact notation is in section 7. It is not a Runtime, AppPlan input, or synchronization/conflict protocol.                                                            |
 | `PersistenceStorage`      | Typed Effect boundary with exactly `read`, `write`, and `remove`; exact notation is in section 7.                                                                                                                                         |
 | `PersistenceStorageError` | Typed failure channel for storage adapter operations. The active contracts do not publish its complete declaration or constructor, so both remain unspecified.                                                                            |
 | `PersistenceCodec`        | Synchronous pure slot codec with `encode(value, slot)` and `decode(value, slot)`; it performs no storage, Effect, actor creation, work resumption, or complete boot decoding.                                                             |
 | `PersistenceSlot`         | Public bounded identity describing the actor/resource/transaction/stream slot being encoded or decoded. Complete nested union is not published and remains unspecified.                                                                   |
 | `PersistenceValue`        | Public bounded canonical JSON value accepted/emitted by PersistenceCodec. Complete recursive declaration is not published and remains unspecified.                                                                                        |
 | `PersistenceEntry`        | Public metadata supplied to the persistence filter: stable kind/identity, owning stable actor, and canonical K as applicable. It carries no executable P. Complete declaration unspecified.                                               |
-| `CanonicalKeyInput`       | Bounded canonical JSON-safe value accepted by operation keys and model `stateKey`; canonicalization copies/freezes and applies the grammar and limits in section 3. Complete type declaration unspecified.                                |
+| `CanonicalKeyInput`       | Bounded canonical JSON-safe value accepted by operation keys and model `stateKey`; canonicalization copies and applies the grammar and limits in section 3. Complete type declaration unspecified.                                |
 <!-- Deferred diagnostic types retained for restoration; not active exports.
-| `FlowPath`                | Exact immutable diagnostic path `readonly (string                                                                                                                                                                                         | number)[]`, owned by [`ERRORS.ts`](./ERRORS.ts). |
+| `FlowPath`                | Exact diagnostic path `(string                                                                                                                                                                                         | number)[]`, owned by [`ERRORS.ts`](./ERRORS.ts). |
 | `FlowUsageCode`           | Exact 18-member usage/admission discriminant union owned by [`ERRORS.ts`](./ERRORS.ts).                                                                                                                                                   |
-| `FlowUsageError`          | Public immutable usage/admission Error whose exact shape and synchronous translation are owned by [`ERRORS.ts`](./ERRORS.ts). Message text is human remediation, not a parsing surface.                                                   |
+| `FlowUsageError`          | Public usage/admission Error whose exact shape and synchronous translation are owned by [`ERRORS.ts`](./ERRORS.ts). Message text is human remediation, not a parsing surface.                                                   |
 -->
 
 Internal AppPlan, TurnRecord, StoreState, ManagedRuntime, boot carriers, fixture artifacts, operation registries, and
@@ -242,8 +242,8 @@ preserve `Effect<A, Diagnostic, R>`, while defects and interruption remain in `C
 Foreign Promise APIs use one named `Effect.tryPromise({ try, catch })` adapter that maps rejection to an owned
 `Diagnostic` and forwards `AbortSignal` when supported; `Effect.promise` and nested runners are forbidden.
 
-Future target only: FlowDisposeError is frozen and has _tag: "FlowDisposeError", cause: Cause.Cause<unknown>, and
-scope: "actor" | "runtime". FlowStoryExecutionError has one deeply frozen package-owned failure envelope with
+Future target only: FlowDisposeError has _tag: "FlowDisposeError", cause: Cause.Cause<unknown>, and
+scope: "actor" | "runtime". FlowStoryExecutionError has one package-owned failure envelope with
 completed checkpoints, optional end, failure boundary, primary/ordered cleanup diagnostics, cancellation evidence,
 accepted/drained evidence facts, and complete public Cause. Their complete class declarations are not specified.
 
@@ -259,7 +259,7 @@ const NewIntent = definition({
     themeMode: Theme.select(({ memory }) => memory.mode),
   },
   operations: { routeConfig, orderById, submitIntent, submissionProgress },
-  memory: ({ input }: { readonly input: { readonly draftId: string } }) => ({
+  memory: ({ input }: { input: { draftId: string } }) => ({
     draftId: input.draftId,
     mode: "dark",
   }),
@@ -270,14 +270,14 @@ const NewIntent = definition({
 Definition Result to `machine`, which matches it internally before invoking the callback. Event-token calls likewise
 return `Result<EventEnvelope<...>, ReturnType<typeof Diagnostic.Failure>>`.
 
-definition owns durable identity, recursive states/events, readonly context selectors, one input-to-memory
+definition owns durable identity, recursive states/events, context selectors, one input-to-memory
 initializer, and one flat named operation record. State leaves are strings; compound states are recursive
 single-key declarations, max ten levels. Exact path tokens include S.ACTIVE.S.EDITING. `"bare"` events are
-zero-argument nominal constructors; callable events return frozen readonly envelopes with full type.
+zero-argument nominal constructors; callable events return envelopes with full type.
 
 Definition values are inert. Duplicate declarations, relative targets, runtime path lookup, operation work during
-authoring, and using actor input as identity MUST reject. Without memory, Input is void and memory is readonly
-empty. Restoration installs memory without replaying input.
+authoring, and using actor input as identity MUST reject. Without memory, Input is void and memory is empty.
+Restoration installs memory without replaying input.
 
 Accepted inference:
 
@@ -325,14 +325,14 @@ const EditorResult = definition({
   id: "Todos/Editor",
   states: ["READY", "SAVING"],
   events: { SaveRequested: "bare" },
-  memory: ({ input }: { readonly input: { readonly todoId: string } }) => ({
+  memory: ({ input }: { input: { todoId: string } }) => ({
     todoId: input.todoId,
     draft: "",
   }),
 });
 if (Result.isSuccess(EditorResult)) {
   const Editor = EditorResult.success;
-  type _Input = Expect<Equal<InputOf<typeof Editor>, { readonly todoId: string }>>;
+  type _Input = Expect<Equal<InputOf<typeof Editor>, { todoId: string }>>;
   type _Memory = Expect<Equal<MemoryOf<typeof Editor>, { todoId: string; draft: string }>>;
 }
 ```
@@ -375,7 +375,7 @@ mirrored configuration. Root and compound nodes require default and exact direct
 explicit and {} is an empty leaf.
 
 State nodes may contain on, redirect, activities, and timers. Event entries are token shorthand, one transition, or
-an ordered readonly list. Transitions contain only target, guard, updateMemory, actions, and exact-token reenter.
+an ordered list. Transitions contain only target, guard, updateMemory, actions, and exact-token reenter.
 Redirects contain when and required target; timers contain delay, guard, target, and updateMemory, and target events
 only.
 
@@ -398,13 +398,13 @@ exposed. A terminal-looking leaf never completes the actor.
 ### Resource, P, and K
 
 ```ts
-type OrderInput = Readonly<{
+type OrderInput = {
   orderId: string;
-}>;
+};
 
 const orderById = resource({
   id: "everclear.order-by-id",
-  key: ({ orderId }: OrderInput) => [orderId] as const,
+  key: ({ orderId }: OrderInput) => [orderId],
   lookup: ({ orderId }: OrderInput, { signal }) =>
     Effect.gen(function* () {
       const client = yield* OrderClient;
@@ -416,11 +416,11 @@ const orderById = resource({
 });
 ```
 
-P is complete immutable executable input retained by live operation work. K=key(P) is the ordered readonly
+P is complete executable input retained by live operation work. K=key(P) is the ordered
 canonical tuple; identity is descriptor ID plus K. P may contain clients/functions for execution; runtime
 capabilities remain in inferred requirements R. K is never executable input and never inverted into P.
 
-Flow MUST copy/freeze accepted values before ownership or external work. It MUST reject undefined, non-finite
+Flow MUST copy accepted values before ownership or external work. It MUST reject undefined, non-finite
 numbers, bigint, symbols, functions in canonical positions, accessors, classes, unsupported objects, cycles,
 sparse/extra-property arrays, hostile reflection, and inconsistent reflection. Bounds are depth 16, 256 value nodes,
 and 8192 UTF-8 bytes. There is no second key, custom hash/equality, or invented freshness default.
@@ -440,7 +440,7 @@ and have no extra properties. Read data descriptors only: no getters, coercion, 
 ### Exact operation family methods
 
 ```ts
-interface ResourceFamily<P, K extends readonly unknown[], A, E> {
+interface ResourceFamily<P, K extends unknown[], A, E> {
   key(params: P): K;
   getData(key: K): A | undefined;
   getState(key: K): ResourceState<A, E, K>;
@@ -450,13 +450,13 @@ interface ResourceFamily<P, K extends readonly unknown[], A, E> {
   setData(key: K, value: A | ((current: A | undefined) => A | undefined)): CacheWritePlan;
   cancel(key: K): CancellationPlan;
 }
-interface TransactionFamily<P, K extends readonly unknown[], A, E> {
+interface TransactionFamily<P, K extends unknown[], A, E> {
   key(params: P): K;
   getState(key: K): TransactionState<A, E, K>;
   commit(params: P, options?: CommitOptions<P, A, E>): TransactionCommitPlan;
   cancel(key: K): CancellationPlan;
 }
-interface StreamFamily<P, K extends readonly unknown[], V, E> {
+interface StreamFamily<P, K extends unknown[], V, E> {
   key(params: P): K;
   getState(key: K): StreamState<V, E, K>;
   subscribe(params: P, options?: StreamSubscriptionOptions<P, K, V, E>): ContinuingOperationPlan;
@@ -487,7 +487,7 @@ key/getState/subscribe and have no actor cancel.
 
 ```ts
 type ResourceRetention<A> = { data?: never } | { data: A };
-type ResourceState<A, E, K extends readonly unknown[]> =
+type ResourceState<A, E, K extends unknown[]> =
   | { status: "missing"; key: K }
   | { status: "pending"; key: K; generation: number }
   | { status: "ready"; key: K; generation: number; data: A }
@@ -495,7 +495,7 @@ type ResourceState<A, E, K extends readonly unknown[]> =
   | ({ status: "failure"; key: K; generation: number; error: E } & ResourceRetention<A>)
   | ({ status: "defect"; key: K; generation: number; defect: unknown } & ResourceRetention<A>)
   | ({ status: "interrupted"; key: K; generation: number } & ResourceRetention<A>);
-type TransactionState<A, E, K extends readonly unknown[]> =
+type TransactionState<A, E, K extends unknown[]> =
   | { status: "idle"; key: K }
   | { status: "pending"; key: K; generation: number }
   | { status: "success"; key: K; generation: number; value: A }
@@ -506,7 +506,7 @@ type TransactionState<A, E, K extends readonly unknown[]> =
 type StreamValue<V> =
   | { hasValue: false; latest?: never; emissionCount: 0 }
   | { hasValue: true; latest: V; emissionCount: number };
-type StreamState<V, E, K extends readonly unknown[]> =
+type StreamState<V, E, K extends unknown[]> =
   | ({ status: "idle"; key: K; generation: null } & StreamValue<V>)
   | ({ status: "running"; key: K; generation: number } & StreamValue<V>)
   | ({ status: "complete"; key: K; generation: number } & StreamValue<V>)
@@ -521,7 +521,7 @@ are idle/running/complete/failure/defect/interrupted with exact hasValue/latest/
 
 ### Actions and outcomes
 
-Finite actions admit one inert plan, a readonly list, null, or empty list. Accepted finite work is lookup/refetch,
+Finite actions admit one inert plan, a list, null, or empty list. Accepted finite work is lookup/refetch,
 commit/cancel, cache write, invalidate, or clear. Work is never inferred from activation, timers, passive reads,
 store revisions, completion, or reconciliation. Finite outcomes are success/failure/defect/interruption; continuing
 resource outcomes are value/failure/defect/interruption. Mappers return one typed event and receive no Cause/state/
@@ -530,7 +530,7 @@ lifecycle metadata. Occurrences settle once.
 ```ts
 const submitIntent = transaction({
   id: "everclear.submit-intent",
-  key: ({ submissionId }: SubmitIntentInput) => [submissionId] as const,
+  key: ({ submissionId }: SubmitIntentInput) => [submissionId],
   commit: (params, { signal }) => IntentSubmitter.submit(params, { signal }),
   persist: true,
   concurrency: "reject",
@@ -551,7 +551,7 @@ never become canonical data implicitly; completion-side invalidates/clears optio
 ```ts
 const submissionProgress = stream({
   id: "everclear.submission-progress",
-  key: ({ submissionId }: ProgressInput) => [submissionId] as const,
+  key: ({ submissionId }: ProgressInput) => [submissionId],
   subscribe: ({ submissionId }: ProgressInput, { signal }) =>
     Effect.gen(function* () {
       const progressClient = yield* ProgressClient;
@@ -608,7 +608,7 @@ MUST flatten ordered, unaliased modules into exact App.M. Duplicate property nam
 ownership reject. Module IDs are tooling identity for CLI, trace, inspection, artifacts, and diffs only; they do not
 enter runtime or persistence identity.
 
-App.M and its immutable AppPlan are the closed machine, operation, requirement, and context admission universe.
+App.M and its AppPlan are the closed machine, operation, requirement, and context admission universe.
 Every listed machine contributes its graph and requirements. Definitions, machines, modules, apps, descriptors,
 keys, fixtures, Story plans, and behavior values are inert. There are no dynamicMachines, automatic roots, runtime
 family lookup, late setup/provide layers, or a second app identity.
@@ -641,8 +641,8 @@ disposal, ownership, mailbox, receipt, raw Cause, or operation-registry authorit
 exact typed event to the production mailbox and returns void; it does not return a Promise, Effect, Fiber, snapshot,
 actor, acknowledgment, or subscription. A synchronous admission error is reported before work.
 
-The public snapshot contains exact active-leaf state, readonly memory, monotonic safe-integer revision, observed
-storeRevision, lifecycle, typed named-operation readers, and active issue summaries. Containers are immutable.
+The public snapshot contains exact active-leaf state, memory, monotonic safe-integer revision, observed
+storeRevision, lifecycle, typed named-operation readers, and active issue summaries.
 Lifecycle is exactly prepared | active | suspended | disposed:
 
 | Lifecycle | Commands                                                           | Attachments                                    |
@@ -703,15 +703,15 @@ The active type contract specifies:
 
 ```ts
 function runtimeSetup<A extends App>(options: {
-  readonly app: A;
+  app: A;
   // Deferred until the Persistence owner lands; retained for restoration.
-  // readonly persistence?: Persistence;
+  // persistence?: Persistence;
 }): RuntimeSetup<A, never>;
 function runtimeSetup<A extends App, ImplementationError>(options: {
-  readonly app: A;
-  readonly implementation: Implementation<RequirementsOf<A>, ImplementationError>;
+  app: A;
+  implementation: Implementation<RequirementsOf<A>, ImplementationError>;
   // Deferred until the Persistence owner lands; retained for restoration.
-  // readonly persistence?: Persistence;
+  // persistence?: Persistence;
 }): RuntimeSetup<A, ImplementationError>;
 ```
 
@@ -821,8 +821,8 @@ useActorByRef(ref) is lookup-only: it synchronously resolves one registered shar
 Runtime and returns a command-only handle. A changed ref resolves a new registered handle; it never ensures,
 constructs, leases, disposes, subscribes, or accepts an opaque/mismatched/foreign/disposed ref.
 
-useView(actor, selector) is the sole ordinary reactive read path. The selector receives atomic state, readonly
-memory/context, lifecycle, issues, bound pure can(event), and passive O. O exposes only key, getData, and getState.
+useView(actor, selector) is the sole ordinary reactive read path. The selector receives atomic state, memory/context,
+lifecycle, issues, bound pure can(event), and passive O. O exposes only key, getData, and getState.
 It tracks exact descriptor/K reads and reruns at one tear-free actor/StoreFanout publication boundary.
 Scalar/non-record selection uses complete-value Object.is; named records use fixed-key fieldwise Object.is. There is
 no comparator argument, registered view, broad subscription, acquisition, refresh, subscribe, commit, write,
@@ -859,12 +859,12 @@ The future target public notation is retained in comments for restoration:
     //   remove(): Effect.Effect<void, PersistenceStorageError>;
     // };
 
-    // type Persistence = Readonly<{
+    // type Persistence = {
     //   storage: PersistenceStorage;
     //   scope: string;
     //   codec: PersistenceCodec;
     //   filter?: (entry: PersistenceEntry) => boolean;
-    // }>;
+    // };
 
     // declare function webStorage(storage: Storage): PersistenceStorage;
     // declare function indexedDbStorage(storage: IndexedDBStorage): PersistenceStorage;
@@ -918,10 +918,10 @@ const trace = importTraceArtifact(bytes);
 const artifact = exportTraceArtifact(trace);
 ```
 
-attachInspectionSink(runtime, sink) attaches one route-created sink to one Runtime and returns frozen { drain,
+attachInspectionSink(runtime, sink) attaches one route-created sink to one Runtime and returns { drain,
 dispose }. It observes records admitted after attachment. createInspectionBufferSink({ capacity? }) creates an
 explicit bounded sink; capacity defaults to 256 and zero retains no records while preserving truncation. Its exact
-surface is snapshot(): { records: readonly InspectionRecord[]; truncatedBeforeSequence: number | null } and
+surface is snapshot(): { records: InspectionRecord[]; truncatedBeforeSequence: number | null } and
 clear(): void. Sink failure detaches only that sink and never delays acknowledgment, StoreFanout, or committed truth.
 
 Inspection and trace use one truncation convention: `truncatedBeforeSequence` is null exactly when no accepted
@@ -948,17 +948,17 @@ and importTraceArtifact rejects it as WrongArtifactKind.
 Accepted redaction API:
 
 ```ts
-type ArtifactExportOptions = Readonly<{
-  redactions?: readonly Readonly<{
+type ArtifactExportOptions = {
+  redactions?: {
     path: ArtifactValuePath;
     replacement: "[REDACTED]";
-  }>[];
-}>;
+  }[];
+};
 
-type ArtifactCanonicalPath = readonly (string | number)[];
+type ArtifactCanonicalPath = (string | number)[];
 type ArtifactValuePath =
-  | readonly ["records", number, "snapshot", "memory" | "context", ...ArtifactCanonicalPath]
-  | readonly [
+  | ["records", number, "snapshot", "memory" | "context", ...ArtifactCanonicalPath]
+  | [
       "records",
       number,
       "facts",
@@ -966,7 +966,7 @@ type ArtifactValuePath =
       "data" | "value" | "error" | "defect" | "latest",
       ...ArtifactCanonicalPath,
     ]
-  | readonly [
+  | [
       "checkpoints",
       number,
       "actors",
@@ -975,7 +975,7 @@ type ArtifactValuePath =
       "memory" | "context",
       ...ArtifactCanonicalPath,
     ]
-  | readonly ["checkpoints", number, "snapshot", "memory" | "context", ...ArtifactCanonicalPath];
+  | ["checkpoints", number, "snapshot", "memory" | "context", ...ArtifactCanonicalPath];
 
 declare function exportTraceArtifact(
   trace: ReturnType<typeof importTraceArtifact>,
@@ -1003,11 +1003,11 @@ scheduler, store, operation kernel, persistence model, assertion framework, repl
 
 | Public value              | Purpose and accepted input/output                                                                                                                                                                                                                                        | Behavioral constraints                                                                                                                                        |
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `story`                   | Non-callable namespace with exactly `app(runtimeSetup, options?)`, `machine(machine, options?)`, and `actor(machine, options?)`. The first two return immutable Story plans; `actor` returns an inert Story-local recipe. Complete generic signatures are not published. | Builder calls are synchronous and inert. `run()` is the sole execution boundary.                                                                              |
-| `fixture`                 | `fixture({ id, implementation, seeds? })` returns an immutable fixture definition supplying complete services and optional preloaded Runtime-owned resource state. A complete generic signature is not published.                                                        | Fixtures are fresh per Runtime/run. Seeds do not satisfy service requirements or bypass production kernels. Duplicate providers reject rather than use order. |
-| `behavior`                | `behavior({ app, stories })` returns an inert gateway over one explicit App and one non-empty readonly record of Story IDs to compatible Story plans.                                                                                                                    | Validation/registration is synchronous. It creates no Implementation, Runtime, actor, sink, Story execution, or cleanup. The CLI is its only public consumer. |
+| `story`                   | Non-callable namespace with exactly `app(runtimeSetup, options?)`, `machine(machine, options?)`, and `actor(machine, options?)`. The first two return Story plans; `actor` returns an inert Story-local recipe. Complete generic signatures are not published. | Builder calls are synchronous and inert. `run()` is the sole execution boundary.                                                                              |
+| `fixture`                 | `fixture({ id, implementation, seeds? })` returns a fixture definition supplying complete services and optional preloaded Runtime-owned resource state. A complete generic signature is not published.                                                        | Fixtures are fresh per Runtime/run. Seeds do not satisfy service requirements or bypass production kernels. Duplicate providers reject rather than use order. |
+| `behavior`                | `behavior({ app, stories })` returns an inert gateway over one explicit App and one non-empty record of Story IDs to compatible Story plans.                                                                                                                    | Validation/registration is synchronous. It creates no Implementation, Runtime, actor, sink, Story execution, or cleanup. The CLI is its only public consumer. |
 | `model`                   | `model(baseStory, { stateKey })` returns a pure structural model with only `getShortestPaths(options)` and `getSimplePaths(options)`. `baseStory` MUST be a fresh command-empty machine Story; `stateKey` returns `CanonicalKeyInput`.                                   | Traversal executes no Effects, services, fixtures, operations, runtime mutation, or synthesized async outcomes.                                               |
-| `FlowStoryExecutionError` | Rejection boundary for Story execution/cancellation/cleanup failure. It carries the complete public Effect Cause plus deeply frozen checkpoints, optional end evidence, failure boundary, cleanup diagnostics, cancellation facts, and accepted/drained evidence facts.  | The active contracts do not publish a complete class signature or constructor example. This proposal intentionally leaves both unspecified.                   |
+| `FlowStoryExecutionError` | Rejection boundary for Story execution/cancellation/cleanup failure. It carries the complete public Effect Cause plus checkpoints, optional end evidence, failure boundary, cleanup diagnostics, cancellation facts, and accepted/drained evidence facts.  | The active contracts do not publish a complete class signature or constructor example. This proposal intentionally leaves both unspecified.                   |
 
 ### Constructing app, machine, and actor Stories
 
@@ -1080,10 +1080,10 @@ setContext(context);
 fibers until no work can progress without another command or future time. It MUST NOT advance time or invent an
 external result. `advance`, `advanceTo`, and `advanceToNextTimer` move the injected TestClock and MUST NOT process
 implicitly. `checkpoint` captures immediately without processing, time movement, creation, disposal, or restoration.
-`run({ signal? })` constructs one fresh production Runtime, executes the immutable plan, and owns cancellation and
+`run({ signal? })` constructs one fresh production Runtime, executes the plan, and owns cancellation and
 non-abortable finalization. `maxTurns` defaults to 100; exhaustion is a failure.
 
-Story plans are immutable persistent values. Every builder command returns a new plan and leaves the previous plan
+Story plans are persistent values. Every builder command returns a new plan and leaves the previous plan
 unchanged, so one common prefix can be retained and extended into multiple derived plans. Each derived plan run
 creates a fresh isolated production Runtime and replays the shared prefix independently. This is static plan
 branching, not a live Runtime fork; derived runs share no live state, handles, or Runtime.
@@ -1103,14 +1103,14 @@ interface StoryPlan<Names extends string = never> {
   checkpoint<const Name extends string>(
     name: NewCheckpointName<Names, Name>,
   ): StoryPlan<Names | Name>;
-  run(options?: { readonly signal?: AbortSignal }): Promise<StoryRun<Names>>;
+  run(options?: { signal?: AbortSignal }): Promise<StoryRun<Names>>;
 }
 
 type StoryRun<Names extends string> = {
-  readonly checkpoints: {
-    readonly [Name in Names]: CheckpointEvidence;
+  checkpoints: {
+    [Name in Names]: CheckpointEvidence;
   };
-  readonly end: EndEvidence;
+  end: EndEvidence;
 };
 ```
 
@@ -1150,10 +1150,10 @@ declare const untrustedCheckpointName: string;
 lookupCheckpointInternal(savedRun, untrustedCheckpointName); // unknown own key throws existing FlowUsageError
 ```
 
-`checkpoint(name)` captures a frozen read cut as evidence only. It is not a resumable Runtime snapshot and does not
+`checkpoint(name)` captures a read cut as evidence only. It is not a resumable Runtime snapshot and does not
 expose `fork()`, `restore()`, or `fromCheckpoint()`. Literal checkpoint names accumulate in the inferred plan type,
 duplicate literals reject while building, and widened `string` names cannot erase the known-name map; a literal or
-known string union is required. `run()` exposes `checkpoints` as a readonly mapped type with exactly those accumulated
+known string union is required. `run()` exposes `checkpoints` as a mapped type with exactly those accumulated
 names while preserving the existing evidence shape, `run.end`, and failure behavior. Package-private checkpoint
 lookup for JavaScript, CLI, or other untrusted input MUST test own-key membership and reject an unknown name with the
 existing `FlowUsageError` semantics. There is no public dynamic-string checkpoint getter or checkpoint-specific error
@@ -1181,7 +1181,7 @@ const signedOutStory = story
   .checkpoint("signed-out");
 ```
 
-Checkpoint and end evidence are deeply frozen atomic production read cuts. App evidence exposes
+Checkpoint and end evidence are atomic production read cuts. App evidence exposes
 `actor(storyActor | actorRef)`; machine evidence exposes the single actor snapshot directly. Both expose
 `runtime.now` and `runtime.pendingWork`. The exact result vocabulary is `run.end`, never `final`, and end evidence
 does not imply actor completion:
@@ -1241,14 +1241,14 @@ Traversal options are exactly `{ events, maxDepth?, limit? }`. `maxDepth` defaul
 safe integer; `limit` defaults to 100 and MUST be a positive safe integer. `getShortestPaths` performs breadth-first
 search in candidate order and retains the first path to each unseen canonical state key, including the zero-step
 path. `getSimplePaths` performs depth-first search in candidate order and does not repeat a state key in one path.
-Both return frozen `{ paths, truncated, explored }` and stop at the declared bounds. Canonical-key defects fail
+Both return `{ paths, truncated, explored }` and stop at the declared bounds. Canonical-key defects fail
 synchronously before a partial result. Each returned path carries `path.story`; running it is the production live
 proof. The model MUST NOT expose replay/provide/clock helpers, infer candidate events, execute async kernels, or
 create a second evidence hierarchy.
 
 ## 9. Inspect route
 
-The inspect route is an immutable projection and artifact boundary over compiled definitions, snapshots, committed
+The inspect route is a projection and artifact boundary over compiled definitions, snapshots, committed
 TurnRecords, LifecycleRecords, and the private validated v2 evidence model. It MUST NOT own a second mutable history,
 runtime, actor, scheduler, store, planner, persistence system, or CLI-only decoder.
 
@@ -1281,7 +1281,7 @@ overloads, failure type, and code example unspecified rather than inferring them
 | `renderBehaviorContract`          | Individual purpose intentionally unspecified: `PUBLIC_API.md` names this export but does not define a standalone contract.                            | Input/output/signature/overloads/failure/example intentionally unspecified.                                                               |
 | `renderBehaviorCoverage`          | Individual purpose intentionally unspecified: `PUBLIC_API.md` names this export but does not define a standalone contract.                            | Input/output/signature/overloads/failure/example intentionally unspecified.                                                               |
 | `renderBehaviorDiff`              | Individual purpose intentionally unspecified: `PUBLIC_API.md` names this export but does not define a standalone contract.                            | Input/output/signature/overloads/failure/example intentionally unspecified.                                                               |
-| `attachInspectionSink`            | Attaches one route-created sink to one Runtime and returns frozen `{ drain, dispose }`. It observes records admitted after attachment.                | Accepted example below; complete generic signature unspecified.                                                                           |
+| `attachInspectionSink`            | Attaches one route-created sink to one Runtime and returns `{ drain, dispose }`. It observes records admitted after attachment.                | Accepted example below; complete generic signature unspecified.                                                                           |
 | `createInspectionBufferSink`      | Creates an explicit bounded sink. `capacity` defaults to 256 and MUST be a non-negative integer; zero retains no records while preserving truncation. | `createInspectionBufferSink({ capacity? })`; returns a sink exposing `snapshot()` and `clear()` as described below.                       |
 | `importTraceArtifact`             | Defensively copies, decodes, bounds-checks, and validates one raw WIRE-020B trace artifact.                                                           | `importTraceArtifact(bytes)` accepts `Uint8Array`; exact private decoded return type and complete signature unspecified.                  |
 | `exportTraceArtifact`             | Encodes a validated imported trace as raw WIRE-020B bytes or, with a non-empty valid redaction policy, export-only WIRE-020C bytes.                   | Exact redaction overload is specified in section 7; returns `Uint8Array`.                                                                 |
@@ -1289,7 +1289,7 @@ overloads, failure type, and code example unspecified rather than inferring them
 | `decompressTraceArtifact`         | Public artifact decompression boundary.                                                                                                               | Active contracts publish no standalone purpose beyond artifact handling and no signature/input/output/example; intentionally unspecified. |
 
 API-016 separately documents route-wide constraints: pure graph/transition functions consume inert definitions or
-snapshots; live inspection consumes committed private `TurnRecord` and immutable `LifecycleRecord`; projections
+snapshots; live inspection consumes committed private `TurnRecord` and `LifecycleRecord`; projections
 cannot fabricate traces from arbitrary snapshots; planner output cannot claim actual starts, releases, generations,
 pending outcomes, or finalizers; sinks are bounded/isolated; and artifact import/export cannot expose private v2
 models, runtime ownership, or raw Cause. Those route-wide constraints do not assign individual semantics to the
@@ -1306,8 +1306,8 @@ const artifact = exportTraceArtifact(trace);
 ```
 
 `createInspectionBufferSink({ capacity? })` exposes exactly
-`snapshot(): { records: readonly InspectionRecord[]; truncatedBeforeSequence: number | null }` and `clear(): void`.
-Snapshot results and records MUST be frozen. Hosts install history explicitly; persistence MUST NOT retain the buffer,
+`snapshot(): { records: InspectionRecord[]; truncatedBeforeSequence: number | null }` and `clear(): void`.
+Snapshot results and records are returned as data. Hosts install history explicitly; persistence MUST NOT retain the buffer,
 and actors MUST NOT expose mutable retention controls. Slow sinks MUST NOT delay acknowledgment or StoreFanout.
 A failed sink MUST detach only itself; other sinks and committed runtime truth continue. Planner projections MAY show
 selection, microsteps, memory patches, and desired plans, but MUST NOT report actual starts, releases, generations,
@@ -1396,7 +1396,7 @@ commit uses same-directory hard-link-to-absent-destination; with overwrite it us
 replaces a symlink entry rather than its referent. It MUST NOT truncate in place. Pre-commit failure or first-signal
 interruption preserves the previous/absent destination; post-commit artifacts are not rolled back.
 
-Each leaf creates one immutable private `flow-state/cli-result.v2` result. Text and JSON derive from that same result;
+Each leaf creates one private `flow-state/cli-result.v2` result. Text and JSON derive from that same result;
 the exact `CliCommand` union and result schema are private and MUST NOT become public `FlowCli*` types. Success or
 comparison writes one newline-terminated document to stdout and nothing to stderr. Failure writes one document to
 stderr and nothing to stdout. JSON is the stable machine-readable projection. Text MUST be deterministic within one
@@ -1433,8 +1433,8 @@ the required receipts; it does not create a second semantic proof owner.
 ### Types, compilation, and runtime ownership
 
 - [ ] `PROOF-001`: exact public typing and inference for definitions, machines, P/K/A/E/R, App.M, refs, selectors,
-      Stories, models, persistence, errors, and requirements, including exact checkpoint-name accumulation and readonly
-      run-key inference. Positive fixtures prove exact accumulation and readonly keys; negative fixtures prove duplicate
+      Stories, models, persistence, errors, and requirements, including exact checkpoint-name accumulation and
+      run-key inference. Positive fixtures prove exact accumulation and keys; negative fixtures prove duplicate
       literal names, widened-string names, and unknown literal indexing are rejected.
 - [ ] `PROOF-002`: inert complete AppPlan compilation, closed admission, graph/identity validation, and rejection
       before activation or side effects.
@@ -1456,13 +1456,13 @@ the required receipts; it does not create a second semantic proof owner.
 - [ ] `PROOF-008`: fresh Story Implementations/fixtures/seeds, inert recipes, provider graphs, leases, reverse cleanup,
       and app/focused execution through production owners.
 - [ ] `PROOF-009`: exact Story commands, `process`, TestClock movement, maxTurns, timers, cancellation, finalization,
-      immutable persistent prefix derivation, independent prefix replay, and fresh production-Runtime isolation across
+      persistent prefix derivation, independent prefix replay, and fresh production-Runtime isolation across
       derived runs. The original common-prefix plan remains unchanged; this proves static plan branching, not a live
       Runtime fork.
 
 ### Evidence, React, persistence, and CLI
 
-- [ ] `PROOF-010`: atomic deeply frozen checkpoints and `run.end`, exact closure, failure boundaries, cleanup truth,
+- [ ] `PROOF-010`: atomic checkpoints and `run.end`, exact closure, failure boundaries, cleanup truth,
       cancellation, and direct Story/CLI evidence parity. Evidence-only API absence checks reject `fork`, `restore`,
       `fromCheckpoint`, and a public dynamic-string getter; defensive package-private lookup proves known own-key access
       and unknown or inherited names reject with existing `FlowUsageError` semantics.
@@ -1513,10 +1513,10 @@ acceptance process explicitly replaces it.
 | 5. Implementation and runtime   | `TYPE_SYSTEM.md` TYPE-009A–TYPE-011; `ARCHITECTURE.md` ARCH-005, ARCH-007–ARCH-012; `PUBLIC_API.md` API-012                                                                                       | Implementation providers, runtimeSetup overloads/calls, `runPromise`/`runPromiseExit` behavior, complete architecture ownership path, readiness and disposal boundaries.                                                                       |
 | 6. React and hosts              | `REACT_AND_HOSTS.md` host-first examples and HOST-001–HOST-017; `PUBLIC_API.md` API-012; `TYPE_SYSTEM.md` TYPE-013                                                                                | Existing Runtime provider, useActor/useActorByRef/useView, passive selector, SSR/request, suspension/resume.                                                                                                                                   |
 | 7. Persistence and artifacts    | `PERSISTENCE_AND_ARTIFACTS.md` WIRE-000–WIRE-024, especially WIRE-020A/B/C; `PUBLIC_API.md` API-016 and AMEND-API-003                                                                             | Provider/storage/codec forms, capture/hydration, inspection artifact example, redaction type example, canonical/bounded wire laws.                                                                                                             |
-| 8. Testing and Stories          | `PUBLIC_API.md` API-013–API-015; `TYPE_SYSTEM.md` TYPE-014–TYPE-017 and TYPE-P02; `TESTING.md` REV-TEST-001–REV-TEST-010 and TEST-014/TEST-015; `PROOF_MATRIX.md` PROOF-001, PROOF-009, PROOF-010 | Story/recipe, focused-context, immutable common-prefix/three-branch plans, specification-only checkpoint-name accumulation, frozen evidence-only checkpoints, package-private defensive lookup, behavior gateway, fixture, and model examples. |
+| 8. Testing and Stories          | `PUBLIC_API.md` API-013–API-015; `TYPE_SYSTEM.md` TYPE-014–TYPE-017 and TYPE-P02; `TESTING.md` REV-TEST-001–REV-TEST-010 and TEST-014/TEST-015; `PROOF_MATRIX.md` PROOF-001, PROOF-009, PROOF-010 | Story/recipe, focused-context, common-prefix/three-branch plans, specification-only checkpoint-name accumulation, evidence-only checkpoints, package-private defensive lookup, behavior gateway, fixture, and model examples. |
 | 9. Inspect                      | `PUBLIC_API.md` API-001/API-016 and AMEND-API-003; `TESTING.md` explicit buffer-sink boundary; `PERSISTENCE_AND_ARTIFACTS.md` WIRE-014–WIRE-020C                                                  | Exact exported names, sink/artifact example, bounded retention, failure isolation, defensive/private artifact boundary.                                                                                                                        |
 | 10. CLI                         | `PUBLIC_API.md` API-017; `CLI.md` CLI-001–CLI-012, CLI-P01, CLI-P02; `PERSISTENCE_AND_ARTIFACTS.md` WIRE-020A/B/C                                                                                 | Exact ten-leaf grammar, behavior gateway example, selectors/defaults, gateway containment, atomic files, output, signal, exit, truncation.                                                                                                     |
-| 11. Acceptance                  | `PROOF_MATRIX.md` PROOF-001–PROOF-017 and local proof crosswalk, especially PROOF-001, PROOF-009, and PROOF-010                                                                                   | Unchecked typing, immutable-prefix isolation, and evidence-only checkpoint proof ownership; no completion claim.                                                                                                                               |
+| 11. Acceptance                  | `PROOF_MATRIX.md` PROOF-001–PROOF-017 and local proof crosswalk, especially PROOF-001, PROOF-009, and PROOF-010                                                                                   | Unchecked typing, prefix isolation, and evidence-only checkpoint proof ownership; no completion claim.                                                                                                                               |
 
 The active contract pack remains the sole normative source for exact nested artifact schemas, definitions not copied
 here, conflict resolution, deletion inventory, and proof procedures. `revision-spec/README.md` remains the authority

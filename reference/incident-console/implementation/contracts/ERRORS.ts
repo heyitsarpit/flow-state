@@ -11,7 +11,7 @@ import { Schema } from "effect";
 import type { Cause, Effect, Exit, Result } from "effect";
 
 /** A path into the value, configuration, or operation that failed. */
-export type DiagnosticPath = readonly (string | number)[];
+export type DiagnosticPath = (string | number)[];
 
 /** The existing public spelling remains an alias of the diagnostic path. */
 export type FlowPath = DiagnosticPath;
@@ -20,7 +20,7 @@ export type FlowPath = DiagnosticPath;
 export type DiagnosticScalar = string | number | boolean | null;
 
 /** Structured details are stable data; they are never parsed from human text. */
-export type DiagnosticDetails = Readonly<Record<string, DiagnosticScalar>>;
+export type DiagnosticDetails = Record<string, DiagnosticScalar>;
 
 /** Effect's three meaningful failure classes after complete-cause inspection. */
 export type DiagnosticClassification = "Failure" | "Defect" | "Interruption";
@@ -162,8 +162,8 @@ export type DiagnosticDocument = Schema.Codec.Encoded<typeof Diagnostic>;
 
 /** A usage diagnostic is the only diagnostic that may become FlowUsageError. */
 export type UsageDiagnostic = Diagnostic & {
-  readonly classification: "Failure";
-  readonly code: FlowUsageCode;
+  classification: "Failure";
+  code: FlowUsageCode;
 };
 
 /**
@@ -202,10 +202,10 @@ export type InvalidMachineConfigurationReason =
  * API-002A shape; callers discriminate by `_tag` and `code`, never `message`.
  */
 export declare class FlowUsageError extends Error {
-  readonly _tag: "FlowUsageError";
-  readonly code: FlowUsageCode;
-  readonly path: FlowPath;
-  readonly details: DiagnosticDetails;
+  _tag: "FlowUsageError";
+  code: FlowUsageCode;
+  path: FlowPath;
+  details: DiagnosticDetails;
 
   constructor(code: FlowUsageCode, path?: FlowPath, details?: DiagnosticDetails);
 }
@@ -271,10 +271,10 @@ export declare const toFlowUsageError: (diagnostic: UsageDiagnostic) => FlowUsag
  * FlowStoryExecutionError, as specified by the other active contracts.
  */
 type ClassifiedFailure<A, E> = {
-  readonly classification: DiagnosticClassification;
-  readonly exit: Exit.Exit<A, E>;
-  readonly cause: Cause.Cause<E>;
-  readonly diagnostics: readonly Diagnostic[];
+  classification: DiagnosticClassification;
+  exit: Exit.Exit<A, E>;
+  cause: Cause.Cause<E>;
+  diagnostics: Diagnostic[];
 };
 
 declare const classifyCause: <A, E>(exit: Exit.Exit<A, E>) => ClassifiedFailure<A, E>;
@@ -289,8 +289,8 @@ export declare const renderDiagnostic: (diagnostic: Diagnostic) => string;
 
 /** Formatting policy is separate from the canonical Schema and its fields. */
 export interface DiagnosticPrinter {
-  readonly compact: (diagnostic: Diagnostic) => string;
-  readonly pretty: (diagnostic: Diagnostic) => string;
+  compact: (diagnostic: Diagnostic) => string;
+  pretty: (diagnostic: Diagnostic) => string;
 }
 
 export declare const DiagnosticPrinter: DiagnosticPrinter;

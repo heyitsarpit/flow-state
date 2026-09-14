@@ -152,25 +152,25 @@ const EditorResult = definition({
   id: "Todos/Editor",
   states: ["READY", "SAVING"],
   events: { SaveRequested: "bare" },
-  memory: ({ input }: { readonly input: { readonly todoId: string } }) => ({
+  memory: ({ input }: { input: { todoId: string } }) => ({
     todoId: input.todoId,
     draft: "",
   }),
 });
 if (Result.isSuccess(EditorResult)) {
   const Editor = EditorResult.success;
-  type _Input = Expect<Equal<InputOf<typeof Editor>, { readonly todoId: string }>>;
+  type _Input = Expect<Equal<InputOf<typeof Editor>, { todoId: string }>>;
   type _Memory = Expect<Equal<MemoryOf<typeof Editor>, { todoId: string; draft: string }>>;
 }
 ```
 
 ### Surface
 
-- Input/memory infer from exactly `memory: ({ input }: { readonly input: Input }) => Memory`.
+- Input/memory infer from exactly `memory: ({ input }: { input: Input }) => Memory`.
 
 ### Rule
 
-- Omitting argument fixes `Input=void`; absent initializer fixes input void and readonly empty memory.
+- Omitting argument fixes `Input=void`; absent initializer fixes input void and empty memory.
 - Input is supplied once to fresh actor and only initializer consumes it; behavior receives memory/context/
   state/events, not original input. Restore installs memory without initializer/input replay. App.M admission
   is independent of input and app compilation creates no actor.
@@ -209,7 +209,7 @@ SaveRequested: {
 
 ### Surface
 
-- Event transition callbacks receive exact causal event and readonly state/memory/snapshot/primitive
+- Event transition callbacks receive exact causal event and state/memory/snapshot/primitive
   registries.
 
 ### Rule
@@ -227,7 +227,7 @@ SaveRequested: {
 
 ### Observable guarantee
 
-- Callback types describe one immutable pre-turn causal input.
+- Callback types describe one pre-turn causal input.
 
 ### Proof
 
@@ -242,7 +242,7 @@ SaveRequested: {
 ```ts
 const project = resource({
   id: "projects.by-id",
-  key: ({ id }: Readonly<{ id: string }>) => [id] as const,
+  key: ({ id }: { id: string }) => [id],
   lookup: ({ id }, { signal }): Effect.Effect<Project, "missing", ProjectRepo> =>
     Effect.gen(function* () {
       const repo = yield* ProjectRepo;
@@ -260,7 +260,7 @@ project.getData(project.key({ id: "project-1" }));
 
 - Lookup/config/plans preserve P; key/getData/getState use K. No resource ref, second key, custom hash,
   or equality. `persist` false by default; true opts committed canonical entries into Persistence.
-- K uses `PUBLIC_API.md#API-005` exact copied/frozen canonical containers, grammar, discriminator, bounds,
+- K uses `PUBLIC_API.md#API-005` exact copied canonical containers, grammar, discriminator, bounds,
   and diagnostics; no type layer adds another interpretation.
 
 ### Accepts
@@ -286,11 +286,11 @@ project.getData(project.key({ id: "project-1" }));
 ## TYPE-006 — Transaction inference independent of parent
 
 ```ts
-type SaveParams = Readonly<{ id: string; title: string }>;
+type SaveParams = { id: string; title: string };
 
 const save = transaction({
   id: "projects.save",
-  key: ({ id }: SaveParams) => [id] as const,
+  key: ({ id }: SaveParams) => [id],
   commit: ({ id, title }: SaveParams, { signal }): Effect.Effect<Project, SaveError, ProjectRepo> =>
     ProjectRepo.save(id, title, { signal }),
 });
@@ -342,11 +342,11 @@ O.save.commit(
 ## TYPE-007 — Stream inference
 
 ```ts
-type ProgressInput = Readonly<{ submissionId: string }>;
+type ProgressInput = { submissionId: string };
 
 const progress = stream({
   id: "projects.progress",
-  key: ({ submissionId }: ProgressInput) => [submissionId] as const,
+  key: ({ submissionId }: ProgressInput) => [submissionId],
   subscribe: ({ submissionId }: ProgressInput, { signal }) =>
     Effect.gen(function* () {
       const progressClient = yield* ProgressClient;
@@ -472,7 +472,7 @@ The following is private schematic/non-exported notation for the inferred carrie
 required public export.
 
 ```ts
-type NormalizedCarrier<R> = Readonly<{ readonly _requirements?: (r: R) => R }>;
+type NormalizedCarrier<R> = { _requirements?: (r: R) => R };
 ```
 
 ### Surface
@@ -527,7 +527,7 @@ const TodoWithClock = Implementation.merge(TodoLive, ClockLive);
 
 ### Surface
 
-- Public `Implementation` is immutable typed provider graph under namespace `Implementation`.
+- Public `Implementation` is a typed provider graph under namespace `Implementation`.
 
 ### Rule
 
@@ -562,15 +562,15 @@ const TodoWithClock = Implementation.merge(TodoLive, ClockLive);
 
 ```ts
 function runtimeSetup<A extends App>(options: {
-  readonly app: A;
+  app: A;
   // Deferred until the Persistence owner lands; retained for restoration.
-  // readonly persistence?: Persistence;
+  // persistence?: Persistence;
 }): RuntimeSetup<A, never>;
 function runtimeSetup<A extends App, ImplementationError>(options: {
-  readonly app: A;
-  readonly implementation: Implementation<RequirementsOf<A>, ImplementationError>;
+  app: A;
+  implementation: Implementation<RequirementsOf<A>, ImplementationError>;
   // Deferred until the Persistence owner lands; retained for restoration.
-  // readonly persistence?: Persistence;
+  // persistence?: Persistence;
 }): RuntimeSetup<A, ImplementationError>;
 ```
 
@@ -664,7 +664,7 @@ type Result<A, E, IE> = Promise<Exit.Exit<A, E | IE>>;
 
 ### Proof
 
-- Historical/reference negative proof from the frozen package: `packages/flow-state/src/public-api-types.test.ts:287-333`.
+- Historical/reference negative proof from the reference package: `packages/flow-state/src/public-api-types.test.ts:287-333`.
   The replacement proof belongs under `packages/flow-state-rewrite/`, per `IMPLEMENTATION_WORKFLOW.md:26-28`.
 
 ### Trace
@@ -737,7 +737,7 @@ useView(projectMachine, ({ state }) => state);
 ### Rule
 
 - useActor creates fresh local/no stable ID; by-ref lookup-only/no lease. useView requires exact actor
-  handle. Selector receives atomic passive state/readonly memory/context/lifecycle/issues/bound can/O.
+  handle. Selector receives atomic passive state/memory/context/lifecycle/issues/bound can/O.
   Result preserves exact Value, without implicit null/undefined. O only key/getData/getState; no comparator.
 - Scalar/non-record equality complete-value Object.is; named records fixed-key field-by-field Object.is.
 
@@ -769,32 +769,32 @@ specification notation and need not be exported:
 
 ```ts
 type InputOptions<M> =
-  InputOf<M> extends void ? { readonly input?: never } : { readonly input: InputOf<M> };
+  InputOf<M> extends void ? { input?: never } : { input: InputOf<M> };
 
 type SelectedContextOptions<M> = keyof SelectedContextOf<M> extends never
-  ? { readonly context?: never }
-  : { readonly context: SelectedContextOf<M> };
+  ? { context?: never }
+  : { context: SelectedContextOf<M> };
 
 type ContextBindingOptions<M> = keyof SelectedContextOf<M> extends never
-  ? { readonly contextBindings?: never }
-  : { readonly contextBindings: StoryContextBindingsOf<M> };
+  ? { contextBindings?: never }
+  : { contextBindings: StoryContextBindingsOf<M> };
 
 type StoryContextBindingsOf<M> = {
-  readonly [K in keyof SelectedContextOf<M>]:
+  [K in keyof SelectedContextOf<M>]:
     ActorRef<ProviderMachineAt<M, K>> | StoryActorRecipe<ProviderMachineAt<M, K>>;
 };
 
 type FixtureOptions<Owner> =
   RequirementsOf<Owner> extends never
-    ? { readonly fixtures?: readonly FixtureDefinition[] }
+    ? { fixtures?: FixtureDefinition[] }
     : {
-        readonly fixtures: FixtureTupleClosing<RequirementsOf<Owner>>;
+        fixtures: FixtureTupleClosing<RequirementsOf<Owner>>;
       };
 ```
 
 `StoryContextBindingsOf`, `ProviderMachineAt`, and `StoryActorRecipe` describe the exact contextual
 type relationship; they do not require public helper exports. In this notation, `FixtureDefinition`
-denotes an immutable value returned by `fixture({ id, implementation, seeds? })`. Its `implementation`
+  denotes a value returned by `fixture({ id, implementation, seeds? })`. Its `implementation`
 provides the complete service identities required by the owner; its optional `seeds` are preloaded
 Runtime-owned resource state and do not satisfy a missing service requirement. A Fixture Implementation
 overrides an App Implementation for the same service identity, while duplicate Fixture providers are
@@ -806,25 +806,25 @@ satisfy `Output` and whose acquisition may fail with `ImplementationError`; it i
 implementation-layer boundary, not a second testing runtime or a required public helper constructor. An
 Implementation supplies complete service functions. It does not replace resource, transaction, or stream
 operation kernels, and the Story does not install argument/output matchers or a control registry. The
-`FixtureTupleClosing<R>` denotes a readonly tuple whose combined provider outputs satisfy `R`; neither
+  `FixtureTupleClosing<R>` denotes a tuple whose combined provider outputs satisfy `R`; neither
 needs to be an exported alias.
 
 The three complete option shapes are:
 
 ```ts
 type AppStoryOptions<App> = FixtureOptions<App> & {
-  readonly maxTurns?: number;
-  readonly title?: string;
-  readonly description?: string;
-  readonly tags?: readonly string[];
+  maxTurns?: number;
+  title?: string;
+  description?: string;
+  tags?: string[];
 };
 type MachineStoryOptions<M> = InputOptions<M> &
   SelectedContextOptions<M> &
   FixtureOptions<M> & {
-    readonly maxTurns?: number;
-    readonly title?: string;
-    readonly description?: string;
-    readonly tags?: readonly string[];
+    maxTurns?: number;
+    title?: string;
+    description?: string;
+    tags?: string[];
   };
 type ActorRecipeOptions<M> = InputOptions<M> & ContextBindingOptions<M>;
 ```
@@ -844,14 +844,14 @@ interface StoryPlan<Names extends string = never> {
   checkpoint<const Name extends string>(
     name: NewCheckpointName<Names, Name>,
   ): StoryPlan<Names | Name>;
-  run(options?: { readonly signal?: AbortSignal }): Promise<StoryRun<Names>>;
+  run(options?: { signal?: AbortSignal }): Promise<StoryRun<Names>>;
 }
 
 type StoryRun<Names extends string> = {
-  readonly checkpoints: {
-    readonly [Name in Names]: CheckpointEvidence;
+  checkpoints: {
+    [Name in Names]: CheckpointEvidence;
   };
-  readonly end: EndEvidence;
+  end: EndEvidence;
 };
 ```
 
@@ -900,14 +900,14 @@ lookupCheckpointInternal(savedRun, untrustedCheckpointName); // unknown own key 
 
 - Required input required; void input rejects authored input; focused context exact/required when declared;
   fixtures close requirements; Persistence only RuntimeSetup; maxTurns default 100.
-- Plans immutable/inert until run. Checkpoint names accumulate immutably, and duplicate literal names fail
+- Plans are inert until run. Checkpoint names accumulate, and duplicate literal names fail
   while the plan is built. Every builder command returns a new plan and leaves its prefix unchanged. Derived
   plans replay that prefix independently in fresh isolated production Runtimes; this is static plan branching,
   never a live Runtime fork, and no live state, handle, or Runtime is shared between runs. Both Story kinds:
   process/advance/advanceTo/advanceToNextTimer/checkpoint/run; app adds target-taking send; machine adds
   target-free send/setContext. No implicit process.
-- Checkpoints are frozen evidence cuts only, never resumable Runtime snapshots. `run().checkpoints` is a
-  readonly mapped type keyed exactly by accumulated literal names; known names compile and unknown literal
+- Checkpoints are evidence cuts only, never resumable Runtime snapshots. `run().checkpoints` is a
+  mapped type keyed exactly by accumulated literal names; known names compile and unknown literal
   indexing fails while the existing evidence shape, `run.end`, and failure behavior remain unchanged.
 - Package-private runtime-string lookup for JavaScript, CLI, or untrusted input checks own-key membership and
   rejects unknown names with existing `FlowUsageError` semantics. It adds no public dynamic-string getter or
@@ -915,7 +915,7 @@ lookupCheckpointInternal(savedRun, untrustedCheckpointName); // unknown own key 
 
 ### Accepts
 
-- Exact conditional option closure, immutable checkpoints, command types, and run.end.
+- Exact conditional option closure, checkpoints, command types, and run.end.
 
 ### Rejects
 
@@ -931,7 +931,7 @@ lookupCheckpointInternal(savedRun, untrustedCheckpointName); // unknown own key 
 ### Proof
 
 - Positive/negative Story option, target, command, exact checkpoint-name accumulation/run-key inference,
-  duplicate-name, widened-string, unknown-index, immutable-prefix, fresh-run isolation, and run.end fixtures.
+  duplicate-name, widened-string, unknown-index, prefix, fresh-run isolation, and run.end fixtures.
 
 ### Trace
 
@@ -945,7 +945,7 @@ const recipe = story.actor(machine, { input, contextBindings });
 
 ### Surface
 
-- Recipe is deeply frozen inert exact machine/input/bindings; no runtime/mailbox/snapshot/operation/
+- Recipe is an inert exact machine/input/bindings value; no runtime/mailbox/snapshot/operation/
   disposal/live handle.
 
 ### Rule
@@ -984,7 +984,7 @@ const fixtureDef = fixture({ id: "test-api", implementation: TestApi, seeds });
 
 ### Surface
 
-- Fixture is immutable/inert and its Implementation closes complete App/focused-machine services.
+- Fixture is inert and its Implementation closes complete App/focused-machine services.
 
 ### Rule
 
@@ -1031,7 +1031,7 @@ const modelDef = model(machineStory, { stateKey: ({ value, memory }) => [value.i
 - Reject app Story, boot, extra command, non-fresh restoration, non-pure stateKey. Candidate events are
   per traversal call. Expose only `getShortestPaths`/`getSimplePaths`; no Effects, async route synthesis,
   replay/provide/clock helpers, or parallel named path/result classes. `FlowStoryExecutionError` is sole
-  named testing runtime class, with package-owned frozen envelope accepted by REV-TEST-006/008 including
+  named testing runtime class, with a package-owned envelope accepted by REV-TEST-006/008 including
   complete public `Cause.Cause<unknown>`. Snapshots/inferred values still hide raw Cause.
 
 ### Accepts
@@ -1082,7 +1082,7 @@ Compile fixtures MUST prove:
 - exact actor refs, local/shared owner leases, context-binding keys, and four lifecycle states;
 - passive actor-bound useView, exact selector values, and command-only useActor/useActorByRef;
 - app and machine Story option closure, exact Story targets, operation outcomes, command types,
-  immutable checkpoints, run.end, and command-empty model bases;
+  checkpoints, run.end, and command-empty model bases;
 - strict, isolated-modules, isolated-declarations, packed package, React 18, and React 19 consumer modes.
 
 ### TYPE-P02 — Negative proofs

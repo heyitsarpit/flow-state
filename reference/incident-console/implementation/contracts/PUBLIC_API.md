@@ -217,7 +217,7 @@ and its proofs land.
 
 ### Surface
 
-- Future target: immutable usage/admission error with exact `_tag`, code, path, and scalar/null details.
+- Future target: usage/admission error with exact `_tag`, code, path, and scalar/null details.
 
 ### Rule
 
@@ -352,7 +352,7 @@ const NewIntentResult = definition({
     themeMode: Theme.select(({ memory }) => memory.mode),
   },
   operations: { routeConfig, orderById, submitIntent, submissionProgress },
-  memory: ({ input }: { readonly input: { readonly draftId: string } }) => ({
+  memory: ({ input }: { input: { draftId: string } }) => ({
     draftId: input.draftId,
     mode: "dark",
   }),
@@ -366,17 +366,16 @@ if (Result.isFailure(NewIntentResult)) {
 
 ### Surface
 
-- `definition` owns durable ID, recursive state/event schemas, optional readonly context selectors,
+- `definition` owns durable ID, recursive state/event schemas, optional context selectors,
   input-to-memory initialization, and one flat named operation record.
 
 ### Rule
 
 - State declarations are string leaves or recursive single-key compounds, max ten levels, with exact
   path tokens such as `S.ACTIVE.S.EDITING`. Event members are nominal tokens. Callable events return
-  `Result<EventEnvelope<...>, Diagnostic>` values containing readonly envelopes with full `type` on
+  `Result<EventEnvelope<...>, Diagnostic>` values containing envelopes with full `type` on
   success; `"bare"` events are zero-argument constructors. Definition values,
-  tokens, and envelopes are not runtime-frozen; readonly types and ownership-boundary copies provide the
-  protection.
+  tokens, and envelopes use their declared shapes; ownership-boundary copies provide the protection.
 - Definition construction synchronously decodes the ordinary authored shape through one package-private
   Effect Schema. `Schema.Struct`, `Schema.brand`, schema-authored events, and a `validatedEvent` helper are not
   public authoring syntax. Runtime nominal values are constructed only after decoding; event payload objects
@@ -388,7 +387,7 @@ if (Result.isFailure(NewIntentResult)) {
   `Diagnostic` Defect failures. These functions do not return partial values, execute Effects, or use an
   intermediate Error carrier.
 - Context selectors are typed definition-level provider edges, not registrations. `memory` is the sole
-  input/memory source; absent initializer means `Input=void` and readonly empty memory. Restoration
+  input/memory source; absent initializer means `Input=void` and empty memory. Restoration
   installs memory without input replay.
 - Operations are flat, named, inert, and contribute exact types/reachability to AppPlan.
 
@@ -469,9 +468,9 @@ const newIntentMachine = machine(
 
   Machine state nodes MAY contain the existing behavior fields `on`, `redirect`, `activities`, and `timers`,
   plus the recursive `default` and `states` fields required by compound nodes. An event `on` entry MAY be a
-  state-token shorthand, one transition, or an ordered readonly list. Transitions MAY contain only `target`,
+  state-token shorthand, one transition, or an ordered list. Transitions MAY contain only `target`,
   `guard`, `updateMemory`, `actions`, and exact-token `reenter`. A redirect MAY be one redirect or an ordered
-  readonly list with `when` and required `target`. Timer entries retain `delay`, `guard`, required `target`,
+  list with `when` and required `target`. Timer entries retain `delay`, `guard`, required `target`,
   and `updateMemory`; timers target events only, and timer-owned finite `actions` MUST NOT be inferred under
   `REV-OPS-015`.
 
@@ -490,7 +489,7 @@ const newIntentMachine = machine(
   enters the ordinary mailbox, whose handler owns legality, guards, memory updates, and finite actions.
 
 - `onMemory` and `onMemory.select` own continuing resource or stream plans independently by declaration
-  slot. Each entry receives current immutable memory, returns one continuing plan, `false`, or `null`, and
+  slot. Each entry receives current memory, returns one continuing plan, `false`, or `null`, and
   releases only that entry when its state exits, normalized identity changes, or the callback returns a
   sentinel. A single entry MUST NOT return a runtime-sized array. `onMemory.select` uses the shared selector
   equality and receives `(current, previous)` selected values; equal normalized operation identity retains
@@ -502,7 +501,7 @@ const newIntentMachine = machine(
   for callbacks that map a selection to an event or continuing plan.
 
 - Every event macrostep selects the winning transition, evaluates its guard, evaluates `updateMemory` and
-  then `actions` from the same immutable pre-turn snapshot and event, applies target and memory to a
+  then `actions` from the same pre-turn snapshot and event, applies target and memory to a
   candidate, stabilizes redirects, validates the complete finite-action batch, stages actor and synchronous
   store changes, publishes them atomically, and only then starts or joins asynchronous work. A callback,
   redirect, key, target, or batch-validation defect aborts the unpublished whole turn. Timer redirect and
@@ -533,13 +532,13 @@ const newIntentMachine = machine(
 ## API-005 — Resources and canonical `P`/`K`
 
 ```ts
-type OrderInput = Readonly<{
+type OrderInput = {
   orderId: string;
-}>;
+};
 
 const orderById = resource({
   id: "everclear.order-by-id",
-  key: ({ orderId }: OrderInput) => [orderId] as const,
+  key: ({ orderId }: OrderInput) => [orderId],
   lookup: ({ orderId }: OrderInput, { signal }) =>
     Effect.gen(function* () {
       const client = yield* OrderClient;
@@ -559,13 +558,13 @@ const orderById = resource({
 
 ### Rule
 
-- Project/validate/canonicalize/freeze before ownership, mutation, admission, or external work.
-- `P` is complete immutable executable input retained by a lookup, transaction attempt, or stream
+- Project/validate/canonicalize before ownership, mutation, admission, or external work.
+- `P` is complete executable input retained by a lookup, transaction attempt, or stream
   subscription. It MAY contain clients and functions and is never operation identity. Runtime-owned
   capabilities remain outside `P`; service dependencies belong to the inferred Effect/Stream requirement
-  `R`. `K` is the ordered readonly canonical tuple returned by `key(P)`. Exact resource identity is
+  `R`. `K` is the ordered canonical tuple returned by `key(P)`. Exact resource identity is
   descriptor ID plus canonical `K`.
-- Source containers are ordinary dense arrays/plain records; Flow copies/freezes recursively and freezes
+- Source containers are ordinary dense arrays/plain records; Flow copies them recursively and copies the
   top tuple. Reject `undefined`, non-finite numbers, bigint, symbols, functions, accessors, classes,
   unsupported objects, cycles, branded secrets, sparse/extra-property arrays, symbols, hostile or
   inconsistent reflection. Limits: depth 16, value nodes 256, UTF-8 bytes 8192. Exact `K[index]` or
@@ -603,7 +602,7 @@ Member ::= String ":" Value
 
 ### Proof
 
-- Byte identity, order, `-0`, defensive freeze, exact rejection paths, no reflection execution, identity
+- Byte identity, order, `-0`, defensive copying, exact rejection paths, no reflection execution, identity
   separation, and 16/256/8192 boundary tests; next value rejects.
 
 ### Trace
@@ -613,7 +612,7 @@ Member ::= String ":" Value
 ## API-006 — Named operation families and states
 
 ```ts
-interface ResourceFamily<P, K extends readonly unknown[], A, E> {
+interface ResourceFamily<P, K extends unknown[], A, E> {
   key(params: P): K;
   getData(key: K): A | undefined;
   getState(key: K): ResourceState<A, E, K>;
@@ -623,13 +622,13 @@ interface ResourceFamily<P, K extends readonly unknown[], A, E> {
   setData(key: K, value: A | ((current: A | undefined) => A | undefined)): CacheWritePlan;
   cancel(key: K): CancellationPlan;
 }
-interface TransactionFamily<P, K extends readonly unknown[], A, E> {
+interface TransactionFamily<P, K extends unknown[], A, E> {
   key(params: P): K;
   getState(key: K): TransactionState<A, E, K>;
   commit(params: P, options?: CommitOptions<P, A, E>): TransactionCommitPlan;
   cancel(key: K): CancellationPlan;
 }
-interface StreamFamily<P, K extends readonly unknown[], V, E> {
+interface StreamFamily<P, K extends unknown[], V, E> {
   key(params: P): K;
   getState(key: K): StreamState<V, E, K>;
   subscribe(params: P, options?: StreamSubscriptionOptions<P, K, V, E>): ContinuingOperationPlan;
@@ -638,7 +637,7 @@ interface StreamFamily<P, K extends readonly unknown[], V, E> {
 
 ```ts
 type ResourceRetention<A> = { data?: never } | { data: A };
-type ResourceState<A, E, K extends readonly unknown[]> =
+type ResourceState<A, E, K extends unknown[]> =
   | { status: "missing"; key: K }
   | { status: "pending"; key: K; generation: number }
   | { status: "ready"; key: K; generation: number; data: A }
@@ -646,7 +645,7 @@ type ResourceState<A, E, K extends readonly unknown[]> =
   | ({ status: "failure"; key: K; generation: number; error: E } & ResourceRetention<A>)
   | ({ status: "defect"; key: K; generation: number; defect: unknown } & ResourceRetention<A>)
   | ({ status: "interrupted"; key: K; generation: number } & ResourceRetention<A>);
-type TransactionState<A, E, K extends readonly unknown[]> =
+type TransactionState<A, E, K extends unknown[]> =
   | { status: "idle"; key: K }
   | { status: "pending"; key: K; generation: number }
   | { status: "success"; key: K; generation: number; value: A }
@@ -657,7 +656,7 @@ type TransactionState<A, E, K extends readonly unknown[]> =
 type StreamValue<V> =
   | { hasValue: false; latest?: never; emissionCount: 0 }
   | { hasValue: true; latest: V; emissionCount: number };
-type StreamState<V, E, K extends readonly unknown[]> =
+type StreamState<V, E, K extends unknown[]> =
   | ({ status: "idle"; key: K; generation: null } & StreamValue<V>)
   | ({ status: "running"; key: K; generation: number } & StreamValue<V>)
   | ({ status: "complete"; key: K; generation: number } & StreamValue<V>)
@@ -742,7 +741,7 @@ actions: ({ event, memory }) => [
 
 ### Surface
 
-- `actions` admits one inert finite plan, readonly list, `null`, or empty list. Accepted finite work:
+- `actions` admits one inert finite plan, list, `null`, or empty list. Accepted finite work:
   lookup/refetch, commit/cancel, cache write, invalidate, clear.
 
 ### Rule
@@ -782,7 +781,7 @@ actions: ({ event, memory }) => [
 ```ts
 const submitIntent = transaction({
   id: "everclear.submit-intent",
-  key: ({ submissionId }: SubmitIntentInput) => [submissionId] as const,
+  key: ({ submissionId }: SubmitIntentInput) => [submissionId],
   commit: (params, { signal }) => IntentSubmitter.submit(params, { signal }),
   persist: true,
   concurrency: "reject",
@@ -827,7 +826,7 @@ const submitIntent = transaction({
 ```ts
 const submissionProgress = stream({
   id: "everclear.submission-progress",
-  key: ({ submissionId }: ProgressInput) => [submissionId] as const,
+  key: ({ submissionId }: ProgressInput) => [submissionId],
   subscribe: ({ submissionId }: ProgressInput, { signal }) =>
     Effect.gen(function* () {
       const progressClient = yield* ProgressClient;
@@ -904,7 +903,7 @@ modules })` flattens ordered unaliased modules into exact `App.M`.
   identity for CLI/trace/inspection/artifacts/diffs only. Rename is artifact-breaking without alias;
   runtime/persistence identity stays compatible and history needs explicit migration.
 - Every local/shared/Story-local actor uses a listed machine; every listed machine contributes graph and
-  requirements to immutable AppPlan. Compilation creates no actor. No `dynamicMachines`, automatic-root,
+  requirements to AppPlan. Compilation creates no actor. No `dynamicMachines`, automatic-root,
   or runtime family lookup. No XState `setup()`/`machine.provide()` layer: definitions shape, machines
   behavior, apps reachability, Implementations services, fixtures tests.
 
@@ -1030,7 +1029,7 @@ const runtime = setup.construct();
 - `useView` tracks exact O descriptor/K reads per evaluation and reruns matching actor/StoreFanout at one
   tear-free boundary; Object.is rules as `API-004`; no comparator/registered views/React per-actor context.
 - Lifecycle publishes snapshot before evidence; retains start/restore/dispose and adds suspend/resume,
-  not prepare. `FlowDisposeError` is frozen with `_tag: "FlowDisposeError"`,
+  not prepare. `FlowDisposeError` has `_tag: "FlowDisposeError"`,
   `cause: Cause.Cause<unknown>`, and `scope: "actor" | "runtime"`; actor/runtime
   scope; async lease/runtime disposal is idempotent/cached/terminal and blocked disposal identifies deps.
 
@@ -1075,7 +1074,7 @@ story.actor(machine, options?);
   production bootstrap, fixtures, TestClock, restoration, ensure, AppPlan validation, graph sealing,
   activation, and cleanup. Machine Story uses package-private one-machine AppPlan and same production
   engine. `maxTurns` defaults 100.
-- Plans are immutable/inert until run; no handles, loops, predicates, callbacks, assertions, branches.
+- Plans are inert until run; no handles, loops, predicates, callbacks, assertions, branches.
 
 ### Accepts
 
@@ -1108,8 +1107,8 @@ const gateway = behavior({
 
 ### Surface
 
-- Testing route exports one inert `behavior` constructor requiring explicit app and non-empty readonly
-  Story record. Record keys are external IDs.
+- Testing route exports one inert `behavior` constructor requiring explicit app and non-empty Story record.
+  Record keys are external IDs.
 
 ### Rule
 
@@ -1186,15 +1185,15 @@ savedRun.checkpoints.typo; // TypeScript error
 - App targets exact app-owned ref or recipe; machine family is never target. App does not inject context.
 - `process` replaces flush/settle and drains ready work without time/results; clock movement does not
   process. Checkpoint reads evidence immediately. `.run()` sole execution boundary.
-- Story plans are immutable persistent values. Every builder command returns a new plan and leaves the
+- Story plans are persistent values. Every builder command returns a new plan and leaves the
   previous plan unchanged, so one common prefix can be retained and extended into multiple derived plans.
   Each derived plan run creates a fresh isolated production Runtime and replays the shared prefix
   independently. This is static plan branching, not a live Runtime fork; derived runs share no live state,
   handles, or Runtime.
-- `checkpoint(name)` captures a frozen read cut as evidence only. It is not a resumable Runtime snapshot and
+- `checkpoint(name)` captures a read cut as evidence only. It is not a resumable Runtime snapshot and
   does not expose `fork()`, `restore()`, or `fromCheckpoint()`. Literal checkpoint names accumulate in the
   inferred plan type, duplicate literals reject while building, and widened `string` names cannot erase the
-  known-name map; a literal or known string union is required. `run()` exposes `checkpoints` as a readonly
+  known-name map; a literal or known string union is required. `run()` exposes `checkpoints` as a
   mapped type with exactly those accumulated names while preserving the existing evidence shape, `run.end`,
   and failure behavior.
 - Runs never inject pending results; complete Implementations provide behavior. Capture uses exact closure,
@@ -1203,7 +1202,7 @@ savedRun.checkpoints.typo; // TypeScript error
   and transitive providers, and excludes unrelated actors;
   no lookup/progress/work/time/create/dispose/restore. `run.end` follows commands before cleanup and does
   not imply completion.
-- Failed execution retains checkpoints and frozen `FlowStoryExecutionError` with Cause, boundary,
+- Failed execution retains checkpoints and `FlowStoryExecutionError` with Cause, boundary,
   cleanup/cancellation/evidence diagnostics. Admission closes before non-abortable finalization; cleanup
   is reverse dependency/deterministic phase. Cleanup failure retains end evidence but never success;
   failure before capture never fabricates `run.end`.
@@ -1217,7 +1216,7 @@ not inject context.
 time. It does not advance time or invent external results. Clock movement does not process implicitly, and
 `checkpoint` reads evidence immediately without progressing or creating restoration input.
 
-`FlowStoryExecutionError` carries one deeply frozen package-owned failure envelope with `cause:
+`FlowStoryExecutionError` carries one package-owned failure envelope with `cause:
 Cause.Cause<unknown>`, optional end evidence, the failure boundary, primary and ordered cleanup diagnostics,
 cancellation evidence when applicable, and accepted/drained evidence-sequence facts. A cleanup failure
 retains captured end evidence but never returns success; failure before end capture never manufactures
@@ -1249,7 +1248,7 @@ machineRun.end.snapshot;
 
 ### Observable guarantee
 
-- Evidence is a deeply frozen production read cut; failure reports no synthetic end evidence.
+- Evidence is a production read cut; failure reports no synthetic end evidence.
 
 ### Proof
 
@@ -1281,7 +1280,7 @@ await result.paths[0]!.story.run();
 - `fixture({ id, implementation, seeds? })` supplies complete services; seeds preload Runtime-owned
   resource state. Fixture provider overrides app provider by service identity; duplicates reject.
 - `model(baseStory, { stateKey })` accepts command-empty fresh machine Story; only
-  `getShortestPaths`/`getSimplePaths`; it returns frozen inferred path collections and paths use ordinary
+  `getShortestPaths`/`getSimplePaths`; it returns inferred path collections and paths use ordinary
   Story result shape.
 
 ### Rule
@@ -1293,7 +1292,7 @@ await result.paths[0]!.story.run();
 - Candidate events belong to traversal calls, not model/base state. `stateKey` receives exact predicted
   snapshot and returns CanonicalKeyInput. Model does not run Effects/synthesize async routes/expose
   replay/provide/clock helpers or named path/result classes. `FlowStoryExecutionError` is the only named
-  testing runtime class and carries a frozen envelope accepted by REV-TEST-006 and REV-TEST-008 with the
+  testing runtime class and carries an envelope accepted by REV-TEST-006 and REV-TEST-008 with the
   complete public Cause.
 
 ### Accepts
@@ -1330,22 +1329,22 @@ const artifact = exportTraceArtifact(trace);
 ### Surface
 
 - Pure graph/transition functions consume inert definitions/snapshots. Live inspection consumes committed
-  private `TurnRecord` and immutable `LifecycleRecord`; route owns private v2 codecs/artifacts.
-- Sink attachment returns frozen `{ drain, dispose }`; buffer sink has explicit capacity. Artifact bytes
+  private `TurnRecord` and `LifecycleRecord`; route owns private v2 codecs/artifacts.
+- Sink attachment returns `{ drain, dispose }`; buffer sink has explicit capacity. Artifact bytes
   use one file-neutral defensive-copy carrier.
 
 ### Rule
 
 - Inspection has no second mutable history and cannot fabricate traces from arbitrary snapshots. Planner
   output may show selection/microsteps/memory patches/desired plans, not actual starts/releases/generations/
-  pending outcomes/finalizers. TurnRecord remains private; projections are inferred immutable.
+  pending outcomes/finalizers. TurnRecord remains private; projections are inferred.
 - Slow sink cannot delay ack/StoreFanout; failed sink detaches and other sinks continue. Import/export
   never exposes private v2 model, TurnRecords, runtime ownership, or raw Cause. Formatters remain one per
   projection; the attachment observes records admitted after attachment.
 
 ### Accepts
 
-- Only route-created sinks and validated immutable inferred projections.
+- Only route-created sinks and validated inferred projections.
 
 ### Rejects
 
@@ -1369,17 +1368,17 @@ const artifact = exportTraceArtifact(trace);
 Status: vNext additive amendment; raw runtime truth and the exact WIRE-020B export remain unchanged.
 
 ```ts
-type ArtifactExportOptions = Readonly<{
-  redactions?: readonly Readonly<{
+type ArtifactExportOptions = {
+  redactions?: {
     path: ArtifactValuePath;
     replacement: "[REDACTED]";
-  }>[];
-}>;
+  }[];
+};
 
-type ArtifactCanonicalPath = readonly (string | number)[];
+type ArtifactCanonicalPath = (string | number)[];
 type ArtifactValuePath =
-  | readonly ["records", number, "snapshot", "memory" | "context", ...ArtifactCanonicalPath]
-  | readonly [
+  | ["records", number, "snapshot", "memory" | "context", ...ArtifactCanonicalPath]
+  | [
       "records",
       number,
       "facts",
@@ -1387,7 +1386,7 @@ type ArtifactValuePath =
       "data" | "value" | "error" | "defect" | "latest",
       ...ArtifactCanonicalPath,
     ]
-  | readonly [
+  | [
       "checkpoints",
       number,
       "actors",
@@ -1396,7 +1395,7 @@ type ArtifactValuePath =
       "memory" | "context",
       ...ArtifactCanonicalPath,
     ]
-  | readonly ["checkpoints", number, "snapshot", "memory" | "context", ...ArtifactCanonicalPath];
+  | ["checkpoints", number, "snapshot", "memory" | "context", ...ArtifactCanonicalPath];
 
 declare function exportTraceArtifact(
   trace: ReturnType<typeof importTraceArtifact>,
@@ -1434,7 +1433,7 @@ const command: "flow-state behavior check" = "flow-state behavior check";
 ### Surface
 
 - Installed `flow-state` binary follows exact grammar, typed gateway, bounded v2 artifact, Story-executor
-  parity, immutable envelopes, stdout/stderr, exit/signal, atomic-file, and truncation laws in `CLI.md`.
+  parity, envelopes, stdout/stderr, exit/signal, atomic-file, and truncation laws in `CLI.md`.
 
 ### Rule
 

@@ -5,7 +5,7 @@ Status: normative vNext contract
 This file owns runtime/host boundaries: exact actor ownership, synchronous commands, React
 attachment and selectors, SSR/request behavior, persistence hosts, trusted host writes, and disposal.
 `ARCHITECTURE.md` owns the runtime owners; `SEMANTICS.md` owns turn/lifecycle behavior;
-`SNAPSHOTS.md` owns immutable read shapes.
+`SNAPSHOTS.md` owns read shapes.
 The active clauses in this contract pack are authoritative. The revision specification, accepted
 decisions, archived records, and the `provenance/` copies preserve provenance only; unresolved
 `BEH-*` entries do not authorize an implementation choice.
@@ -186,7 +186,7 @@ observer fanout, context subscriptions, continuing-activity scopes, and installe
 through an escaped suspended handle fail with a stable actionable diagnostic and are never buffered;
 buffering is permitted only while initially prepared.
 
-Suspension preserves the exact ref, public handle, state, immutable memory, last committed inherited
+Suspension preserves the exact ref, public handle, state, memory, last committed inherited
 context, mailbox cursors, operation-occurrence records, and absolute timer deadlines. Resume reattaches
 the same actor, reacquires continuing activities and subscriptions through production kernels,
 reinstalls timers against existing absolute deadlines, and reconciles context bindings against current
@@ -234,7 +234,7 @@ cleanup defect leaves the actor suspended and blocks resume until owner or runti
 ### HOST-011 — `useView` is the sole ordinary React read path
 
 - Surface: `useView(actor, selector)`.
-- Rule: Accept one exact actor handle; selector receives atomic state, immutable memory, readonly context, lifecycle, issues, bound `can(event)`, and passive `O`. `O` may expose only `key`, `getData`, `getState`. Track exact descriptor/`K` reads, replace dependency set after evaluation, and rerun on matching actor/StoreFanout publication against one tear-free cut.
+- Rule: Accept one exact actor handle; selector receives atomic state, memory, context, lifecycle, issues, bound `can(event)`, and passive `O`. `O` may expose only `key`, `getData`, `getState`. Track exact descriptor/`K` reads, replace dependency set after evaluation, and rerun on matching actor/StoreFanout publication against one tear-free cut.
 - Accepts: Scalar/non-record `Object.is`; named-record fixed-key fieldwise `Object.is`; explicit React-only `useShallow`; selector identity changes without replacing actor subscription.
 - Rejects: Machine family/ref/view ID, comparator argument, actor creation/disposal, ownership/cache policy changes, registered views, broad subscriptions, binding components, view-bound `can`, operation acquisition, refresh/subscribe/commit/write/invalidate/clear, or selector retry loops.
 - Observable guarantee: Passive selectors cannot mutate runtime; selector exceptions are memoized by exact publication/store cut and retry only after later matching publication. Initial attachment/hydration selector defects abort admission without partial actor.
@@ -355,7 +355,7 @@ cleanup defect leaves the actor suspended and blocks resume until owner or runti
 ### HOST-P05 — Disposal and evidence-drain proof
 
 - Surface: owner/runtime cleanup, evidence hub, errors.
-- Rule: Prove owner-lease cleanup, runtime shutdown, ordered lifecycle evidence with immutable asynchronous payloads, admission closure, accepted-record drain, no synthetic terminal TurnRecord, frozen `FlowStoryExecutionError`, deterministic cleanup diagnostics, and retained Effect error truth.
+- Rule: Prove owner-lease cleanup, runtime shutdown, ordered lifecycle evidence with asynchronous payloads, admission closure, accepted-record drain, no synthetic terminal TurnRecord, `FlowStoryExecutionError`, deterministic cleanup diagnostics, and retained Effect error truth.
 - Accepts: Sink-local truncation/detach without runtime rollback; cleanup failure retaining captured end evidence while rejecting Story success.
 - Rejects: Declaring disposal complete with pending accepted evidence/finalizers or using sink processing as runtime truth.
 - Observable guarantee: Cleanup and evidence are complete and inspectable without a second history.

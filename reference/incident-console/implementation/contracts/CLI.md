@@ -183,7 +183,7 @@ projection; CLI does not sanitize, summarize, diff, prove, compress, or otherwis
 ### Rule card — CLI-007, CLI-008
 
 - Surface: Result model, text/JSON projection, stdout/stderr.
-- Rule: Every executed leaf creates one immutable package-private flow-state/cli-result.v2 result;
+- Rule: Every executed leaf creates one package-private flow-state/cli-result.v2 result;
   both text and JSON derive from it. The command is exactly behavior.build, behavior.render,
   behavior.diff, behavior.check, story.list, story.describe, story.run, trace.summarize, trace.proof,
   or trace.diff. Help/version are unversioned conventional text.
@@ -224,7 +224,7 @@ define a second result/data/outcome/diagnostic schema.
 ### Rule card — CLI-009, CLI-010
 
 - Surface: Process exit and signals.
-- Rule: One process owner maps the immutable result after the CLI Effect runtime and owned resources
+- Rule: One process owner maps the result after the CLI Effect runtime and owned resources
   dispose. Handlers do not mutate process.exitCode or call process.exit. Exit status is:
   0 for completed non-comparison, incomplete trace summarize, or complete equal comparison;
   1 for different behavior comparisons, different trace comparisons, or incomplete trace diff;

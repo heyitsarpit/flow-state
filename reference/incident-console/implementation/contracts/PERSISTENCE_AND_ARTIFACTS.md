@@ -67,12 +67,12 @@ The public notation is:
       remove(): Effect.Effect<void, PersistenceStorageError>;
     };
 
-    type Persistence = Readonly<{
+    type Persistence = {
       storage: PersistenceStorage;
       scope: string;
       codec: PersistenceCodec;
       filter?: (entry: PersistenceEntry) => boolean;
-    }>;
+    };
 
     declare function webStorage(storage: Storage): PersistenceStorage;
     declare function indexedDbStorage(storage: IndexedDBStorage): PersistenceStorage;
@@ -102,7 +102,7 @@ rejection.
 
     const todos = resource({
       id: "todo.todos",
-      key: ({ listId }: { readonly listId: string }) => [listId] as const,
+      key: ({ listId }: { listId: string }) => [listId],
       lookup: loadTodos,
       persist: true,
     });
@@ -111,11 +111,11 @@ rejection.
 ### Rule card — WIRE-001, WIRE-001A, WIRE-002, WIRE-003
 
 - Surface: Operation identity, canonical values, persisted operation facts, and validation ownership.
-- Rule: P is the complete immutable executable input retained by a live binding/generation. K is the
-  ordered readonly synchronous result of key(P); descriptor ID plus K is identity, and P is never
+- Rule: P is the complete executable input retained by a live binding/generation. K is the
+  ordered synchronous result of key(P); descriptor ID plus K is identity, and P is never
   reconstructed from K. Flow validates structure and the application codec validates opaque domain
   values. Receiving-app AppPlan compatibility is required; there is no generic identity migration API.
-- Accepts: Dense arrays and plain records copied into Flow-owned frozen containers; sorted record keys,
+- Accepts: Dense arrays and plain records copied into Flow-owned containers; sorted record keys,
   normalized -0 to numeric 0 before the general artifact walker, exact KBytes UTF-8 encoding, and capability/tenant/account/network/session
   discriminators in K. Persisted resources use descriptor ID plus K in the one canonical store.
   Transaction and stream records retain only accepted descriptor, actor, binding, generation, occurrence,
@@ -139,7 +139,7 @@ executable work. The deleted subordinate-machine persistence surface has no repl
 ### Rule card — WIRE-004, WIRE-005, WIRE-006
 
 - Surface: Runtime boot and provider restoration.
-- Rule: Provider data is immutable runtime input. Readiness validates the record, acquires the
+- Rule: Provider data is runtime input. Readiness validates the record, acquires the
   Implementation, installs declared persistable actors and the one canonical resource store, completes
   initial ensureActor calls, resolves exact context refs, seals the graph, and only then activates or
   exposes handles. Boot retains app ID, application-owned persistenceVersion, and durable identity facts
@@ -323,7 +323,7 @@ decompression, and application-domain failures.
   public caller-supplied capacity is honored exactly, the default remains 256, and zero retains no records
   while preserving truncation. Runtime observation is not persistence; only explicit export makes records
   durable. Permit, reservation, queue, gate, attachment, and drain algorithms are implementation details.
-- Accepts: Frozen inspection-sink snapshots with records and `truncatedBeforeSequence`; attachment drain/dispose
+- Accepts: Inspection-sink snapshots with records and `truncatedBeforeSequence`; attachment drain/dispose
   ordered through the accepted prefix; changed refs as revision-local hints; late attachment markers set
   to the greatest unseen runtime-global sequence.
 - Rejects: a second mutable history, inline sink processing that delays StoreFanout, silent dropping,
@@ -339,7 +339,7 @@ decompression, and application-domain failures.
   never machine revisions or TurnRecords. The exact sink surface is snapshot() plus clear(); one sink
   attaches once to one Runtime. After the commit is accepted, receipt, inspection, trace, CLI, and optional
   artifact sinks may process the record; sink processing or failure never delays StoreFanout or mutates
-  committed state. The buffer surface is exactly `snapshot(): { records: readonly InspectionRecord[];
+  committed state. The buffer surface is exactly `snapshot(): { records: InspectionRecord[];
   truncatedBeforeSequence: number | null }` and `clear(): void`; a pre-attachment snapshot is empty with a
   null marker. A late attachment marks the current runtime-global sequence as missing unless that sequence
   is zero. Attachment drain and disposal wait only through their accepted prefixes, and a sink callback
@@ -401,12 +401,12 @@ an incomplete latest hint into a historical diff.
 ### Rule card — WIRE-020C
 
 ```ts
-type ArtifactCanonicalPath = readonly (string | number)[];
+type ArtifactCanonicalPath = (string | number)[];
 type ArtifactValuePath =
-  | readonly ["records", number, "snapshot", "memory" | "context", ...ArtifactCanonicalPath]
-  | readonly ["records", number, "facts", number, "data" | "value" | "error" | "defect" | "latest", ...ArtifactCanonicalPath]
-  | readonly ["checkpoints", number, "actors", number, "snapshot", "memory" | "context", ...ArtifactCanonicalPath]
-  | readonly ["checkpoints", number, "snapshot", "memory" | "context", ...ArtifactCanonicalPath];
+  | ["records", number, "snapshot", "memory" | "context", ...ArtifactCanonicalPath]
+  | ["records", number, "facts", number, "data" | "value" | "error" | "defect" | "latest", ...ArtifactCanonicalPath]
+  | ["checkpoints", number, "actors", number, "snapshot", "memory" | "context", ...ArtifactCanonicalPath]
+  | ["checkpoints", number, "snapshot", "memory" | "context", ...ArtifactCanonicalPath];
 
 type TraceShareArtifactBase = {
   kind: "trace-share-artifact";
@@ -417,13 +417,13 @@ type TraceShareArtifactBase = {
   appPlanFingerprint: string;
   capturedAt: NonNegative;
   truncatedBeforeSequence: Nullable<NonNegative>;
-  records: readonly TraceRecord[];
-  checkpoints: readonly Checkpoint[];
-  redactions: readonly ArtifactValuePath[];
+  records: TraceRecord[];
+  checkpoints: Checkpoint[];
+  redactions: ArtifactValuePath[];
 };
 type TraceShareArtifact =
   | (TraceShareArtifactBase & { outcome: "completed"; end: Checkpoint; failure: null; cleanup: { status: "complete" } })
-  | (TraceShareArtifactBase & { outcome: "failed"; end: Nullable<Checkpoint>; failure: StoryFailure; cleanup: { status: "complete" } | { status: "failed"; diagnostics: readonly Diagnostic[] } });
+  | (TraceShareArtifactBase & { outcome: "failed"; end: Nullable<Checkpoint>; failure: StoryFailure; cleanup: { status: "complete" } | { status: "failed"; diagnostics: Diagnostic[] } });
 ```
 
 - Surface: The exact export-only privacy-reduced projection produced by a non-empty AMEND-API-003 redaction
@@ -495,7 +495,7 @@ FlowDisposeError and FlowStoryExecutionError retain complete Effect Cause.Cause<
 evidence contains ordered `DiagnosticProjection` values and does not mirror Effect Cause tree shape,
 traversal order, or fiber ordinals. Full Cause remains internal until classification and cleanup aggregation
 complete. Independently actionable cleanup diagnostics preserve order and multiplicity.
-FlowStoryExecutionError carries one deeply frozen package-owned envelope with completed checkpoints,
+FlowStoryExecutionError carries one package-owned envelope with completed checkpoints,
 optional end, failure boundary, primary diagnostic, ordered cleanup diagnostics, cancellation evidence,
 accepted/drained evidence-sequence facts, and the complete public Cause. A cleanup failure retains end
 when it was captured but never returns successful Story evidence; failure before end capture never
@@ -512,7 +512,7 @@ manufactures run.end.
   and fails. Success implies complete disposal; run.end is evidence, not actor finality. Pure model
   artifacts accept only a command-empty fresh story.machine plan and contain no executable Effect. They do
   not stand in for app Story cross-actor orchestration or persist fixture-declared outcomes.
-- Accepts: Deeply frozen named checkpoints and end, actor issues in snapshots, runtime.now and
+- Accepts: Named checkpoints and end, actor issues in snapshots, runtime.now and
   runtime.pendingWork, completed-checkpoint/failure-boundary/cleanup/evidence-sequence facts, and
   canonical pure state-key projections.
 - Rejects: work processing, time movement, actor creation, restoration, live lookup, external work,

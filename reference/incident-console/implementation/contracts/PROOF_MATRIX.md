@@ -60,7 +60,7 @@ the obligation open when it does not.
 | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
 | `REV-OPS-015`  | StoreFanout ordering: canonical-only fanout enters actor mailboxes; initiating publication precedes recipients; stale/unrelated revisions do not publish; only adjacent projection-only facts coalesce.                                 | `PROOF-003`, `PROOF-006`                                                                  |
 | `REV-OPS-015`  | Actor-scoped preview/CAS: owner-only visibility; promotion, rollback, post-boundary unknown, and canonical-base CAS preserve canonical truth and issue evidence.                                                                        | `PROOF-005`, `PROOF-007`                                                                  |
-| `REV-OPS-015`  | Projection-only publication: one complete immutable snapshot without transition evaluation; mapped events are later ordinary mailbox turns.                                                                                             | `PROOF-003`, `PROOF-006`, `PROOF-007`                                                     |
+| `REV-OPS-015`  | Projection-only publication: one complete snapshot without transition evaluation; mapped events are later ordinary mailbox turns.                                                                                             | `PROOF-003`, `PROOF-006`, `PROOF-007`                                                     |
 | `REV-OPS-015`  | Latest stream projection/hydration: latest value, `hasValue`, emission count, generation, and terminal status update without replay; live executable input is required for rematerialization.                                           | `PROOF-007`, `PROOF-014`                                                                  |
 | `REV-OPS-015`  | Timer polling: `after` targets an explicit refresh event, one exact-key refresh is in flight, scheduling follows settlement, and suspension/disposal fences it; no implicit retry or `poll` API.                                        | `PROOF-009`                                                                               |
 | `REV-HOST-007` | Passive `useView` dependency replacement: exact descriptor/`K` reads are recorded per evaluation, replaced after evaluation, matching StoreFanout reruns at one tear-free boundary, and selection does no work or mutation.             | `PROOF-012`                                                                               |
@@ -81,10 +81,10 @@ actorRef; // stable identity
 
 ### PROOF-001 — Public typing and inference
 
-- Surface: definition-owned input/memory inference; inherited readonly context and exact bindings; exact
+- Surface: definition-owned input/memory inference; inherited context and exact bindings; exact
   recursive state/configuration literals; named modules; closed `App.M`; exact `O`; `P`/`K`; refs,
-  leases, hooks, closed Story options, targets, observations, exact checkpoint-name accumulation and readonly
-  run-key inference, `run.end`, and machine/event/selected-value/resource/transaction/stream/input/context/
+  leases, hooks, closed Story options, targets, observations, exact checkpoint-name accumulation and run-key
+  inference, `run.end`, and machine/event/selected-value/resource/transaction/stream/input/context/
   memory/lifecycle domains.
 - Rule: public declarations preserve exact accepted types and remain practical to instantiate.
 - Exact literal preservation does not require a type-level UTF-8 encoder or encoded-byte rejection.
@@ -102,7 +102,7 @@ actorRef; // stable identity
   context has one current/previous pair per change, no intermediate projection combination, and no equal-result
   context work.
 - Proof: compile small, medium, and large Story/model fixtures with the pinned compiler.
-  Positive fixtures prove exact checkpoint-name accumulation and readonly run-key inference;
+  Positive fixtures prove exact checkpoint-name accumulation and run-key inference;
   negative fixtures prove duplicate-name, widened-string, and unknown-key rejection.
   Compiler errors remain blockers. Compiler-performance measurements and baseline refreshes
   are deferred and are not acceptance gates.
@@ -111,7 +111,7 @@ actorRef; // stable identity
 
 ### PROOF-002 — Pure compilation, admission, and graph identity
 
-- Surface: immutable app/Story construction, `AppPlan`, named module records, `App.M`, context graph,
+- Surface: app/Story construction, `AppPlan`, named module records, `App.M`, context graph,
   RuntimeSetup discovery/bootstrap, recursive states, defaults, reentry, and actor admission.
 - Rule: compilation is inert and complete; runtime admission cannot expand the compiled machine universe.
 - Accepts: zero actors/acquisition/external work during compilation and discovery; first-seen deduplication;
@@ -156,7 +156,7 @@ runtime.createActor
 - Observable guarantee: canonical StoreFanout facts enter actor mailboxes; initiating publication precedes
   recipients; stale/out-of-dependency revisions do not publish; adjacent projection-only facts may coalesce but
   never reorder lifecycle, terminal-operation, cancellation, stream-terminal, or mapped-event facts. A
-  projection-only fact publishes one complete immutable snapshot without transition, guard, `always`, action,
+  projection-only fact publishes one complete snapshot without transition, guard, `always`, action,
   redirect, memory, finite-work, or hidden-event evaluation; mapped events are later ordinary turns.
 - Proof: production mailbox and actor tests cover acknowledgment, reentrancy, macrostep order, full-batch
   atomicity, context bootstrap, StoreFanout ordering, and projection-only publication.
@@ -288,16 +288,16 @@ run.end
 - Rejects: missing/cyclic/unadmitted dependencies; seeds satisfying service requirements, invoking service
   functions, or authorizing arbitrary cache mutation; recipe runtime/mailbox/snapshot/operation/disposal/live
   handle; separate pending-external-work or result-injection commands.
-- Observable guarantee: recipe is deeply frozen and contains only exact machine, required fresh input, and
+- Observable guarantee: recipe contains only exact machine, required fresh input, and
   required context bindings; production kernels own admission, completion, writes, projections, and evidence.
-- Proof: Story dependency, provider precedence/construction, seed isolation, recipe immutability, lease, and
+- Proof: Story dependency, provider precedence/construction, seed isolation, recipe contents, lease, and
   reverse-cleanup evidence through production owners.
 - Trace: `REV-TEST-001`–`REV-TEST-005`, `REV-TEST-009`, `DEL-009`.
 
 ### PROOF-009 — Story processing and TestClock
 
 - Surface: closed Story commands, processing, TestClock movement, timers, command admission, finalization,
-  cleanup diagnostics, machine/app construction, immutable persistent prefix derivation, fresh-run isolation,
+  cleanup diagnostics, machine/app construction, persistent prefix derivation, fresh-run isolation,
   and `REV-OPS-015` timer polling.
 - Rule: `process` drains ready production work without advancing time or inventing external results; clock
   movement never calls `process` implicitly; explicit time commands remain explicit. Every builder command
@@ -306,7 +306,7 @@ run.end
 - Accepts: `process`, `advance`, `advanceTo`, `advanceToNextTimer`, `checkpoint`, `run`, target-aware app
   `send`, target-free machine forms; continuing observations/streams/future deadlines visible during finite work;
   assignment and independent extension of a common prefix; `maxTurns` default `100`; reverse dependency
-  cleanup; frozen package-owned `FlowStoryExecutionError`.
+  cleanup; package-owned `FlowStoryExecutionError`.
 - Rejects: implicit queue draining on clock movement; unbounded unknown finite work; abortable finalization;
   implicit retry; timer-owned finite action; `poll`; machine boot/refs/additional actors/raw memory/initial state/
   snapshot overrides; direct selected-context injection into App Stories; live Runtime forks or sharing live
@@ -315,7 +315,7 @@ run.end
   failure waits for the next scheduled refresh; suspension/disposal cancels and fences; resume has at most one
   overdue refresh; cleanup failure is deterministic.
 - Proof: negative clock tests, `maxTurns` bounds, command-admission and finalization tests, timer fencing tests,
-  machine Story construction, typed App Story RuntimeSetup/Runtime tests, immutable prefix derivation with the
+  machine Story construction, typed App Story RuntimeSetup/Runtime tests, prefix derivation with the
   original plan unchanged, independent prefix replay, and fresh production-Runtime isolation across runs.
 - Trace: `REV-OPS-015`, `REV-TEST-001`–`REV-TEST-010`.
 
@@ -324,13 +324,13 @@ run.end
 - Surface: app/machine checkpoints, exact Story recipes or app-owned stable refs, `runtime.now`,
   `runtime.pendingWork`, actor issues, read barrier, static Story-plan capture, `run.end`, cleanup, Cause, and
   WIRE-020B artifact/CLI projection; package-private defensive lookup for JavaScript, CLI, and untrusted names.
-- Rule: capture one atomic production read barrier; successful evidence is deeply frozen and failure never
+- Rule: capture one atomic production read barrier; successful evidence is captured and failure never
   fabricates a successful `run.end`. A checkpoint is evidence only, not a resumable Runtime snapshot. Internal
   runtime-string lookup checks own-key membership and rejects unknown names with existing `FlowUsageError`
   semantics.
 - Accepts: `actor(...)` lookup for app checkpoints; single actor machine checkpoint; completed checkpoints on
   failure; typed failure-boundary and cleanup evidence; one `DehydrateBarrier` cut over committed published state;
-  complete static Story-plan closure; evidence-sequence fence; deep freeze before lease release; pre-cleanup
+  complete static Story-plan closure; evidence-sequence fence; capture before lease release; pre-cleanup
   `run.end`; deterministic cleanup aggregation; package-private lookup of a known own key.
 - Rejects: live lookup or external work during capture; successful end evidence after failure; incomplete
   in-process Cause classification or cleanup truth; alternate artifact/CLI diagnostic owner; `fork`, `restore`, `fromCheckpoint`, any public dynamic-string checkpoint
@@ -338,7 +338,7 @@ run.end
 - Observable guarantee: only `FlowDisposeError` and `FlowStoryExecutionError` preserve complete
   `Effect Cause.Cause<unknown>`; WIRE-020B supplies ordered stable Flow diagnostics rather than Effect Cause
   tree traversal.
-- Proof: checkpoint/evidence immutability, capture-barrier, sequence-fence, failure, cleanup, and artifact/CLI
+- Proof: checkpoint/evidence capture, capture-barrier, sequence-fence, failure, cleanup, and artifact/CLI
   diagnostic projection tests; evidence-only API absence checks; internal known-own-key and unknown/inherited-name rejection.
 - Trace: `REV-MIG-005`, `WIRE-020B`, `REV-TEST-006`–`REV-TEST-010`.
 
@@ -406,7 +406,7 @@ selector)` is the sole ordinary reactive subscription path; React attaches produ
 
 - Surface: lifecycle snapshots, inspection events/sinks, publication and machine-turn counters, hydration,
   `LifecycleRecord`, sequence allocation, accepted evidence, truncation, failure isolation, drain, and disposal.
-- Rule: each lifecycle transition publishes one coherent immutable snapshot through the existing handle before
+- Rule: each lifecycle transition publishes one coherent snapshot through the existing handle before
   its inspection event; lifecycle evidence is not a machine turn.
 - Accepts: start/restore/dispose plus suspend/resume; listener reads observing event `to` lifecycle; private
   publication and machine-turn counters; hydration counter restoration; exact cause tags including restore
@@ -578,7 +578,7 @@ vp test packages/flow-state-rewrite/src/<focused-proof>.test.ts
 vp lint packages/flow-state-rewrite/src
 ```
 
-Frozen `packages/flow-state/` is migration evidence; its green gates do not prove replacement conformance.
+`packages/flow-state/` is migration evidence; its green gates do not prove replacement conformance.
 After replacement has package entrypoints, its package-local type, test, lint, build, and packed-consumer gates
 become the active proof boundary. Published-package, example, browser, and full-workspace gates remain late
 cutover obligations under `PROOF-016` and `PROOF-017`.

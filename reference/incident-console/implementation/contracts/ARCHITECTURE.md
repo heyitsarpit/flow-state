@@ -49,7 +49,7 @@ interruption. Foreign Promise APIs are converted once by a named adapter using
 ### ARCH-001 — AppPlan is inert and closed-world
 
 - Surface: `flow.app({ id, persistenceVersion, modules })`, `App.M`, `AppPlan`.
-- Rule: Compile the exact named machine records synchronously into one immutable flattened plan containing the complete operation graph, requirements, canonical IDs, durable descriptor resolution, ownership, reachability, and the indexes shared by admission, ownership, inspection, fixtures, and tooling. Every consumer uses those compiled indexes; a duplicate graph walk is permitted only when its completeness and ordering are proved. Compilation executes no Effect, acquires no resource, creates no actor, mutates no global registry, and never scans callbacks.
+- Rule: Compile the exact named machine records synchronously into one flattened plan containing the complete operation graph, requirements, canonical IDs, durable descriptor resolution, ownership, reachability, and the indexes shared by admission, ownership, inspection, fixtures, and tooling. Every consumer uses those compiled indexes; a duplicate graph walk is permitted only when its completeness and ordering are proved. Compilation executes no Effect, acquires no resource, creates no actor, mutates no global registry, and never scans callbacks.
 - Accepts: Declared operations, exact in-plan machines, descriptors, and context bindings.
 - Rejects: Duplicate durable machine IDs, duplicate property ownership, the same machine value under multiple module owners, out-of-plan machines/descriptors/providers, and the removed `dynamicMachines` admission seed.
 - Observable guarantee: `App.M` is the complete executable/admission universe; runtime execution cannot expand it.
@@ -109,7 +109,7 @@ boundaries. No feature-owned expected Error class or `Data.TaggedError` carrier 
   resulting typed success value and its typed tokens,
   selectors, operations, and retained initializer; it does not import the private definition Schema, re-decode
   authored configuration, or repeat definition validation. The pure initializer runs once for fresh actor
-  construction; machine behavior thereafter receives memory, readonly context, state, and events, not original
+  construction; machine behavior thereafter receives memory, context, state, and events, not original
   input. Restoration installs materialized memory without initialization or input replay.
 - Accepts: Omitted initializer input as `void`; transitions, activities, timers, redirects, context selectors, and operations layered onto the static shape.
 - Rejects: Reclassifying local/shared actors from input, rerunning input on restore/resume, or redefining static shape in machine behavior.
@@ -191,7 +191,7 @@ restored facts and the activation barrier are installed may the handle escape.
 
 - Surface: browser focus/online and non-browser host signals.
 - Rule: Enter through a scoped Effect stream or runtime-owned ingress. Browser listeners use scoped
-  acquisition, synchronously offer immutable facts to that ingress, and a runtime-owned consumer applies policy.
+  acquisition, synchronously offer facts to that ingress, and a runtime-owned consumer applies policy.
 - Accepts: Private static/controlled sources for non-browser and Story hosts.
 - Rejects: Callback `Effect.runSync` mutation, public host-signal mutators, or host-owned Flow state.
 - Observable guarantee: Host facts cannot publish reentrantly outside the runtime owner; offline is advisory and never cancels/blocks explicit operation admission.
@@ -212,7 +212,7 @@ restored facts and the activation barrier are installed may the handle escape.
 - Proof: `SEM-001`–`SEM-005`, `SNAP-P01`.
 - Trace: `ARCH-013`, `ARCH-013A`, `SEM-003`.
 
-Synchronous snapshot reads use immutable runtime-owned state and do not execute Effect, `runSync`,
+Synchronous snapshot reads use runtime-owned state and do not execute Effect, `runSync`,
 or an acquisition path. Every external callback, timer fact, stream emission, transaction settlement,
 context wave, and store revision enters this mailbox; asynchronous completions carry exact identity and
 generation back into it.
@@ -247,7 +247,7 @@ StoreState and may coalesce only adjacent projection-only facts.
 ### ARCH-013B — DehydrateBarrier excludes half-published commits
 
 - Surface: package-private `DehydrateBarrier`.
-- Rule: Share the barrier between StoreKernel commit windows and capture. Capture sees one StoreState revision, stable actor leases, and WIRE-009 checks, but does not freeze unrelated state-only turns.
+- Rule: Share the barrier between StoreKernel commit windows and capture. Capture sees one StoreState revision, stable actor leases, and WIRE-009 checks, and ignores unrelated state-only turns.
 - Accepts: Capture after a completed commit/publication boundary.
 - Rejects: Capture between actor store commit and actor publication or a barrier used as a public consistency/transaction API.
 - Observable guarantee: Checkpoints and persistence never capture half-published state.
@@ -307,7 +307,7 @@ StoreState and may coalesce only adjacent projection-only facts.
 ### ARCH-018 — Runtime readiness and React preparation use a minimal external store
 
 - Surface: private React readiness adapter, prepared `useActor` handle.
-- Rule: React may own one tiny immutable external store for runtime acquisition state only. During render, `useActor` prepares one final opaque local actor with pure initial snapshot, stable handle, real bounded command mailbox, and optional passive provisional context cut; no registry, edge, ownership, subscription, work, or evidence exists until commit attachment.
+- Rule: React may own one tiny external store for runtime acquisition state only. During render, `useActor` prepares one final opaque local actor with pure initial snapshot, stable handle, real bounded command mailbox, and optional passive provisional context cut; no registry, edge, ownership, subscription, work, or evidence exists until commit attachment.
 - Accepts: One prepared actor per component incarnation; a finite buffer supporting at least 64 commands;
   one atomic attachment recheck/activation/drain; keyed-remount diagnostic on machine/runtime/input/binding identity changes.
 - Rejects: React-owned actor engine/state/lease, overflow beyond the implementation's documented finite bound,
@@ -322,7 +322,7 @@ buffered commands are never delivered, later commands reject, and the abandoned 
 ### ARCH-019 — Passive actor selectors are the only React subscription path
 
 - Surface: `useView(actor, selector)`.
-- Rule: Read one atomic actor context containing leaf `state`, immutable `memory`, readonly `context`, lifecycle, issues, bound `can(event)`, and snapshot-bound passive `O`. Equality is complete-value `Object.is` for scalar/non-record results and fixed-key fieldwise `Object.is` for named records; no comparator is accepted.
+- Rule: Read one atomic actor context containing leaf `state`, `memory`, `context`, lifecycle, issues, bound `can(event)`, and snapshot-bound passive `O`. Equality is complete-value `Object.is` for scalar/non-record results and fixed-key fieldwise `Object.is` for named records; no comparator is accepted.
 - Accepts: Passive `key`, `getData`, and `getState` reads; internal dependency tracking.
 - Rejects: Direct StoreState/lifecycle subscriptions, operation acquisition, mutation, registered views, ref/family/view IDs, or view-bound `can` APIs.
 - Observable guarantee: Matching actor/store publications rerun selectors against one tear-free cut; passive selectors never create work.
@@ -342,7 +342,7 @@ buffered commands are never delivered, later commands reject, and the abandoned 
 ### ARCH-021 — Pure model exploration never executes production Effects
 
 - Surface: fresh command-empty `story.machine` model and `path.story.run()`.
-- Rule: Pure traversal owns its candidate events; fixtures may provide immutable static seeds only. The pure model contains no `Effect.run*`, transaction commit, or stream subscription. Live proof uses `path.story.run()`.
+- Rule: Pure traversal owns its candidate events; fixtures may provide static seeds only. The pure model contains no `Effect.run*`, transaction commit, or stream subscription. Live proof uses `path.story.run()`.
 - Accepts: Cross-actor orchestration in App Stories through the real runtime.
 - Rejects: Fixture-provided event candidates or reducing an App Story to one predicted machine model.
 - Observable guarantee: Pure exploration is execution-free and live execution is separately evidenced.

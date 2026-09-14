@@ -2,8 +2,8 @@
 
 Status: normative vNext contract
 
-This contract fixes the public immutable read surface consumed by passive views, hosts, Stories, and
-inspection. Snapshots report machine and primitive truth. They are immutable passive reads: they do not
+This contract fixes the public read surface consumed by passive views, hosts, Stories, and
+inspection. Snapshots report machine and primitive truth. They are passive reads: they do not
 create ownership, start work, retain execution history, or expose runtime internals. `SEMANTICS.md` owns
 publication ordering; `REACT_AND_HOSTS.md` owns host attachment and selector integration.
 
@@ -26,7 +26,7 @@ retention, or mutation method.
 ### SNAP-001 — One actor snapshot is one revision
 
 - Surface: public `ActorSnapshot` and `actor.snapshots`.
-- Rule: Every snapshot contains exact active leaf `state`, readonly `memory`, monotonic safe-integer `revision`, observed `storeRevision`, lifecycle `prepared | active | suspended | disposed`, typed named-operation readers, and active issues. Every container Flow creates is frozen/immutable; no field reads mutable live state. `state` and every callback state value are the exact active leaf token; `state.matches(token)` may match that leaf or any active ancestor.
+- Rule: Every snapshot contains exact active leaf `state`, `memory`, monotonic safe-integer `revision`, observed `storeRevision`, lifecycle `prepared | active | suspended | disposed`, typed named-operation readers, and active issues. Snapshot fields are sourced from the published turn rather than mutable live state. `state` and every callback state value are the exact active leaf token; `state.matches(token)` may match that leaf or any active ancestor.
 - Accepts: Accepted public issue summary, passive operation readers, lifecycle snapshots with new publication revision and prior machine-turn revision.
 - Rejects: Receipts, diagnostics, pending outcome records, `handled`, errors, raw `Cause.Cause<unknown>`, failure lifecycle, child projections, nested XState-style state values, final-node kind, actor output, or second public revision field.
 - Observable guarantee: Lifecycle snapshot is published before lifecycle evidence; lifecycle does not advance machine-turn revision or create a TurnRecord. A terminal-looking state remains an ordinary active actor state and does not complete/dispose/close the stream/mailbox.
@@ -56,7 +56,7 @@ const state = O.orderById.getState(key);
 ### SNAP-003 — Resource state remains a bounded descriptor/K projection
 
 - Surface: resource `getState(K)`, `getData(K)`, descriptor namespace, canonical tuple.
-- Rule: `P` is complete immutable executable input; `K` is the ordered readonly tuple from `key(P)`; identity is descriptor namespace + `K`. Resource execution accepts `P`; passive reads accept `K`. Equal keys do not switch a running generation's pinned `P`; hydrated key-only entries remain passive until a live binding supplies `P`.
+- Rule: `P` is complete executable input; `K` is the ordered tuple from `key(P)`; identity is descriptor namespace + `K`. Resource execution accepts `P`; passive reads accept `K`. Equal keys do not switch a running generation's pinned `P`; hydrated key-only entries remain passive until a live binding supplies `P`.
 - Resource status discriminants remain part of the retained resource surface under `RET-003`; the exact descriptor/`K`-typed `getState(K)` union, generation, failure, retained-value refresh, collection, and stream declaration laws are defined by `PUBLIC_API.md` `API-006`, while cross-actor canonical visibility is defined by `SNAP-004`.
 - Accepts: Family-specific status/generation/failure/retained-value/collection projection defined by `PUBLIC_API.md` `API-006`; bounded dense arrays/plain records and sorted record keys under `API-005`.
 - Rejects: Public parallel state aliases/cross-product conditional types, recursive type inspection, or limits confused with state/cache-entry counts.
@@ -127,14 +127,14 @@ const state = O.orderById.getState(key);
 
 ```ts
 type TimerSnapshot<State, Name> =
-  | { readonly status: "idle"; readonly name: Name }
-  | { readonly status: "scheduled"; readonly name: Name; readonly state: State;
-      readonly generation: number; readonly startedAt: number; readonly dueAt: number }
-  | { readonly status: "fired"; readonly name: Name; readonly state: State;
-      readonly generation: number; readonly startedAt: number; readonly dueAt: number;
-      readonly firedAt: number }
-  | { readonly status: "interrupt"; readonly name: Name; readonly state: State;
-      readonly generation: number; readonly startedAt: number; readonly dueAt: number };
+  | { status: "idle"; name: Name }
+  | { status: "scheduled"; name: Name; state: State;
+      generation: number; startedAt: number; dueAt: number }
+  | { status: "fired"; name: Name; state: State;
+      generation: number; startedAt: number; dueAt: number;
+      firedAt: number }
+  | { status: "interrupt"; name: Name; state: State;
+      generation: number; startedAt: number; dueAt: number };
 ```
 
 - Accepts: One-shot configuration generation, explicit event targeting, `after` refresh polling.
@@ -143,15 +143,15 @@ type TimerSnapshot<State, Name> =
 - Proof: `SNAP-P01`, `HOST-P02`.
 - Trace: `SEM-002`, `SEM-019`, `SEM-020`.
 
-## Time, immutability, and proof
+## Time and proof
 
 ### SNAP-010 — Snapshot time uses the runtime Clock
 
 - Surface: timestamps, snapshots, checkpoints, Story `TestClock`.
-- Rule: Public timestamps are integer epoch milliseconds from runtime Effect Clock; Stories/evidence use TestClock. Flow shallow-copies/freezes every envelope, record, array, canonical argument/key copy, reader, issue vector, and snapshot container. Application-owned opaque values are retained by identity and not recursively frozen. Checkpoint capture excludes unrelated actors, performs no live lookup from `actor(...)`, releases its read leases after `run.end` is captured, and runs `run.end` before cleanup.
-- Accepts: Deeply frozen Story checkpoints and successful `run.end` captured through one DehydrateBarrier cut over committed published state; capture includes static Story closure, one StoreState revision, published actor snapshots, pending work, time, and accepted evidence prefix, then releases leases.
+- Rule: Public timestamps are integer epoch milliseconds from runtime Effect Clock; Stories/evidence use TestClock. Flow copies every envelope, record, array, canonical argument/key copy, reader, issue vector, and snapshot container. Application-owned opaque values are retained by identity. Checkpoint capture excludes unrelated actors, performs no live lookup from `actor(...)`, releases its read leases after `run.end` is captured, and runs `run.end` before cleanup.
+- Accepts: Story checkpoints and successful `run.end` captured through one DehydrateBarrier cut over committed published state; capture includes static Story closure, one StoreState revision, published actor snapshots, pending work, time, and accepted evidence prefix, then releases leases.
 - Rejects: Mutating prior snapshots, live lookup during `actor(...)` capture, moving time, creating/restoring/disposing actors, external work during capture, or selected context serialized as a second truth source.
-- Observable guarantee: Later turns, collection, suspension, resume, and disposal cannot mutate an earlier snapshot/checkpoint. `FlowStoryExecutionError` retains frozen checkpoints/end evidence, failure boundary, ordered cleanup diagnostics, cancellation evidence, and sequence facts; declared Flow errors retain complete Cause. Actor snapshots do not expose that Cause, and artifact projection follows `WIRE-020B`.
+- Observable guarantee: Each capture records one committed publication boundary. `FlowStoryExecutionError` retains checkpoints/end evidence, failure boundary, ordered cleanup diagnostics, cancellation evidence, and sequence facts; declared Flow errors retain complete Cause. Actor snapshots do not expose that Cause, and artifact projection follows `WIRE-020B`.
 - Proof: `SNAP-P01`, `HOST-P04`, `HOST-P05`.
 - Trace: `ARCH-013B`, `SEM-004`, `HOST-014`.
 
@@ -159,7 +159,7 @@ type TimerSnapshot<State, Name> =
 
 - Surface: compile/runtime proof obligations for snapshots and passive readers.
 - Rule: Prove exact machine state tokens, refs, event/input/context/memory, descriptors, canonical `K`, selected values, and timer names; named family reads accept `K`, execution plans require `P`, and deleted generic/child/final-node/registered-view/disposal surfaces are absent.
-- Accepts: Runtime proofs for passive missing reads, canonical sharing with independent ownership, explicit write fencing, production completion mapping, frozen capture, actor-effective reads, overlay promotion/rollback, occurrence fencing, latest stream projection, hydration without emission replay, and passive operation-read reactivity.
+- Accepts: Runtime proofs for passive missing reads, canonical sharing with independent ownership, explicit write fencing, production completion mapping, capture, actor-effective reads, overlay promotion/rollback, occurrence fencing, latest stream projection, hydration without emission replay, and passive operation-read reactivity.
 - Rejects: Type-only or source-text proof of runtime behavior; receipts/operation-union/collection semantics duplicated here; source truth from a second contract owner.
 - Observable guarantee: Snapshot/read proof covers observable semantics without exposing internal runtime owners.
 - Proof: This is the snapshot proof index; operation unions/collection remain `PUBLIC_API.md` `API-006`, host writes remain `HOST-017`.
