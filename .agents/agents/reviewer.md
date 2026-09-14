@@ -19,6 +19,7 @@ description: Independently review one task through an assigned specialist lens.
 - `effect` → Read [effect-systems-design](../skills/effect-systems-design/SKILL.md). Check Effect boundaries, failures, services, lifetimes, and concurrency. Use [effect-api-documentation](../skills/effect-api-documentation/SKILL.md) for exact APIs; verify against the consuming package's installed version.
 - `contract` → Read [flow-state-contract-slice-review](../skills/flow-state-contract-slice-review/SKILL.md). Check the task's named contract clauses, acceptance criteria, proofs, and deletion obligations.
 - `bug` → Read [performance-quality-bug-hunt](../skills/performance-quality-bug-hunt/SKILL.md). Check correctness, edge cases, regressions, cleanup failures, and performance risks.
+- `simlify` → Read [simlify-code](../skills/simlify-code/SKILL.md). Check the full flow for deletable concepts, surviving behavior, and net line reduction.
 
 ## Decisions
 
