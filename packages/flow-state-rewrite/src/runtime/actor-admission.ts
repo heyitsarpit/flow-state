@@ -619,7 +619,7 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
     machine: { readonly definition: MachineDefinition } = ref.machine,
   ): ActorKey =>
     // SAFETY: the tuple segments make machine and ref boundaries injective even for delimiter-heavy authored names.
-    (`runtime-${runtimeNonce}/stable/${tupleSegment(machine.definition.id)}/${tupleSegment(ref.id)}` as ActorKey);
+    `runtime-${runtimeNonce}/stable/${tupleSegment(machine.definition.id)}/${tupleSegment(ref.id)}` as ActorKey;
 
   const getStableSlot = <DefinitionValue extends MachineDefinition>(
     ref: ActorRef<Machine<DefinitionValue>>,
@@ -713,7 +713,7 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
     const identity = {
       ref,
       // SAFETY: the local namespace is disjoint from stable tuple keys.
-      key: (`runtime-${runtimeNonce}/local/${ordinal.success}` as ActorKey),
+      key: `runtime-${runtimeNonce}/local/${ordinal.success}` as ActorKey,
       incarnation: incarnation.success,
       leaseEpoch: 0,
     };
@@ -1752,7 +1752,8 @@ const validateDependencyEdges = (
 };
 
 const planAdmitsMachine = (plan: ReturnType<typeof appPlan>, machine: MachineRecordValue) =>
-  plan.admitsMachine(machine as never);
+  // SAFETY: app-plan membership is an identity check; this boundary never reads Machine fields from the record.
+  plan.admitsMachine(machine as Machine);
 
 const validateAdmissionClaim = <A extends App, DefinitionValue extends MachineDefinition, I>(
   ref: ActorRef<Machine<DefinitionValue>>,
@@ -1832,11 +1833,7 @@ const validateActorAdmissionUnchecked = <
       return Result.fail(foreignRefFailure("fence"));
   }
 
-  const bindings = validateContextBindings(
-    machineFacts,
-    capturedInput.bindings,
-    authority,
-  );
+  const bindings = validateContextBindings(machineFacts, capturedInput.bindings, authority);
 
   if (Result.isFailure(bindings)) return Result.fail(bindings.failure);
   const dependencies = validateDependencyEdges(bindings.success.edges, capturedInput.dependencies);

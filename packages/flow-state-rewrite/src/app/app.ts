@@ -826,21 +826,24 @@ const indexModules = <Modules extends readonly AnyModule[]>(modules: Modules) =>
 };
 
 const copyMachineDefinition = (source: MachineDefinition): MachineDefinition => {
-  const authoredStates = (source as MachineDefinition & { readonly states?: readonly unknown[] }).states;
+  const authoredStates = (source as MachineDefinition & { readonly states?: readonly unknown[] })
+    .states;
 
   return {
     ...source,
+    // oxlint-disable-next-line anti-slop/no-conditional-empty-object-spread -- preserve the optional authored state container while copying the definition.
     ...(authoredStates === undefined ? {} : { states: [...authoredStates] }),
     S: { ...source.S },
     E: { ...source.E },
     context: { ...source.context },
     operations: { ...source.operations },
-  } as MachineDefinition;
+  };
 };
 
 const copyCompiledState = <DefinitionValue extends MachineDefinition>(
   source: CompiledState<DefinitionValue>,
 ): CompiledState<DefinitionValue> =>
+  // SAFETY: compilation preserves the source machine's state-keyed callback shapes; this copy only clones containers.
   ({
     ...source,
     handlers: Object.fromEntries(
@@ -868,6 +871,7 @@ const captureMachineFacts = <DefinitionValue extends MachineDefinition>(
   source: Machine<DefinitionValue>,
 ): Machine<DefinitionValue> =>
   // SAFETY: App construction has already admitted this machine; the private shell retains its exact typed definition and compiled behavior while the public shell remains the identity token.
+  // SAFETY: the cloned definition and compiled containers retain the source machine's private generic correlation.
   markMachineFacts({
     definition: copyMachineDefinition(source.definition),
     compiled: copyCompiledMachine(source.compiled),
@@ -886,11 +890,28 @@ const publishAppPlan = <
   const descriptors = privateDescriptors.slice();
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the admitted module tuple supplies this exact PlanMachine union.
   const planMachines = [...indexes.machineValues];
+
   const machineFacts = new Map<MachineRecordValue, AppMachineFacts>(
-    planMachines.map((machine) => [machine, captureMachineFacts(machine as Machine)]),
+    planMachines.map((machine) => [
+      machine,
+      // SAFETY: every indexed machine is admitted as a constructed MachineRecordValue.
+      captureMachineFacts(machine as Machine),
+    ]),
   );
+
   // SAFETY: the ID map contains only machines admitted from the exact module tuple.
   const resolveMachine = (id: string) => indexes.machineIds.get(id);
+
+  const resolveMachineFacts = <DefinitionValue extends MachineDefinition>(
+    machine: Machine<DefinitionValue>,
+  ): Machine<DefinitionValue> | undefined => {
+    const captured = machineFacts.get(machine);
+
+    if (captured === undefined) return undefined;
+
+    // SAFETY: the map key is the exact admitted machine identity and its value was captured from that machine.
+    return captured as unknown as Machine<DefinitionValue>;
+  };
 
   return {
     appId: admitted.id,
@@ -900,10 +921,7 @@ const publishAppPlan = <
     descriptors,
     // SAFETY: the ID map contains only identities admitted from the exact module machine records.
     resolveMachine,
-    resolveMachineFacts: <DefinitionValue extends MachineDefinition>(machine: Machine<DefinitionValue>) =>
-      machineFacts.get(machine)?.["definition"] === undefined
-        ? undefined
-        : (machineFacts.get(machine) as unknown as Machine<DefinitionValue>),
+    resolveMachineFacts,
     admitsMachine: (candidate) =>
       Predicate.isObject(candidate) && indexes.machineValues.has(candidate),
     resolveDescriptor: (id: string) => indexes.descriptorIds.get(id),

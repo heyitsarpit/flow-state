@@ -242,7 +242,7 @@ const foreignMachineRef: typeof editorRef = actorRef(otherMachine, "primary-edit
   persist: true,
 });
 
-const implementationValue: ImplementationType<Repository, never> = completeImplementation;
+const implementationValue: ImplementationType<Repository> = completeImplementation;
 
 const implementationTypeValue = Implementation.succeed(Repository, repository);
 

@@ -1487,30 +1487,37 @@ describe("pending regression scenarios", () => {
       const firstRuntime = runtimeSetup({ app: IntegrationApp }).construct();
       yield* firstRuntime.ready();
       const firstAssembly = runtimeOwner(firstRuntime).assembly();
+
       const first = yield* firstAssembly.createActor({
         ref,
         initial: initialStandaloneSnapshot(),
       });
+
       const firstKey = first.identity.key;
       const firstIncarnation = first.identity.incarnation;
 
       yield* Effect.provideContext(first.dispose(), firstAssembly.context);
       assert.strictEqual(first.engine.snapshot().lifecycle, "disposed");
+
       const stale = yield* Effect.exit(
         firstAssembly.createActor({ ref, initial: initialStandaloneSnapshot() }),
       );
 
       assert.ok(Exit.isFailure(stale));
+
       if (Exit.isFailure(stale)) {
         const reason = stale.cause.reasons.find(Cause.isFailReason);
         assert.ok(reason !== undefined);
+
         if (reason !== undefined) assert.strictEqual(reason.error.code, "DisposedActorRef");
       }
+
       yield* runtimeOwner(firstRuntime).close();
 
       const secondRuntime = runtimeSetup({ app: IntegrationApp }).construct();
       yield* secondRuntime.ready();
       const secondAssembly = runtimeOwner(secondRuntime).assembly();
+
       const second = yield* secondAssembly.createActor({
         ref,
         initial: initialStandaloneSnapshot(),
@@ -1533,10 +1540,12 @@ describe("pending regression scenarios", () => {
       yield* runtime.ready();
       const assembly = runtimeOwner(runtime).assembly();
       const ref = actorRef(IntegrationStandaloneMachine, "duplicate-stable", { persist: true });
+
       const actor = yield* assembly.createActor({
         ref,
         initial: initialStandaloneSnapshot(),
       });
+
       const before = actor.engine.snapshot();
 
       const duplicate = yield* Effect.exit(
@@ -1544,11 +1553,14 @@ describe("pending regression scenarios", () => {
       );
 
       assert.ok(Exit.isFailure(duplicate));
+
       if (Exit.isFailure(duplicate)) {
         const reason = duplicate.cause.reasons.find(Cause.isFailReason);
         assert.ok(reason !== undefined);
+
         if (reason !== undefined) assert.strictEqual(reason.error.code, "DuplicateActorClaim");
       }
+
       assert.deepStrictEqual(actor.engine.snapshot(), before);
 
       const dispatch = actor.engine.dispatch(IntegrationStandaloneEvent);
@@ -1619,12 +1631,17 @@ describe("pending regression scenarios", () => {
       const exposedDescriptors = plan.descriptors;
       const originalMachines = [...exposedMachines];
       const originalDescriptors = [...exposedDescriptors];
+
+      // SAFETY: this fixture mutates only the exposed operations container to prove app-time copying.
       const definition = IntegrationStandaloneMachine.definition as {
         operations: typeof IntegrationStandaloneMachine.definition.operations;
       };
+
+      // SAFETY: this fixture mutates only the exposed states container to prove app-time copying.
       const compiled = IntegrationStandaloneMachine.compiled as {
         states: typeof IntegrationStandaloneMachine.compiled.states;
       };
+
       const originalOperations = definition.operations;
       const originalStates = compiled.states;
       const initial = initialStandaloneSnapshot();
@@ -1638,6 +1655,7 @@ describe("pending regression scenarios", () => {
         const runtime = runtimeSetup({ app: IntegrationApp }).construct();
         yield* runtime.ready();
         const assembly = runtimeOwner(runtime).assembly();
+
         const actor = yield* assembly.createActor({
           ref: actorRef(IntegrationStandaloneMachine, "captured-facts"),
           initial,

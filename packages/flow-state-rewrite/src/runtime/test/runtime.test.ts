@@ -28,12 +28,7 @@ import type {
   ActorSnapshot,
   PreparedActorSnapshot,
 } from "../actor-engine.js";
-import {
-  runtimeOwner,
-  runtimeSetup,
-  type Runtime,
-  type RuntimeSetup,
-} from "../runtime.js";
+import { runtimeOwner, runtimeSetup, type Runtime, type RuntimeSetup } from "../runtime.js";
 import { RuntimeEvidence } from "../runtime-services.js";
 
 /*

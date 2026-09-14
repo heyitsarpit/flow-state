@@ -685,17 +685,27 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
         type AdmissionCompletion = Deferred.Deferred<Exit.Exit<AdmissionResult, PublicDiagnostic>>;
 
         const runtimeAdmission = {
+          // SAFETY: these fields are initialized empty and populated only after the corresponding admission phase succeeds.
           pendingCompletion: undefined as RuntimeAdmissionCompletion | undefined,
+          // SAFETY: these fields are initialized empty and populated only after the corresponding admission phase succeeds.
           actorIdentity: undefined as ActorIdentity<DefinitionValue> | undefined,
+          // SAFETY: these fields are initialized empty and populated only after the corresponding admission phase succeeds.
           actorFence: undefined as ActorFence | undefined,
+          // SAFETY: these fields are initialized empty and populated only after the corresponding admission phase succeeds.
           scope: undefined as Scope.Scope | undefined,
+          // SAFETY: these fields are initialized empty and populated only after the corresponding admission phase succeeds.
           prepared: undefined as PreparedActorEngine<DefinitionValue> | undefined,
+          // SAFETY: these fields are initialized empty and populated only after the corresponding admission phase succeeds.
           initialSnapshot: undefined as PreparedActorSnapshot<DefinitionValue> | undefined,
+          // SAFETY: these fields are initialized empty and populated only after the corresponding admission phase succeeds.
           baseline: undefined as ContextBaseline<DefinitionValue, ProviderDefinition> | undefined,
+          // SAFETY: these fields are initialized empty and populated only after the corresponding admission phase succeeds.
           activeBaseline: undefined as
             | ActiveContextBaseline<DefinitionValue, ProviderDefinition>
             | undefined,
+          // SAFETY: these fields are initialized empty and populated only after the corresponding admission phase succeeds.
           graph: undefined as ContextGraph<DefinitionValue, ProviderDefinition> | undefined,
+          // SAFETY: these fields are initialized empty and populated only after the corresponding admission phase succeeds.
           ledger: undefined as
             | ContextSelectionLedger<DefinitionValue, ProviderDefinition>
             | undefined,
@@ -704,25 +714,33 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
             ActorKey,
             { readonly publicationRevision: number; readonly machineTurnRevision: number }
           >(),
+          // SAFETY: bindings are populated only from the validated admission input.
           bindings: [] as readonly ContextBinding<DefinitionValue, ProviderDefinition>[],
+          // SAFETY: this controller is installed after the lifecycle admission phase completes.
           lifecycleController: undefined as
             | LifecycleController<DefinitionValue, PublicDiagnostic, ProviderDefinition>
             | undefined,
+          // SAFETY: this engine is installed after actor preparation completes.
           engine: undefined as ActorEngine<DefinitionValue> | undefined,
+          // SAFETY: this actor is installed after exposure completes.
           actor: undefined as AdmissionActor | undefined,
           propagationOpen: false,
+          // SAFETY: the no-op receiver is replaced before any provider delivery is accepted.
           receive: (() => Result.succeed(undefined)) as (
             providerFence: ActorFence,
             snapshot: RuntimeSnapshot,
           ) => Result.Result<void, PublicDiagnostic>,
+          // SAFETY: dependencies are populated only from the validated admission graph.
           dependencies: [] as Array<{
             readonly owner: RuntimeRegisteredActor;
             readonly edge: ActorDependencyEdge;
           }>,
+          // SAFETY: dependents are populated only from the validated admission graph.
           dependents: [] as Array<{
             readonly owner: RuntimeRegisteredActor;
             readonly dependent: RuntimeContextDependent;
           }>,
+          // SAFETY: the lease is installed only after registration succeeds.
           lease: undefined as
             | ActorLease<
                 A,
@@ -937,7 +955,9 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
 
               if (Result.isFailure(lifecycleMetadata))
                 return yield* Effect.fail(lifecycleMetadata.failure);
-              runtimeAdmission.lifecycleController = makeLifecycleController(lifecycleMetadata.success);
+              runtimeAdmission.lifecycleController = makeLifecycleController(
+                lifecycleMetadata.success,
+              );
 
               let initialCandidate: ActorSnapshot<DefinitionValue> = admittedInitialSnapshot;
 
@@ -954,7 +974,10 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
               }
 
               const initialSnapshot = yield* Effect.fromResult(
-                prepareActorSnapshot(validated.input.machineFacts ?? validated.input.ref.machine, initialCandidate),
+                prepareActorSnapshot(
+                  validated.input.machineFacts ?? validated.input.ref.machine,
+                  initialCandidate,
+                ),
               );
 
               runtimeAdmission.initialSnapshot = initialSnapshot;
@@ -1190,7 +1213,10 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
               return {
                 phase: "activated" as const,
                 attached,
-                activation: { baseline: runtimeAdmission.activeBaseline, engine: runtimeAdmission.engine },
+                activation: {
+                  baseline: runtimeAdmission.activeBaseline,
+                  engine: runtimeAdmission.engine,
+                },
                 rollback: [...attached.rollback, activationRollback],
               } satisfies ActivatedActorAdmission<
                 A,
@@ -1540,7 +1566,10 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
               runtimeAdmission.started = true;
               yield* reconcileContext();
               lifecycleOwner.registerActor({ dispose: () => registered.lease.dispose() });
-              yield* Scope.addFinalizer(runtimeScope, Scope.close(runtimeAdmission.scope!, Exit.void));
+              yield* Scope.addFinalizer(
+                runtimeScope,
+                Scope.close(runtimeAdmission.scope!, Exit.void),
+              );
 
               if (runtimeAdmission.pendingCompletion !== undefined)
                 forgetPending(registered.actor.ref, runtimeAdmission.pendingCompletion);

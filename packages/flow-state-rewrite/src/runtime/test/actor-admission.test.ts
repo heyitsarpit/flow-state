@@ -293,9 +293,7 @@ const makeTransactionHarness = (
   const calls: string[] = [];
   const cleanups: string[] = [];
 
-  let completion:
-    | Deferred.Deferred<Exit.Exit<TransactionExposed, PublicDiagnostic>>
-    | undefined;
+  let completion: Deferred.Deferred<Exit.Exit<TransactionExposed, PublicDiagnostic>> | undefined;
 
   let exposedCount = 0;
   let initializationCount = 0;
@@ -2484,50 +2482,56 @@ describe("pending regression scenarios", () => {
   // Setup: Hold the leader's stable `admitActor` transaction after reservation or preparation with a Deferred, then start a second `admitActor` call for the identical stable ref so both callers share one completion.
   // Action: Interrupt only the joined waiter, release the leader gate, and await the leader's terminal admission followed by the authority registry lookup of the ref.
   // Assert: The leader succeeds once with one prepare, activation, exposure, and cleanup owner; the interrupted waiter does not replay preparation or cancel the shared transaction, and no pending reservation remains.
-  it.effect("interrupting a joined stable admission waiter does not replay or strand the leader", () =>
-    Effect.gen(function* () {
-      const ref = actorRef(editorMachine, "joined-waiter", { persist: true });
-      const registered = yield* Deferred.make<void>();
-      const release = yield* Deferred.make<void>();
-      const harness = makeTransactionHarness(ref, {
-        mode: "fresh-stable",
-        registeredEntered: registered,
-        registerGate: release,
-      });
+  it.effect(
+    "interrupting a joined stable admission waiter does not replay or strand the leader",
+    () =>
+      Effect.gen(function* () {
+        const ref = actorRef(editorMachine, "joined-waiter", { persist: true });
+        const registered = yield* Deferred.make<void>();
+        const release = yield* Deferred.make<void>();
 
-      const leader = yield* Effect.forkChild(
-        Effect.exit(admitActor(makeTransactionInput(ref), harness.authority)),
-        { startImmediately: true },
-      );
-      yield* Deferred.await(registered);
+        const harness = makeTransactionHarness(ref, {
+          mode: "fresh-stable",
+          registeredEntered: registered,
+          registerGate: release,
+        });
 
-      const waiter = yield* Effect.forkChild(
-        Effect.exit(admitActor(makeTransactionInput(ref), harness.authority)),
-        { startImmediately: true },
-      );
-      yield* Effect.yieldNow;
-      yield* Fiber.interrupt(waiter);
-      const interrupted = yield* Effect.exit(Fiber.join(waiter));
-      assert.ok(Exit.isFailure(interrupted));
+        const leader = yield* Effect.forkChild(
+          Effect.exit(admitActor(makeTransactionInput(ref), harness.authority)),
+          { startImmediately: true },
+        );
 
-      yield* Deferred.succeed(release, undefined);
-      const terminal = yield* Fiber.join(leader);
+        yield* Deferred.await(registered);
 
-      assert.ok(Exit.isSuccess(terminal));
-      if (Exit.isFailure(terminal)) return;
-      assert.strictEqual(terminal.value.actor.ref.id, ref.id);
-      assert.deepStrictEqual(harness.calls, [
-        "reserve",
-        "prepare:fresh-stable",
-        "attach",
-        "activate",
-        "register",
-        "reserve",
-        "expose",
-      ]);
-      assert.strictEqual(harness.exposedCount, 1);
-      assert.strictEqual(Result.isSuccess(harness.registry.lookup(ref)), true);
-    }),
+        const waiter = yield* Effect.forkChild(
+          Effect.exit(admitActor(makeTransactionInput(ref), harness.authority)),
+          { startImmediately: true },
+        );
+
+        yield* Effect.yieldNow;
+        yield* Fiber.interrupt(waiter);
+        const interrupted = yield* Effect.exit(Fiber.join(waiter));
+        assert.ok(Exit.isFailure(interrupted));
+
+        yield* Deferred.succeed(release, undefined);
+        const terminal = yield* Fiber.join(leader);
+
+        assert.ok(Exit.isSuccess(terminal));
+
+        if (Exit.isFailure(terminal)) return;
+        assert.strictEqual(terminal.value.actor.ref.id, ref.id);
+        assert.deepStrictEqual(harness.calls, [
+          "reserve",
+          "prepare:fresh-stable",
+          "attach",
+          "activate",
+          "register",
+          "reserve",
+          "expose",
+        ]);
+        assert.strictEqual(harness.exposedCount, 1);
+        assert.strictEqual(Result.isSuccess(harness.registry.lookup(ref)), true);
+      }),
   );
 
   // Setup: Use the real makeActorLease with a cleanup Deferred and counter; construct and discard one lease.dispose() Effect without executing it.

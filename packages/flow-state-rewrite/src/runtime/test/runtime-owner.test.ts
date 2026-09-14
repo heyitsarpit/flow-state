@@ -148,7 +148,7 @@ describe("runtime owner", () => {
 
       type SuccessReady = ReturnType<typeof successOwner.ready>;
 
-      type SuccessReadyProof = Types.Equals<SuccessReady, Effect.Effect<SuccessExposure, never>>;
+      type SuccessReadyProof = Types.Equals<SuccessReady, Effect.Effect<SuccessExposure>>;
 
       const successReadyProof: SuccessReadyProof = true;
       void successReadyProof;
