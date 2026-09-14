@@ -1,48 +1,41 @@
 # Flow State agent guide
 
-Use this file to navigate, change, and verify Flow State. Read the live source,
-tests, contracts, and proofs before making implementation or status claims.
+Use this file as a router. Read the live source, tests, contracts, or proofs needed
+for the current task and claim. Do not read the whole repository by default.
 
-## Task Execution & Autonomy
+## Task modes
 
-- For implementation or fix requests, carry the authorized work through implementation
-  and relevant verification. Do not stop at a proposed plan when you can proceed.
-- Make reasonable assumptions for routine, reversible decisions. Ask a focused question
-  when missing information materially affects correctness, scope, or authorization.
-- Continue with authorized read-only actions, local worktrees, branch edits, and
-  appropriate tests without repeatedly asking.
-- Before requesting approval, finish the preparation that is already authorized and
-  present a concrete, reviewable result.
-- Respect required approval gates. Ask before destructive, irreversible, or otherwise
-  unauthorized actions.
-- Avoid boilerplate warnings about hypothetical risks. Explain concrete blockers or
-  material risks when relevant.
+- **Change or fix:** carry authorized work through implementation and relevant
+  verification. Do not stop at a plan when you can proceed.
+- **Plan or review:** inspect and propose within scope. Do not edit, mutate task state,
+  commit, or push.
+- Continue authorized read-only actions, local worktree or branch edits, and appropriate
+  tests without repeated confirmation.
+- Infer routine, reversible choices from context. Ask one focused question only when
+  missing information changes correctness, scope, or authorization.
+- Honor required approval gates. Finish authorized preparation before requesting approval
+  and present a concrete, reviewable result. Ask before destructive, irreversible, or
+  otherwise unauthorized actions.
+- Report concrete blockers and uncertainty. Avoid generic warnings.
 
-Planning and read-only requests authorize inspection and proposals, not edits or
-task-state changes.
+## Instruction precedence
 
-## Instruction Conflicts
+- User instructions take precedence over conflicting skill guidance, subject to higher
+  priority instructions and permission boundaries.
+- If a skill causes a pause, unfinished work, or a change of direction, name the exact
+  `SKILL.md` and rule. Distinguish an explicit requirement from your interpretation.
+  Continue unaffected authorized work.
 
-- Explicit user instructions take precedence over conflicting skill guidelines,
-  subject to higher-priority instructions and actual permission boundaries.
-- If a skill causes a pause or deviation, identify the file and relevant rule, and
-  explain whether it is an explicit requirement or your interpretation. Continue
-  any unaffected authorized work.
+## Communication
 
-## Style & Output
+- State the result early.
+- Use plain language, active voice, and short paragraphs or bullets.
+- Use lists when information is sequential, parallel, or easier to compare. Avoid
+  repetitive transitions and stock phrases.
+- Include technical detail when it helps review the work.
+- Report changed paths, verification, and remaining uncertainty.
 
-- Lead with the result. Use plain language, active voice, and concise paragraphs.
-  Include technical details that help assess the work.
-- Use lists when they improve readability; avoid repetitive transitions and stock
-  phrases such as "it's worth noting", "delve", "leverage", and "Bottom line".
-- Report what changed, what was verified, and any remaining uncertainty.
-
-## Verification
-
-- Match verification to the scope and impact of the change. Complete required checks;
-  expand testing when a concrete unresolved concern justifies it.
-
-## Useful structure
+## Repository map
 
 - `packages/flow-state/` — frozen package; never edit.
 - `packages/flow-state/src/index.ts`, `react-entry.ts`, `testing.ts`,
@@ -53,12 +46,25 @@ task-state changes.
 - `examples/` — maintained consumers and TypeScript compiler proofs.
 - `apps/docs/` — Vocs documentation and generated reference artifacts.
 - `reference/incident-console/implementation/contracts` — readonly contracts.
-- `codebases/` — research input only; `codebases/effect-v4/` is the primary
-  reference for how Effect features are used. Installed packages and the
-  lockfile remain authoritative for exact dependency APIs.
+- `codebases/` — research input only. `codebases/effect-v4/` is the primary
+  reference for Effect usage. Installed packages and the lockfile remain authoritative
+  for exact dependency APIs.
 
 Development uses Node 22.18+, `nub@0.7.5`, TypeScript 7.0.2, Vite Plus, and
 Effect 4.0.0-rc.112.
+
+## Verification
+
+- Choose checks from the changed scope and impact. Start with the smallest relevant
+  check; broaden only for a new change, failure, or unresolved concern.
+- Run `nub run build` when package, CLI, or example output changes. It also runs the example
+  CLI acceptance gate.
+- Run `nub run docs:build` for documentation or public API changes. Its generators derive API
+  reference data from public entrypoints and behavior data from
+  `examples/basic-cached-posts`.
+- Run `nub run verify` before claiming full workspace verification.
+- For instruction-only changes, validate the scoped diff, links, metadata and fences,
+  and referenced paths instead of running application tests by default.
 
 ## Commands
 
@@ -78,19 +84,10 @@ nub run test:browser                             # Incident Console browser beha
 nub run verify                                   # full closeout gate
 ```
 
-Use the smallest relevant check while iterating. Run `build` when package, CLI,
-or example output changes; it also runs the example CLI acceptance gate. The docs
-generators derive API reference data from public entrypoints and behavior data from
-`examples/basic-cached-posts`.
+## Change boundaries
 
-Run the required checks for the changed scope. Run `nub run verify` before claiming
-full workspace verification. For instruction-only changes, validate the diff, links,
-and metadata unless the task explicitly requires additional checks.
-
-## Coding practices
-
-- Read `git status`, relevant source and tests, README guidance, and the active
-  contract/task before editing. Preserve unrelated worktree changes.
+- Before editing, inspect `git status`, relevant source and tests, README guidance, and
+  the active contract/task. Preserve unrelated worktree changes.
 - Make the smallest change at the owning boundary. Check public API changes against
   affected entrypoints, tests, examples, packed consumers, and docs.
 - Add or update executable behavior proofs with semantic changes; source-text checks
@@ -111,9 +108,11 @@ and metadata unless the task explicitly requires additional checks.
 
 Load only skills relevant to the task; more than one may apply. The `orchestrator`,
 `coder`, and `reviewer` entrypoints define delegation, implementation, and independent
-review. Each implementation Bead uses one coder followed by four independent
+review. For Bead implementation workflows, use one coder followed by four independent
 reviewers in parallel: `style`, `effect`, `contract`, and `bug`. Each reviewer reads
 its assigned skills through the reviewer entrypoint. All four reviews must pass.
+Keep small and non-Bead work conditionally delegated; keep review evidence explicit
+and proportional.
 
 | Skill | Agent | Reach for it when | Do not reach for it when |
 | --- | --- | --- | --- |

@@ -60,24 +60,14 @@ This protocol applies when ending a Beads implementation workflow. It is subordi
 
 <!-- END BEADS INTEGRATION -->
 
-## Build & Test
+## Project guidance
 
-_Add your build and test commands here_
+Use [AGENTS.md](./AGENTS.md) for repository-wide task modes, boundaries, commands,
+verification, and skill routing. Read the role entrypoint that matches the work:
 
-```bash
-# Example:
-# npm install
-# npm test
-```
-
-## Architecture Overview
-
-_Add a brief overview of your project architecture_
-
-## Conventions & Patterns
-
-_Add your project-specific conventions here_
-
-## Agent workflow
-
-Follow [AGENTS.md](./AGENTS.md) and [.agents/agents/orchestrator.md](./.agents/agents/orchestrator.md) for the single-writer workflow. Independent review defaults to `reviewer_type=slice`, combining relevant guidance in one pass; specialist modes are reserved for bounded questions.
+- [.agents/agents/orchestrator.md](./.agents/agents/orchestrator.md) — delegated
+  orchestration and the single-writer workflow.
+- [.agents/agents/coder.md](./.agents/agents/coder.md) — implementation and focused
+  verification.
+- [.agents/agents/reviewer.md](./.agents/agents/reviewer.md) — independent read-only
+  review through one applicable lens.
