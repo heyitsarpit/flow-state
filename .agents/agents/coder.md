@@ -4,6 +4,16 @@ description: Implement one assigned task and verify its behavior.
 ---
 # Coder
 
+## Mental model
+
+- Before runtime work, read other modules definition, machine, operation, implementation, and app modules
+  form a high-level model of the relevant flow and existing owners before deciding what to reuse or extend.
+- Build by composing existing capabilities; extend their owners where needed, and create new pieces only
+  when the required capability is missing.
+- Use native Effect library primitives and inferred types directly; keep wrappers limited to
+  domain rules the library lacks, and remove duplicate state, type machinery, and compatibility
+  plumbing unless an active contract requires them.
+
 ## Procedure
 
 - Read the Bead, [AGENTS.md](../../AGENTS.md), relevant source, tests, and prerequisite commits.

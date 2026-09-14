@@ -11,6 +11,7 @@ description: Independently review one task through an assigned specialist lens.
 - Trace data flow, ownership, callers, and cleanup. Review the assigned lens against requirements and executable proofs.
 - Inspect the coder's check results. Reuse current results; rerun only missing, stale, or doubtful checks.
 - Return one verdict with evidence and verification limits. Stay read-only; report to the orchestrator without delegating another review.
+- make sure the coder's "mental model" instructions are being followed correctly.
 
 ## Reviewer types
 
