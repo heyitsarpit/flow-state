@@ -1,4 +1,4 @@
-import { Context, Deferred, Effect, Exit, Fiber, Layer, Scope } from "effect";
+import { Clock, Context, Deferred, Effect, Exit, Fiber, Layer, Scope } from "effect";
 
 import type { App, appPlan } from "../app/app.js";
 import type { MachineDefinition } from "../machine/grammar.js";
@@ -145,10 +145,10 @@ export const makeRuntimeServicesLayer = <
 /** The process clock is a replaceable adapter, not a lifecycle owner. */
 // RETURN_TYPE: The public clock factory preserves the replaceable service contract.
 export const makeRuntimeClock = (): RuntimeClockService => ({
-  now: Effect.sync(() => Date.now()),
+  now: Clock.currentTimeMillis,
   sleepUntil: (dueAt) =>
     Effect.gen(function* () {
-      const remaining = dueAt - (yield* Effect.sync(() => Date.now()));
+      const remaining = dueAt - (yield* Clock.currentTimeMillis);
 
       if (remaining > 0) yield* Effect.sleep(remaining);
     }),

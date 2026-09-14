@@ -1,5 +1,6 @@
 import { assert, describe, it } from "@effect/vitest";
 import { Cause, Deferred, Effect, Exit, Fiber, Option, Result, Scope } from "effect";
+import { TestClock } from "effect/testing";
 
 import { app, appPlan, module, type App } from "../../app/app.js";
 import { definition } from "../../definition/definition.js";
@@ -31,7 +32,7 @@ import {
 } from "../lifecycle.js";
 import { prepareActorEngine, prepareActorSnapshot, type ActorSnapshot } from "../actor-engine.js";
 import type { OperationOccurrenceFence } from "../turn-plan.js";
-import { makeRuntimeEvidenceOwner } from "../evidence.js";
+import { makeEvidenceSink, makeRuntimeEvidenceOwner } from "../evidence.js";
 import {
   makeRuntimeClock,
   makeRuntimeScheduler,
@@ -2247,7 +2248,58 @@ describe("pending regression scenarios", () => {
   // Setup: Extend the real lifecycle owner deadline fixture with a RuntimeClock adapter backed by the provided Effect Clock and an armed timer with a known absolute dueAt.
   // Action: Suspend and resume the lifecycle owner, advance the controlled clock through the deadline, and observe scheduler registrations and refresh completion.
   // Assert: The retained dueAt is unchanged, an overdue timer schedules at most one refresh, and all timestamps and sleeps come from the supplied clock rather than wall time.
-  it.todo("uses the provided Clock for retained timer deadlines across suspension");
+  it.effect("uses the provided Clock for retained timer deadlines across suspension", () =>
+    Effect.gen(function* () {
+      const testLayer = makeRuntimeServicesLayer({
+        clock: makeRuntimeClock(),
+        scheduler: makeRuntimeScheduler(),
+        evidence,
+      });
+
+      const active = yield* withRuntime(activateLifecycle(makePrepared()), testLayer);
+      let refreshes = 0;
+
+      const timer = {
+        name: "controlled-deadline",
+        startedAt: 25,
+        dueAt: 50,
+        status: "armed" as const,
+        generation: active.fence.generation,
+        refresh: Effect.sync(() => {
+          refreshes += 1;
+        }),
+      };
+
+      const suspended = yield* withRuntime(
+        suspendLifecycle({
+          ...active,
+          attachment: { ...active.attachment, timers: [timer] },
+        }),
+        testLayer,
+      );
+
+      const resumed = yield* withRuntime(resumeLifecycle(suspended), testLayer);
+      const retained = resumed.attachment.timers[0];
+
+      assert.strictEqual(retained?.dueAt, 50);
+      assert.ok(retained?.refresh !== undefined);
+      const work = resumed.attachment.work[0];
+      assert.ok(work !== undefined);
+      assert.strictEqual(work?.name, "timer:controlled-deadline");
+
+      yield* TestClock.adjust(0);
+      yield* TestClock.adjust(50);
+
+      if (work !== undefined) {
+        const completed = yield* Fiber.await(work.fiber);
+        assert.ok(Exit.isSuccess(completed));
+      }
+
+      assert.strictEqual(refreshes, 1);
+
+      yield* withRuntime(disposeLifecycle(resumed), testLayer);
+    }).pipe(Effect.provide(TestClock.layer())),
+  );
 
   // Setup: Use a real LifecycleController with two work participants. One has a failed cancel, a fiber already completed with interruption, and an explicit retryable finalizer that fails once; the independent participant cleans successfully. Keep Scope finalizers separate.
   // Action: Dispose and capture all stage outcomes; repair the explicit failed cancel/finalizer stages and retry through the same owner, then repeat disposal after release settles.
@@ -2257,7 +2309,70 @@ describe("pending regression scenarios", () => {
   // Setup: Use real lifecycle owners with scoped resource acquisitions and one evidence hub; install a finalizer signal on each acquired resource and queue terminal lifecycle records.
   // Action: Dispose the lifecycle owners, await every prompt finalizer signal, then call hub.close so its accepted-prefix drain completes before sink close; inspect the sink's received records after close returns.
   // Assert: Each finalizer runs once before sink close, close reports the captured accepted prefix, every queued terminal record is present after close, and no record arrives after the sink has closed.
-  it.todo("closes retained lifecycle scopes before evidence sink close");
+  it.effect("closes retained lifecycle scopes before evidence sink close", () =>
+    Effect.gen(function* () {
+      const order: string[] = [];
+
+      const evidenceOwner = makeRuntimeEvidenceOwner({
+        app: LifecycleApp,
+        plan: LifecyclePlan,
+        clock: makeRuntimeClock(),
+      });
+
+      const sink = yield* makeEvidenceSink({
+        id: "lifecycle-scope-order",
+        capacity: 8,
+        deliver: () => Effect.void,
+      });
+
+      assert.ok(Result.isSuccess(evidenceOwner.hub.attach(sink)));
+
+      const resourceScope = yield* Scope.make("sequential");
+      yield* Scope.addFinalizer(
+        resourceScope,
+        Effect.sync(() => order.push("scope-finalizer")),
+      );
+      const active = yield* withRuntime(activateLifecycle(makePrepared()));
+
+      const controller = makeLifecycleController({
+        ...active,
+        attachment: {
+          ...active.attachment,
+          resources: [
+            {
+              name: "retained-resource",
+              scope: resourceScope,
+              close: () => Effect.sync(() => order.push("resource-close")),
+              finalization: "pending",
+              cause: Option.none(),
+            },
+          ],
+        },
+      });
+
+      const services = makeRuntimeServicesLayer({
+        clock: makeRuntimeClock(),
+        scheduler: makeRuntimeScheduler(),
+        evidence: evidenceOwner.service,
+      });
+
+      const owner = makeLifecycleRuntimeOwner({ drain: evidenceOwner.service.drain });
+
+      owner.registerActor({
+        dispose: () =>
+          controller.command({ _tag: "actor:dispose", cause: { _tag: "owner-disposal" } }),
+      });
+      owner.registerProvider(
+        Effect.gen(function* () {
+          yield* evidenceOwner.close();
+          order.push("sink-closed");
+        }),
+      );
+
+      yield* Effect.provide(owner.dispose(), services);
+      assert.deepStrictEqual(order, ["resource-close", "scope-finalizer", "sink-closed"]);
+    }),
+  );
 
   // Setup: Acquire a real scoped lifecycle resource whose Scope finalizer records one call and dies; keep explicit retryable release separate from that finalizer.
   // Action: Dispose through the real owner, await lifetime release and its failed terminal Exit, then dispose again.

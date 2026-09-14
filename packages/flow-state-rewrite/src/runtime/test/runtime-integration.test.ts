@@ -1,5 +1,17 @@
 import { assert, describe, it } from "@effect/vitest";
-import { Cause, Context, Deferred, Effect, Exit, Fiber, Queue, Result, Stream } from "effect";
+import {
+  Cause,
+  Clock,
+  Context,
+  Deferred,
+  Effect,
+  Exit,
+  Fiber,
+  Queue,
+  Result,
+  Stream,
+} from "effect";
+import { TestClock } from "effect/testing";
 
 import { app, appPlan, module } from "../../app/app.js";
 import { definition } from "../../definition/definition.js";
@@ -1416,7 +1428,55 @@ describe("pending regression scenarios", () => {
   // Setup: Run the assembled runtime's readiness and lifecycle operations under the provided TestClock with a known virtual time, then attach an evidence sink before lifecycle publication.
   // Action: Read the assembled RuntimeClock and publish an actor lifecycle transition, then drain lifecycle evidence without consulting wall time.
   // Assert: RuntimeClock.now and the LifecycleRecord timestamp equal the virtual clock value, and no Date.now epoch value appears in the assembled lifecycle evidence.
-  it.todo("uses the provided Effect Clock for assembled lifecycle evidence");
+  it.effect("uses the provided Effect Clock for assembled lifecycle evidence", () =>
+    Effect.gen(function* () {
+      const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+      const records: EvidenceRecord[] = [];
+
+      const sink = yield* makeEvidenceSink({
+        id: "provided-clock-lifecycle",
+        capacity: 8,
+        deliver: (record) => Effect.sync(() => records.push(record)),
+      });
+
+      assert.ok(Result.isSuccess(assembly.evidence.hub.attach(sink)));
+
+      const actor = yield* assembly.createActor({
+        ref: actorRef(IntegrationStandaloneMachine, "provided-clock"),
+        initial: initialStandaloneSnapshot(),
+      });
+
+      const runtimeClock = Context.get(assembly.context, RuntimeClock);
+      const expected = yield* Clock.currentTimeMillis;
+
+      assert.strictEqual(yield* runtimeClock.now, expected);
+      yield* Effect.provideContext(
+        actor.lifecycle.command({
+          _tag: "actor:suspend",
+          cause: { _tag: "attachment" },
+        }),
+        assembly.context,
+      );
+      yield* assembly.evidence.hub.drain();
+
+      const lifecycle = records.find(
+        (record): record is Extract<EvidenceRecord, { readonly _tag: "lifecycle" }> =>
+          record._tag === "lifecycle" && record.provenance.actor.key === actor.fence.key,
+      );
+
+      assert.ok(lifecycle !== undefined);
+
+      if (lifecycle !== undefined) assert.strictEqual(lifecycle.timestamp, expected);
+      assert.ok(
+        records.every((record) => record._tag !== "lifecycle" || record.timestamp < 10_000),
+      );
+
+      yield* Effect.provideContext(actor.dispose(), assembly.context);
+      yield* runtimeOwner(runtime).close();
+    }).pipe(Effect.provide(TestClock.layer())),
+  );
 
   // Setup: Create a persist-enabled stable actor in runtime R1, retain its ref, fence, and lease, and verify the actor is registered and active.
   // Action: Dispose the lease in R1, then assert a second `assembly.createActor` call for the same ref fails; construct and ready a separate runtime R2 and create the same stable ref there.

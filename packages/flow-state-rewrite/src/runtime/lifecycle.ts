@@ -974,7 +974,7 @@ const scheduleRetainedTimers = <
       const work = Effect.gen(function* () {
         yield* clock.sleepUntil(timer.dueAt);
 
-        if (overdue && timer.refresh !== undefined) yield* timer.refresh;
+        if (timer.refresh !== undefined) yield* timer.refresh;
       });
 
       const started = yield* Effect.exit(

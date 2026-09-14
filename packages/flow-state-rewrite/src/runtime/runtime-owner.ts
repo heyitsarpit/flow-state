@@ -18,6 +18,16 @@ type RuntimeOwnerExternalRequirements<LayerRequirements, ProvidedServices, Expos
   | LayerRequirements
   | Exclude<Exclude<ExposureRequirements, ProvidedServices>, Scope.Scope>;
 
+type RuntimeOwnerState<A, LayerError, ExposureError, CloseError, ReadyRequirements> = {
+  scope?: Scope.Closeable;
+  bootstrap?: Fiber.Fiber<unknown, unknown>;
+  bootstrapExit?: Exit.Exit<A, LayerError | ExposureError>;
+  accepting: boolean;
+  disposal?: Exit.Exit<void, LayerError | ExposureError | CloseError>;
+  readyEffect?: Effect.Effect<A, LayerError | ExposureError, ReadyRequirements>;
+  closeEffect?: Effect.Effect<void, LayerError | ExposureError | CloseError>;
+};
+
 const makeRuntimeOwner = <
   LayerOutput,
   LayerError,
@@ -37,22 +47,25 @@ const makeRuntimeOwner = <
     CloseError
   >,
 ) => {
-  let ownedScope: Scope.Closeable | undefined;
-  let bootstrapFiber: Fiber.Fiber<unknown, unknown> | undefined;
-  let bootstrapOutcome: Exit.Exit<A, LayerError | ExposureError> | undefined;
-  let admissionOpen = true;
-  let disposalOutcome: Exit.Exit<void, LayerError | ExposureError | CloseError> | undefined;
-  const isAdmissionOpen = () => admissionOpen;
+  type ReadyRequirements = RuntimeOwnerExternalRequirements<
+    LayerRequirements,
+    LayerOutput,
+    ExposureRequirements
+  >;
+
+  const state: RuntimeOwnerState<A, LayerError, ExposureError, CloseError, ReadyRequirements> = {
+    accepting: true,
+  };
 
   const retainDisposalOutcome = (
     outcome: Exit.Exit<void, LayerError | ExposureError | CloseError>,
   ) => {
-    if (disposalOutcome === undefined) {
-      disposalOutcome = outcome;
-    } else if (Exit.isFailure(disposalOutcome) && Exit.isFailure(outcome)) {
-      disposalOutcome = Exit.failCause(Cause.combine(disposalOutcome.cause, outcome.cause));
+    if (state.disposal === undefined) {
+      state.disposal = outcome;
+    } else if (Exit.isFailure(state.disposal) && Exit.isFailure(outcome)) {
+      state.disposal = Exit.failCause(Cause.combine(state.disposal.cause, outcome.cause));
     } else if (Exit.isFailure(outcome)) {
-      disposalOutcome = outcome;
+      state.disposal = outcome;
     }
   };
 
@@ -60,11 +73,11 @@ const makeRuntimeOwner = <
     const scope = yield* Scope.make("sequential");
     const fiber = yield* Effect.fiber;
     yield* Effect.sync(() => {
-      ownedScope = scope;
-      bootstrapFiber = fiber;
+      state.scope = scope;
+      state.bootstrap = fiber;
     });
 
-    if (!isAdmissionOpen()) {
+    if (!state.accepting) {
       return yield* Effect.interrupt;
     }
 
@@ -80,13 +93,13 @@ const makeRuntimeOwner = <
       return yield* Effect.failCause(acquired.cause);
     }
 
-    if (!isAdmissionOpen()) {
+    if (!state.accepting) {
       return yield* Effect.interrupt;
     }
 
     const exposed = yield* Effect.exit(
       Effect.suspend(() =>
-        isAdmissionOpen()
+        state.accepting
           ? Scope.provide(scope)(Effect.provideContext(acquired.value)(options.expose))
           : Effect.interrupt,
       ).pipe(
@@ -100,39 +113,29 @@ const makeRuntimeOwner = <
       return yield* Effect.failCause(exposed.cause);
     }
 
-    ownedScope = scope;
+    state.scope = scope;
 
     return exposed.value;
   }).pipe(
     Effect.onExit((exit) =>
-      Exit.isFailure(exit) && ownedScope !== undefined
-        ? Scope.close(ownedScope, exit)
+      Exit.isFailure(exit) && state.scope !== undefined
+        ? Scope.close(state.scope, exit)
         : Effect.void,
     ),
     Effect.onExit((exit) =>
       Effect.sync(() => {
-        bootstrapOutcome = exit;
+        state.bootstrapExit = exit;
       }),
     ),
   );
 
-  const cachedBootstrap = Effect.cached(bootstrap);
-
-  let cachedReady:
-    | Effect.Effect<
-        A,
-        LayerError | ExposureError,
-        RuntimeOwnerExternalRequirements<LayerRequirements, LayerOutput, ExposureRequirements>
-      >
-    | undefined;
-
   const ready = Effect.suspend(() => {
-    if (cachedReady !== undefined) return cachedReady;
+    if (state.readyEffect !== undefined) return state.readyEffect;
 
-    return cachedBootstrap.pipe(
+    return Effect.cached(bootstrap).pipe(
       Effect.flatMap((effect) =>
         Effect.sync(() => {
-          cachedReady = effect;
+          state.readyEffect = effect;
 
           return effect;
         }),
@@ -142,17 +145,17 @@ const makeRuntimeOwner = <
   });
 
   const closeOnce = Effect.gen(function* () {
-    admissionOpen = false;
+    state.accepting = false;
 
-    const fiber = bootstrapFiber;
+    const fiber = state.bootstrap;
     const currentFiber = yield* Effect.fiber;
 
     if (fiber !== undefined && fiber !== currentFiber) {
       yield* Fiber.interrupt(fiber);
       yield* Fiber.await(fiber);
 
-      if (bootstrapOutcome !== undefined && Exit.isFailure(bootstrapOutcome)) {
-        retainDisposalOutcome(Exit.failCause(bootstrapOutcome.cause));
+      if (state.bootstrapExit !== undefined && Exit.isFailure(state.bootstrapExit)) {
+        retainDisposalOutcome(Exit.failCause(state.bootstrapExit.cause));
       }
     }
 
@@ -161,7 +164,7 @@ const makeRuntimeOwner = <
       retainDisposalOutcome(closeExit);
     }
 
-    const scope = ownedScope;
+    const scope = state.scope;
 
     if (scope !== undefined) {
       const scopeExit = yield* Effect.exit(Scope.close(scope, Exit.void));
@@ -170,21 +173,18 @@ const makeRuntimeOwner = <
       retainDisposalOutcome(Exit.void);
     }
 
-    if (disposalOutcome !== undefined && Exit.isFailure(disposalOutcome)) {
-      return yield* Effect.failCause(disposalOutcome.cause);
+    if (state.disposal !== undefined && Exit.isFailure(state.disposal)) {
+      return yield* Effect.failCause(state.disposal.cause);
     }
   });
 
-  const cachedClose = Effect.cached(closeOnce);
-  let cachedCloseEffect: Effect.Effect<void, LayerError | ExposureError | CloseError> | undefined;
-
   const close = Effect.suspend(() => {
-    if (cachedCloseEffect !== undefined) return cachedCloseEffect;
+    if (state.closeEffect !== undefined) return state.closeEffect;
 
-    return cachedClose.pipe(
+    return Effect.cached(closeOnce).pipe(
       Effect.flatMap((effect) =>
         Effect.sync(() => {
-          cachedCloseEffect = effect;
+          state.closeEffect = effect;
 
           return effect;
         }),
