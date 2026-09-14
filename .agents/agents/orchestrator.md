@@ -1,6 +1,6 @@
 ---
 name: orchestrator
-description: Coordinate one coder and four independent reviewers per task.
+description: Coordinate one coder and five independent reviewers per task.
 ---
 # Orchestrator
 
@@ -17,8 +17,8 @@ description: Coordinate one coder and four independent reviewers per task.
 
 - Missing context → run `bd prime` and read relevant prerequisite commits.
 - Missing dependency → resolve the Bead dependency before dispatch.
-- Review findings → collect all four verdicts and send one repair list to the same coder. Have affected reviewers recheck the repair; retain other verdicts only if their reviewed inputs are unchanged.
-- Review in progress → pause coder edits until all four verdicts arrive.
+- Review findings → collect all five verdicts and send one repair list to the same coder. Have affected reviewers recheck the repair; retain other verdicts only if their reviewed inputs are unchanged.
+- Review in progress → pause coder edits until all five verdicts arrive.
 - Failed checks or commit → resolve the failure before starting a successor. Preserve unrelated staged and working changes.
 
 ## Commit template
