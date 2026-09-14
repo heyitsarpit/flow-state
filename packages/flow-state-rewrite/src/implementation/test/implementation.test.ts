@@ -1,7 +1,7 @@
 import { assert, describe, it } from "@effect/vitest";
-import { Context, Effect, type Types } from "effect";
+import { Context, Effect, Layer, type Types } from "effect";
 
-import { Implementation, implementationEntries } from "../implementation.js";
+import { Implementation, implementationLayer } from "../implementation.js";
 import type {
   Implementation as ImplementationType,
   ImplementationErrorOf,
@@ -35,6 +35,20 @@ const acquire: Effect.Effect<ProjectConfigService, "configuration-failed", Proje
 const effectful = Implementation.effect(ProjectConfig, acquire);
 
 const complete = Implementation.merge(synchronous, effectful);
+
+const dependencyAware = Implementation.merge(
+  synchronous,
+  Implementation.effect(
+    ProjectConfig,
+    Effect.gen(function* () {
+      const repo = yield* ProjectRepo;
+
+      return { region: repo.find === projectApi.find ? "test" : "unexpected" };
+    }),
+  ),
+);
+
+const dependencyAwareLayer = implementationLayer(dependencyAware);
 
 type ErasedImplementation = ImplementationType<never, unknown, unknown>;
 
@@ -83,7 +97,11 @@ export type _MergedError = Expect<
 >;
 
 export type _MergedRequirements = Expect<
-  Types.Equals<ImplementationRequirementsOf<typeof complete>, ProjectRepo>
+  Types.Equals<ImplementationRequirementsOf<typeof complete>, never>
+>;
+
+export type _NativeLayerRequirements = Expect<
+  Types.Equals<Layer.Services<typeof dependencyAwareLayer>, never>
 >;
 
 void erasedSynchronous;
@@ -113,7 +131,7 @@ describe("implementation providers", () => {
     assert.strictEqual(calls, 0);
   });
 
-  it("does not inspect provider values during graph admission", () => {
+  it("does not inspect provider values during implementation admission", () => {
     const opaqueService = new Proxy(projectApi, {
       get: () => {
         throw new Error("provider value was inspected");
@@ -126,37 +144,6 @@ describe("implementation providers", () => {
     assert.doesNotThrow(() => Implementation.succeed(ProjectRepo, opaqueService));
   });
 
-  it("stores plain values and retains effect values", () => {
-    const synchronousEntry = implementationEntries(synchronous)[0];
-
-    if (synchronousEntry === undefined || synchronousEntry.kind !== "succeed") {
-      throw new Error("Expected a synchronous provider entry");
-    }
-
-    assert.strictEqual(synchronousEntry.value, projectApi);
-    assert.strictEqual(Object.hasOwn(synchronousEntry, "acquire"), false);
-
-    const effectfulEntry = implementationEntries(effectful)[0];
-
-    if (effectfulEntry === undefined || effectfulEntry.kind !== "effect") {
-      throw new Error("Expected an effect provider entry");
-    }
-
-    assert.strictEqual(effectfulEntry.acquire, acquire);
-    assert.strictEqual(Object.hasOwn(effectfulEntry, "value"), false);
-    const completeEntries = implementationEntries(complete);
-    assert.strictEqual(completeEntries[0], implementationEntries(synchronous)[0]);
-    assert.strictEqual(completeEntries[1], implementationEntries(effectful)[0]);
-    assert.deepStrictEqual(Object.getOwnPropertyNames(synchronous), ["kind"]);
-
-    const symbolValues = Object.getOwnPropertySymbols(synchronous).map(
-      (symbol) => Object.getOwnPropertyDescriptor(synchronous, symbol)?.value,
-    );
-
-    assert.strictEqual(symbolValues.length, 1);
-    assert.ok(Array.isArray(symbolValues[0]));
-  });
-
   it("rejects duplicate service identity instead of selecting by order", () => {
     const expected = /^Implementation service is duplicated: ImplementationTest\/ProjectRepo$/u;
     assert.throws(() => Implementation.merge(synchronous, synchronous), expected);
@@ -165,4 +152,32 @@ describe("implementation providers", () => {
     const duplicate = Implementation.succeed(sameIdentity, projectApi);
     assert.throws(() => Implementation.merge(synchronous, duplicate), expected);
   });
+
+  it.effect("composes dependent providers through native Layers", () =>
+    Effect.gen(function* () {
+      const context = yield* Layer.build(dependencyAwareLayer);
+
+      assert.strictEqual(Context.get(context, ProjectConfig).region, "test");
+    }),
+  );
+
+  it.effect("defers native Layer acquisition until the Layer is built", () =>
+    Effect.gen(function* () {
+      let calls = 0;
+
+      const inert = Implementation.effect(
+        ProjectConfig,
+        Effect.sync(() => {
+          calls += 1;
+
+          return ProjectConfig.of({ region: "inert" });
+        }),
+      );
+
+      assert.strictEqual(calls, 0);
+      const context = yield* Layer.build(implementationLayer(inert));
+      assert.strictEqual(calls, 1);
+      assert.strictEqual(Context.get(context, ProjectConfig).region, "inert");
+    }),
+  );
 });
