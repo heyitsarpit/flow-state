@@ -15,7 +15,7 @@ import {
 } from "effect";
 
 import {
-  implementationEntries,
+  implementationLayer,
   type Implementation,
   type ImplementationErrorOf,
   type ImplementationRequirementsOf,
@@ -522,9 +522,7 @@ type IsCompleteImplementation<
   ? [unknown] extends [ImplementationServices<I>]
     ? false
     : [RequirementsOf<A>] extends [ImplementationServices<I>]
-      ? [
-          Exclude<ImplementationRequirementsOf<I>, ImplementationServices<I> | Scope.Scope>,
-        ] extends [never]
+      ? [Exclude<ImplementationRequirementsOf<I>, Scope.Scope>] extends [never]
         ? true
         : false
       : false
@@ -1585,7 +1583,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
   });
 
   const owner = makeRuntimeOwner({
-    providers: implementation === undefined ? [] : implementationEntries(implementation),
+    layer: implementation === undefined ? Layer.empty : implementationLayer(implementation),
     expose: exposed,
     close: Effect.suspend(() => assembly?.dispose() ?? Effect.void),
   });

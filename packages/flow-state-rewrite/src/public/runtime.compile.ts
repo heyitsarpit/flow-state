@@ -64,6 +64,17 @@ const wrong = Implementation.succeed(Config, repo);
 
 const residual = Implementation.effect(Repo, Effect.service(Config).pipe(Effect.map(() => repo)));
 
+const laterProviderCannotCloseEarlierRequirement = Implementation.merge(
+  residual,
+  Implementation.succeed(Config, config),
+);
+
+runtimeSetup({
+  app: RequiredApp,
+  // @ts-expect-error A later provider cannot satisfy a requirement of an earlier provider.
+  implementation: laterProviderCannotCloseEarlierRequirement,
+});
+
 const failureAcquire: Effect.Effect<Service, "provider-failed"> = Effect.fail("provider-failed");
 
 const failing = Implementation.effect(Repo, failureAcquire);

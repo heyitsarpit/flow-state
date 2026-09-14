@@ -1,5 +1,5 @@
 import { assert, describe, it } from "@effect/vitest";
-import { Cause, Context, Deferred, Effect, Exit, Fiber, Result, type Types } from "effect";
+import { Cause, Context, Deferred, Effect, Exit, Fiber, Layer, Result, type Types } from "effect";
 
 import { app, module } from "../../app/app.js";
 import { definition } from "../../definition/definition.js";
@@ -80,27 +80,15 @@ type Probe = {
   readonly visible: Array<Readonly<{ first: string; second: number }>>;
 };
 
-const makeProviderPlan = (
+const makeLayerPlan = (
   probe: Probe,
   firstGate: Deferred.Deferred<void>,
   secondEntered: Deferred.Deferred<void>,
   secondGate: Deferred.Deferred<void>,
-) => [
-  {
-    service: FirstService,
-    acquire: Effect.acquireRelease(
-      Effect.gen(function* () {
-        probe.acquisitions.push("first");
-        yield* Deferred.await(firstGate);
-
-        return "first-service";
-      }),
-      () => Effect.sync(() => probe.cleanups.push("first")),
-    ),
-  },
-  {
-    service: SecondService,
-    acquire: Effect.acquireRelease(
+) =>
+  Layer.effect(
+    SecondService,
+    Effect.acquireRelease(
       Effect.gen(function* () {
         probe.acquisitions.push("second");
         yield* Deferred.succeed(secondEntered, undefined);
@@ -111,8 +99,22 @@ const makeProviderPlan = (
       () => Effect.sync(() => probe.cleanups.push("second")),
       { interruptible: true },
     ),
-  },
-];
+  ).pipe(
+    Layer.provideMerge(
+      Layer.effect(
+        FirstService,
+        Effect.acquireRelease(
+          Effect.gen(function* () {
+            probe.acquisitions.push("first");
+            yield* Deferred.await(firstGate);
+
+            return "first-service";
+          }),
+          () => Effect.sync(() => probe.cleanups.push("first")),
+        ),
+      ),
+    ),
+  );
 
 describe("runtime owner", () => {
   it.effect("publishes only a complete context and rolls back partial acquisition", () =>
@@ -123,7 +125,7 @@ describe("runtime owner", () => {
       const secondGate = yield* Deferred.make<void>();
 
       const successOwner = makeRuntimeOwner({
-        providers: makeProviderPlan(successProbe, firstGate, secondEntered, secondGate),
+        layer: makeLayerPlan(successProbe, firstGate, secondEntered, secondGate),
         expose: Effect.gen(function* () {
           yield* Effect.acquireRelease(Effect.succeed(undefined), () =>
             Effect.sync(() => successProbe.cleanups.push("exposure")),
@@ -146,10 +148,7 @@ describe("runtime owner", () => {
 
       type SuccessReady = ReturnType<typeof successOwner.ready>;
 
-      type SuccessReadyProof = Types.Equals<
-        SuccessReady,
-        Effect.Effect<SuccessExposure, never>
-      >;
+      type SuccessReadyProof = Types.Equals<SuccessReady, Effect.Effect<SuccessExposure, never>>;
 
       const successReadyProof: SuccessReadyProof = true;
       void successReadyProof;
@@ -190,7 +189,7 @@ describe("runtime owner", () => {
       yield* Deferred.succeed(failureSecondGate, undefined);
 
       const failureOwner = makeRuntimeOwner({
-        providers: makeProviderPlan(
+        layer: makeLayerPlan(
           failureProbe,
           failureFirstGate,
           failureSecondEntered,
@@ -218,23 +217,21 @@ describe("runtime owner", () => {
       const acquisitionFailureProbe: Probe = { acquisitions: [], cleanups: [], visible: [] };
 
       const acquisitionFailureOwner = makeRuntimeOwner({
-        providers: [
-          {
-            service: FirstService,
-            acquire: Effect.acquireRelease(
-              Effect.sync(() => {
-                acquisitionFailureProbe.acquisitions.push("first");
+        layer: Layer.effect(SecondService, Effect.fail("acquisition-failed" as const)).pipe(
+          Layer.provideMerge(
+            Layer.effect(
+              FirstService,
+              Effect.acquireRelease(
+                Effect.sync(() => {
+                  acquisitionFailureProbe.acquisitions.push("first");
 
-                return "first-service";
-              }),
-              () => Effect.sync(() => acquisitionFailureProbe.cleanups.push("first")),
+                  return "first-service";
+                }),
+                () => Effect.sync(() => acquisitionFailureProbe.cleanups.push("first")),
+              ),
             ),
-          },
-          {
-            service: SecondService,
-            acquire: Effect.fail("acquisition-failed" as const),
-          },
-        ],
+          ),
+        ),
         expose: Effect.fail("exposure-failed" as const),
       });
 
@@ -262,12 +259,7 @@ describe("runtime owner", () => {
       const defect = new Error("exposure-defect");
 
       const defectOwner = makeRuntimeOwner({
-        providers: makeProviderPlan(
-          defectProbe,
-          defectFirstGate,
-          defectSecondEntered,
-          defectSecondGate,
-        ),
+        layer: makeLayerPlan(defectProbe, defectFirstGate, defectSecondEntered, defectSecondGate),
         expose: Effect.die(defect),
       });
 
@@ -301,7 +293,7 @@ describe("runtime owner", () => {
       const interruptionSecondGate = yield* Deferred.make<void>();
 
       const interruptionOwner = makeRuntimeOwner({
-        providers: makeProviderPlan(
+        layer: makeLayerPlan(
           interruptionProbe,
           interruptionFirstGate,
           interruptionSecondEntered,
@@ -348,21 +340,19 @@ describe("runtime owner", () => {
       let waiterAcquisitions = 0;
 
       const waiterOwner = makeRuntimeOwner({
-        providers: [
-          {
-            service: FirstService,
-            acquire: Effect.acquireRelease(
-              Effect.gen(function* () {
-                waiterAcquisitions += 1;
-                yield* Deferred.succeed(waiterAcquisitionEntered, undefined);
-                yield* Deferred.await(waiterAcquisitionGate);
+        layer: Layer.effect(
+          FirstService,
+          Effect.acquireRelease(
+            Effect.gen(function* () {
+              waiterAcquisitions += 1;
+              yield* Deferred.succeed(waiterAcquisitionEntered, undefined);
+              yield* Deferred.await(waiterAcquisitionGate);
 
-                return "waiter-service";
-              }),
-              () => Effect.void,
-            ),
-          },
-        ],
+              return "waiter-service";
+            }),
+            () => Effect.void,
+          ),
+        ),
         expose: Effect.service(FirstService),
       });
 
@@ -400,21 +390,19 @@ describe("runtime owner", () => {
       let acquisitions = 0;
 
       const owner = makeRuntimeOwner({
-        providers: [
-          {
-            service: FirstService,
-            acquire: Effect.acquireRelease(
-              Effect.gen(function* () {
-                acquisitions += 1;
-                yield* Deferred.succeed(acquisitionEntered, undefined);
-                yield* Deferred.await(acquisitionGate);
+        layer: Layer.effect(
+          FirstService,
+          Effect.acquireRelease(
+            Effect.gen(function* () {
+              acquisitions += 1;
+              yield* Deferred.succeed(acquisitionEntered, undefined);
+              yield* Deferred.await(acquisitionGate);
 
-                return "shared-service";
-              }),
-              () => Effect.void,
-            ),
-          },
-        ],
+              return "shared-service";
+            }),
+            () => Effect.void,
+          ),
+        ),
         expose: Effect.service(FirstService),
       });
 
@@ -453,18 +441,16 @@ describe("runtime owner", () => {
       let failureAcquisitions = 0;
 
       const failureOwner = makeRuntimeOwner({
-        providers: [
-          {
-            service: FirstService,
-            acquire: Effect.gen(function* () {
-              failureAcquisitions += 1;
-              yield* Deferred.succeed(failureEntered, undefined);
-              yield* Deferred.await(failureGate);
+        layer: Layer.effect(
+          FirstService,
+          Effect.gen(function* () {
+            failureAcquisitions += 1;
+            yield* Deferred.succeed(failureEntered, undefined);
+            yield* Deferred.await(failureGate);
 
-              return yield* Effect.fail("shared-failure" as const);
-            }),
-          },
-        ],
+            return yield* Effect.fail("shared-failure" as const);
+          }),
+        ),
         expose: Effect.succeed("unreachable"),
       });
 
@@ -502,7 +488,7 @@ describe("runtime owner", () => {
     }),
   );
 
-  it.effect("acquires providers in declaration order with predecessor services installed", () =>
+  it.effect("acquires layers in declaration order with predecessor services installed", () =>
     Effect.gen(function* () {
       const firstService: OrderedFirst = { id: "first" };
       const secondService: OrderedSecond = { id: "second" };
@@ -515,51 +501,55 @@ describe("runtime owner", () => {
       const thirdGate = yield* Deferred.make<void>();
 
       const owner = makeRuntimeOwner({
-        providers: [
-          {
-            service: OrderedFirstService,
-            acquire: Effect.acquireRelease(
-              Effect.gen(function* () {
-                trace.push("start1");
-                yield* Deferred.await(firstGate);
-                trace.push("end1");
+        layer: Layer.effect(
+          OrderedThirdService,
+          Effect.acquireRelease(
+            Effect.gen(function* () {
+              trace.push("start3");
+              yield* Deferred.succeed(thirdEntered, undefined);
+              yield* Deferred.await(thirdGate);
+              trace.push("end3");
 
-                return firstService;
-              }),
-              () => Effect.sync(() => trace.push("release1")),
-            ),
-          },
-          {
-            service: OrderedSecondService,
-            acquire: Effect.acquireRelease(
-              Effect.gen(function* () {
-                trace.push("start2");
-                const first = yield* Effect.service(OrderedFirstService);
-                assert.strictEqual(first, firstService);
-                yield* Deferred.succeed(secondEntered, undefined);
-                yield* Deferred.await(secondGate);
-                trace.push("end2");
+              return thirdService;
+            }),
+            () => Effect.sync(() => trace.push("release3")),
+          ),
+        ).pipe(
+          Layer.provideMerge(
+            Layer.effect(
+              OrderedSecondService,
+              Effect.acquireRelease(
+                Effect.gen(function* () {
+                  trace.push("start2");
+                  const first = yield* Effect.service(OrderedFirstService);
+                  assert.strictEqual(first, firstService);
+                  yield* Deferred.succeed(secondEntered, undefined);
+                  yield* Deferred.await(secondGate);
+                  trace.push("end2");
 
-                return secondService;
-              }),
-              () => Effect.sync(() => trace.push("release2")),
-            ),
-          },
-          {
-            service: OrderedThirdService,
-            acquire: Effect.acquireRelease(
-              Effect.gen(function* () {
-                trace.push("start3");
-                yield* Deferred.succeed(thirdEntered, undefined);
-                yield* Deferred.await(thirdGate);
-                trace.push("end3");
+                  return secondService;
+                }),
+                () => Effect.sync(() => trace.push("release2")),
+              ),
+            ).pipe(
+              Layer.provideMerge(
+                Layer.effect(
+                  OrderedFirstService,
+                  Effect.acquireRelease(
+                    Effect.gen(function* () {
+                      trace.push("start1");
+                      yield* Deferred.await(firstGate);
+                      trace.push("end1");
 
-                return thirdService;
-              }),
-              () => Effect.sync(() => trace.push("release3")),
+                      return firstService;
+                    }),
+                    () => Effect.sync(() => trace.push("release1")),
+                  ),
+                ),
+              ),
             ),
-          },
-        ],
+          ),
+        ),
         expose: Effect.gen(function* () {
           return {
             first: yield* Effect.service(OrderedFirstService),
@@ -614,31 +604,32 @@ describe("runtime owner", () => {
       const typedFailureTrace: Array<string> = [];
 
       const typedFailureOwner = makeRuntimeOwner({
-        providers: [
-          {
-            service: OrderedFirstService,
-            acquire: Effect.acquireRelease(
-              Effect.sync(() => {
-                typedFailureTrace.push("start1");
+        layer: Layer.effect(
+          OrderedThirdService,
+          Effect.sync(() => {
+            typedFailureTrace.push("start3");
 
-                return firstService;
-              }),
-              () => Effect.sync(() => typedFailureTrace.push("release1")),
+            return thirdService;
+          }),
+        ).pipe(
+          Layer.provideMerge(
+            Layer.effect(OrderedSecondService, Effect.fail("provider-2-failed" as const)).pipe(
+              Layer.provideMerge(
+                Layer.effect(
+                  OrderedFirstService,
+                  Effect.acquireRelease(
+                    Effect.sync(() => {
+                      typedFailureTrace.push("start1");
+
+                      return firstService;
+                    }),
+                    () => Effect.sync(() => typedFailureTrace.push("release1")),
+                  ),
+                ),
+              ),
             ),
-          },
-          {
-            service: OrderedSecondService,
-            acquire: Effect.fail("provider-2-failed" as const),
-          },
-          {
-            service: OrderedThirdService,
-            acquire: Effect.sync(() => {
-              typedFailureTrace.push("start3");
-
-              return thirdService;
-            }),
-          },
-        ],
+          ),
+        ),
         expose: Effect.succeed(undefined),
       });
 
@@ -657,31 +648,32 @@ describe("runtime owner", () => {
       const defect = new Error("provider-2-defect");
 
       const defectOwner = makeRuntimeOwner({
-        providers: [
-          {
-            service: OrderedFirstService,
-            acquire: Effect.acquireRelease(
-              Effect.sync(() => {
-                defectTrace.push("start1");
+        layer: Layer.effect(
+          OrderedThirdService,
+          Effect.sync(() => {
+            defectTrace.push("start3");
 
-                return firstService;
-              }),
-              () => Effect.sync(() => defectTrace.push("release1")),
+            return thirdService;
+          }),
+        ).pipe(
+          Layer.provideMerge(
+            Layer.effect(OrderedSecondService, Effect.die(defect)).pipe(
+              Layer.provideMerge(
+                Layer.effect(
+                  OrderedFirstService,
+                  Effect.acquireRelease(
+                    Effect.sync(() => {
+                      defectTrace.push("start1");
+
+                      return firstService;
+                    }),
+                    () => Effect.sync(() => defectTrace.push("release1")),
+                  ),
+                ),
+              ),
             ),
-          },
-          {
-            service: OrderedSecondService,
-            acquire: Effect.die(defect),
-          },
-          {
-            service: OrderedThirdService,
-            acquire: Effect.sync(() => {
-              defectTrace.push("start3");
-
-              return thirdService;
-            }),
-          },
-        ],
+          ),
+        ),
         expose: Effect.succeed(undefined),
       });
 
@@ -706,37 +698,41 @@ describe("runtime owner", () => {
       const interruptionGate = yield* Deferred.make<void>();
 
       const interruptionOwner = makeRuntimeOwner({
-        providers: [
-          {
-            service: OrderedFirstService,
-            acquire: Effect.acquireRelease(
-              Effect.sync(() => {
-                interruptionTrace.push("start1");
+        layer: Layer.effect(
+          OrderedThirdService,
+          Effect.sync(() => {
+            interruptionTrace.push("start3");
 
-                return firstService;
+            return thirdService;
+          }),
+        ).pipe(
+          Layer.provideMerge(
+            Layer.effect(
+              OrderedSecondService,
+              Effect.gen(function* () {
+                interruptionTrace.push("start2");
+                yield* Deferred.succeed(interruptionEntered, undefined);
+                yield* Deferred.await(interruptionGate);
+
+                return secondService;
               }),
-              () => Effect.sync(() => interruptionTrace.push("release1")),
+            ).pipe(
+              Layer.provideMerge(
+                Layer.effect(
+                  OrderedFirstService,
+                  Effect.acquireRelease(
+                    Effect.sync(() => {
+                      interruptionTrace.push("start1");
+
+                      return firstService;
+                    }),
+                    () => Effect.sync(() => interruptionTrace.push("release1")),
+                  ),
+                ),
+              ),
             ),
-          },
-          {
-            service: OrderedSecondService,
-            acquire: Effect.gen(function* () {
-              interruptionTrace.push("start2");
-              yield* Deferred.succeed(interruptionEntered, undefined);
-              yield* Deferred.await(interruptionGate);
-
-              return secondService;
-            }),
-          },
-          {
-            service: OrderedThirdService,
-            acquire: Effect.sync(() => {
-              interruptionTrace.push("start3");
-
-              return thirdService;
-            }),
-          },
-        ],
+          ),
+        ),
         expose: Effect.succeed(undefined),
       });
 
@@ -775,60 +771,64 @@ describe("runtime owner", () => {
       const cleanupDefect = new Error("second-cleanup-defect");
 
       const owner = makeRuntimeOwner({
-        providers: [
-          {
-            service: OrderedFirstService,
-            acquire: Effect.acquireRelease(
-              Effect.sync(() => {
-                trace.push("acquire:first");
+        layer: Layer.effect(
+          OrderedThirdService,
+          Effect.acquireRelease(
+            Effect.gen(function* () {
+              trace.push("acquire:third:start");
+              yield* Deferred.succeed(thirdAcquisitionEntered, undefined);
+              yield* Deferred.await(thirdAcquisitionGate);
 
-                return { id: "first" } as const;
-              }),
-              () =>
+              return { id: "third" } as const;
+            }),
+            () => Effect.sync(() => trace.push("release:third")),
+            { interruptible: true },
+          ),
+        ).pipe(
+          Layer.provideMerge(
+            Layer.effect(
+              OrderedSecondService,
+              Effect.acquireRelease(
                 Effect.gen(function* () {
-                  trace.push("release:first:start");
-                  yield* Deferred.succeed(firstCleanupEntered, undefined);
-                  yield* Deferred.await(firstCleanupGate);
-                  trace.push("release:first:end");
-                }),
-            ),
-          },
-          {
-            service: OrderedSecondService,
-            acquire: Effect.acquireRelease(
-              Effect.gen(function* () {
-                trace.push("acquire:second:start");
-                yield* Deferred.await(secondAcquisitionGate);
-                trace.push("acquire:second:end");
+                  trace.push("acquire:second:start");
+                  yield* Deferred.await(secondAcquisitionGate);
+                  trace.push("acquire:second:end");
 
-                return { id: "second" } as const;
-              }),
-              () =>
-                Effect.gen(function* () {
-                  trace.push("release:second:start");
-                  yield* Deferred.succeed(secondCleanupEntered, undefined);
-                  yield* Deferred.await(secondCleanupGate);
-                  trace.push("release:second:end");
-                  yield* Effect.die(cleanupDefect);
+                  return { id: "second" } as const;
                 }),
-              { interruptible: true },
-            ),
-          },
-          {
-            service: OrderedThirdService,
-            acquire: Effect.acquireRelease(
-              Effect.gen(function* () {
-                trace.push("acquire:third:start");
-                yield* Deferred.succeed(thirdAcquisitionEntered, undefined);
-                yield* Deferred.await(thirdAcquisitionGate);
+                () =>
+                  Effect.gen(function* () {
+                    trace.push("release:second:start");
+                    yield* Deferred.succeed(secondCleanupEntered, undefined);
+                    yield* Deferred.await(secondCleanupGate);
+                    trace.push("release:second:end");
+                    yield* Effect.die(cleanupDefect);
+                  }),
+                { interruptible: true },
+              ),
+            ).pipe(
+              Layer.provideMerge(
+                Layer.effect(
+                  OrderedFirstService,
+                  Effect.acquireRelease(
+                    Effect.sync(() => {
+                      trace.push("acquire:first");
 
-                return { id: "third" } as const;
-              }),
-              () => Effect.sync(() => trace.push("release:third")),
-              { interruptible: true },
+                      return { id: "first" } as const;
+                    }),
+                    () =>
+                      Effect.gen(function* () {
+                        trace.push("release:first:start");
+                        yield* Deferred.succeed(firstCleanupEntered, undefined);
+                        yield* Deferred.await(firstCleanupGate);
+                        trace.push("release:first:end");
+                      }),
+                  ),
+                ),
+              ),
             ),
-          },
-        ],
+          ),
+        ),
         expose: Effect.sync(() => {
           visible.push("exposed");
 
@@ -978,16 +978,14 @@ describe("runtime owner", () => {
         let acquisitions = 0;
 
         const owner = makeRuntimeOwner({
-          providers: [
-            {
-              service: FirstService,
-              acquire: Effect.sync(() => {
-                acquisitions += 1;
+          layer: Layer.effect(
+            FirstService,
+            Effect.sync(() => {
+              acquisitions += 1;
 
-                return "service";
-              }),
-            },
-          ],
+              return "service";
+            }),
+          ),
           expose: scenario.effect,
         });
 
@@ -1096,16 +1094,9 @@ describe("runtime owner", () => {
             : Effect.acquireRelease(acquireService, normalCleanupRelease);
 
         const owner = makeRuntimeOwner({
-          providers: [
-            {
-              service: FirstService,
-              acquire: acquireWithRelease,
-            },
-            {
-              service: SecondService,
-              acquire: Effect.failCause(primaryAcquisitionCause),
-            },
-          ],
+          layer: Layer.effect(SecondService, Effect.failCause(primaryAcquisitionCause)).pipe(
+            Layer.provideMerge(Layer.effect(FirstService, acquireWithRelease)),
+          ),
           expose: Effect.succeed(undefined),
         });
 
@@ -1151,7 +1142,7 @@ describe("runtime owner", () => {
       let acquisitions = 0;
 
       const owner = makeRuntimeOwner({
-        providers: [{ kind: "succeed", service: FirstService, value: "inert" }],
+        layer: Layer.succeed(FirstService, "inert"),
         expose: Effect.sync(() => {
           acquisitions += 1;
 
@@ -1174,18 +1165,16 @@ describe("runtime owner", () => {
       let acquisitions = 0;
 
       const owner = makeRuntimeOwner({
-        providers: [
-          {
-            service: FirstService,
-            acquire: Effect.gen(function* () {
-              acquisitions += 1;
-              yield* Deferred.succeed(entered, undefined);
-              yield* Deferred.await(gate);
+        layer: Layer.effect(
+          FirstService,
+          Effect.gen(function* () {
+            acquisitions += 1;
+            yield* Deferred.succeed(entered, undefined);
+            yield* Deferred.await(gate);
 
-              return "ready";
-            }),
-          },
-        ],
+            return "ready";
+          }),
+        ),
         expose: Effect.service(FirstService),
       });
 
@@ -1205,18 +1194,16 @@ describe("runtime owner", () => {
       let acquisitions = 0;
 
       const owner = makeRuntimeOwner({
-        providers: [
-          {
-            service: FirstService,
-            acquire: Effect.gen(function* () {
-              acquisitions += 1;
-              yield* Deferred.succeed(entered, undefined);
-              yield* Deferred.await(gate);
+        layer: Layer.effect(
+          FirstService,
+          Effect.gen(function* () {
+            acquisitions += 1;
+            yield* Deferred.succeed(entered, undefined);
+            yield* Deferred.await(gate);
 
-              return "shared";
-            }),
-          },
-        ],
+            return "shared";
+          }),
+        ),
         expose: Effect.service(FirstService),
       });
 
@@ -1237,16 +1224,14 @@ describe("runtime owner", () => {
       let acquisitions = 0;
 
       const owner = makeRuntimeOwner({
-        providers: [
-          {
-            service: FirstService,
-            acquire: Effect.sync(() => {
-              acquisitions += 1;
+        layer: Layer.effect(
+          FirstService,
+          Effect.sync(() => {
+            acquisitions += 1;
 
-              return service;
-            }),
-          },
-        ],
+            return service;
+          }),
+        ),
         expose: Effect.service(FirstService),
       });
 
@@ -1265,16 +1250,14 @@ describe("runtime owner", () => {
       const failure = "typed-ready-failure" as const;
 
       const owner = makeRuntimeOwner({
-        providers: [
-          {
-            service: FirstService,
-            acquire: Effect.sync(() => {
-              attempts += 1;
+        layer: Layer.effect(
+          FirstService,
+          Effect.sync(() => {
+            attempts += 1;
 
-              return Effect.fail(failure);
-            }).pipe(Effect.flatten),
-          },
-        ],
+            return Effect.fail(failure);
+          }).pipe(Effect.flatten),
+        ),
         expose: Effect.service(FirstService),
       });
 
@@ -1292,15 +1275,16 @@ describe("runtime owner", () => {
       const cleaned: string[] = [];
 
       const owner = makeRuntimeOwner({
-        providers: [
-          {
-            service: FirstService,
-            acquire: Effect.acquireRelease(Effect.succeed("first"), () =>
-              Effect.sync(() => cleaned.push("first")),
+        layer: Layer.effect(SecondService, Effect.die("defect")).pipe(
+          Layer.provideMerge(
+            Layer.effect(
+              FirstService,
+              Effect.acquireRelease(Effect.succeed("first"), () =>
+                Effect.sync(() => cleaned.push("first")),
+              ),
             ),
-          },
-          { service: SecondService, acquire: Effect.die("defect") },
-        ],
+          ),
+        ),
         expose: Effect.succeed(undefined),
       });
 
@@ -1324,23 +1308,21 @@ describe("runtime owner", () => {
       let cleaned = 0;
 
       const owner = makeRuntimeOwner({
-        providers: [
-          {
-            service: FirstService,
-            acquire: Effect.acquireRelease(
-              Effect.gen(function* () {
-                yield* Deferred.succeed(entered, undefined);
+        layer: Layer.effect(
+          FirstService,
+          Effect.acquireRelease(
+            Effect.gen(function* () {
+              yield* Deferred.succeed(entered, undefined);
 
-                return "acquired";
+              return "acquired";
+            }),
+            () =>
+              Effect.sync(() => {
+                cleaned += 1;
               }),
-              () =>
-                Effect.sync(() => {
-                  cleaned += 1;
-                }),
-              { interruptible: true },
-            ),
-          },
-        ],
+            { interruptible: true },
+          ),
+        ),
         expose: Effect.gen(function* () {
           yield* Deferred.await(gate);
 
@@ -1364,16 +1346,14 @@ describe("runtime owner", () => {
       let attempts = 0;
 
       const owner = makeRuntimeOwner({
-        providers: [
-          {
-            service: FirstService,
-            acquire: Effect.sync(() => {
-              attempts += 1;
+        layer: Layer.effect(
+          FirstService,
+          Effect.sync(() => {
+            attempts += 1;
 
-              return Effect.fail("failed" as const);
-            }).pipe(Effect.flatten),
-          },
-        ],
+            return Effect.fail("failed" as const);
+          }).pipe(Effect.flatten),
+        ),
         expose: Effect.service(FirstService),
       });
 
@@ -1400,7 +1380,7 @@ describe("runtime owner", () => {
       });
 
       const owner = makeRuntimeOwner({
-        providers: [],
+        layer: Layer.empty,
         expose: Effect.succeed(undefined),
         close: Effect.fail(blocked),
       });
@@ -1418,7 +1398,7 @@ describe("runtime owner", () => {
       const order: string[] = [];
 
       const owner = makeRuntimeOwner({
-        providers: [],
+        layer: Layer.empty,
         expose: Effect.succeed(undefined),
         close: Effect.sync(() => order.push("evidence-close")),
       });
@@ -1434,21 +1414,19 @@ describe("runtime owner", () => {
       const entered = yield* Deferred.make<void>();
 
       const owner = makeRuntimeOwner({
-        providers: [
-          {
-            service: FirstService,
-            acquire: Effect.acquireRelease(
-              Effect.gen(function* () {
-                yield* Deferred.succeed(entered, undefined);
-                yield* Effect.never;
+        layer: Layer.effect(
+          FirstService,
+          Effect.acquireRelease(
+            Effect.gen(function* () {
+              yield* Deferred.succeed(entered, undefined);
+              yield* Effect.never;
 
-                return "running";
-              }),
-              () => Effect.sync(() => undefined),
-              { interruptible: true },
-            ),
-          },
-        ],
+              return "running";
+            }),
+            () => Effect.sync(() => undefined),
+            { interruptible: true },
+          ),
+        ),
         expose: Effect.service(FirstService),
       });
 
@@ -1468,12 +1446,12 @@ describe("runtime owner", () => {
       const secondValue = "second";
 
       const first = makeRuntimeOwner({
-        providers: [{ kind: "succeed", service: FirstService, value: firstValue }],
+        layer: Layer.succeed(FirstService, firstValue),
         expose: Effect.service(FirstService),
       });
 
       const second = makeRuntimeOwner({
-        providers: [{ kind: "succeed", service: FirstService, value: secondValue }],
+        layer: Layer.succeed(FirstService, secondValue),
         expose: Effect.service(FirstService),
       });
 
@@ -1485,29 +1463,30 @@ describe("runtime owner", () => {
     }),
   );
 
-  it.effect("acquires implementation providers in dependency order", () =>
+  it.effect("acquires implementation layers in dependency order", () =>
     Effect.gen(function* () {
       const order: string[] = [];
 
       const owner = makeRuntimeOwner({
-        providers: [
-          {
-            service: FirstService,
-            acquire: Effect.sync(() => {
-              order.push("first");
+        layer: Layer.effect(
+          SecondService,
+          Effect.gen(function* () {
+            order.push(yield* Effect.service(FirstService));
 
-              return "first";
-            }),
-          },
-          {
-            service: SecondService,
-            acquire: Effect.gen(function* () {
-              order.push(yield* Effect.service(FirstService));
+            return 2;
+          }),
+        ).pipe(
+          Layer.provideMerge(
+            Layer.effect(
+              FirstService,
+              Effect.sync(() => {
+                order.push("first");
 
-              return 2;
-            }),
-          },
-        ],
+                return "first";
+              }),
+            ),
+          ),
+        ),
         expose: Effect.all([Effect.service(FirstService), Effect.service(SecondService)], {
           concurrency: 1,
         }),
@@ -1521,7 +1500,7 @@ describe("runtime owner", () => {
 
   it.effect("rejects missing implementation requirements before admission", () =>
     Effect.gen(function* () {
-      const owner = makeRuntimeOwner({ providers: [], expose: Effect.service(FirstService) });
+      const owner = makeRuntimeOwner({ layer: Layer.empty, expose: Effect.service(FirstService) });
 
       // SAFETY: The empty context deliberately violates the service requirement to prove defect classification.
       const result = yield* Effect.exit(
@@ -1567,12 +1546,12 @@ describe("runtime owner", () => {
   it.effect("keeps request and Story setup on the same owner contract", () =>
     Effect.gen(function* () {
       const request = makeRuntimeOwner({
-        providers: [{ kind: "succeed", service: FirstService, value: "request" }],
+        layer: Layer.succeed(FirstService, "request"),
         expose: Effect.service(FirstService),
       });
 
       const story = makeRuntimeOwner({
-        providers: [{ kind: "succeed", service: FirstService, value: "story" }],
+        layer: Layer.succeed(FirstService, "story"),
         expose: Effect.service(FirstService),
       });
 

@@ -13,7 +13,7 @@ import {
 
 import { app, module } from "../../app/app.js";
 import { definition } from "../../definition/definition.js";
-import { Implementation, implementationEntries } from "../../implementation/implementation.js";
+import { Implementation } from "../../implementation/implementation.js";
 import { machine } from "../../machine/machine.js";
 import { resource } from "../../operation/resource.js";
 import { actorRef } from "../actor-ref.js";
@@ -715,35 +715,6 @@ describe("internal implementation runtime", () => {
           actorCreations: 1,
           evidence: ["provider-acquired"],
         });
-      }),
-    );
-
-    it.effect("reads a plain provider getter only during readiness", () =>
-      Effect.gen(function* () {
-        const implementation = Implementation.succeed(RepositoryKey, repository);
-        const entry = implementationEntries(implementation)[0];
-
-        if (entry === undefined || entry.kind !== "succeed") {
-          return yield* Effect.die(new Error("Expected a synchronous implementation entry"));
-        }
-
-        let reads = 0;
-        Object.defineProperty(entry, "value", {
-          configurable: true,
-          enumerable: true,
-          get: () => {
-            reads += 1;
-
-            return repository;
-          },
-        });
-
-        const setup = runtimeSetup({ app: EmptyApp, implementation });
-        assert.strictEqual(reads, 0);
-        const runtime = setup.construct();
-        assert.strictEqual(reads, 0);
-        yield* runtime.ready();
-        assert.strictEqual(reads, 1);
       }),
     );
 

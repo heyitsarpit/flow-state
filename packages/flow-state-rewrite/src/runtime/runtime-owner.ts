@@ -1,57 +1,36 @@
-import { Cause, Context, Effect, Exit, Fiber, Scope } from "effect";
+import { Cause, Effect, Exit, Fiber, Layer, Scope } from "effect";
 
 type RuntimeOwnerOptions<
-  AcquireError,
-  AcquireRequirements,
-  Providers extends readonly RuntimeProvider<AcquireError, AcquireRequirements>[],
+  LayerOutput,
+  LayerError,
+  LayerRequirements,
   A,
   ExposureError,
   ExposureRequirements,
-  CloseError = AcquireError | ExposureError,
+  CloseError = LayerError | ExposureError,
 > = {
-  readonly providers: Providers & readonly RuntimeProvider<AcquireError, AcquireRequirements>[];
+  readonly layer: Layer.Layer<LayerOutput, LayerError, LayerRequirements>;
   readonly expose: Effect.Effect<A, ExposureError, ExposureRequirements>;
   readonly close?: Effect.Effect<void, CloseError>;
 };
 
-type RuntimeProvider<AcquireError, AcquireRequirements> =
-  | {
-      readonly service: Context.Key<unknown, unknown>;
-      readonly acquire: Effect.Effect<unknown, AcquireError, AcquireRequirements>;
-    }
-  | {
-      readonly kind: "succeed";
-      readonly service: Context.Key<unknown, unknown>;
-      readonly value: unknown;
-    };
-
-type RuntimeProviderService<Provider> = Provider extends {
-  readonly service: Context.Key<infer Identifier, unknown>;
-}
-  ? Identifier
-  : never;
-
-type RuntimeOwnerProvidedServices<Providers extends readonly RuntimeProvider<unknown, unknown>[]> =
-  RuntimeProviderService<Providers[number]>;
-
-type RuntimeOwnerExternalRequirements<ProvidedServices, ExposureRequirements> = Exclude<
-  Exclude<ExposureRequirements, ProvidedServices>,
-  Scope.Scope
->;
+type RuntimeOwnerExternalRequirements<LayerRequirements, ProvidedServices, ExposureRequirements> =
+  | LayerRequirements
+  | Exclude<Exclude<ExposureRequirements, ProvidedServices>, Scope.Scope>;
 
 const makeRuntimeOwner = <
-  AcquireError,
-  AcquireRequirements,
-  Providers extends readonly RuntimeProvider<AcquireError, AcquireRequirements>[],
+  LayerOutput,
+  LayerError,
+  LayerRequirements,
   A,
   ExposureError,
   ExposureRequirements,
-  CloseError = AcquireError | ExposureError,
+  CloseError = LayerError | ExposureError,
 >(
   options: RuntimeOwnerOptions<
-    AcquireError,
-    AcquireRequirements,
-    Providers,
+    LayerOutput,
+    LayerError,
+    LayerRequirements,
     A,
     ExposureError,
     ExposureRequirements,
@@ -60,13 +39,13 @@ const makeRuntimeOwner = <
 ) => {
   let ownedScope: Scope.Closeable | undefined;
   let bootstrapFiber: Fiber.Fiber<unknown, unknown> | undefined;
-  let bootstrapOutcome: Exit.Exit<A, AcquireError | ExposureError> | undefined;
+  let bootstrapOutcome: Exit.Exit<A, LayerError | ExposureError> | undefined;
   let admissionOpen = true;
-  let disposalOutcome: Exit.Exit<void, AcquireError | ExposureError | CloseError> | undefined;
+  let disposalOutcome: Exit.Exit<void, LayerError | ExposureError | CloseError> | undefined;
   const isAdmissionOpen = () => admissionOpen;
 
   const retainDisposalOutcome = (
-    outcome: Exit.Exit<void, AcquireError | ExposureError | CloseError>,
+    outcome: Exit.Exit<void, LayerError | ExposureError | CloseError>,
   ) => {
     if (disposalOutcome === undefined) {
       disposalOutcome = outcome;
@@ -89,22 +68,8 @@ const makeRuntimeOwner = <
       return yield* Effect.interrupt;
     }
 
-    let context = Context.makeUnsafe<unknown>(new Map<string, never>());
-
     const acquired = yield* Effect.exit(
-      Scope.provide(scope)(
-        Effect.gen(function* () {
-          for (const provider of options.providers) {
-            const acquire =
-              "acquire" in provider ? provider.acquire : Effect.sync(() => provider.value);
-
-            const service = yield* Effect.provideContext(context)(acquire);
-            context = Context.add(context, provider.service, service);
-          }
-
-          return context;
-        }),
-      ).pipe(
+      Layer.buildWithScope(options.layer, scope).pipe(
         Effect.onExit((exit) => (Exit.isFailure(exit) ? Scope.close(scope, exit) : Effect.void)),
       ),
     );
@@ -156,11 +121,8 @@ const makeRuntimeOwner = <
   let cachedReady:
     | Effect.Effect<
         A,
-        AcquireError | ExposureError,
-        RuntimeOwnerExternalRequirements<
-          RuntimeOwnerProvidedServices<Providers>,
-          ExposureRequirements
-        >
+        LayerError | ExposureError,
+        RuntimeOwnerExternalRequirements<LayerRequirements, LayerOutput, ExposureRequirements>
       >
     | undefined;
 
@@ -214,7 +176,7 @@ const makeRuntimeOwner = <
   });
 
   const cachedClose = Effect.cached(closeOnce);
-  let cachedCloseEffect: Effect.Effect<void, AcquireError | ExposureError | CloseError> | undefined;
+  let cachedCloseEffect: Effect.Effect<void, LayerError | ExposureError | CloseError> | undefined;
 
   const close = Effect.suspend(() => {
     if (cachedCloseEffect !== undefined) return cachedCloseEffect;
