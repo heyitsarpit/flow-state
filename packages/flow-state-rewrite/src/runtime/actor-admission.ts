@@ -456,8 +456,14 @@ export const decodeActorAdmissionEnvelope = (
   decodeAdmissionEnvelope(value).pipe(Result.mapError(fromSchemaError));
 
 export type ActorIdentityRegistry<Actor = unknown> = {
+  /** Derives the runtime/stable/app-machine/stable-ref tuple without allocating state. */
+  readonly stableKey: <DefinitionValue extends MachineDefinition>(
+    ref: ActorRef<Machine<DefinitionValue>>,
+    machine?: { readonly definition: MachineDefinition },
+  ) => ActorKey;
   readonly reserveStable: <DefinitionValue extends MachineDefinition>(
     ref: ActorRef<Machine<DefinitionValue>>,
+    machine?: { readonly definition: MachineDefinition },
   ) => Result.Result<ActorIdentity<DefinitionValue>, PublicDiagnostic>;
   readonly createLocal: <DefinitionValue extends MachineDefinition>(
     machine: Machine<DefinitionValue>,
@@ -556,11 +562,8 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
     diagnostic,
   ) => Result.fail(diagnostic);
 
-  const allocateIdentityParts = (): Result.Result<
-    { readonly incarnation: ActorIncarnation; readonly key: ActorKey },
-    PublicDiagnostic
-  > => {
-    if (incarnationExhausted || keyOrdinalExhausted) {
+  const allocateIncarnation = (): Result.Result<ActorIncarnation, PublicDiagnostic> => {
+    if (incarnationExhausted) {
       return Result.fail(
         invalidIdentity(
           "Actor identity allocation is exhausted.",
@@ -569,9 +572,8 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
       );
     }
 
-    if (!isValidCursor(nextIncarnation) || !isValidCursor(nextKeyOrdinal)) {
+    if (!isValidCursor(nextIncarnation)) {
       incarnationExhausted = true;
-      keyOrdinalExhausted = true;
 
       return Result.fail(
         invalidIdentity(
@@ -583,17 +585,41 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
 
     // SAFETY: isValidCursor proves this counter is a positive safe integer before branding.
     const incarnation = nextIncarnation as ActorIncarnation;
-    // SAFETY: key ordinals are runtime-owned positive safe integers and the string is never caller-authored.
-    const key = ("runtime-" + runtimeNonce + "/actor-" + nextKeyOrdinal) as ActorKey;
 
     if (nextIncarnation === MAX_SAFE_INTEGER) incarnationExhausted = true;
     else nextIncarnation += 1;
 
+    return Result.succeed(incarnation);
+  };
+
+  const allocateLocalOrdinal = (): Result.Result<number, PublicDiagnostic> => {
+    if (keyOrdinalExhausted || !isValidCursor(nextKeyOrdinal)) {
+      keyOrdinalExhausted = true;
+
+      return Result.fail(
+        invalidIdentity(
+          "Actor identity allocation is exhausted.",
+          "Create a new runtime execution scope.",
+        ),
+      );
+    }
+
+    const ordinal = nextKeyOrdinal;
+
     if (nextKeyOrdinal === MAX_SAFE_INTEGER) keyOrdinalExhausted = true;
     else nextKeyOrdinal += 1;
 
-    return Result.succeed({ incarnation, key });
+    return Result.succeed(ordinal);
   };
+
+  const tupleSegment = (value: string) => `${value.length}:${value}`;
+
+  const stableKey = <DefinitionValue extends MachineDefinition>(
+    ref: ActorRef<Machine<DefinitionValue>>,
+    machine: { readonly definition: MachineDefinition } = ref.machine,
+  ): ActorKey =>
+    // SAFETY: the tuple segments make machine and ref boundaries injective even for delimiter-heavy authored names.
+    (`runtime-${runtimeNonce}/stable/${tupleSegment(machine.definition.id)}/${tupleSegment(ref.id)}` as ActorKey);
 
   const getStableSlot = <DefinitionValue extends MachineDefinition>(
     ref: ActorRef<Machine<DefinitionValue>>,
@@ -607,6 +633,7 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
 
   const reserveStable = <DefinitionValue extends MachineDefinition>(
     ref: ActorRef<Machine<DefinitionValue>>,
+    machineFacts?: { readonly definition: MachineDefinition },
   ): Result.Result<ActorIdentity<DefinitionValue>, PublicDiagnostic> => {
     if (localActorRefs.has(ref)) {
       return failure(
@@ -635,19 +662,19 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
       return Result.succeed(slot.entry.identity as ActorIdentity<DefinitionValue>);
     }
 
-    const parts = allocateIdentityParts();
+    const incarnation = allocateIncarnation();
 
-    if (Result.isFailure(parts)) return failure(parts.failure);
+    if (Result.isFailure(incarnation)) return failure(incarnation.failure);
 
     if (slot === undefined) {
-      slot = { key: parts.success.key, entry: undefined, tombstone: undefined };
+      slot = { key: stableKey(ref, machineFacts), entry: undefined, tombstone: undefined };
       byId.set(ref.id, slot);
     }
 
     const identity: ActorIdentity<DefinitionValue> = {
       ref,
       key: slot.key,
-      incarnation: parts.success.incarnation,
+      incarnation: incarnation.success,
       leaseEpoch: 0,
     };
 
@@ -669,21 +696,25 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
   const createLocal = <DefinitionValue extends MachineDefinition>(
     machine: Machine<DefinitionValue>,
   ): Result.Result<LocalActorIdentity<DefinitionValue>, PublicDiagnostic> => {
-    const parts = allocateIdentityParts();
+    const incarnation = allocateIncarnation();
 
-    if (Result.isFailure(parts)) return failure(parts.failure);
+    if (Result.isFailure(incarnation)) return failure(incarnation.failure);
+    const ordinal = allocateLocalOrdinal();
+
+    if (Result.isFailure(ordinal)) return failure(ordinal.failure);
 
     // SAFETY: this object is the complete opaque local ref; its private brand is type-only.
     const ref = {
       machine,
-      id: "local-" + runtimeNonce + "-" + parts.success.incarnation,
+      id: "local-" + runtimeNonce + "-" + incarnation.success,
       persist: false,
     } as LocalActorRef<DefinitionValue>;
 
     const identity = {
       ref,
-      key: parts.success.key,
-      incarnation: parts.success.incarnation,
+      // SAFETY: the local namespace is disjoint from stable tuple keys.
+      key: (`runtime-${runtimeNonce}/local/${ordinal.success}` as ActorKey),
+      incarnation: incarnation.success,
       leaseEpoch: 0,
     };
 
@@ -809,7 +840,7 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
     return Result.succeed(undefined);
   };
 
-  return { reserveStable, createLocal, register, lookup, rollback, tombstone };
+  return { stableKey, reserveStable, createLocal, register, lookup, rollback, tombstone };
 };
 
 /** Exact typed values supplied to the pre-mutation admission validator. */
@@ -822,6 +853,8 @@ export type ActorAdmissionInput<
   readonly app: A;
   readonly implementation: I;
   readonly ref: ActorRef<Machine<DefinitionValue>>;
+  /** Private app-time facts; public refs retain the authored machine identity token. */
+  readonly machineFacts?: Machine<DefinitionValue>;
   readonly input: InputOf<DefinitionValue> | undefined;
   readonly bindings: readonly ActorContextBinding<DefinitionValue, ProviderDefinition>[];
   readonly dependencies: readonly ActorDependencyEdge[];
@@ -1719,7 +1752,7 @@ const validateDependencyEdges = (
 };
 
 const planAdmitsMachine = (plan: ReturnType<typeof appPlan>, machine: MachineRecordValue) =>
-  plan.machines.some((candidate) => Object.is(candidate, machine));
+  plan.admitsMachine(machine as never);
 
 const validateAdmissionClaim = <A extends App, DefinitionValue extends MachineDefinition, I>(
   ref: ActorRef<Machine<DefinitionValue>>,
@@ -1755,6 +1788,7 @@ const validateActorAdmissionUnchecked = <
     app: input.app,
     implementation: input.implementation,
     ref: input.ref,
+    machineFacts: input.machineFacts,
     input: input.input,
     bindings: input.bindings,
     dependencies: input.dependencies,
@@ -1777,6 +1811,11 @@ const validateActorAdmissionUnchecked = <
   if (!planAdmitsMachine(plan, actorRef.success.machine))
     return Result.fail(unadmittedMachineFailure(actorRef.success.machine.definition.id));
 
+  const machineFacts = plan.resolveMachineFacts(actorRef.success.value.machine);
+
+  if (machineFacts === undefined)
+    return Result.fail(unadmittedMachineFailure(actorRef.success.machine.definition.id));
+
   const claim = validateAdmissionClaim(actorRef.success.value, actorRef.success.source, authority);
 
   if (Result.isFailure(claim)) return Result.fail(claim.failure);
@@ -1794,7 +1833,7 @@ const validateActorAdmissionUnchecked = <
   }
 
   const bindings = validateContextBindings(
-    actorRef.success.machine,
+    machineFacts,
     capturedInput.bindings,
     authority,
   );
@@ -1824,10 +1863,11 @@ const validateActorAdmissionUnchecked = <
     app: capturedInput.app,
     implementation: capturedInput.implementation,
     ref: actorRef.success.value,
+    machineFacts,
     input: capturedInput.input,
     bindings: immutableArray(canonicalBindings),
     dependencies: dependencies.success,
-  }) as ActorAdmissionInput<A, DefinitionValue, I, ProviderDefinition>;
+  }) as unknown as ActorAdmissionInput<A, DefinitionValue, I, ProviderDefinition>;
 
   return Result.succeed({
     input: canonicalInput,

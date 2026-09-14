@@ -6,7 +6,13 @@ import type { OperationDeclaration } from "../operation/operation.js";
 import { AuthoredName, isAuthoredName } from "../internal/authored-name.js";
 import { firstConfigurationField } from "../internal/schema-issue.js";
 import { isStableDataDescriptor, isStableKeyList } from "../internal/stable-observation.js";
-import { isConstructedMachine, type Machine, type MachineRecordValue } from "../machine/machine.js";
+import {
+  isConstructedMachine,
+  markMachineFacts,
+  type Machine,
+  type MachineRecordValue,
+} from "../machine/machine.js";
+import type { CompiledMachine, MachineDefinition, CompiledState } from "../machine/grammar.js";
 
 /*
  * Composition:
@@ -83,6 +89,8 @@ type AppDescriptor<Modules extends readonly AnyModule[]> =
 
 type PlanMachine<Modules extends readonly AnyModule[]> = AppMachine<Modules>;
 
+type AppMachineFacts = Machine;
+
 type AdmissionRecord = {
   readonly [moduleTypeId]?: true;
   readonly kind?: unknown;
@@ -131,6 +139,9 @@ type AppPlan<
   readonly machines: readonly PlanMachine<Modules>[];
   readonly descriptors: readonly AppDescriptor<Modules>[];
   readonly resolveMachine: (id: string) => PlanMachine<Modules> | undefined;
+  readonly resolveMachineFacts: <DefinitionValue extends MachineDefinition>(
+    machine: Machine<DefinitionValue>,
+  ) => Machine<DefinitionValue> | undefined;
   readonly admitsMachine: (machine: PlanMachine<Modules>) => boolean;
   readonly resolveDescriptor: (id: string) => AppDescriptor<Modules> | undefined;
   readonly admitsDescriptor: (descriptor: AppDescriptor<Modules>) => boolean;
@@ -204,7 +215,7 @@ export const appPlan = <
 
   // SAFETY: app() stores this plan under the same nominal App identity with the same generic inputs.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the private identity map preserves the App and AppPlan generic correlation.
-  return plan as AppPlan<Id, PersistenceVersion, Modules>;
+  return plan as unknown as AppPlan<Id, PersistenceVersion, Modules>;
 };
 
 type AppIndexes<
@@ -814,6 +825,54 @@ const indexModules = <Modules extends readonly AnyModule[]>(modules: Modules) =>
   return indexes;
 };
 
+const copyMachineDefinition = (source: MachineDefinition): MachineDefinition => {
+  const authoredStates = (source as MachineDefinition & { readonly states?: readonly unknown[] }).states;
+
+  return {
+    ...source,
+    ...(authoredStates === undefined ? {} : { states: [...authoredStates] }),
+    S: { ...source.S },
+    E: { ...source.E },
+    context: { ...source.context },
+    operations: { ...source.operations },
+  } as MachineDefinition;
+};
+
+const copyCompiledState = <DefinitionValue extends MachineDefinition>(
+  source: CompiledState<DefinitionValue>,
+): CompiledState<DefinitionValue> =>
+  ({
+    ...source,
+    handlers: Object.fromEntries(
+      Object.entries(source.handlers).map(([name, transitions]) => [
+        name,
+        transitions === undefined ? undefined : [...transitions],
+      ]),
+    ),
+    redirects: [...source.redirects],
+    activities: { ...source.activities },
+    timers: { ...source.timers },
+  }) as unknown as CompiledState<DefinitionValue>;
+
+const copyCompiledMachine = <DefinitionValue extends MachineDefinition>(
+  source: CompiledMachine<DefinitionValue>,
+): CompiledMachine<DefinitionValue> => ({
+  states: Object.fromEntries(
+    Object.entries(source.states).map(([path, state]) => [path, copyCompiledState(state)]),
+  ),
+  context: [...source.context],
+  memory: [...source.memory],
+});
+
+const captureMachineFacts = <DefinitionValue extends MachineDefinition>(
+  source: Machine<DefinitionValue>,
+): Machine<DefinitionValue> =>
+  // SAFETY: App construction has already admitted this machine; the private shell retains its exact typed definition and compiled behavior while the public shell remains the identity token.
+  markMachineFacts({
+    definition: copyMachineDefinition(source.definition),
+    compiled: copyCompiledMachine(source.compiled),
+  } as unknown as Machine<DefinitionValue>);
+
 const publishAppPlan = <
   Id extends string,
   PersistenceVersion extends string,
@@ -827,6 +886,9 @@ const publishAppPlan = <
   const descriptors = privateDescriptors.slice();
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the admitted module tuple supplies this exact PlanMachine union.
   const planMachines = [...indexes.machineValues];
+  const machineFacts = new Map<MachineRecordValue, AppMachineFacts>(
+    planMachines.map((machine) => [machine, captureMachineFacts(machine as Machine)]),
+  );
   // SAFETY: the ID map contains only machines admitted from the exact module tuple.
   const resolveMachine = (id: string) => indexes.machineIds.get(id);
 
@@ -838,6 +900,10 @@ const publishAppPlan = <
     descriptors,
     // SAFETY: the ID map contains only identities admitted from the exact module machine records.
     resolveMachine,
+    resolveMachineFacts: <DefinitionValue extends MachineDefinition>(machine: Machine<DefinitionValue>) =>
+      machineFacts.get(machine)?.["definition"] === undefined
+        ? undefined
+        : (machineFacts.get(machine) as unknown as Machine<DefinitionValue>),
     admitsMachine: (candidate) =>
       Predicate.isObject(candidate) && indexes.machineValues.has(candidate),
     resolveDescriptor: (id: string) => indexes.descriptorIds.get(id),

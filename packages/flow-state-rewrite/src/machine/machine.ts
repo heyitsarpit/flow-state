@@ -82,6 +82,15 @@ const isMachineReference = (value: unknown): value is MachineRecordValue =>
 export const isConstructedMachine = (value: unknown): value is Machine =>
   isMachineReference(value) && constructedMachines.has(value);
 
+/** Registers an app-owned private machine-facts shell for runtime snapshot validation. */
+export const markMachineFacts = <DefinitionValue extends MachineDefinition>(
+  value: Machine<DefinitionValue>,
+): Machine<DefinitionValue> => {
+  constructedMachines.add(value);
+
+  return value;
+};
+
 const collectRegistrations = <DefinitionValue extends MachineDefinition>() => {
   const context: ContextRegistration<DefinitionValue>[] = [];
   const memory: MemoryRegistration<DefinitionValue>[] = [];

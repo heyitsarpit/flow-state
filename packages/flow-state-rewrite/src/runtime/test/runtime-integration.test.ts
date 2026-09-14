@@ -1,7 +1,7 @@
 import { assert, describe, it } from "@effect/vitest";
 import { Cause, Context, Deferred, Effect, Exit, Fiber, Queue, Result, Stream } from "effect";
 
-import { app, module } from "../../app/app.js";
+import { app, appPlan, module } from "../../app/app.js";
 import { definition } from "../../definition/definition.js";
 import { Failure } from "../../diagnostic/diagnostic.js";
 import { Implementation } from "../../implementation/implementation.js";
@@ -1421,12 +1421,86 @@ describe("pending regression scenarios", () => {
   // Setup: Create a persist-enabled stable actor in runtime R1, retain its ref, fence, and lease, and verify the actor is registered and active.
   // Action: Dispose the lease in R1, then assert a second `assembly.createActor` call for the same ref fails; construct and ready a separate runtime R2 and create the same stable ref there.
   // Assert: R1 retains a DisposedActorRef tombstone and the stale engine rejects dispatch, while R2 receives a fresh incarnation and can dispatch independently.
-  it.todo("reuses a disposed stable ref only in a fresh runtime incarnation");
+  it.effect("reuses a disposed stable ref only in a fresh runtime incarnation", () =>
+    Effect.gen(function* () {
+      const ref = actorRef(IntegrationStandaloneMachine, "fresh-incarnation", { persist: true });
+      const firstRuntime = runtimeSetup({ app: IntegrationApp }).construct();
+      yield* firstRuntime.ready();
+      const firstAssembly = runtimeOwner(firstRuntime).assembly();
+      const first = yield* firstAssembly.createActor({
+        ref,
+        initial: initialStandaloneSnapshot(),
+      });
+      const firstKey = first.identity.key;
+      const firstIncarnation = first.identity.incarnation;
+
+      yield* Effect.provideContext(first.dispose(), firstAssembly.context);
+      assert.strictEqual(first.engine.snapshot().lifecycle, "disposed");
+      const stale = yield* Effect.exit(
+        firstAssembly.createActor({ ref, initial: initialStandaloneSnapshot() }),
+      );
+
+      assert.ok(Exit.isFailure(stale));
+      if (Exit.isFailure(stale)) {
+        const reason = stale.cause.reasons.find(Cause.isFailReason);
+        assert.ok(reason !== undefined);
+        if (reason !== undefined) assert.strictEqual(reason.error.code, "DisposedActorRef");
+      }
+      yield* runtimeOwner(firstRuntime).close();
+
+      const secondRuntime = runtimeSetup({ app: IntegrationApp }).construct();
+      yield* secondRuntime.ready();
+      const secondAssembly = runtimeOwner(secondRuntime).assembly();
+      const second = yield* secondAssembly.createActor({
+        ref,
+        initial: initialStandaloneSnapshot(),
+      });
+
+      assert.notStrictEqual(second.identity.key, firstKey);
+      // Incarnation counters are runtime-local; the runtime nonce in the key scopes the new lifetime.
+      assert.strictEqual(second.identity.incarnation, firstIncarnation);
+      yield* Effect.provideContext(second.dispose(), secondAssembly.context);
+      yield* runtimeOwner(secondRuntime).close();
+    }),
+  );
 
   // Setup: Admit stable ref S through the assembled runtime and capture its actor snapshot, fence, lease, and accepted evidence count.
   // Action: Call the actual assembled `assembly.createActor` method a second time for S with a distinct initial snapshot while the first actor remains active and dispatchable; leave shared stable ensure joining to the existing admission proof.
   // Assert: The second admission fails as DuplicateActorClaim before exposure, the original lease and snapshot remain unchanged and dispatchable, and no duplicate actor, edge, mailbox, or evidence record is created.
-  it.todo("rejects duplicate stable create without replacing the existing lease");
+  it.effect("rejects duplicate stable create without replacing the existing lease", () =>
+    Effect.gen(function* () {
+      const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+      const ref = actorRef(IntegrationStandaloneMachine, "duplicate-stable", { persist: true });
+      const actor = yield* assembly.createActor({
+        ref,
+        initial: initialStandaloneSnapshot(),
+      });
+      const before = actor.engine.snapshot();
+
+      const duplicate = yield* Effect.exit(
+        assembly.createActor({ ref, initial: initialStandaloneSnapshot() }),
+      );
+
+      assert.ok(Exit.isFailure(duplicate));
+      if (Exit.isFailure(duplicate)) {
+        const reason = duplicate.cause.reasons.find(Cause.isFailReason);
+        assert.ok(reason !== undefined);
+        if (reason !== undefined) assert.strictEqual(reason.error.code, "DuplicateActorClaim");
+      }
+      assert.deepStrictEqual(actor.engine.snapshot(), before);
+
+      const dispatch = actor.engine.dispatch(IntegrationStandaloneEvent);
+      assert.strictEqual(dispatch.admitted, true);
+      yield* Deferred.await(dispatch.completion);
+      yield* actor.engine.drain();
+      assert.strictEqual(actor.engine.snapshot().state, IntegrationStandaloneDefinition.S.done);
+
+      yield* Effect.provideContext(actor.dispose(), assembly.context);
+      yield* runtimeOwner(runtime).close();
+    }),
+  );
 
   // Setup: Ready one assembled runtime, create an active actor, attach evidence, and retain the actor lease and runtime owner as concurrent disposal authorities.
   // Action: Start actor lease disposal and `assembly.dispose()` concurrently, await both terminal Effects, let runtime disposal drain the accepted prefix before closing the sink, and inspect the received records after close returns.
@@ -1478,7 +1552,57 @@ describe("pending regression scenarios", () => {
   // Setup: Construct a machine, add an allowed descriptor before app construction, build the app, then mutate exposed machine definition, compiled containers, and plan arrays afterward.
   // Action: Admit and dispatch an actor through that app, then construct a second app from the current authored inputs.
   // Assert: The first runtime uses its captured app-time identities and compiled behavior, including the descriptor added before construction; mutations cannot change its admitted vocabulary, and the second app independently captures its own current inputs.
-  it.todo("uses app-time machine facts despite later exposed-container mutation");
+  it.effect("uses app-time machine facts despite later exposed-container mutation", () =>
+    Effect.gen(function* () {
+      const plan = appPlan(IntegrationApp);
+      const exposedMachines = plan.machines;
+      const exposedDescriptors = plan.descriptors;
+      const originalMachines = [...exposedMachines];
+      const originalDescriptors = [...exposedDescriptors];
+      const definition = IntegrationStandaloneMachine.definition as {
+        operations: typeof IntegrationStandaloneMachine.definition.operations;
+      };
+      const compiled = IntegrationStandaloneMachine.compiled as {
+        states: typeof IntegrationStandaloneMachine.compiled.states;
+      };
+      const originalOperations = definition.operations;
+      const originalStates = compiled.states;
+      const initial = initialStandaloneSnapshot();
+
+      Reflect.set(exposedMachines, "length", 0);
+      Reflect.set(exposedDescriptors, "length", 0);
+      Reflect.set(definition, "operations", {});
+      Reflect.set(compiled, "states", {});
+
+      try {
+        const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+        yield* runtime.ready();
+        const assembly = runtimeOwner(runtime).assembly();
+        const actor = yield* assembly.createActor({
+          ref: actorRef(IntegrationStandaloneMachine, "captured-facts"),
+          initial,
+        });
+
+        assert.deepStrictEqual(originalMachines, [
+          IntegrationProviderMachine,
+          IntegrationConsumerMachine,
+          IntegrationStandaloneMachine,
+        ]);
+        assert.deepStrictEqual(originalDescriptors, [IntegrationResource]);
+        const dispatch = actor.engine.dispatch(IntegrationStandaloneEvent);
+        assert.strictEqual(dispatch.admitted, true);
+        yield* Deferred.await(dispatch.completion);
+        yield* actor.engine.drain();
+        assert.strictEqual(actor.engine.snapshot().state, IntegrationStandaloneDefinition.S.done);
+
+        yield* Effect.provideContext(actor.dispose(), assembly.context);
+        yield* runtimeOwner(runtime).close();
+      } finally {
+        Reflect.set(definition, "operations", originalOperations);
+        Reflect.set(compiled, "states", originalStates);
+      }
+    }),
+  );
 
   // Setup: Create one fresh actor and restore one actor with nonzero publication and machine-turn revisions; attach snapshot and evidence observers before exposure.
   // Action: Observe initial activation, then suspend and resume each actor without dispatching a machine event.

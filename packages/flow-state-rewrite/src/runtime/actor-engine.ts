@@ -164,6 +164,8 @@ export type ActorFactDisposition<DefinitionValue extends MachineDefinition> =
 
 export type ActorEngineInput<DefinitionValue extends MachineDefinition> = {
   readonly identity: ActorIdentity<DefinitionValue>;
+  /** App-time machine facts used for planning; the identity ref retains the public machine token. */
+  readonly machine?: Machine<DefinitionValue>;
   readonly fence: ActorFence;
   readonly initial: PreparedActorSnapshot<DefinitionValue>;
   readonly scope: Scope.Scope;
@@ -1383,7 +1385,7 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
   ): Effect.Effect<void, PublicDiagnostic> => {
     const planned = planTurn({
       _tag: "event",
-      machine: input.identity.ref.machine,
+      machine: input.machine ?? input.identity.ref.machine,
       snapshot: state.snapshot,
       event: fact.command,
       fence: input.fence,
@@ -1548,7 +1550,10 @@ export const prepareActorEngine = <DefinitionValue extends MachineDefinition>(
   options?: { readonly capacity?: number },
 ): Effect.Effect<PreparedActorEngine<DefinitionValue>, PublicDiagnostic> =>
   Effect.gen(function* () {
-    const admittedInitial = verifyPreparedActorSnapshot(input.identity.ref.machine, input.initial);
+    const admittedInitial = verifyPreparedActorSnapshot(
+      input.machine ?? input.identity.ref.machine,
+      input.initial,
+    );
 
     if (Result.isFailure(admittedInitial)) return yield* Effect.fail(admittedInitial.failure);
     const requestedCapacity = options?.capacity ?? ACTOR_MAILBOX_CAPACITY;
@@ -1599,7 +1604,8 @@ export const prepareActorEngine = <DefinitionValue extends MachineDefinition>(
     ) => {
       let failure: PublicDiagnostic | undefined;
 
-      if (!isEventForMachine(input.identity.ref.machine, command)) failure = foreignEventFailure();
+      if (!isEventForMachine(input.machine ?? input.identity.ref.machine, command))
+        failure = foreignEventFailure();
       else if (closed) failure = mailboxAdmissionFailure("closed");
       else if (
         !Queue.offerUnsafe(

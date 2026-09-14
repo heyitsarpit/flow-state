@@ -2484,7 +2484,51 @@ describe("pending regression scenarios", () => {
   // Setup: Hold the leader's stable `admitActor` transaction after reservation or preparation with a Deferred, then start a second `admitActor` call for the identical stable ref so both callers share one completion.
   // Action: Interrupt only the joined waiter, release the leader gate, and await the leader's terminal admission followed by the authority registry lookup of the ref.
   // Assert: The leader succeeds once with one prepare, activation, exposure, and cleanup owner; the interrupted waiter does not replay preparation or cancel the shared transaction, and no pending reservation remains.
-  it.todo("interrupting a joined stable admission waiter does not replay or strand the leader");
+  it.effect("interrupting a joined stable admission waiter does not replay or strand the leader", () =>
+    Effect.gen(function* () {
+      const ref = actorRef(editorMachine, "joined-waiter", { persist: true });
+      const registered = yield* Deferred.make<void>();
+      const release = yield* Deferred.make<void>();
+      const harness = makeTransactionHarness(ref, {
+        mode: "fresh-stable",
+        registeredEntered: registered,
+        registerGate: release,
+      });
+
+      const leader = yield* Effect.forkChild(
+        Effect.exit(admitActor(makeTransactionInput(ref), harness.authority)),
+        { startImmediately: true },
+      );
+      yield* Deferred.await(registered);
+
+      const waiter = yield* Effect.forkChild(
+        Effect.exit(admitActor(makeTransactionInput(ref), harness.authority)),
+        { startImmediately: true },
+      );
+      yield* Effect.yieldNow;
+      yield* Fiber.interrupt(waiter);
+      const interrupted = yield* Effect.exit(Fiber.join(waiter));
+      assert.ok(Exit.isFailure(interrupted));
+
+      yield* Deferred.succeed(release, undefined);
+      const terminal = yield* Fiber.join(leader);
+
+      assert.ok(Exit.isSuccess(terminal));
+      if (Exit.isFailure(terminal)) return;
+      assert.strictEqual(terminal.value.actor.ref.id, ref.id);
+      assert.deepStrictEqual(harness.calls, [
+        "reserve",
+        "prepare:fresh-stable",
+        "attach",
+        "activate",
+        "register",
+        "reserve",
+        "expose",
+      ]);
+      assert.strictEqual(harness.exposedCount, 1);
+      assert.strictEqual(Result.isSuccess(harness.registry.lookup(ref)), true);
+    }),
+  );
 
   // Setup: Use the real makeActorLease with a cleanup Deferred and counter; construct and discard one lease.dispose() Effect without executing it.
   // Action: Execute a later disposal, wait for cleanup to begin, join from another caller and interrupt only that follower; release cleanup, await the owner and call disposal again after completion.
@@ -2499,5 +2543,19 @@ describe("pending regression scenarios", () => {
   // Setup: Use the real app-time facts, Directory registry and admission transaction with stable refs whose IDs contain delimiter characters; retain the next observable incarnation/local identity allocation before malformed input.
   // Action: Reject an invalid admission, then concurrently admit two distinct stable refs and construct their real provider graph; admit a local actor through its separate allocation seam.
   // Assert: Stable keys are distinct canonical tuples of runtime nonce, stable namespace, owned machine ID and ref ID; local keys use a disjoint namespace. Validation consumes no incarnation/local ordinal, and concurrent admission preserves graph endpoints without placeholder rebasing or reading a provisional counter.
-  it.todo("derives stable keys without consuming allocation state during validation");
+  it("derives injective stable keys without consuming allocation state during validation", () => {
+    const registry = makeActorIdentityRegistry();
+    const firstRef = actorRef(editorMachine, "stable/key:one", { persist: true });
+    const secondRef = actorRef(editorMachine, "stable/key/one", { persist: true });
+    const firstKey = registry.stableKey(firstRef);
+
+    assert.strictEqual(registry.stableKey(firstRef), firstKey);
+    assert.notStrictEqual(firstKey, registry.stableKey(secondRef));
+
+    const first = resultSuccess(registry.reserveStable(firstRef));
+    assert.strictEqual(first.key, firstKey);
+    const local = resultSuccess(registry.createLocal(editorMachine));
+    assert.ok(local.incarnation > first.incarnation);
+    assert.notStrictEqual(local.key, first.key);
+  });
 });

@@ -21,8 +21,6 @@ import {
   makeActorIdentityRegistry,
   type ActorContextBinding,
   type ActorContextSnapshot,
-  type ActorDependencyGraph,
-  type ActorDependencyEdge,
 } from "../actor-admission.js";
 import { prepareActorSnapshot } from "../actor-engine.js";
 import type {
@@ -31,7 +29,6 @@ import type {
   PreparedActorSnapshot,
 } from "../actor-engine.js";
 import {
-  rebaseDependencyGraph,
   runtimeOwner,
   runtimeSetup,
   type Runtime,
@@ -308,56 +305,21 @@ const HandshakeProviderEvent = Result.getOrThrow(HandshakeProviderDefinition.E.a
 const HandshakeProviderHoldEvent = Result.getOrThrow(HandshakeProviderDefinition.E.hold());
 
 describe("internal implementation runtime", () => {
-  it("keeps rebased dependency graph copies immutable", () => {
+  it("derives stable tuple keys without consuming identity allocation", () => {
     const registry = makeActorIdentityRegistry();
+    const firstRef = actorRef(requiredMachine, "tuple/actor:one", { persist: true });
+    const secondRef = actorRef(requiredMachine, "tuple/actor/one", { persist: true });
+    const firstKey = registry.stableKey(firstRef);
 
-    const from = Result.getOrThrow(
-      registry.reserveStable(actorRef(requiredMachine, "rebase-from", { persist: true })),
-    );
+    assert.strictEqual(registry.stableKey(firstRef), firstKey);
+    assert.notStrictEqual(firstKey, registry.stableKey(secondRef));
 
-    const to = Result.getOrThrow(
-      registry.reserveStable(actorRef(requiredMachine, "rebase-to", { persist: true })),
-    );
+    const firstIdentity = Result.getOrThrow(registry.reserveStable(firstRef));
+    assert.strictEqual(firstIdentity.key, firstKey);
 
-    const provider = Result.getOrThrow(
-      registry.reserveStable(actorRef(requiredMachine, "rebase-provider", { persist: true })),
-    );
-
-    const edge = {
-      consumer: from.key,
-      provider: provider.key,
-      slot: "dependency",
-    } satisfies ActorDependencyEdge;
-
-    const graph = {
-      forward: new Map([[from.key, [edge]]]),
-      reverse: new Map([[provider.key, [edge]]]),
-      order: [provider.key, from.key],
-    } satisfies ActorDependencyGraph;
-
-    const rebased = rebaseDependencyGraph(graph, from.key, to.key);
-    const forwardEdges = rebased.forward.get(to.key);
-    const reverseEdges = rebased.reverse.get(provider.key);
-
-    if (forwardEdges === undefined || reverseEdges === undefined)
-      throw new Error("rebased graph lost dependency edges");
-    assert.deepStrictEqual(rebased.order, [provider.key, to.key]);
-    assert.deepStrictEqual(forwardEdges, [
-      { consumer: to.key, provider: provider.key, slot: "dependency" },
-    ]);
-    assert.deepStrictEqual(reverseEdges, forwardEdges);
-    assert.strictEqual(Object.isFrozen(rebased), true);
-    assert.strictEqual(Object.isFrozen(rebased.forward), true);
-    assert.strictEqual(Object.isFrozen(rebased.reverse), true);
-    assert.strictEqual(Object.isFrozen(rebased.order), true);
-    assert.strictEqual(Object.isFrozen(forwardEdges), true);
-    assert.strictEqual(Object.isFrozen(forwardEdges[0]), true);
-    assert.strictEqual("set" in rebased.forward, false);
-    assert.strictEqual("delete" in rebased.reverse, false);
-    assert.throws(() => Object.assign(forwardEdges, { 0: edge }), TypeError);
-    assert.throws(() => Object.assign(rebased.order, { 0: provider.key }), TypeError);
-    assert.deepStrictEqual(rebased.order, [provider.key, to.key]);
-    assert.deepStrictEqual(rebased.forward.get(to.key), forwardEdges);
+    const local = Result.getOrThrow(registry.createLocal(requiredMachine));
+    assert.notStrictEqual(local.key, firstKey);
+    assert.ok(local.incarnation > firstIdentity.incarnation);
   });
 
   it.effect("reconciles a queued provider publication before exposing the consumer", () =>
