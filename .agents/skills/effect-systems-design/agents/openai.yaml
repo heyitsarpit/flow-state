@@ -1,4 +1,4 @@
 interface:
   display_name: "Purposeful Effect Design"
   short_description: "Design purposeful Effect APIs and systems"
-  default_prompt: "Use $effect-systems-design to answer how Effect makes this API easier for its consumers, then design the smallest implementation with IF/THEN guidance, concise code, source evidence, and checks."
+  default_prompt: "Use $effect-systems-design to answer how Effect makes this API easier for its consumers; route pure pipelines, matching, refinements, and typed data reshaping to the pure-data recipes; then design the smallest boundary with IF/THEN guidance, concise code, source evidence, and deterministic checks."

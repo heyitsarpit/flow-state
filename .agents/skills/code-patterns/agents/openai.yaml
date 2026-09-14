@@ -1,0 +1,4 @@
+interface:
+  display_name: "Code Patterns"
+  short_description: "Review Flow State ownership and Effect patterns"
+  default_prompt: "Use $code-patterns to review Flow State TypeScript and Effect for ownership, typed boundaries, and real-owner proofs."
