@@ -8,7 +8,8 @@ description: Coordinate one coder and four independent reviewers per task.
 
 - Follow [AGENTS.md](../../AGENTS.md). Read the Bead with `bd show <id> --json` and check `bd ready --json`.
 - Claim one ready Bead with `bd update <id> --claim`.
-- Assign one [coder](./coder.md). After its checks pass and edits stop, invoke four separate [reviewers](./reviewer.md) in parallel: `reviewer_type=style`, `effect`, `contract`, and `bug`. Use `gpt-5.6-luna` at `xhigh` for all five agents.
+- Assign one [coder](./coder.md). After its checks pass and edits stop, invoke four separate [reviewers](./reviewer.md) in parallel: `reviewer_type=style`, `effect`, `contract`, and `bug`.
+- Use `gpt-5.6-luna` at `xhigh` for all five agents.
 - Wait for all four verdicts. Close only after acceptance criteria, required checks, and all four reviews pass. Export status with `bd export -o .beads/issues.jsonl` after each mutation.
 - Make the authorized commit before starting the next task. Use the template below; the commit is the handoff.
 
