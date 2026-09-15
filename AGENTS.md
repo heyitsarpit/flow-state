@@ -108,30 +108,34 @@ nub run verify                                   # full closeout gate
 
 Load only skills relevant to the task; more than one may apply. The `orchestrator`,
 `coder`, and `reviewer` entrypoints define delegation, implementation, and independent
-review. For Bead implementation workflows, use one coder followed by four independent
-reviewers in parallel: `style`, `effect`, `contract`, and `bug`. Each reviewer reads
-its assigned skills through the reviewer entrypoint. All four reviews must pass.
+review. Use one primary coder. It records `contract clause -> owner file -> executable
+proof -> expected baseline`, makes the task list, then decides whether to delegate
+disjoint work to zero, one, or two secondary coders. The primary owns integration and
+final coder checks. Record each agent's task, scope, model, and reasoning setting before
+dispatch. Follow with three independent reviewers in parallel: `architecture`,
+`contract`, and `bug`. Each reviewer reads its assigned skills through the reviewer
+entrypoint. All three reviews must pass.
 Keep small and non-Bead work conditionally delegated; keep review evidence explicit
 and proportional.
 
-| Skill | Agent | Reach for it when | Do not reach for it when |
-| --- | --- | --- | --- |
-| `.agents/skills/typescript-style-guide/SKILL.md` | coder, reviewer (`style`) | Writing Flow State TypeScript or reviewing its style and ownership. | Unrelated to Flow State TypeScript. |
-| `.agents/skills/code-patterns/SKILL.md` | reviewer (`style`) | Architecture-first Flow State TypeScript reviews against CP01–CP21. | Generic maintainability review without a Flow State TypeScript boundary. |
-| `.agents/skills/api-design/SKILL.md` | coder, reviewer | Designing or reviewing APIs, usability, or compatibility. | No API design decision is involved. |
-| `.agents/skills/flow-state-module-refactor/SKILL.md` | orchestrator, coder | Simplifying one rewrite module before considering shared abstractions. | Frozen package, contract authoring, or project-wide cleanup. |
-| `.agents/skills/effect-systems-design/SKILL.md` | coder, reviewer (`effect`) | Choosing TypeScript versus Effect or reviewing services, lifetimes, and concurrency. | Ordinary deterministic TypeScript needs no Effect decision. |
-| `.agents/skills/effect-api-documentation/SKILL.md` | coder, reviewer (`effect`) | Verifying or documenting exact Effect v4 APIs. | Architectural selection; use `effect-systems-design`. |
-| `~/.agents/skills/tdd/SKILL.md` | coder | Requested test-first work or integration tests. | Read-only review or ordinary behavior-proof additions. |
-| `.agents/skills/beads/SKILL.md` | orchestrator, coder, reviewer | Durable tasks, dependencies, ownership, or handoff. | A current-turn checklist with no shared task state. |
-| `.agents/skills/flow-state-contract-slice-review/SKILL.md` | reviewer (`contract`) | Checking one rewrite Bead against its named contracts and proofs. | General maintainability review or contract authoring. |
-| `.agents/skills/performance-quality-bug-hunt/SKILL.md` | reviewer (`bug`) | Hunting concrete bugs, regressions, lifecycle failures, or performance risks. | Only contract conformance, Effect design, or style is in scope. |
+| Skill                                                      | Agent                            | Reach for it when                                                                    | Do not reach for it when                                                 |
+| ---------------------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
+| `.agents/skills/typescript-style-guide/SKILL.md`           | coder, reviewer (`architecture`) | Writing Flow State TypeScript or reviewing its style and ownership.                  | Unrelated to Flow State TypeScript.                                      |
+| `.agents/skills/code-patterns/SKILL.md`                    | reviewer (`architecture`)        | Architecture-first Flow State TypeScript reviews against CP01–CP21.                  | Generic maintainability review without a Flow State TypeScript boundary. |
+| `.agents/skills/api-design/SKILL.md`                       | coder, reviewer                  | Designing or reviewing APIs, usability, or compatibility.                            | No API design decision is involved.                                      |
+| `.agents/skills/flow-state-module-refactor/SKILL.md`       | orchestrator, coder              | Simplifying one rewrite module before considering shared abstractions.               | Frozen package, contract authoring, or project-wide cleanup.             |
+| `.agents/skills/effect-systems-design/SKILL.md`            | coder, reviewer (`architecture`) | Choosing TypeScript versus Effect or reviewing services, lifetimes, and concurrency. | Ordinary deterministic TypeScript needs no Effect decision.              |
+| `.agents/skills/effect-api-documentation/SKILL.md`         | coder, reviewer (`architecture`) | Verifying or documenting exact Effect v4 APIs.                                       | Architectural selection; use `effect-systems-design`.                    |
+| `~/.agents/skills/tdd/SKILL.md`                            | coder                            | Requested test-first work or integration tests.                                      | Read-only review or ordinary behavior-proof additions.                   |
+| `.agents/skills/beads/SKILL.md`                            | orchestrator, coder, reviewer    | Durable tasks, dependencies, ownership, or handoff.                                  | A current-turn checklist with no shared task state.                      |
+| `.agents/skills/flow-state-contract-slice-review/SKILL.md` | reviewer (`contract`)            | Checking one rewrite Bead against its named contracts and proofs.                    | General maintainability review or contract authoring.                    |
+| `.agents/skills/performance-quality-bug-hunt/SKILL.md`     | reviewer (`bug`)                 | Hunting concrete bugs, regressions, lifecycle failures, or performance risks.        | Only contract conformance, Effect design, or style is in scope.          |
 
 Agent entrypoints:
 
-- `.agents/agents/coder.md` — implementation and focused verification.
-- `.agents/agents/reviewer.md` — independent read-only verification; assign exactly one `reviewer_type`: `style`, `effect`, `contract`, or `bug`.
-- `.agents/agents/orchestrator.md` — one coder and four specialist reviewers per Bead, with fixed model and reasoning settings.
+- `.agents/agents/coder.md` — primary requirements, delegation, and integration or secondary disjoint implementation/research.
+- `.agents/agents/reviewer.md` — independent read-only verification; assign exactly one `reviewer_type`: `architecture`, `contract`, or `bug`.
+- `.agents/agents/orchestrator.md` — one primary coder, up to two secondary coders, and three specialist reviewers per Bead, with per-agent model and reasoning settings.
 
 ## Boundaries
 
