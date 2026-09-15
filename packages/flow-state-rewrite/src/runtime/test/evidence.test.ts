@@ -535,9 +535,7 @@ describe("runtime evidence", () => {
         app: EvidenceApp,
         plan: EvidencePlan,
         clock: {
-          now: Effect.suspend(() =>
-            failTimestamp ? Effect.die("timestamp failure") : Effect.succeed(9_000),
-          ),
+          now: Effect.succeed(9_000),
           timestamp: () => {
             if (failTimestamp) {
               failTimestamp = false;

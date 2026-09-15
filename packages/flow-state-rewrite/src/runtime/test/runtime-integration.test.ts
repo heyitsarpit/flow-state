@@ -2610,6 +2610,7 @@ describe("pending regression scenarios", () => {
                 scope,
                 Effect.gen(function* () {
                   order.push(id);
+                  // oxlint-disable-next-line anti-slop/no-expected-failure-as-defect -- this finalizer deliberately defects so runtime close proves full Cause retention and deferred retry.
                   yield* Effect.die(defect);
                 }),
               );
@@ -2635,6 +2636,7 @@ describe("pending regression scenarios", () => {
       assembly.lifecycle.registerProvider(
         Effect.gen(function* () {
           order.push("provider");
+          // oxlint-disable-next-line anti-slop/no-expected-failure-as-defect -- this provider deliberately defects so runtime close proves ordered defect-Cause retention.
           yield* Effect.die(providerDefect);
         }),
       );
@@ -2699,6 +2701,7 @@ describe("pending regression scenarios", () => {
               Effect.gen(function* () {
                 order.push("actor-finalizer");
                 yield* Deferred.succeed(entered, undefined);
+                // oxlint-disable-next-line anti-slop/no-expected-failure-as-defect -- this one-shot finalizer defect proves the owner retains cleanup Cause and releases it on retry.
                 yield* Effect.die(defect);
               }),
             );

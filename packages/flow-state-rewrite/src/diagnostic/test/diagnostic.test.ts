@@ -294,10 +294,11 @@ describe("diagnostic", () => {
       const defectExit = yield* Effect.exit(
         Effect.sync(() => {
           // oxlint-disable-next-line anti-slop/no-throw-in-effect-gen -- this fixture creates a defect.
-          throw defect;
+          throw defect; // oxlint-disable-line anti-slop/no-expected-failure-as-defect -- preserve the defect lane under test.
         }),
       );
 
+      // oxlint-disable-next-line anti-slop/no-expected-failure-as-defect -- preserve the deliberate defect.
       const diedExit = yield* Effect.exit(Effect.die(defect));
       const mixedCause = Cause.combine(Cause.fail(typed), Cause.die(defect));
       const mixedExit = yield* Effect.exit(Effect.failCause(mixedCause));

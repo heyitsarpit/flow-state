@@ -962,7 +962,10 @@ describe("internal implementation runtime", () => {
             calls += 1;
 
             return repository;
-          }).pipe(Effect.andThen(Effect.die(defect))),
+          }).pipe(
+            // oxlint-disable-next-line anti-slop/no-expected-failure-as-defect -- This proof deliberately injects an Error defect and asserts the terminal Exit retains the defect lane.
+            Effect.andThen(Effect.die(defect)),
+          ),
         );
 
         const ready = runtimeSetup({ app: EmptyApp, implementation }).construct().ready();

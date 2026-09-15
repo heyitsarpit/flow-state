@@ -1894,6 +1894,7 @@ describe("actor lifecycle", () => {
       const first: LifecycleResource<string> = {
         name: "first",
         scope: Scope.makeUnsafe(),
+        // oxlint-disable-next-line anti-slop/no-expected-failure-as-defect -- this defect fixture proves reverse cleanup continues after a finalizer defect.
         close: () => Effect.die("defect"),
         finalization: "pending",
         cause: Option.none(),
@@ -2563,6 +2564,7 @@ describe("pending regression scenarios", () => {
       const scope = Scope.makeUnsafe();
       const closeFailure = "resource-close-failure" as const;
       const scopeDefect = new Error("resource-scope-defect");
+      // oxlint-disable-next-line anti-slop/no-expected-failure-as-defect -- retain an actual defect beside the typed close failure in the mixed cleanup Cause proof.
       yield* Scope.addFinalizer(scope, Effect.die(scopeDefect));
       let closeAttempts = 0;
 
@@ -2709,6 +2711,7 @@ describe("pending regression scenarios", () => {
         scope,
         Effect.gen(function* () {
           finalizers += 1;
+          // oxlint-disable-next-line anti-slop/no-expected-failure-as-defect -- this terminal Scope finalizer must preserve defect classification across repeated disposal.
           yield* Effect.die(defect);
         }),
       );

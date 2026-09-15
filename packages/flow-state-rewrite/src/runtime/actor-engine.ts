@@ -1228,12 +1228,13 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
     failure: PublicDiagnostic,
     cause: TurnCause<DefinitionValue>,
   ): Effect.Effect<void, PublicDiagnostic> =>
-    Effect.sync(() => {
+    Effect.gen(function* () {
       const published = publishIssue(failure, cause);
 
       if (Result.isFailure(published)) {
         setClosed(published.failure);
-        throw published.failure;
+
+        return yield* Effect.fail(published.failure);
       }
 
       settleFailure(acknowledgement, failure);
@@ -1241,7 +1242,8 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
 
       if (Result.isFailure(observed)) {
         setClosed(observed.failure);
-        throw observed.failure;
+
+        return yield* Effect.fail(observed.failure);
       }
     });
 
@@ -1395,18 +1397,20 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
     });
 
     if (Result.isFailure(planned))
-      return Effect.sync(() => {
+      return Effect.gen(function* () {
         const published = publishIssue(planned.failure, {
           _tag: "projection",
           fact: fact.fact,
         });
 
-        if (Result.isFailure(published)) throw published.failure;
+        if (Result.isFailure(published)) return yield* Effect.fail(published.failure);
+
         const observed = notifySnapshot(published.success.publication.snapshot);
 
         if (Result.isFailure(observed)) {
           setClosed(observed.failure);
-          throw observed.failure;
+
+          return yield* Effect.fail(observed.failure);
         }
       });
 
@@ -1615,7 +1619,7 @@ export const prepareActorEngine = <DefinitionValue extends MachineDefinition>(
     const activation = yield* Effect.cached(
       Scope.provide(input.scope)(
         Effect.gen(function* () {
-          if (closed) return yield* Effect.die(mailboxAdmissionFailure("closed"));
+          if (closed) return yield* Effect.fail(mailboxAdmissionFailure("closed"));
 
           const engine = makeEngine(
             input,

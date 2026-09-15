@@ -268,6 +268,8 @@ describe("runtime owner", () => {
 
       const defectOwner = makeRuntimeOwner({
         layer: makeLayerPlan(defectProbe, defectFirstGate, defectSecondEntered, defectSecondGate),
+        // SAFETY: This injected exposure defect proves readiness caches Cause.Die and releases acquired resources.
+        // oxlint-disable-next-line anti-slop/no-expected-failure-as-defect -- the assertions below require defect identity with no typed failure or interruption.
         expose: Effect.die(defect),
       });
 
@@ -718,6 +720,8 @@ describe("runtime owner", () => {
           }),
         ).pipe(
           Layer.provideMerge(
+            // SAFETY: This layer defect verifies a later acquisition cannot be published and the acquired prefix is released.
+            // oxlint-disable-next-line anti-slop/no-expected-failure-as-defect -- assertions below require Cause.Die and reject typed failure or interruption.
             Layer.effect(OrderedSecondService, Effect.die(defect)).pipe(
               Layer.provideMerge(
                 Layer.effect(
@@ -863,6 +867,8 @@ describe("runtime owner", () => {
                     yield* Deferred.succeed(secondCleanupEntered, undefined);
                     yield* Deferred.await(secondCleanupGate);
                     trace.push("release:second:end");
+                    // SAFETY: The finalizer defect is the cleanup-failure lane asserted by this disposal test.
+                    // oxlint-disable-next-line anti-slop/no-expected-failure-as-defect -- the test asserts this exact defect remains in the terminal Cause.
                     yield* Effect.die(cleanupDefect);
                   }),
                 { interruptible: true },
@@ -997,7 +1003,8 @@ describe("runtime owner", () => {
         },
         {
           effect: Effect.sync(() => {
-            // oxlint-disable-next-line anti-slop/no-throw-in-effect-gen -- this fixture proves callback throws remain defects.
+            // SAFETY: This callback throw feeds the terminal-Cause matrix and must remain a defect.
+            // oxlint-disable-next-line anti-slop/no-throw-in-effect-gen, anti-slop/no-expected-failure-as-defect -- the matrix asserts Cause.Die; typed cases use Effect.failCause.
             throw thrownDefect;
           }),
           expectedCause: Cause.die(thrownDefect),
@@ -1137,6 +1144,8 @@ describe("runtime owner", () => {
             cleanupRuns += 1;
 
             if (cleanupCase.cleanup === "defect") {
+              // SAFETY: This branch injects a finalizer defect so cleanup Cause composition remains observable.
+              // oxlint-disable-next-line anti-slop/no-expected-failure-as-defect -- the cleanup matrix asserts the exact combined Cause.
               yield* Effect.die(cleanupDefect);
             }
 
@@ -1378,6 +1387,8 @@ describe("runtime owner", () => {
       const cleaned: string[] = [];
 
       const owner = makeRuntimeOwner({
+        // SAFETY: The acquisition defect is intentional so this proof can observe Cause.Die and acquired-prefix cleanup.
+        // oxlint-disable-next-line anti-slop/no-expected-failure-as-defect -- this test asserts the defect lane and cleanup result.
         layer: Layer.effect(SecondService, Effect.die("defect")).pipe(
           Layer.provideMerge(
             Layer.effect(

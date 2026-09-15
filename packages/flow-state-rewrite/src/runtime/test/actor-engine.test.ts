@@ -482,6 +482,35 @@ describe("actor engine", () => {
     }),
   );
 
+  it.effect("returns a cached typed failure when activation follows abandonment", () =>
+    Effect.gen(function* () {
+      const scope = yield* Scope.make("sequential");
+      const setup = makeInput(scope, () => Effect.void);
+      const prepared = yield* prepareActorEngine(setup.input);
+
+      prepared.abandon();
+      yield* Scope.close(scope, Exit.void);
+
+      const firstExit = yield* Effect.exit(prepared.activate());
+      const secondExit = yield* Effect.exit(prepared.activate());
+
+      assert.ok(Exit.isFailure(firstExit));
+      assert.ok(Exit.isFailure(secondExit));
+
+      if (Exit.isFailure(firstExit) && Exit.isFailure(secondExit)) {
+        assert.strictEqual(Cause.hasDies(firstExit.cause), false);
+        assert.strictEqual(Cause.hasDies(secondExit.cause), false);
+
+        const firstFailure = failureFromExit(firstExit);
+        const secondFailure = failureFromExit(secondExit);
+        assert.ok(firstFailure instanceof Diagnostic);
+        assert.strictEqual(firstFailure.code, "InvariantViolation");
+        assert.deepStrictEqual(firstFailure.path, ["mailbox", "closed"]);
+        assert.strictEqual(secondFailure, firstFailure);
+      }
+    }),
+  );
+
   it.effect("makes projection mailbox overflow explicit", () =>
     Effect.gen(function* () {
       const scope = yield* Scope.make("sequential");
@@ -1228,6 +1257,7 @@ describe("actor engine", () => {
       const evidenceIssues: PublicDiagnostic[][] = [];
 
       const setup = makeContextInput(scope, () =>
+        // oxlint-disable-next-line anti-slop/no-expected-failure-as-defect -- context projections must not run user commands; this defect makes accidental command execution observable.
         Effect.die("context projections do not run commands"),
       );
 
