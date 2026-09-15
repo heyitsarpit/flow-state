@@ -2017,9 +2017,9 @@ describe("actor engine parity cases", () => {
       yield* engine.drain();
       const operation = engine.snapshot().operations[0];
       assert.ok(operation !== undefined);
-      assert.strictEqual(operation?.descriptor, occurrence.descriptor);
-      assert.deepStrictEqual(operation?.key, [{ nested: true }]);
-      assert.strictEqual(operation?.status, "succeeded");
+      assert.strictEqual(operation.descriptor, occurrence.descriptor);
+      assert.deepStrictEqual(operation.key, [{ nested: true }]);
+      assert.strictEqual(operation.status, "succeeded");
       yield* engine.shutdown("hard");
       yield* Scope.close(scope, Exit.void);
     }),
@@ -2234,7 +2234,7 @@ describe("actor engine parity cases", () => {
       const record = delivered[0];
       assert.ok(record !== undefined);
 
-      if (record?._tag === "turn") {
+      if (record._tag === "turn") {
         assert.strictEqual(record.provenance.actor.key, setup.input.identity.key);
         assert.strictEqual(record.provenance.actor.incarnation, setup.input.identity.incarnation);
         assert.strictEqual(record.publicationRevision, after.revision);
@@ -2339,11 +2339,6 @@ describe("actor engine parity cases", () => {
         onCommand: () => Effect.sync(() => seen.push(activeEngine?.snapshot().context)),
       }).pipe(Effect.flatMap((prepared) => prepared.activate()));
 
-      if (activeEngine === undefined) {
-        // oxlint-disable-next-line anti-slop/no-throw-in-effect-gen -- activation failure is an impossible fixture invariant.
-        throw new Error("actor engine did not activate");
-      }
-
       const engine = activeEngine;
 
       const providers = [
@@ -2429,10 +2424,8 @@ describe("actor engine parity cases", () => {
         const reason = completion.cause.reasons.find(Cause.isFailReason);
         assert.ok(reason !== undefined);
 
-        if (reason !== undefined) {
-          assert.strictEqual(reason.error.code, "InvariantViolation");
-          assert.deepStrictEqual(reason.error.path, ["mailbox", "closed"]);
-        }
+        assert.strictEqual(reason.error.code, "InvariantViolation");
+        assert.deepStrictEqual(reason.error.path, ["mailbox", "closed"]);
       }
 
       const after = actor.engine.snapshot();

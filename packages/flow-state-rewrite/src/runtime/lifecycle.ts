@@ -21,11 +21,11 @@ import {
 } from "../diagnostic/diagnostic.js";
 import type { Machine } from "../machine/machine.js";
 import type { MachineDefinition } from "../machine/grammar.js";
-import {
-  type ActorContextBinding,
-  type ActorDependencyEdge,
-  type ActorFence,
-  type ActorKey,
+import type {
+  ActorContextBinding,
+  ActorDependencyEdge,
+  ActorFence,
+  ActorKey,
 } from "./actor-admission.js";
 import type { OperationOccurrenceFence } from "./turn-plan.js";
 import {
@@ -1674,25 +1674,25 @@ const makeColdRuntimeDisposalOwner = <Requirements>(
 
         const attempted = new Set<RuntimeActorRegistration<Requirements>>();
 
-        const disposeUnattemptedActors = Effect.gen(function* () {
-          while (true) {
-            let foundUnattempted = false;
+        const hasUnattemptedActors = () =>
+          closing.actors.some(
+            (registration) => registration.active && !attempted.has(registration),
+          );
 
+        const disposeUnattemptedActors = Effect.gen(function* () {
+          while (hasUnattemptedActors()) {
             for (let index = closing.actors.length - 1; index >= 0; index -= 1) {
               const registration = closing.actors[index];
 
               if (registration === undefined || !registration.active || attempted.has(registration))
                 continue;
 
-              foundUnattempted = true;
               attempted.add(registration);
               const result = yield* Effect.exit(registration.participant.dispose());
 
               if (Exit.isFailure(result)) cleanupCause = addCause(cleanupCause, result.cause);
               else removeActor(registration);
             }
-
-            if (!foundUnattempted) return;
           }
         });
 

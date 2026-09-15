@@ -3,7 +3,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 
-const packageRoot = process.argv[2];
+const packageRoot = process.argv.at(2);
 
 if (packageRoot === undefined) throw new Error("package root argument is required");
 

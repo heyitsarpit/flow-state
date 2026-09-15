@@ -5,7 +5,7 @@ import type { OperationDeclaration, OperationDeclarations } from "../operation/o
 export type { OperationDeclaration, OperationDeclarations } from "../operation/operation.js";
 
 // oxlint-disable-next-line anti-slop/no-readonly -- NO_READONLY_CODEMOD: Effect Schema exposes readonly decoded arrays, and const-inferred authored tuples must retain their element positions for recursive state mapping.
-export interface DefinitionList<Value> extends ReadonlyArray<Value> {}
+export type DefinitionList<Value> = ReadonlyArray<Value>;
 
 // oxlint-disable-next-line anti-slop/no-readonly -- NO_READONLY_CODEMOD: variadic state-path matching must accept const-inferred authored tuples without widening their order.
 type DefinitionTuple<Head, Tail extends DefinitionList<unknown>> = readonly [Head, ...Tail];
@@ -40,7 +40,8 @@ export type DefinitionValue =
   | symbol
   | undefined
   | EventPayload
-  | DefinitionList<DefinitionValue>
+  // oxlint-disable-next-line anti-slop/no-readonly -- NO_READONLY_CODEMOD: recursive definition values must accept Effect Schema's readonly decoded arrays without breaking TypeScript's recursive-alias resolution.
+  | ReadonlyArray<DefinitionValue>
   | StateToken<string, string, string>
   | OperationDeclaration
   | ContextSelector
@@ -59,7 +60,8 @@ type DefinitionFunctionResult =
   | string
   | symbol
   | EventPayload
-  | DefinitionList<DefinitionFunctionResult>
+  // oxlint-disable-next-line anti-slop/no-readonly -- NO_READONLY_CODEMOD: recursive definition results must accept Effect Schema's readonly decoded arrays without breaking TypeScript's recursive-alias resolution.
+  | ReadonlyArray<DefinitionFunctionResult>
   | StateToken<string, string, string>
   | OperationDeclaration
   | ContextSelector

@@ -1702,8 +1702,7 @@ describe("pending regression scenarios", () => {
       );
 
       assert.ok(lifecycle !== undefined);
-
-      if (lifecycle !== undefined) assert.strictEqual(lifecycle.timestamp, expected);
+      assert.strictEqual(lifecycle.timestamp, expected);
       assert.ok(
         records.every((record) => record._tag !== "lifecycle" || record.timestamp < 10_000),
       );
@@ -1743,8 +1742,7 @@ describe("pending regression scenarios", () => {
       if (Exit.isFailure(stale)) {
         const reason = stale.cause.reasons.find(Cause.isFailReason);
         assert.ok(reason !== undefined);
-
-        if (reason !== undefined) assert.strictEqual(reason.error.code, "DisposedActorRef");
+        assert.strictEqual(reason.error.code, "DisposedActorRef");
       }
 
       yield* runtimeOwner(firstRuntime).close();
@@ -1792,8 +1790,7 @@ describe("pending regression scenarios", () => {
       if (Exit.isFailure(duplicate)) {
         const reason = duplicate.cause.reasons.find(Cause.isFailReason);
         assert.ok(reason !== undefined);
-
-        if (reason !== undefined) assert.strictEqual(reason.error.code, "DuplicateActorClaim");
+        assert.strictEqual(reason.error.code, "DuplicateActorClaim");
       }
 
       assert.deepStrictEqual(actor.engine.snapshot(), before);
@@ -1907,8 +1904,7 @@ describe("pending regression scenarios", () => {
       if (Exit.isFailure(lookup)) {
         const reason = lookup.cause.reasons.find(Cause.isFailReason);
         assert.ok(reason !== undefined);
-
-        if (reason !== undefined) assert.strictEqual(reason.error.code, "DuplicateActorClaim");
+        assert.strictEqual(reason.error.code, "DuplicateActorClaim");
       }
 
       const dispatch = actor.engine.dispatch(IntegrationStandaloneEvent);
@@ -2057,8 +2053,7 @@ describe("pending regression scenarios", () => {
         assert.strictEqual(Cause.hasFails(firstExit.cause), true);
         const reason = firstExit.cause.reasons.find(Cause.isFailReason);
         assert.ok(reason !== undefined);
-
-        if (reason !== undefined) assert.strictEqual(reason.error, prepareFailure);
+        assert.strictEqual(reason.error, prepareFailure);
       }
 
       assert.strictEqual(finalizations, 1);
@@ -2172,12 +2167,9 @@ describe("pending regression scenarios", () => {
       if (Exit.isFailure(invalid)) {
         const reason = invalid.cause.reasons.find(Cause.isFailReason);
         assert.ok(reason !== undefined);
-
-        if (reason !== undefined) {
-          assert.strictEqual(reason.error.code, "SchemaValidation");
-          assert.deepStrictEqual(reason.error.path, ["actorAdmission"]);
-          assert.deepStrictEqual(reason.error.details, { reason: "reflection" });
-        }
+        assert.strictEqual(reason.error.code, "SchemaValidation");
+        assert.deepStrictEqual(reason.error.path, ["actorAdmission"]);
+        assert.deepStrictEqual(reason.error.details, { reason: "reflection" });
       }
 
       assert.deepStrictEqual(allocations, []);
@@ -2228,12 +2220,9 @@ describe("pending regression scenarios", () => {
       if (Exit.isFailure(invalid)) {
         const reason = invalid.cause.reasons.find(Cause.isFailReason);
         assert.ok(reason !== undefined);
-
-        if (reason !== undefined) {
-          assert.strictEqual(reason.error.code, "SchemaValidation");
-          assert.deepStrictEqual(reason.error.path, ["actorAdmission"]);
-          assert.deepStrictEqual(reason.error.details, { reason: "reflection" });
-        }
+        assert.strictEqual(reason.error.code, "SchemaValidation");
+        assert.deepStrictEqual(reason.error.path, ["actorAdmission"]);
+        assert.deepStrictEqual(reason.error.details, { reason: "reflection" });
       }
 
       assert.deepStrictEqual(allocations, []);
@@ -2287,8 +2276,7 @@ describe("pending regression scenarios", () => {
       if (Exit.isFailure(duplicate)) {
         const reason = duplicate.cause.reasons.find(Cause.isFailReason);
         assert.ok(reason !== undefined);
-
-        if (reason !== undefined) assert.strictEqual(reason.error.code, "DuplicateActorClaim");
+        assert.strictEqual(reason.error.code, "DuplicateActorClaim");
       }
 
       const local = yield* assembly.createActor(IntegrationStandaloneMachine, {
@@ -2311,11 +2299,8 @@ describe("pending regression scenarios", () => {
       if (Exit.isFailure(localEnsure)) {
         const reason = localEnsure.cause.reasons.find(Cause.isFailReason);
         assert.ok(reason !== undefined);
-
-        if (reason !== undefined) {
-          assert.strictEqual(reason.error.code, "MissingActorRef");
-          assert.deepStrictEqual(reason.error.details, { local: true, stable: false });
-        }
+        assert.strictEqual(reason.error.code, "MissingActorRef");
+        assert.deepStrictEqual(reason.error.details, { local: true, stable: false });
       }
 
       assert.deepStrictEqual(allocations, allocationsBeforeLocalEnsure);
@@ -2329,8 +2314,7 @@ describe("pending regression scenarios", () => {
       if (Exit.isFailure(opaqueLocalLookup)) {
         const reason = opaqueLocalLookup.cause.reasons.find(Cause.isFailReason);
         assert.ok(reason !== undefined);
-
-        if (reason !== undefined) assert.strictEqual(reason.error.code, "MissingActorRef");
+        assert.strictEqual(reason.error.code, "MissingActorRef");
       }
 
       yield* Effect.provideContext(stable.dispose(), assembly.context);
@@ -2507,11 +2491,8 @@ describe("pending regression scenarios", () => {
 
       const overdueWork = overdue.attachment.work[0];
       assert.ok(overdueWork !== undefined);
-
-      if (overdueWork !== undefined) {
-        const completed = yield* Fiber.await(overdueWork.fiber);
-        assert.ok(Exit.isSuccess(completed));
-      }
+      const completed = yield* Fiber.await(overdueWork.fiber);
+      assert.ok(Exit.isSuccess(completed));
 
       const suspendedAfterDue = yield* Effect.provideContext(
         actor.lifecycle.command({

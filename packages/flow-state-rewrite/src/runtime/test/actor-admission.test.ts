@@ -2360,15 +2360,12 @@ describe("actor identity admission", () => {
       if (Exit.isFailure(result)) {
         const reason = result.cause.reasons.find(Cause.isFailReason);
         assert.ok(reason !== undefined);
-
-        if (reason !== undefined) {
-          assert.strictEqual(reason.error.code, "BlockedByDependents");
-          assert.deepStrictEqual(reason.error.details, {
-            dependents: 1,
-            dependentActors: consumer.fence.key,
-            bindingKeys: "providerState",
-          });
-        }
+        assert.strictEqual(reason.error.code, "BlockedByDependents");
+        assert.deepStrictEqual(reason.error.details, {
+          dependents: 1,
+          dependentActors: consumer.fence.key,
+          bindingKeys: "providerState",
+        });
       }
 
       assert.strictEqual(provider.engine.snapshot().lifecycle, "active");
@@ -2383,8 +2380,7 @@ describe("actor identity admission", () => {
       if (Exit.isFailure(duplicate)) {
         const reason = duplicate.cause.reasons.find(Cause.isFailReason);
         assert.ok(reason !== undefined);
-
-        if (reason !== undefined) assert.strictEqual(reason.error.code, "DuplicateActorClaim");
+        assert.strictEqual(reason.error.code, "DuplicateActorClaim");
       }
 
       yield* Effect.provideContext(consumer.dispose(), assembly.context);
@@ -2783,8 +2779,7 @@ describe("actor identity admission", () => {
       if (Exit.isFailure(recreated)) {
         const reason = recreated.cause.reasons.find(Cause.isFailReason);
         assert.ok(reason !== undefined);
-
-        if (reason !== undefined) assert.strictEqual(reason.error.code, "DisposedActorRef");
+        assert.strictEqual(reason.error.code, "DisposedActorRef");
       }
 
       yield* runtimeOwner(runtime).close();

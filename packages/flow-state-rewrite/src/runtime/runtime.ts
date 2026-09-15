@@ -930,7 +930,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
           fence: ActorFence;
           pendingCompletion: RuntimeAdmissionCompletion;
         } & (Phase extends "reserved"
-          ? {}
+          ? unknown
           : {
               rollback: AdmissionRollbackStep[];
               validated: RuntimeValidatedAdmission<
@@ -958,13 +958,13 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
                 context: ContextOf<DefinitionValue>;
                 edges: ActorDependencyEdge[];
               }
-            : {}) &
+            : unknown) &
           (Phase extends "activated" | "registered"
             ? {
                 baseline: ActiveContextBaseline<DefinitionValue, ProviderDefinition>;
                 engine: ActorEngine<DefinitionValue>;
               }
-            : {}) &
+            : unknown) &
           (Phase extends "registered"
             ? {
                 dependencies: {
@@ -1003,7 +1003,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
                   ProviderDefinition
                 >;
               }
-            : {});
+            : unknown);
 
         type RuntimeAdmissionCarriers = ActorAdmissionPhaseOwners<
           RuntimeAdmissionCarrier<"reserved">,

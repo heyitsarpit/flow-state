@@ -377,8 +377,7 @@ const makeRuntimeOwner = <
         _tag: "closing",
         ready: Deferred.makeUnsafe<Exit.Exit<A, ReadyError>>(),
         close: closeDeferred,
-        readyExit:
-          current._tag === "ready" || current._tag === "failed" ? current.readyExit : undefined,
+        readyExit: current.readyExit,
         includeReadyFailure: current._tag === "failed" ? current.retainFailureOnClose : false,
         scope: current._tag === "ready" ? current.scope : undefined,
         scopeClosed: current._tag === "ready" ? current.scopeClosed : true,

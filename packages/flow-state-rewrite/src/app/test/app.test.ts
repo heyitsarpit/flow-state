@@ -1122,9 +1122,8 @@ describe("app composition", () => {
         assert.strictEqual(isOperationPlanForDescriptor(capturedActivity, projectResource), true);
         assert.strictEqual(capturedActivityMachine.definition.S.S, ActivityDefinition.S.S);
         assert.ok(capturedStateNamedS !== undefined);
-
-        if (capturedStateNamedS !== undefined && capturedStateNamedS.kind === "leaf")
-          assert.strictEqual(capturedStateNamedS.state, capturedActivityMachine.definition.S.S);
+        assert.ok(capturedStateNamedS.kind === "leaf");
+        assert.strictEqual(capturedStateNamedS.state, capturedActivityMachine.definition.S.S);
       }
 
       assert.strictEqual(Object.isFrozen(AppValue), false);

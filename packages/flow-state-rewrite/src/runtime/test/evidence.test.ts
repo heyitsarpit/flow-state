@@ -994,18 +994,18 @@ describe("runtime evidence", () => {
       const record = delivered[0];
       assert.ok(record !== undefined);
 
-      if (record?._tag === "lifecycle") {
-        // SAFETY: the lifecycle owner preserves the LifecycleCause envelope for this accepted record.
-        const retainedCause = record.cause as {
-          _tag: string;
-          cause: Cause.Cause<unknown>;
-        };
+      assert.strictEqual(record._tag, "lifecycle");
 
-        assert.strictEqual(retainedCause._tag, "cleanup-failure");
-        const retained = retainedCause.cause;
-        assert.strictEqual(Cause.hasFails(retained), true);
-        assert.strictEqual(Cause.hasDies(retained), true);
-      }
+      // SAFETY: the lifecycle owner preserves the LifecycleCause envelope for this accepted record.
+      const retainedCause = record.cause as {
+        _tag: string;
+        cause: Cause.Cause<unknown>;
+      };
+
+      assert.strictEqual(retainedCause._tag, "cleanup-failure");
+      const retained = retainedCause.cause;
+      assert.strictEqual(Cause.hasFails(retained), true);
+      assert.strictEqual(Cause.hasDies(retained), true);
 
       assert.strictEqual(owner.hub.sequence(), 1);
       yield* owner.close();

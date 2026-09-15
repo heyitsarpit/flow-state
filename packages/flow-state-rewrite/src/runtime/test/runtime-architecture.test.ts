@@ -196,7 +196,15 @@ describe("runtime assembly", () => {
       assert.strictEqual(setup.app, architectureApp);
       assert.throws(() => runtimeOwner(runtime).assembly());
       yield* runtime.ready();
-      assert.strictEqual(runtimeOwner(runtime).assembly().createActor !== undefined, true);
+
+      const actor = yield* runtimeOwner(runtime)
+        .assembly()
+        .createActor({
+          ref: actorRef(architectureMachine, "ready-assembly"),
+          initial: initialArchitectureSnapshot(),
+        });
+
+      assert.strictEqual(actor.engine.snapshot().lifecycle, "active");
       yield* runtimeOwner(runtime).close();
     }),
   );
@@ -538,11 +546,8 @@ describe("runtime assembly", () => {
       if (Exit.isFailure(completion)) {
         const reason = completion.cause.reasons.find(Cause.isFailReason);
         assert.ok(reason !== undefined);
-
-        if (reason !== undefined) {
-          assert.strictEqual(reason.error.code, "InvariantViolation");
-          assert.deepStrictEqual(reason.error.path, ["mailbox", "closed"]);
-        }
+        assert.strictEqual(reason.error.code, "InvariantViolation");
+        assert.deepStrictEqual(reason.error.path, ["mailbox", "closed"]);
       }
 
       const afterClose = actor.engine.snapshot();
@@ -740,7 +745,7 @@ describe("runtime assembly", () => {
         initial: initialArchitectureSnapshot(),
       });
 
-      assert.strictEqual(actor.lifecycle.state !== undefined, true);
+      assert.strictEqual(actor.lifecycle.currentLifecycle(), "active");
       yield* owner.close();
     }),
   );

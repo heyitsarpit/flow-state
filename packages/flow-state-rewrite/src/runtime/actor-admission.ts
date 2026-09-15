@@ -1155,7 +1155,7 @@ export type ActorAdmissionReservation<
   CleanupError,
   Actor,
   ProviderDefinition extends MachineDefinition = DefinitionValue,
-  ValidatedCarrier = {},
+  ValidatedCarrier = NonNullable<unknown>,
 > =
   | {
       mode: "leader";
@@ -1182,7 +1182,7 @@ export type ActorAdmissionReservation<
 
 type ActorAdmissionPhase<Phase extends string, Value, IncludeRollback extends boolean = true> = {
   phase: Phase;
-} & (IncludeRollback extends true ? { rollback: AdmissionRollbackStep[] } : {}) &
+} & (IncludeRollback extends true ? { rollback: AdmissionRollbackStep[] } : NonNullable<unknown>) &
   Value;
 
 type PreparedActorAdmissionValue<
@@ -2276,7 +2276,7 @@ export const admitActor = <
     const transaction = Effect.gen(function* () {
       // Keep the scheduler handoff inside the reservation rollback owner. An interrupted
       // leader must settle the shared completion and release the reserved identity.
-      if (reservation.mode === "leader") yield* Effect.yieldNow;
+      yield* Effect.yieldNow;
 
       const prepared = yield* authority.prepare(reservation.validated, reservation.admissionMode);
       transactionOwner.advance("prepared", includeReservation(prepared.rollback));

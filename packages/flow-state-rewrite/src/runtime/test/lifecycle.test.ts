@@ -2144,13 +2144,11 @@ describe("actor lifecycle", () => {
       const retained = resumed.attachment.operations[0]?.fence;
       assert.ok(retained !== undefined);
 
-      if (retained !== undefined) {
-        assert.strictEqual(retained.actor.key, fence.key);
-        assert.strictEqual(retained.actor.incarnation, fence.incarnation);
-        assert.strictEqual(retained.descriptor, occurrenceOperation);
-        assert.deepStrictEqual(retained.key, occurrenceOperation.key(1));
-        assert.strictEqual(retained.ordinal, 1);
-      }
+      assert.strictEqual(retained.actor.key, fence.key);
+      assert.strictEqual(retained.actor.incarnation, fence.incarnation);
+      assert.strictEqual(retained.descriptor, occurrenceOperation);
+      assert.deepStrictEqual(retained.key, occurrenceOperation.key(1));
+      assert.strictEqual(retained.ordinal, 1);
 
       const scope = yield* Scope.make("sequential");
 
@@ -2460,7 +2458,7 @@ describe("pending regression scenarios", () => {
       assert.ok(retained?.refresh !== undefined);
       const work = resumed.attachment.work[0];
       assert.ok(work !== undefined);
-      assert.strictEqual(work?.name, "timer:controlled-deadline");
+      assert.strictEqual(work.name, "timer:controlled-deadline");
 
       yield* TestClock.adjust(10);
       const suspendedBeforeDue = yield* withRuntime(suspendLifecycle(resumed), testLayer);
@@ -2471,15 +2469,13 @@ describe("pending regression scenarios", () => {
 
       yield* TestClock.adjust(40);
 
-      if (rearmed !== undefined) {
-        const completed = yield* Fiber.await(rearmed.fiber);
+      const completed = yield* Fiber.await(rearmed.fiber);
 
-        if (Exit.isFailure(completed))
-          assert.fail(
-            `retained timer failed: ${completed.cause.reasons.map((reason) => reason._tag).join(",")}`,
-          );
-        assert.ok(Exit.isSuccess(completed));
-      }
+      if (Exit.isFailure(completed))
+        assert.fail(
+          `retained timer failed: ${completed.cause.reasons.map((reason) => reason._tag).join(",")}`,
+        );
+      assert.ok(Exit.isSuccess(completed));
 
       assert.strictEqual(refreshes, 1);
 
@@ -2592,7 +2588,7 @@ describe("pending regression scenarios", () => {
       const retainedResource = retained.attachment.resources[0];
       assert.ok(retainedResource !== undefined);
 
-      if (retainedResource !== undefined && Option.isSome(retainedResource.cause)) {
+      if (Option.isSome(retainedResource.cause)) {
         assert.deepStrictEqual(
           retainedResource.cause.value.reasons.map((reason) => reason._tag),
           ["Fail", "Die"],
@@ -2746,7 +2742,7 @@ describe("pending regression scenarios", () => {
       const resource = firstState.attachment.resources[0];
       assert.ok(resource !== undefined);
 
-      if (resource !== undefined && Option.isSome(resource.cause))
+      if (Option.isSome(resource.cause))
         assert.strictEqual(Cause.hasDies(resource.cause.value), true);
     }),
   );

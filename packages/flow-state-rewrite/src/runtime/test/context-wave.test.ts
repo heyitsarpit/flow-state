@@ -882,13 +882,8 @@ describe("context waves", () => {
 
     const entry = [...undefinedBaseline.ledger.entries.values()][0];
     assert.ok(entry !== undefined);
-
-    if (entry !== undefined) {
-      assert.ok(Option.isSome(entry.lastValid));
-
-      if (Option.isSome(entry.lastValid))
-        assert.strictEqual(entry.lastValid.value.value, undefined);
-    }
+    assert.ok(Option.isSome(entry.lastValid));
+    assert.strictEqual(entry.lastValid.value.value, undefined);
   });
 
   it("stores an authored diagnostic as ordinary context data", () => {

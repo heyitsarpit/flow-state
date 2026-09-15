@@ -352,14 +352,12 @@ describe("runtime owner", () => {
       assert.ok(Exit.isFailure(failedReady));
       assert.ok(failedFinalizerExit !== undefined);
 
-      if (Exit.isFailure(failedReady) && failedFinalizerExit !== undefined) {
-        assert.deepStrictEqual(failedFinalizerExit, Exit.fail(primaryFailure));
-        const primary = failedReady.cause.reasons[0];
+      assert.deepStrictEqual(failedFinalizerExit, Exit.fail(primaryFailure));
+      const primary = failedReady.cause.reasons[0];
 
-        if (primary === undefined || !Cause.isFailReason(primary))
-          return yield* Effect.die(new Error("bootstrap failure Cause was not retained"));
-        assert.strictEqual(primary.error, primaryFailure);
-      }
+      if (primary === undefined || !Cause.isFailReason(primary))
+        return yield* Effect.die(new Error("bootstrap failure Cause was not retained"));
+      assert.strictEqual(primary.error, primaryFailure);
 
       let interruptedFinalizerExit: Exit.Exit<unknown, unknown> | undefined;
 
@@ -383,10 +381,8 @@ describe("runtime owner", () => {
       assert.ok(Exit.isFailure(interruptedExit));
       assert.ok(interruptedFinalizerExit !== undefined);
 
-      if (Exit.isFailure(interruptedExit) && interruptedFinalizerExit !== undefined) {
-        assert.deepStrictEqual(interruptedFinalizerExit, interruptedExit);
-        assert.strictEqual(Cause.hasInterruptsOnly(interruptedExit.cause), true);
-      }
+      assert.deepStrictEqual(interruptedFinalizerExit, interruptedExit);
+      assert.strictEqual(Cause.hasInterruptsOnly(interruptedExit.cause), true);
     }),
   );
 
@@ -1635,7 +1631,7 @@ describe("runtime owner", () => {
         const reason = recreated.cause.reasons.find(Cause.isFailReason);
         assert.ok(reason !== undefined);
 
-        if (reason !== undefined) assert.strictEqual(reason.error.code, "DisposedActorRef");
+        assert.strictEqual(reason.error.code, "DisposedActorRef");
       }
 
       assert.ok(Exit.isSuccess(yield* Effect.exit(runtimeOwner(runtime).close())));
