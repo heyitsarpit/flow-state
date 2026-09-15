@@ -80,7 +80,7 @@ export default defineConfig({
       "anti-slop/no-public-runtime-infrastructure": [
         "error",
         {
-          sourceRoots: ["packages/flow-state-rewrite/src/public"],
+          sourceRoots: ["packages/flow-state-rewrite/src"],
           allowedPathFragments: ["/src/public/adapter/", "/src/public/host/"],
         },
       ],
@@ -91,8 +91,7 @@ export default defineConfig({
       "anti-slop/no-unknown": [
         "error",
         {
-          // Adopt the unified rule at the public/domain boundary first; internal admission and runtime owners still contain intentional boundary erasure that must be migrated with their contracts.
-          sourceRoots: ["packages/flow-state-rewrite/src/public"],
+          sourceRoots: ["packages/flow-state-rewrite/src"],
           allowedSchemaFields: [
             {
               file: "packages/flow-state-rewrite/src/machine/admission.ts",
@@ -161,14 +160,14 @@ export default defineConfig({
         "warn",
         { productionThreshold: 500, testThreshold: 1000 },
       ],
-      "anti-slop/no-object-type": ["error", { sourceRoots: ["packages/flow-state-rewrite"] }],
+      "anti-slop/no-object-type": ["error", { sourceRoots: ["packages/flow-state-rewrite/src"] }],
       "anti-slop/no-optional-domain-properties": [
         "error",
         {
           sourceRoots: [
             "packages/flow-state/src/core/api",
             "packages/flow-state/src/vnext",
-            "packages/flow-state-rewrite/src/public",
+            "packages/flow-state-rewrite/src",
           ],
         },
       ],

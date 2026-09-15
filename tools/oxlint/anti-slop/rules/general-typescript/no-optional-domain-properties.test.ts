@@ -14,6 +14,10 @@ tester.run("no-optional-domain-properties", noOptionalDomainPropertiesRule, {
 			filename: "/project/packages/custom/src/value.ts",
 			options: [{ sourceRoots: ["packages/other/src"] }],
 		},
+		{
+			code: "type Identity<T> = T; interface Value<T> { value: Identity<T>; }",
+			filename: "/project/packages/flow-state-rewrite/src/runtime/value.ts",
+		},
 	],
 	invalid: [
 		{

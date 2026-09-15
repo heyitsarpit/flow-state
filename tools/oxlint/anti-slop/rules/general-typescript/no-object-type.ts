@@ -6,7 +6,7 @@ import { isPathWithin } from "../../shared/module-path.ts";
 
 type RuleOptions = [{ sourceRoots?: string[] }];
 
-const defaultSourceRoots = ["packages/flow-state-rewrite"] as const;
+const defaultSourceRoots = ["packages/flow-state-rewrite/src"] as const;
 
 /** Reject the TypeScript `object` keyword in configured source roots. */
 export const noObjectTypeRule = defineRule({

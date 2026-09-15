@@ -10,7 +10,7 @@ type TypeSubstitutions = ReadonlyMap<string, ESTree.TSType>;
 const defaultSourceRoots = [
 	"packages/flow-state/src/core/api",
 	"packages/flow-state/src/vnext",
-	"packages/flow-state-rewrite/src/public",
+	"packages/flow-state-rewrite/src",
 ] as const;
 
 type PropertyNode = ESTree.TSPropertySignature | ESTree.PropertyDefinition | ESTree.AccessorProperty;
@@ -53,8 +53,18 @@ function containsNullishType(
 	if (unwrapped.type === "TSTypeReference") {
 		const name = typeReferenceName(unwrapped);
 		const substitution = name === null ? undefined : substitutions.get(name);
-		if (substitution !== undefined) {
-			return containsNullishType(substitution, aliases, substitutions, visitedAliases);
+		const substitutionKey = name === null ? null : `type-parameter:${name}`;
+		if (
+			substitution !== undefined &&
+			substitutionKey !== null &&
+			!visitedAliases.has(substitutionKey)
+		) {
+			return containsNullishType(
+				substitution,
+				aliases,
+				substitutions,
+				new Set([...visitedAliases, substitutionKey]),
+			);
 		}
 		const alias = name === null ? undefined : aliases.get(name);
 		if (alias !== undefined && !visitedAliases.has(name!)) {
