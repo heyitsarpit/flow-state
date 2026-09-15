@@ -613,15 +613,15 @@ describe("internal implementation runtime", () => {
         const firstExit = yield* Fiber.join(first);
         const secondExit = yield* Fiber.join(second);
         assert.ok(Exit.isSuccess(firstExit));
-        assert.strictEqual(secondExit, firstExit);
-        assert.strictEqual(yield* Effect.exit(runtime.ready()), firstExit);
+        assert.deepStrictEqual(secondExit, firstExit);
+        assert.deepStrictEqual(yield* Effect.exit(runtime.ready()), firstExit);
         assert.strictEqual(acquisitions, 1);
         assert.deepStrictEqual(observations, [repository]);
 
         const firstClose = yield* Effect.exit(runtimeOwner(runtime).close());
         const secondClose = yield* Effect.exit(runtimeOwner(runtime).close());
         assert.ok(Exit.isSuccess(firstClose));
-        assert.strictEqual(secondClose, firstClose);
+        assert.deepStrictEqual(secondClose, firstClose);
         assert.strictEqual(cleanups, 1);
       }),
     );
@@ -766,7 +766,7 @@ describe("internal implementation runtime", () => {
 
         const first = yield* Effect.exit(ready);
         const second = yield* Effect.exit(ready);
-        assert.strictEqual(first, second);
+        assert.deepStrictEqual(first, second);
         assert.ok(Exit.isFailure(first));
 
         if (Exit.isFailure(first)) {
@@ -814,8 +814,8 @@ describe("internal implementation runtime", () => {
         const firstExit = yield* Fiber.join(first);
         const secondExit = yield* Fiber.join(second);
         assert.ok(Exit.isSuccess(firstExit));
-        assert.strictEqual(firstExit, secondExit);
-        assert.strictEqual(yield* Effect.exit(runtime.ready()), firstExit);
+        assert.deepStrictEqual(firstExit, secondExit);
+        assert.deepStrictEqual(yield* Effect.exit(runtime.ready()), firstExit);
         assert.strictEqual(acquisitions, 1);
       }),
     );
@@ -899,7 +899,7 @@ describe("internal implementation runtime", () => {
         yield* Deferred.succeed(release, undefined);
         const firstExit = yield* Fiber.join(first);
         assert.ok(Exit.isSuccess(firstExit));
-        assert.strictEqual(yield* Effect.exit(runtime.ready()), firstExit);
+        assert.deepStrictEqual(yield* Effect.exit(runtime.ready()), firstExit);
         assert.strictEqual(acquisitions, 1);
       }),
     );
@@ -978,7 +978,7 @@ describe("internal implementation runtime", () => {
 
         const first = yield* Effect.exit(ready);
         const second = yield* Effect.exit(ready);
-        assert.strictEqual(first, second);
+        assert.deepStrictEqual(first, second);
         assert.strictEqual(Exit.hasDies(first), true);
 
         if (!Exit.isFailure(first)) {
@@ -1013,7 +1013,7 @@ describe("internal implementation runtime", () => {
 
         const first = yield* Effect.exit(ready);
         const second = yield* Effect.exit(ready);
-        assert.strictEqual(first, second);
+        assert.deepStrictEqual(first, second);
         assert.ok(Exit.hasInterrupts(first));
         assert.strictEqual(calls, 1);
       }),

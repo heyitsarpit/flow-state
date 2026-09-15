@@ -132,7 +132,7 @@ export type AcknowledgedDispatch = {
 
 export type ActorCommandHandler<DefinitionValue extends MachineDefinition> = (
   command: ActorCommand<DefinitionValue>,
-) => Effect.Effect<void, PublicDiagnostic>;
+) => Effect.Effect<void, PublicDiagnostic, Scope.Scope>;
 
 export type ActorEvidenceAcceptor<DefinitionValue extends MachineDefinition> = (
   publication: ActorPublication<DefinitionValue>,
@@ -178,6 +178,7 @@ export type ActorEngineInput<DefinitionValue extends MachineDefinition> = {
 export interface ActorEngine<DefinitionValue extends MachineDefinition> {
   readonly ref: ActorRef<Machine<DefinitionValue>>;
   readonly fence: ActorFence;
+  readonly machineTurnRevision: () => number;
   readonly mailbox: Queue.Queue<ActorMailboxFact<DefinitionValue>>;
   readonly consumer: Effect.Effect<void, PublicDiagnostic>;
   readonly snapshot: () => ActorSnapshot<DefinitionValue>;
@@ -1399,7 +1400,9 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
 
     return processPlan(planned.success, fact.acknowledgement).pipe(
       Effect.flatMap((runUserWork) =>
-        runUserWork && input.onCommand !== undefined ? input.onCommand(fact.command) : Effect.void,
+        runUserWork && input.onCommand !== undefined
+          ? Scope.provide(input.scope)(input.onCommand(fact.command))
+          : Effect.void,
       ),
     );
   };
@@ -1529,6 +1532,7 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
   return {
     ref: input.identity.ref,
     fence: input.fence,
+    machineTurnRevision: () => state.machineTurnRevision,
     mailbox,
     consumer: consume,
     snapshot: () => state.snapshot,

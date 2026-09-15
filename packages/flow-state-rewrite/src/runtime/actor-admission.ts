@@ -12,14 +12,15 @@ import {
 } from "effect";
 
 import { Failure, fromSchemaError, type PublicDiagnostic } from "../diagnostic/diagnostic.js";
-import { appPlan, isConstructedApp, type App } from "../app/app.js";
+import { appPlan, isConstructedApp, isOwnedMachineFactsFor, type App } from "../app/app.js";
 import type { ContextOf, InputOf, SelectorInput } from "../definition/domain.js";
 import { isAuthoredName } from "../internal/authored-name.js";
 import { isStableDataDescriptor, isStableKeyList } from "../internal/stable-observation.js";
 import { isConstructedMachine, type Machine, type MachineRecordValue } from "../machine/machine.js";
 import type { MachineDefinition } from "../machine/grammar.js";
 import type { ActorRef } from "./actor-ref.js";
-import type { PreparedActorSnapshot } from "./actor-engine.js";
+import type { ActorEngine, PreparedActorEngine, PreparedActorSnapshot } from "./actor-engine.js";
+import type { ActiveContextBaseline } from "./context-wave.js";
 import { immutableArray, immutableRecord, readonlyMap } from "./readonly-collections.js";
 
 declare const actorKeyBrand: unique symbol;
@@ -467,7 +468,15 @@ export type ActorIdentityRegistry<Actor = unknown> = {
   ) => Result.Result<ActorIdentity<DefinitionValue>, PublicDiagnostic>;
   readonly createLocal: <DefinitionValue extends MachineDefinition>(
     machine: Machine<DefinitionValue>,
+    options?: { readonly deferAllocationNotification?: boolean },
   ) => Result.Result<LocalActorIdentity<DefinitionValue>, PublicDiagnostic>;
+  readonly commitLocal: <DefinitionValue extends MachineDefinition>(
+    identity: LocalActorIdentity<DefinitionValue>,
+  ) => Result.Result<void, PublicDiagnostic>;
+  readonly reserveLocal: <DefinitionValue extends MachineDefinition>(
+    identity: ActorIdentity<DefinitionValue>,
+  ) => Result.Result<ActorIdentity<DefinitionValue>, PublicDiagnostic>;
+  readonly isLocalRef: (ref: unknown) => boolean;
   readonly register: <DefinitionValue extends MachineDefinition>(
     identity: ActorIdentity<DefinitionValue>,
     actor: Actor,
@@ -487,6 +496,7 @@ export type ActorIdentityRegistry<Actor = unknown> = {
 type RegistryOptions = {
   /** Test-only starting point; production callers use the one-based default. */
   readonly initialIncarnation?: number;
+  readonly onAllocate?: (kind: "incarnation" | "local-ordinal") => void;
 };
 
 type StableSlot<Actor> = {
@@ -502,10 +512,29 @@ type StoredEntry<Actor> = {
   actor: Actor | undefined;
   hasActor: boolean;
   tombstone: ActorTombstone | undefined;
+  localAllocation: LocalAllocationReservation | undefined;
+  deferredLocalAllocation: boolean;
 };
 
+type LocalAllocation = {
+  readonly incarnation: ActorIncarnation;
+  readonly ordinal: number;
+};
+
+type LocalAllocationReservation = LocalAllocation & {
+  readonly recycled: boolean;
+  readonly nextIncarnationBefore: number;
+  readonly nextKeyOrdinalBefore: number;
+  readonly incarnationExhaustedBefore: boolean;
+  readonly keyOrdinalExhaustedBefore: boolean;
+  readonly nextIncarnationAfter: number;
+  readonly nextKeyOrdinalAfter: number;
+};
+
+type LocalActorRefRecord = { readonly [key: PropertyKey]: unknown };
+
 // Provenance marker only: this WeakSet retains no refs and is not an actor registry.
-const localActorRefs = new WeakSet<ActorRef>();
+const localActorRefs = new WeakSet<LocalActorRefRecord>();
 
 const isRegisteredEntry = <Actor>(
   entry: StoredEntry<Actor>,
@@ -555,6 +584,7 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
   let nextKeyOrdinal = 1;
   let incarnationExhausted = false;
   let keyOrdinalExhausted = false;
+  const recycledLocalAllocations: LocalAllocation[] = [];
   const stableSlots = new Map<MachineRecordValue, Map<string, StableSlot<Actor>>>();
   const entriesByKey = new Map<ActorKey, StoredEntry<Actor>>();
 
@@ -562,7 +592,9 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
     diagnostic,
   ) => Result.fail(diagnostic);
 
-  const allocateIncarnation = (): Result.Result<ActorIncarnation, PublicDiagnostic> => {
+  const allocateIncarnation = (
+    notify = true,
+  ): Result.Result<ActorIncarnation, PublicDiagnostic> => {
     if (incarnationExhausted) {
       return Result.fail(
         invalidIdentity(
@@ -589,10 +621,12 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
     if (nextIncarnation === MAX_SAFE_INTEGER) incarnationExhausted = true;
     else nextIncarnation += 1;
 
+    if (notify) options.onAllocate?.("incarnation");
+
     return Result.succeed(incarnation);
   };
 
-  const allocateLocalOrdinal = (): Result.Result<number, PublicDiagnostic> => {
+  const allocateLocalOrdinal = (notify = true): Result.Result<number, PublicDiagnostic> => {
     if (keyOrdinalExhausted || !isValidCursor(nextKeyOrdinal)) {
       keyOrdinalExhausted = true;
 
@@ -608,6 +642,8 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
 
     if (nextKeyOrdinal === MAX_SAFE_INTEGER) keyOrdinalExhausted = true;
     else nextKeyOrdinal += 1;
+
+    if (notify) options.onAllocate?.("local-ordinal");
 
     return Result.succeed(ordinal);
   };
@@ -685,6 +721,8 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
       actor: undefined,
       hasActor: false,
       tombstone: undefined,
+      localAllocation: undefined,
+      deferredLocalAllocation: false,
     };
 
     slot.entry = entry;
@@ -695,13 +733,54 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
 
   const createLocal = <DefinitionValue extends MachineDefinition>(
     machine: Machine<DefinitionValue>,
+    creationOptions: { readonly deferAllocationNotification?: boolean } = {},
   ): Result.Result<LocalActorIdentity<DefinitionValue>, PublicDiagnostic> => {
-    const incarnation = allocateIncarnation();
+    const deferredLocalAllocation = creationOptions.deferAllocationNotification === true;
+    const recycled = recycledLocalAllocations.pop();
+    const nextIncarnationBefore = nextIncarnation;
+    const nextKeyOrdinalBefore = nextKeyOrdinal;
+    const incarnationExhaustedBefore = incarnationExhausted;
+    const keyOrdinalExhaustedBefore = keyOrdinalExhausted;
 
-    if (Result.isFailure(incarnation)) return failure(incarnation.failure);
-    const ordinal = allocateLocalOrdinal();
+    const incarnation =
+      recycled === undefined ? allocateIncarnation(false) : Result.succeed(recycled.incarnation);
 
-    if (Result.isFailure(ordinal)) return failure(ordinal.failure);
+    if (Result.isFailure(incarnation)) {
+      if (recycled !== undefined) recycledLocalAllocations.push(recycled);
+
+      return failure(incarnation.failure);
+    }
+
+    const ordinal =
+      recycled === undefined ? allocateLocalOrdinal(false) : Result.succeed(recycled.ordinal);
+
+    if (Result.isFailure(ordinal)) {
+      nextIncarnation = nextIncarnationBefore;
+      nextKeyOrdinal = nextKeyOrdinalBefore;
+      incarnationExhausted = incarnationExhaustedBefore;
+      keyOrdinalExhausted = keyOrdinalExhaustedBefore;
+
+      if (recycled !== undefined) recycledLocalAllocations.push(recycled);
+
+      return failure(ordinal.failure);
+    }
+
+    if (!deferredLocalAllocation) {
+      options.onAllocate?.("incarnation");
+      options.onAllocate?.("local-ordinal");
+    }
+
+    const localAllocation: LocalAllocationReservation = {
+      incarnation: incarnation.success,
+      ordinal: ordinal.success,
+      recycled: recycled !== undefined,
+      nextIncarnationBefore,
+      nextKeyOrdinalBefore,
+      incarnationExhaustedBefore,
+      keyOrdinalExhaustedBefore,
+      nextIncarnationAfter: nextIncarnation,
+      nextKeyOrdinalAfter: nextKeyOrdinal,
+    };
 
     // SAFETY: this object is the complete opaque local ref; its private brand is type-only.
     const ref = {
@@ -725,10 +804,49 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
       actor: undefined,
       hasActor: false,
       tombstone: undefined,
+      localAllocation,
+      deferredLocalAllocation,
     };
 
     localActorRefs.add(ref);
     entriesByKey.set(identity.key, entry);
+
+    return Result.succeed(identity);
+  };
+
+  const commitLocal = <DefinitionValue extends MachineDefinition>(
+    identity: LocalActorIdentity<DefinitionValue>,
+  ): Result.Result<void, PublicDiagnostic> => {
+    const entry = entriesByKey.get(identity.key);
+
+    if (
+      entry === undefined ||
+      entry.identity !== identity ||
+      !entry.local ||
+      !entry.deferredLocalAllocation
+    )
+      return failure(missingActorRef);
+
+    entry.deferredLocalAllocation = false;
+    options.onAllocate?.("incarnation");
+    options.onAllocate?.("local-ordinal");
+
+    return Result.succeed(undefined);
+  };
+
+  const reserveLocal = <DefinitionValue extends MachineDefinition>(
+    identity: ActorIdentity<DefinitionValue>,
+  ): Result.Result<ActorIdentity<DefinitionValue>, PublicDiagnostic> => {
+    const entry = entriesByKey.get(identity.key);
+
+    if (
+      !localActorRefs.has(identity.ref) ||
+      entry === undefined ||
+      entry.identity !== identity ||
+      !entry.local ||
+      entry.state !== "reserved"
+    )
+      return failure(missingActorRef);
 
     return Result.succeed(identity);
   };
@@ -786,6 +904,25 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
     entriesByKey.delete(identity.key);
 
     if (entry.local) {
+      if (entry.deferredLocalAllocation && entry.localAllocation !== undefined) {
+        const allocation = entry.localAllocation;
+
+        if (
+          !allocation.recycled &&
+          nextIncarnation === allocation.nextIncarnationAfter &&
+          nextKeyOrdinal === allocation.nextKeyOrdinalAfter
+        ) {
+          nextIncarnation = allocation.nextIncarnationBefore;
+          nextKeyOrdinal = allocation.nextKeyOrdinalBefore;
+          incarnationExhausted = allocation.incarnationExhaustedBefore;
+          keyOrdinalExhausted = allocation.keyOrdinalExhaustedBefore;
+        } else {
+          recycledLocalAllocations.push(allocation);
+        }
+      }
+
+      localActorRefs.delete(identity.ref);
+
       return;
     }
 
@@ -840,7 +977,18 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
     return Result.succeed(undefined);
   };
 
-  return { stableKey, reserveStable, createLocal, register, lookup, rollback, tombstone };
+  return {
+    stableKey,
+    reserveStable,
+    createLocal,
+    reserveLocal,
+    commitLocal,
+    isLocalRef: (ref) => Predicate.isObject(ref) && localActorRefs.has(ref),
+    register,
+    lookup,
+    rollback,
+    tombstone,
+  };
 };
 
 /** Exact typed values supplied to the pre-mutation admission validator. */
@@ -927,14 +1075,16 @@ const restoreRequiresPersistedRef = () =>
 export const resolveActorAdmissionMode = <DefinitionValue extends MachineDefinition, Input>(
   ref: ActorRef<Machine<DefinitionValue>>,
   construction: ActorAdmissionConstruction<DefinitionValue, Input>,
+  identityMode: "stable" | "local" = "stable",
 ): Result.Result<ActorAdmissionMode, PublicDiagnostic> => {
   if (construction._tag === "restore") {
-    if (ref.persist !== true) return Result.fail(restoreRequiresPersistedRef());
+    if (identityMode === "local" || ref.persist !== true)
+      return Result.fail(restoreRequiresPersistedRef());
 
     return Result.succeed("restored-stable");
   }
 
-  return Result.succeed("fresh-stable");
+  return Result.succeed(identityMode === "local" ? "fresh-local" : "fresh-stable");
 };
 
 /** The handle is package-local until a later public actor owner publishes it. */
@@ -957,6 +1107,43 @@ type ValidatedActorAdmissionWithIdentity<
   readonly identity: ActorIdentity<DefinitionValue>;
 };
 
+export type ActorAdmissionPhaseOwners<
+  ValidatedOwner = never,
+  PreparedOwner = never,
+  AttachedOwner = never,
+  ActivatedOwner = never,
+  RegisteredOwner = never,
+> = {
+  readonly validated: ValidatedOwner;
+  readonly prepared: PreparedOwner;
+  readonly attached: AttachedOwner;
+  readonly activated: ActivatedOwner;
+  readonly registered: RegisteredOwner;
+};
+
+// oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- phase carriers are private capabilities with arbitrary fields but cannot be erased to unknown.
+type ActorAdmissionPhaseCarrier = Readonly<Record<string, unknown>>;
+
+type ActorAdmissionRollbackCarrier = ActorAdmissionPhaseCarrier & {
+  readonly rollback: readonly AdmissionRollbackStep[];
+};
+
+type ActorAdmissionPhaseOwnerMap = ActorAdmissionPhaseOwners<
+  ActorAdmissionPhaseCarrier,
+  ActorAdmissionRollbackCarrier,
+  ActorAdmissionRollbackCarrier,
+  ActorAdmissionRollbackCarrier,
+  ActorAdmissionRollbackCarrier
+>;
+
+type DefaultActorAdmissionPhaseOwners = {
+  readonly validated: never;
+  readonly prepared: never;
+  readonly attached: never;
+  readonly activated: never;
+  readonly registered: never;
+};
+
 /** Reservation is the linearization point for fresh, restored, and concurrent stable admissions. */
 export type ActorAdmissionReservation<
   A extends App,
@@ -965,6 +1152,7 @@ export type ActorAdmissionReservation<
   CleanupError,
   Actor,
   ProviderDefinition extends MachineDefinition = DefinitionValue,
+  ValidatedCarrier = {},
 > =
   | {
       readonly mode: "leader";
@@ -974,7 +1162,8 @@ export type ActorAdmissionReservation<
         DefinitionValue,
         I,
         ProviderDefinition
-      >;
+      > &
+        ValidatedCarrier;
       readonly rollback: readonly AdmissionRollbackStep[];
       readonly complete: Deferred.Deferred<
         Exit.Exit<
@@ -993,51 +1182,66 @@ export type ActorAdmissionReservation<
       >;
     };
 
-/** Prepared state owns the silent baseline and bounded mailbox. */
-export type PreparedActorAdmission<
+type ActorAdmissionPhase<Phase extends string, Value, IncludeRollback extends boolean = true> = {
+  readonly phase: Phase;
+} & (IncludeRollback extends true ? { readonly rollback: readonly AdmissionRollbackStep[] } : {}) &
+  Value;
+
+type PreparedActorAdmissionValue<
   A extends App,
   DefinitionValue extends MachineDefinition,
   I,
-  ProviderDefinition extends MachineDefinition = DefinitionValue,
+  ProviderDefinition extends MachineDefinition,
+  Snapshot,
+  Mailbox,
 > = {
-  readonly phase: "prepared";
   readonly validated: ValidatedActorAdmissionWithIdentity<
     A,
     DefinitionValue,
     I,
     ProviderDefinition
   >;
-  readonly snapshot: unknown;
-  readonly mailbox: unknown;
-  readonly rollback: readonly AdmissionRollbackStep[];
+  readonly snapshot: Snapshot;
+  readonly mailbox: Mailbox;
 };
+
+type AttachedActorAdmissionValue<DefinitionValue extends MachineDefinition> = {
+  readonly context: Readonly<ContextOf<DefinitionValue>>;
+  readonly edges: readonly ActorDependencyEdge[];
+};
+
+type RegisteredActorAdmissionValue<DefinitionValue extends MachineDefinition, Actor, Lease> = {
+  readonly sealed: true;
+  readonly actor: ActorHandle<DefinitionValue, Actor>;
+  readonly lease: Lease;
+};
+
+/** Prepared state owns the silent baseline and bounded mailbox. */
+export type PreparedActorAdmission<
+  A extends App,
+  DefinitionValue extends MachineDefinition,
+  I,
+  ProviderDefinition extends MachineDefinition = DefinitionValue,
+  Snapshot = PreparedActorSnapshot<DefinitionValue>,
+  Mailbox = PreparedActorEngine<DefinitionValue>["mailbox"],
+  Value = PreparedActorAdmissionValue<A, DefinitionValue, I, ProviderDefinition, Snapshot, Mailbox>,
+> = ActorAdmissionPhase<"prepared", Value>;
 
 /** Attached state has exact context values and the fixed dependency edges installed. */
 export type AttachedActorAdmission<
-  A extends App,
   DefinitionValue extends MachineDefinition,
-  I,
-  ProviderDefinition extends MachineDefinition = DefinitionValue,
-> = {
-  readonly phase: "attached";
-  readonly prepared: PreparedActorAdmission<A, DefinitionValue, I, ProviderDefinition>;
-  readonly context: Readonly<ContextOf<DefinitionValue>>;
-  readonly edges: readonly ActorDependencyEdge[];
-  readonly rollback: readonly AdmissionRollbackStep[];
-};
+  Value = AttachedActorAdmissionValue<DefinitionValue>,
+> = ActorAdmissionPhase<"attached", Value>;
 
 /** Activated state has crossed the silent baseline/mailbox barrier but is not public. */
 export type ActivatedActorAdmission<
-  A extends App,
   DefinitionValue extends MachineDefinition,
-  I,
   ProviderDefinition extends MachineDefinition = DefinitionValue,
-> = {
-  readonly phase: "activated";
-  readonly attached: AttachedActorAdmission<A, DefinitionValue, I, ProviderDefinition>;
-  readonly activation: unknown;
-  readonly rollback: readonly AdmissionRollbackStep[];
-};
+  Value = {
+    readonly baseline: ActiveContextBaseline<DefinitionValue, ProviderDefinition>;
+    readonly engine: ActorEngine<DefinitionValue>;
+  },
+> = ActorAdmissionPhase<"activated", Value>;
 
 /** Registration seals the actor identity before a handle or lease can escape. */
 export type RegisteredActorAdmission<
@@ -1047,14 +1251,12 @@ export type RegisteredActorAdmission<
   CleanupError,
   Actor,
   ProviderDefinition extends MachineDefinition = DefinitionValue,
-> = {
-  readonly phase: "registered";
-  readonly sealed: true;
-  readonly activated: ActivatedActorAdmission<A, DefinitionValue, I, ProviderDefinition>;
-  readonly actor: ActorHandle<DefinitionValue, Actor>;
-  readonly lease: ActorLease<A, DefinitionValue, I, CleanupError, Actor, ProviderDefinition>;
-  readonly rollback: readonly AdmissionRollbackStep[];
-};
+  Value = RegisteredActorAdmissionValue<
+    DefinitionValue,
+    Actor,
+    ActorLease<A, DefinitionValue, I, CleanupError, Actor, ProviderDefinition>
+  >,
+> = ActorAdmissionPhase<"registered", Value>;
 
 /** The sole individual disposal authority; it is returned only in exposed state. */
 export type ActorLease<
@@ -1095,20 +1297,6 @@ export type ActorLeaseOptions<
   readonly cleanupCause?: Option.Option<Cause.Cause<CleanupError>>;
 };
 
-/** A lease owner is a terminal participant in whole-runtime disposal. */
-export type RuntimeDisposalParticipant<Requirements = never> = {
-  readonly dispose: () => Effect.Effect<void, PublicDiagnostic, Requirements>;
-};
-
-/** Runtime-level cleanup runs leases first, accepted evidence next, and providers last. */
-export type RuntimeDisposalOwner<Requirements = never> = {
-  readonly registerLease: (lease: RuntimeDisposalParticipant<Requirements>) => void;
-  readonly registerProvider: (release: Effect.Effect<void, PublicDiagnostic, Requirements>) => void;
-  readonly dispose: () => Effect.Effect<void, PublicDiagnostic, Requirements>;
-  readonly generation: () => number;
-  readonly isCurrent: (generation: number) => boolean;
-};
-
 /** Exposed state is the only stage that escapes the transaction. */
 export type ExposedActorAdmission<
   A extends App,
@@ -1117,19 +1305,11 @@ export type ExposedActorAdmission<
   CleanupError,
   Actor,
   ProviderDefinition extends MachineDefinition = DefinitionValue,
-> = {
-  readonly phase: "exposed";
-  readonly registered: RegisteredActorAdmission<
-    A,
-    DefinitionValue,
-    I,
-    CleanupError,
-    Actor,
-    ProviderDefinition
-  >;
-  readonly actor: ActorHandle<DefinitionValue, Actor>;
-  readonly lease: ActorLease<A, DefinitionValue, I, CleanupError, Actor, ProviderDefinition>;
-};
+  Value = {
+    readonly actor: ActorHandle<DefinitionValue, Actor>;
+    readonly lease: ActorLease<A, DefinitionValue, I, CleanupError, Actor, ProviderDefinition>;
+  },
+> = ActorAdmissionPhase<"exposed", Value, false>;
 
 /** Narrow owner capabilities consumed by this transaction; B04/B07/B09 remain the real owners. */
 export type ActorAdmissionTransactionAuthority<
@@ -1139,47 +1319,38 @@ export type ActorAdmissionTransactionAuthority<
   CleanupError = PublicDiagnostic,
   Actor = unknown,
   ProviderDefinition extends MachineDefinition = DefinitionValue,
+  Owners extends ActorAdmissionPhaseOwnerMap = DefaultActorAdmissionPhaseOwners,
 > = ActorAdmissionValidationContext<A, DefinitionValue, I> & {
   readonly reserveOrJoin: (
     validated: ValidatedActorAdmission<A, DefinitionValue, I, ProviderDefinition>,
   ) => Effect.Effect<
-    ActorAdmissionReservation<A, DefinitionValue, I, CleanupError, Actor, ProviderDefinition>,
-    PublicDiagnostic
-  >;
-  readonly prepare: (
-    validated: ValidatedActorAdmissionWithIdentity<A, DefinitionValue, I, ProviderDefinition>,
-    mode: ActorAdmissionMode,
-  ) => Effect.Effect<
-    PreparedActorAdmission<A, DefinitionValue, I, ProviderDefinition>,
-    PublicDiagnostic
-  >;
-  readonly attach: (
-    prepared: PreparedActorAdmission<A, DefinitionValue, I, ProviderDefinition>,
-  ) => Effect.Effect<
-    AttachedActorAdmission<A, DefinitionValue, I, ProviderDefinition>,
-    PublicDiagnostic
-  >;
-  readonly activate: (
-    attached: AttachedActorAdmission<A, DefinitionValue, I, ProviderDefinition>,
-  ) => Effect.Effect<
-    ActivatedActorAdmission<A, DefinitionValue, I, ProviderDefinition>,
-    PublicDiagnostic
-  >;
-  readonly register: (
-    activated: ActivatedActorAdmission<A, DefinitionValue, I, ProviderDefinition>,
-  ) => Effect.Effect<
-    RegisteredActorAdmission<A, DefinitionValue, I, CleanupError, Actor, ProviderDefinition>,
-    PublicDiagnostic
-  >;
-  readonly expose: (
-    registered: RegisteredActorAdmission<
+    ActorAdmissionReservation<
       A,
       DefinitionValue,
       I,
       CleanupError,
       Actor,
-      ProviderDefinition
+      ProviderDefinition,
+      Owners["validated"]
     >,
+    PublicDiagnostic
+  >;
+  readonly prepare: (
+    validated: ValidatedActorAdmissionWithIdentity<A, DefinitionValue, I, ProviderDefinition> &
+      Owners["validated"],
+    mode: ActorAdmissionMode,
+  ) => Effect.Effect<Owners["prepared"], PublicDiagnostic>;
+  readonly attach: (
+    prepared: Owners["prepared"],
+  ) => Effect.Effect<Owners["attached"], PublicDiagnostic>;
+  readonly activate: (
+    attached: Owners["attached"],
+  ) => Effect.Effect<Owners["activated"], PublicDiagnostic>;
+  readonly register: (
+    activated: Owners["activated"],
+  ) => Effect.Effect<Owners["registered"], PublicDiagnostic>;
+  readonly expose: (
+    registered: Owners["registered"],
   ) => Effect.Effect<
     ExposedActorAdmission<A, DefinitionValue, I, CleanupError, Actor, ProviderDefinition>,
     PublicDiagnostic
@@ -1773,6 +1944,7 @@ const validateAdmissionClaim = <A extends App, DefinitionValue extends MachineDe
 };
 
 /** Validates B02 admission data without registry, provider, selector, initializer, or Effect work. */
+// oxlint-disable-next-line complexity -- one pure validator owns the ordered no-mutation admission checks.
 const validateActorAdmissionUnchecked = <
   A extends App,
   DefinitionValue extends MachineDefinition,
@@ -1814,8 +1986,10 @@ const validateActorAdmissionUnchecked = <
 
   const machineFacts = plan.resolveMachineFacts(actorRef.success.value.machine);
 
-  if (machineFacts === undefined)
+  if (!isOwnedMachineFactsFor(machineFacts, actorRef.success.value.machine))
     return Result.fail(unadmittedMachineFailure(actorRef.success.machine.definition.id));
+
+  const typedMachineFacts = machineFacts;
 
   const claim = validateAdmissionClaim(actorRef.success.value, actorRef.success.source, authority);
 
@@ -1843,28 +2017,30 @@ const validateActorAdmissionUnchecked = <
 
   if (Result.isFailure(graph)) return Result.fail(graph.failure);
 
-  // SAFETY: all reflective admission records are represented by captured values; only trusted
-  // app/implementation/input values and selector functions cross into later transaction stages.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-  // SAFETY: captureBinding proved each copied binding's provider identity, fence, and selector;
-  // the cast restores the definition correlation erased by the runtime reflection boundary.
-  // oxlint-disable-next-line anti-slop/no-chained-type-assertions -- runtime reflection erased the generic selector correlation.
-  const canonicalBindings = bindings.success.bindings.map(
-    copyCapturedBinding,
-  ) as unknown as readonly ActorContextBinding<DefinitionValue, ProviderDefinition>[];
+  const canonicalBindings: ActorContextBinding<DefinitionValue, ProviderDefinition>[] = [];
+
+  for (const capturedBinding of bindings.success.bindings) {
+    // SAFETY: captureBinding validated and copied every binding field before authority.lookup;
+    // this assertion restores the consumer/provider generic correlation erased by reflection.
+    canonicalBindings.push({
+      slot: capturedBinding.slot,
+      provider: capturedBinding.provider.value,
+      providerFence: immutableRecord({ ...capturedBinding.providerFence }),
+      select: capturedBinding.select,
+    } as ActorContextBinding<DefinitionValue, ProviderDefinition>);
+  }
 
   // SAFETY: the canonical ref, bindings, and dependency array are owned snapshots of the validated
   // input; the machine and identity values retain their exact nominal references.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   const canonicalInput = immutableRecord({
     app: capturedInput.app,
     implementation: capturedInput.implementation,
     ref: actorRef.success.value,
-    machineFacts,
+    machineFacts: typedMachineFacts,
     input: capturedInput.input,
     bindings: immutableArray(canonicalBindings),
     dependencies: dependencies.success,
-  }) as unknown as ActorAdmissionInput<A, DefinitionValue, I, ProviderDefinition>;
+  });
 
   return Result.succeed({
     input: canonicalInput,
@@ -1898,6 +2074,35 @@ export const validateActorAdmission = <
   return captured.success;
 };
 
+/** Reanchors all validated consumer topology to the identity fence allocated by the runtime. */
+export const normalizeValidatedActorAdmission = <
+  A extends App,
+  DefinitionValue extends MachineDefinition,
+  I,
+  ProviderDefinition extends MachineDefinition = DefinitionValue,
+>(
+  validated: ValidatedActorAdmission<A, DefinitionValue, I, ProviderDefinition>,
+  consumerKey: ActorKey,
+): Result.Result<
+  ValidatedActorAdmission<A, DefinitionValue, I, ProviderDefinition>,
+  PublicDiagnostic
+> => {
+  const edges = immutableArray(
+    validated.edges.map((edge) => immutableRecord({ ...edge, consumer: consumerKey })),
+  );
+
+  const graph = validateGraph(edges);
+
+  if (Result.isFailure(graph)) return Result.fail(graph.failure);
+
+  return Result.succeed({
+    ...validated,
+    input: immutableRecord({ ...validated.input, dependencies: edges }),
+    edges,
+    graph: graph.success,
+  });
+};
+
 const rollbackAdmission = (steps: readonly AdmissionRollbackStep[]) =>
   Effect.gen(function* () {
     let cleanupCause: Cause.Cause<PublicDiagnostic> | undefined;
@@ -1910,7 +2115,9 @@ const rollbackAdmission = (steps: readonly AdmissionRollbackStep[]) =>
 
       if (Exit.isFailure(released)) {
         cleanupCause =
-          cleanupCause === undefined ? released.cause : Cause.combine(cleanupCause, released.cause);
+          cleanupCause === undefined
+            ? Cause.fromReasons([...released.cause.reasons])
+            : Cause.fromReasons([...cleanupCause.reasons, ...released.cause.reasons]);
       }
     }
 
@@ -1932,9 +2139,6 @@ const completeAdmissionExit = <A, E>(exit: Exit.Exit<A, E>): Effect.Effect<A, E>
   return Effect.failCause(normalizeAdmissionCause(exit.cause));
 };
 
-const addCause = <Error>(current: Cause.Cause<Error> | undefined, next: Cause.Cause<Error>) =>
-  current === undefined ? next : Cause.combine(current, next);
-
 const makeTerminalEffect = <Value, Error, Requirements>(
   operation: Effect.Effect<Value, Error, Requirements>,
   retryOnFailure = false,
@@ -1945,26 +2149,28 @@ const makeTerminalEffect = <Value, Error, Requirements>(
     Exit.isSuccess(exit) ? Effect.succeed(exit.value) : Effect.failCause(exit.cause);
 
   return () => {
-    if (completion !== undefined)
-      return Deferred.await(completion).pipe(Effect.flatMap((exit) => resolve(exit)));
-    const cell = Deferred.makeUnsafe<Exit.Exit<Value, Error>>();
-    completion = cell;
+    return Effect.suspend(() => {
+      if (completion !== undefined)
+        return Deferred.await(completion).pipe(Effect.flatMap((exit) => resolve(exit)));
+      const cell = Deferred.makeUnsafe<Exit.Exit<Value, Error>>();
+      completion = cell;
 
-    return Effect.uninterruptible(
-      Effect.exit(operation).pipe(
-        Effect.flatMap((exit) =>
-          Effect.gen(function* () {
-            yield* Deferred.succeed(cell, exit);
+      return Effect.uninterruptible(
+        Effect.exit(operation).pipe(
+          Effect.flatMap((exit) =>
+            Effect.gen(function* () {
+              yield* Deferred.succeed(cell, exit);
 
-            if (retryOnFailure && Exit.isFailure(exit) && completion === cell)
-              completion = undefined;
+              if (retryOnFailure && Exit.isFailure(exit) && completion === cell)
+                completion = undefined;
 
-            return exit;
-          }),
+              return exit;
+            }),
+          ),
+          Effect.flatMap((exit) => resolve(exit)),
         ),
-        Effect.flatMap((exit) => resolve(exit)),
-      ),
-    );
+      );
+    });
   };
 };
 
@@ -2005,79 +2211,44 @@ export const makeActorLease = <
   };
 };
 
-type RuntimeDisposalOptions<Requirements> = {
-  /** Accepted evidence is drained after terminal actor cleanup and before providers. */
-  readonly drain?: Effect.Effect<void, PublicDiagnostic, Requirements>;
+type AdmissionTransactionPhase =
+  | "reserved"
+  | "prepared"
+  | "attached"
+  | "activated"
+  | "registered"
+  | "exposed";
+
+type AdmissionTransactionState = {
+  readonly phase: AdmissionTransactionPhase;
+  readonly rollback: readonly AdmissionRollbackStep[];
 };
 
-/**
- * Owns runtime-wide disposal ordering without becoming a second actor cleanup
- * engine. Leases are joined in reverse registration order, then accepted
- * evidence is drained, and provider releases run last. Every lane is observed
- * so one failure cannot skip later cleanup.
- */
-export const makeRuntimeDisposalOwner = <Requirements = never>(
-  options: RuntimeDisposalOptions<Requirements> = {},
-): RuntimeDisposalOwner<Requirements> => {
-  const leases: RuntimeDisposalParticipant<Requirements>[] = [];
-  const providers: Effect.Effect<void, PublicDiagnostic, Requirements>[] = [];
-  let closing = false;
-  let generation = 0;
-  let terminal: (() => Effect.Effect<void, PublicDiagnostic, Requirements>) | undefined;
+type AdmissionTransactionOwner = {
+  readonly state: () => AdmissionTransactionState;
+  readonly advance: (
+    phase: Exclude<AdmissionTransactionPhase, "reserved" | "exposed">,
+    rollback: readonly AdmissionRollbackStep[],
+  ) => void;
+  readonly expose: () => void;
+};
 
-  const registerLease = (lease: RuntimeDisposalParticipant<Requirements>) => {
-    if (!closing) leases.push(lease);
-  };
-
-  const registerProvider = (release: Effect.Effect<void, PublicDiagnostic, Requirements>) => {
-    if (!closing) providers.push(release);
-  };
-
-  const dispose = () => {
-    if (terminal !== undefined) return terminal();
-    closing = true;
-    generation += 1;
-
-    const operation = Effect.uninterruptible(
-      Effect.gen(function* () {
-        let cleanupCause: Cause.Cause<PublicDiagnostic> | undefined;
-
-        const run = (effect: Effect.Effect<void, PublicDiagnostic, Requirements>) =>
-          Effect.gen(function* () {
-            const result = yield* Effect.exit(effect);
-
-            if (Exit.isFailure(result)) cleanupCause = addCause(cleanupCause, result.cause);
-          });
-
-        for (let index = leases.length - 1; index >= 0; index -= 1) {
-          const lease = leases[index];
-
-          if (lease !== undefined) yield* run(lease.dispose());
-        }
-
-        if (options.drain !== undefined) yield* run(options.drain);
-
-        for (let index = providers.length - 1; index >= 0; index -= 1) {
-          const provider = providers[index];
-
-          if (provider !== undefined) yield* run(provider);
-        }
-
-        if (cleanupCause !== undefined) return yield* Effect.failCause(cleanupCause);
-      }),
-    );
-
-    terminal = makeTerminalEffect(operation);
-
-    return terminal();
+const makeAdmissionTransactionOwner = (
+  initialRollback: readonly AdmissionRollbackStep[],
+): AdmissionTransactionOwner => {
+  let current: AdmissionTransactionState = {
+    phase: "reserved",
+    rollback: initialRollback,
   };
 
   return {
-    registerLease,
-    registerProvider,
-    dispose,
-    generation: () => generation,
-    isCurrent: (candidate) => candidate === generation && !closing,
+    state: () => current,
+    advance: (phase, rollback) => {
+      current = { phase, rollback };
+    },
+    expose: () => {
+      current = { phase: "exposed", rollback: current.rollback };
+    },
   };
 };
 
@@ -2089,6 +2260,7 @@ export const admitActor = <
   CleanupError = PublicDiagnostic,
   Actor = unknown,
   ProviderDefinition extends MachineDefinition = DefinitionValue,
+  Owners extends ActorAdmissionPhaseOwnerMap = DefaultActorAdmissionPhaseOwners,
 >(
   input: ActorAdmissionInput<A, DefinitionValue, I, ProviderDefinition>,
   authority: ActorAdmissionTransactionAuthority<
@@ -2097,7 +2269,8 @@ export const admitActor = <
     I,
     CleanupError,
     Actor,
-    ProviderDefinition
+    ProviderDefinition,
+    Owners
   >,
 ): Effect.Effect<
   ExposedActorAdmission<A, DefinitionValue, I, CleanupError, Actor, ProviderDefinition>,
@@ -2108,7 +2281,7 @@ export const admitActor = <
 
     if (Result.isFailure(validation)) return yield* Effect.fail(validation.failure);
 
-    const reservation = yield* authority.reserveOrJoin(validation.success);
+    const reservation = yield* Effect.uninterruptible(authority.reserveOrJoin(validation.success));
 
     if (reservation.mode === "joined") {
       const terminal = yield* Deferred.await(reservation.existing);
@@ -2116,8 +2289,7 @@ export const admitActor = <
       return yield* completeAdmissionExit(terminal);
     }
 
-    let acquired: readonly AdmissionRollbackStep[] = reservation.rollback;
-    let exposed = false;
+    const transactionOwner = makeAdmissionTransactionOwner(reservation.rollback);
 
     const includeReservation = (steps: readonly AdmissionRollbackStep[]) =>
       reservation.rollback.length === 0 || steps[0] === reservation.rollback[0]
@@ -2125,40 +2297,51 @@ export const admitActor = <
         : [...reservation.rollback, ...steps];
 
     const transaction = Effect.gen(function* () {
+      // Keep the scheduler handoff inside the reservation rollback owner. An interrupted
+      // leader must settle the shared completion and release the reserved identity.
+      if (reservation.mode === "leader") yield* Effect.yieldNow;
+
       const prepared = yield* authority.prepare(reservation.validated, reservation.admissionMode);
-      acquired = includeReservation(prepared.rollback);
+      transactionOwner.advance("prepared", includeReservation(prepared.rollback));
 
       const attached = yield* authority.attach(prepared);
-      acquired = includeReservation(attached.rollback);
+      transactionOwner.advance("attached", includeReservation(attached.rollback));
 
       const activated = yield* authority.activate(attached);
-      acquired = includeReservation(activated.rollback);
+      transactionOwner.advance("activated", includeReservation(activated.rollback));
 
       const registered = yield* authority.register(activated);
-      acquired = includeReservation(registered.rollback);
+      transactionOwner.advance("registered", includeReservation(registered.rollback));
 
       const result = yield* authority.expose(registered);
-      exposed = true;
+      transactionOwner.expose();
 
       return result;
     });
 
-    const primary = yield* Effect.exit(transaction);
-
-    const terminal = yield* Effect.uninterruptible(
+    // Restore interruption only while the phase transaction runs. The surrounding mask keeps
+    // rollback and the shared terminal Deferred completion owned by this leader.
+    const completed = yield* Effect.uninterruptibleMask((restore) =>
       Effect.gen(function* () {
-        if (Exit.isSuccess(primary) || exposed) return primary;
-        const cleanup = yield* Effect.exit(rollbackAdmission(acquired));
+        const primary = yield* Effect.exit(restore(transaction));
+
+        if (Exit.isSuccess(primary) || transactionOwner.state().phase === "exposed") return primary;
+        const cleanup = yield* Effect.exit(rollbackAdmission(transactionOwner.state().rollback));
 
         if (Exit.isFailure(cleanup))
-          return Exit.failCause(Cause.combine(primary.cause, cleanup.cause));
+          return Exit.failCause(
+            Cause.fromReasons([...primary.cause.reasons, ...cleanup.cause.reasons]),
+          );
 
         return primary;
-      }),
-    );
+      }).pipe(
+        Effect.flatMap((terminal) => {
+          const normalized = normalizeAdmissionExit(terminal);
 
-    const completed = normalizeAdmissionExit(terminal);
-    yield* Effect.uninterruptible(Deferred.succeed(reservation.complete, completed));
+          return Deferred.succeed(reservation.complete, normalized).pipe(Effect.as(normalized));
+        }),
+      ),
+    );
 
     return yield* completeAdmissionExit(completed);
   });

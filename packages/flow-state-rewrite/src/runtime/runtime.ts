@@ -1,6 +1,7 @@
 // oxlint-disable-next-line anti-slop/no-large-production-file -- runtime assembly owns admission, context, lifecycle, and evidence composition at one boundary.
 import {
   Cause,
+  Clock,
   Context,
   Deferred,
   Effect,
@@ -21,7 +22,13 @@ import {
   type ImplementationRequirementsOf,
   type ImplementationServices,
 } from "../implementation/implementation.js";
-import { appPlan, isConstructedApp, type App, type RequirementsOf } from "../app/app.js";
+import {
+  appPlan,
+  isConstructedApp,
+  isOwnedMachineFactsFor,
+  type App,
+  type RequirementsOf,
+} from "../app/app.js";
 import { Failure, type PublicDiagnostic } from "../diagnostic/diagnostic.js";
 import {
   admitActor,
@@ -31,6 +38,7 @@ import {
   captureAdmissionRecord,
   makeActorIdentityRegistry,
   makeActorLease,
+  normalizeValidatedActorAdmission,
   resolveActorAdmissionMode,
   type ActorAdmissionInput,
   type ActorAdmissionConstruction,
@@ -40,15 +48,12 @@ import {
   type ActorKey,
   type ActorDependencyEdge,
   type AdmissionRollbackStep,
-  type AttachedActorAdmission,
-  type ActivatedActorAdmission,
   type ActorFence,
   type ActorIdentity,
   type ActorAdmissionMode,
+  type ActorAdmissionPhaseOwners,
   type ActorLease,
   type ExposedActorAdmission,
-  type PreparedActorAdmission,
-  type RegisteredActorAdmission,
   type ValidatedActorAdmission,
 } from "./actor-admission.js";
 import {
@@ -76,17 +81,19 @@ import {
   type ActiveContextBaseline,
   type ContextBaseline,
   type ContextBinding,
-  type ContextGraph,
-  type ContextSelectionLedger,
   type ContextWave,
 } from "./context-wave.js";
 import {
   makeLifecycleController,
   makeLifecycleRuntimeOwner,
+  lifecycleRouting,
   prepareLifecycle,
   installLifecycleMetadata,
+  installLifecycleTimers,
   type LifecycleController,
+  type LifecycleCommand,
   type LifecycleRuntimeOwner,
+  type LifecycleRuntimeRegistration,
 } from "./lifecycle.js";
 import { makeRuntimeOwner } from "./runtime-owner.js";
 import {
@@ -121,6 +128,14 @@ type RuntimeImplementation = Implementation<never, unknown, unknown>;
 
 type RuntimeApp = App;
 
+const appendCleanupCause = <Error>(
+  current: Cause.Cause<Error> | undefined,
+  next: Cause.Cause<Error>,
+): Cause.Cause<Error> =>
+  current === undefined
+    ? Cause.fromReasons([...next.reasons])
+    : Cause.fromReasons([...current.reasons, ...next.reasons]);
+
 type RuntimeActorOptionBase<
   DefinitionValue extends MachineDefinition,
   ProviderDefinition extends MachineDefinition = DefinitionValue,
@@ -130,7 +145,7 @@ type RuntimeActorOptionBase<
   readonly onSnapshot?: ActorEngineInput<DefinitionValue>["onSnapshot"];
   readonly onCommand?: (
     command: ActorCommand<DefinitionValue>,
-  ) => Effect.Effect<void, PublicDiagnostic, RuntimeServiceContext>;
+  ) => Effect.Effect<void, PublicDiagnostic, RuntimeServiceContext | Scope.Scope>;
   readonly bindings?: readonly ActorContextBinding<DefinitionValue, ProviderDefinition>[];
 };
 
@@ -151,6 +166,18 @@ type RuntimeRestoredActorOptions<
   readonly initial?: never;
   readonly input?: never;
 };
+
+type RuntimeLocalActorOptions<
+  DefinitionValue extends MachineDefinition,
+  ProviderDefinition extends MachineDefinition = DefinitionValue,
+> = Omit<RuntimeFreshActorOptions<DefinitionValue, ProviderDefinition>, "ref">;
+
+type RuntimeEnsureActorOptions<
+  DefinitionValue extends MachineDefinition,
+  ProviderDefinition extends MachineDefinition = DefinitionValue,
+> =
+  | Omit<RuntimeFreshActorOptions<DefinitionValue, ProviderDefinition>, "ref">
+  | Omit<RuntimeRestoredActorOptions<DefinitionValue, ProviderDefinition>, "ref">;
 
 /** Package-private runtime readiness seam; the public root exposes neither construction lane. */
 export type RuntimeActorOptions<
@@ -176,13 +203,117 @@ type RuntimeAssembly = {
   readonly context: Context.Context<RuntimeServiceContext>;
   readonly evidence: ReturnType<typeof makeRuntimeEvidenceOwner>;
   readonly lifecycle: LifecycleRuntimeOwner;
-  readonly createActor: <
+  readonly ensureActor: {
+    <
+      DefinitionValue extends MachineDefinition,
+      ProviderDefinition extends MachineDefinition = DefinitionValue,
+    >(
+      ref: ActorRef<Machine<DefinitionValue>>,
+      options: RuntimeEnsureActorOptions<DefinitionValue, ProviderDefinition>,
+    ): Effect.Effect<RuntimeActor<DefinitionValue, ProviderDefinition>, PublicDiagnostic>;
+    <
+      DefinitionValue extends MachineDefinition,
+      ProviderDefinition extends MachineDefinition = DefinitionValue,
+    >(
+      options: RuntimeActorOptions<DefinitionValue, ProviderDefinition>,
+    ): Effect.Effect<RuntimeActor<DefinitionValue, ProviderDefinition>, PublicDiagnostic>;
+  };
+  readonly getActor: <
     DefinitionValue extends MachineDefinition,
     ProviderDefinition extends MachineDefinition = DefinitionValue,
   >(
-    options: RuntimeActorOptions<DefinitionValue, ProviderDefinition>,
-  ) => Effect.Effect<RuntimeActor<DefinitionValue, ProviderDefinition>, PublicDiagnostic>;
+    ref: ActorRef<Machine<DefinitionValue>>,
+  ) => Effect.Effect<
+    RuntimeActor<DefinitionValue, ProviderDefinition> | undefined,
+    PublicDiagnostic
+  >;
+  readonly createActor: {
+    <
+      DefinitionValue extends MachineDefinition,
+      ProviderDefinition extends MachineDefinition = DefinitionValue,
+    >(
+      machine: Machine<DefinitionValue>,
+      options: RuntimeLocalActorOptions<DefinitionValue, ProviderDefinition>,
+    ): Effect.Effect<RuntimeActor<DefinitionValue, ProviderDefinition>, PublicDiagnostic>;
+    /** Compatibility seam for package-internal callers migrating to ensureActor. */
+    <
+      DefinitionValue extends MachineDefinition,
+      ProviderDefinition extends MachineDefinition = DefinitionValue,
+    >(
+      options: RuntimeActorOptions<DefinitionValue, ProviderDefinition>,
+    ): Effect.Effect<RuntimeActor<DefinitionValue, ProviderDefinition>, PublicDiagnostic>;
+  };
   readonly dispose: () => Effect.Effect<void, PublicDiagnostic>;
+};
+
+type RuntimeLifecycleRegistrationSlot = {
+  current: LifecycleRuntimeRegistration | undefined;
+};
+
+type RuntimeParentFinalizer = {
+  current: (() => Effect.Effect<void, PublicDiagnostic, RuntimeServiceContext>) | undefined;
+};
+
+type RuntimeLeaseState<Lease> =
+  | { readonly _tag: "empty" }
+  | { readonly _tag: "installed"; readonly lease: Lease };
+
+type RuntimeLeaseOwner<Lease> = {
+  readonly read: () => Lease | undefined;
+  readonly install: (lease: Lease) => void;
+};
+
+type RuntimeScopeOwner = {
+  readonly read: () => Scope.Scope | undefined;
+  readonly install: (scope: Scope.Scope) => void;
+};
+
+const makeRuntimeScopeOwner = (): RuntimeScopeOwner => {
+  let scope: Scope.Scope | undefined;
+
+  return {
+    read: () => scope,
+    install: (next) => {
+      if (scope !== undefined) throw new Error("Runtime actor scope was installed twice");
+
+      scope = next;
+    },
+  };
+};
+
+export type RuntimeAdmissionPhase =
+  | "reserve"
+  | "prepare"
+  | "attach"
+  | "activate"
+  | "register"
+  | "expose";
+
+export type RuntimeAdmissionProbe = {
+  beforePrepare?: Effect.Effect<void>;
+  afterPrepareScope?: (scope: Scope.Scope) => Effect.Effect<void, PublicDiagnostic>;
+  beforeExpose?: Effect.Effect<void>;
+  onPhase?: (phase: RuntimeAdmissionPhase) => void;
+  onJoin?: () => void;
+  onPendingCleared?: () => void;
+  onAllocation?: (kind: "incarnation" | "local-ordinal") => void;
+};
+
+type RuntimeConstructionOwner = {
+  admissionProbe?: RuntimeAdmissionProbe;
+};
+
+const makeRuntimeLeaseOwner = <Lease>(): RuntimeLeaseOwner<Lease> => {
+  let state: RuntimeLeaseState<Lease> = { _tag: "empty" };
+
+  return {
+    read: () => (state._tag === "installed" ? state.lease : undefined),
+    install: (lease) => {
+      if (state._tag === "installed") throw new Error("Runtime actor lease was installed twice");
+
+      state = { _tag: "installed", lease };
+    },
+  };
 };
 
 type RuntimeAdmissionActor<
@@ -252,6 +383,7 @@ type CapturedRuntimeConstruction<DefinitionValue extends MachineDefinition> = {
 const captureRuntimeConstruction = <DefinitionValue extends MachineDefinition>(
   values: ReadonlyMap<PropertyKey, unknown>,
   ref: ActorRef<Machine<DefinitionValue>>,
+  identityMode: "stable" | "local" = "stable",
 ): Result.Result<CapturedRuntimeConstruction<DefinitionValue>, PublicDiagnostic> => {
   const hasInitial = values.has("initial");
   const hasRestore = values.has("restore");
@@ -279,7 +411,7 @@ const captureRuntimeConstruction = <DefinitionValue extends MachineDefinition>(
         input: values.get("input") as InputOf<DefinitionValue> | undefined,
       };
 
-  const admissionMode = resolveActorAdmissionMode(ref, construction);
+  const admissionMode = resolveActorAdmissionMode(ref, construction, identityMode);
 
   if (Result.isFailure(admissionMode)) return Result.fail(admissionMode.failure);
 
@@ -363,48 +495,47 @@ const captureRuntimeCallbacks = <
   return Result.succeed({ onSnapshot, onCommand });
 };
 
-// RETURN_TYPE: Captures every caller-owned actor option before admission can reserve or run asynchronously.
-const captureRuntimeActorOptions = <
+const runtimeActorOptionKeys = [
+  "initial",
+  "restore",
+  "input",
+  "store",
+  "onSnapshot",
+  "onCommand",
+  "bindings",
+] as const;
+
+const captureRuntimeActorOptionsFromValues = <
   DefinitionValue extends MachineDefinition,
   ProviderDefinition extends MachineDefinition,
 >(
-  options: RuntimeActorOptions<DefinitionValue, ProviderDefinition>,
+  values: ReadonlyMap<PropertyKey, unknown>,
+  ref: ActorRef<Machine<DefinitionValue>>,
+  identityMode: "stable" | "local" = "stable",
 ): Result.Result<
   CapturedRuntimeActorOptions<DefinitionValue, ProviderDefinition>,
   PublicDiagnostic
 > => {
-  const captured = captureAdmissionRecord(
-    options,
-    ["ref"],
-    ["initial", "restore", "input", "store", "onSnapshot", "onCommand", "bindings"],
-  );
-
-  if (Result.isFailure(captured)) return Result.fail(captured.failure);
-
-  const ref = captureActorRef<DefinitionValue>(captured.success.get("ref"));
-
-  if (Result.isFailure(ref)) return Result.fail(ref.failure);
-
-  const construction = captureRuntimeConstruction(captured.success, ref.success);
+  const construction = captureRuntimeConstruction(values, ref, identityMode);
 
   if (Result.isFailure(construction)) return Result.fail(construction.failure);
 
   const bindings = captureRuntimeBindings<DefinitionValue, ProviderDefinition>(
-    captured.success.get("bindings"),
+    values.get("bindings"),
   );
 
   if (Result.isFailure(bindings)) return Result.fail(bindings.failure);
 
-  const store = captureRuntimeStore<DefinitionValue>(captured.success.get("store"));
+  const store = captureRuntimeStore<DefinitionValue>(values.get("store"));
 
   if (Result.isFailure(store)) return Result.fail(store.failure);
 
-  const callbacks = captureRuntimeCallbacks<DefinitionValue, ProviderDefinition>(captured.success);
+  const callbacks = captureRuntimeCallbacks<DefinitionValue, ProviderDefinition>(values);
 
   if (Result.isFailure(callbacks)) return Result.fail(callbacks.failure);
 
   return Result.succeed({
-    ref: ref.success,
+    ref,
     construction: construction.success.construction,
     admissionMode: construction.success.admissionMode,
     store: store.success,
@@ -412,6 +543,56 @@ const captureRuntimeActorOptions = <
     onCommand: callbacks.success.onCommand,
     bindings: bindings.success,
   });
+};
+
+// RETURN_TYPE: Captures every caller-owned actor option before admission can reserve or run asynchronously.
+const captureRuntimeActorOptions = <
+  DefinitionValue extends MachineDefinition,
+  ProviderDefinition extends MachineDefinition,
+>(
+  options: RuntimeActorOptions<DefinitionValue, ProviderDefinition>,
+  identityMode: "stable" | "local" = "stable",
+  isOpaqueLocalRef?: (value: unknown) => boolean,
+): Result.Result<
+  CapturedRuntimeActorOptions<DefinitionValue, ProviderDefinition>,
+  PublicDiagnostic
+> => {
+  const captured = captureAdmissionRecord(options, ["ref"], runtimeActorOptionKeys);
+
+  if (Result.isFailure(captured)) return Result.fail(captured.failure);
+
+  if (isOpaqueLocalRef?.(captured.success.get("ref")) === true)
+    return Result.fail(opaqueLocalActorRef());
+
+  const ref = captureActorRef<DefinitionValue>(captured.success.get("ref"));
+
+  if (Result.isFailure(ref)) return Result.fail(ref.failure);
+
+  return captureRuntimeActorOptionsFromValues(captured.success, ref.success, identityMode);
+};
+
+const captureRuntimeActorOptionsForRef = <
+  DefinitionValue extends MachineDefinition,
+  ProviderDefinition extends MachineDefinition,
+>(
+  ref: ActorRef<Machine<DefinitionValue>>,
+  options:
+    | RuntimeEnsureActorOptions<DefinitionValue, ProviderDefinition>
+    | RuntimeLocalActorOptions<DefinitionValue, ProviderDefinition>,
+  identityMode: "stable" | "local",
+): Result.Result<
+  CapturedRuntimeActorOptions<DefinitionValue, ProviderDefinition>,
+  PublicDiagnostic
+> => {
+  const captured = captureAdmissionRecord(options, [], runtimeActorOptionKeys);
+
+  if (Result.isFailure(captured)) return Result.fail(captured.failure);
+
+  const capturedRef = captureActorRef<DefinitionValue>(ref);
+
+  if (Result.isFailure(capturedRef)) return Result.fail(capturedRef.failure);
+
+  return captureRuntimeActorOptionsFromValues(captured.success, capturedRef.success, identityMode);
 };
 
 // The actor engine exposes synchronous snapshot callbacks; invokeResult captures this thrown diagnostic at that boundary.
@@ -447,9 +628,11 @@ type RuntimeValidatedAdmission<
   DefinitionValue extends MachineDefinition,
   I,
   ProviderDefinition extends MachineDefinition,
-> = ValidatedActorAdmission<A, DefinitionValue, I, ProviderDefinition> & {
-  readonly identity: ActorIdentity<DefinitionValue>;
-};
+  Owner,
+> = ValidatedActorAdmission<A, DefinitionValue, I, ProviderDefinition> &
+  Owner & {
+    readonly identity: ActorIdentity<DefinitionValue>;
+  };
 
 const duplicateStableClaim = () =>
   Failure({
@@ -467,6 +650,15 @@ const closedActorAdmission = () =>
     details: { reason: "lifecycle" },
     summary: "Actor mailbox admission is closed by lifecycle state.",
     help: "Send only while the actor lifecycle is active.",
+  });
+
+const opaqueLocalActorRef = () =>
+  Failure({
+    code: "MissingActorRef",
+    path: ["actorRef"],
+    details: { local: true, stable: false },
+    summary: "A local actor ref cannot be used for stable actor admission.",
+    help: "Use the explicit local-actor creation path for opaque local refs.",
   });
 
 const sendWithAdmissionGate =
@@ -539,11 +731,22 @@ export const runtimeOwner = <A extends RuntimeApp, ImplementationError>(
 const constructRuntime = <A extends RuntimeApp, ImplementationError>(
   app: A,
   implementation: RuntimeImplementation | undefined,
+  constructionOwner?: RuntimeConstructionOwner,
 ) => {
+  const admissionProbe = constructionOwner?.admissionProbe;
+
+  const runAfterPrepareScope = (scope: Scope.Scope) => {
+    const afterPrepareScope = admissionProbe?.afterPrepareScope;
+
+    if (afterPrepareScope === undefined) return Effect.void;
+
+    return afterPrepareScope(scope);
+  };
+
   let assembly: RuntimeAssembly | undefined;
 
   const exposed = Effect.gen(function* () {
-    const clock = makeRuntimeClock();
+    const clock = makeRuntimeClock(yield* Clock.Clock);
     const evidence = makeRuntimeEvidenceOwner({ app, plan: appPlan(app), clock });
     const implementationContext = yield* Effect.context();
 
@@ -558,9 +761,16 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
       ),
     );
 
-    const lifecycleOwner = makeLifecycleRuntimeOwner({ drain: evidence.service.drain });
+    const lifecycleOwner = makeLifecycleRuntimeOwner({
+      drain: evidence.service.drain,
+    });
+
     lifecycleOwner.registerProvider(evidence.close().pipe(Effect.asVoid));
-    const registry = makeActorIdentityRegistry<RuntimeRegisteredActor>();
+
+    const registry = makeActorIdentityRegistry<RuntimeRegisteredActor>(
+      admissionProbe?.onAllocation === undefined ? {} : { onAllocate: admissionProbe.onAllocation },
+    );
+
     const providerFences = new Map<ActorKey, ActorFence>();
 
     const pendingByMachine = new WeakMap<
@@ -597,57 +807,67 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
       if (byId?.get(ref.id)?.complete !== completion) return;
       byId.delete(ref.id);
 
+      admissionProbe?.onPendingCleared?.();
+
       if (byId.size === 0) pendingByMachine.delete(ref.machine);
     };
 
-    const createActor = <
+    const admitRuntimeActor = <
       DefinitionValue extends MachineDefinition,
       ProviderDefinition extends MachineDefinition = DefinitionValue,
     >(
-      options: RuntimeActorOptions<DefinitionValue, ProviderDefinition>,
+      options:
+        | RuntimeActorOptions<DefinitionValue, ProviderDefinition>
+        | RuntimeEnsureActorOptions<DefinitionValue, ProviderDefinition>
+        | RuntimeLocalActorOptions<DefinitionValue, ProviderDefinition>,
+      identityMode: "stable" | "local" = "stable",
+      localIdentity?: ActorIdentity<DefinitionValue>,
+      suppliedRef?: ActorRef<Machine<DefinitionValue>>,
     ) =>
       Effect.gen(function* () {
-        const capturedOptions = captureRuntimeActorOptions(options);
+        if (!lifecycleOwner.isOpen()) return yield* Effect.fail(closedActorAdmission());
+
+        if (
+          identityMode === "stable" &&
+          suppliedRef !== undefined &&
+          registry.isLocalRef(suppliedRef)
+        )
+          return yield* Effect.fail(opaqueLocalActorRef());
+
+        const capturedOptions =
+          suppliedRef === undefined
+            ? captureRuntimeActorOptions(
+                // SAFETY: an absent suppliedRef selects the options-object overload, which requires and captures its own ref.
+                // oxlint-disable-next-line anti-slop/require-safety-comment-for-type-assertion
+                options as RuntimeActorOptions<DefinitionValue, ProviderDefinition>,
+                identityMode,
+                registry.isLocalRef,
+              )
+            : captureRuntimeActorOptionsForRef(suppliedRef, options, identityMode);
 
         if (Result.isFailure(capturedOptions)) return yield* Effect.fail(capturedOptions.failure);
         const bindings = capturedOptions.success.bindings;
         const construction = capturedOptions.success.construction;
-        const machineFacts = appPlan(app).resolveMachineFacts(capturedOptions.success.ref.machine);
-
-        if (machineFacts === undefined)
-          return yield* Effect.fail(
-            Failure({
-              code: "UnadmittedMachine",
-              path: ["machine"],
-              details: { machine: capturedOptions.success.ref.machine.definition.id },
-              summary: "This machine is not admitted by the application plan.",
-              help: "Include the machine in the app before runtime construction.",
-            }),
-          );
 
         const admittedInitialSnapshot =
           construction._tag === "restore" ? construction.snapshot : construction.initial;
 
-        let visibleLifecycle: ActorSnapshot<DefinitionValue>["lifecycle"] =
-          admittedInitialSnapshot.lifecycle;
-
-        const projectVisibleSnapshot = (
+        let projectVisibleSnapshot = (
           snapshot: ActorSnapshot<DefinitionValue>,
-        ): ActorSnapshot<DefinitionValue> => {
-          if (snapshot.lifecycle === visibleLifecycle) return snapshot;
+        ): ActorSnapshot<DefinitionValue> => snapshot;
 
-          // oxlint-disable-next-line anti-slop/no-object-freeze -- lifecycle overlay is an immutable runtime snapshot.
-          return Object.freeze({ ...snapshot, lifecycle: visibleLifecycle });
-        };
+        let previous: ActorSnapshot<DefinitionValue> = admittedInitialSnapshot;
 
-        let previous: ActorSnapshot<DefinitionValue> =
-          projectVisibleSnapshot(admittedInitialSnapshot);
+        const machineFacts = appPlan(app).resolveMachineFacts(capturedOptions.success.ref.machine);
 
         // SAFETY: stableKey is a pure runtime/app-machine/ref tuple; deriving it does not reserve an incarnation or mutate the registry.
-        const consumerKey =
-          bindings.length === 0
-            ? undefined
-            : registry.stableKey(capturedOptions.success.ref, machineFacts);
+        let consumerKey: ActorKey | undefined;
+
+        if (bindings.length !== 0) {
+          if (localIdentity !== undefined) consumerKey = localIdentity.key;
+          else if (isOwnedMachineFactsFor(machineFacts, capturedOptions.success.ref.machine))
+            consumerKey = registry.stableKey(capturedOptions.success.ref, machineFacts);
+        }
 
         const dependencies: readonly ActorDependencyEdge[] = bindings.map((binding) => ({
           consumer: consumerKey!,
@@ -659,7 +879,6 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
           app,
           implementation,
           ref: capturedOptions.success.ref,
-          machineFacts,
           // SAFETY: the tagged construction was verified against the exact ref machine before this admission record was assembled.
           input: construction._tag === "fresh" ? construction.input : undefined,
           bindings,
@@ -684,120 +903,138 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
 
         type AdmissionCompletion = Deferred.Deferred<Exit.Exit<AdmissionResult, PublicDiagnostic>>;
 
-        const runtimeAdmission = {
-          // SAFETY: these fields are initialized empty and populated only after the corresponding admission phase succeeds.
-          pendingCompletion: undefined as RuntimeAdmissionCompletion | undefined,
-          // SAFETY: these fields are initialized empty and populated only after the corresponding admission phase succeeds.
-          actorIdentity: undefined as ActorIdentity<DefinitionValue> | undefined,
-          // SAFETY: these fields are initialized empty and populated only after the corresponding admission phase succeeds.
-          actorFence: undefined as ActorFence | undefined,
-          // SAFETY: these fields are initialized empty and populated only after the corresponding admission phase succeeds.
-          scope: undefined as Scope.Scope | undefined,
-          // SAFETY: these fields are initialized empty and populated only after the corresponding admission phase succeeds.
-          prepared: undefined as PreparedActorEngine<DefinitionValue> | undefined,
-          // SAFETY: these fields are initialized empty and populated only after the corresponding admission phase succeeds.
-          initialSnapshot: undefined as PreparedActorSnapshot<DefinitionValue> | undefined,
-          // SAFETY: these fields are initialized empty and populated only after the corresponding admission phase succeeds.
-          baseline: undefined as ContextBaseline<DefinitionValue, ProviderDefinition> | undefined,
-          // SAFETY: these fields are initialized empty and populated only after the corresponding admission phase succeeds.
-          activeBaseline: undefined as
-            | ActiveContextBaseline<DefinitionValue, ProviderDefinition>
-            | undefined,
-          // SAFETY: these fields are initialized empty and populated only after the corresponding admission phase succeeds.
-          graph: undefined as ContextGraph<DefinitionValue, ProviderDefinition> | undefined,
-          // SAFETY: these fields are initialized empty and populated only after the corresponding admission phase succeeds.
-          ledger: undefined as
-            | ContextSelectionLedger<DefinitionValue, ProviderDefinition>
-            | undefined,
-          previousWave: Option.none<ContextWave>(),
-          revisions: new Map<
-            ActorKey,
-            { readonly publicationRevision: number; readonly machineTurnRevision: number }
-          >(),
-          // SAFETY: bindings are populated only from the validated admission input.
-          bindings: [] as readonly ContextBinding<DefinitionValue, ProviderDefinition>[],
-          // SAFETY: this controller is installed after the lifecycle admission phase completes.
-          lifecycleController: undefined as
-            | LifecycleController<DefinitionValue, PublicDiagnostic, ProviderDefinition>
-            | undefined,
-          // SAFETY: this engine is installed after actor preparation completes.
-          engine: undefined as ActorEngine<DefinitionValue> | undefined,
-          // SAFETY: this actor is installed after exposure completes.
-          actor: undefined as AdmissionActor | undefined,
-          propagationOpen: false,
-          // SAFETY: the no-op receiver is replaced before any provider delivery is accepted.
-          receive: (() => Result.succeed(undefined)) as (
+        type RuntimePropagationOwner = {
+          readonly bindings: readonly ContextBinding<DefinitionValue, ProviderDefinition>[];
+          readonly setOpen: (open: boolean) => void;
+          readonly receive: (
             providerFence: ActorFence,
             snapshot: RuntimeSnapshot,
-          ) => Result.Result<void, PublicDiagnostic>,
-          // SAFETY: dependencies are populated only from the validated admission graph.
-          dependencies: [] as Array<{
-            readonly owner: RuntimeRegisteredActor;
-            readonly edge: ActorDependencyEdge;
-          }>,
-          // SAFETY: dependents are populated only from the validated admission graph.
-          dependents: [] as Array<{
-            readonly owner: RuntimeRegisteredActor;
-            readonly dependent: RuntimeContextDependent;
-          }>,
-          // SAFETY: the lease is installed only after registration succeeds.
-          lease: undefined as
-            | ActorLease<
+            dispatchFact: ActorEngine<DefinitionValue>["dispatchFact"],
+          ) => Result.Result<void, PublicDiagnostic>;
+          readonly reconcile: (
+            engine: ActorEngine<DefinitionValue>,
+          ) => Effect.Effect<void, PublicDiagnostic>;
+        };
+
+        type RuntimeEngineRevisionOwner = {
+          readonly read: () => number;
+          readonly set: (engine: ActorEngine<DefinitionValue>) => void;
+        };
+
+        type RuntimeAdmissionCarrierPhase =
+          | "reserved"
+          | "prepared"
+          | "attached"
+          | "activated"
+          | "registered";
+
+        type RuntimeAdmissionCarrier<Phase extends RuntimeAdmissionCarrierPhase> = {
+          readonly phase: Phase;
+          readonly identity: ActorIdentity<DefinitionValue>;
+          readonly fence: ActorFence;
+          readonly pendingCompletion: RuntimeAdmissionCompletion;
+        } & (Phase extends "reserved"
+          ? {}
+          : {
+              readonly rollback: readonly AdmissionRollbackStep[];
+              readonly validated: RuntimeValidatedAdmission<
                 A,
                 DefinitionValue,
                 RuntimeImplementation | undefined,
+                ProviderDefinition,
+                RuntimeAdmissionCarrier<"reserved">
+              >;
+              readonly scope: Scope.Scope;
+              readonly snapshot: PreparedActorSnapshot<DefinitionValue>;
+              readonly prepared: PreparedActorEngine<DefinitionValue>;
+              readonly silentBaseline: ContextBaseline<DefinitionValue, ProviderDefinition>;
+              readonly controller: LifecycleController<
+                DefinitionValue,
                 PublicDiagnostic,
-                AdmissionActor,
                 ProviderDefinition
-              >
-            | undefined,
-          started: false,
-        };
+              >;
+              readonly engineRevision: RuntimeEngineRevisionOwner;
+              readonly propagation: RuntimePropagationOwner;
+              readonly mailbox: PreparedActorEngine<DefinitionValue>["mailbox"];
+            }) &
+          (Phase extends "attached" | "activated" | "registered"
+            ? {
+                readonly context: Readonly<ContextOf<DefinitionValue>>;
+                readonly edges: readonly ActorDependencyEdge[];
+              }
+            : {}) &
+          (Phase extends "activated" | "registered"
+            ? {
+                readonly baseline: ActiveContextBaseline<DefinitionValue, ProviderDefinition>;
+                readonly engine: ActorEngine<DefinitionValue>;
+              }
+            : {}) &
+          (Phase extends "registered"
+            ? {
+                readonly dependencies: readonly {
+                  readonly owner: RuntimeRegisteredActor;
+                  readonly edge: ActorDependencyEdge;
+                }[];
+                readonly dependents: readonly {
+                  readonly owner: RuntimeRegisteredActor;
+                  readonly dependent: RuntimeContextDependent;
+                }[];
+                readonly started: {
+                  readonly read: () => boolean;
+                  readonly set: (value: boolean) => void;
+                };
+                readonly leaseOwner: RuntimeLeaseOwner<
+                  ActorLease<
+                    A,
+                    DefinitionValue,
+                    RuntimeImplementation | undefined,
+                    PublicDiagnostic,
+                    AdmissionActor,
+                    ProviderDefinition
+                  >
+                >;
+                readonly lifecycleRegistration: RuntimeLifecycleRegistrationSlot;
+                readonly parentFinalizer: RuntimeParentFinalizer;
+                readonly cleanup: Effect.Effect<void, PublicDiagnostic>;
+                readonly sealed: true;
+                readonly actor: RuntimeAdmissionActor<DefinitionValue, ProviderDefinition>;
+                readonly lease: ActorLease<
+                  A,
+                  DefinitionValue,
+                  RuntimeImplementation | undefined,
+                  PublicDiagnostic,
+                  AdmissionActor,
+                  ProviderDefinition
+                >;
+              }
+            : {});
+
+        type RuntimeAdmissionCarriers = ActorAdmissionPhaseOwners<
+          RuntimeAdmissionCarrier<"reserved">,
+          RuntimeAdmissionCarrier<"prepared">,
+          RuntimeAdmissionCarrier<"attached">,
+          RuntimeAdmissionCarrier<"activated">,
+          RuntimeAdmissionCarrier<"registered">
+        >;
 
         const contextDependents: RuntimeContextDependent[] = [];
 
-        // RETURN_TYPE: The admission handshake must be reusable by exposure and resume while preserving its diagnostic channel.
-        const reconcileContext = (): Effect.Effect<void, PublicDiagnostic> =>
-          Effect.gen(function* () {
-            const engine = runtimeAdmission.engine;
+        const reconcileContext = (
+          prepared: Pick<RuntimeAdmissionCarrier<"prepared">, "propagation">,
+          engine: ActorEngine<DefinitionValue>,
+        ): Effect.Effect<void, PublicDiagnostic> => prepared.propagation.reconcile(engine);
 
-            if (engine === undefined)
-              return yield* Effect.die(new Error("actor engine is not activated"));
-            const seenProviders = new Set<ActorKey>();
+        type RuntimeAuthority = ActorAdmissionTransactionAuthority<
+          A,
+          DefinitionValue,
+          RuntimeImplementation | undefined,
+          PublicDiagnostic,
+          AdmissionActor,
+          ProviderDefinition,
+          RuntimeAdmissionCarriers
+        >;
 
-            for (const binding of runtimeAdmission.bindings) {
-              if (seenProviders.has(binding.providerFence.key)) continue;
-              seenProviders.add(binding.providerFence.key);
-              const provider = registry.lookup(binding.provider);
-
-              if (Result.isFailure(provider)) return yield* Effect.fail(provider.failure);
-
-              const received = runtimeAdmission.receive(
-                binding.providerFence,
-                provider.success.actor.snapshot(),
-              );
-
-              if (Result.isFailure(received)) return yield* Effect.fail(received.failure);
-            }
-
-            yield* engine.drain();
-          });
-
-        type RuntimeAuthority = Omit<
-          ActorAdmissionTransactionAuthority<
-            A,
-            DefinitionValue,
-            RuntimeImplementation | undefined,
-            PublicDiagnostic,
-            AdmissionActor,
-            ProviderDefinition
-          >,
-          "consumerKey"
-        > & {
-          consumerKey?: ActorKey;
-        };
-
-        const authority: RuntimeAuthority = {
+        const authorityBase: Omit<RuntimeAuthority, "consumerKey"> = {
           app,
           implementation,
           lookup: registry.lookup,
@@ -809,6 +1046,8 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
               const pending = pendingFor(validated.input.ref);
 
               if (pending !== undefined) {
+                admissionProbe?.onJoin?.();
+
                 // SAFETY: the pending cell is indexed by the exact stable machine/id slot;
                 // concurrent callers receive the same admission result for that slot.
                 return {
@@ -826,25 +1065,21 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
               if (existing.failure.code !== "MissingActorRef")
                 return yield* Effect.fail(existing.failure);
 
-              const reserved = registry.reserveStable(
-                validated.input.ref,
-                validated.input.machineFacts,
-              );
+              const reserved =
+                localIdentity !== undefined && validated.identity !== undefined
+                  ? registry.reserveLocal(validated.identity)
+                  : registry.reserveStable(validated.input.ref, validated.input.machineFacts);
 
               if (Result.isFailure(reserved)) return yield* Effect.fail(reserved.failure);
               const reservedIdentity = reserved.success;
 
-              const actualValidated: RuntimeValidatedAdmission<
-                A,
-                DefinitionValue,
-                RuntimeImplementation | undefined,
-                ProviderDefinition
-              > = {
-                ...validated,
-                identity: reservedIdentity,
-                edges: validated.edges,
-                graph: validated.graph,
-              };
+              const normalized = normalizeValidatedActorAdmission(validated, reservedIdentity.key);
+
+              if (Result.isFailure(normalized)) {
+                registry.rollback(reservedIdentity);
+
+                return yield* Effect.fail(normalized.failure);
+              }
 
               const actualFence: ActorFence = {
                 key: reservedIdentity.key,
@@ -855,10 +1090,27 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
 
               const created = yield* Deferred.make<Exit.Exit<AdmissionResult, PublicDiagnostic>>();
               const pendingCompletion = eraseRuntimeAdmissionCompletion(created);
-              runtimeAdmission.pendingCompletion = pendingCompletion;
-              runtimeAdmission.actorIdentity = reservedIdentity;
-              runtimeAdmission.actorFence = actualFence;
               rememberPending(validated.input.ref, { complete: pendingCompletion });
+
+              const reservationCarrier: RuntimeAdmissionCarrier<"reserved"> = {
+                phase: "reserved",
+                identity: reservedIdentity,
+                fence: actualFence,
+                pendingCompletion,
+              };
+
+              admissionProbe?.onPhase?.("reserve");
+
+              const actualValidated: RuntimeValidatedAdmission<
+                A,
+                DefinitionValue,
+                RuntimeImplementation | undefined,
+                ProviderDefinition,
+                RuntimeAdmissionCarrier<"reserved">
+              > = {
+                ...normalized.success,
+                ...reservationCarrier,
+              };
 
               const reservationRollback: AdmissionRollbackStep = {
                 name: "reservation",
@@ -877,452 +1129,588 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
               } as const;
             }),
           prepare: (validated, mode) =>
-            Effect.gen(function* () {
-              const currentFence = runtimeAdmission.actorFence;
+            (() => {
+              const preparedScope = makeRuntimeScopeOwner();
 
-              if (currentFence === undefined)
-                return yield* Effect.die(new Error("actor admission identity was not reserved"));
+              const preparation = Effect.gen(function* () {
+                admissionProbe?.onPhase?.("prepare");
 
-              const preparedLifecycle = prepareLifecycle<
-                DefinitionValue,
-                PublicDiagnostic,
-                ProviderDefinition
-              >(currentFence, { _tag: mode === "restored-stable" ? "restore" : "fresh" });
+                if (admissionProbe?.beforePrepare !== undefined)
+                  yield* admissionProbe.beforePrepare;
+                const reservationCarrier = validated;
+                const currentFence = reservationCarrier.fence;
 
-              if (Result.isFailure(preparedLifecycle))
-                return yield* Effect.fail(preparedLifecycle.failure);
+                const preparedLifecycle = prepareLifecycle<
+                  DefinitionValue,
+                  PublicDiagnostic,
+                  ProviderDefinition
+                >(currentFence, { _tag: mode === "restored-stable" ? "restore" : "fresh" });
 
-              const contextBindings = validated.input.bindings.map(
-                (binding) =>
-                  ({
-                    ...binding,
-                    consumer: currentFence.key,
-                    consumerIncarnation: currentFence.incarnation,
-                  }) satisfies ContextBinding<DefinitionValue, ProviderDefinition>,
-              );
+                if (Result.isFailure(preparedLifecycle))
+                  return yield* Effect.fail(preparedLifecycle.failure);
 
-              runtimeAdmission.bindings = contextBindings;
-              const graph = buildContextGraph(contextBindings, validated.graph);
-
-              if (Result.isFailure(graph)) return yield* Effect.fail(graph.failure);
-              runtimeAdmission.graph = graph.success;
-
-              const providerSnapshots = new Map<
-                ActorKey,
-                ActorContextSnapshot<ProviderDefinition>
-              >();
-
-              const providerRevisions = new Map<ActorKey, number>();
-
-              for (const binding of contextBindings) {
-                const provider = registry.lookup(binding.provider);
-
-                if (Result.isFailure(provider)) return yield* Effect.fail(provider.failure);
-                const snapshot = provider.success.actor.snapshot();
-                // SAFETY: registry lookup returns the exact registered provider named by this
-                // validated binding, and its snapshot is produced by that provider engine.
-                providerSnapshots.set(
-                  binding.providerFence.key,
-                  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the heterogeneous registry erases the provider definition at this boundary.
-                  snapshot as ActorContextSnapshot<ProviderDefinition>,
+                const contextBindings = validated.input.bindings.map(
+                  (binding) =>
+                    ({
+                      ...binding,
+                      consumer: currentFence.key,
+                      consumerIncarnation: currentFence.incarnation,
+                    }) satisfies ContextBinding<DefinitionValue, ProviderDefinition>,
                 );
-                providerRevisions.set(binding.providerFence.key, snapshot.revision);
-              }
 
-              const installed = installContextBaseline(
-                graph.success,
-                providerSnapshots,
-                providerRevisions,
-              );
+                const graph = buildContextGraph(contextBindings, validated.graph);
 
-              if (Result.isFailure(installed)) return yield* Effect.fail(installed.failure);
-              runtimeAdmission.baseline = installed.success;
-              runtimeAdmission.ledger = installed.success.ledger;
-
-              const providerFences = new Map<ActorKey, ActorFence>(
-                contextBindings.map((binding) => [
-                  binding.providerFence.key,
-                  binding.providerFence,
-                ]),
-              );
-
-              const lifecycleMetadata = installLifecycleMetadata(preparedLifecycle.success, {
-                dependencies: validated.edges,
-                bindings: contextBindings,
-                providerRevisions,
-                providerFences,
-              });
-
-              if (Result.isFailure(lifecycleMetadata))
-                return yield* Effect.fail(lifecycleMetadata.failure);
-              runtimeAdmission.lifecycleController = makeLifecycleController(
-                lifecycleMetadata.success,
-              );
-
-              let initialCandidate: ActorSnapshot<DefinitionValue> = admittedInitialSnapshot;
-
-              const projection = runtimeAdmission.baseline.projections.find(
-                (candidate) => candidate.consumer === currentFence.key,
-              );
-
-              if (projection !== undefined) {
-                const contextSnapshot = { ...initialCandidate.context };
-
-                for (const [slot, value] of projection.values)
-                  Object.assign(contextSnapshot, { [slot]: value });
-                initialCandidate = { ...initialCandidate, context: contextSnapshot };
-              }
-
-              const initialSnapshot = yield* Effect.fromResult(
-                prepareActorSnapshot(
-                  validated.input.machineFacts ?? validated.input.ref.machine,
-                  initialCandidate,
-                ),
-              );
-
-              runtimeAdmission.initialSnapshot = initialSnapshot;
-              // oxlint-disable-next-line anti-slop/no-excessive-cognitive-complexity -- one synchronous callback preserves the complete provider-first wave boundary.
-              runtimeAdmission.receive = (providerFence: ActorFence, incoming: RuntimeSnapshot) => {
-                if (!runtimeAdmission.propagationOpen) return Result.succeed(undefined);
-                const graphValue = runtimeAdmission.graph;
-                const ledger = runtimeAdmission.ledger;
-
-                if (graphValue === undefined || ledger === undefined)
-                  return Result.succeed(undefined);
+                if (Result.isFailure(graph)) return yield* Effect.fail(graph.failure);
 
                 const providerSnapshots = new Map<
                   ActorKey,
                   ActorContextSnapshot<ProviderDefinition>
                 >();
 
-                const providerRevision = new Map<ActorKey, number>();
+                const providerRevisions = new Map<ActorKey, number>();
 
                 for (const binding of contextBindings) {
                   const provider = registry.lookup(binding.provider);
 
-                  if (Result.isFailure(provider)) return Result.fail(provider.failure);
-
-                  const snapshot =
-                    binding.providerFence.key === providerFence.key
-                      ? incoming
-                      : provider.success.actor.snapshot();
-
-                  // SAFETY: each binding was admitted against this exact provider definition,
-                  // and the callback is installed only on that provider's registered actor.
+                  if (Result.isFailure(provider)) return yield* Effect.fail(provider.failure);
+                  const snapshot = provider.success.actor.snapshot();
+                  // SAFETY: registry lookup returns the exact registered provider named by this
+                  // validated binding, and its snapshot is produced by that provider engine.
                   providerSnapshots.set(
                     binding.providerFence.key,
                     // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the heterogeneous registry erases the provider definition at this boundary.
                     snapshot as ActorContextSnapshot<ProviderDefinition>,
                   );
-                  providerRevision.set(binding.providerFence.key, snapshot.revision);
+                  providerRevisions.set(binding.providerFence.key, snapshot.revision);
                 }
 
-                const wave = planContextWave(
-                  graphValue,
-                  providerRevision,
-                  new Set([providerFence.key]),
-                  runtimeAdmission.previousWave,
-                );
-
-                if (Result.isFailure(wave)) return Result.fail(wave.failure);
-
-                const applied = applyContextWave(
-                  wave.success,
-                  graphValue,
+                const installed = installContextBaseline(
+                  graph.success,
                   providerSnapshots,
-                  ledger,
-                  runtimeAdmission.revisions,
+                  providerRevisions,
                 );
 
-                if (Result.isFailure(applied)) return Result.fail(applied.failure);
-                const nextContextLedger = applied.success.ledger;
-                const nextContextRevisions = new Map(runtimeAdmission.revisions);
+                if (Result.isFailure(installed)) return yield* Effect.fail(installed.failure);
 
-                for (const publication of applied.success.publications) {
-                  nextContextRevisions.set(publication.consumer, {
-                    publicationRevision: publication.publicationRevision,
-                    machineTurnRevision: publication.machineTurnRevision,
-                  });
-                  const actor = runtimeAdmission.actor;
+                const providerFences = new Map<ActorKey, ActorFence>(
+                  contextBindings.map((binding) => [
+                    binding.providerFence.key,
+                    binding.providerFence,
+                  ]),
+                );
 
-                  if (actor === undefined)
-                    return Result.fail(
-                      Failure({
-                        code: "InvariantViolation",
-                        path: ["context", "consumer"],
-                        details: { reason: "unregistered" },
-                        summary: "Context propagation reached an unregistered consumer.",
-                        help: "Complete actor registration before publishing provider snapshots.",
-                      }),
-                    );
+                const lifecycleMetadata = installLifecycleMetadata(preparedLifecycle.success, {
+                  dependencies: validated.edges,
+                  bindings: contextBindings,
+                  providerRevisions,
+                  providerFences,
+                });
 
-                  if (
-                    !applied.success.projections.some(
-                      (projection) => projection.consumer === publication.consumer,
-                    )
-                  )
-                    continue;
+                if (Result.isFailure(lifecycleMetadata))
+                  return yield* Effect.fail(lifecycleMetadata.failure);
 
-                  const providerEntries = contextBindings.map((binding) => ({
-                    fence: binding.providerFence,
-                    slot: binding.slot,
-                    revision: providerRevision.get(binding.providerFence.key) ?? 0,
-                    value: publication.projection.values.get(binding.slot),
-                  }));
+                const lifecycleWithTimers = installLifecycleTimers(
+                  lifecycleMetadata.success,
+                  admittedInitialSnapshot.timers,
+                );
 
-                  const firstProvider = providerEntries[0];
+                if (Result.isFailure(lifecycleWithTimers))
+                  return yield* Effect.fail(lifecycleWithTimers.failure);
+                let activeEngine: ActorEngine<DefinitionValue> | undefined;
 
-                  if (firstProvider === undefined)
-                    return Result.fail(
-                      Failure({
-                        code: "InvariantViolation",
-                        path: ["context", "consumer", "providers"],
-                        details: { reason: "empty" },
-                        summary: "Context propagation produced an empty provider carrier.",
-                        help: "Keep every admitted context binding in the aggregate publication.",
-                      }),
-                    );
+                const engineRevision: RuntimeEngineRevisionOwner = {
+                  read: () => activeEngine?.machineTurnRevision() ?? 0,
+                  set: (engine) => (activeEngine = engine),
+                };
 
-                  const carrier: ContextProjectionCarrier = {
-                    providers: providerEntries,
-                    issueOnly: publication.issueOnly,
-                    selectorDefects: publication.selectorDefects,
-                  };
+                const lifecycleController = makeLifecycleController(lifecycleWithTimers.success, {
+                  machineTurnRevision: engineRevision.read,
+                });
 
-                  const dispatched = actor.engine.dispatchFact({
-                    _tag: "context-projection",
-                    provider: {
-                      ...firstProvider,
-                      value: carrier,
-                    },
-                    projection: carrier,
-                  });
+                projectVisibleSnapshot = (
+                  snapshot: ActorSnapshot<DefinitionValue>,
+                ): ActorSnapshot<DefinitionValue> => {
+                  const lifecycle = lifecycleController.currentLifecycle();
 
-                  if (Result.isFailure(dispatched)) return Result.fail(dispatched.failure);
+                  if (snapshot.lifecycle === lifecycle) return snapshot;
+
+                  // oxlint-disable-next-line anti-slop/no-object-freeze -- lifecycle overlay is an immutable runtime snapshot.
+                  return Object.freeze({ ...snapshot, lifecycle });
+                };
+
+                let initialCandidate: ActorSnapshot<DefinitionValue> = admittedInitialSnapshot;
+
+                const projection = installed.success.projections.find(
+                  (candidate) => candidate.consumer === currentFence.key,
+                );
+
+                if (projection !== undefined) {
+                  const contextSnapshot = { ...initialCandidate.context };
+
+                  for (const [slot, value] of projection.values)
+                    Object.assign(contextSnapshot, { [slot]: value });
+                  initialCandidate = { ...initialCandidate, context: contextSnapshot };
                 }
 
-                runtimeAdmission.previousWave = Option.some(wave.success);
-                runtimeAdmission.ledger = nextContextLedger;
-                runtimeAdmission.revisions = nextContextRevisions;
+                const initialSnapshot = yield* Effect.fromResult(
+                  prepareActorSnapshot(
+                    validated.input.machineFacts ?? validated.input.ref.machine,
+                    initialCandidate,
+                  ),
+                );
 
-                return Result.succeed(undefined);
-              };
+                const propagation: RuntimePropagationOwner = (() => {
+                  let open = false;
+                  let previousWave = Option.none<ContextWave>();
+                  let ledger = installed.success.ledger;
 
-              runtimeAdmission.scope = yield* Scope.make("sequential");
-              previous = projectVisibleSnapshot(initialSnapshot);
+                  let revisions = new Map<
+                    ActorKey,
+                    { readonly publicationRevision: number; readonly machineTurnRevision: number }
+                  >();
 
-              const actorInput: ActorEngineInput<DefinitionValue> = {
-                initial: initialSnapshot,
-                identity: validated.identity,
-                machine: validated.input.machineFacts ?? validated.input.ref.machine,
-                fence: currentFence,
-                scope: runtimeAdmission.scope,
-                acceptEvidence: (publication: ActorPublication<DefinitionValue>) => {
-                  evidence.projectPublication(publication, projectVisibleSnapshot);
+                  const receive = (
+                    providerFence: ActorFence,
+                    incoming: RuntimeSnapshot,
+                    dispatchFact: ActorEngine<DefinitionValue>["dispatchFact"],
+                  ): Result.Result<void, PublicDiagnostic> => {
+                    if (!open) return Result.succeed(undefined);
 
-                  const accepted = evidence.acceptPublication(
-                    validated.identity,
-                    currentFence,
-                    previous,
-                    publication,
-                  );
+                    const providerSnapshots = new Map<
+                      ActorKey,
+                      ActorContextSnapshot<ProviderDefinition>
+                    >();
 
-                  return accepted;
-                },
-                onSnapshot: (snapshot) => {
-                  const visibleSnapshot = projectVisibleSnapshot(snapshot);
-                  // Evidence preparation happens before the store cut commits. Advance the
-                  // previous committed snapshot only after the engine publishes this snapshot.
-                  previous = visibleSnapshot;
+                    const providerRevision = new Map<ActorKey, number>();
 
-                  const runtimeSnapshot: RuntimeSnapshot = {
-                    state: visibleSnapshot.state,
-                    memory: visibleSnapshot.memory,
-                    context: visibleSnapshot.context,
-                    revision: visibleSnapshot.revision,
+                    for (const binding of contextBindings) {
+                      const provider = registry.lookup(binding.provider);
+
+                      if (Result.isFailure(provider)) return Result.fail(provider.failure);
+
+                      const snapshot =
+                        binding.providerFence.key === providerFence.key
+                          ? incoming
+                          : provider.success.actor.snapshot();
+
+                      providerSnapshots.set(
+                        binding.providerFence.key,
+                        // SAFETY: the provider registry entry is checked against the validated binding fence before this heterogeneous snapshot is projected.
+                        // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the heterogeneous registry erases the provider definition at this boundary.
+                        snapshot as ActorContextSnapshot<ProviderDefinition>,
+                      );
+                      providerRevision.set(binding.providerFence.key, snapshot.revision);
+                    }
+
+                    const wave = planContextWave(
+                      graph.success,
+                      providerRevision,
+                      new Set([providerFence.key]),
+                      previousWave,
+                    );
+
+                    if (Result.isFailure(wave)) return Result.fail(wave.failure);
+
+                    const applied = applyContextWave(
+                      wave.success,
+                      graph.success,
+                      providerSnapshots,
+                      ledger,
+                      revisions,
+                    );
+
+                    if (Result.isFailure(applied)) return Result.fail(applied.failure);
+                    const nextRevisions = new Map(revisions);
+
+                    for (const publication of applied.success.publications) {
+                      nextRevisions.set(publication.consumer, {
+                        publicationRevision: publication.publicationRevision,
+                        machineTurnRevision: publication.machineTurnRevision,
+                      });
+
+                      if (
+                        !applied.success.projections.some(
+                          (candidate) => candidate.consumer === publication.consumer,
+                        )
+                      )
+                        continue;
+
+                      const providerEntries = contextBindings.map((binding) => ({
+                        fence: binding.providerFence,
+                        slot: binding.slot,
+                        revision: providerRevision.get(binding.providerFence.key) ?? 0,
+                        value: publication.projection.values.get(binding.slot),
+                      }));
+
+                      const firstProvider = providerEntries[0];
+
+                      if (firstProvider === undefined)
+                        return Result.fail(
+                          Failure({
+                            code: "InvariantViolation",
+                            path: ["context", "consumer", "providers"],
+                            details: { reason: "empty" },
+                            summary: "Context propagation produced an empty provider carrier.",
+                            help: "Keep every admitted context binding in the aggregate publication.",
+                          }),
+                        );
+
+                      const carrier: ContextProjectionCarrier = {
+                        providers: providerEntries,
+                        issueOnly: publication.issueOnly,
+                        selectorDefects: publication.selectorDefects,
+                      };
+
+                      const dispatched = dispatchFact({
+                        _tag: "context-projection",
+                        provider: { ...firstProvider, value: carrier },
+                        projection: carrier,
+                      });
+
+                      if (Result.isFailure(dispatched)) return Result.fail(dispatched.failure);
+                    }
+
+                    previousWave = Option.some(wave.success);
+                    ledger = applied.success.ledger;
+                    revisions = nextRevisions;
+
+                    return Result.succeed(undefined);
                   };
 
-                  notifyRuntimeDependents(contextDependents, currentFence, runtimeSnapshot);
-                  capturedOptions.success.onSnapshot?.(visibleSnapshot);
-                },
-              };
+                  return {
+                    bindings: contextBindings,
+                    setOpen: (value) => (open = value),
+                    receive,
+                    reconcile: (engine: ActorEngine<DefinitionValue>) =>
+                      Effect.gen(function* () {
+                        const seenProviders = new Set<ActorKey>();
 
-              if (capturedOptions.success.store !== undefined)
-                Object.assign(actorInput, { store: capturedOptions.success.store });
+                        for (const binding of contextBindings) {
+                          if (seenProviders.has(binding.providerFence.key)) continue;
+                          seenProviders.add(binding.providerFence.key);
+                          const provider = registry.lookup(binding.provider);
 
-              if (capturedOptions.success.onCommand !== undefined)
-                Object.assign(actorInput, {
-                  onCommand: (command: ActorCommand<DefinitionValue>) =>
-                    Effect.provideContext(capturedOptions.success.onCommand!(command), context),
-                });
-              runtimeAdmission.prepared = yield* prepareActorEngine(actorInput);
+                          if (Result.isFailure(provider))
+                            return yield* Effect.fail(provider.failure);
 
-              const preparedRollback: AdmissionRollbackStep = {
-                name: "prepared",
-                release: Effect.uninterruptible(
-                  Effect.sync(() => runtimeAdmission.prepared?.abandon()).pipe(
-                    Effect.flatMap(() => Scope.close(runtimeAdmission.scope!, Exit.void)),
+                          const received = receive(
+                            binding.providerFence,
+                            provider.success.actor.snapshot(),
+                            engine.dispatchFact,
+                          );
+
+                          if (Result.isFailure(received))
+                            return yield* Effect.fail(received.failure);
+                        }
+
+                        yield* engine.drain();
+                      }),
+                  };
+                })();
+
+                const scope = yield* Scope.make("sequential");
+                preparedScope.install(scope);
+
+                yield* runAfterPrepareScope(scope);
+                previous = projectVisibleSnapshot(initialSnapshot);
+
+                const actorInput: ActorEngineInput<DefinitionValue> = {
+                  initial: initialSnapshot,
+                  identity: validated.identity,
+                  machine: validated.input.machineFacts ?? validated.input.ref.machine,
+                  fence: currentFence,
+                  scope,
+                  acceptEvidence: (publication: ActorPublication<DefinitionValue>) => {
+                    evidence.projectPublication(publication, projectVisibleSnapshot);
+
+                    const accepted = evidence.acceptPublication(
+                      validated.identity,
+                      currentFence,
+                      previous,
+                      publication,
+                    );
+
+                    return accepted;
+                  },
+                  onSnapshot: (snapshot) => {
+                    const visibleSnapshot = projectVisibleSnapshot(snapshot);
+                    // Evidence preparation happens before the store cut commits. Advance the
+                    // previous committed snapshot only after the engine publishes this snapshot.
+                    previous = visibleSnapshot;
+
+                    const runtimeSnapshot: RuntimeSnapshot = {
+                      state: visibleSnapshot.state,
+                      memory: visibleSnapshot.memory,
+                      context: visibleSnapshot.context,
+                      revision: visibleSnapshot.revision,
+                    };
+
+                    notifyRuntimeDependents(contextDependents, currentFence, runtimeSnapshot);
+                    capturedOptions.success.onSnapshot?.(visibleSnapshot);
+                  },
+                };
+
+                if (capturedOptions.success.store !== undefined)
+                  Object.assign(actorInput, { store: capturedOptions.success.store });
+
+                if (capturedOptions.success.onCommand !== undefined)
+                  Object.assign(actorInput, {
+                    onCommand: (command: ActorCommand<DefinitionValue>) =>
+                      Effect.updateContext((current) => Context.merge(context, current))(
+                        capturedOptions.success.onCommand!(command),
+                      ),
+                  });
+                const prepared = yield* prepareActorEngine(actorInput);
+
+                const preparedRollback: AdmissionRollbackStep = {
+                  name: "prepared",
+                  release: Effect.uninterruptible(
+                    Effect.sync(() => prepared.abandon()).pipe(
+                      Effect.flatMap(() => Scope.close(scope, Exit.void)),
+                    ),
                   ),
-                ),
-              };
+                };
+
+                return {
+                  ...reservationCarrier,
+                  phase: "prepared" as const,
+                  validated,
+                  scope,
+                  snapshot: initialSnapshot,
+                  prepared,
+                  silentBaseline: installed.success,
+                  controller: lifecycleController,
+                  engineRevision,
+                  propagation,
+                  mailbox: prepared.mailbox,
+                  rollback: [preparedRollback],
+                } satisfies RuntimeAdmissionCarrier<"prepared">;
+              });
+
+              return preparation.pipe(
+                Effect.onExit((exit) => {
+                  if (Exit.isSuccess(exit)) return Effect.void;
+
+                  const scope = preparedScope.read();
+
+                  return scope === undefined ? Effect.void : Scope.close(scope, exit);
+                }),
+              );
+            })(),
+          attach: (prepared) =>
+            Effect.sync(() => {
+              admissionProbe?.onPhase?.("attach");
 
               return {
-                phase: "prepared" as const,
-                validated,
-                snapshot: initialSnapshot,
-                mailbox: runtimeAdmission.prepared.mailbox,
-                rollback: [preparedRollback],
-              } satisfies PreparedActorAdmission<
-                A,
-                DefinitionValue,
-                RuntimeImplementation | undefined,
-                ProviderDefinition
-              >;
+                ...prepared,
+                phase: "attached" as const,
+                // SAFETY: prepareActorEngine admitted this snapshot against the exact DefinitionValue machine before attachment.
+                context: prepared.snapshot.context,
+                edges: prepared.validated.edges,
+                rollback: prepared.rollback,
+              } satisfies RuntimeAdmissionCarrier<"attached">;
             }),
-          attach: (prepared) =>
-            Effect.succeed({
-              phase: "attached" as const,
-              prepared,
-              // SAFETY: admitActor invokes attach only after prepare assigns initial from this admission's exact ActorSnapshot.
-              context: runtimeAdmission.initialSnapshot!.context as Readonly<
-                ContextOf<DefinitionValue>
-              >,
-              edges: prepared.validated.edges,
-              rollback: prepared.rollback,
-            } satisfies AttachedActorAdmission<
-              A,
-              DefinitionValue,
-              RuntimeImplementation | undefined,
-              ProviderDefinition
-            >),
           activate: (attached) =>
             Effect.gen(function* () {
-              const prepared = runtimeAdmission.prepared;
-              const installed = runtimeAdmission.baseline;
-
-              if (prepared === undefined || installed === undefined)
-                return yield* Effect.die(new Error("actor admission baseline is not prepared"));
-              runtimeAdmission.activeBaseline = activateContextBaseline(installed);
-              runtimeAdmission.engine = yield* prepared.activate();
+              admissionProbe?.onPhase?.("activate");
+              const prepared = attached;
+              const activeBaseline = activateContextBaseline(prepared.silentBaseline);
+              const engine = yield* prepared.prepared.activate();
+              prepared.engineRevision.set(engine);
 
               const activationRollback: AdmissionRollbackStep = {
                 name: "activation",
-                release: runtimeAdmission.engine.shutdown("hard"),
+                release: engine.shutdown("hard"),
               };
 
               return {
+                ...attached,
                 phase: "activated" as const,
-                attached,
-                activation: {
-                  baseline: runtimeAdmission.activeBaseline,
-                  engine: runtimeAdmission.engine,
-                },
+                baseline: activeBaseline,
+                engine,
                 rollback: [...attached.rollback, activationRollback],
-              } satisfies ActivatedActorAdmission<
-                A,
-                DefinitionValue,
-                RuntimeImplementation | undefined,
-                ProviderDefinition
-              >;
+              } satisfies RuntimeAdmissionCarrier<"activated">;
             }),
           register: (activated) =>
             Effect.gen(function* () {
-              const currentIdentity = runtimeAdmission.actorIdentity;
-              const currentFence = runtimeAdmission.actorFence;
-              const currentEngine = runtimeAdmission.engine;
-              const currentController = runtimeAdmission.lifecycleController;
+              admissionProbe?.onPhase?.("register");
+              const activatedCarrier = activated;
+              const currentIdentity = activatedCarrier.identity;
+              const currentFence = activatedCarrier.fence;
+              const currentEngine = activatedCarrier.engine;
+              const currentController = activatedCarrier.controller;
+              const currentRouting = lifecycleRouting(currentController);
+              const propagation = activatedCarrier.propagation;
 
-              if (
-                currentIdentity === undefined ||
-                currentFence === undefined ||
-                currentEngine === undefined ||
-                currentController === undefined
-              )
-                return yield* Effect.die(new Error("actor admission registration is incomplete"));
+              const dependencies: Array<{
+                readonly owner: RuntimeRegisteredActor;
+                readonly edge: ActorDependencyEdge;
+              }> = [];
+
+              const dependents: Array<{
+                readonly owner: RuntimeRegisteredActor;
+                readonly dependent: RuntimeContextDependent;
+              }> = [];
+
+              let started = false;
+              let actorScopeClosed = false;
+
+              const startedOwner = {
+                read: () => started,
+                set: (value: boolean) => (started = value),
+              };
 
               const visibleSnapshot = () => {
                 return projectVisibleSnapshot(currentEngine.snapshot());
-              };
-
-              let admissionOpen = false;
-
-              const admissionGate = (open: boolean) => {
-                admissionOpen = open;
               };
 
               const engine: ActorEngine<DefinitionValue> = {
                 ...currentEngine,
                 snapshot: visibleSnapshot,
                 snapshots: Stream.map(currentEngine.snapshots, projectVisibleSnapshot),
-                send: sendWithAdmissionGate(currentEngine, () => admissionOpen),
+                send: sendWithAdmissionGate(currentEngine, currentController.isRoutable),
                 dispatch: (command) => {
-                  if (admissionOpen) return currentEngine.dispatch(command);
+                  if (currentController.isRoutable()) return currentEngine.dispatch(command);
                   const completion = Deferred.makeUnsafe<DispatchReceipt, PublicDiagnostic>();
                   Deferred.doneUnsafe(completion, Effect.fail(closedActorAdmission()));
 
                   return { admitted: false, completion };
                 },
                 dispatchFact: (fact) =>
-                  admissionOpen
+                  currentController.isRoutable()
                     ? currentEngine.dispatchFact(fact)
                     : Result.fail(closedActorAdmission()),
-                shutdown: (mode) =>
-                  Effect.sync(() => admissionGate(false)).pipe(
-                    Effect.flatMap(() => currentEngine.shutdown(mode)),
-                  ),
+                shutdown: (mode) => currentEngine.shutdown(mode),
               };
 
               const lifecycleCommandGate = Semaphore.makeUnsafe(1);
+
+              const lifecycleCommandEffect = (command: LifecycleCommand<PublicDiagnostic>) =>
+                Effect.gen(function* () {
+                  let routingGeneration: number | undefined;
+
+                  const preparation = yield* Effect.exit(
+                    Effect.gen(function* () {
+                      if (command._tag === "actor:suspend") {
+                        routingGeneration = currentRouting.block();
+                        propagation.setOpen(false);
+                        yield* currentEngine.drain();
+                      } else if (command._tag === "actor:dispose") {
+                        routingGeneration = currentRouting.block();
+                        propagation.setOpen(false);
+                      } else if (command._tag === "actor:resume") {
+                        routingGeneration = currentRouting.block();
+                      }
+                    }),
+                  );
+
+                  if (Exit.isFailure(preparation)) {
+                    if (currentController.currentLifecycle() === "active") {
+                      if (routingGeneration !== undefined) currentRouting.open(routingGeneration);
+
+                      propagation.setOpen(true);
+                    }
+
+                    return yield* Effect.failCause(preparation.cause);
+                  }
+
+                  const commanded = yield* Effect.exit(
+                    Effect.gen(function* () {
+                      const result = yield* currentController.command(command);
+
+                      if (command._tag === "actor:resume") {
+                        propagation.setOpen(true);
+
+                        const reconciled = yield* Effect.exit(
+                          reconcileContext(activatedCarrier, currentEngine),
+                        );
+
+                        if (Exit.isFailure(reconciled)) {
+                          propagation.setOpen(false);
+
+                          return yield* Effect.failCause(reconciled.cause);
+                        }
+
+                        if (routingGeneration !== undefined) currentRouting.open(routingGeneration);
+                      }
+
+                      return result;
+                    }),
+                  );
+
+                  previous = projectVisibleSnapshot(previous);
+
+                  if (Exit.isFailure(commanded)) {
+                    if (currentController.currentLifecycle() === "active") {
+                      if (command._tag !== "actor:resume" && routingGeneration !== undefined)
+                        currentRouting.open(routingGeneration);
+
+                      propagation.setOpen(true);
+                    }
+
+                    return yield* Effect.failCause(commanded.cause);
+                  }
+
+                  const next = commanded.value;
+
+                  if (command._tag === "actor:start") {
+                    propagation.setOpen(true);
+                  }
+
+                  return next;
+                });
+
+              const internalLifecycleCommand = (command: LifecycleCommand<PublicDiagnostic>) =>
+                lifecycleCommandGate.withPermit(lifecycleCommandEffect(command));
+
+              const publicLifecycleCommand = (command: LifecycleCommand<PublicDiagnostic>) =>
+                Effect.gen(function* () {
+                  const lifecycle = currentController.currentLifecycle();
+
+                  const mayEnter =
+                    currentController.isRoutable() ||
+                    lifecycle === "prepared" ||
+                    (lifecycle === "suspended" && command._tag === "actor:resume");
+
+                  if (!mayEnter) return yield* Effect.fail(closedActorAdmission());
+
+                  const acquired = yield* lifecycleCommandGate.withPermitsIfAvailable(1)(
+                    Effect.gen(function* () {
+                      const currentLifecycle = currentController.currentLifecycle();
+
+                      const stillAdmitted =
+                        currentController.isRoutable() ||
+                        currentLifecycle === "prepared" ||
+                        (currentLifecycle === "suspended" && command._tag === "actor:resume");
+
+                      if (!stillAdmitted) return yield* Effect.fail(closedActorAdmission());
+
+                      return yield* lifecycleCommandEffect(command);
+                    }),
+                  );
+
+                  if (Option.isNone(acquired)) return yield* Effect.fail(closedActorAdmission());
+
+                  return acquired.value;
+                });
 
               const lifecycle: LifecycleController<
                 DefinitionValue,
                 PublicDiagnostic,
                 ProviderDefinition
               > = {
+                currentLifecycle: currentController.currentLifecycle,
+                isRoutable: currentController.isRoutable,
                 state: currentController.state,
-                command: (command) =>
-                  lifecycleCommandGate.withPermit(
-                    Effect.gen(function* () {
-                      if (command._tag === "actor:suspend") {
-                        runtimeAdmission.propagationOpen = false;
-                        admissionGate(false);
-                        yield* currentEngine.drain();
-                      } else if (command._tag === "actor:dispose") {
-                        runtimeAdmission.propagationOpen = false;
-                        admissionGate(false);
-                      }
-
-                      const commanded = yield* Effect.exit(currentController.command(command));
-                      const retained = yield* currentController.state();
-                      visibleLifecycle = retained.lifecycle;
-                      previous = projectVisibleSnapshot(previous);
-
-                      if (Exit.isFailure(commanded))
-                        return yield* Effect.failCause(commanded.cause);
-                      const next = commanded.value;
-
-                      if (command._tag === "actor:start") {
-                        runtimeAdmission.propagationOpen = true;
-                        admissionGate(true);
-                      } else if (command._tag === "actor:resume") {
-                        runtimeAdmission.propagationOpen = true;
-                        admissionGate(true);
-                        yield* reconcileContext();
-                      }
-
-                      return next;
-                    }),
-                  ),
+                command: publicLifecycleCommand,
                 installMetadata: (metadata) =>
                   lifecycleCommandGate.withPermit(currentController.installMetadata(metadata)),
               };
 
-              runtimeAdmission.dependencies = [];
-              runtimeAdmission.dependents = [];
               const registeredProviderKeys = new Set<ActorKey>();
 
-              for (const edge of activated.attached.prepared.validated.edges) {
-                const binding = runtimeAdmission.bindings.find(
+              for (const edge of activated.validated.edges) {
+                const binding = propagation.bindings.find(
                   (candidate) =>
                     candidate.providerFence.key === edge.provider && candidate.slot === edge.slot,
                 );
@@ -1345,14 +1733,15 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
 
                 const dependent: RuntimeContextDependent = {
                   edge,
-                  receive: runtimeAdmission.receive,
+                  receive: (providerFence, snapshot) =>
+                    propagation.receive(providerFence, snapshot, engine.dispatchFact),
                 };
 
-                runtimeAdmission.dependencies.push({ owner, edge });
+                dependencies.push({ owner, edge });
 
                 if (!registeredProviderKeys.has(binding.providerFence.key)) {
                   registeredProviderKeys.add(binding.providerFence.key);
-                  runtimeAdmission.dependents.push({ owner, dependent });
+                  dependents.push({ owner, dependent });
                 }
               }
 
@@ -1401,28 +1790,33 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
                       const result = yield* Effect.exit(effect);
 
                       if (Exit.isFailure(result))
-                        cleanupCause =
-                          cleanupCause === undefined
-                            ? result.cause
-                            : Cause.combine(cleanupCause, result.cause);
+                        cleanupCause = appendCleanupCause(cleanupCause, result.cause);
                     });
 
-                  if (runtimeAdmission.started)
+                  if (started)
                     yield* observe(
-                      lifecycle.command({
+                      internalLifecycleCommand({
                         _tag: "actor:dispose",
                         cause: { _tag: "runtime-disposal" },
                       }),
                     );
-                  else admissionGate(false);
                   yield* observe(engine.shutdown("hard"));
 
-                  for (const registration of runtimeAdmission.dependents)
+                  if (!actorScopeClosed) {
+                    const scopeExit = yield* Effect.exit(
+                      Scope.close(activatedCarrier.scope, Exit.void),
+                    );
+
+                    if (Exit.isSuccess(scopeExit)) actorScopeClosed = true;
+                    else cleanupCause = appendCleanupCause(cleanupCause, scopeExit.cause);
+                  }
+
+                  for (const registration of dependents)
                     yield* observe(
                       Effect.sync(() => registration.owner.removeDependent(registration.dependent)),
                     );
 
-                  for (const registration of runtimeAdmission.dependencies)
+                  for (const registration of dependencies)
                     yield* observe(
                       Effect.provideContext(
                         registration.owner.removeDependency(registration.edge),
@@ -1448,15 +1842,47 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
                 }),
               );
 
-              const disposeActor = () =>
-                runtimeAdmission.lease === undefined
-                  ? disposeWithoutLease
-                  : runtimeAdmission.lease.dispose();
+              const leaseOwner =
+                makeRuntimeLeaseOwner<
+                  ActorLease<
+                    A,
+                    DefinitionValue,
+                    RuntimeImplementation | undefined,
+                    PublicDiagnostic,
+                    AdmissionActor,
+                    ProviderDefinition
+                  >
+                >();
+
+              const lifecycleRegistration: RuntimeLifecycleRegistrationSlot = {
+                current: undefined,
+              };
+
+              const parentFinalizer: RuntimeParentFinalizer = {
+                current: undefined,
+              };
+
+              let actorReleased = false;
+
+              const disposeActor = () => {
+                if (actorReleased) return Effect.void;
+
+                return (leaseOwner.read()?.dispose() ?? disposeWithoutLease).pipe(
+                  Effect.tap(() =>
+                    Effect.sync(() => {
+                      actorReleased = true;
+                      lifecycleRegistration.current?.unregister();
+                      lifecycleRegistration.current = undefined;
+                      parentFinalizer.current = undefined;
+                    }),
+                  ),
+                );
+              };
 
               const handle = actorHandle(engine);
 
               const actorWithRef: AdmissionActor = {
-                ref: activated.attached.prepared.validated.input.ref,
+                ref: activated.validated.input.ref,
                 identity: currentIdentity,
                 fence: currentFence,
                 engine,
@@ -1484,7 +1910,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
               if (Result.isFailure(registered)) return yield* Effect.fail(registered.failure);
               providerFences.set(currentIdentity.key, currentFence);
 
-              const createdLease = makeActorLease<
+              const lease = makeActorLease<
                 A,
                 DefinitionValue,
                 RuntimeImplementation | undefined,
@@ -1493,13 +1919,12 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
                 ProviderDefinition
               >({
                 actor: actorWithRef,
-                admission: activated.attached.prepared.validated,
+                admission: activated.validated,
                 cleanup,
                 tombstone,
               });
 
-              runtimeAdmission.lease = createdLease;
-              runtimeAdmission.actor = actorWithRef;
+              leaseOwner.install(lease);
 
               const registrationRollback: AdmissionRollbackStep = {
                 name: "registration",
@@ -1507,36 +1932,36 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
               };
 
               return {
+                ...activated,
                 phase: "registered" as const,
+                dependencies,
+                dependents,
+                started: startedOwner,
+                leaseOwner,
+                lifecycleRegistration,
+                parentFinalizer,
+                cleanup,
                 sealed: true as const,
-                activated,
                 actor: actorWithRef,
-                lease: createdLease,
+                lease,
                 rollback: [...activated.rollback, registrationRollback],
-              } satisfies RegisteredActorAdmission<
-                A,
-                DefinitionValue,
-                RuntimeImplementation | undefined,
-                PublicDiagnostic,
-                AdmissionActor,
-                ProviderDefinition
-              >;
+              } satisfies RuntimeAdmissionCarrier<"registered">;
             }),
           expose: (registered) =>
             Effect.gen(function* () {
-              const currentLifecycle = runtimeAdmission.actor?.lifecycle;
+              if (admissionProbe?.beforeExpose !== undefined) yield* admissionProbe.beforeExpose;
+              admissionProbe?.onPhase?.("expose");
+              const registeredCarrier = registered;
+              const currentLifecycle = registered.actor.lifecycle;
 
-              if (currentLifecycle === undefined)
-                return yield* Effect.die(new Error("actor lifecycle is not registered"));
-
-              for (const registration of runtimeAdmission.dependencies) {
+              for (const registration of registeredCarrier.dependencies) {
                 yield* Effect.provideContext(
                   registration.owner.addDependency(registration.edge),
                   context,
                 );
               }
 
-              for (const registration of runtimeAdmission.dependents) {
+              for (const registration of registeredCarrier.dependents) {
                 registration.owner.addDependent(registration.dependent);
               }
 
@@ -1548,7 +1973,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
                   }),
                   context,
                 );
-                runtimeAdmission.started = true;
+                registeredCarrier.started.set(true);
               }
 
               yield* Effect.provideContext(
@@ -1563,37 +1988,182 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
                 }),
                 context,
               );
-              runtimeAdmission.started = true;
-              yield* reconcileContext();
-              lifecycleOwner.registerActor({ dispose: () => registered.lease.dispose() });
+              registeredCarrier.started.set(true);
+              yield* reconcileContext(registeredCarrier, registered.actor.engine);
+
+              const lifecycleRegistration = lifecycleOwner.registerActor({
+                dispose: registered.actor.dispose,
+              });
+
+              if (!lifecycleRegistration.accepted) {
+                const rejected = yield* Effect.exit(
+                  Effect.provideContext(registered.actor.dispose(), context),
+                );
+
+                if (Exit.isFailure(rejected))
+                  return yield* Effect.failCause(
+                    appendCleanupCause(Cause.fail(closedActorAdmission()), rejected.cause),
+                  );
+
+                return yield* Effect.fail(closedActorAdmission());
+              }
+
+              registeredCarrier.lifecycleRegistration.current = lifecycleRegistration;
+              const parentFinalizer = registeredCarrier.parentFinalizer;
+              parentFinalizer.current = registered.actor.dispose;
               yield* Scope.addFinalizer(
                 runtimeScope,
-                Scope.close(runtimeAdmission.scope!, Exit.void),
+                Effect.suspend(() => {
+                  const dispose = parentFinalizer.current;
+
+                  return dispose === undefined
+                    ? Effect.void
+                    : Effect.provideContext(Effect.exit(dispose()).pipe(Effect.asVoid), context);
+                }),
               );
 
-              if (runtimeAdmission.pendingCompletion !== undefined)
-                forgetPending(registered.actor.ref, runtimeAdmission.pendingCompletion);
+              forgetPending(registered.actor.ref, registeredCarrier.pendingCompletion);
 
               return {
                 phase: "exposed" as const,
-                registered,
                 actor: registered.actor,
                 lease: registered.lease,
               } satisfies AdmissionResult;
             }),
         };
 
-        if (consumerKey !== undefined) authority.consumerKey = consumerKey;
+        let authority: RuntimeAuthority;
 
-        const admitted = yield* admitActor(admissionInput, authority);
+        if (consumerKey === undefined) {
+          authority =
+            localIdentity === undefined
+              ? authorityBase
+              : { ...authorityBase, identity: localIdentity };
+        } else if (localIdentity === undefined) {
+          authority = { ...authorityBase, consumerKey };
+        } else {
+          authority = { ...authorityBase, consumerKey, identity: localIdentity };
+        }
+
+        const admitted = yield* admitActor<
+          A,
+          DefinitionValue,
+          RuntimeImplementation | undefined,
+          PublicDiagnostic,
+          AdmissionActor,
+          ProviderDefinition,
+          RuntimeAdmissionCarriers
+        >(admissionInput, authority);
 
         return admitted.actor;
       });
+
+    const ensureActor: RuntimeAssembly["ensureActor"] = (
+      refOrOptions: unknown,
+      options?: unknown,
+    ) => {
+      if (options === undefined) {
+        // SAFETY: the one-argument compatibility seam retains the former package-private shape.
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+        return admitRuntimeActor(refOrOptions as RuntimeActorOptions<MachineDefinition>, "stable");
+      }
+
+      // SAFETY: the two-argument overload is the stable production ensure path; the ref is captured separately from its options.
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+      return admitRuntimeActor(
+        options as RuntimeEnsureActorOptions<MachineDefinition>,
+        "stable",
+        undefined,
+        refOrOptions as ActorRef<Machine>,
+      );
+    };
+
+    const getActor = <
+      DefinitionValue extends MachineDefinition,
+      ProviderDefinition extends MachineDefinition = DefinitionValue,
+    >(
+      ref: ActorRef<Machine<DefinitionValue>>,
+    ): Effect.Effect<
+      RuntimeActor<DefinitionValue, ProviderDefinition> | undefined,
+      PublicDiagnostic
+    > =>
+      Effect.gen(function* () {
+        const opaqueLocal = registry.isLocalRef(ref);
+        const captured = captureActorRef<DefinitionValue>(ref);
+
+        if (Result.isFailure(captured)) return yield* Effect.fail(captured.failure);
+        const found = registry.lookup(captured.success);
+
+        if (Result.isFailure(found)) {
+          if (opaqueLocal) return yield* Effect.fail(found.failure);
+
+          if (found.failure.code === "MissingActorRef") return undefined;
+
+          return yield* Effect.fail(found.failure);
+        }
+
+        // SAFETY: the registry stores RuntimeAdmissionActor values; this lookup restores the
+        // exact machine/provider generic carried by the captured ref.
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+        return found.success.actor as unknown as RuntimeActor<DefinitionValue, ProviderDefinition>;
+      });
+
+    const createLocalActor = <
+      DefinitionValue extends MachineDefinition,
+      ProviderDefinition extends MachineDefinition = DefinitionValue,
+    >(
+      machine: Machine<DefinitionValue>,
+      options: RuntimeLocalActorOptions<DefinitionValue, ProviderDefinition>,
+    ) =>
+      Effect.gen(function* () {
+        if (!lifecycleOwner.isOpen()) return yield* Effect.fail(closedActorAdmission());
+
+        const local = registry.createLocal(machine, { deferAllocationNotification: true });
+
+        if (Result.isFailure(local)) return yield* Effect.fail(local.failure);
+
+        const admitted = yield* Effect.exit(
+          admitRuntimeActor(options, "local", local.success, local.success.ref),
+        );
+
+        if (Exit.isSuccess(admitted)) {
+          const committed = registry.commitLocal(local.success);
+
+          if (Result.isFailure(committed)) return yield* Effect.fail(committed.failure);
+
+          return admitted.value;
+        }
+
+        registry.rollback(local.success);
+
+        return yield* Effect.failCause(admitted.cause);
+      });
+
+    const createActor: RuntimeAssembly["createActor"] = (
+      machineOrOptions: unknown,
+      options?: unknown,
+    ) => {
+      if (options === undefined) {
+        // SAFETY: the one-argument compatibility seam is the former package-private stable path;
+        // production callers use ensureActor for this operation.
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+        return ensureActor(machineOrOptions as RuntimeActorOptions<MachineDefinition>);
+      }
+
+      // SAFETY: the two-argument overload is the local machine-first production path.
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+      return createLocalActor(
+        machineOrOptions as Machine,
+        options as RuntimeLocalActorOptions<MachineDefinition>,
+      );
+    };
 
     assembly = {
       context,
       evidence,
       lifecycle: lifecycleOwner,
+      ensureActor,
+      getActor,
       createActor,
       dispose: () => Effect.provideContext(lifecycleOwner.dispose(), context),
     };
@@ -1622,6 +2192,19 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
   attachedRuntimeOwners.set(runtime, attachedOwner);
 
   return runtime;
+};
+
+/** @internal Test-only construction route; public runtimeSetup remains provider-complete. */
+export const runtimeSetupForAdmissionTestInternal = <A extends RuntimeApp>(
+  value: A,
+  constructionOwner: RuntimeConstructionOwner,
+): RuntimeSetup<A> => {
+  const app = admitConstructedApp(value);
+
+  return {
+    app,
+    construct: () => constructRuntime<A, never>(app, undefined, constructionOwner),
+  };
 };
 
 export function runtimeSetup<A extends RuntimeApp>(

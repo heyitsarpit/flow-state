@@ -230,14 +230,14 @@ const hubCancellers = new WeakMap<
   (sequence: number) => Result.Result<void, PublicDiagnostic>
 >();
 
-const serviceReservationLookups = new WeakMap<
+const serviceReservationOwners = new WeakMap<
   EvidenceReference,
-  (sequence: number) => EvidenceReservation | undefined
+  () => Result.Result<EvidenceReservation, PublicDiagnostic>
 >();
 
-const hubReservationLookups = new WeakMap<
+const hubReservationOwners = new WeakMap<
   EvidenceReference,
-  (sequence: number) => EvidenceReservation | undefined
+  () => Result.Result<EvidenceReservation, PublicDiagnostic>
 >();
 
 const invalidEvidence = (
@@ -1149,14 +1149,25 @@ export const cancelRuntimeEvidence = (
   return Result.succeed(undefined);
 };
 
-const reservationLookupForService = (service: RuntimeEvidenceService) => {
-  const direct = serviceReservationLookups.get(service);
+const reservationOwnerForService = (service: RuntimeEvidenceService) => {
+  const direct = serviceReservationOwners.get(service);
 
   if (direct !== undefined) return direct;
 
   if (!isReference(service.hub)) return undefined;
 
-  return hubReservationLookups.get(service.hub);
+  return hubReservationOwners.get(service.hub);
+};
+
+const reserveRuntimeEvidence = (
+  service: RuntimeEvidenceService,
+): Result.Result<EvidenceReservation, PublicDiagnostic> => {
+  const reserve = reservationOwnerForService(service);
+
+  if (reserve === undefined)
+    return Result.fail(invalidEvidence("reservation", { reason: "owner-unavailable" }));
+
+  return reserve();
 };
 
 /** Prepares lifecycle evidence through the reservation and record owner used by turn evidence. */
@@ -1171,32 +1182,14 @@ export const prepareLifecycleEvidence = <
   RuntimeLifecycleEvidence<DefinitionValue, CleanupError, ProviderDefinition>,
   PublicDiagnostic
 > => {
-  const sequence = Result.try({
-    try: () => service.nextEvidenceSequence(),
-    catch: () => invalidEvidence("sequence", { reason: "allocation-failed" }),
-  });
+  const reservation = reserveRuntimeEvidence(service);
 
-  if (Result.isFailure(sequence)) return Result.fail(sequence.failure);
-  const reservationLookup = reservationLookupForService(service);
+  if (Result.isFailure(reservation)) return Result.fail(reservation.failure);
 
-  if (reservationLookup === undefined) {
-    cancelRuntimeEvidence(service, sequence.success);
-
-    return Result.fail(invalidEvidence("reservation", { reason: "owner-unavailable" }));
-  }
-
-  const reservation = reservationLookup(sequence.success);
-
-  if (reservation === undefined) {
-    cancelRuntimeEvidence(service, sequence.success);
-
-    return Result.fail(invalidEvidence("reservation", { reason: "not-reserved" }));
-  }
-
-  const prepared = makeLifecycleRecord(fact, reservation);
+  const prepared = makeLifecycleRecord(fact, reservation.success);
 
   if (Result.isFailure(prepared)) {
-    const cancelled = cancelRuntimeEvidence(service, sequence.success);
+    const cancelled = cancelRuntimeEvidence(service, reservation.success.sequence);
 
     return Result.isFailure(cancelled)
       ? Result.fail(cancelled.failure)
@@ -1245,9 +1238,14 @@ export const makeRuntimeEvidenceOwner = (options: {
   const reservations = new Map<number, EvidenceReservation>();
   // oxlint-disable-next-line anti-slop/no-object-type -- publication identity is tracked privately by weak object membership.
   const published = new WeakSet<object>();
-  let latestMachineTurnRevision = 0;
   let closed = false;
-  const timestamp = () => Effect.runSync(options.clock.now);
+
+  const timestamp = () => {
+    return Result.try({
+      try: options.clock.timestamp,
+      catch: () => invalidEvidence("timestamp", { reason: "read-failed" }),
+    });
+  };
 
   const cancelReservation = (reservation: EvidenceReservation) => {
     const cancelled = hub.cancel(reservation);
@@ -1272,13 +1270,13 @@ export const makeRuntimeEvidenceOwner = (options: {
     return Result.isFailure(cancelled) ? Effect.fail(cancelled.failure) : Effect.failCause(cause);
   };
 
-  const nextEvidenceSequence = () => {
+  const reserveEvidence = () => {
     const reservation = hub.reserve();
 
-    if (Result.isFailure(reservation)) throw reservation.failure;
-    reservations.set(reservation.success.sequence, reservation.success);
+    if (Result.isSuccess(reservation))
+      reservations.set(reservation.success.sequence, reservation.success);
 
-    return reservation.success.sequence;
+    return reservation;
   };
 
   const projectPublication = <DefinitionValue extends MachineDefinition>(
@@ -1310,15 +1308,11 @@ export const makeRuntimeEvidenceOwner = (options: {
     project: (snapshot: ActorSnapshot<DefinitionValue>) => ActorSnapshot<DefinitionValue>,
   ) => {
     if (closed) return Result.fail(closedEvidence());
-    const reservation = hub.reserve();
+    const reservation = reserveEvidence();
 
     if (Result.isFailure(reservation)) return Result.fail(reservation.failure);
-    reservations.set(reservation.success.sequence, reservation.success);
 
-    const timestampResult = Result.try({
-      try: timestamp,
-      catch: () => invalidEvidence("timestamp", { reason: "read-failed" }),
-    });
+    const timestampResult = timestamp();
 
     if (Result.isFailure(timestampResult)) {
       cancelReservation(reservation.success);
@@ -1424,7 +1418,6 @@ export const makeRuntimeEvidenceOwner = (options: {
 
       const accepted = hub.acceptPreparedSync(preparedEvidence.reservation, record);
       reservations.delete(preparedEvidence.reservation.sequence);
-      latestMachineTurnRevision = preparedEvidence.machineTurnRevision;
 
       return accepted.sequence;
     });
@@ -1496,10 +1489,6 @@ export const makeRuntimeEvidenceOwner = (options: {
   const service: RuntimeEvidenceService = {
     hub,
     provenance: { app: options.app, plan: options.plan },
-    get machineTurnRevision() {
-      return latestMachineTurnRevision;
-    },
-    nextEvidenceSequence,
     publish,
     accept,
     drain: hub.drain().pipe(Effect.asVoid),
@@ -1510,8 +1499,8 @@ export const makeRuntimeEvidenceOwner = (options: {
 
     return reservation === undefined ? Result.succeed(undefined) : cancelReservation(reservation);
   });
-  serviceReservationLookups.set(service, (sequence) => reservations.get(sequence));
-  hubReservationLookups.set(hub, (sequence) => reservations.get(sequence));
+  serviceReservationOwners.set(service, reserveEvidence);
+  hubReservationOwners.set(hub, reserveEvidence);
 
   const acceptPublication = <DefinitionValue extends MachineDefinition>(
     identity: ActorIdentity<DefinitionValue>,
@@ -1531,14 +1520,11 @@ export const makeRuntimeEvidenceOwner = (options: {
 
     if (isPreparedActorPublication(publication))
       return preparePublication(identity, fence, before, publication, project);
-    const reservation = hub.reserve();
+    const reservation = reserveEvidence();
 
     if (Result.isFailure(reservation)) return Result.fail(reservation.failure);
 
-    const timestampResult = Result.try({
-      try: timestamp,
-      catch: () => invalidEvidence("timestamp", { reason: "read-failed" }),
-    });
+    const timestampResult = timestamp();
 
     if (Result.isFailure(timestampResult)) {
       cancelReservation(reservation.success);
@@ -1586,7 +1572,6 @@ export const makeRuntimeEvidenceOwner = (options: {
     }
 
     reservations.delete(reservation.success.sequence);
-    latestMachineTurnRevision = publication.machineTurnRevision;
 
     return Result.succeed(acceptedRecord.success.sequence);
   };

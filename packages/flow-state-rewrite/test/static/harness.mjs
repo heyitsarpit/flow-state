@@ -403,7 +403,13 @@ const verifyEmittedDeclarations = () => {
   const emittedDeclarationNames = readdirSync(declarationRoot, { recursive: true })
     .map((name) => normalizePath(String(name)))
     .filter((name) => name.endsWith(".d.ts"))
-    .sort();
+    .sort((left, right) => {
+      if (left < right) return -1;
+
+      if (left > right) return 1;
+
+      return 0;
+    });
 
   if (emittedDeclarationNames.length === 0) {
     throw new Error("declaration emit produced no local declarations");

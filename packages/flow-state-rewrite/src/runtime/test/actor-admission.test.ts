@@ -6,18 +6,20 @@ import { Failure, type PublicDiagnostic } from "../../diagnostic/diagnostic.js";
 import { definition } from "../../definition/definition.js";
 import { Implementation } from "../../implementation/implementation.js";
 import { machine, type Machine } from "../../machine/machine.js";
+import type { MachineDefinition } from "../../machine/grammar.js";
 import { actorRef } from "../actor-ref.js";
 import type { ActorRef } from "../actor-ref.js";
 import { prepareActorSnapshot } from "../actor-engine.js";
+import { makeLifecycleRuntimeOwner } from "../lifecycle.js";
 import { runtimeOwner, runtimeSetup } from "../runtime.js";
 import {
   decodeActorAdmissionEnvelope,
   admitActor,
   makeActorIdentityRegistry,
   makeActorLease,
-  makeRuntimeDisposalOwner,
   validateActorAdmission,
   type ActorAdmissionMode,
+  type ActorAdmissionPhaseOwners,
   type ActorAdmissionTransactionAuthority,
   type ActorAdmissionInput,
   type ActorHandle,
@@ -200,6 +202,12 @@ const makeAdmission = (
 
 type TransactionActor = { readonly label: string };
 
+type TransactionSnapshot = { readonly baseline: "silent" };
+
+type TransactionMailbox = { readonly capacity: 1 };
+
+type TransactionActivation = { readonly barrier: "crossed" };
+
 type TransactionInput = ActorAdmissionInput<
   typeof noContextApp,
   typeof editorDefinition,
@@ -209,19 +217,18 @@ type TransactionInput = ActorAdmissionInput<
 type TransactionPrepared = PreparedActorAdmission<
   typeof noContextApp,
   typeof editorDefinition,
-  typeof implementation
+  typeof implementation,
+  typeof editorDefinition,
+  TransactionSnapshot,
+  TransactionMailbox
 >;
 
-type TransactionAttached = AttachedActorAdmission<
-  typeof noContextApp,
-  typeof editorDefinition,
-  typeof implementation
->;
+type TransactionAttached = AttachedActorAdmission<typeof editorDefinition>;
 
 type TransactionActivated = ActivatedActorAdmission<
-  typeof noContextApp,
   typeof editorDefinition,
-  typeof implementation
+  typeof editorDefinition,
+  TransactionActivation
 >;
 
 type TransactionRegistered = RegisteredActorAdmission<
@@ -229,7 +236,8 @@ type TransactionRegistered = RegisteredActorAdmission<
   typeof editorDefinition,
   typeof implementation,
   PublicDiagnostic,
-  TransactionActor
+  TransactionActor,
+  typeof editorDefinition
 >;
 
 type TransactionExposed = ExposedActorAdmission<
@@ -237,16 +245,118 @@ type TransactionExposed = ExposedActorAdmission<
   typeof editorDefinition,
   typeof implementation,
   PublicDiagnostic,
-  TransactionActor
+  TransactionActor,
+  typeof editorDefinition
 >;
+
+type TransactionOwners = ActorAdmissionPhaseOwners<
+  TransactionPrepared["validated"],
+  TransactionPrepared,
+  TransactionAttached,
+  TransactionActivated,
+  TransactionRegistered
+>;
+
+type AssertTrue<Value extends true> = Value;
+
+type _PreparedPhaseHasOneFlatCarrier = AssertTrue<
+  "value" extends keyof TransactionPrepared ? false : true
+>;
+
+type _RegisteredPhaseHasOneFlatCarrier = AssertTrue<
+  "owner" extends keyof TransactionRegistered ? false : true
+>;
+
+const preparedPhaseHasOneFlatCarrier: _PreparedPhaseHasOneFlatCarrier = true;
+
+const registeredPhaseHasOneFlatCarrier: _RegisteredPhaseHasOneFlatCarrier = true;
+
+void preparedPhaseHasOneFlatCarrier;
+
+void registeredPhaseHasOneFlatCarrier;
 
 type TransactionAuthority = ActorAdmissionTransactionAuthority<
   typeof noContextApp,
   typeof editorDefinition,
   typeof implementation,
   PublicDiagnostic,
-  TransactionActor
+  TransactionActor,
+  typeof editorDefinition,
+  TransactionOwners
 >;
+
+type PhaseOwner<Tag extends string> = { readonly tag: Tag };
+
+type TypedValidatedOwner = PhaseOwner<"validated">;
+
+type TypedPreparedOwner = PhaseOwner<"prepared">;
+
+type TypedAttachedOwner = PhaseOwner<"attached">;
+
+type TypedActivatedOwner = PhaseOwner<"activated">;
+
+type TypedRegisteredOwner = PhaseOwner<"registered">;
+
+type TypedPrepared = TransactionPrepared & TypedPreparedOwner;
+
+type WrongPhasePrepared = TransactionPrepared & TypedAttachedOwner;
+
+type TypedOwners = ActorAdmissionPhaseOwners<
+  TransactionPrepared["validated"] & TypedValidatedOwner,
+  TypedPrepared,
+  TransactionAttached & TypedAttachedOwner,
+  TransactionActivated & TypedActivatedOwner,
+  TransactionRegistered & TypedRegisteredOwner
+>;
+
+type TypedAuthority = ActorAdmissionTransactionAuthority<
+  typeof noContextApp,
+  typeof editorDefinition,
+  typeof implementation,
+  PublicDiagnostic,
+  TransactionActor,
+  typeof editorDefinition,
+  TypedOwners
+>;
+
+type TypedAttachInput = Parameters<TypedAuthority["attach"]>[0];
+
+const acceptTypedPrepared = (prepared: TypedAttachInput) => prepared;
+
+const acceptExactPrepared = (prepared: TypedPrepared): TypedAttachInput =>
+  acceptTypedPrepared(prepared);
+
+const rejectCrossPhaseOwner = (prepared: WrongPhasePrepared): TypedAttachInput => {
+  // @ts-expect-error A prepared phase cannot accept an attached-phase owner.
+  return acceptTypedPrepared(prepared);
+};
+
+type ErasedOwners = ActorAdmissionPhaseOwners<
+  unknown,
+  TypedPreparedOwner,
+  TypedAttachedOwner,
+  TypedActivatedOwner,
+  TypedRegisteredOwner
+>;
+
+type ErasedPhaseAuthority = ActorAdmissionTransactionAuthority<
+  typeof noContextApp,
+  typeof editorDefinition,
+  typeof implementation,
+  PublicDiagnostic,
+  TransactionActor,
+  typeof editorDefinition,
+  // @ts-expect-error An erased owner cannot satisfy the typed phase-owner boundary.
+  ErasedOwners
+>;
+
+const rejectErasedPhaseAuthority = (_authority: ErasedPhaseAuthority) => undefined;
+
+void acceptExactPrepared;
+
+void rejectCrossPhaseOwner;
+
+void rejectErasedPhaseAuthority;
 
 type TransactionStage = "prepare" | "attach" | "activate" | "register" | "expose";
 
@@ -259,6 +369,7 @@ type TransactionFailure = {
 type TransactionStagedState = {
   snapshot: unknown;
   mailbox: unknown;
+  activation: unknown;
   graph: readonly ActorDependencyEdge[] | undefined;
   tombstone: boolean;
 };
@@ -299,10 +410,12 @@ const makeTransactionHarness = (
   let initializationCount = 0;
   let registeredInRegistry = false;
   let exposed = false;
+  let currentValidated: TransactionPrepared["validated"] | undefined;
 
   const stagedState: TransactionStagedState = {
     snapshot: undefined,
     mailbox: undefined,
+    activation: undefined,
     graph: undefined,
     tombstone: false,
   };
@@ -379,14 +492,17 @@ const makeTransactionHarness = (
       const failure = stageFailure("prepare");
 
       if (failure !== undefined) return failure;
-      stagedState.snapshot = { baseline: "silent" };
-      stagedState.mailbox = { capacity: 1 };
+      const snapshot = { baseline: "silent" } as const;
+      const mailbox = { capacity: 1 } as const;
+      currentValidated = validated;
+      stagedState.snapshot = snapshot;
+      stagedState.mailbox = mailbox;
 
       return Effect.succeed({
         phase: "prepared",
         validated,
-        snapshot: stagedState.snapshot,
-        mailbox: stagedState.mailbox,
+        snapshot,
+        mailbox,
         rollback: extendRollback([], "prepared"),
       } satisfies TransactionPrepared);
     },
@@ -399,7 +515,6 @@ const makeTransactionHarness = (
 
       return Effect.succeed({
         phase: "attached",
-        prepared,
         context: {},
         edges: prepared.validated.edges,
         rollback: extendRollback(prepared.rollback, "attached"),
@@ -411,10 +526,12 @@ const makeTransactionHarness = (
 
       if (failure !== undefined) return failure;
 
+      stagedState.activation = { barrier: "crossed" } as const;
+
       return Effect.succeed({
         phase: "activated",
-        attached,
-        activation: { barrier: "crossed" },
+        // SAFETY: this harness writes the exact staged activation value immediately above.
+        ...(stagedState.activation as TransactionActivation),
         rollback: extendRollback(attached.rollback, "activated"),
       } satisfies TransactionActivated);
     },
@@ -424,7 +541,10 @@ const makeTransactionHarness = (
         const failure = stageFailure("register");
 
         if (failure !== undefined) return yield* failure;
-        const validated = activated.attached.prepared.validated;
+
+        if (currentValidated === undefined)
+          return yield* Effect.die(new Error("validated admission was not retained"));
+        const validated = currentValidated;
 
         const actor: ActorHandle<typeof editorDefinition, TransactionActor> = {
           label: "actor",
@@ -451,7 +571,6 @@ const makeTransactionHarness = (
         return {
           phase: "registered",
           sealed: true,
-          activated,
           actor,
           lease,
           rollback: extendRollback(activated.rollback, "registered"),
@@ -467,7 +586,6 @@ const makeTransactionHarness = (
 
       return Effect.succeed({
         phase: "exposed",
-        registered,
         actor: registered.actor,
         lease: registered.lease,
       } satisfies TransactionExposed);
@@ -573,6 +691,17 @@ const makeStatefulAdmissionInput = (input: TransactionInput, isLate: () => boole
       return undefined;
     },
   });
+
+const admitTransaction = (input: TransactionInput, authority: TransactionAuthority) =>
+  admitActor<
+    typeof noContextApp,
+    typeof editorDefinition,
+    typeof implementation,
+    PublicDiagnostic,
+    TransactionActor,
+    typeof editorDefinition,
+    TransactionOwners
+  >(input, authority);
 
 describe("actor identity admission", () => {
   it("allocates runtime-local stable keys and fresh local identities", () => {
@@ -884,7 +1013,7 @@ describe("actor identity admission", () => {
         },
       };
 
-      const terminal = yield* Effect.exit(admitActor(hostileInput, authority));
+      const terminal = yield* Effect.exit(admitTransaction(hostileInput, authority));
 
       assert.ok(Exit.isFailure(terminal));
 
@@ -906,6 +1035,7 @@ describe("actor identity admission", () => {
       assert.deepStrictEqual(harness.stagedState, {
         snapshot: undefined,
         mailbox: undefined,
+        activation: undefined,
         graph: undefined,
         tombstone: false,
       });
@@ -987,7 +1117,7 @@ describe("actor identity admission", () => {
         });
 
         const terminal = yield* Effect.exit(
-          admitActor({ ...makeTransactionInput(ref), ref: hostileRef }, harness.authority),
+          admitTransaction({ ...makeTransactionInput(ref), ref: hostileRef }, harness.authority),
         );
 
         assert.ok(Exit.isFailure(terminal));
@@ -1008,6 +1138,7 @@ describe("actor identity admission", () => {
         assert.deepStrictEqual(harness.stagedState, {
           snapshot: undefined,
           mailbox: undefined,
+          activation: undefined,
           graph: undefined,
           tombstone: false,
         });
@@ -1094,6 +1225,77 @@ describe("actor identity admission", () => {
     assert.strictEqual(extra.failure.code, "InvariantViolation");
     assert.strictEqual(Result.isFailure(registry.lookup(consumerRef)), true);
     assert.strictEqual(resultSuccess(registry.lookup(providerRef)).identity, providerIdentity);
+  });
+
+  it("canonicalizes bindings from the captured authority values", () => {
+    const registry = makeActorIdentityRegistry();
+    const providerRef = actorRef(providerMachine, "provider-canonicalization");
+    const providerIdentity = resultSuccess(registry.reserveStable(providerRef));
+    resultSuccess(registry.register(providerIdentity, { name: "provider" }));
+    const consumerRef = actorRef(consumerMachine, "consumer-canonicalization");
+
+    const consumerKey = resultSuccess(
+      registry.reserveStable(actorRef(consumerMachine, "consumer-canonicalization-key")),
+    ).key;
+
+    const edge = {
+      consumer: consumerKey,
+      provider: providerIdentity.key,
+      slot: "providerState",
+    } as const;
+
+    const selector = (): never => {
+      throw new Error("captured selector must not execute during validation");
+    };
+
+    const input = makeAdmission(consumerRef, providerRef, providerIdentity, [edge], selector);
+    const binding = input.bindings[0];
+
+    if (binding === undefined) throw new Error("missing canonicalization binding");
+
+    const lookup = <ProviderDefinition extends MachineDefinition>(
+      ref: ActorRef<Machine<ProviderDefinition>>,
+    ) => {
+      if (Object.is(ref.machine, providerRef.machine) && ref.id === providerRef.id) {
+        Object.defineProperty(binding, "slot", {
+          configurable: true,
+          enumerable: true,
+          value: "mutated",
+          writable: true,
+        });
+        Object.defineProperty(binding, "select", {
+          configurable: true,
+          enumerable: true,
+          value: () => {
+            throw new Error("mutated selector executed");
+          },
+          writable: true,
+        });
+      }
+
+      return registry.lookup(ref);
+    };
+
+    const validated = resultSuccess(
+      validateActorAdmission(input, {
+        app: admissionApp,
+        implementation,
+        lookup,
+        consumerKey,
+        providerFences: new Map([[providerIdentity.key, makeProviderFence(providerIdentity)]]),
+      }),
+    );
+
+    const canonicalBinding = validated.input.bindings[0];
+
+    if (canonicalBinding === undefined) throw new Error("missing canonical binding");
+
+    assert.notStrictEqual(canonicalBinding, binding);
+    assert.strictEqual(canonicalBinding.slot, "providerState");
+    assert.strictEqual(canonicalBinding.select, selector);
+    assert.strictEqual(canonicalBinding.provider, providerRef);
+    assert.deepStrictEqual(validated.edges, [edge]);
+    assert.deepStrictEqual(validated.graph.forward.get(consumerKey), [edge]);
   });
 
   it("rejects a consumer-key mismatch without mutating the reserved identity", () => {
@@ -1405,7 +1607,7 @@ describe("actor identity admission", () => {
           const harness = makeTransactionHarness(ref, { mode });
 
           const terminal = yield* Effect.exit(
-            admitActor(makeTransactionInput(ref), harness.authority),
+            admitTransaction(makeTransactionInput(ref), harness.authority),
           );
 
           assert.ok(Exit.isSuccess(terminal));
@@ -1446,15 +1648,21 @@ describe("actor identity admission", () => {
 
       const input = makeTransactionInput(ref);
 
-      const first = yield* Effect.forkChild(Effect.exit(admitActor(input, harness.authority)), {
-        startImmediately: true,
-      });
+      const first = yield* Effect.forkChild(
+        Effect.exit(admitTransaction(input, harness.authority)),
+        {
+          startImmediately: true,
+        },
+      );
 
       yield* Deferred.await(registeredEntered);
 
-      const second = yield* Effect.forkChild(Effect.exit(admitActor(input, harness.authority)), {
-        startImmediately: true,
-      });
+      const second = yield* Effect.forkChild(
+        Effect.exit(admitTransaction(input, harness.authority)),
+        {
+          startImmediately: true,
+        },
+      );
 
       yield* Effect.yieldNow;
       assert.strictEqual(harness.calls.filter((call) => call === "reserve").length, 2);
@@ -1530,7 +1738,7 @@ describe("actor identity admission", () => {
         );
 
         const terminal = yield* Effect.exit(
-          admitActor(makeTransactionInput(ref), harness.authority),
+          admitTransaction(makeTransactionInput(ref), harness.authority),
         );
 
         assert.ok(Exit.isFailure(terminal));
@@ -1699,12 +1907,12 @@ describe("actor identity admission", () => {
     Effect.gen(function* () {
       const order: Array<string> = [];
 
-      const owner = makeRuntimeDisposalOwner({
+      const owner = makeLifecycleRuntimeOwner<never>({
         drain: Effect.sync(() => order.push("drain")),
       });
 
-      owner.registerLease({ dispose: () => Effect.sync(() => order.push("consumer")) });
-      owner.registerLease({ dispose: () => Effect.sync(() => order.push("provider-actor")) });
+      owner.registerActor({ dispose: () => Effect.sync(() => order.push("consumer")) });
+      owner.registerActor({ dispose: () => Effect.sync(() => order.push("provider-actor")) });
       owner.registerProvider(Effect.sync(() => order.push("provider-resource")));
       owner.registerProvider(Effect.sync(() => order.push("provider-scope")));
       const before = owner.generation();
@@ -1723,6 +1931,26 @@ describe("actor identity admission", () => {
       ]);
       assert.strictEqual(owner.isCurrent(before), false);
       assert.strictEqual(owner.isCurrent(owner.generation()), false);
+    }),
+  );
+
+  it.effect("keeps runtime disposal cold and includes leases registered after construction", () =>
+    Effect.gen(function* () {
+      const owner = makeLifecycleRuntimeOwner<never>();
+      let releases = 0;
+      const disposal = owner.dispose();
+
+      owner.registerActor({
+        dispose: () =>
+          Effect.sync(() => {
+            releases += 1;
+          }),
+      });
+
+      assert.strictEqual(releases, 0);
+      const closed = yield* Effect.exit(disposal);
+      assert.ok(Exit.isSuccess(closed));
+      assert.strictEqual(releases, 1);
     }),
   );
 
@@ -2042,11 +2270,8 @@ describe("actor identity admission", () => {
     Effect.gen(function* () {
       const ref = actorRef(editorMachine, "bounded-mailbox");
       const harness = makeTransactionHarness(ref, { mode: "fresh-stable" });
-      const result = yield* admitActor(makeTransactionInput(ref), harness.authority);
-      assert.strictEqual(
-        result.registered.activated.attached.prepared.mailbox,
-        harness.stagedState.mailbox,
-      );
+      yield* admitTransaction(makeTransactionInput(ref), harness.authority);
+      assert.deepStrictEqual(harness.stagedState.mailbox, { capacity: 1 });
       assert.deepStrictEqual(harness.calls.slice(0, 4), [
         "reserve",
         "prepare:fresh-stable",
@@ -2066,7 +2291,10 @@ describe("actor identity admission", () => {
         failure: { stage: "prepare", kind: "typed", message: "mailbox allocation failed" },
       });
 
-      const exit = yield* Effect.exit(admitActor(makeTransactionInput(ref), harness.authority));
+      const exit = yield* Effect.exit(
+        admitTransaction(makeTransactionInput(ref), harness.authority),
+      );
+
       assert.ok(Exit.isFailure(exit));
       assert.deepStrictEqual(harness.cleanups, ["reservation"]);
       assert.strictEqual(harness.stagedState.snapshot, undefined);
@@ -2083,7 +2311,10 @@ describe("actor identity admission", () => {
         failure: { stage: "activate", kind: "typed", message: "activation failed" },
       });
 
-      const exit = yield* Effect.exit(admitActor(makeTransactionInput(ref), harness.authority));
+      const exit = yield* Effect.exit(
+        admitTransaction(makeTransactionInput(ref), harness.authority),
+      );
+
       assert.ok(Exit.isFailure(exit));
       assert.deepStrictEqual(harness.cleanups, ["attached", "prepared", "reservation"]);
       assert.strictEqual(harness.exposedCount, 0);
@@ -2095,15 +2326,10 @@ describe("actor identity admission", () => {
     Effect.gen(function* () {
       const ref = actorRef(editorMachine, "initial-barrier");
       const harness = makeTransactionHarness(ref, { mode: "fresh-stable" });
-      const result = yield* admitActor(makeTransactionInput(ref), harness.authority);
+      yield* admitTransaction(makeTransactionInput(ref), harness.authority);
       assert.strictEqual(harness.calls.filter((call) => call === "activate").length, 1);
       assert.strictEqual(harness.calls.filter((call) => call === "expose").length, 1);
-      assert.strictEqual(
-        result.registered.activated.activation,
-        harness.stagedState.snapshot === undefined
-          ? undefined
-          : result.registered.activated.activation,
-      );
+      assert.deepStrictEqual(harness.stagedState.activation, { barrier: "crossed" });
       assert.strictEqual(harness.exposedCount, 1);
     }),
   );
@@ -2386,7 +2612,10 @@ describe("actor identity admission", () => {
         failure: { stage: "prepare", kind: "typed", message: "expected refusal" },
       });
 
-      const exit = yield* Effect.exit(admitActor(makeTransactionInput(ref), harness.authority));
+      const exit = yield* Effect.exit(
+        admitTransaction(makeTransactionInput(ref), harness.authority),
+      );
+
       assert.ok(Exit.isFailure(exit));
 
       if (Exit.isFailure(exit)) {
@@ -2405,7 +2634,10 @@ describe("actor identity admission", () => {
         failure: { stage: "activate", kind: "defect", message: "admission defect" },
       });
 
-      const exit = yield* Effect.exit(admitActor(makeTransactionInput(ref), harness.authority));
+      const exit = yield* Effect.exit(
+        admitTransaction(makeTransactionInput(ref), harness.authority),
+      );
+
       assert.ok(Exit.isFailure(exit));
 
       if (Exit.isFailure(exit)) assert.strictEqual(Cause.hasDies(exit.cause), true);
@@ -2416,15 +2648,127 @@ describe("actor identity admission", () => {
   it.effect("linearizes attachment against owner disposal", () =>
     Effect.gen(function* () {
       const order: string[] = [];
-      const owner = makeRuntimeDisposalOwner();
-      owner.registerLease({ dispose: () => Effect.sync(() => order.push("lease")) });
+      const owner = makeLifecycleRuntimeOwner<never>();
+      const lease = owner.registerActor({ dispose: () => Effect.sync(() => order.push("lease")) });
       const first = yield* Effect.forkChild(Effect.exit(owner.dispose()));
       const second = yield* Effect.forkChild(Effect.exit(owner.dispose()));
       assert.ok(Exit.isSuccess(yield* Fiber.join(first)));
       assert.ok(Exit.isSuccess(yield* Fiber.join(second)));
-      owner.registerLease({ dispose: () => Effect.sync(() => order.push("late")) });
+      const late = owner.registerActor({ dispose: () => Effect.sync(() => order.push("late")) });
       assert.deepStrictEqual(order, ["lease"]);
+      assert.strictEqual(lease.accepted, true);
+      assert.strictEqual(late.accepted, false);
       assert.strictEqual(owner.isCurrent(owner.generation()), false);
+    }),
+  );
+
+  it.effect("retains a failed actor registration for a later disposal retry", () =>
+    Effect.gen(function* () {
+      const failure = Failure({
+        code: "InvariantViolation" as const,
+        path: ["actor", "dispose"],
+        details: { reason: "retry" },
+        summary: "Actor disposal failed.",
+        help: "Retry actor disposal.",
+      });
+
+      let attempts = 0;
+      const owner = makeLifecycleRuntimeOwner<never>();
+
+      const registration = owner.registerActor({
+        dispose: () =>
+          Effect.sync(() => {
+            attempts += 1;
+
+            return attempts === 1 ? Effect.fail(failure) : Effect.void;
+          }).pipe(Effect.flatten),
+      });
+
+      const first = yield* Effect.exit(owner.dispose());
+      assert.ok(Exit.isFailure(first));
+      assert.strictEqual(registration.accepted, true);
+      assert.strictEqual(attempts, 1);
+
+      const second = yield* owner.dispose();
+      assert.strictEqual(second, undefined);
+      assert.strictEqual(attempts, 2);
+      registration.unregister();
+      assert.strictEqual(owner.isCurrent(owner.generation()), false);
+    }),
+  );
+
+  it.effect("joins actor registration that races an active runtime close", () =>
+    Effect.gen(function* () {
+      const order: string[] = [];
+      const gate = yield* Deferred.make<void>();
+      const owner = makeLifecycleRuntimeOwner<never>();
+
+      const completed = owner.registerActor({
+        dispose: () =>
+          Effect.gen(function* () {
+            order.push("completed-start");
+            yield* Deferred.await(gate);
+            order.push("completed-end");
+          }),
+      });
+
+      const closing = yield* Effect.forkChild(Effect.exit(owner.dispose()), {
+        startImmediately: true,
+      });
+
+      yield* Effect.yieldNow;
+
+      let lateDisposals = 0;
+
+      const late = owner.registerActor({
+        dispose: () =>
+          Effect.sync(() => {
+            lateDisposals += 1;
+            order.push("late");
+          }),
+      });
+
+      yield* Deferred.succeed(gate, undefined);
+      const closed = yield* Fiber.join(closing);
+      assert.ok(Exit.isSuccess(closed));
+      assert.strictEqual(completed.accepted, true);
+      assert.strictEqual(late.accepted, true);
+      assert.deepStrictEqual(order, ["completed-start", "completed-end", "late"]);
+      assert.strictEqual(lateDisposals, 1);
+
+      completed.unregister();
+      late.unregister();
+      assert.ok(Exit.isSuccess(yield* Effect.exit(owner.dispose())));
+      assert.deepStrictEqual(order, ["completed-start", "completed-end", "late"]);
+    }),
+  );
+
+  it.effect("recursively drains actors registered by late actor disposal", () =>
+    Effect.gen(function* () {
+      const order: string[] = [];
+      const owner = makeLifecycleRuntimeOwner<never>();
+
+      owner.registerActor({
+        dispose: () =>
+          Effect.sync(() => {
+            order.push("first");
+            owner.registerActor({
+              dispose: () =>
+                Effect.sync(() => {
+                  order.push("late1");
+                  owner.registerActor({
+                    dispose: () => Effect.sync(() => order.push("late2")),
+                  });
+                }),
+            });
+          }),
+      });
+      owner.registerProvider(Effect.sync(() => order.push("provider")));
+
+      const closed = yield* Effect.exit(owner.dispose());
+
+      assert.ok(Exit.isSuccess(closed));
+      assert.deepStrictEqual(order, ["first", "late1", "late2", "provider"]);
     }),
   );
 
@@ -2497,14 +2841,14 @@ describe("pending regression scenarios", () => {
         });
 
         const leader = yield* Effect.forkChild(
-          Effect.exit(admitActor(makeTransactionInput(ref), harness.authority)),
+          Effect.exit(admitTransaction(makeTransactionInput(ref), harness.authority)),
           { startImmediately: true },
         );
 
         yield* Deferred.await(registered);
 
         const waiter = yield* Effect.forkChild(
-          Effect.exit(admitActor(makeTransactionInput(ref), harness.authority)),
+          Effect.exit(admitTransaction(makeTransactionInput(ref), harness.authority)),
           { startImmediately: true },
         );
 
@@ -2537,29 +2881,94 @@ describe("pending regression scenarios", () => {
   // Setup: Use the real makeActorLease with a cleanup Deferred and counter; construct and discard one lease.dispose() Effect without executing it.
   // Action: Execute a later disposal, wait for cleanup to begin, join from another caller and interrupt only that follower; release cleanup, await the owner and call disposal again after completion.
   // Assert: Unexecuted Effect construction reserves nothing; cleanup starts exactly once, the interrupted follower cannot strand or cancel its owner, and the late caller receives the cached terminal Exit without replay or an uncompleted Deferred.
-  it.todo("constructing a disposal Effect does not reserve a cleanup attempt");
+  it.effect("constructing a disposal Effect does not reserve a cleanup attempt", () =>
+    Effect.gen(function* () {
+      const ref = actorRef(editorMachine, "cold-disposal", { persist: true });
+      const registry = makeActorIdentityRegistry<{ readonly label: string }>();
+      const identity = resultSuccess(registry.reserveStable(ref));
+
+      const validated = resultSuccess(
+        validateActorAdmission(makeTransactionInput(ref), {
+          app: noContextApp,
+          implementation,
+          lookup: registry.lookup,
+          identity,
+        }),
+      );
+
+      resultSuccess(registry.register(identity, { label: "cold-disposal" }));
+      let cleanupRuns = 0;
+      let tombstoneRuns = 0;
+
+      const lease = makeActorLease({
+        actor: { label: "cold-disposal", ref },
+        admission: { ...validated, identity },
+        cleanup: Effect.sync(() => {
+          cleanupRuns += 1;
+        }),
+        tombstone: () => {
+          tombstoneRuns += 1;
+
+          return registry.tombstone(identity, 1);
+        },
+      });
+
+      void lease.dispose();
+      assert.strictEqual(cleanupRuns, 0);
+      assert.strictEqual(tombstoneRuns, 0);
+      assert.strictEqual(Result.isSuccess(registry.lookup(ref)), true);
+
+      const first = yield* Effect.exit(lease.dispose());
+      const second = yield* Effect.exit(lease.dispose());
+      assert.ok(Exit.isSuccess(first));
+      assert.ok(Exit.isSuccess(second));
+      assert.strictEqual(cleanupRuns, 1);
+      assert.strictEqual(tombstoneRuns, 1);
+      assert.ok(Result.isFailure(registry.lookup(ref)));
+    }),
+  );
 
   // Setup: Register two real runtime-disposal participants that fail with the same diagnostic value and a later participant that records successful cleanup; also exercise the admission rollback path.
   // Action: Run disposal or rollback through the production owner and retain its complete Exit plus the release trace.
   // Assert: Both identical failure reasons remain present in execution order, later cleanup still executes, and diagnostic classification does not squash the retained Cause.
-  it.todo("preserves repeated cleanup failures in execution order");
+  it.effect("preserves repeated cleanup failures in execution order", () =>
+    Effect.gen(function* () {
+      const order: string[] = [];
+      const owner = makeLifecycleRuntimeOwner<never>();
 
-  // Setup: Use the real app-time facts, Directory registry and admission transaction with stable refs whose IDs contain delimiter characters; retain the next observable incarnation/local identity allocation before malformed input.
-  // Action: Reject an invalid admission, then concurrently admit two distinct stable refs and construct their real provider graph; admit a local actor through its separate allocation seam.
-  // Assert: Stable keys are distinct canonical tuples of runtime nonce, stable namespace, owned machine ID and ref ID; local keys use a disjoint namespace. Validation consumes no incarnation/local ordinal, and concurrent admission preserves graph endpoints without placeholder rebasing or reading a provisional counter.
-  it("derives injective stable keys without consuming allocation state during validation", () => {
-    const registry = makeActorIdentityRegistry();
-    const firstRef = actorRef(editorMachine, "stable/key:one", { persist: true });
-    const secondRef = actorRef(editorMachine, "stable/key/one", { persist: true });
-    const firstKey = registry.stableKey(firstRef);
+      const repeated = Failure({
+        code: "InvariantViolation",
+        path: ["cleanup"],
+        details: { reason: "repeated" },
+        summary: "Repeated cleanup failure.",
+        help: "Retain every cleanup failure.",
+      });
 
-    assert.strictEqual(registry.stableKey(firstRef), firstKey);
-    assert.notStrictEqual(firstKey, registry.stableKey(secondRef));
+      owner.registerActor({
+        dispose: () =>
+          Effect.failCause(
+            Cause.fromReasons([Cause.makeFailReason(repeated), Cause.makeFailReason(repeated)]),
+          ),
+      });
+      owner.registerActor({
+        dispose: () =>
+          Effect.gen(function* () {
+            order.push("later");
+            yield* Effect.die(new Error("later-defect"));
+          }),
+      });
 
-    const first = resultSuccess(registry.reserveStable(firstRef));
-    assert.strictEqual(first.key, firstKey);
-    const local = resultSuccess(registry.createLocal(editorMachine));
-    assert.ok(local.incarnation > first.incarnation);
-    assert.notStrictEqual(local.key, first.key);
-  });
+      const closed = yield* Effect.exit(owner.dispose());
+      assert.ok(Exit.isFailure(closed));
+      assert.deepStrictEqual(order, ["later"]);
+
+      if (Exit.isFailure(closed)) {
+        assert.deepStrictEqual(
+          closed.cause.reasons.map((reason) => reason._tag),
+          ["Die", "Fail", "Fail"],
+        );
+        assert.strictEqual(closed.cause.reasons.filter(Cause.isFailReason).length, 2);
+      }
+    }),
+  );
 });

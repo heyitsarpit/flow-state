@@ -1951,7 +1951,7 @@ describe("machine admission", () => {
         assertUnknownFailure(
           redirectWith(value),
           "ExpectedRedirect",
-          ["redirect", ...(Array.isArray(value) ? [0] : [])],
+          Array.isArray(value) ? ["redirect", 0] : ["redirect"],
           {},
         );
       assertUnknownFailure(

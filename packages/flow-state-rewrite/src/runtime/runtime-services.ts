@@ -1,4 +1,4 @@
-import { Clock, Context, Deferred, Effect, Exit, Fiber, Layer, Scope } from "effect";
+import { Clock, Context, Deferred, Duration, Effect, Exit, Fiber, Layer, Scope } from "effect";
 
 import type { App, appPlan } from "../app/app.js";
 import type { MachineDefinition } from "../machine/grammar.js";
@@ -14,6 +14,8 @@ export interface RuntimeClockIdentity {
 /** Reads runtime time and schedules work against absolute deadlines. */
 export interface RuntimeClockService {
   readonly now: Effect.Effect<number>;
+  /** Synchronous read for evidence preparation from the captured Clock service. */
+  readonly timestamp: () => number;
   readonly sleepUntil: (dueAt: number) => Effect.Effect<void>;
 }
 
@@ -81,8 +83,6 @@ export type RuntimeEvidenceService<
 > = {
   readonly hub: unknown;
   readonly provenance: RuntimeEvidenceServiceProvenance;
-  readonly machineTurnRevision: number;
-  readonly nextEvidenceSequence: () => number;
   readonly publish: <
     DefinitionValue extends MachineDefinition,
     CleanupError,
@@ -142,17 +142,20 @@ export const makeRuntimeServicesLayer = <
     Layer.succeed(RuntimeEvidence)(services.evidence),
   );
 
-/** The process clock is a replaceable adapter, not a lifecycle owner. */
-// RETURN_TYPE: The public clock factory preserves the replaceable service contract.
-export const makeRuntimeClock = (): RuntimeClockService => ({
-  now: Clock.currentTimeMillis,
-  sleepUntil: (dueAt) =>
-    Effect.gen(function* () {
-      const remaining = dueAt - (yield* Clock.currentTimeMillis);
+/** The captured Effect Clock is the only runtime time authority. */
+// RETURN_TYPE: The clock factory preserves the captured service boundary.
+export const makeRuntimeClock = (clock: Clock.Clock): RuntimeClockService => {
+  const now = clock.currentTimeMillis;
 
-      if (remaining > 0) yield* Effect.sleep(remaining);
-    }),
-});
+  const sleepUntil = (dueAt: number) =>
+    Effect.gen(function* () {
+      const remaining = dueAt - (yield* now);
+
+      if (remaining > 0) yield* clock.sleep(Duration.millis(remaining));
+    });
+
+  return { now, timestamp: () => clock.currentTimeMillisUnsafe(), sleepUntil };
+};
 
 /**
  * The scheduler registers completion observation in the same forked recipe as

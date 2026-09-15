@@ -1,5 +1,5 @@
 import { Effect, Predicate, Result, Schema, SchemaIssue } from "effect";
-import { requirements } from "../operation/operation.js";
+import { isConstructedOperation, requirements } from "../operation/operation.js";
 import { RequirementsTypeId } from "../operation/operation.js";
 import type { RequirementsCarrier, RequirementsOf } from "../operation/operation.js";
 import type { OperationDeclaration } from "../operation/operation.js";
@@ -89,7 +89,9 @@ type AppDescriptor<Modules extends readonly AnyModule[]> =
 
 type PlanMachine<Modules extends readonly AnyModule[]> = AppMachine<Modules>;
 
-type AppMachineFacts = Machine;
+type AppMachineFacts = MachineRecordValue;
+
+const capturedMachineSources = new WeakMap<MachineRecordValue, MachineRecordValue>();
 
 type AdmissionRecord = {
   readonly [moduleTypeId]?: true;
@@ -139,9 +141,7 @@ type AppPlan<
   readonly machines: readonly PlanMachine<Modules>[];
   readonly descriptors: readonly AppDescriptor<Modules>[];
   readonly resolveMachine: (id: string) => PlanMachine<Modules> | undefined;
-  readonly resolveMachineFacts: <DefinitionValue extends MachineDefinition>(
-    machine: Machine<DefinitionValue>,
-  ) => Machine<DefinitionValue> | undefined;
+  readonly resolveMachineFacts: (machine: MachineRecordValue) => AppMachineFacts | undefined;
   readonly admitsMachine: (machine: PlanMachine<Modules>) => boolean;
   readonly resolveDescriptor: (id: string) => AppDescriptor<Modules> | undefined;
   readonly admitsDescriptor: (descriptor: AppDescriptor<Modules>) => boolean;
@@ -198,7 +198,7 @@ const isAppReference = (value: unknown): value is AppOwner =>
 export const isConstructedApp = (value: unknown): value is App =>
   isAppReference(value) && constructedAppPlans.has(value);
 
-const invalid = (message: string) => {
+const invalid = (message: string): never => {
   throw new Error(message);
 };
 
@@ -218,6 +218,12 @@ export const appPlan = <
   return plan as unknown as AppPlan<Id, PersistenceVersion, Modules>;
 };
 
+export const isOwnedMachineFactsFor = <DefinitionValue extends MachineDefinition>(
+  value: unknown,
+  source: Machine<DefinitionValue>,
+): value is Machine<DefinitionValue> =>
+  isConstructedMachine(value) && capturedMachineSources.get(value) === source;
+
 type AppIndexes<
   Descriptor extends OperationDeclaration = OperationDeclaration,
   MachineValue extends MachineAdmission = MachineAdmission,
@@ -234,6 +240,8 @@ type AppIndexes<
   readonly machineRecord: Record<string, MachineValue>;
   /** Operation descriptor identifiers used for plan descriptor lookup. */
   readonly descriptorIds: Map<string, Descriptor>;
+  /** Captured per-machine operation values reused by machine-fact publication. */
+  readonly operationCatalogs: Map<MachineValue, ReadonlyMap<string, Descriptor>>;
 };
 
 // RETURN_TYPE: Narrows decoded configuration to the owned admission record shape.
@@ -762,6 +770,12 @@ const indexMachine = <
   indexes.machineRecord[name] = machine;
 };
 
+const isCapturedOperation = <Descriptor extends OperationDeclaration>(
+  value: unknown,
+  descriptorValue: unknown,
+): value is Descriptor => isConstructedOperation(value) && value === descriptorValue;
+
+// oxlint-disable-next-line anti-slop/no-excessive-cognitive-complexity -- one boundary owns the stable key, descriptor, and identity observations.
 const indexDescriptors = <
   Descriptor extends OperationDeclaration,
   MachineValue extends MachineAdmission,
@@ -769,20 +783,53 @@ const indexDescriptors = <
   machine: MachineValue,
   indexes: AppIndexes<Descriptor, MachineValue>,
 ) => {
-  // SAFETY: the machine definition is the single admitted owner of these descriptor identities.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the exact machine definition supplies this descriptor union.
-  const descriptors = Object.values(machine.definition.operations) as readonly Descriptor[];
+  const operations = machine.definition.operations;
+  const catalog = new Map<string, Descriptor>();
+  const keys = Object.keys(operations);
+  const repeatedKeys = Object.keys(operations);
 
-  for (const descriptor of descriptors) {
-    const existing = indexes.descriptorIds.get(descriptor.id);
+  if (!isStableKeyList(keys, repeatedKeys)) {
+    invalid("App operation catalog changed during admission");
 
-    if (existing !== undefined && existing !== descriptor)
-      invalid(`App operation descriptor is duplicated: ${String(descriptor.id)}`);
+    return;
+  }
+
+  for (const key of repeatedKeys) {
+    const descriptor = Object.getOwnPropertyDescriptor(operations, key);
+    const repeatedDescriptor = Object.getOwnPropertyDescriptor(operations, key);
+    // SAFETY: the operation key is captured from the stable own-key list; Reflect.get is the required hostile-proxy observation.
+    // oxlint-disable-next-line anti-slop/no-reflect-get
+    const reflected = Reflect.get(operations, key);
+
+    if (
+      descriptor === undefined ||
+      repeatedDescriptor === undefined ||
+      !isStableDataDescriptor(descriptor, repeatedDescriptor) ||
+      !repeatedDescriptor.enumerable ||
+      !isCapturedOperation<Descriptor>(reflected, repeatedDescriptor.value)
+    ) {
+      invalid(`App operation descriptor is invalid: ${key}`);
+
+      return;
+    }
+
+    const operation = reflected;
+    catalog.set(key, operation);
+    const existing = indexes.descriptorIds.get(operation.id);
+
+    if (existing !== undefined && existing !== operation) {
+      invalid(`App operation descriptor is duplicated: ${String(operation.id)}`);
+
+      return;
+    }
 
     if (existing === undefined) {
-      indexes.descriptorIds.set(descriptor.id, descriptor);
+      // SAFETY: the admitted machine is indexed into the same AppDescriptor union that owns this map.
+      indexes.descriptorIds.set(operation.id, operation);
     }
   }
+
+  indexes.operationCatalogs.set(machine, catalog);
 };
 
 type AdmittedMachineRecordFor<ModuleValue extends AnyModule> = {
@@ -818,6 +865,7 @@ const indexModules = <Modules extends readonly AnyModule[]>(modules: Modules) =>
     machineIds: new Map(),
     machineRecord: Object.create(null),
     descriptorIds: new Map(),
+    operationCatalogs: new Map(),
   };
 
   for (const moduleValue of modules) indexModule(moduleValue, indexes);
@@ -825,57 +873,203 @@ const indexModules = <Modules extends readonly AnyModule[]>(modules: Modules) =>
   return indexes;
 };
 
-const copyMachineDefinition = (source: MachineDefinition): MachineDefinition => {
+type StateCaptureContainer = Record<string, unknown> | readonly unknown[];
+
+const isStateCaptureContainer = (value: unknown): value is StateCaptureContainer =>
+  Array.isArray(value) || Predicate.isObject(value);
+
+const isStateToken = (value: unknown) =>
+  Predicate.isObject(value) &&
+  value.kind === "state" &&
+  Predicate.isString(value.name) &&
+  Predicate.isString(value.id);
+
+// oxlint-disable-next-line anti-slop/no-excessive-cognitive-complexity -- recursive state validation keeps one cycle-aware ownership check at the capture boundary.
+const isStateTable = (
+  value: unknown,
+  active = new WeakSet<StateCaptureContainer>(),
+): value is Record<string, unknown> => {
+  if (!Predicate.isObject(value) || Array.isArray(value) || isStateToken(value)) return false;
+
+  if (active.has(value)) return false;
+
+  active.add(value);
+
+  for (const key of Object.keys(value)) {
+    const child = value[key];
+
+    if (isStateToken(child)) continue;
+
+    if (
+      !Predicate.isObject(child) ||
+      Array.isArray(child) ||
+      !Object.prototype.hasOwnProperty.call(child, "S") ||
+      !isStateTable(child.S, active)
+    )
+      return false;
+  }
+
+  active.delete(value);
+
+  return true;
+};
+
+const isStateBranch = (
+  value: unknown,
+): value is Record<string, unknown> & { readonly S: Record<string, unknown> } =>
+  Predicate.isObject(value) &&
+  !Array.isArray(value) &&
+  !isStateToken(value) &&
+  Object.prototype.hasOwnProperty.call(value, "S") &&
+  isStateTable(value.S);
+
+const copyRecord = <Value, CopiedValue>(
+  source: Readonly<Record<string, Value>>,
+  copy: (value: Value) => CopiedValue,
+): Record<string, CopiedValue> => {
+  const result: Record<string, CopiedValue> = Object.create(null);
+
+  for (const key of Object.keys(source)) {
+    const value = source[key];
+
+    if (value !== undefined) result[key] = copy(value);
+  }
+
+  return result;
+};
+
+const copyAuthoredStates = (value: readonly unknown[]): readonly unknown[] => {
+  const seen = new WeakMap<StateCaptureContainer, unknown>();
+
+  const copy = (current: unknown): unknown => {
+    if (!isStateCaptureContainer(current)) return current;
+    const existing = seen.get(current);
+
+    if (existing !== undefined) return existing;
+
+    if (Array.isArray(current)) {
+      const result: unknown[] = [];
+      seen.set(current, result);
+
+      for (const item of current) result.push(copy(item));
+
+      return result;
+    }
+
+    const result: Record<string, unknown> = Object.create(null);
+    seen.set(current, result);
+
+    for (const [key, item] of Object.entries(current)) result[key] = copy(item);
+
+    return result;
+  };
+
+  // SAFETY: the recursive copy preserves the authored state container shape while owning every structural nested container.
+  return copy(value) as readonly unknown[];
+};
+
+const copyStateTable = <Value>(source: Value): Value => {
+  const seen = new WeakMap<StateCaptureContainer, unknown>();
+
+  const copy = (current: unknown): unknown => {
+    if (!isStateTable(current) && !isStateBranch(current)) return current;
+    const existing = seen.get(current);
+
+    if (existing !== undefined) return existing;
+    const result: Record<string, unknown> = Object.create(null);
+    seen.set(current, result);
+
+    for (const key of Object.keys(current)) {
+      const value = current[key];
+
+      result[key] = isStateBranch(value) ? copy(value) : value;
+    }
+
+    if (isStateBranch(current)) result.S = copy(current.S);
+
+    return result;
+  };
+
+  // SAFETY: the caller supplies the app-time runtime state table, and the recursive copy preserves its exact generic shape.
+  return copy(source) as Value;
+};
+
+const copyCapturedOperations = (
+  catalog: ReadonlyMap<string, OperationDeclaration>,
+): Record<string, OperationDeclaration> => {
+  const result: Record<string, OperationDeclaration> = Object.create(null);
+
+  for (const [key, descriptor] of catalog) result[key] = descriptor;
+
+  return result;
+};
+
+const copyMachineDefinition = (
+  source: MachineDefinition,
+  operationCatalog: ReadonlyMap<string, OperationDeclaration>,
+): MachineDefinition => {
   const authoredStates = (source as MachineDefinition & { readonly states?: readonly unknown[] })
     .states;
 
   return {
     ...source,
     // oxlint-disable-next-line anti-slop/no-conditional-empty-object-spread -- preserve the optional authored state container while copying the definition.
-    ...(authoredStates === undefined ? {} : { states: [...authoredStates] }),
-    S: { ...source.S },
-    E: { ...source.E },
-    context: { ...source.context },
-    operations: { ...source.operations },
+    ...(authoredStates === undefined ? {} : { states: copyAuthoredStates(authoredStates) }),
+    S: copyStateTable(source.S),
+    E: copyRecord(source.E, (event) => event),
+    context: copyRecord(source.context, (selector) => selector),
+    operations: copyCapturedOperations(operationCatalog),
   };
 };
 
+// RETURN_TYPE: The state discriminant and private DefinitionValue correlation must remain visible to the capture owner.
 const copyCompiledState = <DefinitionValue extends MachineDefinition>(
   source: CompiledState<DefinitionValue>,
-): CompiledState<DefinitionValue> =>
-  // SAFETY: compilation preserves the source machine's state-keyed callback shapes; this copy only clones containers.
-  ({
+): CompiledState<DefinitionValue> => {
+  // SAFETY: source.handlers contains only admitted event-name keys; each transition record is cloned without changing its DefinitionValue witness.
+  const handlers = Object.fromEntries(
+    Object.entries(source.handlers).map(([name, transitions]) => [
+      name,
+      transitions === undefined ? undefined : transitions.map((transition) => ({ ...transition })),
+    ]),
+  ) as CompiledState<DefinitionValue>["handlers"];
+
+  const copied = {
     ...source,
-    handlers: Object.fromEntries(
-      Object.entries(source.handlers).map(([name, transitions]) => [
-        name,
-        transitions === undefined ? undefined : [...transitions],
-      ]),
-    ),
-    redirects: [...source.redirects],
-    activities: { ...source.activities },
-    timers: { ...source.timers },
-  }) as unknown as CompiledState<DefinitionValue>;
+    handlers,
+    redirects: source.redirects.map((redirect) => ({ ...redirect })),
+    activities: copyRecord(source.activities, (activity) => activity),
+    timers: copyRecord(source.timers, (timer) => ({ ...timer })),
+    children: [...source.children],
+  };
+
+  // SAFETY: the discriminant and state-specific fields are retained from the admitted compiled state; only structural containers are replaced.
+  return copied as CompiledState<DefinitionValue>;
+};
 
 const copyCompiledMachine = <DefinitionValue extends MachineDefinition>(
   source: CompiledMachine<DefinitionValue>,
 ): CompiledMachine<DefinitionValue> => ({
-  states: Object.fromEntries(
-    Object.entries(source.states).map(([path, state]) => [path, copyCompiledState(state)]),
-  ),
-  context: [...source.context],
-  memory: [...source.memory],
+  states: copyRecord(source.states, copyCompiledState),
+  context: source.context.map((registration) => ({ ...registration })),
+  memory: source.memory.map((registration) => ({ ...registration })),
 });
 
 const captureMachineFacts = <DefinitionValue extends MachineDefinition>(
   source: Machine<DefinitionValue>,
-): Machine<DefinitionValue> =>
+  operationCatalog: ReadonlyMap<string, OperationDeclaration>,
+): Machine<DefinitionValue> => {
   // SAFETY: App construction has already admitted this machine; the private shell retains its exact typed definition and compiled behavior while the public shell remains the identity token.
   // SAFETY: the cloned definition and compiled containers retain the source machine's private generic correlation.
-  markMachineFacts({
-    definition: copyMachineDefinition(source.definition),
+  const captured = markMachineFacts({
+    definition: copyMachineDefinition(source.definition, operationCatalog),
     compiled: copyCompiledMachine(source.compiled),
-  } as unknown as Machine<DefinitionValue>);
+  } as Machine<DefinitionValue>);
+
+  capturedMachineSources.set(captured, source);
+
+  return captured;
+};
 
 const publishAppPlan = <
   Id extends string,
@@ -892,25 +1086,28 @@ const publishAppPlan = <
   const planMachines = [...indexes.machineValues];
 
   const machineFacts = new Map<MachineRecordValue, AppMachineFacts>(
-    planMachines.map((machine) => [
-      machine,
-      // SAFETY: every indexed machine is admitted as a constructed MachineRecordValue.
-      captureMachineFacts(machine as Machine),
-    ]),
+    planMachines.map((machine) => {
+      const operationCatalog =
+        indexes.operationCatalogs.get(machine) ??
+        invalid("App operation catalog was not captured for an admitted machine");
+
+      return [
+        machine,
+        // SAFETY: every indexed machine is admitted as a constructed MachineRecordValue.
+        captureMachineFacts(machine, operationCatalog),
+      ];
+    }),
   );
 
   // SAFETY: the ID map contains only machines admitted from the exact module tuple.
   const resolveMachine = (id: string) => indexes.machineIds.get(id);
 
-  const resolveMachineFacts = <DefinitionValue extends MachineDefinition>(
-    machine: Machine<DefinitionValue>,
-  ): Machine<DefinitionValue> | undefined => {
+  const resolveMachineFacts = (machine: MachineRecordValue): AppMachineFacts | undefined => {
     const captured = machineFacts.get(machine);
 
     if (captured === undefined) return undefined;
 
-    // SAFETY: the map key is the exact admitted machine identity and its value was captured from that machine.
-    return captured as unknown as Machine<DefinitionValue>;
+    return captured;
   };
 
   return {

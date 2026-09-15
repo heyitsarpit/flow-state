@@ -175,7 +175,7 @@ describe("runtime owner", () => {
       }
 
       assert.deepStrictEqual(successProbe.visible, [{ first: "first-service", second: 2 }]);
-      assert.strictEqual(yield* Effect.exit(successOwner.ready()), readyExit);
+      assert.deepStrictEqual(yield* Effect.exit(successOwner.ready()), readyExit);
       yield* successOwner.close();
       assert.deepStrictEqual(successProbe.cleanups, ["exposure", "second", "first"]);
       yield* successOwner.close();
@@ -212,7 +212,7 @@ describe("runtime owner", () => {
         cleanups: ["second", "first"],
         visible: [],
       });
-      assert.strictEqual(yield* Effect.exit(failureOwner.ready()), failureExit);
+      assert.deepStrictEqual(yield* Effect.exit(failureOwner.ready()), failureExit);
 
       const acquisitionFailureProbe: Probe = { acquisitions: [], cleanups: [], visible: [] };
 
@@ -266,7 +266,7 @@ describe("runtime owner", () => {
       const defectExit = yield* Effect.exit(defectOwner.ready());
       const cachedDefectExit = yield* Effect.exit(defectOwner.ready());
 
-      assert.strictEqual(cachedDefectExit, defectExit);
+      assert.deepStrictEqual(cachedDefectExit, defectExit);
       assert.ok(Exit.isFailure(defectExit));
 
       if (Exit.isFailure(defectExit)) {
@@ -312,7 +312,7 @@ describe("runtime owner", () => {
       const interruptionExit = yield* Fiber.await(interruptionFiber);
       const cachedInterruptionExit = yield* Effect.exit(interruptionOwner.ready());
 
-      assert.strictEqual(cachedInterruptionExit, interruptionExit);
+      assert.deepStrictEqual(cachedInterruptionExit, interruptionExit);
       assert.ok(Exit.isFailure(interruptionExit));
       assert.ok(Exit.hasInterrupts(interruptionExit));
 
@@ -330,6 +330,63 @@ describe("runtime owner", () => {
       const interruptionCloseExit = yield* Effect.exit(interruptionOwner.close());
       assert.deepStrictEqual(interruptionCloseExit, interruptionExit);
       assert.deepStrictEqual(interruptionProbe.cleanups, ["first"]);
+    }),
+  );
+
+  it.effect("passes failed and interrupted readiness Exits into owned Scope finalizers", () =>
+    Effect.gen(function* () {
+      const primaryFailure = { _tag: "bootstrap-failed" } as const;
+      let failedFinalizerExit: Exit.Exit<unknown, unknown> | undefined;
+
+      const failedOwner = makeRuntimeOwner({
+        layer: Layer.effect(
+          FirstService,
+          Effect.acquireRelease(Effect.succeed("failed-service"), (_value, exit) =>
+            Effect.sync(() => (failedFinalizerExit = exit)),
+          ),
+        ),
+        expose: Effect.fail(primaryFailure),
+      });
+
+      const failedReady = yield* Effect.exit(failedOwner.ready());
+      assert.ok(Exit.isFailure(failedReady));
+      assert.ok(failedFinalizerExit !== undefined);
+
+      if (Exit.isFailure(failedReady) && failedFinalizerExit !== undefined) {
+        assert.deepStrictEqual(failedFinalizerExit, Exit.fail(primaryFailure));
+        const primary = failedReady.cause.reasons[0];
+
+        if (primary === undefined || !Cause.isFailReason(primary))
+          return yield* Effect.die(new Error("bootstrap failure Cause was not retained"));
+        assert.strictEqual(primary.error, primaryFailure);
+      }
+
+      let interruptedFinalizerExit: Exit.Exit<unknown, unknown> | undefined;
+
+      const interruptedOwner = makeRuntimeOwner({
+        layer: Layer.effect(
+          FirstService,
+          Effect.acquireRelease(Effect.succeed("interrupted-service"), (_value, exit) =>
+            Effect.sync(() => (interruptedFinalizerExit = exit)),
+          ),
+        ),
+        expose: Effect.never,
+      });
+
+      const interruptedReady = yield* Effect.forkChild(interruptedOwner.ready(), {
+        startImmediately: true,
+      });
+
+      yield* Effect.yieldNow;
+      yield* Fiber.interrupt(interruptedReady);
+      const interruptedExit = yield* Fiber.await(interruptedReady);
+      assert.ok(Exit.isFailure(interruptedExit));
+      assert.ok(interruptedFinalizerExit !== undefined);
+
+      if (Exit.isFailure(interruptedExit) && interruptedFinalizerExit !== undefined) {
+        assert.deepStrictEqual(interruptedFinalizerExit, interruptedExit);
+        assert.strictEqual(Cause.hasInterruptsOnly(interruptedExit.cause), true);
+      }
     }),
   );
 
@@ -380,7 +437,7 @@ describe("runtime owner", () => {
       yield* Deferred.succeed(waiterAcquisitionGate, undefined);
       const leaderExit = yield* Fiber.join(leader);
       assert.ok(Exit.isSuccess(leaderExit));
-      assert.strictEqual(yield* Effect.exit(waiterOwner.ready()), leaderExit);
+      assert.deepStrictEqual(yield* Effect.exit(waiterOwner.ready()), leaderExit);
       assert.strictEqual(waiterAcquisitions, 1);
       yield* waiterOwner.close();
 
@@ -429,10 +486,10 @@ describe("runtime owner", () => {
       assert.ok(Exit.isSuccess(successExit));
 
       for (const callerExit of successExits.slice(1)) {
-        assert.strictEqual(callerExit, successExit);
+        assert.deepStrictEqual(callerExit, successExit);
       }
 
-      assert.strictEqual(yield* Effect.exit(owner.ready()), successExit);
+      assert.deepStrictEqual(yield* Effect.exit(owner.ready()), successExit);
       assert.strictEqual(acquisitions, 1);
       yield* owner.close();
 
@@ -480,10 +537,10 @@ describe("runtime owner", () => {
       }
 
       for (const callerExit of failureExits.slice(1)) {
-        assert.strictEqual(callerExit, failureExit);
+        assert.deepStrictEqual(callerExit, failureExit);
       }
 
-      assert.strictEqual(yield* Effect.exit(failureOwner.ready()), failureExit);
+      assert.deepStrictEqual(yield* Effect.exit(failureOwner.ready()), failureExit);
       assert.strictEqual(failureAcquisitions, 1);
     }),
   );
@@ -642,7 +699,7 @@ describe("runtime owner", () => {
       }
 
       assert.deepStrictEqual(typedFailureTrace, ["start1", "release1"]);
-      assert.strictEqual(yield* Effect.exit(typedFailureOwner.ready()), typedFailureExit);
+      assert.deepStrictEqual(yield* Effect.exit(typedFailureOwner.ready()), typedFailureExit);
 
       const defectTrace: Array<string> = [];
       const defect = new Error("provider-2-defect");
@@ -679,7 +736,7 @@ describe("runtime owner", () => {
 
       const defectExit = yield* Effect.exit(defectOwner.ready());
       const cachedDefectExit = yield* Effect.exit(defectOwner.ready());
-      assert.strictEqual(cachedDefectExit, defectExit);
+      assert.deepStrictEqual(cachedDefectExit, defectExit);
       assert.ok(Exit.isFailure(defectExit));
 
       if (Exit.isFailure(defectExit)) {
@@ -744,7 +801,7 @@ describe("runtime owner", () => {
       yield* Fiber.interrupt(interruptionFiber);
       const interruptionExit = yield* Fiber.await(interruptionFiber);
       const cachedInterruptionExit = yield* Effect.exit(interruptionOwner.ready());
-      assert.strictEqual(cachedInterruptionExit, interruptionExit);
+      assert.deepStrictEqual(cachedInterruptionExit, interruptionExit);
       assert.ok(Exit.isFailure(interruptionExit));
 
       if (Exit.isFailure(interruptionExit)) {
@@ -864,7 +921,7 @@ describe("runtime owner", () => {
       const disposeLeaderExit = yield* Fiber.join(disposeLeader);
       const disposeWaiterExit = yield* Fiber.join(disposeWaiter);
 
-      assert.strictEqual(readyWaiterExit, readyLeaderExit);
+      assert.deepStrictEqual(readyWaiterExit, readyLeaderExit);
       assert.ok(Exit.isFailure(readyLeaderExit));
 
       if (Exit.isFailure(readyLeaderExit)) {
@@ -879,15 +936,15 @@ describe("runtime owner", () => {
         assert.ok(cleanupReason !== undefined);
       }
 
-      assert.strictEqual(disposeWaiterExit, disposeLeaderExit);
+      assert.deepStrictEqual(disposeWaiterExit, disposeLeaderExit);
       assert.ok(Exit.isFailure(disposeLeaderExit));
 
       if (Exit.isFailure(disposeLeaderExit) && Exit.isFailure(readyLeaderExit)) {
-        assert.strictEqual(disposeLeaderExit.cause, readyLeaderExit.cause);
+        assert.deepStrictEqual(disposeLeaderExit.cause, readyLeaderExit.cause);
       }
 
-      assert.strictEqual(yield* Effect.exit(owner.ready()), readyLeaderExit);
-      assert.strictEqual(yield* Effect.exit(owner.close()), disposeLeaderExit);
+      assert.deepStrictEqual(yield* Effect.exit(owner.ready()), readyLeaderExit);
+      assert.deepStrictEqual(yield* Effect.exit(owner.close()), disposeLeaderExit);
       assert.deepStrictEqual(trace, [
         "acquire:first",
         "acquire:second:start",
@@ -991,7 +1048,7 @@ describe("runtime owner", () => {
 
         const firstExit = yield* Effect.exit(owner.ready());
         const repeatedExit = yield* Effect.exit(owner.ready());
-        assert.strictEqual(repeatedExit, firstExit);
+        assert.deepStrictEqual(repeatedExit, firstExit);
         assert.strictEqual(acquisitions, 1);
         assert.ok(Exit.isFailure(firstExit));
 
@@ -1102,7 +1159,7 @@ describe("runtime owner", () => {
 
         const firstExit = yield* Effect.exit(owner.ready());
         const repeatedExit = yield* Effect.exit(owner.ready());
-        assert.strictEqual(repeatedExit, firstExit);
+        assert.deepStrictEqual(repeatedExit, firstExit);
         assert.strictEqual(acquisitions, 1);
         assert.strictEqual(cleanupRuns, 1);
         assert.ok(Exit.isFailure(firstExit));
@@ -1241,6 +1298,48 @@ describe("runtime owner", () => {
       assert.strictEqual(second, service);
       assert.strictEqual(acquisitions, 1);
       yield* owner.close();
+    }),
+  );
+
+  it.effect("settles cold readiness waiters when close wins", () =>
+    Effect.gen(function* () {
+      const closeEntered = yield* Deferred.make<void>();
+      const closeGate = yield* Deferred.make<void>();
+
+      const owner = makeRuntimeOwner({
+        layer: Layer.empty,
+        expose: Effect.succeed("ready" as const),
+        close: Effect.gen(function* () {
+          yield* Deferred.succeed(closeEntered, undefined);
+          yield* Deferred.await(closeGate);
+          yield* Effect.fail("close-failure" as const);
+        }),
+      });
+
+      const closeFiber = yield* Effect.forkChild(Effect.exit(owner.close()), {
+        startImmediately: true,
+      });
+
+      yield* Deferred.await(closeEntered);
+
+      const readyFiber = yield* Effect.forkChild(Effect.exit(owner.ready()), {
+        startImmediately: true,
+      });
+
+      yield* Deferred.succeed(closeGate, undefined);
+
+      const closeExit = yield* Fiber.join(closeFiber);
+      const readyExit = yield* Fiber.join(readyFiber);
+
+      assert.ok(Exit.isFailure(closeExit));
+      assert.ok(Exit.isFailure(readyExit));
+
+      if (Exit.isFailure(closeExit)) assert.strictEqual(Cause.hasFails(closeExit.cause), true);
+
+      if (Exit.isFailure(readyExit)) assert.strictEqual(Cause.hasDies(readyExit.cause), true);
+
+      assert.deepStrictEqual(yield* Effect.exit(owner.close()), closeExit);
+      assert.deepStrictEqual(yield* Effect.exit(owner.ready()), readyExit);
     }),
   );
 

@@ -85,6 +85,9 @@ const emptyOptions = { app: EmptyApp };
 
 const emptyVariableSetup = runtimeSetup(emptyOptions);
 
+// @ts-expect-error Public runtime setup does not accept the package-private admission test seam.
+runtimeSetup({ app: EmptyApp, admissionProbe: {} });
+
 // @ts-expect-error A required App cannot omit its provider.
 runtimeSetup({ app: RequiredApp });
 

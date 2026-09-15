@@ -6,8 +6,17 @@ import type { StateOf } from "../../definition/domain.js";
 import type * as Diagnostic from "../../diagnostic/diagnostic.js";
 import type { MachineSelectorInput } from "../../machine/grammar.js";
 import { machine, type Machine } from "../../machine/machine.js";
-import { app, appPlan, module, type App, type AnyModule, type RequirementsOf } from "../app.js";
+import {
+  app,
+  appPlan,
+  isOwnedMachineFactsFor,
+  module,
+  type App,
+  type AnyModule,
+  type RequirementsOf,
+} from "../app.js";
 import { resource } from "../../operation/resource.js";
+import { isOperationPlanForDescriptor } from "../../operation/operation.js";
 import { stream } from "../../operation/stream.js";
 import { transaction } from "../../operation/transaction.js";
 
@@ -530,6 +539,133 @@ describe("app composition", () => {
       }
     });
 
+    it("rejects malformed operation descriptors added before App construction", () => {
+      for (const malformed of [undefined, { kind: "resource", id: "app-test/not-constructed" }]) {
+        Object.defineProperty(editorMachine.definition.operations, "malformed", {
+          configurable: true,
+          enumerable: true,
+          value: malformed,
+          writable: true,
+        });
+
+        try {
+          assert.throws(
+            () =>
+              app({
+                id: "app-test/malformed-operation",
+                persistenceVersion: "1",
+                modules: [EditorModule],
+              }),
+            /^App operation descriptor is invalid: malformed$/u,
+          );
+        } finally {
+          Reflect.deleteProperty(editorMachine.definition.operations, "malformed");
+        }
+      }
+    });
+
+    it("rejects operation catalogs whose reflected values diverge from their descriptors", () => {
+      const originalOperations = editorMachine.definition.operations;
+
+      const alternateDescriptor = resource({
+        id: "app-test/hostile-alternate",
+        key: (projectId: string) => [projectId] as const,
+        lookup: (projectId: string): Effect.Effect<string, "missing", ProjectRepo> =>
+          Effect.succeed(projectId),
+      });
+
+      for (const reflected of [undefined, alternateDescriptor]) {
+        const hostileOperations = new Proxy(originalOperations, {
+          get: (target, key, receiver) =>
+            key === "project"
+              ? reflected
+              : // SAFETY: this proxy forwards all non-target properties unchanged for the hostile catalog proof.
+                // oxlint-disable-next-line anti-slop/no-reflect-get
+                Reflect.get(target, key, receiver),
+        });
+
+        Object.defineProperty(editorMachine.definition, "operations", {
+          configurable: true,
+          enumerable: true,
+          value: hostileOperations,
+          writable: true,
+        });
+
+        try {
+          assert.throws(
+            () =>
+              app({
+                id: "app-test/hostile-operation-catalog",
+                persistenceVersion: "1",
+                modules: [EditorModule],
+              }),
+            /^App operation descriptor is invalid: project$/u,
+          );
+        } finally {
+          Object.defineProperty(editorMachine.definition, "operations", {
+            configurable: true,
+            enumerable: true,
+            value: originalOperations,
+            writable: true,
+          });
+        }
+      }
+
+      const capturedApp = app({
+        id: "app-test/captured-operation-catalog",
+        persistenceVersion: "1",
+        modules: [EditorModule],
+      });
+
+      const plan = appPlan(capturedApp);
+      const facts = plan.resolveMachineFacts(editorMachine);
+
+      if (facts === undefined) throw new Error("expected captured machine facts");
+      assert.deepStrictEqual(plan.descriptors, [projectResource]);
+      assert.strictEqual(plan.resolveDescriptor(projectResource.id), projectResource);
+      assert.strictEqual(facts.definition.operations.project, projectResource);
+    });
+
+    it("rejects operation catalogs whose enumerable keys flap during capture", () => {
+      const originalOperations = editorMachine.definition.operations;
+      let ownKeysReads = 0;
+
+      const hostileOperations = new Proxy(originalOperations, {
+        ownKeys: (target) => {
+          ownKeysReads += 1;
+
+          return ownKeysReads === 1 ? [] : Reflect.ownKeys(target);
+        },
+      });
+
+      Object.defineProperty(editorMachine.definition, "operations", {
+        configurable: true,
+        enumerable: true,
+        value: hostileOperations,
+        writable: true,
+      });
+
+      try {
+        assert.throws(
+          () =>
+            app({
+              id: "app-test/flapping-operation-keys",
+              persistenceVersion: "1",
+              modules: [EditorModule],
+            }),
+          /^App operation catalog changed during admission$/u,
+        );
+        assert.strictEqual(ownKeysReads, 2);
+      } finally {
+        Object.defineProperty(editorMachine.definition, "operations", {
+          configurable: true,
+          enumerable: true,
+          value: originalOperations,
+          writable: true,
+        });
+      }
+    });
+
     it("rejects config key reflection changes before publication", () => {
       const moduleConfig = {
         id: "app-test/flapping-module-keys",
@@ -864,7 +1000,7 @@ describe("app composition", () => {
     it("preserves retained identities without freezing user values", () => {
       const ActivityDefinitionResult = definition({
         id: "app-test/activity-service",
-        states: ["idle", { active: ["editing"] }],
+        states: ["idle", "S", { active: ["editing"] }],
         events: { tick: "bare" },
         operations: { activity: projectResource },
         memory: () => ({ count: 0 }),
@@ -914,6 +1050,7 @@ describe("app composition", () => {
             redirect: { when: redirectWhen, target: S.idle },
             states: {
               idle: {},
+              S: {},
               active: {
                 default: S.active.S.editing,
                 activities: { service: projectActivity },
@@ -942,6 +1079,53 @@ describe("app composition", () => {
           }),
         ],
       });
+
+      const capturedActivityMachine = appPlan(ActivityApp).resolveMachineFacts(ActivityMachine);
+
+      assert.ok(isOwnedMachineFactsFor(capturedActivityMachine, ActivityMachine));
+
+      if (isOwnedMachineFactsFor(capturedActivityMachine, ActivityMachine)) {
+        const sourceRoot = required(Option.fromUndefinedOr(ActivityMachine.compiled.states[""]));
+
+        const capturedRoot = required(
+          Option.fromUndefinedOr(capturedActivityMachine.compiled.states[""]),
+        );
+
+        const sourceTransitions = required(Option.fromUndefinedOr(sourceRoot.handlers.tick));
+        const capturedTransitions = required(Option.fromUndefinedOr(capturedRoot.handlers.tick));
+        const sourceTransition = required(Option.fromUndefinedOr(sourceTransitions[0]));
+        const capturedTransition = required(Option.fromUndefinedOr(capturedTransitions[0]));
+        const sourceRedirect = required(Option.fromUndefinedOr(sourceRoot.redirects[0]));
+        const capturedRedirect = required(Option.fromUndefinedOr(capturedRoot.redirects[0]));
+
+        const sourceActive = required(
+          Option.fromUndefinedOr(ActivityMachine.compiled.states["S.active"]),
+        );
+
+        const capturedActive = required(
+          Option.fromUndefinedOr(capturedActivityMachine.compiled.states["S.active"]),
+        );
+
+        const sourceTimer = required(Option.fromUndefinedOr(sourceActive.timers.refresh));
+        const capturedTimer = required(Option.fromUndefinedOr(capturedActive.timers.refresh));
+        const sourceActivity = sourceActive.activities.service;
+        const capturedActivity = capturedActive.activities.service;
+        const capturedStateNamedS = capturedActivityMachine.compiled.states['@["S"]'];
+
+        assert.notStrictEqual(capturedTransition, sourceTransition);
+        assert.notStrictEqual(capturedRedirect, sourceRedirect);
+        assert.notStrictEqual(capturedTimer, sourceTimer);
+        assert.strictEqual(capturedActivity, sourceActivity);
+        assert.strictEqual(capturedTransition.guard, guard);
+        assert.strictEqual(capturedRedirect.when, redirectWhen);
+        assert.strictEqual(capturedTimer.guard, timerGuard);
+        assert.strictEqual(isOperationPlanForDescriptor(capturedActivity, projectResource), true);
+        assert.strictEqual(capturedActivityMachine.definition.S.S, ActivityDefinition.S.S);
+        assert.ok(capturedStateNamedS !== undefined);
+
+        if (capturedStateNamedS !== undefined && capturedStateNamedS.kind === "leaf")
+          assert.strictEqual(capturedStateNamedS.state, capturedActivityMachine.definition.S.S);
+      }
 
       assert.strictEqual(Object.isFrozen(AppValue), false);
       assert.strictEqual(Object.isFrozen(AppValue.M.editor.definition), false);

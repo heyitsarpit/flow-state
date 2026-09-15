@@ -188,6 +188,172 @@ void EditorEvent;
 
 void EditorState;
 
+type CorrelatedLeftInput = { readonly leftId: string };
+
+type CorrelatedRightInput = { readonly rightCount: number };
+
+const correlatedLeftDescriptor = resource({
+  id: "static/correlated.left",
+  key: ({ leftId }: CorrelatedLeftInput) => [leftId] as const,
+  lookup: ({ leftId }: CorrelatedLeftInput): Effect.Effect<Project> =>
+    Effect.succeed({ id: leftId, title: "left" }),
+});
+
+const correlatedRightDescriptor = transaction({
+  id: "static/correlated.right",
+  key: ({ rightCount }: CorrelatedRightInput) => [rightCount] as const,
+  commit: ({ rightCount }: CorrelatedRightInput): Effect.Effect<Project> =>
+    Effect.succeed({ id: String(rightCount), title: "right" }),
+});
+
+const CorrelatedLeftResult = definition({
+  id: "static/correlated-left",
+  states: ["idle", "open"],
+  events: { opened: (leftId: string) => ({ leftId }) },
+  operations: { left: correlatedLeftDescriptor },
+});
+
+const CorrelatedLeft = resultSuccess(CorrelatedLeftResult);
+
+const correlatedLeftMachine = resultSuccess(
+  machine(CorrelatedLeftResult, ({ S }) => ({
+    default: S.idle,
+    states: { idle: {}, open: {} },
+  })),
+);
+
+const CorrelatedRightResult = definition({
+  id: "static/correlated-right",
+  states: ["waiting", "complete"],
+  events: { completed: (rightCount: number) => ({ rightCount }) },
+  context: {
+    leftState: CorrelatedLeft.select(({ state }) => state),
+  },
+  operations: { right: correlatedRightDescriptor },
+});
+
+const CorrelatedRight = resultSuccess(CorrelatedRightResult);
+
+const correlatedRightMachine = resultSuccess(
+  machine(CorrelatedRightResult, ({ S }) => ({
+    default: S.waiting,
+    states: { waiting: {}, complete: {} },
+  })),
+);
+
+const correlatedRegistry = makeActorIdentityRegistry();
+
+const correlatedLeftRef = actorRef(correlatedLeftMachine, "correlated-left");
+
+const correlatedRightRef = actorRef(correlatedRightMachine, "correlated-right");
+
+const correlatedLeftIdentity = resultSuccess(correlatedRegistry.reserveStable(correlatedLeftRef));
+
+const correlatedRightIdentity = resultSuccess(correlatedRegistry.reserveStable(correlatedRightRef));
+
+const correlatedBinding = {
+  consumer: correlatedRightIdentity.key,
+  consumerIncarnation: correlatedRightIdentity.incarnation,
+  slot: "leftState",
+  provider: correlatedLeftRef,
+  providerFence: {
+    key: correlatedLeftIdentity.key,
+    incarnation: correlatedLeftIdentity.incarnation,
+    generation: 0,
+    leaseEpoch: correlatedLeftIdentity.leaseEpoch,
+  },
+  select: ({ state }: ActorContextSnapshot<typeof CorrelatedLeft>) => state,
+} satisfies ContextBinding<typeof CorrelatedRight, typeof CorrelatedLeft, "leftState">;
+
+const correlatedLeftEvent: EventOf<typeof CorrelatedLeft> = resultSuccess(
+  CorrelatedLeft.E.opened("left-1"),
+);
+
+const correlatedRightEvent: EventOf<typeof CorrelatedRight> = resultSuccess(
+  CorrelatedRight.E.completed(1),
+);
+
+const correlatedLeftState = CorrelatedLeft.S.open;
+
+const correlatedRightState = CorrelatedRight.S.complete;
+
+const correlatedLeftKey: ReturnType<typeof correlatedLeftDescriptor.key> =
+  correlatedLeftDescriptor.key({ leftId: "left-1" });
+
+const correlatedRightKey: ReturnType<typeof correlatedRightDescriptor.key> =
+  correlatedRightDescriptor.key({ rightCount: 1 });
+
+const correlatedLeftOperation = CorrelatedLeft.operations.left;
+
+const correlatedRightOperation = CorrelatedRight.operations.right;
+
+const correlatedContextValue = correlatedLeftState satisfies ContextSelection<
+  typeof CorrelatedRight,
+  typeof CorrelatedLeft,
+  "leftState"
+>["value"];
+
+// @ts-expect-error Correlated events retain their machine identity.
+const mixedCorrelatedEvent: EventOf<typeof CorrelatedRight> = correlatedLeftEvent;
+
+// @ts-expect-error Correlated states retain their machine identity.
+const mixedCorrelatedState: StateOf<typeof CorrelatedRight> = correlatedLeftState;
+
+// @ts-expect-error Descriptor keys retain their input correlation.
+const mixedCorrelatedKey: ReturnType<typeof correlatedRightDescriptor.key> = correlatedLeftKey;
+
+// @ts-expect-error Correlated operation descriptors retain their operation-family/input identity.
+const mixedCorrelatedOperation: typeof correlatedRightOperation = correlatedLeftOperation;
+
+// @ts-expect-error Context values retain the selected provider machine identity.
+const mixedCorrelatedContextValue: ContextSelection<
+  typeof CorrelatedRight,
+  typeof CorrelatedLeft,
+  "leftState"
+>["value"] = correlatedRightState;
+
+const mixedCorrelatedBinding: ContextBinding<
+  typeof CorrelatedRight,
+  typeof CorrelatedLeft,
+  "leftState"
+> = {
+  ...correlatedBinding,
+  // @ts-expect-error Context bindings cannot cross their provider machine boundary.
+  provider: correlatedRightRef,
+};
+
+export type CorrelatedMachineProofs = readonly [
+  Expect<Types.Equals<typeof correlatedLeftEvent, EventOf<typeof CorrelatedLeft>>>,
+  Expect<Types.Equals<typeof correlatedRightEvent, EventOf<typeof CorrelatedRight>>>,
+  Expect<Types.Equals<typeof correlatedLeftState, typeof CorrelatedLeft.S.open>>,
+  Expect<Types.Equals<typeof correlatedRightState, typeof CorrelatedRight.S.complete>>,
+  Expect<Types.Equals<typeof correlatedLeftKey, readonly [string]>>,
+  Expect<Types.Equals<typeof correlatedRightKey, readonly [number]>>,
+  Expect<Types.Equals<typeof correlatedLeftOperation, typeof correlatedLeftDescriptor>>,
+  Expect<Types.Equals<typeof correlatedRightOperation, typeof correlatedRightDescriptor>>,
+  Expect<Types.Equals<(typeof correlatedBinding)["slot"], "leftState">>,
+  Expect<
+    Types.Equals<
+      (typeof correlatedBinding)["select"],
+      ContextBinding<typeof CorrelatedRight, typeof CorrelatedLeft, "leftState">["select"]
+    >
+  >,
+];
+
+void mixedCorrelatedEvent;
+
+void mixedCorrelatedState;
+
+void mixedCorrelatedKey;
+
+void mixedCorrelatedOperation;
+
+void correlatedContextValue;
+
+void mixedCorrelatedContextValue;
+
+void mixedCorrelatedBinding;
+
 const makeLeafMachine = <const Id extends string>(id: Id) => {
   const currentResult = definition({
     id,
@@ -454,7 +620,8 @@ export type ImplementationProofs = readonly [
       "configuration-failed" | "feed-unavailable"
     >
   >,
-  Expect<Types.Equals<ImplementationRequirements<typeof staticImplementation>, ProjectRepo>>,
+  // The merged provider graph supplies ProjectRepo before acquiring its dependent providers.
+  Expect<Types.Equals<ImplementationRequirements<typeof staticImplementation>, never>>,
 ];
 
 void StaticApp;

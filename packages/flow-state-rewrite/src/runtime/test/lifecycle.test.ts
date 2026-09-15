@@ -1,5 +1,5 @@
 import { assert, describe, it } from "@effect/vitest";
-import { Cause, Deferred, Effect, Exit, Fiber, Option, Result, Scope } from "effect";
+import { Cause, Clock, Deferred, Effect, Exit, Fiber, Option, Result, Scope } from "effect";
 import { TestClock } from "effect/testing";
 
 import { app, appPlan, module, type App } from "../../app/app.js";
@@ -34,8 +34,8 @@ import { prepareActorEngine, prepareActorSnapshot, type ActorSnapshot } from "..
 import type { OperationOccurrenceFence } from "../turn-plan.js";
 import { makeEvidenceSink, makeRuntimeEvidenceOwner } from "../evidence.js";
 import {
-  makeRuntimeClock,
   makeRuntimeScheduler,
+  makeRuntimeClock,
   makeRuntimeServicesLayer,
   type RuntimeEvidenceService,
   type RuntimeServiceContext,
@@ -147,16 +147,22 @@ const makeFence = <DefinitionValue extends MachineDefinition>(
   return { identity, ref, fence };
 };
 
+const fixedClock = {
+  now: Effect.succeed(0),
+  timestamp: () => 0,
+  sleepUntil: () => Effect.void,
+};
+
 const defaultEvidenceOwner = makeRuntimeEvidenceOwner({
   app: LifecycleApp,
   plan: LifecyclePlan,
-  clock: makeRuntimeClock(),
+  clock: fixedClock,
 });
 
 const evidence: RuntimeEvidenceService = defaultEvidenceOwner.service;
 
 const defaultRuntimeLayer: RuntimeServicesLayer = makeRuntimeServicesLayer({
-  clock: makeRuntimeClock(),
+  clock: fixedClock,
   scheduler: makeRuntimeScheduler(),
   evidence,
 });
@@ -577,6 +583,7 @@ describe("actor lifecycle", () => {
       const layer = makeRuntimeServicesLayer({
         clock: {
           now: Effect.succeed(100),
+          timestamp: () => 100,
           sleepUntil: (dueAt: number) => Effect.sync(() => scheduled.push(dueAt)),
         },
         scheduler: makeRuntimeScheduler(),
@@ -612,6 +619,7 @@ describe("actor lifecycle", () => {
       const layer = makeRuntimeServicesLayer({
         clock: {
           now: Effect.succeed(100),
+          timestamp: () => 100,
           sleepUntil: (dueAt: number) => Effect.sync(() => scheduled.push(dueAt)),
         },
         scheduler: makeRuntimeScheduler(),
@@ -1101,7 +1109,7 @@ describe("actor lifecycle", () => {
       });
 
       const layer = makeRuntimeServicesLayer({
-        clock: makeRuntimeClock(),
+        clock: fixedClock,
         scheduler: makeRuntimeScheduler(),
         evidence: {
           ...evidence,
@@ -1153,6 +1161,158 @@ describe("actor lifecycle", () => {
     }),
   );
 
+  it.effect("rejects a stale same-revision snapshot from overwriting canonical dependencies", () =>
+    Effect.gen(function* () {
+      const prepared = makePrepared();
+
+      const dependency: ActorDependencyEdge = {
+        consumer: prepared.fence.key,
+        provider: prepared.fence.key,
+        slot: "selected",
+      };
+
+      const installed = resultSuccess(
+        installLifecycleMetadata(prepared, {
+          dependencies: [dependency],
+          bindings: [],
+          providerRevisions: new Map(),
+          providerFences: new Map(),
+        }),
+      );
+
+      const active = yield* withRuntime(activateLifecycle(installed));
+
+      // This is a same-revision structural view carrying the same private owner metadata,
+      // but it is stale because it omits the canonical dependency cut.
+      const stale = { ...active, attachment: { ...active.attachment, dependencies: [] } };
+      makeLifecycleController(active);
+      const controller = makeLifecycleController(stale);
+      const canonical = yield* controller.state();
+      assert.deepStrictEqual(canonical.attachment.dependencies, [dependency]);
+
+      const suspended = yield* withRuntime(
+        controller.command({
+          _tag: "actor:suspend",
+          cause: { _tag: "attachment" },
+        }),
+      );
+
+      assert.deepStrictEqual(suspended.attachment.dependencies, [dependency]);
+    }),
+  );
+
+  it.effect(
+    "rejects older raw metadata helpers without resurrecting active or disposed state",
+    () =>
+      Effect.gen(function* () {
+        const prepared = makePrepared();
+
+        const dependency: ActorDependencyEdge = {
+          consumer: prepared.fence.key,
+          provider: prepared.fence.key,
+          slot: "selected",
+        };
+
+        const installed = resultSuccess(
+          installLifecycleMetadata(prepared, {
+            dependencies: [],
+            bindings: [],
+            providerRevisions: new Map(),
+            providerFences: new Map(),
+          }),
+        );
+
+        const active = yield* withRuntime(activateLifecycle(installed));
+        const controller = makeLifecycleController(active);
+
+        const activeInstall = installLifecycleMetadata(prepared, {
+          dependencies: [dependency],
+          bindings: [],
+          providerRevisions: new Map(),
+          providerFences: new Map(),
+        });
+
+        assert.ok(Result.isFailure(activeInstall));
+
+        if (Result.isFailure(activeInstall))
+          assert.strictEqual(activeInstall.failure.details.reason, "stale-snapshot");
+        assert.deepStrictEqual((yield* controller.state()).attachment.dependencies, []);
+
+        const disposed = yield* withRuntime(
+          controller.command({ _tag: "actor:dispose", cause: { _tag: "owner-disposal" } }),
+        );
+
+        assert.strictEqual(disposed.lifecycle, "disposed");
+
+        const disposedInstall = installLifecycleMetadata(active, {
+          dependencies: [dependency],
+          bindings: [],
+          providerRevisions: new Map(),
+          providerFences: new Map(),
+        });
+
+        assert.ok(Result.isFailure(disposedInstall));
+
+        if (Result.isFailure(disposedInstall))
+          assert.strictEqual(disposedInstall.failure.details.reason, "stale-snapshot");
+
+        const canonical = yield* controller.state();
+        assert.strictEqual(canonical.lifecycle, "disposed");
+        assert.deepStrictEqual(canonical.attachment.dependencies, []);
+      }),
+  );
+
+  it.effect("blocks routing during active cleanup and reopens it after a failed cleanup", () =>
+    Effect.gen(function* () {
+      const entered = yield* Deferred.make<void>();
+      const release = yield* Deferred.make<void>();
+      let closes = 0;
+      const active = yield* withRuntime(activateLifecycle(makePrepared()));
+
+      const resource: LifecycleResource<string> = {
+        name: "gated-resource",
+        scope: Scope.makeUnsafe(),
+        close: () =>
+          Effect.gen(function* () {
+            closes += 1;
+            yield* Deferred.succeed(entered, undefined);
+            yield* Deferred.await(release);
+
+            return yield* Effect.fail("cleanup-failed" as const);
+          }),
+        finalization: "pending",
+        cause: Option.none(),
+      };
+
+      const controller = makeLifecycleController({
+        ...active,
+        attachment: { ...active.attachment, resources: [resource] },
+      });
+
+      const disposing = yield* Effect.forkChild(
+        Effect.exit(
+          withRuntime(
+            controller.command({
+              _tag: "actor:dispose",
+              cause: { _tag: "owner-disposal" },
+            }),
+          ),
+        ),
+        { startImmediately: true },
+      );
+
+      yield* Deferred.await(entered);
+      assert.strictEqual(controller.isRoutable(), false);
+      yield* Deferred.succeed(release, undefined);
+
+      const failed = yield* Fiber.join(disposing);
+      assert.ok(Exit.isFailure(failed));
+      assert.strictEqual(closes, 1);
+      assert.strictEqual(controller.currentLifecycle(), "active");
+      assert.strictEqual(controller.isRoutable(), true);
+    }),
+  );
+
   it.effect("serializes lifecycle commands and publishes evidence after each cut", () =>
     Effect.gen(function* () {
       const records: Array<{
@@ -1172,14 +1332,14 @@ describe("actor lifecycle", () => {
       const evidenceOwner = makeRuntimeEvidenceOwner({
         app: LifecycleApp,
         plan: LifecyclePlan,
-        clock: { now: Effect.succeed(100), sleepUntil: () => Effect.void },
+        clock: { now: Effect.succeed(100), timestamp: () => 100, sleepUntil: () => Effect.void },
       });
 
       const published: Array<unknown> = [];
       const actor = makeFence(LifecycleMachine, "evidence-controller");
 
       const layer = makeRuntimeServicesLayer({
-        clock: { now: Effect.succeed(100), sleepUntil: () => Effect.void },
+        clock: { now: Effect.succeed(100), timestamp: () => 100, sleepUntil: () => Effect.void },
         scheduler: makeRuntimeScheduler(),
         evidence: {
           ...evidenceOwner.service,
@@ -1304,7 +1464,7 @@ describe("actor lifecycle", () => {
       const owner = makeRuntimeEvidenceOwner({
         app: LifecycleApp,
         plan: LifecyclePlan,
-        clock: { now: Effect.succeed(100), sleepUntil: () => Effect.void },
+        clock: { now: Effect.succeed(100), timestamp: () => 100, sleepUntil: () => Effect.void },
       });
 
       let failure: "publication" | "acceptance" | undefined = "publication";
@@ -1338,7 +1498,7 @@ describe("actor lifecycle", () => {
       };
 
       const layer = makeRuntimeServicesLayer({
-        clock: { now: Effect.succeed(100), sleepUntil: () => Effect.void },
+        clock: { now: Effect.succeed(100), timestamp: () => 100, sleepUntil: () => Effect.void },
         scheduler: makeRuntimeScheduler(),
         evidence: service,
       });
@@ -1398,11 +1558,11 @@ describe("actor lifecycle", () => {
       const evidenceOwner = makeRuntimeEvidenceOwner({
         app: LifecycleApp,
         plan: LifecyclePlan,
-        clock: { now: Effect.succeed(300), sleepUntil: () => Effect.void },
+        clock: { now: Effect.succeed(300), timestamp: () => 300, sleepUntil: () => Effect.void },
       });
 
       const layer = makeRuntimeServicesLayer({
-        clock: { now: Effect.succeed(300), sleepUntil: () => Effect.void },
+        clock: { now: Effect.succeed(300), timestamp: () => 300, sleepUntil: () => Effect.void },
         scheduler: makeRuntimeScheduler(),
         evidence: {
           ...evidenceOwner.service,
@@ -1465,11 +1625,11 @@ describe("actor lifecycle", () => {
       const evidenceOwner = makeRuntimeEvidenceOwner({
         app: LifecycleApp,
         plan: LifecyclePlan,
-        clock: { now: Effect.succeed(200), sleepUntil: () => Effect.void },
+        clock: { now: Effect.succeed(200), timestamp: () => 200, sleepUntil: () => Effect.void },
       });
 
       const layer = makeRuntimeServicesLayer({
-        clock: { now: Effect.succeed(200), sleepUntil: () => Effect.void },
+        clock: { now: Effect.succeed(200), timestamp: () => 200, sleepUntil: () => Effect.void },
         scheduler: makeRuntimeScheduler(),
         evidence: {
           ...evidenceOwner.service,
@@ -1645,6 +1805,19 @@ describe("actor lifecycle", () => {
 
       assert.strictEqual(disposed.lifecycle, "disposed");
       assert.deepStrictEqual(order, ["cancel", "work-finalizer", "resource-close"]);
+    }),
+  );
+
+  it.effect("routes retained pre-transition snapshots through the current owner state", () =>
+    Effect.gen(function* () {
+      const active = yield* withRuntime(activateLifecycle(makePrepared()));
+      const stale = active;
+      const suspended = yield* withRuntime(suspendLifecycle(active));
+      assert.strictEqual(suspended.lifecycle, "suspended");
+
+      const disposed = yield* withRuntime(disposeLifecycle(stale));
+      assert.strictEqual(disposed.lifecycle, "disposed");
+      assert.strictEqual(stale.lifecycle, "active");
     }),
   );
 
@@ -2129,13 +2302,13 @@ describe("actor lifecycle", () => {
       const owner = makeRuntimeEvidenceOwner({
         app: LifecycleApp,
         plan: LifecyclePlan,
-        clock: { now: Effect.succeed(77), sleepUntil: () => Effect.void },
+        clock: { now: Effect.succeed(77), timestamp: () => 77, sleepUntil: () => Effect.void },
       });
 
       const records: unknown[] = [];
 
       const layer = makeRuntimeServicesLayer({
-        clock: makeRuntimeClock(),
+        clock: fixedClock,
         scheduler: makeRuntimeScheduler(),
         evidence: { ...owner.service, accept: (record) => Effect.sync(() => records.push(record)) },
       });
@@ -2250,8 +2423,10 @@ describe("pending regression scenarios", () => {
   // Assert: The retained dueAt is unchanged, an overdue timer schedules at most one refresh, and all timestamps and sleeps come from the supplied clock rather than wall time.
   it.effect("uses the provided Clock for retained timer deadlines across suspension", () =>
     Effect.gen(function* () {
+      const clock = makeRuntimeClock(yield* Clock.Clock);
+
       const testLayer = makeRuntimeServicesLayer({
-        clock: makeRuntimeClock(),
+        clock,
         scheduler: makeRuntimeScheduler(),
         evidence,
       });
@@ -2287,24 +2462,161 @@ describe("pending regression scenarios", () => {
       assert.ok(work !== undefined);
       assert.strictEqual(work?.name, "timer:controlled-deadline");
 
-      yield* TestClock.adjust(0);
-      yield* TestClock.adjust(50);
+      yield* TestClock.adjust(10);
+      const suspendedBeforeDue = yield* withRuntime(suspendLifecycle(resumed), testLayer);
+      const resumedAgain = yield* withRuntime(resumeLifecycle(suspendedBeforeDue), testLayer);
+      const rearmed = resumedAgain.attachment.work[0];
+      assert.ok(rearmed !== undefined);
+      assert.strictEqual(refreshes, 0);
 
-      if (work !== undefined) {
-        const completed = yield* Fiber.await(work.fiber);
+      yield* TestClock.adjust(40);
+
+      if (rearmed !== undefined) {
+        const completed = yield* Fiber.await(rearmed.fiber);
+
+        if (Exit.isFailure(completed))
+          assert.fail(
+            `retained timer failed: ${completed.cause.reasons.map((reason) => reason._tag).join(",")}`,
+          );
         assert.ok(Exit.isSuccess(completed));
       }
 
       assert.strictEqual(refreshes, 1);
 
-      yield* withRuntime(disposeLifecycle(resumed), testLayer);
+      const suspendedAfterDue = yield* withRuntime(suspendLifecycle(resumedAgain), testLayer);
+      const resumedAfterDue = yield* withRuntime(resumeLifecycle(suspendedAfterDue), testLayer);
+      assert.deepStrictEqual(resumedAfterDue.attachment.work, []);
+      assert.strictEqual(refreshes, 1);
+
+      yield* withRuntime(disposeLifecycle(resumedAfterDue), testLayer);
+    }).pipe(Effect.provide(TestClock.layer())),
+  );
+
+  // Setup: Start an overdue retained timer under the provided TestClock and hold its refresh work at a Deferred.
+  // Action: Suspend while that overdue claim is interrupted, then resume the same lifecycle owner without advancing the clock.
+  // Assert: The interrupted overdue claim cannot replay its refresh or leave a second timer work item after resume.
+  it.effect("does not replay an interrupted overdue retained timer claim", () =>
+    Effect.gen(function* () {
+      const clock = makeRuntimeClock(yield* Clock.Clock);
+      const entered = yield* Deferred.make<void>();
+      const release = yield* Deferred.make<void>();
+      let refreshes = 0;
+
+      const testLayer = makeRuntimeServicesLayer({
+        clock,
+        scheduler: makeRuntimeScheduler(),
+        evidence,
+      });
+
+      const active = yield* withRuntime(activateLifecycle(makePrepared()), testLayer);
+
+      const timer = {
+        name: "interrupted-overdue",
+        startedAt: 0,
+        dueAt: 0,
+        status: "armed" as const,
+        generation: active.fence.generation,
+        refresh: Effect.gen(function* () {
+          yield* Deferred.succeed(entered, undefined);
+          yield* Deferred.await(release);
+          refreshes += 1;
+        }),
+      };
+
+      const suspended = yield* withRuntime(
+        suspendLifecycle({ ...active, attachment: { ...active.attachment, timers: [timer] } }),
+        testLayer,
+      );
+
+      const resumed = yield* withRuntime(resumeLifecycle(suspended), testLayer);
+      yield* Deferred.await(entered);
+
+      const interrupted = yield* Effect.exit(withRuntime(suspendLifecycle(resumed), testLayer));
+
+      assert.ok(Exit.isSuccess(interrupted));
+
+      const resumedAfterInterrupt = yield* withRuntime(
+        resumeLifecycle(interrupted.value),
+        testLayer,
+      );
+
+      assert.deepStrictEqual(resumedAfterInterrupt.attachment.work, []);
+      assert.strictEqual(refreshes, 0);
+      yield* withRuntime(disposeLifecycle(resumedAfterInterrupt), testLayer);
     }).pipe(Effect.provide(TestClock.layer())),
   );
 
   // Setup: Use a real LifecycleController with two work participants. One has a failed cancel, a fiber already completed with interruption, and an explicit retryable finalizer that fails once; the independent participant cleans successfully. Keep Scope finalizers separate.
   // Action: Dispose and capture all stage outcomes; repair the explicit failed cancel/finalizer stages and retry through the same owner, then repeat disposal after release settles.
   // Assert: First outcome retains typed failure, unsuppressed interruption and defect in execution order; sibling cleanup continues. Retry executes only failed explicit stages, observes the cached completion rather than restarting it, releases lifetime once, and retains the original non-suppressed cleanup Cause in the terminal result. Successful stage effects never replay and the actor never resumes after cleanup failure.
-  it.todo("retains mixed cleanup Causes and retries only failed cleanup stages");
+  it.effect("retains mixed cleanup Causes and retries only failed cleanup stages", () =>
+    Effect.gen(function* () {
+      const active = yield* withRuntime(activateLifecycle(makePrepared()));
+      const scope = Scope.makeUnsafe();
+      const closeFailure = "resource-close-failure" as const;
+      const scopeDefect = new Error("resource-scope-defect");
+      yield* Scope.addFinalizer(scope, Effect.die(scopeDefect));
+      let closeAttempts = 0;
+
+      const controller = makeLifecycleController({
+        ...active,
+        attachment: {
+          ...active.attachment,
+          resources: [
+            {
+              name: "mixed-cleanup",
+              scope,
+              close: () =>
+                Effect.sync(() => {
+                  closeAttempts += 1;
+
+                  return Effect.fail(closeFailure);
+                }).pipe(Effect.flatten),
+              finalization: "pending",
+              cause: Option.none(),
+            },
+          ],
+        },
+      });
+
+      const first = yield* Effect.exit(
+        withRuntime(
+          controller.command({ _tag: "actor:dispose", cause: { _tag: "owner-disposal" } }),
+        ),
+      );
+
+      assert.ok(Exit.isFailure(first));
+      assert.strictEqual(closeAttempts, 1);
+      const retained = yield* controller.state();
+      assert.strictEqual(retained.finalization, "failed");
+      const retainedResource = retained.attachment.resources[0];
+      assert.ok(retainedResource !== undefined);
+
+      if (retainedResource !== undefined && Option.isSome(retainedResource.cause)) {
+        assert.deepStrictEqual(
+          retainedResource.cause.value.reasons.map((reason) => reason._tag),
+          ["Fail", "Die"],
+        );
+        assert.strictEqual(
+          retainedResource.cause.value.reasons.filter(Cause.isFailReason).length,
+          1,
+        );
+        assert.strictEqual(
+          retainedResource.cause.value.reasons.filter(Cause.isDieReason).length,
+          1,
+        );
+      }
+
+      const second = yield* Effect.exit(
+        withRuntime(
+          controller.command({ _tag: "actor:dispose", cause: { _tag: "owner-disposal" } }),
+        ),
+      );
+
+      assert.ok(Exit.isFailure(second));
+      assert.strictEqual(closeAttempts, 2);
+    }),
+  );
 
   // Setup: Use real lifecycle owners with scoped resource acquisitions and one evidence hub; install a finalizer signal on each acquired resource and queue terminal lifecycle records.
   // Action: Dispose the lifecycle owners, await every prompt finalizer signal, then call hub.close so its accepted-prefix drain completes before sink close; inspect the sink's received records after close returns.
@@ -2316,7 +2628,7 @@ describe("pending regression scenarios", () => {
       const evidenceOwner = makeRuntimeEvidenceOwner({
         app: LifecycleApp,
         plan: LifecyclePlan,
-        clock: makeRuntimeClock(),
+        clock: fixedClock,
       });
 
       const sink = yield* makeEvidenceSink({
@@ -2351,12 +2663,14 @@ describe("pending regression scenarios", () => {
       });
 
       const services = makeRuntimeServicesLayer({
-        clock: makeRuntimeClock(),
+        clock: fixedClock,
         scheduler: makeRuntimeScheduler(),
         evidence: evidenceOwner.service,
       });
 
-      const owner = makeLifecycleRuntimeOwner({ drain: evidenceOwner.service.drain });
+      const owner = makeLifecycleRuntimeOwner({
+        drain: evidenceOwner.service.drain,
+      });
 
       owner.registerActor({
         dispose: () =>
@@ -2377,5 +2691,63 @@ describe("pending regression scenarios", () => {
   // Setup: Acquire a real scoped lifecycle resource whose Scope finalizer records one call and dies; keep explicit retryable release separate from that finalizer.
   // Action: Dispose through the real owner, await lifetime release and its failed terminal Exit, then dispose again.
   // Assert: The Scope finalizer runs once and both calls retain the same terminal cleanup Cause. No Scope-close retry or successful disposal result is fabricated; cleanup-failure truth remains suspended and resume is blocked.
-  it.todo("retains a Scope finalizer failure as terminal cleanup truth");
+  it.effect("retains a Scope finalizer failure as terminal cleanup truth", () =>
+    Effect.gen(function* () {
+      const active = yield* withRuntime(activateLifecycle(makePrepared()));
+      const scope = Scope.makeUnsafe();
+      const defect = new Error("terminal-scope-defect");
+      let finalizers = 0;
+      yield* Scope.addFinalizer(
+        scope,
+        Effect.gen(function* () {
+          finalizers += 1;
+          yield* Effect.die(defect);
+        }),
+      );
+
+      const controller = makeLifecycleController({
+        ...active,
+        attachment: {
+          ...active.attachment,
+          resources: [
+            {
+              name: "terminal-scope",
+              scope,
+              close: () => Effect.void,
+              finalization: "pending",
+              cause: Option.none(),
+            },
+          ],
+        },
+      });
+
+      const first = yield* Effect.exit(
+        withRuntime(
+          controller.command({ _tag: "actor:dispose", cause: { _tag: "owner-disposal" } }),
+        ),
+      );
+
+      const firstState = yield* controller.state();
+
+      const second = yield* Effect.exit(
+        withRuntime(
+          controller.command({ _tag: "actor:dispose", cause: { _tag: "owner-disposal" } }),
+        ),
+      );
+
+      assert.ok(Exit.isFailure(first));
+      assert.ok(Exit.isSuccess(second));
+      assert.strictEqual(finalizers, 1);
+
+      if (Exit.isFailure(first)) {
+        assert.strictEqual(Cause.hasFails(first.cause), true);
+      }
+
+      const resource = firstState.attachment.resources[0];
+      assert.ok(resource !== undefined);
+
+      if (resource !== undefined && Option.isSome(resource.cause))
+        assert.strictEqual(Cause.hasDies(resource.cause.value), true);
+    }),
+  );
 });

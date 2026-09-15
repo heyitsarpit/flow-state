@@ -185,7 +185,11 @@ describe("runtime evidence", () => {
       const owner = makeRuntimeEvidenceOwner({
         app: EvidenceApp,
         plan: EvidencePlan,
-        clock: { now: Effect.succeed(4_242), sleepUntil: () => Effect.void },
+        clock: {
+          now: Effect.succeed(4_242),
+          timestamp: () => 4_242,
+          sleepUntil: () => Effect.void,
+        },
       });
 
       const prepared = prepareActorPublication<typeof EvidenceDefinition>({
@@ -226,7 +230,7 @@ describe("runtime evidence", () => {
       const owner = makeRuntimeEvidenceOwner({
         app: EvidenceApp,
         plan: EvidencePlan,
-        clock: { now: Effect.sync(() => now), sleepUntil: () => Effect.void },
+        clock: { now: Effect.sync(() => now), timestamp: () => now, sleepUntil: () => Effect.void },
       });
 
       const prepared = prepareActorPublication<typeof EvidenceDefinition>({
@@ -276,7 +280,11 @@ describe("runtime evidence", () => {
       const owner = makeRuntimeEvidenceOwner({
         app: EvidenceApp,
         plan: EvidencePlan,
-        clock: { now: Effect.succeed(4_242), sleepUntil: () => Effect.void },
+        clock: {
+          now: Effect.succeed(4_242),
+          timestamp: () => 4_242,
+          sleepUntil: () => Effect.void,
+        },
       });
 
       const publication = (revision: number) =>
@@ -324,6 +332,7 @@ describe("runtime evidence", () => {
 
       const clock: RuntimeClockService = {
         now: Effect.sync(() => now),
+        timestamp: () => now,
         sleepUntil: () => Effect.void,
       };
 
@@ -490,8 +499,6 @@ describe("runtime evidence", () => {
       const unowned: RuntimeEvidenceService = {
         hub: {},
         provenance: { app: EvidenceApp, plan: EvidencePlan },
-        machineTurnRevision: 0,
-        nextEvidenceSequence: () => 1,
         publish: () => Effect.succeed(undefined),
         accept: () => Effect.succeed(undefined),
         drain: Effect.succeed(undefined),
@@ -521,6 +528,15 @@ describe("runtime evidence", () => {
           now: Effect.suspend(() =>
             failTimestamp ? Effect.die("timestamp failure") : Effect.succeed(9_000),
           ),
+          timestamp: () => {
+            if (failTimestamp) {
+              failTimestamp = false;
+
+              return Number.NaN;
+            }
+
+            return 9_000;
+          },
           sleepUntil: () => Effect.void,
         },
       });
@@ -670,6 +686,7 @@ describe("runtime evidence", () => {
 
       const clock: RuntimeClockService = {
         now: Effect.sync(() => now),
+        timestamp: () => now,
         sleepUntil: () => Effect.void,
       };
 
@@ -917,7 +934,11 @@ describe("runtime evidence", () => {
       const owner = makeRuntimeEvidenceOwner({
         app: EvidenceApp,
         plan: EvidencePlan,
-        clock: { now: Effect.succeed(2_000), sleepUntil: () => Effect.void },
+        clock: {
+          now: Effect.succeed(2_000),
+          timestamp: () => 2_000,
+          sleepUntil: () => Effect.void,
+        },
       });
 
       const delivered: EvidenceRecord[] = [];
@@ -937,6 +958,7 @@ describe("runtime evidence", () => {
 
       const clock: RuntimeClockService = {
         now: Effect.succeed(2_000),
+        timestamp: () => 2_000,
         sleepUntil: () => Effect.void,
       };
 
@@ -997,6 +1019,96 @@ describe("runtime evidence", () => {
       }
 
       assert.strictEqual(owner.hub.sequence(), 1);
+      yield* owner.close();
+    }),
+  );
+
+  it.effect("orders the original lifecycle Cause before an evidence Cause", () =>
+    Effect.gen(function* () {
+      const fixture = makeFixture();
+
+      const owner = makeRuntimeEvidenceOwner({
+        app: EvidenceApp,
+        plan: EvidencePlan,
+        clock: {
+          now: Effect.succeed(3_000),
+          timestamp: () => 3_000,
+          sleepUntil: () => Effect.void,
+        },
+      });
+
+      const cleanupFailure = Failure({
+        code: "CleanupFailed" as const,
+        path: ["test", "lifecycle"],
+        details: { order: "first" },
+        summary: "lifecycle cleanup failed",
+        help: "Retain the lifecycle Cause.",
+      });
+
+      const evidenceFailure = Failure({
+        code: "InvariantViolation" as const,
+        path: ["test", "evidence"],
+        details: { order: "second" },
+        summary: "evidence acceptance failed",
+        help: "Retain the evidence Cause.",
+      });
+
+      const layer = makeRuntimeServicesLayer({
+        clock: {
+          now: Effect.succeed(3_000),
+          timestamp: () => 3_000,
+          sleepUntil: () => Effect.void,
+        },
+        scheduler: makeRuntimeScheduler(),
+        evidence: {
+          ...owner.service,
+          accept: () => Effect.fail(evidenceFailure),
+        },
+      });
+
+      const prepared = resultSuccess(
+        prepareLifecycle<typeof EvidenceDefinition, PublicDiagnostic>(fixture.fence, {
+          _tag: "fresh",
+        }),
+      );
+
+      const active = yield* Effect.provide(activateLifecycle(prepared), layer);
+
+      const resource: LifecycleResource<PublicDiagnostic> = {
+        name: "ordered-cleanup",
+        scope: Scope.makeUnsafe(),
+        close: () => Effect.fail(cleanupFailure),
+        finalization: "pending",
+        cause: Option.none(),
+      };
+
+      const failed = yield* Effect.exit(
+        Effect.provide(
+          runLifecycleCommand(
+            { ...active, attachment: { ...active.attachment, resources: [resource] } },
+            { _tag: "actor:dispose", cause: { _tag: "owner-disposal" } },
+          ),
+          layer,
+        ),
+      );
+
+      assert.ok(Exit.isFailure(failed));
+
+      if (Exit.isFailure(failed)) {
+        assert.strictEqual(failed.cause.reasons.length, 2);
+        const lifecycleReason = failed.cause.reasons[0];
+        const evidenceReason = failed.cause.reasons[1];
+
+        if (lifecycleReason === undefined || evidenceReason === undefined)
+          return yield* Effect.die(new Error("ordered Cause reasons are missing"));
+
+        if (!Cause.isFailReason(lifecycleReason) || !Cause.isFailReason(evidenceReason))
+          return yield* Effect.die(new Error("ordered Cause reasons are not typed failures"));
+
+        assert.strictEqual(lifecycleReason.error, cleanupFailure);
+        assert.strictEqual(evidenceReason.error, evidenceFailure);
+      }
+
       yield* owner.close();
     }),
   );
@@ -1134,7 +1246,7 @@ describe("runtime evidence", () => {
       const owner = makeRuntimeEvidenceOwner({
         app: EvidenceApp,
         plan: EvidencePlan,
-        clock: { now: Effect.succeed(1), sleepUntil: () => Effect.void },
+        clock: { now: Effect.succeed(1), timestamp: () => 1, sleepUntil: () => Effect.void },
       });
 
       const sink = yield* makeEvidenceSink({ id: "owner-drain" });
@@ -1154,7 +1266,7 @@ describe("runtime evidence", () => {
     const owner = makeRuntimeEvidenceOwner({
       app: EvidenceApp,
       plan: EvidencePlan,
-      clock: { now: Effect.succeed(1), sleepUntil: () => Effect.void },
+      clock: { now: Effect.succeed(1), timestamp: () => 1, sleepUntil: () => Effect.void },
     });
 
     // SAFETY: The fence deliberately carries a foreign incarnation to exercise publication rejection.
@@ -1179,7 +1291,7 @@ describe("runtime evidence", () => {
       const owner = makeRuntimeEvidenceOwner({
         app: EvidenceApp,
         plan: EvidencePlan,
-        clock: { now: Effect.succeed(1), sleepUntil: () => Effect.void },
+        clock: { now: Effect.succeed(1), timestamp: () => 1, sleepUntil: () => Effect.void },
       });
 
       const delivered: EvidenceRecord[] = [];

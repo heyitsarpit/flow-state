@@ -22,7 +22,6 @@ import {
 import type { Machine } from "../machine/machine.js";
 import type { MachineDefinition } from "../machine/grammar.js";
 import {
-  makeRuntimeDisposalOwner,
   type ActorContextBinding,
   type ActorDependencyEdge,
   type ActorFence,
@@ -176,17 +175,47 @@ export type PreparedRestoreTransition<CleanupError> = LifecycleTransition<Cleanu
   readonly command: Extract<LifecycleCommand<CleanupError>, { readonly _tag: "actor:restore" }>;
 };
 
-type LifecycleStateKey = { readonly lifecycle: ActorLifecycle };
+type LifecycleStateKey = {
+  readonly lifecycle: ActorLifecycle;
+  readonly fence: ActorFence;
+};
 
-const scopes = new WeakMap<LifecycleStateKey, Scope.Closeable>();
+type TimerClaim = {
+  readonly generation: number;
+  status: "claimed" | "fired";
+};
 
-const latestStates = new WeakMap<LifecycleStateKey, LifecycleStateKey>();
+type LifecycleOwner = {
+  readonly scope: Scope.Closeable;
+  current: unknown;
+  controllerBound: boolean;
+  readonly routing: { current: "open" | "blocked"; generation: number };
+  scopeClosed: boolean;
+  readonly timerClaims: Map<string, TimerClaim>;
+  overdueGeneration: number | undefined;
+};
 
-const closedScopes = new WeakSet<Scope.Closeable>();
+const lifecycleOwnerSymbol = Symbol("flow-state/lifecycle-owner");
 
-const cleanupCauses = new WeakMap<LifecycleStateKey, Cause.Cause<unknown>>();
+type OwnedLifecycleStateKey = LifecycleStateKey & {
+  readonly [lifecycleOwnerSymbol]: {
+    readonly owner: LifecycleOwner;
+    readonly publicationRevision: number;
+    readonly cleanupCause?: Cause.Cause<unknown>;
+  };
+};
 
-const publicationRevisions = new WeakMap<LifecycleStateKey, number>();
+const lifecycleOwnerOf = (state: LifecycleStateKey): LifecycleOwner | undefined => {
+  // SAFETY: this symbol is installed only by makeOwnedSnapshot and retained by copySnapshot.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- private snapshot ownership metadata.
+  return (state as Partial<OwnedLifecycleStateKey>)[lifecycleOwnerSymbol]?.owner;
+};
+
+const lifecycleMetadataOf = (state: LifecycleStateKey) => {
+  // SAFETY: this symbol is installed only by makeOwnedSnapshot and retained by copySnapshot.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- private snapshot ownership metadata.
+  return (state as Partial<OwnedLifecycleStateKey>)[lifecycleOwnerSymbol];
+};
 
 const copyFence = (fence: ActorFence) => immutableRecord({ ...fence });
 
@@ -285,17 +314,20 @@ const cleanupDiagnostic = (cause: Cause.Cause<unknown>): PublicDiagnostic => {
 };
 
 const addCause = <Error>(current: Cause.Cause<Error> | undefined, next: Cause.Cause<Error>) =>
-  current === undefined ? next : Cause.combine(current, next);
+  current === undefined
+    ? Cause.fromReasons([...next.reasons])
+    : Cause.fromReasons([...current.reasons, ...next.reasons]);
 
 const combineCauses = <Error>(
   current: Cause.Cause<Error> | undefined,
   next: Cause.Cause<Error> | undefined,
 ) => {
-  if (current === undefined) return next;
+  if (current === undefined)
+    return next === undefined ? undefined : Cause.fromReasons([...next.reasons]);
 
   if (next === undefined) return current;
 
-  return Cause.combine(current, next);
+  return Cause.fromReasons([...current.reasons, ...next.reasons]);
 };
 
 const makeTerminalEffect = <Value, Error, Requirements>(
@@ -307,17 +339,19 @@ const makeTerminalEffect = <Value, Error, Requirements>(
     Exit.isSuccess(exit) ? Effect.succeed(exit.value) : Effect.failCause(exit.cause);
 
   return () => {
-    if (completion !== undefined)
-      return Deferred.await(completion).pipe(Effect.flatMap((exit) => resolve(exit)));
-    const cell = Deferred.makeUnsafe<Exit.Exit<Value, Error>>();
-    completion = cell;
+    return Effect.suspend(() => {
+      if (completion !== undefined)
+        return Deferred.await(completion).pipe(Effect.flatMap((exit) => resolve(exit)));
+      const cell = Deferred.makeUnsafe<Exit.Exit<Value, Error>>();
+      completion = cell;
 
-    return Effect.uninterruptible(
-      Effect.exit(operation).pipe(
-        Effect.flatMap((exit) => Deferred.succeed(cell, exit).pipe(Effect.as(exit))),
-        Effect.flatMap((exit) => resolve(exit)),
-      ),
-    );
+      return Effect.uninterruptible(
+        Effect.exit(operation).pipe(
+          Effect.flatMap((exit) => Deferred.succeed(cell, exit).pipe(Effect.as(exit))),
+          Effect.flatMap((exit) => resolve(exit)),
+        ),
+      );
+    });
   };
 };
 
@@ -329,11 +363,9 @@ const rememberState = <
   input: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
   next: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
 ) => {
-  latestStates.set(input, next);
-  latestStates.set(next, next);
-  const scope = scopes.get(input);
+  const owner = lifecycleOwnerOf(input);
 
-  if (scope !== undefined) scopes.set(next, scope);
+  if (owner !== undefined) owner.current = next;
 };
 
 const currentState = <
@@ -343,13 +375,51 @@ const currentState = <
 >(
   state: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
 ) => {
-  const retained = latestStates.get(state);
+  const owner = lifecycleOwnerOf(state);
 
-  if (retained === undefined) return state;
+  if (owner === undefined) return state;
 
-  // SAFETY: latestStates is written only by rememberState with the same generic snapshot key.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- WeakMap erases the private generic boundary.
-  return retained as LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>;
+  if (owner.current === undefined)
+    throw new Error("Lifecycle owner lost its authoritative current snapshot");
+
+  // SAFETY: owner.current is the canonical snapshot retained by this private LifecycleOwner cell.
+  const current = owner.current as LifecycleSnapshot<
+    DefinitionValue,
+    CleanupError,
+    ProviderDefinition
+  >;
+
+  const inputRevision = lifecycleMetadataOf(state)?.publicationRevision;
+  const currentRevision = lifecycleMetadataOf(current)?.publicationRevision;
+
+  if (
+    state !== current &&
+    (inputRevision !== currentRevision || !sameFence(state.fence, current.fence))
+  )
+    return current;
+
+  // SAFETY: one LifecycleOwner retains snapshots produced by this generic lifecycle boundary.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- private owner erases generic fields.
+  return state;
+};
+
+const ownerState = <
+  DefinitionValue extends MachineDefinition,
+  CleanupError,
+  ProviderDefinition extends MachineDefinition,
+>(
+  state: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
+) => {
+  const owner = lifecycleOwnerOf(state);
+
+  if (owner === undefined) return state;
+
+  if (owner.current === undefined)
+    throw new Error("Lifecycle owner lost its authoritative current snapshot");
+
+  // SAFETY: one LifecycleOwner retains snapshots produced by this generic lifecycle boundary.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- private owner erases generic fields.
+  return owner.current as LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>;
 };
 
 const copyResource = <CleanupError>(
@@ -438,17 +508,27 @@ const copySnapshot = <
   >["finalization"],
   cleanupCause?: Cause.Cause<CleanupError>,
 ) => {
+  const metadata =
+    cleanupCause === undefined
+      ? {
+          owner: lifecycleOwnerOf(state)!,
+          publicationRevision: (lifecycleMetadataOf(state)?.publicationRevision ?? 0) + 1,
+        }
+      : {
+          owner: lifecycleOwnerOf(state)!,
+          publicationRevision: (lifecycleMetadataOf(state)?.publicationRevision ?? 0) + 1,
+          cleanupCause,
+        };
+
   const next = immutableRecord({
     lifecycle,
     fence: copyFence(state.fence),
     attachment,
     finalization,
+    [lifecycleOwnerSymbol]: metadata,
   });
 
   rememberState(state, next);
-  publicationRevisions.set(next, (publicationRevisions.get(state) ?? 0) + 1);
-
-  if (cleanupCause !== undefined) cleanupCauses.set(next, cleanupCause);
 
   return next;
 };
@@ -530,11 +610,24 @@ export const prepareLifecycle = <
     finalization: "not-started" as const,
   });
 
-  scopes.set(snapshot, Scope.makeUnsafe("sequential"));
-  latestStates.set(snapshot, snapshot);
-  publicationRevisions.set(snapshot, 0);
+  const owner: LifecycleOwner = {
+    scope: Scope.makeUnsafe("sequential"),
+    current: snapshot,
+    controllerBound: false,
+    routing: { current: "blocked", generation: 0 },
+    scopeClosed: false,
+    timerClaims: new Map(),
+    overdueGeneration: undefined,
+  };
 
-  return Result.succeed(snapshot);
+  const owned = immutableRecord({
+    ...snapshot,
+    [lifecycleOwnerSymbol]: { owner, publicationRevision: 0 },
+  });
+
+  owner.current = owned;
+
+  return Result.succeed(owned);
 };
 
 /** Installs admitted context metadata without creating a lifecycle transition or publication. */
@@ -549,7 +642,10 @@ export const installLifecycleMetadata = <
   LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
   PublicDiagnostic
 > => {
+  if (lifecycleOwnerOf(input) === undefined) return Result.fail(invalidSnapshot("owner"));
   const state = currentState(input);
+
+  if (state !== input) return Result.fail(invalidSnapshot("stale-snapshot"));
 
   if (state.lifecycle !== "prepared" && state.lifecycle !== "active")
     return Result.fail(invalidSnapshot("attachment-install-state"));
@@ -562,31 +658,87 @@ export const installLifecycleMetadata = <
     providerFences: metadata.providerFences,
   });
 
+  const owner = lifecycleOwnerOf(state)!;
+
+  const retainedMetadata =
+    lifecycleMetadataOf(state)?.cleanupCause === undefined
+      ? {
+          owner,
+          publicationRevision: lifecycleMetadataOf(state)?.publicationRevision ?? 0,
+        }
+      : {
+          owner,
+          publicationRevision: lifecycleMetadataOf(state)?.publicationRevision ?? 0,
+          cleanupCause: lifecycleMetadataOf(state)?.cleanupCause,
+        };
+
   const next = immutableRecord({
     lifecycle: state.lifecycle,
     fence: copyFence(state.fence),
     attachment,
     finalization: state.finalization,
+    [lifecycleOwnerSymbol]: retainedMetadata,
   });
 
   rememberState(state, next);
-  publicationRevisions.set(next, publicationRevisions.get(state) ?? 0);
-  const cleanupCause = cleanupCauses.get(state);
 
-  if (cleanupCause !== undefined) cleanupCauses.set(next, cleanupCause);
+  return Result.succeed(next);
+};
+
+/** Installs persisted timer projections into the actor-owned lifecycle before start. */
+export const installLifecycleTimers = <
+  DefinitionValue extends MachineDefinition,
+  CleanupError,
+  ProviderDefinition extends MachineDefinition = DefinitionValue,
+>(
+  input: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
+  timers: readonly Pick<LifecycleTimer, "name" | "startedAt" | "dueAt">[],
+): Result.Result<
+  LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
+  PublicDiagnostic
+> => {
+  if (lifecycleOwnerOf(input) === undefined) return Result.fail(invalidSnapshot("owner"));
+  const state = currentState(input);
+
+  if (state.lifecycle !== "prepared") return Result.fail(invalidSnapshot("timer-install-state"));
+
+  const attachment = copyAttachment({
+    ...state.attachment,
+    timers: timers.map((timer) =>
+      immutableRecord({
+        ...timer,
+        status: "armed" as const,
+        generation: state.fence.generation,
+      }),
+    ),
+  });
+
+  const metadata = lifecycleMetadataOf(state);
+
+  if (metadata === undefined) return Result.fail(invalidSnapshot("owner"));
+
+  const next = immutableRecord({
+    lifecycle: state.lifecycle,
+    fence: copyFence(state.fence),
+    attachment,
+    finalization: state.finalization,
+    [lifecycleOwnerSymbol]: metadata,
+  });
+
+  rememberState(state, next);
 
   return Result.succeed(next);
 };
 
 // RETURN_TYPE: Scope closure retains the lifecycle cleanup error channel for Cause classification.
 const closeScope = <CleanupError>(state: LifecycleStateKey): Effect.Effect<void, CleanupError> => {
-  const scope = scopes.get(state);
+  const owner = lifecycleOwnerOf(state);
 
-  if (scope === undefined || closedScopes.has(scope)) return Effect.succeed(undefined);
+  if (owner === undefined || owner.scopeClosed) return Effect.succeed(undefined);
 
   return Effect.gen(function* () {
-    const result = yield* Effect.exit(Scope.close(scope, Exit.void));
-    closedScopes.add(scope);
+    const result = yield* Effect.exit(Scope.close(owner.scope, Exit.void));
+    owner.scopeClosed = true;
 
     if (Exit.isFailure(result)) {
       // SAFETY: Scope finalizer failures are projected into this lifecycle's cleanup channel.
@@ -603,11 +755,11 @@ const retainedCleanupCause = <
 >(
   state: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
 ) => {
-  const retained = cleanupCauses.get(state);
+  const retained = lifecycleMetadataOf(state)?.cleanupCause;
 
   if (retained !== undefined) {
     // SAFETY: the cause is stored by copySnapshot for this exact snapshot and cleanup error.
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- WeakMap erases the private generic boundary.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- private owner metadata erases the generic boundary.
     return retained as Cause.Cause<CleanupError>;
   }
 
@@ -633,6 +785,7 @@ export const activateLifecycle = <
   PublicDiagnostic,
   RuntimeServiceContext
 > => {
+  if (lifecycleOwnerOf(input) === undefined) return Effect.fail(invalidSnapshot("owner"));
   const state = currentState(input);
 
   if (state.lifecycle !== "prepared")
@@ -819,9 +972,10 @@ const reacquireAttachment = <
   state: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
 ): Effect.Effect<ReacquiredAttachment<CleanupError>, PublicDiagnostic, RuntimeServiceContext> =>
   Effect.gen(function* () {
-    const scope = scopes.get(state) ?? Scope.makeUnsafe("sequential");
+    const owner = lifecycleOwnerOf(state);
 
-    if (!scopes.has(state)) scopes.set(state, scope);
+    if (owner === undefined) return yield* Effect.fail(invalidSnapshot("owner"));
+    const scope = owner.scope;
     const resources: LifecycleResource<CleanupError>[] = [];
     const work: LifecycleWork<CleanupError>[] = [];
     const acquiredResources: LifecycleResource<CleanupError>[] = [];
@@ -834,7 +988,7 @@ const reacquireAttachment = <
         );
 
         if (Exit.isFailure(rolledBack))
-          return yield* Effect.fail(cleanupDiagnostic(Cause.combine(cause, rolledBack.cause)));
+          return yield* Effect.fail(cleanupDiagnostic(addCause(cause, rolledBack.cause)));
 
         return yield* Effect.fail(cleanupDiagnostic(cause));
       });
@@ -854,6 +1008,8 @@ const reacquireAttachment = <
     }
 
     for (const retained of state.attachment.work) {
+      if (retained.name.startsWith("timer:")) continue;
+
       if (retained.finalization !== "done" || retained.reacquire === undefined) {
         work.push(copyWork(retained));
         continue;
@@ -912,6 +1068,7 @@ export const suspendLifecycle = <
   PublicDiagnostic,
   RuntimeServiceContext
 > => {
+  if (lifecycleOwnerOf(input) === undefined) return Effect.fail(invalidSnapshot("owner"));
   const state = currentState(input);
 
   if (state.lifecycle !== "active")
@@ -928,6 +1085,18 @@ export const suspendLifecycle = <
         cleaned.cause === undefined ? "done" : "failed",
         cleaned.cause,
       );
+
+      const owner = lifecycleOwnerOf(state);
+
+      if (owner !== undefined) {
+        for (const timer of state.attachment.timers) {
+          const timerKey = `${timer.name}\u0000${timer.startedAt}\u0000${timer.dueAt}\u0000${timer.generation ?? state.fence.generation}`;
+          const claim = owner.timerClaims.get(timerKey);
+
+          if (claim?.generation === state.fence.generation && claim.status === "claimed")
+            owner.timerClaims.delete(timerKey);
+        }
+      }
 
       if (cleaned.cause !== undefined) return Effect.fail(cleanupDiagnostic(cleaned.cause));
 
@@ -948,40 +1117,62 @@ const scheduleRetainedTimers = <
     const clock = yield* Effect.service(RuntimeClock);
     const scheduler = yield* Effect.service(RuntimeScheduler);
     const now = yield* clock.now;
-    const scope = scopes.get(state) ?? Scope.makeUnsafe("sequential");
+    const owner = lifecycleOwnerOf(state);
 
-    if (!scopes.has(state)) scopes.set(state, scope);
+    if (owner === undefined) return yield* Effect.fail(invalidSnapshot("owner"));
+    const scope = owner.scope;
     const running: RuntimeRunningFiber<void, CleanupError>[] = [];
     const timerWork: LifecycleWork<CleanupError>[] = [];
-    const scheduled = new Set<string>();
-    let overdueRefreshScheduled = false;
 
     for (const timer of state.attachment.timers) {
       if (timer.status !== "armed") continue;
 
       if (timer.generation !== undefined && timer.generation !== state.fence.generation) continue;
       const timerKey = `${timer.name}\u0000${timer.startedAt}\u0000${timer.dueAt}\u0000${timer.generation ?? state.fence.generation}`;
-
-      if (scheduled.has(timerKey)) continue;
+      const claim = owner.timerClaims.get(timerKey);
       const overdue = now >= timer.dueAt;
 
-      if (overdue && overdueRefreshScheduled) continue;
-      scheduled.add(timerKey);
+      if (claim !== undefined && claim.generation === state.fence.generation) continue;
 
-      if (overdue) overdueRefreshScheduled = true;
+      if (overdue && owner.overdueGeneration === state.fence.generation) continue;
+
+      if (overdue) owner.overdueGeneration = state.fence.generation;
+
+      const nextClaim: TimerClaim = {
+        generation: state.fence.generation,
+        status: "claimed",
+      };
+
+      owner.timerClaims.set(timerKey, nextClaim);
       const completion = Deferred.makeUnsafe<Exit.Exit<void, CleanupError>>();
 
       const work = Effect.gen(function* () {
         yield* clock.sleepUntil(timer.dueAt);
 
         if (timer.refresh !== undefined) yield* timer.refresh;
-      });
+      }).pipe(
+        Effect.onExit((exit) =>
+          Effect.sync(() => {
+            const retained = owner.timerClaims.get(timerKey);
+
+            // A suspended overdue fiber can finish after a later resume has
+            // installed a fresh claim for the same retained timer. Only the
+            // exact claim that owns this fiber may clear or fire the entry.
+            if (retained !== nextClaim) return;
+
+            if (Exit.isFailure(exit) && Cause.hasInterrupts(exit.cause))
+              owner.timerClaims.delete(timerKey);
+            else retained.status = "fired";
+          }),
+        ),
+      );
 
       const started = yield* Effect.exit(
         Scope.provide(scope)(scheduler.start({ completion, work })),
       );
 
       if (Exit.isFailure(started)) {
+        if (owner.timerClaims.get(timerKey) === nextClaim) owner.timerClaims.delete(timerKey);
         yield* Effect.uninterruptible(
           Effect.forEach(running, (item) => item.interrupt, { discard: true, concurrency: 1 }),
         );
@@ -1020,6 +1211,7 @@ export const resumeLifecycle = <
   PublicDiagnostic,
   RuntimeServiceContext
 > => {
+  if (lifecycleOwnerOf(input) === undefined) return Effect.fail(invalidSnapshot("owner"));
   const state = currentState(input);
 
   if (state.lifecycle !== "suspended")
@@ -1060,7 +1252,7 @@ export const resumeLifecycle = <
           rollbackReacquired(state, reacquired.acquiredResources, reacquired.acquiredWork).pipe(
             Effect.matchCauseEffect({
               onFailure: (rollbackCause) =>
-                Effect.fail(cleanupDiagnostic(Cause.combine(cause, rollbackCause))),
+                Effect.fail(cleanupDiagnostic(addCause(cause, rollbackCause))),
               onSuccess: () => Effect.fail(cleanupDiagnostic(cause)),
             }),
           ),
@@ -1083,6 +1275,7 @@ export const disposeLifecycle = <
   PublicDiagnostic,
   RuntimeServiceContext
 > => {
+  if (lifecycleOwnerOf(input) === undefined) return Effect.fail(invalidSnapshot("owner"));
   const state = currentState(input);
 
   if (state.lifecycle === "disposed") return Effect.succeed(state);
@@ -1176,11 +1369,13 @@ export const runLifecycleCommand = <
 >(
   input: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
   command: LifecycleCommand<CleanupError>,
+  machineTurnRevision = 0,
 ): Effect.Effect<
   LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
   PublicDiagnostic,
   RuntimeServiceContext
 > => {
+  if (lifecycleOwnerOf(input) === undefined) return Effect.fail(invalidSnapshot("owner"));
   const state = currentState(input);
   const transition = transitionLifecycle(state.lifecycle, command);
 
@@ -1191,11 +1386,15 @@ export const runLifecycleCommand = <
     return Effect.fail(transition.failure);
   }
 
-  const transitionEffect = lifecycleCommandEffect(state, command);
+  const transitionEffect: Effect.Effect<
+    LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
+    PublicDiagnostic,
+    RuntimeServiceContext
+  > = lifecycleCommandEffect(state, command);
 
   return Effect.exit(transitionEffect).pipe(
     Effect.flatMap((exit) => {
-      const after = currentState(state);
+      const after = ownerState(state);
 
       if (after === state) return resolveLifecycleExit(exit);
       const cleanupCause = retainedCleanupCause(after);
@@ -1229,8 +1428,8 @@ export const runLifecycleCommand = <
           before: state,
           after,
           timestamp: yield* clock.now,
-          publicationRevision: publicationRevisions.get(after) ?? 0,
-          machineTurnRevision: service.machineTurnRevision,
+          publicationRevision: lifecycleMetadataOf(after)?.publicationRevision ?? 0,
+          machineTurnRevision,
           provenance: {
             ...service.provenance,
             actor: {
@@ -1252,13 +1451,24 @@ export const runLifecycleCommand = <
       }).pipe(
         Effect.exit,
         Effect.flatMap((evidenceExit) => {
+          let evidenceCause: Cause.Cause<PublicDiagnostic> | undefined;
+          const lifecycleCause = Exit.isFailure(exit) ? exit.cause : undefined;
+
           if (evidenceSequence !== undefined && evidenceService !== undefined) {
             const cancelled = cancelRuntimeEvidence(evidenceService, evidenceSequence);
 
-            if (Result.isFailure(cancelled)) return Effect.fail(cancelled.failure);
+            if (Result.isFailure(cancelled)) evidenceCause = Cause.fail(cancelled.failure);
           }
 
-          if (Exit.isFailure(evidenceExit)) return Effect.failCause(evidenceExit.cause);
+          if (Exit.isFailure(evidenceExit)) {
+            evidenceCause = addCause(evidenceCause, evidenceExit.cause);
+
+            return Effect.failCause(addCause(lifecycleCause, evidenceCause));
+          }
+
+          if (evidenceCause !== undefined) {
+            return Effect.failCause(addCause(lifecycleCause, evidenceCause));
+          }
 
           return resolveLifecycleExit(evidenceExit.value);
         }),
@@ -1273,6 +1483,10 @@ export type LifecycleController<
   CleanupError,
   ProviderDefinition extends MachineDefinition = DefinitionValue,
 > = {
+  /** Reads the current lifecycle from the serialized controller owner. */
+  readonly currentLifecycle: () => ActorLifecycle;
+  /** Reports whether the authoritative lifecycle owner admits actor work. */
+  readonly isRoutable: () => boolean;
   readonly state: () => Effect.Effect<
     LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>
   >;
@@ -1291,6 +1505,46 @@ export type LifecycleController<
     PublicDiagnostic,
     RuntimeServiceContext
   >;
+};
+
+export type LifecycleControllerOptions = {
+  /** Reads the owning actor's latest machine-turn revision without adding it to snapshots. */
+  readonly machineTurnRevision?: () => number;
+};
+
+export type LifecycleRouting = {
+  readonly block: () => number;
+  readonly open: (generation: number) => void;
+};
+
+const lifecycleRoutingSymbol = Symbol("flow-state/lifecycle-routing");
+
+type OwnedLifecycleController<
+  DefinitionValue extends MachineDefinition,
+  CleanupError,
+  ProviderDefinition extends MachineDefinition = DefinitionValue,
+> = LifecycleController<DefinitionValue, CleanupError, ProviderDefinition> & {
+  readonly [lifecycleRoutingSymbol]: LifecycleRouting;
+};
+
+export const lifecycleRouting = <
+  DefinitionValue extends MachineDefinition,
+  CleanupError,
+  ProviderDefinition extends MachineDefinition = DefinitionValue,
+>(
+  controller: LifecycleController<DefinitionValue, CleanupError, ProviderDefinition>,
+): LifecycleRouting => {
+  // SAFETY: makeLifecycleController installs this private capability on every returned controller.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the private symbol restores the owner-only routing capability.
+  const routing = (
+    controller as Partial<
+      OwnedLifecycleController<DefinitionValue, CleanupError, ProviderDefinition>
+    >
+  )[lifecycleRoutingSymbol];
+
+  if (routing === undefined) throw new Error("Lifecycle controller lost its routing owner");
+
+  return routing;
 };
 
 /** One serialized provider publication wave for a retained context binding. */
@@ -1313,23 +1567,249 @@ type ProviderReconcilerOwner<Value> = {
 };
 
 /** Runtime disposal participant; actor cleanup remains the participant's owner. */
-export type LifecycleRuntimeParticipant = {
-  readonly dispose: () => Effect.Effect<void, PublicDiagnostic, RuntimeServiceContext>;
+export type LifecycleRuntimeParticipant<Requirements = RuntimeServiceContext> = {
+  readonly dispose: () => Effect.Effect<void, PublicDiagnostic, Requirements>;
 };
 
-export type LifecycleRuntimeOwner = {
-  readonly registerActor: (participant: LifecycleRuntimeParticipant) => void;
-  readonly registerProvider: (
-    release: Effect.Effect<void, PublicDiagnostic, RuntimeServiceContext>,
-  ) => void;
-  readonly dispose: () => Effect.Effect<void, PublicDiagnostic, RuntimeServiceContext>;
+export type LifecycleRuntimeRegistration = {
+  readonly accepted: boolean;
+  readonly unregister: () => void;
+};
+
+export type LifecycleRuntimeOwner<Requirements = RuntimeServiceContext> = {
+  readonly registerActor: (
+    participant: LifecycleRuntimeParticipant<Requirements>,
+  ) => LifecycleRuntimeRegistration;
+  readonly registerProvider: (release: Effect.Effect<void, PublicDiagnostic, Requirements>) => void;
+  readonly dispose: () => Effect.Effect<void, PublicDiagnostic, Requirements>;
   readonly generation: () => number;
   readonly isCurrent: (generation: number) => boolean;
+  readonly isOpen: () => boolean;
 };
 
 /** Accepted evidence is drained after actors and before runtime providers. */
-export type LifecycleRuntimeOwnerOptions = {
-  readonly drain?: Effect.Effect<void, PublicDiagnostic, RuntimeServiceContext>;
+export type LifecycleRuntimeOwnerOptions<Requirements = RuntimeServiceContext> = {
+  readonly drain?: Effect.Effect<void, PublicDiagnostic, Requirements>;
+};
+
+type RuntimeDisposalState<Requirements> =
+  | {
+      readonly _tag: "open";
+      readonly generation: number;
+      readonly actors: RuntimeActorRegistration<Requirements>[];
+      readonly providers: Array<Effect.Effect<void, PublicDiagnostic, Requirements>>;
+    }
+  | {
+      readonly _tag: "closing";
+      readonly generation: number;
+      readonly actors: RuntimeActorRegistration<Requirements>[];
+      readonly providers: Array<Effect.Effect<void, PublicDiagnostic, Requirements>>;
+      readonly completion: Deferred.Deferred<Exit.Exit<void, PublicDiagnostic>>;
+      acceptingActors: boolean;
+    }
+  | {
+      readonly _tag: "failed";
+      readonly generation: number;
+      readonly actors: RuntimeActorRegistration<Requirements>[];
+      readonly providers: Array<Effect.Effect<void, PublicDiagnostic, Requirements>>;
+      readonly exit: Exit.Exit<void, PublicDiagnostic>;
+    }
+  | {
+      readonly _tag: "closed";
+      readonly generation: number;
+      readonly exit: Exit.Exit<void, PublicDiagnostic>;
+    };
+
+type RuntimeActorRegistration<Requirements> = {
+  readonly participant: LifecycleRuntimeParticipant<Requirements>;
+  active: boolean;
+};
+
+const resolveRuntimeDisposal = (exit: Exit.Exit<void, PublicDiagnostic>) =>
+  Exit.isFailure(exit) ? Effect.failCause(exit.cause) : Effect.void;
+
+const makeColdRuntimeDisposalOwner = <Requirements>(
+  options: LifecycleRuntimeOwnerOptions<Requirements>,
+): LifecycleRuntimeOwner<Requirements> => {
+  const state = SynchronizedRef.makeUnsafe<RuntimeDisposalState<Requirements>>({
+    _tag: "open",
+    generation: 0,
+    actors: [],
+    providers: [],
+  });
+
+  const currentState = () => SynchronizedRef.getUnsafe(state);
+
+  const removeActor = (registration: RuntimeActorRegistration<Requirements>) => {
+    if (!registration.active) return;
+    registration.active = false;
+
+    const current = currentState();
+
+    if (current._tag !== "open" && current._tag !== "closing" && current._tag !== "failed") return;
+
+    const index = current.actors.indexOf(registration);
+
+    if (index >= 0) current.actors.splice(index, 1);
+  };
+
+  const registerActor = (participant: LifecycleRuntimeParticipant<Requirements>) => {
+    const current = currentState();
+
+    const accepted =
+      current._tag === "open" || (current._tag === "closing" && current.acceptingActors);
+
+    const registration: RuntimeActorRegistration<Requirements> = {
+      participant,
+      active: accepted,
+    };
+
+    if (accepted) current.actors.push(registration);
+
+    return { accepted, unregister: () => removeActor(registration) };
+  };
+
+  const registerProvider = (release: Effect.Effect<void, PublicDiagnostic, Requirements>) => {
+    const current = currentState();
+
+    if (current._tag === "open") current.providers.push(release);
+  };
+
+  const run = (
+    closing: Extract<RuntimeDisposalState<Requirements>, { readonly _tag: "closing" }>,
+  ): Effect.Effect<void, PublicDiagnostic, Requirements> => {
+    const operation = Effect.uninterruptible(
+      Effect.gen(function* () {
+        let cleanupCause: Cause.Cause<PublicDiagnostic> | undefined;
+
+        const observe = (effect: Effect.Effect<unknown, PublicDiagnostic, Requirements>) =>
+          Effect.gen(function* () {
+            const result = yield* Effect.exit(effect);
+
+            if (Exit.isFailure(result)) cleanupCause = addCause(cleanupCause, result.cause);
+          });
+
+        const attempted = new Set<RuntimeActorRegistration<Requirements>>();
+
+        const disposeUnattemptedActors = Effect.gen(function* () {
+          while (true) {
+            let foundUnattempted = false;
+
+            for (let index = closing.actors.length - 1; index >= 0; index -= 1) {
+              const registration = closing.actors[index];
+
+              if (registration === undefined || !registration.active || attempted.has(registration))
+                continue;
+
+              foundUnattempted = true;
+              attempted.add(registration);
+              const result = yield* Effect.exit(registration.participant.dispose());
+
+              if (Exit.isFailure(result)) cleanupCause = addCause(cleanupCause, result.cause);
+              else removeActor(registration);
+            }
+
+            if (!foundUnattempted) return;
+          }
+        });
+
+        const hasActiveActors = () => closing.actors.some((registration) => registration.active);
+
+        yield* disposeUnattemptedActors;
+
+        if (hasActiveActors()) {
+          closing.acceptingActors = false;
+
+          if (cleanupCause !== undefined) yield* Effect.failCause(cleanupCause);
+          yield* Effect.die(new Error("Runtime actor disposal remained active without a Cause"));
+        }
+
+        if (options.drain !== undefined) yield* observe(options.drain);
+
+        // A drain may synchronously admit a late participant. Finish every
+        // recursively admitted participant before providers and the terminal
+        // owner Exit settle.
+        yield* disposeUnattemptedActors;
+        closing.acceptingActors = false;
+
+        if (hasActiveActors()) {
+          if (cleanupCause !== undefined) yield* Effect.failCause(cleanupCause);
+          yield* Effect.die(new Error("Runtime actor disposal remained active without a Cause"));
+        }
+
+        for (let index = closing.providers.length - 1; index >= 0; index -= 1) {
+          const provider = closing.providers[index];
+
+          if (provider === undefined) continue;
+          const result = yield* Effect.exit(provider);
+
+          if (Exit.isSuccess(result)) closing.providers.splice(index, 1);
+          else cleanupCause = addCause(cleanupCause, result.cause);
+        }
+
+        if (cleanupCause !== undefined) return yield* Effect.failCause(cleanupCause);
+      }),
+    );
+
+    return Effect.exit(operation).pipe(
+      Effect.flatMap((exit) =>
+        SynchronizedRef.set(
+          state,
+          Exit.isSuccess(exit)
+            ? { _tag: "closed", generation: closing.generation, exit }
+            : {
+                _tag: "failed",
+                generation: closing.generation,
+                actors: closing.actors,
+                providers: closing.providers,
+                exit,
+              },
+        ).pipe(
+          Effect.flatMap(() => Deferred.succeed(closing.completion, exit)),
+          Effect.as(exit),
+        ),
+      ),
+      Effect.flatMap(resolveRuntimeDisposal),
+    );
+  };
+
+  const dispose = () =>
+    SynchronizedRef.modify(state, (current) => {
+      if (current._tag === "closed")
+        return [resolveRuntimeDisposal(current.exit), current] as const;
+
+      if (current._tag === "closing")
+        return [
+          Deferred.await(current.completion).pipe(Effect.flatMap(resolveRuntimeDisposal)),
+          current,
+        ] as const;
+
+      const completion = Deferred.makeUnsafe<Exit.Exit<void, PublicDiagnostic>>();
+
+      const closing: Extract<RuntimeDisposalState<Requirements>, { readonly _tag: "closing" }> = {
+        _tag: "closing",
+        generation: current.generation + 1,
+        actors: current.actors,
+        providers: current.providers,
+        completion,
+        acceptingActors: true,
+      };
+
+      return [run(closing), closing] as const;
+    }).pipe(Effect.flatMap((effect) => effect));
+
+  return {
+    registerActor,
+    registerProvider,
+    dispose,
+    generation: () => currentState().generation,
+    isCurrent: (generation) => {
+      const current = currentState();
+
+      return current._tag === "open" && generation === current.generation;
+    },
+    isOpen: () => currentState()._tag === "open",
+  };
 };
 
 /**
@@ -1388,21 +1868,10 @@ export const makeProviderReconciler = <Value>(
  * drains accepted evidence, and releases providers only after actors settle.
  */
 // RETURN_TYPE: The runtime owner preserves the runtime service capability boundary.
-export const makeLifecycleRuntimeOwner = (
-  options: LifecycleRuntimeOwnerOptions = {},
-): LifecycleRuntimeOwner => {
-  const owner =
-    options.drain === undefined
-      ? makeRuntimeDisposalOwner<RuntimeServiceContext>()
-      : makeRuntimeDisposalOwner<RuntimeServiceContext>({ drain: options.drain });
-
-  return {
-    registerActor: (participant) => owner.registerLease(participant),
-    registerProvider: (release) => owner.registerProvider(release),
-    dispose: owner.dispose,
-    generation: owner.generation,
-    isCurrent: owner.isCurrent,
-  };
+export const makeLifecycleRuntimeOwner = <Requirements = RuntimeServiceContext>(
+  options: LifecycleRuntimeOwnerOptions<NoInfer<Requirements>> = {},
+): LifecycleRuntimeOwner<Requirements> => {
+  return makeColdRuntimeDisposalOwner(options);
 };
 
 // RETURN_TYPE: The public controller factory preserves serialized lifecycle state and requirements.
@@ -1412,25 +1881,75 @@ export const makeLifecycleController = <
   ProviderDefinition extends MachineDefinition = DefinitionValue,
 >(
   initial: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
+  options: LifecycleControllerOptions = {},
 ): LifecycleController<DefinitionValue, CleanupError, ProviderDefinition> => {
-  const state = SynchronizedRef.makeUnsafe(initial);
+  const owner = lifecycleOwnerOf(initial);
 
-  return {
-    state: () => SynchronizedRef.get(state),
+  if (owner === undefined) throw new Error("Lifecycle controller requires an owned snapshot");
+
+  if (owner.controllerBound === false) {
+    owner.current = initial;
+    owner.controllerBound = true;
+  }
+
+  // This ref is a command mutex only. The LifecycleOwner above is the sole mutable snapshot
+  // authority; keeping the mutex separate prevents a second state copy from going stale.
+  const commandLock = SynchronizedRef.makeUnsafe<void>(undefined);
+
+  const routing: LifecycleRouting = {
+    block: () => {
+      if (owner.routing.current !== "blocked") owner.routing.generation += 1;
+      owner.routing.current = "blocked";
+
+      return owner.routing.generation;
+    },
+    open: (generation) => {
+      if (owner.routing.generation !== generation) return;
+
+      owner.routing.current = ownerState(initial).lifecycle === "active" ? "open" : "blocked";
+    },
+  };
+
+  const controller: OwnedLifecycleController<DefinitionValue, CleanupError, ProviderDefinition> = {
+    [lifecycleRoutingSymbol]: routing,
+    currentLifecycle: () => ownerState(initial).lifecycle,
+    isRoutable: () =>
+      owner.routing.current === "open" && ownerState(initial).lifecycle === "active",
+    state: () => Effect.sync(() => ownerState(initial)),
     command: (command) =>
-      SynchronizedRef.modifyEffect(state, (current) =>
-        Effect.exit(runLifecycleCommand(current, command)).pipe(
-          Effect.map((exit) => [exit, currentState(current)] as const),
-        ),
+      SynchronizedRef.modifyEffect(commandLock, () =>
+        Effect.exit(
+          Effect.gen(function* () {
+            const generation = routing.block();
+
+            const exit = yield* Effect.exit(
+              runLifecycleCommand(
+                ownerState(initial),
+                command,
+                options.machineTurnRevision?.() ?? 0,
+              ),
+            );
+
+            const current = ownerState(initial);
+
+            if (current.lifecycle === "active" && command._tag !== "actor:resume")
+              routing.open(generation);
+            else owner.routing.current = "blocked";
+
+            if (Exit.isFailure(exit)) return yield* Effect.failCause(exit.cause);
+
+            return exit.value;
+          }),
+        ).pipe(Effect.map((exit) => [exit, undefined] as const)),
       ).pipe(
         Effect.flatMap((exit) =>
           Exit.isFailure(exit) ? Effect.failCause(exit.cause) : Effect.succeed(exit.value),
         ),
       ),
     installMetadata: (metadata) =>
-      SynchronizedRef.modifyEffect(state, (current) =>
-        Effect.succeed(installLifecycleMetadata(current, metadata)).pipe(
-          Effect.map((result) => [result, currentState(current)] as const),
+      SynchronizedRef.modifyEffect(commandLock, () =>
+        Effect.succeed(installLifecycleMetadata(ownerState(initial), metadata)).pipe(
+          Effect.map((result) => [result, undefined] as const),
         ),
       ).pipe(
         Effect.flatMap((result) =>
@@ -1438,4 +1957,6 @@ export const makeLifecycleController = <
         ),
       ),
   };
+
+  return controller;
 };

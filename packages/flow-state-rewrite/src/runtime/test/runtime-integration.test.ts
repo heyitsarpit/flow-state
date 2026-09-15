@@ -9,11 +9,12 @@ import {
   Fiber,
   Queue,
   Result,
+  Scope,
   Stream,
 } from "effect";
 import { TestClock } from "effect/testing";
 
-import { app, appPlan, module } from "../../app/app.js";
+import { app, appPlan, isOwnedMachineFactsFor, module } from "../../app/app.js";
 import { definition } from "../../definition/definition.js";
 import { Failure } from "../../diagnostic/diagnostic.js";
 import { Implementation } from "../../implementation/implementation.js";
@@ -21,12 +22,14 @@ import { machine } from "../../machine/machine.js";
 import { resource } from "../../operation/resource.js";
 import { actorRef } from "../actor-ref.js";
 import type { ActorContextBinding } from "../actor-admission.js";
+import { makeActorIdentityRegistry } from "../actor-admission.js";
 import { makeEvidenceSink } from "../evidence.js";
 import { ACTOR_MAILBOX_CAPACITY, prepareActorSnapshot } from "../actor-engine.js";
 import type { ActorSnapshot, ActorStore, PreparedActorSnapshot } from "../actor-engine.js";
 import type { EvidenceRecord } from "../evidence.js";
 import { RuntimeClock, RuntimeEvidence, RuntimeScheduler } from "../runtime-services.js";
 import { runtimeOwner, runtimeSetup } from "../runtime.js";
+import { runtimeSetupForAdmissionTest, type RuntimeAdmissionPhase } from "../runtime-test-seam.js";
 
 type IntegrationService = {
   readonly name: "runtime-integration";
@@ -111,12 +114,41 @@ const IntegrationStandaloneMachine = Result.getOrThrow(
   })),
 );
 
+const IntegrationNestedDefinitionResult = definition({
+  id: "runtime-integration/nested",
+  states: ["idle", { active: ["editing", { dialog: ["open", "closed"] }] }, "__proto__"],
+  events: {},
+});
+
+const IntegrationNestedDefinition = Result.getOrThrow(IntegrationNestedDefinitionResult);
+
+const IntegrationNestedMachine = Result.getOrThrow(
+  machine(IntegrationNestedDefinitionResult, ({ S }) => ({
+    default: S.idle,
+    states: {
+      idle: {},
+      active: {
+        default: S.active.S.editing,
+        states: {
+          editing: {},
+          dialog: {
+            default: S.active.S.dialog.S.open,
+            states: { open: {}, closed: {} },
+          },
+        },
+      },
+      ["__proto__"]: {},
+    },
+  })),
+);
+
 const IntegrationModule = module({
   id: "runtime-integration/module",
   machines: {
     provider: IntegrationProviderMachine,
     consumer: IntegrationConsumerMachine,
     standalone: IntegrationStandaloneMachine,
+    nested: IntegrationNestedMachine,
   },
 });
 
@@ -186,9 +218,13 @@ const restoredStandaloneSnapshot = (): PreparedActorSnapshot<
     }),
   );
 
-const initialStandaloneSnapshot = (): PreparedActorSnapshot<
-  typeof IntegrationStandaloneDefinition
-> =>
+const initialStandaloneSnapshot = (
+  timers: readonly {
+    readonly name: string;
+    readonly startedAt: number;
+    readonly dueAt: number;
+  }[] = [],
+): PreparedActorSnapshot<typeof IntegrationStandaloneDefinition> =>
   Result.getOrThrow(
     prepareActorSnapshot(IntegrationStandaloneMachine, {
       state: IntegrationStandaloneDefinition.S.ready,
@@ -196,7 +232,7 @@ const initialStandaloneSnapshot = (): PreparedActorSnapshot<
       context: {},
       lifecycle: "prepared",
       operations: [],
-      timers: [],
+      timers,
       issues: [],
       revision: 0,
       observedStoreRevision: 0,
@@ -643,6 +679,7 @@ describe("runtime assembly integration", () => {
 
       assert.strictEqual(resumed.lifecycle, "active");
       assert.strictEqual(actor.engine.snapshot().lifecycle, "active");
+      assert.strictEqual(actor.lifecycle.isRoutable(), true);
       assert.strictEqual(
         actor.engine.snapshot().context.providerState,
         IntegrationProviderDefinition.S.final,
@@ -879,6 +916,123 @@ describe("runtime assembly integration", () => {
         yield* Effect.provideContext(actor.dispose(), assembly.context);
         yield* runtimeOwner(runtime).close();
       }),
+  );
+
+  it.effect("blocks assembled actor admission while suspend drains an in-flight command", () =>
+    Effect.gen(function* () {
+      const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+      const commandStarted = yield* Deferred.make<void>();
+      const commandRelease = yield* Deferred.make<void>();
+
+      const actor = yield* assembly.createActor({
+        ref: actorRef(IntegrationStandaloneMachine, "routing-fence"),
+        initial: initialStandaloneSnapshot(),
+        onCommand: () =>
+          Effect.gen(function* () {
+            yield* Deferred.succeed(commandStarted, undefined);
+            yield* Deferred.await(commandRelease);
+          }),
+      });
+
+      const first = actor.engine.dispatch(IntegrationStandaloneEvent);
+      assert.strictEqual(first.admitted, true);
+      yield* Deferred.await(commandStarted);
+
+      const suspending = yield* Effect.forkChild(
+        Effect.exit(
+          Effect.provideContext(
+            actor.lifecycle.command({
+              _tag: "actor:suspend",
+              cause: { _tag: "attachment" },
+            }),
+            assembly.context,
+          ),
+        ),
+        { startImmediately: true },
+      );
+
+      yield* Effect.yieldNow;
+      assert.strictEqual(actor.lifecycle.isRoutable(), false);
+      const rejected = actor.engine.dispatch(IntegrationStandaloneEvent);
+      assert.strictEqual(rejected.admitted, false);
+      yield* Deferred.succeed(commandRelease, undefined);
+      yield* Deferred.await(first.completion);
+      yield* actor.engine.drain();
+
+      const suspended = yield* Fiber.join(suspending);
+      assert.ok(Exit.isSuccess(suspended));
+      assert.strictEqual(actor.engine.snapshot().lifecycle, "suspended");
+      assert.strictEqual(actor.lifecycle.isRoutable(), false);
+
+      yield* Effect.provideContext(actor.dispose(), assembly.context);
+      yield* runtimeOwner(runtime).close();
+    }),
+  );
+
+  it.effect("keeps assembled disposal gated when a public lifecycle command is invoked", () =>
+    Effect.gen(function* () {
+      const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+      const finalizerEntered = yield* Deferred.make<void>();
+      const finalizerRelease = yield* Deferred.make<void>();
+      let finalizations = 0;
+
+      const actor = yield* assembly.createActor({
+        ref: actorRef(IntegrationStandaloneMachine, "routing-gated-disposal"),
+        initial: initialStandaloneSnapshot(),
+        onCommand: () =>
+          Effect.gen(function* () {
+            const scope = yield* Effect.scope;
+
+            yield* Scope.addFinalizer(
+              scope,
+              Effect.gen(function* () {
+                finalizations += 1;
+                yield* Deferred.succeed(finalizerEntered, undefined);
+                yield* Deferred.await(finalizerRelease);
+              }),
+            );
+          }),
+      });
+
+      const dispatched = actor.engine.dispatch(IntegrationStandaloneEvent);
+      assert.strictEqual(dispatched.admitted, true);
+      yield* Deferred.await(dispatched.completion);
+      yield* actor.engine.drain();
+
+      const disposing = yield* Effect.forkChild(
+        Effect.exit(Effect.provideContext(actor.dispose(), assembly.context)),
+        { startImmediately: true },
+      );
+
+      yield* Deferred.await(finalizerEntered);
+      assert.strictEqual(actor.lifecycle.isRoutable(), false);
+
+      const publicCommand = yield* Effect.exit(
+        Effect.provideContext(
+          actor.lifecycle.command({
+            _tag: "actor:dispose",
+            cause: { _tag: "owner-disposal" },
+          }),
+          assembly.context,
+        ),
+      );
+
+      assert.ok(Exit.isFailure(publicCommand));
+
+      const rejected = actor.engine.dispatch(IntegrationStandaloneEvent);
+      assert.strictEqual(rejected.admitted, false);
+      yield* Deferred.succeed(finalizerRelease, undefined);
+
+      const disposed = yield* Fiber.join(disposing);
+      assert.ok(Exit.isSuccess(disposed));
+      assert.strictEqual(finalizations, 1);
+      yield* runtimeOwner(runtime).close();
+      assert.strictEqual(finalizations, 1);
+    }),
   );
 
   it.effect("preserves provider truth when the real consumer mailbox is full", () =>
@@ -1241,6 +1395,8 @@ describe("runtime assembly integration", () => {
       );
 
       assert.strictEqual(suspended.lifecycle, "suspended");
+      assert.strictEqual(actor.lifecycle.currentLifecycle(), "suspended");
+      assert.strictEqual(actor.engine.snapshot().lifecycle, "suspended");
       const suspendedDispatch = actor.engine.dispatch(IntegrationStandaloneEvent);
       assert.strictEqual(suspendedDispatch.admitted, false);
       assert.ok(Exit.isFailure(yield* Effect.exit(Deferred.await(suspendedDispatch.completion))));
@@ -1254,6 +1410,8 @@ describe("runtime assembly integration", () => {
       );
 
       assert.strictEqual(resumed.lifecycle, "active");
+      assert.strictEqual(actor.lifecycle.currentLifecycle(), "active");
+      assert.strictEqual(actor.engine.snapshot().lifecycle, "active");
       const resumedDispatch = actor.engine.dispatch(IntegrationStandaloneEvent);
       assert.strictEqual(resumedDispatch.admitted, true);
       yield* Deferred.await(resumedDispatch.completion);
@@ -1265,6 +1423,23 @@ describe("runtime assembly integration", () => {
       assert.ok(Exit.isSuccess(firstClose));
       assert.deepStrictEqual(secondClose, firstClose);
       assert.strictEqual((yield* actor.lifecycle.state()).lifecycle, "disposed");
+
+      const postClose = yield* Effect.exit(
+        assembly.createActor({
+          ref: actorRef(IntegrationStandaloneMachine, "post-close-admission"),
+          initial: initialStandaloneSnapshot(),
+        }),
+      );
+
+      assert.ok(Exit.isFailure(postClose));
+
+      if (Exit.isFailure(postClose)) {
+        const reason = postClose.cause.reasons.find(Cause.isFailReason);
+        assert.ok(reason !== undefined);
+        assert.strictEqual(reason.error.code, "InvariantViolation");
+        assert.deepStrictEqual(reason.error.path, ["mailbox", "closed"]);
+      }
+
       assert.strictEqual(counts.acquisitions, 1);
       assert.strictEqual(counts.releases, 1);
       assert.deepStrictEqual(records, [
@@ -1423,7 +1598,76 @@ describe("pending regression scenarios", () => {
   // Setup: Create independent actors A and B in one assembled runtime and attach one evidence sink; leave B untouched while A processes one ordinary machine event.
   // Action: Drain A's turn evidence, suspend B, and drain the lifecycle evidence without resetting either actor or the runtime-global sequence allocator.
   // Assert: A's machine-turn revision advances only for A, B's suspend record retains B's prior machine-turn revision while its publication revision advances, and evidence sequences remain globally monotonic with actor-specific provenance.
-  it.todo("keeps lifecycle evidence machine-turn revision actor-local");
+  it.effect("keeps lifecycle evidence machine-turn revision actor-local", () =>
+    Effect.gen(function* () {
+      const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+      const records: EvidenceRecord[] = [];
+
+      const sink = yield* makeEvidenceSink({
+        id: "actor-local-machine-turn-revision",
+        capacity: 16,
+        deliver: (record) => Effect.sync(() => records.push(record)),
+      });
+
+      assert.ok(Result.isSuccess(assembly.evidence.hub.attach(sink)));
+
+      const actorA = yield* assembly.createActor({
+        ref: actorRef(IntegrationStandaloneMachine, "machine-revision-a"),
+        initial: initialStandaloneSnapshot(),
+      });
+
+      const actorB = yield* assembly.createActor({
+        ref: actorRef(IntegrationStandaloneMachine, "machine-revision-b"),
+        initial: initialStandaloneSnapshot(),
+      });
+
+      const dispatched = actorA.engine.dispatch(IntegrationStandaloneEvent);
+      assert.strictEqual(dispatched.admitted, true);
+      yield* Deferred.await(dispatched.completion);
+      yield* actorA.engine.drain();
+
+      yield* Effect.provideContext(
+        actorB.lifecycle.command({
+          _tag: "actor:suspend",
+          cause: { _tag: "attachment" },
+        }),
+        assembly.context,
+      );
+      yield* assembly.evidence.hub.drain();
+
+      const actorATurn = records.find(
+        (record): record is Extract<EvidenceRecord, { readonly _tag: "turn" }> =>
+          record._tag === "turn" && record.provenance.actor.key === actorA.fence.key,
+      );
+
+      const actorBSuspend = records.find(
+        (record): record is Extract<EvidenceRecord, { readonly _tag: "lifecycle" }> =>
+          record._tag === "lifecycle" &&
+          record.provenance.actor.key === actorB.fence.key &&
+          record.to === "suspended",
+      );
+
+      assert.ok(actorATurn !== undefined);
+      assert.ok(actorBSuspend !== undefined);
+
+      assert.strictEqual(actorATurn.machineTurnRevision, 1);
+      assert.strictEqual(actorBSuspend.machineTurnRevision, 0);
+      assert.ok(actorBSuspend.publicationRevision > 0);
+
+      const sequences = records.map(sequenceOf);
+      assert.deepStrictEqual(
+        sequences,
+        [...sequences].sort((left, right) => left! - right!),
+      );
+      assert.strictEqual(new Set(sequences).size, sequences.length);
+
+      yield* Effect.provideContext(actorA.dispose(), assembly.context);
+      yield* Effect.provideContext(actorB.dispose(), assembly.context);
+      yield* runtimeOwner(runtime).close();
+    }),
+  );
 
   // Setup: Run the assembled runtime's readiness and lifecycle operations under the provided TestClock with a known virtual time, then attach an evidence sink before lifecycle publication.
   // Action: Read the assembled RuntimeClock and publish an actor lifecycle transition, then drain lifecycle evidence without consulting wall time.
@@ -1574,10 +1818,966 @@ describe("pending regression scenarios", () => {
     }),
   );
 
-  // Setup: Ready one assembled runtime, create an active actor, attach evidence, and retain the actor lease and runtime owner as concurrent disposal authorities.
-  // Action: Start actor lease disposal and `assembly.dispose()` concurrently, await both terminal Effects, let runtime disposal drain the accepted prefix before closing the sink, and inspect the received records after close returns.
-  // Assert: Actor cleanup is shared once, each disposal authority reaches its own terminal outcome, late registration is rejected, and no duplicate terminal lifecycle evidence is emitted; runtime-only cleanup failures remain part of the runtime outcome.
-  it.todo("linearizes actor lease disposal against runtime shutdown");
+  // Setup: Ready one assembled runtime, gate the leader after registration, and start a second createActor call for the same stable ref.
+  // Action: Confirm the follower entered the shared Deferred join path, interrupt only that follower, then release the leader's exposure gate.
+  // Assert: The follower reports interruption without DuplicateActorClaim; one leader runs each admission phase, clears pending state, exposes once, and remains discoverable by later lookup.
+  it.effect("interrupts only a joined stable-admission follower", () =>
+    Effect.gen(function* () {
+      const exposeGate = yield* Deferred.make<void>();
+      const joinSignal = yield* Deferred.make<void>();
+      const phaseReady = yield* Deferred.make<void>();
+      const pendingCleared = yield* Deferred.make<void>();
+      const phases: RuntimeAdmissionPhase[] = [];
+      let joined = 0;
+
+      const runtime = runtimeSetupForAdmissionTest({
+        app: IntegrationApp,
+        admissionProbe: {
+          beforeExpose: Deferred.await(exposeGate),
+          onPhase: (phase) => {
+            phases.push(phase);
+
+            if (phase === "register") Deferred.doneUnsafe(phaseReady, Effect.succeed(undefined));
+          },
+          onJoin: () => {
+            joined += 1;
+            Deferred.doneUnsafe(joinSignal, Effect.succeed(undefined));
+          },
+          onPendingCleared: () => Deferred.doneUnsafe(pendingCleared, Effect.succeed(undefined)),
+        },
+      }).construct();
+
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+
+      const ref = actorRef(IntegrationStandaloneMachine, "joined-runtime-admission", {
+        persist: true,
+      });
+
+      let exposures = 0;
+
+      const leader = yield* Effect.forkChild(
+        Effect.exit(
+          assembly.createActor({
+            ref,
+            initial: initialStandaloneSnapshot(),
+            onSnapshot: () => {
+              exposures += 1;
+            },
+          }),
+        ),
+        { startImmediately: true },
+      );
+
+      const follower = yield* Effect.forkChild(
+        Effect.exit(assembly.createActor({ ref, initial: initialStandaloneSnapshot() })),
+        { startImmediately: true },
+      );
+
+      yield* Deferred.await(joinSignal);
+      yield* Deferred.await(phaseReady);
+      assert.strictEqual(joined, 1);
+      assert.deepStrictEqual(phases, ["reserve", "prepare", "attach", "activate", "register"]);
+
+      yield* Fiber.interrupt(follower);
+      const followerExit = yield* Fiber.await(follower);
+      assert.ok(Exit.isFailure(followerExit));
+
+      if (Exit.isFailure(followerExit)) {
+        assert.strictEqual(Cause.hasInterrupts(followerExit.cause), true);
+        assert.strictEqual(Cause.hasFails(followerExit.cause), false);
+        assert.strictEqual(followerExit.cause.reasons.some(Cause.isFailReason), false);
+      }
+
+      yield* Deferred.succeed(exposeGate, undefined);
+
+      const leaderExit = yield* Fiber.join(leader);
+      assert.ok(Exit.isSuccess(leaderExit));
+      yield* Deferred.await(pendingCleared);
+
+      if (Exit.isFailure(leaderExit)) return;
+      const actor = leaderExit.value;
+      assert.deepStrictEqual(phases, [
+        "reserve",
+        "prepare",
+        "attach",
+        "activate",
+        "register",
+        "expose",
+      ]);
+      assert.strictEqual(exposures, 0);
+
+      const lookup = yield* Effect.exit(
+        assembly.createActor({ ref, initial: initialStandaloneSnapshot() }),
+      );
+
+      assert.ok(Exit.isFailure(lookup));
+
+      if (Exit.isFailure(lookup)) {
+        const reason = lookup.cause.reasons.find(Cause.isFailReason);
+        assert.ok(reason !== undefined);
+
+        if (reason !== undefined) assert.strictEqual(reason.error.code, "DuplicateActorClaim");
+      }
+
+      const dispatch = actor.engine.dispatch(IntegrationStandaloneEvent);
+      assert.strictEqual(dispatch.admitted, true);
+      yield* Deferred.await(dispatch.completion);
+      yield* actor.engine.drain();
+      assert.strictEqual(exposures, 1);
+      yield* Effect.provideContext(actor.dispose(), assembly.context);
+      yield* runtimeOwner(runtime).close();
+    }),
+  );
+
+  // Setup: Ready one assembled runtime and pause the real leader immediately after its stable reservation enters prepare.
+  // Action: Start two real follower admissions, interrupt only the reserved leader, and await every terminal result plus the owner-cleared signal.
+  // Assert: Reservation rollback completes the followers with interruption, never DuplicateActorClaim, clears pending state, and allocates exactly one incarnation before retry.
+  it.effect("rolls back an interrupted assembled admission leader", () =>
+    Effect.gen(function* () {
+      const prepareEntered = yield* Deferred.make<void>();
+      const prepareGate = yield* Deferred.make<void>();
+      const joinSignal = yield* Deferred.make<void>();
+      const pendingCleared = yield* Deferred.make<void>();
+      const allocations: Array<"incarnation" | "local-ordinal"> = [];
+      const phases: RuntimeAdmissionPhase[] = [];
+      let joined = 0;
+      let prepareAttempts = 0;
+
+      const runtime = runtimeSetupForAdmissionTest({
+        app: IntegrationApp,
+        admissionProbe: {
+          beforePrepare: Effect.gen(function* () {
+            prepareAttempts += 1;
+
+            if (prepareAttempts === 1) {
+              yield* Deferred.succeed(prepareEntered, undefined);
+              yield* Effect.interruptible(Deferred.await(prepareGate));
+            }
+          }),
+          onPhase: (phase) => phases.push(phase),
+          onJoin: () => {
+            joined += 1;
+
+            if (joined === 2) Deferred.doneUnsafe(joinSignal, Effect.succeed(undefined));
+          },
+          onPendingCleared: () => Deferred.doneUnsafe(pendingCleared, Effect.succeed(undefined)),
+          onAllocation: (kind) => allocations.push(kind),
+        },
+      }).construct();
+
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+
+      const ref = actorRef(IntegrationStandaloneMachine, "interrupted-leader/reserved:1", {
+        persist: true,
+      });
+
+      const create = () => assembly.createActor({ ref, initial: initialStandaloneSnapshot() });
+
+      const leader = yield* Effect.forkChild(create(), { startImmediately: true });
+      yield* Deferred.await(prepareEntered);
+
+      const follower = yield* Effect.forkChild(create(), { startImmediately: true });
+      const laterFollower = yield* Effect.forkChild(create(), { startImmediately: true });
+      yield* Deferred.await(joinSignal);
+
+      yield* Effect.exit(Fiber.interrupt(leader));
+      const leaderExit = yield* Fiber.await(leader);
+      yield* Deferred.await(pendingCleared);
+      const followerExit = yield* Fiber.await(follower);
+      const laterFollowerExit = yield* Fiber.await(laterFollower);
+
+      for (const terminal of [leaderExit, followerExit, laterFollowerExit]) {
+        assert.ok(Exit.isFailure(terminal));
+
+        if (Exit.isFailure(terminal)) {
+          assert.strictEqual(Cause.hasInterrupts(terminal.cause), true);
+          assert.strictEqual(Cause.hasFails(terminal.cause), false);
+        }
+      }
+
+      assert.deepStrictEqual(phases, ["reserve", "prepare"]);
+      assert.deepStrictEqual(allocations, ["incarnation"]);
+
+      const retried = yield* create();
+      assert.strictEqual(retried.identity.incarnation, 2);
+      assert.deepStrictEqual(allocations, ["incarnation", "incarnation"]);
+      yield* Effect.provideContext(retried.dispose(), assembly.context);
+      yield* runtimeOwner(runtime).close();
+    }),
+  );
+
+  // Setup: Ready one assembled runtime and install a finalizer on the newly acquired actor Scope during the first prepare attempt.
+  // Action: Fail that prepare through the private test seam, retain its original failure, then retry the same real assembly admission.
+  // Assert: The failed prepare closes its Scope exactly once and the later admission succeeds in the same runtime.
+  it.effect("closes a prepared actor Scope on failure before retry", () =>
+    Effect.gen(function* () {
+      const scopeEntered = yield* Deferred.make<void>();
+      let prepareAttempts = 0;
+      let finalizations = 0;
+
+      const prepareFailure = Failure({
+        code: "InvariantViolation" as const,
+        path: ["actorAdmission", "prepare"],
+        details: { reason: "test-prepare-failure" },
+        summary: "The prepared actor test failed before attachment.",
+        help: "Retry the admission after the failed preparation is finalized.",
+      });
+
+      const runtime = runtimeSetupForAdmissionTest({
+        app: IntegrationApp,
+        admissionProbe: {
+          afterPrepareScope: (scope) =>
+            Effect.gen(function* () {
+              prepareAttempts += 1;
+
+              if (prepareAttempts !== 1) return;
+
+              yield* Scope.addFinalizer(
+                scope,
+                Effect.sync(() => (finalizations += 1)),
+              );
+              yield* Deferred.succeed(scopeEntered, undefined);
+
+              return yield* Effect.fail(prepareFailure);
+            }),
+        },
+      }).construct();
+
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+
+      const ref = actorRef(IntegrationStandaloneMachine, "prepare-scope/retry:1", {
+        persist: true,
+      });
+
+      const first = yield* Effect.forkChild(
+        assembly.createActor({ ref, initial: initialStandaloneSnapshot() }),
+        { startImmediately: true },
+      );
+
+      yield* Deferred.await(scopeEntered);
+      const firstExit = yield* Fiber.await(first);
+
+      assert.ok(Exit.isFailure(firstExit));
+
+      if (Exit.isFailure(firstExit)) {
+        assert.strictEqual(Cause.hasFails(firstExit.cause), true);
+        const reason = firstExit.cause.reasons.find(Cause.isFailReason);
+        assert.ok(reason !== undefined);
+
+        if (reason !== undefined) assert.strictEqual(reason.error, prepareFailure);
+      }
+
+      assert.strictEqual(finalizations, 1);
+
+      const retried = yield* assembly.createActor({ ref, initial: initialStandaloneSnapshot() });
+      assert.strictEqual(prepareAttempts, 2);
+
+      yield* Effect.provideContext(retried.dispose(), assembly.context);
+      yield* runtimeOwner(runtime).close();
+      assert.strictEqual(finalizations, 1);
+    }),
+  );
+
+  // Setup: Build two independent test-owned runtime constructions for the same App before constructing them in reverse order.
+  // Action: Admit one actor through each assembled runtime and observe each private probe's allocation and phase trace.
+  // Assert: Construction ownership is per runtime; neither runtime can consume the other's probe instrumentation.
+  it.effect("keeps admission test instrumentation isolated per runtime construction", () =>
+    Effect.gen(function* () {
+      const firstAllocations: Array<"incarnation" | "local-ordinal"> = [];
+      const secondAllocations: Array<"incarnation" | "local-ordinal"> = [];
+      const firstPhases: RuntimeAdmissionPhase[] = [];
+      const secondPhases: RuntimeAdmissionPhase[] = [];
+
+      const firstSetup = runtimeSetupForAdmissionTest({
+        app: IntegrationApp,
+        admissionProbe: {
+          onAllocation: (kind) => firstAllocations.push(kind),
+          onPhase: (phase) => firstPhases.push(phase),
+        },
+      });
+
+      const secondSetup = runtimeSetupForAdmissionTest({
+        app: IntegrationApp,
+        admissionProbe: {
+          onAllocation: (kind) => secondAllocations.push(kind),
+          onPhase: (phase) => secondPhases.push(phase),
+        },
+      });
+
+      const secondRuntime = secondSetup.construct();
+      const firstRuntime = firstSetup.construct();
+      yield* secondRuntime.ready();
+      yield* firstRuntime.ready();
+
+      const secondAssembly = runtimeOwner(secondRuntime).assembly();
+      const firstAssembly = runtimeOwner(firstRuntime).assembly();
+
+      const secondActor = yield* secondAssembly.createActor({
+        ref: actorRef(IntegrationStandaloneMachine, "probe-owner/second:1"),
+        initial: initialStandaloneSnapshot(),
+      });
+
+      const firstActor = yield* firstAssembly.createActor({
+        ref: actorRef(IntegrationStandaloneMachine, "probe-owner/first:1"),
+        initial: initialStandaloneSnapshot(),
+      });
+
+      assert.deepStrictEqual(firstAllocations, ["incarnation"]);
+      assert.deepStrictEqual(secondAllocations, ["incarnation"]);
+      assert.deepStrictEqual(firstPhases, [
+        "reserve",
+        "prepare",
+        "attach",
+        "activate",
+        "register",
+        "expose",
+      ]);
+      assert.deepStrictEqual(secondPhases, [
+        "reserve",
+        "prepare",
+        "attach",
+        "activate",
+        "register",
+        "expose",
+      ]);
+
+      yield* Effect.provideContext(secondActor.dispose(), secondAssembly.context);
+      yield* Effect.provideContext(firstActor.dispose(), firstAssembly.context);
+      yield* runtimeOwner(secondRuntime).close();
+      yield* runtimeOwner(firstRuntime).close();
+    }),
+  );
+
+  // Setup: Ready one assembled runtime with the real admission allocation observer and prepare malformed and valid stable options for the same ref.
+  // Action: Submit malformed options first, then submit valid options through assembly.createActor.
+  // Assert: Reflection validation fails before any incarnation or ordinal allocation; the valid stable admission allocates exactly one incarnation and exposes the actor.
+  it.effect("validates malformed admission before stable allocation", () =>
+    Effect.gen(function* () {
+      const allocations: Array<"incarnation" | "local-ordinal"> = [];
+
+      const runtime = runtimeSetupForAdmissionTest({
+        app: IntegrationApp,
+        admissionProbe: { onAllocation: (kind) => allocations.push(kind) },
+      }).construct();
+
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+      const ref = actorRef(IntegrationStandaloneMachine, "malformed-admission", { persist: true });
+
+      const malformed = {
+        ref,
+        initial: initialStandaloneSnapshot(),
+        bindings: [] as const,
+      };
+
+      Reflect.set(malformed, "bindings", {});
+
+      const invalid = yield* Effect.exit(assembly.createActor(malformed));
+      assert.ok(Exit.isFailure(invalid));
+
+      if (Exit.isFailure(invalid)) {
+        const reason = invalid.cause.reasons.find(Cause.isFailReason);
+        assert.ok(reason !== undefined);
+
+        if (reason !== undefined) {
+          assert.strictEqual(reason.error.code, "SchemaValidation");
+          assert.deepStrictEqual(reason.error.path, ["actorAdmission"]);
+          assert.deepStrictEqual(reason.error.details, { reason: "reflection" });
+        }
+      }
+
+      assert.deepStrictEqual(allocations, []);
+
+      const actor = yield* assembly.createActor({ ref, initial: initialStandaloneSnapshot() });
+      assert.deepStrictEqual(allocations, ["incarnation"]);
+      assert.strictEqual(actor.identity.incarnation, 1);
+      assert.strictEqual(
+        actor.identity.key.endsWith(
+          `/stable/${IntegrationStandaloneDefinition.id.length}:${IntegrationStandaloneDefinition.id}/${ref.id.length}:${ref.id}`,
+        ),
+        true,
+      );
+
+      yield* Effect.provideContext(actor.dispose(), assembly.context);
+      yield* runtimeOwner(runtime).close();
+    }),
+  );
+
+  // Setup: Ready one assembled runtime with deferred local allocation observation and malformed local options.
+  // Action: Submit the malformed options through the machine-first local path, then admit a valid local actor.
+  // Assert: Failed local validation leaves no allocation observation or consumed identity; the next valid local actor starts at the original incarnation and ordinal.
+  it.effect("rolls back malformed local admission before allocation publication", () =>
+    Effect.gen(function* () {
+      const allocations: Array<"incarnation" | "local-ordinal"> = [];
+
+      const runtime = runtimeSetupForAdmissionTest({
+        app: IntegrationApp,
+        admissionProbe: { onAllocation: (kind) => allocations.push(kind) },
+      }).construct();
+
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+
+      const malformed = {
+        initial: initialStandaloneSnapshot(),
+        bindings: [] as const,
+      };
+
+      Reflect.set(malformed, "bindings", {});
+
+      const invalid = yield* Effect.exit(
+        assembly.createActor(IntegrationStandaloneMachine, malformed),
+      );
+
+      assert.ok(Exit.isFailure(invalid));
+
+      if (Exit.isFailure(invalid)) {
+        const reason = invalid.cause.reasons.find(Cause.isFailReason);
+        assert.ok(reason !== undefined);
+
+        if (reason !== undefined) {
+          assert.strictEqual(reason.error.code, "SchemaValidation");
+          assert.deepStrictEqual(reason.error.path, ["actorAdmission"]);
+          assert.deepStrictEqual(reason.error.details, { reason: "reflection" });
+        }
+      }
+
+      assert.deepStrictEqual(allocations, []);
+
+      const actor = yield* assembly.createActor(IntegrationStandaloneMachine, {
+        initial: initialStandaloneSnapshot(),
+      });
+
+      assert.deepStrictEqual(allocations, ["incarnation", "local-ordinal"]);
+      assert.strictEqual(actor.identity.incarnation, 1);
+      assert.strictEqual(actor.identity.key.endsWith("/local/1"), true);
+      yield* Effect.provideContext(actor.dispose(), assembly.context);
+      yield* runtimeOwner(runtime).close();
+    }),
+  );
+
+  // Setup: Build delimiter-heavy stable refs for distinct machines, one real provider/consumer graph, and the production identity owner.
+  // Action: Admit the graph through assembly.createActor, derive stable keys without reservation, and allocate one local identity.
+  // Assert: Machine/ref tuple keys stay injective, provider edges stay separated, local keys are disjoint, and validation does not allocate.
+  it.effect("keeps production stable ensure and local create lanes distinct", () =>
+    Effect.gen(function* () {
+      const allocations: Array<"incarnation" | "local-ordinal"> = [];
+
+      const runtime = runtimeSetupForAdmissionTest({
+        app: IntegrationApp,
+        admissionProbe: { onAllocation: (kind) => allocations.push(kind) },
+      }).construct();
+
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+
+      const stableRef = actorRef(IntegrationStandaloneMachine, "production-stable", {
+        persist: true,
+      });
+
+      const stable = yield* assembly.ensureActor(stableRef, {
+        initial: initialStandaloneSnapshot(),
+      });
+
+      assert.strictEqual(stable.identity.ref.machine, stableRef.machine);
+      assert.strictEqual(stable.identity.ref.id, stableRef.id);
+      assert.strictEqual(stable.identity.ref.persist, true);
+      assert.strictEqual(yield* assembly.getActor(stableRef), stable);
+
+      const duplicate = yield* Effect.exit(
+        assembly.ensureActor(stableRef, { initial: initialStandaloneSnapshot() }),
+      );
+
+      assert.ok(Exit.isFailure(duplicate));
+
+      if (Exit.isFailure(duplicate)) {
+        const reason = duplicate.cause.reasons.find(Cause.isFailReason);
+        assert.ok(reason !== undefined);
+
+        if (reason !== undefined) assert.strictEqual(reason.error.code, "DuplicateActorClaim");
+      }
+
+      const local = yield* assembly.createActor(IntegrationStandaloneMachine, {
+        initial: initialStandaloneSnapshot(),
+      });
+
+      const secondLocal = yield* assembly.createActor(IntegrationStandaloneMachine, {
+        initial: initialStandaloneSnapshot(),
+      });
+
+      assert.strictEqual(local.identity.ref.persist, false);
+      const allocationsBeforeLocalEnsure = allocations.slice();
+
+      const localEnsure = yield* Effect.exit(
+        assembly.ensureActor(local.identity.ref, { initial: initialStandaloneSnapshot() }),
+      );
+
+      assert.ok(Exit.isFailure(localEnsure));
+
+      if (Exit.isFailure(localEnsure)) {
+        const reason = localEnsure.cause.reasons.find(Cause.isFailReason);
+        assert.ok(reason !== undefined);
+
+        if (reason !== undefined) {
+          assert.strictEqual(reason.error.code, "MissingActorRef");
+          assert.deepStrictEqual(reason.error.details, { local: true, stable: false });
+        }
+      }
+
+      assert.deepStrictEqual(allocations, allocationsBeforeLocalEnsure);
+      assert.strictEqual(secondLocal.identity.ref.persist, false);
+      assert.notStrictEqual(local.identity.ref, secondLocal.identity.ref);
+      assert.notStrictEqual(local.identity.key, secondLocal.identity.key);
+      assert.strictEqual(secondLocal.identity.incarnation, local.identity.incarnation + 1);
+      const opaqueLocalLookup = yield* Effect.exit(assembly.getActor(local.identity.ref));
+      assert.ok(Exit.isFailure(opaqueLocalLookup));
+
+      if (Exit.isFailure(opaqueLocalLookup)) {
+        const reason = opaqueLocalLookup.cause.reasons.find(Cause.isFailReason);
+        assert.ok(reason !== undefined);
+
+        if (reason !== undefined) assert.strictEqual(reason.error.code, "MissingActorRef");
+      }
+
+      yield* Effect.provideContext(stable.dispose(), assembly.context);
+      yield* Effect.provideContext(local.dispose(), assembly.context);
+      yield* Effect.provideContext(secondLocal.dispose(), assembly.context);
+      yield* runtimeOwner(runtime).close();
+    }),
+  );
+
+  it.effect("keeps delimiter-heavy admission identity and provider keys separated", () =>
+    Effect.gen(function* () {
+      const allocations: Array<"incarnation" | "local-ordinal"> = [];
+
+      const runtime = runtimeSetupForAdmissionTest({
+        app: IntegrationApp,
+        admissionProbe: { onAllocation: (kind) => allocations.push(kind) },
+      }).construct();
+
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+      const delimiterHeavyId = "machine/provider|consumer:/:1";
+
+      const providerRef = actorRef(IntegrationProviderMachine, delimiterHeavyId, {
+        persist: true,
+      });
+
+      const consumerRef = actorRef(IntegrationConsumerMachine, delimiterHeavyId, {
+        persist: true,
+      });
+
+      const provider = yield* assembly.createActor({
+        ref: providerRef,
+        initial: initialProviderSnapshot(),
+      });
+
+      const providerStateBinding = {
+        slot: "providerState",
+        provider: providerRef,
+        providerFence: provider.fence,
+        select: ({ state }) => state,
+      } satisfies ActorContextBinding<
+        typeof IntegrationConsumerDefinition,
+        typeof IntegrationProviderDefinition,
+        "providerState"
+      >;
+
+      const providerChangedBinding = {
+        slot: "providerChanged",
+        provider: providerRef,
+        providerFence: provider.fence,
+        select: ({ state }) => state === IntegrationProviderDefinition.S.changed,
+      } satisfies ActorContextBinding<
+        typeof IntegrationConsumerDefinition,
+        typeof IntegrationProviderDefinition,
+        "providerChanged"
+      >;
+
+      const consumer = yield* assembly.createActor({
+        ref: consumerRef,
+        initial: initialConsumerSnapshot(),
+        bindings: [providerStateBinding, providerChangedBinding],
+      });
+
+      const sameMachineOtherRef = yield* assembly.createActor({
+        ref: actorRef(IntegrationProviderMachine, "machine/provider|consumer:/:2", {
+          persist: true,
+        }),
+        initial: initialProviderSnapshot(),
+      });
+
+      assert.notStrictEqual(provider.identity.key, consumer.identity.key);
+      assert.notStrictEqual(provider.identity.key, sameMachineOtherRef.identity.key);
+      assert.deepStrictEqual(allocations, ["incarnation", "incarnation", "incarnation"]);
+
+      const consumerState = yield* consumer.lifecycle.state();
+      assert.strictEqual(consumerState.attachment.dependencies.length, 2);
+      assert.ok(
+        consumerState.attachment.dependencies.every(
+          (edge) => edge.consumer === consumer.fence.key && edge.provider === provider.fence.key,
+        ),
+      );
+
+      const identityAllocations: Array<"incarnation" | "local-ordinal"> = [];
+
+      const registry = makeActorIdentityRegistry({
+        onAllocate: (kind) => identityAllocations.push(kind),
+      });
+
+      const stableLeft = actorRef(IntegrationStandaloneMachine, "a/b:|c", { persist: true });
+      const stableRight = actorRef(IntegrationStandaloneMachine, "a/b:|c/2", { persist: true });
+      const leftKey = registry.stableKey(stableLeft, IntegrationStandaloneMachine);
+      const rightKey = registry.stableKey(stableRight, IntegrationStandaloneMachine);
+
+      assert.notStrictEqual(leftKey, rightKey);
+      assert.deepStrictEqual(identityAllocations, []);
+
+      const local = registry.createLocal(IntegrationStandaloneMachine);
+      assert.ok(Result.isSuccess(local));
+
+      if (Result.isSuccess(local)) {
+        assert.notStrictEqual(leftKey, local.success.key);
+        assert.notStrictEqual(rightKey, local.success.key);
+        assert.strictEqual(local.success.key.includes("/local/"), true);
+      }
+
+      assert.deepStrictEqual(identityAllocations, ["incarnation", "local-ordinal"]);
+      yield* Effect.provideContext(consumer.dispose(), assembly.context);
+      yield* Effect.provideContext(provider.dispose(), assembly.context);
+      yield* Effect.provideContext(sameMachineOtherRef.dispose(), assembly.context);
+      yield* runtimeOwner(runtime).close();
+    }),
+  );
+
+  // TIM1: Assemble persisted timer projections through the runtime owner, interrupt the owner-held claim before its deadline, then resume after the deadline and let the same owner observe the overdue claim. The final resume must not replay the fired claim.
+  it.effect("TIM1 assembled runtime owns interrupted and overdue timer claims", () =>
+    Effect.gen(function* () {
+      const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+
+      const actor = yield* assembly.createActor({
+        ref: actorRef(IntegrationStandaloneMachine, "assembled-retained-timer"),
+        initial: initialStandaloneSnapshot([
+          { name: "assembled-refresh", startedAt: 0, dueAt: 100 },
+        ]),
+      });
+
+      const started = yield* actor.lifecycle.state();
+      assert.strictEqual(started.lifecycle, "active");
+      assert.strictEqual(started.attachment.timers.length, 1);
+
+      const suspendedAtStart = yield* Effect.provideContext(
+        actor.lifecycle.command({
+          _tag: "actor:suspend",
+          cause: { _tag: "attachment" },
+        }),
+        assembly.context,
+      );
+
+      assert.strictEqual(suspendedAtStart.attachment.work.length, 0);
+
+      const resumedBeforeDue = yield* Effect.provideContext(
+        actor.lifecycle.command({
+          _tag: "actor:resume",
+          cause: { _tag: "attachment" },
+        }),
+        assembly.context,
+      );
+
+      assert.strictEqual(resumedBeforeDue.attachment.work.length, 1);
+
+      yield* TestClock.adjust(10);
+
+      const interrupted = yield* Effect.provideContext(
+        actor.lifecycle.command({
+          _tag: "actor:suspend",
+          cause: { _tag: "attachment" },
+        }),
+        assembly.context,
+      );
+
+      assert.strictEqual(interrupted.attachment.work.length, 1);
+      assert.strictEqual(interrupted.attachment.work[0]?.finalization, "done");
+
+      yield* TestClock.adjust(90);
+
+      const overdue = yield* Effect.provideContext(
+        actor.lifecycle.command({
+          _tag: "actor:resume",
+          cause: { _tag: "attachment" },
+        }),
+        assembly.context,
+      );
+
+      const overdueWork = overdue.attachment.work[0];
+      assert.ok(overdueWork !== undefined);
+
+      if (overdueWork !== undefined) {
+        const completed = yield* Fiber.await(overdueWork.fiber);
+        assert.ok(Exit.isSuccess(completed));
+      }
+
+      const suspendedAfterDue = yield* Effect.provideContext(
+        actor.lifecycle.command({
+          _tag: "actor:suspend",
+          cause: { _tag: "attachment" },
+        }),
+        assembly.context,
+      );
+
+      assert.strictEqual(suspendedAfterDue.attachment.work[0]?.finalization, "done");
+
+      const resumedAfterDue = yield* Effect.provideContext(
+        actor.lifecycle.command({
+          _tag: "actor:resume",
+          cause: { _tag: "attachment" },
+        }),
+        assembly.context,
+      );
+
+      assert.deepStrictEqual(resumedAfterDue.attachment.work, []);
+      assert.strictEqual(resumedAfterDue.attachment.timers[0]?.dueAt, 100);
+
+      yield* runtimeOwner(runtime).close();
+      assert.strictEqual((yield* actor.lifecycle.state()).lifecycle, "disposed");
+    }).pipe(Effect.provide(TestClock.layer())),
+  );
+
+  // RET2: Use the assembled runtime owner with real actor scopes, a real evidence sink, and a registered provider failure. A failed actor release retains the actors and defers evidence/providers; the retry then drains evidence before providers and retains the later Cause.
+  it.effect("RET2 assembled runtime retains ordered shutdown Causes", () =>
+    Effect.gen(function* () {
+      const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+      const order: string[] = [];
+      const firstDefect = new Error("assembled-first-actor");
+      const secondDefect = new Error("assembled-second-actor");
+      const providerDefect = new Error("assembled-provider");
+      const firstEntered = yield* Deferred.make<void>();
+      const secondEntered = yield* Deferred.make<void>();
+
+      const sink = yield* makeEvidenceSink({
+        id: "assembled-ret2",
+        capacity: 16,
+        deliver: () => Effect.sync(() => order.push("sink-delivery")),
+      });
+
+      assert.ok(Result.isSuccess(assembly.evidence.hub.attach(sink)));
+
+      const makeActorWithDefect = (id: string, defect: Error, entered: Deferred.Deferred<void>) =>
+        assembly.createActor({
+          ref: actorRef(IntegrationStandaloneMachine, id),
+          initial: initialStandaloneSnapshot(),
+          onCommand: () =>
+            Effect.gen(function* () {
+              const scope = yield* Effect.scope;
+              yield* Scope.addFinalizer(
+                scope,
+                Effect.gen(function* () {
+                  order.push(id);
+                  yield* Effect.die(defect);
+                }),
+              );
+              yield* Deferred.succeed(entered, undefined);
+            }),
+        });
+
+      const first = yield* makeActorWithDefect("assembled-first", firstDefect, firstEntered);
+      const second = yield* makeActorWithDefect("assembled-second", secondDefect, secondEntered);
+
+      const firstDispatch = first.engine.dispatch(IntegrationStandaloneEvent);
+      assert.strictEqual(firstDispatch.admitted, true);
+      yield* Deferred.await(firstDispatch.completion);
+      yield* Deferred.await(firstEntered);
+      yield* first.engine.drain();
+
+      const secondDispatch = second.engine.dispatch(IntegrationStandaloneEvent);
+      assert.strictEqual(secondDispatch.admitted, true);
+      yield* Deferred.await(secondDispatch.completion);
+      yield* Deferred.await(secondEntered);
+      yield* second.engine.drain();
+
+      assembly.lifecycle.registerProvider(
+        Effect.gen(function* () {
+          order.push("provider");
+          yield* Effect.die(providerDefect);
+        }),
+      );
+
+      const shutdown = yield* Effect.exit(runtimeOwner(runtime).close());
+      assert.ok(Exit.isFailure(shutdown));
+      assert.deepStrictEqual(order, ["assembled-second", "assembled-first"]);
+
+      if (Exit.isFailure(shutdown)) {
+        const defects = shutdown.cause.reasons
+          .filter(Cause.isDieReason)
+          .map((reason) => reason.defect);
+
+        assert.deepStrictEqual(defects, [secondDefect, firstDefect]);
+      }
+
+      const retry = yield* Effect.exit(runtimeOwner(runtime).close());
+      assert.ok(Exit.isFailure(retry));
+      assert.deepStrictEqual(order.slice(0, 2), ["assembled-second", "assembled-first"]);
+      assert.strictEqual(order.at(-1), "provider");
+      assert.ok(order.slice(2, -1).length > 0);
+      assert.ok(order.slice(2, -1).every((entry) => entry === "sink-delivery"));
+
+      if (Exit.isFailure(retry)) {
+        const defects = retry.cause.reasons
+          .filter(Cause.isDieReason)
+          .map((reason) => reason.defect);
+
+        assert.deepStrictEqual(defects, [providerDefect]);
+      }
+    }),
+  );
+
+  // Setup: Assemble one real actor Scope whose finalizer fails once during runtime shutdown and a real evidence sink.
+  // Action: Close the runtime, retain the failed actor Exit, then retry the same production owner close.
+  // Assert: The first close retains the actor Cause and does not drain the sink; the retry releases the retained actor registration, drains evidence, and does not replay the actor finalizer.
+  it.effect("retries a failed assembled actor release before evidence close", () =>
+    Effect.gen(function* () {
+      const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+      const order: string[] = [];
+      const defect = new Error("retryable-assembled-actor");
+      const entered = yield* Deferred.make<void>();
+
+      const sink = yield* makeEvidenceSink({
+        id: "assembled-retryable-release",
+        capacity: 16,
+        deliver: () => Effect.sync(() => order.push("sink-delivery")),
+      });
+
+      assert.ok(Result.isSuccess(assembly.evidence.hub.attach(sink)));
+
+      const actor = yield* assembly.createActor({
+        ref: actorRef(IntegrationStandaloneMachine, "assembled-retryable-release"),
+        initial: initialStandaloneSnapshot(),
+        onCommand: () =>
+          Effect.gen(function* () {
+            const scope = yield* Effect.scope;
+            yield* Scope.addFinalizer(
+              scope,
+              Effect.gen(function* () {
+                order.push("actor-finalizer");
+                yield* Deferred.succeed(entered, undefined);
+                yield* Effect.die(defect);
+              }),
+            );
+          }),
+      });
+
+      const dispatch = actor.engine.dispatch(IntegrationStandaloneEvent);
+      assert.strictEqual(dispatch.admitted, true);
+      yield* Deferred.await(dispatch.completion);
+      yield* actor.engine.drain();
+
+      const first = yield* Effect.exit(runtimeOwner(runtime).close());
+      assert.ok(Exit.isFailure(first));
+      assert.deepStrictEqual(order, ["actor-finalizer"]);
+      assert.strictEqual(Deferred.isDoneUnsafe(entered), true);
+
+      if (Exit.isFailure(first)) {
+        const defects = first.cause.reasons
+          .filter(Cause.isDieReason)
+          .map((reason) => reason.defect);
+
+        assert.deepStrictEqual(defects, [defect]);
+      }
+
+      const second = yield* Effect.exit(runtimeOwner(runtime).close());
+      assert.ok(Exit.isSuccess(second));
+      assert.strictEqual(order[0], "actor-finalizer");
+      assert.ok(order.slice(1).length > 0);
+      assert.ok(order.slice(1).every((entry) => entry === "sink-delivery"));
+      assert.strictEqual(order.filter((entry) => entry === "actor-finalizer").length, 1);
+    }),
+  );
+
+  // Setup: Ready one assembled runtime, create an active actor, attach a gated real evidence sink, and retain the actor lease and runtime owner as concurrent disposal authorities.
+  // Action: Hold the actor Scope finalizer at a Deferred, start actor lease disposal, start runtime close while that lease is active, then release the finalizer and sink delivery.
+  // Assert: The two authorities share one actor cleanup, actor finalization precedes sink delivery and runtime close, and a completed actor is not replayed by runtime close.
+  it.effect("linearizes actor lease disposal against runtime shutdown", () =>
+    Effect.gen(function* () {
+      const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+      const order: string[] = [];
+      const finalizerEntered = yield* Deferred.make<void>();
+      const finalizerRelease = yield* Deferred.make<void>();
+      const deliveryEntered = yield* Deferred.make<void>();
+      const deliveryRelease = yield* Deferred.make<void>();
+
+      const sink = yield* makeEvidenceSink({
+        id: "actor-runtime-shutdown-race",
+        capacity: 16,
+        deliver: () =>
+          Effect.gen(function* () {
+            order.push("sink-delivery");
+            yield* Deferred.succeed(deliveryEntered, undefined);
+            yield* Deferred.await(deliveryRelease);
+          }),
+      });
+
+      assert.ok(Result.isSuccess(assembly.evidence.hub.attach(sink)));
+
+      const actor = yield* assembly.createActor({
+        ref: actorRef(IntegrationStandaloneMachine, "runtime-shutdown-race"),
+        initial: initialStandaloneSnapshot(),
+        onCommand: () =>
+          Effect.gen(function* () {
+            const scope = yield* Effect.scope;
+            yield* Scope.addFinalizer(
+              scope,
+              Effect.gen(function* () {
+                order.push("actor-finalizer");
+                yield* Deferred.succeed(finalizerEntered, undefined);
+                yield* Deferred.await(finalizerRelease);
+              }),
+            );
+          }),
+      });
+
+      const dispatch = actor.engine.dispatch(IntegrationStandaloneEvent);
+      assert.strictEqual(dispatch.admitted, true);
+      yield* Deferred.await(dispatch.completion);
+      yield* actor.engine.drain();
+
+      const actorClose = yield* Effect.forkChild(
+        Effect.exit(Effect.provideContext(actor.dispose(), assembly.context)),
+        { startImmediately: true },
+      );
+
+      yield* Deferred.await(finalizerEntered);
+
+      const runtimeClose = yield* Effect.forkChild(Effect.exit(runtimeOwner(runtime).close()), {
+        startImmediately: true,
+      });
+
+      yield* Effect.yieldNow;
+      yield* Deferred.succeed(finalizerRelease, undefined);
+      yield* Deferred.await(deliveryEntered);
+      assert.deepStrictEqual(order.slice(0, 2), ["actor-finalizer", "sink-delivery"]);
+
+      yield* Deferred.succeed(deliveryRelease, undefined);
+      const actorExit = yield* Fiber.join(actorClose);
+      const runtimeExit = yield* Fiber.join(runtimeClose);
+      assert.ok(Exit.isSuccess(actorExit));
+      assert.ok(Exit.isSuccess(runtimeExit));
+      order.push("runtime-closed");
+      assert.strictEqual(order[0], "actor-finalizer");
+      assert.strictEqual(order.at(-1), "runtime-closed");
+      assert.ok(order.slice(1, -1).every((entry) => entry === "sink-delivery"));
+    }),
+  );
 
   // Setup: Attach a real runtime evidence sink whose first delivery blocks, capture the accepted prefix, and start a hub drain at that prefix.
   // Action: While delivery of the captured record is blocked, admit and accept a newer actor lifecycle or turn record, then release the first delivery.
@@ -1614,7 +2814,41 @@ describe("pending regression scenarios", () => {
   // Setup: Create and dispose multiple real actors through assembly in one live runtime; decorate the new selected internal ActorInstance.make acquisition capability so it delegates actual mailbox/subscription acquisition and records a Scope finalizer.
   // Action: Await each actor lease disposal before creating the next actor, observe its real lifetime release, then close the runtime.
   // Assert: Actual actor fibers/registrations and the delegated acquisition finalizer release before each disposal returns, each finalizer runs once, and runtime close does not replay completed actor cleanup. Do not replace acquisition with a fabricated owner, use a public test hook, or query garbage collection.
-  it.todo("releases each actor lifetime before runtime shutdown");
+  it.effect("releases each actor lifetime before runtime shutdown", () =>
+    Effect.gen(function* () {
+      const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+      const finalizers: string[] = [];
+
+      for (const [index, id] of ["one", "two", "three"].entries()) {
+        const actor = yield* assembly.createActor({
+          ref: actorRef(IntegrationStandaloneMachine, `actor-lifetime-finalizer-${id}`),
+          initial: initialStandaloneSnapshot(),
+          onCommand: () =>
+            Effect.gen(function* () {
+              const scope = yield* Effect.scope;
+              yield* Scope.addFinalizer(
+                scope,
+                Effect.sync(() => finalizers.push(id)),
+              );
+            }),
+        });
+
+        const dispatch = actor.engine.dispatch(IntegrationStandaloneEvent);
+        assert.strictEqual(dispatch.admitted, true);
+        yield* Deferred.await(dispatch.completion);
+        yield* actor.engine.drain();
+        assert.strictEqual(finalizers.length, index);
+
+        yield* Effect.provideContext(actor.dispose(), assembly.context);
+        assert.strictEqual(finalizers.at(-1), id);
+      }
+
+      yield* runtimeOwner(runtime).close();
+      assert.deepStrictEqual(finalizers, ["one", "two", "three"]);
+    }),
+  );
 
   // Setup: Build the real A-to-B/C-to-D diamond plus a healthy C-to-F branch; fill B's mailbox, publish A revision 1, and let C commit while B retains its A revision-0 lineage.
   // Action: After the failed wave settles, release/drain B's blocked queue without retriggering A; publish ordinary local B and C events separately and drain each. Then publish A revision 2 and enqueue an ordinary B event immediately after its projection ticket completes but before the coordinator observes that completion.
@@ -1642,14 +2876,47 @@ describe("pending regression scenarios", () => {
         states: typeof IntegrationStandaloneMachine.compiled.states;
       };
 
+      // SAFETY: this fixture mutates only the exposed nested state table to prove recursive app-time copying.
+      const nestedDefinition = IntegrationNestedMachine.definition as {
+        S: typeof IntegrationNestedMachine.definition.S;
+      };
+
+      // SAFETY: this fixture mutates only the exposed nested compiled state containers to prove recursive app-time copying.
+      const nestedCompiled = IntegrationNestedMachine.compiled as {
+        states: typeof IntegrationNestedMachine.compiled.states;
+      };
+
+      const nestedActiveCompiled = nestedCompiled.states["S.active"];
+      const nestedDialogCompiled = nestedCompiled.states["S.active.S.dialog"];
+
+      if (nestedActiveCompiled === undefined || nestedDialogCompiled === undefined)
+        return yield* Effect.die(new Error("nested integration states are missing"));
+
       const originalOperations = definition.operations;
       const originalStates = compiled.states;
+      const nestedFacts = plan.resolveMachineFacts(IntegrationNestedMachine);
+      const originalStandaloneFacts = plan.resolveMachineFacts(IntegrationStandaloneMachine);
+      const originalStandaloneId = IntegrationStandaloneMachine.definition.id;
+      const originalNestedEditing = IntegrationNestedDefinition.S.active.S.editing;
+      const originalNestedChildren = nestedActiveCompiled.children;
+      const originalNestedDialogChildren = nestedDialogCompiled.children;
       const initial = initialStandaloneSnapshot();
+
+      assert.ok(isOwnedMachineFactsFor(nestedFacts, IntegrationNestedMachine));
+
+      if (isOwnedMachineFactsFor(nestedFacts, IntegrationNestedMachine))
+        assert.strictEqual(
+          Object.prototype.hasOwnProperty.call(nestedFacts.definition.S, "__proto__"),
+          true,
+        );
 
       Reflect.set(exposedMachines, "length", 0);
       Reflect.set(exposedDescriptors, "length", 0);
       Reflect.set(definition, "operations", {});
       Reflect.set(compiled, "states", {});
+      Reflect.set(nestedDefinition.S.active.S, "editing", undefined);
+      Reflect.set(nestedActiveCompiled, "children", []);
+      Reflect.set(nestedDialogCompiled, "children", []);
 
       try {
         const runtime = runtimeSetup({ app: IntegrationApp }).construct();
@@ -1665,6 +2932,7 @@ describe("pending regression scenarios", () => {
           IntegrationProviderMachine,
           IntegrationConsumerMachine,
           IntegrationStandaloneMachine,
+          IntegrationNestedMachine,
         ]);
         assert.deepStrictEqual(originalDescriptors, [IntegrationResource]);
         const dispatch = actor.engine.dispatch(IntegrationStandaloneEvent);
@@ -1673,11 +2941,187 @@ describe("pending regression scenarios", () => {
         yield* actor.engine.drain();
         assert.strictEqual(actor.engine.snapshot().state, IntegrationStandaloneDefinition.S.done);
 
+        const nestedRuntime = runtimeSetup({ app: IntegrationApp }).construct();
+        yield* nestedRuntime.ready();
+        const nestedAssembly = runtimeOwner(nestedRuntime).assembly();
+
+        const nestedActor = yield* nestedAssembly.createActor({
+          ref: actorRef(IntegrationNestedMachine, "captured-nested-facts"),
+          initial: Result.getOrThrow(
+            prepareActorSnapshot(IntegrationNestedMachine, {
+              state: originalNestedEditing,
+              memory: {},
+              context: {},
+              lifecycle: "prepared",
+              operations: [],
+              timers: [],
+              issues: [],
+              revision: 0,
+              observedStoreRevision: 0,
+            }),
+          ),
+        });
+
+        assert.strictEqual(nestedActor.engine.snapshot().state, originalNestedEditing);
+
         yield* Effect.provideContext(actor.dispose(), assembly.context);
         yield* runtimeOwner(runtime).close();
+        yield* Effect.provideContext(nestedActor.dispose(), nestedAssembly.context);
+        yield* runtimeOwner(nestedRuntime).close();
+
+        Reflect.set(exposedMachines, "length", originalMachines.length);
+        originalMachines.forEach((machine, index) => Reflect.set(exposedMachines, index, machine));
+        Reflect.set(exposedDescriptors, "length", originalDescriptors.length);
+        originalDescriptors.forEach((descriptor, index) =>
+          Reflect.set(exposedDescriptors, index, descriptor),
+        );
+
+        const freshStandaloneId = `${originalStandaloneId}/fresh-app`;
+        Reflect.set(IntegrationStandaloneMachine.definition, "id", freshStandaloneId);
+
+        try {
+          const freshApp = app({
+            id: "runtime-integration/fresh-app",
+            persistenceVersion: "1",
+            modules: [IntegrationModule],
+          });
+
+          const freshFacts = appPlan(freshApp).resolveMachineFacts(IntegrationStandaloneMachine);
+
+          assert.ok(isOwnedMachineFactsFor(originalStandaloneFacts, IntegrationStandaloneMachine));
+          assert.ok(isOwnedMachineFactsFor(freshFacts, IntegrationStandaloneMachine));
+
+          if (
+            isOwnedMachineFactsFor(originalStandaloneFacts, IntegrationStandaloneMachine) &&
+            isOwnedMachineFactsFor(freshFacts, IntegrationStandaloneMachine)
+          ) {
+            assert.notStrictEqual(originalStandaloneFacts, freshFacts);
+            assert.strictEqual(originalStandaloneFacts.definition.id, originalStandaloneId);
+            assert.strictEqual(freshFacts.definition.id, freshStandaloneId);
+          }
+        } finally {
+          Reflect.set(IntegrationStandaloneMachine.definition, "id", originalStandaloneId);
+        }
       } finally {
+        Reflect.set(IntegrationStandaloneMachine.definition, "id", originalStandaloneId);
         Reflect.set(definition, "operations", originalOperations);
         Reflect.set(compiled, "states", originalStates);
+        Reflect.set(nestedDefinition.S.active.S, "editing", originalNestedEditing);
+        Reflect.set(nestedActiveCompiled, "children", originalNestedChildren);
+        Reflect.set(nestedDialogCompiled, "children", originalNestedDialogChildren);
+      }
+    }),
+  );
+
+  it.effect("keeps bound-consumer identity and lifecycle edges on captured machine facts", () =>
+    Effect.gen(function* () {
+      const plan = appPlan(IntegrationApp);
+      const capturedFacts = plan.resolveMachineFacts(IntegrationConsumerMachine);
+      assert.ok(isOwnedMachineFactsFor(capturedFacts, IntegrationConsumerMachine));
+
+      if (!isOwnedMachineFactsFor(capturedFacts, IntegrationConsumerMachine))
+        return yield* Effect.die(new Error("consumer app facts are missing"));
+
+      const originalId = IntegrationConsumerMachine.definition.id;
+      const mutatedId = `${originalId}/mutated-after-app`;
+      Reflect.set(IntegrationConsumerMachine.definition, "id", mutatedId);
+
+      try {
+        const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+
+        try {
+          yield* runtime.ready();
+          const assembly = runtimeOwner(runtime).assembly();
+
+          const providerRef = actorRef(IntegrationProviderMachine, "identity-split-provider", {
+            persist: true,
+          });
+
+          const provider = yield* assembly.createActor({
+            ref: providerRef,
+            initial: initialProviderSnapshot(),
+          });
+
+          const providerStateBinding = {
+            slot: "providerState",
+            provider: providerRef,
+            providerFence: provider.fence,
+            select: ({ state }) => state,
+          } satisfies ActorContextBinding<
+            typeof IntegrationConsumerDefinition,
+            typeof IntegrationProviderDefinition,
+            "providerState"
+          >;
+
+          const providerChangedBinding = {
+            slot: "providerChanged",
+            provider: providerRef,
+            providerFence: provider.fence,
+            select: ({ state }) => state === IntegrationProviderDefinition.S.changed,
+          } satisfies ActorContextBinding<
+            typeof IntegrationConsumerDefinition,
+            typeof IntegrationProviderDefinition,
+            "providerChanged"
+          >;
+
+          const consumerRef = actorRef(IntegrationConsumerMachine, "identity-split-consumer", {
+            persist: true,
+          });
+
+          const consumer = yield* assembly.createActor({
+            ref: consumerRef,
+            initial: initialConsumerSnapshot(),
+            bindings: [providerStateBinding, providerChangedBinding],
+          });
+
+          assert.strictEqual(consumer.identity.key, consumer.fence.key);
+          assert.strictEqual(
+            consumer.fence.key.endsWith(
+              `/stable/${originalId.length}:${originalId}/${consumerRef.id.length}:${consumerRef.id}`,
+            ),
+            true,
+          );
+          assert.strictEqual(consumer.fence.key.includes(mutatedId), false);
+
+          const lifecycleState = yield* consumer.lifecycle.state();
+          assert.strictEqual(lifecycleState.attachment.dependencies.length, 2);
+          assert.deepStrictEqual(
+            lifecycleState.attachment.dependencies.map(
+              ({ consumer: edgeConsumer, provider: edgeProvider }) => ({
+                consumer: edgeConsumer,
+                provider: edgeProvider,
+              }),
+            ),
+            [
+              { consumer: consumer.fence.key, provider: provider.fence.key },
+              { consumer: consumer.fence.key, provider: provider.fence.key },
+            ],
+          );
+          assert.strictEqual(
+            consumer.engine.snapshot().context.providerState,
+            IntegrationProviderDefinition.S.ready,
+          );
+          assert.strictEqual(consumer.engine.snapshot().context.providerChanged, false);
+
+          const providerDispatch = provider.engine.dispatch(IntegrationProviderEvent);
+          assert.strictEqual(providerDispatch.admitted, true);
+          yield* Deferred.await(providerDispatch.completion);
+          yield* provider.engine.drain();
+          yield* consumer.engine.drain();
+
+          assert.strictEqual(
+            consumer.engine.snapshot().context.providerState,
+            IntegrationProviderDefinition.S.changed,
+          );
+          assert.strictEqual(consumer.engine.snapshot().context.providerChanged, true);
+
+          yield* Effect.provideContext(consumer.dispose(), assembly.context);
+          yield* Effect.provideContext(provider.dispose(), assembly.context);
+        } finally {
+          yield* Effect.exit(runtimeOwner(runtime).close());
+        }
+      } finally {
+        Reflect.set(IntegrationConsumerMachine.definition, "id", originalId);
       }
     }),
   );

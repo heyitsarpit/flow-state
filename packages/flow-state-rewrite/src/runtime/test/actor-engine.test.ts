@@ -829,6 +829,15 @@ describe("actor engine", () => {
 
             return 4_242;
           }),
+          timestamp: () => {
+            if (failTimestamp) {
+              failTimestamp = false;
+
+              return Number.NaN;
+            }
+
+            return 4_242;
+          },
           sleepUntil: () => Effect.void,
         },
       });
@@ -1696,7 +1705,11 @@ describe("actor engine", () => {
       const evidence = makeRuntimeEvidenceOwner({
         app: testApp,
         plan: appPlan(testApp),
-        clock: { now: Effect.succeed(4_242), sleepUntil: () => Effect.void },
+        clock: {
+          now: Effect.succeed(4_242),
+          timestamp: () => 4_242,
+          sleepUntil: () => Effect.void,
+        },
       });
 
       const evidenceStoreRevisions: number[] = [];
@@ -2187,7 +2200,11 @@ describe("actor engine parity cases", () => {
       const evidence = makeRuntimeEvidenceOwner({
         app: testApp,
         plan: appPlan(testApp),
-        clock: { now: Effect.succeed(4_242), sleepUntil: () => Effect.void },
+        clock: {
+          now: Effect.succeed(4_242),
+          timestamp: () => 4_242,
+          sleepUntil: () => Effect.void,
+        },
       });
 
       const delivered: EvidenceRecord[] = [];
