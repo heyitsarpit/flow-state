@@ -1,5 +1,5 @@
 import { assert, describe, it } from "@effect/vitest";
-import { Effect, Exit, Result, Scope } from "effect";
+import { Brand, Effect, Exit, Result, Scope } from "effect";
 
 import { definition } from "../../definition/definition.js";
 import type { EventOf } from "../../definition/domain.js";
@@ -113,6 +113,8 @@ const fence: ActorFence = {
   generation: 0,
   leaseEpoch: identity.leaseEpoch,
 };
+
+const unregisteredIncarnation = Brand.nominal<ActorFence["incarnation"]>()(fence.incarnation + 1);
 
 const snapshot: ActorSnapshot<typeof planDefinition> = {
   state: planDefinition.S.idle,
@@ -568,8 +570,8 @@ describe("turn planner", () => {
         _tag: "completion-projection",
         completion: {
           fence: {
-            // SAFETY: The copied fence deliberately crosses the private incarnation brand to prove stale-owner rejection.
-            actor: { ...fence, incarnation: (fence.incarnation + 1) as typeof fence.incarnation },
+            // SAFETY: This fixture creates an unregistered incarnation to prove stale-owner rejection.
+            actor: { ...fence, incarnation: unregisteredIncarnation },
             descriptor: nestedItem,
             key: nestedItem.key(1),
             ordinal: 2,
@@ -683,8 +685,8 @@ describe("turn planner", () => {
         _tag: "completion-projection",
         completion: {
           fence: {
-            // SAFETY: A distinct incarnation deliberately crosses the private fence seam.
-            actor: { ...fence, incarnation: (fence.incarnation + 1) as typeof fence.incarnation },
+            // SAFETY: This fixture creates an unregistered incarnation to prove stale-fence rejection.
+            actor: { ...fence, incarnation: unregisteredIncarnation },
             descriptor: nestedItem,
             key: nestedItem.key(1),
             ordinal: 2,

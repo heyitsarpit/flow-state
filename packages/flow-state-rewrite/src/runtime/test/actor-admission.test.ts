@@ -526,12 +526,12 @@ const makeTransactionHarness = (
 
       if (failure !== undefined) return failure;
 
-      stagedState.activation = { barrier: "crossed" } as const;
+      const activation = { barrier: "crossed" } as const;
+      stagedState.activation = activation;
 
       return Effect.succeed({
         phase: "activated",
-        // SAFETY: this harness writes the exact staged activation value immediately above.
-        ...(stagedState.activation as TransactionActivation),
+        ...activation,
         rollback: extendRollback(attached.rollback, "activated"),
       } satisfies TransactionActivated);
     },
@@ -1963,14 +1963,13 @@ describe("actor identity admission", () => {
     const ref = actorRef(editorMachine, "foreign-machine");
     const harness = makeTransactionHarness(ref, { mode: "fresh-stable" });
     const foreignRef = actorRef(providerMachine, "foreign-machine");
+    const foreignInputRef: unknown = foreignRef;
 
     const input = {
       ...makeTransactionInput(ref),
-      // SAFETY: the foreign constructed machine is intentionally routed through the negative runtime seam.
-      // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- negative nominal-provenance proof.
-      // SAFETY: The foreign reference is intentionally cast through unknown to cross the nominal negative-test seam.
-      // oxlint-disable-next-line anti-slop/no-chained-type-assertions -- this proof must present a foreign machine at the typed boundary.
-      ref: foreignRef as unknown as typeof ref,
+      // SAFETY: A provider-machine ref intentionally crosses the typed input boundary to prove runtime provenance rejection.
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the negative proof must present a foreign machine at this boundary.
+      ref: foreignInputRef as typeof ref,
     };
 
     const result = validateActorAdmission(input, harness.authority);
@@ -2060,7 +2059,8 @@ describe("actor identity admission", () => {
       providerRef,
       providerIdentity,
       [edge],
-      // SAFETY: The selector deliberately returns null outside its admitted generic output.
+      // SAFETY: This negative runtime proof returns null outside the selector's declared context output.
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- preserve the runtime proof for a value excluded by the static context type.
       () => null as never,
     );
 
@@ -2102,7 +2102,8 @@ describe("actor identity admission", () => {
       providerRef,
       providerIdentity,
       [edge],
-      // SAFETY: The selector deliberately returns undefined outside its admitted generic output.
+      // SAFETY: This negative runtime proof returns undefined outside the selector's declared context output.
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- preserve the runtime proof for a value excluded by the static context type.
       () => undefined as never,
     );
 
@@ -2189,21 +2190,23 @@ describe("actor identity admission", () => {
     const consumerRef = actorRef(consumerMachine, "invalid-slot-consumer");
     const valid = makeAdmission(consumerRef, providerRef, providerIdentity, []);
 
-    // SAFETY: This fixture intentionally violates the context slot and dependency consumer contracts.
     const invalid = {
       ...valid,
       bindings: [{ ...valid.bindings[0]!, slot: "not-a-slot" }],
       dependencies: [
         {
-          // SAFETY: The synthetic consumer key is intentionally malformed for this negative admission proof.
-          consumer: "actor:invalid" as ActorKey,
+          consumer: "actor:invalid",
           provider: providerIdentity.key,
           slot: "not-a-slot",
         },
       ],
-    } as never;
+    };
 
-    const result = validateActorAdmission(invalid, {
+    // SAFETY: This fixture deliberately violates the typed slot and branded-key contracts so runtime admission must reject it.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- exercise malformed data at the typed validation boundary.
+    const invalidInput = invalid as never;
+
+    const result = validateActorAdmission(invalidInput, {
       app: admissionApp,
       implementation,
       lookup: registry.lookup,
@@ -2219,17 +2222,17 @@ describe("actor identity admission", () => {
     const providerIdentity = resultSuccess(registry.reserveStable(providerRef));
     resultSuccess(registry.register(providerIdentity, { name: "provider" }));
     const consumerRef = actorRef(consumerMachine, "stale-consumer");
+    const consumerIdentity = resultSuccess(registry.reserveStable(consumerRef));
 
     const valid = makeAdmission(consumerRef, providerRef, providerIdentity, [
       {
-        // SAFETY: The consumer key is the exact synthetic key used to construct the stale-fence fixture.
-        consumer: "actor:stale-consumer" as ActorKey,
+        consumer: consumerIdentity.key,
         provider: providerIdentity.key,
         slot: "providerState",
       },
     ]);
 
-    // SAFETY: This fixture intentionally mutates the provider generation to prove stale-fence rejection.
+    // SAFETY: The fixture increments a valid provider fence to prove stale-fence rejection.
     const stale = {
       ...valid,
       bindings: [
@@ -2238,7 +2241,7 @@ describe("actor identity admission", () => {
           providerFence: { ...valid.bindings[0]!.providerFence, generation: 1 },
         },
       ],
-    } as never;
+    } satisfies typeof valid;
 
     const result = validateActorAdmission(stale, {
       app: admissionApp,
@@ -2395,10 +2398,10 @@ describe("actor identity admission", () => {
     const providerIdentity = resultSuccess(registry.reserveStable(providerRef));
     resultSuccess(registry.register(providerIdentity, { name: "provider" }));
     const consumerRef = actorRef(consumerMachine, "detach-consumer");
+    const consumerIdentity = resultSuccess(registry.reserveStable(consumerRef));
 
     const edge = {
-      // SAFETY: The consumer key is the exact synthetic key used by this detach proof.
-      consumer: "actor:detach-consumer" as ActorKey,
+      consumer: consumerIdentity.key,
       provider: providerIdentity.key,
       slot: "providerState",
     } as const;
@@ -2560,8 +2563,7 @@ describe("actor identity admission", () => {
 
     const occurrence = {
       actor: fence,
-      // SAFETY: The operation descriptor deliberately crosses the private lifecycle metadata seam.
-      descriptor: { id: "operation", key: (value: number) => [value] as const } as never,
+      descriptor: { id: "operation", key: (value: number) => [value] as const },
       key: [1] as const,
       ordinal: 1,
     };

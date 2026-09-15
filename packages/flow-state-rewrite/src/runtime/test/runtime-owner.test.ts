@@ -116,6 +116,14 @@ const makeLayerPlan = (
     ),
   );
 
+const provideWithoutFirstService = <A, E>(effect: Effect.Effect<A, E, FirstService>) =>
+  Effect.provideContext(
+    effect,
+    // SAFETY: This negative test deliberately supplies no FirstService while erasing the static requirement so Effect.exit can observe the missing-service defect.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the test must execute an effect whose required service is absent.
+    Context.empty() as Context.Context<FirstService>,
+  );
+
 describe("runtime owner", () => {
   it.effect("publishes only a complete context and rolls back partial acquisition", () =>
     Effect.gen(function* () {
@@ -1383,10 +1391,7 @@ describe("runtime owner", () => {
         expose: Effect.succeed(undefined),
       });
 
-      // SAFETY: The empty context deliberately violates the service requirement to prove defect classification.
-      const result = yield* Effect.exit(
-        Effect.provideContext(owner.ready(), Context.empty() as Context.Context<FirstService>),
-      );
+      const result = yield* Effect.exit(owner.ready());
 
       assert.ok(Exit.isFailure(result));
 
@@ -1597,10 +1602,7 @@ describe("runtime owner", () => {
     Effect.gen(function* () {
       const owner = makeRuntimeOwner({ layer: Layer.empty, expose: Effect.service(FirstService) });
 
-      // SAFETY: The empty context deliberately violates the service requirement to prove defect classification.
-      const result = yield* Effect.exit(
-        Effect.provideContext(owner.ready(), Context.empty() as Context.Context<FirstService>),
-      );
+      const result = yield* Effect.exit(provideWithoutFirstService(owner.ready()));
 
       assert.ok(Exit.isFailure(result));
 

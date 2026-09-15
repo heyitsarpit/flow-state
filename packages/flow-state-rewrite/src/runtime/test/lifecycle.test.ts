@@ -144,7 +144,7 @@ const makeFence = <DefinitionValue extends MachineDefinition>(
     leaseEpoch: identity.leaseEpoch,
   };
 
-  return { identity, ref, fence };
+  return { identity, ref, fence, registry };
 };
 
 const fixedClock = {
@@ -171,6 +171,19 @@ const withRuntime = <Value>(
   effect: Effect.Effect<Value, PublicDiagnostic, RuntimeServiceContext>,
   layer: RuntimeServicesLayer = defaultRuntimeLayer,
 ) => Effect.provide(effect, layer);
+
+// RETURN_TYPE: The structural predicate narrows retained unknown evidence before its fields are read.
+const hasLifecycleEvidenceFields = (
+  record: unknown,
+): record is { before: unknown; after: unknown; provenance: { actor: unknown } } => {
+  if (typeof record !== "object" || record === null) return false;
+
+  if (!("before" in record) || !("after" in record) || !("provenance" in record)) return false;
+
+  const provenance = record.provenance;
+
+  return typeof provenance === "object" && provenance !== null && "actor" in provenance;
+};
 
 const makePrepared = () => {
   const { fence } = makeFence(LifecycleMachine, "actor");
@@ -1990,12 +2003,11 @@ describe("actor lifecycle", () => {
       assert.ok(Exit.isFailure(result));
       assert.strictEqual(blocked.lifecycle, "active");
 
-      if (Exit.isFailure(result))
-        // SAFETY: The blocked-disposal proof has already established a failure Cause; this narrow view reads its typed diagnostic.
-        assert.strictEqual(
-          (result.cause.reasons[0] as { error?: PublicDiagnostic }).error?.code,
-          "BlockedByDependents",
-        );
+      if (Exit.isFailure(result)) {
+        const reason = result.cause.reasons.find(Cause.isFailReason);
+        assert.ok(reason !== undefined);
+        assert.strictEqual(reason.error.code, "BlockedByDependents");
+      }
     }),
   );
 
@@ -2100,7 +2112,7 @@ describe("actor lifecycle", () => {
 
   it.effect("retains operation occurrence fences across resume", () =>
     Effect.gen(function* () {
-      const { identity, fence } = makeFence(OccurrenceMachine, "occurrence");
+      const { identity, fence, ref, registry } = makeFence(OccurrenceMachine, "occurrence");
 
       const occurrence: OperationOccurrenceFence = {
         actor: fence,
@@ -2193,12 +2205,16 @@ describe("actor lifecycle", () => {
 
       assert.ok(Result.isSuccess(duplicate));
 
+      registry.rollback(identity);
+      const replacedIdentity = resultSuccess(registry.reserveStable(ref));
+      assert.strictEqual(replacedIdentity.key, fence.key);
+      assert.notStrictEqual(replacedIdentity.incarnation, fence.incarnation);
+
       const lateIncarnation = engine.dispatchFact({
         _tag: "completion-projection",
         completion: {
           fence: {
-            // SAFETY: A replaced actor incarnation deliberately crosses the private fence seam.
-            actor: { ...fence, incarnation: (fence.incarnation + 1) as typeof fence.incarnation },
+            actor: { ...fence, incarnation: replacedIdentity.incarnation },
             descriptor: occurrenceOperation,
             key: occurrenceOperation.key(1),
             ordinal: 2,
@@ -2319,13 +2335,9 @@ describe("actor lifecycle", () => {
       assert.strictEqual(active.lifecycle, "active");
       assert.strictEqual(records.length, 1);
 
-      // SAFETY: The preceding length assertion establishes the retained record at index zero.
-      const record = records[0] as {
-        before: unknown;
-        after: unknown;
-        provenance: { actor: unknown };
-      };
+      const record = records[0];
 
+      assert.ok(hasLifecycleEvidenceFields(record));
       assert.ok(record.before !== undefined);
       assert.ok(record.after !== undefined);
       assert.ok(record.provenance.actor !== undefined);

@@ -1,5 +1,5 @@
 import { assert, describe, it } from "@effect/vitest";
-import { Cause, Deferred, Effect, Exit, Fiber, Option, Result, Scope } from "effect";
+import { Cause, Deferred, Effect, Exit, Fiber, Option, Predicate, Result, Scope } from "effect";
 
 import { app, appPlan, module } from "../../app/app.js";
 import { definition } from "../../definition/definition.js";
@@ -47,6 +47,22 @@ const resultSuccess = <Value>(result: Result.Result<Value, PublicDiagnostic>) =>
 
   return result.success;
 };
+
+// RETURN_TYPE: The erased evidence sink cause needs an explicit predicate for its cleanup envelope and Cause.
+const isCleanupFailureEnvelope = (
+  value: unknown,
+): value is { _tag: "cleanup-failure"; cause: Cause.Cause<unknown> } =>
+  Predicate.isObject(value) && value._tag === "cleanup-failure" && Cause.isCause(value.cause);
+
+// RETURN_TYPE: This predicate preserves the exact null and present-undefined fields under test.
+const hasNullUndefinedPayloadFields = (
+  value: unknown,
+): value is { payload: null; optional: undefined } =>
+  Predicate.isObject(value) &&
+  Object.hasOwn(value, "payload") &&
+  value.payload === null &&
+  Object.hasOwn(value, "optional") &&
+  value.optional === undefined;
 
 const EvidenceDefinitionResult = definition({
   id: "evidence/actor",
@@ -905,10 +921,10 @@ describe("runtime evidence", () => {
       const record = resultSuccess(makeTurnRecord(turnFact(fixture, reservation), reservation));
 
       // SAFETY: The record is intentionally forged with a foreign app to exercise the rejection boundary.
-      const foreignRecord = {
+      const foreignRecord: EvidenceRecord = {
         ...record,
         provenance: { ...record.provenance, app: foreignApp },
-      } as never;
+      };
 
       const result = yield* Effect.exit(acceptEvidence(current, reservation, foreignRecord));
       assert.ok(Exit.isFailure(result));
@@ -996,11 +1012,9 @@ describe("runtime evidence", () => {
 
       assert.strictEqual(record._tag, "lifecycle");
 
-      // SAFETY: the lifecycle owner preserves the LifecycleCause envelope for this accepted record.
-      const retainedCause = record.cause as {
-        _tag: string;
-        cause: Cause.Cause<unknown>;
-      };
+      const retainedCause = record.cause;
+
+      assert.ok(isCleanupFailureEnvelope(retainedCause));
 
       assert.strictEqual(retainedCause._tag, "cleanup-failure");
       const retained = retainedCause.cause;
@@ -1108,15 +1122,15 @@ describe("runtime evidence", () => {
     const reservation = reserve(hub);
     // SAFETY: Freezing caller-owned input verifies capture retains null and undefined fields without changing the input.
     // oxlint-disable-next-line anti-slop/no-object-freeze -- test input models a caller-supplied frozen payload.
-    const payload = Object.freeze({ payload: null, optional: undefined });
+    const payload = Object.freeze({ ...EvidenceEvent, payload: null, optional: undefined });
 
-    // SAFETY: The event payload deliberately crosses the private evidence fact union for this preservation proof.
+    // The valid event carries caller fields beyond its tag to prove evidence preserves null and present undefined values.
     const record = resultSuccess(
       makeTurnRecord(
         {
           ...turnFact(fixture, reservation),
           cause: { _tag: "event", event: payload },
-        } as never,
+        },
         reservation,
       ),
     );
@@ -1127,8 +1141,9 @@ describe("runtime evidence", () => {
 
     if (accepted.record.cause._tag !== "event") throw new Error("event cause was not retained");
     assert.deepStrictEqual(accepted.record.cause.event, payload);
-    // SAFETY: The preceding discriminant check establishes the retained event payload shape.
-    const retainedPayload = accepted.record.cause.event as typeof payload;
+    const retainedPayload = accepted.record.cause.event;
+    assert.ok(hasNullUndefinedPayloadFields(retainedPayload));
+
     assert.strictEqual(retainedPayload.payload, null);
     assert.strictEqual(retainedPayload.optional, undefined);
   });
@@ -1257,8 +1272,15 @@ describe("runtime evidence", () => {
       clock: { now: Effect.succeed(1), timestamp: () => 1, sleepUntil: () => Effect.void },
     });
 
-    // SAFETY: The fence deliberately carries a foreign incarnation to exercise publication rejection.
-    const wrongFence = { ...fixture.fence, incarnation: fixture.fence.incarnation + 1 } as never;
+    const foreignRegistry = makeActorIdentityRegistry({
+      initialIncarnation: fixture.fence.incarnation + 1,
+    });
+
+    const foreignIdentity = resultSuccess(
+      foreignRegistry.reserveStable(actorRef(EvidenceMachine, "actor")),
+    );
+
+    const wrongFence = { ...fixture.fence, incarnation: foreignIdentity.incarnation };
 
     const result = owner.acceptPublication(fixture.identity, wrongFence, fixture.snapshot(0), {
       snapshot: fixture.snapshot(1),
@@ -1328,8 +1350,9 @@ describe("runtime evidence", () => {
         assert.strictEqual(delivered[0].sequence, 1);
         assert.strictEqual(delivered[0].provenance.actor.key, fixture.identity.key);
         assert.strictEqual(delivered[1].evidenceSequence, 2);
-        // SAFETY: the second record was prepared with the cleanup-failure LifecycleCause envelope.
-        const cause = delivered[1].cause as { _tag: string };
+        const cause = delivered[1].cause;
+        assert.ok(isCleanupFailureEnvelope(cause));
+
         assert.strictEqual(cause._tag, "cleanup-failure");
       }
 

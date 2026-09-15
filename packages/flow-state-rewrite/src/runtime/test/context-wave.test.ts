@@ -112,6 +112,12 @@ const preparedConsumerSnapshot = () =>
 
 const revisionVector = (entries: [ActorKey, number][]) => new Map(entries);
 
+const contextValueOutsideAuthoredType = (value: unknown) => {
+  // SAFETY: These proofs deliberately return null or undefined from a selector whose authored output excludes both values.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- behavior proofs must inject runtime values outside the selector's authored return type.
+  return value as never;
+};
+
 const makeFixture = () => {
   const registry = makeActorIdentityRegistry();
   const providerRef = actorRef(providerMachine, "provider");
@@ -147,7 +153,7 @@ const makeFixture = () => {
     installContextBaseline(graph, snapshots, revisionVector([[providerIdentity.key, 0]])),
   );
 
-  return { binding, consumerIdentity, graph, providerIdentity, snapshots, baseline };
+  return { binding, consumerIdentity, graph, providerIdentity, registry, snapshots, baseline };
 };
 
 const chainSourceDefinitionResult = definition({
@@ -736,7 +742,11 @@ describe("context waves", () => {
 
     if (a === undefined || b === undefined) throw new Error("chain identities are incomplete");
 
-    const cyclicBindings = [
+    const cyclicBindings: ContextBinding<
+      typeof chainNodeDefinition,
+      typeof chainNodeDefinition,
+      "value"
+    >[] = [
       {
         consumer: a.key,
         consumerIncarnation: a.incarnation,
@@ -748,7 +758,7 @@ describe("context waves", () => {
           generation: 0,
           leaseEpoch: b.leaseEpoch,
         },
-        select: ({ context }: { context: { value: unknown } }) => context.value,
+        select: ({ context }) => context.value,
       },
       {
         consumer: b.key,
@@ -761,12 +771,14 @@ describe("context waves", () => {
           generation: 0,
           leaseEpoch: a.leaseEpoch,
         },
-        select: ({ context }: { context: { value: unknown } }) => context.value,
+        select: ({ context }) => context.value,
       },
     ];
 
-    // SAFETY: This fixture deliberately violates the admitted binding type to exercise cycle rejection.
-    const indirect = buildContextGraph(cyclicBindings as never);
+    const indirect = buildContextGraph<typeof chainNodeDefinition, typeof chainNodeDefinition>(
+      cyclicBindings,
+    );
+
     assert.ok(Result.isFailure(indirect));
 
     if (Result.isFailure(indirect))
@@ -840,8 +852,7 @@ describe("context waves", () => {
 
     const selected = resultSuccess(
       selectContext(
-        // SAFETY: The selector deliberately returns a null value outside its generic output to prove null is retained.
-        { ...fixture.binding, select: () => null as never },
+        { ...fixture.binding, select: () => contextValueOutsideAuthoredType(null) },
         { state: providerDefinition.S.ready, memory: {}, context: {} },
         1,
       ),
@@ -857,16 +868,18 @@ describe("context waves", () => {
 
     const selected = resultSuccess(
       selectContext(
-        // SAFETY: The selector deliberately returns undefined outside its generic output to prove undefined is retained.
-        { ...fixture.binding, select: () => undefined as never },
+        { ...fixture.binding, select: () => contextValueOutsideAuthoredType(undefined) },
         { state: providerDefinition.S.ready, memory: {}, context: {} },
         2,
       ),
     );
 
     assert.strictEqual(selected.value, undefined);
-    // SAFETY: The duplicate fixture preserves the deliberately undefined selector for a separate baseline ledger.
-    const undefinedBinding = { ...fixture.binding, select: () => undefined as never };
+
+    const undefinedBinding = {
+      ...fixture.binding,
+      select: () => contextValueOutsideAuthoredType(undefined),
+    };
 
     const undefinedGraph = resultSuccess(
       buildContextGraph<typeof consumerDefinition, typeof providerDefinition>([undefinedBinding]),
@@ -965,8 +978,10 @@ describe("context waves", () => {
 
   it("keeps unrelated provider publications out of the wave", () => {
     const fixture = makeFixture();
-    // SAFETY: This synthetic key is intentionally outside the fixture registry to prove unrelated waves are ignored.
-    const unrelated = "context-wave/unrelated" as ActorKey;
+
+    const unrelated = resultSuccess(
+      fixture.registry.reserveStable(actorRef(providerMachine, "unrelated")),
+    ).key;
 
     const wave = resultSuccess(
       planContextWave(
@@ -1199,14 +1214,20 @@ describe("context waves", () => {
 
   it("distinguishes provider incarnations at one actor key", () => {
     const fixture = makeFixture();
+    fixture.registry.rollback(fixture.providerIdentity);
+
+    const replacementIdentity = resultSuccess(
+      fixture.registry.reserveStable(fixture.binding.provider),
+    );
+
+    assert.strictEqual(replacementIdentity.key, fixture.providerIdentity.key);
+    assert.notStrictEqual(replacementIdentity.incarnation, fixture.providerIdentity.incarnation);
 
     const replacement = {
       ...fixture.binding,
-      provider: { ...fixture.binding.provider, id: `${fixture.binding.provider.id}-replacement` },
       providerFence: {
         ...fixture.binding.providerFence,
-        // SAFETY: The copied fence intentionally carries an invalid numeric incarnation to prove rejection.
-        incarnation: (fixture.binding.providerFence.incarnation + 1) as never,
+        incarnation: replacementIdentity.incarnation,
       },
     };
 
