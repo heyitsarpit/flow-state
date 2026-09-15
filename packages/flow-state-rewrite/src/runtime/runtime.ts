@@ -104,7 +104,7 @@ import {
 } from "./runtime-services.js";
 import type { ContextProjectionCarrier } from "./turn-plan.js";
 import type { MachineDefinition } from "../machine/grammar.js";
-import type { Machine, MachineRecordValue } from "../machine/machine.js";
+import { isConstructedMachine, type Machine, type MachineRecordValue } from "../machine/machine.js";
 import type { ActorRef } from "./actor-ref.js";
 import type { ContextOf, InputOf } from "../definition/domain.js";
 
@@ -546,7 +546,7 @@ const captureRuntimeActorOptions = <
   DefinitionValue extends MachineDefinition,
   ProviderDefinition extends MachineDefinition,
 >(
-  options: RuntimeActorOptions<DefinitionValue, ProviderDefinition>,
+  options: unknown,
   identityMode: "stable" | "local" = "stable",
   isOpaqueLocalRef?: (value: unknown) => boolean,
 ): Result.Result<
@@ -571,10 +571,8 @@ const captureRuntimeActorOptionsForRef = <
   DefinitionValue extends MachineDefinition,
   ProviderDefinition extends MachineDefinition,
 >(
-  ref: ActorRef<Machine<DefinitionValue>>,
-  options:
-    | RuntimeEnsureActorOptions<DefinitionValue, ProviderDefinition>
-    | RuntimeLocalActorOptions<DefinitionValue, ProviderDefinition>,
+  ref: unknown,
+  options: unknown,
   identityMode: "stable" | "local",
 ): Result.Result<
   CapturedRuntimeActorOptions<DefinitionValue, ProviderDefinition>,
@@ -812,13 +810,10 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
       DefinitionValue extends MachineDefinition,
       ProviderDefinition extends MachineDefinition = DefinitionValue,
     >(
-      options:
-        | RuntimeActorOptions<DefinitionValue, ProviderDefinition>
-        | RuntimeEnsureActorOptions<DefinitionValue, ProviderDefinition>
-        | RuntimeLocalActorOptions<DefinitionValue, ProviderDefinition>,
+      options: unknown,
       identityMode: "stable" | "local" = "stable",
       localIdentity?: ActorIdentity<DefinitionValue>,
-      suppliedRef?: ActorRef<Machine<DefinitionValue>>,
+      suppliedRef?: unknown,
     ) =>
       Effect.gen(function* () {
         if (!lifecycleOwner.isOpen()) return yield* Effect.fail(closedActorAdmission());
@@ -832,14 +827,16 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
 
         const capturedOptions =
           suppliedRef === undefined
-            ? captureRuntimeActorOptions(
-                // SAFETY: an absent suppliedRef selects the options-object overload, which requires and captures its own ref.
-                // oxlint-disable-next-line anti-slop/require-safety-comment-for-type-assertion
-                options as RuntimeActorOptions<DefinitionValue, ProviderDefinition>,
+            ? captureRuntimeActorOptions<DefinitionValue, ProviderDefinition>(
+                options,
                 identityMode,
                 registry.isLocalRef,
               )
-            : captureRuntimeActorOptionsForRef(suppliedRef, options, identityMode);
+            : captureRuntimeActorOptionsForRef<DefinitionValue, ProviderDefinition>(
+                suppliedRef,
+                options,
+                identityMode,
+              );
 
         if (Result.isFailure(capturedOptions)) return yield* Effect.fail(capturedOptions.failure);
         const bindings = capturedOptions.success.bindings;
@@ -2053,23 +2050,24 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
         return admitted.actor;
       });
 
-    const ensureActor: RuntimeAssembly["ensureActor"] = (
-      refOrOptions: unknown,
-      options?: unknown,
+    const ensureActor: RuntimeAssembly["ensureActor"] = <
+      DefinitionValue extends MachineDefinition,
+      ProviderDefinition extends MachineDefinition = DefinitionValue,
+    >(
+      refOrOptions:
+        | ActorRef<Machine<DefinitionValue>>
+        | RuntimeActorOptions<DefinitionValue, ProviderDefinition>,
+      options?: RuntimeEnsureActorOptions<DefinitionValue, ProviderDefinition>,
     ) => {
       if (options === undefined) {
-        // SAFETY: the one-argument compatibility seam retains the former package-private shape.
-        // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-        return admitRuntimeActor(refOrOptions as RuntimeActorOptions<MachineDefinition>, "stable");
+        return admitRuntimeActor<DefinitionValue, ProviderDefinition>(refOrOptions, "stable");
       }
 
-      // SAFETY: the two-argument overload is the stable production ensure path; the ref is captured separately from its options.
-      // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-      return admitRuntimeActor(
-        options as RuntimeEnsureActorOptions<MachineDefinition>,
+      return admitRuntimeActor<DefinitionValue, ProviderDefinition>(
+        options,
         "stable",
         undefined,
-        refOrOptions as ActorRef<Machine>,
+        refOrOptions,
       );
     };
 
@@ -2118,7 +2116,12 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
         if (Result.isFailure(local)) return yield* Effect.fail(local.failure);
 
         const admitted = yield* Effect.exit(
-          admitRuntimeActor(options, "local", local.success, local.success.ref),
+          admitRuntimeActor<DefinitionValue, ProviderDefinition>(
+            options,
+            "local",
+            local.success,
+            local.success.ref,
+          ),
         );
 
         if (Exit.isSuccess(admitted)) {
@@ -2134,23 +2137,36 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
         return yield* Effect.failCause(admitted.cause);
       });
 
-    const createActor: RuntimeAssembly["createActor"] = (
-      machineOrOptions: unknown,
-      options?: unknown,
+    // RETURN_TYPE: Preserves the machine overload's definition generic after constructed-owner validation.
+    const isRuntimeActorMachine = <
+      DefinitionValue extends MachineDefinition,
+      ProviderDefinition extends MachineDefinition,
+    >(
+      value: Machine<DefinitionValue> | RuntimeActorOptions<DefinitionValue, ProviderDefinition>,
+    ): value is Machine<DefinitionValue> => isConstructedMachine(value);
+
+    const createActor: RuntimeAssembly["createActor"] = <
+      DefinitionValue extends MachineDefinition,
+      ProviderDefinition extends MachineDefinition = DefinitionValue,
+    >(
+      machineOrOptions:
+        | Machine<DefinitionValue>
+        | RuntimeActorOptions<DefinitionValue, ProviderDefinition>,
+      options?: RuntimeLocalActorOptions<DefinitionValue, ProviderDefinition>,
     ) => {
       if (options === undefined) {
-        // SAFETY: the one-argument compatibility seam is the former package-private stable path;
-        // production callers use ensureActor for this operation.
-        // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-        return ensureActor(machineOrOptions as RuntimeActorOptions<MachineDefinition>);
+        return admitRuntimeActor<DefinitionValue, ProviderDefinition>(machineOrOptions, "stable");
       }
 
-      // SAFETY: the two-argument overload is the local machine-first production path.
-      // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-      return createLocalActor(
-        machineOrOptions as Machine,
-        options as RuntimeLocalActorOptions<MachineDefinition>,
-      );
+      return Effect.gen(function* () {
+        if (!isRuntimeActorMachine<DefinitionValue, ProviderDefinition>(machineOrOptions))
+          return yield* Effect.fail(invalidRuntimeOption("machine"));
+
+        return yield* createLocalActor<DefinitionValue, ProviderDefinition>(
+          machineOrOptions,
+          options,
+        );
+      });
     };
 
     assembly = {

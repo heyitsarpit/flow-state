@@ -3,6 +3,7 @@ import { isConstructedOperation, requirements } from "../operation/operation.js"
 import { RequirementsTypeId } from "../operation/operation.js";
 import type { RequirementsCarrier, RequirementsOf } from "../operation/operation.js";
 import type { OperationDeclaration } from "../operation/operation.js";
+import type { RuntimeStateBranch, RuntimeStateTable } from "../definition/domain.js";
 import { AuthoredName, isAuthoredName } from "../internal/authored-name.js";
 import { firstConfigurationField } from "../internal/schema-issue.js";
 import { isStableDataDescriptor, isStableKeyList } from "../internal/stable-observation.js";
@@ -873,51 +874,6 @@ type StateCaptureContainer = Record<string, unknown> | unknown[];
 const isStateCaptureContainer = (value: unknown): value is StateCaptureContainer =>
   Array.isArray(value) || Predicate.isObject(value);
 
-const isStateToken = (value: unknown) =>
-  Predicate.isObject(value) &&
-  value.kind === "state" &&
-  Predicate.isString(value.name) &&
-  Predicate.isString(value.id);
-
-// oxlint-disable-next-line anti-slop/no-excessive-cognitive-complexity -- recursive state validation keeps one cycle-aware ownership check at the capture boundary.
-const isStateTable = (
-  value: unknown,
-  active = new WeakSet<StateCaptureContainer>(),
-): value is Record<string, unknown> => {
-  if (!Predicate.isObject(value) || Array.isArray(value) || isStateToken(value)) return false;
-
-  if (active.has(value)) return false;
-
-  active.add(value);
-
-  for (const key of Object.keys(value)) {
-    const child = value[key];
-
-    if (isStateToken(child)) continue;
-
-    if (
-      !Predicate.isObject(child) ||
-      Array.isArray(child) ||
-      !Object.prototype.hasOwnProperty.call(child, "S") ||
-      !isStateTable(child.S, active)
-    )
-      return false;
-  }
-
-  active.delete(value);
-
-  return true;
-};
-
-const isStateBranch = (
-  value: unknown,
-): value is Record<string, unknown> & { S: Record<string, unknown> } =>
-  Predicate.isObject(value) &&
-  !Array.isArray(value) &&
-  !isStateToken(value) &&
-  Object.prototype.hasOwnProperty.call(value, "S") &&
-  isStateTable(value.S);
-
 const copyRecord = <Value, CopiedValue>(
   source: Record<string, Value>,
   copy: (value: Value) => CopiedValue,
@@ -959,34 +915,59 @@ const copyAuthoredStates = (value: unknown[]): unknown[] => {
     return result;
   };
 
-  // SAFETY: the recursive copy preserves the authored state container shape while owning every structural nested container.
-  return copy(value) as unknown[];
+  const result: unknown[] = [];
+  seen.set(value, result);
+
+  for (const item of value) result.push(copy(item));
+
+  return result;
 };
 
-const copyStateTable = <Value>(source: Value): Value => {
-  const seen = new WeakMap<StateCaptureContainer, unknown>();
+const isStateToken = (value: unknown) =>
+  Predicate.isObject(value) &&
+  value.kind === "state" &&
+  Predicate.isString(value.name) &&
+  Predicate.isString(value.id);
 
-  const copy = (current: unknown): unknown => {
-    if (!isStateTable(current) && !isStateBranch(current)) return current;
-    const existing = seen.get(current);
+// RETURN_TYPE: Keeps malformed exposed entries out of the recursive branch copy.
+const isRuntimeStateBranch = (value: unknown): value is RuntimeStateBranch =>
+  Predicate.isObject(value) &&
+  !Array.isArray(value) &&
+  !isStateToken(value) &&
+  Object.prototype.hasOwnProperty.call(value, "S") &&
+  Predicate.isObject(value.S) &&
+  !Array.isArray(value.S);
+
+const copyStateTable = (source: RuntimeStateTable): RuntimeStateTable => {
+  const tables = new WeakMap<RuntimeStateTable, RuntimeStateTable>();
+  const branches = new WeakMap<RuntimeStateBranch, RuntimeStateBranch>();
+
+  const copyTable = (current: RuntimeStateTable): RuntimeStateTable => {
+    const existing = tables.get(current);
 
     if (existing !== undefined) return existing;
-    const result: Record<string, unknown> = Object.create(null);
-    seen.set(current, result);
+    const result: RuntimeStateTable = Object.create(null);
+    tables.set(current, result);
 
-    for (const key of Object.keys(current)) {
-      const value = current[key];
-
-      result[key] = isStateBranch(value) ? copy(value) : value;
-    }
-
-    if (isStateBranch(current)) result.S = copy(current.S);
+    for (const [key, entry] of Object.entries(current))
+      result[key] = isRuntimeStateBranch(entry) ? copyBranch(entry) : entry;
 
     return result;
   };
 
-  // SAFETY: the caller supplies the app-time runtime state table, and the recursive copy preserves its exact generic shape.
-  return copy(source) as Value;
+  const copyBranch = (current: RuntimeStateBranch): RuntimeStateBranch => {
+    const existing = branches.get(current);
+
+    if (existing !== undefined) return existing;
+    const result: RuntimeStateBranch = { S: current.S };
+    Object.setPrototypeOf(result, null);
+    branches.set(current, result);
+    result.S = copyTable(current.S);
+
+    return result;
+  };
+
+  return copyTable(source);
 };
 
 const copyCapturedOperations = (
@@ -999,46 +980,74 @@ const copyCapturedOperations = (
   return result;
 };
 
-const copyMachineDefinition = (
-  source: MachineDefinition,
+const copyMachineDefinition = <DefinitionValue extends MachineDefinition>(
+  source: DefinitionValue,
   operationCatalog: Map<string, OperationDeclaration>,
-): MachineDefinition => {
+) => {
   const authoredStates = (source as MachineDefinition & { states?: unknown[] }).states;
 
-  return {
-    ...source,
-    // oxlint-disable-next-line anti-slop/no-conditional-empty-object-spread -- preserve the optional authored state container while copying the definition.
-    ...(authoredStates === undefined ? {} : { states: copyAuthoredStates(authoredStates) }),
-    S: copyStateTable(source.S),
-    E: copyRecord(source.E, (event) => event),
-    context: copyRecord(source.context, (selector) => selector),
-    operations: copyCapturedOperations(operationCatalog),
+  return Object.assign(
+    { ...source },
+    {
+      // oxlint-disable-next-line anti-slop/no-conditional-empty-object-spread -- preserve the optional authored state container while copying the definition.
+      ...(authoredStates === undefined ? {} : { states: copyAuthoredStates(authoredStates) }),
+      S: copyStateTable(source.S),
+      E: copyRecord(source.E, (event) => event),
+      context: copyRecord(source.context, (selector) => selector),
+      operations: copyCapturedOperations(operationCatalog),
+    },
+  );
+};
+
+const copyCompiledHandlers = <DefinitionValue extends MachineDefinition>(
+  source: CompiledState<DefinitionValue>["handlers"],
+): CompiledState<DefinitionValue>["handlers"] => {
+  const result: CompiledState<DefinitionValue>["handlers"] = {};
+
+  const copyHandler = <Name extends keyof typeof source>(name: Name) => {
+    const transitions = source[name];
+
+    Object.defineProperty(result, name, {
+      value:
+        transitions === undefined
+          ? undefined
+          : transitions.map((transition) => ({ ...transition })),
+      enumerable: true,
+      configurable: true,
+      writable: true,
+    });
   };
+
+  for (const name in source) {
+    if (Object.prototype.hasOwnProperty.call(source, name)) copyHandler(name);
+  }
+
+  return result;
 };
 
 // RETURN_TYPE: The state discriminant and private DefinitionValue correlation must remain visible to the capture owner.
 const copyCompiledState = <DefinitionValue extends MachineDefinition>(
   source: CompiledState<DefinitionValue>,
 ): CompiledState<DefinitionValue> => {
-  // SAFETY: source.handlers contains only admitted event-name keys; each transition record is cloned without changing its DefinitionValue witness.
-  const handlers = Object.fromEntries(
-    Object.entries(source.handlers).map(([name, transitions]) => [
-      name,
-      transitions === undefined ? undefined : transitions.map((transition) => ({ ...transition })),
-    ]),
-  ) as CompiledState<DefinitionValue>["handlers"];
-
-  const copied = {
-    ...source,
-    handlers,
+  const copiedBehavior = {
+    handlers: copyCompiledHandlers(source.handlers),
     redirects: source.redirects.map((redirect) => ({ ...redirect })),
     activities: copyRecord(source.activities, (activity) => activity),
     timers: copyRecord(source.timers, (timer) => ({ ...timer })),
-    children: [...source.children],
   };
 
-  // SAFETY: the discriminant and state-specific fields are retained from the admitted compiled state; only structural containers are replaced.
-  return copied as CompiledState<DefinitionValue>;
+  if (source.kind === "leaf")
+    return {
+      ...source,
+      ...copiedBehavior,
+      children: [],
+    } satisfies Extract<CompiledState<DefinitionValue>, { kind: "leaf" }>;
+
+  return {
+    ...source,
+    ...copiedBehavior,
+    children: [...source.children],
+  } satisfies Extract<CompiledState<DefinitionValue>, { kind: "compound" }>;
 };
 
 const copyCompiledMachine = <DefinitionValue extends MachineDefinition>(
@@ -1053,12 +1062,11 @@ const captureMachineFacts = <DefinitionValue extends MachineDefinition>(
   source: Machine<DefinitionValue>,
   operationCatalog: Map<string, OperationDeclaration>,
 ): Machine<DefinitionValue> => {
-  // SAFETY: App construction has already admitted this machine; the private shell retains its exact typed definition and compiled behavior while the public shell remains the identity token.
-  // SAFETY: the cloned definition and compiled containers retain the source machine's private generic correlation.
   const captured = markMachineFacts({
+    ...source,
     definition: copyMachineDefinition(source.definition, operationCatalog),
     compiled: copyCompiledMachine(source.compiled),
-  } as Machine<DefinitionValue>);
+  });
 
   capturedMachineSources.set(captured, source);
 

@@ -1,5 +1,6 @@
 // oxlint-disable-next-line anti-slop/no-large-production-file -- actor admission owns identity, validation, transaction stages, leases, and rollback at one boundary.
 import {
+  Brand,
   Cause,
   Deferred,
   Effect,
@@ -18,22 +19,16 @@ import { isAuthoredName } from "../internal/authored-name.js";
 import { isStableDataDescriptor, isStableKeyList } from "../internal/stable-observation.js";
 import { isConstructedMachine, type Machine, type MachineRecordValue } from "../machine/machine.js";
 import type { MachineDefinition } from "../machine/grammar.js";
-import type { ActorRef } from "./actor-ref.js";
+import { actorRef, type ActorRef } from "./actor-ref.js";
 import type { ActorEngine, PreparedActorEngine, PreparedActorSnapshot } from "./actor-engine.js";
 import type { ActiveContextBaseline } from "./context-wave.js";
 import { copyArray, copyObject } from "./collection-copies.js";
 
-declare const actorKeyBrand: unique symbol;
-
-declare const actorIncarnationBrand: unique symbol;
-
-declare const localActorRefBrand: unique symbol;
-
 /** Runtime-local stable identity shared by the later actor graphs. */
-export type ActorKey = string & { [actorKeyBrand]: void };
+export type ActorKey = Brand.Branded<string, "ActorKey">;
 
 /** One-based runtime-local actor lifetime token. */
-export type ActorIncarnation = number & { [actorIncarnationBrand]: void };
+export type ActorIncarnation = Brand.Branded<number, "ActorIncarnation">;
 
 /** The stable ref, key, lifetime, and lease fence for one actor admission. */
 export type ActorIdentity<DefinitionValue extends MachineDefinition = MachineDefinition> = {
@@ -44,13 +39,8 @@ export type ActorIdentity<DefinitionValue extends MachineDefinition = MachineDef
 };
 
 /** A local ref is created only by this registry and has no durable address input. */
-export type LocalActorRef<DefinitionValue extends MachineDefinition = MachineDefinition> = ActorRef<
-  Machine<DefinitionValue>,
-  string,
-  false
-> & {
-  [localActorRefBrand]: void;
-};
+export type LocalActorRef<DefinitionValue extends MachineDefinition = MachineDefinition> =
+  Brand.Branded<ActorRef<Machine<DefinitionValue>, string, false>, "LocalActorRef">;
 
 export type LocalActorIdentity<DefinitionValue extends MachineDefinition> = Omit<
   ActorIdentity<DefinitionValue>,
@@ -58,6 +48,10 @@ export type LocalActorIdentity<DefinitionValue extends MachineDefinition> = Omit
 > & {
   ref: LocalActorRef<DefinitionValue>;
 };
+
+const makeActorKey = Brand.nominal<ActorKey>();
+
+const makeActorIncarnation = Brand.nominal<ActorIncarnation>();
 
 /** Terminal identity evidence retained by the owning runtime. */
 export type ActorTombstone = {
@@ -533,14 +527,23 @@ type LocalAllocationReservation = LocalAllocation & {
   nextKeyOrdinalAfter: number;
 };
 
-type LocalActorRefRecord = { [key: PropertyKey]: unknown };
-
 // Provenance marker only: this WeakSet retains no refs and is not an actor registry.
-const localActorRefs = new WeakSet<LocalActorRefRecord>();
+const localActorRefs = new WeakSet();
 
 const isRegisteredEntry = <Actor>(
   entry: StoredEntry<Actor>,
 ): entry is StoredEntry<Actor> & { actor: Actor } => entry.state === "active" && entry.hasActor;
+
+const isActorIdentityFor = <DefinitionValue extends MachineDefinition>(
+  identity: unknown,
+  machine: Machine<DefinitionValue>,
+  id: string,
+): identity is ActorIdentity<DefinitionValue> => {
+  if (!Predicate.isObject(identity)) return false;
+  const ref = identity.ref;
+
+  return Predicate.isObject(ref) && Object.is(ref.machine, machine) && ref.id === id;
+};
 
 const MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER;
 
@@ -586,7 +589,7 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
   let incarnationExhausted = false;
   let keyOrdinalExhausted = false;
   const recycledLocalAllocations: LocalAllocation[] = [];
-  const stableSlots = new Map<MachineRecordValue, Map<string, StableSlot<Actor>>>();
+  const stableSlots = new Map<WeakKey, Map<string, StableSlot<Actor>>>();
   const entriesByKey = new Map<ActorKey, StoredEntry<Actor>>();
 
   const failure: <Value>(diagnostic: PublicDiagnostic) => Result.Result<Value, PublicDiagnostic> = (
@@ -617,7 +620,7 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
     }
 
     // SAFETY: isValidCursor proves this counter is a positive safe integer before branding.
-    const incarnation = nextIncarnation as ActorIncarnation;
+    const incarnation = makeActorIncarnation(nextIncarnation);
 
     if (nextIncarnation === MAX_SAFE_INTEGER) incarnationExhausted = true;
     else nextIncarnation += 1;
@@ -656,14 +659,14 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
     machine: { definition: MachineDefinition } = ref.machine,
   ): ActorKey =>
     // SAFETY: the tuple segments make machine and ref boundaries injective even for delimiter-heavy authored names.
-    `runtime-${runtimeNonce}/stable/${tupleSegment(machine.definition.id)}/${tupleSegment(ref.id)}` as ActorKey;
+    makeActorKey(
+      `runtime-${runtimeNonce}/stable/${tupleSegment(machine.definition.id)}/${tupleSegment(ref.id)}`,
+    );
 
   const getStableSlot = <DefinitionValue extends MachineDefinition>(
     ref: ActorRef<Machine<DefinitionValue>>,
   ) => {
-    // SAFETY: every admitted Machine is a MachineRecordValue; this map never mutates the machine.
-    const machine = ref.machine as MachineRecordValue;
-    const byId = stableSlots.get(machine);
+    const byId = stableSlots.get(ref.machine);
 
     return byId?.get(ref.id);
   };
@@ -681,13 +684,11 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
       );
     }
 
-    // SAFETY: every admitted Machine is a MachineRecordValue; this map never mutates the machine.
-    const machine = ref.machine as MachineRecordValue;
-    let byId = stableSlots.get(machine);
+    let byId = stableSlots.get(ref.machine);
 
     if (byId === undefined) {
       byId = new Map();
-      stableSlots.set(machine, byId);
+      stableSlots.set(ref.machine, byId);
     }
 
     let slot = byId.get(ref.id);
@@ -695,8 +696,17 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
     if (slot?.tombstone !== undefined) return failure(disposedIdentity());
 
     if (slot?.entry !== undefined) {
-      // SAFETY: a stable slot is created only by reserveStable and retains its exact identity object.
-      return Result.succeed(slot.entry.identity as ActorIdentity<DefinitionValue>);
+      const identity = slot.entry.identity;
+
+      if (!isActorIdentityFor(identity, ref.machine, ref.id))
+        return failure(
+          invalidIdentity(
+            "The stable actor identity is inconsistent.",
+            "Create a new runtime execution scope.",
+          ),
+        );
+
+      return Result.succeed(identity);
     }
 
     const incarnation = allocateIncarnation();
@@ -704,7 +714,11 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
     if (Result.isFailure(incarnation)) return failure(incarnation.failure);
 
     if (slot === undefined) {
-      slot = { key: stableKey(ref, machineFacts), entry: undefined, tombstone: undefined };
+      slot = {
+        key: stableKey(ref, machineFacts),
+        entry: undefined,
+        tombstone: undefined,
+      };
       byId.set(ref.id, slot);
     }
 
@@ -784,16 +798,14 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
     };
 
     // SAFETY: this object is the complete opaque local ref; its private brand is type-only.
-    const ref = {
-      machine,
-      id: "local-" + runtimeNonce + "-" + incarnation.success,
-      persist: false,
-    } as LocalActorRef<DefinitionValue>;
+    const ref = Brand.nominal<LocalActorRef<DefinitionValue>>()(
+      actorRef(machine, "local-" + runtimeNonce + "-" + incarnation.success),
+    );
 
     const identity = {
       ref,
       // SAFETY: the local namespace is disjoint from stable tuple keys.
-      key: `runtime-${runtimeNonce}/local/${ordinal.success}` as ActorKey,
+      key: makeActorKey(`runtime-${runtimeNonce}/local/${ordinal.success}`),
       incarnation: incarnation.success,
       leaseEpoch: 0,
     };
@@ -889,9 +901,12 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
       return slot?.tombstone === undefined ? failure(missingActorRef) : failure(disposedIdentity());
     }
 
-    // SAFETY: active entries are registered through this registry and retain their exact identity object.
+    const identity = entry.identity;
+
+    if (!isActorIdentityFor(identity, ref.machine, ref.id)) return failure(missingActorRef);
+
     return Result.succeed({
-      identity: entry.identity as ActorIdentity<DefinitionValue>,
+      identity,
       actor: entry.actor,
     });
   };
@@ -1423,7 +1438,7 @@ const lookupFailure = (slot: string, failure: PublicDiagnostic): PublicDiagnosti
 type CapturedActorRef<DefinitionValue extends MachineDefinition = MachineDefinition> = {
   source: ActorRef<Machine<DefinitionValue>>;
   value: ActorRef<Machine<DefinitionValue>>;
-  machine: MachineRecordValue;
+  machine: Machine;
   id: string;
   persist: boolean;
 };
@@ -1549,14 +1564,16 @@ const captureBinding = <ProviderDefinition extends MachineDefinition = MachineDe
   if (!Predicate.isString(slotValue) || !Predicate.isFunction(select))
     return Result.fail(malformedBindingFailure(slot));
 
-  // SAFETY: captureReflection proved the selector is a stable function data property; its typed
-  // input/output correlation remains owned by the admitted consumer/provider definitions.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+  // SAFETY: captureReflection proved the selector is a stable function data property; runtime
+  // authority validation restores the admitted consumer/provider correlation before invocation.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- reflection erases the validated provider snapshot parameter.
+  const capturedSelect = select as (...args: [ActorContextSnapshot<ProviderDefinition>]) => void;
+
   return Result.succeed({
     slot,
     provider: provider.success,
     providerFence: providerFence.success,
-    select: select as (...args: [ActorContextSnapshot<ProviderDefinition>]) => void,
+    select: capturedSelect,
   });
 };
 
@@ -1621,11 +1638,13 @@ export const captureActorContextBindings = <
 
   // SAFETY: each element was captured as a complete stable binding; runtime authority validation
   // later restores the consumer/provider slot correlation before reservation.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-  return Result.succeed(
-    // oxlint-disable-next-line anti-slop/no-chained-type-assertions -- runtime reflection erased the generic selector correlation.
-    copyArray(bindings) as unknown as ActorContextBinding<DefinitionValue, ProviderDefinition>[],
-  );
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion, anti-slop/no-chained-type-assertions -- reflection erases the validated slot-dependent selector correlation.
+  const capturedBindings = copyArray(bindings) as unknown as ActorContextBinding<
+    DefinitionValue,
+    ProviderDefinition
+  >[];
+
+  return Result.succeed(capturedBindings);
 };
 
 const copyDependencyEdge = (edge: ActorDependencyEdge) => copyObject({ ...edge });
@@ -1720,7 +1739,7 @@ const isCapturedActorRef = <DefinitionValue extends MachineDefinition>(
 ) =>
   candidate === captured.source ||
   candidate === captured.value ||
-  (candidate.machine === captured.machine &&
+  (Object.is(candidate.machine, captured.machine) &&
     candidate.id === captured.id &&
     candidate.persist === captured.persist);
 
@@ -1899,9 +1918,8 @@ const validateDependencyEdges = (
   return Result.succeed(copyArray(dependencies.map(copyDependencyEdge)));
 };
 
-const planAdmitsMachine = (plan: ReturnType<typeof appPlan>, machine: MachineRecordValue) =>
-  // SAFETY: app-plan membership is an identity check; this boundary never reads Machine fields from the record.
-  plan.admitsMachine(machine as Machine);
+const planAdmitsMachine = (plan: ReturnType<typeof appPlan>, machine: Machine) =>
+  isOwnedMachineFactsFor(plan.resolveMachineFacts(machine), machine);
 
 const validateAdmissionClaim = <A extends App, DefinitionValue extends MachineDefinition, I>(
   ref: ActorRef<Machine<DefinitionValue>>,
@@ -1999,12 +2017,15 @@ const validateActorAdmissionUnchecked = <
   for (const capturedBinding of bindings.success.bindings) {
     // SAFETY: captureBinding validated and copied every binding field before authority.lookup;
     // this assertion restores the consumer/provider generic correlation erased by reflection.
-    canonicalBindings.push({
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- runtime authority validation restored the slot-dependent selector correlation.
+    const canonicalBinding = {
       slot: capturedBinding.slot,
       provider: capturedBinding.provider.value,
       providerFence: copyObject({ ...capturedBinding.providerFence }),
       select: capturedBinding.select,
-    } as ActorContextBinding<DefinitionValue, ProviderDefinition>);
+    } as ActorContextBinding<DefinitionValue, ProviderDefinition>;
+
+    canonicalBindings.push(canonicalBinding);
   }
 
   // SAFETY: the canonical ref, bindings, and dependency array are owned snapshots of the validated

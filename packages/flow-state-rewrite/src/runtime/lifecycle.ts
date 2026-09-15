@@ -185,9 +185,9 @@ type TimerClaim = {
   status: "claimed" | "fired";
 };
 
-type LifecycleOwner = {
+type LifecycleOwner<Snapshot extends LifecycleStateKey> = {
   scope: Scope.Closeable;
-  current: unknown;
+  current: Snapshot | undefined;
   controllerBound: boolean;
   routing: { current: "open" | "blocked"; generation: number };
   scopeClosed: boolean;
@@ -197,24 +197,30 @@ type LifecycleOwner = {
 
 const lifecycleOwnerSymbol = Symbol("flow-state/lifecycle-owner");
 
-type OwnedLifecycleStateKey = LifecycleStateKey & {
+type OwnedLifecycleStateKey<Snapshot extends LifecycleStateKey> = Snapshot & {
   [lifecycleOwnerSymbol]: {
-    owner: LifecycleOwner;
+    owner: LifecycleOwner<Snapshot>;
     publicationRevision: number;
     cleanupCause?: Cause.Cause<unknown>;
   };
 };
 
-const lifecycleOwnerOf = (state: LifecycleStateKey): LifecycleOwner | undefined => {
-  // SAFETY: this symbol is installed only by makeOwnedSnapshot and retained by copySnapshot.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- private snapshot ownership metadata.
-  return (state as Partial<OwnedLifecycleStateKey>)[lifecycleOwnerSymbol]?.owner;
+const hasLifecycleOwner = <Snapshot extends LifecycleStateKey>(
+  state: Snapshot,
+): state is OwnedLifecycleStateKey<Snapshot> => lifecycleOwnerSymbol in state;
+
+const lifecycleOwnerOf = <Snapshot extends LifecycleStateKey>(
+  state: Snapshot,
+): LifecycleOwner<Snapshot> | undefined => {
+  if (!hasLifecycleOwner(state)) return undefined;
+
+  return state[lifecycleOwnerSymbol].owner;
 };
 
-const lifecycleMetadataOf = (state: LifecycleStateKey) => {
-  // SAFETY: this symbol is installed only by makeOwnedSnapshot and retained by copySnapshot.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- private snapshot ownership metadata.
-  return (state as Partial<OwnedLifecycleStateKey>)[lifecycleOwnerSymbol];
+const lifecycleMetadataOf = <Snapshot extends LifecycleStateKey>(state: Snapshot) => {
+  if (!hasLifecycleOwner(state)) return undefined;
+
+  return state[lifecycleOwnerSymbol];
 };
 
 const copyFence = (fence: ActorFence) => copyObject({ ...fence });
@@ -379,12 +385,7 @@ const currentState = <
   if (owner.current === undefined)
     throw new Error("Lifecycle owner lost its authoritative current snapshot");
 
-  // SAFETY: owner.current is the canonical snapshot retained by this private LifecycleOwner cell.
-  const current = owner.current as LifecycleSnapshot<
-    DefinitionValue,
-    CleanupError,
-    ProviderDefinition
-  >;
+  const current = owner.current;
 
   const inputRevision = lifecycleMetadataOf(state)?.publicationRevision;
   const currentRevision = lifecycleMetadataOf(current)?.publicationRevision;
@@ -395,8 +396,6 @@ const currentState = <
   )
     return current;
 
-  // SAFETY: one LifecycleOwner retains snapshots produced by this generic lifecycle boundary.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- private owner erases generic fields.
   return state;
 };
 
@@ -414,9 +413,7 @@ const ownerState = <
   if (owner.current === undefined)
     throw new Error("Lifecycle owner lost its authoritative current snapshot");
 
-  // SAFETY: one LifecycleOwner retains snapshots produced by this generic lifecycle boundary.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- private owner erases generic fields.
-  return owner.current as LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>;
+  return owner.current;
 };
 
 const copyResource = <CleanupError>(
@@ -601,7 +598,9 @@ export const prepareLifecycle = <
     finalization: "not-started" as const,
   });
 
-  const owner: LifecycleOwner = {
+  const owner: LifecycleOwner<
+    LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>
+  > = {
     scope: Scope.makeUnsafe("sequential"),
     current: snapshot,
     controllerBound: false,

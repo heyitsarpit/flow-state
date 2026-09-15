@@ -2189,6 +2189,64 @@ describe("pending regression scenarios", () => {
     }),
   );
 
+  it.effect("turns hostile overload proxies into typed admission failures", () =>
+    Effect.gen(function* () {
+      const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+
+      yield* runtime.ready();
+
+      const assembly = runtimeOwner(runtime).assembly();
+      const ref = actorRef(IntegrationStandaloneMachine, "hostile-overload");
+
+      const hostileOptions = new Proxy(
+        { ref, initial: initialStandaloneSnapshot() },
+        {
+          has() {
+            // oxlint-disable-next-line anti-slop/no-throw-in-effect-gen -- the overload regression proof needs a hostile `in` trap.
+            throw new Error("hostile has trap");
+          },
+          ownKeys() {
+            // oxlint-disable-next-line anti-slop/no-throw-in-effect-gen -- runtime capture must convert reflection traps to diagnostics.
+            throw new Error("hostile ownKeys trap");
+          },
+        },
+      );
+
+      const optionsFailure = yield* Effect.exit(assembly.ensureActor(hostileOptions));
+
+      assert.ok(Exit.isFailure(optionsFailure));
+
+      if (Exit.isFailure(optionsFailure)) {
+        const reason = optionsFailure.cause.reasons.find(Cause.isFailReason);
+        assert.ok(reason !== undefined);
+        assert.strictEqual(reason.error.code, "SchemaValidation");
+        assert.deepStrictEqual(reason.error.details, { reason: "reflection" });
+      }
+
+      const hostileMachine = new Proxy(IntegrationStandaloneMachine, {
+        has() {
+          // oxlint-disable-next-line anti-slop/no-throw-in-effect-gen -- the local overload regression proof supplies a throwing `in` trap.
+          throw new Error("hostile machine has trap");
+        },
+      });
+
+      const machineFailure = yield* Effect.exit(
+        assembly.createActor(hostileMachine, { initial: initialStandaloneSnapshot() }),
+      );
+
+      assert.ok(Exit.isFailure(machineFailure));
+
+      if (Exit.isFailure(machineFailure)) {
+        const reason = machineFailure.cause.reasons.find(Cause.isFailReason);
+        assert.ok(reason !== undefined);
+        assert.strictEqual(reason.error.code, "SchemaValidation");
+        assert.deepStrictEqual(reason.error.path, ["actorOptions", "machine"]);
+      }
+
+      yield* runtimeOwner(runtime).close();
+    }),
+  );
+
   // Setup: Ready one assembled runtime with deferred local allocation observation and malformed local options.
   // Action: Submit the malformed options through the machine-first local path, then admit a valid local actor.
   // Assert: Failed local validation leaves no allocation observation or consumed identity; the next valid local actor starts at the original incarnation and ordinal.

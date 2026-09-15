@@ -997,6 +997,59 @@ describe("app composition", () => {
       assert.strictEqual(plan.resolveMachine("missing"), undefined);
     });
 
+    it("preserves state-token identity when an exposed token gains branch-shaped data", () => {
+      const state = editorMachine.definition.S.ready;
+      assert.strictEqual(Reflect.set(state, "S", {}), true);
+
+      try {
+        const mutatedApp = app({
+          id: "app-test/mutated-state-token",
+          persistenceVersion: "1",
+          modules: [EditorModule],
+        });
+
+        const facts = appPlan(mutatedApp).resolveMachineFacts(editorMachine);
+
+        assert.ok(isOwnedMachineFactsFor(facts, editorMachine));
+
+        if (isOwnedMachineFactsFor(facts, editorMachine))
+          assert.strictEqual(facts.definition.S.ready, state);
+      } finally {
+        assert.strictEqual(Reflect.deleteProperty(state, "S"), true);
+      }
+    });
+
+    it("copies only own compiled handlers into app-time machine facts", () => {
+      const sourceRoot = required(Option.fromUndefinedOr(editorMachine.compiled.states[""]));
+      const sourceHandlers = sourceRoot.handlers;
+      const originalPrototype = Object.getPrototypeOf(sourceHandlers);
+      const inheritedHandlers = { inherited: sourceHandlers.opened };
+
+      Object.setPrototypeOf(sourceHandlers, inheritedHandlers);
+
+      try {
+        assert.strictEqual("inherited" in sourceHandlers, true);
+        assert.strictEqual(Object.hasOwn(sourceHandlers, "inherited"), false);
+
+        const mutatedApp = app({
+          id: "app-test/inherited-handler",
+          persistenceVersion: "1",
+          modules: [EditorModule],
+        });
+
+        const facts = appPlan(mutatedApp).resolveMachineFacts(editorMachine);
+
+        assert.ok(isOwnedMachineFactsFor(facts, editorMachine));
+
+        if (isOwnedMachineFactsFor(facts, editorMachine)) {
+          const capturedRoot = required(Option.fromUndefinedOr(facts.compiled.states[""]));
+          assert.strictEqual(Object.hasOwn(capturedRoot.handlers, "inherited"), false);
+        }
+      } finally {
+        Object.setPrototypeOf(sourceHandlers, originalPrototype);
+      }
+    });
+
     // App preserves retained identities without runtime freezes.
     it("preserves retained identities without freezing user values", () => {
       const ActivityDefinitionResult = definition({
