@@ -1,3 +1,4 @@
+// oxlint-disable-next-line anti-slop/no-large-production-file -- this module owns the Definition-indexed authoring, validation, registration, and compiled type grammar; splitting would fragment their shared recursive type relationships.
 import type {
   ContextOf,
   DefinitionConstraint,

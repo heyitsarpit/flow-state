@@ -1,3 +1,4 @@
+/* oxlint-disable anti-slop/no-large-production-file -- this is the actor-admission proof matrix across identity, reflection, graph validation, rollback, and lease handoff; shared fixtures keep phase-order checks comparable. */
 import { assert, describe, it } from "@effect/vitest";
 import { Cause, Context, Deferred, Effect, Exit, Fiber, Option, Queue, Result } from "effect";
 
@@ -156,7 +157,7 @@ const makeProviderFence = (identity: {
   key: ActorKey;
   incarnation: ActorFence["incarnation"];
   leaseEpoch: number;
-}): ActorFence => ({
+}) => ({
   key: identity.key,
   incarnation: identity.incarnation,
   generation: 0,
@@ -323,9 +324,11 @@ type TypedAttachInput = Parameters<TypedAuthority["attach"]>[0];
 
 const acceptTypedPrepared = (prepared: TypedAttachInput) => prepared;
 
+// RETURN_TYPE: This compatibility proof requires the exact attach input accepted by the typed authority.
 const acceptExactPrepared = (prepared: TypedPrepared): TypedAttachInput =>
   acceptTypedPrepared(prepared);
 
+// RETURN_TYPE: This negative proof compiles only when the attached owner is rejected at the prepared boundary.
 const rejectCrossPhaseOwner = (prepared: WrongPhasePrepared): TypedAttachInput => {
   // @ts-expect-error A prepared phase cannot accept an attached-phase owner.
   return acceptTypedPrepared(prepared);
@@ -386,7 +389,7 @@ type TransactionHarnessOptions = {
   registerGate?: Deferred.Deferred<void>;
 };
 
-const transactionDiagnostic = (message: string): PublicDiagnostic =>
+const transactionDiagnostic = (message: string) =>
   Failure({
     code: "InvariantViolation",
     path: ["admission"],
@@ -420,10 +423,7 @@ const makeTransactionHarness = (
     tombstone: false,
   };
 
-  const failureEffect = (
-    kind: TransactionFailure["kind"],
-    message: string,
-  ): Effect.Effect<never, PublicDiagnostic> => {
+  const failureEffect = (kind: TransactionFailure["kind"], message: string) => {
     if (kind === "typed") return Effect.fail(transactionDiagnostic(message));
 
     if (kind === "defect") return Effect.die(new Error(message));
@@ -439,7 +439,7 @@ const makeTransactionHarness = (
     return failure?.stage === stage ? failureEffect(failure.kind, failure.message) : undefined;
   };
 
-  const rollbackStep = (name: string): AdmissionRollbackStep => ({
+  const rollbackStep = (name: string) => ({
     name,
     release: Effect.gen(function* () {
       cleanups.push(name);
@@ -459,10 +459,10 @@ const makeTransactionHarness = (
     }),
   });
 
-  const extendRollback = (
-    previous: AdmissionRollbackStep[],
-    name: string,
-  ): AdmissionRollbackStep[] => [...previous, rollbackStep(name)];
+  const extendRollback = (previous: AdmissionRollbackStep[], name: string) => [
+    ...previous,
+    rollbackStep(name),
+  ];
 
   const authority: TransactionAuthority = {
     app: noContextApp,
@@ -611,16 +611,15 @@ const makeTransactionHarness = (
   };
 };
 
-const makeTransactionInput = (
-  ref: ActorRef<Machine<typeof editorDefinition>>,
-): TransactionInput => ({
-  app: noContextApp,
-  implementation,
-  ref,
-  input: undefined,
-  bindings: [],
-  dependencies: [],
-});
+const makeTransactionInput = (ref: ActorRef<Machine<typeof editorDefinition>>) =>
+  ({
+    app: noContextApp,
+    implementation,
+    ref,
+    input: undefined,
+    bindings: [],
+    dependencies: [],
+  }) satisfies TransactionInput;
 
 const preparedProviderSnapshot = () =>
   resultSuccess(
@@ -702,6 +701,108 @@ const admitTransaction = (input: TransactionInput, authority: TransactionAuthori
     typeof editorDefinition,
     TransactionOwners
   >(input, authority);
+
+const admissionFailureScenarios = [
+  { kind: "typed", message: "typed-primary" },
+  { kind: "defect", message: "defect-primary" },
+  { kind: "interrupt", message: "interrupt-primary" },
+  { kind: "empty", message: "empty-primary" },
+] as const;
+
+type AdmissionFailureScenario = (typeof admissionFailureScenarios)[number];
+
+const makeAdmissionFailureHarness = (scenario: AdmissionFailureScenario) => {
+  const ref = actorRef(editorMachine, `failure-${scenario.kind}`);
+  const failure = { stage: "activate", ...scenario } as const;
+
+  const options =
+    scenario.kind === "empty"
+      ? { mode: "fresh-stable" as const, failure }
+      : {
+          mode: "fresh-stable" as const,
+          failure,
+          cleanupFailure: {
+            name: "attached" as const,
+            kind: "typed" as const,
+            message: `cleanup-${scenario.kind}`,
+          },
+        };
+
+  return { ref, harness: makeTransactionHarness(ref, options) };
+};
+
+const assertAdmissionFailureCause = (
+  scenario: AdmissionFailureScenario,
+  cause: Cause.Cause<PublicDiagnostic>,
+) => {
+  if (scenario.kind === "empty") {
+    assert.ok(Cause.hasDies(cause));
+    const defect = Cause.findDefect(cause);
+    assert.ok(Result.isSuccess(defect));
+    assert.ok(defect.success instanceof Error);
+
+    if (defect.success instanceof Error)
+      assert.strictEqual(defect.success.message, "Actor admission completed with an empty Cause");
+
+    return;
+  }
+
+  assert.ok(Cause.hasFails(cause));
+
+  switch (scenario.kind) {
+    case "defect": {
+      assert.ok(Cause.hasDies(cause));
+      const defect = Cause.findDefect(cause);
+      assert.ok(Result.isSuccess(defect));
+      assert.ok(defect.success instanceof Error);
+
+      if (defect.success instanceof Error)
+        assert.strictEqual(defect.success.message, scenario.message);
+      break;
+    }
+
+    case "interrupt":
+      assert.ok(Cause.hasInterrupts(cause));
+      break;
+    case "typed": {
+      const primary = Cause.findError(cause);
+      assert.ok(Result.isSuccess(primary));
+      assert.strictEqual(primary.success.summary, scenario.message);
+      break;
+    }
+  }
+
+  const cleanup = cause.reasons.find(
+    (reason) => Cause.isFailReason(reason) && reason.error.summary === `cleanup-${scenario.kind}`,
+  );
+
+  assert.ok(cleanup !== undefined);
+};
+
+const assertAdmissionFailureScenario = (scenario: AdmissionFailureScenario) =>
+  Effect.gen(function* () {
+    const { ref, harness } = makeAdmissionFailureHarness(scenario);
+
+    const terminal = yield* Effect.exit(
+      admitTransaction(makeTransactionInput(ref), harness.authority),
+    );
+
+    assert.ok(Exit.isFailure(terminal));
+
+    if (Exit.isSuccess(terminal)) return;
+    assertAdmissionFailureCause(scenario, terminal.cause);
+    assert.deepStrictEqual(harness.cleanups, ["attached", "prepared", "reservation"]);
+    assert.strictEqual(harness.exposedCount, 0);
+    const completion = harness.completion;
+
+    if (completion === undefined)
+      return yield* Effect.die(new Error("leader completion was not retained"));
+    const sharedTerminal = yield* Deferred.await(completion);
+    assert.ok(Exit.isFailure(sharedTerminal));
+
+    if (Exit.isFailure(sharedTerminal))
+      assert.deepStrictEqual(sharedTerminal.cause, terminal.cause);
+  });
 
 describe("actor identity admission", () => {
   it("allocates runtime-local stable keys and fresh local identities", () => {
@@ -1236,7 +1337,7 @@ describe("actor identity admission", () => {
       slot: "providerState",
     } as const;
 
-    const selector = (): never => {
+    const selector = () => {
       throw new Error("captured selector must not execute during validation");
     };
 
@@ -1698,94 +1799,8 @@ describe("actor identity admission", () => {
 
   it.effect("retains primary typed, defect, and interruption causes while rolling back once", () =>
     Effect.gen(function* () {
-      const scenarios = [
-        { kind: "typed", message: "typed-primary" },
-        { kind: "defect", message: "defect-primary" },
-        { kind: "interrupt", message: "interrupt-primary" },
-        { kind: "empty", message: "empty-primary" },
-      ] as const;
-
-      for (const scenario of scenarios) {
-        const ref = actorRef(editorMachine, `failure-${scenario.kind}`);
-
-        const harness = makeTransactionHarness(
-          ref,
-          scenario.kind === "empty"
-            ? {
-                mode: "fresh-stable",
-                failure: { stage: "activate", ...scenario },
-              }
-            : {
-                mode: "fresh-stable",
-                failure: { stage: "activate", ...scenario },
-                cleanupFailure: {
-                  name: "attached",
-                  kind: "typed",
-                  message: `cleanup-${scenario.kind}`,
-                },
-              },
-        );
-
-        const terminal = yield* Effect.exit(
-          admitTransaction(makeTransactionInput(ref), harness.authority),
-        );
-
-        assert.ok(Exit.isFailure(terminal));
-
-        if (Exit.isSuccess(terminal)) continue;
-
-        if (scenario.kind === "empty") {
-          assert.ok(Cause.hasDies(terminal.cause));
-          const defect = Cause.findDefect(terminal.cause);
-          assert.ok(Result.isSuccess(defect));
-          assert.ok(defect.success instanceof Error);
-
-          if (defect.success instanceof Error)
-            assert.strictEqual(
-              defect.success.message,
-              "Actor admission completed with an empty Cause",
-            );
-        } else {
-          assert.ok(Cause.hasFails(terminal.cause));
-
-          if (scenario.kind === "defect") {
-            assert.ok(Cause.hasDies(terminal.cause));
-            const defect = Cause.findDefect(terminal.cause);
-            assert.ok(Result.isSuccess(defect));
-            assert.ok(defect.success instanceof Error);
-
-            if (defect.success instanceof Error)
-              assert.strictEqual(defect.success.message, scenario.message);
-          }
-
-          if (scenario.kind === "interrupt") assert.ok(Cause.hasInterrupts(terminal.cause));
-
-          if (scenario.kind === "typed") {
-            const primary = Cause.findError(terminal.cause);
-            assert.ok(Result.isSuccess(primary));
-            assert.strictEqual(primary.success.summary, scenario.message);
-          }
-
-          const cleanup = terminal.cause.reasons.find(
-            (reason) =>
-              Cause.isFailReason(reason) && reason.error.summary === `cleanup-${scenario.kind}`,
-          );
-
-          assert.ok(cleanup !== undefined);
-        }
-
-        assert.deepStrictEqual(harness.cleanups, ["attached", "prepared", "reservation"]);
-        assert.strictEqual(harness.exposedCount, 0);
-        const completion = harness.completion;
-
-        if (completion === undefined)
-          return yield* Effect.die(new Error("leader completion was not retained"));
-        const sharedTerminal = yield* Deferred.await(completion);
-        assert.ok(Exit.isFailure(sharedTerminal));
-
-        if (Exit.isFailure(sharedTerminal))
-          assert.deepStrictEqual(sharedTerminal.cause, terminal.cause);
-      }
+      for (const scenario of admissionFailureScenarios)
+        yield* assertAdmissionFailureScenario(scenario);
     }),
   );
 

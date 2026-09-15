@@ -1,3 +1,4 @@
+// oxlint-disable-next-line anti-slop/no-large-production-file -- this proof suite covers the one actor lifecycle owner boundary; moving scenarios would duplicate shared owner fixtures.
 import { assert, describe, it } from "@effect/vitest";
 import { Cause, Clock, Deferred, Effect, Exit, Fiber, Option, Result, Scope } from "effect";
 import { TestClock } from "effect/testing";
@@ -459,7 +460,7 @@ describe("actor lifecycle", () => {
       const resourceCloses: Array<number> = [];
       const workFinalizers: Array<number> = [];
 
-      const makeResource = (id: number): Effect.Effect<LifecycleResource<string>> =>
+      const makeResource = (id: number) =>
         Effect.gen(function* () {
           const scope = yield* Scope.make("sequential");
 
@@ -482,7 +483,7 @@ describe("actor lifecycle", () => {
         });
 
       // SAFETY: The helper deliberately constructs a live work attachment with a private scope and fiber.
-      const makeWork = (id: number): Effect.Effect<LifecycleWork<string>> =>
+      const makeWork = (id: number) =>
         Effect.gen(function* () {
           const scope = yield* Scope.make("sequential");
           const release = yield* Deferred.make<void>();

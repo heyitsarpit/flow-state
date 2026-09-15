@@ -1,3 +1,4 @@
+// oxlint-disable-next-line anti-slop/no-large-production-file -- RuntimeSetup readiness, admission, and terminal-outcome proofs share one public runtime assembly boundary.
 import { assert, describe, it } from "@effect/vitest";
 import {
   Cause,

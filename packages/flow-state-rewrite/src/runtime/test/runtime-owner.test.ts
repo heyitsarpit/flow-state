@@ -1,3 +1,5 @@
+// oxlint-disable anti-slop/no-large-production-file -- This suite proves one RuntimeOwner state machine across readiness, shutdown, and finalizer outcomes; splitting its cases would fragment that single owner contract.
+
 import { assert, describe, it } from "@effect/vitest";
 import { Cause, Context, Deferred, Effect, Exit, Fiber, Layer, Result, type Types } from "effect";
 
@@ -78,6 +80,49 @@ type Probe = {
   acquisitions: Array<string>;
   cleanups: Array<string>;
   visible: Array<{ first: string; second: number }>;
+};
+
+type TerminalClassification = "defect" | "typed" | "interruption" | "invariant-defect";
+
+const classifyTerminalCause = (cause: Cause.Cause<unknown>) => {
+  if (Cause.hasDies(cause)) return "defect";
+
+  if (Cause.hasFails(cause)) return "typed";
+
+  if (Cause.hasInterruptsOnly(cause)) return "interruption";
+
+  return "invariant-defect";
+};
+
+const assertCauseReason = <Error>(
+  actualReason: Cause.Cause<Error>["reasons"][number],
+  expectedReason: Cause.Cause<Error>["reasons"][number],
+) => {
+  assert.strictEqual(actualReason._tag, expectedReason._tag);
+
+  if (Cause.isFailReason(expectedReason) && Cause.isFailReason(actualReason)) {
+    assert.strictEqual(actualReason.error, expectedReason.error);
+  }
+
+  if (Cause.isDieReason(expectedReason) && Cause.isDieReason(actualReason)) {
+    assert.strictEqual(actualReason.defect, expectedReason.defect);
+  }
+
+  if (Cause.isInterruptReason(expectedReason) && Cause.isInterruptReason(actualReason)) {
+    assert.strictEqual(actualReason.fiberId, expectedReason.fiberId);
+  }
+};
+
+const assertCauseReasons = <Error>(actual: Cause.Cause<Error>, expected: Cause.Cause<Error>) => {
+  assert.strictEqual(actual.reasons.length, expected.reasons.length);
+
+  for (const [index, expectedReason] of expected.reasons.entries()) {
+    const actualReason = actual.reasons[index];
+
+    if (actualReason === undefined) assert.fail(`Missing Cause reason at index ${index}`);
+
+    assertCauseReason(actualReason, expectedReason);
+  }
 };
 
 const makeLayerPlan = (
@@ -969,7 +1014,7 @@ describe("runtime owner", () => {
     }),
   );
 
-  it.effect("preserves every terminal Cause lane without retry", () =>
+  it.effect("caches each terminal readiness Cause lane without retry", () =>
     Effect.gen(function* () {
       const thrownDefect = new Error("thrown-defect");
       const mixedDefect = new Error("mixed-defect");
@@ -988,8 +1033,6 @@ describe("runtime owner", () => {
       ]);
 
       const emptyCause = Cause.empty;
-
-      type TerminalClassification = "defect" | "typed" | "interruption" | "invariant-defect";
 
       const cases: Array<{
         effect: Effect.Effect<never, string>;
@@ -1032,16 +1075,6 @@ describe("runtime owner", () => {
         },
       ];
 
-      const classify = (cause: Cause.Cause<unknown>) => {
-        if (Cause.hasDies(cause)) return "defect";
-
-        if (Cause.hasFails(cause)) return "typed";
-
-        if (Cause.hasInterruptsOnly(cause)) return "interruption";
-
-        return "invariant-defect";
-      };
-
       for (const scenario of cases) {
         let acquisitions = 0;
 
@@ -1064,147 +1097,116 @@ describe("runtime owner", () => {
         assert.ok(Exit.isFailure(firstExit));
 
         if (Exit.isFailure(firstExit)) {
-          assert.strictEqual(classify(firstExit.cause), scenario.expectedClassification);
-          assert.deepStrictEqual(firstExit.cause, scenario.expectedCause);
-          assert.strictEqual(firstExit.cause.reasons.length, scenario.expectedCause.reasons.length);
-
-          for (const [index, expectedReason] of scenario.expectedCause.reasons.entries()) {
-            const actualReason = firstExit.cause.reasons[index];
-
-            if (actualReason === undefined) {
-              assert.fail(`Missing terminal Cause reason at index ${index}`);
-            }
-
-            assert.strictEqual(actualReason._tag, expectedReason._tag);
-
-            if (Cause.isFailReason(expectedReason) && Cause.isFailReason(actualReason)) {
-              assert.strictEqual(actualReason.error, expectedReason.error);
-            }
-
-            if (Cause.isDieReason(expectedReason) && Cause.isDieReason(actualReason)) {
-              assert.strictEqual(actualReason.defect, expectedReason.defect);
-            }
-
-            if (Cause.isInterruptReason(expectedReason) && Cause.isInterruptReason(actualReason)) {
-              assert.strictEqual(actualReason.fiberId, expectedReason.fiberId);
-            }
-          }
-        }
-      }
-
-      const primaryAcquisitionFailure = { _tag: "primary-acquisition-failure" } as const;
-      const primaryAcquisitionCause = Cause.fail(primaryAcquisitionFailure);
-      const typedCleanupFailure = { _tag: "typed-cleanup-failure" } as const;
-      const typedCleanupCause = Cause.fail(typedCleanupFailure);
-      const cleanupDefect = new Error("cleanup-defect");
-      const cleanupDefectCause = Cause.die(cleanupDefect);
-      const cleanupInterruptionCause = Cause.interrupt(23);
-
-      const cleanupCases = [
-        {
-          cleanup: "success",
-          expectedCause: primaryAcquisitionCause,
-          expectedClassification: "typed",
-        },
-        {
-          cleanup: "defect",
-          expectedCause: Cause.combine(primaryAcquisitionCause, cleanupDefectCause),
-          expectedClassification: "defect",
-        },
-        {
-          cleanup: "typed",
-          expectedCause: Cause.combine(primaryAcquisitionCause, typedCleanupCause),
-          expectedClassification: "typed",
-        },
-        {
-          cleanup: "interruption",
-          expectedCause: Cause.combine(primaryAcquisitionCause, cleanupInterruptionCause),
-          expectedClassification: "typed",
-        },
-      ] as const;
-
-      for (const cleanupCase of cleanupCases) {
-        let acquisitions = 0;
-        let cleanupRuns = 0;
-
-        const acquireService = Effect.sync(() => {
-          acquisitions += 1;
-
-          return "service";
-        });
-
-        const typedCleanupRelease = () => {
-          cleanupRuns += 1;
-
-          return Effect.fail(typedCleanupFailure);
-        };
-
-        const normalCleanupRelease = () =>
-          Effect.gen(function* () {
-            cleanupRuns += 1;
-
-            if (cleanupCase.cleanup === "defect") {
-              // SAFETY: This branch injects a finalizer defect so cleanup Cause composition remains observable.
-              // oxlint-disable-next-line anti-slop/no-expected-failure-as-defect -- the cleanup matrix asserts the exact combined Cause.
-              yield* Effect.die(cleanupDefect);
-            }
-
-            if (cleanupCase.cleanup === "interruption") {
-              yield* Effect.failCause(cleanupInterruptionCause);
-            }
-          });
-
-        const acquireWithRelease =
-          cleanupCase.cleanup === "typed"
-            ? Effect.acquireRelease(
-                acquireService,
-                // @ts-expect-error rc.112 finalizer errors are typed as never, but this fixture proves the runtime Cause is retained.
-                typedCleanupRelease,
-              )
-            : Effect.acquireRelease(acquireService, normalCleanupRelease);
-
-        const owner = makeRuntimeOwner({
-          layer: Layer.effect(SecondService, Effect.failCause(primaryAcquisitionCause)).pipe(
-            Layer.provideMerge(Layer.effect(FirstService, acquireWithRelease)),
-          ),
-          expose: Effect.succeed(undefined),
-        });
-
-        const firstExit = yield* Effect.exit(owner.ready());
-        const repeatedExit = yield* Effect.exit(owner.ready());
-        assert.deepStrictEqual(repeatedExit, firstExit);
-        assert.strictEqual(acquisitions, 1);
-        assert.strictEqual(cleanupRuns, 1);
-        assert.ok(Exit.isFailure(firstExit));
-
-        if (Exit.isFailure(firstExit)) {
-          assert.strictEqual(classify(firstExit.cause), cleanupCase.expectedClassification);
-          assert.deepStrictEqual(firstExit.cause, cleanupCase.expectedCause);
           assert.strictEqual(
-            firstExit.cause.reasons.length,
-            cleanupCase.expectedCause.reasons.length,
+            classifyTerminalCause(firstExit.cause),
+            scenario.expectedClassification,
           );
-
-          for (const [index, expectedReason] of cleanupCase.expectedCause.reasons.entries()) {
-            const actualReason = firstExit.cause.reasons[index];
-
-            if (actualReason === undefined) {
-              assert.fail(`Missing cleanup Cause reason at index ${index}`);
-            }
-
-            assert.strictEqual(actualReason._tag, expectedReason._tag);
-
-            if (Cause.isFailReason(expectedReason) && Cause.isFailReason(actualReason)) {
-              assert.strictEqual(actualReason.error, expectedReason.error);
-            }
-
-            if (Cause.isDieReason(expectedReason) && Cause.isDieReason(actualReason)) {
-              assert.strictEqual(actualReason.defect, expectedReason.defect);
-            }
-          }
+          assert.deepStrictEqual(firstExit.cause, scenario.expectedCause);
+          assertCauseReasons(firstExit.cause, scenario.expectedCause);
         }
       }
     }),
+  );
+
+  it.effect(
+    "appends typed, defect, and interruption cleanup Causes after the primary failure",
+    () =>
+      Effect.gen(function* () {
+        const primaryAcquisitionFailure = { _tag: "primary-acquisition-failure" } as const;
+        const primaryAcquisitionCause = Cause.fail(primaryAcquisitionFailure);
+        const typedCleanupFailure = { _tag: "typed-cleanup-failure" } as const;
+        const typedCleanupCause = Cause.fail(typedCleanupFailure);
+        const cleanupDefect = new Error("cleanup-defect");
+        const cleanupDefectCause = Cause.die(cleanupDefect);
+        const cleanupInterruptionCause = Cause.interrupt(23);
+
+        const cleanupCases = [
+          {
+            cleanup: "success",
+            expectedCause: primaryAcquisitionCause,
+            expectedClassification: "typed",
+          },
+          {
+            cleanup: "defect",
+            expectedCause: Cause.combine(primaryAcquisitionCause, cleanupDefectCause),
+            expectedClassification: "defect",
+          },
+          {
+            cleanup: "typed",
+            expectedCause: Cause.combine(primaryAcquisitionCause, typedCleanupCause),
+            expectedClassification: "typed",
+          },
+          {
+            cleanup: "interruption",
+            expectedCause: Cause.combine(primaryAcquisitionCause, cleanupInterruptionCause),
+            expectedClassification: "typed",
+          },
+        ] as const;
+
+        for (const cleanupCase of cleanupCases) {
+          let acquisitions = 0;
+          let cleanupRuns = 0;
+
+          const acquireService = Effect.sync(() => {
+            acquisitions += 1;
+
+            return "service";
+          });
+
+          const typedCleanupRelease = () => {
+            cleanupRuns += 1;
+
+            return Effect.fail(typedCleanupFailure);
+          };
+
+          const normalCleanupRelease = () =>
+            Effect.gen(function* () {
+              cleanupRuns += 1;
+
+              if (cleanupCase.cleanup === "defect") {
+                // SAFETY: This branch injects a finalizer defect so cleanup Cause composition remains observable.
+                // oxlint-disable-next-line anti-slop/no-expected-failure-as-defect -- the cleanup matrix asserts the exact combined Cause.
+                yield* Effect.die(cleanupDefect);
+              }
+
+              if (cleanupCase.cleanup === "interruption") {
+                yield* Effect.failCause(cleanupInterruptionCause);
+              }
+            });
+
+          const acquireWithRelease =
+            cleanupCase.cleanup === "typed"
+              ? Effect.acquireRelease(
+                  acquireService,
+                  // @ts-expect-error rc.112 finalizer errors are typed as never, but this fixture proves the runtime Cause is retained.
+                  typedCleanupRelease,
+                )
+              : Effect.acquireRelease(acquireService, normalCleanupRelease);
+
+          const owner = makeRuntimeOwner({
+            layer: Layer.effect(SecondService, Effect.failCause(primaryAcquisitionCause)).pipe(
+              Layer.provideMerge(Layer.effect(FirstService, acquireWithRelease)),
+            ),
+            expose: Effect.succeed(undefined),
+          });
+
+          const firstExit = yield* Effect.exit(owner.ready());
+          const repeatedExit = yield* Effect.exit(owner.ready());
+          assert.deepStrictEqual(repeatedExit, firstExit);
+          assert.strictEqual(acquisitions, 1);
+          assert.strictEqual(cleanupRuns, 1);
+          assert.ok(Exit.isFailure(firstExit));
+
+          if (Exit.isFailure(firstExit)) {
+            assert.strictEqual(
+              classifyTerminalCause(firstExit.cause),
+              cleanupCase.expectedClassification,
+            );
+            assert.deepStrictEqual(firstExit.cause, cleanupCase.expectedCause);
+            assertCauseReasons(firstExit.cause, cleanupCase.expectedCause);
+          }
+        }
+      }),
   );
 
   it.effect("constructs an inert owner shell with exact input identities", () =>

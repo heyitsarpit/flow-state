@@ -195,14 +195,13 @@ type CorrelatedRightInput = { rightCount: number };
 const correlatedLeftDescriptor = resource({
   id: "static/correlated.left",
   key: ({ leftId }: CorrelatedLeftInput) => [leftId] as const,
-  lookup: ({ leftId }: CorrelatedLeftInput): Effect.Effect<Project> =>
-    Effect.succeed({ id: leftId, title: "left" }),
+  lookup: ({ leftId }: CorrelatedLeftInput) => Effect.succeed({ id: leftId, title: "left" }),
 });
 
 const correlatedRightDescriptor = transaction({
   id: "static/correlated.right",
   key: ({ rightCount }: CorrelatedRightInput) => [rightCount] as const,
-  commit: ({ rightCount }: CorrelatedRightInput): Effect.Effect<Project> =>
+  commit: ({ rightCount }: CorrelatedRightInput) =>
     Effect.succeed({ id: String(rightCount), title: "right" }),
 });
 

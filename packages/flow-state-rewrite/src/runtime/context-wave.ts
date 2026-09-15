@@ -1,4 +1,4 @@
-// oxlint-disable-next-line anti-slop/no-large-production-file -- this module is the single B07 context-wave owner; splitting it would scatter the baseline, wave, selection, and passive-observation invariants.
+// oxlint-disable-next-line anti-slop/no-large-production-file -- the baseline, selection ledger, wave propagation, and passive observer share graph and revision invariants, so splitting them would fragment one runtime owner.
 import { Option, Predicate, Result } from "effect";
 
 import type { ContextOf } from "../definition/domain.js";
@@ -206,7 +206,7 @@ export type PassiveObserver<Dependency> = {
   dependencies: () => Dependency[];
 };
 
-const ownedSet = <Value>(values: Iterable<Value>): Set<Value> => new Set(values);
+const ownedSet = <Value>(values: Iterable<Value>) => new Set(values);
 
 const invalidContext = (reason: string) =>
   Failure({
@@ -244,6 +244,7 @@ const cycleFailure = (cycle: ActorKey[]) =>
     help: "Keep provider context dependencies acyclic.",
   });
 
+// RETURN_TYPE: Narrows validated map values to safe revisions for their downstream arithmetic.
 const isRevision = (value: unknown): value is number =>
   Predicate.isNumber(value) && Number.isSafeInteger(value) && value >= 0;
 
@@ -305,6 +306,7 @@ const copyRevisionState = (state: ContextRevision) =>
 // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- record fields remain unknown until equality inspects each stable descriptor.
 type PlainContextRecord = Record<PropertyKey, unknown>;
 
+// RETURN_TYPE: Keeps property inspection narrowed to plain records after prototype validation.
 const isPlainRecord = (value: unknown): value is PlainContextRecord => {
   if (!Predicate.isObject(value) || Array.isArray(value)) return false;
   const prototype = Object.getPrototypeOf(value);
@@ -313,7 +315,7 @@ const isPlainRecord = (value: unknown): value is PlainContextRecord => {
 };
 
 /** Complete Object.is for scalars/arrays and shallow fixed-field Object.is for records. */
-export const equalContextSelection = <Value>(current: Value, previous: Value): boolean => {
+export const equalContextSelection = <Value>(current: Value, previous: Value) => {
   if (Object.is(current, previous)) return true;
 
   if (!isPlainRecord(current) || !isPlainRecord(previous)) return false;
@@ -337,10 +339,7 @@ export const equalContextSelection = <Value>(current: Value, previous: Value): b
   });
 };
 
-const deriveOrder = (
-  nodes: ActorKey[],
-  edges: Map<ActorKey, Set<ActorKey>>,
-): Result.Result<ActorKey[], PublicDiagnostic> => {
+const contextIndegrees = (nodes: ActorKey[], edges: Map<ActorKey, Set<ActorKey>>) => {
   const indegree = new Map<ActorKey, number>(nodes.map((node) => [node, 0]));
 
   for (const dependents of edges.values()) {
@@ -349,6 +348,25 @@ const deriveOrder = (
     }
   }
 
+  return indegree;
+};
+
+const releaseContextDependents = (
+  node: ActorKey,
+  edges: Map<ActorKey, Set<ActorKey>>,
+  indegree: Map<ActorKey, number>,
+  ready: ActorKey[],
+) => {
+  for (const dependent of edges.get(node) ?? []) {
+    const remaining = (indegree.get(dependent) ?? 0) - 1;
+    indegree.set(dependent, remaining);
+
+    if (remaining === 0) ready.push(dependent);
+  }
+};
+
+const deriveOrder = (nodes: ActorKey[], edges: Map<ActorKey, Set<ActorKey>>) => {
+  const indegree = contextIndegrees(nodes, edges);
   const ready = nodes.filter((node) => indegree.get(node) === 0);
   const order: ActorKey[] = [];
 
@@ -357,97 +375,128 @@ const deriveOrder = (
 
     if (node === undefined) continue;
     order.push(node);
-
-    for (const dependent of edges.get(node) ?? []) {
-      const remaining = (indegree.get(dependent) ?? 0) - 1;
-      indegree.set(dependent, remaining);
-
-      if (remaining === 0) ready.push(dependent);
-    }
+    releaseContextDependents(node, edges, indegree, ready);
   }
 
-  return order.length === nodes.length
-    ? Result.succeed(copyArray(order))
-    : Result.fail(cycleFailure(nodes.filter((node) => (indegree.get(node) ?? 0) > 0)));
+  if (order.length === nodes.length) return Result.succeed(copyArray(order));
+  const cycle = nodes.filter((node) => (indegree.get(node) ?? 0) > 0);
+
+  return Result.fail(cycleFailure(cycle));
 };
 
-/** Builds owned indexes from B02's already-trusted bindings and topology. */
+type ContextGraphIndexes<
+  ConsumerDefinition extends MachineDefinition,
+  ProviderDefinition extends MachineDefinition,
+> = {
+  providers: Map<ActorKey, ContextProviderNode<ProviderDefinition>>;
+  bindingByConsumer: Map<ActorKey, ContextBinding<ConsumerDefinition, ProviderDefinition>[]>;
+  nodes: ActorKey[];
+  nodeSet: Set<ActorKey>;
+  edgeSets: Map<ActorKey, Set<ActorKey>>;
+};
+
+const makeContextGraphIndexes = <
+  ConsumerDefinition extends MachineDefinition,
+  ProviderDefinition extends MachineDefinition,
+>() => ({
+  providers: new Map<ActorKey, ContextProviderNode<ProviderDefinition>>(),
+  bindingByConsumer: new Map<ActorKey, ContextBinding<ConsumerDefinition, ProviderDefinition>[]>(),
+  nodes: [],
+  nodeSet: new Set<ActorKey>(),
+  edgeSets: new Map<ActorKey, Set<ActorKey>>(),
+});
+
+const rememberContextNode = <
+  ConsumerDefinition extends MachineDefinition,
+  ProviderDefinition extends MachineDefinition,
+>(
+  indexes: ContextGraphIndexes<ConsumerDefinition, ProviderDefinition>,
+  key: ActorKey,
+) => {
+  if (indexes.nodeSet.has(key)) return;
+  indexes.nodeSet.add(key);
+  indexes.nodes.push(key);
+};
+
+const indexContextBinding = <
+  ConsumerDefinition extends MachineDefinition,
+  ProviderDefinition extends MachineDefinition,
+>(
+  indexes: ContextGraphIndexes<ConsumerDefinition, ProviderDefinition>,
+  sourceBinding: ContextBinding<ConsumerDefinition, ProviderDefinition>,
+) => {
+  const binding = copyBinding(sourceBinding);
+  const providerKey = binding.providerFence.key;
+  const provider = indexes.providers.get(providerKey);
+
+  if (provider !== undefined) {
+    if (
+      provider.ref !== binding.provider ||
+      provider.incarnation !== binding.providerFence.incarnation
+    )
+      return Result.fail(invalidContext("provider-incarnation"));
+  } else {
+    indexes.providers.set(
+      providerKey,
+      copyObject({
+        key: providerKey,
+        incarnation: binding.providerFence.incarnation,
+        ref: binding.provider,
+      }),
+    );
+  }
+
+  const consumerBindings = indexes.bindingByConsumer.get(binding.consumer);
+
+  if (consumerBindings === undefined) indexes.bindingByConsumer.set(binding.consumer, [binding]);
+  else {
+    if (consumerBindings.some((candidate) => candidate.slot === binding.slot))
+      return Result.fail(invalidContext("duplicate-slot"));
+    consumerBindings.push(binding);
+  }
+
+  rememberContextNode(indexes, providerKey);
+  rememberContextNode(indexes, binding.consumer);
+  let dependents = indexes.edgeSets.get(providerKey);
+
+  if (dependents === undefined) {
+    dependents = new Set();
+    indexes.edgeSets.set(providerKey, dependents);
+  }
+
+  dependents.add(binding.consumer);
+
+  return Result.succeed(undefined);
+};
+
+/** Builds owned indexes from trusted bindings and the admitted topology. */
 export const buildContextGraph = <
   ConsumerDefinition extends MachineDefinition,
   ProviderDefinition extends MachineDefinition = ConsumerDefinition,
 >(
   bindings: ContextBinding<ConsumerDefinition, ProviderDefinition>[],
   topology?: ActorDependencyGraph,
-): Result.Result<ContextGraph<ConsumerDefinition, ProviderDefinition>, PublicDiagnostic> => {
-  const providers = new Map<ActorKey, ContextProviderNode<ProviderDefinition>>();
-
-  const bindingByConsumer = new Map<
-    ActorKey,
-    ContextBinding<ConsumerDefinition, ProviderDefinition>[]
-  >();
-
-  const nodes: ActorKey[] = [];
-  const nodeSet = new Set<ActorKey>();
-  const edgeSets = new Map<ActorKey, Set<ActorKey>>();
-
-  const rememberNode = (key: ActorKey) => {
-    if (nodeSet.has(key)) return;
-    nodeSet.add(key);
-    nodes.push(key);
-  };
+) => {
+  const indexes = makeContextGraphIndexes<ConsumerDefinition, ProviderDefinition>();
 
   for (const sourceBinding of bindings) {
-    const binding = copyBinding(sourceBinding);
-    const providerKey = binding.providerFence.key;
-    const provider = providers.get(providerKey);
+    const indexed = indexContextBinding(indexes, sourceBinding);
 
-    if (provider !== undefined) {
-      if (
-        provider.ref !== binding.provider ||
-        provider.incarnation !== binding.providerFence.incarnation
-      )
-        return Result.fail(invalidContext("provider-incarnation"));
-    } else {
-      providers.set(
-        providerKey,
-        copyObject({
-          key: providerKey,
-          incarnation: binding.providerFence.incarnation,
-          ref: binding.provider,
-        }),
-      );
-    }
-
-    const consumerBindings = bindingByConsumer.get(binding.consumer);
-
-    if (consumerBindings === undefined) bindingByConsumer.set(binding.consumer, [binding]);
-    else {
-      if (consumerBindings.some((candidate) => candidate.slot === binding.slot))
-        return Result.fail(invalidContext("duplicate-slot"));
-      consumerBindings.push(binding);
-    }
-
-    rememberNode(providerKey);
-    rememberNode(binding.consumer);
-    let dependents = edgeSets.get(providerKey);
-
-    if (dependents === undefined) {
-      dependents = new Set();
-      edgeSets.set(providerKey, dependents);
-    }
-
-    dependents.add(binding.consumer);
+    if (Result.isFailure(indexed)) return Result.fail(indexed.failure);
   }
 
   const localDependents = new Map(
-    [...edgeSets.entries()].map(([key, values]) => [key, ownedSet(values)] as const),
+    [...indexes.edgeSets.entries()].map(([key, values]) => [key, ownedSet(values)] as const),
   );
 
   const orderResult =
     topology === undefined
-      ? deriveOrder(nodes, localDependents)
+      ? deriveOrder(indexes.nodes, localDependents)
       : Result.succeed(
-          copyArray([...topology.order, ...nodes.filter((node) => !topology.order.includes(node))]),
+          copyArray([
+            ...topology.order,
+            ...indexes.nodes.filter((node) => !topology.order.includes(node)),
+          ]),
         );
 
   if (Result.isFailure(orderResult)) return Result.fail(orderResult.failure);
@@ -463,9 +512,11 @@ export const buildContextGraph = <
 
   return Result.succeed(
     copyObject({
-      providers: new Map(providers),
+      providers: new Map(indexes.providers),
       bindings: new Map(
-        [...bindingByConsumer.entries()].map(([key, value]) => [key, copyArray(value)] as const),
+        [...indexes.bindingByConsumer.entries()].map(
+          ([key, value]) => [key, copyArray(value)] as const,
+        ),
       ),
       dependents,
       order: orderResult.success,
@@ -479,9 +530,10 @@ export const detectContextCycles = <
   ProviderDefinition extends MachineDefinition = ConsumerDefinition,
 >(
   graph: ContextGraph<ConsumerDefinition, ProviderDefinition>,
-): Result.Result<ActorKey[], PublicDiagnostic> => {
+) => {
   const colors = new Map<ActorKey, "gray" | "black">();
 
+  // RETURN_TYPE: Recursive cycle discovery uses its return value in the recursive call.
   const visit = (node: ActorKey, path: ActorKey[]): ActorKey[] | undefined => {
     const color = colors.get(node);
 
@@ -521,7 +573,7 @@ export const topologicalContextOrder = <
 >(
   graph: ContextGraph<ConsumerDefinition, ProviderDefinition>,
   dirty: Set<ActorKey>,
-): Result.Result<ActorKey[], PublicDiagnostic> => {
+) => {
   const reachable = new Set<ActorKey>();
   const pending = [...dirty];
 
@@ -552,10 +604,7 @@ export const selectContext = <
   binding: ContextBinding<ConsumerDefinition, ProviderDefinition, Slot>,
   providerSnapshot: ActorContextSnapshot<ProviderDefinition>,
   providerRevision: number,
-): Result.Result<
-  ContextSelection<ConsumerDefinition, ProviderDefinition, Slot>,
-  ContextSelectorDefect<ConsumerDefinition, ProviderDefinition, Slot>
-> => {
+) => {
   const selected = Result.try({
     try: () => binding.select(providerSnapshot),
     catch: (cause) =>
@@ -592,7 +641,7 @@ const projectionFromEntries = <
   >,
   revisions: ProviderRevisionVector,
   changedSlots: Set<keyof ContextOf<ConsumerDefinition> & string>,
-): Result.Result<ContextProjection<ConsumerDefinition>, PublicDiagnostic> => {
+) => {
   const values = new Map<
     keyof ContextOf<ConsumerDefinition> & string,
     ActorContextValue<ConsumerDefinition, keyof ContextOf<ConsumerDefinition> & string>
@@ -644,7 +693,7 @@ export const installContextBaseline = <
   graph: ContextGraph<ConsumerDefinition, ProviderDefinition>,
   snapshots: Map<ActorKey, ActorContextSnapshot<ProviderDefinition>>,
   providerRevision: ProviderRevisionVector,
-): Result.Result<ContextBaseline<ConsumerDefinition, ProviderDefinition>, PublicDiagnostic> => {
+) => {
   const entries = new Map<
     ContextBinding<ConsumerDefinition, ProviderDefinition>,
     ContextSelectionLedgerEntry<ConsumerDefinition, ProviderDefinition>
@@ -706,7 +755,7 @@ export const activateContextBaseline = <
   ProviderDefinition extends MachineDefinition = ConsumerDefinition,
 >(
   baseline: ContextBaseline<ConsumerDefinition, ProviderDefinition>,
-): ActiveContextBaseline<ConsumerDefinition, ProviderDefinition> =>
+) =>
   copyObject({
     _tag: "context-active" as const,
     baseline,
@@ -725,7 +774,7 @@ export const planContextWave = <
   providerRevision: ProviderRevisionVector,
   dirty: Set<ActorKey>,
   previous: Option.Option<ContextWave>,
-): Result.Result<ContextWave, PublicDiagnostic> => {
+) => {
   const previousRevision = Option.isSome(previous) ? previous.value.providerRevision : undefined;
   const currentDirty = new Set<ActorKey>();
 
@@ -761,10 +810,7 @@ const mergedRevisions = (previous: ProviderRevisionVector, current: ProviderRevi
   return new Map(merged);
 };
 
-const revisionForConsumer = (
-  revisions: ContextRevisionVector,
-  consumer: ActorKey,
-): Result.Result<ContextRevision, PublicDiagnostic> => {
+const revisionForConsumer = (revisions: ContextRevisionVector, consumer: ActorKey) => {
   const state = revisions.get(consumer) ?? { publicationRevision: 0, machineTurnRevision: 0 };
 
   if (
@@ -806,8 +852,299 @@ const propagateProjection = <
   return Result.succeed(undefined);
 };
 
+type ContextWaveSelections<
+  ConsumerDefinition extends MachineDefinition,
+  ProviderDefinition extends MachineDefinition,
+> = {
+  candidates: Map<
+    ContextBinding<ConsumerDefinition, ProviderDefinition>,
+    ContextSelectionLedgerEntry<ConsumerDefinition, ProviderDefinition>
+  >;
+  defects: ContextSelectorDefect<ConsumerDefinition, ProviderDefinition>[];
+  changedSlots: Set<keyof ContextOf<ConsumerDefinition> & string>;
+};
+
+type ContextWaveApplication<
+  ConsumerDefinition extends MachineDefinition,
+  ProviderDefinition extends MachineDefinition,
+> = {
+  graph: ContextGraph<ConsumerDefinition, ProviderDefinition>;
+  waveSnapshots: Map<ActorKey, ActorContextSnapshot<ProviderDefinition>>;
+  previous: ContextSelectionLedger<ConsumerDefinition, ProviderDefinition>;
+  consumerRevisions: ContextRevisionVector;
+  nextEntries: Map<
+    ContextBinding<ConsumerDefinition, ProviderDefinition>,
+    ContextSelectionLedgerEntry<ConsumerDefinition, ProviderDefinition>
+  >;
+  nextProviderRevisions: ProviderRevisionVector;
+  projections: ContextProjection<ConsumerDefinition>[];
+  publications: ContextPublication<ConsumerDefinition>[];
+  selectorDefects: ContextSelectorDefect<ConsumerDefinition, ProviderDefinition>[];
+  settledProviders: Set<ActorKey>;
+};
+
+const hasAdvancedContextProvider = <
+  ConsumerDefinition extends MachineDefinition,
+  ProviderDefinition extends MachineDefinition,
+>(
+  bindings: ContextBinding<ConsumerDefinition, ProviderDefinition>[],
+  wave: ContextWave,
+  previous: ContextSelectionLedger<ConsumerDefinition, ProviderDefinition>,
+  settledProviders: Set<ActorKey>,
+) =>
+  bindings.some((binding) => {
+    const key = binding.providerFence.key;
+    const current = wave.providerRevision.get(key);
+    const prior = previous.providerRevisions.get(key) ?? -1;
+
+    return settledProviders.has(key) || (isRevision(current) && current > prior);
+  });
+
+const selectConsumerContext = <
+  ConsumerDefinition extends MachineDefinition,
+  ProviderDefinition extends MachineDefinition,
+>(
+  bindings: ContextBinding<ConsumerDefinition, ProviderDefinition>[],
+  wave: ContextWave,
+  snapshots: Map<ActorKey, ActorContextSnapshot<ProviderDefinition>>,
+  previous: ContextSelectionLedger<ConsumerDefinition, ProviderDefinition>,
+) => {
+  const candidates = new Map<
+    ContextBinding<ConsumerDefinition, ProviderDefinition>,
+    ContextSelectionLedgerEntry<ConsumerDefinition, ProviderDefinition>
+  >();
+
+  const defects: ContextSelectorDefect<ConsumerDefinition, ProviderDefinition>[] = [];
+  const changedSlots = new Set<keyof ContextOf<ConsumerDefinition> & string>();
+
+  for (const binding of bindings) {
+    const previousEntry = previous.entries.get(binding);
+
+    if (previousEntry === undefined || Option.isNone(previousEntry.lastValid))
+      return Result.fail(invalidContext("missing-ledger-entry"));
+    const providerSnapshot = snapshots.get(binding.providerFence.key);
+
+    if (providerSnapshot === undefined)
+      return Result.fail(missingProvider(binding.providerFence.key));
+    const providerRevision = wave.providerRevision.get(binding.providerFence.key);
+
+    if (!isRevision(providerRevision))
+      return Result.fail(invalidRevision(binding.providerFence.key));
+
+    const selected = selectContext(binding, providerSnapshot, providerRevision);
+
+    if (Result.isFailure(selected)) {
+      defects.push(selected.failure);
+      candidates.set(
+        binding,
+        copyObject({
+          binding,
+          previous: previousEntry.previous,
+          lastValid: previousEntry.lastValid,
+          providerRevision,
+          defect: Option.some(selected.failure),
+        }),
+      );
+      continue;
+    }
+
+    candidates.set(
+      binding,
+      copyObject({
+        binding,
+        previous: previousEntry.lastValid,
+        lastValid: Option.some(selected.success),
+        providerRevision,
+        defect: Option.none(),
+      }),
+    );
+
+    if (!equalContextSelection(selected.success.value, previousEntry.lastValid.value.value))
+      changedSlots.add(binding.slot);
+  }
+
+  return Result.succeed({ candidates, defects, changedSlots });
+};
+
+const storeContextCandidates = <
+  ConsumerDefinition extends MachineDefinition,
+  ProviderDefinition extends MachineDefinition,
+>(
+  bindings: ContextBinding<ConsumerDefinition, ProviderDefinition>[],
+  candidates: ContextWaveSelections<ConsumerDefinition, ProviderDefinition>["candidates"],
+  entries: ContextWaveApplication<ConsumerDefinition, ProviderDefinition>["nextEntries"],
+) => {
+  for (const binding of bindings) {
+    const candidate = candidates.get(binding);
+
+    if (candidate === undefined) return Result.fail(invalidContext("incomplete-candidate"));
+    entries.set(binding, candidate);
+  }
+
+  return Result.succeed(undefined);
+};
+
+const propagateAndSettleContextProjection = <
+  ConsumerDefinition extends MachineDefinition,
+  ProviderDefinition extends MachineDefinition,
+>(
+  consumer: ActorKey,
+  projection: ContextProjection<ConsumerDefinition>,
+  application: ContextWaveApplication<ConsumerDefinition, ProviderDefinition>,
+) => {
+  const propagated = propagateProjection(
+    application.graph,
+    application.waveSnapshots,
+    consumer,
+    projection,
+  );
+
+  if (Result.isFailure(propagated)) return Result.fail(propagated.failure);
+  application.settledProviders.add(consumer);
+
+  return Result.succeed(undefined);
+};
+
+const publishIssueOnlyContext = <
+  ConsumerDefinition extends MachineDefinition,
+  ProviderDefinition extends MachineDefinition,
+>(
+  consumer: ActorKey,
+  bindings: ContextBinding<ConsumerDefinition, ProviderDefinition>[],
+  selections: ContextWaveSelections<ConsumerDefinition, ProviderDefinition>,
+  application: ContextWaveApplication<ConsumerDefinition, ProviderDefinition>,
+) => {
+  const revisionState = revisionForConsumer(application.consumerRevisions, consumer);
+
+  if (Result.isFailure(revisionState)) return Result.fail(revisionState.failure);
+  const nextRevisionState = nextContextRevision(revisionState.success, true);
+
+  if (Result.isFailure(nextRevisionState)) return Result.fail(nextRevisionState.failure);
+  const stored = storeContextCandidates(bindings, selections.candidates, application.nextEntries);
+
+  if (Result.isFailure(stored)) return Result.fail(stored.failure);
+
+  const retained = projectionFromEntries(
+    consumer,
+    bindings,
+    application.previous.entries,
+    application.nextProviderRevisions,
+    ownedSet([]),
+  );
+
+  if (Result.isFailure(retained)) return Result.fail(retained.failure);
+  application.projections.push(retained.success);
+  const propagated = propagateAndSettleContextProjection(consumer, retained.success, application);
+
+  if (Result.isFailure(propagated)) return Result.fail(propagated.failure);
+  application.publications.push(
+    copyObject({
+      consumer,
+      projection: retained.success,
+      publicationRevision: nextRevisionState.success.publicationRevision,
+      machineTurnRevision: nextRevisionState.success.machineTurnRevision,
+      issueOnly: true as const,
+      selectorDefects: copyArray(selections.defects.map((defect) => defect.diagnostic)),
+    }),
+  );
+  application.selectorDefects.push(...selections.defects);
+
+  return Result.succeed(undefined);
+};
+
+const publishUnchangedContext = <
+  ConsumerDefinition extends MachineDefinition,
+  ProviderDefinition extends MachineDefinition,
+>(
+  consumer: ActorKey,
+  bindings: ContextBinding<ConsumerDefinition, ProviderDefinition>[],
+  selections: ContextWaveSelections<ConsumerDefinition, ProviderDefinition>,
+  application: ContextWaveApplication<ConsumerDefinition, ProviderDefinition>,
+) => {
+  const stored = storeContextCandidates(bindings, selections.candidates, application.nextEntries);
+
+  if (Result.isFailure(stored)) return Result.fail(stored.failure);
+
+  const unchanged = projectionFromEntries(
+    consumer,
+    bindings,
+    application.nextEntries,
+    application.nextProviderRevisions,
+    ownedSet([]),
+  );
+
+  if (Result.isFailure(unchanged)) return Result.fail(unchanged.failure);
+
+  return propagateAndSettleContextProjection(consumer, unchanged.success, application);
+};
+
+const publishChangedContext = <
+  ConsumerDefinition extends MachineDefinition,
+  ProviderDefinition extends MachineDefinition,
+>(
+  consumer: ActorKey,
+  bindings: ContextBinding<ConsumerDefinition, ProviderDefinition>[],
+  selections: ContextWaveSelections<ConsumerDefinition, ProviderDefinition>,
+  nextRevision: ContextRevision,
+  application: ContextWaveApplication<ConsumerDefinition, ProviderDefinition>,
+) => {
+  const stored = storeContextCandidates(bindings, selections.candidates, application.nextEntries);
+
+  if (Result.isFailure(stored)) return Result.fail(stored.failure);
+
+  const projection = projectionFromEntries(
+    consumer,
+    bindings,
+    application.nextEntries,
+    application.nextProviderRevisions,
+    ownedSet(selections.changedSlots),
+  );
+
+  if (Result.isFailure(projection)) return Result.fail(projection.failure);
+  const propagated = propagateAndSettleContextProjection(consumer, projection.success, application);
+
+  if (Result.isFailure(propagated)) return Result.fail(propagated.failure);
+  application.projections.push(projection.success);
+  application.publications.push(
+    copyObject({
+      consumer,
+      projection: projection.success,
+      publicationRevision: nextRevision.publicationRevision,
+      machineTurnRevision: nextRevision.machineTurnRevision,
+      issueOnly: false as const,
+      selectorDefects: copyArray([]),
+    }),
+  );
+
+  return Result.succeed(undefined);
+};
+
+const applyConsumerContextSelections = <
+  ConsumerDefinition extends MachineDefinition,
+  ProviderDefinition extends MachineDefinition,
+>(
+  consumer: ActorKey,
+  bindings: ContextBinding<ConsumerDefinition, ProviderDefinition>[],
+  selections: ContextWaveSelections<ConsumerDefinition, ProviderDefinition>,
+  application: ContextWaveApplication<ConsumerDefinition, ProviderDefinition>,
+) => {
+  if (selections.defects.length > 0)
+    return publishIssueOnlyContext(consumer, bindings, selections, application);
+
+  if (selections.changedSlots.size === 0)
+    return publishUnchangedContext(consumer, bindings, selections, application);
+
+  const revisionState = revisionForConsumer(application.consumerRevisions, consumer);
+
+  if (Result.isFailure(revisionState)) return Result.fail(revisionState.failure);
+  const nextRevision = nextContextRevision(revisionState.success, false);
+
+  if (Result.isFailure(nextRevision)) return Result.fail(nextRevision.failure);
+
+  return publishChangedContext(consumer, bindings, selections, nextRevision.success, application);
+};
+
 /** Applies a wave as one complete batch; no consumer projection escapes mid-evaluation. */
-// oxlint-disable-next-line complexity -- this owner keeps selection, defect, and publication sequencing atomic.
 export const applyContextWave = <
   ConsumerDefinition extends MachineDefinition,
   ProviderDefinition extends MachineDefinition = ConsumerDefinition,
@@ -817,15 +1154,21 @@ export const applyContextWave = <
   snapshots: Map<ActorKey, ActorContextSnapshot<ProviderDefinition>>,
   previous: ContextSelectionLedger<ConsumerDefinition, ProviderDefinition>,
   revisions: ContextRevisionVector = new Map(),
-): Result.Result<ContextWaveResult<ConsumerDefinition, ProviderDefinition>, PublicDiagnostic> => {
-  const nextRevisions = mergedRevisions(previous.providerRevisions, wave.providerRevision);
-  const nextEntries = new Map(previous.entries);
-  const projections: ContextProjection<ConsumerDefinition>[] = [];
-  const publications: ContextPublication<ConsumerDefinition>[] = [];
-  const selectorDefects: ContextSelectorDefect<ConsumerDefinition, ProviderDefinition>[] = [];
+) => {
+  const application: ContextWaveApplication<ConsumerDefinition, ProviderDefinition> = {
+    graph,
+    waveSnapshots: new Map(snapshots),
+    previous,
+    consumerRevisions: revisions,
+    nextEntries: new Map(previous.entries),
+    nextProviderRevisions: mergedRevisions(previous.providerRevisions, wave.providerRevision),
+    projections: [],
+    publications: [],
+    selectorDefects: [],
+    settledProviders: new Set(wave.dirty),
+  };
+
   const processed = new Set<ActorKey>();
-  const waveSnapshots = new Map(snapshots);
-  const settledProviders = new Set(wave.dirty);
 
   for (const consumer of wave.order) {
     const bindings = graph.bindings.get(consumer);
@@ -833,192 +1176,36 @@ export const applyContextWave = <
     if (bindings === undefined || processed.has(consumer)) continue;
     processed.add(consumer);
 
-    const hasNewProviderRevision = bindings.some((binding) => {
-      const current = wave.providerRevision.get(binding.providerFence.key);
-      const prior = previous.providerRevisions.get(binding.providerFence.key) ?? -1;
-
-      return (
-        settledProviders.has(binding.providerFence.key) || (isRevision(current) && current > prior)
-      );
-    });
-
-    if (!hasNewProviderRevision) continue;
-
-    const candidateEntries = new Map<
-      ContextBinding<ConsumerDefinition, ProviderDefinition>,
-      ContextSelectionLedgerEntry<ConsumerDefinition, ProviderDefinition>
-    >();
-
-    const consumerDefects: ContextSelectorDefect<ConsumerDefinition, ProviderDefinition>[] = [];
-    const changedSlots = new Set<keyof ContextOf<ConsumerDefinition> & string>();
-
-    for (const binding of bindings) {
-      const previousEntry = previous.entries.get(binding);
-
-      if (previousEntry === undefined || Option.isNone(previousEntry.lastValid))
-        return Result.fail(invalidContext("missing-ledger-entry"));
-      const providerSnapshot = waveSnapshots.get(binding.providerFence.key);
-
-      if (providerSnapshot === undefined)
-        return Result.fail(missingProvider(binding.providerFence.key));
-      const providerRevision = wave.providerRevision.get(binding.providerFence.key);
-
-      if (!isRevision(providerRevision))
-        return Result.fail(invalidRevision(binding.providerFence.key));
-
-      const selected = selectContext(binding, providerSnapshot, providerRevision);
-
-      if (Result.isFailure(selected)) {
-        consumerDefects.push(selected.failure);
-        candidateEntries.set(
-          binding,
-          copyObject({
-            binding,
-            previous: previousEntry.previous,
-            lastValid: previousEntry.lastValid,
-            providerRevision,
-            defect: Option.some(selected.failure),
-          }),
-        );
-        continue;
-      }
-
-      candidateEntries.set(
-        binding,
-        copyObject({
-          binding,
-          previous: previousEntry.lastValid,
-          lastValid: Option.some(selected.success),
-          providerRevision,
-          defect: Option.none(),
-        }),
-      );
-
-      if (!equalContextSelection(selected.success.value, previousEntry.lastValid.value.value))
-        changedSlots.add(binding.slot);
-    }
-
-    if (consumerDefects.length > 0) {
-      const revisionState = revisionForConsumer(revisions, consumer);
-
-      if (Result.isFailure(revisionState)) return Result.fail(revisionState.failure);
-      const nextRevisionState = nextContextRevision(revisionState.success, true);
-
-      if (Result.isFailure(nextRevisionState)) return Result.fail(nextRevisionState.failure);
-
-      for (const binding of bindings) {
-        const candidate = candidateEntries.get(binding);
-
-        if (candidate === undefined) return Result.fail(invalidContext("incomplete-candidate"));
-        nextEntries.set(binding, candidate);
-      }
-
-      const retained = projectionFromEntries(
-        consumer,
-        bindings,
-        previous.entries,
-        nextRevisions,
-        ownedSet([]),
-      );
-
-      if (Result.isFailure(retained)) return Result.fail(retained.failure);
-      projections.push(retained.success);
-      const propagated = propagateProjection(graph, waveSnapshots, consumer, retained.success);
-
-      if (Result.isFailure(propagated)) return Result.fail(propagated.failure);
-      settledProviders.add(consumer);
-
-      const publication = copyObject({
-        consumer,
-        projection: retained.success,
-        publicationRevision: nextRevisionState.success.publicationRevision,
-        machineTurnRevision: nextRevisionState.success.machineTurnRevision,
-        issueOnly: true as const,
-        selectorDefects: copyArray(consumerDefects.map((defect) => defect.diagnostic)),
-      });
-
-      publications.push(publication);
-      selectorDefects.push(...consumerDefects);
+    if (!hasAdvancedContextProvider(bindings, wave, previous, application.settledProviders))
       continue;
-    }
 
-    let nextRevisionState: Result.Result<ContextRevision, PublicDiagnostic> | undefined;
+    const selections = selectConsumerContext(bindings, wave, application.waveSnapshots, previous);
 
-    if (changedSlots.size > 0) {
-      const revisionState = revisionForConsumer(revisions, consumer);
+    if (Result.isFailure(selections)) return Result.fail(selections.failure);
 
-      if (Result.isFailure(revisionState)) return Result.fail(revisionState.failure);
-      nextRevisionState = nextContextRevision(revisionState.success, false);
-
-      if (Result.isFailure(nextRevisionState)) return Result.fail(nextRevisionState.failure);
-    }
-
-    for (const binding of bindings) {
-      const candidate = candidateEntries.get(binding);
-
-      if (candidate === undefined) return Result.fail(invalidContext("incomplete-candidate"));
-      nextEntries.set(binding, candidate);
-    }
-
-    if (changedSlots.size === 0) {
-      const unchanged = projectionFromEntries(
-        consumer,
-        bindings,
-        nextEntries,
-        nextRevisions,
-        ownedSet([]),
-      );
-
-      if (Result.isFailure(unchanged)) return Result.fail(unchanged.failure);
-      const propagated = propagateProjection(graph, waveSnapshots, consumer, unchanged.success);
-
-      if (Result.isFailure(propagated)) return Result.fail(propagated.failure);
-      settledProviders.add(consumer);
-      continue;
-    }
-
-    const projection = projectionFromEntries(
+    const applied = applyConsumerContextSelections(
       consumer,
       bindings,
-      nextEntries,
-      nextRevisions,
-      ownedSet(changedSlots),
+      selections.success,
+      application,
     );
 
-    if (Result.isFailure(projection)) return Result.fail(projection.failure);
-    projections.push(projection.success);
-    const propagated = propagateProjection(graph, waveSnapshots, consumer, projection.success);
-
-    if (Result.isFailure(propagated)) return Result.fail(propagated.failure);
-    settledProviders.add(consumer);
-
-    if (nextRevisionState === undefined || Result.isFailure(nextRevisionState))
-      return Result.fail(invalidContext("missing-next-revision"));
-    publications.push(
-      copyObject({
-        consumer,
-        projection: projection.success,
-        publicationRevision: nextRevisionState.success.publicationRevision,
-        machineTurnRevision: nextRevisionState.success.machineTurnRevision,
-        issueOnly: false as const,
-        selectorDefects: copyArray([]),
-      }),
-    );
+    if (Result.isFailure(applied)) return Result.fail(applied.failure);
   }
 
   const ledger: ContextSelectionLedger<ConsumerDefinition, ProviderDefinition> = copyObject({
-    entries: new Map(nextEntries),
-    providerRevisions: nextRevisions,
+    entries: new Map(application.nextEntries),
+    providerRevisions: application.nextProviderRevisions,
   });
 
   return Result.succeed(
     copyObject({
       _tag: "context-wave-published" as const,
       wave,
-      projections: copyArray(projections),
-      publications: copyArray(publications),
+      projections: copyArray(application.projections),
+      publications: copyArray(application.publications),
       ledger,
-      selectorDefects: copyArray(selectorDefects),
+      selectorDefects: copyArray(application.selectorDefects),
     }),
   );
 };

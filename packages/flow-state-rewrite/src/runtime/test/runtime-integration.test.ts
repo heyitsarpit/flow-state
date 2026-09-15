@@ -1,3 +1,4 @@
+// oxlint-disable anti-slop/no-large-production-file -- This is the executable runtime-assembly matrix: one real App with provider, bound-consumer, standalone, and nested actors is exercised across admission/rollback, event and context delivery, suspend/resume/dispose/shutdown, and snapshot/store/stream/callback/evidence observations, including failure and concurrency lanes. Each case stays at the assembled owner boundary so these combinations use the production ownership graph rather than duplicated or mocked owners.
 import { assert, describe, it } from "@effect/vitest";
 import {
   Cause,
@@ -201,9 +202,7 @@ const initialConsumerSnapshot = (): PreparedActorSnapshot<typeof IntegrationCons
     }),
   );
 
-const restoredStandaloneSnapshot = (): PreparedActorSnapshot<
-  typeof IntegrationStandaloneDefinition
-> =>
+const restoredStandaloneSnapshot = () =>
   Result.getOrThrow(
     prepareActorSnapshot(IntegrationStandaloneMachine, {
       state: IntegrationStandaloneDefinition.S.done,
@@ -224,7 +223,7 @@ const initialStandaloneSnapshot = (
     startedAt: number;
     dueAt: number;
   }[] = [],
-): PreparedActorSnapshot<typeof IntegrationStandaloneDefinition> =>
+) =>
   Result.getOrThrow(
     prepareActorSnapshot(IntegrationStandaloneMachine, {
       state: IntegrationStandaloneDefinition.S.ready,
@@ -377,6 +376,7 @@ describe("runtime assembly integration", () => {
       yield* assembly.evidence.hub.drain();
 
       const lifecycleRecords = records.filter(
+        // RETURN_TYPE: The provenance conjunction leaves the lifecycle fields inaccessible without an explicit evidence-union predicate.
         (record): record is Extract<EvidenceRecord, { _tag: "lifecycle" }> =>
           record._tag === "lifecycle" && record.provenance.actor.key === actor.fence.key,
       );
@@ -802,9 +802,7 @@ describe("runtime assembly integration", () => {
       yield* actor.engine.drain();
       yield* assembly.evidence.hub.drain();
 
-      const turnRecords = records.filter(
-        (record): record is Extract<EvidenceRecord, { _tag: "turn" }> => record._tag === "turn",
-      );
+      const turnRecords = records.filter((record) => record._tag === "turn");
 
       assert.strictEqual(commits, 1);
       assert.strictEqual(turnRecords.length, 1);
@@ -824,9 +822,7 @@ describe("runtime assembly integration", () => {
       yield* actor.engine.drain();
       yield* assembly.evidence.hub.drain();
 
-      const allTurnRecords = records.filter(
-        (record): record is Extract<EvidenceRecord, { _tag: "turn" }> => record._tag === "turn",
-      );
+      const allTurnRecords = records.filter((record) => record._tag === "turn");
 
       assert.strictEqual(commits, 2);
       assert.deepStrictEqual(retryReceipt, { publicationRevision: 2, evidenceSequence: 4 });
@@ -893,9 +889,7 @@ describe("runtime assembly integration", () => {
 
         yield* assembly.evidence.hub.drain();
 
-        const turnRecords = records.filter(
-          (record): record is Extract<EvidenceRecord, { _tag: "turn" }> => record._tag === "turn",
-        );
+        const turnRecords = records.filter((record) => record._tag === "turn");
 
         assert.strictEqual(turnRecords.length, 1);
         const turn = turnRecords[0];
@@ -1316,6 +1310,7 @@ describe("runtime assembly integration", () => {
       yield* assembly.evidence.hub.drain();
 
       const consumerTurnRecords = evidenceRecords.filter(
+        // RETURN_TYPE: The issue assertions need the turn envelope, which inference leaves unioned with lifecycle snapshots.
         (record): record is Extract<EvidenceRecord, { _tag: "turn" }> =>
           record._tag === "turn" && record.provenance.actor.key === actor.fence.key,
       );
@@ -1629,12 +1624,11 @@ describe("pending regression scenarios", () => {
       yield* assembly.evidence.hub.drain();
 
       const actorATurn = records.find(
-        (record): record is Extract<EvidenceRecord, { _tag: "turn" }> =>
-          record._tag === "turn" && record.provenance.actor.key === actorA.fence.key,
+        (record) => record._tag === "turn" && record.provenance.actor.key === actorA.fence.key,
       );
 
       const actorBSuspend = records.find(
-        (record): record is Extract<EvidenceRecord, { _tag: "lifecycle" }> =>
+        (record) =>
           record._tag === "lifecycle" &&
           record.provenance.actor.key === actorB.fence.key &&
           record.to === "suspended",
@@ -1697,8 +1691,7 @@ describe("pending regression scenarios", () => {
       yield* assembly.evidence.hub.drain();
 
       const lifecycle = records.find(
-        (record): record is Extract<EvidenceRecord, { _tag: "lifecycle" }> =>
-          record._tag === "lifecycle" && record.provenance.actor.key === actor.fence.key,
+        (record) => record._tag === "lifecycle" && record.provenance.actor.key === actor.fence.key,
       );
 
       assert.ok(lifecycle !== undefined);
@@ -3003,11 +2996,13 @@ describe("pending regression scenarios", () => {
         yield* runtimeOwner(nestedRuntime).close();
 
         Reflect.set(exposedMachines, "length", originalMachines.length);
-        originalMachines.forEach((machine, index) => Reflect.set(exposedMachines, index, machine));
+
+        for (const [index, machine] of originalMachines.entries())
+          Reflect.set(exposedMachines, index, machine);
         Reflect.set(exposedDescriptors, "length", originalDescriptors.length);
-        originalDescriptors.forEach((descriptor, index) =>
-          Reflect.set(exposedDescriptors, index, descriptor),
-        );
+
+        for (const [index, descriptor] of originalDescriptors.entries())
+          Reflect.set(exposedDescriptors, index, descriptor);
 
         const freshStandaloneId = `${originalStandaloneId}/fresh-app`;
         Reflect.set(IntegrationStandaloneMachine.definition, "id", freshStandaloneId);

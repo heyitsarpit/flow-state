@@ -205,13 +205,12 @@ type OwnedLifecycleStateKey<Snapshot extends LifecycleStateKey> = Snapshot & {
   };
 };
 
+// RETURN_TYPE: This private symbol guard narrows the owner-only lifecycle capability.
 const hasLifecycleOwner = <Snapshot extends LifecycleStateKey>(
   state: Snapshot,
 ): state is OwnedLifecycleStateKey<Snapshot> => lifecycleOwnerSymbol in state;
 
-const lifecycleOwnerOf = <Snapshot extends LifecycleStateKey>(
-  state: Snapshot,
-): LifecycleOwner<Snapshot> | undefined => {
+const lifecycleOwnerOf = <Snapshot extends LifecycleStateKey>(state: Snapshot) => {
   if (!hasLifecycleOwner(state)) return undefined;
 
   return state[lifecycleOwnerSymbol].owner;
@@ -628,10 +627,7 @@ export const installLifecycleMetadata = <
 >(
   input: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
   metadata: LifecycleAttachmentMetadata<DefinitionValue, ProviderDefinition>,
-): Result.Result<
-  LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
-  PublicDiagnostic
-> => {
+) => {
   if (lifecycleOwnerOf(input) === undefined) return Result.fail(invalidSnapshot("owner"));
   const state = currentState(input);
 
@@ -683,10 +679,7 @@ export const installLifecycleTimers = <
 >(
   input: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
   timers: Pick<LifecycleTimer, "name" | "startedAt" | "dueAt">[],
-): Result.Result<
-  LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
-  PublicDiagnostic
-> => {
+) => {
   if (lifecycleOwnerOf(input) === undefined) return Result.fail(invalidSnapshot("owner"));
   const state = currentState(input);
 
@@ -791,7 +784,7 @@ export const activateLifecycle = <
     return Effect.fail(invalidSnapshot("prepared-live-attachment"));
   const attachment = copyAttachment(state.attachment, "attached");
 
-  return Effect.succeed(copySnapshot(state, "active", attachment, "not-started"));
+  return Effect.sync(() => copySnapshot(state, "active", attachment, "not-started"));
 };
 
 type CleanupRun<
@@ -953,6 +946,64 @@ const rollbackReacquired = <
     work: copyArray(work),
   });
 
+const reacquireResourceItems = <
+  DefinitionValue extends MachineDefinition,
+  CleanupError,
+  ProviderDefinition extends MachineDefinition,
+>(
+  state: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
+  scope: Scope.Scope,
+  resources: LifecycleResource<CleanupError>[],
+  acquiredResources: LifecycleResource<CleanupError>[],
+) =>
+  Effect.gen(function* () {
+    for (const retained of state.attachment.resources) {
+      if (retained.finalization !== "done" || retained.reacquire === undefined) {
+        resources.push(copyResource(retained));
+        continue;
+      }
+
+      const acquired = yield* Effect.exit(Scope.provide(scope)(retained.reacquire()));
+
+      if (Exit.isFailure(acquired)) return acquired.cause;
+      const resource = copyResource(acquired.value, "pending", Option.none());
+      resources.push(resource);
+      acquiredResources.push(resource);
+    }
+
+    return undefined;
+  });
+
+const reacquireWorkItems = <
+  DefinitionValue extends MachineDefinition,
+  CleanupError,
+  ProviderDefinition extends MachineDefinition,
+>(
+  state: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
+  scope: Scope.Scope,
+  work: LifecycleWork<CleanupError>[],
+  acquiredWork: LifecycleWork<CleanupError>[],
+) =>
+  Effect.gen(function* () {
+    for (const retained of state.attachment.work) {
+      if (retained.name.startsWith("timer:")) continue;
+
+      if (retained.finalization !== "done" || retained.reacquire === undefined) {
+        work.push(copyWork(retained));
+        continue;
+      }
+
+      const acquired = yield* Effect.exit(Scope.provide(scope)(retained.reacquire()));
+
+      if (Exit.isFailure(acquired)) return acquired.cause;
+      const item = copyWork(acquired.value, "pending", Option.none());
+      work.push(item);
+      acquiredWork.push(item);
+    }
+
+    return undefined;
+  });
+
 // RETURN_TYPE: Continuing attachments are reacquired under the actor Scope and roll back atomically.
 const reacquireAttachment = <
   DefinitionValue extends MachineDefinition,
@@ -983,35 +1034,18 @@ const reacquireAttachment = <
         return yield* Effect.fail(cleanupDiagnostic(cause));
       });
 
-    for (const retained of state.attachment.resources) {
-      if (retained.finalization !== "done" || retained.reacquire === undefined) {
-        resources.push(copyResource(retained));
-        continue;
-      }
+    const resourceFailure = yield* reacquireResourceItems(
+      state,
+      scope,
+      resources,
+      acquiredResources,
+    );
 
-      const acquired = yield* Effect.exit(Scope.provide(scope)(retained.reacquire()));
+    if (resourceFailure !== undefined) return yield* failAfterRollback(resourceFailure);
 
-      if (Exit.isFailure(acquired)) return yield* failAfterRollback(acquired.cause);
-      const resource = copyResource(acquired.value, "pending", Option.none());
-      resources.push(resource);
-      acquiredResources.push(resource);
-    }
+    const workFailure = yield* reacquireWorkItems(state, scope, work, acquiredWork);
 
-    for (const retained of state.attachment.work) {
-      if (retained.name.startsWith("timer:")) continue;
-
-      if (retained.finalization !== "done" || retained.reacquire === undefined) {
-        work.push(copyWork(retained));
-        continue;
-      }
-
-      const acquired = yield* Effect.exit(Scope.provide(scope)(retained.reacquire()));
-
-      if (Exit.isFailure(acquired)) return yield* failAfterRollback(acquired.cause);
-      const item = copyWork(acquired.value, "pending", Option.none());
-      work.push(item);
-      acquiredWork.push(item);
-    }
+    if (workFailure !== undefined) return yield* failAfterRollback(workFailure);
 
     return {
       resources: copyArray(resources),
@@ -1080,7 +1114,7 @@ export const suspendLifecycle = <
 
       if (owner !== undefined) {
         for (const timer of state.attachment.timers) {
-          const timerKey = `${timer.name}\u0000${timer.startedAt}\u0000${timer.dueAt}\u0000${timer.generation ?? state.fence.generation}`;
+          const timerKey = retainedTimerKey(timer, state.fence.generation);
           const claim = owner.timerClaims.get(timerKey);
 
           if (claim?.generation === state.fence.generation && claim.status === "claimed")
@@ -1093,6 +1127,44 @@ export const suspendLifecycle = <
       return Effect.succeed(next);
     }),
   );
+};
+
+const retainedTimerKey = <CleanupError>(timer: LifecycleTimer<CleanupError>, generation: number) =>
+  `${timer.name}\u0000${timer.startedAt}\u0000${timer.dueAt}\u0000${timer.generation ?? generation}`;
+
+const claimRetainedTimer = <
+  DefinitionValue extends MachineDefinition,
+  CleanupError,
+  ProviderDefinition extends MachineDefinition,
+>(
+  owner: LifecycleOwner<LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>>,
+  state: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
+  timer: LifecycleTimer<CleanupError>,
+  now: number,
+) => {
+  if (timer.status !== "armed") return undefined;
+
+  if (timer.generation !== undefined && timer.generation !== state.fence.generation)
+    return undefined;
+
+  const timerKey = retainedTimerKey(timer, state.fence.generation);
+  const claim = owner.timerClaims.get(timerKey);
+  const overdue = now >= timer.dueAt;
+
+  if (claim !== undefined && claim.generation === state.fence.generation) return undefined;
+
+  if (overdue && owner.overdueGeneration === state.fence.generation) return undefined;
+
+  if (overdue) owner.overdueGeneration = state.fence.generation;
+
+  const nextClaim: TimerClaim = {
+    generation: state.fence.generation,
+    status: "claimed",
+  };
+
+  owner.timerClaims.set(timerKey, nextClaim);
+
+  return { timerKey, nextClaim };
 };
 
 // RETURN_TYPE: Timer scheduling retains the runtime clock/scheduler requirements.
@@ -1115,25 +1187,11 @@ const scheduleRetainedTimers = <
     const timerWork: LifecycleWork<CleanupError>[] = [];
 
     for (const timer of state.attachment.timers) {
-      if (timer.status !== "armed") continue;
+      const claim = claimRetainedTimer(owner, state, timer, now);
 
-      if (timer.generation !== undefined && timer.generation !== state.fence.generation) continue;
-      const timerKey = `${timer.name}\u0000${timer.startedAt}\u0000${timer.dueAt}\u0000${timer.generation ?? state.fence.generation}`;
-      const claim = owner.timerClaims.get(timerKey);
-      const overdue = now >= timer.dueAt;
+      if (claim === undefined) continue;
 
-      if (claim !== undefined && claim.generation === state.fence.generation) continue;
-
-      if (overdue && owner.overdueGeneration === state.fence.generation) continue;
-
-      if (overdue) owner.overdueGeneration = state.fence.generation;
-
-      const nextClaim: TimerClaim = {
-        generation: state.fence.generation,
-        status: "claimed",
-      };
-
-      owner.timerClaims.set(timerKey, nextClaim);
+      const { timerKey, nextClaim } = claim;
       const completion = Deferred.makeUnsafe<Exit.Exit<void, CleanupError>>();
 
       const work = Effect.gen(function* () {
@@ -1297,7 +1355,7 @@ export const disposeLifecycle = <
             return Effect.fail(cleanupDiagnostic(cleaned.cause));
           }
 
-          return Effect.succeed(copySnapshot(state, "disposed", cleaned.attachment, "done"));
+          return Effect.sync(() => copySnapshot(state, "disposed", cleaned.attachment, "done"));
         }),
         Effect.catchCause((cause) => {
           // SAFETY: closeScope projects its owner-scope Cause into CleanupError before this handler.
@@ -1323,7 +1381,7 @@ const lifecycleCommandEffect = <
 ) => {
   switch (command._tag) {
     case "actor:restore":
-      return Effect.succeed(
+      return Effect.sync(() =>
         copySnapshot(
           state,
           "prepared",
@@ -1517,7 +1575,7 @@ export const lifecycleRouting = <
   ProviderDefinition extends MachineDefinition = DefinitionValue,
 >(
   controller: LifecycleController<DefinitionValue, CleanupError, ProviderDefinition>,
-): LifecycleRouting => {
+) => {
   // SAFETY: makeLifecycleController installs this private capability on every returned controller.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the private symbol restores the owner-only routing capability.
   const routing = (
@@ -1610,6 +1668,7 @@ type RuntimeActorRegistration<Requirements> = {
 const resolveRuntimeDisposal = (exit: Exit.Exit<void, PublicDiagnostic>) =>
   Exit.isFailure(exit) ? Effect.failCause(exit.cause) : Effect.void;
 
+// RETURN_TYPE: The runtime owner interface hides its disposal state machine and registration arrays.
 const makeColdRuntimeDisposalOwner = <Requirements>(
   options: LifecycleRuntimeOwnerOptions<Requirements>,
 ): LifecycleRuntimeOwner<Requirements> => {
@@ -1657,9 +1716,7 @@ const makeColdRuntimeDisposalOwner = <Requirements>(
     if (current._tag === "open") current.providers.push(release);
   };
 
-  const run = (
-    closing: Extract<RuntimeDisposalState<Requirements>, { _tag: "closing" }>,
-  ): Effect.Effect<void, PublicDiagnostic, Requirements> => {
+  const run = (closing: Extract<RuntimeDisposalState<Requirements>, { _tag: "closing" }>) => {
     const operation = Effect.uninterruptible(
       Effect.gen(function* () {
         let cleanupCause: Cause.Cause<PublicDiagnostic> | undefined;
@@ -1680,11 +1737,8 @@ const makeColdRuntimeDisposalOwner = <Requirements>(
 
         const disposeUnattemptedActors = Effect.gen(function* () {
           while (hasUnattemptedActors()) {
-            for (let index = closing.actors.length - 1; index >= 0; index -= 1) {
-              const registration = closing.actors[index];
-
-              if (registration === undefined || !registration.active || attempted.has(registration))
-                continue;
+            for (const registration of closing.actors.slice().reverse()) {
+              if (!registration.active || attempted.has(registration)) continue;
 
               attempted.add(registration);
               const result = yield* Effect.exit(registration.participant.dispose());
@@ -1930,7 +1984,7 @@ export const makeLifecycleController = <
       ),
     installMetadata: (metadata) =>
       SynchronizedRef.modifyEffect(commandLock, () =>
-        Effect.succeed(installLifecycleMetadata(ownerState(initial), metadata)).pipe(
+        Effect.sync(() => installLifecycleMetadata(ownerState(initial), metadata)).pipe(
           Effect.map((result) => [result, undefined] as const),
         ),
       ).pipe(

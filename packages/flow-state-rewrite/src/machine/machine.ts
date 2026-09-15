@@ -84,7 +84,7 @@ export const isConstructedMachine = (value: unknown): value is Machine =>
 /** Registers an app-owned private machine-facts shell for runtime snapshot validation. */
 export const markMachineFacts = <DefinitionValue extends MachineDefinition>(
   value: Machine<DefinitionValue>,
-): Machine<DefinitionValue> => {
+) => {
   constructedMachines.add(value);
 
   return value;

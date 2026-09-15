@@ -1,3 +1,4 @@
+// oxlint-disable-next-line anti-slop/no-large-production-file -- snapshot admission, prepared mailbox activation, the serial consumer, and publication share one actor-lifetime owner; splitting would add cross-owner state and callback plumbing.
 import {
   Cause,
   Deferred,
@@ -250,6 +251,7 @@ const clearMailbox = <DefinitionValue extends MachineDefinition>(
   while (Queue.sizeUnsafe(mailbox) > 0) Queue.takeUnsafe(mailbox);
 };
 
+// RETURN_TYPE: Snapshot copies preserve the complete actor snapshot contract.
 const copySnapshot = <DefinitionValue extends MachineDefinition>(
   snapshot: ActorSnapshot<DefinitionValue>,
 ): ActorSnapshot<DefinitionValue> => {
@@ -288,54 +290,54 @@ const preparedSnapshotFailure = (path: (string | number)[], reason: string) =>
 
 type DataPropertyDescriptor = PropertyDescriptor & { value: unknown };
 
+// RETURN_TYPE: Snapshot reflection must narrow data descriptors before reading their values.
 const isDataProperty = (
   descriptor: PropertyDescriptor | undefined,
 ): descriptor is DataPropertyDescriptor => descriptor !== undefined && "value" in descriptor;
 
+// RETURN_TYPE: Enumerable data descriptors are the only reflected values admitted into owned snapshots.
 const isEnumerableDataProperty = (
   descriptor: PropertyDescriptor | undefined,
 ): descriptor is DataPropertyDescriptor =>
   isDataProperty(descriptor) && descriptor.enumerable === true;
 
-const captureSnapshotRecord = (
-  value: unknown,
-  path: SnapshotPath,
-): Result.Result<SnapshotRecord, PublicDiagnostic> => {
+const captureSnapshotRecordUnchecked = (value: unknown, path: SnapshotPath) => {
+  if (!Predicate.isObject(value)) return Result.fail(preparedSnapshotFailure(path, "record"));
+  const prototype = Object.getPrototypeOf(value);
+
+  if (prototype !== Object.prototype && prototype !== null)
+    return Result.fail(preparedSnapshotFailure(path, "record"));
+  const keys = Reflect.ownKeys(value);
+  const stringKeys = keys.filter(Predicate.isString);
+
+  if (stringKeys.length !== keys.length)
+    return Result.fail(preparedSnapshotFailure(path, "record-keys"));
+  const descriptors = stringKeys.map((key) => Object.getOwnPropertyDescriptor(value, key));
+
+  if (descriptors.some((descriptor) => !isEnumerableDataProperty(descriptor)))
+    return Result.fail(preparedSnapshotFailure(path, "data-properties"));
+
+  const captured: SnapshotRecord = {};
+
+  for (const [index, key] of stringKeys.entries()) {
+    const descriptor = descriptors[index];
+
+    if (!isEnumerableDataProperty(descriptor))
+      return Result.fail(preparedSnapshotFailure([...path, key], "data-properties"));
+    Object.defineProperty(captured, key, {
+      configurable: true,
+      enumerable: true,
+      value: descriptor.value,
+      writable: true,
+    });
+  }
+
+  return Result.succeed(captured);
+};
+
+const captureSnapshotRecord = (value: unknown, path: SnapshotPath) => {
   const captured = Result.try({
-    try: () => {
-      if (!Predicate.isObject(value)) return Result.fail(preparedSnapshotFailure(path, "record"));
-      const prototype = Object.getPrototypeOf(value);
-
-      if (prototype !== Object.prototype && prototype !== null)
-        return Result.fail(preparedSnapshotFailure(path, "record"));
-      const keys = Reflect.ownKeys(value);
-
-      if (keys.some((key) => !Predicate.isString(key)))
-        return Result.fail(preparedSnapshotFailure(path, "record-keys"));
-      const descriptors = keys.map((key) => Object.getOwnPropertyDescriptor(value, key));
-
-      if (descriptors.some((descriptor) => !isEnumerableDataProperty(descriptor)))
-        return Result.fail(preparedSnapshotFailure(path, "data-properties"));
-
-      const captured: SnapshotRecord = {};
-
-      for (const [index, key] of keys.entries()) {
-        if (!Predicate.isString(key))
-          return Result.fail(preparedSnapshotFailure(path, "record-keys"));
-        const descriptor = descriptors[index];
-
-        if (!isEnumerableDataProperty(descriptor))
-          return Result.fail(preparedSnapshotFailure([...path, key], "data-properties"));
-        Object.defineProperty(captured, key, {
-          configurable: true,
-          enumerable: true,
-          value: descriptor.value,
-          writable: true,
-        });
-      }
-
-      return Result.succeed(captured);
-    },
+    try: () => captureSnapshotRecordUnchecked(value, path),
     catch: () => preparedSnapshotFailure(path, "reflection"),
   });
 
@@ -344,13 +346,37 @@ const captureSnapshotRecord = (
   return captured.success;
 };
 
-const captureSnapshotArray = (
-  value: unknown,
-  path: SnapshotPath,
-): Result.Result<unknown[], PublicDiagnostic> => {
+// RETURN_TYPE: Array capture must narrow before reading own descriptors.
+const isPlainSnapshotArray = (value: unknown): value is unknown[] =>
+  Array.isArray(value) && Object.getPrototypeOf(value) === Array.prototype;
+
+// RETURN_TYPE: Dense array admission uses the validated length as a numeric bound.
+const isSnapshotArrayLength = (value: unknown): value is number =>
+  Predicate.isNumber(value) && Number.isSafeInteger(value) && value >= 0 && value <= 0xffff_ffff;
+
+const hasDenseSnapshotArrayKeys = (keys: PropertyKey[], length: number) =>
+  keys.length === length + 1 &&
+  keys[length] === "length" &&
+  keys.slice(0, length).every((key, index) => key === String(index));
+
+const copySnapshotArrayProperties = (value: unknown[], length: number, path: SnapshotPath) => {
+  const captured: unknown[] = [];
+
+  for (let index = 0; index < length; index += 1) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
+
+    if (!isEnumerableDataProperty(descriptor))
+      return Result.fail(preparedSnapshotFailure([...path, index], "data-properties"));
+    captured.push(descriptor.value);
+  }
+
+  return Result.succeed(captured);
+};
+
+const captureSnapshotArray = (value: unknown, path: SnapshotPath) => {
   const captured = Result.try({
     try: () => {
-      if (!Array.isArray(value) || Object.getPrototypeOf(value) !== Array.prototype)
+      if (!isPlainSnapshotArray(value))
         return Result.fail(preparedSnapshotFailure(path, "dense-array"));
       const lengthDescriptor = Object.getOwnPropertyDescriptor(value, "length");
 
@@ -358,33 +384,14 @@ const captureSnapshotArray = (
         return Result.fail(preparedSnapshotFailure(path, "dense-array"));
       const length = lengthDescriptor.value;
 
-      if (
-        !Predicate.isNumber(length) ||
-        !Number.isSafeInteger(length) ||
-        length < 0 ||
-        length > 0xffff_ffff
-      )
+      if (!isSnapshotArrayLength(length))
         return Result.fail(preparedSnapshotFailure(path, "dense-array"));
       const keys = Reflect.ownKeys(value);
 
-      if (
-        keys.length !== length + 1 ||
-        keys[length] !== "length" ||
-        keys.slice(0, length).some((key, index) => key !== String(index))
-      )
+      if (!hasDenseSnapshotArrayKeys(keys, length))
         return Result.fail(preparedSnapshotFailure(path, "dense-array"));
 
-      const captured: unknown[] = [];
-
-      for (let index = 0; index < length; index += 1) {
-        const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
-
-        if (!isEnumerableDataProperty(descriptor))
-          return Result.fail(preparedSnapshotFailure([...path, index], "data-properties"));
-        captured.push(descriptor.value);
-      }
-
-      return Result.succeed(captured);
+      return copySnapshotArrayProperties(value, length, path);
     },
     catch: () => preparedSnapshotFailure(path, "reflection"),
   });
@@ -407,12 +414,14 @@ const hasExactKeys = (
   );
 };
 
+// RETURN_TYPE: Timer and revision admission rely on the number guard after safe-integer validation.
 const isSafeSnapshotInteger = (value: unknown): value is number =>
   Predicate.isNumber(value) && Number.isSafeInteger(value);
 
 const isSafeSnapshotRevision = (value: unknown) =>
   Predicate.isNumber(value) && isSafeSnapshotInteger(value) && value >= 0;
 
+// RETURN_TYPE: Snapshot operation admission requires descriptor identity in the constructed machine.
 const isSnapshotOperation = (
   machine: MachineRecordValue,
   value: unknown,
@@ -424,7 +433,7 @@ const collectSnapshotIdentities = (machine: MachineRecordValue) => {
   const identities = new WeakSet<SnapshotReference>();
   const visited = new WeakSet<SnapshotReference>();
 
-  const visitStateTable = (value: unknown): void => {
+  const visitStateTable = (value: unknown) => {
     if (!Predicate.isObject(value) || visited.has(value)) return;
     visited.add(value);
     const kind = Object.getOwnPropertyDescriptor(value, "kind");
@@ -443,7 +452,27 @@ const collectSnapshotIdentities = (machine: MachineRecordValue) => {
     }
   };
 
-  const visitDefinition = (value: unknown): void => {
+  const visitContextSelector = (
+    selector: PropertyDescriptor | undefined,
+    visitDefinition: (value: unknown) => void,
+  ) => {
+    if (!isDataProperty(selector) || !Predicate.isObject(selector.value)) return;
+    identities.add(selector.value);
+    const provider = Object.getOwnPropertyDescriptor(selector.value, "provider");
+
+    if (isDataProperty(provider)) visitDefinition(provider.value);
+  };
+
+  const visitContext = (value: unknown, visitDefinition: (value: unknown) => void) => {
+    if (!Predicate.isObject(value)) return;
+
+    for (const key of Reflect.ownKeys(value)) {
+      if (!Predicate.isString(key)) continue;
+      visitContextSelector(Object.getOwnPropertyDescriptor(value, key), visitDefinition);
+    }
+  };
+
+  const visitDefinition = (value: unknown) => {
     if (!Predicate.isObject(value) || visited.has(value)) return;
     visited.add(value);
     const stateTable = Object.getOwnPropertyDescriptor(value, "S");
@@ -451,18 +480,7 @@ const collectSnapshotIdentities = (machine: MachineRecordValue) => {
     if (isDataProperty(stateTable)) visitStateTable(stateTable.value);
     const context = Object.getOwnPropertyDescriptor(value, "context");
 
-    if (!isDataProperty(context) || !Predicate.isObject(context.value)) return;
-
-    for (const key of Reflect.ownKeys(context.value)) {
-      if (!Predicate.isString(key)) continue;
-      const selector = Object.getOwnPropertyDescriptor(context.value, key);
-
-      if (!isDataProperty(selector) || !Predicate.isObject(selector.value)) continue;
-      identities.add(selector.value);
-      const provider = Object.getOwnPropertyDescriptor(selector.value, "provider");
-
-      if (isDataProperty(provider)) visitDefinition(provider.value);
-    }
+    if (isDataProperty(context)) visitContext(context.value, visitDefinition);
   };
 
   visitDefinition(machine.definition);
@@ -481,6 +499,7 @@ const isSnapshotLeaf = (value: unknown, identities: WeakSet<SnapshotReference>) 
   Predicate.isFunction(value) ||
   (Predicate.isObjectOrArray(value) && (identities.has(value) || isConstructedOperation(value)));
 
+// RETURN_TYPE: Recursive snapshot copying retains the canonical typed validation failure channel.
 const captureSnapshotData = (
   value: unknown,
   path: SnapshotPath,
@@ -504,12 +523,13 @@ const captureSnapshotData = (
   return captured;
 };
 
+// RETURN_TYPE: Recursive snapshot copying retains the canonical typed validation failure channel.
 const captureSnapshotArrayData = (
   value: unknown[],
   path: SnapshotPath,
   identities: WeakSet<SnapshotReference>,
   seen: WeakSet<SnapshotReference>,
-) => {
+): Result.Result<unknown[], PublicDiagnostic> => {
   const captured = captureSnapshotArray(value, path);
 
   if (Result.isFailure(captured)) return captured;
@@ -518,19 +538,20 @@ const captureSnapshotArrayData = (
   for (const [index, child] of captured.success.entries()) {
     const admitted = captureSnapshotData(child, [...path, index], identities, seen);
 
-    if (Result.isFailure(admitted)) return admitted;
+    if (Result.isFailure(admitted)) return Result.fail(admitted.failure);
     owned.push(admitted.success);
   }
 
   return Result.succeed(owned);
 };
 
+// RETURN_TYPE: Recursive snapshot copying retains the canonical typed validation failure channel.
 const captureSnapshotRecordData = (
   value: SnapshotReference,
   path: SnapshotPath,
   identities: WeakSet<SnapshotReference>,
   seen: WeakSet<SnapshotReference>,
-) => {
+): Result.Result<SnapshotRecord, PublicDiagnostic> => {
   const captured = captureSnapshotRecord(value, path);
 
   if (Result.isFailure(captured)) return captured;
@@ -539,7 +560,7 @@ const captureSnapshotRecordData = (
   for (const key of Object.keys(captured.success)) {
     const admitted = captureSnapshotData(captured.success[key], [...path, key], identities, seen);
 
-    if (Result.isFailure(admitted)) return admitted;
+    if (Result.isFailure(admitted)) return Result.fail(admitted.failure);
     Object.defineProperty(owned, key, {
       configurable: true,
       enumerable: true,
@@ -551,15 +572,12 @@ const captureSnapshotRecordData = (
   return Result.succeed(owned);
 };
 
+// RETURN_TYPE: Snapshot admission narrows decoded values to owned string-keyed records.
 const isSnapshotRecord = (value: unknown): value is SnapshotRecord =>
   Predicate.isObject(value) &&
   (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null);
 
-const admitSnapshotData = (
-  machine: MachineRecordValue,
-  value: unknown,
-  path: SnapshotPath,
-): Result.Result<SnapshotRecord, PublicDiagnostic> => {
+const admitSnapshotData = (machine: MachineRecordValue, value: unknown, path: SnapshotPath) => {
   const captured = captureSnapshotData(
     value,
     path,
@@ -579,49 +597,53 @@ const admitSnapshotData = (
   return Result.succeed(captured.success);
 };
 
-const admitSnapshotOperations = (
-  machine: MachineRecordValue,
-  value: unknown,
-): Result.Result<OperationProjection[], PublicDiagnostic> => {
+// RETURN_TYPE: Operation statuses need a domain predicate after reading external snapshot data.
+const isOperationProjectionStatus = (value: unknown): value is OperationProjection["status"] =>
+  value === "pending" ||
+  value === "running" ||
+  value === "succeeded" ||
+  value === "failed" ||
+  value === "cancelled";
+
+const admitSnapshotOperation = (machine: MachineRecordValue, rawEntry: unknown, index: number) => {
+  const entry = captureSnapshotRecord(rawEntry, ["operations", index]);
+
+  if (Result.isFailure(entry) || !hasExactKeys(entry.success, ["descriptor", "key", "status"]))
+    return Result.fail(preparedSnapshotFailure(["operations", index], "entry-shape"));
+
+  const descriptor = entry.success.descriptor;
+
+  if (!isSnapshotOperation(machine, descriptor))
+    return Result.fail(preparedSnapshotFailure(["operations", index, "descriptor"], "operation"));
+  const status = entry.success.status;
+
+  if (!isOperationProjectionStatus(status))
+    return Result.fail(preparedSnapshotFailure(["operations", index, "status"], "status"));
+
+  // SAFETY: Operation validation above proves the captured key is the operation-key input accepted by the private projection seam.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the key walker performs the final runtime admission and ownership copy.
+  const key = canonicalizeKey(entry.success.key as OperationKey);
+
+  return Result.succeed(copyObject({ descriptor, key, status }));
+};
+
+const admitSnapshotOperations = (machine: MachineRecordValue, value: unknown) => {
   const captured = captureSnapshotArray(value, ["operations"]);
 
   if (Result.isFailure(captured)) return Result.fail(captured.failure);
-  const expectedKeys = ["descriptor", "key", "status"] as const;
   const owned: OperationProjection[] = [];
 
   for (const [index, rawEntry] of captured.success.entries()) {
-    const entry = captureSnapshotRecord(rawEntry, ["operations", index]);
+    const admitted = admitSnapshotOperation(machine, rawEntry, index);
 
-    if (Result.isFailure(entry) || !hasExactKeys(entry.success, expectedKeys))
-      return Result.fail(preparedSnapshotFailure(["operations", index], "entry-shape"));
-
-    if (!isSnapshotOperation(machine, entry.success.descriptor))
-      return Result.fail(preparedSnapshotFailure(["operations", index, "descriptor"], "operation"));
-
-    if (
-      entry.success.status !== "pending" &&
-      entry.success.status !== "running" &&
-      entry.success.status !== "succeeded" &&
-      entry.success.status !== "failed" &&
-      entry.success.status !== "cancelled"
-    )
-      return Result.fail(preparedSnapshotFailure(["operations", index, "status"], "status"));
-
-    // SAFETY: Operation validation above proves the captured key is the operation-key input accepted by the private projection seam.
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the key walker performs the final runtime admission and ownership copy.
-    const key = canonicalizeKey(entry.success.key as OperationKey);
-    owned.push(
-      copyObject({
-        descriptor: entry.success.descriptor,
-        key,
-        status: entry.success.status,
-      }),
-    );
+    if (Result.isFailure(admitted)) return Result.fail(admitted.failure);
+    owned.push(admitted.success);
   }
 
   return Result.succeed(owned);
 };
 
+// RETURN_TYPE: Validated timer projections expose numeric timestamps after runtime checks.
 const admitSnapshotTimers = (
   value: unknown,
 ): Result.Result<TimerProjection[], PublicDiagnostic> => {
@@ -651,9 +673,7 @@ const admitSnapshotTimers = (
   return Result.succeed(owned);
 };
 
-const admitSnapshotIssues = (
-  value: unknown,
-): Result.Result<PublicDiagnostic[], PublicDiagnostic> => {
+const admitSnapshotIssues = (value: unknown) => {
   const captured = captureSnapshotArray(value, ["issues"]);
 
   if (Result.isFailure(captured)) return Result.fail(captured.failure);
@@ -677,6 +697,7 @@ const admitSnapshotIssues = (
 };
 
 /** Admits and owns one complete prepared snapshot for the exact constructed machine. */
+// RETURN_TYPE: This constructor preserves the prepared brand and typed diagnostic failure channel.
 export const prepareActorSnapshot = <DefinitionValue extends MachineDefinition>(
   machine: Machine<DefinitionValue>,
   snapshot: unknown,
@@ -686,9 +707,7 @@ export const prepareActorSnapshot = <DefinitionValue extends MachineDefinition>(
       Result.gen(function* () {
         if (!isConstructedMachine(machine))
           return yield* Result.fail(preparedSnapshotFailure(["machine"], "constructed-machine"));
-        const captured = captureSnapshotRecord(snapshot, []);
-
-        if (Result.isFailure(captured)) return yield* Result.fail(captured.failure);
+        const captured = yield* captureSnapshotRecord(snapshot, []);
 
         const expectedKeys = [
           "state",
@@ -702,62 +721,52 @@ export const prepareActorSnapshot = <DefinitionValue extends MachineDefinition>(
           "observedStoreRevision",
         ] as const;
 
-        if (!hasExactKeys(captured.success, expectedKeys))
+        if (!hasExactKeys(captured, expectedKeys))
           return yield* Result.fail(preparedSnapshotFailure([], "complete-shape"));
 
         const leaves = Object.values(machine.compiled.states).filter(
           (state) => state.kind === "leaf",
         );
 
-        if (!leaves.some((state) => Object.is(state.state, captured.success.state)))
+        if (!leaves.some((state) => Object.is(state.state, captured.state)))
           return yield* Result.fail(preparedSnapshotFailure(["state"], "leaf-identity"));
 
-        const memory = admitSnapshotData(machine, captured.success.memory, ["memory"]);
+        const memory = yield* admitSnapshotData(machine, captured.memory, ["memory"]);
 
-        if (Result.isFailure(memory)) return yield* Result.fail(memory.failure);
-
-        if (machine.definition.memory === undefined && !hasExactKeys(memory.success, []))
+        if (machine.definition.memory === undefined && !hasExactKeys(memory, []))
           return yield* Result.fail(preparedSnapshotFailure(["memory"], "unexpected-keys"));
 
-        const context = admitSnapshotData(machine, captured.success.context, ["context"]);
-
-        if (Result.isFailure(context)) return yield* Result.fail(context.failure);
+        const context = yield* admitSnapshotData(machine, captured.context, ["context"]);
         const contextKeys = Object.keys(machine.definition.context);
 
-        if (!hasExactKeys(context.success, contextKeys))
+        if (!hasExactKeys(context, contextKeys))
           return yield* Result.fail(preparedSnapshotFailure(["context"], "machine-keys"));
 
-        if (captured.success.lifecycle !== "prepared")
+        if (captured.lifecycle !== "prepared")
           return yield* Result.fail(preparedSnapshotFailure(["lifecycle"], "prepared"));
 
-        if (!isSafeSnapshotRevision(captured.success.revision))
+        if (!isSafeSnapshotRevision(captured.revision))
           return yield* Result.fail(preparedSnapshotFailure(["revision"], "revision"));
 
-        if (!isSafeSnapshotRevision(captured.success.observedStoreRevision))
+        if (!isSafeSnapshotRevision(captured.observedStoreRevision))
           return yield* Result.fail(preparedSnapshotFailure(["observedStoreRevision"], "revision"));
 
-        const operations = admitSnapshotOperations(machine, captured.success.operations);
-
-        if (Result.isFailure(operations)) return yield* Result.fail(operations.failure);
-        const timers = admitSnapshotTimers(captured.success.timers);
-
-        if (Result.isFailure(timers)) return yield* Result.fail(timers.failure);
-        const issues = admitSnapshotIssues(captured.success.issues);
-
-        if (Result.isFailure(issues)) return yield* Result.fail(issues.failure);
+        const operations = yield* admitSnapshotOperations(machine, captured.operations);
+        const timers = yield* admitSnapshotTimers(captured.timers);
+        const issues = yield* admitSnapshotIssues(captured.issues);
 
         // SAFETY: captured data is stable; recursive DefinitionValue, exact machine state, lifecycle, revision, projections, and canonical issue checks establish this complete snapshot shape.
         // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- this is the sole named constructor for the private prepared snapshot brand.
         const owned = copySnapshot({
-          state: captured.success.state,
-          memory: memory.success,
-          context: context.success,
-          lifecycle: captured.success.lifecycle,
-          operations: operations.success,
-          timers: timers.success,
-          issues: issues.success,
-          revision: captured.success.revision,
-          observedStoreRevision: captured.success.observedStoreRevision,
+          state: captured.state,
+          memory,
+          context,
+          lifecycle: captured.lifecycle,
+          operations,
+          timers,
+          issues,
+          revision: captured.revision,
+          observedStoreRevision: captured.observedStoreRevision,
         } as ActorSnapshot<DefinitionValue>);
 
         // SAFETY: the WeakMap entry is the runtime brand; the type-only property cannot be forged by callers.
@@ -781,7 +790,7 @@ export const prepareActorSnapshot = <DefinitionValue extends MachineDefinition>(
 export const verifyPreparedActorSnapshot = <DefinitionValue extends MachineDefinition>(
   machine: Machine<DefinitionValue>,
   snapshot: unknown,
-): Result.Result<PreparedActorSnapshot<DefinitionValue>, PublicDiagnostic> => {
+) => {
   if (!isConstructedMachine(machine) || !Predicate.isObject(snapshot))
     return Result.fail(preparedSnapshotFailure([], "brand"));
   const preparedMachine = preparedSnapshots.get(snapshot);
@@ -793,6 +802,7 @@ export const verifyPreparedActorSnapshot = <DefinitionValue extends MachineDefin
   return Result.succeed(snapshot as PreparedActorSnapshot<DefinitionValue>);
 };
 
+// RETURN_TYPE: Store result copies preserve the owner's exact changed-reference domain type.
 const copyStoreResult = <DefinitionValue extends MachineDefinition>(
   store: ActorStoreResult<DefinitionValue>,
 ): ActorStoreResult<DefinitionValue> => {
@@ -813,7 +823,7 @@ const isCurrentFence = (current: ActorFence, incoming: ActorFence) =>
   current.generation === incoming.generation &&
   current.leaseEpoch === incoming.leaseEpoch;
 
-const projectionOccurrence = (fact: ProjectionFact): OperationOccurrenceFence | undefined => {
+const projectionOccurrence = (fact: ProjectionFact) => {
   switch (fact._tag) {
     case "completion-projection":
       return fact.completion.fence;
@@ -830,6 +840,7 @@ const projectionOccurrence = (fact: ProjectionFact): OperationOccurrenceFence | 
 };
 
 /** Fences a trusted command fact before it reaches the turn-planning boundary. */
+// RETURN_TYPE: Fence admission preserves the generic command-fact discriminated union.
 export const fenceActorFact = <DefinitionValue extends MachineDefinition>(
   current: ActorFence,
   fact: Extract<ActorMailboxFact<DefinitionValue>, { _tag: "command" }>,
@@ -853,9 +864,7 @@ const nextRevision = (current: number, path: string[]) => {
   return Result.succeed(current + 1);
 };
 
-const invokeResult = <Value>(
-  callback: () => Result.Result<Value, PublicDiagnostic>,
-): Result.Result<Value, PublicDiagnostic> => {
+const invokeResult = <Value>(callback: () => Result.Result<Value, PublicDiagnostic>) => {
   const captured = Result.try({
     try: callback,
     catch: (cause) => (cause instanceof Diagnostic ? cause : Defect(cause)),
@@ -885,9 +894,7 @@ const storeValueKind = (value: unknown) => {
 };
 
 /** Copies the result an ActorStore owner returns from one commit. */
-export const makeActorStoreResult = <DefinitionValue extends MachineDefinition>(
-  store: unknown,
-): Result.Result<ActorStoreResult<DefinitionValue>, PublicDiagnostic> =>
+export const makeActorStoreResult = <DefinitionValue extends MachineDefinition>(store: unknown) =>
   invokeResult(() => {
     if (!Predicate.isObjectOrArray(store))
       return Result.fail(
@@ -923,7 +930,7 @@ export const makeActorStoreResult = <DefinitionValue extends MachineDefinition>(
     return Result.succeed(copyStoreResult({ revision, changed: candidate.changed }));
   });
 
-const projectionFence = (fact: ProjectionFact): ActorFence => {
+const projectionFence = (fact: ProjectionFact) => {
   switch (fact._tag) {
     case "timer-projection":
     case "lifecycle-projection":
@@ -1050,9 +1057,7 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
       return Result.succeed(undefined);
     });
 
-  const evidenceSequenceFor = (
-    publication: ActorPublication<DefinitionValue>,
-  ): Result.Result<number, PublicDiagnostic> => {
+  const evidenceSequenceFor = (publication: ActorPublication<DefinitionValue>) => {
     const accepted =
       input.acceptEvidence === undefined
         ? Result.succeed(undefined)
@@ -1084,7 +1089,7 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
     candidate: ActorSnapshot<DefinitionValue>,
     machineTurnRevision: number,
     cause: TurnCause<DefinitionValue>,
-  ): Result.Result<PreparedCut<DefinitionValue>, PublicDiagnostic> => {
+  ) => {
     const publicationRevision = nextRevision(state.snapshot.revision, ["publicationRevision"]);
 
     if (Result.isFailure(publicationRevision)) return Result.fail(publicationRevision.failure);
@@ -1159,10 +1164,7 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
     machineTurnRevision: number,
     store: ActorStoreResult<DefinitionValue>,
     cause: TurnCause<DefinitionValue>,
-  ): Result.Result<
-    { publication: ActorPublication<DefinitionValue>; evidenceSequence: number },
-    PublicDiagnostic
-  > => {
+  ) => {
     const publicationRevision = nextRevision(state.snapshot.revision, ["publicationRevision"]);
 
     if (Result.isFailure(publicationRevision)) return Result.fail(publicationRevision.failure);
@@ -1209,13 +1211,7 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
     return Result.succeed({ publication, evidenceSequence: validatedEvidenceSequence.success });
   };
 
-  const publishIssue = (
-    failure: PublicDiagnostic,
-    cause: TurnCause<DefinitionValue>,
-  ): Result.Result<
-    { publication: ActorPublication<DefinitionValue>; evidenceSequence: number },
-    PublicDiagnostic
-  > =>
+  const publishIssue = (failure: PublicDiagnostic, cause: TurnCause<DefinitionValue>) =>
     publishCut(
       { ...state.snapshot, issues: [failure] },
       state.machineTurnRevision,
@@ -1227,7 +1223,7 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
     acknowledgement: Deferred.Deferred<DispatchReceipt, PublicDiagnostic> | undefined,
     failure: PublicDiagnostic,
     cause: TurnCause<DefinitionValue>,
-  ): Effect.Effect<void, PublicDiagnostic> =>
+  ) =>
     Effect.gen(function* () {
       const published = publishIssue(failure, cause);
 
@@ -1247,9 +1243,7 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
       }
     });
 
-  const storeResultFor = (
-    actions: MachineAction<DefinitionValue>[],
-  ): Result.Result<ActorStoreResult<DefinitionValue>, PublicDiagnostic> => {
+  const storeResultFor = (actions: MachineAction<DefinitionValue>[]) => {
     if (input.store === undefined)
       return Result.succeed({ revision: state.snapshot.observedStoreRevision, changed: [] });
     const result = invokeResult(() => input.store!.commit(actions));
@@ -1262,7 +1256,7 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
   const processPlan = (
     plan: TurnPlan<DefinitionValue>,
     acknowledgement: Deferred.Deferred<DispatchReceipt, PublicDiagnostic> | undefined,
-  ): Effect.Effect<boolean, PublicDiagnostic> => {
+  ) => {
     if (plan._tag === "noop") {
       settleSuccess(acknowledgement, {
         publicationRevision: state.snapshot.revision,
@@ -1302,12 +1296,12 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
 
     if (Result.isFailure(publicationRevision))
       return acknowledgeIssue(acknowledgement, publicationRevision.failure, plan.cause).pipe(
-        Effect.flatMap(() => Effect.succeed(false)),
+        Effect.as(false),
       );
 
     if (Result.isFailure(machineTurnRevision))
       return acknowledgeIssue(acknowledgement, machineTurnRevision.failure, plan.cause).pipe(
-        Effect.flatMap(() => Effect.succeed(false)),
+        Effect.as(false),
       );
 
     const prepared = prepareCut(
@@ -1317,9 +1311,7 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
     );
 
     if (Result.isFailure(prepared))
-      return acknowledgeIssue(acknowledgement, prepared.failure, plan.cause).pipe(
-        Effect.flatMap(() => Effect.succeed(false)),
-      );
+      return acknowledgeIssue(acknowledgement, prepared.failure, plan.cause).pipe(Effect.as(false));
 
     const store = storeResultFor(plan.actions.map((intent) => intent.action));
 
@@ -1328,12 +1320,10 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
 
       if (Result.isFailure(cancelled))
         return acknowledgeIssue(acknowledgement, cancelled.failure, plan.cause).pipe(
-          Effect.flatMap(() => Effect.succeed(false)),
+          Effect.as(false),
         );
 
-      return acknowledgeIssue(acknowledgement, store.failure, plan.cause).pipe(
-        Effect.flatMap(() => Effect.succeed(false)),
-      );
+      return acknowledgeIssue(acknowledgement, store.failure, plan.cause).pipe(Effect.as(false));
     }
 
     const published = finalizeCut(prepared.success, store.success);
@@ -1356,7 +1346,7 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
 
   const processCommand = (
     fact: Extract<ActorMailboxFact<DefinitionValue>, { _tag: "command" }>,
-  ): Effect.Effect<void, PublicDiagnostic> => {
+  ) => {
     const planned = planTurn({
       _tag: "event",
       machine: input.machine ?? input.identity.ref.machine,
@@ -1382,7 +1372,7 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
 
   const processProjection = (
     fact: Extract<ActorMailboxFact<DefinitionValue>, { _tag: "projection" }>,
-  ): Effect.Effect<void, PublicDiagnostic> => {
+  ) => {
     if (fact.fact._tag === "context-projection" && !acceptsContextRevision(fact.fact))
       return Effect.void;
     const occurrence = projectionOccurrence(fact.fact);
@@ -1453,7 +1443,7 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
     );
   });
 
-  const dispatch = (command: ActorCommand<DefinitionValue>): AcknowledgedDispatch => {
+  const dispatch = (command: ActorCommand<DefinitionValue>) => {
     const completion = Deferred.makeUnsafe<DispatchReceipt, PublicDiagnostic>();
     const admitted = enqueueCommand(command, completion, false);
 
@@ -1652,7 +1642,7 @@ export const prepareActorEngine = <DefinitionValue extends MachineDefinition>(
 
     const activate = () => activation;
 
-    const dispatch = (command: ActorCommand<DefinitionValue>): AcknowledgedDispatch => {
+    const dispatch = (command: ActorCommand<DefinitionValue>) => {
       const completion = Deferred.makeUnsafe<DispatchReceipt, PublicDiagnostic>();
       const admitted = enqueueCommand(command, completion, false);
 

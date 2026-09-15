@@ -1,3 +1,4 @@
+/* oxlint-disable anti-slop/no-large-production-file -- machine configuration admission owns the captured input to compiled-state boundary; its schemas share state behavior, target resolution, and ordered Diagnostic projection. */
 import { Effect, Option, Predicate, Result, Schema, SchemaIssue } from "effect";
 
 import type { DefinitionConstraint, StateOf } from "../definition/domain.js";
@@ -184,6 +185,88 @@ const admitStateChildren = (
       });
 };
 
+const stateBehaviorConfiguration = (fields: StateConfigurationFields) =>
+  ({
+    on: fields.on,
+    redirect: fields.redirect,
+    activities: fields.activities,
+    timers: fields.timers,
+  }) satisfies StateBehaviorConfiguration;
+
+const admitLeafStateConfiguration = (
+  fields: StateConfigurationFields,
+  behavior: StateBehaviorConfiguration,
+  path: Diagnostic.Path,
+) => {
+  let field: "default" | "states" | undefined;
+
+  if (Object.hasOwn(fields, "default")) field = "default";
+  else if (Object.hasOwn(fields, "states")) field = "states";
+
+  if (field !== undefined)
+    return invalidConfiguration("ExpectedLeafConfiguration", [...path, field], { field });
+
+  return Result.succeed({ kind: "leaf", behavior } satisfies LeafStateConfiguration);
+};
+
+const hasStateConfigurationField = (
+  fields: StateConfigurationFields,
+  field: "default" | "states",
+) =>
+  Object.hasOwn(fields, field) &&
+  fields[field] !== undefined &&
+  fields[field] !== inaccessibleStateProperty;
+
+const admitCompoundStateConfiguration = <DefinitionValue extends DefinitionConstraint>(
+  fields: StateConfigurationFields,
+  node: StateNode<DefinitionValue> & { kind: "compound" },
+  behavior: StateBehaviorConfiguration,
+  path: Diagnostic.Path,
+) =>
+  Result.gen(function* () {
+    if (!hasStateConfigurationField(fields, "default"))
+      return yield* invalidConfiguration("MissingCompoundStateFields", [...path, "default"]);
+
+    if (!hasStateConfigurationField(fields, "states"))
+      return yield* invalidConfiguration("MissingCompoundStateFields", [...path, "states"]);
+
+    const statesPath = [...path, "states"];
+    const children = yield* snapshotRecord(fields.states, statesPath, "InvalidCompoundState");
+    const childValues = yield* admitStateChildren(children, node.children, statesPath);
+
+    return {
+      kind: "compound",
+      default: fields.default,
+      children: childValues,
+      behavior,
+    } satisfies CompoundStateConfiguration;
+  });
+
+const admitDecodedStateConfiguration = <DefinitionValue extends DefinitionConstraint>(
+  fields: StateConfigurationFields,
+  node: StateNode<DefinitionValue>,
+  path: Diagnostic.Path,
+) => {
+  const behavior = stateBehaviorConfiguration(fields);
+
+  if (node.kind === "leaf") return admitLeafStateConfiguration(fields, behavior, path);
+
+  return admitCompoundStateConfiguration(fields, node, behavior, path);
+};
+
+const admitStateConfigurationFields = <DefinitionValue extends DefinitionConstraint>(
+  value: unknown,
+  node: StateNode<DefinitionValue>,
+  path: Diagnostic.Path,
+) => {
+  const decoded = decodeStateConfigurationFields(value);
+
+  if (Result.isFailure(decoded))
+    return projectStateConfigurationSchemaFailure(decoded.failure, path);
+
+  return admitDecodedStateConfiguration(decoded.success, node, path);
+};
+
 const makeStateConfigurationSchema = <DefinitionValue extends DefinitionConstraint>(
   node: StateNode<DefinitionValue>,
   path: Diagnostic.Path,
@@ -199,62 +282,8 @@ const makeStateConfigurationSchema = <DefinitionValue extends DefinitionConstrai
         );
 
         const captured = yield* captureConfigurationData(snapshot, path, inaccessibleStateProperty);
-        const decoded = decodeStateConfigurationFields(captured);
 
-        if (Result.isFailure(decoded))
-          return yield* projectStateConfigurationSchemaFailure(decoded.failure, path);
-
-        const behavior = {
-          on: decoded.success.on,
-          redirect: decoded.success.redirect,
-          activities: decoded.success.activities,
-          timers: decoded.success.timers,
-        } satisfies StateBehaviorConfiguration;
-
-        if (node.kind === "leaf") {
-          let field: "default" | "states" | undefined;
-
-          if (Object.hasOwn(decoded.success, "default")) field = "default";
-          else if (Object.hasOwn(decoded.success, "states")) field = "states";
-
-          if (field !== undefined)
-            return yield* invalidConfiguration("ExpectedLeafConfiguration", [...path, field], {
-              field,
-            });
-
-          return { kind: "leaf", behavior } satisfies LeafStateConfiguration;
-        }
-
-        if (
-          !Object.hasOwn(decoded.success, "default") ||
-          decoded.success.default === undefined ||
-          decoded.success.default === inaccessibleStateProperty
-        )
-          return yield* invalidConfiguration("MissingCompoundStateFields", [...path, "default"]);
-
-        if (
-          !Object.hasOwn(decoded.success, "states") ||
-          decoded.success.states === undefined ||
-          decoded.success.states === inaccessibleStateProperty
-        )
-          return yield* invalidConfiguration("MissingCompoundStateFields", [...path, "states"]);
-
-        const statesPath = [...path, "states"];
-
-        const children = yield* snapshotRecord(
-          decoded.success.states,
-          statesPath,
-          "InvalidCompoundState",
-        );
-
-        const childValues = yield* admitStateChildren(children, node.children, statesPath);
-
-        return {
-          kind: "compound",
-          default: decoded.success.default,
-          children: childValues,
-          behavior,
-        } satisfies CompoundStateConfiguration;
+        return yield* admitStateConfigurationFields(captured, node, path);
       });
 
       return Effect.fromResult(result).pipe(

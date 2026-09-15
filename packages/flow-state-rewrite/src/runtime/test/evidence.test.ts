@@ -1,3 +1,4 @@
+// oxlint-disable-next-line anti-slop/no-large-production-file -- sequencing, lifecycle publication, sink isolation, and failure proofs share one runtime-evidence contract.
 import { assert, describe, it } from "@effect/vitest";
 import { Cause, Deferred, Effect, Exit, Fiber, Option, Predicate, Result, Scope } from "effect";
 
@@ -108,7 +109,7 @@ const makeFixture = () => {
     leaseEpoch: identity.leaseEpoch,
   };
 
-  const snapshot = (revision: number): EvidenceSnapshot =>
+  const snapshot = (revision: number) =>
     ({
       state: EvidenceDefinition.S.ready,
       memory: {},
@@ -679,6 +680,34 @@ describe("runtime evidence", () => {
         ],
       );
       assert.strictEqual(drained.through, 1);
+    }),
+  );
+
+  it.effect("offers to a sink only when the offer effect runs", () =>
+    Effect.gen(function* () {
+      const fixture = makeFixture();
+      const hub = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
+      const reservation = reserve(hub);
+      const record = resultSuccess(makeTurnRecord(turnFact(fixture, reservation), reservation));
+      const delivered: string[] = [];
+
+      const sink = yield* makeEvidenceSink({
+        id: "deferred-offer",
+        deliver: (offered) => Effect.sync(() => delivered.push(offered._tag)),
+      });
+
+      const offer = sink.offer(record);
+      const beforeOffer = yield* sink.drain(reservation.sequence);
+      assert.strictEqual(beforeOffer.status, "drained");
+      assert.deepStrictEqual(delivered, []);
+
+      const accepted = yield* offer;
+      assert.strictEqual(accepted.status, "accepted");
+
+      const afterOffer = yield* sink.drain(reservation.sequence);
+      assert.strictEqual(afterOffer.status, "drained");
+      assert.deepStrictEqual(delivered, ["turn"]);
+      yield* sink.close();
     }),
   );
 

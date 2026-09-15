@@ -48,6 +48,7 @@ import {
   type ActorKey,
   type ActorDependencyEdge,
   type AdmissionRollbackStep,
+  type ActorIdentityRegistry,
   type ActorFence,
   type ActorIdentity,
   type ActorAdmissionMode,
@@ -131,7 +132,7 @@ type RuntimeApp = App;
 const appendCleanupCause = <Error>(
   current: Cause.Cause<Error> | undefined,
   next: Cause.Cause<Error>,
-): Cause.Cause<Error> =>
+) =>
   current === undefined
     ? Cause.fromReasons([...next.reasons])
     : Cause.fromReasons([...current.reasons, ...next.reasons]);
@@ -267,6 +268,7 @@ type RuntimeScopeOwner = {
   install: (scope: Scope.Scope) => void;
 };
 
+// RETURN_TYPE: The private owner keeps its read/install scope contract while the closure owns the mutable slot.
 const makeRuntimeScopeOwner = (): RuntimeScopeOwner => {
   let scope: Scope.Scope | undefined;
 
@@ -302,6 +304,7 @@ type RuntimeConstructionOwner = {
   admissionProbe?: RuntimeAdmissionProbe;
 };
 
+// RETURN_TYPE: The generic owner keeps its installed lease type while the closure owns the state transition.
 const makeRuntimeLeaseOwner = <Lease>(): RuntimeLeaseOwner<Lease> => {
   let state: RuntimeLeaseState<Lease> = { _tag: "empty" };
 
@@ -352,6 +355,55 @@ type RuntimeContextDependent = {
   ) => Result.Result<void, PublicDiagnostic>;
 };
 
+const runtimeContextConsumerKey = <
+  DefinitionValue extends MachineDefinition,
+  ProviderDefinition extends MachineDefinition,
+>(
+  bindings: ActorContextBinding<DefinitionValue, ProviderDefinition>[],
+  identity: ActorIdentity<DefinitionValue> | undefined,
+  machineFacts: MachineRecordValue | undefined,
+  ref: ActorRef<Machine<DefinitionValue>>,
+  registry: ActorIdentityRegistry<RuntimeRegisteredActor>,
+) => {
+  if (bindings.length === 0) return undefined;
+
+  if (identity !== undefined) return identity.key;
+
+  return isOwnedMachineFactsFor(machineFacts, ref.machine)
+    ? registry.stableKey(ref, machineFacts)
+    : undefined;
+};
+
+const captureRuntimeContextProviders = <
+  DefinitionValue extends MachineDefinition,
+  ProviderDefinition extends MachineDefinition,
+>(
+  bindings: ContextBinding<DefinitionValue, ProviderDefinition>[],
+  registry: ActorIdentityRegistry<RuntimeRegisteredActor>,
+  incoming?: { providerFence: ActorFence; snapshot: RuntimeSnapshot },
+) => {
+  const snapshots = new Map<ActorKey, ActorContextSnapshot<ProviderDefinition>>();
+  const revisions = new Map<ActorKey, number>();
+
+  for (const binding of bindings) {
+    const provider = registry.lookup(binding.provider);
+
+    if (Result.isFailure(provider)) return Result.fail(provider.failure);
+
+    const snapshot =
+      incoming?.providerFence.key === binding.providerFence.key
+        ? incoming.snapshot
+        : provider.success.actor.snapshot();
+
+    // SAFETY: each registry result is the provider named by its validated binding fence; incoming is that provider's live publication.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the heterogeneous registry erases the provider definition at this context projection boundary.
+    snapshots.set(binding.providerFence.key, snapshot as ActorContextSnapshot<ProviderDefinition>);
+    revisions.set(binding.providerFence.key, snapshot.revision);
+  }
+
+  return Result.succeed({ snapshots, revisions });
+};
+
 type CapturedRuntimeActorOptions<
   DefinitionValue extends MachineDefinition,
   ProviderDefinition extends MachineDefinition,
@@ -379,6 +431,7 @@ type CapturedRuntimeConstruction<DefinitionValue extends MachineDefinition> = {
   admissionMode: ActorAdmissionMode;
 };
 
+// RETURN_TYPE: Keeps the fresh input correlated with the exact machine whose prepared snapshot was verified.
 const captureRuntimeConstruction = <DefinitionValue extends MachineDefinition>(
   values: Map<PropertyKey, unknown>,
   ref: ActorRef<Machine<DefinitionValue>>,
@@ -414,7 +467,10 @@ const captureRuntimeConstruction = <DefinitionValue extends MachineDefinition>(
 
   if (Result.isFailure(admissionMode)) return Result.fail(admissionMode.failure);
 
-  return Result.succeed({ construction, admissionMode: admissionMode.success });
+  return Result.succeed({
+    construction,
+    admissionMode: admissionMode.success,
+  });
 };
 
 const captureRuntimeBindings = <
@@ -422,13 +478,14 @@ const captureRuntimeBindings = <
   ProviderDefinition extends MachineDefinition,
 >(
   value: unknown,
-): Result.Result<ActorContextBinding<DefinitionValue, ProviderDefinition>[], PublicDiagnostic> =>
+) =>
   value === undefined
     ? // SAFETY: undefined is the captured absence of optional bindings; the empty typed array is the canonical owned value for that branch.
       // oxlint-disable-next-line typescript/no-unsafe-type-assertion
       Result.succeed([] as ActorContextBinding<DefinitionValue, ProviderDefinition>[])
     : captureActorContextBindings<DefinitionValue, ProviderDefinition>(value);
 
+// RETURN_TYPE: Keeps the captured commit action/result channels tied to the machine definition.
 const captureRuntimeStore = <DefinitionValue extends MachineDefinition>(
   value: unknown,
 ): Result.Result<ActorStore<DefinitionValue> | undefined, PublicDiagnostic> => {
@@ -459,10 +516,7 @@ const captureRuntimeCallbacks = <
   ProviderDefinition extends MachineDefinition,
 >(
   values: Map<PropertyKey, unknown>,
-): Result.Result<
-  CapturedRuntimeCallbacks<DefinitionValue, ProviderDefinition>,
-  PublicDiagnostic
-> => {
+) => {
   const onSnapshotValue = values.get("onSnapshot");
 
   if (onSnapshotValue !== undefined && !Predicate.isFunction(onSnapshotValue))
@@ -501,6 +555,7 @@ const runtimeActorOptionKeys = [
   "bindings",
 ] as const;
 
+// RETURN_TYPE: Keeps every captured option channel correlated across the admission stages.
 const captureRuntimeActorOptionsFromValues = <
   DefinitionValue extends MachineDefinition,
   ProviderDefinition extends MachineDefinition,
@@ -567,6 +622,7 @@ const captureRuntimeActorOptions = <
   return captureRuntimeActorOptionsFromValues(captured.success, ref.success, identityMode);
 };
 
+// RETURN_TYPE: Preserves the machine/provider option channels after capturing the separately supplied ref.
 const captureRuntimeActorOptionsForRef = <
   DefinitionValue extends MachineDefinition,
   ProviderDefinition extends MachineDefinition,
@@ -845,22 +901,19 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
         const admittedInitialSnapshot =
           construction._tag === "restore" ? construction.snapshot : construction.initial;
 
-        let projectVisibleSnapshot = (
-          snapshot: ActorSnapshot<DefinitionValue>,
-        ): ActorSnapshot<DefinitionValue> => snapshot;
+        let projectVisibleSnapshot = (snapshot: ActorSnapshot<DefinitionValue>) => snapshot;
 
         let previous: ActorSnapshot<DefinitionValue> = admittedInitialSnapshot;
 
         const machineFacts = appPlan(app).resolveMachineFacts(capturedOptions.success.ref.machine);
 
-        // SAFETY: stableKey is a pure runtime/app-machine/ref tuple; deriving it does not reserve an incarnation or mutate the registry.
-        let consumerKey: ActorKey | undefined;
-
-        if (bindings.length !== 0) {
-          if (localIdentity !== undefined) consumerKey = localIdentity.key;
-          else if (isOwnedMachineFactsFor(machineFacts, capturedOptions.success.ref.machine))
-            consumerKey = registry.stableKey(capturedOptions.success.ref, machineFacts);
-        }
+        const consumerKey = runtimeContextConsumerKey(
+          bindings,
+          localIdentity,
+          machineFacts,
+          capturedOptions.success.ref,
+          registry,
+        );
 
         const dependencies: ActorDependencyEdge[] = bindings.map((binding) => ({
           consumer: consumerKey!,
@@ -1015,7 +1068,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
         const reconcileContext = (
           prepared: Pick<RuntimeAdmissionCarrier<"prepared">, "propagation">,
           engine: ActorEngine<DefinitionValue>,
-        ): Effect.Effect<void, PublicDiagnostic> => prepared.propagation.reconcile(engine);
+        ) => prepared.propagation.reconcile(engine);
 
         type RuntimeAuthority = ActorAdmissionTransactionAuthority<
           A,
@@ -1155,27 +1208,13 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
 
                 if (Result.isFailure(graph)) return yield* Effect.fail(graph.failure);
 
-                const providerSnapshots = new Map<
-                  ActorKey,
-                  ActorContextSnapshot<ProviderDefinition>
-                >();
+                const capturedProviders = captureRuntimeContextProviders(contextBindings, registry);
 
-                const providerRevisions = new Map<ActorKey, number>();
+                if (Result.isFailure(capturedProviders))
+                  return yield* Effect.fail(capturedProviders.failure);
 
-                for (const binding of contextBindings) {
-                  const provider = registry.lookup(binding.provider);
-
-                  if (Result.isFailure(provider)) return yield* Effect.fail(provider.failure);
-                  const snapshot = provider.success.actor.snapshot();
-                  // SAFETY: registry lookup returns the exact registered provider named by this
-                  // validated binding, and its snapshot is produced by that provider engine.
-                  providerSnapshots.set(
-                    binding.providerFence.key,
-                    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the heterogeneous registry erases the provider definition at this boundary.
-                    snapshot as ActorContextSnapshot<ProviderDefinition>,
-                  );
-                  providerRevisions.set(binding.providerFence.key, snapshot.revision);
-                }
+                const { snapshots: providerSnapshots, revisions: providerRevisions } =
+                  capturedProviders.success;
 
                 const installed = installContextBaseline(
                   graph.success,
@@ -1220,9 +1259,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
                   machineTurnRevision: engineRevision.read,
                 });
 
-                projectVisibleSnapshot = (
-                  snapshot: ActorSnapshot<DefinitionValue>,
-                ): ActorSnapshot<DefinitionValue> => {
+                projectVisibleSnapshot = (snapshot: ActorSnapshot<DefinitionValue>) => {
                   const lifecycle = lifecycleController.currentLifecycle();
 
                   if (snapshot.lifecycle === lifecycle) return snapshot;
@@ -1265,34 +1302,20 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
                     providerFence: ActorFence,
                     incoming: RuntimeSnapshot,
                     dispatchFact: ActorEngine<DefinitionValue>["dispatchFact"],
-                  ): Result.Result<void, PublicDiagnostic> => {
+                  ) => {
                     if (!open) return Result.succeed(undefined);
 
-                    const providerSnapshots = new Map<
-                      ActorKey,
-                      ActorContextSnapshot<ProviderDefinition>
-                    >();
+                    const capturedProviders = captureRuntimeContextProviders(
+                      contextBindings,
+                      registry,
+                      { providerFence, snapshot: incoming },
+                    );
 
-                    const providerRevision = new Map<ActorKey, number>();
+                    if (Result.isFailure(capturedProviders))
+                      return Result.fail(capturedProviders.failure);
 
-                    for (const binding of contextBindings) {
-                      const provider = registry.lookup(binding.provider);
-
-                      if (Result.isFailure(provider)) return Result.fail(provider.failure);
-
-                      const snapshot =
-                        binding.providerFence.key === providerFence.key
-                          ? incoming
-                          : provider.success.actor.snapshot();
-
-                      providerSnapshots.set(
-                        binding.providerFence.key,
-                        // SAFETY: the provider registry entry is checked against the validated binding fence before this heterogeneous snapshot is projected.
-                        // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the heterogeneous registry erases the provider definition at this boundary.
-                        snapshot as ActorContextSnapshot<ProviderDefinition>,
-                      );
-                      providerRevision.set(binding.providerFence.key, snapshot.revision);
-                    }
+                    const { snapshots: providerSnapshots, revisions: providerRevision } =
+                      capturedProviders.success;
 
                     const wave = planContextWave(
                       graph.success,
@@ -1577,6 +1600,18 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
 
               const lifecycleCommandGate = Semaphore.makeUnsafe(1);
 
+              const restoreRuntimeRoutingAfterFailure = (
+                routingGeneration: number | undefined,
+                reopenRouting: boolean,
+              ) => {
+                if (currentController.currentLifecycle() !== "active") return;
+
+                if (reopenRouting && routingGeneration !== undefined)
+                  currentRouting.open(routingGeneration);
+
+                propagation.setOpen(true);
+              };
+
               const lifecycleCommandEffect = (command: LifecycleCommand<PublicDiagnostic>) =>
                 Effect.gen(function* () {
                   let routingGeneration: number | undefined;
@@ -1597,11 +1632,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
                   );
 
                   if (Exit.isFailure(preparation)) {
-                    if (currentController.currentLifecycle() === "active") {
-                      if (routingGeneration !== undefined) currentRouting.open(routingGeneration);
-
-                      propagation.setOpen(true);
-                    }
+                    restoreRuntimeRoutingAfterFailure(routingGeneration, true);
 
                     return yield* Effect.failCause(preparation.cause);
                   }
@@ -1633,12 +1664,10 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
                   previous = projectVisibleSnapshot(previous);
 
                   if (Exit.isFailure(commanded)) {
-                    if (currentController.currentLifecycle() === "active") {
-                      if (command._tag !== "actor:resume" && routingGeneration !== undefined)
-                        currentRouting.open(routingGeneration);
-
-                      propagation.setOpen(true);
-                    }
+                    restoreRuntimeRoutingAfterFailure(
+                      routingGeneration,
+                      command._tag !== "actor:resume",
+                    );
 
                     return yield* Effect.failCause(commanded.cause);
                   }
@@ -2024,18 +2053,11 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
             }),
         };
 
-        let authority: RuntimeAuthority;
+        let authority: RuntimeAuthority = authorityBase;
 
-        if (consumerKey === undefined) {
-          authority =
-            localIdentity === undefined
-              ? authorityBase
-              : { ...authorityBase, identity: localIdentity };
-        } else if (localIdentity === undefined) {
-          authority = { ...authorityBase, consumerKey };
-        } else {
-          authority = { ...authorityBase, consumerKey, identity: localIdentity };
-        }
+        if (consumerKey !== undefined) authority = { ...authority, consumerKey };
+
+        if (localIdentity !== undefined) authority = { ...authority, identity: localIdentity };
 
         const admitted = yield* admitActor<
           A,
@@ -2076,10 +2098,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
       ProviderDefinition extends MachineDefinition = DefinitionValue,
     >(
       ref: ActorRef<Machine<DefinitionValue>>,
-    ): Effect.Effect<
-      RuntimeActor<DefinitionValue, ProviderDefinition> | undefined,
-      PublicDiagnostic
-    > =>
+    ) =>
       Effect.gen(function* () {
         const opaqueLocal = registry.isLocalRef(ref);
         const captured = captureActorRef<DefinitionValue>(ref);
@@ -2209,7 +2228,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
 export const runtimeSetupForAdmissionTestInternal = <A extends RuntimeApp>(
   value: A,
   constructionOwner: RuntimeConstructionOwner,
-): RuntimeSetup<A> => {
+) => {
   const app = admitConstructedApp(value);
 
   return {

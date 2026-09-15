@@ -1,3 +1,4 @@
+// oxlint-disable-next-line anti-slop/no-large-production-file -- key admission, owned copying, and value equality form one canonical-key owner boundary.
 import { Effect, Predicate, Schema } from "effect";
 
 /*
@@ -461,7 +462,7 @@ const canonicalizeKeyValue = (value: unknown) => {
 };
 
 const canonicalKeySchema = Schema.declareConstructor<OperationKey, unknown>()([], () => (value) => {
-  // Evaluate the owner walker before constructing the Effect to preserve its TypeError boundary.
+  // oxlint-disable-next-line anti-slop/no-eager-stateful-effect-succeed -- key admission must finish here so invalid values keep the synchronous TypeError boundary.
   return Effect.succeed(canonicalizeKeyValue(value));
 });
 

@@ -148,10 +148,10 @@ type EnvelopeCaptureFailure = {
   message: string;
 };
 
-type ReflectionPrototype = Exclude<WeakKey, symbol>;
+type ReflectableAdmissionValue = Exclude<WeakKey, symbol>;
 
 type CapturedReflection = {
-  prototype: ReflectionPrototype | null;
+  prototype: ReflectableAdmissionValue | null;
   keys: PropertyKey[];
   values: Map<PropertyKey, unknown>;
   enumerable: Set<PropertyKey>;
@@ -165,7 +165,7 @@ const reflectionFailure = (path: (string | number)[]): EnvelopeCaptureFailure =>
   message: "Admission reflection failed",
 });
 
-const admissionReflectionDiagnostic = (): PublicDiagnostic =>
+const admissionReflectionDiagnostic = () =>
   Failure({
     code: "SchemaValidation",
     path: ["actorAdmission"],
@@ -174,62 +174,78 @@ const admissionReflectionDiagnostic = (): PublicDiagnostic =>
     help: "Provide stable ordinary admission records.",
   });
 
-// RETURN_TYPE: Captures every reflective operation once at the admission boundary and reports hostile traps as data.
-const captureReflection = (
-  value: unknown,
+const captureReflectionStructure = (
+  value: ReflectableAdmissionValue,
   path: (string | number)[],
-): Result.Result<CapturedReflection, EnvelopeCaptureFailure> => {
+) => {
+  const prototype = Object.getPrototypeOf(value);
+  const repeatedPrototype = Object.getPrototypeOf(value);
+
+  if (prototype !== repeatedPrototype)
+    return Result.fail({ path, message: "Admission value changed its prototype" });
+
+  const keys = Reflect.ownKeys(value);
+  const repeatedKeys = Reflect.ownKeys(value);
+
+  if (!isStableKeyList(keys, repeatedKeys))
+    return Result.fail({ path, message: "Admission value changed its own keys" });
+
+  return Result.succeed({ prototype, keys: repeatedKeys });
+};
+
+const captureReflectionProperties = (
+  value: ReflectableAdmissionValue,
+  path: (string | number)[],
+  structure: { prototype: ReflectableAdmissionValue | null; keys: PropertyKey[] },
+) => {
+  const values = new Map<PropertyKey, unknown>();
+  const enumerable = new Set<PropertyKey>();
+
+  for (const key of structure.keys) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    const repeatedDescriptor = Object.getOwnPropertyDescriptor(value, key);
+
+    if (
+      descriptor === undefined ||
+      repeatedDescriptor === undefined ||
+      !isStableDataDescriptor(descriptor, repeatedDescriptor)
+    ) {
+      return Result.fail({
+        path: [...path, reflectionPathSegment(key)],
+        message: "Admission value contains an unstable or accessor property",
+      });
+    }
+
+    // oxlint-disable-next-line anti-slop/no-reflect-get -- the key is hostile input captured by this reflection owner.
+    const read = Reflect.get(value, key);
+
+    if (!Object.is(read, repeatedDescriptor.value)) {
+      return Result.fail({
+        path: [...path, reflectionPathSegment(key)],
+        message: "Admission value changed during property read",
+      });
+    }
+
+    values.set(key, read);
+
+    if (repeatedDescriptor.enumerable) enumerable.add(key);
+  }
+
+  return Result.succeed({ ...structure, values, enumerable });
+};
+
+// Captures each reflective operation once and converts hostile traps into a diagnostic value.
+const captureReflection = (value: unknown, path: (string | number)[]) => {
   const captured = Result.try({
     try: () => {
       if (!Array.isArray(value) && !Predicate.isObject(value))
         return Result.fail({ path, message: "Admission value must be an object" });
 
-      const prototype = Object.getPrototypeOf(value);
-      const repeatedPrototype = Object.getPrototypeOf(value);
+      const structure = captureReflectionStructure(value, path);
 
-      if (prototype !== repeatedPrototype)
-        return Result.fail({ path, message: "Admission value changed its prototype" });
+      if (Result.isFailure(structure)) return Result.fail(structure.failure);
 
-      const keys = Reflect.ownKeys(value);
-      const repeatedKeys = Reflect.ownKeys(value);
-
-      if (!isStableKeyList(keys, repeatedKeys))
-        return Result.fail({ path, message: "Admission value changed its own keys" });
-
-      const values = new Map<PropertyKey, unknown>();
-      const enumerable = new Set<PropertyKey>();
-
-      for (const key of repeatedKeys) {
-        const descriptor = Object.getOwnPropertyDescriptor(value, key);
-        const repeatedDescriptor = Object.getOwnPropertyDescriptor(value, key);
-
-        if (
-          descriptor === undefined ||
-          repeatedDescriptor === undefined ||
-          !isStableDataDescriptor(descriptor, repeatedDescriptor)
-        ) {
-          return Result.fail({
-            path: [...path, reflectionPathSegment(key)],
-            message: "Admission value contains an unstable or accessor property",
-          });
-        }
-
-        // oxlint-disable-next-line anti-slop/no-reflect-get -- the key is hostile input captured by this reflection owner.
-        const read = Reflect.get(value, key);
-
-        if (!Object.is(read, repeatedDescriptor.value)) {
-          return Result.fail({
-            path: [...path, reflectionPathSegment(key)],
-            message: "Admission value changed during property read",
-          });
-        }
-
-        values.set(key, read);
-
-        if (repeatedDescriptor.enumerable) enumerable.add(key);
-      }
-
-      return Result.succeed({ prototype, keys: repeatedKeys, values, enumerable });
+      return captureReflectionProperties(value, path, structure.success);
     },
     catch: () => reflectionFailure(path),
   });
@@ -239,9 +255,7 @@ const captureReflection = (
   return captured.success;
 };
 
-const captureAdmissionReflection = (
-  value: unknown,
-): Result.Result<CapturedReflection, PublicDiagnostic> => {
+const captureAdmissionReflection = (value: unknown) => {
   const captured = captureReflection(value, []);
 
   if (Result.isFailure(captured)) return Result.fail(admissionReflectionDiagnostic());
@@ -292,18 +306,11 @@ const hasExactPlainKeys = (captured: CapturedReflection, expected: string[]) =>
   captured.keys.every(Predicate.isString) &&
   expected.every((key) => captured.keys.includes(key));
 
-const captureEnvelopeArray = (
-  value: unknown,
-  path: (string | number)[],
-): Result.Result<unknown[], EnvelopeCaptureFailure> => {
-  const captured = captureReflection(value, path);
-
-  if (Result.isFailure(captured)) return Result.fail(captured.failure);
-
-  if (captured.success.prototype !== Array.prototype)
+const validateEnvelopeArrayLayout = (captured: CapturedReflection, path: (string | number)[]) => {
+  if (captured.prototype !== Array.prototype)
     return Result.fail({ path, message: "Admission envelope collection must be an array" });
 
-  const length = captured.success.values.get("length");
+  const length = captured.values.get("length");
 
   if (
     !Predicate.isNumber(length) ||
@@ -317,35 +324,72 @@ const captureEnvelopeArray = (
   const expectedKeys = length + 1;
 
   if (
-    captured.success.keys.length !== expectedKeys ||
-    captured.success.keys.every((key, index) =>
+    captured.keys.length !== expectedKeys ||
+    !captured.keys.every((key, index) =>
       index === length ? key === "length" : key === String(index),
-    ) === false
+    )
   ) {
     return Result.fail({ path, message: "Admission envelope collection must be dense" });
   }
 
+  return Result.succeed(length);
+};
+
+const copyEnvelopeArrayEntries = (
+  captured: CapturedReflection,
+  length: number,
+  path: (string | number)[],
+) => {
   const capturedValues: unknown[] = [];
 
   for (let index = 0; index < length; index += 1) {
     const key = String(index);
 
-    if (!captured.success.values.has(key) || !captured.success.enumerable.has(key)) {
+    if (!captured.values.has(key) || !captured.enumerable.has(key)) {
       return Result.fail({
         path: [...path, index],
         message: "Admission envelope collection contains an invalid entry",
       });
     }
 
-    capturedValues.push(captured.success.values.get(key));
+    capturedValues.push(captured.values.get(key));
   }
 
   return Result.succeed(capturedValues);
 };
 
-const captureEnvelope = (
-  value: unknown,
-): Result.Result<ActorAdmissionEnvelope, EnvelopeCaptureFailure> => {
+const captureEnvelopeArray = (value: unknown, path: (string | number)[]) => {
+  const captured = captureReflection(value, path);
+
+  if (Result.isFailure(captured)) return Result.fail(captured.failure);
+  const length = validateEnvelopeArrayLayout(captured.success, path);
+
+  if (Result.isFailure(length)) return Result.fail(length.failure);
+
+  return copyEnvelopeArrayEntries(captured.success, length.success, path);
+};
+
+const readEnvelopeFields = (
+  captured: CapturedReflection,
+  names: Iterable<keyof EnvelopeRecord>,
+) => {
+  const values: unknown[] = [];
+
+  for (const name of names) {
+    if (!captured.values.has(name)) {
+      return Result.fail({
+        path: [name],
+        message: `Admission envelope field is invalid: ${name}`,
+      } satisfies EnvelopeCaptureFailure);
+    }
+
+    values.push(captured.values.get(name));
+  }
+
+  return Result.succeed(values);
+};
+
+const captureEnvelope = (value: unknown) => {
   const captured = captureReflection(value, []);
 
   if (Result.isFailure(captured)) return Result.fail(captured.failure);
@@ -376,48 +420,22 @@ const captureEnvelope = (
     });
   }
 
-  const read = (name: keyof EnvelopeRecord): Result.Result<unknown, EnvelopeCaptureFailure> => {
-    if (!captured.success.values.has(name)) {
-      return Result.fail({
-        path: [name],
-        message: `Admission envelope field is invalid: ${name}`,
-      } satisfies EnvelopeCaptureFailure);
-    }
+  const fields = readEnvelopeFields(captured.success, expectedKeys);
 
-    return Result.succeed(captured.success.values.get(name));
-  };
-
-  const app = read("app");
-
-  if (Result.isFailure(app)) return Result.fail(app.failure);
-  const implementation = read("implementation");
-
-  if (Result.isFailure(implementation)) return Result.fail(implementation.failure);
-  const ref = read("ref");
-
-  if (Result.isFailure(ref)) return Result.fail(ref.failure);
-  const input = read("input");
-
-  if (Result.isFailure(input)) return Result.fail(input.failure);
-  const bindings = read("bindings");
-
-  if (Result.isFailure(bindings)) return Result.fail(bindings.failure);
-  const dependencies = read("dependencies");
-
-  if (Result.isFailure(dependencies)) return Result.fail(dependencies.failure);
-
-  const capturedBindings = captureEnvelopeArray(bindings.success, ["bindings"]);
+  if (Result.isFailure(fields)) return Result.fail(fields.failure);
+  const [app, implementation, ref, input, bindings, dependencies] = fields.success;
+  const capturedBindings = captureEnvelopeArray(bindings, ["bindings"]);
 
   if (Result.isFailure(capturedBindings)) return Result.fail(capturedBindings.failure);
-  const capturedDependencies = captureEnvelopeArray(dependencies.success, ["dependencies"]);
+  const capturedDependencies = captureEnvelopeArray(dependencies, ["dependencies"]);
 
   if (Result.isFailure(capturedDependencies)) return Result.fail(capturedDependencies.failure);
 
   return Result.succeed({
-    app: app.success,
-    implementation: implementation.success,
-    ref: ref.success,
-    input: input.success,
+    app,
+    implementation,
+    ref,
+    input,
     bindings: capturedBindings.success,
     dependencies: capturedDependencies.success,
   });
@@ -447,9 +465,7 @@ const ActorAdmissionEnvelopeSchema = Schema.declareConstructor<ActorAdmissionEnv
 const decodeAdmissionEnvelope = Schema.decodeUnknownResult(ActorAdmissionEnvelopeSchema);
 
 /** Decodes the envelope shape once; input remains unknown and is never generically schema-decoded. */
-export const decodeActorAdmissionEnvelope = (
-  value: unknown,
-): Result.Result<ActorAdmissionEnvelope, PublicDiagnostic> =>
+export const decodeActorAdmissionEnvelope = (value: unknown) =>
   decodeAdmissionEnvelope(value).pipe(Result.mapError(fromSchemaError));
 
 export type ActorIdentityRegistry<Actor = unknown> = {
@@ -530,10 +546,12 @@ type LocalAllocationReservation = LocalAllocation & {
 // Provenance marker only: this WeakSet retains no refs and is not an actor registry.
 const localActorRefs = new WeakSet();
 
+// RETURN_TYPE: The registry must narrow active entries before exposing their retained actor.
 const isRegisteredEntry = <Actor>(
   entry: StoredEntry<Actor>,
 ): entry is StoredEntry<Actor> & { actor: Actor } => entry.state === "active" && entry.hasActor;
 
+// RETURN_TYPE: The identity predicate proves the ref, machine, and authored id tuple before registry reuse.
 const isActorIdentityFor = <DefinitionValue extends MachineDefinition>(
   identity: unknown,
   machine: Machine<DefinitionValue>,
@@ -576,6 +594,7 @@ const disposedIdentity = () =>
 const isValidCursor = (value: number) =>
   Number.isSafeInteger(value) && value >= 1 && value <= MAX_SAFE_INTEGER;
 
+// RETURN_TYPE: Keeps private mutable registry state behind the stable generic capability surface.
 export const makeActorIdentityRegistry = <Actor = unknown>(
   options: RegistryOptions = {},
 ): ActorIdentityRegistry<Actor> => {
@@ -596,9 +615,7 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
     diagnostic,
   ) => Result.fail(diagnostic);
 
-  const allocateIncarnation = (
-    notify = true,
-  ): Result.Result<ActorIncarnation, PublicDiagnostic> => {
+  const allocateIncarnation = (notify = true) => {
     if (incarnationExhausted) {
       return Result.fail(
         invalidIdentity(
@@ -630,7 +647,7 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
     return Result.succeed(incarnation);
   };
 
-  const allocateLocalOrdinal = (notify = true): Result.Result<number, PublicDiagnostic> => {
+  const allocateLocalOrdinal = (notify = true) => {
     if (keyOrdinalExhausted || !isValidCursor(nextKeyOrdinal)) {
       keyOrdinalExhausted = true;
 
@@ -657,7 +674,7 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
   const stableKey = <DefinitionValue extends MachineDefinition>(
     ref: ActorRef<Machine<DefinitionValue>>,
     machine: { definition: MachineDefinition } = ref.machine,
-  ): ActorKey =>
+  ) =>
     // SAFETY: the tuple segments make machine and ref boundaries injective even for delimiter-heavy authored names.
     makeActorKey(
       `runtime-${runtimeNonce}/stable/${tupleSegment(machine.definition.id)}/${tupleSegment(ref.id)}`,
@@ -671,6 +688,7 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
     return byId?.get(ref.id);
   };
 
+  // RETURN_TYPE: Stable reservation failures use the registry's canonical diagnostic channel.
   const reserveStable = <DefinitionValue extends MachineDefinition>(
     ref: ActorRef<Machine<DefinitionValue>>,
     machineFacts?: { definition: MachineDefinition },
@@ -746,6 +764,7 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
     return Result.succeed(identity);
   };
 
+  // RETURN_TYPE: Local allocation failures keep the same diagnostic channel as stable reservations.
   const createLocal = <DefinitionValue extends MachineDefinition>(
     machine: Machine<DefinitionValue>,
     creationOptions: { deferAllocationNotification?: boolean } = {},
@@ -827,6 +846,7 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
     return Result.succeed(identity);
   };
 
+  // RETURN_TYPE: Commit reports only the typed admission failure channel for the allocation notification.
   const commitLocal = <DefinitionValue extends MachineDefinition>(
     identity: LocalActorIdentity<DefinitionValue>,
   ): Result.Result<void, PublicDiagnostic> => {
@@ -847,6 +867,7 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
     return Result.succeed(undefined);
   };
 
+  // RETURN_TYPE: Local reservation retains the same actor identity type and diagnostic channel as stable refs.
   const reserveLocal = <DefinitionValue extends MachineDefinition>(
     identity: ActorIdentity<DefinitionValue>,
   ): Result.Result<ActorIdentity<DefinitionValue>, PublicDiagnostic> => {
@@ -864,6 +885,7 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
     return Result.succeed(identity);
   };
 
+  // RETURN_TYPE: Registration exposes the actor paired with its exact generic identity.
   const register = <DefinitionValue extends MachineDefinition>(
     identity: ActorIdentity<DefinitionValue>,
     actor: Actor,
@@ -890,6 +912,7 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
     return Result.succeed({ identity, actor });
   };
 
+  // RETURN_TYPE: Lookup exposes only an active actor entry under the exact requested machine definition.
   const lookup = <DefinitionValue extends MachineDefinition>(
     ref: ActorRef<Machine<DefinitionValue>>,
   ): Result.Result<ActorRegistryEntry<DefinitionValue, Actor>, PublicDiagnostic> => {
@@ -911,6 +934,26 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
     });
   };
 
+  const rollbackDeferredLocalAllocation = (entry: StoredEntry<Actor>) => {
+    if (!entry.deferredLocalAllocation || entry.localAllocation === undefined) return;
+    const allocation = entry.localAllocation;
+
+    if (
+      allocation.recycled ||
+      nextIncarnation !== allocation.nextIncarnationAfter ||
+      nextKeyOrdinal !== allocation.nextKeyOrdinalAfter
+    ) {
+      recycledLocalAllocations.push(allocation);
+
+      return;
+    }
+
+    nextIncarnation = allocation.nextIncarnationBefore;
+    nextKeyOrdinal = allocation.nextKeyOrdinalBefore;
+    incarnationExhausted = allocation.incarnationExhaustedBefore;
+    keyOrdinalExhausted = allocation.keyOrdinalExhaustedBefore;
+  };
+
   const rollback = <DefinitionValue extends MachineDefinition>(
     identity: ActorIdentity<DefinitionValue>,
   ) => {
@@ -920,23 +963,7 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
     entriesByKey.delete(identity.key);
 
     if (entry.local) {
-      if (entry.deferredLocalAllocation && entry.localAllocation !== undefined) {
-        const allocation = entry.localAllocation;
-
-        if (
-          !allocation.recycled &&
-          nextIncarnation === allocation.nextIncarnationAfter &&
-          nextKeyOrdinal === allocation.nextKeyOrdinalAfter
-        ) {
-          nextIncarnation = allocation.nextIncarnationBefore;
-          nextKeyOrdinal = allocation.nextKeyOrdinalBefore;
-          incarnationExhausted = allocation.incarnationExhaustedBefore;
-          keyOrdinalExhausted = allocation.keyOrdinalExhaustedBefore;
-        } else {
-          recycledLocalAllocations.push(allocation);
-        }
-      }
-
+      rollbackDeferredLocalAllocation(entry);
       localActorRefs.delete(identity.ref);
 
       return;
@@ -947,6 +974,7 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
     if (slot !== undefined) slot.entry = undefined;
   };
 
+  // RETURN_TYPE: Disposal preserves the typed diagnostic channel while moving the registered identity to terminal state.
   const tombstone = <DefinitionValue extends MachineDefinition>(
     identity: ActorIdentity<DefinitionValue>,
     disposedAtSequence: number,
@@ -1090,6 +1118,7 @@ const restoreRequiresPersistedRef = () =>
   });
 
 /** Selects fresh or restored admission from the exact ref declaration and tagged payload. */
+// RETURN_TYPE: Keeps fresh and restored admission modes in the finite ActorAdmissionMode union for runtime dispatch.
 export const resolveActorAdmissionMode = <DefinitionValue extends MachineDefinition, Input>(
   ref: ActorRef<Machine<DefinitionValue>>,
   construction: ActorAdmissionConstruction<DefinitionValue, Input>,
@@ -1356,12 +1385,15 @@ export type ActorAdmissionTransactionAuthority<
   >;
 };
 
+// RETURN_TYPE: This guard admits non-empty strings before they become nominal actor keys.
 const isActorKey = (value: unknown): value is ActorKey =>
   Predicate.isString(value) && value.length > 0;
 
+// RETURN_TYPE: This guard narrows reflected numeric fence fields only after safe-range validation.
 const isSafeNonNegativeInteger = (value: unknown): value is number =>
   Predicate.isNumber(value) && Number.isSafeInteger(value) && value >= 0;
 
+// RETURN_TYPE: This guard narrows only positive safe integer values into the incarnation brand.
 const isActorIncarnation = (value: unknown): value is ActorIncarnation =>
   isSafeNonNegativeInteger(value) && value >= 1 && value <= MAX_SAFE_INTEGER;
 
@@ -1424,7 +1456,7 @@ const cycleFailure = (cycle: ActorKey[]) =>
     help: "Remove the cycle and keep provider dependencies acyclic.",
   });
 
-const lookupFailure = (slot: string, failure: PublicDiagnostic): PublicDiagnostic => {
+const lookupFailure = (slot: string, failure: PublicDiagnostic) => {
   if (failure.code === "DisposedActorRef") return failure;
 
   if (failure.code === "ForeignActorRef" || failure.code === "MismatchedActorRef")
@@ -1458,7 +1490,7 @@ const copyActorRef = <DefinitionValue extends MachineDefinition>(
 
 const validateActorRef = <DefinitionValue extends MachineDefinition = MachineDefinition>(
   ref: unknown,
-): Result.Result<CapturedActorRef<DefinitionValue>, PublicDiagnostic> => {
+) => {
   const captured = captureAdmissionReflection(ref);
 
   if (Result.isFailure(captured)) return Result.fail(captured.failure);
@@ -1504,10 +1536,7 @@ type CapturedBinding<ProviderDefinition extends MachineDefinition = MachineDefin
   select: (...args: [ActorContextSnapshot<ProviderDefinition>]) => void;
 };
 
-const validateFence = (
-  fence: unknown,
-  slot: string,
-): Result.Result<ActorFence, PublicDiagnostic> => {
+const validateFence = (fence: unknown, slot: string) => {
   const captured = captureAdmissionReflection(fence);
 
   if (Result.isFailure(captured)) return Result.fail(captured.failure);
@@ -1538,7 +1567,7 @@ const validateFence = (
 
 const captureBinding = <ProviderDefinition extends MachineDefinition = MachineDefinition>(
   binding: unknown,
-): Result.Result<CapturedBinding<ProviderDefinition>, PublicDiagnostic> => {
+) => {
   const captured = captureAdmissionReflection(binding);
 
   if (Result.isFailure(captured)) return Result.fail(captured.failure);
@@ -1577,9 +1606,7 @@ const captureBinding = <ProviderDefinition extends MachineDefinition = MachineDe
   });
 };
 
-const validateDependencyEdge = (
-  edge: unknown,
-): Result.Result<ActorDependencyEdge, PublicDiagnostic> => {
+const validateDependencyEdge = (edge: unknown) => {
   const captured = captureAdmissionReflection(edge);
 
   if (Result.isFailure(captured)) return Result.fail(captured.failure);
@@ -1655,7 +1682,7 @@ const copyGraphMap = (map: Map<ActorKey, ActorDependencyEdge[]>) =>
 const validateGraph = (
   // oxlint-disable-next-line anti-slop/no-readonly -- NO_READONLY_CODEMOD: graph validation accepts const-inferred edges without a preliminary copy.
   edges: readonly ActorDependencyEdge[],
-): Result.Result<ActorDependencyGraph, PublicDiagnostic> => {
+) => {
   const forward = new Map<ActorKey, ActorDependencyEdge[]>();
   const reverse = new Map<ActorKey, ActorDependencyEdge[]>();
   const nodes: ActorKey[] = [];
@@ -1685,6 +1712,7 @@ const validateGraph = (
   const colors = new Map<ActorKey, "gray" | "black">();
   const order: ActorKey[] = [];
 
+  // RETURN_TYPE: The recursive depth-first visit returns the first cycle diagnostic or no failure.
   const visit = (node: ActorKey, path: ActorKey[]): PublicDiagnostic | undefined => {
     const color = colors.get(node);
 
@@ -1757,13 +1785,7 @@ const validateContextBinding = <
 >(
   binding: CapturedBinding<ProviderDefinition>,
   authority: ActorAdmissionValidationContext<A, DefinitionValue, I>,
-): Result.Result<
-  {
-    edge: ActorDependencyEdge;
-    providerRef: ActorRef<Machine<ProviderDefinition>>;
-  },
-  PublicDiagnostic
-> => {
+) => {
   const slot = binding.slot;
   const plan = appPlan(authority.app);
 
@@ -1808,13 +1830,7 @@ const validateContextBindings = <
   // oxlint-disable-next-line anti-slop/no-readonly -- NO_READONLY_CODEMOD: accepts const-inferred bindings before validating and copying them.
   bindings: readonly ActorContextBinding<DefinitionValue, ProviderDefinition>[],
   authority: ActorAdmissionValidationContext<A, DefinitionValue, I>,
-): Result.Result<
-  {
-    bindings: CapturedBinding<ProviderDefinition>[];
-    edges: ActorDependencyEdge[];
-  },
-  PublicDiagnostic
-> => {
+) => {
   const contextKeys = Object.keys(machine.definition.context);
   const seenSlots = new Set<string>();
   const capturedBindings: CapturedBinding<ProviderDefinition>[] = [];
@@ -1853,67 +1869,87 @@ const validateContextBindings = <
   });
 };
 
-const validateDependencyEdges = (
-  // oxlint-disable-next-line anti-slop/no-readonly -- NO_READONLY_CODEMOD: validation traverses const-inferred edges without mutating them.
-  bindings: readonly ActorDependencyEdge[],
-  // oxlint-disable-next-line anti-slop/no-readonly -- NO_READONLY_CODEMOD: validation traverses const-inferred edges without mutating them.
-  dependencies: readonly ActorDependencyEdge[],
-) => {
-  const expected = new Map<ActorKey, Map<ActorKey, Set<string>>>();
+type DependencySlotIndex = Map<ActorKey, Map<ActorKey, Set<string>>>;
 
-  for (const edge of bindings) {
-    let providers = expected.get(edge.consumer);
+const recordDependencySlot = (index: DependencySlotIndex, edge: ActorDependencyEdge) => {
+  let providers = index.get(edge.consumer);
 
-    if (providers === undefined) {
-      providers = new Map();
-      expected.set(edge.consumer, providers);
-    }
-
-    let slots = providers.get(edge.provider);
-
-    if (slots === undefined) {
-      slots = new Set();
-      providers.set(edge.provider, slots);
-    }
-
-    slots.add(edge.slot);
+  if (providers === undefined) {
+    providers = new Map();
+    index.set(edge.consumer, providers);
   }
 
-  const actual = new Map<ActorKey, Map<ActorKey, Set<string>>>();
+  let slots = providers.get(edge.provider);
 
-  if (dependencies.length !== bindings.length) return Result.fail(invalidDependencyFailure());
+  if (slots === undefined) {
+    slots = new Set();
+    providers.set(edge.provider, slots);
+  }
+
+  const isNew = !slots.has(edge.slot);
+  slots.add(edge.slot);
+
+  return isNew;
+};
+
+type AdmissionDependencyEdges = ActorAdmissionInput<
+  App,
+  MachineDefinition,
+  unknown
+>["dependencies"];
+
+const indexBindingDependencies = (bindings: AdmissionDependencyEdges) => {
+  const index: DependencySlotIndex = new Map();
+
+  for (const edge of bindings) recordDependencySlot(index, edge);
+
+  return index;
+};
+
+const indexAdmittedDependencies = (dependencies: AdmissionDependencyEdges) => {
+  const index: DependencySlotIndex = new Map();
 
   for (const edge of dependencies) {
     const validatedEdge = validateDependencyEdge(edge);
 
     if (Result.isFailure(validatedEdge)) return Result.fail(validatedEdge.failure);
-    const admittedEdge = validatedEdge.success;
-    let providers = actual.get(admittedEdge.consumer);
 
-    if (providers === undefined) {
-      providers = new Map();
-      actual.set(admittedEdge.consumer, providers);
-    }
-
-    let slots = providers.get(admittedEdge.provider);
-
-    if (slots === undefined) {
-      slots = new Set();
-      providers.set(admittedEdge.provider, slots);
-    }
-
-    if (slots.has(admittedEdge.slot)) return Result.fail(duplicateClaimFailure());
-    slots.add(admittedEdge.slot);
+    if (!recordDependencySlot(index, validatedEdge.success))
+      return Result.fail(duplicateClaimFailure());
   }
 
+  return Result.succeed(index);
+};
+
+const containsExpectedDependencySlots = (
+  expected: DependencySlotIndex,
+  actual: DependencySlotIndex,
+) => {
   for (const [consumer, providers] of expected) {
     for (const [provider, slots] of providers) {
       const actualSlots = actual.get(consumer)?.get(provider);
 
       if (actualSlots === undefined || [...slots].some((slot) => !actualSlots.has(slot)))
-        return Result.fail(invalidDependencyFailure());
+        return false;
     }
   }
+
+  return true;
+};
+
+const validateDependencyEdges = (
+  bindings: AdmissionDependencyEdges,
+  dependencies: AdmissionDependencyEdges,
+) => {
+  const expected = indexBindingDependencies(bindings);
+
+  if (dependencies.length !== bindings.length) return Result.fail(invalidDependencyFailure());
+  const actual = indexAdmittedDependencies(dependencies);
+
+  if (Result.isFailure(actual)) return Result.fail(actual.failure);
+
+  if (!containsExpectedDependencySlots(expected, actual.success))
+    return Result.fail(invalidDependencyFailure());
 
   return Result.succeed(copyArray(dependencies.map(copyDependencyEdge)));
 };
@@ -1938,43 +1974,31 @@ const validateAdmissionClaim = <A extends App, DefinitionValue extends MachineDe
   return Result.succeed(undefined);
 };
 
-/** Validates B02 admission data without registry, provider, selector, initializer, or Effect work. */
-// oxlint-disable-next-line complexity -- one pure validator owns the ordered no-mutation admission checks.
-const validateActorAdmissionUnchecked = <
+const validateAdmissionMachine = <
   A extends App,
   DefinitionValue extends MachineDefinition,
   I,
   ProviderDefinition extends MachineDefinition = DefinitionValue,
 >(
-  input: ActorAdmissionInput<A, DefinitionValue, I, ProviderDefinition>,
+  input: Pick<
+    ActorAdmissionInput<A, DefinitionValue, I, ProviderDefinition>,
+    "app" | "implementation" | "ref"
+  >,
   authority: ActorAdmissionValidationContext<A, DefinitionValue, I>,
-): Result.Result<
-  ValidatedActorAdmission<A, DefinitionValue, I, ProviderDefinition>,
-  PublicDiagnostic
-> => {
-  const capturedInput = copyObject({
-    app: input.app,
-    implementation: input.implementation,
-    ref: input.ref,
-    machineFacts: input.machineFacts,
-    input: input.input,
-    bindings: input.bindings,
-    dependencies: input.dependencies,
-  });
-
-  if (!isConstructedApp(capturedInput.app) || capturedInput.app !== authority.app)
+) => {
+  if (!isConstructedApp(input.app) || input.app !== authority.app)
     return Result.fail(foreignRefFailure("app"));
 
-  if (authority.plan !== undefined && appPlan(capturedInput.app) !== authority.plan)
+  if (authority.plan !== undefined && appPlan(input.app) !== authority.plan)
     return Result.fail(foreignRefFailure("app"));
 
-  if (capturedInput.implementation !== authority.implementation)
+  if (input.implementation !== authority.implementation)
     return Result.fail(foreignRefFailure("app"));
-  const actorRef = validateActorRef<DefinitionValue>(capturedInput.ref);
+  const actorRef = validateActorRef<DefinitionValue>(input.ref);
 
   if (Result.isFailure(actorRef)) return Result.fail(actorRef.failure);
 
-  const plan = appPlan(capturedInput.app);
+  const plan = appPlan(input.app);
 
   if (!planAdmitsMachine(plan, actorRef.success.machine))
     return Result.fail(unadmittedMachineFailure(actorRef.success.machine.definition.id));
@@ -1984,37 +2008,41 @@ const validateActorAdmissionUnchecked = <
   if (!isOwnedMachineFactsFor(machineFacts, actorRef.success.value.machine))
     return Result.fail(unadmittedMachineFailure(actorRef.success.machine.definition.id));
 
-  const typedMachineFacts = machineFacts;
+  return Result.succeed({ actorRef: actorRef.success, machineFacts });
+};
 
-  const claim = validateAdmissionClaim(actorRef.success.value, actorRef.success.source, authority);
+const validateAdmissionIdentity = <A extends App, DefinitionValue extends MachineDefinition, I>(
+  actorRef: CapturedActorRef<DefinitionValue>,
+  authority: ActorAdmissionValidationContext<A, DefinitionValue, I>,
+) => {
+  const claim = validateAdmissionClaim(actorRef.value, actorRef.source, authority);
 
   if (Result.isFailure(claim)) return Result.fail(claim.failure);
+  const identity = authority.identity;
 
-  if (authority.identity !== undefined) {
-    if (!isCapturedActorRef(authority.identity.ref, actorRef.success))
-      return Result.fail(foreignRefFailure("ref"));
+  if (identity !== undefined) {
+    if (!isCapturedActorRef(identity.ref, actorRef)) return Result.fail(foreignRefFailure("ref"));
 
     if (
-      authority.identity.key === "" ||
-      authority.identity.incarnation < 1 ||
-      (authority.consumerKey !== undefined && authority.consumerKey !== authority.identity.key)
+      identity.key === "" ||
+      identity.incarnation < 1 ||
+      (authority.consumerKey !== undefined && authority.consumerKey !== identity.key)
     )
       return Result.fail(foreignRefFailure("fence"));
   }
 
-  const bindings = validateContextBindings(machineFacts, capturedInput.bindings, authority);
+  return Result.succeed(undefined);
+};
 
-  if (Result.isFailure(bindings)) return Result.fail(bindings.failure);
-  const dependencies = validateDependencyEdges(bindings.success.edges, capturedInput.dependencies);
-
-  if (Result.isFailure(dependencies)) return Result.fail(dependencies.failure);
-  const graph = validateGraph(dependencies.success);
-
-  if (Result.isFailure(graph)) return Result.fail(graph.failure);
-
+const canonicalizeAdmissionBindings = <
+  DefinitionValue extends MachineDefinition,
+  ProviderDefinition extends MachineDefinition,
+>(
+  bindings: CapturedBinding<ProviderDefinition>[],
+) => {
   const canonicalBindings: ActorContextBinding<DefinitionValue, ProviderDefinition>[] = [];
 
-  for (const capturedBinding of bindings.success.bindings) {
+  for (const capturedBinding of bindings) {
     // SAFETY: captureBinding validated and copied every binding field before authority.lookup;
     // this assertion restores the consumer/provider generic correlation erased by reflection.
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- runtime authority validation restored the slot-dependent selector correlation.
@@ -2028,13 +2056,58 @@ const validateActorAdmissionUnchecked = <
     canonicalBindings.push(canonicalBinding);
   }
 
+  return copyArray(canonicalBindings);
+};
+
+/** Validates B02 admission data without registry, provider, selector, initializer, or Effect work. */
+const validateActorAdmissionUnchecked = <
+  A extends App,
+  DefinitionValue extends MachineDefinition,
+  I,
+  ProviderDefinition extends MachineDefinition = DefinitionValue,
+>(
+  input: ActorAdmissionInput<A, DefinitionValue, I, ProviderDefinition>,
+  authority: ActorAdmissionValidationContext<A, DefinitionValue, I>,
+) => {
+  const capturedInput = copyObject({
+    app: input.app,
+    implementation: input.implementation,
+    ref: input.ref,
+    machineFacts: input.machineFacts,
+    input: input.input,
+    bindings: input.bindings,
+    dependencies: input.dependencies,
+  });
+
+  const machine = validateAdmissionMachine(capturedInput, authority);
+
+  if (Result.isFailure(machine)) return Result.fail(machine.failure);
+  const { actorRef, machineFacts } = machine.success;
+  const identity = validateAdmissionIdentity(actorRef, authority);
+
+  if (Result.isFailure(identity)) return Result.fail(identity.failure);
+
+  const bindings = validateContextBindings(machineFacts, capturedInput.bindings, authority);
+
+  if (Result.isFailure(bindings)) return Result.fail(bindings.failure);
+  const dependencies = validateDependencyEdges(bindings.success.edges, capturedInput.dependencies);
+
+  if (Result.isFailure(dependencies)) return Result.fail(dependencies.failure);
+  const graph = validateGraph(dependencies.success);
+
+  if (Result.isFailure(graph)) return Result.fail(graph.failure);
+
+  const canonicalBindings = canonicalizeAdmissionBindings<DefinitionValue, ProviderDefinition>(
+    bindings.success.bindings,
+  );
+
   // SAFETY: the canonical ref, bindings, and dependency array are owned snapshots of the validated
   // input; the machine and identity values retain their exact nominal references.
   const canonicalInput = copyObject({
     app: capturedInput.app,
     implementation: capturedInput.implementation,
-    ref: actorRef.success.value,
-    machineFacts: typedMachineFacts,
+    ref: actorRef.value,
+    machineFacts,
     input: capturedInput.input,
     bindings: copyArray(canonicalBindings),
     dependencies: dependencies.success,
@@ -2081,10 +2154,7 @@ export const normalizeValidatedActorAdmission = <
 >(
   validated: ValidatedActorAdmission<A, DefinitionValue, I, ProviderDefinition>,
   consumerKey: ActorKey,
-): Result.Result<
-  ValidatedActorAdmission<A, DefinitionValue, I, ProviderDefinition>,
-  PublicDiagnostic
-> => {
+) => {
   const edges = copyArray(
     validated.edges.map((edge) => copyObject({ ...edge, consumer: consumerKey })),
   );
@@ -2122,16 +2192,16 @@ const rollbackAdmission = (steps: AdmissionRollbackStep[]) =>
     if (cleanupCause !== undefined) yield* Effect.failCause(cleanupCause);
   });
 
-const normalizeAdmissionCause = <E>(cause: Cause.Cause<E>): Cause.Cause<E> => {
+const normalizeAdmissionCause = <E>(cause: Cause.Cause<E>) => {
   if (Cause.hasFails(cause) || Cause.hasDies(cause) || Cause.hasInterrupts(cause)) return cause;
 
   return Cause.die(new Error("Actor admission completed with an empty Cause"));
 };
 
-const normalizeAdmissionExit = <A, E>(exit: Exit.Exit<A, E>): Exit.Exit<A, E> =>
+const normalizeAdmissionExit = <A, E>(exit: Exit.Exit<A, E>) =>
   Exit.isSuccess(exit) ? exit : Exit.failCause(normalizeAdmissionCause(exit.cause));
 
-const completeAdmissionExit = <A, E>(exit: Exit.Exit<A, E>): Effect.Effect<A, E> => {
+const completeAdmissionExit = <A, E>(exit: Exit.Exit<A, E>) => {
   if (Exit.isSuccess(exit)) return Effect.succeed(exit.value);
 
   return Effect.failCause(normalizeAdmissionCause(exit.cause));
@@ -2186,7 +2256,7 @@ export const makeActorLease = <
   ProviderDefinition extends MachineDefinition = DefinitionValue,
 >(
   options: ActorLeaseOptions<A, DefinitionValue, I, CleanupError, Actor, ProviderDefinition>,
-): ActorLease<A, DefinitionValue, I, CleanupError, Actor, ProviderDefinition> => {
+) => {
   const dispose = makeTerminalEffect(
     options.cleanup.pipe(
       Effect.flatMap(() => {
@@ -2231,6 +2301,7 @@ type AdmissionTransactionOwner = {
   expose: () => void;
 };
 
+// RETURN_TYPE: The owner interface keeps transaction state transitions typed at the private phase boundary.
 const makeAdmissionTransactionOwner = (
   initialRollback: AdmissionRollbackStep[],
 ): AdmissionTransactionOwner => {
@@ -2270,10 +2341,7 @@ export const admitActor = <
     ProviderDefinition,
     Owners
   >,
-): Effect.Effect<
-  ExposedActorAdmission<A, DefinitionValue, I, CleanupError, Actor, ProviderDefinition>,
-  PublicDiagnostic
-> =>
+) =>
   Effect.gen(function* () {
     const validation = validateActorAdmission(input, authority);
 

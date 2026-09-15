@@ -1,19 +1,16 @@
+/* oxlint-disable anti-slop/no-large-production-file -- This module owns Module and App admission, graph indexing, and private plan publication; their shared identity snapshots form one composition boundary. */
 import { Effect, Predicate, Result, Schema, SchemaIssue } from "effect";
 import { isConstructedOperation, requirements } from "../operation/operation.js";
 import { RequirementsTypeId } from "../operation/operation.js";
 import type { RequirementsCarrier, RequirementsOf } from "../operation/operation.js";
 import type { OperationDeclaration } from "../operation/operation.js";
-import type { RuntimeStateBranch, RuntimeStateTable } from "../definition/domain.js";
 import { AuthoredName, isAuthoredName } from "../internal/authored-name.js";
 import { firstConfigurationField } from "../internal/schema-issue.js";
 import { isStableDataDescriptor, isStableKeyList } from "../internal/stable-observation.js";
-import {
-  isConstructedMachine,
-  markMachineFacts,
-  type Machine,
-  type MachineRecordValue,
-} from "../machine/machine.js";
-import type { CompiledMachine, MachineDefinition, CompiledState } from "../machine/grammar.js";
+import { captureMachineFacts, isOwnedMachineFactsFor } from "./machine-facts.js";
+import { isConstructedMachine, type Machine, type MachineRecordValue } from "../machine/machine.js";
+
+export { isOwnedMachineFactsFor };
 
 /*
  * Composition:
@@ -94,8 +91,6 @@ type AppDescriptor<Modules extends ModuleList> =
 type PlanMachine<Modules extends ModuleList> = AppMachine<Modules>;
 
 type AppMachineFacts = MachineRecordValue;
-
-const capturedMachineSources = new WeakMap<MachineRecordValue, MachineRecordValue>();
 
 type AdmissionRecord = {
   [moduleTypeId]?: true;
@@ -200,7 +195,7 @@ const isAppReference = (value: unknown): value is AppOwner =>
 export const isConstructedApp = (value: unknown): value is App =>
   isAppReference(value) && constructedAppPlans.has(value);
 
-const invalid = (message: string): never => {
+const invalid = (message: string) => {
   throw new Error(message);
 };
 
@@ -219,12 +214,6 @@ export const appPlan = <
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the private identity map preserves the App and AppPlan generic correlation.
   return plan as unknown as AppPlan<Id, PersistenceVersion, Modules>;
 };
-
-export const isOwnedMachineFactsFor = <DefinitionValue extends MachineDefinition>(
-  value: unknown,
-  source: Machine<DefinitionValue>,
-): value is Machine<DefinitionValue> =>
-  isConstructedMachine(value) && capturedMachineSources.get(value) === source;
 
 type AppIndexes<
   Descriptor extends OperationDeclaration = OperationDeclaration,
@@ -766,6 +755,7 @@ const indexMachine = <
   indexes.machineRecord[name] = machine;
 };
 
+// RETURN_TYPE: Keeps descriptor indexing correlated with the AppPlan's Descriptor generic after identity admission.
 const isCapturedOperation = <Descriptor extends OperationDeclaration>(
   value: unknown,
   descriptorValue: unknown,
@@ -869,210 +859,6 @@ const indexModules = <Modules extends ModuleList>(modules: Modules) => {
   return indexes;
 };
 
-type StateCaptureContainer = Record<string, unknown> | unknown[];
-
-const isStateCaptureContainer = (value: unknown): value is StateCaptureContainer =>
-  Array.isArray(value) || Predicate.isObject(value);
-
-const copyRecord = <Value, CopiedValue>(
-  source: Record<string, Value>,
-  copy: (value: Value) => CopiedValue,
-): Record<string, CopiedValue> => {
-  const result: Record<string, CopiedValue> = Object.create(null);
-
-  for (const key of Object.keys(source)) {
-    const value = source[key];
-
-    if (value !== undefined) result[key] = copy(value);
-  }
-
-  return result;
-};
-
-const copyAuthoredStates = (value: unknown[]): unknown[] => {
-  const seen = new WeakMap<StateCaptureContainer, unknown>();
-
-  const copy = (current: unknown): unknown => {
-    if (!isStateCaptureContainer(current)) return current;
-    const existing = seen.get(current);
-
-    if (existing !== undefined) return existing;
-
-    if (Array.isArray(current)) {
-      const result: unknown[] = [];
-      seen.set(current, result);
-
-      for (const item of current) result.push(copy(item));
-
-      return result;
-    }
-
-    const result: Record<string, unknown> = Object.create(null);
-    seen.set(current, result);
-
-    for (const [key, item] of Object.entries(current)) result[key] = copy(item);
-
-    return result;
-  };
-
-  const result: unknown[] = [];
-  seen.set(value, result);
-
-  for (const item of value) result.push(copy(item));
-
-  return result;
-};
-
-const isStateToken = (value: unknown) =>
-  Predicate.isObject(value) &&
-  value.kind === "state" &&
-  Predicate.isString(value.name) &&
-  Predicate.isString(value.id);
-
-// RETURN_TYPE: Keeps malformed exposed entries out of the recursive branch copy.
-const isRuntimeStateBranch = (value: unknown): value is RuntimeStateBranch =>
-  Predicate.isObject(value) &&
-  !Array.isArray(value) &&
-  !isStateToken(value) &&
-  Object.prototype.hasOwnProperty.call(value, "S") &&
-  Predicate.isObject(value.S) &&
-  !Array.isArray(value.S);
-
-const copyStateTable = (source: RuntimeStateTable): RuntimeStateTable => {
-  const tables = new WeakMap<RuntimeStateTable, RuntimeStateTable>();
-  const branches = new WeakMap<RuntimeStateBranch, RuntimeStateBranch>();
-
-  const copyTable = (current: RuntimeStateTable): RuntimeStateTable => {
-    const existing = tables.get(current);
-
-    if (existing !== undefined) return existing;
-    const result: RuntimeStateTable = Object.create(null);
-    tables.set(current, result);
-
-    for (const [key, entry] of Object.entries(current))
-      result[key] = isRuntimeStateBranch(entry) ? copyBranch(entry) : entry;
-
-    return result;
-  };
-
-  const copyBranch = (current: RuntimeStateBranch): RuntimeStateBranch => {
-    const existing = branches.get(current);
-
-    if (existing !== undefined) return existing;
-    const result: RuntimeStateBranch = { S: current.S };
-    Object.setPrototypeOf(result, null);
-    branches.set(current, result);
-    result.S = copyTable(current.S);
-
-    return result;
-  };
-
-  return copyTable(source);
-};
-
-const copyCapturedOperations = (
-  catalog: Map<string, OperationDeclaration>,
-): Record<string, OperationDeclaration> => {
-  const result: Record<string, OperationDeclaration> = Object.create(null);
-
-  for (const [key, descriptor] of catalog) result[key] = descriptor;
-
-  return result;
-};
-
-const copyMachineDefinition = <DefinitionValue extends MachineDefinition>(
-  source: DefinitionValue,
-  operationCatalog: Map<string, OperationDeclaration>,
-) => {
-  const authoredStates = (source as MachineDefinition & { states?: unknown[] }).states;
-
-  return Object.assign(
-    { ...source },
-    {
-      // oxlint-disable-next-line anti-slop/no-conditional-empty-object-spread -- preserve the optional authored state container while copying the definition.
-      ...(authoredStates === undefined ? {} : { states: copyAuthoredStates(authoredStates) }),
-      S: copyStateTable(source.S),
-      E: copyRecord(source.E, (event) => event),
-      context: copyRecord(source.context, (selector) => selector),
-      operations: copyCapturedOperations(operationCatalog),
-    },
-  );
-};
-
-const copyCompiledHandlers = <DefinitionValue extends MachineDefinition>(
-  source: CompiledState<DefinitionValue>["handlers"],
-): CompiledState<DefinitionValue>["handlers"] => {
-  const result: CompiledState<DefinitionValue>["handlers"] = {};
-
-  const copyHandler = <Name extends keyof typeof source>(name: Name) => {
-    const transitions = source[name];
-
-    Object.defineProperty(result, name, {
-      value:
-        transitions === undefined
-          ? undefined
-          : transitions.map((transition) => ({ ...transition })),
-      enumerable: true,
-      configurable: true,
-      writable: true,
-    });
-  };
-
-  for (const name in source) {
-    if (Object.prototype.hasOwnProperty.call(source, name)) copyHandler(name);
-  }
-
-  return result;
-};
-
-// RETURN_TYPE: The state discriminant and private DefinitionValue correlation must remain visible to the capture owner.
-const copyCompiledState = <DefinitionValue extends MachineDefinition>(
-  source: CompiledState<DefinitionValue>,
-): CompiledState<DefinitionValue> => {
-  const copiedBehavior = {
-    handlers: copyCompiledHandlers(source.handlers),
-    redirects: source.redirects.map((redirect) => ({ ...redirect })),
-    activities: copyRecord(source.activities, (activity) => activity),
-    timers: copyRecord(source.timers, (timer) => ({ ...timer })),
-  };
-
-  if (source.kind === "leaf")
-    return {
-      ...source,
-      ...copiedBehavior,
-      children: [],
-    } satisfies Extract<CompiledState<DefinitionValue>, { kind: "leaf" }>;
-
-  return {
-    ...source,
-    ...copiedBehavior,
-    children: [...source.children],
-  } satisfies Extract<CompiledState<DefinitionValue>, { kind: "compound" }>;
-};
-
-const copyCompiledMachine = <DefinitionValue extends MachineDefinition>(
-  source: CompiledMachine<DefinitionValue>,
-): CompiledMachine<DefinitionValue> => ({
-  states: copyRecord(source.states, copyCompiledState),
-  context: source.context.map((registration) => ({ ...registration })),
-  memory: source.memory.map((registration) => ({ ...registration })),
-});
-
-const captureMachineFacts = <DefinitionValue extends MachineDefinition>(
-  source: Machine<DefinitionValue>,
-  operationCatalog: Map<string, OperationDeclaration>,
-): Machine<DefinitionValue> => {
-  const captured = markMachineFacts({
-    ...source,
-    definition: copyMachineDefinition(source.definition, operationCatalog),
-    compiled: copyCompiledMachine(source.compiled),
-  });
-
-  capturedMachineSources.set(captured, source);
-
-  return captured;
-};
-
 const publishAppPlan = <
   Id extends string,
   PersistenceVersion extends string,
@@ -1104,7 +890,7 @@ const publishAppPlan = <
   // SAFETY: the ID map contains only machines admitted from the exact module tuple.
   const resolveMachine = (id: string) => indexes.machineIds.get(id);
 
-  const resolveMachineFacts = (machine: MachineRecordValue): AppMachineFacts | undefined => {
+  const resolveMachineFacts = (machine: MachineRecordValue) => {
     const captured = machineFacts.get(machine);
 
     if (captured === undefined) return undefined;

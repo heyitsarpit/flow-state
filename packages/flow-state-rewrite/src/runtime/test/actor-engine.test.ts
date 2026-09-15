@@ -1,3 +1,4 @@
+// oxlint-disable-next-line anti-slop/no-large-production-file -- this suite proves snapshot admission, prepared mailbox activation, turns, and publication ordering across one actor engine; splitting would duplicate fixtures and fragment lifecycle assertions.
 import { assert, describe, it } from "@effect/vitest";
 import { Cause, Deferred, Effect, Exit, Fiber, Queue, Result, Scope, type Types } from "effect";
 

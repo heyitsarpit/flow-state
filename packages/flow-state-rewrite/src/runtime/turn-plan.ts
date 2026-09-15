@@ -289,7 +289,7 @@ const eventForDefinition = <DefinitionValue extends MachineDefinition>(
 export const isEventForMachine = <DefinitionValue extends MachineDefinition>(
   machine: Machine<DefinitionValue>,
   event: unknown,
-): event is ActorEvent<DefinitionValue> => eventForDefinition(machine, event);
+) => eventForDefinition(machine, event);
 
 const activeStateChain = <DefinitionValue extends MachineDefinition>(
   machine: Machine<DefinitionValue>,
@@ -722,7 +722,7 @@ const sameFence = (left: ActorFence, right: ActorFence) =>
   left.generation === right.generation &&
   left.leaseEpoch === right.leaseEpoch;
 
-const projectionFence = <StreamValue>(fact: ProjectionFact<StreamValue>): ActorFence => {
+const projectionFence = <StreamValue>(fact: ProjectionFact<StreamValue>) => {
   switch (fact._tag) {
     case "timer-projection":
     case "lifecycle-projection":
@@ -738,9 +738,7 @@ const projectionFence = <StreamValue>(fact: ProjectionFact<StreamValue>): ActorF
   }
 };
 
-const completionStatus = (
-  outcome: FiniteOperationOutcome["_tag"],
-): OperationProjection["status"] => {
+const completionStatus = (outcome: FiniteOperationOutcome["_tag"]) => {
   switch (outcome) {
     case "success":
       return "succeeded";
@@ -816,6 +814,40 @@ const contextProjectionProviders = (
   fact: Extract<ProjectionFact, { _tag: "context-projection" }>,
 ) => fact.projection?.providers ?? [fact.provider];
 
+const hasConsistentContextProjectionLead = (
+  fact: Extract<ProjectionFact, { _tag: "context-projection" }>,
+  providers: ProviderRevisionFence[],
+  carrier: ContextProjectionCarrier,
+) => {
+  const first = providers[0];
+
+  return (
+    first !== undefined &&
+    sameFence(fact.provider.fence, first.fence) &&
+    fact.provider.slot === first.slot &&
+    fact.provider.revision === first.revision &&
+    Object.is(fact.provider.value, carrier)
+  );
+};
+
+const hasValidContextProjectionIssues = (carrier: ContextProjectionCarrier) =>
+  carrier.issueOnly ? carrier.selectorDefects.length > 0 : carrier.selectorDefects.length === 0;
+
+const hasUniqueContextProjectionSlots = (providers: ProviderRevisionFence[]) =>
+  new Set(providers.map((provider) => provider.slot)).size === providers.length;
+
+const hasExpectedContextProjectionSlots = <DefinitionValue extends MachineDefinition>(
+  before: ActorSnapshot<DefinitionValue>,
+  providers: ProviderRevisionFence[],
+) => {
+  const expectedSlots = Object.keys(before.context);
+
+  return (
+    providers.length === expectedSlots.length &&
+    providers.every((provider) => expectedSlots.includes(provider.slot))
+  );
+};
+
 const validateContextProjectionCarrier = <DefinitionValue extends MachineDefinition>(
   fact: Extract<ProjectionFact, { _tag: "context-projection" }>,
   before: ActorSnapshot<DefinitionValue>,
@@ -824,15 +856,8 @@ const validateContextProjectionCarrier = <DefinitionValue extends MachineDefinit
   const carrier = fact.projection;
 
   if (carrier === undefined) return Result.succeed(undefined);
-  const first = providers[0];
 
-  if (
-    first === undefined ||
-    !sameFence(fact.provider.fence, first.fence) ||
-    fact.provider.slot !== first.slot ||
-    fact.provider.revision !== first.revision ||
-    !Object.is(fact.provider.value, carrier)
-  )
+  if (!hasConsistentContextProjectionLead(fact, providers, carrier))
     return Result.fail(
       planningFailure(
         ["projection", "context"],
@@ -840,36 +865,25 @@ const validateContextProjectionCarrier = <DefinitionValue extends MachineDefinit
       ),
     );
 
-  if (carrier.issueOnly && carrier.selectorDefects.length === 0)
+  if (!hasValidContextProjectionIssues(carrier))
     return Result.fail(
       planningFailure(
         ["projection", "context", "issues"],
-        "Issue-only context projection must carry a selector defect",
+        carrier.issueOnly
+          ? "Issue-only context projection must carry a selector defect"
+          : "Changed context projection cannot carry selector defects",
       ),
     );
 
-  if (!carrier.issueOnly && carrier.selectorDefects.length > 0)
-    return Result.fail(
-      planningFailure(
-        ["projection", "context", "issues"],
-        "Changed context projection cannot carry selector defects",
-      ),
-    );
-  const slots = new Set(providers.map((provider) => provider.slot));
-
-  if (slots.size !== providers.length)
+  if (!hasUniqueContextProjectionSlots(providers))
     return Result.fail(
       planningFailure(
         ["projection", "context", "slots"],
         "Aggregate context projection contains a duplicate slot",
       ),
     );
-  const expectedSlots = Object.keys(before.context);
 
-  if (
-    providers.length !== expectedSlots.length ||
-    providers.some((provider) => !expectedSlots.includes(provider.slot))
-  )
+  if (!hasExpectedContextProjectionSlots(before, providers))
     return Result.fail(
       planningFailure(
         ["projection", "context", "slots"],
@@ -949,14 +963,18 @@ const lifecycleProjectionCandidate = <DefinitionValue extends MachineDefinition>
     ? Result.succeed(undefined)
     : Result.succeed(copySnapshot({ ...before, lifecycle: fact.lifecycle }));
 
+const acceptsProjectionFence = <StreamValue>(
+  fence: ActorFence,
+  fact: ProjectionFact<StreamValue>,
+) => fact._tag === "context-projection" || sameFence(fence, projectionFence(fact));
+
 const projectionCandidate = <DefinitionValue extends MachineDefinition, StreamValue>(
   input: ProjectionTurnInput<DefinitionValue, StreamValue>,
   before: ActorSnapshot<DefinitionValue>,
 ) => {
   const fact = input.fact;
 
-  if (fact._tag !== "context-projection" && !sameFence(input.fence, projectionFence(fact)))
-    return Result.succeed(undefined);
+  if (!acceptsProjectionFence(input.fence, fact)) return Result.succeed(undefined);
 
   switch (fact._tag) {
     case "timer-projection":
@@ -981,7 +999,7 @@ const projectionCandidate = <DefinitionValue extends MachineDefinition, StreamVa
 /** Plans passive facts without evaluating transitions, guards, redirects, or actions. */
 export const planProjection = <DefinitionValue extends MachineDefinition, StreamValue = unknown>(
   input: ProjectionTurnInput<DefinitionValue, StreamValue>,
-): Result.Result<TurnPlan<DefinitionValue>, PublicDiagnostic> => {
+) => {
   const before = copySnapshot(input.snapshot);
   const candidate = projectionCandidate(input, before);
 
@@ -1003,5 +1021,4 @@ export const planProjection = <DefinitionValue extends MachineDefinition, Stream
 /** Plans one event or passive projection through the single owner boundary. */
 export const planTurn = <DefinitionValue extends MachineDefinition, StreamValue = unknown>(
   input: TurnInput<DefinitionValue, StreamValue>,
-): Result.Result<TurnPlan<DefinitionValue>, PublicDiagnostic> =>
-  input._tag === "event" ? planEventTurn(input) : planProjection(input);
+) => (input._tag === "event" ? planEventTurn(input) : planProjection(input));

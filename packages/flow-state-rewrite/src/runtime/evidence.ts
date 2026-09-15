@@ -273,7 +273,7 @@ const counterOverflow = (name: string) =>
 const sequenceOf = (record: EvidenceRecord) =>
   record._tag === "turn" ? record.sequence : record.evidenceSequence;
 
-const copyArray = <Value>(values: Iterable<Value>): Value[] => [...values];
+const copyArray = <Value>(values: Iterable<Value>) => [...values];
 
 const sequenceValue = (value: number) => {
   // SAFETY: callers validate positive safe integer bounds before branding a sequence.
@@ -663,7 +663,7 @@ export const makeEvidenceSink = (
       offer: (record) => {
         const sequence = sequenceOf(record);
 
-        return Effect.succeed(offerUnsafe(record, sequenceValue(sequence)));
+        return Effect.sync(() => offerUnsafe(record, sequenceValue(sequence)));
       },
       drain: (through) => drain(through),
       close: () => close,
@@ -845,10 +845,7 @@ export const makeEvidenceHub = (options: { app: App; plan: RuntimePlan }): Evide
     });
   };
 
-  const acceptPreparedUnsafe = (
-    reservation: EvidenceReservation,
-    record: EvidenceRecord,
-  ): EvidenceAcceptance => {
+  const acceptPreparedUnsafe = (reservation: EvidenceReservation, record: EvidenceRecord) => {
     const sequence = reservation.sequence;
     const state = reservations.get(sequence);
 
@@ -904,11 +901,7 @@ export const makeEvidenceHub = (options: { app: App; plan: RuntimePlan }): Evide
     return Result.succeed(undefined);
   };
 
-  // RETURN_TYPE: Prefix admission relies on the explicit wait/done union for narrowing.
-  const attempt = (
-    reservation: EvidenceReservation,
-    record: EvidenceRecord,
-  ): AcceptAttempt | Result.Result<EvidenceAcceptance, PublicDiagnostic> => {
+  const attempt = (reservation: EvidenceReservation, record: EvidenceRecord) => {
     const validated = validateReservation(reservation, record);
 
     if (Result.isFailure(validated)) return Result.fail(validated.failure);
@@ -919,7 +912,7 @@ export const makeEvidenceHub = (options: { app: App; plan: RuntimePlan }): Evide
 
       return Result.isFailure(acceptedRecord)
         ? acceptedRecord
-        : { _tag: "done", acceptance: acceptedRecord.success };
+        : ({ _tag: "done", acceptance: acceptedRecord.success } satisfies AcceptAttempt);
     }
 
     if (sequence > accepted + 1) {
@@ -931,7 +924,7 @@ export const makeEvidenceHub = (options: { app: App; plan: RuntimePlan }): Evide
         waiter = created;
       }
 
-      return { _tag: "wait", waiter };
+      return { _tag: "wait", waiter } satisfies AcceptAttempt;
     }
 
     return acceptUnsafe(reservation, record);
@@ -1123,10 +1116,7 @@ export const drainAcceptedEvidence = (hub: EvidenceHub) => hub.drain();
 export const closeEvidence = (hub: EvidenceHub) => hub.close();
 
 /** Cancels a runtime-owned reservation when a later preparation stage fails. */
-export const cancelRuntimeEvidence = (
-  service: RuntimeEvidenceService,
-  sequence: number,
-): Result.Result<void, PublicDiagnostic> => {
+export const cancelRuntimeEvidence = (service: RuntimeEvidenceService, sequence: number) => {
   const cancel = serviceCancellers.get(service);
 
   if (cancel !== undefined) return cancel(sequence);
@@ -1150,9 +1140,7 @@ const reservationOwnerForService = (service: RuntimeEvidenceService) => {
   return hubReservationOwners.get(service.hub);
 };
 
-const reserveRuntimeEvidence = (
-  service: RuntimeEvidenceService,
-): Result.Result<EvidenceReservation, PublicDiagnostic> => {
+const reserveRuntimeEvidence = (service: RuntimeEvidenceService) => {
   const reserve = reservationOwnerForService(service);
 
   if (reserve === undefined)
@@ -1169,10 +1157,7 @@ export const prepareLifecycleEvidence = <
 >(
   service: RuntimeEvidenceService,
   fact: LifecycleFact<DefinitionValue, CleanupError, ProviderDefinition>,
-): Result.Result<
-  RuntimeLifecycleEvidence<DefinitionValue, CleanupError, ProviderDefinition>,
-  PublicDiagnostic
-> => {
+) => {
   const reservation = reserveRuntimeEvidence(service);
 
   if (Result.isFailure(reservation)) return Result.fail(reservation.failure);

@@ -1,3 +1,4 @@
+/* oxlint-disable anti-slop/no-large-production-file -- this suite owns machine admission proofs across state shape, behavior schemas, and compilation; shared fixtures and cross-phase ordering assertions keep the diagnostic boundary executable. */
 import { assert, describe, it } from "@effect/vitest";
 import { Predicate, Result, Stream } from "effect";
 

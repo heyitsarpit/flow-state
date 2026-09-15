@@ -16,6 +16,7 @@ export type ImplementationErrorOf<Value extends Implementation<never, unknown, u
 export type ImplementationRequirementsOf<Value extends Implementation<never, unknown, unknown>> =
   Layer.Services<Value["layer"]>;
 
+// RETURN_TYPE: Preserves the `kind: "implementation"` discriminant; inference widens it to string.
 const makeImplementation = <Output, Error, Requirements>(
   layer: Layer.Layer<Output, Error, Requirements>,
   serviceKeys: string[],

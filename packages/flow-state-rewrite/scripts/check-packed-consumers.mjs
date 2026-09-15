@@ -209,25 +209,21 @@ const createReactConsumer = (label, tarball, manifestPath) => {
 
 const readManifest = (root) => JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
 
-const exportTargets = (manifest) => {
-  const targets = [];
+const hasImportOrTypesTarget = (value) =>
+  value !== null &&
+  typeof value === "object" &&
+  (Object.hasOwn(value, "import") || Object.hasOwn(value, "types"));
 
-  for (const [route, value] of Object.entries(manifest.exports)) {
-    if (
-      value !== null &&
-      typeof value === "object" &&
-      (Object.hasOwn(value, "import") || Object.hasOwn(value, "types"))
-    ) {
-      for (const kind of ["import", "types"]) {
-        if (value[kind] !== undefined) targets.push({ kind, route, target: value[kind] });
-      }
-    } else {
-      targets.push({ kind: "asset", route, target: value });
-    }
-  }
+const exportTargetsForRoute = (route, value) => {
+  if (!hasImportOrTypesTarget(value)) return [{ kind: "asset", route, target: value }];
 
-  return targets;
+  return ["import", "types"].flatMap((kind) =>
+    value[kind] === undefined ? [] : [{ kind, route, target: value[kind] }],
+  );
 };
+
+const exportTargets = (manifest) =>
+  Object.entries(manifest.exports).flatMap(([route, value]) => exportTargetsForRoute(route, value));
 
 const assertTargetPath = (root, target) => {
   if (typeof target !== "string" || !target.startsWith("./")) {
@@ -243,43 +239,45 @@ const assertTargetPath = (root, target) => {
   return path;
 };
 
-const assertInstalledManifest = (root, manifest) => {
+const assertManifestRoutes = (manifest) => {
   if (manifest.private !== true) throw new Error("packed rewrite package lost private:true");
   const actualKeys = Object.keys(manifest.exports).sort((left, right) => left.localeCompare(right));
 
   if (JSON.stringify(actualKeys) !== JSON.stringify(expectedManifestExportKeys)) {
     throw new Error(`manifest routes differ: ${actualKeys.join(",")}`);
   }
+};
 
-  const targets = exportTargets(manifest);
+const assertExpectedExportTarget = (root, route, basenameValue, routeTargets, kind) => {
+  const target = routeTargets.find((candidate) => candidate.kind === kind);
 
-  if (targets.filter(({ kind }) => kind !== "asset").length !== 8) {
-    throw new Error("packed manifest must contain four runtime/type route pairs");
+  if (target === undefined) throw new Error(`route ${route} lacks ${kind} target`);
+  const suffix = kind === "import" ? ".mjs" : ".d.mts";
+  const expected = `./dist/${basenameValue}${suffix}`;
+
+  if (target.target !== expected) {
+    throw new Error(`${route} ${kind} target is ${target.target}, expected ${expected}`);
   }
 
+  const path = assertTargetPath(root, target.target);
+
+  if (!existsSync(path)) throw new Error(`missing packed ${kind} target ${target.target}`);
+  console.log(`packed-output-hash\t${kind}\t${route}\t${target.target}\t${hashFile(path)}`);
+};
+
+const assertExpectedRouteTargets = (root, targets) => {
   for (const [route, basenameValue] of expectedTargetBasenames) {
     const routeTargets = targets.filter((target) => target.route === route);
 
     if (routeTargets.length !== 2) throw new Error(`route ${route} has the wrong target count`);
 
     for (const kind of ["import", "types"]) {
-      const target = routeTargets.find((candidate) => candidate.kind === kind);
-
-      if (target === undefined) throw new Error(`route ${route} lacks ${kind} target`);
-      const suffix = kind === "import" ? ".mjs" : ".d.mts";
-      const expected = `./dist/${basenameValue}${suffix}`;
-
-      if (target.target !== expected) {
-        throw new Error(`${route} ${kind} target is ${target.target}, expected ${expected}`);
-      }
-
-      const path = assertTargetPath(root, target.target);
-
-      if (!existsSync(path)) throw new Error(`missing packed ${kind} target ${target.target}`);
-      console.log(`packed-output-hash\t${kind}\t${route}\t${target.target}\t${hashFile(path)}`);
+      assertExpectedExportTarget(root, route, basenameValue, routeTargets, kind);
     }
   }
+};
 
+const assertPackageJsonExportTarget = (root, targets) => {
   const packageJsonTarget = targets.find(
     ({ kind, route, target }) =>
       kind === "asset" && route === "./package.json" && target === "./package.json",
@@ -289,6 +287,18 @@ const assertInstalledManifest = (root, manifest) => {
   console.log(
     `packed-output-hash\tasset\t./package.json\t./package.json\t${hashFile(join(root, "package.json"))}`,
   );
+};
+
+const assertInstalledManifest = (root, manifest) => {
+  assertManifestRoutes(manifest);
+  const targets = exportTargets(manifest);
+
+  if (targets.filter(({ kind }) => kind !== "asset").length !== 8) {
+    throw new Error("packed manifest must contain four runtime/type route pairs");
+  }
+
+  assertExpectedRouteTargets(root, targets);
+  assertPackageJsonExportTarget(root, targets);
 
   return targets;
 };

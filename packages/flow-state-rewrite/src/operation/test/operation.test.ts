@@ -1,3 +1,4 @@
+// oxlint-disable-next-line anti-slop/no-large-production-file -- declaration construction, retained adapters, and published plans share the operation owner and lifecycle proofs.
 import { assert, describe, it } from "@effect/vitest";
 import { Cause, Effect, Exit, Result, Schema, SchemaIssue, Stream } from "effect";
 

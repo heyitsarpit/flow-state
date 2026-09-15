@@ -8,7 +8,7 @@ import { machine } from "../../machine/machine.js";
 import { resource } from "../../operation/resource.js";
 import { actorRef } from "../actor-ref.js";
 import type { ActorContextBinding, ActorContextSnapshot } from "../actor-admission.js";
-import { prepareActorSnapshot, type PreparedActorSnapshot } from "../actor-engine.js";
+import { prepareActorSnapshot } from "../actor-engine.js";
 import { runtimeOwner, runtimeSetup } from "../runtime.js";
 import { RuntimeClock, RuntimeEvidence, RuntimeScheduler } from "../runtime-services.js";
 
@@ -43,7 +43,7 @@ const architectureApp = app({
 
 const architectureEvent = resultSuccess(architectureDefinition.E.opened());
 
-const initialArchitectureSnapshot = (): PreparedActorSnapshot<typeof architectureDefinition> =>
+const initialArchitectureSnapshot = () =>
   resultSuccess(
     prepareActorSnapshot(architectureMachine, {
       state: architectureDefinition.S.ready,
@@ -138,7 +138,7 @@ const initialProviderSnapshot = (
   state:
     | typeof providerDefinition.S.ready
     | typeof providerDefinition.S.changed = providerDefinition.S.ready,
-): PreparedActorSnapshot<typeof providerDefinition> =>
+) =>
   resultSuccess(
     prepareActorSnapshot(providerMachine, {
       state,
@@ -153,7 +153,7 @@ const initialProviderSnapshot = (
     }),
   );
 
-const initialConsumerSnapshot = (): PreparedActorSnapshot<typeof consumerDefinition> =>
+const initialConsumerSnapshot = () =>
   resultSuccess(
     prepareActorSnapshot(consumerMachine, {
       state: consumerDefinition.S.ready,
@@ -168,7 +168,7 @@ const initialConsumerSnapshot = (): PreparedActorSnapshot<typeof consumerDefinit
     }),
   );
 
-const initialRequiredSnapshot = (): PreparedActorSnapshot<typeof requiredDefinition> =>
+const initialRequiredSnapshot = () =>
   resultSuccess(
     prepareActorSnapshot(requiredMachine, {
       state: requiredDefinition.S.ready,

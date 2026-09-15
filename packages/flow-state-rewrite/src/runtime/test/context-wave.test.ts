@@ -1,3 +1,4 @@
+// oxlint-disable-next-line anti-slop/no-large-production-file -- these cases share the authored fixtures while proving one context-wave owner across baseline, selection defects, propagation, passive reads, and disposal.
 import { assert, describe, it } from "@effect/vitest";
 import { Deferred, Effect, Option, Result } from "effect";
 
@@ -187,7 +188,7 @@ const makeChainFixture = () => {
   const actorRefs = ["a", "b", "c"].map((id) => actorRef(chainNodeMachine, id));
   const identities = actorRefs.map((ref) => resultSuccess(registry.reserveStable(ref)));
 
-  const fence = (identity: (typeof identities)[number]): ActorFence => ({
+  const fence = (identity: (typeof identities)[number]) => ({
     key: identity.key,
     incarnation: identity.incarnation,
     generation: 0,
