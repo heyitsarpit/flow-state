@@ -66,12 +66,12 @@ export type _FlowUsageCode = Public.FlowUsageCode;
 export type _FlowUsageError = Public.FlowUsageError;
 
 interface RepositoryService {
-  readonly load: (id: string) => string;
+  load: (id: string) => string;
 }
 
 class Repository extends Context.Service<Repository, RepositoryService>()("Packed/Repository") {}
 
-type ProjectInput = { readonly projectId: string };
+type ProjectInput = { projectId: string };
 
 const project = resource({
   id: "packed-project",
@@ -103,10 +103,12 @@ const updates = stream({
   ): Stream.Stream<boolean, "offline", Repository> => Stream.make(projectId.length > 0),
 });
 
+type PackedProjectKey = [string];
+
 const projectChannels: Resource<
   "packed-project",
   ProjectInput,
-  readonly [string],
+  PackedProjectKey,
   string,
   "missing",
   Repository
@@ -117,14 +119,14 @@ const projectChannelsExact: typeof project = projectChannels;
 export type _TransactionChannels = Expect<
   Types.Equals<
     typeof save,
-    Transaction<"packed-save", ProjectInput, readonly [string], number, "rejected", Repository>
+    Transaction<"packed-save", ProjectInput, PackedProjectKey, number, "rejected", Repository>
   >
 >;
 
 export type _StreamChannels = Expect<
   Types.Equals<
     typeof updates,
-    FlowStream<"packed-updates", ProjectInput, readonly [string], boolean, "offline", Repository>
+    FlowStream<"packed-updates", ProjectInput, PackedProjectKey, boolean, "offline", Repository>
   >
 >;
 
@@ -146,7 +148,7 @@ const editorResult = definition({
     closed: "bare",
   },
   operations: { project, save, updates },
-  memory: ({ input }: { readonly input: ProjectInput }) => ({
+  memory: ({ input }: { input: ProjectInput }) => ({
     projectId: input.projectId,
     count: 0,
   }),
@@ -208,8 +210,11 @@ export type _MachineRequirements = Expect<
   Types.Equals<RequirementsOf<typeof EditorMachine>, Repository>
 >;
 
+// oxlint-disable-next-line anti-slop/no-readonly -- NO_READONLY_CODEMOD: packed consumers prove that App preserves const-inferred module tuples.
+type PackedModules = readonly [typeof editorModule];
+
 export type _App = Expect<
-  Types.Equals<typeof EditorApp, App<"packed-editor-app", "1", readonly [typeof editorModule]>>
+  Types.Equals<typeof EditorApp, App<"packed-editor-app", "1", PackedModules>>
 >;
 
 export type _AppRequirements = Expect<Types.Equals<RequirementsOf<typeof EditorApp>, Repository>>;

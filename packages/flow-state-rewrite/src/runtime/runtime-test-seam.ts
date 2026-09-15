@@ -6,8 +6,8 @@ import {
 } from "./runtime.js";
 
 export const runtimeSetupForAdmissionTest = <A extends App>(options: {
-  readonly app: A;
-  readonly admissionProbe: RuntimeAdmissionProbe;
+  app: A;
+  admissionProbe: RuntimeAdmissionProbe;
 }): RuntimeSetup<A> => {
   return runtimeSetupForAdmissionTestInternal(options.app, {
     admissionProbe: options.admissionProbe,

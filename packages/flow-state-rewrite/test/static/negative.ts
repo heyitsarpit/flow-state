@@ -188,10 +188,9 @@ const resultSuccess = <Value>(result: Result.Result<Value, PublicDiagnostic>) =>
   return result.success;
 };
 
-class NegativeRepo extends Context.Service<
-  NegativeRepo,
-  { readonly read: () => Effect.Effect<string> }
->()("StaticHarness/NegativeRepo") {}
+class NegativeRepo extends Context.Service<NegativeRepo, { read: () => Effect.Effect<string> }>()(
+  "StaticHarness/NegativeRepo",
+) {}
 
 const ValidDefinitionResult = definition({
   id: "static-negative/valid",
@@ -227,12 +226,12 @@ if (Result.isSuccess(localIdentityResult)) {
 makeActorIdentityRegistry().createLocal(validMachine, "durable-id");
 
 type ValidMachineConfigurationMember = {
-  readonly default: typeof ValidDefinition.S.ready;
-  readonly states: { readonly ready: Readonly<Record<never, never>> };
+  default: typeof ValidDefinition.S.ready;
+  states: { ready: Record<never, never> };
 };
 
 type UnknownEventConfiguration = ValidMachineConfigurationMember & {
-  readonly on?: unknown;
+  on?: unknown;
 };
 
 type EventConfigurationUnion = ValidMachineConfigurationMember | UnknownEventConfiguration;
@@ -240,14 +239,14 @@ type EventConfigurationUnion = ValidMachineConfigurationMember | UnknownEventCon
 declare const eventConfigurationUnion: EventConfigurationUnion;
 
 type ValidMachineConfigurationWithEvent = ValidMachineConfigurationMember & {
-  readonly on: { readonly opened: typeof ValidDefinition.S.ready };
+  on: { opened: typeof ValidDefinition.S.ready };
 };
 
 type UncheckedValue = ReturnType<typeof JSON.parse>;
 
 type NestedUnknownEventConfiguration = {
-  readonly default: typeof ValidDefinition.S.ready;
-  readonly states: { readonly ready: { readonly on?: unknown } };
+  default: typeof ValidDefinition.S.ready;
+  states: { ready: { on?: unknown } };
 };
 
 type NestedUnknownEventConfigurationUnion =
@@ -257,8 +256,8 @@ type NestedUnknownEventConfigurationUnion =
 declare const nestedUnknownEventConfigurationUnion: NestedUnknownEventConfigurationUnion;
 
 type NestedAnyEventConfiguration = {
-  readonly default: typeof ValidDefinition.S.ready;
-  readonly states: { readonly ready: { readonly on?: UncheckedValue } };
+  default: typeof ValidDefinition.S.ready;
+  states: { ready: { on?: UncheckedValue } };
 };
 
 type NestedAnyEventConfigurationUnion =
@@ -268,9 +267,9 @@ type NestedAnyEventConfigurationUnion =
 declare const nestedAnyEventConfigurationUnion: NestedAnyEventConfigurationUnion;
 
 type UnknownTimerConfiguration = {
-  readonly default: typeof ValidDefinition.S.ready;
-  readonly states: {
-    readonly ready: { readonly timers?: unknown };
+  default: typeof ValidDefinition.S.ready;
+  states: {
+    ready: { timers?: unknown };
   };
 };
 
@@ -279,8 +278,8 @@ type TimerConfigurationUnion = ValidMachineConfigurationMember | UnknownTimerCon
 declare const timerConfigurationUnion: TimerConfigurationUnion;
 
 type NestedUnknownTimerConfiguration = {
-  readonly default: typeof ValidDefinition.S.ready;
-  readonly states: { readonly ready: { readonly timers?: unknown } };
+  default: typeof ValidDefinition.S.ready;
+  states: { ready: { timers?: unknown } };
 };
 
 type NestedUnknownTimerConfigurationUnion =
@@ -290,8 +289,8 @@ type NestedUnknownTimerConfigurationUnion =
 declare const nestedUnknownTimerConfigurationUnion: NestedUnknownTimerConfigurationUnion;
 
 type NestedAnyTimerConfiguration = {
-  readonly default: typeof ValidDefinition.S.ready;
-  readonly states: { readonly ready: { readonly timers?: UncheckedValue } };
+  default: typeof ValidDefinition.S.ready;
+  states: { ready: { timers?: UncheckedValue } };
 };
 
 type NestedAnyTimerConfigurationUnion =
@@ -301,9 +300,9 @@ type NestedAnyTimerConfigurationUnion =
 declare const nestedAnyTimerConfigurationUnion: NestedAnyTimerConfigurationUnion;
 
 type ExtraRootKeyConfiguration = {
-  readonly default: typeof ValidDefinition.S.ready;
-  readonly states: { readonly ready: Readonly<Record<never, never>> };
-  readonly extra: true;
+  default: typeof ValidDefinition.S.ready;
+  states: { ready: Record<never, never> };
+  extra: true;
 };
 
 type ExtraRootKeyConfigurationUnion =
@@ -313,10 +312,10 @@ type ExtraRootKeyConfigurationUnion =
 declare const extraRootKeyConfigurationUnion: ExtraRootKeyConfigurationUnion;
 
 type ExtraNestedStateKeyConfiguration = {
-  readonly default: typeof ValidDefinition.S.ready;
-  readonly states: {
-    readonly ready: Readonly<Record<never, never>>;
-    readonly extra: Readonly<Record<never, never>>;
+  default: typeof ValidDefinition.S.ready;
+  states: {
+    ready: Record<never, never>;
+    extra: Record<never, never>;
   };
 };
 

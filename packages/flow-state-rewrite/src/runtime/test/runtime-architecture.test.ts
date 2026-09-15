@@ -58,13 +58,13 @@ const initialArchitectureSnapshot = (): PreparedActorSnapshot<typeof architectur
     }),
   );
 
-class ArchitectureService extends Context.Service<ArchitectureService, { readonly name: string }>()(
+class ArchitectureService extends Context.Service<ArchitectureService, { name: string }>()(
   "RuntimeArchitecture/Service",
 ) {}
 
 class ArchitectureDependentService extends Context.Service<
   ArchitectureDependentService,
-  { readonly predecessor: string }
+  { predecessor: string }
 >()("RuntimeArchitecture/DependentService") {}
 
 const requiredResource = resource({

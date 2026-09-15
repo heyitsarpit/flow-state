@@ -3,6 +3,7 @@ import { Brand, Predicate, Record, Result } from "effect";
 import type {
   AnyDefinition,
   ContextSelector,
+  DefinitionList,
   DefinitionIdentity,
   DefinitionValue,
   EventEnvelope,
@@ -49,9 +50,9 @@ type RuntimeEventToken = EventToken;
 
 type RuntimeStateToken = StateToken;
 
-type RuntimeStateEntry = readonly [string, RuntimeStateToken | RuntimeStateBranch];
+type RuntimeStateEntry = [string, RuntimeStateToken | RuntimeStateBranch];
 
-type StatePath = readonly string[];
+type StatePath = string[];
 
 const makeDefinition = Brand.nominal<AnyDefinition>();
 
@@ -79,7 +80,7 @@ const stateIdentity = (path: StatePath) =>
     : path.map(segment).join("|");
 
 const buildStateTable = (
-  declarations: readonly StateDeclaration[],
+  declarations: DefinitionList<StateDeclaration>,
   definitionId: string,
   parentPath: StatePath,
 ) => {
@@ -109,12 +110,12 @@ const buildStateTable = (
 
 const createEventToken = (
   name: string,
-  declaration: (...args: readonly DefinitionValue[]) => EventPayload,
+  declaration: (...args: DefinitionValue[]) => EventPayload,
   definitionId: string,
 ) => {
   const id: RuntimeEventId = `E|${segment(definitionId)}|${segment(name)}`;
 
-  const event = (...args: readonly DefinitionValue[]) => {
+  const event = (...args: DefinitionValue[]) => {
     const payload = declaration(...args);
 
     return tryDefinition(() =>

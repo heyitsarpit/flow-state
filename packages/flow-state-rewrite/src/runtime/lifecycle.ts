@@ -39,81 +39,81 @@ import {
 } from "./runtime-services.js";
 import type { ActorRef } from "./actor-ref.js";
 import { cancelRuntimeEvidence, prepareLifecycleEvidence } from "./evidence.js";
-import { immutableArray, immutableRecord, readonlyMap } from "./readonly-collections.js";
+import { copyArray, copyObject } from "./collection-copies.js";
 
 /** The only actor lifecycle states. */
 export type ActorLifecycle = "prepared" | "active" | "suspended" | "disposed";
 
 /** Lifecycle causes are retained as private evidence, never as machine turns. */
 export type LifecycleCause<CleanupError> =
-  | { readonly _tag: "fresh" }
-  | { readonly _tag: "restore" }
-  | { readonly _tag: "attachment" }
-  | { readonly _tag: "owner-disposal" }
-  | { readonly _tag: "runtime-disposal" }
+  | { _tag: "fresh" }
+  | { _tag: "restore" }
+  | { _tag: "attachment" }
+  | { _tag: "owner-disposal" }
+  | { _tag: "runtime-disposal" }
   | {
-      readonly _tag: "cleanup-failure";
-      readonly exit: Exit.Exit<void, CleanupError>;
-      readonly cause: Cause.Cause<CleanupError>;
+      _tag: "cleanup-failure";
+      exit: Exit.Exit<void, CleanupError>;
+      cause: Cause.Cause<CleanupError>;
     };
 
 /** Lifecycle control shares the actor's one serialized mailbox lane. */
 export type LifecycleCommand<CleanupError> =
-  | { readonly _tag: "actor:start"; readonly cause: LifecycleCause<CleanupError> }
-  | { readonly _tag: "actor:restore"; readonly cause: LifecycleCause<CleanupError> }
-  | { readonly _tag: "actor:suspend"; readonly cause: LifecycleCause<CleanupError> }
-  | { readonly _tag: "actor:resume"; readonly cause: LifecycleCause<CleanupError> }
-  | { readonly _tag: "actor:dispose"; readonly cause: LifecycleCause<CleanupError> };
+  | { _tag: "actor:start"; cause: LifecycleCause<CleanupError> }
+  | { _tag: "actor:restore"; cause: LifecycleCause<CleanupError> }
+  | { _tag: "actor:suspend"; cause: LifecycleCause<CleanupError> }
+  | { _tag: "actor:resume"; cause: LifecycleCause<CleanupError> }
+  | { _tag: "actor:dispose"; cause: LifecycleCause<CleanupError> };
 
 /** A resource is closed by its actor owner and retains its exact finalizer Cause. */
 export type LifecycleResource<CleanupError> = {
-  readonly name: string;
-  readonly scope: Scope.Scope;
-  readonly close: (exit: Exit.Exit<void, CleanupError>) => Effect.Effect<void, CleanupError>;
+  name: string;
+  scope: Scope.Scope;
+  close: (exit: Exit.Exit<void, CleanupError>) => Effect.Effect<void, CleanupError>;
   /** Continuing resources provide a fresh owner-scoped resource on resume. */
-  readonly reacquire?: () => Effect.Effect<LifecycleResource<CleanupError>, CleanupError>;
-  readonly finalization: "pending" | "running" | "done" | "failed";
-  readonly cause: Option.Option<Cause.Cause<CleanupError>>;
+  reacquire?: () => Effect.Effect<LifecycleResource<CleanupError>, CleanupError>;
+  finalization: "pending" | "running" | "done" | "failed";
+  cause: Option.Option<Cause.Cause<CleanupError>>;
 };
 
 /** Work is interrupted and awaited before any resource finalizer runs. */
 export type LifecycleWork<CleanupError> = {
-  readonly name: string;
-  readonly fiber: Fiber.Fiber<void, CleanupError>;
-  readonly cancel: Effect.Effect<void, CleanupError>;
-  readonly finalizer: Effect.Effect<void, CleanupError>;
+  name: string;
+  fiber: Fiber.Fiber<void, CleanupError>;
+  cancel: Effect.Effect<void, CleanupError>;
+  finalizer: Effect.Effect<void, CleanupError>;
   /** Continuing work provides a fresh owner-scoped work item on resume. */
-  readonly reacquire?: () => Effect.Effect<LifecycleWork<CleanupError>, CleanupError>;
-  readonly finalization: "pending" | "running" | "done" | "failed";
-  readonly cause: Option.Option<Cause.Cause<CleanupError>>;
-  readonly completion?: Deferred.Deferred<Exit.Exit<void, CleanupError>>;
-  readonly fence?: ActorFence;
+  reacquire?: () => Effect.Effect<LifecycleWork<CleanupError>, CleanupError>;
+  finalization: "pending" | "running" | "done" | "failed";
+  cause: Option.Option<Cause.Cause<CleanupError>>;
+  completion?: Deferred.Deferred<Exit.Exit<void, CleanupError>>;
+  fence?: ActorFence;
 };
 
 /** Operation identity is retained as opaque fence data across suspension. */
 export type LifecycleOperationRecord<_DefinitionValue extends MachineDefinition, CleanupError> = {
-  readonly fence: OperationOccurrenceFence;
-  readonly status: "running" | "settled" | "cancelled" | "stale";
-  readonly finalization: "pending" | "running" | "done" | "failed";
-  readonly cause: Option.Option<Cause.Cause<CleanupError>>;
+  fence: OperationOccurrenceFence;
+  status: "running" | "settled" | "cancelled" | "stale";
+  finalization: "pending" | "running" | "done" | "failed";
+  cause: Option.Option<Cause.Cause<CleanupError>>;
 };
 
 /** Timer identity is an absolute deadline, never a replayed duration. */
 export type LifecycleTimer<CleanupError = never> = {
-  readonly name: string;
-  readonly startedAt: number;
-  readonly dueAt: number;
-  readonly status: "armed" | "fired" | "cancelled";
+  name: string;
+  startedAt: number;
+  dueAt: number;
+  status: "armed" | "fired" | "cancelled";
   /** A timer from another actor generation is inert on resume. */
-  readonly generation?: number;
+  generation?: number;
   /** Optional continuing refresh; finite work is never reconstructed here. */
-  readonly refresh?: Effect.Effect<void, CleanupError>;
+  refresh?: Effect.Effect<void, CleanupError>;
 };
 
 /** A provider-dependent owner cannot dispose while these logical edges remain. */
 export type BlockedDisposal<DefinitionValue extends MachineDefinition> = {
-  readonly dependentActors: readonly ActorRef<Machine<DefinitionValue>>[];
-  readonly bindingKeys: readonly (keyof ContextOf<DefinitionValue> & string)[];
+  dependentActors: ActorRef<Machine<DefinitionValue>>[];
+  bindingKeys: (keyof ContextOf<DefinitionValue> & string)[];
 };
 
 /** Detached attachments retain all logical truth while live resources are absent. */
@@ -122,19 +122,19 @@ export type LifecycleAttachment<
   CleanupError,
   ProviderDefinition extends MachineDefinition = DefinitionValue,
 > = {
-  readonly status: "attached" | "detached";
-  readonly resources: readonly LifecycleResource<CleanupError>[];
-  readonly work: readonly LifecycleWork<CleanupError>[];
-  readonly dependencies: readonly ActorDependencyEdge[];
-  readonly bindings: readonly Readonly<ActorContextBinding<DefinitionValue, ProviderDefinition>>[];
-  readonly providerRevisions: ReadonlyMap<ActorKey, number>;
-  readonly cursors: ReadonlyMap<string, number>;
-  readonly operations: readonly LifecycleOperationRecord<DefinitionValue, CleanupError>[];
-  readonly timers: readonly LifecycleTimer<CleanupError>[];
+  status: "attached" | "detached";
+  resources: LifecycleResource<CleanupError>[];
+  work: LifecycleWork<CleanupError>[];
+  dependencies: ActorDependencyEdge[];
+  bindings: ActorContextBinding<DefinitionValue, ProviderDefinition>[];
+  providerRevisions: Map<ActorKey, number>;
+  cursors: Map<string, number>;
+  operations: LifecycleOperationRecord<DefinitionValue, CleanupError>[];
+  timers: LifecycleTimer<CleanupError>[];
   /** Optional current-provider fence table used by resume reconciliation. */
-  readonly providerFences?: ReadonlyMap<ActorKey, ActorFence>;
+  providerFences?: Map<ActorKey, ActorFence>;
   /** Optional registry-provided dependent detail for exact disposal refusal. */
-  readonly blockedDisposal?: BlockedDisposal<DefinitionValue>;
+  blockedDisposal?: BlockedDisposal<DefinitionValue>;
 };
 
 /** Admitted context metadata installed before the actor crosses its start barrier. */
@@ -142,66 +142,66 @@ export type LifecycleAttachmentMetadata<
   DefinitionValue extends MachineDefinition,
   ProviderDefinition extends MachineDefinition = DefinitionValue,
 > = {
-  readonly dependencies: readonly ActorDependencyEdge[];
-  readonly bindings: readonly Readonly<ActorContextBinding<DefinitionValue, ProviderDefinition>>[];
-  readonly providerRevisions: ReadonlyMap<ActorKey, number>;
-  readonly providerFences: ReadonlyMap<ActorKey, ActorFence>;
+  dependencies: ActorDependencyEdge[];
+  bindings: ActorContextBinding<DefinitionValue, ProviderDefinition>[];
+  providerRevisions: Map<ActorKey, number>;
+  providerFences: Map<ActorKey, ActorFence>;
 };
 
-/** One immutable lifecycle publication cut. */
+/** One owned lifecycle publication cut. */
 export type LifecycleSnapshot<
   DefinitionValue extends MachineDefinition,
   CleanupError,
   ProviderDefinition extends MachineDefinition = DefinitionValue,
 > = {
-  readonly lifecycle: ActorLifecycle;
-  readonly fence: ActorFence;
-  readonly attachment: LifecycleAttachment<DefinitionValue, CleanupError, ProviderDefinition>;
-  readonly finalization: "not-started" | "running" | "done" | "failed";
+  lifecycle: ActorLifecycle;
+  fence: ActorFence;
+  attachment: LifecycleAttachment<DefinitionValue, CleanupError, ProviderDefinition>;
+  finalization: "not-started" | "running" | "done" | "failed";
 };
 
 /** A legal transition is computed before its effectful cleanup begins. */
 export type LifecycleTransition<CleanupError> = {
-  readonly from: ActorLifecycle;
-  readonly to: ActorLifecycle;
-  readonly command: LifecycleCommand<CleanupError>;
-  readonly cause: LifecycleCause<CleanupError>;
+  from: ActorLifecycle;
+  to: ActorLifecycle;
+  command: LifecycleCommand<CleanupError>;
+  cause: LifecycleCause<CleanupError>;
 };
 
 /** Restore is the evidence-only prepared-to-prepared transition. */
 export type PreparedRestoreTransition<CleanupError> = LifecycleTransition<CleanupError> & {
-  readonly from: "prepared";
-  readonly to: "prepared";
-  readonly command: Extract<LifecycleCommand<CleanupError>, { readonly _tag: "actor:restore" }>;
+  from: "prepared";
+  to: "prepared";
+  command: Extract<LifecycleCommand<CleanupError>, { _tag: "actor:restore" }>;
 };
 
 type LifecycleStateKey = {
-  readonly lifecycle: ActorLifecycle;
-  readonly fence: ActorFence;
+  lifecycle: ActorLifecycle;
+  fence: ActorFence;
 };
 
 type TimerClaim = {
-  readonly generation: number;
+  generation: number;
   status: "claimed" | "fired";
 };
 
 type LifecycleOwner = {
-  readonly scope: Scope.Closeable;
+  scope: Scope.Closeable;
   current: unknown;
   controllerBound: boolean;
-  readonly routing: { current: "open" | "blocked"; generation: number };
+  routing: { current: "open" | "blocked"; generation: number };
   scopeClosed: boolean;
-  readonly timerClaims: Map<string, TimerClaim>;
+  timerClaims: Map<string, TimerClaim>;
   overdueGeneration: number | undefined;
 };
 
 const lifecycleOwnerSymbol = Symbol("flow-state/lifecycle-owner");
 
 type OwnedLifecycleStateKey = LifecycleStateKey & {
-  readonly [lifecycleOwnerSymbol]: {
-    readonly owner: LifecycleOwner;
-    readonly publicationRevision: number;
-    readonly cleanupCause?: Cause.Cause<unknown>;
+  [lifecycleOwnerSymbol]: {
+    owner: LifecycleOwner;
+    publicationRevision: number;
+    cleanupCause?: Cause.Cause<unknown>;
   };
 };
 
@@ -217,7 +217,7 @@ const lifecycleMetadataOf = (state: LifecycleStateKey) => {
   return (state as Partial<OwnedLifecycleStateKey>)[lifecycleOwnerSymbol];
 };
 
-const copyFence = (fence: ActorFence) => immutableRecord({ ...fence });
+const copyFence = (fence: ActorFence) => copyObject({ ...fence });
 
 const sameFence = (left: ActorFence, right: ActorFence) =>
   left.key === right.key &&
@@ -272,10 +272,7 @@ const staleProvider = (key: ActorKey) =>
     help: "Resume only against the retained provider incarnation and lease fence.",
   });
 
-const blockedByDependents = (
-  dependentActors: readonly (ActorRef | ActorKey)[],
-  bindingKeys: readonly string[],
-) =>
+const blockedByDependents = (dependentActors: (ActorRef | ActorKey)[], bindingKeys: string[]) =>
   Failure({
     code: "BlockedByDependents",
     path: ["lifecycle", "dispose"],
@@ -426,30 +423,28 @@ const copyResource = <CleanupError>(
   resource: LifecycleResource<CleanupError>,
   finalization = resource.finalization,
   cause = resource.cause,
-) => immutableRecord({ ...resource, finalization, cause });
+) => copyObject({ ...resource, finalization, cause });
 
 const copyWork = <CleanupError>(
   work: LifecycleWork<CleanupError>,
   finalization = work.finalization,
   cause = work.cause,
-) => immutableRecord({ ...work, finalization, cause });
+) => copyObject({ ...work, finalization, cause });
 
-// RETURN_TYPE: Conditional binding types require an explicit immutable copy contract.
+// RETURN_TYPE: Conditional binding types require an explicit owned shallow-copy contract.
 const copyBinding = <
   ConsumerDefinition extends MachineDefinition,
   ProviderDefinition extends MachineDefinition,
   Slot extends keyof ContextOf<ConsumerDefinition> & string,
   ProviderRef extends ActorRef<Machine<ProviderDefinition>>,
 >(
-  binding: Readonly<ActorContextBinding<ConsumerDefinition, ProviderDefinition, Slot, ProviderRef>>,
-): Readonly<ActorContextBinding<ConsumerDefinition, ProviderDefinition, Slot, ProviderRef>> => {
-  const copied = immutableRecord({ ...binding, providerFence: copyFence(binding.providerFence) });
+  binding: ActorContextBinding<ConsumerDefinition, ProviderDefinition, Slot, ProviderRef>,
+): ActorContextBinding<ConsumerDefinition, ProviderDefinition, Slot, ProviderRef> => {
+  const copied = copyObject({ ...binding, providerFence: copyFence(binding.providerFence) });
 
-  // SAFETY: copied retains every binding field and replaces only its mutable fence with an immutable copy.
+  // SAFETY: copied retains every binding field and replaces its fence with an owned copy.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- conditional binding types cannot express this structural copy.
-  return copied as Readonly<
-    ActorContextBinding<ConsumerDefinition, ProviderDefinition, Slot, ProviderRef>
-  >;
+  return copied;
 };
 
 const copyAttachment = <
@@ -463,34 +458,30 @@ const copyAttachment = <
   const copied = {
     ...attachment,
     status,
-    resources: immutableArray(attachment.resources.map((resource) => copyResource(resource))),
-    work: immutableArray(attachment.work.map((work) => copyWork(work))),
-    dependencies: immutableArray(
-      attachment.dependencies.map((edge) => immutableRecord({ ...edge })),
-    ),
-    bindings: immutableArray(attachment.bindings.map((binding) => copyBinding(binding))),
-    providerRevisions: readonlyMap(attachment.providerRevisions.entries()),
-    cursors: readonlyMap(attachment.cursors.entries()),
-    operations: immutableArray(
-      attachment.operations.map((operation) => immutableRecord({ ...operation })),
-    ),
-    timers: immutableArray(attachment.timers.map((timer) => immutableRecord({ ...timer }))),
+    resources: copyArray(attachment.resources.map((resource) => copyResource(resource))),
+    work: copyArray(attachment.work.map((work) => copyWork(work))),
+    dependencies: copyArray(attachment.dependencies.map((edge) => copyObject({ ...edge }))),
+    bindings: copyArray(attachment.bindings.map((binding) => copyBinding(binding))),
+    providerRevisions: new Map(attachment.providerRevisions.entries()),
+    cursors: new Map(attachment.cursors.entries()),
+    operations: copyArray(attachment.operations.map((operation) => copyObject({ ...operation }))),
+    timers: copyArray(attachment.timers.map((timer) => copyObject({ ...timer }))),
   };
 
   if (attachment.providerFences !== undefined) {
-    copied.providerFences = readonlyMap(
+    copied.providerFences = new Map(
       [...attachment.providerFences].map(([key, fence]) => [key, copyFence(fence)] as const),
     );
   }
 
   if (attachment.blockedDisposal !== undefined) {
-    copied.blockedDisposal = immutableRecord({
-      dependentActors: immutableArray(attachment.blockedDisposal.dependentActors),
-      bindingKeys: immutableArray(attachment.blockedDisposal.bindingKeys),
+    copied.blockedDisposal = copyObject({
+      dependentActors: copyArray(attachment.blockedDisposal.dependentActors),
+      bindingKeys: copyArray(attachment.blockedDisposal.bindingKeys),
     });
   }
 
-  return immutableRecord(copied);
+  return copyObject(copied);
 };
 
 const copySnapshot = <
@@ -520,7 +511,7 @@ const copySnapshot = <
           cleanupCause,
         };
 
-  const next = immutableRecord({
+  const next = copyObject({
     lifecycle,
     fence: copyFence(state.fence),
     attachment,
@@ -593,19 +584,19 @@ export const prepareLifecycle = <
   if (cause._tag !== "fresh" && cause._tag !== "restore")
     return Result.fail(invalidSnapshot("prepare-cause"));
 
-  const snapshot = immutableRecord({
+  const snapshot = copyObject({
     lifecycle: "prepared" as const,
     fence: copyFence(fence),
-    attachment: immutableRecord({
+    attachment: copyObject({
       status: "detached" as const,
-      resources: immutableArray<LifecycleResource<CleanupError>>([]),
-      work: immutableArray<LifecycleWork<CleanupError>>([]),
-      dependencies: immutableArray<ActorDependencyEdge>([]),
-      bindings: immutableArray<ActorContextBinding<DefinitionValue, ProviderDefinition>>([]),
-      providerRevisions: readonlyMap<ActorKey, number>([]),
-      cursors: readonlyMap<string, number>([]),
-      operations: immutableArray<LifecycleOperationRecord<DefinitionValue, CleanupError>>([]),
-      timers: immutableArray<LifecycleTimer>([]),
+      resources: copyArray<LifecycleResource<CleanupError>>([]),
+      work: copyArray<LifecycleWork<CleanupError>>([]),
+      dependencies: copyArray<ActorDependencyEdge>([]),
+      bindings: copyArray<ActorContextBinding<DefinitionValue, ProviderDefinition>>([]),
+      providerRevisions: new Map<ActorKey, number>(),
+      cursors: new Map<string, number>(),
+      operations: copyArray<LifecycleOperationRecord<DefinitionValue, CleanupError>>([]),
+      timers: copyArray<LifecycleTimer>([]),
     }),
     finalization: "not-started" as const,
   });
@@ -620,7 +611,7 @@ export const prepareLifecycle = <
     overdueGeneration: undefined,
   };
 
-  const owned = immutableRecord({
+  const owned = copyObject({
     ...snapshot,
     [lifecycleOwnerSymbol]: { owner, publicationRevision: 0 },
   });
@@ -672,7 +663,7 @@ export const installLifecycleMetadata = <
           cleanupCause: lifecycleMetadataOf(state)?.cleanupCause,
         };
 
-  const next = immutableRecord({
+  const next = copyObject({
     lifecycle: state.lifecycle,
     fence: copyFence(state.fence),
     attachment,
@@ -692,7 +683,7 @@ export const installLifecycleTimers = <
   ProviderDefinition extends MachineDefinition = DefinitionValue,
 >(
   input: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
-  timers: readonly Pick<LifecycleTimer, "name" | "startedAt" | "dueAt">[],
+  timers: Pick<LifecycleTimer, "name" | "startedAt" | "dueAt">[],
 ): Result.Result<
   LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
   PublicDiagnostic
@@ -705,7 +696,7 @@ export const installLifecycleTimers = <
   const attachment = copyAttachment({
     ...state.attachment,
     timers: timers.map((timer) =>
-      immutableRecord({
+      copyObject({
         ...timer,
         status: "armed" as const,
         generation: state.fence.generation,
@@ -717,7 +708,7 @@ export const installLifecycleTimers = <
 
   if (metadata === undefined) return Result.fail(invalidSnapshot("owner"));
 
-  const next = immutableRecord({
+  const next = copyObject({
     lifecycle: state.lifecycle,
     fence: copyFence(state.fence),
     attachment,
@@ -809,8 +800,8 @@ type CleanupRun<
   CleanupError,
   ProviderDefinition extends MachineDefinition,
 > = {
-  readonly attachment: LifecycleAttachment<DefinitionValue, CleanupError, ProviderDefinition>;
-  readonly cause: Cause.Cause<CleanupError> | undefined;
+  attachment: LifecycleAttachment<DefinitionValue, CleanupError, ProviderDefinition>;
+  cause: Cause.Cause<CleanupError> | undefined;
 };
 
 const cleanupWorkItem = <CleanupError>(item: LifecycleWork<CleanupError>) =>
@@ -853,7 +844,7 @@ const cleanupWorkItem = <CleanupError>(item: LifecycleWork<CleanupError>) =>
     };
   });
 
-const cleanupWork = <CleanupError>(items: readonly LifecycleWork<CleanupError>[]) =>
+const cleanupWork = <CleanupError>(items: LifecycleWork<CleanupError>[]) =>
   Effect.gen(function* () {
     let cleanupCause: Cause.Cause<CleanupError> | undefined;
     const work = items.map((item) => copyWork(item));
@@ -870,7 +861,7 @@ const cleanupWork = <CleanupError>(items: readonly LifecycleWork<CleanupError>[]
       work[index] = cleaned.item;
     }
 
-    return { work: immutableArray(work), cause: cleanupCause };
+    return { work: copyArray(work), cause: cleanupCause };
   });
 
 const cleanupResource = <CleanupError>(resource: LifecycleResource<CleanupError>) =>
@@ -897,7 +888,7 @@ const cleanupResource = <CleanupError>(resource: LifecycleResource<CleanupError>
     };
   });
 
-const cleanupResources = <CleanupError>(items: readonly LifecycleResource<CleanupError>[]) =>
+const cleanupResources = <CleanupError>(items: LifecycleResource<CleanupError>[]) =>
   Effect.gen(function* () {
     let cleanupCause: Cause.Cause<CleanupError> | undefined;
     const resources = items.map((resource) => copyResource(resource));
@@ -914,7 +905,7 @@ const cleanupResources = <CleanupError>(items: readonly LifecycleResource<Cleanu
       resources[index] = cleaned.resource;
     }
 
-    return { resources: immutableArray(resources), cause: cleanupCause };
+    return { resources: copyArray(resources), cause: cleanupCause };
   });
 
 // RETURN_TYPE: Ordered cleanup retains full work/resource Cause data before publication.
@@ -931,7 +922,7 @@ const cleanupAttachment = <
       const resources = yield* cleanupResources(attachment.resources);
 
       return {
-        attachment: immutableRecord({
+        attachment: copyObject({
           ...copyAttachment(attachment, "detached"),
           work: work.work,
           resources: resources.resources,
@@ -942,10 +933,10 @@ const cleanupAttachment = <
   );
 
 type ReacquiredAttachment<CleanupError> = {
-  readonly resources: readonly LifecycleResource<CleanupError>[];
-  readonly work: readonly LifecycleWork<CleanupError>[];
-  readonly acquiredResources: readonly LifecycleResource<CleanupError>[];
-  readonly acquiredWork: readonly LifecycleWork<CleanupError>[];
+  resources: LifecycleResource<CleanupError>[];
+  work: LifecycleWork<CleanupError>[];
+  acquiredResources: LifecycleResource<CleanupError>[];
+  acquiredWork: LifecycleWork<CleanupError>[];
 };
 
 const rollbackReacquired = <
@@ -954,13 +945,13 @@ const rollbackReacquired = <
   ProviderDefinition extends MachineDefinition,
 >(
   state: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
-  resources: readonly LifecycleResource<CleanupError>[],
-  work: readonly LifecycleWork<CleanupError>[],
+  resources: LifecycleResource<CleanupError>[],
+  work: LifecycleWork<CleanupError>[],
 ) =>
   cleanupAttachment({
     ...copyAttachment(state.attachment, "detached"),
-    resources: immutableArray(resources),
-    work: immutableArray(work),
+    resources: copyArray(resources),
+    work: copyArray(work),
   });
 
 // RETURN_TYPE: Continuing attachments are reacquired under the actor Scope and roll back atomically.
@@ -1024,10 +1015,10 @@ const reacquireAttachment = <
     }
 
     return {
-      resources: immutableArray(resources),
-      work: immutableArray(work),
-      acquiredResources: immutableArray(acquiredResources),
-      acquiredWork: immutableArray(acquiredWork),
+      resources: copyArray(resources),
+      work: copyArray(work),
+      acquiredResources: copyArray(acquiredResources),
+      acquiredWork: copyArray(acquiredWork),
     };
   });
 
@@ -1112,7 +1103,7 @@ const scheduleRetainedTimers = <
   ProviderDefinition extends MachineDefinition,
 >(
   state: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
-): Effect.Effect<readonly LifecycleWork<CleanupError>[], PublicDiagnostic, RuntimeServiceContext> =>
+): Effect.Effect<LifecycleWork<CleanupError>[], PublicDiagnostic, RuntimeServiceContext> =>
   Effect.gen(function* () {
     const clock = yield* Effect.service(RuntimeClock);
     const scheduler = yield* Effect.service(RuntimeScheduler);
@@ -1182,7 +1173,7 @@ const scheduleRetainedTimers = <
 
       running.push(started.value);
       timerWork.push(
-        immutableRecord({
+        copyObject({
           name: `timer:${timer.name}`,
           fiber: started.value.fiber,
           cancel: started.value.interrupt,
@@ -1195,7 +1186,7 @@ const scheduleRetainedTimers = <
       );
     }
 
-    return immutableArray(timerWork);
+    return copyArray(timerWork);
   });
 
 /** Resumes one retained actor after provider reconciliation and finalization. */
@@ -1240,10 +1231,10 @@ export const resumeLifecycle = <
           copySnapshot(
             state,
             "active",
-            immutableRecord({
+            copyObject({
               ...copyAttachment(state.attachment, "attached"),
               resources: reacquired.resources,
-              work: immutableArray([...reacquired.work, ...timerWork]),
+              work: copyArray([...reacquired.work, ...timerWork]),
             }),
             "not-started",
           ),
@@ -1301,17 +1292,13 @@ export const disposeLifecycle = <
     Effect.flatMap((cleaned) =>
       closeScope(state).pipe(
         Effect.flatMap(() => {
-          const failed = cleaned.cause !== undefined;
+          if (cleaned.cause !== undefined) {
+            copySnapshot(state, state.lifecycle, cleaned.attachment, "failed", cleaned.cause);
 
-          const next = copySnapshot(
-            state,
-            failed ? state.lifecycle : "disposed",
-            cleaned.attachment,
-            failed ? "failed" : "done",
-            cleaned.cause,
-          );
+            return Effect.fail(cleanupDiagnostic(cleaned.cause));
+          }
 
-          return failed ? Effect.fail(cleanupDiagnostic(cleaned.cause)) : Effect.succeed(next);
+          return Effect.succeed(copySnapshot(state, "disposed", cleaned.attachment, "done"));
         }),
         Effect.catchCause((cause) => {
           // SAFETY: closeScope projects its owner-scope Cause into CleanupError before this handler.
@@ -1484,13 +1471,11 @@ export type LifecycleController<
   ProviderDefinition extends MachineDefinition = DefinitionValue,
 > = {
   /** Reads the current lifecycle from the serialized controller owner. */
-  readonly currentLifecycle: () => ActorLifecycle;
+  currentLifecycle: () => ActorLifecycle;
   /** Reports whether the authoritative lifecycle owner admits actor work. */
-  readonly isRoutable: () => boolean;
-  readonly state: () => Effect.Effect<
-    LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>
-  >;
-  readonly command: (
+  isRoutable: () => boolean;
+  state: () => Effect.Effect<LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>>;
+  command: (
     command: LifecycleCommand<CleanupError>,
   ) => Effect.Effect<
     LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
@@ -1498,7 +1483,7 @@ export type LifecycleController<
     RuntimeServiceContext
   >;
   /** Installs admitted attachment metadata without publishing a lifecycle transition. */
-  readonly installMetadata: (
+  installMetadata: (
     metadata: LifecycleAttachmentMetadata<DefinitionValue, ProviderDefinition>,
   ) => Effect.Effect<
     LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
@@ -1509,12 +1494,12 @@ export type LifecycleController<
 
 export type LifecycleControllerOptions = {
   /** Reads the owning actor's latest machine-turn revision without adding it to snapshots. */
-  readonly machineTurnRevision?: () => number;
+  machineTurnRevision?: () => number;
 };
 
 export type LifecycleRouting = {
-  readonly block: () => number;
-  readonly open: (generation: number) => void;
+  block: () => number;
+  open: (generation: number) => void;
 };
 
 const lifecycleRoutingSymbol = Symbol("flow-state/lifecycle-routing");
@@ -1524,7 +1509,7 @@ type OwnedLifecycleController<
   CleanupError,
   ProviderDefinition extends MachineDefinition = DefinitionValue,
 > = LifecycleController<DefinitionValue, CleanupError, ProviderDefinition> & {
-  readonly [lifecycleRoutingSymbol]: LifecycleRouting;
+  [lifecycleRoutingSymbol]: LifecycleRouting;
 };
 
 export const lifecycleRouting = <
@@ -1549,79 +1534,77 @@ export const lifecycleRouting = <
 
 /** One serialized provider publication wave for a retained context binding. */
 export type ProviderReconciliation<Value> = {
-  readonly changed: boolean;
-  readonly revision: number;
-  readonly value: Value;
+  changed: boolean;
+  revision: number;
+  value: Value;
 };
 
 export type ProviderReconciliationOptions<Value> = {
-  readonly equals?: (left: Value, right: Value) => boolean;
-  readonly reconcile: (value: Value) => Effect.Effect<void, PublicDiagnostic>;
+  equals?: (left: Value, right: Value) => boolean;
+  reconcile: (value: Value) => Effect.Effect<void, PublicDiagnostic>;
 };
 
 type ProviderReconcilerOwner<Value> = {
-  readonly publish: (
-    value: Value,
-  ) => Effect.Effect<ProviderReconciliation<Value>, PublicDiagnostic>;
-  readonly revision: () => number;
+  publish: (value: Value) => Effect.Effect<ProviderReconciliation<Value>, PublicDiagnostic>;
+  revision: () => number;
 };
 
 /** Runtime disposal participant; actor cleanup remains the participant's owner. */
 export type LifecycleRuntimeParticipant<Requirements = RuntimeServiceContext> = {
-  readonly dispose: () => Effect.Effect<void, PublicDiagnostic, Requirements>;
+  dispose: () => Effect.Effect<void, PublicDiagnostic, Requirements>;
 };
 
 export type LifecycleRuntimeRegistration = {
-  readonly accepted: boolean;
-  readonly unregister: () => void;
+  accepted: boolean;
+  unregister: () => void;
 };
 
 export type LifecycleRuntimeOwner<Requirements = RuntimeServiceContext> = {
-  readonly registerActor: (
+  registerActor: (
     participant: LifecycleRuntimeParticipant<Requirements>,
   ) => LifecycleRuntimeRegistration;
-  readonly registerProvider: (release: Effect.Effect<void, PublicDiagnostic, Requirements>) => void;
-  readonly dispose: () => Effect.Effect<void, PublicDiagnostic, Requirements>;
-  readonly generation: () => number;
-  readonly isCurrent: (generation: number) => boolean;
-  readonly isOpen: () => boolean;
+  registerProvider: (release: Effect.Effect<void, PublicDiagnostic, Requirements>) => void;
+  dispose: () => Effect.Effect<void, PublicDiagnostic, Requirements>;
+  generation: () => number;
+  isCurrent: (generation: number) => boolean;
+  isOpen: () => boolean;
 };
 
 /** Accepted evidence is drained after actors and before runtime providers. */
 export type LifecycleRuntimeOwnerOptions<Requirements = RuntimeServiceContext> = {
-  readonly drain?: Effect.Effect<void, PublicDiagnostic, Requirements>;
+  drain?: Effect.Effect<void, PublicDiagnostic, Requirements>;
 };
 
 type RuntimeDisposalState<Requirements> =
   | {
-      readonly _tag: "open";
-      readonly generation: number;
-      readonly actors: RuntimeActorRegistration<Requirements>[];
-      readonly providers: Array<Effect.Effect<void, PublicDiagnostic, Requirements>>;
+      _tag: "open";
+      generation: number;
+      actors: RuntimeActorRegistration<Requirements>[];
+      providers: Array<Effect.Effect<void, PublicDiagnostic, Requirements>>;
     }
   | {
-      readonly _tag: "closing";
-      readonly generation: number;
-      readonly actors: RuntimeActorRegistration<Requirements>[];
-      readonly providers: Array<Effect.Effect<void, PublicDiagnostic, Requirements>>;
-      readonly completion: Deferred.Deferred<Exit.Exit<void, PublicDiagnostic>>;
+      _tag: "closing";
+      generation: number;
+      actors: RuntimeActorRegistration<Requirements>[];
+      providers: Array<Effect.Effect<void, PublicDiagnostic, Requirements>>;
+      completion: Deferred.Deferred<Exit.Exit<void, PublicDiagnostic>>;
       acceptingActors: boolean;
     }
   | {
-      readonly _tag: "failed";
-      readonly generation: number;
-      readonly actors: RuntimeActorRegistration<Requirements>[];
-      readonly providers: Array<Effect.Effect<void, PublicDiagnostic, Requirements>>;
-      readonly exit: Exit.Exit<void, PublicDiagnostic>;
+      _tag: "failed";
+      generation: number;
+      actors: RuntimeActorRegistration<Requirements>[];
+      providers: Array<Effect.Effect<void, PublicDiagnostic, Requirements>>;
+      exit: Exit.Exit<void, PublicDiagnostic>;
     }
   | {
-      readonly _tag: "closed";
-      readonly generation: number;
-      readonly exit: Exit.Exit<void, PublicDiagnostic>;
+      _tag: "closed";
+      generation: number;
+      exit: Exit.Exit<void, PublicDiagnostic>;
     };
 
 type RuntimeActorRegistration<Requirements> = {
-  readonly participant: LifecycleRuntimeParticipant<Requirements>;
+  participant: LifecycleRuntimeParticipant<Requirements>;
   active: boolean;
 };
 
@@ -1676,7 +1659,7 @@ const makeColdRuntimeDisposalOwner = <Requirements>(
   };
 
   const run = (
-    closing: Extract<RuntimeDisposalState<Requirements>, { readonly _tag: "closing" }>,
+    closing: Extract<RuntimeDisposalState<Requirements>, { _tag: "closing" }>,
   ): Effect.Effect<void, PublicDiagnostic, Requirements> => {
     const operation = Effect.uninterruptible(
       Effect.gen(function* () {
@@ -1786,7 +1769,7 @@ const makeColdRuntimeDisposalOwner = <Requirements>(
 
       const completion = Deferred.makeUnsafe<Exit.Exit<void, PublicDiagnostic>>();
 
-      const closing: Extract<RuntimeDisposalState<Requirements>, { readonly _tag: "closing" }> = {
+      const closing: Extract<RuntimeDisposalState<Requirements>, { _tag: "closing" }> = {
         _tag: "closing",
         generation: current.generation + 1,
         actors: current.actors,

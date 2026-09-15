@@ -4,6 +4,12 @@ import type { OperationDeclaration, OperationDeclarations } from "../operation/o
 
 export type { OperationDeclaration, OperationDeclarations } from "../operation/operation.js";
 
+// oxlint-disable-next-line anti-slop/no-readonly -- NO_READONLY_CODEMOD: Effect Schema exposes readonly decoded arrays, and const-inferred authored tuples must retain their element positions for recursive state mapping.
+export interface DefinitionList<Value> extends ReadonlyArray<Value> {}
+
+// oxlint-disable-next-line anti-slop/no-readonly -- NO_READONLY_CODEMOD: variadic state-path matching must accept const-inferred authored tuples without widening their order.
+type DefinitionTuple<Head, Tail extends DefinitionList<unknown>> = readonly [Head, ...Tail];
+
 /*
  * Type vocabulary:
  *
@@ -34,17 +40,17 @@ export type DefinitionValue =
   | symbol
   | undefined
   | EventPayload
-  | readonly DefinitionValue[]
+  | DefinitionList<DefinitionValue>
   | StateToken<string, string, string>
   | OperationDeclaration
   | ContextSelector
   | DefinitionFunction;
 
 export interface EventPayload {
-  readonly [key: string]: DefinitionValue;
+  [key: string]: DefinitionValue;
 }
 
-type EmptyEventPayload = Readonly<Record<never, never>>;
+type EmptyEventPayload = Record<never, never>;
 
 type DefinitionFunctionResult =
   | bigint
@@ -53,19 +59,19 @@ type DefinitionFunctionResult =
   | string
   | symbol
   | EventPayload
-  | readonly DefinitionFunctionResult[]
+  | DefinitionList<DefinitionFunctionResult>
   | StateToken<string, string, string>
   | OperationDeclaration
   | ContextSelector
   | DefinitionFunction;
 
 interface DefinitionFunction {
-  (...args: readonly never[]): DefinitionFunctionResult;
+  (...args: never[]): DefinitionFunctionResult;
 }
 
-type DefinitionRecord<Value> = Readonly<{
+type DefinitionRecord<Value> = {
   [Key in keyof Value]: DefinitionValue;
-}>;
+};
 
 /*
  * Component map — authored configuration and callback inputs:
@@ -74,28 +80,32 @@ type DefinitionRecord<Value> = Readonly<{
  * Definition inputs represented here.
  */
 
-export type StateDeclaration = string | Readonly<Record<string, readonly StateDeclaration[]>>;
+interface StateDeclarationBranch {
+  [name: string]: DefinitionList<StateDeclaration>;
+}
 
-export type EventDeclaration = "bare" | ((...args: readonly never[]) => EventPayload);
+export type StateDeclaration = string | StateDeclarationBranch;
 
-export type EventDeclarations = Readonly<Record<string, EventDeclaration>>;
+export type EventDeclaration = "bare" | ((...args: never[]) => EventPayload);
 
-export type ContextDeclarations = Readonly<Record<string, ContextSelector>>;
+export type EventDeclarations = Record<string, EventDeclaration>;
+
+export type ContextDeclarations = Record<string, ContextSelector>;
 
 export type MemoryDeclaration<
   Input = never,
   Memory extends DefinitionRecord<Memory> = EventPayload,
-> = (options: { readonly input: Input }) => Memory;
+> = (options: { input: Input }) => Memory;
 
-type EventArguments = readonly DefinitionValue[];
+type EventArguments = DefinitionValue[];
 
 export type DefinitionConfig = {
-  readonly id: string;
-  readonly states: readonly StateDeclaration[];
-  readonly events: EventDeclarations;
-  readonly context?: ContextDeclarations;
-  readonly operations?: OperationDeclarations;
-  readonly memory?: MemoryDeclaration;
+  id: string;
+  states: DefinitionList<StateDeclaration>;
+  events: EventDeclarations;
+  context?: ContextDeclarations;
+  operations?: OperationDeclarations;
+  memory?: MemoryDeclaration;
 };
 
 /*
@@ -106,7 +116,7 @@ export type DefinitionConfig = {
  */
 
 export interface DefinitionIdentity {
-  readonly id: string;
+  id: string;
 }
 
 export type ContextSelector<
@@ -114,9 +124,9 @@ export type ContextSelector<
   Provider extends DefinitionIdentity = DefinitionIdentity,
 > = Brand.Branded<
   {
-    readonly kind: "context-selector";
-    readonly provider: Provider;
-    readonly selector: (...args: readonly never[]) => Value;
+    kind: "context-selector";
+    provider: Provider;
+    selector: (...args: never[]) => Value;
   },
   "ContextSelector"
 >;
@@ -127,9 +137,9 @@ export type StateToken<
   Identity extends string = Path,
 > = Brand.Branded<
   {
-    readonly kind: "state";
-    readonly name: Path;
-    readonly id: `S|${number}:${DefinitionId}|${number}:${Identity}`;
+    kind: "state";
+    name: Path;
+    id: `S|${number}:${DefinitionId}|${number}:${Identity}`;
   },
   "StateToken"
 >;
@@ -137,12 +147,12 @@ export type StateToken<
 export type EventEnvelope<
   Id extends string = string,
   Payload extends EventPayload | EmptyEventPayload = EventPayload,
-> = Brand.Branded<{ readonly type: Id } & Readonly<Payload>, "EventEnvelope">;
+> = Brand.Branded<{ type: Id } & Payload, "EventEnvelope">;
 
 export type EventToken<
   DefinitionId extends string = string,
   Name extends string = string,
-  Args extends EventArguments = readonly [],
+  Args extends EventArguments = [],
   Payload extends EventPayload | EmptyEventPayload = EventPayload,
 > = Brand.Branded<
   ((
@@ -151,9 +161,9 @@ export type EventToken<
     EventEnvelope<`E|${number}:${DefinitionId}|${number}:${Name}`, Payload>,
     Diagnostic.PublicDiagnostic
   >) & {
-    readonly kind: "event";
-    readonly name: Name;
-    readonly id: `E|${number}:${DefinitionId}|${number}:${Name}`;
+    kind: "event";
+    name: Name;
+    id: `E|${number}:${DefinitionId}|${number}:${Name}`;
   },
   "EventToken"
 >;
@@ -166,14 +176,15 @@ type UnsafeStateName = "S" | `${string}.${string}` | `${string}[${string}` | `${
 
 type EncodedStateSegment<Segment extends string> = `${number}:${Segment}`;
 
-type EncodedStateIdentity<Segments extends readonly string[]> = Segments extends readonly [
-  infer Head extends string,
-  ...infer Tail extends string[],
-]
-  ? `${EncodedStateSegment<Head>}${Tail extends readonly [] ? "" : `|${EncodedStateIdentity<Tail>}`}`
-  : never;
+type EncodedStateIdentity<Segments extends DefinitionList<string>> =
+  Segments extends DefinitionTuple<
+    infer Head extends string,
+    infer Tail extends DefinitionList<string>
+  >
+    ? `${EncodedStateSegment<Head>}${Tail["length"] extends 0 ? "" : `|${EncodedStateIdentity<Tail>}`}`
+    : never;
 
-type StateIdentity<Segments extends readonly string[], Display extends string> =
+type StateIdentity<Segments extends DefinitionList<string>, Display extends string> =
   Extract<Segments[number], UnsafeStateName> extends never
     ? Display
     : EncodedStateIdentity<Segments>;
@@ -182,25 +193,20 @@ type StateEntry<
   DefinitionId extends string,
   Declaration,
   Parent extends string,
-  ParentSegments extends readonly string[],
+  ParentSegments extends DefinitionList<string>,
 > = Declaration extends string
   ? {
-      readonly [Name in Declaration]: StateToken<
+      [Name in Declaration]: StateToken<
         DefinitionId,
         StatePath<Parent, Name>,
         StateIdentity<[...ParentSegments, Name], StatePath<Parent, Name>>
       >;
     }
-  : Declaration extends Readonly<Record<infer Name extends string, infer Children>>
-    ? Children extends readonly StateDeclaration[]
+  : Declaration extends Record<infer Name extends string, infer Children>
+    ? Children extends DefinitionList<StateDeclaration>
       ? {
-          readonly [Key in Name]: {
-            readonly S: StateTable<
-              DefinitionId,
-              Children,
-              StatePath<Parent, Key>,
-              [...ParentSegments, Key]
-            >;
+          [Key in Name]: {
+            S: StateTable<DefinitionId, Children, StatePath<Parent, Key>, [...ParentSegments, Key]>;
           };
         }
       : never
@@ -208,22 +214,22 @@ type StateEntry<
 
 type StateTable<
   DefinitionId extends string,
-  States extends readonly StateDeclaration[],
+  States extends DefinitionList<StateDeclaration>,
   Parent extends string,
-  ParentSegments extends readonly string[] = [],
+  ParentSegments extends DefinitionList<string> = [],
 > = Types.UnionToIntersection<StateEntry<DefinitionId, States[number], Parent, ParentSegments>>;
 
-type EventPayloadOf<Declaration> = Declaration extends (...args: readonly never[]) => infer Payload
+type EventPayloadOf<Declaration> = Declaration extends (...args: never[]) => infer Payload
   ? Payload extends DefinitionRecord<Payload>
     ? Payload
     : never
-  : Readonly<Record<never, never>>;
+  : Record<never, never>;
 
 type EventArgsOf<Declaration> = Declaration extends (
   ...args: infer Args extends EventArguments
 ) => EventPayload
   ? Args
-  : readonly [];
+  : [];
 
 type EventEntry<DefinitionId extends string, Name extends string, Declaration> = EventToken<
   DefinitionId,
@@ -232,9 +238,9 @@ type EventEntry<DefinitionId extends string, Name extends string, Declaration> =
   EventPayloadOf<Declaration>
 >;
 
-type EventTable<DefinitionId extends string, Events extends EventDeclarations> = Readonly<{
+type EventTable<DefinitionId extends string, Events extends EventDeclarations> = {
   [Name in keyof Events & string]: EventEntry<DefinitionId, Name, Events[Name]>;
-}>;
+};
 
 /*
  * Component map — constructed Definition:
@@ -244,45 +250,47 @@ type EventTable<DefinitionId extends string, Events extends EventDeclarations> =
  */
 
 export interface RuntimeStateBranch {
-  readonly S: RuntimeStateTable;
+  S: RuntimeStateTable;
 }
 
-export type RuntimeStateTable = Readonly<
-  Record<string, StateToken<string, string, string> | RuntimeStateBranch>
+export type RuntimeStateTable = Record<
+  string,
+  StateToken<string, string, string> | RuntimeStateBranch
 >;
 
 type RuntimeEventIdentity = Pick<EventToken, "kind" | "name" | "id">;
 
-export type RuntimeEventTable<Event extends RuntimeEventIdentity = RuntimeEventIdentity> = Readonly<
-  Record<string, Event>
+export type RuntimeEventTable<Event extends RuntimeEventIdentity = RuntimeEventIdentity> = Record<
+  string,
+  Event
 >;
 
 export type DefinitionConstraint = Brand.Brand<"Definition"> &
   DefinitionIdentity & {
-    readonly S: RuntimeStateTable;
-    readonly E: RuntimeEventTable;
-    readonly context: ContextDeclarations;
-    readonly operations: OperationDeclarations;
-    readonly memory: MemoryDeclaration | undefined;
+    S: RuntimeStateTable;
+    E: RuntimeEventTable;
+    context: ContextDeclarations;
+    operations: OperationDeclarations;
+    memory: MemoryDeclaration | undefined;
   };
 
 export type Definition<
   DefinitionId extends string = string,
-  States extends readonly StateDeclaration[] = readonly StateDeclaration[],
+  States extends DefinitionList<StateDeclaration> = DefinitionList<StateDeclaration>,
   Events extends EventDeclarations = EventDeclarations,
   Context extends ContextDeclarations = ContextDeclarations,
   Operations extends OperationDeclarations = OperationDeclarations,
   Memory extends MemoryDeclaration | undefined = MemoryDeclaration | undefined,
 > = Brand.Branded<
   {
-    readonly id: DefinitionId;
-    readonly states: States;
-    readonly S: StateTable<DefinitionId, States, "">;
-    readonly E: EventTable<DefinitionId, Events>;
-    readonly context: Context;
-    readonly operations: Operations;
-    readonly memory: Memory;
-    readonly select: <const Value extends DefinitionValue>(
+    id: DefinitionId;
+    states: States;
+    S: StateTable<DefinitionId, States, "">;
+    E: EventTable<DefinitionId, Events>;
+    context: Context;
+    operations: Operations;
+    memory: Memory;
+    select: <const Value extends DefinitionValue>(
       selector: (
         input: SelectorInput<Definition<DefinitionId, States, Events, Context, Operations, Memory>>,
       ) => Value,
@@ -296,14 +304,14 @@ export type Definition<
 
 export type AnyDefinition = Brand.Branded<
   {
-    readonly id: string;
-    readonly states: readonly StateDeclaration[];
-    readonly S: RuntimeStateTable;
-    readonly E: RuntimeEventTable<EventToken>;
-    readonly context: ContextDeclarations;
-    readonly operations: OperationDeclarations;
-    readonly memory: MemoryDeclaration | undefined;
-    readonly select: <const Value extends DefinitionValue>(
+    id: string;
+    states: DefinitionList<StateDeclaration>;
+    S: RuntimeStateTable;
+    E: RuntimeEventTable<EventToken>;
+    context: ContextDeclarations;
+    operations: OperationDeclarations;
+    memory: MemoryDeclaration | undefined;
+    select: <const Value extends DefinitionValue>(
       selector: (input: SelectorInput<AnyDefinition>) => Value,
     ) => ContextSelector<Value, AnyDefinition>;
   },
@@ -314,16 +322,16 @@ export type AnyDefinition = Brand.Branded<
  * Component map — derived Definition projections:
  * StateOf/EventOf derive token unions; InputOf/MemoryOf derive the one
  * initializer contract; ContextOf/OperationsOf/SelectorInput expose the
- * readonly callback view. EventValueOf and WidenMemory are private projection
- * helpers. EmptyMemory, EmptyContext, EmptyOperations, ReadonlySelection, and
+ * callback view. EventValueOf and WidenMemory are private projection
+ * helpers. EmptyMemory, EmptyContext, EmptyOperations, Selection, and
  * their other private helpers preserve absence semantics.
  */
 
-export type EmptyMemory = Readonly<Record<never, never>>;
+export type EmptyMemory = Record<never, never>;
 
-export type EmptyContext = Readonly<Record<never, never>>;
+export type EmptyContext = Record<never, never>;
 
-export type EmptyOperations = Readonly<Record<never, never>>;
+export type EmptyOperations = Record<never, never>;
 
 type EventValueOf<Value> =
   Value extends Result.Result<infer Success, Diagnostic.PublicDiagnostic> ? Success : never;
@@ -333,7 +341,7 @@ type WidenMemory<Value> =
     ? Value
     : Value extends DefinitionFunction
       ? Value
-      : Value extends readonly DefinitionValue[]
+      : Value extends DefinitionList<DefinitionValue>
         ? Value
         : Value extends string
           ? string
@@ -344,11 +352,11 @@ type WidenMemory<Value> =
               : Value extends bigint
                 ? bigint
                 : Value extends DefinitionRecord<Value>
-                  ? { -readonly [Key in keyof Value]: WidenMemory<Value[Key]> }
+                  ? { [Key in keyof Value]: WidenMemory<Value[Key]> }
                   : Value;
 
 export type StateOf<Value extends DefinitionIdentity> = Value extends {
-  readonly S: infer States;
+  S: infer States;
 }
   ? StateLeavesFromTable<States>
   : never;
@@ -364,11 +372,11 @@ type StateLeavesFromTable<Value> = Value extends StateToken
       : never;
 
 export type EventOf<Value extends DefinitionIdentity> = Value extends {
-  readonly E: infer Events;
+  E: infer Events;
 }
   ? Events extends RuntimeEventTable
     ? {
-        [Name in keyof Events]: Events[Name] extends (...args: readonly never[]) => infer Result
+        [Name in keyof Events]: Events[Name] extends (...args: never[]) => infer Result
           ? EventValueOf<Result>
           : never;
       }[keyof Events]
@@ -379,10 +387,10 @@ type InputFromMemory<Value> = Value extends undefined
   ? void
   : Value extends (...args: infer Args) => infer Output
     ? Output extends DefinitionRecord<Output>
-      ? Args extends readonly []
+      ? Args extends []
         ? void
-        : Args extends readonly [infer Options]
-          ? Options extends { readonly input: infer Input }
+        : Args extends [infer Options]
+          ? Options extends { input: infer Input }
             ? Input
             : never
           : never
@@ -391,58 +399,58 @@ type InputFromMemory<Value> = Value extends undefined
 
 type MemoryFromMemory<Value> = Value extends undefined
   ? EmptyMemory
-  : Value extends (...args: readonly never[]) => infer Output
+  : Value extends (...args: never[]) => infer Output
     ? Output extends DefinitionRecord<Output>
       ? WidenMemory<Output>
       : never
     : never;
 
 export type InputOf<Value extends DefinitionIdentity> = Value extends {
-  readonly memory: infer Memory;
+  memory: infer Memory;
 }
   ? InputFromMemory<Memory>
   : void;
 
 export type MemoryOf<Value extends DefinitionIdentity> = Value extends {
-  readonly memory: infer Memory;
+  memory: infer Memory;
 }
   ? MemoryFromMemory<Memory>
   : EmptyMemory;
 
-type ReadonlySelection<Value extends DefinitionValue> =
+type Selection<Value extends DefinitionValue> =
   Value extends Brand.Brand<string>
     ? Value
-    : Value extends readonly DefinitionValue[]
-      ? Readonly<Value>
+    : Value extends DefinitionValue[]
+      ? Value
       : Value extends DefinitionRecord<Value>
-        ? Readonly<Value>
+        ? Value
         : Value;
 
 type ContextValueOf<Value extends ContextSelector> =
   Brand.Brand.Unbranded<Value> extends {
-    readonly selector: (...args: readonly never[]) => infer Selected extends DefinitionValue;
+    selector: (...args: never[]) => infer Selected extends DefinitionValue;
   }
-    ? ReadonlySelection<Selected>
+    ? Selection<Selected>
     : never;
 
 export type ContextOf<Value extends DefinitionIdentity> = Value extends {
-  readonly context: infer Context;
+  context: infer Context;
 }
-  ? Context extends Readonly<Record<string, ContextSelector>>
-    ? { readonly [Name in keyof Context]: ContextValueOf<Context[Name]> }
+  ? Context extends Record<string, ContextSelector>
+    ? { [Name in keyof Context]: ContextValueOf<Context[Name]> }
     : EmptyContext
   : EmptyContext;
 
 export type OperationsOf<Value extends DefinitionIdentity> = Value extends {
-  readonly operations: infer Operations;
+  operations: infer Operations;
 }
   ? Operations
   : EmptyOperations;
 
 export type SelectorInput<Value extends DefinitionIdentity> = {
-  readonly state: StateOf<Value>;
-  readonly memory: MemoryOf<Value>;
-  readonly context: ContextOf<Value>;
+  state: StateOf<Value>;
+  memory: MemoryOf<Value>;
+  context: ContextOf<Value>;
 };
 
 /*
@@ -452,7 +460,7 @@ export type SelectorInput<Value extends DefinitionIdentity> = {
  */
 
 type ContextOfConfig<Config extends DefinitionConfig> = Config extends {
-  readonly context: infer Context;
+  context: infer Context;
 }
   ? Context extends ContextDeclarations
     ? Context
@@ -460,13 +468,13 @@ type ContextOfConfig<Config extends DefinitionConfig> = Config extends {
   : EmptyContext;
 
 type OperationsOfConfig<Config extends DefinitionConfig> = Config extends {
-  readonly operations: infer Operations extends OperationDeclarations;
+  operations: infer Operations extends OperationDeclarations;
 }
   ? Operations
   : EmptyOperations;
 
 type MemoryOfConfig<Config extends DefinitionConfig> = Config extends {
-  readonly memory: infer Memory extends MemoryDeclaration;
+  memory: infer Memory extends MemoryDeclaration;
 }
   ? Memory
   : undefined;

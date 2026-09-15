@@ -8,57 +8,57 @@ import type { ActorLifecycle, LifecycleCause, LifecycleSnapshot } from "./lifecy
 
 /** Identifies the clock capability supplied by a runtime composition root. */
 export interface RuntimeClockIdentity {
-  readonly _tag: "RuntimeClock";
+  _tag: "RuntimeClock";
 }
 
 /** Reads runtime time and schedules work against absolute deadlines. */
 export interface RuntimeClockService {
-  readonly now: Effect.Effect<number>;
+  now: Effect.Effect<number>;
   /** Synchronous read for evidence preparation from the captured Clock service. */
-  readonly timestamp: () => number;
-  readonly sleepUntil: (dueAt: number) => Effect.Effect<void>;
+  timestamp: () => number;
+  sleepUntil: (dueAt: number) => Effect.Effect<void>;
 }
 
 /** Completion is allocated before a scheduler can start the requested work. */
 export type RuntimeWorkRequest<Success, Failure> = {
-  readonly completion: Deferred.Deferred<Exit.Exit<Success, Failure>>;
-  readonly work: Effect.Effect<Success, Failure>;
+  completion: Deferred.Deferred<Exit.Exit<Success, Failure>>;
+  work: Effect.Effect<Success, Failure>;
 };
 
 /** A running request has one owner-scoped fiber and one cancellation authority. */
 export type RuntimeRunningFiber<Success, Failure> = {
-  readonly fiber: Fiber.Fiber<Success, Failure>;
-  readonly completion: Deferred.Deferred<Exit.Exit<Success, Failure>>;
-  readonly interrupt: Effect.Effect<void>;
+  fiber: Fiber.Fiber<Success, Failure>;
+  completion: Deferred.Deferred<Exit.Exit<Success, Failure>>;
+  interrupt: Effect.Effect<void>;
 };
 
 /** Identifies the scheduling capability supplied by a runtime composition root. */
 export interface RuntimeSchedulerIdentity {
-  readonly _tag: "RuntimeScheduler";
+  _tag: "RuntimeScheduler";
 }
 
 /** Starts only pre-registered work under the caller's actor Scope. */
 export interface RuntimeSchedulerService {
-  readonly start: <Success, Failure>(
+  start: <Success, Failure>(
     request: RuntimeWorkRequest<Success, Failure>,
   ) => Effect.Effect<RuntimeRunningFiber<Success, Failure>, PublicDiagnostic, Scope.Scope>;
 }
 
 /** One lifecycle publication is evidence, never a machine-turn record. */
 type RuntimeEvidenceProvenance = {
-  readonly app: App;
-  readonly plan: ReturnType<typeof appPlan>;
-  readonly actor: Pick<ActorIdentity, "key" | "incarnation" | "leaseEpoch">;
+  app: App;
+  plan: ReturnType<typeof appPlan>;
+  actor: Pick<ActorIdentity, "key" | "incarnation" | "leaseEpoch">;
 };
 
 type RuntimeEvidenceServiceProvenance = Omit<RuntimeEvidenceProvenance, "actor">;
 
 type RuntimeLifecycleEvidenceMetadata = {
-  readonly timestamp: number;
-  readonly publicationRevision: number;
-  readonly machineTurnRevision: number;
-  readonly evidenceSequence: number;
-  readonly provenance: RuntimeEvidenceProvenance;
+  timestamp: number;
+  publicationRevision: number;
+  machineTurnRevision: number;
+  evidenceSequence: number;
+  provenance: RuntimeEvidenceProvenance;
 };
 
 export type RuntimeLifecycleEvidence<
@@ -66,13 +66,13 @@ export type RuntimeLifecycleEvidence<
   CleanupError,
   ProviderDefinition extends MachineDefinition = DefinitionValue,
 > = {
-  readonly _tag: "lifecycle";
-  readonly machineTurn: false;
-  readonly from: ActorLifecycle;
-  readonly to: ActorLifecycle;
-  readonly cause: LifecycleCause<CleanupError>;
-  readonly before: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>;
-  readonly after: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>;
+  _tag: "lifecycle";
+  machineTurn: false;
+  from: ActorLifecycle;
+  to: ActorLifecycle;
+  cause: LifecycleCause<CleanupError>;
+  before: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>;
+  after: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>;
 } & RuntimeLifecycleEvidenceMetadata;
 
 /** The evidence owner accepts lifecycle records without executing machine work. */
@@ -81,28 +81,28 @@ export type RuntimeEvidenceService<
   _DefinitionValue extends MachineDefinition = MachineDefinition,
   _CleanupError = PublicDiagnostic,
 > = {
-  readonly hub: unknown;
-  readonly provenance: RuntimeEvidenceServiceProvenance;
-  readonly publish: <
+  hub: unknown;
+  provenance: RuntimeEvidenceServiceProvenance;
+  publish: <
     DefinitionValue extends MachineDefinition,
     CleanupError,
     ProviderDefinition extends MachineDefinition = DefinitionValue,
   >(
     snapshot: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
   ) => Effect.Effect<void, PublicDiagnostic>;
-  readonly accept: <
+  accept: <
     DefinitionValue extends MachineDefinition,
     CleanupError,
     ProviderDefinition extends MachineDefinition = DefinitionValue,
   >(
     record: RuntimeLifecycleEvidence<DefinitionValue, CleanupError, ProviderDefinition>,
   ) => Effect.Effect<void, PublicDiagnostic>;
-  readonly drain: Effect.Effect<unknown, PublicDiagnostic>;
+  drain: Effect.Effect<unknown, PublicDiagnostic>;
 };
 
 /** Identifies the evidence capability supplied by a runtime composition root. */
 export interface RuntimeEvidenceIdentity {
-  readonly _tag: "RuntimeEvidence";
+  _tag: "RuntimeEvidence";
 }
 
 export const RuntimeClock = Context.Service<RuntimeClockIdentity, RuntimeClockService>(
@@ -132,9 +132,9 @@ export const makeRuntimeServicesLayer = <
   DefinitionValue extends MachineDefinition,
   CleanupError,
 >(services: {
-  readonly clock: RuntimeClockService;
-  readonly scheduler: RuntimeSchedulerService;
-  readonly evidence: RuntimeEvidenceService<A, DefinitionValue, CleanupError>;
+  clock: RuntimeClockService;
+  scheduler: RuntimeSchedulerService;
+  evidence: RuntimeEvidenceService<A, DefinitionValue, CleanupError>;
 }): RuntimeServicesLayer =>
   Layer.mergeAll(
     Layer.succeed(RuntimeClock)(services.clock),

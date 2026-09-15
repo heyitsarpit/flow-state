@@ -110,7 +110,7 @@ const preparedConsumerSnapshot = () =>
     }),
   );
 
-const revisionVector = (entries: readonly [ActorKey, number][]) => new Map(entries);
+const revisionVector = (entries: [ActorKey, number][]) => new Map(entries);
 
 const makeFixture = () => {
   const registry = makeActorIdentityRegistry();
@@ -245,7 +245,7 @@ const makeChainFixture = () => {
 };
 
 describe("context waves", () => {
-  it("installs a provider-first immutable baseline before activation", () => {
+  it("installs a provider-first owned baseline before activation", () => {
     const fixture = makeFixture();
     assert.deepStrictEqual(fixture.baseline.graph.order, [
       fixture.providerIdentity.key,
@@ -479,25 +479,19 @@ describe("context waves", () => {
       assert.strictEqual(selfResult.failure.code, "ContextDependencyCycle");
   });
 
-  it("retains immutable graph, fence, wave, ledger, and publication envelopes", () => {
+  it("publishes owned graph, fence, wave, ledger, and publication envelopes", () => {
     const fixture = makeFixture();
     const graphBinding = [...fixture.graph.bindings.values()][0]![0]!;
-    assert.strictEqual(Object.isFrozen(fixture.graph), true);
-    assert.strictEqual(Object.isFrozen(fixture.graph.providers), true);
-    assert.strictEqual(Object.isFrozen(fixture.graph.bindings), true);
-    assert.strictEqual(Object.isFrozen(fixture.graph.dependents), true);
-    assert.strictEqual("set" in fixture.graph.providers, false);
-    assert.strictEqual("clear" in fixture.graph.bindings, false);
-    assert.strictEqual(Object.isFrozen(graphBinding), true);
+    assert.ok(fixture.graph.providers instanceof Map);
+    assert.ok(fixture.graph.bindings instanceof Map);
+    assert.ok(fixture.graph.dependents instanceof Map);
+    assert.notStrictEqual(graphBinding, fixture.binding);
+    assert.notStrictEqual(graphBinding.providerFence, fixture.binding.providerFence);
     const consumerBindings = fixture.graph.bindings.get(fixture.consumerIdentity.key);
 
     if (consumerBindings === undefined) throw new Error("missing consumer bindings");
-    assert.strictEqual(Object.isFrozen(consumerBindings), true);
-    assert.throws(() => Object.assign(consumerBindings, { 0: graphBinding }), TypeError);
-    assert.strictEqual(Object.isFrozen(graphBinding.providerFence), true);
-    assert.strictEqual(Object.isFrozen(fixture.baseline), true);
-    assert.strictEqual(Object.isFrozen(fixture.baseline.ledger), true);
-    assert.strictEqual(Object.isFrozen(fixture.baseline.projections[0]), true);
+    assert.strictEqual(consumerBindings.length, 1);
+    assert.strictEqual(fixture.baseline.projections.length, 1);
 
     const wave = resultSuccess(
       planContextWave(
@@ -508,7 +502,7 @@ describe("context waves", () => {
       ),
     );
 
-    assert.strictEqual(Object.isFrozen(wave), true);
+    assert.deepStrictEqual([...wave.dirty], [fixture.providerIdentity.key]);
 
     const result = resultSuccess(
       applyContextWave(
@@ -524,9 +518,8 @@ describe("context waves", () => {
       ),
     );
 
-    assert.strictEqual(Object.isFrozen(result), true);
-    assert.strictEqual(Object.isFrozen(result.ledger), true);
-    assert.strictEqual(Object.isFrozen(result.publications[0]), true);
+    assert.strictEqual(result.publications.length, 1);
+    assert.strictEqual(result.ledger.entries.size, 1);
   });
 
   it("rejects issue-only revision overflow before changing the input cut", () => {
@@ -755,7 +748,7 @@ describe("context waves", () => {
           generation: 0,
           leaseEpoch: b.leaseEpoch,
         },
-        select: ({ context }: { readonly context: { readonly value: unknown } }) => context.value,
+        select: ({ context }: { context: { value: unknown } }) => context.value,
       },
       {
         consumer: b.key,
@@ -768,7 +761,7 @@ describe("context waves", () => {
           generation: 0,
           leaseEpoch: a.leaseEpoch,
         },
-        select: ({ context }: { readonly context: { readonly value: unknown } }) => context.value,
+        select: ({ context }: { context: { value: unknown } }) => context.value,
       },
     ];
 
@@ -785,7 +778,7 @@ describe("context waves", () => {
     );
   });
 
-  it("selects scalar provider state from one immutable snapshot", () => {
+  it("selects scalar provider state from one captured snapshot", () => {
     const fixture = makeFixture();
 
     const selected = resultSuccess(
@@ -1041,7 +1034,7 @@ describe("context waves", () => {
         initial: preparedProviderSnapshot(),
       });
 
-      const snapshots: Array<{ readonly revision: number; readonly state: unknown }> = [];
+      const snapshots: Array<{ revision: number; state: unknown }> = [];
 
       const binding = {
         slot: "selected",
@@ -1298,15 +1291,13 @@ describe("context waves", () => {
     assert.strictEqual(equalContextSelection({ field: null }, { field: undefined }), false);
   });
 
-  it("keeps exposed context dependency graphs immutable", () => {
+  it("exposes context dependency graphs with the expected topology", () => {
     const fixture = makeFixture();
     const binding = fixture.graph.bindings.get(fixture.consumerIdentity.key)?.[0];
 
     if (binding === undefined) throw new Error("missing graph binding");
-    assert.strictEqual(Object.isFrozen(fixture.graph), true);
-    assert.strictEqual(Object.isFrozen(binding), true);
-    assert.strictEqual("set" in fixture.graph.providers, false);
-    assert.strictEqual("clear" in fixture.graph.bindings, false);
+    assert.ok(fixture.graph.providers instanceof Map);
+    assert.ok(fixture.graph.bindings instanceof Map);
     assert.deepStrictEqual(fixture.graph.order, [
       fixture.providerIdentity.key,
       fixture.consumerIdentity.key,

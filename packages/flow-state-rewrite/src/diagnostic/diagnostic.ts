@@ -58,7 +58,7 @@ export type FailureFields = Omit<
   Pick<Diagnostic, "code" | "path" | "details" | "summary" | "help">,
   "code"
 > & {
-  readonly code: FailureCode;
+  code: FailureCode;
 };
 
 /** The public failure projection omits the internal classification field. */

@@ -23,40 +23,40 @@ import { invalidMachineConfigurationDiagnostic } from "./diagnostic.js";
  */
 
 // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- reflection retains unknown children until each grammar validator promotes them.
-type PlainRecord = Readonly<Record<string, unknown>>;
+type PlainRecord = Record<string, unknown>;
 
 // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- reflection retains unknown array entries until each grammar validator promotes them.
-type ReflectionSource = readonly unknown[] | PlainRecord;
+type ReflectionSource = unknown[] | PlainRecord;
 
-type PropertyFlags = { readonly enumerable: boolean; readonly configurable: boolean };
+type PropertyFlags = { enumerable: boolean; configurable: boolean };
 
 type DataProperty =
   | (PropertyFlags & {
-      readonly kind: "data";
-      readonly value: unknown;
-      readonly writable: boolean;
+      kind: "data";
+      value: unknown;
+      writable: boolean;
     })
   | (PropertyFlags & {
-      readonly kind: "accessor";
-      readonly get: PropertyDescriptor["get"];
-      readonly set: PropertyDescriptor["set"];
+      kind: "accessor";
+      get: PropertyDescriptor["get"];
+      set: PropertyDescriptor["set"];
     })
-  | { readonly kind: "missing" };
+  | { kind: "missing" };
 
-type DataDescriptor = Extract<DataProperty, { readonly kind: "data" }>;
+type DataDescriptor = Extract<DataProperty, { kind: "data" }>;
 
-type PresentProperty = Exclude<DataProperty, { readonly kind: "missing" }>;
+type PresentProperty = Exclude<DataProperty, { kind: "missing" }>;
 
 type ReflectionReason = Parameters<typeof invalidMachineConfigurationDiagnostic>[0];
 
-type SnapshotProperty = readonly [PropertyKey, PresentProperty];
+type SnapshotProperty = [PropertyKey, PresentProperty];
 
 type ReflectionSnapshot = {
-  readonly prototype: unknown;
-  readonly properties: readonly SnapshotProperty[];
+  prototype: unknown;
+  properties: SnapshotProperty[];
 };
 
-export type ConfigurationSnapshot = { readonly properties: readonly SnapshotProperty[] };
+export type ConfigurationSnapshot = { properties: SnapshotProperty[] };
 
 // RETURN_TYPE: Preserves the PlainRecord predicate required before classified record access; removal caused TS2322 and TS2345.
 const isNonArrayObject = (value: unknown): value is PlainRecord =>
@@ -64,12 +64,12 @@ const isNonArrayObject = (value: unknown): value is PlainRecord =>
 
 type RecordClassification =
   | {
-      readonly _tag: "record";
+      _tag: "record";
       // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- classified reflection records remain unknown until each grammar validator promotes them.
-      readonly record: PlainRecord;
-      readonly prototype: unknown;
+      record: PlainRecord;
+      prototype: unknown;
     }
-  | { readonly _tag: "other" };
+  | { _tag: "other" };
 
 // RETURN_TYPE: Preserves _tag discriminants and coupled record/prototype narrowing after classification.
 const classifyPlainRecord = (value: unknown): RecordClassification => {
@@ -132,10 +132,10 @@ const readDataProperty = (value: ReflectionSource, key: PropertyKey): DataProper
       };
 };
 
-// RETURN_TYPE: Keeps the mutable assembly local while publishing snapshot entries once.
+// RETURN_TYPE: Keeps the descriptor snapshot as a copied mutable projection for grammar admission.
 const captureProperties = (
   record: ReflectionSource,
-  keys: readonly PropertyKey[],
+  keys: PropertyKey[],
   path: Diagnostic.Path,
   reason: ReflectionReason,
 ): Result.Result<SnapshotProperty[], Diagnostic.PublicDiagnostic> =>
@@ -188,7 +188,7 @@ const sameSnapshot = (left: ReflectionSnapshot, right: ReflectionSnapshot) => {
   return true;
 };
 
-// RETURN_TYPE: Preserves the readonly ConfigurationSnapshot publication; inferred capture arrays are mutable.
+// RETURN_TYPE: Publishes the copied descriptor snapshot after confirming the source remained stable.
 const snapshotProperties = (
   record: ReflectionSource,
   prototype: unknown,
@@ -217,18 +217,7 @@ const snapshotProperties = (
 
     if (!sameSnapshot(first, repeated)) return yield* invalidReflection(reason, path);
 
-    for (const entry of first.properties) {
-      // oxlint-disable-next-line anti-slop/no-object-freeze -- Snapshot descriptors are a shallow runtime boundary; their values remain caller-owned.
-      Object.freeze(entry[1]);
-      // oxlint-disable-next-line anti-slop/no-object-freeze -- Snapshot property tuples are a shallow runtime boundary.
-      Object.freeze(entry);
-    }
-
-    // oxlint-disable-next-line anti-slop/no-object-freeze -- Snapshot properties are published as a runtime-immutable container.
-    const frozenProperties = Object.freeze(first.properties);
-
-    // oxlint-disable-next-line anti-slop/no-object-freeze -- Configuration snapshots are published as runtime-immutable containers.
-    return Object.freeze({ properties: frozenProperties });
+    return { properties: first.properties };
   });
 
 // Array projection
@@ -257,7 +246,7 @@ const arrayLength = (property: DataProperty) => {
 };
 
 const validateArrayKeys = (
-  properties: readonly SnapshotProperty[],
+  properties: SnapshotProperty[],
   length: number,
   path: Diagnostic.Path,
   reason: "ExpectedTransition" | "ExpectedRedirect",
@@ -302,12 +291,12 @@ export const snapshotRecord = (
 export const readSnapshotProperty = (snapshot: ConfigurationSnapshot, key: string): DataProperty =>
   snapshot.properties.find(([candidate]) => candidate === key)?.[1] ?? { kind: "missing" };
 
-// RETURN_TYPE: Preserves the readonly array projection while its local collection is assembled mutably.
+// RETURN_TYPE: Preserves the mutable copied array projection used by grammar admission.
 export const readArrayValues = (
   value: unknown,
   path: Diagnostic.Path,
   reason: "ExpectedTransition" | "ExpectedRedirect",
-): Result.Result<readonly unknown[] | undefined, Diagnostic.PublicDiagnostic> =>
+): Result.Result<unknown[] | undefined, Diagnostic.PublicDiagnostic> =>
   Result.gen(function* () {
     const array = yield* readReflection(
       () => (Array.isArray(value) ? value : undefined),
@@ -343,8 +332,7 @@ export const readArrayValues = (
       values.push(property.value);
     }
 
-    // oxlint-disable-next-line anti-slop/no-object-freeze -- Array projections are published as runtime-immutable containers; element values remain caller-owned.
-    return Object.freeze(values);
+    return values;
   });
 
 export const readTokenText = (value: unknown, key: "kind" | "id" | "name") =>

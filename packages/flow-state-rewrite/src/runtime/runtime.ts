@@ -140,31 +140,32 @@ type RuntimeActorOptionBase<
   DefinitionValue extends MachineDefinition,
   ProviderDefinition extends MachineDefinition = DefinitionValue,
 > = {
-  readonly ref: ActorRef<Machine<DefinitionValue>>;
-  readonly store?: ActorStore<DefinitionValue>;
-  readonly onSnapshot?: ActorEngineInput<DefinitionValue>["onSnapshot"];
-  readonly onCommand?: (
+  ref: ActorRef<Machine<DefinitionValue>>;
+  store?: ActorStore<DefinitionValue>;
+  onSnapshot?: ActorEngineInput<DefinitionValue>["onSnapshot"];
+  onCommand?: (
     command: ActorCommand<DefinitionValue>,
   ) => Effect.Effect<void, PublicDiagnostic, RuntimeServiceContext | Scope.Scope>;
-  readonly bindings?: readonly ActorContextBinding<DefinitionValue, ProviderDefinition>[];
+  // oxlint-disable-next-line anti-slop/no-readonly -- NO_READONLY_CODEMOD: accepts const-inferred caller bindings before runtime capture owns a copy.
+  bindings?: readonly ActorContextBinding<DefinitionValue, ProviderDefinition>[];
 };
 
 type RuntimeFreshActorOptions<
   DefinitionValue extends MachineDefinition,
   ProviderDefinition extends MachineDefinition = DefinitionValue,
 > = RuntimeActorOptionBase<DefinitionValue, ProviderDefinition> & {
-  readonly initial: PreparedActorSnapshot<DefinitionValue>;
-  readonly input?: InputOf<DefinitionValue>;
-  readonly restore?: never;
+  initial: PreparedActorSnapshot<DefinitionValue>;
+  input?: InputOf<DefinitionValue>;
+  restore?: never;
 };
 
 type RuntimeRestoredActorOptions<
   DefinitionValue extends MachineDefinition,
   ProviderDefinition extends MachineDefinition = DefinitionValue,
 > = RuntimeActorOptionBase<DefinitionValue, ProviderDefinition> & {
-  readonly restore: PreparedActorSnapshot<DefinitionValue>;
-  readonly initial?: never;
-  readonly input?: never;
+  restore: PreparedActorSnapshot<DefinitionValue>;
+  initial?: never;
+  input?: never;
 };
 
 type RuntimeLocalActorOptions<
@@ -191,19 +192,19 @@ export type RuntimeActor<
   DefinitionValue extends MachineDefinition,
   ProviderDefinition extends MachineDefinition = DefinitionValue,
 > = {
-  readonly identity: ActorIdentity<DefinitionValue>;
-  readonly fence: ActorFence;
-  readonly engine: ActorEngine<DefinitionValue>;
-  readonly lifecycle: LifecycleController<DefinitionValue, PublicDiagnostic, ProviderDefinition>;
-  readonly handle: ReturnType<typeof actorHandle<DefinitionValue>>;
-  readonly dispose: () => Effect.Effect<void, PublicDiagnostic, RuntimeServiceContext>;
+  identity: ActorIdentity<DefinitionValue>;
+  fence: ActorFence;
+  engine: ActorEngine<DefinitionValue>;
+  lifecycle: LifecycleController<DefinitionValue, PublicDiagnostic, ProviderDefinition>;
+  handle: ReturnType<typeof actorHandle<DefinitionValue>>;
+  dispose: () => Effect.Effect<void, PublicDiagnostic, RuntimeServiceContext>;
 };
 
 type RuntimeAssembly = {
-  readonly context: Context.Context<RuntimeServiceContext>;
-  readonly evidence: ReturnType<typeof makeRuntimeEvidenceOwner>;
-  readonly lifecycle: LifecycleRuntimeOwner;
-  readonly ensureActor: {
+  context: Context.Context<RuntimeServiceContext>;
+  evidence: ReturnType<typeof makeRuntimeEvidenceOwner>;
+  lifecycle: LifecycleRuntimeOwner;
+  ensureActor: {
     <
       DefinitionValue extends MachineDefinition,
       ProviderDefinition extends MachineDefinition = DefinitionValue,
@@ -218,7 +219,7 @@ type RuntimeAssembly = {
       options: RuntimeActorOptions<DefinitionValue, ProviderDefinition>,
     ): Effect.Effect<RuntimeActor<DefinitionValue, ProviderDefinition>, PublicDiagnostic>;
   };
-  readonly getActor: <
+  getActor: <
     DefinitionValue extends MachineDefinition,
     ProviderDefinition extends MachineDefinition = DefinitionValue,
   >(
@@ -227,7 +228,7 @@ type RuntimeAssembly = {
     RuntimeActor<DefinitionValue, ProviderDefinition> | undefined,
     PublicDiagnostic
   >;
-  readonly createActor: {
+  createActor: {
     <
       DefinitionValue extends MachineDefinition,
       ProviderDefinition extends MachineDefinition = DefinitionValue,
@@ -243,7 +244,7 @@ type RuntimeAssembly = {
       options: RuntimeActorOptions<DefinitionValue, ProviderDefinition>,
     ): Effect.Effect<RuntimeActor<DefinitionValue, ProviderDefinition>, PublicDiagnostic>;
   };
-  readonly dispose: () => Effect.Effect<void, PublicDiagnostic>;
+  dispose: () => Effect.Effect<void, PublicDiagnostic>;
 };
 
 type RuntimeLifecycleRegistrationSlot = {
@@ -254,18 +255,16 @@ type RuntimeParentFinalizer = {
   current: (() => Effect.Effect<void, PublicDiagnostic, RuntimeServiceContext>) | undefined;
 };
 
-type RuntimeLeaseState<Lease> =
-  | { readonly _tag: "empty" }
-  | { readonly _tag: "installed"; readonly lease: Lease };
+type RuntimeLeaseState<Lease> = { _tag: "empty" } | { _tag: "installed"; lease: Lease };
 
 type RuntimeLeaseOwner<Lease> = {
-  readonly read: () => Lease | undefined;
-  readonly install: (lease: Lease) => void;
+  read: () => Lease | undefined;
+  install: (lease: Lease) => void;
 };
 
 type RuntimeScopeOwner = {
-  readonly read: () => Scope.Scope | undefined;
-  readonly install: (scope: Scope.Scope) => void;
+  read: () => Scope.Scope | undefined;
+  install: (scope: Scope.Scope) => void;
 };
 
 const makeRuntimeScopeOwner = (): RuntimeScopeOwner => {
@@ -321,33 +320,33 @@ type RuntimeAdmissionActor<
   ProviderDefinition extends MachineDefinition = DefinitionValue,
 > = RuntimeActor<DefinitionValue, ProviderDefinition> &
   RuntimeRegisteredActor & {
-    readonly ref: ActorRef<Machine<DefinitionValue>>;
+    ref: ActorRef<Machine<DefinitionValue>>;
   };
 
 type RuntimeSnapshot = {
-  readonly state: unknown;
-  readonly memory: unknown;
-  readonly context: unknown;
-  readonly revision: number;
+  state: unknown;
+  memory: unknown;
+  context: unknown;
+  revision: number;
 };
 
 type RuntimeRegisteredActor = {
-  readonly fence: ActorFence;
-  readonly snapshot: () => RuntimeSnapshot;
-  readonly addDependency: (
+  fence: ActorFence;
+  snapshot: () => RuntimeSnapshot;
+  addDependency: (
     edge: ActorDependencyEdge,
   ) => Effect.Effect<void, PublicDiagnostic, RuntimeServiceContext>;
-  readonly removeDependency: (
+  removeDependency: (
     edge: ActorDependencyEdge,
   ) => Effect.Effect<void, PublicDiagnostic, RuntimeServiceContext>;
-  readonly addDependent: (dependent: RuntimeContextDependent) => void;
-  readonly removeDependent: (dependent: RuntimeContextDependent) => void;
-  readonly notifyDependents: (snapshot: RuntimeSnapshot) => void;
+  addDependent: (dependent: RuntimeContextDependent) => void;
+  removeDependent: (dependent: RuntimeContextDependent) => void;
+  notifyDependents: (snapshot: RuntimeSnapshot) => void;
 };
 
 type RuntimeContextDependent = {
-  readonly edge: ActorDependencyEdge;
-  readonly receive: (
+  edge: ActorDependencyEdge;
+  receive: (
     providerFence: ActorFence,
     snapshot: RuntimeSnapshot,
   ) => Result.Result<void, PublicDiagnostic>;
@@ -357,13 +356,13 @@ type CapturedRuntimeActorOptions<
   DefinitionValue extends MachineDefinition,
   ProviderDefinition extends MachineDefinition,
 > = {
-  readonly ref: ActorRef<Machine<DefinitionValue>>;
-  readonly construction: ActorAdmissionConstruction<DefinitionValue, InputOf<DefinitionValue>>;
-  readonly admissionMode: ActorAdmissionMode;
-  readonly store: ActorStore<DefinitionValue> | undefined;
-  readonly onSnapshot: RuntimeActorOptions<DefinitionValue, ProviderDefinition>["onSnapshot"];
-  readonly onCommand: RuntimeActorOptions<DefinitionValue, ProviderDefinition>["onCommand"];
-  readonly bindings: readonly ActorContextBinding<DefinitionValue, ProviderDefinition>[];
+  ref: ActorRef<Machine<DefinitionValue>>;
+  construction: ActorAdmissionConstruction<DefinitionValue, InputOf<DefinitionValue>>;
+  admissionMode: ActorAdmissionMode;
+  store: ActorStore<DefinitionValue> | undefined;
+  onSnapshot: RuntimeActorOptions<DefinitionValue, ProviderDefinition>["onSnapshot"];
+  onCommand: RuntimeActorOptions<DefinitionValue, ProviderDefinition>["onCommand"];
+  bindings: ActorContextBinding<DefinitionValue, ProviderDefinition>[];
 };
 
 const invalidRuntimeOption = (path: string) =>
@@ -376,12 +375,12 @@ const invalidRuntimeOption = (path: string) =>
   });
 
 type CapturedRuntimeConstruction<DefinitionValue extends MachineDefinition> = {
-  readonly construction: ActorAdmissionConstruction<DefinitionValue, InputOf<DefinitionValue>>;
-  readonly admissionMode: ActorAdmissionMode;
+  construction: ActorAdmissionConstruction<DefinitionValue, InputOf<DefinitionValue>>;
+  admissionMode: ActorAdmissionMode;
 };
 
 const captureRuntimeConstruction = <DefinitionValue extends MachineDefinition>(
-  values: ReadonlyMap<PropertyKey, unknown>,
+  values: Map<PropertyKey, unknown>,
   ref: ActorRef<Machine<DefinitionValue>>,
   identityMode: "stable" | "local" = "stable",
 ): Result.Result<CapturedRuntimeConstruction<DefinitionValue>, PublicDiagnostic> => {
@@ -423,14 +422,11 @@ const captureRuntimeBindings = <
   ProviderDefinition extends MachineDefinition,
 >(
   value: unknown,
-): Result.Result<
-  readonly ActorContextBinding<DefinitionValue, ProviderDefinition>[],
-  PublicDiagnostic
-> =>
+): Result.Result<ActorContextBinding<DefinitionValue, ProviderDefinition>[], PublicDiagnostic> =>
   value === undefined
     ? // SAFETY: undefined is the captured absence of optional bindings; the empty typed array is the canonical owned value for that branch.
       // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-      Result.succeed([] as readonly ActorContextBinding<DefinitionValue, ProviderDefinition>[])
+      Result.succeed([] as ActorContextBinding<DefinitionValue, ProviderDefinition>[])
     : captureActorContextBindings<DefinitionValue, ProviderDefinition>(value);
 
 const captureRuntimeStore = <DefinitionValue extends MachineDefinition>(
@@ -462,7 +458,7 @@ const captureRuntimeCallbacks = <
   DefinitionValue extends MachineDefinition,
   ProviderDefinition extends MachineDefinition,
 >(
-  values: ReadonlyMap<PropertyKey, unknown>,
+  values: Map<PropertyKey, unknown>,
 ): Result.Result<
   CapturedRuntimeCallbacks<DefinitionValue, ProviderDefinition>,
   PublicDiagnostic
@@ -509,7 +505,7 @@ const captureRuntimeActorOptionsFromValues = <
   DefinitionValue extends MachineDefinition,
   ProviderDefinition extends MachineDefinition,
 >(
-  values: ReadonlyMap<PropertyKey, unknown>,
+  values: Map<PropertyKey, unknown>,
   ref: ActorRef<Machine<DefinitionValue>>,
   identityMode: "stable" | "local" = "stable",
 ): Result.Result<
@@ -597,7 +593,7 @@ const captureRuntimeActorOptionsForRef = <
 
 // The actor engine exposes synchronous snapshot callbacks; invokeResult captures this thrown diagnostic at that boundary.
 const notifyRuntimeDependents = (
-  dependents: readonly RuntimeContextDependent[],
+  dependents: RuntimeContextDependent[],
   providerFence: ActorFence,
   snapshot: RuntimeSnapshot,
 ) => {
@@ -612,7 +608,7 @@ type RuntimeAdmissionCompletion = Deferred.Deferred<Exit.Exit<unknown, PublicDia
 
 type RuntimePendingAdmission = {
   /** The cell itself is the stable identity token; its generic payload stays per admission. */
-  readonly complete: RuntimeAdmissionCompletion;
+  complete: RuntimeAdmissionCompletion;
 };
 
 const eraseRuntimeAdmissionCompletion = <Value>(
@@ -631,7 +627,7 @@ type RuntimeValidatedAdmission<
   Owner,
 > = ValidatedActorAdmission<A, DefinitionValue, I, ProviderDefinition> &
   Owner & {
-    readonly identity: ActorIdentity<DefinitionValue>;
+    identity: ActorIdentity<DefinitionValue>;
   };
 
 const duplicateStableClaim = () =>
@@ -672,13 +668,13 @@ const sendWithAdmissionGate =
   };
 
 export type Runtime<A extends RuntimeApp, ImplementationError = never> = {
-  readonly app: A;
-  readonly ready: () => Effect.Effect<void, ImplementationError>;
+  app: A;
+  ready: () => Effect.Effect<void, ImplementationError>;
 };
 
 export type RuntimeSetup<A extends RuntimeApp, ImplementationError = never> = {
-  readonly app: A;
-  readonly construct: () => Runtime<A, ImplementationError>;
+  app: A;
+  construct: () => Runtime<A, ImplementationError>;
 };
 
 const admitConstructedApp = <A extends RuntimeApp>(value: A) => {
@@ -706,9 +702,9 @@ type CompleteImplementation<A extends RuntimeApp, I extends RuntimeImplementatio
   false extends IsCompleteImplementation<A, I> ? never : I;
 
 type AttachedRuntimeOwner<ImplementationError> = {
-  readonly ready: () => Effect.Effect<void, ImplementationError>;
-  readonly close: () => Effect.Effect<void, ImplementationError | PublicDiagnostic>;
-  readonly assembly: () => RuntimeAssembly;
+  ready: () => Effect.Effect<void, ImplementationError>;
+  close: () => Effect.Effect<void, ImplementationError | PublicDiagnostic>;
+  assembly: () => RuntimeAssembly;
 };
 
 const attachedRuntimeOwners = new WeakMap<
@@ -869,7 +865,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
             consumerKey = registry.stableKey(capturedOptions.success.ref, machineFacts);
         }
 
-        const dependencies: readonly ActorDependencyEdge[] = bindings.map((binding) => ({
+        const dependencies: ActorDependencyEdge[] = bindings.map((binding) => ({
           consumer: consumerKey!,
           provider: binding.providerFence.key,
           slot: binding.slot,
@@ -904,21 +900,21 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
         type AdmissionCompletion = Deferred.Deferred<Exit.Exit<AdmissionResult, PublicDiagnostic>>;
 
         type RuntimePropagationOwner = {
-          readonly bindings: readonly ContextBinding<DefinitionValue, ProviderDefinition>[];
-          readonly setOpen: (open: boolean) => void;
-          readonly receive: (
+          bindings: ContextBinding<DefinitionValue, ProviderDefinition>[];
+          setOpen: (open: boolean) => void;
+          receive: (
             providerFence: ActorFence,
             snapshot: RuntimeSnapshot,
             dispatchFact: ActorEngine<DefinitionValue>["dispatchFact"],
           ) => Result.Result<void, PublicDiagnostic>;
-          readonly reconcile: (
+          reconcile: (
             engine: ActorEngine<DefinitionValue>,
           ) => Effect.Effect<void, PublicDiagnostic>;
         };
 
         type RuntimeEngineRevisionOwner = {
-          readonly read: () => number;
-          readonly set: (engine: ActorEngine<DefinitionValue>) => void;
+          read: () => number;
+          set: (engine: ActorEngine<DefinitionValue>) => void;
         };
 
         type RuntimeAdmissionCarrierPhase =
@@ -929,61 +925,61 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
           | "registered";
 
         type RuntimeAdmissionCarrier<Phase extends RuntimeAdmissionCarrierPhase> = {
-          readonly phase: Phase;
-          readonly identity: ActorIdentity<DefinitionValue>;
-          readonly fence: ActorFence;
-          readonly pendingCompletion: RuntimeAdmissionCompletion;
+          phase: Phase;
+          identity: ActorIdentity<DefinitionValue>;
+          fence: ActorFence;
+          pendingCompletion: RuntimeAdmissionCompletion;
         } & (Phase extends "reserved"
           ? {}
           : {
-              readonly rollback: readonly AdmissionRollbackStep[];
-              readonly validated: RuntimeValidatedAdmission<
+              rollback: AdmissionRollbackStep[];
+              validated: RuntimeValidatedAdmission<
                 A,
                 DefinitionValue,
                 RuntimeImplementation | undefined,
                 ProviderDefinition,
                 RuntimeAdmissionCarrier<"reserved">
               >;
-              readonly scope: Scope.Scope;
-              readonly snapshot: PreparedActorSnapshot<DefinitionValue>;
-              readonly prepared: PreparedActorEngine<DefinitionValue>;
-              readonly silentBaseline: ContextBaseline<DefinitionValue, ProviderDefinition>;
-              readonly controller: LifecycleController<
+              scope: Scope.Scope;
+              snapshot: PreparedActorSnapshot<DefinitionValue>;
+              prepared: PreparedActorEngine<DefinitionValue>;
+              silentBaseline: ContextBaseline<DefinitionValue, ProviderDefinition>;
+              controller: LifecycleController<
                 DefinitionValue,
                 PublicDiagnostic,
                 ProviderDefinition
               >;
-              readonly engineRevision: RuntimeEngineRevisionOwner;
-              readonly propagation: RuntimePropagationOwner;
-              readonly mailbox: PreparedActorEngine<DefinitionValue>["mailbox"];
+              engineRevision: RuntimeEngineRevisionOwner;
+              propagation: RuntimePropagationOwner;
+              mailbox: PreparedActorEngine<DefinitionValue>["mailbox"];
             }) &
           (Phase extends "attached" | "activated" | "registered"
             ? {
-                readonly context: Readonly<ContextOf<DefinitionValue>>;
-                readonly edges: readonly ActorDependencyEdge[];
+                context: ContextOf<DefinitionValue>;
+                edges: ActorDependencyEdge[];
               }
             : {}) &
           (Phase extends "activated" | "registered"
             ? {
-                readonly baseline: ActiveContextBaseline<DefinitionValue, ProviderDefinition>;
-                readonly engine: ActorEngine<DefinitionValue>;
+                baseline: ActiveContextBaseline<DefinitionValue, ProviderDefinition>;
+                engine: ActorEngine<DefinitionValue>;
               }
             : {}) &
           (Phase extends "registered"
             ? {
-                readonly dependencies: readonly {
-                  readonly owner: RuntimeRegisteredActor;
-                  readonly edge: ActorDependencyEdge;
+                dependencies: {
+                  owner: RuntimeRegisteredActor;
+                  edge: ActorDependencyEdge;
                 }[];
-                readonly dependents: readonly {
-                  readonly owner: RuntimeRegisteredActor;
-                  readonly dependent: RuntimeContextDependent;
+                dependents: {
+                  owner: RuntimeRegisteredActor;
+                  dependent: RuntimeContextDependent;
                 }[];
-                readonly started: {
-                  readonly read: () => boolean;
-                  readonly set: (value: boolean) => void;
+                started: {
+                  read: () => boolean;
+                  set: (value: boolean) => void;
                 };
-                readonly leaseOwner: RuntimeLeaseOwner<
+                leaseOwner: RuntimeLeaseOwner<
                   ActorLease<
                     A,
                     DefinitionValue,
@@ -993,12 +989,12 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
                     ProviderDefinition
                   >
                 >;
-                readonly lifecycleRegistration: RuntimeLifecycleRegistrationSlot;
-                readonly parentFinalizer: RuntimeParentFinalizer;
-                readonly cleanup: Effect.Effect<void, PublicDiagnostic>;
-                readonly sealed: true;
-                readonly actor: RuntimeAdmissionActor<DefinitionValue, ProviderDefinition>;
-                readonly lease: ActorLease<
+                lifecycleRegistration: RuntimeLifecycleRegistrationSlot;
+                parentFinalizer: RuntimeParentFinalizer;
+                cleanup: Effect.Effect<void, PublicDiagnostic>;
+                sealed: true;
+                actor: RuntimeAdmissionActor<DefinitionValue, ProviderDefinition>;
+                lease: ActorLease<
                   A,
                   DefinitionValue,
                   RuntimeImplementation | undefined,
@@ -1234,8 +1230,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
 
                   if (snapshot.lifecycle === lifecycle) return snapshot;
 
-                  // oxlint-disable-next-line anti-slop/no-object-freeze -- lifecycle overlay is an immutable runtime snapshot.
-                  return Object.freeze({ ...snapshot, lifecycle });
+                  return { ...snapshot, lifecycle };
                 };
 
                 let initialCandidate: ActorSnapshot<DefinitionValue> = admittedInitialSnapshot;
@@ -1266,7 +1261,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
 
                   let revisions = new Map<
                     ActorKey,
-                    { readonly publicationRevision: number; readonly machineTurnRevision: number }
+                    { publicationRevision: number; machineTurnRevision: number }
                   >();
 
                   const receive = (
@@ -1543,13 +1538,13 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
               const propagation = activatedCarrier.propagation;
 
               const dependencies: Array<{
-                readonly owner: RuntimeRegisteredActor;
-                readonly edge: ActorDependencyEdge;
+                owner: RuntimeRegisteredActor;
+                edge: ActorDependencyEdge;
               }> = [];
 
               const dependents: Array<{
-                readonly owner: RuntimeRegisteredActor;
-                readonly dependent: RuntimeContextDependent;
+                owner: RuntimeRegisteredActor;
+                dependent: RuntimeContextDependent;
               }> = [];
 
               let started = false;
@@ -1756,7 +1751,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
                       candidate.slot === edge.slot,
                   );
 
-                  let dependencies: readonly ActorDependencyEdge[];
+                  let dependencies: ActorDependencyEdge[];
 
                   if (!add) {
                     dependencies = current.attachment.dependencies.filter(
@@ -2209,22 +2204,22 @@ export const runtimeSetupForAdmissionTestInternal = <A extends RuntimeApp>(
 
 export function runtimeSetup<A extends RuntimeApp>(
   options: {
-    readonly app: A;
+    app: A;
   } & ([RequirementsOf<A>] extends [never]
-    ? { readonly implementation?: never }
-    : { readonly implementation: never }),
+    ? { implementation?: never }
+    : { implementation: never }),
 ): RuntimeSetup<A>;
 
 export function runtimeSetup<A extends RuntimeApp, I extends RuntimeImplementation>(options: {
-  readonly app: A;
-  readonly implementation: CompleteImplementation<A, I>;
+  app: A;
+  implementation: CompleteImplementation<A, I>;
 }): RuntimeSetup<A, ImplementationErrorOf<I>>;
 
 export function runtimeSetup<
   A extends RuntimeApp,
   I extends RuntimeImplementation | undefined,
   ImplementationError,
->(options: { readonly app: A; readonly implementation?: I }) {
+>(options: { app: A; implementation?: I }) {
   const app = admitConstructedApp(options.app);
   const implementation = options.implementation;
 

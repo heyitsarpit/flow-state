@@ -11,7 +11,7 @@ import {
 } from "flow-state-rewrite";
 
 interface RepositoryService {
-  readonly load: (id: string) => string;
+  load: (id: string) => string;
 }
 
 interface AcquisitionState {

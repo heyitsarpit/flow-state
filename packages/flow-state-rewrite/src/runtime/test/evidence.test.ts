@@ -80,11 +80,6 @@ const EvidenceEvent = resultSuccess(EvidenceDefinition.E.opened());
 
 type EvidenceSnapshot = ActorSnapshot<typeof EvidenceDefinition>;
 
-const immutable = <Value>(value: Value) => {
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- the fixture supplies immutable published snapshots.
-  return Object.freeze(value);
-};
-
 const makeFixture = () => {
   const registry = makeActorIdentityRegistry();
   const ref = actorRef(EvidenceMachine, "actor");
@@ -97,18 +92,18 @@ const makeFixture = () => {
     leaseEpoch: identity.leaseEpoch,
   };
 
-  const snapshot = (revision: number) =>
-    immutable({
+  const snapshot = (revision: number): EvidenceSnapshot =>
+    ({
       state: EvidenceDefinition.S.ready,
-      memory: immutable({}),
-      context: immutable({}),
+      memory: {},
+      context: {},
       lifecycle: "active" as const,
-      operations: immutable([]),
-      timers: immutable([]),
-      issues: immutable([]),
+      operations: [],
+      timers: [],
+      issues: [],
       revision,
       observedStoreRevision: 0,
-    } satisfies EvidenceSnapshot);
+    }) satisfies EvidenceSnapshot;
 
   return { identity, fence, snapshot };
 };
@@ -406,7 +401,6 @@ describe("runtime evidence", () => {
         );
       }
 
-      assert.strictEqual(Object.isFrozen(first.record), true);
       assert.strictEqual(hub.sequence(), 2);
     }),
   );
@@ -589,11 +583,6 @@ describe("runtime evidence", () => {
 
       assert.strictEqual(accepted.record.provenance.app, EvidenceApp);
       assert.strictEqual(accepted.record.provenance.plan, EvidencePlan);
-      assert.strictEqual(Object.isFrozen(accepted.record), true);
-      assert.strictEqual(Object.isFrozen(accepted.record.provenance), true);
-      assert.strictEqual(Object.isFrozen(accepted.record.provenance.actor), true);
-      assert.strictEqual(Object.isFrozen(accepted.record.fence), true);
-
       Object.assign(acceptedInput.record.fence, { generation: 99 });
       Object.assign(acceptedInput.record.provenance.actor, { key: "mutated" });
       assert.strictEqual(accepted.record.fence.generation, 0);
@@ -1008,8 +997,8 @@ describe("runtime evidence", () => {
       if (record?._tag === "lifecycle") {
         // SAFETY: the lifecycle owner preserves the LifecycleCause envelope for this accepted record.
         const retainedCause = record.cause as {
-          readonly _tag: string;
-          readonly cause: Cause.Cause<unknown>;
+          _tag: string;
+          cause: Cause.Cause<unknown>;
         };
 
         assert.strictEqual(retainedCause._tag, "cleanup-failure");
@@ -1117,9 +1106,8 @@ describe("runtime evidence", () => {
     const fixture = makeFixture();
     const hub = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
     const reservation = reserve(hub);
-    // SAFETY: The frozen payload is the immutable event value whose null and undefined fields are retained.
-    // SAFETY: The frozen payload is the immutable event value whose null and undefined fields are retained.
-    // oxlint-disable-next-line anti-slop/no-object-freeze -- this fixture supplies an immutable published payload.
+    // SAFETY: Freezing caller-owned input verifies capture retains null and undefined fields without changing the input.
+    // oxlint-disable-next-line anti-slop/no-object-freeze -- test input models a caller-supplied frozen payload.
     const payload = Object.freeze({ payload: null, optional: undefined });
 
     // SAFETY: The event payload deliberately crosses the private evidence fact union for this preservation proof.
@@ -1341,7 +1329,7 @@ describe("runtime evidence", () => {
         assert.strictEqual(delivered[0].provenance.actor.key, fixture.identity.key);
         assert.strictEqual(delivered[1].evidenceSequence, 2);
         // SAFETY: the second record was prepared with the cleanup-failure LifecycleCause envelope.
-        const cause = delivered[1].cause as { readonly _tag: string };
+        const cause = delivered[1].cause as { _tag: string };
         assert.strictEqual(cause._tag, "cleanup-failure");
       }
 
@@ -1349,7 +1337,7 @@ describe("runtime evidence", () => {
     }),
   );
 
-  it.effect("keeps evidence acknowledgement private and immutable", () =>
+  it.effect("keeps evidence acknowledgement private", () =>
     Effect.gen(function* () {
       const fixture = makeFixture();
       const hub = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
@@ -1361,8 +1349,6 @@ describe("runtime evidence", () => {
         resultSuccess(makeTurnRecord(turnFact(fixture, reservation), reservation)),
       );
 
-      assert.strictEqual(Object.isFrozen(accepted.record), true);
-      assert.strictEqual(Object.isFrozen(accepted.sinks), true);
       assert.strictEqual("completion" in accepted, false);
     }),
   );
@@ -1521,7 +1507,7 @@ describe("pending regression scenarios", () => {
 
   // SETUP: Prepare a real accepted record with aliased/cyclic Flow-owned structural containers and separately identified application-opaque leaves, including a plain object, Map/Set/function/Error and nominal descriptor token.
   // ACTION: Accept the record, mutate the caller source containers and opaque application object, then drain the real sink and inspect the delayed delivered record.
-  // ASSERT: Owned containers were copied/frozen before delivery; their aliases share one retained clone and supported cycles stay inside it. Opaque leaves, including the plain object, preserve Object.is identity and are not recursively frozen. Caller container mutation cannot change the accepted cut or its provenance.
+  // ASSERT: Owned containers were copied before delivery; their aliases share one retained clone and supported cycles stay inside it. Opaque leaves, including the plain object, preserve Object.is identity. Caller container mutation cannot change the accepted cut or its provenance.
   it.todo("preserves record aliases, cycles, and opaque identity across acceptance");
 
   // Setup: Use the real private Journal and two actor publication owners; prepare A first and B second from owned data, holding A before its synchronous commit gate.

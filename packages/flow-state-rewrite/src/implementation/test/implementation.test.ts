@@ -11,13 +11,13 @@ import type {
 
 type Expect<Value extends true> = Value;
 
-type ProjectRepoService = { readonly find: (id: string) => Effect.Effect<{ readonly id: string }> };
+type ProjectRepoService = { find: (id: string) => Effect.Effect<{ id: string }> };
 
 class ProjectRepo extends Context.Service<ProjectRepo, ProjectRepoService>()(
   "ImplementationTest/ProjectRepo",
 ) {}
 
-type ProjectConfigService = { readonly region: string };
+type ProjectConfigService = { region: string };
 
 class ProjectConfig extends Context.Service<ProjectConfig, ProjectConfigService>()(
   "ImplementationTest/ProjectConfig",

@@ -41,16 +41,16 @@ const moduleTypeId: unique symbol = Symbol("flow-state module");
 const appTypeId: unique symbol = Symbol("flow-state app");
 
 export type AppOwner = {
-  readonly [appTypeId]: true;
+  [appTypeId]: true;
 };
 
 const constructedAppPlans = new WeakMap<AppOwner, StoredAppPlan>();
 
-type AdmittedMachineRecord = Readonly<Record<string, MachineAdmission>>;
+type AdmittedMachineRecord = Record<string, MachineAdmission>;
 
 type CapturedMachineRecord<RecordValue extends MachineRecord = MachineRecord> = {
-  readonly value: RecordValue;
-  readonly admitted: AdmittedMachineRecord;
+  value: RecordValue;
+  admitted: AdmittedMachineRecord;
 };
 
 const moduleMachineSnapshots = new WeakMap<AnyModule, AdmittedMachineRecord>();
@@ -66,9 +66,12 @@ const isConstructedModule = (value: unknown): value is AnyModule =>
 
 type MachineAdmission = Machine;
 
-type MachineRecord = Readonly<Record<string, MachineRecordValue>>;
+type MachineRecord = Record<string, MachineRecordValue>;
 
-type AppMachine<Modules extends readonly AnyModule[]> = Modules[number] extends infer ModuleValue
+// oxlint-disable-next-line anti-slop/no-readonly -- NO_READONLY_CODEMOD: app authoring accepts const-inferred module tuples without requiring callers to copy them.
+type ModuleList = readonly AnyModule[];
+
+type AppMachine<Modules extends ModuleList> = Modules[number] extends infer ModuleValue
   ? ModuleValue extends AnyModule
     ? ModuleValue["machines"][keyof ModuleValue["machines"]] extends infer MachineValue
       ? MachineValue extends Machine<infer _DefinitionValue>
@@ -80,113 +83,111 @@ type AppMachine<Modules extends readonly AnyModule[]> = Modules[number] extends 
     : never
   : never;
 
-type AppDescriptor<Modules extends readonly AnyModule[]> =
+type AppDescriptor<Modules extends ModuleList> =
   AppMachine<Modules> extends infer MachineValue
     ? MachineValue extends Machine<infer DefinitionValue>
       ? DefinitionValue["operations"][keyof DefinitionValue["operations"]]
       : never
     : never;
 
-type PlanMachine<Modules extends readonly AnyModule[]> = AppMachine<Modules>;
+type PlanMachine<Modules extends ModuleList> = AppMachine<Modules>;
 
 type AppMachineFacts = MachineRecordValue;
 
 const capturedMachineSources = new WeakMap<MachineRecordValue, MachineRecordValue>();
 
 type AdmissionRecord = {
-  readonly [moduleTypeId]?: true;
-  readonly kind?: unknown;
-  readonly id?: unknown;
-  readonly machines?: unknown;
-  readonly persistenceVersion?: unknown;
-  readonly modules?: unknown;
+  [moduleTypeId]?: true;
+  kind?: unknown;
+  id?: unknown;
+  machines?: unknown;
+  persistenceVersion?: unknown;
+  modules?: unknown;
 };
 
 type ModuleConfiguration = {
-  readonly id: unknown;
-  readonly machines: unknown;
+  id: unknown;
+  machines: unknown;
 };
 
 type AppConfiguration = {
-  readonly id: unknown;
-  readonly persistenceVersion: unknown;
-  readonly modules: unknown;
+  id: unknown;
+  persistenceVersion: unknown;
+  modules: unknown;
 };
 
 export type Module<
   Id extends string = string,
   Machines extends MachineRecord = MachineRecord,
 > = RequirementsCarrier<RequirementsOf<Machines[keyof Machines]>> & {
-  readonly kind: "module";
-  readonly id: Id;
-  readonly machines: Machines;
-  readonly [moduleTypeId]: true;
+  kind: "module";
+  id: Id;
+  machines: Machines;
+  [moduleTypeId]: true;
 };
 
 export type AnyModule = RequirementsCarrier<unknown> & {
-  readonly kind: "module";
-  readonly id: string;
-  readonly machines: MachineRecord;
-  readonly [moduleTypeId]: true;
+  kind: "module";
+  id: string;
+  machines: MachineRecord;
+  [moduleTypeId]: true;
 };
 
 type AppPlan<
   Id extends string = string,
   PersistenceVersion extends string = string,
-  Modules extends readonly AnyModule[] = readonly AnyModule[],
+  Modules extends ModuleList = ModuleList,
 > = {
-  readonly appId: Id;
-  readonly persistenceVersion: PersistenceVersion;
-  readonly modules: Modules;
-  readonly machines: readonly PlanMachine<Modules>[];
-  readonly descriptors: readonly AppDescriptor<Modules>[];
-  readonly resolveMachine: (id: string) => PlanMachine<Modules> | undefined;
-  readonly resolveMachineFacts: (machine: MachineRecordValue) => AppMachineFacts | undefined;
-  readonly admitsMachine: (machine: PlanMachine<Modules>) => boolean;
-  readonly resolveDescriptor: (id: string) => AppDescriptor<Modules> | undefined;
-  readonly admitsDescriptor: (descriptor: AppDescriptor<Modules>) => boolean;
+  appId: Id;
+  persistenceVersion: PersistenceVersion;
+  modules: Modules;
+  machines: PlanMachine<Modules>[];
+  descriptors: AppDescriptor<Modules>[];
+  resolveMachine: (id: string) => PlanMachine<Modules> | undefined;
+  resolveMachineFacts: (machine: MachineRecordValue) => AppMachineFacts | undefined;
+  admitsMachine: (machine: PlanMachine<Modules>) => boolean;
+  resolveDescriptor: (id: string) => AppDescriptor<Modules> | undefined;
+  admitsDescriptor: (descriptor: AppDescriptor<Modules>) => boolean;
 };
 
 type StoredAppPlan = Omit<AppPlan, "admitsMachine" | "admitsDescriptor"> & {
-  readonly admitsMachine: (machine: never) => boolean;
-  readonly admitsDescriptor: (descriptor: never) => boolean;
+  admitsMachine: (machine: never) => boolean;
+  admitsDescriptor: (descriptor: never) => boolean;
 };
 
-type FlattenModules<Modules extends readonly AnyModule[]> = number extends Modules["length"]
-  ? Readonly<Record<never, never>>
-  : Modules extends readonly [
-        infer Head extends AnyModule,
-        ...infer Tail extends readonly AnyModule[],
-      ]
+type FlattenModules<Modules extends ModuleList> = number extends Modules["length"]
+  ? Record<never, never>
+  : // oxlint-disable-next-line anti-slop/no-readonly -- NO_READONLY_CODEMOD: tuple recursion must match const-inferred module tuples without widening their element types.
+    Modules extends readonly [infer Head extends AnyModule, ...infer Tail extends ModuleList]
     ? Head["machines"] & FlattenModules<Tail>
-    : Readonly<Record<never, never>>;
+    : Record<never, never>;
 
 export type App<
   Id extends string = string,
   PersistenceVersion extends string = string,
-  Modules extends readonly AnyModule[] = readonly AnyModule[],
+  Modules extends ModuleList = ModuleList,
 > = RequirementsCarrier<RequirementsOf<Modules[number]>> &
   AppOwner & {
-    readonly kind: "app";
-    readonly id: Id;
-    readonly persistenceVersion: PersistenceVersion;
-    readonly modules: Modules;
-    readonly M: FlattenModules<Modules>;
+    kind: "app";
+    id: Id;
+    persistenceVersion: PersistenceVersion;
+    modules: Modules;
+    M: FlattenModules<Modules>;
   };
 
 export type ModuleConfig<Id extends string, Machines extends MachineRecord> = {
-  readonly id: Id;
-  readonly machines: Machines;
+  id: Id;
+  machines: Machines;
 };
 
 export type AppConfig<
   Id extends string,
   PersistenceVersion extends string,
-  Modules extends readonly AnyModule[],
+  Modules extends ModuleList,
 > = {
-  readonly id: Id;
-  readonly persistenceVersion: PersistenceVersion;
-  readonly modules: Modules;
+  id: Id;
+  persistenceVersion: PersistenceVersion;
+  modules: Modules;
 };
 
 // RETURN_TYPE: Narrows the object reference before constructed-app membership lookup.
@@ -205,7 +206,7 @@ const invalid = (message: string): never => {
 export const appPlan = <
   const Id extends string,
   const PersistenceVersion extends string,
-  const Modules extends readonly AnyModule[],
+  const Modules extends ModuleList,
 >(
   appValue: App<Id, PersistenceVersion, Modules>,
 ) => {
@@ -229,19 +230,19 @@ type AppIndexes<
   MachineValue extends MachineAdmission = MachineAdmission,
 > = {
   /** Authored module identifiers used to reject duplicate module records. */
-  readonly moduleIds: Set<string>;
+  moduleIds: Set<string>;
   /** Authored machine properties used to reject duplicate App.M keys. */
-  readonly machineKeys: Set<string>;
+  machineKeys: Set<string>;
   /** Machine object identities used to reject the same machine value twice. */
-  readonly machineValues: Set<MachineValue>;
+  machineValues: Set<MachineValue>;
   /** Machine definition identifiers used for plan machine lookup. */
-  readonly machineIds: Map<string, MachineValue>;
+  machineIds: Map<string, MachineValue>;
   /** Authored machine properties used to publish the flattened App.M record. */
-  readonly machineRecord: Record<string, MachineValue>;
+  machineRecord: Record<string, MachineValue>;
   /** Operation descriptor identifiers used for plan descriptor lookup. */
-  readonly descriptorIds: Map<string, Descriptor>;
+  descriptorIds: Map<string, Descriptor>;
   /** Captured per-machine operation values reused by machine-fact publication. */
-  readonly operationCatalogs: Map<MachineValue, ReadonlyMap<string, Descriptor>>;
+  operationCatalogs: Map<MachineValue, Map<string, Descriptor>>;
 };
 
 // RETURN_TYPE: Narrows decoded configuration to the owned admission record shape.
@@ -252,7 +253,7 @@ const isRecord = (value: unknown): value is AdmissionRecord => {
   return prototype === Object.prototype || prototype === null;
 };
 
-const captureConfigurationRecord = (value: unknown, expected: readonly string[], label: string) => {
+const captureConfigurationRecord = (value: unknown, expected: string[], label: string) => {
   const record = isRecord(value) ? value : undefined;
 
   if (record === undefined) return Result.fail(`${label} must be an object`);
@@ -343,11 +344,11 @@ const captureAppConfiguration = (value: unknown) => {
   } satisfies AppConfiguration);
 };
 
-// RETURN_TYPE: Preserves the readonly tuple consumed by exact machine-record capture.
+// RETURN_TYPE: Preserves the entry tuple consumed by exact machine-record capture.
 const captureMachineEntry = (
   record: AdmissionRecord,
   name: string,
-): Result.Result<readonly [string, MachineAdmission], string> => {
+): Result.Result<[string, MachineAdmission], string> => {
   const descriptor = Object.getOwnPropertyDescriptor(record, name);
   const repeatedDescriptor = Object.getOwnPropertyDescriptor(record, name);
 
@@ -380,7 +381,7 @@ function captureMachineRecord(value: unknown): Result.Result<CapturedMachineReco
   if (!isStableKeyList(keys, repeatedKeys))
     return Result.fail("Module machines changed during admission");
 
-  const entries: Array<readonly [string, MachineAdmission]> = [];
+  const entries: Array<[string, MachineAdmission]> = [];
 
   for (const key of repeatedKeys) {
     const name = isAuthoredName(key) ? key : undefined;
@@ -420,24 +421,22 @@ type ModuleAdmission<
   Id extends string = string,
   RecordValue extends MachineRecord = MachineRecord,
 > = {
-  readonly id: Id;
-  readonly captured: CapturedMachineRecord<RecordValue>;
+  id: Id;
+  captured: CapturedMachineRecord<RecordValue>;
 };
 
 type AppConfigurationFailure = {
-  readonly path: readonly PropertyKey[];
-  readonly message: string;
+  path: PropertyKey[];
+  message: string;
 };
 
 type AppModulesFailure = {
-  readonly path: readonly number[];
-  readonly message: string;
+  path: number[];
+  message: string;
 };
 
 // RETURN_TYPE: Preserves the reflected own-key list for dense indexed module capture.
-const readAppModuleKeys = (
-  array: readonly unknown[],
-): Result.Result<readonly PropertyKey[], AppModulesFailure> => {
+const readAppModuleKeys = (array: unknown[]): Result.Result<PropertyKey[], AppModulesFailure> => {
   const keys = Reflect.ownKeys(array);
   const repeatedKeys = Reflect.ownKeys(array);
 
@@ -447,7 +446,7 @@ const readAppModuleKeys = (
   return Result.succeed(repeatedKeys);
 };
 
-const isOrdinaryAppModuleArray = (array: readonly unknown[]) => {
+const isOrdinaryAppModuleArray = (array: unknown[]) => {
   const prototype = Object.getPrototypeOf(array);
   const repeatedPrototype = Object.getPrototypeOf(array);
 
@@ -459,9 +458,7 @@ const isOrdinaryAppModuleArray = (array: readonly unknown[]) => {
 };
 
 // RETURN_TYPE: Preserves the stable numeric length required by indexed module capture.
-const readAppModuleLength = (
-  array: readonly unknown[],
-): Result.Result<number, AppModulesFailure> => {
+const readAppModuleLength = (array: unknown[]): Result.Result<number, AppModulesFailure> => {
   const length = Object.getOwnPropertyDescriptor(array, "length");
   const repeatedLength = Object.getOwnPropertyDescriptor(array, "length");
 
@@ -485,7 +482,7 @@ const readAppModuleLength = (
   return Result.succeed(repeatedLength.value);
 };
 
-const isCanonicalAppModuleKeyList = (keys: readonly PropertyKey[], length: number) => {
+const isCanonicalAppModuleKeyList = (keys: PropertyKey[], length: number) => {
   const expectedKeyCount = length + 1;
 
   if (
@@ -500,7 +497,7 @@ const isCanonicalAppModuleKeyList = (keys: readonly PropertyKey[], length: numbe
 
 // RETURN_TYPE: Preserves indexed descriptor admission and its public module failure path.
 const captureAppModuleEntry = (
-  array: readonly unknown[],
+  array: unknown[],
   index: number,
 ): Result.Result<AnyModule, AppModulesFailure> => {
   const name = String(index);
@@ -534,10 +531,8 @@ const captureAppModuleEntry = (
   return Result.succeed(repeatedDescriptor.value);
 };
 
-// RETURN_TYPE: Publishes captured module entries as a readonly App admission collection.
-const captureAppModules = (
-  value: unknown,
-): Result.Result<readonly AnyModule[], AppModulesFailure> => {
+// RETURN_TYPE: Publishes captured module entries as the App admission collection.
+const captureAppModules = (value: unknown): Result.Result<AnyModule[], AppModulesFailure> => {
   if (!Array.isArray(value))
     return Result.fail({ path: [], message: "App modules must be an array" });
   const array = value;
@@ -638,14 +633,14 @@ const decodeModule = Schema.decodeUnknownResult(ModuleSchema);
 type AppAdmission<
   Id extends string = string,
   PersistenceVersion extends string = string,
-  Modules extends readonly AnyModule[] = readonly AnyModule[],
+  Modules extends ModuleList = ModuleList,
 > = {
-  readonly id: Id;
-  readonly persistenceVersion: PersistenceVersion;
-  readonly modules: Modules;
+  id: Id;
+  persistenceVersion: PersistenceVersion;
+  modules: Modules;
 };
 
-const ConstructedModuleArraySchema = Schema.declareConstructor<readonly AnyModule[], unknown>()(
+const ConstructedModuleArraySchema = Schema.declareConstructor<AnyModule[], unknown>()(
   [],
   () => (value, _ast, options) => {
     const captured = captureAppModules(value);
@@ -739,7 +734,7 @@ function admitModuleConfiguration(input: unknown): ModuleAdmission {
 function admitAppConfiguration<
   Id extends string,
   PersistenceVersion extends string,
-  Modules extends readonly AnyModule[],
+  Modules extends ModuleList,
 >(
   config: AppConfig<Id, PersistenceVersion, Modules>,
 ): AppAdmission<Id, PersistenceVersion, Modules>;
@@ -833,10 +828,10 @@ const indexDescriptors = <
 };
 
 type AdmittedMachineRecordFor<ModuleValue extends AnyModule> = {
-  readonly [Key in keyof ModuleValue["machines"]]: ModuleValue["machines"][Key];
+  [Key in keyof ModuleValue["machines"]]: ModuleValue["machines"][Key];
 };
 
-const indexModule = <Modules extends readonly AnyModule[], ModuleValue extends Modules[number]>(
+const indexModule = <Modules extends ModuleList, ModuleValue extends Modules[number]>(
   moduleValue: ModuleValue,
   indexes: AppIndexes<AppDescriptor<Modules>, PlanMachine<Modules>>,
 ) => {
@@ -857,7 +852,7 @@ const indexModule = <Modules extends readonly AnyModule[], ModuleValue extends M
   }
 };
 
-const indexModules = <Modules extends readonly AnyModule[]>(modules: Modules) => {
+const indexModules = <Modules extends ModuleList>(modules: Modules) => {
   const indexes: AppIndexes<AppDescriptor<Modules>, PlanMachine<Modules>> = {
     moduleIds: new Set<string>(),
     machineKeys: new Set<string>(),
@@ -873,7 +868,7 @@ const indexModules = <Modules extends readonly AnyModule[]>(modules: Modules) =>
   return indexes;
 };
 
-type StateCaptureContainer = Record<string, unknown> | readonly unknown[];
+type StateCaptureContainer = Record<string, unknown> | unknown[];
 
 const isStateCaptureContainer = (value: unknown): value is StateCaptureContainer =>
   Array.isArray(value) || Predicate.isObject(value);
@@ -916,7 +911,7 @@ const isStateTable = (
 
 const isStateBranch = (
   value: unknown,
-): value is Record<string, unknown> & { readonly S: Record<string, unknown> } =>
+): value is Record<string, unknown> & { S: Record<string, unknown> } =>
   Predicate.isObject(value) &&
   !Array.isArray(value) &&
   !isStateToken(value) &&
@@ -924,7 +919,7 @@ const isStateBranch = (
   isStateTable(value.S);
 
 const copyRecord = <Value, CopiedValue>(
-  source: Readonly<Record<string, Value>>,
+  source: Record<string, Value>,
   copy: (value: Value) => CopiedValue,
 ): Record<string, CopiedValue> => {
   const result: Record<string, CopiedValue> = Object.create(null);
@@ -938,7 +933,7 @@ const copyRecord = <Value, CopiedValue>(
   return result;
 };
 
-const copyAuthoredStates = (value: readonly unknown[]): readonly unknown[] => {
+const copyAuthoredStates = (value: unknown[]): unknown[] => {
   const seen = new WeakMap<StateCaptureContainer, unknown>();
 
   const copy = (current: unknown): unknown => {
@@ -965,7 +960,7 @@ const copyAuthoredStates = (value: readonly unknown[]): readonly unknown[] => {
   };
 
   // SAFETY: the recursive copy preserves the authored state container shape while owning every structural nested container.
-  return copy(value) as readonly unknown[];
+  return copy(value) as unknown[];
 };
 
 const copyStateTable = <Value>(source: Value): Value => {
@@ -995,7 +990,7 @@ const copyStateTable = <Value>(source: Value): Value => {
 };
 
 const copyCapturedOperations = (
-  catalog: ReadonlyMap<string, OperationDeclaration>,
+  catalog: Map<string, OperationDeclaration>,
 ): Record<string, OperationDeclaration> => {
   const result: Record<string, OperationDeclaration> = Object.create(null);
 
@@ -1006,10 +1001,9 @@ const copyCapturedOperations = (
 
 const copyMachineDefinition = (
   source: MachineDefinition,
-  operationCatalog: ReadonlyMap<string, OperationDeclaration>,
+  operationCatalog: Map<string, OperationDeclaration>,
 ): MachineDefinition => {
-  const authoredStates = (source as MachineDefinition & { readonly states?: readonly unknown[] })
-    .states;
+  const authoredStates = (source as MachineDefinition & { states?: unknown[] }).states;
 
   return {
     ...source,
@@ -1057,7 +1051,7 @@ const copyCompiledMachine = <DefinitionValue extends MachineDefinition>(
 
 const captureMachineFacts = <DefinitionValue extends MachineDefinition>(
   source: Machine<DefinitionValue>,
-  operationCatalog: ReadonlyMap<string, OperationDeclaration>,
+  operationCatalog: Map<string, OperationDeclaration>,
 ): Machine<DefinitionValue> => {
   // SAFETY: App construction has already admitted this machine; the private shell retains its exact typed definition and compiled behavior while the public shell remains the identity token.
   // SAFETY: the cloned definition and compiled containers retain the source machine's private generic correlation.
@@ -1074,13 +1068,13 @@ const captureMachineFacts = <DefinitionValue extends MachineDefinition>(
 const publishAppPlan = <
   Id extends string,
   PersistenceVersion extends string,
-  Modules extends readonly AnyModule[],
+  Modules extends ModuleList,
 >(
   admitted: AppAdmission<Id, PersistenceVersion, Modules>,
   indexes: AppIndexes<AppDescriptor<Modules>, PlanMachine<Modules>>,
 ) => {
   // SAFETY: retain a publication copy; the private identity list remains owned by App construction.
-  const privateDescriptors: readonly AppDescriptor<Modules>[] = [...indexes.descriptorIds.values()];
+  const privateDescriptors: AppDescriptor<Modules>[] = [...indexes.descriptorIds.values()];
   const descriptors = privateDescriptors.slice();
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the admitted module tuple supplies this exact PlanMachine union.
   const planMachines = [...indexes.machineValues];
@@ -1149,7 +1143,7 @@ export const module = <const Id extends string, const Machines extends MachineRe
 export const app = <
   const Id extends string,
   const PersistenceVersion extends string,
-  const Modules extends readonly AnyModule[],
+  const Modules extends ModuleList,
 >(
   config: AppConfig<Id, PersistenceVersion, Modules>,
 ) => {

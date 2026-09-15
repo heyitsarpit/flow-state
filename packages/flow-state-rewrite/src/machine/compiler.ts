@@ -46,28 +46,28 @@ import type {
  *   Publishes the index and copies collected registrations.
  */
 
-type StatePath = readonly string[];
+type StatePath = string[];
 
 type MachineSymbols<DefinitionValue extends MachineDefinition> = {
-  readonly stateTokens: TokenLookup<StateOf<DefinitionValue>>;
-  readonly eventTokens: TokenLookup<Timer<DefinitionValue>["target"]>;
-  readonly events: DefinitionValue["E"];
-  readonly operations: DefinitionValue["operations"];
+  stateTokens: TokenLookup<StateOf<DefinitionValue>>;
+  eventTokens: TokenLookup<Timer<DefinitionValue>["target"]>;
+  events: DefinitionValue["E"];
+  operations: DefinitionValue["operations"];
 };
 
 type StateTree<DefinitionValue extends MachineDefinition, Behavior> =
   | {
-      readonly kind: "leaf";
-      readonly path: StatePath;
-      readonly token: StateOf<DefinitionValue>;
-      readonly behavior: Behavior;
+      kind: "leaf";
+      path: StatePath;
+      token: StateOf<DefinitionValue>;
+      behavior: Behavior;
     }
   | {
-      readonly kind: "compound";
-      readonly path: StatePath;
-      readonly default: StateOf<DefinitionValue>;
-      readonly behavior: Behavior;
-      readonly children: readonly StateTree<DefinitionValue, Behavior>[];
+      kind: "compound";
+      path: StatePath;
+      default: StateOf<DefinitionValue>;
+      behavior: Behavior;
+      children: StateTree<DefinitionValue, Behavior>[];
     };
 
 type StructuredState<DefinitionValue extends MachineDefinition> = StateTree<
@@ -83,7 +83,7 @@ type ResolvedState<DefinitionValue extends MachineDefinition> = StateTree<
 // Definition indexing
 
 const tokenLookup =
-  <Token>(tokens: ReadonlyMap<unknown, Token>) =>
+  <Token>(tokens: Map<unknown, Token>) =>
   (value: unknown) =>
     Option.fromNullishOr(tokens.get(value));
 
@@ -92,7 +92,7 @@ const buildStateNodes = <DefinitionValue extends MachineDefinition>(
   table: DefinitionValue["S"],
   parentPath: StatePath,
   tokens: Map<unknown, StateOf<DefinitionValue>>,
-): readonly StateNode<DefinitionValue>[] =>
+): StateNode<DefinitionValue>[] =>
   Object.entries(table).map(([name, value]) => {
     const path = [...parentPath, name];
 
@@ -176,7 +176,7 @@ const validateStateToken = <DefinitionValue extends MachineDefinition>(
     );
   });
 
-// RETURN_TYPE: Recursive Result.gen structural admission needs an explicit result to anchor StateTree's readonly union.
+// RETURN_TYPE: Recursive Result.gen structural admission needs an explicit result to anchor the StateTree union.
 const admitStructure = <DefinitionValue extends MachineDefinition>(
   node: StateNode<DefinitionValue>,
   configuration: unknown,
@@ -237,7 +237,7 @@ const validateEventToken = <DefinitionValue extends MachineDefinition>(
 const resolveBehavior = <DefinitionValue extends MachineDefinition>(
   state: StructuredState<DefinitionValue>,
   symbols: MachineSymbols<DefinitionValue>,
-  inheritedHandlers: ReadonlySet<string>,
+  inheritedHandlers: Set<string>,
 ): Result.Result<ResolvedState<DefinitionValue>, Diagnostic.PublicDiagnostic> =>
   Result.gen(function* () {
     const behavior = yield* admitStateBehavior<DefinitionValue>(
@@ -284,10 +284,10 @@ const stateKey = (path: StatePath) =>
     ? stateDisplayPath(path)
     : `@${JSON.stringify(path)}`;
 
-// RETURN_TYPE: Publishes a readonly state index after private preorder mutation.
+// RETURN_TYPE: Keeps the compiled state index as a keyed record after private preorder mutation.
 const emitStates = <DefinitionValue extends MachineDefinition>(
   state: ResolvedState<DefinitionValue>,
-): Readonly<Record<string, CompiledState<DefinitionValue>>> => {
+): Record<string, CompiledState<DefinitionValue>> => {
   const states: Record<string, CompiledState<DefinitionValue>> = Object.create(null);
 
   const emitState = (current: ResolvedState<DefinitionValue>) => {
@@ -332,8 +332,8 @@ export const compileMachine = <
 >(
   definition: DefinitionValue,
   configuration: Configuration,
-  context: readonly ContextRegistration<DefinitionValue>[],
-  memory: readonly MemoryRegistration<DefinitionValue>[],
+  context: ContextRegistration<DefinitionValue>[],
+  memory: MemoryRegistration<DefinitionValue>[],
 ): Result.Result<CompiledMachine<DefinitionValue>, Diagnostic.PublicDiagnostic> =>
   Result.gen(function* () {
     const { root, symbols } = indexDefinition(definition);

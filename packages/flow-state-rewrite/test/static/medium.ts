@@ -64,25 +64,25 @@ type ImplementationRequirements<Value> =
     ? Requirements
     : never;
 
-type Project = { readonly id: string; readonly title: string };
+type Project = { id: string; title: string };
 
-type ProjectInput = { readonly projectId: string };
+type ProjectInput = { projectId: string };
 
-type AuditRecord = { readonly projectId: string; readonly action: "save" };
+type AuditRecord = { projectId: string; action: "save" };
 
 class ProjectRepo extends Context.Service<
   ProjectRepo,
-  { readonly find: (id: string) => Effect.Effect<Project> }
+  { find: (id: string) => Effect.Effect<Project> }
 >()("StaticHarness/ProjectRepo") {}
 
 class AuditSink extends Context.Service<
   AuditSink,
-  { readonly write: (record: AuditRecord) => Effect.Effect<void> }
+  { write: (record: AuditRecord) => Effect.Effect<void> }
 >()("StaticHarness/AuditSink") {}
 
 class ProjectFeed extends Context.Service<
   ProjectFeed,
-  { readonly watch: (id: string) => Stream.Stream<Project> }
+  { watch: (id: string) => Stream.Stream<Project> }
 >()("StaticHarness/ProjectFeed") {}
 
 const projectResource = resource({
@@ -91,7 +91,7 @@ const projectResource = resource({
   // RETURN_TYPE: Preserves ProjectRepo and the missing channel in the medium provider proof.
   lookup: (
     { projectId }: ProjectInput,
-    { signal }: { readonly signal: AbortSignal },
+    { signal }: { signal: AbortSignal },
   ): Effect.Effect<Project, "missing", ProjectRepo> => {
     void signal;
 
@@ -105,7 +105,7 @@ const saveProject = transaction({
   // RETURN_TYPE: Preserves AuditSink and the rejected channel in the medium provider proof.
   commit: (
     { projectId }: ProjectInput,
-    { signal }: { readonly signal: AbortSignal },
+    { signal }: { signal: AbortSignal },
   ): Effect.Effect<Project, "rejected", AuditSink> => {
     void signal;
 
@@ -119,7 +119,7 @@ const projectUpdates = stream({
   // RETURN_TYPE: Preserves ProjectFeed and the offline channel in the medium provider proof.
   subscribe: (
     { projectId }: ProjectInput,
-    { signal }: { readonly signal: AbortSignal },
+    { signal }: { signal: AbortSignal },
   ): Stream.Stream<Project, "offline", ProjectFeed> => {
     void signal;
 
@@ -139,7 +139,7 @@ const EditorResult = definition({
     save: saveProject,
     updates: projectUpdates,
   },
-  memory: ({ input }: { readonly input: ProjectInput }) => ({
+  memory: ({ input }: { input: ProjectInput }) => ({
     projectId: input.projectId,
     dirty: false,
   }),
@@ -188,9 +188,9 @@ void EditorEvent;
 
 void EditorState;
 
-type CorrelatedLeftInput = { readonly leftId: string };
+type CorrelatedLeftInput = { leftId: string };
 
-type CorrelatedRightInput = { readonly rightCount: number };
+type CorrelatedRightInput = { rightCount: number };
 
 const correlatedLeftDescriptor = resource({
   id: "static/correlated.left",
@@ -322,13 +322,13 @@ const mixedCorrelatedBinding: ContextBinding<
   provider: correlatedRightRef,
 };
 
-export type CorrelatedMachineProofs = readonly [
+export type CorrelatedMachineProofs = [
   Expect<Types.Equals<typeof correlatedLeftEvent, EventOf<typeof CorrelatedLeft>>>,
   Expect<Types.Equals<typeof correlatedRightEvent, EventOf<typeof CorrelatedRight>>>,
   Expect<Types.Equals<typeof correlatedLeftState, typeof CorrelatedLeft.S.open>>,
   Expect<Types.Equals<typeof correlatedRightState, typeof CorrelatedRight.S.complete>>,
-  Expect<Types.Equals<typeof correlatedLeftKey, readonly [string]>>,
-  Expect<Types.Equals<typeof correlatedRightKey, readonly [number]>>,
+  Expect<Types.Equals<typeof correlatedLeftKey, [string]>>,
+  Expect<Types.Equals<typeof correlatedRightKey, [number]>>,
   Expect<Types.Equals<typeof correlatedLeftOperation, typeof correlatedLeftDescriptor>>,
   Expect<Types.Equals<typeof correlatedRightOperation, typeof correlatedRightDescriptor>>,
   Expect<Types.Equals<(typeof correlatedBinding)["slot"], "leftState">>,
@@ -417,7 +417,7 @@ const staticStableIdentity = staticActorRegistry.reserveStable(staticStableRef);
 
 const staticLocalIdentity = staticActorRegistry.createLocal(editorMachine);
 
-export type ActorIdentityProofs = readonly [
+export type ActorIdentityProofs = [
   Expect<Types.Equals<ResultSuccess<typeof staticStableIdentity>, ActorIdentity<typeof Editor>>>,
   Expect<
     Types.Equals<ResultSuccess<typeof staticLocalIdentity>, LocalActorIdentity<typeof Editor>>
@@ -499,7 +499,7 @@ const staticContextSnapshot: ActorContextSnapshot<typeof StaticContextProvider> 
   context: {},
 };
 
-export type ContextProofs = readonly [
+export type ContextProofs = [
   Expect<Types.Equals<(typeof staticContextBinding)["slot"], "selected">>,
   Expect<
     Types.Equals<
@@ -526,7 +526,7 @@ export type ContextProofs = readonly [
   >,
   Expect<Types.Equals<ContextProjection<typeof StaticContextConsumer>["consumer"], ActorKey>>,
   Expect<Types.Equals<ContextWave["providerRevision"], ProviderRevisionVector>>,
-  Expect<Types.Equals<PassiveObserver<ActorKey>["dependencies"], () => readonly ActorKey[]>>,
+  Expect<Types.Equals<PassiveObserver<ActorKey>["dependencies"], () => ActorKey[]>>,
 ];
 
 void staticContextBinding;
@@ -538,7 +538,7 @@ const repoImplementation = Implementation.succeed(ProjectRepo, {
 });
 
 const auditAcquire: Effect.Effect<
-  { readonly write: (record: AuditRecord) => Effect.Effect<void> },
+  { write: (record: AuditRecord) => Effect.Effect<void> },
   "configuration-failed",
   ProjectRepo
 > = Effect.succeed({ write: (_record: AuditRecord) => Effect.succeed(undefined) });
@@ -546,7 +546,7 @@ const auditAcquire: Effect.Effect<
 const auditImplementation = Implementation.effect(AuditSink, auditAcquire);
 
 const feedAcquire: Effect.Effect<
-  { readonly watch: (id: string) => Stream.Stream<Project> },
+  { watch: (id: string) => Stream.Stream<Project> },
   "feed-unavailable",
   ProjectRepo
 > = Effect.succeed({ watch: (id: string) => Stream.make({ id, title: "watched" }) });
@@ -558,7 +558,7 @@ const staticImplementation = Implementation.merge(
   feedImplementation,
 );
 
-export type DefinitionProofs = readonly [
+export type DefinitionProofs = [
   Expect<Types.Equals<InputOf<typeof Editor>, ProjectInput>>,
   Expect<Types.Equals<MemoryOf<typeof Editor>, { projectId: string; dirty: boolean }>>,
   Expect<
@@ -579,16 +579,16 @@ export type DefinitionProofs = readonly [
   Expect<Types.Equals<typeof Editor.operations.updates, typeof projectUpdates>>,
 ];
 
-export type OperationProofs = readonly [
+export type OperationProofs = [
   Expect<Types.Equals<RequirementsOf<typeof projectResource>, ProjectRepo>>,
   Expect<Types.Equals<RequirementsOf<typeof saveProject>, AuditSink>>,
   Expect<Types.Equals<RequirementsOf<typeof projectUpdates>, ProjectFeed>>,
-  Expect<Types.Equals<ReturnType<typeof projectResource.key>, readonly [string]>>,
-  Expect<Types.Equals<ReturnType<typeof saveProject.key>, readonly [string]>>,
-  Expect<Types.Equals<ReturnType<typeof projectUpdates.key>, readonly [string]>>,
+  Expect<Types.Equals<ReturnType<typeof projectResource.key>, [string]>>,
+  Expect<Types.Equals<ReturnType<typeof saveProject.key>, [string]>>,
+  Expect<Types.Equals<ReturnType<typeof projectUpdates.key>, [string]>>,
 ];
 
-export type AppProofs = readonly [
+export type AppProofs = [
   Expect<Types.Equals<typeof StaticApp.M.editor, typeof editorMachine>>,
   Expect<Types.Equals<typeof StaticApp.M.viewer, typeof Viewer>>,
   Expect<Types.Equals<typeof StaticApp.M.dashboard, typeof Dashboard>>,
@@ -606,7 +606,7 @@ export type AppProofs = readonly [
   Expect<Types.Equals<RequirementsOf<typeof StaticApp>, ProjectRepo | AuditSink | ProjectFeed>>,
 ];
 
-export type ImplementationProofs = readonly [
+export type ImplementationProofs = [
   Expect<Types.Equals<ImplementationOutput<typeof repoImplementation>, ProjectRepo>>,
   Expect<
     Types.Equals<

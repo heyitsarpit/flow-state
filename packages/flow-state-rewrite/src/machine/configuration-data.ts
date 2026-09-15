@@ -4,11 +4,11 @@ import type * as Diagnostic from "../diagnostic/diagnostic.js";
 import { invalidConfigurationKey } from "./diagnostic.js";
 import type { ConfigurationSnapshot } from "./reflection.js";
 
-export type ConfigurationEntry = readonly [string, unknown];
+export type ConfigurationEntry = [string, unknown];
 
 type ConfigurationEntryFailure = {
-  readonly reason: "NonStringConfigurationKey" | "UnexpectedConfigurationField";
-  readonly key: PropertyKey;
+  reason: "NonStringConfigurationKey" | "UnexpectedConfigurationField";
+  key: PropertyKey;
 };
 
 // RETURN_TYPE: Keeps shared snapshot projection failures separate from each caller's diagnostic adapter.

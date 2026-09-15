@@ -4,7 +4,7 @@ import { Effect, Predicate, Schema } from "effect";
  * Canonical keys:
  *
  * Types and limits:
- *   CanonicalKeyInput, OperationKey, ReadonlyCanonical, CanonicalContainer,
+ *   CanonicalKeyInput, OperationKey, CanonicalKeyValue, CanonicalContainer,
  *   CanonicalizationContext, MAX_DEPTH, MAX_NODES, MAX_BYTES, MAX_ARRAY_LENGTH
  *
  * Stable observation and failure paths:
@@ -32,77 +32,87 @@ import { Effect, Predicate, Schema } from "effect";
  */
 
 interface CanonicalKeyRecord {
-  readonly [key: string]: CanonicalKeyInput;
+  [key: string]: CanonicalKeyInput;
 }
 
 interface CanonicalRecordInput {
   // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- canonical containers preserve unknown children until recursive promotion.
-  readonly [key: string]: unknown;
+  [key: string]: unknown;
 }
 
+// oxlint-disable-next-line anti-slop/no-readonly -- NO_READONLY_CODEMOD: canonicalization must accept const-inferred key containers.
 type CanonicalArrayInput = readonly unknown[];
+
+// oxlint-disable-next-line anti-slop/no-readonly -- NO_READONLY_CODEMOD: operation key authoring accepts const-inferred outer and nested tuples.
+type CanonicalKeyArray = readonly CanonicalKeyInput[];
 
 export type CanonicalKeyInput =
   | null
   | boolean
   | number
   | string
-  | readonly CanonicalKeyInput[]
+  | CanonicalKeyArray
   | CanonicalKeyRecord;
 
-export type OperationKey = readonly CanonicalKeyInput[];
+export type OperationKey = CanonicalKeyArray;
 
 type CanonicalDepth = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17;
 
 type CanonicalDepthSuccessor = {
-  readonly 0: 1;
-  readonly 1: 2;
-  readonly 2: 3;
-  readonly 3: 4;
-  readonly 4: 5;
-  readonly 5: 6;
-  readonly 6: 7;
-  readonly 7: 8;
-  readonly 8: 9;
-  readonly 9: 10;
-  readonly 10: 11;
-  readonly 11: 12;
-  readonly 12: 13;
-  readonly 13: 14;
-  readonly 14: 15;
-  readonly 15: 16;
-  readonly 16: 17;
-  readonly 17: 17;
+  0: 1;
+  1: 2;
+  2: 3;
+  3: 4;
+  4: 5;
+  5: 6;
+  6: 7;
+  7: 8;
+  8: 9;
+  9: 10;
+  10: 11;
+  11: 12;
+  12: 13;
+  13: 14;
+  14: 15;
+  15: 16;
+  16: 17;
+  17: 17;
 };
 
-type ReadonlyCanonicalAtDepth<Value, Depth extends CanonicalDepth> = Depth extends 17
+// oxlint-disable-next-line anti-slop/no-readonly -- NO_READONLY_CODEMOD: strip readonly from const-inferred tuples while retaining their exact positions in the mutable canonical copy.
+type CanonicalKeyTupleValue<Value extends CanonicalKeyArray, Depth extends CanonicalDepth> = {
+  -readonly [Index in keyof Value]: CanonicalKeyValueAtDepth<
+    Value[Index],
+    CanonicalDepthSuccessor[Depth]
+  >;
+};
+
+// oxlint-disable-next-line anti-slop/no-readonly -- NO_READONLY_CODEMOD: strip readonly from const-inferred records while retaining their fields in the mutable canonical copy.
+type CanonicalKeyRecordValue<Value extends CanonicalKeyRecord, Depth extends CanonicalDepth> = {
+  -readonly [Key in keyof Value]: CanonicalKeyValueAtDepth<
+    Value[Key],
+    CanonicalDepthSuccessor[Depth]
+  >;
+};
+
+type CanonicalKeyValueAtDepth<Value, Depth extends CanonicalDepth> = Depth extends 17
   ? Value
-  : Value extends readonly unknown[]
-    ? {
-        readonly [Index in keyof Value]: ReadonlyCanonicalAtDepth<
-          Value[Index],
-          CanonicalDepthSuccessor[Depth]
-        >;
-      }
+  : Value extends CanonicalKeyArray
+    ? CanonicalKeyTupleValue<Value, Depth>
     : Value extends CanonicalKeyRecord
-      ? {
-          readonly [Key in keyof Value]: ReadonlyCanonicalAtDepth<
-            Value[Key],
-            CanonicalDepthSuccessor[Depth]
-          >;
-        }
+      ? CanonicalKeyRecordValue<Value, Depth>
       : Value;
 
-export type ReadonlyCanonical<Value> = ReadonlyCanonicalAtDepth<Value, 0>;
+export type CanonicalKeyValue<Value> = CanonicalKeyValueAtDepth<Value, 0>;
 
-type DataPropertyDescriptor = PropertyDescriptor & { readonly value: unknown };
+type DataPropertyDescriptor = PropertyDescriptor & { value: unknown };
 
 // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- canonical containers preserve unknown children until recursive promotion.
 type CanonicalContainer =
-  | { readonly kind: "array"; readonly value: CanonicalArrayInput }
-  | { readonly kind: "record"; readonly value: CanonicalRecordInput };
+  | { kind: "array"; value: CanonicalArrayInput }
+  | { kind: "record"; value: CanonicalRecordInput };
 
-type KeyPath = readonly (string | number)[];
+type KeyPath = (string | number)[];
 
 const MAX_DEPTH = 16;
 
@@ -115,8 +125,8 @@ const MAX_ARRAY_LENGTH = 0xffff_ffff;
 type CanonicalizationContext = {
   bytes: number;
   nodes: number;
-  readonly encoder: TextEncoder;
-  readonly seen: WeakSet<CanonicalContainer["value"]>;
+  encoder: TextEncoder;
+  seen: WeakSet<CanonicalContainer["value"]>;
 };
 
 const formatKeyPath = (path: KeyPath) =>
@@ -225,8 +235,8 @@ const encodePrimitive = (
 };
 
 interface MeasuredCanonicalRecordKey {
-  readonly key: string;
-  readonly bytes: number;
+  key: string;
+  bytes: number;
 }
 
 // RETURN_TYPE: Its guard narrows unknown to the recursive record input required by canonicalizeRecord; removing it produced TS2322.
@@ -285,7 +295,7 @@ const isArrayIndexKey = (key: string, length: number) => {
   return Number.isSafeInteger(index) && index >= 0 && index < length && String(index) === key;
 };
 
-const hasDenseArrayKeys = (ownKeys: readonly PropertyKey[], length: number) =>
+const hasDenseArrayKeys = (ownKeys: PropertyKey[], length: number) =>
   ownKeys.length === length + 1 &&
   ownKeys.every(
     (key) => Predicate.isString(key) && (key === "length" || isArrayIndexKey(key, length)),
@@ -380,8 +390,7 @@ function canonicalizeArray(
 
   addBytes("]", context);
 
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- canonical arrays are recursively copied before this contract-required ownership freeze.
-  return Object.freeze(array);
+  return array;
 }
 
 function canonicalizeRecord(
@@ -433,8 +442,7 @@ function canonicalizeRecord(
 
   addBytes("}", context);
 
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- canonical records are recursively copied before this contract-required ownership freeze.
-  return Object.freeze(record);
+  return record;
 }
 
 const canonicalizeKeyValue = (value: unknown) => {
@@ -460,9 +468,9 @@ const canonicalKeySchema = Schema.declareConstructor<OperationKey, unknown>()([]
 const decodeCanonicalKey = Schema.decodeUnknownSync(canonicalKeySchema);
 
 export function canonicalizeKey<K extends OperationKey>(
-  value: ReadonlyCanonical<K>,
-): ReadonlyCanonical<K>;
-export function canonicalizeKey<K extends OperationKey>(value: K): ReadonlyCanonical<K>;
+  value: CanonicalKeyValue<K>,
+): CanonicalKeyValue<K>;
+export function canonicalizeKey<K extends OperationKey>(value: K): CanonicalKeyValue<K>;
 export function canonicalizeKey(value: OperationKey) {
   return decodeCanonicalKey(value);
 }
@@ -471,10 +479,7 @@ export function canonicalizeKey(value: OperationKey) {
 const isCanonicalRecord = (value: CanonicalKeyInput): value is CanonicalKeyRecord =>
   value !== null && typeof value === "object" && !Array.isArray(value);
 
-const equalCanonicalArray = (
-  left: readonly CanonicalKeyInput[],
-  right: readonly CanonicalKeyInput[],
-) =>
+const equalCanonicalArray = (left: CanonicalKeyArray, right: CanonicalKeyArray) =>
   left.length === right.length &&
   left.every((value, index) => equalCanonicalValue(value, right[index]!));
 

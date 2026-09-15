@@ -1,7 +1,7 @@
 import { Effect } from "effect";
 
 import { canonicalizeKey } from "./key.js";
-import type { OperationKey, ReadonlyCanonical } from "./key.js";
+import type { OperationKey, CanonicalKeyValue } from "./key.js";
 import { ownExecutableInput } from "./input.js";
 
 /*
@@ -31,11 +31,11 @@ export type OperationKind = "resource" | "transaction" | "stream";
 // RETURN_TYPE: Preserves the phantom Requirements carrier because the never input makes direct inference collapse to never.
 export const requirements = <Requirements>(value: never): Requirements => value;
 
-export type RequirementsCarrier<Requirements> = Readonly<{
+export type RequirementsCarrier<Requirements> = {
   [RequirementsTypeId]: (_value: never) => Requirements;
-}>;
+};
 
-export type OperationOptions = Readonly<{ signal: AbortSignal }>;
+export type OperationOptions = { signal: AbortSignal };
 
 export type DataValue<Value> = Value | undefined;
 
@@ -84,20 +84,20 @@ export type CancellationPlan<
   Id extends string,
   K extends OperationKey,
   Family extends "resource" | "transaction",
-> = Readonly<{
+> = {
   kind: "cancel";
   family: Family;
   descriptor: Id;
   key: K;
-}>;
+};
 
-export type CacheWritePlan<Id extends string, K extends OperationKey, Value> = Readonly<{
+export type CacheWritePlan<Id extends string, K extends OperationKey, Value> = {
   kind: "cache-write";
   family: "resource";
   descriptor: Id;
   key: K;
   value: Value;
-}>;
+};
 
 export type OperationPlanKind =
   | "resource-lookup"
@@ -112,22 +112,22 @@ export type OperationPlan<
   P,
   K extends OperationKey,
   Options = undefined,
-> = Readonly<{
+> = {
   kind: Kind;
   descriptor: Id;
   params: P;
   key: K;
   options?: Options;
-}>;
+};
 
 export type PlanOptions<Options> = Exclude<Options, undefined>;
 
-export type FiniteOutcomes<A, E, Event = unknown> = Readonly<{
+export type FiniteOutcomes<A, E, Event = unknown> = {
   success?: (value: A) => Event;
   failure?: [E] extends [never] ? never : (error: E) => Event;
   defect?: (defect: unknown) => Event;
   interrupt?: () => Event;
-}>;
+};
 
 export type RequirementsOf<Value> =
   Value extends RequirementsCarrier<infer Requirements> ? Requirements : never;
@@ -138,16 +138,15 @@ export type OperationDescriptor<
   P = never,
   K extends OperationKey = OperationKey,
   Requirements = unknown,
-> = RequirementsCarrier<Requirements> &
-  Readonly<{
-    kind: Kind;
-    id: Id;
-    key: (params: P) => K;
-  }>;
+> = RequirementsCarrier<Requirements> & {
+  kind: Kind;
+  id: Id;
+  key: (params: P) => K;
+};
 
 export type OperationDeclaration = OperationDescriptor;
 
-export type OperationDeclarations = Readonly<Record<string, OperationDeclaration>>;
+export type OperationDeclarations = Record<string, OperationDeclaration>;
 
 type ConstructedOperationPlan = OperationPlan<
   OperationPlanKind,
@@ -159,10 +158,10 @@ type ConstructedOperationPlan = OperationPlan<
 
 const operationAdapterTypeId: unique symbol = Symbol("operation adapter");
 
-type StoredOperationAdapter = (...args: readonly never[]) => void;
+type StoredOperationAdapter = (...args: never[]) => void;
 
 type InternalOperationDescriptor = OperationDeclaration & {
-  readonly [operationAdapterTypeId]: StoredOperationAdapter;
+  [operationAdapterTypeId]: StoredOperationAdapter;
 };
 
 const constructedOperations = new WeakSet<OperationDeclaration>();
@@ -237,7 +236,7 @@ export function operationPlan<
   key: (params: P) => K,
   params: P,
   options?: O,
-): OperationPlan<Kind, Id, P, ReadonlyCanonical<K>, PlanOptions<O>>;
+): OperationPlan<Kind, Id, P, CanonicalKeyValue<K>, PlanOptions<O>>;
 
 export function operationPlan<
   Kind extends OperationPlanKind,
@@ -255,14 +254,13 @@ export function operationPlan<
     key: canonicalKey,
   };
 
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- this is the ownership seam that prevents reassignment of owned P/K references before work starts.
-  const plan = options === undefined ? Object.freeze(base) : Object.freeze({ ...base, options });
+  const plan = options === undefined ? base : { ...base, options };
   constructedOperationPlans.add(plan);
 
   return plan;
 }
 
-// RETURN_TYPE: Keeps the public plan declaration on ReadonlyCanonical<K> instead of exposing key.ts's private CanonicalKeyRecord.
+// RETURN_TYPE: Keeps the public plan declaration on CanonicalKeyValue<K> instead of exposing key.ts's private CanonicalKeyRecord.
 export const operationPlanForDescriptor = <
   Kind extends OperationPlanKind,
   Id extends string,
@@ -276,7 +274,7 @@ export const operationPlanForDescriptor = <
   key: (params: P) => K,
   params: P,
   options?: O,
-): OperationPlan<Kind, Id, P, ReadonlyCanonical<K>, PlanOptions<O>> => {
+): OperationPlan<Kind, Id, P, CanonicalKeyValue<K>, PlanOptions<O>> => {
   const plan = operationPlan(kind, id, key, params, options);
   operationPlanDescriptors.set(plan, descriptor);
 

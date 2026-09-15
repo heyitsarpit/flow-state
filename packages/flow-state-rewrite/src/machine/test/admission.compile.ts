@@ -30,7 +30,7 @@ const EditorResult = definition({
     opened: (draftId: string) => ({ draftId }),
     closed: "bare",
   },
-  memory: ({ input }: { readonly input: { readonly draftId: string } }) => ({
+  memory: ({ input }: { input: { draftId: string } }) => ({
     draftId: input.draftId,
     count: 0,
   }),
@@ -195,16 +195,14 @@ export type _RedirectOutput = Expect<
   Types.Equals<Result.Result.Success<typeof redirectAdmission>, Redirect<typeof Editor>[]>
 >;
 
-export type _OpenedEvent = Expect<OpenedEvent extends { readonly draftId: string } ? true : false>;
+export type _OpenedEvent = Expect<OpenedEvent extends { draftId: string } ? true : false>;
 
-export type _OpenedMemory = Expect<
-  Types.Equals<OpenedMemory, { readonly draftId: string; readonly count: number }>
->;
+export type _OpenedMemory = Expect<Types.Equals<OpenedMemory, { draftId: string; count: number }>>;
 
 export type _OpenedSnapshot = Expect<Types.Equals<OpenedSnapshot, MachineSnapshot<typeof Editor>>>;
 
 export type _OpenedHandler = Expect<
-  Types.Equals<OpenedHandler, readonly CompiledTransition<typeof Editor, "opened">[]>
+  Types.Equals<OpenedHandler, CompiledTransition<typeof Editor, "opened">[]>
 >;
 
 const reflectionResult = snapshotRecord({ child: "value" }, [], "ExpectedStateConfiguration");
@@ -221,7 +219,7 @@ if (Result.isSuccess(reflectionResult)) {
 // Negative authoring remains after the positive relationship assertions so the
 // Error directive stays attached to the rejected callback.
 // RETURN_TYPE: Preserves the explicit boolean return in the negative callback-compatibility proof.
-const unrelatedCallback = (_input: { readonly unrelated: true }): boolean => true;
+const unrelatedCallback = (_input: { unrelated: true }): boolean => true;
 
 machine(EditorResult, ({ S }) => ({
   default: S.idle,

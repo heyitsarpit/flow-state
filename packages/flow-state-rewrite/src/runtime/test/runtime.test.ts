@@ -42,7 +42,7 @@ import { RuntimeEvidence } from "../runtime-services.js";
  */
 
 type Repository = {
-  readonly load: () => string;
+  load: () => string;
 };
 
 type Expect<Value extends true> = Value;
@@ -51,13 +51,9 @@ class RepositoryKey extends Context.Service<RepositoryKey, Repository>()(
   "RuntimeTest/Repository",
 ) {}
 
-class ConfigKey extends Context.Service<ConfigKey, { readonly region: string }>()(
-  "RuntimeTest/Config",
-) {}
+class ConfigKey extends Context.Service<ConfigKey, { region: string }>()("RuntimeTest/Config") {}
 
-class MissingKey extends Context.Service<MissingKey, { readonly value: string }>()(
-  "RuntimeTest/Missing",
-) {}
+class MissingKey extends Context.Service<MissingKey, { value: string }>()("RuntimeTest/Missing") {}
 
 const repository: Repository = {
   load: () => "loaded",
@@ -137,7 +133,7 @@ const broadImplementation = Implementation.succeed(broadServiceKey, repository);
 // @ts-expect-error A provider with an unknown service identity cannot close RepositoryKey.
 runtimeSetup({ app: RequiredApp, implementation: broadImplementation });
 
-export type RuntimeSetupTypeProofs = readonly [
+export type RuntimeSetupTypeProofs = [
   Expect<Types.Equals<typeof requiredSetup, RuntimeSetup<typeof RequiredApp>>>,
   Expect<Types.Equals<typeof emptyAppStrictSupersetSetup, RuntimeSetup<typeof EmptyApp>>>,
   Expect<Types.Equals<typeof emptyAppSetup, RuntimeSetup<typeof EmptyApp>>>,
@@ -334,11 +330,11 @@ describe("internal implementation runtime", () => {
       const admissionTrace: string[] = [];
 
       const providerPublicationPhases: Array<{
-        readonly dependentRegistrations: number;
-        readonly providerHoldEntered: boolean;
-        readonly consumerStartEvidenceAccepted: boolean;
-        readonly consumerContextPublished: boolean;
-        readonly consumerExposed: boolean;
+        dependentRegistrations: number;
+        providerHoldEntered: boolean;
+        consumerStartEvidenceAccepted: boolean;
+        consumerContextPublished: boolean;
+        consumerExposed: boolean;
       }> = [];
 
       let providerHoldDispatch: AcknowledgedDispatch | undefined;
@@ -401,12 +397,7 @@ describe("internal implementation runtime", () => {
       const runtimeEvidence = Context.get(assembly.context, RuntimeEvidence);
       const originalAccept = runtimeEvidence.accept;
 
-      type MutableRuntimeEvidence = { accept: typeof originalAccept };
-
-      // SAFETY: The runtime context contains the live evidence service used by this admission; the mutable view only restores its method for a bounded test gate.
-      // oxlint-disable-next-line anti-slop/no-chained-type-assertions, typescript/no-unsafe-type-assertion -- the readonly service surface must be wrapped at the live lifecycle evidence boundary.
-      const mutableRuntimeEvidence = runtimeEvidence as unknown as MutableRuntimeEvidence;
-      mutableRuntimeEvidence.accept = (record) =>
+      runtimeEvidence.accept = (record) =>
         originalAccept(record).pipe(
           Effect.andThen(
             record.before.lifecycle === "prepared" &&
@@ -455,14 +446,14 @@ describe("internal implementation runtime", () => {
       const consumerSnapshots: Array<ActorSnapshot<typeof HandshakeConsumerDefinition>> = [];
 
       const consumerContextCuts: Array<{
-        readonly revision: number;
-        readonly providerState: ActorSnapshot<
+        revision: number;
+        providerState: ActorSnapshot<
           typeof HandshakeConsumerDefinition
         >["context"]["providerState"];
-        readonly providerChanged: ActorSnapshot<
+        providerChanged: ActorSnapshot<
           typeof HandshakeConsumerDefinition
         >["context"]["providerChanged"];
-        readonly exposed: boolean;
+        exposed: boolean;
       }> = [];
 
       const consumerFiber = yield* Effect.forkChild(
@@ -565,7 +556,7 @@ describe("internal implementation runtime", () => {
 
       yield* Effect.provideContext(provider.dispose(), assembly.context);
       yield* runtimeOwner(runtime).close();
-      mutableRuntimeEvidence.accept = originalAccept;
+      runtimeEvidence.accept = originalAccept;
     }),
   );
 

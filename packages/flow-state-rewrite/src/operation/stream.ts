@@ -17,7 +17,7 @@ import type {
   OperationPlan,
   PlanOptions,
 } from "./operation.js";
-import type { CanonicalKeyInput, OperationKey, ReadonlyCanonical } from "./key.js";
+import type { OperationKey, CanonicalKeyValue } from "./key.js";
 
 /*
  * Streams:
@@ -43,45 +43,42 @@ import type { CanonicalKeyInput, OperationKey, ReadonlyCanonical } from "./key.j
  */
 
 export type StreamValue<V> =
-  | Readonly<{ hasValue: false; latest?: never; emissionCount: 0 }>
-  | Readonly<{ hasValue: true; latest: V; emissionCount: number }>;
+  | { hasValue: false; latest?: never; emissionCount: 0 }
+  | { hasValue: true; latest: V; emissionCount: number };
 
 export type StreamState<V, E, K extends OperationKey> =
-  | (Readonly<{ status: "idle"; key: K; generation: null }> & StreamValue<V>)
-  | (Readonly<{ status: "running"; key: K; generation: number }> & StreamValue<V>)
-  | (Readonly<{ status: "complete"; key: K; generation: number }> & StreamValue<V>)
-  | (Readonly<{
+  | ({ status: "idle"; key: K; generation: null } & StreamValue<V>)
+  | ({ status: "running"; key: K; generation: number } & StreamValue<V>)
+  | ({ status: "complete"; key: K; generation: number } & StreamValue<V>)
+  | ({
       status: "failure";
       key: K;
       generation: number;
       error: E;
-    }> &
-      StreamValue<V>)
-  | (Readonly<{
+    } & StreamValue<V>)
+  | ({
       status: "defect";
       key: K;
       generation: number;
       defect: unknown;
-    }> &
-      StreamValue<V>)
-  | (Readonly<{
+    } & StreamValue<V>)
+  | ({
       status: "interrupted";
       key: K;
       generation: number;
-    }> &
-      StreamValue<V>);
+    } & StreamValue<V>);
 
-export type StreamOutcomes<V, E, O = unknown> = Readonly<{
+export type StreamOutcomes<V, E, O = unknown> = {
   value?: (value: V) => O;
   complete?: () => O;
   failure?: [E] extends [never] ? never : (error: E) => O;
   defect?: (defect: unknown) => O;
   interrupt?: () => O;
-}>;
+};
 
-export type StreamSubscriptionOptions<V, E, O = unknown> = Readonly<{
+export type StreamSubscriptionOptions<V, E, O = unknown> = {
   outcomes?: StreamOutcomes<V, E, O>;
-}>;
+};
 
 export type StreamSubscriptionPlan<
   Id extends string,
@@ -109,33 +106,25 @@ export type FlowStream<
   V = never,
   E = never,
   R = never,
-> = OperationDescriptor<"stream", Id, P, K, R> &
-  Readonly<{
-    persist: boolean;
-    getState: (key: K) => StreamState<V, E, K>;
-    subscribe: StreamSubscribe<Id, P, K, V, E>;
-  }>;
+> = OperationDescriptor<"stream", Id, P, K, R> & {
+  persist: boolean;
+  getState: (key: K) => StreamState<V, E, K>;
+  subscribe: StreamSubscribe<Id, P, K, V, E>;
+};
 
-export type StreamConfig<Id extends string, P, K extends OperationKey, V, E, R> = Readonly<{
+export type StreamConfig<Id extends string, P, K extends OperationKey, V, E, R> = {
   id: Id;
   key: (params: P) => K;
   subscribe: StreamSubscribeAdapter<P, V, E, R>;
   persist?: boolean;
-}>;
+};
 
-type StreamAuthoringConfig<
-  Id extends string,
-  P,
-  K extends readonly CanonicalKeyInput[],
-  V,
-  E,
-  R,
-> = Readonly<{
+type StreamAuthoringConfig<Id extends string, P, K extends OperationKey, V, E, R> = {
   id: Id;
   key: (params: P) => K;
   subscribe: (params: NoInfer<P>, options: OperationOptions) => Stream.Stream<V, E, R>;
   persist?: boolean;
-}>;
+};
 
 const StreamConfigurationSchema = Schema.Struct({
   id: AuthoredName,
@@ -160,29 +149,17 @@ const streamConfigurationError = (failure: Schema.SchemaError) => {
   return new TypeError("Invalid Stream configuration");
 };
 
-function admitStreamConfiguration<
-  Id extends string,
-  P,
-  K extends readonly CanonicalKeyInput[],
-  V,
-  E,
-  R,
->(config: StreamAuthoringConfig<Id, P, K, V, E, R>): StreamAuthoringConfig<Id, P, K, V, E, R>;
+function admitStreamConfiguration<Id extends string, P, K extends OperationKey, V, E, R>(
+  config: StreamAuthoringConfig<Id, P, K, V, E, R>,
+): StreamAuthoringConfig<Id, P, K, V, E, R>;
 function admitStreamConfiguration(input: unknown) {
   return decodeStreamConfiguration(input).pipe(Result.getOrThrowWith(streamConfigurationError));
 }
 
-const constructStream = <
-  const Id extends string,
-  const P,
-  const K extends readonly CanonicalKeyInput[],
-  V,
-  E,
-  R,
->(
+const constructStream = <const Id extends string, const P, const K extends OperationKey, V, E, R>(
   admitted: StreamAuthoringConfig<Id, P, K, V, E, R>,
 ) => {
-  type CanonicalK = ReadonlyCanonical<K>;
+  type CanonicalK = CanonicalKeyValue<K>;
 
   const { id, key: projectKey, subscribe: subscribeAdapter, persist } = admitted;
 
@@ -216,16 +193,9 @@ const constructStream = <
 };
 
 // RETURN_TYPE: Prevents the public declaration from exposing key.ts's private CanonicalKeyRecord through inferred construction.
-export const stream = <
-  const Id extends string,
-  const P,
-  const K extends readonly CanonicalKeyInput[],
-  V,
-  E,
-  R,
->(
+export const stream = <const Id extends string, const P, const K extends OperationKey, V, E, R>(
   config: StreamAuthoringConfig<Id, P, K, V, E, R>,
-): FlowStream<Id, P, ReadonlyCanonical<K>, V, E, R> => {
+): FlowStream<Id, P, CanonicalKeyValue<K>, V, E, R> => {
   const admitted = admitStreamConfiguration<Id, P, K, V, E, R>(config);
 
   return constructStream<Id, P, K, V, E, R>(admitted);

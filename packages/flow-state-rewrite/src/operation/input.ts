@@ -25,12 +25,12 @@ import { isStableDataDescriptor, isStableKeyList } from "../internal/stable-obse
  *   snapshotExecutableInput, ExecutableInputSchema, ownExecutableInput
  */
 
-type SnapshotResult<Value = unknown> = Readonly<{
+type SnapshotResult<Value = unknown> = {
   value: Value;
-}>;
+};
 
 interface ExecutableInputRecord<Value = unknown> {
-  readonly [key: string]: Value;
+  [key: string]: Value;
 }
 
 const executableInputChildProof: ExecutableInputRecord["child"] = undefined;
@@ -40,36 +40,34 @@ const executableInputStringProof: string = executableInputChildProof;
 
 void executableInputStringProof;
 
-type ExecutableInputSource = readonly unknown[] | ExecutableInputRecord;
+type ExecutableInputSource = unknown[] | ExecutableInputRecord;
 
 // RETURN_TYPE: Preserves narrowing from unknown to the two source container representations at the executable-input admission boundary.
 const isExecutableInputSource = (value: unknown): value is ExecutableInputSource =>
   typeof value === "object" && value !== null;
 
 type SnapshotState = {
-  readonly copies: WeakMap<ExecutableInputSource, SnapshotFrame>;
-  readonly active: WeakSet<ExecutableInputSource>;
-  readonly frames: SnapshotFrame[];
+  copies: WeakMap<ExecutableInputSource, SnapshotFrame>;
+  active: WeakSet<ExecutableInputSource>;
+  frames: SnapshotFrame[];
 };
 
-type SnapshotDataDescriptor = Omit<PropertyDescriptor, "value"> & { readonly value: unknown };
+type SnapshotDataDescriptor = Omit<PropertyDescriptor, "value"> & { value: unknown };
 
 type SnapshotContainer = unknown[] | ExecutableInputRecord;
 
 type SnapshotFrame = {
-  readonly source: ExecutableInputSource;
-  readonly target: SnapshotContainer;
-  readonly kind: ReturnType<typeof readStableInputKind>;
-  readonly reflectedKeys: readonly PropertyKey[];
-  readonly keys: readonly string[];
-  readonly sourceDescriptors: Map<string, SnapshotDataDescriptor>;
-  readonly parent: { readonly frame: SnapshotFrame; readonly key: string } | undefined;
+  source: ExecutableInputSource;
+  target: SnapshotContainer;
+  kind: ReturnType<typeof readStableInputKind>;
+  reflectedKeys: PropertyKey[];
+  keys: string[];
+  sourceDescriptors: Map<string, SnapshotDataDescriptor>;
+  parent: { frame: SnapshotFrame; key: string } | undefined;
   index: number;
 };
 
-type SnapshotStart =
-  | { readonly kind: "value"; readonly value: unknown }
-  | { readonly kind: "frame"; readonly frame: SnapshotFrame };
+type SnapshotStart = { kind: "value"; value: unknown } | { kind: "frame"; frame: SnapshotFrame };
 
 const snapshotPending = Symbol("snapshot pending");
 
@@ -134,7 +132,7 @@ const readStableInputDescriptor = (source: ExecutableInputSource, key: string) =
 
 const readArraySnapshotKeys = (
   source: ExecutableInputSource,
-  reflectedKeys: readonly PropertyKey[],
+  reflectedKeys: PropertyKey[],
   sourceDescriptors: Map<string, SnapshotDataDescriptor>,
 ) => {
   const lengthDescriptor = readStableInputDescriptor(source, "length");
@@ -221,9 +219,6 @@ const completeSnapshotFrame = (stack: SnapshotFrame[], state: SnapshotState) => 
   const frame = stack.at(-1);
 
   if (frame === undefined) return invalidExecutableInput();
-  // SAFETY: frame.target is a newly created array or plain record whose own data properties were copied above.
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- executable plan params are copied into immutable containers.
-  Object.freeze(frame.target);
   const result: SnapshotResult = { value: frame.target };
   state.active.delete(frame.source);
   stack.pop();
@@ -295,7 +290,7 @@ const verifySnapshotFrame = (frame: SnapshotFrame) => {
   }
 };
 
-const verifySnapshotFrames = (frames: readonly SnapshotFrame[]) => {
+const verifySnapshotFrames = (frames: SnapshotFrame[]) => {
   // Recheck every captured frame twice after all copies exist: a later sibling's
   // reflection can mutate an earlier source, so completion alone is not stable.
   for (const frame of frames) verifySnapshotFrame(frame);

@@ -42,7 +42,7 @@ const Session = definitionSuccess(
     id: "session",
     states: ["signed-out", { active: ["editing", "saving"] }],
     events: { signedOut: "bare" },
-    memory: ({ input: _input }: { readonly input: void }) => ({ mode: "dark" }),
+    memory: ({ input: _input }: { input: void }) => ({ mode: "dark" }),
   }),
 );
 
@@ -51,7 +51,7 @@ const OtherSession = definitionSuccess(
     id: "other-session",
     states: ["signed-out"],
     events: {},
-    memory: ({ input: _input }: { readonly input: void }) => ({ mode: "dark" }),
+    memory: ({ input: _input }: { input: void }) => ({ mode: "dark" }),
   }),
 );
 
@@ -74,7 +74,7 @@ const Editor = definitionSuccess(
       sessionMode: Session.select(({ memory }) => memory.mode),
     },
     operations: { save: editorSave },
-    memory: ({ input }: { readonly input: { readonly draftId: string } }) => ({
+    memory: ({ input }: { input: { draftId: string } }) => ({
       draftId: input.draftId,
       dirty: false,
     }),
@@ -99,7 +99,7 @@ const AnnotatedInputDefinition = definitionSuccess(
     id: "annotated-input",
     states: ["ready"],
     events: {},
-    memory: ({ input }: { readonly input: { readonly key: string } }) => ({
+    memory: ({ input }: { input: { key: string } }) => ({
       key: input.key,
     }),
   }),
@@ -130,7 +130,7 @@ export type _Event = Expect<
   >
 >;
 
-export type _Input = Expect<Types.Equals<InputOf<typeof Editor>, { readonly draftId: string }>>;
+export type _Input = Expect<Types.Equals<InputOf<typeof Editor>, { draftId: string }>>;
 
 export type _Memory = Expect<
   Types.Equals<MemoryOf<typeof Editor>, { draftId: string; dirty: boolean }>
@@ -159,7 +159,7 @@ export type _ZeroArgumentMemory = Expect<
 >;
 
 export type _AnnotatedInput = Expect<
-  Types.Equals<InputOf<typeof AnnotatedInputDefinition>, { readonly key: string }>
+  Types.Equals<InputOf<typeof AnnotatedInputDefinition>, { key: string }>
 >;
 
 export type _AnnotatedMemory = Expect<
@@ -202,15 +202,12 @@ const negativeProofs = () => {
   // @ts-expect-error state tokens are nominal
   acceptState({ kind: "state", name: "S.ready", id: Editor.S.ready.id });
 
-  // @ts-expect-error derived context is readonly
-  Editor.context.sessionMode = Session.select(({ memory }) => memory.mode);
-
   definition({
     id: "bad-memory",
     states: ["ready"],
     events: {},
     // @ts-expect-error initializers return memory objects
-    memory: (_options: { readonly input: string }) => "not-memory",
+    memory: (_options: { input: string }) => "not-memory",
   });
 
   definition({
@@ -284,7 +281,7 @@ const assertDiagnostic = <Value>(
 };
 
 const makeNestedStates = (depth: number) => {
-  let states: readonly StateDeclaration[] = ["leaf"];
+  let states: StateDeclaration[] = ["leaf"];
 
   for (let level = depth; level > 0; level -= 1) {
     states = [{ ["level" + level]: states }];
@@ -331,7 +328,7 @@ const assertAcceptedAuthoredName = (name: string) => {
 };
 
 const assertRejectedAuthoredName = (name: string) => {
-  const invalidDefinitions: readonly [readonly (string | number)[], DefinitionValue][] = [
+  const invalidDefinitions: [(string | number)[], DefinitionValue][] = [
     [["id"], { id: name, states: ["ready"], events: {} }],
     [["states", 0], { id: "valid", states: [name], events: {} }],
     [["events"], { id: "valid", states: ["ready"], events: { [name]: "bare" } }],
@@ -414,7 +411,7 @@ describe("definition", () => {
           selected: selector,
         },
         operations: { save: operation },
-        memory: ({ input }: { readonly input: { readonly id: string } }) => {
+        memory: ({ input }: { input: { id: string } }) => {
           initializerCalls += 1;
 
           return { id: input.id };
@@ -519,7 +516,7 @@ describe("definition", () => {
       assert.strictEqual(retained.kind, "resource");
     });
 
-    it("publishes readonly-by-type definition values without runtime freezing", () => {
+    it("publishes definition values without runtime freezing", () => {
       const event = definitionSuccess(Editor.E.opened("draft", 3));
       assert.strictEqual(event.draftId, "draft");
       assert.strictEqual(event.revision, 3);
@@ -544,7 +541,7 @@ describe("definition", () => {
 
   describe("schema and authored-name admission", () => {
     it("uses Schema for ordinary invalid definition structure", () => {
-      const invalidStates: readonly DefinitionValue[] = [
+      const invalidStates: DefinitionValue[] = [
         ["same", "same"],
         [{ first: ["leaf"], second: ["leaf"] }],
         makeNestedStates(11),
@@ -598,7 +595,7 @@ describe("definition", () => {
       const hiddenEvents = {};
       Object.defineProperty(hiddenEvents, "changed", { value: "bare" });
 
-      const invalidContainers: readonly [string, unknown][] = [
+      const invalidContainers: [string, unknown][] = [
         ["events", new Date()],
         ["events", Object(Symbol("events"))],
         ["events", getterEvents],
@@ -807,36 +804,35 @@ describe("definition", () => {
     it("validates declarations and event payload objects with Schema", () => {
       const invalidMarker = null;
 
-      const invalidDefinitions: readonly [string, DefinitionValue, readonly (string | number)[]][] =
+      const invalidDefinitions: [string, DefinitionValue, (string | number)[]][] = [
+        ["extra", { id: "extra", states: ["ready"], events: {}, extra: true }, ["extra"]],
         [
-          ["extra", { id: "extra", states: ["ready"], events: {}, extra: true }, ["extra"]],
-          [
-            "event",
-            { id: "event", states: ["ready"], events: { changed: 42 } },
-            ["events", "changed"],
-          ],
-          [
-            "context",
-            { id: "context", states: ["ready"], events: {}, context: { fake: {} } },
-            ["context", "fake"],
-          ],
-          [
-            "operation",
-            { id: "operation", states: ["ready"], events: {}, operations: { save: {} } },
-            ["operations", "save"],
-          ],
-          ["memory", { id: "memory", states: ["ready"], events: {}, memory: 42 }, ["memory"]],
-          [
-            "invalid-marker",
-            { id: "invalid-marker", states: ["ready"], events: { changed: invalidMarker } },
-            ["events", "changed"],
-          ],
-          [
-            "unknown-marker",
-            { id: "unknown-marker", states: ["ready"], events: { changed: "empty" } },
-            ["events", "changed"],
-          ],
-        ];
+          "event",
+          { id: "event", states: ["ready"], events: { changed: 42 } },
+          ["events", "changed"],
+        ],
+        [
+          "context",
+          { id: "context", states: ["ready"], events: {}, context: { fake: {} } },
+          ["context", "fake"],
+        ],
+        [
+          "operation",
+          { id: "operation", states: ["ready"], events: {}, operations: { save: {} } },
+          ["operations", "save"],
+        ],
+        ["memory", { id: "memory", states: ["ready"], events: {}, memory: 42 }, ["memory"]],
+        [
+          "invalid-marker",
+          { id: "invalid-marker", states: ["ready"], events: { changed: invalidMarker } },
+          ["events", "changed"],
+        ],
+        [
+          "unknown-marker",
+          { id: "unknown-marker", states: ["ready"], events: { changed: "empty" } },
+          ["events", "changed"],
+        ],
+      ];
 
       for (const [_field, input, path] of invalidDefinitions) {
         assertDiagnostic(constructDefinitionResult(input), {

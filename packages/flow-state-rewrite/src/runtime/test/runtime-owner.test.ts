@@ -18,11 +18,11 @@ class SecondService extends Context.Service<SecondService, number>()(
   "RuntimeOwnerTest/SecondService",
 ) {}
 
-type OrderedFirst = { readonly id: "first" };
+type OrderedFirst = { id: "first" };
 
-type OrderedSecond = { readonly id: "second" };
+type OrderedSecond = { id: "second" };
 
-type OrderedThird = { readonly id: "third" };
+type OrderedThird = { id: "third" };
 
 class OrderedFirstService extends Context.Service<OrderedFirstService, OrderedFirst>()(
   "RuntimeOwnerTest/OrderedFirstService",
@@ -75,9 +75,9 @@ const initialHandleSnapshot = () =>
   );
 
 type Probe = {
-  readonly acquisitions: Array<string>;
-  readonly cleanups: Array<string>;
-  readonly visible: Array<Readonly<{ first: string; second: number }>>;
+  acquisitions: Array<string>;
+  cleanups: Array<string>;
+  visible: Array<{ first: string; second: number }>;
 };
 
 const makeLayerPlan = (
@@ -981,10 +981,10 @@ describe("runtime owner", () => {
 
       type TerminalClassification = "defect" | "typed" | "interruption" | "invariant-defect";
 
-      const cases: ReadonlyArray<{
-        readonly effect: Effect.Effect<never, string>;
-        readonly expectedCause: Cause.Cause<string>;
-        readonly expectedClassification: TerminalClassification;
+      const cases: Array<{
+        effect: Effect.Effect<never, string>;
+        expectedCause: Cause.Cause<string>;
+        expectedClassification: TerminalClassification;
       }> = [
         {
           effect: Effect.failCause(typedCause),

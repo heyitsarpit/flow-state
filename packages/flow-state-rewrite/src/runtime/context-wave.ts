@@ -5,7 +5,7 @@ import type { ContextOf } from "../definition/domain.js";
 import { Defect, Diagnostic, Failure, type PublicDiagnostic } from "../diagnostic/diagnostic.js";
 import type { MachineDefinition } from "../machine/grammar.js";
 import type { Machine } from "../machine/machine.js";
-import { immutableArray, immutableRecord, readonlyMap } from "./readonly-collections.js";
+import { copyArray, copyObject } from "./collection-copies.js";
 import type {
   ActorContextSnapshot,
   ActorContextValue,
@@ -24,21 +24,21 @@ export type ContextBinding<
     string,
   ProviderRef extends ActorRef<Machine<ProviderDefinition>> = ActorRef<Machine<ProviderDefinition>>,
 > = {
-  readonly consumer: ActorKey;
-  readonly consumerIncarnation: ActorIncarnation;
-  readonly slot: Slot;
-  readonly provider: ProviderRef;
-  readonly providerFence: ActorFence;
-  readonly select: (
+  consumer: ActorKey;
+  consumerIncarnation: ActorIncarnation;
+  slot: Slot;
+  provider: ProviderRef;
+  providerFence: ActorFence;
+  select: (
     input: ActorContextSnapshot<ProviderDefinition>,
   ) => ActorContextValue<ConsumerDefinition, Slot>;
 };
 
 /** Provider nodes are keyed by the runtime identity allocated during admission. */
 export type ContextProviderNode<ProviderDefinition extends MachineDefinition> = {
-  readonly key: ActorKey;
-  readonly incarnation: ActorIncarnation;
-  readonly ref: ActorRef<Machine<ProviderDefinition>>;
+  key: ActorKey;
+  incarnation: ActorIncarnation;
+  ref: ActorRef<Machine<ProviderDefinition>>;
 };
 
 /** The fixed forward bindings and reverse dependent index used by a wave. */
@@ -46,17 +46,14 @@ export type ContextGraph<
   ConsumerDefinition extends MachineDefinition,
   ProviderDefinition extends MachineDefinition = ConsumerDefinition,
 > = {
-  readonly providers: ReadonlyMap<ActorKey, ContextProviderNode<ProviderDefinition>>;
-  readonly bindings: ReadonlyMap<
-    ActorKey,
-    readonly ContextBinding<ConsumerDefinition, ProviderDefinition>[]
-  >;
-  readonly dependents: ReadonlyMap<ActorKey, ReadonlySet<ActorKey>>;
-  readonly order: readonly ActorKey[];
+  providers: Map<ActorKey, ContextProviderNode<ProviderDefinition>>;
+  bindings: Map<ActorKey, ContextBinding<ConsumerDefinition, ProviderDefinition>[]>;
+  dependents: Map<ActorKey, Set<ActorKey>>;
+  order: ActorKey[];
 };
 
 /** Provider revisions are retained as a vector rather than collapsed to one counter. */
-export type ProviderRevisionVector = ReadonlyMap<ActorKey, number>;
+export type ProviderRevisionVector = Map<ActorKey, number>;
 
 /** One selected value, including authored undefined and null as ordinary values. */
 export type ContextSelection<
@@ -65,10 +62,10 @@ export type ContextSelection<
   Slot extends keyof ContextOf<ConsumerDefinition> & string = keyof ContextOf<ConsumerDefinition> &
     string,
 > = {
-  readonly binding: ContextBinding<ConsumerDefinition, ProviderDefinition, Slot>;
-  readonly slot: Slot;
-  readonly value: ActorContextValue<ConsumerDefinition, Slot>;
-  readonly providerRevision: number;
+  binding: ContextBinding<ConsumerDefinition, ProviderDefinition, Slot>;
+  slot: Slot;
+  value: ActorContextValue<ConsumerDefinition, Slot>;
+  providerRevision: number;
 };
 
 /** A selector defect is data for one issue-only consumer publication. */
@@ -78,11 +75,11 @@ export type ContextSelectorDefect<
   Slot extends keyof ContextOf<ConsumerDefinition> & string = keyof ContextOf<ConsumerDefinition> &
     string,
 > = {
-  readonly binding: ContextBinding<ConsumerDefinition, ProviderDefinition, Slot>;
-  readonly consumer: ActorKey;
-  readonly slot: Slot;
-  readonly providerRevision: number;
-  readonly diagnostic: PublicDiagnostic;
+  binding: ContextBinding<ConsumerDefinition, ProviderDefinition, Slot>;
+  consumer: ActorKey;
+  slot: Slot;
+  providerRevision: number;
+  diagnostic: PublicDiagnostic;
 };
 
 /** A ledger entry retains both the last valid truth and a revision-scoped defect. */
@@ -92,13 +89,11 @@ export type ContextSelectionLedgerEntry<
   Slot extends keyof ContextOf<ConsumerDefinition> & string = keyof ContextOf<ConsumerDefinition> &
     string,
 > = {
-  readonly binding: ContextBinding<ConsumerDefinition, ProviderDefinition, Slot>;
-  readonly previous: Option.Option<ContextSelection<ConsumerDefinition, ProviderDefinition, Slot>>;
-  readonly lastValid: Option.Option<ContextSelection<ConsumerDefinition, ProviderDefinition, Slot>>;
-  readonly providerRevision: number;
-  readonly defect: Option.Option<
-    ContextSelectorDefect<ConsumerDefinition, ProviderDefinition, Slot>
-  >;
+  binding: ContextBinding<ConsumerDefinition, ProviderDefinition, Slot>;
+  previous: Option.Option<ContextSelection<ConsumerDefinition, ProviderDefinition, Slot>>;
+  lastValid: Option.Option<ContextSelection<ConsumerDefinition, ProviderDefinition, Slot>>;
+  providerRevision: number;
+  defect: Option.Option<ContextSelectorDefect<ConsumerDefinition, ProviderDefinition, Slot>>;
 };
 
 /** Immutable selected values plus the latest vector observed by the consumer. */
@@ -106,47 +101,47 @@ export type ContextSelectionLedger<
   ConsumerDefinition extends MachineDefinition,
   ProviderDefinition extends MachineDefinition = ConsumerDefinition,
 > = {
-  readonly entries: ReadonlyMap<
+  entries: Map<
     ContextBinding<ConsumerDefinition, ProviderDefinition>,
     ContextSelectionLedgerEntry<ConsumerDefinition, ProviderDefinition>
   >;
-  readonly providerRevisions: ProviderRevisionVector;
+  providerRevisions: ProviderRevisionVector;
 };
 
 /** One complete context cut for one consumer. */
 export type ContextProjection<ConsumerDefinition extends MachineDefinition> = {
-  readonly consumer: ActorKey;
-  readonly values: ReadonlyMap<
+  consumer: ActorKey;
+  values: Map<
     keyof ContextOf<ConsumerDefinition> & string,
     ActorContextValue<ConsumerDefinition, keyof ContextOf<ConsumerDefinition> & string>
   >;
-  readonly revisions: ProviderRevisionVector;
-  readonly changedSlots: ReadonlySet<keyof ContextOf<ConsumerDefinition> & string>;
+  revisions: ProviderRevisionVector;
+  changedSlots: Set<keyof ContextOf<ConsumerDefinition> & string>;
 };
 
 /** One bounded, provider-first wave over the trusted dependency topology. */
 export type ContextWave = {
-  readonly providerRevision: ProviderRevisionVector;
-  readonly dirty: ReadonlySet<ActorKey>;
-  readonly order: readonly ActorKey[];
-  readonly coalesced: boolean;
+  providerRevision: ProviderRevisionVector;
+  dirty: Set<ActorKey>;
+  order: ActorKey[];
+  coalesced: boolean;
 };
 
 export type ContextRevision = {
-  readonly publicationRevision: number;
-  readonly machineTurnRevision: number;
+  publicationRevision: number;
+  machineTurnRevision: number;
 };
 
-export type ContextRevisionVector = ReadonlyMap<ActorKey, ContextRevision>;
+export type ContextRevisionVector = Map<ActorKey, ContextRevision>;
 
 /** One consumer publication; issue-only cuts do not advance machine-turn truth. */
 export type ContextPublication<ConsumerDefinition extends MachineDefinition> = {
-  readonly consumer: ActorKey;
-  readonly projection: ContextProjection<ConsumerDefinition>;
-  readonly publicationRevision: number;
-  readonly machineTurnRevision: number;
-  readonly issueOnly: boolean;
-  readonly selectorDefects: readonly PublicDiagnostic[];
+  consumer: ActorKey;
+  projection: ContextProjection<ConsumerDefinition>;
+  publicationRevision: number;
+  machineTurnRevision: number;
+  issueOnly: boolean;
+  selectorDefects: PublicDiagnostic[];
 };
 
 /** The baseline is installed silently before the first active snapshot. */
@@ -154,12 +149,12 @@ export type ContextBaseline<
   ConsumerDefinition extends MachineDefinition,
   ProviderDefinition extends MachineDefinition = ConsumerDefinition,
 > = {
-  readonly _tag: "context-baseline";
-  readonly graph: ContextGraph<ConsumerDefinition, ProviderDefinition>;
-  readonly bindings: readonly ContextBinding<ConsumerDefinition, ProviderDefinition>[];
-  readonly providerRevision: ProviderRevisionVector;
-  readonly ledger: ContextSelectionLedger<ConsumerDefinition, ProviderDefinition>;
-  readonly projections: readonly ContextProjection<ConsumerDefinition>[];
+  _tag: "context-baseline";
+  graph: ContextGraph<ConsumerDefinition, ProviderDefinition>;
+  bindings: ContextBinding<ConsumerDefinition, ProviderDefinition>[];
+  providerRevision: ProviderRevisionVector;
+  ledger: ContextSelectionLedger<ConsumerDefinition, ProviderDefinition>;
+  projections: ContextProjection<ConsumerDefinition>[];
 };
 
 /** Activation exposes the already-installed baseline without publishing a context turn. */
@@ -167,12 +162,12 @@ export type ActiveContextBaseline<
   ConsumerDefinition extends MachineDefinition,
   ProviderDefinition extends MachineDefinition = ConsumerDefinition,
 > = {
-  readonly _tag: "context-active";
-  readonly baseline: ContextBaseline<ConsumerDefinition, ProviderDefinition>;
-  readonly bindings: readonly ContextBinding<ConsumerDefinition, ProviderDefinition>[];
-  readonly providerRevision: ProviderRevisionVector;
-  readonly ledger: ContextSelectionLedger<ConsumerDefinition, ProviderDefinition>;
-  readonly projections: readonly ContextProjection<ConsumerDefinition>[];
+  _tag: "context-active";
+  baseline: ContextBaseline<ConsumerDefinition, ProviderDefinition>;
+  bindings: ContextBinding<ConsumerDefinition, ProviderDefinition>[];
+  providerRevision: ProviderRevisionVector;
+  ledger: ContextSelectionLedger<ConsumerDefinition, ProviderDefinition>;
+  projections: ContextProjection<ConsumerDefinition>[];
 };
 
 /** Result of applying one wave to every affected consumer. */
@@ -180,60 +175,38 @@ export type ContextWaveResult<
   ConsumerDefinition extends MachineDefinition,
   ProviderDefinition extends MachineDefinition = ConsumerDefinition,
 > = {
-  readonly _tag: "context-wave-published";
-  readonly wave: ContextWave;
-  readonly projections: readonly ContextProjection<ConsumerDefinition>[];
-  readonly publications: readonly ContextPublication<ConsumerDefinition>[];
-  readonly ledger: ContextSelectionLedger<ConsumerDefinition, ProviderDefinition>;
-  readonly selectorDefects: readonly ContextSelectorDefect<
-    ConsumerDefinition,
-    ProviderDefinition
-  >[];
+  _tag: "context-wave-published";
+  wave: ContextWave;
+  projections: ContextProjection<ConsumerDefinition>[];
+  publications: ContextPublication<ConsumerDefinition>[];
+  ledger: ContextSelectionLedger<ConsumerDefinition, ProviderDefinition>;
+  selectorDefects: ContextSelectorDefect<ConsumerDefinition, ProviderDefinition>[];
 };
 
 export type PassiveRead<Dependency> = <Value>(dependency: Dependency, value: Value) => Value;
 
 export type PassiveObserverEvaluation<Value, Dependency> =
   | {
-      readonly _tag: "passive-observation";
-      readonly value: Value;
-      readonly dependencies: readonly Dependency[];
+      _tag: "passive-observation";
+      value: Value;
+      dependencies: Dependency[];
     }
   | {
-      readonly _tag: "passive-defect";
-      readonly diagnostic: PublicDiagnostic;
+      _tag: "passive-defect";
+      diagnostic: PublicDiagnostic;
     };
 
 export type PassiveObserver<Dependency> = {
-  readonly evaluate: <Value>(
+  evaluate: <Value>(
     selector: (read: PassiveRead<Dependency>) => Value,
   ) => PassiveObserverEvaluation<Value, Dependency>;
-  readonly observe: <Value>(
+  observe: <Value>(
     selector: (read: PassiveRead<Dependency>) => Value,
   ) => PassiveObserverEvaluation<Value, Dependency>;
-  readonly dependencies: () => readonly Dependency[];
+  dependencies: () => Dependency[];
 };
 
-const immutableSet = <Value>(values: Iterable<Value>): ReadonlySet<Value> => {
-  const source = new Set(values);
-
-  const result: ReadonlySet<Value> = {
-    has: (value) => source.has(value),
-    get size() {
-      return source.size;
-    },
-    entries: () => source.entries(),
-    keys: () => source.keys(),
-    values: () => source.values(),
-    forEach: (callback, thisArg) => {
-      source.forEach((value) => callback.call(thisArg, value, value, result));
-    },
-    [Symbol.iterator]: () => source[Symbol.iterator](),
-  };
-
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- the wrapper exposes no mutating Set methods.
-  return Object.freeze(result);
-};
+const ownedSet = <Value>(values: Iterable<Value>): Set<Value> => new Set(values);
 
 const invalidContext = (reason: string) =>
   Failure({
@@ -262,7 +235,7 @@ const invalidRevision = (key: ActorKey) =>
     help: "Use a safe non-negative revision for every admitted provider.",
   });
 
-const cycleFailure = (cycle: readonly ActorKey[]) =>
+const cycleFailure = (cycle: ActorKey[]) =>
   Failure({
     code: "ContextDependencyCycle",
     path: ["context", "cycle"],
@@ -274,7 +247,7 @@ const cycleFailure = (cycle: readonly ActorKey[]) =>
 const isRevision = (value: unknown): value is number =>
   Predicate.isNumber(value) && Number.isSafeInteger(value) && value >= 0;
 
-const nextRevision = (current: number, path: readonly string[]) => {
+const nextRevision = (current: number, path: string[]) => {
   if (!isRevision(current) || current >= Number.MAX_SAFE_INTEGER)
     return Result.fail(
       Failure({
@@ -310,27 +283,27 @@ const nextContextRevision = (state: ContextRevision, issueOnly: boolean) => {
   });
 };
 
-const freezeBinding = <
+const copyBinding = <
   ConsumerDefinition extends MachineDefinition,
   ProviderDefinition extends MachineDefinition,
 >(
   binding: ContextBinding<ConsumerDefinition, ProviderDefinition>,
 ) => {
-  const providerFence = immutableRecord({ ...binding.providerFence });
+  const providerFence = copyObject({ ...binding.providerFence });
 
-  return immutableRecord({ ...binding, providerFence });
+  return copyObject({ ...binding, providerFence });
 };
 
-const copyRevisionVector = (vector: ProviderRevisionVector) => readonlyMap(vector.entries());
+const copyRevisionVector = (vector: ProviderRevisionVector) => new Map(vector.entries());
 
 const copyRevisionState = (state: ContextRevision) =>
-  immutableRecord({
+  copyObject({
     publicationRevision: state.publicationRevision,
     machineTurnRevision: state.machineTurnRevision,
   });
 
 // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- record fields remain unknown until equality inspects each stable descriptor.
-type PlainContextRecord = Readonly<Record<PropertyKey, unknown>>;
+type PlainContextRecord = Record<PropertyKey, unknown>;
 
 const isPlainRecord = (value: unknown): value is PlainContextRecord => {
   if (!Predicate.isObject(value) || Array.isArray(value)) return false;
@@ -365,9 +338,9 @@ export const equalContextSelection = <Value>(current: Value, previous: Value): b
 };
 
 const deriveOrder = (
-  nodes: readonly ActorKey[],
-  edges: ReadonlyMap<ActorKey, ReadonlySet<ActorKey>>,
-): Result.Result<readonly ActorKey[], PublicDiagnostic> => {
+  nodes: ActorKey[],
+  edges: Map<ActorKey, Set<ActorKey>>,
+): Result.Result<ActorKey[], PublicDiagnostic> => {
   const indegree = new Map<ActorKey, number>(nodes.map((node) => [node, 0]));
 
   for (const dependents of edges.values()) {
@@ -394,16 +367,16 @@ const deriveOrder = (
   }
 
   return order.length === nodes.length
-    ? Result.succeed(immutableArray(order))
+    ? Result.succeed(copyArray(order))
     : Result.fail(cycleFailure(nodes.filter((node) => (indegree.get(node) ?? 0) > 0)));
 };
 
-/** Builds immutable indexes from B02's already-trusted bindings and topology. */
+/** Builds owned indexes from B02's already-trusted bindings and topology. */
 export const buildContextGraph = <
   ConsumerDefinition extends MachineDefinition,
   ProviderDefinition extends MachineDefinition = ConsumerDefinition,
 >(
-  bindings: readonly ContextBinding<ConsumerDefinition, ProviderDefinition>[],
+  bindings: ContextBinding<ConsumerDefinition, ProviderDefinition>[],
   topology?: ActorDependencyGraph,
 ): Result.Result<ContextGraph<ConsumerDefinition, ProviderDefinition>, PublicDiagnostic> => {
   const providers = new Map<ActorKey, ContextProviderNode<ProviderDefinition>>();
@@ -424,7 +397,7 @@ export const buildContextGraph = <
   };
 
   for (const sourceBinding of bindings) {
-    const binding = freezeBinding(sourceBinding);
+    const binding = copyBinding(sourceBinding);
     const providerKey = binding.providerFence.key;
     const provider = providers.get(providerKey);
 
@@ -437,7 +410,7 @@ export const buildContextGraph = <
     } else {
       providers.set(
         providerKey,
-        immutableRecord({
+        copyObject({
           key: providerKey,
           incarnation: binding.providerFence.incarnation,
           ref: binding.provider,
@@ -466,18 +439,15 @@ export const buildContextGraph = <
     dependents.add(binding.consumer);
   }
 
-  const localDependents = readonlyMap(
-    [...edgeSets.entries()].map(([key, values]) => [key, immutableSet(values)] as const),
+  const localDependents = new Map(
+    [...edgeSets.entries()].map(([key, values]) => [key, ownedSet(values)] as const),
   );
 
   const orderResult =
     topology === undefined
       ? deriveOrder(nodes, localDependents)
       : Result.succeed(
-          immutableArray([
-            ...topology.order,
-            ...nodes.filter((node) => !topology.order.includes(node)),
-          ]),
+          copyArray([...topology.order, ...nodes.filter((node) => !topology.order.includes(node))]),
         );
 
   if (Result.isFailure(orderResult)) return Result.fail(orderResult.failure);
@@ -485,19 +455,17 @@ export const buildContextGraph = <
   const dependents =
     topology === undefined
       ? localDependents
-      : readonlyMap(
+      : new Map(
           [...topology.reverse.entries()].map(
-            ([key, edges]) => [key, immutableSet(edges.map((edge) => edge.consumer))] as const,
+            ([key, edges]) => [key, ownedSet(edges.map((edge) => edge.consumer))] as const,
           ),
         );
 
   return Result.succeed(
-    immutableRecord({
-      providers: readonlyMap(providers),
-      bindings: readonlyMap(
-        [...bindingByConsumer.entries()].map(
-          ([key, value]) => [key, immutableArray(value)] as const,
-        ),
+    copyObject({
+      providers: new Map(providers),
+      bindings: new Map(
+        [...bindingByConsumer.entries()].map(([key, value]) => [key, copyArray(value)] as const),
       ),
       dependents,
       order: orderResult.success,
@@ -511,10 +479,10 @@ export const detectContextCycles = <
   ProviderDefinition extends MachineDefinition = ConsumerDefinition,
 >(
   graph: ContextGraph<ConsumerDefinition, ProviderDefinition>,
-): Result.Result<readonly ActorKey[], PublicDiagnostic> => {
+): Result.Result<ActorKey[], PublicDiagnostic> => {
   const colors = new Map<ActorKey, "gray" | "black">();
 
-  const visit = (node: ActorKey, path: readonly ActorKey[]): readonly ActorKey[] | undefined => {
+  const visit = (node: ActorKey, path: ActorKey[]): ActorKey[] | undefined => {
     const color = colors.get(node);
 
     if (color === "gray") {
@@ -543,7 +511,7 @@ export const detectContextCycles = <
     if (cycle !== undefined) return Result.fail(cycleFailure(cycle));
   }
 
-  return Result.succeed(immutableArray([]));
+  return Result.succeed(copyArray([]));
 };
 
 /** Returns the trusted provider-first order restricted to one transitive dirty wave. */
@@ -552,8 +520,8 @@ export const topologicalContextOrder = <
   ProviderDefinition extends MachineDefinition = ConsumerDefinition,
 >(
   graph: ContextGraph<ConsumerDefinition, ProviderDefinition>,
-  dirty: ReadonlySet<ActorKey>,
-): Result.Result<readonly ActorKey[], PublicDiagnostic> => {
+  dirty: Set<ActorKey>,
+): Result.Result<ActorKey[], PublicDiagnostic> => {
   const reachable = new Set<ActorKey>();
   const pending = [...dirty];
 
@@ -572,7 +540,7 @@ export const topologicalContextOrder = <
     return Result.fail(invalidContext("topology-order"));
   }
 
-  return Result.succeed(immutableArray(order));
+  return Result.succeed(copyArray(order));
 };
 
 /** Selects against one captured provider snapshot and converts thrown defects to data. */
@@ -591,7 +559,7 @@ export const selectContext = <
   const selected = Result.try({
     try: () => binding.select(providerSnapshot),
     catch: (cause) =>
-      immutableRecord({
+      copyObject({
         binding,
         consumer: binding.consumer,
         slot: binding.slot,
@@ -603,7 +571,7 @@ export const selectContext = <
   if (Result.isFailure(selected)) return Result.fail(selected.failure);
 
   return Result.succeed(
-    immutableRecord({
+    copyObject({
       binding,
       slot: binding.slot,
       value: selected.success,
@@ -617,13 +585,13 @@ const projectionFromEntries = <
   ProviderDefinition extends MachineDefinition,
 >(
   consumer: ActorKey,
-  bindings: readonly ContextBinding<ConsumerDefinition, ProviderDefinition>[],
-  entries: ReadonlyMap<
+  bindings: ContextBinding<ConsumerDefinition, ProviderDefinition>[],
+  entries: Map<
     ContextBinding<ConsumerDefinition, ProviderDefinition>,
     ContextSelectionLedgerEntry<ConsumerDefinition, ProviderDefinition>
   >,
   revisions: ProviderRevisionVector,
-  changedSlots: ReadonlySet<keyof ContextOf<ConsumerDefinition> & string>,
+  changedSlots: Set<keyof ContextOf<ConsumerDefinition> & string>,
 ): Result.Result<ContextProjection<ConsumerDefinition>, PublicDiagnostic> => {
   const values = new Map<
     keyof ContextOf<ConsumerDefinition> & string,
@@ -639,11 +607,11 @@ const projectionFromEntries = <
   }
 
   return Result.succeed(
-    immutableRecord({
+    copyObject({
       consumer,
-      values: readonlyMap(values),
+      values: new Map(values),
       revisions,
-      changedSlots: immutableSet(changedSlots),
+      changedSlots: ownedSet(changedSlots),
     }),
   );
 };
@@ -653,20 +621,20 @@ const baselineProjection = <
   ProviderDefinition extends MachineDefinition,
 >(
   consumer: ActorKey,
-  bindings: readonly ContextBinding<ConsumerDefinition, ProviderDefinition>[],
-  entries: ReadonlyMap<
+  bindings: ContextBinding<ConsumerDefinition, ProviderDefinition>[],
+  entries: Map<
     ContextBinding<ConsumerDefinition, ProviderDefinition>,
     ContextSelectionLedgerEntry<ConsumerDefinition, ProviderDefinition>
   >,
   revisions: ProviderRevisionVector,
-) => projectionFromEntries(consumer, bindings, entries, revisions, immutableSet([]));
+) => projectionFromEntries(consumer, bindings, entries, revisions, ownedSet([]));
 
 const flattenBindings = <
   ConsumerDefinition extends MachineDefinition,
   ProviderDefinition extends MachineDefinition,
 >(
   graph: ContextGraph<ConsumerDefinition, ProviderDefinition>,
-) => immutableArray([...graph.bindings.values()].flat());
+) => copyArray([...graph.bindings.values()].flat());
 
 /** Installs provider selections and the fixed binding set before activation. */
 export const installContextBaseline = <
@@ -674,7 +642,7 @@ export const installContextBaseline = <
   ProviderDefinition extends MachineDefinition = ConsumerDefinition,
 >(
   graph: ContextGraph<ConsumerDefinition, ProviderDefinition>,
-  snapshots: ReadonlyMap<ActorKey, ActorContextSnapshot<ProviderDefinition>>,
+  snapshots: Map<ActorKey, ActorContextSnapshot<ProviderDefinition>>,
   providerRevision: ProviderRevisionVector,
 ): Result.Result<ContextBaseline<ConsumerDefinition, ProviderDefinition>, PublicDiagnostic> => {
   const entries = new Map<
@@ -695,7 +663,7 @@ export const installContextBaseline = <
     if (Result.isFailure(selected)) return Result.fail(selected.failure.diagnostic);
     entries.set(
       binding,
-      immutableRecord({
+      copyObject({
         binding,
         previous: Option.none(),
         lastValid: Option.some(selected.success),
@@ -705,28 +673,28 @@ export const installContextBaseline = <
     );
   }
 
-  const frozenRevisions = copyRevisionVector(providerRevision);
+  const copiedRevisions = copyRevisionVector(providerRevision);
   const projections: ContextProjection<ConsumerDefinition>[] = [];
 
   for (const [consumer, bindings] of graph.bindings) {
-    const projection = baselineProjection(consumer, bindings, entries, frozenRevisions);
+    const projection = baselineProjection(consumer, bindings, entries, copiedRevisions);
 
     if (Result.isFailure(projection)) return Result.fail(projection.failure);
     projections.push(projection.success);
   }
 
-  const ledger: ContextSelectionLedger<ConsumerDefinition, ProviderDefinition> = immutableRecord({
-    entries: readonlyMap(entries),
-    providerRevisions: frozenRevisions,
+  const ledger: ContextSelectionLedger<ConsumerDefinition, ProviderDefinition> = copyObject({
+    entries: new Map(entries),
+    providerRevisions: copiedRevisions,
   });
 
-  const baseline: ContextBaseline<ConsumerDefinition, ProviderDefinition> = immutableRecord({
+  const baseline: ContextBaseline<ConsumerDefinition, ProviderDefinition> = copyObject({
     _tag: "context-baseline",
     graph,
     bindings: flattenBindings(graph),
-    providerRevision: frozenRevisions,
+    providerRevision: copiedRevisions,
     ledger,
-    projections: immutableArray(projections),
+    projections: copyArray(projections),
   });
 
   return Result.succeed(baseline);
@@ -739,7 +707,7 @@ export const activateContextBaseline = <
 >(
   baseline: ContextBaseline<ConsumerDefinition, ProviderDefinition>,
 ): ActiveContextBaseline<ConsumerDefinition, ProviderDefinition> =>
-  immutableRecord({
+  copyObject({
     _tag: "context-active" as const,
     baseline,
     bindings: baseline.bindings,
@@ -755,7 +723,7 @@ export const planContextWave = <
 >(
   graph: ContextGraph<ConsumerDefinition, ProviderDefinition>,
   providerRevision: ProviderRevisionVector,
-  dirty: ReadonlySet<ActorKey>,
+  dirty: Set<ActorKey>,
   previous: Option.Option<ContextWave>,
 ): Result.Result<ContextWave, PublicDiagnostic> => {
   const previousRevision = Option.isSome(previous) ? previous.value.providerRevision : undefined;
@@ -776,9 +744,9 @@ export const planContextWave = <
   if (Result.isFailure(order)) return Result.fail(order.failure);
 
   return Result.succeed(
-    immutableRecord({
+    copyObject({
       providerRevision: copyRevisionVector(providerRevision),
-      dirty: immutableSet(currentDirty),
+      dirty: ownedSet(currentDirty),
       order: order.success,
       coalesced: Option.isSome(previous),
     }),
@@ -790,7 +758,7 @@ const mergedRevisions = (previous: ProviderRevisionVector, current: ProviderRevi
 
   for (const [key, revision] of current) merged.set(key, revision);
 
-  return readonlyMap(merged);
+  return new Map(merged);
 };
 
 const revisionForConsumer = (
@@ -846,9 +814,9 @@ export const applyContextWave = <
 >(
   wave: ContextWave,
   graph: ContextGraph<ConsumerDefinition, ProviderDefinition>,
-  snapshots: ReadonlyMap<ActorKey, ActorContextSnapshot<ProviderDefinition>>,
+  snapshots: Map<ActorKey, ActorContextSnapshot<ProviderDefinition>>,
   previous: ContextSelectionLedger<ConsumerDefinition, ProviderDefinition>,
-  revisions: ContextRevisionVector = readonlyMap([]),
+  revisions: ContextRevisionVector = new Map(),
 ): Result.Result<ContextWaveResult<ConsumerDefinition, ProviderDefinition>, PublicDiagnostic> => {
   const nextRevisions = mergedRevisions(previous.providerRevisions, wave.providerRevision);
   const nextEntries = new Map(previous.entries);
@@ -904,7 +872,7 @@ export const applyContextWave = <
         consumerDefects.push(selected.failure);
         candidateEntries.set(
           binding,
-          immutableRecord({
+          copyObject({
             binding,
             previous: previousEntry.previous,
             lastValid: previousEntry.lastValid,
@@ -917,7 +885,7 @@ export const applyContextWave = <
 
       candidateEntries.set(
         binding,
-        immutableRecord({
+        copyObject({
           binding,
           previous: previousEntry.lastValid,
           lastValid: Option.some(selected.success),
@@ -950,7 +918,7 @@ export const applyContextWave = <
         bindings,
         previous.entries,
         nextRevisions,
-        immutableSet([]),
+        ownedSet([]),
       );
 
       if (Result.isFailure(retained)) return Result.fail(retained.failure);
@@ -960,13 +928,13 @@ export const applyContextWave = <
       if (Result.isFailure(propagated)) return Result.fail(propagated.failure);
       settledProviders.add(consumer);
 
-      const publication = immutableRecord({
+      const publication = copyObject({
         consumer,
         projection: retained.success,
         publicationRevision: nextRevisionState.success.publicationRevision,
         machineTurnRevision: nextRevisionState.success.machineTurnRevision,
         issueOnly: true as const,
-        selectorDefects: immutableArray(consumerDefects.map((defect) => defect.diagnostic)),
+        selectorDefects: copyArray(consumerDefects.map((defect) => defect.diagnostic)),
       });
 
       publications.push(publication);
@@ -998,7 +966,7 @@ export const applyContextWave = <
         bindings,
         nextEntries,
         nextRevisions,
-        immutableSet([]),
+        ownedSet([]),
       );
 
       if (Result.isFailure(unchanged)) return Result.fail(unchanged.failure);
@@ -1014,7 +982,7 @@ export const applyContextWave = <
       bindings,
       nextEntries,
       nextRevisions,
-      immutableSet(changedSlots),
+      ownedSet(changedSlots),
     );
 
     if (Result.isFailure(projection)) return Result.fail(projection.failure);
@@ -1027,30 +995,30 @@ export const applyContextWave = <
     if (nextRevisionState === undefined || Result.isFailure(nextRevisionState))
       return Result.fail(invalidContext("missing-next-revision"));
     publications.push(
-      immutableRecord({
+      copyObject({
         consumer,
         projection: projection.success,
         publicationRevision: nextRevisionState.success.publicationRevision,
         machineTurnRevision: nextRevisionState.success.machineTurnRevision,
         issueOnly: false as const,
-        selectorDefects: immutableArray([]),
+        selectorDefects: copyArray([]),
       }),
     );
   }
 
-  const ledger: ContextSelectionLedger<ConsumerDefinition, ProviderDefinition> = immutableRecord({
-    entries: readonlyMap(nextEntries),
+  const ledger: ContextSelectionLedger<ConsumerDefinition, ProviderDefinition> = copyObject({
+    entries: new Map(nextEntries),
     providerRevisions: nextRevisions,
   });
 
   return Result.succeed(
-    immutableRecord({
+    copyObject({
       _tag: "context-wave-published" as const,
       wave,
-      projections: immutableArray(projections),
-      publications: immutableArray(publications),
+      projections: copyArray(projections),
+      publications: copyArray(publications),
       ledger,
-      selectorDefects: immutableArray(selectorDefects),
+      selectorDefects: copyArray(selectorDefects),
     }),
   );
 };
@@ -1058,7 +1026,7 @@ export const applyContextWave = <
 /** Creates a passive dependency tracker; a defect leaves the previous set untouched. */
 // RETURN_TYPE: Preserves the generic passive-observer surface while closure state stays private.
 export const makePassiveObserver = <Dependency>(): PassiveObserver<Dependency> => {
-  let tracked: readonly Dependency[] = immutableArray([]);
+  let tracked: Dependency[] = copyArray([]);
 
   const evaluate = <Value>(selector: (read: PassiveRead<Dependency>) => Value) => {
     const next: Dependency[] = [];
@@ -1079,11 +1047,11 @@ export const makePassiveObserver = <Dependency>(): PassiveObserver<Dependency> =
     });
 
     if (Result.isFailure(evaluated))
-      return immutableRecord({ _tag: "passive-defect" as const, diagnostic: evaluated.failure });
-    const dependencies = immutableArray(next);
+      return copyObject({ _tag: "passive-defect" as const, diagnostic: evaluated.failure });
+    const dependencies = copyArray(next);
     tracked = dependencies;
 
-    return immutableRecord({
+    return copyObject({
       _tag: "passive-observation" as const,
       value: evaluated.success,
       dependencies,

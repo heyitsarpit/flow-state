@@ -904,7 +904,7 @@ describe("actor lifecycle", () => {
     }),
   );
 
-  it.effect("keeps nested provider and blocked-disposal snapshots immutable", () =>
+  it.effect("keeps nested provider and blocked-disposal snapshots detached", () =>
     Effect.gen(function* () {
       const consumer = makeFence(ConsumerMachine, "consumer-mutation");
       const provider = makeFence(ProviderMachine, "provider-mutation");
@@ -1316,17 +1316,17 @@ describe("actor lifecycle", () => {
   it.effect("serializes lifecycle commands and publishes evidence after each cut", () =>
     Effect.gen(function* () {
       const records: Array<{
-        readonly _tag: string;
-        readonly machineTurn: boolean;
-        readonly from: string;
-        readonly to: string;
-        readonly timestamp: number;
-        readonly publicationRevision: number;
-        readonly machineTurnRevision: number;
-        readonly evidenceSequence: number;
-        readonly actorKey: string;
-        readonly actorIncarnation: number;
-        readonly actorLeaseEpoch: number;
+        _tag: string;
+        machineTurn: boolean;
+        from: string;
+        to: string;
+        timestamp: number;
+        publicationRevision: number;
+        machineTurnRevision: number;
+        evidenceSequence: number;
+        actorKey: string;
+        actorIncarnation: number;
+        actorLeaseEpoch: number;
       }> = [];
 
       const evidenceOwner = makeRuntimeEvidenceOwner({
@@ -1548,11 +1548,11 @@ describe("actor lifecycle", () => {
       const second = makeFence(LifecycleMachine, "evidence-second");
 
       const records: Array<{
-        readonly app: App;
-        readonly plan: ReturnType<typeof appPlan>;
-        readonly key: string;
-        readonly incarnation: number;
-        readonly leaseEpoch: number;
+        app: App;
+        plan: ReturnType<typeof appPlan>;
+        key: string;
+        incarnation: number;
+        leaseEpoch: number;
       }> = [];
 
       const evidenceOwner = makeRuntimeEvidenceOwner({
@@ -1580,7 +1580,7 @@ describe("actor lifecycle", () => {
         },
       });
 
-      const start = (owner: { readonly fence: ActorFence }) =>
+      const start = (owner: { fence: ActorFence }) =>
         withRuntime(
           runLifecycleCommand(
             resultSuccess(
@@ -1620,7 +1620,7 @@ describe("actor lifecycle", () => {
     Effect.gen(function* () {
       const actor = makeFence(LifecycleMachine, "controller-failure");
       const published: Array<unknown> = [];
-      const accepted: Array<{ readonly from: string; readonly to: string }> = [];
+      const accepted: Array<{ from: string; to: string }> = [];
 
       const evidenceOwner = makeRuntimeEvidenceOwner({
         app: LifecycleApp,
@@ -1981,7 +1981,7 @@ describe("actor lifecycle", () => {
           ...active.attachment,
           blockedDisposal: {
             dependentActors: [actorRef(LifecycleMachine, "dependent")],
-            bindingKeys: [] as const,
+            bindingKeys: [],
           },
         },
       };
@@ -1993,7 +1993,7 @@ describe("actor lifecycle", () => {
       if (Exit.isFailure(result))
         // SAFETY: The blocked-disposal proof has already established a failure Cause; this narrow view reads its typed diagnostic.
         assert.strictEqual(
-          (result.cause.reasons[0] as { readonly error?: PublicDiagnostic }).error?.code,
+          (result.cause.reasons[0] as { error?: PublicDiagnostic }).error?.code,
           "BlockedByDependents",
         );
     }),
@@ -2323,9 +2323,9 @@ describe("actor lifecycle", () => {
 
       // SAFETY: The preceding length assertion establishes the retained record at index zero.
       const record = records[0] as {
-        readonly before: unknown;
-        readonly after: unknown;
-        readonly provenance: { readonly actor: unknown };
+        before: unknown;
+        after: unknown;
+        provenance: { actor: unknown };
       };
 
       assert.ok(record.before !== undefined);

@@ -24,10 +24,10 @@ import type {
 type Expect<Value extends true> = Value;
 
 interface EditorRepo {
-  readonly _tag: "EditorRepo";
+  _tag: "EditorRepo";
 }
 
-type EditorInput = { readonly draftId: string };
+type EditorInput = { draftId: string };
 
 const editorProject = resource({
   id: "public-editor/project",
@@ -71,7 +71,7 @@ const EditorResult = definition({
     save: editorSave,
     updates: editorUpdates,
   },
-  memory: ({ input }: { readonly input: { readonly draftId: string } }) => ({
+  memory: ({ input }: { input: { draftId: string } }) => ({
     draftId: input.draftId,
     count: 0,
   }),
@@ -183,7 +183,19 @@ const validRedirectListMachineResult = machine(EditorResult, ({ S }) => ({
   },
 }));
 
+const validEventHandlerList = [{ target: Editor.S.ready }, { target: Editor.S.idle }] as const;
+
+const validEventHandlerListMachineResult = machine(EditorResult, ({ S }) => ({
+  default: S.idle,
+  states: {
+    idle: { on: { opened: validEventHandlerList } },
+    ready: {},
+  },
+}));
+
 void validRedirectListMachineResult;
+
+void validEventHandlerListMachineResult;
 
 const contextSelection = EditorMachine.compiled.context[0];
 
@@ -287,16 +299,14 @@ export type _MachineRequirements = Expect<
 >;
 
 export type _Input = Expect<
-  Types.Equals<InputOf<typeof EditorMachine.definition>, { readonly draftId: string }>
+  Types.Equals<InputOf<typeof EditorMachine.definition>, { draftId: string }>
 >;
 
 export type _MachineInput = Expect<
-  Types.Equals<InputOf<typeof EditorMachine>, { readonly draftId: string }>
+  Types.Equals<InputOf<typeof EditorMachine>, { draftId: string }>
 >;
 
-export type _DefinitionInput = Expect<
-  Types.Equals<InputOf<typeof Editor>, { readonly draftId: string }>
->;
+export type _DefinitionInput = Expect<Types.Equals<InputOf<typeof Editor>, { draftId: string }>>;
 
 export type _Memory = Expect<
   Types.Equals<MemoryOf<typeof EditorMachine.definition>, { draftId: string; count: number }>
@@ -385,11 +395,11 @@ export type _NoInitializerInputAgreement = Expect<
 >;
 
 export type _NoInitializerDefinitionMemory = Expect<
-  Types.Equals<MemoryOf<typeof NoInitializerDefinition>, Readonly<Record<never, never>>>
+  Types.Equals<MemoryOf<typeof NoInitializerDefinition>, Record<never, never>>
 >;
 
 export type _NoInitializerMachineMemory = Expect<
-  Types.Equals<MemoryOf<typeof NoInitializerMachine>, Readonly<Record<never, never>>>
+  Types.Equals<MemoryOf<typeof NoInitializerMachine>, Record<never, never>>
 >;
 
 export type _NoInitializerMemoryAgreement = Expect<
@@ -411,12 +421,12 @@ export type _Event = Expect<
 void EditorMachine.config;
 
 type StructuralDefinition = {
-  readonly id: string;
-  readonly memory: () => { readonly value: number };
+  id: string;
+  memory: () => { value: number };
 };
 
 type StructuralMachine = {
-  readonly definition: typeof Editor;
+  definition: typeof Editor;
 };
 
 // @ts-expect-error public extractors require the nominal Definition constraint.

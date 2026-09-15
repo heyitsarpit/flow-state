@@ -9,9 +9,9 @@ type RuntimeOwnerOptions<
   ExposureRequirements,
   CloseError = LayerError | ExposureError,
 > = {
-  readonly layer: Layer.Layer<LayerOutput, LayerError, LayerRequirements>;
-  readonly expose: Effect.Effect<A, ExposureError, ExposureRequirements>;
-  readonly close?: Effect.Effect<void, CloseError>;
+  layer: Layer.Layer<LayerOutput, LayerError, LayerRequirements>;
+  expose: Effect.Effect<A, ExposureError, ExposureRequirements>;
+  close?: Effect.Effect<void, CloseError>;
 };
 
 type RuntimeOwnerExternalRequirements<LayerRequirements, ProvidedServices, ExposureRequirements> =
@@ -26,51 +26,51 @@ type RuntimeOwnerError<LayerError, ExposureError, CloseError> =
   | CloseError;
 
 type RuntimeOwnerStarting<A, ReadyError> = {
-  readonly _tag: "starting";
-  readonly ready: Deferred.Deferred<Exit.Exit<A, ReadyError>>;
+  _tag: "starting";
+  ready: Deferred.Deferred<Exit.Exit<A, ReadyError>>;
   scope: Scope.Closeable | undefined;
   fiber: Fiber.Fiber<unknown, unknown> | undefined;
   scopeClosed: boolean;
 };
 
 type RuntimeOwnerClosing<A, ReadyError, OwnerError> = {
-  readonly _tag: "closing";
-  readonly ready: Deferred.Deferred<Exit.Exit<A, ReadyError>>;
-  readonly close: Deferred.Deferred<Exit.Exit<void, OwnerError>>;
-  readonly starting?: RuntimeOwnerStarting<A, ReadyError>;
+  _tag: "closing";
+  ready: Deferred.Deferred<Exit.Exit<A, ReadyError>>;
+  close: Deferred.Deferred<Exit.Exit<void, OwnerError>>;
+  starting?: RuntimeOwnerStarting<A, ReadyError>;
   readyExit: Exit.Exit<A, ReadyError> | undefined;
-  readonly includeReadyFailure: boolean;
+  includeReadyFailure: boolean;
   scope: Scope.Closeable | undefined;
   scopeClosed: boolean;
 };
 
 type RuntimeOwnerState<A, ReadyError, OwnerError> =
-  | { readonly _tag: "cold" }
+  | { _tag: "cold" }
   | RuntimeOwnerStarting<A, ReadyError>
   | {
-      readonly _tag: "ready";
-      readonly readyExit: Exit.Exit<A, ReadyError>;
-      readonly scope: Scope.Closeable;
+      _tag: "ready";
+      readyExit: Exit.Exit<A, ReadyError>;
+      scope: Scope.Closeable;
       scopeClosed: boolean;
     }
   | {
-      readonly _tag: "failed";
-      readonly readyExit: Exit.Exit<A, ReadyError>;
-      readonly retainFailureOnClose: boolean;
+      _tag: "failed";
+      readyExit: Exit.Exit<A, ReadyError>;
+      retainFailureOnClose: boolean;
     }
   | RuntimeOwnerClosing<A, ReadyError, OwnerError>
   | {
-      readonly _tag: "closed";
-      readonly readyExit: Exit.Exit<A, ReadyError>;
-      readonly closeExit: Exit.Exit<void, OwnerError>;
+      _tag: "closed";
+      readyExit: Exit.Exit<A, ReadyError>;
+      closeExit: Exit.Exit<void, OwnerError>;
     }
   | {
-      readonly _tag: "close-failed";
-      readonly readyExit: Exit.Exit<A, ReadyError>;
-      readonly closeExit: Exit.Exit<void, OwnerError>;
-      readonly includeReadyFailure: boolean;
-      readonly scope: Scope.Closeable | undefined;
-      readonly scopeClosed: boolean;
+      _tag: "close-failed";
+      readyExit: Exit.Exit<A, ReadyError>;
+      closeExit: Exit.Exit<void, OwnerError>;
+      includeReadyFailure: boolean;
+      scope: Scope.Closeable | undefined;
+      scopeClosed: boolean;
     };
 
 const resolveExit = <A, E>(exit: Exit.Exit<A, E>): Effect.Effect<A, E> => exit;

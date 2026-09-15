@@ -30,7 +30,7 @@ const expectInvalidElement = (value: unknown, path: string) => {
 };
 
 describe("operation keys", () => {
-  it("canonicalizes ordered values before publishing ownership", () => {
+  it("canonicalizes ordered values into owned mutable copies", () => {
     const rawRecord = { z: "last", a: "first" };
     const rawKey: CanonicalKeyInput[] = [-0, rawRecord];
     const copy = canonicalizeKey(rawKey);
@@ -40,7 +40,10 @@ describe("operation keys", () => {
 
     assert.deepStrictEqual(copy, [0, { a: "first", z: "last" }]);
     assert.strictEqual(Object.is(copy[0], 0), true);
-    assert.strictEqual(Object.isFrozen(copy), true);
+    assert.strictEqual(Object.isFrozen(copy), false);
+    copy[0] = 1;
+    assert.strictEqual(copy[0], 1);
+    assert.strictEqual(rawRecord.a, "changed");
     assert.deepStrictEqual(canonicalizeKey([{ z: 1, a: 2 }]), canonicalizeKey([{ a: 2, z: 1 }]));
 
     const nestedRecord = { deep: ["stable"] };
@@ -48,9 +51,11 @@ describe("operation keys", () => {
     const nestedCopy = canonicalizeKey(nestedSource);
     nestedRecord.deep[0] = "changed";
     assert.deepStrictEqual(nestedCopy, [{ deep: ["stable"] }]);
-    assert.strictEqual(Object.isFrozen(nestedCopy), true);
-    assert.strictEqual(Object.isFrozen(nestedCopy[0]), true);
-    assert.strictEqual(Object.isFrozen(nestedCopy[0].deep), true);
+    assert.strictEqual(Object.isFrozen(nestedCopy), false);
+    assert.strictEqual(Object.isFrozen(nestedCopy[0]), false);
+    assert.strictEqual(Object.isFrozen(nestedCopy[0].deep), false);
+    nestedCopy[0].deep[0] = "mutable nested copy";
+    assert.strictEqual(nestedRecord.deep[0], "changed");
 
     const nullRecord = Object.create(null);
     Object.defineProperty(nullRecord, "stable", {
@@ -198,7 +203,7 @@ describe("operation keys", () => {
     expectInvalidElement(customPrototype, "$[0]");
 
     class Unsupported {
-      readonly marker = true;
+      marker = true;
     }
 
     expectInvalidElement(new Unsupported(), "$[0]");

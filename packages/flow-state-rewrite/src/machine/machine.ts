@@ -60,16 +60,15 @@ type OperationRequirements<DefinitionValue extends MachineDefinition> = Operatio
   DefinitionValue["operations"][keyof DefinitionValue["operations"]]
 >;
 
-export type Machine<DefinitionValue extends MachineDefinition = MachineDefinition> = Readonly<{
+export type Machine<DefinitionValue extends MachineDefinition = MachineDefinition> = {
   definition: DefinitionValue;
   compiled: CompiledMachine<DefinitionValue>;
-}> &
-  RequirementsCarrier<OperationRequirements<DefinitionValue>>;
+} & RequirementsCarrier<OperationRequirements<DefinitionValue>>;
 
 export type MachineRequirementsOf<Value> = OperationRequirementsOf<Value>;
 
 export type MachineRecordValue = RequirementsCarrier<unknown> & {
-  readonly definition: MachineDefinition;
+  definition: MachineDefinition;
 };
 
 const constructedMachines = new WeakSet<MachineRecordValue>();
@@ -118,7 +117,7 @@ const collectRegistrations = <DefinitionValue extends MachineDefinition>() => {
   return { context, memory, onContext, onMemory };
 };
 
-// RETURN_TYPE: Preserves the readonly non-empty target tuple after array-spread construction.
+// RETURN_TYPE: Preserves the non-empty target tuple after array-spread construction.
 const makeStoreAction = <DefinitionValue extends MachineDefinition>(
   kind: MachineStoreAction<DefinitionValue>["kind"],
   targets: MachineStoreAction<DefinitionValue>["targets"],

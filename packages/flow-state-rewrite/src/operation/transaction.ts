@@ -19,7 +19,7 @@ import type {
   PlanOptions,
   ValidOperationProgram,
 } from "./operation.js";
-import type { CanonicalKeyInput, OperationKey, ReadonlyCanonical } from "./key.js";
+import type { OperationKey, CanonicalKeyValue } from "./key.js";
 
 /*
  * Transactions:
@@ -46,39 +46,37 @@ import type { CanonicalKeyInput, OperationKey, ReadonlyCanonical } from "./key.j
  *   transaction overloads and implementation
  */
 
-type ParameterlessTransactionConfig<Id extends string, Program> = Readonly<{
+type ParameterlessTransactionConfig<Id extends string, Program> = {
   id: Id;
   key?: never;
   commit: (options: OperationOptions) => Program & ValidOperationProgram<Program>;
   persist?: boolean;
   concurrency?: TransactionConcurrency;
-}>;
+};
 
 export type TransactionState<A, E, K extends OperationKey> =
-  | Readonly<{ status: "idle"; key: K }>
-  | Readonly<{ status: "pending"; key: K; generation: number }>
-  | Readonly<{ status: "success"; key: K; generation: number; value: A }>
-  | Readonly<{ status: "failure"; key: K; generation: number; error: E }>
-  | Readonly<{
+  | { status: "idle"; key: K }
+  | { status: "pending"; key: K; generation: number }
+  | { status: "success"; key: K; generation: number; value: A }
+  | { status: "failure"; key: K; generation: number; error: E }
+  | {
       status: "defect";
       key: K;
       generation: number;
       defect: unknown;
-    }>
-  | Readonly<{ status: "interrupted"; key: K; generation: number }>
-  | Readonly<{
+    }
+  | { status: "interrupted"; key: K; generation: number }
+  | {
       status: "unknown";
       key: K;
       generation: number;
       reconcileRequired: true;
-    }>;
+    };
 
-export type TransactionCommitOptions<P, A, E, O = unknown> = Readonly<{
+export type TransactionCommitOptions<P, A, E, O = unknown> = {
   outcomes?: FiniteOutcomes<A, E, O>;
-  writes?: (
-    context: Readonly<{ params: P; value: A }>,
-  ) => readonly CacheWritePlan<string, OperationKey, unknown>[];
-}>;
+  writes?: (context: { params: P; value: A }) => CacheWritePlan<string, OperationKey, unknown>[];
+};
 
 export type TransactionCommitPlan<
   Id extends string,
@@ -105,39 +103,38 @@ export type Transaction<
   A = never,
   E = never,
   R = never,
-> = OperationDescriptor<"transaction", Id, P, K, R> &
-  Readonly<{
-    getState: (key: K) => TransactionState<A, E, K>;
-    commit: TransactionCommit<Id, P, K, A, E>;
-    cancel: (key: K) => CancellationPlan<Id, K, "transaction">;
-    persist: boolean;
-    concurrency: TransactionConcurrency;
-  }>;
+> = OperationDescriptor<"transaction", Id, P, K, R> & {
+  getState: (key: K) => TransactionState<A, E, K>;
+  commit: TransactionCommit<Id, P, K, A, E>;
+  cancel: (key: K) => CancellationPlan<Id, K, "transaction">;
+  persist: boolean;
+  concurrency: TransactionConcurrency;
+};
 
 export type TransactionConcurrency = "reject" | "cancel" | "allow" | "serialize";
 
-export type TransactionConfig<Id extends string, P, K extends OperationKey, A, E, R> = Readonly<{
+export type TransactionConfig<Id extends string, P, K extends OperationKey, A, E, R> = {
   id: Id;
   key: (params: P) => K;
   commit: TransactionCommitAdapter<P, A, E, R>;
   persist?: boolean;
   concurrency?: TransactionConcurrency;
-}>;
+};
 
 type TransactionImplementationConfig =
-  | Readonly<{
+  | {
       id: string;
       commit: (options: OperationOptions) => TransactionImplementationProgram;
       persist?: boolean;
       concurrency?: TransactionConcurrency;
-    }>
-  | Readonly<{
+    }
+  | {
       id: string;
       key: (params: never) => OperationKey;
       commit: (params: never, options: OperationOptions) => TransactionImplementationProgram;
       persist?: boolean;
       concurrency?: TransactionConcurrency;
-    }>;
+    };
 
 type TransactionImplementationProgram =
   | Record<never, never>
@@ -148,30 +145,25 @@ type TransactionImplementationProgram =
   | symbol
   | null;
 
-type TransactionImplementationResult = Readonly<{
+type TransactionImplementationResult = {
   kind: "transaction";
   id: string;
-}>;
+};
 
-type TransactionKeyedAuthoringConfig<
-  Id extends string,
-  P,
-  K extends readonly CanonicalKeyInput[],
-  Program,
-> = Readonly<{
+type TransactionKeyedAuthoringConfig<Id extends string, P, K extends OperationKey, Program> = {
   id: Id;
   key: (params: P) => K;
-  commit: (...args: readonly never[]) => Program;
+  commit: (...args: never[]) => Program;
   persist?: boolean | undefined;
   concurrency?: TransactionConcurrency | undefined;
-}>;
+};
 
-type TransactionParameterlessAuthoringConfig<Id extends string, Program> = Readonly<{
+type TransactionParameterlessAuthoringConfig<Id extends string, Program> = {
   id: Id;
-  commit: (...args: readonly never[]) => Program;
+  commit: (...args: never[]) => Program;
   persist?: boolean | undefined;
   concurrency?: TransactionConcurrency | undefined;
-}>;
+};
 
 const TransactionConfigurationSchema = Schema.Struct({
   id: AuthoredName,
@@ -202,7 +194,7 @@ const transactionConfigurationError = (failure: Schema.SchemaError) => {
 function admitTransactionConfiguration<
   const Id extends string,
   P,
-  const K extends readonly CanonicalKeyInput[],
+  const K extends OperationKey,
   Program,
 >(
   config: TransactionKeyedAuthoringConfig<Id, P, K, Program>,
@@ -217,18 +209,13 @@ function admitTransactionConfiguration(input: unknown) {
   );
 }
 
-type TransactionConstructionConfig<
-  Id extends string,
-  P,
-  K extends OperationKey,
-  Program,
-> = Readonly<{
+type TransactionConstructionConfig<Id extends string, P, K extends OperationKey, Program> = {
   id: Id;
   key: (params: P) => K;
-  commit: (...args: readonly never[]) => Program;
+  commit: (...args: never[]) => Program;
   persist?: boolean | undefined;
   concurrency?: TransactionConcurrency | undefined;
-}>;
+};
 
 const createTransaction = <Id extends string, P, K extends OperationKey, Program>(
   config: TransactionConstructionConfig<Id, P, K, Program>,
@@ -240,7 +227,7 @@ const createTransaction = <Id extends string, P, K extends OperationKey, Program
 
   type R = OperationRequirementsOf<Program>;
 
-  type CanonicalK = ReadonlyCanonical<K>;
+  type CanonicalK = CanonicalKeyValue<K>;
 
   const { id, key: projectKey, commit: commitAdapter, persist, concurrency } = config;
 
@@ -254,12 +241,12 @@ const createTransaction = <Id extends string, P, K extends OperationKey, Program
     options?: O,
   ) => operationPlan("transaction-commit", id, projectKey, params, options);
 
-  const getState = (keyValue: ReadonlyCanonical<K>) => ({
+  const getState = (keyValue: CanonicalKeyValue<K>) => ({
     status: "idle" as const,
     key: canonicalizeKey<K>(keyValue),
   });
 
-  const cancel = (keyValue: ReadonlyCanonical<K>) => ({
+  const cancel = (keyValue: CanonicalKeyValue<K>) => ({
     kind: "cancel" as const,
     family: "transaction" as const,
     descriptor: id,
@@ -284,26 +271,24 @@ const createTransaction = <Id extends string, P, K extends OperationKey, Program
 
 export function transaction<
   const Id extends string,
-  const K extends readonly CanonicalKeyInput[],
+  const K extends OperationKey,
   const Key extends (params: never) => OperationKey,
   Program,
->(
-  config: Readonly<{
-    id: Id;
-    key: Key & ((params: Parameters<Key>[0]) => K);
-    commit: Parameters<Key> extends []
-      ? never
-      : (
-          params: NoInfer<Parameters<Key>[0]>,
-          options: OperationOptions,
-        ) => Program & ValidOperationProgram<Program>;
-    persist?: boolean;
-    concurrency?: TransactionConcurrency;
-  }>,
-): Transaction<
+>(config: {
+  id: Id;
+  key: Key & ((params: Parameters<Key>[0]) => K);
+  commit: Parameters<Key> extends []
+    ? never
+    : (
+        params: NoInfer<Parameters<Key>[0]>,
+        options: OperationOptions,
+      ) => Program & ValidOperationProgram<Program>;
+  persist?: boolean;
+  concurrency?: TransactionConcurrency;
+}): Transaction<
   Id,
   Parameters<Key>[0],
-  ReadonlyCanonical<K>,
+  CanonicalKeyValue<K>,
   OperationValueOf<Program>,
   OperationErrorOf<Program>,
   OperationRequirementsOf<Program>
@@ -311,20 +296,18 @@ export function transaction<
 
 export function transaction<
   const Id extends string,
-  const K extends readonly CanonicalKeyInput[],
+  const K extends OperationKey,
   Program,
->(
-  config: Readonly<{
-    id: Id;
-    key: () => K;
-    commit: (options: OperationOptions) => Program & ValidOperationProgram<Program>;
-    persist?: boolean;
-    concurrency?: TransactionConcurrency;
-  }>,
-): Transaction<
+>(config: {
+  id: Id;
+  key: () => K;
+  commit: (options: OperationOptions) => Program & ValidOperationProgram<Program>;
+  persist?: boolean;
+  concurrency?: TransactionConcurrency;
+}): Transaction<
   Id,
   undefined,
-  ReadonlyCanonical<K>,
+  CanonicalKeyValue<K>,
   OperationValueOf<Program>,
   OperationErrorOf<Program>,
   OperationRequirementsOf<Program>
@@ -335,7 +318,7 @@ export function transaction<const Id extends string, Program>(
 ): Transaction<
   Id,
   undefined,
-  readonly [],
+  [],
   OperationValueOf<Program>,
   OperationErrorOf<Program>,
   OperationRequirementsOf<Program>

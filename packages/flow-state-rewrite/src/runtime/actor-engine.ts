@@ -38,7 +38,7 @@ import {
   finalizePreparedActorPublication,
   prepareActorPublication,
 } from "./evidence.js";
-import { immutableRecord } from "./readonly-collections.js";
+import { copyObject } from "./collection-copies.js";
 import {
   isEventForMachine,
   planTurn,
@@ -59,75 +59,74 @@ export type ActorCommand<DefinitionValue extends MachineDefinition> = EventOf<De
 export type ActorLifecycle = "prepared" | "active" | "suspended" | "disposed";
 
 export type OperationProjection = {
-  readonly descriptor: OperationDeclaration;
-  readonly key: OperationKey;
-  readonly status: "pending" | "running" | "succeeded" | "failed" | "cancelled";
+  descriptor: OperationDeclaration;
+  key: OperationKey;
+  status: "pending" | "running" | "succeeded" | "failed" | "cancelled";
 };
 
 export type TimerProjection = {
-  readonly name: string;
-  readonly startedAt: number;
-  readonly dueAt: number;
+  name: string;
+  startedAt: number;
+  dueAt: number;
 };
 
-/** The complete immutable value exposed at one publication boundary. */
-export type ActorSnapshot<DefinitionValue extends MachineDefinition> = Readonly<
+/** The complete owned value exposed at one publication boundary. */
+export type ActorSnapshot<DefinitionValue extends MachineDefinition> =
   MachineSnapshot<DefinitionValue> & {
-    readonly lifecycle: ActorLifecycle;
-    readonly operations: readonly OperationProjection[];
-    readonly timers: readonly TimerProjection[];
-    readonly issues: readonly PublicDiagnostic[];
+    lifecycle: ActorLifecycle;
+    operations: OperationProjection[];
+    timers: TimerProjection[];
+    issues: PublicDiagnostic[];
     /** Publicly visible publication revision; machine-turn revision stays private. */
-    readonly revision: number;
-    readonly observedStoreRevision: number;
-  }
->;
+    revision: number;
+    observedStoreRevision: number;
+  };
 
 declare const preparedActorSnapshotBrand: unique symbol;
 
 /** A snapshot copied and admitted for one exact machine before engine preparation. */
 export type PreparedActorSnapshot<DefinitionValue extends MachineDefinition> =
   ActorSnapshot<DefinitionValue> & {
-    readonly [preparedActorSnapshotBrand]: void;
+    [preparedActorSnapshotBrand]: void;
   };
 
 /**
  * A typed P02 store result is the only store capability needed by this slice.
  * A successful commit is an atomic store-owner result: validation, ownership,
- * and immutable result construction happen inside that owner before it returns.
+ * and result copying happen inside that owner before it returns.
  */
 export type ActorStoreResult<DefinitionValue extends MachineDefinition> = {
-  readonly revision: number;
-  readonly changed: readonly StoreChangeReference<DefinitionValue>[];
+  revision: number;
+  changed: StoreChangeReference<DefinitionValue>[];
 };
 
 export type ActorStore<DefinitionValue extends MachineDefinition> = {
   /**
    * The owner constructs its result with makeActorStoreResult before exposing the
-   * mutation; a successful return is therefore already a valid immutable cut.
+   * mutation; a successful return is therefore already a valid owned cut.
    */
-  readonly commit: (
-    actions: readonly MachineAction<DefinitionValue>[],
+  commit: (
+    actions: MachineAction<DefinitionValue>[],
   ) => Result.Result<ActorStoreResult<DefinitionValue>, PublicDiagnostic>;
 };
 
 export type ActorPublication<DefinitionValue extends MachineDefinition> = {
-  readonly snapshot: ActorSnapshot<DefinitionValue>;
-  readonly store: ActorStoreResult<DefinitionValue>;
-  readonly publicationRevision: number;
-  readonly machineTurnRevision: number;
-  readonly cause: TurnCause<DefinitionValue>;
+  snapshot: ActorSnapshot<DefinitionValue>;
+  store: ActorStoreResult<DefinitionValue>;
+  publicationRevision: number;
+  machineTurnRevision: number;
+  cause: TurnCause<DefinitionValue>;
 };
 
 export type DispatchReceipt = {
-  readonly publicationRevision: number;
-  readonly evidenceSequence: number;
+  publicationRevision: number;
+  evidenceSequence: number;
 };
 
 /** This cell is package-private in use; actorHandle never exposes it. */
 export type AcknowledgedDispatch = {
-  readonly admitted: boolean;
-  readonly completion: Deferred.Deferred<DispatchReceipt, PublicDiagnostic>;
+  admitted: boolean;
+  completion: Deferred.Deferred<DispatchReceipt, PublicDiagnostic>;
 };
 
 export type ActorCommandHandler<DefinitionValue extends MachineDefinition> = (
@@ -141,67 +140,67 @@ export type ActorEvidenceAcceptor<DefinitionValue extends MachineDefinition> = (
 /** A public mailbox fact carries no transition result or acknowledgement handle. */
 export type ActorMailboxFact<DefinitionValue extends MachineDefinition> =
   | {
-      readonly _tag: "command";
-      readonly fence: ActorFence;
-      readonly command: ActorCommand<DefinitionValue>;
-      readonly acknowledgement?: Deferred.Deferred<DispatchReceipt, PublicDiagnostic>;
+      _tag: "command";
+      fence: ActorFence;
+      command: ActorCommand<DefinitionValue>;
+      acknowledgement?: Deferred.Deferred<DispatchReceipt, PublicDiagnostic>;
     }
   | {
-      readonly _tag: "projection";
-      readonly fence: ActorFence;
-      readonly fact: ProjectionFact;
+      _tag: "projection";
+      fence: ActorFence;
+      fact: ProjectionFact;
     };
 
 export type ActorFactDisposition<DefinitionValue extends MachineDefinition> =
   | {
-      readonly _tag: "accepted";
-      readonly fact: Extract<ActorMailboxFact<DefinitionValue>, { readonly _tag: "command" }>;
+      _tag: "accepted";
+      fact: Extract<ActorMailboxFact<DefinitionValue>, { _tag: "command" }>;
     }
   | {
-      readonly _tag: "discarded";
-      readonly reason: "stale-fence";
+      _tag: "discarded";
+      reason: "stale-fence";
     };
 
 export type ActorEngineInput<DefinitionValue extends MachineDefinition> = {
-  readonly identity: ActorIdentity<DefinitionValue>;
+  identity: ActorIdentity<DefinitionValue>;
   /** App-time machine facts used for planning; the identity ref retains the public machine token. */
-  readonly machine?: Machine<DefinitionValue>;
-  readonly fence: ActorFence;
-  readonly initial: PreparedActorSnapshot<DefinitionValue>;
-  readonly scope: Scope.Scope;
-  readonly store?: ActorStore<DefinitionValue>;
-  readonly acceptEvidence?: ActorEvidenceAcceptor<DefinitionValue>;
-  readonly onSnapshot?: (snapshot: ActorSnapshot<DefinitionValue>) => void;
-  readonly onCommand?: ActorCommandHandler<DefinitionValue> | undefined;
+  machine?: Machine<DefinitionValue>;
+  fence: ActorFence;
+  initial: PreparedActorSnapshot<DefinitionValue>;
+  scope: Scope.Scope;
+  store?: ActorStore<DefinitionValue>;
+  acceptEvidence?: ActorEvidenceAcceptor<DefinitionValue>;
+  onSnapshot?: (snapshot: ActorSnapshot<DefinitionValue>) => void;
+  onCommand?: ActorCommandHandler<DefinitionValue> | undefined;
 };
 
 export interface ActorEngine<DefinitionValue extends MachineDefinition> {
-  readonly ref: ActorRef<Machine<DefinitionValue>>;
-  readonly fence: ActorFence;
-  readonly machineTurnRevision: () => number;
-  readonly mailbox: Queue.Queue<ActorMailboxFact<DefinitionValue>>;
-  readonly consumer: Effect.Effect<void, PublicDiagnostic>;
-  readonly snapshot: () => ActorSnapshot<DefinitionValue>;
-  readonly send: (command: ActorCommand<DefinitionValue>) => void;
-  readonly dispatch: (command: ActorCommand<DefinitionValue>) => AcknowledgedDispatch;
-  readonly dispatchFact: (fact: ProjectionFact) => Result.Result<void, PublicDiagnostic>;
-  readonly snapshots: Stream.Stream<ActorSnapshot<DefinitionValue>>;
-  readonly drain: () => Effect.Effect<void, PublicDiagnostic>;
-  readonly shutdown: (mode: "graceful" | "hard") => Effect.Effect<void, PublicDiagnostic>;
+  ref: ActorRef<Machine<DefinitionValue>>;
+  fence: ActorFence;
+  machineTurnRevision: () => number;
+  mailbox: Queue.Queue<ActorMailboxFact<DefinitionValue>>;
+  consumer: Effect.Effect<void, PublicDiagnostic>;
+  snapshot: () => ActorSnapshot<DefinitionValue>;
+  send: (command: ActorCommand<DefinitionValue>) => void;
+  dispatch: (command: ActorCommand<DefinitionValue>) => AcknowledgedDispatch;
+  dispatchFact: (fact: ProjectionFact) => Result.Result<void, PublicDiagnostic>;
+  snapshots: Stream.Stream<ActorSnapshot<DefinitionValue>>;
+  drain: () => Effect.Effect<void, PublicDiagnostic>;
+  shutdown: (mode: "graceful" | "hard") => Effect.Effect<void, PublicDiagnostic>;
 }
 
 export interface PreparedActorEngine<DefinitionValue extends MachineDefinition> {
-  readonly phase: "prepared";
-  readonly mailbox: Queue.Queue<ActorMailboxFact<DefinitionValue>>;
-  readonly send: (command: ActorCommand<DefinitionValue>) => void;
-  readonly dispatch: (command: ActorCommand<DefinitionValue>) => AcknowledgedDispatch;
-  readonly activate: () => Effect.Effect<ActorEngine<DefinitionValue>, PublicDiagnostic>;
-  readonly abandon: () => void;
+  phase: "prepared";
+  mailbox: Queue.Queue<ActorMailboxFact<DefinitionValue>>;
+  send: (command: ActorCommand<DefinitionValue>) => void;
+  dispatch: (command: ActorCommand<DefinitionValue>) => AcknowledgedDispatch;
+  activate: () => Effect.Effect<ActorEngine<DefinitionValue>, PublicDiagnostic>;
+  abandon: () => void;
 }
 
 export interface ActorHandle<DefinitionValue extends MachineDefinition> {
-  readonly ref: ActorRef<Machine<DefinitionValue>>;
-  readonly send: (command: ActorCommand<DefinitionValue>) => void;
+  ref: ActorRef<Machine<DefinitionValue>>;
+  send: (command: ActorCommand<DefinitionValue>) => void;
 }
 
 type ConsumerFiberState = {
@@ -216,8 +215,8 @@ type MutableActorState<DefinitionValue extends MachineDefinition> = {
 };
 
 type PreparedCut<DefinitionValue extends MachineDefinition> = {
-  readonly publication: ActorPublication<DefinitionValue>;
-  readonly evidenceSequence: number;
+  publication: ActorPublication<DefinitionValue>;
+  evidenceSequence: number;
 };
 
 type DrainState = {
@@ -251,44 +250,34 @@ const clearMailbox = <DefinitionValue extends MachineDefinition>(
   while (Queue.sizeUnsafe(mailbox) > 0) Queue.takeUnsafe(mailbox);
 };
 
-const freezeSnapshot = <DefinitionValue extends MachineDefinition>(
+const copySnapshot = <DefinitionValue extends MachineDefinition>(
   snapshot: ActorSnapshot<DefinitionValue>,
 ): ActorSnapshot<DefinitionValue> => {
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- snapshots are immutable publication values.
-  const memory = Object.freeze({ ...snapshot.memory });
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- snapshots are immutable publication values.
+  const memory = { ...snapshot.memory };
   const context: ActorSnapshot<DefinitionValue>["context"] = { ...snapshot.context };
 
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- snapshots are immutable publication values.
-  const operations = Object.freeze(
-    snapshot.operations.map((operation) => {
-      // oxlint-disable-next-line anti-slop/no-object-freeze -- snapshot projection entries are immutable publication values.
-      return Object.freeze({ ...operation, key: canonicalizeKey(operation.key) });
-    }),
-  );
+  const operations = snapshot.operations.map((operation) => ({
+    ...operation,
+    key: canonicalizeKey(operation.key),
+  }));
 
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- snapshots are immutable publication values.
-  const timers = Object.freeze(snapshot.timers.map((timer) => Object.freeze({ ...timer })));
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- snapshots are immutable publication values.
-  const issues = Object.freeze([...snapshot.issues]);
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- snapshots are immutable publication values.
-  Object.freeze(context);
+  const timers = snapshot.timers.map((timer) => ({ ...timer }));
+  const issues = [...snapshot.issues];
 
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- snapshots are immutable publication values.
-  return Object.freeze({ ...snapshot, memory, context, operations, timers, issues });
+  return { ...snapshot, memory, context, operations, timers, issues };
 };
 
 // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- reflected record fields remain unknown until recursive snapshot admission.
-type SnapshotRecord = Readonly<Record<PropertyKey, unknown>>;
+type SnapshotRecord = Record<PropertyKey, unknown>;
 
 // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- recursive reflection tracks both admitted records and dense arrays as object identities.
-type SnapshotReference = SnapshotRecord | readonly unknown[];
+type SnapshotReference = SnapshotRecord | unknown[];
 
-type SnapshotPath = readonly (string | number)[];
+type SnapshotPath = (string | number)[];
 
 const preparedSnapshots = new WeakMap<SnapshotReference, MachineRecordValue>();
 
-const preparedSnapshotFailure = (path: readonly (string | number)[], reason: string) =>
+const preparedSnapshotFailure = (path: (string | number)[], reason: string) =>
   Failure({
     code: "InvariantViolation",
     path,
@@ -297,7 +286,7 @@ const preparedSnapshotFailure = (path: readonly (string | number)[], reason: str
     help: "Provide a complete snapshot produced for the exact constructed machine.",
   });
 
-type DataPropertyDescriptor = PropertyDescriptor & { readonly value: unknown };
+type DataPropertyDescriptor = PropertyDescriptor & { value: unknown };
 
 const isDataProperty = (
   descriptor: PropertyDescriptor | undefined,
@@ -358,7 +347,7 @@ const captureSnapshotRecord = (
 const captureSnapshotArray = (
   value: unknown,
   path: SnapshotPath,
-): Result.Result<readonly unknown[], PublicDiagnostic> => {
+): Result.Result<unknown[], PublicDiagnostic> => {
   const captured = Result.try({
     try: () => {
       if (!Array.isArray(value) || Object.getPrototypeOf(value) !== Array.prototype)
@@ -405,7 +394,11 @@ const captureSnapshotArray = (
   return captured.success;
 };
 
-const hasExactKeys = (value: SnapshotRecord, expected: readonly string[]) => {
+const hasExactKeys = (
+  value: SnapshotRecord,
+  // oxlint-disable-next-line anti-slop/no-readonly -- NO_READONLY_CODEMOD: accepts const-inferred key tuples without copying them.
+  expected: readonly string[],
+) => {
   const keys = Reflect.ownKeys(value);
 
   return (
@@ -512,7 +505,7 @@ const captureSnapshotData = (
 };
 
 const captureSnapshotArrayData = (
-  value: readonly unknown[],
+  value: unknown[],
   path: SnapshotPath,
   identities: WeakSet<SnapshotReference>,
   seen: WeakSet<SnapshotReference>,
@@ -529,8 +522,7 @@ const captureSnapshotArrayData = (
     owned.push(admitted.success);
   }
 
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- prepared snapshot data is recursively owned before publication.
-  return Result.succeed(Object.freeze(owned));
+  return Result.succeed(owned);
 };
 
 const captureSnapshotRecordData = (
@@ -556,8 +548,7 @@ const captureSnapshotRecordData = (
     });
   }
 
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- prepared snapshot data is recursively owned before publication.
-  return Result.succeed(Object.freeze(owned));
+  return Result.succeed(owned);
 };
 
 const isSnapshotRecord = (value: unknown): value is SnapshotRecord =>
@@ -591,7 +582,7 @@ const admitSnapshotData = (
 const admitSnapshotOperations = (
   machine: MachineRecordValue,
   value: unknown,
-): Result.Result<readonly OperationProjection[], PublicDiagnostic> => {
+): Result.Result<OperationProjection[], PublicDiagnostic> => {
   const captured = captureSnapshotArray(value, ["operations"]);
 
   if (Result.isFailure(captured)) return Result.fail(captured.failure);
@@ -620,7 +611,7 @@ const admitSnapshotOperations = (
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the key walker performs the final runtime admission and ownership copy.
     const key = canonicalizeKey(entry.success.key as OperationKey);
     owned.push(
-      immutableRecord({
+      copyObject({
         descriptor: entry.success.descriptor,
         key,
         status: entry.success.status,
@@ -628,13 +619,12 @@ const admitSnapshotOperations = (
     );
   }
 
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- prepared projection arrays are immutable publication values.
-  return Result.succeed(Object.freeze(owned));
+  return Result.succeed(owned);
 };
 
 const admitSnapshotTimers = (
   value: unknown,
-): Result.Result<readonly TimerProjection[], PublicDiagnostic> => {
+): Result.Result<TimerProjection[], PublicDiagnostic> => {
   const captured = captureSnapshotArray(value, ["timers"]);
 
   if (Result.isFailure(captured)) return Result.fail(captured.failure);
@@ -655,17 +645,15 @@ const admitSnapshotTimers = (
 
     if (!isSafeSnapshotInteger(startedAt) || !isSafeSnapshotInteger(dueAt))
       return Result.fail(preparedSnapshotFailure(["timers", index], "timestamp"));
-    // oxlint-disable-next-line anti-slop/no-object-freeze -- prepared timer projections are immutable publication values.
-    owned.push(Object.freeze({ name, startedAt, dueAt }));
+    owned.push({ name, startedAt, dueAt });
   }
 
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- prepared timer arrays are immutable publication values.
-  return Result.succeed(Object.freeze(owned));
+  return Result.succeed(owned);
 };
 
 const admitSnapshotIssues = (
   value: unknown,
-): Result.Result<readonly PublicDiagnostic[], PublicDiagnostic> => {
+): Result.Result<PublicDiagnostic[], PublicDiagnostic> => {
   const captured = captureSnapshotArray(value, ["issues"]);
 
   if (Result.isFailure(captured)) return Result.fail(captured.failure);
@@ -682,16 +670,10 @@ const admitSnapshotIssues = (
 
     if (Result.isFailure(decoded))
       return Result.fail(preparedSnapshotFailure(["issues", index], "diagnostic"));
-    // oxlint-disable-next-line anti-slop/no-object-freeze -- canonical diagnostic copies are immutable snapshot values.
-    Object.freeze(decoded.success.path);
-    // oxlint-disable-next-line anti-slop/no-object-freeze -- canonical diagnostic copies are immutable snapshot values.
-    Object.freeze(decoded.success.details);
-    // oxlint-disable-next-line anti-slop/no-object-freeze -- canonical diagnostic copies are immutable snapshot values.
-    owned.push(Object.freeze(decoded.success));
+    owned.push(decoded.success);
   }
 
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- prepared issue arrays are immutable publication values.
-  return Result.succeed(Object.freeze(owned));
+  return Result.succeed(owned);
 };
 
 /** Admits and owns one complete prepared snapshot for the exact constructed machine. */
@@ -766,7 +748,7 @@ export const prepareActorSnapshot = <DefinitionValue extends MachineDefinition>(
 
         // SAFETY: captured data is stable; recursive DefinitionValue, exact machine state, lifecycle, revision, projections, and canonical issue checks establish this complete snapshot shape.
         // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- this is the sole named constructor for the private prepared snapshot brand.
-        const owned = freezeSnapshot({
+        const owned = copySnapshot({
           state: captured.success.state,
           memory: memory.success,
           context: context.success,
@@ -811,22 +793,18 @@ export const verifyPreparedActorSnapshot = <DefinitionValue extends MachineDefin
   return Result.succeed(snapshot as PreparedActorSnapshot<DefinitionValue>);
 };
 
-const freezeStoreResult = <DefinitionValue extends MachineDefinition>(
+const copyStoreResult = <DefinitionValue extends MachineDefinition>(
   store: ActorStoreResult<DefinitionValue>,
 ): ActorStoreResult<DefinitionValue> => {
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- store cuts are immutable publication values.
-  const changed = Object.freeze(
-    store.changed.map((reference) => {
-      // oxlint-disable-next-line anti-slop/no-object-freeze -- changed references are immutable publication values.
-      return Object.freeze({ ...reference, key: canonicalizeKey(reference.key) });
-    }),
-  );
+  const changed = store.changed.map((reference) => ({
+    ...reference,
+    key: canonicalizeKey(reference.key),
+  }));
 
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- store cuts are immutable publication values.
-  return Object.freeze({
+  return {
     revision: store.revision,
     changed,
-  });
+  };
 };
 
 const isCurrentFence = (current: ActorFence, incoming: ActorFence) =>
@@ -854,13 +832,13 @@ const projectionOccurrence = (fact: ProjectionFact): OperationOccurrenceFence | 
 /** Fences a trusted command fact before it reaches the turn-planning boundary. */
 export const fenceActorFact = <DefinitionValue extends MachineDefinition>(
   current: ActorFence,
-  fact: Extract<ActorMailboxFact<DefinitionValue>, { readonly _tag: "command" }>,
+  fact: Extract<ActorMailboxFact<DefinitionValue>, { _tag: "command" }>,
 ): ActorFactDisposition<DefinitionValue> =>
   isCurrentFence(current, fact.fence)
     ? { _tag: "accepted", fact }
     : { _tag: "discarded", reason: "stale-fence" };
 
-const nextRevision = (current: number, path: readonly string[]) => {
+const nextRevision = (current: number, path: string[]) => {
   if (!Number.isSafeInteger(current) || current < 0 || current >= Number.MAX_SAFE_INTEGER)
     return Result.fail(
       Failure({
@@ -906,7 +884,7 @@ const storeValueKind = (value: unknown) => {
   return "undefined";
 };
 
-/** Constructs the immutable result an ActorStore owner returns from one commit. */
+/** Copies the result an ActorStore owner returns from one commit. */
 export const makeActorStoreResult = <DefinitionValue extends MachineDefinition>(
   store: unknown,
 ): Result.Result<ActorStoreResult<DefinitionValue>, PublicDiagnostic> =>
@@ -921,7 +899,7 @@ export const makeActorStoreResult = <DefinitionValue extends MachineDefinition>(
           help: "Return one safe revision and a finite changed-reference list.",
         }),
       );
-    // SAFETY: the shape checks below establish the fields needed by the immutable owner copy.
+    // SAFETY: the shape checks below establish the fields needed by the owned result copy.
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- runtime admission narrows an external store result.
     const candidate = store as Partial<ActorStoreResult<DefinitionValue>>;
     const revision = candidate.revision;
@@ -942,7 +920,7 @@ export const makeActorStoreResult = <DefinitionValue extends MachineDefinition>(
         }),
       );
 
-    return Result.succeed(freezeStoreResult({ revision, changed: candidate.changed }));
+    return Result.succeed(copyStoreResult({ revision, changed: candidate.changed }));
   });
 
 const projectionFence = (fact: ProjectionFact): ActorFence => {
@@ -978,22 +956,18 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
     throwOnFailure: boolean,
   ) => boolean,
 ) => {
-  const contextCursors = new Map<
-    string,
-    { readonly fence: ActorFence; readonly revision: number }
-  >();
+  const contextCursors = new Map<string, { fence: ActorFence; revision: number }>();
 
   const occurrenceCursors = new Map<
     OperationDeclaration,
-    Array<{ readonly key: OperationKey; readonly ordinal: number }>
+    Array<{ key: OperationKey; ordinal: number }>
   >();
 
-  const contextProviders = (
-    fact: Extract<ProjectionFact, { readonly _tag: "context-projection" }>,
-  ) => fact.projection?.providers ?? [fact.provider];
+  const contextProviders = (fact: Extract<ProjectionFact, { _tag: "context-projection" }>) =>
+    fact.projection?.providers ?? [fact.provider];
 
   const acceptsContextRevision = (
-    fact: Extract<ProjectionFact, { readonly _tag: "context-projection" }>,
+    fact: Extract<ProjectionFact, { _tag: "context-projection" }>,
   ) => {
     let changed = false;
 
@@ -1015,7 +989,7 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
   };
 
   const rememberContextRevision = (
-    fact: Extract<ProjectionFact, { readonly _tag: "context-projection" }>,
+    fact: Extract<ProjectionFact, { _tag: "context-projection" }>,
   ) => {
     for (const provider of contextProviders(fact))
       contextCursors.set(provider.slot, {
@@ -1115,7 +1089,7 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
 
     if (Result.isFailure(publicationRevision)) return Result.fail(publicationRevision.failure);
 
-    const preparedSnapshot = freezeSnapshot({
+    const preparedSnapshot = copySnapshot({
       ...candidate,
       revision: publicationRevision.success,
       observedStoreRevision: state.snapshot.observedStoreRevision,
@@ -1123,7 +1097,7 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
 
     const publication = prepareActorPublication({
       snapshot: preparedSnapshot,
-      store: freezeStoreResult({ revision: state.snapshot.observedStoreRevision, changed: [] }),
+      store: copyStoreResult({ revision: state.snapshot.observedStoreRevision, changed: [] }),
       publicationRevision: publicationRevision.success,
       machineTurnRevision,
       cause,
@@ -1155,11 +1129,10 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
     prepared: PreparedCut<DefinitionValue>,
     store: ActorStoreResult<DefinitionValue>,
   ) => {
-    // oxlint-disable-next-line anti-slop/no-object-freeze -- final snapshots are immutable publication values.
-    const snapshot = Object.freeze({
+    const snapshot = {
       ...prepared.publication.snapshot,
       observedStoreRevision: store.revision,
-    });
+    };
 
     const publication = {
       ...prepared.publication,
@@ -1187,7 +1160,7 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
     store: ActorStoreResult<DefinitionValue>,
     cause: TurnCause<DefinitionValue>,
   ): Result.Result<
-    { readonly publication: ActorPublication<DefinitionValue>; readonly evidenceSequence: number },
+    { publication: ActorPublication<DefinitionValue>; evidenceSequence: number },
     PublicDiagnostic
   > => {
     const publicationRevision = nextRevision(state.snapshot.revision, ["publicationRevision"]);
@@ -1208,7 +1181,7 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
         }),
       );
 
-    const snapshot = freezeSnapshot({
+    const snapshot = copySnapshot({
       ...candidate,
       revision: publicationRevision.success,
       observedStoreRevision: store.revision,
@@ -1216,8 +1189,7 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
 
     const publication: ActorPublication<DefinitionValue> = {
       snapshot,
-      // oxlint-disable-next-line anti-slop/no-object-freeze -- store cuts are immutable publication values.
-      store: freezeStoreResult(store),
+      store: copyStoreResult(store),
       publicationRevision: snapshot.revision,
       machineTurnRevision,
       cause,
@@ -1241,12 +1213,11 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
     failure: PublicDiagnostic,
     cause: TurnCause<DefinitionValue>,
   ): Result.Result<
-    { readonly publication: ActorPublication<DefinitionValue>; readonly evidenceSequence: number },
+    { publication: ActorPublication<DefinitionValue>; evidenceSequence: number },
     PublicDiagnostic
   > =>
     publishCut(
-      // oxlint-disable-next-line anti-slop/no-object-freeze -- issue lists are immutable publication values.
-      { ...state.snapshot, issues: Object.freeze([failure]) },
+      { ...state.snapshot, issues: [failure] },
       state.machineTurnRevision,
       { revision: state.snapshot.observedStoreRevision, changed: [] },
       cause,
@@ -1275,7 +1246,7 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
     });
 
   const storeResultFor = (
-    actions: readonly MachineAction<DefinitionValue>[],
+    actions: MachineAction<DefinitionValue>[],
   ): Result.Result<ActorStoreResult<DefinitionValue>, PublicDiagnostic> => {
     if (input.store === undefined)
       return Result.succeed({ revision: state.snapshot.observedStoreRevision, changed: [] });
@@ -1382,7 +1353,7 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
   };
 
   const processCommand = (
-    fact: Extract<ActorMailboxFact<DefinitionValue>, { readonly _tag: "command" }>,
+    fact: Extract<ActorMailboxFact<DefinitionValue>, { _tag: "command" }>,
   ): Effect.Effect<void, PublicDiagnostic> => {
     const planned = planTurn({
       _tag: "event",
@@ -1408,7 +1379,7 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
   };
 
   const processProjection = (
-    fact: Extract<ActorMailboxFact<DefinitionValue>, { readonly _tag: "projection" }>,
+    fact: Extract<ActorMailboxFact<DefinitionValue>, { _tag: "projection" }>,
   ): Effect.Effect<void, PublicDiagnostic> => {
     if (fact.fact._tag === "context-projection" && !acceptsContextRevision(fact.fact))
       return Effect.void;
@@ -1551,7 +1522,7 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
 // RETURN_TYPE: This boundary exposes the prepared phase and its typed diagnostic channel.
 export const prepareActorEngine = <DefinitionValue extends MachineDefinition>(
   input: ActorEngineInput<DefinitionValue>,
-  options?: { readonly capacity?: number },
+  options?: { capacity?: number },
 ): Effect.Effect<PreparedActorEngine<DefinitionValue>, PublicDiagnostic> =>
   Effect.gen(function* () {
     const admittedInitial = verifyPreparedActorSnapshot(
@@ -1571,7 +1542,7 @@ export const prepareActorEngine = <DefinitionValue extends MachineDefinition>(
     const mailbox = yield* Queue.bounded<ActorMailboxFact<DefinitionValue>>(requestedCapacity);
     const barrier = yield* Deferred.make<void>();
     const snapshots = yield* PubSub.unbounded<ActorSnapshot<DefinitionValue>>({ replay: 1 });
-    const initial = freezeSnapshot(admittedInitial.success);
+    const initial = copySnapshot(admittedInitial.success);
     PubSub.publishUnsafe(snapshots, initial);
 
     const state: MutableActorState<DefinitionValue> = {

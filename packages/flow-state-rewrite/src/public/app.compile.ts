@@ -16,7 +16,7 @@ import type { Module, RequirementsOf } from "../index.js";
 type Expect<Value extends true> = Value;
 
 interface RepoService {
-  readonly load: () => string;
+  load: () => string;
 }
 
 class Repo extends Context.Service<Repo, RepoService>()("AppType/Repo") {}
@@ -55,7 +55,7 @@ const tupleApp = app({
   modules: [requiredModule] as const,
 });
 
-const homogeneousModules: readonly (typeof requiredModule)[] = [requiredModule];
+const homogeneousModules: (typeof requiredModule)[] = [requiredModule];
 
 const homogeneousApp = app({
   id: "app-type/homogeneous",
@@ -63,7 +63,7 @@ const homogeneousApp = app({
   modules: homogeneousModules,
 });
 
-const broadModules: readonly Module[] = [requiredModule];
+const broadModules: Module[] = [requiredModule];
 
 const broadApp = app({
   id: "app-type/broad",

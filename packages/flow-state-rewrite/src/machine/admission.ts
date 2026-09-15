@@ -56,7 +56,7 @@ type TargetValidator<Target> = (
 
 type MachineReason = Parameters<typeof invalidMachineConfigurationDiagnostic>[0];
 
-export const configurationPath = (path: readonly string[], suffix: readonly (string | number)[]) =>
+export const configurationPath = (path: string[], suffix: (string | number)[]) =>
   path.flatMap<string | number>((segment) => ["states", segment]).concat(suffix);
 
 // RETURN_TYPE: Predicate return preserves callable narrowing for callback schemas.
@@ -91,7 +91,7 @@ const firstSchemaFailure = (issue: SchemaIssue.Issue) => {
 export const invalidConfiguration = (
   reason: MachineReason,
   path: Diagnostic.Path,
-  ...details: readonly [] | readonly [Diagnostic.Details]
+  ...details: [] | [Diagnostic.Details]
 ): Result.Result<never, Diagnostic.PublicDiagnostic> =>
   Result.fail(
     invalidMachineConfigurationDiagnostic(reason, path, details.length === 0 ? {} : details[0]),
@@ -122,15 +122,15 @@ export type StateBehaviorConfiguration = Pick<
 >;
 
 export type LeafStateConfiguration = {
-  readonly kind: "leaf";
-  readonly behavior: StateBehaviorConfiguration;
+  kind: "leaf";
+  behavior: StateBehaviorConfiguration;
 };
 
 export type CompoundStateConfiguration = {
-  readonly kind: "compound";
-  readonly default: unknown;
-  readonly children: ReadonlyMap<string, unknown>;
-  readonly behavior: StateBehaviorConfiguration;
+  kind: "compound";
+  default: unknown;
+  children: Map<string, unknown>;
+  behavior: StateBehaviorConfiguration;
 };
 
 export type StateConfigurationAdmission = LeafStateConfiguration | CompoundStateConfiguration;
@@ -154,7 +154,7 @@ const projectStateConfigurationSchemaFailure = (
 
 const admitStateChildren = (
   snapshot: ConfigurationSnapshot,
-  children: readonly StateNode[],
+  children: StateNode[],
   path: Diagnostic.Path,
 ) => {
   const childNames = new Set(children.map((child) => child.name));
@@ -266,12 +266,12 @@ const makeStateConfigurationSchema = <DefinitionValue extends DefinitionConstrai
 export function admitStateConfiguration<DefinitionValue extends DefinitionConstraint>(
   value: unknown,
   path: Diagnostic.Path,
-  node: StateNode<DefinitionValue> & { readonly kind: "leaf" },
+  node: StateNode<DefinitionValue> & { kind: "leaf" },
 ): Result.Result<LeafStateConfiguration, Diagnostic.PublicDiagnostic>;
 export function admitStateConfiguration<DefinitionValue extends DefinitionConstraint>(
   value: unknown,
   path: Diagnostic.Path,
-  node: StateNode<DefinitionValue> & { readonly kind: "compound" },
+  node: StateNode<DefinitionValue> & { kind: "compound" },
 ): Result.Result<CompoundStateConfiguration, Diagnostic.PublicDiagnostic>;
 // RETURN_TYPE: Preserves overload compatibility between leaf and compound state configuration admission; removal produces TS2394.
 export function admitStateConfiguration<DefinitionValue extends DefinitionConstraint>(
@@ -442,7 +442,7 @@ export const admitTimer = <DefinitionValue extends MachineDefinition>(
 
 const admitTimers = <DefinitionValue extends MachineDefinition>(
   behavior: StateBehaviorConfiguration,
-  path: readonly string[],
+  path: string[],
   validateTarget: TargetValidator<Timer<DefinitionValue>["target"]>,
 ) =>
   Result.gen(function* () {
@@ -473,13 +473,16 @@ type InvalidTypeArguments = ConstructorParameters<typeof SchemaIssue.InvalidType
  * so the outer projector does not recreate or relabel it.
  */
 class MachineAdmissionIssue extends SchemaIssue.InvalidType {
+  diagnostic: Diagnostic.PublicDiagnostic;
+
   constructor(
     ast: InvalidTypeArguments[0],
     value: InvalidTypeArguments[1],
     options: InvalidTypeArguments[2],
-    readonly diagnostic: Diagnostic.PublicDiagnostic,
+    diagnostic: Diagnostic.PublicDiagnostic,
   ) {
     super(ast, value, options);
+    this.diagnostic = diagnostic;
   }
 }
 
@@ -706,7 +709,7 @@ const inaccessibleBehaviorEntry = Symbol("inaccessible behavior entry");
 const admitBehaviorMap = (
   field: "on" | "activities" | "timers",
   value: unknown,
-  path: readonly string[],
+  path: string[],
   reason: "ExpectedEventHandlers" | "ExpectedActivities" | "ExpectedTimer",
 ): Result.Result<ConfigurationEntry[], Diagnostic.PublicDiagnostic> => {
   const fieldPath = configurationPath(path, [field]);
@@ -849,12 +852,12 @@ const admitEventHandlerEntry = <
   return projectEventHandlerSchemaFailure(decoded.failure, path);
 };
 
-// RETURN_TYPE: Publishes the event-specific readonly transition arrays required by CompiledState.
+// RETURN_TYPE: Preserves the event-specific transition-array relationship required by CompiledState.
 export const admitEventHandlers = <DefinitionValue extends MachineDefinition>(
   behavior: StateBehaviorConfiguration,
-  path: readonly string[],
+  path: string[],
   events: DefinitionValue["E"],
-  inheritedHandlers: ReadonlySet<string>,
+  inheritedHandlers: Set<string>,
   validateStateToken: TargetValidator<StateOf<DefinitionValue>>,
 ): Result.Result<CompiledState<DefinitionValue>["handlers"], Diagnostic.PublicDiagnostic> => {
   const handlers: CompiledState<DefinitionValue>["handlers"] = Object.create(null);
@@ -1083,7 +1086,7 @@ const admitActivityPlan = <DefinitionValue extends MachineDefinition>(
 // RETURN_TYPE: Publishes activity admission with the definition-specific operation plan union.
 const admitActivities = <DefinitionValue extends MachineDefinition>(
   behavior: StateBehaviorConfiguration,
-  path: readonly string[],
+  path: string[],
   operations: DefinitionValue["operations"],
 ): Result.Result<Record<string, MachineActivity<DefinitionValue>>, Diagnostic.PublicDiagnostic> =>
   Result.gen(function* () {
@@ -1113,19 +1116,19 @@ const admitActivities = <DefinitionValue extends MachineDefinition>(
 
 // Assembly
 
-export type AdmittedStateBehavior<DefinitionValue extends MachineDefinition> = Readonly<{
+export type AdmittedStateBehavior<DefinitionValue extends MachineDefinition> = {
   handlers: CompiledState<DefinitionValue>["handlers"];
   redirects: CompiledState<DefinitionValue>["redirects"];
   activities: CompiledState<DefinitionValue>["activities"];
   timers: CompiledState<DefinitionValue>["timers"];
-}>;
+};
 
 export const admitStateBehavior = <DefinitionValue extends MachineDefinition>(
   behavior: StateBehaviorConfiguration,
-  path: readonly string[],
+  path: string[],
   events: DefinitionValue["E"],
   operations: DefinitionValue["operations"],
-  inheritedHandlers: ReadonlySet<string>,
+  inheritedHandlers: Set<string>,
   validateStateToken: TargetValidator<StateOf<DefinitionValue>>,
   validateTimerTarget: TargetValidator<Timer<DefinitionValue>["target"]>,
 ) =>

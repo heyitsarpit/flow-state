@@ -2,9 +2,9 @@ import { Layer } from "effect";
 import type { Context, Effect } from "effect";
 
 export type Implementation<Output = never, Error = never, Requirements = never> = {
-  readonly kind: "implementation";
-  readonly layer: Layer.Layer<Output, Error, Requirements>;
-  readonly serviceKeys: readonly string[];
+  kind: "implementation";
+  layer: Layer.Layer<Output, Error, Requirements>;
+  serviceKeys: string[];
 };
 
 export type ImplementationServices<Value extends Implementation<never, unknown, unknown>> =
@@ -18,7 +18,7 @@ export type ImplementationRequirementsOf<Value extends Implementation<never, unk
 
 const makeImplementation = <Output, Error, Requirements>(
   layer: Layer.Layer<Output, Error, Requirements>,
-  serviceKeys: readonly string[],
+  serviceKeys: string[],
 ): Implementation<Output, Error, Requirements> => {
   const seen = new Set<string>();
 

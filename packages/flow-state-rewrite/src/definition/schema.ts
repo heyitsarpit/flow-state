@@ -2,6 +2,7 @@ import { Predicate, Schema } from "effect";
 
 import type {
   ContextSelector,
+  DefinitionList,
   DefinitionValue,
   EventPayload,
   MemoryDeclaration,
@@ -11,12 +12,12 @@ import type {
 import { AuthoredName, isAuthoredName } from "../internal/authored-name.js";
 import { isConstructedOperation } from "../operation/operation.js";
 
-type RuntimeEventFactory = (...args: readonly DefinitionValue[]) => EventPayload;
+type RuntimeEventFactory = (...args: DefinitionValue[]) => EventPayload;
 
-type DefinitionFunction = Extract<DefinitionValue, (...args: readonly never[]) => DefinitionValue>;
+type DefinitionFunction = Extract<DefinitionValue, (...args: never[]) => DefinitionValue>;
 
 // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- Schema admits unknown children before recursive validation promotes them.
-type PlainRecord = Readonly<Record<string, unknown>>;
+type PlainRecord = Record<string, unknown>;
 
 const contextSelectors = new WeakSet();
 
@@ -26,8 +27,8 @@ const stateTokens = new WeakSet();
 
 // RETURN_TYPE: Preserves generic record narrowing required by Schema.refine's authored-key validation.
 const hasValidAuthoredKeys = <Value>(
-  record: Readonly<Record<string, Value>>,
-): record is Readonly<Record<string, Value>> => Object.keys(record).every(isAuthoredName);
+  record: Record<string, Value>,
+): record is Record<string, Value> => Object.keys(record).every(isAuthoredName);
 
 // RETURN_TYPE: Preserves PlainRecord narrowing at the unknown-input Schema.declare boundary.
 const isPlainRecord = (value: unknown): value is PlainRecord => {
@@ -55,7 +56,7 @@ const StateDeclarationSchema: Schema.ConstraintCodec<StateDeclaration> = Schema.
   Schema.Union([AuthoredName, Schema.Record(AuthoredName, Schema.Array(StateDeclarationSchema))]),
 );
 
-type StateCheck = { readonly valid: false } | { readonly valid: true; readonly name: string };
+type StateCheck = { valid: false } | { valid: true; name: string };
 
 // RETURN_TYPE: Preserves StateCheck's discriminated valid narrowing before accessing name.
 const checkState = (state: StateDeclaration, depth: number): StateCheck => {
@@ -74,7 +75,7 @@ const checkState = (state: StateDeclaration, depth: number): StateCheck => {
   return hasValidStateLevel(children, depth + 1) ? { valid: true, name } : { valid: false };
 };
 
-const hasValidStateLevel = (states: readonly StateDeclaration[], depth: number) => {
+const hasValidStateLevel = (states: DefinitionList<StateDeclaration>, depth: number) => {
   if (states.length === 0) return false;
 
   const names = new Set<string>();
@@ -91,8 +92,8 @@ const hasValidStateLevel = (states: readonly StateDeclaration[], depth: number) 
 
 const States = Schema.Array(StateDeclarationSchema).pipe(
   Schema.refine(
-    // RETURN_TYPE: Preserves readonly StateDeclaration[] narrowing for the refinement.
-    (states): states is readonly StateDeclaration[] => hasValidStateLevel(states, 0),
+    // RETURN_TYPE: Preserves Effect Schema's readonly state-list output through refinement.
+    (states): states is DefinitionList<StateDeclaration> => hasValidStateLevel(states, 0),
     {
       message: "Expected non-empty, unique state declarations with at most ten compound levels",
     },
@@ -175,7 +176,7 @@ const DefinitionValueSchema: Schema.ConstraintCodec<DefinitionValue, unknown> = 
 );
 
 const DefinitionRecordSchema: Schema.ConstraintCodec<
-  Readonly<Record<string, DefinitionValue>>,
+  Record<string, DefinitionValue>,
   PlainRecord
 > = decodePlainRecord(Schema.Record(Schema.String, DefinitionValueSchema));
 

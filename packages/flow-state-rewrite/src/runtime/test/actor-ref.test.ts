@@ -53,12 +53,12 @@ const viewerRef = actorRef(viewerMachine, "primary-viewer");
 const explicitlyTypedPersistedEditorRef = actorRef<
   typeof editorMachine,
   "explicitly-typed-persisted-editor",
-  { readonly persist: true }
+  { persist: true }
 >(editorMachine, "explicitly-typed-persisted-editor", { persist: true });
 
 const invalidCompileProofs = () => {
   // @ts-expect-error supplied persist generic requires the options argument.
-  actorRef<typeof editorMachine, "missing-options", { readonly persist: true }>(
+  actorRef<typeof editorMachine, "missing-options", { persist: true }>(
     editorMachine,
     "missing-options",
   );

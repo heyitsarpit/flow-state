@@ -32,21 +32,21 @@ export type ActorRef<
   Id extends string = string,
   Persist extends boolean = boolean,
 > = {
-  readonly machine: MachineValue;
-  readonly id: Id;
-  readonly persist: Persist;
-  readonly [actorRefBrand]: void;
+  machine: MachineValue;
+  id: Id;
+  persist: Persist;
+  [actorRefBrand]: void;
 };
 
 export type ActorRefOptions = {
-  readonly persist?: boolean;
+  persist?: boolean;
 };
 
 type PersistOf<Options extends ActorRefOptions | undefined> = Options extends undefined
   ? false
-  : Options extends { readonly persist: infer Persist extends boolean }
+  : Options extends { persist: infer Persist extends boolean }
     ? Persist
-    : Options extends { readonly persist?: boolean }
+    : Options extends { persist?: boolean }
       ? "persist" extends keyof Options
         ? boolean
         : false

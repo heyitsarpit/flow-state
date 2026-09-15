@@ -44,13 +44,13 @@ const required = <Value>(value: Option.Option<Value>) => {
   return value.value;
 };
 
-const assertMutable = (values: readonly unknown[]) => {
+const assertMutable = (values: unknown[]) => {
   for (const value of values) assert.strictEqual(Object.isFrozen(value), false);
 };
 
 class ProjectRepo extends Context.Service<
   ProjectRepo,
-  { readonly find: (id: string) => Effect.Effect<{ readonly id: string }> }
+  { find: (id: string) => Effect.Effect<{ id: string }> }
 >()("AppTest/ProjectRepo") {}
 
 const projectResource = resource({
@@ -222,7 +222,7 @@ export type _EmptyPlanMachine = Expect<Types.Equals<(typeof EmptyAppPlan.machine
 
 export type _OpenPlanMachine = Expect<Types.Equals<(typeof OpenAppPlan.machines)[number], Machine>>;
 
-const invalidApp = (modules: readonly AnyModule[]) => {
+const invalidApp = (modules: AnyModule[]) => {
   assert.throws(() => app({ id: "app-test-invalid", persistenceVersion: "1", modules }));
 };
 
@@ -234,6 +234,7 @@ describe("app composition", () => {
   describe("publication and plan identity", () => {
     // Keyed module flattening retains exact machine identity and requirement closure.
     it("preserves exact keyed admission and requirement closure", () => {
+      // oxlint-disable-next-line anti-slop/no-readonly -- NO_READONLY_CODEMOD: proves App accepts the const-inferred module tuple published by app().
       const appValue: App<"app-test", "1", readonly [typeof EditorModule, typeof ViewerModule]> =
         AppValue;
 
@@ -518,7 +519,7 @@ describe("app composition", () => {
 
         const plan = appPlan(capturedApp);
 
-        const descriptors: readonly (typeof projectResource | typeof addedDescriptor)[] = [
+        const descriptors: (typeof projectResource | typeof addedDescriptor)[] = [
           projectResource,
           addedDescriptor,
         ];
@@ -1025,10 +1026,9 @@ describe("app composition", () => {
         { mutable: true },
       );
 
-      const memoryHandler = Object.assign(
-        (_input: { readonly memory: { readonly count: number } }) => null,
-        { mutable: true },
-      );
+      const memoryHandler = Object.assign((_input: { memory: { count: number } }) => null, {
+        mutable: true,
+      });
 
       const memorySelector = (input: MachineSelectorInput<typeof ActivityDefinition>) =>
         input.memory.count;

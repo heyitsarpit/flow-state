@@ -26,7 +26,7 @@ import type {
   OperationValueOf,
   ValidOperationProgram,
 } from "./operation.js";
-import type { CanonicalKeyInput, OperationKey, ReadonlyCanonical } from "./key.js";
+import type { OperationKey, CanonicalKeyValue } from "./key.js";
 
 /*
  * Resources:
@@ -43,53 +43,50 @@ import type { CanonicalKeyInput, OperationKey, ReadonlyCanonical } from "./key.j
  *   resource
  */
 
-export type ResourceRetention<A> = Readonly<{ data?: never }> | Readonly<{ data: A }>;
+export type ResourceRetention<A> = { data?: never } | { data: A };
 
 export type ResourceState<A, E, K extends OperationKey> =
-  | Readonly<{ status: "missing"; key: K }>
-  | Readonly<{ status: "pending"; key: K; generation: number }>
-  | Readonly<{ status: "ready"; key: K; generation: number; data: A }>
-  | Readonly<{
+  | { status: "missing"; key: K }
+  | { status: "pending"; key: K; generation: number }
+  | { status: "ready"; key: K; generation: number; data: A }
+  | {
       status: "refreshing";
       key: K;
       generation: number;
       data: A;
-    }>
-  | (Readonly<{
+    }
+  | ({
       status: "failure";
       key: K;
       generation: number;
       error: E;
-    }> &
-      ResourceRetention<A>)
-  | (Readonly<{
+    } & ResourceRetention<A>)
+  | ({
       status: "defect";
       key: K;
       generation: number;
       defect: unknown;
-    }> &
-      ResourceRetention<A>)
-  | (Readonly<{
+    } & ResourceRetention<A>)
+  | ({
       status: "interrupted";
       key: K;
       generation: number;
-    }> &
-      ResourceRetention<A>);
+    } & ResourceRetention<A>);
 
-export type ResourceOutcomes<A, E, O = unknown> = Readonly<{
+export type ResourceOutcomes<A, E, O = unknown> = {
   value?: (value: A) => O;
   failure?: [E] extends [never] ? never : (error: E) => O;
   defect?: (defect: unknown) => O;
   interrupt?: () => O;
-}>;
+};
 
-export type FiniteResourceOptions<A, E, O = unknown> = Readonly<{
+export type FiniteResourceOptions<A, E, O = unknown> = {
   outcomes?: FiniteOutcomes<A, E, O>;
-}>;
+};
 
-export type ResourceSubscriptionOptions<A, E, O = unknown> = Readonly<{
+export type ResourceSubscriptionOptions<A, E, O = unknown> = {
   outcomes?: ResourceOutcomes<A, E, O>;
-}>;
+};
 
 export type ResourceLookupPlan<
   Id extends string,
@@ -147,31 +144,30 @@ export type Resource<
   A = never,
   E = never,
   R = never,
-> = OperationDescriptor<"resource", Id, P, K, R> &
-  Readonly<{
-    getData: (key: K) => DataValue<A>;
-    getState: (key: K) => ResourceState<A, E, K>;
-    lookup: ResourceLookup<Id, P, K, A, E>;
-    subscribe: ResourceSubscribe<Id, P, K, A, E>;
-    refetch: ResourceRefetch<Id, P, K, A, E>;
-    setData: <Value extends ResourceWriteValue<A>>(
-      key: K,
-      value: Value,
-    ) => CacheWritePlan<Id, K, Value>;
-    cancel: (key: K) => CancellationPlan<Id, K, "resource">;
-    persist: boolean;
-    staleTime?: Duration.Input;
-    gcTime?: Duration.Input;
-  }>;
+> = OperationDescriptor<"resource", Id, P, K, R> & {
+  getData: (key: K) => DataValue<A>;
+  getState: (key: K) => ResourceState<A, E, K>;
+  lookup: ResourceLookup<Id, P, K, A, E>;
+  subscribe: ResourceSubscribe<Id, P, K, A, E>;
+  refetch: ResourceRefetch<Id, P, K, A, E>;
+  setData: <Value extends ResourceWriteValue<A>>(
+    key: K,
+    value: Value,
+  ) => CacheWritePlan<Id, K, Value>;
+  cancel: (key: K) => CancellationPlan<Id, K, "resource">;
+  persist: boolean;
+  staleTime?: Duration.Input;
+  gcTime?: Duration.Input;
+};
 
-type ResourceFields<Id extends string, P, K extends OperationKey, Adapter> = Readonly<{
+type ResourceFields<Id extends string, P, K extends OperationKey, Adapter> = {
   id: Id;
   key: (params: P) => K;
   lookup: Adapter;
   staleTime?: Duration.Input;
   gcTime?: Duration.Input;
   persist?: boolean;
-}>;
+};
 
 export type ResourceConfig<Id extends string, P, K extends OperationKey, A, E, R> = ResourceFields<
   Id,
@@ -208,7 +204,7 @@ const resourceConfigurationError = (failure: Schema.SchemaError) => {
 type ResourceAuthoringConfig<
   Id extends string,
   P,
-  K extends readonly CanonicalKeyInput[],
+  K extends OperationKey,
   Program,
 > = ResourceFields<
   Id,
@@ -234,17 +230,10 @@ function admitResourceConfiguration(input: unknown) {
   return decodeResourceConfiguration(input).pipe(Result.getOrThrowWith(resourceConfigurationError));
 }
 
-const constructResource = <
-  const Id extends string,
-  P,
-  const K extends readonly CanonicalKeyInput[],
-  A,
-  E,
-  R,
->(
+const constructResource = <const Id extends string, P, const K extends OperationKey, A, E, R>(
   admitted: ResourceConstructionConfig<Id, P, K>,
 ) => {
-  type CanonicalK = ReadonlyCanonical<K>;
+  type CanonicalK = CanonicalKeyValue<K>;
 
   const { id, key: projectKey, lookup: lookupAdapter, staleTime, gcTime, persist } = admitted;
   const keyFor = (params: P) => canonicalizeKey(projectKey(params));
@@ -256,7 +245,7 @@ const constructResource = <
     return undefined;
   };
 
-  // RETURN_TYPE: Preserves the readonly ResourceState<A, E, CanonicalK> discriminant union; inferring this object caused TS2322.
+  // RETURN_TYPE: Preserves the ResourceState<A, E, CanonicalK> discriminant union; inferring this object caused TS2322.
   const getState = (key: CanonicalK): ResourceState<A, E, CanonicalK> => ({
     status: "missing",
     key: canonicalizeKey<K>(key),
@@ -287,7 +276,7 @@ const constructResource = <
     options?: O,
   ) => operationPlan("resource-refetch", id, projectKey, params, options);
 
-  // RETURN_TYPE: Preserves the readonly CacheWritePlan<Id, CanonicalK, Value> publication and its generic value; inferring this object caused TS2322.
+  // RETURN_TYPE: Preserves the CacheWritePlan<Id, CanonicalK, Value> publication and its generic value; inferring this object caused TS2322.
   const setData = <Value extends ResourceWriteValue<A>>(
     key: CanonicalK,
     value: Value,
@@ -301,7 +290,7 @@ const constructResource = <
     };
   };
 
-  // RETURN_TYPE: Preserves the readonly CancellationPlan<Id, CanonicalK, "resource"> family discriminant; inferring this object caused TS2322.
+  // RETURN_TYPE: Preserves the CancellationPlan<Id, CanonicalK, "resource"> family discriminant; inferring this object caused TS2322.
   const cancel = (key: CanonicalK): CancellationPlan<Id, CanonicalK, "resource"> => {
     return {
       kind: "cancel",
@@ -333,28 +322,20 @@ const constructResource = <
   return publishOperation(resourceValue, lookupAdapter);
 };
 
-export function resource<
-  const Id extends string,
-  P,
-  const K extends readonly CanonicalKeyInput[],
-  Program,
->(
+export function resource<const Id extends string, P, const K extends OperationKey, Program>(
   config: ResourceAuthoringConfig<Id, P, K, Program>,
 ): Resource<
   Id,
   P,
-  ReadonlyCanonical<K>,
+  CanonicalKeyValue<K>,
   OperationValueOf<Program>,
   OperationErrorOf<Program>,
   OperationRequirementsOf<Program>
 >;
 
-export function resource<
-  const Id extends string,
-  P,
-  const K extends readonly CanonicalKeyInput[],
-  Program,
->(config: ResourceAuthoringConfig<Id, P, K, Program>) {
+export function resource<const Id extends string, P, const K extends OperationKey, Program>(
+  config: ResourceAuthoringConfig<Id, P, K, Program>,
+) {
   const admitted = admitResourceConfiguration<Id, P, K, Program>(config);
 
   type A = OperationValueOf<Program>;

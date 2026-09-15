@@ -32,7 +32,7 @@ import { runtimeOwner, runtimeSetup } from "../runtime.js";
 import { runtimeSetupForAdmissionTest, type RuntimeAdmissionPhase } from "../runtime-test-seam.js";
 
 type IntegrationService = {
-  readonly name: "runtime-integration";
+  name: "runtime-integration";
 };
 
 class IntegrationServiceKey extends Context.Service<IntegrationServiceKey, IntegrationService>()(
@@ -219,10 +219,10 @@ const restoredStandaloneSnapshot = (): PreparedActorSnapshot<
   );
 
 const initialStandaloneSnapshot = (
-  timers: readonly {
-    readonly name: string;
-    readonly startedAt: number;
-    readonly dueAt: number;
+  timers: {
+    name: string;
+    startedAt: number;
+    dueAt: number;
   }[] = [],
 ): PreparedActorSnapshot<typeof IntegrationStandaloneDefinition> =>
   Result.getOrThrow(
@@ -256,9 +256,9 @@ const makeImplementation = (counts: { acquisitions: number; releases: number }) 
   );
 
 const sequenceOf = (record: {
-  readonly _tag: "turn" | "lifecycle";
-  readonly sequence?: number;
-  readonly evidenceSequence?: number;
+  _tag: "turn" | "lifecycle";
+  sequence?: number;
+  evidenceSequence?: number;
 }) => (record._tag === "turn" ? record.sequence : record.evidenceSequence);
 
 describe("runtime assembly integration", () => {
@@ -377,7 +377,7 @@ describe("runtime assembly integration", () => {
       yield* assembly.evidence.hub.drain();
 
       const lifecycleRecords = records.filter(
-        (record): record is Extract<EvidenceRecord, { readonly _tag: "lifecycle" }> =>
+        (record): record is Extract<EvidenceRecord, { _tag: "lifecycle" }> =>
           record._tag === "lifecycle" && record.provenance.actor.key === actor.fence.key,
       );
 
@@ -518,7 +518,7 @@ describe("runtime assembly integration", () => {
       assert.throws(() => runtimeOwner(runtime).assembly(), /Runtime is not ready/u);
       yield* runtime.ready();
       const assembly = runtimeOwner(runtime).assembly();
-      const records: Array<{ readonly tag: string; readonly sequence: number | undefined }> = [];
+      const records: Array<{ tag: string; sequence: number | undefined }> = [];
 
       const sink = yield* makeEvidenceSink({
         id: "runtime-integration",
@@ -574,9 +574,9 @@ describe("runtime assembly integration", () => {
       const consumerSnapshots: IntegrationConsumerSnapshot[] = [];
 
       const serviceObservations: Array<{
-        readonly evidenceHub: unknown;
-        readonly clock: unknown;
-        readonly scheduler: unknown;
+        evidenceHub: unknown;
+        clock: unknown;
+        scheduler: unknown;
       }> = [];
 
       const actor = yield* assembly.createActor({
@@ -803,8 +803,7 @@ describe("runtime assembly integration", () => {
       yield* assembly.evidence.hub.drain();
 
       const turnRecords = records.filter(
-        (record): record is Extract<EvidenceRecord, { readonly _tag: "turn" }> =>
-          record._tag === "turn",
+        (record): record is Extract<EvidenceRecord, { _tag: "turn" }> => record._tag === "turn",
       );
 
       assert.strictEqual(commits, 1);
@@ -826,8 +825,7 @@ describe("runtime assembly integration", () => {
       yield* assembly.evidence.hub.drain();
 
       const allTurnRecords = records.filter(
-        (record): record is Extract<EvidenceRecord, { readonly _tag: "turn" }> =>
-          record._tag === "turn",
+        (record): record is Extract<EvidenceRecord, { _tag: "turn" }> => record._tag === "turn",
       );
 
       assert.strictEqual(commits, 2);
@@ -896,8 +894,7 @@ describe("runtime assembly integration", () => {
         yield* assembly.evidence.hub.drain();
 
         const turnRecords = records.filter(
-          (record): record is Extract<EvidenceRecord, { readonly _tag: "turn" }> =>
-            record._tag === "turn",
+          (record): record is Extract<EvidenceRecord, { _tag: "turn" }> => record._tag === "turn",
         );
 
         assert.strictEqual(turnRecords.length, 1);
@@ -1319,7 +1316,7 @@ describe("runtime assembly integration", () => {
       yield* assembly.evidence.hub.drain();
 
       const consumerTurnRecords = evidenceRecords.filter(
-        (record): record is Extract<EvidenceRecord, { readonly _tag: "turn" }> =>
+        (record): record is Extract<EvidenceRecord, { _tag: "turn" }> =>
           record._tag === "turn" && record.provenance.actor.key === actor.fence.key,
       );
 
@@ -1358,7 +1355,7 @@ describe("runtime assembly integration", () => {
       yield* runtime.ready();
       const owner = runtimeOwner(runtime);
       const assembly = owner.assembly();
-      const records: Array<{ readonly tag: string; readonly sequence: number | undefined }> = [];
+      const records: Array<{ tag: string; sequence: number | undefined }> = [];
 
       const sink = yield* makeEvidenceSink({
         id: "runtime-lifecycle-integration",
@@ -1514,12 +1511,6 @@ describe("runtime assembly integration", () => {
       const runtimeEvidence = Context.get(assembly.context, RuntimeEvidence);
       const originalPublish = runtimeEvidence.publish;
 
-      type MutableRuntimeEvidence = { publish: typeof originalPublish };
-
-      // SAFETY: The runtime context contains the live evidence service used by this assembly; the mutable view restores its method below.
-      // oxlint-disable-next-line anti-slop/no-chained-type-assertions, typescript/no-unsafe-type-assertion -- the readonly service surface is deliberately opened for failure injection.
-      const mutableRuntimeEvidence = runtimeEvidence as unknown as MutableRuntimeEvidence;
-
       const cleanupFailure = Failure({
         code: "InvariantViolation" as const,
         path: ["evidence", "publish"],
@@ -1528,7 +1519,7 @@ describe("runtime assembly integration", () => {
         help: "Retry cleanup after the evidence owner recovers.",
       });
 
-      mutableRuntimeEvidence.publish = (snapshot) =>
+      runtimeEvidence.publish = (snapshot) =>
         snapshot.fence.key === consumer.fence.key && snapshot.lifecycle === "disposed"
           ? Effect.fail(cleanupFailure)
           : originalPublish(snapshot);
@@ -1559,7 +1550,7 @@ describe("runtime assembly integration", () => {
       assert.strictEqual(dependentCleanups, 1);
       assert.strictEqual((yield* provider.lifecycle.state()).attachment.dependencies.length, 0);
 
-      mutableRuntimeEvidence.publish = originalPublish;
+      runtimeEvidence.publish = originalPublish;
       yield* Effect.provideContext(consumer.dispose(), assembly.context);
 
       const recreated = yield* Effect.exit(
@@ -1592,7 +1583,7 @@ describe("pending regression scenarios", () => {
 
   // Setup: Extend the existing active actor fixture with a pre-existing snapshot stream, onSnapshot callback, getter read, and evidence sink; capture the active snapshot and revisions before suspension.
   // Action: Issue actor:suspend through the assembled lifecycle controller, drain the pre-existing stream, callback, getter read, and evidence, then subscribe a late stream and collect its replay.
-  // Assert: Every observer and the late subscriber report suspended from one immutable cut, the public revision advances exactly once, the machine-turn revision is unchanged, and the retained active snapshot remains unchanged.
+  // Assert: Every observer and the late subscriber report suspended from one captured cut, the public revision advances exactly once, the machine-turn revision is unchanged, and the retained active snapshot remains unchanged.
   it.todo("publishes lifecycle transitions through one coherent snapshot cut");
 
   // Setup: Create independent actors A and B in one assembled runtime and attach one evidence sink; leave B untouched while A processes one ordinary machine event.
@@ -1638,12 +1629,12 @@ describe("pending regression scenarios", () => {
       yield* assembly.evidence.hub.drain();
 
       const actorATurn = records.find(
-        (record): record is Extract<EvidenceRecord, { readonly _tag: "turn" }> =>
+        (record): record is Extract<EvidenceRecord, { _tag: "turn" }> =>
           record._tag === "turn" && record.provenance.actor.key === actorA.fence.key,
       );
 
       const actorBSuspend = records.find(
-        (record): record is Extract<EvidenceRecord, { readonly _tag: "lifecycle" }> =>
+        (record): record is Extract<EvidenceRecord, { _tag: "lifecycle" }> =>
           record._tag === "lifecycle" &&
           record.provenance.actor.key === actorB.fence.key &&
           record.to === "suspended",
@@ -1706,7 +1697,7 @@ describe("pending regression scenarios", () => {
       yield* assembly.evidence.hub.drain();
 
       const lifecycle = records.find(
-        (record): record is Extract<EvidenceRecord, { readonly _tag: "lifecycle" }> =>
+        (record): record is Extract<EvidenceRecord, { _tag: "lifecycle" }> =>
           record._tag === "lifecycle" && record.provenance.actor.key === actor.fence.key,
       );
 
@@ -2781,7 +2772,7 @@ describe("pending regression scenarios", () => {
 
   // Setup: Attach a real runtime evidence sink whose first delivery blocks, capture the accepted prefix, and start a hub drain at that prefix.
   // Action: While delivery of the captured record is blocked, admit and accept a newer actor lifecycle or turn record, then release the first delivery.
-  // Assert: The drain completes at the captured prefix, the newer record remains queued for the next drain, accepted records retain order and immutable payloads, and sink retention never blocks actor publication.
+  // Assert: The drain completes at the captured prefix, the newer record remains queued for the next drain, accepted records retain order and detached payload copies, and sink retention never blocks actor publication.
   it.todo("drains a captured evidence prefix while newer runtime records arrive");
 
   // SETUP: Assemble a real runtime with one actor, an attached bounded evidence sink whose deliver callback is gated, and an onCommand callback that records when user work begins.

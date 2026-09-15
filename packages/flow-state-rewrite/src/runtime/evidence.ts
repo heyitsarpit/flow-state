@@ -25,10 +25,10 @@ declare const evidenceSequenceBrand: unique symbol;
 declare const sinkIdBrand: unique symbol;
 
 /** Runtime-global evidence order is allocated only by an EvidenceHub. */
-export type EvidenceSequence = number & { readonly [evidenceSequenceBrand]: void };
+export type EvidenceSequence = number & { [evidenceSequenceBrand]: void };
 
 /** Sink identity is local to one EvidenceHub. */
-export type SinkId = string & { readonly [sinkIdBrand]: void };
+export type SinkId = string & { [sinkIdBrand]: void };
 
 type RuntimePlan = ReturnType<typeof appPlan>;
 
@@ -37,22 +37,22 @@ export type RuntimeProvenance<
   A extends App = App,
   DefinitionValue extends MachineDefinition = MachineDefinition,
 > = {
-  readonly app: A;
-  readonly plan: RuntimePlan;
-  readonly actor: Pick<ActorIdentity<DefinitionValue>, "key" | "incarnation" | "leaseEpoch">;
+  app: A;
+  plan: RuntimePlan;
+  actor: Pick<ActorIdentity<DefinitionValue>, "key" | "incarnation" | "leaseEpoch">;
 };
 
 /** A committed actor/store cut before hub sequencing. */
 export type TurnFact<A extends App, DefinitionValue extends MachineDefinition> = {
-  readonly fence: ActorFence;
-  readonly provenance: RuntimeProvenance<A, DefinitionValue>;
-  readonly cause: TurnCause<DefinitionValue>;
-  readonly before: ActorSnapshot<DefinitionValue>;
-  readonly after: ActorSnapshot<DefinitionValue>;
-  readonly store: ActorStoreResult<DefinitionValue>;
-  readonly publicationRevision: number;
-  readonly machineTurnRevision: number;
-  readonly timestamp: number;
+  fence: ActorFence;
+  provenance: RuntimeProvenance<A, DefinitionValue>;
+  cause: TurnCause<DefinitionValue>;
+  before: ActorSnapshot<DefinitionValue>;
+  after: ActorSnapshot<DefinitionValue>;
+  store: ActorStoreResult<DefinitionValue>;
+  publicationRevision: number;
+  machineTurnRevision: number;
+  timestamp: number;
 };
 
 /** Immutable actual evidence for one committed actor/store cut. */
@@ -60,8 +60,8 @@ export type TurnRecord<A extends App, DefinitionValue extends MachineDefinition>
   A,
   DefinitionValue
 > & {
-  readonly _tag: "turn";
-  readonly sequence: EvidenceSequence;
+  _tag: "turn";
+  sequence: EvidenceSequence;
 };
 
 /** Lifecycle evidence is the record shape already consumed by lifecycle.ts. */
@@ -79,67 +79,67 @@ export type LifecycleRecord<
   CleanupError,
   ProviderDefinition extends MachineDefinition = DefinitionValue,
 > = LifecycleFact<DefinitionValue, CleanupError, ProviderDefinition> & {
-  readonly evidenceSequence: EvidenceSequence;
+  evidenceSequence: EvidenceSequence;
 };
 
 type EvidenceProvenance = {
-  readonly app: App;
-  readonly plan: RuntimePlan;
-  readonly actor: Pick<ActorIdentity, "key" | "incarnation" | "leaseEpoch">;
+  app: App;
+  plan: RuntimePlan;
+  actor: Pick<ActorIdentity, "key" | "incarnation" | "leaseEpoch">;
 };
 
 /** The sink boundary retains the concrete record fields without exposing their generic owners. */
 export type EvidenceRecord =
   | {
-      readonly _tag: "turn";
-      readonly fence: ActorFence;
-      readonly provenance: EvidenceProvenance;
-      readonly cause: CauseEnvelope;
-      readonly before: SnapshotEnvelope;
-      readonly after: SnapshotEnvelope;
-      readonly store: StoreEnvelope;
-      readonly publicationRevision: number;
-      readonly machineTurnRevision: number;
-      readonly timestamp: number;
-      readonly sequence: number;
+      _tag: "turn";
+      fence: ActorFence;
+      provenance: EvidenceProvenance;
+      cause: CauseEnvelope;
+      before: SnapshotEnvelope;
+      after: SnapshotEnvelope;
+      store: StoreEnvelope;
+      publicationRevision: number;
+      machineTurnRevision: number;
+      timestamp: number;
+      sequence: number;
     }
   | {
-      readonly _tag: "lifecycle";
-      readonly machineTurn: false;
-      readonly from: string;
-      readonly to: string;
-      readonly cause: unknown;
-      readonly before: LifecycleSnapshotEnvelope;
-      readonly after: LifecycleSnapshotEnvelope;
-      readonly timestamp: number;
-      readonly publicationRevision: number;
-      readonly machineTurnRevision: number;
-      readonly evidenceSequence: number;
-      readonly provenance: EvidenceProvenance;
+      _tag: "lifecycle";
+      machineTurn: false;
+      from: string;
+      to: string;
+      cause: unknown;
+      before: LifecycleSnapshotEnvelope;
+      after: LifecycleSnapshotEnvelope;
+      timestamp: number;
+      publicationRevision: number;
+      machineTurnRevision: number;
+      evidenceSequence: number;
+      provenance: EvidenceProvenance;
     };
 
 export type EvidenceReservation = {
-  readonly hub: EvidenceHub;
-  readonly sequence: EvidenceSequence;
+  hub: EvidenceHub;
+  sequence: EvidenceSequence;
 };
 
 export type SinkOfferResult = {
-  readonly sink: SinkId;
-  readonly sequence: EvidenceSequence;
-  readonly status: "accepted" | "dropped" | "detached";
+  sink: SinkId;
+  sequence: EvidenceSequence;
+  status: "accepted" | "dropped" | "detached";
 };
 
 export type SinkDrainResult = {
-  readonly sink: SinkId;
-  readonly through: EvidenceSequence;
-  readonly status: "drained" | "truncated" | "failed";
+  sink: SinkId;
+  through: EvidenceSequence;
+  status: "drained" | "truncated" | "failed";
 };
 
 export type EvidenceAcceptance = {
-  readonly reservation: EvidenceReservation;
-  readonly record: EvidenceRecord;
-  readonly sequence: EvidenceSequence;
-  readonly sinks: readonly SinkOfferResult[];
+  reservation: EvidenceReservation;
+  record: EvidenceRecord;
+  sequence: EvidenceSequence;
+  sinks: SinkOfferResult[];
 };
 
 const preparedActorPublication = Symbol("prepared-actor-publication");
@@ -197,25 +197,25 @@ export const cancelPreparedActorPublication = <DefinitionValue extends MachineDe
 };
 
 export type EvidenceDrain = {
-  readonly through: EvidenceSequence | 0;
-  readonly truncatedBefore: Option.Option<EvidenceSequence>;
-  readonly sinks: readonly SinkDrainResult[];
+  through: EvidenceSequence | 0;
+  truncatedBefore: Option.Option<EvidenceSequence>;
+  sinks: SinkDrainResult[];
 };
 
 type EvidenceSinkInternals = {
-  readonly offerUnsafe: (record: EvidenceRecord, sequence: EvidenceSequence) => SinkOfferResult;
-  readonly drain: (through: EvidenceSequence) => Effect.Effect<SinkDrainResult, PublicDiagnostic>;
-  readonly close: Effect.Effect<void>;
-  readonly truncatedBefore: () => EvidenceSequence | undefined;
+  offerUnsafe: (record: EvidenceRecord, sequence: EvidenceSequence) => SinkOfferResult;
+  drain: (through: EvidenceSequence) => Effect.Effect<SinkDrainResult, PublicDiagnostic>;
+  close: Effect.Effect<void>;
+  truncatedBefore: () => EvidenceSequence | undefined;
 };
 
 export type EvidenceSink = {
-  readonly id: SinkId;
-  readonly capacity: number;
-  readonly mailbox: Queue.Queue<EvidenceRecord>;
-  readonly offer: (record: EvidenceRecord) => Effect.Effect<SinkOfferResult, PublicDiagnostic>;
-  readonly drain: (through: EvidenceSequence) => Effect.Effect<SinkDrainResult, PublicDiagnostic>;
-  readonly close: () => Effect.Effect<void, PublicDiagnostic>;
+  id: SinkId;
+  capacity: number;
+  mailbox: Queue.Queue<EvidenceRecord>;
+  offer: (record: EvidenceRecord) => Effect.Effect<SinkOfferResult, PublicDiagnostic>;
+  drain: (through: EvidenceSequence) => Effect.Effect<SinkDrainResult, PublicDiagnostic>;
+  close: () => Effect.Effect<void, PublicDiagnostic>;
 };
 
 const sinkInternals = new WeakMap<EvidenceSink, EvidenceSinkInternals>();
@@ -273,10 +273,7 @@ const counterOverflow = (name: string) =>
 const sequenceOf = (record: EvidenceRecord) =>
   record._tag === "turn" ? record.sequence : record.evidenceSequence;
 
-const immutableArray = <Value>(values: Iterable<Value>) => {
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- accepted sink results are immutable boundary data.
-  return Object.freeze([...values]);
-};
+const copyArray = <Value>(values: Iterable<Value>): Value[] => [...values];
 
 const sequenceValue = (value: number) => {
   // SAFETY: callers validate positive safe integer bounds before branding a sequence.
@@ -345,63 +342,62 @@ const copyStructured = <Value>(value: Value, preserved: WeakSet<EvidenceReferenc
     copyArrayLength(clone, current);
     copyEnumerableProperties(clone, current);
 
-    // oxlint-disable-next-line anti-slop/no-object-freeze -- accepted evidence envelopes are immutable copies.
-    return Object.freeze(clone);
+    return clone;
   };
 
-  // SAFETY: copy preserves the input's structure and changes only structured containers to frozen copies.
+  // SAFETY: copy preserves the input's structure while replacing owned structured containers.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- recursive structural copying retains the caller's evidence family.
   return copy(value) as Value;
 };
 
 type SnapshotEnvelope = {
-  readonly lifecycle: ActorSnapshot<MachineDefinition>["lifecycle"];
-  readonly state: unknown;
+  lifecycle: ActorSnapshot<MachineDefinition>["lifecycle"];
+  state: unknown;
   // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- context fields retain application values until opaque leaves are preserved.
-  readonly context: Readonly<Record<string, unknown>>;
-  readonly operations: readonly { readonly descriptor: unknown }[];
-  readonly issues: readonly unknown[];
+  context: Record<string, unknown>;
+  operations: { descriptor: unknown }[];
+  issues: unknown[];
 };
 
 type StoreEnvelope = {
-  readonly revision: number;
-  readonly changed: readonly { readonly descriptor: unknown }[];
+  revision: number;
+  changed: { descriptor: unknown }[];
 };
 
 type CauseEnvelope =
-  | { readonly _tag: "event"; readonly event: unknown }
+  | { _tag: "event"; event: unknown }
   | {
-      readonly _tag: "projection";
-      readonly fact: ProjectionEnvelope;
+      _tag: "projection";
+      fact: ProjectionEnvelope;
     };
 
 type ProjectionEnvelope =
   | {
-      readonly _tag: "completion-projection";
-      readonly completion: {
-        readonly fence: { readonly descriptor: unknown };
-        readonly outcome: {
-          readonly _tag: string;
-          readonly value?: unknown;
-          readonly error?: unknown;
-          readonly exit?: unknown;
+      _tag: "completion-projection";
+      completion: {
+        fence: { descriptor: unknown };
+        outcome: {
+          _tag: string;
+          value?: unknown;
+          error?: unknown;
+          exit?: unknown;
         };
       };
     }
   | {
-      readonly _tag: "stream-projection";
-      readonly fact: { readonly fence: { readonly descriptor: unknown }; readonly value: unknown };
+      _tag: "stream-projection";
+      fact: { fence: { descriptor: unknown }; value: unknown };
     }
   | {
-      readonly _tag: "context-projection";
-      readonly provider: { readonly value: unknown };
+      _tag: "context-projection";
+      provider: { value: unknown };
     }
   | {
-      readonly _tag: "store-projection";
-      readonly fact: { readonly changed: readonly { readonly descriptor: unknown }[] };
+      _tag: "store-projection";
+      fact: { changed: { descriptor: unknown }[] };
     }
-  | { readonly _tag: "timer-projection" }
-  | { readonly _tag: "lifecycle-projection" };
+  | { _tag: "timer-projection" }
+  | { _tag: "lifecycle-projection" };
 
 const preserveSnapshotOpaque = (
   snapshot: SnapshotEnvelope,
@@ -416,7 +412,7 @@ const preserveSnapshotOpaque = (
   for (const issue of snapshot.issues) preserveOpaque(preserved, issue);
 };
 
-type CompletionEnvelope = Extract<ProjectionEnvelope, { readonly _tag: "completion-projection" }>;
+type CompletionEnvelope = Extract<ProjectionEnvelope, { _tag: "completion-projection" }>;
 
 const preserveCompletionOpaque = (
   completion: CompletionEnvelope["completion"],
@@ -475,30 +471,30 @@ const preserveCauseOpaque = (cause: CauseEnvelope, preserved: WeakSet<EvidenceRe
 };
 
 type LifecycleSnapshotEnvelope = {
-  readonly attachment: {
-    readonly providerRevisions: unknown;
-    readonly cursors: unknown;
-    readonly resources: readonly {
-      readonly scope: unknown;
-      readonly close: unknown;
-      readonly reacquire?: unknown;
-      readonly cause: unknown;
+  attachment: {
+    providerRevisions: unknown;
+    cursors: unknown;
+    resources: {
+      scope: unknown;
+      close: unknown;
+      reacquire?: unknown;
+      cause: unknown;
     }[];
-    readonly work: readonly {
-      readonly fiber: unknown;
-      readonly cancel: unknown;
-      readonly finalizer: unknown;
-      readonly reacquire?: unknown;
-      readonly cause: unknown;
-      readonly completion?: unknown;
+    work: {
+      fiber: unknown;
+      cancel: unknown;
+      finalizer: unknown;
+      reacquire?: unknown;
+      cause: unknown;
+      completion?: unknown;
     }[];
-    readonly bindings: readonly {
-      readonly provider: unknown;
-      readonly select: unknown;
+    bindings: {
+      provider: unknown;
+      select: unknown;
     }[];
-    readonly operations: readonly { readonly cause: unknown }[];
-    readonly timers: readonly { readonly refresh?: unknown }[];
-    readonly blockedDisposal?: { readonly dependentActors: readonly unknown[] };
+    operations: { cause: unknown }[];
+    timers: { refresh?: unknown }[];
+    blockedDisposal?: { dependentActors: unknown[] };
   };
 };
 
@@ -576,9 +572,9 @@ const makeSinkFailure = (cause: Cause.Cause<PublicDiagnostic>) => diagnosticFrom
 // RETURN_TYPE: The public sink factory keeps its typed construction failure channel explicit.
 export const makeEvidenceSink = (
   options: {
-    readonly id?: string;
-    readonly capacity?: number;
-    readonly deliver?: (record: EvidenceRecord) => Effect.Effect<void, PublicDiagnostic>;
+    id?: string;
+    capacity?: number;
+    deliver?: (record: EvidenceRecord) => Effect.Effect<void, PublicDiagnostic>;
   } = {},
 ): Effect.Effect<EvidenceSink, PublicDiagnostic> =>
   Effect.gen(function* () {
@@ -684,43 +680,40 @@ export const makeEvidenceSink = (
   });
 
 export type EvidenceHub = {
-  readonly sequence: () => EvidenceSequence | 0;
-  readonly reserve: () => Result.Result<EvidenceReservation, PublicDiagnostic>;
-  readonly cancel: (reservation: EvidenceReservation) => Result.Result<void, PublicDiagnostic>;
-  readonly attach: (sink: EvidenceSink) => Result.Result<void, PublicDiagnostic>;
+  sequence: () => EvidenceSequence | 0;
+  reserve: () => Result.Result<EvidenceReservation, PublicDiagnostic>;
+  cancel: (reservation: EvidenceReservation) => Result.Result<void, PublicDiagnostic>;
+  attach: (sink: EvidenceSink) => Result.Result<void, PublicDiagnostic>;
   /** Synchronous actor publication uses the same prefix transition as async acceptance. */
-  readonly acceptSync: (
+  acceptSync: (
     reservation: EvidenceReservation,
     record: EvidenceRecord,
   ) => Result.Result<EvidenceAcceptance, PublicDiagnostic>;
   /** Consumes a fully prepared actor record after its store cut commits. */
-  readonly acceptPreparedSync: (
+  acceptPreparedSync: (
     reservation: EvidenceReservation,
     record: EvidenceRecord,
   ) => EvidenceAcceptance;
-  readonly accept: (
+  accept: (
     reservation: EvidenceReservation,
     record: EvidenceRecord,
   ) => Effect.Effect<EvidenceAcceptance, PublicDiagnostic>;
-  readonly drain: () => Effect.Effect<EvidenceDrain, PublicDiagnostic>;
-  readonly close: () => Effect.Effect<EvidenceDrain, PublicDiagnostic>;
+  drain: () => Effect.Effect<EvidenceDrain, PublicDiagnostic>;
+  close: () => Effect.Effect<EvidenceDrain, PublicDiagnostic>;
 };
 
 type AcceptAttempt =
-  | { readonly _tag: "wait"; readonly waiter: Deferred.Deferred<void, PublicDiagnostic> }
-  | { readonly _tag: "done"; readonly acceptance: EvidenceAcceptance };
+  | { _tag: "wait"; waiter: Deferred.Deferred<void, PublicDiagnostic> }
+  | { _tag: "done"; acceptance: EvidenceAcceptance };
 
 type ReservationState = {
-  readonly reservation: EvidenceReservation;
+  reservation: EvidenceReservation;
   status: "pending" | "accepted" | "tombstoned";
 };
 
 /** Owns sequence allocation, prefix ordering, sink isolation, and close drain. */
 // RETURN_TYPE: The public hub factory preserves the recursive reservation and sink contract.
-export const makeEvidenceHub = (options: {
-  readonly app: App;
-  readonly plan: RuntimePlan;
-}): EvidenceHub => {
+export const makeEvidenceHub = (options: { app: App; plan: RuntimePlan }): EvidenceHub => {
   const semaphore = Semaphore.makeUnsafe(1);
   const sinks: EvidenceSink[] = [];
   const reservations = new Map<number, ReservationState>();
@@ -810,15 +803,15 @@ export const makeEvidenceHub = (options: {
     if (Result.isFailure(validation)) return Result.fail(validation.failure);
     const sequence = sequenceValue(validation.success);
 
-    const immutable = Result.try({
+    const copied = Result.try({
       try: () => copyRecord(record),
       catch: () => invalidEvidence("record", { reason: "copy-failed" }),
     });
 
-    if (Result.isFailure(immutable)) {
+    if (Result.isFailure(copied)) {
       cancelUnsafe(reservation);
 
-      return Result.fail(immutable.failure);
+      return Result.fail(copied.failure);
     }
 
     const state = reservations.get(validation.success);
@@ -837,7 +830,7 @@ export const makeEvidenceHub = (options: {
           sequence,
           status: "detached",
         } satisfies SinkOfferResult;
-      const offer = internal.offerUnsafe(immutable.success, sequence);
+      const offer = internal.offerUnsafe(copied.success, sequence);
 
       if (offer.status === "dropped" && truncatedBefore === undefined) truncatedBefore = sequence;
 
@@ -846,9 +839,9 @@ export const makeEvidenceHub = (options: {
 
     return Result.succeed({
       reservation,
-      record: immutable.success,
+      record: copied.success,
       sequence,
-      sinks: immutableArray(offers),
+      sinks: copyArray(offers),
     });
   };
 
@@ -889,7 +882,7 @@ export const makeEvidenceHub = (options: {
       reservation,
       record,
       sequence,
-      sinks: immutableArray(offers),
+      sinks: copyArray(offers),
     };
   };
 
@@ -987,7 +980,7 @@ export const makeEvidenceHub = (options: {
       return {
         through,
         truncatedBefore: Option.fromNullishOr(truncatedBefore),
-        sinks: immutableArray(results),
+        sinks: copyArray(results),
       } satisfies EvidenceDrain;
     });
 
@@ -1091,8 +1084,7 @@ export const makeTurnRecord = <A extends App, DefinitionValue extends MachineDef
     return Result.fail(invalidEvidence("sequence", { reason: "invalid" }));
   }
 
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- turn records are immutable evidence boundary values.
-  return Result.succeed(Object.freeze({ ...fact, _tag: "turn", sequence: reservation.sequence }));
+  return Result.succeed({ ...fact, _tag: "turn", sequence: reservation.sequence });
 };
 
 /** Builds lifecycle evidence with the reservation-owned global sequence. */
@@ -1116,8 +1108,7 @@ export const makeLifecycleRecord = <
     return Result.fail(invalidEvidence("sequence", { reason: "invalid" }));
   }
 
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- lifecycle records are immutable evidence boundary values.
-  return Result.succeed(Object.freeze({ ...fact, evidenceSequence: reservation.sequence }));
+  return Result.succeed({ ...fact, evidenceSequence: reservation.sequence });
 };
 
 /** Accepts a record through the hub's reservation and prefix barrier. */
@@ -1200,39 +1191,39 @@ export const prepareLifecycleEvidence = <
 };
 
 type RuntimeEvidenceOwner = {
-  readonly hub: EvidenceHub;
-  readonly service: RuntimeEvidenceService;
-  readonly projectPublication: <DefinitionValue extends MachineDefinition>(
+  hub: EvidenceHub;
+  service: RuntimeEvidenceService;
+  projectPublication: <DefinitionValue extends MachineDefinition>(
     publication: ActorPublication<DefinitionValue>,
     project: (snapshot: ActorSnapshot<DefinitionValue>) => ActorSnapshot<DefinitionValue>,
   ) => void;
-  readonly acceptPublication: <DefinitionValue extends MachineDefinition>(
+  acceptPublication: <DefinitionValue extends MachineDefinition>(
     identity: ActorIdentity<DefinitionValue>,
     fence: ActorFence,
     before: ActorSnapshot<DefinitionValue>,
     publication: ActorPublication<DefinitionValue>,
   ) => Result.Result<number, PublicDiagnostic>;
-  readonly close: () => Effect.Effect<EvidenceDrain, PublicDiagnostic>;
+  close: () => Effect.Effect<EvidenceDrain, PublicDiagnostic>;
 };
 
 type PreparedActorEvidence<DefinitionValue extends MachineDefinition> = {
-  readonly reservation: EvidenceReservation;
-  readonly timestamp: number;
-  readonly fence: ActorFence;
-  readonly provenance: RuntimeProvenance<App, DefinitionValue>;
-  readonly cause: TurnCause<DefinitionValue>;
-  readonly before: ActorSnapshot<DefinitionValue>;
-  readonly project: (snapshot: ActorSnapshot<DefinitionValue>) => ActorSnapshot<DefinitionValue>;
-  readonly publicationRevision: number;
-  readonly machineTurnRevision: number;
+  reservation: EvidenceReservation;
+  timestamp: number;
+  fence: ActorFence;
+  provenance: RuntimeProvenance<App, DefinitionValue>;
+  cause: TurnCause<DefinitionValue>;
+  before: ActorSnapshot<DefinitionValue>;
+  project: (snapshot: ActorSnapshot<DefinitionValue>) => ActorSnapshot<DefinitionValue>;
+  publicationRevision: number;
+  machineTurnRevision: number;
 };
 
 /** Creates the single runtime evidence capability used by actors and lifecycle. */
 // RETURN_TYPE: The public owner exposes one stable hub/service/close contract.
 export const makeRuntimeEvidenceOwner = (options: {
-  readonly app: App;
-  readonly plan: RuntimePlan;
-  readonly clock: RuntimeClockService;
+  app: App;
+  plan: RuntimePlan;
+  clock: RuntimeClockService;
 }): RuntimeEvidenceOwner => {
   const hub = makeEvidenceHub({ app: options.app, plan: options.plan });
   const reservations = new Map<number, EvidenceReservation>();
@@ -1401,8 +1392,7 @@ export const makeRuntimeEvidenceOwner = (options: {
       // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- package-private generic finalization preserves the actor boundary.
       const completed = finalPublication as ActorPublication<DefinitionValue>;
 
-      // oxlint-disable-next-line anti-slop/no-object-freeze -- accepted evidence is an immutable boundary value.
-      const record = Object.freeze({
+      const record = {
         _tag: "turn" as const,
         fence: preparedEvidence.fence,
         provenance: preparedEvidence.provenance,
@@ -1414,7 +1404,7 @@ export const makeRuntimeEvidenceOwner = (options: {
         machineTurnRevision: preparedEvidence.machineTurnRevision,
         timestamp: preparedEvidence.timestamp,
         sequence: preparedEvidence.reservation.sequence,
-      });
+      };
 
       const accepted = hub.acceptPreparedSync(preparedEvidence.reservation, record);
       reservations.delete(preparedEvidence.reservation.sequence);

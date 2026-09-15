@@ -17,7 +17,7 @@ import {
   canonicalizeKey,
   equalCanonicalKey,
   type OperationKey,
-  type ReadonlyCanonical,
+  type CanonicalKeyValue,
 } from "../operation/key.js";
 import type { ActorFence } from "./actor-admission.js";
 import type { ActorLifecycle, ActorSnapshot, OperationProjection } from "./actor-engine.js";
@@ -26,40 +26,40 @@ import type { ActorLifecycle, ActorSnapshot, OperationProjection } from "./actor
 export type ActorEvent<DefinitionValue extends MachineDefinition> = EventOf<DefinitionValue>;
 
 export type FiniteOperationOutcome<Value = unknown> =
-  | { readonly _tag: "success"; readonly value: Value }
-  | { readonly _tag: "failure"; readonly error: PublicDiagnostic }
-  | { readonly _tag: "defect"; readonly exit: unknown }
-  | { readonly _tag: "interrupt"; readonly exit: unknown };
+  | { _tag: "success"; value: Value }
+  | { _tag: "failure"; error: PublicDiagnostic }
+  | { _tag: "defect"; exit: unknown }
+  | { _tag: "interrupt"; exit: unknown };
 
 export type OperationOccurrenceFence = {
-  readonly actor: ActorFence;
-  readonly descriptor: OperationDeclaration;
-  readonly key: OperationKey;
-  readonly ordinal: number;
+  actor: ActorFence;
+  descriptor: OperationDeclaration;
+  key: OperationKey;
+  ordinal: number;
 };
 
 export type OperationCompletionFact = {
-  readonly fence: OperationOccurrenceFence;
-  readonly outcome: FiniteOperationOutcome;
+  fence: OperationOccurrenceFence;
+  outcome: FiniteOperationOutcome;
 };
 
 export type StreamProjectionFact<StreamValue = unknown> = {
-  readonly fence: OperationOccurrenceFence;
-  readonly value: StreamValue;
+  fence: OperationOccurrenceFence;
+  value: StreamValue;
 };
 
 export type ProviderRevisionFence = {
-  readonly fence: ActorFence;
-  readonly slot: string;
-  readonly revision: number;
-  readonly value: unknown;
+  fence: ActorFence;
+  slot: string;
+  revision: number;
+  value: unknown;
 };
 
 /** One complete consumer context cut, retaining every slot's provider truth. */
 export type ContextProjectionCarrier = {
-  readonly providers: readonly ProviderRevisionFence[];
-  readonly issueOnly: boolean;
-  readonly selectorDefects: readonly PublicDiagnostic[];
+  providers: ProviderRevisionFence[];
+  issueOnly: boolean;
+  selectorDefects: PublicDiagnostic[];
 };
 
 type OperationOf<DefinitionValue extends MachineDefinition> =
@@ -71,7 +71,7 @@ type OperationDescriptorOf<DefinitionValue extends MachineDefinition> = Extract<
 >;
 
 type OperationKeyOfDescriptor<Descriptor extends OperationDeclaration> = Descriptor extends {
-  readonly key: (...args: never[]) => infer Key;
+  key: (...args: never[]) => infer Key;
 }
   ? Key extends OperationKey
     ? Key
@@ -83,8 +83,8 @@ export type StoreChangeReference<
   Descriptor extends OperationDescriptorOf<DefinitionValue> =
     OperationDescriptorOf<DefinitionValue>,
 > = {
-  readonly descriptor: Descriptor;
-  readonly key: ReadonlyCanonical<OperationKeyOfDescriptor<Descriptor>>;
+  descriptor: Descriptor;
+  key: CanonicalKeyValue<OperationKeyOfDescriptor<Descriptor>>;
 };
 
 export type StoreRevisionFact<
@@ -92,63 +92,63 @@ export type StoreRevisionFact<
   Descriptor extends OperationDescriptorOf<DefinitionValue> =
     OperationDescriptorOf<DefinitionValue>,
 > = {
-  readonly fence: ActorFence;
-  readonly revision: number;
-  readonly changed: readonly StoreChangeReference<DefinitionValue, Descriptor>[];
+  fence: ActorFence;
+  revision: number;
+  changed: StoreChangeReference<DefinitionValue, Descriptor>[];
 };
 
 export type ProjectionFact<StreamValue = unknown> =
   | {
-      readonly _tag: "timer-projection";
-      readonly fence: ActorFence;
-      readonly name: string;
-      readonly startedAt: number;
-      readonly dueAt: number;
+      _tag: "timer-projection";
+      fence: ActorFence;
+      name: string;
+      startedAt: number;
+      dueAt: number;
     }
   | {
-      readonly _tag: "completion-projection";
-      readonly completion: OperationCompletionFact;
+      _tag: "completion-projection";
+      completion: OperationCompletionFact;
     }
   | {
-      readonly _tag: "stream-projection";
-      readonly fact: StreamProjectionFact<StreamValue>;
+      _tag: "stream-projection";
+      fact: StreamProjectionFact<StreamValue>;
     }
   | {
-      readonly _tag: "context-projection";
-      readonly provider: ProviderRevisionFence;
+      _tag: "context-projection";
+      provider: ProviderRevisionFence;
       /** Aggregate facts mirror this carrier in provider.value for evidence ownership. */
-      readonly projection?: ContextProjectionCarrier;
+      projection?: ContextProjectionCarrier;
     }
   | {
-      readonly _tag: "store-projection";
-      readonly fact: StoreRevisionFact;
+      _tag: "store-projection";
+      fact: StoreRevisionFact;
     }
   | {
-      readonly _tag: "lifecycle-projection";
-      readonly fence: ActorFence;
-      readonly lifecycle: ActorLifecycle;
+      _tag: "lifecycle-projection";
+      fence: ActorFence;
+      lifecycle: ActorLifecycle;
     };
 
 export type TurnCause<DefinitionValue extends MachineDefinition, StreamValue = unknown> =
-  | { readonly _tag: "event"; readonly event: ActorEvent<DefinitionValue> }
-  | { readonly _tag: "projection"; readonly fact: ProjectionFact<StreamValue> };
+  | { _tag: "event"; event: ActorEvent<DefinitionValue> }
+  | { _tag: "projection"; fact: ProjectionFact<StreamValue> };
 
 export type EventTurnInput<DefinitionValue extends MachineDefinition> = {
-  readonly _tag: "event";
-  readonly machine: Machine<DefinitionValue>;
-  readonly snapshot: ActorSnapshot<DefinitionValue>;
-  readonly event: ActorEvent<DefinitionValue>;
-  readonly fence: ActorFence;
+  _tag: "event";
+  machine: Machine<DefinitionValue>;
+  snapshot: ActorSnapshot<DefinitionValue>;
+  event: ActorEvent<DefinitionValue>;
+  fence: ActorFence;
 };
 
 export type ProjectionTurnInput<
   DefinitionValue extends MachineDefinition,
   StreamValue = unknown,
 > = {
-  readonly _tag: "projection";
-  readonly snapshot: ActorSnapshot<DefinitionValue>;
-  readonly fact: ProjectionFact<StreamValue>;
-  readonly fence: ActorFence;
+  _tag: "projection";
+  snapshot: ActorSnapshot<DefinitionValue>;
+  fact: ProjectionFact<StreamValue>;
+  fence: ActorFence;
 };
 
 export type TurnInput<DefinitionValue extends MachineDefinition, StreamValue = unknown> =
@@ -156,33 +156,33 @@ export type TurnInput<DefinitionValue extends MachineDefinition, StreamValue = u
   | ProjectionTurnInput<DefinitionValue, StreamValue>;
 
 export type FiniteActionIntent<DefinitionValue extends MachineDefinition> = {
-  readonly ordinal: number;
-  readonly action: MachineAction<DefinitionValue>;
+  ordinal: number;
+  action: MachineAction<DefinitionValue>;
 };
 
 export type EventTurnPlan<DefinitionValue extends MachineDefinition> = {
-  readonly _tag: "event-plan";
-  readonly cause: Extract<TurnCause<DefinitionValue>, { readonly _tag: "event" }>;
-  readonly fence: ActorFence;
-  readonly before: ActorSnapshot<DefinitionValue>;
-  readonly candidate: ActorSnapshot<DefinitionValue>;
-  readonly actions: readonly FiniteActionIntent<DefinitionValue>[];
-  readonly mappedEvents: readonly ActorEvent<DefinitionValue>[];
+  _tag: "event-plan";
+  cause: Extract<TurnCause<DefinitionValue>, { _tag: "event" }>;
+  fence: ActorFence;
+  before: ActorSnapshot<DefinitionValue>;
+  candidate: ActorSnapshot<DefinitionValue>;
+  actions: FiniteActionIntent<DefinitionValue>[];
+  mappedEvents: ActorEvent<DefinitionValue>[];
 };
 
 export type NoopTurnPlan<DefinitionValue extends MachineDefinition> = {
-  readonly _tag: "noop";
-  readonly fence: ActorFence;
-  readonly before: ActorSnapshot<DefinitionValue>;
-  readonly cause: TurnCause<DefinitionValue>;
+  _tag: "noop";
+  fence: ActorFence;
+  before: ActorSnapshot<DefinitionValue>;
+  cause: TurnCause<DefinitionValue>;
 };
 
 export type ProjectionTurnPlan<DefinitionValue extends MachineDefinition, StreamValue = unknown> = {
-  readonly _tag: "projection-plan";
-  readonly cause: Extract<TurnCause<DefinitionValue, StreamValue>, { readonly _tag: "projection" }>;
-  readonly fence: ActorFence;
-  readonly before: ActorSnapshot<DefinitionValue>;
-  readonly candidate: ActorSnapshot<DefinitionValue>;
+  _tag: "projection-plan";
+  cause: Extract<TurnCause<DefinitionValue, StreamValue>, { _tag: "projection" }>;
+  fence: ActorFence;
+  before: ActorSnapshot<DefinitionValue>;
+  candidate: ActorSnapshot<DefinitionValue>;
 };
 
 export type TurnPlan<DefinitionValue extends MachineDefinition> =
@@ -191,9 +191,9 @@ export type TurnPlan<DefinitionValue extends MachineDefinition> =
   | NoopTurnPlan<DefinitionValue>;
 
 const planningFailure = (
-  path: readonly (string | number)[],
+  path: (string | number)[],
   summary: string,
-  details: Readonly<Record<string, string | number | boolean | null>> = {},
+  details: Record<string, string | number | boolean | null> = {},
 ) =>
   Failure({
     code: "SemanticValidation",
@@ -207,7 +207,7 @@ const callbackFailure = (cause: unknown) => (cause instanceof Diagnostic ? cause
 
 // RETURN_TYPE: Normalizes every callback defect into the planner's public diagnostic channel.
 const runCallback = <Value>(
-  path: readonly (string | number)[],
+  path: (string | number)[],
   callback: () => Value,
 ): Result.Result<Value, PublicDiagnostic> =>
   Result.try({ try: callback, catch: callbackFailure }).pipe(
@@ -218,58 +218,47 @@ const runCallback = <Value>(
     ),
   );
 
-const freezeMemory = <DefinitionValue extends MachineDefinition>(
-  memory: Readonly<MemoryOf<DefinitionValue>>,
-) => {
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- planning snapshots own immutable memory containers.
-  return Object.freeze({ ...memory });
-};
+const copyMemory = <DefinitionValue extends MachineDefinition>(
+  memory: MemoryOf<DefinitionValue>,
+) => ({ ...memory });
 
-// RETURN_TYPE: Preserves the complete immutable actor snapshot shape for callback inputs.
-const freezeSnapshot = <DefinitionValue extends MachineDefinition>(
+// RETURN_TYPE: Preserves the complete actor snapshot shape while copying each container.
+const copySnapshot = <DefinitionValue extends MachineDefinition>(
   snapshot: ActorSnapshot<DefinitionValue>,
 ): ActorSnapshot<DefinitionValue> => {
-  const memory = freezeMemory<DefinitionValue>(snapshot.memory);
+  const memory = copyMemory<DefinitionValue>(snapshot.memory);
   const context: ContextOf<DefinitionValue> = { ...snapshot.context };
 
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- operation projections own canonical immutable keys at publication.
-  const operations = Object.freeze(
-    snapshot.operations.map((operation) => {
-      // oxlint-disable-next-line anti-slop/no-object-freeze -- operation projections own canonical immutable keys at publication.
-      return Object.freeze({ ...operation, key: canonicalizeKey(operation.key) });
-    }),
-  );
+  const operations = snapshot.operations.map((operation) => ({
+    ...operation,
+    key: canonicalizeKey(operation.key),
+  }));
 
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- timer projections are immutable planning snapshots.
-  const timers = Object.freeze(snapshot.timers.map((timer) => Object.freeze({ ...timer })));
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- issue lists are immutable planning snapshots.
-  const issues = Object.freeze([...snapshot.issues]);
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- callback context must be a frozen snapshot container.
-  Object.freeze(context);
+  const timers = snapshot.timers.map((timer) => ({ ...timer }));
+  const issues = [...snapshot.issues];
 
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- one pre-turn snapshot must not change after capture.
-  return Object.freeze({ ...snapshot, memory, context, operations, timers, issues });
+  return { ...snapshot, memory, context, operations, timers, issues };
 };
 
 // RETURN_TYPE: Preserves the actor snapshot shape while replacing only state and memory.
 const candidateSnapshot = <DefinitionValue extends MachineDefinition>(
   source: ActorSnapshot<DefinitionValue>,
   state: ActorSnapshot<DefinitionValue>["state"],
-  memory: Readonly<MemoryOf<DefinitionValue>>,
+  memory: MemoryOf<DefinitionValue>,
 ): ActorSnapshot<DefinitionValue> => {
-  const nextMemory = freezeMemory<DefinitionValue>(memory);
+  const nextMemory = copyMemory<DefinitionValue>(memory);
 
-  return freezeSnapshot({ ...source, state, memory: nextMemory });
+  return copySnapshot({ ...source, state, memory: nextMemory });
 };
 
 type RuntimeRecord = {
-  readonly type?: unknown;
-  readonly kind?: unknown;
-  readonly descriptor?: unknown;
-  readonly key?: unknown;
-  readonly targets?: unknown;
-  readonly family?: unknown;
-  readonly value?: unknown;
+  type?: unknown;
+  kind?: unknown;
+  descriptor?: unknown;
+  key?: unknown;
+  targets?: unknown;
+  family?: unknown;
+  value?: unknown;
 };
 
 // RETURN_TYPE: Narrows dynamic action and event carriers to the record boundary used below.
@@ -314,8 +303,8 @@ const activeStateChain = <DefinitionValue extends MachineDefinition>(
   // RETURN_TYPE: Recursion returns the active compiled state chain or no match.
   const visit = (
     current: CompiledState<DefinitionValue>,
-    chain: readonly CompiledState<DefinitionValue>[],
-  ): readonly CompiledState<DefinitionValue>[] | undefined => {
+    chain: CompiledState<DefinitionValue>[],
+  ): CompiledState<DefinitionValue>[] | undefined => {
     const next = [...chain, current];
 
     if (current.kind === "leaf") return current.state === state ? next : undefined;
@@ -345,7 +334,7 @@ const operationForId = <DefinitionValue extends MachineDefinition>(
     : undefined;
 
 // RETURN_TYPE: Keeps canonical operation keys opaque while proving their array carrier.
-const isArrayKey = (value: unknown): value is readonly unknown[] => Array.isArray(value);
+const isArrayKey = (value: unknown): value is unknown[] => Array.isArray(value);
 
 const validOperationPlan = <DefinitionValue extends MachineDefinition>(
   machine: Machine<DefinitionValue>,
@@ -440,8 +429,8 @@ const validFiniteAction = <DefinitionValue extends MachineDefinition>(
   validCacheOrCancelAction(machine, value);
 
 type ActionBatch<DefinitionValue extends MachineDefinition> = {
-  readonly actions: readonly FiniteActionIntent<DefinitionValue>[];
-  readonly mappedEvents: readonly ActorEvent<DefinitionValue>[];
+  actions: FiniteActionIntent<DefinitionValue>[];
+  mappedEvents: ActorEvent<DefinitionValue>[];
 };
 
 // RETURN_TYPE: Exposes the complete validated action and mapped-event batch to the plan.
@@ -470,24 +459,21 @@ const materializeActionBatch = <DefinitionValue extends MachineDefinition>(
     actions.push({ ordinal, action: item });
   }
 
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- the complete batch is immutable plan data.
   return Result.succeed({
-    // oxlint-disable-next-line anti-slop/no-object-freeze -- the complete action list is immutable plan data.
-    actions: Object.freeze(actions),
-    // oxlint-disable-next-line anti-slop/no-object-freeze -- the complete mapped-event list is immutable plan data.
-    mappedEvents: Object.freeze(mappedEvents),
+    actions,
+    mappedEvents,
   });
 };
 
 type RedirectAttempt<DefinitionValue extends MachineDefinition> =
   | {
-      readonly _tag: "stable";
-      readonly snapshot: ActorSnapshot<DefinitionValue>;
+      _tag: "stable";
+      snapshot: ActorSnapshot<DefinitionValue>;
     }
   | {
-      readonly _tag: "redirected";
-      readonly snapshot: ActorSnapshot<DefinitionValue>;
-      readonly applied: number;
+      _tag: "redirected";
+      snapshot: ActorSnapshot<DefinitionValue>;
+      applied: number;
     };
 
 // RETURN_TYPE: Keeps one redirect evaluation in the planner diagnostic channel.
@@ -619,7 +605,7 @@ const findTransitionInState = <DefinitionValue extends MachineDefinition>(
 
 // RETURN_TYPE: Preserves the compiled transition lookup failure channel.
 const findTransition = <DefinitionValue extends MachineDefinition>(
-  chain: readonly CompiledState<DefinitionValue>[],
+  chain: CompiledState<DefinitionValue>[],
   eventName: string,
   input: MachineInput<DefinitionValue, ActorEvent<DefinitionValue>>,
 ): Result.Result<CompiledTransition<DefinitionValue> | undefined, PublicDiagnostic> => {
@@ -642,9 +628,8 @@ const findTransition = <DefinitionValue extends MachineDefinition>(
 const planEventTurn = <DefinitionValue extends MachineDefinition>(
   input: EventTurnInput<DefinitionValue>,
 ): Result.Result<TurnPlan<DefinitionValue>, PublicDiagnostic> => {
-  const before = freezeSnapshot(input.snapshot);
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- the event cause is immutable staged plan data.
-  const cause = Object.freeze({ _tag: "event" as const, event: input.event });
+  const before = copySnapshot(input.snapshot);
+  const cause = { _tag: "event" as const, event: input.event };
   const eventName = eventNameFor(input.machine, input.event);
 
   if (eventName === undefined)
@@ -679,10 +664,7 @@ const planEventTurn = <DefinitionValue extends MachineDefinition>(
   const transition = transitionResult.success;
 
   if (transition === undefined)
-    return Result.succeed(
-      // oxlint-disable-next-line anti-slop/no-object-freeze -- no-op plans are immutable staged data.
-      Object.freeze({ _tag: "noop" as const, fence: input.fence, before, cause }),
-    );
+    return Result.succeed({ _tag: "noop" as const, fence: input.fence, before, cause });
 
   const memoryResult: Result.Result<
     Partial<MemoryOf<DefinitionValue>>,
@@ -695,7 +677,7 @@ const planEventTurn = <DefinitionValue extends MachineDefinition>(
 
   if (!isRecord(memoryResult.success))
     return Result.fail(planningFailure(["updateMemory"], "Memory update must return a record"));
-  const memory = freezeMemory<DefinitionValue>({ ...before.memory, ...memoryResult.success });
+  const memory = copyMemory<DefinitionValue>({ ...before.memory, ...memoryResult.success });
 
   const actionResult: Result.Result<unknown, PublicDiagnostic> =
     transition.actions === undefined
@@ -731,8 +713,7 @@ const planEventTurn = <DefinitionValue extends MachineDefinition>(
     mappedEvents: batchResult.success.mappedEvents,
   };
 
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- a TurnPlan is immutable staged data.
-  return Result.succeed(Object.freeze(plan));
+  return Result.succeed(plan);
 };
 
 const sameFence = (left: ActorFence, right: ActorFence) =>
@@ -772,7 +753,7 @@ const completionStatus = (
 };
 
 const timerProjectionCandidate = <DefinitionValue extends MachineDefinition>(
-  fact: Extract<ProjectionFact, { readonly _tag: "timer-projection" }>,
+  fact: Extract<ProjectionFact, { _tag: "timer-projection" }>,
   before: ActorSnapshot<DefinitionValue>,
 ) => {
   if (
@@ -792,7 +773,7 @@ const timerProjectionCandidate = <DefinitionValue extends MachineDefinition>(
     { name: fact.name, startedAt: fact.startedAt, dueAt: fact.dueAt },
   ];
 
-  return Result.succeed(freezeSnapshot({ ...before, timers }));
+  return Result.succeed(copySnapshot({ ...before, timers }));
 };
 
 const operationProjectionCandidate = <DefinitionValue extends MachineDefinition>(
@@ -828,17 +809,17 @@ const operationProjectionCandidate = <DefinitionValue extends MachineDefinition>
     projection,
   ];
 
-  return Result.succeed(freezeSnapshot({ ...before, operations }));
+  return Result.succeed(copySnapshot({ ...before, operations }));
 };
 
 const contextProjectionProviders = (
-  fact: Extract<ProjectionFact, { readonly _tag: "context-projection" }>,
+  fact: Extract<ProjectionFact, { _tag: "context-projection" }>,
 ) => fact.projection?.providers ?? [fact.provider];
 
 const validateContextProjectionCarrier = <DefinitionValue extends MachineDefinition>(
-  fact: Extract<ProjectionFact, { readonly _tag: "context-projection" }>,
+  fact: Extract<ProjectionFact, { _tag: "context-projection" }>,
   before: ActorSnapshot<DefinitionValue>,
-  providers: readonly ProviderRevisionFence[],
+  providers: ProviderRevisionFence[],
 ) => {
   const carrier = fact.projection;
 
@@ -900,7 +881,7 @@ const validateContextProjectionCarrier = <DefinitionValue extends MachineDefinit
 };
 
 const contextProjectionCandidate = <DefinitionValue extends MachineDefinition>(
-  fact: Extract<ProjectionFact, { readonly _tag: "context-projection" }>,
+  fact: Extract<ProjectionFact, { _tag: "context-projection" }>,
   before: ActorSnapshot<DefinitionValue>,
 ) => {
   const carrier = fact.projection;
@@ -938,16 +919,16 @@ const contextProjectionCandidate = <DefinitionValue extends MachineDefinition>(
   }
 
   if (carrier?.issueOnly === true)
-    return Result.succeed(freezeSnapshot({ ...before, context, issues: carrier.selectorDefects }));
+    return Result.succeed(copySnapshot({ ...before, context, issues: carrier.selectorDefects }));
 
   if (!changed) return Result.succeed(undefined);
   const issues = carrier === undefined ? before.issues : [];
 
-  return Result.succeed(freezeSnapshot({ ...before, context, issues }));
+  return Result.succeed(copySnapshot({ ...before, context, issues }));
 };
 
 const storeProjectionCandidate = <DefinitionValue extends MachineDefinition>(
-  fact: Extract<ProjectionFact, { readonly _tag: "store-projection" }>,
+  fact: Extract<ProjectionFact, { _tag: "store-projection" }>,
   before: ActorSnapshot<DefinitionValue>,
 ) => {
   if (!Number.isSafeInteger(fact.fact.revision) || fact.fact.revision < 0)
@@ -957,16 +938,16 @@ const storeProjectionCandidate = <DefinitionValue extends MachineDefinition>(
 
   if (fact.fact.revision <= before.observedStoreRevision) return Result.succeed(undefined);
 
-  return Result.succeed(freezeSnapshot({ ...before, observedStoreRevision: fact.fact.revision }));
+  return Result.succeed(copySnapshot({ ...before, observedStoreRevision: fact.fact.revision }));
 };
 
 const lifecycleProjectionCandidate = <DefinitionValue extends MachineDefinition>(
-  fact: Extract<ProjectionFact, { readonly _tag: "lifecycle-projection" }>,
+  fact: Extract<ProjectionFact, { _tag: "lifecycle-projection" }>,
   before: ActorSnapshot<DefinitionValue>,
 ) =>
   fact.lifecycle === before.lifecycle
     ? Result.succeed(undefined)
-    : Result.succeed(freezeSnapshot({ ...before, lifecycle: fact.lifecycle }));
+    : Result.succeed(copySnapshot({ ...before, lifecycle: fact.lifecycle }));
 
 const projectionCandidate = <DefinitionValue extends MachineDefinition, StreamValue>(
   input: ProjectionTurnInput<DefinitionValue, StreamValue>,
@@ -1001,29 +982,22 @@ const projectionCandidate = <DefinitionValue extends MachineDefinition, StreamVa
 export const planProjection = <DefinitionValue extends MachineDefinition, StreamValue = unknown>(
   input: ProjectionTurnInput<DefinitionValue, StreamValue>,
 ): Result.Result<TurnPlan<DefinitionValue>, PublicDiagnostic> => {
-  const before = freezeSnapshot(input.snapshot);
+  const before = copySnapshot(input.snapshot);
   const candidate = projectionCandidate(input, before);
 
   if (Result.isFailure(candidate)) return Result.fail(candidate.failure);
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- a projection cause is immutable plan data.
-  const cause = Object.freeze({ _tag: "projection" as const, fact: input.fact });
+  const cause = { _tag: "projection" as const, fact: input.fact };
 
   if (candidate.success === undefined)
-    return Result.succeed(
-      // oxlint-disable-next-line anti-slop/no-object-freeze -- a no-op plan is immutable plan data.
-      Object.freeze({ _tag: "noop" as const, fence: input.fence, before, cause }),
-    );
+    return Result.succeed({ _tag: "noop" as const, fence: input.fence, before, cause });
 
-  return Result.succeed(
-    // oxlint-disable-next-line anti-slop/no-object-freeze -- a projection plan is immutable plan data.
-    Object.freeze({
-      _tag: "projection-plan" as const,
-      cause,
-      fence: input.fence,
-      before,
-      candidate: candidate.success,
-    }),
-  );
+  return Result.succeed({
+    _tag: "projection-plan" as const,
+    cause,
+    fence: input.fence,
+    before,
+    candidate: candidate.success,
+  });
 };
 
 /** Plans one event or passive projection through the single owner boundary. */

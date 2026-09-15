@@ -21,7 +21,7 @@ import type { MachineDefinition } from "../machine/grammar.js";
 import type { ActorRef } from "./actor-ref.js";
 import type { ActorEngine, PreparedActorEngine, PreparedActorSnapshot } from "./actor-engine.js";
 import type { ActiveContextBaseline } from "./context-wave.js";
-import { immutableArray, immutableRecord, readonlyMap } from "./readonly-collections.js";
+import { copyArray, copyObject } from "./collection-copies.js";
 
 declare const actorKeyBrand: unique symbol;
 
@@ -30,17 +30,17 @@ declare const actorIncarnationBrand: unique symbol;
 declare const localActorRefBrand: unique symbol;
 
 /** Runtime-local stable identity shared by the later actor graphs. */
-export type ActorKey = string & { readonly [actorKeyBrand]: void };
+export type ActorKey = string & { [actorKeyBrand]: void };
 
 /** One-based runtime-local actor lifetime token. */
-export type ActorIncarnation = number & { readonly [actorIncarnationBrand]: void };
+export type ActorIncarnation = number & { [actorIncarnationBrand]: void };
 
 /** The stable ref, key, lifetime, and lease fence for one actor admission. */
 export type ActorIdentity<DefinitionValue extends MachineDefinition = MachineDefinition> = {
-  readonly ref: ActorRef<Machine<DefinitionValue>>;
-  readonly key: ActorKey;
-  readonly incarnation: ActorIncarnation;
-  readonly leaseEpoch: number;
+  ref: ActorRef<Machine<DefinitionValue>>;
+  key: ActorKey;
+  incarnation: ActorIncarnation;
+  leaseEpoch: number;
 };
 
 /** A local ref is created only by this registry and has no durable address input. */
@@ -49,37 +49,37 @@ export type LocalActorRef<DefinitionValue extends MachineDefinition = MachineDef
   string,
   false
 > & {
-  readonly [localActorRefBrand]: void;
+  [localActorRefBrand]: void;
 };
 
 export type LocalActorIdentity<DefinitionValue extends MachineDefinition> = Omit<
   ActorIdentity<DefinitionValue>,
   "ref"
 > & {
-  readonly ref: LocalActorRef<DefinitionValue>;
+  ref: LocalActorRef<DefinitionValue>;
 };
 
 /** Terminal identity evidence retained by the owning runtime. */
 export type ActorTombstone = {
-  readonly key: ActorKey;
-  readonly incarnation: ActorIncarnation;
-  readonly disposedAtSequence: number;
+  key: ActorKey;
+  incarnation: ActorIncarnation;
+  disposedAtSequence: number;
 };
 
 export type ActorRegistryEntry<
   DefinitionValue extends MachineDefinition = MachineDefinition,
   Actor = unknown,
 > = {
-  readonly identity: ActorIdentity<DefinitionValue>;
-  readonly actor: Actor;
+  identity: ActorIdentity<DefinitionValue>;
+  actor: Actor;
 };
 
 /** Identity and revision fence retained for one provider binding. */
 export type ActorFence = {
-  readonly key: ActorKey;
-  readonly incarnation: ActorIncarnation;
-  readonly generation: number;
-  readonly leaseEpoch: number;
+  key: ActorKey;
+  incarnation: ActorIncarnation;
+  generation: number;
+  leaseEpoch: number;
 };
 
 /** Exact selected context value for one consumer slot. */
@@ -102,10 +102,10 @@ export type ActorContextBinding<
   ProviderRef extends ActorRef<Machine<ProviderDefinition>> = ActorRef<Machine<ProviderDefinition>>,
 > = Slot extends keyof ContextOf<ConsumerDefinition> & string
   ? {
-      readonly slot: Slot;
-      readonly provider: ProviderRef;
-      readonly providerFence: ActorFence;
-      readonly select: (
+      slot: Slot;
+      provider: ProviderRef;
+      providerFence: ActorFence;
+      select: (
         input: ActorContextSnapshot<ProviderDefinition>,
       ) => ActorContextValue<ConsumerDefinition, Slot>;
     }
@@ -113,9 +113,9 @@ export type ActorContextBinding<
 
 /** Logical dependency edge; it carries no ownership or command capability. */
 export type ActorDependencyEdge = {
-  readonly consumer: ActorKey;
-  readonly provider: ActorKey;
-  readonly slot: string;
+  consumer: ActorKey;
+  provider: ActorKey;
+  slot: string;
 };
 
 /** TODO: eliminate unknown type and use or build generics in other modules that can make these types more concrete
@@ -124,49 +124,49 @@ export type ActorDependencyEdge = {
  * */
 /** Exact values crossing the single structural unknown-input decoder. */
 export type ActorAdmissionEnvelope = {
-  readonly app: unknown;
-  readonly implementation: unknown;
-  readonly ref: unknown;
-  readonly input: unknown;
-  readonly bindings: readonly unknown[];
-  readonly dependencies: readonly unknown[];
+  app: unknown;
+  implementation: unknown;
+  ref: unknown;
+  input: unknown;
+  bindings: unknown[];
+  dependencies: unknown[];
 };
 
 /** Pure graph views published to the next admission stage. */
 export type ActorDependencyGraph = {
-  readonly forward: ReadonlyMap<ActorKey, readonly ActorDependencyEdge[]>;
-  readonly reverse: ReadonlyMap<ActorKey, readonly ActorDependencyEdge[]>;
-  readonly order: readonly ActorKey[];
+  forward: Map<ActorKey, ActorDependencyEdge[]>;
+  reverse: Map<ActorKey, ActorDependencyEdge[]>;
+  order: ActorKey[];
 };
 
 /** TODO: eliminate unknown type and use or build generics in other modules that can make these types more concrete  */
 type EnvelopeRecord = {
-  readonly app?: unknown;
-  readonly implementation?: unknown;
-  readonly ref?: unknown;
-  readonly input?: unknown;
-  readonly bindings?: unknown;
-  readonly dependencies?: unknown;
+  app?: unknown;
+  implementation?: unknown;
+  ref?: unknown;
+  input?: unknown;
+  bindings?: unknown;
+  dependencies?: unknown;
 };
 
 type EnvelopeCaptureFailure = {
-  readonly path: readonly (string | number)[];
-  readonly message: string;
+  path: (string | number)[];
+  message: string;
 };
 
 type ReflectionPrototype = Exclude<WeakKey, symbol>;
 
 type CapturedReflection = {
-  readonly prototype: ReflectionPrototype | null;
-  readonly keys: readonly PropertyKey[];
-  readonly values: ReadonlyMap<PropertyKey, unknown>;
-  readonly enumerable: ReadonlySet<PropertyKey>;
+  prototype: ReflectionPrototype | null;
+  keys: PropertyKey[];
+  values: Map<PropertyKey, unknown>;
+  enumerable: Set<PropertyKey>;
 };
 
 const reflectionPathSegment = (key: PropertyKey) => (Predicate.isSymbol(key) ? String(key) : key);
 
 // RETURN_TYPE: Maps reflective failures into the diagnostic path contract without inspecting the thrown cause.
-const reflectionFailure = (path: readonly (string | number)[]): EnvelopeCaptureFailure => ({
+const reflectionFailure = (path: (string | number)[]): EnvelopeCaptureFailure => ({
   path,
   message: "Admission reflection failed",
 });
@@ -183,7 +183,7 @@ const admissionReflectionDiagnostic = (): PublicDiagnostic =>
 // RETURN_TYPE: Captures every reflective operation once at the admission boundary and reports hostile traps as data.
 const captureReflection = (
   value: unknown,
-  path: readonly (string | number)[],
+  path: (string | number)[],
 ): Result.Result<CapturedReflection, EnvelopeCaptureFailure> => {
   const captured = Result.try({
     try: () => {
@@ -258,9 +258,11 @@ const captureAdmissionReflection = (
 // RETURN_TYPE: Keeps the complete caller record behind one stable structural read before typed admission.
 export const captureAdmissionRecord = (
   value: unknown,
+  // oxlint-disable-next-line anti-slop/no-readonly -- NO_READONLY_CODEMOD: accepts const-inferred key tuples without requiring a caller copy.
   requiredKeys: readonly string[],
+  // oxlint-disable-next-line anti-slop/no-readonly -- NO_READONLY_CODEMOD: accepts const-inferred key tuples without requiring a caller copy.
   optionalKeys: readonly string[] = [],
-): Result.Result<ReadonlyMap<PropertyKey, unknown>, PublicDiagnostic> => {
+): Result.Result<Map<PropertyKey, unknown>, PublicDiagnostic> => {
   const captured = captureAdmissionReflection(value);
 
   if (Result.isFailure(captured)) return Result.fail(captured.failure);
@@ -273,7 +275,7 @@ export const captureAdmissionRecord = (
   )
     return Result.fail(admissionReflectionDiagnostic());
 
-  return Result.succeed(readonlyMap(captured.success.values));
+  return Result.succeed(new Map(captured.success.values));
 };
 
 // RETURN_TYPE: Captures one capability property without permitting a later source-object reread.
@@ -290,7 +292,7 @@ export const captureAdmissionProperty = (
   return Result.succeed(captured.success.values.get(key));
 };
 
-const hasExactPlainKeys = (captured: CapturedReflection, expected: readonly string[]) =>
+const hasExactPlainKeys = (captured: CapturedReflection, expected: string[]) =>
   (captured.prototype === Object.prototype || captured.prototype === null) &&
   captured.keys.length === expected.length &&
   captured.keys.every(Predicate.isString) &&
@@ -298,8 +300,8 @@ const hasExactPlainKeys = (captured: CapturedReflection, expected: readonly stri
 
 const captureEnvelopeArray = (
   value: unknown,
-  path: readonly (string | number)[],
-): Result.Result<readonly unknown[], EnvelopeCaptureFailure> => {
+  path: (string | number)[],
+): Result.Result<unknown[], EnvelopeCaptureFailure> => {
   const captured = captureReflection(value, path);
 
   if (Result.isFailure(captured)) return Result.fail(captured.failure);
@@ -458,36 +460,36 @@ export const decodeActorAdmissionEnvelope = (
 
 export type ActorIdentityRegistry<Actor = unknown> = {
   /** Derives the runtime/stable/app-machine/stable-ref tuple without allocating state. */
-  readonly stableKey: <DefinitionValue extends MachineDefinition>(
+  stableKey: <DefinitionValue extends MachineDefinition>(
     ref: ActorRef<Machine<DefinitionValue>>,
-    machine?: { readonly definition: MachineDefinition },
+    machine?: { definition: MachineDefinition },
   ) => ActorKey;
-  readonly reserveStable: <DefinitionValue extends MachineDefinition>(
+  reserveStable: <DefinitionValue extends MachineDefinition>(
     ref: ActorRef<Machine<DefinitionValue>>,
-    machine?: { readonly definition: MachineDefinition },
+    machine?: { definition: MachineDefinition },
   ) => Result.Result<ActorIdentity<DefinitionValue>, PublicDiagnostic>;
-  readonly createLocal: <DefinitionValue extends MachineDefinition>(
+  createLocal: <DefinitionValue extends MachineDefinition>(
     machine: Machine<DefinitionValue>,
-    options?: { readonly deferAllocationNotification?: boolean },
+    options?: { deferAllocationNotification?: boolean },
   ) => Result.Result<LocalActorIdentity<DefinitionValue>, PublicDiagnostic>;
-  readonly commitLocal: <DefinitionValue extends MachineDefinition>(
+  commitLocal: <DefinitionValue extends MachineDefinition>(
     identity: LocalActorIdentity<DefinitionValue>,
   ) => Result.Result<void, PublicDiagnostic>;
-  readonly reserveLocal: <DefinitionValue extends MachineDefinition>(
+  reserveLocal: <DefinitionValue extends MachineDefinition>(
     identity: ActorIdentity<DefinitionValue>,
   ) => Result.Result<ActorIdentity<DefinitionValue>, PublicDiagnostic>;
-  readonly isLocalRef: (ref: unknown) => boolean;
-  readonly register: <DefinitionValue extends MachineDefinition>(
+  isLocalRef: (ref: unknown) => boolean;
+  register: <DefinitionValue extends MachineDefinition>(
     identity: ActorIdentity<DefinitionValue>,
     actor: Actor,
   ) => Result.Result<ActorRegistryEntry<DefinitionValue, Actor>, PublicDiagnostic>;
-  readonly lookup: <DefinitionValue extends MachineDefinition>(
+  lookup: <DefinitionValue extends MachineDefinition>(
     ref: ActorRef<Machine<DefinitionValue>>,
   ) => Result.Result<ActorRegistryEntry<DefinitionValue, Actor>, PublicDiagnostic>;
-  readonly rollback: <DefinitionValue extends MachineDefinition>(
+  rollback: <DefinitionValue extends MachineDefinition>(
     identity: ActorIdentity<DefinitionValue>,
   ) => void;
-  readonly tombstone: <DefinitionValue extends MachineDefinition>(
+  tombstone: <DefinitionValue extends MachineDefinition>(
     identity: ActorIdentity<DefinitionValue>,
     disposedAtSequence: number,
   ) => Result.Result<void, PublicDiagnostic>;
@@ -495,19 +497,19 @@ export type ActorIdentityRegistry<Actor = unknown> = {
 
 type RegistryOptions = {
   /** Test-only starting point; production callers use the one-based default. */
-  readonly initialIncarnation?: number;
-  readonly onAllocate?: (kind: "incarnation" | "local-ordinal") => void;
+  initialIncarnation?: number;
+  onAllocate?: (kind: "incarnation" | "local-ordinal") => void;
 };
 
 type StableSlot<Actor> = {
-  readonly key: ActorKey;
+  key: ActorKey;
   entry: StoredEntry<Actor> | undefined;
   tombstone: ActorTombstone | undefined;
 };
 
 type StoredEntry<Actor> = {
-  readonly identity: unknown;
-  readonly local: boolean;
+  identity: unknown;
+  local: boolean;
   state: "reserved" | "active" | "tombstoned";
   actor: Actor | undefined;
   hasActor: boolean;
@@ -517,29 +519,28 @@ type StoredEntry<Actor> = {
 };
 
 type LocalAllocation = {
-  readonly incarnation: ActorIncarnation;
-  readonly ordinal: number;
+  incarnation: ActorIncarnation;
+  ordinal: number;
 };
 
 type LocalAllocationReservation = LocalAllocation & {
-  readonly recycled: boolean;
-  readonly nextIncarnationBefore: number;
-  readonly nextKeyOrdinalBefore: number;
-  readonly incarnationExhaustedBefore: boolean;
-  readonly keyOrdinalExhaustedBefore: boolean;
-  readonly nextIncarnationAfter: number;
-  readonly nextKeyOrdinalAfter: number;
+  recycled: boolean;
+  nextIncarnationBefore: number;
+  nextKeyOrdinalBefore: number;
+  incarnationExhaustedBefore: boolean;
+  keyOrdinalExhaustedBefore: boolean;
+  nextIncarnationAfter: number;
+  nextKeyOrdinalAfter: number;
 };
 
-type LocalActorRefRecord = { readonly [key: PropertyKey]: unknown };
+type LocalActorRefRecord = { [key: PropertyKey]: unknown };
 
 // Provenance marker only: this WeakSet retains no refs and is not an actor registry.
 const localActorRefs = new WeakSet<LocalActorRefRecord>();
 
 const isRegisteredEntry = <Actor>(
   entry: StoredEntry<Actor>,
-): entry is StoredEntry<Actor> & { readonly actor: Actor } =>
-  entry.state === "active" && entry.hasActor;
+): entry is StoredEntry<Actor> & { actor: Actor } => entry.state === "active" && entry.hasActor;
 
 const MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER;
 
@@ -652,7 +653,7 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
 
   const stableKey = <DefinitionValue extends MachineDefinition>(
     ref: ActorRef<Machine<DefinitionValue>>,
-    machine: { readonly definition: MachineDefinition } = ref.machine,
+    machine: { definition: MachineDefinition } = ref.machine,
   ): ActorKey =>
     // SAFETY: the tuple segments make machine and ref boundaries injective even for delimiter-heavy authored names.
     `runtime-${runtimeNonce}/stable/${tupleSegment(machine.definition.id)}/${tupleSegment(ref.id)}` as ActorKey;
@@ -669,7 +670,7 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
 
   const reserveStable = <DefinitionValue extends MachineDefinition>(
     ref: ActorRef<Machine<DefinitionValue>>,
-    machineFacts?: { readonly definition: MachineDefinition },
+    machineFacts?: { definition: MachineDefinition },
   ): Result.Result<ActorIdentity<DefinitionValue>, PublicDiagnostic> => {
     if (localActorRefs.has(ref)) {
       return failure(
@@ -733,7 +734,7 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
 
   const createLocal = <DefinitionValue extends MachineDefinition>(
     machine: Machine<DefinitionValue>,
-    creationOptions: { readonly deferAllocationNotification?: boolean } = {},
+    creationOptions: { deferAllocationNotification?: boolean } = {},
   ): Result.Result<LocalActorIdentity<DefinitionValue>, PublicDiagnostic> => {
     const deferredLocalAllocation = creationOptions.deferAllocationNotification === true;
     const recycled = recycledLocalAllocations.pop();
@@ -998,14 +999,16 @@ export type ActorAdmissionInput<
   I,
   ProviderDefinition extends MachineDefinition = DefinitionValue,
 > = {
-  readonly app: A;
-  readonly implementation: I;
-  readonly ref: ActorRef<Machine<DefinitionValue>>;
+  app: A;
+  implementation: I;
+  ref: ActorRef<Machine<DefinitionValue>>;
   /** Private app-time facts; public refs retain the authored machine identity token. */
-  readonly machineFacts?: Machine<DefinitionValue>;
-  readonly input: InputOf<DefinitionValue> | undefined;
-  readonly bindings: readonly ActorContextBinding<DefinitionValue, ProviderDefinition>[];
-  readonly dependencies: readonly ActorDependencyEdge[];
+  machineFacts?: Machine<DefinitionValue>;
+  input: InputOf<DefinitionValue> | undefined;
+  // oxlint-disable-next-line anti-slop/no-readonly -- NO_READONLY_CODEMOD: accepts const-inferred caller bindings before admission makes an owned copy.
+  bindings: readonly ActorContextBinding<DefinitionValue, ProviderDefinition>[];
+  // oxlint-disable-next-line anti-slop/no-readonly -- NO_READONLY_CODEMOD: accepts const-inferred caller dependencies before admission makes an owned copy.
+  dependencies: readonly ActorDependencyEdge[];
 };
 
 /** Passive authority needed to validate one admission without reserving or executing anything. */
@@ -1014,17 +1017,17 @@ export type ActorAdmissionValidationContext<
   DefinitionValue extends MachineDefinition = MachineDefinition,
   I = unknown,
 > = {
-  readonly app: A;
-  readonly implementation: I;
-  readonly lookup: <ProviderDefinition extends MachineDefinition>(
+  app: A;
+  implementation: I;
+  lookup: <ProviderDefinition extends MachineDefinition>(
     ref: ActorRef<Machine<ProviderDefinition>>,
   ) => Result.Result<ActorRegistryEntry<ProviderDefinition>, PublicDiagnostic>;
   /** True only while this authority owns a registered-but-not-yet-exposed admission. */
-  readonly isAdmissionInFlight?: (ref: ActorRef<Machine<DefinitionValue>>) => boolean;
-  readonly plan?: ReturnType<typeof appPlan>;
-  readonly identity?: ActorIdentity<DefinitionValue>;
-  readonly consumerKey?: ActorKey;
-  readonly providerFences?: ReadonlyMap<ActorKey, ActorFence>;
+  isAdmissionInFlight?: (ref: ActorRef<Machine<DefinitionValue>>) => boolean;
+  plan?: ReturnType<typeof appPlan>;
+  identity?: ActorIdentity<DefinitionValue>;
+  consumerKey?: ActorKey;
+  providerFences?: Map<ActorKey, ActorFence>;
 };
 
 /** B02's pure authority seam; later transaction stages may add lifecycle capabilities. */
@@ -1041,10 +1044,10 @@ export type ValidatedActorAdmission<
   I,
   ProviderDefinition extends MachineDefinition = DefinitionValue,
 > = {
-  readonly input: ActorAdmissionInput<A, DefinitionValue, I, ProviderDefinition>;
-  readonly identity: ActorIdentity<DefinitionValue> | undefined;
-  readonly edges: readonly ActorDependencyEdge[];
-  readonly graph: ActorDependencyGraph;
+  input: ActorAdmissionInput<A, DefinitionValue, I, ProviderDefinition>;
+  identity: ActorIdentity<DefinitionValue> | undefined;
+  edges: ActorDependencyEdge[];
+  graph: ActorDependencyGraph;
 };
 
 /** Admission modes share one transaction; only the owner decides whether input is fresh or restored. */
@@ -1053,13 +1056,13 @@ export type ActorAdmissionMode = "fresh-local" | "fresh-stable" | "restored-stab
 /** Private construction payload separating fresh input from a materialized restore snapshot. */
 export type ActorAdmissionConstruction<DefinitionValue extends MachineDefinition, Input> =
   | {
-      readonly _tag: "fresh";
-      readonly initial: PreparedActorSnapshot<DefinitionValue>;
-      readonly input: Input | undefined;
+      _tag: "fresh";
+      initial: PreparedActorSnapshot<DefinitionValue>;
+      input: Input | undefined;
     }
   | {
-      readonly _tag: "restore";
-      readonly snapshot: PreparedActorSnapshot<DefinitionValue>;
+      _tag: "restore";
+      snapshot: PreparedActorSnapshot<DefinitionValue>;
     };
 
 const restoreRequiresPersistedRef = () =>
@@ -1089,13 +1092,13 @@ export const resolveActorAdmissionMode = <DefinitionValue extends MachineDefinit
 
 /** The handle is package-local until a later public actor owner publishes it. */
 export type ActorHandle<DefinitionValue extends MachineDefinition, Actor = unknown> = Actor & {
-  readonly ref: ActorRef<Machine<DefinitionValue>>;
+  ref: ActorRef<Machine<DefinitionValue>>;
 };
 
 /** One owner-scoped release action acquired before the exposure barrier. */
 export type AdmissionRollbackStep = {
-  readonly name: string;
-  readonly release: Effect.Effect<void, PublicDiagnostic>;
+  name: string;
+  release: Effect.Effect<void, PublicDiagnostic>;
 };
 
 type ValidatedActorAdmissionWithIdentity<
@@ -1104,7 +1107,7 @@ type ValidatedActorAdmissionWithIdentity<
   I,
   ProviderDefinition extends MachineDefinition,
 > = ValidatedActorAdmission<A, DefinitionValue, I, ProviderDefinition> & {
-  readonly identity: ActorIdentity<DefinitionValue>;
+  identity: ActorIdentity<DefinitionValue>;
 };
 
 export type ActorAdmissionPhaseOwners<
@@ -1114,18 +1117,18 @@ export type ActorAdmissionPhaseOwners<
   ActivatedOwner = never,
   RegisteredOwner = never,
 > = {
-  readonly validated: ValidatedOwner;
-  readonly prepared: PreparedOwner;
-  readonly attached: AttachedOwner;
-  readonly activated: ActivatedOwner;
-  readonly registered: RegisteredOwner;
+  validated: ValidatedOwner;
+  prepared: PreparedOwner;
+  attached: AttachedOwner;
+  activated: ActivatedOwner;
+  registered: RegisteredOwner;
 };
 
 // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- phase carriers are private capabilities with arbitrary fields but cannot be erased to unknown.
-type ActorAdmissionPhaseCarrier = Readonly<Record<string, unknown>>;
+type ActorAdmissionPhaseCarrier = Record<string, unknown>;
 
 type ActorAdmissionRollbackCarrier = ActorAdmissionPhaseCarrier & {
-  readonly rollback: readonly AdmissionRollbackStep[];
+  rollback: AdmissionRollbackStep[];
 };
 
 type ActorAdmissionPhaseOwnerMap = ActorAdmissionPhaseOwners<
@@ -1137,11 +1140,11 @@ type ActorAdmissionPhaseOwnerMap = ActorAdmissionPhaseOwners<
 >;
 
 type DefaultActorAdmissionPhaseOwners = {
-  readonly validated: never;
-  readonly prepared: never;
-  readonly attached: never;
-  readonly activated: never;
-  readonly registered: never;
+  validated: never;
+  prepared: never;
+  attached: never;
+  activated: never;
+  registered: never;
 };
 
 /** Reservation is the linearization point for fresh, restored, and concurrent stable admissions. */
@@ -1155,17 +1158,12 @@ export type ActorAdmissionReservation<
   ValidatedCarrier = {},
 > =
   | {
-      readonly mode: "leader";
-      readonly admissionMode: ActorAdmissionMode;
-      readonly validated: ValidatedActorAdmissionWithIdentity<
-        A,
-        DefinitionValue,
-        I,
-        ProviderDefinition
-      > &
+      mode: "leader";
+      admissionMode: ActorAdmissionMode;
+      validated: ValidatedActorAdmissionWithIdentity<A, DefinitionValue, I, ProviderDefinition> &
         ValidatedCarrier;
-      readonly rollback: readonly AdmissionRollbackStep[];
-      readonly complete: Deferred.Deferred<
+      rollback: AdmissionRollbackStep[];
+      complete: Deferred.Deferred<
         Exit.Exit<
           ExposedActorAdmission<A, DefinitionValue, I, CleanupError, Actor, ProviderDefinition>,
           PublicDiagnostic
@@ -1173,8 +1171,8 @@ export type ActorAdmissionReservation<
       >;
     }
   | {
-      readonly mode: "joined";
-      readonly existing: Deferred.Deferred<
+      mode: "joined";
+      existing: Deferred.Deferred<
         Exit.Exit<
           ExposedActorAdmission<A, DefinitionValue, I, CleanupError, Actor, ProviderDefinition>,
           PublicDiagnostic
@@ -1183,8 +1181,8 @@ export type ActorAdmissionReservation<
     };
 
 type ActorAdmissionPhase<Phase extends string, Value, IncludeRollback extends boolean = true> = {
-  readonly phase: Phase;
-} & (IncludeRollback extends true ? { readonly rollback: readonly AdmissionRollbackStep[] } : {}) &
+  phase: Phase;
+} & (IncludeRollback extends true ? { rollback: AdmissionRollbackStep[] } : {}) &
   Value;
 
 type PreparedActorAdmissionValue<
@@ -1195,25 +1193,20 @@ type PreparedActorAdmissionValue<
   Snapshot,
   Mailbox,
 > = {
-  readonly validated: ValidatedActorAdmissionWithIdentity<
-    A,
-    DefinitionValue,
-    I,
-    ProviderDefinition
-  >;
-  readonly snapshot: Snapshot;
-  readonly mailbox: Mailbox;
+  validated: ValidatedActorAdmissionWithIdentity<A, DefinitionValue, I, ProviderDefinition>;
+  snapshot: Snapshot;
+  mailbox: Mailbox;
 };
 
 type AttachedActorAdmissionValue<DefinitionValue extends MachineDefinition> = {
-  readonly context: Readonly<ContextOf<DefinitionValue>>;
-  readonly edges: readonly ActorDependencyEdge[];
+  context: ContextOf<DefinitionValue>;
+  edges: ActorDependencyEdge[];
 };
 
 type RegisteredActorAdmissionValue<DefinitionValue extends MachineDefinition, Actor, Lease> = {
-  readonly sealed: true;
-  readonly actor: ActorHandle<DefinitionValue, Actor>;
-  readonly lease: Lease;
+  sealed: true;
+  actor: ActorHandle<DefinitionValue, Actor>;
+  lease: Lease;
 };
 
 /** Prepared state owns the silent baseline and bounded mailbox. */
@@ -1238,8 +1231,8 @@ export type ActivatedActorAdmission<
   DefinitionValue extends MachineDefinition,
   ProviderDefinition extends MachineDefinition = DefinitionValue,
   Value = {
-    readonly baseline: ActiveContextBaseline<DefinitionValue, ProviderDefinition>;
-    readonly engine: ActorEngine<DefinitionValue>;
+    baseline: ActiveContextBaseline<DefinitionValue, ProviderDefinition>;
+    engine: ActorEngine<DefinitionValue>;
   },
 > = ActorAdmissionPhase<"activated", Value>;
 
@@ -1267,15 +1260,10 @@ export type ActorLease<
   Actor,
   ProviderDefinition extends MachineDefinition = DefinitionValue,
 > = {
-  readonly actor: ActorHandle<DefinitionValue, Actor>;
-  readonly admission: ValidatedActorAdmissionWithIdentity<
-    A,
-    DefinitionValue,
-    I,
-    ProviderDefinition
-  >;
-  readonly cleanup: Option.Option<Cause.Cause<CleanupError>>;
-  readonly dispose: () => Effect.Effect<void, PublicDiagnostic>;
+  actor: ActorHandle<DefinitionValue, Actor>;
+  admission: ValidatedActorAdmissionWithIdentity<A, DefinitionValue, I, ProviderDefinition>;
+  cleanup: Option.Option<Cause.Cause<CleanupError>>;
+  dispose: () => Effect.Effect<void, PublicDiagnostic>;
 };
 
 /** Inputs for the one owner-scoped terminal disposal operation. */
@@ -1287,14 +1275,14 @@ export type ActorLeaseOptions<
   Actor,
   ProviderDefinition extends MachineDefinition = DefinitionValue,
 > = {
-  readonly actor: ActorHandle<DefinitionValue, Actor>;
-  readonly admission: ValidatedActorAdmission<A, DefinitionValue, I, ProviderDefinition> & {
-    readonly identity: ActorIdentity<DefinitionValue>;
+  actor: ActorHandle<DefinitionValue, Actor>;
+  admission: ValidatedActorAdmission<A, DefinitionValue, I, ProviderDefinition> & {
+    identity: ActorIdentity<DefinitionValue>;
   };
-  readonly cleanup: Effect.Effect<void, PublicDiagnostic>;
+  cleanup: Effect.Effect<void, PublicDiagnostic>;
   /** Tombstoning is deliberately called only after cleanup succeeds. */
-  readonly tombstone?: () => Result.Result<void, PublicDiagnostic>;
-  readonly cleanupCause?: Option.Option<Cause.Cause<CleanupError>>;
+  tombstone?: () => Result.Result<void, PublicDiagnostic>;
+  cleanupCause?: Option.Option<Cause.Cause<CleanupError>>;
 };
 
 /** Exposed state is the only stage that escapes the transaction. */
@@ -1306,8 +1294,8 @@ export type ExposedActorAdmission<
   Actor,
   ProviderDefinition extends MachineDefinition = DefinitionValue,
   Value = {
-    readonly actor: ActorHandle<DefinitionValue, Actor>;
-    readonly lease: ActorLease<A, DefinitionValue, I, CleanupError, Actor, ProviderDefinition>;
+    actor: ActorHandle<DefinitionValue, Actor>;
+    lease: ActorLease<A, DefinitionValue, I, CleanupError, Actor, ProviderDefinition>;
   },
 > = ActorAdmissionPhase<"exposed", Value, false>;
 
@@ -1321,7 +1309,7 @@ export type ActorAdmissionTransactionAuthority<
   ProviderDefinition extends MachineDefinition = DefinitionValue,
   Owners extends ActorAdmissionPhaseOwnerMap = DefaultActorAdmissionPhaseOwners,
 > = ActorAdmissionValidationContext<A, DefinitionValue, I> & {
-  readonly reserveOrJoin: (
+  reserveOrJoin: (
     validated: ValidatedActorAdmission<A, DefinitionValue, I, ProviderDefinition>,
   ) => Effect.Effect<
     ActorAdmissionReservation<
@@ -1335,21 +1323,17 @@ export type ActorAdmissionTransactionAuthority<
     >,
     PublicDiagnostic
   >;
-  readonly prepare: (
+  prepare: (
     validated: ValidatedActorAdmissionWithIdentity<A, DefinitionValue, I, ProviderDefinition> &
       Owners["validated"],
     mode: ActorAdmissionMode,
   ) => Effect.Effect<Owners["prepared"], PublicDiagnostic>;
-  readonly attach: (
-    prepared: Owners["prepared"],
-  ) => Effect.Effect<Owners["attached"], PublicDiagnostic>;
-  readonly activate: (
-    attached: Owners["attached"],
-  ) => Effect.Effect<Owners["activated"], PublicDiagnostic>;
-  readonly register: (
+  attach: (prepared: Owners["prepared"]) => Effect.Effect<Owners["attached"], PublicDiagnostic>;
+  activate: (attached: Owners["attached"]) => Effect.Effect<Owners["activated"], PublicDiagnostic>;
+  register: (
     activated: Owners["activated"],
   ) => Effect.Effect<Owners["registered"], PublicDiagnostic>;
-  readonly expose: (
+  expose: (
     registered: Owners["registered"],
   ) => Effect.Effect<
     ExposedActorAdmission<A, DefinitionValue, I, CleanupError, Actor, ProviderDefinition>,
@@ -1416,7 +1400,7 @@ const invalidDependencyFailure = () =>
     help: "Use one consumer, provider, and authored slot per edge.",
   });
 
-const cycleFailure = (cycle: readonly ActorKey[]) =>
+const cycleFailure = (cycle: ActorKey[]) =>
   Failure({
     code: "ContextDependencyCycle",
     path: ["contextBindings"],
@@ -1437,11 +1421,11 @@ const lookupFailure = (slot: string, failure: PublicDiagnostic): PublicDiagnosti
 };
 
 type CapturedActorRef<DefinitionValue extends MachineDefinition = MachineDefinition> = {
-  readonly source: ActorRef<Machine<DefinitionValue>>;
-  readonly value: ActorRef<Machine<DefinitionValue>>;
-  readonly machine: MachineRecordValue;
-  readonly id: string;
-  readonly persist: boolean;
+  source: ActorRef<Machine<DefinitionValue>>;
+  value: ActorRef<Machine<DefinitionValue>>;
+  machine: MachineRecordValue;
+  id: string;
+  persist: boolean;
 };
 
 // RETURN_TYPE: The copied ref preserves exact machine/id/persist identity while removing hostile property access.
@@ -1450,8 +1434,7 @@ const copyActorRef = <DefinitionValue extends MachineDefinition>(
   id: string,
   persist: boolean,
 ) => {
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- the canonical ref snapshot must not be mutated after capture.
-  const snapshot = Object.freeze({ machine, id, persist });
+  const snapshot = { machine, id, persist };
 
   // SAFETY: captureReflection and isConstructedMachine proved the exact nominal machine value.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
@@ -1500,10 +1483,10 @@ export const captureActorRef = <DefinitionValue extends MachineDefinition = Mach
 };
 
 type CapturedBinding<ProviderDefinition extends MachineDefinition = MachineDefinition> = {
-  readonly slot: string;
-  readonly provider: CapturedActorRef<ProviderDefinition>;
-  readonly providerFence: ActorFence;
-  readonly select: (...args: readonly [ActorContextSnapshot<ProviderDefinition>]) => void;
+  slot: string;
+  provider: CapturedActorRef<ProviderDefinition>;
+  providerFence: ActorFence;
+  select: (...args: [ActorContextSnapshot<ProviderDefinition>]) => void;
 };
 
 const validateFence = (
@@ -1573,7 +1556,7 @@ const captureBinding = <ProviderDefinition extends MachineDefinition = MachineDe
     slot,
     provider: provider.success,
     providerFence: providerFence.success,
-    select: select as (...args: readonly [ActorContextSnapshot<ProviderDefinition>]) => void,
+    select: select as (...args: [ActorContextSnapshot<ProviderDefinition>]) => void,
   });
 };
 
@@ -1610,10 +1593,10 @@ const appendEdge = (
 const copyCapturedBinding = <ProviderDefinition extends MachineDefinition>(
   binding: CapturedBinding<ProviderDefinition>,
 ) =>
-  immutableRecord({
+  copyObject({
     slot: binding.slot,
     provider: binding.provider.value,
-    providerFence: immutableRecord({ ...binding.providerFence }),
+    providerFence: copyObject({ ...binding.providerFence }),
     select: binding.select,
   });
 
@@ -1623,10 +1606,7 @@ export const captureActorContextBindings = <
   ProviderDefinition extends MachineDefinition = DefinitionValue,
 >(
   value: unknown,
-): Result.Result<
-  readonly ActorContextBinding<DefinitionValue, ProviderDefinition>[],
-  PublicDiagnostic
-> => {
+): Result.Result<ActorContextBinding<DefinitionValue, ProviderDefinition>[], PublicDiagnostic> => {
   const captured = captureEnvelopeArray(value, ["bindings"]);
 
   if (Result.isFailure(captured)) return Result.fail(admissionReflectionDiagnostic());
@@ -1644,23 +1624,17 @@ export const captureActorContextBindings = <
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   return Result.succeed(
     // oxlint-disable-next-line anti-slop/no-chained-type-assertions -- runtime reflection erased the generic selector correlation.
-    immutableArray(bindings) as unknown as readonly ActorContextBinding<
-      DefinitionValue,
-      ProviderDefinition
-    >[],
+    copyArray(bindings) as unknown as ActorContextBinding<DefinitionValue, ProviderDefinition>[],
   );
 };
 
-const copyDependencyEdge = (edge: ActorDependencyEdge) => immutableRecord({ ...edge });
+const copyDependencyEdge = (edge: ActorDependencyEdge) => copyObject({ ...edge });
 
-const copyGraphMap = (map: ReadonlyMap<ActorKey, readonly ActorDependencyEdge[]>) =>
-  readonlyMap(
-    [...map.entries()].map(
-      ([key, edges]) => [key, immutableArray(edges.map(copyDependencyEdge))] as const,
-    ),
-  );
+const copyGraphMap = (map: Map<ActorKey, ActorDependencyEdge[]>) =>
+  new Map([...map.entries()].map(([key, edges]) => [key, edges.map(copyDependencyEdge)] as const));
 
 const validateGraph = (
+  // oxlint-disable-next-line anti-slop/no-readonly -- NO_READONLY_CODEMOD: graph validation accepts const-inferred edges without a preliminary copy.
   edges: readonly ActorDependencyEdge[],
 ): Result.Result<ActorDependencyGraph, PublicDiagnostic> => {
   const forward = new Map<ActorKey, ActorDependencyEdge[]>();
@@ -1692,7 +1666,7 @@ const validateGraph = (
   const colors = new Map<ActorKey, "gray" | "black">();
   const order: ActorKey[] = [];
 
-  const visit = (node: ActorKey, path: readonly ActorKey[]): PublicDiagnostic | undefined => {
+  const visit = (node: ActorKey, path: ActorKey[]): PublicDiagnostic | undefined => {
     const color = colors.get(node);
 
     if (color === "gray") {
@@ -1724,10 +1698,10 @@ const validateGraph = (
   }
 
   return Result.succeed(
-    immutableRecord({
+    copyObject({
       forward: copyGraphMap(forward),
       reverse: copyGraphMap(reverse),
-      order: immutableArray(order),
+      order: copyArray(order),
     }),
   );
 };
@@ -1766,8 +1740,8 @@ const validateContextBinding = <
   authority: ActorAdmissionValidationContext<A, DefinitionValue, I>,
 ): Result.Result<
   {
-    readonly edge: ActorDependencyEdge;
-    readonly providerRef: ActorRef<Machine<ProviderDefinition>>;
+    edge: ActorDependencyEdge;
+    providerRef: ActorRef<Machine<ProviderDefinition>>;
   },
   PublicDiagnostic
 > => {
@@ -1812,12 +1786,13 @@ const validateContextBindings = <
   ProviderDefinition extends MachineDefinition,
 >(
   machine: MachineRecordValue,
+  // oxlint-disable-next-line anti-slop/no-readonly -- NO_READONLY_CODEMOD: accepts const-inferred bindings before validating and copying them.
   bindings: readonly ActorContextBinding<DefinitionValue, ProviderDefinition>[],
   authority: ActorAdmissionValidationContext<A, DefinitionValue, I>,
 ): Result.Result<
   {
-    readonly bindings: readonly CapturedBinding<ProviderDefinition>[];
-    readonly edges: readonly ActorDependencyEdge[];
+    bindings: CapturedBinding<ProviderDefinition>[];
+    edges: ActorDependencyEdge[];
   },
   PublicDiagnostic
 > => {
@@ -1854,13 +1829,15 @@ const validateContextBindings = <
   }
 
   return Result.succeed({
-    bindings: immutableArray(capturedBindings),
-    edges: immutableArray(bindingEdges),
+    bindings: copyArray(capturedBindings),
+    edges: copyArray(bindingEdges),
   });
 };
 
 const validateDependencyEdges = (
+  // oxlint-disable-next-line anti-slop/no-readonly -- NO_READONLY_CODEMOD: validation traverses const-inferred edges without mutating them.
   bindings: readonly ActorDependencyEdge[],
+  // oxlint-disable-next-line anti-slop/no-readonly -- NO_READONLY_CODEMOD: validation traverses const-inferred edges without mutating them.
   dependencies: readonly ActorDependencyEdge[],
 ) => {
   const expected = new Map<ActorKey, Map<ActorKey, Set<string>>>();
@@ -1919,7 +1896,7 @@ const validateDependencyEdges = (
     }
   }
 
-  return Result.succeed(immutableArray(dependencies.map(copyDependencyEdge)));
+  return Result.succeed(copyArray(dependencies.map(copyDependencyEdge)));
 };
 
 const planAdmitsMachine = (plan: ReturnType<typeof appPlan>, machine: MachineRecordValue) =>
@@ -1957,7 +1934,7 @@ const validateActorAdmissionUnchecked = <
   ValidatedActorAdmission<A, DefinitionValue, I, ProviderDefinition>,
   PublicDiagnostic
 > => {
-  const capturedInput = immutableRecord({
+  const capturedInput = copyObject({
     app: input.app,
     implementation: input.implementation,
     ref: input.ref,
@@ -2025,20 +2002,20 @@ const validateActorAdmissionUnchecked = <
     canonicalBindings.push({
       slot: capturedBinding.slot,
       provider: capturedBinding.provider.value,
-      providerFence: immutableRecord({ ...capturedBinding.providerFence }),
+      providerFence: copyObject({ ...capturedBinding.providerFence }),
       select: capturedBinding.select,
     } as ActorContextBinding<DefinitionValue, ProviderDefinition>);
   }
 
   // SAFETY: the canonical ref, bindings, and dependency array are owned snapshots of the validated
   // input; the machine and identity values retain their exact nominal references.
-  const canonicalInput = immutableRecord({
+  const canonicalInput = copyObject({
     app: capturedInput.app,
     implementation: capturedInput.implementation,
     ref: actorRef.success.value,
     machineFacts: typedMachineFacts,
     input: capturedInput.input,
-    bindings: immutableArray(canonicalBindings),
+    bindings: copyArray(canonicalBindings),
     dependencies: dependencies.success,
   });
 
@@ -2087,8 +2064,8 @@ export const normalizeValidatedActorAdmission = <
   ValidatedActorAdmission<A, DefinitionValue, I, ProviderDefinition>,
   PublicDiagnostic
 > => {
-  const edges = immutableArray(
-    validated.edges.map((edge) => immutableRecord({ ...edge, consumer: consumerKey })),
+  const edges = copyArray(
+    validated.edges.map((edge) => copyObject({ ...edge, consumer: consumerKey })),
   );
 
   const graph = validateGraph(edges);
@@ -2097,13 +2074,13 @@ export const normalizeValidatedActorAdmission = <
 
   return Result.succeed({
     ...validated,
-    input: immutableRecord({ ...validated.input, dependencies: edges }),
+    input: copyObject({ ...validated.input, dependencies: edges }),
     edges,
     graph: graph.success,
   });
 };
 
-const rollbackAdmission = (steps: readonly AdmissionRollbackStep[]) =>
+const rollbackAdmission = (steps: AdmissionRollbackStep[]) =>
   Effect.gen(function* () {
     let cleanupCause: Cause.Cause<PublicDiagnostic> | undefined;
 
@@ -2220,21 +2197,21 @@ type AdmissionTransactionPhase =
   | "exposed";
 
 type AdmissionTransactionState = {
-  readonly phase: AdmissionTransactionPhase;
-  readonly rollback: readonly AdmissionRollbackStep[];
+  phase: AdmissionTransactionPhase;
+  rollback: AdmissionRollbackStep[];
 };
 
 type AdmissionTransactionOwner = {
-  readonly state: () => AdmissionTransactionState;
-  readonly advance: (
+  state: () => AdmissionTransactionState;
+  advance: (
     phase: Exclude<AdmissionTransactionPhase, "reserved" | "exposed">,
-    rollback: readonly AdmissionRollbackStep[],
+    rollback: AdmissionRollbackStep[],
   ) => void;
-  readonly expose: () => void;
+  expose: () => void;
 };
 
 const makeAdmissionTransactionOwner = (
-  initialRollback: readonly AdmissionRollbackStep[],
+  initialRollback: AdmissionRollbackStep[],
 ): AdmissionTransactionOwner => {
   let current: AdmissionTransactionState = {
     phase: "reserved",
@@ -2291,7 +2268,7 @@ export const admitActor = <
 
     const transactionOwner = makeAdmissionTransactionOwner(reservation.rollback);
 
-    const includeReservation = (steps: readonly AdmissionRollbackStep[]) =>
+    const includeReservation = (steps: AdmissionRollbackStep[]) =>
       reservation.rollback.length === 0 || steps[0] === reservation.rollback[0]
         ? steps
         : [...reservation.rollback, ...steps];

@@ -24,11 +24,11 @@ import type { OperationOptions, OperationProgram } from "../operation.js";
  * Mutable setup remains local to its scenario.
  */
 
-type ProjectInput = { readonly id: string };
+type ProjectInput = { id: string };
 
 type ParameterlessAdapter = (
   options: OperationOptions,
-) => OperationProgram<{ readonly refreshed: boolean }, never, never>;
+) => OperationProgram<{ refreshed: boolean }, never, never>;
 
 // RETURN_TYPE: Predicate return narrows retained adapters to the parameterless callable shape before invocation.
 const isParameterlessAdapter = (value: unknown): value is ParameterlessAdapter =>
@@ -413,7 +413,7 @@ describe("operation declarations", () => {
 
       Object.defineProperty(malformedKeyedTransaction, "key", { value: undefined });
 
-      const malformedCallbacks: ReadonlyArray<() => void> = [
+      const malformedCallbacks: Array<() => void> = [
         () => resource(malformedResource),
         () => transaction(malformedTransaction),
         () => stream(malformedStream),
@@ -969,7 +969,7 @@ describe("operation declarations", () => {
       });
 
       const assertIdentity = (
-        descriptor: { readonly kind: string; readonly id: string },
+        descriptor: { kind: string; id: string },
         kind: string,
         id: string,
         adapter: unknown,
@@ -1024,7 +1024,7 @@ describe("operation declarations", () => {
       assert.strictEqual(readOperationAdapter(updates), streamSubscribe);
     });
 
-    it("publishes readonly auxiliary plans without runtime freezing", () => {
+    it("publishes mutable auxiliary plan records", () => {
       const project = resource({
         id: "projects.immutable-plans",
         key: (projectId: string) => [projectId] as const,
@@ -1042,7 +1042,7 @@ describe("operation declarations", () => {
       const transactionCancellation = refresh.cancel([]);
 
       const assertAuxiliaryPlan = (
-        plan: Readonly<{ kind: "cache-write" | "cancel" }>,
+        plan: { kind: "cache-write" | "cancel" },
         kind: "cache-write" | "cancel",
       ) => {
         assert.strictEqual(Object.isFrozen(plan), false);
@@ -1081,7 +1081,7 @@ describe("operation declarations", () => {
       config.id = "projects.changed";
       config.key = () => ["changed"];
 
-      const invalidKey: readonly [string] = ["valid"];
+      const invalidKey: [string] = ["valid"];
       Object.defineProperty(invalidKey, 0, {
         configurable: true,
         enumerable: true,
@@ -1091,8 +1091,8 @@ describe("operation declarations", () => {
 
       assert.strictEqual(plan.descriptor, "projects.captured");
       assert.deepStrictEqual(plan.key, [0, { a: "first", z: "last" }]);
-      assert.strictEqual(Object.isFrozen(plan.key), true);
-      assert.strictEqual(Object.isFrozen(plan.key[1]), true);
+      assert.strictEqual(Object.isFrozen(plan.key), false);
+      assert.strictEqual(Object.isFrozen(plan.key[1]), false);
       assert.throws(
         () =>
           resource({

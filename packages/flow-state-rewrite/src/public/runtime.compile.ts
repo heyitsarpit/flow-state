@@ -13,7 +13,7 @@ import type { Implementation as ImplementationType, RuntimeSetup } from "../inde
 
 type Expect<Value extends true> = Value;
 
-type Service = { readonly load: () => string };
+type Service = { load: () => string };
 
 class Repo extends Context.Service<Repo, Service>()("RuntimeType/Repo") {}
 
@@ -154,11 +154,11 @@ if (maybeProvider !== undefined) {
 }
 
 const keepOptions = <
-  AppValue extends { readonly kind: "app" },
+  AppValue extends { kind: "app" },
   ImplementationValue extends ImplementationType<never, unknown, unknown>,
 >(options: {
-  readonly app: AppValue;
-  readonly implementation: ImplementationValue;
+  app: AppValue;
+  implementation: ImplementationValue;
 }) => options;
 
 const wrappedComplete = keepOptions({ app: RequiredApp, implementation: complete });
@@ -180,11 +180,11 @@ runtimeSetup(wrappedWrong);
 runtimeSetup(wrappedResidual);
 
 const keepOptionalOptions = <
-  AppValue extends { readonly kind: "app" },
+  AppValue extends { kind: "app" },
   ImplementationValue extends ImplementationType<never, unknown, unknown> | undefined,
 >(options: {
-  readonly app: AppValue;
-  readonly implementation: ImplementationValue;
+  app: AppValue;
+  implementation: ImplementationValue;
 }) => options;
 
 const wrappedOptional = keepOptionalOptions({ app: RequiredApp, implementation: maybeProvider });

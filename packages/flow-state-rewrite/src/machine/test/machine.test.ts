@@ -160,14 +160,11 @@ export type _CompiledTimerTarget = Expect<
 >;
 
 export type _LeafCompiledStateChildren = Expect<
-  Types.Equals<Extract<CompiledState<typeof Editor>, { kind: "leaf" }>["children"], readonly []>
+  Types.Equals<Extract<CompiledState<typeof Editor>, { kind: "leaf" }>["children"], []>
 >;
 
 export type _CompoundCompiledStateChildren = Expect<
-  Types.Equals<
-    Extract<CompiledState<typeof Editor>, { kind: "compound" }>["children"],
-    readonly string[]
-  >
+  Types.Equals<Extract<CompiledState<typeof Editor>, { kind: "compound" }>["children"], string[]>
 >;
 
 const compiledStateNarrowingProofs = (state: CompiledState<typeof Editor>) => {
@@ -240,7 +237,7 @@ const NestedResult = definition({
     tick: "bare",
   },
   operations: { save, project: nestedProject, updates: nestedUpdates },
-  memory: (_options: { readonly input: { readonly draftId: string } }) => ({ count: 0 }),
+  memory: (_options: { input: { draftId: string } }) => ({ count: 0 }),
 });
 
 const Nested = resultSuccess(NestedResult);
@@ -545,7 +542,7 @@ describe("machine", () => {
             return {};
           },
         },
-        memory: (_options: { readonly input: void }) => {
+        memory: (_options: { input: void }) => {
           initializerCalls += 1;
 
           return { ready: true };

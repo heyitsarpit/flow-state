@@ -43,7 +43,7 @@ const planDefinitionResult = definition({
     mapped: "bare",
   },
   operations: { item, nestedItem },
-  memory: ({ input }: { readonly input: { readonly seed: number } }) => ({
+  memory: ({ input }: { input: { seed: number } }) => ({
     count: input.seed,
   }),
 });
@@ -54,7 +54,7 @@ const opened = resultSuccess(planDefinition.E.opened(1));
 
 const mapped = resultSuccess(planDefinition.E.mapped());
 
-const asActionBatch = (value: readonly unknown[]) => {
+const asActionBatch = (value: unknown[]) => {
   // SAFETY: This fixture deliberately routes a mapped event through the runtime batch seam; the planner classifies it before allocation.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the mixed runtime batch intentionally exceeds the authoring action type for this planner proof.
   return value as MachineAction<typeof planDefinition>[];
@@ -82,8 +82,6 @@ const planMachine = resultSuccess(
             },
             actions: ({ memory, snapshot }) => {
               trace.push(`actions:${memory.count}:${snapshot.state.name}`);
-              assert.strictEqual(Object.isFrozen(memory), true);
-              assert.strictEqual(Object.isFrozen(snapshot), true);
 
               return asActionBatch([O.item.lookup(memory.count), mapped]);
             },
@@ -215,9 +213,6 @@ describe("turn planner", () => {
       assert.strictEqual(plan.actions.length, 1);
       assert.strictEqual(plan.mappedEvents.length, 1);
       assert.strictEqual(plan.mappedEvents[0], mapped);
-      assert.strictEqual(Object.isFrozen(plan.before), true);
-      assert.strictEqual(Object.isFrozen(plan.before.memory), true);
-      assert.strictEqual(Object.isFrozen(plan.candidate), true);
     }
 
     assert.deepStrictEqual(snapshot.memory, { count: 1 });
@@ -365,7 +360,7 @@ describe("turn planner", () => {
       selectorDefects: [diagnostic],
     };
 
-    const fact: Extract<ProjectionFact, { readonly _tag: "context-projection" }> = {
+    const fact: Extract<ProjectionFact, { _tag: "context-projection" }> = {
       _tag: "context-projection",
       provider: { ...providers[0]!, value: carrier },
       projection: carrier,
@@ -445,7 +440,6 @@ describe("turn planner", () => {
       assert.strictEqual(result.cause.event, opened);
       assert.strictEqual(result.fence, fence);
       assert.strictEqual(result.before.state, planDefinition.S.idle);
-      assert.strictEqual(Object.isFrozen(result.candidate), true);
       assert.strictEqual(result.actions.length, 1);
     }
   });
@@ -894,8 +888,6 @@ describe("turn planner", () => {
     const second = resultSuccess(planTurn(turnInput(opened, first.before)));
     assert.notStrictEqual(first, second);
     assert.deepStrictEqual(first.before, second.before);
-    assert.strictEqual(Object.isFrozen(first), true);
-    assert.strictEqual(Object.isFrozen(second), true);
   });
 
   it("validates mapped event envelopes before scheduling them", () => {

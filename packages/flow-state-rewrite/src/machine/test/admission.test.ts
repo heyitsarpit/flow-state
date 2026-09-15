@@ -370,7 +370,7 @@ describe("machine admission", () => {
       assert.strictEqual(handlers.tick?.[0]?.target, Nested.S.idle);
     });
 
-    it("keeps published snapshot and array containers immutable without freezing values", () => {
+    it("keeps snapshot and array projections detached from caller-owned values", () => {
       const opaque = { nested: true };
       const configuration = {};
       defineOwn(configuration, "value", { value: opaque });
@@ -386,26 +386,25 @@ describe("machine admission", () => {
 
       if (property.kind !== "data") throw new Error("expected data property");
 
-      assert.isTrue(Object.isFrozen(snapshot));
-      assert.isTrue(Object.isFrozen(snapshot.properties));
-      assert.isTrue(Object.isFrozen(entry));
-      assert.isTrue(Object.isFrozen(property));
+      assert.isFalse(Object.isFrozen(snapshot));
+      assert.isFalse(Object.isFrozen(snapshot.properties));
+      assert.isFalse(Object.isFrozen(entry));
+      assert.isFalse(Object.isFrozen(property));
       assert.strictEqual(property.value, opaque);
       assert.isFalse(Object.isFrozen(opaque));
-      assert.strictEqual(Reflect.set(snapshot, "properties", []), false);
-      assert.strictEqual(Reflect.set(snapshot.properties, 0, []), false);
-      assert.strictEqual(Reflect.set(entry, 0, "changed"), false);
-      assert.strictEqual(Reflect.set(property, "value", "changed"), false);
-      assert.strictEqual(property.value, opaque);
+      assert.strictEqual(Reflect.set(property, "value", "changed"), true);
+      assert.strictEqual(property.value, "changed");
+      assert.strictEqual(opaque.nested, true);
 
       const input = [Nested.S.idle];
       const values = resultSuccess(readArrayValues(input, ["transition"], "ExpectedTransition"));
 
       if (values === undefined) throw new Error("expected array values");
-      assert.isTrue(Object.isFrozen(values));
+      assert.isFalse(Object.isFrozen(values));
       assert.isFalse(Object.isFrozen(input));
-      assert.strictEqual(Reflect.set(values, 0, Nested.S.active), false);
-      assert.strictEqual(values[0], Nested.S.idle);
+      assert.strictEqual(Reflect.set(values, 0, Nested.S.active), true);
+      assert.strictEqual(values[0], Nested.S.active);
+      assert.strictEqual(input[0], Nested.S.idle);
     });
 
     it("admits enumerable state records with a null prototype", () => {
@@ -1804,7 +1803,7 @@ describe("machine admission", () => {
         assert.strictEqual(invoked, false);
       }
 
-      // oxlint-disable-next-line anti-slop/no-object-freeze -- Directly proves readonly array admission.
+      // oxlint-disable-next-line anti-slop/no-object-freeze -- Directly proves frozen caller-array admission.
       const frozen = Object.freeze([Nested.S.idle]);
       const frozenResult = resultSuccess(machine(NestedResult, () => transitionWith(frozen)));
       assert.strictEqual(
@@ -1812,7 +1811,7 @@ describe("machine admission", () => {
         Nested.S.idle,
       );
       assertUnknownFailure(
-        // oxlint-disable-next-line anti-slop/no-object-freeze -- Directly proves readonly empty-list admission.
+        // oxlint-disable-next-line anti-slop/no-object-freeze -- Directly proves frozen empty-list admission.
         transitionWith(Object.freeze([])),
         "EmptyEventHandlerList",
         ["on", "tick"],
@@ -1839,7 +1838,7 @@ describe("machine admission", () => {
       assert.strictEqual(singleRedirects?.[0]?.when, firstWhen);
       assert.strictEqual(singleRedirects?.[0]?.target, Nested.S.idle);
 
-      // oxlint-disable-next-line anti-slop/no-object-freeze -- Directly proves readonly redirect-list admission.
+      // oxlint-disable-next-line anti-slop/no-object-freeze -- Directly proves frozen redirect-list admission.
       const frozen = Object.freeze([first, second]);
       const list = resultSuccess(machine(NestedResult, () => redirectWith(frozen)));
       const redirects = list.compiled.states[""]?.redirects;
@@ -1956,7 +1955,7 @@ describe("machine admission", () => {
         );
       assertUnknownFailure(
         redirectWith(
-          // oxlint-disable-next-line anti-slop/no-object-freeze -- Directly proves readonly empty-list admission.
+          // oxlint-disable-next-line anti-slop/no-object-freeze -- Directly proves frozen empty-list admission.
           Object.freeze([]),
         ),
         "EmptyRedirectList",
@@ -1992,8 +1991,8 @@ describe("machine admission", () => {
         new Date(),
         new Map(),
         new (class RedirectRecord {
-          readonly when = () => true;
-          readonly target = Nested.S.idle;
+          when = () => true;
+          target = Nested.S.idle;
         })(),
         Object.setPrototypeOf({ when: () => true, target: Nested.S.idle }, {}),
       ])

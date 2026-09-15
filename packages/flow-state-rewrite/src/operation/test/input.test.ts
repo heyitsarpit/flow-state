@@ -45,9 +45,9 @@ describe("stable observation comparisons", () => {
 });
 
 describe("operation executable input ownership", () => {
-  it("owns immutable executable params before projecting keys across every family", () => {
+  it("copies executable params before projecting keys across every family", () => {
     class Client {
-      readonly tag = "client";
+      tag = "client";
     }
 
     type Params = {
@@ -62,10 +62,7 @@ describe("operation executable input ownership", () => {
       callback: () => "stable",
     });
 
-    const assertSnapshot = (
-      input: Params,
-      plan: { readonly params: Params; readonly key: OperationKey },
-    ) => {
+    const assertSnapshot = (input: Params, plan: { params: Params; key: OperationKey }) => {
       input.scope.id = "project-2";
       input.scope.tags[0] = "changed";
 
@@ -74,12 +71,12 @@ describe("operation executable input ownership", () => {
       assert.strictEqual(plan.params.client, input.client);
       assert.strictEqual(plan.params.callback, input.callback);
       assert.strictEqual(Object.isFrozen(plan.params.client), false);
-      assert.strictEqual(Object.isFrozen(plan), true);
-      assert.strictEqual(Object.isFrozen(plan.params), true);
-      assert.strictEqual(Object.isFrozen(plan.params.scope), true);
-      assert.strictEqual(Object.isFrozen(plan.params.scope.tags), true);
-      assert.throws(() => Object.assign(plan, { descriptor: "changed" }), TypeError);
-      assert.throws(() => Object.assign(plan.params.scope, { id: "changed" }), TypeError);
+      assert.strictEqual(Object.isFrozen(plan), false);
+      assert.strictEqual(Object.isFrozen(plan.params), false);
+      assert.strictEqual(Object.isFrozen(plan.params.scope), false);
+      assert.strictEqual(Object.isFrozen(plan.params.scope.tags), false);
+      plan.params.scope.id = "mutable-owned-copy";
+      assert.strictEqual(input.scope.id, "project-2");
     };
 
     const resourceInput = makeParams();
@@ -123,7 +120,7 @@ describe("operation executable input ownership", () => {
 
     const sharedPlan = sharedResource.lookup(sharedInput);
     assert.strictEqual(sharedPlan.params.left, sharedPlan.params.right);
-    assert.strictEqual(Object.isFrozen(sharedPlan.params.left), true);
+    assert.strictEqual(Object.isFrozen(sharedPlan.params.left), false);
   });
 
   it("rejects cycles, malformed containers, accessors, and hostile reflection", () => {
@@ -215,7 +212,7 @@ describe("operation executable input ownership", () => {
     assert.deepStrictEqual(plan.params, { value: "proxy" });
   });
 
-  it("passes the owned frozen params to key before canonical admission", () => {
+  it("passes an owned copy of params to key before canonical admission", () => {
     type Params = { nested: { value: string } };
 
     const input: Params = { nested: { value: "stable" } };
@@ -228,8 +225,8 @@ describe("operation executable input ownership", () => {
         order.push("key");
         keyParams = params;
         assert.notStrictEqual(params, input);
-        assert.strictEqual(Object.isFrozen(params), true);
-        assert.strictEqual(Object.isFrozen(params.nested), true);
+        assert.strictEqual(Object.isFrozen(params), false);
+        assert.strictEqual(Object.isFrozen(params.nested), false);
         input.nested.value = "changed-before-k";
 
         return [params.nested.value] as const;
@@ -273,7 +270,7 @@ describe("operation executable input ownership", () => {
 
   it("rejects flapping plain records even when opaque leaves are allowed", () => {
     class Client {
-      readonly tag = "client";
+      tag = "client";
     }
 
     const callback = () => "stable";
@@ -309,7 +306,7 @@ describe("operation executable input ownership", () => {
 
   it("rejects source mutation during final reflection", () => {
     class Client {
-      readonly tag = "client";
+      tag = "client";
     }
 
     const callback = () => "stable";
@@ -340,7 +337,7 @@ describe("operation executable input ownership", () => {
 
   it("rejects a shared node changed by a later sibling reflection", () => {
     class Client {
-      readonly tag = "client";
+      tag = "client";
     }
 
     const callback = () => "stable";
@@ -373,7 +370,7 @@ describe("operation executable input ownership", () => {
   });
 
   it("snapshots deep ordinary parameters without recursive stack growth", () => {
-    type Deep = { readonly next?: Deep; readonly value?: string };
+    type Deep = { next?: Deep; value?: string };
 
     const depth = 2_048;
     let input: Deep = { value: "leaf" };
@@ -392,13 +389,13 @@ describe("operation executable input ownership", () => {
     let cursor: Deep = plan.params;
 
     for (let index = 0; index < depth; index += 1) {
-      assert.strictEqual(Object.isFrozen(cursor), true);
+      assert.strictEqual(Object.isFrozen(cursor), false);
 
       if (cursor.next === undefined) throw new Error("deep snapshot ended early");
       cursor = cursor.next;
     }
 
     assert.deepStrictEqual(cursor, { value: "leaf" });
-    assert.strictEqual(Object.isFrozen(cursor), true);
+    assert.strictEqual(Object.isFrozen(cursor), false);
   });
 });

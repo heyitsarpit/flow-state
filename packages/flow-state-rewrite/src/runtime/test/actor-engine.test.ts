@@ -262,12 +262,6 @@ describe("actor engine", () => {
 
     if (Result.isSuccess(admitted)) {
       assert.notStrictEqual(admitted.success, prepared);
-      assert.strictEqual(Object.isFrozen(admitted.success), true);
-      assert.strictEqual(Object.isFrozen(admitted.success.memory), true);
-      assert.strictEqual(Object.isFrozen(admitted.success.context), true);
-      assert.strictEqual(Object.isFrozen(admitted.success.operations), true);
-      assert.strictEqual(Object.isFrozen(admitted.success.timers), true);
-      assert.strictEqual(Object.isFrozen(admitted.success.issues), true);
     }
 
     const malformed = [
@@ -352,13 +346,7 @@ describe("actor engine", () => {
       assert.notStrictEqual(prepared.success.memory.nested, sourceMemory.nested);
       assert.notStrictEqual(prepared.success.memory.list, sourceMemory.list);
       assert.notStrictEqual(prepared.success.memory.list[0], sourceMemory.list[0]);
-      assert.strictEqual(Object.isFrozen(prepared.success.memory.nested), true);
-      assert.strictEqual(Object.isFrozen(prepared.success.memory.list), true);
-      assert.strictEqual(Object.isFrozen(prepared.success.memory.list[0]), true);
       assert.notStrictEqual(prepared.success.issues[0], sourceIssue);
-      assert.strictEqual(Object.isFrozen(prepared.success.issues[0]), true);
-      assert.strictEqual(Object.isFrozen(prepared.success.issues[0]?.path), true);
-      assert.strictEqual(Object.isFrozen(prepared.success.issues[0]?.details), true);
 
       sourceMemory.nested.count = 9;
       sourceMemory.list[0]!.label = "mutated";
@@ -681,10 +669,7 @@ describe("actor engine", () => {
       setup.registry.rollback(setup.input.identity);
       const nextIdentity = resultSuccess(setup.registry.reserveStable(setup.ref));
 
-      const staleFacts: Extract<
-        ActorMailboxFact<typeof testDefinition>,
-        { readonly _tag: "command" }
-      >[] = [
+      const staleFacts: Extract<ActorMailboxFact<typeof testDefinition>, { _tag: "command" }>[] = [
         {
           _tag: "command" as const,
           fence: { ...setup.input.fence, incarnation: nextIdentity.incarnation },
@@ -756,12 +741,6 @@ describe("actor engine", () => {
           published.push(snapshot);
           assert.ok(acknowledgedDispatch !== undefined);
           assert.strictEqual(Deferred.isDoneUnsafe(acknowledgedDispatch.completion), true);
-          assert.strictEqual(Object.isFrozen(snapshot), true);
-          assert.strictEqual(Object.isFrozen(snapshot.memory), true);
-          assert.strictEqual(Object.isFrozen(snapshot.context), true);
-          assert.strictEqual(Object.isFrozen(snapshot.operations), true);
-          assert.strictEqual(Object.isFrozen(snapshot.timers), true);
-          assert.strictEqual(Object.isFrozen(snapshot.issues), true);
         },
         acceptEvidence: (publication) => {
           order.push("evidence");
@@ -769,8 +748,6 @@ describe("actor engine", () => {
           assert.strictEqual(publication.publicationRevision, 1);
           assert.strictEqual(publication.machineTurnRevision, 1);
           assert.strictEqual(publication.store.revision, 0);
-          assert.strictEqual(Object.isFrozen(publication.store), true);
-          assert.strictEqual(Object.isFrozen(publication.store.changed), true);
 
           return Result.succeed(1);
         },
@@ -1082,7 +1059,7 @@ describe("actor engine", () => {
 
       const streamOccurrenceFence = { ...occurrenceFence, ordinal: 2 };
 
-      const facts: readonly ProjectionFact[] = [
+      const facts: ProjectionFact[] = [
         {
           _tag: "timer-projection",
           fence: setup.input.fence,
@@ -1155,15 +1132,6 @@ describe("actor engine", () => {
       assert.strictEqual(engine.snapshot().state, testDefinition.S.ready);
       assert.strictEqual(engine.snapshot().observedStoreRevision, 1);
       assert.deepStrictEqual(engine.snapshot().context, { provider: "ready" });
-      assert.strictEqual(Object.isFrozen(published[1]?.operations[0]?.key), true);
-
-      for (const snapshot of published) {
-        assert.strictEqual(Object.isFrozen(snapshot), true);
-        assert.strictEqual(Object.isFrozen(snapshot.operations), true);
-        assert.strictEqual(Object.isFrozen(snapshot.timers), true);
-        assert.strictEqual(Object.isFrozen(snapshot.issues), true);
-      }
-
       yield* engine.shutdown("hard");
       yield* Scope.close(scope, Exit.void);
     }),
@@ -1203,7 +1171,7 @@ describe("actor engine", () => {
         selectorDefects: [],
       };
 
-      const aggregate: Extract<ProjectionFact, { readonly _tag: "context-projection" }> = {
+      const aggregate: Extract<ProjectionFact, { _tag: "context-projection" }> = {
         _tag: "context-projection",
         provider: { ...left, value: projection },
         projection,
@@ -1286,7 +1254,7 @@ describe("actor engine", () => {
           | typeof contextProviderDefinition.S.ready
           | typeof contextProviderDefinition.S.changed,
         issueOnly: boolean,
-        selectorDefects: readonly PublicDiagnostic[],
+        selectorDefects: PublicDiagnostic[],
       ) => {
         const providers = [
           { fence: setup.input.fence, slot: "left", revision, value: leftValue },
@@ -2652,17 +2620,15 @@ describe("actor engine parity cases", () => {
     }),
   );
 
-  it.effect("publishes complete immutable actor snapshots", () =>
+  it.effect("publishes complete actor snapshots", () =>
     Effect.gen(function* () {
       const scope = yield* Scope.make("sequential");
       const { engine } = yield* startParityEngine(scope);
       const snapshot = engine.snapshot();
-      assert.strictEqual(Object.isFrozen(snapshot), true);
-      assert.strictEqual(Object.isFrozen(snapshot.memory), true);
-      assert.strictEqual(Object.isFrozen(snapshot.context), true);
-      assert.strictEqual(Object.isFrozen(snapshot.operations), true);
-      assert.strictEqual(Object.isFrozen(snapshot.timers), true);
-      assert.strictEqual(Object.isFrozen(snapshot.issues), true);
+      assert.strictEqual(snapshot.lifecycle, "prepared");
+      assert.deepStrictEqual(snapshot.operations, []);
+      assert.deepStrictEqual(snapshot.timers, []);
+      assert.deepStrictEqual(snapshot.issues, []);
       assert.strictEqual("send" in snapshot, false);
       yield* engine.shutdown("hard");
       yield* Scope.close(scope, Exit.void);
@@ -2753,7 +2719,7 @@ describe("pending regression scenarios", () => {
 
   // Setup: Use a real engine with an attached evidence sink; retain its snapshot, private machine-turn revision and last accepted evidence sequence.
   // Action: Apply one changed passive context/store projection, await its private publication ticket and drain evidence; then exercise a separate contained issue-only cut.
-  // Assert: The passive projection publishes one complete immutable snapshot with public revision plus one, unchanged machine-turn revision/evidence sequence, and no record. Its ticket contains that exact cut; the separate issue-only cut follows its TurnRecord rule.
+  // Assert: The passive projection publishes one complete owned snapshot with public revision plus one, unchanged machine-turn revision/evidence sequence, and no record. Its ticket contains that exact cut; the separate issue-only cut follows its TurnRecord rule.
   it.todo("publishes a passive projection without allocating evidence or machine-turn revision");
 
   // Setup: Use the selected internal ActorPublication and mailbox owners with consuming Scopes to establish subscriptions separately while prepared, active, suspended and disposed; control activation and turns with owned acknowledgement barriers. Prepared subscription is a selected internal production seam, not a current PreparedActorEngine API.

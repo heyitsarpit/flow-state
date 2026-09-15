@@ -36,7 +36,7 @@ import {
 } from "../actor-admission.js";
 
 type DeterministicGcHost = typeof globalThis & {
-  readonly gc?: () => void;
+  gc?: () => void;
 };
 
 const resultSuccess = <Value, Error>(result: Result.Result<Value, Error>) => {
@@ -149,13 +149,13 @@ const implementation = { kind: "implementation" } as const;
 
 class PendingImplementationService extends Context.Service<
   PendingImplementationService,
-  { readonly ready: true }
+  { ready: true }
 >()("ActorAdmission/PendingImplementation") {}
 
 const makeProviderFence = (identity: {
-  readonly key: ActorKey;
-  readonly incarnation: ActorFence["incarnation"];
-  readonly leaseEpoch: number;
+  key: ActorKey;
+  incarnation: ActorFence["incarnation"];
+  leaseEpoch: number;
 }): ActorFence => ({
   key: identity.key,
   incarnation: identity.incarnation,
@@ -164,16 +164,16 @@ const makeProviderFence = (identity: {
 });
 
 type ProviderIdentity = {
-  readonly key: ActorKey;
-  readonly incarnation: ActorFence["incarnation"];
-  readonly leaseEpoch: number;
+  key: ActorKey;
+  incarnation: ActorFence["incarnation"];
+  leaseEpoch: number;
 };
 
 const makeAdmission = (
   consumerRef: ActorRef<Machine<typeof consumerDefinition>>,
   providerRef: ActorRef<Machine<typeof providerDefinition>>,
   providerIdentity: ProviderIdentity,
-  dependencies: readonly ActorDependencyEdge[],
+  dependencies: ActorDependencyEdge[],
   selector: () => never = () => {
     throw new Error("context selector executed during validation");
   },
@@ -200,13 +200,13 @@ const makeAdmission = (
   >;
 };
 
-type TransactionActor = { readonly label: string };
+type TransactionActor = { label: string };
 
-type TransactionSnapshot = { readonly baseline: "silent" };
+type TransactionSnapshot = { baseline: "silent" };
 
-type TransactionMailbox = { readonly capacity: 1 };
+type TransactionMailbox = { capacity: 1 };
 
-type TransactionActivation = { readonly barrier: "crossed" };
+type TransactionActivation = { barrier: "crossed" };
 
 type TransactionInput = ActorAdmissionInput<
   typeof noContextApp,
@@ -285,7 +285,7 @@ type TransactionAuthority = ActorAdmissionTransactionAuthority<
   TransactionOwners
 >;
 
-type PhaseOwner<Tag extends string> = { readonly tag: Tag };
+type PhaseOwner<Tag extends string> = { tag: Tag };
 
 type TypedValidatedOwner = PhaseOwner<"validated">;
 
@@ -361,29 +361,29 @@ void rejectErasedPhaseAuthority;
 type TransactionStage = "prepare" | "attach" | "activate" | "register" | "expose";
 
 type TransactionFailure = {
-  readonly stage: TransactionStage;
-  readonly kind: "typed" | "defect" | "interrupt" | "empty";
-  readonly message: string;
+  stage: TransactionStage;
+  kind: "typed" | "defect" | "interrupt" | "empty";
+  message: string;
 };
 
 type TransactionStagedState = {
   snapshot: unknown;
   mailbox: unknown;
   activation: unknown;
-  graph: readonly ActorDependencyEdge[] | undefined;
+  graph: ActorDependencyEdge[] | undefined;
   tombstone: boolean;
 };
 
 type TransactionHarnessOptions = {
-  readonly mode: ActorAdmissionMode;
-  readonly failure?: TransactionFailure;
-  readonly cleanupFailure?: {
-    readonly name: string;
-    readonly kind: "typed" | "defect" | "interrupt";
-    readonly message: string;
+  mode: ActorAdmissionMode;
+  failure?: TransactionFailure;
+  cleanupFailure?: {
+    name: string;
+    kind: "typed" | "defect" | "interrupt";
+    message: string;
   };
-  readonly registeredEntered?: Deferred.Deferred<void>;
-  readonly registerGate?: Deferred.Deferred<void>;
+  registeredEntered?: Deferred.Deferred<void>;
+  registerGate?: Deferred.Deferred<void>;
 };
 
 const transactionDiagnostic = (message: string): PublicDiagnostic =>
@@ -460,9 +460,9 @@ const makeTransactionHarness = (
   });
 
   const extendRollback = (
-    previous: readonly AdmissionRollbackStep[],
+    previous: AdmissionRollbackStep[],
     name: string,
-  ): readonly AdmissionRollbackStep[] => [...previous, rollbackStep(name)];
+  ): AdmissionRollbackStep[] => [...previous, rollbackStep(name)];
 
   const authority: TransactionAuthority = {
     app: noContextApp,
@@ -706,8 +706,8 @@ const admitTransaction = (input: TransactionInput, authority: TransactionAuthori
 describe("actor identity admission", () => {
   it("allocates runtime-local stable keys and fresh local identities", () => {
     const stableRef = actorRef(editorMachine, "stable");
-    const firstRuntime = makeActorIdentityRegistry<{ readonly name: string }>();
-    const secondRuntime = makeActorIdentityRegistry<{ readonly name: string }>();
+    const firstRuntime = makeActorIdentityRegistry<{ name: string }>();
+    const secondRuntime = makeActorIdentityRegistry<{ name: string }>();
 
     const firstStable = resultSuccess(firstRuntime.reserveStable(stableRef));
     const repeatedStable = resultSuccess(firstRuntime.reserveStable(stableRef));
@@ -737,7 +737,7 @@ describe("actor identity admission", () => {
   });
 
   it("registers exact actors and keeps lookup passive", () => {
-    const registry = makeActorIdentityRegistry<{ readonly name: string }>();
+    const registry = makeActorIdentityRegistry<{ name: string }>();
     const ref = actorRef(editorMachine, "passive");
     const identity = resultSuccess(registry.reserveStable(ref));
 
@@ -773,7 +773,7 @@ describe("actor identity admission", () => {
   });
 
   it("releases a tombstoned actor reference when deterministic GC is available", async () => {
-    const registry = makeActorIdentityRegistry<{ readonly name: string }>();
+    const registry = makeActorIdentityRegistry<{ name: string }>();
     const identity = resultSuccess(registry.reserveStable(actorRef(editorMachine, "gc")));
 
     const weakActor = (() => {
@@ -1185,19 +1185,11 @@ describe("actor identity admission", () => {
     assert.deepStrictEqual(validated.graph.forward.get(consumerKey), [edge]);
     assert.deepStrictEqual(validated.graph.reverse.get(providerIdentity.key), [edge]);
     assert.deepStrictEqual(validated.graph.order, [providerIdentity.key, consumerKey]);
-    assert.strictEqual(Object.isFrozen(validated.graph), true);
-    assert.strictEqual(Object.isFrozen(validated.graph.order), true);
-    assert.strictEqual(Object.isFrozen(validated.graph.forward), true);
-    assert.strictEqual(Object.isFrozen(validated.graph.reverse), true);
-    assert.strictEqual("set" in validated.graph.forward, false);
-    assert.strictEqual("delete" in validated.graph.reverse, false);
+    assert.ok(validated.graph.forward instanceof Map);
+    assert.ok(validated.graph.reverse instanceof Map);
     const forwardEdges = validated.graph.forward.get(consumerKey);
 
     if (forwardEdges === undefined) throw new Error("missing forward dependency edges");
-    assert.strictEqual(Object.isFrozen(forwardEdges), true);
-    assert.strictEqual(Object.isFrozen(forwardEdges[0]), true);
-    assert.throws(() => Object.assign(forwardEdges, { 0: edge }), TypeError);
-    assert.throws(() => Object.assign(validated.graph.order, { 0: consumerKey }), TypeError);
     assert.notStrictEqual(forwardEdges[0], edge);
 
     Object.assign(edge, { slot: "mutated" });
@@ -1555,10 +1547,7 @@ describe("actor identity admission", () => {
         providerFence: makeProviderFence(leftIdentity),
         select: () => providerMachine.definition.S.ready,
       },
-    ] satisfies readonly ActorContextBinding<
-      typeof cycleConsumerDefinition,
-      typeof providerDefinition
-    >[];
+    ] satisfies ActorContextBinding<typeof cycleConsumerDefinition, typeof providerDefinition>[];
 
     const dependencies = [
       { consumer: cycleConsumerKey, provider: rightIdentity.key, slot: "left" },
@@ -1805,7 +1794,7 @@ describe("actor identity admission", () => {
     () =>
       Effect.gen(function* () {
         const ref = actorRef(editorMachine, "lease-owner", { persist: true });
-        const registry = makeActorIdentityRegistry<{ readonly label: string }>();
+        const registry = makeActorIdentityRegistry<{ label: string }>();
         const identity = resultSuccess(registry.reserveStable(ref));
         const input = makeTransactionInput(ref);
 
@@ -2004,7 +1993,7 @@ describe("actor identity admission", () => {
   });
 
   it("preserves tombstones across actor reincarnation", () => {
-    const registry = makeActorIdentityRegistry<{ readonly label: string }>();
+    const registry = makeActorIdentityRegistry<{ label: string }>();
     const ref = actorRef(editorMachine, "tombstone");
     const first = resultSuccess(registry.reserveStable(ref));
     resultSuccess(registry.register(first, { label: "first" }));
@@ -2161,10 +2150,7 @@ describe("actor identity admission", () => {
         providerFence: makeProviderFence(right),
         select: () => providerDefinition.S.ready,
       },
-    ] satisfies readonly ActorContextBinding<
-      typeof cycleConsumerDefinition,
-      typeof providerDefinition
-    >[];
+    ] satisfies ActorContextBinding<typeof cycleConsumerDefinition, typeof providerDefinition>[];
 
     const result = validateActorAdmission(
       {
@@ -2884,7 +2870,7 @@ describe("pending regression scenarios", () => {
   it.effect("constructing a disposal Effect does not reserve a cleanup attempt", () =>
     Effect.gen(function* () {
       const ref = actorRef(editorMachine, "cold-disposal", { persist: true });
-      const registry = makeActorIdentityRegistry<{ readonly label: string }>();
+      const registry = makeActorIdentityRegistry<{ label: string }>();
       const identity = resultSuccess(registry.reserveStable(ref));
 
       const validated = resultSuccess(
