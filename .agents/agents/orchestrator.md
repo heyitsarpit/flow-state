@@ -14,6 +14,9 @@ description: Coordinate one primary coder, optional secondary coders, and three
   and decides whether to delegate disjoint work to zero, one, or two secondary coders.
 - Record the agent task table below in the Bead before each dispatch. Use its model and
   reasoning setting for that agent.
+- Start each Bead, including a follow-up Bead, with fresh agent threads. Keep each
+  assigned agent, model, and reasoning setting through that Bead's repairs and close;
+  do not reuse its agents for the next Bead.
 - After coder checks pass and edits stop, invoke three separate
   [reviewers](./reviewer.md) in parallel: `reviewer_type=architecture`, `contract`, `bug`.
 - Wait for all three verdicts. Close only after acceptance criteria, required checks, and
@@ -33,7 +36,7 @@ description: Coordinate one primary coder, optional secondary coders, and three
 - Overlapping coder scopes → keep secondary coders read-only; never let two coders edit
   the same path concurrently.
 - Review findings → collect all three verdicts and send one deduplicated repair list to
-  the primary coder. Have only affected reviewers recheck the repair; retain other
+  the same primary coder. Have the same affected reviewers recheck the repair; retain other
   verdicts when their reviewed inputs are unchanged.
 - Second repair round still has findings → stop automatic repair, split the unresolved
   work into a narrow follow-up Bead or request a user decision. A third review may
