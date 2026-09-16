@@ -21,6 +21,12 @@ export type EvidenceSink = EvidenceAttachmentToken & {
   offer: (record: EvidenceRecord) => Effect.Effect<AttachmentOfferResult, PublicDiagnostic>;
 };
 
+type EvidenceSinkOptions = {
+  id: string;
+  capacity: number;
+  deliver: (record: EvidenceRecord) => Effect.Effect<void, PublicDiagnostic>;
+};
+
 const sequenceOf = (record: EvidenceRecord) =>
   record._tag === "turn" ? record.sequence : record.evidenceSequence;
 
@@ -47,11 +53,7 @@ const makeSinkFailure = (cause: Cause.Cause<PublicDiagnostic>) => diagnosticFrom
 /** P10 owns one bounded queue and exposes its Journal attachment capability. */
 // RETURN_TYPE: The sink factory keeps its typed construction failure channel explicit.
 export const makeEvidenceSink = (
-  options: {
-    id?: string;
-    capacity?: number;
-    deliver?: (record: EvidenceRecord) => Effect.Effect<void, PublicDiagnostic>;
-  } = {},
+  options: Partial<EvidenceSinkOptions> = {},
 ): Effect.Effect<EvidenceSink, PublicDiagnostic> =>
   Effect.gen(function* () {
     const capacity = options.capacity ?? 64;

@@ -101,14 +101,19 @@ export type MemoryDeclaration<
 
 type EventArguments = DefinitionValue[];
 
-export type DefinitionConfig = {
+type DefinitionConfigBase = {
   id: string;
   states: DefinitionList<StateDeclaration>;
   events: EventDeclarations;
-  context?: ContextDeclarations;
-  operations?: OperationDeclarations;
-  memory?: MemoryDeclaration;
 };
+
+type DefinitionConfigOptions = Partial<{
+  context: ContextDeclarations;
+  operations: OperationDeclarations;
+  memory: MemoryDeclaration;
+}>;
+
+export type DefinitionConfig = DefinitionConfigBase & DefinitionConfigOptions;
 
 /*
  * Component map — nominal identities and token construction:
@@ -267,13 +272,15 @@ export type RuntimeEventTable<Event extends RuntimeEventIdentity = RuntimeEventI
   Event
 >;
 
-export type DefinitionConstraint = Brand.Brand<"Definition"> &
+export type DefinitionConstraint<
+  Memory extends MemoryDeclaration | undefined = MemoryDeclaration | undefined,
+> = Brand.Brand<"Definition"> &
   DefinitionIdentity & {
     S: RuntimeStateTable;
     E: RuntimeEventTable;
     context: ContextDeclarations;
     operations: OperationDeclarations;
-    memory: MemoryDeclaration | undefined;
+    memory: Memory;
   };
 
 export type Definition<
@@ -304,7 +311,9 @@ export type Definition<
   "Definition"
 >;
 
-export type AnyDefinition = Brand.Branded<
+export type AnyDefinition<
+  Memory extends MemoryDeclaration | undefined = MemoryDeclaration | undefined,
+> = Brand.Branded<
   {
     id: string;
     states: DefinitionList<StateDeclaration>;
@@ -312,10 +321,10 @@ export type AnyDefinition = Brand.Branded<
     E: RuntimeEventTable<EventToken>;
     context: ContextDeclarations;
     operations: OperationDeclarations;
-    memory: MemoryDeclaration | undefined;
+    memory: Memory;
     select: <const Value extends DefinitionValue>(
-      selector: (input: SelectorInput<AnyDefinition>) => Value,
-    ) => ContextSelector<Value, AnyDefinition>;
+      selector: (input: SelectorInput<AnyDefinition<Memory>>) => Value,
+    ) => ContextSelector<Value, AnyDefinition<Memory>>;
   },
   "Definition"
 >;

@@ -71,7 +71,7 @@ export type RuntimeEvidenceService<
     record: RuntimeLifecycleEvidenceFact<DefinitionValue, CleanupError, ProviderDefinition>,
     preparation: EvidencePreparation,
   ) => Effect.Effect<void, PublicDiagnostic>;
-  drain: Effect.Effect<unknown, PublicDiagnostic>;
+  drain: Effect.Effect<void, PublicDiagnostic>;
 };
 
 /** Identifies the evidence capability supplied by a runtime composition root. */
@@ -95,7 +95,7 @@ export const makeRuntimeServicesLayer = <
 >(services: {
   clock: Clock.Clock;
   evidence: RuntimeEvidenceService<A, DefinitionValue, CleanupError>;
-}): RuntimeServicesLayer =>
+}) =>
   Layer.mergeAll(
     Layer.succeed(Clock.Clock)(services.clock),
     Layer.succeed(RuntimeEvidence)(services.evidence),

@@ -124,11 +124,16 @@ describe("operation executable input ownership", () => {
   });
 
   it("rejects cycles, malformed containers, accessors, and hostile reflection", () => {
+    type InputSlot<Value> = { state: "absent" } | { state: "present"; value: Value };
+
     type Params = {
       value: string;
-      parts?: string[];
-      nested?: Params;
+      parts: InputSlot<string[]>;
+      nested: InputSlot<Params>;
     };
+
+    const absentParts: InputSlot<string[]> = { state: "absent" };
+    const absentNested: InputSlot<Params> = { state: "absent" };
 
     const project = resource({
       id: "projects.snapshot-validation",
@@ -140,17 +145,24 @@ describe("operation executable input ownership", () => {
       assert.throws(() => project.lookup(params), TypeError);
     };
 
-    const cycle: Params = { value: "cycle" };
-    cycle.nested = cycle;
+    const cycle: Params = { value: "cycle", parts: absentParts, nested: absentNested };
+    cycle.nested = { state: "present", value: cycle };
     expectRejected(cycle);
 
     const sparse: string[] = [];
     sparse.length = 1;
-    expectRejected({ value: "sparse", parts: sparse });
+    expectRejected({
+      value: "sparse",
+      parts: { state: "present", value: sparse },
+      nested: absentNested,
+    });
 
-    const extra: string[] & { extra?: string } = ["part"];
-    extra.extra = "unexpected";
-    expectRejected({ value: "extra", parts: extra });
+    const extra = Object.assign(["part"], { extra: "unexpected" });
+    expectRejected({
+      value: "extra",
+      parts: { state: "present", value: extra },
+      nested: absentNested,
+    });
 
     const symbolParts = ["part"];
     Object.defineProperty(symbolParts, Symbol("extra"), {
@@ -159,13 +171,23 @@ describe("operation executable input ownership", () => {
       value: "unexpected",
       writable: true,
     });
-    expectRejected({ value: "symbol-array", parts: symbolParts });
+    expectRejected({
+      value: "symbol-array",
+      parts: { state: "present", value: symbolParts },
+      nested: absentNested,
+    });
 
     const symbolRecord = { value: "symbol-record", [Symbol("extra")]: "unexpected" };
-    expectRejected(symbolRecord);
+    expectRejected({ ...symbolRecord, parts: absentParts, nested: absentNested });
 
     let getterCalls = 0;
-    const accessor: Params = { value: "placeholder" };
+
+    const accessor: Params = {
+      value: "placeholder",
+      parts: absentParts,
+      nested: absentNested,
+    };
+
     Object.defineProperty(accessor, "value", {
       configurable: true,
       enumerable: true,
@@ -178,14 +200,18 @@ describe("operation executable input ownership", () => {
     expectRejected(accessor);
     assert.strictEqual(getterCalls, 0);
 
-    const revoked = Proxy.revocable({ value: "revoked" }, {});
+    const revoked = Proxy.revocable(
+      { value: "revoked", parts: absentParts, nested: absentNested },
+      {},
+    );
+
     revoked.revoke();
     expectRejected(revoked.proxy);
 
     let reflectionCalls = 0;
 
     const inconsistent = new Proxy(
-      { value: "inconsistent" },
+      { value: "inconsistent", parts: absentParts, nested: absentNested },
       {
         ownKeys: (target) => {
           reflectionCalls += 1;
@@ -370,12 +396,23 @@ describe("operation executable input ownership", () => {
   });
 
   it("snapshots deep ordinary parameters without recursive stack growth", () => {
-    type Deep = { next?: Deep; value?: string };
+    type InputSlot<Value> = { state: "absent" } | { state: "present"; value: Value };
+
+    type Deep = { next: InputSlot<Deep>; value: InputSlot<string> };
+
+    const absentNext: InputSlot<Deep> = { state: "absent" };
+    const absentValue: InputSlot<string> = { state: "absent" };
 
     const depth = 2_048;
-    let input: Deep = { value: "leaf" };
 
-    for (let index = 0; index < depth; index += 1) input = { next: input };
+    let input: Deep = {
+      next: absentNext,
+      value: { state: "present", value: "leaf" },
+    };
+
+    for (let index = 0; index < depth; index += 1) {
+      input = { next: { state: "present", value: input }, value: absentValue };
+    }
 
     const project = resource({
       id: "projects.snapshot-deep",
@@ -391,11 +428,14 @@ describe("operation executable input ownership", () => {
     for (let index = 0; index < depth; index += 1) {
       assert.strictEqual(Object.isFrozen(cursor), false);
 
-      if (cursor.next === undefined) throw new Error("deep snapshot ended early");
-      cursor = cursor.next;
+      if (cursor.next.state === "absent") throw new Error("deep snapshot ended early");
+      cursor = cursor.next.value;
     }
 
-    assert.deepStrictEqual(cursor, { value: "leaf" });
+    assert.deepStrictEqual(cursor, {
+      next: absentNext,
+      value: { state: "present", value: "leaf" },
+    });
     assert.strictEqual(Object.isFrozen(cursor), false);
   });
 });

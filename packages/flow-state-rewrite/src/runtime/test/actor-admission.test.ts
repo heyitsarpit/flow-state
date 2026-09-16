@@ -28,6 +28,7 @@ import {
 } from "../actor-admission.js";
 
 type DeterministicGcHost = typeof globalThis & {
+  // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- the test host may expose gc only when the runtime is launched with explicit GC support.
   gc?: () => void;
 };
 
@@ -37,12 +38,20 @@ const resultSuccess = <Value, Error>(result: Result.Result<Value, Error>) => {
   return result.success;
 };
 
-const makeCloseOwner = (drain?: Effect.Effect<void, PublicDiagnostic>) =>
-  makeRuntimeOwner<never, never, never, undefined, never, never, PublicDiagnostic>({
+const makeCloseOwner = (drain?: Effect.Effect<void, PublicDiagnostic>) => {
+  const base = {
     layer: Layer.empty,
     expose: Effect.succeed(undefined),
-    ...(drain === undefined ? {} : { drain }),
+  };
+
+  if (drain === undefined)
+    return makeRuntimeOwner<never, never, never, undefined, never, never, PublicDiagnostic>(base);
+
+  return makeRuntimeOwner<never, never, never, undefined, never, never, PublicDiagnostic>({
+    ...base,
+    drain,
   });
+};
 
 const registerAndExpose = <Actor, DefinitionValue extends MachineDefinition>(
   registry: ActorIdentityRegistry<Actor>,

@@ -35,7 +35,7 @@ import type { ActorPublication, ActorSnapshot } from "../actor-engine.js";
 import { makeRuntimeServicesLayer, type RuntimeEvidenceService } from "../runtime-services.js";
 
 const makeTestClock = (now: number | (() => number)): Clock.Clock => {
-  const currentTime = typeof now === "number" ? () => now : now;
+  const currentTime = Predicate.isNumber(now) ? () => now : now;
   const currentTimeNanos = () => BigInt(currentTime()) * 1_000_000n;
 
   return {
@@ -61,10 +61,17 @@ const isCleanupFailureEnvelope = (
 ): value is { _tag: "cleanup-failure"; cause: Cause.Cause<unknown> } =>
   Predicate.isObject(value) && value._tag === "cleanup-failure" && Cause.isCause(value.cause);
 
+const nullPayload = null;
+
+const undefinedPayload = undefined;
+
+type NullUndefinedPayload = {
+  payload: typeof nullPayload;
+  optional: typeof undefinedPayload;
+};
+
 // RETURN_TYPE: This predicate preserves the exact null and present-undefined fields under test.
-const hasNullUndefinedPayloadFields = (
-  value: unknown,
-): value is { payload: null; optional: undefined } =>
+const hasNullUndefinedPayloadFields = (value: unknown): value is NullUndefinedPayload =>
   Predicate.isObject(value) &&
   Object.hasOwn(value, "payload") &&
   value.payload === null &&
@@ -587,9 +594,11 @@ describe("runtime evidence", () => {
         ),
       );
 
+      const foreignJournal = makeEvidenceJournal({ app: EvidenceApp, plan: EvidencePlan });
+
       const unowned: RuntimeEvidenceService = {
         // SAFETY: this deliberately foreign capability exercises the owner boundary.
-        journal: {} as EvidenceJournal,
+        journal: foreignJournal,
         prepare: () =>
           Result.fail(
             Failure({

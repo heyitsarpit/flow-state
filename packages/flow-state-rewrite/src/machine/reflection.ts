@@ -22,18 +22,20 @@ import { invalidMachineConfigurationDiagnostic } from "./diagnostic.js";
  *   snapshotRecord, readSnapshotProperty, readArrayValues, readTokenText
  */
 
-// oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- reflection retains unknown children until each grammar validator promotes them.
-type PlainRecord = Record<string, unknown>;
+// Reflection keeps caller values generic until each machine grammar validator promotes them.
+type PlainRecord<Value> = Record<string, Value>;
 
-// oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- reflection retains unknown array entries until each grammar validator promotes them.
-type ReflectionSource = unknown[] | PlainRecord;
+type ReflectionSource<Value> = Value[] | PlainRecord<Value>;
+
+// FLOW_STATE_ALLOW_UNKNOWN: array projection is intentionally opaque until the owning grammar schema admits each element.
+type ReflectionValue = unknown;
 
 type PropertyFlags = { enumerable: boolean; configurable: boolean };
 
-type DataProperty =
+type DataProperty<Value> =
   | (PropertyFlags & {
       kind: "data";
-      value: unknown;
+      value: Value;
       writable: boolean;
     })
   | (PropertyFlags & {
@@ -43,38 +45,39 @@ type DataProperty =
     })
   | { kind: "missing" };
 
-type DataDescriptor = Extract<DataProperty, { kind: "data" }>;
+type DataDescriptor<Value> = Extract<DataProperty<Value>, { kind: "data" }>;
 
-type PresentProperty = Exclude<DataProperty, { kind: "missing" }>;
+type PresentProperty<Value> = Exclude<DataProperty<Value>, { kind: "missing" }>;
 
 type ReflectionReason = Parameters<typeof invalidMachineConfigurationDiagnostic>[0];
 
-type SnapshotProperty = [PropertyKey, PresentProperty];
+type ReflectionPrototype = ReturnType<typeof Object.getPrototypeOf>;
 
-type ReflectionSnapshot = {
-  prototype: unknown;
-  properties: SnapshotProperty[];
+type SnapshotProperty<Value> = [PropertyKey, PresentProperty<Value>];
+
+type ReflectionSnapshot<Value, Prototype> = {
+  prototype: Prototype;
+  properties: SnapshotProperty<Value>[];
 };
 
-export type ConfigurationSnapshot = { properties: SnapshotProperty[] };
-
-// RETURN_TYPE: Preserves the PlainRecord predicate required before classified record access; removal caused TS2322 and TS2345.
-const isNonArrayObject = (value: unknown): value is PlainRecord =>
-  Predicate.isObject(value) && !Array.isArray(value);
-
-type RecordClassification =
+type RecordClassification<Value> =
   | {
       _tag: "record";
-      // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- classified reflection records remain unknown until each grammar validator promotes them.
-      record: PlainRecord;
-      prototype: unknown;
+      record: Value & PlainRecord<Value>;
+      prototype: ReflectionPrototype;
     }
   | { _tag: "other" };
 
+export type ConfigurationSnapshot<Value> = { properties: SnapshotProperty<Value>[] };
+
+// RETURN_TYPE: Preserves the PlainRecord predicate required before classified record access; removal caused TS2322 and TS2345.
+const isNonArrayObject = <Value>(value: Value): value is Value & PlainRecord<Value> =>
+  Predicate.isObject(value) && !Array.isArray(value);
+
 // RETURN_TYPE: Preserves _tag discriminants and coupled record/prototype narrowing after classification.
-const classifyPlainRecord = (value: unknown): RecordClassification => {
+const classifyPlainRecord = <Value>(value: Value): RecordClassification<Value> => {
   if (!isNonArrayObject(value)) return { _tag: "other" };
-  const prototype: unknown = Object.getPrototypeOf(value);
+  const prototype = Object.getPrototypeOf(value);
 
   return prototype !== null && prototype !== Object.prototype
     ? { _tag: "other" }
@@ -109,7 +112,10 @@ const invalidReflectionKey = (
   invalidReflection(reason, [...path, String(key)], { key: String(key) });
 
 // RETURN_TYPE: Preserves the DataProperty discriminant required by callers; removal caused TS2322.
-const readDataProperty = (value: ReflectionSource, key: PropertyKey): DataProperty => {
+const readDataProperty = <Value>(
+  value: ReflectionSource<Value>,
+  key: PropertyKey,
+): DataProperty<Value> => {
   const descriptor = Object.getOwnPropertyDescriptor(value, key);
 
   if (descriptor === undefined) return { kind: "missing" };
@@ -133,14 +139,14 @@ const readDataProperty = (value: ReflectionSource, key: PropertyKey): DataProper
 };
 
 // RETURN_TYPE: Keeps the descriptor snapshot as a copied mutable projection for grammar admission.
-const captureProperties = (
-  record: ReflectionSource,
+const captureProperties = <Value>(
+  record: ReflectionSource<Value>,
   keys: PropertyKey[],
   path: Diagnostic.Path,
   reason: ReflectionReason,
-): Result.Result<SnapshotProperty[], Diagnostic.PublicDiagnostic> =>
+): Result.Result<SnapshotProperty<Value>[], Diagnostic.PublicDiagnostic> =>
   Result.gen(function* () {
-    const properties: SnapshotProperty[] = [];
+    const properties: SnapshotProperty<Value>[] = [];
 
     for (const key of keys) {
       const property = yield* readReflection(() => readDataProperty(record, key), path, reason);
@@ -154,7 +160,10 @@ const captureProperties = (
 
 // Stability
 
-const sameSnapshotProperty = (left: PresentProperty, right: PresentProperty) => {
+const sameSnapshotProperty = <Value>(
+  left: PresentProperty<Value>,
+  right: PresentProperty<Value>,
+) => {
   if (left.enumerable !== right.enumerable || left.configurable !== right.configurable)
     return false;
 
@@ -169,7 +178,10 @@ const sameSnapshotProperty = (left: PresentProperty, right: PresentProperty) => 
   return right.kind === "accessor" && left.get === right.get && left.set === right.set;
 };
 
-const sameSnapshot = (left: ReflectionSnapshot, right: ReflectionSnapshot) => {
+const sameSnapshot = <Value, Prototype>(
+  left: ReflectionSnapshot<Value, Prototype>,
+  right: ReflectionSnapshot<Value, Prototype>,
+) => {
   if (left.properties.length !== right.properties.length) return false;
 
   for (const [index, [key]] of left.properties.entries()) {
@@ -189,12 +201,12 @@ const sameSnapshot = (left: ReflectionSnapshot, right: ReflectionSnapshot) => {
 };
 
 // RETURN_TYPE: Publishes the copied descriptor snapshot after confirming the source remained stable.
-const snapshotProperties = (
-  record: ReflectionSource,
-  prototype: unknown,
+const snapshotProperties = <Value, Prototype>(
+  record: ReflectionSource<Value>,
+  prototype: Prototype,
   path: Diagnostic.Path,
   reason: ReflectionReason,
-): Result.Result<ConfigurationSnapshot, Diagnostic.PublicDiagnostic> =>
+): Result.Result<ConfigurationSnapshot<Value>, Diagnostic.PublicDiagnostic> =>
   Result.gen(function* () {
     const keys = yield* readReflection(() => Reflect.ownKeys(record), path, reason);
     const properties = yield* captureProperties(record, keys, path, reason);
@@ -204,7 +216,7 @@ const snapshotProperties = (
 
     const repeatedPrototype = yield* readReflection(
       () => {
-        const prototype: ReflectionSnapshot["prototype"] = Object.getPrototypeOf(record);
+        const prototype = Object.getPrototypeOf(record);
 
         return prototype;
       },
@@ -212,8 +224,12 @@ const snapshotProperties = (
       reason,
     );
 
-    const first = { prototype, properties };
-    const repeated = { prototype: repeatedPrototype, properties: repeatedProperties };
+    const first: ReflectionSnapshot<Value, Prototype> = { prototype, properties };
+
+    const repeated: ReflectionSnapshot<Value, Prototype> = {
+      prototype: repeatedPrototype,
+      properties: repeatedProperties,
+    };
 
     if (!sameSnapshot(first, repeated)) return yield* invalidReflection(reason, path);
 
@@ -231,7 +247,11 @@ const arrayOrdinal = (key: string) => {
     : undefined;
 };
 
-const arrayLength = (property: DataProperty) => {
+// RETURN_TYPE: Preserves the mutable array narrowing needed by the descriptor snapshot.
+const isArrayValue = <Value>(value: Value): value is Value & ReflectionValue[] =>
+  Array.isArray(value);
+
+const arrayLength = <Value>(property: DataProperty<Value>) => {
   if (property.kind !== "data") return undefined;
 
   if (property.enumerable || property.configurable) return undefined;
@@ -245,13 +265,13 @@ const arrayLength = (property: DataProperty) => {
   return property.value;
 };
 
-const validateArrayKeys = (
-  properties: SnapshotProperty[],
+const validateArrayKeys = <Value>(
+  properties: SnapshotProperty<Value>[],
   length: number,
   path: Diagnostic.Path,
   reason: "ExpectedTransition" | "ExpectedRedirect",
 ) => {
-  const entries = new Map<number, DataDescriptor>();
+  const entries = new Map<number, DataDescriptor<Value>>();
 
   for (const [key, property] of properties) {
     if (key === "length") continue;
@@ -274,32 +294,40 @@ const validateArrayKeys = (
 // Public readers
 
 // RETURN_TYPE: Fixes admitted reflection to the trusted snapshot channel before machine owners consume it.
-export const snapshotRecord = (
-  value: unknown,
+export const snapshotRecord = <Value>(
+  value: Value,
   path: Diagnostic.Path,
   reason: ReflectionReason,
-): Result.Result<ConfigurationSnapshot, Diagnostic.PublicDiagnostic> =>
+): Result.Result<ConfigurationSnapshot<Value>, Diagnostic.PublicDiagnostic> =>
   Result.gen(function* () {
     const classified = yield* readReflection(() => classifyPlainRecord(value), path, reason);
 
     if (classified._tag === "other") return yield* invalidReflection(reason, path);
 
-    return yield* snapshotProperties(classified.record, classified.prototype, path, reason);
+    return yield* snapshotProperties<Value, ReflectionPrototype>(
+      classified.record,
+      classified.prototype,
+      path,
+      reason,
+    );
   });
 
 // RETURN_TYPE: Preserves the explicit missing-property branch for array validation.
-export const readSnapshotProperty = (snapshot: ConfigurationSnapshot, key: string): DataProperty =>
+export const readSnapshotProperty = <Value>(
+  snapshot: ConfigurationSnapshot<Value>,
+  key: string,
+): DataProperty<Value> =>
   snapshot.properties.find(([candidate]) => candidate === key)?.[1] ?? { kind: "missing" };
 
 // RETURN_TYPE: Preserves the mutable copied array projection used by grammar admission.
-export const readArrayValues = (
-  value: unknown,
+export const readArrayValues = <Value>(
+  value: Value,
   path: Diagnostic.Path,
   reason: "ExpectedTransition" | "ExpectedRedirect",
-): Result.Result<unknown[] | undefined, Diagnostic.PublicDiagnostic> =>
+): Result.Result<ReflectionValue[] | undefined, Diagnostic.PublicDiagnostic> =>
   Result.gen(function* () {
-    const array = yield* readReflection(
-      () => (Array.isArray(value) ? value : undefined),
+    const array = yield* readReflection<ReflectionValue[] | undefined>(
+      () => (isArrayValue(value) ? value : undefined),
       path,
       reason,
     );
@@ -308,7 +336,7 @@ export const readArrayValues = (
 
     const prototype = yield* readReflection(
       () => {
-        const prototype: ReflectionSnapshot["prototype"] = Object.getPrototypeOf(array);
+        const prototype = Object.getPrototypeOf(array);
 
         return prototype;
       },
@@ -317,13 +345,20 @@ export const readArrayValues = (
     );
 
     if (prototype !== Array.prototype) return yield* invalidReflection(reason, path);
-    const snapshot = yield* snapshotProperties(array, prototype, path, reason);
+
+    const snapshot = yield* snapshotProperties<ReflectionValue, typeof prototype>(
+      array,
+      prototype,
+      path,
+      reason,
+    );
+
     const length = arrayLength(readSnapshotProperty(snapshot, "length"));
 
     if (length === undefined) return yield* invalidReflection(reason, path);
     const entries = yield* validateArrayKeys(snapshot.properties, length, path, reason);
 
-    const values: unknown[] = [];
+    const values: ReflectionValue[] = [];
 
     for (let index = 0; index < length; index += 1) {
       const property = entries.get(index);
@@ -335,7 +370,7 @@ export const readArrayValues = (
     return values;
   });
 
-export const readTokenText = (value: unknown, key: "kind" | "id" | "name") =>
+export const readTokenText = <Value>(value: Value, key: "kind" | "id" | "name") =>
   Result.try({
     try: () => {
       if (!Predicate.isObject(value)) return Option.none<string>();

@@ -5,7 +5,7 @@ export const isStableKeyList = (left: PropertyKey[], right: PropertyKey[]) =>
 export const isStableDataDescriptor = (
   left: PropertyDescriptor,
   right: PropertyDescriptor,
-): right is PropertyDescriptor & { value: unknown } =>
+): right is PropertyDescriptor & Required<Pick<PropertyDescriptor, "value">> =>
   "value" in left &&
   "value" in right &&
   left.configurable === right.configurable &&

@@ -1,6 +1,6 @@
 /** Small shallow owned-copy helpers used by runtime publications. */
 
-// oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- this private constraint preserves arbitrary admitted record fields while callers remain generic.
+// FLOW_STATE_ALLOW_UNKNOWN: This private copy constraint carries heterogeneous admitted record fields; each caller supplies a concrete generic.
 type PlainRecord = Record<string, unknown>;
 
 export const copyArray = <Value>(values: Iterable<Value>) => {

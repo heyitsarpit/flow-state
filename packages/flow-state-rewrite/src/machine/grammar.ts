@@ -40,7 +40,7 @@ type NonEmptyList<Value> = readonly [Value, ...Value[]];
 
 export type MachineDefinition = DefinitionConstraint;
 
-export type TokenLookup<Token> = (value: unknown) => Option.Option<Token>;
+export type TokenLookup<Token> = <Value>(value: Value) => Option.Option<Token>;
 
 export type StateNode<DefinitionValue extends DefinitionConstraint = DefinitionConstraint> =
   | {
@@ -223,15 +223,16 @@ export type Transition<
   Name extends EventName<DefinitionValue>,
 > = {
   target: StateOf<DefinitionValue>;
-  guard?: (input: MachineInput<DefinitionValue, EventValue<DefinitionValue, Name>>) => boolean;
-  updateMemory?: (
+} & Partial<{
+  guard: (input: MachineInput<DefinitionValue, EventValue<DefinitionValue, Name>>) => boolean;
+  updateMemory: (
     input: MachineInput<DefinitionValue, EventValue<DefinitionValue, Name>>,
   ) => Partial<MemoryOf<DefinitionValue>>;
-  actions?: (
+  actions: (
     input: MachineInput<DefinitionValue, EventValue<DefinitionValue, Name>>,
   ) => MachineActionResult<DefinitionValue>;
-  reenter?: StateOf<DefinitionValue>;
-};
+  reenter: StateOf<DefinitionValue>;
+}>;
 
 type EventHandlers<DefinitionValue extends MachineDefinition> = {
   [Name in EventName<DefinitionValue>]?:
@@ -247,11 +248,12 @@ export type Redirect<DefinitionValue extends MachineDefinition> = {
 
 export type Timer<DefinitionValue extends MachineDefinition> = {
   delay: number;
-  guard?: (input: TimerInput<DefinitionValue>) => boolean;
   target: DefinitionValue["E"][EventName<DefinitionValue>];
-  updateMemory?: (input: TimerInput<DefinitionValue>) => Partial<MemoryOf<DefinitionValue>>;
-  actions?: never;
-};
+} & Partial<{
+  guard: (input: TimerInput<DefinitionValue>) => boolean;
+  updateMemory: (input: TimerInput<DefinitionValue>) => Partial<MemoryOf<DefinitionValue>>;
+  actions: never;
+}>;
 
 // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- authored activity services are indexed by their state-local names.
 type ActivityConfiguration<DefinitionValue extends MachineDefinition> = Record<
@@ -259,18 +261,24 @@ type ActivityConfiguration<DefinitionValue extends MachineDefinition> = Record<
   MachineActivity<DefinitionValue>
 >;
 
-export type MachineStateBehavior<DefinitionValue extends MachineDefinition> = {
-  on?: EventHandlers<DefinitionValue>;
-  redirect?: Redirect<DefinitionValue> | NonEmptyList<Redirect<DefinitionValue>>;
-  activities?: ActivityConfiguration<DefinitionValue>;
-  timers?: Record<string, Timer<DefinitionValue>>;
+type MachineStateBehaviorFields<DefinitionValue extends MachineDefinition> = {
+  on: EventHandlers<DefinitionValue>;
+  redirect: Redirect<DefinitionValue> | NonEmptyList<Redirect<DefinitionValue>>;
+  activities: ActivityConfiguration<DefinitionValue>;
+  timers: Record<string, Timer<DefinitionValue>>;
+};
+
+export type MachineStateBehavior<DefinitionValue extends MachineDefinition> = Partial<
+  MachineStateBehaviorFields<DefinitionValue>
+>;
+
+type MachineNodeFields<DefinitionValue extends MachineDefinition> = {
+  default: StateToken;
+  states: Record<string, MachineNodeConfiguration<DefinitionValue>>;
 };
 
 export type MachineNodeConfiguration<DefinitionValue extends MachineDefinition> =
-  MachineStateBehavior<DefinitionValue> & {
-    default?: StateToken;
-    states?: Record<string, MachineNodeConfiguration<DefinitionValue>>;
-  };
+  MachineStateBehavior<DefinitionValue> & Partial<MachineNodeFields<DefinitionValue>>;
 
 type MachineLeafConfiguration<DefinitionValue extends MachineDefinition> =
   MachineStateBehavior<DefinitionValue>;
@@ -325,6 +333,8 @@ type ExactKeys<Value, Shape> = NoExtra<Value, Shape> extends true ? NoExtra<Shap
 type HasExactKeys<Value, Shape> = EveryTrue<Value extends Value ? ExactKeys<Value, Shape> : never>;
 
 type EveryTrue<Value> = [Value] extends [true] ? true : false;
+
+type ConfigurationProperty<Value, Name extends keyof Value> = PresentProperty<Value, Name>;
 
 type ValidTransition<
   DefinitionValue extends MachineDefinition,
@@ -397,9 +407,7 @@ type ValidRedirects<DefinitionValue extends MachineDefinition, Value> = unknown 
     : EveryTrue<ValidRedirect<DefinitionValue, RedirectEntry<Value>>>;
 
 type RedirectValueOf<Configuration> = "redirect" extends keyof Configuration
-  ? Configuration extends { redirect?: infer Redirects }
-    ? Redirects
-    : never
+  ? ConfigurationProperty<Configuration, "redirect">
   : undefined;
 
 type ValidNodeBehavior<
@@ -408,19 +416,13 @@ type ValidNodeBehavior<
 > = Configuration extends Configuration
   ? ValidOn<
       DefinitionValue,
-      "on" extends keyof Configuration
-        ? Configuration extends { on?: infer On }
-          ? On
-          : never
-        : undefined
+      "on" extends keyof Configuration ? ConfigurationProperty<Configuration, "on"> : undefined
     > extends true
     ? ValidRedirects<DefinitionValue, RedirectValueOf<Configuration>> extends true
       ? ValidTimers<
           DefinitionValue,
           "timers" extends keyof Configuration
-            ? Configuration extends { timers?: infer Timers }
-              ? Timers
-              : never
+            ? ConfigurationProperty<Configuration, "timers">
             : undefined
         >
       : false

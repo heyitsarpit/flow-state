@@ -318,13 +318,13 @@ const captureSelectorDefect = (defect: PublicDiagnostic) => {
     path[index] = segment;
   }
 
-  const keys = Reflect.ownKeys(decoded.success.details);
+  const keys = Object.getOwnPropertyNames(decoded.success.details);
   const details: CapturedSelectorDefect["details"] = [];
 
   for (let index = 0; index < keys.length; index += 1) {
     const key = keys[index];
 
-    if (typeof key !== "string") return undefined;
+    if (key === undefined) return undefined;
     const descriptor = Object.getOwnPropertyDescriptor(decoded.success.details, key);
 
     if (descriptor === undefined || !("value" in descriptor)) return undefined;
@@ -342,35 +342,120 @@ const captureSelectorDefect = (defect: PublicDiagnostic) => {
   } satisfies CapturedSelectorDefect;
 };
 
-const matchesCapturedSelectorDefect = (
+const matchesCapturedSelectorMetadata = (
   current: CapturedSelectorDefect,
   expected: CapturedSelectorDefect,
+) =>
+  current.defect === expected.defect &&
+  current.classification === expected.classification &&
+  current.code === expected.code &&
+  current.summary === expected.summary &&
+  current.help === expected.help;
+
+const matchesCapturedSelectorPath = (
+  current: CapturedSelectorDefect["path"],
+  expected: CapturedSelectorDefect["path"],
 ) => {
-  if (
-    current.defect !== expected.defect ||
-    current.classification !== expected.classification ||
-    current.code !== expected.code ||
-    current.summary !== expected.summary ||
-    current.help !== expected.help
-  )
-    return false;
+  if (current.length !== expected.length) return false;
 
-  if (current.path.length !== expected.path.length) return false;
+  for (let index = 0; index < current.length; index += 1)
+    if (current[index] !== expected[index]) return false;
 
-  if (current.details.length !== expected.details.length) return false;
+  return true;
+};
 
-  for (let index = 0; index < current.path.length; index += 1)
-    if (current.path[index] !== expected.path[index]) return false;
+const matchesCapturedSelectorDetails = (
+  current: CapturedSelectorDefect["details"],
+  expected: CapturedSelectorDefect["details"],
+) => {
+  if (current.length !== expected.length) return false;
 
-  for (let index = 0; index < current.details.length; index += 1) {
-    const detail = current.details[index];
-    const expectedDetail = expected.details[index];
+  for (let index = 0; index < current.length; index += 1) {
+    const detail = current[index];
+    const expectedDetail = expected[index];
 
     if (
       detail === undefined ||
       expectedDetail === undefined ||
       detail.key !== expectedDetail.key ||
       !Object.is(detail.value, expectedDetail.value)
+    )
+      return false;
+  }
+
+  return true;
+};
+
+const matchesCapturedSelectorDefect = (
+  current: CapturedSelectorDefect,
+  expected: CapturedSelectorDefect,
+) =>
+  matchesCapturedSelectorMetadata(current, expected) &&
+  matchesCapturedSelectorPath(current.path, expected.path) &&
+  matchesCapturedSelectorDetails(current.details, expected.details);
+
+const matchesCapturedCarrierProvider = (
+  provider: ContextProjectionCarrier["providers"][number] | undefined,
+  expected: ContextProjectionCarrier["providers"][number] | undefined,
+  valueMatches: ((value: ContextPayload) => boolean) | undefined,
+) =>
+  provider !== undefined &&
+  expected !== undefined &&
+  valueMatches !== undefined &&
+  provider.slot === expected.slot &&
+  sameFence(provider.fence, expected.fence) &&
+  provider.revision === expected.revision &&
+  valueMatches(provider.value);
+
+const matchesCapturedCarrierProviders = (
+  providers: ContextProjectionCarrier["providers"],
+  expectedProviders: ContextProjectionCarrier["providers"],
+  providerValues: Array<(value: ContextPayload) => boolean>,
+) => {
+  if (providers.length !== expectedProviders.length) return false;
+
+  for (let index = 0; index < providers.length; index += 1) {
+    if (
+      !matchesCapturedCarrierProvider(
+        providers[index],
+        expectedProviders[index],
+        providerValues[index],
+      )
+    )
+      return false;
+  }
+
+  return true;
+};
+
+const matchesCapturedCarrierHeader = (
+  fact: Extract<ProjectionFact, { _tag: "context-projection" }>,
+  carrier: ContextProjectionCarrier,
+  expectedCarrier: ContextProjectionCarrier,
+  expectedLead: ContextProjectionCarrier["providers"][number] | undefined,
+  expectedIssueOnly: boolean,
+) =>
+  carrier === expectedCarrier &&
+  fact.provider.value === carrier &&
+  matchesCapturedLead(fact.provider, expectedLead) &&
+  carrier.issueOnly === expectedIssueOnly;
+
+const matchesCapturedCarrierDefects = (
+  selectorDefects: ContextProjectionCarrier["selectorDefects"],
+  expectedDefects: CapturedSelectorDefect[],
+) => {
+  if (selectorDefects.length !== expectedDefects.length) return false;
+
+  for (let index = 0; index < selectorDefects.length; index += 1) {
+    const defect = selectorDefects[index];
+    const expected = expectedDefects[index];
+    const captured = defect === undefined ? undefined : captureSelectorDefect(defect);
+
+    if (
+      defect === undefined ||
+      expected === undefined ||
+      captured === undefined ||
+      !matchesCapturedSelectorDefect(captured, expected)
     )
       return false;
   }
@@ -523,45 +608,19 @@ class ContextTicketWitness {
     const providers = readCarrierProviders(carrier.providers);
     const selectorDefects = readCarrierSelectorDefects(carrier.selectorDefects);
 
-    if (
-      providers === undefined ||
-      selectorDefects === undefined ||
-      carrier !== witness.#carrier ||
-      fact.provider.value !== carrier ||
-      !matchesCapturedLead(fact.provider, witness.#providers[0]) ||
-      providers.length !== witness.#providers.length ||
-      carrier.issueOnly !== witness.#issueOnly ||
-      selectorDefects.length !== witness.#selectorDefects.length
-    )
-      return false;
+    if (providers === undefined || selectorDefects === undefined) return false;
 
-    for (let index = 0; index < providers.length; index += 1) {
-      const provider = providers[index];
-      const expected = witness.#providers[index];
-
-      if (
-        expected === undefined ||
-        provider === undefined ||
-        provider.slot !== expected.slot ||
-        !sameFence(provider.fence, expected.fence) ||
-        provider.revision !== expected.revision ||
-        witness.#providerValues[index]?.(provider.value) !== true
-      )
-        return false;
-    }
-
-    for (let index = 0; index < selectorDefects.length; index += 1) {
-      const defect = selectorDefects[index];
-      const expected = witness.#selectorDefects[index];
-
-      if (defect === undefined || expected === undefined) return false;
-      const captured = captureSelectorDefect(defect);
-
-      if (captured === undefined || !matchesCapturedSelectorDefect(captured, expected))
-        return false;
-    }
-
-    return true;
+    return (
+      matchesCapturedCarrierHeader(
+        fact,
+        carrier,
+        witness.#carrier,
+        witness.#providers[0],
+        witness.#issueOnly,
+      ) &&
+      matchesCapturedCarrierProviders(providers, witness.#providers, witness.#providerValues) &&
+      matchesCapturedCarrierDefects(selectorDefects, witness.#selectorDefects)
+    );
   }
 }
 

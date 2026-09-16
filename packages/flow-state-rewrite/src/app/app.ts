@@ -92,26 +92,6 @@ type PlanMachine<Modules extends ModuleList> = AppMachine<Modules>;
 
 type AppMachineFacts = MachineRecordValue;
 
-type AdmissionRecord = {
-  [moduleTypeId]?: true;
-  kind?: unknown;
-  id?: unknown;
-  machines?: unknown;
-  persistenceVersion?: unknown;
-  modules?: unknown;
-};
-
-type ModuleConfiguration = {
-  id: unknown;
-  machines: unknown;
-};
-
-type AppConfiguration = {
-  id: unknown;
-  persistenceVersion: unknown;
-  modules: unknown;
-};
-
 export type Module<
   Id extends string = string,
   Machines extends MachineRecord = MachineRecord,
@@ -122,7 +102,7 @@ export type Module<
   [moduleTypeId]: true;
 };
 
-export type AnyModule = RequirementsCarrier<unknown> & {
+export type AnyModule = RequirementsCarrier<RequirementsOf<MachineRecordValue>> & {
   kind: "module";
   id: string;
   machines: MachineRecord;
@@ -212,7 +192,7 @@ export const appPlan = <
 
   // SAFETY: app() stores this plan under the same nominal App identity with the same generic inputs.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the private identity map preserves the App and AppPlan generic correlation.
-  return plan as unknown as AppPlan<Id, PersistenceVersion, Modules>;
+  return plan as AppPlan<Id, PersistenceVersion, Modules>;
 };
 
 type AppIndexes<
@@ -236,14 +216,14 @@ type AppIndexes<
 };
 
 // RETURN_TYPE: Narrows decoded configuration to the owned admission record shape.
-const isRecord = (value: unknown): value is AdmissionRecord => {
+const isRecord = <Value>(value: Value): value is Value & Record<string, Value> => {
   if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
   const prototype = Object.getPrototypeOf(value);
 
   return prototype === Object.prototype || prototype === null;
 };
 
-const captureConfigurationRecord = (value: unknown, expected: string[], label: string) => {
+const captureConfigurationRecord = <Value>(value: Value, expected: string[], label: string) => {
   const record = isRecord(value) ? value : undefined;
 
   if (record === undefined) return Result.fail(`${label} must be an object`);
@@ -262,7 +242,7 @@ const captureConfigurationRecord = (value: unknown, expected: string[], label: s
   return Result.succeed(record);
 };
 
-const readStableDataField = (value: AdmissionRecord, name: string, label: string) => {
+const readStableDataField = <Value>(value: Value, name: string, label: string) => {
   const descriptor = Object.getOwnPropertyDescriptor(value, name);
   const repeatedDescriptor = Object.getOwnPropertyDescriptor(value, name);
 
@@ -277,7 +257,7 @@ const readStableDataField = (value: AdmissionRecord, name: string, label: string
   return Result.succeed(repeatedDescriptor.value);
 };
 
-const captureModuleConfiguration = (value: unknown) => {
+const captureModuleConfiguration = <Value>(value: Value) => {
   const record = captureConfigurationRecord(value, ["id", "machines"], "Module configuration");
 
   if (Result.isFailure(record)) return record;
@@ -288,13 +268,10 @@ const captureModuleConfiguration = (value: unknown) => {
 
   if (Result.isFailure(machines)) return machines;
 
-  return Result.succeed({
-    id: id.success,
-    machines: machines.success,
-  } satisfies ModuleConfiguration);
+  return Result.succeed({ id: id.success, machines: machines.success });
 };
 
-const captureAppConfiguration = (value: unknown) => {
+const captureAppConfiguration = <Value>(value: Value) => {
   const record = captureConfigurationRecord(
     value,
     ["id", "persistenceVersion", "modules"],
@@ -331,12 +308,12 @@ const captureAppConfiguration = (value: unknown) => {
     id: id.success,
     persistenceVersion: persistenceVersion.success,
     modules: modules.success,
-  } satisfies AppConfiguration);
+  });
 };
 
 // RETURN_TYPE: Preserves the entry tuple consumed by exact machine-record capture.
-const captureMachineEntry = (
-  record: AdmissionRecord,
+const captureMachineEntry = <Value>(
+  record: Value,
   name: string,
 ): Result.Result<[string, MachineAdmission], string> => {
   const descriptor = Object.getOwnPropertyDescriptor(record, name);
@@ -359,9 +336,9 @@ const captureMachineEntry = (
 function captureMachineRecord<RecordValue extends MachineRecord>(
   value: RecordValue,
 ): Result.Result<CapturedMachineRecord<RecordValue>, string>;
-function captureMachineRecord(value: unknown): Result.Result<CapturedMachineRecord, string>;
+function captureMachineRecord<Value>(value: Value): Result.Result<CapturedMachineRecord, string>;
 // RETURN_TYPE: Keeps the generic capture overload compatible with its schema failure channel.
-function captureMachineRecord(value: unknown): Result.Result<CapturedMachineRecord, string> {
+function captureMachineRecord<Value>(value: Value): Result.Result<CapturedMachineRecord, string> {
   const record = isRecord(value) ? value : undefined;
 
   if (record === undefined) return Result.fail("Module machines must be a plain record");
@@ -426,7 +403,9 @@ type AppModulesFailure = {
 };
 
 // RETURN_TYPE: Preserves the reflected own-key list for dense indexed module capture.
-const readAppModuleKeys = (array: unknown[]): Result.Result<PropertyKey[], AppModulesFailure> => {
+const readAppModuleKeys = <Element>(
+  array: Element[],
+): Result.Result<PropertyKey[], AppModulesFailure> => {
   const keys = Reflect.ownKeys(array);
   const repeatedKeys = Reflect.ownKeys(array);
 
@@ -436,7 +415,7 @@ const readAppModuleKeys = (array: unknown[]): Result.Result<PropertyKey[], AppMo
   return Result.succeed(repeatedKeys);
 };
 
-const isOrdinaryAppModuleArray = (array: unknown[]) => {
+const isOrdinaryAppModuleArray = <Element>(array: Element[]) => {
   const prototype = Object.getPrototypeOf(array);
   const repeatedPrototype = Object.getPrototypeOf(array);
 
@@ -448,7 +427,9 @@ const isOrdinaryAppModuleArray = (array: unknown[]) => {
 };
 
 // RETURN_TYPE: Preserves the stable numeric length required by indexed module capture.
-const readAppModuleLength = (array: unknown[]): Result.Result<number, AppModulesFailure> => {
+const readAppModuleLength = <Element>(
+  array: Element[],
+): Result.Result<number, AppModulesFailure> => {
   const length = Object.getOwnPropertyDescriptor(array, "length");
   const repeatedLength = Object.getOwnPropertyDescriptor(array, "length");
 
@@ -486,8 +467,8 @@ const isCanonicalAppModuleKeyList = (keys: PropertyKey[], length: number) => {
 };
 
 // RETURN_TYPE: Preserves indexed descriptor admission and its public module failure path.
-const captureAppModuleEntry = (
-  array: unknown[],
+const captureAppModuleEntry = <Element>(
+  array: Element[],
   index: number,
 ): Result.Result<AnyModule, AppModulesFailure> => {
   const name = String(index);
@@ -522,7 +503,7 @@ const captureAppModuleEntry = (
 };
 
 // RETURN_TYPE: Publishes captured module entries as the App admission collection.
-const captureAppModules = (value: unknown): Result.Result<AnyModule[], AppModulesFailure> => {
+const captureAppModules = <Value>(value: Value): Result.Result<AnyModule[], AppModulesFailure> => {
   if (!Array.isArray(value))
     return Result.fail({ path: [], message: "App modules must be an array" });
   const array = value;
@@ -715,9 +696,9 @@ const decodeApp = Schema.decodeUnknownResult(AppSchema);
 function admitModuleConfiguration<Id extends string, Machines extends MachineRecord>(
   config: ModuleConfig<Id, Machines>,
 ): ModuleAdmission<Id, Machines>;
-function admitModuleConfiguration(input: unknown): ModuleAdmission;
+function admitModuleConfiguration<Value>(input: Value): ModuleAdmission;
 // RETURN_TYPE: Overload implementation return anchors the decoded module admission shape.
-function admitModuleConfiguration(input: unknown): ModuleAdmission {
+function admitModuleConfiguration<Value>(input: Value): ModuleAdmission {
   return decodeModule(input).pipe(Result.getOrThrowWith(projectModuleConfigurationFailure));
 }
 
@@ -728,9 +709,9 @@ function admitAppConfiguration<
 >(
   config: AppConfig<Id, PersistenceVersion, Modules>,
 ): AppAdmission<Id, PersistenceVersion, Modules>;
-function admitAppConfiguration(input: unknown): AppAdmission;
+function admitAppConfiguration<Value>(input: Value): AppAdmission;
 // RETURN_TYPE: Overload implementation return anchors the decoded app admission shape.
-function admitAppConfiguration(input: unknown): AppAdmission {
+function admitAppConfiguration<Value>(input: Value): AppAdmission {
   return decodeApp(input).pipe(Result.getOrThrowWith(projectAppConfigurationFailure));
 }
 
@@ -758,7 +739,7 @@ const indexMachine = <
 // RETURN_TYPE: Keeps descriptor indexing correlated with the AppPlan's Descriptor generic after identity admission.
 const isCapturedOperation = <Descriptor extends OperationDeclaration>(
   value: unknown,
-  descriptorValue: unknown,
+  descriptorValue: Descriptor,
 ): value is Descriptor => isConstructedOperation(value) && value === descriptorValue;
 
 // oxlint-disable-next-line anti-slop/no-excessive-cognitive-complexity -- one boundary owns the stable key, descriptor, and identity observations.

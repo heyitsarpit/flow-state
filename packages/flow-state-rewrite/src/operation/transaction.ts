@@ -10,6 +10,7 @@ import type {
   CancellationPlan,
   FiniteOutcomes,
   OperationDescriptor,
+  OperationDefect,
   OperationErrorOf,
   OperationOptions,
   OperationPlan,
@@ -46,13 +47,11 @@ import type { OperationKey, CanonicalKeyValue } from "./key.js";
  *   transaction overloads and implementation
  */
 
-type ParameterlessTransactionConfig<Id extends string, Program> = {
+type ParameterlessTransactionConfig<Id extends string, Program> = ({
   id: Id;
-  key?: never;
   commit: (options: OperationOptions) => Program & ValidOperationProgram<Program>;
-  persist?: boolean;
-  concurrency?: TransactionConcurrency;
-};
+} & TransactionPolicy) &
+  Partial<{ key: never }>;
 
 export type TransactionState<A, E, K extends OperationKey> =
   | { status: "idle"; key: K }
@@ -63,7 +62,7 @@ export type TransactionState<A, E, K extends OperationKey> =
       status: "defect";
       key: K;
       generation: number;
-      defect: unknown;
+      defect: OperationDefect;
     }
   | { status: "interrupted"; key: K; generation: number }
   | {
@@ -73,10 +72,16 @@ export type TransactionState<A, E, K extends OperationKey> =
       reconcileRequired: true;
     };
 
-export type TransactionCommitOptions<P, A, E, O = unknown> = {
-  outcomes?: FiniteOutcomes<A, E, O>;
-  writes?: (context: { params: P; value: A }) => CacheWritePlan<string, OperationKey, unknown>[];
-};
+// FLOW_STATE_ALLOW_UNKNOWN: Transaction writes cross resource value types, so each resource owns the concrete cache value contract.
+type OpaqueCacheWriteValue = unknown;
+
+export type TransactionCommitOptions<P, A, E, O = unknown> = Partial<{
+  outcomes: FiniteOutcomes<A, E, O>;
+  writes: (context: {
+    params: P;
+    value: A;
+  }) => CacheWritePlan<string, OperationKey, OpaqueCacheWriteValue>[];
+}>;
 
 export type TransactionCommitPlan<
   Id extends string,
@@ -117,24 +122,18 @@ export type TransactionConfig<Id extends string, P, K extends OperationKey, A, E
   id: Id;
   key: (params: P) => K;
   commit: TransactionCommitAdapter<P, A, E, R>;
-  persist?: boolean;
-  concurrency?: TransactionConcurrency;
-};
+} & TransactionPolicy;
 
 type TransactionImplementationConfig =
-  | {
+  | ({
       id: string;
       commit: (options: OperationOptions) => TransactionImplementationProgram;
-      persist?: boolean;
-      concurrency?: TransactionConcurrency;
-    }
-  | {
+    } & TransactionPolicy)
+  | ({
       id: string;
       key: (params: never) => OperationKey;
       commit: (params: never, options: OperationOptions) => TransactionImplementationProgram;
-      persist?: boolean;
-      concurrency?: TransactionConcurrency;
-    };
+    } & TransactionPolicy);
 
 type TransactionImplementationProgram =
   | Record<never, never>
@@ -154,16 +153,12 @@ type TransactionKeyedAuthoringConfig<Id extends string, P, K extends OperationKe
   id: Id;
   key: (params: P) => K;
   commit: (...args: never[]) => Program;
-  persist?: boolean | undefined;
-  concurrency?: TransactionConcurrency | undefined;
-};
+} & TransactionPolicy;
 
 type TransactionParameterlessAuthoringConfig<Id extends string, Program> = {
   id: Id;
   commit: (...args: never[]) => Program;
-  persist?: boolean | undefined;
-  concurrency?: TransactionConcurrency | undefined;
-};
+} & TransactionPolicy;
 
 const TransactionConfigurationSchema = Schema.Struct({
   id: AuthoredName,
@@ -178,6 +173,10 @@ type TransactionConfiguration = typeof TransactionConfigurationSchema.Type;
 const decodeTransactionConfiguration = Schema.decodeUnknownResult(TransactionConfigurationSchema, {
   onExcessProperty: "error",
 });
+
+type TransactionPolicy = Partial<Pick<TransactionConfiguration, "persist" | "concurrency">>;
+
+type TransactionConfigurationInput = Parameters<typeof decodeTransactionConfiguration>[0];
 
 const transactionConfigurationError = (failure: Schema.SchemaError) => {
   const field = firstConfigurationField(failure.issue);
@@ -202,8 +201,11 @@ function admitTransactionConfiguration<
 function admitTransactionConfiguration<const Id extends string, Program>(
   config: TransactionParameterlessAuthoringConfig<Id, Program>,
 ): TransactionParameterlessAuthoringConfig<Id, Program>;
-function admitTransactionConfiguration(input: unknown): TransactionConfiguration;
-function admitTransactionConfiguration(input: unknown) {
+
+function admitTransactionConfiguration(
+  input: TransactionConfigurationInput,
+): TransactionConfiguration;
+function admitTransactionConfiguration(input: TransactionConfigurationInput) {
   return decodeTransactionConfiguration(input).pipe(
     Result.getOrThrowWith(transactionConfigurationError),
   );
@@ -213,9 +215,7 @@ type TransactionConstructionConfig<Id extends string, P, K extends OperationKey,
   id: Id;
   key: (params: P) => K;
   commit: (...args: never[]) => Program;
-  persist?: boolean | undefined;
-  concurrency?: TransactionConcurrency | undefined;
-};
+} & TransactionPolicy;
 
 const createTransaction = <Id extends string, P, K extends OperationKey, Program>(
   config: TransactionConstructionConfig<Id, P, K, Program>,
@@ -274,18 +274,18 @@ export function transaction<
   const K extends OperationKey,
   const Key extends (params: never) => OperationKey,
   Program,
->(config: {
-  id: Id;
-  key: Key & ((params: Parameters<Key>[0]) => K);
-  commit: Parameters<Key> extends []
-    ? never
-    : (
-        params: NoInfer<Parameters<Key>[0]>,
-        options: OperationOptions,
-      ) => Program & ValidOperationProgram<Program>;
-  persist?: boolean;
-  concurrency?: TransactionConcurrency;
-}): Transaction<
+>(
+  config: {
+    id: Id;
+    key: Key & ((params: Parameters<Key>[0]) => K);
+    commit: Parameters<Key> extends []
+      ? never
+      : (
+          params: NoInfer<Parameters<Key>[0]>,
+          options: OperationOptions,
+        ) => Program & ValidOperationProgram<Program>;
+  } & TransactionPolicy,
+): Transaction<
   Id,
   Parameters<Key>[0],
   CanonicalKeyValue<K>,
@@ -294,17 +294,13 @@ export function transaction<
   OperationRequirementsOf<Program>
 >;
 
-export function transaction<
-  const Id extends string,
-  const K extends OperationKey,
-  Program,
->(config: {
-  id: Id;
-  key: () => K;
-  commit: (options: OperationOptions) => Program & ValidOperationProgram<Program>;
-  persist?: boolean;
-  concurrency?: TransactionConcurrency;
-}): Transaction<
+export function transaction<const Id extends string, const K extends OperationKey, Program>(
+  config: {
+    id: Id;
+    key: () => K;
+    commit: (options: OperationOptions) => Program & ValidOperationProgram<Program>;
+  } & TransactionPolicy,
+): Transaction<
   Id,
   undefined,
   CanonicalKeyValue<K>,

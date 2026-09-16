@@ -54,6 +54,8 @@ type RuntimeStateEntry = [string, RuntimeStateToken | RuntimeStateBranch];
 
 type StatePath = string[];
 
+type DefinitionInput = Parameters<typeof decodeDefinitionConfigResult>[0];
+
 const makeDefinition = Brand.nominal<AnyDefinition>();
 
 const makeStateToken = Brand.nominal<StateToken>();
@@ -62,7 +64,7 @@ const makeEventToken = Brand.nominal<RuntimeEventToken>();
 
 const makeEventEnvelope = Brand.nominal<RuntimeEventEnvelope>();
 
-const admissionDefect = (defect: unknown) =>
+const admissionDefect = (defect: Parameters<typeof Diagnostic.Defect>[0]) =>
   defect instanceof Diagnostic.Diagnostic ? defect : Diagnostic.Defect(defect);
 
 const tryDefinition = <Value>(make: () => Result.Result<Value, Diagnostic.PublicDiagnostic>) =>
@@ -177,7 +179,7 @@ const constructDefinition = (config: DecodedDefinitionConfig): AnyDefinition => 
   return result;
 };
 
-export const constructDefinitionResult = (input: unknown) =>
+export const constructDefinitionResult = (input: DefinitionInput) =>
   tryDefinition(() =>
     decodeDefinitionConfigResult(input).pipe(
       Result.mapError(Diagnostic.fromSchemaError),

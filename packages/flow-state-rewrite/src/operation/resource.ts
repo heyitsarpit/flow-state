@@ -18,6 +18,7 @@ import type {
   DataValue,
   FiniteOutcomes,
   OperationDescriptor,
+  OperationDefect,
   OperationOptions,
   OperationPlan,
   OperationErrorOf,
@@ -43,6 +44,7 @@ import type { OperationKey, CanonicalKeyValue } from "./key.js";
  *   resource
  */
 
+// oxlint-disable-next-line anti-slop/no-optional-domain-properties -- API-006 requires this exact no-data arm so exact-optional narrowing rejects an explicit data field.
 export type ResourceRetention<A> = { data?: never } | { data: A };
 
 export type ResourceState<A, E, K extends OperationKey> =
@@ -65,7 +67,7 @@ export type ResourceState<A, E, K extends OperationKey> =
       status: "defect";
       key: K;
       generation: number;
-      defect: unknown;
+      defect: OperationDefect;
     } & ResourceRetention<A>)
   | ({
       status: "interrupted";
@@ -73,20 +75,20 @@ export type ResourceState<A, E, K extends OperationKey> =
       generation: number;
     } & ResourceRetention<A>);
 
-export type ResourceOutcomes<A, E, O = unknown> = {
-  value?: (value: A) => O;
-  failure?: [E] extends [never] ? never : (error: E) => O;
-  defect?: (defect: unknown) => O;
-  interrupt?: () => O;
-};
+export type ResourceOutcomes<A, E, O = unknown> = Partial<{
+  value: (value: A) => O;
+  failure: [E] extends [never] ? never : (error: E) => O;
+  defect: (defect: OperationDefect) => O;
+  interrupt: () => O;
+}>;
 
-export type FiniteResourceOptions<A, E, O = unknown> = {
-  outcomes?: FiniteOutcomes<A, E, O>;
-};
+export type FiniteResourceOptions<A, E, O = unknown> = Partial<{
+  outcomes: FiniteOutcomes<A, E, O>;
+}>;
 
-export type ResourceSubscriptionOptions<A, E, O = unknown> = {
-  outcomes?: ResourceOutcomes<A, E, O>;
-};
+export type ResourceSubscriptionOptions<A, E, O = unknown> = Partial<{
+  outcomes: ResourceOutcomes<A, E, O>;
+}>;
 
 export type ResourceLookupPlan<
   Id extends string,
@@ -156,18 +158,20 @@ export type Resource<
   ) => CacheWritePlan<Id, K, Value>;
   cancel: (key: K) => CancellationPlan<Id, K, "resource">;
   persist: boolean;
-  staleTime?: Duration.Input;
-  gcTime?: Duration.Input;
-};
+} & Partial<{
+    staleTime: Duration.Input;
+    gcTime: Duration.Input;
+  }>;
 
 type ResourceFields<Id extends string, P, K extends OperationKey, Adapter> = {
   id: Id;
   key: (params: P) => K;
   lookup: Adapter;
-  staleTime?: Duration.Input;
-  gcTime?: Duration.Input;
-  persist?: boolean;
-};
+} & Partial<{
+  staleTime: Duration.Input;
+  gcTime: Duration.Input;
+  persist: boolean;
+}>;
 
 export type ResourceConfig<Id extends string, P, K extends OperationKey, A, E, R> = ResourceFields<
   Id,
@@ -220,13 +224,16 @@ type ResourceConstructionConfig<Id extends string, P, K extends OperationKey> = 
   (params: P, options: OperationOptions) => void
 >;
 
+type ResourceConfigurationInput = Parameters<typeof decodeResourceConfiguration>[0];
+
 function admitResourceConfiguration<
   const Id extends string,
   P,
   const K extends OperationKey,
   Program,
 >(config: ResourceAuthoringConfig<Id, P, K, Program>): ResourceAuthoringConfig<Id, P, K, Program>;
-function admitResourceConfiguration(input: unknown) {
+
+function admitResourceConfiguration(input: ResourceConfigurationInput) {
   return decodeResourceConfiguration(input).pipe(Result.getOrThrowWith(resourceConfigurationError));
 }
 

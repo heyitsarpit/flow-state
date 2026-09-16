@@ -46,6 +46,10 @@ const throwPendingClearProbe = () => {
   throw new Error("pending-clear probe failed");
 };
 
+const throwCallbackDefect = <Value>(value: Value) => {
+  throw value;
+};
+
 const IntegrationResource = resource({
   id: "runtime-integration/item",
   key: (id: string) => [id] as const,
@@ -219,20 +223,27 @@ type IntegrationAssembly = ReturnType<ReturnType<typeof runtimeOwner>["assembly"
 const defectOnChanged = (
   state: ActorContextSnapshot<typeof IntegrationProviderDefinition>["state"],
 ) => {
-  if (state === IntegrationProviderDefinition.S.changed) throw new Error("sibling selector defect");
+  if (state === IntegrationProviderDefinition.S.changed)
+    throwCallbackDefect(new Error("sibling selector defect"));
 
   return false;
 };
 
+type ContextDiamondOptions =
+  | {
+      bOnCommand: () => Effect.Effect<void>;
+      cOnSnapshot: (snapshot: IntegrationConsumerSnapshot) => void;
+      bOnSnapshot: (snapshot: IntegrationConsumerSnapshot) => void;
+    }
+  | {
+      bOnCommand: () => Effect.Effect<void>;
+      cOnSnapshot: (snapshot: IntegrationConsumerSnapshot) => void;
+    };
+
 const makeContextDiamond = (
   assembly: IntegrationAssembly,
   suffix: string,
-  // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- only mailbox-failure fixtures need a gated command callback.
-  options?: {
-    bOnCommand: () => Effect.Effect<void>;
-    cOnSnapshot: (snapshot: IntegrationConsumerSnapshot) => void;
-    bOnSnapshot?: (snapshot: IntegrationConsumerSnapshot) => void;
-  },
+  options?: ContextDiamondOptions,
 ) =>
   Effect.gen(function* () {
     const providerRef = actorRef(IntegrationProviderMachine, `${suffix}-a`);
@@ -275,7 +286,8 @@ const makeContextDiamond = (
       }),
       onSnapshot: (snapshot: IntegrationConsumerSnapshot) => {
         bSnapshots.push(snapshot);
-        options?.bOnSnapshot?.(snapshot);
+
+        if (options !== undefined && "bOnSnapshot" in options) options.bOnSnapshot(snapshot);
       },
     };
 
@@ -489,11 +501,8 @@ const makeImplementation = (counts: { acquisitions: number; releases: number }) 
     ),
   );
 
-const sequenceOf = (record: {
-  _tag: "turn" | "lifecycle";
-  sequence?: number;
-  evidenceSequence?: number;
-}) => (record._tag === "turn" ? record.sequence : record.evidenceSequence);
+const sequenceOf = (record: EvidenceRecord) =>
+  record._tag === "turn" ? record.sequence : record.evidenceSequence;
 
 describe("runtime assembly integration", () => {
   it.effect("rejects malformed prepared snapshots before registry or publication", () =>
@@ -755,7 +764,7 @@ describe("runtime assembly integration", () => {
       assert.throws(() => runtimeOwner(runtime).assembly(), /Runtime is not ready/u);
       yield* runtime.ready();
       const assembly = runtimeOwner(runtime).assembly();
-      const records: Array<{ tag: string; sequence: number | undefined }> = [];
+      const records: Array<{ tag: string; sequence: number }> = [];
 
       const sink = yield* makeEvidenceSink({
         id: "runtime-integration",
@@ -1160,7 +1169,7 @@ describe("runtime assembly integration", () => {
         onSnapshot: () => {
           if (!failNext) return;
           failNext = false;
-          throw new Error("lifecycle callback defect");
+          throwCallbackDefect(new Error("lifecycle callback defect"));
         },
       });
 
@@ -1700,7 +1709,7 @@ describe("runtime assembly integration", () => {
       yield* runtime.ready();
       const owner = runtimeOwner(runtime);
       const assembly = owner.assembly();
-      const records: Array<{ tag: string; sequence: number | undefined }> = [];
+      const records: Array<{ tag: string; sequence: number }> = [];
 
       const sink = yield* makeEvidenceSink({
         id: "runtime-lifecycle-integration",
@@ -2104,6 +2113,7 @@ describe("pending regression scenarios", () => {
       yield* assembly.evidence.journal.drain();
 
       const lifecycle = records.filter(
+        // RETURN_TYPE: Narrows the evidence union to the lifecycle cut asserted by this proof.
         (record): record is Extract<EvidenceRecord, { _tag: "lifecycle" }> =>
           record._tag === "lifecycle" && record.to === "suspended",
       );
@@ -2173,11 +2183,13 @@ describe("pending regression scenarios", () => {
       yield* assembly.evidence.journal.drain();
 
       const actorATurn = records.find(
+        // RETURN_TYPE: Narrows the evidence union to actor A's committed turn record.
         (record): record is Extract<EvidenceRecord, { _tag: "turn" }> =>
           record._tag === "turn" && record.provenance.actor.key === actorA.fence.key,
       );
 
       const actorBSuspend = records.find(
+        // RETURN_TYPE: Narrows the evidence union to actor B's suspended lifecycle record.
         (record): record is Extract<EvidenceRecord, { _tag: "lifecycle" }> =>
           record._tag === "lifecycle" &&
           record.provenance.actor.key === actorB.fence.key &&
@@ -2194,7 +2206,7 @@ describe("pending regression scenarios", () => {
       const sequences = records.map(sequenceOf);
       assert.deepStrictEqual(
         sequences,
-        [...sequences].sort((left, right) => left! - right!),
+        [...sequences].sort((left, right) => left - right),
       );
       assert.strictEqual(new Set(sequences).size, sequences.length);
 
@@ -4490,7 +4502,7 @@ describe("pending regression scenarios", () => {
       let finalizations = 0;
 
       const providedClock: Clock.Clock = {
-        ...baseClock,
+        currentTimeMillisUnsafe: () => baseClock.currentTimeMillisUnsafe(),
         currentTimeMillis: Effect.suspend(() => {
           if (failClockRead) {
             routableAtFailedRead = isRoutable();
@@ -4500,6 +4512,11 @@ describe("pending regression scenarios", () => {
 
           return Effect.succeed(baseClock.currentTimeMillisUnsafe());
         }),
+        currentTimeNanosUnsafe: () => baseClock.currentTimeNanosUnsafe(),
+        currentTimeNanos: baseClock.currentTimeNanos,
+        monotonicTimeNanosUnsafe: () => baseClock.monotonicTimeNanosUnsafe(),
+        monotonicTimeNanos: baseClock.monotonicTimeNanos,
+        sleep: (duration) => baseClock.sleep(duration),
       };
 
       const runtime = runtimeSetup({ app: IntegrationApp }).construct();
@@ -5138,7 +5155,7 @@ describe("pending regression scenarios", () => {
             provider: providerRef,
             providerFence: provider.fence,
             select: ({ state }) => {
-              if (shouldDefect) throw selectorDiagnostic;
+              if (shouldDefect) throwCallbackDefect(selectorDiagnostic);
 
               return state;
             },

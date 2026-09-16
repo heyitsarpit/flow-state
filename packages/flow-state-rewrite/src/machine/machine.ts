@@ -67,6 +67,7 @@ export type Machine<DefinitionValue extends MachineDefinition = MachineDefinitio
 
 export type MachineRequirementsOf<Value> = OperationRequirementsOf<Value>;
 
+// FLOW_STATE_ALLOW_UNKNOWN: the WeakSet erases heterogeneous operation requirements at the machine identity boundary.
 export type MachineRecordValue = RequirementsCarrier<unknown> & {
   definition: MachineDefinition;
 };

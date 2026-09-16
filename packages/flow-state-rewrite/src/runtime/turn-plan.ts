@@ -25,11 +25,14 @@ import type { ActorLifecycle, ActorSnapshot, OperationProjection } from "./actor
 /** An admitted nominal event is the only transition-planning input. */
 export type ActorEvent<DefinitionValue extends MachineDefinition> = EventOf<DefinitionValue>;
 
+// Callback and defect boundaries may retain any host value until it is normalized for publication.
+type RuntimeValue = Parameters<typeof Defect>[0];
+
 export type FiniteOperationOutcome<Value = unknown> =
   | { _tag: "success"; value: Value }
   | { _tag: "failure"; error: PublicDiagnostic }
-  | { _tag: "defect"; exit: unknown }
-  | { _tag: "interrupt"; exit: unknown };
+  | { _tag: "defect"; exit: RuntimeValue }
+  | { _tag: "interrupt"; exit: RuntimeValue };
 
 export type OperationOccurrenceFence = {
   actor: ActorFence;
@@ -48,11 +51,11 @@ export type StreamProjectionFact<StreamValue = unknown> = {
   value: StreamValue;
 };
 
-export type ProviderRevisionFence = {
+export type ProviderRevisionFence<Value = unknown> = {
   fence: ActorFence;
   slot: string;
   revision: number;
-  value: unknown;
+  value: Value;
 };
 
 /** One complete consumer context cut, retaining every slot's provider truth. */
@@ -117,6 +120,7 @@ export type ProjectionFact<StreamValue = unknown> =
       _tag: "context-projection";
       provider: ProviderRevisionFence;
       /** Aggregate facts mirror this carrier in provider.value for evidence ownership. */
+      // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- single-provider facts omit the aggregate carrier; aggregate facts carry it for evidence ownership.
       projection?: ContextProjectionCarrier;
     }
   | {
@@ -203,7 +207,8 @@ const planningFailure = (
     help: "Fix the event turn before committing actor or operation state.",
   });
 
-const callbackFailure = (cause: unknown) => (cause instanceof Diagnostic ? cause : Defect(cause));
+const callbackFailure = (cause: RuntimeValue) =>
+  cause instanceof Diagnostic ? cause : Defect(cause);
 
 // RETURN_TYPE: Normalizes every callback defect into the planner's public diagnostic channel.
 const runCallback = <Value>(
@@ -251,15 +256,7 @@ const candidateSnapshot = <DefinitionValue extends MachineDefinition>(
   return copySnapshot({ ...source, state, memory: nextMemory });
 };
 
-type RuntimeRecord = {
-  type?: unknown;
-  kind?: unknown;
-  descriptor?: unknown;
-  key?: unknown;
-  targets?: unknown;
-  family?: unknown;
-  value?: unknown;
-};
+type RuntimeRecord = { [key: string]: RuntimeValue };
 
 // RETURN_TYPE: Narrows dynamic action and event carriers to the record boundary used below.
 const isRecord = (value: unknown): value is RuntimeRecord =>
@@ -267,7 +264,7 @@ const isRecord = (value: unknown): value is RuntimeRecord =>
 
 const eventNameFor = <DefinitionValue extends MachineDefinition>(
   machine: Machine<DefinitionValue>,
-  event: unknown,
+  event: RuntimeValue,
 ) => {
   if (!isRecord(event) || !Predicate.isString(event.type)) return undefined;
   const type = event.type;
@@ -282,13 +279,13 @@ const eventNameFor = <DefinitionValue extends MachineDefinition>(
 // RETURN_TYPE: Preserves the nominal event narrowing after definition identity matching.
 const eventForDefinition = <DefinitionValue extends MachineDefinition>(
   machine: Machine<DefinitionValue>,
-  event: unknown,
+  event: RuntimeValue,
 ): event is ActorEvent<DefinitionValue> => eventNameFor(machine, event) !== undefined;
 
 /** Runtime fence used by synchronous admission before a command reaches the mailbox. */
 export const isEventForMachine = <DefinitionValue extends MachineDefinition>(
   machine: Machine<DefinitionValue>,
-  event: unknown,
+  event: RuntimeValue,
 ) => eventForDefinition(machine, event);
 
 const activeStateChain = <DefinitionValue extends MachineDefinition>(
@@ -327,18 +324,18 @@ const activeStateChain = <DefinitionValue extends MachineDefinition>(
 // RETURN_TYPE: Keeps operation lookup optional until the action family is validated.
 const operationForId = <DefinitionValue extends MachineDefinition>(
   machine: Machine<DefinitionValue>,
-  id: unknown,
+  id: RuntimeValue,
 ) =>
   Predicate.isString(id)
     ? Object.values(machine.definition.operations).find((operation) => operation.id === id)
     : undefined;
 
 // RETURN_TYPE: Keeps canonical operation keys opaque while proving their array carrier.
-const isArrayKey = (value: unknown): value is unknown[] => Array.isArray(value);
+const isArrayKey = (value: RuntimeValue): value is OperationKey => Array.isArray(value);
 
 const validOperationPlan = <DefinitionValue extends MachineDefinition>(
   machine: Machine<DefinitionValue>,
-  value: unknown,
+  value: RuntimeValue,
 ) => {
   if (!isConstructedOperationPlan(value)) return false;
   const kind = value.kind;
@@ -356,7 +353,7 @@ const validOperationPlan = <DefinitionValue extends MachineDefinition>(
 
 const validStoreAction = <DefinitionValue extends MachineDefinition>(
   machine: Machine<DefinitionValue>,
-  value: unknown,
+  value: RuntimeValue,
 ) => {
   if (!isRecord(value)) return false;
   const kind = value.kind;
@@ -366,7 +363,7 @@ const validStoreAction = <DefinitionValue extends MachineDefinition>(
 
   if (!Array.isArray(targets) || targets.length === 0) return false;
 
-  return targets.every((target: unknown) => {
+  return targets.every((target: RuntimeValue) => {
     if (!Array.isArray(target) || target.length !== 2) return false;
     const [descriptor, key] = target;
 
@@ -408,7 +405,7 @@ const validCancelAction = <DefinitionValue extends MachineDefinition>(
 
 const validCacheOrCancelAction = <DefinitionValue extends MachineDefinition>(
   machine: Machine<DefinitionValue>,
-  value: unknown,
+  value: RuntimeValue,
 ) => {
   if (!isRecord(value)) return false;
 
@@ -422,7 +419,7 @@ const validCacheOrCancelAction = <DefinitionValue extends MachineDefinition>(
 // RETURN_TYPE: Narrows only constructed finite actions accepted by this machine definition.
 const validFiniteAction = <DefinitionValue extends MachineDefinition>(
   machine: Machine<DefinitionValue>,
-  value: unknown,
+  value: RuntimeValue,
 ): value is MachineAction<DefinitionValue> =>
   validOperationPlan(machine, value) ||
   validStoreAction(machine, value) ||
@@ -436,11 +433,11 @@ type ActionBatch<DefinitionValue extends MachineDefinition> = {
 // RETURN_TYPE: Exposes the complete validated action and mapped-event batch to the plan.
 const materializeActionBatch = <DefinitionValue extends MachineDefinition>(
   machine: Machine<DefinitionValue>,
-  value: unknown,
+  value: RuntimeValue,
 ): Result.Result<ActionBatch<DefinitionValue>, PublicDiagnostic> => {
   if (value === null || value === undefined)
     return Result.succeed({ actions: [], mappedEvents: [] });
-  const values = Array.isArray(value) ? value : [value];
+  const values: RuntimeValue[] = Array.isArray(value) ? value : [value];
   const actions: FiniteActionIntent<DefinitionValue>[] = [];
   const mappedEvents: ActorEvent<DefinitionValue>[] = [];
 
@@ -679,7 +676,7 @@ const planEventTurn = <DefinitionValue extends MachineDefinition>(
     return Result.fail(planningFailure(["updateMemory"], "Memory update must return a record"));
   const memory = copyMemory<DefinitionValue>({ ...before.memory, ...memoryResult.success });
 
-  const actionResult: Result.Result<unknown, PublicDiagnostic> =
+  const actionResult =
     transition.actions === undefined
       ? Result.succeed(null)
       : runCallback(["actions"], () => transition.actions!(machineInput));

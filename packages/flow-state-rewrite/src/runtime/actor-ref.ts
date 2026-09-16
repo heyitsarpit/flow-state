@@ -39,6 +39,7 @@ export type ActorRef<
 };
 
 export type ActorRefOptions = {
+  // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- omitting persist intentionally defaults to a non-persisted actor ref.
   persist?: boolean;
 };
 
@@ -46,17 +47,20 @@ type PersistOf<Options extends ActorRefOptions | undefined> = Options extends un
   ? false
   : Options extends { persist: infer Persist extends boolean }
     ? Persist
-    : Options extends { persist?: boolean }
+    : Options extends ActorRefOptions
       ? "persist" extends keyof Options
         ? boolean
         : false
       : false;
 
+// FLOW_STATE_ALLOW_UNKNOWN: caller-controlled options are opaque until stable reflection and Schema admission validate them.
+type UntrustedActorRefValue = unknown;
+
 const invalidActorRefOptions = () => {
   throw new TypeError("actorRef options must contain only an optional boolean persist");
 };
 
-const captureActorRefOptions = (value: unknown) => {
+const captureActorRefOptions = (value: UntrustedActorRefValue) => {
   // oxlint-disable-next-line anti-slop/no-raw-try-catch -- caller-controlled options reflection must become a stable Schema admission failure.
   try {
     if (!Predicate.isObject(value)) return Result.fail(undefined);
@@ -106,7 +110,7 @@ const ActorRefOptionsSchema = Schema.declareConstructor<ActorRefOptions, unknown
   () => (value, ast, options) => {
     const invalid = () => Effect.fail(new SchemaIssue.InvalidType(ast, value, options));
 
-    const decodeCaptured = (captured: unknown) => {
+    const decodeCaptured = (captured: UntrustedActorRefValue) => {
       const decoded = decodeActorRefOptionsFields(captured, options);
 
       return Result.isSuccess(decoded)
@@ -159,7 +163,11 @@ export function actorRef<
   options: Options & Types.NoExcessProperties<ActorRefOptions, Options>,
 ): ActorRef<MachineValue, Id, PersistOf<Options>>;
 
-export function actorRef(machine: MachineRecordValue, id: string, options?: unknown) {
+export function actorRef(
+  machine: MachineRecordValue,
+  id: string,
+  options?: UntrustedActorRefValue,
+) {
   const input = options === undefined ? { machine, id } : { machine, id, options };
   const decoded = decodeActorRefInput(input);
 

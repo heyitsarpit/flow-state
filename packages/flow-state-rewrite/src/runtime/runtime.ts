@@ -105,7 +105,7 @@ import {
   type RuntimeOwnerCloseRegistry,
 } from "./runtime-owner.js";
 import { makeRuntimeServicesLayer, type RuntimeServiceContext } from "./runtime-services.js";
-import type { MachineDefinition } from "../machine/grammar.js";
+import type { MachineDefinition, MachineSnapshot } from "../machine/grammar.js";
 import { isConstructedMachine, type Machine, type MachineRecordValue } from "../machine/machine.js";
 import type { ActorRef } from "./actor-ref.js";
 import type { InputOf } from "../definition/domain.js";
@@ -126,38 +126,59 @@ import type { InputOf } from "../definition/domain.js";
  *   runtimeSetup
  */
 
-type RuntimeImplementation = Implementation<never, unknown, unknown>;
+type RuntimeImplementationBase = Parameters<typeof implementationLayer>[0];
+
+type RuntimeImplementation = Implementation<
+  never,
+  ImplementationErrorOf<RuntimeImplementationBase>,
+  ImplementationRequirementsOf<RuntimeImplementationBase>
+>;
+
+type RuntimeImplementationInput = RuntimeImplementation | void;
+
+type RuntimeCapturedValue = Parameters<typeof captureAdmissionProperty>[0];
+
+type RuntimeCapturedValues = Map<PropertyKey, RuntimeCapturedValue>;
 
 type RuntimeApp = App;
 
-const causeFromExits = <Error>(exits: readonly Exit.Exit<unknown, Error>[]) => {
+type RuntimeCleanupExit = Exit.Exit<void | boolean, PublicDiagnostic>;
+
+const causeFromExits = (exits: RuntimeCleanupExit[]) => {
   const reasons = exits.flatMap((exit) => (Exit.isFailure(exit) ? [...exit.cause.reasons] : []));
 
   return reasons.length === 0 ? undefined : Cause.fromReasons(reasons);
 };
 
-type RuntimeActorOptionBase<
+type RuntimeActorOptionBaseContract<
   DefinitionValue extends MachineDefinition,
   ProviderDefinition extends MachineDefinition = DefinitionValue,
 > = {
-  ref: ActorRef<Machine<DefinitionValue>>;
-  store?: ActorStore<DefinitionValue>;
-  onSnapshot?: ActorEngineInput<DefinitionValue>["onSnapshot"];
-  onCommand?: (
+  store: ActorStore<DefinitionValue>;
+  onSnapshot: ActorEngineInput<DefinitionValue>["onSnapshot"];
+  onCommand: (
     command: ActorCommand<DefinitionValue>,
   ) => Effect.Effect<void, PublicDiagnostic, RuntimeServiceContext | Scope.Scope>;
   // oxlint-disable-next-line anti-slop/no-readonly -- NO_READONLY_CODEMOD: accepts const-inferred caller bindings before runtime capture owns a copy.
-  bindings?: readonly ActorContextBinding<DefinitionValue, ProviderDefinition>[];
+  bindings: readonly ActorContextBinding<DefinitionValue, ProviderDefinition>[];
 };
+
+type RuntimeActorOptionBase<
+  DefinitionValue extends MachineDefinition,
+  ProviderDefinition extends MachineDefinition = DefinitionValue,
+> = { ref: ActorRef<Machine<DefinitionValue>> } & Partial<
+  RuntimeActorOptionBaseContract<DefinitionValue, ProviderDefinition>
+>;
 
 type RuntimeFreshActorOptions<
   DefinitionValue extends MachineDefinition,
   ProviderDefinition extends MachineDefinition = DefinitionValue,
 > = RuntimeActorOptionBase<DefinitionValue, ProviderDefinition> & {
   initial: PreparedActorSnapshot<DefinitionValue>;
-  input?: InputOf<DefinitionValue>;
-  restore?: never;
-};
+} & Partial<{
+    input: InputOf<DefinitionValue>;
+    restore: never;
+  }>;
 
 type RuntimeRestoredActorOptions<
   DefinitionValue extends MachineDefinition,
@@ -165,9 +186,10 @@ type RuntimeRestoredActorOptions<
 > = RuntimeActorOptionBase<DefinitionValue, ProviderDefinition> & {
   restore: PreparedActorSnapshot<DefinitionValue>;
   restoredMachineTurnRevision: number;
-  initial?: never;
-  input?: never;
-};
+} & Partial<{
+    initial: never;
+    input: never;
+  }>;
 
 type RuntimeLocalActorOptions<
   DefinitionValue extends MachineDefinition,
@@ -249,12 +271,14 @@ type RuntimeAssembly = {
 
 type ActorCellTerminalProtocol = {
   scope: Scope.Scope;
-  closeCompletion: Deferred.Deferred<Exit.Exit<void, PublicDiagnostic>> | undefined;
+  closeCompletion: Option.Option<Deferred.Deferred<Exit.Exit<void, PublicDiagnostic>>>;
   started: boolean;
   released: boolean;
-  scopeExit: Exit.Exit<void, PublicDiagnostic> | undefined;
-  lifecycleRegistration: RuntimeOwnerCloseRegistration | undefined;
-  parentFinalizer: (() => Effect.Effect<void, PublicDiagnostic, RuntimeServiceContext>) | undefined;
+  scopeExit: Option.Option<Exit.Exit<void, PublicDiagnostic>>;
+  lifecycleRegistration: Option.Option<RuntimeOwnerCloseRegistration>;
+  parentFinalizer: Option.Option<
+    () => Effect.Effect<void, PublicDiagnostic, RuntimeServiceContext>
+  >;
 };
 
 type ActorCellInstance<
@@ -279,19 +303,21 @@ export type RuntimeAdmissionPhase =
   | "register"
   | "expose";
 
-export type RuntimeAdmissionProbe = {
-  beforePrepare?: Effect.Effect<void>;
-  afterPrepareScope?: (scope: Scope.Scope) => Effect.Effect<void, PublicDiagnostic>;
-  beforeExpose?: Effect.Effect<void>;
-  onPhase?: (phase: RuntimeAdmissionPhase) => void;
-  onJoin?: () => void;
-  onPendingCleared?: () => void;
-  onAllocation?: (kind: "incarnation" | "local-ordinal") => void;
+export type RuntimeAdmissionProbe = Partial<RuntimeAdmissionProbeContract>;
+
+type RuntimeAdmissionProbeContract = {
+  beforePrepare: Effect.Effect<void>;
+  afterPrepareScope: (scope: Scope.Scope) => Effect.Effect<void, PublicDiagnostic>;
+  beforeExpose: Effect.Effect<void>;
+  onPhase: (phase: RuntimeAdmissionPhase) => void;
+  onJoin: () => void;
+  onPendingCleared: () => void;
+  onAllocation: (kind: "incarnation" | "local-ordinal") => void;
 };
 
-type RuntimeConstructionOwner = {
-  admissionProbe?: RuntimeAdmissionProbe;
-};
+type RuntimeConstructionOwner = Partial<{
+  admissionProbe: RuntimeAdmissionProbe;
+}>;
 
 type RuntimeAdmissionActor<
   DefinitionValue extends MachineDefinition,
@@ -301,10 +327,7 @@ type RuntimeAdmissionActor<
     ref: ActorRef<Machine<DefinitionValue>>;
   };
 
-type RuntimeSnapshot = {
-  state: unknown;
-  memory: unknown;
-  context: unknown;
+type RuntimeSnapshot = MachineSnapshot<MachineDefinition> & {
   revision: number;
 };
 
@@ -361,7 +384,8 @@ const captureRuntimeContextProviders = <
 
     // SAFETY: each registry result is the provider named by its validated binding fence; incoming is that provider's live publication.
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the heterogeneous registry erases the provider definition at this context projection boundary.
-    snapshots.set(binding.providerFence.key, snapshot as ActorContextSnapshot<ProviderDefinition>);
+    const providerSnapshot = snapshot as RuntimeSnapshot & ActorContextSnapshot<ProviderDefinition>;
+    snapshots.set(binding.providerFence.key, providerSnapshot);
     revisions.set(binding.providerFence.key, snapshot.revision);
   }
 
@@ -376,7 +400,7 @@ type CapturedRuntimeActorOptions<
   construction: ActorAdmissionConstruction<DefinitionValue, InputOf<DefinitionValue>>;
   admissionMode: ActorAdmissionMode;
   initialMachineTurnRevision: number;
-  store: ActorStore<DefinitionValue> | undefined;
+  store: Option.Option<ActorStore<DefinitionValue>>;
   onSnapshot: RuntimeActorOptions<DefinitionValue, ProviderDefinition>["onSnapshot"];
   onCommand: RuntimeActorOptions<DefinitionValue, ProviderDefinition>["onCommand"];
   bindings: ActorContextBinding<DefinitionValue, ProviderDefinition>[];
@@ -399,7 +423,7 @@ type CapturedRuntimeConstruction<DefinitionValue extends MachineDefinition> = {
 
 // RETURN_TYPE: Keeps the fresh input correlated with the exact machine whose prepared snapshot was verified.
 const captureRuntimeConstruction = <DefinitionValue extends MachineDefinition>(
-  values: Map<PropertyKey, unknown>,
+  values: RuntimeCapturedValues,
   ref: ActorRef<Machine<DefinitionValue>>,
   identityMode: "stable" | "local" = "stable",
 ): Result.Result<CapturedRuntimeConstruction<DefinitionValue>, PublicDiagnostic> => {
@@ -461,7 +485,7 @@ const captureRuntimeBindings = <
   DefinitionValue extends MachineDefinition,
   ProviderDefinition extends MachineDefinition,
 >(
-  value: unknown,
+  value: RuntimeCapturedValue,
 ) =>
   value === undefined
     ? // SAFETY: undefined is the captured absence of optional bindings; the empty typed array is the canonical owned value for that branch.
@@ -471,9 +495,9 @@ const captureRuntimeBindings = <
 
 // RETURN_TYPE: Keeps the captured commit action/result channels tied to the machine definition.
 const captureRuntimeStore = <DefinitionValue extends MachineDefinition>(
-  value: unknown,
-): Result.Result<ActorStore<DefinitionValue> | undefined, PublicDiagnostic> => {
-  if (value === undefined) return Result.succeed(undefined);
+  value: RuntimeCapturedValue,
+): Result.Result<Option.Option<ActorStore<DefinitionValue>>, PublicDiagnostic> => {
+  if (value === undefined) return Result.succeed(Option.none());
   const commit = captureAdmissionProperty(value, "commit");
 
   if (Result.isFailure(commit)) return Result.fail(commit.failure);
@@ -484,7 +508,7 @@ const captureRuntimeStore = <DefinitionValue extends MachineDefinition>(
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   const capturedCommit = commit.success as ActorStore<DefinitionValue>["commit"];
 
-  return Result.succeed({ commit: (actions) => capturedCommit(actions) });
+  return Result.succeed(Option.some({ commit: (actions) => capturedCommit(actions) }));
 };
 
 type CapturedRuntimeCallbacks<
@@ -499,7 +523,7 @@ const captureRuntimeCallbacks = <
   DefinitionValue extends MachineDefinition,
   ProviderDefinition extends MachineDefinition,
 >(
-  values: Map<PropertyKey, unknown>,
+  values: RuntimeCapturedValues,
 ) => {
   const onSnapshotValue = values.get("onSnapshot");
 
@@ -545,7 +569,7 @@ const captureRuntimeActorOptionsFromValues = <
   DefinitionValue extends MachineDefinition,
   ProviderDefinition extends MachineDefinition,
 >(
-  values: Map<PropertyKey, unknown>,
+  values: RuntimeCapturedValues,
   ref: ActorRef<Machine<DefinitionValue>>,
   identityMode: "stable" | "local" = "stable",
 ): Result.Result<
@@ -587,9 +611,9 @@ const captureRuntimeActorOptions = <
   DefinitionValue extends MachineDefinition,
   ProviderDefinition extends MachineDefinition,
 >(
-  options: unknown,
+  options: RuntimeCapturedValue,
   identityMode: "stable" | "local" = "stable",
-  isOpaqueLocalRef?: (value: unknown) => boolean,
+  isOpaqueLocalRef?: (value: RuntimeCapturedValue) => boolean,
 ): Result.Result<
   CapturedRuntimeActorOptions<DefinitionValue, ProviderDefinition>,
   PublicDiagnostic
@@ -613,8 +637,8 @@ const captureRuntimeActorOptionsForRef = <
   DefinitionValue extends MachineDefinition,
   ProviderDefinition extends MachineDefinition,
 >(
-  ref: unknown,
-  options: unknown,
+  ref: RuntimeCapturedValue,
+  options: RuntimeCapturedValue,
   identityMode: "stable" | "local",
 ): Result.Result<
   CapturedRuntimeActorOptions<DefinitionValue, ProviderDefinition>,
@@ -631,8 +655,8 @@ const captureRuntimeActorOptionsForRef = <
   return captureRuntimeActorOptionsFromValues(captured.success, capturedRef.success, identityMode);
 };
 
-// FLOW_STATE_ALLOW_UNKNOWN: the runtime retains this exact Deferred as an opaque join token and restores it only at the matching stable ref.
-type RuntimeAdmissionCompletion = Deferred.Deferred<Exit.Exit<unknown, PublicDiagnostic>>;
+// The pending registry exposes this exact Deferred as an opaque join token while preserving its identity.
+type RuntimeAdmissionCompletion = Parameters<ActorIdentityRegistry["attachPending"]>[1];
 
 const eraseRuntimeAdmissionCompletion = <Value>(
   completion: Deferred.Deferred<Exit.Exit<Value, PublicDiagnostic>>,
@@ -720,9 +744,15 @@ type AttachedRuntimeOwner<ImplementationError> = {
   assembly: () => RuntimeAssembly;
 };
 
+type RuntimeImplementationError = ImplementationErrorOf<RuntimeImplementation>;
+
+type RuntimeOwnerAttachment = ReturnType<typeof makeRuntimeOwner> & {
+  assembly: () => RuntimeAssembly;
+};
+
 const attachedRuntimeOwners = new WeakMap<
-  Runtime<RuntimeApp, unknown>,
-  AttachedRuntimeOwner<unknown>
+  Runtime<RuntimeApp, RuntimeImplementationError>,
+  RuntimeOwnerAttachment
 >();
 
 export const runtimeOwner = <A extends RuntimeApp, ImplementationError>(
@@ -734,7 +764,10 @@ export const runtimeOwner = <A extends RuntimeApp, ImplementationError>(
 
   // SAFETY: constructRuntime stores exactly the owner whose ImplementationError parameter creates this Runtime.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- WeakMap erases the Runtime generic; the invariant is restored by its exact Runtime key.
-  return owner as AttachedRuntimeOwner<ImplementationError>;
+  const attachedOwner = { ...owner } as RuntimeOwnerAttachment &
+    AttachedRuntimeOwner<ImplementationError>;
+
+  return attachedOwner;
 };
 
 const constructRuntime = <A extends RuntimeApp, ImplementationError>(
@@ -810,12 +843,12 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
 
         const terminal: ActorCellTerminalProtocol = {
           scope: acquired.scope,
-          closeCompletion: undefined,
+          closeCompletion: Option.none(),
           started: false,
           released: false,
-          scopeExit: undefined,
-          lifecycleRegistration: undefined,
-          parentFinalizer: undefined,
+          scopeExit: Option.none(),
+          lifecycleRegistration: Option.none(),
+          parentFinalizer: Option.none(),
         };
 
         const resolveClose = (exit: Exit.Exit<void, PublicDiagnostic>) =>
@@ -823,11 +856,13 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
 
         const close = () =>
           Effect.suspend(() => {
-            if (terminal.closeCompletion !== undefined)
-              return Deferred.await(terminal.closeCompletion).pipe(Effect.flatMap(resolveClose));
+            if (Option.isSome(terminal.closeCompletion))
+              return Deferred.await(terminal.closeCompletion.value).pipe(
+                Effect.flatMap(resolveClose),
+              );
 
             const completion = Deferred.makeUnsafe<Exit.Exit<void, PublicDiagnostic>>();
-            terminal.closeCompletion = completion;
+            terminal.closeCompletion = Option.some(completion);
 
             const operation = Deferred.succeed(stop, undefined).pipe(
               Effect.flatMap(() => Fiber.await(fiber)),
@@ -844,7 +879,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
               Effect.exit(operation).pipe(
                 Effect.flatMap((exit) =>
                   Effect.sync(() => {
-                    terminal.scopeExit = exit;
+                    terminal.scopeExit = Option.some(exit);
                   }).pipe(
                     Effect.flatMap(() => Deferred.succeed(completion, exit).pipe(Effect.as(exit))),
                   ),
@@ -902,10 +937,10 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
       DefinitionValue extends MachineDefinition,
       ProviderDefinition extends MachineDefinition = DefinitionValue,
     >(
-      options: unknown,
+      options: RuntimeCapturedValue,
       identityMode: "stable" | "local" = "stable",
       localIdentity?: ActorIdentity<DefinitionValue>,
-      suppliedRef?: unknown,
+      suppliedRef?: RuntimeCapturedValue,
     ) =>
       Effect.gen(function* () {
         if (closeRegistry === undefined || !closeRegistry.isOpen())
@@ -965,7 +1000,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
         } satisfies ActorAdmissionInput<
           A,
           DefinitionValue,
-          RuntimeImplementation | undefined,
+          RuntimeImplementationInput,
           ProviderDefinition
         >;
 
@@ -976,7 +1011,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
           lease: ActorLease<
             A,
             DefinitionValue,
-            RuntimeImplementation | undefined,
+            RuntimeImplementationInput,
             PublicDiagnostic,
             AdmissionActor,
             ProviderDefinition
@@ -1254,8 +1289,8 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
                 },
               };
 
-              if (capturedOptions.success.store !== undefined)
-                Object.assign(actorInput, { store: capturedOptions.success.store });
+              if (Option.isSome(capturedOptions.success.store))
+                Object.assign(actorInput, { store: capturedOptions.success.store.value });
 
               if (capturedOptions.success.onCommand !== undefined)
                 Object.assign(actorInput, {
@@ -1657,23 +1692,25 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
                 contextCoordinator.unregister(currentFence.key);
                 const engineExit = yield* Effect.exit(engine.shutdown());
 
-                const actorScopeExit =
-                  terminal.scopeExit === undefined
-                    ? yield* Effect.gen(function* () {
-                        const scopeExit = yield* Effect.exit(preparation.actorCell.close());
-                        terminal.scopeExit = scopeExit;
+                const actorScopeExit = Option.isNone(terminal.scopeExit)
+                  ? yield* Effect.gen(function* () {
+                      const scopeExit = yield* Effect.exit(preparation.actorCell.close());
+                      terminal.scopeExit = Option.some(scopeExit);
 
-                        return scopeExit;
-                      })
-                    : Exit.void;
+                      return scopeExit;
+                    })
+                  : terminal.scopeExit.value;
 
-                const dependencyExits = yield* Effect.forEach(dependencies, (registration) =>
-                  Effect.exit(
-                    Effect.provideContext(
-                      registration.owner.removeDependency(registration.edge),
-                      context,
+                const dependencyExits = yield* Effect.forEach(
+                  dependencies,
+                  (registration) =>
+                    Effect.exit(
+                      Effect.provideContext(
+                        registration.owner.removeDependency(registration.edge),
+                        context,
+                      ),
                     ),
-                  ),
+                  { concurrency: 1 },
                 );
 
                 const fenceExit = yield* Effect.exit(
@@ -1710,13 +1747,14 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
 
             const releaseActorCredit = () => {
               terminal.released = true;
-              terminal.parentFinalizer = undefined;
+              terminal.parentFinalizer = Option.none();
               evidence.journal.releaseActor(currentIdentity.key);
             };
 
             const unregisterActor = () => {
-              terminal.lifecycleRegistration?.unregister();
-              terminal.lifecycleRegistration = undefined;
+              if (Option.isSome(terminal.lifecycleRegistration))
+                terminal.lifecycleRegistration.value.unregister();
+              terminal.lifecycleRegistration = Option.none();
               releaseActorCredit();
             };
 
@@ -1876,16 +1914,19 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
               return yield* Effect.fail(credit.failure);
             }
 
-            terminal.lifecycleRegistration = registration;
-            terminal.parentFinalizer = actorWithRef.dispose;
+            terminal.lifecycleRegistration = Option.some(registration);
+            terminal.parentFinalizer = Option.some(actorWithRef.dispose);
             yield* Scope.addFinalizer(
               runtimeScope,
               Effect.suspend(() => {
                 const dispose = terminal.parentFinalizer;
 
-                return dispose === undefined
+                return Option.isNone(dispose)
                   ? Effect.void
-                  : Effect.provideContext(Effect.exit(dispose()).pipe(Effect.asVoid), context);
+                  : Effect.provideContext(
+                      Effect.exit(dispose.value()).pipe(Effect.asVoid),
+                      context,
+                    );
               }),
             );
 
@@ -2030,7 +2071,8 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
         // SAFETY: the registry stores RuntimeAdmissionActor values; this lookup restores the
         // exact machine/provider generic carried by the captured ref.
         // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-        return found.success.actor as unknown as RuntimeActor<DefinitionValue, ProviderDefinition>;
+        return found.success.actor as RuntimeRegisteredActor &
+          RuntimeActor<DefinitionValue, ProviderDefinition>;
       });
 
     const createLocalActor = <
@@ -2132,10 +2174,10 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
 
       return assembly;
     },
-  } as unknown as AttachedRuntimeOwner<ImplementationError>;
+  } as RuntimeOwnerAttachment & AttachedRuntimeOwner<ImplementationError>;
 
   const runtime: Runtime<A, ImplementationError> = { app, ready: attachedOwner.ready };
-  attachedRuntimeOwners.set(runtime, attachedOwner as unknown as AttachedRuntimeOwner<unknown>);
+  attachedRuntimeOwners.set(runtime, attachedOwner);
 
   return runtime;
 };
@@ -2157,7 +2199,7 @@ export function runtimeSetup<A extends RuntimeApp>(
   options: {
     app: A;
   } & ([RequirementsOf<A>] extends [never]
-    ? { implementation?: never }
+    ? Partial<{ implementation: never }>
     : { implementation: never }),
 ): RuntimeSetup<A>;
 
@@ -2170,7 +2212,7 @@ export function runtimeSetup<
   A extends RuntimeApp,
   I extends RuntimeImplementation | undefined,
   ImplementationError,
->(options: { app: A; implementation?: I }) {
+>(options: { app: A } & Partial<{ implementation: I }>) {
   const app = admitConstructedApp(options.app);
   const implementation = options.implementation;
 

@@ -82,16 +82,22 @@ type ResolvedState<DefinitionValue extends MachineDefinition> = StateTree<
 
 // Definition indexing
 
+// RETURN_TYPE: Keeps the generic raw-value lookup contract while the identity map remains token-typed.
 const tokenLookup =
-  <Token>(tokens: Map<unknown, Token>) =>
-  (value: unknown) =>
-    Option.fromNullishOr(tokens.get(value));
+  <Token>(tokens: Map<Token, Token>): TokenLookup<Token> =>
+  <Value>(value: Value) => {
+    for (const [candidate, token] of tokens) {
+      if (Object.is(candidate, value)) return Option.some(token);
+    }
+
+    return Option.none<Token>();
+  };
 
 // RETURN_TYPE: Recursive child construction needs an explicit array type to anchor StateNode inference.
 const buildStateNodes = <DefinitionValue extends MachineDefinition>(
   table: DefinitionValue["S"],
   parentPath: StatePath,
-  tokens: Map<unknown, StateOf<DefinitionValue>>,
+  tokens: Map<StateOf<DefinitionValue>, StateOf<DefinitionValue>>,
 ): StateNode<DefinitionValue>[] =>
   Object.entries(table).map(([name, value]) => {
     const path = [...parentPath, name];
@@ -100,7 +106,7 @@ const buildStateNodes = <DefinitionValue extends MachineDefinition>(
       // SAFETY: this token is read directly from the admitted Definition.S table.
       // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- Definition.S admission owns this exact state-token identity; the generic table view cannot retain the leaf union.
       const token = value as StateOf<DefinitionValue>;
-      tokens.set(value, token);
+      tokens.set(token, token);
 
       return { kind: "leaf", name, path, token, children: [] } satisfies StateNode<DefinitionValue>;
     }
@@ -116,7 +122,7 @@ const buildStateNodes = <DefinitionValue extends MachineDefinition>(
 const indexDefinition = <DefinitionValue extends MachineDefinition>(
   definition: DefinitionValue,
 ) => {
-  const stateTokenIndex = new Map<unknown, StateOf<DefinitionValue>>();
+  const stateTokenIndex = new Map<StateOf<DefinitionValue>, StateOf<DefinitionValue>>();
 
   const root: StateNode<DefinitionValue> = {
     kind: "compound",
@@ -128,7 +134,11 @@ const indexDefinition = <DefinitionValue extends MachineDefinition>(
   // SAFETY: Definition.E is the exact event-token registry for this Definition identity.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the admitted registry's generic Object.values view widens its exact event-token values.
   const registeredEvents = Object.values(definition.E) as Timer<DefinitionValue>["target"][];
-  const eventTokenIndex = new Map<unknown, Timer<DefinitionValue>["target"]>();
+
+  const eventTokenIndex = new Map<
+    Timer<DefinitionValue>["target"],
+    Timer<DefinitionValue>["target"]
+  >();
 
   for (const event of registeredEvents) eventTokenIndex.set(event, event);
 
@@ -145,7 +155,7 @@ const indexDefinition = <DefinitionValue extends MachineDefinition>(
 
 // Structural admission
 
-const isForeignStateToken = (value: unknown) => {
+const isForeignStateToken = <Value>(value: Value) => {
   const kind = readTokenText(value, "kind");
 
   if (Result.isFailure(kind) || Option.isNone(kind.success) || kind.success.value !== "state")
@@ -161,9 +171,9 @@ const isForeignStateToken = (value: unknown) => {
   );
 };
 
-const validateStateToken = <DefinitionValue extends MachineDefinition>(
+const validateStateToken = <DefinitionValue extends MachineDefinition, Value>(
   tokens: TokenLookup<StateOf<DefinitionValue>>,
-  value: unknown,
+  value: Value,
   path: Diagnostic.Path,
 ) =>
   Result.fromOption(tokens(value), () => {
@@ -177,9 +187,9 @@ const validateStateToken = <DefinitionValue extends MachineDefinition>(
   });
 
 // RETURN_TYPE: Recursive Result.gen structural admission needs an explicit result to anchor the StateTree union.
-const admitStructure = <DefinitionValue extends MachineDefinition>(
+const admitStructure = <DefinitionValue extends MachineDefinition, Value>(
   node: StateNode<DefinitionValue>,
-  configuration: unknown,
+  configuration: Value,
   symbols: MachineSymbols<DefinitionValue>,
 ): Result.Result<StructuredState<DefinitionValue>, Diagnostic.PublicDiagnostic> =>
   Result.gen(function* () {
@@ -222,9 +232,9 @@ const admitStructure = <DefinitionValue extends MachineDefinition>(
 
 // Behavior resolution
 
-const validateEventToken = <DefinitionValue extends MachineDefinition>(
+const validateEventToken = <DefinitionValue extends MachineDefinition, Value>(
   tokens: TokenLookup<Timer<DefinitionValue>["target"]>,
-  value: unknown,
+  value: Value,
   path: Diagnostic.Path,
 ) =>
   Result.fromOption(tokens(value), () =>

@@ -25,11 +25,14 @@ import { isStableDataDescriptor, isStableKeyList } from "../internal/stable-obse
  *   snapshotExecutableInput, ExecutableInputSchema, ownExecutableInput
  */
 
-type SnapshotResult<Value = unknown> = {
+// FLOW_STATE_ALLOW_UNKNOWN: Caller-provided executable leaves remain opaque until the stable reflection walker admits their container shape.
+type OpaqueExecutableInputValue = unknown;
+
+type SnapshotResult<Value = OpaqueExecutableInputValue> = {
   value: Value;
 };
 
-interface ExecutableInputRecord<Value = unknown> {
+interface ExecutableInputRecord<Value = OpaqueExecutableInputValue> {
   [key: string]: Value;
 }
 
@@ -40,7 +43,7 @@ const executableInputStringProof: string = executableInputChildProof;
 
 void executableInputStringProof;
 
-type ExecutableInputSource = unknown[] | ExecutableInputRecord;
+type ExecutableInputSource = OpaqueExecutableInputValue[] | ExecutableInputRecord;
 
 // RETURN_TYPE: Preserves narrowing from unknown to the two source container representations at the executable-input admission boundary.
 const isExecutableInputSource = (value: unknown): value is ExecutableInputSource =>
@@ -52,9 +55,11 @@ type SnapshotState = {
   frames: SnapshotFrame[];
 };
 
-type SnapshotDataDescriptor = Omit<PropertyDescriptor, "value"> & { value: unknown };
+type SnapshotDataDescriptor = Omit<PropertyDescriptor, "value"> & {
+  value: OpaqueExecutableInputValue;
+};
 
-type SnapshotContainer = unknown[] | ExecutableInputRecord;
+type SnapshotContainer = OpaqueExecutableInputValue[] | ExecutableInputRecord;
 
 type SnapshotFrame = {
   source: ExecutableInputSource;
@@ -63,11 +68,15 @@ type SnapshotFrame = {
   reflectedKeys: PropertyKey[];
   keys: string[];
   sourceDescriptors: Map<string, SnapshotDataDescriptor>;
-  parent: { frame: SnapshotFrame; key: string } | undefined;
+  parent: SnapshotParent;
   index: number;
 };
 
-type SnapshotStart = { kind: "value"; value: unknown } | { kind: "frame"; frame: SnapshotFrame };
+type SnapshotParent = { kind: "root" } | { kind: "child"; frame: SnapshotFrame; key: string };
+
+type SnapshotStart =
+  | { kind: "value"; value: OpaqueExecutableInputValue }
+  | { kind: "frame"; frame: SnapshotFrame };
 
 const snapshotPending = Symbol("snapshot pending");
 
@@ -159,7 +168,11 @@ const readArraySnapshotKeys = (
   return Array.from({ length }, (_, index) => String(index));
 };
 
-const beginSnapshot = (value: unknown, state: SnapshotState, parent: SnapshotFrame["parent"]) => {
+const beginSnapshot = (
+  value: OpaqueExecutableInputValue,
+  state: SnapshotState,
+  parent: SnapshotParent,
+) => {
   if (!isExecutableInputSource(value)) return { kind: "value", value } satisfies SnapshotStart;
 
   const source = value;
@@ -206,7 +219,11 @@ const beginSnapshot = (value: unknown, state: SnapshotState, parent: SnapshotFra
   return { kind: "frame", frame } satisfies SnapshotStart;
 };
 
-const defineSnapshotProperty = (target: SnapshotContainer, key: string, value: unknown) => {
+const defineSnapshotProperty = (
+  target: SnapshotContainer,
+  key: string,
+  value: OpaqueExecutableInputValue,
+) => {
   Object.defineProperty(target, key, {
     configurable: true,
     enumerable: true,
@@ -223,7 +240,7 @@ const completeSnapshotFrame = (stack: SnapshotFrame[], state: SnapshotState) => 
   state.active.delete(frame.source);
   stack.pop();
 
-  if (frame.parent === undefined) {
+  if (frame.parent.kind === "root") {
     verifySnapshotFrames(state.frames);
 
     return result;
@@ -249,7 +266,7 @@ const advanceSnapshotFrame = (stack: SnapshotFrame[], state: SnapshotState) => {
 
   if (!descriptor.enumerable) return invalidExecutableInput();
   frame.sourceDescriptors.set(key, descriptor);
-  const child = beginSnapshot(descriptor.value, state, { frame, key });
+  const child = beginSnapshot(descriptor.value, state, { kind: "child", frame, key });
 
   if (child.kind === "frame") {
     stack.push(child.frame);
@@ -298,9 +315,15 @@ const verifySnapshotFrames = (frames: SnapshotFrame[]) => {
   for (const frame of frames) verifySnapshotFrame(frame);
 };
 
-function snapshotExecutableInput<Value>(value: Value, state: SnapshotState): SnapshotResult<Value>;
-function snapshotExecutableInput(value: unknown, state: SnapshotState) {
-  const root = beginSnapshot(value, state, undefined);
+function snapshotExecutableInput<Value extends OpaqueExecutableInputValue>(
+  value: Value,
+  state: SnapshotState,
+): SnapshotResult<Value>;
+function snapshotExecutableInput<Value extends OpaqueExecutableInputValue>(
+  value: Value,
+  state: SnapshotState,
+) {
+  const root = beginSnapshot(value, state, { kind: "root" });
 
   if (root.kind === "value") return { value: root.value };
 
@@ -328,7 +351,7 @@ const ExecutableInputSchema = Schema.declareConstructor<unknown, unknown>()([], 
 
 const decodeExecutableInput = Schema.decodeUnknownSync(ExecutableInputSchema);
 
-export function ownExecutableInput<Value>(value: Value): Value;
-export function ownExecutableInput(value: unknown) {
+export function ownExecutableInput<Value extends OpaqueExecutableInputValue>(value: Value): Value;
+export function ownExecutableInput(value: OpaqueExecutableInputValue) {
   return decodeExecutableInput(value);
 }

@@ -5,6 +5,7 @@ import {
   Effect,
   Exit,
   Fiber,
+  Option,
   Predicate,
   Queue,
   Result,
@@ -160,6 +161,7 @@ export type ActorMailboxFact<DefinitionValue extends MachineDefinition> =
       _tag: "command";
       fence: ActorFence;
       command: ActorCommand<DefinitionValue>;
+      // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- command acknowledgement is absent for fire-and-forget sends, and callers intentionally omit it.
       acknowledgement?: Deferred.Deferred<DispatchReceipt, PublicDiagnostic>;
     }
   | {
@@ -221,19 +223,27 @@ export type ActorFactDisposition<DefinitionValue extends MachineDefinition> =
 export type ActorEngineInput<DefinitionValue extends MachineDefinition> = {
   identity: ActorIdentity<DefinitionValue>;
   /** App-time machine facts used for planning; the identity ref retains the public machine token. */
+  // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- the engine accepts the identity's machine when an app-time machine fact is not supplied.
   machine?: Machine<DefinitionValue>;
   fence: ActorFence;
   initial: PreparedActorSnapshot<DefinitionValue>;
+  // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- restored actors may omit the prior machine-turn revision and use the zero baseline.
   initialMachineTurnRevision?: number;
+  // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- lifecycle assembly supplies this shared cut cell only when runtime ownership is installed.
   actorCell?: { cut?: ActorCellCut<DefinitionValue> };
+  // oxlint-disable-next-line anti-slop/no-public-runtime-infrastructure -- this package-private input carries the actor lifetime scope to its owning engine.
   scope: Scope.Scope;
+  // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- store ownership is absent for actors without cache actions.
   store?: ActorStore<DefinitionValue>;
+  // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- evidence acceptance is optional for standalone actor-engine tests and local owners.
   acceptEvidence?: ActorEvidenceAcceptor<DefinitionValue>;
+  // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- snapshot observation is optional for standalone actor-engine callers.
   onSnapshot?: (
     snapshot: ActorSnapshot<DefinitionValue>,
     machineTurnRevision: number,
     cause?: TurnCause<DefinitionValue>,
   ) => void;
+  // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- command work is optional and is only installed by hosts that own user work.
   onCommand?: ActorCommandHandler<DefinitionValue> | undefined;
 };
 
@@ -273,6 +283,7 @@ export interface ActorEngine<DefinitionValue extends MachineDefinition> {
   dispatchControl: (closeAdmission?: boolean) => ActorControlPermit;
   isClosed: () => boolean;
   isAdmissionOpen: () => boolean;
+  // oxlint-disable-next-line anti-slop/no-public-runtime-infrastructure -- the exported type is an internal actor owner route; public actorHandle exposes only ref and send.
   snapshots: Stream.Stream<ActorSnapshot<DefinitionValue>>;
   drain: () => Effect.Effect<void, PublicDiagnostic>;
   shutdown: () => Effect.Effect<void, PublicDiagnostic>;
@@ -282,6 +293,7 @@ export interface PreparedActorEngine<DefinitionValue extends MachineDefinition> 
   phase: "prepared";
   send: (command: ActorCommand<DefinitionValue>) => void;
   dispatch: (command: ActorCommand<DefinitionValue>) => AcknowledgedDispatch;
+  // oxlint-disable-next-line anti-slop/no-public-runtime-infrastructure -- prepared engine subscriptions are an internal runtime proof seam, not a public package route.
   snapshots: Stream.Stream<ActorSnapshot<DefinitionValue>>;
   activate: () => Effect.Effect<ActorEngine<DefinitionValue>, PublicDiagnostic>;
   abandon: () => void;
@@ -293,7 +305,7 @@ export interface ActorHandle<DefinitionValue extends MachineDefinition> {
 }
 
 type ConsumerFiberState = {
-  current: Fiber.Fiber<void, PublicDiagnostic> | undefined;
+  current: Option.Option<Fiber.Fiber<void, PublicDiagnostic>>;
 };
 
 export type ActorCellCut<DefinitionValue extends MachineDefinition> = {
@@ -446,8 +458,13 @@ const copySnapshot = <DefinitionValue extends MachineDefinition>(
   return { ...snapshot, memory, context, operations, timers, issues };
 };
 
-const freezeOwnedValue = (value: unknown, seen: Set<object>) => {
-  if (!Predicate.isObject(value) || seen.has(value)) return;
+type SnapshotRawValue = Schema.Schema.Type<typeof Schema.Unknown>;
+
+const isSnapshotReference = (value: SnapshotRawValue): value is SnapshotReference =>
+  Predicate.isObjectOrArray(value);
+
+const freezeOwnedValue = (value: SnapshotRawValue, seen: Set<SnapshotReference>) => {
+  if (!isSnapshotReference(value) || seen.has(value)) return;
 
   const array = Array.isArray(value);
   const prototype = array ? undefined : Object.getPrototypeOf(value);
@@ -467,7 +484,7 @@ const freezeOwnedValue = (value: unknown, seen: Set<object>) => {
 const freezePublicationSnapshot = <DefinitionValue extends MachineDefinition>(
   snapshot: ActorSnapshot<DefinitionValue>,
 ) => {
-  const seen = new Set<object>();
+  const seen = new Set<SnapshotReference>();
   freezeOwnedValue(snapshot.memory, seen);
   freezeOwnedValue(snapshot.context, seen);
 
@@ -524,11 +541,11 @@ const ownContextProjectionFact = (
   };
 };
 
-// oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- reflected record fields remain unknown until recursive snapshot admission.
-type SnapshotRecord = Record<PropertyKey, unknown>;
+// oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- reflected record fields remain raw until recursive snapshot admission.
+type SnapshotRecord = Record<PropertyKey, SnapshotRawValue>;
 
 // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- recursive reflection tracks both admitted records and dense arrays as object identities.
-type SnapshotReference = SnapshotRecord | unknown[];
+type SnapshotReference = SnapshotRecord | SnapshotRawValue[];
 
 type SnapshotPath = (string | number)[];
 
@@ -543,7 +560,7 @@ const preparedSnapshotFailure = (path: (string | number)[], reason: string) =>
     help: "Provide a complete snapshot produced for the exact constructed machine.",
   });
 
-type DataPropertyDescriptor = PropertyDescriptor & { value: unknown };
+type DataPropertyDescriptor = PropertyDescriptor & { value: SnapshotRawValue };
 
 // RETURN_TYPE: Snapshot reflection must narrow data descriptors before reading their values.
 const isDataProperty = (
@@ -556,7 +573,7 @@ const isEnumerableDataProperty = (
 ): descriptor is DataPropertyDescriptor =>
   isDataProperty(descriptor) && descriptor.enumerable === true;
 
-const captureSnapshotRecordUnchecked = (value: unknown, path: SnapshotPath) => {
+const captureSnapshotRecordUnchecked = (value: SnapshotRawValue, path: SnapshotPath) => {
   if (!Predicate.isObject(value)) return Result.fail(preparedSnapshotFailure(path, "record"));
   const prototype = Object.getPrototypeOf(value);
 
@@ -590,7 +607,7 @@ const captureSnapshotRecordUnchecked = (value: unknown, path: SnapshotPath) => {
   return Result.succeed(captured);
 };
 
-const captureSnapshotRecord = (value: unknown, path: SnapshotPath) => {
+const captureSnapshotRecord = (value: SnapshotRawValue, path: SnapshotPath) => {
   const captured = Result.try({
     try: () => captureSnapshotRecordUnchecked(value, path),
     catch: () => preparedSnapshotFailure(path, "reflection"),
@@ -602,11 +619,11 @@ const captureSnapshotRecord = (value: unknown, path: SnapshotPath) => {
 };
 
 // RETURN_TYPE: Array capture must narrow before reading own descriptors.
-const isPlainSnapshotArray = (value: unknown): value is unknown[] =>
+const isPlainSnapshotArray = (value: SnapshotRawValue): value is SnapshotRawValue[] =>
   Array.isArray(value) && Object.getPrototypeOf(value) === Array.prototype;
 
 // RETURN_TYPE: Dense array admission uses the validated length as a numeric bound.
-const isSnapshotArrayLength = (value: unknown): value is number =>
+const isSnapshotArrayLength = (value: SnapshotRawValue): value is number =>
   Predicate.isNumber(value) && Number.isSafeInteger(value) && value >= 0 && value <= 0xffff_ffff;
 
 const hasDenseSnapshotArrayKeys = (keys: PropertyKey[], length: number) =>
@@ -614,8 +631,12 @@ const hasDenseSnapshotArrayKeys = (keys: PropertyKey[], length: number) =>
   keys[length] === "length" &&
   keys.slice(0, length).every((key, index) => key === String(index));
 
-const copySnapshotArrayProperties = (value: unknown[], length: number, path: SnapshotPath) => {
-  const captured: unknown[] = [];
+const copySnapshotArrayProperties = (
+  value: SnapshotRawValue[],
+  length: number,
+  path: SnapshotPath,
+) => {
+  const captured: SnapshotRawValue[] = [];
 
   for (let index = 0; index < length; index += 1) {
     const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
@@ -628,7 +649,7 @@ const copySnapshotArrayProperties = (value: unknown[], length: number, path: Sna
   return Result.succeed(captured);
 };
 
-const captureSnapshotArray = (value: unknown, path: SnapshotPath) => {
+const captureSnapshotArray = (value: SnapshotRawValue, path: SnapshotPath) => {
   const captured = Result.try({
     try: () => {
       if (!isPlainSnapshotArray(value))
@@ -670,16 +691,16 @@ const hasExactKeys = (
 };
 
 // RETURN_TYPE: Timer and revision admission rely on the number guard after safe-integer validation.
-const isSafeSnapshotInteger = (value: unknown): value is number =>
+const isSafeSnapshotInteger = (value: SnapshotRawValue): value is number =>
   Predicate.isNumber(value) && Number.isSafeInteger(value);
 
-const isSafeSnapshotRevision = (value: unknown) =>
+const isSafeSnapshotRevision = (value: SnapshotRawValue) =>
   Predicate.isNumber(value) && isSafeSnapshotInteger(value) && value >= 0;
 
 // RETURN_TYPE: Snapshot operation admission requires descriptor identity in the constructed machine.
 const isSnapshotOperation = (
   machine: MachineRecordValue,
-  value: unknown,
+  value: SnapshotRawValue,
 ): value is OperationDeclaration =>
   isConstructedOperation(value) &&
   Object.values(machine.definition.operations).some((descriptor) => descriptor === value);
@@ -688,7 +709,7 @@ const collectSnapshotIdentities = (machine: MachineRecordValue) => {
   const identities = new WeakSet<SnapshotReference>();
   const visited = new WeakSet<SnapshotReference>();
 
-  const visitStateTable = (value: unknown) => {
+  const visitStateTable = (value: SnapshotRawValue) => {
     if (!Predicate.isObject(value) || visited.has(value)) return;
     visited.add(value);
     const kind = Object.getOwnPropertyDescriptor(value, "kind");
@@ -709,7 +730,7 @@ const collectSnapshotIdentities = (machine: MachineRecordValue) => {
 
   const visitContextSelector = (
     selector: PropertyDescriptor | undefined,
-    visitDefinition: (value: unknown) => void,
+    visitDefinition: (value: SnapshotRawValue) => void,
   ) => {
     if (!isDataProperty(selector) || !Predicate.isObject(selector.value)) return;
     identities.add(selector.value);
@@ -718,7 +739,10 @@ const collectSnapshotIdentities = (machine: MachineRecordValue) => {
     if (isDataProperty(provider)) visitDefinition(provider.value);
   };
 
-  const visitContext = (value: unknown, visitDefinition: (value: unknown) => void) => {
+  const visitContext = (
+    value: SnapshotRawValue,
+    visitDefinition: (value: SnapshotRawValue) => void,
+  ) => {
     if (!Predicate.isObject(value)) return;
 
     for (const key of Reflect.ownKeys(value)) {
@@ -727,7 +751,7 @@ const collectSnapshotIdentities = (machine: MachineRecordValue) => {
     }
   };
 
-  const visitDefinition = (value: unknown) => {
+  const visitDefinition = (value: SnapshotRawValue) => {
     if (!Predicate.isObject(value) || visited.has(value)) return;
     visited.add(value);
     const stateTable = Object.getOwnPropertyDescriptor(value, "S");
@@ -743,7 +767,7 @@ const collectSnapshotIdentities = (machine: MachineRecordValue) => {
   return identities;
 };
 
-const isSnapshotLeaf = (value: unknown, identities: WeakSet<SnapshotReference>) =>
+const isSnapshotLeaf = (value: SnapshotRawValue, identities: WeakSet<SnapshotReference>) =>
   value === null ||
   Predicate.isBoolean(value) ||
   Predicate.isString(value) ||
@@ -756,11 +780,11 @@ const isSnapshotLeaf = (value: unknown, identities: WeakSet<SnapshotReference>) 
 
 // RETURN_TYPE: Recursive snapshot copying retains the canonical typed validation failure channel.
 const captureSnapshotData = (
-  value: unknown,
+  value: SnapshotRawValue,
   path: SnapshotPath,
   identities: WeakSet<SnapshotReference>,
   seen: WeakSet<SnapshotReference>,
-): Result.Result<unknown, PublicDiagnostic> => {
+): Result.Result<SnapshotRawValue, PublicDiagnostic> => {
   if (isSnapshotLeaf(value, identities)) return Result.succeed(value);
 
   if (!Predicate.isObjectOrArray(value))
@@ -780,15 +804,15 @@ const captureSnapshotData = (
 
 // RETURN_TYPE: Recursive snapshot copying retains the canonical typed validation failure channel.
 const captureSnapshotArrayData = (
-  value: unknown[],
+  value: SnapshotRawValue[],
   path: SnapshotPath,
   identities: WeakSet<SnapshotReference>,
   seen: WeakSet<SnapshotReference>,
-): Result.Result<unknown[], PublicDiagnostic> => {
+): Result.Result<SnapshotRawValue[], PublicDiagnostic> => {
   const captured = captureSnapshotArray(value, path);
 
   if (Result.isFailure(captured)) return captured;
-  const owned: unknown[] = [];
+  const owned: SnapshotRawValue[] = [];
 
   for (const [index, child] of captured.success.entries()) {
     const admitted = captureSnapshotData(child, [...path, index], identities, seen);
@@ -828,11 +852,15 @@ const captureSnapshotRecordData = (
 };
 
 // RETURN_TYPE: Snapshot admission narrows decoded values to owned string-keyed records.
-const isSnapshotRecord = (value: unknown): value is SnapshotRecord =>
+const isSnapshotRecord = (value: SnapshotRawValue): value is SnapshotRecord =>
   Predicate.isObject(value) &&
   (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null);
 
-const admitSnapshotData = (machine: MachineRecordValue, value: unknown, path: SnapshotPath) => {
+const admitSnapshotData = (
+  machine: MachineRecordValue,
+  value: SnapshotRawValue,
+  path: SnapshotPath,
+) => {
   const captured = captureSnapshotData(
     value,
     path,
@@ -853,14 +881,20 @@ const admitSnapshotData = (machine: MachineRecordValue, value: unknown, path: Sn
 };
 
 // RETURN_TYPE: Operation statuses need a domain predicate after reading external snapshot data.
-const isOperationProjectionStatus = (value: unknown): value is OperationProjection["status"] =>
+const isOperationProjectionStatus = (
+  value: SnapshotRawValue,
+): value is OperationProjection["status"] =>
   value === "pending" ||
   value === "running" ||
   value === "succeeded" ||
   value === "failed" ||
   value === "cancelled";
 
-const admitSnapshotOperation = (machine: MachineRecordValue, rawEntry: unknown, index: number) => {
+const admitSnapshotOperation = (
+  machine: MachineRecordValue,
+  rawEntry: SnapshotRawValue,
+  index: number,
+) => {
   const entry = captureSnapshotRecord(rawEntry, ["operations", index]);
 
   if (Result.isFailure(entry) || !hasExactKeys(entry.success, ["descriptor", "key", "status"]))
@@ -882,7 +916,7 @@ const admitSnapshotOperation = (machine: MachineRecordValue, rawEntry: unknown, 
   return Result.succeed(copyObject({ descriptor, key, status }));
 };
 
-const admitSnapshotOperations = (machine: MachineRecordValue, value: unknown) => {
+const admitSnapshotOperations = (machine: MachineRecordValue, value: SnapshotRawValue) => {
   const captured = captureSnapshotArray(value, ["operations"]);
 
   if (Result.isFailure(captured)) return Result.fail(captured.failure);
@@ -900,7 +934,7 @@ const admitSnapshotOperations = (machine: MachineRecordValue, value: unknown) =>
 
 // RETURN_TYPE: Validated timer projections expose numeric timestamps after runtime checks.
 const admitSnapshotTimers = (
-  value: unknown,
+  value: SnapshotRawValue,
 ): Result.Result<TimerProjection[], PublicDiagnostic> => {
   const captured = captureSnapshotArray(value, ["timers"]);
 
@@ -928,7 +962,7 @@ const admitSnapshotTimers = (
   return Result.succeed(owned);
 };
 
-const admitSnapshotIssues = (value: unknown) => {
+const admitSnapshotIssues = (value: SnapshotRawValue) => {
   const captured = captureSnapshotArray(value, ["issues"]);
 
   if (Result.isFailure(captured)) return Result.fail(captured.failure);
@@ -955,7 +989,7 @@ const admitSnapshotIssues = (value: unknown) => {
 // RETURN_TYPE: This constructor preserves the prepared brand and typed diagnostic failure channel.
 export const prepareActorSnapshot = <DefinitionValue extends MachineDefinition>(
   machine: Machine<DefinitionValue>,
-  snapshot: unknown,
+  snapshot: SnapshotRawValue,
 ): Result.Result<PreparedActorSnapshot<DefinitionValue>, PublicDiagnostic> => {
   const admitted = Result.try({
     try: () =>
@@ -1044,7 +1078,7 @@ export const prepareActorSnapshot = <DefinitionValue extends MachineDefinition>(
 /** Verifies the private prepared-snapshot brand without re-admitting caller-shaped data. */
 export const verifyPreparedActorSnapshot = <DefinitionValue extends MachineDefinition>(
   machine: Machine<DefinitionValue>,
-  snapshot: unknown,
+  snapshot: SnapshotRawValue,
 ) => {
   if (!isConstructedMachine(machine) || !Predicate.isObject(snapshot))
     return Result.fail(preparedSnapshotFailure([], "brand"));
@@ -1163,7 +1197,7 @@ const commitActorCut = <DefinitionValue extends MachineDefinition>(
     const store = cut.commitStore();
 
     if (Result.isFailure(store)) {
-      if (typeof prepared.success.evidenceSequence !== "number") {
+      if (!Predicate.isNumber(prepared.success.evidenceSequence)) {
         const cancelled = prepared.success.evidenceSequence.cancel();
 
         if (Result.isFailure(cancelled)) return Result.fail(cutFailure(cancelled.failure));
@@ -1173,7 +1207,7 @@ const commitActorCut = <DefinitionValue extends MachineDefinition>(
     }
 
     if (store.success.revision < cell.publication.snapshot.observedStoreRevision) {
-      if (typeof prepared.success.evidenceSequence !== "number") {
+      if (!Predicate.isNumber(prepared.success.evidenceSequence)) {
         const cancelled = prepared.success.evidenceSequence.cancel();
 
         if (Result.isFailure(cancelled)) return Result.fail(cutFailure(cancelled.failure));
@@ -1206,10 +1240,9 @@ const commitActorCut = <DefinitionValue extends MachineDefinition>(
       store: store.success,
     } satisfies ActorPublication<DefinitionValue>);
 
-    const evidenceSequence =
-      typeof prepared.success.evidenceSequence === "number"
-        ? prepared.success.evidenceSequence
-        : prepared.success.evidenceSequence.finalize(publication);
+    const evidenceSequence = Predicate.isNumber(prepared.success.evidenceSequence)
+      ? prepared.success.evidenceSequence
+      : prepared.success.evidenceSequence.finalize(publication);
 
     cell.evidenceSequence = evidenceSequence;
 
@@ -1223,10 +1256,9 @@ const commitActorCut = <DefinitionValue extends MachineDefinition>(
 
     const publication = install(prepared.success.publication);
 
-    const evidenceSequence =
-      typeof prepared.success.evidenceSequence === "number"
-        ? prepared.success.evidenceSequence
-        : prepared.success.evidenceSequence.finalize(publication);
+    const evidenceSequence = Predicate.isNumber(prepared.success.evidenceSequence)
+      ? prepared.success.evidenceSequence
+      : prepared.success.evidenceSequence.finalize(publication);
 
     cell.evidenceSequence = evidenceSequence;
 
@@ -1249,7 +1281,7 @@ const invokeResult = <Value>(callback: () => Result.Result<Value, PublicDiagnost
   return captured.success;
 };
 
-const storeValueKind = (value: unknown) => {
+const storeValueKind = (value: SnapshotRawValue) => {
   if (value === null || Predicate.isObjectOrArray(value)) return "object";
 
   if (Predicate.isFunction(value)) return "function";
@@ -1268,7 +1300,9 @@ const storeValueKind = (value: unknown) => {
 };
 
 /** Copies the result an ActorStore owner returns from one commit. */
-export const makeActorStoreResult = <DefinitionValue extends MachineDefinition>(store: unknown) =>
+export const makeActorStoreResult = <DefinitionValue extends MachineDefinition>(
+  store: SnapshotRawValue,
+) =>
   invokeResult(() => {
     if (!Predicate.isObjectOrArray(store))
       return Result.fail(
@@ -1539,13 +1573,12 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
       return Result.fail(evidenceSequence.failure);
     }
 
-    const validatedEvidenceSequence =
-      typeof evidenceSequence.success === "number"
-        ? validateEvidenceSequence(evidenceSequence.success)
-        : evidenceSequence;
+    const validatedEvidenceSequence = Predicate.isNumber(evidenceSequence.success)
+      ? validateEvidenceSequence(evidenceSequence.success)
+      : evidenceSequence;
 
     if (Result.isFailure(validatedEvidenceSequence)) {
-      if (typeof evidenceSequence.success !== "number") evidenceSequence.success.cancel();
+      if (!Predicate.isNumber(evidenceSequence.success)) evidenceSequence.success.cancel();
 
       return Result.fail(validatedEvidenceSequence.failure);
     }
@@ -1607,13 +1640,12 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
 
         if (Result.isFailure(evidenceSequence)) return Result.fail(evidenceSequence.failure);
 
-        const validatedEvidenceSequence =
-          typeof evidenceSequence.success === "number"
-            ? validateEvidenceSequence(evidenceSequence.success)
-            : evidenceSequence;
+        const validatedEvidenceSequence = Predicate.isNumber(evidenceSequence.success)
+          ? validateEvidenceSequence(evidenceSequence.success)
+          : evidenceSequence;
 
         if (Result.isFailure(validatedEvidenceSequence)) {
-          if (typeof evidenceSequence.success !== "number") evidenceSequence.success.cancel();
+          if (!Predicate.isNumber(evidenceSequence.success)) evidenceSequence.success.cancel();
 
           return Result.fail(validatedEvidenceSequence.failure);
         }
@@ -1697,6 +1729,22 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
     return Result.succeed(result.success);
   };
 
+  const publishProjection = (
+    candidate: ActorSnapshot<DefinitionValue>,
+    cause: TurnCause<DefinitionValue>,
+  ) => {
+    const committed = publishCut(
+      candidate,
+      state.publication.machineTurnRevision,
+      { revision: candidate.observedStoreRevision, changed: [] },
+      cause,
+    );
+
+    return Result.isFailure(committed)
+      ? Result.fail(committed.failure.diagnostic)
+      : Result.succeed(committed.success.publication.snapshot);
+  };
+
   const processPlan = (
     plan: TurnPlan<DefinitionValue>,
     acknowledgement: Deferred.Deferred<DispatchReceipt, PublicDiagnostic> | undefined,
@@ -1717,18 +1765,7 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
 
       const projected: Result.Result<ActorSnapshot<DefinitionValue>, PublicDiagnostic> = passive
         ? publishPassive(plan.candidate)
-        : (() => {
-            const committed = publishCut(
-              plan.candidate,
-              state.publication.machineTurnRevision,
-              { revision: plan.candidate.observedStoreRevision, changed: [] },
-              plan.cause,
-            );
-
-            return Result.isFailure(committed)
-              ? Result.fail(committed.failure.diagnostic)
-              : Result.succeed(committed.success.publication.snapshot);
-          })();
+        : publishProjection(plan.candidate, plan.cause);
 
       if (Result.isFailure(projected)) {
         setClosed(projected.failure);
@@ -1888,6 +1925,130 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
     );
   };
 
+  const hasValidContextTicketVector = (
+    ticket: ContextProjectionTicket<DefinitionValue>,
+    providers: ReturnType<typeof contextProviders>,
+  ) => {
+    if (providers === undefined) return false;
+    const providerKeys = new Set(providers.map((provider) => provider.fence.key));
+
+    return (
+      providerKeys.size === ticket.requiredVector.size &&
+      providers.every(
+        (provider) => ticket.requiredVector.get(provider.fence.key) === provider.revision,
+      )
+    );
+  };
+
+  const completeContextTicket = (
+    ticket: ContextProjectionTicket<DefinitionValue>,
+    status: ContextTicketOutcome<DefinitionValue>["status"],
+  ) => {
+    pendingContextTickets.delete(ticket.completion);
+    Deferred.doneUnsafe(
+      ticket.completion,
+      Effect.succeed({
+        status,
+        snapshot: copySnapshot(state.publication.snapshot),
+        machineTurnRevision: state.publication.machineTurnRevision,
+      }),
+    );
+  };
+
+  const processContextTicket = (
+    fact: Extract<
+      ActorMailboxFact<DefinitionValue>,
+      { _tag: "projection"; delivery: "context-ticket" }
+    >,
+  ) =>
+    Effect.gen(function* () {
+      const ticket = fact.ticket;
+      const providers = contextProviders(fact.fact);
+      const validVector = hasValidContextTicketVector(ticket, providers);
+      const disposition = contextRevisionDisposition(fact.fact);
+
+      const stale =
+        ticket.cancelled ||
+        !isCurrentFence(input.fence, ticket.consumerFence) ||
+        !validVector ||
+        !isValidContextTicketWitness(
+          ticket.witness,
+          ticket.origin,
+          ticket.graphGeneration,
+          ticket.expectedRevision,
+        ) ||
+        !isValidContextTicketCarrier(ticket.witness, fact.fact) ||
+        state.publication.snapshot.revision !== ticket.expectedRevision ||
+        disposition === "stale";
+
+      if (stale) {
+        completeContextTicket(ticket, "stale");
+
+        return;
+      }
+
+      if (disposition === "no-op") {
+        completeContextTicket(ticket, "no-op");
+
+        return;
+      }
+
+      const before = state.publication.snapshot.revision;
+
+      const processed = yield* Effect.exit(
+        processProjection({ ...fact, fact: ownContextProjectionFact(fact.fact) }),
+      );
+
+      if (Exit.isFailure(processed)) {
+        pendingContextTickets.delete(ticket.completion);
+        Deferred.doneUnsafe(ticket.completion, Effect.failCause(processed.cause));
+
+        return yield* Effect.failCause(processed.cause);
+      }
+
+      completeContextTicket(
+        ticket,
+        state.publication.snapshot.revision > before ? "published" : "no-op",
+      );
+    });
+
+  const processQueuedFact = (fact: ActorQueuedFact<DefinitionValue>) => {
+    if (fact._tag === "command") {
+      const disposition = fenceActorFact(input.fence, fact);
+
+      if (disposition._tag === "accepted") return processCommand(disposition.fact);
+
+      settleSuccess(fact.acknowledgement, {
+        publicationRevision: state.publication.snapshot.revision,
+        evidenceSequence: state.evidenceSequence,
+      });
+
+      return Effect.void;
+    }
+
+    if (fact._tag === "projection" && isCurrentFence(input.fence, fact.fence)) {
+      if (fact.delivery === "ordinary") return processProjection(fact);
+
+      return processContextTicket(fact);
+    }
+
+    if (fact._tag !== "control") return Effect.void;
+
+    return Effect.gen(function* () {
+      // Mapped continuations belong to accepted turns before this control, even when all
+      // 64 ordinary queue places were occupied when those turns published their cuts.
+      for (let index = 0; index < fact.before.length; index += 1) {
+        const command = fact.before[index];
+
+        if (command !== undefined)
+          yield* processCommand({ _tag: "command", fence: input.fence, command });
+      }
+
+      fact.before.length = 0;
+      yield* fact.run;
+    });
+  };
+
   const consume = Effect.gen(function* () {
     yield* Deferred.await(barrier);
     yield* Effect.forever(
@@ -1895,118 +2056,7 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
         const fact = yield* Queue.take(mailbox);
         markTaken(fact);
         drainState.processing = true;
-
-        if (fact._tag === "command") {
-          const disposition = fenceActorFact(input.fence, fact);
-
-          if (disposition._tag === "accepted") yield* processCommand(disposition.fact);
-          else
-            settleSuccess(fact.acknowledgement, {
-              publicationRevision: state.publication.snapshot.revision,
-              evidenceSequence: state.evidenceSequence,
-            });
-        } else if (fact._tag === "projection" && isCurrentFence(input.fence, fact.fence)) {
-          if (fact.delivery === "ordinary") yield* processProjection(fact);
-          else {
-            const ticket = fact.ticket;
-            const providers = contextProviders(fact.fact);
-            let validVector = providers !== undefined;
-            const providerKeys = new Set<ActorKey>();
-
-            if (providers !== undefined) {
-              for (let index = 0; index < providers.length; index += 1) {
-                const provider = providers[index];
-
-                if (provider === undefined) {
-                  validVector = false;
-                  break;
-                }
-
-                providerKeys.add(provider.fence.key);
-
-                if (ticket.requiredVector.get(provider.fence.key) !== provider.revision)
-                  validVector = false;
-              }
-
-              if (providerKeys.size !== ticket.requiredVector.size) validVector = false;
-            }
-
-            const disposition = contextRevisionDisposition(fact.fact);
-
-            if (
-              ticket.cancelled ||
-              !isCurrentFence(input.fence, ticket.consumerFence) ||
-              !validVector ||
-              !isValidContextTicketWitness(
-                ticket.witness,
-                ticket.origin,
-                ticket.graphGeneration,
-                ticket.expectedRevision,
-              ) ||
-              !isValidContextTicketCarrier(ticket.witness, fact.fact) ||
-              state.publication.snapshot.revision !== ticket.expectedRevision ||
-              disposition === "stale"
-            ) {
-              pendingContextTickets.delete(ticket.completion);
-              Deferred.doneUnsafe(
-                ticket.completion,
-                Effect.succeed({
-                  status: "stale" as const,
-                  snapshot: copySnapshot(state.publication.snapshot),
-                  machineTurnRevision: state.publication.machineTurnRevision,
-                }),
-              );
-            } else if (disposition === "no-op") {
-              pendingContextTickets.delete(ticket.completion);
-              Deferred.doneUnsafe(
-                ticket.completion,
-                Effect.succeed({
-                  status: "no-op" as const,
-                  snapshot: copySnapshot(state.publication.snapshot),
-                  machineTurnRevision: state.publication.machineTurnRevision,
-                }),
-              );
-            } else {
-              const before = state.publication.snapshot.revision;
-
-              const processed = yield* Effect.exit(
-                processProjection({ ...fact, fact: ownContextProjectionFact(fact.fact) }),
-              );
-
-              if (Exit.isFailure(processed)) {
-                pendingContextTickets.delete(ticket.completion);
-                Deferred.doneUnsafe(ticket.completion, Effect.failCause(processed.cause));
-
-                return yield* Effect.failCause(processed.cause);
-              }
-
-              pendingContextTickets.delete(ticket.completion);
-              Deferred.doneUnsafe(
-                ticket.completion,
-                Effect.succeed({
-                  status:
-                    state.publication.snapshot.revision > before
-                      ? ("published" as const)
-                      : ("no-op" as const),
-                  snapshot: copySnapshot(state.publication.snapshot),
-                  machineTurnRevision: state.publication.machineTurnRevision,
-                }),
-              );
-            }
-          }
-        } else if (fact._tag === "control") {
-          // Mapped continuations belong to accepted turns before this control, even when all
-          // 64 ordinary queue places were occupied when those turns published their cuts.
-          for (let index = 0; index < fact.before.length; index += 1) {
-            const command = fact.before[index];
-
-            if (command !== undefined)
-              yield* processCommand({ _tag: "command", fence: input.fence, command });
-          }
-
-          fact.before.length = 0;
-          yield* fact.run;
-        }
+        yield* processQueuedFact(fact);
       }).pipe(
         Effect.ensuring(
           Effect.sync(() => {
@@ -2072,12 +2122,12 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
         setClosed();
         const fiber = consumerFiber.current;
 
-        if (fiber !== undefined) {
+        if (Option.isSome(fiber)) {
           const currentFiber = yield* Effect.fiber;
 
-          if (fiber !== currentFiber) {
-            yield* Fiber.interrupt(fiber);
-            yield* Fiber.await(fiber);
+          if (fiber.value !== currentFiber) {
+            yield* Fiber.interrupt(fiber.value);
+            yield* Fiber.await(fiber.value);
           }
         }
 
@@ -2116,7 +2166,10 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
 // RETURN_TYPE: This boundary exposes the prepared phase and its typed diagnostic channel.
 export const prepareActorEngine = <DefinitionValue extends MachineDefinition>(
   input: ActorEngineInput<DefinitionValue>,
-  options?: { capacity?: number },
+  options?: {
+    // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- capacity is an optional construction override with the documented mailbox default.
+    capacity?: number;
+  },
 ): Effect.Effect<PreparedActorEngine<DefinitionValue>, PublicDiagnostic> =>
   Effect.gen(function* () {
     const admittedInitial = verifyPreparedActorSnapshot(
@@ -2174,7 +2227,7 @@ export const prepareActorEngine = <DefinitionValue extends MachineDefinition>(
     let controlPending = false;
     let controlReserved = false;
     let reservedControlFact: ActorControlFact<DefinitionValue> | undefined;
-    const consumerFiber: ConsumerFiberState = { current: undefined };
+    const consumerFiber: ConsumerFiberState = { current: Option.none() };
 
     const settlePending = (failure: PublicDiagnostic = shutdownFailure()) => {
       for (const acknowledgement of pending)
@@ -2433,7 +2486,7 @@ export const prepareActorEngine = <DefinitionValue extends MachineDefinition>(
           );
 
           const fiber = yield* consume.pipe(Effect.forkScoped({ startImmediately: true }));
-          consumerFiber.current = fiber;
+          consumerFiber.current = Option.some(fiber);
           yield* Effect.gen(function* () {
             const exit = yield* Fiber.await(fiber);
 

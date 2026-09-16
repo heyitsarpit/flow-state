@@ -162,10 +162,7 @@ const makeFence = <DefinitionValue extends MachineDefinition>(
   return { identity, ref, fence, registry };
 };
 
-const makeTestClock = (
-  now: number,
-  sleep: Clock.Clock["sleep"] = () => Effect.void,
-): Clock.Clock => ({
+const makeTestClock = (now: number, sleep: Clock.Clock["sleep"] = () => Effect.void) => ({
   currentTimeMillisUnsafe: () => now,
   currentTimeMillis: Effect.succeed(now),
   currentTimeNanosUnsafe: () => BigInt(now) * 1_000_000n,
@@ -210,6 +207,7 @@ const hasLifecycleEvidenceFields = (
 
 type LifecycleActorCell = ActorCell<LifecycleSnapshot<typeof LifecycleDefinition, string>>;
 
+// RETURN_TYPE: Preserves the generic ActorCell snapshot contract across lifecycle fixture variants.
 const makeActorCell = <
   DefinitionValue extends MachineDefinition = typeof LifecycleDefinition,
   CleanupError = string,
@@ -561,7 +559,7 @@ describe("actor lifecycle", () => {
       const workFinalizers: Array<number> = [];
 
       const makeResource = (id: number) =>
-        Effect.gen(function* () {
+        Effect.sync(() => {
           return {
             name: `resource-${id}`,
             close: () =>
@@ -1514,28 +1512,26 @@ describe("actor lifecycle", () => {
       assert.strictEqual(evidenceAttempts, 1);
       assert.ok(acceptedCleanupCause !== undefined);
 
-      if (acceptedCleanupCause !== undefined) {
-        assert.deepStrictEqual(
-          acceptedCleanupCause.reasons.map((reason) => reason._tag),
-          ["Die", "Interrupt", "Fail"],
-        );
-        const defect = acceptedCleanupCause.reasons[0];
-        const interrupt = acceptedCleanupCause.reasons[1];
-        const failure = acceptedCleanupCause.reasons[2];
+      assert.deepStrictEqual(
+        acceptedCleanupCause.reasons.map((reason) => reason._tag),
+        ["Die", "Interrupt", "Fail"],
+      );
+      const defect = acceptedCleanupCause.reasons[0];
+      const interrupt = acceptedCleanupCause.reasons[1];
+      const failure = acceptedCleanupCause.reasons[2];
 
-        if (defect === undefined || !Cause.isDieReason(defect))
-          return yield* Effect.die(new Error("missing reverse defect Cause lane"));
+      if (defect === undefined || !Cause.isDieReason(defect))
+        return yield* Effect.die(new Error("missing reverse defect Cause lane"));
 
-        if (interrupt === undefined || !Cause.isInterruptReason(interrupt))
-          return yield* Effect.die(new Error("missing reverse interrupt Cause lane"));
+      if (interrupt === undefined || !Cause.isInterruptReason(interrupt))
+        return yield* Effect.die(new Error("missing reverse interrupt Cause lane"));
 
-        if (failure === undefined || !Cause.isFailReason(failure))
-          return yield* Effect.die(new Error("missing reverse typed Cause lane"));
+      if (failure === undefined || !Cause.isFailReason(failure))
+        return yield* Effect.die(new Error("missing reverse typed Cause lane"));
 
-        assert.strictEqual(defect.defect, secondDefect);
-        assert.strictEqual(interrupt.fiberId, 17);
-        assert.strictEqual(failure.error, firstFailure);
-      }
+      assert.strictEqual(defect.defect, secondDefect);
+      assert.strictEqual(interrupt.fiberId, 17);
+      assert.strictEqual(failure.error, firstFailure);
 
       const second = yield* Effect.exit(withRuntime(controller.command(dispose), layer));
 

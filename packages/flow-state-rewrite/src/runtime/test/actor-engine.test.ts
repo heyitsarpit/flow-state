@@ -58,6 +58,7 @@ const resultSuccess = <Value, Error>(result: Result.Result<Value, Error>) => {
   return result.success;
 };
 
+// RETURN_TYPE: The fixture must satisfy the Effect Clock service contract used by evidence ownership.
 const makeTestClock = (currentTimeMillisUnsafe: () => number): Clock.Clock => {
   const currentTimeNanosUnsafe = () => BigInt(currentTimeMillisUnsafe()) * 1_000_000n;
 
@@ -901,13 +902,14 @@ describe("actor engine", () => {
       assert.strictEqual(records.length, 0);
       yield* evidence.journal.drain();
       const record = records[0];
-      assert.ok(record?._tag === "turn");
 
-      if (record?._tag === "turn") {
-        assert.strictEqual(record.store.revision, validatedActorStoreResult.revision);
-        assert.deepStrictEqual(record.store.changed, validatedActorStoreResult.changed);
-        assert.strictEqual(published[0]?.observedStoreRevision, validatedActorStoreResult.revision);
+      if (record === undefined || record._tag !== "turn") {
+        assert.fail("Expected a turn evidence record");
       }
+
+      assert.strictEqual(record.store.revision, validatedActorStoreResult.revision);
+      assert.deepStrictEqual(record.store.changed, validatedActorStoreResult.changed);
+      assert.strictEqual(published[0]?.observedStoreRevision, validatedActorStoreResult.revision);
 
       yield* Deferred.succeed(releaseCommand, undefined);
       yield* engine.drain();
@@ -1083,7 +1085,10 @@ describe("actor engine", () => {
         store: {
           commit: () => {
             storeCalls += 1;
-            const revision = storeCalls === 2 ? 0 : storeCalls === 1 ? 1 : 2;
+            let revision = 2;
+
+            if (storeCalls === 2) revision = 0;
+            else if (storeCalls === 1) revision = 1;
 
             return makeActorStoreResult<typeof testDefinition>({ revision, changed: [] });
           },
@@ -2419,8 +2424,12 @@ describe("actor engine parity cases", () => {
           assert.strictEqual(fact._tag, "completion-projection");
 
           if (fact._tag === "completion-projection") {
-            assert.strictEqual(fact.completion.outcome._tag, "defect");
-            assert.strictEqual(fact.completion.outcome.exit, defectExit);
+            const outcome = fact.completion.outcome;
+            assert.strictEqual(outcome._tag, "defect");
+
+            if (outcome._tag === "defect") {
+              assert.strictEqual(outcome.exit, defectExit);
+            }
           }
         }
       } else {
@@ -3002,6 +3011,7 @@ describe("pending regression scenarios", () => {
       const started = yield* Deferred.make<void>();
       const release = yield* Deferred.make<void>();
       const processed: ActorCommand<typeof testDefinition>[] = [];
+
       const setup = makeInput(scope, (command) =>
         Effect.gen(function* () {
           processed.push(command);
@@ -3012,6 +3022,7 @@ describe("pending regression scenarios", () => {
           }
         }),
       );
+
       const engine = yield* (yield* prepareActorEngine(setup.input)).activate();
       const executing = engine.dispatch(opened);
       yield* Deferred.await(started);
@@ -3070,6 +3081,7 @@ describe("pending regression scenarios", () => {
       const scope = yield* Scope.make("sequential");
       const mappedEventMachine = makeMappedEventMachine();
       const processed: ActorCommand<typeof testDefinition>[] = [];
+
       const setup = makeInput(
         scope,
         (command) =>
@@ -3078,6 +3090,7 @@ describe("pending regression scenarios", () => {
           }),
         mappedEventMachine,
       );
+
       const observed = Deferred.makeUnsafe<void>();
       let engine: ActorEngine<typeof testDefinition>;
       let prefix: AcknowledgedDispatch | undefined;
@@ -3120,6 +3133,7 @@ describe("pending regression scenarios", () => {
       const scope = yield* Scope.make("sequential");
       const mappedEventMachine = makeMappedEventMachine();
       const processed: ActorCommand<typeof testDefinition>[] = [];
+
       const setup = makeInput(
         scope,
         (command) =>
@@ -3128,6 +3142,7 @@ describe("pending regression scenarios", () => {
           }),
         mappedEventMachine,
       );
+
       const observed = Deferred.makeUnsafe<void>();
       let engine: ActorEngine<typeof testDefinition>;
       let accepted: AcknowledgedDispatch[] = [];

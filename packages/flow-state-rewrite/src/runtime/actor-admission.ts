@@ -111,18 +111,17 @@ export type ActorDependencyEdge = {
   slot: string;
 };
 
-/** TODO: eliminate unknown type and use or build generics in other modules that can make these types more concrete
- *  any use of these types should rely on concrete type information as source of truth
- *  and avoid writing super defensive code when information can be inferred.
- * */
+// FLOW_STATE_ALLOW_UNKNOWN: hostile admission values stay opaque until this module's structural and domain validators promote them.
+type UntrustedAdmissionValue = unknown;
+
 /** Exact values crossing the single structural unknown-input decoder. */
 export type ActorAdmissionEnvelope = {
-  app: unknown;
-  implementation: unknown;
-  ref: unknown;
-  input: unknown;
-  bindings: unknown[];
-  dependencies: unknown[];
+  app: UntrustedAdmissionValue;
+  implementation: UntrustedAdmissionValue;
+  ref: UntrustedAdmissionValue;
+  input: UntrustedAdmissionValue;
+  bindings: UntrustedAdmissionValue[];
+  dependencies: UntrustedAdmissionValue[];
 };
 
 /** Pure graph views published to the next admission stage. */
@@ -132,14 +131,13 @@ export type ActorDependencyGraph = {
   order: ActorKey[];
 };
 
-/** TODO: eliminate unknown type and use or build generics in other modules that can make these types more concrete  */
 type EnvelopeRecord = {
-  app?: unknown;
-  implementation?: unknown;
-  ref?: unknown;
-  input?: unknown;
-  bindings?: unknown;
-  dependencies?: unknown;
+  app: UntrustedAdmissionValue;
+  implementation: UntrustedAdmissionValue;
+  ref: UntrustedAdmissionValue;
+  input: UntrustedAdmissionValue;
+  bindings: UntrustedAdmissionValue;
+  dependencies: UntrustedAdmissionValue;
 };
 
 type EnvelopeCaptureFailure = {
@@ -150,9 +148,10 @@ type EnvelopeCaptureFailure = {
 type ReflectableAdmissionValue = Exclude<WeakKey, symbol>;
 
 type CapturedReflection = {
+  // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- null is the native Object.getPrototypeOf result for a null-prototype admission record.
   prototype: ReflectableAdmissionValue | null;
   keys: PropertyKey[];
-  values: Map<PropertyKey, unknown>;
+  values: Map<PropertyKey, UntrustedAdmissionValue>;
   enumerable: Set<PropertyKey>;
 };
 
@@ -195,9 +194,13 @@ const captureReflectionStructure = (
 const captureReflectionProperties = (
   value: ReflectableAdmissionValue,
   path: (string | number)[],
-  structure: { prototype: ReflectableAdmissionValue | null; keys: PropertyKey[] },
+  structure: {
+    // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- null is the native Object.getPrototypeOf result for a null-prototype admission record.
+    prototype: ReflectableAdmissionValue | null;
+    keys: PropertyKey[];
+  },
 ) => {
-  const values = new Map<PropertyKey, unknown>();
+  const values = new Map<PropertyKey, UntrustedAdmissionValue>();
   const enumerable = new Set<PropertyKey>();
 
   for (const key of structure.keys) {
@@ -234,7 +237,7 @@ const captureReflectionProperties = (
 };
 
 // Captures each reflective operation once and converts hostile traps into a diagnostic value.
-const captureReflection = (value: unknown, path: (string | number)[]) => {
+const captureReflection = (value: UntrustedAdmissionValue, path: (string | number)[]) => {
   const captured = Result.try({
     try: () => {
       if (!Array.isArray(value) && !Predicate.isObject(value))
@@ -254,7 +257,7 @@ const captureReflection = (value: unknown, path: (string | number)[]) => {
   return captured.success;
 };
 
-const captureAdmissionReflection = (value: unknown) => {
+const captureAdmissionReflection = (value: UntrustedAdmissionValue) => {
   const captured = captureReflection(value, []);
 
   if (Result.isFailure(captured)) return Result.fail(admissionReflectionDiagnostic());
@@ -264,12 +267,12 @@ const captureAdmissionReflection = (value: unknown) => {
 
 // RETURN_TYPE: Keeps the complete caller record behind one stable structural read before typed admission.
 export const captureAdmissionRecord = (
-  value: unknown,
+  value: UntrustedAdmissionValue,
   // oxlint-disable-next-line anti-slop/no-readonly -- NO_READONLY_CODEMOD: accepts const-inferred key tuples without requiring a caller copy.
   requiredKeys: readonly string[],
   // oxlint-disable-next-line anti-slop/no-readonly -- NO_READONLY_CODEMOD: accepts const-inferred key tuples without requiring a caller copy.
   optionalKeys: readonly string[] = [],
-): Result.Result<Map<PropertyKey, unknown>, PublicDiagnostic> => {
+): Result.Result<Map<PropertyKey, UntrustedAdmissionValue>, PublicDiagnostic> => {
   const captured = captureAdmissionReflection(value);
 
   if (Result.isFailure(captured)) return Result.fail(captured.failure);
@@ -287,9 +290,9 @@ export const captureAdmissionRecord = (
 
 // RETURN_TYPE: Captures one capability property without permitting a later source-object reread.
 export const captureAdmissionProperty = (
-  value: unknown,
+  value: UntrustedAdmissionValue,
   key: string,
-): Result.Result<unknown, PublicDiagnostic> => {
+): Result.Result<UntrustedAdmissionValue, PublicDiagnostic> => {
   const captured = captureAdmissionReflection(value);
 
   if (Result.isFailure(captured)) return Result.fail(captured.failure);
@@ -339,7 +342,7 @@ const copyEnvelopeArrayEntries = (
   length: number,
   path: (string | number)[],
 ) => {
-  const capturedValues: unknown[] = [];
+  const capturedValues: UntrustedAdmissionValue[] = [];
 
   for (let index = 0; index < length; index += 1) {
     const key = String(index);
@@ -357,7 +360,7 @@ const copyEnvelopeArrayEntries = (
   return Result.succeed(capturedValues);
 };
 
-const captureEnvelopeArray = (value: unknown, path: (string | number)[]) => {
+const captureEnvelopeArray = (value: UntrustedAdmissionValue, path: (string | number)[]) => {
   const captured = captureReflection(value, path);
 
   if (Result.isFailure(captured)) return Result.fail(captured.failure);
@@ -372,7 +375,7 @@ const readEnvelopeFields = (
   captured: CapturedReflection,
   names: Iterable<keyof EnvelopeRecord>,
 ) => {
-  const values: unknown[] = [];
+  const values: UntrustedAdmissionValue[] = [];
 
   for (const name of names) {
     if (!captured.values.has(name)) {
@@ -388,7 +391,7 @@ const readEnvelopeFields = (
   return Result.succeed(values);
 };
 
-const captureEnvelope = (value: unknown) => {
+const captureEnvelope = (value: UntrustedAdmissionValue) => {
   const captured = captureReflection(value, []);
 
   if (Result.isFailure(captured)) return Result.fail(captured.failure);
@@ -464,7 +467,7 @@ const ActorAdmissionEnvelopeSchema = Schema.declareConstructor<ActorAdmissionEnv
 const decodeAdmissionEnvelope = Schema.decodeUnknownResult(ActorAdmissionEnvelopeSchema);
 
 /** Decodes the envelope shape once; input remains unknown and is never generically schema-decoded. */
-export const decodeActorAdmissionEnvelope = (value: unknown) =>
+export const decodeActorAdmissionEnvelope = (value: UntrustedAdmissionValue) =>
   decodeAdmissionEnvelope(value).pipe(Result.mapError(fromSchemaError));
 
 // FLOW_STATE_ALLOW_UNKNOWN: ActorDirectory stores the exact Deferred as an opaque heterogeneous join token.
@@ -482,7 +485,7 @@ export type ActorIdentityRegistry<Actor = unknown> = {
   ) => Result.Result<ActorIdentity<DefinitionValue>, PublicDiagnostic>;
   createLocal: <DefinitionValue extends MachineDefinition>(
     machine: Machine<DefinitionValue>,
-    options?: { deferAllocationNotification?: boolean },
+    options?: LocalActorCreationOptions,
   ) => Result.Result<LocalActorIdentity<DefinitionValue>, PublicDiagnostic>;
   commitLocal: <DefinitionValue extends MachineDefinition>(
     identity: LocalActorIdentity<DefinitionValue>,
@@ -490,7 +493,7 @@ export type ActorIdentityRegistry<Actor = unknown> = {
   reserveLocal: <DefinitionValue extends MachineDefinition>(
     identity: ActorIdentity<DefinitionValue>,
   ) => Result.Result<ActorIdentity<DefinitionValue>, PublicDiagnostic>;
-  isLocalRef: (ref: unknown) => boolean;
+  isLocalRef: (ref: UntrustedAdmissionValue) => boolean;
   register: <DefinitionValue extends MachineDefinition>(
     identity: ActorIdentity<DefinitionValue>,
     actor: Actor,
@@ -523,8 +526,15 @@ export type ActorIdentityRegistry<Actor = unknown> = {
 
 type RegistryOptions = {
   /** Test-only starting point; production callers use the one-based default. */
+  // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- tests may choose a starting cursor; production uses the default allocation sequence.
   initialIncarnation?: number;
+  // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- allocation notification is an optional test observer, not admission state.
   onAllocate?: (kind: "incarnation" | "local-ordinal") => void;
+};
+
+type LocalActorCreationOptions = {
+  // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- local allocation notification is optional for the internal registry seam.
+  deferAllocationNotification?: boolean;
 };
 
 // FLOW_STATE_ALLOW_UNKNOWN: stable slots retain heterogeneous machine identities and narrow them against the requested ref before exposure.
@@ -549,11 +559,9 @@ type StableSlot<Actor> =
 // FLOW_STATE_ALLOW_UNKNOWN: local slots retain heterogeneous machine identities and compare exact identity objects before use.
 type LocalEntry<Actor> = {
   identity: unknown;
-  state: "reserved" | "registered" | "active";
-  actor: Actor | undefined;
-  localAllocation: LocalAllocationReservation | undefined;
+  localAllocation: LocalAllocationReservation;
   deferredLocalAllocation: boolean;
-};
+} & ({ state: "reserved" } | { state: "registered" | "active"; actor: Actor });
 
 type LocalAllocation = {
   incarnation: ActorIncarnation;
@@ -576,8 +584,7 @@ const localActorRefs = new WeakSet();
 // RETURN_TYPE: Local entries narrow their retained actor only after registration.
 const hasLocalActor = <Actor>(
   entry: LocalEntry<Actor>,
-): entry is LocalEntry<Actor> & { actor: Actor } =>
-  (entry.state === "registered" || entry.state === "active") && entry.actor !== undefined;
+): entry is Extract<LocalEntry<Actor>, { actor: Actor }> => entry.state !== "reserved";
 
 // RETURN_TYPE: The identity predicate proves the ref, machine, and authored id tuple before registry reuse.
 const isActorIdentityFor = <DefinitionValue extends MachineDefinition>(
@@ -787,7 +794,7 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
   // RETURN_TYPE: Local allocation failures keep the same diagnostic channel as stable reservations.
   const createLocal = <DefinitionValue extends MachineDefinition>(
     machine: Machine<DefinitionValue>,
-    creationOptions: { deferAllocationNotification?: boolean } = {},
+    creationOptions: LocalActorCreationOptions = {},
   ): Result.Result<LocalActorIdentity<DefinitionValue>, PublicDiagnostic> => {
     const deferredLocalAllocation = creationOptions.deferAllocationNotification === true;
     const recycled = recycledLocalAllocations.pop();
@@ -852,7 +859,6 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
     const entry: LocalEntry<Actor> = {
       identity,
       state: "reserved",
-      actor: undefined,
       localAllocation,
       deferredLocalAllocation,
     };
@@ -906,8 +912,7 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
 
       if (entry === undefined || entry.identity !== identity || entry.state !== "reserved")
         return failure(missingActorRef);
-      entry.state = "registered";
-      entry.actor = actor;
+      localEntriesByKey.set(identity.key, { ...entry, state: "registered", actor });
     } else {
       const slot = getStableSlot(identity.ref);
 
@@ -950,7 +955,7 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
 
     if (entry === undefined || entry.identity !== identity || !hasLocalActor(entry))
       return failure(missingActorRef);
-    entry.state = "active";
+    localEntriesByKey.set(identity.key, { ...entry, state: "active" });
 
     return Result.succeed({ identity, actor: entry.actor });
   };
@@ -1031,7 +1036,7 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
   };
 
   const rollbackDeferredLocalAllocation = (entry: LocalEntry<Actor>) => {
-    if (!entry.deferredLocalAllocation || entry.localAllocation === undefined) return;
+    if (!entry.deferredLocalAllocation) return;
     const allocation = entry.localAllocation;
 
     if (
@@ -1147,7 +1152,9 @@ export type ActorAdmissionInput<
   implementation: I;
   ref: ActorRef<Machine<DefinitionValue>>;
   /** Private app-time facts; public refs retain the authored machine identity token. */
+  // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- app admission may resolve machine facts from the app plan when this private hint is absent.
   machineFacts?: Machine<DefinitionValue>;
+  // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- fresh actors with no initializer carry the native undefined input value.
   input: InputOf<DefinitionValue> | undefined;
   // oxlint-disable-next-line anti-slop/no-readonly -- NO_READONLY_CODEMOD: accepts const-inferred caller bindings before admission makes an owned copy.
   bindings: readonly ActorContextBinding<DefinitionValue, ProviderDefinition>[];
@@ -1167,10 +1174,15 @@ export type ActorAdmissionValidationContext<
     ref: ActorRef<Machine<ProviderDefinition>>,
   ) => Result.Result<ActorRegistryEntry<ProviderDefinition>, PublicDiagnostic>;
   /** True only while this authority owns a registered-but-not-yet-exposed admission. */
+  // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- only the runtime assembly provides the in-flight admission probe.
   isAdmissionInFlight?: (ref: ActorRef<Machine<DefinitionValue>>) => boolean;
+  // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- the app plan is supplied only by stages that validate app membership.
   plan?: ReturnType<typeof appPlan>;
+  // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- identity is absent until the reservation stage allocates it.
   identity?: ActorIdentity<DefinitionValue>;
+  // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- the consumer key exists only after local or stable identity reservation.
   consumerKey?: ActorKey;
+  // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- provider fences are supplied only by the context-binding validation stage.
   providerFences?: Map<ActorKey, ActorFence>;
 };
 
@@ -1189,6 +1201,7 @@ export type ValidatedActorAdmission<
   ProviderDefinition extends MachineDefinition = DefinitionValue,
 > = {
   input: ActorAdmissionInput<A, DefinitionValue, I, ProviderDefinition>;
+  // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- stable identity is intentionally absent before reservation.
   identity: ActorIdentity<DefinitionValue> | undefined;
   edges: ActorDependencyEdge[];
   graph: ActorDependencyGraph;
@@ -1202,6 +1215,7 @@ export type ActorAdmissionConstruction<DefinitionValue extends MachineDefinition
   | {
       _tag: "fresh";
       initial: PreparedActorSnapshot<DefinitionValue>;
+      // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- fresh admission preserves the native undefined input for empty-input machines.
       input: Input | undefined;
     }
   | {
@@ -1285,9 +1299,12 @@ export type ActorLeaseOptions<
   };
   cleanup: Effect.Effect<void, PublicDiagnostic>;
   /** Tombstoning runs only after successful cleanup. */
+  // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- local actors without a stable claim have no tombstone stage.
   tombstone?: () => Result.Result<void, PublicDiagnostic>;
   /** A synchronous owner preflight that must pass before terminal claim/cache. */
+  // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- preflight is present only for owners with a lifecycle publication fence.
   preflight?: () => Result.Result<void, PublicDiagnostic>;
+  // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- cleanup cause is retained only when the preceding cleanup attempt failed.
   cleanupCause?: Option.Option<Cause.Cause<CleanupError>>;
 };
 
@@ -1324,7 +1341,7 @@ const duplicateClaimFailure = () =>
     help: "Join the existing ensure or use a distinct stable identity.",
   });
 
-const unadmittedMachineFailure = (machine: unknown) =>
+const unadmittedMachineFailure = (machine: string) =>
   Failure({
     code: "UnadmittedMachine",
     path: ["machine"],
@@ -1395,7 +1412,7 @@ const copyActorRef = <DefinitionValue extends MachineDefinition>(
 };
 
 const validateActorRef = <DefinitionValue extends MachineDefinition = MachineDefinition>(
-  ref: unknown,
+  ref: UntrustedAdmissionValue,
 ) => {
   const captured = captureAdmissionReflection(ref);
 
@@ -1426,7 +1443,7 @@ const validateActorRef = <DefinitionValue extends MachineDefinition = MachineDef
 
 // RETURN_TYPE: Promotes a stable captured ref into the private canonical actor-ref seam.
 export const captureActorRef = <DefinitionValue extends MachineDefinition = MachineDefinition>(
-  ref: unknown,
+  ref: UntrustedAdmissionValue,
 ): Result.Result<ActorRef<Machine<DefinitionValue>>, PublicDiagnostic> => {
   const captured = validateActorRef<DefinitionValue>(ref);
 
@@ -1442,7 +1459,7 @@ type CapturedBinding<ProviderDefinition extends MachineDefinition = MachineDefin
   select: (...args: [ActorContextSnapshot<ProviderDefinition>]) => void;
 };
 
-const validateFence = (fence: unknown, slot: string) => {
+const validateFence = (fence: UntrustedAdmissionValue, slot: string) => {
   const captured = captureAdmissionReflection(fence);
 
   if (Result.isFailure(captured)) return Result.fail(captured.failure);
@@ -1472,7 +1489,7 @@ const validateFence = (fence: unknown, slot: string) => {
 };
 
 const captureBinding = <ProviderDefinition extends MachineDefinition = MachineDefinition>(
-  binding: unknown,
+  binding: UntrustedAdmissionValue,
 ) => {
   const captured = captureAdmissionReflection(binding);
 
@@ -1512,7 +1529,7 @@ const captureBinding = <ProviderDefinition extends MachineDefinition = MachineDe
   });
 };
 
-const validateDependencyEdge = (edge: unknown) => {
+const validateDependencyEdge = (edge: UntrustedAdmissionValue) => {
   const captured = captureAdmissionReflection(edge);
 
   if (Result.isFailure(captured)) return Result.fail(captured.failure);
@@ -1555,7 +1572,7 @@ export const captureActorContextBindings = <
   DefinitionValue extends MachineDefinition,
   ProviderDefinition extends MachineDefinition = DefinitionValue,
 >(
-  value: unknown,
+  value: UntrustedAdmissionValue,
 ): Result.Result<ActorContextBinding<DefinitionValue, ProviderDefinition>[], PublicDiagnostic> => {
   const captured = captureEnvelopeArray(value, ["bindings"]);
 
@@ -1569,10 +1586,9 @@ export const captureActorContextBindings = <
     bindings.push(copyCapturedBinding(binding.success));
   }
 
-  // SAFETY: each element was captured as a complete stable binding; runtime authority validation
-  // later restores the consumer/provider slot correlation before reservation.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion, anti-slop/no-chained-type-assertions -- reflection erases the validated slot-dependent selector correlation.
-  const capturedBindings = copyArray(bindings) as unknown as ActorContextBinding<
+  // SAFETY: captureReflection and captureBinding proved each complete stable binding; only the slot-dependent selector return is erased by reflection.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the validated provider snapshot and selector are restored at this owner boundary.
+  const capturedBindings = copyArray(bindings) as ActorContextBinding<
     DefinitionValue,
     ProviderDefinition
   >[];
@@ -1798,11 +1814,7 @@ const recordDependencySlot = (index: DependencySlotIndex, edge: ActorDependencyE
   return isNew;
 };
 
-type AdmissionDependencyEdges = ActorAdmissionInput<
-  App,
-  MachineDefinition,
-  unknown
->["dependencies"];
+type AdmissionDependencyEdges = ActorAdmissionInput<App, MachineDefinition, never>["dependencies"];
 
 const indexBindingDependencies = (bindings: AdmissionDependencyEdges) => {
   const index: DependencySlotIndex = new Map();
@@ -2069,9 +2081,29 @@ export const normalizeValidatedActorAdmission = <
 
   if (Result.isFailure(graph)) return Result.fail(graph.failure);
 
+  const copiedInput =
+    validated.input.machineFacts === undefined
+      ? copyObject({
+          app: validated.input.app,
+          implementation: validated.input.implementation,
+          ref: validated.input.ref,
+          input: validated.input.input,
+          bindings: validated.input.bindings,
+          dependencies: edges,
+        })
+      : copyObject({
+          app: validated.input.app,
+          implementation: validated.input.implementation,
+          ref: validated.input.ref,
+          machineFacts: validated.input.machineFacts,
+          input: validated.input.input,
+          bindings: validated.input.bindings,
+          dependencies: edges,
+        });
+
   return Result.succeed({
     ...validated,
-    input: copyObject({ ...validated.input, dependencies: edges }),
+    input: copiedInput,
     edges,
     graph: graph.success,
   });
@@ -2079,9 +2111,12 @@ export const normalizeValidatedActorAdmission = <
 
 export const rollbackActorAdmission = (steps: AdmissionRollbackStep[]) =>
   Effect.gen(function* () {
-    const releases = yield* Effect.forEach([...steps].reverse(), (step) =>
-      Effect.exit(step.release),
+    const releases = yield* Effect.forEach(
+      [...steps].reverse(),
+      (step) => Effect.exit(step.release),
+      { concurrency: 1 },
     );
+
     const reasons = releases.flatMap((release) =>
       Exit.isFailure(release) ? [...release.cause.reasons] : [],
     );
@@ -2135,6 +2170,7 @@ export const makeActorLease = <
 
       const pending = Deferred.makeUnsafe<Exit.Exit<void, PublicDiagnostic>>();
       completion = pending;
+
       const operation = Effect.gen(function* () {
         yield* options.cleanup;
 

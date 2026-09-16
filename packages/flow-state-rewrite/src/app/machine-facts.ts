@@ -1,6 +1,12 @@
 import { Predicate } from "effect";
 
-import type { RuntimeStateBranch, RuntimeStateTable } from "../definition/domain.js";
+import type {
+  DefinitionList,
+  RuntimeStateBranch,
+  RuntimeStateTable,
+  StateDeclaration,
+  StateToken,
+} from "../definition/domain.js";
 import type { OperationDeclaration } from "../operation/operation.js";
 import type { CompiledMachine, CompiledState, MachineDefinition } from "../machine/grammar.js";
 import {
@@ -19,11 +25,24 @@ export const isOwnedMachineFactsFor = <DefinitionValue extends MachineDefinition
 ): value is Machine<DefinitionValue> =>
   isConstructedMachine(value) && capturedMachineSources.get(value) === source;
 
-type StateCaptureContainer = Record<string, unknown> | unknown[];
+type StateCaptureBranch = Exclude<StateDeclaration, string>;
 
-// RETURN_TYPE: Narrows recursive state containers before using their identity as a copy-map key.
-const isStateCaptureContainer = (value: unknown): value is StateCaptureContainer =>
-  Array.isArray(value) || Predicate.isObject(value);
+type StateCaptureList = DefinitionList<StateDeclaration>;
+
+// RETURN_TYPE: The predicate validates every recursive authored-state branch before copying it.
+const isStateDeclaration = (value: unknown): value is StateDeclaration => {
+  if (Predicate.isString(value)) return true;
+
+  if (!Predicate.isObject(value) || Array.isArray(value)) return false;
+
+  return Object.values(value).every(
+    (children) => Array.isArray(children) && children.every(isStateDeclaration),
+  );
+};
+
+// RETURN_TYPE: The predicate validates the outer authored-state list before it crosses the capture boundary.
+const isStateCaptureList = (value: unknown): value is StateCaptureList =>
+  Array.isArray(value) && value.every(isStateDeclaration);
 
 const copyRecord = <Value, CopiedValue>(
   source: Record<string, Value>,
@@ -40,41 +59,43 @@ const copyRecord = <Value, CopiedValue>(
   return result;
 };
 
-const copyAuthoredStates = (value: unknown[]) => {
-  const seen = new WeakMap<StateCaptureContainer, unknown>();
+// RETURN_TYPE: Narrows recursive state containers before using their identity as a copy-map key.
+const copyAuthoredStates = (value: StateCaptureList) => {
+  const lists = new WeakMap<StateCaptureList, StateDeclaration[]>();
+  const branches = new WeakMap<StateCaptureBranch, StateCaptureBranch>();
 
-  const copy = (current: unknown) => {
-    if (!isStateCaptureContainer(current)) return current;
-    const existing = seen.get(current);
+  const copyList = (current: StateCaptureList) => {
+    const existing = lists.get(current);
 
     if (existing !== undefined) return existing;
+    const result: StateDeclaration[] = [];
+    lists.set(current, result);
 
-    if (Array.isArray(current)) {
-      const result: unknown[] = [];
-      seen.set(current, result);
-
-      for (const item of current) result.push(copy(item));
-
-      return result;
-    }
-
-    const result: Record<string, unknown> = Object.create(null);
-    seen.set(current, result);
-
-    for (const [key, item] of Object.entries(current)) result[key] = copy(item);
+    for (const item of current) result.push(copyState(item));
 
     return result;
   };
 
-  const result: unknown[] = [];
-  seen.set(value, result);
+  const copyBranch = (current: StateCaptureBranch) => {
+    const existing = branches.get(current);
 
-  for (const item of value) result.push(copy(item));
+    if (existing !== undefined) return existing;
+    const result: StateCaptureBranch = Object.create(null);
+    branches.set(current, result);
 
-  return result;
+    for (const [key, children] of Object.entries(current)) result[key] = copyList(children);
+
+    return result;
+  };
+
+  const copyState = (current: StateDeclaration) =>
+    Predicate.isString(current) ? current : copyBranch(current);
+
+  return copyList(value);
 };
 
-const isStateToken = (value: unknown) =>
+// RETURN_TYPE: The predicate narrows exposed state entries before runtime-table copying.
+const isStateToken = (value: unknown): value is StateToken =>
   Predicate.isObject(value) &&
   value.kind === "state" &&
   Predicate.isString(value.name) &&
@@ -134,19 +155,27 @@ const copyMachineDefinition = <DefinitionValue extends MachineDefinition>(
   source: DefinitionValue,
   operationCatalog: Map<string, OperationDeclaration>,
 ) => {
-  const authoredStates = (source as MachineDefinition & { states?: unknown[] }).states;
+  const captured = {
+    ...source,
+    S: copyStateTable(source.S),
+    E: copyRecord(source.E, (event) => event),
+    context: copyRecord(source.context, (selector) => selector),
+    operations: copyCapturedOperations(operationCatalog),
+  };
 
-  return Object.assign(
-    { ...source },
-    {
-      // oxlint-disable-next-line anti-slop/no-conditional-empty-object-spread -- preserve the optional authored state container while copying the definition.
-      ...(authoredStates === undefined ? {} : { states: copyAuthoredStates(authoredStates) }),
-      S: copyStateTable(source.S),
-      E: copyRecord(source.E, (event) => event),
-      context: copyRecord(source.context, (selector) => selector),
-      operations: copyCapturedOperations(operationCatalog),
-    },
-  );
+  const states = Object.getOwnPropertyDescriptor(source, "states");
+
+  if (states === undefined || !("value" in states) || !isStateCaptureList(states.value))
+    return captured;
+
+  Object.defineProperty(captured, "states", {
+    configurable: true,
+    enumerable: true,
+    value: copyAuthoredStates(states.value),
+    writable: true,
+  });
+
+  return captured;
 };
 
 const copyCompiledHandlers = <DefinitionValue extends MachineDefinition>(

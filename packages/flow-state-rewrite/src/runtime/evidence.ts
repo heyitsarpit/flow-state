@@ -2,6 +2,7 @@
 import { Cause, Clock, Deferred, Effect, Exit, Option, Result, Semaphore } from "effect";
 
 import { appPlan, type App } from "../app/app.js";
+import type { DefinitionValue } from "../definition/domain.js";
 import { Failure, type PublicDiagnostic } from "../diagnostic/diagnostic.js";
 import type { MachineDefinition } from "../machine/grammar.js";
 import type { ActorFence, ActorIdentity } from "./actor-admission.js";
@@ -9,10 +10,18 @@ import type {
   ActorPublication,
   ActorSnapshot,
   ActorStoreResult,
+  OperationProjection,
   PreparedActorEvidence,
 } from "./actor-engine.js";
 import type { RuntimeEvidenceService, RuntimeLifecycleEvidence } from "./runtime-services.js";
-import type { TurnCause } from "./turn-plan.js";
+import type {
+  FiniteOperationOutcome,
+  OperationOccurrenceFence,
+  ProviderRevisionFence,
+  StoreRevisionFact,
+  StreamProjectionFact,
+  TurnCause,
+} from "./turn-plan.js";
 
 declare const evidenceSequenceBrand: unique symbol;
 
@@ -107,7 +116,7 @@ export type EvidenceRecord =
       machineTurn: false;
       from: string;
       to: string;
-      cause: unknown;
+      cause: EvidenceNonNullValue;
       before: LifecycleSnapshotEnvelope;
       after: LifecycleSnapshotEnvelope;
       timestamp: number;
@@ -119,14 +128,14 @@ export type EvidenceRecord =
 
 export type EvidencePreparation = {
   journal: EvidenceJournal;
-  token: object;
+  token: EvidenceToken;
 };
 
 export type EvidenceCredit = {
   journal: EvidenceJournal;
   actorKey: string;
   fence: ActorFence;
-  token: object;
+  token: EvidenceToken;
 };
 
 export type AttachmentOfferResult = {
@@ -158,6 +167,22 @@ export type EvidenceAcceptance = {
 };
 
 type EvidenceReference = Exclude<WeakKey, symbol>;
+
+type EvidenceNonNullValue = EvidenceReference | bigint | boolean | number | string | symbol;
+
+type EvidenceCopyValue = EvidenceNonNullValue | null | undefined;
+
+type EvidenceToken = {
+  _tag: "EvidenceToken";
+};
+
+type EvidenceContext = {
+  [key: string]: DefinitionValue;
+};
+
+type EvidenceEvent = {
+  type: string;
+};
 
 export type EvidenceDrain = {
   through: EvidenceSequence | 0;
@@ -204,11 +229,11 @@ const sequenceValue = (value: number) => {
 };
 
 // RETURN_TYPE: Weak collection membership needs the reference-only type guard before identity tracking.
-const isReference = (value: unknown): value is EvidenceReference =>
+const isReference = <Value>(value: Value): value is Value & EvidenceReference =>
   (typeof value === "object" && value !== null) || typeof value === "function";
 
 // RETURN_TYPE: The copier only owns plain records and arrays; opaque references remain untouched.
-const isStructuredContainer = (value: unknown): value is EvidenceReference => {
+const isStructuredContainer = (value: EvidenceCopyValue): value is EvidenceReference => {
   if (Array.isArray(value)) return true;
 
   if (!isReference(value)) return false;
@@ -217,12 +242,15 @@ const isStructuredContainer = (value: unknown): value is EvidenceReference => {
   return prototype === Object.prototype || prototype === null;
 };
 
-const preserveOpaque = (preserved: WeakSet<EvidenceReference>, value: unknown) => {
+const preserveOpaque = <Value>(preserved: WeakSet<EvidenceReference>, value: Value) => {
   if (isReference(value)) preserved.add(value);
 };
 
 // RETURN_TYPE: Recursive copying changes only structured containers while retaining each evidence family.
-const copyStructured = <Value>(value: Value, preserved: WeakSet<EvidenceReference>): Value => {
+const copyStructured = <Value extends EvidenceCopyValue>(
+  value: Value,
+  preserved: WeakSet<EvidenceReference>,
+): Value => {
   const copied = new WeakMap<EvidenceReference, EvidenceReference>();
 
   const copyArrayLength = (clone: EvidenceReference, current: EvidenceReference) => {
@@ -250,7 +278,7 @@ const copyStructured = <Value>(value: Value, preserved: WeakSet<EvidenceReferenc
     }
   };
 
-  const copy = (current: unknown) => {
+  const copy = (current: EvidenceCopyValue): EvidenceCopyValue => {
     if (!isStructuredContainer(current) || preserved.has(current)) return current;
     const previous = copied.get(current);
 
@@ -274,20 +302,19 @@ const copyStructured = <Value>(value: Value, preserved: WeakSet<EvidenceReferenc
 
 type SnapshotEnvelope = {
   lifecycle: ActorSnapshot<MachineDefinition>["lifecycle"];
-  state: unknown;
-  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- context fields retain application values until opaque leaves are preserved.
-  context: Record<string, unknown>;
-  operations: { descriptor: unknown }[];
-  issues: unknown[];
+  state: ActorSnapshot<MachineDefinition>["state"];
+  context: EvidenceContext;
+  operations: OperationProjection[];
+  issues: PublicDiagnostic[];
 };
 
 type StoreEnvelope = {
   revision: number;
-  changed: { descriptor: unknown }[];
+  changed: Pick<StoreRevisionFact["changed"][number], "descriptor">[];
 };
 
 type CauseEnvelope =
-  | { _tag: "event"; event: unknown }
+  | { _tag: "event"; event: EvidenceEvent }
   | {
       _tag: "projection";
       fact: ProjectionEnvelope;
@@ -297,26 +324,21 @@ type ProjectionEnvelope =
   | {
       _tag: "completion-projection";
       completion: {
-        fence: { descriptor: unknown };
-        outcome: {
-          _tag: string;
-          value?: unknown;
-          error?: unknown;
-          exit?: unknown;
-        };
+        fence: Pick<OperationOccurrenceFence, "descriptor">;
+        outcome: FiniteOperationOutcome;
       };
     }
   | {
       _tag: "stream-projection";
-      fact: { fence: { descriptor: unknown }; value: unknown };
+      fact: StreamProjectionFact;
     }
   | {
       _tag: "context-projection";
-      provider: { value: unknown };
+      provider: ProviderRevisionFence;
     }
   | {
       _tag: "store-projection";
-      fact: { changed: { descriptor: unknown }[] };
+      fact: Pick<StoreRevisionFact, "changed">;
     }
   | { _tag: "timer-projection" }
   | { _tag: "lifecycle-projection" };
@@ -392,32 +414,53 @@ const preserveCauseOpaque = (cause: CauseEnvelope, preserved: WeakSet<EvidenceRe
   preserveProjectionOpaque(cause.fact, preserved);
 };
 
+type LifecycleResourceEnvelope = {
+  close: EvidenceNonNullValue;
+  cause: EvidenceNonNullValue;
+} & Partial<{
+  reacquire: EvidenceNonNullValue;
+}>;
+
+type LifecycleWorkEnvelope = {
+  fiber: EvidenceNonNullValue;
+  cancel: EvidenceNonNullValue;
+  finalizer: EvidenceNonNullValue;
+  cause: EvidenceNonNullValue;
+} & Partial<{
+  reacquire: EvidenceNonNullValue;
+  completion: EvidenceNonNullValue;
+}>;
+
+type LifecycleBindingEnvelope = {
+  provider: EvidenceNonNullValue;
+  select: EvidenceNonNullValue;
+};
+
+type LifecycleOperationEnvelope = {
+  cause: EvidenceNonNullValue;
+};
+
+type LifecycleTimerEnvelope = Partial<{
+  refresh: EvidenceNonNullValue;
+}>;
+
+type LifecycleBlockedDisposalEnvelope = {
+  dependentActors: EvidenceNonNullValue[];
+};
+
 type LifecycleSnapshotEnvelope = {
   fence: ActorFence;
   attachment: {
-    providerRevisions: unknown;
-    cursors: unknown;
-    resources: {
-      close: unknown;
-      reacquire?: unknown;
-      cause: unknown;
-    }[];
-    work: {
-      fiber: unknown;
-      cancel: unknown;
-      finalizer: unknown;
-      reacquire?: unknown;
-      cause: unknown;
-      completion?: unknown;
-    }[];
-    bindings: {
-      provider: unknown;
-      select: unknown;
-    }[];
-    operations: { cause: unknown }[];
-    timers: { refresh?: unknown }[];
-    blockedDisposal?: { dependentActors: unknown[] };
-  };
+    providerRevisions: EvidenceNonNullValue;
+    cursors: EvidenceNonNullValue;
+    resources: LifecycleResourceEnvelope[];
+    work: LifecycleWorkEnvelope[];
+    bindings: LifecycleBindingEnvelope[];
+    operations: LifecycleOperationEnvelope[];
+    timers: LifecycleTimerEnvelope[];
+  } & Partial<{
+    blockedDisposal: LifecycleBlockedDisposalEnvelope;
+  }>;
 };
 
 const preserveLifecycleOpaque = (
@@ -509,13 +552,13 @@ const attachmentOwners = new WeakMap<EvidenceAttachmentToken, EvidenceJournal>()
 type PreparationState = {
   preparation: EvidencePreparation;
   status: "pending" | "accepted";
-  credit?: EvidenceCredit;
+  credit: Option.Option<EvidenceCredit>;
 };
 
 type ActorCreditState = {
   credit: EvidenceCredit;
   status: "live" | "outcome" | "terminal";
-  preparation?: EvidencePreparation;
+  preparation: Option.Option<EvidencePreparation>;
 };
 
 type EvidenceDrainCapture = {
@@ -526,17 +569,22 @@ type EvidenceDrainCapture = {
 };
 
 /** Owns sequence allocation, accepted-prefix ordering, attachment admission, and close drain. */
-// RETURN_TYPE: The public Journal factory preserves the recursive preparation and sink contract.
-export const makeEvidenceJournal = (options: {
+type EvidenceJournalOptions = {
   app: App;
   plan: RuntimePlan;
-  capacity?: number;
-}): EvidenceJournal => {
+  capacity: number;
+};
+
+// RETURN_TYPE: The public Journal factory preserves the recursive preparation and sink contract.
+export const makeEvidenceJournal = (
+  options: Pick<EvidenceJournalOptions, "app" | "plan"> &
+    Partial<Pick<EvidenceJournalOptions, "capacity">>,
+): EvidenceJournal => {
   const semaphore = Semaphore.makeUnsafe(1);
   const attachmentTokens: EvidenceAttachmentToken[] = [];
-  const preparations = new Map<object, PreparationState>();
+  const preparations = new Map<EvidenceToken, PreparationState>();
   const credits = new Map<string, ActorCreditState>();
-  const outcomePreparations = new Map<object, EvidenceCredit>();
+  const outcomePreparations = new Map<EvidenceToken, EvidenceCredit>();
   const capacity = options.capacity ?? Number.MAX_SAFE_INTEGER;
   let ordinaryPrepared = 0;
   let accepted = 0;
@@ -563,9 +611,14 @@ export const makeEvidenceJournal = (options: {
     if (credits.has(actorKey))
       return Result.fail(invalidEvidence("credit", { reason: "actor-already-registered" }));
 
-    const credit: EvidenceCredit = { journal, actorKey, fence: { ...fence }, token: {} };
+    const credit: EvidenceCredit = {
+      journal,
+      actorKey,
+      fence: { ...fence },
+      token: { _tag: "EvidenceToken" },
+    };
 
-    credits.set(actorKey, { credit, status: "live" });
+    credits.set(actorKey, { credit, status: "live", preparation: Option.none() });
 
     return Result.succeed(credit);
   };
@@ -576,9 +629,9 @@ export const makeEvidenceJournal = (options: {
     if (state === undefined) return Result.succeed(undefined);
     credits.delete(actorKey);
 
-    if (state.preparation !== undefined) {
-      preparations.delete(state.preparation.token);
-      outcomePreparations.delete(state.preparation.token);
+    if (Option.isSome(state.preparation)) {
+      preparations.delete(state.preparation.value.token);
+      outcomePreparations.delete(state.preparation.value.token);
     }
 
     wakeCreditWaiter();
@@ -594,9 +647,9 @@ export const makeEvidenceJournal = (options: {
 
     if (ordinaryPrepared >= capacity)
       return Result.fail(invalidEvidence("credit", { reason: "ordinary-capacity" }));
-    const token = {};
+    const token: EvidenceToken = { _tag: "EvidenceToken" };
     const preparation = { journal, token } satisfies EvidencePreparation;
-    preparations.set(token, { preparation, status: "pending" });
+    preparations.set(token, { preparation, status: "pending", credit: Option.none() });
     ordinaryPrepared += 1;
 
     return Result.succeed(preparation);
@@ -611,11 +664,15 @@ export const makeEvidenceJournal = (options: {
 
     if (credit.status !== "live")
       return Result.fail(invalidEvidence("credit", { reason: "outcome-in-flight" }));
-    const token = {};
+    const token: EvidenceToken = { _tag: "EvidenceToken" };
     const preparation = { journal, token } satisfies EvidencePreparation;
     credit.status = "outcome";
-    credit.preparation = preparation;
-    preparations.set(token, { preparation, status: "pending", credit: credit.credit });
+    credit.preparation = Option.some(preparation);
+    preparations.set(token, {
+      preparation,
+      status: "pending",
+      credit: Option.some(credit.credit),
+    });
     outcomePreparations.set(token, credit.credit);
 
     return Result.succeed(preparation);
@@ -638,13 +695,13 @@ export const makeEvidenceJournal = (options: {
 
     // Journal close fences new preparations but admits terminal outcomes already reserved by
     // a live actor so their accepted prefix can settle before the close waits for credits.
-    if (closed && retained.credit === undefined) return Result.fail(closedEvidence());
+    if (closed && Option.isNone(retained.credit)) return Result.fail(closedEvidence());
 
     if (record.provenance.app !== options.app || record.provenance.plan !== options.plan)
       return Result.fail(invalidEvidence("provenance", { reason: "foreign-runtime" }));
 
-    if (retained.credit !== undefined) {
-      const credit = retained.credit;
+    if (Option.isSome(retained.credit)) {
+      const credit = retained.credit.value;
       const recordFence = record._tag === "turn" ? record.fence : record.after.fence;
 
       if (
@@ -695,7 +752,7 @@ export const makeEvidenceJournal = (options: {
     state.status = "accepted";
     preparations.delete(preparation.token);
 
-    if (state.credit === undefined) ordinaryPrepared -= 1;
+    if (Option.isNone(state.credit)) ordinaryPrepared -= 1;
     accepted += 1;
 
     const offers = attachmentTokens.map((attachment) => {
@@ -726,13 +783,17 @@ export const makeEvidenceJournal = (options: {
       return Result.fail(invalidEvidence("preparation", { reason: "unknown" }));
     preparations.delete(preparation.token);
 
-    if (retained.credit === undefined) ordinaryPrepared -= 1;
+    if (Option.isNone(retained.credit)) ordinaryPrepared -= 1;
     else {
-      const credit = credits.get(retained.credit.actorKey);
+      const credit = credits.get(retained.credit.value.actorKey);
 
-      if (credit !== undefined && credit.preparation === preparation) {
+      if (
+        credit !== undefined &&
+        Option.isSome(credit.preparation) &&
+        credit.preparation.value === preparation
+      ) {
         credit.status = "live";
-        delete credit.preparation;
+        credit.preparation = Option.none();
       }
 
       outcomePreparations.delete(preparation.token);
@@ -761,10 +822,10 @@ export const makeEvidenceJournal = (options: {
       // Keep terminal credit until the ActorCell unregisters so Journal close cannot drain
       // ahead of an admitted lifecycle outcome's remaining actor cleanup.
       state.status = "terminal";
-      delete state.preparation;
+      state.preparation = Option.none();
     } else {
       state.status = "live";
-      delete state.preparation;
+      state.preparation = Option.none();
     }
 
     wakeCreditWaiter();
@@ -832,7 +893,7 @@ export const makeEvidenceJournal = (options: {
       yield* semaphore.withPermit(
         Effect.sync(() => {
           for (const [token, state] of preparations) {
-            if (state.credit !== undefined) continue;
+            if (Option.isSome(state.credit)) continue;
 
             preparations.delete(token);
             ordinaryPrepared -= 1;
@@ -845,17 +906,17 @@ export const makeEvidenceJournal = (options: {
       yield* awaitCredits();
 
       return yield* drainSemaphore.withPermit(
-        semaphore
-          .withPermit(Effect.sync(captureDrainUnsafe))
-          .pipe(
-            Effect.flatMap((capture) =>
-              drainCaptured(capture).pipe(
-                Effect.tap(() =>
-                  Effect.forEach(capture.attachments, (attachment) => attachment.close()),
-                ),
+        semaphore.withPermit(Effect.sync(captureDrainUnsafe)).pipe(
+          Effect.flatMap((capture) =>
+            drainCaptured(capture).pipe(
+              Effect.tap(() =>
+                Effect.forEach(capture.attachments, (attachment) => attachment.close(), {
+                  concurrency: 1,
+                }),
               ),
             ),
           ),
+        ),
       );
     }),
   );
@@ -989,12 +1050,13 @@ export const makeLifecycleEvidence = <
   fact: LifecycleFact<DefinitionValue, CleanupError, ProviderDefinition>,
   preparation?: EvidencePreparation,
 ) => {
-  const prepared =
-    preparation === undefined
-      ? service.prepare()
-      : preparation.journal === service.journal
-        ? Result.succeed(preparation)
-        : Result.fail(invalidEvidence("preparation", { reason: "foreign-journal" }));
+  const prepared = (() => {
+    if (preparation === undefined) return service.prepare();
+
+    if (preparation.journal === service.journal) return Result.succeed(preparation);
+
+    return Result.fail(invalidEvidence("preparation", { reason: "foreign-journal" }));
+  })();
 
   if (Result.isFailure(prepared)) return Result.fail(prepared.failure);
 

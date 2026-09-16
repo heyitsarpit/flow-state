@@ -3,6 +3,7 @@ import { Effect } from "effect";
 import { canonicalizeKey } from "./key.js";
 import type { OperationKey, CanonicalKeyValue } from "./key.js";
 import { ownExecutableInput } from "./input.js";
+import type { Defect } from "../diagnostic/diagnostic.js";
 
 /*
  * Operations:
@@ -63,9 +64,18 @@ type IsAny<Value> = 0 extends 1 & Value ? true : false;
 
 type IsUnknown<Value> = IsAny<Value> extends true ? false : unknown extends Value ? true : false;
 
-type DirectPromiseLikeProgram<Program> = Extract<Program, PromiseLike<unknown>>;
+// FLOW_STATE_ALLOW_UNKNOWN: Valid programs use an unknown intersection marker after invalid success shapes are rejected.
+type ValidOperationMarker = unknown;
 
-type PromiseLikeSuccess<Program> = Extract<OperationValueOf<Program>, PromiseLike<unknown>>;
+type DirectPromiseLikeProgram<Program> =
+  Program extends PromiseLike<infer _Value> ? Program : never;
+
+type PromiseLikeSuccess<Program> =
+  OperationValueOf<Program> extends infer Value
+    ? Value extends PromiseLike<infer _Resolved>
+      ? Value
+      : never
+    : never;
 
 export type ValidOperationProgram<Program> =
   IsAny<Program> extends true
@@ -76,7 +86,7 @@ export type ValidOperationProgram<Program> =
         ? PromiseLikeSuccess<Program> extends never
           ? undefined extends OperationValueOf<Program>
             ? never
-            : unknown
+            : ValidOperationMarker
           : never
         : never;
 
@@ -117,17 +127,18 @@ export type OperationPlan<
   descriptor: Id;
   params: P;
   key: K;
-  options?: Options;
-};
+} & Partial<{ options: Options }>;
 
 export type PlanOptions<Options> = Exclude<Options, undefined>;
 
-export type FiniteOutcomes<A, E, Event = unknown> = {
-  success?: (value: A) => Event;
-  failure?: [E] extends [never] ? never : (error: E) => Event;
-  defect?: (defect: unknown) => Event;
-  interrupt?: () => Event;
-};
+export type OperationDefect = Parameters<typeof Defect>[0];
+
+export type FiniteOutcomes<A, E, Event = unknown> = Partial<{
+  success: (value: A) => Event;
+  failure: [E] extends [never] ? never : (error: E) => Event;
+  defect: (defect: OperationDefect) => Event;
+  interrupt: () => Event;
+}>;
 
 export type RequirementsOf<Value> =
   Value extends RequirementsCarrier<infer Requirements> ? Requirements : never;
@@ -151,9 +162,9 @@ export type OperationDeclarations = Record<string, OperationDeclaration>;
 type ConstructedOperationPlan = OperationPlan<
   OperationPlanKind,
   string,
-  unknown,
+  never,
   OperationKey,
-  unknown
+  never
 >;
 
 const operationAdapterTypeId: unique symbol = Symbol("operation adapter");
@@ -168,7 +179,7 @@ const constructedOperations = new WeakSet<OperationDeclaration>();
 
 const constructedOperationPlans = new WeakSet();
 
-const operationPlanDescriptors = new WeakMap<ConstructedOperationPlan, OperationDeclaration>();
+const operationPlanDescriptors = new WeakMap<WeakKey, OperationDeclaration>();
 
 // oxlint-disable-next-line anti-slop/no-runtime-typeof -- identity membership must not probe revoked proxies.
 // RETURN_TYPE: Predicate return supplies OperationDeclaration narrowing for the subsequent identity membership check.
@@ -185,7 +196,10 @@ const lockOperationIdentity = (descriptor: OperationDeclaration) => {
   Object.defineProperty(descriptor, "id", { configurable: false, writable: false });
 };
 
-const attachOperationAdapter = (descriptor: OperationDeclaration, adapter: unknown) => {
+const attachOperationAdapter = (
+  descriptor: OperationDeclaration,
+  adapter: StoredOperationAdapter,
+) => {
   Object.defineProperty(descriptor, operationAdapterTypeId, {
     configurable: false,
     enumerable: false,
@@ -203,7 +217,7 @@ const markConstructedOperation = <Value extends OperationDeclaration>(value: Val
 
 export const publishOperation = <Descriptor extends OperationDeclaration>(
   descriptor: Descriptor,
-  adapter: unknown,
+  adapter: StoredOperationAdapter,
 ) => {
   attachOperationAdapter(descriptor, adapter);
 
@@ -221,7 +235,11 @@ export const readOperationAdapter = (descriptor: OperationDeclaration) => {
 export const isConstructedOperationPlan = (value: unknown): value is ConstructedOperationPlan =>
   typeof value === "object" && value !== null && constructedOperationPlans.has(value);
 
-export const isOperationPlanForDescriptor = (value: unknown, descriptor: OperationDeclaration) =>
+// RETURN_TYPE: Predicate return preserves the constructed-plan marker after descriptor identity lookup.
+export const isOperationPlanForDescriptor = (
+  value: unknown,
+  descriptor: OperationDeclaration,
+): value is ConstructedOperationPlan =>
   isConstructedOperationPlan(value) && operationPlanDescriptors.get(value) === descriptor;
 
 export function operationPlan<

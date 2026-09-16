@@ -386,6 +386,29 @@ const validStream = stream({
   subscribe: (id: string): Stream.Stream<string, "offline", NegativeRepo> => Stream.make(id),
 });
 
+const invalidResourceFailureWithData: ReturnType<typeof validResource.getState> = {
+  status: "failure",
+  key: validResource.key("id"),
+  generation: 1,
+  error: "missing",
+  // @ts-expect-error Resource failure states reject data values outside the admitted resource type.
+  data: 42,
+};
+
+// @ts-expect-error Stream states without a value reject latest fields.
+const invalidStreamWithoutValueWithLatest: ReturnType<typeof validStream.getState> = {
+  status: "idle",
+  key: validStream.key("id"),
+  generation: null,
+  hasValue: false,
+  emissionCount: 0,
+  latest: "stale",
+};
+
+void invalidResourceFailureWithData;
+
+void invalidStreamWithoutValueWithLatest;
+
 const publicFailure = Diagnostic.Failure({
   code: "SchemaValidation",
   path: [],

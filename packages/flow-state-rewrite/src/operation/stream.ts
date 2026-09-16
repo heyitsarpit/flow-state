@@ -12,6 +12,7 @@ import {
   requirements,
 } from "./operation.js";
 import type {
+  OperationDefect,
   OperationDescriptor,
   OperationOptions,
   OperationPlan,
@@ -43,11 +44,17 @@ import type { OperationKey, CanonicalKeyValue } from "./key.js";
  */
 
 export type StreamValue<V> =
+  // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- API-006 and TYPE-007 require latest?: never so hasValue:false narrows without a cast.
   | { hasValue: false; latest?: never; emissionCount: 0 }
   | { hasValue: true; latest: V; emissionCount: number };
 
 export type StreamState<V, E, K extends OperationKey> =
-  | ({ status: "idle"; key: K; generation: null } & StreamValue<V>)
+  | ({
+      status: "idle";
+      key: K;
+      // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- The public idle state uses null to distinguish no stream generation from an active numeric generation.
+      generation: null;
+    } & StreamValue<V>)
   | ({ status: "running"; key: K; generation: number } & StreamValue<V>)
   | ({ status: "complete"; key: K; generation: number } & StreamValue<V>)
   | ({
@@ -60,7 +67,7 @@ export type StreamState<V, E, K extends OperationKey> =
       status: "defect";
       key: K;
       generation: number;
-      defect: unknown;
+      defect: OperationDefect;
     } & StreamValue<V>)
   | ({
       status: "interrupted";
@@ -68,17 +75,17 @@ export type StreamState<V, E, K extends OperationKey> =
       generation: number;
     } & StreamValue<V>);
 
-export type StreamOutcomes<V, E, O = unknown> = {
-  value?: (value: V) => O;
-  complete?: () => O;
-  failure?: [E] extends [never] ? never : (error: E) => O;
-  defect?: (defect: unknown) => O;
-  interrupt?: () => O;
-};
+export type StreamOutcomes<V, E, O = unknown> = Partial<{
+  value: (value: V) => O;
+  complete: () => O;
+  failure: [E] extends [never] ? never : (error: E) => O;
+  defect: (defect: OperationDefect) => O;
+  interrupt: () => O;
+}>;
 
-export type StreamSubscriptionOptions<V, E, O = unknown> = {
-  outcomes?: StreamOutcomes<V, E, O>;
-};
+export type StreamSubscriptionOptions<V, E, O = unknown> = Partial<{
+  outcomes: StreamOutcomes<V, E, O>;
+}>;
 
 export type StreamSubscriptionPlan<
   Id extends string,
@@ -116,15 +123,13 @@ export type StreamConfig<Id extends string, P, K extends OperationKey, V, E, R> 
   id: Id;
   key: (params: P) => K;
   subscribe: StreamSubscribeAdapter<P, V, E, R>;
-  persist?: boolean;
-};
+} & Partial<{ persist: boolean }>;
 
 type StreamAuthoringConfig<Id extends string, P, K extends OperationKey, V, E, R> = {
   id: Id;
   key: (params: P) => K;
   subscribe: (params: NoInfer<P>, options: OperationOptions) => Stream.Stream<V, E, R>;
-  persist?: boolean;
-};
+} & Partial<{ persist: boolean }>;
 
 const StreamConfigurationSchema = Schema.Struct({
   id: AuthoredName,
@@ -149,10 +154,13 @@ const streamConfigurationError = (failure: Schema.SchemaError) => {
   return new TypeError("Invalid Stream configuration");
 };
 
+type StreamConfigurationInput = Parameters<typeof decodeStreamConfiguration>[0];
+
 function admitStreamConfiguration<Id extends string, P, K extends OperationKey, V, E, R>(
   config: StreamAuthoringConfig<Id, P, K, V, E, R>,
 ): StreamAuthoringConfig<Id, P, K, V, E, R>;
-function admitStreamConfiguration(input: unknown) {
+
+function admitStreamConfiguration(input: StreamConfigurationInput) {
   return decodeStreamConfiguration(input).pipe(Result.getOrThrowWith(streamConfigurationError));
 }
 

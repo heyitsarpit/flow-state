@@ -74,6 +74,7 @@ export type LifecycleResource<CleanupError> = {
   name: string;
   close: (exit: Exit.Exit<void, CleanupError>) => Effect.Effect<void, CleanupError>;
   /** Continuing resources provide a fresh owner-scoped resource on resume. */
+  // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- finite resources intentionally omit the continuing reacquisition capability.
   reacquire?: () => Effect.Effect<LifecycleResource<CleanupError>, CleanupError>;
   finalization: "pending" | "running" | "done" | "failed";
   cause: Option.Option<Cause.Cause<CleanupError>>;
@@ -86,10 +87,13 @@ export type LifecycleWork<CleanupError> = {
   cancel: Effect.Effect<void, CleanupError>;
   finalizer: Effect.Effect<void, CleanupError>;
   /** Continuing work provides a fresh owner-scoped work item on resume. */
+  // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- finite work intentionally omits the continuing reacquisition capability.
   reacquire?: () => Effect.Effect<LifecycleWork<CleanupError>, CleanupError>;
   finalization: "pending" | "running" | "done" | "failed";
   cause: Option.Option<Cause.Cause<CleanupError>>;
+  // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- only work with a completion handshake carries that latch.
   completion?: Deferred.Deferred<Exit.Exit<void, CleanupError>>;
+  // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- only timer-backed work carries an actor fence.
   fence?: ActorFence;
 };
 
@@ -108,8 +112,10 @@ export type LifecycleTimer<CleanupError = never> = {
   dueAt: number;
   status: "armed" | "fired" | "cancelled";
   /** A timer from another actor generation is inert on resume. */
+  // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- restored legacy timers may have no generation until the owning actor installs it.
   generation?: number;
   /** Optional continuing refresh; finite work is never reconstructed here. */
+  // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- refresh is a capability supplied only by continuing timers.
   refresh?: Effect.Effect<void, CleanupError>;
 };
 
@@ -135,8 +141,10 @@ export type LifecycleAttachment<
   operations: LifecycleOperationRecord<DefinitionValue, CleanupError>[];
   timers: LifecycleTimer<CleanupError>[];
   /** Optional current-provider fence table used by resume reconciliation. */
+  // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- provider fences are installed only for admitted provider bindings.
   providerFences?: Map<ActorKey, ActorFence>;
   /** Optional registry-provided dependent detail for exact disposal refusal. */
+  // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- blocked-disposal detail exists only while the registry reports retained dependents.
   blockedDisposal?: BlockedDisposal<DefinitionValue>;
 };
 
@@ -190,24 +198,38 @@ type TimerClaim = {
 
 /** Mutable lifecycle protocol installed on and owned by one ActorCell. */
 export type ActorCellProtocolState<Snapshot extends LifecycleStateKey> = {
+  // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- protocol state is installed after lifecycle preparation.
   current: Snapshot | undefined;
   publicationRevision: number;
   /** Prior machine-turn revision for this actor, carried into lifecycle evidence. */
   machineTurnRevision: number;
   /** The complete terminal result after lifecycle evidence settles. */
+  // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- no terminal result exists until the owned disposal attempt settles.
   disposalExit: Exit.Exit<Snapshot, PublicDiagnostic> | undefined;
   /** The cleanup-stage result used by direct lifecycle disposal callers. */
+  // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- direct disposal has no result before its first cleanup execution.
   disposalAttempt: Exit.Exit<Snapshot, PublicDiagnostic> | undefined;
   controllerBound: boolean;
   routing: { current: "open" | "blocked"; generation: number };
   timerClaims: Map<string, TimerClaim>;
+  // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- overdue generation is recorded only after a retained timer becomes overdue.
   overdueGeneration: number | undefined;
 };
 
-export type ActorCell<Snapshot extends LifecycleStateKey, Cut = unknown> = {
+type ActorCellTerminal = Parameters<typeof Defect>[0];
+
+export type ActorCell<
+  Snapshot extends LifecycleStateKey,
+  Cut = unknown,
+  Terminal = ActorCellTerminal,
+> = {
+  // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- activity fibers are attached by runtime assembly after lifecycle preparation.
   activityFibers: FiberMap.FiberMap<string, void> | undefined;
+  // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- protocol is installed by prepareLifecycle and absent on an unprepared cell.
   protocol: ActorCellProtocolState<Snapshot> | undefined;
+  // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- the publication cut is attached by the ActorCell owner after admission.
   cut?: Cut;
+  // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- publication is attached by runtime assembly after the engine is prepared.
   publication?: {
     preflight: (initial: boolean) => Result.Result<void, PublicDiagnostic>;
     commit: (
@@ -224,7 +246,8 @@ export type ActorCell<Snapshot extends LifecycleStateKey, Cut = unknown> = {
     revisions: () => { publicationRevision: number; machineTurnRevision: number };
   };
   /** Runtime-owned actor lifetime protocol; assembly supplies its concrete type. */
-  terminal?: unknown;
+  // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- terminal protocol is supplied only by runtime assembly.
+  terminal?: Terminal;
 };
 
 export type LifecycleEvidencePreflight = {
@@ -255,7 +278,10 @@ const validFence = (fence: ActorFence) =>
   Number.isSafeInteger(fence.leaseEpoch) &&
   fence.leaseEpoch >= 0;
 
-const transitionFailure = (from: ActorLifecycle, command: LifecycleCommand<unknown>) =>
+const transitionFailure = <CleanupError>(
+  from: ActorLifecycle,
+  command: LifecycleCommand<CleanupError>,
+) =>
   Failure({
     code: "InvalidLifecycleTransition",
     path: ["lifecycle", from, command._tag],
@@ -310,7 +336,7 @@ const blockedByDependents = (dependentActors: (ActorRef | ActorKey)[], bindingKe
   });
 
 // RETURN_TYPE: Public cleanup classification deliberately projects full Cause into a Diagnostic.
-const cleanupDiagnostic = (cause: Cause.Cause<unknown>): PublicDiagnostic => {
+const cleanupDiagnostic = <CleanupError>(cause: Cause.Cause<CleanupError>): PublicDiagnostic => {
   const defect = cause.reasons.find(Cause.isDieReason);
 
   if (defect !== undefined) return Defect(defect.defect);
@@ -368,7 +394,7 @@ export const preflightLifecycleDisposal = <
       );
 };
 
-const causeFromCauses = <Error>(causes: readonly (Cause.Cause<Error> | undefined)[]) => {
+const causeFromCauses = <Error>(causes: (Cause.Cause<Error> | undefined)[]) => {
   const reasons = causes.flatMap((cause) => (cause === undefined ? [] : [...cause.reasons]));
 
   return reasons.length === 0 ? undefined : Cause.fromReasons(reasons);
@@ -760,7 +786,7 @@ type CleanupRun<
   ProviderDefinition extends MachineDefinition,
 > = {
   attachment: LifecycleAttachment<DefinitionValue, CleanupError, ProviderDefinition>;
-  cause: Cause.Cause<CleanupError> | undefined;
+  cause: Option.Option<Cause.Cause<CleanupError>>;
 };
 
 const cleanupWorkItem = <CleanupError>(item: LifecycleWork<CleanupError>) =>
@@ -800,10 +826,13 @@ const cleanupWorkItem = <CleanupError>(item: LifecycleWork<CleanupError>) =>
 
 const cleanupWork = <CleanupError>(items: LifecycleWork<CleanupError>[]) =>
   Effect.gen(function* () {
-    const cleaned = yield* Effect.forEach([...items].reverse(), (item) =>
-      item.finalization === "pending" || item.finalization === "failed"
-        ? cleanupWorkItem(item)
-        : Effect.succeed({ item: copyWork(item), cause: undefined }),
+    const cleaned = yield* Effect.forEach(
+      [...items].reverse(),
+      (item) =>
+        item.finalization === "pending" || item.finalization === "failed"
+          ? cleanupWorkItem(item)
+          : Effect.succeed({ item: copyWork(item), cause: undefined }),
+      { concurrency: 1 },
     );
 
     return {
@@ -829,10 +858,13 @@ const cleanupResource = <CleanupError>(resource: LifecycleResource<CleanupError>
 
 const cleanupResources = <CleanupError>(items: LifecycleResource<CleanupError>[]) =>
   Effect.gen(function* () {
-    const cleaned = yield* Effect.forEach([...items].reverse(), (resource) =>
-      resource.finalization === "pending" || resource.finalization === "failed"
-        ? cleanupResource(resource)
-        : Effect.succeed({ resource: copyResource(resource), cause: undefined }),
+    const cleaned = yield* Effect.forEach(
+      [...items].reverse(),
+      (resource) =>
+        resource.finalization === "pending" || resource.finalization === "failed"
+          ? cleanupResource(resource)
+          : Effect.succeed({ resource: copyResource(resource), cause: undefined }),
+      { concurrency: 1 },
     );
 
     return {
@@ -854,13 +886,15 @@ const cleanupAttachment = <
       const work = yield* cleanupWork(attachment.work);
       const resources = yield* cleanupResources(attachment.resources);
 
+      const cause = causeFromCauses([work.cause, resources.cause]);
+
       return {
         attachment: copyObject({
           ...copyAttachment(attachment, "detached"),
           work: work.work,
           resources: resources.resources,
         }),
-        cause: causeFromCauses([work.cause, resources.cause]),
+        cause: cause === undefined ? Option.none() : Option.some(cause),
       };
     }),
   );
@@ -1044,7 +1078,7 @@ export const suspendLifecycle = <
         state,
         "suspended",
         cleaned.attachment,
-        cleaned.cause === undefined ? "done" : "failed",
+        Option.isNone(cleaned.cause) ? "done" : "failed",
       );
 
       for (const timer of state.attachment.timers) {
@@ -1055,7 +1089,7 @@ export const suspendLifecycle = <
           owner.timerClaims.delete(timerKey);
       }
 
-      if (cleaned.cause !== undefined) return Effect.fail(cleanupDiagnostic(cleaned.cause));
+      if (Option.isSome(cleaned.cause)) return Effect.fail(cleanupDiagnostic(cleaned.cause.value));
 
       return Effect.succeed(next);
     }),
@@ -1307,17 +1341,17 @@ export const disposeLifecycle = <
 
   return cleanup.pipe(
     Effect.flatMap((cleaned) => {
-      if (cleaned.cause !== undefined) {
+      if (Option.isSome(cleaned.cause)) {
         copySnapshot(actorCell, state, state.lifecycle, cleaned.attachment, "failed");
 
         const attempt: Exit.Exit<
           LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
           PublicDiagnostic
-        > = Exit.failCause(Cause.fail(cleanupDiagnostic(cleaned.cause)));
+        > = Exit.failCause(Cause.fail(cleanupDiagnostic(cleaned.cause.value)));
 
         owner.disposalAttempt = attempt;
 
-        return Effect.failCause(Cause.fail(cleanupDiagnostic(cleaned.cause)));
+        return Effect.failCause(Cause.fail(cleanupDiagnostic(cleaned.cause.value)));
       }
 
       const disposed = copySnapshot(actorCell, state, "disposed", cleaned.attachment, "done");
@@ -1363,8 +1397,76 @@ const lifecycleCommandEffect = <
 const resolveLifecycleExit = <Value>(exit: Exit.Exit<Value, PublicDiagnostic>) =>
   Exit.isFailure(exit) ? Effect.failCause(exit.cause) : Effect.succeed(exit.value);
 
+// RETURN_TYPE: This helper preserves the public diagnostic Result boundary for both lifecycle preflights.
+const preflightLifecycleCommand = <
+  DefinitionValue extends MachineDefinition,
+  CleanupError,
+  ProviderDefinition extends MachineDefinition,
+>(
+  actorCell: ActorCell<LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>>,
+  state: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
+  command: LifecycleCommand<CleanupError>,
+  initialPublication: boolean,
+): Result.Result<void, PublicDiagnostic> => {
+  const disposePreflight =
+    command._tag === "actor:dispose"
+      ? preflightLifecycleDisposal(actorCell, state)
+      : Result.succeed(undefined);
+
+  if (Result.isFailure(disposePreflight)) return disposePreflight;
+
+  const publicationPreflight = actorCell.publication?.preflight(initialPublication);
+
+  if (publicationPreflight !== undefined && Result.isFailure(publicationPreflight))
+    return publicationPreflight;
+
+  return Result.succeed(undefined);
+};
+
+// RETURN_TYPE: Evidence preparation retains the service and timestamp required by the later publication barrier.
+const prepareLifecycleEvidence = <
+  DefinitionValue extends MachineDefinition,
+  CleanupError,
+  ProviderDefinition extends MachineDefinition,
+>(
+  state: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
+  preparedEvidence: LifecycleEvidencePreflight | undefined,
+): Effect.Effect<
+  LifecycleEvidencePreflight | undefined,
+  PublicDiagnostic,
+  RuntimeServiceContext
+> =>
+  preparedEvidence !== undefined
+    ? Effect.succeed(preparedEvidence)
+    : Effect.gen(function* () {
+        const clock = yield* Effect.service(Clock.Clock);
+        const service = yield* Effect.service(RuntimeEvidence);
+        const timestamp = yield* clock.currentTimeMillis;
+        const prepared = prepareLifecycleEvidenceAdmission(service, timestamp, state.fence.key);
+
+        if (Result.isFailure(prepared)) return yield* Effect.fail(prepared.failure);
+
+        return { service, ...prepared.success } satisfies LifecycleEvidencePreflight;
+      });
+
+// RETURN_TYPE: Acceptance failures cancel the prepared evidence before preserving their original Cause.
+const acceptLifecyclePreflight = (
+  preflight: LifecycleEvidencePreflight | undefined,
+  onPreflightAccepted:
+    | (() => Effect.Effect<void, PublicDiagnostic, RuntimeServiceContext>)
+    | undefined,
+): Effect.Effect<void, PublicDiagnostic, RuntimeServiceContext> =>
+  Effect.gen(function* () {
+    const accepted = yield* Effect.exit(onPreflightAccepted?.() ?? Effect.void);
+
+    if (Exit.isFailure(accepted)) {
+      if (preflight !== undefined) cancelPreparedEvidence(preflight.service, preflight.preparation);
+
+      return yield* Effect.failCause(accepted.cause);
+    }
+  });
+
 /** Runs restore/start/suspend/resume/dispose through the one lifecycle command boundary. */
-// oxlint-disable-next-line anti-slop/no-excessive-cognitive-complexity -- one publication barrier surrounds the lifecycle stage.
 // RETURN_TYPE: This public command boundary intentionally retains all runtime capability requirements.
 export const runLifecycleCommand = <
   DefinitionValue extends MachineDefinition,
@@ -1404,51 +1506,16 @@ export const runLifecycleCommand = <
     RuntimeServiceContext
   > = lifecycleCommandEffect(state, command, actorCell);
 
-  const disposePreflight =
-    command._tag === "actor:dispose"
-      ? preflightLifecycleDisposal(actorCell, state)
-      : Result.succeed(undefined);
-
-  if (Result.isFailure(disposePreflight)) return Effect.fail(disposePreflight.failure);
-
   const initialPublication = command._tag === "actor:start" || command._tag === "actor:restore";
-  const publicationPreflight = actorCell.publication?.preflight(initialPublication);
 
-  if (publicationPreflight !== undefined && Result.isFailure(publicationPreflight))
-    return Effect.fail(publicationPreflight.failure);
+  const commandPreflight = preflightLifecycleCommand(actorCell, state, command, initialPublication);
 
-  const evidencePreflight: Effect.Effect<
-    LifecycleEvidencePreflight | undefined,
-    PublicDiagnostic,
-    RuntimeServiceContext
-  > =
-    preparedEvidence !== undefined
-      ? Effect.succeed(preparedEvidence)
-      : Effect.gen(function* () {
-          const clock = yield* Effect.service(Clock.Clock);
-          const service = yield* Effect.service(RuntimeEvidence);
-          const timestamp = yield* clock.currentTimeMillis;
-          const prepared = prepareLifecycleEvidenceAdmission(service, timestamp, state.fence.key);
+  if (Result.isFailure(commandPreflight)) return Effect.fail(commandPreflight.failure);
 
-          if (Result.isFailure(prepared)) return yield* Effect.fail(prepared.failure);
-
-          return { service, ...prepared.success } satisfies LifecycleEvidencePreflight;
-        });
-
-  return evidencePreflight.pipe(
+  return prepareLifecycleEvidence(state, preparedEvidence).pipe(
     Effect.flatMap((preflight) =>
-      Effect.gen(function* () {
-        const accepted = yield* Effect.exit(onPreflightAccepted?.() ?? Effect.void);
-
-        if (Exit.isFailure(accepted)) {
-          if (preflight !== undefined)
-            cancelPreparedEvidence(preflight.service, preflight.preparation);
-
-          return yield* Effect.failCause(accepted.cause);
-        }
-
-        return yield* Effect.exit(transitionEffect);
-      }).pipe(
+      acceptLifecyclePreflight(preflight, onPreflightAccepted).pipe(
+        Effect.flatMap(() => Effect.exit(transitionEffect)),
         Effect.flatMap((exit) => {
           const after = ownerState(state, actorCell);
 
@@ -1659,10 +1726,18 @@ export type ProviderReconciliation<Value> = {
   value: Value;
 };
 
-export type ProviderReconciliationOptions<Value> = {
-  equals?: (left: Value, right: Value) => boolean;
+type ProviderReconciliationEquality<Value> = {
+  equals: (left: Value, right: Value) => boolean;
   reconcile: (value: Value) => Effect.Effect<void, PublicDiagnostic>;
 };
+
+type ProviderReconciliationWithoutEquality<Value> = {
+  reconcile: (value: Value) => Effect.Effect<void, PublicDiagnostic>;
+};
+
+export type ProviderReconciliationOptions<Value> =
+  | ProviderReconciliationEquality<Value>
+  | ProviderReconciliationWithoutEquality<Value>;
 
 type ProviderReconcilerOwner<Value> = {
   publish: (value: Value) => Effect.Effect<ProviderReconciliation<Value>, PublicDiagnostic>;
@@ -1678,7 +1753,7 @@ type ProviderReconcilerOwner<Value> = {
 export const makeProviderReconciler = <Value>(
   options: ProviderReconciliationOptions<Value>,
 ): ProviderReconcilerOwner<Value> => {
-  const equals = options.equals ?? Object.is;
+  const equals = "equals" in options ? options.equals : Object.is;
   let current: Option.Option<Value> = Option.none();
   let pending: Option.Option<Value> = Option.none();
   let revision = 0;

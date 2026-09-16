@@ -50,8 +50,8 @@ import type { ConfigurationSnapshot } from "./reflection.js";
  * and admission function together. Validation order remains explicit.
  */
 
-type TargetValidator<Target> = (
-  value: unknown,
+type TargetValidator<Target> = <Value>(
+  value: Value,
   path: Diagnostic.Path,
 ) => Result.Result<Target, Diagnostic.PublicDiagnostic>;
 
@@ -60,9 +60,10 @@ type MachineReason = Parameters<typeof invalidMachineConfigurationDiagnostic>[0]
 export const configurationPath = (path: string[], suffix: (string | number)[]) =>
   path.flatMap<string | number>((segment) => ["states", segment]).concat(suffix);
 
+type Callable = (...arguments_: never[]) => void;
+
 // RETURN_TYPE: Predicate return preserves callable narrowing for callback schemas.
-const isCallable = (value: unknown): value is (...arguments_: never[]) => void =>
-  Predicate.isFunction(value);
+const isCallable = <Value>(value: Value): value is Value & Callable => Predicate.isFunction(value);
 
 const nestedSchemaIssue = (issue: SchemaIssue.Issue) => {
   if ("issue" in issue) return issue.issue;
@@ -117,6 +118,14 @@ const decodeStateConfigurationFields = Schema.decodeUnknownResult(stateConfigura
 
 type StateConfigurationFields = typeof stateConfigurationSchema.Type;
 
+type CapturedConfigurationValue = StateConfigurationFields[keyof StateConfigurationFields];
+
+// RETURN_TYPE: Keeps the named open-field value type on the Schema declaration boundary.
+const capturedConfigurationSchema = Schema.declare<CapturedConfigurationValue>(
+  Predicate.isUnknown,
+  { identifier: "CapturedConfigurationValue" },
+);
+
 export type StateBehaviorConfiguration = Pick<
   StateConfigurationFields,
   "on" | "redirect" | "activities" | "timers"
@@ -129,8 +138,8 @@ export type LeafStateConfiguration = {
 
 export type CompoundStateConfiguration = {
   kind: "compound";
-  default: unknown;
-  children: Map<string, unknown>;
+  default: CapturedConfigurationValue;
+  children: Map<string, CapturedConfigurationValue>;
   behavior: StateBehaviorConfiguration;
 };
 
@@ -154,13 +163,17 @@ const projectStateConfigurationSchemaFailure = (
 };
 
 const admitStateChildren = (
-  snapshot: ConfigurationSnapshot,
+  snapshot: ConfigurationSnapshot<CapturedConfigurationValue>,
   children: StateNode[],
   path: Diagnostic.Path,
 ) => {
   const childNames = new Set(children.map((child) => child.name));
-  const values = new Map<string, unknown>();
-  const entries = captureConfigurationEntries(snapshot, inaccessibleStateProperty);
+  const values = new Map<string, CapturedConfigurationValue>();
+
+  const entries = captureConfigurationEntries<
+    CapturedConfigurationValue,
+    typeof inaccessibleStateProperty
+  >(snapshot, inaccessibleStateProperty);
 
   if (Result.isFailure(entries))
     return invalidConfiguration(entries.failure.reason, [...path, String(entries.failure.key)], {
@@ -255,7 +268,7 @@ const admitDecodedStateConfiguration = <DefinitionValue extends DefinitionConstr
 };
 
 const admitStateConfigurationFields = <DefinitionValue extends DefinitionConstraint>(
-  value: unknown,
+  value: CapturedConfigurationValue,
   node: StateNode<DefinitionValue>,
   path: Diagnostic.Path,
 ) => {
@@ -293,18 +306,18 @@ const makeStateConfigurationSchema = <DefinitionValue extends DefinitionConstrai
   );
 
 export function admitStateConfiguration<DefinitionValue extends DefinitionConstraint>(
-  value: unknown,
+  value: CapturedConfigurationValue,
   path: Diagnostic.Path,
   node: StateNode<DefinitionValue> & { kind: "leaf" },
 ): Result.Result<LeafStateConfiguration, Diagnostic.PublicDiagnostic>;
 export function admitStateConfiguration<DefinitionValue extends DefinitionConstraint>(
-  value: unknown,
+  value: CapturedConfigurationValue,
   path: Diagnostic.Path,
   node: StateNode<DefinitionValue> & { kind: "compound" },
 ): Result.Result<CompoundStateConfiguration, Diagnostic.PublicDiagnostic>;
 // RETURN_TYPE: Preserves overload compatibility between leaf and compound state configuration admission; removal produces TS2394.
 export function admitStateConfiguration<DefinitionValue extends DefinitionConstraint>(
-  value: unknown,
+  value: CapturedConfigurationValue,
   path: Diagnostic.Path,
   node: StateNode<DefinitionValue>,
 ): Result.Result<StateConfigurationAdmission, Diagnostic.PublicDiagnostic> {
@@ -332,9 +345,10 @@ type TimerUpdateMemory<DefinitionValue extends MachineDefinition> = NonNullable<
 type AdmittedTimer<DefinitionValue extends MachineDefinition> = {
   delay: number;
   target: Timer<DefinitionValue>["target"];
-  guard?: TimerGuard<DefinitionValue>;
-  updateMemory?: TimerUpdateMemory<DefinitionValue>;
-};
+} & Partial<{
+  guard: TimerGuard<DefinitionValue>;
+  updateMemory: TimerUpdateMemory<DefinitionValue>;
+}>;
 
 const timerGuardSchema = <DefinitionValue extends MachineDefinition>() =>
   Schema.declare<TimerGuard<DefinitionValue>>(
@@ -352,9 +366,9 @@ const timerUpdateMemorySchema = <DefinitionValue extends MachineDefinition>() =>
 
 const timerSchema = Schema.Struct({
   delay: TimerDelay,
-  target: Schema.Unknown,
-  guard: Schema.optional(Schema.Unknown),
-  updateMemory: Schema.optional(Schema.Unknown),
+  target: capturedConfigurationSchema,
+  guard: Schema.optional(capturedConfigurationSchema),
+  updateMemory: Schema.optional(capturedConfigurationSchema),
 });
 
 type RawTimerConfiguration = typeof timerSchema.Type;
@@ -363,11 +377,13 @@ const decodeTimerFields = Schema.decodeUnknownResult(timerSchema, {
   onExcessProperty: "error",
 });
 
-const decodeTimerGuard = <DefinitionValue extends MachineDefinition>(value: unknown) =>
-  Schema.decodeUnknownResult(timerGuardSchema<DefinitionValue>())(value);
+const decodeTimerGuard = <DefinitionValue extends MachineDefinition>(
+  value: RawTimerConfiguration["guard"],
+) => Schema.decodeUnknownResult(timerGuardSchema<DefinitionValue>())(value);
 
-const decodeTimerUpdateMemory = <DefinitionValue extends MachineDefinition>(value: unknown) =>
-  Schema.decodeUnknownResult(timerUpdateMemorySchema<DefinitionValue>())(value);
+const decodeTimerUpdateMemory = <DefinitionValue extends MachineDefinition>(
+  value: RawTimerConfiguration["updateMemory"],
+) => Schema.decodeUnknownResult(timerUpdateMemorySchema<DefinitionValue>())(value);
 
 const projectTimerSchemaFailure = (failure: Schema.SchemaError, path: Diagnostic.Path) => {
   const { issue, path: issuePath } = firstSchemaFailure(failure.issue);
@@ -393,8 +409,8 @@ const projectTimerSchemaFailure = (failure: Schema.SchemaError, path: Diagnostic
   return invalidConfiguration("ExpectedTimer", path);
 };
 
-const resolveTimerTarget = <DefinitionValue extends MachineDefinition>(
-  value: unknown,
+const resolveTimerTarget = <DefinitionValue extends MachineDefinition, Value>(
+  value: Value,
   path: Diagnostic.Path,
   validateTarget: TargetValidator<Timer<DefinitionValue>["target"]>,
 ) => validateTarget(value, path);
@@ -458,7 +474,7 @@ const makeTimerSchema = <DefinitionValue extends MachineDefinition>(
   );
 
 export const admitTimer = <DefinitionValue extends MachineDefinition>(
-  value: unknown,
+  value: CapturedConfigurationValue,
   path: Diagnostic.Path,
   validateTarget: TargetValidator<Timer<DefinitionValue>["target"]>,
 ) => {
@@ -535,10 +551,11 @@ type ResolvedTransitionConfiguration<
   Name extends EventName<DefinitionValue>,
 > = {
   target: StateOf<DefinitionValue>;
-  guard?: TransitionGuard<DefinitionValue, Name>;
-  updateMemory?: TransitionUpdateMemory<DefinitionValue, Name>;
-  actions?: TransitionActions<DefinitionValue, Name>;
-};
+} & Partial<{
+  guard: TransitionGuard<DefinitionValue, Name>;
+  updateMemory: TransitionUpdateMemory<DefinitionValue, Name>;
+  actions: TransitionActions<DefinitionValue, Name>;
+}>;
 
 const transitionGuardSchema = <
   DefinitionValue extends MachineDefinition,
@@ -571,16 +588,18 @@ const transitionActionsSchema = <
   );
 
 const transitionSchema = Schema.Struct({
-  target: Schema.Unknown,
-  guard: Schema.optional(Schema.Unknown),
-  updateMemory: Schema.optional(Schema.Unknown),
-  actions: Schema.optional(Schema.Unknown),
-  reenter: Schema.optional(Schema.Unknown),
+  target: capturedConfigurationSchema,
+  guard: Schema.optional(capturedConfigurationSchema),
+  updateMemory: Schema.optional(capturedConfigurationSchema),
+  actions: Schema.optional(capturedConfigurationSchema),
+  reenter: Schema.optional(capturedConfigurationSchema),
 });
 
 const decodeTransitionFields = Schema.decodeUnknownResult(transitionSchema, {
   onExcessProperty: "error",
 });
+
+type RawTransitionConfiguration = typeof transitionSchema.Type;
 
 const projectTransitionSchemaFailure = (failure: Schema.SchemaError, path: Diagnostic.Path) => {
   const { issue, path: issuePath } = firstSchemaFailure(failure.issue);
@@ -603,7 +622,7 @@ const decodeTransitionGuard = <
   DefinitionValue extends MachineDefinition,
   Name extends EventName<DefinitionValue>,
 >(
-  value: unknown,
+  value: RawTransitionConfiguration["guard"],
   path: Diagnostic.Path,
 ) =>
   Result.mapError(
@@ -615,7 +634,7 @@ const decodeTransitionUpdateMemory = <
   DefinitionValue extends MachineDefinition,
   Name extends EventName<DefinitionValue>,
 >(
-  value: unknown,
+  value: RawTransitionConfiguration["updateMemory"],
   path: Diagnostic.Path,
 ) =>
   Result.mapError(
@@ -628,7 +647,7 @@ const decodeTransitionActions = <
   DefinitionValue extends MachineDefinition,
   Name extends EventName<DefinitionValue>,
 >(
-  value: unknown,
+  value: RawTransitionConfiguration["actions"],
   path: Diagnostic.Path,
 ) =>
   Result.mapError(
@@ -717,7 +736,7 @@ export const admitTransition = <
   DefinitionValue extends MachineDefinition,
   Name extends EventName<DefinitionValue>,
 >(
-  value: unknown,
+  value: CapturedConfigurationValue,
   path: Diagnostic.Path,
   validateTarget: TargetValidator<StateOf<DefinitionValue>>,
 ): Result.Result<CompiledTransition<DefinitionValue, Name>, Diagnostic.PublicDiagnostic> => {
@@ -737,10 +756,10 @@ const inaccessibleBehaviorEntry = Symbol("inaccessible behavior entry");
 // RETURN_TYPE: Preserves the behavior-map entry shape while its snapshot is decoded later.
 const admitBehaviorMap = (
   field: "on" | "activities" | "timers",
-  value: unknown,
+  value: CapturedConfigurationValue,
   path: string[],
   reason: "ExpectedEventHandlers" | "ExpectedActivities" | "ExpectedTimer",
-): Result.Result<ConfigurationEntry[], Diagnostic.PublicDiagnostic> => {
+): Result.Result<ConfigurationEntry<CapturedConfigurationValue>[], Diagnostic.PublicDiagnostic> => {
   const fieldPath = configurationPath(path, [field]);
 
   if (value === undefined) return Result.succeed([]);
@@ -768,7 +787,7 @@ const isEventName = <DefinitionValue extends MachineDefinition>(
   value: string,
 ): value is EventName<DefinitionValue> => Object.prototype.propertyIsEnumerable.call(events, value);
 
-const isStateToken = (value: unknown) => {
+const isStateToken = (value: CapturedConfigurationValue) => {
   const kind = readTokenText(value, "kind");
   const id = readTokenText(value, "id");
 
@@ -785,7 +804,7 @@ const admitEventHandlerTransition = <
   DefinitionValue extends MachineDefinition,
   Name extends EventName<DefinitionValue>,
 >(
-  value: unknown,
+  value: CapturedConfigurationValue,
   path: Diagnostic.Path,
   validateStateToken: TargetValidator<StateOf<DefinitionValue>>,
 ): Result.Result<CompiledTransition<DefinitionValue, Name>, Diagnostic.PublicDiagnostic> =>
@@ -822,7 +841,7 @@ const makeHandlerEntrySchema = <
           ];
         }
 
-        const eventHandlerListSchema = Schema.NonEmptyArray(Schema.Unknown);
+        const eventHandlerListSchema = Schema.NonEmptyArray(capturedConfigurationSchema);
         const decoded = Schema.decodeUnknownResult(eventHandlerListSchema)(values);
 
         if (!Result.isSuccess(decoded))
@@ -868,7 +887,7 @@ const admitEventHandlerEntry = <
   DefinitionValue extends MachineDefinition,
   Name extends EventName<DefinitionValue>,
 >(
-  value: unknown,
+  value: CapturedConfigurationValue,
   path: Diagnostic.Path,
   validateStateToken: TargetValidator<StateOf<DefinitionValue>>,
 ): Result.Result<CompiledTransition<DefinitionValue, Name>[], Diagnostic.PublicDiagnostic> => {
@@ -924,11 +943,11 @@ export const admitEventHandlers = <DefinitionValue extends MachineDefinition>(
 const inaccessibleRedirectProperty = Symbol("inaccessible redirect property");
 
 const redirectRecordSchema = Schema.Struct({
-  when: Schema.Unknown,
-  target: Schema.Unknown,
+  when: capturedConfigurationSchema,
+  target: capturedConfigurationSchema,
 });
 
-const redirectListSchema = Schema.NonEmptyArray(Schema.Unknown);
+const redirectListSchema = Schema.NonEmptyArray(capturedConfigurationSchema);
 
 const redirectCallbackSchema = <DefinitionValue extends MachineDefinition>() =>
   // SAFETY: the callback type is inherited from the typed Machine grammar; this declaration only adds the runtime callability check.
@@ -963,9 +982,9 @@ const projectRedirectRecordSchemaFailure = (
 
 // RETURN_TYPE: Keeps reflected redirect data opaque until redirectRecordSchema decodes it.
 const captureRedirectRecord = (
-  value: unknown,
+  value: CapturedConfigurationValue,
   path: Diagnostic.Path,
-): Result.Result<unknown, Diagnostic.PublicDiagnostic> =>
+): Result.Result<Record<string, CapturedConfigurationValue>, Diagnostic.PublicDiagnostic> =>
   Result.gen(function* () {
     const snapshot = yield* snapshotRecord(value, path, "ExpectedRedirect");
 
@@ -974,7 +993,7 @@ const captureRedirectRecord = (
 
 // RETURN_TYPE: Preserves the raw redirect record produced by structural admission.
 const admitRedirectRecord = (
-  value: unknown,
+  value: CapturedConfigurationValue,
   path: Diagnostic.Path,
 ): Result.Result<RawRedirectRecord, Diagnostic.PublicDiagnostic> =>
   Result.gen(function* () {
@@ -1059,7 +1078,7 @@ const makeRedirectSchema = <DefinitionValue extends MachineDefinition>(
   );
 
 export const admitRedirectConfiguration = <DefinitionValue extends MachineDefinition>(
-  value: unknown,
+  value: CapturedConfigurationValue,
   path: Diagnostic.Path,
   validateTarget: TargetValidator<StateOf<DefinitionValue>>,
 ) => {
@@ -1075,7 +1094,7 @@ export const admitRedirectConfiguration = <DefinitionValue extends MachineDefini
 // Activities
 
 type ActivityPlanDecoder<DefinitionValue extends MachineDefinition> = (
-  value: unknown,
+  value: CapturedConfigurationValue,
 ) => Result.Result<MachineActivity<DefinitionValue>, Schema.SchemaError>;
 
 const activityPlanSchema = <DefinitionValue extends MachineDefinition>(
@@ -1101,7 +1120,7 @@ const activityPlanSchema = <DefinitionValue extends MachineDefinition>(
 
 // RETURN_TYPE: Preserves the generic MachineActivity success channel; direct inference collapses it to never.
 const admitActivityPlan = <DefinitionValue extends MachineDefinition>(
-  value: unknown,
+  value: CapturedConfigurationValue,
   path: Diagnostic.Path,
   decodeActivity: ActivityPlanDecoder<DefinitionValue>,
 ): Result.Result<MachineActivity<DefinitionValue>, Diagnostic.PublicDiagnostic> => {
