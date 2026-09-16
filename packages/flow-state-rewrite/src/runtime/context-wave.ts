@@ -2,9 +2,11 @@
 import { Option, Predicate, Result } from "effect";
 
 import type { ContextOf } from "../definition/domain.js";
+import { isRegisteredContextSelector, isRegisteredStateToken } from "../definition/schema.js";
 import { Defect, Diagnostic, Failure, type PublicDiagnostic } from "../diagnostic/diagnostic.js";
 import type { MachineDefinition } from "../machine/grammar.js";
 import type { Machine } from "../machine/machine.js";
+import { isConstructedOperation } from "../operation/operation.js";
 import { copyArray, copyObject } from "./collection-copies.js";
 import type {
   ActorContextSnapshot,
@@ -65,6 +67,7 @@ export type ContextSelection<
   binding: ContextBinding<ConsumerDefinition, ProviderDefinition, Slot>;
   slot: Slot;
   value: ActorContextValue<ConsumerDefinition, Slot>;
+  authoredIdentity: ActorContextValue<ConsumerDefinition, Slot>;
   providerRevision: number;
 };
 
@@ -90,8 +93,8 @@ export type ContextSelectionLedgerEntry<
     string,
 > = {
   binding: ContextBinding<ConsumerDefinition, ProviderDefinition, Slot>;
-  previous: Option.Option<ContextSelection<ConsumerDefinition, ProviderDefinition, Slot>>;
   lastValid: Option.Option<ContextSelection<ConsumerDefinition, ProviderDefinition, Slot>>;
+  pending: Option.Option<ContextSelection<ConsumerDefinition, ProviderDefinition, Slot>>;
   providerRevision: number;
   defect: Option.Option<ContextSelectorDefect<ConsumerDefinition, ProviderDefinition, Slot>>;
 };
@@ -303,8 +306,12 @@ const copyRevisionState = (state: ContextRevision) =>
     machineTurnRevision: state.machineTurnRevision,
   });
 
-// oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- record fields remain unknown until equality inspects each stable descriptor.
+// FLOW_STATE_ALLOW_UNKNOWN: Selected fields are compared only as property descriptors.
 type PlainContextRecord = Record<PropertyKey, unknown>;
+
+type StructuralContextValue =
+  | PlainContextRecord
+  | Array<PlainContextRecord[keyof PlainContextRecord]>;
 
 // RETURN_TYPE: Keeps property inspection narrowed to plain records after prototype validation.
 const isPlainRecord = (value: unknown): value is PlainContextRecord => {
@@ -314,11 +321,14 @@ const isPlainRecord = (value: unknown): value is PlainContextRecord => {
   return prototype === Object.prototype || prototype === null;
 };
 
+const isOpaqueContextValue = <Value>(value: Value) =>
+  isRegisteredStateToken(value) ||
+  isConstructedOperation(value) ||
+  isRegisteredContextSelector(value);
+
 /** Complete Object.is for scalars/arrays and shallow fixed-field Object.is for records. */
 export const equalContextSelection = <Value>(current: Value, previous: Value) => {
-  if (Object.is(current, previous)) return true;
-
-  if (!isPlainRecord(current) || !isPlainRecord(previous)) return false;
+  if (!isPlainRecord(current) || !isPlainRecord(previous)) return Object.is(current, previous);
 
   const currentKeys = Reflect.ownKeys(current);
   const previousKeys = Reflect.ownKeys(previous);
@@ -337,6 +347,52 @@ export const equalContextSelection = <Value>(current: Value, previous: Value) =>
 
     return Object.is(currentDescriptor.value, previousDescriptor.value);
   });
+};
+
+/** Owns ordinary structural values without changing nominal token identity. */
+const ownContextValue = <Value>(value: Value) => {
+  const copied = new WeakMap<StructuralContextValue, StructuralContextValue>();
+
+  // FLOW_STATE_ALLOW_UNKNOWN: Recursive structural copies inspect authored values before restoring their generic type.
+  const copy: (current: unknown) => unknown = (current) => {
+    if ((!Array.isArray(current) && !isPlainRecord(current)) || isOpaqueContextValue(current))
+      return current;
+    const prior = copied.get(current);
+
+    if (prior !== undefined) return prior;
+
+    const owned: StructuralContextValue = Array.isArray(current)
+      ? []
+      : Object.create(Object.getPrototypeOf(current));
+
+    copied.set(current, owned);
+
+    for (const key of Reflect.ownKeys(current)) {
+      const descriptor = Object.getOwnPropertyDescriptor(current, key);
+
+      if (descriptor === undefined || !("value" in descriptor))
+        throw new TypeError("Context selection contains an accessor property");
+      Object.defineProperty(owned, key, { ...descriptor, value: copy(descriptor.value) });
+    }
+
+    return owned;
+  };
+
+  // SAFETY: Structural arrays and plain records retain their shape and field types; nominal and scalar values are unchanged.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the recursive owner copy preserves the selected value type.
+  return copy(value) as Value;
+};
+
+/** Saves authored field references only as identity tokens for shallow equality. */
+// RETURN_TYPE: Preserves the selected type through Object.create's erased return.
+const contextIdentity = <Value>(value: Value): Value => {
+  if (!isPlainRecord(value) || isOpaqueContextValue(value)) return value;
+  const comparison = Object.create(Object.getPrototypeOf(value));
+  Object.defineProperties(comparison, Object.getOwnPropertyDescriptors(value));
+
+  // SAFETY: The comparator is a shallow descriptor copy of the same named record shape.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- equality needs the authored record fields at selection time.
+  return comparison as Value;
 };
 
 const contextIndegrees = (nodes: ActorKey[], edges: Map<ActorKey, Set<ActorKey>>) => {
@@ -606,7 +662,14 @@ export const selectContext = <
   providerRevision: number,
 ) => {
   const selected = Result.try({
-    try: () => binding.select(providerSnapshot),
+    try: () => {
+      const authored = binding.select(providerSnapshot);
+
+      return {
+        value: ownContextValue(authored),
+        authoredIdentity: contextIdentity(authored),
+      };
+    },
     catch: (cause) =>
       copyObject({
         binding,
@@ -623,7 +686,8 @@ export const selectContext = <
     copyObject({
       binding,
       slot: binding.slot,
-      value: selected.success,
+      value: selected.success.value,
+      authoredIdentity: selected.success.authoredIdentity,
       providerRevision,
     }),
   );
@@ -652,14 +716,14 @@ const projectionFromEntries = <
 
     if (entry === undefined || Option.isNone(entry.lastValid))
       return Result.fail(invalidContext("missing-last-valid"));
-    values.set(binding.slot, entry.lastValid.value.value);
+    values.set(binding.slot, ownContextValue(entry.lastValid.value.value));
   }
 
   return Result.succeed(
     copyObject({
       consumer,
       values: new Map(values),
-      revisions,
+      revisions: copyRevisionVector(revisions),
       changedSlots: ownedSet(changedSlots),
     }),
   );
@@ -714,8 +778,8 @@ export const installContextBaseline = <
       binding,
       copyObject({
         binding,
-        previous: Option.none(),
         lastValid: Option.some(selected.success),
+        pending: Option.none(),
         providerRevision: revision,
         defect: Option.none(),
       }),
@@ -861,6 +925,7 @@ type ContextWaveSelections<
     ContextSelectionLedgerEntry<ConsumerDefinition, ProviderDefinition>
   >;
   defects: ContextSelectorDefect<ConsumerDefinition, ProviderDefinition>[];
+  freshDefects: boolean;
   changedSlots: Set<keyof ContextOf<ConsumerDefinition> & string>;
 };
 
@@ -900,12 +965,69 @@ const hasAdvancedContextProvider = <
     return settledProviders.has(key) || (isRevision(current) && current > prior);
   });
 
+const selectBindingContext = <
+  ConsumerDefinition extends MachineDefinition,
+  ProviderDefinition extends MachineDefinition,
+>(
+  binding: ContextBinding<ConsumerDefinition, ProviderDefinition>,
+  previous: ContextSelectionLedgerEntry<ConsumerDefinition, ProviderDefinition>,
+  lastValid: ContextSelection<ConsumerDefinition, ProviderDefinition>,
+  snapshot: ActorContextSnapshot<ProviderDefinition>,
+  revision: number,
+) => {
+  if (revision === previous.providerRevision) {
+    const retained = Option.isSome(previous.pending) ? previous.pending.value : lastValid;
+
+    return {
+      entry: previous,
+      defect: previous.defect,
+      freshDefect: false,
+      changed: !equalContextSelection(retained.authoredIdentity, lastValid.authoredIdentity),
+    };
+  }
+
+  const selected = selectContext(binding, snapshot, revision);
+
+  if (Result.isFailure(selected)) {
+    return {
+      entry: copyObject({
+        binding,
+        lastValid: previous.lastValid,
+        pending: Option.none(),
+        providerRevision: revision,
+        defect: Option.some(selected.failure),
+      }),
+      defect: Option.some(selected.failure),
+      freshDefect: true,
+      changed: false,
+    };
+  }
+
+  const changed = !equalContextSelection(
+    selected.success.authoredIdentity,
+    lastValid.authoredIdentity,
+  );
+
+  return {
+    entry: copyObject({
+      binding,
+      lastValid: previous.lastValid,
+      pending: changed ? Option.some(selected.success) : Option.none(),
+      providerRevision: revision,
+      defect: Option.none(),
+    }),
+    defect: Option.none<ContextSelectorDefect<ConsumerDefinition, ProviderDefinition>>(),
+    freshDefect: false,
+    changed,
+  };
+};
+
 const selectConsumerContext = <
   ConsumerDefinition extends MachineDefinition,
   ProviderDefinition extends MachineDefinition,
 >(
   bindings: ContextBinding<ConsumerDefinition, ProviderDefinition>[],
-  wave: ContextWave,
+  providerRevisions: ProviderRevisionVector,
   snapshots: Map<ActorKey, ActorContextSnapshot<ProviderDefinition>>,
   previous: ContextSelectionLedger<ConsumerDefinition, ProviderDefinition>,
 ) => {
@@ -915,6 +1037,7 @@ const selectConsumerContext = <
   >();
 
   const defects: ContextSelectorDefect<ConsumerDefinition, ProviderDefinition>[] = [];
+  let freshDefects = false;
   const changedSlots = new Set<keyof ContextOf<ConsumerDefinition> & string>();
 
   for (const binding of bindings) {
@@ -926,44 +1049,29 @@ const selectConsumerContext = <
 
     if (providerSnapshot === undefined)
       return Result.fail(missingProvider(binding.providerFence.key));
-    const providerRevision = wave.providerRevision.get(binding.providerFence.key);
+    const providerRevision = providerRevisions.get(binding.providerFence.key);
 
     if (!isRevision(providerRevision))
       return Result.fail(invalidRevision(binding.providerFence.key));
 
-    const selected = selectContext(binding, providerSnapshot, providerRevision);
-
-    if (Result.isFailure(selected)) {
-      defects.push(selected.failure);
-      candidates.set(
-        binding,
-        copyObject({
-          binding,
-          previous: previousEntry.previous,
-          lastValid: previousEntry.lastValid,
-          providerRevision,
-          defect: Option.some(selected.failure),
-        }),
-      );
-      continue;
-    }
-
-    candidates.set(
+    const selected = selectBindingContext(
       binding,
-      copyObject({
-        binding,
-        previous: previousEntry.lastValid,
-        lastValid: Option.some(selected.success),
-        providerRevision,
-        defect: Option.none(),
-      }),
+      previousEntry,
+      previousEntry.lastValid.value,
+      providerSnapshot,
+      providerRevision,
     );
 
-    if (!equalContextSelection(selected.success.value, previousEntry.lastValid.value.value))
-      changedSlots.add(binding.slot);
+    candidates.set(binding, selected.entry);
+
+    if (Option.isSome(selected.defect)) defects.push(selected.defect.value);
+
+    freshDefects ||= selected.freshDefect;
+
+    if (selected.changed) changedSlots.add(binding.slot);
   }
 
-  return Result.succeed({ candidates, defects, changedSlots });
+  return Result.succeed({ candidates, defects, freshDefects, changedSlots });
 };
 
 const storeContextCandidates = <
@@ -973,12 +1081,18 @@ const storeContextCandidates = <
   bindings: ContextBinding<ConsumerDefinition, ProviderDefinition>[],
   candidates: ContextWaveSelections<ConsumerDefinition, ProviderDefinition>["candidates"],
   entries: ContextWaveApplication<ConsumerDefinition, ProviderDefinition>["nextEntries"],
+  committed: boolean,
 ) => {
   for (const binding of bindings) {
     const candidate = candidates.get(binding);
 
     if (candidate === undefined) return Result.fail(invalidContext("incomplete-candidate"));
-    entries.set(binding, candidate);
+    entries.set(
+      binding,
+      committed && Option.isSome(candidate.pending)
+        ? copyObject({ ...candidate, lastValid: candidate.pending, pending: Option.none() })
+        : candidate,
+    );
   }
 
   return Result.succeed(undefined);
@@ -1000,7 +1114,6 @@ const propagateAndSettleContextProjection = <
   );
 
   if (Result.isFailure(propagated)) return Result.fail(propagated.failure);
-  application.settledProviders.add(consumer);
 
   return Result.succeed(undefined);
 };
@@ -1020,7 +1133,13 @@ const publishIssueOnlyContext = <
   const nextRevisionState = nextContextRevision(revisionState.success, true);
 
   if (Result.isFailure(nextRevisionState)) return Result.fail(nextRevisionState.failure);
-  const stored = storeContextCandidates(bindings, selections.candidates, application.nextEntries);
+
+  const stored = storeContextCandidates(
+    bindings,
+    selections.candidates,
+    application.nextEntries,
+    false,
+  );
 
   if (Result.isFailure(stored)) return Result.fail(stored.failure);
 
@@ -1061,7 +1180,12 @@ const publishUnchangedContext = <
   selections: ContextWaveSelections<ConsumerDefinition, ProviderDefinition>,
   application: ContextWaveApplication<ConsumerDefinition, ProviderDefinition>,
 ) => {
-  const stored = storeContextCandidates(bindings, selections.candidates, application.nextEntries);
+  const stored = storeContextCandidates(
+    bindings,
+    selections.candidates,
+    application.nextEntries,
+    true,
+  );
 
   if (Result.isFailure(stored)) return Result.fail(stored.failure);
 
@@ -1088,7 +1212,12 @@ const publishChangedContext = <
   nextRevision: ContextRevision,
   application: ContextWaveApplication<ConsumerDefinition, ProviderDefinition>,
 ) => {
-  const stored = storeContextCandidates(bindings, selections.candidates, application.nextEntries);
+  const stored = storeContextCandidates(
+    bindings,
+    selections.candidates,
+    application.nextEntries,
+    true,
+  );
 
   if (Result.isFailure(stored)) return Result.fail(stored.failure);
 
@@ -1104,6 +1233,8 @@ const publishChangedContext = <
   const propagated = propagateAndSettleContextProjection(consumer, projection.success, application);
 
   if (Result.isFailure(propagated)) return Result.fail(propagated.failure);
+  application.settledProviders.add(consumer);
+  application.nextProviderRevisions.set(consumer, nextRevision.publicationRevision);
   application.projections.push(projection.success);
   application.publications.push(
     copyObject({
@@ -1128,8 +1259,12 @@ const applyConsumerContextSelections = <
   selections: ContextWaveSelections<ConsumerDefinition, ProviderDefinition>,
   application: ContextWaveApplication<ConsumerDefinition, ProviderDefinition>,
 ) => {
-  if (selections.defects.length > 0)
-    return publishIssueOnlyContext(consumer, bindings, selections, application);
+  if (selections.defects.length > 0) {
+    if (selections.freshDefects)
+      return publishIssueOnlyContext(consumer, bindings, selections, application);
+
+    return storeContextCandidates(bindings, selections.candidates, application.nextEntries, false);
+  }
 
   if (selections.changedSlots.size === 0)
     return publishUnchangedContext(consumer, bindings, selections, application);
@@ -1179,7 +1314,12 @@ export const applyContextWave = <
     if (!hasAdvancedContextProvider(bindings, wave, previous, application.settledProviders))
       continue;
 
-    const selections = selectConsumerContext(bindings, wave, application.waveSnapshots, previous);
+    const selections = selectConsumerContext(
+      bindings,
+      application.nextProviderRevisions,
+      application.waveSnapshots,
+      previous,
+    );
 
     if (Result.isFailure(selections)) return Result.fail(selections.failure);
 

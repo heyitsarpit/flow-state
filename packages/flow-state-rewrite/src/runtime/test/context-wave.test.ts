@@ -1,10 +1,17 @@
 // oxlint-disable-next-line anti-slop/no-large-production-file -- these cases share the authored fixtures while proving one context-wave owner across baseline, selection defects, propagation, passive reads, and disposal.
 import { assert, describe, it } from "@effect/vitest";
-import { Deferred, Effect, Option, Result } from "effect";
+import { Deferred, Effect, Option, Predicate, Result } from "effect";
 
 import { app, module } from "../../app/app.js";
 import { definition } from "../../definition/definition.js";
+import {
+  decodeDefinitionConfigResult,
+  decodeEventPayloadResult,
+  isRegisteredContextSelector,
+} from "../../definition/schema.js";
 import { machine } from "../../machine/machine.js";
+import { isConstructedOperation } from "../../operation/operation.js";
+import { resource } from "../../operation/resource.js";
 import { actorRef } from "../actor-ref.js";
 import { makeActorIdentityRegistry, type ActorContextBinding } from "../actor-admission.js";
 import { prepareActorSnapshot } from "../actor-engine.js";
@@ -22,6 +29,7 @@ import {
 } from "../context-wave.js";
 import type { ActorContextSnapshot, ActorFence, ActorKey } from "../actor-admission.js";
 import { runtimeOwner, runtimeSetup } from "../runtime.js";
+import { reconcileContextEdgeDebt, reconcileContextLineage } from "../context/lineage.js";
 
 const resultSuccess = <Value, Error>(result: Result.Result<Value, Error>) => {
   if (Result.isFailure(result)) throw result.failure;
@@ -58,6 +66,18 @@ const consumerDefinitionResult = definition({
 });
 
 const consumerDefinition = resultSuccess(consumerDefinitionResult);
+
+const siblingConsumerDefinition = resultSuccess(
+  definition({
+    id: "context-wave/sibling-consumer",
+    states: ["ready"],
+    events: {},
+    context: {
+      left: providerDefinition.select(({ state }) => state),
+      right: providerDefinition.select(({ state }) => state),
+    },
+  }),
+);
 
 const consumerMachine = resultSuccess(
   machine(consumerDefinitionResult, ({ S }) => ({
@@ -1360,20 +1380,653 @@ describe("context waves", () => {
 });
 
 describe("pending regression scenarios", () => {
-  // SETUP: Build a two-provider graph with one consumer bound to both slots; make the left selector throw at provider revision 1 and count selector calls, while the right selector remains valid.
-  // ACTION: Apply the left revision-1 defect, then apply only a newer right-provider revision while the left vector entry remains 1; finally apply a newer left revision with the selector recovered.
-  // ASSERT: The left selector is not rerun for the same actor/provider cut and last-valid left context remains visible. A newer right-provider wave may publish its own issue-only/aggregate outcome, but it must not classify the unchanged left defect as a new retry; recovery at left revision 2 emits one clean aggregate publication containing the pending right change and recovered left value.
-  it.todo(
-    "suppresses a repeated selector defect at one provider revision while retaining a pending sibling change",
-  );
+  it("suppresses a repeated selector defect at one provider revision while retaining a pending sibling change", () => {
+    const registry = makeActorIdentityRegistry();
+    const left = resultSuccess(registry.reserveStable(actorRef(providerMachine, "left")));
+    const right = resultSuccess(registry.reserveStable(actorRef(providerMachine, "right")));
+    const consumer = resultSuccess(registry.reserveStable(actorRef(consumerMachine, "sibling")));
+    let leftCalls = 0;
+    let rightCalls = 0;
+    let defective = false;
 
-  // SETUP: Extend the current scalar/named-record equality table with complete-value arrays, NaN, null, explicit undefined, function identity, symbol identity, missing fields, and reflective getters.
-  // ACTION: Compare same-reference and fresh-reference values, change one fixed record field, and run a selector through the normal defect capture path when a getter throws.
-  // ASSERT: Scalars and non-record values use Object.is; arrays compare as complete values by identity; named records compare only their fixed authored fields fieldwise with Object.is; missing differs from explicit undefined; NaN, functions, symbols, and null retain their authored identity semantics; selector defects stay in the diagnostic lane.
-  it.todo("uses exact authored equality for scalars, arrays, and fixed named records");
+    const fence = (identity: typeof left) => ({
+      key: identity.key,
+      incarnation: identity.incarnation,
+      generation: 0,
+      leaseEpoch: identity.leaseEpoch,
+    });
 
-  // Setup: Use the real selected context lineage/debt owner with a consumer depending on independent ancestors A and X; establish unresolved required cuts for A and then X through rejected projection outcomes.
-  // Action: Apply an unrelated local publication, reconcile only X, then reconcile A with an attested projection or no-op ticket; inspect compatibility through the actual lineage selection result.
-  // Assert: New X debt does not replace A debt, local publication clears neither, and reconciling X leaves A required. Only matching fence/revision coverage clears each watermark; incompatible shared ancestors stay blocked and no completed wave history is retained.
-  it.todo("retains every unresolved ancestor requirement when context debt is updated");
+    const bindings = [
+      {
+        consumer: consumer.key,
+        consumerIncarnation: consumer.incarnation,
+        slot: "left" as const,
+        provider: left.ref,
+        providerFence: fence(left),
+        select: ({ state }: ActorContextSnapshot<typeof providerDefinition>) => {
+          leftCalls += 1;
+
+          if (defective) throw new Error("left defect");
+
+          return state;
+        },
+      },
+      {
+        consumer: consumer.key,
+        consumerIncarnation: consumer.incarnation,
+        slot: "right" as const,
+        provider: right.ref,
+        providerFence: fence(right),
+        select: ({ state }: ActorContextSnapshot<typeof providerDefinition>) => {
+          rightCalls += 1;
+
+          return state;
+        },
+      },
+    ] satisfies ContextBinding<typeof siblingConsumerDefinition, typeof providerDefinition>[];
+
+    const graph = resultSuccess(
+      buildContextGraph<typeof siblingConsumerDefinition, typeof providerDefinition>(bindings),
+    );
+
+    const snapshots = new Map<ActorKey, ActorContextSnapshot<typeof providerDefinition>>([
+      [left.key, { state: providerDefinition.S.ready, memory: {}, context: {} }],
+      [right.key, { state: providerDefinition.S.ready, memory: {}, context: {} }],
+    ]);
+
+    const baseline = resultSuccess(
+      installContextBaseline(
+        graph,
+        snapshots,
+        revisionVector([
+          [left.key, 0],
+          [right.key, 0],
+        ]),
+      ),
+    );
+
+    defective = true;
+
+    const firstWave = resultSuccess(
+      planContextWave(
+        graph,
+        revisionVector([
+          [left.key, 1],
+          [right.key, 0],
+        ]),
+        new Set([left.key]),
+        Option.none(),
+      ),
+    );
+
+    const first = resultSuccess(applyContextWave(firstWave, graph, snapshots, baseline.ledger));
+    assert.strictEqual(first.publications.length, 1);
+    assert.strictEqual(first.publications[0]?.issueOnly, true);
+    assert.strictEqual(first.projections[0]?.values.get("left"), providerDefinition.S.ready);
+    assert.strictEqual(leftCalls, 2);
+    assert.strictEqual(rightCalls, 1);
+
+    const siblingWave = resultSuccess(
+      planContextWave(
+        graph,
+        revisionVector([
+          [left.key, 1],
+          [right.key, 1],
+        ]),
+        new Set([right.key]),
+        Option.some(firstWave),
+      ),
+    );
+
+    const changedRight = new Map(snapshots);
+    changedRight.set(right.key, { state: providerDefinition.S.changed, memory: {}, context: {} });
+    const sibling = resultSuccess(applyContextWave(siblingWave, graph, changedRight, first.ledger));
+    assert.deepStrictEqual(sibling.publications, []);
+    assert.strictEqual(leftCalls, 2);
+    assert.strictEqual(rightCalls, 2);
+
+    const rightEntry = [...sibling.ledger.entries.values()].find(
+      (entry) => entry.binding.slot === "right",
+    );
+
+    assert.ok(rightEntry !== undefined && Option.isSome(rightEntry.pending));
+
+    if (Option.isNone(rightEntry.lastValid)) throw new Error("missing retained right selection");
+    assert.strictEqual(rightEntry.lastValid.value.value, providerDefinition.S.ready);
+
+    defective = false;
+
+    const recoveredWave = resultSuccess(
+      planContextWave(
+        graph,
+        revisionVector([
+          [left.key, 2],
+          [right.key, 1],
+        ]),
+        new Set([left.key]),
+        Option.some(siblingWave),
+      ),
+    );
+
+    const changedLeft = new Map(changedRight);
+    changedLeft.set(left.key, { state: providerDefinition.S.changed, memory: {}, context: {} });
+
+    const recovered = resultSuccess(
+      applyContextWave(recoveredWave, graph, changedLeft, sibling.ledger),
+    );
+
+    assert.strictEqual(leftCalls, 3);
+    assert.strictEqual(rightCalls, 2);
+    assert.strictEqual(recovered.publications.length, 1);
+    assert.strictEqual(recovered.publications[0]?.issueOnly, false);
+    assert.deepStrictEqual(
+      [...recovered.publications[0]!.projection.changedSlots],
+      ["left", "right"],
+    );
+    assert.deepStrictEqual(
+      [...recovered.publications[0]!.projection.values.values()],
+      [providerDefinition.S.changed, providerDefinition.S.changed],
+    );
+  });
+
+  it("uses exact authored equality for scalars, arrays, and fixed named records", () => {
+    const array = [1, 2];
+    const functionValue = () => 1;
+    const symbol = Symbol("selection");
+    assert.strictEqual(equalContextSelection(Number.NaN, Number.NaN), true);
+    assert.strictEqual(equalContextSelection(null, undefined), false);
+    assert.strictEqual(equalContextSelection(array, array), true);
+    assert.strictEqual(equalContextSelection(array, [1, 2]), false);
+    assert.strictEqual(equalContextSelection(functionValue, functionValue), true);
+    assert.strictEqual(
+      equalContextSelection(functionValue, () => 1),
+      false,
+    );
+    assert.strictEqual(equalContextSelection(symbol, symbol), true);
+    assert.strictEqual(equalContextSelection(symbol, Symbol("selection")), false);
+    assert.strictEqual(equalContextSelection({ a: 1, b: array }, { a: 1, b: array }), true);
+    assert.strictEqual(equalContextSelection({ a: 1 }, { a: 1, b: undefined }), false);
+    assert.strictEqual(equalContextSelection({ a: 1, b: array }, { a: 1, b: [1, 2] }), false);
+
+    const accessor = {
+      get value() {
+        throw new Error("reflective getter");
+      },
+    };
+
+    assert.strictEqual(equalContextSelection(accessor, accessor), false);
+    const fixture = makeFixture();
+
+    const selected = selectContext(
+      { ...fixture.binding, select: () => contextValueOutsideAuthoredType(accessor.value) },
+      { state: providerDefinition.S.ready, memory: {}, context: {} },
+      1,
+    );
+
+    assert.ok(Result.isFailure(selected));
+
+    if (Result.isFailure(selected)) assert.strictEqual(selected.failure.diagnostic.code, "Defect");
+  });
+
+  it("owns selected records and arrays across source and publication mutation", () => {
+    const fixture = makeFixture();
+    const source = { value: 1, nested: { count: 1 }, items: [1] };
+
+    const binding = {
+      ...fixture.binding,
+      select: () => contextValueOutsideAuthoredType(source),
+    };
+
+    const graph = resultSuccess(
+      buildContextGraph<typeof consumerDefinition, typeof providerDefinition>([binding]),
+    );
+
+    const baseline = resultSuccess(
+      installContextBaseline(
+        graph,
+        fixture.snapshots,
+        revisionVector([[fixture.providerIdentity.key, 0]]),
+      ),
+    );
+
+    const entry = [...baseline.ledger.entries.values()][0];
+    assert.ok(entry !== undefined && Option.isSome(entry.lastValid));
+    source.value = 2;
+    source.nested.count = 2;
+    source.items.push(2);
+    assert.strictEqual(
+      JSON.stringify(entry.lastValid.value.value),
+      JSON.stringify({
+        value: 1,
+        nested: { count: 1 },
+        items: [1],
+      }),
+    );
+    const baselineValue = baseline.projections[0]?.values.get("selected");
+    assert.ok(baselineValue !== undefined);
+    Object.assign(baselineValue, { value: 99, nested: { count: 99 }, items: [99] });
+    assert.strictEqual(
+      JSON.stringify(entry.lastValid.value.value),
+      JSON.stringify({
+        value: 1,
+        nested: { count: 1 },
+        items: [1],
+      }),
+    );
+
+    const wave = resultSuccess(
+      planContextWave(
+        graph,
+        revisionVector([[fixture.providerIdentity.key, 1]]),
+        new Set([fixture.providerIdentity.key]),
+        Option.none(),
+      ),
+    );
+
+    const next = resultSuccess(applyContextWave(wave, graph, fixture.snapshots, baseline.ledger));
+    assert.deepStrictEqual([...next.publications[0]!.projection.changedSlots], ["selected"]);
+    assert.strictEqual(
+      JSON.stringify(next.projections[0]?.values.get("selected")),
+      JSON.stringify({
+        value: 2,
+        nested: { count: 2 },
+        items: [1, 2],
+      }),
+    );
+    Object.assign(next.projections[0]!.values.get("selected")!, { value: 77 });
+    const nextEntry = [...next.ledger.entries.values()][0];
+    assert.ok(nextEntry !== undefined && Option.isSome(nextEntry.lastValid));
+    assert.strictEqual(
+      JSON.stringify(nextEntry.lastValid.value.value),
+      JSON.stringify({
+        value: 2,
+        nested: { count: 2 },
+        items: [1, 2],
+      }),
+    );
+
+    const arraySource = [1];
+
+    const arrayBinding = {
+      ...fixture.binding,
+      select: () => contextValueOutsideAuthoredType(arraySource),
+    };
+
+    const arrayGraph = resultSuccess(
+      buildContextGraph<typeof consumerDefinition, typeof providerDefinition>([arrayBinding]),
+    );
+
+    const arrayBaseline = resultSuccess(
+      installContextBaseline(
+        arrayGraph,
+        fixture.snapshots,
+        revisionVector([[fixture.providerIdentity.key, 0]]),
+      ),
+    );
+
+    arraySource.push(2);
+    const arrayPublished = arrayBaseline.projections[0]?.values.get("selected");
+    assert.ok(Array.isArray(arrayPublished));
+    arrayPublished.push(99);
+    const arrayEntry = [...arrayBaseline.ledger.entries.values()][0];
+    assert.ok(arrayEntry !== undefined && Option.isSome(arrayEntry.lastValid));
+    assert.strictEqual(JSON.stringify(arrayEntry.lastValid.value.value), "[1]");
+
+    const arrayWave = resultSuccess(
+      planContextWave(
+        arrayGraph,
+        revisionVector([[fixture.providerIdentity.key, 1]]),
+        new Set([fixture.providerIdentity.key]),
+        Option.none(),
+      ),
+    );
+
+    const sameArray = resultSuccess(
+      applyContextWave(arrayWave, arrayGraph, fixture.snapshots, arrayBaseline.ledger),
+    );
+
+    assert.deepStrictEqual(sameArray.publications, []);
+    const retainedArray = [...sameArray.ledger.entries.values()][0];
+    assert.ok(retainedArray !== undefined && Option.isSome(retainedArray.lastValid));
+    assert.strictEqual(JSON.stringify(retainedArray.lastValid.value.value), "[1]");
+  });
+
+  it("retains registered operation and context selector identities inside owned context", () => {
+    const fixture = makeFixture();
+
+    const operation = resource({
+      id: "context-wave/selected-operation",
+      key: (id: string) => [id] as const,
+      lookup: (id: string) => Effect.succeed(id),
+    });
+
+    const contextSelector = providerDefinition.select(({ state }) => state);
+    const snapshot = { state: providerDefinition.S.ready, memory: {}, context: {} };
+
+    const select = (value: unknown) =>
+      resultSuccess(
+        selectContext(
+          { ...fixture.binding, select: () => contextValueOutsideAuthoredType(value) },
+          snapshot,
+          1,
+        ),
+      ).value;
+
+    const selectedOperation = select(operation);
+    assert.strictEqual(selectedOperation, operation);
+    assert.strictEqual(isConstructedOperation(selectedOperation), true);
+
+    const selectedContextSelector = select(contextSelector);
+    assert.strictEqual(selectedContextSelector, contextSelector);
+    assert.ok(Result.isSuccess(decodeEventPayloadResult({ selected: selectedContextSelector })));
+
+    const lookalike = { ...contextSelector };
+    assert.notStrictEqual(select(lookalike), lookalike);
+
+    const selectedNested: unknown = select({
+      operation,
+      contextSelector,
+      items: [operation, contextSelector],
+    });
+
+    if (
+      !Predicate.isObject(selectedNested) ||
+      !("operation" in selectedNested) ||
+      !("contextSelector" in selectedNested) ||
+      !("items" in selectedNested) ||
+      !Array.isArray(selectedNested.items)
+    )
+      throw new Error("expected selected nested context");
+
+    assert.strictEqual(selectedNested.operation, operation);
+    assert.strictEqual(selectedNested.contextSelector, contextSelector);
+    assert.strictEqual(selectedNested.items[0], operation);
+    assert.strictEqual(selectedNested.items[1], contextSelector);
+  });
+
+  it("retains registered selector identity after its mutable kind changes or is deleted", () => {
+    const fixture = makeFixture();
+    const snapshot = { state: providerDefinition.S.ready, memory: {}, context: {} };
+
+    const select = (value: unknown) =>
+      resultSuccess(
+        selectContext(
+          { ...fixture.binding, select: () => contextValueOutsideAuthoredType(value) },
+          snapshot,
+          1,
+        ),
+      ).value;
+
+    for (const changeKind of ["changed", "deleted"] as const) {
+      const selector = providerDefinition.select(({ state }) => state);
+
+      assert.strictEqual(
+        changeKind === "changed"
+          ? Reflect.set(selector, "kind", "changed")
+          : Reflect.deleteProperty(selector, "kind"),
+        true,
+      );
+      assert.strictEqual(select(selector), selector);
+      assert.ok(
+        Result.isSuccess(
+          decodeDefinitionConfigResult({
+            id: "selected-context",
+            states: ["ready"],
+            events: {},
+            context: { selected: select(selector) },
+          }),
+        ),
+      );
+
+      const nested: unknown = select({ selector, items: [selector] });
+      assert.ok(Predicate.isObject(nested) && "selector" in nested && "items" in nested);
+      assert.strictEqual(nested.selector, selector);
+      assert.ok(Array.isArray(nested.items));
+      assert.strictEqual(nested.items[0], selector);
+      assert.ok(Result.isSuccess(decodeEventPayloadResult({ selected: nested })));
+
+      const lookalike = { ...selector };
+      const copiedLookalike = select(lookalike);
+      assert.notStrictEqual(copiedLookalike, lookalike);
+      assert.strictEqual(isRegisteredContextSelector(copiedLookalike), false);
+      assert.ok(
+        Result.isFailure(
+          decodeDefinitionConfigResult({
+            id: "lookalike-context",
+            states: ["ready"],
+            events: {},
+            context: { selected: copiedLookalike },
+          }),
+        ),
+      );
+    }
+  });
+
+  it("retains owned context for nested mutation and publishes a replaced field reference", () => {
+    const fixture = makeFixture();
+    const nested = { count: 1 };
+    const source = { nested };
+
+    const binding = {
+      ...fixture.binding,
+      select: () => contextValueOutsideAuthoredType({ nested: source.nested }),
+    };
+
+    const graph = resultSuccess(
+      buildContextGraph<typeof consumerDefinition, typeof providerDefinition>([binding]),
+    );
+
+    const baseline = resultSuccess(
+      installContextBaseline(
+        graph,
+        fixture.snapshots,
+        revisionVector([[fixture.providerIdentity.key, 0]]),
+      ),
+    );
+
+    nested.count = 2;
+    const original = [...baseline.ledger.entries.values()][0];
+    assert.ok(original !== undefined && Option.isSome(original.lastValid));
+    assert.strictEqual(JSON.stringify(original.lastValid.value.value), '{"nested":{"count":1}}');
+    const baselineProjection = baseline.projections[0]?.values.get("selected");
+    assert.ok(baselineProjection !== undefined);
+    Object.assign(baselineProjection, { nested: { count: 99 } });
+
+    const firstWave = resultSuccess(
+      planContextWave(
+        graph,
+        revisionVector([[fixture.providerIdentity.key, 1]]),
+        new Set([fixture.providerIdentity.key]),
+        Option.none(),
+      ),
+    );
+
+    const first = resultSuccess(
+      applyContextWave(firstWave, graph, fixture.snapshots, baseline.ledger),
+    );
+
+    assert.deepStrictEqual(first.publications, []);
+    assert.strictEqual(JSON.stringify(original.lastValid.value.value), '{"nested":{"count":1}}');
+    const retained = [...first.ledger.entries.values()][0];
+    assert.ok(retained !== undefined && Option.isSome(retained.lastValid));
+    assert.strictEqual(JSON.stringify(retained.lastValid.value.value), '{"nested":{"count":1}}');
+
+    const secondWave = resultSuccess(
+      planContextWave(
+        graph,
+        revisionVector([[fixture.providerIdentity.key, 2]]),
+        new Set([fixture.providerIdentity.key]),
+        Option.some(firstWave),
+      ),
+    );
+
+    const sameField = resultSuccess(
+      applyContextWave(secondWave, graph, fixture.snapshots, first.ledger),
+    );
+
+    assert.deepStrictEqual(sameField.publications, []);
+
+    source.nested = { count: 2 };
+
+    const thirdWave = resultSuccess(
+      planContextWave(
+        graph,
+        revisionVector([[fixture.providerIdentity.key, 3]]),
+        new Set([fixture.providerIdentity.key]),
+        Option.some(secondWave),
+      ),
+    );
+
+    const newFieldIdentity = resultSuccess(
+      applyContextWave(thirdWave, graph, fixture.snapshots, sameField.ledger),
+    );
+
+    assert.strictEqual(newFieldIdentity.publications.length, 1);
+    assert.deepStrictEqual(
+      [...newFieldIdentity.publications[0]!.projection.changedSlots],
+      ["selected"],
+    );
+    assert.strictEqual(
+      JSON.stringify(newFieldIdentity.projections[0]?.values.get("selected")),
+      '{"nested":{"count":2}}',
+    );
+  });
+
+  it("retains every unresolved ancestor requirement when context debt is updated", () => {
+    const settleDebt = (...args: Parameters<typeof reconcileContextEdgeDebt>) =>
+      resultSuccess(reconcileContextEdgeDebt(...args));
+
+    const fixture = makeFixture();
+    const a = fixture.providerIdentity.key;
+    const x = fixture.consumerIdentity.key;
+    const edgeA = a;
+    const edgeX = x;
+    const aCut = { fence: fixture.binding.providerFence, revision: 2 };
+    const xCut = { fence: { ...fixture.binding.providerFence, key: x }, revision: 3 };
+    const aRequirement = new Map([[a, aCut]]);
+    const xRequirement = new Map([[x, xCut]]);
+    const aDebt = settleDebt(new Map(), edgeA, aRequirement, new Map());
+    const mergedEdgeDebt = settleDebt(aDebt, edgeA, xRequirement, new Map());
+    assert.deepStrictEqual([...mergedEdgeDebt.get(edgeA)!.keys()], [a, x]);
+    const xOnlyCovered = settleDebt(mergedEdgeDebt, edgeA, new Map(), xRequirement);
+    assert.deepStrictEqual([...xOnlyCovered.get(edgeA)!.keys()], [a]);
+    const bothDebt = settleDebt(aDebt, edgeX, xRequirement, new Map());
+    assert.deepStrictEqual([...bothDebt.keys()], [edgeA, edgeX]);
+    assert.strictEqual(aDebt.get(edgeA)?.get(a)?.revision, 2);
+
+    const unrelatedLocalPublication = settleDebt(bothDebt, edgeX, new Map(), new Map());
+
+    assert.strictEqual(unrelatedLocalPublication.get(edgeA)?.get(a)?.revision, 2);
+
+    const staleCoverage = settleDebt(
+      unrelatedLocalPublication,
+      edgeA,
+      new Map(),
+      new Map([[a, { ...aCut, revision: 1 }]]),
+    );
+
+    assert.strictEqual(staleCoverage.get(edgeA)?.get(a)?.revision, 2);
+    const xSettled = settleDebt(staleCoverage, edgeX, new Map(), xRequirement);
+    assert.strictEqual(xSettled.has(edgeX), false);
+    assert.strictEqual(xSettled.get(edgeA)?.get(a)?.revision, 2);
+    const aSettled = settleDebt(xSettled, edgeA, new Map(), aRequirement);
+    assert.strictEqual(aSettled.size, 0);
+
+    const consumer = resultSuccess(
+      fixture.registry.reserveStable(actorRef(consumerMachine, "lineage")),
+    ).key;
+
+    const first = resultSuccess(
+      reconcileContextLineage(consumer, new Map(), [
+        { slot: "left", cut: xCut, lineage: aRequirement },
+        { slot: "right", cut: aCut, lineage: new Map() },
+      ]),
+    );
+
+    assert.deepStrictEqual([...first.keys()], [a, x]);
+    assert.strictEqual(
+      resultSuccess(
+        reconcileContextLineage(consumer, first, [
+          { slot: "left", cut: xCut, lineage: aRequirement },
+          { slot: "right", cut: aCut, lineage: new Map() },
+        ]),
+      ),
+      first,
+    );
+
+    const conflict = reconcileContextLineage(consumer, first, [
+      { slot: "left", cut: xCut, lineage: aRequirement },
+      { slot: "right", cut: aCut, lineage: new Map([[x, { ...xCut, revision: 2 }]]) },
+    ]);
+
+    assert.ok(Result.isFailure(conflict));
+
+    if (Result.isFailure(conflict)) {
+      assert.strictEqual(conflict.failure.code, "MissingContextProvider");
+      assert.deepStrictEqual(conflict.failure.path, ["contextBindings", "right"]);
+    }
+  });
+
+  it("does not replace unresolved debt with a different incarnation at the same actor key", () => {
+    const fixture = makeFixture();
+    const ancestor = fixture.providerIdentity.key;
+    const oldCut = { fence: fixture.binding.providerFence, revision: 2 };
+
+    const prior = resultSuccess(
+      reconcileContextEdgeDebt(new Map(), ancestor, new Map([[ancestor, oldCut]]), new Map()),
+    );
+
+    fixture.registry.rollback(fixture.providerIdentity);
+    const replacement = resultSuccess(fixture.registry.reserveStable(fixture.binding.provider));
+    assert.strictEqual(replacement.key, ancestor);
+
+    const newCut = {
+      fence: { ...oldCut.fence, incarnation: replacement.incarnation },
+      revision: 1,
+    };
+
+    const mixed = reconcileContextEdgeDebt(
+      prior,
+      ancestor,
+      new Map([[ancestor, newCut]]),
+      new Map(),
+    );
+
+    assert.ok(Result.isFailure(mixed));
+
+    if (Result.isFailure(mixed)) {
+      assert.strictEqual(mixed.failure.code, "MissingContextProvider");
+      assert.deepStrictEqual(mixed.failure.path, ["context", "debt"]);
+    }
+
+    assert.strictEqual(
+      prior.get(ancestor)?.get(ancestor)?.fence.incarnation,
+      oldCut.fence.incarnation,
+    );
+
+    const newOnlyCoverage = resultSuccess(
+      reconcileContextEdgeDebt(prior, ancestor, new Map(), new Map([[ancestor, newCut]])),
+    );
+
+    assert.strictEqual(newOnlyCoverage.get(ancestor)?.get(ancestor)?.revision, oldCut.revision);
+
+    const oldCoverage = resultSuccess(
+      reconcileContextEdgeDebt(prior, ancestor, new Map(), new Map([[ancestor, oldCut]])),
+    );
+
+    assert.strictEqual(oldCoverage.has(ancestor), false);
+
+    const acceptedNew = resultSuccess(
+      reconcileContextEdgeDebt(oldCoverage, ancestor, new Map([[ancestor, newCut]]), new Map()),
+    );
+
+    const staleOldCoverage = resultSuccess(
+      reconcileContextEdgeDebt(acceptedNew, ancestor, new Map(), new Map([[ancestor, oldCut]])),
+    );
+
+    assert.strictEqual(
+      staleOldCoverage.get(ancestor)?.get(ancestor)?.fence.incarnation,
+      newCut.fence.incarnation,
+    );
+  });
 });

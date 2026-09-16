@@ -16,12 +16,16 @@ type RuntimeEventFactory = (...args: DefinitionValue[]) => EventPayload;
 
 type DefinitionFunction = Extract<DefinitionValue, (...args: never[]) => DefinitionValue>;
 
-// oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- Schema admits unknown children before recursive validation promotes them.
+// FLOW_STATE_ALLOW_UNKNOWN: Schema admits recursive child values before validating their exact type.
 type PlainRecord = Record<string, unknown>;
 
 const contextSelectors = new WeakSet();
 
 const stateTokens = new WeakSet();
+
+// RETURN_TYPE: Keeps nominal state tokens intact when context selection owns ordinary structural values.
+export const isRegisteredStateToken = (value: unknown): value is StateToken =>
+  Predicate.isObject(value) && stateTokens.has(value);
 
 // Common boundary predicates.
 
@@ -120,11 +124,11 @@ const decodePlainRecord = <Value extends Schema.Constraint>(schema: Value) =>
 
 const DecodedEvents = decodePlainRecord(Events);
 
-// RETURN_TYPE: Preserves ContextSelector narrowing for the registered-selector Schema.declare boundary.
-const isContextSelector = (value: unknown): value is ContextSelector =>
+// RETURN_TYPE: Preserves registered selector identity at schema and context ownership boundaries.
+export const isRegisteredContextSelector = (value: unknown): value is ContextSelector =>
   Predicate.isObject(value) && contextSelectors.has(value);
 
-const ContextSelectorSchema = Schema.declare(isContextSelector, {
+const ContextSelectorSchema = Schema.declare(isRegisteredContextSelector, {
   identifier: "ContextSelector",
 });
 
@@ -152,11 +156,11 @@ const DefinitionFunctionSchema = Schema.declare(
 
 const StateTokenSchema = Schema.declare(
   // RETURN_TYPE: Preserves StateToken<string, string, string> narrowing in the recursive DefinitionValue schema union.
-  (value: unknown): value is StateToken<string, string, string> =>
-    Predicate.isObject(value) && stateTokens.has(value),
+  (value: unknown): value is StateToken<string, string, string> => isRegisteredStateToken(value),
   { identifier: "StateToken" },
 );
 
+// FLOW_STATE_ALLOW_UNKNOWN: Schema's input side is untrusted until this recursive codec validates it.
 const DefinitionValueSchema: Schema.ConstraintCodec<DefinitionValue, unknown> = Schema.suspend(() =>
   Schema.Union([
     Schema.BigInt,
