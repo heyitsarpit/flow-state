@@ -1284,7 +1284,7 @@ export type ActorLeaseOptions<
     identity: ActorIdentity<DefinitionValue>;
   };
   cleanup: Effect.Effect<void, PublicDiagnostic>;
-  /** Tombstoning is deliberately called only after cleanup succeeds. */
+  /** Tombstoning runs only after successful cleanup. */
   tombstone?: () => Result.Result<void, PublicDiagnostic>;
   cleanupCause?: Option.Option<Cause.Cause<CleanupError>>;
 };
@@ -2113,7 +2113,6 @@ export const completeActorAdmissionExit = <A, E>(exit: Exit.Exit<A, E>) => {
 
 const makeTerminalEffect = <Value, Error, Requirements>(
   operation: Effect.Effect<Value, Error, Requirements>,
-  retryOnFailure = false,
 ) => {
   let completion: Deferred.Deferred<Exit.Exit<Value, Error>> | undefined;
 
@@ -2133,9 +2132,6 @@ const makeTerminalEffect = <Value, Error, Requirements>(
             Effect.gen(function* () {
               yield* Deferred.succeed(cell, exit);
 
-              if (retryOnFailure && Exit.isFailure(exit) && completion === cell)
-                completion = undefined;
-
               return exit;
             }),
           ),
@@ -2148,8 +2144,7 @@ const makeTerminalEffect = <Value, Error, Requirements>(
 
 /**
  * Creates the only individual disposal authority for one exposed actor.
- * Concurrent callers share one in-flight attempt; failed cleanup remains
- * retryable, while successful cleanup and tombstoning are terminal.
+ * Concurrent and repeated callers share one terminal attempt and Exit.
  */
 export const makeActorLease = <
   A extends App,
@@ -2162,17 +2157,17 @@ export const makeActorLease = <
   options: ActorLeaseOptions<A, DefinitionValue, I, CleanupError, Actor, ProviderDefinition>,
 ) => {
   const dispose = makeTerminalEffect(
-    options.cleanup.pipe(
-      Effect.flatMap(() => {
-        if (options.tombstone === undefined) return Effect.succeed(undefined);
-        const tombstoned = options.tombstone();
+    Effect.gen(function* () {
+      const cleanup = yield* Effect.exit(options.cleanup);
+      if (Exit.isFailure(cleanup)) return yield* Effect.failCause(cleanup.cause);
+      if (options.tombstone === undefined) return undefined;
 
-        return Result.isSuccess(tombstoned)
-          ? Effect.succeed(undefined)
-          : Effect.fail(tombstoned.failure);
-      }),
-    ),
-    true,
+      const tombstoned = options.tombstone();
+
+      if (Result.isSuccess(tombstoned)) return undefined;
+
+      return yield* Effect.fail(tombstoned.failure);
+    }),
   );
 
   return {

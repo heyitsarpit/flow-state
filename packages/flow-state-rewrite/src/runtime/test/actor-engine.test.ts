@@ -1,6 +1,17 @@
 // oxlint-disable-next-line anti-slop/no-large-production-file -- this suite proves snapshot admission, prepared mailbox activation, turns, and publication ordering across one actor engine; splitting would duplicate fixtures and fragment lifecycle assertions.
 import { assert, describe, it } from "@effect/vitest";
-import { Cause, Deferred, Effect, Exit, Fiber, Queue, Result, Scope, type Types } from "effect";
+import {
+  Cause,
+  Clock,
+  Deferred,
+  Effect,
+  Exit,
+  Fiber,
+  Queue,
+  Result,
+  Scope,
+  type Types,
+} from "effect";
 
 import { app, appPlan, module } from "../../app/app.js";
 import { definition } from "../../definition/definition.js";
@@ -42,6 +53,20 @@ const resultSuccess = <Value, Error>(result: Result.Result<Value, Error>) => {
   if (Result.isFailure(result)) throw result.failure;
 
   return result.success;
+};
+
+const makeTestClock = (currentTimeMillisUnsafe: () => number): Clock.Clock => {
+  const currentTimeNanosUnsafe = () => BigInt(currentTimeMillisUnsafe()) * 1_000_000n;
+
+  return {
+    currentTimeMillisUnsafe,
+    currentTimeMillis: Effect.sync(currentTimeMillisUnsafe),
+    currentTimeNanosUnsafe,
+    currentTimeNanos: Effect.sync(currentTimeNanosUnsafe),
+    monotonicTimeNanosUnsafe: currentTimeNanosUnsafe,
+    monotonicTimeNanos: Effect.sync(currentTimeNanosUnsafe),
+    sleep: () => Effect.void,
+  };
 };
 
 const definitionResult = definition({
@@ -826,27 +851,15 @@ describe("actor engine", () => {
       const evidence = makeRuntimeEvidenceOwner({
         app: testApp,
         plan: appPlan(testApp),
-        clock: {
-          now: Effect.sync(() => {
-            if (failTimestamp) {
-              failTimestamp = false;
-              // oxlint-disable-next-line anti-slop/no-throw-in-effect-gen -- the clock fixture deliberately defects during preparation.
-              throw new Error("timestamp failure");
-            }
+        clock: makeTestClock(() => {
+          if (failTimestamp) {
+            failTimestamp = false;
+            // oxlint-disable-next-line anti-slop/no-throw-in-effect-gen -- the clock fixture deliberately defects during preparation.
+            throw new Error("timestamp failure");
+          }
 
-            return 4_242;
-          }),
-          timestamp: () => {
-            if (failTimestamp) {
-              failTimestamp = false;
-
-              return Number.NaN;
-            }
-
-            return 4_242;
-          },
-          sleepUntil: () => Effect.void,
-        },
+          return 4_242;
+        }),
       });
 
       let previous: ActorSnapshot<typeof testDefinition> = setup.input.initial;
@@ -1704,11 +1717,7 @@ describe("actor engine", () => {
       const evidence = makeRuntimeEvidenceOwner({
         app: testApp,
         plan: appPlan(testApp),
-        clock: {
-          now: Effect.succeed(4_242),
-          timestamp: () => 4_242,
-          sleepUntil: () => Effect.void,
-        },
+        clock: makeTestClock(() => 4_242),
       });
 
       const evidenceStoreRevisions: number[] = [];
@@ -2199,11 +2208,7 @@ describe("actor engine parity cases", () => {
       const evidence = makeRuntimeEvidenceOwner({
         app: testApp,
         plan: appPlan(testApp),
-        clock: {
-          now: Effect.succeed(4_242),
-          timestamp: () => 4_242,
-          sleepUntil: () => Effect.void,
-        },
+        clock: makeTestClock(() => 4_242),
       });
 
       const delivered: EvidenceRecord[] = [];

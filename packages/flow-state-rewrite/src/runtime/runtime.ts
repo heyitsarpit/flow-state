@@ -6,6 +6,8 @@ import {
   Deferred,
   Effect,
   Exit,
+  Fiber,
+  FiberMap,
   Layer,
   Option,
   Predicate,
@@ -84,23 +86,21 @@ import {
 } from "./context-wave.js";
 import {
   makeLifecycleController,
-  makeLifecycleRuntimeOwner,
   lifecycleRouting,
   prepareLifecycle,
   installLifecycleMetadata,
   installLifecycleTimers,
   type LifecycleController,
   type LifecycleCommand,
-  type LifecycleRuntimeOwner,
-  type LifecycleRuntimeRegistration,
+  type ActorCell,
+  type LifecycleSnapshot,
 } from "./lifecycle.js";
-import { makeRuntimeOwner } from "./runtime-owner.js";
 import {
-  makeRuntimeClock,
-  makeRuntimeScheduler,
-  makeRuntimeServicesLayer,
-  type RuntimeServiceContext,
-} from "./runtime-services.js";
+  makeRuntimeOwner,
+  type RuntimeOwnerCloseRegistration,
+  type RuntimeOwnerCloseRegistry,
+} from "./runtime-owner.js";
+import { makeRuntimeServicesLayer, type RuntimeServiceContext } from "./runtime-services.js";
 import type { ContextProjectionCarrier } from "./turn-plan.js";
 import type { MachineDefinition } from "../machine/grammar.js";
 import { isConstructedMachine, type Machine, type MachineRecordValue } from "../machine/machine.js";
@@ -202,7 +202,6 @@ export type RuntimeActor<
 type RuntimeAssembly = {
   context: Context.Context<RuntimeServiceContext>;
   evidence: ReturnType<typeof makeRuntimeEvidenceOwner>;
-  lifecycle: LifecycleRuntimeOwner;
   ensureActor: {
     <
       DefinitionValue extends MachineDefinition,
@@ -243,7 +242,24 @@ type RuntimeAssembly = {
       options: RuntimeActorOptions<DefinitionValue, ProviderDefinition>,
     ): Effect.Effect<RuntimeActor<DefinitionValue, ProviderDefinition>, PublicDiagnostic>;
   };
-  dispose: () => Effect.Effect<void, PublicDiagnostic>;
+};
+
+type ActorCellTerminalProtocol = {
+  closeCompletion: Deferred.Deferred<Exit.Exit<void, PublicDiagnostic>> | undefined;
+  started: boolean;
+  scopeClosed: boolean;
+  released: boolean;
+  lifecycleRegistration: RuntimeOwnerCloseRegistration | undefined;
+  parentFinalizer: (() => Effect.Effect<void, PublicDiagnostic, RuntimeServiceContext>) | undefined;
+};
+
+type ActorCellInstance<
+  DefinitionValue extends MachineDefinition,
+  ProviderDefinition extends MachineDefinition,
+> = ActorCell<LifecycleSnapshot<DefinitionValue, PublicDiagnostic, ProviderDefinition>> & {
+  scope: Scope.Scope;
+  terminal: ActorCellTerminalProtocol;
+  close: () => Effect.Effect<void, PublicDiagnostic>;
 };
 
 export type RuntimeAdmissionPhase =
@@ -693,6 +709,7 @@ type CompleteImplementation<A extends RuntimeApp, I extends RuntimeImplementatio
 type AttachedRuntimeOwner<ImplementationError> = {
   ready: () => Effect.Effect<void, ImplementationError>;
   close: () => Effect.Effect<void, ImplementationError | PublicDiagnostic>;
+  registerProvider: (release: Effect.Effect<void, ImplementationError | PublicDiagnostic>) => void;
   assembly: () => RuntimeAssembly;
 };
 
@@ -729,9 +746,10 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
   };
 
   let assembly: RuntimeAssembly | undefined;
+  let closeRegistry: RuntimeOwnerCloseRegistry<ImplementationError | PublicDiagnostic> | undefined;
 
   const exposed = Effect.gen(function* () {
-    const clock = makeRuntimeClock(yield* Clock.Clock);
+    const clock = yield* Clock.Clock;
     const evidence = makeRuntimeEvidenceOwner({ app, plan: appPlan(app), clock });
     const implementationContext = yield* Effect.context();
 
@@ -740,17 +758,14 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
       yield* Layer.build(
         makeRuntimeServicesLayer({
           clock,
-          scheduler: makeRuntimeScheduler(),
           evidence: evidence.service,
         }),
       ),
     );
 
-    const lifecycleOwner = makeLifecycleRuntimeOwner({
-      drain: evidence.service.drain,
-    });
-
-    lifecycleOwner.registerProvider(evidence.close().pipe(Effect.asVoid));
+    if (closeRegistry === undefined)
+      return yield* Effect.die(new Error("Runtime close owner is not attached"));
+    closeRegistry.registerProvider(evidence.close().pipe(Effect.asVoid));
 
     const registry = makeActorIdentityRegistry<RuntimeRegisteredActor>(
       admissionProbe?.onAllocation === undefined ? {} : { onAllocate: admissionProbe.onAllocation },
@@ -759,6 +774,77 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
     const providerFences = new Map<ActorKey, ActorFence>();
 
     const runtimeScope = yield* Effect.scope;
+
+    const acquireActorCell = <
+      DefinitionValue extends MachineDefinition,
+      ProviderDefinition extends MachineDefinition = DefinitionValue,
+    >() =>
+      Effect.gen(function* () {
+        const ready = yield* Deferred.make<{
+          scope: Scope.Scope;
+          activityFibers: FiberMap.FiberMap<string, void, PublicDiagnostic>;
+        }>();
+        const stop = Deferred.makeUnsafe<void>();
+        const cell = Effect.scoped(
+          Effect.gen(function* () {
+            const scope = yield* Effect.scope;
+            const activityFibers = yield* FiberMap.make<string, void, PublicDiagnostic>();
+            yield* Deferred.succeed(ready, { scope, activityFibers });
+            yield* Deferred.await(stop);
+          }),
+        );
+        const fiber = yield* Effect.forkIn(cell, runtimeScope);
+        const acquired = yield* Deferred.await(ready);
+        const terminal: ActorCellTerminalProtocol = {
+          closeCompletion: undefined,
+          started: false,
+          scopeClosed: false,
+          released: false,
+          lifecycleRegistration: undefined,
+          parentFinalizer: undefined,
+        };
+        const resolveClose = (exit: Exit.Exit<void, PublicDiagnostic>) =>
+          Exit.isSuccess(exit) ? Effect.void : Effect.failCause(exit.cause);
+
+        const close = () =>
+          Effect.suspend(() => {
+            if (terminal.closeCompletion !== undefined)
+              return Deferred.await(terminal.closeCompletion).pipe(Effect.flatMap(resolveClose));
+
+            const completion = Deferred.makeUnsafe<Exit.Exit<void, PublicDiagnostic>>();
+            terminal.closeCompletion = completion;
+            const operation = Deferred.succeed(stop, undefined).pipe(
+              Effect.flatMap(() => Fiber.await(fiber)),
+              Effect.flatMap((exit) => {
+                if (Exit.isSuccess(exit)) return Effect.succeed(undefined);
+
+                // SAFETY: ActorCell scope finalizer causes remain cleanup causes at the actor boundary.
+                // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the public runtime cleanup channel preserves scope causes.
+                return Effect.failCause(exit.cause as Cause.Cause<PublicDiagnostic>);
+              }),
+            );
+
+            return Effect.uninterruptible(
+              Effect.exit(operation).pipe(
+                Effect.flatMap((exit) =>
+                  Effect.sync(() => {
+                    if (Exit.isSuccess(exit)) terminal.scopeClosed = true;
+                  }).pipe(
+                    Effect.flatMap(() => Deferred.succeed(completion, exit).pipe(Effect.as(exit))),
+                  ),
+                ),
+                Effect.flatMap(resolveClose),
+              ),
+            );
+          });
+
+        return {
+          ...acquired,
+          protocol: undefined,
+          terminal,
+          close,
+        } satisfies ActorCellInstance<DefinitionValue, ProviderDefinition>;
+      });
 
     const pendingFor = <DefinitionValue extends MachineDefinition>(
       ref: ActorRef<Machine<DefinitionValue>>,
@@ -804,7 +890,8 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
       suppliedRef?: unknown,
     ) =>
       Effect.gen(function* () {
-        if (!lifecycleOwner.isOpen()) return yield* Effect.fail(closedActorAdmission());
+        if (closeRegistry === undefined || !closeRegistry.isOpen())
+          return yield* Effect.fail(closedActorAdmission());
 
         if (
           identityMode === "stable" &&
@@ -1012,19 +1099,27 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
           mode: ActorAdmissionMode,
         ) =>
           (() => {
-            let preparedScope: Scope.Scope | undefined;
+            let preparedActorCell:
+              | ActorCellInstance<DefinitionValue, ProviderDefinition>
+              | undefined;
 
             const preparation = Effect.gen(function* () {
               admissionProbe?.onPhase?.("prepare");
 
               if (admissionProbe?.beforePrepare !== undefined) yield* admissionProbe.beforePrepare;
+              const actorCell = yield* acquireActorCell<DefinitionValue, ProviderDefinition>();
+              preparedActorCell = actorCell;
               const currentFence = validated.fence;
 
               const preparedLifecycle = prepareLifecycle<
                 DefinitionValue,
                 PublicDiagnostic,
                 ProviderDefinition
-              >(currentFence, { _tag: mode === "restored-stable" ? "restore" : "fresh" });
+              >(
+                currentFence,
+                { _tag: mode === "restored-stable" ? "restore" : "fresh" },
+                actorCell,
+              );
 
               if (Result.isFailure(preparedLifecycle))
                 return yield* Effect.fail(preparedLifecycle.failure);
@@ -1065,12 +1160,16 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
                 ]),
               );
 
-              const lifecycleMetadata = installLifecycleMetadata(preparedLifecycle.success, {
-                dependencies: validated.edges,
-                bindings: contextBindings,
-                providerRevisions,
-                providerFences,
-              });
+              const lifecycleMetadata = installLifecycleMetadata(
+                preparedLifecycle.success,
+                {
+                  dependencies: validated.edges,
+                  bindings: contextBindings,
+                  providerRevisions,
+                  providerFences,
+                },
+                actorCell,
+              );
 
               if (Result.isFailure(lifecycleMetadata))
                 return yield* Effect.fail(lifecycleMetadata.failure);
@@ -1078,15 +1177,15 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
               const lifecycleWithTimers = installLifecycleTimers(
                 lifecycleMetadata.success,
                 admittedInitialSnapshot.timers,
+                actorCell,
               );
 
               if (Result.isFailure(lifecycleWithTimers))
                 return yield* Effect.fail(lifecycleWithTimers.failure);
-              let activeEngine: ActorEngine<DefinitionValue> | undefined;
-
-              const lifecycleController = makeLifecycleController(lifecycleWithTimers.success, {
-                machineTurnRevision: () => activeEngine?.machineTurnRevision() ?? 0,
-              });
+              const lifecycleController = makeLifecycleController(
+                lifecycleWithTimers.success,
+                actorCell,
+              );
 
               projectVisibleSnapshot = (snapshot: ActorSnapshot<DefinitionValue>) => {
                 const lifecycle = lifecycleController.currentLifecycle();
@@ -1250,10 +1349,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
                 };
               })();
 
-              const scope = yield* Scope.make("sequential");
-              preparedScope = scope;
-
-              yield* runAfterPrepareScope(scope);
+              yield* runAfterPrepareScope(actorCell.scope);
               previous = projectVisibleSnapshot(initialSnapshot);
 
               const actorInput: ActorEngineInput<DefinitionValue> = {
@@ -1261,7 +1357,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
                 identity: validated.identity,
                 machine: validated.input.machineFacts ?? validated.input.ref.machine,
                 fence: currentFence,
-                scope,
+                scope: actorCell.scope,
                 acceptEvidence: (publication: ActorPublication<DefinitionValue>) => {
                   evidence.projectPublication(publication, projectVisibleSnapshot);
 
@@ -1308,18 +1404,17 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
                 name: "prepared",
                 release: Effect.uninterruptible(
                   Effect.sync(() => prepared.abandon()).pipe(
-                    Effect.flatMap(() => Scope.close(scope, Exit.void)),
+                    Effect.flatMap(() => actorCell.close()),
                   ),
                 ),
               };
 
               return {
                 validated,
-                scope,
+                actorCell,
                 prepared,
                 silentBaseline: installed.success,
                 controller: lifecycleController,
-                setEngine: (engine: ActorEngine<DefinitionValue>) => (activeEngine = engine),
                 contextCoordinator,
                 rollback: [preparedRollback],
               };
@@ -1329,7 +1424,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
               Effect.onExit((exit) => {
                 if (Exit.isSuccess(exit)) return Effect.void;
 
-                return preparedScope === undefined ? Effect.void : Scope.close(preparedScope, exit);
+                return preparedActorCell === undefined ? Effect.void : preparedActorCell.close();
               }),
             );
           })();
@@ -1358,13 +1453,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
               dependent: RuntimeContextDependent;
             }> = [];
 
-            let started = false;
-            let actorScopeClosed = false;
-
-            const startedOwner = {
-              read: () => started,
-              set: (value: boolean) => (started = value),
-            };
+            const terminal = preparation.actorCell.terminal;
 
             const visibleSnapshot = () => {
               return projectVisibleSnapshot(currentEngine.snapshot());
@@ -1605,7 +1694,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
                       cleanupCause = appendCleanupCause(cleanupCause, result.cause);
                   });
 
-                if (started)
+                if (terminal.started)
                   yield* observe(
                     internalLifecycleCommand({
                       _tag: "actor:dispose",
@@ -1614,10 +1703,10 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
                   );
                 yield* observe(engine.shutdown("hard"));
 
-                if (!actorScopeClosed) {
-                  const scopeExit = yield* Effect.exit(Scope.close(preparation.scope, Exit.void));
+                if (!terminal.scopeClosed) {
+                  const scopeExit = yield* Effect.exit(preparation.actorCell.close());
 
-                  if (Exit.isSuccess(scopeExit)) actorScopeClosed = true;
+                  if (Exit.isSuccess(scopeExit)) terminal.scopeClosed = true;
                   else cleanupCause = appendCleanupCause(cleanupCause, scopeExit.cause);
                 }
 
@@ -1653,23 +1742,16 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
             );
 
             let installedLease: AdmissionResult["lease"] | undefined;
-            let lifecycleRegistration: LifecycleRuntimeRegistration | undefined;
-
-            let parentFinalizer:
-              | (() => Effect.Effect<void, PublicDiagnostic, RuntimeServiceContext>)
-              | undefined;
-
-            let actorReleased = false;
 
             const unregisterActor = () => {
-              actorReleased = true;
-              lifecycleRegistration?.unregister();
-              lifecycleRegistration = undefined;
-              parentFinalizer = undefined;
+              terminal.released = true;
+              terminal.lifecycleRegistration?.unregister();
+              terminal.lifecycleRegistration = undefined;
+              terminal.parentFinalizer = undefined;
             };
 
             const disposeActor = () => {
-              if (actorReleased) return Effect.void;
+              if (terminal.released) return Effect.void;
 
               return (installedLease?.dispose() ?? disposeWithoutLease).pipe(
                 Effect.tap(() => Effect.sync(unregisterActor)),
@@ -1677,7 +1759,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
             };
 
             const abortRegistration = () => {
-              if (actorReleased) return Effect.void;
+              if (terminal.released) return Effect.void;
 
               return Effect.provideContext(
                 Effect.gen(function* () {
@@ -1774,7 +1856,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
                 }),
                 context,
               );
-              startedOwner.set(true);
+              terminal.started = true;
             }
 
             yield* Effect.provideContext(
@@ -1789,21 +1871,24 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
               }),
               context,
             );
-            startedOwner.set(true);
+            terminal.started = true;
             yield* reconcileContext(preparation, actorWithRef.engine);
 
-            const registration = lifecycleOwner.registerActor({
-              dispose: actorWithRef.dispose,
+            if (closeRegistry === undefined)
+              return yield* Effect.die(new Error("Runtime close owner is not attached"));
+
+            const registration = closeRegistry.registerActor({
+              dispose: () => Effect.provideContext(actorWithRef.dispose(), context),
             });
 
             if (!registration.accepted) return yield* Effect.fail(closedActorAdmission());
 
-            lifecycleRegistration = registration;
-            parentFinalizer = actorWithRef.dispose;
+            terminal.lifecycleRegistration = registration;
+            terminal.parentFinalizer = actorWithRef.dispose;
             yield* Scope.addFinalizer(
               runtimeScope,
               Effect.suspend(() => {
-                const dispose = parentFinalizer;
+                const dispose = terminal.parentFinalizer;
 
                 return dispose === undefined
                   ? Effect.void
@@ -1867,7 +1952,6 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
           admissionProbe?.onPhase?.("activate");
           activateContextBaseline(preparation.silentBaseline);
           const engine = yield* preparation.prepared.activate();
-          preparation.setEngine(engine);
 
           const activationRollback: AdmissionRollbackStep = {
             name: "activation",
@@ -1964,7 +2048,8 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
       options: RuntimeLocalActorOptions<DefinitionValue, ProviderDefinition>,
     ) =>
       Effect.gen(function* () {
-        if (!lifecycleOwner.isOpen()) return yield* Effect.fail(closedActorAdmission());
+        if (closeRegistry === undefined || !closeRegistry.isOpen())
+          return yield* Effect.fail(closedActorAdmission());
 
         const local = registry.createLocal(machine, { deferAllocationNotification: true });
 
@@ -2027,11 +2112,9 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
     assembly = {
       context,
       evidence,
-      lifecycle: lifecycleOwner,
       ensureActor,
       getActor,
       createActor,
-      dispose: () => Effect.provideContext(lifecycleOwner.dispose(), context),
     };
 
     return undefined;
@@ -2040,8 +2123,9 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
   const owner = makeRuntimeOwner({
     layer: implementation === undefined ? Layer.empty : implementationLayer(implementation),
     expose: exposed,
-    close: Effect.suspend(() => assembly?.dispose() ?? Effect.void),
+    drain: Effect.suspend(() => assembly?.evidence.service.drain ?? Effect.void),
   });
+  closeRegistry = owner;
 
   // SAFETY: RuntimeSetup proves that the admitted Implementation has no residual requirements and its erased private entries have exactly ImplementationError.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the heterogeneous graph erases entry channels; RuntimeSetup restores its proven error channel once at owner assembly.
@@ -2052,10 +2136,10 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
 
       return assembly;
     },
-  } as AttachedRuntimeOwner<ImplementationError>;
+  } as unknown as AttachedRuntimeOwner<ImplementationError>;
 
   const runtime: Runtime<A, ImplementationError> = { app, ready: attachedOwner.ready };
-  attachedRuntimeOwners.set(runtime, attachedOwner);
+  attachedRuntimeOwners.set(runtime, attachedOwner as unknown as AttachedRuntimeOwner<unknown>);
 
   return runtime;
 };

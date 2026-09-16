@@ -1,6 +1,6 @@
 // oxlint-disable-next-line anti-slop/no-large-production-file -- sequencing, lifecycle publication, sink isolation, and failure proofs share one runtime-evidence contract.
 import { assert, describe, it } from "@effect/vitest";
-import { Cause, Deferred, Effect, Exit, Fiber, Option, Predicate, Result, Scope } from "effect";
+import { Cause, Clock, Deferred, Effect, Exit, Fiber, Option, Predicate, Result } from "effect";
 
 import { app, appPlan, module } from "../../app/app.js";
 import { definition } from "../../definition/definition.js";
@@ -32,16 +32,27 @@ import {
   activateLifecycle,
   prepareLifecycle,
   runLifecycleCommand,
+  type ActorCell,
   type LifecycleResource,
   type LifecycleSnapshot,
 } from "../lifecycle.js";
 import type { ActorPublication, ActorSnapshot } from "../actor-engine.js";
-import {
-  makeRuntimeScheduler,
-  makeRuntimeServicesLayer,
-  type RuntimeClockService,
-  type RuntimeEvidenceService,
-} from "../runtime-services.js";
+import { makeRuntimeServicesLayer, type RuntimeEvidenceService } from "../runtime-services.js";
+
+const makeTestClock = (now: number | (() => number)): Clock.Clock => {
+  const currentTime = typeof now === "number" ? () => now : now;
+  const currentTimeNanos = () => BigInt(currentTime()) * 1_000_000n;
+
+  return {
+    currentTimeMillisUnsafe: currentTime,
+    currentTimeMillis: Effect.sync(currentTime),
+    currentTimeNanosUnsafe: currentTimeNanos,
+    currentTimeNanos: Effect.sync(currentTimeNanos),
+    monotonicTimeNanosUnsafe: currentTimeNanos,
+    monotonicTimeNanos: Effect.sync(currentTimeNanos),
+    sleep: () => Effect.void,
+  };
+};
 
 const resultSuccess = <Value>(result: Result.Result<Value, PublicDiagnostic>) => {
   if (Result.isFailure(result)) throw result.failure;
@@ -96,6 +107,10 @@ const EvidencePlan = appPlan(EvidenceApp);
 const EvidenceEvent = resultSuccess(EvidenceDefinition.E.opened());
 
 type EvidenceSnapshot = ActorSnapshot<typeof EvidenceDefinition>;
+
+const makeLifecycleActorCell = <CleanupError>(): ActorCell<
+  LifecycleSnapshot<typeof EvidenceDefinition, CleanupError>
+> => ({ activityFibers: undefined, protocol: undefined });
 
 const makeFixture = () => {
   const registry = makeActorIdentityRegistry();
@@ -163,7 +178,6 @@ const lifecycleFact = (
   after: snapshot,
   timestamp: 2000,
   publicationRevision: 0,
-  machineTurnRevision: 0,
   provenance: {
     app: EvidenceApp,
     plan: EvidencePlan,
@@ -197,11 +211,7 @@ describe("runtime evidence", () => {
       const owner = makeRuntimeEvidenceOwner({
         app: EvidenceApp,
         plan: EvidencePlan,
-        clock: {
-          now: Effect.succeed(4_242),
-          timestamp: () => 4_242,
-          sleepUntil: () => Effect.void,
-        },
+        clock: makeTestClock(4_242),
       });
 
       const prepared = prepareActorPublication<typeof EvidenceDefinition>({
@@ -242,7 +252,7 @@ describe("runtime evidence", () => {
       const owner = makeRuntimeEvidenceOwner({
         app: EvidenceApp,
         plan: EvidencePlan,
-        clock: { now: Effect.sync(() => now), timestamp: () => now, sleepUntil: () => Effect.void },
+        clock: makeTestClock(() => now),
       });
 
       const prepared = prepareActorPublication<typeof EvidenceDefinition>({
@@ -292,11 +302,7 @@ describe("runtime evidence", () => {
       const owner = makeRuntimeEvidenceOwner({
         app: EvidenceApp,
         plan: EvidencePlan,
-        clock: {
-          now: Effect.succeed(4_242),
-          timestamp: () => 4_242,
-          sleepUntil: () => Effect.void,
-        },
+        clock: makeTestClock(4_242),
       });
 
       const publication = (revision: number) =>
@@ -342,11 +348,7 @@ describe("runtime evidence", () => {
     Effect.gen(function* () {
       let now = 1_234;
 
-      const clock: RuntimeClockService = {
-        now: Effect.sync(() => now),
-        timestamp: () => now,
-        sleepUntil: () => Effect.void,
-      };
+      const clock = makeTestClock(() => now);
 
       const owner = makeRuntimeEvidenceOwner({ app: EvidenceApp, plan: EvidencePlan, clock });
       const timestamps: number[] = [];
@@ -383,9 +385,14 @@ describe("runtime evidence", () => {
       const firstReservation = reserve(hub);
       const secondReservation = reserve(hub);
       const first = acceptTurn(hub, fixture, firstReservation);
+      const actorCell = makeLifecycleActorCell<string>();
 
       const prepared = resultSuccess(
-        prepareLifecycle<typeof EvidenceDefinition, string>(fixture.fence, { _tag: "restore" }),
+        prepareLifecycle<typeof EvidenceDefinition, string>(
+          fixture.fence,
+          { _tag: "restore" },
+          actorCell,
+        ),
       );
 
       const lifecycle = resultSuccess(
@@ -461,9 +468,14 @@ describe("runtime evidence", () => {
       const hub = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
       const lifecycleReservation = reserve(hub);
       const actorReservation = reserve(hub);
+      const actorCell = makeLifecycleActorCell<string>();
 
       const prepared = resultSuccess(
-        prepareLifecycle<typeof EvidenceDefinition, string>(fixture.fence, { _tag: "restore" }),
+        prepareLifecycle<typeof EvidenceDefinition, string>(
+          fixture.fence,
+          { _tag: "restore" },
+          actorCell,
+        ),
       );
 
       const lifecycle = resultSuccess(
@@ -502,9 +514,14 @@ describe("runtime evidence", () => {
   it.effect("rejects lifecycle preparation without a runtime-owned reservation", () =>
     Effect.gen(function* () {
       const fixture = makeFixture();
+      const actorCell = makeLifecycleActorCell<string>();
 
       const prepared = resultSuccess(
-        prepareLifecycle<typeof EvidenceDefinition, string>(fixture.fence, { _tag: "restore" }),
+        prepareLifecycle<typeof EvidenceDefinition, string>(
+          fixture.fence,
+          { _tag: "restore" },
+          actorCell,
+        ),
       );
 
       const unowned: RuntimeEvidenceService = {
@@ -535,19 +552,15 @@ describe("runtime evidence", () => {
       const owner = makeRuntimeEvidenceOwner({
         app: EvidenceApp,
         plan: EvidencePlan,
-        clock: {
-          now: Effect.succeed(9_000),
-          timestamp: () => {
-            if (failTimestamp) {
-              failTimestamp = false;
+        clock: makeTestClock(() => {
+          if (failTimestamp) {
+            failTimestamp = false;
 
-              return Number.NaN;
-            }
+            return Number.NaN;
+          }
 
-            return 9_000;
-          },
-          sleepUntil: () => Effect.void,
-        },
+          return 9_000;
+        }),
       });
 
       const publication = (revision: number) =>
@@ -716,11 +729,7 @@ describe("runtime evidence", () => {
       const fixture = makeFixture();
       let now = 4_242;
 
-      const clock: RuntimeClockService = {
-        now: Effect.sync(() => now),
-        timestamp: () => now,
-        sleepUntil: () => Effect.void,
-      };
+      const clock = makeTestClock(() => now);
 
       const owner = makeRuntimeEvidenceOwner({
         app: EvidenceApp,
@@ -966,11 +975,7 @@ describe("runtime evidence", () => {
       const owner = makeRuntimeEvidenceOwner({
         app: EvidenceApp,
         plan: EvidencePlan,
-        clock: {
-          now: Effect.succeed(2_000),
-          timestamp: () => 2_000,
-          sleepUntil: () => Effect.void,
-        },
+        clock: makeTestClock(2_000),
       });
 
       const delivered: EvidenceRecord[] = [];
@@ -981,26 +986,26 @@ describe("runtime evidence", () => {
       });
 
       assert.ok(Result.isSuccess(owner.hub.attach(sink)));
+      const actorCell = makeLifecycleActorCell<PublicDiagnostic>();
 
       const prepared = resultSuccess(
-        prepareLifecycle<typeof EvidenceDefinition, PublicDiagnostic>(fixture.fence, {
-          _tag: "fresh",
-        }),
+        prepareLifecycle<typeof EvidenceDefinition, PublicDiagnostic>(
+          fixture.fence,
+          {
+            _tag: "fresh",
+          },
+          actorCell,
+        ),
       );
 
-      const clock: RuntimeClockService = {
-        now: Effect.succeed(2_000),
-        timestamp: () => 2_000,
-        sleepUntil: () => Effect.void,
-      };
+      const clock = makeTestClock(2_000);
 
       const layer = makeRuntimeServicesLayer({
         clock,
-        scheduler: makeRuntimeScheduler(),
         evidence: owner.service,
       });
 
-      const active = yield* Effect.provide(activateLifecycle(prepared), layer);
+      const active = yield* Effect.provide(activateLifecycle(prepared, actorCell), layer);
 
       const cleanupFailure = Failure({
         code: "InvariantViolation" as const,
@@ -1012,7 +1017,6 @@ describe("runtime evidence", () => {
 
       const resource: LifecycleResource<PublicDiagnostic> = {
         name: "failing-resource",
-        scope: Scope.makeUnsafe(),
         close: () =>
           Effect.failCause(Cause.combine(Cause.fail(cleanupFailure), Cause.die(cleanupFailure))),
         finalization: "pending",
@@ -1027,6 +1031,7 @@ describe("runtime evidence", () => {
               attachment: { ...active.attachment, resources: [resource] },
             },
             { _tag: "actor:dispose", cause: { _tag: "owner-disposal" } },
+            actorCell,
           ),
           layer,
         ),
@@ -1060,11 +1065,7 @@ describe("runtime evidence", () => {
       const owner = makeRuntimeEvidenceOwner({
         app: EvidenceApp,
         plan: EvidencePlan,
-        clock: {
-          now: Effect.succeed(3_000),
-          timestamp: () => 3_000,
-          sleepUntil: () => Effect.void,
-        },
+        clock: makeTestClock(3_000),
       });
 
       const cleanupFailure = Failure({
@@ -1084,29 +1085,28 @@ describe("runtime evidence", () => {
       });
 
       const layer = makeRuntimeServicesLayer({
-        clock: {
-          now: Effect.succeed(3_000),
-          timestamp: () => 3_000,
-          sleepUntil: () => Effect.void,
-        },
-        scheduler: makeRuntimeScheduler(),
+        clock: makeTestClock(3_000),
         evidence: {
           ...owner.service,
           accept: () => Effect.fail(evidenceFailure),
         },
       });
+      const actorCell = makeLifecycleActorCell<PublicDiagnostic>();
 
       const prepared = resultSuccess(
-        prepareLifecycle<typeof EvidenceDefinition, PublicDiagnostic>(fixture.fence, {
-          _tag: "fresh",
-        }),
+        prepareLifecycle<typeof EvidenceDefinition, PublicDiagnostic>(
+          fixture.fence,
+          {
+            _tag: "fresh",
+          },
+          actorCell,
+        ),
       );
 
-      const active = yield* Effect.provide(activateLifecycle(prepared), layer);
+      const active = yield* Effect.provide(activateLifecycle(prepared, actorCell), layer);
 
       const resource: LifecycleResource<PublicDiagnostic> = {
         name: "ordered-cleanup",
-        scope: Scope.makeUnsafe(),
         close: () => Effect.fail(cleanupFailure),
         finalization: "pending",
         cause: Option.none(),
@@ -1117,6 +1117,7 @@ describe("runtime evidence", () => {
           runLifecycleCommand(
             { ...active, attachment: { ...active.attachment, resources: [resource] } },
             { _tag: "actor:dispose", cause: { _tag: "owner-disposal" } },
+            actorCell,
           ),
           layer,
         ),
@@ -1276,7 +1277,7 @@ describe("runtime evidence", () => {
       const owner = makeRuntimeEvidenceOwner({
         app: EvidenceApp,
         plan: EvidencePlan,
-        clock: { now: Effect.succeed(1), timestamp: () => 1, sleepUntil: () => Effect.void },
+        clock: makeTestClock(1),
       });
 
       const sink = yield* makeEvidenceSink({ id: "owner-drain" });
@@ -1296,7 +1297,7 @@ describe("runtime evidence", () => {
     const owner = makeRuntimeEvidenceOwner({
       app: EvidenceApp,
       plan: EvidencePlan,
-      clock: { now: Effect.succeed(1), timestamp: () => 1, sleepUntil: () => Effect.void },
+      clock: makeTestClock(1),
     });
 
     const foreignRegistry = makeActorIdentityRegistry({
@@ -1328,7 +1329,7 @@ describe("runtime evidence", () => {
       const owner = makeRuntimeEvidenceOwner({
         app: EvidenceApp,
         plan: EvidencePlan,
-        clock: { now: Effect.succeed(1), timestamp: () => 1, sleepUntil: () => Effect.void },
+        clock: makeTestClock(1),
       });
 
       const delivered: EvidenceRecord[] = [];
@@ -1349,11 +1350,14 @@ describe("runtime evidence", () => {
       } satisfies ActorPublication<typeof EvidenceDefinition>);
 
       assert.ok(Result.isSuccess(first));
+      const actorCell = makeLifecycleActorCell<string>();
 
       const lifecycle = resultSuccess(
-        prepareLifecycle<typeof EvidenceDefinition, string>(fixture.fence, {
-          _tag: "fresh",
-        }),
+        prepareLifecycle<typeof EvidenceDefinition, string>(
+          fixture.fence,
+          { _tag: "fresh" },
+          actorCell,
+        ),
       );
 
       const cleanupCause = Cause.combine(Cause.fail("later cleanup"), Cause.die("later defect"));
@@ -1489,9 +1493,11 @@ describe("runtime evidence", () => {
           lifecycleFact(
             fixture.fence,
             resultSuccess(
-              prepareLifecycle<typeof EvidenceDefinition, string>(fixture.fence, {
-                _tag: "restore",
-              }),
+              prepareLifecycle<typeof EvidenceDefinition, string>(
+                fixture.fence,
+                { _tag: "restore" },
+                makeLifecycleActorCell<string>(),
+              ),
             ),
           ),
           lifecycleReservation,

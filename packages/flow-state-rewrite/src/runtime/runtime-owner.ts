@@ -11,6 +11,7 @@ type RuntimeOwnerOptions<
 > = {
   layer: Layer.Layer<LayerOutput, LayerError, LayerRequirements>;
   expose: Effect.Effect<A, ExposureError, ExposureRequirements>;
+  drain?: Effect.Effect<void, CloseError>;
   close?: Effect.Effect<void, CloseError>;
 };
 
@@ -25,53 +26,67 @@ type RuntimeOwnerError<LayerError, ExposureError, CloseError> =
   | ExposureError
   | CloseError;
 
-type RuntimeOwnerStarting<A, ReadyError> = {
-  _tag: "starting";
-  ready: Deferred.Deferred<Exit.Exit<A, ReadyError>>;
+type RuntimeCloseActor<OwnerError> = {
+  participant: { dispose: () => Effect.Effect<void, OwnerError> };
+  active: boolean;
+};
+
+type RuntimeOwnerStateFields<OwnerError> = {
+  actors: RuntimeCloseActor<OwnerError>[];
+  providers: Array<Effect.Effect<void, OwnerError>>;
+  acceptingActors: boolean;
+  acceptingProviders: boolean;
   scope: Scope.Closeable | undefined;
-  fiber: Fiber.Fiber<unknown, unknown> | undefined;
   scopeClosed: boolean;
 };
 
-type RuntimeOwnerClosing<A, ReadyError, OwnerError> = {
+type RuntimeOwnerStarting<A, ReadyError, OwnerError> = RuntimeOwnerStateFields<OwnerError> & {
+  _tag: "starting";
+  ready: Deferred.Deferred<Exit.Exit<A, ReadyError>>;
+  fiber: Fiber.Fiber<unknown, unknown> | undefined;
+};
+
+type RuntimeOwnerClosing<A, ReadyError, OwnerError> = RuntimeOwnerStateFields<OwnerError> & {
   _tag: "closing";
   ready: Deferred.Deferred<Exit.Exit<A, ReadyError>>;
   close: Deferred.Deferred<Exit.Exit<void, OwnerError>>;
-  starting?: RuntimeOwnerStarting<A, ReadyError>;
+  starting?: RuntimeOwnerStarting<A, ReadyError, OwnerError>;
   readyExit: Exit.Exit<A, ReadyError> | undefined;
   includeReadyFailure: boolean;
-  scope: Scope.Closeable | undefined;
-  scopeClosed: boolean;
+};
+
+export type RuntimeOwnerCloseRegistration = {
+  accepted: boolean;
+  unregister: () => void;
+};
+
+export type RuntimeOwnerCloseRegistry<OwnerError> = {
+  registerActor: (participant: {
+    dispose: () => Effect.Effect<void, OwnerError>;
+  }) => RuntimeOwnerCloseRegistration;
+  registerProvider: (release: Effect.Effect<void, OwnerError>) => void;
+  isOpen: () => boolean;
 };
 
 type RuntimeOwnerState<A, ReadyError, OwnerError> =
-  | { _tag: "cold" }
-  | RuntimeOwnerStarting<A, ReadyError>
-  | {
+  | (RuntimeOwnerStateFields<OwnerError> & { _tag: "cold" })
+  | RuntimeOwnerStarting<A, ReadyError, OwnerError>
+  | (RuntimeOwnerStateFields<OwnerError> & {
       _tag: "ready";
       readyExit: Exit.Exit<A, ReadyError>;
       scope: Scope.Closeable;
-      scopeClosed: boolean;
-    }
-  | {
+    })
+  | (RuntimeOwnerStateFields<OwnerError> & {
       _tag: "failed";
       readyExit: Exit.Exit<A, ReadyError>;
       retainFailureOnClose: boolean;
-    }
+    })
   | RuntimeOwnerClosing<A, ReadyError, OwnerError>
-  | {
+  | (RuntimeOwnerStateFields<OwnerError> & {
       _tag: "closed";
       readyExit: Exit.Exit<A, ReadyError>;
       closeExit: Exit.Exit<void, OwnerError>;
-    }
-  | {
-      _tag: "close-failed";
-      readyExit: Exit.Exit<A, ReadyError>;
-      closeExit: Exit.Exit<void, OwnerError>;
-      includeReadyFailure: boolean;
-      scope: Scope.Closeable | undefined;
-      scopeClosed: boolean;
-    };
+    });
 
 const resolveExit = <A, E>(exit: Exit.Exit<A, E>) => exit;
 
@@ -111,12 +126,66 @@ const makeRuntimeOwner = <
 
   const state = SynchronizedRef.makeUnsafe<RuntimeOwnerState<A, ReadyError, OwnerError>>({
     _tag: "cold",
+    actors: [],
+    providers: [],
+    acceptingActors: true,
+    acceptingProviders: true,
+    scope: undefined,
+    scopeClosed: false,
   });
 
   const currentState = () => SynchronizedRef.getUnsafe(state);
 
+  const canRegisterCloseActor = () => {
+    const current = currentState();
+
+    return (
+      current._tag === "cold" ||
+      current._tag === "starting" ||
+      current._tag === "ready" ||
+      current._tag === "failed" ||
+      (current._tag === "closing" && current.acceptingActors)
+    );
+  };
+
+  const registerActor = (participant: {
+    dispose: () => Effect.Effect<void, OwnerError>;
+  }): RuntimeOwnerCloseRegistration => {
+    const accepted = canRegisterCloseActor();
+    const registration: RuntimeCloseActor<OwnerError> = { participant, active: accepted };
+    const current = currentState();
+
+    if (accepted) current.actors.push(registration);
+
+    return {
+      accepted,
+      unregister: () => {
+        if (!registration.active) return;
+        registration.active = false;
+        const index = currentState().actors.indexOf(registration);
+
+        if (index >= 0) currentState().actors.splice(index, 1);
+      },
+    };
+  };
+
+  const registerProvider = (release: Effect.Effect<void, OwnerError>) => {
+    const current = currentState();
+
+    if (
+      current.acceptingProviders &&
+      (current._tag === "cold" ||
+        current._tag === "starting" ||
+        current._tag === "ready" ||
+        current._tag === "failed")
+    )
+      current.providers.push(release);
+  };
+
   const closeOwnedScope = (
-    owner: RuntimeOwnerStarting<A, ReadyError> | RuntimeOwnerClosing<A, ReadyError, OwnerError>,
+    owner:
+      | RuntimeOwnerStarting<A, ReadyError, OwnerError>
+      | RuntimeOwnerClosing<A, ReadyError, OwnerError>,
     exit: Exit.Exit<unknown, unknown>,
   ) => {
     if (owner.scope === undefined || owner.scopeClosed) return Effect.succeed(Exit.void);
@@ -126,7 +195,7 @@ const makeRuntimeOwner = <
     return Effect.exit(Scope.close(owner.scope, exit));
   };
 
-  const bootstrap = (starting: RuntimeOwnerStarting<A, ReadyError>) =>
+  const bootstrap = (starting: RuntimeOwnerStarting<A, ReadyError, OwnerError>) =>
     Effect.gen(function* () {
       const scope = yield* Scope.make("sequential");
       const fiber = yield* Effect.fiber;
@@ -156,7 +225,7 @@ const makeRuntimeOwner = <
     });
 
   const settleReady = (
-    starting: RuntimeOwnerStarting<A, ReadyError>,
+    starting: RuntimeOwnerStarting<A, ReadyError, OwnerError>,
     exit: Exit.Exit<A, ReadyError>,
   ) =>
     Effect.uninterruptible(
@@ -177,8 +246,15 @@ const makeRuntimeOwner = <
         yield* SynchronizedRef.update(state, (current) => {
           if (current === starting) {
             const settled: RuntimeOwnerState<A, ReadyError, OwnerError> = Exit.isSuccess(readyExit)
-              ? { _tag: "ready", readyExit, scope: starting.scope!, scopeClosed: false }
+              ? {
+                  ...starting,
+                  _tag: "ready",
+                  readyExit,
+                  scope: starting.scope!,
+                  scopeClosed: false,
+                }
               : {
+                  ...starting,
                   _tag: "failed",
                   readyExit,
                   retainFailureOnClose: Cause.hasInterrupts(readyExit.cause),
@@ -202,7 +278,7 @@ const makeRuntimeOwner = <
       }),
     );
 
-  const readyLeader = (starting: RuntimeOwnerStarting<A, ReadyError>) =>
+  const readyLeader = (starting: RuntimeOwnerStarting<A, ReadyError, OwnerError>) =>
     bootstrap(starting).pipe(
       Effect.onExit((exit) => settleReady(starting, exit).pipe(Effect.asVoid)),
     );
@@ -232,6 +308,47 @@ const makeRuntimeOwner = <
 
       if (closing.includeReadyFailure && readyExit !== undefined && Exit.isFailure(readyExit))
         cleanupCause = readyExit.cause;
+
+      const disposeUnattemptedActors = Effect.gen(function* () {
+        const attempted = new Set<RuntimeCloseActor<OwnerError>>();
+
+        while (
+          closing.actors.some((registration) => registration.active && !attempted.has(registration))
+        ) {
+          for (const registration of closing.actors.slice().reverse()) {
+            if (!registration.active || attempted.has(registration)) continue;
+
+            attempted.add(registration);
+            const result = yield* Effect.exit(registration.participant.dispose());
+            registration.active = false;
+
+            if (Exit.isFailure(result)) cleanupCause = appendCause(cleanupCause, result.cause);
+          }
+        }
+      });
+
+      yield* disposeUnattemptedActors;
+
+      if (options.drain !== undefined) {
+        const drainExit = yield* Effect.exit(options.drain);
+
+        if (Exit.isFailure(drainExit)) cleanupCause = appendCause(cleanupCause, drainExit.cause);
+      }
+
+      yield* disposeUnattemptedActors;
+      closing.acceptingActors = false;
+      closing.acceptingProviders = false;
+
+      for (let index = closing.providers.length - 1; index >= 0; index -= 1) {
+        const release = closing.providers[index];
+
+        if (release === undefined) continue;
+        const releaseExit = yield* Effect.exit(release);
+
+        if (Exit.isFailure(releaseExit))
+          cleanupCause = appendCause(cleanupCause, releaseExit.cause);
+      }
+      closing.providers.length = 0;
 
       if (options.close !== undefined) {
         const closeExit = yield* Effect.exit(options.close);
@@ -271,23 +388,12 @@ const makeRuntimeOwner = <
         );
 
       yield* Deferred.succeed(closing.ready, retainedReadyExit);
-      yield* SynchronizedRef.set(
-        state,
-        Exit.isSuccess(closeExit)
-          ? {
-              _tag: "closed",
-              readyExit: retainedReadyExit,
-              closeExit,
-            }
-          : {
-              _tag: "close-failed",
-              readyExit: retainedReadyExit,
-              closeExit,
-              includeReadyFailure: closing.includeReadyFailure,
-              scope: closing.scope,
-              scopeClosed: closing.scopeClosed,
-            },
-      );
+      yield* SynchronizedRef.set(state, {
+        ...closing,
+        _tag: "closed",
+        readyExit: retainedReadyExit,
+        closeExit,
+      });
       yield* Deferred.succeed(closing.close, closeExit);
 
       return yield* resolveExit(closeExit);
@@ -308,9 +414,13 @@ const makeRuntimeOwner = <
     SynchronizedRef.modify(state, (current) => {
       switch (current._tag) {
         case "cold": {
-          const starting: RuntimeOwnerStarting<A, ReadyError> = {
+          const starting: RuntimeOwnerStarting<A, ReadyError, OwnerError> = {
             _tag: "starting",
             ready: Deferred.makeUnsafe<Exit.Exit<A, ReadyError>>(),
+            actors: current.actors,
+            providers: current.providers,
+            acceptingActors: current.acceptingActors,
+            acceptingProviders: current.acceptingProviders,
             scope: undefined,
             fiber: undefined,
             scopeClosed: false,
@@ -333,7 +443,6 @@ const makeRuntimeOwner = <
             current,
           ] as const;
         case "closed":
-        case "close-failed":
           return [resolveExit(current.readyExit), current] as const;
       }
     }).pipe(Effect.flatMap((effect) => effect));
@@ -352,6 +461,10 @@ const makeRuntimeOwner = <
           _tag: "closing",
           ready: Deferred.makeUnsafe<Exit.Exit<A, ReadyError>>(),
           close: closeDeferred,
+          actors: current.actors,
+          providers: current.providers,
+          acceptingActors: current.acceptingActors,
+          acceptingProviders: current.acceptingProviders,
           includeReadyFailure: false,
           readyExit: undefined,
           scope: undefined,
@@ -367,22 +480,12 @@ const makeRuntimeOwner = <
           ready: current.ready,
           close: closeDeferred,
           starting: current,
+          actors: current.actors,
+          providers: current.providers,
+          acceptingActors: current.acceptingActors,
+          acceptingProviders: current.acceptingProviders,
           includeReadyFailure: true,
           readyExit: undefined,
-          scope: current.scope,
-          scopeClosed: current.scopeClosed,
-        };
-
-        return [closeLeader(closing), closing] as const;
-      }
-
-      if (current._tag === "close-failed") {
-        const closing: RuntimeOwnerClosing<A, ReadyError, OwnerError> = {
-          _tag: "closing",
-          ready: Deferred.makeUnsafe<Exit.Exit<A, ReadyError>>(),
-          close: closeDeferred,
-          readyExit: current.readyExit,
-          includeReadyFailure: current.includeReadyFailure,
           scope: current.scope,
           scopeClosed: current.scopeClosed,
         };
@@ -394,6 +497,10 @@ const makeRuntimeOwner = <
         _tag: "closing",
         ready: Deferred.makeUnsafe<Exit.Exit<A, ReadyError>>(),
         close: closeDeferred,
+        actors: current.actors,
+        providers: current.providers,
+        acceptingActors: current.acceptingActors,
+        acceptingProviders: current.acceptingProviders,
         readyExit: current.readyExit,
         includeReadyFailure: current._tag === "failed" ? current.retainFailureOnClose : false,
         scope: current._tag === "ready" ? current.scope : undefined,
@@ -403,7 +510,9 @@ const makeRuntimeOwner = <
       return [closeLeader(closing), closing] as const;
     }).pipe(Effect.flatMap((effect) => effect));
 
-  return { ready, close };
+  const isOpen = () => currentState()._tag === "ready";
+
+  return { ready, close, registerActor, registerProvider, isOpen };
 };
 
 export { makeRuntimeOwner };

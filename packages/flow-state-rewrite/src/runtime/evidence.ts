@@ -1,5 +1,5 @@
 // oxlint-disable-next-line anti-slop/no-large-production-file -- evidence sequencing, sink isolation, and runtime publication form one owner boundary.
-import { Cause, Deferred, Effect, Exit, Option, Queue, Result, Semaphore } from "effect";
+import { Cause, Clock, Deferred, Effect, Exit, Option, Queue, Result, Semaphore } from "effect";
 
 import { appPlan, type App } from "../app/app.js";
 import {
@@ -13,11 +13,7 @@ import type { MachineDefinition } from "../machine/grammar.js";
 import type { ActorFence, ActorIdentity } from "./actor-admission.js";
 import type { ActorPublication, ActorSnapshot, ActorStoreResult } from "./actor-engine.js";
 import type { LifecycleSnapshot } from "./lifecycle.js";
-import type {
-  RuntimeClockService,
-  RuntimeEvidenceService,
-  RuntimeLifecycleEvidence,
-} from "./runtime-services.js";
+import type { RuntimeEvidenceService, RuntimeLifecycleEvidence } from "./runtime-services.js";
 import type { TurnCause } from "./turn-plan.js";
 
 declare const evidenceSequenceBrand: unique symbol;
@@ -113,7 +109,6 @@ export type EvidenceRecord =
       after: LifecycleSnapshotEnvelope;
       timestamp: number;
       publicationRevision: number;
-      machineTurnRevision: number;
       evidenceSequence: number;
       provenance: EvidenceProvenance;
     };
@@ -475,7 +470,6 @@ type LifecycleSnapshotEnvelope = {
     providerRevisions: unknown;
     cursors: unknown;
     resources: {
-      scope: unknown;
       close: unknown;
       reacquire?: unknown;
       cause: unknown;
@@ -507,7 +501,6 @@ const preserveLifecycleOpaque = (
   preserveOpaque(preserved, attachment.cursors);
 
   for (const resource of attachment.resources) {
-    preserveOpaque(preserved, resource.scope);
     preserveOpaque(preserved, resource.close);
     preserveOpaque(preserved, resource.reacquire);
     preserveOpaque(preserved, resource.cause);
@@ -1208,7 +1201,7 @@ type PreparedActorEvidence<DefinitionValue extends MachineDefinition> = {
 export const makeRuntimeEvidenceOwner = (options: {
   app: App;
   plan: RuntimePlan;
-  clock: RuntimeClockService;
+  clock: Clock.Clock;
 }): RuntimeEvidenceOwner => {
   const hub = makeEvidenceHub({ app: options.app, plan: options.plan });
   const reservations = new Map<number, EvidenceReservation>();
@@ -1218,7 +1211,7 @@ export const makeRuntimeEvidenceOwner = (options: {
 
   const timestamp = () => {
     return Result.try({
-      try: options.clock.timestamp,
+      try: () => options.clock.currentTimeMillisUnsafe(),
       catch: () => invalidEvidence("timestamp", { reason: "read-failed" }),
     });
   };

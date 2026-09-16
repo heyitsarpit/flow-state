@@ -1320,11 +1320,13 @@ describe("runtime owner", () => {
     Effect.gen(function* () {
       const closeEntered = yield* Deferred.make<void>();
       const closeGate = yield* Deferred.make<void>();
+      let closeAttempts = 0;
 
       const owner = makeRuntimeOwner({
         layer: Layer.empty,
         expose: Effect.succeed("ready" as const),
         close: Effect.gen(function* () {
+          closeAttempts += 1;
           yield* Deferred.succeed(closeEntered, undefined);
           yield* Deferred.await(closeGate);
           yield* Effect.fail("close-failure" as const);
@@ -1348,6 +1350,7 @@ describe("runtime owner", () => {
 
       assert.ok(Exit.isFailure(closeExit));
       assert.ok(Exit.isFailure(readyExit));
+      assert.strictEqual(closeAttempts, 1);
 
       if (Exit.isFailure(closeExit)) assert.strictEqual(Cause.hasFails(closeExit.cause), true);
 

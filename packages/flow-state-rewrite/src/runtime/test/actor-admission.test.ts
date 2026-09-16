@@ -1,9 +1,9 @@
 /* oxlint-disable anti-slop/no-large-production-file -- this is the actor-admission proof matrix across identity, reflection, graph validation, rollback, and lease handoff; shared fixtures keep phase-order checks comparable. */
 import { assert, describe, it } from "@effect/vitest";
-import { Cause, Context, Deferred, Effect, Exit, Fiber, Queue, Result } from "effect";
+import { Cause, Context, Deferred, Effect, Exit, Fiber, Layer, Queue, Result } from "effect";
 
 import { app, module } from "../../app/app.js";
-import { Failure } from "../../diagnostic/diagnostic.js";
+import { Failure, type PublicDiagnostic } from "../../diagnostic/diagnostic.js";
 import { definition } from "../../definition/definition.js";
 import { Implementation } from "../../implementation/implementation.js";
 import { machine, type Machine } from "../../machine/machine.js";
@@ -11,7 +11,7 @@ import type { MachineDefinition } from "../../machine/grammar.js";
 import { actorRef } from "../actor-ref.js";
 import type { ActorRef } from "../actor-ref.js";
 import { prepareActorSnapshot } from "../actor-engine.js";
-import { makeLifecycleRuntimeOwner } from "../lifecycle.js";
+import { makeRuntimeOwner } from "../runtime-owner.js";
 import { runtimeOwner, runtimeSetup } from "../runtime.js";
 import {
   decodeActorAdmissionEnvelope,
@@ -36,6 +36,13 @@ const resultSuccess = <Value, Error>(result: Result.Result<Value, Error>) => {
 
   return result.success;
 };
+
+const makeCloseOwner = (drain?: Effect.Effect<void, PublicDiagnostic>) =>
+  makeRuntimeOwner<never, never, never, undefined, never, never, PublicDiagnostic>({
+    layer: Layer.empty,
+    expose: Effect.succeed(undefined),
+    ...(drain === undefined ? {} : { drain }),
+  });
 
 const registerAndExpose = <Actor, DefinitionValue extends MachineDefinition>(
   registry: ActorIdentityRegistry<Actor>,
@@ -1066,124 +1073,115 @@ describe("actor identity admission", () => {
     assert.strictEqual(Result.isFailure(registry.lookup(consumerRef)), true);
   });
 
-  it.effect(
-    "joins lease disposal, tombstones only after cleanup, and keeps failures untombstoned",
-    () =>
-      Effect.gen(function* () {
-        const ref = actorRef(editorMachine, "lease-owner", { persist: true });
-        const registry = makeActorIdentityRegistry<{ label: string }>();
-        const identity = resultSuccess(registry.reserveStable(ref));
-        const input = makeAdmissionInput(ref);
+  it.effect("joins lease disposal and caches failed cleanup without tombstoning", () =>
+    Effect.gen(function* () {
+      const ref = actorRef(editorMachine, "lease-owner", { persist: true });
+      const registry = makeActorIdentityRegistry<{ label: string }>();
+      const identity = resultSuccess(registry.reserveStable(ref));
+      const input = makeAdmissionInput(ref);
 
-        const validated = resultSuccess(
-          validateActorAdmission(input, {
-            app: noContextApp,
-            implementation,
-            lookup: registry.lookup,
-            identity,
-          }),
-        );
+      const validated = resultSuccess(
+        validateActorAdmission(input, {
+          app: noContextApp,
+          implementation,
+          lookup: registry.lookup,
+          identity,
+        }),
+      );
 
-        registerAndExpose(registry, identity, { label: "lease-owner" });
-        const cleanupGate = yield* Deferred.make<void>();
-        let cleanupRuns = 0;
+      registerAndExpose(registry, identity, { label: "lease-owner" });
+      const cleanupGate = yield* Deferred.make<void>();
+      let cleanupRuns = 0;
 
-        const lease = makeActorLease({
-          actor: { label: "lease-owner", ref },
-          admission: { ...validated, identity },
-          cleanup: Effect.gen(function* () {
-            cleanupRuns += 1;
-            yield* Deferred.await(cleanupGate);
-          }),
-          tombstone: () => registry.tombstone(identity, 1),
-        });
+      const lease = makeActorLease({
+        actor: { label: "lease-owner", ref },
+        admission: { ...validated, identity },
+        cleanup: Effect.gen(function* () {
+          cleanupRuns += 1;
+          yield* Deferred.await(cleanupGate);
+        }),
+        tombstone: () => registry.tombstone(identity, 1),
+      });
 
-        const first = yield* Effect.forkChild(Effect.exit(lease.dispose()));
-        yield* Effect.yieldNow;
-        const second = yield* Effect.forkChild(Effect.exit(lease.dispose()));
-        yield* Effect.yieldNow;
-        assert.strictEqual(cleanupRuns, 1);
-        assert.strictEqual(Result.isSuccess(registry.lookup(ref)), true);
+      const first = yield* Effect.forkChild(Effect.exit(lease.dispose()));
+      yield* Effect.yieldNow;
+      const second = yield* Effect.forkChild(Effect.exit(lease.dispose()));
+      yield* Effect.yieldNow;
+      assert.strictEqual(cleanupRuns, 1);
+      assert.strictEqual(Result.isSuccess(registry.lookup(ref)), true);
 
-        yield* Deferred.succeed(cleanupGate, undefined);
-        const firstExit = yield* Fiber.join(first);
-        const secondExit = yield* Fiber.join(second);
-        assert.ok(Exit.isSuccess(firstExit));
-        assert.ok(Exit.isSuccess(secondExit));
-        assert.strictEqual(cleanupRuns, 1);
-        const disposed = registry.lookup(ref);
-        assert.ok(Result.isFailure(disposed));
+      yield* Deferred.succeed(cleanupGate, undefined);
+      const firstExit = yield* Fiber.join(first);
+      const secondExit = yield* Fiber.join(second);
+      assert.ok(Exit.isSuccess(firstExit));
+      assert.ok(Exit.isSuccess(secondExit));
+      assert.strictEqual(cleanupRuns, 1);
+      const disposed = registry.lookup(ref);
+      assert.ok(Result.isFailure(disposed));
 
-        if (Result.isFailure(disposed))
-          assert.strictEqual(disposed.failure.code, "DisposedActorRef");
+      if (Result.isFailure(disposed)) assert.strictEqual(disposed.failure.code, "DisposedActorRef");
 
-        const failedRef = actorRef(editorMachine, "lease-failure", { persist: true });
-        const failedIdentity = resultSuccess(registry.reserveStable(failedRef));
-        const failedInput = makeAdmissionInput(failedRef);
+      const failedRef = actorRef(editorMachine, "lease-failure", { persist: true });
+      const failedIdentity = resultSuccess(registry.reserveStable(failedRef));
+      const failedInput = makeAdmissionInput(failedRef);
 
-        const failedValidated = resultSuccess(
-          validateActorAdmission(failedInput, {
-            app: noContextApp,
-            implementation,
-            lookup: registry.lookup,
-            identity: failedIdentity,
-          }),
-        );
+      const failedValidated = resultSuccess(
+        validateActorAdmission(failedInput, {
+          app: noContextApp,
+          implementation,
+          lookup: registry.lookup,
+          identity: failedIdentity,
+        }),
+      );
 
-        registerAndExpose(registry, failedIdentity, { label: "lease-failure" });
-        let failedCleanupRuns = 0;
-        let tombstoneRuns = 0;
+      registerAndExpose(registry, failedIdentity, { label: "lease-failure" });
+      let failedCleanupRuns = 0;
+      let tombstoneRuns = 0;
 
-        const failed = makeActorLease({
-          actor: { label: "lease-failure", ref: failedRef },
-          admission: { ...failedValidated, identity: failedIdentity },
-          cleanup: Effect.suspend(() => {
-            failedCleanupRuns += 1;
+      const failed = makeActorLease({
+        actor: { label: "lease-failure", ref: failedRef },
+        admission: { ...failedValidated, identity: failedIdentity },
+        cleanup: Effect.suspend(() => {
+          failedCleanupRuns += 1;
 
-            return failedCleanupRuns === 1
-              ? Effect.fail(transactionDiagnostic("cleanup-failure"))
-              : Effect.succeed(undefined);
-          }),
-          tombstone: () => {
-            tombstoneRuns += 1;
+          return failedCleanupRuns === 1
+            ? Effect.fail(transactionDiagnostic("cleanup-failure"))
+            : Effect.succeed(undefined);
+        }),
+        tombstone: () => {
+          tombstoneRuns += 1;
 
-            return registry.tombstone(failedIdentity, 2);
-          },
-        });
+          return registry.tombstone(failedIdentity, 2);
+        },
+      });
 
-        const failedExit = yield* Effect.exit(failed.dispose());
-        assert.ok(Exit.isFailure(failedExit));
-        assert.strictEqual(failedCleanupRuns, 1);
-        assert.strictEqual(tombstoneRuns, 0);
-        assert.ok(Result.isSuccess(registry.lookup(failedRef)));
+      const failedExit = yield* Effect.exit(failed.dispose());
+      assert.ok(Exit.isFailure(failedExit));
+      assert.strictEqual(failedCleanupRuns, 1);
+      assert.strictEqual(tombstoneRuns, 0);
+      assert.ok(Result.isSuccess(registry.lookup(failedRef)));
 
-        const retriedExit = yield* Effect.exit(failed.dispose());
-        assert.ok(Exit.isSuccess(retriedExit));
-        assert.strictEqual(failedCleanupRuns, 2);
-        assert.strictEqual(tombstoneRuns, 1);
-        const tombstoned = registry.lookup(failedRef);
-        assert.ok(Result.isFailure(tombstoned));
-
-        if (Result.isFailure(tombstoned))
-          assert.strictEqual(tombstoned.failure.code, "DisposedActorRef");
-      }),
+      const retriedExit = yield* Effect.exit(failed.dispose());
+      assert.ok(Exit.isFailure(retriedExit));
+      assert.strictEqual(failedCleanupRuns, 1);
+      assert.strictEqual(tombstoneRuns, 0);
+      const tombstoned = registry.lookup(failedRef);
+      assert.ok(Result.isSuccess(tombstoned));
+    }),
   );
 
   it.effect("disposes runtime leases before evidence and providers, once", () =>
     Effect.gen(function* () {
       const order: Array<string> = [];
 
-      const owner = makeLifecycleRuntimeOwner<never>({
-        drain: Effect.sync(() => order.push("drain")),
-      });
+      const owner = makeCloseOwner(Effect.sync(() => order.push("drain")));
 
       owner.registerActor({ dispose: () => Effect.sync(() => order.push("consumer")) });
       owner.registerActor({ dispose: () => Effect.sync(() => order.push("provider-actor")) });
       owner.registerProvider(Effect.sync(() => order.push("provider-resource")));
       owner.registerProvider(Effect.sync(() => order.push("provider-scope")));
-      const before = owner.generation();
-      const first = yield* Effect.forkChild(Effect.exit(owner.dispose()));
-      const second = yield* Effect.forkChild(Effect.exit(owner.dispose()));
+      const first = yield* Effect.forkChild(Effect.exit(owner.close()));
+      const second = yield* Effect.forkChild(Effect.exit(owner.close()));
       const firstExit = yield* Fiber.join(first);
       const secondExit = yield* Fiber.join(second);
       assert.ok(Exit.isSuccess(firstExit));
@@ -1195,16 +1193,15 @@ describe("actor identity admission", () => {
         "provider-scope",
         "provider-resource",
       ]);
-      assert.strictEqual(owner.isCurrent(before), false);
-      assert.strictEqual(owner.isCurrent(owner.generation()), false);
+      assert.strictEqual(owner.isOpen(), false);
     }),
   );
 
   it.effect("keeps runtime disposal cold and includes leases registered after construction", () =>
     Effect.gen(function* () {
-      const owner = makeLifecycleRuntimeOwner<never>();
+      const owner = makeCloseOwner();
       let releases = 0;
-      const disposal = owner.dispose();
+      const disposal = owner.close();
 
       owner.registerActor({
         dispose: () =>
@@ -1612,8 +1609,12 @@ describe("actor identity admission", () => {
       }
 
       yield* Effect.provideContext(consumer.dispose(), assembly.context);
-      yield* Effect.provideContext(provider.dispose(), assembly.context);
-      yield* runtimeOwner(runtime).close();
+      const repeatedProviderDispose = yield* Effect.exit(
+        Effect.provideContext(provider.dispose(), assembly.context),
+      );
+      assert.ok(Exit.isFailure(repeatedProviderDispose));
+      const shutdown = yield* Effect.exit(runtimeOwner(runtime).close());
+      assert.ok(Exit.isFailure(shutdown));
     }),
   );
 
@@ -1815,32 +1816,32 @@ describe("actor identity admission", () => {
   it.effect("linearizes attachment against owner disposal", () =>
     Effect.gen(function* () {
       const order: string[] = [];
-      const owner = makeLifecycleRuntimeOwner<never>();
+      const owner = makeCloseOwner();
       const lease = owner.registerActor({ dispose: () => Effect.sync(() => order.push("lease")) });
-      const first = yield* Effect.forkChild(Effect.exit(owner.dispose()));
-      const second = yield* Effect.forkChild(Effect.exit(owner.dispose()));
+      const first = yield* Effect.forkChild(Effect.exit(owner.close()));
+      const second = yield* Effect.forkChild(Effect.exit(owner.close()));
       assert.ok(Exit.isSuccess(yield* Fiber.join(first)));
       assert.ok(Exit.isSuccess(yield* Fiber.join(second)));
       const late = owner.registerActor({ dispose: () => Effect.sync(() => order.push("late")) });
       assert.deepStrictEqual(order, ["lease"]);
       assert.strictEqual(lease.accepted, true);
       assert.strictEqual(late.accepted, false);
-      assert.strictEqual(owner.isCurrent(owner.generation()), false);
+      assert.strictEqual(owner.isOpen(), false);
     }),
   );
 
-  it.effect("retains a failed actor registration for a later disposal retry", () =>
+  it.effect("caches one failed actor disposal attempt through runtime close", () =>
     Effect.gen(function* () {
       const failure = Failure({
         code: "InvariantViolation" as const,
         path: ["actor", "dispose"],
         details: { reason: "retry" },
         summary: "Actor disposal failed.",
-        help: "Retry actor disposal.",
+        help: "Inspect the cached runtime close Cause.",
       });
 
       let attempts = 0;
-      const owner = makeLifecycleRuntimeOwner<never>();
+      const owner = makeCloseOwner();
 
       const registration = owner.registerActor({
         dispose: () =>
@@ -1851,16 +1852,18 @@ describe("actor identity admission", () => {
           }).pipe(Effect.flatten),
       });
 
-      const first = yield* Effect.exit(owner.dispose());
+      const first = yield* Effect.exit(owner.close());
       assert.ok(Exit.isFailure(first));
       assert.strictEqual(registration.accepted, true);
       assert.strictEqual(attempts, 1);
 
-      const second = yield* owner.dispose();
-      assert.strictEqual(second, undefined);
-      assert.strictEqual(attempts, 2);
+      const second = yield* Effect.exit(owner.close());
+      assert.ok(Exit.isFailure(second));
+      assert.strictEqual(attempts, 1);
+      if (Exit.isFailure(first) && Exit.isFailure(second))
+        assert.strictEqual(second.cause, first.cause);
       registration.unregister();
-      assert.strictEqual(owner.isCurrent(owner.generation()), false);
+      assert.strictEqual(owner.isOpen(), false);
     }),
   );
 
@@ -1868,7 +1871,7 @@ describe("actor identity admission", () => {
     Effect.gen(function* () {
       const order: string[] = [];
       const gate = yield* Deferred.make<void>();
-      const owner = makeLifecycleRuntimeOwner<never>();
+      const owner = makeCloseOwner();
 
       const completed = owner.registerActor({
         dispose: () =>
@@ -1879,7 +1882,7 @@ describe("actor identity admission", () => {
           }),
       });
 
-      const closing = yield* Effect.forkChild(Effect.exit(owner.dispose()), {
+      const closing = yield* Effect.forkChild(Effect.exit(owner.close()), {
         startImmediately: true,
       });
 
@@ -1905,7 +1908,7 @@ describe("actor identity admission", () => {
 
       completed.unregister();
       late.unregister();
-      assert.ok(Exit.isSuccess(yield* Effect.exit(owner.dispose())));
+      assert.ok(Exit.isSuccess(yield* Effect.exit(owner.close())));
       assert.deepStrictEqual(order, ["completed-start", "completed-end", "late"]);
     }),
   );
@@ -1913,7 +1916,7 @@ describe("actor identity admission", () => {
   it.effect("recursively drains actors registered by late actor disposal", () =>
     Effect.gen(function* () {
       const order: string[] = [];
-      const owner = makeLifecycleRuntimeOwner<never>();
+      const owner = makeCloseOwner();
 
       owner.registerActor({
         dispose: () =>
@@ -1932,7 +1935,7 @@ describe("actor identity admission", () => {
       });
       owner.registerProvider(Effect.sync(() => order.push("provider")));
 
-      const closed = yield* Effect.exit(owner.dispose());
+      const closed = yield* Effect.exit(owner.close());
 
       assert.ok(Exit.isSuccess(closed));
       assert.deepStrictEqual(order, ["first", "late1", "late2", "provider"]);
@@ -2051,7 +2054,7 @@ describe("pending regression scenarios", () => {
   it.effect("preserves repeated cleanup failures in execution order", () =>
     Effect.gen(function* () {
       const order: string[] = [];
-      const owner = makeLifecycleRuntimeOwner<never>();
+      const owner = makeCloseOwner();
 
       const repeated = Failure({
         code: "InvariantViolation",
@@ -2075,7 +2078,7 @@ describe("pending regression scenarios", () => {
           }),
       });
 
-      const closed = yield* Effect.exit(owner.dispose());
+      const closed = yield* Effect.exit(owner.close());
       assert.ok(Exit.isFailure(closed));
       assert.deepStrictEqual(order, ["later"]);
 

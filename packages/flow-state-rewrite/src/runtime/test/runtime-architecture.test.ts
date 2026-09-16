@@ -1,5 +1,5 @@
 import { assert, describe, it } from "@effect/vitest";
-import { Cause, Context, Deferred, Effect, Exit, Fiber, Result } from "effect";
+import { Cause, Clock, Context, Deferred, Effect, Exit, Fiber, Result } from "effect";
 
 import { app, module } from "../../app/app.js";
 import { definition } from "../../definition/definition.js";
@@ -10,7 +10,7 @@ import { actorRef } from "../actor-ref.js";
 import type { ActorContextBinding, ActorContextSnapshot } from "../actor-admission.js";
 import { prepareActorSnapshot } from "../actor-engine.js";
 import { runtimeOwner, runtimeSetup } from "../runtime.js";
-import { RuntimeClock, RuntimeEvidence, RuntimeScheduler } from "../runtime-services.js";
+import { RuntimeEvidence } from "../runtime-services.js";
 
 const resultSuccess = <Value, Error>(result: Result.Result<Value, Error>) => {
   if (Result.isFailure(result)) throw result.failure;
@@ -326,9 +326,9 @@ describe("runtime assembly", () => {
       const firstAssembly = runtimeOwner(first).assembly();
       const secondAssembly = runtimeOwner(second).assembly();
       assert.notStrictEqual(firstAssembly.context, secondAssembly.context);
-      assert.notStrictEqual(
-        Context.get(firstAssembly.context, RuntimeClock),
-        Context.get(secondAssembly.context, RuntimeClock),
+      assert.strictEqual(
+        Context.get(firstAssembly.context, Clock.Clock),
+        Context.get(secondAssembly.context, Clock.Clock),
       );
       assert.notStrictEqual(firstAssembly.evidence, secondAssembly.evidence);
       yield* runtimeOwner(first).close();
@@ -737,8 +737,7 @@ describe("runtime assembly", () => {
       const owner = runtimeOwner(runtime);
       const assembly = owner.assembly();
       assert.strictEqual(Context.get(assembly.context, RuntimeEvidence), assembly.evidence.service);
-      assert.ok(Context.get(assembly.context, RuntimeClock));
-      assert.ok(Context.get(assembly.context, RuntimeScheduler));
+      assert.ok(Context.get(assembly.context, Clock.Clock));
 
       const actor = yield* assembly.createActor({
         ref: actorRef(architectureMachine, "one-owner"),

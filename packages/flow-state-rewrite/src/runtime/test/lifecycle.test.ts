@@ -1,6 +1,19 @@
 // oxlint-disable-next-line anti-slop/no-large-production-file -- this proof suite covers the one actor lifecycle owner boundary; moving scenarios would duplicate shared owner fixtures.
 import { assert, describe, it } from "@effect/vitest";
-import { Cause, Clock, Deferred, Effect, Exit, Fiber, Option, Result, Scope } from "effect";
+import {
+  Cause,
+  Clock,
+  Deferred,
+  Duration,
+  Effect,
+  Exit,
+  Fiber,
+  FiberMap,
+  Layer,
+  Option,
+  Result,
+  Scope,
+} from "effect";
 import { TestClock } from "effect/testing";
 
 import { app, appPlan, module, type App } from "../../app/app.js";
@@ -20,7 +33,6 @@ import {
   activateLifecycle,
   disposeLifecycle,
   installLifecycleMetadata,
-  makeLifecycleRuntimeOwner,
   makeLifecycleController,
   makeProviderReconciler,
   prepareLifecycle,
@@ -29,19 +41,20 @@ import {
   suspendLifecycle,
   transitionLifecycle,
   type LifecycleResource,
+  type LifecycleSnapshot,
   type LifecycleWork,
+  type ActorCell,
 } from "../lifecycle.js";
 import { prepareActorEngine, prepareActorSnapshot, type ActorSnapshot } from "../actor-engine.js";
 import type { OperationOccurrenceFence } from "../turn-plan.js";
 import { makeEvidenceSink, makeRuntimeEvidenceOwner } from "../evidence.js";
 import {
-  makeRuntimeScheduler,
-  makeRuntimeClock,
   makeRuntimeServicesLayer,
   type RuntimeEvidenceService,
   type RuntimeServiceContext,
   type RuntimeServicesLayer,
 } from "../runtime-services.js";
+import { makeRuntimeOwner } from "../runtime-owner.js";
 
 const resultSuccess = <Value>(result: Result.Result<Value, PublicDiagnostic>) => {
   if (Result.isFailure(result)) throw result.failure;
@@ -148,11 +161,20 @@ const makeFence = <DefinitionValue extends MachineDefinition>(
   return { identity, ref, fence, registry };
 };
 
-const fixedClock = {
-  now: Effect.succeed(0),
-  timestamp: () => 0,
-  sleepUntil: () => Effect.void,
-};
+const makeTestClock = (
+  now: number,
+  sleep: Clock.Clock["sleep"] = () => Effect.void,
+): Clock.Clock => ({
+  currentTimeMillisUnsafe: () => now,
+  currentTimeMillis: Effect.succeed(now),
+  currentTimeNanosUnsafe: () => BigInt(now) * 1_000_000n,
+  currentTimeNanos: Effect.succeed(BigInt(now) * 1_000_000n),
+  monotonicTimeNanosUnsafe: () => BigInt(now) * 1_000_000n,
+  monotonicTimeNanos: Effect.succeed(BigInt(now) * 1_000_000n),
+  sleep,
+});
+
+const fixedClock = makeTestClock(0);
 
 const defaultEvidenceOwner = makeRuntimeEvidenceOwner({
   app: LifecycleApp,
@@ -164,7 +186,6 @@ const evidence: RuntimeEvidenceService = defaultEvidenceOwner.service;
 
 const defaultRuntimeLayer: RuntimeServicesLayer = makeRuntimeServicesLayer({
   clock: fixedClock,
-  scheduler: makeRuntimeScheduler(),
   evidence,
 });
 
@@ -186,12 +207,34 @@ const hasLifecycleEvidenceFields = (
   return typeof provenance === "object" && provenance !== null && "actor" in provenance;
 };
 
-const makePrepared = () => {
+type LifecycleActorCell = ActorCell<LifecycleSnapshot<typeof LifecycleDefinition, string>>;
+
+const makeActorCell = <
+  DefinitionValue extends MachineDefinition = typeof LifecycleDefinition,
+  CleanupError = string,
+  ProviderDefinition extends MachineDefinition = DefinitionValue,
+>(
+  fibers?: FiberMap.FiberMap<string, void, unknown>,
+): ActorCell<LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>> => ({
+  activityFibers: fibers,
+  protocol: undefined,
+});
+
+const makePrepared = (
+  fibers?: FiberMap.FiberMap<string, void, unknown>,
+  actorCell: LifecycleActorCell = makeActorCell(fibers),
+) => {
   const { fence } = makeFence(LifecycleMachine, "actor");
 
   return resultSuccess(
-    prepareLifecycle<typeof LifecycleDefinition, string>(fence, { _tag: "fresh" }),
+    prepareLifecycle<typeof LifecycleDefinition, string>(fence, { _tag: "fresh" }, actorCell),
   );
+};
+
+const makePreparedFixture = (fibers?: FiberMap.FiberMap<string, void, unknown>) => {
+  const actorCell = makeActorCell(fibers);
+
+  return { snapshot: makePrepared(fibers, actorCell), actorCell };
 };
 
 // Contracts: SEM-004, SEM-005, SEM-029.
@@ -229,13 +272,18 @@ describe("actor lifecycle", () => {
 
   it.effect("restores before explicit start and creates no synthetic lifecycle work", () =>
     Effect.gen(function* () {
-      const prepared = makePrepared();
+      const fixture = makePreparedFixture();
+      const prepared = fixture.snapshot;
 
       const restored = yield* withRuntime(
-        runLifecycleCommand(prepared, {
-          _tag: "actor:restore",
-          cause: { _tag: "restore" },
-        }),
+        runLifecycleCommand(
+          prepared,
+          {
+            _tag: "actor:restore",
+            cause: { _tag: "restore" },
+          },
+          fixture.actorCell,
+        ),
       );
 
       assert.strictEqual(restored.lifecycle, "prepared");
@@ -243,18 +291,42 @@ describe("actor lifecycle", () => {
       assert.strictEqual(restored.attachment.resources.length, 0);
 
       const active = yield* withRuntime(
-        runLifecycleCommand(restored, {
-          _tag: "actor:start",
-          cause: { _tag: "attachment" },
-        }),
+        runLifecycleCommand(
+          restored,
+          {
+            _tag: "actor:start",
+            cause: { _tag: "attachment" },
+          },
+          fixture.actorCell,
+        ),
       );
 
       assert.strictEqual(active.lifecycle, "active");
       assert.strictEqual(active.attachment.operations.length, 0);
-      const disposed = yield* withRuntime(disposeLifecycle(active));
+      const disposed = yield* withRuntime(disposeLifecycle(active, fixture.actorCell));
       assert.strictEqual(disposed.lifecycle, "disposed");
       assert.strictEqual(disposed.attachment.work.length, 0);
       assert.strictEqual(disposed.attachment.resources.length, 0);
+    }),
+  );
+
+  it.effect("keeps lifecycle snapshots value-only and requires their stable ActorCell", () =>
+    Effect.gen(function* () {
+      const fixture = makePreparedFixture();
+      const snapshot = { ...fixture.snapshot };
+
+      assert.deepStrictEqual(Object.getOwnPropertySymbols(snapshot), []);
+      assert.deepStrictEqual(Object.keys(snapshot), [
+        "lifecycle",
+        "fence",
+        "attachment",
+        "finalization",
+      ]);
+
+      const foreignCell = makeActorCell();
+      const activation = yield* Effect.exit(withRuntime(activateLifecycle(snapshot, foreignCell)));
+
+      assert.ok(Exit.isFailure(activation));
     }),
   );
 
@@ -279,21 +351,31 @@ describe("actor lifecycle", () => {
       const dependencies = [edge];
       const providerRevisions = new Map([[provider.fence.key, 7]]);
       const providerFences = new Map([[provider.fence.key, provider.fence]]);
+      const consumerCell = makeActorCell<
+        typeof ConsumerDefinition,
+        string,
+        typeof ProviderDefinition
+      >();
 
       const prepared = resultSuccess(
         prepareLifecycle<typeof ConsumerDefinition, string, typeof ProviderDefinition>(
           consumer.fence,
           { _tag: "fresh" },
+          consumerCell,
         ),
       );
 
       const installed = resultSuccess(
-        installLifecycleMetadata(prepared, {
-          dependencies,
-          bindings: [binding],
-          providerRevisions,
-          providerFences,
-        }),
+        installLifecycleMetadata(
+          prepared,
+          {
+            dependencies,
+            bindings: [binding],
+            providerRevisions,
+            providerFences,
+          },
+          consumerCell,
+        ),
       );
 
       dependencies.pop();
@@ -308,8 +390,8 @@ describe("actor lifecycle", () => {
         0,
       );
 
-      const active = yield* withRuntime(activateLifecycle(installed));
-      const suspended = yield* withRuntime(suspendLifecycle(active));
+      const active = yield* withRuntime(activateLifecycle(installed, consumerCell));
+      const suspended = yield* withRuntime(suspendLifecycle(active, consumerCell));
       assert.strictEqual(suspended.lifecycle, "suspended");
       assert.deepStrictEqual(suspended.attachment.dependencies, [edge]);
       assert.strictEqual(suspended.attachment.bindings[0]?.slot, "selected");
@@ -319,21 +401,32 @@ describe("actor lifecycle", () => {
         0,
       );
 
+      const providerCell = makeActorCell<typeof ProviderDefinition, string>();
       const providerPrepared = resultSuccess(
-        prepareLifecycle<typeof ProviderDefinition, string>(provider.fence, { _tag: "fresh" }),
+        prepareLifecycle<typeof ProviderDefinition, string>(
+          provider.fence,
+          { _tag: "fresh" },
+          providerCell,
+        ),
       );
 
       const providerInstalled = resultSuccess(
-        installLifecycleMetadata(providerPrepared, {
-          dependencies: [edge],
-          bindings: [],
-          providerRevisions,
-          providerFences,
-        }),
+        installLifecycleMetadata(
+          providerPrepared,
+          {
+            dependencies: [edge],
+            bindings: [],
+            providerRevisions,
+            providerFences,
+          },
+          providerCell,
+        ),
       );
 
-      const providerActive = yield* withRuntime(activateLifecycle(providerInstalled));
-      const disposed = yield* Effect.exit(withRuntime(disposeLifecycle(providerActive)));
+      const providerActive = yield* withRuntime(activateLifecycle(providerInstalled, providerCell));
+      const disposed = yield* Effect.exit(
+        withRuntime(disposeLifecycle(providerActive, providerCell)),
+      );
       assert.ok(Exit.isFailure(disposed));
       assert.strictEqual(providerActive.lifecycle, "active");
 
@@ -347,11 +440,16 @@ describe("actor lifecycle", () => {
         }
       }
 
+      const controllerCell = makeActorCell<typeof ProviderDefinition, string>();
       const controllerPrepared = resultSuccess(
-        prepareLifecycle<typeof ProviderDefinition, string>(provider.fence, { _tag: "fresh" }),
+        prepareLifecycle<typeof ProviderDefinition, string>(
+          provider.fence,
+          { _tag: "fresh" },
+          controllerCell,
+        ),
       );
 
-      const controller = makeLifecycleController(controllerPrepared);
+      const controller = makeLifecycleController(controllerPrepared, controllerCell);
 
       const activeWithoutMetadata = yield* withRuntime(
         controller.command({ _tag: "actor:start", cause: { _tag: "fresh" } }),
@@ -402,7 +500,8 @@ describe("actor lifecycle", () => {
 
   it.effect("activates, cancels work, and cleans resources in reverse ownership order", () =>
     Effect.gen(function* () {
-      const active = yield* withRuntime(activateLifecycle(makePrepared()));
+      const fixture = makePreparedFixture();
+      const active = yield* withRuntime(activateLifecycle(fixture.snapshot, fixture.actorCell));
       const order: Array<string> = [];
       const workRelease = yield* Deferred.make<void>();
       const workFiber = yield* Effect.forkChild(Deferred.await(workRelease));
@@ -421,32 +520,26 @@ describe("actor lifecycle", () => {
 
       const resource: LifecycleResource<string> = {
         name: "resource",
-        scope: Scope.makeUnsafe(),
         close: () => Effect.sync(() => order.push("resource-close")),
         finalization: "pending",
         cause: Option.none(),
       };
-
-      yield* Scope.addFinalizer(
-        resource.scope,
-        Effect.sync(() => order.push("scope-close")),
-      );
 
       const live: typeof active = {
         ...active,
         attachment: { ...active.attachment, work: [work], resources: [resource] },
       };
 
-      const suspended = yield* withRuntime(suspendLifecycle(live));
+      const suspended = yield* withRuntime(suspendLifecycle(live, fixture.actorCell));
       assert.strictEqual(suspended.lifecycle, "suspended");
       assert.strictEqual(suspended.attachment.status, "detached");
-      assert.deepStrictEqual(order, ["cancel", "work-finalizer", "resource-close", "scope-close"]);
+      assert.deepStrictEqual(order, ["cancel", "work-finalizer", "resource-close"]);
       assert.strictEqual(suspended.attachment.work[0]?.finalization, "done");
       assert.strictEqual(suspended.attachment.resources[0]?.finalization, "done");
 
-      const resumed = yield* withRuntime(resumeLifecycle(suspended));
-      const suspendedAgain = yield* withRuntime(suspendLifecycle(resumed));
-      assert.deepStrictEqual(order, ["cancel", "work-finalizer", "resource-close", "scope-close"]);
+      const resumed = yield* withRuntime(resumeLifecycle(suspended, fixture.actorCell));
+      const suspendedAgain = yield* withRuntime(suspendLifecycle(resumed, fixture.actorCell));
+      assert.deepStrictEqual(order, ["cancel", "work-finalizer", "resource-close"]);
       assert.strictEqual(suspendedAgain.attachment.work[0]?.finalization, "done");
       assert.strictEqual(suspendedAgain.attachment.resources[0]?.finalization, "done");
     }),
@@ -454,7 +547,8 @@ describe("actor lifecycle", () => {
 
   it.effect("reacquires continuing resources and work on each resume", () =>
     Effect.gen(function* () {
-      const active = yield* withRuntime(activateLifecycle(makePrepared()));
+      const fixture = makePreparedFixture();
+      const active = yield* withRuntime(activateLifecycle(fixture.snapshot, fixture.actorCell));
       const resourceAcquisitions: Array<number> = [];
       const workAcquisitions: Array<number> = [];
       const resourceCloses: Array<number> = [];
@@ -462,11 +556,8 @@ describe("actor lifecycle", () => {
 
       const makeResource = (id: number) =>
         Effect.gen(function* () {
-          const scope = yield* Scope.make("sequential");
-
           return {
             name: `resource-${id}`,
-            scope,
             close: () =>
               Effect.sync(() => {
                 resourceCloses.push(id);
@@ -515,15 +606,15 @@ describe("actor lifecycle", () => {
         attachment: { ...active.attachment, resources: [initialResource], work: [initialWork] },
       };
 
-      const suspended = yield* withRuntime(suspendLifecycle(live));
-      const resumed = yield* withRuntime(resumeLifecycle(suspended));
+      const suspended = yield* withRuntime(suspendLifecycle(live, fixture.actorCell));
+      const resumed = yield* withRuntime(resumeLifecycle(suspended, fixture.actorCell));
       assert.deepStrictEqual(resourceAcquisitions, [0]);
       assert.deepStrictEqual(workAcquisitions, [0]);
       assert.strictEqual(resumed.attachment.resources[0]?.finalization, "pending");
       assert.strictEqual(resumed.attachment.work[0]?.finalization, "pending");
 
-      const suspendedAgain = yield* withRuntime(suspendLifecycle(resumed));
-      const resumedAgain = yield* withRuntime(resumeLifecycle(suspendedAgain));
+      const suspendedAgain = yield* withRuntime(suspendLifecycle(resumed, fixture.actorCell));
+      const resumedAgain = yield* withRuntime(resumeLifecycle(suspendedAgain, fixture.actorCell));
       assert.deepStrictEqual(resourceAcquisitions, [0, 1]);
       assert.deepStrictEqual(workAcquisitions, [0, 1]);
       assert.deepStrictEqual(resourceCloses, [0, 1]);
@@ -531,7 +622,7 @@ describe("actor lifecycle", () => {
       assert.strictEqual(resumedAgain.attachment.resources[0]?.finalization, "pending");
       assert.strictEqual(resumedAgain.attachment.work[0]?.finalization, "pending");
 
-      yield* withRuntime(disposeLifecycle(resumedAgain));
+      yield* withRuntime(disposeLifecycle(resumedAgain, fixture.actorCell));
       assert.deepStrictEqual(resourceCloses, [0, 1, 2]);
       assert.deepStrictEqual(workFinalizers, [0, 1, 2]);
     }),
@@ -539,19 +630,18 @@ describe("actor lifecycle", () => {
 
   it.effect("rolls back earlier reacquisition when continuing work cannot be restored", () =>
     Effect.gen(function* () {
-      const active = yield* withRuntime(activateLifecycle(makePrepared()));
+      const fixture = makePreparedFixture();
+      const active = yield* withRuntime(activateLifecycle(fixture.snapshot, fixture.actorCell));
       const release = yield* Deferred.make<void>();
       const fiber = yield* Effect.forkChild(Deferred.await(release));
       let reacquiredCloses = 0;
 
       const resource: LifecycleResource<string> = {
         name: "continuing-resource",
-        scope: Scope.makeUnsafe(),
         close: () => Effect.void,
         reacquire: () =>
           Effect.succeed({
             name: "reacquired-resource",
-            scope: Scope.makeUnsafe(),
             close: () =>
               Effect.sync(() => {
                 reacquiredCloses += 1;
@@ -575,13 +665,18 @@ describe("actor lifecycle", () => {
       };
 
       const suspended = yield* withRuntime(
-        suspendLifecycle({
-          ...active,
-          attachment: { ...active.attachment, resources: [resource], work: [work] },
-        }),
+        suspendLifecycle(
+          {
+            ...active,
+            attachment: { ...active.attachment, resources: [resource], work: [work] },
+          },
+          fixture.actorCell,
+        ),
       );
 
-      const resumed = yield* Effect.exit(withRuntime(resumeLifecycle(suspended)));
+      const resumed = yield* Effect.exit(
+        withRuntime(resumeLifecycle(suspended, fixture.actorCell)),
+      );
       assert.ok(Exit.isFailure(resumed));
       assert.strictEqual(reacquiredCloses, 1);
       assert.strictEqual(suspended.lifecycle, "suspended");
@@ -593,35 +688,37 @@ describe("actor lifecycle", () => {
   it.effect("retains absolute timer deadlines and schedules each armed timer once on resume", () =>
     Effect.gen(function* () {
       const scheduled: Array<number> = [];
+      const activityFibers = yield* FiberMap.make<string, void, unknown>();
+      const fixture = makePreparedFixture(activityFibers);
 
       const layer = makeRuntimeServicesLayer({
-        clock: {
-          now: Effect.succeed(100),
-          timestamp: () => 100,
-          sleepUntil: (dueAt: number) => Effect.sync(() => scheduled.push(dueAt)),
-        },
-        scheduler: makeRuntimeScheduler(),
+        clock: makeTestClock(100, (duration) =>
+          Effect.sync(() => scheduled.push(Duration.toMillis(duration))),
+        ),
         evidence,
       });
 
-      const active = yield* withRuntime(activateLifecycle(makePrepared()), layer);
+      const active = yield* withRuntime(
+        activateLifecycle(fixture.snapshot, fixture.actorCell),
+        layer,
+      );
 
       const live: typeof active = {
         ...active,
         attachment: {
           ...active.attachment,
-          timers: [{ name: "refresh", startedAt: 25, dueAt: 50, status: "armed" }],
+          timers: [{ name: "refresh", startedAt: 125, dueAt: 150, status: "armed" }],
         },
       };
 
-      const suspended = yield* withRuntime(suspendLifecycle(live), layer);
-      const resumed = yield* withRuntime(resumeLifecycle(suspended), layer);
+      const suspended = yield* withRuntime(suspendLifecycle(live, fixture.actorCell), layer);
+      const resumed = yield* withRuntime(resumeLifecycle(suspended, fixture.actorCell), layer);
 
       assert.strictEqual(resumed.lifecycle, "active");
       assert.deepStrictEqual(scheduled, [50]);
-      assert.strictEqual(resumed.attachment.timers[0]?.dueAt, 50);
+      assert.strictEqual(resumed.attachment.timers[0]?.dueAt, 150);
       assert.strictEqual(resumed.attachment.work.length, 1);
-      yield* withRuntime(disposeLifecycle(resumed), layer);
+      yield* withRuntime(disposeLifecycle(resumed, fixture.actorCell), layer);
     }),
   );
 
@@ -629,18 +726,20 @@ describe("actor lifecycle", () => {
     Effect.gen(function* () {
       const scheduled: Array<number> = [];
       const refreshes: Array<string> = [];
+      const activityFibers = yield* FiberMap.make<string, void, unknown>();
+      const fixture = makePreparedFixture(activityFibers);
 
       const layer = makeRuntimeServicesLayer({
-        clock: {
-          now: Effect.succeed(100),
-          timestamp: () => 100,
-          sleepUntil: (dueAt: number) => Effect.sync(() => scheduled.push(dueAt)),
-        },
-        scheduler: makeRuntimeScheduler(),
+        clock: makeTestClock(100, (duration) =>
+          Effect.sync(() => scheduled.push(Duration.toMillis(duration))),
+        ),
         evidence,
       });
 
-      const active = yield* withRuntime(activateLifecycle(makePrepared()), layer);
+      const active = yield* withRuntime(
+        activateLifecycle(fixture.snapshot, fixture.actorCell),
+        layer,
+      );
 
       const live: typeof active = {
         ...active,
@@ -675,12 +774,12 @@ describe("actor lifecycle", () => {
         },
       };
 
-      const suspended = yield* withRuntime(suspendLifecycle(live), layer);
-      const resumed = yield* withRuntime(resumeLifecycle(suspended), layer);
-      assert.deepStrictEqual(scheduled, [20, 200]);
+      const suspended = yield* withRuntime(suspendLifecycle(live, fixture.actorCell), layer);
+      const resumed = yield* withRuntime(resumeLifecycle(suspended, fixture.actorCell), layer);
+      assert.deepStrictEqual(scheduled, [100]);
       assert.deepStrictEqual(refreshes, ["one"]);
       assert.strictEqual(resumed.attachment.work.length, 2);
-      yield* withRuntime(disposeLifecycle(resumed), layer);
+      yield* withRuntime(disposeLifecycle(resumed, fixture.actorCell), layer);
     }),
   );
 
@@ -688,6 +787,11 @@ describe("actor lifecycle", () => {
     Effect.gen(function* () {
       const consumer = makeFence(ConsumerMachine, "consumer");
       const provider = makeFence(ProviderMachine, "provider");
+      const actorCell = makeActorCell<
+        typeof ConsumerDefinition,
+        string,
+        typeof ProviderDefinition
+      >();
 
       const binding = {
         slot: "selected",
@@ -700,10 +804,11 @@ describe("actor lifecycle", () => {
         prepareLifecycle<typeof ConsumerDefinition, string, typeof ProviderDefinition>(
           consumer.fence,
           { _tag: "fresh" },
+          actorCell,
         ),
       );
 
-      const active = yield* withRuntime(activateLifecycle(prepared));
+      const active = yield* withRuntime(activateLifecycle(prepared, actorCell));
 
       const live: typeof active = {
         ...active,
@@ -715,8 +820,8 @@ describe("actor lifecycle", () => {
         },
       };
 
-      const suspended = yield* withRuntime(suspendLifecycle(live));
-      const resumed = yield* Effect.exit(withRuntime(resumeLifecycle(suspended)));
+      const suspended = yield* withRuntime(suspendLifecycle(live, actorCell));
+      const resumed = yield* Effect.exit(withRuntime(resumeLifecycle(suspended, actorCell)));
       assert.ok(Exit.isFailure(resumed));
 
       if (Exit.isFailure(resumed)) assert.strictEqual(resumed.cause.reasons[0]?._tag, "Fail");
@@ -727,6 +832,11 @@ describe("actor lifecycle", () => {
     Effect.gen(function* () {
       const consumer = makeFence(ConsumerMachine, "consumer-missing");
       const provider = makeFence(ProviderMachine, "provider-missing");
+      const actorCell = makeActorCell<
+        typeof ConsumerDefinition,
+        string,
+        typeof ProviderDefinition
+      >();
 
       const binding = {
         slot: "selected",
@@ -739,10 +849,11 @@ describe("actor lifecycle", () => {
         prepareLifecycle<typeof ConsumerDefinition, string, typeof ProviderDefinition>(
           consumer.fence,
           { _tag: "fresh" },
+          actorCell,
         ),
       );
 
-      const active = yield* withRuntime(activateLifecycle(prepared));
+      const active = yield* withRuntime(activateLifecycle(prepared, actorCell));
 
       const live: typeof active = {
         ...active,
@@ -753,8 +864,8 @@ describe("actor lifecycle", () => {
         },
       };
 
-      const suspended = yield* withRuntime(suspendLifecycle(live));
-      const resumed = yield* Effect.exit(withRuntime(resumeLifecycle(suspended)));
+      const suspended = yield* withRuntime(suspendLifecycle(live, actorCell));
+      const resumed = yield* Effect.exit(withRuntime(resumeLifecycle(suspended, actorCell)));
       assert.ok(Exit.isFailure(resumed));
 
       if (Exit.isFailure(resumed)) {
@@ -770,6 +881,11 @@ describe("actor lifecycle", () => {
     Effect.gen(function* () {
       const consumer = makeFence(ConsumerMachine, "consumer-foreign");
       const provider = makeFence(ProviderMachine, "provider-foreign");
+      const actorCell = makeActorCell<
+        typeof ConsumerDefinition,
+        string,
+        typeof ProviderDefinition
+      >();
       const foreignRegistry = makeActorIdentityRegistry();
       const foreign = resultSuccess(foreignRegistry.reserveStable(provider.ref));
 
@@ -784,10 +900,11 @@ describe("actor lifecycle", () => {
         prepareLifecycle<typeof ConsumerDefinition, string, typeof ProviderDefinition>(
           consumer.fence,
           { _tag: "fresh" },
+          actorCell,
         ),
       );
 
-      const active = yield* withRuntime(activateLifecycle(prepared));
+      const active = yield* withRuntime(activateLifecycle(prepared, actorCell));
 
       const live: typeof active = {
         ...active,
@@ -809,8 +926,8 @@ describe("actor lifecycle", () => {
         },
       };
 
-      const suspended = yield* withRuntime(suspendLifecycle(live));
-      const resumed = yield* Effect.exit(withRuntime(resumeLifecycle(suspended)));
+      const suspended = yield* withRuntime(suspendLifecycle(live, actorCell));
+      const resumed = yield* Effect.exit(withRuntime(resumeLifecycle(suspended, actorCell)));
       assert.strictEqual(suspended.lifecycle, "suspended");
       assert.ok(Exit.isFailure(resumed));
 
@@ -826,6 +943,11 @@ describe("actor lifecycle", () => {
     Effect.gen(function* () {
       const consumer = makeFence(ConsumerMachine, "consumer-tombstoned");
       const provider = makeFence(ProviderMachine, "provider-tombstoned");
+      const actorCell = makeActorCell<
+        typeof ConsumerDefinition,
+        string,
+        typeof ProviderDefinition
+      >();
       const tombstonedRegistry = makeActorIdentityRegistry();
       const tombstoned = resultSuccess(tombstonedRegistry.reserveStable(provider.ref));
       resultSuccess(tombstonedRegistry.register(tombstoned, {}));
@@ -847,10 +969,11 @@ describe("actor lifecycle", () => {
         prepareLifecycle<typeof ConsumerDefinition, string, typeof ProviderDefinition>(
           consumer.fence,
           { _tag: "fresh" },
+          actorCell,
         ),
       );
 
-      const active = yield* withRuntime(activateLifecycle(prepared));
+      const active = yield* withRuntime(activateLifecycle(prepared, actorCell));
 
       const live: typeof active = {
         ...active,
@@ -862,8 +985,8 @@ describe("actor lifecycle", () => {
         },
       };
 
-      const suspended = yield* withRuntime(suspendLifecycle(live));
-      const resumed = yield* Effect.exit(withRuntime(resumeLifecycle(suspended)));
+      const suspended = yield* withRuntime(suspendLifecycle(live, actorCell));
+      const resumed = yield* Effect.exit(withRuntime(resumeLifecycle(suspended, actorCell)));
       assert.strictEqual(suspended.lifecycle, "suspended");
       assert.ok(Exit.isFailure(resumed));
 
@@ -879,12 +1002,17 @@ describe("actor lifecycle", () => {
   it.effect("blocks disposal while a dependent edge remains", () =>
     Effect.gen(function* () {
       const owner = makeFence(ConsumerMachine, "owner");
+      const actorCell = makeActorCell<typeof ConsumerDefinition, string>();
 
       const prepared = resultSuccess(
-        prepareLifecycle<typeof ConsumerDefinition, string>(owner.fence, { _tag: "fresh" }),
+        prepareLifecycle<typeof ConsumerDefinition, string>(
+          owner.fence,
+          { _tag: "fresh" },
+          actorCell,
+        ),
       );
 
-      const active = yield* withRuntime(activateLifecycle(prepared));
+      const active = yield* withRuntime(activateLifecycle(prepared, actorCell));
 
       const edge: ActorDependencyEdge = {
         consumer: owner.fence.key,
@@ -904,7 +1032,7 @@ describe("actor lifecycle", () => {
         },
       };
 
-      const disposed = yield* Effect.exit(withRuntime(disposeLifecycle(blocked)));
+      const disposed = yield* Effect.exit(withRuntime(disposeLifecycle(blocked, actorCell)));
       assert.ok(Exit.isFailure(disposed));
       assert.strictEqual(blocked.lifecycle, "active");
 
@@ -923,6 +1051,11 @@ describe("actor lifecycle", () => {
     Effect.gen(function* () {
       const consumer = makeFence(ConsumerMachine, "consumer-mutation");
       const provider = makeFence(ProviderMachine, "provider-mutation");
+      const actorCell = makeActorCell<
+        typeof ConsumerDefinition,
+        string,
+        typeof ProviderDefinition
+      >();
       const mutableProviderFence = { ...provider.fence };
 
       const binding = {
@@ -945,10 +1078,11 @@ describe("actor lifecycle", () => {
         prepareLifecycle<typeof ConsumerDefinition, string, typeof ProviderDefinition>(
           consumer.fence,
           { _tag: "fresh" },
+          actorCell,
         ),
       );
 
-      const active = yield* withRuntime(activateLifecycle(prepared));
+      const active = yield* withRuntime(activateLifecycle(prepared, actorCell));
 
       const live: typeof active = {
         ...active,
@@ -961,7 +1095,7 @@ describe("actor lifecycle", () => {
         },
       };
 
-      const suspended = yield* withRuntime(suspendLifecycle(live));
+      const suspended = yield* withRuntime(suspendLifecycle(live, actorCell));
       mutableProviderFence.generation = 99;
       mutableBlockedDisposal.dependentActors.pop();
       Reflect.set(mutableBindingKeys, 0, "mutated");
@@ -974,12 +1108,12 @@ describe("actor lifecycle", () => {
 
   it.effect("continues reverse cleanup after a finalizer failure", () =>
     Effect.gen(function* () {
-      const active = yield* withRuntime(activateLifecycle(makePrepared()));
+      const fixture = makePreparedFixture();
+      const active = yield* withRuntime(activateLifecycle(fixture.snapshot, fixture.actorCell));
       const order: Array<string> = [];
 
       const first: LifecycleResource<string> = {
         name: "first",
-        scope: Scope.makeUnsafe(),
         close: () =>
           Effect.sync(() => {
             order.push("first");
@@ -992,7 +1126,6 @@ describe("actor lifecycle", () => {
 
       const second: LifecycleResource<string> = {
         name: "second",
-        scope: Scope.makeUnsafe(),
         close: () => Effect.sync(() => order.push("second")),
         finalization: "pending",
         cause: Option.none(),
@@ -1000,10 +1133,13 @@ describe("actor lifecycle", () => {
 
       const disposed = yield* Effect.exit(
         withRuntime(
-          disposeLifecycle({
-            ...active,
-            attachment: { ...active.attachment, resources: [first, second] },
-          }),
+          disposeLifecycle(
+            {
+              ...active,
+              attachment: { ...active.attachment, resources: [first, second] },
+            },
+            fixture.actorCell,
+          ),
         ),
       );
 
@@ -1084,20 +1220,31 @@ describe("actor lifecycle", () => {
   it.effect("adapts lifecycle runtime participants to the shared disposal owner", () =>
     Effect.gen(function* () {
       const order: Array<string> = [];
-      const owner = makeLifecycleRuntimeOwner();
+      const owner = makeRuntimeOwner<
+        never,
+        never,
+        never,
+        undefined,
+        never,
+        never,
+        PublicDiagnostic
+      >({
+        layer: Layer.empty,
+        expose: Effect.succeed(undefined),
+      });
       owner.registerActor({ dispose: () => Effect.sync(() => order.push("actor")) });
       owner.registerProvider(Effect.sync(() => order.push("provider")));
-      const before = owner.generation();
-      yield* withRuntime(owner.dispose());
+      yield* owner.ready();
+      yield* owner.close();
       assert.deepStrictEqual(order, ["actor", "provider"]);
-      assert.strictEqual(owner.isCurrent(before), false);
-      assert.strictEqual(owner.isCurrent(owner.generation()), false);
+      assert.strictEqual(owner.isOpen(), false);
     }),
   );
 
-  it.effect("keeps failed post-start disposal active and retries cleanup before tombstoning", () =>
+  it.effect("caches failed post-start disposal without retrying cleanup", () =>
     Effect.gen(function* () {
-      const active = yield* withRuntime(activateLifecycle(makePrepared()));
+      const fixture = makePreparedFixture();
+      const active = yield* withRuntime(activateLifecycle(fixture.snapshot, fixture.actorCell));
       let closes = 0;
       const acceptedLifecycles: Array<string> = [];
       let cleanupExitFailed = false;
@@ -1105,7 +1252,6 @@ describe("actor lifecycle", () => {
 
       const resource: LifecycleResource<string> = {
         name: "broken-resource",
-        scope: Scope.makeUnsafe(),
         close: () =>
           Effect.sync(() => {
             closes += 1;
@@ -1118,14 +1264,16 @@ describe("actor lifecycle", () => {
         cause: Option.none(),
       };
 
-      const controller = makeLifecycleController({
-        ...active,
-        attachment: { ...active.attachment, resources: [resource] },
-      });
+      const controller = makeLifecycleController(
+        {
+          ...active,
+          attachment: { ...active.attachment, resources: [resource] },
+        },
+        fixture.actorCell,
+      );
 
       const layer = makeRuntimeServicesLayer({
         clock: fixedClock,
-        scheduler: makeRuntimeScheduler(),
         evidence: {
           ...evidence,
           accept: (record) =>
@@ -1168,17 +1316,92 @@ describe("actor lifecycle", () => {
       assert.strictEqual(cleanupExitFailed, true);
       assert.strictEqual(cleanupCauseHasFailure, true);
 
-      const second = yield* withRuntime(controller.command(dispose), layer);
-      assert.strictEqual(second.lifecycle, "disposed");
-      assert.strictEqual(second.finalization, "done");
-      assert.strictEqual(closes, 2);
-      assert.deepStrictEqual(acceptedLifecycles, ["active", "disposed"]);
+      const second = yield* Effect.exit(withRuntime(controller.command(dispose), layer));
+      assert.ok(Exit.isFailure(second));
+      assert.deepStrictEqual(second, first);
+      assert.strictEqual(closes, 1);
+      assert.deepStrictEqual(acceptedLifecycles, ["active"]);
+    }),
+  );
+
+  it.effect("caches the combined lifecycle and evidence Cause after disposal", () =>
+    Effect.gen(function* () {
+      const fixture = makePreparedFixture();
+      const active = yield* withRuntime(activateLifecycle(fixture.snapshot, fixture.actorCell));
+      let closeAttempts = 0;
+      let evidenceAttempts = 0;
+      const cleanupFailure = "combined-cleanup-failure" as const;
+      const evidenceFailure = Failure({
+        code: "CleanupFailed",
+        path: ["lifecycle", "evidence"],
+        details: { reason: "test" },
+        summary: "The lifecycle evidence was rejected.",
+        help: "Inspect the retained lifecycle Cause.",
+      });
+
+      const controller = makeLifecycleController(
+        {
+          ...active,
+          attachment: {
+            ...active.attachment,
+            resources: [
+              {
+                name: "combined-cause",
+                close: () =>
+                  Effect.sync(() => {
+                    closeAttempts += 1;
+
+                    return Effect.fail(cleanupFailure);
+                  }).pipe(Effect.flatten),
+                finalization: "pending",
+                cause: Option.none(),
+              },
+            ],
+          },
+        },
+        fixture.actorCell,
+      );
+      const layer = makeRuntimeServicesLayer({
+        clock: fixedClock,
+        evidence: {
+          ...evidence,
+          accept: () =>
+            Effect.sync(() => {
+              evidenceAttempts += 1;
+
+              return Effect.fail(evidenceFailure);
+            }).pipe(Effect.flatten),
+        },
+      });
+
+      const dispose = {
+        _tag: "actor:dispose" as const,
+        cause: { _tag: "owner-disposal" as const },
+      };
+      const first = yield* Effect.exit(withRuntime(controller.command(dispose), layer));
+
+      assert.ok(Exit.isFailure(first));
+      assert.strictEqual(closeAttempts, 1);
+      assert.strictEqual(evidenceAttempts, 1);
+
+      if (Exit.isFailure(first)) {
+        assert.strictEqual(first.cause.reasons.length, 2);
+        assert.strictEqual(first.cause.reasons.filter(Cause.isFailReason).length, 2);
+      }
+
+      const second = yield* Effect.exit(withRuntime(controller.command(dispose), layer));
+
+      assert.ok(Exit.isFailure(second));
+      assert.deepStrictEqual(second, first);
+      assert.strictEqual(closeAttempts, 1);
+      assert.strictEqual(evidenceAttempts, 1);
     }),
   );
 
   it.effect("rejects a stale same-revision snapshot from overwriting canonical dependencies", () =>
     Effect.gen(function* () {
-      const prepared = makePrepared();
+      const fixture = makePreparedFixture();
+      const prepared = fixture.snapshot;
 
       const dependency: ActorDependencyEdge = {
         consumer: prepared.fence.key,
@@ -1187,21 +1410,24 @@ describe("actor lifecycle", () => {
       };
 
       const installed = resultSuccess(
-        installLifecycleMetadata(prepared, {
-          dependencies: [dependency],
-          bindings: [],
-          providerRevisions: new Map(),
-          providerFences: new Map(),
-        }),
+        installLifecycleMetadata(
+          prepared,
+          {
+            dependencies: [dependency],
+            bindings: [],
+            providerRevisions: new Map(),
+            providerFences: new Map(),
+          },
+          fixture.actorCell,
+        ),
       );
 
-      const active = yield* withRuntime(activateLifecycle(installed));
+      const active = yield* withRuntime(activateLifecycle(installed, fixture.actorCell));
 
-      // This is a same-revision structural view carrying the same private owner metadata,
-      // but it is stale because it omits the canonical dependency cut.
+      // This is a stale value view because it omits the canonical dependency cut.
       const stale = { ...active, attachment: { ...active.attachment, dependencies: [] } };
-      makeLifecycleController(active);
-      const controller = makeLifecycleController(stale);
+      makeLifecycleController(active, fixture.actorCell);
+      const controller = makeLifecycleController(stale, fixture.actorCell);
       const canonical = yield* controller.state();
       assert.deepStrictEqual(canonical.attachment.dependencies, [dependency]);
 
@@ -1220,7 +1446,8 @@ describe("actor lifecycle", () => {
     "rejects older raw metadata helpers without resurrecting active or disposed state",
     () =>
       Effect.gen(function* () {
-        const prepared = makePrepared();
+        const fixture = makePreparedFixture();
+        const prepared = fixture.snapshot;
 
         const dependency: ActorDependencyEdge = {
           consumer: prepared.fence.key,
@@ -1229,23 +1456,31 @@ describe("actor lifecycle", () => {
         };
 
         const installed = resultSuccess(
-          installLifecycleMetadata(prepared, {
-            dependencies: [],
+          installLifecycleMetadata(
+            prepared,
+            {
+              dependencies: [],
+              bindings: [],
+              providerRevisions: new Map(),
+              providerFences: new Map(),
+            },
+            fixture.actorCell,
+          ),
+        );
+
+        const active = yield* withRuntime(activateLifecycle(installed, fixture.actorCell));
+        const controller = makeLifecycleController(active, fixture.actorCell);
+
+        const activeInstall = installLifecycleMetadata(
+          prepared,
+          {
+            dependencies: [dependency],
             bindings: [],
             providerRevisions: new Map(),
             providerFences: new Map(),
-          }),
+          },
+          fixture.actorCell,
         );
-
-        const active = yield* withRuntime(activateLifecycle(installed));
-        const controller = makeLifecycleController(active);
-
-        const activeInstall = installLifecycleMetadata(prepared, {
-          dependencies: [dependency],
-          bindings: [],
-          providerRevisions: new Map(),
-          providerFences: new Map(),
-        });
 
         assert.ok(Result.isFailure(activeInstall));
 
@@ -1259,12 +1494,16 @@ describe("actor lifecycle", () => {
 
         assert.strictEqual(disposed.lifecycle, "disposed");
 
-        const disposedInstall = installLifecycleMetadata(active, {
-          dependencies: [dependency],
-          bindings: [],
-          providerRevisions: new Map(),
-          providerFences: new Map(),
-        });
+        const disposedInstall = installLifecycleMetadata(
+          active,
+          {
+            dependencies: [dependency],
+            bindings: [],
+            providerRevisions: new Map(),
+            providerFences: new Map(),
+          },
+          fixture.actorCell,
+        );
 
         assert.ok(Result.isFailure(disposedInstall));
 
@@ -1282,11 +1521,11 @@ describe("actor lifecycle", () => {
       const entered = yield* Deferred.make<void>();
       const release = yield* Deferred.make<void>();
       let closes = 0;
-      const active = yield* withRuntime(activateLifecycle(makePrepared()));
+      const fixture = makePreparedFixture();
+      const active = yield* withRuntime(activateLifecycle(fixture.snapshot, fixture.actorCell));
 
       const resource: LifecycleResource<string> = {
         name: "gated-resource",
-        scope: Scope.makeUnsafe(),
         close: () =>
           Effect.gen(function* () {
             closes += 1;
@@ -1299,10 +1538,13 @@ describe("actor lifecycle", () => {
         cause: Option.none(),
       };
 
-      const controller = makeLifecycleController({
-        ...active,
-        attachment: { ...active.attachment, resources: [resource] },
-      });
+      const controller = makeLifecycleController(
+        {
+          ...active,
+          attachment: { ...active.attachment, resources: [resource] },
+        },
+        fixture.actorCell,
+      );
 
       const disposing = yield* Effect.forkChild(
         Effect.exit(
@@ -1337,7 +1579,6 @@ describe("actor lifecycle", () => {
         to: string;
         timestamp: number;
         publicationRevision: number;
-        machineTurnRevision: number;
         evidenceSequence: number;
         actorKey: string;
         actorIncarnation: number;
@@ -1347,15 +1588,15 @@ describe("actor lifecycle", () => {
       const evidenceOwner = makeRuntimeEvidenceOwner({
         app: LifecycleApp,
         plan: LifecyclePlan,
-        clock: { now: Effect.succeed(100), timestamp: () => 100, sleepUntil: () => Effect.void },
+        clock: makeTestClock(100),
       });
 
       const published: Array<unknown> = [];
       const actor = makeFence(LifecycleMachine, "evidence-controller");
+      const actorCell = makeActorCell();
 
       const layer = makeRuntimeServicesLayer({
-        clock: { now: Effect.succeed(100), timestamp: () => 100, sleepUntil: () => Effect.void },
-        scheduler: makeRuntimeScheduler(),
+        clock: makeTestClock(100),
         evidence: {
           ...evidenceOwner.service,
           publish: (snapshot) => Effect.sync(() => published.push(snapshot)),
@@ -1369,7 +1610,6 @@ describe("actor lifecycle", () => {
                 to: record.to,
                 timestamp: record.timestamp,
                 publicationRevision: record.publicationRevision,
-                machineTurnRevision: record.machineTurnRevision,
                 evidenceSequence: record.evidenceSequence,
                 actorKey: record.provenance.actor.key,
                 actorIncarnation: record.provenance.actor.incarnation,
@@ -1382,17 +1622,22 @@ describe("actor lifecycle", () => {
       const active = yield* withRuntime(
         runLifecycleCommand(
           resultSuccess(
-            prepareLifecycle<typeof LifecycleDefinition, string>(actor.fence, { _tag: "fresh" }),
+            prepareLifecycle<typeof LifecycleDefinition, string>(
+              actor.fence,
+              { _tag: "fresh" },
+              actorCell,
+            ),
           ),
           {
             _tag: "actor:start",
             cause: { _tag: "fresh" },
           },
+          actorCell,
         ),
         layer,
       );
 
-      const controller = makeLifecycleController(active);
+      const controller = makeLifecycleController(active, actorCell);
 
       const [suspended, resumed] = yield* Effect.all(
         [
@@ -1418,18 +1663,15 @@ describe("actor lifecycle", () => {
       assert.strictEqual(resumed.lifecycle, "active");
       assert.strictEqual(records.length, 3);
       assert.deepStrictEqual(
-        records.map(
-          ({ timestamp, publicationRevision, machineTurnRevision, evidenceSequence }) => ({
-            timestamp,
-            publicationRevision,
-            machineTurnRevision,
-            evidenceSequence,
-          }),
-        ),
+        records.map(({ timestamp, publicationRevision, evidenceSequence }) => ({
+          timestamp,
+          publicationRevision,
+          evidenceSequence,
+        })),
         [
-          { timestamp: 100, publicationRevision: 1, machineTurnRevision: 0, evidenceSequence: 1 },
-          { timestamp: 100, publicationRevision: 2, machineTurnRevision: 0, evidenceSequence: 2 },
-          { timestamp: 100, publicationRevision: 3, machineTurnRevision: 0, evidenceSequence: 3 },
+          { timestamp: 100, publicationRevision: 1, evidenceSequence: 1 },
+          { timestamp: 100, publicationRevision: 2, evidenceSequence: 2 },
+          { timestamp: 100, publicationRevision: 3, evidenceSequence: 3 },
         ],
       );
       assert.deepStrictEqual(
@@ -1479,7 +1721,7 @@ describe("actor lifecycle", () => {
       const owner = makeRuntimeEvidenceOwner({
         app: LifecycleApp,
         plan: LifecyclePlan,
-        clock: { now: Effect.succeed(100), timestamp: () => 100, sleepUntil: () => Effect.void },
+        clock: makeTestClock(100),
       });
 
       let failure: "publication" | "acceptance" | undefined = "publication";
@@ -1513,19 +1755,33 @@ describe("actor lifecycle", () => {
       };
 
       const layer = makeRuntimeServicesLayer({
-        clock: { now: Effect.succeed(100), timestamp: () => 100, sleepUntil: () => Effect.void },
-        scheduler: makeRuntimeScheduler(),
+        clock: makeTestClock(100),
         evidence: service,
       });
 
-      const prepared = () =>
-        resultSuccess(
-          prepareLifecycle<typeof LifecycleDefinition, string>(actor.fence, { _tag: "fresh" }),
-        );
+      const prepared = () => {
+        const actorCell = makeActorCell();
 
+        return {
+          snapshot: resultSuccess(
+            prepareLifecycle<typeof LifecycleDefinition, string>(
+              actor.fence,
+              { _tag: "fresh" },
+              actorCell,
+            ),
+          ),
+          actorCell,
+        };
+      };
+
+      const firstPrepared = prepared();
       const first = yield* Effect.exit(
         withRuntime(
-          runLifecycleCommand(prepared(), { _tag: "actor:start", cause: { _tag: "fresh" } }),
+          runLifecycleCommand(
+            firstPrepared.snapshot,
+            { _tag: "actor:start", cause: { _tag: "fresh" } },
+            firstPrepared.actorCell,
+          ),
           layer,
         ),
       );
@@ -1534,9 +1790,14 @@ describe("actor lifecycle", () => {
 
       failure = "acceptance";
 
+      const secondPrepared = prepared();
       const second = yield* Effect.exit(
         withRuntime(
-          runLifecycleCommand(prepared(), { _tag: "actor:start", cause: { _tag: "fresh" } }),
+          runLifecycleCommand(
+            secondPrepared.snapshot,
+            { _tag: "actor:start", cause: { _tag: "fresh" } },
+            secondPrepared.actorCell,
+          ),
           layer,
         ),
       );
@@ -1545,8 +1806,13 @@ describe("actor lifecycle", () => {
 
       failure = undefined;
 
+      const activePrepared = prepared();
       const active = yield* withRuntime(
-        runLifecycleCommand(prepared(), { _tag: "actor:start", cause: { _tag: "fresh" } }),
+        runLifecycleCommand(
+          activePrepared.snapshot,
+          { _tag: "actor:start", cause: { _tag: "fresh" } },
+          activePrepared.actorCell,
+        ),
         layer,
       );
 
@@ -1561,6 +1827,8 @@ describe("actor lifecycle", () => {
     Effect.gen(function* () {
       const first = makeFence(LifecycleMachine, "evidence-first");
       const second = makeFence(LifecycleMachine, "evidence-second");
+      const firstCell = makeActorCell();
+      const secondCell = makeActorCell();
 
       const records: Array<{
         app: App;
@@ -1573,12 +1841,11 @@ describe("actor lifecycle", () => {
       const evidenceOwner = makeRuntimeEvidenceOwner({
         app: LifecycleApp,
         plan: LifecyclePlan,
-        clock: { now: Effect.succeed(300), timestamp: () => 300, sleepUntil: () => Effect.void },
+        clock: makeTestClock(300),
       });
 
       const layer = makeRuntimeServicesLayer({
-        clock: { now: Effect.succeed(300), timestamp: () => 300, sleepUntil: () => Effect.void },
-        scheduler: makeRuntimeScheduler(),
+        clock: makeTestClock(300),
         evidence: {
           ...evidenceOwner.service,
           publish: () => Effect.void,
@@ -1599,9 +1866,14 @@ describe("actor lifecycle", () => {
         withRuntime(
           runLifecycleCommand(
             resultSuccess(
-              prepareLifecycle<typeof LifecycleDefinition, string>(owner.fence, { _tag: "fresh" }),
+              prepareLifecycle<typeof LifecycleDefinition, string>(
+                owner.fence,
+                { _tag: "fresh" },
+                owner === first ? firstCell : secondCell,
+              ),
             ),
             { _tag: "actor:start", cause: { _tag: "fresh" } },
+            owner === first ? firstCell : secondCell,
           ),
           layer,
         );
@@ -1634,18 +1906,18 @@ describe("actor lifecycle", () => {
   it.effect("retains a failed suspended state in the serialized controller", () =>
     Effect.gen(function* () {
       const actor = makeFence(LifecycleMachine, "controller-failure");
+      const actorCell = makeActorCell();
       const published: Array<unknown> = [];
       const accepted: Array<{ from: string; to: string }> = [];
 
       const evidenceOwner = makeRuntimeEvidenceOwner({
         app: LifecycleApp,
         plan: LifecyclePlan,
-        clock: { now: Effect.succeed(200), timestamp: () => 200, sleepUntil: () => Effect.void },
+        clock: makeTestClock(200),
       });
 
       const layer = makeRuntimeServicesLayer({
-        clock: { now: Effect.succeed(200), timestamp: () => 200, sleepUntil: () => Effect.void },
-        scheduler: makeRuntimeScheduler(),
+        clock: makeTestClock(200),
         evidence: {
           ...evidenceOwner.service,
           publish: (snapshot) => Effect.sync(() => published.push(snapshot)),
@@ -1657,24 +1929,31 @@ describe("actor lifecycle", () => {
       const active = yield* withRuntime(
         activateLifecycle(
           resultSuccess(
-            prepareLifecycle<typeof LifecycleDefinition, string>(actor.fence, { _tag: "fresh" }),
+            prepareLifecycle<typeof LifecycleDefinition, string>(
+              actor.fence,
+              { _tag: "fresh" },
+              actorCell,
+            ),
           ),
+          actorCell,
         ),
         layer,
       );
 
       const resource: LifecycleResource<string> = {
         name: "controller-failure",
-        scope: Scope.makeUnsafe(),
         close: () => Effect.fail("cleanup-failed" as const),
         finalization: "pending",
         cause: Option.none(),
       };
 
-      const controller = makeLifecycleController({
-        ...active,
-        attachment: { ...active.attachment, resources: [resource] },
-      });
+      const controller = makeLifecycleController(
+        {
+          ...active,
+          attachment: { ...active.attachment, resources: [resource] },
+        },
+        actorCell,
+      );
 
       const suspended = yield* Effect.exit(
         withRuntime(
@@ -1711,10 +1990,15 @@ describe("actor lifecycle", () => {
 
   it.effect("activates a prepared actor through one lifecycle command", () =>
     Effect.gen(function* () {
-      const prepared = makePrepared();
+      const fixture = makePreparedFixture();
+      const prepared = fixture.snapshot;
 
       const active = yield* withRuntime(
-        runLifecycleCommand(prepared, { _tag: "actor:start", cause: { _tag: "fresh" } }),
+        runLifecycleCommand(
+          prepared,
+          { _tag: "actor:start", cause: { _tag: "fresh" } },
+          fixture.actorCell,
+        ),
       );
 
       assert.strictEqual(active.lifecycle, "active");
@@ -1725,7 +2009,8 @@ describe("actor lifecycle", () => {
 
   it.effect("suspends after cancelling owned work", () =>
     Effect.gen(function* () {
-      const active = yield* withRuntime(activateLifecycle(makePrepared()));
+      const fixture = makePreparedFixture();
+      const active = yield* withRuntime(activateLifecycle(fixture.snapshot, fixture.actorCell));
       const order: string[] = [];
       const fiber = yield* Effect.forkChild(Effect.never);
 
@@ -1742,17 +2027,19 @@ describe("actor lifecycle", () => {
 
       const resource: LifecycleResource<string> = {
         name: "owned-resource",
-        scope: Scope.makeUnsafe(),
         close: () => Effect.sync(() => order.push("resource-close")),
         finalization: "pending",
         cause: Option.none(),
       };
 
       const suspended = yield* withRuntime(
-        suspendLifecycle({
-          ...active,
-          attachment: { ...active.attachment, work: [work], resources: [resource] },
-        }),
+        suspendLifecycle(
+          {
+            ...active,
+            attachment: { ...active.attachment, work: [work], resources: [resource] },
+          },
+          fixture.actorCell,
+        ),
       );
 
       assert.strictEqual(suspended.lifecycle, "suspended");
@@ -1762,7 +2049,8 @@ describe("actor lifecycle", () => {
 
   it.effect("resumes retained lifecycle data without duplicate work", () =>
     Effect.gen(function* () {
-      const active = yield* withRuntime(activateLifecycle(makePrepared()));
+      const fixture = makePreparedFixture();
+      const active = yield* withRuntime(activateLifecycle(fixture.snapshot, fixture.actorCell));
 
       const retainedTimer = {
         name: "retained",
@@ -1772,13 +2060,16 @@ describe("actor lifecycle", () => {
       };
 
       const suspended = yield* withRuntime(
-        suspendLifecycle({
-          ...active,
-          attachment: { ...active.attachment, timers: [retainedTimer] },
-        }),
+        suspendLifecycle(
+          {
+            ...active,
+            attachment: { ...active.attachment, timers: [retainedTimer] },
+          },
+          fixture.actorCell,
+        ),
       );
 
-      const resumed = yield* withRuntime(resumeLifecycle(suspended));
+      const resumed = yield* withRuntime(resumeLifecycle(suspended, fixture.actorCell));
       assert.strictEqual(resumed.lifecycle, "active");
       assert.deepStrictEqual(resumed.attachment.timers, [retainedTimer]);
       assert.deepStrictEqual(resumed.attachment.resources, []);
@@ -1788,7 +2079,8 @@ describe("actor lifecycle", () => {
 
   it.effect("disposes active work before lifecycle resources", () =>
     Effect.gen(function* () {
-      const active = yield* withRuntime(activateLifecycle(makePrepared()));
+      const fixture = makePreparedFixture();
+      const active = yield* withRuntime(activateLifecycle(fixture.snapshot, fixture.actorCell));
       const order: string[] = [];
       const fiber = yield* Effect.forkChild(Effect.never);
 
@@ -1805,17 +2097,19 @@ describe("actor lifecycle", () => {
 
       const resource: LifecycleResource<string> = {
         name: "dispose-resource",
-        scope: Scope.makeUnsafe(),
         close: () => Effect.sync(() => order.push("resource-close")),
         finalization: "pending",
         cause: Option.none(),
       };
 
       const disposed = yield* withRuntime(
-        disposeLifecycle({
-          ...active,
-          attachment: { ...active.attachment, work: [work], resources: [resource] },
-        }),
+        disposeLifecycle(
+          {
+            ...active,
+            attachment: { ...active.attachment, work: [work], resources: [resource] },
+          },
+          fixture.actorCell,
+        ),
       );
 
       assert.strictEqual(disposed.lifecycle, "disposed");
@@ -1825,12 +2119,13 @@ describe("actor lifecycle", () => {
 
   it.effect("routes retained pre-transition snapshots through the current owner state", () =>
     Effect.gen(function* () {
-      const active = yield* withRuntime(activateLifecycle(makePrepared()));
+      const fixture = makePreparedFixture();
+      const active = yield* withRuntime(activateLifecycle(fixture.snapshot, fixture.actorCell));
       const stale = active;
-      const suspended = yield* withRuntime(suspendLifecycle(active));
+      const suspended = yield* withRuntime(suspendLifecycle(active, fixture.actorCell));
       assert.strictEqual(suspended.lifecycle, "suspended");
 
-      const disposed = yield* withRuntime(disposeLifecycle(stale));
+      const disposed = yield* withRuntime(disposeLifecycle(stale, fixture.actorCell));
       assert.strictEqual(disposed.lifecycle, "disposed");
       assert.strictEqual(stale.lifecycle, "active");
     }),
@@ -1838,19 +2133,27 @@ describe("actor lifecycle", () => {
 
   it.effect("keeps disposed lifecycle terminal and idempotent", () =>
     Effect.gen(function* () {
-      const disposed = yield* withRuntime(
-        disposeLifecycle(yield* withRuntime(activateLifecycle(makePrepared()))),
-      );
+      const fixture = makePreparedFixture();
+      const active = yield* withRuntime(activateLifecycle(fixture.snapshot, fixture.actorCell));
+      const disposed = yield* withRuntime(disposeLifecycle(active, fixture.actorCell));
 
       const again = yield* withRuntime(
-        runLifecycleCommand(disposed, { _tag: "actor:dispose", cause: { _tag: "owner-disposal" } }),
+        runLifecycleCommand(
+          disposed,
+          { _tag: "actor:dispose", cause: { _tag: "owner-disposal" } },
+          fixture.actorCell,
+        ),
       );
 
       assert.strictEqual(again, disposed);
       assert.strictEqual(
         (yield* Effect.exit(
           withRuntime(
-            runLifecycleCommand(disposed, { _tag: "actor:start", cause: { _tag: "fresh" } }),
+            runLifecycleCommand(
+              disposed,
+              { _tag: "actor:start", cause: { _tag: "fresh" } },
+              fixture.actorCell,
+            ),
           ),
         ))._tag,
         "Failure",
@@ -1860,12 +2163,12 @@ describe("actor lifecycle", () => {
 
   it.effect("retains cleanup failure Cause on terminal disposal", () =>
     Effect.gen(function* () {
-      const active = yield* withRuntime(activateLifecycle(makePrepared()));
+      const fixture = makePreparedFixture();
+      const active = yield* withRuntime(activateLifecycle(fixture.snapshot, fixture.actorCell));
       const failure = "cleanup failed" as const;
 
       const resource: LifecycleResource<string> = {
         name: "failing-cleanup",
-        scope: Scope.makeUnsafe(),
         close: () => Effect.fail(failure),
         finalization: "pending",
         cause: Option.none(),
@@ -1873,10 +2176,13 @@ describe("actor lifecycle", () => {
 
       const result = yield* Effect.exit(
         withRuntime(
-          disposeLifecycle({
-            ...active,
-            attachment: { ...active.attachment, resources: [resource] },
-          }),
+          disposeLifecycle(
+            {
+              ...active,
+              attachment: { ...active.attachment, resources: [resource] },
+            },
+            fixture.actorCell,
+          ),
         ),
       );
 
@@ -1890,12 +2196,12 @@ describe("actor lifecycle", () => {
 
   it.effect("continues reverse cleanup after a finalizer defect", () =>
     Effect.gen(function* () {
-      const active = yield* withRuntime(activateLifecycle(makePrepared()));
+      const fixture = makePreparedFixture();
+      const active = yield* withRuntime(activateLifecycle(fixture.snapshot, fixture.actorCell));
       const order: string[] = [];
 
       const first: LifecycleResource<string> = {
         name: "first",
-        scope: Scope.makeUnsafe(),
         // oxlint-disable-next-line anti-slop/no-expected-failure-as-defect -- this defect fixture proves reverse cleanup continues after a finalizer defect.
         close: () => Effect.die("defect"),
         finalization: "pending",
@@ -1904,7 +2210,6 @@ describe("actor lifecycle", () => {
 
       const second: LifecycleResource<string> = {
         name: "second",
-        scope: Scope.makeUnsafe(),
         close: () => Effect.sync(() => order.push("second")),
         finalization: "pending",
         cause: Option.none(),
@@ -1912,10 +2217,13 @@ describe("actor lifecycle", () => {
 
       const result = yield* Effect.exit(
         withRuntime(
-          disposeLifecycle({
-            ...active,
-            attachment: { ...active.attachment, resources: [first, second] },
-          }),
+          disposeLifecycle(
+            {
+              ...active,
+              attachment: { ...active.attachment, resources: [first, second] },
+            },
+            fixture.actorCell,
+          ),
         ),
       );
 
@@ -1934,7 +2242,8 @@ describe("actor lifecycle", () => {
 
   it.effect("fulfills interrupted work completion during suspension", () =>
     Effect.gen(function* () {
-      const active = yield* withRuntime(activateLifecycle(makePrepared()));
+      const fixture = makePreparedFixture();
+      const active = yield* withRuntime(activateLifecycle(fixture.snapshot, fixture.actorCell));
       const fiber = yield* Effect.forkChild(Effect.never);
       const completion = yield* Deferred.make<Exit.Exit<void, string>>();
 
@@ -1949,7 +2258,10 @@ describe("actor lifecycle", () => {
       };
 
       yield* withRuntime(
-        suspendLifecycle({ ...active, attachment: { ...active.attachment, work: [work] } }),
+        suspendLifecycle(
+          { ...active, attachment: { ...active.attachment, work: [work] } },
+          fixture.actorCell,
+        ),
       );
       const exit = yield* Deferred.await(completion);
       assert.ok(Exit.isFailure(exit));
@@ -1958,15 +2270,14 @@ describe("actor lifecycle", () => {
     }),
   );
 
-  it.effect("keeps resource cleanup under the lifecycle scope", () =>
+  it.effect("keeps resource cleanup in lifecycle attachment order", () =>
     Effect.gen(function* () {
-      const active = yield* withRuntime(activateLifecycle(makePrepared()));
+      const fixture = makePreparedFixture();
+      const active = yield* withRuntime(activateLifecycle(fixture.snapshot, fixture.actorCell));
       let closed = 0;
-      const scope = yield* Scope.make("sequential");
 
       const resource: LifecycleResource<string> = {
         name: "scoped",
-        scope,
         close: () =>
           Effect.sync(() => {
             closed += 1;
@@ -1976,10 +2287,13 @@ describe("actor lifecycle", () => {
       };
 
       const suspended = yield* withRuntime(
-        suspendLifecycle({
-          ...active,
-          attachment: { ...active.attachment, resources: [resource] },
-        }),
+        suspendLifecycle(
+          {
+            ...active,
+            attachment: { ...active.attachment, resources: [resource] },
+          },
+          fixture.actorCell,
+        ),
       );
 
       assert.strictEqual(closed, 1);
@@ -1989,7 +2303,8 @@ describe("actor lifecycle", () => {
 
   it.effect("blocks lifecycle disposal while dependent edges remain", () =>
     Effect.gen(function* () {
-      const active = yield* withRuntime(activateLifecycle(makePrepared()));
+      const fixture = makePreparedFixture();
+      const active = yield* withRuntime(activateLifecycle(fixture.snapshot, fixture.actorCell));
 
       const blocked = {
         ...active,
@@ -2002,7 +2317,7 @@ describe("actor lifecycle", () => {
         },
       };
 
-      const result = yield* Effect.exit(withRuntime(disposeLifecycle(blocked)));
+      const result = yield* Effect.exit(withRuntime(disposeLifecycle(blocked, fixture.actorCell)));
       assert.ok(Exit.isFailure(result));
       assert.strictEqual(blocked.lifecycle, "active");
 
@@ -2018,6 +2333,11 @@ describe("actor lifecycle", () => {
     Effect.gen(function* () {
       const consumer = makeFence(ConsumerMachine, "retained-consumer");
       const provider = makeFence(ProviderMachine, "retained-provider");
+      const actorCell = makeActorCell<
+        typeof ConsumerDefinition,
+        string,
+        typeof ProviderDefinition
+      >();
 
       const binding = {
         slot: "selected",
@@ -2030,22 +2350,27 @@ describe("actor lifecycle", () => {
         prepareLifecycle<typeof ConsumerDefinition, string, typeof ProviderDefinition>(
           consumer.fence,
           { _tag: "fresh" },
+          actorCell,
         ),
       );
 
       const installed = resultSuccess(
-        installLifecycleMetadata(prepared, {
-          dependencies: [
-            { consumer: consumer.fence.key, provider: provider.fence.key, slot: "selected" },
-          ],
-          bindings: [binding],
-          providerRevisions: new Map([[provider.fence.key, 0]]),
-          providerFences: new Map([[provider.fence.key, provider.fence]]),
-        }),
+        installLifecycleMetadata(
+          prepared,
+          {
+            dependencies: [
+              { consumer: consumer.fence.key, provider: provider.fence.key, slot: "selected" },
+            ],
+            bindings: [binding],
+            providerRevisions: new Map([[provider.fence.key, 0]]),
+            providerFences: new Map([[provider.fence.key, provider.fence]]),
+          },
+          actorCell,
+        ),
       );
 
-      const active = yield* withRuntime(activateLifecycle(installed));
-      const suspended = yield* withRuntime(suspendLifecycle(active));
+      const active = yield* withRuntime(activateLifecycle(installed, actorCell));
+      const suspended = yield* withRuntime(suspendLifecycle(active, actorCell));
       assert.strictEqual(suspended.attachment.bindings[0]?.providerFence.key, provider.fence.key);
       assert.deepStrictEqual(
         suspended.attachment.dependencies.map((edge) => edge.provider),
@@ -2058,11 +2383,17 @@ describe("actor lifecycle", () => {
     Effect.gen(function* () {
       const consumer = makeFence(ConsumerMachine, "stale-resume-consumer");
       const provider = makeFence(ProviderMachine, "stale-resume-provider");
+      const actorCell = makeActorCell<
+        typeof ConsumerDefinition,
+        string,
+        typeof ProviderDefinition
+      >();
 
       const prepared = resultSuccess(
         prepareLifecycle<typeof ConsumerDefinition, string, typeof ProviderDefinition>(
           consumer.fence,
           { _tag: "fresh" },
+          actorCell,
         ),
       );
 
@@ -2074,17 +2405,21 @@ describe("actor lifecycle", () => {
       } satisfies ActorContextBinding<typeof ConsumerDefinition, typeof ProviderDefinition>;
 
       const installed = resultSuccess(
-        installLifecycleMetadata(prepared, {
-          dependencies: [],
-          bindings: [binding],
-          providerRevisions: new Map([[provider.fence.key, 0]]),
-          providerFences: new Map([[provider.fence.key, { ...provider.fence, generation: 1 }]]),
-        }),
+        installLifecycleMetadata(
+          prepared,
+          {
+            dependencies: [],
+            bindings: [binding],
+            providerRevisions: new Map([[provider.fence.key, 0]]),
+            providerFences: new Map([[provider.fence.key, { ...provider.fence, generation: 1 }]]),
+          },
+          actorCell,
+        ),
       );
 
-      const active = yield* withRuntime(activateLifecycle(installed));
-      const suspended = yield* withRuntime(suspendLifecycle(active));
-      const resumed = yield* Effect.exit(withRuntime(resumeLifecycle(suspended)));
+      const active = yield* withRuntime(activateLifecycle(installed, actorCell));
+      const suspended = yield* withRuntime(suspendLifecycle(active, actorCell));
+      const resumed = yield* Effect.exit(withRuntime(resumeLifecycle(suspended, actorCell)));
       assert.ok(Exit.isFailure(resumed));
 
       if (Exit.isFailure(resumed)) assert.strictEqual(Cause.hasFails(resumed.cause), true);
@@ -2093,7 +2428,9 @@ describe("actor lifecycle", () => {
 
   it.effect("retains absolute timer deadlines across suspension", () =>
     Effect.gen(function* () {
-      const active = yield* withRuntime(activateLifecycle(makePrepared()));
+      const activityFibers = yield* FiberMap.make<string, void, unknown>();
+      const fixture = makePreparedFixture(activityFibers);
+      const active = yield* withRuntime(activateLifecycle(fixture.snapshot, fixture.actorCell));
 
       const timer = {
         name: "deadline",
@@ -2104,12 +2441,15 @@ describe("actor lifecycle", () => {
       };
 
       const suspended = yield* withRuntime(
-        suspendLifecycle({ ...active, attachment: { ...active.attachment, timers: [timer] } }),
+        suspendLifecycle(
+          { ...active, attachment: { ...active.attachment, timers: [timer] } },
+          fixture.actorCell,
+        ),
       );
 
-      const resumed = yield* withRuntime(resumeLifecycle(suspended));
+      const resumed = yield* withRuntime(resumeLifecycle(suspended, fixture.actorCell));
       assert.strictEqual(resumed.attachment.timers[0]?.dueAt, 200);
-      yield* withRuntime(disposeLifecycle(resumed));
+      yield* withRuntime(disposeLifecycle(resumed, fixture.actorCell));
     }),
   );
 
@@ -2123,25 +2463,30 @@ describe("actor lifecycle", () => {
         key: occurrenceOperation.key(1),
         ordinal: 1,
       };
+      const actorCell = makeActorCell<typeof OccurrenceDefinition, string>();
 
       const prepared = resultSuccess(
-        prepareLifecycle<typeof OccurrenceDefinition, string>(fence, { _tag: "fresh" }),
+        prepareLifecycle<typeof OccurrenceDefinition, string>(fence, { _tag: "fresh" }, actorCell),
       );
 
       const installed = resultSuccess(
-        installLifecycleMetadata(prepared, {
-          dependencies: [],
-          bindings: [],
-          providerRevisions: new Map(),
-          providerFences: new Map(),
-        }),
+        installLifecycleMetadata(
+          prepared,
+          {
+            dependencies: [],
+            bindings: [],
+            providerRevisions: new Map(),
+            providerFences: new Map(),
+          },
+          actorCell,
+        ),
       );
 
+      const activeBase = yield* withRuntime(activateLifecycle(installed, actorCell));
       const active = {
-        ...installed,
-        lifecycle: "active" as const,
+        ...activeBase,
         attachment: {
-          ...installed.attachment,
+          ...activeBase.attachment,
           status: "attached" as const,
           operations: [
             {
@@ -2154,8 +2499,8 @@ describe("actor lifecycle", () => {
         },
       };
 
-      const suspended = yield* withRuntime(suspendLifecycle(active));
-      const resumed = yield* withRuntime(resumeLifecycle(suspended));
+      const suspended = yield* withRuntime(suspendLifecycle(active, actorCell));
+      const resumed = yield* withRuntime(resumeLifecycle(suspended, actorCell));
       const retained = resumed.attachment.operations[0]?.fence;
       assert.ok(retained !== undefined);
 
@@ -2233,27 +2578,29 @@ describe("actor lifecycle", () => {
       let cleanups = 0;
 
       const disposed = yield* withRuntime(
-        disposeLifecycle({
-          ...resumed,
-          attachment: {
-            ...resumed.attachment,
-            resources: [
-              {
-                name: "terminal-resource",
-                scope: Scope.makeUnsafe(),
-                close: () =>
-                  Effect.sync(() => {
-                    cleanups += 1;
-                  }),
-                finalization: "pending" as const,
-                cause: Option.none(),
-              },
-            ],
+        disposeLifecycle(
+          {
+            ...resumed,
+            attachment: {
+              ...resumed.attachment,
+              resources: [
+                {
+                  name: "terminal-resource",
+                  close: () =>
+                    Effect.sync(() => {
+                      cleanups += 1;
+                    }),
+                  finalization: "pending" as const,
+                  cause: Option.none(),
+                },
+              ],
+            },
           },
-        }),
+          actorCell,
+        ),
       );
 
-      const again = yield* withRuntime(disposeLifecycle(disposed));
+      const again = yield* withRuntime(disposeLifecycle(disposed, actorCell));
       assert.strictEqual(disposed.lifecycle, "disposed");
       assert.strictEqual(again, disposed);
       assert.strictEqual(cleanups, 1);
@@ -2264,16 +2611,25 @@ describe("actor lifecycle", () => {
 
   it.effect("restores prepared lifecycle before explicit activation", () =>
     Effect.gen(function* () {
-      const prepared = makePrepared();
+      const fixture = makePreparedFixture();
+      const prepared = fixture.snapshot;
 
       const restored = yield* withRuntime(
-        runLifecycleCommand(prepared, { _tag: "actor:restore", cause: { _tag: "restore" } }),
+        runLifecycleCommand(
+          prepared,
+          { _tag: "actor:restore", cause: { _tag: "restore" } },
+          fixture.actorCell,
+        ),
       );
 
       assert.strictEqual(restored.lifecycle, "prepared");
 
       const active = yield* withRuntime(
-        runLifecycleCommand(restored, { _tag: "actor:start", cause: { _tag: "fresh" } }),
+        runLifecycleCommand(
+          restored,
+          { _tag: "actor:start", cause: { _tag: "fresh" } },
+          fixture.actorCell,
+        ),
       );
 
       assert.strictEqual(active.lifecycle, "active");
@@ -2282,8 +2638,9 @@ describe("actor lifecycle", () => {
 
   it.effect("serializes competing lifecycle transitions", () =>
     Effect.gen(function* () {
-      const active = yield* withRuntime(activateLifecycle(makePrepared()));
-      const controller = makeLifecycleController(active);
+      const fixture = makePreparedFixture();
+      const active = yield* withRuntime(activateLifecycle(fixture.snapshot, fixture.actorCell));
+      const controller = makeLifecycleController(active, fixture.actorCell);
 
       const suspend = yield* Effect.forkChild(
         withRuntime(controller.command({ _tag: "actor:suspend", cause: { _tag: "attachment" } })),
@@ -2307,7 +2664,8 @@ describe("actor lifecycle", () => {
 
   it.effect("disposes an empty lifecycle without synthetic work", () =>
     Effect.gen(function* () {
-      const disposed = yield* withRuntime(disposeLifecycle(makePrepared()));
+      const fixture = makePreparedFixture();
+      const disposed = yield* withRuntime(disposeLifecycle(fixture.snapshot, fixture.actorCell));
       assert.strictEqual(disposed.lifecycle, "disposed");
       assert.deepStrictEqual(disposed.attachment.work, []);
       assert.deepStrictEqual(disposed.attachment.resources, []);
@@ -2319,19 +2677,23 @@ describe("actor lifecycle", () => {
       const owner = makeRuntimeEvidenceOwner({
         app: LifecycleApp,
         plan: LifecyclePlan,
-        clock: { now: Effect.succeed(77), timestamp: () => 77, sleepUntil: () => Effect.void },
+        clock: makeTestClock(77),
       });
 
       const records: unknown[] = [];
 
       const layer = makeRuntimeServicesLayer({
         clock: fixedClock,
-        scheduler: makeRuntimeScheduler(),
         evidence: { ...owner.service, accept: (record) => Effect.sync(() => records.push(record)) },
       });
 
+      const fixture = makePreparedFixture();
       const active = yield* withRuntime(
-        runLifecycleCommand(makePrepared(), { _tag: "actor:start", cause: { _tag: "fresh" } }),
+        runLifecycleCommand(
+          fixture.snapshot,
+          { _tag: "actor:start", cause: { _tag: "fresh" } },
+          fixture.actorCell,
+        ),
         layer,
       );
 
@@ -2350,12 +2712,12 @@ describe("actor lifecycle", () => {
 
   it.effect("linearizes repeated disposal during finalization", () =>
     Effect.gen(function* () {
-      const active = yield* withRuntime(activateLifecycle(makePrepared()));
+      const fixture = makePreparedFixture();
+      const active = yield* withRuntime(activateLifecycle(fixture.snapshot, fixture.actorCell));
       let closes = 0;
 
       const resource: LifecycleResource<string> = {
         name: "once",
-        scope: Scope.makeUnsafe(),
         close: () =>
           Effect.sync(() => {
             closes += 1;
@@ -2364,10 +2726,13 @@ describe("actor lifecycle", () => {
         cause: Option.none(),
       };
 
-      const controller = makeLifecycleController({
-        ...active,
-        attachment: { ...active.attachment, resources: [resource] },
-      });
+      const controller = makeLifecycleController(
+        {
+          ...active,
+          attachment: { ...active.attachment, resources: [resource] },
+        },
+        fixture.actorCell,
+      );
 
       const [first, second] = yield* Effect.all(
         [
@@ -2387,14 +2752,14 @@ describe("actor lifecycle", () => {
     }),
   );
 
-  it.effect("keeps failed resource cleanup visible across lifecycle recovery", () =>
+  it.effect("keeps failed resource cleanup visible across repeated disposal", () =>
     Effect.gen(function* () {
-      const active = yield* withRuntime(activateLifecycle(makePrepared()));
+      const fixture = makePreparedFixture();
+      const active = yield* withRuntime(activateLifecycle(fixture.snapshot, fixture.actorCell));
       let attempts = 0;
 
       const resource: LifecycleResource<string> = {
         name: "recoverable",
-        scope: Scope.makeUnsafe(),
         close: () =>
           Effect.sync(() => {
             attempts += 1;
@@ -2405,10 +2770,13 @@ describe("actor lifecycle", () => {
         cause: Option.none(),
       };
 
-      const controller = makeLifecycleController({
-        ...active,
-        attachment: { ...active.attachment, resources: [resource] },
-      });
+      const controller = makeLifecycleController(
+        {
+          ...active,
+          attachment: { ...active.attachment, resources: [resource] },
+        },
+        fixture.actorCell,
+      );
 
       const first = yield* Effect.exit(
         withRuntime(
@@ -2420,31 +2788,43 @@ describe("actor lifecycle", () => {
       const retained = yield* controller.state();
       assert.strictEqual(retained.finalization, "failed");
 
-      const second = yield* withRuntime(
-        controller.command({ _tag: "actor:dispose", cause: { _tag: "owner-disposal" } }),
+      const second = yield* Effect.exit(
+        withRuntime(
+          controller.command({ _tag: "actor:dispose", cause: { _tag: "owner-disposal" } }),
+        ),
       );
 
-      assert.strictEqual(second.lifecycle, "disposed");
-      assert.strictEqual(attempts, 2);
+      assert.ok(Exit.isFailure(second));
+      assert.deepStrictEqual(second, first);
+      assert.strictEqual(attempts, 1);
     }),
   );
 });
 
 describe("pending regression scenarios", () => {
-  // Setup: Extend the real lifecycle owner deadline fixture with a RuntimeClock adapter backed by the provided Effect Clock and an armed timer with a known absolute dueAt.
+  // Setup: Extend the real lifecycle owner deadline fixture with the provided Effect Clock and an armed timer with a known absolute dueAt.
   // Action: Suspend and resume the lifecycle owner, advance the controlled clock through the deadline, and observe scheduler registrations and refresh completion.
   // Assert: The retained dueAt is unchanged, an overdue timer schedules at most one refresh, and all timestamps and sleeps come from the supplied clock rather than wall time.
   it.effect("uses the provided Clock for retained timer deadlines across suspension", () =>
     Effect.gen(function* () {
-      const clock = makeRuntimeClock(yield* Clock.Clock);
+      const activityFibers = yield* FiberMap.make<string, void, unknown>();
+      const actor = makeFence(LifecycleMachine, "clock-deadline");
+      const actorCell = makeActorCell<typeof LifecycleDefinition, string>(activityFibers);
+      const prepared = resultSuccess(
+        prepareLifecycle<typeof LifecycleDefinition, string>(
+          actor.fence,
+          { _tag: "fresh" },
+          actorCell,
+        ),
+      );
+      const clock = yield* Clock.Clock;
 
       const testLayer = makeRuntimeServicesLayer({
         clock,
-        scheduler: makeRuntimeScheduler(),
         evidence,
       });
 
-      const active = yield* withRuntime(activateLifecycle(makePrepared()), testLayer);
+      const active = yield* withRuntime(activateLifecycle(prepared, actorCell), testLayer);
       let refreshes = 0;
 
       const timer = {
@@ -2459,14 +2839,17 @@ describe("pending regression scenarios", () => {
       };
 
       const suspended = yield* withRuntime(
-        suspendLifecycle({
-          ...active,
-          attachment: { ...active.attachment, timers: [timer] },
-        }),
+        suspendLifecycle(
+          {
+            ...active,
+            attachment: { ...active.attachment, timers: [timer] },
+          },
+          actorCell,
+        ),
         testLayer,
       );
 
-      const resumed = yield* withRuntime(resumeLifecycle(suspended), testLayer);
+      const resumed = yield* withRuntime(resumeLifecycle(suspended, actorCell), testLayer);
       const retained = resumed.attachment.timers[0];
 
       assert.strictEqual(retained?.dueAt, 50);
@@ -2476,8 +2859,14 @@ describe("pending regression scenarios", () => {
       assert.strictEqual(work.name, "timer:controlled-deadline");
 
       yield* TestClock.adjust(10);
-      const suspendedBeforeDue = yield* withRuntime(suspendLifecycle(resumed), testLayer);
-      const resumedAgain = yield* withRuntime(resumeLifecycle(suspendedBeforeDue), testLayer);
+      const suspendedBeforeDue = yield* withRuntime(
+        suspendLifecycle(resumed, actorCell),
+        testLayer,
+      );
+      const resumedAgain = yield* withRuntime(
+        resumeLifecycle(suspendedBeforeDue, actorCell),
+        testLayer,
+      );
       const rearmed = resumedAgain.attachment.work[0];
       assert.ok(rearmed !== undefined);
       assert.strictEqual(refreshes, 0);
@@ -2494,12 +2883,18 @@ describe("pending regression scenarios", () => {
 
       assert.strictEqual(refreshes, 1);
 
-      const suspendedAfterDue = yield* withRuntime(suspendLifecycle(resumedAgain), testLayer);
-      const resumedAfterDue = yield* withRuntime(resumeLifecycle(suspendedAfterDue), testLayer);
+      const suspendedAfterDue = yield* withRuntime(
+        suspendLifecycle(resumedAgain, actorCell),
+        testLayer,
+      );
+      const resumedAfterDue = yield* withRuntime(
+        resumeLifecycle(suspendedAfterDue, actorCell),
+        testLayer,
+      );
       assert.deepStrictEqual(resumedAfterDue.attachment.work, []);
       assert.strictEqual(refreshes, 1);
 
-      yield* withRuntime(disposeLifecycle(resumedAfterDue), testLayer);
+      yield* withRuntime(disposeLifecycle(resumedAfterDue, actorCell), testLayer);
     }).pipe(Effect.provide(TestClock.layer())),
   );
 
@@ -2508,18 +2903,22 @@ describe("pending regression scenarios", () => {
   // Assert: The interrupted overdue claim cannot replay its refresh or leave a second timer work item after resume.
   it.effect("does not replay an interrupted overdue retained timer claim", () =>
     Effect.gen(function* () {
-      const clock = makeRuntimeClock(yield* Clock.Clock);
+      const clock = yield* Clock.Clock;
+      const activityFibers = yield* FiberMap.make<string, void, unknown>();
       const entered = yield* Deferred.make<void>();
       const release = yield* Deferred.make<void>();
       let refreshes = 0;
 
       const testLayer = makeRuntimeServicesLayer({
         clock,
-        scheduler: makeRuntimeScheduler(),
         evidence,
       });
 
-      const active = yield* withRuntime(activateLifecycle(makePrepared()), testLayer);
+      const fixture = makePreparedFixture(activityFibers);
+      const active = yield* withRuntime(
+        activateLifecycle(fixture.snapshot, fixture.actorCell),
+        testLayer,
+      );
 
       const timer = {
         name: "interrupted-overdue",
@@ -2535,61 +2934,65 @@ describe("pending regression scenarios", () => {
       };
 
       const suspended = yield* withRuntime(
-        suspendLifecycle({ ...active, attachment: { ...active.attachment, timers: [timer] } }),
+        suspendLifecycle(
+          { ...active, attachment: { ...active.attachment, timers: [timer] } },
+          fixture.actorCell,
+        ),
         testLayer,
       );
 
-      const resumed = yield* withRuntime(resumeLifecycle(suspended), testLayer);
+      const resumed = yield* withRuntime(resumeLifecycle(suspended, fixture.actorCell), testLayer);
       yield* Deferred.await(entered);
 
-      const interrupted = yield* Effect.exit(withRuntime(suspendLifecycle(resumed), testLayer));
+      const interrupted = yield* Effect.exit(
+        withRuntime(suspendLifecycle(resumed, fixture.actorCell), testLayer),
+      );
 
       assert.ok(Exit.isSuccess(interrupted));
 
       const resumedAfterInterrupt = yield* withRuntime(
-        resumeLifecycle(interrupted.value),
+        resumeLifecycle(interrupted.value, fixture.actorCell),
         testLayer,
       );
 
       assert.deepStrictEqual(resumedAfterInterrupt.attachment.work, []);
       assert.strictEqual(refreshes, 0);
-      yield* withRuntime(disposeLifecycle(resumedAfterInterrupt), testLayer);
+      yield* withRuntime(disposeLifecycle(resumedAfterInterrupt, fixture.actorCell), testLayer);
     }).pipe(Effect.provide(TestClock.layer())),
   );
 
-  // Setup: Use a real LifecycleController with two work participants. One has a failed cancel, a fiber already completed with interruption, and an explicit retryable finalizer that fails once; the independent participant cleans successfully. Keep Scope finalizers separate.
-  // Action: Dispose and capture all stage outcomes; repair the explicit failed cancel/finalizer stages and retry through the same owner, then repeat disposal after release settles.
-  // Assert: First outcome retains typed failure, unsuppressed interruption and defect in execution order; sibling cleanup continues. Retry executes only failed explicit stages, observes the cached completion rather than restarting it, releases lifetime once, and retains the original non-suppressed cleanup Cause in the terminal result. Successful stage effects never replay and the actor never resumes after cleanup failure.
-  it.effect("retains mixed cleanup Causes and retries only failed cleanup stages", () =>
+  // Setup: Use a real LifecycleController with one failing resource cleanup.
+  // Action: Dispose twice and capture both terminal outcomes.
+  // Assert: The first outcome retains the typed failure, and the second call returns the cached Cause without replaying cleanup.
+  it.effect("retains a mixed cleanup Cause without retrying failed stages", () =>
     Effect.gen(function* () {
-      const active = yield* withRuntime(activateLifecycle(makePrepared()));
-      const scope = Scope.makeUnsafe();
+      const fixture = makePreparedFixture();
+      const active = yield* withRuntime(activateLifecycle(fixture.snapshot, fixture.actorCell));
       const closeFailure = "resource-close-failure" as const;
-      const scopeDefect = new Error("resource-scope-defect");
-      // oxlint-disable-next-line anti-slop/no-expected-failure-as-defect -- retain an actual defect beside the typed close failure in the mixed cleanup Cause proof.
-      yield* Scope.addFinalizer(scope, Effect.die(scopeDefect));
       let closeAttempts = 0;
 
-      const controller = makeLifecycleController({
-        ...active,
-        attachment: {
-          ...active.attachment,
-          resources: [
-            {
-              name: "mixed-cleanup",
-              scope,
-              close: () =>
-                Effect.sync(() => {
-                  closeAttempts += 1;
+      const controller = makeLifecycleController(
+        {
+          ...active,
+          attachment: {
+            ...active.attachment,
+            resources: [
+              {
+                name: "mixed-cleanup",
+                close: () =>
+                  Effect.sync(() => {
+                    closeAttempts += 1;
 
-                  return Effect.fail(closeFailure);
-                }).pipe(Effect.flatten),
-              finalization: "pending",
-              cause: Option.none(),
-            },
-          ],
+                    return Effect.fail(closeFailure);
+                  }).pipe(Effect.flatten),
+                finalization: "pending",
+                cause: Option.none(),
+              },
+            ],
+          },
         },
-      });
+        fixture.actorCell,
+      );
 
       const first = yield* Effect.exit(
         withRuntime(
@@ -2607,14 +3010,10 @@ describe("pending regression scenarios", () => {
       if (Option.isSome(retainedResource.cause)) {
         assert.deepStrictEqual(
           retainedResource.cause.value.reasons.map((reason) => reason._tag),
-          ["Fail", "Die"],
+          ["Fail"],
         );
         assert.strictEqual(
           retainedResource.cause.value.reasons.filter(Cause.isFailReason).length,
-          1,
-        );
-        assert.strictEqual(
-          retainedResource.cause.value.reasons.filter(Cause.isDieReason).length,
           1,
         );
       }
@@ -2626,7 +3025,8 @@ describe("pending regression scenarios", () => {
       );
 
       assert.ok(Exit.isFailure(second));
-      assert.strictEqual(closeAttempts, 2);
+      assert.deepStrictEqual(second, first);
+      assert.strictEqual(closeAttempts, 1);
     }),
   );
 
@@ -2651,42 +3051,51 @@ describe("pending regression scenarios", () => {
 
       assert.ok(Result.isSuccess(evidenceOwner.hub.attach(sink)));
 
-      const resourceScope = yield* Scope.make("sequential");
-      yield* Scope.addFinalizer(
-        resourceScope,
-        Effect.sync(() => order.push("scope-finalizer")),
-      );
-      const active = yield* withRuntime(activateLifecycle(makePrepared()));
+      const fixture = makePreparedFixture();
+      const active = yield* withRuntime(activateLifecycle(fixture.snapshot, fixture.actorCell));
 
-      const controller = makeLifecycleController({
-        ...active,
-        attachment: {
-          ...active.attachment,
-          resources: [
-            {
-              name: "retained-resource",
-              scope: resourceScope,
-              close: () => Effect.sync(() => order.push("resource-close")),
-              finalization: "pending",
-              cause: Option.none(),
-            },
-          ],
+      const controller = makeLifecycleController(
+        {
+          ...active,
+          attachment: {
+            ...active.attachment,
+            resources: [
+              {
+                name: "retained-resource",
+                close: () => Effect.sync(() => order.push("resource-close")),
+                finalization: "pending",
+                cause: Option.none(),
+              },
+            ],
+          },
         },
-      });
+        fixture.actorCell,
+      );
 
       const services = makeRuntimeServicesLayer({
         clock: fixedClock,
-        scheduler: makeRuntimeScheduler(),
         evidence: evidenceOwner.service,
       });
 
-      const owner = makeLifecycleRuntimeOwner({
+      const owner = makeRuntimeOwner<
+        never,
+        never,
+        never,
+        undefined,
+        never,
+        never,
+        PublicDiagnostic
+      >({
+        layer: Layer.empty,
+        expose: Effect.succeed(undefined),
         drain: evidenceOwner.service.drain,
       });
 
       owner.registerActor({
         dispose: () =>
-          controller.command({ _tag: "actor:dispose", cause: { _tag: "owner-disposal" } }),
+          controller
+            .command({ _tag: "actor:dispose", cause: { _tag: "owner-disposal" } })
+            .pipe(Effect.provide(services), Effect.asVoid),
       });
       owner.registerProvider(
         Effect.gen(function* () {
@@ -2695,72 +3104,40 @@ describe("pending regression scenarios", () => {
         }),
       );
 
-      yield* Effect.provide(owner.dispose(), services);
-      assert.deepStrictEqual(order, ["resource-close", "scope-finalizer", "sink-closed"]);
+      yield* Effect.provide(owner.ready(), services);
+      yield* Effect.provide(owner.close(), services);
+      assert.deepStrictEqual(order, ["resource-close", "sink-closed"]);
     }),
   );
 
-  // Setup: Acquire a real scoped lifecycle resource whose Scope finalizer records one call and dies; keep explicit retryable release separate from that finalizer.
-  // Action: Dispose through the real owner, await lifetime release and its failed terminal Exit, then dispose again.
-  // Assert: The Scope finalizer runs once and both calls retain the same terminal cleanup Cause. No Scope-close retry or successful disposal result is fabricated; cleanup-failure truth remains suspended and resume is blocked.
-  it.effect("retains a Scope finalizer failure as terminal cleanup truth", () =>
+  // Setup: Use the shared RuntimeOwner close authority with one failing terminal release.
+  // Action: Close twice and inspect both terminal Exits.
+  // Assert: The release runs once and both calls retain the same cleanup Cause.
+  it.effect("retains a runtime owner failure as terminal cleanup truth", () =>
     Effect.gen(function* () {
-      const active = yield* withRuntime(activateLifecycle(makePrepared()));
-      const scope = Scope.makeUnsafe();
-      const defect = new Error("terminal-scope-defect");
+      const defect = new Error("terminal-owner-defect");
       let finalizers = 0;
-      yield* Scope.addFinalizer(
-        scope,
-        Effect.gen(function* () {
+      const owner = makeRuntimeOwner({
+        layer: Layer.empty,
+        expose: Effect.void,
+        close: Effect.gen(function* () {
           finalizers += 1;
-          // oxlint-disable-next-line anti-slop/no-expected-failure-as-defect -- this terminal Scope finalizer must preserve defect classification across repeated disposal.
+          // oxlint-disable-next-line anti-slop/no-expected-failure-as-defect -- this terminal owner release must preserve defect classification across repeated close calls.
           yield* Effect.die(defect);
         }),
-      );
-
-      const controller = makeLifecycleController({
-        ...active,
-        attachment: {
-          ...active.attachment,
-          resources: [
-            {
-              name: "terminal-scope",
-              scope,
-              close: () => Effect.void,
-              finalization: "pending",
-              cause: Option.none(),
-            },
-          ],
-        },
       });
 
-      const first = yield* Effect.exit(
-        withRuntime(
-          controller.command({ _tag: "actor:dispose", cause: { _tag: "owner-disposal" } }),
-        ),
-      );
-
-      const firstState = yield* controller.state();
-
-      const second = yield* Effect.exit(
-        withRuntime(
-          controller.command({ _tag: "actor:dispose", cause: { _tag: "owner-disposal" } }),
-        ),
-      );
+      const first = yield* Effect.exit(owner.close());
+      const second = yield* Effect.exit(owner.close());
 
       assert.ok(Exit.isFailure(first));
-      assert.ok(Exit.isSuccess(second));
+      assert.ok(Exit.isFailure(second));
+      assert.deepStrictEqual(second, first);
       assert.strictEqual(finalizers, 1);
 
       if (Exit.isFailure(first)) {
-        assert.strictEqual(Cause.hasFails(first.cause), true);
+        assert.strictEqual(Cause.hasDies(first.cause), true);
       }
-
-      const resource = firstState.attachment.resources[0];
-      assert.ok(resource !== undefined);
-
-      if (Option.isSome(resource.cause))
-        assert.strictEqual(Cause.hasDies(resource.cause.value), true);
     }),
   );
 });

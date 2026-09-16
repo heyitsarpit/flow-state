@@ -28,7 +28,7 @@ import { makeEvidenceSink } from "../evidence.js";
 import { ACTOR_MAILBOX_CAPACITY, prepareActorSnapshot } from "../actor-engine.js";
 import type { ActorSnapshot, ActorStore, PreparedActorSnapshot } from "../actor-engine.js";
 import type { EvidenceRecord } from "../evidence.js";
-import { RuntimeClock, RuntimeEvidence, RuntimeScheduler } from "../runtime-services.js";
+import { RuntimeEvidence } from "../runtime-services.js";
 import { runtimeOwner, runtimeSetup } from "../runtime.js";
 import { runtimeSetupForAdmissionTest, type RuntimeAdmissionPhase } from "../runtime-test-seam.js";
 
@@ -579,8 +579,7 @@ describe("runtime assembly integration", () => {
 
       const serviceObservations: Array<{
         evidenceHub: unknown;
-        clock: unknown;
-        scheduler: unknown;
+        clock: Clock.Clock;
       }> = [];
 
       const actor = yield* assembly.createActor({
@@ -592,12 +591,10 @@ describe("runtime assembly integration", () => {
         onCommand: () =>
           Effect.gen(function* () {
             const evidence = yield* Effect.service(RuntimeEvidence);
-            const clock = yield* Effect.service(RuntimeClock);
-            const scheduler = yield* Effect.service(RuntimeScheduler);
+            const clock = yield* Effect.service(Clock.Clock);
             serviceObservations.push({
               evidenceHub: evidence.hub,
               clock,
-              scheduler,
             });
             yield* Deferred.succeed(commandSeen, undefined);
           }),
@@ -642,14 +639,7 @@ describe("runtime assembly integration", () => {
       assert.deepStrictEqual(receipt, { publicationRevision: 2, evidenceSequence: 5 });
       assert.strictEqual(serviceObservations.length, 1);
       assert.strictEqual(serviceObservations[0]?.evidenceHub, assembly.evidence.hub);
-      assert.strictEqual(
-        serviceObservations[0]?.clock,
-        Context.get(assembly.context, RuntimeClock),
-      );
-      assert.strictEqual(
-        serviceObservations[0]?.scheduler,
-        Context.get(assembly.context, RuntimeScheduler),
-      );
+      assert.strictEqual(serviceObservations[0]?.clock, Context.get(assembly.context, Clock.Clock));
 
       const suspended = yield* Effect.provideContext(
         actor.lifecycle.command({
@@ -1550,7 +1540,11 @@ describe("runtime assembly integration", () => {
       assert.strictEqual((yield* provider.lifecycle.state()).attachment.dependencies.length, 0);
 
       runtimeEvidence.publish = originalPublish;
-      yield* Effect.provideContext(consumer.dispose(), assembly.context);
+      const repeatedDispose = yield* Effect.exit(
+        Effect.provideContext(consumer.dispose(), assembly.context),
+      );
+      assert.ok(Exit.isFailure(repeatedDispose));
+      assert.deepStrictEqual(repeatedDispose, firstDispose);
 
       const recreated = yield* Effect.exit(
         assembly.createActor({
@@ -1565,11 +1559,12 @@ describe("runtime assembly integration", () => {
       if (Exit.isFailure(recreated)) {
         const reason = recreated.cause.reasons.find(Cause.isFailReason);
         assert.ok(reason !== undefined);
-        assert.strictEqual(reason.error.code, "DisposedActorRef");
+        assert.strictEqual(reason.error.code, "DuplicateActorClaim");
       }
 
       yield* Effect.provideContext(provider.dispose(), assembly.context);
-      yield* runtimeOwner(runtime).close();
+      const shutdown = yield* Effect.exit(runtimeOwner(runtime).close());
+      assert.ok(Exit.isFailure(shutdown));
     }),
   );
 });
@@ -1628,11 +1623,12 @@ describe("pending regression scenarios", () => {
       yield* assembly.evidence.hub.drain();
 
       const actorATurn = records.find(
-        (record) => record._tag === "turn" && record.provenance.actor.key === actorA.fence.key,
+        (record): record is Extract<EvidenceRecord, { _tag: "turn" }> =>
+          record._tag === "turn" && record.provenance.actor.key === actorA.fence.key,
       );
 
       const actorBSuspend = records.find(
-        (record) =>
+        (record): record is Extract<EvidenceRecord, { _tag: "lifecycle" }> =>
           record._tag === "lifecycle" &&
           record.provenance.actor.key === actorB.fence.key &&
           record.to === "suspended",
@@ -1642,7 +1638,6 @@ describe("pending regression scenarios", () => {
       assert.ok(actorBSuspend !== undefined);
 
       assert.strictEqual(actorATurn.machineTurnRevision, 1);
-      assert.strictEqual(actorBSuspend.machineTurnRevision, 0);
       assert.ok(actorBSuspend.publicationRevision > 0);
 
       const sequences = records.map(sequenceOf);
@@ -1659,8 +1654,8 @@ describe("pending regression scenarios", () => {
   );
 
   // Setup: Run the assembled runtime's readiness and lifecycle operations under the provided TestClock with a known virtual time, then attach an evidence sink before lifecycle publication.
-  // Action: Read the assembled RuntimeClock and publish an actor lifecycle transition, then drain lifecycle evidence without consulting wall time.
-  // Assert: RuntimeClock.now and the LifecycleRecord timestamp equal the virtual clock value, and no Date.now epoch value appears in the assembled lifecycle evidence.
+  // Action: Read the assembled Effect Clock and publish an actor lifecycle transition, then drain lifecycle evidence without consulting wall time.
+  // Assert: The supplied Clock and LifecycleRecord timestamp equal the virtual clock value, and no Date.now epoch value appears in assembled lifecycle evidence.
   it.effect("uses the provided Effect Clock for assembled lifecycle evidence", () =>
     Effect.gen(function* () {
       const runtime = runtimeSetup({ app: IntegrationApp }).construct();
@@ -1681,10 +1676,10 @@ describe("pending regression scenarios", () => {
         initial: initialStandaloneSnapshot(),
       });
 
-      const runtimeClock = Context.get(assembly.context, RuntimeClock);
+      const runtimeClock = Context.get(assembly.context, Clock.Clock);
       const expected = yield* Clock.currentTimeMillis;
 
-      assert.strictEqual(yield* runtimeClock.now, expected);
+      assert.strictEqual(yield* runtimeClock.currentTimeMillis, expected);
       yield* Effect.provideContext(
         actor.lifecycle.command({
           _tag: "actor:suspend",
@@ -2731,7 +2726,7 @@ describe("pending regression scenarios", () => {
     }).pipe(Effect.provide(TestClock.layer())),
   );
 
-  // RET2: Use the assembled runtime owner with real actor scopes, a real evidence sink, and a registered provider failure. A failed actor release retains the actors and defers evidence/providers; the retry then drains evidence before providers and retains the later Cause.
+  // RET2: Use the assembled runtime owner with real actor scopes, a real evidence sink, and a registered provider failure. One close attempt releases actors, drains evidence, releases providers, and caches the complete Cause.
   it.effect("RET2 assembled runtime retains ordered shutdown Causes", () =>
     Effect.gen(function* () {
       const runtime = runtimeSetup({ app: IntegrationApp }).construct();
@@ -2763,7 +2758,7 @@ describe("pending regression scenarios", () => {
                 scope,
                 Effect.gen(function* () {
                   order.push(id);
-                  // oxlint-disable-next-line anti-slop/no-expected-failure-as-defect -- this finalizer deliberately defects so runtime close proves full Cause retention and deferred retry.
+                  // oxlint-disable-next-line anti-slop/no-expected-failure-as-defect -- this finalizer deliberately defects so runtime close proves full Cause retention.
                   yield* Effect.die(defect);
                 }),
               );
@@ -2786,7 +2781,7 @@ describe("pending regression scenarios", () => {
       yield* Deferred.await(secondEntered);
       yield* second.engine.drain();
 
-      assembly.lifecycle.registerProvider(
+      runtimeOwner(runtime).registerProvider(
         Effect.gen(function* () {
           order.push("provider");
           // oxlint-disable-next-line anti-slop/no-expected-failure-as-defect -- this provider deliberately defects so runtime close proves ordered defect-Cause retention.
@@ -2796,37 +2791,30 @@ describe("pending regression scenarios", () => {
 
       const shutdown = yield* Effect.exit(runtimeOwner(runtime).close());
       assert.ok(Exit.isFailure(shutdown));
-      assert.deepStrictEqual(order, ["assembled-second", "assembled-first"]);
+      assert.deepStrictEqual(order.slice(0, 2), ["assembled-second", "assembled-first"]);
+      assert.strictEqual(order.at(-1), "provider");
+      assert.ok(order.slice(2, -1).length > 0);
+      assert.ok(order.slice(2, -1).every((entry) => entry === "sink-delivery"));
 
       if (Exit.isFailure(shutdown)) {
         const defects = shutdown.cause.reasons
           .filter(Cause.isDieReason)
           .map((reason) => reason.defect);
 
-        assert.deepStrictEqual(defects, [secondDefect, firstDefect]);
+        assert.deepStrictEqual(defects, [secondDefect, firstDefect, providerDefect]);
       }
 
       const retry = yield* Effect.exit(runtimeOwner(runtime).close());
       assert.ok(Exit.isFailure(retry));
-      assert.deepStrictEqual(order.slice(0, 2), ["assembled-second", "assembled-first"]);
-      assert.strictEqual(order.at(-1), "provider");
-      assert.ok(order.slice(2, -1).length > 0);
-      assert.ok(order.slice(2, -1).every((entry) => entry === "sink-delivery"));
-
-      if (Exit.isFailure(retry)) {
-        const defects = retry.cause.reasons
-          .filter(Cause.isDieReason)
-          .map((reason) => reason.defect);
-
-        assert.deepStrictEqual(defects, [providerDefect]);
-      }
+      assert.deepStrictEqual(retry, shutdown);
+      assert.strictEqual(order.filter((entry) => entry === "provider").length, 1);
     }),
   );
 
-  // Setup: Assemble one real actor Scope whose finalizer fails once during runtime shutdown and a real evidence sink.
-  // Action: Close the runtime, retain the failed actor Exit, then retry the same production owner close.
-  // Assert: The first close retains the actor Cause and does not drain the sink; the retry releases the retained actor registration, drains evidence, and does not replay the actor finalizer.
-  it.effect("retries a failed assembled actor release before evidence close", () =>
+  // Setup: Assemble one real actor Scope whose finalizer fails during runtime shutdown and a real evidence sink.
+  // Action: Close the runtime twice and inspect both terminal Exits and the release trace.
+  // Assert: The first close retains the actor Cause and drains evidence before provider close; the second close returns the same cached Exit without replaying cleanup.
+  it.effect("caches a failed assembled actor release before evidence close", () =>
     Effect.gen(function* () {
       const runtime = runtimeSetup({ app: IntegrationApp }).construct();
       yield* runtime.ready();
@@ -2854,7 +2842,7 @@ describe("pending regression scenarios", () => {
               Effect.gen(function* () {
                 order.push("actor-finalizer");
                 yield* Deferred.succeed(entered, undefined);
-                // oxlint-disable-next-line anti-slop/no-expected-failure-as-defect -- this one-shot finalizer defect proves the owner retains cleanup Cause and releases it on retry.
+                // oxlint-disable-next-line anti-slop/no-expected-failure-as-defect -- this one-shot finalizer defect proves the owner retains cleanup Cause.
                 yield* Effect.die(defect);
               }),
             );
@@ -2868,7 +2856,7 @@ describe("pending regression scenarios", () => {
 
       const first = yield* Effect.exit(runtimeOwner(runtime).close());
       assert.ok(Exit.isFailure(first));
-      assert.deepStrictEqual(order, ["actor-finalizer"]);
+      assert.deepStrictEqual(order.slice(0, 1), ["actor-finalizer"]);
       assert.strictEqual(Deferred.isDoneUnsafe(entered), true);
 
       if (Exit.isFailure(first)) {
@@ -2880,10 +2868,8 @@ describe("pending regression scenarios", () => {
       }
 
       const second = yield* Effect.exit(runtimeOwner(runtime).close());
-      assert.ok(Exit.isSuccess(second));
-      assert.strictEqual(order[0], "actor-finalizer");
-      assert.ok(order.slice(1).length > 0);
-      assert.ok(order.slice(1).every((entry) => entry === "sink-delivery"));
+      assert.ok(Exit.isFailure(second));
+      assert.deepStrictEqual(second, first);
       assert.strictEqual(order.filter((entry) => entry === "actor-finalizer").length, 1);
     }),
   );

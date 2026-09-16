@@ -1,13 +1,15 @@
 // oxlint-disable-next-line anti-slop/no-large-production-file -- lifecycle, cleanup, and evidence form one owner boundary.
 import {
+  Clock,
   Cause,
   Deferred,
+  Duration,
   Effect,
   Exit,
   Fiber,
+  FiberMap,
   Option,
   Result,
-  Scope,
   SynchronizedRef,
 } from "effect";
 
@@ -29,10 +31,7 @@ import type {
 } from "./actor-admission.js";
 import type { OperationOccurrenceFence } from "./turn-plan.js";
 import {
-  RuntimeClock,
   RuntimeEvidence,
-  RuntimeScheduler,
-  type RuntimeRunningFiber,
   type RuntimeEvidenceService,
   type RuntimeLifecycleEvidence,
   type RuntimeServiceContext,
@@ -68,7 +67,6 @@ export type LifecycleCommand<CleanupError> =
 /** A resource is closed by its actor owner and retains its exact finalizer Cause. */
 export type LifecycleResource<CleanupError> = {
   name: string;
-  scope: Scope.Scope;
   close: (exit: Exit.Exit<void, CleanupError>) => Effect.Effect<void, CleanupError>;
   /** Continuing resources provide a fresh owner-scoped resource on resume. */
   reacquire?: () => Effect.Effect<LifecycleResource<CleanupError>, CleanupError>;
@@ -185,42 +183,28 @@ type TimerClaim = {
   status: "claimed" | "fired";
 };
 
-type LifecycleOwner<Snapshot extends LifecycleStateKey> = {
-  scope: Scope.Closeable;
+/** Mutable lifecycle protocol installed on and owned by one ActorCell. */
+export type ActorCellProtocolState<Snapshot extends LifecycleStateKey> = {
   current: Snapshot | undefined;
+  publicationRevision: number;
+  cleanupCause: Cause.Cause<unknown> | undefined;
+  /** The complete terminal result after lifecycle evidence settles. */
+  disposalExit: Exit.Exit<Snapshot, PublicDiagnostic> | undefined;
+  /** The cleanup-stage result used by direct lifecycle disposal callers. */
+  disposalAttempt: Exit.Exit<Snapshot, PublicDiagnostic> | undefined;
   controllerBound: boolean;
   routing: { current: "open" | "blocked"; generation: number };
-  scopeClosed: boolean;
   timerClaims: Map<string, TimerClaim>;
   overdueGeneration: number | undefined;
 };
 
-const lifecycleOwnerSymbol = Symbol("flow-state/lifecycle-owner");
-
-type OwnedLifecycleStateKey<Snapshot extends LifecycleStateKey> = Snapshot & {
-  [lifecycleOwnerSymbol]: {
-    owner: LifecycleOwner<Snapshot>;
-    publicationRevision: number;
-    cleanupCause?: Cause.Cause<unknown>;
-  };
+export type ActorCell<Snapshot extends LifecycleStateKey> = {
+  activityFibers: FiberMap.FiberMap<string, void, unknown> | undefined;
+  protocol: ActorCellProtocolState<Snapshot> | undefined;
 };
 
-// RETURN_TYPE: This private symbol guard narrows the owner-only lifecycle capability.
-const hasLifecycleOwner = <Snapshot extends LifecycleStateKey>(
-  state: Snapshot,
-): state is OwnedLifecycleStateKey<Snapshot> => lifecycleOwnerSymbol in state;
-
-const lifecycleOwnerOf = <Snapshot extends LifecycleStateKey>(state: Snapshot) => {
-  if (!hasLifecycleOwner(state)) return undefined;
-
-  return state[lifecycleOwnerSymbol].owner;
-};
-
-const lifecycleMetadataOf = <Snapshot extends LifecycleStateKey>(state: Snapshot) => {
-  if (!hasLifecycleOwner(state)) return undefined;
-
-  return state[lifecycleOwnerSymbol];
-};
+const actorCellProtocolOf = <Snapshot extends LifecycleStateKey>(actorCell: ActorCell<Snapshot>) =>
+  actorCell.protocol;
 
 const copyFence = (fence: ActorFence) => copyObject({ ...fence });
 
@@ -362,10 +346,10 @@ const rememberState = <
   CleanupError,
   ProviderDefinition extends MachineDefinition,
 >(
-  input: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
+  actorCell: ActorCell<LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>>,
   next: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
 ) => {
-  const owner = lifecycleOwnerOf(input);
+  const owner = actorCellProtocolOf(actorCell);
 
   if (owner !== undefined) owner.current = next;
 };
@@ -376,8 +360,9 @@ const currentState = <
   ProviderDefinition extends MachineDefinition,
 >(
   state: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
+  actorCell: ActorCell<LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>>,
 ) => {
-  const owner = lifecycleOwnerOf(state);
+  const owner = actorCellProtocolOf(actorCell);
 
   if (owner === undefined) return state;
 
@@ -386,16 +371,12 @@ const currentState = <
 
   const current = owner.current;
 
-  const inputRevision = lifecycleMetadataOf(state)?.publicationRevision;
-  const currentRevision = lifecycleMetadataOf(current)?.publicationRevision;
-
-  if (
-    state !== current &&
-    (inputRevision !== currentRevision || !sameFence(state.fence, current.fence))
-  )
-    return current;
-
-  return state;
+  // A lifecycle snapshot is a value projection. Callers may enrich that value with
+  // attachment data before the next transition, so only a lifecycle/fence mismatch
+  // is treated as an older owner view; matching values remain the explicit input.
+  return state.lifecycle === current.lifecycle && sameFence(state.fence, current.fence)
+    ? state
+    : current;
 };
 
 const ownerState = <
@@ -404,8 +385,9 @@ const ownerState = <
   ProviderDefinition extends MachineDefinition,
 >(
   state: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
+  actorCell: ActorCell<LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>>,
 ) => {
-  const owner = lifecycleOwnerOf(state);
+  const owner = actorCellProtocolOf(actorCell);
 
   if (owner === undefined) return state;
 
@@ -485,6 +467,7 @@ const copySnapshot = <
   CleanupError,
   ProviderDefinition extends MachineDefinition,
 >(
+  actorCell: ActorCell<LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>>,
   state: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
   lifecycle: ActorLifecycle,
   attachment: LifecycleAttachment<DefinitionValue, CleanupError, ProviderDefinition>,
@@ -495,27 +478,20 @@ const copySnapshot = <
   >["finalization"],
   cleanupCause?: Cause.Cause<CleanupError>,
 ) => {
-  const metadata =
-    cleanupCause === undefined
-      ? {
-          owner: lifecycleOwnerOf(state)!,
-          publicationRevision: (lifecycleMetadataOf(state)?.publicationRevision ?? 0) + 1,
-        }
-      : {
-          owner: lifecycleOwnerOf(state)!,
-          publicationRevision: (lifecycleMetadataOf(state)?.publicationRevision ?? 0) + 1,
-          cleanupCause,
-        };
+  const owner = actorCellProtocolOf(actorCell);
+
+  if (owner === undefined) throw new Error("Lifecycle snapshot has no ActorCell protocol");
+  owner.publicationRevision += 1;
+  if (cleanupCause !== undefined) owner.cleanupCause = cleanupCause;
 
   const next = copyObject({
     lifecycle,
     fence: copyFence(state.fence),
     attachment,
     finalization,
-    [lifecycleOwnerSymbol]: metadata,
   });
 
-  rememberState(state, next);
+  rememberState(actorCell, next);
 
   return next;
 };
@@ -562,7 +538,7 @@ export const transitionLifecycle = <CleanupError>(
   return Result.succeed({ from: state, to, command, cause: command.cause });
 };
 
-/** Creates a prepared actor with no live attachment resources and one actor Scope. */
+/** Creates a prepared actor with no live attachment resources or activity fibers. */
 // RETURN_TYPE: The public preparation boundary preserves its generic snapshot type.
 export const prepareLifecycle = <
   DefinitionValue extends MachineDefinition,
@@ -571,6 +547,7 @@ export const prepareLifecycle = <
 >(
   fence: ActorFence,
   cause: LifecycleCause<CleanupError>,
+  actorCell: ActorCell<LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>>,
 ): Result.Result<
   LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
   PublicDiagnostic
@@ -579,6 +556,8 @@ export const prepareLifecycle = <
 
   if (cause._tag !== "fresh" && cause._tag !== "restore")
     return Result.fail(invalidSnapshot("prepare-cause"));
+
+  if (actorCell.protocol !== undefined) return Result.fail(invalidSnapshot("actor-cell-in-use"));
 
   const snapshot = copyObject({
     lifecycle: "prepared" as const,
@@ -597,26 +576,24 @@ export const prepareLifecycle = <
     finalization: "not-started" as const,
   });
 
-  const owner: LifecycleOwner<
+  const owner: ActorCellProtocolState<
     LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>
   > = {
-    scope: Scope.makeUnsafe("sequential"),
-    current: snapshot,
+    current: undefined,
+    publicationRevision: 0,
+    cleanupCause: undefined,
+    disposalExit: undefined,
+    disposalAttempt: undefined,
     controllerBound: false,
     routing: { current: "blocked", generation: 0 },
-    scopeClosed: false,
     timerClaims: new Map(),
     overdueGeneration: undefined,
   };
 
-  const owned = copyObject({
-    ...snapshot,
-    [lifecycleOwnerSymbol]: { owner, publicationRevision: 0 },
-  });
+  actorCell.protocol = owner;
+  owner.current = snapshot;
 
-  owner.current = owned;
-
-  return Result.succeed(owned);
+  return Result.succeed(snapshot);
 };
 
 /** Installs admitted context metadata without creating a lifecycle transition or publication. */
@@ -627,9 +604,10 @@ export const installLifecycleMetadata = <
 >(
   input: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
   metadata: LifecycleAttachmentMetadata<DefinitionValue, ProviderDefinition>,
+  actorCell: ActorCell<LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>>,
 ) => {
-  if (lifecycleOwnerOf(input) === undefined) return Result.fail(invalidSnapshot("owner"));
-  const state = currentState(input);
+  if (actorCellProtocolOf(actorCell) === undefined) return Result.fail(invalidSnapshot("owner"));
+  const state = currentState(input, actorCell);
 
   if (state !== input) return Result.fail(invalidSnapshot("stale-snapshot"));
 
@@ -644,29 +622,14 @@ export const installLifecycleMetadata = <
     providerFences: metadata.providerFences,
   });
 
-  const owner = lifecycleOwnerOf(state)!;
-
-  const retainedMetadata =
-    lifecycleMetadataOf(state)?.cleanupCause === undefined
-      ? {
-          owner,
-          publicationRevision: lifecycleMetadataOf(state)?.publicationRevision ?? 0,
-        }
-      : {
-          owner,
-          publicationRevision: lifecycleMetadataOf(state)?.publicationRevision ?? 0,
-          cleanupCause: lifecycleMetadataOf(state)?.cleanupCause,
-        };
-
   const next = copyObject({
     lifecycle: state.lifecycle,
     fence: copyFence(state.fence),
     attachment,
     finalization: state.finalization,
-    [lifecycleOwnerSymbol]: retainedMetadata,
   });
 
-  rememberState(state, next);
+  rememberState(actorCell, next);
 
   return Result.succeed(next);
 };
@@ -679,9 +642,10 @@ export const installLifecycleTimers = <
 >(
   input: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
   timers: Pick<LifecycleTimer, "name" | "startedAt" | "dueAt">[],
+  actorCell: ActorCell<LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>>,
 ) => {
-  if (lifecycleOwnerOf(input) === undefined) return Result.fail(invalidSnapshot("owner"));
-  const state = currentState(input);
+  if (actorCellProtocolOf(actorCell) === undefined) return Result.fail(invalidSnapshot("owner"));
+  const state = currentState(input, actorCell);
 
   if (state.lifecycle !== "prepared") return Result.fail(invalidSnapshot("timer-install-state"));
 
@@ -696,39 +660,16 @@ export const installLifecycleTimers = <
     ),
   });
 
-  const metadata = lifecycleMetadataOf(state);
-
-  if (metadata === undefined) return Result.fail(invalidSnapshot("owner"));
-
   const next = copyObject({
     lifecycle: state.lifecycle,
     fence: copyFence(state.fence),
     attachment,
     finalization: state.finalization,
-    [lifecycleOwnerSymbol]: metadata,
   });
 
-  rememberState(state, next);
+  rememberState(actorCell, next);
 
   return Result.succeed(next);
-};
-
-// RETURN_TYPE: Scope closure retains the lifecycle cleanup error channel for Cause classification.
-const closeScope = <CleanupError>(state: LifecycleStateKey): Effect.Effect<void, CleanupError> => {
-  const owner = lifecycleOwnerOf(state);
-
-  if (owner === undefined || owner.scopeClosed) return Effect.succeed(undefined);
-
-  return Effect.gen(function* () {
-    const result = yield* Effect.exit(Scope.close(owner.scope, Exit.void));
-    owner.scopeClosed = true;
-
-    if (Exit.isFailure(result)) {
-      // SAFETY: Scope finalizer failures are projected into this lifecycle's cleanup channel.
-      // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- Scope has no generic cleanup error parameter.
-      return yield* Effect.failCause(result.cause);
-    }
-  });
 };
 
 const retainedCleanupCause = <
@@ -737,8 +678,9 @@ const retainedCleanupCause = <
   ProviderDefinition extends MachineDefinition,
 >(
   state: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
+  actorCell: ActorCell<LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>>,
 ) => {
-  const retained = lifecycleMetadataOf(state)?.cleanupCause;
+  const retained = actorCellProtocolOf(actorCell)?.cleanupCause;
 
   if (retained !== undefined) {
     // SAFETY: the cause is stored by copySnapshot for this exact snapshot and cleanup error.
@@ -763,13 +705,14 @@ export const activateLifecycle = <
   ProviderDefinition extends MachineDefinition = DefinitionValue,
 >(
   input: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
+  actorCell: ActorCell<LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>>,
 ): Effect.Effect<
   LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
   PublicDiagnostic,
   RuntimeServiceContext
 > => {
-  if (lifecycleOwnerOf(input) === undefined) return Effect.fail(invalidSnapshot("owner"));
-  const state = currentState(input);
+  if (actorCellProtocolOf(actorCell) === undefined) return Effect.fail(invalidSnapshot("owner"));
+  const state = currentState(input, actorCell);
 
   if (state.lifecycle !== "prepared")
     return Effect.fail(
@@ -784,7 +727,7 @@ export const activateLifecycle = <
     return Effect.fail(invalidSnapshot("prepared-live-attachment"));
   const attachment = copyAttachment(state.attachment, "attached");
 
-  return Effect.sync(() => copySnapshot(state, "active", attachment, "not-started"));
+  return Effect.sync(() => copySnapshot(actorCell, state, "active", attachment, "not-started"));
 };
 
 type CleanupRun<
@@ -862,13 +805,6 @@ const cleanupResource = <CleanupError>(resource: LifecycleResource<CleanupError>
     const closed = yield* Effect.exit(resource.close(Exit.void));
 
     if (Exit.isFailure(closed)) resourceCause = addCause(resourceCause, closed.cause);
-    const scopeClosed = yield* Effect.exit(Scope.close(resource.scope, Exit.void));
-
-    if (Exit.isFailure(scopeClosed)) {
-      // SAFETY: Scope.close has no typed failure channel; its defects are retained in Cause.
-      // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- preserve scope cleanup Cause with the resource error type.
-      resourceCause = addCause(resourceCause, scopeClosed.cause as Cause.Cause<CleanupError>);
-    }
 
     return {
       resource: copyResource(
@@ -907,7 +843,7 @@ const cleanupAttachment = <
   ProviderDefinition extends MachineDefinition,
 >(
   attachment: LifecycleAttachment<DefinitionValue, CleanupError, ProviderDefinition>,
-): Effect.Effect<CleanupRun<DefinitionValue, CleanupError, ProviderDefinition>> =>
+): Effect.Effect<CleanupRun<DefinitionValue, CleanupError, ProviderDefinition>, never, never> =>
   Effect.uninterruptible(
     Effect.gen(function* () {
       const work = yield* cleanupWork(attachment.work);
@@ -952,7 +888,6 @@ const reacquireResourceItems = <
   ProviderDefinition extends MachineDefinition,
 >(
   state: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
-  scope: Scope.Scope,
   resources: LifecycleResource<CleanupError>[],
   acquiredResources: LifecycleResource<CleanupError>[],
 ) =>
@@ -963,7 +898,7 @@ const reacquireResourceItems = <
         continue;
       }
 
-      const acquired = yield* Effect.exit(Scope.provide(scope)(retained.reacquire()));
+      const acquired = yield* Effect.exit(retained.reacquire());
 
       if (Exit.isFailure(acquired)) return acquired.cause;
       const resource = copyResource(acquired.value, "pending", Option.none());
@@ -980,7 +915,6 @@ const reacquireWorkItems = <
   ProviderDefinition extends MachineDefinition,
 >(
   state: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
-  scope: Scope.Scope,
   work: LifecycleWork<CleanupError>[],
   acquiredWork: LifecycleWork<CleanupError>[],
 ) =>
@@ -993,7 +927,7 @@ const reacquireWorkItems = <
         continue;
       }
 
-      const acquired = yield* Effect.exit(Scope.provide(scope)(retained.reacquire()));
+      const acquired = yield* Effect.exit(retained.reacquire());
 
       if (Exit.isFailure(acquired)) return acquired.cause;
       const item = copyWork(acquired.value, "pending", Option.none());
@@ -1004,19 +938,19 @@ const reacquireWorkItems = <
     return undefined;
   });
 
-// RETURN_TYPE: Continuing attachments are reacquired under the actor Scope and roll back atomically.
+// RETURN_TYPE: Continuing attachments roll back atomically when reacquisition fails.
 const reacquireAttachment = <
   DefinitionValue extends MachineDefinition,
   CleanupError,
   ProviderDefinition extends MachineDefinition,
 >(
   state: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
+  actorCell: ActorCell<LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>>,
 ): Effect.Effect<ReacquiredAttachment<CleanupError>, PublicDiagnostic, RuntimeServiceContext> =>
   Effect.gen(function* () {
-    const owner = lifecycleOwnerOf(state);
+    const owner = actorCellProtocolOf(actorCell);
 
     if (owner === undefined) return yield* Effect.fail(invalidSnapshot("owner"));
-    const scope = owner.scope;
     const resources: LifecycleResource<CleanupError>[] = [];
     const work: LifecycleWork<CleanupError>[] = [];
     const acquiredResources: LifecycleResource<CleanupError>[] = [];
@@ -1034,16 +968,11 @@ const reacquireAttachment = <
         return yield* Effect.fail(cleanupDiagnostic(cause));
       });
 
-    const resourceFailure = yield* reacquireResourceItems(
-      state,
-      scope,
-      resources,
-      acquiredResources,
-    );
+    const resourceFailure = yield* reacquireResourceItems(state, resources, acquiredResources);
 
     if (resourceFailure !== undefined) return yield* failAfterRollback(resourceFailure);
 
-    const workFailure = yield* reacquireWorkItems(state, scope, work, acquiredWork);
+    const workFailure = yield* reacquireWorkItems(state, work, acquiredWork);
 
     if (workFailure !== undefined) return yield* failAfterRollback(workFailure);
 
@@ -1087,13 +1016,16 @@ export const suspendLifecycle = <
   ProviderDefinition extends MachineDefinition = DefinitionValue,
 >(
   input: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
+  actorCell: ActorCell<LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>>,
 ): Effect.Effect<
   LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
   PublicDiagnostic,
   RuntimeServiceContext
 > => {
-  if (lifecycleOwnerOf(input) === undefined) return Effect.fail(invalidSnapshot("owner"));
-  const state = currentState(input);
+  const owner = actorCellProtocolOf(actorCell);
+
+  if (owner === undefined) return Effect.fail(invalidSnapshot("owner"));
+  const state = currentState(input, actorCell);
 
   if (state.lifecycle !== "active")
     return Effect.fail(
@@ -1103,6 +1035,7 @@ export const suspendLifecycle = <
   return cleanupAttachment(state.attachment).pipe(
     Effect.flatMap((cleaned) => {
       const next = copySnapshot(
+        actorCell,
         state,
         "suspended",
         cleaned.attachment,
@@ -1110,16 +1043,12 @@ export const suspendLifecycle = <
         cleaned.cause,
       );
 
-      const owner = lifecycleOwnerOf(state);
+      for (const timer of state.attachment.timers) {
+        const timerKey = retainedTimerKey(timer, state.fence.generation);
+        const claim = owner.timerClaims.get(timerKey);
 
-      if (owner !== undefined) {
-        for (const timer of state.attachment.timers) {
-          const timerKey = retainedTimerKey(timer, state.fence.generation);
-          const claim = owner.timerClaims.get(timerKey);
-
-          if (claim?.generation === state.fence.generation && claim.status === "claimed")
-            owner.timerClaims.delete(timerKey);
-        }
+        if (claim?.generation === state.fence.generation && claim.status === "claimed")
+          owner.timerClaims.delete(timerKey);
       }
 
       if (cleaned.cause !== undefined) return Effect.fail(cleanupDiagnostic(cleaned.cause));
@@ -1137,7 +1066,9 @@ const claimRetainedTimer = <
   CleanupError,
   ProviderDefinition extends MachineDefinition,
 >(
-  owner: LifecycleOwner<LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>>,
+  owner: ActorCellProtocolState<
+    LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>
+  >,
   state: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
   timer: LifecycleTimer<CleanupError>,
   now: number,
@@ -1167,26 +1098,34 @@ const claimRetainedTimer = <
   return { timerKey, nextClaim };
 };
 
-// RETURN_TYPE: Timer scheduling retains the runtime clock/scheduler requirements.
+// RETURN_TYPE: Timer scheduling uses the ActorCell-owned FiberMap and captured Clock capability.
 const scheduleRetainedTimers = <
   DefinitionValue extends MachineDefinition,
   CleanupError,
   ProviderDefinition extends MachineDefinition,
 >(
   state: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
+  actorCell: ActorCell<LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>>,
 ): Effect.Effect<LifecycleWork<CleanupError>[], PublicDiagnostic, RuntimeServiceContext> =>
   Effect.gen(function* () {
-    const clock = yield* Effect.service(RuntimeClock);
-    const scheduler = yield* Effect.service(RuntimeScheduler);
-    const now = yield* clock.now;
-    const owner = lifecycleOwnerOf(state);
+    const owner = actorCellProtocolOf(actorCell);
 
     if (owner === undefined) return yield* Effect.fail(invalidSnapshot("owner"));
-    const scope = owner.scope;
-    const running: RuntimeRunningFiber<void, CleanupError>[] = [];
+    const timers = state.attachment.timers.filter(
+      (timer) =>
+        timer.status === "armed" &&
+        (timer.generation === undefined || timer.generation === state.fence.generation),
+    );
+
+    if (timers.length === 0) return copyArray<LifecycleWork<CleanupError>>([]);
+    const clock = yield* Effect.service(Clock.Clock);
+    const now = yield* clock.currentTimeMillis;
+    const fibers = actorCell.activityFibers;
+
+    if (fibers === undefined) return yield* Effect.fail(invalidSnapshot("activity-fibers"));
     const timerWork: LifecycleWork<CleanupError>[] = [];
 
-    for (const timer of state.attachment.timers) {
+    for (const timer of timers) {
       const claim = claimRetainedTimer(owner, state, timer, now);
 
       if (claim === undefined) continue;
@@ -1195,7 +1134,9 @@ const scheduleRetainedTimers = <
       const completion = Deferred.makeUnsafe<Exit.Exit<void, CleanupError>>();
 
       const work = Effect.gen(function* () {
-        yield* clock.sleepUntil(timer.dueAt);
+        const remaining = timer.dueAt - (yield* clock.currentTimeMillis);
+
+        if (remaining > 0) yield* clock.sleep(Duration.millis(remaining));
 
         if (timer.refresh !== undefined) yield* timer.refresh;
       }).pipe(
@@ -1216,24 +1157,29 @@ const scheduleRetainedTimers = <
       );
 
       const started = yield* Effect.exit(
-        Scope.provide(scope)(scheduler.start({ completion, work })),
+        FiberMap.run(fibers, timerKey, {
+          startImmediately: true,
+          propagateInterruption: true,
+        })(
+          Effect.scoped(
+            work.pipe(
+              Effect.onExit((exit) => Deferred.succeed(completion, exit).pipe(Effect.asVoid)),
+            ),
+          ),
+        ),
       );
 
       if (Exit.isFailure(started)) {
         if (owner.timerClaims.get(timerKey) === nextClaim) owner.timerClaims.delete(timerKey);
-        yield* Effect.uninterruptible(
-          Effect.forEach(running, (item) => item.interrupt, { discard: true, concurrency: 1 }),
-        );
 
         return yield* Effect.fail(cleanupDiagnostic(started.cause));
       }
 
-      running.push(started.value);
       timerWork.push(
         copyObject({
           name: `timer:${timer.name}`,
-          fiber: started.value.fiber,
-          cancel: started.value.interrupt,
+          fiber: started.value,
+          cancel: Fiber.interrupt(started.value),
           finalizer: Effect.void,
           finalization: "pending" as const,
           cause: Option.none<Cause.Cause<CleanupError>>(),
@@ -1254,13 +1200,14 @@ export const resumeLifecycle = <
   ProviderDefinition extends MachineDefinition = DefinitionValue,
 >(
   input: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
+  actorCell: ActorCell<LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>>,
 ): Effect.Effect<
   LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
   PublicDiagnostic,
   RuntimeServiceContext
 > => {
-  if (lifecycleOwnerOf(input) === undefined) return Effect.fail(invalidSnapshot("owner"));
-  const state = currentState(input);
+  if (actorCellProtocolOf(actorCell) === undefined) return Effect.fail(invalidSnapshot("owner"));
+  const state = currentState(input, actorCell);
 
   if (state.lifecycle !== "suspended")
     return Effect.fail(
@@ -1281,11 +1228,12 @@ export const resumeLifecycle = <
 
   if (Result.isFailure(providers)) return Effect.fail(providers.failure);
 
-  return reacquireAttachment(state).pipe(
+  return reacquireAttachment(state, actorCell).pipe(
     Effect.flatMap((reacquired) =>
-      scheduleRetainedTimers(state).pipe(
+      scheduleRetainedTimers(state, actorCell).pipe(
         Effect.map((timerWork) =>
           copySnapshot(
+            actorCell,
             state,
             "active",
             copyObject({
@@ -1310,7 +1258,7 @@ export const resumeLifecycle = <
   );
 };
 
-/** Disposes in owner order; failed cleanup remains active and retryable until it succeeds. */
+/** Disposes in owner order and retains failed cleanup Causes in lifecycle state. */
 // RETURN_TYPE: The explicit environment preserves the runtime capability boundary for lifecycle stages.
 export const disposeLifecycle = <
   DefinitionValue extends MachineDefinition,
@@ -1318,13 +1266,30 @@ export const disposeLifecycle = <
   ProviderDefinition extends MachineDefinition = DefinitionValue,
 >(
   input: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
+  actorCell: ActorCell<LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>>,
 ): Effect.Effect<
   LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
   PublicDiagnostic,
   RuntimeServiceContext
 > => {
-  if (lifecycleOwnerOf(input) === undefined) return Effect.fail(invalidSnapshot("owner"));
-  const state = currentState(input);
+  const owner = actorCellProtocolOf(actorCell);
+
+  if (owner === undefined) return Effect.fail(invalidSnapshot("owner"));
+  if (owner.disposalExit !== undefined) {
+    const terminal = owner.disposalExit;
+
+    return Exit.isFailure(terminal)
+      ? Effect.failCause(terminal.cause)
+      : Effect.succeed(terminal.value);
+  }
+  if (owner.disposalAttempt !== undefined) {
+    const attempt = owner.disposalAttempt;
+
+    return Exit.isFailure(attempt)
+      ? Effect.failCause(attempt.cause)
+      : Effect.succeed(attempt.value);
+  }
+  const state = currentState(input, actorCell);
 
   if (state.lifecycle === "disposed") return Effect.succeed(state);
   const blocked = state.attachment.blockedDisposal;
@@ -1346,27 +1311,30 @@ export const disposeLifecycle = <
   const cleanup = cleanupAttachment(state.attachment);
 
   return cleanup.pipe(
-    Effect.flatMap((cleaned) =>
-      closeScope(state).pipe(
-        Effect.flatMap(() => {
-          if (cleaned.cause !== undefined) {
-            copySnapshot(state, state.lifecycle, cleaned.attachment, "failed", cleaned.cause);
+    Effect.flatMap((cleaned) => {
+      if (cleaned.cause !== undefined) {
+        copySnapshot(
+          actorCell,
+          state,
+          state.lifecycle,
+          cleaned.attachment,
+          "failed",
+          cleaned.cause,
+        );
+        const attempt: Exit.Exit<
+          LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
+          PublicDiagnostic
+        > = Exit.failCause(Cause.fail(cleanupDiagnostic(cleaned.cause)));
+        owner.disposalAttempt = attempt;
 
-            return Effect.fail(cleanupDiagnostic(cleaned.cause));
-          }
+        return Effect.failCause(Cause.fail(cleanupDiagnostic(cleaned.cause)));
+      }
 
-          return Effect.sync(() => copySnapshot(state, "disposed", cleaned.attachment, "done"));
-        }),
-        Effect.catchCause((cause) => {
-          // SAFETY: closeScope projects its owner-scope Cause into CleanupError before this handler.
-          // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- Effect.catchCause widens the retained Cause.
-          const retained = addCause(cleaned.cause, cause as Cause.Cause<CleanupError>);
-          copySnapshot(state, state.lifecycle, cleaned.attachment, "failed", retained);
+      const disposed = copySnapshot(actorCell, state, "disposed", cleaned.attachment, "done");
+      owner.disposalAttempt = Exit.succeed(disposed);
 
-          return Effect.fail(cleanupDiagnostic(retained));
-        }),
-      ),
-    ),
+      return Effect.succeed(disposed);
+    }),
   );
 };
 
@@ -1378,11 +1346,13 @@ const lifecycleCommandEffect = <
 >(
   state: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
   command: LifecycleCommand<CleanupError>,
+  actorCell: ActorCell<LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>>,
 ) => {
   switch (command._tag) {
     case "actor:restore":
       return Effect.sync(() =>
         copySnapshot(
+          actorCell,
           state,
           "prepared",
           copyAttachment(state.attachment, "detached"),
@@ -1390,13 +1360,13 @@ const lifecycleCommandEffect = <
         ),
       );
     case "actor:start":
-      return activateLifecycle(state);
+      return activateLifecycle(state, actorCell);
     case "actor:suspend":
-      return suspendLifecycle(state);
+      return suspendLifecycle(state, actorCell);
     case "actor:resume":
-      return resumeLifecycle(state);
+      return resumeLifecycle(state, actorCell);
     case "actor:dispose":
-      return disposeLifecycle(state);
+      return disposeLifecycle(state, actorCell);
   }
 };
 
@@ -1413,14 +1383,20 @@ export const runLifecycleCommand = <
 >(
   input: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
   command: LifecycleCommand<CleanupError>,
-  machineTurnRevision = 0,
+  actorCell: ActorCell<LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>>,
 ): Effect.Effect<
   LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
   PublicDiagnostic,
   RuntimeServiceContext
 > => {
-  if (lifecycleOwnerOf(input) === undefined) return Effect.fail(invalidSnapshot("owner"));
-  const state = currentState(input);
+  const owner = actorCellProtocolOf(actorCell);
+
+  if (owner === undefined) return Effect.fail(invalidSnapshot("owner"));
+
+  if (command._tag === "actor:dispose" && owner.disposalExit !== undefined)
+    return resolveLifecycleExit(owner.disposalExit);
+
+  const state = currentState(input, actorCell);
   const transition = transitionLifecycle(state.lifecycle, command);
 
   if (Result.isFailure(transition)) {
@@ -1434,14 +1410,14 @@ export const runLifecycleCommand = <
     LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
     PublicDiagnostic,
     RuntimeServiceContext
-  > = lifecycleCommandEffect(state, command);
+  > = lifecycleCommandEffect(state, command, actorCell);
 
   return Effect.exit(transitionEffect).pipe(
     Effect.flatMap((exit) => {
-      const after = ownerState(state);
+      const after = ownerState(state, actorCell);
 
       if (after === state) return resolveLifecycleExit(exit);
-      const cleanupCause = retainedCleanupCause(after);
+      const cleanupCause = retainedCleanupCause(after, actorCell);
 
       const cause: LifecycleCause<CleanupError> =
         after.finalization === "failed" && cleanupCause !== undefined
@@ -1456,7 +1432,7 @@ export const runLifecycleCommand = <
       let evidenceService: RuntimeEvidenceService | undefined;
 
       return Effect.gen(function* () {
-        const clock = yield* Effect.service(RuntimeClock);
+        const clock = yield* Effect.service(Clock.Clock);
         const service = yield* Effect.service(RuntimeEvidence);
         evidenceService = service;
 
@@ -1471,9 +1447,8 @@ export const runLifecycleCommand = <
           cause,
           before: state,
           after,
-          timestamp: yield* clock.now,
-          publicationRevision: lifecycleMetadataOf(after)?.publicationRevision ?? 0,
-          machineTurnRevision,
+          timestamp: yield* clock.currentTimeMillis,
+          publicationRevision: owner.publicationRevision,
           provenance: {
             ...service.provenance,
             actor: {
@@ -1506,15 +1481,16 @@ export const runLifecycleCommand = <
 
           if (Exit.isFailure(evidenceExit)) {
             evidenceCause = addCause(evidenceCause, evidenceExit.cause);
-
-            return Effect.failCause(addCause(lifecycleCause, evidenceCause));
           }
 
-          if (evidenceCause !== undefined) {
-            return Effect.failCause(addCause(lifecycleCause, evidenceCause));
-          }
+          const complete =
+            evidenceCause === undefined
+              ? exit
+              : Exit.failCause(addCause(lifecycleCause, evidenceCause));
 
-          return resolveLifecycleExit(evidenceExit.value);
+          if (command._tag === "actor:dispose") owner.disposalExit = complete;
+
+          return resolveLifecycleExit(complete);
         }),
       );
     }),
@@ -1547,11 +1523,6 @@ export type LifecycleController<
     PublicDiagnostic,
     RuntimeServiceContext
   >;
-};
-
-export type LifecycleControllerOptions = {
-  /** Reads the owning actor's latest machine-turn revision without adding it to snapshots. */
-  machineTurnRevision?: () => number;
 };
 
 export type LifecycleRouting = {
@@ -1606,248 +1577,6 @@ type ProviderReconcilerOwner<Value> = {
   revision: () => number;
 };
 
-/** Runtime disposal participant; actor cleanup remains the participant's owner. */
-export type LifecycleRuntimeParticipant<Requirements = RuntimeServiceContext> = {
-  dispose: () => Effect.Effect<void, PublicDiagnostic, Requirements>;
-};
-
-export type LifecycleRuntimeRegistration = {
-  accepted: boolean;
-  unregister: () => void;
-};
-
-export type LifecycleRuntimeOwner<Requirements = RuntimeServiceContext> = {
-  registerActor: (
-    participant: LifecycleRuntimeParticipant<Requirements>,
-  ) => LifecycleRuntimeRegistration;
-  registerProvider: (release: Effect.Effect<void, PublicDiagnostic, Requirements>) => void;
-  dispose: () => Effect.Effect<void, PublicDiagnostic, Requirements>;
-  generation: () => number;
-  isCurrent: (generation: number) => boolean;
-  isOpen: () => boolean;
-};
-
-/** Accepted evidence is drained after actors and before runtime providers. */
-export type LifecycleRuntimeOwnerOptions<Requirements = RuntimeServiceContext> = {
-  drain?: Effect.Effect<void, PublicDiagnostic, Requirements>;
-};
-
-type RuntimeDisposalState<Requirements> =
-  | {
-      _tag: "open";
-      generation: number;
-      actors: RuntimeActorRegistration<Requirements>[];
-      providers: Array<Effect.Effect<void, PublicDiagnostic, Requirements>>;
-    }
-  | {
-      _tag: "closing";
-      generation: number;
-      actors: RuntimeActorRegistration<Requirements>[];
-      providers: Array<Effect.Effect<void, PublicDiagnostic, Requirements>>;
-      completion: Deferred.Deferred<Exit.Exit<void, PublicDiagnostic>>;
-      acceptingActors: boolean;
-    }
-  | {
-      _tag: "failed";
-      generation: number;
-      actors: RuntimeActorRegistration<Requirements>[];
-      providers: Array<Effect.Effect<void, PublicDiagnostic, Requirements>>;
-      exit: Exit.Exit<void, PublicDiagnostic>;
-    }
-  | {
-      _tag: "closed";
-      generation: number;
-      exit: Exit.Exit<void, PublicDiagnostic>;
-    };
-
-type RuntimeActorRegistration<Requirements> = {
-  participant: LifecycleRuntimeParticipant<Requirements>;
-  active: boolean;
-};
-
-const resolveRuntimeDisposal = (exit: Exit.Exit<void, PublicDiagnostic>) =>
-  Exit.isFailure(exit) ? Effect.failCause(exit.cause) : Effect.void;
-
-// RETURN_TYPE: The runtime owner interface hides its disposal state machine and registration arrays.
-const makeColdRuntimeDisposalOwner = <Requirements>(
-  options: LifecycleRuntimeOwnerOptions<Requirements>,
-): LifecycleRuntimeOwner<Requirements> => {
-  const state = SynchronizedRef.makeUnsafe<RuntimeDisposalState<Requirements>>({
-    _tag: "open",
-    generation: 0,
-    actors: [],
-    providers: [],
-  });
-
-  const currentState = () => SynchronizedRef.getUnsafe(state);
-
-  const removeActor = (registration: RuntimeActorRegistration<Requirements>) => {
-    if (!registration.active) return;
-    registration.active = false;
-
-    const current = currentState();
-
-    if (current._tag !== "open" && current._tag !== "closing" && current._tag !== "failed") return;
-
-    const index = current.actors.indexOf(registration);
-
-    if (index >= 0) current.actors.splice(index, 1);
-  };
-
-  const registerActor = (participant: LifecycleRuntimeParticipant<Requirements>) => {
-    const current = currentState();
-
-    const accepted =
-      current._tag === "open" || (current._tag === "closing" && current.acceptingActors);
-
-    const registration: RuntimeActorRegistration<Requirements> = {
-      participant,
-      active: accepted,
-    };
-
-    if (accepted) current.actors.push(registration);
-
-    return { accepted, unregister: () => removeActor(registration) };
-  };
-
-  const registerProvider = (release: Effect.Effect<void, PublicDiagnostic, Requirements>) => {
-    const current = currentState();
-
-    if (current._tag === "open") current.providers.push(release);
-  };
-
-  const run = (closing: Extract<RuntimeDisposalState<Requirements>, { _tag: "closing" }>) => {
-    const operation = Effect.uninterruptible(
-      Effect.gen(function* () {
-        let cleanupCause: Cause.Cause<PublicDiagnostic> | undefined;
-
-        const observe = (effect: Effect.Effect<unknown, PublicDiagnostic, Requirements>) =>
-          Effect.gen(function* () {
-            const result = yield* Effect.exit(effect);
-
-            if (Exit.isFailure(result)) cleanupCause = addCause(cleanupCause, result.cause);
-          });
-
-        const attempted = new Set<RuntimeActorRegistration<Requirements>>();
-
-        const hasUnattemptedActors = () =>
-          closing.actors.some(
-            (registration) => registration.active && !attempted.has(registration),
-          );
-
-        const disposeUnattemptedActors = Effect.gen(function* () {
-          while (hasUnattemptedActors()) {
-            for (const registration of closing.actors.slice().reverse()) {
-              if (!registration.active || attempted.has(registration)) continue;
-
-              attempted.add(registration);
-              const result = yield* Effect.exit(registration.participant.dispose());
-
-              if (Exit.isFailure(result)) cleanupCause = addCause(cleanupCause, result.cause);
-              else removeActor(registration);
-            }
-          }
-        });
-
-        const hasActiveActors = () => closing.actors.some((registration) => registration.active);
-
-        yield* disposeUnattemptedActors;
-
-        if (hasActiveActors()) {
-          closing.acceptingActors = false;
-
-          if (cleanupCause !== undefined) yield* Effect.failCause(cleanupCause);
-          yield* Effect.die(new Error("Runtime actor disposal remained active without a Cause"));
-        }
-
-        if (options.drain !== undefined) yield* observe(options.drain);
-
-        // A drain may synchronously admit a late participant. Finish every
-        // recursively admitted participant before providers and the terminal
-        // owner Exit settle.
-        yield* disposeUnattemptedActors;
-        closing.acceptingActors = false;
-
-        if (hasActiveActors()) {
-          if (cleanupCause !== undefined) yield* Effect.failCause(cleanupCause);
-          yield* Effect.die(new Error("Runtime actor disposal remained active without a Cause"));
-        }
-
-        for (let index = closing.providers.length - 1; index >= 0; index -= 1) {
-          const provider = closing.providers[index];
-
-          if (provider === undefined) continue;
-          const result = yield* Effect.exit(provider);
-
-          if (Exit.isSuccess(result)) closing.providers.splice(index, 1);
-          else cleanupCause = addCause(cleanupCause, result.cause);
-        }
-
-        if (cleanupCause !== undefined) return yield* Effect.failCause(cleanupCause);
-      }),
-    );
-
-    return Effect.exit(operation).pipe(
-      Effect.flatMap((exit) =>
-        SynchronizedRef.set(
-          state,
-          Exit.isSuccess(exit)
-            ? { _tag: "closed", generation: closing.generation, exit }
-            : {
-                _tag: "failed",
-                generation: closing.generation,
-                actors: closing.actors,
-                providers: closing.providers,
-                exit,
-              },
-        ).pipe(
-          Effect.flatMap(() => Deferred.succeed(closing.completion, exit)),
-          Effect.as(exit),
-        ),
-      ),
-      Effect.flatMap(resolveRuntimeDisposal),
-    );
-  };
-
-  const dispose = () =>
-    SynchronizedRef.modify(state, (current) => {
-      if (current._tag === "closed")
-        return [resolveRuntimeDisposal(current.exit), current] as const;
-
-      if (current._tag === "closing")
-        return [
-          Deferred.await(current.completion).pipe(Effect.flatMap(resolveRuntimeDisposal)),
-          current,
-        ] as const;
-
-      const completion = Deferred.makeUnsafe<Exit.Exit<void, PublicDiagnostic>>();
-
-      const closing: Extract<RuntimeDisposalState<Requirements>, { _tag: "closing" }> = {
-        _tag: "closing",
-        generation: current.generation + 1,
-        actors: current.actors,
-        providers: current.providers,
-        completion,
-        acceptingActors: true,
-      };
-
-      return [run(closing), closing] as const;
-    }).pipe(Effect.flatMap((effect) => effect));
-
-  return {
-    registerActor,
-    registerProvider,
-    dispose,
-    generation: () => currentState().generation,
-    isCurrent: (generation) => {
-      const current = currentState();
-
-      return current._tag === "open" && generation === current.generation;
-    },
-    isOpen: () => currentState()._tag === "open",
-  };
-};
-
 /**
  * Serializes provider-derived reconciliation and coalesces values observed
  * while one reconciliation is in flight. Equality is deliberately supplied at
@@ -1898,18 +1627,6 @@ export const makeProviderReconciler = <Value>(
   return { publish, revision: () => revision };
 };
 
-/**
- * Owns runtime shutdown ordering while delegating actor cleanup to each actor
- * owner. Disposal fences new completions immediately, joins repeated callers,
- * drains accepted evidence, and releases providers only after actors settle.
- */
-// RETURN_TYPE: The runtime owner preserves the runtime service capability boundary.
-export const makeLifecycleRuntimeOwner = <Requirements = RuntimeServiceContext>(
-  options: LifecycleRuntimeOwnerOptions<NoInfer<Requirements>> = {},
-): LifecycleRuntimeOwner<Requirements> => {
-  return makeColdRuntimeDisposalOwner(options);
-};
-
 // RETURN_TYPE: The public controller factory preserves serialized lifecycle state and requirements.
 export const makeLifecycleController = <
   DefinitionValue extends MachineDefinition,
@@ -1917,9 +1634,9 @@ export const makeLifecycleController = <
   ProviderDefinition extends MachineDefinition = DefinitionValue,
 >(
   initial: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
-  options: LifecycleControllerOptions = {},
+  actorCell: ActorCell<LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>>,
 ): LifecycleController<DefinitionValue, CleanupError, ProviderDefinition> => {
-  const owner = lifecycleOwnerOf(initial);
+  const owner = actorCellProtocolOf(actorCell);
 
   if (owner === undefined) throw new Error("Lifecycle controller requires an owned snapshot");
 
@@ -1928,7 +1645,7 @@ export const makeLifecycleController = <
     owner.controllerBound = true;
   }
 
-  // This ref is a command mutex only. The LifecycleOwner above is the sole mutable snapshot
+  // This ref is a command mutex only. The ActorCellProtocolState above is the sole mutable snapshot
   // authority; keeping the mutex separate prevents a second state copy from going stale.
   const commandLock = SynchronizedRef.makeUnsafe<void>(undefined);
 
@@ -1942,16 +1659,17 @@ export const makeLifecycleController = <
     open: (generation) => {
       if (owner.routing.generation !== generation) return;
 
-      owner.routing.current = ownerState(initial).lifecycle === "active" ? "open" : "blocked";
+      owner.routing.current =
+        ownerState(initial, actorCell).lifecycle === "active" ? "open" : "blocked";
     },
   };
 
   const controller: OwnedLifecycleController<DefinitionValue, CleanupError, ProviderDefinition> = {
     [lifecycleRoutingSymbol]: routing,
-    currentLifecycle: () => ownerState(initial).lifecycle,
+    currentLifecycle: () => ownerState(initial, actorCell).lifecycle,
     isRoutable: () =>
-      owner.routing.current === "open" && ownerState(initial).lifecycle === "active",
-    state: () => Effect.sync(() => ownerState(initial)),
+      owner.routing.current === "open" && ownerState(initial, actorCell).lifecycle === "active",
+    state: () => Effect.sync(() => ownerState(initial, actorCell)),
     command: (command) =>
       SynchronizedRef.modifyEffect(commandLock, () =>
         Effect.exit(
@@ -1959,14 +1677,10 @@ export const makeLifecycleController = <
             const generation = routing.block();
 
             const exit = yield* Effect.exit(
-              runLifecycleCommand(
-                ownerState(initial),
-                command,
-                options.machineTurnRevision?.() ?? 0,
-              ),
+              runLifecycleCommand(ownerState(initial, actorCell), command, actorCell),
             );
 
-            const current = ownerState(initial);
+            const current = ownerState(initial, actorCell);
 
             if (current.lifecycle === "active" && command._tag !== "actor:resume")
               routing.open(generation);
@@ -1984,9 +1698,9 @@ export const makeLifecycleController = <
       ),
     installMetadata: (metadata) =>
       SynchronizedRef.modifyEffect(commandLock, () =>
-        Effect.sync(() => installLifecycleMetadata(ownerState(initial), metadata)).pipe(
-          Effect.map((result) => [result, undefined] as const),
-        ),
+        Effect.sync(() =>
+          installLifecycleMetadata(ownerState(initial, actorCell), metadata, actorCell),
+        ).pipe(Effect.map((result) => [result, undefined] as const)),
       ).pipe(
         Effect.flatMap((result) =>
           Result.isFailure(result) ? Effect.fail(result.failure) : Effect.succeed(result.success),
