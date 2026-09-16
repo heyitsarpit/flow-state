@@ -319,8 +319,6 @@ describe("internal implementation runtime", () => {
       const runtime = runtimeSetup({ app: HandshakeApp }).construct();
       yield* runtime.ready();
       const assembly = runtimeOwner(runtime).assembly();
-      let providerDependentRegistrations = 0;
-      let providerDependentCleanups = 0;
       let consumerContextPublished = false;
       let consumerExposed = false;
       let providerPublicationCount = 0;
@@ -331,7 +329,6 @@ describe("internal implementation runtime", () => {
       const admissionTrace: string[] = [];
 
       const providerPublicationPhases: Array<{
-        dependentRegistrations: number;
         providerHoldEntered: boolean;
         consumerStartEvidenceAccepted: boolean;
         consumerContextPublished: boolean;
@@ -359,7 +356,6 @@ describe("internal implementation runtime", () => {
           providerPublicationCount += 1;
           admissionTrace.push("provider-published");
           providerPublicationPhases.push({
-            dependentRegistrations: providerDependentRegistrations,
             providerHoldEntered: Deferred.isDoneUnsafe(providerHoldEntered),
             consumerStartEvidenceAccepted,
             consumerContextPublished,
@@ -370,30 +366,6 @@ describe("internal implementation runtime", () => {
             Deferred.doneUnsafe(providerPublicationObserved, Effect.succeed(undefined));
         },
       });
-
-      type ProviderRegistrationHooks = {
-        addDependent: (dependent: never) => void;
-        removeDependent: (dependent: never) => void;
-      };
-
-      // SAFETY: The live runtime actor retains these package-private hooks; this test observes the exact registered provider boundary.
-      // oxlint-disable-next-line anti-slop/no-chained-type-assertions, typescript/no-unsafe-type-assertion -- the public actor view erases the package-private registration hooks used by this proof.
-      const providerRegistrationHooks = provider as unknown as ProviderRegistrationHooks;
-      const originalAddDependent = providerRegistrationHooks.addDependent;
-      const originalRemoveDependent = providerRegistrationHooks.removeDependent;
-      providerRegistrationHooks.addDependent = (dependent) => {
-        originalAddDependent(dependent);
-        providerDependentRegistrations += 1;
-        admissionTrace.push("dependent-registered");
-        providerHoldDispatch = provider.engine.dispatch(HandshakeProviderHoldEvent);
-        providerAdvanceDispatch = provider.engine.dispatch(HandshakeProviderEvent);
-      };
-
-      providerRegistrationHooks.removeDependent = (dependent) => {
-        providerDependentCleanups += 1;
-        admissionTrace.push("dependent-cleaned");
-        originalRemoveDependent(dependent);
-      };
 
       const runtimeEvidence = Context.get(assembly.context, RuntimeEvidence);
       const originalAccept = runtimeEvidence.accept;
@@ -457,6 +429,9 @@ describe("internal implementation runtime", () => {
         exposed: boolean;
       }> = [];
 
+      providerHoldDispatch = provider.engine.dispatch(HandshakeProviderHoldEvent);
+      providerAdvanceDispatch = provider.engine.dispatch(HandshakeProviderEvent);
+
       const consumerFiber = yield* Effect.forkChild(
         Effect.exit(
           Effect.gen(function* () {
@@ -491,21 +466,19 @@ describe("internal implementation runtime", () => {
       if (Exit.isFailure(consumerExit))
         return yield* Effect.die(new Error("consumer admission failed"));
       const consumer = consumerExit.value;
-      assert.strictEqual(providerDependentRegistrations, 1);
-      assert.strictEqual(providerHoldDispatch?.admitted, true);
-      assert.strictEqual(providerAdvanceDispatch?.admitted, true);
-      yield* Deferred.await(providerHoldDispatch!.completion).pipe(
+      assert.strictEqual(providerHoldDispatch.admitted, true);
+      assert.strictEqual(providerAdvanceDispatch.admitted, true);
+      yield* Deferred.await(providerHoldDispatch.completion).pipe(
         Effect.timeout(Duration.seconds(5)),
       );
-      yield* Deferred.await(providerAdvanceDispatch!.completion).pipe(
+      yield* Deferred.await(providerAdvanceDispatch.completion).pipe(
         Effect.timeout(Duration.seconds(5)),
       );
       yield* provider.engine.drain();
       yield* consumer.engine.drain();
 
       assert.strictEqual(consumerStartEvidenceAccepted, true);
-      assert.deepStrictEqual(admissionTrace.slice(0, 6), [
-        "dependent-registered",
+      assert.deepStrictEqual(admissionTrace.slice(0, 5), [
         "provider-publication-held",
         "consumer-start-evidence-accepted",
         "provider-published",
@@ -515,7 +488,6 @@ describe("internal implementation runtime", () => {
       assert.strictEqual(providerPublicationCount, 1);
       assert.deepStrictEqual(providerPublicationPhases, [
         {
-          dependentRegistrations: 1,
           providerHoldEntered: true,
           consumerStartEvidenceAccepted: true,
           consumerContextPublished: false,
@@ -546,14 +518,15 @@ describe("internal implementation runtime", () => {
 
       yield* Effect.provideContext(consumer.dispose(), assembly.context);
       yield* Effect.provideContext(consumer.dispose(), assembly.context);
-      assert.strictEqual(providerDependentCleanups, 1);
+      assert.strictEqual((yield* provider.lifecycle.state()).attachment.dependencies.length, 0);
       const secondDispatch = provider.engine.dispatch(HandshakeProviderEvent);
       assert.strictEqual(secondDispatch.admitted, true);
       yield* Deferred.await(secondDispatch.completion);
       yield* provider.engine.drain();
+      yield* assembly.contextCoordinator.drain();
       assert.strictEqual(providerPublicationCount, 2);
       assert.strictEqual(consumerSnapshots.length, 1);
-      assert.deepStrictEqual(admissionTrace.slice(-2), ["dependent-cleaned", "provider-published"]);
+      assert.strictEqual(admissionTrace.at(-1), "provider-published");
 
       yield* Effect.provideContext(provider.dispose(), assembly.context);
       yield* runtimeOwner(runtime).close();

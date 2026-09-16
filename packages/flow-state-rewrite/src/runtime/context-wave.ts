@@ -350,7 +350,7 @@ export const equalContextSelection = <Value>(current: Value, previous: Value) =>
 };
 
 /** Owns ordinary structural values without changing nominal token identity. */
-const ownContextValue = <Value>(value: Value) => {
+export const ownContextValue = <Value>(value: Value) => {
   const copied = new WeakMap<StructuralContextValue, StructuralContextValue>();
 
   // FLOW_STATE_ALLOW_UNKNOWN: Recursive structural copies inspect authored values before restoring their generic type.
@@ -578,48 +578,6 @@ export const buildContextGraph = <
       order: orderResult.success,
     }),
   );
-};
-
-/** Detects a cycle in a graph supplied without changing its indexes. */
-export const detectContextCycles = <
-  ConsumerDefinition extends MachineDefinition,
-  ProviderDefinition extends MachineDefinition = ConsumerDefinition,
->(
-  graph: ContextGraph<ConsumerDefinition, ProviderDefinition>,
-) => {
-  const colors = new Map<ActorKey, "gray" | "black">();
-
-  // RETURN_TYPE: Recursive cycle discovery uses its return value in the recursive call.
-  const visit = (node: ActorKey, path: ActorKey[]): ActorKey[] | undefined => {
-    const color = colors.get(node);
-
-    if (color === "gray") {
-      const start = path.indexOf(node);
-
-      return path.slice(start < 0 ? 0 : start);
-    }
-
-    if (color === "black") return undefined;
-    colors.set(node, "gray");
-
-    for (const dependent of graph.dependents.get(node) ?? []) {
-      const cycle = visit(dependent, [...path, dependent]);
-
-      if (cycle !== undefined) return cycle;
-    }
-
-    colors.set(node, "black");
-
-    return undefined;
-  };
-
-  for (const node of graph.order) {
-    const cycle = visit(node, [node]);
-
-    if (cycle !== undefined) return Result.fail(cycleFailure(cycle));
-  }
-
-  return Result.succeed(copyArray([]));
 };
 
 /** Returns the trusted provider-first order restricted to one transitive dirty wave. */

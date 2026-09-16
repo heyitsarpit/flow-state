@@ -9,6 +9,7 @@ import {
   Exit,
   Fiber,
   Layer,
+  Predicate,
   Result,
   Scope,
   Stream,
@@ -22,8 +23,9 @@ import { Implementation } from "../../implementation/implementation.js";
 import { machine } from "../../machine/machine.js";
 import { resource } from "../../operation/resource.js";
 import { actorRef } from "../actor-ref.js";
-import type { ActorContextBinding } from "../actor-admission.js";
+import type { ActorContextBinding, ActorContextSnapshot, ActorFence } from "../actor-admission.js";
 import { makeActorIdentityRegistry } from "../actor-admission.js";
+import { makeContextCoordinator } from "../context-coordinator.js";
 import { makeEvidenceSink } from "../evidence-sink.js";
 import { ACTOR_MAILBOX_CAPACITY, prepareActorSnapshot } from "../actor-engine.js";
 import type { ActorSnapshot, ActorStore, PreparedActorSnapshot } from "../actor-engine.js";
@@ -101,6 +103,30 @@ const IntegrationConsumerMachine = Result.getOrThrow(
   })),
 );
 
+const MutableContextConsumerDefinitionResult = definition({
+  id: "runtime-integration/mutable-context-consumer",
+  states: ["ready", "done"],
+  events: { opened: "bare" },
+  context: {
+    providerState: IntegrationProviderDefinition.select(({ state }) => ({ state })),
+    providerChanged: IntegrationProviderDefinition.select(
+      ({ state }) => state === IntegrationProviderDefinition.S.changed,
+    ),
+  },
+});
+
+const MutableContextConsumerDefinition = Result.getOrThrow(MutableContextConsumerDefinitionResult);
+
+const MutableContextConsumerMachine = Result.getOrThrow(
+  machine(MutableContextConsumerDefinitionResult, ({ S }) => ({
+    default: S.ready,
+    states: {
+      ready: { on: { opened: { target: S.done } } },
+      done: { on: { opened: { target: S.ready } } },
+    },
+  })),
+);
+
 const IntegrationStandaloneDefinitionResult = definition({
   id: "runtime-integration/standalone",
   states: ["ready", "done"],
@@ -163,13 +189,197 @@ const IntegrationApp = app({
   modules: [IntegrationModule],
 });
 
+const MutableContextApp = app({
+  id: "runtime-integration/mutable-context-app",
+  persistenceVersion: "1",
+  modules: [
+    module({
+      id: "runtime-integration/mutable-context-module",
+      machines: {
+        provider: IntegrationProviderMachine,
+        consumer: IntegrationConsumerMachine,
+        mutableContextConsumer: MutableContextConsumerMachine,
+      },
+    }),
+  ],
+});
+
 const IntegrationProviderEvent = Result.getOrThrow(IntegrationProviderDefinition.E.advance());
 
 const IntegrationConsumerEvent = Result.getOrThrow(IntegrationConsumerDefinition.E.opened());
 
+const MutableContextConsumerEvent = Result.getOrThrow(MutableContextConsumerDefinition.E.opened());
+
 const IntegrationStandaloneEvent = Result.getOrThrow(IntegrationStandaloneDefinition.E.opened());
 
 type IntegrationConsumerSnapshot = ActorSnapshot<typeof IntegrationConsumerDefinition>;
+
+type IntegrationAssembly = ReturnType<ReturnType<typeof runtimeOwner>["assembly"]>;
+
+const defectOnChanged = (
+  state: ActorContextSnapshot<typeof IntegrationProviderDefinition>["state"],
+) => {
+  if (state === IntegrationProviderDefinition.S.changed) throw new Error("sibling selector defect");
+
+  return false;
+};
+
+const makeContextDiamond = (
+  assembly: IntegrationAssembly,
+  suffix: string,
+  // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- only mailbox-failure fixtures need a gated command callback.
+  options?: {
+    bOnCommand: () => Effect.Effect<void>;
+    cOnSnapshot: (snapshot: IntegrationConsumerSnapshot) => void;
+    bOnSnapshot?: (snapshot: IntegrationConsumerSnapshot) => void;
+  },
+) =>
+  Effect.gen(function* () {
+    const providerRef = actorRef(IntegrationProviderMachine, `${suffix}-a`);
+    const a = yield* assembly.createActor({ ref: providerRef, initial: initialProviderSnapshot() });
+    const bRef = actorRef(IntegrationConsumerMachine, `${suffix}-b`);
+    const cRef = actorRef(IntegrationConsumerMachine, `${suffix}-c`);
+    const bSnapshots: IntegrationConsumerSnapshot[] = [];
+    const cSnapshots: IntegrationConsumerSnapshot[] = [];
+    const dSnapshots: IntegrationConsumerSnapshot[] = [];
+    const bSelectionAttempts: string[] = [];
+
+    const fromA = (recordSelection: (slot: string) => void) => [
+      {
+        slot: "providerState" as const,
+        provider: providerRef,
+        providerFence: a.fence,
+        select: ({ state }: ActorContextSnapshot<typeof IntegrationProviderDefinition>) => {
+          recordSelection("providerState");
+
+          return state;
+        },
+      },
+      {
+        slot: "providerChanged" as const,
+        provider: providerRef,
+        providerFence: a.fence,
+        select: ({ state }: ActorContextSnapshot<typeof IntegrationProviderDefinition>) => {
+          recordSelection("providerChanged");
+
+          return state === IntegrationProviderDefinition.S.changed;
+        },
+      },
+    ];
+
+    const bOptions = {
+      ref: bRef,
+      initial: initialConsumerSnapshot(),
+      bindings: fromA((slot) => {
+        bSelectionAttempts.push(slot);
+      }),
+      onSnapshot: (snapshot: IntegrationConsumerSnapshot) => {
+        bSnapshots.push(snapshot);
+        options?.bOnSnapshot?.(snapshot);
+      },
+    };
+
+    const b = yield* options?.bOnCommand === undefined
+      ? assembly.createActor(bOptions)
+      : assembly.createActor({ ...bOptions, onCommand: options.bOnCommand });
+
+    const c = yield* assembly.createActor({
+      ref: cRef,
+      initial: initialConsumerSnapshot(),
+      bindings: fromA(() => {}),
+      onSnapshot: (snapshot) => {
+        cSnapshots.push(snapshot);
+        options?.cOnSnapshot(snapshot);
+      },
+    });
+
+    const d = yield* assembly.createActor({
+      ref: actorRef(IntegrationConsumerMachine, `${suffix}-d`),
+      initial: initialConsumerSnapshot(),
+      bindings: [
+        {
+          slot: "providerState",
+          provider: bRef,
+          providerFence: b.fence,
+          select: ({ context }) => context.providerState,
+        },
+        {
+          slot: "providerChanged",
+          provider: cRef,
+          providerFence: c.fence,
+          select: ({ context }) => context.providerChanged,
+        },
+      ],
+      onSnapshot: (snapshot) => dSnapshots.push(snapshot),
+    });
+
+    return { a, b, c, d, bSnapshots, cSnapshots, dSnapshots, bSelectionAttempts };
+  });
+
+const makeMutableContextChain = (
+  assembly: IntegrationAssembly,
+  suffix: string,
+  onBCommand: () => Effect.Effect<void>,
+) =>
+  Effect.gen(function* () {
+    const aRef = actorRef(IntegrationProviderMachine, `${suffix}-a`);
+    const a = yield* assembly.createActor({ ref: aRef, initial: initialProviderSnapshot() });
+    const bRef = actorRef(MutableContextConsumerMachine, `${suffix}-b`);
+    const bSnapshots: ActorSnapshot<typeof MutableContextConsumerDefinition>[] = [];
+    const dSnapshots: IntegrationConsumerSnapshot[] = [];
+    const bSelectionAttempts: string[] = [];
+
+    const b = yield* assembly.createActor({
+      ref: bRef,
+      initial: initialMutableContextConsumerSnapshot(),
+      bindings: [
+        {
+          slot: "providerState",
+          provider: aRef,
+          providerFence: a.fence,
+          select: ({ state }) => {
+            bSelectionAttempts.push("providerState");
+
+            return { state };
+          },
+        },
+        {
+          slot: "providerChanged",
+          provider: aRef,
+          providerFence: a.fence,
+          select: ({ state }) => {
+            bSelectionAttempts.push("providerChanged");
+
+            return state === IntegrationProviderDefinition.S.changed;
+          },
+        },
+      ],
+      onCommand: onBCommand,
+      onSnapshot: (snapshot) => bSnapshots.push(snapshot),
+    });
+
+    const d = yield* assembly.createActor({
+      ref: actorRef(IntegrationConsumerMachine, `${suffix}-d`),
+      initial: initialConsumerSnapshot(),
+      bindings: [
+        {
+          slot: "providerState",
+          provider: bRef,
+          providerFence: b.fence,
+          select: ({ context }) => context.providerState.state,
+        },
+        {
+          slot: "providerChanged",
+          provider: bRef,
+          providerFence: b.fence,
+          select: ({ context }) => context.providerChanged,
+        },
+      ],
+      onSnapshot: (snapshot) => dSnapshots.push(snapshot),
+    });
+
+    return { a, b, d, bSnapshots, dSnapshots, bSelectionAttempts };
+  });
 
 // RETURN_TYPE: This fixture pins the exact actor snapshot family used by runtime assembly.
 const initialProviderSnapshot = (): PreparedActorSnapshot<typeof IntegrationProviderDefinition> =>
@@ -195,6 +405,27 @@ const initialConsumerSnapshot = (): PreparedActorSnapshot<typeof IntegrationCons
       memory: {},
       context: {
         providerState: IntegrationProviderDefinition.S.ready,
+        providerChanged: false,
+      },
+      lifecycle: "prepared",
+      operations: [],
+      timers: [],
+      issues: [],
+      revision: 0,
+      observedStoreRevision: 0,
+    }),
+  );
+
+// RETURN_TYPE: This fixture pins the nested context snapshot family used by ticket forgery proofs.
+const initialMutableContextConsumerSnapshot = (): PreparedActorSnapshot<
+  typeof MutableContextConsumerDefinition
+> =>
+  Result.getOrThrow(
+    prepareActorSnapshot(MutableContextConsumerMachine, {
+      state: MutableContextConsumerDefinition.S.ready,
+      memory: {},
+      context: {
+        providerState: { state: IntegrationProviderDefinition.S.ready },
         providerChanged: false,
       },
       lifecycle: "prepared",
@@ -613,6 +844,7 @@ describe("runtime assembly integration", () => {
       yield* provider.engine.drain();
       const providerAfter = provider.engine.snapshot();
       assert.strictEqual(providerAfter.state, IntegrationProviderDefinition.S.changed);
+      yield* assembly.contextCoordinator.drain();
       yield* actor.engine.drain();
       assert.strictEqual(
         actor.engine.snapshot().context.providerState,
@@ -1356,6 +1588,7 @@ describe("runtime assembly integration", () => {
       assert.strictEqual(providerDispatch.admitted, true);
       yield* Deferred.await(providerDispatch.completion);
       yield* provider.engine.drain();
+      yield* assembly.contextCoordinator.drain();
       yield* actor.engine.drain();
 
       assert.strictEqual(
@@ -1405,6 +1638,7 @@ describe("runtime assembly integration", () => {
       assert.strictEqual(retry.admitted, true);
       yield* Deferred.await(retry.completion);
       yield* provider.engine.drain();
+      yield* assembly.contextCoordinator.drain();
       yield* actor.engine.drain();
 
       assert.strictEqual(
@@ -1572,21 +1806,6 @@ describe("runtime assembly integration", () => {
         initial: initialProviderSnapshot(),
       });
 
-      let dependentCleanups = 0;
-
-      type ProviderRegistrationHooks = {
-        removeDependent: (dependent: never) => void;
-      };
-
-      // SAFETY: The live runtime actor retains this package-private hook for the provider owner.
-      // oxlint-disable-next-line anti-slop/no-chained-type-assertions, typescript/no-unsafe-type-assertion -- this proof observes the exact registered provider cleanup boundary.
-      const providerRegistrationHooks = provider as unknown as ProviderRegistrationHooks;
-      const originalRemoveDependent = providerRegistrationHooks.removeDependent;
-      providerRegistrationHooks.removeDependent = (dependent) => {
-        dependentCleanups += 1;
-        originalRemoveDependent(dependent);
-      };
-
       const consumerRef = actorRef(IntegrationConsumerMachine, "cleanup-consumer");
 
       const binding = {
@@ -1651,7 +1870,6 @@ describe("runtime assembly integration", () => {
       assert.strictEqual(consumer.engine.snapshot().lifecycle, "disposed");
       assert.strictEqual((yield* consumer.lifecycle.state()).lifecycle, "disposed");
       assert.strictEqual(consumer.engine.dispatch(IntegrationConsumerEvent).admitted, false);
-      assert.strictEqual(dependentCleanups, 1);
       assert.strictEqual((yield* provider.lifecycle.state()).attachment.dependencies.length, 0);
 
       runtimeEvidence.accept = originalAccept;
@@ -1813,6 +2031,7 @@ describe("pending regression scenarios", () => {
       assert.strictEqual(dispatch.admitted, true);
       yield* Deferred.await(dispatch.completion);
       yield* provider.engine.drain();
+      yield* assembly.contextCoordinator.drain();
       yield* active.engine.drain();
       assert.strictEqual(
         active.engine.snapshot().context.providerState,
@@ -1899,7 +2118,8 @@ describe("pending regression scenarios", () => {
       assert.strictEqual(late[0], current);
       assert.strictEqual(late[0]?.revision, current.revision);
       assert.strictEqual(late[0]?.lifecycle, "suspended");
-      assert.strictEqual(callbacks.at(-1), current);
+      assert.notStrictEqual(callbacks.at(-1), current);
+      assert.deepStrictEqual(callbacks.at(-1), current);
       assert.strictEqual(callbacks.at(-1)?.revision, current.revision);
       assert.strictEqual(callbacks.at(-1)?.lifecycle, "suspended");
       assert.strictEqual(lifecycle[0]?.publicationRevision, current.revision);
@@ -3497,22 +3717,290 @@ describe("pending regression scenarios", () => {
     }),
   );
 
-  // SETUP: Assemble the real provider/consumer owners with two bindings: providerState maps ready to ready and every later state to changed, while providerChanged throws only at changed; record every consumer snapshot and its issue list.
-  // ACTION: Advance the provider to changed, drain provider and consumer, then advance it to final and drain again; use a Deferred or explicit engine drains, never a sleep.
-  // ASSERT: The first wave publishes one issue-only consumer snapshot retaining ready/false and does not expose providerState=changed; the second newer revision clears the issue and publishes changed/false exactly once, proving the valid sibling update was not lost or prematurely committed.
-  it.todo(
+  it.effect(
     "retains all last-valid context slots through a sibling selector defect and recovers on a newer provider revision",
+    () =>
+      Effect.gen(function* () {
+        const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+        yield* runtime.ready();
+        const assembly = runtimeOwner(runtime).assembly();
+        const providerRef = actorRef(IntegrationProviderMachine, "f4-provider");
+
+        const provider = yield* assembly.createActor({
+          ref: providerRef,
+          initial: initialProviderSnapshot(),
+        });
+
+        const snapshots: IntegrationConsumerSnapshot[] = [];
+
+        const consumer = yield* assembly.createActor({
+          ref: actorRef(IntegrationConsumerMachine, "f4-consumer"),
+          initial: initialConsumerSnapshot(),
+          bindings: [
+            {
+              slot: "providerState",
+              provider: providerRef,
+              providerFence: provider.fence,
+              select: ({ state }) =>
+                state === IntegrationProviderDefinition.S.ready
+                  ? IntegrationProviderDefinition.S.ready
+                  : IntegrationProviderDefinition.S.changed,
+            },
+            {
+              slot: "providerChanged",
+              provider: providerRef,
+              providerFence: provider.fence,
+              select: ({ state }) => defectOnChanged(state),
+            },
+          ],
+          onSnapshot: (snapshot) => snapshots.push(snapshot),
+        });
+
+        for (const state of [
+          IntegrationProviderDefinition.S.changed,
+          IntegrationProviderDefinition.S.final,
+        ]) {
+          const dispatched = provider.engine.dispatch(IntegrationProviderEvent);
+          assert.strictEqual(dispatched.admitted, true);
+          yield* Deferred.await(dispatched.completion);
+          yield* provider.engine.drain();
+          yield* assembly.contextCoordinator.drain();
+          yield* consumer.engine.drain();
+          assert.strictEqual(provider.engine.snapshot().state, state);
+
+          if (state === IntegrationProviderDefinition.S.changed) {
+            assert.strictEqual(
+              consumer.engine.snapshot().context.providerState,
+              IntegrationProviderDefinition.S.ready,
+            );
+            assert.strictEqual(consumer.engine.snapshot().context.providerChanged, false);
+            assert.strictEqual(consumer.engine.snapshot().issues.length, 1);
+          }
+        }
+
+        assert.strictEqual(
+          consumer.engine.snapshot().context.providerState,
+          IntegrationProviderDefinition.S.changed,
+        );
+        assert.strictEqual(consumer.engine.snapshot().context.providerChanged, false);
+        assert.strictEqual(consumer.engine.snapshot().issues.length, 0);
+        assert.strictEqual(snapshots.length, 2);
+        yield* Effect.provideContext(consumer.dispose(), assembly.context);
+        yield* Effect.provideContext(provider.dispose(), assembly.context);
+        yield* runtimeOwner(runtime).close();
+      }),
   );
 
-  // SETUP: Assemble four real actors in a diamond A->B and A->C, with D bound to one selected slot from B and one from C; collect callback snapshots and provider revisions for every actor.
-  // ACTION: Commit one A provider update, drain the bounded dependency wave to quiescence, and inspect the ordered publication callbacks and evidence records.
-  // ASSERT: B and C each receive at most one combined context turn; D publishes at most once after both latest upstream values are available; no D snapshot contains B-new/C-old or B-old/C-new; all cross-actor delivery follows A's initiating publication/evidence/ack boundary.
-  it.todo("propagates one diamond wave without an intermediate context cut");
+  it.effect("propagates one diamond wave without an intermediate context cut", () =>
+    Effect.gen(function* () {
+      const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
 
-  // SETUP: Assemble provider A with independent dependents B and C, fill B's real mailbox to its documented bound, and leave C healthy; record each provider/consumer snapshot and context delivery result.
-  // ACTION: Publish A revision 1, capture the provider completion and the exact context delivery failure, attempt both dependents, then release and drain B; publish a strictly newer A revision 2 and drain the wave again.
-  // ASSERT: A's committed snapshot, evidence, acknowledgement, and future synchronous admission survive; B receives no revision-1 projection and its last-valid context/ledger stays unchanged; C receives revision 1 once; the failed B lane retains InvariantViolation at ["mailbox","full"] without inventing an issue publication into B's full queue; after B is freed, A revision 2 reaches B and C with the new value.
-  it.todo("isolates one full context dependent while preserving a healthy fanout peer");
+      const { a, b, c, d, bSnapshots, cSnapshots, dSnapshots } = yield* makeContextDiamond(
+        assembly,
+        "diamond",
+      );
+
+      type TicketAttestation = Parameters<typeof b.engine.dispatchContextTicket>[1];
+
+      const offers: Array<{ key: string; attestation: TicketAttestation }> = [];
+
+      for (const actor of [b, c, d]) {
+        const actual = actor.engine.dispatchContextTicket;
+        actor.engine.dispatchContextTicket = (fact, attestation) => {
+          offers.push({ key: actor.fence.key, attestation });
+
+          return actual(fact, attestation);
+        };
+      }
+
+      const dispatched = a.engine.dispatch(IntegrationProviderEvent);
+      assert.strictEqual(dispatched.admitted, true);
+      yield* Deferred.await(dispatched.completion);
+      yield* a.engine.drain();
+      const receipts = yield* assembly.contextCoordinator.drain();
+      yield* d.engine.drain();
+      assert.strictEqual(
+        b.engine.snapshot().context.providerState,
+        IntegrationProviderDefinition.S.changed,
+      );
+      assert.strictEqual(c.engine.snapshot().context.providerChanged, true);
+      assert.strictEqual(
+        d.engine.snapshot().context.providerState,
+        IntegrationProviderDefinition.S.changed,
+      );
+      assert.strictEqual(d.engine.snapshot().context.providerChanged, true);
+      assert.strictEqual(bSnapshots.length, 1);
+      assert.strictEqual(cSnapshots.length, 1);
+      assert.strictEqual(dSnapshots.length, 1);
+      assert.strictEqual(receipts.length, 1);
+      const receipt = receipts[0]!;
+      assert.strictEqual(receipt.origin.fence.key, a.fence.key);
+      assert.ok(receipt.origin.generation > 0);
+      assert.strictEqual(receipt.vector.get(a.fence.key), receipt.origin.revision);
+      assert.deepStrictEqual(
+        [b, c, d].map((actor) => receipt.vector.get(actor.fence.key)),
+        [0, 0, 0],
+      );
+      assert.strictEqual(offers.length, 3);
+
+      for (const { key, attestation } of offers) {
+        assert.deepStrictEqual(attestation.origin, receipt.origin);
+        assert.strictEqual(attestation.graphGeneration, receipt.graphGeneration);
+        assert.strictEqual(attestation.consumerFence.key, key);
+        assert.ok(attestation.validate(attestation.origin, attestation.graphGeneration));
+
+        const expected =
+          key === d.fence.key
+            ? [
+                [b.fence.key, 1],
+                [c.fence.key, 1],
+              ]
+            : [[a.fence.key, 1]];
+
+        assert.deepStrictEqual([...attestation.requiredVector], expected);
+      }
+
+      assert.deepStrictEqual(
+        [...receipt.outcomes.values()],
+        ["published", "published", "published"],
+      );
+      yield* Effect.provideContext(d.dispose(), assembly.context);
+      yield* Effect.provideContext(c.dispose(), assembly.context);
+      yield* Effect.provideContext(b.dispose(), assembly.context);
+      yield* Effect.provideContext(a.dispose(), assembly.context);
+      yield* runtimeOwner(runtime).close();
+    }),
+  );
+
+  it.effect("offers a healthy diamond sibling before awaiting a gated peer", () =>
+    Effect.gen(function* () {
+      const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+      const bStarted = yield* Deferred.make<void>();
+      const releaseB = yield* Deferred.make<void>();
+      const cPublished = yield* Deferred.make<void>();
+
+      const { a, b, c, d, dSnapshots } = yield* makeContextDiamond(assembly, "gated-siblings", {
+        bOnCommand: () =>
+          Effect.gen(function* () {
+            yield* Deferred.succeed(bStarted, undefined);
+            yield* Deferred.await(releaseB);
+          }),
+        cOnSnapshot: (snapshot) => {
+          if (snapshot.context.providerState === IntegrationProviderDefinition.S.changed)
+            Deferred.doneUnsafe(cPublished, Effect.void);
+        },
+      });
+
+      const held = b.engine.dispatch(IntegrationConsumerEvent);
+      assert.strictEqual(held.admitted, true);
+      yield* Deferred.await(bStarted);
+      const published = a.engine.dispatch(IntegrationProviderEvent);
+      assert.strictEqual(published.admitted, true);
+      yield* Deferred.await(published.completion);
+      yield* Deferred.await(cPublished);
+      assert.strictEqual(
+        c.engine.snapshot().context.providerState,
+        IntegrationProviderDefinition.S.changed,
+      );
+      assert.strictEqual(
+        b.engine.snapshot().context.providerState,
+        IntegrationProviderDefinition.S.ready,
+      );
+      assert.strictEqual(dSnapshots.length, 0);
+
+      yield* Deferred.succeed(releaseB, undefined);
+      yield* Deferred.await(held.completion);
+      yield* assembly.contextCoordinator.drain();
+      assert.strictEqual(dSnapshots.length, 1);
+      assert.strictEqual(
+        d.engine.snapshot().context.providerState,
+        IntegrationProviderDefinition.S.changed,
+      );
+      yield* runtimeOwner(runtime).close();
+    }),
+  );
+
+  it.effect("isolates one full context dependent while preserving a healthy fanout peer", () =>
+    Effect.gen(function* () {
+      const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+      const started = yield* Deferred.make<void>();
+      const release = yield* Deferred.make<void>();
+
+      const { a, b, c, d, cSnapshots } = yield* makeContextDiamond(assembly, "fanout", {
+        cOnSnapshot: () => {},
+        bOnCommand: () =>
+          Effect.gen(function* () {
+            yield* Deferred.succeed(started, undefined);
+            yield* Deferred.await(release);
+          }),
+      });
+
+      const executing = b.engine.dispatch(IntegrationConsumerEvent);
+      assert.strictEqual(executing.admitted, true);
+      yield* Deferred.await(started);
+      yield* assembly.contextCoordinator.drain();
+
+      for (let index = 0; index < ACTOR_MAILBOX_CAPACITY; index += 1)
+        assert.strictEqual(b.engine.dispatch(IntegrationConsumerEvent).admitted, true);
+
+      const first = a.engine.dispatch(IntegrationProviderEvent);
+      assert.strictEqual(first.admitted, true);
+      yield* Deferred.await(first.completion);
+      yield* a.engine.drain();
+      const firstReceipts = yield* assembly.contextCoordinator.drain();
+      assert.strictEqual(firstReceipts.length, 1);
+      assert.strictEqual(firstReceipts[0]?.outcomes.get(b.fence.key), "rejected");
+      assert.strictEqual(firstReceipts[0]?.outcomes.get(c.fence.key), "published");
+      assert.strictEqual(firstReceipts[0]?.outcomes.get(d.fence.key), "blocked");
+      const failure = firstReceipts[0]?.failures.get(b.fence.key);
+      assert.strictEqual(failure?.code, "InvariantViolation");
+      assert.deepStrictEqual(failure?.path, ["mailbox", "full"]);
+      assert.strictEqual(
+        b.engine.snapshot().context.providerState,
+        IntegrationProviderDefinition.S.ready,
+      );
+      assert.strictEqual(
+        c.engine.snapshot().context.providerState,
+        IntegrationProviderDefinition.S.changed,
+      );
+      assert.strictEqual(cSnapshots.length, 1);
+      assert.strictEqual(
+        d.engine.snapshot().context.providerState,
+        IntegrationProviderDefinition.S.ready,
+      );
+      assert.strictEqual(d.engine.snapshot().context.providerChanged, false);
+      yield* Deferred.succeed(release, undefined);
+      yield* b.engine.drain();
+      const second = a.engine.dispatch(IntegrationProviderEvent);
+      assert.strictEqual(second.admitted, true);
+      yield* Deferred.await(second.completion);
+      yield* a.engine.drain();
+      yield* assembly.contextCoordinator.drain();
+      assert.strictEqual(
+        b.engine.snapshot().context.providerState,
+        IntegrationProviderDefinition.S.final,
+      );
+      assert.strictEqual(
+        c.engine.snapshot().context.providerState,
+        IntegrationProviderDefinition.S.final,
+      );
+      assert.strictEqual(
+        d.engine.snapshot().context.providerState,
+        IntegrationProviderDefinition.S.final,
+      );
+      yield* Effect.provideContext(d.dispose(), assembly.context);
+      yield* Effect.provideContext(c.dispose(), assembly.context);
+      yield* Effect.provideContext(b.dispose(), assembly.context);
+      yield* Effect.provideContext(a.dispose(), assembly.context);
+      yield* runtimeOwner(runtime).close();
+    }),
+  );
 
   // Setup: Assemble a provider/consumer pair and suspend the consumer; use the new selected internal ContextCoordinator reconciliation capability introduced by this refactor, decorated with a Deferred while delegating the real production projection path.
   // Action: Change the provider while the consumer is suspended, start consumer resume, attempt send while reconciliation is gated, then release the projection and await resume.
@@ -3558,10 +4046,92 @@ describe("pending regression scenarios", () => {
     }),
   );
 
-  // Setup: Build the real A-to-B/C-to-D diamond plus a healthy C-to-F branch; fill B's mailbox, publish A revision 1, and let C commit while B retains its A revision-0 lineage.
-  // Action: After the failed wave settles, release/drain B's blocked queue without retriggering A; publish ordinary local B and C events separately and drain each. Then publish A revision 2 and enqueue an ordinary B event immediately after its projection ticket completes but before the coordinator observes that completion.
-  // Assert: Draining B's queue does not clear A delivery debt. D keeps its prior complete cut through unrelated local events while F follows healthy C. Matching ancestor reconciliation publishes coherent D cuts with the latest local state. B inherits lineage atomically installed before its ticket, never stale coordinator metadata; no B-old/C-new combination or same-cut selector retry appears.
-  it.todo("holds diamond descendants when an upstream context delivery is rejected");
+  it.effect("holds diamond descendants when an upstream context delivery is rejected", () =>
+    Effect.gen(function* () {
+      const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+      const started = yield* Deferred.make<void>();
+      const release = yield* Deferred.make<void>();
+
+      const { a, b, c, d, dSnapshots } = yield* makeContextDiamond(assembly, "blocked", {
+        cOnSnapshot: () => {},
+        bOnCommand: () =>
+          Effect.gen(function* () {
+            yield* Deferred.succeed(started, undefined);
+            yield* Deferred.await(release);
+          }),
+      });
+
+      const f = yield* assembly.createActor({
+        ref: actorRef(IntegrationConsumerMachine, "blocked-f"),
+        initial: initialConsumerSnapshot(),
+        bindings: [
+          {
+            slot: "providerState",
+            provider: c.identity.ref,
+            providerFence: c.fence,
+            select: ({ context }) => context.providerState,
+          },
+          {
+            slot: "providerChanged",
+            provider: c.identity.ref,
+            providerFence: c.fence,
+            select: ({ context }) => context.providerChanged,
+          },
+        ],
+      });
+
+      assert.strictEqual(b.engine.dispatch(IntegrationConsumerEvent).admitted, true);
+      yield* Deferred.await(started);
+      yield* assembly.contextCoordinator.drain();
+
+      for (let index = 0; index < ACTOR_MAILBOX_CAPACITY; index += 1)
+        assert.strictEqual(b.engine.dispatch(IntegrationConsumerEvent).admitted, true);
+
+      const first = a.engine.dispatch(IntegrationProviderEvent);
+      assert.strictEqual(first.admitted, true);
+      yield* Deferred.await(first.completion);
+      yield* a.engine.drain();
+      const receipts = yield* assembly.contextCoordinator.drain();
+      assert.strictEqual(receipts[0]?.outcomes.get(b.fence.key), "rejected");
+      assert.strictEqual(receipts[0]?.outcomes.get(d.fence.key), "blocked");
+      assert.strictEqual(
+        f.engine.snapshot().context.providerState,
+        IntegrationProviderDefinition.S.changed,
+      );
+      assert.strictEqual(dSnapshots.length, 0);
+      yield* Deferred.succeed(release, undefined);
+      yield* b.engine.drain();
+      const unrelated = c.engine.dispatch(IntegrationConsumerEvent);
+      assert.strictEqual(unrelated.admitted, true);
+      yield* Deferred.await(unrelated.completion);
+      yield* c.engine.drain();
+      yield* assembly.contextCoordinator.drain();
+      assert.strictEqual(
+        d.engine.snapshot().context.providerState,
+        IntegrationProviderDefinition.S.ready,
+      );
+      assert.strictEqual(dSnapshots.length, 0);
+      const second = a.engine.dispatch(IntegrationProviderEvent);
+      assert.strictEqual(second.admitted, true);
+      yield* Deferred.await(second.completion);
+      yield* a.engine.drain();
+      yield* assembly.contextCoordinator.drain();
+      assert.strictEqual(
+        d.engine.snapshot().context.providerState,
+        IntegrationProviderDefinition.S.final,
+      );
+      assert.strictEqual(d.engine.snapshot().context.providerChanged, false);
+      assert.strictEqual(dSnapshots.length, 1);
+      yield* Effect.provideContext(f.dispose(), assembly.context);
+      yield* Effect.provideContext(d.dispose(), assembly.context);
+      yield* Effect.provideContext(c.dispose(), assembly.context);
+      yield* Effect.provideContext(b.dispose(), assembly.context);
+      yield* Effect.provideContext(a.dispose(), assembly.context);
+      yield* runtimeOwner(runtime).close();
+    }),
+  );
 
   // Setup: Construct a machine, add an allowed descriptor before app construction, build the app, then mutate exposed machine definition, compiled containers, and plan arrays afterward.
   // Action: Admit and dispatch an actor through that app, then construct a second app from the current authored inputs.
@@ -3817,6 +4387,7 @@ describe("pending regression scenarios", () => {
           assert.strictEqual(providerDispatch.admitted, true);
           yield* Deferred.await(providerDispatch.completion);
           yield* provider.engine.drain();
+          yield* assembly.contextCoordinator.drain();
           yield* consumer.engine.drain();
 
           assert.strictEqual(
@@ -3999,20 +4570,1709 @@ describe("pending regression scenarios", () => {
     }),
   );
 
-  // Setup: Build the real A-to-B/C-to-D diamond and hold one projection after wave capture at the internal coordinator/mailbox capability; record every D snapshot.
-  // Action: In separate subcases publish an ordinary intermediate-actor event or suspend B before the held ticket commits; settle the captured wave, then provide a strictly newer matching input or resume reconciliation.
-  // Assert: The affected ticket is explicitly stale/suspended, D retains its prior complete cut, independent C may finish and the first drain terminates. One later valid wave recovers without rerunning a defective selector at an identical provider cut.
-  it.todo("blocks stale or suspended diamond tickets without substituting a newer live cut");
+  it.effect("blocks stale or suspended diamond tickets without substituting a newer live cut", () =>
+    Effect.gen(function* () {
+      const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+      const { a, b, c, d, dSnapshots } = yield* makeContextDiamond(assembly, "stale");
+      const actualOffer = b.engine.dispatchContextTicket;
+      let injected = 0;
+      b.engine.dispatchContextTicket = (...args) => {
+        injected += 1;
+        assert.strictEqual(b.engine.dispatch(IntegrationConsumerEvent).admitted, true);
 
-  // Setup: Hold a real dependency wave with its captured graph generation, one active and one pending root receipt; admit an independent actor and retain every accepted projection acknowledgement.
-  // Action: Suspend the affected delivery owner through its legal lifecycle route, then shut down while another projection is queued.
-  // Assert: Invalidated graph/fence data never reaches affected descendants; independent branches settle. Active, pending and queued tickets all receive explicit outcomes and actor/coordinator lifetimes release once without a mailbox, lifecycle or coordinator wait cycle.
-  it.todo("settles captured context receipts across graph changes and shutdown");
+        return actualOffer(...args);
+      };
 
-  // Setup: Gate a real active wave, queue a second pending root generation, call drain and retain the captured receipt identities.
-  // Action: Release the active wave, wait for the pending generation capture handshake, publish further roots, then gate their later generation.
-  // Assert: The original drain finishes when its captured generations settle while the later generation remains gated. Pre-capture updates coalesce once, each delivered vector is coherent, and completed receipts are dropped from coordinator ownership rather than retained in a history.
-  it.todo("drains captured context generations while newer roots continue arriving");
+      const first = a.engine.dispatch(IntegrationProviderEvent);
+      assert.strictEqual(first.admitted, true);
+      yield* Deferred.await(first.completion);
+      yield* a.engine.drain();
+      const receipts = yield* assembly.contextCoordinator.drain();
+      const root = receipts.find((receipt) => receipt.origin.fence.key === a.fence.key);
+      assert.strictEqual(injected, 1);
+      assert.strictEqual(root?.outcomes.get(b.fence.key), "stale");
+      assert.strictEqual(root?.outcomes.get(c.fence.key), "published");
+      assert.strictEqual(root?.outcomes.get(d.fence.key), "blocked");
+      assert.strictEqual(
+        d.engine.snapshot().context.providerState,
+        IntegrationProviderDefinition.S.ready,
+      );
+      assert.strictEqual(dSnapshots.length, 0);
+      b.engine.dispatchContextTicket = actualOffer;
+      yield* assembly.contextCoordinator.drain();
+      const second = a.engine.dispatch(IntegrationProviderEvent);
+      assert.strictEqual(second.admitted, true);
+      yield* Deferred.await(second.completion);
+      yield* a.engine.drain();
+      yield* assembly.contextCoordinator.drain();
+      assert.strictEqual(
+        d.engine.snapshot().context.providerState,
+        IntegrationProviderDefinition.S.final,
+      );
+      assert.strictEqual(d.engine.snapshot().context.providerChanged, false);
+      assert.strictEqual(dSnapshots.length, 1);
+      yield* Effect.provideContext(d.dispose(), assembly.context);
+      yield* Effect.provideContext(c.dispose(), assembly.context);
+      yield* Effect.provideContext(b.dispose(), assembly.context);
+      yield* Effect.provideContext(a.dispose(), assembly.context);
+      yield* runtimeOwner(runtime).close();
+    }),
+  );
+
+  it.effect("rejects mismatched vector, stale consumer fence, and foreign provider tickets", () =>
+    Effect.gen(function* () {
+      for (const rejection of ["vector", "fence", "foreign-provider"] as const) {
+        const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+        yield* runtime.ready();
+        const assembly = runtimeOwner(runtime).assembly();
+
+        const { a, b, c, d, dSnapshots } = yield* makeContextDiamond(
+          assembly,
+          `reject-${rejection}`,
+        );
+
+        const actualOffer = b.engine.dispatchContextTicket;
+        b.engine.dispatchContextTicket = (fact, attestation) => {
+          if (rejection === "vector")
+            return actualOffer(fact, {
+              ...attestation,
+              requiredVector: new Map([
+                [a.fence.key, attestation.requiredVector.get(a.fence.key)! + 1],
+              ]),
+            });
+
+          if (rejection === "fence")
+            return actualOffer(fact, {
+              ...attestation,
+              consumerFence: {
+                ...attestation.consumerFence,
+                generation: attestation.consumerFence.generation + 1,
+              },
+            });
+          assert.ok(fact.projection);
+
+          const projection = {
+            ...fact.projection,
+            providers: fact.projection.providers.map((provider) => ({
+              ...provider,
+              fence: c.fence,
+            })),
+          };
+
+          return actualOffer(
+            {
+              ...fact,
+              provider: { ...fact.provider, fence: c.fence, value: projection },
+              projection,
+            },
+            attestation,
+          );
+        };
+
+        const dispatched = a.engine.dispatch(IntegrationProviderEvent);
+        assert.strictEqual(dispatched.admitted, true);
+        yield* Deferred.await(dispatched.completion);
+        yield* a.engine.drain();
+        const receipts = yield* assembly.contextCoordinator.drain();
+        assert.strictEqual(receipts.length, 1);
+        assert.strictEqual(receipts[0]?.outcomes.get(b.fence.key), "stale", rejection);
+        assert.strictEqual(receipts[0]?.outcomes.get(c.fence.key), "published", rejection);
+        assert.strictEqual(receipts[0]?.outcomes.get(d.fence.key), "blocked", rejection);
+        assert.strictEqual(
+          b.engine.snapshot().context.providerState,
+          IntegrationProviderDefinition.S.ready,
+        );
+        assert.strictEqual(dSnapshots.length, 0);
+        yield* runtimeOwner(runtime).close();
+      }
+    }),
+  );
+
+  it.effect("rejects a ticket with a mutated captured origin before descendant publication", () =>
+    Effect.gen(function* () {
+      const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+
+      const { a, b, d, bSnapshots, dSnapshots } = yield* makeContextDiamond(
+        assembly,
+        "origin-attestation",
+      );
+
+      const actualOffer = b.engine.dispatchContextTicket;
+      b.engine.dispatchContextTicket = (fact, attestation) =>
+        actualOffer(fact, {
+          ...attestation,
+          origin: { ...attestation.origin, generation: attestation.origin.generation + 1 },
+        });
+
+      const dispatched = a.engine.dispatch(IntegrationProviderEvent);
+      assert.strictEqual(dispatched.admitted, true);
+      yield* Deferred.await(dispatched.completion);
+      yield* a.engine.drain();
+      const receipts = yield* assembly.contextCoordinator.drain();
+      assert.strictEqual(receipts[0]?.outcomes.get(b.fence.key), "stale");
+      assert.strictEqual(receipts[0]?.outcomes.get(d.fence.key), "blocked");
+      assert.strictEqual(
+        b.engine.snapshot().context.providerState,
+        IntegrationProviderDefinition.S.ready,
+      );
+      assert.strictEqual(bSnapshots.length, 0);
+      assert.strictEqual(dSnapshots.length, 0);
+
+      b.engine.dispatchContextTicket = actualOffer;
+      const next = a.engine.dispatch(IntegrationProviderEvent);
+      assert.strictEqual(next.admitted, true);
+      yield* Deferred.await(next.completion);
+      yield* a.engine.drain();
+      const retried = yield* assembly.contextCoordinator.drain();
+      assert.strictEqual(retried[0]?.outcomes.get(b.fence.key), "published");
+      assert.strictEqual(bSnapshots.length, 1);
+      assert.strictEqual(
+        d.engine.snapshot().context.providerState,
+        IntegrationProviderDefinition.S.final,
+      );
+      yield* runtimeOwner(runtime).close();
+    }),
+  );
+
+  it.effect("rejects a ticket with a mutated graph generation before descendant publication", () =>
+    Effect.gen(function* () {
+      const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+
+      const { a, b, d, bSnapshots, dSnapshots } = yield* makeContextDiamond(
+        assembly,
+        "graph-attestation",
+      );
+
+      const actualOffer = b.engine.dispatchContextTicket;
+      b.engine.dispatchContextTicket = (fact, attestation) =>
+        actualOffer(fact, {
+          ...attestation,
+          graphGeneration: attestation.graphGeneration + 1,
+        });
+
+      const dispatched = a.engine.dispatch(IntegrationProviderEvent);
+      assert.strictEqual(dispatched.admitted, true);
+      yield* Deferred.await(dispatched.completion);
+      yield* a.engine.drain();
+      const receipts = yield* assembly.contextCoordinator.drain();
+      assert.strictEqual(receipts[0]?.outcomes.get(b.fence.key), "stale");
+      assert.strictEqual(receipts[0]?.outcomes.get(d.fence.key), "blocked");
+      assert.strictEqual(
+        b.engine.snapshot().context.providerState,
+        IntegrationProviderDefinition.S.ready,
+      );
+      assert.strictEqual(bSnapshots.length, 0);
+      assert.strictEqual(dSnapshots.length, 0);
+
+      b.engine.dispatchContextTicket = actualOffer;
+      const next = a.engine.dispatch(IntegrationProviderEvent);
+      assert.strictEqual(next.admitted, true);
+      yield* Deferred.await(next.completion);
+      yield* a.engine.drain();
+      const retried = yield* assembly.contextCoordinator.drain();
+      assert.strictEqual(retried[0]?.outcomes.get(b.fence.key), "published");
+      assert.strictEqual(bSnapshots.length, 1);
+      assert.strictEqual(
+        d.engine.snapshot().context.providerState,
+        IntegrationProviderDefinition.S.final,
+      );
+      yield* runtimeOwner(runtime).close();
+    }),
+  );
+
+  it.effect("rejects an in-place origin mutation without consuming the selected cut", () =>
+    Effect.gen(function* () {
+      const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+
+      const { a, b, d, bSnapshots, dSnapshots, bSelectionAttempts } = yield* makeContextDiamond(
+        assembly,
+        "in-place-origin",
+      );
+
+      const before = bSelectionAttempts.length;
+
+      const actualOffer = b.engine.dispatchContextTicket;
+      b.engine.dispatchContextTicket = (fact, attestation) => {
+        attestation.origin.revision += 1;
+
+        return actualOffer(fact, attestation);
+      };
+
+      const dispatched = a.engine.dispatch(IntegrationProviderEvent);
+      assert.strictEqual(dispatched.admitted, true);
+      yield* Deferred.await(dispatched.completion);
+      yield* a.engine.drain();
+      const receipts = yield* assembly.contextCoordinator.drain();
+      assert.strictEqual(receipts[0]?.outcomes.get(b.fence.key), "stale");
+      assert.strictEqual(receipts[0]?.outcomes.get(d.fence.key), "blocked");
+      assert.strictEqual(bSnapshots.length, 0);
+      assert.strictEqual(dSnapshots.length, 0);
+      assert.deepStrictEqual(bSelectionAttempts.slice(before), [
+        "providerState",
+        "providerChanged",
+      ]);
+
+      b.engine.dispatchContextTicket = actualOffer;
+      assembly.contextCoordinator.notify(a.fence, a.engine.snapshot());
+      const retried = yield* assembly.contextCoordinator.drain();
+
+      const retryRoot = retried.find(
+        (receipt) =>
+          receipt.origin.fence.key === a.fence.key &&
+          receipt.outcomes.get(b.fence.key) === "published",
+      );
+
+      assert.ok(retryRoot);
+      assert.strictEqual(retryRoot.origin.revision, receipts[0]?.origin.revision);
+      assert.deepStrictEqual(bSelectionAttempts.slice(before), [
+        "providerState",
+        "providerChanged",
+        "providerState",
+        "providerChanged",
+      ]);
+      assert.strictEqual(bSnapshots.length, 1);
+      assert.strictEqual(dSnapshots.length, 1);
+      assert.strictEqual(
+        b.engine.snapshot().context.providerState,
+        IntegrationProviderDefinition.S.changed,
+      );
+      yield* runtimeOwner(runtime).close();
+    }),
+  );
+
+  it.effect("rejects a replaced ticket validator without consuming the selected cut", () =>
+    Effect.gen(function* () {
+      const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+
+      const { a, b, d, bSnapshots, dSnapshots, bSelectionAttempts } = yield* makeContextDiamond(
+        assembly,
+        "replaced-validator",
+      );
+
+      const before = bSelectionAttempts.length;
+
+      const actualOffer = b.engine.dispatchContextTicket;
+      b.engine.dispatchContextTicket = (fact, attestation) => {
+        attestation.graphGeneration += 1;
+        attestation.validate = () => true;
+
+        return actualOffer(fact, attestation);
+      };
+
+      const dispatched = a.engine.dispatch(IntegrationProviderEvent);
+      assert.strictEqual(dispatched.admitted, true);
+      yield* Deferred.await(dispatched.completion);
+      yield* a.engine.drain();
+      const receipts = yield* assembly.contextCoordinator.drain();
+      assert.strictEqual(receipts[0]?.outcomes.get(b.fence.key), "stale");
+      assert.strictEqual(receipts[0]?.outcomes.get(d.fence.key), "blocked");
+      assert.strictEqual(bSnapshots.length, 0);
+      assert.strictEqual(dSnapshots.length, 0);
+      assert.deepStrictEqual(bSelectionAttempts.slice(before), [
+        "providerState",
+        "providerChanged",
+      ]);
+
+      b.engine.dispatchContextTicket = actualOffer;
+      assembly.contextCoordinator.notify(a.fence, a.engine.snapshot());
+      const retried = yield* assembly.contextCoordinator.drain();
+
+      const retryRoot = retried.find(
+        (receipt) =>
+          receipt.origin.fence.key === a.fence.key &&
+          receipt.outcomes.get(b.fence.key) === "published",
+      );
+
+      assert.ok(retryRoot);
+      assert.strictEqual(retryRoot.origin.revision, receipts[0]?.origin.revision);
+      assert.deepStrictEqual(bSelectionAttempts.slice(before), [
+        "providerState",
+        "providerChanged",
+        "providerState",
+        "providerChanged",
+      ]);
+      assert.strictEqual(bSnapshots.length, 1);
+      assert.strictEqual(dSnapshots.length, 1);
+      assert.strictEqual(
+        b.engine.snapshot().context.providerState,
+        IntegrationProviderDefinition.S.changed,
+      );
+      yield* runtimeOwner(runtime).close();
+    }),
+  );
+
+  it.effect("rejects a constructor-forged context witness without committing its ledger", () =>
+    Effect.gen(function* () {
+      const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+
+      const { a, b, d, bSnapshots, dSnapshots, bSelectionAttempts } = yield* makeContextDiamond(
+        assembly,
+        "forged-witness",
+      );
+
+      const before = bSelectionAttempts.length;
+      const actualOffer = b.engine.dispatchContextTicket;
+      let constructorRejected = false;
+
+      b.engine.dispatchContextTicket = (fact, attestation) => {
+        const forgedOrigin = {
+          ...attestation.origin,
+          revision: attestation.origin.revision + 1,
+        };
+
+        const forgedGeneration = attestation.graphGeneration + 1;
+        let witness = attestation.witness;
+
+        try {
+          witness = Reflect.construct(attestation.witness.constructor, [
+            forgedOrigin,
+            forgedGeneration,
+            () => true,
+          ]);
+        } catch {
+          constructorRejected = true;
+        }
+
+        return actualOffer(fact, {
+          ...attestation,
+          origin: forgedOrigin,
+          graphGeneration: forgedGeneration,
+          witness,
+          validate: () => true,
+        });
+      };
+
+      const dispatched = a.engine.dispatch(IntegrationProviderEvent);
+      assert.strictEqual(dispatched.admitted, true);
+      yield* Deferred.await(dispatched.completion);
+      yield* a.engine.drain();
+      const receipts = yield* assembly.contextCoordinator.drain();
+      assert.strictEqual(receipts[0]?.outcomes.get(b.fence.key), "stale");
+      assert.strictEqual(receipts[0]?.outcomes.get(d.fence.key), "blocked");
+      assert.strictEqual(constructorRejected, true);
+      assert.strictEqual(bSnapshots.length, 0);
+      assert.strictEqual(dSnapshots.length, 0);
+      assert.deepStrictEqual(bSelectionAttempts.slice(before), [
+        "providerState",
+        "providerChanged",
+      ]);
+
+      b.engine.dispatchContextTicket = actualOffer;
+      assembly.contextCoordinator.notify(a.fence, a.engine.snapshot());
+      const retried = yield* assembly.contextCoordinator.drain();
+
+      const retryRoot = retried.find(
+        (receipt) =>
+          receipt.origin.fence.key === a.fence.key &&
+          receipt.outcomes.get(b.fence.key) === "published",
+      );
+
+      assert.ok(retryRoot);
+      assert.strictEqual(retryRoot.origin.revision, receipts[0]?.origin.revision);
+      assert.deepStrictEqual(bSelectionAttempts.slice(before), [
+        "providerState",
+        "providerChanged",
+        "providerState",
+        "providerChanged",
+      ]);
+      assert.strictEqual(bSnapshots.length, 1);
+      assert.strictEqual(dSnapshots.length, 1);
+      yield* runtimeOwner(runtime).close();
+    }),
+  );
+
+  it.effect("rejects cloned and proxied context witnesses", () =>
+    Effect.gen(function* () {
+      for (const substitution of ["clone", "proxy"] as const) {
+        const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+        yield* runtime.ready();
+        const assembly = runtimeOwner(runtime).assembly();
+
+        const { a, b, d, bSnapshots, dSnapshots } = yield* makeContextDiamond(
+          assembly,
+          `substituted-witness-${substitution}`,
+        );
+
+        const actualOffer = b.engine.dispatchContextTicket;
+
+        b.engine.dispatchContextTicket = (fact, attestation) => {
+          const witness =
+            substitution === "clone"
+              ? Object.assign(
+                  Object.create(Object.getPrototypeOf(attestation.witness)),
+                  attestation.witness,
+                )
+              : new Proxy(attestation.witness, {});
+
+          return actualOffer(fact, { ...attestation, witness });
+        };
+
+        const dispatched = a.engine.dispatch(IntegrationProviderEvent);
+        assert.strictEqual(dispatched.admitted, true);
+        yield* Deferred.await(dispatched.completion);
+        yield* a.engine.drain();
+        const receipts = yield* assembly.contextCoordinator.drain();
+        assert.strictEqual(receipts[0]?.outcomes.get(b.fence.key), "stale", substitution);
+        assert.strictEqual(receipts[0]?.outcomes.get(d.fence.key), "blocked", substitution);
+        assert.strictEqual(bSnapshots.length, 0, substitution);
+        assert.strictEqual(dSnapshots.length, 0, substitution);
+        yield* runtimeOwner(runtime).close();
+      }
+    }),
+  );
+
+  it.effect("rejects an in-place forged context carrier before descendant publication", () =>
+    Effect.gen(function* () {
+      const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+
+      const { a, b, d, bSnapshots, dSnapshots } = yield* makeContextDiamond(
+        assembly,
+        "carrier-forgery",
+      );
+
+      const actualOffer = b.engine.dispatchContextTicket;
+
+      b.engine.dispatchContextTicket = (fact, attestation) => {
+        assert.ok(fact.projection);
+        fact.projection.providers[0]!.value = IntegrationProviderDefinition.S.final;
+
+        return actualOffer(fact, attestation);
+      };
+
+      const dispatched = a.engine.dispatch(IntegrationProviderEvent);
+      assert.strictEqual(dispatched.admitted, true);
+      yield* Deferred.await(dispatched.completion);
+      yield* a.engine.drain();
+      const receipts = yield* assembly.contextCoordinator.drain();
+      assert.strictEqual(receipts[0]?.outcomes.get(b.fence.key), "stale");
+      assert.strictEqual(receipts[0]?.outcomes.get(d.fence.key), "blocked");
+      assert.strictEqual(bSnapshots.length, 0);
+      assert.strictEqual(dSnapshots.length, 0);
+      yield* runtimeOwner(runtime).close();
+    }),
+  );
+
+  it.effect("rejects forged carrier methods and iterators before descendant publication", () =>
+    Effect.gen(function* () {
+      const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+
+      const { a, b, d, bSnapshots, dSnapshots } = yield* makeContextDiamond(
+        assembly,
+        "carrier-method-forgery",
+      );
+
+      const actualOffer = b.engine.dispatchContextTicket;
+
+      b.engine.dispatchContextTicket = (fact, attestation) => {
+        assert.ok(fact.projection);
+        fact.projection.providers[0]!.value = IntegrationProviderDefinition.S.final;
+        Object.defineProperty(fact.projection.providers, "every", { value: () => true });
+        Object.defineProperty(fact.projection.providers, "map", { value: () => [] });
+        Object.defineProperty(fact.projection.providers, Symbol.iterator, {
+          value: () => ({
+            next: () => ({ done: true, value: undefined }),
+          }),
+        });
+
+        return actualOffer(fact, attestation);
+      };
+
+      const dispatched = a.engine.dispatch(IntegrationProviderEvent);
+      assert.strictEqual(dispatched.admitted, true);
+      yield* Deferred.await(dispatched.completion);
+      yield* a.engine.drain();
+      const receipts = yield* assembly.contextCoordinator.drain();
+      assert.strictEqual(receipts[0]?.outcomes.get(b.fence.key), "stale");
+      assert.strictEqual(receipts[0]?.outcomes.get(d.fence.key), "blocked");
+      assert.strictEqual(bSnapshots.length, 0);
+      assert.strictEqual(dSnapshots.length, 0);
+      yield* runtimeOwner(runtime).close();
+    }),
+  );
+
+  it.effect("stales a mutated selector-defect carrier and retries at the same revision", () =>
+    Effect.gen(function* () {
+      const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+      const providerRef = actorRef(IntegrationProviderMachine, "selector-carrier-provider");
+
+      const provider = yield* assembly.createActor({
+        ref: providerRef,
+        initial: initialProviderSnapshot(),
+      });
+
+      const selectorDiagnostic = Failure({
+        code: "InvariantViolation" as const,
+        path: ["context", "providerState"],
+        details: { reason: "selector" },
+        summary: "providerState selector failed",
+        help: "Inspect the providerState selector.",
+      });
+
+      let shouldDefect = false;
+      const consumerSnapshots: IntegrationConsumerSnapshot[] = [];
+
+      const consumer = yield* assembly.createActor({
+        ref: actorRef(IntegrationConsumerMachine, "selector-carrier-consumer"),
+        initial: initialConsumerSnapshot(),
+        bindings: [
+          {
+            slot: "providerState",
+            provider: providerRef,
+            providerFence: provider.fence,
+            select: ({ state }) => {
+              if (shouldDefect) throw selectorDiagnostic;
+
+              return state;
+            },
+          },
+          {
+            slot: "providerChanged",
+            provider: providerRef,
+            providerFence: provider.fence,
+            select: ({ state }) => state === IntegrationProviderDefinition.S.changed,
+          },
+        ],
+        onSnapshot: (snapshot) => consumerSnapshots.push(snapshot),
+      });
+
+      const actualOffer = consumer.engine.dispatchContextTicket;
+      let forgeCarrier = true;
+
+      consumer.engine.dispatchContextTicket = (fact, attestation) => {
+        if (forgeCarrier) {
+          forgeCarrier = false;
+          assert.ok(fact.projection);
+          const defect = fact.projection.selectorDefects[0];
+
+          assert.ok(defect);
+          assert.strictEqual(Reflect.set(defect, "classification", "Defect"), true);
+          assert.strictEqual(Reflect.set(defect, "code", "SemanticValidation"), true);
+          assert.strictEqual(Reflect.set(defect, "summary", "forged summary"), true);
+          assert.strictEqual(Reflect.set(defect, "help", "forged help"), true);
+          assert.strictEqual(Reflect.set(defect.path, 1, "forged"), true);
+          assert.strictEqual(Reflect.set(defect.details, "reason", "forged"), true);
+        }
+
+        return actualOffer(fact, attestation);
+      };
+
+      shouldDefect = true;
+      const first = provider.engine.dispatch(IntegrationProviderEvent);
+      assert.strictEqual(first.admitted, true);
+      yield* Deferred.await(first.completion);
+      yield* provider.engine.drain();
+      const staleReceipts = yield* assembly.contextCoordinator.drain();
+      yield* consumer.engine.drain();
+
+      assert.strictEqual(provider.engine.snapshot().revision, 1);
+      assert.strictEqual(staleReceipts.length, 1);
+      assert.strictEqual(staleReceipts[0]?.outcomes.get(consumer.fence.key), "stale");
+      assert.strictEqual(consumerSnapshots.length, 0);
+      assert.strictEqual(consumer.engine.snapshot().revision, 0);
+      assert.strictEqual(consumer.engine.snapshot().issues.length, 0);
+
+      assert.strictEqual(Reflect.set(selectorDiagnostic, "classification", "Failure"), true);
+      assert.strictEqual(Reflect.set(selectorDiagnostic, "code", "InvariantViolation"), true);
+      assert.strictEqual(
+        Reflect.set(selectorDiagnostic, "summary", "providerState selector failed"),
+        true,
+      );
+      assert.strictEqual(
+        Reflect.set(selectorDiagnostic, "help", "Inspect the providerState selector."),
+        true,
+      );
+      assert.strictEqual(Reflect.set(selectorDiagnostic.path, 1, "providerState"), true);
+      assert.strictEqual(Reflect.set(selectorDiagnostic.details, "reason", "selector"), true);
+      assembly.contextCoordinator.notify(provider.fence, provider.engine.snapshot());
+      const retryReceipts = yield* assembly.contextCoordinator.drain();
+      yield* consumer.engine.drain();
+
+      assert.strictEqual(retryReceipts.length, 1);
+      assert.strictEqual(retryReceipts[0]?.outcomes.get(consumer.fence.key), "defect");
+      assert.strictEqual(consumer.engine.snapshot().revision, 1);
+      assert.strictEqual(consumer.engine.snapshot().issues.length, 1);
+      assert.strictEqual(consumer.engine.snapshot().issues[0], selectorDiagnostic);
+      assert.deepStrictEqual(consumer.engine.snapshot().issues[0], selectorDiagnostic);
+      assert.strictEqual(consumerSnapshots.length, 1);
+      assert.strictEqual(consumerSnapshots[0]?.revision, 1);
+
+      yield* Effect.provideContext(consumer.dispose(), assembly.context);
+      yield* Effect.provideContext(provider.dispose(), assembly.context);
+      yield* runtimeOwner(runtime).close();
+    }),
+  );
+
+  it.effect("keeps accepted provider fences owned after ticket settlement", () =>
+    Effect.gen(function* () {
+      const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+      const { a, b, d, bSnapshots } = yield* makeContextDiamond(assembly, "provider-fence-copy");
+      const originalGeneration = a.fence.generation;
+      const retainedFences: ActorFence[] = [];
+      const actualOffer = b.engine.dispatchContextTicket;
+
+      b.engine.dispatchContextTicket = (fact, attestation) => {
+        const provider = fact.projection?.providers[0];
+        assert.ok(provider);
+        retainedFences.push(provider.fence);
+
+        return actualOffer(fact, attestation);
+      };
+
+      const first = a.engine.dispatch(IntegrationProviderEvent);
+      assert.strictEqual(first.admitted, true);
+      yield* Deferred.await(first.completion);
+      yield* a.engine.drain();
+      const settled = yield* assembly.contextCoordinator.drain();
+      assert.strictEqual(settled[0]?.outcomes.get(b.fence.key), "published");
+      assert.strictEqual(bSnapshots.length, 1);
+      const acceptedFence = retainedFences[0];
+      assert.ok(acceptedFence);
+      acceptedFence.generation += 1;
+      assert.strictEqual(a.fence.generation, originalGeneration);
+
+      b.engine.dispatchContextTicket = actualOffer;
+      const second = a.engine.dispatch(IntegrationProviderEvent);
+      assert.strictEqual(second.admitted, true);
+      yield* Deferred.await(second.completion);
+      yield* a.engine.drain();
+      const retried = yield* assembly.contextCoordinator.drain();
+      assert.strictEqual(retried[0]?.outcomes.get(b.fence.key), "published");
+      assert.strictEqual(bSnapshots.length, 2);
+      assert.strictEqual(
+        d.engine.snapshot().context.providerState,
+        IntegrationProviderDefinition.S.final,
+      );
+      yield* runtimeOwner(runtime).close();
+    }),
+  );
+
+  it.effect("rejects an in-place nested carrier mutation and retries the unconsumed cut", () =>
+    Effect.gen(function* () {
+      const runtime = runtimeSetup({ app: MutableContextApp }).construct();
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+
+      const { a, b, d, bSnapshots, dSnapshots, bSelectionAttempts } =
+        yield* makeMutableContextChain(assembly, "nested-carrier", () => Effect.void);
+
+      yield* assembly.contextCoordinator.drain();
+      const before = bSelectionAttempts.length;
+      const beforeB = bSnapshots.length;
+      const beforeD = dSnapshots.length;
+      const actualOffer = b.engine.dispatchContextTicket;
+
+      b.engine.dispatchContextTicket = (fact, attestation) => {
+        const value = fact.projection?.providers[0]?.value;
+        assert.ok(Predicate.isObject(value));
+        Reflect.set(value, "state", IntegrationProviderDefinition.S.final);
+
+        return actualOffer(fact, attestation);
+      };
+
+      const first = a.engine.dispatch(IntegrationProviderEvent);
+      assert.strictEqual(first.admitted, true);
+      yield* Deferred.await(first.completion);
+      yield* a.engine.drain();
+      const receipts = yield* assembly.contextCoordinator.drain();
+      assert.strictEqual(receipts[0]?.outcomes.get(b.fence.key), "stale");
+      assert.strictEqual(receipts[0]?.outcomes.get(d.fence.key), "blocked");
+      assert.strictEqual(bSnapshots.length, beforeB);
+      assert.strictEqual(dSnapshots.length, beforeD);
+      assert.deepStrictEqual(bSelectionAttempts.slice(before), [
+        "providerState",
+        "providerChanged",
+      ]);
+
+      b.engine.dispatchContextTicket = actualOffer;
+      assembly.contextCoordinator.notify(a.fence, a.engine.snapshot());
+      const retried = yield* assembly.contextCoordinator.drain();
+
+      const retryRoot = retried.find(
+        (receipt) => receipt.outcomes.get(b.fence.key) === "published",
+      );
+
+      assert.ok(retryRoot);
+      assert.strictEqual(retryRoot.origin.revision, receipts[0]?.origin.revision);
+      assert.ok(bSelectionAttempts.length - before >= 4);
+      assert.strictEqual(bSnapshots.length, beforeB + 1);
+      assert.strictEqual(dSnapshots.length, beforeD + 1);
+      assert.strictEqual(
+        b.engine.snapshot().context.providerState.state,
+        IntegrationProviderDefinition.S.changed,
+      );
+      assert.strictEqual(
+        d.engine.snapshot().context.providerState,
+        IntegrationProviderDefinition.S.changed,
+      );
+      yield* runtimeOwner(runtime).close();
+    }),
+  );
+
+  it.effect("rejects each forged outer context lead without issuing or consuming the cut", () =>
+    Effect.gen(function* () {
+      for (const field of ["fence", "slot", "revision"] as const) {
+        const runtime = runtimeSetup({ app: MutableContextApp }).construct();
+        yield* runtime.ready();
+        const assembly = runtimeOwner(runtime).assembly();
+
+        const { a, b, d, bSnapshots, dSnapshots, bSelectionAttempts } =
+          yield* makeMutableContextChain(assembly, `lead-${field}`, () => Effect.void);
+
+        yield* assembly.contextCoordinator.drain();
+        const beforeB = bSnapshots.length;
+        const beforeD = dSnapshots.length;
+        const beforeSelection = bSelectionAttempts.length;
+        const beforeRevision = b.engine.snapshot().revision;
+        const beforeIssues = b.engine.snapshot().issues.length;
+        const actualOffer = b.engine.dispatchContextTicket;
+
+        b.engine.dispatchContextTicket = (fact, attestation) => {
+          if (field === "fence") fact.provider.fence.generation += 1;
+          else if (field === "slot") fact.provider.slot = "forged-slot";
+          else fact.provider.revision += 1;
+
+          return actualOffer(fact, attestation);
+        };
+
+        const first = a.engine.dispatch(IntegrationProviderEvent);
+        assert.strictEqual(first.admitted, true);
+        yield* Deferred.await(first.completion);
+        yield* a.engine.drain();
+        const receipts = yield* assembly.contextCoordinator.drain();
+        assert.strictEqual(receipts[0]?.outcomes.get(b.fence.key), "stale", field);
+        assert.strictEqual(receipts[0]?.outcomes.get(d.fence.key), "blocked", field);
+        assert.strictEqual(b.engine.snapshot().revision, beforeRevision, field);
+        assert.strictEqual(b.engine.snapshot().issues.length, beforeIssues, field);
+        assert.strictEqual(bSnapshots.length, beforeB, field);
+        assert.strictEqual(dSnapshots.length, beforeD, field);
+        assert.deepStrictEqual(bSelectionAttempts.slice(beforeSelection), [
+          "providerState",
+          "providerChanged",
+        ]);
+
+        b.engine.dispatchContextTicket = actualOffer;
+        assembly.contextCoordinator.notify(a.fence, a.engine.snapshot());
+        const retried = yield* assembly.contextCoordinator.drain();
+
+        const retryRoot = retried.find(
+          (receipt) => receipt.outcomes.get(b.fence.key) === "published",
+        );
+
+        assert.ok(retryRoot, field);
+        assert.strictEqual(retryRoot.origin.revision, receipts[0]?.origin.revision, field);
+        assert.ok(bSelectionAttempts.length - beforeSelection >= 4, field);
+        assert.strictEqual(bSnapshots.length, beforeB + 1, field);
+        assert.strictEqual(dSnapshots.length, beforeD + 1, field);
+        assert.strictEqual(
+          d.engine.snapshot().context.providerState,
+          IntegrationProviderDefinition.S.changed,
+        );
+        yield* runtimeOwner(runtime).close();
+      }
+    }),
+  );
+
+  it.effect("owns settled nested context against retained carrier and snapshot mutation", () =>
+    Effect.gen(function* () {
+      const runtime = runtimeSetup({ app: MutableContextApp }).construct();
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+
+      const { a, b, d, bSnapshots, dSnapshots } = yield* makeMutableContextChain(
+        assembly,
+        "settled-carrier",
+        () => Effect.void,
+      );
+
+      yield* assembly.contextCoordinator.drain();
+      const actualOffer = b.engine.dispatchContextTicket;
+      let mutateRetained = () => false;
+
+      b.engine.dispatchContextTicket = (fact, attestation) => {
+        const value = fact.projection?.providers[0]?.value;
+        assert.ok(Predicate.isObject(value));
+        mutateRetained = () => Reflect.set(value, "state", IntegrationProviderDefinition.S.final);
+
+        return actualOffer(fact, attestation);
+      };
+
+      const first = a.engine.dispatch(IntegrationProviderEvent);
+      assert.strictEqual(first.admitted, true);
+      yield* Deferred.await(first.completion);
+      yield* a.engine.drain();
+      const receipts = yield* assembly.contextCoordinator.drain();
+      assert.strictEqual(receipts[0]?.outcomes.get(b.fence.key), "published");
+      assert.strictEqual(receipts[0]?.outcomes.get(d.fence.key), "published");
+      yield* assembly.contextCoordinator.drain();
+      const bRevision = b.engine.snapshot().revision;
+      const dRevision = d.engine.snapshot().revision;
+      const bCount = bSnapshots.length;
+      const dCount = dSnapshots.length;
+
+      assert.strictEqual(mutateRetained(), true);
+      assert.strictEqual(
+        b.engine.snapshot().context.providerState.state,
+        IntegrationProviderDefinition.S.changed,
+      );
+      const exposed = b.engine.snapshot();
+      Reflect.set(exposed.context.providerState, "state", IntegrationProviderDefinition.S.final);
+      yield* assembly.contextCoordinator.drain();
+
+      assert.strictEqual(
+        b.engine.snapshot().context.providerState.state,
+        IntegrationProviderDefinition.S.changed,
+      );
+      assert.strictEqual(
+        d.engine.snapshot().context.providerState,
+        IntegrationProviderDefinition.S.changed,
+      );
+      assert.strictEqual(b.engine.snapshot().revision, bRevision);
+      assert.strictEqual(d.engine.snapshot().revision, dRevision);
+      assert.strictEqual(bSnapshots.length, bCount);
+      assert.strictEqual(dSnapshots.length, dCount);
+      yield* runtimeOwner(runtime).close();
+    }),
+  );
+
+  it.effect("rejects a forged expected revision behind a queued consumer command", () =>
+    Effect.gen(function* () {
+      const runtime = runtimeSetup({ app: MutableContextApp }).construct();
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+      const started = yield* Deferred.make<void>();
+      const release = yield* Deferred.make<void>();
+      const offered = yield* Deferred.make<void>();
+      let commands = 0;
+
+      const { a, b, d, dSnapshots } = yield* makeMutableContextChain(
+        assembly,
+        "expected-revision",
+        () =>
+          Effect.gen(function* () {
+            commands += 1;
+
+            if (commands === 1) {
+              yield* Deferred.succeed(started, undefined);
+              yield* Deferred.await(release);
+            }
+          }),
+      );
+
+      yield* assembly.contextCoordinator.drain();
+      const beforeD = dSnapshots.length;
+      const firstCommand = b.engine.dispatch(MutableContextConsumerEvent);
+      assert.strictEqual(firstCommand.admitted, true);
+      yield* Deferred.await(started);
+      const secondCommand = b.engine.dispatch(MutableContextConsumerEvent);
+      assert.strictEqual(secondCommand.admitted, true);
+      const expectedRevision = b.engine.snapshot().revision;
+      const actualOffer = b.engine.dispatchContextTicket;
+
+      b.engine.dispatchContextTicket = (fact, attestation) => {
+        assert.strictEqual(attestation.expectedRevision, expectedRevision);
+        attestation.expectedRevision += 1;
+        Deferred.doneUnsafe(offered, Effect.void);
+
+        return actualOffer(fact, attestation);
+      };
+
+      const providerEvent = a.engine.dispatch(IntegrationProviderEvent);
+      assert.strictEqual(providerEvent.admitted, true);
+      yield* Deferred.await(providerEvent.completion);
+      yield* a.engine.drain();
+      yield* Deferred.await(offered);
+
+      const waiting = yield* Effect.forkChild(assembly.contextCoordinator.drain(), {
+        startImmediately: true,
+      });
+
+      yield* Effect.yieldNow;
+      yield* Deferred.succeed(release, undefined);
+      yield* b.engine.drain();
+      const receipts = yield* Fiber.join(waiting);
+
+      assert.strictEqual(b.engine.snapshot().revision, expectedRevision + 1);
+      assert.strictEqual(receipts[0]?.outcomes.get(b.fence.key), "stale");
+      assert.strictEqual(receipts[0]?.outcomes.get(d.fence.key), "blocked");
+      assert.strictEqual(
+        b.engine.snapshot().context.providerState.state,
+        IntegrationProviderDefinition.S.ready,
+      );
+      assert.strictEqual(dSnapshots.length, beforeD);
+      b.engine.dispatchContextTicket = actualOffer;
+      yield* runtimeOwner(runtime).close();
+    }),
+  );
+
+  it.effect("rejects an in-place consumer fence mutation without changing actor identity", () =>
+    Effect.gen(function* () {
+      const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+
+      const { a, b, d, bSnapshots, dSnapshots } = yield* makeContextDiamond(
+        assembly,
+        "fence-alias",
+      );
+
+      const generation = b.fence.generation;
+      const actualOffer = b.engine.dispatchContextTicket;
+
+      b.engine.dispatchContextTicket = (fact, attestation) => {
+        attestation.consumerFence.generation += 1;
+
+        return actualOffer(fact, attestation);
+      };
+
+      const dispatched = a.engine.dispatch(IntegrationProviderEvent);
+      assert.strictEqual(dispatched.admitted, true);
+      yield* Deferred.await(dispatched.completion);
+      yield* a.engine.drain();
+      const receipts = yield* assembly.contextCoordinator.drain();
+      assert.strictEqual(receipts[0]?.outcomes.get(b.fence.key), "stale");
+      assert.strictEqual(receipts[0]?.outcomes.get(d.fence.key), "blocked");
+      assert.strictEqual(b.fence.generation, generation);
+      assert.strictEqual(bSnapshots.length, 0);
+      assert.strictEqual(dSnapshots.length, 0);
+      yield* runtimeOwner(runtime).close();
+    }),
+  );
+
+  it.effect("rejects an old fence after production stable-ref re-admission", () =>
+    Effect.gen(function* () {
+      const registered = yield* Deferred.make<void>();
+      const exposeGate = yield* Deferred.make<void>();
+      const pendingCleared = yield* Deferred.make<void>();
+      let exposeAttempts = 0;
+
+      const runtime = runtimeSetupForAdmissionTest({
+        app: IntegrationApp,
+        admissionProbe: {
+          beforeExpose: Effect.gen(function* () {
+            exposeAttempts += 1;
+
+            if (exposeAttempts === 1) {
+              yield* Deferred.succeed(registered, undefined);
+              yield* Effect.interruptible(Deferred.await(exposeGate));
+            }
+          }),
+          onPendingCleared: () => Deferred.doneUnsafe(pendingCleared, Effect.succeed(undefined)),
+        },
+      }).construct();
+
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+
+      const providerRef = actorRef(IntegrationProviderMachine, "production-replacement-provider", {
+        persist: true,
+      });
+
+      const actualRegister = assembly.contextCoordinator.register;
+      let oldFence: ActorFence | undefined;
+
+      assembly.contextCoordinator.register = (node) => {
+        oldFence = { ...node.fence };
+        actualRegister(node);
+      };
+
+      const first = yield* Effect.forkChild(
+        assembly.ensureActor(providerRef, { initial: initialProviderSnapshot() }),
+        { startImmediately: true },
+      );
+
+      yield* Deferred.await(registered);
+      assert.ok(oldFence !== undefined);
+      yield* Effect.exit(Fiber.interrupt(first));
+      const firstExit = yield* Fiber.await(first);
+      assert.ok(Exit.isFailure(firstExit));
+      yield* Deferred.await(pendingCleared);
+
+      assembly.contextCoordinator.register = actualRegister;
+
+      const replacement = yield* assembly.ensureActor(providerRef, {
+        initial: initialProviderSnapshot(),
+      });
+
+      assert.strictEqual(exposeAttempts, 2);
+      assert.deepStrictEqual(replacement.identity.ref, providerRef);
+      assert.strictEqual(replacement.fence.key, oldFence.key);
+      assert.notStrictEqual(replacement.fence.incarnation, oldFence.incarnation);
+
+      assembly.contextCoordinator.notify(oldFence, replacement.engine.snapshot());
+      assert.deepStrictEqual(yield* assembly.contextCoordinator.drain(), []);
+
+      assembly.contextCoordinator.notify(replacement.fence, replacement.engine.snapshot());
+      const receipts = yield* assembly.contextCoordinator.drain();
+      assert.strictEqual(receipts.length, 1);
+      assert.strictEqual(receipts[0]?.origin.fence.key, replacement.fence.key);
+      assert.strictEqual(receipts[0]?.origin.fence.incarnation, replacement.fence.incarnation);
+      assert.strictEqual(receipts[0]?.origin.revision, replacement.engine.snapshot().revision);
+
+      yield* Effect.provideContext(replacement.dispose(), assembly.context);
+      yield* runtimeOwner(runtime).close();
+    }),
+  );
+
+  it.effect("isolates onSnapshot mutation from coordinator publication state", () =>
+    Effect.gen(function* () {
+      const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+      const callbackSnapshots: IntegrationConsumerSnapshot[] = [];
+
+      const { a, b, d, dSnapshots } = yield* makeContextDiamond(assembly, "snapshot-callback", {
+        bOnCommand: () => Effect.void,
+        cOnSnapshot: () => {},
+        bOnSnapshot: (snapshot) => {
+          callbackSnapshots.push(snapshot);
+          assert.strictEqual(
+            Reflect.set(snapshot.context, "providerState", IntegrationProviderDefinition.S.final),
+            true,
+          );
+          snapshot.revision = 99;
+        },
+      });
+
+      const dispatched = a.engine.dispatch(IntegrationProviderEvent);
+      assert.strictEqual(dispatched.admitted, true);
+      yield* Deferred.await(dispatched.completion);
+      yield* a.engine.drain();
+      yield* assembly.contextCoordinator.drain();
+      yield* b.engine.drain();
+      yield* d.engine.drain();
+
+      assert.strictEqual(callbackSnapshots.length, 1);
+      assert.strictEqual(
+        callbackSnapshots[0]?.context.providerState,
+        IntegrationProviderDefinition.S.final,
+      );
+      assert.strictEqual(callbackSnapshots[0]?.revision, 99);
+      assert.notStrictEqual(callbackSnapshots[0], b.engine.snapshot());
+      assert.strictEqual(
+        b.engine.snapshot().context.providerState,
+        IntegrationProviderDefinition.S.changed,
+      );
+      assert.strictEqual(
+        d.engine.snapshot().context.providerState,
+        IntegrationProviderDefinition.S.changed,
+      );
+      assert.strictEqual(dSnapshots.length, 1);
+      yield* runtimeOwner(runtime).close();
+    }),
+  );
+
+  it.effect("deeply owns diagnostic data across an onSnapshot callback", () =>
+    Effect.gen(function* () {
+      const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+      const callbackSnapshots: ActorSnapshot<typeof IntegrationStandaloneDefinition>[] = [];
+      const mutationResults: boolean[] = [];
+
+      const actor = yield* assembly.createActor({
+        ref: actorRef(IntegrationStandaloneMachine, "nested-diagnostic-callback"),
+        initial: initialStandaloneSnapshot(),
+        onSnapshot: (snapshot) => {
+          if (snapshot.issues.length === 0) return;
+          callbackSnapshots.push(snapshot);
+          const issue = snapshot.issues[0];
+
+          if (issue === undefined) return;
+          mutationResults.push(Reflect.set(issue.path, 0, "callback-mutated"));
+          mutationResults.push(Reflect.set(issue.details, "reason", "callback-mutated"));
+        },
+      });
+
+      const dispatched = actor.engine.dispatchFact({
+        _tag: "timer-projection",
+        fence: actor.fence,
+        name: "invalid",
+        startedAt: 2,
+        dueAt: 1,
+      });
+
+      assert.ok(Result.isSuccess(dispatched));
+      yield* actor.engine.drain();
+      assert.strictEqual(callbackSnapshots.length, 1);
+      assert.deepStrictEqual(mutationResults, [false, false]);
+      assert.deepStrictEqual(actor.engine.snapshot().issues[0]?.path, ["projection", "timer"]);
+      assert.deepStrictEqual(actor.engine.snapshot().issues[0]?.details, {});
+      assert.deepStrictEqual(callbackSnapshots[0]?.issues[0]?.path, ["projection", "timer"]);
+      assert.deepStrictEqual(callbackSnapshots[0]?.issues[0]?.details, {});
+
+      yield* Effect.provideContext(actor.dispose(), assembly.context);
+      yield* runtimeOwner(runtime).close();
+    }),
+  );
+
+  it.effect("always owns empty-context snapshots across query and callback boundaries", () =>
+    Effect.gen(function* () {
+      const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+      const callbackSnapshots: ActorSnapshot<typeof IntegrationStandaloneDefinition>[] = [];
+
+      const actor = yield* assembly.createActor({
+        ref: actorRef(IntegrationStandaloneMachine, "empty-context-snapshot-copy"),
+        initial: initialStandaloneSnapshot(),
+        onSnapshot: (snapshot) => {
+          callbackSnapshots.push(snapshot);
+          Reflect.set(snapshot.memory, "callbackNested", { value: "forged" });
+          snapshot.revision = 99;
+        },
+      });
+
+      const queried = actor.engine.snapshot();
+      assert.strictEqual(Reflect.set(queried.memory, "queryNested", { value: "forged" }), false);
+      assert.strictEqual(Reflect.set(queried, "revision", 77), false);
+      const afterQuery = actor.engine.snapshot();
+
+      assert.strictEqual(afterQuery.revision, 0);
+      assert.strictEqual(Reflect.has(afterQuery.memory, "queryNested"), false);
+
+      const dispatched = actor.engine.dispatch(IntegrationStandaloneEvent);
+      assert.strictEqual(dispatched.admitted, true);
+      yield* Deferred.await(dispatched.completion);
+      yield* actor.engine.drain();
+
+      const committed = actor.engine.snapshot();
+      assert.strictEqual(committed.revision, 1);
+      assert.strictEqual(Reflect.has(committed.memory, "callbackNested"), false);
+      assert.ok(callbackSnapshots.length > 0);
+      const callbackSnapshot = callbackSnapshots[callbackSnapshots.length - 1];
+      assert.ok(callbackSnapshot !== undefined);
+      assert.strictEqual(callbackSnapshot.revision, 99);
+      assert.strictEqual(Reflect.has(callbackSnapshot.memory, "callbackNested"), true);
+
+      yield* Effect.provideContext(actor.dispose(), assembly.context);
+      yield* runtimeOwner(runtime).close();
+    }),
+  );
+
+  it.effect("does not commit a no-projection selection after its provider is invalidated", () =>
+    Effect.gen(function* () {
+      const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+      const { a, b, d } = yield* makeContextDiamond(assembly, "no-projection-invalidation");
+      const scope = yield* Scope.make("sequential");
+      const coordinator = yield* makeContextCoordinator(scope);
+      let commits = 0;
+
+      const unusedOffer = () =>
+        Result.fail(
+          Failure({
+            code: "MissingContextProvider",
+            path: ["context", "provider"],
+            details: {},
+            summary: "No projection should be offered.",
+            help: "Keep this path in the no-projection phase.",
+          }),
+        );
+
+      coordinator.register({
+        ref: a.engine.ref,
+        fence: a.fence,
+        providers: [],
+        snapshot: a.engine.snapshot,
+        plan: () =>
+          Result.succeed({ phase: "no-projection" as const, commit: () => {}, defective: false }),
+        offer: unusedOffer,
+      });
+      coordinator.register({
+        ref: b.engine.ref,
+        fence: b.fence,
+        providers: [{ key: a.fence.key, slot: "providerState" }],
+        snapshot: b.engine.snapshot,
+        plan: () => {
+          coordinator.setOpen(a.fence.key, false);
+
+          return Result.succeed({
+            phase: "no-projection" as const,
+            commit: () => {
+              commits += 1;
+            },
+            defective: false,
+          });
+        },
+        offer: unusedOffer,
+      });
+      coordinator.register({
+        ref: d.engine.ref,
+        fence: d.fence,
+        providers: [{ key: b.fence.key, slot: "providerState" }],
+        snapshot: d.engine.snapshot,
+        plan: () =>
+          Result.succeed({ phase: "no-projection" as const, commit: () => {}, defective: false }),
+        offer: unusedOffer,
+      });
+      coordinator.setOpen(a.fence.key, true);
+      coordinator.setOpen(b.fence.key, true);
+      coordinator.setOpen(d.fence.key, true);
+      coordinator.notify(a.fence, a.engine.snapshot());
+      const receipts = yield* coordinator.drain();
+      assert.strictEqual(receipts[0]?.outcomes.get(b.fence.key), "stale");
+      assert.strictEqual(receipts[0]?.outcomes.get(d.fence.key), "blocked");
+      assert.strictEqual(commits, 0);
+      yield* coordinator.close();
+      yield* Scope.close(scope, Exit.void);
+      yield* runtimeOwner(runtime).close();
+    }),
+  );
+
+  it.effect("invalidates an offered wave when its provider is unregistered", () =>
+    Effect.gen(function* () {
+      const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+      const started = yield* Deferred.make<void>();
+      const release = yield* Deferred.make<void>();
+      const offered = yield* Deferred.make<void>();
+
+      const { a, b, d, dSnapshots } = yield* makeContextDiamond(assembly, "unregister", {
+        cOnSnapshot: () => {},
+        bOnCommand: () =>
+          Effect.gen(function* () {
+            yield* Deferred.succeed(started, undefined);
+            yield* Deferred.await(release);
+          }),
+      });
+
+      assert.strictEqual(b.engine.dispatch(IntegrationConsumerEvent).admitted, true);
+      yield* Deferred.await(started);
+      yield* assembly.contextCoordinator.drain();
+      const actualOffer = b.engine.dispatchContextTicket;
+      b.engine.dispatchContextTicket = (...args) => {
+        Deferred.doneUnsafe(offered, Effect.void);
+
+        return actualOffer(...args);
+      };
+
+      const dispatched = a.engine.dispatch(IntegrationProviderEvent);
+      assert.strictEqual(dispatched.admitted, true);
+      yield* Deferred.await(dispatched.completion);
+      yield* a.engine.drain();
+      yield* Deferred.await(offered);
+
+      const waiting = yield* Effect.forkChild(assembly.contextCoordinator.drain(), {
+        startImmediately: true,
+      });
+
+      yield* Effect.yieldNow;
+      assembly.contextCoordinator.unregister(b.fence.key);
+      const receipts = yield* Fiber.join(waiting);
+      assert.strictEqual(receipts[0]?.outcomes.get(b.fence.key), "stale");
+      assert.strictEqual(receipts[0]?.outcomes.get(d.fence.key), "blocked");
+      assert.strictEqual(dSnapshots.length, 0);
+      yield* Deferred.succeed(release, undefined);
+      yield* b.engine.drain();
+      assert.strictEqual(
+        b.engine.snapshot().context.providerState,
+        IntegrationProviderDefinition.S.ready,
+      );
+      yield* runtimeOwner(runtime).close();
+    }),
+  );
+
+  it.effect("settles captured context receipts across graph changes and shutdown", () =>
+    Effect.gen(function* () {
+      const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+      const started = yield* Deferred.make<void>();
+      const release = yield* Deferred.make<void>();
+      const offered = yield* Deferred.make<void>();
+
+      const { a, b, c, d, dSnapshots } = yield* makeContextDiamond(assembly, "invalidate", {
+        cOnSnapshot: () => {},
+        bOnCommand: () =>
+          Effect.gen(function* () {
+            yield* Deferred.succeed(started, undefined);
+            yield* Deferred.await(release);
+          }),
+      });
+
+      assert.strictEqual(b.engine.dispatch(IntegrationConsumerEvent).admitted, true);
+      yield* Deferred.await(started);
+      yield* assembly.contextCoordinator.drain();
+      const actualOffer = b.engine.dispatchContextTicket;
+      b.engine.dispatchContextTicket = (...args) => {
+        Deferred.doneUnsafe(offered, Effect.void);
+
+        return actualOffer(...args);
+      };
+
+      const published = a.engine.dispatch(IntegrationProviderEvent);
+      assert.strictEqual(published.admitted, true);
+      yield* Deferred.await(published.completion);
+      yield* a.engine.drain();
+      yield* Deferred.await(offered);
+
+      const waiting = yield* Effect.forkChild(assembly.contextCoordinator.drain(), {
+        startImmediately: true,
+      });
+
+      yield* Effect.yieldNow;
+      assembly.contextCoordinator.setOpen(b.fence.key, false);
+      const graphReceipts = yield* Fiber.join(waiting);
+      assert.strictEqual(graphReceipts[0]?.outcomes.get(b.fence.key), "stale");
+      assert.strictEqual(graphReceipts[0]?.outcomes.get(c.fence.key), "stale");
+      assert.strictEqual(graphReceipts[0]?.outcomes.get(d.fence.key), "blocked");
+      yield* Deferred.succeed(release, undefined);
+      yield* b.engine.drain();
+      assert.strictEqual(
+        b.engine.snapshot().context.providerState,
+        IntegrationProviderDefinition.S.ready,
+      );
+      assert.strictEqual(dSnapshots.length, 0);
+      b.engine.dispatchContextTicket = actualOffer;
+      yield* runtimeOwner(runtime).close();
+      assert.strictEqual(d.engine.snapshot().lifecycle, "disposed");
+
+      const secondRuntime = runtimeSetup({ app: IntegrationApp }).construct();
+      yield* secondRuntime.ready();
+      const secondAssembly = runtimeOwner(secondRuntime).assembly();
+      const secondStarted = yield* Deferred.make<void>();
+      const secondRelease = yield* Deferred.make<void>();
+      const secondOffered = yield* Deferred.make<void>();
+
+      const second = yield* makeContextDiamond(secondAssembly, "shutdown", {
+        cOnSnapshot: () => {},
+        bOnCommand: () =>
+          Effect.gen(function* () {
+            yield* Deferred.succeed(secondStarted, undefined);
+            yield* Deferred.await(secondRelease);
+          }),
+      });
+
+      assert.strictEqual(second.b.engine.dispatch(IntegrationConsumerEvent).admitted, true);
+      yield* Deferred.await(secondStarted);
+      yield* secondAssembly.contextCoordinator.drain();
+      const secondOffer = second.b.engine.dispatchContextTicket;
+      second.b.engine.dispatchContextTicket = (...args) => {
+        Deferred.doneUnsafe(secondOffered, Effect.void);
+
+        return secondOffer(...args);
+      };
+
+      const firstRoot = second.a.engine.dispatch(IntegrationProviderEvent);
+      assert.strictEqual(firstRoot.admitted, true);
+      yield* Deferred.await(firstRoot.completion);
+      yield* second.a.engine.drain();
+      yield* Deferred.await(secondOffered);
+      const pendingRoot = second.a.engine.dispatch(IntegrationProviderEvent);
+      assert.strictEqual(pendingRoot.admitted, true);
+      yield* Deferred.await(pendingRoot.completion);
+      yield* second.a.engine.drain();
+
+      const captured = yield* Effect.forkChild(
+        Effect.exit(secondAssembly.contextCoordinator.drain()),
+        { startImmediately: true },
+      );
+
+      yield* Effect.yieldNow;
+
+      const closing = yield* Effect.forkChild(runtimeOwner(secondRuntime).close(), {
+        startImmediately: true,
+      });
+
+      const drainExit = yield* Fiber.join(captured);
+      assert.ok(Exit.isFailure(drainExit));
+      yield* Deferred.succeed(secondRelease, undefined);
+      yield* Fiber.join(closing);
+      assert.strictEqual(second.b.engine.snapshot().lifecycle, "disposed");
+      assert.strictEqual(second.d.engine.snapshot().lifecycle, "disposed");
+    }),
+  );
+
+  it.effect("tracks queued reconcile waves through drain and close", () =>
+    Effect.gen(function* () {
+      for (const mode of ["drain", "close"] as const) {
+        const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+        yield* runtime.ready();
+        const assembly = runtimeOwner(runtime).assembly();
+        const started = yield* Deferred.make<void>();
+        const release = yield* Deferred.make<void>();
+        const offered = yield* Deferred.make<void>();
+
+        const { a, b, d } = yield* makeContextDiamond(assembly, `reconcile-${mode}`, {
+          cOnSnapshot: () => {},
+          bOnCommand: () =>
+            Effect.gen(function* () {
+              yield* Deferred.succeed(started, undefined);
+              yield* Deferred.await(release);
+            }),
+        });
+
+        assert.strictEqual(b.engine.dispatch(IntegrationConsumerEvent).admitted, true);
+        yield* Deferred.await(started);
+        yield* assembly.contextCoordinator.drain();
+        const actualOffer = b.engine.dispatchContextTicket;
+        b.engine.dispatchContextTicket = (...args) => {
+          Deferred.doneUnsafe(offered, Effect.void);
+
+          return actualOffer(...args);
+        };
+
+        const dispatched = a.engine.dispatch(IntegrationProviderEvent);
+        assert.strictEqual(dispatched.admitted, true);
+        yield* Deferred.await(dispatched.completion);
+        yield* a.engine.drain();
+        yield* Deferred.await(offered);
+
+        const reconciling = yield* Effect.forkChild(
+          Effect.exit(assembly.contextCoordinator.reconcile(d.fence.key)),
+          { startImmediately: true },
+        );
+
+        yield* Effect.yieldNow;
+
+        const draining = yield* Effect.forkChild(Effect.exit(assembly.contextCoordinator.drain()), {
+          startImmediately: true,
+        });
+
+        yield* Effect.yieldNow;
+
+        if (mode === "drain") {
+          yield* Deferred.succeed(release, undefined);
+          const drained = yield* Fiber.join(draining);
+          assert.ok(Exit.isSuccess(drained));
+
+          if (Exit.isSuccess(drained)) {
+            assert.strictEqual(drained.value.length, 2);
+            assert.ok(drained.value[0]!.origin.generation < drained.value[1]!.origin.generation);
+          }
+
+          yield* Fiber.join(reconciling);
+          yield* runtimeOwner(runtime).close();
+        } else {
+          const closing = yield* Effect.forkChild(runtimeOwner(runtime).close(), {
+            startImmediately: true,
+          });
+
+          assert.ok(Exit.isFailure(yield* Fiber.join(draining)));
+          yield* Deferred.succeed(release, undefined);
+          yield* Fiber.join(closing);
+          assert.ok(Exit.isFailure(yield* Fiber.join(reconciling)));
+          assert.strictEqual(d.engine.snapshot().lifecycle, "disposed");
+        }
+      }
+    }),
+  );
+
+  it.effect("drains captured context generations while newer roots continue arriving", () =>
+    Effect.gen(function* () {
+      const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+      const bStarted = yield* Deferred.make<void>();
+      const bRelease = yield* Deferred.make<void>();
+      const fStarted = yield* Deferred.make<void>();
+      const fRelease = yield* Deferred.make<void>();
+      const bOffered = yield* Deferred.make<void>();
+
+      const { a, b, c, d } = yield* makeContextDiamond(assembly, "drain", {
+        cOnSnapshot: () => {},
+        bOnCommand: () =>
+          Effect.gen(function* () {
+            yield* Deferred.succeed(bStarted, undefined);
+            yield* Deferred.await(bRelease);
+          }),
+      });
+
+      const eRef = actorRef(IntegrationProviderMachine, "drain-e");
+      const e = yield* assembly.createActor({ ref: eRef, initial: initialProviderSnapshot() });
+
+      const f = yield* assembly.createActor({
+        ref: actorRef(IntegrationConsumerMachine, "drain-f"),
+        initial: initialConsumerSnapshot(),
+        bindings: [
+          {
+            slot: "providerState",
+            provider: eRef,
+            providerFence: e.fence,
+            select: ({ state }) => state,
+          },
+          {
+            slot: "providerChanged",
+            provider: eRef,
+            providerFence: e.fence,
+            select: ({ state }) => state === IntegrationProviderDefinition.S.changed,
+          },
+        ],
+        onCommand: () =>
+          Effect.gen(function* () {
+            yield* Deferred.succeed(fStarted, undefined);
+            yield* Deferred.await(fRelease);
+          }),
+      });
+
+      assert.strictEqual(b.engine.dispatch(IntegrationConsumerEvent).admitted, true);
+      assert.strictEqual(f.engine.dispatch(IntegrationConsumerEvent).admitted, true);
+      yield* Deferred.await(bStarted);
+      yield* Deferred.await(fStarted);
+      yield* assembly.contextCoordinator.drain();
+      const actualOffer = b.engine.dispatchContextTicket;
+      b.engine.dispatchContextTicket = (...args) => {
+        Deferred.doneUnsafe(bOffered, Effect.void);
+
+        return actualOffer(...args);
+      };
+
+      const first = a.engine.dispatch(IntegrationProviderEvent);
+      assert.strictEqual(first.admitted, true);
+      yield* Deferred.await(first.completion);
+      yield* a.engine.drain();
+      yield* Deferred.await(bOffered);
+      const second = a.engine.dispatch(IntegrationProviderEvent);
+      assert.strictEqual(second.admitted, true);
+      yield* Deferred.await(second.completion);
+      yield* a.engine.drain();
+
+      const draining = yield* Effect.forkChild(assembly.contextCoordinator.drain(), {
+        startImmediately: true,
+      });
+
+      yield* Effect.yieldNow;
+      // The real provider has reached its final state; a duplicate notification still owns a distinct latest root.
+      assembly.contextCoordinator.notify(a.fence, a.engine.snapshot());
+
+      const drainingLatest = yield* Effect.forkChild(assembly.contextCoordinator.drain(), {
+        startImmediately: true,
+      });
+
+      yield* Effect.yieldNow;
+      const later = e.engine.dispatch(IntegrationProviderEvent);
+      assert.strictEqual(later.admitted, true);
+      yield* Deferred.await(later.completion);
+      yield* e.engine.drain();
+      yield* Deferred.succeed(bRelease, undefined);
+      const captured = yield* Fiber.join(draining);
+      assert.deepStrictEqual(
+        captured.map((receipt) => receipt.origin.revision),
+        [1, 2],
+      );
+      const includingLatest = yield* Fiber.join(drainingLatest);
+      assert.deepStrictEqual(
+        includingLatest.map((receipt) => receipt.origin.revision),
+        [1, 2, 2],
+      );
+      assert.strictEqual(
+        f.engine.snapshot().context.providerState,
+        IntegrationProviderDefinition.S.ready,
+      );
+      yield* Deferred.succeed(fRelease, undefined);
+      yield* assembly.contextCoordinator.drain();
+      assert.strictEqual(
+        f.engine.snapshot().context.providerState,
+        IntegrationProviderDefinition.S.changed,
+      );
+      b.engine.dispatchContextTicket = actualOffer;
+      yield* Effect.provideContext(f.dispose(), assembly.context);
+      yield* Effect.provideContext(e.dispose(), assembly.context);
+      yield* Effect.provideContext(d.dispose(), assembly.context);
+      yield* Effect.provideContext(c.dispose(), assembly.context);
+      yield* Effect.provideContext(b.dispose(), assembly.context);
+      yield* Effect.provideContext(a.dispose(), assembly.context);
+      yield* runtimeOwner(runtime).close();
+    }),
+  );
+
+  it.effect("settles a captured latest root when its provider unregisters or quiesces", () =>
+    Effect.gen(function* () {
+      for (const mode of ["unregister", "quiesce"] as const) {
+        const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+        yield* runtime.ready();
+        const assembly = runtimeOwner(runtime).assembly();
+        const started = yield* Deferred.make<void>();
+        const release = yield* Deferred.make<void>();
+        const offered = yield* Deferred.make<void>();
+
+        const { a, b, dSnapshots } = yield* makeContextDiamond(assembly, `latest-${mode}`, {
+          cOnSnapshot: () => {},
+          bOnCommand: () =>
+            Effect.gen(function* () {
+              yield* Deferred.succeed(started, undefined);
+              yield* Deferred.await(release);
+            }),
+        });
+
+        assert.strictEqual(b.engine.dispatch(IntegrationConsumerEvent).admitted, true);
+        yield* Deferred.await(started);
+        yield* assembly.contextCoordinator.drain();
+        const actualOffer = b.engine.dispatchContextTicket;
+        b.engine.dispatchContextTicket = (...args) => {
+          Deferred.doneUnsafe(offered, Effect.void);
+
+          return actualOffer(...args);
+        };
+
+        const first = a.engine.dispatch(IntegrationProviderEvent);
+        assert.strictEqual(first.admitted, true);
+        yield* Deferred.await(first.completion);
+        yield* a.engine.drain();
+        yield* Deferred.await(offered);
+        const second = a.engine.dispatch(IntegrationProviderEvent);
+        assert.strictEqual(second.admitted, true);
+        yield* Deferred.await(second.completion);
+        yield* a.engine.drain();
+
+        const capturedPending = yield* Effect.forkChild(
+          Effect.exit(assembly.contextCoordinator.drain()),
+          { startImmediately: true },
+        );
+
+        yield* Effect.yieldNow;
+        assembly.contextCoordinator.notify(a.fence, a.engine.snapshot());
+
+        const capturedLatest = yield* Effect.forkChild(
+          Effect.exit(assembly.contextCoordinator.drain()),
+          { startImmediately: true },
+        );
+
+        yield* Effect.yieldNow;
+
+        if (mode === "unregister") assembly.contextCoordinator.unregister(a.fence.key);
+        else yield* assembly.contextCoordinator.quiesce();
+
+        yield* Deferred.succeed(release, undefined);
+        const pendingExit = yield* Fiber.join(capturedPending);
+        const latestExit = yield* Fiber.join(capturedLatest);
+
+        for (const settled of [pendingExit, latestExit]) {
+          if (Exit.isSuccess(settled))
+            assert.ok(
+              settled.value.every((receipt) => receipt.outcomes.get(b.fence.key) !== "published"),
+              mode,
+            );
+        }
+
+        assert.strictEqual(dSnapshots.length, 0);
+        b.engine.dispatchContextTicket = actualOffer;
+        yield* runtimeOwner(runtime).close();
+      }
+    }),
+  );
 
   // Setup: Use the real diamond with B still inheriting A revision 0 and C inheriting A revision 1 after a rejected delivery; retain a suspended D and a fresh D ref with the same authored bindings.
   // Action: Attempt fresh D admission and existing D resume, then explicitly suspend/resume B to reconcile its current A revision-1 cut and retry both D routes.

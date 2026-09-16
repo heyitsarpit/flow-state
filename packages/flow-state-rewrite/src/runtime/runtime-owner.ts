@@ -11,6 +11,8 @@ type RuntimeOwnerOptions<
 > = {
   layer: Layer.Layer<LayerOutput, LayerError, LayerRequirements>;
   expose: Effect.Effect<A, ExposureError, ExposureRequirements>;
+  // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- only assembled owners need a pre-disposal quiesce phase.
+  quiesce?: Effect.Effect<void, CloseError>;
   drain?: Effect.Effect<void, CloseError>;
   close?: Effect.Effect<void, CloseError>;
 };
@@ -305,6 +307,7 @@ const makeRuntimeOwner = <
   const closeResources = (closing: RuntimeOwnerClosing<A, ReadyError, OwnerError>) =>
     Effect.gen(function* () {
       const readyExit = closing.readyExit;
+
       const disposeActors = () =>
         Effect.forEach([...closing.actors].reverse(), (registration) => {
           if (!registration.active) return Effect.succeed(Exit.void);
@@ -313,11 +316,8 @@ const makeRuntimeOwner = <
 
           return Effect.exit(registration.participant.dispose());
         });
-      const disposeActorsUntilSettled = (): Effect.Effect<
-        Exit.Exit<void, OwnerError>[],
-        never,
-        never
-      > =>
+
+      const disposeActorsUntilSettled = (): Effect.Effect<Exit.Exit<void, OwnerError>[]> =>
         Effect.gen(function* () {
           if (!closing.actors.some((registration) => registration.active)) return [];
 
@@ -325,6 +325,10 @@ const makeRuntimeOwner = <
 
           return [...exits, ...(yield* disposeActorsUntilSettled())];
         });
+
+      const quiesceExit =
+        options.quiesce === undefined ? Exit.void : yield* Effect.exit(options.quiesce);
+
       const actorExits = yield* disposeActorsUntilSettled();
       const drainExit = options.drain === undefined ? Exit.void : yield* Effect.exit(options.drain);
       const lateActorExits = yield* disposeActorsUntilSettled();
@@ -332,11 +336,14 @@ const makeRuntimeOwner = <
       closing.acceptingProviders = false;
       const providerReleases = [...closing.providers].reverse();
       closing.providers = [];
+
       const providerExits = yield* Effect.forEach(providerReleases, (release) =>
         Effect.exit(release),
       );
+
       const closeExit = options.close === undefined ? Exit.void : yield* Effect.exit(options.close);
       const ownedScope = closing.scope;
+
       const scopeExit =
         ownedScope !== undefined && !closing.scopeClosed
           ? yield* Effect.gen(function* () {
@@ -345,14 +352,16 @@ const makeRuntimeOwner = <
 
               return Exit.isFailure(closed)
                 ? // SAFETY: Scope.close has no typed failure channel; its Cause is retained as the owner's cleanup Cause.
-                  Exit.failCause(closed.cause as Cause.Cause<OwnerError>)
+                  Exit.failCause(closed.cause)
                 : Exit.void;
             })
           : Exit.void;
+
       const exits = [
         ...(closing.includeReadyFailure && readyExit !== undefined && Exit.isFailure(readyExit)
           ? [readyExit]
           : []),
+        quiesceExit,
         ...actorExits,
         drainExit,
         ...lateActorExits,

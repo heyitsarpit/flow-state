@@ -83,11 +83,9 @@ import {
   activateContextBaseline,
   buildContextGraph,
   installContextBaseline,
-  planContextWave,
-  applyContextWave,
   type ContextBinding,
-  type ContextWave,
 } from "./context-wave.js";
+import { makeContextCoordinator, makeContextNode } from "./context-coordinator.js";
 import {
   makeLifecycleController,
   lifecycleRouting,
@@ -107,7 +105,6 @@ import {
   type RuntimeOwnerCloseRegistry,
 } from "./runtime-owner.js";
 import { makeRuntimeServicesLayer, type RuntimeServiceContext } from "./runtime-services.js";
-import type { ContextProjectionCarrier } from "./turn-plan.js";
 import type { MachineDefinition } from "../machine/grammar.js";
 import { isConstructedMachine, type Machine, type MachineRecordValue } from "../machine/machine.js";
 import type { ActorRef } from "./actor-ref.js";
@@ -207,6 +204,7 @@ export type RuntimeActor<
 type RuntimeAssembly = {
   context: Context.Context<RuntimeServiceContext>;
   evidence: ReturnType<typeof makeRuntimeEvidenceOwner>;
+  contextCoordinator: Effect.Success<ReturnType<typeof makeContextCoordinator>>;
   ensureActor: {
     <
       DefinitionValue extends MachineDefinition,
@@ -319,17 +317,6 @@ type RuntimeRegisteredActor = {
   removeDependency: (
     edge: ActorDependencyEdge,
   ) => Effect.Effect<void, PublicDiagnostic, RuntimeServiceContext>;
-  addDependent: (dependent: RuntimeContextDependent) => void;
-  removeDependent: (dependent: RuntimeContextDependent) => void;
-  notifyDependents: (snapshot: RuntimeSnapshot) => void;
-};
-
-type RuntimeContextDependent = {
-  edge: ActorDependencyEdge;
-  receive: (
-    providerFence: ActorFence,
-    snapshot: RuntimeSnapshot,
-  ) => Result.Result<void, PublicDiagnostic>;
 };
 
 const runtimeContextConsumerKey = <
@@ -644,19 +631,6 @@ const captureRuntimeActorOptionsForRef = <
   return captureRuntimeActorOptionsFromValues(captured.success, capturedRef.success, identityMode);
 };
 
-// The actor engine exposes synchronous snapshot callbacks; invokeResult captures this thrown diagnostic at that boundary.
-const notifyRuntimeDependents = (
-  dependents: RuntimeContextDependent[],
-  providerFence: ActorFence,
-  snapshot: RuntimeSnapshot,
-) => {
-  for (const dependent of dependents) {
-    const received = dependent.receive(providerFence, snapshot);
-
-    if (Result.isFailure(received)) throw received.failure;
-  }
-};
-
 // FLOW_STATE_ALLOW_UNKNOWN: the runtime retains this exact Deferred as an opaque join token and restores it only at the matching stable ref.
 type RuntimeAdmissionCompletion = Deferred.Deferred<Exit.Exit<unknown, PublicDiagnostic>>;
 
@@ -807,6 +781,8 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
     const providerFences = new Map<ActorKey, ActorFence>();
 
     const runtimeScope = yield* Effect.scope;
+    const contextCoordinator = yield* makeContextCoordinator(runtimeScope);
+    closeRegistry.registerProvider(contextCoordinator.close());
 
     const acquireActorCell = <
       DefinitionValue extends MachineDefinition,
@@ -1008,21 +984,6 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
         };
 
         type AdmissionCompletion = Deferred.Deferred<Exit.Exit<AdmissionResult, PublicDiagnostic>>;
-
-        const contextDependents: RuntimeContextDependent[] = [];
-
-        const reconcileContext = <
-          Prepared extends {
-            contextCoordinator: {
-              reconcile: (
-                engine: ActorEngine<DefinitionValue>,
-              ) => Effect.Effect<void, PublicDiagnostic>;
-            };
-          },
-        >(
-          prepared: Prepared,
-          engine: ActorEngine<DefinitionValue>,
-        ) => prepared.contextCoordinator.reconcile(engine);
 
         const validationContextBase: Omit<
           ActorAdmissionValidationContext<A, DefinitionValue, RuntimeImplementation | undefined>,
@@ -1247,139 +1208,6 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
                 ),
               );
 
-              const contextCoordinator = (() => {
-                let open = false;
-                let previousWave = Option.none<ContextWave>();
-                let ledger = installed.success.ledger;
-
-                let revisions = new Map<
-                  ActorKey,
-                  { publicationRevision: number; machineTurnRevision: number }
-                >();
-
-                const receive = (
-                  providerFence: ActorFence,
-                  incoming: RuntimeSnapshot,
-                  dispatchFact: ActorEngine<DefinitionValue>["dispatchFact"],
-                ) => {
-                  if (!open) return Result.succeed(undefined);
-
-                  const capturedProviders = captureRuntimeContextProviders(
-                    contextBindings,
-                    registry,
-                    { providerFence, snapshot: incoming },
-                  );
-
-                  if (Result.isFailure(capturedProviders))
-                    return Result.fail(capturedProviders.failure);
-
-                  const { snapshots: providerSnapshots, revisions: providerRevision } =
-                    capturedProviders.success;
-
-                  const wave = planContextWave(
-                    graph.success,
-                    providerRevision,
-                    new Set([providerFence.key]),
-                    previousWave,
-                  );
-
-                  if (Result.isFailure(wave)) return Result.fail(wave.failure);
-
-                  const applied = applyContextWave(
-                    wave.success,
-                    graph.success,
-                    providerSnapshots,
-                    ledger,
-                    revisions,
-                  );
-
-                  if (Result.isFailure(applied)) return Result.fail(applied.failure);
-                  const nextRevisions = new Map(revisions);
-
-                  for (const publication of applied.success.publications) {
-                    nextRevisions.set(publication.consumer, {
-                      publicationRevision: publication.publicationRevision,
-                      machineTurnRevision: publication.machineTurnRevision,
-                    });
-
-                    if (
-                      !applied.success.projections.some(
-                        (candidate) => candidate.consumer === publication.consumer,
-                      )
-                    )
-                      continue;
-
-                    const providerEntries = contextBindings.map((binding) => ({
-                      fence: binding.providerFence,
-                      slot: binding.slot,
-                      revision: providerRevision.get(binding.providerFence.key) ?? 0,
-                      value: publication.projection.values.get(binding.slot),
-                    }));
-
-                    const firstProvider = providerEntries[0];
-
-                    if (firstProvider === undefined)
-                      return Result.fail(
-                        Failure({
-                          code: "InvariantViolation",
-                          path: ["context", "consumer", "providers"],
-                          details: { reason: "empty" },
-                          summary: "Context propagation produced an empty provider carrier.",
-                          help: "Keep every admitted context binding in the aggregate publication.",
-                        }),
-                      );
-
-                    const carrier: ContextProjectionCarrier = {
-                      providers: providerEntries,
-                      issueOnly: publication.issueOnly,
-                      selectorDefects: publication.selectorDefects,
-                    };
-
-                    const dispatched = dispatchFact({
-                      _tag: "context-projection",
-                      provider: { ...firstProvider, value: carrier },
-                      projection: carrier,
-                    });
-
-                    if (Result.isFailure(dispatched)) return Result.fail(dispatched.failure);
-                  }
-
-                  previousWave = Option.some(wave.success);
-                  ledger = applied.success.ledger;
-                  revisions = nextRevisions;
-
-                  return Result.succeed(undefined);
-                };
-
-                return {
-                  bindings: contextBindings,
-                  setOpen: (value: boolean) => (open = value),
-                  receive,
-                  reconcile: (engine: ActorEngine<DefinitionValue>) =>
-                    Effect.gen(function* () {
-                      const seenProviders = new Set<ActorKey>();
-
-                      for (const binding of contextBindings) {
-                        if (seenProviders.has(binding.providerFence.key)) continue;
-                        seenProviders.add(binding.providerFence.key);
-                        const provider = registry.lookup(binding.provider);
-
-                        if (Result.isFailure(provider)) return yield* Effect.fail(provider.failure);
-
-                        const received = receive(
-                          binding.providerFence,
-                          provider.success.actor.snapshot(),
-                          engine.dispatchFact,
-                        );
-
-                        if (Result.isFailure(received)) return yield* Effect.fail(received.failure);
-                      }
-
-                      yield* engine.drain();
-                    }),
-                };
-              })();
-
               yield* runAfterPrepareScope(actorCell.terminal.scope);
 
               const actorInput: ActorEngineInput<DefinitionValue> = {
@@ -1412,7 +1240,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
 
                   return accepted;
                 },
-                onSnapshot: (snapshot, machineTurnRevision) => {
+                onSnapshot: (snapshot, machineTurnRevision, cause) => {
                   const runtimeSnapshot: RuntimeSnapshot = {
                     state: snapshot.state,
                     memory: snapshot.memory,
@@ -1420,7 +1248,8 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
                     revision: snapshot.revision,
                   };
 
-                  notifyRuntimeDependents(contextDependents, currentFence, runtimeSnapshot);
+                  if (cause?._tag !== "projection" || cause.fact._tag !== "context-projection")
+                    contextCoordinator.notify(currentFence, runtimeSnapshot);
                   capturedOptions.success.onSnapshot?.(snapshot, machineTurnRevision);
                 },
               };
@@ -1452,7 +1281,9 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
                 prepared,
                 silentBaseline: installed.success,
                 controller: lifecycleController,
-                contextCoordinator,
+                contextBindings,
+                contextGraph: graph.success,
+                contextLedger: installed.success.ledger,
                 rollback: [preparedRollback],
               };
             });
@@ -1478,16 +1309,10 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
             const currentFence = preparation.validated.fence;
             const currentController = preparation.controller;
             const currentRouting = lifecycleRouting(currentController);
-            const propagation = preparation.contextCoordinator;
 
             const dependencies: Array<{
               owner: RuntimeRegisteredActor;
               edge: ActorDependencyEdge;
-            }> = [];
-
-            const dependents: Array<{
-              owner: RuntimeRegisteredActor;
-              dependent: RuntimeContextDependent;
             }> = [];
 
             const terminal = preparation.actorCell.terminal;
@@ -1533,7 +1358,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
               if (reopenRouting && routingGeneration !== undefined)
                 currentRouting.open(routingGeneration);
 
-              propagation.setOpen(true);
+              contextCoordinator.setOpen(currentFence.key, true);
             };
 
             const lifecycleCommandEffect = (
@@ -1551,13 +1376,13 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
                 let routingGeneration: number | undefined;
 
                 const prepareRouting = () =>
-                  Effect.gen(function* () {
+                  Effect.sync(() => {
                     if (command._tag === "actor:suspend") {
                       routingGeneration = currentRouting.block();
-                      propagation.setOpen(false);
+                      contextCoordinator.setOpen(currentFence.key, false);
                     } else if (command._tag === "actor:dispose") {
                       routingGeneration = currentRouting.block();
-                      propagation.setOpen(false);
+                      contextCoordinator.setOpen(currentFence.key, false);
                     } else if (command._tag === "actor:resume") {
                       routingGeneration = currentRouting.block();
                     }
@@ -1587,7 +1412,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
                 const next = commanded.value;
 
                 if (command._tag === "actor:start") {
-                  propagation.setOpen(true);
+                  contextCoordinator.setOpen(currentFence.key, true);
                 }
 
                 return { next, routingGeneration };
@@ -1684,14 +1509,14 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
                 const completed = commanded.value;
 
                 if (command._tag === "actor:resume") {
-                  propagation.setOpen(true);
+                  contextCoordinator.setOpen(currentFence.key, true);
 
                   const reconciled = yield* Effect.exit(
-                    reconcileContext(preparation, currentEngine),
+                    contextCoordinator.reconcile(currentFence.key),
                   );
 
                   if (Exit.isFailure(reconciled)) {
-                    propagation.setOpen(false);
+                    contextCoordinator.setOpen(currentFence.key, false);
 
                     return yield* Effect.failCause(reconciled.cause);
                   }
@@ -1750,10 +1575,8 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
                 lifecycleCommandGate.withPermit(currentController.installMetadata(metadata)),
             };
 
-            const registeredProviderKeys = new Set<ActorKey>();
-
             for (const edge of preparation.validated.edges) {
-              const binding = propagation.bindings.find(
+              const binding = preparation.contextBindings.find(
                 (candidate) =>
                   candidate.providerFence.key === edge.provider && candidate.slot === edge.slot,
               );
@@ -1774,18 +1597,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
                 );
               const owner = provider.success.actor;
 
-              const dependent: RuntimeContextDependent = {
-                edge,
-                receive: (providerFence, snapshot) =>
-                  propagation.receive(providerFence, snapshot, engine.dispatchFact),
-              };
-
               dependencies.push({ owner, edge });
-
-              if (!registeredProviderKeys.has(binding.providerFence.key)) {
-                registeredProviderKeys.add(binding.providerFence.key);
-                dependents.push({ owner, dependent });
-              }
             }
 
             const updateDependency = (edge: ActorDependencyEdge, add: boolean) =>
@@ -1842,6 +1654,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
                 if (Exit.isFailure(lifecycleExit) && isDependentGuard(lifecycleExit.cause))
                   return yield* Effect.failCause(lifecycleExit.cause);
 
+                contextCoordinator.unregister(currentFence.key);
                 const engineExit = yield* Effect.exit(engine.shutdown());
 
                 const actorScopeExit =
@@ -1853,12 +1666,6 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
                         return scopeExit;
                       })
                     : Exit.void;
-
-                const dependentExits = yield* Effect.forEach(dependents, (registration) =>
-                  Effect.exit(
-                    Effect.sync(() => registration.owner.removeDependent(registration.dependent)),
-                  ),
-                );
 
                 const dependencyExits = yield* Effect.forEach(dependencies, (registration) =>
                   Effect.exit(
@@ -1877,7 +1684,6 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
                   lifecycleExit,
                   engineExit,
                   actorScopeExit,
-                  ...dependentExits,
                   ...dependencyExits,
                   fenceExit,
                 ]);
@@ -1919,8 +1725,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
 
               return Effect.provideContext(
                 Effect.gen(function* () {
-                  for (const registration of dependents)
-                    registration.owner.removeDependent(registration.dependent);
+                  contextCoordinator.unregister(currentFence.key);
 
                   for (const registration of dependencies)
                     yield* registration.owner.removeDependency(registration.edge);
@@ -1972,23 +1777,21 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
               snapshot: visibleSnapshot,
               addDependency: (edge) => updateDependency(edge, true),
               removeDependency: (edge) => updateDependency(edge, false),
-              addDependent: (dependent) => {
-                if (!contextDependents.includes(dependent)) contextDependents.push(dependent);
-              },
-              removeDependent: (dependent) => {
-                const index = contextDependents.indexOf(dependent);
-
-                if (index >= 0) contextDependents.splice(index, 1);
-              },
-              notifyDependents: (snapshot) => {
-                notifyRuntimeDependents(contextDependents, currentFence, snapshot);
-              },
             };
 
             const registered = registry.register(currentIdentity, actorWithRef);
 
             if (Result.isFailure(registered)) return yield* Effect.fail(registered.failure);
             providerFences.set(currentIdentity.key, currentFence);
+            contextCoordinator.register(
+              makeContextNode(
+                currentFence,
+                preparation.contextGraph.bindings.get(currentFence.key) ?? [],
+                preparation.contextGraph,
+                preparation.contextLedger,
+                engine,
+              ),
+            );
 
             const lease = makeActorLease<
               A,
@@ -2029,10 +1832,6 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
               );
             }
 
-            for (const registration of dependents) {
-              registration.owner.addDependent(registration.dependent);
-            }
-
             if (capturedOptions.success.admissionMode === "restored-stable") {
               yield* Effect.provideContext(
                 currentLifecycle.command({
@@ -2057,7 +1856,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
               context,
             );
             terminal.started = true;
-            yield* reconcileContext(preparation, actorWithRef.engine);
+            yield* contextCoordinator.reconcile(currentFence.key);
 
             if (closeRegistry === undefined)
               return yield* Effect.die(new Error("Runtime close owner is not attached"));
@@ -2306,6 +2105,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
     assembly = {
       context,
       evidence,
+      contextCoordinator,
       ensureActor,
       getActor,
       createActor,
@@ -2317,6 +2117,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
   const owner = makeRuntimeOwner({
     layer: implementation === undefined ? Layer.empty : implementationLayer(implementation),
     expose: exposed,
+    quiesce: Effect.suspend(() => assembly?.contextCoordinator.quiesce() ?? Effect.void),
     drain: Effect.suspend(() => assembly?.evidence.service.drain ?? Effect.void),
   });
 

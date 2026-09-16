@@ -177,6 +177,14 @@ import {
   transaction,
 } from "../../src/index.js";
 import { makeActorIdentityRegistry } from "../../src/runtime/actor-admission.js";
+import type { ActorEngine } from "../../src/runtime/actor-engine.js";
+import { makeContextNode } from "../../src/runtime/context-coordinator.js";
+import type {
+  ContextBinding,
+  ContextGraph,
+  ContextSelectionLedger,
+} from "../../src/runtime/context-wave.js";
+import type { ActorFence } from "../../src/runtime/actor-admission.js";
 
 // These compile-only cases cover invalid static shapes across the available type surface.
 
@@ -207,6 +215,38 @@ const OtherDefinitionResult = definition({
 });
 
 const OtherDefinition = resultSuccess(OtherDefinitionResult);
+
+declare const contextFence: ActorFence;
+
+declare const validBindings: ContextBinding<typeof ValidDefinition, typeof ValidDefinition>[];
+
+declare const validGraph: ContextGraph<typeof ValidDefinition, typeof ValidDefinition>;
+
+declare const validLedger: ContextSelectionLedger<typeof ValidDefinition, typeof ValidDefinition>;
+
+declare const foreignBindings: ContextBinding<typeof ValidDefinition, typeof OtherDefinition>[];
+
+declare const validEngine: ActorEngine<typeof ValidDefinition>;
+
+declare const foreignEngine: ActorEngine<typeof OtherDefinition>;
+
+makeContextNode<typeof ValidDefinition, typeof ValidDefinition>(
+  contextFence,
+  // @ts-expect-error A binding from a second provider definition cannot enter this coordinator node.
+  foreignBindings,
+  validGraph,
+  validLedger,
+  validEngine,
+);
+
+makeContextNode<typeof ValidDefinition, typeof ValidDefinition>(
+  contextFence,
+  validBindings,
+  validGraph,
+  validLedger,
+  // @ts-expect-error A second definition's engine cannot be installed behind the first definition's coordinator binding.
+  foreignEngine,
+);
 
 const validMachine = resultSuccess(
   machine(ValidDefinitionResult, ({ S }) => ({

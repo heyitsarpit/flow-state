@@ -1090,6 +1090,7 @@ describe("context waves", () => {
       assert.strictEqual(first.admitted, true);
       yield* Deferred.await(first.completion);
       yield* provider.engine.drain();
+      yield* assembly.contextCoordinator.drain();
       yield* consumer.engine.drain();
       assert.strictEqual(consumer.engine.snapshot().context.selected, providerDefinition.S.changed);
       assert.strictEqual(consumer.engine.snapshot().revision, 1);
@@ -1117,6 +1118,7 @@ describe("context waves", () => {
       assert.strictEqual(late.admitted, true);
       yield* Deferred.await(late.completion);
       yield* provider.engine.drain();
+      yield* assembly.contextCoordinator.drain();
       assert.deepStrictEqual(consumer.engine.snapshot(), disposed);
       assert.strictEqual(consumer.engine.snapshot().context.selected, providerDefinition.S.changed);
 

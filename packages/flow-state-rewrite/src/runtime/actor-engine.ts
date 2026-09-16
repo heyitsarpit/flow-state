@@ -31,9 +31,16 @@ import {
 import type { MachineAction, MachineDefinition } from "../machine/grammar.js";
 import { canonicalizeKey, equalCanonicalKey, type OperationKey } from "../operation/key.js";
 import { isConstructedOperation, type OperationDeclaration } from "../operation/operation.js";
-import type { ActorFence, ActorIdentity } from "./actor-admission.js";
+import type { ActorFence, ActorIdentity, ActorKey } from "./actor-admission.js";
 import type { ActorRef } from "./actor-ref.js";
 import { copyObject } from "./collection-copies.js";
+import { ownContextValue } from "./context-wave.js";
+import {
+  isValidContextTicketCarrier,
+  isValidContextTicketWitness,
+  ownContextProjectionCarrier,
+  type ContextTicketWitness,
+} from "./context-coordinator.js";
 import {
   isEventForMachine,
   planTurn,
@@ -157,9 +164,39 @@ export type ActorMailboxFact<DefinitionValue extends MachineDefinition> =
     }
   | {
       _tag: "projection";
+      delivery: "ordinary";
       fence: ActorFence;
       fact: ProjectionFact;
+    }
+  | {
+      _tag: "projection";
+      delivery: "context-ticket";
+      fence: ActorFence;
+      fact: Extract<ProjectionFact, { _tag: "context-projection" }>;
+      ticket: ContextProjectionTicket<DefinitionValue>;
     };
+
+type ContextProjectionTicket<DefinitionValue extends MachineDefinition> = {
+  origin: { fence: ActorFence; revision: number; generation: number };
+  graphGeneration: number;
+  consumerFence: ActorFence;
+  expectedRevision: number;
+  requiredVector: Map<ActorKey, number>;
+  witness: ContextTicketWitness;
+  validate: (
+    origin: { fence: ActorFence; revision: number; generation: number },
+    graphGeneration: number,
+  ) => boolean;
+  completion: Deferred.Deferred<ContextTicketOutcome<DefinitionValue>, PublicDiagnostic>;
+  cancelled: boolean;
+  cancel: () => void;
+};
+
+type ContextTicketOutcome<DefinitionValue extends MachineDefinition> = {
+  status: "published" | "no-op" | "stale";
+  snapshot: ActorSnapshot<DefinitionValue>;
+  machineTurnRevision: number;
+};
 
 type ActorControlFact<DefinitionValue extends MachineDefinition> = {
   _tag: "control";
@@ -192,7 +229,11 @@ export type ActorEngineInput<DefinitionValue extends MachineDefinition> = {
   scope: Scope.Scope;
   store?: ActorStore<DefinitionValue>;
   acceptEvidence?: ActorEvidenceAcceptor<DefinitionValue>;
-  onSnapshot?: (snapshot: ActorSnapshot<DefinitionValue>, machineTurnRevision: number) => void;
+  onSnapshot?: (
+    snapshot: ActorSnapshot<DefinitionValue>,
+    machineTurnRevision: number,
+    cause?: TurnCause<DefinitionValue>,
+  ) => void;
   onCommand?: ActorCommandHandler<DefinitionValue> | undefined;
 };
 
@@ -216,6 +257,19 @@ export interface ActorEngine<DefinitionValue extends MachineDefinition> {
   send: (command: ActorCommand<DefinitionValue>) => void;
   dispatch: (command: ActorCommand<DefinitionValue>) => AcknowledgedDispatch;
   dispatchFact: (fact: ProjectionFact) => Result.Result<void, PublicDiagnostic>;
+  dispatchContextTicket: (
+    fact: Extract<ProjectionFact, { _tag: "context-projection" }>,
+    attestation: Pick<
+      ContextProjectionTicket<DefinitionValue>,
+      | "origin"
+      | "graphGeneration"
+      | "consumerFence"
+      | "expectedRevision"
+      | "requiredVector"
+      | "witness"
+      | "validate"
+    >,
+  ) => Result.Result<ContextProjectionTicket<DefinitionValue>, PublicDiagnostic>;
   dispatchControl: (closeAdmission?: boolean) => ActorControlPermit;
   isClosed: () => boolean;
   isAdmissionOpen: () => boolean;
@@ -353,12 +407,26 @@ const clearMailbox = <DefinitionValue extends MachineDefinition>(
   while (Queue.sizeUnsafe(mailbox) > 0) Queue.takeUnsafe(mailbox);
 };
 
+const ownDiagnosticData = (issue: PublicDiagnostic) => {
+  const decoded = Schema.decodeUnknownResult(Diagnostic)(issue);
+
+  if (Result.isFailure(decoded)) throw new TypeError("Published diagnostic is not canonical");
+
+  Object.freeze(issue.path);
+  Object.freeze(issue.details);
+
+  return issue;
+};
+
 // RETURN_TYPE: Snapshot copies preserve the complete actor snapshot contract.
 const copySnapshot = <DefinitionValue extends MachineDefinition>(
   snapshot: ActorSnapshot<DefinitionValue>,
 ): ActorSnapshot<DefinitionValue> => {
-  const memory = { ...snapshot.memory };
-  const context: ActorSnapshot<DefinitionValue>["context"] = { ...snapshot.context };
+  const memory = { ...ownContextValue(snapshot.memory) };
+
+  const context: ActorSnapshot<DefinitionValue>["context"] = {
+    ...ownContextValue(snapshot.context),
+  };
 
   const operations = snapshot.operations.map((operation) => ({
     ...operation,
@@ -366,9 +434,94 @@ const copySnapshot = <DefinitionValue extends MachineDefinition>(
   }));
 
   const timers = snapshot.timers.map((timer) => ({ ...timer }));
-  const issues = [...snapshot.issues];
+  const issues: PublicDiagnostic[] = [];
+
+  for (let index = 0; index < snapshot.issues.length; index += 1) {
+    const issue = snapshot.issues[index];
+
+    if (issue === undefined) throw new TypeError("Published diagnostics must be dense");
+    issues[index] = ownDiagnosticData(issue);
+  }
 
   return { ...snapshot, memory, context, operations, timers, issues };
+};
+
+const freezeOwnedValue = (value: unknown, seen: Set<object>) => {
+  if (!Predicate.isObject(value) || seen.has(value)) return;
+
+  const array = Array.isArray(value);
+  const prototype = array ? undefined : Object.getPrototypeOf(value);
+
+  if (!array && prototype !== Object.prototype && prototype !== null) return;
+  seen.add(value);
+
+  for (const key of Reflect.ownKeys(value)) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+
+    if (descriptor !== undefined && "value" in descriptor) freezeOwnedValue(descriptor.value, seen);
+  }
+
+  Object.freeze(value);
+};
+
+const freezePublicationSnapshot = <DefinitionValue extends MachineDefinition>(
+  snapshot: ActorSnapshot<DefinitionValue>,
+) => {
+  const seen = new Set<object>();
+  freezeOwnedValue(snapshot.memory, seen);
+  freezeOwnedValue(snapshot.context, seen);
+
+  for (let index = 0; index < snapshot.operations.length; index += 1) {
+    const operation = snapshot.operations[index];
+
+    if (operation === undefined) throw new TypeError("Published operations must be dense");
+    freezeOwnedValue(operation.key, seen);
+    Object.freeze(operation);
+  }
+
+  for (let index = 0; index < snapshot.timers.length; index += 1) {
+    const timer = snapshot.timers[index];
+
+    if (timer === undefined) throw new TypeError("Published timers must be dense");
+    Object.freeze(timer);
+  }
+
+  for (let index = 0; index < snapshot.issues.length; index += 1) {
+    const issue = snapshot.issues[index];
+
+    if (issue === undefined) throw new TypeError("Published diagnostics must be dense");
+    Object.freeze(issue);
+  }
+
+  Object.freeze(snapshot.operations);
+  Object.freeze(snapshot.timers);
+  Object.freeze(snapshot.issues);
+  Object.freeze(snapshot);
+
+  return snapshot;
+};
+
+const ownContextProjectionFact = (
+  fact: Extract<ProjectionFact, { _tag: "context-projection" }>,
+) => {
+  if (fact.projection === undefined) return fact;
+
+  const projection = ownContextProjectionCarrier(fact.projection);
+  const provider = projection.providers[0];
+
+  if (provider === undefined)
+    throw new TypeError("Accepted context projection must contain its lead provider");
+
+  return {
+    ...fact,
+    provider: {
+      fence: { ...fact.provider.fence },
+      slot: fact.provider.slot,
+      revision: fact.provider.revision,
+      value: projection,
+    },
+    projection,
+  };
 };
 
 // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- reflected record fields remain unknown until recursive snapshot admission.
@@ -995,6 +1148,7 @@ const commitActorCut = <DefinitionValue extends MachineDefinition>(
   const install = <Publication extends ActorCellCut<DefinitionValue>["publication"]>(
     publication: Publication,
   ) => {
+    freezePublicationSnapshot(publication.snapshot);
     cell.publication = publication;
     snapshots.publish(publication.snapshot);
 
@@ -1175,12 +1329,16 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
   state: ActorCellCut<DefinitionValue>,
   snapshots: SnapshotPublisher<DefinitionValue>,
   pending: Set<Deferred.Deferred<DispatchReceipt, PublicDiagnostic>>,
+  pendingContextTickets: Set<
+    Deferred.Deferred<ContextTicketOutcome<DefinitionValue>, PublicDiagnostic>
+  >,
   drainState: DrainState,
   dispatch: (command: ActorCommand<DefinitionValue>) => AcknowledgedDispatch,
   dispatchControl: (closeAdmission?: boolean) => ActorControlPermit,
   isClosed: () => boolean,
   isAdmissionOpen: () => boolean,
   enqueueFact: (fact: ProjectionFact) => Result.Result<void, PublicDiagnostic>,
+  enqueueContextTicket: ActorEngine<DefinitionValue>["dispatchContextTicket"],
   markTaken: (fact: ActorQueuedFact<DefinitionValue>) => void,
   enqueueCommand: (
     command: ActorCommand<DefinitionValue>,
@@ -1196,15 +1354,35 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
     Array<{ key: OperationKey; ordinal: number }>
   >();
 
-  const contextProviders = (fact: Extract<ProjectionFact, { _tag: "context-projection" }>) =>
-    fact.projection?.providers ?? [fact.provider];
+  const contextProviders = (fact: Extract<ProjectionFact, { _tag: "context-projection" }>) => {
+    if (fact.projection === undefined) return [fact.provider];
 
-  const acceptsContextRevision = (
+    if (!Array.isArray(fact.projection.providers)) return undefined;
+
+    const providers: typeof fact.projection.providers = [];
+
+    for (let index = 0; index < fact.projection.providers.length; index += 1) {
+      const provider = fact.projection.providers[index];
+
+      if (provider === undefined) return undefined;
+      providers[index] = provider;
+    }
+
+    return providers;
+  };
+
+  const contextRevisionDisposition = (
     fact: Extract<ProjectionFact, { _tag: "context-projection" }>,
   ) => {
     let changed = false;
+    const providers = contextProviders(fact);
 
-    for (const provider of contextProviders(fact)) {
+    if (providers === undefined) return "stale" as const;
+
+    for (let index = 0; index < providers.length; index += 1) {
+      const provider = providers[index];
+
+      if (provider === undefined) return "stale" as const;
       const current = contextCursors.get(provider.slot);
 
       if (current === undefined) {
@@ -1213,22 +1391,30 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
       }
 
       if (!isCurrentFence(current.fence, provider.fence) || provider.revision < current.revision)
-        return false;
+        return "stale" as const;
 
       if (provider.revision > current.revision) changed = true;
     }
 
-    return changed;
+    return changed ? ("changed" as const) : ("no-op" as const);
   };
 
   const rememberContextRevision = (
     fact: Extract<ProjectionFact, { _tag: "context-projection" }>,
   ) => {
-    for (const provider of contextProviders(fact))
+    const providers = contextProviders(fact);
+
+    if (providers === undefined) return;
+
+    for (let index = 0; index < providers.length; index += 1) {
+      const provider = providers[index];
+
+      if (provider === undefined) return;
       contextCursors.set(provider.slot, {
-        fence: provider.fence,
+        fence: { ...provider.fence },
         revision: provider.revision,
       });
+    }
   };
 
   const acceptsOccurrence = (occurrence: OperationOccurrenceFence) => {
@@ -1276,9 +1462,13 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
     }
   };
 
-  const notifySnapshot = (snapshot: ActorSnapshot<DefinitionValue>, machineTurnRevision: number) =>
+  const notifySnapshot = (
+    snapshot: ActorSnapshot<DefinitionValue>,
+    machineTurnRevision: number,
+    cause?: TurnCause<DefinitionValue>,
+  ) =>
     invokeResult(() => {
-      input.onSnapshot?.(snapshot, machineTurnRevision);
+      input.onSnapshot?.(copySnapshot(snapshot), machineTurnRevision, cause);
 
       return Result.succeed(undefined);
     });
@@ -1484,6 +1674,7 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
       const observed = notifySnapshot(
         published.success.publication.snapshot,
         published.success.publication.machineTurnRevision,
+        cause,
       );
 
       if (Result.isFailure(observed)) {
@@ -1545,7 +1736,11 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
         return Effect.fail(projected.failure);
       }
 
-      const observed = notifySnapshot(projected.success, state.publication.machineTurnRevision);
+      const observed = notifySnapshot(
+        projected.success,
+        state.publication.machineTurnRevision,
+        plan.cause,
+      );
 
       if (Result.isFailure(observed)) {
         setClosed(observed.failure);
@@ -1603,6 +1798,7 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
     const observed = notifySnapshot(
       published.success.publication.snapshot,
       published.success.publication.machineTurnRevision,
+      plan.cause,
     );
 
     if (Result.isFailure(observed)) {
@@ -1645,7 +1841,10 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
   const processProjection = (
     fact: Extract<ActorMailboxFact<DefinitionValue>, { _tag: "projection" }>,
   ) => {
-    if (fact.fact._tag === "context-projection" && !acceptsContextRevision(fact.fact))
+    if (
+      fact.fact._tag === "context-projection" &&
+      contextRevisionDisposition(fact.fact) !== "changed"
+    )
       return Effect.void;
     const occurrence = projectionOccurrence(fact.fact);
 
@@ -1670,6 +1869,7 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
         const observed = notifySnapshot(
           published.success.publication.snapshot,
           published.success.publication.machineTurnRevision,
+          { _tag: "projection", fact: fact.fact },
         );
 
         if (Result.isFailure(observed)) {
@@ -1706,7 +1906,94 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
               evidenceSequence: state.evidenceSequence,
             });
         } else if (fact._tag === "projection" && isCurrentFence(input.fence, fact.fence)) {
-          yield* processProjection(fact);
+          if (fact.delivery === "ordinary") yield* processProjection(fact);
+          else {
+            const ticket = fact.ticket;
+            const providers = contextProviders(fact.fact);
+            let validVector = providers !== undefined;
+            const providerKeys = new Set<ActorKey>();
+
+            if (providers !== undefined) {
+              for (let index = 0; index < providers.length; index += 1) {
+                const provider = providers[index];
+
+                if (provider === undefined) {
+                  validVector = false;
+                  break;
+                }
+
+                providerKeys.add(provider.fence.key);
+
+                if (ticket.requiredVector.get(provider.fence.key) !== provider.revision)
+                  validVector = false;
+              }
+
+              if (providerKeys.size !== ticket.requiredVector.size) validVector = false;
+            }
+
+            const disposition = contextRevisionDisposition(fact.fact);
+
+            if (
+              ticket.cancelled ||
+              !isCurrentFence(input.fence, ticket.consumerFence) ||
+              !validVector ||
+              !isValidContextTicketWitness(
+                ticket.witness,
+                ticket.origin,
+                ticket.graphGeneration,
+                ticket.expectedRevision,
+              ) ||
+              !isValidContextTicketCarrier(ticket.witness, fact.fact) ||
+              state.publication.snapshot.revision !== ticket.expectedRevision ||
+              disposition === "stale"
+            ) {
+              pendingContextTickets.delete(ticket.completion);
+              Deferred.doneUnsafe(
+                ticket.completion,
+                Effect.succeed({
+                  status: "stale" as const,
+                  snapshot: copySnapshot(state.publication.snapshot),
+                  machineTurnRevision: state.publication.machineTurnRevision,
+                }),
+              );
+            } else if (disposition === "no-op") {
+              pendingContextTickets.delete(ticket.completion);
+              Deferred.doneUnsafe(
+                ticket.completion,
+                Effect.succeed({
+                  status: "no-op" as const,
+                  snapshot: copySnapshot(state.publication.snapshot),
+                  machineTurnRevision: state.publication.machineTurnRevision,
+                }),
+              );
+            } else {
+              const before = state.publication.snapshot.revision;
+
+              const processed = yield* Effect.exit(
+                processProjection({ ...fact, fact: ownContextProjectionFact(fact.fact) }),
+              );
+
+              if (Exit.isFailure(processed)) {
+                pendingContextTickets.delete(ticket.completion);
+                Deferred.doneUnsafe(ticket.completion, Effect.failCause(processed.cause));
+
+                return yield* Effect.failCause(processed.cause);
+              }
+
+              pendingContextTickets.delete(ticket.completion);
+              Deferred.doneUnsafe(
+                ticket.completion,
+                Effect.succeed({
+                  status:
+                    state.publication.snapshot.revision > before
+                      ? ("published" as const)
+                      : ("no-op" as const),
+                  snapshot: copySnapshot(state.publication.snapshot),
+                  machineTurnRevision: state.publication.machineTurnRevision,
+                }),
+              );
+            }
+          }
         } else if (fact._tag === "control") {
           // Mapped continuations belong to accepted turns before this control, even when all
           // 64 ordinary queue places were occupied when those turns published their cuts.
@@ -1804,6 +2091,7 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
     ref: input.identity.ref,
     fence: input.fence,
     machineTurnRevision: () => state.publication.machineTurnRevision,
+    // The committed publication is an owned immutable cut; callbacks and ticket results copy it.
     snapshot: () => state.publication.snapshot,
     preflightLifecyclePublication,
     commitLifecyclePublication,
@@ -1812,6 +2100,7 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
     },
     dispatch,
     dispatchFact: enqueueFact,
+    dispatchContextTicket: enqueueContextTicket,
     dispatchControl,
     isClosed,
     isAdmissionOpen,
@@ -1855,7 +2144,7 @@ export const prepareActorEngine = <DefinitionValue extends MachineDefinition>(
 
     const mailbox = yield* Queue.bounded<ActorQueuedFact<DefinitionValue>>(requestedCapacity + 1);
     const barrier = yield* Deferred.make<void>();
-    const initial = copySnapshot(admittedInitial.success);
+    const initial = freezePublicationSnapshot(copySnapshot(admittedInitial.success));
 
     const state: ActorCellCut<DefinitionValue> = {
       publication: {
@@ -1873,6 +2162,11 @@ export const prepareActorEngine = <DefinitionValue extends MachineDefinition>(
     if (input.actorCell !== undefined) input.actorCell.cut = state;
 
     const pending = new Set<Deferred.Deferred<DispatchReceipt, PublicDiagnostic>>();
+
+    const pendingContextTickets = new Set<
+      Deferred.Deferred<ContextTicketOutcome<DefinitionValue>, PublicDiagnostic>
+    >();
+
     const pendingControls = new Set<(failure: PublicDiagnostic) => void>();
     const drainState: DrainState = { processing: false, waiters: [] };
     let queuedOrdinary = 0;
@@ -1886,6 +2180,10 @@ export const prepareActorEngine = <DefinitionValue extends MachineDefinition>(
       for (const acknowledgement of pending)
         Deferred.doneUnsafe(acknowledgement, Effect.fail(failure));
       pending.clear();
+
+      for (const completion of pendingContextTickets)
+        Deferred.doneUnsafe(completion, Effect.fail(failure));
+      pendingContextTickets.clear();
     };
 
     const setClosed = (failure: PublicDiagnostic = shutdownFailure()) => {
@@ -1951,6 +2249,7 @@ export const prepareActorEngine = <DefinitionValue extends MachineDefinition>(
 
       const offered = Queue.offerUnsafe(mailbox, {
         _tag: "projection",
+        delivery: "ordinary",
         fence: fact._tag === "context-projection" ? input.fence : projectionFence(fact),
         fact,
       });
@@ -1959,6 +2258,59 @@ export const prepareActorEngine = <DefinitionValue extends MachineDefinition>(
       queuedOrdinary += 1;
 
       return Result.succeed(undefined);
+    };
+
+    const enqueueContextTicket: ActorEngine<DefinitionValue>["dispatchContextTicket"] = (
+      fact,
+      attestation,
+    ) => {
+      if (closed || controlPending) return Result.fail(mailboxAdmissionFailure("closed"));
+
+      if (queuedOrdinary >= requestedCapacity) return Result.fail(mailboxAdmissionFailure("full"));
+
+      const completion = Deferred.makeUnsafe<
+        ContextTicketOutcome<DefinitionValue>,
+        PublicDiagnostic
+      >();
+
+      const ticket: ContextProjectionTicket<DefinitionValue> = {
+        origin: { ...attestation.origin, fence: { ...attestation.origin.fence } },
+        graphGeneration: attestation.graphGeneration,
+        consumerFence: { ...attestation.consumerFence },
+        expectedRevision: attestation.expectedRevision,
+        requiredVector: new Map(attestation.requiredVector),
+        witness: attestation.witness,
+        validate: attestation.validate,
+        completion,
+        cancelled: false,
+        cancel: () => {
+          if (ticket.cancelled || !pendingContextTickets.has(completion)) return;
+          ticket.cancelled = true;
+          pendingContextTickets.delete(completion);
+          Deferred.doneUnsafe(
+            completion,
+            Effect.succeed({
+              status: "stale",
+              snapshot: copySnapshot(state.publication.snapshot),
+              machineTurnRevision: state.publication.machineTurnRevision,
+            }),
+          );
+        },
+      };
+
+      const offered = Queue.offerUnsafe(mailbox, {
+        _tag: "projection",
+        delivery: "context-ticket",
+        fence: input.fence,
+        fact,
+        ticket,
+      });
+
+      if (!offered) return Result.fail(mailboxAdmissionFailure("full"));
+      queuedOrdinary += 1;
+      pendingContextTickets.add(completion);
+
+      return Result.succeed(ticket);
     };
 
     const markTaken = (fact: ActorQueuedFact<DefinitionValue>) => {
@@ -2015,6 +2367,7 @@ export const prepareActorEngine = <DefinitionValue extends MachineDefinition>(
       admitted = true;
       controlReserved = true;
       pendingControls.add(fail);
+
       if (closeAdmission) controlPending = true;
 
       const offered = Queue.offerUnsafe(mailbox, fact);
@@ -2067,12 +2420,14 @@ export const prepareActorEngine = <DefinitionValue extends MachineDefinition>(
             state,
             snapshots,
             pending,
+            pendingContextTickets,
             drainState,
             dispatch,
             dispatchControl,
             () => closed,
             () => !controlPending && !closed,
             enqueueFact,
+            enqueueContextTicket,
             markTaken,
             enqueueCommand,
           );
