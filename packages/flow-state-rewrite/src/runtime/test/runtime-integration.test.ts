@@ -4022,7 +4022,85 @@ describe("pending regression scenarios", () => {
   // Setup: Subscribe to a real assembled actor stream in its own Scope; use the first observed snapshot as a subscription handshake, then gate the reader with a Deferred. Record actual subscriber Scope finalization.
   // Action: While the reader is paused, complete several acknowledged actor turns and successful actor disposal; require disposal to finish before releasing the reader, then collect the remaining stream and close the subscriber Scope.
   // Assert: The reader receives the promised snapshots in publication order through disposed and then completes; actor disposal never waits for consumption, the subscriber lifetime releases once, and no drop/coalescing policy is invented to bound unread lag.
-  it.todo("preserves ordered snapshot delivery without making disposal wait for a slow reader");
+  it.effect(
+    "preserves ordered snapshot delivery without making disposal wait for a slow reader",
+    () =>
+      Effect.gen(function* () {
+        const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+        yield* runtime.ready();
+        const assembly = runtimeOwner(runtime).assembly();
+
+        const actor = yield* assembly.createActor({
+          ref: actorRef(IntegrationProviderMachine, "slow-snapshot-reader"),
+          initial: initialProviderSnapshot(),
+        });
+
+        const subscribed = yield* Deferred.make<void>();
+        const releaseReader = yield* Deferred.make<void>();
+        let subscriberFinalizations = 0;
+        let reads = 0;
+
+        const reader = Stream.unwrap(
+          Effect.gen(function* () {
+            const scope = yield* Effect.service(Scope.Scope);
+            yield* Scope.addFinalizer(
+              scope,
+              Effect.sync(() => {
+                subscriberFinalizations += 1;
+              }),
+            );
+
+            return Stream.mapEffect(actor.engine.snapshots, (snapshot) =>
+              Effect.gen(function* () {
+                reads += 1;
+
+                if (reads === 1) {
+                  yield* Deferred.succeed(subscribed, undefined);
+                  yield* Deferred.await(releaseReader);
+                }
+
+                return snapshot;
+              }),
+            );
+          }),
+        );
+
+        const readerFiber = yield* Effect.forkChild(Stream.runCollect(reader), {
+          startImmediately: true,
+        });
+
+        yield* Deferred.await(subscribed);
+
+        const first = actor.engine.dispatch(IntegrationProviderEvent);
+        assert.strictEqual(first.admitted, true);
+        yield* Deferred.await(first.completion);
+        const second = actor.engine.dispatch(IntegrationProviderEvent);
+        assert.strictEqual(second.admitted, true);
+        yield* Deferred.await(second.completion);
+        yield* actor.engine.drain();
+        yield* Effect.provideContext(actor.dispose(), assembly.context);
+        assert.strictEqual(actor.engine.snapshot().lifecycle, "disposed");
+        assert.strictEqual(reads, 1);
+        yield* Deferred.succeed(releaseReader, undefined);
+
+        const snapshots = yield* Fiber.join(readerFiber);
+        assert.deepStrictEqual(
+          snapshots.map((snapshot) => [snapshot.lifecycle, snapshot.state]),
+          [
+            ["active", IntegrationProviderDefinition.S.ready],
+            ["active", IntegrationProviderDefinition.S.changed],
+            ["active", IntegrationProviderDefinition.S.final],
+            ["disposed", IntegrationProviderDefinition.S.final],
+          ],
+        );
+        assert.deepStrictEqual(
+          snapshots.map((snapshot) => snapshot.revision),
+          [0, 1, 2, 3],
+        );
+        assert.strictEqual(subscriberFinalizations, 1);
+        yield* runtimeOwner(runtime).close();
+      }),
+  );
 
   // Setup: Initialize the selected real private Journal near counter exhaustion through its construction input; start actual actor admission, observe its terminal-credit acquisition, then fail a later delegated attachment/acquisition before activation or acceptance of the start record.
   // Action: Await complete reverse rollback, create another real actor using the reclaimed capacity, accept an ordinary turn when headroom permits, and dispose the actor and runtime.

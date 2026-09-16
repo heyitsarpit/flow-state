@@ -5,7 +5,6 @@ import {
   Effect,
   Exit,
   Fiber,
-  PubSub,
   Predicate,
   Queue,
   Result,
@@ -132,6 +131,12 @@ export type AcknowledgedDispatch = {
   completion: Deferred.Deferred<DispatchReceipt, PublicDiagnostic>;
 };
 
+export type ActorControlPermit = {
+  admitted: boolean;
+  ready: Effect.Effect<void, PublicDiagnostic>;
+  release: () => void;
+};
+
 export type ActorCommandHandler<DefinitionValue extends MachineDefinition> = (
   command: ActorCommand<DefinitionValue>,
 ) => Effect.Effect<void, PublicDiagnostic, Scope.Scope>;
@@ -155,6 +160,16 @@ export type ActorMailboxFact<DefinitionValue extends MachineDefinition> =
       fence: ActorFence;
       fact: ProjectionFact;
     };
+
+type ActorControlFact<DefinitionValue extends MachineDefinition> = {
+  _tag: "control";
+  before: ActorCommand<DefinitionValue>[];
+  run: Effect.Effect<void>;
+};
+
+type ActorQueuedFact<DefinitionValue extends MachineDefinition> =
+  | ActorMailboxFact<DefinitionValue>
+  | ActorControlFact<DefinitionValue>;
 
 export type ActorFactDisposition<DefinitionValue extends MachineDefinition> =
   | {
@@ -201,6 +216,9 @@ export interface ActorEngine<DefinitionValue extends MachineDefinition> {
   send: (command: ActorCommand<DefinitionValue>) => void;
   dispatch: (command: ActorCommand<DefinitionValue>) => AcknowledgedDispatch;
   dispatchFact: (fact: ProjectionFact) => Result.Result<void, PublicDiagnostic>;
+  dispatchControl: (closeAdmission?: boolean) => ActorControlPermit;
+  isClosed: () => boolean;
+  isAdmissionOpen: () => boolean;
   snapshots: Stream.Stream<ActorSnapshot<DefinitionValue>>;
   drain: () => Effect.Effect<void, PublicDiagnostic>;
   shutdown: () => Effect.Effect<void, PublicDiagnostic>;
@@ -210,6 +228,7 @@ export interface PreparedActorEngine<DefinitionValue extends MachineDefinition> 
   phase: "prepared";
   send: (command: ActorCommand<DefinitionValue>) => void;
   dispatch: (command: ActorCommand<DefinitionValue>) => AcknowledgedDispatch;
+  snapshots: Stream.Stream<ActorSnapshot<DefinitionValue>>;
   activate: () => Effect.Effect<ActorEngine<DefinitionValue>, PublicDiagnostic>;
   abandon: () => void;
 }
@@ -221,7 +240,6 @@ export interface ActorHandle<DefinitionValue extends MachineDefinition> {
 
 type ConsumerFiberState = {
   current: Fiber.Fiber<void, PublicDiagnostic> | undefined;
-  exit: Exit.Exit<void, PublicDiagnostic> | undefined;
 };
 
 export type ActorCellCut<DefinitionValue extends MachineDefinition> = {
@@ -237,6 +255,76 @@ type PreparedCut<DefinitionValue extends MachineDefinition> = {
 type DrainState = {
   processing: boolean;
   waiters: Deferred.Deferred<void>[];
+};
+
+type SnapshotDelivery<DefinitionValue extends MachineDefinition> =
+  | { _tag: "snapshot"; snapshot: ActorSnapshot<DefinitionValue> }
+  | { _tag: "end" };
+
+type SnapshotPublisher<DefinitionValue extends MachineDefinition> = {
+  publish: (snapshot: ActorSnapshot<DefinitionValue>) => void;
+  shutdown: () => void;
+  stream: Stream.Stream<ActorSnapshot<DefinitionValue>>;
+};
+
+/** Subscriber Scopes retain unread cuts after actor disposal; the cell retains only registrations. */
+const makeSnapshotPublisher = <DefinitionValue extends MachineDefinition>(
+  current: () => ActorSnapshot<DefinitionValue>,
+): SnapshotPublisher<DefinitionValue> => {
+  const subscribers = new Set<Queue.Queue<SnapshotDelivery<DefinitionValue>>>();
+  let closed = false;
+  const end: SnapshotDelivery<DefinitionValue> = { _tag: "end" };
+
+  const publish = (snapshot: ActorSnapshot<DefinitionValue>) => {
+    for (const queue of subscribers) Queue.offerUnsafe(queue, { _tag: "snapshot", snapshot });
+
+    if (snapshot.lifecycle === "suspended" || snapshot.lifecycle === "disposed") complete();
+  };
+
+  const complete = () => {
+    for (const queue of subscribers) Queue.offerUnsafe(queue, end);
+
+    subscribers.clear();
+  };
+
+  const shutdown = () => {
+    if (closed) return;
+    closed = true;
+    complete();
+  };
+
+  const stream = Stream.unwrap(
+    Effect.gen(function* () {
+      const queue = yield* Queue.unbounded<SnapshotDelivery<DefinitionValue>>();
+      const scope = yield* Effect.service(Scope.Scope);
+      yield* Scope.addFinalizer(
+        scope,
+        Effect.sync(() => {
+          subscribers.delete(queue);
+        }).pipe(Effect.andThen(Queue.shutdown(queue))),
+      );
+
+      const snapshot = current();
+      Queue.offerUnsafe(queue, { _tag: "snapshot", snapshot });
+
+      if (closed || snapshot.lifecycle === "suspended" || snapshot.lifecycle === "disposed")
+        Queue.offerUnsafe(queue, end);
+      else subscribers.add(queue);
+
+      return Stream.fromQueue(queue).pipe(
+        Stream.takeUntil((delivery) => delivery._tag === "end"),
+        Stream.filter(
+          (
+            delivery,
+          ): delivery is Extract<SnapshotDelivery<DefinitionValue>, { _tag: "snapshot" }> =>
+            delivery._tag === "snapshot",
+        ),
+        Stream.map((delivery) => delivery.snapshot),
+      );
+    }),
+  );
+
+  return { publish, shutdown, stream };
 };
 
 const mailboxAdmissionFailure = (reason: "closed" | "full") =>
@@ -260,7 +348,7 @@ const foreignEventFailure = () =>
 const shutdownFailure = () => Interrupt();
 
 const clearMailbox = <DefinitionValue extends MachineDefinition>(
-  mailbox: Queue.Queue<ActorMailboxFact<DefinitionValue>>,
+  mailbox: Queue.Queue<ActorQueuedFact<DefinitionValue>>,
 ) => {
   while (Queue.sizeUnsafe(mailbox) > 0) Queue.takeUnsafe(mailbox);
 };
@@ -901,14 +989,14 @@ const cutFailure = (diagnostic: PublicDiagnostic, preserveCut = false) => ({
 /** The ActorCell's one synchronous store/publication/Journal cut. */
 const commitActorCut = <DefinitionValue extends MachineDefinition>(
   cell: ActorCellCut<DefinitionValue>,
-  snapshots: PubSub.PubSub<ActorSnapshot<DefinitionValue>>,
+  snapshots: SnapshotPublisher<DefinitionValue>,
   cut: ActorCutCommit<DefinitionValue>,
 ) => {
   const install = <Publication extends ActorCellCut<DefinitionValue>["publication"]>(
     publication: Publication,
   ) => {
     cell.publication = publication;
-    PubSub.publishUnsafe(snapshots, publication.snapshot);
+    snapshots.publish(publication.snapshot);
 
     return publication;
   };
@@ -1080,19 +1168,25 @@ const projectionFence = (fact: ProjectionFact) => {
 
 const makeEngine = <DefinitionValue extends MachineDefinition>(
   input: ActorEngineInput<DefinitionValue>,
-  mailbox: Queue.Queue<ActorMailboxFact<DefinitionValue>>,
+  mailbox: Queue.Queue<ActorQueuedFact<DefinitionValue>>,
   barrier: Deferred.Deferred<void>,
   setClosed: (failure?: PublicDiagnostic) => void,
-  isClosed: () => boolean,
   consumerFiber: ConsumerFiberState,
   state: ActorCellCut<DefinitionValue>,
-  snapshots: PubSub.PubSub<ActorSnapshot<DefinitionValue>>,
+  snapshots: SnapshotPublisher<DefinitionValue>,
   pending: Set<Deferred.Deferred<DispatchReceipt, PublicDiagnostic>>,
   drainState: DrainState,
+  dispatch: (command: ActorCommand<DefinitionValue>) => AcknowledgedDispatch,
+  dispatchControl: (closeAdmission?: boolean) => ActorControlPermit,
+  isClosed: () => boolean,
+  isAdmissionOpen: () => boolean,
+  enqueueFact: (fact: ProjectionFact) => Result.Result<void, PublicDiagnostic>,
+  markTaken: (fact: ActorQueuedFact<DefinitionValue>) => void,
   enqueueCommand: (
     command: ActorCommand<DefinitionValue>,
     acknowledgement: Deferred.Deferred<DispatchReceipt, PublicDiagnostic> | undefined,
     throwOnFailure: boolean,
+    fromExecutingTurn?: boolean,
   ) => boolean,
 ) => {
   const contextCursors = new Map<string, { fence: ActorFence; revision: number }>();
@@ -1517,7 +1611,7 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
       return Effect.fail(observed.failure);
     }
 
-    for (const mappedEvent of plan.mappedEvents) enqueueCommand(mappedEvent, undefined, true);
+    for (const mappedEvent of plan.mappedEvents) enqueueCommand(mappedEvent, undefined, true, true);
 
     return Effect.succeed(true);
   };
@@ -1599,6 +1693,7 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
     yield* Effect.forever(
       Effect.gen(function* () {
         const fact = yield* Queue.take(mailbox);
+        markTaken(fact);
         drainState.processing = true;
 
         if (fact._tag === "command") {
@@ -1610,8 +1705,20 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
               publicationRevision: state.publication.snapshot.revision,
               evidenceSequence: state.evidenceSequence,
             });
-        } else if (isCurrentFence(input.fence, fact.fence)) {
+        } else if (fact._tag === "projection" && isCurrentFence(input.fence, fact.fence)) {
           yield* processProjection(fact);
+        } else if (fact._tag === "control") {
+          // Mapped continuations belong to accepted turns before this control, even when all
+          // 64 ordinary queue places were occupied when those turns published their cuts.
+          for (let index = 0; index < fact.before.length; index += 1) {
+            const command = fact.before[index];
+
+            if (command !== undefined)
+              yield* processCommand({ _tag: "command", fence: input.fence, command });
+          }
+
+          fact.before.length = 0;
+          yield* fact.run;
         }
       }).pipe(
         Effect.ensuring(
@@ -1623,28 +1730,6 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
       ),
     );
   });
-
-  const dispatch = (command: ActorCommand<DefinitionValue>) => {
-    const completion = Deferred.makeUnsafe<DispatchReceipt, PublicDiagnostic>();
-    const admitted = enqueueCommand(command, completion, false);
-
-    if (!admitted) return { admitted: false, completion };
-    pending.add(completion);
-
-    return { admitted: true, completion };
-  };
-
-  const dispatchFact = (fact: ProjectionFact) => {
-    if (isClosed()) return Result.fail(mailboxAdmissionFailure("closed"));
-
-    const offered = Queue.offerUnsafe(mailbox, {
-      _tag: "projection",
-      fence: fact._tag === "context-projection" ? input.fence : projectionFence(fact),
-      fact,
-    });
-
-    return offered ? Result.succeed(undefined) : Result.fail(mailboxAdmissionFailure("full"));
-  };
 
   const drain = () =>
     Effect.gen(function* () {
@@ -1710,7 +1795,7 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
         }
 
         yield* Queue.shutdown(mailbox);
-        yield* PubSub.shutdown(snapshots);
+        snapshots.shutdown();
         notifyDrained();
       }),
     );
@@ -1726,8 +1811,11 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
       enqueueCommand(command, undefined, true);
     },
     dispatch,
-    dispatchFact,
-    snapshots: Stream.fromPubSub(snapshots),
+    dispatchFact: enqueueFact,
+    dispatchControl,
+    isClosed,
+    isAdmissionOpen,
+    snapshots: snapshots.stream,
     drain,
     shutdown: shutdownEffect,
   } satisfies ActorEngine<DefinitionValue>;
@@ -1765,11 +1853,9 @@ export const prepareActorEngine = <DefinitionValue extends MachineDefinition>(
       );
     }
 
-    const mailbox = yield* Queue.bounded<ActorMailboxFact<DefinitionValue>>(requestedCapacity);
+    const mailbox = yield* Queue.bounded<ActorQueuedFact<DefinitionValue>>(requestedCapacity + 1);
     const barrier = yield* Deferred.make<void>();
-    const snapshots = yield* PubSub.unbounded<ActorSnapshot<DefinitionValue>>({ replay: 1 });
     const initial = copySnapshot(admittedInitial.success);
-    PubSub.publishUnsafe(snapshots, initial);
 
     const state: ActorCellCut<DefinitionValue> = {
       publication: {
@@ -1782,12 +1868,19 @@ export const prepareActorEngine = <DefinitionValue extends MachineDefinition>(
       evidenceSequence: 0,
     };
 
+    const snapshots = makeSnapshotPublisher(() => state.publication.snapshot);
+
     if (input.actorCell !== undefined) input.actorCell.cut = state;
 
     const pending = new Set<Deferred.Deferred<DispatchReceipt, PublicDiagnostic>>();
+    const pendingControls = new Set<(failure: PublicDiagnostic) => void>();
     const drainState: DrainState = { processing: false, waiters: [] };
+    let queuedOrdinary = 0;
     let closed = false;
-    const consumerFiber: ConsumerFiberState = { current: undefined, exit: undefined };
+    let controlPending = false;
+    let controlReserved = false;
+    let reservedControlFact: ActorControlFact<DefinitionValue> | undefined;
+    const consumerFiber: ConsumerFiberState = { current: undefined };
 
     const settlePending = (failure: PublicDiagnostic = shutdownFailure()) => {
       for (const acknowledgement of pending)
@@ -1798,23 +1891,33 @@ export const prepareActorEngine = <DefinitionValue extends MachineDefinition>(
     const setClosed = (failure: PublicDiagnostic = shutdownFailure()) => {
       if (closed) return;
       closed = true;
+      reservedControlFact = undefined;
       clearMailbox(mailbox);
+      queuedOrdinary = 0;
       settlePending(failure);
+
+      for (const settle of pendingControls) settle(failure);
+      pendingControls.clear();
       Queue.failCauseUnsafe(mailbox, Cause.die(mailboxAdmissionFailure("closed")));
     };
-
-    const isClosed = () => closed;
 
     const enqueueCommand = (
       command: ActorCommand<DefinitionValue>,
       acknowledgement: Deferred.Deferred<DispatchReceipt, PublicDiagnostic> | undefined,
       throwOnFailure: boolean,
+      fromExecutingTurn = false,
     ) => {
       let failure: PublicDiagnostic | undefined;
 
       if (!isEventForMachine(input.machine ?? input.identity.ref.machine, command))
         failure = foreignEventFailure();
       else if (closed) failure = mailboxAdmissionFailure("closed");
+      else if (fromExecutingTurn && controlPending && reservedControlFact !== undefined) {
+        reservedControlFact.before.push(command);
+
+        return true;
+      } else if (controlPending) failure = mailboxAdmissionFailure("closed");
+      else if (queuedOrdinary >= requestedCapacity) failure = mailboxAdmissionFailure("full");
       else if (
         !Queue.offerUnsafe(
           mailbox,
@@ -1825,7 +1928,11 @@ export const prepareActorEngine = <DefinitionValue extends MachineDefinition>(
       )
         failure = mailboxAdmissionFailure("full");
 
-      if (failure === undefined) return true;
+      if (failure === undefined) {
+        queuedOrdinary += 1;
+
+        return true;
+      }
 
       if (acknowledgement !== undefined) Deferred.doneUnsafe(acknowledgement, Effect.fail(failure));
 
@@ -1837,7 +1944,108 @@ export const prepareActorEngine = <DefinitionValue extends MachineDefinition>(
       return false;
     };
 
-    yield* Scope.addFinalizer(input.scope, PubSub.shutdown(snapshots));
+    const enqueueFact = (fact: ProjectionFact) => {
+      if (closed || controlPending) return Result.fail(mailboxAdmissionFailure("closed"));
+
+      if (queuedOrdinary >= requestedCapacity) return Result.fail(mailboxAdmissionFailure("full"));
+
+      const offered = Queue.offerUnsafe(mailbox, {
+        _tag: "projection",
+        fence: fact._tag === "context-projection" ? input.fence : projectionFence(fact),
+        fact,
+      });
+
+      if (!offered) return Result.fail(mailboxAdmissionFailure("full"));
+      queuedOrdinary += 1;
+
+      return Result.succeed(undefined);
+    };
+
+    const markTaken = (fact: ActorQueuedFact<DefinitionValue>) => {
+      if (fact._tag !== "control") queuedOrdinary -= 1;
+    };
+
+    const dispatchControl = (closeAdmission = false) => {
+      const ready = Deferred.makeUnsafe<void, PublicDiagnostic>();
+      const released = Deferred.makeUnsafe<void>();
+      let admitted = false;
+      let didRelease = false;
+
+      const release = () => {
+        if (!admitted || didRelease) return;
+        didRelease = true;
+        Deferred.doneUnsafe(released, Effect.void);
+
+        if (closeAdmission) {
+          controlPending = false;
+          reservedControlFact = undefined;
+        }
+      };
+
+      if (closed || controlReserved || Queue.sizeUnsafe(mailbox) >= requestedCapacity + 1) {
+        Deferred.doneUnsafe(
+          ready,
+          Effect.fail(mailboxAdmissionFailure(closed ? "closed" : "full")),
+        );
+
+        return { admitted: false, ready: Deferred.await(ready), release };
+      }
+
+      const fail = (failure: PublicDiagnostic) => {
+        Deferred.doneUnsafe(ready, Effect.fail(failure));
+        release();
+      };
+
+      const fact: ActorControlFact<DefinitionValue> = {
+        _tag: "control",
+        before: [],
+        run: Effect.gen(function* () {
+          yield* Deferred.succeed(ready, undefined);
+          yield* Deferred.await(released).pipe(
+            Effect.ensuring(
+              Effect.sync(() => {
+                pendingControls.delete(fail);
+                controlReserved = false;
+              }),
+            ),
+          );
+        }),
+      };
+
+      admitted = true;
+      controlReserved = true;
+      pendingControls.add(fail);
+      if (closeAdmission) controlPending = true;
+
+      const offered = Queue.offerUnsafe(mailbox, fact);
+
+      if (!offered) {
+        pendingControls.delete(fail);
+        controlReserved = false;
+        fail(mailboxAdmissionFailure("full"));
+
+        return { admitted: false, ready: Deferred.await(ready), release };
+      }
+
+      if (closeAdmission) reservedControlFact = fact;
+
+      return { admitted: true, ready: Deferred.await(ready), release };
+    };
+
+    const dispatch = (command: ActorCommand<DefinitionValue>) => {
+      const completion = Deferred.makeUnsafe<DispatchReceipt, PublicDiagnostic>();
+      const admitted = enqueueCommand(command, completion, false);
+
+      if (!admitted) return { admitted: false, completion };
+      pending.add(completion);
+
+      return { admitted: true, completion };
+    };
+
+    yield* Scope.addFinalizer(
+      input.scope,
+      Effect.sync(() => snapshots.shutdown()),
+    );
     yield* Scope.addFinalizer(
       input.scope,
       Effect.sync(() => {
@@ -1855,12 +2063,17 @@ export const prepareActorEngine = <DefinitionValue extends MachineDefinition>(
             mailbox,
             barrier,
             setClosed,
-            isClosed,
             consumerFiber,
             state,
             snapshots,
             pending,
             drainState,
+            dispatch,
+            dispatchControl,
+            () => closed,
+            () => !controlPending && !closed,
+            enqueueFact,
+            markTaken,
             enqueueCommand,
           );
 
@@ -1868,7 +2081,6 @@ export const prepareActorEngine = <DefinitionValue extends MachineDefinition>(
           consumerFiber.current = fiber;
           yield* Effect.gen(function* () {
             const exit = yield* Fiber.await(fiber);
-            consumerFiber.exit = exit;
 
             if (Exit.isFailure(exit)) setClosed();
           }).pipe(Effect.forkScoped({ startImmediately: true }));
@@ -1881,22 +2093,13 @@ export const prepareActorEngine = <DefinitionValue extends MachineDefinition>(
 
     const activate = () => activation;
 
-    const dispatch = (command: ActorCommand<DefinitionValue>) => {
-      const completion = Deferred.makeUnsafe<DispatchReceipt, PublicDiagnostic>();
-      const admitted = enqueueCommand(command, completion, false);
-
-      if (!admitted) return { admitted: false, completion };
-      pending.add(completion);
-
-      return { admitted: true, completion };
-    };
-
     return {
       phase: "prepared",
       send: (command) => {
         enqueueCommand(command, undefined, true);
       },
       dispatch,
+      snapshots: snapshots.stream,
       activate,
       abandon: () => {
         if (closed) return;

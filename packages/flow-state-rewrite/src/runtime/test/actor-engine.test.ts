@@ -1,6 +1,17 @@
 // oxlint-disable-next-line anti-slop/no-large-production-file -- this suite proves snapshot admission, prepared mailbox activation, turns, and publication ordering across one actor engine; splitting would duplicate fixtures and fragment lifecycle assertions.
 import { assert, describe, it } from "@effect/vitest";
-import { Cause, Clock, Deferred, Effect, Exit, Fiber, Result, Scope, type Types } from "effect";
+import {
+  Cause,
+  Clock,
+  Deferred,
+  Effect,
+  Exit,
+  Fiber,
+  Result,
+  Scope,
+  Stream,
+  type Types,
+} from "effect";
 
 import { app, appPlan, module } from "../../app/app.js";
 import { definition } from "../../definition/definition.js";
@@ -10,7 +21,8 @@ import {
   Interrupt,
   type PublicDiagnostic,
 } from "../../diagnostic/diagnostic.js";
-import { machine } from "../../machine/machine.js";
+import { machine, type Machine } from "../../machine/machine.js";
+import type { MachineAction } from "../../machine/grammar.js";
 import { resource } from "../../operation/resource.js";
 import type { OperationKey } from "../../operation/key.js";
 import { actorRef } from "../actor-ref.js";
@@ -121,9 +133,10 @@ void testApp;
 const makeInput = (
   scope: Scope.Scope,
   onCommand: ActorEngineInput<typeof testDefinition>["onCommand"],
+  actorMachine: Machine<typeof testDefinition> = testMachine,
 ) => {
   const registry = makeActorIdentityRegistry();
-  const ref = actorRef(testMachine, "editor");
+  const ref = actorRef(actorMachine, "editor");
   const identity = resultSuccess(registry.reserveStable(ref));
 
   const fence: ActorFence = {
@@ -149,7 +162,7 @@ const makeInput = (
     input: {
       identity,
       fence,
-      initial: resultSuccess(prepareActorSnapshot(testMachine, initial)),
+      initial: resultSuccess(prepareActorSnapshot(actorMachine, initial)),
       scope,
       onCommand,
     },
@@ -161,6 +174,34 @@ const makeInput = (
 const opened = resultSuccess(testDefinition.E.opened());
 
 const closed = resultSuccess(testDefinition.E.closed());
+
+const makeMappedEventMachine = () => {
+  let firstOpened = true;
+
+  return resultSuccess(
+    machine(definitionResult, ({ S }) => ({
+      default: S.ready,
+      states: {
+        ready: {
+          on: {
+            opened: {
+              target: S.ready,
+              actions: () => {
+                if (!firstOpened) return [];
+                firstOpened = false;
+
+                // SAFETY: This fixture routes a valid event through the action batch's mapped-event seam.
+                // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the runtime planner intentionally classifies this nominal event separately from finite actions.
+                return closed as unknown as MachineAction<typeof testDefinition>;
+              },
+            },
+            closed: { target: S.ready },
+          },
+        },
+      },
+    })),
+  );
+};
 
 const contextProviderDefinitionResult = definition({
   id: "actor-engine/context-provider",
@@ -2829,7 +2870,313 @@ describe("pending regression scenarios", () => {
   // SETUP: Activate one real ActorEngine, hold its first onCommand at a Deferred, then dispatch that executing command and fill exactly ACTOR_MAILBOX_CAPACITY waiting command slots.
   // ACTION: Dispatch one additional command and retain both the admitted flag and its private completion; release the executing command and drain the engine.
   // ASSERT: One executing command plus 64 waiting commands run once in FIFO order; the next admission is admitted=false, its completion fails with path ["mailbox","full"], no rejected command runs, and the rejection changes no snapshot, store, or evidence sequence.
-  it.todo("rejects admission when 64 commands wait behind one executing command");
+  it.effect("rejects admission when 64 commands wait behind one executing command", () =>
+    Effect.gen(function* () {
+      const scope = yield* Scope.make("sequential");
+      const started = yield* Deferred.make<void>();
+      const release = yield* Deferred.make<void>();
+      const processed: ActorCommand<typeof testDefinition>[] = [];
+
+      const setup = makeInput(scope, (command) =>
+        Effect.gen(function* () {
+          processed.push(command);
+
+          if (processed.length === 1) {
+            yield* Deferred.succeed(started, undefined);
+            yield* Deferred.await(release);
+          }
+        }),
+      );
+
+      const engine = yield* (yield* prepareActorEngine(setup.input)).activate();
+      const executing = engine.dispatch(opened);
+      assert.strictEqual(executing.admitted, true);
+      yield* Deferred.await(started);
+
+      const waiting = Array.from({ length: ACTOR_MAILBOX_CAPACITY }, (_, index) =>
+        index % 2 === 0 ? closed : opened,
+      );
+
+      const accepted = waiting.map((command) => engine.dispatch(command));
+      assert.ok(accepted.every((dispatch) => dispatch.admitted));
+      const beforeRejection = engine.snapshot();
+      const rejected = engine.dispatch(closed);
+      assert.strictEqual(rejected.admitted, false);
+      const rejection = yield* Effect.exit(Deferred.await(rejected.completion));
+      assert.ok(Exit.isFailure(rejection));
+
+      if (Exit.isFailure(rejection)) {
+        const failure = failureFromExit(rejection);
+        assert.strictEqual(failure.code, "InvariantViolation");
+        assert.deepStrictEqual(failure.path, ["mailbox", "full"]);
+      }
+
+      assert.strictEqual(engine.snapshot(), beforeRejection);
+      assert.deepStrictEqual(processed, [opened]);
+      const executingReceipt = yield* Deferred.await(executing.completion);
+      assert.strictEqual(executingReceipt.publicationRevision, beforeRejection.revision);
+      yield* Deferred.succeed(release, undefined);
+
+      const receipts = [];
+
+      for (const dispatch of accepted) receipts.push(yield* Deferred.await(dispatch.completion));
+
+      yield* engine.drain();
+      assert.deepStrictEqual(processed, [opened, ...waiting]);
+      assert.strictEqual(receipts.length, ACTOR_MAILBOX_CAPACITY);
+      assert.ok(receipts.every((receipt) => receipt.evidenceSequence > 0));
+      yield* engine.shutdown();
+      yield* Scope.close(scope, Exit.void);
+    }),
+  );
+
+  it.effect("reserves one ordered control place after a full ordinary prefix", () =>
+    Effect.gen(function* () {
+      const scope = yield* Scope.make("sequential");
+      const started = yield* Deferred.make<void>();
+      const release = yield* Deferred.make<void>();
+      const processed: ActorCommand<typeof testDefinition>[] = [];
+
+      const setup = makeInput(scope, (command) =>
+        Effect.gen(function* () {
+          processed.push(command);
+
+          if (processed.length === 1) {
+            yield* Deferred.succeed(started, undefined);
+            yield* Deferred.await(release);
+          }
+        }),
+      );
+
+      const engine = yield* (yield* prepareActorEngine(setup.input)).activate();
+      assert.ok(Result.isSuccess(engine.commitLifecyclePublication("active", true)));
+      const executing = engine.dispatch(opened);
+      yield* Deferred.await(started);
+
+      const waiting = Array.from({ length: ACTOR_MAILBOX_CAPACITY }, (_, index) =>
+        index % 2 === 0 ? closed : opened,
+      );
+
+      const accepted = waiting.map((command) => engine.dispatch(command));
+      assert.ok(accepted.every((dispatch) => dispatch.admitted));
+      const control = engine.dispatchControl();
+      assert.strictEqual(control.admitted, true);
+      const overflow = engine.dispatchControl();
+      assert.strictEqual(overflow.admitted, false);
+      const overflowExit = yield* Effect.exit(overflow.ready);
+      assert.ok(Exit.isFailure(overflowExit));
+
+      if (Exit.isFailure(overflowExit)) {
+        const failure = failureFromExit(overflowExit);
+        assert.deepStrictEqual(failure.path, ["mailbox", "full"]);
+      }
+
+      assert.deepStrictEqual(processed, [opened]);
+      yield* Deferred.succeed(release, undefined);
+      yield* Deferred.await(executing.completion);
+
+      const receipts = [];
+
+      for (const dispatch of accepted) receipts.push(yield* Deferred.await(dispatch.completion));
+
+      yield* control.ready;
+      assert.strictEqual(receipts.length, ACTOR_MAILBOX_CAPACITY);
+      assert.ok(receipts.every((receipt) => receipt.evidenceSequence > 0));
+      assert.deepStrictEqual(processed, [opened, ...waiting]);
+      assert.ok(Result.isSuccess(engine.commitLifecyclePublication("suspended", false)));
+      control.release();
+      yield* engine.drain();
+      assert.strictEqual(engine.isClosed(), false);
+      assert.strictEqual(engine.snapshot().lifecycle, "suspended");
+      yield* engine.shutdown();
+      yield* Scope.close(scope, Exit.void);
+    }),
+  );
+
+  // Setup: Hold one executing command, queue 63 ordinary commands, and reserve one control place.
+  // Action: Reject a duplicate control, admit the 64th ordinary command, and release the first control in FIFO order.
+  // Assert: The control never consumes an ordinary place, its rejected duplicate cannot release its gate, and the later ordinary command waits behind it.
+  it.effect("keeps the 64th ordinary place available behind one reserved control", () =>
+    Effect.gen(function* () {
+      const scope = yield* Scope.make("sequential");
+      const started = yield* Deferred.make<void>();
+      const release = yield* Deferred.make<void>();
+      const processed: ActorCommand<typeof testDefinition>[] = [];
+      const setup = makeInput(scope, (command) =>
+        Effect.gen(function* () {
+          processed.push(command);
+
+          if (processed.length === 1) {
+            yield* Deferred.succeed(started, undefined);
+            yield* Deferred.await(release);
+          }
+        }),
+      );
+      const engine = yield* (yield* prepareActorEngine(setup.input)).activate();
+      const executing = engine.dispatch(opened);
+      yield* Deferred.await(started);
+      const prefix = Array.from({ length: ACTOR_MAILBOX_CAPACITY - 1 }, () => closed);
+      const accepted = prefix.map((command) => engine.dispatch(command));
+      assert.ok(accepted.every((dispatch) => dispatch.admitted));
+      const control = engine.dispatchControl();
+      assert.strictEqual(control.admitted, true);
+      const duplicate = engine.dispatchControl(true);
+      assert.strictEqual(duplicate.admitted, false);
+      assert.ok(Exit.isFailure(yield* Effect.exit(duplicate.ready)));
+      duplicate.release();
+      const lastOrdinary = engine.dispatch(opened);
+      assert.strictEqual(lastOrdinary.admitted, true);
+      const overflow = engine.dispatch(opened);
+      assert.strictEqual(overflow.admitted, false);
+      assert.deepStrictEqual(
+        failureFromExit(yield* Effect.exit(Deferred.await(overflow.completion))).path,
+        ["mailbox", "full"],
+      );
+
+      yield* Deferred.succeed(release, undefined);
+      yield* Deferred.await(executing.completion);
+
+      for (const dispatch of accepted) yield* Deferred.await(dispatch.completion);
+
+      yield* control.ready;
+      assert.deepStrictEqual(processed, [opened, ...prefix]);
+      assert.strictEqual(Deferred.isDoneUnsafe(lastOrdinary.completion), false);
+      control.release();
+      yield* Deferred.await(lastOrdinary.completion);
+      yield* engine.drain();
+      assert.deepStrictEqual(processed, [opened, ...prefix, opened]);
+
+      const closing = engine.dispatchControl(true);
+      assert.strictEqual(closing.admitted, true);
+      yield* closing.ready;
+      assert.strictEqual(engine.isAdmissionOpen(), false);
+      const rejected = engine.dispatchControl(true);
+      assert.strictEqual(rejected.admitted, false);
+      rejected.release();
+      assert.strictEqual(engine.isAdmissionOpen(), false);
+      closing.release();
+      yield* engine.drain();
+      assert.strictEqual(engine.isAdmissionOpen(), true);
+      yield* engine.shutdown();
+      yield* Scope.close(scope, Exit.void);
+    }),
+  );
+
+  // Setup: Make a real machine event map another event and admit a close control from its publication observer.
+  // Action: Queue an ordinary prefix before the control while the executing command has not yet enqueued its mapped event.
+  // Assert: Prefix and mapped work finish before the control, all receipts settle, and the consumer remains alive for a suspended cut.
+  it.effect("settles an executing mapped-event turn before pending suspend control", () =>
+    Effect.gen(function* () {
+      const scope = yield* Scope.make("sequential");
+      const mappedEventMachine = makeMappedEventMachine();
+      const processed: ActorCommand<typeof testDefinition>[] = [];
+      const setup = makeInput(
+        scope,
+        (command) =>
+          Effect.sync(() => {
+            processed.push(command);
+          }),
+        mappedEventMachine,
+      );
+      const observed = Deferred.makeUnsafe<void>();
+      let engine: ActorEngine<typeof testDefinition>;
+      let prefix: AcknowledgedDispatch | undefined;
+      let control: ReturnType<ActorEngine<typeof testDefinition>["dispatchControl"]> | undefined;
+      engine = yield* (yield* prepareActorEngine({
+        ...setup.input,
+        machine: mappedEventMachine,
+        onSnapshot: (snapshot) => {
+          if (snapshot.revision !== 1) return;
+          prefix = engine.dispatch(closed);
+          control = engine.dispatchControl(true);
+          Deferred.doneUnsafe(observed, Effect.void);
+        },
+      })).activate();
+      const executing = engine.dispatch(opened);
+      assert.strictEqual(executing.admitted, true);
+      yield* Deferred.await(executing.completion);
+      yield* Deferred.await(observed);
+      assert.ok(prefix !== undefined && prefix.admitted);
+      assert.ok(control !== undefined && control.admitted);
+      yield* Deferred.await(prefix.completion);
+      yield* control.ready;
+      assert.deepStrictEqual(processed, [opened, closed, closed]);
+      assert.strictEqual(engine.isAdmissionOpen(), false);
+      assert.ok(Result.isSuccess(engine.commitLifecyclePublication("suspended", false)));
+      control.release();
+      yield* engine.drain();
+      assert.strictEqual(engine.snapshot().lifecycle, "suspended");
+      assert.deepStrictEqual(processed, [opened, closed, closed]);
+      yield* engine.shutdown();
+      yield* Scope.close(scope, Exit.void);
+    }),
+  );
+
+  // Setup: An executing mapped-event turn has 64 accepted ordinary commands behind it.
+  // Action: Admit a close control from the publication observer before the executing turn enqueues its mapped event.
+  // Assert: All 64 receipts settle, the mapped event follows their prefix before control, and the sole consumer remains live.
+  it.effect("keeps a mapped event before control behind a full ordinary prefix", () =>
+    Effect.gen(function* () {
+      const scope = yield* Scope.make("sequential");
+      const mappedEventMachine = makeMappedEventMachine();
+      const processed: ActorCommand<typeof testDefinition>[] = [];
+      const setup = makeInput(
+        scope,
+        (command) =>
+          Effect.sync(() => {
+            processed.push(command);
+          }),
+        mappedEventMachine,
+      );
+      const observed = Deferred.makeUnsafe<void>();
+      let engine: ActorEngine<typeof testDefinition>;
+      let accepted: AcknowledgedDispatch[] = [];
+      let control: ReturnType<ActorEngine<typeof testDefinition>["dispatchControl"]> | undefined;
+      engine = yield* (yield* prepareActorEngine({
+        ...setup.input,
+        machine: mappedEventMachine,
+        onSnapshot: (snapshot) => {
+          if (snapshot.revision !== 1) return;
+          accepted = Array.from({ length: ACTOR_MAILBOX_CAPACITY }, () => engine.dispatch(opened));
+          control = engine.dispatchControl(true);
+          Deferred.doneUnsafe(observed, Effect.void);
+        },
+      })).activate();
+      const executing = engine.dispatch(opened);
+      assert.strictEqual(executing.admitted, true);
+      yield* Deferred.await(executing.completion);
+      yield* Deferred.await(observed);
+      assert.strictEqual(accepted.length, ACTOR_MAILBOX_CAPACITY);
+      assert.ok(accepted.every((dispatch) => dispatch.admitted));
+      assert.ok(control !== undefined && control.admitted);
+      assert.strictEqual(engine.isAdmissionOpen(), false);
+
+      const receipts = [];
+
+      for (const dispatch of accepted) receipts.push(yield* Deferred.await(dispatch.completion));
+
+      yield* control.ready;
+      assert.strictEqual(receipts.length, ACTOR_MAILBOX_CAPACITY);
+      assert.ok(receipts.every((receipt) => receipt.evidenceSequence > 0));
+      assert.deepStrictEqual(processed, [
+        opened,
+        ...Array(ACTOR_MAILBOX_CAPACITY).fill(opened),
+        closed,
+      ]);
+      assert.ok(Result.isSuccess(engine.commitLifecyclePublication("suspended", false)));
+      control.release();
+      yield* engine.drain();
+      assert.strictEqual(engine.isClosed(), false);
+      assert.strictEqual(engine.snapshot().lifecycle, "suspended");
+      assert.deepStrictEqual(processed, [
+        opened,
+        ...Array(ACTOR_MAILBOX_CAPACITY).fill(opened),
+        closed,
+      ]);
+      yield* engine.shutdown();
+      yield* Scope.close(scope, Exit.void);
+    }),
+  );
 
   // SETUP: Extend the existing one-shot clock defect fixture with a candidate that would run an action, a counting store, snapshots, evidence, and an onCommand counter; retain the pre-turn snapshot for comparison.
   // ACTION: Dispatch through the failing preflight, await its failed acknowledgement and drain; dispatch the same event again after the clock succeeds.
@@ -2904,7 +3251,85 @@ describe("pending regression scenarios", () => {
   // Setup: Use the selected internal ActorPublication and mailbox owners with consuming Scopes to establish subscriptions separately while prepared, active, suspended and disposed; control activation and turns with owned acknowledgement barriers. Prepared subscription is a selected internal production seam, not a current PreparedActorEngine API.
   // Action: Observe prepared replay and activation, attach an active subscriber after a turn, subscribe anew while suspended, then dispose and subscribe anew to terminal truth.
   // Assert: Prepared subscriptions replay prepared and become live on activation; active subscriptions replay the latest complete cut and follow later publications; newly suspended subscriptions replay suspended once and complete; newly disposed subscriptions replay disposed once and complete. Close every consuming Scope without timers or GC assertions.
-  it.todo(
+  it.effect(
     "replays the correct lifecycle truth to prepared active suspended and disposed subscribers",
+    () =>
+      Effect.gen(function* () {
+        const scope = yield* Scope.make("sequential");
+        const setup = makeInput(scope, () => Effect.void);
+        const prepared = yield* prepareActorEngine(setup.input);
+        const preparedSeen = yield* Deferred.make<void>();
+
+        const preparedReader = yield* Effect.forkChild(
+          prepared.snapshots.pipe(
+            Stream.mapEffect((snapshot) =>
+              Effect.gen(function* () {
+                if (snapshot.lifecycle === "prepared")
+                  yield* Deferred.succeed(preparedSeen, undefined);
+
+                return snapshot;
+              }),
+            ),
+            Stream.take(2),
+            Stream.runCollect,
+          ),
+          { startImmediately: true },
+        );
+
+        yield* Deferred.await(preparedSeen);
+        const engine = yield* prepared.activate();
+        assert.ok(Result.isSuccess(engine.commitLifecyclePublication("active", true)));
+        const preparedCuts = yield* Fiber.join(preparedReader);
+        assert.deepStrictEqual(
+          preparedCuts.map((snapshot) => snapshot.lifecycle),
+          ["prepared", "active"],
+        );
+
+        const activeReplay = yield* Stream.take(engine.snapshots, 1).pipe(Stream.runCollect);
+        assert.strictEqual(activeReplay[0], engine.snapshot());
+        const activeSeen = yield* Deferred.make<void>();
+
+        const activeReader = yield* Effect.forkChild(
+          engine.snapshots.pipe(
+            Stream.mapEffect((snapshot) =>
+              Effect.gen(function* () {
+                if (snapshot.lifecycle === "active") yield* Deferred.succeed(activeSeen, undefined);
+
+                return snapshot;
+              }),
+            ),
+            Stream.runCollect,
+          ),
+          { startImmediately: true },
+        );
+
+        yield* Deferred.await(activeSeen);
+        assert.ok(Result.isSuccess(engine.commitLifecyclePublication("suspended", false)));
+        const activeCuts = yield* Fiber.join(activeReader);
+        assert.deepStrictEqual(
+          activeCuts.map((snapshot) => snapshot.lifecycle),
+          ["active", "suspended"],
+        );
+        const suspendedReplay = yield* Stream.runCollect(engine.snapshots);
+        assert.deepStrictEqual(
+          suspendedReplay.map((snapshot) => snapshot.lifecycle),
+          ["suspended"],
+        );
+
+        assert.ok(Result.isSuccess(engine.commitLifecyclePublication("active", false)));
+        const resumedReplay = yield* Stream.take(engine.snapshots, 1).pipe(Stream.runCollect);
+        assert.deepStrictEqual(
+          resumedReplay.map((snapshot) => snapshot.lifecycle),
+          ["active"],
+        );
+        assert.ok(Result.isSuccess(engine.commitLifecyclePublication("disposed", false)));
+        const disposedReplay = yield* Stream.runCollect(engine.snapshots);
+        assert.deepStrictEqual(
+          disposedReplay.map((snapshot) => snapshot.lifecycle),
+          ["disposed"],
+        );
+        yield* engine.shutdown();
+        yield* Scope.close(scope, Exit.void);
+      }),
   );
 });

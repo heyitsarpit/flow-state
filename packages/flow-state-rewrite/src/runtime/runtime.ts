@@ -74,7 +74,11 @@ import {
   type ActorStore,
   type DispatchReceipt,
 } from "./actor-engine.js";
-import { makeRuntimeEvidenceOwner } from "./evidence.js";
+import {
+  cancelPreparedEvidence,
+  makeRuntimeEvidenceOwner,
+  prepareLifecycleEvidenceAdmission,
+} from "./evidence.js";
 import {
   activateContextBaseline,
   buildContextGraph,
@@ -93,6 +97,7 @@ import {
   installLifecycleTimers,
   type LifecycleController,
   type LifecycleCommand,
+  type LifecycleEvidencePreflight,
   type ActorCell,
   type LifecycleSnapshot,
 } from "./lifecycle.js";
@@ -1498,18 +1503,21 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
 
             const visibleSnapshot = currentEngine.snapshot;
 
+            const isRoutable = () =>
+              currentEngine.isAdmissionOpen() && currentController.isRoutable();
+
             const engine: ActorEngine<DefinitionValue> = {
               ...currentEngine,
-              send: sendWithAdmissionGate(currentEngine, currentController.isRoutable),
+              send: sendWithAdmissionGate(currentEngine, isRoutable),
               dispatch: (command) => {
-                if (currentController.isRoutable()) return currentEngine.dispatch(command);
+                if (isRoutable()) return currentEngine.dispatch(command);
                 const completion = Deferred.makeUnsafe<DispatchReceipt, PublicDiagnostic>();
                 Deferred.doneUnsafe(completion, Effect.fail(closedActorAdmission()));
 
                 return { admitted: false, completion };
               },
               dispatchFact: (fact) =>
-                currentController.isRoutable()
+                isRoutable()
                   ? currentEngine.dispatchFact(fact)
                   : Result.fail(closedActorAdmission()),
             };
@@ -1528,7 +1536,10 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
               propagation.setOpen(true);
             };
 
-            const lifecycleCommandEffect = (command: LifecycleCommand<PublicDiagnostic>) =>
+            const lifecycleCommandEffect = (
+              command: LifecycleCommand<PublicDiagnostic>,
+              preparedEvidence?: LifecycleEvidencePreflight,
+            ) =>
               Effect.gen(function* () {
                 if (command._tag === "actor:dispose") {
                   const disposalPreflight = preflightLifecycleDisposal(preparation.actorCell);
@@ -1544,11 +1555,9 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
                     if (command._tag === "actor:suspend") {
                       routingGeneration = currentRouting.block();
                       propagation.setOpen(false);
-                      yield* currentEngine.drain();
                     } else if (command._tag === "actor:dispose") {
                       routingGeneration = currentRouting.block();
                       propagation.setOpen(false);
-                      yield* currentEngine.drain();
                     } else if (command._tag === "actor:resume") {
                       routingGeneration = currentRouting.block();
                     }
@@ -1558,25 +1567,9 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
                   Effect.gen(function* () {
                     const result = yield* currentController.command(
                       command,
-                      undefined,
+                      preparedEvidence,
                       prepareRouting,
                     );
-
-                    if (command._tag === "actor:resume") {
-                      propagation.setOpen(true);
-
-                      const reconciled = yield* Effect.exit(
-                        reconcileContext(preparation, currentEngine),
-                      );
-
-                      if (Exit.isFailure(reconciled)) {
-                        propagation.setOpen(false);
-
-                        return yield* Effect.failCause(reconciled.cause);
-                      }
-
-                      if (routingGeneration !== undefined) currentRouting.open(routingGeneration);
-                    }
 
                     return result;
                   }),
@@ -1597,11 +1590,121 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
                   propagation.setOpen(true);
                 }
 
-                return next;
+                return { next, routingGeneration };
+              });
+
+            const queuedLifecycleCommand = (command: LifecycleCommand<PublicDiagnostic>) =>
+              Effect.gen(function* () {
+                if (
+                  (command._tag === "actor:start" || command._tag === "actor:restore") &&
+                  (closeRegistry === undefined || !closeRegistry.isOpen())
+                ) {
+                  // Admission rollback has already closed this actor's Scope and consumer.
+                  // The lifecycle preflight retains the runtime's terminal diagnostic.
+                  const terminal = yield* Effect.provideContext(
+                    lifecycleCommandEffect(command),
+                    context,
+                  );
+
+                  return terminal.next;
+                }
+
+                if (
+                  command._tag === "actor:dispose" &&
+                  (currentController.currentLifecycle() === "disposed" || currentEngine.isClosed())
+                ) {
+                  const terminal = yield* Effect.provideContext(
+                    lifecycleCommandEffect(command),
+                    context,
+                  );
+
+                  return terminal.next;
+                }
+
+                if (command._tag === "actor:dispose") {
+                  const disposalPreflight = preflightLifecycleDisposal(preparation.actorCell);
+
+                  if (Result.isFailure(disposalPreflight))
+                    return yield* Effect.fail(disposalPreflight.failure);
+                }
+
+                const initialPublication =
+                  command._tag === "actor:start" || command._tag === "actor:restore";
+
+                const publicationPreflight =
+                  currentEngine.preflightLifecyclePublication(initialPublication);
+
+                if (Result.isFailure(publicationPreflight))
+                  return yield* Effect.fail(publicationPreflight.failure);
+
+                const timestamp = yield* clock.currentTimeMillis;
+
+                const evidencePreflight = prepareLifecycleEvidenceAdmission(
+                  evidence.service,
+                  timestamp,
+                  currentFence.key,
+                );
+
+                if (Result.isFailure(evidencePreflight))
+                  return yield* Effect.fail(evidencePreflight.failure);
+
+                const preparedEvidence = {
+                  service: evidence.service,
+                  ...evidencePreflight.success,
+                };
+
+                const closesAdmission =
+                  command._tag === "actor:suspend" || command._tag === "actor:dispose";
+
+                const control = currentEngine.dispatchControl(closesAdmission);
+
+                const commanded = yield* Effect.exit(
+                  control.ready.pipe(
+                    Effect.andThen(
+                      Effect.provideContext(
+                        lifecycleCommandEffect(command, preparedEvidence),
+                        context,
+                      ),
+                    ),
+                  ),
+                ).pipe(
+                  Effect.ensuring(
+                    Effect.sync(() => {
+                      control.release();
+                    }),
+                  ),
+                );
+
+                if (Exit.isFailure(commanded)) {
+                  cancelPreparedEvidence(preparedEvidence.service, preparedEvidence.preparation);
+
+                  return yield* Effect.failCause(commanded.cause);
+                }
+
+                const completed = commanded.value;
+
+                if (command._tag === "actor:resume") {
+                  propagation.setOpen(true);
+
+                  const reconciled = yield* Effect.exit(
+                    reconcileContext(preparation, currentEngine),
+                  );
+
+                  if (Exit.isFailure(reconciled)) {
+                    propagation.setOpen(false);
+
+                    return yield* Effect.failCause(reconciled.cause);
+                  }
+
+                  if (completed.routingGeneration !== undefined)
+                    currentRouting.open(completed.routingGeneration);
+                }
+
+                return completed.next;
               });
 
             const internalLifecycleCommand = (command: LifecycleCommand<PublicDiagnostic>) =>
-              lifecycleCommandGate.withPermit(lifecycleCommandEffect(command));
+              lifecycleCommandGate.withPermit(queuedLifecycleCommand(command));
 
             const publicLifecycleCommand = (command: LifecycleCommand<PublicDiagnostic>) =>
               Effect.gen(function* () {
@@ -1625,7 +1728,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
 
                     if (!stillAdmitted) return yield* Effect.fail(closedActorAdmission());
 
-                    return yield* lifecycleCommandEffect(command);
+                    return yield* queuedLifecycleCommand(command);
                   }),
                 );
 
@@ -1640,7 +1743,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
               ProviderDefinition
             > = {
               currentLifecycle: currentController.currentLifecycle,
-              isRoutable: currentController.isRoutable,
+              isRoutable,
               state: currentController.state,
               command: publicLifecycleCommand,
               installMetadata: (metadata) =>
