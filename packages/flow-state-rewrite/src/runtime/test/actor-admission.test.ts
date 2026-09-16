@@ -1612,9 +1612,9 @@ describe("actor identity admission", () => {
       const repeatedProviderDispose = yield* Effect.exit(
         Effect.provideContext(provider.dispose(), assembly.context),
       );
-      assert.ok(Exit.isFailure(repeatedProviderDispose));
+      assert.ok(Exit.isSuccess(repeatedProviderDispose));
       const shutdown = yield* Effect.exit(runtimeOwner(runtime).close());
-      assert.ok(Exit.isFailure(shutdown));
+      assert.ok(Exit.isSuccess(shutdown));
     }),
   );
 
@@ -1835,7 +1835,7 @@ describe("actor identity admission", () => {
       const failure = Failure({
         code: "InvariantViolation" as const,
         path: ["actor", "dispose"],
-        details: { reason: "retry" },
+        details: { reason: "terminal" },
         summary: "Actor disposal failed.",
         help: "Inspect the cached runtime close Cause.",
       });

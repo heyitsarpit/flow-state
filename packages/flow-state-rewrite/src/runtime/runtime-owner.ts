@@ -90,10 +90,11 @@ type RuntimeOwnerState<A, ReadyError, OwnerError> =
 
 const resolveExit = <A, E>(exit: Exit.Exit<A, E>) => exit;
 
-const appendCause = <Error>(current: Cause.Cause<Error> | undefined, next: Cause.Cause<Error>) =>
-  current === undefined
-    ? Cause.fromReasons([...next.reasons])
-    : Cause.fromReasons([...current.reasons, ...next.reasons]);
+const causeFromExits = <Error>(exits: readonly Exit.Exit<unknown, Error>[]) => {
+  const reasons = exits.flatMap((exit) => (Exit.isFailure(exit) ? [...exit.cause.reasons] : []));
+
+  return reasons.length === 0 ? undefined : Cause.fromReasons(reasons);
+};
 
 const makeRuntimeOwner = <
   LayerOutput,
@@ -235,11 +236,11 @@ const makeRuntimeOwner = <
         const readyExit =
           Exit.isFailure(exit) && Exit.isFailure(scopeExit)
             ? Exit.failCause(
-                appendCause(
-                  exit.cause,
+                causeFromExits([
+                  exit,
                   // SAFETY: Scope.close has no typed failure channel; its Cause is retained as the owner's readiness Cause.
-                  scopeExit.cause as Cause.Cause<ReadyError>,
-                ),
+                  Exit.failCause(scopeExit.cause as Cause.Cause<ReadyError>),
+                ])!,
               )
             : exit;
 
@@ -303,72 +304,64 @@ const makeRuntimeOwner = <
 
   const closeResources = (closing: RuntimeOwnerClosing<A, ReadyError, OwnerError>) =>
     Effect.gen(function* () {
-      let cleanupCause: Cause.Cause<OwnerError> | undefined;
       const readyExit = closing.readyExit;
+      const disposeActors = () =>
+        Effect.forEach([...closing.actors].reverse(), (registration) => {
+          if (!registration.active) return Effect.succeed(Exit.void);
 
-      if (closing.includeReadyFailure && readyExit !== undefined && Exit.isFailure(readyExit))
-        cleanupCause = readyExit.cause;
+          registration.active = false;
 
-      const disposeUnattemptedActors = Effect.gen(function* () {
-        const attempted = new Set<RuntimeCloseActor<OwnerError>>();
+          return Effect.exit(registration.participant.dispose());
+        });
+      const disposeActorsUntilSettled = (): Effect.Effect<
+        Exit.Exit<void, OwnerError>[],
+        never,
+        never
+      > =>
+        Effect.gen(function* () {
+          if (!closing.actors.some((registration) => registration.active)) return [];
 
-        while (
-          closing.actors.some((registration) => registration.active && !attempted.has(registration))
-        ) {
-          for (const registration of closing.actors.slice().reverse()) {
-            if (!registration.active || attempted.has(registration)) continue;
+          const exits = yield* disposeActors();
 
-            attempted.add(registration);
-            const result = yield* Effect.exit(registration.participant.dispose());
-            registration.active = false;
-
-            if (Exit.isFailure(result)) cleanupCause = appendCause(cleanupCause, result.cause);
-          }
-        }
-      });
-
-      yield* disposeUnattemptedActors;
-
-      if (options.drain !== undefined) {
-        const drainExit = yield* Effect.exit(options.drain);
-
-        if (Exit.isFailure(drainExit)) cleanupCause = appendCause(cleanupCause, drainExit.cause);
-      }
-
-      yield* disposeUnattemptedActors;
+          return [...exits, ...(yield* disposeActorsUntilSettled())];
+        });
+      const actorExits = yield* disposeActorsUntilSettled();
+      const drainExit = options.drain === undefined ? Exit.void : yield* Effect.exit(options.drain);
+      const lateActorExits = yield* disposeActorsUntilSettled();
       closing.acceptingActors = false;
       closing.acceptingProviders = false;
+      const providerReleases = [...closing.providers].reverse();
+      closing.providers = [];
+      const providerExits = yield* Effect.forEach(providerReleases, (release) =>
+        Effect.exit(release),
+      );
+      const closeExit = options.close === undefined ? Exit.void : yield* Effect.exit(options.close);
+      const ownedScope = closing.scope;
+      const scopeExit =
+        ownedScope !== undefined && !closing.scopeClosed
+          ? yield* Effect.gen(function* () {
+              closing.scopeClosed = true;
+              const closed = yield* Effect.exit(Scope.close(ownedScope, Exit.void));
 
-      for (let index = closing.providers.length - 1; index >= 0; index -= 1) {
-        const release = closing.providers[index];
+              return Exit.isFailure(closed)
+                ? // SAFETY: Scope.close has no typed failure channel; its Cause is retained as the owner's cleanup Cause.
+                  Exit.failCause(closed.cause as Cause.Cause<OwnerError>)
+                : Exit.void;
+            })
+          : Exit.void;
+      const exits = [
+        ...(closing.includeReadyFailure && readyExit !== undefined && Exit.isFailure(readyExit)
+          ? [readyExit]
+          : []),
+        ...actorExits,
+        drainExit,
+        ...lateActorExits,
+        ...providerExits,
+        closeExit,
+        scopeExit,
+      ];
 
-        if (release === undefined) continue;
-        const releaseExit = yield* Effect.exit(release);
-
-        if (Exit.isFailure(releaseExit))
-          cleanupCause = appendCause(cleanupCause, releaseExit.cause);
-      }
-      closing.providers.length = 0;
-
-      if (options.close !== undefined) {
-        const closeExit = yield* Effect.exit(options.close);
-
-        if (Exit.isFailure(closeExit)) cleanupCause = appendCause(cleanupCause, closeExit.cause);
-      }
-
-      if (closing.scope !== undefined && !closing.scopeClosed) {
-        closing.scopeClosed = true;
-        const scopeExit = yield* Effect.exit(Scope.close(closing.scope, Exit.void));
-
-        if (Exit.isFailure(scopeExit))
-          cleanupCause = appendCause(
-            cleanupCause,
-            // SAFETY: Scope.close has no typed failure channel; its Cause is retained as the owner's cleanup Cause.
-            scopeExit.cause as Cause.Cause<OwnerError>,
-          );
-      }
-
-      return cleanupCause;
+      return causeFromExits(exits);
     });
 
   const settleClosing = (

@@ -8,6 +8,7 @@ import {
   Effect,
   Exit,
   Fiber,
+  Layer,
   Queue,
   Result,
   Scope,
@@ -1573,7 +1574,136 @@ describe("pending regression scenarios", () => {
   // Setup: Assemble provider P with active consumer C1 and suspended consumer C2, both bound to P; retain P's fence and C2's logical dependency edge.
   // Action: Attempt P.lifecycle.command({ _tag: "actor:dispose" }) and P's owner lease dispose; after each rejection dispatch P's advance event and resume C2.
   // Assert: Both attempts fail before mutation and identify every dependent actor ref and bound context key; P remains active and dispatchable, C1 receives the newest provider state, C2 resumes from its retained edge, and no tombstone or duplicate cleanup is emitted. Use separate route subcases so each begins with both active and suspended dependents.
-  it.todo("rejected provider disposal leaves active and suspended dependents live");
+  it.effect("rejected provider disposal leaves active and suspended dependents live", () =>
+    Effect.gen(function* () {
+      const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+      const providerRef = actorRef(IntegrationProviderMachine, "guarded-provider", {
+        persist: true,
+      });
+      const provider = yield* assembly.createActor({
+        ref: providerRef,
+        initial: initialProviderSnapshot(),
+      });
+      const makeBindings = () => {
+        const providerStateBinding = {
+          slot: "providerState",
+          provider: providerRef,
+          providerFence: provider.fence,
+          select: ({ state }) => state,
+        } satisfies ActorContextBinding<
+          typeof IntegrationConsumerDefinition,
+          typeof IntegrationProviderDefinition,
+          "providerState"
+        >;
+        const providerChangedBinding = {
+          slot: "providerChanged",
+          provider: providerRef,
+          providerFence: provider.fence,
+          select: ({ state }) => state === IntegrationProviderDefinition.S.changed,
+        } satisfies ActorContextBinding<
+          typeof IntegrationConsumerDefinition,
+          typeof IntegrationProviderDefinition,
+          "providerChanged"
+        >;
+
+        return [providerStateBinding, providerChangedBinding];
+      };
+      const active = yield* assembly.createActor({
+        ref: actorRef(IntegrationConsumerMachine, "active-dependent", { persist: true }),
+        initial: initialConsumerSnapshot(),
+        bindings: makeBindings(),
+      });
+      const suspended = yield* assembly.createActor({
+        ref: actorRef(IntegrationConsumerMachine, "suspended-dependent", { persist: true }),
+        initial: initialConsumerSnapshot(),
+        bindings: makeBindings(),
+      });
+
+      const suspendedSnapshot = yield* Effect.provideContext(
+        suspended.lifecycle.command({
+          _tag: "actor:suspend",
+          cause: { _tag: "attachment" },
+        }),
+        assembly.context,
+      );
+      assert.strictEqual(suspendedSnapshot.lifecycle, "suspended");
+
+      const before = provider.engine.snapshot();
+      const lifecycleRejected = yield* Effect.exit(
+        Effect.provideContext(
+          provider.lifecycle.command({
+            _tag: "actor:dispose",
+            cause: { _tag: "owner-disposal" },
+          }),
+          assembly.context,
+        ),
+      );
+      assert.ok(Exit.isFailure(lifecycleRejected));
+      if (Exit.isFailure(lifecycleRejected)) {
+        const reason = lifecycleRejected.cause.reasons.find(Cause.isFailReason);
+        assert.ok(reason !== undefined);
+        assert.strictEqual(reason.error.code, "BlockedByDependents");
+        assert.deepStrictEqual(reason.error.path, ["actorRef"]);
+      }
+
+      assert.strictEqual(provider.lifecycle.isRoutable(), true);
+      assert.strictEqual(provider.lifecycle.currentLifecycle(), "active");
+      assert.deepStrictEqual(provider.engine.snapshot(), before);
+      assert.strictEqual(suspended.lifecycle.currentLifecycle(), "suspended");
+
+      const leaseRejected = yield* Effect.exit(
+        Effect.provideContext(provider.dispose(), assembly.context),
+      );
+      assert.ok(Exit.isFailure(leaseRejected));
+
+      if (Exit.isFailure(leaseRejected)) {
+        const reason = leaseRejected.cause.reasons.find(Cause.isFailReason);
+        assert.ok(reason !== undefined);
+        assert.strictEqual(reason.error.code, "BlockedByDependents");
+        assert.deepStrictEqual(reason.error.path, ["actorRef"]);
+        assert.deepStrictEqual(reason.error.details, {
+          dependents: 4,
+          dependentActors: `${active.fence.key},${active.fence.key},${suspended.fence.key},${suspended.fence.key}`,
+          bindingKeys: "providerState,providerChanged,providerState,providerChanged",
+        });
+      }
+
+      assert.strictEqual(provider.engine.snapshot().lifecycle, "active");
+      assert.strictEqual(provider.engine.snapshot().revision, before.revision);
+      assert.strictEqual(provider.lifecycle.isRoutable(), true);
+
+      const dispatch = provider.engine.dispatch(IntegrationProviderEvent);
+      assert.strictEqual(dispatch.admitted, true);
+      yield* Deferred.await(dispatch.completion);
+      yield* provider.engine.drain();
+      yield* active.engine.drain();
+      assert.strictEqual(
+        active.engine.snapshot().context.providerState,
+        IntegrationProviderDefinition.S.changed,
+      );
+
+      const resumed = yield* Effect.provideContext(
+        suspended.lifecycle.command({
+          _tag: "actor:resume",
+          cause: { _tag: "attachment" },
+        }),
+        assembly.context,
+      );
+      assert.strictEqual(resumed.lifecycle, "active");
+      yield* suspended.engine.drain();
+      assert.strictEqual(
+        suspended.engine.snapshot().context.providerState,
+        IntegrationProviderDefinition.S.changed,
+      );
+
+      yield* Effect.provideContext(active.dispose(), assembly.context);
+      yield* Effect.provideContext(suspended.dispose(), assembly.context);
+      const shutdown = yield* Effect.exit(runtimeOwner(runtime).close());
+      assert.ok(Exit.isSuccess(shutdown));
+    }),
+  );
 
   // Setup: Extend the existing active actor fixture with a pre-existing snapshot stream, onSnapshot callback, getter read, and evidence sink; capture the active snapshot and revisions before suspension.
   // Action: Issue actor:suspend through the assembled lifecycle controller, drain the pre-existing stream, callback, getter read, and evidence, then subscribe a late stream and collect its replay.
@@ -2820,7 +2950,7 @@ describe("pending regression scenarios", () => {
       yield* runtime.ready();
       const assembly = runtimeOwner(runtime).assembly();
       const order: string[] = [];
-      const defect = new Error("retryable-assembled-actor");
+      const defect = new Error("terminal-assembled-actor");
       const entered = yield* Deferred.make<void>();
 
       const sink = yield* makeEvidenceSink({
@@ -3305,10 +3435,81 @@ describe("pending regression scenarios", () => {
   // Assert: The first fresh snapshot has revision zero, restore retains both persisted revisions, later lifecycle publications increment only publication revision, and start or restore creates lifecycle evidence without replaying events or finite work.
   it.todo("preserves fresh and restored revision baselines before later lifecycle cuts");
 
-  // Setup: Use an active real actor with recording attachments and a provided Clock that fails its next lifecycle read. In a separate subcase admit the boundary publication counter through real private owner construction or restore input.
-  // Action: Request suspension/disposal through the real lifecycle owner and observe preflight failure, then remove the clock fault or use a separately valid counter fixture for a later attempt.
-  // Assert: Rejection runs no cancellation/finalizer/subscription removal, graph mutation or admission closure and accepts no partial cut/sequence. The valid attempt executes once; use constructor inputs or an actual private counter owner, never a public test-only setter.
-  it.todo("rejects lifecycle publication preflight before changing admission or resources");
+  // Setup: Use an active real actor with a scoped finalizer and a provided Clock whose lifecycle read can fail.
+  // Action: Reject one direct lifecycle disposal before its transition, then clear the clock fault and retry through the same owner.
+  // Assert: The rejected preflight leaves lifecycle state, evidence sequence, and the actor Scope untouched; the valid attempt performs one lifecycle cut and runtime close runs the retained finalizer once.
+  it.effect("rejects lifecycle publication preflight before changing admission or resources", () =>
+    Effect.gen(function* () {
+      const baseClock = yield* Clock.Clock;
+      let failClockRead = false;
+      let finalizations = 0;
+      const providedClock: Clock.Clock = {
+        ...baseClock,
+        currentTimeMillis: Effect.sync(() => {
+          if (failClockRead) throw new Error("lifecycle clock read failed");
+
+          return baseClock.currentTimeMillisUnsafe();
+        }),
+      };
+      const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+
+      yield* Effect.provide(runtime.ready(), Layer.succeed(Clock.Clock)(providedClock));
+      const owner = runtimeOwner(runtime);
+      const assembly = owner.assembly();
+      const actor = yield* assembly.createActor({
+        ref: actorRef(IntegrationStandaloneMachine, "lifecycle-preflight"),
+        initial: initialStandaloneSnapshot(),
+        onCommand: () =>
+          Effect.gen(function* () {
+            const scope = yield* Effect.scope;
+
+            yield* Scope.addFinalizer(
+              scope,
+              Effect.sync(() => (finalizations += 1)),
+            );
+          }),
+      });
+
+      const dispatched = actor.engine.dispatch(IntegrationStandaloneEvent);
+      assert.strictEqual(dispatched.admitted, true);
+      yield* Deferred.await(dispatched.completion);
+      yield* actor.engine.drain();
+
+      const before = yield* actor.lifecycle.state();
+      const sequence = assembly.evidence.hub.sequence();
+      failClockRead = true;
+
+      const rejected = yield* Effect.exit(
+        Effect.provideContext(
+          actor.lifecycle.command({
+            _tag: "actor:dispose",
+            cause: { _tag: "owner-disposal" },
+          }),
+          assembly.context,
+        ),
+      );
+
+      assert.ok(Exit.isFailure(rejected));
+      assert.deepStrictEqual(yield* actor.lifecycle.state(), before);
+      assert.strictEqual(assembly.evidence.hub.sequence(), sequence);
+      assert.strictEqual(finalizations, 0);
+
+      failClockRead = false;
+      const accepted = yield* Effect.provideContext(
+        actor.lifecycle.command({
+          _tag: "actor:dispose",
+          cause: { _tag: "owner-disposal" },
+        }),
+        assembly.context,
+      );
+
+      assert.strictEqual(accepted.lifecycle, "disposed");
+      assert.strictEqual(finalizations, 0);
+      yield* Effect.provideContext(actor.dispose(), assembly.context);
+      yield* owner.close();
+      assert.strictEqual(finalizations, 1);
+    }),
+  );
 
   // Setup: Initialize the real private Journal near safe-integer exhaustion with two real actor owners, their reserved terminal credits and one lifecycle outcome credit; hold one actor cleanup at a Deferred.
   // Action: Start the lifecycle operation, consume unreserved ordinary capacity from the other actor, attempt one extra ordinary cut, then release cleanup and close the runtime.

@@ -87,6 +87,7 @@ import {
 import {
   makeLifecycleController,
   lifecycleRouting,
+  preflightLifecycleDisposal,
   prepareLifecycle,
   installLifecycleMetadata,
   installLifecycleTimers,
@@ -127,13 +128,11 @@ type RuntimeImplementation = Implementation<never, unknown, unknown>;
 
 type RuntimeApp = App;
 
-const appendCleanupCause = <Error>(
-  current: Cause.Cause<Error> | undefined,
-  next: Cause.Cause<Error>,
-) =>
-  current === undefined
-    ? Cause.fromReasons([...next.reasons])
-    : Cause.fromReasons([...current.reasons, ...next.reasons]);
+const causeFromExits = <Error>(exits: readonly Exit.Exit<unknown, Error>[]) => {
+  const reasons = exits.flatMap((exit) => (Exit.isFailure(exit) ? [...exit.cause.reasons] : []));
+
+  return reasons.length === 0 ? undefined : Cause.fromReasons(reasons);
+};
 
 type RuntimeActorOptionBase<
   DefinitionValue extends MachineDefinition,
@@ -245,10 +244,11 @@ type RuntimeAssembly = {
 };
 
 type ActorCellTerminalProtocol = {
+  scope: Scope.Scope;
   closeCompletion: Deferred.Deferred<Exit.Exit<void, PublicDiagnostic>> | undefined;
   started: boolean;
-  scopeClosed: boolean;
   released: boolean;
+  scopeExit: Exit.Exit<void, PublicDiagnostic> | undefined;
   lifecycleRegistration: RuntimeOwnerCloseRegistration | undefined;
   parentFinalizer: (() => Effect.Effect<void, PublicDiagnostic, RuntimeServiceContext>) | undefined;
 };
@@ -256,8 +256,10 @@ type ActorCellTerminalProtocol = {
 type ActorCellInstance<
   DefinitionValue extends MachineDefinition,
   ProviderDefinition extends MachineDefinition,
-> = ActorCell<LifecycleSnapshot<DefinitionValue, PublicDiagnostic, ProviderDefinition>> & {
-  scope: Scope.Scope;
+> = Omit<
+  ActorCell<LifecycleSnapshot<DefinitionValue, PublicDiagnostic, ProviderDefinition>>,
+  "terminal"
+> & {
   terminal: ActorCellTerminalProtocol;
   close: () => Effect.Effect<void, PublicDiagnostic>;
 };
@@ -796,10 +798,11 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
         const fiber = yield* Effect.forkIn(cell, runtimeScope);
         const acquired = yield* Deferred.await(ready);
         const terminal: ActorCellTerminalProtocol = {
+          scope: acquired.scope,
           closeCompletion: undefined,
           started: false,
-          scopeClosed: false,
           released: false,
+          scopeExit: undefined,
           lifecycleRegistration: undefined,
           parentFinalizer: undefined,
         };
@@ -828,7 +831,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
               Effect.exit(operation).pipe(
                 Effect.flatMap((exit) =>
                   Effect.sync(() => {
-                    if (Exit.isSuccess(exit)) terminal.scopeClosed = true;
+                    terminal.scopeExit = exit;
                   }).pipe(
                     Effect.flatMap(() => Deferred.succeed(completion, exit).pipe(Effect.as(exit))),
                   ),
@@ -839,7 +842,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
           });
 
         return {
-          ...acquired,
+          activityFibers: acquired.activityFibers,
           protocol: undefined,
           terminal,
           close,
@@ -1349,7 +1352,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
                 };
               })();
 
-              yield* runAfterPrepareScope(actorCell.scope);
+              yield* runAfterPrepareScope(actorCell.terminal.scope);
               previous = projectVisibleSnapshot(initialSnapshot);
 
               const actorInput: ActorEngineInput<DefinitionValue> = {
@@ -1357,7 +1360,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
                 identity: validated.identity,
                 machine: validated.input.machineFacts ?? validated.input.ref.machine,
                 fence: currentFence,
-                scope: actorCell.scope,
+                scope: actorCell.terminal.scope,
                 acceptEvidence: (publication: ActorPublication<DefinitionValue>) => {
                   evidence.projectPublication(publication, projectVisibleSnapshot);
 
@@ -1494,6 +1497,13 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
 
             const lifecycleCommandEffect = (command: LifecycleCommand<PublicDiagnostic>) =>
               Effect.gen(function* () {
+                if (command._tag === "actor:dispose") {
+                  const disposalPreflight = preflightLifecycleDisposal(preparation.actorCell);
+
+                  if (Result.isFailure(disposalPreflight))
+                    return yield* Effect.fail(disposalPreflight.failure);
+                }
+
                 let routingGeneration: number | undefined;
 
                 const routingPreparation = yield* Effect.exit(
@@ -1682,47 +1692,58 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
 
             const cleanup: Effect.Effect<void, PublicDiagnostic> = Effect.provideContext(
               Effect.gen(function* () {
-                let cleanupCause: Cause.Cause<PublicDiagnostic> | undefined;
-
-                const observe = (
-                  effect: Effect.Effect<unknown, PublicDiagnostic, RuntimeServiceContext>,
-                ) =>
-                  Effect.gen(function* () {
-                    const result = yield* Effect.exit(effect);
-
-                    if (Exit.isFailure(result))
-                      cleanupCause = appendCleanupCause(cleanupCause, result.cause);
-                  });
-
-                if (terminal.started)
-                  yield* observe(
-                    internalLifecycleCommand({
-                      _tag: "actor:dispose",
-                      cause: { _tag: "runtime-disposal" },
-                    }),
+                const isDependentGuard = (cause: Cause.Cause<PublicDiagnostic>) =>
+                  cause.reasons.some(
+                    (reason) =>
+                      Cause.isFailReason(reason) && reason.error.code === "BlockedByDependents",
                   );
-                yield* observe(engine.shutdown("hard"));
 
-                if (!terminal.scopeClosed) {
-                  const scopeExit = yield* Effect.exit(preparation.actorCell.close());
+                const lifecycleExit: Exit.Exit<void, PublicDiagnostic> = terminal.started
+                  ? yield* Effect.exit(
+                      internalLifecycleCommand({
+                        _tag: "actor:dispose",
+                        cause: { _tag: "runtime-disposal" },
+                      }).pipe(Effect.asVoid),
+                    )
+                  : Exit.void;
 
-                  if (Exit.isSuccess(scopeExit)) terminal.scopeClosed = true;
-                  else cleanupCause = appendCleanupCause(cleanupCause, scopeExit.cause);
-                }
+                if (Exit.isFailure(lifecycleExit) && isDependentGuard(lifecycleExit.cause))
+                  return yield* Effect.failCause(lifecycleExit.cause);
 
-                for (const registration of dependents)
-                  yield* observe(
+                const engineExit = yield* Effect.exit(engine.shutdown("hard"));
+                const actorScopeExit =
+                  terminal.scopeExit === undefined
+                    ? yield* Effect.gen(function* () {
+                        const scopeExit = yield* Effect.exit(preparation.actorCell.close());
+                        terminal.scopeExit = scopeExit;
+
+                        return scopeExit;
+                      })
+                    : Exit.void;
+                const dependentExits = yield* Effect.forEach(dependents, (registration) =>
+                  Effect.exit(
                     Effect.sync(() => registration.owner.removeDependent(registration.dependent)),
-                  );
-
-                for (const registration of dependencies)
-                  yield* observe(
+                  ),
+                );
+                const dependencyExits = yield* Effect.forEach(dependencies, (registration) =>
+                  Effect.exit(
                     Effect.provideContext(
                       registration.owner.removeDependency(registration.edge),
                       context,
                     ),
-                  );
-                yield* observe(Effect.sync(() => providerFences.delete(currentIdentity.key)));
+                  ),
+                );
+                const fenceExit = yield* Effect.exit(
+                  Effect.sync(() => providerFences.delete(currentIdentity.key)),
+                );
+                const cleanupCause = causeFromExits([
+                  lifecycleExit,
+                  engineExit,
+                  actorScopeExit,
+                  ...dependentExits,
+                  ...dependencyExits,
+                  fenceExit,
+                ]);
 
                 if (cleanupCause !== undefined) yield* Effect.failCause(cleanupCause);
               }),
@@ -1817,6 +1838,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
               actor: actorWithRef,
               admission: preparation.validated,
               cleanup,
+              preflight: () => preflightLifecycleDisposal(preparation.actorCell),
               tombstone,
             });
 

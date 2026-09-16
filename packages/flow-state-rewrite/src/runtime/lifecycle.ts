@@ -37,7 +37,12 @@ import {
   type RuntimeServiceContext,
 } from "./runtime-services.js";
 import type { ActorRef } from "./actor-ref.js";
-import { cancelRuntimeEvidence, prepareLifecycleEvidence } from "./evidence.js";
+import {
+  cancelRuntimeEvidence,
+  prepareLifecycleEvidence,
+  preflightLifecycleEvidence,
+  type EvidenceReservation,
+} from "./evidence.js";
 import { copyArray, copyObject } from "./collection-copies.js";
 
 /** The only actor lifecycle states. */
@@ -187,7 +192,6 @@ type TimerClaim = {
 export type ActorCellProtocolState<Snapshot extends LifecycleStateKey> = {
   current: Snapshot | undefined;
   publicationRevision: number;
-  cleanupCause: Cause.Cause<unknown> | undefined;
   /** The complete terminal result after lifecycle evidence settles. */
   disposalExit: Exit.Exit<Snapshot, PublicDiagnostic> | undefined;
   /** The cleanup-stage result used by direct lifecycle disposal callers. */
@@ -201,6 +205,8 @@ export type ActorCellProtocolState<Snapshot extends LifecycleStateKey> = {
 export type ActorCell<Snapshot extends LifecycleStateKey> = {
   activityFibers: FiberMap.FiberMap<string, void, unknown> | undefined;
   protocol: ActorCellProtocolState<Snapshot> | undefined;
+  /** Runtime-owned actor lifetime protocol; assembly supplies its concrete type. */
+  terminal?: unknown;
 };
 
 const actorCellProtocolOf = <Snapshot extends LifecycleStateKey>(actorCell: ActorCell<Snapshot>) =>
@@ -264,7 +270,7 @@ const staleProvider = (key: ActorKey) =>
 const blockedByDependents = (dependentActors: (ActorRef | ActorKey)[], bindingKeys: string[]) =>
   Failure({
     code: "BlockedByDependents",
-    path: ["lifecycle", "dispose"],
+    path: ["actorRef"],
     details: {
       dependents: dependentActors.length,
       dependentActors: dependentActors
@@ -299,46 +305,47 @@ const cleanupDiagnostic = (cause: Cause.Cause<unknown>): PublicDiagnostic => {
   });
 };
 
-const addCause = <Error>(current: Cause.Cause<Error> | undefined, next: Cause.Cause<Error>) =>
-  current === undefined
-    ? Cause.fromReasons([...next.reasons])
-    : Cause.fromReasons([...current.reasons, ...next.reasons]);
+/** Performs disposal guards without changing the ActorCell protocol or lifecycle snapshot. */
+export const preflightLifecycleDisposal = <
+  DefinitionValue extends MachineDefinition,
+  CleanupError,
+  ProviderDefinition extends MachineDefinition = DefinitionValue,
+>(
+  actorCell: ActorCell<LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>>,
+  input?: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
+): Result.Result<void, PublicDiagnostic> => {
+  const owner = actorCellProtocolOf(actorCell);
 
-const combineCauses = <Error>(
-  current: Cause.Cause<Error> | undefined,
-  next: Cause.Cause<Error> | undefined,
-) => {
-  if (current === undefined)
-    return next === undefined ? undefined : Cause.fromReasons([...next.reasons]);
+  if (owner === undefined) return Result.fail(invalidSnapshot("owner"));
+  if (owner.disposalExit !== undefined || owner.disposalAttempt !== undefined)
+    return Result.succeed(undefined);
+  const state = input ?? owner.current;
 
-  if (next === undefined) return current;
+  if (state === undefined) return Result.fail(invalidSnapshot("current"));
+  if (state.lifecycle === "disposed") return Result.succeed(undefined);
+  const blocked = state.attachment.blockedDisposal;
 
-  return Cause.fromReasons([...current.reasons, ...next.reasons]);
-};
+  if (blocked !== undefined && blocked.dependentActors.length > 0)
+    return Result.fail(blockedByDependents(blocked.dependentActors, blocked.bindingKeys));
 
-const makeTerminalEffect = <Value, Error, Requirements>(
-  operation: Effect.Effect<Value, Error, Requirements>,
-) => {
-  let completion: Deferred.Deferred<Exit.Exit<Value, Error>> | undefined;
+  const incoming = state.attachment.dependencies.filter(
+    (edge) => edge.provider === state.fence.key,
+  );
 
-  const resolve = (exit: Exit.Exit<Value, Error>) =>
-    Exit.isSuccess(exit) ? Effect.succeed(exit.value) : Effect.failCause(exit.cause);
-
-  return () => {
-    return Effect.suspend(() => {
-      if (completion !== undefined)
-        return Deferred.await(completion).pipe(Effect.flatMap((exit) => resolve(exit)));
-      const cell = Deferred.makeUnsafe<Exit.Exit<Value, Error>>();
-      completion = cell;
-
-      return Effect.uninterruptible(
-        Effect.exit(operation).pipe(
-          Effect.flatMap((exit) => Deferred.succeed(cell, exit).pipe(Effect.as(exit))),
-          Effect.flatMap((exit) => resolve(exit)),
+  return incoming.length === 0
+    ? Result.succeed(undefined)
+    : Result.fail(
+        blockedByDependents(
+          incoming.map((edge) => edge.consumer),
+          incoming.map((edge) => edge.slot),
         ),
       );
-    });
-  };
+};
+
+const causeFromCauses = <Error>(causes: readonly (Cause.Cause<Error> | undefined)[]) => {
+  const reasons = causes.flatMap((cause) => (cause === undefined ? [] : [...cause.reasons]));
+
+  return reasons.length === 0 ? undefined : Cause.fromReasons(reasons);
 };
 
 const rememberState = <
@@ -476,13 +483,11 @@ const copySnapshot = <
     CleanupError,
     ProviderDefinition
   >["finalization"],
-  cleanupCause?: Cause.Cause<CleanupError>,
 ) => {
   const owner = actorCellProtocolOf(actorCell);
 
   if (owner === undefined) throw new Error("Lifecycle snapshot has no ActorCell protocol");
   owner.publicationRevision += 1;
-  if (cleanupCause !== undefined) owner.cleanupCause = cleanupCause;
 
   const next = copyObject({
     lifecycle,
@@ -581,7 +586,6 @@ export const prepareLifecycle = <
   > = {
     current: undefined,
     publicationRevision: 0,
-    cleanupCause: undefined,
     disposalExit: undefined,
     disposalAttempt: undefined,
     controllerBound: false,
@@ -678,23 +682,15 @@ const retainedCleanupCause = <
   ProviderDefinition extends MachineDefinition,
 >(
   state: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
-  actorCell: ActorCell<LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>>,
 ) => {
-  const retained = actorCellProtocolOf(actorCell)?.cleanupCause;
-
-  if (retained !== undefined) {
-    // SAFETY: the cause is stored by copySnapshot for this exact snapshot and cleanup error.
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- private owner metadata erases the generic boundary.
-    return retained as Cause.Cause<CleanupError>;
-  }
-
-  let cause: Cause.Cause<CleanupError> | undefined;
-
-  for (const item of [...state.attachment.work, ...state.attachment.resources]) {
-    if (Option.isSome(item.cause)) cause = addCause(cause, item.cause.value);
-  }
-
-  return cause;
+  return causeFromCauses([
+    ...[...state.attachment.work]
+      .reverse()
+      .map((item) => (Option.isSome(item.cause) ? item.cause.value : undefined)),
+    ...[...state.attachment.resources]
+      .reverse()
+      .map((item) => (Option.isSome(item.cause) ? item.cause.value : undefined)),
+  ]);
 };
 
 /** Activates a prepared snapshot after its silent baseline has been installed. */
@@ -741,33 +737,27 @@ type CleanupRun<
 
 const cleanupWorkItem = <CleanupError>(item: LifecycleWork<CleanupError>) =>
   Effect.gen(function* () {
-    let itemCause: Cause.Cause<CleanupError> | undefined;
     const cancelled = yield* Effect.exit(item.cancel);
-
-    if (Exit.isFailure(cancelled)) itemCause = addCause(itemCause, cancelled.cause);
-
     const completed = yield* Effect.exit(Fiber.await(item.fiber));
-    let completion: Exit.Exit<void, CleanupError>;
 
-    if (Exit.isSuccess(completed)) completion = completed.value;
-    else {
-      // SAFETY: Fiber.await has no typed failure channel; only its Exit is observed here.
-      // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- normalize an impossible outer interruption.
-      completion = Exit.failCause(completed.cause);
-    }
+    const completion = Exit.isSuccess(completed)
+      ? completed.value
+      : // SAFETY: Fiber.await has no typed failure channel; only its Exit is observed here.
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- normalize an impossible outer interruption.
+        Exit.failCause(completed.cause as Cause.Cause<CleanupError>);
 
     if (item.completion !== undefined)
       yield* Deferred.succeed(item.completion, completion).pipe(Effect.asVoid);
 
-    if (
+    const finalized = yield* Effect.exit(item.finalizer);
+    const itemCause = causeFromCauses([
+      Exit.isFailure(cancelled) ? cancelled.cause : undefined,
       Exit.isFailure(completion) &&
       !(Exit.isSuccess(cancelled) && Cause.hasInterruptsOnly(completion.cause))
-    )
-      itemCause = addCause(itemCause, completion.cause);
-
-    const finalized = yield* Effect.exit(item.finalizer);
-
-    if (Exit.isFailure(finalized)) itemCause = addCause(itemCause, finalized.cause);
+        ? completion.cause
+        : undefined,
+      Exit.isFailure(finalized) ? finalized.cause : undefined,
+    ]);
 
     return {
       item: copyWork(
@@ -781,30 +771,22 @@ const cleanupWorkItem = <CleanupError>(item: LifecycleWork<CleanupError>) =>
 
 const cleanupWork = <CleanupError>(items: LifecycleWork<CleanupError>[]) =>
   Effect.gen(function* () {
-    let cleanupCause: Cause.Cause<CleanupError> | undefined;
-    const work = items.map((item) => copyWork(item));
+    const cleaned = yield* Effect.forEach([...items].reverse(), (item) =>
+      item.finalization === "pending" || item.finalization === "failed"
+        ? cleanupWorkItem(item)
+        : Effect.succeed({ item: copyWork(item), cause: undefined }),
+    );
 
-    for (let index = work.length - 1; index >= 0; index -= 1) {
-      const item = work[index];
-
-      if (item === undefined) continue;
-
-      if (item.finalization !== "pending" && item.finalization !== "failed") continue;
-      const cleaned = yield* cleanupWorkItem(item);
-
-      if (cleaned.cause !== undefined) cleanupCause = addCause(cleanupCause, cleaned.cause);
-      work[index] = cleaned.item;
-    }
-
-    return { work: copyArray(work), cause: cleanupCause };
+    return {
+      work: copyArray([...cleaned].reverse().map(({ item }) => item)),
+      cause: causeFromCauses(cleaned.map(({ cause }) => cause)),
+    };
   });
 
 const cleanupResource = <CleanupError>(resource: LifecycleResource<CleanupError>) =>
   Effect.gen(function* () {
-    let resourceCause: Cause.Cause<CleanupError> | undefined;
     const closed = yield* Effect.exit(resource.close(Exit.void));
-
-    if (Exit.isFailure(closed)) resourceCause = addCause(resourceCause, closed.cause);
+    const resourceCause = Exit.isFailure(closed) ? closed.cause : undefined;
 
     return {
       resource: copyResource(
@@ -818,22 +800,16 @@ const cleanupResource = <CleanupError>(resource: LifecycleResource<CleanupError>
 
 const cleanupResources = <CleanupError>(items: LifecycleResource<CleanupError>[]) =>
   Effect.gen(function* () {
-    let cleanupCause: Cause.Cause<CleanupError> | undefined;
-    const resources = items.map((resource) => copyResource(resource));
+    const cleaned = yield* Effect.forEach([...items].reverse(), (resource) =>
+      resource.finalization === "pending" || resource.finalization === "failed"
+        ? cleanupResource(resource)
+        : Effect.succeed({ resource: copyResource(resource), cause: undefined }),
+    );
 
-    for (let index = resources.length - 1; index >= 0; index -= 1) {
-      const resource = resources[index];
-
-      if (resource === undefined) continue;
-
-      if (resource.finalization !== "pending" && resource.finalization !== "failed") continue;
-      const cleaned = yield* cleanupResource(resource);
-
-      if (cleaned.cause !== undefined) cleanupCause = addCause(cleanupCause, cleaned.cause);
-      resources[index] = cleaned.resource;
-    }
-
-    return { resources: copyArray(resources), cause: cleanupCause };
+    return {
+      resources: copyArray([...cleaned].reverse().map(({ resource }) => resource)),
+      cause: causeFromCauses(cleaned.map(({ cause }) => cause)),
+    };
   });
 
 // RETURN_TYPE: Ordered cleanup retains full work/resource Cause data before publication.
@@ -855,7 +831,7 @@ const cleanupAttachment = <
           work: work.work,
           resources: resources.resources,
         }),
-        cause: combineCauses(work.cause, resources.cause),
+        cause: causeFromCauses([work.cause, resources.cause]),
       };
     }),
   );
@@ -963,7 +939,7 @@ const reacquireAttachment = <
         );
 
         if (Exit.isFailure(rolledBack))
-          return yield* Effect.fail(cleanupDiagnostic(addCause(cause, rolledBack.cause)));
+          return yield* Effect.fail(cleanupDiagnostic(causeFromCauses([cause, rolledBack.cause])!));
 
         return yield* Effect.fail(cleanupDiagnostic(cause));
       });
@@ -1040,7 +1016,6 @@ export const suspendLifecycle = <
         "suspended",
         cleaned.attachment,
         cleaned.cause === undefined ? "done" : "failed",
-        cleaned.cause,
       );
 
       for (const timer of state.attachment.timers) {
@@ -1248,7 +1223,7 @@ export const resumeLifecycle = <
           rollbackReacquired(state, reacquired.acquiredResources, reacquired.acquiredWork).pipe(
             Effect.matchCauseEffect({
               onFailure: (rollbackCause) =>
-                Effect.fail(cleanupDiagnostic(addCause(cause, rollbackCause))),
+                Effect.fail(cleanupDiagnostic(causeFromCauses([cause, rollbackCause])!)),
               onSuccess: () => Effect.fail(cleanupDiagnostic(cause)),
             }),
           ),
@@ -1290,37 +1265,17 @@ export const disposeLifecycle = <
       : Effect.succeed(attempt.value);
   }
   const state = currentState(input, actorCell);
+  const preflight = preflightLifecycleDisposal(actorCell, state);
+
+  if (Result.isFailure(preflight)) return Effect.fail(preflight.failure);
 
   if (state.lifecycle === "disposed") return Effect.succeed(state);
-  const blocked = state.attachment.blockedDisposal;
-
-  const incoming = state.attachment.dependencies.filter(
-    (edge) => edge.provider === state.fence.key,
-  );
-
-  if (blocked !== undefined && blocked.dependentActors.length > 0)
-    return Effect.fail(blockedByDependents(blocked.dependentActors, blocked.bindingKeys));
-
-  if (incoming.length > 0)
-    return Effect.fail(
-      blockedByDependents(
-        incoming.map((edge) => edge.consumer),
-        incoming.map((edge) => edge.slot),
-      ),
-    );
   const cleanup = cleanupAttachment(state.attachment);
 
   return cleanup.pipe(
     Effect.flatMap((cleaned) => {
       if (cleaned.cause !== undefined) {
-        copySnapshot(
-          actorCell,
-          state,
-          state.lifecycle,
-          cleaned.attachment,
-          "failed",
-          cleaned.cause,
-        );
+        copySnapshot(actorCell, state, state.lifecycle, cleaned.attachment, "failed");
         const attempt: Exit.Exit<
           LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
           PublicDiagnostic
@@ -1412,88 +1367,151 @@ export const runLifecycleCommand = <
     RuntimeServiceContext
   > = lifecycleCommandEffect(state, command, actorCell);
 
-  return Effect.exit(transitionEffect).pipe(
-    Effect.flatMap((exit) => {
-      const after = ownerState(state, actorCell);
+  const disposePreflight =
+    command._tag === "actor:dispose"
+      ? preflightLifecycleDisposal(actorCell, state)
+      : Result.succeed(undefined);
 
-      if (after === state) return resolveLifecycleExit(exit);
-      const cleanupCause = retainedCleanupCause(after, actorCell);
+  if (Result.isFailure(disposePreflight)) return Effect.fail(disposePreflight.failure);
 
-      const cause: LifecycleCause<CleanupError> =
-        after.finalization === "failed" && cleanupCause !== undefined
-          ? {
-              _tag: "cleanup-failure",
-              exit: Exit.failCause(cleanupCause),
-              cause: cleanupCause,
+  type LifecycleEvidencePreflight = {
+    service: RuntimeEvidenceService;
+    reservation: EvidenceReservation;
+    timestamp: number;
+  };
+
+  const evidencePreflight: Effect.Effect<
+    LifecycleEvidencePreflight | undefined,
+    PublicDiagnostic,
+    RuntimeServiceContext
+  > =
+    command._tag === "actor:suspend" || command._tag === "actor:dispose"
+      ? Effect.gen(function* () {
+          const clock = yield* Effect.service(Clock.Clock);
+          const service = yield* Effect.service(RuntimeEvidence);
+          const timestamp = yield* clock.currentTimeMillis;
+          const prepared = preflightLifecycleEvidence(service, timestamp);
+
+          if (Result.isFailure(prepared)) return yield* Effect.fail(prepared.failure);
+
+          return { service, ...prepared.success } satisfies LifecycleEvidencePreflight;
+        })
+      : Effect.succeed(undefined);
+
+  return evidencePreflight.pipe(
+    Effect.flatMap((preflight) =>
+      Effect.exit(transitionEffect).pipe(
+        Effect.flatMap((exit) => {
+          const after = ownerState(state, actorCell);
+
+          if (after === state) {
+            if (preflight !== undefined) {
+              const cancelled = cancelRuntimeEvidence(
+                preflight.service,
+                preflight.reservation.sequence,
+              );
+
+              if (Result.isFailure(cancelled)) return Effect.fail(cancelled.failure);
             }
-          : command.cause;
 
-      let evidenceSequence: number | undefined;
-      let evidenceService: RuntimeEvidenceService | undefined;
-
-      return Effect.gen(function* () {
-        const clock = yield* Effect.service(Clock.Clock);
-        const service = yield* Effect.service(RuntimeEvidence);
-        evidenceService = service;
-
-        const fact: Omit<
-          RuntimeLifecycleEvidence<DefinitionValue, CleanupError, ProviderDefinition>,
-          "evidenceSequence"
-        > = {
-          _tag: "lifecycle",
-          machineTurn: false,
-          from: state.lifecycle,
-          to: after.lifecycle,
-          cause,
-          before: state,
-          after,
-          timestamp: yield* clock.currentTimeMillis,
-          publicationRevision: owner.publicationRevision,
-          provenance: {
-            ...service.provenance,
-            actor: {
-              key: after.fence.key,
-              incarnation: after.fence.incarnation,
-              leaseEpoch: after.fence.leaseEpoch,
-            },
-          },
-        };
-
-        const prepared = prepareLifecycleEvidence(service, fact);
-
-        if (Result.isFailure(prepared)) return yield* Effect.fail(prepared.failure);
-        evidenceSequence = prepared.success.evidenceSequence;
-        yield* service.publish(after);
-        yield* service.accept(prepared.success);
-
-        return exit;
-      }).pipe(
-        Effect.exit,
-        Effect.flatMap((evidenceExit) => {
-          let evidenceCause: Cause.Cause<PublicDiagnostic> | undefined;
-          const lifecycleCause = Exit.isFailure(exit) ? exit.cause : undefined;
-
-          if (evidenceSequence !== undefined && evidenceService !== undefined) {
-            const cancelled = cancelRuntimeEvidence(evidenceService, evidenceSequence);
-
-            if (Result.isFailure(cancelled)) evidenceCause = Cause.fail(cancelled.failure);
+            return resolveLifecycleExit(exit);
           }
+          const cleanupCause = retainedCleanupCause(after);
 
-          if (Exit.isFailure(evidenceExit)) {
-            evidenceCause = addCause(evidenceCause, evidenceExit.cause);
-          }
+          const cause: LifecycleCause<CleanupError> =
+            after.finalization === "failed" && cleanupCause !== undefined
+              ? {
+                  _tag: "cleanup-failure",
+                  exit: Exit.failCause(cleanupCause),
+                  cause: cleanupCause,
+                }
+              : command.cause;
 
-          const complete =
-            evidenceCause === undefined
-              ? exit
-              : Exit.failCause(addCause(lifecycleCause, evidenceCause));
+          const evidenceEffect = Effect.gen(function* () {
+            const evidence =
+              preflight ??
+              (yield* Effect.gen(function* () {
+                const clock = yield* Effect.service(Clock.Clock);
+                const service = yield* Effect.service(RuntimeEvidence);
+                const timestamp = yield* clock.currentTimeMillis;
+                const prepared = preflightLifecycleEvidence(service, timestamp);
 
-          if (command._tag === "actor:dispose") owner.disposalExit = complete;
+                if (Result.isFailure(prepared)) return yield* Effect.fail(prepared.failure);
 
-          return resolveLifecycleExit(complete);
+                return { service, ...prepared.success } satisfies LifecycleEvidencePreflight;
+              }));
+            const fact: Omit<
+              RuntimeLifecycleEvidence<DefinitionValue, CleanupError, ProviderDefinition>,
+              "evidenceSequence"
+            > = {
+              _tag: "lifecycle",
+              machineTurn: false,
+              from: state.lifecycle,
+              to: after.lifecycle,
+              cause,
+              before: state,
+              after,
+              timestamp: evidence.timestamp,
+              publicationRevision: owner.publicationRevision,
+              provenance: {
+                ...evidence.service.provenance,
+                actor: {
+                  key: after.fence.key,
+                  incarnation: after.fence.incarnation,
+                  leaseEpoch: after.fence.leaseEpoch,
+                },
+              },
+            };
+            const prepared = prepareLifecycleEvidence(evidence.service, fact, evidence.reservation);
+
+            if (Result.isFailure(prepared)) return yield* Effect.fail(prepared.failure);
+
+            const accepted = yield* Effect.exit(
+              evidence.service
+                .publish(after)
+                .pipe(Effect.flatMap(() => evidence.service.accept(prepared.success))),
+            );
+
+            if (Exit.isFailure(accepted)) {
+              const cancelled = cancelRuntimeEvidence(
+                evidence.service,
+                prepared.success.evidenceSequence,
+              );
+              const cancellationCause = Result.isFailure(cancelled)
+                ? Cause.fail(cancelled.failure)
+                : undefined;
+
+              return yield* Effect.failCause(causeFromCauses([accepted.cause, cancellationCause])!);
+            }
+
+            const cancelled = cancelRuntimeEvidence(
+              evidence.service,
+              prepared.success.evidenceSequence,
+            );
+
+            if (Result.isFailure(cancelled)) return yield* Effect.fail(cancelled.failure);
+
+            return exit;
+          });
+
+          return evidenceEffect.pipe(
+            Effect.exit,
+            Effect.flatMap((evidenceExit) => {
+              const evidenceCause = Exit.isFailure(evidenceExit) ? evidenceExit.cause : undefined;
+              const lifecycleCause = Exit.isFailure(exit) ? exit.cause : undefined;
+              const complete =
+                evidenceCause === undefined
+                  ? exit
+                  : Exit.failCause(causeFromCauses([lifecycleCause, evidenceCause])!);
+
+              if (command._tag === "actor:dispose") owner.disposalExit = complete;
+
+              return resolveLifecycleExit(complete);
+            }),
+          );
         }),
-      );
-    }),
+      ),
+    ),
   );
 };
 
@@ -1592,37 +1610,55 @@ export const makeProviderReconciler = <Value>(
   let revision = 0;
   let running: (() => Effect.Effect<ProviderReconciliation<Value>, PublicDiagnostic>) | undefined;
 
-  const publish = (value: Value) => {
-    if (running === undefined && Option.isSome(current) && equals(current.value, value))
-      return Effect.succeed({ changed: false, revision, value });
+  const publish = (value: Value) =>
+    Effect.suspend(() => {
+      if (running === undefined && Option.isSome(current) && equals(current.value, value))
+        return Effect.succeed({ changed: false, revision, value });
 
-    pending = Option.some(value);
+      pending = Option.some(value);
 
-    if (running !== undefined) return running();
+      if (running !== undefined) return running();
 
-    const operation = Effect.gen(function* () {
-      let changed = false;
-      let last = value;
+      const operation = Effect.gen(function* () {
+        let changed = false;
+        let last = value;
 
-      while (Option.isSome(pending)) {
-        const next = pending.value;
-        pending = Option.none();
-        last = next;
+        while (Option.isSome(pending)) {
+          const next = pending.value;
+          pending = Option.none();
+          last = next;
 
-        if (Option.isSome(current) && equals(current.value, next)) continue;
-        yield* options.reconcile(next);
-        current = Option.some(next);
-        revision += 1;
-        changed = true;
-      }
+          if (Option.isSome(current) && equals(current.value, next)) continue;
+          yield* options.reconcile(next);
+          current = Option.some(next);
+          revision += 1;
+          changed = true;
+        }
 
-      return { changed, revision, value: last } satisfies ProviderReconciliation<Value>;
-    }).pipe(Effect.ensuring(Effect.sync(() => (running = undefined))));
+        return { changed, revision, value: last } satisfies ProviderReconciliation<Value>;
+      }).pipe(Effect.ensuring(Effect.sync(() => (running = undefined))));
 
-    running = makeTerminalEffect(operation);
+      const completion =
+        Deferred.makeUnsafe<Exit.Exit<ProviderReconciliation<Value>, PublicDiagnostic>>();
+      const join = () =>
+        Deferred.await(completion).pipe(
+          Effect.flatMap((exit) =>
+            Exit.isSuccess(exit) ? Effect.succeed(exit.value) : Effect.failCause(exit.cause),
+          ),
+        );
 
-    return running();
-  };
+      running = join;
+
+      return Effect.uninterruptible(
+        Effect.exit(operation).pipe(
+          Effect.flatMap((exit) => Deferred.succeed(completion, exit).pipe(Effect.as(exit))),
+          Effect.ensuring(Effect.sync(() => (running = undefined))),
+          Effect.flatMap((exit) =>
+            Exit.isSuccess(exit) ? Effect.succeed(exit.value) : Effect.failCause(exit.cause),
+          ),
+        ),
+      );
+    });
 
   return { publish, revision: () => revision };
 };

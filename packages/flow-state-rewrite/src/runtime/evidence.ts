@@ -1142,6 +1142,25 @@ const reserveRuntimeEvidence = (service: RuntimeEvidenceService) => {
   return reserve();
 };
 
+/** Reserves one lifecycle evidence sequence before its owner begins cleanup. */
+export const reserveLifecycleEvidence = (service: RuntimeEvidenceService) =>
+  reserveRuntimeEvidence(service);
+
+/** Reads and validates lifecycle evidence inputs before the actor mutates its attachment. */
+export const preflightLifecycleEvidence = (service: RuntimeEvidenceService, timestamp: number) => {
+  const reservation = reserveLifecycleEvidence(service);
+
+  if (Result.isFailure(reservation)) return Result.fail(reservation.failure);
+
+  if (!Number.isSafeInteger(timestamp) || timestamp < 0) {
+    cancelRuntimeEvidence(service, reservation.success.sequence);
+
+    return Result.fail(invalidEvidence("timestamp", { reason: "invalid" }));
+  }
+
+  return Result.succeed({ reservation: reservation.success, timestamp });
+};
+
 /** Prepares lifecycle evidence through the reservation and record owner used by turn evidence. */
 export const prepareLifecycleEvidence = <
   DefinitionValue extends MachineDefinition,
@@ -1150,15 +1169,21 @@ export const prepareLifecycleEvidence = <
 >(
   service: RuntimeEvidenceService,
   fact: LifecycleFact<DefinitionValue, CleanupError, ProviderDefinition>,
+  reservation?: EvidenceReservation,
 ) => {
-  const reservation = reserveRuntimeEvidence(service);
+  const reserved =
+    reservation === undefined
+      ? reserveRuntimeEvidence(service)
+      : reservation.hub === service.hub
+        ? Result.succeed(reservation)
+        : Result.fail(invalidEvidence("reservation", { reason: "foreign-hub" }));
 
-  if (Result.isFailure(reservation)) return Result.fail(reservation.failure);
+  if (Result.isFailure(reserved)) return Result.fail(reserved.failure);
 
-  const prepared = makeLifecycleRecord(fact, reservation.success);
+  const prepared = makeLifecycleRecord(fact, reserved.success);
 
   if (Result.isFailure(prepared)) {
-    const cancelled = cancelRuntimeEvidence(service, reservation.success.sequence);
+    const cancelled = cancelRuntimeEvidence(service, reserved.success.sequence);
 
     return Result.isFailure(cancelled)
       ? Result.fail(cancelled.failure)

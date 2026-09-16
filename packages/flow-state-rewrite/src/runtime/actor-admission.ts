@@ -1286,6 +1286,8 @@ export type ActorLeaseOptions<
   cleanup: Effect.Effect<void, PublicDiagnostic>;
   /** Tombstoning runs only after successful cleanup. */
   tombstone?: () => Result.Result<void, PublicDiagnostic>;
+  /** A synchronous owner preflight that must pass before terminal claim/cache. */
+  preflight?: () => Result.Result<void, PublicDiagnostic>;
   cleanupCause?: Option.Option<Cause.Cause<CleanupError>>;
 };
 
@@ -2077,23 +2079,14 @@ export const normalizeValidatedActorAdmission = <
 
 export const rollbackActorAdmission = (steps: AdmissionRollbackStep[]) =>
   Effect.gen(function* () {
-    let cleanupCause: Cause.Cause<PublicDiagnostic> | undefined;
+    const releases = yield* Effect.forEach([...steps].reverse(), (step) =>
+      Effect.exit(step.release),
+    );
+    const reasons = releases.flatMap((release) =>
+      Exit.isFailure(release) ? [...release.cause.reasons] : [],
+    );
 
-    for (let index = steps.length - 1; index >= 0; index -= 1) {
-      const step = steps[index];
-
-      if (step === undefined) continue;
-      const released = yield* Effect.exit(step.release);
-
-      if (Exit.isFailure(released)) {
-        cleanupCause =
-          cleanupCause === undefined
-            ? Cause.fromReasons([...released.cause.reasons])
-            : Cause.fromReasons([...cleanupCause.reasons, ...released.cause.reasons]);
-      }
-    }
-
-    if (cleanupCause !== undefined) yield* Effect.failCause(cleanupCause);
+    if (reasons.length > 0) yield* Effect.failCause(Cause.fromReasons(reasons));
   });
 
 const normalizeAdmissionCause = <E>(cause: Cause.Cause<E>) => {
@@ -2111,37 +2104,6 @@ export const completeActorAdmissionExit = <A, E>(exit: Exit.Exit<A, E>) => {
   return Effect.failCause(normalizeAdmissionCause(exit.cause));
 };
 
-const makeTerminalEffect = <Value, Error, Requirements>(
-  operation: Effect.Effect<Value, Error, Requirements>,
-) => {
-  let completion: Deferred.Deferred<Exit.Exit<Value, Error>> | undefined;
-
-  const resolve = (exit: Exit.Exit<Value, Error>) =>
-    Exit.isSuccess(exit) ? Effect.succeed(exit.value) : Effect.failCause(exit.cause);
-
-  return () => {
-    return Effect.suspend(() => {
-      if (completion !== undefined)
-        return Deferred.await(completion).pipe(Effect.flatMap((exit) => resolve(exit)));
-      const cell = Deferred.makeUnsafe<Exit.Exit<Value, Error>>();
-      completion = cell;
-
-      return Effect.uninterruptible(
-        Effect.exit(operation).pipe(
-          Effect.flatMap((exit) =>
-            Effect.gen(function* () {
-              yield* Deferred.succeed(cell, exit);
-
-              return exit;
-            }),
-          ),
-          Effect.flatMap((exit) => resolve(exit)),
-        ),
-      );
-    });
-  };
-};
-
 /**
  * Creates the only individual disposal authority for one exposed actor.
  * Concurrent and repeated callers share one terminal attempt and Exit.
@@ -2156,19 +2118,40 @@ export const makeActorLease = <
 >(
   options: ActorLeaseOptions<A, DefinitionValue, I, CleanupError, Actor, ProviderDefinition>,
 ) => {
-  const dispose = makeTerminalEffect(
-    Effect.gen(function* () {
-      const cleanup = yield* Effect.exit(options.cleanup);
-      if (Exit.isFailure(cleanup)) return yield* Effect.failCause(cleanup.cause);
-      if (options.tombstone === undefined) return undefined;
+  let completion: Deferred.Deferred<Exit.Exit<void, PublicDiagnostic>> | undefined;
 
-      const tombstoned = options.tombstone();
+  const resolve = (exit: Exit.Exit<void, PublicDiagnostic>) =>
+    Exit.isSuccess(exit) ? Effect.succeed(exit.value) : Effect.failCause(exit.cause);
 
-      if (Result.isSuccess(tombstoned)) return undefined;
+  const dispose = () =>
+    Effect.suspend(() => {
+      const preflight = options.preflight?.();
 
-      return yield* Effect.fail(tombstoned.failure);
-    }),
-  );
+      if (preflight !== undefined && Result.isFailure(preflight))
+        return Effect.fail(preflight.failure);
+
+      if (completion !== undefined)
+        return Deferred.await(completion).pipe(Effect.flatMap((exit) => resolve(exit)));
+
+      const pending = Deferred.makeUnsafe<Exit.Exit<void, PublicDiagnostic>>();
+      completion = pending;
+      const operation = Effect.gen(function* () {
+        yield* options.cleanup;
+
+        if (options.tombstone === undefined) return;
+
+        const tombstoned = options.tombstone();
+
+        if (Result.isFailure(tombstoned)) return yield* Effect.fail(tombstoned.failure);
+      });
+
+      return Effect.uninterruptible(
+        Effect.exit(operation).pipe(
+          Effect.flatMap((exit) => Deferred.succeed(pending, exit).pipe(Effect.as(exit))),
+          Effect.flatMap((exit) => resolve(exit)),
+        ),
+      );
+    });
 
   return {
     actor: options.actor,

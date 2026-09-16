@@ -1162,6 +1162,10 @@ describe("actor lifecycle", () => {
           }),
       });
 
+      const discarded = reconciler.publish(1);
+      assert.deepStrictEqual(changes, []);
+      void discarded;
+
       const first = yield* Effect.forkChild(Effect.exit(reconciler.publish(1)));
       yield* Effect.yieldNow;
       const second = yield* Effect.forkChild(Effect.exit(reconciler.publish(2)));
@@ -1394,6 +1398,123 @@ describe("actor lifecycle", () => {
       assert.ok(Exit.isFailure(second));
       assert.deepStrictEqual(second, first);
       assert.strictEqual(closeAttempts, 1);
+      assert.strictEqual(evidenceAttempts, 1);
+    }),
+  );
+
+  it.effect("retains reverse cleanup Cause lanes and caches the combined terminal outcome", () =>
+    Effect.gen(function* () {
+      const fixture = makePreparedFixture();
+      const active = yield* withRuntime(activateLifecycle(fixture.snapshot, fixture.actorCell));
+      const evidenceFailure = Failure({
+        code: "CleanupFailed",
+        path: ["lifecycle", "evidence"],
+        details: { reason: "reverse-cause-test" },
+        summary: "The lifecycle evidence was rejected.",
+        help: "Inspect the retained cleanup Cause.",
+      });
+      const firstFailure = "first-resource-failure" as const;
+      const secondDefect = new Error("second-resource-defect");
+      let firstAttempts = 0;
+      let secondAttempts = 0;
+      let evidenceAttempts = 0;
+      let acceptedCleanupCause: Cause.Cause<unknown> | undefined;
+      const firstCause: Cause.Cause<string> = Cause.fromReasons([
+        Cause.makeFailReason(firstFailure),
+      ]);
+      const secondCause: Cause.Cause<string> = Cause.fromReasons([
+        Cause.makeDieReason(secondDefect),
+        Cause.makeInterruptReason(17),
+      ]);
+
+      const controller = makeLifecycleController<typeof LifecycleDefinition, string>(
+        {
+          ...active,
+          attachment: {
+            ...active.attachment,
+            resources: [
+              {
+                name: "first-resource",
+                close: () =>
+                  Effect.sync(() => {
+                    firstAttempts += 1;
+
+                    return Effect.failCause(firstCause);
+                  }).pipe(Effect.flatten),
+                finalization: "pending",
+                cause: Option.none(),
+              },
+              {
+                name: "second-resource",
+                close: () =>
+                  Effect.sync(() => {
+                    secondAttempts += 1;
+
+                    return Effect.failCause(secondCause);
+                  }).pipe(Effect.flatten),
+                finalization: "pending",
+                cause: Option.none(),
+              },
+            ],
+          },
+        },
+        fixture.actorCell,
+      );
+      const layer = makeRuntimeServicesLayer({
+        clock: fixedClock,
+        evidence: {
+          ...evidence,
+          accept: (record) =>
+            Effect.sync(() => {
+              evidenceAttempts += 1;
+
+              if (record.cause._tag === "cleanup-failure")
+                acceptedCleanupCause = record.cause.cause;
+
+              return Effect.fail(evidenceFailure);
+            }).pipe(Effect.flatten),
+        },
+      });
+
+      const dispose = {
+        _tag: "actor:dispose" as const,
+        cause: { _tag: "owner-disposal" as const },
+      };
+      const first = yield* Effect.exit(withRuntime(controller.command(dispose), layer));
+
+      assert.ok(Exit.isFailure(first));
+      assert.strictEqual(firstAttempts, 1);
+      assert.strictEqual(secondAttempts, 1);
+      assert.strictEqual(evidenceAttempts, 1);
+      assert.ok(acceptedCleanupCause !== undefined);
+
+      if (acceptedCleanupCause !== undefined) {
+        assert.deepStrictEqual(
+          acceptedCleanupCause.reasons.map((reason) => reason._tag),
+          ["Die", "Interrupt", "Fail"],
+        );
+        const defect = acceptedCleanupCause.reasons[0];
+        const interrupt = acceptedCleanupCause.reasons[1];
+        const failure = acceptedCleanupCause.reasons[2];
+
+        if (defect === undefined || !Cause.isDieReason(defect))
+          return yield* Effect.die(new Error("missing reverse defect Cause lane"));
+        if (interrupt === undefined || !Cause.isInterruptReason(interrupt))
+          return yield* Effect.die(new Error("missing reverse interrupt Cause lane"));
+        if (failure === undefined || !Cause.isFailReason(failure))
+          return yield* Effect.die(new Error("missing reverse typed Cause lane"));
+
+        assert.strictEqual(defect.defect, secondDefect);
+        assert.strictEqual(interrupt.fiberId, 17);
+        assert.strictEqual(failure.error, firstFailure);
+      }
+
+      const second = yield* Effect.exit(withRuntime(controller.command(dispose), layer));
+
+      assert.ok(Exit.isFailure(second));
+      assert.deepStrictEqual(second, first);
+      assert.strictEqual(firstAttempts, 1);
+      assert.strictEqual(secondAttempts, 1);
       assert.strictEqual(evidenceAttempts, 1);
     }),
   );
