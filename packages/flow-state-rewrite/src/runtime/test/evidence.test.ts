@@ -9,24 +9,21 @@ import { Failure } from "../../diagnostic/diagnostic.js";
 import { machine } from "../../machine/machine.js";
 import { actorRef } from "../actor-ref.js";
 import {
-  acceptEvidence,
-  closeEvidence,
-  cancelRuntimeEvidence,
-  drainAcceptedEvidence,
-  makeEvidenceHub,
-  makeEvidenceSink,
+  makeEvidenceJournal,
   makeLifecycleRecord,
   makeRuntimeEvidenceOwner,
   makeTurnRecord,
   finalizePreparedActorPublication,
   prepareActorPublication,
-  prepareLifecycleEvidence,
-  type EvidenceHub,
-  type EvidenceReservation,
+  makeLifecycleEvidence,
+  type EvidenceJournal,
+  type EvidencePreparation,
+  type PreparedEvidenceRecord,
   type EvidenceRecord,
   type LifecycleFact,
   type TurnFact,
 } from "../evidence.js";
+import { makeEvidenceSink } from "../evidence-sink.js";
 import { makeActorIdentityRegistry, type ActorFence } from "../actor-admission.js";
 import {
   activateLifecycle,
@@ -108,6 +105,13 @@ const EvidenceEvent = resultSuccess(EvidenceDefinition.E.opened());
 
 type EvidenceSnapshot = ActorSnapshot<typeof EvidenceDefinition>;
 
+const preparationRevisions = new WeakMap<EvidencePreparation, number>();
+
+let nextPreparationRevision = 1;
+
+const preparationRevision = (preparation: EvidencePreparation) =>
+  preparationRevisions.get(preparation) ?? 1;
+
 const makeLifecycleActorCell = <CleanupError>(): ActorCell<
   LifecycleSnapshot<typeof EvidenceDefinition, CleanupError>
 > => ({ activityFibers: undefined, protocol: undefined });
@@ -143,7 +147,7 @@ const makeFixture = () => {
 // RETURN_TYPE: The fixture preserves the concrete app and definition owners used by the evidence record.
 const turnFact = (
   fixture: ReturnType<typeof makeFixture>,
-  reservation: EvidenceReservation,
+  reservation: EvidencePreparation,
 ): TurnFact<typeof EvidenceApp, typeof EvidenceDefinition> => ({
   fence: fixture.fence,
   provenance: {
@@ -156,12 +160,12 @@ const turnFact = (
     },
   },
   cause: { _tag: "event", event: EvidenceEvent },
-  before: fixture.snapshot(reservation.sequence - 1),
-  after: fixture.snapshot(reservation.sequence),
+  before: fixture.snapshot(preparationRevision(reservation) - 1),
+  after: fixture.snapshot(preparationRevision(reservation)),
   store: { revision: 0, changed: [] },
-  publicationRevision: reservation.sequence,
-  machineTurnRevision: reservation.sequence,
-  timestamp: 1000 + reservation.sequence,
+  publicationRevision: preparationRevision(reservation),
+  machineTurnRevision: preparationRevision(reservation),
+  timestamp: 1000 + preparationRevision(reservation),
 });
 
 // RETURN_TYPE: The fixture preserves the concrete lifecycle and cleanup owners used by the evidence record.
@@ -178,6 +182,7 @@ const lifecycleFact = (
   after: snapshot,
   timestamp: 2000,
   publicationRevision: 0,
+  machineTurnRevision: 0,
   provenance: {
     app: EvidenceApp,
     plan: EvidencePlan,
@@ -189,16 +194,31 @@ const lifecycleFact = (
   },
 });
 
-const reserve = (hub: EvidenceHub) => resultSuccess(hub.reserve());
+const reserve = (journal: EvidenceJournal) => {
+  const preparation = resultSuccess(journal.prepare());
+  preparationRevisions.set(preparation, nextPreparationRevision++);
+
+  return preparation;
+};
+
+const acceptPrepared = (
+  journal: EvidenceJournal,
+  preparation: EvidencePreparation,
+  record: PreparedEvidenceRecord,
+) => journal.accept(preparation, record);
+
+const drainJournal = (journal: EvidenceJournal) => journal.drain();
+
+const closeJournal = (journal: EvidenceJournal) => journal.close();
 
 const acceptTurn = (
-  hub: EvidenceHub,
+  hub: EvidenceJournal,
   fixture: ReturnType<typeof makeFixture>,
-  reservation: EvidenceReservation,
+  reservation: EvidencePreparation,
 ) => {
   const record = resultSuccess(makeTurnRecord(turnFact(fixture, reservation), reservation));
 
-  return { record, effect: acceptEvidence(hub, reservation, record) };
+  return { record, effect: acceptPrepared(hub, reservation, record) };
 };
 
 // Contracts: SEM-004, SEM-005.
@@ -231,7 +251,8 @@ describe("runtime evidence", () => {
 
       assert.ok(Result.isSuccess(preparation));
 
-      if (Result.isSuccess(preparation)) assert.strictEqual(preparation.success, 1);
+      if (Result.isSuccess(preparation) && typeof preparation.success !== "number")
+        assert.strictEqual(preparation.success.journal, owner.journal);
 
       const finalized = finalizePreparedActorPublication(prepared, {
         ...prepared,
@@ -271,7 +292,7 @@ describe("runtime evidence", () => {
       );
 
       assert.ok(Result.isFailure(failedPreparation));
-      assert.strictEqual(owner.hub.sequence(), 1);
+      assert.strictEqual(owner.journal.sequence(), 0);
 
       now = 9_000;
 
@@ -290,58 +311,91 @@ describe("runtime evidence", () => {
 
       assert.ok(Result.isSuccess(accepted));
 
-      if (Result.isSuccess(accepted)) assert.strictEqual(accepted.success, 2);
+      if (Result.isSuccess(accepted)) assert.strictEqual(accepted.success, 1);
       yield* owner.close();
     }),
   );
 
-  it.effect("tombstones out-of-order prepared actor evidence", () =>
-    Effect.gen(function* () {
-      const fixture = makeFixture();
+  it.effect(
+    "JOURNAL-ORDER assigns evidence sequences in commit order despite reversed preparation order",
+    () =>
+      Effect.gen(function* () {
+        const firstFixture = makeFixture();
+        const secondFixture = makeFixture();
+        const committed: EvidenceRecord[] = [];
 
-      const owner = makeRuntimeEvidenceOwner({
-        app: EvidenceApp,
-        plan: EvidencePlan,
-        clock: makeTestClock(4_242),
-      });
+        const owner = makeRuntimeEvidenceOwner({
+          app: EvidenceApp,
+          plan: EvidencePlan,
+          clock: makeTestClock(4_242),
+        });
 
-      const publication = (revision: number) =>
-        prepareActorPublication<typeof EvidenceDefinition>({
-          snapshot: fixture.snapshot(revision),
-          store: { revision: 0, changed: [] },
-          publicationRevision: revision,
-          machineTurnRevision: revision,
-          cause: { _tag: "event", event: EvidenceEvent },
-        } satisfies ActorPublication<typeof EvidenceDefinition>);
+        const sink = yield* makeEvidenceSink({
+          id: "journal-order",
+          deliver: (record) => Effect.sync(() => committed.push(record)),
+        });
 
-      const first = publication(1);
-      const second = publication(2);
-      assert.ok(
-        Result.isSuccess(
-          owner.acceptPublication(fixture.identity, fixture.fence, fixture.snapshot(0), first),
-        ),
-      );
+        assert.ok(Result.isSuccess(owner.journal.attach(sink)));
 
-      const failedPreparation = owner.acceptPublication(
-        fixture.identity,
-        fixture.fence,
-        fixture.snapshot(1),
-        second,
-      );
+        const publication = (fixture: ReturnType<typeof makeFixture>, revision: number) =>
+          prepareActorPublication<typeof EvidenceDefinition>({
+            snapshot: fixture.snapshot(revision),
+            store: { revision: 0, changed: [] },
+            publicationRevision: revision,
+            machineTurnRevision: revision,
+            cause: { _tag: "event", event: EvidenceEvent },
+          } satisfies ActorPublication<typeof EvidenceDefinition>);
 
-      assert.ok(Result.isFailure(failedPreparation));
-      assert.strictEqual(owner.hub.sequence(), 0);
-      assert.strictEqual(
-        finalizePreparedActorPublication(first, {
-          ...first,
-          snapshot: fixture.snapshot(1),
-          store: { revision: 0, changed: [] },
-        }),
-        1,
-      );
-      assert.strictEqual(owner.hub.sequence(), 2);
-      yield* owner.close();
-    }),
+        const first = publication(firstFixture, 1);
+        const second = publication(secondFixture, 2);
+
+        const firstPreparation = owner.acceptPublication(
+          firstFixture.identity,
+          firstFixture.fence,
+          firstFixture.snapshot(0),
+          first,
+        );
+
+        const secondPreparation = owner.acceptPublication(
+          secondFixture.identity,
+          secondFixture.fence,
+          secondFixture.snapshot(1),
+          second,
+        );
+
+        assert.ok(Result.isSuccess(firstPreparation));
+        assert.ok(Result.isSuccess(secondPreparation));
+        assert.strictEqual(owner.journal.sequence(), 0);
+        // B commits first even though A was prepared first; preparation alone did not allocate a number.
+        assert.strictEqual(
+          finalizePreparedActorPublication(second, {
+            ...second,
+            snapshot: secondFixture.snapshot(2),
+            store: { revision: 0, changed: [] },
+          }),
+          1,
+        );
+        assert.strictEqual(
+          finalizePreparedActorPublication(first, {
+            ...first,
+            snapshot: firstFixture.snapshot(1),
+            store: { revision: 0, changed: [] },
+          }),
+          2,
+        );
+        assert.strictEqual(owner.journal.sequence(), 2);
+        yield* owner.close();
+        assert.deepStrictEqual(
+          committed.map((record) => ({
+            key: record.provenance.actor.key,
+            sequence: record._tag === "turn" ? record.sequence : record.evidenceSequence,
+          })),
+          [
+            { key: secondFixture.identity.key, sequence: 1 },
+            { key: firstFixture.identity.key, sequence: 2 },
+          ],
+        );
+      }),
   );
 
   it.effect("uses the supplied runtime clock for publication timestamps", () =>
@@ -358,7 +412,7 @@ describe("runtime evidence", () => {
         deliver: (record) => Effect.sync(() => timestamps.push(record.timestamp)),
       });
 
-      assert.ok(Result.isSuccess(owner.hub.attach(sink)));
+      assert.ok(Result.isSuccess(owner.journal.attach(sink)));
       const fixture = makeFixture();
 
       const publish = (beforeRevision: number, afterRevision: number) =>
@@ -381,7 +435,7 @@ describe("runtime evidence", () => {
   it.effect("orders turn and lifecycle records through one accepted prefix", () =>
     Effect.gen(function* () {
       const fixture = makeFixture();
-      const hub = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
+      const hub = makeEvidenceJournal({ app: EvidenceApp, plan: EvidencePlan });
       const firstReservation = reserve(hub);
       const secondReservation = reserve(hub);
       const first = acceptTurn(hub, fixture, firstReservation);
@@ -400,7 +454,7 @@ describe("runtime evidence", () => {
       );
 
       const lifecycleFiber = yield* Effect.forkChild(
-        Effect.exit(acceptEvidence(hub, secondReservation, lifecycle)),
+        Effect.exit(acceptPrepared(hub, secondReservation, lifecycle)),
         { startImmediately: true },
       );
 
@@ -417,8 +471,8 @@ describe("runtime evidence", () => {
       assert.ok(Exit.isSuccess(lifecycleAccepted));
 
       if (Exit.isSuccess(firstAccepted) && Exit.isSuccess(lifecycleAccepted)) {
-        assert.strictEqual(firstAccepted.value.sequence, 1);
-        assert.strictEqual(lifecycleAccepted.value.sequence, 2);
+        assert.strictEqual(firstAccepted.value.sequence, 2);
+        assert.strictEqual(lifecycleAccepted.value.sequence, 1);
         assert.deepStrictEqual(
           [firstAccepted.value.record._tag, lifecycleAccepted.value.record._tag],
           ["turn", "lifecycle"],
@@ -432,7 +486,7 @@ describe("runtime evidence", () => {
   it.effect("tombstones a failed record and unblocks the next reservation", () =>
     Effect.gen(function* () {
       const fixture = makeFixture();
-      const hub = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
+      const hub = makeEvidenceJournal({ app: EvidenceApp, plan: EvidencePlan });
       const failedReservation = reserve(hub);
       const laterReservation = reserve(hub);
 
@@ -455,17 +509,17 @@ describe("runtime evidence", () => {
 
       assert.ok(Exit.isSuccess(accepted));
 
-      if (Exit.isSuccess(accepted)) assert.strictEqual(accepted.value.sequence, 2);
-      assert.strictEqual(hub.sequence(), 2);
+      if (Exit.isSuccess(accepted)) assert.strictEqual(accepted.value.sequence, 1);
+      assert.strictEqual(hub.sequence(), 1);
       const drained = yield* hub.drain();
-      assert.strictEqual(drained.through, 2);
+      assert.strictEqual(drained.through, 1);
     }),
   );
 
   it.effect("keeps lifecycle and actor acceptance in global sequence order", () =>
     Effect.gen(function* () {
       const fixture = makeFixture();
-      const hub = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
+      const hub = makeEvidenceJournal({ app: EvidenceApp, plan: EvidencePlan });
       const lifecycleReservation = reserve(hub);
       const actorReservation = reserve(hub);
       const actorCell = makeLifecycleActorCell<string>();
@@ -491,7 +545,7 @@ describe("runtime evidence", () => {
       yield* Effect.yieldNow;
 
       const lifecycleFiber = yield* Effect.forkChild(
-        Effect.exit(acceptEvidence(hub, lifecycleReservation, lifecycle)),
+        Effect.exit(acceptPrepared(hub, lifecycleReservation, lifecycle)),
         { startImmediately: true },
       );
 
@@ -505,7 +559,7 @@ describe("runtime evidence", () => {
       if (Exit.isSuccess(lifecycleAccepted) && Exit.isSuccess(actorAccepted)) {
         assert.deepStrictEqual(
           [lifecycleAccepted.value.sequence, actorAccepted.value.sequence],
-          [1, 2],
+          [2, 1],
         );
       }
     }),
@@ -525,18 +579,41 @@ describe("runtime evidence", () => {
       );
 
       const unowned: RuntimeEvidenceService = {
-        hub: {},
+        // SAFETY: this deliberately foreign capability exercises the owner boundary.
+        journal: {} as EvidenceJournal,
+        prepare: () =>
+          Result.fail(
+            Failure({
+              code: "InvalidTraceRecord",
+              path: ["evidence", "preparation"],
+              details: { reason: "owner-unavailable" },
+              summary: "Evidence preparation owner unavailable.",
+              help: "Use a Journal supplied by the runtime.",
+            }),
+          ),
+        prepareLifecycle: () =>
+          Result.fail(
+            Failure({
+              code: "InvalidTraceRecord",
+              path: ["evidence", "preparation"],
+              details: { reason: "owner-unavailable" },
+              summary: "Evidence preparation owner unavailable.",
+              help: "Use a Journal supplied by the runtime.",
+            }),
+          ),
+        cancel: () => Result.succeed(undefined),
+        settleOutcome: () => Result.succeed(undefined),
         provenance: { app: EvidenceApp, plan: EvidencePlan },
         publish: () => Effect.succeed(undefined),
         accept: () => Effect.succeed(undefined),
         drain: Effect.succeed(undefined),
       };
 
-      const result = prepareLifecycleEvidence(unowned, lifecycleFact(fixture.fence, prepared));
+      const result = makeLifecycleEvidence(unowned, lifecycleFact(fixture.fence, prepared));
       assert.ok(Result.isFailure(result));
 
       if (Result.isFailure(result)) {
-        assert.deepStrictEqual(result.failure.path, ["evidence", "reservation"]);
+        assert.deepStrictEqual(result.failure.path, ["evidence", "preparation"]);
         assert.strictEqual(result.failure.details.reason, "owner-unavailable");
       }
 
@@ -593,7 +670,7 @@ describe("runtime evidence", () => {
 
       assert.ok(Result.isSuccess(accepted));
 
-      if (Result.isSuccess(accepted)) assert.strictEqual(accepted.success, 2);
+      if (Result.isSuccess(accepted)) assert.strictEqual(accepted.success, 1);
       yield* owner.close();
     }),
   );
@@ -601,7 +678,7 @@ describe("runtime evidence", () => {
   it.effect("deep-copies structured envelopes while retaining app and plan identity", () =>
     Effect.gen(function* () {
       const fixture = makeFixture();
-      const hub = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
+      const hub = makeEvidenceJournal({ app: EvidenceApp, plan: EvidencePlan });
       const reservation = reserve(hub);
       const acceptedInput = acceptTurn(hub, fixture, reservation);
       const accepted = yield* acceptedInput.effect;
@@ -621,7 +698,7 @@ describe("runtime evidence", () => {
   it.effect("isolates bounded sink overflow and reports accepted-prefix truncation", () =>
     Effect.gen(function* () {
       const fixture = makeFixture();
-      const hub = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
+      const hub = makeEvidenceJournal({ app: EvidenceApp, plan: EvidencePlan });
       const delivered: string[] = [];
 
       const sink = yield* makeEvidenceSink({
@@ -639,7 +716,7 @@ describe("runtime evidence", () => {
         assert.ok(Exit.isSuccess(result));
       }
 
-      const drained = yield* drainAcceptedEvidence(hub);
+      const drained = yield* drainJournal(hub);
       assert.strictEqual(drained.through, 3);
       assert.ok(Option.isSome(drained.truncatedBefore));
 
@@ -647,7 +724,7 @@ describe("runtime evidence", () => {
         assert.strictEqual(drained.truncatedBefore.value, 2);
       assert.deepStrictEqual(delivered, ["turn"]);
       assert.deepStrictEqual(
-        drained.sinks.map((result) => result.status),
+        drained.attachments.map((result) => result.status),
         ["truncated"],
       );
     }),
@@ -656,7 +733,7 @@ describe("runtime evidence", () => {
   it.effect("keeps sink delivery failure local to that sink", () =>
     Effect.gen(function* () {
       const fixture = makeFixture();
-      const hub = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
+      const hub = makeEvidenceJournal({ app: EvidenceApp, plan: EvidencePlan });
 
       const failedSink = yield* makeEvidenceSink({
         id: "failed",
@@ -683,10 +760,10 @@ describe("runtime evidence", () => {
       const reservation = reserve(hub);
       const accepted = acceptTurn(hub, fixture, reservation);
       assert.ok(Exit.isSuccess(yield* Effect.exit(accepted.effect)));
-      const drained = yield* drainAcceptedEvidence(hub);
+      const drained = yield* drainJournal(hub);
 
       assert.deepStrictEqual(
-        drained.sinks.map((result) => [result.sink, result.status]),
+        drained.attachments.map((result) => [result.sink, result.status]),
         [
           [failedSink.id, "failed"],
           [healthySink.id, "drained"],
@@ -699,7 +776,7 @@ describe("runtime evidence", () => {
   it.effect("offers to a sink only when the offer effect runs", () =>
     Effect.gen(function* () {
       const fixture = makeFixture();
-      const hub = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
+      const hub = makeEvidenceJournal({ app: EvidenceApp, plan: EvidencePlan });
       const reservation = reserve(hub);
       const record = resultSuccess(makeTurnRecord(turnFact(fixture, reservation), reservation));
       const delivered: string[] = [];
@@ -709,15 +786,16 @@ describe("runtime evidence", () => {
         deliver: (offered) => Effect.sync(() => delivered.push(offered._tag)),
       });
 
-      const offer = sink.offer(record);
-      const beforeOffer = yield* sink.drain(reservation.sequence);
+      const acceptedRecord = yield* acceptPrepared(hub, reservation, record);
+      const offer = sink.offer(acceptedRecord.record);
+      const beforeOffer = yield* sink.drain(acceptedRecord.sequence);
       assert.strictEqual(beforeOffer.status, "drained");
       assert.deepStrictEqual(delivered, []);
 
       const accepted = yield* offer;
       assert.strictEqual(accepted.status, "accepted");
 
-      const afterOffer = yield* sink.drain(reservation.sequence);
+      const afterOffer = yield* sink.drain(acceptedRecord.sequence);
       assert.strictEqual(afterOffer.status, "drained");
       assert.deepStrictEqual(delivered, ["turn"]);
       yield* sink.close();
@@ -747,7 +825,7 @@ describe("runtime evidence", () => {
           }),
       });
 
-      assert.ok(Result.isSuccess(owner.hub.attach(sink)));
+      assert.ok(Result.isSuccess(owner.journal.attach(sink)));
 
       const publish = (revision: number) =>
         owner.acceptPublication(fixture.identity, fixture.fence, fixture.snapshot(revision - 1), {
@@ -761,25 +839,25 @@ describe("runtime evidence", () => {
       assert.ok(Result.isSuccess(publish(1)));
       now = 8_484;
       assert.ok(Result.isSuccess(publish(2)));
-      yield* owner.hub.drain();
+      yield* owner.journal.drain();
 
       assert.deepStrictEqual(timestamps, [4_242, 8_484]);
-      assert.ok(Result.isSuccess(cancelRuntimeEvidence(owner.service, 1)));
+      assert.ok(Result.isSuccess(owner.service.cancel(resultSuccess(owner.service.prepare()))));
     }),
   );
 
   it.effect("closes idempotently after draining accepted evidence", () =>
     Effect.gen(function* () {
       const fixture = makeFixture();
-      const hub = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
+      const hub = makeEvidenceJournal({ app: EvidenceApp, plan: EvidencePlan });
       const sink = yield* makeEvidenceSink({ id: "close" });
       assert.ok(Result.isSuccess(hub.attach(sink)));
       const reservation = reserve(hub);
       const accepted = acceptTurn(hub, fixture, reservation);
       assert.ok(Exit.isSuccess(yield* Effect.exit(accepted.effect)));
 
-      const firstClose = yield* Effect.exit(closeEvidence(hub));
-      const secondClose = yield* Effect.exit(closeEvidence(hub));
+      const firstClose = yield* Effect.exit(closeJournal(hub));
+      const secondClose = yield* Effect.exit(closeJournal(hub));
       assert.ok(Exit.isSuccess(firstClose));
       assert.ok(Exit.isSuccess(secondClose));
 
@@ -787,18 +865,18 @@ describe("runtime evidence", () => {
         assert.strictEqual(firstClose.value.through, 1);
         assert.strictEqual(secondClose.value.through, 1);
         assert.deepStrictEqual(
-          firstClose.value.sinks.map((result) => result.status),
+          firstClose.value.attachments.map((result) => result.status),
           ["drained"],
         );
       }
 
-      assert.ok(Result.isFailure(hub.reserve()));
+      assert.ok(Result.isFailure(hub.prepare()));
     }),
   );
 
   it("constructs a complete unsequenced turn fact from app provenance", () => {
     const fixture = makeFixture();
-    const hub = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
+    const hub = makeEvidenceJournal({ app: EvidenceApp, plan: EvidencePlan });
     const reservation = reserve(hub);
     const fact = turnFact(fixture, reservation);
     assert.strictEqual("sequence" in fact, false);
@@ -810,22 +888,22 @@ describe("runtime evidence", () => {
       leaseEpoch: fixture.identity.leaseEpoch,
     });
     const record = resultSuccess(makeTurnRecord(fact, reservation));
-    assert.strictEqual(record.sequence, reservation.sequence);
+    assert.strictEqual("sequence" in record, false);
   });
 
   it.effect("accepts only hub-reserved evidence sequences", () =>
     Effect.gen(function* () {
       const fixture = makeFixture();
-      const hub = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
+      const hub = makeEvidenceJournal({ app: EvidenceApp, plan: EvidencePlan });
       const reservation = reserve(hub);
 
-      const accepted = yield* acceptEvidence(
+      const accepted = yield* acceptPrepared(
         hub,
         reservation,
         resultSuccess(makeTurnRecord(turnFact(fixture, reservation), reservation)),
       );
 
-      assert.strictEqual(accepted.sequence, reservation.sequence);
+      assert.strictEqual(accepted.sequence, 1);
       assert.strictEqual(accepted.record._tag, "turn");
       assert.strictEqual(hub.sequence(), 1);
     }),
@@ -834,20 +912,20 @@ describe("runtime evidence", () => {
   it.effect("rejects equal-sequence evidence from a foreign reservation", () =>
     Effect.gen(function* () {
       const fixture = makeFixture();
-      const first = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
-      const second = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
+      const first = makeEvidenceJournal({ app: EvidenceApp, plan: EvidencePlan });
+      const second = makeEvidenceJournal({ app: EvidenceApp, plan: EvidencePlan });
       const firstReservation = reserve(first);
       const secondReservation = reserve(second);
-      assert.strictEqual(secondReservation.sequence, firstReservation.sequence);
+      assert.notStrictEqual(secondReservation, firstReservation);
 
       const record = resultSuccess(
         makeTurnRecord(turnFact(fixture, firstReservation), firstReservation),
       );
 
-      const foreign = yield* Effect.exit(acceptEvidence(second, firstReservation, record));
+      const foreign = yield* Effect.exit(acceptPrepared(second, firstReservation, record));
       assert.ok(Exit.isFailure(foreign));
       assert.strictEqual(second.sequence(), 0);
-      const local = yield* acceptEvidence(first, firstReservation, record);
+      const local = yield* acceptPrepared(first, firstReservation, record);
       assert.strictEqual(local.sequence, 1);
     }),
   );
@@ -856,7 +934,7 @@ describe("runtime evidence", () => {
     Effect.gen(function* () {
       const fixture = makeFixture();
       const delivered: number[] = [];
-      const hub = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
+      const hub = makeEvidenceJournal({ app: EvidenceApp, plan: EvidencePlan });
 
       const sink = yield* makeEvidenceSink({
         id: "prefix-drain",
@@ -869,27 +947,27 @@ describe("runtime evidence", () => {
       assert.ok(Result.isSuccess(hub.attach(sink)));
       const first = reserve(hub);
       const second = reserve(hub);
-      yield* acceptEvidence(
+      yield* acceptPrepared(
         hub,
         first,
         resultSuccess(makeTurnRecord(turnFact(fixture, first), first)),
       );
-      yield* acceptEvidence(
+      yield* acceptPrepared(
         hub,
         second,
         resultSuccess(makeTurnRecord(turnFact(fixture, second), second)),
       );
-      const closed = yield* closeEvidence(hub);
+      const closed = yield* closeJournal(hub);
       assert.deepStrictEqual(delivered, [1, 2]);
       assert.strictEqual(closed.through, 2);
-      assert.strictEqual(closed.sinks[0]?.status, "drained");
+      assert.strictEqual(closed.attachments[0]?.status, "drained");
     }),
   );
 
   it.effect("keeps sink overflow local to the failing sink", () =>
     Effect.gen(function* () {
       const fixture = makeFixture();
-      const hub = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
+      const hub = makeEvidenceJournal({ app: EvidenceApp, plan: EvidencePlan });
       const small = yield* makeEvidenceSink({ id: "small", capacity: 1 });
       const healthy = yield* makeEvidenceSink({ id: "healthy", capacity: 4 });
       assert.ok(Result.isSuccess(hub.attach(small)));
@@ -897,17 +975,17 @@ describe("runtime evidence", () => {
 
       for (let index = 0; index < 2; index += 1) {
         const reservation = reserve(hub);
-        yield* acceptEvidence(
+        yield* acceptPrepared(
           hub,
           reservation,
           resultSuccess(makeTurnRecord(turnFact(fixture, reservation), reservation)),
         );
       }
 
-      const drained = yield* drainAcceptedEvidence(hub);
+      const drained = yield* drainJournal(hub);
       assert.strictEqual(drained.through, 2);
       assert.deepStrictEqual(
-        drained.sinks.map((sink) => [sink.sink, sink.status]),
+        drained.attachments.map((sink) => [sink.sink, sink.status]),
         [
           [small.id, "truncated"],
           [healthy.id, "drained"],
@@ -919,7 +997,7 @@ describe("runtime evidence", () => {
   it.effect("retains sink delivery failure after acceptance", () =>
     Effect.gen(function* () {
       const fixture = makeFixture();
-      const hub = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
+      const hub = makeEvidenceJournal({ app: EvidenceApp, plan: EvidencePlan });
 
       const sink = yield* makeEvidenceSink({
         id: "failing-delivery",
@@ -937,32 +1015,32 @@ describe("runtime evidence", () => {
 
       assert.ok(Result.isSuccess(hub.attach(sink)));
       const reservation = reserve(hub);
-      yield* acceptEvidence(
+      yield* acceptPrepared(
         hub,
         reservation,
         resultSuccess(makeTurnRecord(turnFact(fixture, reservation), reservation)),
       );
-      const drained = yield* drainAcceptedEvidence(hub);
+      const drained = yield* drainJournal(hub);
       assert.strictEqual(hub.sequence(), 1);
-      assert.strictEqual(drained.sinks[0]?.status, "failed");
+      assert.strictEqual(drained.attachments[0]?.status, "failed");
     }),
   );
 
   it.effect("rejects evidence from a foreign app identity", () =>
     Effect.gen(function* () {
       const fixture = makeFixture();
-      const current = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
+      const current = makeEvidenceJournal({ app: EvidenceApp, plan: EvidencePlan });
       const foreignApp = app({ id: "evidence/foreign-app", persistenceVersion: "1", modules: [] });
       const reservation = reserve(current);
       const record = resultSuccess(makeTurnRecord(turnFact(fixture, reservation), reservation));
 
       // SAFETY: The record is intentionally forged with a foreign app to exercise the rejection boundary.
-      const foreignRecord: EvidenceRecord = {
+      const foreignRecord: PreparedEvidenceRecord = {
         ...record,
         provenance: { ...record.provenance, app: foreignApp },
       };
 
-      const result = yield* Effect.exit(acceptEvidence(current, reservation, foreignRecord));
+      const result = yield* Effect.exit(acceptPrepared(current, reservation, foreignRecord));
       assert.ok(Exit.isFailure(result));
       assert.strictEqual(current.sequence(), 0);
     }),
@@ -985,7 +1063,7 @@ describe("runtime evidence", () => {
         deliver: (record) => Effect.sync(() => delivered.push(record)),
       });
 
-      assert.ok(Result.isSuccess(owner.hub.attach(sink)));
+      assert.ok(Result.isSuccess(owner.journal.attach(sink)));
       const actorCell = makeLifecycleActorCell<PublicDiagnostic>();
 
       const prepared = resultSuccess(
@@ -1038,7 +1116,7 @@ describe("runtime evidence", () => {
       );
 
       assert.ok(Exit.isFailure(failed));
-      yield* owner.hub.drain();
+      yield* owner.journal.drain();
       const record = delivered[0];
       assert.ok(record !== undefined);
 
@@ -1053,7 +1131,7 @@ describe("runtime evidence", () => {
       assert.strictEqual(Cause.hasFails(retained), true);
       assert.strictEqual(Cause.hasDies(retained), true);
 
-      assert.strictEqual(owner.hub.sequence(), 1);
+      assert.strictEqual(owner.journal.sequence(), 1);
       yield* owner.close();
     }),
   );
@@ -1091,6 +1169,7 @@ describe("runtime evidence", () => {
           accept: () => Effect.fail(evidenceFailure),
         },
       });
+
       const actorCell = makeLifecycleActorCell<PublicDiagnostic>();
 
       const prepared = resultSuccess(
@@ -1146,7 +1225,7 @@ describe("runtime evidence", () => {
 
   it("preserves null and undefined evidence payload values", () => {
     const fixture = makeFixture();
-    const hub = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
+    const hub = makeEvidenceJournal({ app: EvidenceApp, plan: EvidencePlan });
     const reservation = reserve(hub);
     // SAFETY: Freezing caller-owned input verifies capture retains null and undefined fields without changing the input.
     // oxlint-disable-next-line anti-slop/no-object-freeze -- test input models a caller-supplied frozen payload.
@@ -1178,22 +1257,22 @@ describe("runtime evidence", () => {
 
   it.effect("closes an empty evidence hub without synthetic records", () =>
     Effect.gen(function* () {
-      const hub = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
-      const first = yield* closeEvidence(hub);
-      const second = yield* closeEvidence(hub);
+      const hub = makeEvidenceJournal({ app: EvidenceApp, plan: EvidencePlan });
+      const first = yield* closeJournal(hub);
+      const second = yield* closeJournal(hub);
       assert.strictEqual(first.through, 0);
       assert.strictEqual(second.through, 0);
-      assert.deepStrictEqual(first.sinks, []);
-      assert.ok(Result.isFailure(hub.reserve()));
+      assert.deepStrictEqual(first.attachments, []);
+      assert.ok(Result.isFailure(hub.prepare()));
     }),
   );
 
   it.effect("applies the late sink policy without hidden history replay", () =>
     Effect.gen(function* () {
       const fixture = makeFixture();
-      const hub = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
+      const hub = makeEvidenceJournal({ app: EvidenceApp, plan: EvidencePlan });
       const first = reserve(hub);
-      yield* acceptEvidence(
+      yield* acceptPrepared(
         hub,
         first,
         resultSuccess(makeTurnRecord(turnFact(fixture, first), first)),
@@ -1209,16 +1288,40 @@ describe("runtime evidence", () => {
       });
 
       assert.ok(Result.isSuccess(hub.attach(late)));
-      yield* drainAcceptedEvidence(hub);
+      yield* drainJournal(hub);
       assert.deepStrictEqual(delivered, []);
       assert.strictEqual(hub.sequence(), 1);
+    }),
+  );
+
+  it.effect("admits each evidence sink to one Journal only", () =>
+    Effect.gen(function* () {
+      const sink = yield* makeEvidenceSink({ id: "single-journal" });
+      const first = makeEvidenceJournal({ app: EvidenceApp, plan: EvidencePlan });
+      const second = makeEvidenceJournal({ app: EvidenceApp, plan: EvidencePlan });
+
+      assert.ok(Result.isSuccess(first.attach(sink)));
+      const duplicate = first.attach(sink);
+      const mixed = second.attach(sink);
+
+      assert.ok(Result.isFailure(duplicate));
+      assert.ok(Result.isFailure(mixed));
+
+      if (Result.isFailure(duplicate))
+        assert.strictEqual(duplicate.failure.details.reason, "duplicate");
+
+      if (Result.isFailure(mixed))
+        assert.strictEqual(mixed.failure.details.reason, "foreign-journal");
+
+      yield* first.close();
+      yield* second.close();
     }),
   );
 
   it.effect("linearizes concurrent evidence acceptance by sequence", () =>
     Effect.gen(function* () {
       const fixture = makeFixture();
-      const hub = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
+      const hub = makeEvidenceJournal({ app: EvidenceApp, plan: EvidencePlan });
       const delivered: number[] = [];
 
       const sink = yield* makeEvidenceSink({
@@ -1234,7 +1337,7 @@ describe("runtime evidence", () => {
       const second = reserve(hub);
 
       const secondFiber = yield* Effect.forkChild(
-        acceptEvidence(
+        acceptPrepared(
           hub,
           second,
           resultSuccess(makeTurnRecord(turnFact(fixture, second), second)),
@@ -1243,14 +1346,14 @@ describe("runtime evidence", () => {
 
       yield* Effect.yieldNow;
 
-      const firstAccepted = yield* acceptEvidence(
+      const firstAccepted = yield* acceptPrepared(
         hub,
         first,
         resultSuccess(makeTurnRecord(turnFact(fixture, first), first)),
       );
 
       const secondAccepted = yield* Fiber.join(secondFiber);
-      assert.deepStrictEqual([firstAccepted.sequence, secondAccepted.sequence], [1, 2]);
+      assert.deepStrictEqual([firstAccepted.sequence, secondAccepted.sequence], [2, 1]);
       const drained = yield* hub.drain();
       assert.strictEqual(drained.through, 2);
       assert.deepStrictEqual(delivered, [1, 2]);
@@ -1260,11 +1363,11 @@ describe("runtime evidence", () => {
   it.effect("applies the no-op turn evidence policy explicitly", () =>
     Effect.gen(function* () {
       const fixture = makeFixture();
-      const hub = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
+      const hub = makeEvidenceJournal({ app: EvidenceApp, plan: EvidencePlan });
       const reservation = reserve(hub);
       const fact = turnFact(fixture, reservation);
       const record = resultSuccess(makeTurnRecord({ ...fact, before: fact.after }, reservation));
-      const accepted = yield* acceptEvidence(hub, reservation, record);
+      const accepted = yield* acceptPrepared(hub, reservation, record);
       assert.deepStrictEqual(accepted.record.before, accepted.record.after);
       assert.strictEqual(accepted.sequence, 1);
     }),
@@ -1281,13 +1384,13 @@ describe("runtime evidence", () => {
       });
 
       const sink = yield* makeEvidenceSink({ id: "owner-drain" });
-      assert.ok(Result.isSuccess(owner.hub.attach(sink)));
-      const reservation = reserve(owner.hub);
+      assert.ok(Result.isSuccess(owner.journal.attach(sink)));
+      const reservation = reserve(owner.journal);
       const record = resultSuccess(makeTurnRecord(turnFact(fixture, reservation), reservation));
-      yield* acceptEvidence(owner.hub, reservation, record);
+      yield* acceptPrepared(owner.journal, reservation, record);
       const closed = yield* owner.close();
       assert.strictEqual(closed.through, 1);
-      assert.ok(Result.isFailure(owner.hub.reserve()));
+      assert.ok(Result.isFailure(owner.journal.prepare()));
     }),
   );
 
@@ -1319,7 +1422,7 @@ describe("runtime evidence", () => {
     });
 
     assert.ok(Result.isFailure(result));
-    assert.strictEqual(owner.hub.sequence(), 0);
+    assert.strictEqual(owner.journal.sequence(), 0);
   });
 
   it.effect("keeps later cleanup failure separate from prior accepted truth", () =>
@@ -1339,7 +1442,7 @@ describe("runtime evidence", () => {
         deliver: (record) => Effect.sync(() => delivered.push(record)),
       });
 
-      assert.ok(Result.isSuccess(owner.hub.attach(sink)));
+      assert.ok(Result.isSuccess(owner.journal.attach(sink)));
 
       const first = owner.acceptPublication(fixture.identity, fixture.fence, fixture.snapshot(0), {
         snapshot: fixture.snapshot(1),
@@ -1362,7 +1465,7 @@ describe("runtime evidence", () => {
 
       const cleanupCause = Cause.combine(Cause.fail("later cleanup"), Cause.die("later defect"));
 
-      const prepared = prepareLifecycleEvidence(owner.service, {
+      const prepared = makeLifecycleEvidence(owner.service, {
         ...lifecycleFact(fixture.fence, lifecycle),
         cause: { _tag: "cleanup-failure", exit: Exit.failCause(cleanupCause), cause: cleanupCause },
       });
@@ -1370,8 +1473,9 @@ describe("runtime evidence", () => {
       assert.ok(Result.isSuccess(prepared));
       yield* owner.service.publish(lifecycle);
 
-      if (Result.isSuccess(prepared)) yield* owner.service.accept(prepared.success);
-      yield* owner.hub.drain();
+      if (Result.isSuccess(prepared))
+        yield* owner.service.accept(prepared.success.record, prepared.success.preparation);
+      yield* owner.journal.drain();
 
       assert.strictEqual(delivered.length, 2);
       assert.strictEqual(delivered[0]?._tag, "turn");
@@ -1394,10 +1498,10 @@ describe("runtime evidence", () => {
   it.effect("keeps evidence acknowledgement private", () =>
     Effect.gen(function* () {
       const fixture = makeFixture();
-      const hub = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
+      const hub = makeEvidenceJournal({ app: EvidenceApp, plan: EvidencePlan });
       const reservation = reserve(hub);
 
-      const accepted = yield* acceptEvidence(
+      const accepted = yield* acceptPrepared(
         hub,
         reservation,
         resultSuccess(makeTurnRecord(turnFact(fixture, reservation), reservation)),
@@ -1410,7 +1514,7 @@ describe("runtime evidence", () => {
   it.effect("retains interrupted sink delivery during hub close", () =>
     Effect.gen(function* () {
       const fixture = makeFixture();
-      const hub = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
+      const hub = makeEvidenceJournal({ app: EvidenceApp, plan: EvidencePlan });
       const entered = yield* Deferred.make<Fiber.Fiber<unknown, unknown>>();
 
       const sink = yield* makeEvidenceSink({
@@ -1428,7 +1532,7 @@ describe("runtime evidence", () => {
 
       assert.ok(Result.isSuccess(hub.attach(sink)));
       const reservation = reserve(hub);
-      yield* acceptEvidence(
+      yield* acceptPrepared(
         hub,
         reservation,
         resultSuccess(makeTurnRecord(turnFact(fixture, reservation), reservation)),
@@ -1440,12 +1544,12 @@ describe("runtime evidence", () => {
       assert.ok(Exit.isSuccess(drainExit));
 
       if (Exit.isSuccess(drainExit)) {
-        assert.strictEqual(drainExit.value.sinks[0]?.status, "failed");
+        assert.strictEqual(drainExit.value.attachments[0]?.status, "failed");
         assert.strictEqual(drainExit.value.through, 1);
       }
 
-      const closed = yield* closeEvidence(hub);
-      assert.strictEqual(closed.sinks[0]?.status, "failed");
+      const closed = yield* closeJournal(hub);
+      assert.strictEqual(closed.attachments[0]?.status, "failed");
       assert.strictEqual(hub.sequence(), 1);
     }),
   );
@@ -1453,19 +1557,19 @@ describe("runtime evidence", () => {
   it.effect("cancels failed evidence reservations without blocking the prefix", () =>
     Effect.gen(function* () {
       const fixture = makeFixture();
-      const hub = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
+      const hub = makeEvidenceJournal({ app: EvidenceApp, plan: EvidencePlan });
       const failed = reserve(hub);
       const later = reserve(hub);
       assert.ok(Result.isSuccess(hub.cancel(failed)));
 
-      const accepted = yield* acceptEvidence(
+      const accepted = yield* acceptPrepared(
         hub,
         later,
         resultSuccess(makeTurnRecord(turnFact(fixture, later), later)),
       );
 
-      assert.strictEqual(accepted.sequence, 2);
-      assert.strictEqual(hub.sequence(), 2);
+      assert.strictEqual(accepted.sequence, 1);
+      assert.strictEqual(hub.sequence(), 1);
     }),
   );
 
@@ -1473,7 +1577,7 @@ describe("runtime evidence", () => {
     Effect.gen(function* () {
       const fixture = makeFixture();
       const tags: string[] = [];
-      const hub = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
+      const hub = makeEvidenceJournal({ app: EvidenceApp, plan: EvidencePlan });
 
       const sink = yield* makeEvidenceSink({
         id: "interleave",
@@ -1505,43 +1609,281 @@ describe("runtime evidence", () => {
       );
 
       const lifecycleFiber = yield* Effect.forkChild(
-        acceptEvidence(hub, lifecycleReservation, lifecycleRecord),
+        acceptPrepared(hub, lifecycleReservation, lifecycleRecord),
       );
 
       yield* Effect.yieldNow;
-      yield* acceptEvidence(hub, actorReservation, actorRecord);
+      yield* acceptPrepared(hub, actorReservation, actorRecord);
       yield* Fiber.join(lifecycleFiber);
       yield* hub.drain();
-      assert.deepStrictEqual(tags, ["turn", "lifecycle"]);
+      assert.deepStrictEqual(tags, ["lifecycle", "turn"]);
     }),
+  );
+
+  it.effect("LIFE-CREDIT retains terminal publication capacity during lifecycle cleanup", () =>
+    Effect.gen(function* () {
+      const fixture = makeFixture();
+      const journal = makeEvidenceJournal({ app: EvidenceApp, plan: EvidencePlan, capacity: 1 });
+
+      assert.ok(Result.isSuccess(journal.registerActor(fixture.identity.key, fixture.fence)));
+      const ordinary = reserve(journal);
+      const lifecyclePreparation = journal.prepareLifecycle(fixture.identity.key);
+
+      assert.ok(Result.isSuccess(lifecyclePreparation));
+      assert.ok(Result.isFailure(journal.prepare()));
+
+      if (Result.isSuccess(lifecyclePreparation)) {
+        const actorCell = makeLifecycleActorCell<string>();
+
+        const snapshot = resultSuccess(
+          prepareLifecycle<typeof EvidenceDefinition, string>(
+            fixture.fence,
+            { _tag: "restore" },
+            actorCell,
+          ),
+        );
+
+        const record = resultSuccess(
+          makeLifecycleRecord(lifecycleFact(fixture.fence, snapshot), lifecyclePreparation.success),
+        );
+
+        const accepted = yield* journal.accept(lifecyclePreparation.success, record);
+
+        assert.strictEqual(accepted.sequence, 1);
+        assert.ok(Result.isSuccess(journal.settleOutcome(lifecyclePreparation.success, true)));
+      }
+
+      assert.ok(Result.isSuccess(journal.cancel(ordinary)));
+      const nextOrdinary = reserve(journal);
+      assert.ok(Result.isSuccess(journal.cancel(nextOrdinary)));
+      assert.ok(Result.isSuccess(journal.releaseActor(fixture.identity.key)));
+      yield* journal.close();
+    }),
+  );
+
+  it.effect("closes after an admitted lifecycle outcome settles its Deferred credit", () =>
+    Effect.gen(function* () {
+      const fixture = makeFixture();
+      const journal = makeEvidenceJournal({ app: EvidenceApp, plan: EvidencePlan });
+
+      const delivered: EvidenceRecord[] = [];
+
+      const sink = yield* makeEvidenceSink({
+        id: "admitted-close",
+        deliver: (record) => Effect.sync(() => delivered.push(record)),
+      });
+
+      assert.ok(Result.isSuccess(journal.attach(sink)));
+      const actorCredit = journal.registerActor(fixture.identity.key, fixture.fence);
+
+      assert.ok(Result.isSuccess(actorCredit));
+      const lifecyclePreparation = resultSuccess(journal.prepareLifecycle(fixture.identity.key));
+      const actorCell = makeLifecycleActorCell<string>();
+
+      const snapshot = resultSuccess(
+        prepareLifecycle<typeof EvidenceDefinition, string>(
+          fixture.fence,
+          { _tag: "restore" },
+          actorCell,
+        ),
+      );
+
+      const record = resultSuccess(
+        makeLifecycleRecord(lifecycleFact(fixture.fence, snapshot), lifecyclePreparation),
+      );
+
+      const acceptGate = yield* Deferred.make<void>();
+
+      const accepted = yield* Effect.forkChild(
+        Deferred.await(acceptGate).pipe(
+          Effect.flatMap(() => journal.accept(lifecyclePreparation, record)),
+        ),
+        { startImmediately: true },
+      );
+
+      const closing = yield* Effect.forkChild(Effect.exit(journal.close()), {
+        startImmediately: true,
+      });
+
+      yield* Effect.yieldNow;
+      const ordinaryAfterClose = journal.prepare();
+
+      assert.ok(Result.isFailure(ordinaryAfterClose));
+
+      if (Result.isFailure(ordinaryAfterClose))
+        assert.deepStrictEqual(ordinaryAfterClose.failure.path, ["evidence", "closed"]);
+
+      yield* Deferred.succeed(acceptGate, undefined);
+      const acceptance = yield* Fiber.join(accepted);
+      assert.strictEqual(acceptance.sequence, 1);
+      assert.ok(Result.isSuccess(journal.settleOutcome(lifecyclePreparation, true)));
+      assert.ok(Result.isSuccess(journal.releaseActor(fixture.identity.key)));
+
+      const closed = yield* Fiber.join(closing);
+      assert.ok(Exit.isSuccess(closed));
+      assert.strictEqual(closed.value.through, 1);
+      assert.strictEqual(delivered.length, 1);
+      assert.strictEqual(delivered[0]?._tag, "lifecycle");
+      const terminalRecord = delivered[0];
+      assert.ok(terminalRecord !== undefined);
+
+      if (terminalRecord._tag === "lifecycle")
+        assert.strictEqual(terminalRecord.evidenceSequence, 1);
+    }),
+  );
+
+  it.effect("binds Journal acceptance to the registered actor fence", () =>
+    Effect.gen(function* () {
+      const fixture = makeFixture();
+      const journal = makeEvidenceJournal({ app: EvidenceApp, plan: EvidencePlan });
+      assert.ok(Result.isSuccess(journal.registerActor(fixture.identity.key, fixture.fence)));
+
+      const preparation = resultSuccess(journal.prepareLifecycle(fixture.identity.key));
+      const forgedFence = { ...fixture.fence, generation: fixture.fence.generation + 1 };
+
+      const forgedRecord = resultSuccess(
+        makeTurnRecord({ ...turnFact(fixture, preparation), fence: forgedFence }, preparation),
+      );
+
+      const rejected = yield* Effect.exit(journal.accept(preparation, forgedRecord));
+      assert.ok(Exit.isFailure(rejected));
+      assert.strictEqual(journal.sequence(), 0);
+
+      if (Exit.isFailure(rejected)) {
+        const reason = rejected.cause.reasons.find(Cause.isFailReason);
+        assert.ok(reason !== undefined);
+        assert.deepStrictEqual(reason.error.path, ["evidence", "credit"]);
+      }
+
+      assert.ok(Result.isFailure(journal.prepareLifecycle(fixture.identity.key)));
+      assert.ok(Result.isSuccess(journal.cancel(preparation)));
+
+      const retry = resultSuccess(journal.prepareLifecycle(fixture.identity.key));
+
+      const accepted = yield* journal.accept(
+        retry,
+        resultSuccess(makeTurnRecord(turnFact(fixture, retry), retry)),
+      );
+
+      assert.strictEqual(accepted.sequence, 1);
+      assert.ok(Result.isSuccess(journal.settleOutcome(retry, false)));
+      assert.ok(Result.isSuccess(journal.releaseActor(fixture.identity.key)));
+      yield* journal.close();
+    }),
+  );
+
+  it.effect("cancels an interrupted Journal acceptance waiter", () =>
+    Effect.gen(function* () {
+      const fixture = makeFixture();
+      const journal = makeEvidenceJournal({ app: EvidenceApp, plan: EvidencePlan });
+      assert.ok(Result.isSuccess(journal.registerActor(fixture.identity.key, fixture.fence)));
+
+      const blockerPreparation = reserve(journal);
+
+      const blockerRecord = resultSuccess(
+        makeTurnRecord(turnFact(fixture, blockerPreparation), blockerPreparation),
+      );
+
+      const lifecyclePreparation = resultSuccess(journal.prepareLifecycle(fixture.identity.key));
+
+      const lifecycleRecord = resultSuccess(
+        makeTurnRecord(turnFact(fixture, lifecyclePreparation), lifecyclePreparation),
+      );
+
+      const blocker = yield* Effect.forkChild(journal.accept(blockerPreparation, blockerRecord), {
+        startImmediately: true,
+      });
+
+      const waiting = yield* Effect.forkChild(
+        journal.accept(lifecyclePreparation, lifecycleRecord),
+        { startImmediately: true },
+      );
+
+      const interrupted = yield* Effect.exit(Fiber.interrupt(waiting));
+      assert.ok(Exit.isSuccess(interrupted));
+      const waitingExit = yield* Fiber.await(waiting);
+      assert.ok(Exit.isFailure(waitingExit));
+
+      if (Exit.isFailure(waitingExit))
+        assert.strictEqual(Cause.hasInterruptsOnly(waitingExit.cause), true);
+
+      const blockerAcceptance = yield* Fiber.join(blocker);
+      assert.strictEqual(blockerAcceptance.sequence, 1);
+      assert.strictEqual(journal.sequence(), 1);
+
+      const retry = resultSuccess(journal.prepareLifecycle(fixture.identity.key));
+      assert.ok(Result.isSuccess(journal.cancel(retry)));
+      assert.ok(Result.isSuccess(journal.releaseActor(fixture.identity.key)));
+      const closed = yield* Effect.exit(journal.close());
+      assert.ok(Exit.isSuccess(closed));
+    }),
+  );
+
+  it.effect(
+    "CREDIT-FOLLOWER keeps an interrupted follower from stealing the owner outcome credit",
+    () =>
+      Effect.gen(function* () {
+        const fixture = makeFixture();
+        const journal = makeEvidenceJournal({ app: EvidenceApp, plan: EvidencePlan });
+        assert.ok(Result.isSuccess(journal.registerActor(fixture.identity.key, fixture.fence)));
+        const lifecyclePreparation = resultSuccess(journal.prepareLifecycle(fixture.identity.key));
+        const actorCell = makeLifecycleActorCell<string>();
+
+        const snapshot = resultSuccess(
+          prepareLifecycle<typeof EvidenceDefinition, string>(
+            fixture.fence,
+            { _tag: "restore" },
+            actorCell,
+          ),
+        );
+
+        const record = resultSuccess(
+          makeLifecycleRecord(lifecycleFact(fixture.fence, snapshot), lifecyclePreparation),
+        );
+
+        const followerGate = yield* Deferred.make<void>();
+
+        const follower = yield* Effect.forkChild(Deferred.await(followerGate), {
+          startImmediately: true,
+        });
+
+        yield* Effect.exit(Fiber.interrupt(follower));
+        assert.ok(Result.isFailure(journal.prepareLifecycle(fixture.identity.key)));
+
+        const accepted = yield* journal.accept(lifecyclePreparation, record);
+        assert.strictEqual(accepted.sequence, 1);
+        assert.ok(Result.isSuccess(journal.settleOutcome(lifecyclePreparation, true)));
+        assert.ok(Result.isSuccess(journal.releaseActor(fixture.identity.key)));
+        yield* journal.close();
+      }),
   );
 
   it.effect("drains the accepted prefix after a cancelled reservation", () =>
     Effect.gen(function* () {
       const fixture = makeFixture();
-      const hub = makeEvidenceHub({ app: EvidenceApp, plan: EvidencePlan });
+      const hub = makeEvidenceJournal({ app: EvidenceApp, plan: EvidencePlan });
       const first = reserve(hub);
       const second = reserve(hub);
       assert.ok(Result.isSuccess(hub.cancel(first)));
-      yield* acceptEvidence(
+      yield* acceptPrepared(
         hub,
         second,
         resultSuccess(makeTurnRecord(turnFact(fixture, second), second)),
       );
-      const drained = yield* drainAcceptedEvidence(hub);
-      assert.strictEqual(drained.through, 2);
-      assert.strictEqual(hub.sequence(), 2);
+      const drained = yield* drainJournal(hub);
+      assert.strictEqual(drained.through, 1);
+      assert.strictEqual(hub.sequence(), 1);
     }),
   );
 });
 
 describe("pending regression scenarios", () => {
-  // SETUP: Use one real EvidenceHub and one sink with a first-record delivery Deferred; accept sequence 1, start drain, and wait until delivery 1 is blocked.
+  // SETUP: Use one real EvidenceJournal and one sink with a first-record delivery Deferred; accept sequence 1, start drain, and wait until delivery 1 is blocked.
   // ACTION: Accept sequence 2 while delivery 1 remains blocked, release delivery 1, await the first drain, then run a second drain.
   // ASSERT: Sequence 2 acceptance completes without waiting for sequence 1 delivery; the first drain reports through=1 and delivers only record 1; record 2 remains queued and is delivered by the second drain. This is the F6 reproduction and must not use a timeout as synchronization.
   it.todo("drains a captured evidence prefix while a newer record is accepted");
 
-  // SETUP: Use one real EvidenceHub and capacity-1 sink; capture each acceptance offer result and delivered record sequence while accepting global sequences 1, 2, and 3 without draining.
+  // SETUP: Use one real EvidenceJournal and capacity-1 sink; capture each acceptance offer result and delivered record sequence while accepting global sequences 1, 2, and 3 without draining.
   // ACTION: Drain the hub, accept one later record, then drain again using the existing drain result and delivered records; do not invoke Phase-4 snapshot or clear APIs.
   // ASSERT: Offers are accepted,dropped,dropped and the first delivered sequence is 1; drain.truncatedBefore equals 3, the greatest omitted sequence. The later record is delivered in order and the marker never moves backward or resets the global sequence. Replace the weaker existing expectation of 2 when this case is implemented.
   it.todo("isolates bounded sink overflow and reports the greatest omitted sequence");
@@ -1551,7 +1893,7 @@ describe("pending regression scenarios", () => {
   // ASSERT: The failing sink reports failed and detaches its own queue; the healthy sink receives the accepted record and reports drained; the hub sequence and committed evidence remain unchanged.
   it.todo("delivers to healthy sinks after another sink fails");
 
-  // SETUP: Construct real sinks with omitted capacity, capacity 0 and explicit capacity 3; use the real EvidenceHub and accepted records to observe offers and retained delivery.
+  // SETUP: Construct real sinks with omitted capacity, capacity 0 and explicit capacity 3; use the real EvidenceJournal and accepted records to observe offers and retained delivery.
   // ACTION: Assert the default bound, attach the explicit sinks, accept four records without draining, capture every offer result, then drain both attachments.
   // ASSERT: Omitted capacity is exactly 256. Capacity 0 retains no records and drops every offer with the greatest omitted marker; capacity 3 accepts records 1/2/3 and drops 4, delivers exactly three records, and preserves global hub acceptance.
   it.todo("accepts zero sink capacity while preserving an exact positive bound");
@@ -1565,9 +1907,4 @@ describe("pending regression scenarios", () => {
   // ACTION: Accept the record, mutate the caller source containers and opaque application object, then drain the real sink and inspect the delayed delivered record.
   // ASSERT: Owned containers were copied before delivery; their aliases share one retained clone and supported cycles stay inside it. Opaque leaves, including the plain object, preserve Object.is identity. Caller container mutation cannot change the accepted cut or its provenance.
   it.todo("preserves record aliases, cycles, and opaque identity across acceptance");
-
-  // Setup: Use the real private Journal and two actor publication owners; prepare A first and B second from owned data, holding A before its synchronous commit gate.
-  // Action: Let B enter the gate and commit first, then release A; drain the real sink after both acknowledgements.
-  // Assert: Sequences follow actual B-then-A committed cuts, no number is allocated by preparation alone, and neither actor waits for an uncommitted numbered predecessor. Each accepted record contains its own final store/snapshot provenance exactly once.
-  it.todo("assigns evidence sequences in commit order despite reversed preparation order");
 });

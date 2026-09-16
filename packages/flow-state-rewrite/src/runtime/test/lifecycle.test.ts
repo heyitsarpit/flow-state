@@ -47,7 +47,8 @@ import {
 } from "../lifecycle.js";
 import { prepareActorEngine, prepareActorSnapshot, type ActorSnapshot } from "../actor-engine.js";
 import type { OperationOccurrenceFence } from "../turn-plan.js";
-import { makeEvidenceSink, makeRuntimeEvidenceOwner } from "../evidence.js";
+import { makeRuntimeEvidenceOwner } from "../evidence.js";
+import { makeEvidenceSink } from "../evidence-sink.js";
 import {
   makeRuntimeServicesLayer,
   type RuntimeEvidenceService,
@@ -214,14 +215,14 @@ const makeActorCell = <
   CleanupError = string,
   ProviderDefinition extends MachineDefinition = DefinitionValue,
 >(
-  fibers?: FiberMap.FiberMap<string, void, unknown>,
+  fibers?: FiberMap.FiberMap<string, void>,
 ): ActorCell<LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>> => ({
   activityFibers: fibers,
   protocol: undefined,
 });
 
 const makePrepared = (
-  fibers?: FiberMap.FiberMap<string, void, unknown>,
+  fibers?: FiberMap.FiberMap<string, void>,
   actorCell: LifecycleActorCell = makeActorCell(fibers),
 ) => {
   const { fence } = makeFence(LifecycleMachine, "actor");
@@ -231,7 +232,7 @@ const makePrepared = (
   );
 };
 
-const makePreparedFixture = (fibers?: FiberMap.FiberMap<string, void, unknown>) => {
+const makePreparedFixture = (fibers?: FiberMap.FiberMap<string, void>) => {
   const actorCell = makeActorCell(fibers);
 
   return { snapshot: makePrepared(fibers, actorCell), actorCell };
@@ -351,6 +352,7 @@ describe("actor lifecycle", () => {
       const dependencies = [edge];
       const providerRevisions = new Map([[provider.fence.key, 7]]);
       const providerFences = new Map([[provider.fence.key, provider.fence]]);
+
       const consumerCell = makeActorCell<
         typeof ConsumerDefinition,
         string,
@@ -401,7 +403,8 @@ describe("actor lifecycle", () => {
         0,
       );
 
-      const providerCell = makeActorCell<typeof ProviderDefinition, string>();
+      const providerCell = makeActorCell<typeof ProviderDefinition>();
+
       const providerPrepared = resultSuccess(
         prepareLifecycle<typeof ProviderDefinition, string>(
           provider.fence,
@@ -424,9 +427,11 @@ describe("actor lifecycle", () => {
       );
 
       const providerActive = yield* withRuntime(activateLifecycle(providerInstalled, providerCell));
+
       const disposed = yield* Effect.exit(
         withRuntime(disposeLifecycle(providerActive, providerCell)),
       );
+
       assert.ok(Exit.isFailure(disposed));
       assert.strictEqual(providerActive.lifecycle, "active");
 
@@ -440,7 +445,8 @@ describe("actor lifecycle", () => {
         }
       }
 
-      const controllerCell = makeActorCell<typeof ProviderDefinition, string>();
+      const controllerCell = makeActorCell<typeof ProviderDefinition>();
+
       const controllerPrepared = resultSuccess(
         prepareLifecycle<typeof ProviderDefinition, string>(
           provider.fence,
@@ -677,6 +683,7 @@ describe("actor lifecycle", () => {
       const resumed = yield* Effect.exit(
         withRuntime(resumeLifecycle(suspended, fixture.actorCell)),
       );
+
       assert.ok(Exit.isFailure(resumed));
       assert.strictEqual(reacquiredCloses, 1);
       assert.strictEqual(suspended.lifecycle, "suspended");
@@ -688,7 +695,7 @@ describe("actor lifecycle", () => {
   it.effect("retains absolute timer deadlines and schedules each armed timer once on resume", () =>
     Effect.gen(function* () {
       const scheduled: Array<number> = [];
-      const activityFibers = yield* FiberMap.make<string, void, unknown>();
+      const activityFibers = yield* FiberMap.make<string, void>();
       const fixture = makePreparedFixture(activityFibers);
 
       const layer = makeRuntimeServicesLayer({
@@ -726,7 +733,7 @@ describe("actor lifecycle", () => {
     Effect.gen(function* () {
       const scheduled: Array<number> = [];
       const refreshes: Array<string> = [];
-      const activityFibers = yield* FiberMap.make<string, void, unknown>();
+      const activityFibers = yield* FiberMap.make<string, void>();
       const fixture = makePreparedFixture(activityFibers);
 
       const layer = makeRuntimeServicesLayer({
@@ -787,6 +794,7 @@ describe("actor lifecycle", () => {
     Effect.gen(function* () {
       const consumer = makeFence(ConsumerMachine, "consumer");
       const provider = makeFence(ProviderMachine, "provider");
+
       const actorCell = makeActorCell<
         typeof ConsumerDefinition,
         string,
@@ -832,6 +840,7 @@ describe("actor lifecycle", () => {
     Effect.gen(function* () {
       const consumer = makeFence(ConsumerMachine, "consumer-missing");
       const provider = makeFence(ProviderMachine, "provider-missing");
+
       const actorCell = makeActorCell<
         typeof ConsumerDefinition,
         string,
@@ -881,11 +890,13 @@ describe("actor lifecycle", () => {
     Effect.gen(function* () {
       const consumer = makeFence(ConsumerMachine, "consumer-foreign");
       const provider = makeFence(ProviderMachine, "provider-foreign");
+
       const actorCell = makeActorCell<
         typeof ConsumerDefinition,
         string,
         typeof ProviderDefinition
       >();
+
       const foreignRegistry = makeActorIdentityRegistry();
       const foreign = resultSuccess(foreignRegistry.reserveStable(provider.ref));
 
@@ -943,11 +954,13 @@ describe("actor lifecycle", () => {
     Effect.gen(function* () {
       const consumer = makeFence(ConsumerMachine, "consumer-tombstoned");
       const provider = makeFence(ProviderMachine, "provider-tombstoned");
+
       const actorCell = makeActorCell<
         typeof ConsumerDefinition,
         string,
         typeof ProviderDefinition
       >();
+
       const tombstonedRegistry = makeActorIdentityRegistry();
       const tombstoned = resultSuccess(tombstonedRegistry.reserveStable(provider.ref));
       resultSuccess(tombstonedRegistry.register(tombstoned, {}));
@@ -1002,7 +1015,7 @@ describe("actor lifecycle", () => {
   it.effect("blocks disposal while a dependent edge remains", () =>
     Effect.gen(function* () {
       const owner = makeFence(ConsumerMachine, "owner");
-      const actorCell = makeActorCell<typeof ConsumerDefinition, string>();
+      const actorCell = makeActorCell<typeof ConsumerDefinition>();
 
       const prepared = resultSuccess(
         prepareLifecycle<typeof ConsumerDefinition, string>(
@@ -1051,11 +1064,13 @@ describe("actor lifecycle", () => {
     Effect.gen(function* () {
       const consumer = makeFence(ConsumerMachine, "consumer-mutation");
       const provider = makeFence(ProviderMachine, "provider-mutation");
+
       const actorCell = makeActorCell<
         typeof ConsumerDefinition,
         string,
         typeof ProviderDefinition
       >();
+
       const mutableProviderFence = { ...provider.fence };
 
       const binding = {
@@ -1224,6 +1239,7 @@ describe("actor lifecycle", () => {
   it.effect("adapts lifecycle runtime participants to the shared disposal owner", () =>
     Effect.gen(function* () {
       const order: Array<string> = [];
+
       const owner = makeRuntimeOwner<
         never,
         never,
@@ -1236,6 +1252,7 @@ describe("actor lifecycle", () => {
         layer: Layer.empty,
         expose: Effect.succeed(undefined),
       });
+
       owner.registerActor({ dispose: () => Effect.sync(() => order.push("actor")) });
       owner.registerProvider(Effect.sync(() => order.push("provider")));
       yield* owner.ready();
@@ -1280,7 +1297,7 @@ describe("actor lifecycle", () => {
         clock: fixedClock,
         evidence: {
           ...evidence,
-          accept: (record) =>
+          accept: (record, _preparation) =>
             Effect.sync(() => {
               acceptedLifecycles.push(record.after.lifecycle);
 
@@ -1335,6 +1352,7 @@ describe("actor lifecycle", () => {
       let closeAttempts = 0;
       let evidenceAttempts = 0;
       const cleanupFailure = "combined-cleanup-failure" as const;
+
       const evidenceFailure = Failure({
         code: "CleanupFailed",
         path: ["lifecycle", "evidence"],
@@ -1365,6 +1383,7 @@ describe("actor lifecycle", () => {
         },
         fixture.actorCell,
       );
+
       const layer = makeRuntimeServicesLayer({
         clock: fixedClock,
         evidence: {
@@ -1382,6 +1401,7 @@ describe("actor lifecycle", () => {
         _tag: "actor:dispose" as const,
         cause: { _tag: "owner-disposal" as const },
       };
+
       const first = yield* Effect.exit(withRuntime(controller.command(dispose), layer));
 
       assert.ok(Exit.isFailure(first));
@@ -1406,6 +1426,7 @@ describe("actor lifecycle", () => {
     Effect.gen(function* () {
       const fixture = makePreparedFixture();
       const active = yield* withRuntime(activateLifecycle(fixture.snapshot, fixture.actorCell));
+
       const evidenceFailure = Failure({
         code: "CleanupFailed",
         path: ["lifecycle", "evidence"],
@@ -1413,15 +1434,18 @@ describe("actor lifecycle", () => {
         summary: "The lifecycle evidence was rejected.",
         help: "Inspect the retained cleanup Cause.",
       });
+
       const firstFailure = "first-resource-failure" as const;
       const secondDefect = new Error("second-resource-defect");
       let firstAttempts = 0;
       let secondAttempts = 0;
       let evidenceAttempts = 0;
       let acceptedCleanupCause: Cause.Cause<unknown> | undefined;
+
       const firstCause: Cause.Cause<string> = Cause.fromReasons([
         Cause.makeFailReason(firstFailure),
       ]);
+
       const secondCause: Cause.Cause<string> = Cause.fromReasons([
         Cause.makeDieReason(secondDefect),
         Cause.makeInterruptReason(17),
@@ -1460,6 +1484,7 @@ describe("actor lifecycle", () => {
         },
         fixture.actorCell,
       );
+
       const layer = makeRuntimeServicesLayer({
         clock: fixedClock,
         evidence: {
@@ -1480,6 +1505,7 @@ describe("actor lifecycle", () => {
         _tag: "actor:dispose" as const,
         cause: { _tag: "owner-disposal" as const },
       };
+
       const first = yield* Effect.exit(withRuntime(controller.command(dispose), layer));
 
       assert.ok(Exit.isFailure(first));
@@ -1499,8 +1525,10 @@ describe("actor lifecycle", () => {
 
         if (defect === undefined || !Cause.isDieReason(defect))
           return yield* Effect.die(new Error("missing reverse defect Cause lane"));
+
         if (interrupt === undefined || !Cause.isInterruptReason(interrupt))
           return yield* Effect.die(new Error("missing reverse interrupt Cause lane"));
+
         if (failure === undefined || !Cause.isFailReason(failure))
           return yield* Effect.die(new Error("missing reverse typed Cause lane"));
 
@@ -1715,6 +1743,7 @@ describe("actor lifecycle", () => {
       const published: Array<unknown> = [];
       const actor = makeFence(LifecycleMachine, "evidence-controller");
       const actorCell = makeActorCell();
+      let acceptedSequence = 0;
 
       const layer = makeRuntimeServicesLayer({
         clock: makeTestClock(100),
@@ -1731,7 +1760,7 @@ describe("actor lifecycle", () => {
                 to: record.to,
                 timestamp: record.timestamp,
                 publicationRevision: record.publicationRevision,
-                evidenceSequence: record.evidenceSequence,
+                evidenceSequence: ++acceptedSequence,
                 actorKey: record.provenance.actor.key,
                 actorIncarnation: record.provenance.actor.incarnation,
                 actorLeaseEpoch: record.provenance.actor.leaseEpoch,
@@ -1845,6 +1874,8 @@ describe("actor lifecycle", () => {
         clock: makeTestClock(100),
       });
 
+      assert.ok(Result.isSuccess(owner.journal.registerActor(actor.fence.key, actor.fence)));
+
       let failure: "publication" | "acceptance" | undefined = "publication";
 
       const service: RuntimeEvidenceService = {
@@ -1857,11 +1888,11 @@ describe("actor lifecycle", () => {
                   path: ["evidence", "publication"],
                   details: {},
                   summary: "publication failed",
-                  help: "retry the publication",
+                  help: "Resolve the publication owner before disposing the actor.",
                 }),
               )
             : owner.service.publish(snapshot),
-        accept: (record) =>
+        accept: (record, preparation) =>
           failure === "acceptance"
             ? Effect.fail(
                 Failure({
@@ -1869,10 +1900,10 @@ describe("actor lifecycle", () => {
                   path: ["evidence", "acceptance"],
                   details: {},
                   summary: "acceptance failed",
-                  help: "retry the acceptance",
+                  help: "Resolve the acceptance owner before disposing the actor.",
                 }),
               )
-            : owner.service.accept(record),
+            : owner.service.accept(record, preparation),
       };
 
       const layer = makeRuntimeServicesLayer({
@@ -1896,6 +1927,7 @@ describe("actor lifecycle", () => {
       };
 
       const firstPrepared = prepared();
+
       const first = yield* Effect.exit(
         withRuntime(
           runLifecycleCommand(
@@ -1909,9 +1941,16 @@ describe("actor lifecycle", () => {
 
       assert.ok(Exit.isFailure(first));
 
+      const retryAfterPublicationFailure = owner.journal.prepareLifecycle(actor.fence.key);
+      assert.ok(Result.isSuccess(retryAfterPublicationFailure));
+
+      if (Result.isSuccess(retryAfterPublicationFailure))
+        assert.ok(Result.isSuccess(owner.journal.cancel(retryAfterPublicationFailure.success)));
+
       failure = "acceptance";
 
       const secondPrepared = prepared();
+
       const second = yield* Effect.exit(
         withRuntime(
           runLifecycleCommand(
@@ -1925,9 +1964,16 @@ describe("actor lifecycle", () => {
 
       assert.ok(Exit.isFailure(second));
 
+      const retryAfterAcceptanceFailure = owner.journal.prepareLifecycle(actor.fence.key);
+      assert.ok(Result.isSuccess(retryAfterAcceptanceFailure));
+
+      if (Result.isSuccess(retryAfterAcceptanceFailure))
+        assert.ok(Result.isSuccess(owner.journal.cancel(retryAfterAcceptanceFailure.success)));
+
       failure = undefined;
 
       const activePrepared = prepared();
+
       const active = yield* withRuntime(
         runLifecycleCommand(
           activePrepared.snapshot,
@@ -1938,9 +1984,12 @@ describe("actor lifecycle", () => {
       );
 
       assert.strictEqual(active.lifecycle, "active");
-      assert.strictEqual(owner.hub.sequence(), 3);
-      const drained = yield* owner.hub.drain();
-      assert.strictEqual(drained.through, 3);
+      assert.strictEqual(owner.journal.sequence(), 1);
+      const drained = yield* owner.journal.drain();
+      assert.strictEqual(drained.through, 1);
+      assert.ok(Result.isSuccess(owner.journal.releaseActor(actor.fence.key)));
+      const closed = yield* Effect.exit(owner.journal.close());
+      assert.ok(Exit.isSuccess(closed));
     }),
   );
 
@@ -2454,6 +2503,7 @@ describe("actor lifecycle", () => {
     Effect.gen(function* () {
       const consumer = makeFence(ConsumerMachine, "retained-consumer");
       const provider = makeFence(ProviderMachine, "retained-provider");
+
       const actorCell = makeActorCell<
         typeof ConsumerDefinition,
         string,
@@ -2504,6 +2554,7 @@ describe("actor lifecycle", () => {
     Effect.gen(function* () {
       const consumer = makeFence(ConsumerMachine, "stale-resume-consumer");
       const provider = makeFence(ProviderMachine, "stale-resume-provider");
+
       const actorCell = makeActorCell<
         typeof ConsumerDefinition,
         string,
@@ -2549,7 +2600,7 @@ describe("actor lifecycle", () => {
 
   it.effect("retains absolute timer deadlines across suspension", () =>
     Effect.gen(function* () {
-      const activityFibers = yield* FiberMap.make<string, void, unknown>();
+      const activityFibers = yield* FiberMap.make<string, void>();
       const fixture = makePreparedFixture(activityFibers);
       const active = yield* withRuntime(activateLifecycle(fixture.snapshot, fixture.actorCell));
 
@@ -2584,7 +2635,8 @@ describe("actor lifecycle", () => {
         key: occurrenceOperation.key(1),
         ordinal: 1,
       };
-      const actorCell = makeActorCell<typeof OccurrenceDefinition, string>();
+
+      const actorCell = makeActorCell<typeof OccurrenceDefinition>();
 
       const prepared = resultSuccess(
         prepareLifecycle<typeof OccurrenceDefinition, string>(fence, { _tag: "fresh" }, actorCell),
@@ -2604,6 +2656,7 @@ describe("actor lifecycle", () => {
       );
 
       const activeBase = yield* withRuntime(activateLifecycle(installed, actorCell));
+
       const active = {
         ...activeBase,
         attachment: {
@@ -2809,6 +2862,7 @@ describe("actor lifecycle", () => {
       });
 
       const fixture = makePreparedFixture();
+
       const active = yield* withRuntime(
         runLifecycleCommand(
           fixture.snapshot,
@@ -2928,9 +2982,10 @@ describe("pending regression scenarios", () => {
   // Assert: The retained dueAt is unchanged, an overdue timer schedules at most one refresh, and all timestamps and sleeps come from the supplied clock rather than wall time.
   it.effect("uses the provided Clock for retained timer deadlines across suspension", () =>
     Effect.gen(function* () {
-      const activityFibers = yield* FiberMap.make<string, void, unknown>();
+      const activityFibers = yield* FiberMap.make<string, void>();
       const actor = makeFence(LifecycleMachine, "clock-deadline");
-      const actorCell = makeActorCell<typeof LifecycleDefinition, string>(activityFibers);
+      const actorCell = makeActorCell(activityFibers);
+
       const prepared = resultSuccess(
         prepareLifecycle<typeof LifecycleDefinition, string>(
           actor.fence,
@@ -2938,6 +2993,7 @@ describe("pending regression scenarios", () => {
           actorCell,
         ),
       );
+
       const clock = yield* Clock.Clock;
 
       const testLayer = makeRuntimeServicesLayer({
@@ -2980,14 +3036,17 @@ describe("pending regression scenarios", () => {
       assert.strictEqual(work.name, "timer:controlled-deadline");
 
       yield* TestClock.adjust(10);
+
       const suspendedBeforeDue = yield* withRuntime(
         suspendLifecycle(resumed, actorCell),
         testLayer,
       );
+
       const resumedAgain = yield* withRuntime(
         resumeLifecycle(suspendedBeforeDue, actorCell),
         testLayer,
       );
+
       const rearmed = resumedAgain.attachment.work[0];
       assert.ok(rearmed !== undefined);
       assert.strictEqual(refreshes, 0);
@@ -3008,10 +3067,12 @@ describe("pending regression scenarios", () => {
         suspendLifecycle(resumedAgain, actorCell),
         testLayer,
       );
+
       const resumedAfterDue = yield* withRuntime(
         resumeLifecycle(suspendedAfterDue, actorCell),
         testLayer,
       );
+
       assert.deepStrictEqual(resumedAfterDue.attachment.work, []);
       assert.strictEqual(refreshes, 1);
 
@@ -3025,7 +3086,7 @@ describe("pending regression scenarios", () => {
   it.effect("does not replay an interrupted overdue retained timer claim", () =>
     Effect.gen(function* () {
       const clock = yield* Clock.Clock;
-      const activityFibers = yield* FiberMap.make<string, void, unknown>();
+      const activityFibers = yield* FiberMap.make<string, void>();
       const entered = yield* Deferred.make<void>();
       const release = yield* Deferred.make<void>();
       let refreshes = 0;
@@ -3036,6 +3097,7 @@ describe("pending regression scenarios", () => {
       });
 
       const fixture = makePreparedFixture(activityFibers);
+
       const active = yield* withRuntime(
         activateLifecycle(fixture.snapshot, fixture.actorCell),
         testLayer,
@@ -3170,7 +3232,7 @@ describe("pending regression scenarios", () => {
         deliver: () => Effect.void,
       });
 
-      assert.ok(Result.isSuccess(evidenceOwner.hub.attach(sink)));
+      assert.ok(Result.isSuccess(evidenceOwner.journal.attach(sink)));
 
       const fixture = makePreparedFixture();
       const active = yield* withRuntime(activateLifecycle(fixture.snapshot, fixture.actorCell));
@@ -3238,6 +3300,7 @@ describe("pending regression scenarios", () => {
     Effect.gen(function* () {
       const defect = new Error("terminal-owner-defect");
       let finalizers = 0;
+
       const owner = makeRuntimeOwner({
         layer: Layer.empty,
         expose: Effect.void,

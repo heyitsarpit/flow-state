@@ -25,7 +25,7 @@ import { resource } from "../../operation/resource.js";
 import { actorRef } from "../actor-ref.js";
 import type { ActorContextBinding } from "../actor-admission.js";
 import { makeActorIdentityRegistry } from "../actor-admission.js";
-import { makeEvidenceSink } from "../evidence.js";
+import { makeEvidenceSink } from "../evidence-sink.js";
 import { ACTOR_MAILBOX_CAPACITY, prepareActorSnapshot } from "../actor-engine.js";
 import type { ActorSnapshot, ActorStore, PreparedActorSnapshot } from "../actor-engine.js";
 import type { EvidenceRecord } from "../evidence.js";
@@ -343,7 +343,7 @@ describe("runtime assembly integration", () => {
         deliver: (record) => Effect.sync(() => records.push(record)),
       });
 
-      assert.ok(Result.isSuccess(assembly.evidence.hub.attach(sink)));
+      assert.ok(Result.isSuccess(assembly.evidence.journal.attach(sink)));
 
       let snapshots = 0;
       let commands = 0;
@@ -378,7 +378,7 @@ describe("runtime assembly integration", () => {
       assert.strictEqual(snapshots, 0);
       assert.strictEqual(commands, 0);
 
-      yield* assembly.evidence.hub.drain();
+      yield* assembly.evidence.journal.drain();
 
       const lifecycleRecords = records.filter(
         // RETURN_TYPE: The provenance conjunction leaves the lifecycle fields inaccessible without an explicit evidence-union predicate.
@@ -532,7 +532,7 @@ describe("runtime assembly integration", () => {
           Effect.sync(() => records.push({ tag: record._tag, sequence: sequenceOf(record) })),
       });
 
-      assert.ok(Result.isSuccess(assembly.evidence.hub.attach(sink)));
+      assert.ok(Result.isSuccess(assembly.evidence.journal.attach(sink)));
 
       const committed: number[] = [];
 
@@ -594,7 +594,7 @@ describe("runtime assembly integration", () => {
             const evidence = yield* Effect.service(RuntimeEvidence);
             const clock = yield* Effect.service(Clock.Clock);
             serviceObservations.push({
-              evidenceHub: evidence.hub,
+              evidenceHub: evidence.journal,
               clock,
             });
             yield* Deferred.succeed(commandSeen, undefined);
@@ -639,7 +639,7 @@ describe("runtime assembly integration", () => {
       assert.strictEqual(actor.engine.snapshot().observedStoreRevision, 1);
       assert.deepStrictEqual(receipt, { publicationRevision: 2, evidenceSequence: 5 });
       assert.strictEqual(serviceObservations.length, 1);
-      assert.strictEqual(serviceObservations[0]?.evidenceHub, assembly.evidence.hub);
+      assert.strictEqual(serviceObservations[0]?.evidenceHub, assembly.evidence.journal);
       assert.strictEqual(serviceObservations[0]?.clock, Context.get(assembly.context, Clock.Clock));
 
       const suspended = yield* Effect.provideContext(
@@ -750,7 +750,7 @@ describe("runtime assembly integration", () => {
         deliver: (record) => Effect.sync(() => records.push(record)),
       });
 
-      assert.ok(Result.isSuccess(assembly.evidence.hub.attach(sink)));
+      assert.ok(Result.isSuccess(assembly.evidence.journal.attach(sink)));
 
       const storeFailure = Failure({
         code: "InvariantViolation" as const,
@@ -795,7 +795,7 @@ describe("runtime assembly integration", () => {
       }
 
       yield* actor.engine.drain();
-      yield* assembly.evidence.hub.drain();
+      yield* assembly.evidence.journal.drain();
 
       const turnRecords = records.filter((record) => record._tag === "turn");
 
@@ -815,12 +815,12 @@ describe("runtime assembly integration", () => {
       assert.strictEqual(retryDispatch.admitted, true);
       const retryReceipt = yield* Deferred.await(retryDispatch.completion);
       yield* actor.engine.drain();
-      yield* assembly.evidence.hub.drain();
+      yield* assembly.evidence.journal.drain();
 
       const allTurnRecords = records.filter((record) => record._tag === "turn");
 
       assert.strictEqual(commits, 2);
-      assert.deepStrictEqual(retryReceipt, { publicationRevision: 2, evidenceSequence: 4 });
+      assert.deepStrictEqual(retryReceipt, { publicationRevision: 2, evidenceSequence: 3 });
       assert.strictEqual(allTurnRecords.length, 2);
       const retriedRecord = allTurnRecords[1];
       assert.ok(retriedRecord !== undefined);
@@ -851,7 +851,7 @@ describe("runtime assembly integration", () => {
           deliver: (record) => Effect.sync(() => records.push(record)),
         });
 
-        assert.ok(Result.isSuccess(assembly.evidence.hub.attach(sink)));
+        assert.ok(Result.isSuccess(assembly.evidence.journal.attach(sink)));
 
         const callbackSnapshots: ActorSnapshot<typeof IntegrationStandaloneDefinition>[] = [];
 
@@ -882,7 +882,7 @@ describe("runtime assembly integration", () => {
           ["active"],
         );
 
-        yield* assembly.evidence.hub.drain();
+        yield* assembly.evidence.journal.drain();
 
         const turnRecords = records.filter((record) => record._tag === "turn");
 
@@ -1175,7 +1175,7 @@ describe("runtime assembly integration", () => {
         deliver: (record) => Effect.sync(() => evidenceRecords.push(record)),
       });
 
-      assert.ok(Result.isSuccess(assembly.evidence.hub.attach(sink)));
+      assert.ok(Result.isSuccess(assembly.evidence.journal.attach(sink)));
 
       const providerRef = actorRef(IntegrationProviderMachine, "selector-provider");
 
@@ -1256,7 +1256,7 @@ describe("runtime assembly integration", () => {
       assert.strictEqual(consumerSnapshots[0]?.issues.length, 1);
       assert.strictEqual(consumerSnapshots[0]?.issues[0], selectorDiagnostic);
 
-      yield* assembly.evidence.hub.drain();
+      yield* assembly.evidence.journal.drain();
 
       const selectorIssueRecords = evidenceRecords.filter(
         (record) => record._tag === "turn" && record.provenance.actor.key === actor.fence.key,
@@ -1302,7 +1302,7 @@ describe("runtime assembly integration", () => {
       );
       assert.strictEqual(consumerSnapshots[1]?.issues.length, 0);
 
-      yield* assembly.evidence.hub.drain();
+      yield* assembly.evidence.journal.drain();
 
       const consumerTurnRecords = evidenceRecords.filter(
         // RETURN_TYPE: The issue assertions need the turn envelope, which inference leaves unioned with lifecycle snapshots.
@@ -1354,7 +1354,7 @@ describe("runtime assembly integration", () => {
           Effect.sync(() => records.push({ tag: record._tag, sequence: sequenceOf(record) })),
       });
 
-      assert.ok(Result.isSuccess(assembly.evidence.hub.attach(sink)));
+      assert.ok(Result.isSuccess(assembly.evidence.journal.attach(sink)));
 
       const actor = yield* assembly.createActor({
         ref: actorRef(IntegrationStandaloneMachine, "lifecycle-actor"),
@@ -1541,9 +1541,11 @@ describe("runtime assembly integration", () => {
       assert.strictEqual((yield* provider.lifecycle.state()).attachment.dependencies.length, 0);
 
       runtimeEvidence.publish = originalPublish;
+
       const repeatedDispose = yield* Effect.exit(
         Effect.provideContext(consumer.dispose(), assembly.context),
       );
+
       assert.ok(Exit.isFailure(repeatedDispose));
       assert.deepStrictEqual(repeatedDispose, firstDispose);
 
@@ -1579,13 +1581,16 @@ describe("pending regression scenarios", () => {
       const runtime = runtimeSetup({ app: IntegrationApp }).construct();
       yield* runtime.ready();
       const assembly = runtimeOwner(runtime).assembly();
+
       const providerRef = actorRef(IntegrationProviderMachine, "guarded-provider", {
         persist: true,
       });
+
       const provider = yield* assembly.createActor({
         ref: providerRef,
         initial: initialProviderSnapshot(),
       });
+
       const makeBindings = () => {
         const providerStateBinding = {
           slot: "providerState",
@@ -1597,6 +1602,7 @@ describe("pending regression scenarios", () => {
           typeof IntegrationProviderDefinition,
           "providerState"
         >;
+
         const providerChangedBinding = {
           slot: "providerChanged",
           provider: providerRef,
@@ -1610,11 +1616,13 @@ describe("pending regression scenarios", () => {
 
         return [providerStateBinding, providerChangedBinding];
       };
+
       const active = yield* assembly.createActor({
         ref: actorRef(IntegrationConsumerMachine, "active-dependent", { persist: true }),
         initial: initialConsumerSnapshot(),
         bindings: makeBindings(),
       });
+
       const suspended = yield* assembly.createActor({
         ref: actorRef(IntegrationConsumerMachine, "suspended-dependent", { persist: true }),
         initial: initialConsumerSnapshot(),
@@ -1628,9 +1636,11 @@ describe("pending regression scenarios", () => {
         }),
         assembly.context,
       );
+
       assert.strictEqual(suspendedSnapshot.lifecycle, "suspended");
 
       const before = provider.engine.snapshot();
+
       const lifecycleRejected = yield* Effect.exit(
         Effect.provideContext(
           provider.lifecycle.command({
@@ -1640,7 +1650,9 @@ describe("pending regression scenarios", () => {
           assembly.context,
         ),
       );
+
       assert.ok(Exit.isFailure(lifecycleRejected));
+
       if (Exit.isFailure(lifecycleRejected)) {
         const reason = lifecycleRejected.cause.reasons.find(Cause.isFailReason);
         assert.ok(reason !== undefined);
@@ -1656,6 +1668,7 @@ describe("pending regression scenarios", () => {
       const leaseRejected = yield* Effect.exit(
         Effect.provideContext(provider.dispose(), assembly.context),
       );
+
       assert.ok(Exit.isFailure(leaseRejected));
 
       if (Exit.isFailure(leaseRejected)) {
@@ -1674,6 +1687,14 @@ describe("pending regression scenarios", () => {
       assert.strictEqual(provider.engine.snapshot().revision, before.revision);
       assert.strictEqual(provider.lifecycle.isRoutable(), true);
 
+      // The blocked lease attempt must retain the provider's Journal credit for the retry after
+      // dependent edges are released; this probe uses the assembled production Journal.
+      const retainedCreditProbe = assembly.evidence.journal.prepareLifecycle(provider.fence.key);
+      assert.ok(Result.isSuccess(retainedCreditProbe));
+
+      if (Result.isSuccess(retainedCreditProbe))
+        assert.ok(Result.isSuccess(assembly.evidence.journal.cancel(retainedCreditProbe.success)));
+
       const dispatch = provider.engine.dispatch(IntegrationProviderEvent);
       assert.strictEqual(dispatch.admitted, true);
       yield* Deferred.await(dispatch.completion);
@@ -1691,6 +1712,7 @@ describe("pending regression scenarios", () => {
         }),
         assembly.context,
       );
+
       assert.strictEqual(resumed.lifecycle, "active");
       yield* suspended.engine.drain();
       assert.strictEqual(
@@ -1713,7 +1735,7 @@ describe("pending regression scenarios", () => {
   // Setup: Create independent actors A and B in one assembled runtime and attach one evidence sink; leave B untouched while A processes one ordinary machine event.
   // Action: Drain A's turn evidence, suspend B, and drain the lifecycle evidence without resetting either actor or the runtime-global sequence allocator.
   // Assert: A's machine-turn revision advances only for A, B's suspend record retains B's prior machine-turn revision while its publication revision advances, and evidence sequences remain globally monotonic with actor-specific provenance.
-  it.effect("keeps lifecycle evidence machine-turn revision actor-local", () =>
+  it.effect("F3 keeps lifecycle evidence machine-turn revision actor-local", () =>
     Effect.gen(function* () {
       const runtime = runtimeSetup({ app: IntegrationApp }).construct();
       yield* runtime.ready();
@@ -1726,7 +1748,7 @@ describe("pending regression scenarios", () => {
         deliver: (record) => Effect.sync(() => records.push(record)),
       });
 
-      assert.ok(Result.isSuccess(assembly.evidence.hub.attach(sink)));
+      assert.ok(Result.isSuccess(assembly.evidence.journal.attach(sink)));
 
       const actorA = yield* assembly.createActor({
         ref: actorRef(IntegrationStandaloneMachine, "machine-revision-a"),
@@ -1750,7 +1772,7 @@ describe("pending regression scenarios", () => {
         }),
         assembly.context,
       );
-      yield* assembly.evidence.hub.drain();
+      yield* assembly.evidence.journal.drain();
 
       const actorATurn = records.find(
         (record): record is Extract<EvidenceRecord, { _tag: "turn" }> =>
@@ -1768,6 +1790,7 @@ describe("pending regression scenarios", () => {
       assert.ok(actorBSuspend !== undefined);
 
       assert.strictEqual(actorATurn.machineTurnRevision, 1);
+      assert.strictEqual(actorBSuspend.machineTurnRevision, 0);
       assert.ok(actorBSuspend.publicationRevision > 0);
 
       const sequences = records.map(sequenceOf);
@@ -1799,7 +1822,7 @@ describe("pending regression scenarios", () => {
         deliver: (record) => Effect.sync(() => records.push(record)),
       });
 
-      assert.ok(Result.isSuccess(assembly.evidence.hub.attach(sink)));
+      assert.ok(Result.isSuccess(assembly.evidence.journal.attach(sink)));
 
       const actor = yield* assembly.createActor({
         ref: actorRef(IntegrationStandaloneMachine, "provided-clock"),
@@ -1817,7 +1840,7 @@ describe("pending regression scenarios", () => {
         }),
         assembly.context,
       );
-      yield* assembly.evidence.hub.drain();
+      yield* assembly.evidence.journal.drain();
 
       const lifecycle = records.find(
         (record) => record._tag === "lifecycle" && record.provenance.actor.key === actor.fence.key,
@@ -2875,7 +2898,7 @@ describe("pending regression scenarios", () => {
         deliver: () => Effect.sync(() => order.push("sink-delivery")),
       });
 
-      assert.ok(Result.isSuccess(assembly.evidence.hub.attach(sink)));
+      assert.ok(Result.isSuccess(assembly.evidence.journal.attach(sink)));
 
       const makeActorWithDefect = (id: string, defect: Error, entered: Deferred.Deferred<void>) =>
         assembly.createActor({
@@ -2959,7 +2982,7 @@ describe("pending regression scenarios", () => {
         deliver: () => Effect.sync(() => order.push("sink-delivery")),
       });
 
-      assert.ok(Result.isSuccess(assembly.evidence.hub.attach(sink)));
+      assert.ok(Result.isSuccess(assembly.evidence.journal.attach(sink)));
 
       const actor = yield* assembly.createActor({
         ref: actorRef(IntegrationStandaloneMachine, "assembled-retryable-release"),
@@ -3029,7 +3052,7 @@ describe("pending regression scenarios", () => {
           }),
       });
 
-      assert.ok(Result.isSuccess(assembly.evidence.hub.attach(sink)));
+      assert.ok(Result.isSuccess(assembly.evidence.journal.attach(sink)));
 
       const actor = yield* assembly.createActor({
         ref: actorRef(IntegrationStandaloneMachine, "runtime-shutdown-race"),
@@ -3081,10 +3104,175 @@ describe("pending regression scenarios", () => {
     }),
   );
 
-  // Setup: Attach a real runtime evidence sink whose first delivery blocks, capture the accepted prefix, and start a hub drain at that prefix.
-  // Action: While delivery of the captured record is blocked, admit and accept a newer actor lifecycle or turn record, then release the first delivery.
-  // Assert: The drain completes at the captured prefix, the newer record remains queued for the next drain, accepted records retain order and detached payload copies, and sink retention never blocks actor publication.
-  it.todo("drains a captured evidence prefix while newer runtime records arrive");
+  // Setup: Assemble one actor with a gated Scope finalizer and attach its real Journal sink; start
+  // one owner disposal and one concurrent follower while the actor's terminal lifecycle credit is
+  // still retained.
+  // Action: Interrupt only the follower, start Journal close, then release the actor finalizer.
+  // Assert: The follower reports interruption without releasing the actor credit, Journal close
+  // waits for the owner outcome, and the assembled runtime closes after the same terminal result.
+  it.effect("CREDIT-FOLLOWER preserves assembled actor credit during interrupted disposal", () =>
+    Effect.gen(function* () {
+      const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+      const order: string[] = [];
+      const finalizerEntered = yield* Deferred.make<void>();
+      const finalizerRelease = yield* Deferred.make<void>();
+      const finalizerCompleted = yield* Deferred.make<void>();
+
+      const sink = yield* makeEvidenceSink({
+        id: "assembled-credit-follower",
+        capacity: 16,
+        deliver: () => Effect.sync(() => order.push("sink-delivery")),
+      });
+
+      assert.ok(Result.isSuccess(assembly.evidence.journal.attach(sink)));
+
+      const actor = yield* assembly.createActor({
+        ref: actorRef(IntegrationStandaloneMachine, "assembled-credit-follower"),
+        initial: initialStandaloneSnapshot(),
+        onCommand: () =>
+          Effect.gen(function* () {
+            const scope = yield* Effect.scope;
+            yield* Scope.addFinalizer(
+              scope,
+              Effect.gen(function* () {
+                order.push("actor-finalizer-entered");
+                yield* Deferred.succeed(finalizerEntered, undefined);
+                yield* Deferred.await(finalizerRelease);
+                order.push("actor-finalizer-completed");
+                yield* Deferred.succeed(finalizerCompleted, undefined);
+              }),
+            );
+          }),
+      });
+
+      const dispatch = actor.engine.dispatch(IntegrationStandaloneEvent);
+      assert.strictEqual(dispatch.admitted, true);
+      yield* Deferred.await(dispatch.completion);
+      yield* actor.engine.drain();
+
+      const leader = yield* Effect.forkChild(
+        Effect.exit(Effect.provideContext(actor.dispose(), assembly.context)),
+        { startImmediately: true },
+      );
+
+      yield* Deferred.await(finalizerEntered);
+
+      const follower = yield* Effect.forkChild(
+        Effect.exit(Effect.provideContext(actor.dispose(), assembly.context)),
+        { startImmediately: true },
+      );
+
+      yield* Effect.exit(Fiber.interrupt(follower));
+      const followerExit = yield* Fiber.await(follower);
+
+      assert.ok(Exit.isFailure(followerExit));
+
+      if (Exit.isFailure(followerExit))
+        assert.strictEqual(Cause.hasInterrupts(followerExit.cause), true);
+
+      const closing = yield* Effect.forkChild(Effect.exit(assembly.evidence.journal.close()), {
+        startImmediately: true,
+      });
+
+      yield* Effect.yieldNow;
+      assert.deepStrictEqual(order, ["actor-finalizer-entered"]);
+
+      yield* Deferred.succeed(finalizerRelease, undefined);
+      yield* Deferred.await(finalizerCompleted);
+      const leaderExit = yield* Fiber.join(leader);
+      const journalExit = yield* Fiber.join(closing);
+
+      assert.ok(Exit.isSuccess(leaderExit));
+      assert.ok(Exit.isSuccess(journalExit));
+      assert.deepStrictEqual(order.slice(0, 2), [
+        "actor-finalizer-entered",
+        "actor-finalizer-completed",
+      ]);
+      assert.ok(order.slice(2).length > 0);
+      assert.ok(order.slice(2).every((entry) => entry === "sink-delivery"));
+      yield* runtimeOwner(runtime).close();
+    }),
+  );
+
+  // Setup: Attach a real runtime evidence sink whose first delivery blocks, capture the accepted prefix, and start a Journal drain at that prefix.
+  // Action: While delivery of the captured record is blocked, commit a newer provider turn, then release the first delivery.
+  // Assert: The drain completes at the captured prefix, the newer record remains queued for the next drain, and sink delivery never blocks Journal acceptance.
+  it.effect("drains a captured evidence prefix while newer runtime records arrive", () =>
+    Effect.gen(function* () {
+      const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+      const delivered: number[] = [];
+      const firstDeliveryEntered = yield* Deferred.make<void>();
+      const firstDeliveryRelease = yield* Deferred.make<void>();
+      let blockNextDelivery = false;
+
+      const sink = yield* makeEvidenceSink({
+        id: "evidence-prefix-concurrent",
+        capacity: 16,
+        deliver: (record) =>
+          Effect.gen(function* () {
+            if (record._tag !== "turn") return;
+
+            delivered.push(record.sequence);
+
+            if (!blockNextDelivery) return;
+            blockNextDelivery = false;
+            yield* Deferred.succeed(firstDeliveryEntered, undefined);
+            yield* Deferred.await(firstDeliveryRelease);
+          }),
+      });
+
+      assert.ok(Result.isSuccess(assembly.evidence.journal.attach(sink)));
+
+      const actor = yield* assembly.createActor({
+        ref: actorRef(IntegrationProviderMachine, "evidence-prefix-concurrent"),
+        initial: initialProviderSnapshot(),
+      });
+
+      yield* assembly.evidence.journal.drain();
+      delivered.length = 0;
+      blockNextDelivery = true;
+
+      const firstDispatch = actor.engine.dispatch(IntegrationProviderEvent);
+      assert.strictEqual(firstDispatch.admitted, true);
+      yield* Deferred.await(firstDispatch.completion);
+      yield* actor.engine.drain();
+      const firstSequence = assembly.evidence.journal.sequence();
+
+      const firstDrain = yield* Effect.forkChild(Effect.exit(assembly.evidence.journal.drain()), {
+        startImmediately: true,
+      });
+
+      yield* Deferred.await(firstDeliveryEntered);
+
+      const secondDispatch = actor.engine.dispatch(IntegrationProviderEvent);
+      assert.strictEqual(secondDispatch.admitted, true);
+      yield* Deferred.await(secondDispatch.completion);
+      yield* actor.engine.drain();
+      const secondSequence = assembly.evidence.journal.sequence();
+      assert.deepStrictEqual(delivered.length, 1);
+
+      yield* Deferred.succeed(firstDeliveryRelease, undefined);
+      const firstDrainExit = yield* Fiber.join(firstDrain);
+      assert.ok(Exit.isSuccess(firstDrainExit));
+
+      if (Exit.isSuccess(firstDrainExit)) {
+        assert.strictEqual(firstDrainExit.value.through, firstSequence);
+        assert.strictEqual(firstDrainExit.value.attachments[0]?.status, "drained");
+      }
+
+      const secondDrain = yield* assembly.evidence.journal.drain();
+      assert.strictEqual(secondDrain.through, secondSequence);
+      assert.deepStrictEqual(delivered, [firstSequence, secondSequence]);
+      assert.strictEqual(secondDrain.attachments[0]?.status, "drained");
+
+      yield* Effect.provideContext(actor.dispose(), assembly.context);
+      yield* runtimeOwner(runtime).close();
+    }),
+  );
 
   // SETUP: Assemble a real runtime with one actor, an attached bounded evidence sink whose deliver callback is gated, and an onCommand callback that records when user work begins.
   // ACTION: Dispatch one event and await its private acknowledgement before starting the evidence hub drain; then drain the sink and release its callback.
@@ -3443,6 +3631,7 @@ describe("pending regression scenarios", () => {
       const baseClock = yield* Clock.Clock;
       let failClockRead = false;
       let finalizations = 0;
+
       const providedClock: Clock.Clock = {
         ...baseClock,
         currentTimeMillis: Effect.sync(() => {
@@ -3451,11 +3640,13 @@ describe("pending regression scenarios", () => {
           return baseClock.currentTimeMillisUnsafe();
         }),
       };
+
       const runtime = runtimeSetup({ app: IntegrationApp }).construct();
 
       yield* Effect.provide(runtime.ready(), Layer.succeed(Clock.Clock)(providedClock));
       const owner = runtimeOwner(runtime);
       const assembly = owner.assembly();
+
       const actor = yield* assembly.createActor({
         ref: actorRef(IntegrationStandaloneMachine, "lifecycle-preflight"),
         initial: initialStandaloneSnapshot(),
@@ -3476,7 +3667,7 @@ describe("pending regression scenarios", () => {
       yield* actor.engine.drain();
 
       const before = yield* actor.lifecycle.state();
-      const sequence = assembly.evidence.hub.sequence();
+      const sequence = assembly.evidence.journal.sequence();
       failClockRead = true;
 
       const rejected = yield* Effect.exit(
@@ -3491,10 +3682,11 @@ describe("pending regression scenarios", () => {
 
       assert.ok(Exit.isFailure(rejected));
       assert.deepStrictEqual(yield* actor.lifecycle.state(), before);
-      assert.strictEqual(assembly.evidence.hub.sequence(), sequence);
+      assert.strictEqual(assembly.evidence.journal.sequence(), sequence);
       assert.strictEqual(finalizations, 0);
 
       failClockRead = false;
+
       const accepted = yield* Effect.provideContext(
         actor.lifecycle.command({
           _tag: "actor:dispose",
@@ -3510,11 +3702,6 @@ describe("pending regression scenarios", () => {
       assert.strictEqual(finalizations, 1);
     }),
   );
-
-  // Setup: Initialize the real private Journal near safe-integer exhaustion with two real actor owners, their reserved terminal credits and one lifecycle outcome credit; hold one actor cleanup at a Deferred.
-  // Action: Start the lifecycle operation, consume unreserved ordinary capacity from the other actor, attempt one extra ordinary cut, then release cleanup and close the runtime.
-  // Assert: The extra ordinary cut fails before store/publication mutation; held cleanup and terminal records finalize in actual gate order without wrap or reuse. Another actor progresses during gated cleanup; close waits for credit owners, settles acknowledgements, drains terminal records and closes once.
-  it.todo("preserves terminal publication capacity while lifecycle cleanup is in flight");
 
   // Setup: Build the real A-to-B/C-to-D diamond and hold one projection after wave capture at the internal coordinator/mailbox capability; record every D snapshot.
   // Action: In separate subcases publish an ordinary intermediate-actor event or suspend B before the held ticket commits; settle the captured wave, then provide a strictly newer matching input or resume reconciliation.
@@ -3545,11 +3732,4 @@ describe("pending regression scenarios", () => {
   // Action: Await complete reverse rollback, create another real actor using the reclaimed capacity, accept an ordinary turn when headroom permits, and dispose the actor and runtime.
   // Assert: Failed admission releases its unused credit exactly once and exposes no actor or partial record; the next owner can use that headroom, accepted sequences remain contiguous in commit order, and close never waits on a credit whose acquisition was rolled back. Observe the real credit/acquisition capability, not a fabricated counter or public test setter.
   it.todo("releases unused terminal credit when actor admission rolls back");
-
-  // Setup: Use the selected real Journal and actor lifecycle owner near counter exhaustion; gate successful individual disposal after its leader owns an outcome credit, and join that same attempt from a separate waiting fiber. Choose headroom so no ordinary credit remains while disposal is gated.
-  // Action: Interrupt only the follower and verify another actor's ordinary cut is rejected; release the leader and await successful disposal, then attempt two more ordinary cuts against the capacity released by disposal.
-  // Assert: Follower interruption neither cancels cleanup nor releases the leader's credit. Successful disposal consumes its terminal credit and releases exactly one unused outcome credit: the next ordinary cut succeeds and the following cut fails before mutation. Cleanup never replays, and close observes no leaked or doubly released credit.
-  it.todo(
-    "keeps lifecycle outcome credit owned by the attempt when a waiting caller is interrupted",
-  );
 });

@@ -1,10 +1,11 @@
-import { Clock, Context, Effect, Layer } from "effect";
+import { Clock, Context, Effect, Layer, Result } from "effect";
 
 import type { App, appPlan } from "../app/app.js";
 import type { MachineDefinition } from "../machine/grammar.js";
 import type { PublicDiagnostic } from "../diagnostic/diagnostic.js";
 import type { ActorIdentity } from "./actor-admission.js";
 import type { ActorLifecycle, LifecycleCause, LifecycleSnapshot } from "./lifecycle.js";
+import type { EvidenceJournal, EvidencePreparation } from "./evidence.js";
 
 /** One lifecycle publication is evidence, never a machine-turn record. */
 type RuntimeEvidenceProvenance = {
@@ -18,6 +19,8 @@ type RuntimeEvidenceServiceProvenance = Omit<RuntimeEvidenceProvenance, "actor">
 type RuntimeLifecycleEvidenceMetadata = {
   timestamp: number;
   publicationRevision: number;
+  /** Prior machine-turn revision local to this actor; lifecycle transitions never increment it. */
+  machineTurnRevision: number;
   evidenceSequence: number;
   provenance: RuntimeEvidenceProvenance;
 };
@@ -36,13 +39,29 @@ export type RuntimeLifecycleEvidence<
   after: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>;
 } & RuntimeLifecycleEvidenceMetadata;
 
+export type RuntimeLifecycleEvidenceFact<
+  DefinitionValue extends MachineDefinition,
+  CleanupError,
+  ProviderDefinition extends MachineDefinition = DefinitionValue,
+> = Omit<
+  RuntimeLifecycleEvidence<DefinitionValue, CleanupError, ProviderDefinition>,
+  "evidenceSequence"
+>;
+
 /** The evidence owner accepts lifecycle records without executing machine work. */
 export type RuntimeEvidenceService<
   _A extends App = App,
   _DefinitionValue extends MachineDefinition = MachineDefinition,
   _CleanupError = PublicDiagnostic,
 > = {
-  hub: unknown;
+  journal: EvidenceJournal;
+  prepare: () => Result.Result<EvidencePreparation, PublicDiagnostic>;
+  prepareLifecycle: (actorKey: string) => Result.Result<EvidencePreparation, PublicDiagnostic>;
+  cancel: (preparation: EvidencePreparation) => Result.Result<void, PublicDiagnostic>;
+  settleOutcome: (
+    preparation: EvidencePreparation,
+    terminal: boolean,
+  ) => Result.Result<void, PublicDiagnostic>;
   provenance: RuntimeEvidenceServiceProvenance;
   publish: <
     DefinitionValue extends MachineDefinition,
@@ -56,7 +75,8 @@ export type RuntimeEvidenceService<
     CleanupError,
     ProviderDefinition extends MachineDefinition = DefinitionValue,
   >(
-    record: RuntimeLifecycleEvidence<DefinitionValue, CleanupError, ProviderDefinition>,
+    record: RuntimeLifecycleEvidenceFact<DefinitionValue, CleanupError, ProviderDefinition>,
+    preparation: EvidencePreparation,
   ) => Effect.Effect<void, PublicDiagnostic>;
   drain: Effect.Effect<unknown, PublicDiagnostic>;
 };

@@ -398,8 +398,8 @@ describe("internal implementation runtime", () => {
       const runtimeEvidence = Context.get(assembly.context, RuntimeEvidence);
       const originalAccept = runtimeEvidence.accept;
 
-      runtimeEvidence.accept = (record) =>
-        originalAccept(record).pipe(
+      runtimeEvidence.accept = (record, preparation) =>
+        originalAccept(record, preparation).pipe(
           Effect.andThen(
             record.before.lifecycle === "prepared" &&
               record.after.lifecycle === "active" &&

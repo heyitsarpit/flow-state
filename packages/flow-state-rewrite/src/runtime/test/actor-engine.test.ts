@@ -41,7 +41,8 @@ import {
   type ActorSnapshot,
 } from "../actor-engine.js";
 import { makeActorIdentityRegistry, type ActorFence } from "../actor-admission.js";
-import { makeEvidenceSink, makeRuntimeEvidenceOwner, type EvidenceRecord } from "../evidence.js";
+import { makeRuntimeEvidenceOwner, type EvidenceRecord } from "../evidence.js";
+import { makeEvidenceSink } from "../evidence-sink.js";
 import { runtimeOwner, runtimeSetup } from "../runtime.js";
 import type {
   ContextProjectionCarrier,
@@ -912,7 +913,7 @@ describe("actor engine", () => {
       const receipt = yield* Deferred.await(retried.completion);
       yield* engine.drain();
 
-      assert.deepStrictEqual(receipt, { publicationRevision: 2, evidenceSequence: 3 });
+      assert.deepStrictEqual(receipt, { publicationRevision: 2, evidenceSequence: 2 });
       assert.strictEqual(storeCalls, 1);
       assert.deepStrictEqual(order, [
         "evidence",
@@ -1730,7 +1731,7 @@ describe("actor engine", () => {
           }),
       });
 
-      assert.ok(Result.isSuccess(evidence.hub.attach(sink)));
+      assert.ok(Result.isSuccess(evidence.journal.attach(sink)));
       let previous: ActorSnapshot<typeof testDefinition> = setup.input.initial;
       let preparedStoreRevision = -1;
 
@@ -2226,8 +2227,8 @@ describe("actor engine parity cases", () => {
         deliver: () => Effect.fail(Interrupt()),
       });
 
-      assert.ok(Result.isSuccess(evidence.hub.attach(sink)));
-      assert.ok(Result.isSuccess(evidence.hub.attach(interrupted)));
+      assert.ok(Result.isSuccess(evidence.journal.attach(sink)));
+      assert.ok(Result.isSuccess(evidence.journal.attach(interrupted)));
       let previous: ActorSnapshot<typeof testDefinition> = setup.input.initial;
 
       const engine = yield* (yield* prepareActorEngine({
@@ -2261,9 +2262,9 @@ describe("actor engine parity cases", () => {
       assert.strictEqual(after.operations[0]?.status, "failed");
       assert.strictEqual(after.revision, 1);
       assert.strictEqual(after.observedStoreRevision, 0);
-      const drained = yield* evidence.hub.drain();
+      const drained = yield* evidence.journal.drain();
       assert.deepStrictEqual(
-        drained.sinks.map((result) => result.status),
+        drained.attachments.map((result) => result.status),
         ["drained", "failed"],
       );
       assert.strictEqual(delivered.length, 1);

@@ -786,7 +786,9 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
           scope: Scope.Scope;
           activityFibers: FiberMap.FiberMap<string, void, PublicDiagnostic>;
         }>();
+
         const stop = Deferred.makeUnsafe<void>();
+
         const cell = Effect.scoped(
           Effect.gen(function* () {
             const scope = yield* Effect.scope;
@@ -795,8 +797,10 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
             yield* Deferred.await(stop);
           }),
         );
+
         const fiber = yield* Effect.forkIn(cell, runtimeScope);
         const acquired = yield* Deferred.await(ready);
+
         const terminal: ActorCellTerminalProtocol = {
           scope: acquired.scope,
           closeCompletion: undefined,
@@ -806,6 +810,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
           lifecycleRegistration: undefined,
           parentFinalizer: undefined,
         };
+
         const resolveClose = (exit: Exit.Exit<void, PublicDiagnostic>) =>
           Exit.isSuccess(exit) ? Effect.void : Effect.failCause(exit.cause);
 
@@ -816,6 +821,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
 
             const completion = Deferred.makeUnsafe<Exit.Exit<void, PublicDiagnostic>>();
             terminal.closeCompletion = completion;
+
             const operation = Deferred.succeed(stop, undefined).pipe(
               Effect.flatMap(() => Fiber.await(fiber)),
               Effect.flatMap((exit) => {
@@ -823,7 +829,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
 
                 // SAFETY: ActorCell scope finalizer causes remain cleanup causes at the actor boundary.
                 // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the public runtime cleanup channel preserves scope causes.
-                return Effect.failCause(exit.cause as Cause.Cause<PublicDiagnostic>);
+                return Effect.failCause(exit.cause);
               }),
             );
 
@@ -841,12 +847,14 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
             );
           });
 
-        return {
+        const cellInstance: ActorCellInstance<DefinitionValue, ProviderDefinition> = {
           activityFibers: acquired.activityFibers,
           protocol: undefined,
           terminal,
           close,
-        } satisfies ActorCellInstance<DefinitionValue, ProviderDefinition>;
+        };
+
+        return cellInstance;
       });
 
     const pendingFor = <DefinitionValue extends MachineDefinition>(
@@ -1185,6 +1193,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
 
               if (Result.isFailure(lifecycleWithTimers))
                 return yield* Effect.fail(lifecycleWithTimers.failure);
+
               const lifecycleController = makeLifecycleController(
                 lifecycleWithTimers.success,
                 actorCell,
@@ -1373,7 +1382,10 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
 
                   return accepted;
                 },
-                onSnapshot: (snapshot) => {
+                onSnapshot: (snapshot, machineTurnRevision) => {
+                  const protocol = actorCell.protocol;
+
+                  if (protocol !== undefined) protocol.machineTurnRevision = machineTurnRevision;
                   const visibleSnapshot = projectVisibleSnapshot(snapshot);
                   // Evidence preparation happens before the store cut commits. Advance the
                   // previous committed snapshot only after the engine publishes this snapshot.
@@ -1387,7 +1399,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
                   };
 
                   notifyRuntimeDependents(contextDependents, currentFence, runtimeSnapshot);
-                  capturedOptions.success.onSnapshot?.(visibleSnapshot);
+                  capturedOptions.success.onSnapshot?.(visibleSnapshot, machineTurnRevision);
                 },
               };
 
@@ -1711,6 +1723,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
                   return yield* Effect.failCause(lifecycleExit.cause);
 
                 const engineExit = yield* Effect.exit(engine.shutdown("hard"));
+
                 const actorScopeExit =
                   terminal.scopeExit === undefined
                     ? yield* Effect.gen(function* () {
@@ -1720,11 +1733,13 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
                         return scopeExit;
                       })
                     : Exit.void;
+
                 const dependentExits = yield* Effect.forEach(dependents, (registration) =>
                   Effect.exit(
                     Effect.sync(() => registration.owner.removeDependent(registration.dependent)),
                   ),
                 );
+
                 const dependencyExits = yield* Effect.forEach(dependencies, (registration) =>
                   Effect.exit(
                     Effect.provideContext(
@@ -1733,9 +1748,11 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
                     ),
                   ),
                 );
+
                 const fenceExit = yield* Effect.exit(
                   Effect.sync(() => providerFences.delete(currentIdentity.key)),
                 );
+
                 const cleanupCause = causeFromExits([
                   lifecycleExit,
                   engineExit,
@@ -1750,7 +1767,8 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
               context,
             );
 
-            const tombstone = () => registry.tombstone(currentIdentity, evidence.hub.sequence());
+            const tombstone = () =>
+              registry.tombstone(currentIdentity, evidence.journal.sequence());
 
             const disposeWithoutLease: Effect.Effect<void, PublicDiagnostic> = cleanup.pipe(
               Effect.flatMap(() => {
@@ -1764,19 +1782,16 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
 
             let installedLease: AdmissionResult["lease"] | undefined;
 
-            const unregisterActor = () => {
+            const releaseActorCredit = () => {
               terminal.released = true;
-              terminal.lifecycleRegistration?.unregister();
-              terminal.lifecycleRegistration = undefined;
               terminal.parentFinalizer = undefined;
+              evidence.journal.releaseActor(currentIdentity.key);
             };
 
-            const disposeActor = () => {
-              if (terminal.released) return Effect.void;
-
-              return (installedLease?.dispose() ?? disposeWithoutLease).pipe(
-                Effect.tap(() => Effect.sync(unregisterActor)),
-              );
+            const unregisterActor = () => {
+              terminal.lifecycleRegistration?.unregister();
+              terminal.lifecycleRegistration = undefined;
+              releaseActorCredit();
             };
 
             const abortRegistration = () => {
@@ -1793,6 +1808,34 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
                   unregisterActor();
                 }),
                 context,
+              );
+            };
+
+            const disposeActor = () => {
+              if (terminal.released && installedLease === undefined) return Effect.void;
+
+              return Effect.exit(installedLease?.dispose() ?? disposeWithoutLease).pipe(
+                Effect.flatMap((exit) => {
+                  if (Exit.isSuccess(exit)) {
+                    unregisterActor();
+
+                    return Effect.succeed(undefined);
+                  }
+
+                  // A terminal lifecycle outcome has completed its cleanup stages, but its
+                  // evidence acceptance may still fail. Abort the registration only after that
+                  // terminal protocol is settled so the Journal credit cannot strand close.
+                  if (preparation.actorCell.protocol?.disposalExit === undefined)
+                    return Effect.failCause(exit.cause);
+
+                  // The runtime cleanup effect has already attempted every edge removal before
+                  // the terminal evidence failure. Release only Journal credit here so the
+                  // RuntimeOwner can retain and report this cached terminal failure without
+                  // replaying dependent cleanup side effects.
+                  releaseActorCredit();
+
+                  return Effect.failCause(exit.cause);
+                }),
               );
             };
 
@@ -1904,6 +1947,15 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
             });
 
             if (!registration.accepted) return yield* Effect.fail(closedActorAdmission());
+
+            const credit = evidence.journal.registerActor(currentIdentity.key, currentFence);
+
+            if (Result.isFailure(credit)) {
+              registration.unregister();
+              registry.rollback(currentIdentity);
+
+              return yield* Effect.fail(credit.failure);
+            }
 
             terminal.lifecycleRegistration = registration;
             terminal.parentFinalizer = actorWithRef.dispose;
@@ -2147,6 +2199,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
     expose: exposed,
     drain: Effect.suspend(() => assembly?.evidence.service.drain ?? Effect.void),
   });
+
   closeRegistry = owner;
 
   // SAFETY: RuntimeSetup proves that the admitted Implementation has no residual requirements and its erased private entries have exactly ImplementationError.

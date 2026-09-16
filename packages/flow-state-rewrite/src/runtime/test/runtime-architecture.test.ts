@@ -473,9 +473,9 @@ describe("runtime assembly", () => {
 
       yield* Deferred.await(actor.engine.dispatch(architectureEvent).completion);
       yield* actor.engine.drain();
-      assert.strictEqual(assembly.evidence.hub.sequence(), 2);
+      assert.strictEqual(assembly.evidence.journal.sequence(), 2);
       yield* runtimeOwner(runtime).close();
-      assert.strictEqual(assembly.evidence.hub.sequence(), 3);
+      assert.strictEqual(assembly.evidence.journal.sequence(), 3);
     }),
   );
 
@@ -610,7 +610,7 @@ describe("runtime assembly", () => {
       );
 
       assert.ok(Exit.isFailure(attempt));
-      assert.strictEqual(assembly.evidence.hub.sequence(), 0);
+      assert.strictEqual(assembly.evidence.journal.sequence(), 0);
     }),
   );
 

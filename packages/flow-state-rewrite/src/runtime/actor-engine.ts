@@ -39,6 +39,7 @@ import {
   finalizePreparedActorPublication,
   prepareActorPublication,
 } from "./evidence.js";
+import type { EvidencePreparation } from "./evidence.js";
 import { copyObject } from "./collection-copies.js";
 import {
   isEventForMachine,
@@ -136,7 +137,7 @@ export type ActorCommandHandler<DefinitionValue extends MachineDefinition> = (
 
 export type ActorEvidenceAcceptor<DefinitionValue extends MachineDefinition> = (
   publication: ActorPublication<DefinitionValue>,
-) => Result.Result<number, PublicDiagnostic>;
+) => Result.Result<number | EvidencePreparation, PublicDiagnostic>;
 
 /** A public mailbox fact carries no transition result or acknowledgement handle. */
 export type ActorMailboxFact<DefinitionValue extends MachineDefinition> =
@@ -171,7 +172,7 @@ export type ActorEngineInput<DefinitionValue extends MachineDefinition> = {
   scope: Scope.Scope;
   store?: ActorStore<DefinitionValue>;
   acceptEvidence?: ActorEvidenceAcceptor<DefinitionValue>;
-  onSnapshot?: (snapshot: ActorSnapshot<DefinitionValue>) => void;
+  onSnapshot?: (snapshot: ActorSnapshot<DefinitionValue>, machineTurnRevision: number) => void;
   onCommand?: ActorCommandHandler<DefinitionValue> | undefined;
 };
 
@@ -217,7 +218,7 @@ type MutableActorState<DefinitionValue extends MachineDefinition> = {
 
 type PreparedCut<DefinitionValue extends MachineDefinition> = {
   publication: ActorPublication<DefinitionValue>;
-  evidenceSequence: number;
+  evidenceSequence: number | EvidencePreparation;
 };
 
 type DrainState = {
@@ -1050,9 +1051,9 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
     }
   };
 
-  const notifySnapshot = (snapshot: ActorSnapshot<DefinitionValue>) =>
+  const notifySnapshot = (snapshot: ActorSnapshot<DefinitionValue>, machineTurnRevision: number) =>
     invokeResult(() => {
-      input.onSnapshot?.(snapshot);
+      input.onSnapshot?.(snapshot, machineTurnRevision);
 
       return Result.succeed(undefined);
     });
@@ -1116,7 +1117,10 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
       return Result.fail(evidenceSequence.failure);
     }
 
-    const validatedEvidenceSequence = validateEvidenceSequence(evidenceSequence.success);
+    const validatedEvidenceSequence =
+      typeof evidenceSequence.success === "number"
+        ? validateEvidenceSequence(evidenceSequence.success)
+        : evidenceSequence;
 
     if (Result.isFailure(validatedEvidenceSequence)) {
       cancelPreparedActorPublication(publication);
@@ -1151,6 +1155,9 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
     );
 
     const evidenceSequence = finalizedEvidenceSequence ?? prepared.evidenceSequence;
+
+    if (typeof evidenceSequence !== "number")
+      throw new Error("Prepared actor evidence did not commit through the Journal");
     state.snapshot = publication.snapshot;
     state.machineTurnRevision = publication.machineTurnRevision;
     state.evidenceSequence = evidenceSequence;
@@ -1200,10 +1207,17 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
     const evidenceSequence = evidenceSequenceFor(publication);
 
     if (Result.isFailure(evidenceSequence)) return Result.fail(evidenceSequence.failure);
-    const validatedEvidenceSequence = validateEvidenceSequence(evidenceSequence.success);
+
+    const validatedEvidenceSequence =
+      typeof evidenceSequence.success === "number"
+        ? validateEvidenceSequence(evidenceSequence.success)
+        : evidenceSequence;
 
     if (Result.isFailure(validatedEvidenceSequence))
       return Result.fail(validatedEvidenceSequence.failure);
+
+    if (typeof validatedEvidenceSequence.success !== "number")
+      throw new Error("Actor evidence preparation must commit synchronously");
     state.snapshot = snapshot;
     state.evidenceSequence = validatedEvidenceSequence.success;
     PubSub.publishUnsafe(snapshots, snapshot);
@@ -1234,7 +1248,11 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
       }
 
       settleFailure(acknowledgement, failure);
-      const observed = notifySnapshot(published.success.publication.snapshot);
+
+      const observed = notifySnapshot(
+        published.success.publication.snapshot,
+        published.success.publication.machineTurnRevision,
+      );
 
       if (Result.isFailure(observed)) {
         setClosed(observed.failure);
@@ -1280,7 +1298,10 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
         return Effect.fail(published.failure);
       }
 
-      const observed = notifySnapshot(published.success.publication.snapshot);
+      const observed = notifySnapshot(
+        published.success.publication.snapshot,
+        published.success.publication.machineTurnRevision,
+      );
 
       if (Result.isFailure(observed)) {
         setClosed(observed.failure);
@@ -1331,7 +1352,11 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
       publicationRevision: published.publication.publicationRevision,
       evidenceSequence: published.evidenceSequence,
     });
-    const observed = notifySnapshot(published.publication.snapshot);
+
+    const observed = notifySnapshot(
+      published.publication.snapshot,
+      published.publication.machineTurnRevision,
+    );
 
     if (Result.isFailure(observed)) {
       setClosed(observed.failure);
@@ -1395,7 +1420,10 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
 
         if (Result.isFailure(published)) return yield* Effect.fail(published.failure);
 
-        const observed = notifySnapshot(published.success.publication.snapshot);
+        const observed = notifySnapshot(
+          published.success.publication.snapshot,
+          published.success.publication.machineTurnRevision,
+        );
 
         if (Result.isFailure(observed)) {
           setClosed(observed.failure);

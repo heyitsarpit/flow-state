@@ -38,10 +38,10 @@ import {
 } from "./runtime-services.js";
 import type { ActorRef } from "./actor-ref.js";
 import {
-  cancelRuntimeEvidence,
-  prepareLifecycleEvidence,
-  preflightLifecycleEvidence,
-  type EvidenceReservation,
+  cancelPreparedEvidence,
+  makeLifecycleEvidence,
+  prepareLifecycleEvidenceAdmission,
+  type EvidencePreparation,
 } from "./evidence.js";
 import { copyArray, copyObject } from "./collection-copies.js";
 
@@ -192,6 +192,8 @@ type TimerClaim = {
 export type ActorCellProtocolState<Snapshot extends LifecycleStateKey> = {
   current: Snapshot | undefined;
   publicationRevision: number;
+  /** Prior machine-turn revision for this actor, carried into lifecycle evidence. */
+  machineTurnRevision: number;
   /** The complete terminal result after lifecycle evidence settles. */
   disposalExit: Exit.Exit<Snapshot, PublicDiagnostic> | undefined;
   /** The cleanup-stage result used by direct lifecycle disposal callers. */
@@ -203,7 +205,7 @@ export type ActorCellProtocolState<Snapshot extends LifecycleStateKey> = {
 };
 
 export type ActorCell<Snapshot extends LifecycleStateKey> = {
-  activityFibers: FiberMap.FiberMap<string, void, unknown> | undefined;
+  activityFibers: FiberMap.FiberMap<string, void> | undefined;
   protocol: ActorCellProtocolState<Snapshot> | undefined;
   /** Runtime-owned actor lifetime protocol; assembly supplies its concrete type. */
   terminal?: unknown;
@@ -317,11 +319,13 @@ export const preflightLifecycleDisposal = <
   const owner = actorCellProtocolOf(actorCell);
 
   if (owner === undefined) return Result.fail(invalidSnapshot("owner"));
+
   if (owner.disposalExit !== undefined || owner.disposalAttempt !== undefined)
     return Result.succeed(undefined);
   const state = input ?? owner.current;
 
   if (state === undefined) return Result.fail(invalidSnapshot("current"));
+
   if (state.lifecycle === "disposed") return Result.succeed(undefined);
   const blocked = state.attachment.blockedDisposal;
 
@@ -586,6 +590,7 @@ export const prepareLifecycle = <
   > = {
     current: undefined,
     publicationRevision: 0,
+    machineTurnRevision: 0,
     disposalExit: undefined,
     disposalAttempt: undefined,
     controllerBound: false,
@@ -744,12 +749,13 @@ const cleanupWorkItem = <CleanupError>(item: LifecycleWork<CleanupError>) =>
       ? completed.value
       : // SAFETY: Fiber.await has no typed failure channel; only its Exit is observed here.
         // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- normalize an impossible outer interruption.
-        Exit.failCause(completed.cause as Cause.Cause<CleanupError>);
+        Exit.failCause(completed.cause);
 
     if (item.completion !== undefined)
       yield* Deferred.succeed(item.completion, completion).pipe(Effect.asVoid);
 
     const finalized = yield* Effect.exit(item.finalizer);
+
     const itemCause = causeFromCauses([
       Exit.isFailure(cancelled) ? cancelled.cause : undefined,
       Exit.isFailure(completion) &&
@@ -819,7 +825,7 @@ const cleanupAttachment = <
   ProviderDefinition extends MachineDefinition,
 >(
   attachment: LifecycleAttachment<DefinitionValue, CleanupError, ProviderDefinition>,
-): Effect.Effect<CleanupRun<DefinitionValue, CleanupError, ProviderDefinition>, never, never> =>
+): Effect.Effect<CleanupRun<DefinitionValue, CleanupError, ProviderDefinition>> =>
   Effect.uninterruptible(
     Effect.gen(function* () {
       const work = yield* cleanupWork(attachment.work);
@@ -1086,6 +1092,7 @@ const scheduleRetainedTimers = <
     const owner = actorCellProtocolOf(actorCell);
 
     if (owner === undefined) return yield* Effect.fail(invalidSnapshot("owner"));
+
     const timers = state.attachment.timers.filter(
       (timer) =>
         timer.status === "armed" &&
@@ -1250,6 +1257,7 @@ export const disposeLifecycle = <
   const owner = actorCellProtocolOf(actorCell);
 
   if (owner === undefined) return Effect.fail(invalidSnapshot("owner"));
+
   if (owner.disposalExit !== undefined) {
     const terminal = owner.disposalExit;
 
@@ -1257,6 +1265,7 @@ export const disposeLifecycle = <
       ? Effect.failCause(terminal.cause)
       : Effect.succeed(terminal.value);
   }
+
   if (owner.disposalAttempt !== undefined) {
     const attempt = owner.disposalAttempt;
 
@@ -1264,6 +1273,7 @@ export const disposeLifecycle = <
       ? Effect.failCause(attempt.cause)
       : Effect.succeed(attempt.value);
   }
+
   const state = currentState(input, actorCell);
   const preflight = preflightLifecycleDisposal(actorCell, state);
 
@@ -1276,10 +1286,12 @@ export const disposeLifecycle = <
     Effect.flatMap((cleaned) => {
       if (cleaned.cause !== undefined) {
         copySnapshot(actorCell, state, state.lifecycle, cleaned.attachment, "failed");
+
         const attempt: Exit.Exit<
           LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
           PublicDiagnostic
         > = Exit.failCause(Cause.fail(cleanupDiagnostic(cleaned.cause)));
+
         owner.disposalAttempt = attempt;
 
         return Effect.failCause(Cause.fail(cleanupDiagnostic(cleaned.cause)));
@@ -1376,7 +1388,7 @@ export const runLifecycleCommand = <
 
   type LifecycleEvidencePreflight = {
     service: RuntimeEvidenceService;
-    reservation: EvidenceReservation;
+    preparation: EvidencePreparation;
     timestamp: number;
   };
 
@@ -1390,7 +1402,7 @@ export const runLifecycleCommand = <
           const clock = yield* Effect.service(Clock.Clock);
           const service = yield* Effect.service(RuntimeEvidence);
           const timestamp = yield* clock.currentTimeMillis;
-          const prepared = preflightLifecycleEvidence(service, timestamp);
+          const prepared = prepareLifecycleEvidenceAdmission(service, timestamp, state.fence.key);
 
           if (Result.isFailure(prepared)) return yield* Effect.fail(prepared.failure);
 
@@ -1406,16 +1418,14 @@ export const runLifecycleCommand = <
 
           if (after === state) {
             if (preflight !== undefined) {
-              const cancelled = cancelRuntimeEvidence(
-                preflight.service,
-                preflight.reservation.sequence,
-              );
+              const cancelled = cancelPreparedEvidence(preflight.service, preflight.preparation);
 
               if (Result.isFailure(cancelled)) return Effect.fail(cancelled.failure);
             }
 
             return resolveLifecycleExit(exit);
           }
+
           const cleanupCause = retainedCleanupCause(after);
 
           const cause: LifecycleCause<CleanupError> =
@@ -1427,6 +1437,12 @@ export const runLifecycleCommand = <
                 }
               : command.cause;
 
+          let pendingEvidence:
+            | { service: RuntimeEvidenceService; preparation: EvidencePreparation }
+            | undefined;
+
+          let evidenceAccepted = false;
+
           const evidenceEffect = Effect.gen(function* () {
             const evidence =
               preflight ??
@@ -1434,12 +1450,23 @@ export const runLifecycleCommand = <
                 const clock = yield* Effect.service(Clock.Clock);
                 const service = yield* Effect.service(RuntimeEvidence);
                 const timestamp = yield* clock.currentTimeMillis;
-                const prepared = preflightLifecycleEvidence(service, timestamp);
+
+                const prepared = prepareLifecycleEvidenceAdmission(
+                  service,
+                  timestamp,
+                  state.fence.key,
+                );
 
                 if (Result.isFailure(prepared)) return yield* Effect.fail(prepared.failure);
 
                 return { service, ...prepared.success } satisfies LifecycleEvidencePreflight;
               }));
+
+            pendingEvidence = {
+              service: evidence.service,
+              preparation: evidence.preparation,
+            };
+
             const fact: Omit<
               RuntimeLifecycleEvidence<DefinitionValue, CleanupError, ProviderDefinition>,
               "evidenceSequence"
@@ -1453,6 +1480,7 @@ export const runLifecycleCommand = <
               after,
               timestamp: evidence.timestamp,
               publicationRevision: owner.publicationRevision,
+              machineTurnRevision: owner.machineTurnRevision,
               provenance: {
                 ...evidence.service.provenance,
                 actor: {
@@ -1462,34 +1490,33 @@ export const runLifecycleCommand = <
                 },
               },
             };
-            const prepared = prepareLifecycleEvidence(evidence.service, fact, evidence.reservation);
+
+            const prepared = makeLifecycleEvidence(evidence.service, fact, evidence.preparation);
 
             if (Result.isFailure(prepared)) return yield* Effect.fail(prepared.failure);
 
             const accepted = yield* Effect.exit(
               evidence.service
                 .publish(after)
-                .pipe(Effect.flatMap(() => evidence.service.accept(prepared.success))),
+                .pipe(
+                  Effect.flatMap(() =>
+                    evidence.service.accept(prepared.success.record, prepared.success.preparation),
+                  ),
+                ),
             );
 
             if (Exit.isFailure(accepted)) {
-              const cancelled = cancelRuntimeEvidence(
-                evidence.service,
-                prepared.success.evidenceSequence,
-              );
-              const cancellationCause = Result.isFailure(cancelled)
-                ? Cause.fail(cancelled.failure)
-                : undefined;
-
-              return yield* Effect.failCause(causeFromCauses([accepted.cause, cancellationCause])!);
+              return yield* Effect.failCause(accepted.cause);
             }
 
-            const cancelled = cancelRuntimeEvidence(
-              evidence.service,
-              prepared.success.evidenceSequence,
+            evidenceAccepted = true;
+
+            const settled = evidence.service.settleOutcome(
+              prepared.success.preparation,
+              command._tag === "actor:dispose",
             );
 
-            if (Result.isFailure(cancelled)) return yield* Effect.fail(cancelled.failure);
+            if (Result.isFailure(settled)) return yield* Effect.fail(settled.failure);
 
             return exit;
           });
@@ -1497,8 +1524,12 @@ export const runLifecycleCommand = <
           return evidenceEffect.pipe(
             Effect.exit,
             Effect.flatMap((evidenceExit) => {
+              if (!evidenceAccepted && pendingEvidence !== undefined)
+                cancelPreparedEvidence(pendingEvidence.service, pendingEvidence.preparation);
+
               const evidenceCause = Exit.isFailure(evidenceExit) ? evidenceExit.cause : undefined;
               const lifecycleCause = Exit.isFailure(exit) ? exit.cause : undefined;
+
               const complete =
                 evidenceCause === undefined
                   ? exit
@@ -1640,6 +1671,7 @@ export const makeProviderReconciler = <Value>(
 
       const completion =
         Deferred.makeUnsafe<Exit.Exit<ProviderReconciliation<Value>, PublicDiagnostic>>();
+
       const join = () =>
         Deferred.await(completion).pipe(
           Effect.flatMap((exit) =>

@@ -1,14 +1,8 @@
-// oxlint-disable-next-line anti-slop/no-large-production-file -- evidence sequencing, sink isolation, and runtime publication form one owner boundary.
-import { Cause, Clock, Deferred, Effect, Exit, Option, Queue, Result, Semaphore } from "effect";
+// oxlint-disable-next-line anti-slop/no-large-production-file -- evidence sequencing, attachment admission, and runtime publication form one owner boundary.
+import { Cause, Clock, Deferred, Effect, Exit, Option, Result, Semaphore } from "effect";
 
 import { appPlan, type App } from "../app/app.js";
-import {
-  Defect,
-  Diagnostic,
-  Failure,
-  Interrupt,
-  type PublicDiagnostic,
-} from "../diagnostic/diagnostic.js";
+import { Failure, type PublicDiagnostic } from "../diagnostic/diagnostic.js";
 import type { MachineDefinition } from "../machine/grammar.js";
 import type { ActorFence, ActorIdentity } from "./actor-admission.js";
 import type { ActorPublication, ActorSnapshot, ActorStoreResult } from "./actor-engine.js";
@@ -20,10 +14,10 @@ declare const evidenceSequenceBrand: unique symbol;
 
 declare const sinkIdBrand: unique symbol;
 
-/** Runtime-global evidence order is allocated only by an EvidenceHub. */
+/** Runtime-global evidence order is allocated only by an EvidenceJournal. */
 export type EvidenceSequence = number & { [evidenceSequenceBrand]: void };
 
-/** Sink identity is local to one EvidenceHub. */
+/** Sink identity is local to one EvidenceJournal. */
 export type SinkId = string & { [sinkIdBrand]: void };
 
 type RuntimePlan = ReturnType<typeof appPlan>;
@@ -38,7 +32,7 @@ export type RuntimeProvenance<
   actor: Pick<ActorIdentity<DefinitionValue>, "key" | "incarnation" | "leaseEpoch">;
 };
 
-/** A committed actor/store cut before hub sequencing. */
+/** A committed actor/store cut before Journal sequencing. */
 export type TurnFact<A extends App, DefinitionValue extends MachineDefinition> = {
   fence: ActorFence;
   provenance: RuntimeProvenance<A, DefinitionValue>;
@@ -78,6 +72,11 @@ export type LifecycleRecord<
   evidenceSequence: EvidenceSequence;
 };
 
+/** A prepared fact has no global sequence until the Journal commit gate accepts it. */
+export type PreparedEvidenceRecord =
+  | Omit<Extract<EvidenceRecord, { _tag: "turn" }>, "sequence">
+  | Omit<Extract<EvidenceRecord, { _tag: "lifecycle" }>, "evidenceSequence">;
+
 type EvidenceProvenance = {
   app: App;
   plan: RuntimePlan;
@@ -109,49 +108,74 @@ export type EvidenceRecord =
       after: LifecycleSnapshotEnvelope;
       timestamp: number;
       publicationRevision: number;
+      machineTurnRevision: number;
       evidenceSequence: number;
       provenance: EvidenceProvenance;
     };
 
-export type EvidenceReservation = {
-  hub: EvidenceHub;
-  sequence: EvidenceSequence;
+export type EvidencePreparation = {
+  journal: EvidenceJournal;
+  token: object;
 };
 
-export type SinkOfferResult = {
+export type EvidenceCredit = {
+  journal: EvidenceJournal;
+  actorKey: string;
+  fence: ActorFence;
+  token: object;
+};
+
+export type AttachmentOfferResult = {
   sink: SinkId;
   sequence: EvidenceSequence;
   status: "accepted" | "dropped" | "detached";
 };
 
-export type SinkDrainResult = {
+export type AttachmentDrainResult = {
   sink: SinkId;
   through: EvidenceSequence;
   status: "drained" | "truncated" | "failed";
 };
 
+/** Journal-issued capability; P10 owns the queue and delivery behind this token. */
+export type EvidenceAttachmentToken = {
+  id: SinkId;
+  offerUnsafe: (record: EvidenceRecord, sequence: EvidenceSequence) => AttachmentOfferResult;
+  drain: (through: EvidenceSequence) => Effect.Effect<AttachmentDrainResult, PublicDiagnostic>;
+  close: () => Effect.Effect<void, PublicDiagnostic>;
+  truncatedBefore: () => EvidenceSequence | undefined;
+};
+
 export type EvidenceAcceptance = {
-  reservation: EvidenceReservation;
+  preparation: EvidencePreparation;
   record: EvidenceRecord;
   sequence: EvidenceSequence;
-  sinks: SinkOfferResult[];
+  attachments: AttachmentOfferResult[];
 };
 
 const preparedActorPublication = Symbol("prepared-actor-publication");
 
+const preparedPublicationState = Symbol("prepared-publication-state");
+
+const publicationProjection = Symbol("publication-projection");
+
 type EvidenceReference = Exclude<WeakKey, symbol>;
 
-const preparedPublicationFinalizers = new WeakMap<
-  EvidenceReference,
-  (publication: unknown) => number
->();
+type PreparedPublicationState = {
+  finalize: (publication: unknown) => number;
+  cancel: () => Result.Result<void, PublicDiagnostic>;
+};
 
-const preparedPublicationCancellers = new WeakMap<
-  EvidenceReference,
-  () => Result.Result<void, PublicDiagnostic>
->();
+type PublicationMetadata = {
+  [preparedPublicationState]?: PreparedPublicationState;
+  [publicationProjection]?: unknown;
+};
 
-const projectedPublicationSnapshots = new WeakMap<ActorPublication<MachineDefinition>, unknown>();
+const publicationMetadata = (publication: EvidenceReference) => {
+  // SAFETY: The private symbols are installed only on ActorPublication objects by this module.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- metadata retains the exact publication identity.
+  return publication as EvidenceReference & PublicationMetadata;
+};
 
 /** Marks an actor publication whose evidence is prepared before store commit. */
 export const prepareActorPublication = <DefinitionValue extends MachineDefinition>(
@@ -170,70 +194,31 @@ export const finalizePreparedActorPublication = <DefinitionValue extends Machine
   prepared: ActorPublication<DefinitionValue>,
   publication: ActorPublication<DefinitionValue>,
 ) => {
-  const finalize = preparedPublicationFinalizers.get(prepared);
+  const metadata = publicationMetadata(prepared)[preparedPublicationState];
 
-  if (finalize === undefined) return undefined;
-  preparedPublicationFinalizers.delete(prepared);
-  preparedPublicationCancellers.delete(prepared);
+  if (metadata === undefined) return undefined;
+  delete publicationMetadata(prepared)[preparedPublicationState];
 
-  return finalize(publication);
+  return metadata.finalize(publication);
 };
 
 /** Cancels prepared evidence when store commit is rejected before mutation. */
 export const cancelPreparedActorPublication = <DefinitionValue extends MachineDefinition>(
   prepared: ActorPublication<DefinitionValue>,
 ) => {
-  const cancel = preparedPublicationCancellers.get(prepared);
+  const metadata = publicationMetadata(prepared)[preparedPublicationState];
 
-  if (cancel === undefined) return Result.succeed(undefined);
-  preparedPublicationCancellers.delete(prepared);
+  if (metadata === undefined) return Result.succeed(undefined);
+  delete publicationMetadata(prepared)[preparedPublicationState];
 
-  return cancel();
+  return metadata.cancel();
 };
 
 export type EvidenceDrain = {
   through: EvidenceSequence | 0;
   truncatedBefore: Option.Option<EvidenceSequence>;
-  sinks: SinkDrainResult[];
+  attachments: AttachmentDrainResult[];
 };
-
-type EvidenceSinkInternals = {
-  offerUnsafe: (record: EvidenceRecord, sequence: EvidenceSequence) => SinkOfferResult;
-  drain: (through: EvidenceSequence) => Effect.Effect<SinkDrainResult, PublicDiagnostic>;
-  close: Effect.Effect<void>;
-  truncatedBefore: () => EvidenceSequence | undefined;
-};
-
-export type EvidenceSink = {
-  id: SinkId;
-  capacity: number;
-  mailbox: Queue.Queue<EvidenceRecord>;
-  offer: (record: EvidenceRecord) => Effect.Effect<SinkOfferResult, PublicDiagnostic>;
-  drain: (through: EvidenceSequence) => Effect.Effect<SinkDrainResult, PublicDiagnostic>;
-  close: () => Effect.Effect<void, PublicDiagnostic>;
-};
-
-const sinkInternals = new WeakMap<EvidenceSink, EvidenceSinkInternals>();
-
-const serviceCancellers = new WeakMap<
-  EvidenceReference,
-  (sequence: number) => Result.Result<void, PublicDiagnostic>
->();
-
-const hubCancellers = new WeakMap<
-  EvidenceReference,
-  (sequence: number) => Result.Result<void, PublicDiagnostic>
->();
-
-const serviceReservationOwners = new WeakMap<
-  EvidenceReference,
-  () => Result.Result<EvidenceReservation, PublicDiagnostic>
->();
-
-const hubReservationOwners = new WeakMap<
-  EvidenceReference,
-  () => Result.Result<EvidenceReservation, PublicDiagnostic>
->();
 
 const invalidEvidence = (
   reason: string,
@@ -244,7 +229,7 @@ const invalidEvidence = (
     path: ["evidence", reason],
     details,
     summary: "Evidence record is not valid for this runtime.",
-    help: "Use a record created from this runtime's admitted app, plan, and reservation.",
+    help: "Use a record created from this runtime's admitted app, plan, and preparation.",
   });
 
 const closedEvidence = () =>
@@ -265,14 +250,11 @@ const counterOverflow = (name: string) =>
     help: "Stop before counter wrap or sequence reuse.",
   });
 
-const sequenceOf = (record: EvidenceRecord) =>
-  record._tag === "turn" ? record.sequence : record.evidenceSequence;
-
 const copyArray = <Value>(values: Iterable<Value>) => [...values];
 
 const sequenceValue = (value: number) => {
   // SAFETY: callers validate positive safe integer bounds before branding a sequence.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the hub owns this numeric brand.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the Journal owns this numeric brand.
   return value as EvidenceSequence;
 };
 
@@ -466,6 +448,7 @@ const preserveCauseOpaque = (cause: CauseEnvelope, preserved: WeakSet<EvidenceRe
 };
 
 type LifecycleSnapshotEnvelope = {
+  fence: ActorFence;
   attachment: {
     providerRevisions: unknown;
     cursors: unknown;
@@ -547,283 +530,231 @@ const copyRecord = (record: EvidenceRecord) => {
   return copyStructured(record, preserved);
 };
 
-const diagnosticFromCause = (cause: Cause.Cause<PublicDiagnostic>) => {
-  const defect = cause.reasons.find(Cause.isDieReason);
-
-  if (defect !== undefined) return Defect(defect.defect);
-  const failure = cause.reasons.find(Cause.isFailReason);
-
-  if (failure !== undefined)
-    return failure.error instanceof Diagnostic ? failure.error : Defect(failure.error);
-
-  return Interrupt();
-};
-
-const makeSinkFailure = (cause: Cause.Cause<PublicDiagnostic>) => diagnosticFromCause(cause);
-
-/** Makes one bounded sink. Offers only enqueue; delivery runs during drain. */
-// RETURN_TYPE: The public sink factory keeps its typed construction failure channel explicit.
-export const makeEvidenceSink = (
-  options: {
-    id?: string;
-    capacity?: number;
-    deliver?: (record: EvidenceRecord) => Effect.Effect<void, PublicDiagnostic>;
-  } = {},
-): Effect.Effect<EvidenceSink, PublicDiagnostic> =>
-  Effect.gen(function* () {
-    const capacity = options.capacity ?? 64;
-
-    if (!Number.isSafeInteger(capacity) || capacity < 1)
-      return yield* Effect.fail(
-        Failure({
-          code: "BoundExceeded",
-          path: ["evidence", "sink", "capacity"],
-          details: { capacity },
-          summary: "Evidence sink capacity must be positive.",
-          help: "Choose a finite positive sink capacity.",
-        }),
-      );
-
-    const mailbox = yield* Queue.bounded<EvidenceRecord>(capacity);
-    const sinkName = options.id ?? `sink-${crypto.randomUUID()}`;
-    // SAFETY: sinkName is either a caller label or a runtime-generated local identity.
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- SinkId is a private nominal label.
-    const sinkId = sinkName as SinkId;
-    const semaphore = Semaphore.makeUnsafe(1);
-    let closed = false;
-    let failure: PublicDiagnostic | undefined;
-    let truncatedBefore: EvidenceSequence | undefined;
-    const deliver = options.deliver ?? (() => Effect.void);
-
-    // RETURN_TYPE: Sink status literals must remain narrow for the bounded offer contract.
-    const offerUnsafe = (record: EvidenceRecord, sequence: EvidenceSequence): SinkOfferResult => {
-      if (closed || failure !== undefined) return { sink: sinkId, sequence, status: "detached" };
-
-      if (Queue.offerUnsafe(mailbox, record)) return { sink: sinkId, sequence, status: "accepted" };
-
-      if (truncatedBefore === undefined) truncatedBefore = sequence;
-
-      return { sink: sinkId, sequence, status: "dropped" };
-    };
-
-    const drain = (through: EvidenceSequence) =>
-      semaphore.withPermit(
-        Effect.gen(function* () {
-          if (failure !== undefined)
-            return {
-              sink: sinkId,
-              through,
-              status: "failed",
-            } satisfies SinkDrainResult;
-
-          while (Queue.sizeUnsafe(mailbox) > 0) {
-            const record = yield* Queue.take(mailbox);
-            const delivered = yield* Effect.exit(deliver(record));
-
-            if (Exit.isFailure(delivered)) {
-              failure = makeSinkFailure(delivered.cause);
-
-              while (Queue.sizeUnsafe(mailbox) > 0) Queue.takeUnsafe(mailbox);
-
-              return {
-                sink: sinkId,
-                through,
-                status: "failed",
-              } satisfies SinkDrainResult;
-            }
-          }
-
-          return {
-            sink: sinkId,
-            through,
-            status: truncatedBefore === undefined ? "drained" : "truncated",
-          } satisfies SinkDrainResult;
-        }),
-      );
-
-    const close = semaphore.withPermit(
-      Effect.gen(function* () {
-        if (closed) return;
-        closed = true;
-        yield* Queue.shutdown(mailbox);
-      }),
-    );
-
-    const sink: EvidenceSink = {
-      id: sinkId,
-      capacity,
-      mailbox,
-      offer: (record) => {
-        const sequence = sequenceOf(record);
-
-        return Effect.sync(() => offerUnsafe(record, sequenceValue(sequence)));
-      },
-      drain: (through) => drain(through),
-      close: () => close,
-    };
-
-    sinkInternals.set(sink, {
-      offerUnsafe,
-      drain,
-      close,
-      truncatedBefore: () => truncatedBefore,
-    });
-
-    return sink;
-  });
-
-export type EvidenceHub = {
+export type EvidenceJournal = {
   sequence: () => EvidenceSequence | 0;
-  reserve: () => Result.Result<EvidenceReservation, PublicDiagnostic>;
-  cancel: (reservation: EvidenceReservation) => Result.Result<void, PublicDiagnostic>;
-  attach: (sink: EvidenceSink) => Result.Result<void, PublicDiagnostic>;
-  /** Synchronous actor publication uses the same prefix transition as async acceptance. */
+  prepare: () => Result.Result<EvidencePreparation, PublicDiagnostic>;
+  registerActor: (
+    actorKey: string,
+    fence: ActorFence,
+  ) => Result.Result<EvidenceCredit, PublicDiagnostic>;
+  releaseActor: (actorKey: string) => Result.Result<void, PublicDiagnostic>;
+  prepareLifecycle: (actorKey: string) => Result.Result<EvidencePreparation, PublicDiagnostic>;
+  settleOutcome: (
+    preparation: EvidencePreparation,
+    terminal: boolean,
+  ) => Result.Result<void, PublicDiagnostic>;
+  cancel: (preparation: EvidencePreparation) => Result.Result<void, PublicDiagnostic>;
+  attach: (attachment: EvidenceAttachmentToken) => Result.Result<void, PublicDiagnostic>;
+  attachmentTokens: () => readonly EvidenceAttachmentToken[];
+  /** Synchronous acceptance is the only point where a global sequence is assigned. */
   acceptSync: (
-    reservation: EvidenceReservation,
-    record: EvidenceRecord,
+    preparation: EvidencePreparation,
+    record: PreparedEvidenceRecord,
   ) => Result.Result<EvidenceAcceptance, PublicDiagnostic>;
-  /** Consumes a fully prepared actor record after its store cut commits. */
-  acceptPreparedSync: (
-    reservation: EvidenceReservation,
-    record: EvidenceRecord,
-  ) => EvidenceAcceptance;
   accept: (
-    reservation: EvidenceReservation,
-    record: EvidenceRecord,
+    preparation: EvidencePreparation,
+    record: PreparedEvidenceRecord,
   ) => Effect.Effect<EvidenceAcceptance, PublicDiagnostic>;
   drain: () => Effect.Effect<EvidenceDrain, PublicDiagnostic>;
   close: () => Effect.Effect<EvidenceDrain, PublicDiagnostic>;
 };
 
-type AcceptAttempt =
-  | { _tag: "wait"; waiter: Deferred.Deferred<void, PublicDiagnostic> }
-  | { _tag: "done"; acceptance: EvidenceAcceptance };
+const attachmentOwners = new WeakMap<EvidenceAttachmentToken, EvidenceJournal>();
 
-type ReservationState = {
-  reservation: EvidenceReservation;
-  status: "pending" | "accepted" | "tombstoned";
+type PreparationState = {
+  preparation: EvidencePreparation;
+  status: "pending" | "accepted";
+  credit?: EvidenceCredit;
 };
 
-/** Owns sequence allocation, prefix ordering, sink isolation, and close drain. */
-// RETURN_TYPE: The public hub factory preserves the recursive reservation and sink contract.
-export const makeEvidenceHub = (options: { app: App; plan: RuntimePlan }): EvidenceHub => {
+type ActorCreditState = {
+  credit: EvidenceCredit;
+  status: "live" | "outcome" | "terminal";
+  preparation?: EvidencePreparation;
+};
+
+type EvidenceDrainCapture = {
+  through: EvidenceSequence | 0;
+  attachmentThrough: EvidenceSequence;
+  truncatedBefore: Option.Option<EvidenceSequence>;
+  attachments: readonly EvidenceAttachmentToken[];
+};
+
+/** Owns sequence allocation, accepted-prefix ordering, attachment admission, and close drain. */
+// RETURN_TYPE: The public Journal factory preserves the recursive preparation and sink contract.
+export const makeEvidenceJournal = (options: {
+  app: App;
+  plan: RuntimePlan;
+  capacity?: number;
+}): EvidenceJournal => {
   const semaphore = Semaphore.makeUnsafe(1);
-  const sinks: EvidenceSink[] = [];
-  const reservations = new Map<number, ReservationState>();
-  const waiters = new Map<number, Deferred.Deferred<void, PublicDiagnostic>>();
-  let allocated = 0;
+  const attachmentTokens: EvidenceAttachmentToken[] = [];
+  const preparations = new Map<object, PreparationState>();
+  const credits = new Map<string, ActorCreditState>();
+  const outcomePreparations = new Map<object, EvidenceCredit>();
+  const capacity = options.capacity ?? Number.MAX_SAFE_INTEGER;
+  let ordinaryPrepared = 0;
   let accepted = 0;
   let closed = false;
   let truncatedBefore: EvidenceSequence | undefined;
+  let creditWaiter: Deferred.Deferred<void> | undefined;
   let closeCell: Deferred.Deferred<Exit.Exit<EvidenceDrain, PublicDiagnostic>> | undefined;
 
-  // RETURN_TYPE: This callback closes over the hub identity used by each reservation.
-  const reserveUnsafe = (): Result.Result<EvidenceReservation, PublicDiagnostic> => {
-    if (closed) return Result.fail(closedEvidence());
-
-    if (allocated >= Number.MAX_SAFE_INTEGER) return Result.fail(counterOverflow("sequence"));
-    allocated += 1;
-
-    const reservation = {
-      hub,
-      sequence: sequenceValue(allocated),
-    } satisfies EvidenceReservation;
-
-    reservations.set(allocated, { reservation, status: "pending" });
-
-    return Result.succeed(reservation);
+  const wakeCreditWaiter = () => {
+    if (credits.size !== 0 || creditWaiter === undefined) return;
+    Deferred.doneUnsafe(creditWaiter, Effect.succeed(undefined));
+    creditWaiter = undefined;
   };
 
-  const advancePrefix = () => {
-    for (;;) {
-      const next = reservations.get(accepted + 1);
-
-      if (next === undefined || next.status === "pending") break;
-      accepted += 1;
-      reservations.delete(accepted);
-    }
-
-    for (const [sequence, waiter] of waiters) {
-      if (sequence > accepted + 1) continue;
-      waiters.delete(sequence);
-      Deferred.doneUnsafe(waiter, Effect.succeed(undefined));
-    }
-  };
-
-  const validateReservation = (reservation: EvidenceReservation, record: EvidenceRecord) => {
+  const registerActor = (
+    actorKey: string,
+    fence: ActorFence,
+  ): Result.Result<EvidenceCredit, PublicDiagnostic> => {
     if (closed) return Result.fail(closedEvidence());
 
-    if (reservation.hub !== hub)
-      return Result.fail(invalidEvidence("reservation", { reason: "foreign-hub" }));
-    const sequence = sequenceOf(record);
+    if (actorKey !== fence.key)
+      return Result.fail(invalidEvidence("credit", { reason: "actor-mismatch" }));
 
-    if (!Number.isSafeInteger(sequence) || sequence < 1)
-      return Result.fail(invalidEvidence("sequence", { reason: "missing-or-invalid" }));
+    if (credits.has(actorKey))
+      return Result.fail(invalidEvidence("credit", { reason: "actor-already-registered" }));
 
-    if (sequence !== reservation.sequence)
-      return Result.fail(invalidEvidence("sequence", { reason: "reservation-mismatch", sequence }));
-    const retained = reservations.get(sequence);
+    const credit: EvidenceCredit = { journal, actorKey, fence: { ...fence }, token: {} };
+
+    credits.set(actorKey, { credit, status: "live" });
+
+    return Result.succeed(credit);
+  };
+
+  const releaseActor = (actorKey: string) => {
+    const state = credits.get(actorKey);
+
+    if (state === undefined) return Result.succeed(undefined);
+    credits.delete(actorKey);
+
+    if (state.preparation !== undefined) {
+      preparations.delete(state.preparation.token);
+      outcomePreparations.delete(state.preparation.token);
+    }
+
+    wakeCreditWaiter();
+
+    return Result.succeed(undefined);
+  };
+
+  const prepareUnsafe = (): Result.Result<EvidencePreparation, PublicDiagnostic> => {
+    if (closed) return Result.fail(closedEvidence());
+
+    if (!Number.isSafeInteger(capacity) || capacity < 1)
+      return Result.fail(invalidEvidence("capacity", { reason: "invalid", capacity }));
+
+    if (ordinaryPrepared >= capacity)
+      return Result.fail(invalidEvidence("credit", { reason: "ordinary-capacity" }));
+    const token = {};
+    const preparation = { journal, token } satisfies EvidencePreparation;
+    preparations.set(token, { preparation, status: "pending" });
+    ordinaryPrepared += 1;
+
+    return Result.succeed(preparation);
+  };
+
+  const prepareLifecycle = (actorKey: string) => {
+    if (closed) return Result.fail(closedEvidence());
+    const credit = credits.get(actorKey);
+
+    if (credit === undefined)
+      return Result.fail(invalidEvidence("credit", { reason: "actor-not-registered" }));
+
+    if (credit.status !== "live")
+      return Result.fail(invalidEvidence("credit", { reason: "outcome-in-flight" }));
+    const token = {};
+    const preparation = { journal, token } satisfies EvidencePreparation;
+    credit.status = "outcome";
+    credit.preparation = preparation;
+    preparations.set(token, { preparation, status: "pending", credit: credit.credit });
+    outcomePreparations.set(token, credit.credit);
+
+    return Result.succeed(preparation);
+  };
+
+  const validatePreparation = (
+    preparation: EvidencePreparation,
+    record: PreparedEvidenceRecord,
+  ) => {
+    if (preparation.journal !== journal)
+      return Result.fail(invalidEvidence("preparation", { reason: "foreign-journal" }));
+    const retained = preparations.get(preparation.token);
 
     if (
       retained === undefined ||
-      retained.reservation !== reservation ||
+      retained.preparation !== preparation ||
       retained.status !== "pending"
     )
-      return Result.fail(invalidEvidence("reservation", { reason: "unknown" }));
+      return Result.fail(invalidEvidence("preparation", { reason: "unknown" }));
+
+    // Journal close fences new preparations but admits terminal outcomes already reserved by
+    // a live actor so their accepted prefix can settle before the close waits for credits.
+    if (closed && retained.credit === undefined) return Result.fail(closedEvidence());
 
     if (record.provenance.app !== options.app || record.provenance.plan !== options.plan)
       return Result.fail(invalidEvidence("provenance", { reason: "foreign-runtime" }));
 
-    return Result.succeed(sequence);
+    if (retained.credit !== undefined) {
+      const credit = retained.credit;
+      const recordFence = record._tag === "turn" ? record.fence : record.after.fence;
+
+      if (
+        record.provenance.actor.key !== credit.actorKey ||
+        recordFence.key !== credit.actorKey ||
+        record.provenance.actor.incarnation !== recordFence.incarnation ||
+        record.provenance.actor.leaseEpoch !== recordFence.leaseEpoch ||
+        recordFence.key !== credit.fence.key ||
+        recordFence.incarnation !== credit.fence.incarnation ||
+        recordFence.generation !== credit.fence.generation ||
+        recordFence.leaseEpoch !== credit.fence.leaseEpoch
+      )
+        return Result.fail(invalidEvidence("credit", { reason: "actor-mismatch" }));
+    }
+
+    return Result.succeed(undefined);
   };
 
-  const validate = (reservation: EvidenceReservation, record: EvidenceRecord) => {
-    const validated = validateReservation(reservation, record);
-
-    if (Result.isFailure(validated)) return Result.fail(validated.failure);
-
-    if (validated.success !== accepted + 1)
-      return Result.fail(
-        invalidEvidence("prefix", { reason: "out-of-order", sequence: validated.success }),
-      );
-
-    return validated;
-  };
-
-  const acceptUnsafe = (reservation: EvidenceReservation, record: EvidenceRecord) => {
-    const validation = validate(reservation, record);
+  const acceptUnsafe = (
+    preparation: EvidencePreparation,
+    record: PreparedEvidenceRecord,
+  ): Result.Result<EvidenceAcceptance, PublicDiagnostic> => {
+    const validation = validatePreparation(preparation, record);
 
     if (Result.isFailure(validation)) return Result.fail(validation.failure);
-    const sequence = sequenceValue(validation.success);
+
+    if (accepted >= Number.MAX_SAFE_INTEGER) return Result.fail(counterOverflow("sequence"));
+    const sequence = sequenceValue(accepted + 1);
+
+    const sequenced: EvidenceRecord =
+      record._tag === "turn" ? { ...record, sequence } : { ...record, evidenceSequence: sequence };
 
     const copied = Result.try({
-      try: () => copyRecord(record),
+      try: () => copyRecord(sequenced),
       catch: () => invalidEvidence("record", { reason: "copy-failed" }),
     });
 
     if (Result.isFailure(copied)) {
-      cancelUnsafe(reservation);
+      cancelUnsafe(preparation);
 
       return Result.fail(copied.failure);
     }
 
-    const state = reservations.get(validation.success);
+    const state = preparations.get(preparation.token);
 
     if (state === undefined)
-      return Result.fail(invalidEvidence("reservation", { reason: "unknown" }));
+      return Result.fail(invalidEvidence("preparation", { reason: "unknown" }));
     state.status = "accepted";
-    advancePrefix();
+    preparations.delete(preparation.token);
 
-    const offers = sinks.map((sink) => {
-      const internal = sinkInternals.get(sink);
+    if (state.credit === undefined) ordinaryPrepared -= 1;
+    accepted += 1;
 
-      if (internal === undefined)
-        return {
-          sink: sink.id,
-          sequence,
-          status: "detached",
-        } satisfies SinkOfferResult;
-      const offer = internal.offerUnsafe(copied.success, sequence);
+    const offers = attachmentTokens.map((attachment) => {
+      const offer = attachment.offerUnsafe(copied.success, sequence);
 
       if (offer.status === "dropped" && truncatedBefore === undefined) truncatedBefore = sequence;
 
@@ -831,167 +762,156 @@ export const makeEvidenceHub = (options: { app: App; plan: RuntimePlan }): Evide
     });
 
     return Result.succeed({
-      reservation,
+      preparation,
       record: copied.success,
       sequence,
-      sinks: copyArray(offers),
+      attachments: copyArray(offers),
     });
   };
 
-  const acceptPreparedUnsafe = (reservation: EvidenceReservation, record: EvidenceRecord) => {
-    const sequence = reservation.sequence;
-    const state = reservations.get(sequence);
+  const cancelUnsafe = (preparation: EvidencePreparation) => {
+    if (preparation.journal !== journal)
+      return Result.fail(invalidEvidence("preparation", { reason: "foreign-journal" }));
+    const retained = preparations.get(preparation.token);
 
-    if (
-      state === undefined ||
-      state.reservation !== reservation ||
-      state.status !== "pending" ||
-      sequence !== accepted + 1
-    )
-      throw new Error("Prepared actor evidence was consumed outside its validated prefix");
-    state.status = "accepted";
-    advancePrefix();
+    if (retained === undefined || retained.preparation !== preparation)
+      return Result.succeed(undefined);
 
-    const offers = sinks.map((sink) => {
-      const internal = sinkInternals.get(sink);
+    if (retained.status !== "pending")
+      return Result.fail(invalidEvidence("preparation", { reason: "unknown" }));
+    preparations.delete(preparation.token);
 
-      if (internal === undefined)
-        return {
-          sink: sink.id,
-          sequence,
-          status: "detached",
-        } satisfies SinkOfferResult;
-      const offer = internal.offerUnsafe(record, sequence);
+    if (retained.credit === undefined) ordinaryPrepared -= 1;
+    else {
+      const credit = credits.get(retained.credit.actorKey);
 
-      if (offer.status === "dropped" && truncatedBefore === undefined) truncatedBefore = sequence;
+      if (credit !== undefined && credit.preparation === preparation) {
+        credit.status = "live";
+        delete credit.preparation;
+      }
 
-      return offer;
-    });
-
-    return {
-      reservation,
-      record,
-      sequence,
-      sinks: copyArray(offers),
-    };
-  };
-
-  const cancelUnsafe = (reservation: EvidenceReservation) => {
-    if (reservation.hub !== hub)
-      return Result.fail(invalidEvidence("reservation", { reason: "foreign-hub" }));
-    const sequence = reservation.sequence;
-    const retained = reservations.get(sequence);
-
-    if (
-      retained === undefined ||
-      retained.reservation !== reservation ||
-      retained.status !== "pending"
-    )
-      return Result.fail(invalidEvidence("reservation", { reason: "unknown" }));
-    retained.status = "tombstoned";
-    advancePrefix();
+      outcomePreparations.delete(preparation.token);
+    }
 
     return Result.succeed(undefined);
   };
 
-  const attempt = (reservation: EvidenceReservation, record: EvidenceRecord) => {
-    const validated = validateReservation(reservation, record);
+  const settleOutcome = (preparation: EvidencePreparation, terminal: boolean) => {
+    if (preparation.journal !== journal)
+      return Result.fail(invalidEvidence("preparation", { reason: "foreign-journal" }));
+    const credit = outcomePreparations.get(preparation.token);
 
-    if (Result.isFailure(validated)) return Result.fail(validated.failure);
-    const sequence = validated.success;
-
-    if (sequence === accepted + 1) {
-      const acceptedRecord = acceptUnsafe(reservation, record);
-
-      return Result.isFailure(acceptedRecord)
-        ? acceptedRecord
-        : ({ _tag: "done", acceptance: acceptedRecord.success } satisfies AcceptAttempt);
+    if (credit === undefined) {
+      // Ordinary lifecycle tests may use an unregistered actor and therefore an ordinary
+      // preparation. Such preparations have no lifecycle outcome credit to settle.
+      return Result.succeed(undefined);
     }
 
-    if (sequence > accepted + 1) {
-      let waiter = waiters.get(accepted + 1);
+    const state = credits.get(credit.actorKey);
 
-      if (waiter === undefined) {
-        const created = Deferred.makeUnsafe<void, PublicDiagnostic>();
-        waiters.set(accepted + 1, created);
-        waiter = created;
-      }
+    if (state === undefined) return Result.succeed(undefined);
+    outcomePreparations.delete(preparation.token);
 
-      return { _tag: "wait", waiter } satisfies AcceptAttempt;
+    if (terminal) {
+      // Keep terminal credit until the ActorCell unregisters so Journal close cannot drain
+      // ahead of an admitted lifecycle outcome's remaining actor cleanup.
+      state.status = "terminal";
+      delete state.preparation;
+    } else {
+      state.status = "live";
+      delete state.preparation;
     }
 
-    return acceptUnsafe(reservation, record);
+    wakeCreditWaiter();
+
+    return Result.succeed(undefined);
   };
 
-  const accept = (reservation: EvidenceReservation, record: EvidenceRecord) =>
+  const accept = (preparation: EvidencePreparation, record: PreparedEvidenceRecord) =>
+    semaphore
+      .withPermit(
+        Effect.yieldNow.pipe(
+          Effect.flatMap(() => Effect.sync(() => acceptUnsafe(preparation, record))),
+        ),
+      )
+      .pipe(
+        Effect.onInterrupt(() =>
+          Effect.sync(() => {
+            cancelUnsafe(preparation);
+          }),
+        ),
+        Effect.flatMap((result) =>
+          Result.isFailure(result) ? Effect.fail(result.failure) : Effect.succeed(result.success),
+        ),
+      );
+
+  const captureDrainUnsafe = (): EvidenceDrainCapture => ({
+    through: accepted === 0 ? 0 : sequenceValue(accepted),
+    attachmentThrough: accepted === 0 ? sequenceValue(1) : sequenceValue(accepted),
+    truncatedBefore: Option.fromNullishOr(truncatedBefore),
+    attachments: copyArray(attachmentTokens),
+  });
+
+  const drainCaptured = (capture: EvidenceDrainCapture) =>
     Effect.gen(function* () {
-      for (;;) {
-        const attempted = yield* semaphore.withPermit(
-          Effect.sync(() => attempt(reservation, record)),
-        );
+      const results: AttachmentDrainResult[] = [];
 
-        if ("_tag" in attempted && attempted._tag === "wait") {
-          yield* Deferred.await(attempted.waiter);
-          continue;
-        }
-
-        if ("_tag" in attempted && attempted._tag === "done") return attempted.acceptance;
-
-        if (Result.isFailure(attempted)) return yield* Effect.fail(attempted.failure);
-
-        return attempted.success;
-      }
-    });
-
-  const drainUnsafe = () =>
-    Effect.gen(function* () {
-      const through = accepted === 0 ? 0 : sequenceValue(accepted);
-
-      const sinkThrough: EvidenceSequence =
-        accepted === 0 ? sequenceValue(1) : sequenceValue(accepted);
-
-      const results: SinkDrainResult[] = [];
-
-      for (const sink of sinks) {
-        const internal = sinkInternals.get(sink);
-
-        if (internal === undefined) {
-          results.push({ sink: sink.id, through: sinkThrough, status: "failed" });
-          continue;
-        }
-
-        results.push(yield* internal.drain(sinkThrough));
-      }
+      for (const attachment of capture.attachments)
+        results.push(yield* attachment.drain(capture.attachmentThrough));
 
       return {
-        through,
-        truncatedBefore: Option.fromNullishOr(truncatedBefore),
-        sinks: copyArray(results),
+        through: capture.through,
+        truncatedBefore: capture.truncatedBefore,
+        attachments: copyArray(results),
       } satisfies EvidenceDrain;
     });
 
-  const drain = () => semaphore.withPermit(drainUnsafe());
+  const drainSemaphore = Semaphore.makeUnsafe(1);
+
+  const drain = () =>
+    drainSemaphore.withPermit(
+      semaphore.withPermit(Effect.sync(captureDrainUnsafe)).pipe(Effect.flatMap(drainCaptured)),
+    );
+
+  const awaitCredits = (): Effect.Effect<void> =>
+    Effect.suspend(() => {
+      if (credits.size === 0) return Effect.void;
+
+      if (creditWaiter === undefined) creditWaiter = Deferred.makeUnsafe<void>();
+
+      return Deferred.await(creditWaiter).pipe(Effect.flatMap(awaitCredits));
+    });
 
   const closeOnce = Effect.uninterruptible(
     Effect.gen(function* () {
-      closed = true;
+      yield* semaphore.withPermit(
+        Effect.sync(() => {
+          for (const [token, state] of preparations) {
+            if (state.credit !== undefined) continue;
 
-      for (const state of reservations.values())
-        if (state.status === "pending") state.status = "tombstoned";
-      advancePrefix();
+            preparations.delete(token);
+            ordinaryPrepared -= 1;
+          }
+        }),
+      );
 
-      for (const waiter of waiters.values())
-        Deferred.doneUnsafe(waiter, Effect.fail(closedEvidence()));
-      waiters.clear();
-      const drained = yield* drainUnsafe();
+      // Wait without the commit permit: an admitted lifecycle outcome still needs to accept
+      // through that permit before releasing its actor credit.
+      yield* awaitCredits();
 
-      for (const sink of sinks) {
-        const internal = sinkInternals.get(sink);
-
-        if (internal !== undefined) yield* internal.close;
-      }
-
-      return drained;
+      return yield* drainSemaphore.withPermit(
+        semaphore
+          .withPermit(Effect.sync(captureDrainUnsafe))
+          .pipe(
+            Effect.flatMap((capture) =>
+              drainCaptured(capture).pipe(
+                Effect.tap(() =>
+                  Effect.forEach(capture.attachments, (attachment) => attachment.close()),
+                ),
+              ),
+            ),
+          ),
+      );
     }),
   );
 
@@ -1001,79 +921,68 @@ export const makeEvidenceHub = (options: { app: App; plan: RuntimePlan }): Evide
         return Deferred.await(closeCell).pipe(Effect.flatMap(resolveExit));
       const cell = Deferred.makeUnsafe<Exit.Exit<EvidenceDrain, PublicDiagnostic>>();
       closeCell = cell;
+      closed = true;
 
       return Effect.uninterruptible(
-        Effect.exit(semaphore.withPermit(closeOnce)).pipe(
+        Effect.exit(closeOnce).pipe(
           Effect.flatMap((exit) => Deferred.succeed(cell, exit).pipe(Effect.as(exit))),
           Effect.flatMap(resolveExit),
         ),
       );
     });
 
-  const hub: EvidenceHub = {
+  const journal: EvidenceJournal = {
     sequence: () => (accepted === 0 ? 0 : sequenceValue(accepted)),
-    reserve: reserveUnsafe,
+    prepare: prepareUnsafe,
+    registerActor,
+    releaseActor,
+    prepareLifecycle,
+    settleOutcome,
     cancel: cancelUnsafe,
-    attach: (sink) => {
+    attach: (attachment) => {
       if (closed) return Result.fail(closedEvidence());
 
-      if (!sinkInternals.has(sink))
-        return Result.fail(invalidEvidence("sink", { reason: "foreign-sink" }));
-      sinks.push(sink);
+      const owner = attachmentOwners.get(attachment);
+
+      if (owner !== undefined)
+        return Result.fail(
+          invalidEvidence("attachment", {
+            reason: owner === journal ? "duplicate" : "foreign-journal",
+          }),
+        );
+
+      attachmentOwners.set(attachment, journal);
+      attachmentTokens.push(attachment);
 
       return Result.succeed(undefined);
     },
-    acceptSync: (reservation, record) => {
-      const attempted = attempt(reservation, record);
-
-      if ("_tag" in attempted && attempted._tag === "wait")
-        return Result.fail(
-          invalidEvidence("prefix", { reason: "out-of-order", sequence: reservation.sequence }),
-        );
-
-      if ("_tag" in attempted && attempted._tag === "done")
-        return Result.succeed(attempted.acceptance);
-
-      if (Result.isFailure(attempted)) return Result.fail(attempted.failure);
-
-      return attempted;
-    },
-    acceptPreparedSync: acceptPreparedUnsafe,
+    attachmentTokens: () => copyArray(attachmentTokens),
+    acceptSync: acceptUnsafe,
     accept,
     drain,
     close,
   };
 
-  hubCancellers.set(hub, (sequence) => {
-    const reservation = reservations.get(sequence)?.reservation;
-
-    return reservation === undefined ? Result.succeed(undefined) : cancelUnsafe(reservation);
-  });
-
-  return hub;
+  return journal;
 };
 
 const resolveExit = <Value>(exit: Exit.Exit<Value, PublicDiagnostic>) =>
   Exit.isSuccess(exit) ? Effect.succeed(exit.value) : Effect.failCause(exit.cause);
 
-/** Builds a turn record from an actor publication and a hub reservation. */
+/** Builds a turn fact; the Journal adds its global sequence during acceptance. */
 // RETURN_TYPE: The public constructor preserves its typed record failure channel.
 export const makeTurnRecord = <A extends App, DefinitionValue extends MachineDefinition>(
   fact: TurnFact<A, DefinitionValue>,
-  reservation: EvidenceReservation,
-): Result.Result<TurnRecord<A, DefinitionValue>, PublicDiagnostic> => {
+  _preparation: EvidencePreparation,
+): Result.Result<Omit<TurnRecord<A, DefinitionValue>, "sequence">, PublicDiagnostic> => {
   if (!Number.isSafeInteger(fact.timestamp) || fact.timestamp < 0) {
     return Result.fail(invalidEvidence("timestamp", { reason: "invalid" }));
   }
 
-  if (!Number.isSafeInteger(reservation.sequence) || reservation.sequence < 1) {
-    return Result.fail(invalidEvidence("sequence", { reason: "invalid" }));
-  }
-
-  return Result.succeed({ ...fact, _tag: "turn", sequence: reservation.sequence });
+  return Result.succeed({ ...fact, _tag: "turn" });
 };
 
-/** Builds lifecycle evidence with the reservation-owned global sequence. */
+/** Builds a lifecycle fact; the Journal adds its global sequence during acceptance. */
 // RETURN_TYPE: The public constructor preserves its typed record failure channel.
 export const makeLifecycleRecord = <
   DefinitionValue extends MachineDefinition,
@@ -1081,120 +990,84 @@ export const makeLifecycleRecord = <
   ProviderDefinition extends MachineDefinition = DefinitionValue,
 >(
   fact: LifecycleFact<DefinitionValue, CleanupError, ProviderDefinition>,
-  reservation: EvidenceReservation,
+  _preparation: EvidencePreparation,
 ): Result.Result<
-  LifecycleRecord<DefinitionValue, CleanupError, ProviderDefinition>,
+  LifecycleFact<DefinitionValue, CleanupError, ProviderDefinition>,
   PublicDiagnostic
 > => {
   if (!Number.isSafeInteger(fact.timestamp) || fact.timestamp < 0) {
     return Result.fail(invalidEvidence("timestamp", { reason: "invalid" }));
   }
 
-  if (!Number.isSafeInteger(reservation.sequence) || reservation.sequence < 1) {
-    return Result.fail(invalidEvidence("sequence", { reason: "invalid" }));
+  return Result.succeed(fact);
+};
+
+/** Cancels a Journal preparation when a later stage fails before acceptance. */
+export const cancelPreparedEvidence = (
+  service: RuntimeEvidenceService,
+  preparation: EvidencePreparation,
+) => service.cancel(preparation);
+
+/** Reads lifecycle evidence inputs before the actor mutates its attachment. */
+export const prepareLifecycleEvidenceAdmission = (
+  service: RuntimeEvidenceService,
+  timestamp: number,
+  actorKey?: string,
+): Result.Result<{ preparation: EvidencePreparation; timestamp: number }, PublicDiagnostic> => {
+  let preparation = actorKey === undefined ? service.prepare() : service.prepareLifecycle(actorKey);
+
+  if (
+    Result.isFailure(preparation) &&
+    preparation.failure.details.reason === "actor-not-registered"
+  ) {
+    preparation = service.prepare();
   }
 
-  return Result.succeed({ ...fact, evidenceSequence: reservation.sequence });
-};
-
-/** Accepts a record through the hub's reservation and prefix barrier. */
-export const acceptEvidence = (
-  hub: EvidenceHub,
-  reservation: EvidenceReservation,
-  record: EvidenceRecord,
-) => hub.accept(reservation, record);
-
-export const drainAcceptedEvidence = (hub: EvidenceHub) => hub.drain();
-
-export const closeEvidence = (hub: EvidenceHub) => hub.close();
-
-/** Cancels a runtime-owned reservation when a later preparation stage fails. */
-export const cancelRuntimeEvidence = (service: RuntimeEvidenceService, sequence: number) => {
-  const cancel = serviceCancellers.get(service);
-
-  if (cancel !== undefined) return cancel(sequence);
-
-  if (isReference(service.hub)) {
-    const cancelHub = hubCancellers.get(service.hub);
-
-    if (cancelHub !== undefined) return cancelHub(sequence);
-  }
-
-  return Result.succeed(undefined);
-};
-
-const reservationOwnerForService = (service: RuntimeEvidenceService) => {
-  const direct = serviceReservationOwners.get(service);
-
-  if (direct !== undefined) return direct;
-
-  if (!isReference(service.hub)) return undefined;
-
-  return hubReservationOwners.get(service.hub);
-};
-
-const reserveRuntimeEvidence = (service: RuntimeEvidenceService) => {
-  const reserve = reservationOwnerForService(service);
-
-  if (reserve === undefined)
-    return Result.fail(invalidEvidence("reservation", { reason: "owner-unavailable" }));
-
-  return reserve();
-};
-
-/** Reserves one lifecycle evidence sequence before its owner begins cleanup. */
-export const reserveLifecycleEvidence = (service: RuntimeEvidenceService) =>
-  reserveRuntimeEvidence(service);
-
-/** Reads and validates lifecycle evidence inputs before the actor mutates its attachment. */
-export const preflightLifecycleEvidence = (service: RuntimeEvidenceService, timestamp: number) => {
-  const reservation = reserveLifecycleEvidence(service);
-
-  if (Result.isFailure(reservation)) return Result.fail(reservation.failure);
+  if (Result.isFailure(preparation)) return Result.fail(preparation.failure);
 
   if (!Number.isSafeInteger(timestamp) || timestamp < 0) {
-    cancelRuntimeEvidence(service, reservation.success.sequence);
+    service.cancel(preparation.success);
 
     return Result.fail(invalidEvidence("timestamp", { reason: "invalid" }));
   }
 
-  return Result.succeed({ reservation: reservation.success, timestamp });
+  return Result.succeed({ preparation: preparation.success, timestamp });
 };
 
-/** Prepares lifecycle evidence through the reservation and record owner used by turn evidence. */
-export const prepareLifecycleEvidence = <
+/** Builds lifecycle evidence without assigning a Journal sequence. */
+export const makeLifecycleEvidence = <
   DefinitionValue extends MachineDefinition,
   CleanupError,
   ProviderDefinition extends MachineDefinition = DefinitionValue,
 >(
   service: RuntimeEvidenceService,
   fact: LifecycleFact<DefinitionValue, CleanupError, ProviderDefinition>,
-  reservation?: EvidenceReservation,
+  preparation?: EvidencePreparation,
 ) => {
-  const reserved =
-    reservation === undefined
-      ? reserveRuntimeEvidence(service)
-      : reservation.hub === service.hub
-        ? Result.succeed(reservation)
-        : Result.fail(invalidEvidence("reservation", { reason: "foreign-hub" }));
+  const prepared =
+    preparation === undefined
+      ? service.prepare()
+      : preparation.journal === service.journal
+        ? Result.succeed(preparation)
+        : Result.fail(invalidEvidence("preparation", { reason: "foreign-journal" }));
 
-  if (Result.isFailure(reserved)) return Result.fail(reserved.failure);
+  if (Result.isFailure(prepared)) return Result.fail(prepared.failure);
 
-  const prepared = makeLifecycleRecord(fact, reserved.success);
+  const record = makeLifecycleRecord(fact, prepared.success);
 
-  if (Result.isFailure(prepared)) {
-    const cancelled = cancelRuntimeEvidence(service, reserved.success.sequence);
+  if (Result.isFailure(record)) {
+    const cancelled = service.cancel(prepared.success);
 
     return Result.isFailure(cancelled)
       ? Result.fail(cancelled.failure)
-      : Result.fail(prepared.failure);
+      : Result.fail(record.failure);
   }
 
-  return prepared;
+  return Result.succeed({ preparation: prepared.success, record: record.success });
 };
 
 type RuntimeEvidenceOwner = {
-  hub: EvidenceHub;
+  journal: EvidenceJournal;
   service: RuntimeEvidenceService;
   projectPublication: <DefinitionValue extends MachineDefinition>(
     publication: ActorPublication<DefinitionValue>,
@@ -1205,12 +1078,12 @@ type RuntimeEvidenceOwner = {
     fence: ActorFence,
     before: ActorSnapshot<DefinitionValue>,
     publication: ActorPublication<DefinitionValue>,
-  ) => Result.Result<number, PublicDiagnostic>;
+  ) => Result.Result<number | EvidencePreparation, PublicDiagnostic>;
   close: () => Effect.Effect<EvidenceDrain, PublicDiagnostic>;
 };
 
 type PreparedActorEvidence<DefinitionValue extends MachineDefinition> = {
-  reservation: EvidenceReservation;
+  preparation: EvidencePreparation;
   timestamp: number;
   fence: ActorFence;
   provenance: RuntimeProvenance<App, DefinitionValue>;
@@ -1222,14 +1095,13 @@ type PreparedActorEvidence<DefinitionValue extends MachineDefinition> = {
 };
 
 /** Creates the single runtime evidence capability used by actors and lifecycle. */
-// RETURN_TYPE: The public owner exposes one stable hub/service/close contract.
+// RETURN_TYPE: The public owner exposes one stable Journal/service/close contract.
 export const makeRuntimeEvidenceOwner = (options: {
   app: App;
   plan: RuntimePlan;
   clock: Clock.Clock;
 }): RuntimeEvidenceOwner => {
-  const hub = makeEvidenceHub({ app: options.app, plan: options.plan });
-  const reservations = new Map<number, EvidenceReservation>();
+  const journal = makeEvidenceJournal({ app: options.app, plan: options.plan });
   // oxlint-disable-next-line anti-slop/no-object-type -- publication identity is tracked privately by weak object membership.
   const published = new WeakSet<object>();
   let closed = false;
@@ -1241,50 +1113,45 @@ export const makeRuntimeEvidenceOwner = (options: {
     });
   };
 
-  const cancelReservation = (reservation: EvidenceReservation) => {
-    const cancelled = hub.cancel(reservation);
-
-    if (Result.isSuccess(cancelled)) reservations.delete(reservation.sequence);
-
-    return cancelled;
+  const cancelPreparation = (preparation: EvidencePreparation) => {
+    return journal.cancel(preparation);
   };
 
-  const failReserved = (reservation: EvidenceReservation, failure: PublicDiagnostic) => {
-    const cancelled = cancelReservation(reservation);
+  const failPrepared = (preparation: EvidencePreparation, failure: PublicDiagnostic) => {
+    const cancelled = cancelPreparation(preparation);
 
     return Result.isFailure(cancelled) ? Effect.fail(cancelled.failure) : Effect.fail(failure);
   };
 
   const cancelAndPreserveFailure = (
-    reservation: EvidenceReservation,
+    preparation: EvidencePreparation,
     cause: Cause.Cause<PublicDiagnostic>,
   ) => {
-    const cancelled = cancelReservation(reservation);
+    const cancelled = cancelPreparation(preparation);
 
     return Result.isFailure(cancelled) ? Effect.fail(cancelled.failure) : Effect.failCause(cause);
   };
 
-  const reserveEvidence = () => {
-    const reservation = hub.reserve();
-
-    if (Result.isSuccess(reservation))
-      reservations.set(reservation.success.sequence, reservation.success);
-
-    return reservation;
+  const prepareEvidence = () => {
+    return journal.prepare();
   };
 
   const projectPublication = <DefinitionValue extends MachineDefinition>(
     publication: ActorPublication<DefinitionValue>,
     project: (snapshot: ActorSnapshot<DefinitionValue>) => ActorSnapshot<DefinitionValue>,
   ) => {
-    projectedPublicationSnapshots.set(publication, project);
+    Object.defineProperty(publication, publicationProjection, {
+      configurable: true,
+      value: project,
+    });
   };
 
   const takePublicationProject = <DefinitionValue extends MachineDefinition>(
     publication: ActorPublication<DefinitionValue>,
   ) => {
-    const project = projectedPublicationSnapshots.get(publication);
-    projectedPublicationSnapshots.delete(publication);
+    const metadata = publicationMetadata(publication);
+    const project = metadata[publicationProjection];
+    delete metadata[publicationProjection];
 
     if (project === undefined) return (snapshot: ActorSnapshot<DefinitionValue>) => snapshot;
 
@@ -1302,20 +1169,20 @@ export const makeRuntimeEvidenceOwner = (options: {
     project: (snapshot: ActorSnapshot<DefinitionValue>) => ActorSnapshot<DefinitionValue>,
   ) => {
     if (closed) return Result.fail(closedEvidence());
-    const reservation = reserveEvidence();
+    const preparation = prepareEvidence();
 
-    if (Result.isFailure(reservation)) return Result.fail(reservation.failure);
+    if (Result.isFailure(preparation)) return Result.fail(preparation.failure);
 
     const timestampResult = timestamp();
 
     if (Result.isFailure(timestampResult)) {
-      cancelReservation(reservation.success);
+      cancelPreparation(preparation.success);
 
       return Result.fail(timestampResult.failure);
     }
 
     if (!Number.isSafeInteger(timestampResult.success) || timestampResult.success < 0) {
-      cancelReservation(reservation.success);
+      cancelPreparation(preparation.success);
 
       return Result.fail(invalidEvidence("timestamp", { reason: "invalid" }));
     }
@@ -1325,20 +1192,9 @@ export const makeRuntimeEvidenceOwner = (options: {
       identity.incarnation !== fence.incarnation ||
       identity.leaseEpoch !== fence.leaseEpoch
     ) {
-      cancelReservation(reservation.success);
+      cancelPreparation(preparation.success);
 
       return Result.fail(invalidEvidence("provenance", { reason: "actor-mismatch" }));
-    }
-
-    if (reservation.success.sequence !== hub.sequence() + 1) {
-      cancelReservation(reservation.success);
-
-      return Result.fail(
-        invalidEvidence("prefix", {
-          reason: "out-of-order",
-          sequence: reservation.success.sequence,
-        }),
-      );
     }
 
     const preflight = makeTurnRecord(
@@ -1361,17 +1217,17 @@ export const makeRuntimeEvidenceOwner = (options: {
         machineTurnRevision: publication.machineTurnRevision,
         timestamp: timestampResult.success,
       },
-      reservation.success,
+      preparation.success,
     );
 
     if (Result.isFailure(preflight)) {
-      cancelReservation(reservation.success);
+      cancelPreparation(preparation.success);
 
       return Result.fail(preflight.failure);
     }
 
     const preparedEvidence: PreparedActorEvidence<DefinitionValue> = {
-      reservation: reservation.success,
+      preparation: preparation.success,
       timestamp: timestampResult.success,
       fence,
       provenance: {
@@ -1390,7 +1246,7 @@ export const makeRuntimeEvidenceOwner = (options: {
       machineTurnRevision: publication.machineTurnRevision,
     };
 
-    preparedPublicationFinalizers.set(publication, (finalPublication) => {
+    const finalize = (finalPublication: unknown) => {
       // SAFETY: preparation validated every fallible field and the actor engine supplies the committed store cut.
       // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- package-private generic finalization preserves the actor boundary.
       const completed = finalPublication as ActorPublication<DefinitionValue>;
@@ -1406,17 +1262,24 @@ export const makeRuntimeEvidenceOwner = (options: {
         publicationRevision: preparedEvidence.publicationRevision,
         machineTurnRevision: preparedEvidence.machineTurnRevision,
         timestamp: preparedEvidence.timestamp,
-        sequence: preparedEvidence.reservation.sequence,
       };
 
-      const accepted = hub.acceptPreparedSync(preparedEvidence.reservation, record);
-      reservations.delete(preparedEvidence.reservation.sequence);
+      const accepted = journal.acceptSync(preparedEvidence.preparation, record);
 
-      return accepted.sequence;
+      if (Result.isFailure(accepted)) throw new Error(accepted.failure.summary);
+
+      return accepted.success.sequence;
+    };
+
+    Object.defineProperty(publication, preparedPublicationState, {
+      configurable: true,
+      value: {
+        finalize,
+        cancel: () => cancelPreparation(preparation.success),
+      } satisfies PreparedPublicationState,
     });
-    preparedPublicationCancellers.set(publication, () => cancelReservation(reservation.success));
 
-    return Result.succeed(reservation.success.sequence);
+    return Result.succeed(preparation.success);
   };
 
   const publish = <
@@ -1438,21 +1301,20 @@ export const makeRuntimeEvidenceOwner = (options: {
     CleanupError,
     ProviderDefinition extends MachineDefinition = DefinitionValue,
   >(
-    record: RuntimeLifecycleEvidence<DefinitionValue, CleanupError, ProviderDefinition>,
+    record: Omit<
+      RuntimeLifecycleEvidence<DefinitionValue, CleanupError, ProviderDefinition>,
+      "evidenceSequence"
+    >,
+    preparation: EvidencePreparation,
   ) => {
-    const reservation = reservations.get(record.evidenceSequence);
-
-    if (reservation === undefined)
-      return Effect.fail(invalidEvidence("reservation", { reason: "not-reserved" }));
-
     if (!published.has(record.after))
-      return failReserved(
-        reservation,
+      return failPrepared(
+        preparation,
         invalidEvidence("publication", { reason: "snapshot-not-published" }),
       );
 
     if (!Number.isSafeInteger(record.timestamp) || record.timestamp < 0)
-      return failReserved(reservation, invalidEvidence("timestamp", { reason: "invalid" }));
+      return failPrepared(preparation, invalidEvidence("timestamp", { reason: "invalid" }));
 
     if (
       record.provenance.app !== options.app ||
@@ -1461,39 +1323,33 @@ export const makeRuntimeEvidenceOwner = (options: {
       record.provenance.actor.incarnation !== record.after.fence.incarnation ||
       record.provenance.actor.leaseEpoch !== record.after.fence.leaseEpoch
     )
-      return failReserved(
-        reservation,
+      return failPrepared(
+        preparation,
         invalidEvidence("provenance", { reason: "lifecycle-mismatch" }),
       );
 
-    return Effect.exit(hub.accept(reservation, record)).pipe(
+    return Effect.exit(journal.accept(preparation, { ...record })).pipe(
       Effect.flatMap((exit) => {
         if (Exit.isSuccess(exit)) {
-          reservations.delete(record.evidenceSequence);
-
           return Effect.succeed(undefined);
         }
 
-        return cancelAndPreserveFailure(reservation, exit.cause);
+        return cancelAndPreserveFailure(preparation, exit.cause);
       }),
     );
   };
 
   const service: RuntimeEvidenceService = {
-    hub,
+    journal,
+    prepare: prepareEvidence,
+    prepareLifecycle: (actorKey) => journal.prepareLifecycle(actorKey),
+    cancel: cancelPreparation,
+    settleOutcome: (preparation, terminal) => journal.settleOutcome(preparation, terminal),
     provenance: { app: options.app, plan: options.plan },
     publish,
     accept,
-    drain: hub.drain().pipe(Effect.asVoid),
+    drain: journal.drain().pipe(Effect.asVoid),
   };
-
-  serviceCancellers.set(service, (sequence) => {
-    const reservation = reservations.get(sequence);
-
-    return reservation === undefined ? Result.succeed(undefined) : cancelReservation(reservation);
-  });
-  serviceReservationOwners.set(service, reserveEvidence);
-  hubReservationOwners.set(hub, reserveEvidence);
 
   const acceptPublication = <DefinitionValue extends MachineDefinition>(
     identity: ActorIdentity<DefinitionValue>,
@@ -1513,14 +1369,14 @@ export const makeRuntimeEvidenceOwner = (options: {
 
     if (isPreparedActorPublication(publication))
       return preparePublication(identity, fence, before, publication, project);
-    const reservation = reserveEvidence();
+    const preparation = prepareEvidence();
 
-    if (Result.isFailure(reservation)) return Result.fail(reservation.failure);
+    if (Result.isFailure(preparation)) return Result.fail(preparation.failure);
 
     const timestampResult = timestamp();
 
     if (Result.isFailure(timestampResult)) {
-      cancelReservation(reservation.success);
+      cancelPreparation(preparation.success);
 
       return Result.fail(timestampResult.failure);
     }
@@ -1545,26 +1401,24 @@ export const makeRuntimeEvidenceOwner = (options: {
         machineTurnRevision: publication.machineTurnRevision,
         timestamp: timestampResult.success,
       },
-      reservation.success,
+      preparation.success,
     );
 
     if (Result.isFailure(record)) {
-      const cancelled = cancelReservation(reservation.success);
+      const cancelled = cancelPreparation(preparation.success);
 
       return Result.isFailure(cancelled)
         ? Result.fail(cancelled.failure)
         : Result.fail(record.failure);
     }
 
-    const acceptedRecord = hub.acceptSync(reservation.success, record.success);
+    const acceptedRecord = journal.acceptSync(preparation.success, record.success);
 
     if (Result.isFailure(acceptedRecord)) {
-      cancelReservation(reservation.success);
+      cancelPreparation(preparation.success);
 
       return Result.fail(acceptedRecord.failure);
     }
-
-    reservations.delete(reservation.success.sequence);
 
     return Result.succeed(acceptedRecord.success.sequence);
   };
@@ -1573,11 +1427,11 @@ export const makeRuntimeEvidenceOwner = (options: {
     Effect.suspend(() => {
       closed = true;
 
-      return hub.close();
+      return journal.close();
     });
 
   return {
-    hub,
+    journal,
     service,
     projectPublication,
     acceptPublication,
