@@ -5,8 +5,12 @@ import { appPlan, type App } from "../app/app.js";
 import { Failure, type PublicDiagnostic } from "../diagnostic/diagnostic.js";
 import type { MachineDefinition } from "../machine/grammar.js";
 import type { ActorFence, ActorIdentity } from "./actor-admission.js";
-import type { ActorPublication, ActorSnapshot, ActorStoreResult } from "./actor-engine.js";
-import type { LifecycleSnapshot } from "./lifecycle.js";
+import type {
+  ActorPublication,
+  ActorSnapshot,
+  ActorStoreResult,
+  PreparedActorEvidence,
+} from "./actor-engine.js";
 import type { RuntimeEvidenceService, RuntimeLifecycleEvidence } from "./runtime-services.js";
 import type { TurnCause } from "./turn-plan.js";
 
@@ -153,66 +157,7 @@ export type EvidenceAcceptance = {
   attachments: AttachmentOfferResult[];
 };
 
-const preparedActorPublication = Symbol("prepared-actor-publication");
-
-const preparedPublicationState = Symbol("prepared-publication-state");
-
-const publicationProjection = Symbol("publication-projection");
-
 type EvidenceReference = Exclude<WeakKey, symbol>;
-
-type PreparedPublicationState = {
-  finalize: (publication: unknown) => number;
-  cancel: () => Result.Result<void, PublicDiagnostic>;
-};
-
-type PublicationMetadata = {
-  [preparedPublicationState]?: PreparedPublicationState;
-  [publicationProjection]?: unknown;
-};
-
-const publicationMetadata = (publication: EvidenceReference) => {
-  // SAFETY: The private symbols are installed only on ActorPublication objects by this module.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- metadata retains the exact publication identity.
-  return publication as EvidenceReference & PublicationMetadata;
-};
-
-/** Marks an actor publication whose evidence is prepared before store commit. */
-export const prepareActorPublication = <DefinitionValue extends MachineDefinition>(
-  publication: ActorPublication<DefinitionValue>,
-) => {
-  Object.defineProperty(publication, preparedActorPublication, { value: true });
-
-  return publication;
-};
-
-const isPreparedActorPublication = (publication: EvidenceReference) =>
-  preparedActorPublication in publication;
-
-/** Completes prepared evidence after the matching store result is available. */
-export const finalizePreparedActorPublication = <DefinitionValue extends MachineDefinition>(
-  prepared: ActorPublication<DefinitionValue>,
-  publication: ActorPublication<DefinitionValue>,
-) => {
-  const metadata = publicationMetadata(prepared)[preparedPublicationState];
-
-  if (metadata === undefined) return undefined;
-  delete publicationMetadata(prepared)[preparedPublicationState];
-
-  return metadata.finalize(publication);
-};
-
-/** Cancels prepared evidence when store commit is rejected before mutation. */
-export const cancelPreparedActorPublication = <DefinitionValue extends MachineDefinition>(
-  prepared: ActorPublication<DefinitionValue>,
-) => {
-  const metadata = publicationMetadata(prepared)[preparedPublicationState];
-
-  if (metadata === undefined) return Result.succeed(undefined);
-  delete publicationMetadata(prepared)[preparedPublicationState];
-
-  return metadata.cancel();
-};
 
 export type EvidenceDrain = {
   through: EvidenceSequence | 0;
@@ -1069,30 +1014,37 @@ export const makeLifecycleEvidence = <
 type RuntimeEvidenceOwner = {
   journal: EvidenceJournal;
   service: RuntimeEvidenceService;
-  projectPublication: <DefinitionValue extends MachineDefinition>(
+  preparePublication: <DefinitionValue extends MachineDefinition>(
+    identity: ActorIdentity<DefinitionValue>,
+    fence: ActorFence,
+    before: ActorSnapshot<DefinitionValue>,
     publication: ActorPublication<DefinitionValue>,
-    project: (snapshot: ActorSnapshot<DefinitionValue>) => ActorSnapshot<DefinitionValue>,
-  ) => void;
+  ) => Result.Result<PreparedActorEvidence<DefinitionValue>, PublicDiagnostic>;
   acceptPublication: <DefinitionValue extends MachineDefinition>(
     identity: ActorIdentity<DefinitionValue>,
     fence: ActorFence,
     before: ActorSnapshot<DefinitionValue>,
     publication: ActorPublication<DefinitionValue>,
-  ) => Result.Result<number | EvidencePreparation, PublicDiagnostic>;
+  ) => Result.Result<number, PublicDiagnostic>;
   close: () => Effect.Effect<EvidenceDrain, PublicDiagnostic>;
 };
 
-type PreparedActorEvidence<DefinitionValue extends MachineDefinition> = {
+type PreparedActorEvidenceData<DefinitionValue extends MachineDefinition> = {
   preparation: EvidencePreparation;
   timestamp: number;
   fence: ActorFence;
   provenance: RuntimeProvenance<App, DefinitionValue>;
   cause: TurnCause<DefinitionValue>;
   before: ActorSnapshot<DefinitionValue>;
-  project: (snapshot: ActorSnapshot<DefinitionValue>) => ActorSnapshot<DefinitionValue>;
   publicationRevision: number;
   machineTurnRevision: number;
 };
+
+const sameActorFence = (left: ActorFence, right: ActorFence) =>
+  left.key === right.key &&
+  left.incarnation === right.incarnation &&
+  left.generation === right.generation &&
+  left.leaseEpoch === right.leaseEpoch;
 
 /** Creates the single runtime evidence capability used by actors and lifecycle. */
 // RETURN_TYPE: The public owner exposes one stable Journal/service/close contract.
@@ -1102,8 +1054,6 @@ export const makeRuntimeEvidenceOwner = (options: {
   clock: Clock.Clock;
 }): RuntimeEvidenceOwner => {
   const journal = makeEvidenceJournal({ app: options.app, plan: options.plan });
-  // oxlint-disable-next-line anti-slop/no-object-type -- publication identity is tracked privately by weak object membership.
-  const published = new WeakSet<object>();
   let closed = false;
 
   const timestamp = () => {
@@ -1136,37 +1086,11 @@ export const makeRuntimeEvidenceOwner = (options: {
     return journal.prepare();
   };
 
-  const projectPublication = <DefinitionValue extends MachineDefinition>(
-    publication: ActorPublication<DefinitionValue>,
-    project: (snapshot: ActorSnapshot<DefinitionValue>) => ActorSnapshot<DefinitionValue>,
-  ) => {
-    Object.defineProperty(publication, publicationProjection, {
-      configurable: true,
-      value: project,
-    });
-  };
-
-  const takePublicationProject = <DefinitionValue extends MachineDefinition>(
-    publication: ActorPublication<DefinitionValue>,
-  ) => {
-    const metadata = publicationMetadata(publication);
-    const project = metadata[publicationProjection];
-    delete metadata[publicationProjection];
-
-    if (project === undefined) return (snapshot: ActorSnapshot<DefinitionValue>) => snapshot;
-
-    // SAFETY: projectPublication stores only a projection for this exact publication identity;
-    // the generic boundary is erased while the owner retains the precise callback.
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-    return project as (snapshot: ActorSnapshot<DefinitionValue>) => ActorSnapshot<DefinitionValue>;
-  };
-
   const preparePublication = <DefinitionValue extends MachineDefinition>(
     identity: ActorIdentity<DefinitionValue>,
     fence: ActorFence,
     before: ActorSnapshot<DefinitionValue>,
     publication: ActorPublication<DefinitionValue>,
-    project: (snapshot: ActorSnapshot<DefinitionValue>) => ActorSnapshot<DefinitionValue>,
   ) => {
     if (closed) return Result.fail(closedEvidence());
     const preparation = prepareEvidence();
@@ -1190,7 +1114,8 @@ export const makeRuntimeEvidenceOwner = (options: {
     if (
       identity.key !== fence.key ||
       identity.incarnation !== fence.incarnation ||
-      identity.leaseEpoch !== fence.leaseEpoch
+      identity.leaseEpoch !== fence.leaseEpoch ||
+      !sameActorFence(publication.fence, fence)
     ) {
       cancelPreparation(preparation.success);
 
@@ -1211,7 +1136,7 @@ export const makeRuntimeEvidenceOwner = (options: {
         },
         cause: publication.cause,
         before,
-        after: project(publication.snapshot),
+        after: publication.snapshot,
         store: publication.store,
         publicationRevision: publication.publicationRevision,
         machineTurnRevision: publication.machineTurnRevision,
@@ -1226,7 +1151,7 @@ export const makeRuntimeEvidenceOwner = (options: {
       return Result.fail(preflight.failure);
     }
 
-    const preparedEvidence: PreparedActorEvidence<DefinitionValue> = {
+    const preparedEvidence: PreparedActorEvidenceData<DefinitionValue> = {
       preparation: preparation.success,
       timestamp: timestampResult.success,
       fence,
@@ -1241,23 +1166,18 @@ export const makeRuntimeEvidenceOwner = (options: {
       },
       cause: publication.cause,
       before,
-      project,
       publicationRevision: publication.publicationRevision,
       machineTurnRevision: publication.machineTurnRevision,
     };
 
-    const finalize = (finalPublication: unknown) => {
-      // SAFETY: preparation validated every fallible field and the actor engine supplies the committed store cut.
-      // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- package-private generic finalization preserves the actor boundary.
-      const completed = finalPublication as ActorPublication<DefinitionValue>;
-
+    const finalize = (completed: ActorPublication<DefinitionValue>) => {
       const record = {
         _tag: "turn" as const,
         fence: preparedEvidence.fence,
         provenance: preparedEvidence.provenance,
         cause: preparedEvidence.cause,
         before: preparedEvidence.before,
-        after: preparedEvidence.project(completed.snapshot),
+        after: completed.snapshot,
         store: completed.store,
         publicationRevision: preparedEvidence.publicationRevision,
         machineTurnRevision: preparedEvidence.machineTurnRevision,
@@ -1271,29 +1191,10 @@ export const makeRuntimeEvidenceOwner = (options: {
       return accepted.success.sequence;
     };
 
-    Object.defineProperty(publication, preparedPublicationState, {
-      configurable: true,
-      value: {
-        finalize,
-        cancel: () => cancelPreparation(preparation.success),
-      } satisfies PreparedPublicationState,
-    });
-
-    return Result.succeed(preparation.success);
-  };
-
-  const publish = <
-    DefinitionValue extends MachineDefinition,
-    CleanupError,
-    ProviderDefinition extends MachineDefinition = DefinitionValue,
-  >(
-    snapshot: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
-  ) => {
-    if (closed) return Effect.fail(closedEvidence());
-
-    return Effect.sync(() => {
-      published.add(snapshot);
-    });
+    return Result.succeed({
+      finalize,
+      cancel: () => cancelPreparation(preparation.success),
+    } satisfies PreparedActorEvidence<DefinitionValue>);
   };
 
   const accept = <
@@ -1307,12 +1208,6 @@ export const makeRuntimeEvidenceOwner = (options: {
     >,
     preparation: EvidencePreparation,
   ) => {
-    if (!published.has(record.after))
-      return failPrepared(
-        preparation,
-        invalidEvidence("publication", { reason: "snapshot-not-published" }),
-      );
-
     if (!Number.isSafeInteger(record.timestamp) || record.timestamp < 0)
       return failPrepared(preparation, invalidEvidence("timestamp", { reason: "invalid" }));
 
@@ -1346,7 +1241,6 @@ export const makeRuntimeEvidenceOwner = (options: {
     cancel: cancelPreparation,
     settleOutcome: (preparation, terminal) => journal.settleOutcome(preparation, terminal),
     provenance: { app: options.app, plan: options.plan },
-    publish,
     accept,
     drain: journal.drain().pipe(Effect.asVoid),
   };
@@ -1362,13 +1256,10 @@ export const makeRuntimeEvidenceOwner = (options: {
     if (
       identity.key !== fence.key ||
       identity.incarnation !== fence.incarnation ||
-      identity.leaseEpoch !== fence.leaseEpoch
+      identity.leaseEpoch !== fence.leaseEpoch ||
+      !sameActorFence(publication.fence, fence)
     )
       return Result.fail(invalidEvidence("provenance", { reason: "actor-mismatch" }));
-    const project = takePublicationProject(publication);
-
-    if (isPreparedActorPublication(publication))
-      return preparePublication(identity, fence, before, publication, project);
     const preparation = prepareEvidence();
 
     if (Result.isFailure(preparation)) return Result.fail(preparation.failure);
@@ -1395,7 +1286,7 @@ export const makeRuntimeEvidenceOwner = (options: {
         },
         cause: publication.cause,
         before,
-        after: project(publication.snapshot),
+        after: publication.snapshot,
         store: publication.store,
         publicationRevision: publication.publicationRevision,
         machineTurnRevision: publication.machineTurnRevision,
@@ -1433,7 +1324,7 @@ export const makeRuntimeEvidenceOwner = (options: {
   return {
     journal,
     service,
-    projectPublication,
+    preparePublication,
     acceptPublication,
     close,
   };

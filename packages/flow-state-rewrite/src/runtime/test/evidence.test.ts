@@ -13,8 +13,6 @@ import {
   makeLifecycleRecord,
   makeRuntimeEvidenceOwner,
   makeTurnRecord,
-  finalizePreparedActorPublication,
-  prepareActorPublication,
   makeLifecycleEvidence,
   type EvidenceJournal,
   type EvidencePreparation,
@@ -234,15 +232,16 @@ describe("runtime evidence", () => {
         clock: makeTestClock(4_242),
       });
 
-      const prepared = prepareActorPublication<typeof EvidenceDefinition>({
+      const prepared = {
+        fence: fixture.fence,
         snapshot: fixture.snapshot(1),
         store: { revision: 0, changed: [] },
         publicationRevision: 1,
         machineTurnRevision: 1,
         cause: { _tag: "event", event: EvidenceEvent },
-      } satisfies ActorPublication<typeof EvidenceDefinition>);
+      } satisfies ActorPublication<typeof EvidenceDefinition>;
 
-      const preparation = owner.acceptPublication(
+      const preparation = owner.preparePublication(
         fixture.identity,
         fixture.fence,
         fixture.snapshot(0),
@@ -251,14 +250,16 @@ describe("runtime evidence", () => {
 
       assert.ok(Result.isSuccess(preparation));
 
-      if (Result.isSuccess(preparation) && typeof preparation.success !== "number")
-        assert.strictEqual(preparation.success.journal, owner.journal);
+      assert.strictEqual(owner.journal.sequence(), 0);
 
-      const finalized = finalizePreparedActorPublication(prepared, {
-        ...prepared,
-        snapshot: fixture.snapshot(1),
-        store: { revision: 9, changed: [] },
-      });
+      const finalized = Result.isSuccess(preparation)
+        ? preparation.success.finalize({
+            ...prepared,
+            fence: fixture.fence,
+            snapshot: fixture.snapshot(1),
+            store: { revision: 9, changed: [] },
+          })
+        : undefined;
 
       assert.strictEqual(finalized, 1);
       yield* owner.close();
@@ -276,15 +277,16 @@ describe("runtime evidence", () => {
         clock: makeTestClock(() => now),
       });
 
-      const prepared = prepareActorPublication<typeof EvidenceDefinition>({
+      const prepared = {
+        fence: fixture.fence,
         snapshot: fixture.snapshot(1),
         store: { revision: 0, changed: [] },
         publicationRevision: 1,
         machineTurnRevision: 1,
         cause: { _tag: "event", event: EvidenceEvent },
-      } satisfies ActorPublication<typeof EvidenceDefinition>);
+      } satisfies ActorPublication<typeof EvidenceDefinition>;
 
-      const failedPreparation = owner.acceptPublication(
+      const failedPreparation = owner.preparePublication(
         fixture.identity,
         fixture.fence,
         fixture.snapshot(0),
@@ -301,6 +303,7 @@ describe("runtime evidence", () => {
         fixture.fence,
         fixture.snapshot(1),
         {
+          fence: fixture.fence,
           snapshot: fixture.snapshot(2),
           store: { revision: 1, changed: [] },
           publicationRevision: 2,
@@ -338,25 +341,26 @@ describe("runtime evidence", () => {
         assert.ok(Result.isSuccess(owner.journal.attach(sink)));
 
         const publication = (fixture: ReturnType<typeof makeFixture>, revision: number) =>
-          prepareActorPublication<typeof EvidenceDefinition>({
+          ({
+            fence: fixture.fence,
             snapshot: fixture.snapshot(revision),
             store: { revision: 0, changed: [] },
             publicationRevision: revision,
             machineTurnRevision: revision,
             cause: { _tag: "event", event: EvidenceEvent },
-          } satisfies ActorPublication<typeof EvidenceDefinition>);
+          }) satisfies ActorPublication<typeof EvidenceDefinition>;
 
         const first = publication(firstFixture, 1);
         const second = publication(secondFixture, 2);
 
-        const firstPreparation = owner.acceptPublication(
+        const firstPreparation = owner.preparePublication(
           firstFixture.identity,
           firstFixture.fence,
           firstFixture.snapshot(0),
           first,
         );
 
-        const secondPreparation = owner.acceptPublication(
+        const secondPreparation = owner.preparePublication(
           secondFixture.identity,
           secondFixture.fence,
           secondFixture.snapshot(1),
@@ -368,19 +372,23 @@ describe("runtime evidence", () => {
         assert.strictEqual(owner.journal.sequence(), 0);
         // B commits first even though A was prepared first; preparation alone did not allocate a number.
         assert.strictEqual(
-          finalizePreparedActorPublication(second, {
-            ...second,
-            snapshot: secondFixture.snapshot(2),
-            store: { revision: 0, changed: [] },
-          }),
+          Result.isSuccess(secondPreparation)
+            ? secondPreparation.success.finalize({
+                ...second,
+                snapshot: secondFixture.snapshot(2),
+                store: { revision: 0, changed: [] },
+              })
+            : undefined,
           1,
         );
         assert.strictEqual(
-          finalizePreparedActorPublication(first, {
-            ...first,
-            snapshot: firstFixture.snapshot(1),
-            store: { revision: 0, changed: [] },
-          }),
+          Result.isSuccess(firstPreparation)
+            ? firstPreparation.success.finalize({
+                ...first,
+                snapshot: firstFixture.snapshot(1),
+                store: { revision: 0, changed: [] },
+              })
+            : undefined,
           2,
         );
         assert.strictEqual(owner.journal.sequence(), 2);
@@ -417,6 +425,7 @@ describe("runtime evidence", () => {
 
       const publish = (beforeRevision: number, afterRevision: number) =>
         owner.acceptPublication(fixture.identity, fixture.fence, fixture.snapshot(beforeRevision), {
+          fence: fixture.fence,
           snapshot: fixture.snapshot(afterRevision),
           store: { revision: 0, changed: [] },
           publicationRevision: afterRevision,
@@ -604,7 +613,6 @@ describe("runtime evidence", () => {
         cancel: () => Result.succeed(undefined),
         settleOutcome: () => Result.succeed(undefined),
         provenance: { app: EvidenceApp, plan: EvidencePlan },
-        publish: () => Effect.succeed(undefined),
         accept: () => Effect.succeed(undefined),
         drain: Effect.succeed(undefined),
       };
@@ -642,6 +650,7 @@ describe("runtime evidence", () => {
 
       const publication = (revision: number) =>
         ({
+          fence: fixture.fence,
           snapshot: fixture.snapshot(revision),
           store: { revision: 0, changed: [] },
           publicationRevision: revision,
@@ -829,6 +838,7 @@ describe("runtime evidence", () => {
 
       const publish = (revision: number) =>
         owner.acceptPublication(fixture.identity, fixture.fence, fixture.snapshot(revision - 1), {
+          fence: fixture.fence,
           snapshot: fixture.snapshot(revision),
           store: { revision: 0, changed: [] },
           publicationRevision: revision,
@@ -1414,6 +1424,7 @@ describe("runtime evidence", () => {
     const wrongFence = { ...fixture.fence, incarnation: foreignIdentity.incarnation };
 
     const result = owner.acceptPublication(fixture.identity, wrongFence, fixture.snapshot(0), {
+      fence: fixture.fence,
       snapshot: fixture.snapshot(1),
       store: { revision: 0, changed: [] },
       publicationRevision: 1,
@@ -1422,6 +1433,22 @@ describe("runtime evidence", () => {
     });
 
     assert.ok(Result.isFailure(result));
+
+    const wrongPublication = owner.acceptPublication(
+      fixture.identity,
+      fixture.fence,
+      fixture.snapshot(0),
+      {
+        fence: wrongFence,
+        snapshot: fixture.snapshot(1),
+        store: { revision: 0, changed: [] },
+        publicationRevision: 1,
+        machineTurnRevision: 1,
+        cause: { _tag: "event", event: EvidenceEvent },
+      },
+    );
+
+    assert.ok(Result.isFailure(wrongPublication));
     assert.strictEqual(owner.journal.sequence(), 0);
   });
 
@@ -1445,6 +1472,7 @@ describe("runtime evidence", () => {
       assert.ok(Result.isSuccess(owner.journal.attach(sink)));
 
       const first = owner.acceptPublication(fixture.identity, fixture.fence, fixture.snapshot(0), {
+        fence: fixture.fence,
         snapshot: fixture.snapshot(1),
         store: { revision: 0, changed: [] },
         publicationRevision: 1,
@@ -1471,7 +1499,6 @@ describe("runtime evidence", () => {
       });
 
       assert.ok(Result.isSuccess(prepared));
-      yield* owner.service.publish(lifecycle);
 
       if (Result.isSuccess(prepared))
         yield* owner.service.accept(prepared.success.record, prepared.success.preparation);

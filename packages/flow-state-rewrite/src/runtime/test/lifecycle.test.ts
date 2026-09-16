@@ -1740,7 +1740,6 @@ describe("actor lifecycle", () => {
         clock: makeTestClock(100),
       });
 
-      const published: Array<unknown> = [];
       const actor = makeFence(LifecycleMachine, "evidence-controller");
       const actorCell = makeActorCell();
       let acceptedSequence = 0;
@@ -1749,10 +1748,8 @@ describe("actor lifecycle", () => {
         clock: makeTestClock(100),
         evidence: {
           ...evidenceOwner.service,
-          publish: (snapshot) => Effect.sync(() => published.push(snapshot)),
           accept: (record) =>
             Effect.sync(() => {
-              assert.strictEqual(published.at(-1), record.after);
               records.push({
                 _tag: record._tag,
                 machineTurn: record.machineTurn,
@@ -1864,7 +1861,7 @@ describe("actor lifecycle", () => {
     }),
   );
 
-  it.effect("tombstones lifecycle evidence after publication and acceptance failures", () =>
+  it.effect("tombstones lifecycle evidence after acceptance failure", () =>
     Effect.gen(function* () {
       const actor = makeFence(LifecycleMachine, "evidence-failure");
 
@@ -1876,24 +1873,12 @@ describe("actor lifecycle", () => {
 
       assert.ok(Result.isSuccess(owner.journal.registerActor(actor.fence.key, actor.fence)));
 
-      let failure: "publication" | "acceptance" | undefined = "publication";
+      let failAcceptance = true;
 
       const service: RuntimeEvidenceService = {
         ...owner.service,
-        publish: (snapshot) =>
-          failure === "publication"
-            ? Effect.fail(
-                Failure({
-                  code: "InvariantViolation",
-                  path: ["evidence", "publication"],
-                  details: {},
-                  summary: "publication failed",
-                  help: "Resolve the publication owner before disposing the actor.",
-                }),
-              )
-            : owner.service.publish(snapshot),
         accept: (record, preparation) =>
-          failure === "acceptance"
+          failAcceptance
             ? Effect.fail(
                 Failure({
                   code: "InvariantViolation",
@@ -1941,36 +1926,13 @@ describe("actor lifecycle", () => {
 
       assert.ok(Exit.isFailure(first));
 
-      const retryAfterPublicationFailure = owner.journal.prepareLifecycle(actor.fence.key);
-      assert.ok(Result.isSuccess(retryAfterPublicationFailure));
-
-      if (Result.isSuccess(retryAfterPublicationFailure))
-        assert.ok(Result.isSuccess(owner.journal.cancel(retryAfterPublicationFailure.success)));
-
-      failure = "acceptance";
-
-      const secondPrepared = prepared();
-
-      const second = yield* Effect.exit(
-        withRuntime(
-          runLifecycleCommand(
-            secondPrepared.snapshot,
-            { _tag: "actor:start", cause: { _tag: "fresh" } },
-            secondPrepared.actorCell,
-          ),
-          layer,
-        ),
-      );
-
-      assert.ok(Exit.isFailure(second));
-
       const retryAfterAcceptanceFailure = owner.journal.prepareLifecycle(actor.fence.key);
       assert.ok(Result.isSuccess(retryAfterAcceptanceFailure));
 
       if (Result.isSuccess(retryAfterAcceptanceFailure))
         assert.ok(Result.isSuccess(owner.journal.cancel(retryAfterAcceptanceFailure.success)));
 
-      failure = undefined;
+      failAcceptance = false;
 
       const activePrepared = prepared();
 
@@ -2018,7 +1980,6 @@ describe("actor lifecycle", () => {
         clock: makeTestClock(300),
         evidence: {
           ...evidenceOwner.service,
-          publish: () => Effect.void,
           accept: (record) =>
             Effect.sync(() =>
               records.push({
@@ -2077,7 +2038,6 @@ describe("actor lifecycle", () => {
     Effect.gen(function* () {
       const actor = makeFence(LifecycleMachine, "controller-failure");
       const actorCell = makeActorCell();
-      const published: Array<unknown> = [];
       const accepted: Array<{ from: string; to: string }> = [];
 
       const evidenceOwner = makeRuntimeEvidenceOwner({
@@ -2090,7 +2050,6 @@ describe("actor lifecycle", () => {
         clock: makeTestClock(200),
         evidence: {
           ...evidenceOwner.service,
-          publish: (snapshot) => Effect.sync(() => published.push(snapshot)),
           accept: (record) =>
             Effect.sync(() => accepted.push({ from: record.from, to: record.to })),
         },
@@ -2139,7 +2098,7 @@ describe("actor lifecycle", () => {
       const retained = yield* controller.state();
       assert.strictEqual(retained.lifecycle, "suspended");
       assert.strictEqual(retained.finalization, "failed");
-      assert.strictEqual(published.length, 1);
+      assert.strictEqual(accepted.length, 1);
       assert.deepStrictEqual(accepted, [{ from: "active", to: "suspended" }]);
 
       const resumed = yield* Effect.exit(
@@ -2153,7 +2112,7 @@ describe("actor lifecycle", () => {
       );
 
       assert.ok(Exit.isFailure(resumed));
-      assert.strictEqual(published.length, 1);
+      assert.strictEqual(accepted.length, 1);
       assert.deepStrictEqual(accepted, [{ from: "active", to: "suspended" }]);
     }),
   );
@@ -2778,7 +2737,7 @@ describe("actor lifecycle", () => {
       assert.strictEqual(disposed.lifecycle, "disposed");
       assert.strictEqual(again, disposed);
       assert.strictEqual(cleanups, 1);
-      yield* engine.shutdown("hard");
+      yield* engine.shutdown();
       yield* Scope.close(scope, Exit.void);
     }),
   );

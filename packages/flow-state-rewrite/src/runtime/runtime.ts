@@ -14,7 +14,6 @@ import {
   Result,
   Scope,
   Semaphore,
-  Stream,
 } from "effect";
 
 import {
@@ -66,6 +65,7 @@ import {
   prepareActorEngine,
   verifyPreparedActorSnapshot,
   type ActorCommand,
+  type ActorCellCut,
   type ActorEngine,
   type ActorEngineInput,
   type ActorPublication,
@@ -162,6 +162,7 @@ type RuntimeRestoredActorOptions<
   ProviderDefinition extends MachineDefinition = DefinitionValue,
 > = RuntimeActorOptionBase<DefinitionValue, ProviderDefinition> & {
   restore: PreparedActorSnapshot<DefinitionValue>;
+  restoredMachineTurnRevision: number;
   initial?: never;
   input?: never;
 };
@@ -257,7 +258,10 @@ type ActorCellInstance<
   DefinitionValue extends MachineDefinition,
   ProviderDefinition extends MachineDefinition,
 > = Omit<
-  ActorCell<LifecycleSnapshot<DefinitionValue, PublicDiagnostic, ProviderDefinition>>,
+  ActorCell<
+    LifecycleSnapshot<DefinitionValue, PublicDiagnostic, ProviderDefinition>,
+    ActorCellCut<DefinitionValue>
+  >,
   "terminal"
 > & {
   terminal: ActorCellTerminalProtocol;
@@ -379,6 +383,7 @@ type CapturedRuntimeActorOptions<
   ref: ActorRef<Machine<DefinitionValue>>;
   construction: ActorAdmissionConstruction<DefinitionValue, InputOf<DefinitionValue>>;
   admissionMode: ActorAdmissionMode;
+  initialMachineTurnRevision: number;
   store: ActorStore<DefinitionValue> | undefined;
   onSnapshot: RuntimeActorOptions<DefinitionValue, ProviderDefinition>["onSnapshot"];
   onCommand: RuntimeActorOptions<DefinitionValue, ProviderDefinition>["onCommand"];
@@ -397,6 +402,7 @@ const invalidRuntimeOption = (path: string) =>
 type CapturedRuntimeConstruction<DefinitionValue extends MachineDefinition> = {
   construction: ActorAdmissionConstruction<DefinitionValue, InputOf<DefinitionValue>>;
   admissionMode: ActorAdmissionMode;
+  initialMachineTurnRevision: number;
 };
 
 // RETURN_TYPE: Keeps the fresh input correlated with the exact machine whose prepared snapshot was verified.
@@ -413,10 +419,27 @@ const captureRuntimeConstruction = <DefinitionValue extends MachineDefinition>(
 
   if (hasRestore && values.has("input")) return Result.fail(invalidRuntimeOption("input"));
 
+  if (hasRestore !== values.has("restoredMachineTurnRevision"))
+    return Result.fail(invalidRuntimeOption("restoredMachineTurnRevision"));
+
   const suppliedSnapshot = hasRestore ? values.get("restore") : values.get("initial");
   const admittedSnapshot = verifyPreparedActorSnapshot(ref.machine, suppliedSnapshot);
 
   if (Result.isFailure(admittedSnapshot)) return Result.fail(admittedSnapshot.failure);
+  const restoredMachineTurnRevision = values.get("restoredMachineTurnRevision");
+  let initialMachineTurnRevision = 0;
+
+  if (hasRestore) {
+    if (
+      !Predicate.isNumber(restoredMachineTurnRevision) ||
+      !Number.isSafeInteger(restoredMachineTurnRevision) ||
+      restoredMachineTurnRevision < 0 ||
+      restoredMachineTurnRevision > admittedSnapshot.success.revision
+    )
+      return Result.fail(invalidRuntimeOption("restoredMachineTurnRevision"));
+
+    initialMachineTurnRevision = restoredMachineTurnRevision;
+  }
 
   const construction: ActorAdmissionConstruction<
     DefinitionValue,
@@ -438,6 +461,7 @@ const captureRuntimeConstruction = <DefinitionValue extends MachineDefinition>(
   return Result.succeed({
     construction,
     admissionMode: admissionMode.success,
+    initialMachineTurnRevision,
   });
 };
 
@@ -516,6 +540,7 @@ const captureRuntimeCallbacks = <
 const runtimeActorOptionKeys = [
   "initial",
   "restore",
+  "restoredMachineTurnRevision",
   "input",
   "store",
   "onSnapshot",
@@ -557,6 +582,7 @@ const captureRuntimeActorOptionsFromValues = <
     ref,
     construction: construction.success.construction,
     admissionMode: construction.success.admissionMode,
+    initialMachineTurnRevision: construction.success.initialMachineTurnRevision,
     store: store.success,
     onSnapshot: callbacks.success.onSnapshot,
     onCommand: callbacks.success.onCommand,
@@ -931,10 +957,6 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
         const admittedInitialSnapshot =
           construction._tag === "restore" ? construction.snapshot : construction.initial;
 
-        let projectVisibleSnapshot = (snapshot: ActorSnapshot<DefinitionValue>) => snapshot;
-
-        let previous: ActorSnapshot<DefinitionValue> = admittedInitialSnapshot;
-
         const machineFacts = appPlan(app).resolveMachineFacts(capturedOptions.success.ref.machine);
 
         const consumerKey = runtimeContextConsumerKey(
@@ -1199,14 +1221,6 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
                 actorCell,
               );
 
-              projectVisibleSnapshot = (snapshot: ActorSnapshot<DefinitionValue>) => {
-                const lifecycle = lifecycleController.currentLifecycle();
-
-                if (snapshot.lifecycle === lifecycle) return snapshot;
-
-                return { ...snapshot, lifecycle };
-              };
-
               let initialCandidate: ActorSnapshot<DefinitionValue> = admittedInitialSnapshot;
 
               const projection = installed.success.projections.find(
@@ -1362,44 +1376,47 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
               })();
 
               yield* runAfterPrepareScope(actorCell.terminal.scope);
-              previous = projectVisibleSnapshot(initialSnapshot);
 
               const actorInput: ActorEngineInput<DefinitionValue> = {
                 initial: initialSnapshot,
+                initialMachineTurnRevision: capturedOptions.success.initialMachineTurnRevision,
+                actorCell,
                 identity: validated.identity,
                 machine: validated.input.machineFacts ?? validated.input.ref.machine,
                 fence: currentFence,
                 scope: actorCell.terminal.scope,
-                acceptEvidence: (publication: ActorPublication<DefinitionValue>) => {
-                  evidence.projectPublication(publication, projectVisibleSnapshot);
-
-                  const accepted = evidence.acceptPublication(
-                    validated.identity,
-                    currentFence,
-                    previous,
-                    publication,
-                  );
+                acceptEvidence: (
+                  publication: ActorPublication<DefinitionValue>,
+                  before: ActorSnapshot<DefinitionValue>,
+                  phase,
+                ) => {
+                  const accepted =
+                    phase === "prepare"
+                      ? evidence.preparePublication(
+                          validated.identity,
+                          currentFence,
+                          before,
+                          publication,
+                        )
+                      : evidence.acceptPublication(
+                          validated.identity,
+                          currentFence,
+                          before,
+                          publication,
+                        );
 
                   return accepted;
                 },
                 onSnapshot: (snapshot, machineTurnRevision) => {
-                  const protocol = actorCell.protocol;
-
-                  if (protocol !== undefined) protocol.machineTurnRevision = machineTurnRevision;
-                  const visibleSnapshot = projectVisibleSnapshot(snapshot);
-                  // Evidence preparation happens before the store cut commits. Advance the
-                  // previous committed snapshot only after the engine publishes this snapshot.
-                  previous = visibleSnapshot;
-
                   const runtimeSnapshot: RuntimeSnapshot = {
-                    state: visibleSnapshot.state,
-                    memory: visibleSnapshot.memory,
-                    context: visibleSnapshot.context,
-                    revision: visibleSnapshot.revision,
+                    state: snapshot.state,
+                    memory: snapshot.memory,
+                    context: snapshot.context,
+                    revision: snapshot.revision,
                   };
 
                   notifyRuntimeDependents(contextDependents, currentFence, runtimeSnapshot);
-                  capturedOptions.success.onSnapshot?.(visibleSnapshot, machineTurnRevision);
+                  capturedOptions.success.onSnapshot?.(snapshot, machineTurnRevision);
                 },
               };
 
@@ -1470,14 +1487,19 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
 
             const terminal = preparation.actorCell.terminal;
 
-            const visibleSnapshot = () => {
-              return projectVisibleSnapshot(currentEngine.snapshot());
+            preparation.actorCell.publication = {
+              preflight: currentEngine.preflightLifecyclePublication,
+              commit: currentEngine.commitLifecyclePublication,
+              revisions: () => ({
+                publicationRevision: currentEngine.snapshot().revision,
+                machineTurnRevision: currentEngine.machineTurnRevision(),
+              }),
             };
+
+            const visibleSnapshot = currentEngine.snapshot;
 
             const engine: ActorEngine<DefinitionValue> = {
               ...currentEngine,
-              snapshot: visibleSnapshot,
-              snapshots: Stream.map(currentEngine.snapshots, projectVisibleSnapshot),
               send: sendWithAdmissionGate(currentEngine, currentController.isRoutable),
               dispatch: (command) => {
                 if (currentController.isRoutable()) return currentEngine.dispatch(command);
@@ -1490,7 +1512,6 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
                 currentController.isRoutable()
                   ? currentEngine.dispatchFact(fact)
                   : Result.fail(closedActorAdmission()),
-              shutdown: (mode) => currentEngine.shutdown(mode),
             };
 
             const lifecycleCommandGate = Semaphore.makeUnsafe(1);
@@ -1518,7 +1539,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
 
                 let routingGeneration: number | undefined;
 
-                const routingPreparation = yield* Effect.exit(
+                const prepareRouting = () =>
                   Effect.gen(function* () {
                     if (command._tag === "actor:suspend") {
                       routingGeneration = currentRouting.block();
@@ -1527,21 +1548,19 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
                     } else if (command._tag === "actor:dispose") {
                       routingGeneration = currentRouting.block();
                       propagation.setOpen(false);
+                      yield* currentEngine.drain();
                     } else if (command._tag === "actor:resume") {
                       routingGeneration = currentRouting.block();
                     }
-                  }),
-                );
-
-                if (Exit.isFailure(routingPreparation)) {
-                  restoreRuntimeRoutingAfterFailure(routingGeneration, true);
-
-                  return yield* Effect.failCause(routingPreparation.cause);
-                }
+                  });
 
                 const commanded = yield* Effect.exit(
                   Effect.gen(function* () {
-                    const result = yield* currentController.command(command);
+                    const result = yield* currentController.command(
+                      command,
+                      undefined,
+                      prepareRouting,
+                    );
 
                     if (command._tag === "actor:resume") {
                       propagation.setOpen(true);
@@ -1562,8 +1581,6 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
                     return result;
                   }),
                 );
-
-                previous = projectVisibleSnapshot(previous);
 
                 if (Exit.isFailure(commanded)) {
                   restoreRuntimeRoutingAfterFailure(
@@ -1722,7 +1739,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
                 if (Exit.isFailure(lifecycleExit) && isDependentGuard(lifecycleExit.cause))
                   return yield* Effect.failCause(lifecycleExit.cause);
 
-                const engineExit = yield* Effect.exit(engine.shutdown("hard"));
+                const engineExit = yield* Effect.exit(engine.shutdown());
 
                 const actorScopeExit =
                   terminal.scopeExit === undefined
@@ -2029,7 +2046,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
 
           const activationRollback: AdmissionRollbackStep = {
             name: "activation",
-            release: engine.shutdown("hard"),
+            release: engine.shutdown(),
           };
 
           rollback = includeReservation([...preparation.rollback, activationRollback]);

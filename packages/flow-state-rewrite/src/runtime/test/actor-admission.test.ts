@@ -1,6 +1,6 @@
 /* oxlint-disable anti-slop/no-large-production-file -- this is the actor-admission proof matrix across identity, reflection, graph validation, rollback, and lease handoff; shared fixtures keep phase-order checks comparable. */
 import { assert, describe, it } from "@effect/vitest";
-import { Cause, Context, Deferred, Effect, Exit, Fiber, Layer, Queue, Result } from "effect";
+import { Cause, Context, Deferred, Effect, Exit, Fiber, Layer, Result } from "effect";
 
 import { app, module } from "../../app/app.js";
 import { Failure, type PublicDiagnostic } from "../../diagnostic/diagnostic.js";
@@ -1609,9 +1609,11 @@ describe("actor identity admission", () => {
       }
 
       yield* Effect.provideContext(consumer.dispose(), assembly.context);
+
       const repeatedProviderDispose = yield* Effect.exit(
         Effect.provideContext(provider.dispose(), assembly.context),
       );
+
       assert.ok(Exit.isSuccess(repeatedProviderDispose));
       const shutdown = yield* Effect.exit(runtimeOwner(runtime).close());
       assert.ok(Exit.isSuccess(shutdown));
@@ -1659,6 +1661,7 @@ describe("actor identity admission", () => {
       const actor = yield* assembly.createActor({
         ref,
         restore: restored,
+        restoredMachineTurnRevision: 0,
       });
 
       assert.strictEqual(actor.identity.ref.machine, editorMachine);
@@ -1685,7 +1688,6 @@ describe("actor identity admission", () => {
       });
 
       const sentinelBefore = sentinel.engine.snapshot();
-      const mailboxBefore = yield* Queue.size(sentinel.engine.mailbox);
       let snapshots = 0;
       let commands = 0;
       const ref = actorRef(editorMachine, "non-persisted-restore", { persist: false });
@@ -1694,6 +1696,7 @@ describe("actor identity admission", () => {
         assembly.createActor({
           ref,
           restore: preparedEditorSnapshot(3),
+          restoredMachineTurnRevision: 0,
           onSnapshot: () => {
             snapshots += 1;
           },
@@ -1719,7 +1722,6 @@ describe("actor identity admission", () => {
       assert.strictEqual(snapshots, 0);
       assert.strictEqual(commands, 0);
       assert.deepStrictEqual(sentinel.engine.snapshot(), sentinelBefore);
-      assert.strictEqual(yield* Queue.size(sentinel.engine.mailbox), mailboxBefore);
 
       const fresh = yield* assembly.createActor({ ref, initial: preparedEditorSnapshot(4) });
       assert.strictEqual(fresh.identity.ref.machine, ref.machine);
@@ -1860,6 +1862,7 @@ describe("actor identity admission", () => {
       const second = yield* Effect.exit(owner.close());
       assert.ok(Exit.isFailure(second));
       assert.strictEqual(attempts, 1);
+
       if (Exit.isFailure(first) && Exit.isFailure(second))
         assert.strictEqual(second.cause, first.cause);
       registration.unregister();

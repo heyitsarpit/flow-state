@@ -34,12 +34,6 @@ import { canonicalizeKey, equalCanonicalKey, type OperationKey } from "../operat
 import { isConstructedOperation, type OperationDeclaration } from "../operation/operation.js";
 import type { ActorFence, ActorIdentity } from "./actor-admission.js";
 import type { ActorRef } from "./actor-ref.js";
-import {
-  cancelPreparedActorPublication,
-  finalizePreparedActorPublication,
-  prepareActorPublication,
-} from "./evidence.js";
-import type { EvidencePreparation } from "./evidence.js";
 import { copyObject } from "./collection-copies.js";
 import {
   isEventForMachine,
@@ -113,11 +107,18 @@ export type ActorStore<DefinitionValue extends MachineDefinition> = {
 };
 
 export type ActorPublication<DefinitionValue extends MachineDefinition> = {
-  snapshot: ActorSnapshot<DefinitionValue>;
-  store: ActorStoreResult<DefinitionValue>;
-  publicationRevision: number;
-  machineTurnRevision: number;
-  cause: TurnCause<DefinitionValue>;
+  readonly fence: ActorFence;
+  readonly snapshot: ActorSnapshot<DefinitionValue>;
+  readonly store: ActorStoreResult<DefinitionValue>;
+  readonly publicationRevision: number;
+  readonly machineTurnRevision: number;
+  readonly cause: TurnCause<DefinitionValue>;
+};
+
+/** Journal permit held across the short store commit interval. */
+export type PreparedActorEvidence<DefinitionValue extends MachineDefinition> = {
+  finalize: (publication: ActorPublication<DefinitionValue>) => number;
+  cancel: () => Result.Result<void, PublicDiagnostic>;
 };
 
 export type DispatchReceipt = {
@@ -137,7 +138,9 @@ export type ActorCommandHandler<DefinitionValue extends MachineDefinition> = (
 
 export type ActorEvidenceAcceptor<DefinitionValue extends MachineDefinition> = (
   publication: ActorPublication<DefinitionValue>,
-) => Result.Result<number | EvidencePreparation, PublicDiagnostic>;
+  before: ActorSnapshot<DefinitionValue>,
+  phase: "prepare" | "accept",
+) => Result.Result<number | PreparedActorEvidence<DefinitionValue>, PublicDiagnostic>;
 
 /** A public mailbox fact carries no transition result or acknowledgement handle. */
 export type ActorMailboxFact<DefinitionValue extends MachineDefinition> =
@@ -169,6 +172,8 @@ export type ActorEngineInput<DefinitionValue extends MachineDefinition> = {
   machine?: Machine<DefinitionValue>;
   fence: ActorFence;
   initial: PreparedActorSnapshot<DefinitionValue>;
+  initialMachineTurnRevision?: number;
+  actorCell?: { cut?: ActorCellCut<DefinitionValue> };
   scope: Scope.Scope;
   store?: ActorStore<DefinitionValue>;
   acceptEvidence?: ActorEvidenceAcceptor<DefinitionValue>;
@@ -180,20 +185,29 @@ export interface ActorEngine<DefinitionValue extends MachineDefinition> {
   ref: ActorRef<Machine<DefinitionValue>>;
   fence: ActorFence;
   machineTurnRevision: () => number;
-  mailbox: Queue.Queue<ActorMailboxFact<DefinitionValue>>;
-  consumer: Effect.Effect<void, PublicDiagnostic>;
   snapshot: () => ActorSnapshot<DefinitionValue>;
+  preflightLifecyclePublication: (initial: boolean) => Result.Result<void, PublicDiagnostic>;
+  commitLifecyclePublication: (
+    lifecycle: ActorLifecycle,
+    initial: boolean,
+  ) => Result.Result<
+    {
+      publicationRevision: number;
+      machineTurnRevision: number;
+      notify: () => Result.Result<void, PublicDiagnostic>;
+    },
+    PublicDiagnostic
+  >;
   send: (command: ActorCommand<DefinitionValue>) => void;
   dispatch: (command: ActorCommand<DefinitionValue>) => AcknowledgedDispatch;
   dispatchFact: (fact: ProjectionFact) => Result.Result<void, PublicDiagnostic>;
   snapshots: Stream.Stream<ActorSnapshot<DefinitionValue>>;
   drain: () => Effect.Effect<void, PublicDiagnostic>;
-  shutdown: (mode: "graceful" | "hard") => Effect.Effect<void, PublicDiagnostic>;
+  shutdown: () => Effect.Effect<void, PublicDiagnostic>;
 }
 
 export interface PreparedActorEngine<DefinitionValue extends MachineDefinition> {
   phase: "prepared";
-  mailbox: Queue.Queue<ActorMailboxFact<DefinitionValue>>;
   send: (command: ActorCommand<DefinitionValue>) => void;
   dispatch: (command: ActorCommand<DefinitionValue>) => AcknowledgedDispatch;
   activate: () => Effect.Effect<ActorEngine<DefinitionValue>, PublicDiagnostic>;
@@ -210,15 +224,14 @@ type ConsumerFiberState = {
   exit: Exit.Exit<void, PublicDiagnostic> | undefined;
 };
 
-type MutableActorState<DefinitionValue extends MachineDefinition> = {
-  snapshot: ActorSnapshot<DefinitionValue>;
-  machineTurnRevision: number;
+export type ActorCellCut<DefinitionValue extends MachineDefinition> = {
+  publication: Omit<ActorPublication<DefinitionValue>, "cause">;
   evidenceSequence: number;
 };
 
 type PreparedCut<DefinitionValue extends MachineDefinition> = {
   publication: ActorPublication<DefinitionValue>;
-  evidenceSequence: number | EvidencePreparation;
+  evidenceSequence: number | PreparedActorEvidence<DefinitionValue>;
 };
 
 type DrainState = {
@@ -865,6 +878,124 @@ const nextRevision = (current: number, path: string[]) => {
   return Result.succeed(current + 1);
 };
 
+type ActorCutCommit<DefinitionValue extends MachineDefinition> =
+  | {
+      _tag: "event";
+      prepare: () => Result.Result<PreparedCut<DefinitionValue>, PublicDiagnostic>;
+      commitStore: () => Result.Result<ActorStoreResult<DefinitionValue>, PublicDiagnostic>;
+    }
+  | {
+      _tag: "record";
+      prepare: () => Result.Result<PreparedCut<DefinitionValue>, PublicDiagnostic>;
+    }
+  | {
+      _tag: "passive" | "lifecycle";
+      publication: ActorCellCut<DefinitionValue>["publication"];
+    };
+
+const cutFailure = (diagnostic: PublicDiagnostic, preserveCut = false) => ({
+  diagnostic,
+  preserveCut,
+});
+
+/** The ActorCell's one synchronous store/publication/Journal cut. */
+const commitActorCut = <DefinitionValue extends MachineDefinition>(
+  cell: ActorCellCut<DefinitionValue>,
+  snapshots: PubSub.PubSub<ActorSnapshot<DefinitionValue>>,
+  cut: ActorCutCommit<DefinitionValue>,
+) => {
+  const install = <Publication extends ActorCellCut<DefinitionValue>["publication"]>(
+    publication: Publication,
+  ) => {
+    cell.publication = publication;
+    PubSub.publishUnsafe(snapshots, publication.snapshot);
+
+    return publication;
+  };
+
+  if (cut._tag === "event") {
+    const prepared = cut.prepare();
+
+    if (Result.isFailure(prepared)) return Result.fail(cutFailure(prepared.failure));
+
+    const store = cut.commitStore();
+
+    if (Result.isFailure(store)) {
+      if (typeof prepared.success.evidenceSequence !== "number") {
+        const cancelled = prepared.success.evidenceSequence.cancel();
+
+        if (Result.isFailure(cancelled)) return Result.fail(cutFailure(cancelled.failure));
+      }
+
+      return Result.fail(cutFailure(store.failure));
+    }
+
+    if (store.success.revision < cell.publication.snapshot.observedStoreRevision) {
+      if (typeof prepared.success.evidenceSequence !== "number") {
+        const cancelled = prepared.success.evidenceSequence.cancel();
+
+        if (Result.isFailure(cancelled)) return Result.fail(cutFailure(cancelled.failure));
+      }
+
+      return Result.fail(
+        cutFailure(
+          Failure({
+            code: "InvariantViolation",
+            path: ["store", "revision"],
+            details: {
+              revision: store.success.revision,
+              previous: cell.publication.snapshot.observedStoreRevision,
+            },
+            summary: "Store revision would move backwards",
+            help: "Commit a monotonic P02 store result before publication.",
+          }),
+          true,
+        ),
+      );
+    }
+
+    // Final value construction uses only the validated result returned by the store owner.
+    const publication = install({
+      ...prepared.success.publication,
+      snapshot: {
+        ...prepared.success.publication.snapshot,
+        observedStoreRevision: store.success.revision,
+      },
+      store: store.success,
+    } satisfies ActorPublication<DefinitionValue>);
+
+    const evidenceSequence =
+      typeof prepared.success.evidenceSequence === "number"
+        ? prepared.success.evidenceSequence
+        : prepared.success.evidenceSequence.finalize(publication);
+
+    cell.evidenceSequence = evidenceSequence;
+
+    return Result.succeed({ publication, evidenceSequence });
+  }
+
+  if (cut._tag === "record") {
+    const prepared = cut.prepare();
+
+    if (Result.isFailure(prepared)) return Result.fail(cutFailure(prepared.failure));
+
+    const publication = install(prepared.success.publication);
+
+    const evidenceSequence =
+      typeof prepared.success.evidenceSequence === "number"
+        ? prepared.success.evidenceSequence
+        : prepared.success.evidenceSequence.finalize(publication);
+
+    cell.evidenceSequence = evidenceSequence;
+
+    return Result.succeed({ publication, evidenceSequence });
+  }
+
+  const publication = install(cut.publication);
+
+  return Result.succeed({ publication, evidenceSequence: cell.evidenceSequence });
+};
+
 const invokeResult = <Value>(callback: () => Result.Result<Value, PublicDiagnostic>) => {
   const captured = Result.try({
     try: callback,
@@ -954,7 +1085,7 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
   setClosed: (failure?: PublicDiagnostic) => void,
   isClosed: () => boolean,
   consumerFiber: ConsumerFiberState,
-  state: MutableActorState<DefinitionValue>,
+  state: ActorCellCut<DefinitionValue>,
   snapshots: PubSub.PubSub<ActorSnapshot<DefinitionValue>>,
   pending: Set<Deferred.Deferred<DispatchReceipt, PublicDiagnostic>>,
   drainState: DrainState,
@@ -1058,11 +1189,14 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
       return Result.succeed(undefined);
     });
 
-  const evidenceSequenceFor = (publication: ActorPublication<DefinitionValue>) => {
+  const evidenceSequenceFor = (
+    publication: ActorPublication<DefinitionValue>,
+    phase: "prepare" | "accept",
+  ) => {
     const accepted =
       input.acceptEvidence === undefined
         ? Result.succeed(undefined)
-        : invokeResult(() => input.acceptEvidence!(publication));
+        : invokeResult(() => input.acceptEvidence!(publication, state.publication.snapshot, phase));
 
     if (Result.isFailure(accepted)) return Result.fail(accepted.failure);
 
@@ -1091,29 +1225,33 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
     machineTurnRevision: number,
     cause: TurnCause<DefinitionValue>,
   ) => {
-    const publicationRevision = nextRevision(state.snapshot.revision, ["publicationRevision"]);
+    const publicationRevision = nextRevision(state.publication.snapshot.revision, [
+      "publicationRevision",
+    ]);
 
     if (Result.isFailure(publicationRevision)) return Result.fail(publicationRevision.failure);
 
     const preparedSnapshot = copySnapshot({
       ...candidate,
       revision: publicationRevision.success,
-      observedStoreRevision: state.snapshot.observedStoreRevision,
+      observedStoreRevision: state.publication.snapshot.observedStoreRevision,
     });
 
-    const publication = prepareActorPublication({
+    const publication: ActorPublication<DefinitionValue> = {
+      fence: input.fence,
       snapshot: preparedSnapshot,
-      store: copyStoreResult({ revision: state.snapshot.observedStoreRevision, changed: [] }),
+      store: copyStoreResult({
+        revision: state.publication.snapshot.observedStoreRevision,
+        changed: [],
+      }),
       publicationRevision: publicationRevision.success,
       machineTurnRevision,
       cause,
-    });
+    };
 
-    const evidenceSequence = evidenceSequenceFor(publication);
+    const evidenceSequence = evidenceSequenceFor(publication, "prepare");
 
     if (Result.isFailure(evidenceSequence)) {
-      cancelPreparedActorPublication(publication);
-
       return Result.fail(evidenceSequence.failure);
     }
 
@@ -1123,7 +1261,7 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
         : evidenceSequence;
 
     if (Result.isFailure(validatedEvidenceSequence)) {
-      cancelPreparedActorPublication(publication);
+      if (typeof evidenceSequence.success !== "number") evidenceSequence.success.cancel();
 
       return Result.fail(validatedEvidenceSequence.failure);
     }
@@ -1134,104 +1272,104 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
     });
   };
 
-  const finalizeCut = (
-    prepared: PreparedCut<DefinitionValue>,
-    store: ActorStoreResult<DefinitionValue>,
-  ) => {
-    const snapshot = {
-      ...prepared.publication.snapshot,
-      observedStoreRevision: store.revision,
-    };
-
-    const publication = {
-      ...prepared.publication,
-      snapshot,
-      store,
-    } satisfies ActorPublication<DefinitionValue>;
-
-    const finalizedEvidenceSequence = finalizePreparedActorPublication(
-      prepared.publication,
-      publication,
-    );
-
-    const evidenceSequence = finalizedEvidenceSequence ?? prepared.evidenceSequence;
-
-    if (typeof evidenceSequence !== "number")
-      throw new Error("Prepared actor evidence did not commit through the Journal");
-    state.snapshot = publication.snapshot;
-    state.machineTurnRevision = publication.machineTurnRevision;
-    state.evidenceSequence = evidenceSequence;
-    PubSub.publishUnsafe(snapshots, publication.snapshot);
-
-    return { publication, evidenceSequence };
-  };
-
   const publishCut = (
     candidate: ActorSnapshot<DefinitionValue>,
     machineTurnRevision: number,
     store: ActorStoreResult<DefinitionValue>,
     cause: TurnCause<DefinitionValue>,
-  ) => {
-    const publicationRevision = nextRevision(state.snapshot.revision, ["publicationRevision"]);
+  ) =>
+    commitActorCut(state, snapshots, {
+      _tag: "record",
+      prepare: () => {
+        const publicationRevision = nextRevision(state.publication.snapshot.revision, [
+          "publicationRevision",
+        ]);
 
-    if (Result.isFailure(publicationRevision)) return Result.fail(publicationRevision.failure);
+        if (Result.isFailure(publicationRevision)) return Result.fail(publicationRevision.failure);
 
-    if (
-      !Number.isSafeInteger(store.revision) ||
-      store.revision < state.snapshot.observedStoreRevision
-    )
-      return Result.fail(
-        Failure({
-          code: "InvariantViolation",
-          path: ["store", "revision"],
-          details: { revision: store.revision, previous: state.snapshot.observedStoreRevision },
-          summary: "Store revision would move backwards",
-          help: "Commit a monotonic P02 store result before publication.",
-        }),
-      );
+        if (
+          !Number.isSafeInteger(store.revision) ||
+          store.revision < state.publication.snapshot.observedStoreRevision
+        )
+          return Result.fail(
+            Failure({
+              code: "InvariantViolation",
+              path: ["store", "revision"],
+              details: {
+                revision: store.revision,
+                previous: state.publication.snapshot.observedStoreRevision,
+              },
+              summary: "Store revision would move backwards",
+              help: "Commit a monotonic P02 store result before publication.",
+            }),
+          );
 
-    const snapshot = copySnapshot({
-      ...candidate,
-      revision: publicationRevision.success,
-      observedStoreRevision: store.revision,
+        const snapshot = copySnapshot({
+          ...candidate,
+          revision: publicationRevision.success,
+          observedStoreRevision: store.revision,
+        });
+
+        const publication: ActorPublication<DefinitionValue> = {
+          fence: input.fence,
+          snapshot,
+          store: copyStoreResult(store),
+          publicationRevision: snapshot.revision,
+          machineTurnRevision,
+          cause,
+        };
+
+        const evidenceSequence = evidenceSequenceFor(publication, "prepare");
+
+        if (Result.isFailure(evidenceSequence)) return Result.fail(evidenceSequence.failure);
+
+        const validatedEvidenceSequence =
+          typeof evidenceSequence.success === "number"
+            ? validateEvidenceSequence(evidenceSequence.success)
+            : evidenceSequence;
+
+        if (Result.isFailure(validatedEvidenceSequence)) {
+          if (typeof evidenceSequence.success !== "number") evidenceSequence.success.cancel();
+
+          return Result.fail(validatedEvidenceSequence.failure);
+        }
+
+        return Result.succeed({
+          publication,
+          evidenceSequence: validatedEvidenceSequence.success,
+        });
+      },
     });
-
-    const publication: ActorPublication<DefinitionValue> = {
-      snapshot,
-      store: copyStoreResult(store),
-      publicationRevision: snapshot.revision,
-      machineTurnRevision,
-      cause,
-    };
-
-    const evidenceSequence = evidenceSequenceFor(publication);
-
-    if (Result.isFailure(evidenceSequence)) return Result.fail(evidenceSequence.failure);
-
-    const validatedEvidenceSequence =
-      typeof evidenceSequence.success === "number"
-        ? validateEvidenceSequence(evidenceSequence.success)
-        : evidenceSequence;
-
-    if (Result.isFailure(validatedEvidenceSequence))
-      return Result.fail(validatedEvidenceSequence.failure);
-
-    if (typeof validatedEvidenceSequence.success !== "number")
-      throw new Error("Actor evidence preparation must commit synchronously");
-    state.snapshot = snapshot;
-    state.evidenceSequence = validatedEvidenceSequence.success;
-    PubSub.publishUnsafe(snapshots, snapshot);
-
-    return Result.succeed({ publication, evidenceSequence: validatedEvidenceSequence.success });
-  };
 
   const publishIssue = (failure: PublicDiagnostic, cause: TurnCause<DefinitionValue>) =>
     publishCut(
-      { ...state.snapshot, issues: [failure] },
-      state.machineTurnRevision,
-      { revision: state.snapshot.observedStoreRevision, changed: [] },
+      { ...state.publication.snapshot, issues: [failure] },
+      state.publication.machineTurnRevision,
+      { revision: state.publication.snapshot.observedStoreRevision, changed: [] },
       cause,
     );
+
+  const publishPassive = (candidate: ActorSnapshot<DefinitionValue>) => {
+    const revision = nextRevision(state.publication.snapshot.revision, ["publicationRevision"]);
+
+    if (Result.isFailure(revision)) return Result.fail(revision.failure);
+
+    const snapshot = copySnapshot({
+      ...candidate,
+      revision: revision.success,
+    });
+
+    commitActorCut(state, snapshots, {
+      _tag: "passive",
+      publication: {
+        ...state.publication,
+        snapshot,
+        publicationRevision: snapshot.revision,
+      },
+    });
+
+    return Result.succeed(snapshot);
+  };
 
   const acknowledgeIssue = (
     acknowledgement: Deferred.Deferred<DispatchReceipt, PublicDiagnostic> | undefined,
@@ -1242,9 +1380,9 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
       const published = publishIssue(failure, cause);
 
       if (Result.isFailure(published)) {
-        setClosed(published.failure);
+        setClosed(published.failure.diagnostic);
 
-        return yield* Effect.fail(published.failure);
+        return yield* Effect.fail(published.failure.diagnostic);
       }
 
       settleFailure(acknowledgement, failure);
@@ -1263,7 +1401,10 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
 
   const storeResultFor = (actions: MachineAction<DefinitionValue>[]) => {
     if (input.store === undefined)
-      return Result.succeed({ revision: state.snapshot.observedStoreRevision, changed: [] });
+      return Result.succeed({
+        revision: state.publication.snapshot.observedStoreRevision,
+        changed: [],
+      });
     const result = invokeResult(() => input.store!.commit(actions));
 
     if (Result.isFailure(result)) return Result.fail(result.failure);
@@ -1277,7 +1418,7 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
   ) => {
     if (plan._tag === "noop") {
       settleSuccess(acknowledgement, {
-        publicationRevision: state.snapshot.revision,
+        publicationRevision: state.publication.snapshot.revision,
         evidenceSequence: state.evidenceSequence,
       });
 
@@ -1285,23 +1426,32 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
     }
 
     if (plan._tag === "projection-plan") {
-      const published = publishCut(
-        plan.candidate,
-        state.machineTurnRevision,
-        { revision: plan.candidate.observedStoreRevision, changed: [] },
-        plan.cause,
-      );
+      const passive =
+        plan.cause.fact._tag === "store-projection" ||
+        (plan.cause.fact._tag === "context-projection" && plan.candidate.issues.length === 0);
 
-      if (Result.isFailure(published)) {
-        setClosed(published.failure);
+      const projected: Result.Result<ActorSnapshot<DefinitionValue>, PublicDiagnostic> = passive
+        ? publishPassive(plan.candidate)
+        : (() => {
+            const committed = publishCut(
+              plan.candidate,
+              state.publication.machineTurnRevision,
+              { revision: plan.candidate.observedStoreRevision, changed: [] },
+              plan.cause,
+            );
 
-        return Effect.fail(published.failure);
+            return Result.isFailure(committed)
+              ? Result.fail(committed.failure.diagnostic)
+              : Result.succeed(committed.success.publication.snapshot);
+          })();
+
+      if (Result.isFailure(projected)) {
+        setClosed(projected.failure);
+
+        return Effect.fail(projected.failure);
       }
 
-      const observed = notifySnapshot(
-        published.success.publication.snapshot,
-        published.success.publication.machineTurnRevision,
-      );
+      const observed = notifySnapshot(projected.success, state.publication.machineTurnRevision);
 
       if (Result.isFailure(observed)) {
         setClosed(observed.failure);
@@ -1312,8 +1462,13 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
       return Effect.succeed(false);
     }
 
-    const publicationRevision = nextRevision(state.snapshot.revision, ["publicationRevision"]);
-    const machineTurnRevision = nextRevision(state.machineTurnRevision, ["machineTurnRevision"]);
+    const publicationRevision = nextRevision(state.publication.snapshot.revision, [
+      "publicationRevision",
+    ]);
+
+    const machineTurnRevision = nextRevision(state.publication.machineTurnRevision, [
+      "machineTurnRevision",
+    ]);
 
     if (Result.isFailure(publicationRevision))
       return acknowledgeIssue(acknowledgement, publicationRevision.failure, plan.cause).pipe(
@@ -1325,37 +1480,35 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
         Effect.as(false),
       );
 
-    const prepared = prepareCut(
-      { ...plan.candidate, issues: [] },
-      machineTurnRevision.success,
-      plan.cause,
-    );
+    const actions = plan.actions.map((intent) => intent.action);
 
-    if (Result.isFailure(prepared))
-      return acknowledgeIssue(acknowledgement, prepared.failure, plan.cause).pipe(Effect.as(false));
+    const published = commitActorCut(state, snapshots, {
+      _tag: "event",
+      prepare: () =>
+        prepareCut({ ...plan.candidate, issues: [] }, machineTurnRevision.success, plan.cause),
+      commitStore: () => storeResultFor(actions),
+    });
 
-    const store = storeResultFor(plan.actions.map((intent) => intent.action));
+    if (Result.isFailure(published)) {
+      if (published.failure.preserveCut) {
+        settleFailure(acknowledgement, published.failure.diagnostic);
 
-    if (Result.isFailure(store)) {
-      const cancelled = cancelPreparedActorPublication(prepared.success.publication);
+        return Effect.succeed(false);
+      }
 
-      if (Result.isFailure(cancelled))
-        return acknowledgeIssue(acknowledgement, cancelled.failure, plan.cause).pipe(
-          Effect.as(false),
-        );
-
-      return acknowledgeIssue(acknowledgement, store.failure, plan.cause).pipe(Effect.as(false));
+      return acknowledgeIssue(acknowledgement, published.failure.diagnostic, plan.cause).pipe(
+        Effect.as(false),
+      );
     }
 
-    const published = finalizeCut(prepared.success, store.success);
     settleSuccess(acknowledgement, {
-      publicationRevision: published.publication.publicationRevision,
-      evidenceSequence: published.evidenceSequence,
+      publicationRevision: published.success.publication.publicationRevision,
+      evidenceSequence: published.success.evidenceSequence,
     });
 
     const observed = notifySnapshot(
-      published.publication.snapshot,
-      published.publication.machineTurnRevision,
+      published.success.publication.snapshot,
+      published.success.publication.machineTurnRevision,
     );
 
     if (Result.isFailure(observed)) {
@@ -1375,7 +1528,7 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
     const planned = planTurn({
       _tag: "event",
       machine: input.machine ?? input.identity.ref.machine,
-      snapshot: state.snapshot,
+      snapshot: state.publication.snapshot,
       event: fact.command,
       fence: input.fence,
     });
@@ -1406,7 +1559,7 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
 
     const planned = planTurn({
       _tag: "projection",
-      snapshot: state.snapshot,
+      snapshot: state.publication.snapshot,
       fact: fact.fact,
       fence: input.fence,
     });
@@ -1418,7 +1571,7 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
           fact: fact.fact,
         });
 
-        if (Result.isFailure(published)) return yield* Effect.fail(published.failure);
+        if (Result.isFailure(published)) return yield* Effect.fail(published.failure.diagnostic);
 
         const observed = notifySnapshot(
           published.success.publication.snapshot,
@@ -1454,7 +1607,7 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
           if (disposition._tag === "accepted") yield* processCommand(disposition.fact);
           else
             settleSuccess(fact.acknowledgement, {
-              publicationRevision: state.snapshot.revision,
+              publicationRevision: state.publication.snapshot.revision,
               evidenceSequence: state.evidenceSequence,
             });
         } else if (isCurrentFence(input.fence, fact.fence)) {
@@ -1501,7 +1654,47 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
       yield* Deferred.await(waiter);
     });
 
-  const shutdownEffect = (_mode: "graceful" | "hard") =>
+  const preflightLifecyclePublication = (initial: boolean) => {
+    if (initial) return Result.succeed(undefined);
+    const revision = nextRevision(state.publication.snapshot.revision, ["publicationRevision"]);
+
+    return Result.isFailure(revision) ? Result.fail(revision.failure) : Result.succeed(undefined);
+  };
+
+  const commitLifecyclePublication = (lifecycle: ActorLifecycle, initial: boolean) => {
+    const machineTurnRevision = state.publication.machineTurnRevision;
+
+    const revision = initial
+      ? Result.succeed(state.publication.snapshot.revision)
+      : nextRevision(state.publication.snapshot.revision, ["publicationRevision"]);
+
+    if (Result.isFailure(revision)) return Result.fail(revision.failure);
+
+    const snapshot = copySnapshot({
+      ...state.publication.snapshot,
+      lifecycle,
+      revision: revision.success,
+    });
+
+    commitActorCut(state, snapshots, {
+      _tag: "lifecycle",
+      publication: {
+        ...state.publication,
+        snapshot,
+        publicationRevision: snapshot.revision,
+      },
+    });
+
+    return Result.succeed({
+      publicationRevision: snapshot.revision,
+      machineTurnRevision,
+      notify: initial
+        ? () => Result.succeed(undefined)
+        : () => notifySnapshot(snapshot, machineTurnRevision),
+    });
+  };
+
+  const shutdownEffect = () =>
     Scope.provide(input.scope)(
       Effect.gen(function* () {
         setClosed();
@@ -1522,13 +1715,13 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
       }),
     );
 
-  return {
+  const engine = {
     ref: input.identity.ref,
     fence: input.fence,
-    machineTurnRevision: () => state.machineTurnRevision,
-    mailbox,
-    consumer: consume,
-    snapshot: () => state.snapshot,
+    machineTurnRevision: () => state.publication.machineTurnRevision,
+    snapshot: () => state.publication.snapshot,
+    preflightLifecyclePublication,
+    commitLifecyclePublication,
     send: (command: ActorCommand<DefinitionValue>) => {
       enqueueCommand(command, undefined, true);
     },
@@ -1538,6 +1731,8 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
     drain,
     shutdown: shutdownEffect,
   } satisfies ActorEngine<DefinitionValue>;
+
+  return { engine, consume };
 };
 
 /** Prepares one bounded real mailbox without starting a consumer or user work. */
@@ -1553,6 +1748,15 @@ export const prepareActorEngine = <DefinitionValue extends MachineDefinition>(
     );
 
     if (Result.isFailure(admittedInitial)) return yield* Effect.fail(admittedInitial.failure);
+    const initialMachineTurnRevision = input.initialMachineTurnRevision ?? 0;
+
+    if (
+      !Number.isSafeInteger(initialMachineTurnRevision) ||
+      initialMachineTurnRevision < 0 ||
+      initialMachineTurnRevision > admittedInitial.success.revision
+    )
+      return yield* Effect.fail(preparedSnapshotFailure(["machineTurnRevision"], "revision"));
+
     const requestedCapacity = options?.capacity ?? ACTOR_MAILBOX_CAPACITY;
 
     if (!Number.isSafeInteger(requestedCapacity) || requestedCapacity < ACTOR_MAILBOX_CAPACITY) {
@@ -1567,11 +1771,18 @@ export const prepareActorEngine = <DefinitionValue extends MachineDefinition>(
     const initial = copySnapshot(admittedInitial.success);
     PubSub.publishUnsafe(snapshots, initial);
 
-    const state: MutableActorState<DefinitionValue> = {
-      snapshot: initial,
-      machineTurnRevision: 0,
+    const state: ActorCellCut<DefinitionValue> = {
+      publication: {
+        fence: input.fence,
+        snapshot: initial,
+        store: { revision: initial.observedStoreRevision, changed: [] },
+        publicationRevision: initial.revision,
+        machineTurnRevision: initialMachineTurnRevision,
+      },
       evidenceSequence: 0,
     };
+
+    if (input.actorCell !== undefined) input.actorCell.cut = state;
 
     const pending = new Set<Deferred.Deferred<DispatchReceipt, PublicDiagnostic>>();
     const drainState: DrainState = { processing: false, waiters: [] };
@@ -1639,7 +1850,7 @@ export const prepareActorEngine = <DefinitionValue extends MachineDefinition>(
         Effect.gen(function* () {
           if (closed) return yield* Effect.fail(mailboxAdmissionFailure("closed"));
 
-          const engine = makeEngine(
+          const { engine, consume } = makeEngine(
             input,
             mailbox,
             barrier,
@@ -1653,7 +1864,7 @@ export const prepareActorEngine = <DefinitionValue extends MachineDefinition>(
             enqueueCommand,
           );
 
-          const fiber = yield* engine.consumer.pipe(Effect.forkScoped({ startImmediately: true }));
+          const fiber = yield* consume.pipe(Effect.forkScoped({ startImmediately: true }));
           consumerFiber.current = fiber;
           yield* Effect.gen(function* () {
             const exit = yield* Fiber.await(fiber);
@@ -1682,7 +1893,6 @@ export const prepareActorEngine = <DefinitionValue extends MachineDefinition>(
 
     return {
       phase: "prepared",
-      mailbox,
       send: (command) => {
         enqueueCommand(command, undefined, true);
       },
@@ -1694,13 +1904,6 @@ export const prepareActorEngine = <DefinitionValue extends MachineDefinition>(
       },
     };
   });
-
-/** Activates one prepared mailbox and returns the package-local engine. */
-// RETURN_TYPE: This public package-local constructor preserves the engine error channel.
-export const createActorEngine = <DefinitionValue extends MachineDefinition>(
-  input: ActorEngineInput<DefinitionValue>,
-): Effect.Effect<ActorEngine<DefinitionValue>, PublicDiagnostic> =>
-  prepareActorEngine(input).pipe(Effect.flatMap((prepared) => prepared.activate()));
 
 /** The public actor projection contains only identity and synchronous command admission. */
 // RETURN_TYPE: This boundary intentionally exposes only the minimal actor handle shape.

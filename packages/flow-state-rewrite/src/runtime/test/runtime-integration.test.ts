@@ -9,7 +9,6 @@ import {
   Exit,
   Fiber,
   Layer,
-  Queue,
   Result,
   Scope,
   Stream,
@@ -353,6 +352,7 @@ describe("runtime assembly integration", () => {
       const actor = yield* assembly.createActor({
         ref,
         restore: restored,
+        restoredMachineTurnRevision: 3,
         onSnapshot: () => {
           snapshots += 1;
         },
@@ -364,6 +364,7 @@ describe("runtime assembly integration", () => {
       });
 
       const visible = actor.engine.snapshot();
+      assert.strictEqual(actor.engine.machineTurnRevision(), 3);
       assert.strictEqual(actor.identity.ref.machine, IntegrationStandaloneMachine);
       assert.strictEqual(actor.identity.ref.persist, true);
       assert.strictEqual(visible.lifecycle, "active");
@@ -637,7 +638,10 @@ describe("runtime assembly integration", () => {
       assert.strictEqual(actor.engine.snapshot().state, IntegrationConsumerDefinition.S.done);
       assert.strictEqual(actor.engine.snapshot().revision, 2);
       assert.strictEqual(actor.engine.snapshot().observedStoreRevision, 1);
-      assert.deepStrictEqual(receipt, { publicationRevision: 2, evidenceSequence: 5 });
+      assert.deepStrictEqual(receipt, {
+        publicationRevision: 2,
+        evidenceSequence: assembly.evidence.journal.sequence(),
+      });
       assert.strictEqual(serviceObservations.length, 1);
       assert.strictEqual(serviceObservations[0]?.evidenceHub, assembly.evidence.journal);
       assert.strictEqual(serviceObservations[0]?.clock, Context.get(assembly.context, Clock.Clock));
@@ -721,18 +725,16 @@ describe("runtime assembly integration", () => {
           "lifecycle",
           "turn",
           "turn",
-          "turn",
           "lifecycle",
           "turn",
           "lifecycle",
-          "turn",
           "lifecycle",
           "lifecycle",
         ],
       );
       assert.deepStrictEqual(
         records.map((record) => record.sequence),
-        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+        [1, 2, 3, 4, 5, 6, 7, 8, 9],
       );
     }),
   );
@@ -904,6 +906,61 @@ describe("runtime assembly integration", () => {
       }),
   );
 
+  it.effect("keeps a committed resumed actor routable after a lifecycle callback defect", () =>
+    Effect.gen(function* () {
+      const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+      const records: EvidenceRecord[] = [];
+
+      const sink = yield* makeEvidenceSink({
+        id: "lifecycle-callback-defect",
+        capacity: 16,
+        deliver: (record) => Effect.sync(() => records.push(record)),
+      });
+
+      assert.ok(Result.isSuccess(assembly.evidence.journal.attach(sink)));
+      let failNext = false;
+
+      const actor = yield* assembly.createActor({
+        ref: actorRef(IntegrationStandaloneMachine, "lifecycle-callback-defect"),
+        initial: initialStandaloneSnapshot(),
+        onSnapshot: () => {
+          if (!failNext) return;
+          failNext = false;
+          throw new Error("lifecycle callback defect");
+        },
+      });
+
+      yield* Effect.provideContext(
+        actor.lifecycle.command({ _tag: "actor:suspend", cause: { _tag: "attachment" } }),
+        assembly.context,
+      );
+      failNext = true;
+
+      const resumed = yield* Effect.exit(
+        Effect.provideContext(
+          actor.lifecycle.command({ _tag: "actor:resume", cause: { _tag: "attachment" } }),
+          assembly.context,
+        ),
+      );
+
+      assert.ok(Exit.isSuccess(resumed));
+      assert.strictEqual(actor.engine.snapshot().lifecycle, "active");
+      assert.strictEqual(actor.lifecycle.isRoutable(), true);
+      const dispatch = actor.engine.dispatch(IntegrationStandaloneEvent);
+      assert.strictEqual(dispatch.admitted, true);
+      yield* Deferred.await(dispatch.completion);
+      yield* actor.engine.drain();
+      yield* assembly.evidence.journal.drain();
+      assert.ok(records.some((record) => record._tag === "lifecycle" && record.to === "active"));
+      assert.strictEqual(actor.engine.snapshot().state, IntegrationStandaloneDefinition.S.done);
+
+      yield* Effect.provideContext(actor.dispose(), assembly.context);
+      yield* runtimeOwner(runtime).close();
+    }),
+  );
+
   it.effect("blocks assembled actor admission while suspend drains an in-flight command", () =>
     Effect.gen(function* () {
       const runtime = runtimeSetup({ app: IntegrationApp }).construct();
@@ -953,6 +1010,70 @@ describe("runtime assembly integration", () => {
       assert.strictEqual(actor.lifecycle.isRoutable(), false);
 
       yield* Effect.provideContext(actor.dispose(), assembly.context);
+      yield* runtimeOwner(runtime).close();
+    }),
+  );
+
+  it.effect("drains admitted work before publishing assembled disposal", () =>
+    Effect.gen(function* () {
+      const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+      const records: EvidenceRecord[] = [];
+
+      const sink = yield* makeEvidenceSink({
+        id: "disposal-drain-race",
+        capacity: 16,
+        deliver: (record) => Effect.sync(() => records.push(record)),
+      });
+
+      assert.ok(Result.isSuccess(assembly.evidence.journal.attach(sink)));
+      const entered = yield* Deferred.make<void>();
+      const release = yield* Deferred.make<void>();
+
+      const actor = yield* assembly.createActor({
+        ref: actorRef(IntegrationStandaloneMachine, "disposal-drain-race"),
+        initial: initialStandaloneSnapshot(),
+        onCommand: () =>
+          Effect.gen(function* () {
+            yield* Deferred.succeed(entered, undefined);
+            yield* Deferred.await(release);
+          }),
+      });
+
+      const admitted = actor.engine.dispatch(IntegrationStandaloneEvent);
+      assert.strictEqual(admitted.admitted, true);
+      yield* Deferred.await(entered);
+
+      const disposing = yield* Effect.forkChild(
+        Effect.exit(Effect.provideContext(actor.dispose(), assembly.context)),
+        { startImmediately: true },
+      );
+
+      yield* Effect.yieldNow;
+      assert.strictEqual(actor.lifecycle.isRoutable(), false);
+      assert.strictEqual(actor.engine.dispatch(IntegrationStandaloneEvent).admitted, false);
+      assert.strictEqual(actor.engine.snapshot().lifecycle, "active");
+
+      yield* Deferred.succeed(release, undefined);
+      const accepted = yield* Deferred.await(admitted.completion);
+      const disposed = yield* Fiber.join(disposing);
+      assert.ok(Exit.isSuccess(disposed));
+      assert.strictEqual(actor.engine.snapshot().lifecycle, "disposed");
+      assert.strictEqual(actor.engine.snapshot().state, IntegrationStandaloneDefinition.S.done);
+      assert.strictEqual(actor.engine.dispatch(IntegrationStandaloneEvent).admitted, false);
+      yield* assembly.evidence.journal.drain();
+      const turnIndex = records.findIndex((record) => record._tag === "turn");
+
+      const disposeIndex = records.findIndex(
+        (record) => record._tag === "lifecycle" && record.to === "disposed",
+      );
+
+      assert.ok(turnIndex >= 0 && disposeIndex > turnIndex);
+      const turnRecord = records[turnIndex];
+      assert.ok(turnRecord?._tag === "turn");
+      assert.strictEqual(accepted.evidenceSequence, turnRecord.sequence);
+
       yield* runtimeOwner(runtime).close();
     }),
   );
@@ -1316,13 +1437,13 @@ describe("runtime assembly integration", () => {
       );
       assert.strictEqual(
         consumerTurnRecords.filter((record) => record.after.issues.length === 0).length,
-        1,
+        0,
       );
       assert.strictEqual(
-        consumerTurnRecords[1]?.publicationRevision,
+        actor.engine.snapshot().revision,
         selectorIssueRecord.publicationRevision + 1,
       );
-      assert.strictEqual(consumerTurnRecords[1]?.machineTurnRevision, 0);
+      assert.strictEqual(actor.engine.machineTurnRevision(), 0);
 
       yield* Effect.provideContext(actor.dispose(), assembly.context);
       yield* Effect.provideContext(provider.dispose(), assembly.context);
@@ -1499,20 +1620,20 @@ describe("runtime assembly integration", () => {
       assert.strictEqual((yield* provider.lifecycle.state()).attachment.dependencies.length, 2);
 
       const runtimeEvidence = Context.get(assembly.context, RuntimeEvidence);
-      const originalPublish = runtimeEvidence.publish;
+      const originalAccept = runtimeEvidence.accept;
 
       const cleanupFailure = Failure({
         code: "InvariantViolation" as const,
-        path: ["evidence", "publish"],
+        path: ["evidence", "accept"],
         details: { reason: "cleanup-test" },
-        summary: "Lifecycle evidence publication failed.",
+        summary: "Lifecycle evidence acceptance failed.",
         help: "Retry cleanup after the evidence owner recovers.",
       });
 
-      runtimeEvidence.publish = (snapshot) =>
-        snapshot.fence.key === consumer.fence.key && snapshot.lifecycle === "disposed"
+      runtimeEvidence.accept = (record, preparation) =>
+        record.after.fence.key === consumer.fence.key && record.after.lifecycle === "disposed"
           ? Effect.fail(cleanupFailure)
-          : originalPublish(snapshot);
+          : originalAccept(record, preparation);
 
       const firstDispose = yield* Effect.exit(
         Effect.provideContext(consumer.dispose(), assembly.context),
@@ -1524,23 +1645,16 @@ describe("runtime assembly integration", () => {
         const reason = firstDispose.cause.reasons.find(Cause.isFailReason);
         assert.ok(reason !== undefined);
         assert.strictEqual(reason.error, cleanupFailure);
-        assert.deepStrictEqual(reason.error.path, ["evidence", "publish"]);
+        assert.deepStrictEqual(reason.error.path, ["evidence", "accept"]);
       }
 
       assert.strictEqual(consumer.engine.snapshot().lifecycle, "disposed");
       assert.strictEqual((yield* consumer.lifecycle.state()).lifecycle, "disposed");
-      assert.strictEqual(
-        Queue.offerUnsafe(consumer.engine.mailbox, {
-          _tag: "command",
-          fence: consumer.fence,
-          command: IntegrationConsumerEvent,
-        }),
-        false,
-      );
+      assert.strictEqual(consumer.engine.dispatch(IntegrationConsumerEvent).admitted, false);
       assert.strictEqual(dependentCleanups, 1);
       assert.strictEqual((yield* provider.lifecycle.state()).attachment.dependencies.length, 0);
 
-      runtimeEvidence.publish = originalPublish;
+      runtimeEvidence.accept = originalAccept;
 
       const repeatedDispose = yield* Effect.exit(
         Effect.provideContext(consumer.dispose(), assembly.context),
@@ -1730,7 +1844,71 @@ describe("pending regression scenarios", () => {
   // Setup: Extend the existing active actor fixture with a pre-existing snapshot stream, onSnapshot callback, getter read, and evidence sink; capture the active snapshot and revisions before suspension.
   // Action: Issue actor:suspend through the assembled lifecycle controller, drain the pre-existing stream, callback, getter read, and evidence, then subscribe a late stream and collect its replay.
   // Assert: Every observer and the late subscriber report suspended from one captured cut, the public revision advances exactly once, the machine-turn revision is unchanged, and the retained active snapshot remains unchanged.
-  it.todo("publishes lifecycle transitions through one coherent snapshot cut");
+  it.effect("publishes lifecycle transitions through one coherent snapshot cut", () =>
+    Effect.gen(function* () {
+      const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+      const records: EvidenceRecord[] = [];
+      const callbacks: ActorSnapshot<typeof IntegrationStandaloneDefinition>[] = [];
+
+      const sink = yield* makeEvidenceSink({
+        id: "lifecycle-coherent-cut",
+        capacity: 16,
+        deliver: (record) => Effect.sync(() => records.push(record)),
+      });
+
+      assert.ok(Result.isSuccess(assembly.evidence.journal.attach(sink)));
+
+      const actor = yield* assembly.createActor({
+        ref: actorRef(IntegrationStandaloneMachine, "lifecycle-coherent-cut"),
+        initial: initialStandaloneSnapshot(),
+        onSnapshot: (snapshot) => callbacks.push(snapshot),
+      });
+
+      const before = actor.engine.snapshot();
+
+      const existing = yield* Effect.forkChild(
+        Stream.take(actor.engine.snapshots, 2).pipe(Stream.runCollect),
+        { startImmediately: true },
+      );
+
+      yield* Effect.provideContext(
+        actor.lifecycle.command({ _tag: "actor:suspend", cause: { _tag: "attachment" } }),
+        assembly.context,
+      );
+      const current = actor.engine.snapshot();
+      assert.strictEqual(current.lifecycle, "suspended");
+      assert.strictEqual(current.revision, before.revision + 1);
+      const streamed = yield* Fiber.join(existing);
+      const late = yield* Stream.take(actor.engine.snapshots, 1).pipe(Stream.runCollect);
+      yield* assembly.evidence.journal.drain();
+
+      const lifecycle = records.filter(
+        (record): record is Extract<EvidenceRecord, { _tag: "lifecycle" }> =>
+          record._tag === "lifecycle" && record.to === "suspended",
+      );
+
+      assert.strictEqual(lifecycle.length, 1);
+      assert.deepStrictEqual(
+        streamed.map((snapshot) => snapshot.revision),
+        [before.revision, current.revision],
+      );
+      assert.strictEqual(streamed[1], current);
+      assert.strictEqual(streamed[1]?.lifecycle, "suspended");
+      assert.strictEqual(late[0], current);
+      assert.strictEqual(late[0]?.revision, current.revision);
+      assert.strictEqual(late[0]?.lifecycle, "suspended");
+      assert.strictEqual(callbacks.at(-1), current);
+      assert.strictEqual(callbacks.at(-1)?.revision, current.revision);
+      assert.strictEqual(callbacks.at(-1)?.lifecycle, "suspended");
+      assert.strictEqual(lifecycle[0]?.publicationRevision, current.revision);
+      assert.strictEqual(lifecycle[0]?.to, current.lifecycle);
+      assert.strictEqual(before.lifecycle, "active");
+      yield* Effect.provideContext(actor.dispose(), assembly.context);
+      yield* runtimeOwner(runtime).close();
+    }),
+  );
 
   // Setup: Create independent actors A and B in one assembled runtime and attach one evidence sink; leave B untouched while A processes one ordinary machine event.
   // Action: Drain A's turn evidence, suspend B, and drain the lifecycle evidence without resetting either actor or the runtime-global sequence allocator.
@@ -3277,7 +3455,47 @@ describe("pending regression scenarios", () => {
   // SETUP: Assemble a real runtime with one actor, an attached bounded evidence sink whose deliver callback is gated, and an onCommand callback that records when user work begins.
   // ACTION: Dispatch one event and await its private acknowledgement before starting the evidence hub drain; then drain the sink and release its callback.
   // ASSERT: The receipt contains the committed publication/evidence sequence, user work has started after acknowledgement, sink delivery has not started before the explicit drain, and sink failure or delay cannot change the committed actor/store snapshot.
-  it.todo("keeps sink delivery after the committed-turn acknowledgement");
+  it.effect("keeps sink delivery after the committed-turn acknowledgement", () =>
+    Effect.gen(function* () {
+      const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+      const delivered: EvidenceRecord[] = [];
+      let commandStarted = false;
+
+      const sink = yield* makeEvidenceSink({
+        id: "ack-before-sink",
+        capacity: 16,
+        deliver: (record) => Effect.sync(() => delivered.push(record)),
+      });
+
+      assert.ok(Result.isSuccess(assembly.evidence.journal.attach(sink)));
+
+      const actor = yield* assembly.createActor({
+        ref: actorRef(IntegrationStandaloneMachine, "ack-before-sink"),
+        initial: initialStandaloneSnapshot(),
+        onCommand: () =>
+          Effect.sync(() => {
+            commandStarted = true;
+          }),
+      });
+
+      const dispatched = actor.engine.dispatch(IntegrationStandaloneEvent);
+      assert.strictEqual(dispatched.admitted, true);
+      const receipt = yield* Deferred.await(dispatched.completion);
+      const committed = actor.engine.snapshot();
+      assert.strictEqual(receipt.publicationRevision, committed.revision);
+      assert.strictEqual(receipt.evidenceSequence, assembly.evidence.journal.sequence());
+      assert.deepStrictEqual(delivered, []);
+      yield* actor.engine.drain();
+      assert.strictEqual(commandStarted, true);
+      yield* assembly.evidence.journal.drain();
+      assert.strictEqual(delivered.filter((record) => record._tag === "turn").length, 1);
+      assert.strictEqual(actor.engine.snapshot(), committed);
+      yield* Effect.provideContext(actor.dispose(), assembly.context);
+      yield* runtimeOwner(runtime).close();
+    }),
+  );
 
   // SETUP: Assemble the real provider/consumer owners with two bindings: providerState maps ready to ready and every later state to changed, while providerChanged throws only at changed; record every consumer snapshot and its issue list.
   // ACTION: Advance the provider to changed, drain provider and consumer, then advance it to final and drain again; use a Deferred or explicit engine drains, never a sleep.
@@ -3621,7 +3839,73 @@ describe("pending regression scenarios", () => {
   // Setup: Create one fresh actor and restore one actor with nonzero publication and machine-turn revisions; attach snapshot and evidence observers before exposure.
   // Action: Observe initial activation, then suspend and resume each actor without dispatching a machine event.
   // Assert: The first fresh snapshot has revision zero, restore retains both persisted revisions, later lifecycle publications increment only publication revision, and start or restore creates lifecycle evidence without replaying events or finite work.
-  it.todo("preserves fresh and restored revision baselines before later lifecycle cuts");
+  it.effect("preserves fresh and restored revision baselines before later lifecycle cuts", () =>
+    Effect.gen(function* () {
+      const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+      const records: EvidenceRecord[] = [];
+
+      const sink = yield* makeEvidenceSink({
+        id: "cut-initial-evidence",
+        deliver: (record) => Effect.sync(() => records.push(record)),
+      });
+
+      assert.ok(Result.isSuccess(assembly.evidence.journal.attach(sink)));
+
+      const fresh = yield* assembly.createActor({
+        ref: actorRef(IntegrationStandaloneMachine, "cut-initial-fresh"),
+        initial: initialStandaloneSnapshot(),
+      });
+
+      const restored = yield* assembly.createActor({
+        ref: actorRef(IntegrationStandaloneMachine, "cut-initial-restored", { persist: true }),
+        restore: restoredStandaloneSnapshot(),
+        restoredMachineTurnRevision: 4,
+      });
+
+      const freshBaseline = fresh.engine.snapshot();
+      const restoredBaseline = restored.engine.snapshot();
+      assert.strictEqual(freshBaseline.revision, 0);
+      assert.strictEqual(freshBaseline.observedStoreRevision, 0);
+      assert.strictEqual(fresh.engine.machineTurnRevision(), 0);
+      assert.strictEqual(restoredBaseline.revision, 9);
+      assert.strictEqual(restoredBaseline.observedStoreRevision, 6);
+      assert.strictEqual(restored.engine.machineTurnRevision(), 4);
+
+      for (const actor of [fresh, restored]) {
+        const before = actor.engine.snapshot();
+        yield* Effect.provideContext(
+          actor.lifecycle.command({ _tag: "actor:suspend", cause: { _tag: "attachment" } }),
+          assembly.context,
+        );
+        const suspended = actor.engine.snapshot();
+        assert.strictEqual(suspended.revision, before.revision + 1);
+        assert.strictEqual(suspended.observedStoreRevision, before.observedStoreRevision);
+        assert.strictEqual(actor.engine.machineTurnRevision(), actor === fresh ? 0 : 4);
+      }
+
+      yield* assembly.evidence.journal.drain();
+
+      const restoredLifecycle = records.filter(
+        (record) => record._tag === "lifecycle" && record.after.fence.key === restored.fence.key,
+      );
+
+      assert.ok(restoredLifecycle.length >= 2);
+      assert.ok(restoredLifecycle.every((record) => record.machineTurnRevision === 4));
+
+      const suspendedEvidence = restoredLifecycle.find(
+        (record) => record._tag === "lifecycle" && record.to === "suspended",
+      );
+
+      assert.ok(suspendedEvidence !== undefined);
+      assert.strictEqual(suspendedEvidence.publicationRevision, restoredBaseline.revision + 1);
+
+      yield* Effect.provideContext(fresh.dispose(), assembly.context);
+      yield* Effect.provideContext(restored.dispose(), assembly.context);
+      yield* runtimeOwner(runtime).close();
+    }),
+  );
 
   // Setup: Use an active real actor with a scoped finalizer and a provided Clock whose lifecycle read can fail.
   // Action: Reject one direct lifecycle disposal before its transition, then clear the clock fault and retry through the same owner.
@@ -3630,14 +3914,20 @@ describe("pending regression scenarios", () => {
     Effect.gen(function* () {
       const baseClock = yield* Clock.Clock;
       let failClockRead = false;
+      let routableAtFailedRead: boolean | undefined;
+      let isRoutable = () => false;
       let finalizations = 0;
 
       const providedClock: Clock.Clock = {
         ...baseClock,
-        currentTimeMillis: Effect.sync(() => {
-          if (failClockRead) throw new Error("lifecycle clock read failed");
+        currentTimeMillis: Effect.suspend(() => {
+          if (failClockRead) {
+            routableAtFailedRead = isRoutable();
 
-          return baseClock.currentTimeMillisUnsafe();
+            return Effect.die(new Error("lifecycle clock read failed"));
+          }
+
+          return Effect.succeed(baseClock.currentTimeMillisUnsafe());
         }),
       };
 
@@ -3661,12 +3951,15 @@ describe("pending regression scenarios", () => {
           }),
       });
 
+      isRoutable = actor.lifecycle.isRoutable;
+
       const dispatched = actor.engine.dispatch(IntegrationStandaloneEvent);
       assert.strictEqual(dispatched.admitted, true);
       yield* Deferred.await(dispatched.completion);
       yield* actor.engine.drain();
 
       const before = yield* actor.lifecycle.state();
+      const publishedBefore = actor.engine.snapshot();
       const sequence = assembly.evidence.journal.sequence();
       failClockRead = true;
 
@@ -3681,6 +3974,9 @@ describe("pending regression scenarios", () => {
       );
 
       assert.ok(Exit.isFailure(rejected));
+      assert.strictEqual(routableAtFailedRead, true);
+      assert.strictEqual(actor.lifecycle.isRoutable(), true);
+      assert.strictEqual(actor.engine.snapshot(), publishedBefore);
       assert.deepStrictEqual(yield* actor.lifecycle.state(), before);
       assert.strictEqual(assembly.evidence.journal.sequence(), sequence);
       assert.strictEqual(finalizations, 0);

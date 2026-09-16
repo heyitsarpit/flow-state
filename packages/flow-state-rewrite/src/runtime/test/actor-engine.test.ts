@@ -1,17 +1,6 @@
 // oxlint-disable-next-line anti-slop/no-large-production-file -- this suite proves snapshot admission, prepared mailbox activation, turns, and publication ordering across one actor engine; splitting would duplicate fixtures and fragment lifecycle assertions.
 import { assert, describe, it } from "@effect/vitest";
-import {
-  Cause,
-  Clock,
-  Deferred,
-  Effect,
-  Exit,
-  Fiber,
-  Queue,
-  Result,
-  Scope,
-  type Types,
-} from "effect";
+import { Cause, Clock, Deferred, Effect, Exit, Fiber, Result, Scope, type Types } from "effect";
 
 import { app, appPlan, module } from "../../app/app.js";
 import { definition } from "../../definition/definition.js";
@@ -39,6 +28,7 @@ import {
   type ActorMailboxFact,
   type ActorPublication,
   type ActorSnapshot,
+  type ActorStoreResult,
 } from "../actor-engine.js";
 import { makeActorIdentityRegistry, type ActorFence } from "../actor-admission.js";
 import { makeRuntimeEvidenceOwner, type EvidenceRecord } from "../evidence.js";
@@ -474,7 +464,6 @@ describe("actor engine", () => {
       );
 
       for (const command of buffered) prepared.send(command);
-      assert.strictEqual(Queue.sizeUnsafe(prepared.mailbox), ACTOR_MAILBOX_CAPACITY);
       assert.deepStrictEqual(processed, []);
       assertMailboxThrows(() => prepared.send(closed), "full");
 
@@ -482,12 +471,11 @@ describe("actor engine", () => {
       const handle = actorHandle(engine);
       yield* Deferred.await(firstStarted);
       prepared.send(opened);
-      assert.strictEqual(Queue.sizeUnsafe(prepared.mailbox), ACTOR_MAILBOX_CAPACITY);
       yield* Deferred.succeed(releaseFirst, undefined);
       yield* Deferred.await(drained);
       assert.deepStrictEqual(processed, [...buffered.map((command) => command.type), opened.type]);
       assert.strictEqual(Object.keys(handle).sort().join(","), "ref,send");
-      yield* engine.shutdown("hard");
+      yield* engine.shutdown();
       yield* Scope.close(scope, Exit.void);
     }),
   );
@@ -502,7 +490,6 @@ describe("actor engine", () => {
       prepared.send(closed);
       prepared.abandon();
 
-      assert.strictEqual(Queue.sizeUnsafe(prepared.mailbox), 0);
       assert.deepStrictEqual(processed, []);
       assertMailboxThrows(() => prepared.send(opened), "closed");
       yield* Scope.close(scope, Exit.void);
@@ -577,7 +564,7 @@ describe("actor engine", () => {
       assert.strictEqual(engine.snapshot().revision, 1);
       yield* Deferred.succeed(releaseFirst, undefined);
       yield* engine.drain();
-      yield* engine.shutdown("hard");
+      yield* engine.shutdown();
       yield* Scope.close(scope, Exit.void);
     }),
   );
@@ -596,7 +583,7 @@ describe("actor engine", () => {
       send(opened);
       // @ts-expect-error EventOf is nominal and cannot accept a structural event record.
       send({ type: opened.type });
-      yield* engine.shutdown("hard");
+      yield* engine.shutdown();
       yield* Scope.close(scope, Exit.void);
     }),
   );
@@ -606,7 +593,7 @@ describe("actor engine", () => {
       const scope = yield* Scope.make("sequential");
       const setup = makeInput(scope, () => Effect.void);
       const engine = yield* (yield* prepareActorEngine(setup.input)).activate();
-      yield* engine.shutdown("hard");
+      yield* engine.shutdown();
       assertMailboxThrows(() => engine.send(opened), "closed");
       yield* Scope.close(scope, Exit.void);
     }),
@@ -633,7 +620,7 @@ describe("actor engine", () => {
       first.send(opened);
       yield* Deferred.await(done);
       assert.deepStrictEqual(processed, [opened.type]);
-      yield* first.shutdown("hard");
+      yield* first.shutdown();
       yield* Scope.close(scope, Exit.void);
     }),
   );
@@ -664,7 +651,7 @@ describe("actor engine", () => {
       yield* Effect.yieldNow;
       yield* Effect.yieldNow;
       assertMailboxThrows(() => engine.send(closed), "closed");
-      yield* engine.shutdown("hard");
+      yield* engine.shutdown();
       yield* Scope.close(scope, Exit.void);
     }),
   );
@@ -702,7 +689,7 @@ describe("actor engine", () => {
       yield* Deferred.await(processedAll);
 
       assert.deepStrictEqual(processed, [opened.type, closed.type, opened.type]);
-      yield* engine.shutdown("hard");
+      yield* engine.shutdown();
       yield* Scope.close(scope, Exit.void);
     }),
   );
@@ -748,19 +735,31 @@ describe("actor engine", () => {
           fenceActorFact<typeof testDefinition>(setup.input.fence, fact)._tag,
           "discarded",
         );
-        Queue.offerUnsafe(engine.mailbox, fact);
+        assert.ok(
+          Result.isSuccess(
+            engine.dispatchFact({
+              _tag: "timer-projection",
+              fence: fact.fence,
+              name: "stale",
+              startedAt: 1,
+              dueAt: 2,
+            }),
+          ),
+        );
       }
+
+      yield* engine.drain();
+      assert.deepStrictEqual(processed, []);
 
       engine.send(closed);
       yield* Deferred.await(processedOne);
       assert.deepStrictEqual(processed, [closed.type]);
-      assert.strictEqual(Queue.sizeUnsafe(engine.mailbox), 0);
-      yield* engine.shutdown("hard");
+      yield* engine.shutdown();
       yield* Scope.close(scope, Exit.void);
     }),
   );
 
-  it.effect("prepares evidence before one atomic store cut and user work", () =>
+  it.effect("acknowledges the committed cut before user work begins", () =>
     Effect.gen(function* () {
       const scope = yield* Scope.make("sequential");
       const order: string[] = [];
@@ -768,11 +767,30 @@ describe("actor engine", () => {
       const published: ActorSnapshot<typeof testDefinition>[] = [];
       let preparedEvidence: ActorPublication<typeof testDefinition> | undefined;
       let acknowledgedDispatch: AcknowledgedDispatch | undefined;
+      let storeRevision = 0;
+      let validatedActorStoreResult: ActorStoreResult<typeof testDefinition> | undefined;
       const commandStarted = yield* Deferred.make<void>();
       const releaseCommand = yield* Deferred.make<void>();
 
+      const evidence = makeRuntimeEvidenceOwner({
+        app: testApp,
+        plan: appPlan(testApp),
+        clock: makeTestClock(() => 4_242),
+      });
+
+      const records: EvidenceRecord[] = [];
+
+      const sink = yield* makeEvidenceSink({
+        id: "actor-cut-order",
+        deliver: (record) => Effect.sync(() => records.push(record)),
+      });
+
+      assert.ok(Result.isSuccess(evidence.journal.attach(sink)));
+
       const setup = makeInput(scope, () =>
         Effect.gen(function* () {
+          assert.ok(acknowledgedDispatch !== undefined);
+          assert.strictEqual(Deferred.isDoneUnsafe(acknowledgedDispatch.completion), true);
           order.push("command");
           yield* Deferred.succeed(commandStarted, undefined);
           yield* Deferred.await(releaseCommand);
@@ -785,11 +803,17 @@ describe("actor engine", () => {
           commit: (actions) => {
             order.push("store");
             committedActions.push(...actions);
+            storeRevision += 1;
 
-            return Result.succeed({
-              revision: 1,
+            const validated = makeActorStoreResult<typeof testDefinition>({
+              revision: storeRevision,
               changed: [{ descriptor: testDefinition.operations.item, key: [1] }],
             });
+
+            if (Result.isFailure(validated)) return Result.fail(validated.failure);
+            validatedActorStoreResult = validated.success;
+
+            return Result.succeed(validated.success);
           },
         },
         onSnapshot: (snapshot) => {
@@ -798,14 +822,19 @@ describe("actor engine", () => {
           assert.ok(acknowledgedDispatch !== undefined);
           assert.strictEqual(Deferred.isDoneUnsafe(acknowledgedDispatch.completion), true);
         },
-        acceptEvidence: (publication) => {
+        acceptEvidence: (publication, before, phase) => {
           order.push("evidence");
           preparedEvidence = publication;
           assert.strictEqual(publication.publicationRevision, 1);
           assert.strictEqual(publication.machineTurnRevision, 1);
           assert.strictEqual(publication.store.revision, 0);
 
-          return Result.succeed(1);
+          return (phase === "prepare" ? evidence.preparePublication : evidence.acceptPublication)(
+            setup.input.identity,
+            setup.input.fence,
+            before,
+            publication,
+          );
         },
       };
 
@@ -825,6 +854,19 @@ describe("actor engine", () => {
       assert.ok(preparedEvidence !== undefined);
       assert.strictEqual(published[0]?.revision, 1);
       assert.strictEqual(published[0]?.observedStoreRevision, 1);
+      assert.ok(validatedActorStoreResult !== undefined);
+      assert.ok(validatedActorStoreResult.changed.length > 0);
+      assert.ok(validatedActorStoreResult.revision > setup.input.initial.observedStoreRevision);
+      assert.strictEqual(records.length, 0);
+      yield* evidence.journal.drain();
+      const record = records[0];
+      assert.ok(record?._tag === "turn");
+
+      if (record?._tag === "turn") {
+        assert.strictEqual(record.store.revision, validatedActorStoreResult.revision);
+        assert.deepStrictEqual(record.store.changed, validatedActorStoreResult.changed);
+        assert.strictEqual(published[0]?.observedStoreRevision, validatedActorStoreResult.revision);
+      }
 
       yield* Deferred.succeed(releaseCommand, undefined);
       yield* engine.drain();
@@ -835,12 +877,13 @@ describe("actor engine", () => {
       assert.deepStrictEqual(noopReceipt, { publicationRevision: 1, evidenceSequence: 1 });
       assert.strictEqual(published.length, beforeNoop);
       assert.strictEqual(order.filter((entry) => entry === "command").length, 2);
-      yield* engine.shutdown("hard");
+      yield* evidence.close();
+      yield* engine.shutdown();
       yield* Scope.close(scope, Exit.void);
     }),
   );
 
-  it.effect("cancels timestamp preparation before the store cut", () =>
+  it.effect("retains the prior cut after evidence preflight failure and retries later", () =>
     Effect.gen(function* () {
       const scope = yield* Scope.make("sequential");
       const order: string[] = [];
@@ -863,8 +906,6 @@ describe("actor engine", () => {
         }),
       });
 
-      let previous: ActorSnapshot<typeof testDefinition> = setup.input.initial;
-
       const configured: ActorEngineInput<typeof testDefinition> = {
         ...setup.input,
         store: {
@@ -875,17 +916,12 @@ describe("actor engine", () => {
             return Result.succeed({ revision: storeCalls, changed: [] });
           },
         },
-        acceptEvidence: (publication) => {
+        acceptEvidence: (publication, before, phase) => {
           order.push("evidence");
 
-          const accepted = evidence.acceptPublication(
-            setup.input.identity,
-            setup.input.fence,
-            previous,
-            publication,
-          );
-
-          if (Result.isSuccess(accepted)) previous = publication.snapshot;
+          const accepted = (
+            phase === "prepare" ? evidence.preparePublication : evidence.acceptPublication
+          )(setup.input.identity, setup.input.fence, before, publication);
 
           return accepted;
         },
@@ -926,7 +962,7 @@ describe("actor engine", () => {
       assert.strictEqual(engine.snapshot().observedStoreRevision, 1);
       assert.strictEqual(published.length, 2);
       yield* evidence.close();
-      yield* engine.shutdown("hard");
+      yield* engine.shutdown();
       yield* Scope.close(scope, Exit.void);
     }),
   );
@@ -982,7 +1018,61 @@ describe("actor engine", () => {
       );
       assert.deepStrictEqual(evidenceMachineRevisions, [1, 2]);
       assert.strictEqual(commandCalls, 2);
-      yield* engine.shutdown("hard");
+      yield* engine.shutdown();
+      yield* Scope.close(scope, Exit.void);
+    }),
+  );
+
+  it.effect("rejects a stale validated store result without changing the committed cut", () =>
+    Effect.gen(function* () {
+      const scope = yield* Scope.make("sequential");
+      const setup = makeInput(scope, () => Effect.void);
+
+      const evidence = makeRuntimeEvidenceOwner({
+        app: testApp,
+        plan: appPlan(testApp),
+        clock: makeTestClock(() => 7_000),
+      });
+
+      let storeCalls = 0;
+      const observed: ActorSnapshot<typeof testDefinition>[] = [];
+
+      const engine = yield* (yield* prepareActorEngine({
+        ...setup.input,
+        store: {
+          commit: () => {
+            storeCalls += 1;
+            const revision = storeCalls === 2 ? 0 : storeCalls === 1 ? 1 : 2;
+
+            return makeActorStoreResult<typeof testDefinition>({ revision, changed: [] });
+          },
+        },
+        acceptEvidence: (publication, before, phase) =>
+          (phase === "prepare" ? evidence.preparePublication : evidence.acceptPublication)(
+            setup.input.identity,
+            setup.input.fence,
+            before,
+            publication,
+          ),
+        onSnapshot: (snapshot) => observed.push(snapshot),
+      })).activate();
+
+      const first = yield* Deferred.await(engine.dispatch(opened).completion);
+      assert.deepStrictEqual(first, { publicationRevision: 1, evidenceSequence: 1 });
+      const beforeStale = engine.snapshot();
+      const stale = yield* Effect.exit(Deferred.await(engine.dispatch(opened).completion));
+      assert.ok(Exit.isFailure(stale));
+      assert.strictEqual(engine.snapshot(), beforeStale);
+      assert.strictEqual(engine.machineTurnRevision(), 1);
+      assert.strictEqual(evidence.journal.sequence(), 1);
+      assert.strictEqual(observed.length, 1);
+
+      const retried = yield* Deferred.await(engine.dispatch(opened).completion);
+      assert.deepStrictEqual(retried, { publicationRevision: 2, evidenceSequence: 2 });
+      assert.strictEqual(engine.snapshot().observedStoreRevision, 2);
+      assert.strictEqual(storeCalls, 3);
+      yield* evidence.close();
+      yield* engine.shutdown();
       yield* Scope.close(scope, Exit.void);
     }),
   );
@@ -1063,7 +1153,7 @@ describe("actor engine", () => {
         assert.deepStrictEqual(noopReceipt, { publicationRevision: 1, evidenceSequence: 2 });
         assert.strictEqual(published.length, 1);
         assert.strictEqual(commandCalls, 1);
-        yield* engine.shutdown("hard");
+        yield* engine.shutdown();
         yield* Scope.close(scope, Exit.void);
       }
     }),
@@ -1171,12 +1261,12 @@ describe("actor engine", () => {
         published.map((snapshot) => snapshot.revision),
         [1, 2, 3, 4, 5, 6],
       );
-      assert.deepStrictEqual(machineTurnRevisions, [0, 0, 0, 0, 0, 0]);
+      assert.deepStrictEqual(machineTurnRevisions, [0, 0, 0, 0]);
       assert.strictEqual(commandCalls, 0);
       assert.strictEqual(engine.snapshot().state, testDefinition.S.ready);
       assert.strictEqual(engine.snapshot().observedStoreRevision, 1);
       assert.deepStrictEqual(engine.snapshot().context, { provider: "ready" });
-      yield* engine.shutdown("hard");
+      yield* engine.shutdown();
       yield* Scope.close(scope, Exit.void);
     }),
   );
@@ -1247,7 +1337,7 @@ describe("actor engine", () => {
       yield* engine.drain();
 
       assert.strictEqual(published.length, 1);
-      assert.strictEqual(evidenceCalls, 1);
+      assert.strictEqual(evidenceCalls, 0);
       assert.deepStrictEqual(published[0]?.context, {
         left: contextProviderDefinition.S.changed,
         right: contextProviderDefinition.S.changed,
@@ -1258,7 +1348,7 @@ describe("actor engine", () => {
       assert.strictEqual(engine.snapshot().observedStoreRevision, 0);
       assert.strictEqual(commandCalls, 0);
       assert.strictEqual(storeCalls, 0);
-      yield* engine.shutdown("hard");
+      yield* engine.shutdown();
       yield* Scope.close(scope, Exit.void);
     }),
   );
@@ -1389,14 +1479,14 @@ describe("actor engine", () => {
       assert.strictEqual(published.length, 3);
       assert.strictEqual(published[2]?.revision, 3);
       assert.deepStrictEqual(published[2]?.issues, []);
-      assert.deepStrictEqual(evidenceIssues[2], []);
+      assert.strictEqual(evidenceIssues[2], undefined);
       assert.strictEqual(published[2]?.context.left, contextProviderDefinition.S.changed);
       assert.strictEqual(published[2]?.context.right, contextProviderDefinition.S.changed);
-      assert.deepStrictEqual(evidenceMachineRevisions, [0, 0, 0]);
-      assert.deepStrictEqual(evidenceStoreRevisions, [0, 0, 0]);
+      assert.deepStrictEqual(evidenceMachineRevisions, [0, 0]);
+      assert.deepStrictEqual(evidenceStoreRevisions, [0, 0]);
       assert.strictEqual(engine.snapshot().revision, 3);
       assert.strictEqual(engine.snapshot().observedStoreRevision, 0);
-      yield* engine.shutdown("hard");
+      yield* engine.shutdown();
       yield* Scope.close(scope, Exit.void);
     }),
   );
@@ -1453,7 +1543,7 @@ describe("actor engine", () => {
       assert.strictEqual(evidenceCalls, 1);
       assert.strictEqual(engine.snapshot().revision, 1);
       assert.strictEqual(engine.snapshot().operations[0]?.status, "succeeded");
-      yield* engine.shutdown("hard");
+      yield* engine.shutdown();
       yield* Scope.close(scope, Exit.void);
     }),
   );
@@ -1483,7 +1573,7 @@ describe("actor engine", () => {
       const firstExit = yield* Effect.exit(Deferred.await(first.completion));
 
       assert.ok(Exit.isSuccess(firstExit));
-      yield* engine.shutdown("hard");
+      yield* engine.shutdown();
       const secondExit = yield* Effect.exit(Deferred.await(second.completion));
       const thirdExit = yield* Effect.exit(Deferred.await(third.completion));
       const secondError = failureFromExit(secondExit);
@@ -1643,7 +1733,7 @@ describe("actor engine", () => {
         publicationRevision: 1,
         evidenceSequence: 1,
       });
-      yield* engine.shutdown("hard");
+      yield* engine.shutdown();
       yield* Scope.close(scope, Exit.void);
     }),
   );
@@ -1704,7 +1794,7 @@ describe("actor engine", () => {
       assert.strictEqual(published[0]?.observedStoreRevision, 0);
       assert.strictEqual(engine.snapshot().observedStoreRevision, 0);
       assert.strictEqual(engine.snapshot().issues.length, 1);
-      yield* engine.shutdown("hard");
+      yield* engine.shutdown();
       yield* Scope.close(scope, Exit.void);
     }),
   );
@@ -1732,7 +1822,6 @@ describe("actor engine", () => {
       });
 
       assert.ok(Result.isSuccess(evidence.journal.attach(sink)));
-      let previous: ActorSnapshot<typeof testDefinition> = setup.input.initial;
       let preparedStoreRevision = -1;
 
       const configured: ActorEngineInput<typeof testDefinition> = {
@@ -1744,18 +1833,13 @@ describe("actor engine", () => {
             return Result.succeed({ revision: 7, changed: [] });
           },
         },
-        acceptEvidence: (publication) => {
+        acceptEvidence: (publication, before, phase) => {
           order.push("evidence");
           preparedStoreRevision = publication.store.revision;
 
-          const accepted = evidence.acceptPublication(
-            setup.input.identity,
-            setup.input.fence,
-            previous,
-            publication,
-          );
-
-          if (Result.isSuccess(accepted)) previous = publication.snapshot;
+          const accepted = (
+            phase === "prepare" ? evidence.preparePublication : evidence.acceptPublication
+          )(setup.input.identity, setup.input.fence, before, publication);
 
           return accepted;
         },
@@ -1858,7 +1942,7 @@ describe("actor engine parity cases", () => {
       assert.strictEqual(result, undefined);
       yield* engine.drain();
       assert.deepStrictEqual(received, [opened.type]);
-      yield* engine.shutdown("hard");
+      yield* engine.shutdown();
       yield* Scope.close(scope, Exit.void);
     }),
   );
@@ -1875,14 +1959,15 @@ describe("actor engine parity cases", () => {
       const foreignEvent = resultSuccess(foreignDefinition.E.opened());
       const scope = yield* Scope.make("sequential");
       const { engine } = yield* startParityEngine(scope);
-      const before = Queue.sizeUnsafe(engine.mailbox);
+      const before = engine.snapshot();
       assert.throws(() => {
         // SAFETY: a foreign nominal event deliberately crosses the synchronous negative-test boundary.
         // oxlint-disable-next-line typescript/no-unsafe-type-assertion
         engine.send(foreignEvent as ActorCommand<typeof testDefinition>);
       });
-      assert.strictEqual(Queue.sizeUnsafe(engine.mailbox), before);
-      yield* engine.shutdown("hard");
+      yield* engine.drain();
+      assert.strictEqual(engine.snapshot(), before);
+      yield* engine.shutdown();
       yield* Scope.close(scope, Exit.void);
     }),
   );
@@ -1902,7 +1987,7 @@ describe("actor engine parity cases", () => {
       yield* engine.drain();
       assert.deepStrictEqual(received, [opened.type, closed.type, opened.type]);
       assert.strictEqual(engine.snapshot().revision, 2);
-      yield* engine.shutdown("hard");
+      yield* engine.shutdown();
       yield* Scope.close(scope, Exit.void);
     }),
   );
@@ -1916,16 +2001,32 @@ describe("actor engine parity cases", () => {
         Effect.sync(() => received.push(command.type)),
       );
 
-      Queue.offerUnsafe(engine.mailbox, {
-        _tag: "command",
-        fence: { ...setup.input.fence, generation: setup.input.fence.generation + 1 },
-        command: opened,
-      });
+      assert.strictEqual(
+        fenceActorFact<typeof testDefinition>(setup.input.fence, {
+          _tag: "command",
+          fence: { ...setup.input.fence, generation: setup.input.fence.generation + 1 },
+          command: opened,
+        })._tag,
+        "discarded",
+      );
+      assert.ok(
+        Result.isSuccess(
+          engine.dispatchFact({
+            _tag: "timer-projection",
+            fence: { ...setup.input.fence, generation: setup.input.fence.generation + 1 },
+            name: "stale",
+            startedAt: 1,
+            dueAt: 2,
+          }),
+        ),
+      );
+      yield* engine.drain();
+      assert.deepStrictEqual(received, []);
       engine.send(closed);
       yield* engine.drain();
       assert.deepStrictEqual(received, [closed.type]);
       assert.strictEqual(engine.snapshot().revision, 0);
-      yield* engine.shutdown("hard");
+      yield* engine.shutdown();
       yield* Scope.close(scope, Exit.void);
     }),
   );
@@ -1964,7 +2065,7 @@ describe("actor engine parity cases", () => {
       assert.strictEqual(published[0]?.snapshot.revision, 1);
       assert.strictEqual(published[0]?.store.revision, 0);
       assert.strictEqual(engine.snapshot().observedStoreRevision, 1);
-      yield* engine.shutdown("hard");
+      yield* engine.shutdown();
       yield* Scope.close(scope, Exit.void);
     }),
   );
@@ -2007,7 +2108,7 @@ describe("actor engine parity cases", () => {
       assert.strictEqual(published.length, 1);
       assert.strictEqual(published[0]?.issues[0], failure);
       assert.strictEqual(engine.snapshot().observedStoreRevision, 0);
-      yield* engine.shutdown("hard");
+      yield* engine.shutdown();
       yield* Scope.close(scope, Exit.void);
     }),
   );
@@ -2038,7 +2139,7 @@ describe("actor engine parity cases", () => {
       assert.strictEqual(published.length, 1);
       assert.strictEqual(published[0]?.issues.length, 1);
       assert.strictEqual(engine.snapshot().revision, 1);
-      yield* engine.shutdown("hard");
+      yield* engine.shutdown();
       yield* Scope.close(scope, Exit.void);
     }),
   );
@@ -2061,7 +2162,7 @@ describe("actor engine parity cases", () => {
       assert.strictEqual(operation.descriptor, occurrence.descriptor);
       assert.deepStrictEqual(operation.key, [{ nested: true }]);
       assert.strictEqual(operation.status, "succeeded");
-      yield* engine.shutdown("hard");
+      yield* engine.shutdown();
       yield* Scope.close(scope, Exit.void);
     }),
   );
@@ -2094,7 +2195,7 @@ describe("actor engine parity cases", () => {
         engine.snapshot().operations.map((operation) => operation.key),
         [[2], [1]],
       );
-      yield* engine.shutdown("hard");
+      yield* engine.shutdown();
       yield* Scope.close(scope, Exit.void);
     }),
   );
@@ -2126,7 +2227,7 @@ describe("actor engine parity cases", () => {
       yield* engine.drain();
       assert.deepStrictEqual(published, []);
       assert.deepStrictEqual(engine.snapshot().operations, []);
-      yield* engine.shutdown("hard");
+      yield* engine.shutdown();
       yield* Scope.close(scope, Exit.void);
     }),
   );
@@ -2163,7 +2264,7 @@ describe("actor engine parity cases", () => {
         engine.snapshot().operations.map((operation) => operation.status),
         ["succeeded", "failed"],
       );
-      yield* engine.shutdown("hard");
+      yield* engine.shutdown();
       yield* Scope.close(scope, Exit.void);
     }),
   );
@@ -2181,7 +2282,7 @@ describe("actor engine parity cases", () => {
       });
       yield* engine.drain();
       assert.strictEqual(engine.snapshot().operations[0]?.status, "cancelled");
-      yield* engine.shutdown("hard");
+      yield* engine.shutdown();
       yield* Scope.close(scope, Exit.void);
     }),
   );
@@ -2229,20 +2330,14 @@ describe("actor engine parity cases", () => {
 
       assert.ok(Result.isSuccess(evidence.journal.attach(sink)));
       assert.ok(Result.isSuccess(evidence.journal.attach(interrupted)));
-      let previous: ActorSnapshot<typeof testDefinition> = setup.input.initial;
 
       const engine = yield* (yield* prepareActorEngine({
         ...setup.input,
         initial,
-        acceptEvidence: (publication) => {
-          const accepted = evidence.acceptPublication(
-            setup.input.identity,
-            setup.input.fence,
-            previous,
-            publication,
-          );
-
-          if (Result.isSuccess(accepted)) previous = publication.snapshot;
+        acceptEvidence: (publication, before, phase) => {
+          const accepted = (
+            phase === "prepare" ? evidence.preparePublication : evidence.acceptPublication
+          )(setup.input.identity, setup.input.fence, before, publication);
 
           return accepted;
         },
@@ -2292,7 +2387,7 @@ describe("actor engine parity cases", () => {
       }
 
       yield* evidence.close();
-      yield* engine.shutdown("hard");
+      yield* engine.shutdown();
       yield* Scope.close(scope, Exit.void);
     }),
   );
@@ -2323,7 +2418,7 @@ describe("actor engine parity cases", () => {
       assert.deepStrictEqual(engine.snapshot().timers, [
         { name: "poll", startedAt: 10, dueAt: 20 },
       ]);
-      yield* engine.shutdown("hard");
+      yield* engine.shutdown();
       yield* Scope.close(scope, Exit.void);
     }),
   );
@@ -2355,7 +2450,7 @@ describe("actor engine parity cases", () => {
       yield* engine.drain();
       assert.strictEqual(engine.snapshot().operations[0]?.status, "running");
       assert.deepStrictEqual(engine.snapshot().operations[0]?.key, [3]);
-      yield* engine.shutdown("hard");
+      yield* engine.shutdown();
       yield* Scope.close(scope, Exit.void);
     }),
   );
@@ -2415,7 +2510,7 @@ describe("actor engine parity cases", () => {
         right: contextProviderDefinition.S.changed,
       });
       assert.strictEqual(seen.length, 1);
-      yield* engine.shutdown("hard");
+      yield* engine.shutdown();
       yield* Scope.close(scope, Exit.void);
     }),
   );
@@ -2528,7 +2623,7 @@ describe("actor engine parity cases", () => {
       assert.strictEqual(evidence, 1);
       assert.deepStrictEqual(receipt, { publicationRevision: 1, evidenceSequence: 1 });
       assert.strictEqual(engine.snapshot().revision, 1);
-      yield* engine.shutdown("hard");
+      yield* engine.shutdown();
       yield* Scope.close(scope, Exit.void);
     }),
   );
@@ -2547,7 +2642,6 @@ describe("actor engine parity cases", () => {
       prepared.send(opened);
       prepared.send(closed);
       prepared.abandon();
-      assert.strictEqual(Queue.sizeUnsafe(prepared.mailbox), 0);
       assert.deepStrictEqual(published, []);
       yield* Scope.close(scope, Exit.void);
     }),
@@ -2568,7 +2662,7 @@ describe("actor engine parity cases", () => {
 
       const pending = engine.dispatch(opened);
       yield* Deferred.await(entered);
-      yield* engine.shutdown("hard");
+      yield* engine.shutdown();
       const late = engine.dispatch(closed);
       assert.strictEqual(late.admitted, false);
       assert.ok(Exit.isSuccess(yield* Effect.exit(Deferred.await(pending.completion))));
@@ -2620,7 +2714,7 @@ describe("actor engine parity cases", () => {
       yield* engine.drain();
       assert.strictEqual(published.length, 1);
       assert.strictEqual(engine.snapshot().revision, 1);
-      yield* engine.shutdown("hard");
+      yield* engine.shutdown();
       yield* Scope.close(scope, Exit.void);
     }),
   );
@@ -2640,7 +2734,7 @@ describe("actor engine parity cases", () => {
 
       engine.send(opened);
       yield* Deferred.await(entered);
-      const shutdown = yield* Effect.forkChild(engine.shutdown("hard"), { startImmediately: true });
+      const shutdown = yield* Effect.forkChild(engine.shutdown(), { startImmediately: true });
       yield* Effect.yieldNow;
       assert.strictEqual(engine.dispatch(closed).admitted, false);
       yield* Deferred.succeed(hold, undefined);
@@ -2660,7 +2754,7 @@ describe("actor engine parity cases", () => {
       assert.deepStrictEqual(snapshot.timers, []);
       assert.deepStrictEqual(snapshot.issues, []);
       assert.strictEqual("send" in snapshot, false);
-      yield* engine.shutdown("hard");
+      yield* engine.shutdown();
       yield* Scope.close(scope, Exit.void);
     }),
   );
@@ -2691,7 +2785,7 @@ describe("actor engine parity cases", () => {
       yield* Deferred.await(engine.dispatch(opened).completion);
       yield* engine.drain();
       assert.deepStrictEqual(order, ["evidence", "store", "snapshot"]);
-      yield* engine.shutdown("hard");
+      yield* engine.shutdown();
       yield* Scope.close(scope, Exit.void);
     }),
   );
@@ -2725,7 +2819,7 @@ describe("actor engine parity cases", () => {
       yield* engine.drain();
       assert.strictEqual(engine.snapshot().operations.length, 1);
       assert.strictEqual(engine.snapshot().operations[0]?.status, "failed");
-      yield* engine.shutdown("hard");
+      yield* engine.shutdown();
       yield* Scope.close(scope, Exit.void);
     }),
   );
@@ -2740,17 +2834,72 @@ describe("pending regression scenarios", () => {
   // SETUP: Extend the existing one-shot clock defect fixture with a candidate that would run an action, a counting store, snapshots, evidence, and an onCommand counter; retain the pre-turn snapshot for comparison.
   // ACTION: Dispatch through the failing preflight, await its failed acknowledgement and drain; dispatch the same event again after the clock succeeds.
   // ASSERT: The failed attempt invokes no store commit or user work, preserves state/memory/operations and observedStoreRevision, emits exactly one issue-only active publication with committed prior truth, and cancels its reserved evidence; the retry creates exactly one normal cut and one acknowledgement.
-  it.todo("retains the prior cut after evidence preflight failure and retries later");
-
   // SETUP: Extend the existing ordering fixture with a real store owner returning a nonempty owned changed-ref set and a final store revision different from the prior revision, a publication observer, and gated user work; capture the acknowledgement handle before dispatch.
   // ACTION: Dispatch one event, observe nonsequenced evidence preparation, store commit, publication, acknowledgement and user-work start as separate checkpoints; drain the resulting record only after acknowledgement.
   // ASSERT: Evidence preparation precedes the single actor/store cut; final snapshot and delivered evidence contain the actual committed store revision and changed refs. Acknowledgement completes after publication/evidence acceptance and before user work or sink delivery; finalization never reruns projection/copy callbacks or exposes a partial candidate.
-  it.todo("acknowledges the committed cut before user work begins");
-
   // Setup: Use a real engine with an attached evidence sink; retain its snapshot, private machine-turn revision and last accepted evidence sequence.
   // Action: Apply one changed passive context/store projection, await its private publication ticket and drain evidence; then exercise a separate contained issue-only cut.
   // Assert: The passive projection publishes one complete owned snapshot with public revision plus one, unchanged machine-turn revision/evidence sequence, and no record. Its ticket contains that exact cut; the separate issue-only cut follows its TurnRecord rule.
-  it.todo("publishes a passive projection without allocating evidence or machine-turn revision");
+  it.effect(
+    "publishes a passive projection without allocating evidence or machine-turn revision",
+    () =>
+      Effect.gen(function* () {
+        const scope = yield* Scope.make("sequential");
+        const setup = makeInput(scope, () => Effect.void);
+
+        const evidence = makeRuntimeEvidenceOwner({
+          app: testApp,
+          plan: appPlan(testApp),
+          clock: makeTestClock(() => 4_242),
+        });
+
+        const records: EvidenceRecord[] = [];
+
+        const sink = yield* makeEvidenceSink({
+          id: "passive-cut",
+          deliver: (record) => Effect.sync(() => records.push(record)),
+        });
+
+        assert.ok(Result.isSuccess(evidence.journal.attach(sink)));
+        const published: ActorSnapshot<typeof testDefinition>[] = [];
+
+        const engine = yield* (yield* prepareActorEngine({
+          ...setup.input,
+          onSnapshot: (snapshot) => published.push(snapshot),
+          acceptEvidence: (publication, before, phase) =>
+            (phase === "prepare" ? evidence.preparePublication : evidence.acceptPublication)(
+              setup.input.identity,
+              setup.input.fence,
+              before,
+              publication,
+            ),
+        })).activate();
+
+        const initial = engine.snapshot();
+
+        const fact: ProjectionFact = {
+          _tag: "store-projection",
+          fact: { fence: setup.input.fence, revision: 1, changed: [] },
+        };
+
+        assert.ok(Result.isSuccess(engine.dispatchFact(fact)));
+        yield* engine.drain();
+        assert.strictEqual(published.length, 1);
+        assert.strictEqual(published[0]?.revision, initial.revision + 1);
+        assert.strictEqual(published[0]?.observedStoreRevision, 1);
+        assert.strictEqual(engine.machineTurnRevision(), 0);
+        assert.strictEqual(evidence.journal.sequence(), 0);
+        assert.ok(Result.isSuccess(engine.dispatchFact(fact)));
+        yield* engine.drain();
+        assert.strictEqual(published.length, 1);
+        assert.strictEqual(evidence.journal.sequence(), 0);
+        yield* evidence.journal.drain();
+        assert.deepStrictEqual(records, []);
+        yield* evidence.close();
+        yield* engine.shutdown();
+        yield* Scope.close(scope, Exit.void);
+      }),
+  );
 
   // Setup: Use the selected internal ActorPublication and mailbox owners with consuming Scopes to establish subscriptions separately while prepared, active, suspended and disposed; control activation and turns with owned acknowledgement barriers. Prepared subscription is a selected internal production seam, not a current PreparedActorEngine API.
   // Action: Observe prepared replay and activation, attach an active subscriber after a turn, subscribe anew while suspended, then dispose and subscribe anew to terminal truth.

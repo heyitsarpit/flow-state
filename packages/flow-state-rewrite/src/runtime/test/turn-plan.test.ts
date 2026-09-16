@@ -583,7 +583,7 @@ describe("turn planner", () => {
       assert.ok(Result.isSuccess(staleIncarnation));
       yield* engine.drain();
       assert.strictEqual(engine.snapshot(), afterCancel);
-      yield* engine.shutdown("hard");
+      yield* engine.shutdown();
       yield* Scope.close(scope, Exit.void);
     }),
   );
@@ -699,7 +699,7 @@ describe("turn planner", () => {
       yield* engine.drain();
       assert.strictEqual(engine.snapshot(), terminal);
       assert.strictEqual(published.length, 1);
-      yield* engine.shutdown("hard");
+      yield* engine.shutdown();
       yield* Scope.close(scope, Exit.void);
     }),
   );

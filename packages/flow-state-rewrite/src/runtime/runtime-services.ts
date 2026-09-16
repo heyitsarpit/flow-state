@@ -63,13 +63,6 @@ export type RuntimeEvidenceService<
     terminal: boolean,
   ) => Result.Result<void, PublicDiagnostic>;
   provenance: RuntimeEvidenceServiceProvenance;
-  publish: <
-    DefinitionValue extends MachineDefinition,
-    CleanupError,
-    ProviderDefinition extends MachineDefinition = DefinitionValue,
-  >(
-    snapshot: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
-  ) => Effect.Effect<void, PublicDiagnostic>;
   accept: <
     DefinitionValue extends MachineDefinition,
     CleanupError,

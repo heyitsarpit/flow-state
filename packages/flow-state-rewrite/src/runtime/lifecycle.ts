@@ -204,11 +204,33 @@ export type ActorCellProtocolState<Snapshot extends LifecycleStateKey> = {
   overdueGeneration: number | undefined;
 };
 
-export type ActorCell<Snapshot extends LifecycleStateKey> = {
+export type ActorCell<Snapshot extends LifecycleStateKey, Cut = unknown> = {
   activityFibers: FiberMap.FiberMap<string, void> | undefined;
   protocol: ActorCellProtocolState<Snapshot> | undefined;
+  cut?: Cut;
+  publication?: {
+    preflight: (initial: boolean) => Result.Result<void, PublicDiagnostic>;
+    commit: (
+      lifecycle: ActorLifecycle,
+      initial: boolean,
+    ) => Result.Result<
+      {
+        publicationRevision: number;
+        machineTurnRevision: number;
+        notify: () => Result.Result<void, PublicDiagnostic>;
+      },
+      PublicDiagnostic
+    >;
+    revisions: () => { publicationRevision: number; machineTurnRevision: number };
+  };
   /** Runtime-owned actor lifetime protocol; assembly supplies its concrete type. */
   terminal?: unknown;
+};
+
+export type LifecycleEvidencePreflight = {
+  service: RuntimeEvidenceService;
+  preparation: EvidencePreparation;
+  timestamp: number;
 };
 
 const actorCellProtocolOf = <Snapshot extends LifecycleStateKey>(actorCell: ActorCell<Snapshot>) =>
@@ -491,7 +513,8 @@ const copySnapshot = <
   const owner = actorCellProtocolOf(actorCell);
 
   if (owner === undefined) throw new Error("Lifecycle snapshot has no ActorCell protocol");
-  owner.publicationRevision += 1;
+
+  if (actorCell.publication === undefined) owner.publicationRevision += 1;
 
   const next = copyObject({
     lifecycle,
@@ -1351,6 +1374,8 @@ export const runLifecycleCommand = <
   input: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
   command: LifecycleCommand<CleanupError>,
   actorCell: ActorCell<LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>>,
+  preparedEvidence?: LifecycleEvidencePreflight,
+  onPreflightAccepted?: () => Effect.Effect<void, PublicDiagnostic, RuntimeServiceContext>,
 ): Effect.Effect<
   LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
   PublicDiagnostic,
@@ -1386,19 +1411,20 @@ export const runLifecycleCommand = <
 
   if (Result.isFailure(disposePreflight)) return Effect.fail(disposePreflight.failure);
 
-  type LifecycleEvidencePreflight = {
-    service: RuntimeEvidenceService;
-    preparation: EvidencePreparation;
-    timestamp: number;
-  };
+  const initialPublication = command._tag === "actor:start" || command._tag === "actor:restore";
+  const publicationPreflight = actorCell.publication?.preflight(initialPublication);
+
+  if (publicationPreflight !== undefined && Result.isFailure(publicationPreflight))
+    return Effect.fail(publicationPreflight.failure);
 
   const evidencePreflight: Effect.Effect<
     LifecycleEvidencePreflight | undefined,
     PublicDiagnostic,
     RuntimeServiceContext
   > =
-    command._tag === "actor:suspend" || command._tag === "actor:dispose"
-      ? Effect.gen(function* () {
+    preparedEvidence !== undefined
+      ? Effect.succeed(preparedEvidence)
+      : Effect.gen(function* () {
           const clock = yield* Effect.service(Clock.Clock);
           const service = yield* Effect.service(RuntimeEvidence);
           const timestamp = yield* clock.currentTimeMillis;
@@ -1407,12 +1433,22 @@ export const runLifecycleCommand = <
           if (Result.isFailure(prepared)) return yield* Effect.fail(prepared.failure);
 
           return { service, ...prepared.success } satisfies LifecycleEvidencePreflight;
-        })
-      : Effect.succeed(undefined);
+        });
 
   return evidencePreflight.pipe(
     Effect.flatMap((preflight) =>
-      Effect.exit(transitionEffect).pipe(
+      Effect.gen(function* () {
+        const accepted = yield* Effect.exit(onPreflightAccepted?.() ?? Effect.void);
+
+        if (Exit.isFailure(accepted)) {
+          if (preflight !== undefined)
+            cancelPreparedEvidence(preflight.service, preflight.preparation);
+
+          return yield* Effect.failCause(accepted.cause);
+        }
+
+        return yield* Effect.exit(transitionEffect);
+      }).pipe(
         Effect.flatMap((exit) => {
           const after = ownerState(state, actorCell);
 
@@ -1424,6 +1460,12 @@ export const runLifecycleCommand = <
             }
 
             return resolveLifecycleExit(exit);
+          }
+
+          const committed = actorCell.publication?.commit(after.lifecycle, initialPublication);
+
+          if (committed !== undefined) {
+            if (Result.isFailure(committed)) return Effect.fail(committed.failure);
           }
 
           const cleanupCause = retainedCleanupCause(after);
@@ -1479,8 +1521,10 @@ export const runLifecycleCommand = <
               before: state,
               after,
               timestamp: evidence.timestamp,
-              publicationRevision: owner.publicationRevision,
-              machineTurnRevision: owner.machineTurnRevision,
+              publicationRevision:
+                actorCell.publication?.revisions().publicationRevision ?? owner.publicationRevision,
+              machineTurnRevision:
+                actorCell.publication?.revisions().machineTurnRevision ?? owner.machineTurnRevision,
               provenance: {
                 ...evidence.service.provenance,
                 actor: {
@@ -1496,13 +1540,7 @@ export const runLifecycleCommand = <
             if (Result.isFailure(prepared)) return yield* Effect.fail(prepared.failure);
 
             const accepted = yield* Effect.exit(
-              evidence.service
-                .publish(after)
-                .pipe(
-                  Effect.flatMap(() =>
-                    evidence.service.accept(prepared.success.record, prepared.success.preparation),
-                  ),
-                ),
+              evidence.service.accept(prepared.success.record, prepared.success.preparation),
             );
 
             if (Exit.isFailure(accepted)) {
@@ -1517,6 +1555,9 @@ export const runLifecycleCommand = <
             );
 
             if (Result.isFailure(settled)) return yield* Effect.fail(settled.failure);
+
+            // The publication and evidence are committed. Observer defects cannot reverse the cut.
+            if (committed !== undefined && Result.isSuccess(committed)) committed.success.notify();
 
             return exit;
           });
@@ -1559,6 +1600,8 @@ export type LifecycleController<
   state: () => Effect.Effect<LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>>;
   command: (
     command: LifecycleCommand<CleanupError>,
+    preparedEvidence?: LifecycleEvidencePreflight,
+    onPreflightAccepted?: () => Effect.Effect<void, PublicDiagnostic, RuntimeServiceContext>,
   ) => Effect.Effect<
     LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
     PublicDiagnostic,
@@ -1738,21 +1781,35 @@ export const makeLifecycleController = <
     isRoutable: () =>
       owner.routing.current === "open" && ownerState(initial, actorCell).lifecycle === "active",
     state: () => Effect.sync(() => ownerState(initial, actorCell)),
-    command: (command) =>
+    command: (command, preparedEvidence, onPreflightAccepted) =>
       SynchronizedRef.modifyEffect(commandLock, () =>
         Effect.exit(
           Effect.gen(function* () {
-            const generation = routing.block();
+            let generation: number | undefined;
 
             const exit = yield* Effect.exit(
-              runLifecycleCommand(ownerState(initial, actorCell), command, actorCell),
+              runLifecycleCommand(
+                ownerState(initial, actorCell),
+                command,
+                actorCell,
+                preparedEvidence,
+                () =>
+                  Effect.gen(function* () {
+                    if (onPreflightAccepted !== undefined) yield* onPreflightAccepted();
+                    generation = routing.block();
+                  }),
+              ),
             );
 
             const current = ownerState(initial, actorCell);
 
-            if (current.lifecycle === "active" && command._tag !== "actor:resume")
+            if (
+              generation !== undefined &&
+              current.lifecycle === "active" &&
+              command._tag !== "actor:resume"
+            )
               routing.open(generation);
-            else owner.routing.current = "blocked";
+            else if (generation !== undefined) owner.routing.current = "blocked";
 
             if (Exit.isFailure(exit)) return yield* Effect.failCause(exit.cause);
 
