@@ -20,8 +20,7 @@ import { isStableDataDescriptor, isStableKeyList } from "../internal/stable-obse
 import { isConstructedMachine, type Machine, type MachineRecordValue } from "../machine/machine.js";
 import type { MachineDefinition } from "../machine/grammar.js";
 import { actorRef, type ActorRef } from "./actor-ref.js";
-import type { ActorEngine, PreparedActorEngine, PreparedActorSnapshot } from "./actor-engine.js";
-import type { ActiveContextBaseline } from "./context-wave.js";
+import type { PreparedActorSnapshot } from "./actor-engine.js";
 import { copyArray, copyObject } from "./collection-copies.js";
 
 /** Runtime-local stable identity shared by the later actor graphs. */
@@ -468,6 +467,9 @@ const decodeAdmissionEnvelope = Schema.decodeUnknownResult(ActorAdmissionEnvelop
 export const decodeActorAdmissionEnvelope = (value: unknown) =>
   decodeAdmissionEnvelope(value).pipe(Result.mapError(fromSchemaError));
 
+// FLOW_STATE_ALLOW_UNKNOWN: ActorDirectory stores the exact Deferred as an opaque heterogeneous join token.
+type ActorAdmissionJoinCompletion = Deferred.Deferred<Exit.Exit<unknown, PublicDiagnostic>>;
+
 export type ActorIdentityRegistry<Actor = unknown> = {
   /** Derives the runtime/stable/app-machine/stable-ref tuple without allocating state. */
   stableKey: <DefinitionValue extends MachineDefinition>(
@@ -493,9 +495,23 @@ export type ActorIdentityRegistry<Actor = unknown> = {
     identity: ActorIdentity<DefinitionValue>,
     actor: Actor,
   ) => Result.Result<ActorRegistryEntry<DefinitionValue, Actor>, PublicDiagnostic>;
+  expose: <DefinitionValue extends MachineDefinition>(
+    identity: ActorIdentity<DefinitionValue>,
+  ) => Result.Result<ActorRegistryEntry<DefinitionValue, Actor>, PublicDiagnostic>;
   lookup: <DefinitionValue extends MachineDefinition>(
     ref: ActorRef<Machine<DefinitionValue>>,
   ) => Result.Result<ActorRegistryEntry<DefinitionValue, Actor>, PublicDiagnostic>;
+  pending: <DefinitionValue extends MachineDefinition>(
+    ref: ActorRef<Machine<DefinitionValue>>,
+  ) => Option.Option<ActorAdmissionJoinCompletion>;
+  attachPending: <DefinitionValue extends MachineDefinition>(
+    identity: ActorIdentity<DefinitionValue>,
+    completion: ActorAdmissionJoinCompletion,
+  ) => Result.Result<void, PublicDiagnostic>;
+  clearPending: <DefinitionValue extends MachineDefinition>(
+    identity: ActorIdentity<DefinitionValue>,
+    completion: ActorAdmissionJoinCompletion,
+  ) => void;
   rollback: <DefinitionValue extends MachineDefinition>(
     identity: ActorIdentity<DefinitionValue>,
   ) => void;
@@ -511,19 +527,30 @@ type RegistryOptions = {
   onAllocate?: (kind: "incarnation" | "local-ordinal") => void;
 };
 
-type StableSlot<Actor> = {
-  key: ActorKey;
-  entry: StoredEntry<Actor> | undefined;
-  tombstone: ActorTombstone | undefined;
-};
+// FLOW_STATE_ALLOW_UNKNOWN: stable slots retain heterogeneous machine identities and narrow them against the requested ref before exposure.
+type StableSlot<Actor> =
+  | { _tag: "vacant"; key: ActorKey }
+  | {
+      _tag: "pending";
+      key: ActorKey;
+      identity: unknown;
+      completion: Option.Option<ActorAdmissionJoinCompletion>;
+    }
+  | {
+      _tag: "registered";
+      key: ActorKey;
+      identity: unknown;
+      actor: Actor;
+      completion: Option.Option<ActorAdmissionJoinCompletion>;
+    }
+  | { _tag: "active"; key: ActorKey; identity: unknown; actor: Actor }
+  | { _tag: "tombstoned"; key: ActorKey; tombstone: ActorTombstone };
 
-type StoredEntry<Actor> = {
+// FLOW_STATE_ALLOW_UNKNOWN: local slots retain heterogeneous machine identities and compare exact identity objects before use.
+type LocalEntry<Actor> = {
   identity: unknown;
-  local: boolean;
-  state: "reserved" | "active" | "tombstoned";
+  state: "reserved" | "registered" | "active";
   actor: Actor | undefined;
-  hasActor: boolean;
-  tombstone: ActorTombstone | undefined;
   localAllocation: LocalAllocationReservation | undefined;
   deferredLocalAllocation: boolean;
 };
@@ -546,10 +573,11 @@ type LocalAllocationReservation = LocalAllocation & {
 // Provenance marker only: this WeakSet retains no refs and is not an actor registry.
 const localActorRefs = new WeakSet();
 
-// RETURN_TYPE: The registry must narrow active entries before exposing their retained actor.
-const isRegisteredEntry = <Actor>(
-  entry: StoredEntry<Actor>,
-): entry is StoredEntry<Actor> & { actor: Actor } => entry.state === "active" && entry.hasActor;
+// RETURN_TYPE: Local entries narrow their retained actor only after registration.
+const hasLocalActor = <Actor>(
+  entry: LocalEntry<Actor>,
+): entry is LocalEntry<Actor> & { actor: Actor } =>
+  (entry.state === "registered" || entry.state === "active") && entry.actor !== undefined;
 
 // RETURN_TYPE: The identity predicate proves the ref, machine, and authored id tuple before registry reuse.
 const isActorIdentityFor = <DefinitionValue extends MachineDefinition>(
@@ -609,7 +637,7 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
   let keyOrdinalExhausted = false;
   const recycledLocalAllocations: LocalAllocation[] = [];
   const stableSlots = new Map<WeakKey, Map<string, StableSlot<Actor>>>();
-  const entriesByKey = new Map<ActorKey, StoredEntry<Actor>>();
+  const localEntriesByKey = new Map<ActorKey, LocalEntry<Actor>>();
 
   const failure: <Value>(diagnostic: PublicDiagnostic) => Result.Result<Value, PublicDiagnostic> = (
     diagnostic,
@@ -711,10 +739,10 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
 
     let slot = byId.get(ref.id);
 
-    if (slot?.tombstone !== undefined) return failure(disposedIdentity());
+    if (slot?._tag === "tombstoned") return failure(disposedIdentity());
 
-    if (slot?.entry !== undefined) {
-      const identity = slot.entry.identity;
+    if (slot !== undefined && slot._tag !== "vacant") {
+      const identity = slot.identity;
 
       if (!isActorIdentityFor(identity, ref.machine, ref.id))
         return failure(
@@ -733,9 +761,8 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
 
     if (slot === undefined) {
       slot = {
+        _tag: "vacant",
         key: stableKey(ref, machineFacts),
-        entry: undefined,
-        tombstone: undefined,
       };
       byId.set(ref.id, slot);
     }
@@ -747,19 +774,12 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
       leaseEpoch: 0,
     };
 
-    const entry: StoredEntry<Actor> = {
+    byId.set(ref.id, {
+      _tag: "pending",
+      key: slot.key,
       identity,
-      local: false,
-      state: "reserved",
-      actor: undefined,
-      hasActor: false,
-      tombstone: undefined,
-      localAllocation: undefined,
-      deferredLocalAllocation: false,
-    };
-
-    slot.entry = entry;
-    entriesByKey.set(identity.key, entry);
+      completion: Option.none(),
+    });
 
     return Result.succeed(identity);
   };
@@ -829,19 +849,16 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
       leaseEpoch: 0,
     };
 
-    const entry: StoredEntry<Actor> = {
+    const entry: LocalEntry<Actor> = {
       identity,
-      local: true,
       state: "reserved",
       actor: undefined,
-      hasActor: false,
-      tombstone: undefined,
       localAllocation,
       deferredLocalAllocation,
     };
 
     localActorRefs.add(ref);
-    entriesByKey.set(identity.key, entry);
+    localEntriesByKey.set(identity.key, entry);
 
     return Result.succeed(identity);
   };
@@ -850,14 +867,9 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
   const commitLocal = <DefinitionValue extends MachineDefinition>(
     identity: LocalActorIdentity<DefinitionValue>,
   ): Result.Result<void, PublicDiagnostic> => {
-    const entry = entriesByKey.get(identity.key);
+    const entry = localEntriesByKey.get(identity.key);
 
-    if (
-      entry === undefined ||
-      entry.identity !== identity ||
-      !entry.local ||
-      !entry.deferredLocalAllocation
-    )
+    if (entry === undefined || entry.identity !== identity || !entry.deferredLocalAllocation)
       return failure(missingActorRef);
 
     entry.deferredLocalAllocation = false;
@@ -871,13 +883,12 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
   const reserveLocal = <DefinitionValue extends MachineDefinition>(
     identity: ActorIdentity<DefinitionValue>,
   ): Result.Result<ActorIdentity<DefinitionValue>, PublicDiagnostic> => {
-    const entry = entriesByKey.get(identity.key);
+    const entry = localEntriesByKey.get(identity.key);
 
     if (
       !localActorRefs.has(identity.ref) ||
       entry === undefined ||
       entry.identity !== identity ||
-      !entry.local ||
       entry.state !== "reserved"
     )
       return failure(missingActorRef);
@@ -885,31 +896,63 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
     return Result.succeed(identity);
   };
 
-  // RETURN_TYPE: Registration exposes the actor paired with its exact generic identity.
+  // RETURN_TYPE: Registration retains the actor internally until the explicit exposure barrier.
   const register = <DefinitionValue extends MachineDefinition>(
     identity: ActorIdentity<DefinitionValue>,
     actor: Actor,
   ): Result.Result<ActorRegistryEntry<DefinitionValue, Actor>, PublicDiagnostic> => {
-    const entry = entriesByKey.get(identity.key);
+    if (localActorRefs.has(identity.ref)) {
+      const entry = localEntriesByKey.get(identity.key);
 
-    if (entry === undefined || entry.identity !== identity) return failure(missingActorRef);
+      if (entry === undefined || entry.identity !== identity || entry.state !== "reserved")
+        return failure(missingActorRef);
+      entry.state = "registered";
+      entry.actor = actor;
+    } else {
+      const slot = getStableSlot(identity.ref);
 
-    if (entry.state === "tombstoned") return failure(disposedIdentity());
+      if (slot?._tag !== "pending" || slot.identity !== identity) return failure(missingActorRef);
 
-    if (entry.state !== "reserved") {
-      return failure(
-        invalidIdentity(
-          "The actor identity is already active.",
-          "Join the existing actor admission.",
-        ),
-      );
+      const registered: StableSlot<Actor> = {
+        _tag: "registered",
+        key: slot.key,
+        identity,
+        actor,
+        completion: slot.completion,
+      };
+
+      stableSlots.get(identity.ref.machine)?.set(identity.ref.id, registered);
     }
 
-    entry.state = "active";
-    entry.actor = actor;
-    entry.hasActor = true;
-
     return Result.succeed({ identity, actor });
+  };
+
+  // RETURN_TYPE: Exposure is the only transition that makes a registered actor visible to lookup.
+  const expose = <DefinitionValue extends MachineDefinition>(
+    identity: ActorIdentity<DefinitionValue>,
+  ): Result.Result<ActorRegistryEntry<DefinitionValue, Actor>, PublicDiagnostic> => {
+    if (!localActorRefs.has(identity.ref)) {
+      const slot = getStableSlot(identity.ref);
+
+      if (slot?._tag !== "registered" || slot.identity !== identity)
+        return failure(missingActorRef);
+      stableSlots.get(identity.ref.machine)?.set(identity.ref.id, {
+        _tag: "active",
+        key: slot.key,
+        identity,
+        actor: slot.actor,
+      });
+
+      return Result.succeed({ identity, actor: slot.actor });
+    }
+
+    const entry = localEntriesByKey.get(identity.key);
+
+    if (entry === undefined || entry.identity !== identity || !hasLocalActor(entry))
+      return failure(missingActorRef);
+    entry.state = "active";
+
+    return Result.succeed({ identity, actor: entry.actor });
   };
 
   // RETURN_TYPE: Lookup exposes only an active actor entry under the exact requested machine definition.
@@ -918,23 +961,76 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
   ): Result.Result<ActorRegistryEntry<DefinitionValue, Actor>, PublicDiagnostic> => {
     if (localActorRefs.has(ref)) return failure(missingActorRef);
     const slot = getStableSlot(ref);
-    const entry = slot?.entry;
 
-    if (entry === undefined || !isRegisteredEntry(entry)) {
-      return slot?.tombstone === undefined ? failure(missingActorRef) : failure(disposedIdentity());
-    }
-
-    const identity = entry.identity;
+    if (slot?._tag !== "active")
+      return slot?._tag === "tombstoned" ? failure(disposedIdentity()) : failure(missingActorRef);
+    const identity = slot.identity;
 
     if (!isActorIdentityFor(identity, ref.machine, ref.id)) return failure(missingActorRef);
 
-    return Result.succeed({
-      identity,
-      actor: entry.actor,
-    });
+    return Result.succeed({ identity, actor: slot.actor });
   };
 
-  const rollbackDeferredLocalAllocation = (entry: StoredEntry<Actor>) => {
+  const pending = <DefinitionValue extends MachineDefinition>(
+    ref: ActorRef<Machine<DefinitionValue>>,
+  ) => {
+    const slot = getStableSlot(ref);
+
+    return slot?._tag === "pending" || slot?._tag === "registered"
+      ? slot.completion
+      : Option.none();
+  };
+
+  // RETURN_TYPE: Pending attachment reports the Directory's typed admission failure channel.
+  const attachPending = <DefinitionValue extends MachineDefinition>(
+    identity: ActorIdentity<DefinitionValue>,
+    completion: ActorAdmissionJoinCompletion,
+  ): Result.Result<void, PublicDiagnostic> => {
+    const slot = getStableSlot(identity.ref);
+
+    if (slot?._tag !== "pending" || slot.identity !== identity || Option.isSome(slot.completion))
+      return failure(missingActorRef);
+
+    stableSlots
+      .get(identity.ref.machine)
+      ?.set(identity.ref.id, { ...slot, completion: Option.some(completion) });
+
+    return Result.succeed(undefined);
+  };
+
+  const clearPending = <DefinitionValue extends MachineDefinition>(
+    identity: ActorIdentity<DefinitionValue>,
+    completion: ActorAdmissionJoinCompletion,
+  ) => {
+    const slot = getStableSlot(identity.ref);
+
+    if (
+      (slot?._tag !== "pending" && slot?._tag !== "registered") ||
+      slot.identity !== identity ||
+      !Option.contains(slot.completion, completion)
+    )
+      return;
+
+    const next: StableSlot<Actor> =
+      slot._tag === "registered"
+        ? {
+            _tag: "registered",
+            key: slot.key,
+            identity: slot.identity,
+            actor: slot.actor,
+            completion: Option.none(),
+          }
+        : {
+            _tag: "pending",
+            key: slot.key,
+            identity: slot.identity,
+            completion: Option.none(),
+          };
+
+    stableSlots.get(identity.ref.machine)?.set(identity.ref.id, next);
+  };
+
+  const rollbackDeferredLocalAllocation = (entry: LocalEntry<Actor>) => {
     if (!entry.deferredLocalAllocation || entry.localAllocation === undefined) return;
     const allocation = entry.localAllocation;
 
@@ -954,15 +1050,20 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
     keyOrdinalExhausted = allocation.keyOrdinalExhaustedBefore;
   };
 
+  // oxlint-disable-next-line anti-slop/no-excessive-cognitive-complexity -- one tagged ActorDirectory transition handles local and stable pre-exposure aborts.
   const rollback = <DefinitionValue extends MachineDefinition>(
     identity: ActorIdentity<DefinitionValue>,
   ) => {
-    const entry = entriesByKey.get(identity.key);
+    if (localActorRefs.has(identity.ref)) {
+      const entry = localEntriesByKey.get(identity.key);
 
-    if (entry === undefined || entry.identity !== identity || entry.state !== "reserved") return;
-    entriesByKey.delete(identity.key);
-
-    if (entry.local) {
+      if (
+        entry === undefined ||
+        entry.identity !== identity ||
+        (entry.state !== "reserved" && entry.state !== "registered")
+      )
+        return;
+      localEntriesByKey.delete(identity.key);
       rollbackDeferredLocalAllocation(entry);
       localActorRefs.delete(identity.ref);
 
@@ -971,7 +1072,11 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
 
     const slot = getStableSlot(identity.ref);
 
-    if (slot !== undefined) slot.entry = undefined;
+    if ((slot?._tag === "pending" || slot?._tag === "registered") && slot.identity === identity)
+      stableSlots.get(identity.ref.machine)?.set(identity.ref.id, {
+        _tag: "vacant",
+        key: slot.key,
+      });
   };
 
   // RETURN_TYPE: Disposal preserves the typed diagnostic channel while moving the registered identity to terminal state.
@@ -985,38 +1090,30 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
       );
     }
 
-    const entry = entriesByKey.get(identity.key);
-
-    if (entry === undefined || entry.identity !== identity) return failure(missingActorRef);
-
-    if (entry.state !== "active") {
-      return failure(
-        invalidIdentity(
-          "Only an active actor can be disposed.",
-          "Complete actor admission before disposal.",
-        ),
-      );
-    }
-
     const tombstoneValue = {
       key: identity.key,
       incarnation: identity.incarnation,
       disposedAtSequence,
     } satisfies ActorTombstone;
 
-    entry.state = "tombstoned";
-    entry.actor = undefined;
-    entry.hasActor = false;
-    entry.tombstone = tombstoneValue;
-
-    if (!entry.local) {
+    if (!localActorRefs.has(identity.ref)) {
       const slot = getStableSlot(identity.ref);
 
-      if (slot !== undefined) {
-        slot.entry = undefined;
-        slot.tombstone = tombstoneValue;
-      }
+      if (slot?._tag !== "active" || slot.identity !== identity) return failure(missingActorRef);
+      stableSlots.get(identity.ref.machine)?.set(identity.ref.id, {
+        _tag: "tombstoned",
+        key: slot.key,
+        tombstone: tombstoneValue,
+      });
+
+      return Result.succeed(undefined);
     }
+
+    const entry = localEntriesByKey.get(identity.key);
+
+    if (entry === undefined || entry.identity !== identity || entry.state !== "active")
+      return failure(missingActorRef);
+    localEntriesByKey.delete(identity.key);
 
     return Result.succeed(undefined);
   };
@@ -1029,7 +1126,11 @@ export const makeActorIdentityRegistry = <Actor = unknown>(
     commitLocal,
     isLocalRef: (ref) => Predicate.isObject(ref) && localActorRefs.has(ref),
     register,
+    expose,
     lookup,
+    pending,
+    attachPending,
+    clearPending,
     rollback,
     tombstone,
   };
@@ -1154,147 +1255,6 @@ type ValidatedActorAdmissionWithIdentity<
   identity: ActorIdentity<DefinitionValue>;
 };
 
-export type ActorAdmissionPhaseOwners<
-  ValidatedOwner = never,
-  PreparedOwner = never,
-  AttachedOwner = never,
-  ActivatedOwner = never,
-  RegisteredOwner = never,
-> = {
-  validated: ValidatedOwner;
-  prepared: PreparedOwner;
-  attached: AttachedOwner;
-  activated: ActivatedOwner;
-  registered: RegisteredOwner;
-};
-
-// oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- phase carriers are private capabilities with arbitrary fields but cannot be erased to unknown.
-type ActorAdmissionPhaseCarrier = Record<string, unknown>;
-
-type ActorAdmissionRollbackCarrier = ActorAdmissionPhaseCarrier & {
-  rollback: AdmissionRollbackStep[];
-};
-
-type ActorAdmissionPhaseOwnerMap = ActorAdmissionPhaseOwners<
-  ActorAdmissionPhaseCarrier,
-  ActorAdmissionRollbackCarrier,
-  ActorAdmissionRollbackCarrier,
-  ActorAdmissionRollbackCarrier,
-  ActorAdmissionRollbackCarrier
->;
-
-type DefaultActorAdmissionPhaseOwners = {
-  validated: never;
-  prepared: never;
-  attached: never;
-  activated: never;
-  registered: never;
-};
-
-/** Reservation is the linearization point for fresh, restored, and concurrent stable admissions. */
-export type ActorAdmissionReservation<
-  A extends App,
-  DefinitionValue extends MachineDefinition,
-  I,
-  CleanupError,
-  Actor,
-  ProviderDefinition extends MachineDefinition = DefinitionValue,
-  ValidatedCarrier = NonNullable<unknown>,
-> =
-  | {
-      mode: "leader";
-      admissionMode: ActorAdmissionMode;
-      validated: ValidatedActorAdmissionWithIdentity<A, DefinitionValue, I, ProviderDefinition> &
-        ValidatedCarrier;
-      rollback: AdmissionRollbackStep[];
-      complete: Deferred.Deferred<
-        Exit.Exit<
-          ExposedActorAdmission<A, DefinitionValue, I, CleanupError, Actor, ProviderDefinition>,
-          PublicDiagnostic
-        >
-      >;
-    }
-  | {
-      mode: "joined";
-      existing: Deferred.Deferred<
-        Exit.Exit<
-          ExposedActorAdmission<A, DefinitionValue, I, CleanupError, Actor, ProviderDefinition>,
-          PublicDiagnostic
-        >
-      >;
-    };
-
-type ActorAdmissionPhase<Phase extends string, Value, IncludeRollback extends boolean = true> = {
-  phase: Phase;
-} & (IncludeRollback extends true ? { rollback: AdmissionRollbackStep[] } : NonNullable<unknown>) &
-  Value;
-
-type PreparedActorAdmissionValue<
-  A extends App,
-  DefinitionValue extends MachineDefinition,
-  I,
-  ProviderDefinition extends MachineDefinition,
-  Snapshot,
-  Mailbox,
-> = {
-  validated: ValidatedActorAdmissionWithIdentity<A, DefinitionValue, I, ProviderDefinition>;
-  snapshot: Snapshot;
-  mailbox: Mailbox;
-};
-
-type AttachedActorAdmissionValue<DefinitionValue extends MachineDefinition> = {
-  context: ContextOf<DefinitionValue>;
-  edges: ActorDependencyEdge[];
-};
-
-type RegisteredActorAdmissionValue<DefinitionValue extends MachineDefinition, Actor, Lease> = {
-  sealed: true;
-  actor: ActorHandle<DefinitionValue, Actor>;
-  lease: Lease;
-};
-
-/** Prepared state owns the silent baseline and bounded mailbox. */
-export type PreparedActorAdmission<
-  A extends App,
-  DefinitionValue extends MachineDefinition,
-  I,
-  ProviderDefinition extends MachineDefinition = DefinitionValue,
-  Snapshot = PreparedActorSnapshot<DefinitionValue>,
-  Mailbox = PreparedActorEngine<DefinitionValue>["mailbox"],
-  Value = PreparedActorAdmissionValue<A, DefinitionValue, I, ProviderDefinition, Snapshot, Mailbox>,
-> = ActorAdmissionPhase<"prepared", Value>;
-
-/** Attached state has exact context values and the fixed dependency edges installed. */
-export type AttachedActorAdmission<
-  DefinitionValue extends MachineDefinition,
-  Value = AttachedActorAdmissionValue<DefinitionValue>,
-> = ActorAdmissionPhase<"attached", Value>;
-
-/** Activated state has crossed the silent baseline/mailbox barrier but is not public. */
-export type ActivatedActorAdmission<
-  DefinitionValue extends MachineDefinition,
-  ProviderDefinition extends MachineDefinition = DefinitionValue,
-  Value = {
-    baseline: ActiveContextBaseline<DefinitionValue, ProviderDefinition>;
-    engine: ActorEngine<DefinitionValue>;
-  },
-> = ActorAdmissionPhase<"activated", Value>;
-
-/** Registration seals the actor identity before a handle or lease can escape. */
-export type RegisteredActorAdmission<
-  A extends App,
-  DefinitionValue extends MachineDefinition,
-  I,
-  CleanupError,
-  Actor,
-  ProviderDefinition extends MachineDefinition = DefinitionValue,
-  Value = RegisteredActorAdmissionValue<
-    DefinitionValue,
-    Actor,
-    ActorLease<A, DefinitionValue, I, CleanupError, Actor, ProviderDefinition>
-  >,
-> = ActorAdmissionPhase<"registered", Value>;
-
 /** The sole individual disposal authority; it is returned only in exposed state. */
 export type ActorLease<
   A extends App,
@@ -1327,62 +1287,6 @@ export type ActorLeaseOptions<
   /** Tombstoning is deliberately called only after cleanup succeeds. */
   tombstone?: () => Result.Result<void, PublicDiagnostic>;
   cleanupCause?: Option.Option<Cause.Cause<CleanupError>>;
-};
-
-/** Exposed state is the only stage that escapes the transaction. */
-export type ExposedActorAdmission<
-  A extends App,
-  DefinitionValue extends MachineDefinition,
-  I,
-  CleanupError,
-  Actor,
-  ProviderDefinition extends MachineDefinition = DefinitionValue,
-  Value = {
-    actor: ActorHandle<DefinitionValue, Actor>;
-    lease: ActorLease<A, DefinitionValue, I, CleanupError, Actor, ProviderDefinition>;
-  },
-> = ActorAdmissionPhase<"exposed", Value, false>;
-
-/** Narrow owner capabilities consumed by this transaction; B04/B07/B09 remain the real owners. */
-export type ActorAdmissionTransactionAuthority<
-  A extends App,
-  DefinitionValue extends MachineDefinition,
-  I,
-  CleanupError = PublicDiagnostic,
-  Actor = unknown,
-  ProviderDefinition extends MachineDefinition = DefinitionValue,
-  Owners extends ActorAdmissionPhaseOwnerMap = DefaultActorAdmissionPhaseOwners,
-> = ActorAdmissionValidationContext<A, DefinitionValue, I> & {
-  reserveOrJoin: (
-    validated: ValidatedActorAdmission<A, DefinitionValue, I, ProviderDefinition>,
-  ) => Effect.Effect<
-    ActorAdmissionReservation<
-      A,
-      DefinitionValue,
-      I,
-      CleanupError,
-      Actor,
-      ProviderDefinition,
-      Owners["validated"]
-    >,
-    PublicDiagnostic
-  >;
-  prepare: (
-    validated: ValidatedActorAdmissionWithIdentity<A, DefinitionValue, I, ProviderDefinition> &
-      Owners["validated"],
-    mode: ActorAdmissionMode,
-  ) => Effect.Effect<Owners["prepared"], PublicDiagnostic>;
-  attach: (prepared: Owners["prepared"]) => Effect.Effect<Owners["attached"], PublicDiagnostic>;
-  activate: (attached: Owners["attached"]) => Effect.Effect<Owners["activated"], PublicDiagnostic>;
-  register: (
-    activated: Owners["activated"],
-  ) => Effect.Effect<Owners["registered"], PublicDiagnostic>;
-  expose: (
-    registered: Owners["registered"],
-  ) => Effect.Effect<
-    ExposedActorAdmission<A, DefinitionValue, I, CleanupError, Actor, ProviderDefinition>,
-    PublicDiagnostic
-  >;
 };
 
 // RETURN_TYPE: This guard admits non-empty strings before they become nominal actor keys.
@@ -2171,7 +2075,7 @@ export const normalizeValidatedActorAdmission = <
   });
 };
 
-const rollbackAdmission = (steps: AdmissionRollbackStep[]) =>
+export const rollbackActorAdmission = (steps: AdmissionRollbackStep[]) =>
   Effect.gen(function* () {
     let cleanupCause: Cause.Cause<PublicDiagnostic> | undefined;
 
@@ -2198,10 +2102,10 @@ const normalizeAdmissionCause = <E>(cause: Cause.Cause<E>) => {
   return Cause.die(new Error("Actor admission completed with an empty Cause"));
 };
 
-const normalizeAdmissionExit = <A, E>(exit: Exit.Exit<A, E>) =>
+export const normalizeActorAdmissionExit = <A, E>(exit: Exit.Exit<A, E>) =>
   Exit.isSuccess(exit) ? exit : Exit.failCause(normalizeAdmissionCause(exit.cause));
 
-const completeAdmissionExit = <A, E>(exit: Exit.Exit<A, E>) => {
+export const completeActorAdmissionExit = <A, E>(exit: Exit.Exit<A, E>) => {
   if (Exit.isSuccess(exit)) return Effect.succeed(exit.value);
 
   return Effect.failCause(normalizeAdmissionCause(exit.cause));
@@ -2278,136 +2182,3 @@ export const makeActorLease = <
     dispose,
   };
 };
-
-type AdmissionTransactionPhase =
-  | "reserved"
-  | "prepared"
-  | "attached"
-  | "activated"
-  | "registered"
-  | "exposed";
-
-type AdmissionTransactionState = {
-  phase: AdmissionTransactionPhase;
-  rollback: AdmissionRollbackStep[];
-};
-
-type AdmissionTransactionOwner = {
-  state: () => AdmissionTransactionState;
-  advance: (
-    phase: Exclude<AdmissionTransactionPhase, "reserved" | "exposed">,
-    rollback: AdmissionRollbackStep[],
-  ) => void;
-  expose: () => void;
-};
-
-// RETURN_TYPE: The owner interface keeps transaction state transitions typed at the private phase boundary.
-const makeAdmissionTransactionOwner = (
-  initialRollback: AdmissionRollbackStep[],
-): AdmissionTransactionOwner => {
-  let current: AdmissionTransactionState = {
-    phase: "reserved",
-    rollback: initialRollback,
-  };
-
-  return {
-    state: () => current,
-    advance: (phase, rollback) => {
-      current = { phase, rollback };
-    },
-    expose: () => {
-      current = { phase: "exposed", rollback: current.rollback };
-    },
-  };
-};
-
-/** Runs one validated reservation through preparation, attachment, activation, registration, and exposure. */
-export const admitActor = <
-  A extends App,
-  DefinitionValue extends MachineDefinition,
-  I,
-  CleanupError = PublicDiagnostic,
-  Actor = unknown,
-  ProviderDefinition extends MachineDefinition = DefinitionValue,
-  Owners extends ActorAdmissionPhaseOwnerMap = DefaultActorAdmissionPhaseOwners,
->(
-  input: ActorAdmissionInput<A, DefinitionValue, I, ProviderDefinition>,
-  authority: ActorAdmissionTransactionAuthority<
-    A,
-    DefinitionValue,
-    I,
-    CleanupError,
-    Actor,
-    ProviderDefinition,
-    Owners
-  >,
-) =>
-  Effect.gen(function* () {
-    const validation = validateActorAdmission(input, authority);
-
-    if (Result.isFailure(validation)) return yield* Effect.fail(validation.failure);
-
-    const reservation = yield* Effect.uninterruptible(authority.reserveOrJoin(validation.success));
-
-    if (reservation.mode === "joined") {
-      const terminal = yield* Deferred.await(reservation.existing);
-
-      return yield* completeAdmissionExit(terminal);
-    }
-
-    const transactionOwner = makeAdmissionTransactionOwner(reservation.rollback);
-
-    const includeReservation = (steps: AdmissionRollbackStep[]) =>
-      reservation.rollback.length === 0 || steps[0] === reservation.rollback[0]
-        ? steps
-        : [...reservation.rollback, ...steps];
-
-    const transaction = Effect.gen(function* () {
-      // Keep the scheduler handoff inside the reservation rollback owner. An interrupted
-      // leader must settle the shared completion and release the reserved identity.
-      yield* Effect.yieldNow;
-
-      const prepared = yield* authority.prepare(reservation.validated, reservation.admissionMode);
-      transactionOwner.advance("prepared", includeReservation(prepared.rollback));
-
-      const attached = yield* authority.attach(prepared);
-      transactionOwner.advance("attached", includeReservation(attached.rollback));
-
-      const activated = yield* authority.activate(attached);
-      transactionOwner.advance("activated", includeReservation(activated.rollback));
-
-      const registered = yield* authority.register(activated);
-      transactionOwner.advance("registered", includeReservation(registered.rollback));
-
-      const result = yield* authority.expose(registered);
-      transactionOwner.expose();
-
-      return result;
-    });
-
-    // Restore interruption only while the phase transaction runs. The surrounding mask keeps
-    // rollback and the shared terminal Deferred completion owned by this leader.
-    const completed = yield* Effect.uninterruptibleMask((restore) =>
-      Effect.gen(function* () {
-        const primary = yield* Effect.exit(restore(transaction));
-
-        if (Exit.isSuccess(primary) || transactionOwner.state().phase === "exposed") return primary;
-        const cleanup = yield* Effect.exit(rollbackAdmission(transactionOwner.state().rollback));
-
-        if (Exit.isFailure(cleanup))
-          return Exit.failCause(
-            Cause.fromReasons([...primary.cause.reasons, ...cleanup.cause.reasons]),
-          );
-
-        return primary;
-      }).pipe(
-        Effect.flatMap((terminal) => {
-          const normalized = normalizeAdmissionExit(terminal);
-
-          return Deferred.succeed(reservation.complete, normalized).pipe(Effect.as(normalized));
-        }),
-      ),
-    );
-
-    return yield* completeAdmissionExit(completed);
-  });

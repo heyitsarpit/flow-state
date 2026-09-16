@@ -40,6 +40,10 @@ class IntegrationServiceKey extends Context.Service<IntegrationServiceKey, Integ
   "RuntimeIntegration/Service",
 ) {}
 
+const throwPendingClearProbe = () => {
+  throw new Error("pending-clear probe failed");
+};
+
 const IntegrationResource = resource({
   id: "runtime-integration/item",
   key: (id: string) => [id] as const,
@@ -1799,31 +1803,29 @@ describe("pending regression scenarios", () => {
     }),
   );
 
-  // Setup: Ready one assembled runtime, gate the leader after registration, and start a second createActor call for the same stable ref.
-  // Action: Confirm the follower entered the shared Deferred join path, interrupt only that follower, then release the leader's exposure gate.
-  // Assert: The follower reports interruption without DuplicateActorClaim; one leader runs each admission phase, clears pending state, exposes once, and remains discoverable by later lookup.
-  it.effect("interrupts only a joined stable-admission follower", () =>
+  // Setup: Gate the real leader after directory registration but before public exposure, then join one follower on the stable slot completion.
+  // Action: Prove lookup is blind, interrupt the leader, await both shared terminal causes, then retry the same stable ref.
+  // Assert: Pre-exposure abort preserves interruption, clears the slot without tombstoning, permits retry, and leaves runtime close successful.
+  it.effect("aborts a registered unexposed leader without tombstoning its stable ref", () =>
     Effect.gen(function* () {
       const exposeGate = yield* Deferred.make<void>();
       const joinSignal = yield* Deferred.make<void>();
-      const phaseReady = yield* Deferred.make<void>();
+      const registered = yield* Deferred.make<void>();
       const pendingCleared = yield* Deferred.make<void>();
-      const phases: RuntimeAdmissionPhase[] = [];
-      let joined = 0;
+      let exposeAttempts = 0;
 
       const runtime = runtimeSetupForAdmissionTest({
         app: IntegrationApp,
         admissionProbe: {
-          beforeExpose: Deferred.await(exposeGate),
-          onPhase: (phase) => {
-            phases.push(phase);
+          beforeExpose: Effect.gen(function* () {
+            exposeAttempts += 1;
 
-            if (phase === "register") Deferred.doneUnsafe(phaseReady, Effect.succeed(undefined));
-          },
-          onJoin: () => {
-            joined += 1;
-            Deferred.doneUnsafe(joinSignal, Effect.succeed(undefined));
-          },
+            if (exposeAttempts === 1) {
+              yield* Deferred.succeed(registered, undefined);
+              yield* Effect.interruptible(Deferred.await(exposeGate));
+            }
+          }),
+          onJoin: () => Deferred.doneUnsafe(joinSignal, Effect.succeed(undefined)),
           onPendingCleared: () => Deferred.doneUnsafe(pendingCleared, Effect.succeed(undefined)),
         },
       }).construct();
@@ -1831,37 +1833,211 @@ describe("pending regression scenarios", () => {
       yield* runtime.ready();
       const assembly = runtimeOwner(runtime).assembly();
 
-      const ref = actorRef(IntegrationStandaloneMachine, "joined-runtime-admission", {
+      const ref = actorRef(IntegrationStandaloneMachine, "registered-unexposed-abort", {
         persist: true,
       });
 
-      let exposures = 0;
+      const create = () => assembly.createActor({ ref, initial: initialStandaloneSnapshot() });
+
+      const leader = yield* Effect.forkChild(create(), { startImmediately: true });
+      yield* Deferred.await(registered);
+      const follower = yield* Effect.forkChild(Effect.exit(create()), { startImmediately: true });
+      yield* Deferred.await(joinSignal);
+
+      const hidden = yield* Effect.exit(assembly.getActor(ref));
+      assert.ok(Exit.isSuccess(hidden));
+
+      if (Exit.isSuccess(hidden)) assert.strictEqual(hidden.value, undefined);
+
+      yield* Effect.exit(Fiber.interrupt(leader));
+      const leaderExit = yield* Fiber.await(leader);
+      yield* Deferred.await(pendingCleared);
+      const followerExit = yield* Fiber.join(follower);
+
+      for (const terminal of [leaderExit, followerExit]) {
+        assert.ok(Exit.isFailure(terminal));
+
+        if (Exit.isFailure(terminal)) {
+          assert.strictEqual(Cause.hasInterrupts(terminal.cause), true);
+          assert.strictEqual(Cause.hasFails(terminal.cause), false);
+          assert.strictEqual(terminal.cause.reasons.some(Cause.isFailReason), false);
+        }
+      }
+
+      if (Exit.isFailure(leaderExit) && Exit.isFailure(followerExit))
+        assert.deepStrictEqual(followerExit.cause, leaderExit.cause);
+      assert.strictEqual(yield* assembly.getActor(ref), undefined);
+
+      const retried = yield* create();
+      assert.deepStrictEqual(retried.identity.ref, ref);
+      assert.strictEqual(exposeAttempts, 2);
+      const close = yield* Effect.exit(runtimeOwner(runtime).close());
+      assert.ok(Exit.isSuccess(close));
+    }),
+  );
+
+  // Setup: Gate a real actor after directory registration, then close its runtime owner before exposure can register the actor lifecycle.
+  // Action: Release the exposure gate and await the original createActor result plus the directory pending-clear signal.
+  // Assert: Lifecycle rejection remains RuntimeDisposed, adds no invariant failure, clears the unexposed slot, and does not tombstone the ref.
+  it.effect("rolls back lifecycle rejection after internal registration", () =>
+    Effect.gen(function* () {
+      const exposeEntered = yield* Deferred.make<void>();
+      const exposeGate = yield* Deferred.make<void>();
+      const pendingCleared = yield* Deferred.make<void>();
+
+      const runtime = runtimeSetupForAdmissionTest({
+        app: IntegrationApp,
+        admissionProbe: {
+          beforeExpose: Effect.gen(function* () {
+            yield* Deferred.succeed(exposeEntered, undefined);
+            yield* Deferred.await(exposeGate);
+          }),
+          onPendingCleared: () => Deferred.doneUnsafe(pendingCleared, Effect.succeed(undefined)),
+        },
+      }).construct();
+
+      yield* runtime.ready();
+      const owner = runtimeOwner(runtime);
+      const assembly = owner.assembly();
+
+      const ref = actorRef(IntegrationStandaloneMachine, "lifecycle-rejection", {
+        persist: true,
+      });
 
       const leader = yield* Effect.forkChild(
-        Effect.exit(
-          assembly.createActor({
-            ref,
-            initial: initialStandaloneSnapshot(),
-            onSnapshot: () => {
-              exposures += 1;
-            },
-          }),
-        ),
-        { startImmediately: true },
-      );
-
-      const follower = yield* Effect.forkChild(
         Effect.exit(assembly.createActor({ ref, initial: initialStandaloneSnapshot() })),
         { startImmediately: true },
       );
 
-      yield* Deferred.await(joinSignal);
-      yield* Deferred.await(phaseReady);
-      assert.strictEqual(joined, 1);
-      assert.deepStrictEqual(phases, ["reserve", "prepare", "attach", "activate", "register"]);
+      yield* Deferred.await(exposeEntered);
+      assert.ok(Exit.isSuccess(yield* Effect.exit(owner.close())));
+      yield* Deferred.succeed(exposeGate, undefined);
+      const terminal = yield* Fiber.join(leader);
+      yield* Deferred.await(pendingCleared);
+      assert.ok(Exit.isFailure(terminal));
 
-      yield* Fiber.interrupt(follower);
+      if (Exit.isFailure(terminal)) {
+        const failures = terminal.cause.reasons.filter(Cause.isFailReason);
+        assert.deepStrictEqual(
+          failures.map((reason) => reason.error.code),
+          ["RuntimeDisposed"],
+        );
+      }
+
+      assert.strictEqual(yield* assembly.getActor(ref), undefined);
+    }),
+  );
+
+  // Setup: Gate a real stable admission before exposure, join one follower, and make the pending-clear instrumentation throw synchronously.
+  // Action: Release exposure, await both callers, look up the committed actor, and dispose it through the production runtime context.
+  // Assert: Instrumentation cannot reverse committed exposure; leader, follower, lookup, disposal, and runtime close stay coherent.
+  it.effect("keeps exposed admission coherent when pending-clear instrumentation throws", () =>
+    Effect.gen(function* () {
+      const exposeEntered = yield* Deferred.make<void>();
+      const exposeGate = yield* Deferred.make<void>();
+      const joinSignal = yield* Deferred.make<void>();
+      let pendingClearNotifications = 0;
+
+      const runtime = runtimeSetupForAdmissionTest({
+        app: IntegrationApp,
+        admissionProbe: {
+          beforeExpose: Effect.gen(function* () {
+            yield* Deferred.succeed(exposeEntered, undefined);
+            yield* Deferred.await(exposeGate);
+          }),
+          onJoin: () => Deferred.doneUnsafe(joinSignal, Effect.succeed(undefined)),
+          onPendingCleared: () => {
+            pendingClearNotifications += 1;
+            throwPendingClearProbe();
+          },
+        },
+      }).construct();
+
+      yield* runtime.ready();
+      const owner = runtimeOwner(runtime);
+      const assembly = owner.assembly();
+
+      const ref = actorRef(IntegrationStandaloneMachine, "throwing-pending-clear", {
+        persist: true,
+      });
+
+      const create = () =>
+        Effect.exit(assembly.createActor({ ref, initial: initialStandaloneSnapshot() }));
+
+      const leader = yield* Effect.forkChild(create(), { startImmediately: true });
+      yield* Deferred.await(exposeEntered);
+      const follower = yield* Effect.forkChild(create(), { startImmediately: true });
+      yield* Deferred.await(joinSignal);
+      yield* Deferred.succeed(exposeGate, undefined);
+      const leaderExit = yield* Fiber.join(leader);
+      const followerExit = yield* Fiber.join(follower);
+
+      assert.ok(Exit.isSuccess(leaderExit));
+      assert.ok(Exit.isSuccess(followerExit));
+      assert.strictEqual(pendingClearNotifications, 1);
+
+      if (Exit.isFailure(leaderExit) || Exit.isFailure(followerExit)) return;
+      assert.strictEqual(followerExit.value, leaderExit.value);
+      assert.strictEqual(yield* assembly.getActor(ref), leaderExit.value);
+      yield* Effect.provideContext(leaderExit.value.dispose(), assembly.context);
+      const disposedLookup = yield* Effect.exit(assembly.getActor(ref));
+      assert.ok(Exit.isFailure(disposedLookup));
+
+      if (Exit.isFailure(disposedLookup)) {
+        const reason = disposedLookup.cause.reasons.find(Cause.isFailReason);
+        assert.ok(reason !== undefined);
+        assert.strictEqual(reason.error.code, "DisposedActorRef");
+      }
+
+      assert.ok(Exit.isSuccess(yield* Effect.exit(owner.close())));
+    }),
+  );
+
+  // Setup: Gate one real ensureActor leader in preparation and wait until a second ensureActor call joins its stable Directory slot.
+  // Action: Interrupt only the joined follower, prove the leader remains pending, then release preparation and await the leader.
+  // Assert: The follower reports interruption while one leader completes every admission step once, owns lookup identity, and closes cleanly.
+  it.effect("interrupts only a joined stable ensureActor follower", () =>
+    Effect.gen(function* () {
+      const prepareEntered = yield* Deferred.make<void>();
+      const prepareGate = yield* Deferred.make<void>();
+      const joinSignal = yield* Deferred.make<void>();
+      const phases: RuntimeAdmissionPhase[] = [];
+      let prepareAttempts = 0;
+      let joined = 0;
+
+      const runtime = runtimeSetupForAdmissionTest({
+        app: IntegrationApp,
+        admissionProbe: {
+          beforePrepare: Effect.gen(function* () {
+            prepareAttempts += 1;
+            yield* Deferred.succeed(prepareEntered, undefined);
+            yield* Effect.interruptible(Deferred.await(prepareGate));
+          }),
+          onPhase: (phase) => phases.push(phase),
+          onJoin: () => {
+            joined += 1;
+            Deferred.doneUnsafe(joinSignal, Effect.succeed(undefined));
+          },
+        },
+      }).construct();
+
+      yield* runtime.ready();
+      const owner = runtimeOwner(runtime);
+      const assembly = owner.assembly();
+
+      const ref = actorRef(IntegrationStandaloneMachine, "joined-ensure-follower", {
+        persist: true,
+      });
+
+      const ensure = () => assembly.ensureActor(ref, { initial: initialStandaloneSnapshot() });
+
+      const leader = yield* Effect.forkChild(Effect.exit(ensure()), { startImmediately: true });
+      yield* Deferred.await(prepareEntered);
+      const follower = yield* Effect.forkChild(Effect.exit(ensure()), { startImmediately: true });
+      yield* Deferred.await(joinSignal);
+      yield* Effect.exit(Fiber.interrupt(follower));
       const followerExit = yield* Fiber.await(follower);
+
       assert.ok(Exit.isFailure(followerExit));
 
       if (Exit.isFailure(followerExit)) {
@@ -1870,14 +2046,16 @@ describe("pending regression scenarios", () => {
         assert.strictEqual(followerExit.cause.reasons.some(Cause.isFailReason), false);
       }
 
-      yield* Deferred.succeed(exposeGate, undefined);
+      assert.strictEqual(joined, 1);
+      assert.strictEqual(prepareAttempts, 1);
+      assert.deepStrictEqual(phases, ["reserve", "prepare"]);
+      assert.strictEqual(yield* assembly.getActor(ref), undefined);
 
+      yield* Deferred.succeed(prepareGate, undefined);
       const leaderExit = yield* Fiber.join(leader);
       assert.ok(Exit.isSuccess(leaderExit));
-      yield* Deferred.await(pendingCleared);
 
       if (Exit.isFailure(leaderExit)) return;
-      const actor = leaderExit.value;
       assert.deepStrictEqual(phases, [
         "reserve",
         "prepare",
@@ -1886,27 +2064,9 @@ describe("pending regression scenarios", () => {
         "register",
         "expose",
       ]);
-      assert.strictEqual(exposures, 0);
-
-      const lookup = yield* Effect.exit(
-        assembly.createActor({ ref, initial: initialStandaloneSnapshot() }),
-      );
-
-      assert.ok(Exit.isFailure(lookup));
-
-      if (Exit.isFailure(lookup)) {
-        const reason = lookup.cause.reasons.find(Cause.isFailReason);
-        assert.ok(reason !== undefined);
-        assert.strictEqual(reason.error.code, "DuplicateActorClaim");
-      }
-
-      const dispatch = actor.engine.dispatch(IntegrationStandaloneEvent);
-      assert.strictEqual(dispatch.admitted, true);
-      yield* Deferred.await(dispatch.completion);
-      yield* actor.engine.drain();
-      assert.strictEqual(exposures, 1);
-      yield* Effect.provideContext(actor.dispose(), assembly.context);
-      yield* runtimeOwner(runtime).close();
+      assert.strictEqual(prepareAttempts, 1);
+      assert.strictEqual(yield* assembly.getActor(ref), leaderExit.value);
+      assert.ok(Exit.isSuccess(yield* Effect.exit(owner.close())));
     }),
   );
 

@@ -829,6 +829,7 @@ describe("actor lifecycle", () => {
       const tombstonedRegistry = makeActorIdentityRegistry();
       const tombstoned = resultSuccess(tombstonedRegistry.reserveStable(provider.ref));
       resultSuccess(tombstonedRegistry.register(tombstoned, {}));
+      resultSuccess(tombstonedRegistry.expose(tombstoned));
       resultSuccess(tombstonedRegistry.tombstone(tombstoned, 1));
       const lookup = tombstonedRegistry.lookup(provider.ref);
       assert.ok(Result.isFailure(lookup));
