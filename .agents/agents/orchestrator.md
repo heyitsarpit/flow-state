@@ -52,6 +52,10 @@ description: Coordinate one primary coder, optional secondary coders, and three
 | contract reviewer     | contract verdict                        | frozen task diff             | gpt-5.6-luna | xhigh     |
 | bug reviewer          | bug verdict                             | frozen task diff             | gpt-5.6-luna | xhigh     |
 
+## Contract repair
+
+- If you are blocked by a contract ambiguity, you should make small surgical repairs and proceed with coding.
+
 ## Commit template
 
 - Replace placeholders with concrete facts and actual results. Keep explanations short.
