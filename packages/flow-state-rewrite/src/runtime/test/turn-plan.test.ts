@@ -60,48 +60,54 @@ const asActionBatch = (value: unknown[]) => {
   return value as MachineAction<typeof planDefinition>[];
 };
 
-const trace: string[] = [];
+const makePlanFixture = () => {
+  const trace: string[] = [];
 
-const planMachine = resultSuccess(
-  machine(planDefinitionResult, ({ S, O }) => ({
-    default: S.idle,
-    states: {
-      idle: {
-        on: {
-          opened: {
-            target: S.working,
-            guard: ({ event, memory }) => {
-              trace.push(`guard:${event.value}:${memory.count}`);
+  const planMachine = resultSuccess(
+    machine(planDefinitionResult, ({ S, O }) => ({
+      default: S.idle,
+      states: {
+        idle: {
+          on: {
+            opened: {
+              target: S.working,
+              guard: ({ event, memory }) => {
+                trace.push(`guard:${event.value}:${memory.count}`);
 
-              return event.value > 0;
-            },
-            updateMemory: ({ event, memory }) => {
-              trace.push(`memory:${event.value}:${memory.count}`);
+                return event.value > 0;
+              },
+              updateMemory: ({ event, memory }) => {
+                trace.push(`memory:${event.value}:${memory.count}`);
 
-              return { count: memory.count + event.value };
-            },
-            actions: ({ memory, snapshot }) => {
-              trace.push(`actions:${memory.count}:${snapshot.state.name}`);
+                return { count: memory.count + event.value };
+              },
+              actions: ({ memory, snapshot }) => {
+                trace.push(`actions:${memory.count}:${snapshot.state.name}`);
 
-              return asActionBatch([O.item.lookup(memory.count), mapped]);
+                return asActionBatch([O.item.lookup(memory.count), mapped]);
+              },
             },
           },
         },
-      },
-      working: {
-        redirect: {
-          when: ({ memory, snapshot }) => {
-            trace.push(`redirect:${memory.count}:${snapshot.state.name}`);
+        working: {
+          redirect: {
+            when: ({ memory, snapshot }) => {
+              trace.push(`redirect:${memory.count}:${snapshot.state.name}`);
 
-            return memory.count === 2;
+              return memory.count === 2;
+            },
+            target: S.done,
           },
-          target: S.done,
         },
+        done: {},
       },
-      done: {},
-    },
-  })),
-);
+    })),
+  );
+
+  return { planMachine, trace };
+};
+
+const { planMachine, trace } = makePlanFixture();
 
 const identityRegistry = makeActorIdentityRegistry();
 

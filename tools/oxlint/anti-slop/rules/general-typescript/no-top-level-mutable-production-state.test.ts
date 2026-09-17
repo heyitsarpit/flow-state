@@ -6,6 +6,14 @@ const tester = createRuleTester("no-top-level-mutable-production-state");
 tester.run("no-top-level-mutable-production-state", noTopLevelMutableProductionStateRule, {
 	valid: [
 		{ code: "const value = 1;", filename: "/project/packages/demo/src/value.ts" },
+		{
+			code: "function makeRegistry() { const cache = new Map(); const keys = new Set(); return { cache, keys }; }",
+			filename: "/project/packages/demo/src/value.ts",
+		},
+		{
+			code: "const identity = new WeakMap(); const provenance = new WeakSet();",
+			filename: "/project/packages/demo/src/value.ts",
+		},
 		{ code: "let value = 1;", filename: "/project/packages/demo/src/value.test.ts" },
 		{ code: "declare let externalValue: number;", filename: "/project/packages/demo/src/value.d.ts" },
 		{ code: "function make() { let value = 1; return value; }", filename: "/project/packages/demo/src/value.ts" },
@@ -24,6 +32,21 @@ tester.run("no-top-level-mutable-production-state", noTopLevelMutableProductionS
 		},
 		{
 			code: "export let revision = 0;",
+			filename: "/project/packages/demo/src/value.ts",
+			errors: [{ messageId: "topLevelMutable" }],
+		},
+		{
+			code: "const cache = new Map();",
+			filename: "/project/packages/demo/src/value.ts",
+			errors: [{ messageId: "topLevelMutable" }],
+		},
+		{
+			code: "export const registry = new Set();",
+			filename: "/project/packages/demo/src/value.ts",
+			errors: [{ messageId: "topLevelMutable" }],
+		},
+		{
+			code: "export const registry = Object.freeze(new Map());",
 			filename: "/project/packages/demo/src/value.ts",
 			errors: [{ messageId: "topLevelMutable" }],
 		},

@@ -12,12 +12,11 @@ ownership, type evidence, and failure behavior visible.
 `all-preferred-patterns.ts` is intentionally a raw-source teaching corpus. Its
 first line is the machine-readable marker `// anti-slop-fixture: text-only`.
 `tests/fixture-sweep.test.ts` loads the file as text, checks that marker, and
-runs the preferred corpus through the live rules. The strict `check:anti-slop`
-TypeScript gate deliberately compiles the rule implementations and their
-TypeScript test graph, not this raw corpus: the corpus contains representative
-snippets, declarations, and illustrative imports that are not intended to
-resolve as one standalone module. Individual RuleTester suites remain the
-executable behavior proof and stay strictly typechecked.
+runs the preferred corpus through the live rules. Individual RuleTester suites
+remain the executable behavior proof; run the changed rule's focused test
+directly rather than using an aggregate rule command. The corpus contains
+representative snippets, declarations, and illustrative imports that are not
+intended to resolve as one standalone module.
 
 The former unknown-specific rules are archived under `archive/` and each file
 is marked `Superseded by: anti-slop/no-unknown`. The active policy has one

@@ -10,6 +10,7 @@
 
 import {
 	Context,
+	Clock,
 	Data,
 	Deferred,
 	Duration,
@@ -228,6 +229,16 @@ const atomicRefUpdate = Effect.gen(function* () {
 
 const managedScope = Effect.acquireRelease(Scope.make(), release);
 
+const phaseCursor = (values: string[]) => {
+	let cursor = 0;
+	cursor += 1;
+	return values[cursor];
+};
+
+const suppliedClock = Effect.gen(function* () {
+	return yield* Clock.currentTimeMillis;
+});
+
 interface RequiredDomainProperties {
 	maybeValue: Option.Option<string>;
 }
@@ -278,6 +289,8 @@ const assertedValue = (() => {
 })();
 
 void inlineSnapshot;
+void phaseCursor;
+void suppliedClock;
 void projected;
 void conditionalItems;
 void projectedObject;

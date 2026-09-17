@@ -12,6 +12,7 @@ import { noEscapeHatchAssertionRule } from "./rules/general-typescript/no-escape
 import { noExcessiveCognitiveComplexityRule } from "./rules/general-typescript/no-excessive-cognitive-complexity.ts";
 import { noExplicitAnyRule } from "./rules/general-typescript/no-explicit-any.ts";
 import { noExpectInIfRule } from "./rules/general-typescript/no-expect-in-if.ts";
+import { noExportedMutableSurfaceRule } from "./rules/general-typescript/no-exported-mutable-surface.ts";
 import { noForEachRule } from "./rules/general-typescript/no-for-each.ts";
 import { noGenericUtilityModuleRule } from "./rules/general-typescript/no-generic-utility-module.ts";
 import { noGodServiceShapeRule } from "./rules/general-typescript/no-god-service-shape.ts";
@@ -22,6 +23,7 @@ import { noLargeProductionFileRule } from "./rules/general-typescript/no-large-p
 import { noLocalDefiniteAssignmentRule } from "./rules/general-typescript/no-local-definite-assignment.ts";
 import { noModuleMockingRule } from "./rules/general-typescript/no-module-mocking.ts";
 import { noNestedConditionalExpressionRule } from "./rules/general-typescript/no-nested-conditional-expression.ts";
+import { noPhaseRebindingRule } from "./rules/general-typescript/no-phase-rebinding.ts";
 import { noNullishFunctionContractsRule } from "./rules/general-typescript/no-nullish-function-contracts.ts";
 import { noObjectFreezeRule } from "./rules/general-typescript/no-object-freeze.ts";
 import { noObjectTypeRule } from "./rules/general-typescript/no-object-type.ts";
@@ -38,9 +40,11 @@ import { noReflectGetRule } from "./rules/general-typescript/no-reflect-get.ts";
 import { noRuntimeTypeofRule } from "./rules/general-typescript/no-runtime-typeof.ts";
 import { noShallowJsonDomainCastRule } from "./rules/general-typescript/no-shallow-json-domain-cast.ts";
 import { noForbiddenTermInSymbolNamesRule } from "./rules/general-typescript/no-shape-in-symbol-names.ts";
+import { noSleepBasedTestSyncRule } from "./rules/general-typescript/no-sleep-based-test-sync.ts";
 import { noStagedObjectAssignRule } from "./rules/general-typescript/no-staged-object-assign.ts";
 import { noSwallowedCleanupErrorRule } from "./rules/general-typescript/no-swallowed-cleanup-error.ts";
 import { noTernaryIifeRule } from "./rules/general-typescript/no-ternary-iife.ts";
+import { noTestModuleStateRule } from "./rules/general-typescript/no-test-module-state.ts";
 import { noTopLevelMutableProductionStateRule } from "./rules/general-typescript/no-top-level-mutable-production-state.ts";
 import { noUnknownRule } from "./rules/general-typescript/no-unknown.ts";
 import { noUnsafeDictionaryTypeRule } from "./rules/general-typescript/no-unsafe-dictionary-type.ts";
@@ -66,6 +70,7 @@ import { noManualEffectErrorTagRule } from "./rules/effect/no-manual-effect-erro
 import { noManualTagComparisonRule } from "./rules/effect/no-manual-tag-comparison.ts";
 import { noNumericDurationRule } from "./rules/effect/no-numeric-duration.ts";
 import { noObjectIterationResultCastRule } from "./rules/effect/no-object-iteration-result-cast.ts";
+import { noDomainWallClockRule } from "./rules/general-typescript/no-domain-wall-clock.ts";
 import { noPublicRuntimeInfrastructureRule } from "./rules/effect/no-public-runtime-infrastructure.ts";
 import { noServiceShapeParameterExtractionRule } from "./rules/effect/no-service-shape-parameter-extraction.ts";
 import { noStatefulEffectConstructionRule } from "./rules/effect/no-stateful-effect-construction.ts";
@@ -103,6 +108,7 @@ const antiSlopPlugin = eslintCompatPlugin({
 		"no-escape-hatch-assertion": noEscapeHatchAssertionRule,
 		"no-explicit-any": noExplicitAnyRule,
 		"no-expect-in-if": noExpectInIfRule,
+		"no-exported-mutable-surface": noExportedMutableSurfaceRule,
 		"no-for-each": noForEachRule,
 		"no-inward-module-dependency": noInwardModuleDependencyRule,
 		"no-implicit-effect-concurrency": noImplicitEffectConcurrencyRule,
@@ -112,6 +118,8 @@ const antiSlopPlugin = eslintCompatPlugin({
 		"no-inline-import-type-query": noInlineImportTypeQueryRule,
 		"no-local-definite-assignment": noLocalDefiniteAssignmentRule,
 		"no-module-mocking": noModuleMockingRule,
+		"no-phase-rebinding": noPhaseRebindingRule,
+		"no-domain-wall-clock": noDomainWallClockRule,
 		"no-numeric-duration": noNumericDurationRule,
 		"no-nested-conditional-expression": noNestedConditionalExpressionRule,
 		"no-nullish-function-contracts": noNullishFunctionContractsRule,
@@ -136,11 +144,13 @@ const antiSlopPlugin = eslintCompatPlugin({
 		"no-runtime-typeof": noRuntimeTypeofRule,
 		"no-shallow-json-domain-cast": noShallowJsonDomainCastRule,
 		"no-service-shape-parameter-extraction": noServiceShapeParameterExtractionRule,
+		"no-sleep-based-test-sync": noSleepBasedTestSyncRule,
 		"no-public-entrypoint-export-drift": noPublicEntrypointExportDriftRule,
 		"no-staged-object-assign": noStagedObjectAssignRule,
 		"no-unsafe-dictionary-type": noUnsafeDictionaryTypeRule,
 		"no-swallowed-cleanup-error": noSwallowedCleanupErrorRule,
 		"no-ternary-iife": noTernaryIifeRule,
+		"no-test-module-state": noTestModuleStateRule,
 		"no-throw-in-effect-gen": noThrowInEffectGenRule,
 		"no-top-level-mutable-production-state": noTopLevelMutableProductionStateRule,
 		"no-unmanaged-effect-scope": noUnmanagedEffectScopeRule,

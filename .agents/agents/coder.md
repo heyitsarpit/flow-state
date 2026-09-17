@@ -42,7 +42,8 @@ description: Implement or research one assigned, non-overlapping task scope and 
 ## Checks
 
 - Run focused tests and scoped lint/types while iterating.
-- Primary only: `nub run check:fix` after the integrated edits stop.
+- Primary only: `nub run check:fix` after the integrated edits stop; it is the autofixing form of `nub run check`.
+- Primary only: `nub run check` after the fix pass to verify the same scope without mutation.
 - Primary only: `nub run test:coverage` and `nub run report:unused` when the Bead or final
   gate requires them.
 - `git diff --check` — patch whitespace.

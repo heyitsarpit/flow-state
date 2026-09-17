@@ -149,9 +149,34 @@ export default defineConfig({
       "anti-slop/no-known-value-widening": "error",
       "anti-slop/no-inline-import-type-query": "error",
       "anti-slop/no-local-definite-assignment": "error",
+      "anti-slop/no-exported-mutable-surface": [
+        "error",
+        { sourceRoots: ["packages/flow-state-rewrite/src"] },
+      ],
+      "anti-slop/no-phase-rebinding": [
+        "error",
+        {
+          sourceRoots: ["packages/flow-state-rewrite/src/runtime"],
+        },
+      ],
+      "anti-slop/no-domain-wall-clock": [
+        "error",
+        {
+          sourceRoots: ["packages/flow-state-rewrite/src/runtime"],
+          allowedPathFragments: ["/src/hosts/"],
+        },
+      ],
       "anti-slop/no-module-mocking": "error",
       "anti-slop/no-numeric-duration": "error",
       "anti-slop/no-nested-conditional-expression": "error",
+      "anti-slop/no-sleep-based-test-sync": [
+        "error",
+        { sourceRoots: ["packages/flow-state-rewrite/src/runtime/test"] },
+      ],
+      "anti-slop/no-test-module-state": [
+        "error",
+        { sourceRoots: ["packages/flow-state-rewrite/src/runtime/test"] },
+      ],
       // Contract-required public snapshots may be frozen; keep this as a review signal for private boundaries.
       "anti-slop/no-object-freeze": "warn",
       "anti-slop/no-generic-utility-module": "warn",

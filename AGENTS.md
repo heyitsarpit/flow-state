@@ -71,7 +71,7 @@ Effect 4.0.0-rc.112.
 ```sh
 nub install                                      # install dependencies
 nub run check:toolchain                          # after dependency/compiler changes
-nub run check:anti-slop                          # custom anti-slop rule fixtures
+node ./tools/oxlint/anti-slop/rules/general-typescript/<rule>.test.ts # example focused anti-slop rule test
 nub run check                                    # formatting, lint, and type checks
 nub run --filter flow-state check:cli-source-types
 nub run --filter flow-state check:typescript-mode-proofs
