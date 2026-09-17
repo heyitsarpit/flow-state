@@ -179,6 +179,18 @@ tester.run("ambient wall-clock access", noDomainWallClockRule, {
       ],
     },
     {
+      code: "const text = `now: ${Date.now()}`; void text;",
+      filename: "/project/packages/flow-state-rewrite/src/runtime/template.ts",
+      options,
+      errors: [{ messageId: "wallClock" }],
+    },
+    {
+      code: "consume(...[Date.now()]);",
+      filename: "/project/packages/flow-state-rewrite/src/runtime/spread.ts",
+      options,
+      errors: [{ messageId: "wallClock" }],
+    },
+    {
       code: "const now = globalThis.Date.now(); const value = new globalThis.Date(); void now; void value;",
       filename: "/project/packages/flow-state-rewrite/src/runtime/clock.ts",
       options,
