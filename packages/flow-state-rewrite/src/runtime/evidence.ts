@@ -157,6 +157,8 @@ export type EvidenceAttachmentToken = {
   drain: (through: EvidenceSequence) => Effect.Effect<AttachmentDrainResult, PublicDiagnostic>;
   close: () => Effect.Effect<void, PublicDiagnostic>;
   truncatedBefore: () => EvidenceSequence | undefined;
+  markTruncatedBefore: (sequence: EvidenceSequence) => void;
+  isClosed: () => boolean;
 };
 
 export type EvidenceAcceptance = {
@@ -410,7 +412,12 @@ const preserveProjectionOpaque = (
 };
 
 const preserveCauseOpaque = (cause: CauseEnvelope, preserved: WeakSet<EvidenceReference>) => {
-  if (cause._tag === "event") return;
+  if (cause._tag === "event") {
+    preserveOpaque(preserved, cause.event);
+
+    return;
+  }
+
   preserveProjectionOpaque(cause.fact, preserved);
 };
 
@@ -564,8 +571,7 @@ type ActorCreditState = {
 type EvidenceDrainCapture = {
   through: EvidenceSequence | 0;
   attachmentThrough: EvidenceSequence;
-  truncatedBefore: Option.Option<EvidenceSequence>;
-  attachments: readonly EvidenceAttachmentToken[];
+  attachments: EvidenceAttachmentToken[];
 };
 
 /** Owns sequence allocation, accepted-prefix ordering, attachment admission, and close drain. */
@@ -589,7 +595,6 @@ export const makeEvidenceJournal = (
   let ordinaryPrepared = 0;
   let accepted = 0;
   let closed = false;
-  let truncatedBefore: EvidenceSequence | undefined;
   let creditWaiter: Deferred.Deferred<void> | undefined;
   let closeCell: Deferred.Deferred<Exit.Exit<EvidenceDrain, PublicDiagnostic>> | undefined;
 
@@ -756,11 +761,7 @@ export const makeEvidenceJournal = (
     accepted += 1;
 
     const offers = attachmentTokens.map((attachment) => {
-      const offer = attachment.offerUnsafe(copied.success, sequence);
-
-      if (offer.status === "dropped" && truncatedBefore === undefined) truncatedBefore = sequence;
-
-      return offer;
+      return attachment.offerUnsafe(copied.success, sequence);
     });
 
     return Result.succeed({
@@ -854,9 +855,41 @@ export const makeEvidenceJournal = (
   const captureDrainUnsafe = (): EvidenceDrainCapture => ({
     through: accepted === 0 ? 0 : sequenceValue(accepted),
     attachmentThrough: accepted === 0 ? sequenceValue(1) : sequenceValue(accepted),
-    truncatedBefore: Option.fromNullishOr(truncatedBefore),
     attachments: copyArray(attachmentTokens),
   });
+
+  const greatestTruncation = (attachments: EvidenceAttachmentToken[]) => {
+    let greatest: EvidenceSequence | undefined;
+
+    for (const attachment of attachments) {
+      const truncated = attachment.truncatedBefore();
+
+      if (truncated !== undefined && (greatest === undefined || truncated > greatest))
+        greatest = truncated;
+    }
+
+    return Option.fromNullishOr(greatest);
+  };
+
+  const removeInactiveAttachments = (
+    attachments: EvidenceAttachmentToken[],
+    results: AttachmentDrainResult[],
+  ) => {
+    const inactive = attachments.filter((attachment, index) => {
+      const result = results[index];
+
+      return attachment.isClosed() || (result !== undefined && result.status === "failed");
+    });
+
+    const inactiveSet = new Set(inactive);
+
+    for (let index = attachmentTokens.length - 1; index >= 0; index -= 1) {
+      const attachment = attachmentTokens[index];
+
+      if (attachment !== undefined && inactiveSet.has(attachment))
+        attachmentTokens.splice(index, 1);
+    }
+  };
 
   const drainCaptured = (capture: EvidenceDrainCapture) =>
     Effect.gen(function* () {
@@ -865,9 +898,13 @@ export const makeEvidenceJournal = (
       for (const attachment of capture.attachments)
         results.push(yield* attachment.drain(capture.attachmentThrough));
 
+      yield* semaphore.withPermit(
+        Effect.sync(() => removeInactiveAttachments(capture.attachments, results)),
+      );
+
       return {
         through: capture.through,
-        truncatedBefore: capture.truncatedBefore,
+        truncatedBefore: greatestTruncation(capture.attachments),
         attachments: copyArray(results),
       } satisfies EvidenceDrain;
     });
@@ -910,8 +947,11 @@ export const makeEvidenceJournal = (
           Effect.flatMap((capture) =>
             drainCaptured(capture).pipe(
               Effect.tap(() =>
-                Effect.forEach(capture.attachments, (attachment) => attachment.close(), {
-                  concurrency: 1,
+                Effect.gen(function* () {
+                  yield* Effect.forEach(capture.attachments, (attachment) => attachment.close(), {
+                    concurrency: 1,
+                  });
+                  yield* semaphore.withPermit(Effect.sync(() => attachmentTokens.splice(0)));
                 }),
               ),
             ),
@@ -958,6 +998,9 @@ export const makeEvidenceJournal = (
         );
 
       attachmentOwners.set(attachment, journal);
+
+      if (accepted > 0) attachment.markTruncatedBefore(sequenceValue(accepted));
+
       attachmentTokens.push(attachment);
 
       return Result.succeed(undefined);

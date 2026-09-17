@@ -713,25 +713,28 @@ describe("runtime evidence", () => {
     }),
   );
 
-  it.effect("isolates bounded sink overflow and reports accepted-prefix truncation", () =>
+  it.effect("isolates bounded sink overflow and reports the greatest omitted sequence", () =>
     Effect.gen(function* () {
       const fixture = makeFixture();
       const hub = makeEvidenceJournal({ app: EvidenceApp, plan: EvidencePlan });
-      const delivered: string[] = [];
+      const delivered: number[] = [];
+      const offers: string[] = [];
 
       const sink = yield* makeEvidenceSink({
         id: "bounded",
         capacity: 1,
-        deliver: (record) => Effect.sync(() => delivered.push(record._tag)),
+        deliver: (record) =>
+          Effect.sync(() =>
+            delivered.push(record._tag === "turn" ? record.sequence : record.evidenceSequence),
+          ),
       });
 
       assert.ok(Result.isSuccess(hub.attach(sink)));
 
       for (let index = 0; index < 3; index += 1) {
         const reservation = reserve(hub);
-        const accepted = acceptTurn(hub, fixture, reservation);
-        const result = yield* Effect.exit(accepted.effect);
-        assert.ok(Exit.isSuccess(result));
+        const accepted = yield* acceptTurn(hub, fixture, reservation).effect;
+        offers.push(accepted.attachments[0]?.status ?? "missing");
       }
 
       const drained = yield* drainJournal(hub);
@@ -739,19 +742,33 @@ describe("runtime evidence", () => {
       assert.ok(Option.isSome(drained.truncatedBefore));
 
       if (Option.isSome(drained.truncatedBefore))
-        assert.strictEqual(drained.truncatedBefore.value, 2);
-      assert.deepStrictEqual(delivered, ["turn"]);
+        assert.strictEqual(drained.truncatedBefore.value, 3);
+      assert.deepStrictEqual(offers, ["accepted", "dropped", "dropped"]);
+      assert.deepStrictEqual(delivered, [1]);
       assert.deepStrictEqual(
         drained.attachments.map((result) => result.status),
         ["truncated"],
       );
+
+      const later = reserve(hub);
+      const laterAccepted = yield* acceptTurn(hub, fixture, later).effect;
+      assert.strictEqual(laterAccepted.attachments[0]?.status, "accepted");
+
+      const laterDrain = yield* drainJournal(hub);
+      assert.strictEqual(laterDrain.through, 4);
+      assert.deepStrictEqual(delivered, [1, 4]);
+      assert.ok(Option.isSome(laterDrain.truncatedBefore));
+
+      if (Option.isSome(laterDrain.truncatedBefore))
+        assert.strictEqual(laterDrain.truncatedBefore.value, 3);
     }),
   );
 
-  it.effect("keeps sink delivery failure local to that sink", () =>
+  it.effect("delivers to healthy sinks after another sink fails", () =>
     Effect.gen(function* () {
       const fixture = makeFixture();
       const hub = makeEvidenceJournal({ app: EvidenceApp, plan: EvidencePlan });
+      const delivered: number[] = [];
 
       const failedSink = yield* makeEvidenceSink({
         id: "failed",
@@ -769,7 +786,10 @@ describe("runtime evidence", () => {
 
       const healthySink = yield* makeEvidenceSink({
         id: "healthy",
-        deliver: () => Effect.void,
+        deliver: (record) =>
+          Effect.sync(() =>
+            delivered.push(record._tag === "turn" ? record.sequence : record.evidenceSequence),
+          ),
       });
 
       assert.ok(Result.isSuccess(hub.attach(failedSink)));
@@ -788,6 +808,93 @@ describe("runtime evidence", () => {
         ],
       );
       assert.strictEqual(drained.through, 1);
+      assert.deepStrictEqual(delivered, [1]);
+      assert.deepStrictEqual(
+        hub.attachmentTokens().map((attachment) => attachment.id),
+        [healthySink.id],
+      );
+
+      const closed = yield* hub.close();
+      assert.strictEqual(closed.through, 1);
+      assert.deepStrictEqual(
+        closed.attachments.map((result) => [result.sink, result.status]),
+        [[healthySink.id, "drained"]],
+      );
+    }),
+  );
+
+  it.effect("marks queued records omitted when a sink fails before drain", () =>
+    Effect.gen(function* () {
+      const fixture = makeFixture();
+      const hub = makeEvidenceJournal({ app: EvidenceApp, plan: EvidencePlan });
+
+      const failedSink = yield* makeEvidenceSink({
+        id: "fail-before-drain",
+        deliver: () =>
+          Effect.fail(
+            Failure({
+              code: "InvariantViolation",
+              path: ["evidence", "sink"],
+              details: {},
+              summary: "sink failed before drain",
+              help: "inspect sink",
+            }),
+          ),
+      });
+
+      assert.ok(Result.isSuccess(hub.attach(failedSink)));
+      const first = yield* acceptTurn(hub, fixture, reserve(hub)).effect;
+      const second = yield* acceptTurn(hub, fixture, reserve(hub)).effect;
+      const drained = yield* hub.drain();
+
+      assert.deepStrictEqual(
+        drained.attachments.map((result) => result.status),
+        ["failed"],
+      );
+      assert.ok(Option.isSome(drained.truncatedBefore));
+
+      if (Option.isSome(drained.truncatedBefore))
+        assert.strictEqual(drained.truncatedBefore.value, 2);
+
+      const detached = yield* failedSink.offer(second.record);
+      assert.strictEqual(detached.status, "detached");
+      assert.deepStrictEqual(hub.attachmentTokens(), []);
+
+      const third = yield* acceptTurn(hub, fixture, reserve(hub)).effect;
+      assert.deepStrictEqual(third.attachments, []);
+      assert.strictEqual(first.sequence, 1);
+      yield* hub.close();
+    }),
+  );
+
+  it.effect("marks queued records omitted when a sink closes before drain", () =>
+    Effect.gen(function* () {
+      const fixture = makeFixture();
+      const hub = makeEvidenceJournal({ app: EvidenceApp, plan: EvidencePlan });
+      const sink = yield* makeEvidenceSink({ id: "close-before-drain" });
+
+      assert.ok(Result.isSuccess(hub.attach(sink)));
+      yield* acceptTurn(hub, fixture, reserve(hub)).effect;
+      yield* acceptTurn(hub, fixture, reserve(hub)).effect;
+      yield* sink.close();
+
+      const third = yield* acceptTurn(hub, fixture, reserve(hub)).effect;
+      assert.strictEqual(third.attachments[0]?.status, "detached");
+
+      const drained = yield* hub.drain();
+      assert.deepStrictEqual(
+        drained.attachments.map((result) => result.status),
+        ["truncated"],
+      );
+      assert.ok(Option.isSome(drained.truncatedBefore));
+
+      if (Option.isSome(drained.truncatedBefore))
+        assert.strictEqual(drained.truncatedBefore.value, 2);
+
+      assert.deepStrictEqual(hub.attachmentTokens(), []);
+      const fourth = yield* acceptTurn(hub, fixture, reserve(hub)).effect;
+      assert.deepStrictEqual(fourth.attachments, []);
+      yield* hub.close();
     }),
   );
 
@@ -1585,7 +1692,8 @@ describe("runtime evidence", () => {
       }
 
       const closed = yield* closeJournal(hub);
-      assert.strictEqual(closed.attachments[0]?.status, "failed");
+      assert.deepStrictEqual(closed.attachments, []);
+      assert.deepStrictEqual(hub.attachmentTokens(), []);
       assert.strictEqual(hub.sequence(), 1);
     }),
   );
@@ -1913,34 +2021,292 @@ describe("runtime evidence", () => {
   );
 });
 
-describe("pending regression scenarios", () => {
-  // SETUP: Use one real EvidenceJournal and one sink with a first-record delivery Deferred; accept sequence 1, start drain, and wait until delivery 1 is blocked.
-  // ACTION: Accept sequence 2 while delivery 1 remains blocked, release delivery 1, await the first drain, then run a second drain.
-  // ASSERT: Sequence 2 acceptance completes without waiting for sequence 1 delivery; the first drain reports through=1 and delivers only record 1; record 2 remains queued and is delivered by the second drain. This is the F6 reproduction and must not use a timeout as synchronization.
-  it.todo("drains a captured evidence prefix while a newer record is accepted");
+describe("sink retention and attachment regressions", () => {
+  it.effect("drains a captured evidence prefix while a newer record is accepted", () =>
+    Effect.gen(function* () {
+      const fixture = makeFixture();
+      const hub = makeEvidenceJournal({ app: EvidenceApp, plan: EvidencePlan });
+      const delivered: number[] = [];
+      const firstDeliveryEntered = yield* Deferred.make<void>();
+      const firstDeliveryRelease = yield* Deferred.make<void>();
 
-  // SETUP: Use one real EvidenceJournal and capacity-1 sink; capture each acceptance offer result and delivered record sequence while accepting global sequences 1, 2, and 3 without draining.
-  // ACTION: Drain the hub, accept one later record, then drain again using the existing drain result and delivered records; do not invoke Phase-4 snapshot or clear APIs.
-  // ASSERT: Offers are accepted,dropped,dropped and the first delivered sequence is 1; drain.truncatedBefore equals 3, the greatest omitted sequence. The later record is delivered in order and the marker never moves backward or resets the global sequence. Replace the weaker existing expectation of 2 when this case is implemented.
-  it.todo("isolates bounded sink overflow and reports the greatest omitted sequence");
+      const sink = yield* makeEvidenceSink({
+        id: "prefix-concurrent",
+        capacity: 16,
+        deliver: (record) =>
+          Effect.gen(function* () {
+            const sequence = record._tag === "turn" ? record.sequence : record.evidenceSequence;
+            delivered.push(sequence);
 
-  // SETUP: Extend the two-sink failure fixture with a delivered-sequence array on the healthy sink and one accepted record shared by both attachments.
-  // ACTION: Drain both sinks after acceptance, then inspect hub sequence, each sink status, and the healthy sink's received records.
-  // ASSERT: The failing sink reports failed and detaches its own queue; the healthy sink receives the accepted record and reports drained; the hub sequence and committed evidence remain unchanged.
-  it.todo("delivers to healthy sinks after another sink fails");
+            if (sequence === 1) {
+              yield* Deferred.succeed(firstDeliveryEntered, undefined);
+              yield* Deferred.await(firstDeliveryRelease);
+            }
+          }),
+      });
 
-  // SETUP: Construct real sinks with omitted capacity, capacity 0 and explicit capacity 3; use the real EvidenceJournal and accepted records to observe offers and retained delivery.
-  // ACTION: Assert the default bound, attach the explicit sinks, accept four records without draining, capture every offer result, then drain both attachments.
-  // ASSERT: Omitted capacity is exactly 256. Capacity 0 retains no records and drops every offer with the greatest omitted marker; capacity 3 accepts records 1/2/3 and drops 4, delivers exactly three records, and preserves global hub acceptance.
-  it.todo("accepts zero sink capacity while preserving an exact positive bound");
+      assert.ok(Result.isSuccess(hub.attach(sink)));
 
-  // SETUP: Create two real hubs and one sink; accept sequence 1 on hub A before attachment so the sink is late to that runtime.
-  // ACTION: Attach the sink once to A, attempt duplicate A and mixed-runtime B attachment, drain A, then detach and attempt reattachment; observe the existing single-sink hub drain result and delivered sequences.
-  // ASSERT: Late attachment replays no record 1 and its omitted marker equals the unseen runtime sequence. Duplicate, mixed-runtime and post-detach reattachment fail with the sink identity diagnostic; neither hub sequence changes and no module-private sinkInternals or future public inspection API is used.
-  it.todo("rejects duplicate and mixed-runtime sink attachment while marking a late attach");
+      const first = reserve(hub);
+      yield* acceptTurn(hub, fixture, first).effect;
 
-  // SETUP: Prepare a real accepted record with aliased/cyclic Flow-owned structural containers and separately identified application-opaque leaves, including a plain object, Map/Set/function/Error and nominal descriptor token.
-  // ACTION: Accept the record, mutate the caller source containers and opaque application object, then drain the real sink and inspect the delayed delivered record.
-  // ASSERT: Owned containers were copied before delivery; their aliases share one retained clone and supported cycles stay inside it. Opaque leaves, including the plain object, preserve Object.is identity. Caller container mutation cannot change the accepted cut or its provenance.
-  it.todo("preserves record aliases, cycles, and opaque identity across acceptance");
+      const firstDrain = yield* Effect.forkChild(Effect.exit(hub.drain()), {
+        startImmediately: true,
+      });
+
+      yield* Deferred.await(firstDeliveryEntered);
+
+      const second = reserve(hub);
+      const secondAccepted = yield* acceptTurn(hub, fixture, second).effect;
+      assert.strictEqual(secondAccepted.sequence, 2);
+      assert.deepStrictEqual(delivered, [1]);
+
+      yield* Deferred.succeed(firstDeliveryRelease, undefined);
+      const firstDrainExit = yield* Fiber.join(firstDrain);
+      assert.ok(Exit.isSuccess(firstDrainExit));
+
+      if (Exit.isSuccess(firstDrainExit)) {
+        assert.strictEqual(firstDrainExit.value.through, 1);
+        assert.strictEqual(firstDrainExit.value.attachments[0]?.status, "drained");
+      }
+
+      const secondDrain = yield* hub.drain();
+      assert.strictEqual(secondDrain.through, 2);
+      assert.deepStrictEqual(delivered, [1, 2]);
+      yield* hub.close();
+    }),
+  );
+
+  it.effect("accepts zero sink capacity while preserving an exact positive bound", () =>
+    Effect.gen(function* () {
+      const fixture = makeFixture();
+      const hub = makeEvidenceJournal({ app: EvidenceApp, plan: EvidencePlan });
+      const defaultSink = yield* makeEvidenceSink({ id: "default-capacity" });
+      const zero = yield* makeEvidenceSink({ id: "zero-capacity", capacity: 0 });
+      const boundedDelivered: number[] = [];
+
+      const bounded = yield* makeEvidenceSink({
+        id: "three-capacity",
+        capacity: 3,
+        deliver: (record) =>
+          Effect.sync(() => {
+            const sequence = record._tag === "turn" ? record.sequence : record.evidenceSequence;
+            boundedDelivered.push(sequence);
+          }),
+      });
+
+      assert.strictEqual(defaultSink.capacity, 256);
+      assert.strictEqual(zero.capacity, 0);
+      assert.strictEqual(bounded.capacity, 3);
+      assert.ok(Result.isSuccess(hub.attach(zero)));
+      assert.ok(Result.isSuccess(hub.attach(bounded)));
+
+      const zeroOffers: string[] = [];
+      const boundedOffers: string[] = [];
+
+      for (let index = 0; index < 4; index += 1) {
+        const reservation = reserve(hub);
+        const accepted = yield* acceptTurn(hub, fixture, reservation).effect;
+        zeroOffers.push(accepted.attachments[0]?.status ?? "missing");
+        boundedOffers.push(accepted.attachments[1]?.status ?? "missing");
+      }
+
+      assert.deepStrictEqual(zeroOffers, ["dropped", "dropped", "dropped", "dropped"]);
+      assert.deepStrictEqual(boundedOffers, ["accepted", "accepted", "accepted", "dropped"]);
+
+      const drained = yield* hub.drain();
+      assert.strictEqual(drained.through, 4);
+      assert.deepStrictEqual(boundedDelivered, [1, 2, 3]);
+      assert.ok(Option.isSome(drained.truncatedBefore));
+
+      if (Option.isSome(drained.truncatedBefore))
+        assert.strictEqual(drained.truncatedBefore.value, 4);
+
+      yield* defaultSink.close();
+      yield* hub.close();
+    }),
+  );
+
+  it.effect("rejects duplicate and mixed-runtime sink attachment while marking a late attach", () =>
+    Effect.gen(function* () {
+      const fixture = makeFixture();
+      const first = makeEvidenceJournal({ app: EvidenceApp, plan: EvidencePlan });
+      const second = makeEvidenceJournal({ app: EvidenceApp, plan: EvidencePlan });
+      const delivered: number[] = [];
+
+      const sink = yield* makeEvidenceSink({
+        id: "attachment-identity",
+        deliver: (record) =>
+          Effect.sync(() =>
+            delivered.push(record._tag === "turn" ? record.sequence : record.evidenceSequence),
+          ),
+      });
+
+      const preparation = reserve(first);
+      yield* acceptTurn(first, fixture, preparation).effect;
+      assert.ok(Result.isSuccess(first.attach(sink)));
+
+      const duplicate = first.attach(sink);
+      const mixed = second.attach(sink);
+      assert.ok(Result.isFailure(duplicate));
+      assert.ok(Result.isFailure(mixed));
+
+      if (Result.isFailure(duplicate))
+        assert.strictEqual(duplicate.failure.details.reason, "duplicate");
+
+      if (Result.isFailure(mixed))
+        assert.strictEqual(mixed.failure.details.reason, "foreign-journal");
+
+      const drained = yield* first.drain();
+      assert.deepStrictEqual(delivered, []);
+      assert.ok(Option.isSome(drained.truncatedBefore));
+
+      if (Option.isSome(drained.truncatedBefore))
+        assert.strictEqual(drained.truncatedBefore.value, 1);
+
+      yield* sink.close();
+      const afterDetach = first.attach(sink);
+      assert.ok(Result.isFailure(afterDetach));
+
+      if (Result.isFailure(afterDetach))
+        assert.strictEqual(afterDetach.failure.details.reason, "duplicate");
+
+      assert.strictEqual(first.sequence(), 1);
+      assert.strictEqual(second.sequence(), 0);
+      yield* first.close();
+      yield* second.close();
+    }),
+  );
+
+  it.effect("preserves record aliases, cycles, and opaque identity across acceptance", () =>
+    Effect.gen(function* () {
+      const fixture = makeFixture();
+      const hub = makeEvidenceJournal({ app: EvidenceApp, plan: EvidencePlan });
+      const delivered: EvidenceRecord[] = [];
+
+      const sink = yield* makeEvidenceSink({
+        id: "record-boundaries",
+        deliver: (record) => Effect.sync(() => delivered.push(record)),
+      });
+
+      assert.ok(Result.isSuccess(hub.attach(sink)));
+
+      const opaquePlain = { value: "original" };
+      const opaqueMap = new Map([["opaque", 1]]);
+      const opaqueSet = new Set(["opaque"]);
+      const opaqueFunction = () => "opaque";
+      const opaqueError = new Error("opaque");
+      const opaqueDescriptor = EvidenceDefinition.E.opened;
+
+      type OpaqueEvent = {
+        _tag: "opaque-event";
+        type: string;
+        opaquePlain: typeof opaquePlain;
+        opaqueMap: typeof opaqueMap;
+        opaqueSet: typeof opaqueSet;
+        opaqueFunction: typeof opaqueFunction;
+        opaqueError: typeof opaqueError;
+        opaqueDescriptor: typeof opaqueDescriptor;
+      };
+
+      type OperationCarrier = EvidenceSnapshot["operations"] & {
+        _tag: "operation-carrier";
+        marker: string;
+        self: EvidenceSnapshot["operations"];
+      };
+
+      const isOpaqueEvent = (value: { type: string }): value is OpaqueEvent =>
+        "_tag" in value &&
+        value._tag === "opaque-event" &&
+        "opaquePlain" in value &&
+        "opaqueMap" in value &&
+        "opaqueSet" in value &&
+        "opaqueFunction" in value &&
+        "opaqueError" in value &&
+        "opaqueDescriptor" in value;
+
+      const isOperationCarrier = (
+        value: EvidenceSnapshot["operations"],
+      ): value is OperationCarrier =>
+        "_tag" in value &&
+        value._tag === "operation-carrier" &&
+        "marker" in value &&
+        "self" in value;
+
+      const event = Object.assign(resultSuccess(EvidenceDefinition.E.opened()), {
+        _tag: "opaque-event" as const,
+        opaquePlain,
+        opaqueMap,
+        opaqueSet,
+        opaqueFunction,
+        opaqueError,
+        opaqueDescriptor,
+      });
+
+      const sourceContext = { first: opaquePlain, second: opaquePlain };
+      const operationsBase: EvidenceSnapshot["operations"] = [];
+
+      const operations = Object.assign(operationsBase, {
+        _tag: "operation-carrier" as const,
+        marker: "source",
+        self: operationsBase,
+      });
+
+      operations.self = operations;
+      const preparation = reserve(hub);
+      const fact = turnFact(fixture, preparation);
+
+      const record = resultSuccess(
+        makeTurnRecord(
+          {
+            ...fact,
+            cause: { _tag: "event", event },
+            before: { ...fact.before, context: sourceContext, operations },
+            after: { ...fact.after, context: sourceContext, operations },
+          },
+          preparation,
+        ),
+      );
+
+      yield* acceptPrepared(hub, preparation, record);
+      Object.assign(sourceContext, { added: "mutated" });
+      operations.marker = "mutated";
+      opaquePlain.value = "mutated";
+
+      yield* hub.drain();
+      const retained = delivered[0];
+
+      if (retained === undefined)
+        return yield* Effect.die(new Error("Expected delivered evidence"));
+
+      if (retained._tag !== "turn") return yield* Effect.die(new Error("Expected turn evidence"));
+
+      if (retained.cause._tag !== "event")
+        return yield* Effect.die(new Error("Expected event evidence"));
+
+      if (!isOperationCarrier(retained.before.operations))
+        return yield* Effect.die(new Error("Expected operation carrier evidence"));
+
+      if (!isOpaqueEvent(retained.cause.event))
+        return yield* Effect.die(new Error("Expected opaque event evidence"));
+
+      const retainedOperations = retained.before.operations;
+      const retainedEvent = retained.cause.event;
+      assert.notStrictEqual(retained.before.context, sourceContext);
+      assert.strictEqual(retained.before.context, retained.after.context);
+      assert.strictEqual(retained.before.context.first, opaquePlain);
+      assert.strictEqual(retained.before.context.second, opaquePlain);
+      assert.strictEqual(retained.before.context.added, undefined);
+      assert.strictEqual(retainedOperations.self, retained.before.operations);
+      assert.strictEqual(retainedOperations.marker, "source");
+      assert.strictEqual(retainedEvent, event);
+      assert.strictEqual(retainedEvent.opaquePlain, opaquePlain);
+      assert.strictEqual(retainedEvent.opaqueMap, opaqueMap);
+      assert.strictEqual(retainedEvent.opaqueSet, opaqueSet);
+      assert.strictEqual(retainedEvent.opaqueFunction, opaqueFunction);
+      assert.strictEqual(retainedEvent.opaqueError, opaqueError);
+      assert.strictEqual(retainedEvent.opaqueDescriptor, opaqueDescriptor);
+      yield* hub.close();
+    }),
+  );
 });

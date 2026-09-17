@@ -56,20 +56,21 @@ export const makeEvidenceSink = (
   options: Partial<EvidenceSinkOptions> = {},
 ): Effect.Effect<EvidenceSink, PublicDiagnostic> =>
   Effect.gen(function* () {
-    const capacity = options.capacity ?? 64;
+    const capacity = options.capacity ?? 256;
 
-    if (!Number.isSafeInteger(capacity) || capacity < 1)
+    if (!Number.isSafeInteger(capacity) || capacity < 0)
       return yield* Effect.fail(
         Failure({
           code: "BoundExceeded",
           path: ["evidence", "sink", "capacity"],
           details: { capacity },
-          summary: "Evidence sink capacity must be positive.",
-          help: "Choose a finite positive sink capacity.",
+          summary: "Evidence sink capacity must be non-negative.",
+          help: "Choose a finite non-negative sink capacity.",
         }),
       );
 
-    const mailbox = yield* Queue.bounded<EvidenceRecord>(capacity);
+    // Effect queues require a positive bound; capacity zero is enforced by never retaining a record.
+    const mailbox = yield* Queue.bounded<EvidenceRecord>(Math.max(1, capacity));
     const sinkName = options.id ?? `sink-${crypto.randomUUID()}`;
     // SAFETY: sinkName is either a caller label or a runtime-generated local identity.
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- SinkId is a private nominal label.
@@ -80,6 +81,19 @@ export const makeEvidenceSink = (
     let truncatedBefore: EvidenceSequence | undefined;
     const deliver = options.deliver ?? (() => Effect.void);
 
+    const markTruncatedBefore = (sequence: EvidenceSequence) => {
+      if (truncatedBefore === undefined || sequence > truncatedBefore) truncatedBefore = sequence;
+    };
+
+    const discardQueued = () => {
+      while (Queue.sizeUnsafe(mailbox) > 0) {
+        const taken = Queue.takeUnsafe(mailbox);
+
+        if (taken !== undefined && Exit.isSuccess(taken))
+          markTruncatedBefore(sequenceValue(sequenceOf(taken.value)));
+      }
+    };
+
     const offerUnsafe = (
       record: EvidenceRecord,
       acceptedSequence: EvidenceSequence,
@@ -87,10 +101,10 @@ export const makeEvidenceSink = (
       if (closed || failure !== undefined)
         return { sink: sinkId, sequence: acceptedSequence, status: "detached" };
 
-      if (Queue.offerUnsafe(mailbox, record))
+      if (capacity > 0 && Queue.offerUnsafe(mailbox, record))
         return { sink: sinkId, sequence: acceptedSequence, status: "accepted" };
 
-      if (truncatedBefore === undefined) truncatedBefore = acceptedSequence;
+      markTruncatedBefore(acceptedSequence);
 
       return { sink: sinkId, sequence: acceptedSequence, status: "dropped" };
     };
@@ -118,8 +132,8 @@ export const makeEvidenceSink = (
 
             if (Exit.isFailure(delivered)) {
               failure = makeSinkFailure(delivered.cause);
-
-              while (Queue.sizeUnsafe(mailbox) > 0) Queue.takeUnsafe(mailbox);
+              markTruncatedBefore(sequenceValue(sequenceOf(record)));
+              discardQueued();
 
               return {
                 sink: sinkId,
@@ -141,6 +155,7 @@ export const makeEvidenceSink = (
       Effect.gen(function* () {
         if (closed) return;
         closed = true;
+        discardQueued();
         yield* Queue.shutdown(mailbox);
       }),
     );
@@ -153,6 +168,8 @@ export const makeEvidenceSink = (
       drain,
       close: () => close,
       truncatedBefore: () => truncatedBefore,
+      markTruncatedBefore,
+      isClosed: () => closed,
     };
 
     return sink;
