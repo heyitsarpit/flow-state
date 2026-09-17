@@ -1304,9 +1304,13 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
               const preparedRollback: AdmissionRollbackStep = {
                 name: "prepared",
                 release: Effect.uninterruptible(
-                  Effect.sync(() => prepared.abandon()).pipe(
-                    Effect.flatMap(() => actorCell.close()),
-                  ),
+                  Effect.suspend(() => {
+                    if (Option.isSome(actorCell.terminal.scopeExit)) return Effect.void;
+
+                    return Effect.sync(() => prepared.abandon()).pipe(
+                      Effect.flatMap(() => actorCell.close()),
+                    );
+                  }),
                 ),
               };
 
@@ -1351,6 +1355,31 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
             }> = [];
 
             const terminal = preparation.actorCell.terminal;
+
+            const releaseActorCredit = () => {
+              if (terminal.released) return;
+
+              terminal.released = true;
+              terminal.parentFinalizer = Option.none();
+              evidence.journal.releaseActor(currentIdentity.key);
+            };
+
+            const credit = evidence.journal.registerActor(currentIdentity.key, currentFence);
+
+            if (Result.isFailure(credit)) return yield* Effect.fail(credit.failure);
+
+            // Journal credit is reserved before any lifecycle outcome can publish and is released
+            // by the same admission rollback path if registration or exposure later fails.
+            const creditRollback: AdmissionRollbackStep = {
+              name: "terminal-credit",
+              release: Effect.sync(releaseActorCredit),
+            };
+
+            rollback = includeReservation([
+              ...preparation.rollback,
+              activationRollback,
+              creditRollback,
+            ]);
 
             preparation.actorCell.publication = {
               preflight: currentEngine.preflightLifecyclePublication,
@@ -1399,6 +1428,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
             const lifecycleCommandEffect = (
               command: LifecycleCommand<PublicDiagnostic>,
               preparedEvidence?: LifecycleEvidencePreflight,
+              releaseControl?: () => void,
             ) =>
               Effect.gen(function* () {
                 if (command._tag === "actor:dispose") {
@@ -1423,12 +1453,32 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
                     }
                   });
 
+                const beforeResumeCommit =
+                  command._tag !== "actor:resume"
+                    ? undefined
+                    : () =>
+                        Effect.gen(function* () {
+                          releaseControl?.();
+                          contextCoordinator.setOpen(currentFence.key, true);
+
+                          const reconciled = yield* Effect.exit(
+                            contextCoordinator.reconcile(currentFence.key),
+                          );
+
+                          if (Exit.isFailure(reconciled)) {
+                            contextCoordinator.setOpen(currentFence.key, false);
+
+                            return yield* Effect.failCause(reconciled.cause);
+                          }
+                        });
+
                 const commanded = yield* Effect.exit(
                   Effect.gen(function* () {
                     const result = yield* currentController.command(
                       command,
                       preparedEvidence,
                       prepareRouting,
+                      beforeResumeCommit,
                     );
 
                     return result;
@@ -1522,7 +1572,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
                   control.ready.pipe(
                     Effect.andThen(
                       Effect.provideContext(
-                        lifecycleCommandEffect(command, preparedEvidence),
+                        lifecycleCommandEffect(command, preparedEvidence, control.release),
                         context,
                       ),
                     ),
@@ -1543,22 +1593,8 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
 
                 const completed = commanded.value;
 
-                if (command._tag === "actor:resume") {
-                  contextCoordinator.setOpen(currentFence.key, true);
-
-                  const reconciled = yield* Effect.exit(
-                    contextCoordinator.reconcile(currentFence.key),
-                  );
-
-                  if (Exit.isFailure(reconciled)) {
-                    contextCoordinator.setOpen(currentFence.key, false);
-
-                    return yield* Effect.failCause(reconciled.cause);
-                  }
-
-                  if (completed.routingGeneration !== undefined)
-                    currentRouting.open(completed.routingGeneration);
-                }
+                if (command._tag === "actor:resume" && completed.routingGeneration !== undefined)
+                  currentRouting.open(completed.routingGeneration);
 
                 return completed.next;
               });
@@ -1730,8 +1766,20 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
               context,
             );
 
-            const tombstone = () =>
-              registry.tombstone(currentIdentity, evidence.journal.sequence());
+            const tombstone = () => {
+              const current = registry.lookup(currentIdentity.ref);
+
+              if (Result.isSuccess(current))
+                return registry.tombstone(currentIdentity, evidence.journal.sequence());
+
+              if (current.failure.code === "MissingActorRef") {
+                registry.rollback(currentIdentity);
+
+                return Result.succeed(undefined);
+              }
+
+              return Result.fail(current.failure);
+            };
 
             const disposeWithoutLease: Effect.Effect<void, PublicDiagnostic> = cleanup.pipe(
               Effect.flatMap(() => {
@@ -1744,12 +1792,6 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
             );
 
             let installedLease: AdmissionResult["lease"] | undefined;
-
-            const releaseActorCredit = () => {
-              terminal.released = true;
-              terminal.parentFinalizer = Option.none();
-              evidence.journal.releaseActor(currentIdentity.key);
-            };
 
             const unregisterActor = () => {
               if (Option.isSome(terminal.lifecycleRegistration))
@@ -1856,8 +1898,34 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
             rollback = includeReservation([
               ...preparation.rollback,
               activationRollback,
+              creditRollback,
               registrationRollback,
             ]);
+
+            if (closeRegistry === undefined)
+              return yield* Effect.die(new Error("Runtime close owner is not attached"));
+
+            const closeRegistration = closeRegistry.registerActor({
+              dispose: () => Effect.provideContext(actorWithRef.dispose(), context),
+            });
+
+            if (!closeRegistration.accepted) return yield* Effect.fail(closedActorAdmission());
+
+            terminal.lifecycleRegistration = Option.some(closeRegistration);
+            terminal.parentFinalizer = Option.some(actorWithRef.dispose);
+            yield* Scope.addFinalizer(
+              runtimeScope,
+              Effect.suspend(() => {
+                const dispose = terminal.parentFinalizer;
+
+                return Option.isNone(dispose)
+                  ? Effect.void
+                  : Effect.provideContext(
+                      Effect.exit(dispose.value()).pipe(Effect.asVoid),
+                      context,
+                    );
+              }),
+            );
 
             if (admissionProbe?.beforeExpose !== undefined) yield* admissionProbe.beforeExpose;
             admissionProbe?.onPhase?.("expose");
@@ -1895,40 +1963,6 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
             );
             terminal.started = true;
             yield* contextCoordinator.reconcile(currentFence.key);
-
-            if (closeRegistry === undefined)
-              return yield* Effect.die(new Error("Runtime close owner is not attached"));
-
-            const registration = closeRegistry.registerActor({
-              dispose: () => Effect.provideContext(actorWithRef.dispose(), context),
-            });
-
-            if (!registration.accepted) return yield* Effect.fail(closedActorAdmission());
-
-            const credit = evidence.journal.registerActor(currentIdentity.key, currentFence);
-
-            if (Result.isFailure(credit)) {
-              registration.unregister();
-              registry.rollback(currentIdentity);
-
-              return yield* Effect.fail(credit.failure);
-            }
-
-            terminal.lifecycleRegistration = Option.some(registration);
-            terminal.parentFinalizer = Option.some(actorWithRef.dispose);
-            yield* Scope.addFinalizer(
-              runtimeScope,
-              Effect.suspend(() => {
-                const dispose = terminal.parentFinalizer;
-
-                return Option.isNone(dispose)
-                  ? Effect.void
-                  : Effect.provideContext(
-                      Effect.exit(dispose.value()).pipe(Effect.asVoid),
-                      context,
-                    );
-              }),
-            );
 
             const exposed = registry.expose(currentIdentity);
 

@@ -4017,7 +4017,72 @@ describe("pending regression scenarios", () => {
   // Setup: Assemble a provider/consumer pair and suspend the consumer; use the new selected internal ContextCoordinator reconciliation capability introduced by this refactor, decorated with a Deferred while delegating the real production projection path.
   // Action: Change the provider while the consumer is suspended, start consumer resume, attempt send while reconciliation is gated, then release the projection and await resume.
   // Assert: Send rejects while reconciliation is pending; the same ref/handle resumes only after one current complete context cut is committed. Failed reconciliation rolls back newly acquired attachments and stays suspended. The capability is an internal production seam, not a public test-only hook.
-  it.todo("keeps admission closed until resume reconciliation commits");
+  it.effect("keeps admission closed until resume reconciliation commits", () =>
+    Effect.gen(function* () {
+      const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+      const { a, b } = yield* makeContextDiamond(assembly, "resume-admission");
+      const reconcileEntered = yield* Deferred.make<void>();
+      const releaseReconcile = yield* Deferred.make<void>();
+      const actualReconcile = assembly.contextCoordinator.reconcile;
+
+      yield* Effect.provideContext(
+        b.lifecycle.command({
+          _tag: "actor:suspend",
+          cause: { _tag: "attachment" },
+        }),
+        assembly.context,
+      );
+
+      const changed = a.engine.dispatch(IntegrationProviderEvent);
+      assert.strictEqual(changed.admitted, true);
+      yield* Deferred.await(changed.completion);
+      yield* a.engine.drain();
+      yield* assembly.contextCoordinator.drain();
+
+      assembly.contextCoordinator.reconcile = (key) => {
+        if (key !== b.fence.key) return actualReconcile(key);
+
+        return Effect.gen(function* () {
+          yield* Deferred.succeed(reconcileEntered, undefined);
+          yield* Deferred.await(releaseReconcile);
+
+          return yield* actualReconcile(key);
+        });
+      };
+
+      const resuming = yield* Effect.forkChild(
+        Effect.exit(
+          Effect.provideContext(
+            b.lifecycle.command({
+              _tag: "actor:resume",
+              cause: { _tag: "attachment" },
+            }),
+            assembly.context,
+          ),
+        ),
+        { startImmediately: true },
+      );
+
+      yield* Deferred.await(reconcileEntered);
+      assert.strictEqual(b.lifecycle.isRoutable(), false);
+      assert.strictEqual(b.engine.dispatch(IntegrationConsumerEvent).admitted, false);
+      assert.strictEqual(b.engine.snapshot().lifecycle, "suspended");
+
+      yield* Deferred.succeed(releaseReconcile, undefined);
+      const resumed = yield* Fiber.join(resuming);
+      assert.ok(Exit.isSuccess(resumed));
+      assert.strictEqual(b.engine.snapshot().lifecycle, "active");
+      assert.strictEqual(b.lifecycle.isRoutable(), true);
+      assert.strictEqual(
+        b.engine.snapshot().context.providerState,
+        IntegrationProviderDefinition.S.changed,
+      );
+
+      yield* runtimeOwner(runtime).close();
+    }),
+  );
 
   // Setup: Create and dispose multiple real actors through assembly in one live runtime; decorate the new selected internal ActorInstance.make acquisition capability so it delegates actual mailbox/subscription acquisition and records a Scope finalizer.
   // Action: Await each actor lease disposal before creating the next actor, observe its real lifetime release, then close the runtime.
@@ -6294,7 +6359,172 @@ describe("pending regression scenarios", () => {
   // Setup: Use the real diamond with B still inheriting A revision 0 and C inheriting A revision 1 after a rejected delivery; retain a suspended D and a fresh D ref with the same authored bindings.
   // Action: Attempt fresh D admission and existing D resume, then explicitly suspend/resume B to reconcile its current A revision-1 cut and retry both D routes.
   // Assert: Incoherent attempts fail finitely before exposure/admission opening with MissingContextProvider at the first authored conflicting contextBindings slot, provider=stale and coherent-cut details. B reconciliation reuses cached selection for A revision 1, advances private lineage even on no-op, and lets both D routes succeed coherently without a new A event.
-  it.todo("rejects incoherent admission and resume until provider lineage reconciles");
+  it.effect("rejects incoherent admission and resume until provider lineage reconciles", () =>
+    Effect.gen(function* () {
+      const runtime = runtimeSetup({ app: IntegrationApp }).construct();
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+      const { a, b, c, d } = yield* makeContextDiamond(assembly, "context-admission");
+      const actualOffer = b.engine.dispatchContextTicket;
+      let rejectNext = true;
+
+      b.engine.dispatchContextTicket = (...args) => {
+        if (rejectNext) {
+          rejectNext = false;
+
+          return Result.fail(
+            Failure({
+              code: "MissingContextProvider",
+              path: ["contextBindings", "providerState"],
+              details: { provider: "stale" },
+              summary: "The required context provider is not admitted.",
+              help: "Reconcile the stale provider before selecting this consumer context.",
+            }),
+          );
+        }
+
+        return actualOffer(...args);
+      };
+
+      yield* Effect.provideContext(
+        d.lifecycle.command({
+          _tag: "actor:suspend",
+          cause: { _tag: "attachment" },
+        }),
+        assembly.context,
+      );
+
+      const changed = a.engine.dispatch(IntegrationProviderEvent);
+      assert.strictEqual(changed.admitted, true);
+      yield* Deferred.await(changed.completion);
+      yield* a.engine.drain();
+      const rejected = yield* assembly.contextCoordinator.drain();
+      assert.strictEqual(rejected[0]?.outcomes.get(b.fence.key), "rejected");
+      assert.strictEqual(rejected[0]?.outcomes.get(c.fence.key), "published");
+
+      const afterProviders = {
+        a: a.engine.snapshot(),
+        c: c.engine.snapshot(),
+      };
+
+      const freshRef = actorRef(IntegrationConsumerMachine, "context-admission-fresh");
+
+      const bindings = [
+        {
+          slot: "providerState" as const,
+          provider: b.identity.ref,
+          providerFence: b.fence,
+          select: ({ context }: ActorContextSnapshot<typeof IntegrationConsumerDefinition>) =>
+            context.providerState,
+        },
+        {
+          slot: "providerChanged" as const,
+          provider: c.identity.ref,
+          providerFence: c.fence,
+          select: ({ context }: ActorContextSnapshot<typeof IntegrationConsumerDefinition>) =>
+            context.providerChanged,
+        },
+      ];
+
+      const firstFresh = yield* Effect.exit(
+        assembly.createActor({
+          ref: freshRef,
+          initial: initialConsumerSnapshot(),
+          bindings,
+        }),
+      );
+
+      const firstFailure = Exit.isFailure(firstFresh)
+        ? firstFresh.cause.reasons.find(Cause.isFailReason)?.error
+        : undefined;
+
+      assert.strictEqual(firstFailure?.code, "MissingContextProvider");
+      assert.deepStrictEqual(firstFailure?.path, ["contextBindings", "providerChanged"]);
+      assert.deepStrictEqual(firstFailure?.details, {
+        provider: c.fence.key,
+        ancestor: a.fence.key,
+        reason: "incompatible-ancestor-cut",
+      });
+      assert.deepStrictEqual(a.engine.snapshot(), afterProviders.a);
+      assert.deepStrictEqual(c.engine.snapshot(), afterProviders.c);
+      assert.strictEqual(yield* assembly.getActor(freshRef), undefined);
+
+      const resumeFailure = yield* Effect.exit(
+        Effect.provideContext(
+          d.lifecycle.command({
+            _tag: "actor:resume",
+            cause: { _tag: "attachment" },
+          }),
+          assembly.context,
+        ),
+      );
+
+      const resumeError = Exit.isFailure(resumeFailure)
+        ? resumeFailure.cause.reasons.find(Cause.isFailReason)?.error
+        : undefined;
+
+      assert.strictEqual(resumeError?.code, "MissingContextProvider");
+      assert.deepStrictEqual(resumeError?.path, ["contextBindings", "providerChanged"]);
+      assert.deepStrictEqual(resumeError?.details, {
+        provider: c.fence.key,
+        ancestor: a.fence.key,
+        reason: "incompatible-ancestor-cut",
+      });
+      assert.strictEqual(d.engine.snapshot().lifecycle, "suspended");
+      assert.deepStrictEqual(a.engine.snapshot(), afterProviders.a);
+      assert.deepStrictEqual(c.engine.snapshot(), afterProviders.c);
+
+      yield* Effect.provideContext(
+        b.lifecycle.command({
+          _tag: "actor:suspend",
+          cause: { _tag: "attachment" },
+        }),
+        assembly.context,
+      );
+
+      const reconciledB = yield* Effect.provideContext(
+        b.lifecycle.command({
+          _tag: "actor:resume",
+          cause: { _tag: "attachment" },
+        }),
+        assembly.context,
+      );
+
+      assert.strictEqual(reconciledB.lifecycle, "active");
+      assert.strictEqual(
+        b.engine.snapshot().context.providerState,
+        IntegrationProviderDefinition.S.changed,
+      );
+
+      const fresh = yield* assembly.createActor({
+        ref: freshRef,
+        initial: initialConsumerSnapshot(),
+        bindings,
+      });
+
+      const resumedD = yield* Effect.provideContext(
+        d.lifecycle.command({
+          _tag: "actor:resume",
+          cause: { _tag: "attachment" },
+        }),
+        assembly.context,
+      );
+
+      assert.strictEqual(fresh.lifecycle.isRoutable(), true);
+      assert.strictEqual(resumedD.lifecycle, "active");
+      assert.strictEqual(a.engine.snapshot().state, IntegrationProviderDefinition.S.changed);
+      assert.strictEqual(
+        fresh.engine.snapshot().context.providerState,
+        IntegrationProviderDefinition.S.changed,
+      );
+      assert.strictEqual(
+        d.engine.snapshot().context.providerState,
+        IntegrationProviderDefinition.S.changed,
+      );
+
+      yield* runtimeOwner(runtime).close();
+    }),
+  );
 
   // Setup: Subscribe to a real assembled actor stream in its own Scope; use the first observed snapshot as a subscription handshake, then gate the reader with a Deferred. Record actual subscriber Scope finalization.
   // Action: While the reader is paused, complete several acknowledged actor turns and successful actor disposal; require disposal to finish before releasing the reader, then collect the remaining stream and close the subscriber Scope.
@@ -6382,5 +6612,67 @@ describe("pending regression scenarios", () => {
   // Setup: Initialize the selected real private Journal near counter exhaustion through its construction input; start actual actor admission, observe its terminal-credit acquisition, then fail a later delegated attachment/acquisition before activation or acceptance of the start record.
   // Action: Await complete reverse rollback, create another real actor using the reclaimed capacity, accept an ordinary turn when headroom permits, and dispose the actor and runtime.
   // Assert: Failed admission releases its unused credit exactly once and exposes no actor or partial record; the next owner can use that headroom, accepted sequences remain contiguous in commit order, and close never waits on a credit whose acquisition was rolled back. Observe the real credit/acquisition capability, not a fabricated counter or public test setter.
-  it.todo("releases unused terminal credit when actor admission rolls back");
+  it.effect("releases unused terminal credit when actor admission rolls back", () =>
+    Effect.gen(function* () {
+      let exposeAttempts = 0;
+
+      const runtime = runtimeSetupForAdmissionTest({
+        app: IntegrationApp,
+        admissionProbe: {
+          beforeExpose: Effect.gen(function* () {
+            exposeAttempts += 1;
+
+            if (exposeAttempts === 1) yield* Effect.die(new Error("admission attachment failed"));
+          }),
+        },
+      }).construct();
+
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+      const journal = assembly.evidence.journal;
+      let creditReservations = 0;
+      let creditReleases = 0;
+      const actualRegisterActor = journal.registerActor;
+      const actualReleaseActor = journal.releaseActor;
+
+      journal.registerActor = (...args) => {
+        creditReservations += 1;
+
+        return actualRegisterActor(...args);
+      };
+
+      journal.releaseActor = (...args) => {
+        creditReleases += 1;
+
+        return actualReleaseActor(...args);
+      };
+
+      const ref = actorRef(IntegrationStandaloneMachine, "credit-rollback", { persist: true });
+
+      const first = yield* Effect.exit(
+        assembly.createActor({ ref, initial: initialStandaloneSnapshot() }),
+      );
+
+      assert.ok(Exit.isFailure(first));
+      assert.strictEqual(creditReservations, 1);
+      assert.strictEqual(creditReleases, 1);
+      assert.strictEqual(yield* assembly.getActor(ref), undefined);
+      assert.strictEqual(journal.sequence(), 0);
+
+      const retried = yield* assembly.createActor({ ref, initial: initialStandaloneSnapshot() });
+      assert.strictEqual(retried.identity.incarnation, 2);
+      assert.strictEqual(creditReservations, 2);
+      assert.strictEqual(creditReleases, 1);
+      const accepted = retried.engine.dispatch(IntegrationStandaloneEvent);
+      assert.strictEqual(accepted.admitted, true);
+      yield* Deferred.await(accepted.completion);
+      yield* retried.engine.drain();
+      assert.strictEqual(journal.sequence(), 2);
+
+      yield* Effect.provideContext(retried.dispose(), assembly.context);
+      assert.strictEqual(creditReleases, 2);
+      yield* runtimeOwner(runtime).close();
+      assert.strictEqual(creditReleases, 2);
+    }),
+  );
 });

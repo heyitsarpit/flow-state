@@ -1240,6 +1240,7 @@ export const resumeLifecycle = <
 >(
   input: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
   actorCell: ActorCell<LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>>,
+  beforeCommit?: () => Effect.Effect<void, CleanupError, RuntimeServiceContext>,
 ): Effect.Effect<
   LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
   PublicDiagnostic,
@@ -1269,7 +1270,8 @@ export const resumeLifecycle = <
 
   return reacquireAttachment(state, actorCell).pipe(
     Effect.flatMap((reacquired) =>
-      scheduleRetainedTimers(state, actorCell).pipe(
+      (beforeCommit?.() ?? Effect.void).pipe(
+        Effect.flatMap(() => scheduleRetainedTimers(state, actorCell)),
         Effect.map((timerWork) =>
           copySnapshot(
             actorCell,
@@ -1371,6 +1373,7 @@ const lifecycleCommandEffect = <
   state: LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
   command: LifecycleCommand<CleanupError>,
   actorCell: ActorCell<LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>>,
+  beforeResumeCommit?: () => Effect.Effect<void, CleanupError, RuntimeServiceContext>,
 ) => {
   switch (command._tag) {
     case "actor:restore":
@@ -1388,7 +1391,7 @@ const lifecycleCommandEffect = <
     case "actor:suspend":
       return suspendLifecycle(state, actorCell);
     case "actor:resume":
-      return resumeLifecycle(state, actorCell);
+      return resumeLifecycle(state, actorCell, beforeResumeCommit);
     case "actor:dispose":
       return disposeLifecycle(state, actorCell);
   }
@@ -1478,6 +1481,7 @@ export const runLifecycleCommand = <
   actorCell: ActorCell<LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>>,
   preparedEvidence?: LifecycleEvidencePreflight,
   onPreflightAccepted?: () => Effect.Effect<void, PublicDiagnostic, RuntimeServiceContext>,
+  beforeResumeCommit?: () => Effect.Effect<void, CleanupError, RuntimeServiceContext>,
 ): Effect.Effect<
   LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
   PublicDiagnostic,
@@ -1504,7 +1508,7 @@ export const runLifecycleCommand = <
     LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
     PublicDiagnostic,
     RuntimeServiceContext
-  > = lifecycleCommandEffect(state, command, actorCell);
+  > = lifecycleCommandEffect(state, command, actorCell, beforeResumeCommit);
 
   const initialPublication = command._tag === "actor:start" || command._tag === "actor:restore";
 
@@ -1669,6 +1673,7 @@ export type LifecycleController<
     command: LifecycleCommand<CleanupError>,
     preparedEvidence?: LifecycleEvidencePreflight,
     onPreflightAccepted?: () => Effect.Effect<void, PublicDiagnostic, RuntimeServiceContext>,
+    beforeResumeCommit?: () => Effect.Effect<void, CleanupError, RuntimeServiceContext>,
   ) => Effect.Effect<
     LifecycleSnapshot<DefinitionValue, CleanupError, ProviderDefinition>,
     PublicDiagnostic,
@@ -1856,7 +1861,7 @@ export const makeLifecycleController = <
     isRoutable: () =>
       owner.routing.current === "open" && ownerState(initial, actorCell).lifecycle === "active",
     state: () => Effect.sync(() => ownerState(initial, actorCell)),
-    command: (command, preparedEvidence, onPreflightAccepted) =>
+    command: (command, preparedEvidence, onPreflightAccepted, beforeResumeCommit) =>
       SynchronizedRef.modifyEffect(commandLock, () =>
         Effect.exit(
           Effect.gen(function* () {
@@ -1873,6 +1878,7 @@ export const makeLifecycleController = <
                     if (onPreflightAccepted !== undefined) yield* onPreflightAccepted();
                     generation = routing.block();
                   }),
+                beforeResumeCommit,
               ),
             );
 
