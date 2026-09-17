@@ -6,6 +6,9 @@ import { isTestSupportFile } from "../../shared/file-scope.ts";
 
 type RuleOptions = [{ sourceRoots?: string[]; phaseNames?: string[] }];
 type IdentifierNode = ESTree.IdentifierName | ESTree.IdentifierReference | ESTree.BindingIdentifier;
+type LiteralNode = Extract<ESTree.Expression, { type: "Literal" }>;
+type Truthiness = "truthy" | "falsy" | "unknown";
+type Nullishness = "nullish" | "non-nullish" | "unknown";
 
 const defaultSourceRoots = ["packages/flow-state-rewrite/src"] as const;
 const defaultPhaseNames = [
@@ -29,8 +32,8 @@ function normalized(value: string): string {
 }
 
 function inSourceRoot(filename: string, roots: readonly string[]): boolean {
-  const normalizedFilename = normalized(filename);
-  return roots.some((root) => normalizedFilename.includes(`/${normalized(root)}/`));
+  const value = normalized(filename);
+  return roots.some((root) => value.includes(`/${normalized(root)}/`));
 }
 
 function resolveVariable(sourceCode: SourceCode, identifier: IdentifierNode): Variable | null {
@@ -45,290 +48,10 @@ function resolveVariable(sourceCode: SourceCode, identifier: IdentifierNode): Va
 
 function variableDeclarator(variable: Variable): ESTree.VariableDeclarator | null {
   for (const definition of variable.defs) {
-    if (definition.type === "Variable" && definition.node.type === "VariableDeclarator") {
+    if (definition.type === "Variable" && definition.node.type === "VariableDeclarator")
       return definition.node;
-    }
   }
   return null;
-}
-
-function isOneShotAdmittedCapabilityWrite(variable: Variable, write: ESTree.Node | null): boolean {
-  if (write?.type !== "AssignmentExpression" || write.operator !== "=") return false;
-  if (
-    variable.name !== "admitted" ||
-    variable.references.filter((reference) => reference.isWrite() && !reference.init).length !== 1
-  )
-    return false;
-
-  const declarator = variableDeclarator(variable);
-  return (
-    declarator?.id.type === "Identifier" &&
-    declarator.init?.type === "Literal" &&
-    declarator.init.value === false &&
-    write.left.type === "Identifier" &&
-    write.right.type === "Literal" &&
-    write.right.value === true
-  );
-}
-
-function unwrapExpression(expression: ESTree.Expression): ESTree.Expression {
-  let current = expression;
-  while (
-    current.type === "ParenthesizedExpression" ||
-    current.type === "TSAsExpression" ||
-    current.type === "TSSatisfiesExpression" ||
-    current.type === "TSTypeAssertion" ||
-    current.type === "TSNonNullExpression" ||
-    current.type === "TSInstantiationExpression"
-  ) {
-    current = current.expression;
-  }
-  return current;
-}
-
-function rootIdentifier(node: ESTree.Expression): ESTree.IdentifierReference | null {
-  let current = unwrapExpression(node);
-  while (current.type === "MemberExpression") current = unwrapExpression(current.object);
-  return current.type === "Identifier" ? current : null;
-}
-
-type PhaseSource = {
-  variables: Set<Variable>;
-  wholeObject: boolean;
-  truthiness: "truthy" | "falsy" | "unknown";
-  nullishness: "nullish" | "non-nullish" | "unknown";
-};
-
-function emptyPhaseSource(overrides: Partial<PhaseSource> = {}): PhaseSource {
-  return {
-    variables: new Set(),
-    wholeObject: false,
-    truthiness: "unknown",
-    nullishness: "unknown",
-    ...overrides,
-  };
-}
-
-function definitelyFalseyLiteral(node: ESTree.Expression): boolean {
-  if (node.type !== "Literal") return false;
-  if (node.value === null) return true;
-  return typeof node.value === "boolean" ||
-    typeof node.value === "number" ||
-    typeof node.value === "string" ||
-    typeof node.value === "bigint"
-    ? !node.value
-    : false;
-}
-
-function definitelyUndefinedExpression(
-  sourceCode: SourceCode,
-  node: ESTree.Expression,
-  seen: Set<Variable> = new Set(),
-): boolean {
-  const unwrapped = unwrapExpression(node);
-  if (unwrapped !== node) return definitelyUndefinedExpression(sourceCode, unwrapped, seen);
-  if (unwrapped.type === "UnaryExpression" && unwrapped.operator === "void") return true;
-  if (unwrapped.type !== "Identifier") return false;
-  const variable = resolveVariable(sourceCode, unwrapped);
-  if (unwrapped.name === "undefined" && (variable === null || variable.defs.length === 0))
-    return true;
-  if (variable === null || seen.has(variable)) return false;
-  const declarator = variableDeclarator(variable);
-  if (declarator === null || declarator.init === null || declarator.id.type !== "Identifier")
-    return false;
-  const nextSeen = new Set(seen);
-  nextSeen.add(variable);
-  return definitelyUndefinedExpression(sourceCode, declarator.init, nextSeen);
-}
-
-function definitelyPrimitiveExpression(
-  sourceCode: SourceCode,
-  node: ESTree.Expression,
-  seen: Set<Variable> = new Set(),
-): boolean {
-  const unwrapped = unwrapExpression(node);
-  if (definitelyUndefinedExpression(sourceCode, unwrapped)) return true;
-  if (unwrapped.type === "Literal") {
-    return (
-      unwrapped.value === null ||
-      typeof unwrapped.value === "boolean" ||
-      typeof unwrapped.value === "number" ||
-      typeof unwrapped.value === "string" ||
-      typeof unwrapped.value === "bigint"
-    );
-  }
-  if (unwrapped.type !== "Identifier") return false;
-  const variable = resolveVariable(sourceCode, unwrapped);
-  if (variable === null || seen.has(variable)) return false;
-  const declarator = variableDeclarator(variable);
-  if (declarator === null || declarator.init === null || declarator.id.type !== "Identifier")
-    return false;
-  const nextSeen = new Set(seen);
-  nextSeen.add(variable);
-  return definitelyPrimitiveExpression(sourceCode, declarator.init, nextSeen);
-}
-
-type Truthiness = "truthy" | "falsy" | "unknown";
-type Nullishness = "nullish" | "non-nullish" | "unknown";
-
-function joinFact(left: Truthiness, right: Truthiness): Truthiness {
-  return left === right ? left : "unknown";
-}
-
-function joinNullishFact(left: Nullishness, right: Nullishness): Nullishness {
-  return left === right ? left : "unknown";
-}
-
-function expressionTruthiness(
-  sourceCode: SourceCode,
-  node: ESTree.Expression,
-  phaseVariables: Set<Variable>,
-  seen: Set<Variable> = new Set(),
-): Truthiness {
-  const unwrapped = unwrapExpression(node);
-  if (unwrapped !== node) return expressionTruthiness(sourceCode, unwrapped, phaseVariables, seen);
-  if (
-    unwrapped.type === "ObjectExpression" ||
-    unwrapped.type === "ArrayExpression" ||
-    unwrapped.type === "FunctionExpression" ||
-    unwrapped.type === "ArrowFunctionExpression" ||
-    unwrapped.type === "ClassExpression" ||
-    unwrapped.type === "NewExpression"
-  )
-    return "truthy";
-  if (definitelyFalseyLiteral(unwrapped) || definitelyUndefinedExpression(sourceCode, unwrapped))
-    return "falsy";
-  if (unwrapped.type === "Literal") return "truthy";
-  if (unwrapped.type === "UnaryExpression" && unwrapped.operator === "void") return "falsy";
-  if (unwrapped.type === "Identifier") {
-    const variable = resolveVariable(sourceCode, unwrapped);
-    if (variable === null) return unwrapped.name === "undefined" ? "falsy" : "unknown";
-    if (seen.has(variable)) return "unknown";
-    const declarator = variableDeclarator(variable);
-    if (declarator !== null && declarator.init !== null && declarator.id.type === "Identifier") {
-      const nextSeen = new Set(seen);
-      nextSeen.add(variable);
-      return expressionTruthiness(sourceCode, declarator.init, phaseVariables, nextSeen);
-    }
-    return "unknown";
-  }
-  if (unwrapped.type === "ConditionalExpression") {
-    const test = expressionTruthiness(sourceCode, unwrapped.test, phaseVariables);
-    if (test === "truthy")
-      return expressionTruthiness(sourceCode, unwrapped.consequent, phaseVariables, seen);
-    if (test === "falsy")
-      return expressionTruthiness(sourceCode, unwrapped.alternate, phaseVariables, seen);
-    return joinFact(
-      expressionTruthiness(sourceCode, unwrapped.consequent, phaseVariables, seen),
-      expressionTruthiness(sourceCode, unwrapped.alternate, phaseVariables, seen),
-    );
-  }
-  if (unwrapped.type === "LogicalExpression") {
-    const left = expressionTruthiness(sourceCode, unwrapped.left, phaseVariables, seen);
-    if (unwrapped.operator === "&&") {
-      if (left === "falsy") return left;
-      if (left === "truthy")
-        return expressionTruthiness(sourceCode, unwrapped.right, phaseVariables, seen);
-    } else if (unwrapped.operator === "||") {
-      if (left === "truthy") return left;
-      if (left === "falsy")
-        return expressionTruthiness(sourceCode, unwrapped.right, phaseVariables, seen);
-    } else {
-      const leftNullish = expressionNullishness(sourceCode, unwrapped.left, phaseVariables, seen);
-      if (leftNullish === "nullish")
-        return expressionTruthiness(sourceCode, unwrapped.right, phaseVariables, seen);
-      if (leftNullish === "non-nullish") return left;
-    }
-    return joinFact(left, expressionTruthiness(sourceCode, unwrapped.right, phaseVariables, seen));
-  }
-  return "unknown";
-}
-
-function expressionNullishness(
-  sourceCode: SourceCode,
-  node: ESTree.Expression,
-  phaseVariables: Set<Variable>,
-  seen: Set<Variable> = new Set(),
-): Nullishness {
-  const unwrapped = unwrapExpression(node);
-  if (unwrapped !== node) return expressionNullishness(sourceCode, unwrapped, phaseVariables, seen);
-  if (definitelyUndefinedExpression(sourceCode, unwrapped)) return "nullish";
-  if (unwrapped.type === "Literal") return unwrapped.value === null ? "nullish" : "non-nullish";
-  if (unwrapped.type === "UnaryExpression" && unwrapped.operator === "void") return "nullish";
-  if (
-    unwrapped.type === "ObjectExpression" ||
-    unwrapped.type === "ArrayExpression" ||
-    unwrapped.type === "FunctionExpression" ||
-    unwrapped.type === "ArrowFunctionExpression" ||
-    unwrapped.type === "ClassExpression" ||
-    unwrapped.type === "NewExpression"
-  )
-    return "non-nullish";
-  if (unwrapped.type === "Identifier") {
-    const variable = resolveVariable(sourceCode, unwrapped);
-    if (variable === null) return "unknown";
-    if (seen.has(variable)) return "unknown";
-    const declarator = variableDeclarator(variable);
-    if (declarator !== null && declarator.init !== null && declarator.id.type === "Identifier") {
-      const nextSeen = new Set(seen);
-      nextSeen.add(variable);
-      return expressionNullishness(sourceCode, declarator.init, phaseVariables, nextSeen);
-    }
-    return "unknown";
-  }
-  if (unwrapped.type === "ConditionalExpression") {
-    const test = expressionTruthiness(sourceCode, unwrapped.test, phaseVariables);
-    if (test === "truthy")
-      return expressionNullishness(sourceCode, unwrapped.consequent, phaseVariables, seen);
-    if (test === "falsy")
-      return expressionNullishness(sourceCode, unwrapped.alternate, phaseVariables, seen);
-    return joinNullishFact(
-      expressionNullishness(sourceCode, unwrapped.consequent, phaseVariables, seen),
-      expressionNullishness(sourceCode, unwrapped.alternate, phaseVariables, seen),
-    );
-  }
-  if (unwrapped.type === "LogicalExpression") {
-    const left = expressionTruthiness(sourceCode, unwrapped.left, phaseVariables, seen);
-    if (unwrapped.operator === "&&") {
-      if (left === "falsy")
-        return expressionNullishness(sourceCode, unwrapped.left, phaseVariables, seen);
-      if (left === "truthy")
-        return expressionNullishness(sourceCode, unwrapped.right, phaseVariables, seen);
-    } else if (unwrapped.operator === "||") {
-      if (left === "truthy")
-        return expressionNullishness(sourceCode, unwrapped.left, phaseVariables, seen);
-      if (left === "falsy")
-        return expressionNullishness(sourceCode, unwrapped.right, phaseVariables, seen);
-    } else {
-      const leftNullish = expressionNullishness(sourceCode, unwrapped.left, phaseVariables, seen);
-      if (leftNullish === "nullish")
-        return expressionNullishness(sourceCode, unwrapped.right, phaseVariables, seen);
-      if (leftNullish === "non-nullish") return leftNullish;
-    }
-    return joinNullishFact(
-      expressionNullishness(sourceCode, unwrapped.left, phaseVariables, seen),
-      expressionNullishness(sourceCode, unwrapped.right, phaseVariables, seen),
-    );
-  }
-  return "unknown";
-}
-
-function definitelyTruthyExpression(
-  sourceCode: SourceCode,
-  node: ESTree.Expression,
-  phaseVariables: Set<Variable>,
-  seen: Set<Variable> = new Set(),
-): boolean {
-  return expressionTruthiness(sourceCode, node, phaseVariables, seen) === "truthy";
-}
-
-function combinePhaseSources(left: PhaseSource, right: PhaseSource): PhaseSource {
-  return {
-    variables: new Set([...left.variables, ...right.variables]),
-    wholeObject: left.wholeObject && right.wholeObject,
-    truthiness: left.truthiness === right.truthiness ? left.truthiness : "unknown",
-    nullishness: left.nullishness === right.nullishness ? left.nullishness : "unknown",
-  };
 }
 
 function bindingIdentifiers(node: ESTree.Node, result: IdentifierNode[] = []): IdentifierNode[] {
@@ -356,23 +79,497 @@ function bindingIdentifiers(node: ESTree.Node, result: IdentifierNode[] = []): I
   return result;
 }
 
-function hasWriteTarget(sourceCode: SourceCode, node: ESTree.Node, variable: Variable): boolean {
-  if (node.type === "AssignmentExpression") {
-    return node.left.type === "Identifier" && resolveVariable(sourceCode, node.left) === variable;
-  }
-  if (node.type === "UpdateExpression") {
-    return (
-      node.argument.type === "Identifier" && resolveVariable(sourceCode, node.argument) === variable
-    );
-  }
-  if (node.type === "SequenceExpression") {
-    return node.expressions.some((expression) => hasWriteTarget(sourceCode, expression, variable));
-  }
-  return false;
+function unwrapExpression(expression: ESTree.Expression): ESTree.Expression {
+  let current = expression;
+  while (
+    current.type === "ParenthesizedExpression" ||
+    current.type === "TSAsExpression" ||
+    current.type === "TSSatisfiesExpression" ||
+    current.type === "TSTypeAssertion" ||
+    current.type === "TSNonNullExpression" ||
+    current.type === "TSInstantiationExpression"
+  )
+    current = current.expression;
+  return current;
 }
 
 function isNumericLiteral(node: ESTree.Node | null): boolean {
   return node?.type === "Literal" && typeof node.value === "number" && Number.isFinite(node.value);
+}
+
+function isOneShotAdmittedCapabilityWrite(variable: Variable, write: ESTree.Node | null): boolean {
+  if (write?.type !== "AssignmentExpression" || write.operator !== "=") return false;
+  if (
+    variable.name !== "admitted" ||
+    variable.references.filter((reference) => reference.isWrite() && !reference.init).length !== 1
+  )
+    return false;
+  const declarator = variableDeclarator(variable);
+  return (
+    declarator?.id.type === "Identifier" &&
+    declarator.init?.type === "Literal" &&
+    declarator.init.value === false &&
+    write.left.type === "Identifier" &&
+    write.right.type === "Literal" &&
+    write.right.value === true
+  );
+}
+
+type ExpressionFacts = {
+  object: boolean;
+  phaseObjects: Set<Variable>;
+  truthiness: Truthiness;
+  nullishness: Nullishness;
+};
+
+function unknownFacts(overrides: Partial<ExpressionFacts> = {}): ExpressionFacts {
+  return {
+    object: false,
+    phaseObjects: new Set(),
+    truthiness: "unknown",
+    nullishness: "unknown",
+    ...overrides,
+  };
+}
+
+function join<T extends string>(left: T, right: T): T | "unknown" {
+  return left === right ? left : ("unknown" as const);
+}
+
+function combineFacts(left: ExpressionFacts, right: ExpressionFacts): ExpressionFacts {
+  return {
+    object: left.object && right.object,
+    phaseObjects: new Set([...left.phaseObjects, ...right.phaseObjects]),
+    truthiness: join(left.truthiness, right.truthiness),
+    nullishness: join(left.nullishness, right.nullishness),
+  };
+}
+
+function definitelyUndefined(
+  sourceCode: SourceCode,
+  expression: ESTree.Expression,
+  seen: Set<Variable> = new Set(),
+): boolean {
+  const node = unwrapExpression(expression);
+  if (node.type === "UnaryExpression" && node.operator === "void") return true;
+  if (node.type !== "Identifier") return false;
+  const variable = resolveVariable(sourceCode, node);
+  if (node.name === "undefined" && (variable === null || variable.defs.length === 0)) return true;
+  if (variable === null || seen.has(variable)) return false;
+  const declarator = variableDeclarator(variable);
+  if (declarator?.id.type !== "Identifier" || declarator.init === null) return false;
+  const nextSeen = new Set(seen);
+  nextSeen.add(variable);
+  return definitelyUndefined(sourceCode, declarator.init, nextSeen);
+}
+
+function literalFacts(node: LiteralNode): ExpressionFacts {
+  const falsy = node.value === null || !node.value;
+  return {
+    object: false,
+    phaseObjects: new Set(),
+    truthiness: falsy ? "falsy" : "truthy",
+    nullishness: node.value === null ? "nullish" : "non-nullish",
+  };
+}
+
+function expressionFacts(
+  sourceCode: SourceCode,
+  expression: ESTree.Expression,
+  phaseObjects: Set<Variable>,
+  seen: Set<Variable> = new Set(),
+): ExpressionFacts {
+  const node = unwrapExpression(expression);
+  if (node.type === "AssignmentExpression")
+    return expressionFacts(sourceCode, node.right, phaseObjects, seen);
+  if (node.type === "SequenceExpression") {
+    const last = node.expressions.at(-1);
+    return last === undefined
+      ? unknownFacts()
+      : expressionFacts(sourceCode, last, phaseObjects, seen);
+  }
+  if (node.type === "Identifier") {
+    const variable = resolveVariable(sourceCode, node);
+    if (variable === null)
+      return node.name === "undefined"
+        ? unknownFacts({ truthiness: "falsy", nullishness: "nullish" })
+        : unknownFacts();
+    if (phaseObjects.has(variable))
+      return unknownFacts({
+        object: true,
+        phaseObjects: new Set([variable]),
+        truthiness: "truthy",
+        nullishness: "non-nullish",
+      });
+    if (seen.has(variable)) return unknownFacts();
+    const declarator = variableDeclarator(variable);
+    if (declarator?.id.type !== "Identifier" || declarator.init === null) return unknownFacts();
+    const nextSeen = new Set(seen);
+    nextSeen.add(variable);
+    return expressionFacts(sourceCode, declarator.init, phaseObjects, nextSeen);
+  }
+  if (node.type === "Literal") return literalFacts(node);
+  if (node.type === "UnaryExpression" && node.operator === "void")
+    return unknownFacts({ truthiness: "falsy", nullishness: "nullish" });
+  if (node.type === "ObjectExpression") {
+    const phaseSources = new Set<Variable>();
+    for (const property of node.properties) {
+      if (property.type !== "SpreadElement") continue;
+      for (const variable of expressionFacts(sourceCode, property.argument, phaseObjects)
+        .phaseObjects)
+        phaseSources.add(variable);
+    }
+    return unknownFacts({
+      object: true,
+      phaseObjects: phaseSources,
+      truthiness: "truthy",
+      nullishness: "non-nullish",
+    });
+  }
+  if (
+    node.type === "ArrayExpression" ||
+    node.type === "FunctionExpression" ||
+    node.type === "ArrowFunctionExpression" ||
+    node.type === "ClassExpression" ||
+    node.type === "NewExpression"
+  )
+    return unknownFacts({ object: true, truthiness: "truthy", nullishness: "non-nullish" });
+  if (node.type === "ConditionalExpression") {
+    const test = expressionFacts(sourceCode, node.test, phaseObjects);
+    if (test.truthiness === "truthy")
+      return expressionFacts(sourceCode, node.consequent, phaseObjects, seen);
+    if (test.truthiness === "falsy")
+      return expressionFacts(sourceCode, node.alternate, phaseObjects, seen);
+    return combineFacts(
+      expressionFacts(sourceCode, node.consequent, phaseObjects, seen),
+      expressionFacts(sourceCode, node.alternate, phaseObjects, seen),
+    );
+  }
+  if (node.type === "LogicalExpression") {
+    const left = expressionFacts(sourceCode, node.left, phaseObjects, seen);
+    if (node.operator === "&&") {
+      if (left.truthiness === "falsy") return left;
+      if (left.truthiness === "truthy")
+        return expressionFacts(sourceCode, node.right, phaseObjects, seen);
+    } else if (node.operator === "||") {
+      if (left.truthiness === "truthy") return left;
+      if (left.truthiness === "falsy")
+        return expressionFacts(sourceCode, node.right, phaseObjects, seen);
+    } else {
+      if (left.nullishness === "nullish")
+        return expressionFacts(sourceCode, node.right, phaseObjects, seen);
+      if (left.nullishness === "non-nullish") return left;
+    }
+    return combineFacts(left, expressionFacts(sourceCode, node.right, phaseObjects, seen));
+  }
+  return unknownFacts({
+    truthiness: definitelyUndefined(sourceCode, node) ? "falsy" : "unknown",
+    nullishness: definitelyUndefined(sourceCode, node) ? "nullish" : "unknown",
+  });
+}
+
+function constantBranch(
+  sourceCode: SourceCode,
+  test: ESTree.Expression,
+  phaseObjects: Set<Variable>,
+): "consequent" | "alternate" | null {
+  const truthiness = expressionFacts(sourceCode, test, phaseObjects).truthiness;
+  return truthiness === "truthy" ? "consequent" : truthiness === "falsy" ? "alternate" : null;
+}
+
+type PathFacts = { sources: ESTree.Expression[]; maybeMissing: boolean };
+
+function pathFacts(sources: ESTree.Expression[] = [], maybeMissing = true): PathFacts {
+  return { sources, maybeMissing };
+}
+
+function combinePaths(left: PathFacts, right: PathFacts): PathFacts {
+  return pathFacts([...left.sources, ...right.sources], left.maybeMissing || right.maybeMissing);
+}
+
+function staticArrayLength(
+  sourceCode: SourceCode,
+  expression: ESTree.Expression,
+  phaseObjects: Set<Variable>,
+  seen: Set<Variable> = new Set(),
+): number | null {
+  const node = unwrapExpression(expression);
+  if (node.type === "AssignmentExpression")
+    return staticArrayLength(sourceCode, node.right, phaseObjects, seen);
+  if (node.type === "ArrayExpression") {
+    let length = 0;
+    for (const element of node.elements) {
+      if (element === null) {
+        length += 1;
+        continue;
+      }
+      if (element.type !== "SpreadElement") {
+        length += 1;
+        continue;
+      }
+      const spreadLength = staticArrayLength(sourceCode, element.argument, phaseObjects, seen);
+      if (spreadLength === null) return null;
+      length += spreadLength;
+    }
+    return length;
+  }
+  if (node.type === "ConditionalExpression") {
+    const branch = constantBranch(sourceCode, node.test, phaseObjects);
+    if (branch === "consequent")
+      return staticArrayLength(sourceCode, node.consequent, phaseObjects, seen);
+    if (branch === "alternate")
+      return staticArrayLength(sourceCode, node.alternate, phaseObjects, seen);
+    const left = staticArrayLength(sourceCode, node.consequent, phaseObjects, seen);
+    const right = staticArrayLength(sourceCode, node.alternate, phaseObjects, seen);
+    return left !== null && left === right ? left : null;
+  }
+  if (node.type === "SequenceExpression") {
+    const last = node.expressions.at(-1);
+    return last === undefined ? null : staticArrayLength(sourceCode, last, phaseObjects, seen);
+  }
+  if (node.type !== "Identifier") return null;
+  const variable = resolveVariable(sourceCode, node);
+  if (variable === null || seen.has(variable)) return null;
+  const declarator = variableDeclarator(variable);
+  if (declarator?.id.type !== "Identifier" || declarator.init === null) return null;
+  const nextSeen = new Set(seen);
+  nextSeen.add(variable);
+  return staticArrayLength(sourceCode, declarator.init, phaseObjects, nextSeen);
+}
+
+function arrayElementSources(
+  sourceCode: SourceCode,
+  expression: ESTree.Expression,
+  index: number,
+  phaseObjects: Set<Variable>,
+  seen: Set<Variable> = new Set(),
+): PathFacts {
+  const node = unwrapExpression(expression);
+  if (node.type === "AssignmentExpression")
+    return arrayElementSources(sourceCode, node.right, index, phaseObjects, seen);
+  if (node.type === "ArrayExpression") {
+    let offset = 0;
+    for (const element of node.elements) {
+      if (element === null) {
+        if (offset === index) return pathFacts();
+        offset += 1;
+        continue;
+      }
+      if (element.type !== "SpreadElement") {
+        if (offset === index) return pathFacts([element], false);
+        offset += 1;
+        continue;
+      }
+      const spreadLength = staticArrayLength(sourceCode, element.argument, phaseObjects);
+      if (spreadLength === null) return pathFacts();
+      if (index >= offset && index < offset + spreadLength)
+        return arrayElementSources(
+          sourceCode,
+          element.argument,
+          index - offset,
+          phaseObjects,
+          seen,
+        );
+      offset += spreadLength;
+    }
+    return pathFacts();
+  }
+  if (node.type === "ConditionalExpression") {
+    const branch = constantBranch(sourceCode, node.test, phaseObjects);
+    if (branch === "consequent")
+      return arrayElementSources(sourceCode, node.consequent, index, phaseObjects, seen);
+    if (branch === "alternate")
+      return arrayElementSources(sourceCode, node.alternate, index, phaseObjects, seen);
+    return combinePaths(
+      arrayElementSources(sourceCode, node.consequent, index, phaseObjects, seen),
+      arrayElementSources(sourceCode, node.alternate, index, phaseObjects, seen),
+    );
+  }
+  if (node.type === "LogicalExpression") {
+    const left = expressionFacts(sourceCode, node.left, phaseObjects);
+    if (node.operator === "&&") {
+      if (left.truthiness === "falsy") return pathFacts();
+      if (left.truthiness === "truthy")
+        return arrayElementSources(sourceCode, node.right, index, phaseObjects, seen);
+    } else if (node.operator === "||") {
+      if (left.truthiness === "truthy")
+        return arrayElementSources(sourceCode, node.left, index, phaseObjects, seen);
+      if (left.truthiness === "falsy")
+        return arrayElementSources(sourceCode, node.right, index, phaseObjects, seen);
+    } else {
+      if (left.nullishness === "nullish")
+        return arrayElementSources(sourceCode, node.right, index, phaseObjects, seen);
+      if (left.nullishness === "non-nullish")
+        return arrayElementSources(sourceCode, node.left, index, phaseObjects, seen);
+    }
+    return combinePaths(
+      arrayElementSources(sourceCode, node.left, index, phaseObjects, seen),
+      arrayElementSources(sourceCode, node.right, index, phaseObjects, seen),
+    );
+  }
+  if (node.type === "SequenceExpression") {
+    const last = node.expressions.at(-1);
+    return last === undefined
+      ? pathFacts()
+      : arrayElementSources(sourceCode, last, index, phaseObjects, seen);
+  }
+  if (node.type !== "Identifier") return pathFacts();
+  const variable = resolveVariable(sourceCode, node);
+  if (variable === null || seen.has(variable)) return pathFacts();
+  const declarator = variableDeclarator(variable);
+  if (declarator?.id.type !== "Identifier" || declarator.init === null) return pathFacts();
+  const nextSeen = new Set(seen);
+  nextSeen.add(variable);
+  return arrayElementSources(sourceCode, declarator.init, index, phaseObjects, nextSeen);
+}
+
+function objectPropertyName(node: ESTree.Node): string | null {
+  if (node.type !== "Property") return null;
+  if (!node.computed && node.key.type === "Identifier") return node.key.name;
+  if (node.computed && node.key.type === "Literal" && typeof node.key.value === "string")
+    return node.key.value;
+  return null;
+}
+
+function objectPropertySources(
+  sourceCode: SourceCode,
+  expression: ESTree.Expression,
+  key: string,
+  phaseObjects: Set<Variable>,
+  seen: Set<Variable> = new Set(),
+): PathFacts {
+  const node = unwrapExpression(expression);
+  if (node.type === "AssignmentExpression")
+    return objectPropertySources(sourceCode, node.right, key, phaseObjects, seen);
+  if (node.type === "ObjectExpression") {
+    const spreadSources: ESTree.Expression[] = [];
+    for (let index = node.properties.length - 1; index >= 0; index -= 1) {
+      const property = node.properties[index];
+      if (property?.type === "Property" && objectPropertyName(property) === key)
+        return pathFacts([...spreadSources, property.value], false);
+      if (property?.type === "SpreadElement") {
+        const spread = objectPropertySources(
+          sourceCode,
+          property.argument,
+          key,
+          phaseObjects,
+          seen,
+        );
+        spreadSources.push(...spread.sources);
+        if (!spread.maybeMissing) return pathFacts(spreadSources, false);
+      }
+    }
+    return pathFacts(spreadSources);
+  }
+  if (node.type === "ConditionalExpression") {
+    const branch = constantBranch(sourceCode, node.test, phaseObjects);
+    if (branch === "consequent")
+      return objectPropertySources(sourceCode, node.consequent, key, phaseObjects, seen);
+    if (branch === "alternate")
+      return objectPropertySources(sourceCode, node.alternate, key, phaseObjects, seen);
+    return combinePaths(
+      objectPropertySources(sourceCode, node.consequent, key, phaseObjects, seen),
+      objectPropertySources(sourceCode, node.alternate, key, phaseObjects, seen),
+    );
+  }
+  if (node.type === "SequenceExpression") {
+    const last = node.expressions.at(-1);
+    return last === undefined
+      ? pathFacts()
+      : objectPropertySources(sourceCode, last, key, phaseObjects, seen);
+  }
+  if (node.type !== "Identifier") return pathFacts();
+  const variable = resolveVariable(sourceCode, node);
+  if (variable === null || seen.has(variable)) return pathFacts();
+  const declarator = variableDeclarator(variable);
+  if (declarator?.id.type !== "Identifier" || declarator.init === null) return pathFacts();
+  const nextSeen = new Set(seen);
+  nextSeen.add(variable);
+  return objectPropertySources(sourceCode, declarator.init, key, phaseObjects, nextSeen);
+}
+
+function mayBeUndefined(
+  sourceCode: SourceCode,
+  expression: ESTree.Expression,
+  phaseObjects: Set<Variable>,
+): boolean {
+  const node = unwrapExpression(expression);
+  if (definitelyUndefined(sourceCode, node)) return true;
+  if (node.type === "ConditionalExpression") {
+    const branch = constantBranch(sourceCode, node.test, phaseObjects);
+    if (branch === "consequent") return mayBeUndefined(sourceCode, node.consequent, phaseObjects);
+    if (branch === "alternate") return mayBeUndefined(sourceCode, node.alternate, phaseObjects);
+    return (
+      mayBeUndefined(sourceCode, node.consequent, phaseObjects) ||
+      mayBeUndefined(sourceCode, node.alternate, phaseObjects)
+    );
+  }
+  if (node.type === "LogicalExpression") {
+    const left = expressionFacts(sourceCode, node.left, phaseObjects);
+    if (node.operator === "&&") {
+      if (left.truthiness === "truthy") return mayBeUndefined(sourceCode, node.right, phaseObjects);
+      if (left.truthiness === "falsy") return mayBeUndefined(sourceCode, node.left, phaseObjects);
+    } else if (node.operator === "||") {
+      if (left.truthiness === "truthy") return mayBeUndefined(sourceCode, node.left, phaseObjects);
+      if (left.truthiness === "falsy") return mayBeUndefined(sourceCode, node.right, phaseObjects);
+    } else {
+      if (left.nullishness === "nullish")
+        return mayBeUndefined(sourceCode, node.right, phaseObjects);
+      if (left.nullishness === "non-nullish")
+        return mayBeUndefined(sourceCode, node.left, phaseObjects);
+    }
+    return (
+      mayBeUndefined(sourceCode, node.left, phaseObjects) ||
+      mayBeUndefined(sourceCode, node.right, phaseObjects)
+    );
+  }
+  if (node.type === "SequenceExpression") {
+    const last = node.expressions.at(-1);
+    return last !== undefined && mayBeUndefined(sourceCode, last, phaseObjects);
+  }
+  if (node.type === "Identifier") {
+    const variable = resolveVariable(sourceCode, node);
+    const declarator = variable === null ? null : variableDeclarator(variable);
+    return (
+      declarator?.id.type === "Identifier" &&
+      declarator.init !== null &&
+      mayBeUndefined(sourceCode, declarator.init, phaseObjects)
+    );
+  }
+  return false;
+}
+
+function assignmentTargets(
+  node: ESTree.Node,
+  result: { identifiers: IdentifierNode[]; members: ESTree.MemberExpression[] } = {
+    identifiers: [],
+    members: [],
+  },
+): { identifiers: IdentifierNode[]; members: ESTree.MemberExpression[] } {
+  if (node.type === "Identifier") result.identifiers.push(node);
+  else if (node.type === "MemberExpression") result.members.push(node);
+  else if (node.type === "AssignmentPattern") assignmentTargets(node.left, result);
+  else if (node.type === "RestElement") assignmentTargets(node.argument, result);
+  else if (node.type === "ArrayPattern") {
+    for (const element of node.elements) if (element !== null) assignmentTargets(element, result);
+  } else if (node.type === "ObjectPattern") {
+    for (const property of node.properties)
+      assignmentTargets(property.type === "Property" ? property.value : property.argument, result);
+  }
+  return result;
+}
+
+function hasWriteTarget(sourceCode: SourceCode, node: ESTree.Node, variable: Variable): boolean {
+  if (node.type === "AssignmentExpression")
+    return node.left.type === "Identifier" && resolveVariable(sourceCode, node.left) === variable;
+  if (node.type === "UpdateExpression")
+    return (
+      node.argument.type === "Identifier" && resolveVariable(sourceCode, node.argument) === variable
+    );
+  return (
+    node.type === "SequenceExpression" &&
+    node.expressions.some((expression) => hasWriteTarget(sourceCode, expression, variable))
+  );
 }
 
 function isVariableReference(
@@ -381,29 +578,25 @@ function isVariableReference(
   variable: Variable,
 ): boolean {
   if (node.type === "Identifier") return resolveVariable(sourceCode, node) === variable;
-  if (node.type === "MemberExpression") {
+  if (node.type === "MemberExpression")
     return (
       isVariableReference(sourceCode, node.object, variable) ||
       (node.computed && isVariableReference(sourceCode, node.property, variable))
     );
-  }
-  if (node.type === "BinaryExpression" || node.type === "LogicalExpression") {
+  if (node.type === "BinaryExpression" || node.type === "LogicalExpression")
     return (
       isVariableReference(sourceCode, node.left, variable) ||
       isVariableReference(sourceCode, node.right, variable)
     );
-  }
-  if (node.type === "UnaryExpression" || node.type === "AwaitExpression") {
+  if (node.type === "UnaryExpression" || node.type === "AwaitExpression")
     return isVariableReference(sourceCode, node.argument, variable);
-  }
-  if (node.type === "ConditionalExpression") {
+  if (node.type === "ConditionalExpression")
     return (
       isVariableReference(sourceCode, node.test, variable) ||
       isVariableReference(sourceCode, node.consequent, variable) ||
       isVariableReference(sourceCode, node.alternate, variable)
     );
-  }
-  if (node.type === "CallExpression" || node.type === "NewExpression") {
+  if (node.type === "CallExpression" || node.type === "NewExpression")
     return (
       isVariableReference(sourceCode, node.callee, variable) ||
       node.arguments.some(
@@ -411,16 +604,15 @@ function isVariableReference(
           argument.type !== "SpreadElement" && isVariableReference(sourceCode, argument, variable),
       )
     );
-  }
   return false;
 }
 
 function isCursorBound(node: ESTree.Node): boolean {
-  if (isNumericLiteral(node)) return true;
   return (
-    node.type === "MemberExpression" &&
-    ((!node.computed && node.property.type === "Identifier" && node.property.name === "length") ||
-      (node.computed && node.property.type === "Literal" && node.property.value === "length"))
+    isNumericLiteral(node) ||
+    (node.type === "MemberExpression" &&
+      ((!node.computed && node.property.type === "Identifier" && node.property.name === "length") ||
+        (node.computed && node.property.type === "Literal" && node.property.value === "length")))
   );
 }
 
@@ -442,12 +634,11 @@ function isNumericCursorUpdate(
   node: ESTree.Node,
   variable: Variable,
 ): boolean {
-  if (node.type === "UpdateExpression") {
+  if (node.type === "UpdateExpression")
     return (
       (node.operator === "++" || node.operator === "--") &&
       hasWriteTarget(sourceCode, node, variable)
     );
-  }
   if (node.type !== "AssignmentExpression" || !hasWriteTarget(sourceCode, node, variable))
     return false;
   if ((node.operator === "+=" || node.operator === "-=") && isNumericLiteral(node.right))
@@ -479,435 +670,14 @@ function cursorUpdateNode(
     !isCursorTest(sourceCode, declarator.parent.parent.test, variable)
   )
     return null;
-
   const update = declarator.parent.parent.update;
-  if (update.type === "SequenceExpression") {
+  if (update.type === "SequenceExpression")
     return (
       update.expressions.find((expression) =>
         isNumericCursorUpdate(sourceCode, expression, variable),
       ) ?? null
     );
-  }
   return isNumericCursorUpdate(sourceCode, update, variable) ? update : null;
-}
-
-function phaseSourceInfo(
-  sourceCode: SourceCode,
-  node: ESTree.Expression,
-  phaseVariables: Set<Variable>,
-): PhaseSource {
-  const unwrapped = unwrapExpression(node);
-  if (unwrapped !== node) return phaseSourceInfo(sourceCode, unwrapped, phaseVariables);
-  if (unwrapped.type === "AssignmentExpression")
-    return phaseSourceInfo(sourceCode, unwrapped.right, phaseVariables);
-  if (unwrapped.type === "Identifier") {
-    const variable = resolveVariable(sourceCode, unwrapped);
-    const declarator = variable === null ? null : variableDeclarator(variable);
-    const primitiveInitializer =
-      declarator !== null &&
-      declarator.init !== null &&
-      definitelyPrimitiveExpression(sourceCode, declarator.init);
-    const truthiness = expressionTruthiness(sourceCode, unwrapped, phaseVariables);
-    const nullishness = expressionNullishness(sourceCode, unwrapped, phaseVariables);
-    const wholeObject =
-      truthiness === "truthy" &&
-      nullishness === "non-nullish" &&
-      variable !== null &&
-      !primitiveInitializer &&
-      (phaseVariables.has(variable) ||
-        definitelyTruthyExpression(sourceCode, unwrapped, phaseVariables));
-    return emptyPhaseSource({
-      variables: variable !== null && wholeObject ? new Set([variable]) : new Set(),
-      wholeObject,
-      truthiness,
-      nullishness,
-    });
-  }
-  if (
-    unwrapped.type === "ObjectExpression" ||
-    unwrapped.type === "ArrayExpression" ||
-    unwrapped.type === "FunctionExpression" ||
-    unwrapped.type === "ArrowFunctionExpression" ||
-    unwrapped.type === "ClassExpression" ||
-    unwrapped.type === "NewExpression"
-  ) {
-    const variables = new Set<Variable>();
-    if (unwrapped.type === "ObjectExpression") {
-      for (const property of unwrapped.properties) {
-        if (property.type !== "SpreadElement") continue;
-        const spread = phaseSourceInfo(sourceCode, property.argument, phaseVariables);
-        if (!spread.wholeObject) continue;
-        for (const variable of spread.variables) variables.add(variable);
-      }
-    }
-    return emptyPhaseSource({
-      variables,
-      wholeObject: true,
-      truthiness: "truthy",
-      nullishness: "non-nullish",
-    });
-  }
-  if (unwrapped.type === "Literal") {
-    return emptyPhaseSource({
-      truthiness: definitelyFalseyLiteral(unwrapped) ? "falsy" : "truthy",
-      nullishness: unwrapped.value === null ? "nullish" : "non-nullish",
-    });
-  }
-  if (unwrapped.type === "ConditionalExpression") {
-    const test = expressionTruthiness(sourceCode, unwrapped.test, phaseVariables);
-    if (test === "truthy") return phaseSourceInfo(sourceCode, unwrapped.consequent, phaseVariables);
-    if (test === "falsy") return phaseSourceInfo(sourceCode, unwrapped.alternate, phaseVariables);
-    return combinePhaseSources(
-      phaseSourceInfo(sourceCode, unwrapped.consequent, phaseVariables),
-      phaseSourceInfo(sourceCode, unwrapped.alternate, phaseVariables),
-    );
-  }
-  if (unwrapped.type === "LogicalExpression") {
-    const left = phaseSourceInfo(sourceCode, unwrapped.left, phaseVariables);
-    const right = phaseSourceInfo(sourceCode, unwrapped.right, phaseVariables);
-    if (unwrapped.operator === "&&") {
-      if (left.truthiness === "truthy") return right;
-      if (left.truthiness === "falsy") return left;
-      return combinePhaseSources(left, right);
-    }
-    if (unwrapped.operator === "||") {
-      if (left.truthiness === "truthy") return left;
-      if (left.truthiness === "falsy") return right;
-      return combinePhaseSources(left, right);
-    }
-    if (left.nullishness === "nullish") return right;
-    if (left.nullishness === "non-nullish") return left;
-    return combinePhaseSources(left, right);
-  }
-  return emptyPhaseSource({
-    truthiness: expressionTruthiness(sourceCode, unwrapped, phaseVariables),
-    nullishness: expressionNullishness(sourceCode, unwrapped, phaseVariables),
-  });
-}
-
-function phaseSourceVariables(
-  sourceCode: SourceCode,
-  node: ESTree.Expression,
-  phaseVariables: Set<Variable>,
-): Set<Variable> {
-  const source = phaseSourceInfo(sourceCode, node, phaseVariables);
-  return source.wholeObject ? source.variables : new Set();
-}
-
-function constantBranch(
-  sourceCode: SourceCode,
-  test: ESTree.Expression,
-  phaseVariables: Set<Variable>,
-): "consequent" | "alternate" | null {
-  const facts = phaseSourceInfo(sourceCode, test, phaseVariables);
-  if (facts.truthiness === "truthy") return "consequent";
-  if (facts.truthiness === "falsy") return "alternate";
-  return null;
-}
-
-function staticArrayLength(
-  sourceCode: SourceCode,
-  source: ESTree.Expression,
-  phaseVariables: Set<Variable>,
-  seen: Set<Variable> = new Set(),
-): number | null {
-  const unwrapped = unwrapExpression(source);
-  if (unwrapped !== source) return staticArrayLength(sourceCode, unwrapped, phaseVariables, seen);
-  if (unwrapped.type === "ArrayExpression") {
-    let length = 0;
-    for (const element of unwrapped.elements) {
-      if (element === null) {
-        length += 1;
-        continue;
-      }
-      if (element.type !== "SpreadElement") {
-        length += 1;
-        continue;
-      }
-      const spreadLength = staticArrayLength(sourceCode, element.argument, phaseVariables, seen);
-      if (spreadLength === null) return null;
-      length += spreadLength;
-    }
-    return length;
-  }
-  if (unwrapped.type === "ConditionalExpression") {
-    const choice = constantBranch(sourceCode, unwrapped.test, phaseVariables);
-    if (choice === "consequent")
-      return staticArrayLength(sourceCode, unwrapped.consequent, phaseVariables, seen);
-    if (choice === "alternate")
-      return staticArrayLength(sourceCode, unwrapped.alternate, phaseVariables, seen);
-    const left = staticArrayLength(sourceCode, unwrapped.consequent, phaseVariables, seen);
-    const right = staticArrayLength(sourceCode, unwrapped.alternate, phaseVariables, seen);
-    return left !== null && left === right ? left : null;
-  }
-  if (unwrapped.type === "SequenceExpression") {
-    const last = unwrapped.expressions.at(-1);
-    return last === undefined ? null : staticArrayLength(sourceCode, last, phaseVariables, seen);
-  }
-  if (unwrapped.type !== "Identifier") return null;
-  const variable = resolveVariable(sourceCode, unwrapped);
-  if (variable === null || seen.has(variable)) return null;
-  const declarator = variableDeclarator(variable);
-  if (declarator === null || declarator.init === null || declarator.id.type !== "Identifier")
-    return null;
-  const nextSeen = new Set(seen);
-  nextSeen.add(variable);
-  return staticArrayLength(sourceCode, declarator.init, phaseVariables, nextSeen);
-}
-
-type PhasePathFacts = {
-  sources: ESTree.Expression[];
-  maybeMissing: boolean;
-};
-
-function phasePathFacts(
-  sources: ESTree.Expression[] = [],
-  maybeMissing = true,
-): PhasePathFacts {
-  return { sources, maybeMissing };
-}
-
-function combinePhasePathFacts(
-  left: PhasePathFacts,
-  right: PhasePathFacts,
-): PhasePathFacts {
-  return phasePathFacts(
-    [...left.sources, ...right.sources],
-    left.maybeMissing || right.maybeMissing,
-  );
-}
-
-function arrayElementSources(
-  sourceCode: SourceCode,
-  source: ESTree.Expression,
-  index: number,
-  phaseVariables: Set<Variable>,
-  seen: Set<Variable> = new Set(),
-): PhasePathFacts {
-  const unwrapped = unwrapExpression(source);
-  if (unwrapped !== source)
-    return arrayElementSources(sourceCode, unwrapped, index, phaseVariables, seen);
-  if (unwrapped.type === "AssignmentExpression")
-    return arrayElementSources(sourceCode, unwrapped.right, index, phaseVariables, seen);
-  if (unwrapped.type === "ArrayExpression") {
-    let offset = 0;
-    for (const element of unwrapped.elements) {
-      if (element === null) {
-        if (offset === index) return phasePathFacts();
-        offset += 1;
-        continue;
-      }
-      if (element.type !== "SpreadElement") {
-        if (offset === index) return phasePathFacts([element], false);
-        offset += 1;
-        continue;
-      }
-      const spreadLength = staticArrayLength(sourceCode, element.argument, phaseVariables);
-      if (spreadLength === null) return phasePathFacts();
-      if (index >= offset && index < offset + spreadLength)
-        return arrayElementSources(
-          sourceCode,
-          element.argument,
-          index - offset,
-          phaseVariables,
-          seen,
-        );
-      offset += spreadLength;
-    }
-    return phasePathFacts();
-  }
-  if (unwrapped.type === "ConditionalExpression") {
-    const choice = constantBranch(sourceCode, unwrapped.test, phaseVariables);
-    if (choice === "consequent")
-      return arrayElementSources(sourceCode, unwrapped.consequent, index, phaseVariables, seen);
-    if (choice === "alternate")
-      return arrayElementSources(sourceCode, unwrapped.alternate, index, phaseVariables, seen);
-    return combinePhasePathFacts(
-      arrayElementSources(sourceCode, unwrapped.consequent, index, phaseVariables, seen),
-      arrayElementSources(sourceCode, unwrapped.alternate, index, phaseVariables, seen),
-    );
-  }
-  if (unwrapped.type === "LogicalExpression") {
-    const left = phaseSourceInfo(sourceCode, unwrapped.left, phaseVariables);
-    if (unwrapped.operator === "&&") {
-      if (left.truthiness === "falsy") return phasePathFacts();
-      if (left.truthiness === "truthy")
-        return arrayElementSources(sourceCode, unwrapped.right, index, phaseVariables, seen);
-    } else if (unwrapped.operator === "||") {
-      if (left.truthiness === "truthy")
-        return arrayElementSources(sourceCode, unwrapped.left, index, phaseVariables, seen);
-      if (left.truthiness === "falsy")
-        return arrayElementSources(sourceCode, unwrapped.right, index, phaseVariables, seen);
-    } else {
-      if (left.nullishness === "nullish")
-        return arrayElementSources(sourceCode, unwrapped.right, index, phaseVariables, seen);
-      if (left.nullishness === "non-nullish")
-        return arrayElementSources(sourceCode, unwrapped.left, index, phaseVariables, seen);
-    }
-    return combinePhasePathFacts(
-      arrayElementSources(sourceCode, unwrapped.left, index, phaseVariables, seen),
-      arrayElementSources(sourceCode, unwrapped.right, index, phaseVariables, seen),
-    );
-  }
-  if (unwrapped.type === "SequenceExpression") {
-    const last = unwrapped.expressions.at(-1);
-    return last === undefined
-      ? phasePathFacts()
-      : arrayElementSources(sourceCode, last, index, phaseVariables, seen);
-  }
-  if (unwrapped.type !== "Identifier") return phasePathFacts();
-  const variable = resolveVariable(sourceCode, unwrapped);
-  if (variable === null || seen.has(variable)) return phasePathFacts();
-  const declarator = variableDeclarator(variable);
-  if (declarator === null || declarator.init === null || declarator.id.type !== "Identifier")
-    return phasePathFacts();
-  const nextSeen = new Set(seen);
-  nextSeen.add(variable);
-  return arrayElementSources(sourceCode, declarator.init, index, phaseVariables, nextSeen);
-}
-
-function objectPropertyName(node: ESTree.Node): string | null {
-  if (node.type !== "Property") return null;
-  if (!node.computed && node.key.type === "Identifier") return node.key.name;
-  if (node.computed && node.key.type === "Literal" && typeof node.key.value === "string")
-    return node.key.value;
-  return null;
-}
-
-function objectPropertySources(
-  sourceCode: SourceCode,
-  source: ESTree.Expression,
-  key: string,
-  phaseVariables: Set<Variable>,
-  seen: Set<Variable> = new Set(),
-): PhasePathFacts {
-  const unwrapped = unwrapExpression(source);
-  if (unwrapped !== source)
-    return objectPropertySources(sourceCode, unwrapped, key, phaseVariables, seen);
-  if (unwrapped.type === "AssignmentExpression")
-    return objectPropertySources(sourceCode, unwrapped.right, key, phaseVariables, seen);
-  if (unwrapped.type === "ObjectExpression") {
-    let possibleSources: ESTree.Expression[] = [];
-    for (let index = unwrapped.properties.length - 1; index >= 0; index -= 1) {
-      const property = unwrapped.properties[index];
-      if (property?.type === "Property" && objectPropertyName(property) === key)
-        return phasePathFacts([...possibleSources, property.value], false);
-      if (property?.type === "SpreadElement") {
-        const spreadSources = objectPropertySources(
-          sourceCode,
-          property.argument,
-          key,
-          phaseVariables,
-          seen,
-        );
-        possibleSources.push(...spreadSources.sources);
-        if (!spreadSources.maybeMissing) return phasePathFacts(possibleSources, false);
-      }
-    }
-    return phasePathFacts(possibleSources);
-  }
-  if (unwrapped.type === "ConditionalExpression") {
-    const choice = constantBranch(sourceCode, unwrapped.test, phaseVariables);
-    if (choice === "consequent")
-      return objectPropertySources(sourceCode, unwrapped.consequent, key, phaseVariables, seen);
-    if (choice === "alternate")
-      return objectPropertySources(sourceCode, unwrapped.alternate, key, phaseVariables, seen);
-    return combinePhasePathFacts(
-      objectPropertySources(sourceCode, unwrapped.consequent, key, phaseVariables, seen),
-      objectPropertySources(sourceCode, unwrapped.alternate, key, phaseVariables, seen),
-    );
-  }
-  if (unwrapped.type === "SequenceExpression") {
-    const last = unwrapped.expressions.at(-1);
-    return last === undefined
-      ? phasePathFacts()
-      : objectPropertySources(sourceCode, last, key, phaseVariables, seen);
-  }
-  if (unwrapped.type !== "Identifier") return phasePathFacts();
-  const variable = resolveVariable(sourceCode, unwrapped);
-  if (variable === null || seen.has(variable)) return phasePathFacts();
-  const declarator = variableDeclarator(variable);
-  if (declarator === null || declarator.init === null || declarator.id.type !== "Identifier")
-    return phasePathFacts();
-  const nextSeen = new Set(seen);
-  nextSeen.add(variable);
-  return objectPropertySources(sourceCode, declarator.init, key, phaseVariables, nextSeen);
-}
-
-function mayBeUndefined(
-  sourceCode: SourceCode,
-  node: ESTree.Expression,
-  phaseVariables: Set<Variable>,
-): boolean {
-  const unwrapped = unwrapExpression(node);
-  if (definitelyUndefinedExpression(sourceCode, unwrapped)) return true;
-  if (unwrapped.type === "ConditionalExpression") {
-    const choice = constantBranch(sourceCode, unwrapped.test, phaseVariables);
-    if (choice === "consequent")
-      return mayBeUndefined(sourceCode, unwrapped.consequent, phaseVariables);
-    if (choice === "alternate")
-      return mayBeUndefined(sourceCode, unwrapped.alternate, phaseVariables);
-    return (
-      mayBeUndefined(sourceCode, unwrapped.consequent, phaseVariables) ||
-      mayBeUndefined(sourceCode, unwrapped.alternate, phaseVariables)
-    );
-  }
-  if (unwrapped.type === "LogicalExpression") {
-    const left = phaseSourceInfo(sourceCode, unwrapped.left, phaseVariables);
-    if (unwrapped.operator === "&&") {
-      if (left.truthiness === "truthy")
-        return mayBeUndefined(sourceCode, unwrapped.right, phaseVariables);
-      if (left.truthiness === "falsy")
-        return mayBeUndefined(sourceCode, unwrapped.left, phaseVariables);
-    } else if (unwrapped.operator === "||") {
-      if (left.truthiness === "truthy")
-        return mayBeUndefined(sourceCode, unwrapped.left, phaseVariables);
-      if (left.truthiness === "falsy")
-        return mayBeUndefined(sourceCode, unwrapped.right, phaseVariables);
-    } else {
-      if (left.nullishness === "nullish")
-        return mayBeUndefined(sourceCode, unwrapped.right, phaseVariables);
-      if (left.nullishness === "non-nullish")
-        return mayBeUndefined(sourceCode, unwrapped.left, phaseVariables);
-    }
-    return (
-      mayBeUndefined(sourceCode, unwrapped.left, phaseVariables) ||
-      mayBeUndefined(sourceCode, unwrapped.right, phaseVariables)
-    );
-  }
-  return false;
-}
-
-type AssignmentTargets = {
-  identifiers: IdentifierNode[];
-  members: ESTree.MemberExpression[];
-};
-
-function assignmentTargets(
-  node: ESTree.Node,
-  result: AssignmentTargets = { identifiers: [], members: [] },
-): AssignmentTargets {
-  if (node.type === "Identifier") {
-    result.identifiers.push(node);
-    return result;
-  }
-  if (node.type === "MemberExpression") {
-    result.members.push(node);
-    return result;
-  }
-  if (node.type === "AssignmentPattern") return assignmentTargets(node.left, result);
-  if (node.type === "RestElement") return assignmentTargets(node.argument, result);
-  if (node.type === "ArrayPattern") {
-    for (const element of node.elements) if (element !== null) assignmentTargets(element, result);
-    return result;
-  }
-  if (node.type === "ObjectPattern") {
-    for (const property of node.properties) {
-      if (property.type === "Property") assignmentTargets(property.value, result);
-      else assignmentTargets(property.argument, result);
-    }
-  }
-  return result;
 }
 
 /** Reject mutable workflow values while preserving ordinary locals and real loop cursors. */
@@ -942,72 +712,66 @@ export const noPhaseRebindingRule = defineRule({
     let enabled = false;
     let phaseNames: Set<string> = new Set(defaultPhaseNames);
     const phaseVariables = new Set<Variable>();
-    const cursorUpdateNodes = new Set<ESTree.Node>();
-    const placeholderVariables = new Set<Variable>();
-
+    const phaseObjects = new Set<Variable>();
+    const cursorUpdates = new Set<ESTree.Node>();
+    const placeholders = new Set<Variable>();
+    const sourceCode = () => context.sourceCode;
     const isPhaseName = (identifier: IdentifierNode) => phaseNames.has(identifier.name);
+
+    const markPhase = (variable: Variable, facts: ExpressionFacts, named: boolean) => {
+      if (!facts.object || (!named && facts.phaseObjects.size === 0)) return;
+      phaseVariables.add(variable);
+      phaseObjects.add(variable);
+    };
 
     const seedParameters = (parameters: readonly ESTree.Node[]) => {
       for (const parameter of parameters) {
         for (const identifier of bindingIdentifiers(parameter)) {
-          const variable = resolveVariable(context.sourceCode, identifier);
+          const variable = resolveVariable(sourceCode(), identifier);
           if (variable !== null && isPhaseName(identifier)) phaseVariables.add(variable);
         }
       }
     };
 
-    const markPhasePattern = (
+    const markPattern = (
       target: ESTree.Node,
       sources: readonly ESTree.Expression[],
       maybeMissing = false,
     ): void => {
       if (target.type === "Identifier") {
-        const variable = resolveVariable(context.sourceCode, target);
-        const source = sources.reduce(
+        const variable = resolveVariable(sourceCode(), target);
+        if (variable === null) return;
+        const facts = sources.reduce(
           (result, expression) =>
-            combinePhaseSources(
-              result,
-              phaseSourceInfo(context.sourceCode, expression, phaseVariables),
-            ),
-          emptyPhaseSource({ wholeObject: sources.length > 0 }),
+            combineFacts(result, expressionFacts(sourceCode(), expression, phaseObjects)),
+          unknownFacts({ object: sources.length > 0 }),
         );
-        if (
-          variable !== null &&
-          source.wholeObject &&
-          [...source.variables].some((candidate) => phaseVariables.has(candidate))
-        )
-          phaseVariables.add(variable);
+        markPhase(variable, facts, isPhaseName(target));
         return;
       }
       if (target.type === "AssignmentPattern") {
-        const inherited = sources.filter(
-          (source) => !definitelyUndefinedExpression(context.sourceCode, source),
-        );
+        const inherited = sources.filter((source) => !definitelyUndefined(sourceCode(), source));
         const needsDefault =
           maybeMissing ||
           sources.length === 0 ||
-          sources.some((source) => mayBeUndefined(context.sourceCode, source, phaseVariables));
-        markPhasePattern(
-          target.left,
-          needsDefault ? [...inherited, target.right] : inherited,
-          false,
-        );
+          sources.some((source) => mayBeUndefined(sourceCode(), source, phaseObjects));
+        markPattern(target.left, needsDefault ? [...inherited, target.right] : inherited);
         return;
       }
       if (target.type === "RestElement") {
-        markPhasePattern(target.argument, sources, maybeMissing);
+        markPattern(target.argument, sources, maybeMissing);
         return;
       }
       if (target.type === "ArrayPattern") {
         for (const [index, element] of target.elements.entries()) {
           if (element === null) continue;
-          const elementFacts = sources.map((source) =>
-            arrayElementSources(context.sourceCode, source, index, phaseVariables),
+          const facts = sources.map((source) =>
+            arrayElementSources(sourceCode(), source, index, phaseObjects),
           );
-          markPhasePattern(
+          markPattern(
             element,
-            elementFacts.flatMap((facts) => facts.sources),
-            maybeMissing || elementFacts.some((facts) => facts.maybeMissing),
+            facts.flatMap((path) => path.sources),
+            maybeMissing || facts.some((path) => path.maybeMissing),
           );
         }
         return;
@@ -1015,18 +779,18 @@ export const noPhaseRebindingRule = defineRule({
       if (target.type === "ObjectPattern") {
         for (const property of target.properties) {
           if (property.type !== "Property") {
-            markPhasePattern(property.argument, sources, maybeMissing);
+            markPattern(property.argument, sources, maybeMissing);
             continue;
           }
           const key = objectPropertyName(property);
           if (key === null) continue;
-          const propertyFacts = sources.map((source) =>
-            objectPropertySources(context.sourceCode, source, key, phaseVariables),
+          const facts = sources.map((source) =>
+            objectPropertySources(sourceCode(), source, key, phaseObjects),
           );
-          markPhasePattern(
+          markPattern(
             property.value,
-            propertyFacts.flatMap((facts) => facts.sources),
-            maybeMissing || propertyFacts.some((facts) => facts.maybeMissing),
+            facts.flatMap((path) => path.sources),
+            maybeMissing || facts.some((path) => path.maybeMissing),
           );
         }
       }
@@ -1040,26 +804,30 @@ export const noPhaseRebindingRule = defineRule({
       if (
         phaseVariables.has(variable) &&
         !isOneShotAdmittedCapabilityWrite(variable, write) &&
-        (write === null || !cursorUpdateNodes.has(write))
-      ) {
+        !cursorUpdates.has(write as ESTree.Node)
+      )
         context.report({ node, messageId: "rebind" });
-      }
+    };
+
+    const rootIdentifier = (expression: ESTree.Expression): ESTree.IdentifierReference | null => {
+      let node = unwrapExpression(expression);
+      while (node.type === "MemberExpression") node = unwrapExpression(node.object);
+      return node.type === "Identifier" ? node : null;
     };
 
     const reportMemberMutation = (node: ESTree.MemberExpression) => {
       const root = rootIdentifier(node.object);
       if (root === null) return;
-      const variable = resolveVariable(context.sourceCode, root);
-      if (variable !== null && phaseVariables.has(variable)) {
+      const variable = resolveVariable(sourceCode(), root);
+      if (variable !== null && phaseObjects.has(variable))
         context.report({ node, messageId: "phaseBag" });
-      }
     };
 
     const reportAssignmentTarget = (node: ESTree.Node) => {
       const targets = assignmentTargets(node);
       for (const member of targets.members) reportMemberMutation(member);
       for (const identifier of targets.identifiers) {
-        const variable = resolveVariable(context.sourceCode, identifier);
+        const variable = resolveVariable(sourceCode(), identifier);
         if (variable !== null) reportRebind(variable, identifier);
       }
     };
@@ -1083,40 +851,35 @@ export const noPhaseRebindingRule = defineRule({
       VariableDeclarator(node: ESTree.VariableDeclarator) {
         if (!enabled) return;
         const identifiers = bindingIdentifiers(node.id);
-        const sourceVariables =
-          node.id.type === "Identifier" && node.init !== null
-            ? phaseSourceVariables(context.sourceCode, node.init, phaseVariables)
-            : new Set<Variable>();
-        if (node.id.type !== "Identifier" && node.init !== null)
-          markPhasePattern(node.id, [node.init]);
+        const facts =
+          node.init === null
+            ? unknownFacts()
+            : expressionFacts(sourceCode(), node.init, phaseObjects);
+        if (node.id.type !== "Identifier" && node.init !== null) markPattern(node.id, [node.init]);
         for (const identifier of identifiers) {
-          const variable = resolveVariable(context.sourceCode, identifier);
+          const variable = resolveVariable(sourceCode(), identifier);
           if (variable === null) continue;
-          const cursorUpdate = cursorUpdateNode(context.sourceCode, node, variable);
-          if (cursorUpdate !== null) cursorUpdateNodes.add(cursorUpdate);
-          if (
-            isPhaseName(identifier) ||
-            [...sourceVariables].some((source) => phaseVariables.has(source))
-          ) {
-            phaseVariables.add(variable);
-          }
-          if (node.init === null && isPhaseName(identifier)) placeholderVariables.add(variable);
+          const cursorUpdate = cursorUpdateNode(sourceCode(), node, variable);
+          if (cursorUpdate !== null) cursorUpdates.add(cursorUpdate);
+          const named = isPhaseName(identifier);
+          if (named) phaseVariables.add(variable);
+          if (node.id.type === "Identifier") markPhase(variable, facts, named);
+          if (node.init === null && named) placeholders.add(variable);
         }
       },
       AssignmentExpression(node: ESTree.AssignmentExpression) {
         if (!enabled) return;
         const targets = assignmentTargets(node.left);
         for (const member of targets.members) reportMemberMutation(member);
-        if (node.left.type !== "Identifier") markPhasePattern(node.left, [node.right]);
-        const sourceVariables =
+        if (node.left.type !== "Identifier") markPattern(node.left, [node.right]);
+        const facts =
           node.left.type === "Identifier"
-            ? phaseSourceVariables(context.sourceCode, node.right, phaseVariables)
-            : new Set<Variable>();
+            ? expressionFacts(sourceCode(), node.right, phaseObjects)
+            : unknownFacts();
         for (const identifier of targets.identifiers) {
-          const variable = resolveVariable(context.sourceCode, identifier);
+          const variable = resolveVariable(sourceCode(), identifier);
           if (variable === null) continue;
-          if ([...sourceVariables].some((source) => phaseVariables.has(source)))
-            phaseVariables.add(variable);
+          if (node.left.type === "Identifier") markPhase(variable, facts, isPhaseName(identifier));
           reportRebind(variable, identifier, node);
         }
       },
@@ -1124,14 +887,16 @@ export const noPhaseRebindingRule = defineRule({
         if (!enabled) return;
         if (node.argument.type === "MemberExpression") reportMemberMutation(node.argument);
         else if (node.argument.type === "Identifier") {
-          const variable = resolveVariable(context.sourceCode, node.argument);
+          const variable = resolveVariable(sourceCode(), node.argument);
           if (variable !== null) reportRebind(variable, node.argument, node);
         }
       },
+      CallExpression(node: ESTree.CallExpression) {
+        if (enabled && node.callee.type === "MemberExpression") reportMemberMutation(node.callee);
+      },
       UnaryExpression(node: ESTree.UnaryExpression) {
-        if (enabled && node.operator === "delete" && node.argument.type === "MemberExpression") {
+        if (enabled && node.operator === "delete" && node.argument.type === "MemberExpression")
           reportMemberMutation(node.argument);
-        }
       },
       ForInStatement(node: ESTree.ForInStatement) {
         if (enabled && node.left.type !== "VariableDeclaration") reportAssignmentTarget(node.left);
@@ -1141,7 +906,7 @@ export const noPhaseRebindingRule = defineRule({
       },
       "Program:exit"() {
         if (!enabled) return;
-        for (const variable of placeholderVariables) {
+        for (const variable of placeholders) {
           if (
             phaseVariables.has(variable) &&
             variable.references.every((reference) => reference.init || !reference.isWrite())

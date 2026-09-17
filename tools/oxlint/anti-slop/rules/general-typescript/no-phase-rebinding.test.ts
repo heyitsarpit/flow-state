@@ -146,6 +146,16 @@ tester.run("workflow values and ordinary locals", noPhaseRebindingRule, {
       filename: "/project/packages/flow-state-rewrite/src/runtime/scalar-phase.ts",
       options,
     },
+    {
+      code: "function ordinarySwitch(value: string, choice: boolean) { let result: string; if (choice) result = value; else result = value.trim(); switch (choice ? 1 : 0) { case 1: return result; default: return result; } }",
+      filename: "/project/packages/flow-state-rewrite/src/runtime/ordinary-switch.ts",
+      options,
+    },
+    {
+      code: "function shadowedLocal(value: string) { const staged = { value }; const alias = staged; function inner() { let alias = value; alias = alias.trim(); return alias; } return inner() + staged.value; }",
+      filename: "/project/packages/flow-state-rewrite/src/runtime/shadowed-local.ts",
+      options,
+    },
   ],
   invalid: [
     {
@@ -175,6 +185,12 @@ tester.run("workflow values and ordinary locals", noPhaseRebindingRule, {
     {
       code: "function mutate(value: string) { const staged = {}; staged.value = value; return staged; }",
       filename: "/project/packages/flow-state-rewrite/src/runtime/mutate.ts",
+      options,
+      errors: [{ messageId: "phaseBag" }],
+    },
+    {
+      code: "function methodMutation(value: string) { const staged = {}; staged.update(value); return staged; }",
+      filename: "/project/packages/flow-state-rewrite/src/runtime/method-mutation.ts",
       options,
       errors: [{ messageId: "phaseBag" }],
     },
@@ -360,7 +376,8 @@ tester.run("workflow values and ordinary locals", noPhaseRebindingRule, {
     },
     {
       code: "function missingLogicalArrayPhaseDefault(value: string) { const staged = { value }; const local = { value }; const source = condition && [local]; const [alias = staged] = source; alias.value = value; return alias; }",
-      filename: "/project/packages/flow-state-rewrite/src/runtime/missing-logical-array-phase-default.ts",
+      filename:
+        "/project/packages/flow-state-rewrite/src/runtime/missing-logical-array-phase-default.ts",
       options,
       errors: [{ messageId: "phaseBag" }],
     },
@@ -375,6 +392,12 @@ tester.run("workflow values and ordinary locals", noPhaseRebindingRule, {
       filename: "/project/packages/flow-state-rewrite/src/runtime/object-rest.ts",
       options,
       errors: [{ messageId: "phaseBag" }],
+    },
+    {
+      code: "function switchRebind(value: string, choice: number) { let prepared = value; switch (choice) { case 0: prepared = value.trim(); break; default: prepared = value; } return prepared; }",
+      filename: "/project/packages/flow-state-rewrite/src/runtime/switch-rebind.ts",
+      options,
+      errors: [{ messageId: "rebind" }, { messageId: "rebind" }],
     },
   ],
 });
