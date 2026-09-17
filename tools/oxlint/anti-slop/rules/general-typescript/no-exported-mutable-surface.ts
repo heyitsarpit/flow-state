@@ -9,6 +9,7 @@ type RuleOptions = [{ sourceRoots?: string[] }];
 
 const defaultSourceRoots = ["packages/flow-state/src", "packages/flow-state-rewrite/src"] as const;
 const mutableCollectionNames = new Set(["Map", "Set"]);
+const globalObjectNames = new Set(["global", "globalThis", "self", "window"]);
 type IdentifierNode = Extract<ESTree.Node, { type: "Identifier" }>;
 
 function unwrapExpression(expression: ESTree.Expression): ESTree.Expression {
@@ -39,6 +40,22 @@ function resolveVariable(sourceCode: SourceCode, identifier: IdentifierNode): Va
 function isGlobalReference(sourceCode: SourceCode, identifier: IdentifierNode): boolean {
   const variable = resolveVariable(sourceCode, identifier);
   return variable === null || variable.defs.length === 0;
+}
+
+function isGlobalObjectExpression(
+  sourceCode: SourceCode,
+  expression: ESTree.Expression,
+  seen: ReadonlySet<Variable> = new Set<Variable>(),
+): boolean {
+  const value = unwrapExpression(expression);
+  if (value.type !== "Identifier") return false;
+  if (globalObjectNames.has(value.name) && isGlobalReference(sourceCode, value)) return true;
+  const variable = resolveVariable(sourceCode, value);
+  if (variable === null || seen.has(variable)) return false;
+  const current = variableValues(sourceCode, variable, value.start, seen).at(-1);
+  if (current !== undefined)
+    return isGlobalObjectExpression(sourceCode, current, new Set(seen).add(variable));
+  return false;
 }
 
 function isFunctionOrClassValue(
@@ -82,6 +99,92 @@ function isOperationNamespace(sourceCode: SourceCode, node: ESTree.ObjectExpress
       return property.method || isFunctionOrClassValue(sourceCode, property.value);
     })
   );
+}
+
+function mutableCollectionConstructor(
+  sourceCode: SourceCode,
+  node: ESTree.Expression,
+  seen: ReadonlySet<Variable> = new Set<Variable>(),
+): "map" | "set" | null {
+  const value = unwrapExpression(node);
+  if (
+    value.type === "Identifier" &&
+    isGlobalReference(sourceCode, value) &&
+    mutableCollectionNames.has(value.name)
+  ) {
+    return value.name === "Map" ? "map" : "set";
+  }
+  if (value.type === "MemberExpression") {
+    const name =
+      !value.computed && value.property.type === "Identifier"
+        ? value.property.name
+        : value.computed && value.property.type === "Literal" && typeof value.property.value === "string"
+          ? value.property.value
+          : null;
+    if (
+      (name === "Map" || name === "Set") &&
+      isGlobalObjectExpression(sourceCode, value.object as ESTree.Expression)
+    )
+      return name === "Map" ? "map" : "set";
+  }
+  if (value.type === "ConditionalExpression" || value.type === "LogicalExpression") {
+    const left = mutableCollectionConstructor(
+      sourceCode,
+      value.type === "ConditionalExpression" ? value.consequent : value.left,
+      seen,
+    );
+    return (
+      left ??
+      mutableCollectionConstructor(
+        sourceCode,
+        value.type === "ConditionalExpression" ? value.alternate : value.right,
+        seen,
+      )
+    );
+  }
+  if (value.type !== "Identifier") return null;
+  const variable = resolveVariable(sourceCode, value);
+  if (variable === null || seen.has(variable)) return null;
+  const nextSeen = new Set(seen).add(variable);
+  const values = variableValues(sourceCode, variable, value.start, seen);
+  const writes = variable.references.filter(
+    (reference) =>
+      reference.isWrite() &&
+      !reference.init &&
+      reference.identifier.start <= value.start &&
+      reference.writeExpr !== null,
+  );
+  const lastWrite = writes.at(-1);
+  if (lastWrite !== undefined && isConditionalWrite(lastWrite.identifier)) {
+    for (const candidate of values) {
+      const kind = mutableCollectionConstructor(sourceCode, candidate, nextSeen);
+      if (kind !== null) return kind;
+    }
+    return null;
+  }
+  const current = values.at(-1);
+  return current === undefined ? null : mutableCollectionConstructor(sourceCode, current, nextSeen);
+}
+
+function isConditionalWrite(identifier: ESTree.Node): boolean {
+  let parent: ESTree.Node | null = identifier.parent;
+  while (
+    parent !== null &&
+    parent.type !== "Program" &&
+    parent.type !== "FunctionDeclaration" &&
+    parent.type !== "FunctionExpression" &&
+    parent.type !== "ArrowFunctionExpression"
+  ) {
+    if (
+      parent.type === "IfStatement" ||
+      parent.type === "ConditionalExpression" ||
+      parent.type === "LogicalExpression" ||
+      parent.type === "SwitchStatement"
+    )
+      return true;
+    parent = parent.parent;
+  }
+  return false;
 }
 
 type BindingPath = ReadonlyArray<
@@ -129,14 +232,8 @@ function isMutableCollectionExpression(
   seen: ReadonlySet<Variable> = new Set<Variable>(),
 ): boolean {
   const value = unwrapExpression(node);
-  if (
-    value.type === "NewExpression" &&
-    value.callee.type === "Identifier" &&
-    mutableCollectionNames.has(value.callee.name) &&
-    isGlobalReference(sourceCode, value.callee)
-  ) {
-    return true;
-  }
+  if (value.type === "NewExpression")
+    return mutableCollectionConstructor(sourceCode, value.callee as ESTree.Expression) !== null;
   if (value.type !== "Identifier") return false;
   const variable = resolveVariable(sourceCode, value);
   if (variable === null || seen.has(variable)) return false;
@@ -249,6 +346,7 @@ function isMutableSurface(
   sourceCode: SourceCode,
   node: ESTree.Node,
   seen: ReadonlySet<Variable> = new Set<Variable>(),
+  at: number = node.start,
 ): boolean {
   if (
     node.type === "ParenthesizedExpression" ||
@@ -258,7 +356,7 @@ function isMutableSurface(
     node.type === "TSNonNullExpression" ||
     node.type === "TSInstantiationExpression"
   ) {
-    return isMutableSurface(sourceCode, node.expression, seen);
+    return isMutableSurface(sourceCode, node.expression, seen, at);
   }
   if (node.type === "ObjectExpression") return !isOperationNamespace(sourceCode, node);
   if (node.type === "ArrayExpression") return true;
@@ -266,26 +364,26 @@ function isMutableSurface(
   if (node.type === "CallExpression" && isFrozenMutableCollection(sourceCode, node)) return true;
   if (node.type === "ConditionalExpression") {
     return (
-      isMutableSurface(sourceCode, node.consequent, seen) ||
-      isMutableSurface(sourceCode, node.alternate, seen)
+      isMutableSurface(sourceCode, node.consequent, seen, at) ||
+      isMutableSurface(sourceCode, node.alternate, seen, at)
     );
   }
   if (node.type === "LogicalExpression") {
     return (
-      isMutableSurface(sourceCode, node.left, seen) ||
-      isMutableSurface(sourceCode, node.right, seen)
+      isMutableSurface(sourceCode, node.left, seen, at) ||
+      isMutableSurface(sourceCode, node.right, seen, at)
     );
   }
   if (node.type === "SequenceExpression") {
     const last = node.expressions.at(-1);
-    return last !== undefined && isMutableSurface(sourceCode, last, seen);
+    return last !== undefined && isMutableSurface(sourceCode, last, seen, at);
   }
   if (node.type === "Identifier") {
     const variable = resolveVariable(sourceCode, node);
     if (variable === null || seen.has(variable)) return false;
     const nextSeen = new Set(seen).add(variable);
-    return variableValues(sourceCode, variable, node.start, seen).some((value) =>
-      isMutableSurface(sourceCode, value, nextSeen),
+    return variableValues(sourceCode, variable, at, seen).some((value) =>
+      isMutableSurface(sourceCode, value, nextSeen, value.start),
     );
   }
   return false;
@@ -317,6 +415,8 @@ export const noExportedMutableSurfaceRule = defineRule({
   createOnce(context) {
     const report = (node: ESTree.Node) =>
       context.report({ node, messageId: "exportedMutableSurface" });
+    const exportedVariables = new Set<Variable>();
+    const reportedVariables = new Set<Variable>();
     let sourceFile = false;
 
     return {
@@ -339,11 +439,19 @@ export const noExportedMutableSurfaceRule = defineRule({
           if (statement.type === "ExportNamedDeclaration") {
             if (statement.declaration?.type === "VariableDeclaration") {
               for (const declarator of statement.declaration.declarations) {
+                if (declarator.id.type === "Identifier") {
+                  const variable = resolveVariable(context.sourceCode, declarator.id);
+                  if (variable !== null) exportedVariables.add(variable);
+                }
                 if (
                   declarator.init !== null &&
                   isMutableSurface(context.sourceCode, declarator.init)
                 ) {
                   report(declarator.init);
+                  if (declarator.id.type === "Identifier") {
+                    const variable = resolveVariable(context.sourceCode, declarator.id);
+                    if (variable !== null) reportedVariables.add(variable);
+                  }
                 }
               }
             }
@@ -352,7 +460,12 @@ export const noExportedMutableSurfaceRule = defineRule({
                 if (specifier.exportKind === "type") continue;
                 if (
                   specifier.local.type === "Identifier" &&
-                  isMutableSurface(context.sourceCode, specifier.local)
+                  isMutableSurface(
+                    context.sourceCode,
+                    specifier.local,
+                    new Set<Variable>(),
+                    Number.POSITIVE_INFINITY,
+                  )
                 )
                   report(specifier);
               }
@@ -368,6 +481,19 @@ export const noExportedMutableSurfaceRule = defineRule({
               if (isMutableSurface(context.sourceCode, declaration)) report(declaration);
             }
           }
+        }
+      },
+      AssignmentExpression(node: ESTree.AssignmentExpression) {
+        if (!sourceFile || node.left.type !== "Identifier") return;
+        const variable = resolveVariable(context.sourceCode, node.left);
+        if (
+          variable !== null &&
+          exportedVariables.has(variable) &&
+          !reportedVariables.has(variable) &&
+          isMutableSurface(context.sourceCode, node.right)
+        ) {
+          report(node.right);
+          reportedVariables.add(variable);
         }
       },
     };

@@ -71,6 +71,16 @@ tester.run("no-sleep-based-test-sync", noSleepBasedTestSyncRule, {
       filename: "/project/packages/flow-state-rewrite/src/runtime/example.ts",
       options,
     },
+    {
+      code: "const localTimer = () => 0; let timer = setTimeout; timer = localTimer; const alias = timer; alias(resolve, 10);",
+      filename: "/project/packages/flow-state-rewrite/src/runtime/example.test.ts",
+      options,
+    },
+    {
+      code: "const localTimer = () => 0; let timer = localTimer; const alias = timer; timer = setTimeout; alias(resolve, 10);",
+      filename: "/project/packages/flow-state-rewrite/src/runtime/example.test.ts",
+      options,
+    },
   ],
   invalid: [
     {
@@ -153,6 +163,30 @@ tester.run("no-sleep-based-test-sync", noSleepBasedTestSyncRule, {
     {
       code: "let root; root = globalThis; root.setTimeout(resolve, 10);",
       filename: "/project/packages/flow-state-rewrite/src/runtime/example.test.ts",
+      options,
+      errors: [{ messageId: "nativeTimer" }],
+    },
+    {
+      code: "const timer = globalThis.setTimeout.bind(globalThis); timer(resolve, 10);",
+      filename: "/project/packages/flow-state-rewrite/src/runtime/bound-timer.test.ts",
+      options,
+      errors: [{ messageId: "nativeTimer" }],
+    },
+    {
+      code: "globalThis.setTimeout.call(globalThis, resolve, 10);",
+      filename: "/project/packages/flow-state-rewrite/src/runtime/call-timer.test.ts",
+      options,
+      errors: [{ messageId: "nativeTimer" }],
+    },
+    {
+      code: "globalThis.setTimeout.apply(globalThis, [resolve, 10]);",
+      filename: "/project/packages/flow-state-rewrite/src/runtime/apply-timer.test.ts",
+      options,
+      errors: [{ messageId: "nativeTimer" }],
+    },
+    {
+      code: "const bind = globalThis.setTimeout.bind; const timer = bind(globalThis); timer(resolve, 10);",
+      filename: "/project/packages/flow-state-rewrite/src/runtime/detached-bind-timer.test.ts",
       options,
       errors: [{ messageId: "nativeTimer" }],
     },

@@ -280,6 +280,7 @@ const copyStructured = <Value extends EvidenceCopyValue>(
     }
   };
 
+  // RETURN_TYPE: Recursive cycle copying needs an explicit result to infer the self-reference while retaining the evidence value union.
   const copy = (current: EvidenceCopyValue): EvidenceCopyValue => {
     if (!isStructuredContainer(current) || preserved.has(current)) return current;
     const previous = copied.get(current);
@@ -540,6 +541,7 @@ export type EvidenceJournal = {
   ) => Result.Result<void, PublicDiagnostic>;
   cancel: (preparation: EvidencePreparation) => Result.Result<void, PublicDiagnostic>;
   attach: (attachment: EvidenceAttachmentToken) => Result.Result<void, PublicDiagnostic>;
+  // oxlint-disable-next-line anti-slop/no-readonly -- The Journal publishes a copied attachment list; readonly preserves sink ownership at the observable boundary.
   attachmentTokens: () => readonly EvidenceAttachmentToken[];
   /** Synchronous acceptance is the only point where a global sequence is assigned. */
   acceptSync: (
@@ -604,10 +606,7 @@ export const makeEvidenceJournal = (
     creditWaiter = undefined;
   };
 
-  const registerActor = (
-    actorKey: string,
-    fence: ActorFence,
-  ): Result.Result<EvidenceCredit, PublicDiagnostic> => {
+  const registerActor = (actorKey: string, fence: ActorFence) => {
     if (closed) return Result.fail(closedEvidence());
 
     if (actorKey !== fence.key)
@@ -644,7 +643,7 @@ export const makeEvidenceJournal = (
     return Result.succeed(undefined);
   };
 
-  const prepareUnsafe = (): Result.Result<EvidencePreparation, PublicDiagnostic> => {
+  const prepareUnsafe = () => {
     if (closed) return Result.fail(closedEvidence());
 
     if (!Number.isSafeInteger(capacity) || capacity < 1)
@@ -683,10 +682,7 @@ export const makeEvidenceJournal = (
     return Result.succeed(preparation);
   };
 
-  const validatePreparation = (
-    preparation: EvidencePreparation,
-    record: PreparedEvidenceRecord,
-  ) => {
+  const validatePreparationOwnership = (preparation: EvidencePreparation) => {
     if (preparation.journal !== journal)
       return Result.fail(invalidEvidence("preparation", { reason: "foreign-journal" }));
     const retained = preparations.get(preparation.token);
@@ -702,33 +698,58 @@ export const makeEvidenceJournal = (
     // a live actor so their accepted prefix can settle before the close waits for credits.
     if (closed && Option.isNone(retained.credit)) return Result.fail(closedEvidence());
 
+    return Result.succeed(retained);
+  };
+
+  const validateRecordProvenance = (record: PreparedEvidenceRecord) => {
     if (record.provenance.app !== options.app || record.provenance.plan !== options.plan)
       return Result.fail(invalidEvidence("provenance", { reason: "foreign-runtime" }));
-
-    if (Option.isSome(retained.credit)) {
-      const credit = retained.credit.value;
-      const recordFence = record._tag === "turn" ? record.fence : record.after.fence;
-
-      if (
-        record.provenance.actor.key !== credit.actorKey ||
-        recordFence.key !== credit.actorKey ||
-        record.provenance.actor.incarnation !== recordFence.incarnation ||
-        record.provenance.actor.leaseEpoch !== recordFence.leaseEpoch ||
-        recordFence.key !== credit.fence.key ||
-        recordFence.incarnation !== credit.fence.incarnation ||
-        recordFence.generation !== credit.fence.generation ||
-        recordFence.leaseEpoch !== credit.fence.leaseEpoch
-      )
-        return Result.fail(invalidEvidence("credit", { reason: "actor-mismatch" }));
-    }
 
     return Result.succeed(undefined);
   };
 
-  const acceptUnsafe = (
+  const matchesActorCredit = (record: PreparedEvidenceRecord, credit: EvidenceCredit) => {
+    const recordFence = record._tag === "turn" ? record.fence : record.after.fence;
+
+    return (
+      record.provenance.actor.key === credit.actorKey &&
+      recordFence.key === credit.actorKey &&
+      record.provenance.actor.incarnation === recordFence.incarnation &&
+      record.provenance.actor.leaseEpoch === recordFence.leaseEpoch &&
+      recordFence.key === credit.fence.key &&
+      recordFence.incarnation === credit.fence.incarnation &&
+      recordFence.generation === credit.fence.generation &&
+      recordFence.leaseEpoch === credit.fence.leaseEpoch
+    );
+  };
+
+  const validateActorCredit = (retained: PreparationState, record: PreparedEvidenceRecord) => {
+    if (Option.isNone(retained.credit)) return Result.succeed(undefined);
+
+    const credit = retained.credit.value;
+
+    if (!matchesActorCredit(record, credit))
+      return Result.fail(invalidEvidence("credit", { reason: "actor-mismatch" }));
+
+    return Result.succeed(undefined);
+  };
+
+  const validatePreparation = (
     preparation: EvidencePreparation,
     record: PreparedEvidenceRecord,
-  ): Result.Result<EvidenceAcceptance, PublicDiagnostic> => {
+  ) => {
+    const ownership = validatePreparationOwnership(preparation);
+
+    if (Result.isFailure(ownership)) return Result.fail(ownership.failure);
+
+    const provenance = validateRecordProvenance(record);
+
+    if (Result.isFailure(provenance)) return Result.fail(provenance.failure);
+
+    return validateActorCredit(ownership.success, record);
+  };
+
+  const acceptUnsafe = (preparation: EvidencePreparation, record: PreparedEvidenceRecord) => {
     const validation = validatePreparation(preparation, record);
 
     if (Result.isFailure(validation)) return Result.fail(validation.failure);
@@ -852,6 +873,7 @@ export const makeEvidenceJournal = (
         ),
       );
 
+  // RETURN_TYPE: The capture preserves the Journal cutoff's branded sequence and attachment snapshot.
   const captureDrainUnsafe = (): EvidenceDrainCapture => ({
     through: accepted === 0 ? 0 : sequenceValue(accepted),
     attachmentThrough: accepted === 0 ? sequenceValue(1) : sequenceValue(accepted),
@@ -916,6 +938,7 @@ export const makeEvidenceJournal = (
       semaphore.withPermit(Effect.sync(captureDrainUnsafe)).pipe(Effect.flatMap(drainCaptured)),
     );
 
+  // RETURN_TYPE: The recursive waiter keeps the Journal's credit-release Effect channel explicit.
   const awaitCredits = (): Effect.Effect<void> =>
     Effect.suspend(() => {
       if (credits.size === 0) return Effect.void;
@@ -1062,7 +1085,7 @@ export const prepareLifecycleEvidenceAdmission = (
   service: RuntimeEvidenceService,
   timestamp: number,
   actorKey?: string,
-): Result.Result<{ preparation: EvidencePreparation; timestamp: number }, PublicDiagnostic> => {
+) => {
   let preparation = actorKey === undefined ? service.prepare() : service.prepareLifecycle(actorKey);
 
   if (

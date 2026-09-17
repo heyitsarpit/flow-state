@@ -1,3 +1,4 @@
+// oxlint-disable-next-line anti-slop/no-large-production-file -- RuntimeOwner readiness, admission, and reverse disposal share one runtime owner boundary.
 import {
   Cause,
   Deferred,
@@ -141,7 +142,7 @@ type RuntimeOwnerState<A, ReadyError, OwnerError> =
 
 const resolveExit = <A, E>(exit: Exit.Exit<A, E>) => exit;
 
-const causeFromExits = <Value, Error>(exits: readonly Exit.Exit<Value, Error>[]) => {
+const causeFromExits = <Value, Error>(exits: Exit.Exit<Value, Error>[]) => {
   const reasons = exits.flatMap((exit) => (Exit.isFailure(exit) ? [...exit.cause.reasons] : []));
 
   return reasons.length === 0 ? undefined : Cause.fromReasons(reasons);

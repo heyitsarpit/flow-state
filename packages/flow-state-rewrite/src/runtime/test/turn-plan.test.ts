@@ -1,4 +1,4 @@
-import { assert, describe, it } from "@effect/vitest";
+import { assert, beforeEach, describe, it } from "@effect/vitest";
 import { Brand, Effect, Exit, Result, Scope } from "effect";
 
 import { definition } from "../../definition/definition.js";
@@ -107,31 +107,49 @@ const makePlanFixture = () => {
   return { planMachine, trace };
 };
 
-const { planMachine, trace } = makePlanFixture();
+const makePlanTestFixture = () => {
+  const { planMachine, trace } = makePlanFixture();
 
-const identityRegistry = makeActorIdentityRegistry();
+  const identityRegistry = makeActorIdentityRegistry();
 
-const identity = resultSuccess(identityRegistry.reserveStable(actorRef(planMachine, "turn-plan")));
+  const identity = resultSuccess(
+    identityRegistry.reserveStable(actorRef(planMachine, "turn-plan")),
+  );
 
-const fence: ActorFence = {
-  key: identity.key,
-  incarnation: identity.incarnation,
-  generation: 0,
-  leaseEpoch: identity.leaseEpoch,
-};
+  const fence: ActorFence = {
+    key: identity.key,
+    incarnation: identity.incarnation,
+    generation: 0,
+    leaseEpoch: identity.leaseEpoch,
+  };
 
-const unregisteredIncarnation = Brand.nominal<ActorFence["incarnation"]>()(fence.incarnation + 1);
+  const unregisteredIncarnation = Brand.nominal<ActorFence["incarnation"]>()(fence.incarnation + 1);
 
-const snapshot: ActorSnapshot<typeof planDefinition> = {
-  state: planDefinition.S.idle,
-  memory: { count: 1 },
-  context: {},
-  lifecycle: "active",
-  operations: [],
-  timers: [],
-  issues: [],
-  revision: 4,
-  observedStoreRevision: 2,
+  const snapshot: ActorSnapshot<typeof planDefinition> = {
+    state: planDefinition.S.idle,
+    memory: { count: 1 },
+    context: {},
+    lifecycle: "active",
+    operations: [],
+    timers: [],
+    issues: [],
+    revision: 4,
+    observedStoreRevision: 2,
+  };
+
+  // RETURN_TYPE: Keeps the fixture input at the exact machine-specific planner boundary.
+  const turnInput = (
+    event: EventOf<typeof planDefinition>,
+    currentSnapshot = snapshot,
+  ): EventTurnInput<typeof planDefinition> => ({
+    _tag: "event",
+    machine: planMachine,
+    snapshot: currentSnapshot,
+    event,
+    fence,
+  });
+
+  return { planMachine, trace, identity, fence, unregisteredIncarnation, snapshot, turnInput };
 };
 
 const contextProviderDefinitionResult = definition({
@@ -185,21 +203,15 @@ const contextSnapshot: ActorSnapshot<typeof contextConsumerDefinition> = {
   observedStoreRevision: 2,
 };
 
-// RETURN_TYPE: Keeps the fixture input at the exact machine-specific planner boundary.
-const turnInput = (
-  event: EventOf<typeof planDefinition>,
-  currentSnapshot = snapshot,
-): EventTurnInput<typeof planDefinition> => ({
-  _tag: "event",
-  machine: planMachine,
-  snapshot: currentSnapshot,
-  event,
-  fence,
-});
-
-// Contracts: REV-OPS-015, SEM-010, SEM-024A.
-// Proofs: PROOF-003, PROOF-004.
 describe("turn planner", () => {
+  let { planMachine, trace, identity, fence, unregisteredIncarnation, snapshot, turnInput } =
+    makePlanTestFixture();
+
+  beforeEach(() => {
+    ({ planMachine, trace, identity, fence, unregisteredIncarnation, snapshot, turnInput } =
+      makePlanTestFixture());
+  });
+
   it("freezes one pre-turn snapshot, orders callbacks, and redirects the updated candidate", () => {
     trace.length = 0;
     const result = planTurn(turnInput(opened));

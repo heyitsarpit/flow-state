@@ -1,3 +1,4 @@
+// oxlint-disable-next-line anti-slop/no-large-production-file -- ContextCoordinator is the single owner of graph generations, provider cuts, wave tickets, and their serialized settlement protocol.
 import {
   Deferred,
   Effect,
@@ -210,6 +211,7 @@ const captureContextPayload = (value: ContextPayload) => {
       if (descriptor === undefined || !("value" in descriptor))
         throw new TypeError("Context carrier contains an accessor property");
 
+      // oxlint-disable-next-line anti-slop/no-phase-rebinding -- captured is a recursive descriptor under construction; registering it before filling fields preserves cycles without exposing an incomplete value.
       captured.fields.push({
         key,
         configurable: descriptor.configurable === true,
@@ -829,6 +831,7 @@ export const makeContextCoordinator = (scope: Scope.Scope) =>
 
     // A wave intentionally holds one serialized coordinator permit across every ticket settlement.
     const runWave = (root: Root) =>
+      // oxlint-disable-next-line anti-slop/no-excessive-cognitive-complexity -- one serialized wave owns capture, dependency ordering, ticket settlement, and commit/rejection outcomes.
       Effect.gen(function* () {
         waveGeneration += 1;
 
@@ -881,6 +884,7 @@ export const makeContextCoordinator = (scope: Scope.Scope) =>
             );
           });
 
+        // oxlint-disable-next-line anti-slop/no-excessive-cognitive-complexity -- complete provider-fence, slot, and revision validation is one coordinator witness boundary.
         const validOffer = (
           key: ActorKey,
           state: RegisteredNode,
@@ -1183,6 +1187,7 @@ export const makeContextCoordinator = (scope: Scope.Scope) =>
       }
     };
 
+    // oxlint-disable-next-line anti-slop/no-excessive-cognitive-complexity -- root-slot coalescing and captured-wave invalidation are one coordinator admission boundary.
     const notify = (fence: ActorFence, snapshot: CoordinatorSnapshot) => {
       const state = nodes.get(fence.key);
 
@@ -1235,6 +1240,7 @@ export const makeContextCoordinator = (scope: Scope.Scope) =>
     };
 
     const reconcile = (key: ActorKey) =>
+      // oxlint-disable-next-line anti-slop/no-excessive-cognitive-complexity -- reconciliation keeps provider availability, serialized wave execution, and receipt failure mapping together.
       Effect.gen(function* () {
         if (closed) return yield* Effect.fail(unavailableProvider(key));
         const state = nodes.get(key);

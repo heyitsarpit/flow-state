@@ -48,6 +48,10 @@ tester.run("no-exported-mutable-surface", noExportedMutableSurfaceRule, {
       filename: packageSource,
     },
     {
+      code: "let Constructor = Map; Constructor = Object; export const values = new Constructor();",
+      filename: packageSource,
+    },
+    {
       code: "const first = second; const second = first; export { first };",
       filename: packageSource,
     },
@@ -66,6 +70,11 @@ tester.run("no-exported-mutable-surface", noExportedMutableSurfaceRule, {
   invalid: [
     {
       code: "export const state = {};",
+      filename: packageSource,
+      errors: [{ messageId: "exportedMutableSurface" }],
+    },
+    {
+      code: "export let state = 0; state = {};",
       filename: packageSource,
       errors: [{ messageId: "exportedMutableSurface" }],
     },
@@ -130,6 +139,31 @@ tester.run("no-exported-mutable-surface", noExportedMutableSurfaceRule, {
       errors: [{ messageId: "exportedMutableSurface" }],
     },
     {
+      code: "const MapConstructor = Map; export const values = new MapConstructor();",
+      filename: packageSource,
+      errors: [{ messageId: "exportedMutableSurface" }],
+    },
+    {
+      code: "export const values = new globalThis.Map();",
+      filename: packageSource,
+      errors: [{ messageId: "exportedMutableSurface" }],
+    },
+    {
+      code: "const CollectionConstructor = ready ? Map : Object; export const values = new CollectionConstructor();",
+      filename: packageSource,
+      errors: [{ messageId: "exportedMutableSurface" }],
+    },
+    {
+      code: "let Constructor = Map; if (ready) Constructor = Object; export const values = new Constructor();",
+      filename: packageSource,
+      errors: [{ messageId: "exportedMutableSurface" }],
+    },
+    {
+      code: "let CollectionConstructor = Set; if (ready) CollectionConstructor = Map; export const values = new CollectionConstructor();",
+      filename: packageSource,
+      errors: [{ messageId: "exportedMutableSurface" }],
+    },
+    {
       code: "const state = {}; export { state };",
       filename: packageSource,
       errors: [{ messageId: "exportedMutableSurface" }],
@@ -176,6 +210,16 @@ tester.run("no-exported-mutable-surface", noExportedMutableSurfaceRule, {
     },
     {
       code: "const state = {}; const alias = state; export { alias };",
+      filename: packageSource,
+      errors: [{ messageId: "exportedMutableSurface" }],
+    },
+    {
+      code: "let alias = 0; export { alias }; alias = [];",
+      filename: packageSource,
+      errors: [{ messageId: "exportedMutableSurface" }],
+    },
+    {
+      code: "let alias = 0; export { alias }; if (ready) alias = {};",
       filename: packageSource,
       errors: [{ messageId: "exportedMutableSurface" }],
     },

@@ -3,10 +3,6 @@ import { noDomainWallClockRule } from "./no-domain-wall-clock.ts";
 
 const tester = createRuleTester("no-domain-wall-clock");
 const options = [{ sourceRoots: ["packages/flow-state-rewrite/src/runtime"] }];
-const boundaryOptions = [
-	{ sourceRoots: ["packages/flow-state-rewrite/src"], allowedPathFragments: ["/src/hosts/"] },
-];
-
 tester.run("ambient wall-clock access", noDomainWallClockRule, {
   valid: [
     {
@@ -18,11 +14,6 @@ tester.run("ambient wall-clock access", noDomainWallClockRule, {
       code: "const localDate = Date; void localDate;",
       filename: "/project/packages/flow-state-rewrite/src/runtime/clock.ts",
       options,
-    },
-    {
-      code: "const hostNow = Date.now(); void hostNow;",
-      filename: "/project/packages/flow-state-rewrite/src/hosts/browser.ts",
-      options: boundaryOptions,
     },
     {
       code: "const LocalDate = () => 0; const value = LocalDate(); void value;",
@@ -135,6 +126,16 @@ tester.run("ambient wall-clock access", noDomainWallClockRule, {
       options,
     },
     {
+      code: "const localDate = () => 0; let alias = localDate; try { alias = Date; throw new Error(); } catch { alias = localDate; } const value = alias(); void value;",
+      filename: "/project/packages/flow-state-rewrite/src/runtime/try-catch-replacement.ts",
+      options,
+    },
+    {
+      code: "const localDate = () => 0; const source = {}; source.Date = Date; source.Date = localDate; const value = source.Date(); void value;",
+      filename: "/project/packages/flow-state-rewrite/src/runtime/replaced-date-property.ts",
+      options,
+    },
+    {
       code: "const localDate = () => 0; let alias = Date; switch (kind) { case 0: alias = localDate; break; default: alias = localDate; } const value = alias(); void value;",
       filename: "/project/packages/flow-state-rewrite/src/runtime/switch-default-overwrite.ts",
       options,
@@ -163,6 +164,11 @@ tester.run("ambient wall-clock access", noDomainWallClockRule, {
     {
       code: "const localDate = () => 0; let source = { NativeDate: Date }; source = { NativeDate: localDate }; const { NativeDate } = source; const value = NativeDate(); void value;",
       filename: "/project/packages/flow-state-rewrite/src/runtime/object-replaced-local.ts",
+      options,
+    },
+    {
+      code: "const local = {}; const source = { root: {} }; source.root.Date = Date; source.root = local; source.root.Date();",
+      filename: "/project/packages/flow-state-rewrite/src/runtime/replaced-nested-date-property.ts",
       options,
     },
   ],
@@ -252,7 +258,7 @@ tester.run("ambient wall-clock access", noDomainWallClockRule, {
     {
       code: "const value = Date.now(); void value;",
       filename: "/project/packages/flow-state-rewrite/src/host/browser.ts",
-      options: boundaryOptions,
+      options: [{ sourceRoots: ["packages/flow-state-rewrite/src"] }],
       errors: [{ messageId: "wallClock" }],
     },
     {
@@ -413,6 +419,42 @@ tester.run("ambient wall-clock access", noDomainWallClockRule, {
       filename: "/project/packages/flow-state-rewrite/src/runtime/assigned-array-container.ts",
       options,
       errors: [{ messageId: "wallClock" }],
+    },
+    {
+      code: "const localDate = () => 0; let alias = localDate; try { alias = Date; throw new Error(); } catch { const value = alias(); void value; }",
+      filename: "/project/packages/flow-state-rewrite/src/runtime/try-catch-alias.ts",
+      options,
+      errors: [{ messageId: "wallClock" }],
+    },
+    {
+      code: "const source = {}; source.Date = Date; source.Date();",
+      filename: "/project/packages/flow-state-rewrite/src/runtime/assigned-date-property.ts",
+      options,
+      errors: [{ messageId: "wallClock" }],
+    },
+    {
+      code: "const source = { root: {} }; source.root.Date = Date; source.root.Date();",
+      filename: "/project/packages/flow-state-rewrite/src/runtime/nested-assigned-date-property.ts",
+      options,
+      errors: [{ messageId: "wallClock" }],
+    },
+    {
+      code: "const source = { root: {} }; const alias = source; alias.root.Date = Date; source.root.Date();",
+      filename: "/project/packages/flow-state-rewrite/src/runtime/aliased-nested-date-property.ts",
+      options,
+      errors: [{ messageId: "wallClock" }],
+    },
+    {
+      code: "const source = { root: {} }; const root = source.root; root.Date = Date; source.root.Date();",
+      filename: "/project/packages/flow-state-rewrite/src/runtime/destructured-nested-date-property.ts",
+      options,
+      errors: [{ messageId: "wallClock" }],
+    },
+    {
+      code: "const source = { root: {} };\nconst other = { root: {} };\nlet alias = source;\nalias = other;\nalias.root.Date = Date;\nsource.root.Date();\nother.root.Date();",
+      filename: "/project/packages/flow-state-rewrite/src/runtime/rebound-nested-date-property.ts",
+      options,
+      errors: [{ messageId: "wallClock", line: 7 }],
     },
   ],
 });

@@ -113,14 +113,15 @@ export type ActorStore<DefinitionValue extends MachineDefinition> = {
   ) => Result.Result<ActorStoreResult<DefinitionValue>, PublicDiagnostic>;
 };
 
-export type ActorPublication<DefinitionValue extends MachineDefinition> = {
-  readonly fence: ActorFence;
-  readonly snapshot: ActorSnapshot<DefinitionValue>;
-  readonly store: ActorStoreResult<DefinitionValue>;
-  readonly publicationRevision: number;
-  readonly machineTurnRevision: number;
-  readonly cause: TurnCause<DefinitionValue>;
-};
+// oxlint-disable-next-line anti-slop/no-readonly -- The ActorCell is the sole owner of publication replacement; observers receive a read-only cut.
+export type ActorPublication<DefinitionValue extends MachineDefinition> = Readonly<{
+  fence: ActorFence;
+  snapshot: ActorSnapshot<DefinitionValue>;
+  store: ActorStoreResult<DefinitionValue>;
+  publicationRevision: number;
+  machineTurnRevision: number;
+  cause: TurnCause<DefinitionValue>;
+}>;
 
 /** Journal permit held across the short store commit interval. */
 export type PreparedActorEvidence<DefinitionValue extends MachineDefinition> = {
@@ -336,7 +337,7 @@ type SnapshotPublisher<DefinitionValue extends MachineDefinition> = {
 /** Subscriber Scopes retain unread cuts after actor disposal; the cell retains only registrations. */
 const makeSnapshotPublisher = <DefinitionValue extends MachineDefinition>(
   current: () => ActorSnapshot<DefinitionValue>,
-): SnapshotPublisher<DefinitionValue> => {
+) => {
   const subscribers = new Set<Queue.Queue<SnapshotDelivery<DefinitionValue>>>();
   let closed = false;
   const end: SnapshotDelivery<DefinitionValue> = { _tag: "end" };
@@ -380,6 +381,7 @@ const makeSnapshotPublisher = <DefinitionValue extends MachineDefinition>(
       return Stream.fromQueue(queue).pipe(
         Stream.takeUntil((delivery) => delivery._tag === "end"),
         Stream.filter(
+          // RETURN_TYPE: The filter predicate narrows queue deliveries to snapshots for Stream.map.
           (
             delivery,
           ): delivery is Extract<SnapshotDelivery<DefinitionValue>, { _tag: "snapshot" }> =>
@@ -424,7 +426,9 @@ const ownDiagnosticData = (issue: PublicDiagnostic) => {
 
   if (Result.isFailure(decoded)) throw new TypeError("Published diagnostic is not canonical");
 
+  // oxlint-disable-next-line anti-slop/no-object-freeze -- Published diagnostics are owned snapshot data and must not be mutated through an observer.
   Object.freeze(issue.path);
+  // oxlint-disable-next-line anti-slop/no-object-freeze -- Published diagnostics are owned snapshot data and must not be mutated through an observer.
   Object.freeze(issue.details);
 
   return issue;
@@ -460,6 +464,7 @@ const copySnapshot = <DefinitionValue extends MachineDefinition>(
 
 type SnapshotRawValue = Schema.Schema.Type<typeof Schema.Unknown>;
 
+// RETURN_TYPE: Recursive snapshot admission needs the reference narrowing before walking owned values.
 const isSnapshotReference = (value: SnapshotRawValue): value is SnapshotReference =>
   Predicate.isObjectOrArray(value);
 
@@ -478,6 +483,7 @@ const freezeOwnedValue = (value: SnapshotRawValue, seen: Set<SnapshotReference>)
     if (descriptor !== undefined && "value" in descriptor) freezeOwnedValue(descriptor.value, seen);
   }
 
+  // oxlint-disable-next-line anti-slop/no-object-freeze -- Recursive freezing is the ActorEngine publication boundary for plain owned snapshot values.
   Object.freeze(value);
 };
 
@@ -493,6 +499,7 @@ const freezePublicationSnapshot = <DefinitionValue extends MachineDefinition>(
 
     if (operation === undefined) throw new TypeError("Published operations must be dense");
     freezeOwnedValue(operation.key, seen);
+    // oxlint-disable-next-line anti-slop/no-object-freeze -- Published operation projections belong to the immutable snapshot cut.
     Object.freeze(operation);
   }
 
@@ -500,6 +507,7 @@ const freezePublicationSnapshot = <DefinitionValue extends MachineDefinition>(
     const timer = snapshot.timers[index];
 
     if (timer === undefined) throw new TypeError("Published timers must be dense");
+    // oxlint-disable-next-line anti-slop/no-object-freeze -- Published timer projections belong to the immutable snapshot cut.
     Object.freeze(timer);
   }
 
@@ -507,12 +515,17 @@ const freezePublicationSnapshot = <DefinitionValue extends MachineDefinition>(
     const issue = snapshot.issues[index];
 
     if (issue === undefined) throw new TypeError("Published diagnostics must be dense");
+    // oxlint-disable-next-line anti-slop/no-object-freeze -- Published diagnostics belong to the immutable snapshot cut.
     Object.freeze(issue);
   }
 
+  // oxlint-disable-next-line anti-slop/no-object-freeze -- The snapshot containers are the immutable publication boundary observed by callers.
   Object.freeze(snapshot.operations);
+  // oxlint-disable-next-line anti-slop/no-object-freeze -- The snapshot containers are the immutable publication boundary observed by callers.
   Object.freeze(snapshot.timers);
+  // oxlint-disable-next-line anti-slop/no-object-freeze -- The snapshot containers are the immutable publication boundary observed by callers.
   Object.freeze(snapshot.issues);
+  // oxlint-disable-next-line anti-slop/no-object-freeze -- The complete ActorEngine publication cut must not be mutated after installation.
   Object.freeze(snapshot);
 
   return snapshot;
@@ -1174,6 +1187,7 @@ const cutFailure = (diagnostic: PublicDiagnostic, preserveCut = false) => ({
 });
 
 /** The ActorCell's one synchronous store/publication/Journal cut. */
+// oxlint-disable-next-line complexity, anti-slop/no-excessive-cognitive-complexity -- One ActorCell owner keeps preparation, store rollback, evidence finalization, and publication installation atomic.
 const commitActorCut = <DefinitionValue extends MachineDefinition>(
   cell: ActorCellCut<DefinitionValue>,
   snapshots: SnapshotPublisher<DefinitionValue>,
@@ -1745,6 +1759,7 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
       : Result.succeed(committed.success.publication.snapshot);
   };
 
+  // oxlint-disable-next-line complexity, anti-slop/no-excessive-cognitive-complexity -- One mailbox owner keeps noop, projection, and event acknowledgement/publication ordering together.
   const processPlan = (
     plan: TurnPlan<DefinitionValue>,
     acknowledgement: Deferred.Deferred<DispatchReceipt, PublicDiagnostic> | undefined,
@@ -1947,6 +1962,7 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
     pendingContextTickets.delete(ticket.completion);
     Deferred.doneUnsafe(
       ticket.completion,
+      // oxlint-disable-next-line anti-slop/no-eager-stateful-effect-succeed -- Capture the exact ActorEngine cut before the Deferred is offered to a later waiter.
       Effect.succeed({
         status,
         snapshot: copySnapshot(state.publication.snapshot),
@@ -2252,6 +2268,7 @@ export const prepareActorEngine = <DefinitionValue extends MachineDefinition>(
       Queue.failCauseUnsafe(mailbox, Cause.die(mailboxAdmissionFailure("closed")));
     };
 
+    // oxlint-disable-next-line complexity, anti-slop/no-excessive-cognitive-complexity -- One mailbox owner keeps synchronous admission, reentrant mapped-event ordering, and reserved-control behavior together.
     const enqueueCommand = (
       command: ActorCommand<DefinitionValue>,
       acknowledgement: Deferred.Deferred<DispatchReceipt, PublicDiagnostic> | undefined,
@@ -2342,6 +2359,7 @@ export const prepareActorEngine = <DefinitionValue extends MachineDefinition>(
           pendingContextTickets.delete(completion);
           Deferred.doneUnsafe(
             completion,
+            // oxlint-disable-next-line anti-slop/no-eager-stateful-effect-succeed -- Cancellation completes with the exact cut observed at this actor-owned cancellation point.
             Effect.succeed({
               status: "stale",
               snapshot: copySnapshot(state.publication.snapshot),

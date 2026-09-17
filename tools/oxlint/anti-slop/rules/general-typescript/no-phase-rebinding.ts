@@ -26,6 +26,7 @@ const defaultPhaseNames = [
   "stages",
   "workflow",
 ] as const;
+const ambiguousLocalPhaseNames = new Set(["phase", "staged", "workflow"]);
 
 function normalized(value: string): string {
   return value.replaceAll("\\", "/");
@@ -91,6 +92,167 @@ function unwrapExpression(expression: ESTree.Expression): ESTree.Expression {
   )
     current = current.expression;
   return current;
+}
+
+function parameterIsObjectLike(parameter: ESTree.Node): boolean {
+  let node = parameter;
+  if (node.type === "AssignmentPattern") node = node.left;
+  if (node.type !== "Identifier") return false;
+  const annotation = (node as unknown as {
+    typeAnnotation?: { typeAnnotation?: { type?: string } };
+  }).typeAnnotation?.typeAnnotation;
+  if (annotation === undefined) return false;
+  return annotation.type === "TSTypeLiteral" ||
+    annotation.type === "TSObjectKeyword" ||
+    annotation.type === "TSMappedType";
+}
+
+function typeAnnotation(node: ESTree.Node | null): ESTree.Node | null {
+  if (node === null) return null;
+  const annotation = (node as unknown as {
+    typeAnnotation?: { typeAnnotation?: ESTree.Node };
+  }).typeAnnotation;
+  return annotation?.typeAnnotation ?? null;
+}
+
+function typeMemberName(node: ESTree.Node): string | null {
+  const key = (node as unknown as { key?: ESTree.Node }).key;
+  if (key?.type === "Identifier") return key.name;
+  return key?.type === "Literal" && typeof key.value === "string" ? key.value : null;
+}
+
+function typeMembers(
+  sourceCode: SourceCode,
+  annotation: ESTree.Node | null,
+  seen: ReadonlySet<string> = new Set<string>(),
+): readonly ESTree.Node[] {
+  if (annotation === null) return [];
+  if (annotation.type === "TSTypeLiteral") {
+    return ((annotation as unknown as { members?: unknown[] }).members ?? []).filter(
+      (member): member is ESTree.Node =>
+        typeof member === "object" && member !== null && "type" in member,
+    );
+  }
+  if (annotation.type === "TSInterfaceBody") {
+    return ((annotation as unknown as { body?: unknown[] }).body ?? []).filter(
+      (member): member is ESTree.Node =>
+        typeof member === "object" && member !== null && "type" in member,
+    );
+  }
+  if (annotation.type !== "TSTypeReference") return [];
+  const typeName = (annotation as unknown as { typeName?: ESTree.Node }).typeName;
+  if (typeName?.type !== "Identifier" || seen.has(typeName.name)) return [];
+  const nextSeen = new Set(seen).add(typeName.name);
+  for (const statement of sourceCode.ast.body) {
+    if (
+      statement.type === "TSTypeAliasDeclaration" &&
+      statement.id.type === "Identifier" &&
+      statement.id.name === typeName.name
+    )
+      return typeMembers(sourceCode, statement.typeAnnotation, nextSeen);
+    if (
+      statement.type === "TSInterfaceDeclaration" &&
+      statement.id.type === "Identifier" &&
+      statement.id.name === typeName.name
+    ) {
+      return typeMembers(
+        sourceCode,
+        (statement as unknown as { body?: ESTree.Node }).body ?? null,
+        nextSeen,
+      );
+    }
+  }
+  return [];
+}
+
+function typeLiteralMember(
+  sourceCode: SourceCode,
+  annotation: ESTree.Node | null,
+  key: string,
+): ESTree.Node | null {
+  const members = typeMembers(sourceCode, annotation);
+  for (const member of members) {
+    if (typeMemberName(member) === key) return member;
+  }
+  return null;
+}
+
+function objectLikeType(node: ESTree.Node | null): boolean {
+  return (
+    node?.type === "TSTypeLiteral" ||
+    node?.type === "TSObjectKeyword" ||
+    node?.type === "TSMappedType"
+  );
+}
+
+function parameterBindingIsObjectLike(
+  sourceCode: SourceCode,
+  parameter: ESTree.Node,
+  identifier: IdentifierNode,
+): boolean {
+  let node = parameter;
+  if (node.type === "AssignmentPattern") node = node.left;
+  if (node.type === "Identifier") return parameterIsObjectLike(node);
+  if (node.type !== "ObjectPattern") return false;
+  const annotation = typeAnnotation(node);
+  for (const property of node.properties) {
+    if (property.type !== "Property" || objectPropertyName(property) === null) continue;
+    if (!bindingIdentifiers(property.value).some((binding) => binding.name === identifier.name)) continue;
+    if (annotation === null) return true;
+    const member = typeLiteralMember(sourceCode, annotation, objectPropertyName(property)!);
+    if (member === null) return annotation.type === "TSTypeReference";
+    return objectLikeType(
+      typeAnnotation(member),
+    ) || typeAnnotation(member)?.type === "TSTypeReference";
+  }
+  return false;
+}
+
+function hasTypedReadOnlyMember(
+  sourceCode: SourceCode,
+  node: ESTree.MemberExpression,
+  key: string,
+): boolean {
+  const object = unwrapExpression(node.object as ESTree.Expression);
+  if (object.type !== "Identifier") return false;
+  const variable = resolveVariable(sourceCode, object);
+  const definitionName = variable?.defs
+    .map((definition) => (definition as unknown as { name?: ESTree.Node }).name ?? null)
+    .find((name): name is ESTree.Node => name !== null && name.type === "Identifier");
+  const directMember = typeLiteralMember(sourceCode, typeAnnotation(definitionName ?? object), key);
+  if (directMember !== null) {
+    if (directMember.type === "TSMethodSignature") return true;
+    return directMember.type === "TSPropertySignature" && typeAnnotation(directMember)?.type === "TSFunctionType";
+  }
+
+  let parent: ESTree.Node | null = node.parent;
+  while (
+    parent !== null &&
+    parent.type !== "FunctionDeclaration" &&
+    parent.type !== "FunctionExpression" &&
+    parent.type !== "ArrowFunctionExpression"
+  )
+    parent = parent.parent;
+  if (parent === null) return false;
+  for (const parameter of parent.params) {
+    let parameterNode: ESTree.Node = parameter;
+    if (parameterNode.type === "AssignmentPattern") parameterNode = parameterNode.left;
+    if (parameterNode.type !== "ObjectPattern") continue;
+    const annotation = typeAnnotation(parameterNode);
+    for (const property of parameterNode.properties) {
+      if (
+        property.type !== "Property" ||
+        objectPropertyName(property) === null ||
+        !bindingIdentifiers(property.value).some((binding) => binding.name === object.name)
+      )
+        continue;
+      const outerMember = typeLiteralMember(sourceCode, annotation, objectPropertyName(property)!);
+      const member = typeLiteralMember(sourceCode, typeAnnotation(outerMember), key);
+      if (member?.type === "TSMethodSignature") return true;
+      return member?.type === "TSPropertySignature" && typeAnnotation(member)?.type === "TSFunctionType";
+    }
+  }
+  return false;
 }
 
 function isNumericLiteral(node: ESTree.Node | null): boolean {
@@ -680,6 +842,101 @@ function cursorUpdateNode(
   return isNumericCursorUpdate(sourceCode, update, variable) ? update : null;
 }
 
+function memberValue(
+  sourceCode: SourceCode,
+  expression: ESTree.Expression,
+  key: string,
+  seen: ReadonlySet<Variable> = new Set<Variable>(),
+): ESTree.Expression | null {
+  const value = unwrapExpression(expression);
+  if (value.type === "ObjectExpression") {
+    for (const property of [...value.properties].reverse()) {
+      if (property.type === "Property" && objectPropertyName(property) === key)
+        return property.value;
+    }
+    return null;
+  }
+  if (value.type !== "Identifier") return null;
+  const variable = resolveVariable(sourceCode, value);
+  if (variable === null || seen.has(variable)) return null;
+  const declarator = variableDeclarator(variable);
+  if (declarator?.id.type !== "Identifier" || declarator.init === null) return null;
+  return memberValue(sourceCode, declarator.init, key, new Set(seen).add(variable));
+}
+
+function childNodes(node: ESTree.Node): ESTree.Node[] {
+  const children: ESTree.Node[] = [];
+  for (const [key, value] of Object.entries(node as unknown as Record<string, unknown>)) {
+    if (key === "parent") continue;
+    if (Array.isArray(value)) {
+      for (const child of value) {
+        if (typeof child === "object" && child !== null && "type" in child)
+          children.push(child as ESTree.Node);
+      }
+    } else if (typeof value === "object" && value !== null && "type" in value) {
+      children.push(value as ESTree.Node);
+    }
+  }
+  return children;
+}
+
+function receiverMemberObject(expression: ESTree.Expression): boolean {
+  let current = unwrapExpression(expression);
+  while (current.type === "MemberExpression") current = unwrapExpression(current.object);
+  return current.type === "ThisExpression";
+}
+
+function mutatesReceiver(node: ESTree.Node): boolean {
+  if (
+    node.type === "AssignmentExpression" &&
+    node.left.type === "MemberExpression" &&
+    receiverMemberObject(node.left.object)
+  )
+    return true;
+  if (
+    node.type === "UpdateExpression" &&
+    node.argument.type === "MemberExpression" &&
+    receiverMemberObject(node.argument.object)
+  )
+    return true;
+  if (
+    node.type === "UnaryExpression" &&
+    node.operator === "delete" &&
+    node.argument.type === "MemberExpression" &&
+    receiverMemberObject(node.argument.object)
+  )
+    return true;
+  if (
+    node.type === "CallExpression" &&
+    node.callee.type === "MemberExpression" &&
+    receiverMemberObject(node.callee.object) &&
+    new Set(["add", "clear", "delete", "fill", "pop", "push", "reverse", "set", "shift", "sort", "splice", "unshift"]).has(
+      node.callee.property.type === "Identifier" ? node.callee.property.name :
+        node.callee.property.type === "Literal" && typeof node.callee.property.value === "string"
+          ? node.callee.property.value
+          : "",
+    )
+  )
+    return true;
+  return childNodes(node).some(mutatesReceiver);
+}
+
+function isReadOnlyMemberCall(sourceCode: SourceCode, node: ESTree.MemberExpression): boolean {
+  const key =
+    !node.computed && node.property.type === "Identifier"
+      ? node.property.name
+      : node.computed && node.property.type === "Literal" && typeof node.property.value === "string"
+        ? node.property.value
+        : null;
+  if (key === null) return false;
+  const value = memberValue(sourceCode, node.object as ESTree.Expression, key);
+  return (
+    ((value?.type === "FunctionExpression" || value?.type === "ArrowFunctionExpression") &&
+      !mutatesReceiver(value.body)) ||
+    hasTypedReadOnlyMember(sourceCode, node, key)
+  );
+}
+
 /** Reject mutable workflow values while preserving ordinary locals and real loop cursors. */
 export const noPhaseRebindingRule = defineRule({
   meta: {
@@ -717,6 +974,8 @@ export const noPhaseRebindingRule = defineRule({
     const placeholders = new Set<Variable>();
     const sourceCode = () => context.sourceCode;
     const isPhaseName = (identifier: IdentifierNode) => phaseNames.has(identifier.name);
+    const isAmbiguousLocalPhaseName = (identifier: IdentifierNode) =>
+      ambiguousLocalPhaseNames.has(identifier.name);
 
     const markPhase = (variable: Variable, facts: ExpressionFacts, named: boolean) => {
       if (!facts.object || (!named && facts.phaseObjects.size === 0)) return;
@@ -728,7 +987,14 @@ export const noPhaseRebindingRule = defineRule({
       for (const parameter of parameters) {
         for (const identifier of bindingIdentifiers(parameter)) {
           const variable = resolveVariable(sourceCode(), identifier);
-          if (variable !== null && isPhaseName(identifier)) phaseVariables.add(variable);
+          if (
+            variable !== null &&
+            isPhaseName(identifier) &&
+            parameterBindingIsObjectLike(sourceCode(), parameter, identifier)
+          ) {
+            phaseVariables.add(variable);
+            phaseObjects.add(variable);
+          }
         }
       }
     };
@@ -837,7 +1103,9 @@ export const noPhaseRebindingRule = defineRule({
         const option = context.options?.[0] as RuleOptions[0] | undefined;
         const roots = option?.sourceRoots ?? [...defaultSourceRoots];
         phaseNames = new Set(option?.phaseNames ?? [...defaultPhaseNames]);
-        enabled = inSourceRoot(context.filename, roots) && !isTestSupportFile(context.filename);
+        enabled =
+          inSourceRoot(context.filename, roots) &&
+          !isTestSupportFile(context.filename);
       },
       FunctionDeclaration(node: ESTree.Function) {
         if (enabled) seedParameters(node.params);
@@ -861,10 +1129,19 @@ export const noPhaseRebindingRule = defineRule({
           if (variable === null) continue;
           const cursorUpdate = cursorUpdateNode(sourceCode(), node, variable);
           if (cursorUpdate !== null) cursorUpdates.add(cursorUpdate);
+          if (node.id.type !== "Identifier") continue;
           const named = isPhaseName(identifier);
-          if (named) phaseVariables.add(variable);
-          if (node.id.type === "Identifier") markPhase(variable, facts, named);
-          if (node.init === null && named) placeholders.add(variable);
+          const arrayAccumulator =
+            node.init !== null && unwrapExpression(node.init).type === "ArrayExpression";
+          const namedPhaseCandidate =
+            named &&
+            !arrayAccumulator &&
+            (!isAmbiguousLocalPhaseName(identifier) ||
+              facts.object ||
+              facts.phaseObjects.size > 0);
+          if (namedPhaseCandidate) phaseVariables.add(variable);
+          markPhase(variable, facts, namedPhaseCandidate);
+          if (node.init === null && namedPhaseCandidate) placeholders.add(variable);
         }
       },
       AssignmentExpression(node: ESTree.AssignmentExpression) {
@@ -892,7 +1169,12 @@ export const noPhaseRebindingRule = defineRule({
         }
       },
       CallExpression(node: ESTree.CallExpression) {
-        if (enabled && node.callee.type === "MemberExpression") reportMemberMutation(node.callee);
+        if (
+          enabled &&
+          node.callee.type === "MemberExpression" &&
+          !isReadOnlyMemberCall(sourceCode(), node.callee)
+        )
+          reportMemberMutation(node.callee);
       },
       UnaryExpression(node: ESTree.UnaryExpression) {
         if (enabled && node.operator === "delete" && node.argument.type === "MemberExpression")

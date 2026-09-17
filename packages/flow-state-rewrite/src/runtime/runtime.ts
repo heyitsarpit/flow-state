@@ -421,12 +421,7 @@ type CapturedRuntimeConstruction<DefinitionValue extends MachineDefinition> = {
   initialMachineTurnRevision: number;
 };
 
-// RETURN_TYPE: Keeps the fresh input correlated with the exact machine whose prepared snapshot was verified.
-const captureRuntimeConstruction = <DefinitionValue extends MachineDefinition>(
-  values: RuntimeCapturedValues,
-  ref: ActorRef<Machine<DefinitionValue>>,
-  identityMode: "stable" | "local" = "stable",
-): Result.Result<CapturedRuntimeConstruction<DefinitionValue>, PublicDiagnostic> => {
+const validateRuntimeConstructionMode = (values: RuntimeCapturedValues) => {
   const hasInitial = values.has("initial");
   const hasRestore = values.has("restore");
 
@@ -438,33 +433,76 @@ const captureRuntimeConstruction = <DefinitionValue extends MachineDefinition>(
   if (hasRestore !== values.has("restoredMachineTurnRevision"))
     return Result.fail(invalidRuntimeOption("restoredMachineTurnRevision"));
 
+  return Result.succeed(hasRestore);
+};
+
+const readRuntimeInitialMachineTurnRevision = (
+  values: RuntimeCapturedValues,
+  hasRestore: boolean,
+  maximum: number,
+) => {
+  if (!hasRestore) return Result.succeed(0);
+  const restoredMachineTurnRevision = values.get("restoredMachineTurnRevision");
+
+  if (
+    !Predicate.isNumber(restoredMachineTurnRevision) ||
+    !Number.isSafeInteger(restoredMachineTurnRevision) ||
+    restoredMachineTurnRevision < 0 ||
+    restoredMachineTurnRevision > maximum
+  )
+    return Result.fail(invalidRuntimeOption("restoredMachineTurnRevision"));
+
+  return Result.succeed(restoredMachineTurnRevision);
+};
+
+const captureRuntimeConstructionSnapshot = <DefinitionValue extends MachineDefinition>(
+  values: RuntimeCapturedValues,
+  ref: ActorRef<Machine<DefinitionValue>>,
+) => {
+  const mode = validateRuntimeConstructionMode(values);
+
+  if (Result.isFailure(mode)) return Result.fail(mode.failure);
+  const hasRestore = mode.success;
+
   const suppliedSnapshot = hasRestore ? values.get("restore") : values.get("initial");
   const admittedSnapshot = verifyPreparedActorSnapshot(ref.machine, suppliedSnapshot);
 
   if (Result.isFailure(admittedSnapshot)) return Result.fail(admittedSnapshot.failure);
-  const restoredMachineTurnRevision = values.get("restoredMachineTurnRevision");
-  let initialMachineTurnRevision = 0;
 
-  if (hasRestore) {
-    if (
-      !Predicate.isNumber(restoredMachineTurnRevision) ||
-      !Number.isSafeInteger(restoredMachineTurnRevision) ||
-      restoredMachineTurnRevision < 0 ||
-      restoredMachineTurnRevision > admittedSnapshot.success.revision
-    )
-      return Result.fail(invalidRuntimeOption("restoredMachineTurnRevision"));
+  const initialMachineTurnRevision = readRuntimeInitialMachineTurnRevision(
+    values,
+    hasRestore,
+    admittedSnapshot.success.revision,
+  );
 
-    initialMachineTurnRevision = restoredMachineTurnRevision;
-  }
+  if (Result.isFailure(initialMachineTurnRevision))
+    return Result.fail(initialMachineTurnRevision.failure);
+
+  return Result.succeed({
+    hasRestore,
+    snapshot: admittedSnapshot.success,
+    initialMachineTurnRevision: initialMachineTurnRevision.success,
+  });
+};
+
+// RETURN_TYPE: Keeps the fresh input correlated with the exact machine whose prepared snapshot was verified.
+const captureRuntimeConstruction = <DefinitionValue extends MachineDefinition>(
+  values: RuntimeCapturedValues,
+  ref: ActorRef<Machine<DefinitionValue>>,
+  identityMode: "stable" | "local" = "stable",
+): Result.Result<CapturedRuntimeConstruction<DefinitionValue>, PublicDiagnostic> => {
+  const captured = captureRuntimeConstructionSnapshot(values, ref);
+
+  if (Result.isFailure(captured)) return Result.fail(captured.failure);
 
   const construction: ActorAdmissionConstruction<
     DefinitionValue,
     InputOf<DefinitionValue>
-  > = hasRestore
-    ? { _tag: "restore", snapshot: admittedSnapshot.success }
+  > = captured.success.hasRestore
+    ? { _tag: "restore", snapshot: captured.success.snapshot }
     : {
         _tag: "fresh",
-        initial: admittedSnapshot.success,
+        initial: captured.success.snapshot,
         // SAFETY: the option record was captured once; fresh input is trusted by the existing prepared-snapshot seam and is never reread.
         // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the private runtime seam retains the machine-derived input type after structural capture.
         input: values.get("input") as InputOf<DefinitionValue> | undefined,
@@ -477,7 +515,7 @@ const captureRuntimeConstruction = <DefinitionValue extends MachineDefinition>(
   return Result.succeed({
     construction,
     admissionMode: admissionMode.success,
-    initialMachineTurnRevision,
+    initialMachineTurnRevision: captured.success.initialMachineTurnRevision,
   });
 };
 
@@ -942,6 +980,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
       localIdentity?: ActorIdentity<DefinitionValue>,
       suppliedRef?: RuntimeCapturedValue,
     ) =>
+      // oxlint-disable-next-line anti-slop/no-excessive-cognitive-complexity -- the admission transaction keeps close gating, capture, validation, reservation, and rollback in one owner boundary.
       Effect.gen(function* () {
         if (closeRegistry === undefined || !closeRegistry.isOpen())
           return yield* Effect.fail(closedActorAdmission());
@@ -1504,6 +1543,7 @@ const constructRuntime = <A extends RuntimeApp, ImplementationError>(
               });
 
             const queuedLifecycleCommand = (command: LifecycleCommand<PublicDiagnostic>) =>
+              // oxlint-disable-next-line anti-slop/no-excessive-cognitive-complexity -- lifecycle preflight, control admission, evidence preparation, and release remain one serialized owner protocol.
               Effect.gen(function* () {
                 if (
                   (command._tag === "actor:start" || command._tag === "actor:restore") &&

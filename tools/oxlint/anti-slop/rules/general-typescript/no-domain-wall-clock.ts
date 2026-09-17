@@ -4,7 +4,7 @@ import type { ESTree, Scope, SourceCode, Variable } from "@oxlint/plugins";
 
 import { isTestSupportFile } from "../../shared/file-scope.ts";
 
-type RuleOptions = [{ sourceRoots?: string[]; allowedPathFragments?: string[] }];
+type RuleOptions = [{ sourceRoots?: string[] }];
 type Fact =
   | "global"
   | "date"
@@ -24,14 +24,14 @@ type Fact =
   | `date-property:${string}`
   | `performance-property:${string}`;
 type Facts = Set<Fact>;
-type Aliases = Map<Variable, Facts>;
+type AliasPath = { readonly root: Variable; readonly path: readonly string[] };
+type Aliases = Map<Variable, Facts> & { paths: Map<Variable, AliasPath> };
 type NodeRecord = Record<string, unknown>;
 type IdentifierNode = ESTree.IdentifierName | ESTree.IdentifierReference | ESTree.BindingIdentifier;
 type PropertyNode = { type: "Property"; computed: boolean; key: ESTree.Node };
 type LiteralNode = { type: "Literal"; value: unknown };
 
 const defaultSourceRoots = ["packages/flow-state-rewrite/src"] as const;
-const defaultAllowedPathFragments = ["/src/hosts/"] as const;
 const ambientGlobals = new Set(["globalThis", "global", "self", "window"]);
 const wrappers = new Set([
   "ParenthesizedExpression",
@@ -101,18 +101,65 @@ function joinFacts(...sources: Facts[]): Facts {
   return result;
 }
 
+function emptyAliases(): Aliases {
+  const result = new Map() as Aliases;
+  result.paths = new Map();
+  return result;
+}
+
 function cloneAliases(aliases: Aliases): Aliases {
-  return new Map([...aliases].map(([variable, facts]) => [variable, new Set(facts)]));
+  const result = new Map(
+    [...aliases].map(([variable, facts]) => [variable, new Set(facts)]),
+  ) as Aliases;
+  result.paths = new Map(
+    [...aliases.paths].map(([variable, path]) => [variable, { root: path.root, path: [...path.path] }]),
+  );
+  return result;
 }
 
 function joinAliases(...states: Aliases[]): Aliases {
-  const result: Aliases = new Map();
+  const result = emptyAliases();
   for (const state of states) {
     for (const [variable, facts] of state) {
       result.set(variable, joinFacts(result.get(variable) ?? emptyFacts(), facts));
     }
   }
+  const pathVariables = new Set(states.flatMap((state) => [...state.paths.keys()]));
+  for (const variable of pathVariables) {
+    const paths = states.map((state) => state.paths.get(variable));
+    const first = paths[0];
+    if (
+      first !== undefined &&
+      paths.every(
+        (path) =>
+          path !== undefined &&
+          path.root === first.root &&
+          path.path.length === first.path.length &&
+          path.path.every((part, index) => part === first.path[index]),
+      )
+    )
+      result.paths.set(variable, first);
+  }
   return result;
+}
+
+function aliasPath(
+  sourceCode: SourceCode,
+  expression: ESTree.Expression,
+  aliases: Aliases,
+): AliasPath | null {
+  const value = unwrap(expression);
+  if (value.type === "Identifier") {
+    const variable = resolveVariable(sourceCode, value);
+    if (variable === null) return null;
+    return aliases.paths.get(variable) ?? { root: variable, path: [] };
+  }
+  if (value.type !== "MemberExpression") return null;
+  const key = propertyName(value);
+  const base = aliasPath(sourceCode, value.object as ESTree.Expression, aliases);
+  return base === null || key === null
+    ? null
+    : { root: base.root, path: [...base.path, key] };
 }
 
 function definitelyTruthy(facts: Facts): boolean {
@@ -170,6 +217,36 @@ function propertyFacts(base: Facts, key: string | null): Facts {
     if (fact === `date-property:${key}`) result.add("date");
     if (fact === `performance-property:${key}`) result.add("performance");
   }
+  return result.size === 0 ? result : joinFacts(result, emptyFacts("truthy", "non-nullish"));
+}
+
+function memberPath(
+  expression: ESTree.Expression,
+): { root: ESTree.IdentifierReference; path: string[] } | null {
+  let current = unwrap(expression);
+  const path: string[] = [];
+  while (current.type === "MemberExpression") {
+    const key = propertyName(current);
+    if (key === null) return null;
+    path.unshift(key);
+    current = unwrap(current.object as ESTree.Expression);
+  }
+  return current.type === "Identifier" ? { root: current, path } : null;
+}
+
+function memberPathFacts(
+  sourceCode: SourceCode,
+  expression: ESTree.MemberExpression,
+  aliases: Aliases,
+): Facts {
+  const path = memberPath(expression);
+  if (path === null || path.path.length === 0) return emptyFacts();
+  const variable = resolveVariable(sourceCode, path.root);
+  if (variable === null) return emptyFacts();
+  const base = aliases.get(variable) ?? facts(sourceCode, path.root, aliases);
+  const result = new Set<Fact>();
+  if (base.has(`date-property:${path.path.join(".")}` as Fact)) result.add("date");
+  if (base.has(`performance-property:${path.path.join(".")}` as Fact)) result.add("performance");
   return result.size === 0 ? result : joinFacts(result, emptyFacts("truthy", "non-nullish"));
 }
 
@@ -419,7 +496,12 @@ function facts(
   if (value.type === "AwaitExpression" || value.type === "YieldExpression") {
     return value.argument === null ? emptyFacts() : facts(sourceCode, value.argument, aliases, seen);
   }
-  if (value.type === "MemberExpression") return propertyFacts(facts(sourceCode, value.object, aliases, seen), propertyName(value));
+  if (value.type === "MemberExpression") {
+    const pathFacts = memberPathFacts(sourceCode, value, aliases);
+    return pathFacts.size > 0
+      ? pathFacts
+      : propertyFacts(facts(sourceCode, value.object as ESTree.Expression, aliases, seen), propertyName(value));
+  }
   if (value.type === "FunctionExpression" || value.type === "ArrowFunctionExpression" || value.type === "ClassExpression" || value.type === "NewExpression") return emptyFacts("truthy", "non-nullish");
   if (value.type === "TemplateLiteral") return emptyFacts("truthy", "non-nullish");
   return emptyFacts();
@@ -472,7 +554,14 @@ function updateTarget(
 ): void {
   if (target.type === "Identifier") {
     const variable = resolveVariable(sourceCode, target);
-    if (variable !== null) aliases.set(variable, new Set(base));
+    if (variable !== null) {
+      aliases.set(variable, new Set(base));
+      if (source !== null) {
+        const path = aliasPath(sourceCode, source, aliases);
+        if (path === null) aliases.paths.delete(variable);
+        else aliases.paths.set(variable, path);
+      } else aliases.paths.delete(variable);
+    }
     return;
   }
   if (target.type === "AssignmentPattern") {
@@ -516,11 +605,120 @@ function updateTarget(
   }
 }
 
+function updateMemberTarget(
+  sourceCode: SourceCode,
+  target: ESTree.MemberExpression,
+  value: Facts,
+  aliases: Aliases,
+): void {
+  const path = memberPath(target);
+  if (path === null || path.path.length === 0) return;
+  const variable = resolveVariable(sourceCode, path.root);
+  if (variable === null) return;
+  const targetPath = aliases.paths.get(variable) ?? { root: variable, path: [] };
+  const canonicalPath = [...targetPath.path, ...path.path];
+  const affected = new Map<Variable, string[]>();
+  affected.set(targetPath.root, canonicalPath);
+  for (const [candidate, candidatePath] of aliases.paths) {
+    if (
+      candidatePath.root !== targetPath.root ||
+      candidatePath.path.length > canonicalPath.length ||
+      !candidatePath.path.every((part, index) => part === canonicalPath[index])
+    )
+      continue;
+    affected.set(candidate, canonicalPath.slice(candidatePath.path.length));
+  }
+  for (const [candidate, candidatePath] of affected) {
+    const next = new Set(aliases.get(candidate) ?? emptyFacts());
+    const key = candidatePath.join(".");
+    for (const fact of [...next]) {
+      const factKey = fact.slice(fact.indexOf(":") + 1);
+      if (
+        (fact.startsWith("date-property:") ||
+          fact.startsWith("performance-property:") ||
+          fact.startsWith("undefined:") ||
+          fact.startsWith("present:")) &&
+        (factKey === key || factKey.startsWith(`${key}.`))
+      )
+        next.delete(fact);
+    }
+    next.add(`present:${key}` as Fact);
+    if (value.has("nullish")) next.add(`undefined:${key}` as Fact);
+    if (value.has("date")) next.add(`date-property:${key}` as Fact);
+    if (value.has("performance")) next.add(`performance-property:${key}` as Fact);
+    aliases.set(candidate, next);
+  }
+}
+
 type AnalysisContext = { sourceCode: SourceCode; report: (node: ESTree.Node) => void };
 type FunctionLike = {
   params: readonly ESTree.Node[];
   body: ESTree.Node | null;
 };
+
+function canCompleteNormally(node: ESTree.Statement | ESTree.BlockStatement): boolean {
+  if (node.type === "ReturnStatement" || node.type === "ThrowStatement") return false;
+  if (node.type === "BlockStatement") {
+    for (const statement of node.body) {
+      if (!canCompleteNormally(statement)) return false;
+    }
+    return true;
+  }
+  if (node.type === "IfStatement") {
+    return node.alternate === null ||
+      canCompleteNormally(node.consequent) ||
+      canCompleteNormally(node.alternate);
+  }
+  return true;
+}
+
+function collectThrowStates(
+  context: AnalysisContext,
+  node: ESTree.Statement | ESTree.BlockStatement,
+  aliases: Aliases,
+): Aliases[] {
+  if (node.type === "ThrowStatement") return [aliases];
+  const silentContext: AnalysisContext = { sourceCode: context.sourceCode, report: () => {} };
+  if (node.type === "BlockStatement") {
+    let state = aliases;
+    const throws: Aliases[] = [];
+    for (const statement of node.body) {
+      throws.push(...collectThrowStates(context, statement, cloneAliases(state)));
+      state = visitNode(silentContext, statement, state);
+    }
+    return throws;
+  }
+  if (node.type === "IfStatement") {
+    const afterTest = visitExpression(silentContext, node.test, aliases);
+    const branch = staticBranch(facts(context.sourceCode, node.test, afterTest));
+    if (branch === "consequent") return collectThrowStates(context, node.consequent, afterTest);
+    if (branch === "alternate") return node.alternate === null ? [] : collectThrowStates(context, node.alternate, afterTest);
+    return [
+      ...collectThrowStates(context, node.consequent, cloneAliases(afterTest)),
+      ...(node.alternate === null ? [] : collectThrowStates(context, node.alternate, cloneAliases(afterTest))),
+    ];
+  }
+  if (node.type === "WhileStatement" || node.type === "DoWhileStatement" ||
+    node.type === "ForStatement" || node.type === "ForInStatement" || node.type === "ForOfStatement") {
+    return collectThrowStates(context, node.body, cloneAliases(aliases));
+  }
+  if (node.type === "SwitchStatement") {
+    const afterDiscriminant = visitExpression(silentContext, node.discriminant, aliases);
+    const throws: Aliases[] = [];
+    let fallthrough: Aliases | null = null;
+    for (const branch of node.cases) {
+      const entry = joinAliases(afterDiscriminant, ...(fallthrough === null ? [] : [fallthrough]));
+      const afterTest = branch.test === null
+        ? entry
+        : visitExpression(silentContext, branch.test, cloneAliases(entry));
+      throws.push(...collectThrowStates(context, { type: "BlockStatement", body: branch.consequent } as ESTree.BlockStatement, afterTest));
+      const result = visitStatements(silentContext, branch.consequent, cloneAliases(afterTest));
+      fallthrough = branch.consequent.some((statement) => statement.type === "BreakStatement") ? null : result;
+    }
+    return throws;
+  }
+  return [];
+}
 
 function collectBreakStates(
   context: AnalysisContext,
@@ -616,8 +814,17 @@ function visitNode(context: AnalysisContext, node: ESTree.Node, aliases: Aliases
     case "SwitchStatement": return visitSwitch(context, node, aliases);
     case "TryStatement": {
       const tried = visitNode(context, node.block, cloneAliases(aliases));
-      const caught = node.handler === null ? aliases : visitNode(context, node.handler.body, cloneAliases(aliases));
-      const joined = joinAliases(tried, caught);
+      const thrown = collectThrowStates(context, node.block, cloneAliases(aliases));
+      const caughtInput = thrown.length === 0
+        ? joinAliases(aliases, tried)
+        : joinAliases(aliases, ...thrown);
+      const caught = node.handler === null
+        ? caughtInput
+        : visitNode(context, node.handler.body, cloneAliases(caughtInput));
+      const joined = joinAliases(
+        ...(canCompleteNormally(node.block) ? [tried] : []),
+        caught,
+      );
       return node.finalizer === null ? joined : visitNode(context, node.finalizer, joined);
     }
     case "ReturnStatement":
@@ -714,7 +921,10 @@ function visitExpression(context: AnalysisContext, node: ESTree.Expression, alia
   if (value.type === "AssignmentExpression") {
     const afterLeft = visitExpression(context, value.left as ESTree.Expression, aliases);
     const state = visitExpression(context, value.right, afterLeft);
-    updateTarget(context.sourceCode, value.left, facts(context.sourceCode, value.right, state), state, value.right);
+    const valueFacts = facts(context.sourceCode, value.right, state);
+    if (value.left.type === "MemberExpression")
+      updateMemberTarget(context.sourceCode, value.left, valueFacts, state);
+    else updateTarget(context.sourceCode, value.left, valueFacts, state, value.right);
     return state;
   }
   if (value.type === "SequenceExpression") {
@@ -787,28 +997,26 @@ export const noDomainWallClockRule = defineRule({
     docs: { description: "Disallow ambient wall-clock reads and Date construction in runtime domain source." },
     messages: { wallClock: "Use the supplied Effect Clock at the host boundary instead of reading ambient wall time in domain code." },
     schema: [{
-      type: "object",
-      properties: {
-        sourceRoots: { type: "array", items: { type: "string" } },
-        allowedPathFragments: { type: "array", items: { type: "string" } },
-      },
+        type: "object",
+        properties: {
+          sourceRoots: { type: "array", items: { type: "string" } },
+        },
       additionalProperties: false,
     }],
-    defaultOptions: [{ sourceRoots: [...defaultSourceRoots], allowedPathFragments: [...defaultAllowedPathFragments] }],
+    defaultOptions: [{ sourceRoots: [...defaultSourceRoots] }],
   },
   createOnce(context) {
     return {
       Program(node: ESTree.Program) {
         const option = context.options?.[0] as RuleOptions[0] | undefined;
         const roots = option?.sourceRoots ?? [...defaultSourceRoots];
-        const allowed = option?.allowedPathFragments ?? [...defaultAllowedPathFragments];
         const filename = normalized(context.filename);
         const enabled = roots.some((root) => filename.includes(`/${normalized(root)}/`)) &&
-          !isTestSupportFile(context.filename) && !allowed.some((fragment) => filename.includes(fragment));
+          !isTestSupportFile(context.filename);
         if (enabled) visitNode({
           sourceCode: context.sourceCode,
           report: (reportedNode) => context.report({ node: reportedNode, messageId: "wallClock" }),
-        }, node, new Map());
+        }, node, emptyAliases());
       },
     };
   },

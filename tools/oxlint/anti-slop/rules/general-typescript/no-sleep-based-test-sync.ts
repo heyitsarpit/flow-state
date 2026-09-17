@@ -174,12 +174,24 @@ function isNativeTimerExpression(
   const node = unwrapExpression(callee);
   if (node.type === "MemberExpression") {
     const name = memberName(node);
+    if (
+      (name === "call" || name === "apply") &&
+      isNativeTimerExpression(sourceCode, node.object as ESTree.Expression, seen)
+    )
+      return true;
     return (
       name !== null &&
       nativeTimerNames.has(name) &&
       isGlobalObjectExpression(sourceCode, node.object as ESTree.Expression)
     );
   }
+  if (
+    node.type === "CallExpression" &&
+    node.callee.type === "MemberExpression" &&
+    memberName(node.callee) === "bind" &&
+    isNativeTimerExpression(sourceCode, node.callee.object, seen)
+  )
+    return true;
   if (node.type !== "Identifier") return false;
   if (nativeTimerNames.has(node.name) && isGlobalReference(sourceCode, node)) return true;
   const variable = resolveVariable(sourceCode, node);
@@ -187,7 +199,16 @@ function isNativeTimerExpression(
   const nextSeen = new Set(seen).add(variable);
   const values = variableValues(variable, node.start);
   const value = values.at(-1);
-  if (value !== undefined) return isNativeTimerExpression(sourceCode, value, nextSeen);
+  if (value !== undefined) {
+    const current = unwrapExpression(value);
+    if (
+      current.type === "MemberExpression" &&
+      memberName(current) === "bind" &&
+      isNativeTimerExpression(sourceCode, current.object as ESTree.Expression, nextSeen)
+    )
+      return true;
+    return isNativeTimerExpression(sourceCode, value, nextSeen);
+  }
   const declarator = variableDeclarator(variable);
   if (declarator?.init === null || declarator?.init === undefined) return false;
   if (declarator.id.type === "ObjectPattern") {

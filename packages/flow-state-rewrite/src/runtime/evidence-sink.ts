@@ -94,6 +94,7 @@ export const makeEvidenceSink = (
       }
     };
 
+    // RETURN_TYPE: The sink offer preserves the accepted/dropped/detached status union at the Journal boundary.
     const offerUnsafe = (
       record: EvidenceRecord,
       acceptedSequence: EvidenceSequence,

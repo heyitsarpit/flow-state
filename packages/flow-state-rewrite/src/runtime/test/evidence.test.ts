@@ -34,6 +34,7 @@ import {
 import type { ActorPublication, ActorSnapshot } from "../actor-engine.js";
 import { makeRuntimeServicesLayer, type RuntimeEvidenceService } from "../runtime-services.js";
 
+// RETURN_TYPE: The fake is checked against Effect.Clock so every clock capability remains available to the owner tests.
 const makeTestClock = (now: number | (() => number)): Clock.Clock => {
   const currentTime = Predicate.isNumber(now) ? () => now : now;
   const currentTimeNanos = () => BigInt(currentTime()) * 1_000_000n;
@@ -118,6 +119,7 @@ let nextPreparationRevision = 1;
 const preparationRevision = (preparation: EvidencePreparation) =>
   preparationRevisions.get(preparation) ?? 1;
 
+// RETURN_TYPE: The fixture carries CleanupError through ActorCell so lifecycle proofs retain the exact failure type.
 const makeLifecycleActorCell = <CleanupError>(): ActorCell<
   LifecycleSnapshot<typeof EvidenceDefinition, CleanupError>
 > => ({ activityFibers: undefined, protocol: undefined });
@@ -227,8 +229,6 @@ const acceptTurn = (
   return { record, effect: acceptPrepared(hub, reservation, record) };
 };
 
-// Contracts: SEM-004, SEM-005.
-// Proofs: PROOF-003, PROOF-004, HOST-P05.
 describe("runtime evidence", () => {
   it.effect("prepares publication evidence before finalizing its committed store cut", () =>
     Effect.gen(function* () {
@@ -2216,6 +2216,7 @@ describe("sink retention and attachment regressions", () => {
         self: EvidenceSnapshot["operations"];
       };
 
+      // RETURN_TYPE: This predicate proves the opaque event carrier without widening its identity fields.
       const isOpaqueEvent = (value: { type: string }): value is OpaqueEvent =>
         "_tag" in value &&
         value._tag === "opaque-event" &&
@@ -2226,6 +2227,7 @@ describe("sink retention and attachment regressions", () => {
         "opaqueError" in value &&
         "opaqueDescriptor" in value;
 
+      // RETURN_TYPE: This predicate narrows the recursive operation carrier used by the identity proof.
       const isOperationCarrier = (
         value: EvidenceSnapshot["operations"],
       ): value is OperationCarrier =>

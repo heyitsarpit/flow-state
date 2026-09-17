@@ -356,6 +356,7 @@ const cleanupDiagnostic = <CleanupError>(cause: Cause.Cause<CleanupError>): Publ
 };
 
 /** Performs disposal guards without changing the ActorCell protocol or lifecycle snapshot. */
+// RETURN_TYPE: Keeps the public preflight boundary explicit for lifecycle callers that classify blocked disposal before running cleanup.
 export const preflightLifecycleDisposal = <
   DefinitionValue extends MachineDefinition,
   CleanupError,

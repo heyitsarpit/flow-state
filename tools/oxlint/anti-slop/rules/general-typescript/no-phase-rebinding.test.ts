@@ -147,6 +147,11 @@ tester.run("workflow values and ordinary locals", noPhaseRebindingRule, {
       options,
     },
     {
+      code: "function scalarParameter(phase: string) { phase = phase.trim(); return phase; }",
+      filename: "/project/packages/flow-state-rewrite/src/runtime/scalar-parameter.ts",
+      options,
+    },
+    {
       code: "function ordinarySwitch(value: string, choice: boolean) { let result: string; if (choice) result = value; else result = value.trim(); switch (choice ? 1 : 0) { case 1: return result; default: return result; } }",
       filename: "/project/packages/flow-state-rewrite/src/runtime/ordinary-switch.ts",
       options,
@@ -154,6 +159,31 @@ tester.run("workflow values and ordinary locals", noPhaseRebindingRule, {
     {
       code: "function shadowedLocal(value: string) { const staged = { value }; const alias = staged; function inner() { let alias = value; alias = alias.trim(); return alias; } return inner() + staged.value; }",
       filename: "/project/packages/flow-state-rewrite/src/runtime/shadowed-local.ts",
+      options,
+    },
+    {
+      code: "function ordinaryNamed(value: string) { let phase = value; phase = phase.trim(); let staged = phase; staged = staged.trim(); let workflow = staged; workflow = workflow.trim(); return workflow; }",
+      filename: "/project/packages/flow-state-rewrite/src/runtime/ordinary-named-locals.ts",
+      options,
+    },
+    {
+      code: "function captureSnapshotArray() { const captured = []; captured.push(1); return captured; }",
+      filename: "/project/packages/flow-state-rewrite/src/runtime/actor-engine.ts",
+      options,
+    },
+    {
+      code: "const phase = { read() { return 1; } }; phase.read();",
+      filename: "/project/packages/flow-state-rewrite/src/runtime/read-only-member.ts",
+      options,
+    },
+    {
+      code: "function read(phase: { read(): number }) { return phase.read(); }",
+      filename: "/project/packages/flow-state-rewrite/src/runtime/typed-read-only-member.ts",
+      options,
+    },
+    {
+      code: "type PhaseInput = { phase: { read(): number } }; function read({ phase }: PhaseInput) { return phase.read(); }",
+      filename: "/project/packages/flow-state-rewrite/src/runtime/named-typed-read-only-member.ts",
       options,
     },
   ],
@@ -309,16 +339,28 @@ tester.run("workflow values and ordinary locals", noPhaseRebindingRule, {
       errors: [{ messageId: "phaseBag" }],
     },
     {
-      code: "function parameter(prepared: string) { prepared = prepared.trim(); return prepared; }",
-      filename: "/project/packages/flow-state-rewrite/src/runtime/parameter.ts",
+      code: "function objectParameter(prepared: { value: string }) { prepared.value = \"next\"; return prepared; }",
+      filename: "/project/packages/flow-state-rewrite/src/runtime/object-parameter.ts",
       options,
-      errors: [{ messageId: "rebind" }],
+      errors: [{ messageId: "phaseBag" }],
     },
     {
-      code: "function nestedParameters(prepared: string) { function inner(prepared: string) { prepared = prepared.trim(); return prepared; } prepared = prepared.trim(); return inner(prepared); }",
+      code: "function destructuredObjectParameter({ phase }: { phase: { value: string } }, next: string) { phase.value = next; return phase; }",
+      filename: "/project/packages/flow-state-rewrite/src/runtime/destructured-object-parameter.ts",
+      options,
+      errors: [{ messageId: "phaseBag" }],
+    },
+    {
+      code: "type PhaseInput = { phase: { value: string } }; function mutate({ phase }: PhaseInput, next: string) { phase.value = next; return phase; }",
+      filename: "/project/packages/flow-state-rewrite/src/runtime/named-destructured-object-parameter.ts",
+      options,
+      errors: [{ messageId: "phaseBag" }],
+    },
+    {
+      code: "function nestedParameters(prepared: { value: string }) { function inner(prepared: { value: string }) { prepared.value = \"next\"; return prepared; } prepared.value = \"next\"; return inner(prepared); }",
       filename: "/project/packages/flow-state-rewrite/src/runtime/nested-parameters.ts",
       options,
-      errors: [{ messageId: "rebind" }, { messageId: "rebind" }],
+      errors: [{ messageId: "phaseBag" }, { messageId: "phaseBag" }],
     },
     {
       code: "function objectPatternValue(value: string) { const staged = { value }; const { nested: prepared } = { nested: staged }; prepared.value = value; return prepared; }",

@@ -155,16 +155,11 @@ export default defineConfig({
       ],
       "anti-slop/no-phase-rebinding": [
         "error",
-        {
-          sourceRoots: ["packages/flow-state-rewrite/src/runtime"],
-        },
+        { sourceRoots: ["packages/flow-state-rewrite/src/runtime"] },
       ],
       "anti-slop/no-domain-wall-clock": [
         "error",
-        {
-          sourceRoots: ["packages/flow-state-rewrite/src/runtime"],
-          allowedPathFragments: ["/src/hosts/"],
-        },
+        { sourceRoots: ["packages/flow-state-rewrite/src/runtime"] },
       ],
       "anti-slop/no-module-mocking": "error",
       "anti-slop/no-numeric-duration": "error",
@@ -241,7 +236,10 @@ export default defineConfig({
       "anti-slop/no-staged-object-assign": "error",
       "anti-slop/no-swallowed-cleanup-error": "error",
       "anti-slop/no-ternary-iife": "error",
-      "anti-slop/no-top-level-mutable-production-state": "warn",
+      "anti-slop/no-top-level-mutable-production-state": [
+        "warn",
+        { sourceRoots: ["packages/flow-state-rewrite/src"] },
+      ],
       "anti-slop/no-throw-in-effect-gen": "error",
       "anti-slop/no-unmanaged-effect-scope": "error",
       "anti-slop/no-parallel-diagnostic-errors": "error",
