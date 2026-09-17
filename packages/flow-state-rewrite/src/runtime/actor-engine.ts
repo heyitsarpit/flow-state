@@ -2132,7 +2132,6 @@ const makeEngine = <DefinitionValue extends MachineDefinition>(
         }
 
         yield* Queue.shutdown(mailbox);
-        snapshots.shutdown();
         notifyDrained();
       }),
     );
@@ -2249,6 +2248,7 @@ export const prepareActorEngine = <DefinitionValue extends MachineDefinition>(
 
       for (const settle of pendingControls) settle(failure);
       pendingControls.clear();
+      snapshots.shutdown();
       Queue.failCauseUnsafe(mailbox, Cause.die(mailboxAdmissionFailure("closed")));
     };
 
@@ -2448,10 +2448,6 @@ export const prepareActorEngine = <DefinitionValue extends MachineDefinition>(
       return { admitted: true, completion };
     };
 
-    yield* Scope.addFinalizer(
-      input.scope,
-      Effect.sync(() => snapshots.shutdown()),
-    );
     yield* Scope.addFinalizer(
       input.scope,
       Effect.sync(() => {

@@ -3347,4 +3347,116 @@ describe("pending regression scenarios", () => {
         yield* Scope.close(scope, Exit.void);
       }),
   );
+
+  it.effect("completes a prepared subscriber when the engine is abandoned", () =>
+    Effect.gen(function* () {
+      const scope = yield* Scope.make("sequential");
+      const setup = makeInput(scope, () => Effect.void);
+      const prepared = yield* prepareActorEngine(setup.input);
+      const subscribed = yield* Deferred.make<void>();
+      let subscriberFinalizations = 0;
+
+      const reader = Stream.unwrap(
+        Effect.gen(function* () {
+          const subscriberScope = yield* Effect.service(Scope.Scope);
+          yield* Scope.addFinalizer(
+            subscriberScope,
+            Effect.sync(() => {
+              subscriberFinalizations += 1;
+            }),
+          );
+
+          return prepared.snapshots.pipe(
+            Stream.mapEffect((snapshot) =>
+              Effect.gen(function* () {
+                yield* Deferred.succeed(subscribed, undefined);
+
+                return snapshot;
+              }),
+            ),
+          );
+        }),
+      );
+
+      const readerFiber = yield* Effect.forkChild(Stream.runCollect(reader), {
+        startImmediately: true,
+      });
+
+      yield* Deferred.await(subscribed);
+      prepared.abandon();
+
+      const snapshots = yield* Fiber.join(readerFiber);
+      assert.deepStrictEqual(
+        snapshots.map((snapshot) => snapshot.lifecycle),
+        ["prepared"],
+      );
+      assert.strictEqual(subscriberFinalizations, 1);
+      yield* Scope.close(scope, Exit.void);
+    }),
+  );
+
+  it.effect("completes a subscriber after an onSnapshot defect and finalizes once", () =>
+    Effect.gen(function* () {
+      const scope = yield* Scope.make("sequential");
+      const setup = makeInput(scope, () => Effect.void);
+
+      const configured: ActorEngineInput<typeof testDefinition> = {
+        ...setup.input,
+        onSnapshot: () => {
+          // oxlint-disable-next-line anti-slop/no-throw-in-effect-gen -- this callback deliberately defects after publication.
+          throw new Error("snapshot callback defect");
+        },
+      };
+
+      const prepared = yield* prepareActorEngine(configured);
+      const engine = yield* prepared.activate();
+      assert.ok(Result.isSuccess(engine.commitLifecyclePublication("active", true)));
+      const subscribed = yield* Deferred.make<void>();
+      let subscriberFinalizations = 0;
+
+      const reader = Stream.unwrap(
+        Effect.gen(function* () {
+          const subscriberScope = yield* Effect.service(Scope.Scope);
+          yield* Scope.addFinalizer(
+            subscriberScope,
+            Effect.sync(() => {
+              subscriberFinalizations += 1;
+            }),
+          );
+
+          return engine.snapshots.pipe(
+            Stream.mapEffect((snapshot) =>
+              Effect.gen(function* () {
+                yield* Deferred.succeed(subscribed, undefined);
+
+                return snapshot;
+              }),
+            ),
+          );
+        }),
+      );
+
+      const readerFiber = yield* Effect.forkChild(Stream.runCollect(reader), {
+        startImmediately: true,
+      });
+
+      yield* Deferred.await(subscribed);
+      const dispatched = engine.dispatch(opened);
+      assert.strictEqual(dispatched.admitted, true);
+      yield* Deferred.await(dispatched.completion);
+      yield* engine.drain();
+
+      const snapshots = yield* Fiber.join(readerFiber);
+      assert.deepStrictEqual(
+        snapshots.map((snapshot) => [snapshot.lifecycle, snapshot.revision]),
+        [
+          ["active", 0],
+          ["active", 1],
+        ],
+      );
+      assert.strictEqual(subscriberFinalizations, 1);
+      yield* engine.shutdown();
+      yield* Scope.close(scope, Exit.void);
+    }),
+  );
 });
