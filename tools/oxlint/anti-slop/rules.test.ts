@@ -48,6 +48,7 @@ import "./rules/general-typescript/no-domain-wall-clock.test.ts";
 import "./rules/general-typescript/no-nullish-function-contracts.test.ts";
 import "./rules/general-typescript/no-object-freeze.test.ts";
 import "./rules/general-typescript/no-object-type.test.ts";
+import "./rules/general-typescript/no-exported-mutable-surface.test.ts";
 import "./rules/general-typescript/no-optional-domain-properties.test.ts";
 import "./rules/general-typescript/no-package-dist-or-self-import-in-src.test.ts";
 import "./rules/general-typescript/no-promise-microtask-barrier.test.ts";
