@@ -1,4 +1,4 @@
-import type { Effect, Result, Stream } from "effect";
+import { Layer, type Effect, type Result, type Stream } from "effect";
 
 import { isConstructedApp, type App } from "../app/app.js";
 import type { EventOf, InputOf } from "../definition/domain.js";
@@ -8,6 +8,9 @@ import type { MachineDefinition, MachineSnapshot } from "../machine/grammar.js";
 import type { OperationKey } from "../operation/key.js";
 import type { OperationDeclaration } from "../operation/operation.js";
 import type { ActorRef } from "../public/types.js";
+import type { Implementation } from "../implementation/implementation.js";
+import { implementationLayer } from "../implementation/implementation.js";
+import { makeRuntimeAssembly } from "./runtime-assembly.js";
 
 /* oxlint-disable anti-slop/no-readonly -- These are the immutable facade and snapshot types fixed by the runtime contract; the compile fixture checks their ownership and input boundaries. */
 /** Safe diagnostic fields at the internal facade boundary. */
@@ -103,17 +106,32 @@ export interface RuntimeSetup<A extends App, ImplementationError = never> {
   construct(): Runtime<A, ImplementationError>;
 }
 
-type CapturedRuntimeSetup<A extends App> = Readonly<{ app: A }>;
+type CapturedRuntimeSetup<A extends App, ImplementationError> = RuntimeSetup<
+  A,
+  ImplementationError
+>;
 /* oxlint-enable anti-slop/no-readonly */
 
 /** Captures App identity without acquiring a Runtime or reading App fields. */
 // RETURN_TYPE: Keeps the admitted App readonly on the actual setup result before assembly adds construct().
-export const runtimeSetup = <A extends App>(options: { app: A }): CapturedRuntimeSetup<A> => {
+export const runtimeSetup = <A extends App, Output = never, ImplementationError = never>(
+  options: { app: A } | { app: A; implementation: Implementation<Output, ImplementationError> },
+): CapturedRuntimeSetup<A, ImplementationError> => {
   const app = options.app;
 
   if (!isConstructedApp(app)) {
     throw new TypeError("runtimeSetup app must be constructed by app()");
   }
 
-  return { app };
+  const layer =
+    "implementation" in options ? implementationLayer(options.implementation) : undefined;
+
+  // oxlint-disable-next-line anti-slop/no-object-freeze -- The setup retains the admitted App identity and exposes no mutable owner state.
+  return Object.freeze({
+    app,
+    construct: () =>
+      layer === undefined
+        ? makeRuntimeAssembly({ app, layer: Layer.empty }).runtime
+        : makeRuntimeAssembly({ app, layer }).runtime,
+  });
 };

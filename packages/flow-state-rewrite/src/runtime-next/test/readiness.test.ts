@@ -1,148 +1,451 @@
-import { describe, it } from "@effect/vitest";
+import { assert, describe, it } from "@effect/vitest";
+import { Cause, Context, Deferred, Effect, Exit, Fiber, Layer, Scope } from "effect";
+
+import { app } from "../../app/app.js";
+import { Implementation } from "../../implementation/implementation.js";
+import { runtimeSetup } from "../runtime.js";
+import { makeFlowRuntimeShell } from "../runtime-shell.js";
+
+class First extends Context.Service<First, string>()("runtime-next/test/First") {}
+
+class Second extends Context.Service<Second, string>()("runtime-next/test/Second") {}
+
+const TestApp = app({ id: "runtime-next/readiness", persistenceVersion: "1", modules: [] });
 
 describe("runtime-next readiness", () => {
-  // Owner: P02.
-  // Source: actor-admission.test.ts:1747 "keeps actor admission behind pending implementation readiness".
-  // Source: runtime-architecture.test.ts:192 "walkthrough: construction stays inert until readiness runs".
-  // Source: runtime-architecture.test.ts:507 "keeps prepared host handles inert until assembled readiness".
-  // Source: runtime-behavior.test.ts:19 "keeps provider construction cold until readiness".
-  // Source: runtime-owner.test.ts:1212 "constructs an inert owner shell with exact input identities".
-  // Source: runtime.test.ts:604 "keeps construction inert until readiness".
-  // Contract/correction: ARCH-007A; SEM-027; refactor.md FlowRuntimeShell.
-  // Setup: A runtime with an observable provider acquisition.
-  // Action: Construct the runtime without running ready, then run ready.
-  // Observable result: Construction performs no acquisition; readiness makes the provider available.
-  // Failure/cleanup: Dispose closes the acquired provider exactly once.
-  it.todo("RN-READY-001 construction stays inert until readiness");
+  // ARCH-007A; SEM-027; RN-READY-001.
+  it.effect("RN-READY-001 construction stays inert until readiness", () =>
+    Effect.gen(function* () {
+      let acquisitions = 0;
 
-  // Owner: P02.
-  // Source: runtime-architecture.test.ts:482 "linearizes concurrent host readiness through one assembled owner".
-  // Source: runtime-behavior.test.ts:41 "caches readiness and releases the provider once".
-  // Source: runtime-owner.test.ts:444 "R05 ARCH-007A SEM-027 concurrent ready callers share one terminal acquisition".
-  // Source: runtime-owner.test.ts:1233 "starts one readiness leader for one owner".
-  // Source: runtime-owner.test.ts:1262 "joins concurrent readiness callers on one terminal".
-  // Source: runtime-owner.test.ts:1293 "caches successful readiness and preserves the assembled context".
-  // Source: runtime.test.ts:757 "shares one in-flight readiness and its cached success".
-  // Contract/correction: ARCH-007A; SEM-027; refactor.md FlowRuntimeShell.
-  // Setup: A gated provider and two ready callers.
-  // Action: Start both ready effects and release the acquisition gate.
-  // Observable result: Both callers observe the same completed readiness and provider acquires once.
-  // Failure/cleanup: Later ready calls use the cached success; final provider release happens once.
-  it.todo("RN-READY-002 concurrent readiness shares one successful acquisition");
+      const setup = runtimeSetup({
+        app: TestApp,
+        implementation: Implementation.effect(
+          First,
+          Effect.sync(() => {
+            acquisitions += 1;
 
-  // Owner: P02.
-  // Source: runtime-architecture.test.ts:371 "rolls back an assembled runtime before any handle or evidence can escape".
-  // Source: runtime-architecture.test.ts:387 "retains a provider defect and reverse cleanup through assembled readiness".
-  // Source: runtime-owner.test.ts:1017 "caches each terminal readiness Cause lane without retry".
-  // Source: runtime-owner.test.ts:1364 "caches typed readiness failure without retry".
-  // Source: runtime-owner.test.ts:1390 "retains a readiness defect and cleans the acquired prefix once".
-  // Source: runtime-owner.test.ts:1460 "disposes a failed owner without reopening admission".
-  // Source: runtime-owner.test.ts:1617 "rejects missing implementation requirements before admission".
-  // Source: runtime.test.ts:716 "stops after the first provider failure and caches its Cause".
-  // Source: runtime.test.ts:938 "caches a defect cause as one terminal result".
-  // Contract/correction: ARCH-007A; SEM-027; STD-05; refactor.md FlowRuntimeShell.
-  // Setup: Providers that fail as typed errors, defects, or missing requirements after an acquired prefix.
-  // Action: Run ready twice and then close.
-  // Observable result: Both ready calls retain the original failure category and no provider is reacquired.
-  // Failure/cleanup: The acquired prefix releases once in reverse order; close never reopens admission.
-  it.todo("RN-READY-003 readiness failures retain their terminal Cause");
+            return "first";
+          }),
+        ),
+      });
 
-  // Owner: P02.
-  // Source: runtime-architecture.test.ts:414 "caches interrupted assembly without retrying provider acquisition".
-  // Source: runtime-owner.test.ts:1420 "caches interrupted readiness and interrupts owned work".
-  // Source: runtime.test.ts:798 "interrupts an acquiring caller and caches interruption".
-  // Source: runtime.test.ts:977 "caches interruption as one terminal result without retrying".
-  // Contract/correction: ARCH-007A; STD-08; refactor.md FlowRuntimeShell.
-  // Setup: One gated provider acquisition and a readiness leader.
-  // Action: Interrupt the leader, then call ready again.
-  // Observable result: The later caller observes the retained interruption category without a second acquisition.
-  // Failure/cleanup: Owned acquisition work is interrupted and acquired resources release once.
-  it.todo("RN-READY-004 interrupted readiness leader settles one terminal result");
+      const runtime = setup.construct();
+      assert.strictEqual(acquisitions, 0);
+      yield* runtime.ready();
+      assert.strictEqual(acquisitions, 1);
+      yield* runtime.dispose();
+    }),
+  );
 
-  // Owner: P02.
-  // Source: runtime.test.ts:830 "interrupts a readiness waiter without cancelling the acquisition".
-  // Contract/correction: ARCH-007A; STD-08; refactor.md FlowRuntimeShell.
-  // Setup: A gated acquisition with one leader and one joined waiter.
-  // Action: Interrupt only the waiter, release the gate, then call ready again.
-  // Observable result: The waiter observes interruption while leader and later caller receive the same successful readiness.
-  // Failure/cleanup: The provider remains owned until runtime disposal and releases once.
-  it.todo("RN-READY-005 interrupting a readiness waiter does not cancel its leader");
+  // ARCH-007A; SEM-027; RN-READY-002.
+  it.effect("RN-READY-002 concurrent readiness shares one successful acquisition", () =>
+    Effect.gen(function* () {
+      const entered = yield* Deferred.make<void>();
+      const gate = yield* Deferred.make<void>();
+      let attempts = 0;
 
-  // Owner: P02.
-  // Source: runtime-owner.test.ts:1319 "settles cold readiness waiters when close wins".
-  // Contract/correction: ARCH-007A; approved correction 5; refactor.md FlowRuntimeShell.
-  // Frozen outcome: Cold close could settle later readiness with a fabricated defect.
-  // Required new outcome: Cold close performs no bootstrap and later readiness returns RuntimeDisposed.
-  // Setup: A constructed runtime whose provider has not acquired.
-  // Action: Close before ready, then call ready again.
-  // Observable result: No bootstrap runs; later ready calls return the same RuntimeDisposed diagnostic; frozen cold close could fabricate a defect.
-  // Failure/cleanup: Repeated disposal joins one successful close and leaves no acquired provider.
-  it.todo("RN-READY-006 cold close settles readiness without bootstrap");
+      const shell = makeFlowRuntimeShell({
+        bootstrap: () =>
+          Effect.gen(function* () {
+            attempts += 1;
+            yield* Deferred.succeed(entered, undefined);
+            yield* Deferred.await(gate);
 
-  // Owner: P02.
-  // Source: runtime-owner.test.ts:870 "disposal wins bootstrap and cleans the acquired prefix once in reverse order".
-  // Contract/correction: ARCH-007A; STD-06/08; refactor.md FlowRuntimeShell.
-  // Setup: A provider chain gated during acquisition.
-  // Action: Start ready and close in both race orders.
-  // Observable result: No partial ready value or provider context becomes visible; the terminal close wins at one owner transition.
-  // Failure/cleanup: Acquired providers release exactly once in reverse order and ready settles.
-  it.todo("RN-READY-007 close racing bootstrap releases the acquired prefix");
+            return "ready";
+          }),
+      });
 
-  // Owner: P02.
-  // Source: runtime-architecture.test.ts:248 "assembles predecessor-visible providers in declaration order".
-  // Source: runtime-owner.test.ts:173 "publishes only a complete context and rolls back partial acquisition".
-  // Source: runtime-owner.test.ts:599 "acquires layers in declaration order with predecessor services installed".
-  // Source: runtime-owner.test.ts:1582 "acquires implementation layers in dependency order".
-  // Source: runtime.test.ts:548 "routes public readiness through the installed provider context".
-  // Source: runtime.test.ts:653 "acquires providers lazily in declaration order".
-  // Contract/correction: ARCH-007A; SEM-027; refactor.md FlowRuntimeShell.
-  // Setup: Dependent implementations whose second provider reads the first.
-  // Action: Run readiness and inspect the complete acquired provider context at the shell boundary.
-  // Observable result: Each provider sees its predecessors and no half-assembled context escapes the ready result.
-  // Failure/cleanup: A later provider failure releases the acquired prefix once.
-  it.todo("RN-READY-008 providers acquire in declaration order and publish a complete context");
+      const leader = yield* shell.ready.pipe(Effect.forkChild);
+      yield* Deferred.await(entered);
+      const waiter = yield* shell.ready.pipe(Effect.forkChild);
+      yield* Deferred.succeed(gate, undefined);
+      assert.strictEqual(yield* Fiber.join(leader), "ready");
+      assert.strictEqual(yield* Fiber.join(waiter), "ready");
+      assert.strictEqual(yield* shell.ready, "ready");
+      assert.strictEqual(attempts, 1);
+      yield* shell.close();
+    }),
+  );
 
-  // Owner: P02.
-  // Source: runtime-integration.test.ts:1806 "continues runtime cleanup after lifecycle evidence failure".
-  // Source: runtime-owner.test.ts:391 "passes failed and interrupted readiness Exits into owned Scope finalizers".
-  // Source: runtime-owner.test.ts:1111 "appends typed, defect, and interruption cleanup Causes after the primary failure".
-  // Source: runtime-owner.test.ts:1528 "interrupts owner-scoped fibers through running handles".
-  // Contract/correction: ARCH-007A; STD-05/08; refactor.md FlowRuntimeShell.
-  // Setup: Registered participants and providers with failing finalizers, plus an active fiber supervised by the runtime owner Scope.
-  // Action: Close the shell while participant cleanup and the owned fiber are pending.
-  // Observable result: Participants and providers release in reverse order, the owner Scope closes, and its fiber is interrupted and joined before close settles; every failure Cause remains represented.
-  // Failure/cleanup: Scope and participant finalizers run once; no owned fiber survives close, and repeated close returns the same complete terminal Exit.
-  it.todo("RN-READY-009 shutdown retains ordered cleanup and combined Causes");
+  // ARCH-007A; STD-05; RN-READY-003.
+  it.effect("RN-READY-003 readiness failures retain their terminal Cause", () =>
+    Effect.gen(function* () {
+      for (const failure of [Effect.fail("typed"), Effect.die(new Error("defect"))]) {
+        let attempts = 0;
+        let releases = 0;
 
-  // Owner: P02.
-  // Source: runtime-owner.test.ts:1488 "blocks owner disposal while dependent leases remain".
-  // Contract/correction: STD-08; refactor.md FlowRuntimeShell.
-  // Setup: A registered shell participant whose cleanup is held at a gate.
-  // Action: Start shell close and interrupt one joined close waiter in both race orders.
-  // Observable result: Shell close waits for accepted participant cleanup and publishes one cached terminal Exit.
-  // Failure/cleanup: One participant finalizer runs, and an interrupted waiter cannot cancel it.
-  it.todo("RN-READY-010 shell close joins accepted cleanup participants");
+        const shell = makeFlowRuntimeShell({
+          bootstrap: (scope) =>
+            Effect.gen(function* () {
+              attempts += 1;
+              yield* Scope.addFinalizer(
+                scope,
+                Effect.gen(function* () {
+                  releases += 1;
 
-  // Owner: P02.
-  // Source: runtime-architecture.test.ts:733 "keeps one owner boundary across runtime helper composition".
-  // Source: runtime-owner.test.ts:1559 "isolates replacement capabilities across owner instances".
-  // Source: runtime-owner.test.ts:1659 "keeps request and Story setup on the same owner contract".
-  // Source: runtime.test.ts:688 "allocates one readiness cache for each constructed Runtime".
-  // Contract/correction: STD-01; refactor.md runtime assembly and FlowRuntimeShell.
-  // Setup: Two runtimes built from one app.
-  // Action: Ready both and close one.
-  // Observable result: Both retain the app identity, but closing one cannot release the other provider.
-  // Failure/cleanup: The remaining runtime releases its own resources on its own close.
-  it.todo("RN-READY-011 constructed runtimes own isolated lifetimes");
+                  return yield* Effect.die(new Error("rollback-defect"));
+                }),
+              );
 
-  // Owner: P02.
-  // Source: actor-admission.test.ts:1210 "keeps runtime disposal cold and includes leases registered after construction".
-  // Source: actor-admission.test.ts:1929 "recursively drains actors registered by late actor disposal".
-  // Source: lifecycle.test.ts:1237 "adapts lifecycle runtime participants to the shared disposal owner".
-  // Contract/correction: STD-06/08; refactor.md FlowRuntimeShell.
-  // Setup: A shell closing while participant cleanup registers another supported participant.
-  // Action: Race registration with close before and after its acceptance boundary.
-  // Observable result: Accepted late participants are cleaned once before close settles; rejected registrations report a typed result.
-  // Failure/cleanup: Close uses a bounded iterative drain and a later caller joins the cached Exit.
-  it.todo("RN-READY-012 late registrations are drained by runtime close");
+              return yield* failure;
+            }),
+        });
+
+        const first = yield* Effect.exit(shell.ready);
+        assert.ok(Exit.isFailure(first));
+        assert.strictEqual(first.cause.reasons.length, 2);
+        assert.deepStrictEqual(yield* Effect.exit(shell.ready), first);
+        assert.strictEqual(attempts, 1);
+        assert.strictEqual(releases, 1);
+        assert.ok(!(yield* shell.registerActor({ dispose: () => Effect.void })).accepted);
+        assert.ok(!(yield* shell.registerProvider(Effect.void)));
+        yield* Effect.exit(shell.close());
+      }
+    }),
+  );
+
+  // ARCH-007A; STD-08; RN-READY-004.
+  it.effect("RN-READY-004 interrupted readiness leader settles one terminal result", () =>
+    Effect.gen(function* () {
+      const entered = yield* Deferred.make<void>();
+      let attempts = 0;
+
+      const shell = makeFlowRuntimeShell({
+        bootstrap: () =>
+          Effect.gen(function* () {
+            attempts += 1;
+            yield* Deferred.succeed(entered, undefined);
+
+            return yield* Effect.never;
+          }),
+      });
+
+      const leader = yield* shell.ready.pipe(Effect.forkChild);
+      yield* Deferred.await(entered);
+      yield* Fiber.interrupt(leader);
+      const retained = yield* Effect.exit(shell.ready);
+      assert.ok(Exit.isFailure(retained));
+      assert.ok(Cause.hasInterrupts(retained.cause));
+      assert.strictEqual(attempts, 1);
+      yield* Effect.exit(shell.close());
+    }),
+  );
+
+  // ARCH-007A; STD-08; RN-READY-005.
+  it.effect("RN-READY-005 interrupting a readiness waiter does not cancel its leader", () =>
+    Effect.gen(function* () {
+      const entered = yield* Deferred.make<void>();
+      const gate = yield* Deferred.make<void>();
+      let attempts = 0;
+
+      const shell = makeFlowRuntimeShell({
+        bootstrap: () =>
+          Effect.gen(function* () {
+            attempts += 1;
+            yield* Deferred.succeed(entered, undefined);
+            yield* Deferred.await(gate);
+
+            return "ready";
+          }),
+      });
+
+      const leader = yield* shell.ready.pipe(Effect.forkChild);
+      yield* Deferred.await(entered);
+      const waiter = yield* shell.ready.pipe(Effect.forkChild);
+      yield* Fiber.interrupt(waiter);
+      assert.ok(Exit.isFailure(yield* Fiber.await(waiter)));
+      yield* Deferred.succeed(gate, undefined);
+      assert.strictEqual(yield* Fiber.join(leader), "ready");
+      assert.strictEqual(yield* shell.ready, "ready");
+      assert.strictEqual(attempts, 1);
+      yield* shell.close();
+    }),
+  );
+
+  // ARCH-007A; approved correction 5; RN-READY-006.
+  it.effect("RN-READY-006 cold close settles readiness without bootstrap", () =>
+    Effect.gen(function* () {
+      let attempts = 0;
+
+      const shell = makeFlowRuntimeShell({
+        bootstrap: () =>
+          Effect.sync(() => {
+            attempts += 1;
+          }),
+      });
+
+      yield* shell.close();
+      yield* shell.close();
+      const ready = yield* Effect.exit(shell.ready);
+      assert.ok(Exit.isFailure(ready));
+      assert.strictEqual(
+        ready.cause.reasons.find(Cause.isFailReason)?.error.code,
+        "RuntimeDisposed",
+      );
+      assert.strictEqual(attempts, 0);
+    }),
+  );
+
+  // ARCH-007A; STD-06/08; RN-READY-007.
+  it.effect("RN-READY-007 close racing bootstrap releases the acquired prefix", () =>
+    Effect.gen(function* () {
+      const acquired = yield* Deferred.make<void>();
+      let releases = 0;
+
+      const shell = makeFlowRuntimeShell({
+        bootstrap: (scope) =>
+          Effect.gen(function* () {
+            yield* Scope.addFinalizer(
+              scope,
+              Effect.sync(() => {
+                releases += 1;
+              }),
+            );
+            yield* Deferred.succeed(acquired, undefined);
+
+            return yield* Effect.never;
+          }),
+      });
+
+      const readiness = yield* shell.ready.pipe(Effect.forkChild);
+      yield* Deferred.await(acquired);
+      yield* shell.close();
+      assert.ok(Exit.isFailure(yield* Fiber.await(readiness)));
+      const later = yield* Effect.exit(shell.ready);
+      assert.ok(Exit.isFailure(later));
+      assert.strictEqual(
+        later.cause.reasons.find(Cause.isFailReason)?.error.code,
+        "RuntimeDisposed",
+      );
+      assert.strictEqual(releases, 1);
+    }),
+  );
+
+  // ARCH-007A; SEM-027; RN-READY-008.
+  it.effect(
+    "RN-READY-008 providers acquire in declaration order and publish a complete context",
+    () =>
+      Effect.gen(function* () {
+        const order: string[] = [];
+
+        const first = Layer.effect(
+          First,
+          Effect.sync(() => {
+            order.push("first");
+
+            return "one";
+          }),
+        );
+
+        const second = Layer.effect(
+          Second,
+          Effect.gen(function* () {
+            const predecessor = yield* Effect.service(First);
+            order.push("second");
+
+            return `${predecessor}-two`;
+          }),
+        );
+
+        const shell = makeFlowRuntimeShell({
+          bootstrap: (scope) => Layer.buildWithScope(second.pipe(Layer.provideMerge(first)), scope),
+        });
+
+        assert.deepStrictEqual(order, []);
+        const context = yield* shell.ready;
+        assert.deepStrictEqual(order, ["first", "second"]);
+        assert.strictEqual(Context.get(context, First), "one");
+        assert.strictEqual(Context.get(context, Second), "one-two");
+        yield* shell.close();
+      }),
+  );
+
+  // ARCH-007A; STD-05/08; RN-READY-009.
+  it.effect("RN-READY-009 shutdown retains ordered cleanup and combined Causes", () =>
+    Effect.gen(function* () {
+      const order: string[] = [];
+      let interrupted = 0;
+
+      const shell = makeFlowRuntimeShell<void, never, string>({
+        bootstrap: (scope) =>
+          Effect.gen(function* () {
+            yield* Scope.addFinalizer(
+              scope,
+              Effect.sync(() => {
+                order.push("scope");
+              }),
+            );
+            yield* Effect.never.pipe(
+              Effect.onInterrupt(() =>
+                Effect.sync(() => {
+                  interrupted += 1;
+                }),
+              ),
+              Effect.forkIn(scope, { startImmediately: true }),
+            );
+          }),
+        quiesce: Effect.sync(() => {
+          order.push("quiesce");
+        }),
+        drain: Effect.sync(() => {
+          order.push("drain");
+        }),
+        ownerClose: Effect.sync(() => {
+          order.push("owner");
+        }),
+      });
+
+      yield* shell.registerActor({
+        dispose: () =>
+          Effect.sync(() => {
+            order.push("actor-one");
+          }),
+      });
+      yield* shell.registerActor({
+        dispose: () =>
+          Effect.gen(function* () {
+            order.push("actor-two");
+
+            return yield* Effect.fail("actor-failure");
+          }),
+      });
+      yield* shell.registerProvider(
+        Effect.sync(() => {
+          order.push("provider-one");
+        }),
+      );
+      yield* shell.registerProvider(
+        Effect.gen(function* () {
+          order.push("provider-two");
+
+          return yield* Effect.fail("provider-failure");
+        }),
+      );
+      yield* shell.ready;
+      const close = yield* Effect.exit(shell.close());
+      assert.ok(Exit.isFailure(close));
+      assert.deepStrictEqual(order, [
+        "quiesce",
+        "actor-two",
+        "actor-one",
+        "drain",
+        "provider-two",
+        "provider-one",
+        "owner",
+        "scope",
+      ]);
+      assert.strictEqual(interrupted, 1);
+      assert.deepStrictEqual(
+        close.cause.reasons.filter(Cause.isFailReason).map((reason) => reason.error),
+        ["actor-failure", "provider-failure"],
+      );
+      assert.deepStrictEqual(yield* Effect.exit(shell.close()), close);
+    }),
+  );
+
+  // STD-08; RN-READY-010.
+  it.effect("RN-READY-010 shell close joins accepted cleanup participants", () =>
+    Effect.gen(function* () {
+      const entered = yield* Deferred.make<void>();
+      const gate = yield* Deferred.make<void>();
+      let calls = 0;
+      const shell = makeFlowRuntimeShell({ bootstrap: () => Effect.void });
+      yield* shell.registerActor({
+        dispose: () =>
+          Effect.gen(function* () {
+            calls += 1;
+            yield* Deferred.succeed(entered, undefined);
+            yield* Deferred.await(gate);
+          }),
+      });
+      const leader = yield* shell.close().pipe(Effect.forkChild);
+      yield* Deferred.await(entered);
+      const waiter = yield* shell.close().pipe(Effect.forkChild);
+      yield* Fiber.interrupt(waiter);
+      yield* Deferred.succeed(gate, undefined);
+      yield* Fiber.join(leader);
+      yield* shell.close();
+      assert.strictEqual(calls, 1);
+    }),
+  );
+
+  // STD-01; RN-READY-011.
+  it.effect("RN-READY-011 constructed runtimes own isolated lifetimes", () =>
+    Effect.gen(function* () {
+      let acquisitions = 0;
+      let releases = 0;
+
+      const setup = runtimeSetup({
+        app: TestApp,
+        implementation: Implementation.effect(
+          First,
+          Effect.acquireRelease(
+            Effect.sync(() => {
+              acquisitions += 1;
+
+              return `provider-${acquisitions}`;
+            }),
+            () =>
+              Effect.sync(() => {
+                releases += 1;
+              }),
+          ),
+        ),
+      });
+
+      const first = setup.construct();
+      const second = setup.construct();
+      assert.strictEqual(first.app, second.app);
+      yield* first.ready();
+      yield* second.ready();
+      assert.strictEqual(acquisitions, 2);
+      yield* first.dispose();
+      assert.strictEqual(releases, 1);
+      yield* second.ready();
+      assert.strictEqual(acquisitions, 2);
+      yield* second.dispose();
+      assert.strictEqual(releases, 2);
+    }),
+  );
+
+  // STD-06/08; RN-READY-012.
+  it.effect("RN-READY-012 late registrations are drained by runtime close", () =>
+    Effect.gen(function* () {
+      const order: string[] = [];
+      const providerEntered = yield* Deferred.make<void>();
+      const providerGate = yield* Deferred.make<void>();
+      const shell = makeFlowRuntimeShell({ bootstrap: () => Effect.void });
+      yield* shell.registerActor({
+        dispose: () =>
+          Effect.gen(function* () {
+            order.push("first");
+
+            const late = yield* shell.registerActor({
+              dispose: () =>
+                Effect.sync(() => {
+                  order.push("late");
+                }),
+            });
+
+            assert.ok(late.accepted);
+          }),
+      });
+      yield* shell.registerProvider(
+        Effect.gen(function* () {
+          yield* Deferred.succeed(providerEntered, undefined);
+          yield* Deferred.await(providerGate);
+        }),
+      );
+      const closing = yield* shell.close().pipe(Effect.forkChild);
+      yield* Deferred.await(providerEntered);
+      assert.ok(!(yield* shell.registerActor({ dispose: () => Effect.void })).accepted);
+      yield* Deferred.succeed(providerGate, undefined);
+      yield* Fiber.join(closing);
+      assert.deepStrictEqual(order, ["first", "late"]);
+      assert.ok(!(yield* shell.registerActor({ dispose: () => Effect.void })).accepted);
+      assert.ok(!(yield* shell.registerProvider(Effect.void)));
+      yield* shell.close();
+    }),
+  );
 });
