@@ -1,4 +1,9 @@
-import { describe, it } from "@effect/vitest";
+import { assert, describe, it } from "@effect/vitest";
+import { Cause, Deferred, Effect, Exit, Fiber, Scope } from "effect";
+
+import { Failure, type PublicDiagnostic } from "../../diagnostic/diagnostic.js";
+import { makeActorLease } from "../actor/actor-lease.js";
+import { makeFlowRuntimeShell } from "../runtime-shell.js";
 
 describe("runtime-next actors", () => {
   // Owner: P06.
@@ -98,7 +103,63 @@ describe("runtime-next actors", () => {
   // Action: Start individual and owner-joined disposal concurrently, interrupt one waiter, then release cleanup.
   // Observable result: Completed callers observe the same terminal lease result.
   // Failure/cleanup: Exactly one finalizer runs; failed cleanup remains cached for later owner close.
-  it.todo("RN-ACTOR-010 concurrent lease disposal callers share one cleanup");
+  it.effect("RN-ACTOR-010 concurrent lease disposal callers share one cleanup", () =>
+    Effect.gen(function* () {
+      const shell = makeFlowRuntimeShell<void, never, PublicDiagnostic>({
+        bootstrap: () => Effect.void,
+      });
+
+      yield* shell.ready;
+      const ownerScope = yield* Scope.make();
+      const entered = yield* Deferred.make<void>();
+      const release = yield* Deferred.make<void>();
+
+      const failure = Failure({
+        code: "CleanupFailed",
+        path: [],
+        details: {},
+        summary: "Lease cleanup failed",
+        help: "Inspect the retained cleanup cause.",
+      });
+
+      let cleanups = 0;
+
+      const lease = makeActorLease({
+        actor: "shared actor",
+        ownerScope,
+        preflight: () => Effect.void,
+        cleanup: () =>
+          Effect.gen(function* () {
+            cleanups += 1;
+            yield* Deferred.succeed(entered, undefined);
+            yield* Deferred.await(release);
+
+            return yield* Effect.fail(failure);
+          }),
+        retire: () => Effect.void,
+      });
+
+      assert.ok((yield* shell.registerActor({ dispose: () => lease.dispose() })).accepted);
+
+      const individual = yield* lease.dispose().pipe(Effect.forkChild);
+      yield* Deferred.await(entered);
+      const ownerClose = yield* shell.close().pipe(Effect.forkChild);
+      const second = yield* lease.dispose().pipe(Effect.forkChild);
+      yield* Fiber.interrupt(individual);
+      yield* Deferred.succeed(release, undefined);
+
+      const secondExit = yield* Fiber.await(second);
+      const closeExit = yield* Fiber.await(ownerClose);
+      assert.ok(Exit.isFailure(secondExit));
+      assert.ok(Exit.isFailure(closeExit));
+
+      if (Exit.isFailure(closeExit))
+        assert.strictEqual(closeExit.cause.reasons.find(Cause.isFailReason)?.error, failure);
+      assert.deepStrictEqual(yield* Effect.exit(lease.dispose()), secondExit);
+      assert.strictEqual(cleanups, 1);
+      yield* Scope.close(ownerScope, Exit.void);
+    }),
+  );
 
   // Owner: P06.
   // Source: actor-admission.test.ts:1790 "allocates a correlated operation occurrence fence".
