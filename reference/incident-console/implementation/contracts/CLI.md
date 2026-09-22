@@ -285,6 +285,6 @@ rejected legacy Story/scenario flags and MUST NOT use a CLI-only artifact decode
 
 Prove a newly built and installed binary against a read-only consumer, including package identity,
 declaration/export absence for deleted surfaces, source/packed parity, temporary-file cleanup, and the
-current examples and root gate. A checked-in or stale `dist` artifact MUST NOT satisfy this proof. Exact
+current consumers and root gate. A checked-in or stale `dist` artifact MUST NOT satisfy this proof. Exact
 artifact envelope, version, nested field, Cause, and diagnostic choices are fixed by WIRE-020B; this proof
 verifies the fresh implementation against that model.

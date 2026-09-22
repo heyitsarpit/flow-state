@@ -318,7 +318,7 @@ export declare const renderDiagnosticPretty: (diagnostic: Diagnostic) => string;
  */
 
 /*
- * Source-backed examples (illustrative; undeclared schemas and compilers are
+ * Source-backed forms (illustrative; undeclared schemas and compilers are
  * owned by their feature contracts and this file adds no overloads):
  *
  * const decoded = decodeStructure(MachineSchema, authored);

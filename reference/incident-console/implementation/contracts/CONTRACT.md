@@ -4,7 +4,7 @@ Status: proposed replacement; not formally accepted.
 
 This is one implementer-facing proposed replacement contract for packages/flow-state-rewrite. It is intentionally
 API-documentation-like: every public route is named, public functions and values are explained, specified signatures
-are retained, ownership/lifecycle/failure rules are stated, and accepted examples are preserved where the active
+are retained, ownership/lifecycle/failure rules are stated, and accepted usages are preserved where the active
 contracts provide them.
 
 The active files under reference/incident-console/implementation/contracts/ remain normative until this proposal is
@@ -13,13 +13,13 @@ diagnostic data, rendering, and boundary mappings. revision-spec/README.md state
 authority; archived revisions, provenance records, UNRESOLVED_BEHAVIOR.md, implementation, and proofs do not
 promote this document. This proposal MUST NOT add an API, behavior, default, exception, compatibility path, or proof
 obligation. Where an active contract supplies only a name or behavior, this proposal records that limitation instead
-of fabricating a signature or example.
+of fabricating a signature or usage.
 
 `DEFERRED.md` is the non-normative record of guarantees deliberately removed or relaxed during simplification.
 It does not remove any public route or feature family listed here, create future work, or override the retained
 normative behavior in the active contract files.
 
-Examples are source-faithful. Undeclared names represent definitions, services, refs, implementations, or fixtures
+Illustrations are source-faithful. Undeclared names represent definitions, services, refs, implementations, or fixtures
 specified by their owning active contract; their appearance adds no overload or public route.
 
 ## 1. Routes and root API
@@ -62,7 +62,7 @@ namespace objects, private deep imports, root builders on non-root routes, or co
 
 ### Root function/value reference
 
-| Public value         | Accepted purpose and signature/example                                                                                                      | Ownership and failure behavior                                                                                                               |
+| Public value         | Accepted purpose and signature/usage                                                                                                        | Ownership and failure behavior                                                                                                               |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | definition           | `definition(config)` returns `Result<DefinitionFromConfig<Config>, ReturnType<typeof Diagnostic.Failure>>`; see section 2.                | Inert static authoring; no actor, runtime, operation, or work. Invalid grammar is a Result failure; defects are Defect failures.              |
 | machine              | machine(definitionResult, callback); callback receives S, E, O, onContext, onMemory, invalidate, and clear; see section 2.                | Inert reusable behavior. It matches the upstream Definition Result before callback execution and propagates the same failure value.           |
@@ -79,7 +79,7 @@ namespace objects, private deep imports, root builders on non-root routes, or co
 | persistence          | persistence({ storage, scope, codec?, filter? }); see section 7.                                                                            | Inert optional provider; Runtime owns restore, observation, writes, and cleanup.                                                             |
 | webStorage           | webStorage(storage: Storage): PersistenceStorage.                                                                                           | Host adapter to typed storage boundary; adapter failures remain persistence failures.                                                        |
 | indexedDbStorage     | indexedDbStorage(storage: IndexedDBStorage): PersistenceStorage.                                                                            | Same boundary; active contracts do not specify the IndexedDBStorage input shape.                                                             |
-| can                  | Root name is accepted by API-001. Active contracts only specify bound pure use as can(event); no standalone signature/example is specified. | No standalone behavior may be inferred. Bound legality reads remain pure and passive.                                                        |
+| can                  | Root name is accepted by API-001. Active contracts only specify bound pure use as can(event); no standalone signature/usage is specified.   | No standalone behavior may be inferred. Bound legality reads remain pure and passive.                                                        |
 -->
 <!-- Deferred diagnostic values retained for restoration; not active exports.
 | FlowUsageError       | Existing synchronous boundary owned by [`ERRORS.ts`](./ERRORS.ts) and API-002A.                                                             | Stable usage/admission diagnostic; consumers use _tag and code, not message parsing.                                                         |
@@ -615,7 +615,7 @@ family lookup, late setup/provide layers, or a second app identity.
 
 ### actorRef, leases, and Runtime methods
 
-Future target only: this actor/lease example is retained for the complete Runtime. The temporary shell exposes only
+Future target only: this actor/lease usage is retained for the complete Runtime. The temporary shell exposes only
 `app`, `construct()`, and `ready()`.
 
 ```ts
@@ -758,7 +758,7 @@ owner exactly once without partial graph or evidence.
 
 ## 6. React route and host integration
 
-Future target host-first example only: the temporary shell has no persistence or actor methods:
+Future target host-first form only: the temporary shell has no persistence or actor methods:
 
 ```ts
 const setup = runtimeSetup({
@@ -836,7 +836,7 @@ is not a machine turn.
 
 ### Persistence provider, storage, codec, and declarations
 
-Future target provider example only; the deferred persistence names below are not active exports:
+Future target provider form only; the deferred persistence names below are not active exports:
 
 ```ts
 const setup = runtimeSetup({
@@ -1007,11 +1007,11 @@ scheduler, store, operation kernel, persistence model, assertion framework, repl
 | `fixture`                 | `fixture({ id, implementation, seeds? })` returns a fixture definition supplying complete services and optional preloaded Runtime-owned resource state. A complete generic signature is not published.                                                        | Fixtures are fresh per Runtime/run. Seeds do not satisfy service requirements or bypass production kernels. Duplicate providers reject rather than use order. |
 | `behavior`                | `behavior({ app, stories })` returns an inert gateway over one explicit App and one non-empty record of Story IDs to compatible Story plans.                                                                                                                    | Validation/registration is synchronous. It creates no Implementation, Runtime, actor, sink, Story execution, or cleanup. The CLI is its only public consumer. |
 | `model`                   | `model(baseStory, { stateKey })` returns a pure structural model with only `getShortestPaths(options)` and `getSimplePaths(options)`. `baseStory` MUST be a fresh command-empty machine Story; `stateKey` returns `CanonicalKeyInput`.                                   | Traversal executes no Effects, services, fixtures, operations, runtime mutation, or synthesized async outcomes.                                               |
-| `FlowStoryExecutionError` | Rejection boundary for Story execution/cancellation/cleanup failure. It carries the complete public Effect Cause plus checkpoints, optional end evidence, failure boundary, cleanup diagnostics, cancellation facts, and accepted/drained evidence facts.  | The active contracts do not publish a complete class signature or constructor example. This proposal intentionally leaves both unspecified.                   |
+| `FlowStoryExecutionError` | Rejection boundary for Story execution/cancellation/cleanup failure. It carries the complete public Effect Cause plus checkpoints, optional end evidence, failure boundary, cleanup diagnostics, cancellation facts, and accepted/drained evidence facts.  | The active contracts do not publish a complete class signature or constructor form. This proposal intentionally leaves both unspecified.                     |
 
 ### Constructing app, machine, and actor Stories
 
-The accepted construction example is:
+The accepted construction form is:
 
 ```ts
 const storyRun = story
@@ -1159,7 +1159,7 @@ lookup for JavaScript, CLI, or other untrusted input MUST test own-key membershi
 existing `FlowUsageError` semantics. There is no public dynamic-string checkpoint getter or checkpoint-specific error
 type.
 
-The accepted focused-context example is:
+The accepted focused-context form is:
 
 ```ts
 const signedOutStory = story
@@ -1256,37 +1256,37 @@ runtime, actor, scheduler, store, planner, persistence system, or CLI-only decod
 
 The active contracts list every name below but publish complete standalone signatures only where shown in this
 section. For every row marked unspecified, this proposal intentionally leaves the exact parameter types, return type,
-overloads, failure type, and code example unspecified rather than inferring them from the name.
+overloads, failure type, and code form unspecified rather than inferring them from the name.
 
-| Function                          | Contracted purpose                                                                                                                                    | Signature/example status                                                                                                                  |
+| Function                          | Contracted purpose                                                                                                                                    | Signature/form status                                                                                                                     |
 | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `graphOf`                         | Individual purpose intentionally unspecified: `PUBLIC_API.md` names this export but does not define a standalone contract.                            | Input/output/signature/overloads/failure/example intentionally unspecified.                                                               |
-| `inspectTransition`               | Individual purpose intentionally unspecified: `PUBLIC_API.md` names this export but does not define a standalone contract.                            | Input/output/signature/overloads/failure/example intentionally unspecified.                                                               |
-| `inspectMicrosteps`               | Individual purpose intentionally unspecified: `PUBLIC_API.md` names this export but does not define a standalone contract.                            | Input/output/signature/overloads/failure/example intentionally unspecified.                                                               |
-| `inspectActivities`               | Individual purpose intentionally unspecified: `PUBLIC_API.md` names this export but does not define a standalone contract.                            | Input/output/signature/overloads/failure/example intentionally unspecified.                                                               |
-| `whyNoTransition`                 | Individual purpose intentionally unspecified: `PUBLIC_API.md` names this export but does not define a standalone contract.                            | Input/output/signature/overloads/failure/example intentionally unspecified.                                                               |
-| `formatNoTransitionSummary`       | Individual purpose intentionally unspecified: `PUBLIC_API.md` names this export but does not define a standalone contract.                            | Input/output/signature/overloads/failure/example intentionally unspecified.                                                               |
-| `analyzeTrace`                    | Individual purpose intentionally unspecified: `PUBLIC_API.md` names this export but does not define a standalone contract.                            | Input/output/signature/overloads/failure/example intentionally unspecified.                                                               |
-| `summarizeTrace`                  | Individual purpose intentionally unspecified: `PUBLIC_API.md` names this export but does not define a standalone contract.                            | Input/output/signature/overloads/failure/example intentionally unspecified.                                                               |
-| `diffTrace`                       | Individual purpose intentionally unspecified: `PUBLIC_API.md` names this export but does not define a standalone contract.                            | Input/output/signature/overloads/failure/example intentionally unspecified.                                                               |
-| `formatTrace`                     | Individual purpose intentionally unspecified: `PUBLIC_API.md` names this export but does not define a standalone contract.                            | Input/output/signature/overloads/failure/example intentionally unspecified.                                                               |
-| `formatInspectionEvent`           | Individual purpose intentionally unspecified: `PUBLIC_API.md` names this export but does not define a standalone contract.                            | Input/output/signature/overloads/failure/example intentionally unspecified.                                                               |
-| `formatInspectionTimeline`        | Individual purpose intentionally unspecified: `PUBLIC_API.md` names this export but does not define a standalone contract.                            | Input/output/signature/overloads/failure/example intentionally unspecified.                                                               |
-| `formatRehydrationSummary`        | Individual purpose intentionally unspecified: `PUBLIC_API.md` names this export but does not define a standalone contract.                            | Input/output/signature/overloads/failure/example intentionally unspecified.                                                               |
-| `formatResourceFreshnessReport`   | Individual purpose intentionally unspecified: `PUBLIC_API.md` names this export but does not define a standalone contract.                            | Input/output/signature/overloads/failure/example intentionally unspecified.                                                               |
-| `formatTransactionOverlapSummary` | Individual purpose intentionally unspecified: `PUBLIC_API.md` names this export but does not define a standalone contract.                            | Input/output/signature/overloads/failure/example intentionally unspecified.                                                               |
-| `buildBehaviorContract`           | Individual purpose intentionally unspecified: `PUBLIC_API.md` names this export but does not define a standalone contract.                            | Input/output/signature/overloads/failure/example intentionally unspecified.                                                               |
-| `sliceBehaviorContract`           | Individual purpose intentionally unspecified: `PUBLIC_API.md` names this export but does not define a standalone contract.                            | Input/output/signature/overloads/failure/example intentionally unspecified.                                                               |
-| `diffBehaviorContracts`           | Individual purpose intentionally unspecified: `PUBLIC_API.md` names this export but does not define a standalone contract.                            | Input/output/signature/overloads/failure/example intentionally unspecified.                                                               |
-| `renderBehaviorContract`          | Individual purpose intentionally unspecified: `PUBLIC_API.md` names this export but does not define a standalone contract.                            | Input/output/signature/overloads/failure/example intentionally unspecified.                                                               |
-| `renderBehaviorCoverage`          | Individual purpose intentionally unspecified: `PUBLIC_API.md` names this export but does not define a standalone contract.                            | Input/output/signature/overloads/failure/example intentionally unspecified.                                                               |
-| `renderBehaviorDiff`              | Individual purpose intentionally unspecified: `PUBLIC_API.md` names this export but does not define a standalone contract.                            | Input/output/signature/overloads/failure/example intentionally unspecified.                                                               |
-| `attachInspectionSink`            | Attaches one route-created sink to one Runtime and returns `{ drain, dispose }`. It observes records admitted after attachment.                | Accepted example below; complete generic signature unspecified.                                                                           |
+| `graphOf`                         | Individual purpose intentionally unspecified: `PUBLIC_API.md` names this export but does not define a standalone contract.                            | Input/output/signature/overloads/failure/form intentionally unspecified.                                                                  |
+| `inspectTransition`               | Individual purpose intentionally unspecified: `PUBLIC_API.md` names this export but does not define a standalone contract.                            | Input/output/signature/overloads/failure/form intentionally unspecified.                                                                  |
+| `inspectMicrosteps`               | Individual purpose intentionally unspecified: `PUBLIC_API.md` names this export but does not define a standalone contract.                            | Input/output/signature/overloads/failure/form intentionally unspecified.                                                                  |
+| `inspectActivities`               | Individual purpose intentionally unspecified: `PUBLIC_API.md` names this export but does not define a standalone contract.                            | Input/output/signature/overloads/failure/form intentionally unspecified.                                                                  |
+| `whyNoTransition`                 | Individual purpose intentionally unspecified: `PUBLIC_API.md` names this export but does not define a standalone contract.                            | Input/output/signature/overloads/failure/form intentionally unspecified.                                                                  |
+| `formatNoTransitionSummary`       | Individual purpose intentionally unspecified: `PUBLIC_API.md` names this export but does not define a standalone contract.                            | Input/output/signature/overloads/failure/form intentionally unspecified.                                                                  |
+| `analyzeTrace`                    | Individual purpose intentionally unspecified: `PUBLIC_API.md` names this export but does not define a standalone contract.                            | Input/output/signature/overloads/failure/form intentionally unspecified.                                                                  |
+| `summarizeTrace`                  | Individual purpose intentionally unspecified: `PUBLIC_API.md` names this export but does not define a standalone contract.                            | Input/output/signature/overloads/failure/form intentionally unspecified.                                                                  |
+| `diffTrace`                       | Individual purpose intentionally unspecified: `PUBLIC_API.md` names this export but does not define a standalone contract.                            | Input/output/signature/overloads/failure/form intentionally unspecified.                                                                  |
+| `formatTrace`                     | Individual purpose intentionally unspecified: `PUBLIC_API.md` names this export but does not define a standalone contract.                            | Input/output/signature/overloads/failure/form intentionally unspecified.                                                                  |
+| `formatInspectionEvent`           | Individual purpose intentionally unspecified: `PUBLIC_API.md` names this export but does not define a standalone contract.                            | Input/output/signature/overloads/failure/form intentionally unspecified.                                                                  |
+| `formatInspectionTimeline`        | Individual purpose intentionally unspecified: `PUBLIC_API.md` names this export but does not define a standalone contract.                            | Input/output/signature/overloads/failure/form intentionally unspecified.                                                                  |
+| `formatRehydrationSummary`        | Individual purpose intentionally unspecified: `PUBLIC_API.md` names this export but does not define a standalone contract.                            | Input/output/signature/overloads/failure/form intentionally unspecified.                                                                  |
+| `formatResourceFreshnessReport`   | Individual purpose intentionally unspecified: `PUBLIC_API.md` names this export but does not define a standalone contract.                            | Input/output/signature/overloads/failure/form intentionally unspecified.                                                                  |
+| `formatTransactionOverlapSummary` | Individual purpose intentionally unspecified: `PUBLIC_API.md` names this export but does not define a standalone contract.                            | Input/output/signature/overloads/failure/form intentionally unspecified.                                                                  |
+| `buildBehaviorContract`           | Individual purpose intentionally unspecified: `PUBLIC_API.md` names this export but does not define a standalone contract.                            | Input/output/signature/overloads/failure/form intentionally unspecified.                                                                  |
+| `sliceBehaviorContract`           | Individual purpose intentionally unspecified: `PUBLIC_API.md` names this export but does not define a standalone contract.                            | Input/output/signature/overloads/failure/form intentionally unspecified.                                                                  |
+| `diffBehaviorContracts`           | Individual purpose intentionally unspecified: `PUBLIC_API.md` names this export but does not define a standalone contract.                            | Input/output/signature/overloads/failure/form intentionally unspecified.                                                                  |
+| `renderBehaviorContract`          | Individual purpose intentionally unspecified: `PUBLIC_API.md` names this export but does not define a standalone contract.                            | Input/output/signature/overloads/failure/form intentionally unspecified.                                                                  |
+| `renderBehaviorCoverage`          | Individual purpose intentionally unspecified: `PUBLIC_API.md` names this export but does not define a standalone contract.                            | Input/output/signature/overloads/failure/form intentionally unspecified.                                                                  |
+| `renderBehaviorDiff`              | Individual purpose intentionally unspecified: `PUBLIC_API.md` names this export but does not define a standalone contract.                            | Input/output/signature/overloads/failure/form intentionally unspecified.                                                                  |
+| `attachInspectionSink`            | Attaches one route-created sink to one Runtime and returns `{ drain, dispose }`. It observes records admitted after attachment.                | Accepted form below; complete generic signature unspecified.                                                                              |
 | `createInspectionBufferSink`      | Creates an explicit bounded sink. `capacity` defaults to 256 and MUST be a non-negative integer; zero retains no records while preserving truncation. | `createInspectionBufferSink({ capacity? })`; returns a sink exposing `snapshot()` and `clear()` as described below.                       |
 | `importTraceArtifact`             | Defensively copies, decodes, bounds-checks, and validates one raw WIRE-020B trace artifact.                                                           | `importTraceArtifact(bytes)` accepts `Uint8Array`; exact private decoded return type and complete signature unspecified.                  |
 | `exportTraceArtifact`             | Encodes a validated imported trace as raw WIRE-020B bytes or, with a non-empty valid redaction policy, export-only WIRE-020C bytes.                   | Exact redaction overload is specified in section 7; returns `Uint8Array`.                                                                 |
-| `compressTraceArtifact`           | Public artifact compression boundary.                                                                                                                 | Active contracts publish no standalone purpose beyond artifact handling and no signature/input/output/example; intentionally unspecified. |
-| `decompressTraceArtifact`         | Public artifact decompression boundary.                                                                                                               | Active contracts publish no standalone purpose beyond artifact handling and no signature/input/output/example; intentionally unspecified. |
+| `compressTraceArtifact`           | Public artifact compression boundary.                                                                                                                 | Active contracts publish no standalone purpose beyond artifact handling and no signature/input/output/form; intentionally unspecified.    |
+| `decompressTraceArtifact`         | Public artifact decompression boundary.                                                                                                               | Active contracts publish no standalone purpose beyond artifact handling and no signature/input/output/form; intentionally unspecified.    |
 
 API-016 separately documents route-wide constraints: pure graph/transition functions consume inert definitions or
 snapshots; live inspection consumes committed private `TurnRecord` and `LifecycleRecord`; projections
@@ -1295,7 +1295,7 @@ pending outcomes, or finalizers; sinks are bounded/isolated; and artifact import
 models, runtime ownership, or raw Cause. Those route-wide constraints do not assign individual semantics to the
 named exports above.
 
-The accepted inspection/artifact example remains:
+The accepted inspection/artifact form remains:
 
 ```ts
 const attachment = attachInspectionSink(runtime, sink);
@@ -1353,7 +1353,7 @@ There are exactly ten leaves. `behavior check` is the only new vNext leaf. Each 
 | `trace proof`     | Evaluate one data-only selector against complete trace evidence; it MUST NOT claim proof from truncated evidence.                                 |
 | `trace diff`      | Compare selected ordered trace sections; equal requires complete evidence on both sides.                                                          |
 
-The accepted gateway example is:
+The accepted gateway form is:
 
 ```ts
 const BehaviorGateway = behavior({
@@ -1425,7 +1425,7 @@ This is a proposal checklist, not a proof receipt. Every item remains unchecked 
 the required focused/broad gates have run against an implementation. Source review, typechecking, generated output,
 or `git diff --check` alone MUST NOT mark an item complete.
 
-Each normative invariant has one executable production-owner proof. Packed consumers, examples, browser tests,
+Each normative invariant has one executable production-owner proof. Packed consumers, browser tests,
 Stories, and installed-CLI tests prove reachability and integration and do not repeat that owner's complete negative,
 race, codec, or boundary matrix unless the integration adds a distinct failure mode. Final verification aggregates
 the required receipts; it does not create a second semantic proof owner.
@@ -1479,7 +1479,7 @@ the required receipts; it does not create a second semantic proof owner.
 - [ ] `PROOF-016`: named proving applications and bounded-feed fixtures exercise accepted production owners; these
       fixtures remain evidence rather than APIs.
 - [ ] `PROOF-017`: complete deletion/retention disposition, exact package exports/declarations, packed consumers,
-      examples/docs, dependency hygiene, generated output, and absence of deleted compatibility surfaces.
+      docs, dependency hygiene, generated output, and absence of deleted compatibility surfaces.
 
 Local proof IDs map to the central proof families as follows:
 
@@ -1500,26 +1500,26 @@ No checklist item in this proposal asserts that its proof currently exists, pass
 
 ## 12. Provenance and authority map
 
-This map records where the proposal's language and examples came from. It does not transfer formal acceptance to
+This map records where the proposal's language and illustrations came from. It does not transfer formal acceptance to
 this file. If this proposal conflicts with any active contract clause, the active contract wins until a formal
 acceptance process explicitly replaces it.
 
-| Proposal section                | Active source authority                                                                                                                                                                           | Preserved examples or constraints                                                                                                                                                                                                              |
+| Proposal section                | Active source authority                                                                                                                                                                           | Preserved illustrations or constraints                                                                                                                                                                                                         |
 | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1. Routes and root API          | `PUBLIC_API.md` API-001, API-002, API-002A, AMEND-API-001                                                                                                                                         | Exact route/name sets, quickstart, public type boundary, usage-error shape.                                                                                                                                                                    |
 | 2. Types, definitions, machines | `PUBLIC_API.md` API-003/API-004; `TYPE_SYSTEM.md` TYPE-001–TYPE-004                                                                                                                               | NewIntent definition/machine, exact Todo token inference, Editor input/memory inference, causal one-way inference.                                                                                                                             |
-| 3. Operations                   | `PUBLIC_API.md` API-005–API-009; `TYPE_SYSTEM.md` TYPE-005–TYPE-008; `SEMANTICS.md` SEM-006A, SEM-008–SEM-021, SEM-029/SEM-030                                                                    | Order resource, canonical K grammar, family/state shapes, transaction, stream, action, and passive-read examples.                                                                                                                              |
-| 4. Modules, apps, refs, handles | `PUBLIC_API.md` API-010/API-011; `ARCHITECTURE.md` ARCH-001–ARCH-004; `REACT_AND_HOSTS.md` HOST-001–HOST-004                                                                                      | CoreModule/TodoApp, ActorRef/lease example, exact identity/admission/lifecycle ownership.                                                                                                                                                      |
+| 3. Operations                   | `PUBLIC_API.md` API-005–API-009; `TYPE_SYSTEM.md` TYPE-005–TYPE-008; `SEMANTICS.md` SEM-006A, SEM-008–SEM-021, SEM-029/SEM-030                                                                    | Order resource, canonical K grammar, family/state shapes, transaction, stream, action, and passive-read illustrations.                                                                                                                         |
+| 4. Modules, apps, refs, handles | `PUBLIC_API.md` API-010/API-011; `ARCHITECTURE.md` ARCH-001–ARCH-004; `REACT_AND_HOSTS.md` HOST-001–HOST-004                                                                                      | CoreModule/TodoApp, ActorRef/lease usage, exact identity/admission/lifecycle ownership.                                                                                                                                                        |
 | 5. Implementation and runtime   | `TYPE_SYSTEM.md` TYPE-009A–TYPE-011; `ARCHITECTURE.md` ARCH-005, ARCH-007–ARCH-012; `PUBLIC_API.md` API-012                                                                                       | Implementation providers, runtimeSetup overloads/calls, `runPromise`/`runPromiseExit` behavior, complete architecture ownership path, readiness and disposal boundaries.                                                                       |
-| 6. React and hosts              | `REACT_AND_HOSTS.md` host-first examples and HOST-001–HOST-017; `PUBLIC_API.md` API-012; `TYPE_SYSTEM.md` TYPE-013                                                                                | Existing Runtime provider, useActor/useActorByRef/useView, passive selector, SSR/request, suspension/resume.                                                                                                                                   |
-| 7. Persistence and artifacts    | `PERSISTENCE_AND_ARTIFACTS.md` WIRE-000–WIRE-024, especially WIRE-020A/B/C; `PUBLIC_API.md` API-016 and AMEND-API-003                                                                             | Provider/storage/codec forms, capture/hydration, inspection artifact example, redaction type example, canonical/bounded wire laws.                                                                                                             |
-| 8. Testing and Stories          | `PUBLIC_API.md` API-013–API-015; `TYPE_SYSTEM.md` TYPE-014–TYPE-017 and TYPE-P02; `TESTING.md` REV-TEST-001–REV-TEST-010 and TEST-014/TEST-015; `PROOF_MATRIX.md` PROOF-001, PROOF-009, PROOF-010 | Story/recipe, focused-context, common-prefix/three-branch plans, specification-only checkpoint-name accumulation, evidence-only checkpoints, package-private defensive lookup, behavior gateway, fixture, and model examples. |
-| 9. Inspect                      | `PUBLIC_API.md` API-001/API-016 and AMEND-API-003; `TESTING.md` explicit buffer-sink boundary; `PERSISTENCE_AND_ARTIFACTS.md` WIRE-014–WIRE-020C                                                  | Exact exported names, sink/artifact example, bounded retention, failure isolation, defensive/private artifact boundary.                                                                                                                        |
-| 10. CLI                         | `PUBLIC_API.md` API-017; `CLI.md` CLI-001–CLI-012, CLI-P01, CLI-P02; `PERSISTENCE_AND_ARTIFACTS.md` WIRE-020A/B/C                                                                                 | Exact ten-leaf grammar, behavior gateway example, selectors/defaults, gateway containment, atomic files, output, signal, exit, truncation.                                                                                                     |
+| 6. React and hosts              | `REACT_AND_HOSTS.md` host-first forms and HOST-001–HOST-017; `PUBLIC_API.md` API-012; `TYPE_SYSTEM.md` TYPE-013                                                                                   | Existing Runtime provider, useActor/useActorByRef/useView, passive selector, SSR/request, suspension/resume.                                                                                                                                   |
+| 7. Persistence and artifacts    | `PERSISTENCE_AND_ARTIFACTS.md` WIRE-000–WIRE-024, especially WIRE-020A/B/C; `PUBLIC_API.md` API-016 and AMEND-API-003                                                                             | Provider/storage/codec forms, capture/hydration, inspection artifact form, redaction type form, canonical/bounded wire laws.                                                                                                                   |
+| 8. Testing and Stories          | `PUBLIC_API.md` API-013–API-015; `TYPE_SYSTEM.md` TYPE-014–TYPE-017 and TYPE-P02; `TESTING.md` REV-TEST-001–REV-TEST-010 and TEST-014/TEST-015; `PROOF_MATRIX.md` PROOF-001, PROOF-009, PROOF-010 | Story/recipe, focused-context, common-prefix/three-branch plans, specification-only checkpoint-name accumulation, evidence-only checkpoints, package-private defensive lookup, behavior gateway, fixture, and model illustrations. |
+| 9. Inspect                      | `PUBLIC_API.md` API-001/API-016 and AMEND-API-003; `TESTING.md` explicit buffer-sink boundary; `PERSISTENCE_AND_ARTIFACTS.md` WIRE-014–WIRE-020C                                                  | Exact exported names, sink/artifact form, bounded retention, failure isolation, defensive/private artifact boundary.                                                                                                                           |
+| 10. CLI                         | `PUBLIC_API.md` API-017; `CLI.md` CLI-001–CLI-012, CLI-P01, CLI-P02; `PERSISTENCE_AND_ARTIFACTS.md` WIRE-020A/B/C                                                                                 | Exact ten-leaf grammar, behavior gateway form, selectors/defaults, gateway containment, atomic files, output, signal, exit, truncation.                                                                                                        |
 | 11. Acceptance                  | `PROOF_MATRIX.md` PROOF-001–PROOF-017 and local proof crosswalk, especially PROOF-001, PROOF-009, and PROOF-010                                                                                   | Unchecked typing, prefix isolation, and evidence-only checkpoint proof ownership; no completion claim.                                                                                                                               |
 
 The active contract pack remains the sole normative source for exact nested artifact schemas, definitions not copied
 here, conflict resolution, deletion inventory, and proof procedures. `revision-spec/README.md` remains the authority
 index; accepted revisions override only direct conflicts, provenance files preserve lineage rather than semantics,
 and `UNRESOLVED_BEHAVIOR.md` remains a closure register rather than an answer source. Any public name whose complete
-signature or example is absent above is intentionally unspecified by this proposal.
+signature or usage is absent above is intentionally unspecified by this proposal.

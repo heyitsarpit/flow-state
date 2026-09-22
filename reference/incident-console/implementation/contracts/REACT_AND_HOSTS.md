@@ -10,7 +10,7 @@ The active clauses in this contract pack are authoritative. The revision specifi
 decisions, archived records, and the `provenance/` copies preserve provenance only; unresolved
 `BEH-*` entries do not authorize an implementation choice.
 
-## Host-first examples
+## Host-first forms
 
 ```ts
 import { Effect } from "effect";

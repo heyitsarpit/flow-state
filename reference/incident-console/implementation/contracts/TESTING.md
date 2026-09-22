@@ -238,7 +238,7 @@ through production disposal.
   timing tests.
 - Trace: REV-TEST-008; WIRE-009/017/021/022/023.
 
-The result vocabulary is run.end, never final. A machine example is:
+The result vocabulary is run.end, never final. A machine form is:
 
 ~~~ts
 appRun.checkpoints["signed-out"].actor(editor).snapshot;

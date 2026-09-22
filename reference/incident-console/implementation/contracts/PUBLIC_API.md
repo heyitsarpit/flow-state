@@ -72,8 +72,8 @@ Status: vNext additive amendment; this section is new target guidance and is not
   future target under AMEND-API-004. It MUST use only
   the named package routes and public values in this file, remain valid against the packed package, and
   be updated with any accepted public-surface change.
-- Accepts: A minimal root-runtime example plus a React or Story continuation where the route is relevant.
-- Rejects: Private deep imports, compatibility aliases, deleted APIs, invented helper builders, or examples
+- Accepts: A minimal root-runtime usage plus a React or Story continuation where the route is relevant.
+- Rejects: Private deep imports, compatibility aliases, deleted APIs, invented helper builders, or usages
   that bypass readiness, ownership, or the production runtime.
 - Observable guarantee: A new consumer can reach successful temporary readiness by following one current,
   checked-in path without reconstructing package topology from separate contract sections. The actor
@@ -267,10 +267,10 @@ is the sole typed diagnostic authority.
 - Trace: vNext additive amendment; API-002A remains the transferred public shape authority and `ERRORS.ts`
   owns its typed implementation contract.
 
-The human-message cells below are maintained examples, not required string literals. `_tag`, `code`, `path`,
+The human-message cells below are maintained illustrations, not required string literals. `_tag`, `code`, `path`,
 and structured `details` remain the machine-readable compatibility surface.
 
-| Code                         | Failure meaning                                                       | Example path/details                                                         | Human message                                                      | Corrective action                                                           |
+| Code                         | Failure meaning                                                       | Illustrative path/details                                                     | Human message                                                      | Corrective action                                                           |
 | ---------------------------- | --------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------ | --------------------------------------------------------------------------- |
 | `InvalidCanonicalValue`      | A canonical key/value contains an unsupported or non-canonical value. | `path: ["key"]`; `details: { "reason": "unsupported" }`                      | `The operation key contains a value that cannot be canonicalized.` | Replace it with a bounded JSON-safe canonical value.                        |
 | `ForeignActorRef`            | The ref belongs to another app or runtime.                            | `path: ["actorRef"]`; `details: { "reason": "foreign" }`                     | `This actor ref belongs to a different runtime.`                   | Use a ref created by the receiving app/runtime.                             |
@@ -336,7 +336,7 @@ without deleting future target specifications.
 
 This amendment changes only current export/implementation disposition. It does not alter `Diagnostic`, implemented
 root values/types, `OperationOptions`, `FlowStream`, `Runtime`, `ActorRef`, diagnostic classifications or wording,
-examples, other contracts, proof obligations, or top-level phase/ledger status.
+illustrations, other contracts, proof obligations, or top-level phase/ledger status.
 
 ## API-003 — Definition authoring
 
@@ -930,7 +930,7 @@ modules })` flattens ordered unaliased modules into exact `App.M`.
 
 ## API-011 — Actor refs, leases, and construction
 
-Future target only: this actor/lease example is retained for the complete Runtime. The temporary shell exposes only
+Future target only: this actor/lease usage is retained for the complete Runtime. The temporary shell exposes only
 `app`, `construct()`, and `ready()`.
 
 ```ts
@@ -989,7 +989,7 @@ typed `ImplementationError` failure, defect, or interruption—and later runs re
 bridges, lifecycle, or disposal behavior. The complete Runtime and React lifecycle clauses in this section are future
 targets only and are not implementation claims for this shell.
 
-Future target only: this setup example retains deferred persistence for the complete Runtime; the temporary shell has
+Future target only: this setup form retains deferred persistence for the complete Runtime; the temporary shell has
 no `persistence` or `webStorage` value.
 
 ```ts

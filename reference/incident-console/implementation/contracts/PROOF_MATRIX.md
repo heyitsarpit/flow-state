@@ -53,7 +53,7 @@ propagate `Result<A, Diagnostic>` while authored callback exceptions remain defe
 ### Revision-specific obligations
 
 The rows below refine central proof owners; they do not create a runtime receipt system. An implementation
-proof record names the exact executable test, fixture, example, or artifact evidence when it exists, and keeps
+proof record names the exact executable test, fixture, consumer, or artifact evidence when it exists, and keeps
 the obligation open when it does not.
 
 | Revision       | Obligation                                                                                                                                                                                                                              | Central proof rows                                                                        |
@@ -500,22 +500,22 @@ CLI-P02
 ### PROOF-017 — Deletion, retained boundaries, and package hygiene
 
 - Surface: complete `DEL-001`–`DEL-011` and `RET-001`–`RET-005` disposition, package exports/declarations,
-  active docs/examples/Stories/fixtures/tests/tasks, replacement owners, and repository authority.
-- Rule: combine runtime export absence, packed declaration negatives, production behavior, package/example/
+  active docs/Stories/fixtures/tests/tasks, replacement owners, and repository authority.
+- Rule: combine runtime export absence, packed declaration negatives, production behavior, package/
   browser tests, and broad workspace gates; source scans support but never replace those proofs.
 - Accepts: retained package routes/import conditions/Effect peer/React peer; synchronous send; status
   discriminants; canonical operation methods; actions; revised host surfaces; replacement behavior through
   production owners; mapping of every live obligation before deleting historical authority.
-- Rejects: deleted values/namespaces/types/overloads/properties/deep imports/registries/examples/proofs/tasks;
+- Rejects: deleted values/namespaces/types/overloads/properties/deep imports/registries/consumers/proofs/tasks;
   deleted shapes reaching actor/memory/operation/event/work/evidence; aliases, adapters, translators, parser
   branches, second runtimes/actors/Stories/operations/selectors, mutable harnesses, child capabilities,
   registered views, and old Story/operation surfaces kept solely for compatibility; old names in positive
-  examples, supported overloads, active glossary, or replacement recipes.
+  consumers, supported overloads, active glossary, or replacement recipes.
 - Observable guarantee: one active authority survives for each live obligation; deleted surfaces fail closed;
   retained boundaries remain available without deleted API names.
 - Proof: runtime export inspection and packed declaration negatives own removed public surfaces. Feature owners
   prove only deleted behavior intersecting their changed boundary. One final mapping and no-consumer audit runs
-  before `DEL-011` removal/classification; package, example, browser, and broad workspace gates prove reachability
+  before `DEL-011` removal/classification; package, browser, and broad workspace gates prove reachability
   and integration without repeating the complete historical name matrix.
 - Trace: `REV-MIG-003`/`REV-MIG-004`, `DEL-001`–`DEL-011`, `RET-001`–`RET-005`, `CUT-P01`–`CUT-P06`,
   `CLI-P02`.
@@ -580,7 +580,7 @@ vp lint packages/flow-state-rewrite/src
 
 `packages/flow-state/` is migration evidence; its green gates do not prove replacement conformance.
 After replacement has package entrypoints, its package-local type, test, lint, build, and packed-consumer gates
-become the active proof boundary. Published-package, example, browser, and full-workspace gates remain late
+become the active proof boundary. Published-package, browser, and full-workspace gates remain late
 cutover obligations under `PROOF-016` and `PROOF-017`.
 
 ## Required gate layers
@@ -593,9 +593,9 @@ repeat that owner's complete negative, race, codec, or historical-absence matrix
 2. `nub run --filter flow-state check:cli-source-types`.
 3. `nub run --filter flow-state test`.
 4. `nub run --filter flow-state build`.
-5. `nub run --filter flow-state check:typescript-mode-proofs` and `nub run --filter flow-state check:packed-consumers` for public/declaration changes.
-6. Affected example tests and builds.
-7. `nub run test:browser` for browser ownership or lifecycle changes.
+5. `nub run --filter flow-state check:packed-consumers` for public/declaration changes.
+6. Affected consumer tests and builds.
+7. Application-owned browser tests for browser ownership or lifecycle changes.
 8. `nub run verify` for final phase closure.
 
 Live script owners are `packages/flow-state/package.json:59-69` and root `package.json:6-30`; these commands

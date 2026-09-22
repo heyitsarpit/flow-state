@@ -79,7 +79,7 @@ file records removed complexity; it does not promise future work.
 ## DEF-006 — Duplicate semantic proof ownership
 
 - Removed: repeating one invariant's complete positive, negative, race, and boundary
-  matrix in focused tests, phase validators, packed consumers, examples, browser
+  matrix in focused tests, phase validators, packed consumers, browser
   runs, CLI tests, deletion scans, and final verification.
 - Previous owner: `PROOF_MATRIX.md` local crosswalk/gate layers,
   `IMPLEMENTATION_WORKFLOW.md` completion gates, and phase-validation Beads.

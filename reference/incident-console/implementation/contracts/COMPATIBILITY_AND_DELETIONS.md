@@ -56,7 +56,7 @@ the disposition and history below; they do not replace the active rules.
 
 ### CUT-003 — Removed values fail closed
 
-- Surface: every `DELETE`/`REPLACE` value, type, overload, property, deep import, file registry, example,
+- Surface: every `DELETE`/`REPLACE` value, type, overload, property, deep import, file registry, consumer,
   proof, and task reference.
 - Rule: remove it from active authority or classify it in the ledger.
 - Accepts: negative absence proofs, ledgers, and historical provenance.
@@ -72,7 +72,7 @@ the disposition and history below; they do not replace the active rules.
 - Surface: deleted authoring shapes and implementation support kept only for them.
 - Rule: the runtime does not translate a deleted shape into an accepted one.
 - Accepts: a deleted name in a ledger, historical provenance, or negative absence proof.
-- Rejects: supported API or replacement guidance, active glossary definitions, positive examples, aliases,
+- Rejects: supported API or replacement guidance, active glossary definitions, positive usages, aliases,
   adapters, registries, translators, parser branches, and implementation files kept solely for compatibility.
 - Observable guarantee: deleted terminology has no positive active path.
 - Proof: `CUT-P03`, `CUT-P05`, `CUT-P06`, `PROOF-017`.
@@ -148,12 +148,12 @@ Every affected old public or authoring surface has exactly one disposition:
 `REPLACE` is hard deletion. It permits no alias, overload, adapter, compatibility namespace, parser branch, or
 deprecated wrapper. Environmental compatibility is retained only by an explicit `RETAIN` row. An unassigned
 old clause remains authoritative under the overlay rule; migration cannot be promoted until every affected
-clause, symbol, overload, registry, example, proof, and task reference is classified or recorded unchanged.
+clause, symbol, overload, registry, consumer, proof, and task reference is classified or recorded unchanged.
 
 Deleted names may occur only in this ledger, the non-normative rejected/deferred record, historical provenance,
 or a negative absence proof—not as supported API, replacement guidance, active glossary definition, or positive
-example. The ledger does not remove a `RETAIN` row. Reference examples must rewrite deleted consumers; selector
-files may be redistributed and unused host examples removed or promoted, but folder layout is not a public
+consumer. The ledger does not remove a `RETAIN` row. Reference consumers must rewrite deleted calls; selector
+files may be redistributed and unused host fixtures removed or promoted, but folder layout is not a public
 deletion rule.
 
 ### Disposition table
@@ -191,7 +191,7 @@ clauses in this contract.
 
 For every `DELETE` or `REPLACE` entry, migration MUST prove all of the following:
 
-1. Active contracts, glossaries, examples, Stories, fixtures, tests, and task files use only accepted or
+1. Active contracts, glossaries, consumers, Stories, fixtures, tests, and task files use only accepted or
    explicitly retained surfaces.
 2. Runtime export proofs show the deleted value or namespace absent.
 3. Declaration proofs reject deleted types, overloads, properties, deep imports, and authoring shapes.
@@ -199,14 +199,14 @@ For every `DELETE` or `REPLACE` entry, migration MUST prove all of the following
    publication, external work, or evidence.
 5. No alias, adapter, registry, translator, parser branch, or implementation file remains solely for deletion
    compatibility.
-6. Live examples and Stories exercise replacements through production owners; source scans may support but
+6. Live consumers and Stories exercise replacements through production owners; source scans may support but
    cannot replace runtime or declaration absence proofs.
 
 The old contract name may occur in a negative absence proof only when testing unavailability. It may not occur
-in a positive example, supported overload, active glossary definition, compatibility recommendation, or
+in a positive usage, supported overload, active glossary definition, compatibility recommendation, or
 replacement recipe. The deletion ledger MUST NOT be interpreted to remove a `RETAIN` row. A retained boundary
-remains authoritative unless a later accepted revision gives it a new disposition. The reference examples MUST
-remove or rewrite consumers of deleted surfaces; selector files may be redistributed and an unused host example
+remains authoritative unless a later accepted revision gives it a new disposition. The reference consumers MUST
+remove or rewrite uses of deleted surfaces; selector files may be redistributed and an unused host fixture
 may be removed or promoted into a tested host, but folder layout itself is not a public deletion rule.
 
 ## Required cutover proofs

@@ -756,7 +756,7 @@ useView(projectMachine, ({ state }) => state);
 
 ### Proof
 
-- React type and runtime passive-selector proofs, including the negative example.
+- React type and runtime passive-selector proofs, including the negative case.
 
 ### Trace
 

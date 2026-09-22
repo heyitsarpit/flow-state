@@ -7,7 +7,7 @@ inspection. Snapshots report machine and primitive truth. They are passive reads
 create ownership, start work, retain execution history, or expose runtime internals. `SEMANTICS.md` owns
 publication ordering; `REACT_AND_HOSTS.md` owns host attachment and selector integration.
 
-## Snapshot-first examples
+## Snapshot-first forms
 
 ```ts
 const snapshot = actor.getSnapshot();

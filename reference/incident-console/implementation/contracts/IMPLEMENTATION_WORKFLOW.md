@@ -16,9 +16,9 @@ This workflow preserves the wording, semantics, and IDs already transferred into
 
 - Surface: Contract interpretation and implementation location.
 - Rule: The active sibling contract pack is the sole semantic authority for implementation. Archived
-  revisions, proposals, audits, research, traceability records, the reference package, and historical examples are
+  revisions, proposals, audits, research, traceability records, the reference package, and historical fixtures are
   provenance only. The replacement is built in packages/flow-state-rewrite/. Existing
-  packages/flow-state/ code, tests, examples, entrypoints, and records remain reference
+  packages/flow-state/ code, tests, entrypoints, and records remain reference
   material until late cutover.
 - Accepts: Copied legacy code only after its current owner, types, failure lanes, cleanup, and tests are
   checked; each slice naming its contract IDs, cohesive feature-owned module boundary, allowed files,
@@ -39,7 +39,7 @@ This workflow preserves the wording, semantics, and IDs already transferred into
 | Operation kernels | TYPE_SYSTEM operation inference, SEMANTICS SEM-011–021/029–030, SNAPSHOTS operation projections | K, resource store, generations, operation kernels, overlays, cancellation, invalidation, fanout, fencing | PROOF-005, PROOF-006, PROOF-007, SNAP-P01 | Runtime ownership |
 | Persistence and evidence | PERSISTENCE_AND_ARTIFACTS WIRE-000–023 including WIRE-020C, SNAPSHOTS capture/hydration, diagnostic clauses | Persistence provider, declaration restoration, private v2 codecs/models, exact trace facts, bounded sinks, raw and share-only artifacts | PROOF-009, PROOF-010, PROOF-014, API-P04, CLI-P01 | Runtime ownership and operation kernels |
 | Hosts/Stories/CLI | TESTING REV-TEST-001–010, REACT_AND_HOSTS, CLI, PUBLIC_API API-011–017 | React attachment, Story builders/run, Fixtures/Implementations/seeds, gateway, shared CLI executor | PROOF-008, PROOF-010, PROOF-012, PROOF-014, CLI-P01 | Runtime + kernels + persistence/evidence |
-| Cutover/absence | COMPATIBILITY_AND_DELETIONS, PROOF_MATRIX PROOF-016–017 | Entrypoints, examples, packed consumers, browser behavior, deleted-surface absence, final package cutover | PROOF-016, PROOF-017, CLI-P02, CUT-P01–P06 | All prior phases |
+| Cutover/absence | COMPATIBILITY_AND_DELETIONS, PROOF_MATRIX PROOF-016–017 | Entrypoints, packed consumers, browser behavior, deleted-surface absence, final package cutover | PROOF-016, PROOF-017, CLI-P02, CUT-P01–P06 | All prior phases |
 
 ### Rule card — portable text and byte boundaries
 
@@ -189,7 +189,7 @@ This workflow preserves the wording, semantics, and IDs already transferred into
 - One executable test may satisfy multiple proof IDs when it exercises the same invariant through the same
   production owner; record every satisfied ID in external Bead or reviewer metadata instead of duplicating
   the vector.
-- Packed consumers, examples, browser tests, Stories, and installed-CLI tests prove public reachability and
+- Packed consumers, browser tests, Stories, and installed-CLI tests prove public reachability and
   host integration. They repeat an owner's semantic matrix only when that integration adds a distinct failure,
   race, cleanup, or wire boundary.
 - Accepts: Tests prioritizing ownership, ordering, atomicity, cleanup, failure, interruption, hostile input at
@@ -208,7 +208,7 @@ This workflow preserves the wording, semantics, and IDs already transferred into
 - Rule: A slice is ready for dependents only when review has no blocking findings, required focused
   checks pass, and decisive proof is recorded against the named owner. Greenfield replacement is
   complete only after public behavior/types, failure lanes, cleanup, persistence, artifacts, CLI,
-  React hosts, Stories, examples, packed consumers, browser behavior, and deletion proofs pass the
+  React hosts, Stories, packed consumers, browser behavior, and deletion proofs pass the
   final workspace gates.
 - Accepts: A cutover decision backed by the complete set of production proofs.
 - Rejects: package cutover claimed from one green focused test, typecheck, lint run, or source scan.

@@ -39,7 +39,7 @@ Explicitly retained boundaries remain authoritative under `RET-001` through `RET
   are rejected before encoding with `String.prototype.isWellFormed` when available or an equivalent
   small fallback check. Node-only `Buffer` APIs are not part of the package contract.
 - Durable stable refs use `actor:` plus machine-ID then authored-ID segments. Opaque refs are
-  runtime-local and have no durable encoding. State tokens preserve complete paths, for example
+  runtime-local and have no durable encoding. State tokens preserve complete paths, such as
   `S.ACTIVE.S.EDITING`; events use one machine-wide protocol.
 
 ### Accepts
