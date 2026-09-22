@@ -113,7 +113,6 @@ describe("flow-state package hygiene", () => {
     expect(corePackageJson.scripts).toMatchObject({
       "check:build-output": expect.any(String),
       "check:cli-source-types": "nubx tsc -p tsconfig.json --noEmit",
-      "check:typescript-mode-proofs": expect.any(String),
     });
     expect(corePackageJson.scripts?.build).toContain("check:cli-source-types");
     expect(corePackageJson.scripts?.build).toContain("check:build-output");

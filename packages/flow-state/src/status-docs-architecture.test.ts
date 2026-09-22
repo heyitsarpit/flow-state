@@ -66,7 +66,7 @@ describe("status docs architecture", () => {
     expect(apiSource).not.toContain("duplicate-id validation");
   });
 
-  it("keeps the public surface separate from package helpers and maintained recipe evidence", () => {
+  it("keeps the public surface separate from package helpers", () => {
     const statusSource = requireDoc("../../../apps/docs/src/pages/reference/status.mdx");
 
     expect(statusSource).toContain("## Public Surface Boundaries");
@@ -74,6 +74,5 @@ describe("status docs architecture", () => {
     expect(statusSource).toContain("`flow-state/testing`");
     expect(statusSource).toContain("`flow-state/inspect`");
     expect(statusSource).toContain("`packages/flow-state/scripts/**`");
-    expect(statusSource).not.toContain("examples/launch-workspace");
   });
 });

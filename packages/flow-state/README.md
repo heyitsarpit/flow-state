@@ -20,6 +20,6 @@ Public entrypoints are:
 - `flow-state/server`
 - `flow-state/inspect`
 
-Start with the [supported onboarding](https://github.com/heyitsarpit/flow-state/blob/main/apps/docs/src/pages/getting-started.md), then use the five maintained recipes for focused behavior. The [Incident Console](https://github.com/heyitsarpit/flow-state/tree/main/examples/incident-console) is the real client/server proof over HTTP and SSE.
+Start with the [supported onboarding](https://github.com/heyitsarpit/flow-state/blob/main/apps/docs/src/pages/getting-started.md), then use the testing and inspection references for focused behavior proofs.
 
 This is an experimental alpha, so read the [known limits](https://github.com/heyitsarpit/flow-state/blob/main/apps/docs/src/pages/reference/status.mdx) before adopting it. It is an opinionated alternative to combining TanStack Query and XState, without drop-in or feature-parity claims.
