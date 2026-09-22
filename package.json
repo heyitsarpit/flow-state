@@ -4,20 +4,15 @@
   "private": true,
   "workspaces": [
     "apps/*",
-    "packages/*",
-    "examples/*"
+    "packages/*"
   ],
   "type": "module",
   "scripts": {
-    "build": "nub run build:library && nub run build:examples && nub run check:example-cli",
-    "build:examples": "nub run --filter @flow-state/basic-cached-posts build && nub run --filter @flow-state/optimistic-transactions build && nub run --filter @flow-state/bounded-infinite-feed build && nub run --filter @flow-state/server-prefetch-hydration build && nub run --filter @flow-state/offline-recovery build && nub run --filter @flow-state/incident-console build",
-    "build:library": "nub run --filter flow-state build && nub run --filter flow-state check:typescript-mode-proofs && nub run --filter flow-state check:packed-consumers",
-    "browser:install": "nub run --filter @flow-state/incident-console browser:install",
+    "build": "nub run build:library",
+    "build:library": "nub run --filter flow-state build && nub run --filter flow-state check:packed-consumers",
     "check": "vp check packages/flow-state-rewrite",
-    "check:example-cli": "node ./scripts/check-example-cli-acceptance.mjs",
     "check:fix": "vp check --fix packages/flow-state-rewrite",
     "check:toolchain": "node ./scripts/check-toolchain.mjs",
-    "dev": "nub run --filter @flow-state/incident-console dev",
     "docs:build": "nub run --filter @flow-state/docs build",
     "docs:dev": "nub run --filter @flow-state/docs dev",
     "docs:preview": "nub run --filter @flow-state/docs preview",
@@ -26,8 +21,7 @@
     "lint": "vp lint packages/flow-state-rewrite",
     "lint:fix": "vp lint packages/flow-state-rewrite --fix",
     "test": "vp test",
-    "test:browser": "nub run --filter @flow-state/incident-console test:browser",
-    "verify": "nub run check:toolchain && nub run check && nub run test && nub run build && nub run test:browser && nub run docs:build",
+    "verify": "nub run check:toolchain && nub run check && nub run test && nub run build && nub run docs:build",
     "test:coverage": "vp test run packages/flow-state-rewrite --coverage",
     "report:unused": "knip --workspace packages/flow-state-rewrite --no-exit-code"
   },

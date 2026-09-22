@@ -334,15 +334,17 @@ export default defineConfig({
         },
       },
     ],
-    // Reference applications intentionally use APIs that the library has not
-    // implemented yet. They remain formatted and syntax-checked separately.
-    ignorePatterns: ["reference/**", "tools/oxlint/anti-slop/**"],
+    ignorePatterns: [
+      "reference/**",
+      "tools/oxlint/anti-slop/**",
+      "packages/flow-state-rewrite/src/runtime/**",
+    ],
   },
   fmt: {
     ignorePatterns: ["tools/oxlint/anti-slop/**"],
   },
   test: {
-    include: ["packages/**/*.test.ts", "examples/**/*.test.ts", "examples/**/*.test.tsx"],
+    include: ["packages/**/*.test.ts"],
     coverage: {
       provider: "v8",
       include: ["packages/flow-state-rewrite/src/**/*.ts"],

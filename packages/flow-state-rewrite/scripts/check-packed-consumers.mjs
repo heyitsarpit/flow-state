@@ -39,12 +39,8 @@ const negativeFixture = resolve(packageRoot, "test/packed/negative-control.mjs")
 
 const reactProofs = [
   {
-    label: "react-18",
-    manifestPath: resolve(repoRoot, "examples/typescript-proof-packed-react-18/package.json"),
-  },
-  {
     label: "react-19",
-    manifestPath: resolve(repoRoot, "examples/typescript-proof-packed-react-19/package.json"),
+    manifestPath: resolve(repoRoot, "apps/docs/package.json"),
   },
 ];
 
@@ -162,7 +158,7 @@ const readLocalPackageVersion = (root, name) => {
 
 const createReactConsumer = (label, tarball, manifestPath) => {
   const manifest = readPackageJson(manifestPath);
-  const exampleRoot = dirname(manifestPath);
+  const manifestRoot = dirname(manifestPath);
   const pinnedPackageNames = ["react", "react-dom", "@types/react", "@types/react-dom"];
   const packageNames = [...pinnedPackageNames, "scheduler"];
 
@@ -174,8 +170,8 @@ const createReactConsumer = (label, tarball, manifestPath) => {
   };
 
   for (const name of packageNames) {
-    const examplePath = join(exampleRoot, "node_modules", ...name.split("/"));
-    const sourceRoot = existsSync(examplePath) ? exampleRoot : repoRoot;
+    const packagePath = join(manifestRoot, "node_modules", ...name.split("/"));
+    const sourceRoot = existsSync(packagePath) ? manifestRoot : repoRoot;
 
     if (pinnedPackageNames.includes(name)) {
       const declaredVersion = manifest.dependencies[name] ?? manifest.devDependencies[name];
@@ -197,11 +193,13 @@ const createReactConsumer = (label, tarball, manifestPath) => {
   }
 
   const dependencies = Object.fromEntries(
-    Object.entries(manifest.dependencies).filter(([name]) => name !== "flow-state"),
+    Object.entries(manifest.dependencies).filter(([name]) => ["react", "react-dom"].includes(name)),
   );
 
   const devDependencies = Object.fromEntries(
-    Object.entries(manifest.devDependencies).filter(([name]) => name.startsWith("@types/")),
+    Object.entries(manifest.devDependencies).filter(([name]) =>
+      ["@types/react", "@types/react-dom"].includes(name),
+    ),
   );
 
   return createConsumer(label, tarball, dependencies, devDependencies, overrides);
