@@ -1,4 +1,11 @@
-import { describe, it } from "@effect/vitest";
+import { assert, describe, it } from "@effect/vitest";
+import { Result } from "effect";
+
+import { app, module } from "../../app/app.js";
+import { definition } from "../../definition/definition.js";
+import { machine } from "../../machine/machine.js";
+import { runtimeSetup } from "../runtime.js";
+import { facadeTypeProofs } from "./facade.compile.js";
 
 describe("runtime-next facade", () => {
   // Owner: P01.
@@ -7,10 +14,91 @@ describe("runtime-next facade", () => {
   // Source: runtime.test.ts:913 "captures the App before validating a flapping getter".
   // Contract/correction: API-012; refactor.md final runtime facade; STD-03.
   // Setup: A compiled app plus copied, proxied, and getter-backed setup inputs.
-  // Action: Create a setup and construct a runtime, then mutate the original options before readiness.
-  // Observable result: The runtime retains the admitted app identity and never rereads a hostile or changing getter.
-  // Failure/cleanup: Malformed inputs produce a typed diagnostic before publication; no runtime starts.
-  it.todo("RN-FACADE-001 runtime setup captures and validates its app once");
+  // Action: Create a setup, then mutate the original options before any runtime construction.
+  // Observable result: The setup retains the admitted app identity and never rereads a hostile or changing getter.
+  // Failure/cleanup: Malformed inputs reject before setup publication; setup acquires no provider or runtime work.
+  it("RN-FACADE-001 runtime setup captures and validates its app once", () => {
+    const admitted = app({
+      id: "runtime-next/facade-admitted",
+      persistenceVersion: "1",
+      modules: [],
+    });
+
+    const alternate = app({
+      id: "runtime-next/facade-alternate",
+      persistenceVersion: "1",
+      modules: [],
+    });
+
+    const options = { app: admitted };
+    const setup = runtimeSetup(options);
+    Object.defineProperty(options, "app", { value: alternate });
+    assert.strictEqual(setup.app, admitted);
+
+    let initializations = 0;
+
+    const machineDefinition = definition({
+      id: "runtime-next/facade-machine",
+      states: ["ready"],
+      events: { ping: "bare" },
+      memory: ({ input }: { input: { seed: string } }) => {
+        initializations += 1;
+
+        return { seed: input.seed };
+      },
+    });
+
+    const compiled = Result.getOrThrow(
+      machine(machineDefinition, ({ S }) => ({ default: S.ready, states: { ready: {} } })),
+    );
+
+    const appWithMachine = app({
+      id: "runtime-next/facade-machine-app",
+      persistenceVersion: "1",
+      modules: [module({ id: "runtime-next/facade-module", machines: { compiled } })],
+    });
+
+    runtimeSetup({ app: appWithMachine });
+    assert.strictEqual(initializations, 0);
+
+    let reads = 0;
+
+    const getterOptions = {
+      get app() {
+        reads += 1;
+
+        return reads === 1 ? admitted : alternate;
+      },
+    };
+
+    const captured = runtimeSetup(getterOptions);
+    assert.strictEqual(captured.app, admitted);
+    assert.strictEqual(reads, 1);
+
+    assert.throws(
+      () => runtimeSetup({ app: { ...admitted } }),
+      /^runtimeSetup app must be constructed by app\(\)$/u,
+    );
+
+    let structuralReads = 0;
+
+    const forged = new Proxy(
+      { ...admitted },
+      {
+        get: () => {
+          structuralReads += 1;
+          throw new Error("App field was read");
+        },
+      },
+    );
+
+    assert.throws(
+      () => runtimeSetup({ app: forged }),
+      /^runtimeSetup app must be constructed by app\(\)$/u,
+    );
+    assert.strictEqual(structuralReads, 0);
+    assert.ok(facadeTypeProofs.setup);
+  });
 
   // Owner: P01.
   // Source: new refactor.md owner proof; no frozen source declaration.
@@ -18,10 +106,12 @@ describe("runtime-next facade", () => {
   // Frozen outcome: Frozen handle access depended on the private runtimeOwner seam and had no final public lease shape.
   // Required new outcome: Types expose one owner lease from create/ensure, a non-owning lookup handle, and no disposal on handle or ref.
   // Setup: The final Runtime, owner-lease, ActorHandle, and ActorRef type declarations for two machine families.
-  // Action: Compile positive create/ensure/get uses and negative handle/ref disposal uses.
-  // Observable result: Create/ensure return an owner lease type, getActor returns a non-owning handle type, and neither handle nor ref has disposal authority; frozen behavior used a private owner seam.
+  // Action: Compile positive create/ensure/get uses and negative foreign-machine and handle/ref disposal uses.
+  // Observable result: Only App machines can be acquired; create/ensure return an owner lease type, getActor returns a non-owning handle type, and neither handle nor ref has disposal authority; frozen behavior used a private owner seam.
   // Failure/cleanup: No owner implementation or package-root export is required for this type proof.
-  it.todo("RN-FACADE-002 only owner leases grant actor disposal");
+  it("RN-FACADE-002 only owner leases grant actor disposal", () => {
+    assert.ok(facadeTypeProofs.lease);
+  });
 
   // Owner: P07.
   // Source: runtime-architecture.test.ts:715 "admits a fresh actor through an explicit initial snapshot seam".
@@ -55,7 +145,9 @@ describe("runtime-next facade", () => {
   // Action: Compile valid send signatures and negative wrong-family event cases.
   // Observable result: The signature is synchronous and returns an exact-typed Result for the matching event family; frozen send could throw.
   // Failure/cleanup: No mailbox or active actor is required for the P01 type proof; runtime rejection is covered by RN-ACTOR-021.
-  it.todo("RN-FACADE-005 send is synchronous, exact-typed, and returns Result");
+  it("RN-FACADE-005 send is synchronous, exact-typed, and returns Result", () => {
+    assert.ok(facadeTypeProofs.send);
+  });
 
   // Owner: P07.
   // Source: actor-admission.test.ts:1958 "fences a public handle after its actor lease is released".
