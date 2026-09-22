@@ -1,0 +1,5122 @@
+{
+  "sourceBaseline": "45bd71cccb9b796e719d0f66f5f9228a520e2722",
+  "frozenTestRoot": "packages/flow-state-rewrite/src/runtime/test",
+  "scenarios": [
+    {
+      "id": "RN-ACTOR-002",
+      "owner": "P06",
+      "group": "actors",
+      "title": "lifecycle publishes one coherent snapshot revision"
+    },
+    {
+      "id": "RN-ACTOR-003",
+      "owner": "P06",
+      "group": "actors",
+      "title": "observer defects cannot undo a committed lifecycle cut"
+    },
+    {
+      "id": "RN-ACTOR-004",
+      "owner": "P06",
+      "group": "actors",
+      "title": "suspension gates sends until resume commits"
+    },
+    {
+      "id": "RN-ACTOR-005",
+      "owner": "P06",
+      "group": "actors",
+      "title": "disposal drains prior work and closes admission"
+    },
+    {
+      "id": "RN-ACTOR-006",
+      "owner": "P06",
+      "group": "actors",
+      "title": "failed lifecycle preflight leaves actor and resources unchanged"
+    },
+    {
+      "id": "RN-ACTOR-007",
+      "owner": "P06",
+      "group": "actors",
+      "title": "timer claims use Effect Clock and settle across interruption"
+    },
+    {
+      "id": "RN-ACTOR-008",
+      "owner": "P06",
+      "group": "actors",
+      "title": "published snapshots and diagnostics are owned immutable data"
+    },
+    {
+      "id": "RN-ACTOR-009",
+      "owner": "P06",
+      "group": "actors",
+      "title": "slow snapshot readers cannot stall actor disposal"
+    },
+    {
+      "id": "RN-ACTOR-010",
+      "owner": "P03",
+      "group": "actors",
+      "title": "concurrent lease disposal callers share one cleanup"
+    },
+    {
+      "id": "RN-ACTOR-011",
+      "owner": "P06",
+      "group": "actors",
+      "title": "operation completions follow their live occurrence fence"
+    },
+    {
+      "id": "RN-ACTOR-012",
+      "owner": "P04",
+      "group": "actors",
+      "title": "actor copy policy owns structured snapshot values"
+    },
+    {
+      "id": "RN-ACTOR-013",
+      "owner": "P06",
+      "group": "actors",
+      "title": "mailbox preserves FIFO and reserved control capacity"
+    },
+    {
+      "id": "RN-ACTOR-014",
+      "owner": "P06",
+      "group": "actors",
+      "title": "one actor publication cut binds store, evidence, snapshot, and receipt"
+    },
+    {
+      "id": "RN-ACTOR-015",
+      "owner": "P06",
+      "group": "actors",
+      "title": "operation and timer outcomes retain failure categories"
+    },
+    {
+      "id": "RN-ACTOR-016",
+      "owner": "P06",
+      "group": "actors",
+      "title": "passive context projections publish without synthetic turns"
+    },
+    {
+      "id": "RN-ACTOR-017",
+      "owner": "P06",
+      "group": "actors",
+      "title": "mapped events complete as one causal continuation"
+    },
+    {
+      "id": "RN-ACTOR-018",
+      "owner": "P06",
+      "group": "actors",
+      "title": "flush captures an atomic admission boundary"
+    },
+    {
+      "id": "RN-ACTOR-019",
+      "owner": "P06",
+      "group": "actors",
+      "title": "publication revision overflow rejects before actor mutation"
+    },
+    {
+      "id": "RN-ACTOR-020",
+      "owner": "P06",
+      "group": "actors",
+      "title": "send and dispatch own events before queued execution"
+    },
+    {
+      "id": "RN-ACTOR-021",
+      "owner": "P06",
+      "group": "actors",
+      "title": "full or closed send rejects synchronously without mutation"
+    },
+    {
+      "id": "RN-ACTOR-022",
+      "owner": "P06",
+      "group": "actors",
+      "title": "prepared actor work remains inert until activation"
+    },
+    {
+      "id": "RN-ACTOR-023",
+      "owner": "P06",
+      "group": "actors",
+      "title": "real actor ingress owns deep snapshots and rejects cycles before publication"
+    },
+    {
+      "id": "RN-ACTOR-024",
+      "owner": "P07",
+      "group": "actors",
+      "title": "public snapshot streams replay the current cut and finalize once"
+    },
+    {
+      "id": "RN-ACTOR-025",
+      "owner": "P06",
+      "group": "actors",
+      "title": "prepared snapshot stream completes on abandonment"
+    },
+    {
+      "id": "RN-ADMIT-001",
+      "owner": "P03",
+      "group": "admission",
+      "title": "stable refs reject duplicates and retain tombstones"
+    },
+    {
+      "id": "RN-ADMIT-002",
+      "owner": "P03",
+      "group": "admission",
+      "title": "pending stable reservations join one registration"
+    },
+    {
+      "id": "RN-ADMIT-003",
+      "owner": "P07",
+      "group": "admission",
+      "title": "failed admission rolls back every acquired owner token"
+    },
+    {
+      "id": "RN-ADMIT-004",
+      "owner": "P07",
+      "group": "admission",
+      "title": "actor start options are captured and validated before allocation"
+    },
+    {
+      "id": "RN-ADMIT-005",
+      "owner": "P03",
+      "group": "admission",
+      "title": "stable and local refs have distinct lookup authority"
+    },
+    {
+      "id": "RN-ADMIT-006",
+      "owner": "P03",
+      "group": "admission",
+      "title": "delimiter-heavy identities do not alias"
+    },
+    {
+      "id": "RN-ADMIT-007",
+      "owner": "P03",
+      "group": "admission",
+      "title": "retired actor fences cannot authorize a replacement"
+    },
+    {
+      "id": "RN-ADMIT-008",
+      "owner": "P03",
+      "group": "admission",
+      "title": "actor allocation counters reject overflow before mutation"
+    },
+    {
+      "id": "RN-ADMIT-009",
+      "owner": "P03",
+      "group": "admission",
+      "title": "dependency preflight blocks lease disposal"
+    },
+    {
+      "id": "RN-ADMIT-010",
+      "owner": "P07",
+      "group": "admission",
+      "title": "actor refs are inert captured identity values"
+    },
+    {
+      "id": "RN-ADMIT-011",
+      "owner": "P03",
+      "group": "admission",
+      "title": "actor lease disposal is lazy and caches its full Exit"
+    },
+    {
+      "id": "RN-ADMIT-012",
+      "owner": "P03",
+      "group": "admission",
+      "title": "cached lease disposal wins before a later preflight"
+    },
+    {
+      "id": "RN-ASSEMBLY-001",
+      "owner": "P07",
+      "group": "assembly",
+      "title": "assembly rejects a machine outside its app"
+    },
+    {
+      "id": "RN-ASSEMBLY-002",
+      "owner": "P07",
+      "group": "assembly",
+      "title": "restoration validates and publishes its prepared baseline"
+    },
+    {
+      "id": "RN-ASSEMBLY-003",
+      "owner": "P07",
+      "group": "assembly",
+      "title": "facade dispatch crosses one actor cut and closes cleanly"
+    },
+    {
+      "id": "RN-ASSEMBLY-004",
+      "owner": "P07",
+      "group": "assembly",
+      "title": "admission and resume wait for coherent provider lineage"
+    },
+    {
+      "id": "RN-ASSEMBLY-005",
+      "owner": "P07",
+      "group": "assembly",
+      "title": "context bindings validate before consumer exposure"
+    },
+    {
+      "id": "RN-ASSEMBLY-006",
+      "owner": "P07",
+      "group": "assembly",
+      "title": "facade creation remains closed after cold runtime disposal"
+    },
+    {
+      "id": "RN-ASSEMBLY-007",
+      "owner": "P07",
+      "group": "assembly",
+      "title": "assembled shutdown joins actor cleanup before evidence and providers"
+    },
+    {
+      "id": "RN-ASSEMBLY-008",
+      "owner": "P07",
+      "group": "assembly",
+      "title": "real runtime instances isolate actors and provider lifetimes"
+    },
+    {
+      "id": "RN-ASSEMBLY-009",
+      "owner": "P07",
+      "group": "assembly",
+      "title": "public stable and local actor lanes preserve identity and fencing"
+    },
+    {
+      "id": "RN-ASSEMBLY-010",
+      "owner": "P07",
+      "group": "assembly",
+      "title": "interrupting a joined ensure leaves the leader and lease intact"
+    },
+    {
+      "id": "RN-CONTEXT-001",
+      "owner": "P05",
+      "group": "context",
+      "title": "consumer starts from one complete provider cut"
+    },
+    {
+      "id": "RN-CONTEXT-002",
+      "owner": "P05",
+      "group": "context",
+      "title": "participant offer backpressure retains provider truth"
+    },
+    {
+      "id": "RN-CONTEXT-003",
+      "owner": "P05",
+      "group": "context",
+      "title": "selector defects retain the last valid context until recovery"
+    },
+    {
+      "id": "RN-CONTEXT-004",
+      "owner": "P05",
+      "group": "context",
+      "title": "diamond waves publish only complete descendant cuts"
+    },
+    {
+      "id": "RN-CONTEXT-005",
+      "owner": "P05",
+      "group": "context",
+      "title": "fanout isolates a full dependent and makes peer progress"
+    },
+    {
+      "id": "RN-CONTEXT-006",
+      "owner": "P05",
+      "group": "context",
+      "title": "stale, forged, or cancelled context authority cannot publish"
+    },
+    {
+      "id": "RN-CONTEXT-007",
+      "owner": "P05",
+      "group": "context",
+      "title": "drain captures generations and shutdown settles queued waves"
+    },
+    {
+      "id": "RN-CONTEXT-008",
+      "owner": "P05",
+      "group": "context",
+      "title": "provider retirement cannot publish an obsolete selection"
+    },
+    {
+      "id": "RN-CONTEXT-009",
+      "owner": "P05",
+      "group": "context",
+      "title": "provider changes propagate through the affected graph"
+    },
+    {
+      "id": "RN-CONTEXT-010",
+      "owner": "P05",
+      "group": "context",
+      "title": "context selection owns structured values and authored identity"
+    },
+    {
+      "id": "RN-CONTEXT-011",
+      "owner": "P05",
+      "group": "context",
+      "title": "graph planning rejects cycles and overflow before publication"
+    },
+    {
+      "id": "RN-CONTEXT-012",
+      "owner": "P05",
+      "group": "context",
+      "title": "lineage debt requires exact incarnation coverage"
+    },
+    {
+      "id": "RN-CONTEXT-013",
+      "owner": "P05",
+      "group": "context",
+      "title": "deep and wide context graphs make bounded fair progress"
+    },
+    {
+      "id": "RN-CONTEXT-014",
+      "owner": "P05",
+      "group": "context",
+      "title": "root updates coalesce without losing the latest required cut"
+    },
+    {
+      "id": "RN-COPY-001",
+      "owner": "P04",
+      "group": "copies",
+      "title": "evidence records own the shared deep and cyclic fixtures"
+    },
+    {
+      "id": "RN-COPY-002",
+      "owner": "P05",
+      "group": "copies",
+      "title": "context offers and tickets own the shared deep and cyclic fixtures"
+    },
+    {
+      "id": "RN-EVIDENCE-001",
+      "owner": "P06",
+      "group": "evidence",
+      "title": "failed turn evidence names the last committed state"
+    },
+    {
+      "id": "RN-EVIDENCE-002",
+      "owner": "P04",
+      "group": "evidence",
+      "title": "lifecycle evidence keeps actor-local revision and provided clock"
+    },
+    {
+      "id": "RN-EVIDENCE-003",
+      "owner": "P06",
+      "group": "evidence",
+      "title": "committed acknowledgement precedes sink delivery"
+    },
+    {
+      "id": "RN-EVIDENCE-004",
+      "owner": "P04",
+      "group": "evidence",
+      "title": "drain settles a captured prefix while later records arrive"
+    },
+    {
+      "id": "RN-EVIDENCE-005",
+      "owner": "P07",
+      "group": "evidence",
+      "title": "rolled-back actor admission releases its evidence credit"
+    },
+    {
+      "id": "RN-EVIDENCE-006",
+      "owner": "P07",
+      "group": "evidence",
+      "title": "runtime close drains accepted evidence after actor cleanup"
+    },
+    {
+      "id": "RN-EVIDENCE-007",
+      "owner": "P04",
+      "group": "evidence",
+      "title": "evidence preparation is fallible before the store cut"
+    },
+    {
+      "id": "RN-EVIDENCE-008",
+      "owner": "P04",
+      "group": "evidence",
+      "title": "accepted evidence forms one contiguous commit-order prefix"
+    },
+    {
+      "id": "RN-EVIDENCE-009",
+      "owner": "P04",
+      "group": "evidence",
+      "title": "evidence credits and attachments reject foreign authority"
+    },
+    {
+      "id": "RN-EVIDENCE-010",
+      "owner": "P04",
+      "group": "evidence",
+      "title": "bounded sinks account for each omitted record independently"
+    },
+    {
+      "id": "RN-EVIDENCE-011",
+      "owner": "P04",
+      "group": "evidence",
+      "title": "evidence copy preserves structured topology and opaque identity"
+    },
+    {
+      "id": "RN-EVIDENCE-012",
+      "owner": "P04",
+      "group": "evidence",
+      "title": "lifecycle outcome credit survives cleanup and failure"
+    },
+    {
+      "id": "RN-EVIDENCE-013",
+      "owner": "P04",
+      "group": "evidence",
+      "title": "late sink attach and repeated close never replay history"
+    },
+    {
+      "id": "RN-EVIDENCE-014",
+      "owner": "P04",
+      "group": "evidence",
+      "title": "interrupted direct sink drain retains terminal accounting"
+    },
+    {
+      "id": "RN-EVIDENCE-015",
+      "owner": "P04",
+      "group": "evidence",
+      "title": "stranded evidence credits close with a named diagnostic"
+    },
+    {
+      "id": "RN-EVIDENCE-016",
+      "owner": "P04",
+      "group": "evidence",
+      "title": "sink callbacks may reenter drain or close without deadlock"
+    },
+    {
+      "id": "RN-EVIDENCE-017",
+      "owner": "P04",
+      "group": "evidence",
+      "title": "journal sequence overflow rejects before mutation"
+    },
+    {
+      "id": "RN-FACADE-001",
+      "owner": "P01",
+      "group": "facade",
+      "title": "runtime setup captures and validates its app once"
+    },
+    {
+      "id": "RN-FACADE-002",
+      "owner": "P01",
+      "group": "facade",
+      "title": "only owner leases grant actor disposal"
+    },
+    {
+      "id": "RN-FACADE-003",
+      "owner": "P07",
+      "group": "facade",
+      "title": "fresh creation derives its initial snapshot internally"
+    },
+    {
+      "id": "RN-FACADE-004",
+      "owner": "P07",
+      "group": "facade",
+      "title": "runtime uses captured app-time machine facts"
+    },
+    {
+      "id": "RN-FACADE-005",
+      "owner": "P01",
+      "group": "facade",
+      "title": "send is synchronous, exact-typed, and returns Result"
+    },
+    {
+      "id": "RN-FACADE-006",
+      "owner": "P07",
+      "group": "facade",
+      "title": "create and ensure grant one owner lease while lookup stays non-owning"
+    },
+    {
+      "id": "RN-LIFECYCLE-001",
+      "owner": "P06",
+      "group": "lifecycle",
+      "title": "restored actors enter one legal lifecycle path"
+    },
+    {
+      "id": "RN-LIFECYCLE-002",
+      "owner": "P06",
+      "group": "lifecycle",
+      "title": "suspension and resume own work, resources, and timer deadlines"
+    },
+    {
+      "id": "RN-LIFECYCLE-003",
+      "owner": "P06",
+      "group": "lifecycle",
+      "title": "provider changes reconcile before dependent resume"
+    },
+    {
+      "id": "RN-LIFECYCLE-004",
+      "owner": "P06",
+      "group": "lifecycle",
+      "title": "competing lifecycle commands serialize complete evidence cuts"
+    },
+    {
+      "id": "RN-LIFECYCLE-005",
+      "owner": "P06",
+      "group": "lifecycle",
+      "title": "lifecycle transitions preserve state and cause legality"
+    },
+    {
+      "id": "RN-READY-001",
+      "owner": "P02",
+      "group": "readiness",
+      "title": "construction stays inert until readiness"
+    },
+    {
+      "id": "RN-READY-002",
+      "owner": "P02",
+      "group": "readiness",
+      "title": "concurrent readiness shares one successful acquisition"
+    },
+    {
+      "id": "RN-READY-003",
+      "owner": "P02",
+      "group": "readiness",
+      "title": "readiness failures retain their terminal Cause"
+    },
+    {
+      "id": "RN-READY-004",
+      "owner": "P02",
+      "group": "readiness",
+      "title": "interrupted readiness leader settles one terminal result"
+    },
+    {
+      "id": "RN-READY-005",
+      "owner": "P02",
+      "group": "readiness",
+      "title": "interrupting a readiness waiter does not cancel its leader"
+    },
+    {
+      "id": "RN-READY-006",
+      "owner": "P02",
+      "group": "readiness",
+      "title": "cold close settles readiness without bootstrap"
+    },
+    {
+      "id": "RN-READY-007",
+      "owner": "P02",
+      "group": "readiness",
+      "title": "close racing bootstrap releases the acquired prefix"
+    },
+    {
+      "id": "RN-READY-008",
+      "owner": "P02",
+      "group": "readiness",
+      "title": "providers acquire in declaration order and publish a complete context"
+    },
+    {
+      "id": "RN-READY-009",
+      "owner": "P02",
+      "group": "readiness",
+      "title": "shutdown retains ordered cleanup and combined Causes"
+    },
+    {
+      "id": "RN-READY-010",
+      "owner": "P02",
+      "group": "readiness",
+      "title": "shell close joins accepted cleanup participants"
+    },
+    {
+      "id": "RN-READY-011",
+      "owner": "P02",
+      "group": "readiness",
+      "title": "constructed runtimes own isolated lifetimes"
+    },
+    {
+      "id": "RN-READY-012",
+      "owner": "P02",
+      "group": "readiness",
+      "title": "late registrations are drained by runtime close"
+    },
+    {
+      "id": "RN-TURN-001",
+      "owner": "P06",
+      "group": "turns",
+      "title": "event guards and callbacks use one captured pre-turn state"
+    },
+    {
+      "id": "RN-TURN-002",
+      "owner": "P06",
+      "group": "turns",
+      "title": "invalid plans fail before user effects or publication"
+    },
+    {
+      "id": "RN-TURN-003",
+      "owner": "P06",
+      "group": "turns",
+      "title": "activity replacement cancels old work before late completion"
+    }
+  ],
+  "declarations": [
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts",
+      "line": 293,
+      "title": "allocates runtime-local stable keys and fresh local identities",
+      "suite": "actor identity admission",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-ADMIT-005"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts",
+      "line": 325,
+      "title": "keeps internal registration hidden until exposure and aborts without tombstoning",
+      "suite": "actor identity admission",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-ADMIT-002"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts",
+      "line": 354,
+      "title": "does not reuse an incarnation after reservation rollback or disposal",
+      "suite": "actor identity admission",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-ADMIT-001"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts",
+      "line": 374,
+      "title": "releases a tombstoned actor reference when deterministic GC is available",
+      "suite": "actor identity admission",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Deterministic-GC tombstone reachability is a private retention check rather than a facade assertion",
+        "retainedBehavior": "Retirement releases actor lifetime and cannot let a stale handle control a later incarnation",
+        "coveredBy": "RN-ADMIT-001"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts",
+      "line": 400,
+      "title": "fails before counter wrap without a partial identity",
+      "suite": "actor identity admission",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Counter injection and private identity shape are P03 owner-proof details",
+        "retainedBehavior": "Near-limit allocation rejects with a typed result before partial identity publication",
+        "coveredBy": "RN-ADMIT-008"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts",
+      "line": 410,
+      "title": "decodes one exact envelope without decoding or executing input and selectors",
+      "suite": "actor identity admission",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen exact envelope decoder and callback staging are private assembly protocol",
+        "retainedBehavior": "Malformed public options reject before initializer, selector, allocation, or actor exposure",
+        "coveredBy": "RN-ADMIT-004"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts",
+      "line": 455,
+      "title": "contains hostile reflection without mutating admission state",
+      "suite": "actor identity admission",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-ADMIT-004"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts",
+      "line": 516,
+      "title": "maps own-key, descriptor, prototype, and property traps to typed admission failures",
+      "suite": "actor identity admission",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ADMIT-004"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts",
+      "line": 591,
+      "title": "maps hostile thrown causes without escaping diagnostic conversion",
+      "suite": "actor identity admission",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ADMIT-004"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts",
+      "line": 650,
+      "title": "validates exact provenance and publishes copied forward and reverse topology",
+      "suite": "actor identity admission",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-ASSEMBLY-005"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts",
+      "line": 724,
+      "title": "canonicalizes bindings from the captured authority values",
+      "suite": "actor identity admission",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ASSEMBLY-005"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts",
+      "line": 795,
+      "title": "rejects a consumer-key mismatch without mutating the reserved identity",
+      "suite": "actor identity admission",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-ADMIT-003"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts",
+      "line": 832,
+      "title": "rejects a consumer-key mismatch before empty context validation",
+      "suite": "actor identity admission",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Internal validator precedence before empty context is not a public contract",
+        "retainedBehavior": "Invalid consumer relation rejects before admission mutates an actor or exposes a handle",
+        "coveredBy": "RN-ADMIT-004"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts",
+      "line": 871,
+      "title": "rejects missing, stale, foreign, duplicate, and tombstoned claims without mutation",
+      "suite": "actor identity admission",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-ADMIT-007"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts",
+      "line": 1028,
+      "title": "rejects a cyclic fixed graph before any edge becomes visible",
+      "suite": "actor identity admission",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-CONTEXT-011"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts",
+      "line": 1086,
+      "title": "joins lease disposal and caches failed cleanup without tombstoning",
+      "suite": "actor identity admission",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-ADMIT-011"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts",
+      "line": 1183,
+      "title": "disposes runtime leases before evidence and providers, once",
+      "suite": "actor identity admission",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-ASSEMBLY-007"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts",
+      "line": 1210,
+      "title": "keeps runtime disposal cold and includes leases registered after construction",
+      "suite": "actor identity admission",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-READY-012"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts",
+      "line": 1230,
+      "title": "prepares one actor with exact nominal identities",
+      "suite": "actor identity admission",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Prepared owner object nominal identity is a private seam",
+        "retainedBehavior": "A foreign machine or invalid actor ref cannot enter assembly or alter an existing actor",
+        "coveredBy": "RN-ADMIT-004"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts",
+      "line": 1250,
+      "title": "rejects a foreign machine before registry mutation",
+      "suite": "actor identity admission",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ADMIT-004"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts",
+      "line": 1273,
+      "title": "rejects duplicate actor identity without replacing its lease",
+      "suite": "actor identity admission",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ADMIT-001"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts",
+      "line": 1294,
+      "title": "preserves tombstones across actor reincarnation",
+      "suite": "actor identity admission",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ADMIT-001"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts",
+      "line": 1312,
+      "title": "attaches a context binding with its provider fence",
+      "suite": "actor identity admission",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ASSEMBLY-005"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts",
+      "line": 1344,
+      "title": "admits selected null as an ordinary context value",
+      "suite": "actor identity admission",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ASSEMBLY-005"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts",
+      "line": 1387,
+      "title": "keeps selected undefined distinct from missing context metadata",
+      "suite": "actor identity admission",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ASSEMBLY-005"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts",
+      "line": 1431,
+      "title": "rejects context dependency cycles before activation",
+      "suite": "actor identity admission",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-CONTEXT-011"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts",
+      "line": 1485,
+      "title": "rejects a context slot outside the consumer vocabulary",
+      "suite": "actor identity admission",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ADMIT-004"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts",
+      "line": 1519,
+      "title": "rejects a stale provider fence during attachment",
+      "suite": "actor identity admission",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ASSEMBLY-005"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts",
+      "line": 1558,
+      "title": "blocks individual disposal while dependent edges remain",
+      "suite": "actor identity admission",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-ADMIT-009"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts",
+      "line": 1633,
+      "title": "detaches context bindings before late provider facts can apply",
+      "suite": "actor identity admission",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen body checks private edge and binding collections without exercising detach despite its title",
+        "retainedBehavior": "A disposed consumer has no live provider relation and later provider updates cannot publish to it",
+        "coveredBy": "RN-ASSEMBLY-005"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts",
+      "line": 1663,
+      "title": "restores a persisted actor through the same admission checks",
+      "suite": "actor identity admission",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-ASSEMBLY-002"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts",
+      "line": 1689,
+      "title": "rejects restore data for a non-persisted actor",
+      "suite": "actor identity admission",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ASSEMBLY-002"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts",
+      "line": 1747,
+      "title": "keeps actor admission behind pending implementation readiness",
+      "suite": "actor identity admission",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-READY-001"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts",
+      "line": 1790,
+      "title": "allocates a correlated operation occurrence fence",
+      "suite": "actor identity admission",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Synthetic operation occurrence fence and counter values are private ActorEngine construction details",
+        "retainedBehavior": "Distinct live occurrences with the same key settle independently and stale completions cannot affect a later actor",
+        "coveredBy": "RN-ACTOR-011"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts",
+      "line": 1814,
+      "title": "allocates and settles distinct live operation occurrences",
+      "suite": "actor identity admission",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Synthetic operation occurrence fence and counter values are private ActorEngine construction details",
+        "retainedBehavior": "Distinct live occurrences with the same key settle independently and stale completions cannot affect a later actor",
+        "coveredBy": "RN-ACTOR-011"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts",
+      "line": 1828,
+      "title": "linearizes attachment against owner disposal",
+      "suite": "actor identity admission",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ASSEMBLY-007"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts",
+      "line": 1845,
+      "title": "caches one failed actor disposal attempt through runtime close",
+      "suite": "actor identity admission",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ADMIT-011"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts",
+      "line": 1883,
+      "title": "joins actor registration that races an active runtime close",
+      "suite": "actor identity admission",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ASSEMBLY-007"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts",
+      "line": 1929,
+      "title": "recursively drains actors registered by late actor disposal",
+      "suite": "actor identity admission",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Recursive old close-loop shape is forbidden by refactor.md",
+        "retainedBehavior": "All accepted late registrations drain exactly once before runtime close settles",
+        "coveredBy": "RN-READY-012"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts",
+      "line": 1958,
+      "title": "fences a public handle after its actor lease is released",
+      "suite": "actor identity admission",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-FACADE-006"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts",
+      "line": 1990,
+      "title": "contains hostile reflection during actor admission",
+      "suite": "actor identity admission",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ADMIT-004"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts",
+      "line": 2017,
+      "title": "constructing a disposal Effect does not reserve a cleanup attempt",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ADMIT-011"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts",
+      "line": 2067,
+      "title": "preserves repeated cleanup failures in execution order",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ADMIT-011"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 315,
+      "title": "admits one exact prepared snapshot seam and rejects malformed truth",
+      "suite": "actor engine",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen prepared-snapshot brand and private preparation seam are not a facade contract",
+        "retainedBehavior": "Valid fresh or restored actor state is owned before exposure, while malformed actor data rejects without publication",
+        "coveredBy": "RN-ACTOR-023"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 345,
+      "title": "captures data properties before copying a prepared snapshot",
+      "suite": "actor engine",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-ACTOR-012"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 375,
+      "title": "recursively owns memory and issue data and rejects unsupported values",
+      "suite": "actor engine",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-ACTOR-023"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 446,
+      "title": "rejects an unbranded initial snapshot before engine publication",
+      "suite": "actor engine",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen prepared-snapshot brand and private preparation seam are not a facade contract",
+        "retainedBehavior": "Valid fresh or restored actor state is owned before exposure, while malformed actor data rejects without publication",
+        "coveredBy": "RN-ACTOR-023"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 479,
+      "title": "accepts a 64-command FIFO prefix and activates one consumer behind a barrier",
+      "suite": "actor engine",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-ACTOR-022"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 525,
+      "title": "abandons without delivering buffered commands and rejects later sends",
+      "suite": "actor engine",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-022"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 541,
+      "title": "returns a cached typed failure when activation follows abandonment",
+      "suite": "actor engine",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-022"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 570,
+      "title": "makes projection mailbox overflow explicit",
+      "suite": "actor engine",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-ACTOR-013"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 614,
+      "title": "keeps the public send exact-typed and synchronous",
+      "suite": "actor engine",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-FACADE-005"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 633,
+      "title": "rejects sends after active shutdown without exposing an async result",
+      "suite": "actor engine",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-ACTOR-021"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 644,
+      "title": "joins repeated activation calls to one engine and one consumer",
+      "suite": "actor engine",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Repeated activation uses the private prepared engine and consumer object",
+        "retainedBehavior": "One actor starts once, runs one consumer, and accepts each command through the same mailbox",
+        "coveredBy": "RN-ACTOR-013"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 670,
+      "title": "closes admission when the sole consumer fails",
+      "suite": "actor engine",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-013"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 701,
+      "title": "keeps normal and reentrant sends in one FIFO order",
+      "suite": "actor engine",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-013"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 739,
+      "title": "discards stale incarnation, generation, and lease facts before planning",
+      "suite": "actor engine",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-ACTOR-011"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 804,
+      "title": "acknowledges the committed cut before user work begins",
+      "suite": "actor engine",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-ACTOR-014"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 929,
+      "title": "retains the prior cut after evidence preflight failure and retries later",
+      "suite": "actor engine",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-014"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 1013,
+      "title": "persists machine-turn revisions across successful event turns",
+      "suite": "actor engine",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen internal machine-turn revision counter is not exposed by the final facade",
+        "retainedBehavior": "Successful events advance actor publication revision and evidence consistently",
+        "coveredBy": "RN-ACTOR-014"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 1069,
+      "title": "rejects a stale validated store result without changing the committed cut",
+      "suite": "actor engine",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-014"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 1126,
+      "title": "publishes one issue-only cut for typed failures, defects, and interruptions",
+      "suite": "actor engine",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-014"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 1208,
+      "title": "publishes each passive projection fact as its own non-machine turn",
+      "suite": "actor engine",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-ACTOR-016"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 1320,
+      "title": "publishes one complete aggregate context cut and ignores its stale repeat",
+      "suite": "actor engine",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-016"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 1402,
+      "title": "publishes selector defects once and retries newer context revisions",
+      "suite": "actor engine",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-016"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 1540,
+      "title": "ignores a duplicate completion for the same operation occurrence",
+      "suite": "actor engine",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-011"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 1597,
+      "title": "settles the current and buffered accepted prefix on hard shutdown",
+      "suite": "actor engine",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-013"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 1643,
+      "title": "delivers snapshots only after evidence and acknowledgement",
+      "suite": "actor engine",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-014"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 1742,
+      "title": "publishes the matching actor snapshot after store commit",
+      "suite": "actor engine",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-014"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 1787,
+      "title": "rejects a hostile store result before owner mutation",
+      "suite": "actor engine",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-014"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 1848,
+      "title": "finalizes a production evidence record with the committed store cut",
+      "suite": "actor engine",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-014"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 1910,
+      "title": "fails before publication when the revision counter would wrap",
+      "suite": "actor engine",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Near-limit private counter injection belongs to P06 narrow-owner proof",
+        "retainedBehavior": "Counter overflow rejects before any actor, store, or evidence publication mutation",
+        "coveredBy": "RN-ACTOR-019"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 1978,
+      "title": "walkthrough: send returns immediately and drain observes completed work",
+      "suite": "actor engine parity cases",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-013"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 1996,
+      "title": "rejects a foreign event before mailbox mutation",
+      "suite": "actor engine parity cases",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-013"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 2021,
+      "title": "processes mailbox commands in FIFO turn order",
+      "suite": "actor engine parity cases",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-013"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 2041,
+      "title": "discards stale command fences before mutation",
+      "suite": "actor engine parity cases",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-011"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 2080,
+      "title": "commits one complete actor and store cut",
+      "suite": "actor engine parity cases",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-014"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 2119,
+      "title": "drops a failed plan without partial publication",
+      "suite": "actor engine parity cases",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-014"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 2162,
+      "title": "retains a planning defect and discards staged actions",
+      "suite": "actor engine parity cases",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-014"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 2193,
+      "title": "correlates operation completion with its descriptor and key",
+      "suite": "actor engine parity cases",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-011"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 2216,
+      "title": "settles distinct live occurrences delivered out of order",
+      "suite": "actor engine parity cases",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-011"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 2249,
+      "title": "discards completions from a prior actor incarnation",
+      "suite": "actor engine parity cases",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-011"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 2281,
+      "title": "retains finite success and expected failure outcomes",
+      "suite": "actor engine parity cases",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-ACTOR-015"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 2318,
+      "title": "keeps interruption distinct during operation completion",
+      "suite": "actor engine parity cases",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-015"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 2336,
+      "title": "retains a defective operation exit and cause",
+      "suite": "actor engine parity cases",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-015"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 2445,
+      "title": "processes absolute timer projections once",
+      "suite": "actor engine parity cases",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-015"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 2476,
+      "title": "fences typed stream projections to their operation occurrence",
+      "suite": "actor engine parity cases",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-015"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 2508,
+      "title": "serializes context projection before a later event turn",
+      "suite": "actor engine parity cases",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-016"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 2568,
+      "title": "orders lifecycle suspension before later commands",
+      "suite": "actor engine parity cases",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-013"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 2623,
+      "title": "isolates a throwing snapshot callback from committed actor truth",
+      "suite": "actor engine parity cases",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-ACTOR-003"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 2661,
+      "title": "commits evidence when no snapshot subscriber is attached",
+      "suite": "actor engine parity cases",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-014"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 2681,
+      "title": "abandons a prepared engine without publication",
+      "suite": "actor engine parity cases",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-022"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 2700,
+      "title": "closes engine resources after interrupting owned work",
+      "suite": "actor engine parity cases",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-015"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 2724,
+      "title": "coalesces equal-revision passive projections",
+      "suite": "actor engine parity cases",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-016"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 2772,
+      "title": "serializes owner disposal through the actor engine lane",
+      "suite": "actor engine parity cases",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-ACTOR-005"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 2797,
+      "title": "publishes complete actor snapshots",
+      "suite": "actor engine parity cases",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-014"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 2812,
+      "title": "prepares evidence before the atomic actor and store cut",
+      "suite": "actor engine parity cases",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-014"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 2843,
+      "title": "matches nested operation keys structurally",
+      "suite": "actor engine parity cases",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-011"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 2882,
+      "title": "rejects admission when 64 commands wait behind one executing command",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-013"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 2942,
+      "title": "reserves one ordered control place after a full ordinary prefix",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-013"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 3008,
+      "title": "keeps the 64th ordinary place available behind one reserved control",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-013"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 3079,
+      "title": "settles an executing mapped-event turn before pending suspend control",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-ACTOR-017"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 3131,
+      "title": "keeps a mapped event before control behind a full ordinary prefix",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-017"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 3205,
+      "title": "publishes a passive projection without allocating evidence or machine-turn revision",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-016"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 3269,
+      "title": "replays the correct lifecycle truth to prepared active suspended and disposed subscribers",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Prepared subscriber API and ActorPublication object are private engine seams",
+        "retainedBehavior": "Public subscribers replay current cut, coalesce later values, and complete exactly once at terminal lifecycle",
+        "coveredBy": "RN-ACTOR-024"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 3351,
+      "title": "completes a prepared subscriber when the engine is abandoned",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Prepared subscriber API and ActorPublication object are private engine seams",
+        "retainedBehavior": "Prepared snapshot subscribers replay the current permitted cut and complete exactly once when abandoned before activation",
+        "coveredBy": "RN-ACTOR-025"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts",
+      "line": 3398,
+      "title": "completes a subscriber after an onSnapshot defect and finalizes once",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen onSnapshot callback hook is private and not ported",
+        "retainedBehavior": "Observer defects cannot alter committed actor truth and subscription cleanup occurs once",
+        "coveredBy": "RN-ACTOR-024"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-ref.test.ts",
+      "line": 160,
+      "title": "returns inert identity and persistence metadata",
+      "suite": "actorRef",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-ADMIT-010"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-ref.test.ts",
+      "line": 187,
+      "title": "captures options independently for each ActorRef",
+      "suite": "actorRef",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ADMIT-010"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-ref.test.ts",
+      "line": 197,
+      "title": "rejects unconstructed machines and invalid authored stable IDs",
+      "suite": "actorRef",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ADMIT-010"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-ref.test.ts",
+      "line": 205,
+      "title": "preserves machine-before-id admission precedence",
+      "suite": "actorRef",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ADMIT-010"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/actor-ref.test.ts",
+      "line": 212,
+      "title": "rejects malformed options at the runtime boundary",
+      "suite": "actorRef",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ADMIT-010"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/collection-copies.test.ts",
+      "line": 6,
+      "title": "copies arrays without freezing them and preserves shallow element identity",
+      "suite": "runtime collection copies",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen shallow-copy and mutable native-collection sanity checks are private helper behavior; the rewrite has boundary-specific iterative owned-copy policies",
+        "retainedBehavior": "Published evidence owns structured values without mutating or freezing caller originals while permitted opaque identities stay exact",
+        "coveredBy": "RN-EVIDENCE-011"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/collection-copies.test.ts",
+      "line": 18,
+      "title": "copies objects without freezing them and preserves shallow value identity",
+      "suite": "runtime collection copies",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen shallow-copy and mutable native-collection sanity checks are private helper behavior; the rewrite has boundary-specific iterative owned-copy policies",
+        "retainedBehavior": "Published evidence owns structured values without mutating or freezing caller originals while permitted opaque identities stay exact",
+        "coveredBy": "RN-EVIDENCE-011"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/collection-copies.test.ts",
+      "line": 30,
+      "title": "uses ordinary mutable native Map and Set collections",
+      "suite": "runtime collection copies",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen shallow-copy and mutable native-collection sanity checks are private helper behavior; the rewrite has boundary-specific iterative owned-copy policies",
+        "retainedBehavior": "Published evidence owns structured values without mutating or freezing caller originals while permitted opaque identities stay exact",
+        "coveredBy": "RN-EVIDENCE-011"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts",
+      "line": 275,
+      "title": "installs a provider-first owned baseline before activation",
+      "suite": "context waves",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen baseline wrapper and captured-snapshot helper shape are private context implementation checks",
+        "retainedBehavior": "The first consumer snapshot selects all declared slots from one complete current provider cut",
+        "coveredBy": "RN-CONTEXT-001"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts",
+      "line": 294,
+      "title": "derives one bounded provider-first wave and coalesces unchanged revisions",
+      "suite": "context waves",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-CONTEXT-011"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts",
+      "line": 325,
+      "title": "publishes one complete changed projection without an intermediate cut",
+      "suite": "context waves",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-CONTEXT-009"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts",
+      "line": 356,
+      "title": "carries each settled projection through an A-to-B-to-C wave",
+      "suite": "context waves",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-CONTEXT-009"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts",
+      "line": 403,
+      "title": "uses exact authored equality for scalars and fixed named records",
+      "suite": "context waves",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen selector equality helper details are private; rewrite selection follows authored value and identity semantics",
+        "retainedBehavior": "Changed selected fields publish while unchanged scalar, record, and array selections coalesce",
+        "coveredBy": "RN-CONTEXT-010"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts",
+      "line": 424,
+      "title": "retains last-valid selection for one issue-only defect and retries a newer vector",
+      "suite": "context waves",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-CONTEXT-003"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts",
+      "line": 495,
+      "title": "rejects dependency cycles before retaining a graph",
+      "suite": "context waves",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-CONTEXT-011"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts",
+      "line": 509,
+      "title": "publishes owned graph, fence, wave, ledger, and publication envelopes",
+      "suite": "context waves",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen graph, ledger, fence, and publication envelope collection shapes are private owner representation",
+        "retainedBehavior": "Context published at the facade is immutable owned data and later caller mutation cannot alter it",
+        "coveredBy": "RN-CONTEXT-010"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts",
+      "line": 552,
+      "title": "rejects issue-only revision overflow before changing the input cut",
+      "suite": "context waves",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen internal revision field assertion is replaced by checked owner generation proof",
+        "retainedBehavior": "Overflow returns a typed diagnostic before a consumer revision or graph publication advances",
+        "coveredBy": "RN-CONTEXT-011"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts",
+      "line": 620,
+      "title": "rejects normal revision overflow before changing the input cut",
+      "suite": "context waves",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen internal revision field assertion is replaced by checked owner generation proof",
+        "retainedBehavior": "Overflow returns a typed diagnostic before a consumer revision or graph publication advances",
+        "coveredBy": "RN-CONTEXT-011"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts",
+      "line": 664,
+      "title": "keeps passive observer defects from publishing or replacing dependencies",
+      "suite": "context waves",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen passive observer and dependency union is removed by the context owner design",
+        "retainedBehavior": "A selector or observer defect retains prior valid context and dependency truth until a later healthy cut",
+        "coveredBy": "RN-CONTEXT-003"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts",
+      "line": 683,
+      "title": "builds forward and reverse context graph indexes",
+      "suite": "context waves",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Forward/reverse graph Map topology is an implementation detail",
+        "retainedBehavior": "Valid affected subgraph is visited in provider-first order while invalid cycles reject before publication",
+        "coveredBy": "RN-CONTEXT-011"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts",
+      "line": 699,
+      "title": "propagates one provider revision in dependency order",
+      "suite": "context waves",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-CONTEXT-009"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts",
+      "line": 750,
+      "title": "rejects direct and indirect context cycles before publication",
+      "suite": "context waves",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-CONTEXT-011"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts",
+      "line": 814,
+      "title": "selects scalar provider state from one captured snapshot",
+      "suite": "context waves",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen baseline wrapper and captured-snapshot helper shape are private context implementation checks",
+        "retainedBehavior": "The first consumer snapshot selects all declared slots from one complete current provider cut",
+        "coveredBy": "RN-CONTEXT-001"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts",
+      "line": 831,
+      "title": "compares named records fieldwise by Object.is",
+      "suite": "context waves",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen selector equality helper details are private; rewrite selection follows authored value and identity semantics",
+        "retainedBehavior": "Changed selected fields publish while unchanged scalar, record, and array selections coalesce",
+        "coveredBy": "RN-CONTEXT-010"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts",
+      "line": 839,
+      "title": "publishes one wave when one named field changes",
+      "suite": "context waves",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-CONTEXT-009"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts",
+      "line": 869,
+      "title": "publishes selected null without treating it as absence",
+      "suite": "context waves",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-CONTEXT-010"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts",
+      "line": 885,
+      "title": "publishes selected undefined separately from absent metadata",
+      "suite": "context waves",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-CONTEXT-010"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts",
+      "line": 923,
+      "title": "stores an authored diagnostic as ordinary context data",
+      "suite": "context waves",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Authored diagnostic objects are ordinary context data; frozen helper classification is private",
+        "retainedBehavior": "Selected authored values preserve their identity and do not become runtime issues unless selector execution defects",
+        "coveredBy": "RN-CONTEXT-010"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts",
+      "line": 933,
+      "title": "retains thrown selector defects without clearing consumer state",
+      "suite": "context waves",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-CONTEXT-003"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts",
+      "line": 974,
+      "title": "coalesces adjacent provider revisions into one wave",
+      "suite": "context waves",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen dirty-set and wave-envelope fields are private context implementation",
+        "retainedBehavior": "Repeated or unrelated provider revisions produce no synthetic consumer publication",
+        "coveredBy": "RN-CONTEXT-009"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts",
+      "line": 1000,
+      "title": "keeps unrelated provider publications out of the wave",
+      "suite": "context waves",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen dirty-set and wave-envelope fields are private context implementation",
+        "retainedBehavior": "Repeated or unrelated provider revisions produce no synthetic consumer publication",
+        "coveredBy": "RN-CONTEXT-009"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts",
+      "line": 1020,
+      "title": "publishes affected consumers from one atomic wave cut",
+      "suite": "context waves",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-CONTEXT-009"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts",
+      "line": 1056,
+      "title": "publishes and detaches context through real provider and consumer owners",
+      "suite": "context waves",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-CONTEXT-009"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts",
+      "line": 1130,
+      "title": "preserves provider truth when a real context consumer mailbox overflows",
+      "suite": "context waves",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-CONTEXT-002"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts",
+      "line": 1197,
+      "title": "fences a late wave after consumer disposal",
+      "suite": "context waves",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-CONTEXT-009"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts",
+      "line": 1217,
+      "title": "handles provider disposal without stale selection",
+      "suite": "context waves",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen missing-provider probe inspects private binding machinery",
+        "retainedBehavior": "Provider removal prevents stale selection and dependent publication until valid lineage exists",
+        "coveredBy": "RN-CONTEXT-008"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts",
+      "line": 1238,
+      "title": "distinguishes provider incarnations at one actor key",
+      "suite": "context waves",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen exact binding carrier is private; rewrite uses owner-issued incarnation authority",
+        "retainedBehavior": "Same actor key from a later incarnation cannot settle old lineage debt",
+        "coveredBy": "RN-CONTEXT-012"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts",
+      "line": 1270,
+      "title": "keeps an empty context wave free of synthetic publication",
+      "suite": "context waves",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen dirty-set and wave-envelope fields are private context implementation",
+        "retainedBehavior": "Repeated or unrelated provider revisions produce no synthetic consumer publication",
+        "coveredBy": "RN-CONTEXT-009"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts",
+      "line": 1290,
+      "title": "keeps context delivery backpressure local",
+      "suite": "context waves",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-CONTEXT-002"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts",
+      "line": 1319,
+      "title": "closes context waves through the owning runtime scope",
+      "suite": "context waves",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Despite its title, the frozen body only checks private baseline wrapper reference reuse and does not prove scope closure",
+        "retainedBehavior": "Context close settles queued waves and does not retain owner work after runtime disposal",
+        "coveredBy": "RN-CONTEXT-007"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts",
+      "line": 1327,
+      "title": "keeps authored record field presence distinct from selected undefined",
+      "suite": "context waves",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-CONTEXT-010"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts",
+      "line": 1333,
+      "title": "exposes context dependency graphs with the expected topology",
+      "suite": "context waves",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Forward/reverse graph Map topology is an implementation detail",
+        "retainedBehavior": "Valid affected subgraph is visited in provider-first order while invalid cycles reject before publication",
+        "coveredBy": "RN-CONTEXT-011"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts",
+      "line": 1346,
+      "title": "rejects context revision overflow before increment",
+      "suite": "context waves",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen internal revision field assertion is replaced by checked owner generation proof",
+        "retainedBehavior": "Overflow returns a typed diagnostic before a consumer revision or graph publication advances",
+        "coveredBy": "RN-CONTEXT-011"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts",
+      "line": 1385,
+      "title": "suppresses a repeated selector defect at one provider revision while retaining a pending sibling change",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-CONTEXT-003"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts",
+      "line": 1534,
+      "title": "uses exact authored equality for scalars, arrays, and fixed named records",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen selector equality helper details are private; rewrite selection follows authored value and identity semantics",
+        "retainedBehavior": "Changed selected fields publish while unchanged scalar, record, and array selections coalesce",
+        "coveredBy": "RN-CONTEXT-010"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts",
+      "line": 1573,
+      "title": "owns selected records and arrays across source and publication mutation",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-COPY-002"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts",
+      "line": 1696,
+      "title": "retains registered operation and context selector identities inside owned context",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-CONTEXT-010"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts",
+      "line": 1749,
+      "title": "retains registered selector identity after its mutable kind changes or is deleted",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen selector registry mutation and kind field are private implementation details",
+        "retainedBehavior": "Registered opaque selector identity remains stable even when caller-owned visible fields change",
+        "coveredBy": "RN-CONTEXT-010"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts",
+      "line": 1807,
+      "title": "retains owned context for nested mutation and publishes a replaced field reference",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-COPY-002"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts",
+      "line": 1897,
+      "title": "retains every unresolved ancestor requirement when context debt is updated",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen unresolved-debt collection shape is private; the new narrow owner proof checks lineage law",
+        "retainedBehavior": "Each unresolved ancestor remains until matching fence and revision coverage, and later incarnation cannot substitute",
+        "coveredBy": "RN-CONTEXT-012"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts",
+      "line": 1972,
+      "title": "does not replace unresolved debt with a different incarnation at the same actor key",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen unresolved-debt collection shape is private; the new narrow owner proof checks lineage law",
+        "retainedBehavior": "Each unresolved ancestor remains until matching fence and revision coverage, and later incarnation cannot substitute",
+        "coveredBy": "RN-CONTEXT-012"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/evidence.test.ts",
+      "line": 232,
+      "title": "prepares publication evidence before finalizing its committed store cut",
+      "suite": "runtime evidence",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-EVIDENCE-007"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/evidence.test.ts",
+      "line": 276,
+      "title": "tombstones prepared actor evidence when record construction fails",
+      "suite": "runtime evidence",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-EVIDENCE-007"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/evidence.test.ts",
+      "line": 329,
+      "title": "JOURNAL-ORDER assigns evidence sequences in commit order despite reversed preparation order",
+      "suite": "runtime evidence",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-EVIDENCE-008"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/evidence.test.ts",
+      "line": 416,
+      "title": "uses the supplied runtime clock for publication timestamps",
+      "suite": "runtime evidence",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-EVIDENCE-002"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/evidence.test.ts",
+      "line": 451,
+      "title": "orders turn and lifecycle records through one accepted prefix",
+      "suite": "runtime evidence",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-EVIDENCE-008"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/evidence.test.ts",
+      "line": 502,
+      "title": "tombstones a failed record and unblocks the next reservation",
+      "suite": "runtime evidence",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-EVIDENCE-008"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/evidence.test.ts",
+      "line": 535,
+      "title": "keeps lifecycle and actor acceptance in global sequence order",
+      "suite": "runtime evidence",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-EVIDENCE-008"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/evidence.test.ts",
+      "line": 584,
+      "title": "rejects lifecycle preparation without a runtime-owned reservation",
+      "suite": "runtime evidence",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen lifecycle reservation method is a private capability boundary",
+        "retainedBehavior": "Lifecycle evidence without an owner-issued permit is typed rejection before sequence acceptance",
+        "coveredBy": "RN-EVIDENCE-009"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/evidence.test.ts",
+      "line": 641,
+      "title": "cancels a failed timestamp before the next actor publication",
+      "suite": "runtime evidence",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-EVIDENCE-007"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/evidence.test.ts",
+      "line": 696,
+      "title": "deep-copies structured envelopes while retaining app and plan identity",
+      "suite": "runtime evidence",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-EVIDENCE-011"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/evidence.test.ts",
+      "line": 716,
+      "title": "isolates bounded sink overflow and reports the greatest omitted sequence",
+      "suite": "runtime evidence",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-EVIDENCE-010"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/evidence.test.ts",
+      "line": 767,
+      "title": "delivers to healthy sinks after another sink fails",
+      "suite": "runtime evidence",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-EVIDENCE-010"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/evidence.test.ts",
+      "line": 826,
+      "title": "marks queued records omitted when a sink fails before drain",
+      "suite": "runtime evidence",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-EVIDENCE-010"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/evidence.test.ts",
+      "line": 870,
+      "title": "marks queued records omitted when a sink closes before drain",
+      "suite": "runtime evidence",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-EVIDENCE-010"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/evidence.test.ts",
+      "line": 901,
+      "title": "offers to a sink only when the offer effect runs",
+      "suite": "runtime evidence",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen sink offer method laziness is private Effect construction behavior",
+        "retainedBehavior": "Accepted delivery occurs once only when owner delivery runs; constructing an Effect cannot deliver",
+        "coveredBy": "RN-EVIDENCE-010"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/evidence.test.ts",
+      "line": 930,
+      "title": "timestamps accepted publications from the supplied runtime clock",
+      "suite": "runtime evidence",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-EVIDENCE-002"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/evidence.test.ts",
+      "line": 975,
+      "title": "closes idempotently after draining accepted evidence",
+      "suite": "runtime evidence",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-EVIDENCE-013"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/evidence.test.ts",
+      "line": 1003,
+      "title": "constructs a complete unsequenced turn fact from app provenance",
+      "suite": "runtime evidence",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen unsequenced record constructor shape is private",
+        "retainedBehavior": "Preflight preserves app provenance and leaves sequence unconsumed until acceptance",
+        "coveredBy": "RN-EVIDENCE-007"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/evidence.test.ts",
+      "line": 1020,
+      "title": "accepts only hub-reserved evidence sequences",
+      "suite": "runtime evidence",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-EVIDENCE-009"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/evidence.test.ts",
+      "line": 1038,
+      "title": "rejects equal-sequence evidence from a foreign reservation",
+      "suite": "runtime evidence",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-EVIDENCE-009"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/evidence.test.ts",
+      "line": 1059,
+      "title": "drains the accepted evidence prefix before sink close",
+      "suite": "runtime evidence",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-EVIDENCE-013"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/evidence.test.ts",
+      "line": 1093,
+      "title": "keeps sink overflow local to the failing sink",
+      "suite": "runtime evidence",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-EVIDENCE-010"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/evidence.test.ts",
+      "line": 1123,
+      "title": "retains sink delivery failure after acceptance",
+      "suite": "runtime evidence",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-EVIDENCE-010"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/evidence.test.ts",
+      "line": 1155,
+      "title": "rejects evidence from a foreign app identity",
+      "suite": "runtime evidence",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-EVIDENCE-009"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/evidence.test.ts",
+      "line": 1175,
+      "title": "retains lifecycle cleanup Cause through evidence acceptance",
+      "suite": "runtime evidence",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-EVIDENCE-012"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/evidence.test.ts",
+      "line": 1265,
+      "title": "orders the original lifecycle Cause before an evidence Cause",
+      "suite": "runtime evidence",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-EVIDENCE-012"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/evidence.test.ts",
+      "line": 1352,
+      "title": "preserves null and undefined evidence payload values",
+      "suite": "runtime evidence",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-EVIDENCE-011"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/evidence.test.ts",
+      "line": 1384,
+      "title": "closes an empty evidence hub without synthetic records",
+      "suite": "runtime evidence",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-EVIDENCE-013"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/evidence.test.ts",
+      "line": 1396,
+      "title": "applies the late sink policy without hidden history replay",
+      "suite": "runtime evidence",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-EVIDENCE-013"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/evidence.test.ts",
+      "line": 1423,
+      "title": "admits each evidence sink to one Journal only",
+      "suite": "runtime evidence",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-EVIDENCE-009"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/evidence.test.ts",
+      "line": 1447,
+      "title": "linearizes concurrent evidence acceptance by sequence",
+      "suite": "runtime evidence",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-EVIDENCE-008"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/evidence.test.ts",
+      "line": 1489,
+      "title": "applies the no-op turn evidence policy explicitly",
+      "suite": "runtime evidence",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen no-op turn record construction is private journal policy",
+        "retainedBehavior": "An authored no-op can still accept one ordered evidence record without fabricating a state change",
+        "coveredBy": "RN-EVIDENCE-008"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/evidence.test.ts",
+      "line": 1502,
+      "title": "drains evidence as part of owner disposal",
+      "suite": "runtime evidence",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-EVIDENCE-013"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/evidence.test.ts",
+      "line": 1523,
+      "title": "rejects mismatched actor provenance before sequence reservation",
+      "suite": "runtime evidence",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-EVIDENCE-009"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/evidence.test.ts",
+      "line": 1571,
+      "title": "keeps later cleanup failure separate from prior accepted truth",
+      "suite": "runtime evidence",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-EVIDENCE-012"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/evidence.test.ts",
+      "line": 1641,
+      "title": "keeps evidence acknowledgement private",
+      "suite": "runtime evidence",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen result object completion-carrier shape is private",
+        "retainedBehavior": "An accepted record has a definite sequence and later delivery does not alter the committed acknowledgement",
+        "coveredBy": "RN-EVIDENCE-007"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/evidence.test.ts",
+      "line": 1657,
+      "title": "retains interrupted sink delivery during hub close",
+      "suite": "runtime evidence",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-EVIDENCE-014"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/evidence.test.ts",
+      "line": 1701,
+      "title": "cancels failed evidence reservations without blocking the prefix",
+      "suite": "runtime evidence",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-EVIDENCE-008"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/evidence.test.ts",
+      "line": 1720,
+      "title": "preserves actor and lifecycle evidence order across one interleave",
+      "suite": "runtime evidence",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-EVIDENCE-008"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/evidence.test.ts",
+      "line": 1767,
+      "title": "LIFE-CREDIT retains terminal publication capacity during lifecycle cleanup",
+      "suite": "runtime evidence",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-EVIDENCE-012"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/evidence.test.ts",
+      "line": 1808,
+      "title": "closes after an admitted lifecycle outcome settles its Deferred credit",
+      "suite": "runtime evidence",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-EVIDENCE-012"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/evidence.test.ts",
+      "line": 1879,
+      "title": "binds Journal acceptance to the registered actor fence",
+      "suite": "runtime evidence",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-EVIDENCE-009"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/evidence.test.ts",
+      "line": 1919,
+      "title": "cancels an interrupted Journal acceptance waiter",
+      "suite": "runtime evidence",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen asynchronous acceptance waiter is removed by the total synchronous permit protocol",
+        "retainedBehavior": "Each permit accepts or cancels once without leaving a gap in the accepted prefix",
+        "coveredBy": "RN-EVIDENCE-008"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/evidence.test.ts",
+      "line": 1966,
+      "title": "CREDIT-FOLLOWER keeps an interrupted follower from stealing the owner outcome credit",
+      "suite": "runtime evidence",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-EVIDENCE-012"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/evidence.test.ts",
+      "line": 2005,
+      "title": "drains the accepted prefix after a cancelled reservation",
+      "suite": "runtime evidence",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-EVIDENCE-008"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/evidence.test.ts",
+      "line": 2025,
+      "title": "drains a captured evidence prefix while a newer record is accepted",
+      "suite": "sink retention and attachment regressions",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-EVIDENCE-004"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/evidence.test.ts",
+      "line": 2080,
+      "title": "accepts zero sink capacity while preserving an exact positive bound",
+      "suite": "sink retention and attachment regressions",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-EVIDENCE-010"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/evidence.test.ts",
+      "line": 2130,
+      "title": "rejects duplicate and mixed-runtime sink attachment while marking a late attach",
+      "suite": "sink retention and attachment regressions",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-EVIDENCE-009"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/evidence.test.ts",
+      "line": 2181,
+      "title": "preserves record aliases, cycles, and opaque identity across acceptance",
+      "suite": "sink retention and attachment regressions",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-COPY-001"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 242,
+      "title": "computes the legal graph and rejects stale transitions",
+      "suite": "actor lifecycle",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen standalone lifecycle transition graph/type is removed with the old controller",
+        "retainedBehavior": "Boot restoration, fresh creation, attachment, owner-lease disposal, and runtime disposal retain distinct legal state transitions and evidence causes; illegal pairings reject without publication",
+        "coveredBy": "RN-LIFECYCLE-005"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 272,
+      "title": "restores before explicit start and creates no synthetic lifecycle work",
+      "suite": "actor lifecycle",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-LIFECYCLE-001"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 312,
+      "title": "keeps lifecycle snapshots value-only and requires their stable ActorCell",
+      "suite": "actor lifecycle",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Stable ActorCell identity is explicitly removed by refactor.md",
+        "retainedBehavior": "One current immutable actor lifecycle snapshot is visible through the actor facade",
+        "coveredBy": "RN-LIFECYCLE-001"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 332,
+      "title": "installs admitted metadata before start and retains it across lifecycle states",
+      "suite": "actor lifecycle",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-LIFECYCLE-001"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 505,
+      "title": "activates, cancels work, and cleans resources in reverse ownership order",
+      "suite": "actor lifecycle",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-LIFECYCLE-002"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 552,
+      "title": "reacquires continuing resources and work on each resume",
+      "suite": "actor lifecycle",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-LIFECYCLE-002"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 635,
+      "title": "rolls back earlier reacquisition when continuing work cannot be restored",
+      "suite": "actor lifecycle",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-LIFECYCLE-002"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 693,
+      "title": "retains absolute timer deadlines and schedules each armed timer once on resume",
+      "suite": "actor lifecycle",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-LIFECYCLE-002"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 730,
+      "title": "fences stale timer generations and performs at most one overdue refresh",
+      "suite": "actor lifecycle",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-LIFECYCLE-002"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 791,
+      "title": "rejects resume across a provider fence change",
+      "suite": "actor lifecycle",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-LIFECYCLE-003"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 837,
+      "title": "rejects resume when the live provider registry is absent",
+      "suite": "actor lifecycle",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen live provider registry lookup seam is private",
+        "retainedBehavior": "Missing current provider authority rejects resume without partial activation",
+        "coveredBy": "RN-LIFECYCLE-003"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 887,
+      "title": "rejects resume against a foreign runtime provider",
+      "suite": "actor lifecycle",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-LIFECYCLE-003"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 951,
+      "title": "rejects resume after the provider runtime tombstones the identity",
+      "suite": "actor lifecycle",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-LIFECYCLE-003"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 1013,
+      "title": "blocks disposal while a dependent edge remains",
+      "suite": "actor lifecycle",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ADMIT-009"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 1061,
+      "title": "keeps nested provider and blocked-disposal snapshots detached",
+      "suite": "actor lifecycle",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen nested lifecycle attachment snapshot copy choreography is private",
+        "retainedBehavior": "Mutating published context or snapshot values cannot change the actor owner state",
+        "coveredBy": "RN-ACTOR-008"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 1122,
+      "title": "continues reverse cleanup after a finalizer failure",
+      "suite": "actor lifecycle",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ADMIT-011"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 1164,
+      "title": "serializes changed provider reconciliation and suppresses equal values",
+      "suite": "actor lifecycle",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-LIFECYCLE-003"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 1203,
+      "title": "queues a latest provider value equal to committed truth during an in-flight wave",
+      "suite": "actor lifecycle",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-LIFECYCLE-003"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 1237,
+      "title": "adapts lifecycle runtime participants to the shared disposal owner",
+      "suite": "actor lifecycle",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Legacy lifecycle participant adapter is deleted",
+        "retainedBehavior": "Runtime shutdown joins actor lease cleanup before evidence and provider release",
+        "coveredBy": "RN-READY-012"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 1263,
+      "title": "caches failed post-start disposal without retrying cleanup",
+      "suite": "actor lifecycle",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ADMIT-011"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 1346,
+      "title": "caches the combined lifecycle and evidence Cause after disposal",
+      "suite": "actor lifecycle",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ADMIT-011"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 1423,
+      "title": "retains reverse cleanup Cause lanes and caches the combined terminal outcome",
+      "suite": "actor lifecycle",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ADMIT-011"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 1546,
+      "title": "rejects a stale same-revision snapshot from overwriting canonical dependencies",
+      "suite": "actor lifecycle",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen raw metadata and canonical ActorCell snapshot helpers are removed",
+        "retainedBehavior": "Stale snapshots or metadata cannot overwrite current dependencies or revive disposed state",
+        "coveredBy": "RN-LIFECYCLE-001"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 1590,
+      "title": "rejects older raw metadata helpers without resurrecting active or disposed state",
+      "suite": "actor lifecycle",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen raw metadata and canonical ActorCell snapshot helpers are removed",
+        "retainedBehavior": "Stale snapshots or metadata cannot overwrite current dependencies or revive disposed state",
+        "coveredBy": "RN-LIFECYCLE-001"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 1664,
+      "title": "blocks routing during active cleanup and reopens it after a failed cleanup",
+      "suite": "actor lifecycle",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen controller routing restoration after failed terminal cleanup is not a stated facade guarantee",
+        "retainedBehavior": "An in-flight terminal claim closes admission, retains the full failure Exit, and never retries cleanup or falsely retires the actor",
+        "coveredBy": "RN-ADMIT-011"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 1718,
+      "title": "serializes lifecycle commands and publishes evidence after each cut",
+      "suite": "actor lifecycle",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-LIFECYCLE-004"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 1860,
+      "title": "tombstones lifecycle evidence after acceptance failure",
+      "suite": "actor lifecycle",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-EVIDENCE-007"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 1954,
+      "title": "derives actor provenance separately for two lifecycle owners",
+      "suite": "actor lifecycle",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Raw lifecycle owner key/incarnation/provenance record fields are private",
+        "retainedBehavior": "Evidence is attributed to the correct actor and runtime without cross-owner authority",
+        "coveredBy": "RN-EVIDENCE-009"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 2033,
+      "title": "retains a failed suspended state in the serialized controller",
+      "suite": "actor lifecycle",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Serialized lifecycle controller object is removed",
+        "retainedBehavior": "Failed suspension retains a visible suspended state and does not silently reopen commands",
+        "coveredBy": "RN-LIFECYCLE-001"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 2116,
+      "title": "activates a prepared actor through one lifecycle command",
+      "suite": "actor lifecycle",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-LIFECYCLE-001"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 2135,
+      "title": "suspends after cancelling owned work",
+      "suite": "actor lifecycle",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-LIFECYCLE-002"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 2175,
+      "title": "resumes retained lifecycle data without duplicate work",
+      "suite": "actor lifecycle",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-LIFECYCLE-002"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 2205,
+      "title": "disposes active work before lifecycle resources",
+      "suite": "actor lifecycle",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-LIFECYCLE-002"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 2245,
+      "title": "routes retained pre-transition snapshots through the current owner state",
+      "suite": "actor lifecycle",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Old controller routing hook accepts retained pre-transition snapshot objects",
+        "retainedBehavior": "Only current owner lifecycle state controls admission after a later transition",
+        "coveredBy": "RN-LIFECYCLE-001"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 2259,
+      "title": "keeps disposed lifecycle terminal and idempotent",
+      "suite": "actor lifecycle",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ADMIT-011"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 2289,
+      "title": "retains cleanup failure Cause on terminal disposal",
+      "suite": "actor lifecycle",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ADMIT-011"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 2322,
+      "title": "continues reverse cleanup after a finalizer defect",
+      "suite": "actor lifecycle",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ADMIT-011"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 2368,
+      "title": "fulfills interrupted work completion during suspension",
+      "suite": "actor lifecycle",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-LIFECYCLE-002"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 2398,
+      "title": "keeps resource cleanup in lifecycle attachment order",
+      "suite": "actor lifecycle",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-LIFECYCLE-002"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 2429,
+      "title": "blocks lifecycle disposal while dependent edges remain",
+      "suite": "actor lifecycle",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ADMIT-009"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 2457,
+      "title": "retains context dependencies across suspension",
+      "suite": "actor lifecycle",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-LIFECYCLE-003"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 2508,
+      "title": "rejects resume with a stale dependency fence",
+      "suite": "actor lifecycle",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-LIFECYCLE-003"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 2556,
+      "title": "retains absolute timer deadlines across suspension",
+      "suite": "actor lifecycle",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-LIFECYCLE-002"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 2583,
+      "title": "retains operation occurrence fences across resume",
+      "suite": "actor lifecycle",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-LIFECYCLE-002"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 2741,
+      "title": "restores prepared lifecycle before explicit activation",
+      "suite": "actor lifecycle",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-LIFECYCLE-001"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 2768,
+      "title": "serializes competing lifecycle transitions",
+      "suite": "actor lifecycle",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-LIFECYCLE-004"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 2794,
+      "title": "disposes an empty lifecycle without synthetic work",
+      "suite": "actor lifecycle",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-LIFECYCLE-001"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 2804,
+      "title": "publishes lifecycle evidence with its complete snapshot cut",
+      "suite": "actor lifecycle",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-LIFECYCLE-004"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 2843,
+      "title": "linearizes repeated disposal during finalization",
+      "suite": "actor lifecycle",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ADMIT-011"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 2885,
+      "title": "keeps failed resource cleanup visible across repeated disposal",
+      "suite": "actor lifecycle",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ADMIT-011"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 2938,
+      "title": "uses the provided Clock for retained timer deadlines across suspension",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-LIFECYCLE-002"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 3041,
+      "title": "does not replay an interrupted overdue retained timer claim",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-LIFECYCLE-002"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 3105,
+      "title": "retains a mixed cleanup Cause without retrying failed stages",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ADMIT-011"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 3174,
+      "title": "closes retained lifecycle scopes before evidence sink close",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ASSEMBLY-007"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts",
+      "line": 3254,
+      "title": "retains a runtime owner failure as terminal cleanup truth",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ASSEMBLY-007"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-architecture.test.ts",
+      "line": 192,
+      "title": "walkthrough: construction stays inert until readiness runs",
+      "suite": "runtime assembly",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-READY-001"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-architecture.test.ts",
+      "line": 212,
+      "title": "keeps separate constructed shells isolated while preserving app identity",
+      "suite": "runtime assembly",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-ASSEMBLY-008"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-architecture.test.ts",
+      "line": 227,
+      "title": "closes implementation requirements at the real runtime setup boundary",
+      "suite": "runtime assembly",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-ASSEMBLY-006"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-architecture.test.ts",
+      "line": 248,
+      "title": "assembles predecessor-visible providers in declaration order",
+      "suite": "runtime assembly",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-READY-008"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-architecture.test.ts",
+      "line": 286,
+      "title": "walkthrough: a consumer starts with context selected from its provider",
+      "suite": "runtime assembly",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-CONTEXT-001"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-architecture.test.ts",
+      "line": 320,
+      "title": "keeps replaceable runtime capabilities inside one owner scope",
+      "suite": "runtime assembly",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ASSEMBLY-008"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-architecture.test.ts",
+      "line": 339,
+      "title": "uses one production assembly path for request and Story hosts",
+      "suite": "runtime assembly",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ASSEMBLY-008"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-architecture.test.ts",
+      "line": 371,
+      "title": "rolls back an assembled runtime before any handle or evidence can escape",
+      "suite": "runtime assembly",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-READY-003"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-architecture.test.ts",
+      "line": 387,
+      "title": "retains a provider defect and reverse cleanup through assembled readiness",
+      "suite": "runtime assembly",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-READY-003"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-architecture.test.ts",
+      "line": 414,
+      "title": "caches interrupted assembly without retrying provider acquisition",
+      "suite": "runtime assembly",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-READY-004"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-architecture.test.ts",
+      "line": 445,
+      "title": "keeps individual disposal authority on the returned owner lease",
+      "suite": "runtime assembly",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-FACADE-006"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-architecture.test.ts",
+      "line": 463,
+      "title": "drains accepted assembly evidence before closing the runtime",
+      "suite": "runtime assembly",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-EVIDENCE-006"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-architecture.test.ts",
+      "line": 482,
+      "title": "linearizes concurrent host readiness through one assembled owner",
+      "suite": "runtime assembly",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-READY-002"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-architecture.test.ts",
+      "line": 507,
+      "title": "keeps prepared host handles inert until assembled readiness",
+      "suite": "runtime assembly",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-READY-001"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-architecture.test.ts",
+      "line": 561,
+      "title": "preserves live and Story parity across real construction paths",
+      "suite": "runtime assembly",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ASSEMBLY-008"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-architecture.test.ts",
+      "line": 596,
+      "title": "keeps an empty constructed app inert through close",
+      "suite": "runtime assembly",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ASSEMBLY-006"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-architecture.test.ts",
+      "line": 617,
+      "title": "rejects a foreign machine during real owner assembly",
+      "suite": "runtime assembly",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-ASSEMBLY-001"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-architecture.test.ts",
+      "line": 662,
+      "title": "walkthrough: one event commits one actor turn before runtime close",
+      "suite": "runtime assembly",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-ASSEMBLY-003"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-architecture.test.ts",
+      "line": 681,
+      "title": "reconciles provider baselines before exposure",
+      "suite": "runtime assembly",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-CONTEXT-001"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-architecture.test.ts",
+      "line": 715,
+      "title": "admits a fresh actor through an explicit initial snapshot seam",
+      "suite": "runtime assembly",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-FACADE-003"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-architecture.test.ts",
+      "line": 733,
+      "title": "keeps one owner boundary across runtime helper composition",
+      "suite": "runtime assembly",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Private runtimeOwner assembly/context/service identity assertion is not a facade contract",
+        "retainedBehavior": "Each constructed runtime owns an isolated lifecycle and actors with the same app retain correct behavior",
+        "coveredBy": "RN-READY-011"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-behavior.test.ts",
+      "line": 19,
+      "title": "keeps provider construction cold until readiness",
+      "suite": "runtime behavior paths",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-READY-001"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-behavior.test.ts",
+      "line": 41,
+      "title": "caches readiness and releases the provider once",
+      "suite": "runtime behavior paths",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-READY-002"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 508,
+      "title": "rejects malformed prepared snapshots before registry or publication",
+      "suite": "runtime assembly integration",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ASSEMBLY-002"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 572,
+      "title": "restores the exact prepared snapshot before the active lifecycle start",
+      "suite": "runtime assembly integration",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ASSEMBLY-002"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 645,
+      "title": "captures actor options before admission and preserves failed reservations",
+      "suite": "runtime assembly integration",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ADMIT-004"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 754,
+      "title": "sends through the real owner, context, store cut, evidence, and acknowledgement",
+      "suite": "runtime assembly integration",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ASSEMBLY-003"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 983,
+      "title": "keeps failed store evidence anchored to the last committed snapshot",
+      "suite": "runtime assembly integration",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-EVIDENCE-001"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 1082,
+      "title": "projects lifecycle consistently through snapshot, stream, callback, and evidence",
+      "suite": "runtime assembly integration",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-ACTOR-002"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 1150,
+      "title": "keeps a committed resumed actor routable after a lifecycle callback defect",
+      "suite": "runtime assembly integration",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-003"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 1205,
+      "title": "blocks assembled actor admission while suspend drains an in-flight command",
+      "suite": "runtime assembly integration",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-ACTOR-004"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 1258,
+      "title": "drains admitted work before publishing assembled disposal",
+      "suite": "runtime assembly integration",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-005"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 1322,
+      "title": "keeps assembled disposal gated when a public lifecycle command is invoked",
+      "suite": "runtime assembly integration",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-005"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 1386,
+      "title": "preserves provider truth when the real consumer mailbox is full",
+      "suite": "runtime assembly integration",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-CONTEXT-002"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 1521,
+      "title": "publishes one selector issue through the real context consumer",
+      "suite": "runtime assembly integration",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-CONTEXT-003"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 1700,
+      "title": "walkthrough: suspension rejects commands and resume restores admission",
+      "suite": "runtime assembly integration",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-004"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 1806,
+      "title": "continues runtime cleanup after lifecycle evidence failure",
+      "suite": "runtime assembly integration",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-READY-009"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 1920,
+      "title": "rejected provider disposal leaves active and suspended dependents live",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-CONTEXT-008"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 2075,
+      "title": "publishes lifecycle transitions through one coherent snapshot cut",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-002"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 2146,
+      "title": "F3 keeps lifecycle evidence machine-turn revision actor-local",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-EVIDENCE-002"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 2222,
+      "title": "uses the provided Effect Clock for assembled lifecycle evidence",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-EVIDENCE-002"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 2273,
+      "title": "reuses a disposed stable ref only in a fresh runtime incarnation",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-ASSEMBLY-009"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 2325,
+      "title": "rejects duplicate stable create without replacing the existing lease",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ASSEMBLY-009"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 2367,
+      "title": "aborts a registered unexposed leader without tombstoning its stable ref",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ADMIT-003"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 2440,
+      "title": "rolls back lifecycle rejection after internal registration",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ADMIT-003"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 2492,
+      "title": "keeps exposed admission coherent when pending-clear instrumentation throws",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Production admission test-instrumentation hook and phase notifications are forbidden by STD-14",
+        "retainedBehavior": "Failed admission rolls back, pending joiners settle, exposed actor remains reachable, and separate runtimes remain isolated",
+        "coveredBy": "RN-ADMIT-003"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 2557,
+      "title": "interrupts only a joined stable ensureActor follower",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-ASSEMBLY-010"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 2634,
+      "title": "rolls back an interrupted assembled admission leader",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ADMIT-003"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 2712,
+      "title": "closes a prepared actor Scope on failure before retry",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ADMIT-003"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 2784,
+      "title": "keeps admission test instrumentation isolated per runtime construction",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Production admission test-instrumentation hook and phase notifications are forbidden by STD-14",
+        "retainedBehavior": "Failed admission rolls back, pending joiners settle, exposed actor remains reachable, and separate runtimes remain isolated",
+        "coveredBy": "RN-ADMIT-003"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 2854,
+      "title": "validates malformed admission before stable allocation",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ADMIT-004"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 2903,
+      "title": "turns hostile overload proxies into typed admission failures",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ADMIT-004"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 2964,
+      "title": "rolls back malformed local admission before allocation publication",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ADMIT-004"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 3014,
+      "title": "keeps production stable ensure and local create lanes distinct",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ASSEMBLY-009"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 3096,
+      "title": "keeps delimiter-heavy admission identity and provider keys separated",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ASSEMBLY-009"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 3201,
+      "title": "TIM1 assembled runtime owns interrupted and overdue timer claims",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-ACTOR-007"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 3293,
+      "title": "RET2 assembled runtime retains ordered shutdown Causes",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ASSEMBLY-007"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 3380,
+      "title": "caches a failed assembled actor release before evidence close",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-ACTOR-010"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 3443,
+      "title": "linearizes actor lease disposal against runtime shutdown",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-010"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 3523,
+      "title": "CREDIT-FOLLOWER preserves assembled actor credit during interrupted disposal",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-010"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 3612,
+      "title": "drains a captured evidence prefix while newer runtime records arrive",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-EVIDENCE-004"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 3690,
+      "title": "keeps sink delivery after the committed-turn acknowledgement",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-EVIDENCE-003"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 3732,
+      "title": "retains all last-valid context slots through a sibling selector defect and recovers on a newer provider revision",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-CONTEXT-003"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 3806,
+      "title": "propagates one diamond wave without an intermediate context cut",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-CONTEXT-004"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 3889,
+      "title": "offers a healthy diamond sibling before awaiting a gated peer",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-CONTEXT-004"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 3939,
+      "title": "isolates one full context dependent while preserving a healthy fanout peer",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-CONTEXT-005"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 4020,
+      "title": "keeps admission closed until resume reconciliation commits",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-004"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 4090,
+      "title": "releases each actor lifetime before runtime shutdown",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ASSEMBLY-007"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 4126,
+      "title": "holds diamond descendants when an upstream context delivery is rejected",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-CONTEXT-004"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 4216,
+      "title": "uses app-time machine facts despite later exposed-container mutation",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-FACADE-004"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 4373,
+      "title": "keeps bound-consumer identity and lifecycle edges on captured machine facts",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-FACADE-004"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 4490,
+      "title": "preserves fresh and restored revision baselines before later lifecycle cuts",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-002"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 4561,
+      "title": "rejects lifecycle publication preflight before changing admission or resources",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-ACTOR-006"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 4655,
+      "title": "blocks stale or suspended diamond tickets without substituting a newer live cut",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-CONTEXT-006"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 4706,
+      "title": "rejects mismatched vector, stale consumer fence, and foreign provider tickets",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-CONTEXT-006"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 4775,
+      "title": "rejects a ticket with a mutated captured origin before descendant publication",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen assertions mutate private ticket, carrier, validator, fence, or ledger internals; the new owner uses opaque one-shot authority",
+        "retainedBehavior": "A forged, mutated, replayed, or stale context authority cannot publish, and a later authentic cut can proceed",
+        "coveredBy": "RN-CONTEXT-006"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 4823,
+      "title": "rejects a ticket with a mutated graph generation before descendant publication",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen assertions mutate private ticket, carrier, validator, fence, or ledger internals; the new owner uses opaque one-shot authority",
+        "retainedBehavior": "A forged, mutated, replayed, or stale context authority cannot publish, and a later authentic cut can proceed",
+        "coveredBy": "RN-CONTEXT-006"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 4871,
+      "title": "rejects an in-place origin mutation without consuming the selected cut",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen assertions mutate private ticket, carrier, validator, fence, or ledger internals; the new owner uses opaque one-shot authority",
+        "retainedBehavior": "A forged, mutated, replayed, or stale context authority cannot publish, and a later authentic cut can proceed",
+        "coveredBy": "RN-CONTEXT-006"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 4933,
+      "title": "rejects a replaced ticket validator without consuming the selected cut",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen assertions mutate private ticket, carrier, validator, fence, or ledger internals; the new owner uses opaque one-shot authority",
+        "retainedBehavior": "A forged, mutated, replayed, or stale context authority cannot publish, and a later authentic cut can proceed",
+        "coveredBy": "RN-CONTEXT-006"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 4996,
+      "title": "rejects a constructor-forged context witness without committing its ledger",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen assertions mutate private ticket, carrier, validator, fence, or ledger internals; the new owner uses opaque one-shot authority",
+        "retainedBehavior": "A forged, mutated, replayed, or stale context authority cannot publish, and a later authentic cut can proceed",
+        "coveredBy": "RN-CONTEXT-006"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 5078,
+      "title": "rejects cloned and proxied context witnesses",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen assertions mutate private ticket, carrier, validator, fence, or ledger internals; the new owner uses opaque one-shot authority",
+        "retainedBehavior": "A forged, mutated, replayed, or stale context authority cannot publish, and a later authentic cut can proceed",
+        "coveredBy": "RN-CONTEXT-006"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 5118,
+      "title": "rejects an in-place forged context carrier before descendant publication",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen assertions mutate private ticket, carrier, validator, fence, or ledger internals; the new owner uses opaque one-shot authority",
+        "retainedBehavior": "A forged, mutated, replayed, or stale context authority cannot publish, and a later authentic cut can proceed",
+        "coveredBy": "RN-CONTEXT-006"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 5151,
+      "title": "rejects forged carrier methods and iterators before descendant publication",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen assertions mutate private ticket, carrier, validator, fence, or ledger internals; the new owner uses opaque one-shot authority",
+        "retainedBehavior": "A forged, mutated, replayed, or stale context authority cannot publish, and a later authentic cut can proceed",
+        "coveredBy": "RN-CONTEXT-006"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 5191,
+      "title": "stales a mutated selector-defect carrier and retries at the same revision",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen assertions mutate private ticket, carrier, validator, fence, or ledger internals; the new owner uses opaque one-shot authority",
+        "retainedBehavior": "A forged, mutated, replayed, or stale context authority cannot publish, and a later authentic cut can proceed",
+        "coveredBy": "RN-CONTEXT-006"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 5305,
+      "title": "keeps accepted provider fences owned after ticket settlement",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen assertions mutate private ticket, carrier, validator, fence, or ledger internals; the new owner uses opaque one-shot authority",
+        "retainedBehavior": "A forged, mutated, replayed, or stale context authority cannot publish, and a later authentic cut can proceed",
+        "coveredBy": "RN-CONTEXT-006"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 5351,
+      "title": "rejects an in-place nested carrier mutation and retries the unconsumed cut",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen assertions mutate private ticket, carrier, validator, fence, or ledger internals; the new owner uses opaque one-shot authority",
+        "retainedBehavior": "A forged, mutated, replayed, or stale context authority cannot publish, and a later authentic cut can proceed",
+        "coveredBy": "RN-CONTEXT-006"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 5413,
+      "title": "rejects each forged outer context lead without issuing or consuming the cut",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen assertions mutate private ticket, carrier, validator, fence, or ledger internals; the new owner uses opaque one-shot authority",
+        "retainedBehavior": "A forged, mutated, replayed, or stale context authority cannot publish, and a later authentic cut can proceed",
+        "coveredBy": "RN-CONTEXT-006"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 5477,
+      "title": "owns settled nested context against retained carrier and snapshot mutation",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen assertions mutate private ticket, carrier, validator, fence, or ledger internals; the new owner uses opaque one-shot authority",
+        "retainedBehavior": "A forged, mutated, replayed, or stale context authority cannot publish, and a later authentic cut can proceed",
+        "coveredBy": "RN-CONTEXT-006"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 5539,
+      "title": "rejects a forged expected revision behind a queued consumer command",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen assertions mutate private ticket, carrier, validator, fence, or ledger internals; the new owner uses opaque one-shot authority",
+        "retainedBehavior": "A forged, mutated, replayed, or stale context authority cannot publish, and a later authentic cut can proceed",
+        "coveredBy": "RN-CONTEXT-006"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 5609,
+      "title": "rejects an in-place consumer fence mutation without changing actor identity",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen assertions mutate private ticket, carrier, validator, fence, or ledger internals; the new owner uses opaque one-shot authority",
+        "retainedBehavior": "A forged, mutated, replayed, or stale context authority cannot publish, and a later authentic cut can proceed",
+        "coveredBy": "RN-CONTEXT-006"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 5643,
+      "title": "rejects an old fence after production stable-ref re-admission",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ASSEMBLY-009"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 5718,
+      "title": "isolates onSnapshot mutation from coordinator publication state",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-ACTOR-008"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 5766,
+      "title": "deeply owns diagnostic data across an onSnapshot callback",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-008"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 5810,
+      "title": "always owns empty-context snapshots across query and callback boundaries",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-008"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 5854,
+      "title": "does not commit a no-projection selection after its provider is invalidated",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-CONTEXT-008"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 5925,
+      "title": "invalidates an offered wave when its provider is unregistered",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-CONTEXT-008"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 5979,
+      "title": "settles captured context receipts across graph changes and shutdown",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-CONTEXT-007"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 6090,
+      "title": "tracks queued reconcile waves through drain and close",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-CONTEXT-007"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 6165,
+      "title": "drains captured context generations while newer roots continue arriving",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-CONTEXT-007"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 6283,
+      "title": "settles a captured latest root when its provider unregisters or quiesces",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-CONTEXT-007"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 6362,
+      "title": "rejects incoherent admission and resume until provider lineage reconciles",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-ASSEMBLY-004"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 6532,
+      "title": "preserves ordered snapshot delivery without making disposal wait for a slow reader",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-ACTOR-009"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts",
+      "line": 6615,
+      "title": "releases unused terminal credit when actor admission rolls back",
+      "suite": "pending regression scenarios",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-EVIDENCE-005"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-owner.test.ts",
+      "line": 173,
+      "title": "publishes only a complete context and rolls back partial acquisition",
+      "suite": "runtime owner",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-READY-008"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-owner.test.ts",
+      "line": 391,
+      "title": "passes failed and interrupted readiness Exits into owned Scope finalizers",
+      "suite": "runtime owner",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-READY-009"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-owner.test.ts",
+      "line": 444,
+      "title": "R05 ARCH-007A SEM-027 concurrent ready callers share one terminal acquisition",
+      "suite": "runtime owner",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-READY-002"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-owner.test.ts",
+      "line": 599,
+      "title": "acquires layers in declaration order with predecessor services installed",
+      "suite": "runtime owner",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-READY-008"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-owner.test.ts",
+      "line": 870,
+      "title": "disposal wins bootstrap and cleans the acquired prefix once in reverse order",
+      "suite": "runtime owner",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-READY-007"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-owner.test.ts",
+      "line": 1017,
+      "title": "caches each terminal readiness Cause lane without retry",
+      "suite": "runtime owner",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-READY-003"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-owner.test.ts",
+      "line": 1111,
+      "title": "appends typed, defect, and interruption cleanup Causes after the primary failure",
+      "suite": "runtime owner",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-READY-009"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-owner.test.ts",
+      "line": 1212,
+      "title": "constructs an inert owner shell with exact input identities",
+      "suite": "runtime owner",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-READY-001"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-owner.test.ts",
+      "line": 1233,
+      "title": "starts one readiness leader for one owner",
+      "suite": "runtime owner",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-READY-002"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-owner.test.ts",
+      "line": 1262,
+      "title": "joins concurrent readiness callers on one terminal",
+      "suite": "runtime owner",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-READY-002"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-owner.test.ts",
+      "line": 1293,
+      "title": "caches successful readiness and preserves the assembled context",
+      "suite": "runtime owner",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-READY-002"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-owner.test.ts",
+      "line": 1319,
+      "title": "settles cold readiness waiters when close wins",
+      "suite": "runtime owner",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-READY-006"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-owner.test.ts",
+      "line": 1364,
+      "title": "caches typed readiness failure without retry",
+      "suite": "runtime owner",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-READY-003"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-owner.test.ts",
+      "line": 1390,
+      "title": "retains a readiness defect and cleans the acquired prefix once",
+      "suite": "runtime owner",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-READY-003"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-owner.test.ts",
+      "line": 1420,
+      "title": "caches interrupted readiness and interrupts owned work",
+      "suite": "runtime owner",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-READY-004"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-owner.test.ts",
+      "line": 1460,
+      "title": "disposes a failed owner without reopening admission",
+      "suite": "runtime owner",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-READY-003"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-owner.test.ts",
+      "line": 1488,
+      "title": "blocks owner disposal while dependent leases remain",
+      "suite": "runtime owner",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-READY-010"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-owner.test.ts",
+      "line": 1512,
+      "title": "drains evidence before closing an owner",
+      "suite": "runtime owner",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ASSEMBLY-007"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-owner.test.ts",
+      "line": 1528,
+      "title": "interrupts owner-scoped fibers through running handles",
+      "suite": "runtime owner",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-READY-009"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-owner.test.ts",
+      "line": 1559,
+      "title": "isolates replacement capabilities across owner instances",
+      "suite": "runtime owner",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-READY-011"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-owner.test.ts",
+      "line": 1582,
+      "title": "acquires implementation layers in dependency order",
+      "suite": "runtime owner",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-READY-008"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-owner.test.ts",
+      "line": 1617,
+      "title": "rejects missing implementation requirements before admission",
+      "suite": "runtime owner",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-READY-003"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-owner.test.ts",
+      "line": 1630,
+      "title": "settles prepared handles when the owner is disposed",
+      "suite": "runtime owner",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ASSEMBLY-006"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime-owner.test.ts",
+      "line": 1659,
+      "title": "keeps request and Story setup on the same owner contract",
+      "suite": "runtime owner",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-READY-011"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime.test.ts",
+      "line": 300,
+      "title": "derives stable tuple keys without consuming identity allocation",
+      "suite": "internal implementation runtime",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Frozen tuple-key construction and allocation counter are private directory representation",
+        "retainedBehavior": "Stable refs with delimiter-heavy authored IDs remain distinct and do not alias during admission or retirement",
+        "coveredBy": "RN-ADMIT-006"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime.test.ts",
+      "line": 317,
+      "title": "reconciles a queued provider publication before exposing the consumer",
+      "suite": "internal implementation runtime",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-CONTEXT-001"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime.test.ts",
+      "line": 548,
+      "title": "routes public readiness through the installed provider context",
+      "suite": "internal implementation runtime > readiness acquisition and caching",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-READY-008"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime.test.ts",
+      "line": 604,
+      "title": "keeps construction inert until readiness",
+      "suite": "internal implementation runtime > readiness acquisition and caching",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-READY-001"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime.test.ts",
+      "line": 653,
+      "title": "acquires providers lazily in declaration order",
+      "suite": "internal implementation runtime > readiness acquisition and caching",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-READY-008"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime.test.ts",
+      "line": 688,
+      "title": "allocates one readiness cache for each constructed Runtime",
+      "suite": "internal implementation runtime > readiness acquisition and caching",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-READY-011"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime.test.ts",
+      "line": 716,
+      "title": "stops after the first provider failure and caches its Cause",
+      "suite": "internal implementation runtime > readiness acquisition and caching",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-READY-003"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime.test.ts",
+      "line": 757,
+      "title": "shares one in-flight readiness and its cached success",
+      "suite": "internal implementation runtime > readiness acquisition and caching",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-READY-002"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime.test.ts",
+      "line": 798,
+      "title": "interrupts an acquiring caller and caches interruption",
+      "suite": "internal implementation runtime > readiness acquisition and caching",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-READY-004"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime.test.ts",
+      "line": 830,
+      "title": "interrupts a readiness waiter without cancelling the acquisition",
+      "suite": "internal implementation runtime > readiness acquisition and caching",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-READY-005"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime.test.ts",
+      "line": 884,
+      "title": "rejects a copied App before publishing RuntimeSetup",
+      "suite": "internal implementation runtime > setup boundary admission",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-FACADE-001"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime.test.ts",
+      "line": 893,
+      "title": "rejects an App-shaped proxy without structural reads",
+      "suite": "internal implementation runtime > setup boundary admission",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-FACADE-001"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime.test.ts",
+      "line": 913,
+      "title": "captures the App before validating a flapping getter",
+      "suite": "internal implementation runtime > setup boundary admission",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-FACADE-001"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime.test.ts",
+      "line": 938,
+      "title": "caches a defect cause as one terminal result",
+      "suite": "internal implementation runtime > terminal cause caching",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-READY-003"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/runtime.test.ts",
+      "line": 977,
+      "title": "caches interruption as one terminal result without retrying",
+      "suite": "internal implementation runtime > terminal cause caching",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-READY-004"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/turn-plan.test.ts",
+      "line": 215,
+      "title": "freezes one pre-turn snapshot, orders callbacks, and redirects the updated candidate",
+      "suite": "turn planner",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-TURN-001"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/turn-plan.test.ts",
+      "line": 242,
+      "title": "returns a no-op when every guard rejects without running later stages",
+      "suite": "turn planner",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-TURN-001"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/turn-plan.test.ts",
+      "line": 252,
+      "title": "rejects a foreign nominal event before callbacks run",
+      "suite": "turn planner",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-FACADE-005"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/turn-plan.test.ts",
+      "line": 273,
+      "title": "rejects the complete batch at the first unconstructed operation plan",
+      "suite": "turn planner",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-TURN-002"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/turn-plan.test.ts",
+      "line": 308,
+      "title": "matches nested canonical operation keys across independently-owned containers",
+      "suite": "turn planner",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-011"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/turn-plan.test.ts",
+      "line": 349,
+      "title": "preserves nominal event and operation action types",
+      "suite": "turn planner",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-FACADE-005"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/turn-plan.test.ts",
+      "line": 359,
+      "title": "plans retained selector defects as an issue-only context cut",
+      "suite": "turn planner",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-016"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/turn-plan.test.ts",
+      "line": 411,
+      "title": "rejects issue-only carriers with duplicate fixed slots",
+      "suite": "turn planner",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-TURN-002"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/turn-plan.test.ts",
+      "line": 455,
+      "title": "builds a pure event turn candidate from an admitted event",
+      "suite": "turn planner",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Exact planTurn candidate object and function result shape are private pure planner representation",
+        "retainedBehavior": "An admitted event commits authored state, memory, and actions in the required order",
+        "coveredBy": "RN-TURN-001"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/turn-plan.test.ts",
+      "line": 467,
+      "title": "keeps passive projections separate from event planning",
+      "suite": "turn planner",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-016"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/turn-plan.test.ts",
+      "line": 485,
+      "title": "orders machine actions and exact store targets",
+      "suite": "turn planner",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-TURN-001"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/turn-plan.test.ts",
+      "line": 500,
+      "title": "preserves authored false and null callback results",
+      "suite": "turn planner",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-TURN-001"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/turn-plan.test.ts",
+      "line": 509,
+      "title": "reconciles activity lifetimes against the prior snapshot",
+      "suite": "turn planner",
+      "disposition": {
+        "kind": "new-scenario",
+        "scenarioId": "RN-TURN-003"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/turn-plan.test.ts",
+      "line": 538,
+      "title": "cancels removed activity before late completion can apply",
+      "suite": "turn planner",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-TURN-003"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/turn-plan.test.ts",
+      "line": 609,
+      "title": "maps expected planning refusal without running effects",
+      "suite": "turn planner",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-TURN-002"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/turn-plan.test.ts",
+      "line": 625,
+      "title": "retains planning defects separately from expected refusal",
+      "suite": "turn planner",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-TURN-002"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/turn-plan.test.ts",
+      "line": 655,
+      "title": "rejects a candidate with a stale actor fence",
+      "suite": "turn planner",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-016"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/turn-plan.test.ts",
+      "line": 725,
+      "title": "rejects a candidate with an inconsistent store cut",
+      "suite": "turn planner",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-TURN-002"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/turn-plan.test.ts",
+      "line": 738,
+      "title": "keeps commit revisions and evidence allocation out of the pure plan",
+      "suite": "turn planner",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Pure planner object isolation and absent commit fields are internal boundary checks",
+        "retainedBehavior": "Revision and evidence allocate only on successful atomic actor commit from one captured pre-turn state",
+        "coveredBy": "RN-ACTOR-014"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/turn-plan.test.ts",
+      "line": 747,
+      "title": "rejects a timer projection whose deadline precedes its start",
+      "suite": "turn planner",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-TURN-002"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/turn-plan.test.ts",
+      "line": 760,
+      "title": "preserves descriptor identity in stream projection plans",
+      "suite": "turn planner",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Descriptor pointer identity inside the private plan is not a public promise",
+        "retainedBehavior": "Only the matching live descriptor, key, and occurrence can apply a stream completion",
+        "coveredBy": "RN-ACTOR-011"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/turn-plan.test.ts",
+      "line": 784,
+      "title": "coalesces equal context revisions in a plan",
+      "suite": "turn planner",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-016"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/turn-plan.test.ts",
+      "line": 815,
+      "title": "retains the last valid context through selector defect",
+      "suite": "turn planner",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-016"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/turn-plan.test.ts",
+      "line": 858,
+      "title": "retains absolute timer deadlines in the candidate plan",
+      "suite": "turn planner",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-LIFECYCLE-002"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/turn-plan.test.ts",
+      "line": 876,
+      "title": "plans suspension with cancellation before publication",
+      "suite": "turn planner",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-TURN-003"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/turn-plan.test.ts",
+      "line": 892,
+      "title": "keeps a valid no-op plan free of synthetic changes",
+      "suite": "turn planner",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-TURN-001"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/turn-plan.test.ts",
+      "line": 906,
+      "title": "plans independently from the same captured pre-turn snapshot",
+      "suite": "turn planner",
+      "disposition": {
+        "kind": "excluded-private",
+        "reason": "Pure planner object isolation and absent commit fields are internal boundary checks",
+        "retainedBehavior": "Revision and evidence allocate only on successful atomic actor commit from one captured pre-turn state",
+        "coveredBy": "RN-ACTOR-014"
+      }
+    },
+    {
+      "file": "packages/flow-state-rewrite/src/runtime/test/turn-plan.test.ts",
+      "line": 913,
+      "title": "validates mapped event envelopes before scheduling them",
+      "suite": "turn planner",
+      "disposition": {
+        "kind": "consolidated",
+        "scenarioId": "RN-ACTOR-017"
+      }
+    }
+  ]
+}
