@@ -43,7 +43,6 @@ for the current task and claim. Do not read the whole repository by default.
 - `packages/flow-state/src/core/` — runtime behavior; `src/react/`,
   `src/testing/`, and `src/cli/` — integration surfaces.
 - `packages/flow-state-rewrite/src/` — greenfield rewrite package
-- `examples/` — maintained consumers and TypeScript compiler proofs.
 - `apps/docs/` — Vocs documentation and generated reference artifacts.
 - `reference/incident-console/implementation/contracts` — readonly contracts.
 - `codebases/` — research input only. `codebases/effect-v4/` is the primary
@@ -57,11 +56,9 @@ Effect 4.0.0-rc.112.
 
 - Choose checks from the changed scope and impact. Start with the smallest relevant
   check; broaden only for a new change, failure, or unresolved concern.
-- Run `nub run build` when package, CLI, or example output changes. It also runs the example
-  CLI acceptance gate.
-- Run `nub run docs:build` for documentation or public API changes. Its generators derive API
-  reference data from public entrypoints and behavior data from
-  `examples/basic-cached-posts`.
+- Run `nub run build` when package or CLI output changes.
+- Run `nub run docs:build` for documentation or public API changes. Its generator derives API
+  reference data from public entrypoints.
 - Run `nub run verify` before claiming full workspace verification.
 - For instruction-only changes, validate the scoped diff, links, metadata and fences,
   and referenced paths instead of running application tests by default.
@@ -71,16 +68,14 @@ Effect 4.0.0-rc.112.
 ```sh
 nub install                                      # install dependencies
 nub run check:toolchain                          # after dependency/compiler changes
-node ./tools/oxlint/anti-slop/rules/general-typescript/<rule>.test.ts # example focused anti-slop rule test
+node ./tools/oxlint/anti-slop/rules/general-typescript/<rule>.test.ts # focused anti-slop rule test
 nub run check                                    # formatting, lint, and type checks
 nub run --filter flow-state check:cli-source-types
-nub run --filter flow-state check:typescript-mode-proofs
 nub run --filter flow-state check:vnext
 nub run --filter flow-state check:packed-consumers
 nub run test                                     # workspace test suite
-nub run build                                    # package, CLI, and example output
+nub run build                                    # package and CLI output
 nub run docs:build                               # documentation or public API changes
-nub run test:browser                             # Incident Console browser behavior
 nub run verify                                   # full closeout gate
 ```
 
@@ -89,7 +84,7 @@ nub run verify                                   # full closeout gate
 - Before editing, inspect `git status`, relevant source and tests, README guidance, and
   the active contract/task. Preserve unrelated worktree changes.
 - Make the smallest change at the owning boundary. Check public API changes against
-  affected entrypoints, tests, examples, packed consumers, and docs.
+  affected entrypoints, tests, packed consumers, and docs.
 - Add or update executable behavior proofs with semantic changes; source-text checks
   and typechecking alone do not prove runtime behavior.
 - Separate adjacent top-level declarations with one blank line. Closely related
@@ -114,7 +109,8 @@ disjoint work to zero, one, or two secondary coders. The primary owns integratio
 final coder checks. Record each agent's task, scope, model, and reasoning setting before
 dispatch. Follow with three independent reviewers in parallel: `architecture`,
 `contract`, and `bug`. Each reviewer reads its assigned skills through the reviewer
-entrypoint. All three reviews must pass.
+entrypoint and then runs the common general-code-practices phase. All three
+reviews must pass.
 Keep small and non-Bead work conditionally delegated; keep review evidence explicit
 and proportional.
 
@@ -130,6 +126,7 @@ and proportional.
 | `.agents/skills/beads/SKILL.md`                            | orchestrator, coder, reviewer    | Durable tasks, dependencies, ownership, or handoff.                                  | A current-turn checklist with no shared task state.                      |
 | `.agents/skills/flow-state-contract-slice-review/SKILL.md` | reviewer (`contract`)            | Checking one rewrite Bead against its named contracts and proofs.                    | General maintainability review or contract authoring.                    |
 | `.agents/skills/performance-quality-bug-hunt/SKILL.md`     | reviewer (`bug`)                 | Hunting concrete bugs, regressions, lifecycle failures, or performance risks.        | Only contract conformance, Effect design, or style is in scope.          |
+| `.agents/skills/general-code-practices/SKILL.md`           | reviewer (all)                   | General coding principles enforced after the specialist lens.                        | It does not define review procedure or replace a specialist lens.        |
 
 Agent entrypoints:
 
