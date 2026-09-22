@@ -2,8 +2,7 @@
 
 This is the supported alpha onboarding path. It builds one Effect service into a
 cached resource, a small workflow and view, a React screen, a deterministic test,
-and a CLI-inspectable behavior contract. The complete executable version is
-[`examples/basic-cached-posts`](https://github.com/heyitsarpit/flow-state/tree/main/examples/basic-cached-posts).
+and a CLI-inspectable behavior contract.
 
 ## 1. Install the alpha
 
@@ -171,16 +170,5 @@ it("enters refresh through the production machine", () => {
 });
 ```
 
-The maintained recipe executes the full load, keyed-detail, refresh, typed
-failure, and cleanup cases:
-
-```sh
-nub run --filter @flow-state/basic-cached-posts test
-nub run --filter @flow-state/basic-cached-posts build
-nub run check:example-cli
-```
-
-The last command invokes the installed package bin through a clean consumer and
-builds every maintained example's behavior contract. Continue with
-[Recipes](/examples), [Incident Console](/examples#incident-console), and
-[Current Status](/reference/status).
+Continue with [Testing](/guide/testing), [Agent Workflow](/guide/agent-workflow),
+and [Current Status](/reference/status).

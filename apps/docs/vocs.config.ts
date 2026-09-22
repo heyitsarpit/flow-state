@@ -19,7 +19,6 @@ const config: Config = defineConfig({
         { text: "Supported Today", link: "/reference/status" },
         { text: "Getting Started", link: "/getting-started" },
         { text: "Concepts", link: "/concepts" },
-        { text: "Examples", link: "/examples" },
       ],
     },
     {

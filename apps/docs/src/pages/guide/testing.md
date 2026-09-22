@@ -3,13 +3,13 @@
 Put each fact in the smallest lane that owns it, because service semantics,
 runtime ownership, and browser behavior fail for different reasons.
 
-| Fact                                                       | Lane                                                 | Maintained example                                                       |
-| ---------------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------ |
-| Effect services and typed failures                         | direct Effect or `@effect/vitest` test               | `examples/basic-cached-posts/src/services`                               |
-| Resources, transactions, streams, timers, and child actors | `test(machine)` or `test.app(App).scenario(machine)` | `examples/offline-recovery/src/testing/offline-runtime.test.ts`          |
-| Guard-aware paths                                          | `test.model(machine)` and `graphOf(machine)`         | `examples/bounded-infinite-feed/src/testing/feed-runtime.test.ts`        |
-| React rendering and interaction                            | happy-dom component test                             | `examples/optimistic-transactions/src/testing/optimistic-react.test.tsx` |
-| Real client/server journeys                                | Playwright                                           | `examples/incident-console/tests/browser`                                |
+| Fact                                                       | Lane                                                 |
+| ---------------------------------------------------------- | ---------------------------------------------------- |
+| Effect services and typed failures                         | direct Effect or `@effect/vitest` test               |
+| Resources, transactions, streams, timers, and child actors | `test(machine)` or `test.app(App).scenario(machine)` |
+| Guard-aware paths                                          | `test.model(machine)` and `graphOf(machine)`         |
+| React rendering and interaction                            | happy-dom component test                             |
+| Real client/server journeys                                | application-owned browser test                       |
 
 ## Runtime scenarios
 
@@ -43,15 +43,11 @@ state or wall-clock sleeps.
 services. A declared story adds reproducible seeds, events, and an expected
 state, while the installed CLI proves the same story through the package bin.
 
-The maintained coverage map is `examples/FEATURE_COVERAGE.md`; it links each
-claimed feature to the recipe and proof lane that owns it.
-
 ## Browser proofs
 
-Component tests are enough for rendering and click wiring that happy-dom can
-represent honestly. Incident Console owns the Playwright lane because HTTP,
-SSE, focus, reconnect, and full user journeys require an installed browser and
-the real API server.
+Component tests cover rendering and click wiring that happy-dom can represent
+honestly. A consuming application owns browser proofs for its network and UI
+boundaries.
 
 See [Testing Reference](/reference/testing), [Agent Workflow](/guide/agent-workflow),
 and [Current Status](/reference/status) for the command and support boundaries.

@@ -1,18 +1,13 @@
-import behaviorContract from "../../generated/behavior-contract.json";
-import { BehaviorBriefSections } from "../../components/behavior-brief-sections";
-
 # Behavior Contract
 
-This page is the shared application behavior brief rendered from the canonical
-generated contract artifact.
+This page describes the application behavior contract commands exposed by the
+installed package.
 
 It is intentionally terse and shared between humans and AI agents. Treat it as
 the shortest app-level onboarding and planning surface for the current behavior
 contract loop: `flow-state behavior build`, `flow-state behavior render`, and
 `flow-state behavior diff`.
 
-When you need the proof apps or current runtime honesty surface, continue with
-[Examples](/examples) and [Current Status](/reference/status) instead of
-treating this page as a second prose guide.
-
-<BehaviorBriefSections contract={behaviorContract} />
+Use `flow-state behavior build` to emit a contract, `flow-state behavior render`
+to inspect it, and `flow-state behavior diff` to compare revisions. Continue with
+[Current Status](/reference/status) for the supported runtime surface.
