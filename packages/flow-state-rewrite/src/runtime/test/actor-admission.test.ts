@@ -390,7 +390,7 @@ describe("actor identity admission", () => {
 
     for (let attempt = 0; attempt < 16; attempt += 1) {
       maybeGc();
-      // oxlint-disable-next-line anti-slop/no-sleep-based-test-sync -- WeakRef collection is host-scheduled; this optional GC proof has no owner receipt and TestClock cannot advance native GC.
+      // oxlint-disable-next-line no-restricted-globals -- WeakRef collection is host-scheduled; this optional GC proof has no owner receipt and TestClock cannot advance native GC.
       await new Promise((resolve) => setTimeout(resolve, 10));
     }
 

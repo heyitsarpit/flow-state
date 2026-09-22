@@ -83,7 +83,6 @@ contract still determines whether the code is actually wrong.
 | no-array-from-then-map | Array.from(iterable, callback); or a visible for...of loop. |
 | no-nested-conditional-expression, no-ternary-iife | An intermediate name, an if/else, or a named helper. |
 | no-staged-object-assign | Compute derived values first, then return one object literal. One Object.assign is reserved for deliberate API/library interop assembly. |
-| no-top-level-mutable-production-state | Keep module-level production bindings `const`; put mutable state behind its owner or inside a factory. Test fixtures may use local mutable state. |
 | no-anonymous-default-export | Prefer a named export or a named default declaration so stack traces and imports have a stable concept name. |
 | no-generic-utility-module | Name a helper module after the domain concept it owns instead of `utils.ts`, `helpers.ts`, `common.ts`, or `manager.ts`. |
 | no-shape-in-symbol-names | Name the domain concept: resourceIdentity, accountKey, or traceProjection. |

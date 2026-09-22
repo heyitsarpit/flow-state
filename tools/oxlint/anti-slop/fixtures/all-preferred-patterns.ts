@@ -31,7 +31,6 @@ type DataState = Data.TaggedEnum<{
 	Loading: { startedAt: number };
 	Ready: { value: string };
 }>;
-
 type AccountId = string & { AccountId: unique symbol };
 type Account = { id: AccountId };
 type AccountNotFound = { _tag: "AccountNotFound"; accountId: AccountId };

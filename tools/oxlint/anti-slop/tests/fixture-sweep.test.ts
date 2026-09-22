@@ -27,7 +27,6 @@ import { noEffectRefReadThenWriteRule } from "../rules/effect/no-effect-ref-read
 import { noEscapeHatchAssertionRule } from "../rules/general-typescript/no-escape-hatch-assertion.ts";
 import { noExplicitAnyRule } from "../rules/general-typescript/no-explicit-any.ts";
 import { noExpectInIfRule } from "../rules/general-typescript/no-expect-in-if.ts";
-import { noExportedMutableSurfaceRule } from "../rules/general-typescript/no-exported-mutable-surface.ts";
 import { noForEachRule } from "../rules/general-typescript/no-for-each.ts";
 import { noGenericUtilityModuleRule } from "../rules/general-typescript/no-generic-utility-module.ts";
 import { noGodServiceShapeRule } from "../rules/general-typescript/no-god-service-shape.ts";
@@ -40,8 +39,6 @@ import { noLargeProductionFileRule } from "../rules/general-typescript/no-large-
 import { noModuleMockingRule } from "../rules/general-typescript/no-module-mocking.ts";
 import { noNumericDurationRule } from "../rules/effect/no-numeric-duration.ts";
 import { noNestedConditionalExpressionRule } from "../rules/general-typescript/no-nested-conditional-expression.ts";
-import { noPhaseRebindingRule } from "../rules/general-typescript/no-phase-rebinding.ts";
-import { noDomainWallClockRule } from "../rules/general-typescript/no-domain-wall-clock.ts";
 import { noNullishFunctionContractsRule } from "../rules/general-typescript/no-nullish-function-contracts.ts";
 import { noObjectFreezeRule } from "../rules/general-typescript/no-object-freeze.ts";
 import { noObjectTypeRule } from "../rules/general-typescript/no-object-type.ts";
@@ -57,13 +54,10 @@ import { noReflectGetRule } from "../rules/general-typescript/no-reflect-get.ts"
 import { noRuntimeTypeofRule } from "../rules/general-typescript/no-runtime-typeof.ts";
 import { noServiceShapeParameterExtractionRule } from "../rules/effect/no-service-shape-parameter-extraction.ts";
 import { noForbiddenTermInSymbolNamesRule } from "../rules/general-typescript/no-shape-in-symbol-names.ts";
-import { noSleepBasedTestSyncRule } from "../rules/general-typescript/no-sleep-based-test-sync.ts";
 import { noStagedObjectAssignRule } from "../rules/general-typescript/no-staged-object-assign.ts";
 import { noSwallowedCleanupErrorRule } from "../rules/general-typescript/no-swallowed-cleanup-error.ts";
 import { noTernaryIifeRule } from "../rules/general-typescript/no-ternary-iife.ts";
-import { noTestModuleStateRule } from "../rules/general-typescript/no-test-module-state.ts";
 import { noThrowInEffectGenRule } from "../rules/effect/no-throw-in-effect-gen.ts";
-import { noTopLevelMutableProductionStateRule } from "../rules/general-typescript/no-top-level-mutable-production-state.ts";
 import { noUnmanagedEffectScopeRule } from "../rules/effect/no-unmanaged-effect-scope.ts";
 import { noUnknownRule } from "../rules/general-typescript/no-unknown.ts";
 import { noUnsafeDictionaryTypeRule } from "../rules/general-typescript/no-unsafe-dictionary-type.ts";
@@ -105,7 +99,6 @@ const preferredFixtureRules: ReadonlyArray<readonly [string, Rule]> = [
 	["no-escape-hatch-assertion", noEscapeHatchAssertionRule],
 	["no-explicit-any", noExplicitAnyRule],
 	["no-expect-in-if", noExpectInIfRule],
-	["no-exported-mutable-surface", noExportedMutableSurfaceRule],
 	["no-for-each", noForEachRule],
 	["no-generic-utility-module", noGenericUtilityModuleRule],
 	["no-god-service-shape", noGodServiceShapeRule],
@@ -139,7 +132,6 @@ const preferredFixtureRules: ReadonlyArray<readonly [string, Rule]> = [
 	["no-swallowed-cleanup-error", noSwallowedCleanupErrorRule],
 	["no-ternary-iife", noTernaryIifeRule],
 	["no-throw-in-effect-gen", noThrowInEffectGenRule],
-	["no-top-level-mutable-production-state", noTopLevelMutableProductionStateRule],
 	["no-unmanaged-effect-scope", noUnmanagedEffectScopeRule],
 	["no-unsafe-dictionary-type", noUnsafeDictionaryTypeRule],
 	["no-unsafe-fiber-methods", noUnsafeFiberMethodsRule],
@@ -185,64 +177,6 @@ tester.run("path-correct preferred fixture: no-unknown", noUnknownRule, {
 		},
 	],
 	invalid: [],
-});
-
-tester.run("runtime-scoped preferred fixture: no-phase-rebinding", noPhaseRebindingRule, {
-	valid: [
-		{
-			code: preferredFixture,
-			filename: "/project/packages/flow-state-rewrite/src/runtime/preferred-fixture.ts",
-			options: [{ sourceRoots: ["packages/flow-state-rewrite/src/runtime"] }],
-		},
-	],
-	invalid: [],
-});
-
-tester.run("runtime-scoped preferred fixture: no-domain-wall-clock", noDomainWallClockRule, {
-	valid: [
-		{
-			code: preferredFixture,
-			filename: "/project/packages/flow-state-rewrite/src/runtime/preferred-fixture.ts",
-			options: [{ sourceRoots: ["packages/flow-state-rewrite/src/runtime"] }],
-		},
-	],
-	invalid: [],
-});
-
-tester.run("test-scoped preferred fixture: no-sleep-based-test-sync", noSleepBasedTestSyncRule, {
-	valid: [
-		{
-			code: "const wait = (resolve: () => void) => resolve(); wait(() => undefined);",
-			filename: "/project/packages/flow-state-rewrite/src/runtime/test/preferred.test.ts",
-			options: [{ sourceRoots: ["packages/flow-state-rewrite/src/runtime/test"] }],
-		},
-	],
-	invalid: [
-		{
-			code: "setTimeout(resolve, 10);",
-			filename: "/project/packages/flow-state-rewrite/src/runtime/test/preferred.test.ts",
-			options: [{ sourceRoots: ["packages/flow-state-rewrite/src/runtime/test"] }],
-			errors: [{ messageId: "nativeTimer" }],
-		},
-	],
-});
-
-tester.run("test-scoped preferred fixture: no-test-module-state", noTestModuleStateRule, {
-	valid: [
-		{
-			code: "const fixture = { value: 1 }; const values = [1, 2, 3];",
-			filename: "/project/packages/flow-state-rewrite/src/runtime/test/preferred.test.ts",
-			options: [{ sourceRoots: ["packages/flow-state-rewrite/src/runtime/test"] }],
-		},
-	],
-	invalid: [
-		{
-			code: "const state = {}; state.value = 1;",
-			filename: "/project/packages/flow-state-rewrite/src/runtime/test/preferred.test.ts",
-			options: [{ sourceRoots: ["packages/flow-state-rewrite/src/runtime/test"] }],
-			errors: [{ messageId: "moduleState" }],
-		},
-	],
 });
 
 tester.run("failing fixture sentinels: no-parallel-diagnostic-errors", noParallelDiagnosticErrorsRule, {

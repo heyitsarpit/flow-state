@@ -13,6 +13,7 @@ export default defineConfig({
       "vp check --fix",
   },
   lint: {
+    plugins: ["eslint", "typescript", "unicorn", "oxc", "import"],
     jsPlugins: [
       { name: "vite-plus", specifier: "vite-plus/oxlint-plugin" },
       { name: "anti-slop", specifier: "./tools/oxlint/anti-slop/index.ts" },
@@ -149,29 +150,9 @@ export default defineConfig({
       "anti-slop/no-known-value-widening": "error",
       "anti-slop/no-inline-import-type-query": "error",
       "anti-slop/no-local-definite-assignment": "error",
-      "anti-slop/no-exported-mutable-surface": [
-        "error",
-        { sourceRoots: ["packages/flow-state-rewrite/src"] },
-      ],
-      "anti-slop/no-phase-rebinding": [
-        "error",
-        { sourceRoots: ["packages/flow-state-rewrite/src/runtime"] },
-      ],
-      "anti-slop/no-domain-wall-clock": [
-        "error",
-        { sourceRoots: ["packages/flow-state-rewrite/src/runtime"] },
-      ],
       "anti-slop/no-module-mocking": "error",
       "anti-slop/no-numeric-duration": "error",
       "anti-slop/no-nested-conditional-expression": "error",
-      "anti-slop/no-sleep-based-test-sync": [
-        "error",
-        { sourceRoots: ["packages/flow-state-rewrite/src/runtime/test"] },
-      ],
-      "anti-slop/no-test-module-state": [
-        "error",
-        { sourceRoots: ["packages/flow-state-rewrite/src/runtime/test"] },
-      ],
       // Contract-required public snapshots may be frozen; keep this as a review signal for private boundaries.
       "anti-slop/no-object-freeze": "warn",
       "anti-slop/no-generic-utility-module": "warn",
@@ -236,10 +217,6 @@ export default defineConfig({
       "anti-slop/no-staged-object-assign": "error",
       "anti-slop/no-swallowed-cleanup-error": "error",
       "anti-slop/no-ternary-iife": "error",
-      "anti-slop/no-top-level-mutable-production-state": [
-        "warn",
-        { sourceRoots: ["packages/flow-state-rewrite/src"] },
-      ],
       "anti-slop/no-throw-in-effect-gen": "error",
       "anti-slop/no-unmanaged-effect-scope": "error",
       "anti-slop/no-parallel-diagnostic-errors": "error",
@@ -272,6 +249,86 @@ export default defineConfig({
                   message: "Package source must not import built dist output.",
                 },
               ],
+            },
+          ],
+        },
+      },
+      {
+        files: ["packages/flow-state-rewrite/src/**/*.{ts,tsx}"],
+        rules: {
+          "import/no-mutable-exports": "error",
+          "no-param-reassign": "error",
+          "no-var": "error",
+        },
+      },
+      {
+        files: ["packages/flow-state-rewrite/src/**/*.{ts,tsx}"],
+        excludeFiles: [
+          "packages/flow-state-rewrite/src/**/*.test.{ts,tsx}",
+          "packages/flow-state-rewrite/src/**/*.spec.{ts,tsx}",
+          "packages/flow-state-rewrite/src/**/__tests__/**",
+          "packages/flow-state-rewrite/src/**/cli-test/**",
+          "packages/flow-state-rewrite/src/**/test/**",
+          "packages/flow-state-rewrite/src/**/testing/**",
+        ],
+        rules: {
+          "no-restricted-globals": [
+            "error",
+            {
+              globals: [
+                {
+                  name: "Date",
+                  message: "Use the supplied Effect Clock at the host boundary.",
+                },
+                {
+                  name: "performance",
+                  message: "Use the supplied Effect Clock at the host boundary.",
+                },
+              ],
+              checkGlobalObject: true,
+              globalObjects: ["global"],
+            },
+          ],
+        },
+      },
+      {
+        files: [
+          "packages/flow-state-rewrite/src/**/*.test.{ts,tsx}",
+          "packages/flow-state-rewrite/src/**/*.spec.{ts,tsx}",
+          "packages/flow-state-rewrite/src/**/__tests__/**/*.{ts,tsx}",
+          "packages/flow-state-rewrite/src/**/cli-test/**/*.{ts,tsx}",
+          "packages/flow-state-rewrite/src/**/test/**/*.{ts,tsx}",
+          "packages/flow-state-rewrite/src/**/testing/**/*.{ts,tsx}",
+        ],
+        rules: {
+          "no-restricted-globals": [
+            "error",
+            {
+              globals: [
+                {
+                  name: "setInterval",
+                  message: "Use TestClock, Deferred, or an explicit owner receipt.",
+                },
+                {
+                  name: "setTimeout",
+                  message: "Use TestClock, Deferred, or an explicit owner receipt.",
+                },
+              ],
+              checkGlobalObject: true,
+              globalObjects: ["global"],
+            },
+          ],
+          "no-restricted-properties": [
+            "error",
+            {
+              object: "Effect",
+              property: "delay",
+              message: "Use TestClock, Deferred, or an explicit owner receipt.",
+            },
+            {
+              object: "Effect",
+              property: "sleep",
+              message: "Use TestClock, Deferred, or an explicit owner receipt.",
             },
           ],
         },

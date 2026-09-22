@@ -211,7 +211,6 @@ const captureContextPayload = (value: ContextPayload) => {
       if (descriptor === undefined || !("value" in descriptor))
         throw new TypeError("Context carrier contains an accessor property");
 
-      // oxlint-disable-next-line anti-slop/no-phase-rebinding -- captured is a recursive descriptor under construction; registering it before filling fields preserves cycles without exposing an incomplete value.
       captured.fields.push({
         key,
         configurable: descriptor.configurable === true,

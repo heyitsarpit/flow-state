@@ -113,7 +113,6 @@ type EvidenceSnapshot = ActorSnapshot<typeof EvidenceDefinition>;
 
 const preparationRevisions = new WeakMap<EvidencePreparation, number>();
 
-// oxlint-disable-next-line anti-slop/no-test-module-state -- This sequence intentionally spans fixtures; resetting it in makeFixture would change the cross-preparation ordering proof.
 let nextPreparationRevision = 1;
 
 const preparationRevision = (preparation: EvidencePreparation) =>
