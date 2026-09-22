@@ -440,15 +440,20 @@ describe("internal implementation runtime", () => {
               initial: initialHandshakeConsumerSnapshot(),
               bindings: [providerStateBinding, providerChangedBinding],
               onSnapshot: (snapshot) => {
-                consumerContextPublished = true;
                 consumerSnapshots.push(snapshot);
-                admissionTrace.push("consumer-context-published");
-                consumerContextCuts.push({
-                  revision: snapshot.revision,
-                  providerState: snapshot.context.providerState,
-                  providerChanged: snapshot.context.providerChanged,
-                  exposed: consumerExposed,
-                });
+
+                if (snapshot.lifecycle === "disposed") {
+                  admissionTrace.push("consumer-disposed-snapshot");
+                } else {
+                  consumerContextPublished = true;
+                  admissionTrace.push("consumer-context-published");
+                  consumerContextCuts.push({
+                    revision: snapshot.revision,
+                    providerState: snapshot.context.providerState,
+                    providerChanged: snapshot.context.providerChanged,
+                    exposed: consumerExposed,
+                  });
+                }
               },
             });
 
@@ -518,6 +523,10 @@ describe("internal implementation runtime", () => {
 
       yield* Effect.provideContext(consumer.dispose(), assembly.context);
       yield* Effect.provideContext(consumer.dispose(), assembly.context);
+      assert.strictEqual(consumerSnapshots.length, 2);
+      assert.strictEqual(consumerSnapshots[1]?.lifecycle, "disposed");
+      assert.strictEqual(consumerSnapshots[1]?.revision, 2);
+      assert.strictEqual(consumerContextCuts.length, 1);
       assert.strictEqual((yield* provider.lifecycle.state()).attachment.dependencies.length, 0);
       const secondDispatch = provider.engine.dispatch(HandshakeProviderEvent);
       assert.strictEqual(secondDispatch.admitted, true);
@@ -525,7 +534,8 @@ describe("internal implementation runtime", () => {
       yield* provider.engine.drain();
       yield* assembly.contextCoordinator.drain();
       assert.strictEqual(providerPublicationCount, 2);
-      assert.strictEqual(consumerSnapshots.length, 1);
+      assert.strictEqual(consumerSnapshots.length, 2);
+      assert.strictEqual(consumerContextCuts.length, 1);
       assert.strictEqual(admissionTrace.at(-1), "provider-published");
 
       yield* Effect.provideContext(provider.dispose(), assembly.context);

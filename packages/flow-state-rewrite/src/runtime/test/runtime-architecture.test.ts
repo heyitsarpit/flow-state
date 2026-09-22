@@ -553,7 +553,7 @@ describe("runtime assembly", () => {
       const afterClose = actor.engine.snapshot();
       assert.strictEqual(afterClose.lifecycle, "disposed");
       assert.strictEqual(afterClose.state, beforeClose.state);
-      assert.strictEqual(afterClose.revision, beforeClose.revision);
+      assert.strictEqual(afterClose.revision, beforeClose.revision + 1);
       assert.throws(() => actor.handle.send(architectureEvent));
     }),
   );
