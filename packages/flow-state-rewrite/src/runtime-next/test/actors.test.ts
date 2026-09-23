@@ -1,9 +1,10 @@
 import { assert, describe, it } from "@effect/vitest";
-import { Cause, Deferred, Effect, Exit, Fiber, Scope } from "effect";
+import { Cause, Deferred, Effect, Exit, Fiber, Result, Scope } from "effect";
 
 import { Failure, type PublicDiagnostic } from "../../diagnostic/diagnostic.js";
 import { makeActorLease } from "../actor/actor-lease.js";
 import { makeFlowRuntimeShell } from "../runtime-shell.js";
+import { copyStructural } from "../structural-copy.js";
 
 describe("runtime-next actors", () => {
   // Owner: P06.
@@ -187,7 +188,38 @@ describe("runtime-next actors", () => {
   // Action: Copy through the P04 structural-copy actor policy and mutate the original.
   // Observable result: The copy is independently owned; unsupported actor-policy values reject before returning a value; frozen copy used a recursive helper.
   // Failure/cleanup: Caller originals remain unfrozen and unchanged; rejection leaves no partial copied value.
-  it.todo("RN-ACTOR-012 actor copy policy owns structured snapshot values");
+  it("RN-ACTOR-012 actor copy policy owns structured snapshot values", () => {
+    const shared = { value: 1 };
+    const source = { left: shared, right: shared, values: [1, 2] };
+    const copy = Result.getOrThrow(copyStructural(source, "actor"));
+
+    shared.value = 2;
+    source.values[0] = 9;
+    assert.notStrictEqual(copy, source);
+    assert.strictEqual(copy.left, copy.right);
+    assert.strictEqual(copy.left.value, 1);
+    assert.deepStrictEqual(copy.values, [1, 2]);
+    assert.strictEqual(Object.isFrozen(source), false);
+
+    const cyclic = { next: {} };
+    cyclic.next = cyclic;
+    assert.ok(Result.isFailure(copyStructural(cyclic, "actor")));
+    const sparse = [1];
+    sparse.length = 2;
+    assert.ok(Result.isFailure(copyStructural(sparse, "actor")));
+
+    const accessor = {};
+    Object.defineProperty(accessor, "value", { enumerable: true, get: () => 1 });
+    assert.ok(Result.isFailure(copyStructural(accessor, "actor")));
+
+    type DeepNode = { next: DeepNode } | { value: number };
+
+    let deep: DeepNode = { value: 1 };
+
+    for (let index = 0; index < 20_000; index += 1) deep = { next: deep };
+
+    assert.ok(Result.isSuccess(copyStructural(deep, "actor")));
+  });
 
   // Owner: P06.
   // Source: actor-engine.test.ts:570 "makes projection mailbox overflow explicit".
