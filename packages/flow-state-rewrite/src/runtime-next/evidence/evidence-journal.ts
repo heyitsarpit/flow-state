@@ -9,6 +9,7 @@ import {
   reserveEvidenceSequence,
   type SequenceState,
 } from "./evidence-journal-sequence.js";
+import { publishEvidenceOption } from "./evidence-option.js";
 import {
   completeLifecycleEvidence,
   completeTurnEvidence,
@@ -31,16 +32,13 @@ const attachmentBrand: unique symbol = Symbol("EvidenceAttachmentToken");
 export type EvidenceAttachmentToken = { [attachmentBrand]: true };
 
 export interface EvidenceCredit {
-  // oxlint-disable-next-line anti-slop/no-readonly -- the credit publishes an immutable directory-issued identity.
   readonly fence: ActorIdentity;
   release(): void;
 }
 
-// oxlint-disable-next-line anti-slop/no-readonly -- drain and cached close publish one immutable observation.
 export type EvidenceDrain = Readonly<{
   through: EvidenceSequence | 0;
   truncatedBefore: Option.Option<EvidenceSequence>;
-  // oxlint-disable-next-line anti-slop/no-readonly -- callers cannot mutate the attached sink result collection.
   attachments: ReadonlyArray<AttachmentDrainResult>;
 }>;
 
@@ -112,10 +110,6 @@ const disposed = () =>
     summary: "Evidence admission is closed.",
     help: "Accept evidence before runtime disposal begins.",
   });
-
-const publishedOption = <Value>(value: Value | undefined) =>
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- a cached close result must not expose a writable Option wrapper.
-  Object.freeze(Option.fromNullishOr(value));
 
 type JournalOptions = {
   app: EvidenceProvenance["app"];
@@ -192,7 +186,7 @@ export const makeEvidenceJournal = (
       lifecyclePending: false,
     };
 
-    // oxlint-disable-next-line anti-slop/no-object-freeze -- an issued credit must retain its exact actor fence and release closure.
+    // oxlint-disable-next-line anti-slop/no-object-freeze -- STD-11: issued credit cannot replace its fence or release authority; P055-JOURNAL-CREDIT.
     Object.freeze(state.credit);
     credits.set(fence, state);
     issuedCredits.set(state.credit, state);
@@ -420,13 +414,13 @@ export const makeEvidenceJournal = (
           truncatedBefore = result.truncatedBefore.value;
       }
 
-      // oxlint-disable-next-line anti-slop/no-object-freeze -- this new array is the published attachment list, not the journal's mutable membership.
+      // oxlint-disable-next-line anti-slop/no-object-freeze -- STD-11: cached close attachments cannot be replaced after settlement; P055-JOURNAL-CLOSE.
       const publishedResults = Object.freeze(results);
 
-      // oxlint-disable-next-line anti-slop/no-object-freeze -- close caches this newly constructed immutable observation.
+      // oxlint-disable-next-line anti-slop/no-object-freeze -- STD-11: repeated close callers cannot rewrite terminal counts; P055-JOURNAL-CLOSE.
       return Object.freeze({
         through,
-        truncatedBefore: publishedOption(truncatedBefore),
+        truncatedBefore: publishEvidenceOption(truncatedBefore),
         attachments: publishedResults,
       } satisfies EvidenceDrain);
     });

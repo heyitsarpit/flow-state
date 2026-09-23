@@ -19,7 +19,7 @@ const deepValue = () => {
 };
 
 describe("runtime-next structural copy owner", () => {
-  it("copies 20k levels with one iterative traversal and leaves caller data mutable", () => {
+  it("P055-COPY: copies 20k levels with one iterative traversal and leaves caller data mutable", () => {
     const input = deepValue();
 
     for (const policy of ["actor", "context", "evidence"] as const) {
@@ -32,6 +32,8 @@ describe("runtime-next structural copy owner", () => {
       }
 
       assert.ok(Object.isFrozen(copied));
+      assert.strictEqual(Reflect.set(copied, "next", {}), false);
+      assert.strictEqual(Reflect.set(cursor, "kind", "branch"), false);
     }
 
     assert.ok(!Object.isFrozen(input));

@@ -126,7 +126,7 @@ describe("runtime-next context lineage owner", () => {
     assert.strictEqual(previous.size, 1);
   });
 
-  it("retains debt until an exact covering revision arrives and owns returned cuts", () => {
+  it("P055-CONTEXT-CUT: retains debt until an exact covering revision arrives and owns returned cuts", () => {
     const ancestor = identity("ancestor");
     const edge = identity("edge").key;
     const requirement = cut(ancestor, 4);
@@ -144,6 +144,9 @@ describe("runtime-next context lineage owner", () => {
 
     assert.strictEqual(previous.size, 0);
     assert.strictEqual(pending.get(edge)?.get(ancestor.key)?.revision, 4);
+    const publishedCut = pending.get(edge)?.get(ancestor.key);
+    assert.ok(publishedCut !== undefined);
+    assert.strictEqual(Reflect.set(publishedCut, "revision", 7), false);
     requirement.revision = 99;
     assert.strictEqual(pending.get(edge)?.get(ancestor.key)?.revision, 4);
 

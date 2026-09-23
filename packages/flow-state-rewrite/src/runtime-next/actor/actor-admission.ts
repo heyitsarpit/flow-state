@@ -1,4 +1,3 @@
-/* oxlint-disable anti-slop/no-readonly -- Captured ref identity crosses the directory port without transferring mutation authority. */
 import type { MachineRecordValue } from "../../machine/machine.js";
 
 /** A captured stable ref is identity data; public validation happens before directory admission. */

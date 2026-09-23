@@ -8,6 +8,7 @@ import {
   type PublicDiagnostic,
 } from "../../diagnostic/diagnostic.js";
 import type { EvidenceRecord, EvidenceSequence } from "./evidence-record.js";
+import { publishEvidenceOption } from "./evidence-option.js";
 
 export type AttachmentOfferResult = {
   sink: string;
@@ -15,7 +16,6 @@ export type AttachmentOfferResult = {
   status: "accepted" | "dropped" | "detached";
 };
 
-// oxlint-disable-next-line anti-slop/no-readonly -- sink accounting is an immutable public observation.
 export type SinkAccounting = Readonly<{
   accepted: number;
   dropped: number;
@@ -26,32 +26,23 @@ export type SinkAccounting = Readonly<{
   greatestOmittedSequence: Option.Option<EvidenceSequence>;
 }>;
 
-// oxlint-disable-next-line anti-slop/no-readonly -- failure details are copied before publication.
 export type SinkFailureDiagnostic = Readonly<{
   code: PublicDiagnostic["code"];
-  // oxlint-disable-next-line anti-slop/no-readonly -- the published path cannot alias a caller's array.
   path: ReadonlyArray<string | number>;
-  // oxlint-disable-next-line anti-slop/no-readonly -- the published details cannot alias a caller's record.
   details: Readonly<PublicDiagnostic["details"]>;
   summary: string;
   help: string;
 }>;
 
 export type SinkFailureReason =
-  // oxlint-disable-next-line anti-slop/no-readonly -- each reason is a fixed observation, not an Effect Cause reason.
   | Readonly<{ _tag: "Fail"; error: SinkFailureDiagnostic }>
-  // oxlint-disable-next-line anti-slop/no-readonly -- defect details are projected without exposing an arbitrary value.
   | Readonly<{ _tag: "Die"; defect: SinkFailureDiagnostic }>
-  // oxlint-disable-next-line anti-slop/no-readonly -- interruption identity is fixed at publication.
   | Readonly<{ _tag: "Interrupt"; fiberId: Option.Option<number> }>;
 
-// oxlint-disable-next-line anti-slop/no-readonly -- a sink publishes ordered immutable reason observations.
 export type SinkFailure = Readonly<{
-  // oxlint-disable-next-line anti-slop/no-readonly -- the reason list cannot alias Effect Cause internals.
   reasons: ReadonlyArray<SinkFailureReason>;
 }>;
 
-// oxlint-disable-next-line anti-slop/no-readonly -- a published drain result cannot expose mutable sink observations.
 export type AttachmentDrainResult = Readonly<{
   sink: string;
   through: EvidenceSequence;
@@ -112,20 +103,13 @@ const diagnosticFromCause = (cause: Cause.Cause<PublicDiagnostic>) => {
   return Interrupt();
 };
 
-const publishedOption = <Value>(value: Value | undefined) => {
-  const option = Option.fromNullishOr(value);
-
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- a drain result must not publish a writable Option wrapper into cached close state.
-  return Object.freeze(option);
-};
-
 const snapshotDiagnostic = (diagnostic: SinkFailureDiagnostic) => {
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- this path copy is owned by the published failure observation.
+  // oxlint-disable-next-line anti-slop/no-object-freeze -- STD-11: copied diagnostic path cannot change after failure publication; P055-SINK-FAILURE.
   const path = Object.freeze([...diagnostic.path]);
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- this details copy cannot mutate the caller's diagnostic.
+  // oxlint-disable-next-line anti-slop/no-object-freeze -- STD-11: copied diagnostic details cannot change after failure publication; P055-JOURNAL-RETAINED.
   const details = Object.freeze({ ...diagnostic.details });
 
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- canonical diagnostic fields are a fixed sink observation.
+  // oxlint-disable-next-line anti-slop/no-object-freeze -- STD-11: copied diagnostic fields cannot change after failure publication; P055-SINK-FAILURE.
   return Object.freeze({
     code: diagnostic.code,
     path,
@@ -138,7 +122,7 @@ const snapshotDiagnostic = (diagnostic: SinkFailureDiagnostic) => {
 const snapshotFailure = (source: SinkFailure) => {
   const reasons = source.reasons.map((reason) => {
     if (reason._tag === "Fail") {
-      // oxlint-disable-next-line anti-slop/no-object-freeze -- this new reason does not alias the source reason.
+      // oxlint-disable-next-line anti-slop/no-object-freeze -- STD-11: published Fail reason cannot replace its diagnostic; P055-SINK-FAILURE.
       return Object.freeze({
         _tag: "Fail",
         error: snapshotDiagnostic(reason.error),
@@ -146,22 +130,25 @@ const snapshotFailure = (source: SinkFailure) => {
     }
 
     if (reason._tag === "Die") {
-      // oxlint-disable-next-line anti-slop/no-object-freeze -- the defect projection is owned by this result.
+      // oxlint-disable-next-line anti-slop/no-object-freeze -- STD-11: published Die reason cannot replace its diagnostic; P055-SINK-FAILURE.
       return Object.freeze({
         _tag: "Die",
         defect: snapshotDiagnostic(reason.defect),
       } satisfies SinkFailureReason);
     }
 
-    // oxlint-disable-next-line anti-slop/no-object-freeze -- interruption identity is copied as a primitive.
+    // oxlint-disable-next-line anti-slop/no-object-freeze -- STD-11: published Interrupt reason cannot replace its fiber identity; P055-SINK-FAILURE.
     return Object.freeze({
       _tag: "Interrupt",
-      fiberId: publishedOption(Option.getOrUndefined(reason.fiberId)),
+      fiberId: publishEvidenceOption(Option.getOrUndefined(reason.fiberId)),
     } satisfies SinkFailureReason);
   });
 
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- no source reason collection reaches the published result.
-  return Object.freeze({ reasons: Object.freeze(reasons) } satisfies SinkFailure);
+  // oxlint-disable-next-line anti-slop/no-object-freeze -- STD-11: published reason order cannot change; P055-SINK-FAILURE.
+  const publishedReasons = Object.freeze(reasons);
+
+  // oxlint-disable-next-line anti-slop/no-object-freeze -- STD-11: published failure cannot replace its reason list; P055-SINK-FAILURE.
+  return Object.freeze({ reasons: publishedReasons } satisfies SinkFailure);
 };
 
 const observeCause = (cause: Cause.Cause<PublicDiagnostic>) => {
@@ -194,7 +181,7 @@ const observeCause = (cause: Cause.Cause<PublicDiagnostic>) => {
 export const snapshotAttachmentDrainResult = (
   source: AttachmentDrainResult,
 ): AttachmentDrainResult => {
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- copied counters do not alias a sink's retained result.
+  // oxlint-disable-next-line anti-slop/no-object-freeze -- STD-11: copied sink accounting cannot change after drain; P055-SINK-DRAIN.
   const accounting = Object.freeze({
     accepted: source.accounting.accepted,
     dropped: source.accounting.dropped,
@@ -202,19 +189,19 @@ export const snapshotAttachmentDrainResult = (
     truncated: source.accounting.truncated,
     failed: source.accounting.failed,
     detached: source.accounting.detached,
-    greatestOmittedSequence: publishedOption(
+    greatestOmittedSequence: publishEvidenceOption(
       Option.getOrUndefined(source.accounting.greatestOmittedSequence),
     ),
   });
 
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- the journal receives an owned immutable result graph.
+  // oxlint-disable-next-line anti-slop/no-object-freeze -- STD-11: copied sink result cannot change after drain or close; P055-JOURNAL-RETAINED.
   return Object.freeze({
     sink: source.sink,
     through: source.through,
     status: source.status,
-    truncatedBefore: publishedOption(Option.getOrUndefined(source.truncatedBefore)),
+    truncatedBefore: publishEvidenceOption(Option.getOrUndefined(source.truncatedBefore)),
     accounting,
-    failureCause: publishedOption(
+    failureCause: publishEvidenceOption(
       Option.isSome(source.failureCause) ? snapshotFailure(source.failureCause.value) : undefined,
     ),
   } satisfies AttachmentDrainResult);

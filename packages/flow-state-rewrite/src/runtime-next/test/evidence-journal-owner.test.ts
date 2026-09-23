@@ -61,7 +61,7 @@ const acceptedJournal = (sink: EvidenceSink) =>
   });
 
 describe("runtime-next evidence journal owner", () => {
-  it.effect("publishes a fixed close result across repeated callers", () =>
+  it.effect("P055-JOURNAL-CLOSE: publishes a fixed close result across repeated callers", () =>
     Effect.gen(function* () {
       const sink = yield* makeEvidenceSink({ id: "fixed-close", capacity: 1 });
       const { journal, ownerScope } = yield* acceptedJournal(sink);
@@ -77,6 +77,10 @@ describe("runtime-next evidence journal owner", () => {
       assert.ok(Object.isFrozen(attachment));
       assert.ok(Object.isFrozen(attachment.accounting));
       assert.ok(Object.isFrozen(first.truncatedBefore));
+      const sharedNone = Option.none();
+      assert.ok(Option.isNone(first.truncatedBefore));
+      assert.strictEqual(Object.is(first.truncatedBefore, sharedNone), false);
+      assert.strictEqual(Object.isFrozen(sharedNone), false);
       assert.ok(Object.isFrozen(attachment.truncatedBefore));
       assert.ok(Object.isFrozen(attachment.accounting.greatestOmittedSequence));
       assert.ok(Object.isFrozen(attachment.failureCause));
@@ -97,7 +101,7 @@ describe("runtime-next evidence journal owner", () => {
     }),
   );
 
-  it.effect("detaches a retained sink result before caching close", () =>
+  it.effect("P055-JOURNAL-RETAINED: detaches a retained sink result before caching close", () =>
     Effect.gen(function* () {
       const through = Result.getOrThrow(evidenceSequence(1));
 
@@ -150,8 +154,11 @@ describe("runtime-next evidence journal owner", () => {
 
       const { journal, ownerScope } = yield* acceptedJournal(sink);
       const first = yield* journal.close();
+      const firstAttachment = first.attachments[0];
 
       assert.strictEqual(Reflect.set(retained, "status", "drained"), true);
+      assert.ok(firstAttachment !== undefined);
+      assert.strictEqual(Reflect.set(firstAttachment, "status", "drained"), false);
       assert.strictEqual(Reflect.set(retained.accounting, "failed", 99), true);
       assert.strictEqual(Reflect.set(retained.truncatedBefore, "value", 99), true);
       assert.ok(Option.isSome(retained.failureCause));
@@ -217,65 +224,82 @@ describe("runtime-next evidence journal owner", () => {
     }),
   );
 
-  it.effect("stale and foreign credit release cannot retire a recycled identity", () =>
-    Effect.gen(function* () {
-      const ownerScope = yield* Scope.make();
-      const app = {};
-      const plan = {};
-      const first = Result.getOrThrow(makeEvidenceJournal({ app, plan, ownerScope, capacity: 1 }));
-      const second = Result.getOrThrow(makeEvidenceJournal({ app, plan, ownerScope, capacity: 1 }));
-      const directory = makeActorDirectory<string>({ machines: [Machine] });
-      const ref = { machine: Machine, id: "same-label", persist: false as const };
-      const original = Result.getOrThrow(directory.reserve({ kind: "stable", ref }));
-      assert.ok(original._tag === "create");
-      const stale = Result.getOrThrow(first.registerActor(original.reservation.identity));
-      assert.ok(Result.isFailure(first.registerActor(original.reservation.identity)));
+  it.effect(
+    "P055-JOURNAL-CREDIT: stale and foreign credit release cannot retire a recycled identity",
+    () =>
+      Effect.gen(function* () {
+        const ownerScope = yield* Scope.make();
+        const app = {};
+        const plan = {};
 
-      stale.release();
-      yield* directory.rollback(
-        original.reservation,
-        Failure({
-          code: "InvalidTraceRecord",
-          path: ["actor", "rollback"],
-          details: {},
-          summary: "Discard the first reservation.",
-          help: "Retry with the same actor ref.",
-        }),
-      );
+        const first = Result.getOrThrow(
+          makeEvidenceJournal({ app, plan, ownerScope, capacity: 1 }),
+        );
 
-      const replacement = Result.getOrThrow(directory.reserve({ kind: "stable", ref }));
-      assert.ok(replacement._tag === "create");
-      const fence = replacement.reservation.identity;
-      assert.strictEqual(fence.key, original.reservation.identity.key);
-      assert.notStrictEqual(fence.incarnation, original.reservation.identity.incarnation);
-      const current = Result.getOrThrow(first.registerActor(fence));
-      assert.ok(Result.isFailure(first.registerActor(fence)));
-      assert.strictEqual(Reflect.set(current, "fence", original.reservation.identity), false);
-      const foreign = Result.getOrThrow(second.registerActor(fence));
+        const second = Result.getOrThrow(
+          makeEvidenceJournal({ app, plan, ownerScope, capacity: 1 }),
+        );
 
-      const draft = {
-        _tag: "turn" as const,
-        fence,
-        provenance: { app, plan, actor: fence },
-        timestamp: 1,
-        publicationRevision: 1,
-        machineTurnRevision: 1,
-        cause: { _tag: "event" },
-        before: { value: 0 },
-        after: { value: 1 },
-      };
+        const directory = makeActorDirectory<string>({ machines: [Machine] });
+        const ref = { machine: Machine, id: "same-label", persist: false as const };
+        const original = Result.getOrThrow(directory.reserve({ kind: "stable", ref }));
+        assert.ok(original._tag === "create");
+        const stale = Result.getOrThrow(first.registerActor(original.reservation.identity));
+        assert.ok(Result.isFailure(first.registerActor(original.reservation.identity)));
 
-      assert.ok(Result.isFailure(first.prepareTurn(stale, draft)));
-      assert.ok(Result.isFailure(first.prepareTurn(foreign, draft)));
-      stale.release();
-      foreign.release();
-      assert.strictEqual(first.sequence(), 0);
-      const accepted = Result.getOrThrow(first.prepareTurn(current, draft)).accept({ revision: 1 });
-      assert.strictEqual(accepted.sequence, 1);
-      current.release();
-      assert.strictEqual((yield* first.close()).through, 1);
-      assert.strictEqual((yield* second.close()).through, 0);
-      yield* Scope.close(ownerScope, Exit.void);
-    }),
+        stale.release();
+        yield* directory.rollback(
+          original.reservation,
+          Failure({
+            code: "InvalidTraceRecord",
+            path: ["actor", "rollback"],
+            details: {},
+            summary: "Discard the first reservation.",
+            help: "Retry with the same actor ref.",
+          }),
+        );
+
+        const replacement = Result.getOrThrow(directory.reserve({ kind: "stable", ref }));
+        assert.ok(replacement._tag === "create");
+        const fence = replacement.reservation.identity;
+        assert.strictEqual(fence.key, original.reservation.identity.key);
+        assert.notStrictEqual(fence.incarnation, original.reservation.identity.incarnation);
+        const current = Result.getOrThrow(first.registerActor(fence));
+        assert.ok(Result.isFailure(first.registerActor(fence)));
+        assert.strictEqual(Reflect.set(current, "fence", original.reservation.identity), false);
+        assert.strictEqual(
+          Reflect.set(current, "release", () => undefined),
+          false,
+        );
+        const foreign = Result.getOrThrow(second.registerActor(fence));
+
+        const draft = {
+          _tag: "turn" as const,
+          fence,
+          provenance: { app, plan, actor: fence },
+          timestamp: 1,
+          publicationRevision: 1,
+          machineTurnRevision: 1,
+          cause: { _tag: "event" },
+          before: { value: 0 },
+          after: { value: 1 },
+        };
+
+        assert.ok(Result.isFailure(first.prepareTurn(stale, draft)));
+        assert.ok(Result.isFailure(first.prepareTurn(foreign, draft)));
+        stale.release();
+        foreign.release();
+        assert.strictEqual(first.sequence(), 0);
+
+        const accepted = Result.getOrThrow(first.prepareTurn(current, draft)).accept({
+          revision: 1,
+        });
+
+        assert.strictEqual(accepted.sequence, 1);
+        current.release();
+        assert.strictEqual((yield* first.close()).through, 1);
+        assert.strictEqual((yield* second.close()).through, 0);
+        yield* Scope.close(ownerScope, Exit.void);
+      }),
   );
 });

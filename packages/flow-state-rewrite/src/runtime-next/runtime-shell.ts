@@ -1,5 +1,4 @@
-/* oxlint-disable anti-slop/no-readonly -- Immutable phase values and registration lists are replaced atomically as the shell contract requires. */
-import { Cause, Deferred, Effect, Exit, Fiber, Option, Scope, SynchronizedRef } from "effect";
+import { Cause, Data, Deferred, Effect, Exit, Fiber, Option, Scope, SynchronizedRef } from "effect";
 
 import { Failure, type PublicDiagnostic } from "../diagnostic/diagnostic.js";
 
@@ -50,27 +49,31 @@ type ShellState<Ready, ReadyError, CloseError> =
         closeExit: Exit.Exit<void, ReadyError | CloseError | PublicDiagnostic>;
       }>);
 
-type ReadyAction<Ready, ReadyError, CloseError> =
-  | Readonly<{ _tag: "leader"; starting: Starting<Ready, ReadyError, CloseError> }>
-  | Readonly<{
-      _tag: "wait";
-      completion: Deferred.Deferred<Exit.Exit<Ready, ReadyError | PublicDiagnostic>>;
-    }>
-  | Readonly<{ _tag: "exit"; exit: Exit.Exit<Ready, ReadyError | PublicDiagnostic> }>;
+type ReadyAction<Ready, ReadyError, CloseError> = Data.TaggedEnum<{
+  leader: { starting: Starting<Ready, ReadyError, CloseError> };
+  wait: { completion: Deferred.Deferred<Exit.Exit<Ready, ReadyError | PublicDiagnostic>> };
+  exit: { exit: Exit.Exit<Ready, ReadyError | PublicDiagnostic> };
+}>;
 
-type CloseAction<Ready, ReadyError, CloseError> =
-  | Readonly<{
-      _tag: "leader";
-      closing: Closing<Ready, ReadyError, CloseError>;
-    }>
-  | Readonly<{
-      _tag: "wait";
-      completion: Deferred.Deferred<Exit.Exit<void, ReadyError | CloseError | PublicDiagnostic>>;
-    }>
-  | Readonly<{
-      _tag: "exit";
-      exit: Exit.Exit<void, ReadyError | CloseError | PublicDiagnostic>;
-    }>;
+interface ReadyActionDef extends Data.TaggedEnum.WithGenerics<3> {
+  readonly taggedEnum: ReadyAction<this["A"], this["B"], this["C"]>;
+}
+
+const readyAction = Data.taggedEnum<ReadyActionDef>();
+
+type CloseAction<Ready, ReadyError, CloseError> = Data.TaggedEnum<{
+  leader: { closing: Closing<Ready, ReadyError, CloseError> };
+  wait: {
+    completion: Deferred.Deferred<Exit.Exit<void, ReadyError | CloseError | PublicDiagnostic>>;
+  };
+  exit: { exit: Exit.Exit<void, ReadyError | CloseError | PublicDiagnostic> };
+}>;
+
+interface CloseActionDef extends Data.TaggedEnum.WithGenerics<3> {
+  readonly taggedEnum: CloseAction<this["A"], this["B"], this["C"]>;
+}
+
+const closeAction = Data.taggedEnum<CloseActionDef>();
 
 export type RuntimeRegistration = Readonly<{
   accepted: boolean;
@@ -190,13 +193,13 @@ export const makeFlowRuntimeShell = <Ready, ReadyError, CloseError>(
             fiber,
           };
 
-          return [{ _tag: "leader", starting } as const, starting] as const;
+          return [readyAction.leader({ starting }), starting] as const;
         }
 
         if (current._tag === "starting")
-          return [{ _tag: "wait", completion: current.completion } as const, current] as const;
+          return [readyAction.wait({ completion: current.completion }), current] as const;
 
-        return [{ _tag: "exit", exit: current.readyExit } as const, current] as const;
+        return [readyAction.exit({ exit: current.readyExit }), current] as const;
       },
     );
 
@@ -383,10 +386,10 @@ export const makeFlowRuntimeShell = <Ready, ReadyError, CloseError>(
             ShellState<Ready, ReadyError, CloseError>,
           ] => {
             if (current._tag === "closed")
-              return [{ _tag: "exit", exit: current.closeExit } as const, current] as const;
+              return [closeAction.exit({ exit: current.closeExit }), current] as const;
 
             if (current._tag === "closing")
-              return [{ _tag: "wait", completion: current.completion } as const, current] as const;
+              return [closeAction.wait({ completion: current.completion }), current] as const;
 
             const readyExit =
               current._tag === "cold" || current._tag === "starting"
@@ -405,7 +408,7 @@ export const makeFlowRuntimeShell = <Ready, ReadyError, CloseError>(
               includeReadyFailure: current._tag === "failed",
             };
 
-            return [{ _tag: "leader", closing } as const, closing] as const;
+            return [closeAction.leader({ closing }), closing] as const;
           },
         );
 

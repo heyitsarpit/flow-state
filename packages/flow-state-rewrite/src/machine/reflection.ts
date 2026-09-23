@@ -68,7 +68,9 @@ type RecordClassification<Value> =
     }
   | { _tag: "other" };
 
-export type ConfigurationSnapshot<Value> = { properties: SnapshotProperty<Value>[] };
+export type ConfigurationSnapshot<Value> = {
+  readonly properties: readonly SnapshotProperty<Value>[];
+};
 
 // RETURN_TYPE: Preserves the PlainRecord predicate required before classified record access; removal caused TS2322 and TS2345.
 const isNonArrayObject = <Value>(value: Value): value is Value & PlainRecord<Value> =>
@@ -266,7 +268,7 @@ const arrayLength = <Value>(property: DataProperty<Value>) => {
 };
 
 const validateArrayKeys = <Value>(
-  properties: SnapshotProperty<Value>[],
+  properties: readonly SnapshotProperty<Value>[],
   length: number,
   path: Diagnostic.Path,
   reason: "ExpectedTransition" | "ExpectedRedirect",

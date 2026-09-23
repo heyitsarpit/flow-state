@@ -269,7 +269,7 @@ const copyStructuralUnchecked = <Value>(
   }
 
   // The clones alone are frozen; caller originals and opaque identities are untouched.
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- STD-11 requires immutable owned publication.
+  // oxlint-disable-next-line anti-slop/no-object-freeze -- STD-11: published graph clones cannot mutate while caller originals stay writable; P055-COPY.
   for (const item of state.owned) Object.freeze(item);
 
   // SAFETY: Every structured branch has the same keys and values after ownership copying.

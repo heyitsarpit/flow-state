@@ -12,7 +12,7 @@ import type { ActorSnapshot } from "../runtime.js";
 import { identity, Provider } from "./context-fixture.js";
 
 describe("runtime-next context debt owner", () => {
-  it("shares exact changed cuts without aliasing callers or sibling edge debt", () => {
+  it("P055-CONTEXT-VIEW: shares exact changed cuts without aliasing callers or sibling edge debt", () => {
     const root = identity("shared-debt-root");
     const left = identity("shared-debt-left");
     const right = identity("shared-debt-right");

@@ -4,6 +4,7 @@ import { Result } from "effect";
 import { definition } from "../../definition/definition.js";
 import { machine } from "../../machine/machine.js";
 import { makeActorDirectory } from "../actor/actor-directory.js";
+import { publishEvidenceAcceptance } from "../evidence/evidence-acceptance.js";
 import {
   completeLifecycleEvidence,
   completeTurnEvidence,
@@ -35,7 +36,7 @@ const identity = () => {
 };
 
 describe("runtime-next evidence record owner", () => {
-  it("prepares owned cyclic turn fields before binding the typed store and sequence", () => {
+  it("P055-RECORD-TURN: prepares owned cyclic turn fields before binding the typed store and sequence", () => {
     const actor = identity();
     const app = { opaque: "app" };
     const plan = { opaque: "plan" };
@@ -58,6 +59,7 @@ describe("runtime-next evidence record owner", () => {
     };
 
     const prepared = Result.getOrThrow(prepareTurnEvidence(draft));
+    assert.strictEqual(Reflect.set(prepared, "draft", draft), false);
 
     shared.value = 9;
     before.self = { changed: true };
@@ -80,6 +82,28 @@ describe("runtime-next evidence record owner", () => {
     assert.strictEqual(Reflect.set(record, "store", { revision: 99 }), false);
     assert.ok(!Object.isFrozen(shared));
     assert.strictEqual(Reflect.set(record.before.shared, "value", 6), false);
+
+    const sinkOffer = {
+      sink: "owned-by-sink",
+      sequence: record.sequence,
+      status: "accepted" as const,
+    };
+
+    const offers = [sinkOffer];
+    const acceptance = publishEvidenceAcceptance(record, record.sequence, offers);
+    const publishedOffer = acceptance.attachments[0];
+
+    assert.ok(publishedOffer !== undefined);
+    assert.strictEqual(Object.isFrozen(sinkOffer), false);
+    assert.notStrictEqual(publishedOffer, sinkOffer);
+    assert.strictEqual(Object.isFrozen(offers), false);
+    offers.push(sinkOffer);
+    assert.strictEqual(acceptance.attachments.length, 1);
+    assert.strictEqual(Reflect.set(acceptance.attachments, 0, {}), false);
+    assert.strictEqual(Reflect.set(acceptance, "sequence", 99), false);
+    assert.strictEqual(Reflect.set(sinkOffer, "status", "dropped"), true);
+    assert.strictEqual(publishedOffer.status, "accepted");
+    assert.strictEqual(Reflect.set(publishedOffer, "status", "dropped"), false);
   });
 
   it("preflights invalid fields without reading accessors", () => {
@@ -118,7 +142,7 @@ describe("runtime-next evidence record owner", () => {
     assert.ok(Result.isFailure(evidenceSequence(0)));
   });
 
-  it("prepares lifecycle terminal disposition before total completion", () => {
+  it("P055-RECORD-LIFECYCLE: prepares lifecycle terminal disposition before total completion", () => {
     const actor = identity();
     const cause = { failure: { reason: "cleanup" } };
 
@@ -139,6 +163,7 @@ describe("runtime-next evidence record owner", () => {
     };
 
     const prepared = Result.getOrThrow(prepareLifecycleEvidence(draft));
+    assert.strictEqual(Reflect.set(prepared, "draft", draft), false);
 
     cause.failure.reason = "changed";
     draft.terminal = false;

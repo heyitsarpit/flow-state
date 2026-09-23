@@ -12,7 +12,6 @@ import type { Implementation } from "../implementation/implementation.js";
 import { implementationLayer } from "../implementation/implementation.js";
 import { makeRuntimeAssembly } from "./runtime-assembly.js";
 
-/* oxlint-disable anti-slop/no-readonly -- These are the immutable facade and snapshot types fixed by the runtime contract; the compile fixture checks their ownership and input boundaries. */
 /** Safe diagnostic fields at the internal facade boundary. */
 export type Diagnostic = PublicDiagnostic;
 
@@ -110,7 +109,6 @@ type CapturedRuntimeSetup<A extends App, ImplementationError> = RuntimeSetup<
   A,
   ImplementationError
 >;
-/* oxlint-enable anti-slop/no-readonly */
 
 /** Captures App identity without acquiring a Runtime or reading App fields. */
 // RETURN_TYPE: Keeps the admitted App readonly on the actual setup result before assembly adds construct().
@@ -126,12 +124,11 @@ export const runtimeSetup = <A extends App, Output = never, ImplementationError 
   const layer =
     "implementation" in options ? implementationLayer(options.implementation) : undefined;
 
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- The setup retains the admitted App identity and exposes no mutable owner state.
-  return Object.freeze({
+  return {
     app,
     construct: () =>
       layer === undefined
         ? makeRuntimeAssembly({ app, layer: Layer.empty }).runtime
         : makeRuntimeAssembly({ app, layer }).runtime,
-  });
+  };
 };

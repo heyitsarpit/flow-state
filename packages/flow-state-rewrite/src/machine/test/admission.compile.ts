@@ -9,7 +9,7 @@ import {
 import type { CompoundStateConfiguration, LeafStateConfiguration } from "../admission.js";
 import type { CompiledTransition, MachineSnapshot, Redirect, StateNode } from "../grammar.js";
 import { machine } from "../machine.js";
-import { snapshotRecord } from "../reflection.js";
+import { snapshotRecord, type ConfigurationSnapshot } from "../reflection.js";
 
 /*
  * Proof organization:
@@ -204,6 +204,28 @@ export type _OpenedSnapshot = Expect<Types.Equals<OpenedSnapshot, MachineSnapsho
 export type _OpenedHandler = Expect<
   Types.Equals<OpenedHandler, CompiledTransition<typeof Editor, "opened">[]>
 >;
+
+const assertReadonlySnapshotTypes = (
+  machineSnapshot: MachineSnapshot<typeof Editor>,
+  replacementSnapshot: MachineSnapshot<typeof Editor>,
+  configurationSnapshot: ConfigurationSnapshot<string>,
+) => {
+  // @ts-expect-error Published machine state cannot be reassigned by a callback.
+  machineSnapshot.state = replacementSnapshot.state;
+  // @ts-expect-error Published machine memory cannot be reassigned by a callback.
+  machineSnapshot.memory = replacementSnapshot.memory;
+  // @ts-expect-error Published machine context cannot be reassigned by a callback.
+  machineSnapshot.context = replacementSnapshot.context;
+  // @ts-expect-error Captured configuration properties cannot be replaced.
+  configurationSnapshot.properties = [];
+  // @ts-expect-error Captured configuration properties cannot be appended to.
+  configurationSnapshot.properties.push([
+    "extra",
+    { kind: "data", value: "value", writable: true, enumerable: true, configurable: true },
+  ]);
+};
+
+void assertReadonlySnapshotTypes;
 
 const reflectionResult = snapshotRecord({ child: "value" }, [], "ExpectedStateConfiguration");
 

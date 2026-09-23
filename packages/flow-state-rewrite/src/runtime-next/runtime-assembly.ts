@@ -23,15 +23,14 @@ export const makeRuntimeAssembly = <A extends App, Output, ImplementationError>(
   // The actor methods remain a stateless seam until the actor owners are connected in P07.
   const actorUnavailable = () => Effect.die(new Error("Actor assembly is not installed"));
 
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- The facade must not be mutated after construction; the shell remains the sole lifecycle owner.
-  const runtime: Runtime<A, ImplementationError> = Object.freeze({
+  const runtime: Runtime<A, ImplementationError> = {
     app: options.app,
     ready: () => shell.ready.pipe(Effect.asVoid),
     createActor: actorUnavailable,
     ensureActor: actorUnavailable,
     getActor: actorUnavailable,
     dispose: () => shell.close(),
-  });
+  };
 
   return { runtime, readyContext: shell.ready };
 };

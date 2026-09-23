@@ -26,7 +26,7 @@ const failedAdmission = Failure({
 
 describe("runtime-next ActorDirectory owner", () => {
   it.effect(
-    "models stable legal and illegal transitions without exposing an incomplete actor",
+    "P055-ACTOR-STABLE: models stable legal and illegal transitions without exposing an incomplete actor",
     () =>
       Effect.gen(function* () {
         const directory = makeActorDirectory<string>({ machines: [Machine] });
@@ -39,6 +39,7 @@ describe("runtime-next ActorDirectory owner", () => {
 
         assert.ok(Object.isFrozen(reservation));
         assert.ok(Object.isFrozen(reservation.identity));
+        assert.strictEqual(Reflect.set(reservation, "identity", {}), false);
         assert.strictEqual(Reflect.set(reservation.identity, "incarnation", -1), false);
         assert.ok(Option.isNone(Result.getOrThrow(directory.find(ref))));
         assert.ok(Result.isFailure(directory.retire(reservation.identity, 1)));
@@ -53,6 +54,7 @@ describe("runtime-next ActorDirectory owner", () => {
         assert.ok(Option.isNone(Result.getOrThrow(directory.find(ref))));
         const active = yield* directory.activate(reservation);
         assert.strictEqual(active.actor, "actor");
+        assert.strictEqual(Reflect.set(active, "actor", "replacement"), false);
         yield* directory.rollback(reservation, failedAdmission);
         const found = Result.getOrThrow(directory.find(ref));
         assert.ok(Option.isSome(found));
@@ -62,6 +64,29 @@ describe("runtime-next ActorDirectory owner", () => {
         assert.ok(Result.isSuccess(directory.retire(active.identity, 2)));
         assert.ok(Result.isFailure(directory.retire(active.identity, 3)));
         assert.ok(Result.isFailure(directory.find(ref)));
+      }),
+  );
+
+  it.effect(
+    "P055-ACTOR-LOCAL: keeps issued local refs and registrations fixed after activation",
+    () =>
+      Effect.gen(function* () {
+        const directory = makeActorDirectory<string>({ machines: [Machine] });
+        const position = Result.getOrThrow(directory.reserve({ kind: "local", machine: Machine }));
+        assert.strictEqual(position._tag, "create");
+
+        if (position._tag !== "create") return;
+        const { reservation } = position;
+        assert.strictEqual(reservation.identity.kind, "local");
+
+        if (reservation.identity.kind !== "local") return;
+        assert.strictEqual(Reflect.set(reservation.identity.ref, "id", "forged"), false);
+        assert.strictEqual(Reflect.set(reservation.identity, "incarnation", -1), false);
+        assert.strictEqual(Reflect.set(reservation, "identity", {}), false);
+        assert.ok(Result.isSuccess(directory.install(reservation, "local-actor")));
+        const registration = yield* directory.activate(reservation);
+        assert.strictEqual(Reflect.set(registration, "actor", "replacement"), false);
+        assert.strictEqual(registration.actor, "local-actor");
       }),
   );
 

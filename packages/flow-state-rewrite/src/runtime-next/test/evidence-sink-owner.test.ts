@@ -62,40 +62,47 @@ const offer = (sink: EvidenceSink, value: number) =>
   Result.getOrThrow(sink.prepareOffer()).accept(record(value));
 
 describe("runtime-next EvidenceSink owner", () => {
-  it.effect("reserves a finite bound and accounts independently for dropped records", () =>
-    Effect.gen(function* () {
-      const sink = yield* makeEvidenceSink({ id: "bounded", capacity: 1 });
-      const first = Result.getOrThrow(sink.prepareOffer());
-      const second = Result.getOrThrow(sink.prepareOffer());
+  it.effect(
+    "P055-SINK-DRAIN: reserves a finite bound and accounts independently for dropped records",
+    () =>
+      Effect.gen(function* () {
+        const sink = yield* makeEvidenceSink({ id: "bounded", capacity: 1 });
+        const first = Result.getOrThrow(sink.prepareOffer());
+        const second = Result.getOrThrow(sink.prepareOffer());
 
-      assert.strictEqual(first.accept(record(1)).status, "accepted");
-      assert.strictEqual(second.accept(record(2)).status, "dropped");
-      const drained = yield* sink.drain(sequence(2));
-      assert.strictEqual(drained.status, "truncated");
-      assert.deepStrictEqual(drained.accounting, {
-        accepted: 1,
-        dropped: 1,
-        delivered: 1,
-        truncated: 1,
-        failed: 0,
-        detached: 0,
-        greatestOmittedSequence: Option.some(sequence(2)),
-      });
-      assert.ok(Object.isFrozen(drained));
-      assert.ok(Object.isFrozen(drained.accounting));
-      assert.ok(Object.isFrozen(drained.truncatedBefore));
-      assert.ok(Object.isFrozen(drained.accounting.greatestOmittedSequence));
-      assert.strictEqual(Reflect.set(drained, "status", "failed"), false);
-      assert.strictEqual(Reflect.set(drained.accounting, "delivered", 100), false);
-      assert.strictEqual(Reflect.set(drained.truncatedBefore, "value", 100), false);
-      const repeated = yield* sink.drain(sequence(2));
-      assert.strictEqual(repeated.status, "truncated");
-      assert.strictEqual(repeated.accounting.delivered, 1);
+        assert.strictEqual(first.accept(record(1)).status, "accepted");
+        assert.strictEqual(second.accept(record(2)).status, "dropped");
+        const drained = yield* sink.drain(sequence(2));
+        assert.strictEqual(drained.status, "truncated");
+        assert.deepStrictEqual(drained.accounting, {
+          accepted: 1,
+          dropped: 1,
+          delivered: 1,
+          truncated: 1,
+          failed: 0,
+          detached: 0,
+          greatestOmittedSequence: Option.some(sequence(2)),
+        });
+        assert.ok(Object.isFrozen(drained));
+        assert.ok(Object.isFrozen(drained.accounting));
+        assert.ok(Object.isFrozen(drained.truncatedBefore));
+        const sharedNone = Option.none();
+        assert.ok(Option.isNone(drained.failureCause));
+        assert.strictEqual(Object.is(drained.failureCause, sharedNone), false);
+        assert.strictEqual(Object.isFrozen(sharedNone), false);
+        assert.ok(Object.isFrozen(drained.failureCause));
+        assert.ok(Object.isFrozen(drained.accounting.greatestOmittedSequence));
+        assert.strictEqual(Reflect.set(drained, "status", "failed"), false);
+        assert.strictEqual(Reflect.set(drained.accounting, "delivered", 100), false);
+        assert.strictEqual(Reflect.set(drained.truncatedBefore, "value", 100), false);
+        const repeated = yield* sink.drain(sequence(2));
+        assert.strictEqual(repeated.status, "truncated");
+        assert.strictEqual(repeated.accounting.delivered, 1);
 
-      const zero = yield* makeEvidenceSink({ id: "zero", capacity: 0 });
-      assert.strictEqual(offer(zero, 3).status, "dropped");
-      assert.strictEqual((yield* zero.drain(sequence(3))).accounting.truncated, 1);
-    }),
+        const zero = yield* makeEvidenceSink({ id: "zero", capacity: 0 });
+        assert.strictEqual(offer(zero, 3).status, "dropped");
+        assert.strictEqual((yield* zero.drain(sequence(3))).accounting.truncated, 1);
+      }),
   );
 
   it.effect("releases cancelled reservations and binds a sink once", () =>
@@ -220,47 +227,56 @@ describe("runtime-next EvidenceSink owner", () => {
     }),
   );
 
-  it.effect("publishes ordered failure classes without exposing a defect object", () =>
-    Effect.gen(function* () {
-      const defect = { mutable: "original" };
+  it.effect(
+    "P055-SINK-FAILURE: publishes ordered failure classes without exposing a defect object",
+    () =>
+      Effect.gen(function* () {
+        const defect = { mutable: "original" };
 
-      const typed = Failure({
-        code: "InvalidTraceRecord",
-        path: ["evidence", "sink"],
-        details: {},
-        summary: "Typed delivery failure",
-        help: "Inspect delivery.",
-      });
+        const typed = Failure({
+          code: "InvalidTraceRecord",
+          path: ["evidence", "sink"],
+          details: {},
+          summary: "Typed delivery failure",
+          help: "Inspect delivery.",
+        });
 
-      const cause = Cause.combine(
-        Cause.fail(typed),
-        Cause.combine(Cause.die(defect), Cause.interrupt(7)),
-      );
+        const cause = Cause.combine(
+          Cause.fail(typed),
+          Cause.combine(Cause.die(defect), Cause.interrupt(7)),
+        );
 
-      const sink = yield* makeEvidenceSink({
-        id: "failure-classes",
-        capacity: 1,
-        deliver: () => Effect.failCause(cause),
-      });
+        const sink = yield* makeEvidenceSink({
+          id: "failure-classes",
+          capacity: 1,
+          deliver: () => Effect.failCause(cause),
+        });
 
-      assert.strictEqual(offer(sink, 1).status, "accepted");
-      const drained = yield* sink.drain(sequence(1));
-      assert.strictEqual(drained.status, "failed");
-      assert.ok(Option.isSome(drained.failureCause));
-      assert.deepStrictEqual(
-        drained.failureCause.value.reasons.map((reason) => reason._tag),
-        ["Fail", "Die", "Interrupt"],
-      );
-      const [failure, died, interrupted] = drained.failureCause.value.reasons;
-      assert.ok(failure?._tag === "Fail");
-      assert.ok(died?._tag === "Die");
-      assert.ok(interrupted?._tag === "Interrupt");
-      assert.strictEqual(failure.error.code, typed.code);
-      assert.strictEqual(died.defect.code, "Defect");
-      assert.deepStrictEqual(interrupted.fiberId, Option.some(7));
-      assert.strictEqual(Object.isFrozen(defect), false);
-      assert.strictEqual(Reflect.set(defect, "mutable", "changed"), true);
-      assert.strictEqual(drained.failureCause.value.reasons[1]?._tag, "Die");
-    }),
+        assert.strictEqual(offer(sink, 1).status, "accepted");
+        const drained = yield* sink.drain(sequence(1));
+        assert.strictEqual(drained.status, "failed");
+        assert.ok(Option.isSome(drained.failureCause));
+        assert.deepStrictEqual(
+          drained.failureCause.value.reasons.map((reason) => reason._tag),
+          ["Fail", "Die", "Interrupt"],
+        );
+        const [failure, died, interrupted] = drained.failureCause.value.reasons;
+        assert.ok(failure?._tag === "Fail");
+        assert.ok(died?._tag === "Die");
+        assert.ok(interrupted?._tag === "Interrupt");
+        assert.strictEqual(failure.error.code, typed.code);
+        assert.strictEqual(died.defect.code, "Defect");
+        assert.deepStrictEqual(interrupted.fiberId, Option.some(7));
+        assert.strictEqual(Object.isFrozen(defect), false);
+        assert.strictEqual(Reflect.set(defect, "mutable", "changed"), true);
+        assert.strictEqual(Reflect.set(drained.failureCause.value, "reasons", []), false);
+        assert.strictEqual(Reflect.set(drained.failureCause.value.reasons, 0, {}), false);
+        assert.strictEqual(Reflect.set(failure, "error", {}), false);
+        assert.strictEqual(Reflect.set(failure.error.path, 0, "changed"), false);
+        assert.strictEqual(Reflect.set(failure.error.details, "changed", true), false);
+        assert.strictEqual(Reflect.set(died, "defect", {}), false);
+        assert.strictEqual(Reflect.set(interrupted, "fiberId", Option.none()), false);
+        assert.strictEqual(drained.failureCause.value.reasons[1]?._tag, "Die");
+      }),
   );
 });

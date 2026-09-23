@@ -1,10 +1,9 @@
-import { Deferred, Effect, Exit, Scope, SynchronizedRef } from "effect";
+import { Data, Deferred, Effect, Exit, Scope, SynchronizedRef } from "effect";
 
 import type { PublicDiagnostic } from "../../diagnostic/diagnostic.js";
 
 /** The sole terminal disposal authority for one exposed actor. */
 export interface ActorLease<Actor> {
-  // oxlint-disable-next-line anti-slop/no-readonly -- The lease publishes the actor without transferring disposal authority.
   readonly actor: Actor;
   dispose(): Effect.Effect<void, PublicDiagnostic>;
 }
@@ -21,10 +20,13 @@ type LeaseState =
   | { _tag: "idle" }
   | { _tag: "claimed"; completion: Deferred.Deferred<Exit.Exit<void, PublicDiagnostic>> };
 
-type ClaimAction =
-  | { _tag: "reject"; exit: Exit.Exit<void, PublicDiagnostic> }
-  | { _tag: "start"; completion: Deferred.Deferred<Exit.Exit<void, PublicDiagnostic>> }
-  | { _tag: "join"; completion: Deferred.Deferred<Exit.Exit<void, PublicDiagnostic>> };
+type ClaimAction = Data.TaggedEnum<{
+  reject: { exit: Exit.Exit<void, PublicDiagnostic> };
+  start: { completion: Deferred.Deferred<Exit.Exit<void, PublicDiagnostic>> };
+  join: { completion: Deferred.Deferred<Exit.Exit<void, PublicDiagnostic>> };
+}>;
+
+const claimAction = Data.taggedEnum<ClaimAction>();
 
 /** A preflight rejection leaves the terminal claim open for a later attempt. */
 // RETURN_TYPE: The private lease exposes only its actor and typed disposal effect.
@@ -49,15 +51,15 @@ export const makeActorLease = <Actor>(options: LeaseOptions<Actor>): ActorLease<
             // RETURN_TYPE: Keep every atomic claim action distinct while returning one complete state.
             (latest): [ClaimAction, LeaseState] => {
               if (latest._tag === "claimed")
-                return [{ _tag: "join", completion: latest.completion }, latest];
+                return [claimAction.join({ completion: latest.completion }), latest];
 
               if (Exit.isFailure(preflightExit))
-                return [{ _tag: "reject", exit: preflightExit }, latest];
+                return [claimAction.reject({ exit: preflightExit }), latest];
 
               const completion = Deferred.makeUnsafe<Exit.Exit<void, PublicDiagnostic>>();
               const claimed: LeaseState = { _tag: "claimed", completion };
 
-              return [{ _tag: "start", completion }, claimed];
+              return [claimAction.start({ completion }), claimed];
             },
           );
 

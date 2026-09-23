@@ -8,14 +8,15 @@ export const publishEvidenceAcceptance = <Record extends EvidenceRecord>(
   offers: AttachmentOfferResult[],
 ) => {
   const publishedOffers = offers.map((offer) => {
-    // oxlint-disable-next-line anti-slop/no-object-freeze -- each newly returned sink outcome becomes a fixed publication fact.
-    return Object.freeze(offer);
+    // Each offer may belong to a sink; only this fresh copy becomes a publication fact.
+    // oxlint-disable-next-line anti-slop/no-object-freeze -- STD-11: copied offer cannot change after acceptance; P055-RECORD-TURN.
+    return Object.freeze({ sink: offer.sink, sequence: offer.sequence, status: offer.status });
   });
 
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- callers receive no mutable attachment collection capability.
+  // oxlint-disable-next-line anti-slop/no-object-freeze -- STD-11: acceptance attachments cannot be reordered or replaced; P055-RECORD-TURN.
   const attachments = Object.freeze(publishedOffers);
 
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- sequence, record, and offer bindings form one immutable acceptance.
+  // oxlint-disable-next-line anti-slop/no-object-freeze -- STD-11: acceptance record and sequence cannot be swapped; P055-RECORD-TURN.
   return Object.freeze({ record, sequence, attachments });
 };
 

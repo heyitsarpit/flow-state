@@ -1,4 +1,3 @@
-/* oxlint-disable anti-slop/no-readonly -- Published evidence drafts, preparations, and records transfer no mutation authority. */
 import { Predicate, Result } from "effect";
 
 import { Failure, type PublicDiagnostic } from "../../diagnostic/diagnostic.js";
@@ -186,7 +185,7 @@ export const prepareTurnEvidence = <Before, After, Cause>(
 
   if (!validated.success) return Result.fail(invalidRecord("turn-metadata"));
 
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- prepared evidence must retain its owned draft through completion.
+  // oxlint-disable-next-line anti-slop/no-object-freeze -- STD-11: prepared turn cannot swap its owned draft before completion; P055-RECORD-TURN.
   return Result.succeed(Object.freeze({ draft: copied.success }));
 };
 
@@ -228,7 +227,7 @@ export const prepareLifecycleEvidence = <Before, After, Cause>(
 
   if (!validated.success) return Result.fail(invalidRecord("lifecycle-metadata"));
 
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- prepared evidence must retain its owned draft through completion.
+  // oxlint-disable-next-line anti-slop/no-object-freeze -- STD-11: prepared lifecycle cannot swap its owned draft before completion; P055-RECORD-LIFECYCLE.
   return Result.succeed(Object.freeze({ draft: copied.success }));
 };
 
@@ -241,7 +240,7 @@ export const completeTurnEvidence = <StoreResult, Before, After, Cause>(
 ): TurnEvidenceRecord<StoreResult, Before, After, Cause> => {
   const record = { ...prepared.draft, store, sequence };
 
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- this fresh root seals accepted sequence and store bindings without traversing the store.
+  // oxlint-disable-next-line anti-slop/no-object-freeze -- STD-11: published turn record cannot change sequence or store; P055-RECORD-TURN.
   return Object.freeze(record);
 };
 
@@ -252,6 +251,6 @@ export const completeLifecycleEvidence = <Before, After, Cause>(
 ): LifecycleEvidenceRecord<Before, After, Cause> => {
   const record = { ...prepared.draft, sequence };
 
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- this fresh root seals the accepted lifecycle sequence without revisiting caller values.
+  // oxlint-disable-next-line anti-slop/no-object-freeze -- STD-11: published lifecycle record cannot change sequence or disposition; P055-RECORD-LIFECYCLE.
   return Object.freeze(record);
 };

@@ -1,5 +1,4 @@
-/* oxlint-disable anti-slop/no-readonly -- Published identity/reservation/registration tokens and closed owner states are immutable; owner proofs reject mutation and stale token use. */
-import { Deferred, Effect, Option, Result } from "effect";
+import { Data, Deferred, Effect, Option, Result } from "effect";
 
 import { Failure, type PublicDiagnostic } from "../../diagnostic/diagnostic.js";
 import type { MachineRecordValue } from "../../machine/machine.js";
@@ -44,42 +43,57 @@ export type ActorRegistration<Actor> = Readonly<{
   actor: Actor;
 }>;
 
-export type ActorAdmissionPosition<Actor> =
-  | Readonly<{ _tag: "create"; reservation: ActorReservation }>
-  | Readonly<{
-      _tag: "join";
-      join: Effect.Effect<ActorRegistration<Actor>, PublicDiagnostic>;
-    }>
-  | Readonly<{ _tag: "active"; registration: ActorRegistration<Actor> }>;
+export type ActorAdmissionPosition<Actor> = Data.TaggedEnum<{
+  create: { reservation: ActorReservation };
+  join: { join: Effect.Effect<ActorRegistration<Actor>, PublicDiagnostic> };
+  active: { registration: ActorRegistration<Actor> };
+}>;
+
+interface ActorAdmissionPositionDef extends Data.TaggedEnum.WithGenerics<1> {
+  readonly taggedEnum: ActorAdmissionPosition<this["A"]>;
+}
+
+const actorAdmissionPosition = Data.taggedEnum<ActorAdmissionPositionDef>();
 
 export type ActorReservationRequest =
   | Readonly<{ kind: "stable"; ref: StableActorRef }>
   | Readonly<{ kind: "local"; machine: MachineRecordValue }>;
 
-type StableSlot<Actor> =
-  | Readonly<{
-      _tag: "pending";
-      reservation: ActorReservation;
-      joiners: Deferred.Deferred<ActorRegistration<Actor>, PublicDiagnostic>;
-    }>
-  | Readonly<{
-      _tag: "installed";
-      reservation: ActorReservation;
-      registration: ActorRegistration<Actor>;
-      joiners: Deferred.Deferred<ActorRegistration<Actor>, PublicDiagnostic>;
-    }>
-  | Readonly<{ _tag: "active"; registration: ActorRegistration<Actor> }>
-  | Readonly<{ _tag: "tombstoned"; identity: ActorIdentity; disposedAtSequence: number }>;
+type StableSlot<Actor> = Data.TaggedEnum<{
+  pending: {
+    reservation: ActorReservation;
+    joiners: Deferred.Deferred<ActorRegistration<Actor>, PublicDiagnostic>;
+  };
+  installed: {
+    reservation: ActorReservation;
+    registration: ActorRegistration<Actor>;
+    joiners: Deferred.Deferred<ActorRegistration<Actor>, PublicDiagnostic>;
+  };
+  active: { registration: ActorRegistration<Actor> };
+  tombstoned: { identity: ActorIdentity; disposedAtSequence: number };
+}>;
 
-type LocalSlot<Actor> =
-  | Readonly<{ _tag: "reserved"; reservation: ActorReservation; ordinal: number }>
-  | Readonly<{
-      _tag: "installed";
-      reservation: ActorReservation;
-      ordinal: number;
-      registration: ActorRegistration<Actor>;
-    }>
-  | Readonly<{ _tag: "active"; ordinal: number; registration: ActorRegistration<Actor> }>;
+interface StableSlotDef extends Data.TaggedEnum.WithGenerics<1> {
+  readonly taggedEnum: StableSlot<this["A"]>;
+}
+
+const stableSlotData = Data.taggedEnum<StableSlotDef>();
+
+type LocalSlot<Actor> = Data.TaggedEnum<{
+  reserved: { reservation: ActorReservation; ordinal: number };
+  installed: {
+    reservation: ActorReservation;
+    ordinal: number;
+    registration: ActorRegistration<Actor>;
+  };
+  active: { ordinal: number; registration: ActorRegistration<Actor> };
+}>;
+
+interface LocalSlotDef extends Data.TaggedEnum.WithGenerics<1> {
+  readonly taggedEnum: LocalSlot<this["A"]>;
+}
+
+const localSlot = Data.taggedEnum<LocalSlotDef>();
 
 export interface ActorDirectory<Actor> {
   reserve(
@@ -149,7 +163,7 @@ export const reserveStablePosition = <Actor>(
 
   if (next === undefined) return Result.fail(exhausted());
 
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- An issued identity is an immutable fence; owner proofs reject mutation and stale reuse.
+  // oxlint-disable-next-line anti-slop/no-object-freeze -- STD-11: issued stable fence cannot change incarnation; P055-ACTOR-STABLE.
   const identity: ActorIdentity = Object.freeze({
     kind: "stable",
     ref,
@@ -158,7 +172,7 @@ export const reserveStablePosition = <Actor>(
     [identityBrand]: true as const,
   });
 
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- An issued reservation must not be rewritable after its directory transition.
+  // oxlint-disable-next-line anti-slop/no-object-freeze -- STD-11: issued stable reservation cannot swap its fence; P055-ACTOR-STABLE.
   const reservation: ActorReservation = Object.freeze({ identity, [reservationBrand]: true });
   let byId = state.stable.get(ref.machine);
 
@@ -167,15 +181,17 @@ export const reserveStablePosition = <Actor>(
     state.stable.set(ref.machine, byId);
   }
 
-  byId.set(ref.id, {
-    _tag: "pending",
-    reservation,
-    joiners: Deferred.makeUnsafe<ActorRegistration<Actor>, PublicDiagnostic>(),
-  });
+  byId.set(
+    ref.id,
+    stableSlotData.pending({
+      reservation,
+      joiners: Deferred.makeUnsafe<ActorRegistration<Actor>, PublicDiagnostic>(),
+    }),
+  );
   state.incarnation.next = next.next;
   state.incarnation.exhausted = next.exhausted;
 
-  return Result.succeed({ _tag: "create", reservation } as const);
+  return Result.succeed(actorAdmissionPosition.create({ reservation }));
 };
 
 /** The directory's local reserve transition checks both counters before publishing a ref. */
@@ -205,7 +221,7 @@ export const reserveLocalPosition = <Actor>(
 
   if (nextIncarnation === undefined || nextOrdinal === undefined) return Result.fail(exhausted());
 
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- The opaque local ref retains its exact identity for this runtime.
+  // oxlint-disable-next-line anti-slop/no-object-freeze -- STD-11: issued local ref cannot change its lookup key; P055-ACTOR-LOCAL.
   const ref: LocalActorRef = Object.freeze({
     machine,
     id: `local-${state.runtimeId}-${nextOrdinal.value}`,
@@ -213,7 +229,7 @@ export const reserveLocalPosition = <Actor>(
     [localRefBrand]: true as const,
   });
 
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- A local incarnation fence remains immutable after allocation.
+  // oxlint-disable-next-line anti-slop/no-object-freeze -- STD-11: issued local fence cannot change incarnation; P055-ACTOR-LOCAL.
   const identity: ActorIdentity = Object.freeze({
     kind: "local",
     ref,
@@ -222,9 +238,9 @@ export const reserveLocalPosition = <Actor>(
     [identityBrand]: true as const,
   });
 
-  // oxlint-disable-next-line anti-slop/no-object-freeze -- The local reservation is the only token authorized to install or roll back this slot.
+  // oxlint-disable-next-line anti-slop/no-object-freeze -- STD-11: issued local reservation cannot swap its fence; P055-ACTOR-LOCAL.
   const reservation: ActorReservation = Object.freeze({ identity, [reservationBrand]: true });
-  state.local.set(ref, { _tag: "reserved", reservation, ordinal: nextOrdinal.value });
+  state.local.set(ref, localSlot.reserved({ reservation, ordinal: nextOrdinal.value }));
   state.incarnation.next = nextIncarnation.next;
   state.incarnation.exhausted = nextIncarnation.exhausted;
 
@@ -233,7 +249,7 @@ export const reserveLocalPosition = <Actor>(
     state.localOrdinal.exhausted = nextOrdinal.exhausted;
   } else state.recycledLocalOrdinals.pop();
 
-  return Result.succeed({ _tag: "create", reservation } as const);
+  return Result.succeed(actorAdmissionPosition.create({ reservation }));
 };
 
 /** One runtime-local directory owns all identity allocation and admission positions. */
@@ -279,9 +295,9 @@ export const makeActorDirectory = <Actor>(options: {
     switch (slot?._tag) {
       case "pending":
       case "installed":
-        return Result.succeed({ _tag: "join", join: Deferred.await(slot.joiners) });
+        return Result.succeed(actorAdmissionPosition.join({ join: Deferred.await(slot.joiners) }));
       case "active":
-        return Result.succeed({ _tag: "active", registration: slot.registration });
+        return Result.succeed(actorAdmissionPosition.active({ registration: slot.registration }));
       case "tombstoned":
         return Result.fail(disposedRef());
       case undefined:
@@ -295,13 +311,15 @@ export const makeActorDirectory = <Actor>(options: {
 
       if (slot?._tag !== "pending" || slot.reservation !== reservation) return Result.fail(stale());
 
-      stable.get(reservation.identity.ref.machine)?.set(reservation.identity.ref.id, {
-        _tag: "installed",
-        reservation,
-        // oxlint-disable-next-line anti-slop/no-object-freeze -- A published registration cannot replace its actor or incarnation outside the directory.
-        registration: Object.freeze({ identity: reservation.identity, actor }),
-        joiners: slot.joiners,
-      });
+      stable.get(reservation.identity.ref.machine)?.set(
+        reservation.identity.ref.id,
+        stableSlotData.installed({
+          reservation,
+          // oxlint-disable-next-line anti-slop/no-object-freeze -- STD-11: activated stable registration cannot swap actor; P055-ACTOR-STABLE.
+          registration: Object.freeze({ identity: reservation.identity, actor }),
+          joiners: slot.joiners,
+        }),
+      );
 
       return Result.succeed(undefined);
     }
@@ -310,13 +328,15 @@ export const makeActorDirectory = <Actor>(options: {
 
     if (slot?._tag !== "reserved" || slot.reservation !== reservation) return Result.fail(stale());
 
-    local.set(reservation.identity.ref, {
-      _tag: "installed",
-      reservation,
-      ordinal: slot.ordinal,
-      // oxlint-disable-next-line anti-slop/no-object-freeze -- A published local registration cannot be rewritten after installation.
-      registration: Object.freeze({ identity: reservation.identity, actor }),
-    });
+    local.set(
+      reservation.identity.ref,
+      localSlot.installed({
+        reservation,
+        ordinal: slot.ordinal,
+        // oxlint-disable-next-line anti-slop/no-object-freeze -- STD-11: activated local registration cannot swap actor; P055-ACTOR-LOCAL.
+        registration: Object.freeze({ identity: reservation.identity, actor }),
+      }),
+    );
 
     return Result.succeed(undefined);
   };
@@ -330,10 +350,12 @@ export const makeActorDirectory = <Actor>(options: {
           if (slot?._tag !== "installed" || slot.reservation !== reservation)
             return yield* Effect.die(new Error("ActorDirectory activation requires installation"));
 
-          stable.get(reservation.identity.ref.machine)?.set(reservation.identity.ref.id, {
-            _tag: "active",
-            registration: slot.registration,
-          });
+          stable
+            .get(reservation.identity.ref.machine)
+            ?.set(
+              reservation.identity.ref.id,
+              stableSlotData.active({ registration: slot.registration }),
+            );
           yield* Deferred.succeed(slot.joiners, slot.registration);
 
           return slot.registration;
@@ -345,11 +367,10 @@ export const makeActorDirectory = <Actor>(options: {
         if (slot?._tag !== "installed" || slot.reservation !== reservation)
           return yield* Effect.die(new Error("ActorDirectory activation requires installation"));
 
-        local.set(ref, {
-          _tag: "active",
-          ordinal: slot.ordinal,
-          registration: slot.registration,
-        });
+        local.set(
+          ref,
+          localSlot.active({ ordinal: slot.ordinal, registration: slot.registration }),
+        );
 
         return slot.registration;
       }),
@@ -412,11 +433,13 @@ export const makeActorDirectory = <Actor>(options: {
       if (slot?._tag !== "active" || slot.registration.identity !== identity)
         return Result.fail(stale());
 
-      stable.get(ref.machine)?.set(ref.id, {
-        _tag: "tombstoned",
-        identity,
-        disposedAtSequence,
-      });
+      stable.get(ref.machine)?.set(
+        ref.id,
+        stableSlotData.tombstoned({
+          identity,
+          disposedAtSequence,
+        }),
+      );
 
       return Result.succeed(undefined);
     }

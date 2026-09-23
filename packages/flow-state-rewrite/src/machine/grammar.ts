@@ -72,9 +72,9 @@ export type MachineInput<
 };
 
 export type MachineSnapshot<DefinitionValue extends MachineDefinition> = {
-  state: StateOf<DefinitionValue>;
-  memory: MemoryOf<DefinitionValue>;
-  context: ContextOf<DefinitionValue>;
+  readonly state: StateOf<DefinitionValue>;
+  readonly memory: MemoryOf<DefinitionValue>;
+  readonly context: ContextOf<DefinitionValue>;
 };
 
 export type MachineSelectorInput<DefinitionValue extends MachineDefinition> =
