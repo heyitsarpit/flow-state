@@ -15,6 +15,7 @@ tester.run("prefer-effect-native-tagged-types", preferEffectNativeTaggedTypesRul
 		'type ProjectionEnvelope = { _tag: "one" } | { _tag: "two" } | { _tag: "three" };',
 		'type LifecycleCause = { _tag: "one" } | { _tag: "two" } | { _tag: "three" };',
 		'type EffectOutcome = { _tag: "success"; value: string } | { _tag: "failure"; error: Error } | { _tag: "defect"; cause: unknown } | { _tag: "interrupt"; cause: unknown };',
+		'type SinkFailureReason = { _tag: "Fail"; error: Diagnostic } | { _tag: "Die"; defect: Diagnostic } | { _tag: "Interrupt"; fiberId: Option.Option<number> };',
 		'type Fields = { value: string }; type State = (Fields & Readonly<{ _tag: "cold" }>) | (Fields & Readonly<{ _tag: "ready" | "failed" }>) | (Fields & Readonly<{ _tag: "closed" }>);',
 		'type Outer = { value: string }; function shadow() { type Outer = { _tag: "one" } | { _tag: "two" } | { _tag: "three" }; return undefined; }',
 		"type First = Second; type Second = First;",

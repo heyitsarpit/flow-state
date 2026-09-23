@@ -61,8 +61,8 @@ contract still determines whether the code is actually wrong.
 | no-unsafe-dictionary-type | Use a named `Record<Key, Value>`, `Map<Key, Value>`, or an explicitly named opaque extension bag. `no-unknown` owns explicit unknown diagnostics. |
 | no-object-type | Use a named owner or domain type instead of the built-in TypeScript object type. |
 | no-nullish-function-contracts | Use `Option<T>` for expected absence, `Result`/`Either` for pure recoverable failure, and `Effect<A, E, R>` for effectful failure. Keep parameters required; use a tagged union or separate function when the operation has distinct modes. |
-| no-object-freeze | Review private `Object.freeze` calls against the owner contract. Frozen observable snapshots are allowed when required; keep private mutation behind its owner. |
-| no-readonly | Review private `readonly`, `Readonly`, `ReadonlyMap`, `ReadonlySet`, `ReadonlyArray`, and custom `Readonly*` types against the owner contract. Contract-required public shapes are allowed; use `Data` for immutable values where appropriate. |
+| no-object-freeze | Treat every global `Object.freeze` call as requiring owner-level review: type-level readonly is preferred for models, while a runtime freeze needs an owned publication invariant and mutation proof. |
+| no-readonly | Require type-level readonly on exported snapshots, receipts, registrations, drains, and failures. Keep ordinary mutable inputs and owner state mutable; use `Data.Class` only when its value and runtime semantics fit. |
 | no-runtime-typeof | Decode external data with Schema at its boundary; use a local type guard only when it owns that boundary. |
 | no-shallow-json-domain-cast | Pass `JSON.parse` directly to a complete `Schema.decodeUnknownSync` call or a named complete decoder; do not leave an explicit unknown variable between parsing and validation. |
 

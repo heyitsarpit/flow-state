@@ -82,6 +82,15 @@ function isSemanticProjectionAlias(name: string): boolean {
 	return /(?:Cause|Envelope|Evidence|Projection|Wire)/u.test(name);
 }
 
+function isCauseReasonProjection(
+	name: string,
+	variants: readonly { tag: string }[],
+): boolean {
+	if (!/(?:Cause|FailureReason)$/iu.test(name) || variants.length !== 3) return false;
+	const tags = new Set(variants.map(({ tag }) => tag.toLowerCase()));
+	return tags.size === 3 && tags.has("fail") && tags.has("die") && tags.has("interrupt");
+}
+
 function isCompleteEffectOutcome(variants: readonly { tag: string }[]): boolean {
 	const tags = new Set(variants.map(({ tag }) => tag.toLowerCase()));
 	return (
@@ -181,6 +190,7 @@ export const preferEffectNativeTaggedTypesRule = defineRule({
 					if (isSemanticProjectionAlias(aliasName(alias))) continue;
 					const variants = taggedVariants(alias, aliases);
 					if (variants === null) continue;
+					if (isCauseReasonProjection(aliasName(alias), variants)) continue;
 					if (isCompleteEffectOutcome(variants)) continue;
 					if (isResultLike(variants)) {
 						context.report({ node: alias, messageId: "result", data: { name: aliasName(alias) } });
