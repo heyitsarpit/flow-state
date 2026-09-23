@@ -65,6 +65,7 @@ import { noManualEffectErrorTagRule } from "./rules/effect/no-manual-effect-erro
 import { noManualTagComparisonRule } from "./rules/effect/no-manual-tag-comparison.ts";
 import { noNumericDurationRule } from "./rules/effect/no-numeric-duration.ts";
 import { noObjectIterationResultCastRule } from "./rules/effect/no-object-iteration-result-cast.ts";
+import { preferEffectNativeTaggedTypesRule } from "./rules/effect/prefer-effect-native-tagged-types.ts";
 import { noPublicRuntimeInfrastructureRule } from "./rules/effect/no-public-runtime-infrastructure.ts";
 import { noServiceShapeParameterExtractionRule } from "./rules/effect/no-service-shape-parameter-extraction.ts";
 import { noStatefulEffectConstructionRule } from "./rules/effect/no-stateful-effect-construction.ts";
@@ -97,6 +98,7 @@ const antiSlopPlugin = eslintCompatPlugin({
 		"no-empty-context-make-unsafe": noEmptyContextMakeUnsafeRule,
 		"no-public-runtime-infrastructure": noPublicRuntimeInfrastructureRule,
 		"no-object-iteration-result-cast": noObjectIterationResultCastRule,
+		"prefer-effect-native-tagged-types": preferEffectNativeTaggedTypesRule,
 		"no-effect-ref-read-then-write": noEffectRefReadThenWriteRule,
 		"no-excessive-cognitive-complexity": noExcessiveCognitiveComplexityRule,
 		"no-escape-hatch-assertion": noEscapeHatchAssertionRule,

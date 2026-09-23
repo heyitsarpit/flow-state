@@ -10,6 +10,7 @@ import { noConditionalArraySpreadRule } from "../rules/general-typescript/no-con
 import { noContextTagRule } from "../rules/effect/no-context-tag.ts";
 import { noManualEffectErrorTagRule } from "../rules/effect/no-manual-effect-error-tag.ts";
 import { noManualTagComparisonRule } from "../rules/effect/no-manual-tag-comparison.ts";
+import { preferEffectNativeTaggedTypesRule } from "../rules/effect/prefer-effect-native-tagged-types.ts";
 import { noParallelDiagnosticErrorsRule } from "../rules/flow-state/no-parallel-diagnostic-errors.ts";
 import { noDirectProcessEnvRule } from "../rules/general-typescript/no-direct-process-env.ts";
 import { noEffectPromiseRule } from "../rules/effect/no-effect-promise.ts";
@@ -105,6 +106,7 @@ const preferredFixtureRules: ReadonlyArray<readonly [string, Rule]> = [
 	["no-implicit-effect-concurrency", noImplicitEffectConcurrencyRule],
 	["no-manual-effect-error-tag", noManualEffectErrorTagRule],
 	["no-manual-tag-comparison", noManualTagComparisonRule],
+	["prefer-effect-native-tagged-types", preferEffectNativeTaggedTypesRule],
 	["no-inward-module-dependency", noInwardModuleDependencyRule],
 	["no-inline-import-type-query", noInlineImportTypeQueryRule],
 	["no-known-value-widening", noKnownValueWideningRule],

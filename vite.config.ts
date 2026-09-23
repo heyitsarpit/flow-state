@@ -86,6 +86,7 @@ export default defineConfig({
         },
       ],
       "anti-slop/no-object-iteration-result-cast": "error",
+      "anti-slop/prefer-effect-native-tagged-types": "warn",
       "anti-slop/no-effect-ref-read-then-write": "error",
       "anti-slop/no-escape-hatch-assertion": "error",
       "anti-slop/no-explicit-any": "error",

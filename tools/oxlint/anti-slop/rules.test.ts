@@ -12,6 +12,7 @@ import "./rules/effect/no-manual-effect-error-tag.test.ts";
 import "./rules/effect/no-manual-tag-comparison.test.ts";
 import "./rules/effect/no-numeric-duration.test.ts";
 import "./rules/effect/no-object-iteration-result-cast.test.ts";
+import "./rules/effect/prefer-effect-native-tagged-types.test.ts";
 import "./rules/effect/no-public-runtime-infrastructure.test.ts";
 import "./rules/effect/no-service-shape-parameter-extraction.test.ts";
 import "./rules/effect/no-stateful-effect-construction.test.ts";
