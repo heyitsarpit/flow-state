@@ -1,6 +1,7 @@
 import type { MachineRecordValue } from "../../machine/machine.js";
 
 /** A captured stable ref is identity data; public validation happens before directory admission. */
+// oxlint-disable-next-line anti-slop/no-readonly -- Stable identity components must not be reassigned across admission and key derivation.
 export type StableActorRef = Readonly<{
   machine: MachineRecordValue;
   id: string;

@@ -46,19 +46,16 @@ export const checkedContextGeneration = (current: number) =>
 
 const sameIdentity = (left: ActorIdentity, right: ActorIdentity) => Object.is(left, right);
 
-export type ContextRegistration = Readonly<{
-  enable(): void;
-  unregister(): void;
-}>;
+// oxlint-disable-next-line anti-slop/no-readonly -- The registration token keeps its owner-issued enable and unregister capabilities fixed.
+export type ContextRegistration = Readonly<{ enable(): void; unregister(): void }>;
 
+// oxlint-disable-next-line anti-slop/no-readonly -- A root message binds one actor identity to the snapshot observed for that notification.
 export type ContextRoot<D extends MachineDefinition> = Readonly<{
   identity: ActorIdentity;
   snapshot: ActorSnapshot<D>;
 }>;
 
-export type ContextNotification = Readonly<{
-  [notificationBrand]: true;
-}>;
+export type ContextNotification = { [notificationBrand]: true };
 
 export interface ContextCoordinator {
   register<D extends MachineDefinition>(

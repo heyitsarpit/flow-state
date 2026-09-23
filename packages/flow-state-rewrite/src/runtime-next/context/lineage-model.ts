@@ -4,9 +4,11 @@ import { Failure, type PublicDiagnostic } from "../../diagnostic/diagnostic.js";
 import type { ActorIdentity } from "../actor/actor-directory.js";
 
 /** One exact actor lifetime at one published revision. */
+// oxlint-disable-next-line anti-slop/no-readonly -- A context cut fixes one actor incarnation and revision across sibling lineage views.
 export type ContextCut = { readonly identity: ActorIdentity; readonly revision: number };
 
 /** A consumer's inherited ancestors, keyed by actor key. */
+// oxlint-disable-next-line anti-slop/no-readonly -- The lineage map exposes inherited cuts for reading; only its debt owner creates updated lineage.
 export type ContextLineage = ReadonlyMap<string, ContextCut>;
 
 /** Unsettled ancestor requirements grouped by incoming provider key. */

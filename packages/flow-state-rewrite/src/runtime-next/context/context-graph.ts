@@ -3,22 +3,33 @@ import { Option, Result } from "effect";
 import { Failure, type PublicDiagnostic } from "../../diagnostic/diagnostic.js";
 import type { ActorIdentity } from "../actor/actor-directory.js";
 
+// oxlint-disable-next-line anti-slop/no-readonly -- A graph edge fixes one slot-to-provider binding in the published topology.
 export type ContextGraphEdge = Readonly<{ slot: string; provider: ActorIdentity }>;
 
+// oxlint-disable-next-line anti-slop/no-readonly -- A graph node fixes the actor identity and provider edges for one registration.
 export type ContextGraphNode = Readonly<{
   identity: ActorIdentity;
+  // oxlint-disable-next-line anti-slop/no-readonly -- The registered provider edges cannot be changed after graph capture.
   providers: readonly ContextGraphEdge[];
 }>;
 
+// oxlint-disable-next-line anti-slop/no-readonly -- The graph exposes owner-built topology indexes as read-only views.
 export type ContextGraph = Readonly<{
+  // oxlint-disable-next-line anti-slop/no-readonly -- The node index is a read-only view of the validated graph topology.
   nodes: ReadonlyMap<string, ContextGraphNode>;
+  // oxlint-disable-next-line anti-slop/no-readonly -- The provider index cannot be changed by graph consumers.
   providersByConsumer: ReadonlyMap<string, readonly ContextGraphEdge[]>;
+  // oxlint-disable-next-line anti-slop/no-readonly -- The consumer reachability index cannot be changed by graph consumers.
   consumersByProvider: ReadonlyMap<string, ReadonlySet<string>>;
 }>;
 
+// oxlint-disable-next-line anti-slop/no-readonly -- A wave plan publishes one fixed order and affected subgraph for application.
 export type ContextWavePlan = Readonly<{
+  // oxlint-disable-next-line anti-slop/no-readonly -- Consumers cannot reorder the topological wave order selected by the planner.
   order: readonly ActorIdentity[];
+  // oxlint-disable-next-line anti-slop/no-readonly -- The affected-provider membership is a read-only result of reachability analysis.
   affected: ReadonlySet<string>;
+  // oxlint-disable-next-line anti-slop/no-readonly -- Consumers cannot reorder the planner’s dependency-safe wave layers.
   layers: readonly (readonly ActorIdentity[])[];
 }>;
 
@@ -34,6 +45,7 @@ const invalid = (reason: string, path: string[] = ["context"]) =>
 const sameIdentity = (a: ActorIdentity, b: ActorIdentity) =>
   a.key === b.key && a.incarnation === b.incarnation && a.kind === b.kind;
 
+// oxlint-disable-next-line anti-slop/no-readonly -- Index construction reads its caller’s node list and does not mutate it.
 const indexNodes = (nodes: readonly ContextGraphNode[]) => {
   const byKey = new Map<string, ContextGraphNode>();
 
@@ -189,6 +201,7 @@ const validateAcyclic = (
 /** Own both graph indexes and validate the complete registered topology. */
 // RETURN_TYPE: The graph builder exposes typed validation failure to registration.
 export const buildContextGraph = (
+  // oxlint-disable-next-line anti-slop/no-readonly -- Graph construction reads its caller’s node list and does not mutate it.
   nodes: readonly ContextGraphNode[],
 ): Result.Result<ContextGraph, PublicDiagnostic> => {
   const indexed = indexNodes(nodes);

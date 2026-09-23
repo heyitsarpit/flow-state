@@ -35,21 +35,27 @@ export type {
 } from "./context-graph.js";
 
 export type ContextSelectionRequest<D extends MachineDefinition, S extends Slot<D> = Slot<D>> = {
+  // oxlint-disable-next-line anti-slop/no-readonly -- Each selector request preserves its exact slot-specific input and callback as one immutable value.
   [K in S]: Readonly<{
     slot: K;
     provider: ActorIdentity;
     cut: ContextCut;
     input: SelectorInput<ProviderOf<D, K>>;
     select: (input: SelectorInput<ProviderOf<D, K>>) => ContextOf<D>[K];
+    // oxlint-disable-next-line anti-slop/no-readonly -- The selector request fixes the opaque identity policy used when copying its value.
     opaqueIdentities: readonly OpaqueIdentity[];
   }>;
 }[S];
 
+// oxlint-disable-next-line anti-slop/no-readonly -- One admitted selection batch keeps its requested slots and callbacks fixed.
 export type ContextSelectionBatch<D extends MachineDefinition> = Readonly<{
+  // oxlint-disable-next-line anti-slop/no-readonly -- Preparation uses the exact admitted slot set without caller mutation.
   slots: readonly Slot<D>[];
+  // oxlint-disable-next-line anti-slop/no-readonly -- The selector requests cannot change between admission and wave evaluation.
   requests: readonly ContextSelectionRequest<D>[];
 }>;
 
+// oxlint-disable-next-line anti-slop/no-readonly -- A selected value and its authored identity and cut are published as one immutable observation.
 export type ContextSelected<Value = unknown> = Readonly<{
   value: Value;
   authoredIdentity: Value;
@@ -57,9 +63,12 @@ export type ContextSelected<Value = unknown> = Readonly<{
 }>;
 
 export type ContextSelectionAttempt<Value = unknown> =
+  // oxlint-disable-next-line anti-slop/no-readonly -- A successful selection attempt is a fixed owner result for this provider cut.
   | Readonly<{ kind: "success"; cut: ContextCut; selected: ContextSelected<Value> }>
+  // oxlint-disable-next-line anti-slop/no-readonly -- A defect attempt preserves its exact provider cut and diagnostic.
   | Readonly<{ kind: "defect"; cut: ContextCut; diagnostic: PublicDiagnostic }>;
 
+// oxlint-disable-next-line anti-slop/no-readonly -- A ledger entry preserves the last valid selection and latest attempt as a snapshot.
 export type ContextSelectionEntry<Value = unknown> = Readonly<{
   slot: string;
   lastValid: Option.Option<ContextSelected<Value>>;
@@ -67,22 +76,28 @@ export type ContextSelectionEntry<Value = unknown> = Readonly<{
   lastAttempt: ContextSelectionAttempt<Value>;
 }>;
 
+// oxlint-disable-next-line anti-slop/no-readonly -- Coordinator ledger is a read-only selection snapshot; updates go through the wave owner.
 export type ContextSelectionLedger<D extends MachineDefinition> = ReadonlyMap<
   Slot<D>,
   ContextSelectionEntry<ContextOf<D>[Slot<D>]>
 >;
 
+// oxlint-disable-next-line anti-slop/no-readonly -- The projection exposes selected context as an immutable owner snapshot.
 export type ContextProjection<D extends MachineDefinition> = Readonly<{
+  // oxlint-disable-next-line anti-slop/no-readonly -- Consumers can query owned selected values but cannot rewrite the projection.
   values: ReadonlyMap<Slot<D>, ContextOf<D>[Slot<D>]>;
+  // oxlint-disable-next-line anti-slop/no-readonly -- Consumers can query the provider cuts but cannot rewrite the projection.
   providers: ReadonlyMap<Slot<D>, ContextCut>;
   has(slot: Slot<D>): boolean;
 }>;
 
+// oxlint-disable-next-line anti-slop/no-readonly -- The installed baseline is a fixed projection and selection ledger snapshot.
 export type ContextBaseline<D extends MachineDefinition> = Readonly<{
   projection: ContextProjection<D>;
   ledger: ContextSelectionLedger<D>;
 }>;
 
+// oxlint-disable-next-line anti-slop/no-readonly -- A selector defect is published with its immutable slot and provider identity.
 export type ContextSelectorDefect<D extends MachineDefinition> = Readonly<{
   slot: Slot<D>;
   provider: ActorIdentity;
@@ -90,8 +105,11 @@ export type ContextSelectorDefect<D extends MachineDefinition> = Readonly<{
 }>;
 
 export type ContextWaveResult<D extends MachineDefinition> = ContextBaseline<D> &
+  // oxlint-disable-next-line anti-slop/no-readonly -- The wave result remains an immutable publication decision and selection snapshot.
   Readonly<{
+    // oxlint-disable-next-line anti-slop/no-readonly -- The changed-slot set is an immutable wave result used to classify publication.
     changedSlots: ReadonlySet<Slot<D>>;
+    // oxlint-disable-next-line anti-slop/no-readonly -- Published selector defects cannot be changed after the wave completes.
     selectorDefects: readonly ContextSelectorDefect<D>[];
     publication: "unchanged" | "changed" | "issue-only";
   }>;
@@ -216,7 +234,9 @@ export const equalContextSelection = <Value>(current: Value, previous: Value): b
 
 // RETURN_TYPE: Projection retains the declared machine slot mapping.
 const projection = <D extends MachineDefinition>(
+  // oxlint-disable-next-line anti-slop/no-readonly -- Projection construction reads and copies caller maps without mutating their contents.
   values: ReadonlyMap<Slot<D>, ContextOf<D>[Slot<D>]>,
+  // oxlint-disable-next-line anti-slop/no-readonly -- Projection construction reads and copies caller maps without mutating their contents.
   providers: ReadonlyMap<Slot<D>, ContextCut>,
 ): ContextProjection<D> => {
   const ownedValues = new Map(values);

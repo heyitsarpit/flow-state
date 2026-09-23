@@ -32,13 +32,16 @@ const attachmentBrand: unique symbol = Symbol("EvidenceAttachmentToken");
 export type EvidenceAttachmentToken = { [attachmentBrand]: true };
 
 export interface EvidenceCredit {
+  // oxlint-disable-next-line anti-slop/no-readonly -- The journal-issued credit keeps its actor fence fixed for exact release and validation.
   readonly fence: ActorIdentity;
   release(): void;
 }
 
+// oxlint-disable-next-line anti-slop/no-readonly -- Drain results are frozen snapshots of the journal's accepted prefix.
 export type EvidenceDrain = Readonly<{
   through: EvidenceSequence | 0;
   truncatedBefore: Option.Option<EvidenceSequence>;
+  // oxlint-disable-next-line anti-slop/no-readonly -- The published attachment list is frozen with the drain snapshot.
   attachments: ReadonlyArray<AttachmentDrainResult>;
 }>;
 

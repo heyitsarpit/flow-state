@@ -19,6 +19,9 @@ import {
   unavailable,
 } from "./context-fixture.js";
 
+// oxlint-disable-next-line anti-slop/no-readonly -- The coordinator publishes debt as a read-only view; this proof only observes it.
+type ContextDebtView = ReadonlyMap<string, ContextCut>;
+
 describe("runtime-next context coordinator queue owner", () => {
   it.effect("settles an invalidated active root and admits the same key again", () =>
     Effect.gen(function* () {
@@ -443,12 +446,12 @@ describe("runtime-next context coordinator queue owner", () => {
       const deepEdge = actors.at(-2)!.key;
       const rootKey = fixture.providerIdentity.key;
 
-      let deepDebt: ReadonlyMap<string, ContextCut> | undefined;
+      let deepDebt: ContextDebtView | undefined;
       let cleared = false;
       let writes = 0;
 
-      // RETURN_TYPE: Narrow intercepted Map values to the private readonly debt view.
-      const isDebtLineage = (value: unknown): value is ReadonlyMap<string, ContextCut> =>
+      // RETURN_TYPE: The intercepted owner value is unknown; this predicate narrows it before lineage access.
+      const isDebtLineage = (value: unknown): value is ContextDebtView =>
         value !== null &&
         typeof value === "object" &&
         "get" in value &&

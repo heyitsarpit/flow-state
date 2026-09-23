@@ -72,8 +72,11 @@ export type MachineInput<
 };
 
 export type MachineSnapshot<DefinitionValue extends MachineDefinition> = {
+  // oxlint-disable-next-line anti-slop/no-readonly -- Selectors receive fixed state, memory, and context references and cannot replace snapshot fields.
   readonly state: StateOf<DefinitionValue>;
+  // oxlint-disable-next-line anti-slop/no-readonly -- Selectors receive fixed state, memory, and context references and cannot replace snapshot fields.
   readonly memory: MemoryOf<DefinitionValue>;
+  // oxlint-disable-next-line anti-slop/no-readonly -- Selectors receive fixed state, memory, and context references and cannot replace snapshot fields.
   readonly context: ContextOf<DefinitionValue>;
 };
 

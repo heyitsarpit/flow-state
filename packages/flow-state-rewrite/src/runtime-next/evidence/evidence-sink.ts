@@ -16,6 +16,7 @@ export type AttachmentOfferResult = {
   status: "accepted" | "dropped" | "detached";
 };
 
+// oxlint-disable-next-line anti-slop/no-readonly -- Accounting is a frozen sink-result snapshot, not mutable delivery state.
 export type SinkAccounting = Readonly<{
   accepted: number;
   dropped: number;
@@ -26,23 +27,32 @@ export type SinkAccounting = Readonly<{
   greatestOmittedSequence: Option.Option<EvidenceSequence>;
 }>;
 
+// oxlint-disable-next-line anti-slop/no-readonly -- Failure diagnostics are copied and frozen before they leave the sink owner.
 export type SinkFailureDiagnostic = Readonly<{
   code: PublicDiagnostic["code"];
+  // oxlint-disable-next-line anti-slop/no-readonly -- Diagnostic paths are copied and frozen as part of the published failure.
   path: ReadonlyArray<string | number>;
+  // oxlint-disable-next-line anti-slop/no-readonly -- Diagnostic details are copied and frozen as part of the published failure.
   details: Readonly<PublicDiagnostic["details"]>;
   summary: string;
   help: string;
 }>;
 
 export type SinkFailureReason =
+  // oxlint-disable-next-line anti-slop/no-readonly -- Failure variants preserve the immutable tagged cause returned by drain.
   | Readonly<{ _tag: "Fail"; error: SinkFailureDiagnostic }>
+  // oxlint-disable-next-line anti-slop/no-readonly -- Defect variants preserve the immutable tagged cause returned by drain.
   | Readonly<{ _tag: "Die"; defect: SinkFailureDiagnostic }>
+  // oxlint-disable-next-line anti-slop/no-readonly -- Interruption variants preserve the immutable tagged cause returned by drain.
   | Readonly<{ _tag: "Interrupt"; fiberId: Option.Option<number> }>;
 
+// oxlint-disable-next-line anti-slop/no-readonly -- Sink failures are returned as a frozen list of frozen reasons.
 export type SinkFailure = Readonly<{
+  // oxlint-disable-next-line anti-slop/no-readonly -- The reasons array is frozen before the failure snapshot leaves the sink.
   reasons: ReadonlyArray<SinkFailureReason>;
 }>;
 
+// oxlint-disable-next-line anti-slop/no-readonly -- Drain results are frozen value snapshots of delivery progress.
 export type AttachmentDrainResult = Readonly<{
   sink: string;
   through: EvidenceSequence;

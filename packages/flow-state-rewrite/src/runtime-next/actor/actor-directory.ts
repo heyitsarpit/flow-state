@@ -16,6 +16,7 @@ const reservationBrand = Symbol("ActorDirectory reservation");
 
 const localRefBrand = Symbol("ActorDirectory local ref");
 
+// oxlint-disable-next-line anti-slop/no-readonly -- Directory-issued local refs are frozen lookup identities.
 export type LocalActorRef = Readonly<{
   machine: MachineRecordValue;
   id: string;
@@ -23,6 +24,7 @@ export type LocalActorRef = Readonly<{
   [localRefBrand]: true;
 }>;
 
+// oxlint-disable-next-line anti-slop/no-readonly -- The directory freezes each issued identity so its fence cannot change.
 type IdentityFields = Readonly<{
   key: string;
   incarnation: number;
@@ -30,14 +32,18 @@ type IdentityFields = Readonly<{
 }>;
 
 export type ActorIdentity =
+  // oxlint-disable-next-line anti-slop/no-readonly -- Stable identity variants are frozen owner-issued fences.
   | (IdentityFields & Readonly<{ kind: "stable"; ref: StableActorRef }>)
+  // oxlint-disable-next-line anti-slop/no-readonly -- Local identity variants are frozen owner-issued fences.
   | (IdentityFields & Readonly<{ kind: "local"; ref: LocalActorRef }>);
 
+// oxlint-disable-next-line anti-slop/no-readonly -- A reservation is a frozen token that owns one immutable actor identity.
 export type ActorReservation = Readonly<{
   identity: ActorIdentity;
   [reservationBrand]: true;
 }>;
 
+// oxlint-disable-next-line anti-slop/no-readonly -- Activation publishes this frozen actor-to-identity pairing to joiners.
 export type ActorRegistration<Actor> = Readonly<{
   identity: ActorIdentity;
   actor: Actor;
@@ -50,14 +56,15 @@ export type ActorAdmissionPosition<Actor> = Data.TaggedEnum<{
 }>;
 
 interface ActorAdmissionPositionDef extends Data.TaggedEnum.WithGenerics<1> {
+  // oxlint-disable-next-line anti-slop/no-readonly -- Data.TaggedEnum.WithGenerics requires this readonly generic mapping hook.
   readonly taggedEnum: ActorAdmissionPosition<this["A"]>;
 }
 
 const actorAdmissionPosition = Data.taggedEnum<ActorAdmissionPositionDef>();
 
 export type ActorReservationRequest =
-  | Readonly<{ kind: "stable"; ref: StableActorRef }>
-  | Readonly<{ kind: "local"; machine: MachineRecordValue }>;
+  | { kind: "stable"; ref: StableActorRef }
+  | { kind: "local"; machine: MachineRecordValue };
 
 type StableSlot<Actor> = Data.TaggedEnum<{
   pending: {
@@ -74,6 +81,7 @@ type StableSlot<Actor> = Data.TaggedEnum<{
 }>;
 
 interface StableSlotDef extends Data.TaggedEnum.WithGenerics<1> {
+  // oxlint-disable-next-line anti-slop/no-readonly -- Data.TaggedEnum.WithGenerics requires this readonly generic mapping hook.
   readonly taggedEnum: StableSlot<this["A"]>;
 }
 
@@ -90,6 +98,7 @@ type LocalSlot<Actor> = Data.TaggedEnum<{
 }>;
 
 interface LocalSlotDef extends Data.TaggedEnum.WithGenerics<1> {
+  // oxlint-disable-next-line anti-slop/no-readonly -- Data.TaggedEnum.WithGenerics requires this readonly generic mapping hook.
   readonly taggedEnum: LocalSlot<this["A"]>;
 }
 
@@ -255,6 +264,7 @@ export const reserveLocalPosition = <Actor>(
 /** One runtime-local directory owns all identity allocation and admission positions. */
 // RETURN_TYPE: The port hides private map/counter state and preserves the stable generic Actor result.
 export const makeActorDirectory = <Actor>(options: {
+  // oxlint-disable-next-line anti-slop/no-readonly -- The constructor snapshots this accepted machine set and never mutates caller input.
   machines: readonly MachineRecordValue[];
 }): ActorDirectory<Actor> => {
   const allowed = new Set(options.machines);

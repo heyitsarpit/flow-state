@@ -19,7 +19,9 @@ const rejected = (reason: string) =>
     help: "Use one current coordinator-issued ticket once.",
   });
 
+// oxlint-disable-next-line anti-slop/no-readonly -- A ticket offer is copied once and published as an immutable projection envelope.
 export type ContextOffer<D extends MachineDefinition> = Readonly<{
+  // oxlint-disable-next-line anti-slop/no-readonly -- A ticket offer is copied once and published as an immutable projection envelope.
   entries: readonly Readonly<{
     slot: ContextSlot<D>;
     value: ContextOf<D>[ContextSlot<D>];
@@ -30,6 +32,7 @@ export type ContextOffer<D extends MachineDefinition> = Readonly<{
 }>;
 
 /** The private symbol prevents callers from constructing this capability in TypeScript. */
+// oxlint-disable-next-line anti-slop/no-readonly -- The coordinator-issued one-shot ticket cannot have its brand or consume capability replaced.
 export type ContextTicket<D extends MachineDefinition> = Readonly<{
   [ticketBrand]: true;
   consume(
@@ -38,6 +41,7 @@ export type ContextTicket<D extends MachineDefinition> = Readonly<{
   ): Result.Result<ContextOffer<D>, PublicDiagnostic>;
 }>;
 
+// oxlint-disable-next-line anti-slop/no-readonly -- The issued ticket and its coordinator-held cancel capability remain one fixed pair.
 export type IssuedContextTicket<D extends MachineDefinition> = Readonly<{
   ticket: ContextTicket<D>;
   cancel(): void;

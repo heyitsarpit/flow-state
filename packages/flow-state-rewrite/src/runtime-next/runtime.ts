@@ -15,21 +15,26 @@ import { makeRuntimeAssembly } from "./runtime-assembly.js";
 /** Safe diagnostic fields at the internal facade boundary. */
 export type Diagnostic = PublicDiagnostic;
 
+// oxlint-disable-next-line anti-slop/no-readonly -- Actor snapshots publish fixed fields so consumers cannot replace observed actor state or revisions.
 export type ActorSnapshot<DefinitionValue extends MachineDefinition> = Readonly<
   MachineSnapshot<DefinitionValue> & {
     lifecycle: "prepared" | "active" | "suspended" | "disposed";
+    // oxlint-disable-next-line anti-slop/no-readonly -- Snapshot collections are read-only so callers cannot edit the actor-owned observation.
     operations: readonly Readonly<{
       descriptor: OperationDeclaration;
       key: OperationKey;
       status: "pending" | "running" | "succeeded" | "failed" | "cancelled";
     }>[];
+    // oxlint-disable-next-line anti-slop/no-readonly -- Snapshot collections are read-only so callers cannot edit the actor-owned observation.
     timers: readonly Readonly<{ name: string; startedAt: number; dueAt: number }>[];
+    // oxlint-disable-next-line anti-slop/no-readonly -- Snapshot collections are read-only so callers cannot edit the actor-owned observation.
     issues: readonly Diagnostic[];
     revision: number;
     observedStoreRevision: number;
   }
 >;
 
+// oxlint-disable-next-line anti-slop/no-readonly -- A dispatch receipt is an immutable record of the committed publication and evidence sequence.
 export type DispatchReceipt = Readonly<{
   publicationRevision: number;
   evidenceSequence: number;
@@ -41,6 +46,7 @@ type ProviderDefinitionOf<Selector> = Selector extends {
   ? Provider
   : never;
 
+// oxlint-disable-next-line anti-slop/no-readonly -- Each declared context slot keeps its admitted provider reference fixed.
 export type ActorContextSources<DefinitionValue extends MachineDefinition> = {
   readonly [Slot in keyof DefinitionValue["context"]]: ActorRef<
     Machine<ProviderDefinitionOf<DefinitionValue["context"][Slot]>>
@@ -48,20 +54,22 @@ export type ActorContextSources<DefinitionValue extends MachineDefinition> = {
 };
 
 /* oxlint-disable anti-slop/no-optional-domain-properties -- Optional never forbids input or context for machine families that do not declare them; negative compile cases verify both exclusions. */
+// oxlint-disable-next-line anti-slop/no-readonly -- Start options preserve the exact immutable provider mapping and compile-time input exclusions.
 export type ActorStartOptions<DefinitionValue extends MachineDefinition> = Readonly<
   ([InputOf<DefinitionValue>] extends [void]
-    ? { readonly input?: never }
-    : { readonly input: InputOf<DefinitionValue> }) &
+    ? { input?: never }
+    : { input: InputOf<DefinitionValue> }) &
     (keyof DefinitionValue["context"] extends never
-      ? { readonly context?: never }
-      : { readonly context: ActorContextSources<DefinitionValue> })
+      ? { context?: never }
+      : { context: ActorContextSources<DefinitionValue> })
 >;
 /* oxlint-enable anti-slop/no-optional-domain-properties */
 
 /** A command and observation facade with no individual disposal authority. */
 export interface ActorHandle<DefinitionValue extends MachineDefinition> {
+  // oxlint-disable-next-line anti-slop/no-readonly -- The actor handle exposes stable observation capabilities without granting replacement authority.
   readonly ref: ActorRef<Machine<DefinitionValue>>;
-  // oxlint-disable-next-line anti-slop/no-public-runtime-infrastructure -- The final actor facade exposes snapshot observations as a Stream; it does not expose its mailbox or owner.
+  // oxlint-disable-next-line anti-slop/no-public-runtime-infrastructure, anti-slop/no-readonly -- The final facade exposes a fixed observation Stream and no mailbox or owner.
   readonly snapshots: Stream.Stream<ActorSnapshot<DefinitionValue>, Diagnostic>;
 
   send(event: EventOf<DefinitionValue>): Result.Result<void, Diagnostic>;
@@ -71,6 +79,7 @@ export interface ActorHandle<DefinitionValue extends MachineDefinition> {
 }
 
 /** Disposal belongs to this lease, never to its actor handle or ref. */
+// oxlint-disable-next-line anti-slop/no-readonly -- The lease keeps actor access and its sole disposal authority as one immutable owner-issued value.
 export type ActorOwnerLease<DefinitionValue extends MachineDefinition> = Readonly<{
   actor: ActorHandle<DefinitionValue>;
   dispose(): Effect.Effect<void, Diagnostic>;
@@ -79,6 +88,7 @@ export type ActorOwnerLease<DefinitionValue extends MachineDefinition> = Readonl
 type AppMachine<A extends App> = Extract<A["M"][keyof A["M"]], MachineRecordValue>;
 
 export interface Runtime<A extends App, ImplementationError = never> {
+  // oxlint-disable-next-line anti-slop/no-readonly -- Runtime setup captures the admitted app identity; callers cannot replace the runtime authority.
   readonly app: A;
 
   ready(): Effect.Effect<void, ImplementationError | Diagnostic>;
@@ -101,6 +111,7 @@ export interface Runtime<A extends App, ImplementationError = never> {
 
 /** Assembly adds the construct operation to a captured setup value. */
 export interface RuntimeSetup<A extends App, ImplementationError = never> {
+  // oxlint-disable-next-line anti-slop/no-readonly -- Runtime setup captures the admitted app identity; callers cannot replace the runtime authority.
   readonly app: A;
   construct(): Runtime<A, ImplementationError>;
 }

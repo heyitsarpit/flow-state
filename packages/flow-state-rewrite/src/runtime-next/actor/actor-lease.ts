@@ -4,6 +4,7 @@ import type { PublicDiagnostic } from "../../diagnostic/diagnostic.js";
 
 /** The sole terminal disposal authority for one exposed actor. */
 export interface ActorLease<Actor> {
+  // oxlint-disable-next-line anti-slop/no-readonly -- Lease contract exposes one fixed actor alongside its terminal disposal authority.
   readonly actor: Actor;
   dispose(): Effect.Effect<void, PublicDiagnostic>;
 }

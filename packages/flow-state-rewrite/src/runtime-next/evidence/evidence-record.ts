@@ -10,12 +10,14 @@ type Reference = Exclude<WeakKey, symbol>;
 
 export type EvidenceSequence = number & { [evidenceSequenceBrand]: void };
 
+// oxlint-disable-next-line anti-slop/no-readonly -- Provenance is part of the copied immutable evidence fact.
 export type EvidenceProvenance = Readonly<{
   app: Reference;
   plan: Reference;
   actor: ActorIdentity;
 }>;
 
+// oxlint-disable-next-line anti-slop/no-readonly -- Captured revisions and timestamps cannot drift after journal preparation.
 type EvidenceMetadata = Readonly<{
   fence: ActorIdentity;
   provenance: EvidenceProvenance;
@@ -29,6 +31,7 @@ export type TurnEvidenceDraft<
   After = unknown,
   Cause = unknown,
 > = EvidenceMetadata &
+  // oxlint-disable-next-line anti-slop/no-readonly -- Prepared turn facts are copied before the store commit and remain fixed.
   Readonly<{
     _tag: "turn";
     cause: Cause;
@@ -41,6 +44,7 @@ export type LifecycleEvidenceDraft<
   After = unknown,
   Cause = unknown,
 > = EvidenceMetadata &
+  // oxlint-disable-next-line anti-slop/no-readonly -- Prepared lifecycle facts are copied before acceptance and remain fixed.
   Readonly<{
     _tag: "lifecycle";
     machineTurn: false;
@@ -52,6 +56,7 @@ export type LifecycleEvidenceDraft<
     terminal: boolean;
   }>;
 
+// oxlint-disable-next-line anti-slop/no-readonly -- Preparation freezes the owned draft until total completion binds its result.
 export type PreparedTurnEvidence<Before = unknown, After = unknown, Cause = unknown> = Readonly<{
   draft: TurnEvidenceDraft<Before, After, Cause>;
 }>;
@@ -60,6 +65,7 @@ export type PreparedLifecycleEvidence<
   Before = unknown,
   After = unknown,
   Cause = unknown,
+  // oxlint-disable-next-line anti-slop/no-readonly -- Preparation freezes the owned draft until total completion binds its result.
 > = Readonly<{
   draft: LifecycleEvidenceDraft<Before, After, Cause>;
 }>;
@@ -70,6 +76,7 @@ export type TurnEvidenceRecord<
   After = unknown,
   Cause = unknown,
 > = TurnEvidenceDraft<Before, After, Cause> &
+  // oxlint-disable-next-line anti-slop/no-readonly -- Published records freeze their store result and allocated sequence.
   Readonly<{
     store: StoreResult;
     sequence: EvidenceSequence;
@@ -79,7 +86,9 @@ export type LifecycleEvidenceRecord<
   Before = unknown,
   After = unknown,
   Cause = unknown,
-> = LifecycleEvidenceDraft<Before, After, Cause> & Readonly<{ sequence: EvidenceSequence }>;
+> = LifecycleEvidenceDraft<Before, After, Cause> &
+  // oxlint-disable-next-line anti-slop/no-readonly -- Published records freeze their allocated sequence and disposition.
+  Readonly<{ sequence: EvidenceSequence }>;
 
 export type EvidenceRecord = TurnEvidenceRecord | LifecycleEvidenceRecord;
 

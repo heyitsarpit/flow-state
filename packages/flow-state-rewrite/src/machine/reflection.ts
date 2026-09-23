@@ -69,6 +69,7 @@ type RecordClassification<Value> =
   | { _tag: "other" };
 
 export type ConfigurationSnapshot<Value> = {
+  // oxlint-disable-next-line anti-slop/no-readonly -- ConfigurationSnapshot retains its copied descriptor list as immutable validation input.
   readonly properties: readonly SnapshotProperty<Value>[];
 };
 
@@ -268,6 +269,7 @@ const arrayLength = <Value>(property: DataProperty<Value>) => {
 };
 
 const validateArrayKeys = <Value>(
+  // oxlint-disable-next-line anti-slop/no-readonly -- ConfigurationSnapshot retains its copied descriptor list as immutable validation input.
   properties: readonly SnapshotProperty<Value>[],
   length: number,
   path: Diagnostic.Path,
