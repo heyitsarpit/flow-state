@@ -24,10 +24,54 @@ open
 types
   JobId     = String where non-empty        -- opaque, parse at edge          [R1]
   Priority  = Int where 0..100              -- opaque, parse at edge          [R1]
+  NewJobInput = {id: String, priority: Int}  -- untrusted boundary shape
+  NewJob    = {id: JobId, priority: Priority}                                [R1]
   Job       = Queued{id, priority, seq}     -- seq is design, for FIFO (A1)
             | Running{id}
             | Cancelled{id}                 -- terminal
             | Completed{id}                 -- terminal
+
+composition
+  flow
+    NewJobInput -> NewJob -> Queued
+      -> (Cancelled | Running -> Completed)
+
+  concerns
+    parseJob
+      kind: transformer
+      contract: NewJobInput -> NewJob
+      knows: JobId and Priority parsing at the input boundary
+
+    scheduler
+      kind: capability
+      contract: submit, cancel, startNext, complete
+      knows: queue ordering, capacity, and lifecycle state
+
+  protocols
+    NewJob
+      facts: JobId is non-empty; Priority is within 0..100
+
+    Job.Queued
+      facts: admitted job with assigned sequence and queue membership
+
+    Job.Running
+      facts: atomically removed from Queued and counted against capacity
+
+  boundaries
+    parseJob -> scheduler.submit
+      protocol: NewJob
+      hides: raw input and parsing details
+
+    scheduler -> callers
+      protocol: JobId and operation results
+      hides: heap, counters, and state coordination
+
+  promoted
+    parseJob
+      reason: validates domain values under an independent contract
+
+    scheduler
+      reason: owns shared lifecycle invariants and an independently testable contract
 
 owner Scheduler                             -- sole authority for Job state
   state    jobs: Map<JobId, Job>

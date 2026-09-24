@@ -1,18 +1,35 @@
 ---
 name: pre-code-planning
-description: "Route pre-implementation design between abstraction guidance and a coding spec derived from an existing Spec IR."
+description: "Route slice design and implementation review across composition, correctness ownership, and coder-spec guidance."
 ---
 
 # Pre-code planning
 
-Use this skill when non-trivial behavior needs an explicit abstraction design, a coding spec, or both. Choose only the reference needed for the current work.
+Use this skill for non-trivial slice design or read-only review of an implementation against that design guidance. It routes among guides with distinct jobs:
 
-## Route the work
+- **Composition:** read [composition-design.md](references/composition-design.md) to discover concerns, data flow, protocols, composition sites, and encapsulation boundaries.
+- **Correctness and Effect realization:** read [effect-abstraction.md](references/effect-abstraction.md) to model valid values and states, place invariant and authority owners, choose algorithms and Effect forms, and derive enforcement and verification.
+- **Coder-ready spec:** read [spec-ir-to-design-spec.md](references/spec-ir-to-design-spec.md) to turn an existing Spec IR into a per-slice design contract. Read [example.md](references/example.md) when a worked example helps.
+- **Implementation review:** read [review-checklist.md](references/review-checklist.md) to compare the live codebase with the requirements and design, trace mismatches to concrete owners and proofs, and report findings. Keep the review read-only.
 
-- **Design how an abstraction should enforce behavior in Effect v4:** read [effect-abstraction.md](references/effect-abstraction.md). It contains the existing guidance on domain values, state, operations, algorithms, Effect services and layers, boundaries, guarantees, and verification.
-- **Write a per-slice design spec for implementation:** read [spec-ir-to-design-spec.md](references/spec-ir-to-design-spec.md). It translates an existing Spec IR into language-neutral pseudocode and a coder-ready contract. Read [example.md](references/example.md) when a complete worked example will help.
-- **Both are needed:** read the spec guide to determine slice boundaries and required guarantees, then read the abstraction guide to select Effect v4 forms for the design. Keep the Spec IR authoritative; send gaps back as `spec-feedback` rather than changing its meaning silently.
+## Planning flow
 
-The spec-writing workflow starts from an existing Spec IR. It does not extract raw stakeholder prose into a Spec IR and does not write production code. The abstraction reference is Effect v4-specific; the design spec itself stays framework-neutral until realization.
+Composition and correctness are interleaved, not independent passes:
+
+```text
+Spec IR
+→ cut a slice
+→ trace its initial data flow and concerns
+→ translate domain rules and place correctness owners
+→ refine concern and protocol boundaries around those owners
+→ choose algorithms, APIs, and Effect realization
+→ attack the design and derive verification
+```
+
+Read the composition and correctness guides together for non-trivial designs. State ownership can change concern boundaries; a protocol that carries an established fact can remove repeated validation or authority from downstream concerns. Revisit the flow after placing owners.
+
+The composition guide calls units of decomposition **concerns** and semantic positions **levels**. Do not call generic architectural levels “layers”: Effect `Layer` specifically provides dependencies.
+
+The spec-writing guide starts from an existing Spec IR; it does not extract raw stakeholder prose into Spec IR or write production code. Keep Spec IR authoritative and record gaps as `spec-feedback`.
 
 Skip this skill for trivial changes or when the design and coding contract are already settled.

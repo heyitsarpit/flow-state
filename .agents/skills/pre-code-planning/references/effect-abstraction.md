@@ -4,6 +4,10 @@ Use before implementing non-trivial behavior.
 
 **Goal:** derive an Effect program from requirements so that domain types preserve established facts, services own invariants, and predictable misuse becomes impossible or explicit.
 
+For how concerns and protocols connect, read [composition-design.md](composition-design.md). Composition design determines how data and authority move between concerns; this reference determines how each concern enforces guarantees and is realized in Effect.
+
+A concern that owns transformation knowledge is generally a pure function. A concern that owns authority to access or mutate state is generally a capability exposed through a Service. Effect `Layer` is for dependency provision, not a generic architectural level.
+
 ```text
 requirements
 → properties

@@ -14,7 +14,7 @@ requirements → [Requirements → Spec IR] → Spec IR
                           review (checks code against the guarantee map)
 ```
 
-The decisions themselves come from the abstraction-design pass in [effect-abstraction.md](effect-abstraction.md) (model, operations, algorithm, owner boundary, operational rules, attack, verification). This workflow does not repeat that pass. It defines what goes in, what comes out, and how Spec IR constructs translate into design constructs.
+The Design Spec records how this slice will satisfy the Spec IR through both concern composition and correctness mechanisms. Use [composition-design.md](composition-design.md) to discover and refine concerns and protocols, and [effect-abstraction.md](effect-abstraction.md) to place invariant and authority owners and choose concrete Effect forms. Interleave those decisions: owner placement can change boundaries, and stronger protocols can remove work from downstream concerns.
 
 Do not write production code, and do not edit the Spec IR. If design work shows the Spec IR is incomplete, record a `spec-feedback` item instead of quietly changing the meaning.
 
@@ -31,7 +31,9 @@ One file per slice, roughly 150 lines at most. If it grows past that, the slice 
 
 **1. Cut the slice.** Group Spec IR properties that share mutable state or the same invariants. Each group is one slice with one owner. Record the requirements it implements, what it depends on from other slices, and what it provides to them. Two owners means two files.
 
-**2. Translate the constructs.** Apply the table below to every Spec IR construct in the slice.
+**2. Trace initial composition.** Read [composition-design.md](composition-design.md) and trace the slice's semantic data flow. For each meaningful transformation or authority boundary, record its concern, concern kind (`transformer` or `capability`), crossing protocol, implementation knowledge hidden, and workflow policy that remains visible. Keep this initial map provisional until correctness owners are placed.
+
+**3. Translate the constructs and place correctness owners.** Apply the table below to every Spec IR construct in the slice.
 
 | Spec IR | Design Spec |
 |---|---|
@@ -49,22 +51,34 @@ One file per slice, roughly 150 lines at most. If it grows past that, the slice 
 
 Derived terms in the Spec IR (counts, "the queued jobs") become `derived` entries on the owner, each with its source and when it is updated.
 
-**3. Decide.** For each operation and invariant, choose the representation and algorithm, the owner boundary, and any operational rules, using the relevant guidance in [effect-abstraction.md](effect-abstraction.md). Record only decisions someone could reasonably have made differently, each with a one-line reason and the requirement or invariant it serves. Tag anything not forced by the Spec IR as `design` or `assume`.
+**4. Refine composition around the correctness owners.** Revisit the flow and boundaries after translating invariants and placing owners:
+- strengthen protocols with facts already established by parsing, validation, or state transitions; preserve those domain types instead of widening them to primitives;
+- merge concerns when one authority must own shared invariant state or an atomic update;
+- hide implementation details and map lower-level failures into the next level's vocabulary when consumers do not need those details;
+- ask whether each protocol appears at the semantic level where it belongs; for example, a UI should not receive raw calldata when domain-command and planning concerns belong between them; keep ordering, branching, retries, and other workflow policy at the intended composition site;
+- promote an inline composition only when it is reused, owns a guarantee/invariant, has an independent meaningful contract, or seals implementation knowledge. Repeated syntax alone is not a reason.
 
-**4. Write the operations in pseudocode.** For each op: `pre`, `commit`, `post`, `errors`. Rules for shared state: ops take ids and return typed results; the owner checks state inside the commit and never trusts a value the caller obtained earlier, because it may be stale. State-typed inputs are fine only for values no other caller or task can hold.
+**5. Choose algorithms and APIs.** Choose the representation, algorithm, owner boundary, and operational rules using the relevant guidance in [effect-abstraction.md](effect-abstraction.md) and [composition-design.md](composition-design.md). Record only decisions someone could reasonably have made differently, each with a one-line reason and the requirement or invariant it serves. Tag anything not forced by the Spec IR as `design` or `assume`. The composite must remain an ordinary concern contract (`A -> B` or `A -> Effect<B, E, R>`); its internal graph need not share the same input/output types and must not leak through the public API.
 
-**5. Build the guarantee map and attack audit.** Map every requirement to a mechanism and classify it: IMPOSSIBLE, REJECTED, GUARANTEED, VERIFIED, or POSSIBLE. Try the structural and operational misuse cases (double use, races, floods, overflow, stale handles, escape hatches). Fix any important POSSIBLE, or list it under `accepted risks`.
+**6. Write the operations in pseudocode.** For each op: `pre`, `commit`, `post`, `errors`. Rules for shared state: ops take ids and return typed results; the owner checks state inside the commit and never trusts a value the caller obtained earlier, because it may be stale. State-typed inputs are fine only for values no other caller or task can hold.
 
-**6. Derive tests and implementation order** from the properties, not from the code structure.
+**7. Build the guarantee map and attack audit.** Map every requirement to a mechanism and classify it: IMPOSSIBLE, REJECTED, GUARANTEED, VERIFIED, or POSSIBLE. Try the structural and operational misuse cases (double use, races, floods, overflow, stale handles, escape hatches). Fix any important POSSIBLE, or list it under `accepted risks`.
 
-**7. Validate before handing off.**
+**8. Derive tests and implementation order** from the properties, not from the code structure.
+
+**9. Validate before handing off.**
 - Every slice requirement appears in the guarantee map or in `open`.
 - Every Spec IR operation has a signature; every transition is realized or explicitly forbidden.
 - Every invariant has an enforcement point; every derived term has a source and an update point.
+- Every non-trivial concern has one coherent knowledge/authority responsibility; every boundary has an explicit protocol.
+- Protocols carry established facts where possible; callers do not depend on implementation-only details from lower levels.
+- Workflow policy remains visible; every promoted concern meets the promotion rule.
+- Composites expose ordinary contracts without leaking internal wiring; protocols appear at appropriate semantic levels.
+- Correctness owners and concern boundaries agree.
 - No unresolved conflict; every default is tagged `assume`.
 - The Spec IR is untouched; gaps appear as `spec-feedback`.
 
-**8. Keep it alive.** The implementer treats the file as the contract. If coding reveals a flaw in the model, update the Design Spec first, then the code. Reviewers check the code against the guarantee map.
+**10. Keep it alive.** The implementer treats the file as the contract. If coding reveals a flaw in the model, update the Design Spec first, then the code. Reviewers check the code against the guarantee map.
 
 ## File format
 
@@ -74,6 +88,7 @@ Write to the repo's design-doc location, defaulting to `design/<slice>.design.md
 slice / implements / depends / provides / target
 open          unknowns, assumptions, spec-feedback
 types         constrained values and closed unions
+composition   flow, concerns, protocols, boundaries, promoted, not_promoted
 owner         state, derived terms, invariants
 ops           pre / commit / post / errors
 algo          representation, key steps, complexity, invariants relied on
@@ -85,6 +100,10 @@ order
 ```
 
 See [example.md](example.md) for a complete file.
+
+The `composition` section follows `types` and precedes `owner`. Keep it proportional to the slice; omit empty entries and omit the section for a slice with only one real concern.
+
+A protocol is not merely a DTO with a convenient field shape. It is the semantic value crossing a concern boundary; its producer establishes the facts consumers rely on. Preserve those facts downstream. For Effect-shaped concerns, `A -> Effect<B, E, R>` exposes success protocol `B`, failure protocol `E`, and required capabilities `R`; translate lower-level errors or hide requirements behind a service when higher-level callers do not need their details.
 
 ## Realization
 
