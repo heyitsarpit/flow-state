@@ -25,7 +25,7 @@ op A ──┐
        ├──► could this leave the invariant false in between?
 op B ──┘         │ yes                    │ no
                   ▼                       ▼
-          one owner, one commit    invariant belongs on
+          one owner, one commit     invariant belongs on
                                     the value, not an owner
 ```
 
@@ -75,7 +75,7 @@ Move down this list only when a stronger layer genuinely can't express the prope
 ## Attacking the design
 
 ```text
-escape hatches              stale evidence
+escape hatches                stale evidence
 casts, deserialization,     a token/handle proves a fact only as
 direct storage writes,      of when it was issued — re-check the
 FFI, reflection              current state inside the same commit
