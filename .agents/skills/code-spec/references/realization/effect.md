@@ -1,6 +1,6 @@
 # Effect realization (target: effect-v4)
 
-Read after the Spec is implementation-ready. A lookup table from Spec blocks to Effect's concrete forms, plus two pitfalls specific to TypeScript. Confirm API names against the installed version's types — Effect v4 has churned across betas.
+Read after the target-neutral Spec is implementation-ready and Effect is the chosen target. This is a lookup table, not the Spec's design vocabulary. Confirm API names against the installed version's types — Effect v4 has churned across betas.
 
 ## Mapping
 

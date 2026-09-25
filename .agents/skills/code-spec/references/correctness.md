@@ -9,14 +9,14 @@ group entity / state / invariant / operation
 by: shared mutable state, or must-change-atomically-together
       │
       ▼
-one owner per group  ──►  already found by Survey?
+at most one primary owner ──► already found by Survey?
                               │ yes            │ no
                               ▼                ▼
                           reuse/extend      new owner,
                           that owner        new slice
 ```
 
-Two owners in one Spec means it isn't cut yet. If Composition discovers another owner, start a dependent Spec and resume against that owner's public operations.
+A stateless slice may have no owner. Two primary owners in one Spec means it isn't cut yet. If Composition discovers another owner, start a separate Spec beside that owner's code, link it, and resume against its public operations.
 
 Before naming a new owner, cite the relevant Survey findings and explain why no existing owner can enforce this invariant without weakening its boundary.
 

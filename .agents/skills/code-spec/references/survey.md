@@ -25,7 +25,7 @@ new requirement                  new requirement
 this owner, this protocol       "map the whole codebase first"
 ```
 
-Start from the requirement, not the codebase. Look one or two hops out from what it would need to read or write.
+Start from the requirement, not the codebase. Check Specs beside the touched code, then look one or two hops out from what it would need to read or write.
 
 ## 2. Classify each finding
 
@@ -45,7 +45,7 @@ Prefer `reuse-as-is` → `extend` → `supersede` → new. Choosing a later opti
 existing <name> {
   kind      owner | protocol | concern
   form      transformer | capability       -- concern only
-  found-in  <module or file>
+  found-in  <module, file, or nearby Spec>
   covers    <what it already does, relevant to this slice>
   reuse     reuse-as-is | extend | supersede
 }

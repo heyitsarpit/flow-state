@@ -1,6 +1,6 @@
 ---
 name: code-spec
-description: Grow one Spec per non-trivial slice after requirement extraction, including brownfield slices, through Survey, Correctness, Composition, and Verify. Use while proposing or superseding a slice design. Skip trivial changes, settled slices, implementation review, and raw-requirement extraction.
+description: Grow one code-adjacent Spec per non-trivial slice after requirement extraction, including brownfield slices, through Survey, Correctness, Composition, and Verify. Use while proposing or superseding a slice design. Skip trivial changes, settled slices, implementation review, and raw-requirement extraction.
 ---
 
 # Code Spec
@@ -31,14 +31,17 @@ prose requirements        existing codebase
                       ▼
         Spec: proposed → accepted
                       │
-                (code merges)
-                      ▼
-               Spec: frozen
-                      │
-                   REVIEW            separate skill, anytime after merge
+                   REVIEW            separate skill, anytime after acceptance
 ```
 
-One artifact, the **Spec**, in the notation extraction already produces (`requirement`, `entity`, `value`, `state`, `transition`, `operation`, `invariant`, `temporal`, `error`, `unknown`, `ambiguous`, `conflict`, `assumption`). Every phase here partitions the Spec or adds block kinds to it — never a second file, never a second syntax. Full term list: `references/glossary.md`. Worked example: `references/example.md`.
+One artifact per slice, the **Spec**, in the notation extraction already produces (`requirement`, `entity`, `value`, `state`, `transition`, `operation`, `invariant`, `temporal`, `error`, `unknown`, `ambiguous`, `conflict`, `assumption`). Every phase updates that slice's same file and syntax. Full term list: `references/glossary.md`. The worked example is one complete compiled Spec followed by annotations: `references/example.md`.
+
+## Placement and granularity
+
+- Keep Specs distributed beside the code they describe. Follow the repository convention; otherwise use `<slice>.spec.md` beside the primary owner, public entry, or module directory.
+- One Spec covers one independently evolvable semantic slice. It may have no state owner; it has at most one primary state or lifetime owner.
+- A dependency with its own authority or acceptance boundary gets a separate, nearby Spec linked by relative path or stable ID. Never embed that Spec inline.
+- A bug or extension that preserves the slice boundary updates the existing Spec. Create another only for a genuinely independent boundary.
 
 ## Where the Spec comes from
 
@@ -69,7 +72,7 @@ This is why the Spec doesn't try to be the final source of truth for the code's 
 
 ## Right-size
 
-A slice with one owner and a couple of operations needs half a page. Skip any block kind with nothing to say. If a slice's Spec passes roughly 150 lines, it likely covers more than one owner — revisit Cut, inside Correctness, below.
+A small slice needs about half a page. Skip any block kind with nothing to say. If a Spec passes roughly 150 lines, it likely covers more than one independently evolving boundary — revisit Cut.
 
 ---
 
@@ -93,7 +96,7 @@ Correctness and Composition reuse or deliberately supersede an `existing` entry 
 
 Read `references/correctness.md`.
 
-**Cut.** Group `entity` / `state` / `invariant` / `operation` by shared mutable state, or by needing to change atomically together, into one slice per owner — checking Survey's `existing` entries first.
+**Cut.** Group `entity` / `state` / `invariant` / `operation` by one independently evolving boundary. Shared mutable state or changes that must be atomic identify a primary owner; a stateless slice may have none. Check Survey's `existing` entries first.
 
 ```spec
 slice <Name>
@@ -143,12 +146,12 @@ name a concern
 transformer? ── yes ──► contract = its signature; continue
      │ no (capability)
      ▼
-owns state 2+ operations could leave inconsistent? ── no ──► contract = A -> Effect<B,E,R>; continue
+owns state 2+ operations could leave inconsistent? ── no ──► state its input/returns/fails/needs; continue
      │ yes
      ▼
 ┌────────────────────────────────┐
 │ STOP — CORRECTNESS starts a     │
-│ dependent Spec for this owner   │
+│ separate Spec for this owner    │
 └────────────────┬─────────────────┘
                  ▼
 concern's contract = that owner's public operations
@@ -166,7 +169,11 @@ promote; recurse one level up      leave inline
 ```spec
 concern <name> {
   kind      transformer | capability
-  contract  <input> -> <output>
+  input     <input>
+  returns   <output>
+  fails     <expected failures>       -- omit when none
+  needs     <capabilities>            -- omit when none
+  policy    <ordering or branching>   -- composite concerns only
 }
 
 protocol <TypeName> {
@@ -189,7 +196,7 @@ order     { <dependency-ordered implementation sequence> }
 ```
 
 ```text
-class:  IMPOSSIBLE | REJECTED | GUARANTEED | VERIFIED | POSSIBLE
+class:  IMPOSSIBLE | REJECTED | GUARANTEED | POSSIBLE
 ```
 
 Every `requirement` and `invariant` gets a `guarantee` row. Fix any important `POSSIBLE`, or record it:
@@ -210,10 +217,7 @@ proposed    written, not yet reviewed
    ▼
 accepted    reviewed; coding proceeds against the HARD layer
    │
-   ▼  (code merges)
-frozen      immutable design record; code is the current realization
-   │
-   ▼  (a later slice changes a HARD claim)
+   ▼  (a later decision changes a HARD claim)
 superseded  → link forward, never delete
 ```
 
@@ -224,19 +228,19 @@ requirement R6 {
 }
 ```
 
-Only HARD blocks carry this lifecycle. Requirements remain normative after merge; SOFT blocks may become stale as implementation shape changes.
+Only HARD blocks carry this lifecycle. An accepted Spec stays maintained beside its code; merging code does not freeze it. SOFT blocks may change as implementation shape changes.
 
 ## Validate before handing off
 
 - Every extracted operation preserves `requires` / `ensures` / `errors`; every transition is realized or explicitly forbidden; every temporal claim has a guarantee or verification.
 - Every `requirement` and `invariant` has a `guarantee` row, or is covered by `unknown` / `ambiguous` / `accepted-risk`.
-- Every stateful `operation` has `owner`, and `commit` if it mutates shared state; every derived term has a source and update point; every added decision is tagged `design` or `assumption`.
+- Every operation that mutates shared state has an `owner` and `commit`; every derived term has a source and update point; every added decision is tagged `design` or `assumption`.
 - Every `existing` finding is `reuse-as-is`, `extend`, or `supersede` — never silently ignored.
 - No `POSSIBLE` attack is left unaddressed; a SOFT refactor may not weaken a HARD claim.
 
 ## Realize
 
-Per target language, outside the Spec. See `references/realization/effect.md` for Effect.
+The Spec is target-neutral and is not imported or interpreted at runtime. Implementation tasks and proofs reference its claim IDs; realization details stay in code. See `references/realization/effect.md` when Effect is the chosen target.
 
 ## Review
 
@@ -244,7 +248,7 @@ Implementation review is outside this skill. Use a dedicated read-only review wo
 
 ## Rules
 
-- One artifact. A later phase adds blocks; it never edits what an earlier phase established without marking the change.
+- One artifact per slice. A later phase adds blocks to the same file; dependent Specs remain separate and linked.
 - SOFT blocks may be refactored freely while their cited HARD claims still hold; HARD blocks may not be silently changed.
 - Never guess silently — uncertainty goes into `unknown`, `ambiguous`, `assumption`, or `spec-feedback`.
 - Prefer plain sentences over code-shaped pseudocode.

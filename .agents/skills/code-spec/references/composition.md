@@ -1,8 +1,8 @@
 # Composition (Composition phase reference)
 
-Read during Composition, after Correctness has placed at least one owner. Decides how an owner's operations — and the transformers around them — are actually built from parts. Recursive; hands control back to Correctness the moment it finds a new owner (see the loop-back diagram in `SKILL.md`, and the closing section here).
+Read during Composition, after Correctness has cut the slice and placed any owner it needs. Decides how the slice's operations and transformers are built from parts. Recursive; hands control back to Correctness the moment it finds a new owner (see the loop-back diagram in `SKILL.md`, and the closing section here).
 
-A **concern** is one unit of decomposition: one coherent piece of knowledge or authority. A **level** is its altitude in the flow. Not "layer" — in Effect, `Layer` means dependency provision.
+A **concern** is one unit of decomposition: one coherent piece of knowledge or authority. A **level** is its altitude in the flow; avoid overloading an implementation target's term for dependency provision.
 
 `concern` / `protocol` / `boundary` are SOFT. Refactor them freely; reopen the Spec only if a refactor changes what a HARD block claims.
 
@@ -17,10 +17,10 @@ Start from the slice's highest-level input, follow it to each effect or result. 
 ## 2. Name the concerns
 
 ```text
-transformer   A -> B  (or A -> Effect<B, E, R>)
+transformer   input A; returns B; may name an expected failure
               owns knowledge about how data is transformed
 
-capability    A -> Effect<B, E, R>
+capability    input A; returns B; fails with named errors; needs capabilities
               owns authority — state, I/O, an external resource
 ```
 
@@ -41,11 +41,10 @@ Don't reduce a strong protocol value back to a primitive and make a downstream c
 ## 4. Compose the whole contract, not just the output
 
 ```text
-A -> Effect<B, E, R>
-            │  │  │
-            │  │  └── required capabilities: union (`R1 | R2`) across composed concerns
-            │  └───── failure: translate into the next level's vocabulary
-            └──────── success value: the protocol
+input A
+returns B          success value: the protocol
+fails Failures     translate into the next level's vocabulary
+needs Capabilities union requirements across composed concerns
 ```
 
 ```text
@@ -57,8 +56,8 @@ Don't let a lower concern's failure leak upward untranslated when the caller doe
 ## 5. Preserve closure
 
 ```text
-composite : A -> Effect<C, E, R>
-     same shape as a primitive concern?
+composite { input A; returns C; fails Failures; needs Capabilities }
+     same four channels as a primitive concern?
         │ yes                    │ no
         ▼                        ▼
   usable as one concern     something is still leaking —
@@ -75,6 +74,8 @@ step    = buildStep(call, gas)
 ```
 
 Each concern hides *how* its own step works. The caller keeps ordering, branching, and retry/fallback policy visible. Don't add a helper only to remove repeated syntax.
+
+Record that ordering and branching as `policy` on the composite concern.
 
 ## 7. Put each fact in exactly one place
 
@@ -108,7 +109,7 @@ not a reason:      "these lines repeat"
 ## 10. Plan vs. execute
 
 ```text
-Command → Planner → Plan → Runner → Effect
+Command → Planner → Plan → Runner → Execution
 ```
 
 Only when representing work as data gives real value: inspection, testing without side effects, simulation, retry, reordering, an alternate runtime. Otherwise perform the effect directly.
@@ -143,7 +144,7 @@ naming a capability concern
 does it own state 2+ operations could leave inconsistent?
         │ yes
         ▼
-STOP. Start a dependent Spec in Correctness for this owner,
+STOP. Start a separate, code-adjacent Spec in Correctness for this owner,
 then resume against that owner's public operations.
 ```
 
