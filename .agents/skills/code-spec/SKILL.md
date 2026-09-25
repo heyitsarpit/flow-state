@@ -1,0 +1,240 @@
+---
+name: code-spec
+description: Grows one Spec per slice, in the notation the Requirements → Spec extraction skill produces, through Survey, Correctness, Composition, and Verify phases, treating requirement/invariant/owner/guarantee as authoritative (HARD) and concern/protocol/boundary as a disposable working proposal (SOFT). Use for non-trivial slice design once a Spec exists, including slices added to an existing codebase, or for read-only review of an implementation against a Spec's HARD blocks. Skip for trivial changes, or when an accepted Spec already exists for this slice.
+---
+
+# Pre-code planning
+
+```text
+prose requirements        existing codebase
+        │                         │
+        ▼                         ▼
+     EXTRACT                   SURVEY
+  (separate skill)          existing owner / protocol,
+        │                    tagged `existing`
+        └────────────┬────────────┘
+                      ▼
+               CORRECTNESS          cut, owner, algorithm,
+                                    rule, operation.commit
+                      │
+                      ▼
+               COMPOSITION  ◄────┐  concern, protocol, boundary
+           (recursive)           │  loops back into Correctness
+                      │──────────┘  when a new owner is found
+                      ▼
+                   VERIFY           guarantee, attack, verify, order
+                      │
+                      ▼
+        Spec: proposed → accepted
+                      │
+                (code merges)
+                      ▼
+               Spec: frozen
+                      │
+                   REVIEW            separate skill, anytime after merge
+```
+
+One artifact, the **Spec**, in the notation extraction already produces (`requirement`, `entity`, `value`, `state`, `transition`, `operation`, `invariant`, `temporal`, `error`, `unknown`, `ambiguous`, `conflict`, `assumption`). Every phase here partitions the Spec or adds block kinds to it — never a second file, never a second syntax. Full term list: `references/glossary.md`. One slice through all four phases: `references/example.md`.
+
+## Where the Spec comes from
+
+Extraction is a separate skill. If no Spec exists yet for these requirements, extract first. If anything here shows the Spec is wrong or incomplete, record it as `spec-feedback` — never silently edit what extraction produced.
+
+## HARD and SOFT
+
+```text
+HARD    requirement · invariant · owner · guarantee
+        authoritative — changing one is a real design decision
+
+SOFT    concern · protocol · boundary
+        a working proposal — refactor freely while coding;
+        reopen the Spec only if a refactor changes what a
+        HARD block claims
+```
+
+This is why the Spec doesn't try to be the final source of truth for the code's *shape* — only for what the code must *guarantee*.
+
+## Right-size
+
+A slice with one owner and a couple of operations needs half a page. Skip any block kind with nothing to say. If a slice's Spec passes roughly 150 lines, it likely covers more than one owner — revisit Cut, inside Correctness, below.
+
+---
+
+## Phase: Survey
+
+Read `references/survey.md`. Before designing anything new, walk outward from what the new requirements actually touch and record what already exists.
+
+```spec
+existing <name> {
+  kind      owner | protocol | concern
+  found-in  <module or file>
+  covers    <what it already does, relevant to this slice>
+  reuse     reuse-as-is | extend | supersede
+}
+```
+
+Correctness and Composition reuse or deliberately supersede an `existing` entry — never silently rebuild it.
+
+## Phase: Correctness
+
+Read `references/correctness.md`.
+
+**Cut.** Group `entity` / `state` / `invariant` / `operation` by shared mutable state, or by needing to change atomically together, into one slice per owner — checking Survey's `existing` entries first.
+
+```spec
+slice <Name>
+status       proposed
+implements   <requirement ids>
+depends      <slices/services needed>
+provides     <operations exposed>
+```
+
+**Place owners, algorithms, and rules.** For every `invariant` and `transition` already in the Spec, decide who enforces it and how.
+
+```spec
+owner <Name> {
+  state    <what it holds>
+  derived  <name> = <expression>, updated <when>
+}
+
+algorithm <owner-or-operation> {
+  representation  <data structure>
+  argument        <why this satisfies the invariant it depends on>
+}
+
+rule <owner> {                    -- only when state is shared or concurrent
+  commit  <the one step where a change becomes visible>
+  bounds  <what is bounded, and what happens at the bound>
+}
+```
+
+Extend every `operation` already in the Spec:
+
+```spec
+operation submit(job: NewJob) -> JobId {
+  ensures  exists Job where id == result      -- unchanged from extraction
+  owner    Scheduler                           -- added here
+  commit   assign the next id and insert it, as one step     -- added here
+}
+```
+
+## Phase: Composition
+
+Read `references/composition.md`. Trace how each owner's operations are actually built from parts. Recursive, and it hands control back to Correctness the moment it finds a new owner:
+
+```text
+name a concern
+     │
+     ▼
+transformer? ── yes ──► contract = its signature; continue
+     │ no (capability)
+     ▼
+owns state 2+ operations could leave inconsistent? ── no ──► contract = A -> Effect<B,E,R>; continue
+     │ yes
+     ▼
+┌────────────────────────────────┐
+│ STOP — back to CORRECTNESS,     │
+│ for this concern only           │
+└────────────────┬─────────────────┘
+                 ▼
+concern's contract = that owner's public operations
+     │
+     ▼
+compose upward — unify or translate E and R, not just the output
+     │
+     ▼
+closure test passes, and (reused | owns a guarantee | independently testable)?
+     │ yes                              │ no
+     ▼                                  ▼
+promote; recurse one level up      leave inline
+```
+
+```spec
+concern <name> {
+  kind      transformer | capability
+  contract  <input> -> <output>
+}
+
+protocol <TypeName> {
+  facts  <what a value of this type is already known to satisfy>
+}
+
+boundary <concern> -> <concern> {
+  protocol  <TypeName>
+  hides     <what the consumer never needs to see>
+}
+```
+
+## Phase: Verify
+
+```spec
+guarantee <requirement-or-invariant id> { mechanism <...>  class <...> }
+attack    <misuse case, one sentence>    { class <...> }
+verify    <requirement-or-invariant id> { test <...> }
+order     { <dependency-ordered implementation sequence> }
+```
+
+```text
+class:  IMPOSSIBLE | REJECTED | GUARANTEED | VERIFIED | POSSIBLE
+```
+
+Every `requirement` and `invariant` gets a `guarantee` row. Fix any important `POSSIBLE`, or record it:
+
+```spec
+accepted-risk <id> { attack <which row>  reason <why it's acceptable> }
+```
+
+---
+
+## Spec lifecycle
+
+```text
+proposed    written, not yet reviewed
+   │
+   ▼
+accepted    reviewed; coding proceeds against the HARD layer
+   │
+   ▼  (code merges)
+frozen      code is now ground truth; Spec is dated documentation
+   │
+   ▼  (a later slice changes a HARD claim)
+superseded  → link forward, never delete
+```
+
+```spec
+requirement R6 {
+  supersedes R3
+  reason "R3 assumed single-region; a later slice changed the concurrency rule"
+}
+```
+
+Only HARD blocks carry this lifecycle. SOFT blocks have no status — they're expected to be out of date the moment coding starts.
+
+## Validate before handing off
+
+- Every `requirement` and `invariant` has a `guarantee` row, or is covered by `unknown` / `ambiguous` / `accepted-risk`.
+- Every `operation` has `owner`, and `commit` if it mutates shared state.
+- Every `existing` finding is `reuse-as-is`, `extend`, or `supersede` — never silently ignored.
+- No `POSSIBLE` attack is left unaddressed.
+- SOFT blocks are not held to this checklist.
+
+## Realize
+
+Per target language, outside the Spec. See `references/realization/effect.md` for Effect.
+
+## Review
+
+A separate, read-only skill (`review-checklist.md` — not yet part of this bundle). It compares code against HARD blocks only:
+
+```text
+match                  → nothing to do
+diverges, code right   → Spec stale: update it, mark the old entry superseded
+diverges, code wrong   → fix the code
+```
+
+## Rules
+
+- One artifact. A later phase adds blocks; it never edits what an earlier phase established without marking the change.
+- SOFT blocks may be refactored freely; HARD blocks may not be silently changed.
+- Never guess silently — uncertainty goes into `unknown`, `ambiguous`, or `spec-feedback`.
+- Prefer plain sentences over code-shaped pseudocode.
