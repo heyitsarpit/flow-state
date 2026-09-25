@@ -35,6 +35,8 @@ extend        does most of this, missing an operation or a fact
 supersede     does this, but the new requirement contradicts how
 ```
 
+Prefer `reuse-as-is` → `extend` → `supersede` → new. Choosing a later option requires one sentence explaining why the earlier options cannot satisfy the HARD claims.
+
 `supersede` is not a failure — see the Spec lifecycle in `SKILL.md`. It means an existing `requirement`/`invariant`/`owner` gets a `supersedes` entry once Correctness runs.
 
 ## 3. Record only what this slice touches
@@ -42,6 +44,7 @@ supersede     does this, but the new requirement contradicts how
 ```spec
 existing <name> {
   kind      owner | protocol | concern
+  form      transformer | capability       -- concern only
   found-in  <module or file>
   covers    <what it already does, relevant to this slice>
   reuse     reuse-as-is | extend | supersede
@@ -52,7 +55,7 @@ Don't restate the existing thing's whole behavior — only the part this slice d
 
 ## 4. When existing behavior conflicts with a new invariant
 
-Record it as a `conflict` between the new `requirement` and the existing behavior (extraction's own block, reused here). Correctness resolves it — usually by choosing `extend` or `supersede`.
+Mark the existing entry `supersede`. Reserve `conflict` for incompatible source requirements; Intake stops on those because design cannot resolve them.
 
 ## 5. Hand off
 

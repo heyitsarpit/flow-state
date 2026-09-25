@@ -16,7 +16,9 @@ one owner per group  ──►  already found by Survey?
                           that owner        new slice
 ```
 
-Two owners in one Spec means it isn't cut yet.
+Two owners in one Spec means it isn't cut yet. If Composition discovers another owner, start a dependent Spec and resume against that owner's public operations.
+
+Before naming a new owner, cite the relevant Survey findings and explain why no existing owner can enforce this invariant without weakening its boundary.
 
 ## When a concern becomes an owner
 
@@ -45,13 +47,16 @@ strong argument  "popMax returns the maximum because the heap holds
 
 If an operation's correctness depends on an invariant the owner doesn't actually enforce, the argument is false, even if the code works today.
 
+Record complexity when scale or a requirement makes it observable.
+
 ## Operational rules
 
 Only write a `rule` block when state is shared across operations, callers, or tasks.
 
 ```text
-commit      the one step where a change becomes visible to everyone
-            at once; everything before it is fallible and abandonable
+commit      the smallest indivisible decision and state publication:
+            re-check stale facts, decide, and expose the new state together;
+            names what observers cannot see half-applied, not the primitive used
 locks       held only for the commit itself — no I/O or callback inside
 bounds      every queue/retry/list that can grow needs a limit and a
             stated behavior at that limit
@@ -81,6 +86,8 @@ direct storage writes,      of when it was issued — re-check the
 FFI, reflection              current state inside the same commit
                               that uses it
 ```
+
+Also attack interruption and partial external effects between commits. A local commit cannot make an external side effect atomic; require idempotency, durable convergence, an outbox, or an explicit accepted risk.
 
 Classify honestly. GUARANTEED means an algorithm or atomic commit prevents it — not "would be caught in review." An unclassified `POSSIBLE` is a failure of this phase, not of the design.
 

@@ -4,39 +4,42 @@ Read after the Spec is implementation-ready. A lookup table from Spec blocks to 
 
 ## Mapping
 
-| Spec block                       | Effect                                                                                 |
-|----------------------------------|----------------------------------------------------------------------------------------|
-| `value ... where ...`            | branded `Schema`, decoded once at the boundary                                         |
-| `state` + `transition`           | `Data.TaggedEnum`, matched exhaustively                                                |
-| `operation`                      | `(Input) => Effect<Output, DomainError, Requirements>`                                 |
-| `concern` (transformer)          | a plain function                                                                       |
-| `concern` (capability) / `owner` | a `Service`, exposing only operations                                                  |
-| `boundary`                       | the service's method signatures; `protocol` = the method's input/output type           |
-| `rule.commit`                    | one atomic update — `Ref.modify`, `SynchronizedRef`, or a store transaction            |
-| `error`                          | a tagged error in the `E` channel                                                      |
-| `depends`                        | the `Layer` graph; consumers depend on the tag, never `...Live`                        |
-| `verify`                         | Schema tests, transition tests, service tests, property tests, Layer integration tests |
+| Spec block              | Effect realization                                                                                               |
+|-------------------------|------------------------------------------------------------------------------------------------------------------|
+| `value ... where ...`   | `Schema` owns admission; brand only when the value must remain distinct downstream                              |
+| `state`                 | plain data; `Data.TaggedEnum` + `Data.taggedEnum` for trusted, mutually exclusive variants                      |
+| `transition`            | a plain function or `Result` when pure; an owner operation when it changes owned state                          |
+| `operation`             | plain when pure; otherwise `(Input) => Effect.Effect<Output, DomainError, Requirements>`                         |
+| `concern` (transformer) | a plain function or `Data.taggedEnum<>().$match`                                                                                                |
+| `concern` (capability)  | an argument when local; `Context.Service` when a substitutable capability crosses call levels                   |
+| `owner`                 | a private **owner factory**: constructs the state or lifetime authority and returns narrow operations           |
+| `boundary`              | the operation signature and protocol; a service method only for a contextual capability                        |
+| `rule.commit`           | the indivisible decision and state publication promised by the Spec — not a prescribed Effect primitive        |
+| `error`                 | expected recoverable failure in `E`; interruption and defects remain outside the domain-error channel           |
+| `depends`               | data stays in arguments; contextual capabilities stay in `R`; `Layer` constructs, provides, and releases them   |
+| `verify`                | Schema, transition, service, property, concurrency, and Layer integration tests as the guarantee requires       |
+
+An owner factory is ordinary TypeScript or Effect construction, not another framework type. It may close over a `Ref`, queue, scope, repository, or actor and is called at the boundary that owns its lifetime. `Context.Service` is narrower: it keeps a replaceable capability visible in `R` without threading it through intermediate calls; its `Layer` owns construction and release.
 
 ```ts
-class Scheduler extends Context.Service<Scheduler, {
-  readonly submit: (job: NewJob) => Effect.Effect<JobId, SubmitError>
-}>()("app/Scheduler") {}
+class Sender extends Context.Service<Sender, {
+  send: (message: RenderedMessage) => Effect.Effect<Receipt, SendError>
+}>()("app/Sender") {}
 ```
 
 ## Pitfall 1: a refinement alone does not preserve a fact
 
 ```ts
-// still just a number — nothing stops any number reaching here
-const Priority = Schema.Int.pipe(Schema.between(0, 100))
+// validated at admission, but its TypeScript type is still number
+const PriorityValue = Schema.Int.check(
+  Schema.isBetween({ minimum: 0, maximum: 100 }),
+)
 
-// brand it
-const Priority = Schema.Number
-  .check(Schema.isInt())
-  .check(Schema.isBetween({ minimum: 0, maximum: 100 }))
-  .pipe(Schema.brand("Priority"))
+// use a brand only when that fact must remain distinct downstream
+const Priority = PriorityValue.pipe(Schema.brand("Priority"))
 ```
 
-Apply this to every `value` block, not only the sensitive-looking ones.
+`Schema.brand` changes the decoded TypeScript type, not the runtime representation or checks. It prevents an arbitrary `number` from being passed where a `Priority` is required. Skip it when validation at admission is enough and downstream code does not benefit from the distinction.
 
 ## Pitfall 2: TypeScript has no linear types
 
@@ -45,4 +48,4 @@ Rust:        complete(job: RunningJob)   -- consumed; reuse doesn't compile
 TypeScript:  the old value stays in scope; other fibers may hold copies
 ```
 
-So "complete the same job twice" is `REJECTED` or `GUARANTEED` by an atomic re-check inside the commit — never `IMPOSSIBLE`. Prefer an id plus a re-check inside `Ref.modify` over a state-typed input, unless nothing else could hold that value concurrently. This is `correctness.md`'s stale-evidence attack, specific to what TypeScript can't stop.
+So "complete the same job twice" is `REJECTED` or `GUARANTEED` by an atomic re-check at the owner's commit — never `IMPOSSIBLE`. Prefer an id plus that re-check over a state-typed input unless nothing else could hold the value concurrently. The implementation chooses its atomic mechanism only after the owner and storage medium are known.

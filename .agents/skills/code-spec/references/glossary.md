@@ -60,7 +60,8 @@ Every term this skill uses, once. Terms marked *(extraction)* belong to the sepa
 - **invariant** — a property that must always hold.
 - **temporal** — an `always`/`never`/`eventually` property over a sequence of events.
 - **error** — an expected, named failure.
-- **unknown / ambiguous / conflict / assumption** — open questions and the defaults chosen for them.
+- **unknown / ambiguous / assumption** — open questions and the reversible defaults chosen for them.
+- **conflict** — incompatible source claims; design stops until authority resolves them.
 
 ## Survey
 
@@ -70,7 +71,7 @@ Every term this skill uses, once. Terms marked *(extraction)* belong to the sepa
 ## Correctness
 
 - **cut** — the sub-step that groups Spec constructs sharing mutable state into one owner per slice. Not a separate phase; the first thing Correctness does.
-- **slice** — one Spec, one owner (or a tightly related set), with a `status` field.
+- **slice** — one Spec, one owner, with a `status` field.
 - **owner** — the sole authority for state that spans more than one operation.
 
   ```text
@@ -121,13 +122,13 @@ Every term this skill uses, once. Terms marked *(extraction)* belong to the sepa
 
 ## Cross-cutting
 
-- **HARD / SOFT** — which blocks are authoritative (`requirement`, `invariant`, `owner`, `guarantee`) and which are a disposable working proposal (`concern`, `protocol`, `boundary`).
+- **HARD / SOFT** — semantic source and design claims are authoritative; structural `concern`, `protocol`, `boundary`, `algorithm`, and `rule` blocks are working proposals that may change only while cited HARD claims still hold.
 - **spec-feedback** — a gap in the extracted Spec found later, never fixed by silently editing what extraction produced.
 
 ## Spec lifecycle
 
 - **proposed** — written, not yet reviewed.
 - **accepted** — reviewed; coding proceeds against the HARD layer.
-- **frozen** — merged; code is now ground truth, the Spec is dated documentation.
+- **frozen** — immutable design record after merge; code is the current realization, while requirements remain normative.
 - **superseded** — a later slice invalidated a HARD claim; the old entry is linked forward, never deleted.
-- **supersedes / superseded-by** — the fields that make that link explicit on a `requirement`, `invariant`, `owner`, or `guarantee`.
+- **supersedes / superseded-by** — the fields that make that link explicit on a HARD claim.

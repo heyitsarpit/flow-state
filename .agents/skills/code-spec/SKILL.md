@@ -1,9 +1,13 @@
 ---
 name: code-spec
-description: Grows one Spec per slice, in the notation the Requirements → Spec extraction skill produces, through Survey, Correctness, Composition, and Verify phases, treating requirement/invariant/owner/guarantee as authoritative (HARD) and concern/protocol/boundary as a disposable working proposal (SOFT). Use for non-trivial slice design once a Spec exists, including slices added to an existing codebase, or for read-only review of an implementation against a Spec's HARD blocks. Skip for trivial changes, or when an accepted Spec already exists for this slice.
+description: Grow one Spec per non-trivial slice after requirement extraction, including brownfield slices, through Survey, Correctness, Composition, and Verify. Use while proposing or superseding a slice design. Skip trivial changes, settled slices, implementation review, and raw-requirement extraction.
 ---
 
-# Pre-code planning
+# Code Spec
+
+## Goal
+
+Minimize new code through better architecture. Reuse or extend existing owners before creating new ones, so each change strengthens one system instead of adding parallel paths, duplicate authority, or speculative abstractions. Fewer lines are an outcome, never a reason to skip correctness.
 
 ```text
 prose requirements        existing codebase
@@ -34,25 +38,34 @@ prose requirements        existing codebase
                    REVIEW            separate skill, anytime after merge
 ```
 
-One artifact, the **Spec**, in the notation extraction already produces (`requirement`, `entity`, `value`, `state`, `transition`, `operation`, `invariant`, `temporal`, `error`, `unknown`, `ambiguous`, `conflict`, `assumption`). Every phase here partitions the Spec or adds block kinds to it — never a second file, never a second syntax. Full term list: `references/glossary.md`. One slice through all four phases: `references/example.md`.
+One artifact, the **Spec**, in the notation extraction already produces (`requirement`, `entity`, `value`, `state`, `transition`, `operation`, `invariant`, `temporal`, `error`, `unknown`, `ambiguous`, `conflict`, `assumption`). Every phase here partitions the Spec or adds block kinds to it — never a second file, never a second syntax. Full term list: `references/glossary.md`. Worked example: `references/example.md`.
 
 ## Where the Spec comes from
 
 Extraction is a separate skill. If no Spec exists yet for these requirements, extract first. If anything here shows the Spec is wrong or incomplete, record it as `spec-feedback` — never silently edit what extraction produced.
 
+## Intake
+
+- Stop on an unresolved conflict between source requirements.
+- Ask one question when an `unknown` or `ambiguous` blocks the model; otherwise record the smallest reversible `assumption`.
+- Record undeclared terms or relationships as `spec-feedback`.
+- Existing behavior that disagrees with a new requirement is a Survey supersession, not a source conflict.
+
 ## HARD and SOFT
 
 ```text
-HARD    requirement · invariant · owner · guarantee
+HARD    extracted semantic claims: requirement · value · state · transition
+        operation · invariant · temporal · error
+        design claims: owner · guarantee · accepted-risk
         authoritative — changing one is a real design decision
 
-SOFT    concern · protocol · boundary
+SOFT    concern · protocol · boundary · algorithm · rule
         a working proposal — refactor freely while coding;
         reopen the Spec only if a refactor changes what a
         HARD block claims
 ```
 
-This is why the Spec doesn't try to be the final source of truth for the code's *shape* — only for what the code must *guarantee*.
+This is why the Spec doesn't try to be the final source of truth for the code's *shape* — only for what the code must *guarantee*. Any protocol fact or workflow policy needed by a guarantee must also appear as a HARD claim.
 
 ## Right-size
 
@@ -67,6 +80,7 @@ Read `references/survey.md`. Before designing anything new, walk outward from wh
 ```spec
 existing <name> {
   kind      owner | protocol | concern
+  form      transformer | capability       -- concern only
   found-in  <module or file>
   covers    <what it already does, relevant to this slice>
   reuse     reuse-as-is | extend | supersede
@@ -108,7 +122,7 @@ rule <owner> {                    -- only when state is shared or concurrent
 }
 ```
 
-Extend every `operation` already in the Spec:
+Extend every stateful `operation` already in the Spec:
 
 ```spec
 operation submit(job: NewJob) -> JobId {
@@ -133,8 +147,8 @@ owns state 2+ operations could leave inconsistent? ── no ──► contract 
      │ yes
      ▼
 ┌────────────────────────────────┐
-│ STOP — back to CORRECTNESS,     │
-│ for this concern only           │
+│ STOP — CORRECTNESS starts a     │
+│ dependent Spec for this owner   │
 └────────────────┬─────────────────┘
                  ▼
 concern's contract = that owner's public operations
@@ -184,6 +198,8 @@ Every `requirement` and `invariant` gets a `guarantee` row. Fix any important `P
 accepted-risk <id> { attack <which row>  reason <why it's acceptable> }
 ```
 
+Attack double use, races, bounds, overflow, stale evidence, interruption, and partial external effects when they apply.
+
 ---
 
 ## Spec lifecycle
@@ -195,7 +211,7 @@ proposed    written, not yet reviewed
 accepted    reviewed; coding proceeds against the HARD layer
    │
    ▼  (code merges)
-frozen      code is now ground truth; Spec is dated documentation
+frozen      immutable design record; code is the current realization
    │
    ▼  (a later slice changes a HARD claim)
 superseded  → link forward, never delete
@@ -208,15 +224,15 @@ requirement R6 {
 }
 ```
 
-Only HARD blocks carry this lifecycle. SOFT blocks have no status — they're expected to be out of date the moment coding starts.
+Only HARD blocks carry this lifecycle. Requirements remain normative after merge; SOFT blocks may become stale as implementation shape changes.
 
 ## Validate before handing off
 
+- Every extracted operation preserves `requires` / `ensures` / `errors`; every transition is realized or explicitly forbidden; every temporal claim has a guarantee or verification.
 - Every `requirement` and `invariant` has a `guarantee` row, or is covered by `unknown` / `ambiguous` / `accepted-risk`.
-- Every `operation` has `owner`, and `commit` if it mutates shared state.
+- Every stateful `operation` has `owner`, and `commit` if it mutates shared state; every derived term has a source and update point; every added decision is tagged `design` or `assumption`.
 - Every `existing` finding is `reuse-as-is`, `extend`, or `supersede` — never silently ignored.
-- No `POSSIBLE` attack is left unaddressed.
-- SOFT blocks are not held to this checklist.
+- No `POSSIBLE` attack is left unaddressed; a SOFT refactor may not weaken a HARD claim.
 
 ## Realize
 
@@ -224,17 +240,11 @@ Per target language, outside the Spec. See `references/realization/effect.md` fo
 
 ## Review
 
-A separate, read-only skill (`review-checklist.md` — not yet part of this bundle). It compares code against HARD blocks only:
-
-```text
-match                  → nothing to do
-diverges, code right   → Spec stale: update it, mark the old entry superseded
-diverges, code wrong   → fix the code
-```
+Implementation review is outside this skill. Use a dedicated read-only review workflow against the Spec's HARD claims.
 
 ## Rules
 
 - One artifact. A later phase adds blocks; it never edits what an earlier phase established without marking the change.
-- SOFT blocks may be refactored freely; HARD blocks may not be silently changed.
-- Never guess silently — uncertainty goes into `unknown`, `ambiguous`, or `spec-feedback`.
+- SOFT blocks may be refactored freely while their cited HARD claims still hold; HARD blocks may not be silently changed.
+- Never guess silently — uncertainty goes into `unknown`, `ambiguous`, `assumption`, or `spec-feedback`.
 - Prefer plain sentences over code-shaped pseudocode.

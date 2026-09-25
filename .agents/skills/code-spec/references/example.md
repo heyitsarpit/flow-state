@@ -1,10 +1,10 @@
 # Example: Notify
 
-Invented, not taken from a real codebase. One slice, added to an app that already sends digest emails. Chosen to exercise `E`/`R` composition, not just data — and to show the Composition→Correctness loop-back for real, not just diagrammed.
+Invented, not taken from a real codebase. A Notify slice added to an app that already sends digest emails; Composition discovers one dependent slice. Chosen to exercise `E`/`R` composition and the Composition→Correctness loop-back.
 
 ```text
 Command ──► Ticket ──► RenderedMessage ──► Receipt
-              (claim)      (render+send)      or: release, on failure (retry)
+           (claim/resume)   (idempotent send)   or: release on definite rejection
 ```
 
 ## Extract (given, unchanged)
@@ -13,26 +13,32 @@ Command ──► Ticket ──► RenderedMessage ──► Receipt
 requirement R1 { source "Each (recipient, message) pair is delivered at most once."
                   establishes { I1 } }
 requirement R2 { source "Delivery respects the recipient's preferred channel."
-                  establishes { lookupPreferences } }
-requirement R3 { source "A failed send does not consume the delivery slot; it can be retried."
-                  establishes { releaseDelivery } }
+                  establishes { T1 lookupPreferences } }
+requirement R3 { source "A rejected or interrupted send can be retried without duplicate delivery."
+                  establishes { T2 resumeDelivery releaseDelivery } }
 
 entity Delivery { recipientId: RecipientId, messageId: MessageId, state: DeliveryState }
 
 value RecipientId { invariant self != "" }
 value MessageId    { invariant self != "" }
-value Ticket        { invariant only constructible by claimDelivery }
+value DeliveryKey   { invariant deterministically derived from (RecipientId, MessageId) }
+value Ticket        { invariant only constructible by claimDelivery or resumeDelivery;
+                      carries that pair's DeliveryKey }
 
 state DeliveryState closed { Unclaimed  Claimed  Sent }
 transition claim   { from Unclaimed to Claimed }
+transition resume  { from Claimed to Claimed }
 transition confirm { from Claimed to Sent }
 transition release { from Claimed to Unclaimed }
 
 operation claimDelivery(recipientId, messageId) -> Ticket   { errors { AlreadyClaimed } }
+operation resumeDelivery(recipientId, messageId) -> Ticket  { errors { NotClaimed } }
 operation confirmDelivery(ticket) -> Unit                    { errors { TicketExpired } }
 operation releaseDelivery(ticket) -> Unit                    { errors { TicketExpired } }
 
-invariant I1 { at most one Delivery reaches Sent per (recipientId, messageId) }
+invariant I1 { every Ticket for one (recipientId, messageId) carries the same DeliveryKey }
+temporal T1  { always: notify sends with preferences looked up for that recipient }
+temporal T2  { always: a retry for one pair uses that pair's original DeliveryKey }
 ```
 
 ## Survey
@@ -53,14 +59,16 @@ existing PreferenceStore {
 }
 
 existing Sender {
-  kind      capability
+  kind      concern
+  form      capability
   found-in  digest-email feature
-  covers    submits a rendered message over the recipient's channel
+  covers    idempotent submit by DeliveryKey; repeating a key returns one Receipt
+            without delivering twice
   reuse     reuse-as-is
 }
 ```
 
-No existing owner covers delivery uniqueness (R1) — nothing to reuse there.
+No existing owner coordinates the local delivery state — nothing to reuse there.
 
 ## Correctness — first pass
 
@@ -70,25 +78,24 @@ No existing owner covers delivery uniqueness (R1) — nothing to reuse there.
 slice Notify
 status       accepted
 implements   R1 R2 R3
-depends      PreferenceStore, Sender      -- existing, from Survey
+depends      TemplateAccess, PreferenceStore, Sender
 provides     notify, broadcast
 ```
 
 ```spec
 owner Ledger {
-  state  one DeliveryState per (recipientId, messageId)
+  state  one DeliveryState and stable DeliveryKey per (recipientId, messageId)
 }
 
 algorithm Ledger {
-  representation  a map from (recipientId, messageId) to DeliveryState
-  argument        claim only succeeds from Unclaimed, so two concurrent
-                  claims on the same pair can't both succeed — the
-                  second sees Claimed and is rejected, inside the
-                  same commit as the first's write
+  representation  a map from (recipientId, messageId) to { DeliveryState, DeliveryKey }
+  argument        claim creates the pair's deterministic DeliveryKey;
+                  resume reissues only that key, so every retry reaches
+                  Sender under the same idempotency identity
 }
 
 rule Ledger {
-  commit  claim/confirm/release each apply their whole state change
+  commit  claim/resume/confirm/release each apply their whole state change
           in one step; nothing observes a partially-applied transition
 }
 
@@ -96,6 +103,11 @@ operation claimDelivery(recipientId, messageId) -> Ticket {
   owner   Ledger
   commit  reject unless the pair is Unclaimed; otherwise mark it
           Claimed and issue a Ticket for it, as one step
+}
+operation resumeDelivery(recipientId, messageId) -> Ticket {
+  owner   Ledger
+  commit  reject unless the pair is Claimed; otherwise reissue a Ticket
+          carrying the pair's existing DeliveryKey, without changing state
 }
 operation confirmDelivery(ticket) -> Unit {
   owner   Ledger
@@ -115,9 +127,10 @@ operation releaseDelivery(ticket) -> Unit {
 Command ──► render ──► RenderedMessage ──┐
                                            ├──► send ──► Receipt
               prefs = lookupPreferences ──┘
-    ticket = claimDelivery  (before send)
+    ticket = claimDelivery, or resumeDelivery if already Claimed
     on success: confirmDelivery(ticket)
-    on failure: releaseDelivery(ticket)        -- R3, policy stays visible here
+    on definite rejection: releaseDelivery(ticket)
+    on interruption or unknown outcome: keep Claimed; retry the same DeliveryKey
 ```
 
 Naming `render`: it needs a message template. Templates are hot-swappable by an admin elsewhere in the app — mid-render, a swap must never hand back half of one template and half of the next.
@@ -130,14 +143,20 @@ does it own state 2+ operations could leave inconsistent?
    (a template swap, mid-read, could hand back a mixed template)
         │ yes
         ▼
-STOP — back to Correctness for this concern only
+STOP — Correctness starts a dependent Spec for this owner
 ```
 
-## Correctness — second pass (loop-back)
+## Correctness — dependent slice (loop-back)
 
-Not traceable to R1/R2/R3 — Extract never mentioned templates. Tagged `design`, but HARD once specced.
+Not traceable to R1/R2/R3 — Extract never mentioned templates. Composition therefore starts a separate `TemplateAccess` Spec, shown inline here only to demonstrate the handoff.
 
 ```spec
+slice TemplateAccess
+status       accepted
+implements   I2 (design)
+depends      none
+provides     getTemplate
+
 invariant I2 { design: a render always sees one single template version, start to finish }
 
 owner TemplateCache {
@@ -177,11 +196,11 @@ concern lookupPreferences {
 }
 concern send {
   kind      capability
-  contract  (Preferences, RenderedMessage) -> Effect<Receipt, SendFailed, Sender>
+  contract  (DeliveryKey, Preferences, RenderedMessage) -> Effect<Receipt, SendRejected | SendOutcomeUnknown, Sender>
 }
 
 protocol RenderedMessage { facts  built from exactly one template version }
-protocol Ticket          { facts  proof of a Claimed delivery slot, expires on confirm/release }
+protocol Ticket          { facts  proof of a Claimed delivery slot; carries its stable DeliveryKey }
 
 boundary renderMessage -> send { protocol RenderedMessage  hides  the template version used }
 ```
@@ -189,24 +208,25 @@ boundary renderMessage -> send { protocol RenderedMessage  hides  the template v
 ```spec
 concern notify {
   kind      capability                -- composite; contains Ledger's operations
-  contract  Command -> Effect<Receipt, NotifyError, TemplateCache & PreferenceStore & Ledger & Sender>
+  contract  Command -> Effect<Receipt, NotifyError, TemplateCache | PreferenceStore | Ledger | Sender>
 }
 ```
 
 ```text
-NotifyError = TemplateNotFound | PrefsNotFound | AlreadyClaimed | SendFailed | TicketExpired
+NotifyError = TemplateNotFound | PrefsNotFound | DeliveryClaimFailed
+            | SendRejected | SendOutcomeUnknown | TicketExpired
               (each concern's own error, unioned — none silently dropped)
 
 notify:
   template = getTemplate(...)
   prefs    = lookupPreferences(recipientId)
-  ticket   = claimDelivery(recipientId, messageId)     -- before send, so a
-                                                           concurrent notify
-                                                           can't double-send
-  result   = send(prefs, renderMessage(command, template))
+  ticket   = claimDelivery(recipientId, messageId)
+             or resumeDelivery(recipientId, messageId) if already Claimed
+  result   = send(ticket.deliveryKey, prefs, renderMessage(command, template))
   result is success → confirmDelivery(ticket)
-  result is failure → releaseDelivery(ticket)            -- R3, visible here,
-                                                             not buried in Ledger
+  result is SendRejected → releaseDelivery(ticket)       -- definitely not accepted
+  result is SendOutcomeUnknown or interruption → keep Claimed;
+                                                   retry resumes the same key
 ```
 
 **Closure test.** `notify : Command -> Effect<Receipt, NotifyError, ...>` — same shape as any primitive concern. Reused (called per recipient below) and owns a guarantee (R1) → promote.
@@ -214,7 +234,7 @@ notify:
 ```spec
 concern broadcast {
   kind      capability
-  contract  (Command, RecipientId[]) -> Effect<Receipt[], BroadcastError, TemplateCache & PreferenceStore & Ledger & Sender>
+  contract  (Command, RecipientId[]) -> Effect<Receipt[], BroadcastError, TemplateCache | PreferenceStore | Ledger | Sender>
 }
 ```
 
@@ -228,24 +248,27 @@ does not abort the batch                          -- workflow policy, not
 ## Verify
 
 ```spec
-guarantee R1 { mechanism "Ledger.claim only succeeds from Unclaimed, checked inside one commit"   class GUARANTEED }
+guarantee R1 { mechanism "I1 gives every retry one DeliveryKey; Sender is idempotent by that key" class GUARANTEED }
 guarantee R2 { mechanism "send always takes Preferences from lookupPreferences"                    class GUARANTEED }
-guarantee R3 { mechanism "notify calls releaseDelivery on send failure, before returning"           class GUARANTEED }
+guarantee R3 { mechanism "definite rejection releases; unknown outcome resumes the same key"       class GUARANTEED }
+guarantee I1 { mechanism "Ledger creates one deterministic key and resume only reissues it"         class GUARANTEED }
+guarantee T1 { mechanism "notify obtains Preferences immediately before send"                       class GUARANTEED }
+guarantee T2 { mechanism "claim and resume expose only the pair's stable DeliveryKey"                class GUARANTEED }
 guarantee I2 { mechanism "getTemplate's snapshot-once read; swap never touches an in-flight render" class GUARANTEED }
 
 attack "confirm a ticket that was never claimed"        { class REJECTED   -- TicketExpired }
-attack "claim the same (recipient, message) pair twice"  { class GUARANTEED -- second sees Claimed, same commit }
-attack "read mid-swap and get a mixed template"           { class IMPOSSIBLE -- snapshot taken once, before the swap could interleave }
-attack "retry after a send failure without releasing"      { class REJECTED   -- next claim on that pair is rejected until released }
+attack "two retries submit the same pair concurrently"   { class GUARANTEED -- same DeliveryKey; Sender deduplicates }
+attack "sender accepts, then notify is interrupted"      { class GUARANTEED -- retry resumes and resubmits the same key }
+attack "read mid-swap and get a mixed template"          { class GUARANTEED -- snapshot-once algorithm }
 
-verify R1 { test "model test: random claim/confirm/release sequences; assert at most one Sent per pair" }
+verify R1 { test "model test plus fake Sender crash points: every retry keeps one key and produces at most one delivery" }
 verify I2 { test "concurrency test: swap the template mid-render; assert the render's output matches one version, never a mix" }
 
 order {
-  RecipientId, MessageId, Ticket
+  RecipientId, MessageId, DeliveryKey, Ticket
   -> DeliveryState + transitions
   -> Ledger (owner)
-  -> TemplateCache (owner)
+  -> TemplateAccess Spec -> TemplateCache (owner)
   -> renderMessage
   -> notify (composed)
   -> broadcast (promoted)

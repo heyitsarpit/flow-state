@@ -42,10 +42,10 @@ Don't reduce a strong protocol value back to a primitive and make a downstream c
 
 ```text
 A -> Effect<B, E, R>
-         │  │  │
-         │  │  └── required capabilities: union across composed concerns
-         │  └───── failure: translate into the next level's vocabulary
-         └──────── success value: the protocol
+            │  │  │
+            │  │  └── required capabilities: union (`R1 | R2`) across composed concerns
+            │  └───── failure: translate into the next level's vocabulary
+            └──────── success value: the protocol
 ```
 
 ```text
@@ -81,7 +81,7 @@ Each concern hides *how* its own step works. The caller keeps ordering, branchin
 ```text
 wire encoding rule    → protocol encoder
 storage schema        → repository
-UI dialog state         → UI
+UI dialog state       → UI
 ```
 
 Nothing above the concern that owns a fact should need that fact.
@@ -143,8 +143,8 @@ naming a capability concern
 does it own state 2+ operations could leave inconsistent?
         │ yes
         ▼
-STOP. Place an owner, algorithm, and rule in Correctness
-for this concern before composing it any further.
+STOP. Start a dependent Spec in Correctness for this owner,
+then resume against that owner's public operations.
 ```
 
-This is the only point where Composition is not self-contained. Everywhere else in this file, proceed without leaving the phase. A concern discovered here — one that never appeared in the extracted Spec's own invariants — is tagged `design` once it's specced, not `requirement`-traced, but it is still HARD once it exists: it gets its own `owner`, `invariant`, and `guarantee` rows, the same as anything Correctness placed on the first pass.
+This is the only point where Composition is not self-contained. A concern discovered here is tagged `design` in its dependent Spec and gets its own `owner`, `invariant`, and `guarantee` rows before composition resumes.
