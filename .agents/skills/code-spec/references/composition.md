@@ -4,7 +4,7 @@ Read during Composition, after Correctness has cut the slice and placed any owne
 
 A **concern** is one unit of decomposition: one coherent piece of knowledge or authority. A **level** is its altitude in the flow; avoid overloading an implementation target's term for dependency provision.
 
-`concern` / `protocol` / `boundary` are SOFT. Refactor them freely; reopen the Spec only if a refactor changes what a HARD block claims.
+Concern, protocol, and boundary are the mental model. Record concerns under `composition.uses`, and name the `protocol` and established `facts` at each entry in `composition.boundaries`. They remain SOFT and may be refactored while the HARD claims hold.
 
 ## 1. Trace the flow
 
@@ -75,7 +75,7 @@ step    = buildStep(call, gas)
 
 Each concern hides *how* its own step works. The caller keeps ordering, branching, and retry/fallback policy visible. Don't add a helper only to remove repeated syntax.
 
-Record that ordering and branching as `policy` on the composite concern.
+Record that ordering and branching as `policy` on the composite entry under `composition.uses`.
 
 ## 7. Put each fact in exactly one place
 
@@ -99,7 +99,7 @@ A value appearing far above the level where it means something usually marks a m
 ## 9. Promote deliberately
 
 ```text
-promote only if:  reused | owns a guarantee | independently
+promote only if:  reused | enforces a HARD claim | independently
                    testable | must seal off implementation
                    knowledge
 
@@ -148,4 +148,4 @@ STOP. Start a separate, code-adjacent Spec in Correctness for this owner,
 then resume against that owner's public operations.
 ```
 
-This is the only point where Composition is not self-contained. A concern discovered here is tagged `design` in its dependent Spec and gets its own `owner`, `invariant`, and `guarantee` rows before composition resumes.
+This is the only point where Composition is not self-contained. A concern discovered here is recorded as a proposed mechanism in its dependent Spec and gets its own `owner`, `invariants`, operations, and coverage before composition resumes.

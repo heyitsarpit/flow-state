@@ -33,6 +33,7 @@ Start from the requirement, not the codebase. Check Specs beside the touched cod
 reuse-as-is   already does exactly this
 extend        does most of this, missing an operation or a fact
 supersede     does this, but the new requirement contradicts how
+new           no existing boundary can own the behavior cleanly
 ```
 
 Prefer `reuse-as-is` → `extend` → `supersede` → new. Choosing a later option requires one sentence explaining why the earlier options cannot satisfy the HARD claims.
@@ -42,20 +43,20 @@ Prefer `reuse-as-is` → `extend` → `supersede` → new. Choosing a later opti
 ## 3. Record only what this slice touches
 
 ```spec
-existing <name> {
-  kind      owner | protocol | concern
-  form      transformer | capability       -- concern only
-  found-in  <module, file, or nearby Spec>
-  covers    <what it already does, relevant to this slice>
-  reuse     reuse-as-is | extend | supersede
-}
+composition
+  uses
+    <name>
+      kind      owner | protocol | transformer | capability
+      found-in  <module, file, or nearby Spec>
+      role      <what this slice needs from it>
+      reuse     reuse-as-is | extend | supersede | new because <reason>
 ```
 
 Don't restate the existing thing's whole behavior — only the part this slice depends on.
 
 ## 4. When existing behavior conflicts with a new invariant
 
-Mark the existing entry `supersede`. Reserve `conflict` for incompatible source requirements; Intake stops on those because design cannot resolve them.
+Mark the `uses` entry `supersede`. Reserve source conflict for incompatible requirements; Intake stops on those because design cannot resolve them.
 
 ## 5. Hand off
 
@@ -63,7 +64,7 @@ Mark the existing entry `supersede`. Reserve `conflict` for incompatible source 
 Correctness / Composition
       │
       ▼
-references an `existing` entry ──► reuse / extend / supersede
+references a `uses` entry ──► reuse / extend / supersede / justified new
       │
       ✗  never: re-derive the same owner or protocol from scratch
 ```

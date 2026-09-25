@@ -1,23 +1,24 @@
 # Effect realization (target: effect-v4)
 
-Read after the target-neutral Spec is implementation-ready and Effect is the chosen target. This is a lookup table, not the Spec's design vocabulary. Confirm API names against the installed version's types — Effect v4 has churned across betas.
+Read after the target-neutral Spec is implementation-ready and Effect is the chosen target. Record applicable choices under `realization effect-v4`. This is a lookup table, not the Spec's design vocabulary. Confirm API names against the installed version's types — Effect v4 has churned across betas.
 
 ## Mapping
 
-| Spec block              | Effect realization                                                                                               |
-|-------------------------|------------------------------------------------------------------------------------------------------------------|
-| `value ... where ...`   | `Schema` owns admission; brand only when the value must remain distinct downstream                              |
-| `state`                 | plain data; `Data.TaggedEnum` + `Data.taggedEnum` for trusted, mutually exclusive variants                      |
-| `transition`            | a plain function or `Result` when pure; an owner operation when it changes owned state                          |
-| `operation`             | plain when pure; otherwise `(Input) => Effect.Effect<Output, DomainError, Requirements>`                         |
-| `concern` (transformer) | a plain function or `Data.taggedEnum<>().$match`                                                                                                |
-| `concern` (capability)  | an argument when local; `Context.Service` when a substitutable capability crosses call levels                   |
-| `owner`                 | a private **owner factory**: constructs the state or lifetime authority and returns narrow operations           |
-| `boundary`              | the operation signature and protocol; a service method only for a contextual capability                        |
-| `rule.commit`           | the indivisible decision and state publication promised by the Spec — not a prescribed Effect primitive        |
-| `error`                 | expected recoverable failure in `E`; interruption and defects remain outside the domain-error channel           |
-| `depends`               | data stays in arguments; contextual capabilities stay in `R`; `Layer` constructs, provides, and releases them   |
-| `verify`                | Schema, transition, service, property, concurrency, and Layer integration tests as the guarantee requires       |
+| Spec content             | Effect realization                                                                                               |
+|--------------------------|------------------------------------------------------------------------------------------------------------------|
+| `model` value            | `Schema` owns admission; brand only when the value must remain distinct downstream                              |
+| `model` state            | plain data; `Data.TaggedEnum` + `Data.taggedEnum` for trusted, mutually exclusive variants                      |
+| `model` transition       | a plain function or `Result` when pure; an owner operation when it changes owned state                          |
+| `operations` entry       | plain when pure; otherwise `(Input) => Effect.Effect<Output, DomainError, Requirements>`                         |
+| `concern` (transformer)  | a plain function or `Data.taggedEnum<>().$match`                                                                 |
+| `concern` (capability)   | an argument when local; `Context.Service` when a substitutable capability crosses call levels                   |
+| `protocol`               | immutable data; use `Schema` at an untrusted boundary and brand only when nominal distinction helps downstream  |
+| `owner`                  | a private **owner factory**: constructs the state or lifetime authority and returns narrow operations           |
+| `composition.boundaries` | the operation signature and named protocol; a service method only for a contextual capability                  |
+| `rules.publication`      | the indivisible decision and state publication promised by the Spec — not a prescribed Effect primitive        |
+| `model` error            | expected recoverable failure in `E`; interruption and defects remain outside the domain-error channel           |
+| `composition.uses`       | data stays in arguments; contextual capabilities stay in `R`; `Layer` constructs, provides, and releases them   |
+| `tests`                  | Schema, transition, service, property, concurrency, and Layer integration tests as coverage requires            |
 
 An owner factory is ordinary TypeScript or Effect construction, not another framework type. It may close over a `Ref`, queue, scope, repository, or actor and is called at the boundary that owns its lifetime. `Context.Service` is narrower: it keeps a replaceable capability visible in `R` without threading it through intermediate calls; its `Layer` owns construction and release.
 
@@ -48,4 +49,4 @@ Rust:        complete(job: RunningJob)   -- consumed; reuse doesn't compile
 TypeScript:  the old value stays in scope; other fibers may hold copies
 ```
 
-So "complete the same job twice" is `REJECTED` or `GUARANTEED` by an atomic re-check at the owner's commit — never `IMPOSSIBLE`. Prefer an id plus that re-check over a state-typed input unless nothing else could hold the value concurrently. The implementation chooses its atomic mechanism only after the owner and storage medium are known.
+So "complete the same job twice" needs an atomic re-check at the owning operation; a state-typed input alone cannot block that attack. Prefer an id plus that re-check unless nothing else could hold the value concurrently. The implementation chooses its atomic mechanism only after the owner and storage medium are known.

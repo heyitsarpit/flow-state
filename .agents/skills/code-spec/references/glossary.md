@@ -1,131 +1,65 @@
 # Glossary
 
-Every term this skill uses, once. Terms marked *(extraction)* belong to the separate Requirements → Spec skill and are only glossed here, not redefined.
+These are the design concepts behind the Combined format. Backticked names are fields emitted into a Spec; other terms are reasoning tools. Terms marked *(extraction)* originate in the separate requirements-extraction step.
 
-## Index
+## Spec
 
-| Term                    | Belongs to    |
-|-------------------------|---------------|
-| accepted-risk           | Verify        |
-| algorithm               | Correctness   |
-| altitude                | Composition   |
-| ambiguous               | Extract       |
-| assumption              | Extract       |
-| attack                  | Verify        |
-| boundary                | Composition   |
-| capability              | Composition   |
-| class                   | Verify        |
-| commit                  | Correctness   |
-| concern                 | Composition   |
-| conflict                | Extract       |
-| contract                | Composition   |
-| cut                     | Correctness   |
-| entity                  | Extract       |
-| error                   | Extract       |
-| existing                | Survey        |
-| guarantee               | Verify        |
-| HARD / SOFT             | Cross-cutting |
-| invariant               | Extract       |
-| level                   | Composition   |
-| operation               | Extract       |
-| order                   | Verify        |
-| owner                   | Correctness   |
-| proposed / accepted     | Lifecycle     |
-| protocol                | Composition   |
-| requirement             | Extract       |
-| reuse disposition       | Survey        |
-| rule                    | Correctness   |
-| slice                   | Correctness   |
-| spec-feedback           | Cross-cutting |
-| state                   | Extract       |
-| superseded / supersedes | Lifecycle     |
-| temporal                | Extract       |
-| transformer             | Composition   |
-| transition              | Extract       |
-| unknown                 | Extract       |
-| value                   | Extract       |
-| verify                  | Verify        |
+- **Spec** — one code-adjacent design contract for an independently evolvable slice.
+- **slice** — the behavior covered by one Spec, with at most one primary state or lifetime owner.
+- **requirement** *(extraction)* — one sourced, independently testable behavior; `source` records provenance and `must` states the behavior.
+- **basis** — whether the Spec comes from source requirements, existing behavior, or both.
+- **open** — unresolved information kept visible: `Q<n>` for a question, `FB<n>` for conflicting brownfield behavior, and `RK<n>` for a known risk. `assume` records only a reversible default. Conflicting source requirements stop design.
+- **unknown / ambiguous / assumption** *(extraction)* — missing or unclear source information and the reversible default chosen for it; compile these under `open`.
+- **conflict** *(extraction)* — incompatible source requirements; design stops until their authority is resolved.
+- **HARD** — requirements, model facts, owner invariants, and observable operation contracts. Changing one changes the design.
+- **SOFT** — algorithms, composition, rules, and realization choices. They may change while the HARD claims remain true.
+- **EVIDENCE** — provenance, uncertainty, coverage, attacks, and tests supporting or qualifying the design.
 
----
+## Model and correctness
 
-## Extract *(inherited, glossed only)*
-
-- **requirement** — one traceable, independently testable thing the source asked for.
-- **entity** — a domain thing with identity (`Job`, `Delivery`).
-- **value** — a constrained primitive (`Priority: Int { 0..100 }`).
-- **state** — the mutually exclusive modes an entity can be in.
-- **transition** — a legal move between two states.
-- **operation** — an action, with `ensures` and `errors`, before Correctness adds `owner`/`commit`.
-- **invariant** — a property that must always hold.
-- **temporal** — an `always`/`never`/`eventually` property over a sequence of events.
-- **error** — an expected, named failure.
-- **unknown / ambiguous / assumption** — open questions and the reversible defaults chosen for them.
-- **conflict** — incompatible source claims; design stops until authority resolves them.
-
-## Survey
-
-- **existing** — a block recording that an owner, protocol, or concern this slice needs already exists elsewhere in the codebase.
-- **reuse disposition** — `reuse-as-is` (use it untouched), `extend` (it's missing something), or `supersede` (it contradicts the new requirement — feeds the Spec lifecycle).
-
-## Correctness
-
-- **cut** — the sub-step that groups Spec constructs into one independently evolving boundary, with a primary owner only when shared state requires one.
-- **slice** — one independently evolvable boundary in one code-adjacent Spec, with zero or one primary owner.
-- **owner** — the sole authority for state that spans more than one operation.
-
-  ```text
-  submit ──┐
-  cancel ──┼──► owner (one invariant, one commit)
-  complete─┘
-  ```
-
-- **algorithm** — the chosen representation for an owner's state, plus the argument for *why* it keeps an invariant true.
-- **rule** — operational discipline (`commit`, `locks`, `bounds`, `monotonic`, `tasks`) for shared or concurrent state.
-- **commit** — the one operation field, added by Correctness, saying how a change becomes visible, in one sentence of prose.
+- **model** — the values, entities, closed states, transitions, and expected failures needed to reason about the slice.
+- **value** *(extraction)* — a constrained primitive such as `Priority: Int { 0..100 }`.
+- **entity** *(extraction)* — a domain thing with identity, such as `Job` or `Delivery`.
+- **state** *(extraction)* — one of an entity's mutually exclusive modes.
+- **transition** *(extraction)* — one legal move between states.
+- **error** *(extraction)* — an expected, named failure.
+- **invariant** — a HARD truth that an owner or value must keep true.
+- **temporal** *(extraction)* — an `always`, `never`, or `eventually` claim over a sequence of events.
+- **operation** — an observable action. Its contract may state `requires`, `ensures`, `fails`, `publishes`, and `completes`.
+- **cut** — grouping model facts, invariants, and operations into one independently evolving slice.
+- **owner** — the sole authority for state or lifetime shared by several operations.
+- **algorithm** — ordered semantic steps plus an `argument` explaining why they preserve named invariants.
+- **rules** — cross-operation publication, locking, bounds, monotonicity, interruption, or lifetime discipline.
+- **publication** — the facts observers must see together; it does not prescribe the implementation primitive.
 
 ## Composition
 
-- **concern** — one unit of decomposition: one coherent piece of knowledge or authority; a composite concern records its ordering and branching as `policy`.
-- **transformer** — a concern that only transforms data: `A -> B`.
-- **capability** — a concern that owns authority: state, I/O, or an external resource.
+- **concern** — one coherent unit of knowledge or authority. The compiled Spec records it as an entry under `composition.uses`.
+- **transformer** — a concern that transforms data without owning external authority: `A -> B`.
+- **capability** — a concern that owns authority over state, I/O, time, or an external resource.
 - **contract** — a concern's target-neutral `input`, `returns`, `fails`, and `needs` channels, not just its output.
-  
-  ```text
-  input A; returns B; fails E; needs R
-  ```
+- **protocol** — the named value crossing a boundary between concerns. It carries facts already established upstream, not merely a matching shape. A boundary records it with `protocol` and `facts`.
+- **boundary** — a meaningful crossing between concerns. It names the `protocol`, its established `facts`, and knowledge `hides` below the boundary.
+- **level** — a concern's semantic position in the flow, independent of implementation-specific dependency layers.
+- **altitude** — whether a value appears at the level where it means something, rather than leaking above or below it.
+- **closure** — a composite concern has the same contract shape as a primitive concern, so it can compose again.
+- **promotion** — naming an inline concern because it is reused, independently testable, enforces a HARD claim, or seals implementation knowledge.
+- **use** — one surveyed owner, protocol, transformer, or capability with one role and an explicit reuse disposition.
+- **reuse disposition** — `reuse-as-is`, `extend`, `supersede`, or justified `new`.
+- **composition** — the compiled `flow`, `uses`, and `boundaries` tree.
 
-- **protocol** — the value crossing a boundary between two concerns; carries established facts, not just a matching shape.
-- **boundary** — the named crossing between two concerns, with what it hides.
-- **level** — a concern's semantic altitude in the flow, independent of implementation-specific dependency layers.
-- **altitude** — whether a value appears at the level where it actually means something, or has leaked above or below it.
-- **closure** — the property that a composite concern has the same contract shape as a primitive one, so it can be composed again.
-- **promoted / not-promoted** — whether an inline composition was given its own name, and why.
+## Verification
 
-## Verify
+- **coverage** — the path from a requirement to its `enforced-by` mechanisms and `proven-by` tests.
+- **attack** — one misuse, race, exhaustion, interruption, or partial-failure scenario tried against the design.
+- **blocked-by** — the named mechanism that prevents an attack.
+- **outcome** — the observable rejection, cancellation, convergence, or visible risk when an attack remains possible.
+- **test** — deterministic executable evidence for a HARD claim.
 
-- **guarantee** — a row mapping one requirement or invariant to the mechanism that enforces it, and how strongly.
-- **attack** — a misuse case tried against the public operations, with the same classification as `guarantee`.
-- **class** — the four-way enforcement scale used by both `guarantee` and `attack`:
+## Realization and lifecycle
 
-  ```text
-  IMPOSSIBLE   cannot be expressed
-  REJECTED     an explicit error at a boundary
-  GUARANTEED   an algorithm or atomic commit prevents it
-  POSSIBLE     currently unprotected — must be fixed or explicitly accepted
-  ```
-
-- **verify** — executable evidence for a claim; evidence is recorded separately from its enforcement class.
-- **order** — the dependency-ordered sequence for implementing the slice.
-- **accepted-risk** — an explicit, reasoned decision to leave a `POSSIBLE` attack unprotected.
-
-## Cross-cutting
-
-- **HARD / SOFT** — semantic source and design claims are authoritative; structural `concern`, `protocol`, `boundary`, `algorithm`, and `rule` blocks are working proposals that may change only while cited HARD claims still hold.
-- **spec-feedback** — a gap in the extracted Spec found later, never fixed by silently editing what extraction produced.
-
-## Spec lifecycle
-
-- **proposed** — written, not yet reviewed.
-- **accepted** — reviewed; coding proceeds against the HARD layer.
-- **superseded** — a later slice invalidated a HARD claim; the old entry is linked forward, never deleted.
-- **supersedes / superseded-by** — the fields that make that link explicit on a HARD claim.
+- **realization** — an optional target-specific appendix translating the target-neutral design into implementation choices.
+- **proposed** — written with unresolved items visible; not yet accepted for implementation.
+- **accepted** — reviewed; implementation proceeds against the HARD claims.
+- **superseded / supersedes** — a later linked Spec or claim replaces a HARD claim; the old claim remains as history.
+- **spec-feedback** — a gap found after extraction; record it instead of silently changing the extracted requirement.

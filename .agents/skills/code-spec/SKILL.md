@@ -14,19 +14,19 @@ prose requirements        existing codebase
         │                         │
         ▼                         ▼
      EXTRACT                   SURVEY
-  (separate skill)          existing owner / protocol,
-        │                    tagged `existing`
+  (separate skill)          existing owner / dependency,
+        │                    recorded under `composition.uses`
         └────────────┬────────────┘
                       ▼
-               CORRECTNESS          cut, owner, algorithm,
-                                    rule, operation.commit
+               CORRECTNESS          model, cut, owner,
+                                    operations, algorithm, rules
                       │
                       ▼
                COMPOSITION  ◄────┐  concern, protocol, boundary
            (recursive)           │  loops back into Correctness
                       │──────────┘  when a new owner is found
                       ▼
-                   VERIFY           guarantee, attack, verify, order
+                   VERIFY           coverage, attacks, tests
                       │
                       ▼
         Spec: proposed → accepted
@@ -34,7 +34,44 @@ prose requirements        existing codebase
                    REVIEW            separate skill, anytime after acceptance
 ```
 
-One artifact per slice, the **Spec**, in the notation extraction already produces (`requirement`, `entity`, `value`, `state`, `transition`, `operation`, `invariant`, `temporal`, `error`, `unknown`, `ambiguous`, `conflict`, `assumption`). Every phase updates that slice's same file and syntax. Full term list: `references/glossary.md`. The worked example is one complete compiled Spec followed by annotations: `references/example.md`.
+One artifact per slice, the **Spec**. Extraction supplies semantic claims; every phase grows the same uninterrupted, section-oriented `spec` block. Full term list: `references/glossary.md`. The canonical compiled format is `references/example.md`.
+
+## Compiled shape
+
+Use only sections that have something to say, in this order:
+
+```spec
+spec <Name>
+status        proposed
+basis         <source requirements | inferred from existing behavior>
+location      <code-adjacent spec path>
+realized-by   <current or intended owner files>
+implements    <requirement ids>
+depends       <relative Spec paths or stable Spec ids>
+provides      <public operations>
+
+requirements
+  R1
+    source  <provenance or quoted intent>
+    must    <one testable behavior>
+
+open
+  Q1 <unresolved question>
+    assume  <smallest reversible default, only when unblocked>
+  FB1 <existing behavior that contradicts the proposed contract>
+  RK1 <known risk intentionally left unresolved, with reason>
+
+model
+owner <Name>
+operations
+algorithm
+composition
+rules
+realization <target>  -- optional
+coverage
+attacks
+tests
+```
 
 ## Placement and granularity
 
@@ -57,22 +94,24 @@ Extraction is a separate skill. If no Spec exists yet for these requirements, ex
 ## HARD and SOFT
 
 ```text
-HARD    extracted semantic claims: requirement · value · state · transition
-        operation · invariant · temporal · error
-        design claims: owner · guarantee · accepted-risk
+HARD    requirements; model values, states, transitions, and errors;
+        owner invariants; observable operation contracts
         authoritative — changing one is a real design decision
 
-SOFT    concern · protocol · boundary · algorithm · rule
+SOFT    algorithm · composition · rules · realization
         a working proposal — refactor freely while coding;
         reopen the Spec only if a refactor changes what a
-        HARD block claims
+        HARD section claims
+
+EVIDENCE basis · source · realized-by · open · coverage · attacks · tests
+         records provenance, uncertainty, enforcement, and proof
 ```
 
-This is why the Spec doesn't try to be the final source of truth for the code's *shape* — only for what the code must *guarantee*. Any protocol fact or workflow policy needed by a guarantee must also appear as a HARD claim.
+This is why the Spec doesn't try to be the final source of truth for the code's *shape* — only for what the code must guarantee. A protocol fact or workflow policy needed for correctness must also appear as a HARD claim.
 
 ## Right-size
 
-A small slice needs about half a page. Skip any block kind with nothing to say. If a Spec passes roughly 150 lines, it likely covers more than one independently evolving boundary — revisit Cut.
+A small slice needs about half a page. Skip any section with nothing to say. Length is only a warning: split when the Spec contains another owner, lifetime, or acceptance boundary, not merely because it crosses a line count.
 
 ---
 
@@ -81,58 +120,64 @@ A small slice needs about half a page. Skip any block kind with nothing to say. 
 Read `references/survey.md`. Before designing anything new, walk outward from what the new requirements actually touch and record what already exists.
 
 ```spec
-existing <name> {
-  kind      owner | protocol | concern
-  form      transformer | capability       -- concern only
-  found-in  <module or file>
-  covers    <what it already does, relevant to this slice>
-  reuse     reuse-as-is | extend | supersede
-}
+composition
+  uses
+    <name>
+      kind      owner | protocol | transformer | capability
+      found-in  <module, file, or nearby Spec>
+      role      <what this slice needs from it>
+      reuse     reuse-as-is | extend | supersede | new because <reason>
 ```
 
-Correctness and Composition reuse or deliberately supersede an `existing` entry — never silently rebuild it.
+Correctness and Composition consume every `uses` entry — never silently rebuild it.
 
 ## Phase: Correctness
 
 Read `references/correctness.md`.
 
-**Cut.** Group `entity` / `state` / `invariant` / `operation` by one independently evolving boundary. Shared mutable state or changes that must be atomic identify a primary owner; a stateless slice may have none. Check Survey's `existing` entries first.
+**Cut.** Group model facts, invariants, and operations by one independently evolving boundary. Shared mutable state or changes that must publish atomically identify a primary owner; a stateless slice may have none. Check Survey's `uses` entries first.
 
 ```spec
-slice <Name>
-status       proposed
-implements   <requirement ids>
-depends      <slices/services needed>
-provides     <operations exposed>
+spec <Name>
+status        proposed
+basis         <source requirements | inferred from existing behavior>
+location      <code-adjacent spec path>
+realized-by   <current or intended owner files>
+implements    <requirement ids>
+depends       <relative Spec paths or stable Spec ids>
+provides      <public operations>
 ```
 
 **Place owners, algorithms, and rules.** For every `invariant` and `transition` already in the Spec, decide who enforces it and how.
 
 ```spec
-owner <Name> {
-  state    <what it holds>
-  derived  <name> = <expression>, updated <when>
-}
+model
+  <values, closed variants, errors, and legal transitions>
 
-algorithm <owner-or-operation> {
-  representation  <data structure>
-  argument        <why this satisfies the invariant it depends on>
-}
+owner <Name>
+  lifetime  <where its authority begins and ends>
+  state     <what it holds>
+  derived   <name> = <expression>, updated <when>
+  invariants
+    I1 <hard truth> [R1]
 
-rule <owner> {                    -- only when state is shared or concurrent
-  commit  <the one step where a change becomes visible>
-  bounds  <what is bounded, and what happens at the bound>
-}
-```
+operations
+  submit(job: NewJob) -> JobId
+    fails      QueueFull
+    requires   job passed admission
+    ensures    the returned id identifies one queued job
+    publishes  Queued{id}
+    completes  after insertion or typed rejection
 
-Extend every stateful `operation` already in the Spec:
+algorithm
+  submit
+    1. <ordered semantic step>
+  argument
+    <why the steps preserve I1>
 
-```spec
-operation submit(job: NewJob) -> JobId {
-  ensures  exists Job where id == result      -- unchanged from extraction
-  owner    Scheduler                           -- added here
-  commit   assign the next id and insert it, as one step     -- added here
-}
+rules
+  publication  <facts observers must see together>
+  bounds       <what is bounded and the outcome at the bound>
 ```
 
 ## Phase: Composition
@@ -160,52 +205,54 @@ concern's contract = that owner's public operations
 compose upward — unify or translate E and R, not just the output
      │
      ▼
-closure test passes, and (reused | owns a guarantee | independently testable)?
+closure test passes, and (reused | enforces a HARD claim | independently testable)?
      │ yes                              │ no
      ▼                                  ▼
 promote; recurse one level up      leave inline
 ```
 
 ```spec
-concern <name> {
-  kind      transformer | capability
-  input     <input>
-  returns   <output>
-  fails     <expected failures>       -- omit when none
-  needs     <capabilities>            -- omit when none
-  policy    <ordering or branching>   -- composite concerns only
-}
+composition
+  flow
+    <input -> meaningful stages -> outcome>
 
-protocol <TypeName> {
-  facts  <what a value of this type is already known to satisfy>
-}
+  uses
+    <name>
+      kind     owner | protocol | transformer | capability
+      role     <one coherent responsibility>
+      input    <input>
+      returns  <output>
+      fails    <expected failures>       -- omit when none
+      needs    <capabilities>            -- omit when none
+      policy   <ordering or branching>   -- composite only
+      reuse    reuse-as-is | extend | supersede | new because <reason>
 
-boundary <concern> -> <concern> {
-  protocol  <TypeName>
-  hides     <what the consumer never needs to see>
-}
+  boundaries
+    <producer> -> <consumer>
+      protocol  <named value crossing the boundary>
+      facts     <what upstream already established about it>
+      hides     <what the consumer never needs to know>
 ```
 
 ## Phase: Verify
 
 ```spec
-guarantee <requirement-or-invariant id> { mechanism <...>  class <...> }
-attack    <misuse case, one sentence>    { class <...> }
-verify    <requirement-or-invariant id> { test <...> }
-order     { <dependency-ordered implementation sequence> }
+coverage
+  R1
+    enforced-by  <invariants, operations, algorithm steps, or rules>
+    proven-by    <test ids>
+
+attacks
+  A1 <misuse or failure scenario>
+    blocked-by  <mechanism>
+  A2 <scenario not prevented>
+    outcome     <typed rejection, cancellation, convergence, or recorded risk>
+
+tests
+  T1 <deterministic observable proof>
 ```
 
-```text
-class:  IMPOSSIBLE | REJECTED | GUARANTEED | POSSIBLE
-```
-
-Every `requirement` and `invariant` gets a `guarantee` row. Fix any important `POSSIBLE`, or record it:
-
-```spec
-accepted-risk <id> { attack <which row>  reason <why it's acceptable> }
-```
-
-Attack double use, races, bounds, overflow, stale evidence, interruption, and partial external effects when they apply.
+Every requirement gets a `coverage` row. Attack double use, races, bounds, overflow, stale evidence, interruption, and partial external effects when they apply. An unblocked attack stays visible in `open`; do not hide it behind a confidence label. Implementation order belongs in task tracking, not the Spec.
 
 ---
 
@@ -222,25 +269,26 @@ superseded  → link forward, never delete
 ```
 
 ```spec
-requirement R6 {
-  supersedes R3
-  reason "R3 assumed single-region; a later slice changed the concurrency rule"
-}
+requirements
+  R6
+    supersedes  R3
+    reason      R3 assumed single-region; a later slice changed the concurrency rule
+    must        <replacement behavior>
 ```
 
-Only HARD blocks carry this lifecycle. An accepted Spec stays maintained beside its code; merging code does not freeze it. SOFT blocks may change as implementation shape changes.
+Only HARD claims carry this lifecycle. An accepted Spec stays maintained beside its code; merging code does not freeze it. SOFT sections may change as implementation shape changes.
 
 ## Validate before handing off
 
-- Every extracted operation preserves `requires` / `ensures` / `errors`; every transition is realized or explicitly forbidden; every temporal claim has a guarantee or verification.
-- Every `requirement` and `invariant` has a `guarantee` row, or is covered by `unknown` / `ambiguous` / `accepted-risk`.
-- Every operation that mutates shared state has an `owner` and `commit`; every derived term has a source and update point; every added decision is tagged `design` or `assumption`.
-- Every `existing` finding is `reuse-as-is`, `extend`, or `supersede` — never silently ignored.
-- No `POSSIBLE` attack is left unaddressed; a SOFT refactor may not weaken a HARD claim.
+- Every operation preserves `requires` / `ensures` / `fails`; every transition is realized or explicitly forbidden; asynchronous work states completion and interruption.
+- Every requirement has a `coverage` row and deterministic proof, or a visible unresolved item in `open`.
+- Every shared-state invariant has one owner; atomic visibility is stated as a publication rule without prescribing a primitive.
+- Every surveyed dependency has a role and reuse disposition — never silently ignored or rebuilt.
+- Every attack is blocked, has an explicit outcome, or remains visible as a risk; a SOFT refactor may not weaken a HARD claim.
 
 ## Realize
 
-The Spec is target-neutral and is not imported or interpreted at runtime. Implementation tasks and proofs reference its claim IDs; realization details stay in code. See `references/realization/effect.md` when Effect is the chosen target.
+The core Spec is target-neutral and is not imported or interpreted at runtime. When a target is chosen, add an optional `realization <target>` appendix to the same compiled Spec with only the decisions needed to implement it. See `references/realization/effect.md` for Effect.
 
 ## Review
 
@@ -248,7 +296,7 @@ Implementation review is outside this skill. Use a dedicated read-only review wo
 
 ## Rules
 
-- One artifact per slice. A later phase adds blocks to the same file; dependent Specs remain separate and linked.
-- SOFT blocks may be refactored freely while their cited HARD claims still hold; HARD blocks may not be silently changed.
-- Never guess silently — uncertainty goes into `unknown`, `ambiguous`, `assumption`, or `spec-feedback`.
+- One artifact per slice. A later phase adds sections to the same file; dependent Specs remain separate and linked.
+- SOFT sections may be refactored freely while their cited HARD claims still hold; HARD claims may not be silently changed.
+- Never guess silently — uncertainty, assumptions, conflicting brownfield behavior, and risks stay in `open` or `spec-feedback`.
 - Prefer plain sentences over code-shaped pseudocode.

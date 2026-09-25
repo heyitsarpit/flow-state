@@ -1,165 +1,284 @@
-# Example: Notify
+# Example: Transaction Execution
 
-Invented, not taken from a real codebase. Read the complete compiled Spec first; annotations follow it instead of interrupting it with phase-by-phase fragments.
-
-## Complete Spec
+Canonical Combined-format reconstruction of one EVM, SVM, and TVM transaction slice. Read the uninterrupted compiled Spec first; annotations follow.
 
 ```spec
-slice Notify
-status       accepted
-implements   R1 R2 R3
-depends      "../preferences/preference-store.spec.md", "../messaging/sender.spec.md"
-provides     notify broadcast
+spec TransactionExecution
+status        proposed
+basis         inferred from existing behavior
+location      packages/lib/transactions/transaction-execution.spec.md
+realized-by   EVM/executeTransaction.ts
+              SVM/executeTransaction.ts
+              TVM/executeTransaction.ts
+              utils/repeatInterval.ts
+implements    R1 R2 R3 R4
+provides      execute
 
-requirement R1 { source "Each (recipient, message) pair is delivered at most once."
-                 establishes { I1 } }
-requirement R2 { source "Delivery respects the recipient's preferred channel."
-                 establishes { T1 lookupPreferences } }
-requirement R3 { source "A rejected or interrupted send can be retried without duplicate delivery."
-                 establishes { T2 resumeDelivery releaseDelivery } }
+requirements
+  R1
+    source  EVM, SVM, and TVM executeTransaction.ts receive ordered Step[] values
+    must    execute steps in declared order
 
-entity Delivery { recipientId: RecipientId, messageId: MessageId, state: DeliveryState }
+  R2
+    source  each executor loops in order and stops after caught step failure
+    must    not start a step unless its prerequisite succeeded
 
-value RecipientId { invariant self != "" }
-value MessageId   { invariant self != "" }
-value DeliveryKey { invariant deterministically derived from (RecipientId, MessageId) }
-value Ticket      { invariant only constructible by claimDelivery or resumeDelivery;
-                    carries that pair's DeliveryKey }
-value DeliveryResult { recipientId: RecipientId, outcome: Receipt | NotifyError }
+  R3
+    source  TransactionProgress/useTransactionStatus.ts observes status by step id
+    must    settle every started step as Succeeded or Failed
 
-error AlreadyClaimed      { the pair is already Claimed or Sent }
-error NotClaimed          { the pair is not Claimed }
-error TicketExpired       { current state no longer accepts this Ticket }
-error PreferencesNotFound { no delivery preference exists for the recipient }
-error SendRejected        { Sender definitely did not accept the message }
-error SendOutcomeUnknown  { Sender acceptance cannot be determined }
-error NotifyError         { one-of PreferencesNotFound | AlreadyClaimed | NotClaimed | SendRejected | SendOutcomeUnknown | TicketExpired }
+  R4
+    source  NewIntent/CreateIntentButton.tsx treats execution as the transaction outcome
+    must    return success only after every step succeeded
 
-state DeliveryState closed { Unclaimed Claimed Sent }
-transition claim   { from Unclaimed to Claimed }
-transition resume  { from Claimed to Claimed }
-transition confirm { from Claimed to Sent }
-transition release { from Claimed to Unclaimed }
+open
+  Q1 interruption has no declared domain outcome
+    assume  interruption fails the current step and execution
 
-operation claimDelivery(recipientId, messageId) -> Ticket {
-  errors  { AlreadyClaimed }
-  owner   Ledger
-  commit  reject unless Unclaimed; otherwise mark Claimed and issue its Ticket
-}
-operation resumeDelivery(recipientId, messageId) -> Ticket {
-  errors  { NotClaimed }
-  owner   Ledger
-  commit  reject unless Claimed; otherwise reissue the Ticket with its existing DeliveryKey
-}
-operation confirmDelivery(ticket) -> Unit {
-  errors  { TicketExpired }
-  owner   Ledger
-  commit  reject unless Claimed; otherwise mark Sent
-}
-operation releaseDelivery(ticket) -> Unit {
-  errors  { TicketExpired }
-  owner   Ledger
-  commit  reject unless Claimed; otherwise mark Unclaimed
-}
+  Q2 confirmation polling has no common exhaustion outcome
+    assume  bounded exhaustion returns ConfirmationTimedOut
 
-invariant I1 { every Ticket for one (recipientId, messageId) carries the same DeliveryKey }
-temporal T1  { always: notify sends with preferences looked up for that recipient }
-temporal T2  { always: a retry for one pair uses that pair's original DeliveryKey }
+  FB1 EVM currently continues after a failed receipt and returns success
+  FB2 SVM and TVM currently return before confirmation polling completes
+  FB3 SVM confirmation currently ignores the transaction execution result
 
-existing PreferenceStore {
-  kind      owner
-  found-in  "../preferences/preference-store.spec.md"
-  covers    RecipientId -> Preferences
-  reuse     reuse-as-is
-}
-existing Sender {
-  kind      concern
-  form      capability
-  found-in  "../messaging/sender.spec.md"
-  covers    idempotent delivery by DeliveryKey; repeating a key returns one Receipt
-  reuse     reuse-as-is
-}
+model
+  StepId = stable identity within one TransactionPlan
 
-owner Ledger {
-  state  one DeliveryState and stable DeliveryKey per (recipientId, messageId)
-}
+  TransactionPlan = non-empty ordered TransactionStep[]
 
-algorithm Ledger {
-  representation  a map from (recipientId, messageId) to { DeliveryState, DeliveryKey }
-  argument        claim creates the pair's deterministic key; resume reissues only
-                  that key, so every retry reaches Sender under one identity
-}
+  TransactionStep =
+      SwitchChain{id: StepId, from, to}
+    | SendTransaction{id: StepId, account, chain, request}
 
-rule Ledger {
-  commit  claim, resume, confirm, and release each re-check and publish their
-          whole state change as one indivisible decision
-}
+  StepStatus =
+      Idle
+    | Preparing
+    | Submitting
+    | Confirming{transactionHash}
+    | Succeeded{transactionHash?}
+    | Failed{reason: ExecutionFailureReason | Interrupted}
 
-concern lookupPreferences {
-  kind      capability
-  input     RecipientId
-  returns   Preferences
-  fails     PreferencesNotFound
-  needs     PreferenceStore
-}
-concern renderMessage {
-  kind      transformer
-  input     (Command, Preferences)
-  returns   RenderedMessage
-}
-concern send {
-  kind      capability
-  input     (DeliveryKey, RenderedMessage)
-  returns   Receipt
-  fails     SendRejected | SendOutcomeUnknown
-  needs     Sender
-}
-concern notify {
-  kind      capability
-  input     Command
-  returns   Receipt
-  fails     NotifyError
-  needs     PreferenceStore, Ledger, Sender
-  policy    lookup preferences; claim or resume; render; send;
-            confirm success, release rejection, keep unknown outcome Claimed for resume
-}
-concern broadcast {
-  kind      capability
-  input     (Command, RecipientId[])
-  returns   DeliveryResult[]
-  needs     PreferenceStore, Ledger, Sender
-  policy    run notify for every recipient and collect every outcome
-}
+  StepProgress = {stepId: StepId, status: StepStatus}
 
-protocol Ticket          { facts proof of a Claimed delivery slot; carries its stable DeliveryKey }
-protocol RenderedMessage { facts rendered for the Preferences supplied to renderMessage }
+  StepSuccess = {transactionHash?}
 
-boundary renderMessage -> send {
-  protocol  RenderedMessage
-  hides     preference-specific rendering details
-}
+  ExecutionSuccess = {finalTransactionHash?}
 
-guarantee R1 { mechanism "I1 plus Sender idempotency by DeliveryKey"                   class GUARANTEED }
-guarantee R2 { mechanism "notify passes freshly looked-up Preferences into rendering" class GUARANTEED }
-guarantee R3 { mechanism "rejection releases; unknown outcome resumes the same key"   class GUARANTEED }
-guarantee I1 { mechanism "Ledger creates one key and resume only reissues it"          class GUARANTEED }
-guarantee T1 { mechanism "notify looks up Preferences before every send"               class GUARANTEED }
-guarantee T2 { mechanism "claim and resume expose only the pair's stable DeliveryKey"  class GUARANTEED }
+  ExecutionFailure = {stepId: StepId, reason: ExecutionFailureReason}
 
-attack "confirm a ticket that was never claimed"       { class REJECTED }
-attack "two retries submit the same pair concurrently" { class GUARANTEED }
-attack "sender accepts, then notify is interrupted"    { class GUARANTEED }
+  ExecutionFailureReason =
+      WalletRejected
+    | SubmissionFailed
+    | ConfirmationFailed
+    | ConfirmationTimedOut
 
-verify R1 { test "model test plus Sender crash points: retries retain one key and deliver at most once" }
-verify R2 { test "each channel renders and sends with its recipient's current preferences" }
+  transitions
+    ST1 SwitchChain:      Idle -> Preparing -> Submitting -> Succeeded
+    ST2 SwitchChain:      Idle -> Preparing -> Submitting -> Failed
+    ST3 SendTransaction: Idle -> Preparing -> Submitting -> Confirming -> Succeeded
+    ST4 SendTransaction: Idle -> Preparing -> Submitting -> Confirming -> Failed
+    ST5 SendTransaction: Idle -> Preparing -> Submitting -> Failed
 
-order { values -> state and transitions -> Ledger -> concerns -> executable proofs }
+owner ExecutionRun
+  lifetime  one execution of one TransactionPlan
+  state     current step index, current StepStatus, active confirmation
+
+  invariants
+    I1 every step before the current step is Succeeded                 [R1 R2]
+    I2 every step after the current step is Idle or Preparing          [R1 R2]
+    I3 at most one wallet or chain operation is active                 [R1]
+    I4 a Failed step is terminal for the entire plan                   [R2 R4]
+    I5 ExecutionSuccess returns exactly when every step succeeded      [R4]
+    I6 bounded confirmation cannot leave a step permanently Confirming [R3]
+
+operations
+  execute(plan: TransactionPlan, progress: TransactionProgress) -> ExecutionSuccess
+    fails      ExecutionFailure
+    requires   plan is non-empty and every step is prepared
+    ensures    a returned value means every step is Succeeded
+               a failure identifies the first failed step
+    publishes  every StepStatus transition
+    completes  after all steps succeed, the first step fails,
+               or execution is interrupted
+
+  executeStep(step: TransactionStep, progress: TransactionProgress) -> StepSuccess
+    fails      ExecutionFailure
+    requires   every prerequisite step is Succeeded
+    ensures    the step is Succeeded or Failed before returning
+    publishes  the legal transition for the matched step variant
+    interruption publishes Failed{Interrupted}, then remains interrupted
+
+  publishStepStatus(progress, stepId, status) -> Unit
+    ensures    progress receives one complete StepProgress value;
+               status and transactionHash are never published separately
+
+algorithm
+  execute
+    1. Visit steps from left to right.
+    2. Await executeStep for the current step.
+    3. Continue only after Succeeded; fail with the first ExecutionFailure.
+    4. Return ExecutionSuccess after the final step succeeds.
+
+  executeStep
+    1. Match the closed TransactionStep variant.
+    2. Run switchChainStep for SwitchChain.
+    3. Run sendTransactionStep for SendTransaction.
+
+  switchChainStep
+    1. Publish Submitting and ask Wallet to switch chains.
+    2. Publish Succeeded after the wallet confirms the switch.
+
+  sendTransactionStep
+    1. Publish Submitting and submit through Wallet.
+    2. Publish Confirming with the returned transaction hash.
+    3. Poll ChainClient within a bounded confirmation policy.
+    4. Interpret the chain result, publish one terminal status, and return it.
+
+  argument
+    advancing only after executeStep succeeds preserves I1 and I2;
+    awaiting submission and confirmation preserves I3;
+    variant matching prevents chain switching from entering confirmation;
+    stopping on the first step-addressed failure preserves I4 and I5;
+    bounded polling preserves I6;
+    publishStepStatus preserves the publication rule
+
+composition
+  flow
+    TransactionPlan
+      -> execute sequentially
+      -> Wallet performs current step
+      -> ChainClient confirms SendTransaction steps
+      -> TransactionProgress publishes its status
+      -> execution outcome
+
+  uses
+    Wallet
+      role   perform or reject one wallet-authorized step
+      reuse  extend the existing network wallet adapters
+
+    ChainClient
+      role   interpret chain-specific confirmation
+      reuse  extend the existing EVM, SVM, and TVM clients
+
+    TransactionProgress
+      role   publish observable StepStatus
+      reuse  extend the existing progress store
+
+  boundaries
+    execute -> Wallet
+      protocol  TransactionStep
+      facts     prepared for the current execution and prerequisites succeeded
+      hides     wallet and chain SDK calls
+
+    execute -> ChainClient
+      protocol  SubmittedTransaction{stepId, transactionHash}
+      facts     wallet submission succeeded and the hash belongs to this step
+      hides     serialized transaction representation
+
+    execute -> TransactionProgress
+      protocol  StepProgress
+      facts     status and transaction hash form one complete publication
+      hides     execution mechanics
+
+rules
+  ordering      one step is active within a plan
+  bounds        confirmation has a maximum attempt count and delay
+  interruption  cancels confirmation, publishes terminal progress,
+                and leaves execution interrupted
+  lifetime      all polling belongs to ExecutionRun
+  publication   status and its transaction hash become observable together
+
+realization effect-v4
+  plain
+    keep plan construction, ordering, and status projection as ordinary functions
+
+  data
+    use Data.TaggedEnum for TransactionStep, StepStatus,
+    and ExecutionFailureReason
+    use Schema only where wallet or chain data crosses a runtime boundary
+
+  effects
+    execute(plan, progress):
+      Effect<ExecutionSuccess, ExecutionFailure, Wallet | ChainClient>
+
+    executeStep(step, progress):
+      Effect<StepSuccess, ExecutionFailure, Wallet | ChainClient>
+
+  contextual capabilities
+    Wallet
+      service because authority crosses composition levels and tests replace it
+
+    ChainClient
+      service because chain I/O crosses composition levels and tests replace it
+
+    TransactionProgress
+      direct argument because one ExecutionRun owns this progress sink
+
+  time
+    Schedule owns bounded confirmation attempts and spacing
+    Clock remains supplied so tests can control time
+
+  lifetime
+    confirmation remains inside executeStep and the ExecutionRun scope
+    interruption finalization publishes Failed{Interrupted} without converting
+    Effect interruption into an ordinary typed failure
+    no detached Fiber survives execution
+
+  layers
+    WalletLive + ChainClientLive satisfy the contextual requirements of
+    execute; ExecutionRun and TransactionProgress stay execution-local
+
+  host
+    the React handler runs the composed CreateIntent program
+    the UI translates ExecutionFailure into display text once
+
+coverage
+  R1
+    enforced-by  I1 I2 I3, execute steps 1-3
+    proven-by    T1
+
+  R2
+    enforced-by  I1 I2 I4, execute step 3
+    proven-by    T2
+
+  R3
+    enforced-by  I6, both variant algorithms, publishStepStatus,
+                 bounded confirmation, interruption rule
+    proven-by    T3 T4 T5
+
+  R4
+    enforced-by  I4 I5, execute step 4
+    proven-by    T2 T3
+
+attacks
+  A1 start step two before step one succeeds
+    blocked-by  I1 I2 and the sequential interpreter
+
+  A2 return success after a failed receipt
+    blocked-by  I4 I5 and the typed failure channel
+
+  A3 leave confirmation pending forever
+    blocked-by  I6 and the bounded confirmation policy
+
+  A4 close the UI while confirmation is pending
+    outcome     interruption cancels scoped work and publishes Failed{Interrupted}
+
+  A5 reject one wallet request
+    outcome     that step fails and later steps do not start
+
+tests
+  T1 fake Wallet and ChainClient observe strictly sequential execution
+  T2 a failed prerequisite prevents every later submission
+  T3 a failed receipt fails with ExecutionFailure and publishes Failed
+  T4 controlled time reaches both confirmation success and timeout
+  T5 interruption cancels outstanding confirmation work
 ```
 
 ## Annotations
 
-- In a real repository, `notify.spec.md` sits beside the module containing `Ledger`, its primary owner.
-- `PreferenceStore` and `Sender` remain separate Specs beside their own code; this Spec links them instead of embedding them.
-- `input` / `returns` / `fails` / `needs` are target-neutral. An Effect realization maps them to `Effect<A, E, R>`.
-- `commit` states the indivisible semantic decision. It does not prescribe a lock, `Ref`, database transaction, or other primitive.
-- `broadcast` owns the batch policy: collect every recipient result rather than aborting the batch after one failure.
+- `realization effect-v4` is an optional target appendix, not the Spec's organizing model; requirements through `rules` remain target-neutral.
+- Stable IDs exist only where later sections refer back: requirements, transitions, invariants, attacks, and tests.
+- `invariants` state the hard truths owned by the slice. `coverage` shows how operations, algorithms, and tests enforce them without a repetitive `guarantee` vocabulary.
+- Operations describe observable contracts; the algorithm explains the mechanism. There is no `commit` keyword or implementation-order section.
+- `source`, `basis`, `realized-by`, and `open` separate evidence from proposed behavior so a brownfield Spec does not present inference as fact.
