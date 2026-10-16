@@ -44,12 +44,12 @@ Prefer `reuse-as-is` → `extend` → `supersede` → new. Choosing a later opti
 
 ```spec
 composition
-  uses
-    <name>
-      kind      owner | protocol | transformer | capability
-      found-in  <module, file, or nearby Spec>
-      role      <what this slice needs from it>
-      reuse     reuse-as-is | extend | supersede | new because <reason>
+    uses
+        <name>
+            kind      owner | protocol | transformer | capability
+            found-in  <module, file, or nearby Spec>
+            role      <what this slice needs from it>
+            reuse     reuse-as-is | extend | supersede | new because <reason>
 ```
 
 Don't restate the existing thing's whole behavior — only the part this slice depends on.

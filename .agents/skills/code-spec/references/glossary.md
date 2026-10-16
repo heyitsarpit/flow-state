@@ -50,7 +50,7 @@ These are the design concepts behind the Combined format. Backticked names are f
 
 ## Verification
 
-- **coverage** — the path from a requirement to its `enforced-by` mechanisms and `proven-by` tests.
+- **coverage** — the path from a requirement to its `enforced-by` mechanisms and either `proven-by` tests or, while proposed, an `open-by` question, brownfield conflict, or risk.
 - **attack** — one misuse, race, exhaustion, interruption, or partial-failure scenario tried against the design.
 - **blocked-by** — the named mechanism that prevents an attack.
 - **outcome** — the observable rejection, cancellation, convergence, or visible risk when an attack remains possible.

@@ -48,10 +48,10 @@ description: Coordinate one primary coder, optional secondary coders, and three
 
 | Agent                 | Task                                    | Scope                        | Model        | Reasoning |
 | --------------------- | --------------------------------------- | ---------------------------- | ------------ | --------- |
-| primary               | requirements, integration, final checks | <paths and outcome>          | gpt-6-sol    | high      |
+| primary               | requirements, integration, final checks | <paths and outcome>          | gpt-6-luna   | xhigh     |
 | secondary-1           | <task or omit row>                      | <disjoint paths and outcome> | gpt-6-luna   | xhigh     |
 | secondary-2           | <task or omit row>                      | <disjoint paths and outcome> | gpt-6-luna   | xhigh     |
-| architecture reviewer | architecture verdict                    | frozen task diff             | gpt-6-sol    | medium    |
+| architecture reviewer | architecture verdict                    | frozen task diff             | gpt-6-luna   | xhigh     |
 | contract reviewer     | contract verdict                        | frozen task diff             | gpt-6-luna   | xhigh     |
 | bug reviewer          | bug verdict                             | frozen task diff             | gpt-6-luna   | xhigh     |
 

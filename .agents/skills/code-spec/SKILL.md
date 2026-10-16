@@ -34,7 +34,7 @@ prose requirements        existing codebase
                    REVIEW            separate skill, anytime after acceptance
 ```
 
-One artifact per slice, the **Spec**. Extraction supplies semantic claims; every phase grows the same uninterrupted, section-oriented `spec` block. Full term list: `references/glossary.md`. The canonical compiled format is `references/example.md`.
+One artifact per slice, the **Spec**. Extraction supplies semantic claims; every phase grows the same uninterrupted, section-oriented `spec` block. Full term list: `references/glossary.md`. The canonical compiled format is `references/example.md`. See `references/examples/actor-lifecycle.md` for stateful lifetime, `references/examples/context-lineage.md` for an algorithm and data structure, and `references/examples/submission-overlap.md` for a brownfield issue and migration.
 
 ## Compiled shape
 
@@ -42,24 +42,24 @@ Use only sections that have something to say, in this order:
 
 ```spec
 spec <Name>
-status        proposed
-basis         <source requirements | inferred from existing behavior>
-location      <code-adjacent spec path>
-realized-by   <current or intended owner files>
-implements    <requirement ids>
-depends       <relative Spec paths or stable Spec ids>
-provides      <public operations>
+status       proposed
+basis        <source requirements | inferred from existing behavior>
+location     <code-adjacent spec path>
+realized-by  <current or intended owner files>
+implements   <requirement ids>
+depends      <relative Spec paths or stable Spec ids>
+provides     <public operations>
 
 requirements
-  R1
-    source  <provenance or quoted intent>
-    must    <one testable behavior>
+    R1
+        source  <provenance or quoted intent>
+        must    <one testable behavior>
 
 open
-  Q1 <unresolved question>
-    assume  <smallest reversible default, only when unblocked>
-  FB1 <existing behavior that contradicts the proposed contract>
-  RK1 <known risk intentionally left unresolved, with reason>
+    Q1 <unresolved question>
+        assume  <smallest reversible default, only when unblocked>
+    FB1 <existing behavior that contradicts the proposed contract>
+    RK1 <known risk intentionally left unresolved, with reason>
 
 model
 owner <Name>
@@ -121,12 +121,12 @@ Read `references/survey.md`. Before designing anything new, walk outward from wh
 
 ```spec
 composition
-  uses
-    <name>
-      kind      owner | protocol | transformer | capability
-      found-in  <module, file, or nearby Spec>
-      role      <what this slice needs from it>
-      reuse     reuse-as-is | extend | supersede | new because <reason>
+    uses
+        <name>
+            kind      owner | protocol | transformer | capability
+            found-in  <module, file, or nearby Spec>
+            role      <what this slice needs from it>
+            reuse     reuse-as-is | extend | supersede | new because <reason>
 ```
 
 Correctness and Composition consume every `uses` entry — never silently rebuild it.
@@ -139,45 +139,45 @@ Read `references/correctness.md`.
 
 ```spec
 spec <Name>
-status        proposed
-basis         <source requirements | inferred from existing behavior>
-location      <code-adjacent spec path>
-realized-by   <current or intended owner files>
-implements    <requirement ids>
-depends       <relative Spec paths or stable Spec ids>
-provides      <public operations>
+status       proposed
+basis        <source requirements | inferred from existing behavior>
+location     <code-adjacent spec path>
+realized-by  <current or intended owner files>
+implements   <requirement ids>
+depends      <relative Spec paths or stable Spec ids>
+provides     <public operations>
 ```
 
 **Place owners, algorithms, and rules.** For every `invariant` and `transition` already in the Spec, decide who enforces it and how.
 
 ```spec
 model
-  <values, closed variants, errors, and legal transitions>
+    <values, closed variants, errors, and legal transitions>
 
 owner <Name>
-  lifetime  <where its authority begins and ends>
-  state     <what it holds>
-  derived   <name> = <expression>, updated <when>
-  invariants
-    I1 <hard truth> [R1]
+    lifetime  <where its authority begins and ends>
+    state     <what it holds>
+    derived   <name> = <expression>, updated <when>
+    invariants
+        I1 <hard truth> [R1]
 
 operations
-  submit(job: NewJob) -> JobId
-    fails      QueueFull
-    requires   job passed admission
-    ensures    the returned id identifies one queued job
-    publishes  Queued{id}
-    completes  after insertion or typed rejection
+    submit(job: NewJob) -> JobId
+        fails      QueueFull
+        requires   job passed admission
+        ensures    the returned id identifies one queued job
+        publishes  Queued{id}
+        completes  after insertion or typed rejection
 
 algorithm
-  submit
-    1. <ordered semantic step>
-  argument
-    <why the steps preserve I1>
+    submit
+        1. <ordered semantic step>
+    argument
+        <why the steps preserve I1>
 
 rules
-  publication  <facts observers must see together>
-  bounds       <what is bounded and the outcome at the bound>
+    publication  <facts observers must see together>
+    bounds       <what is bounded and the outcome at the bound>
 ```
 
 ## Phase: Composition
@@ -213,46 +213,49 @@ promote; recurse one level up      leave inline
 
 ```spec
 composition
-  flow
-    <input -> meaningful stages -> outcome>
+    flow
+        <input -> meaningful stages -> outcome>
 
-  uses
-    <name>
-      kind     owner | protocol | transformer | capability
-      role     <one coherent responsibility>
-      input    <input>
-      returns  <output>
-      fails    <expected failures>       -- omit when none
-      needs    <capabilities>            -- omit when none
-      policy   <ordering or branching>   -- composite only
-      reuse    reuse-as-is | extend | supersede | new because <reason>
+    uses
+        <name>
+            kind     owner | protocol | transformer | capability
+            role     <one coherent responsibility>
+            input    <input>
+            returns  <output>
+            fails    <expected failures>       -- omit when none
+            needs    <capabilities>            -- omit when none
+            policy   <ordering or branching>   -- composite only
+            reuse    reuse-as-is | extend | supersede | new because <reason>
 
-  boundaries
-    <producer> -> <consumer>
-      protocol  <named value crossing the boundary>
-      facts     <what upstream already established about it>
-      hides     <what the consumer never needs to know>
+    boundaries
+        <producer> -> <consumer>
+            protocol  <named value crossing the boundary>
+            facts     <what upstream already established about it>
+            hides     <what the consumer never needs to know>
 ```
 
 ## Phase: Verify
 
 ```spec
 coverage
-  R1
-    enforced-by  <invariants, operations, algorithm steps, or rules>
-    proven-by    <test ids>
+    R1
+        enforced-by  <invariants, operations, algorithm steps, or rules>
+        proven-by    <test ids>
+    R2
+        enforced-by  <intended mechanism>
+        open-by      <open item ids; proposed Specs only>
 
 attacks
-  A1 <misuse or failure scenario>
-    blocked-by  <mechanism>
-  A2 <scenario not prevented>
-    outcome     <typed rejection, cancellation, convergence, or recorded risk>
+    A1 <misuse or failure scenario>
+        blocked-by  <mechanism>
+    A2 <scenario not prevented>
+        outcome     <typed rejection, cancellation, convergence, or recorded risk>
 
 tests
-  T1 <deterministic observable proof>
+    T1 <deterministic observable proof>
 ```
 
-Every requirement gets a `coverage` row. Attack double use, races, bounds, overflow, stale evidence, interruption, and partial external effects when they apply. An unblocked attack stays visible in `open`; do not hide it behind a confidence label. Implementation order belongs in task tracking, not the Spec.
+Every requirement gets a `coverage` row with exactly one evidence lane: `proven-by` executable tests, or `open-by` unresolved items while the Spec is proposed. Attack double use, races, bounds, overflow, stale evidence, interruption, and partial external effects when they apply. An unblocked attack stays visible in `open`; do not hide it behind a confidence label. Implementation order belongs in task tracking, not the Spec.
 
 ---
 
@@ -270,10 +273,10 @@ superseded  → link forward, never delete
 
 ```spec
 requirements
-  R6
-    supersedes  R3
-    reason      R3 assumed single-region; a later slice changed the concurrency rule
-    must        <replacement behavior>
+    R6
+        supersedes  R3
+        reason      R3 assumed single-region; a later slice changed the concurrency rule
+        must        <replacement behavior>
 ```
 
 Only HARD claims carry this lifecycle. An accepted Spec stays maintained beside its code; merging code does not freeze it. SOFT sections may change as implementation shape changes.
@@ -288,7 +291,7 @@ Only HARD claims carry this lifecycle. An accepted Spec stays maintained beside 
 
 ## Realize
 
-The core Spec is target-neutral and is not imported or interpreted at runtime. When a target is chosen, add an optional `realization <target>` appendix to the same compiled Spec with only the decisions needed to implement it. See `references/realization/effect.md` for Effect.
+The core Spec is target-neutral and is not imported or interpreted at runtime. When a target is chosen, add an optional `realization <target>` appendix to the same compiled Spec with only the decisions needed to implement it. See `references/realization/effect.md` for Effect and `references/realization/rust.md` for Rust.
 
 ## Review
 
