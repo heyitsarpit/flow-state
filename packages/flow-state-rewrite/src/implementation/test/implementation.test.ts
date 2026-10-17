@@ -54,6 +54,12 @@ type ErasedImplementation = ImplementationType<never, unknown, unknown>;
 
 const erasedSynchronous: ErasedImplementation = synchronous;
 
+// @ts-expect-error Native Layer acquisition is private to the Runtime adapter.
+void synchronous.layer;
+
+// @ts-expect-error Provider identity metadata is private to Implementation.
+void synchronous.serviceKeys;
+
 // @ts-expect-error A Repo provider cannot widen to an implementation claiming arbitrary services.
 const arbitraryServices: ImplementationType<unknown> = synchronous;
 
@@ -151,6 +157,44 @@ describe("implementation providers", () => {
     const sameIdentity = Context.Service<ProjectRepoService>("ImplementationTest/ProjectRepo");
     const duplicate = Implementation.succeed(sameIdentity, projectApi);
     assert.throws(() => Implementation.merge(synchronous, duplicate), expected);
+  });
+
+  it("keeps duplicate detection independent of caller mutations", () => {
+    const provider = Implementation.succeed(ProjectRepo, projectApi);
+    const duplicate = Implementation.succeed(ProjectRepo, projectApi);
+    const callerOwnedServiceKeys: string[] = [];
+    Object.defineProperty(provider, "serviceKeys", { value: callerOwnedServiceKeys });
+
+    callerOwnedServiceKeys.push("ImplementationTest/ProjectRepo");
+    callerOwnedServiceKeys.splice(0);
+
+    const expected = /^Implementation service is duplicated: ImplementationTest\/ProjectRepo$/u;
+    assert.throws(() => Implementation.merge(provider, duplicate), expected);
+  });
+
+  it("rejects provider-like values that were not created by the factory", () => {
+    const provider = Implementation.succeed(ProjectRepo, projectApi);
+    const sameIdentity = Layer.succeed(ProjectRepo, projectApi);
+    const forged = Reflect.construct(provider.constructor, [sameIdentity, []]);
+
+    Object.assign(forged, {
+      kind: "implementation",
+      layer: sameIdentity,
+      serviceKeys: [ProjectRepo.key],
+    });
+
+    assert.throws(
+      () => Implementation.merge(forged, provider),
+      /^Implementation must be created by Implementation$/u,
+    );
+    assert.throws(
+      () => implementationLayer(forged),
+      /^Implementation must be created by Implementation$/u,
+    );
+  });
+
+  it("does not expose the native Layer for caller-owned acquisition", () => {
+    assert.strictEqual("layer" in synchronous, false);
   });
 
   it.effect("composes dependent providers through native Layers", () =>
