@@ -5,7 +5,6 @@ description: >-
   dispatch, integration assignments, and coverage gates. Use for parallel work or a multi-task
   program;
   do not add coordination layers to work one agent can finish directly.
-disable-model-invocation: true
 metadata:
   kind: procedure
 ---
@@ -14,10 +13,14 @@ metadata:
 
 Fan out N workers over separate slices or a declared race. Assign authors, checkers, integration,
 and record duties; consume their current results. The coordinator owns dispatch, dependencies,
-limits, worker lifecycle, and gate progression. Apply
-[coordination-policy](../coordination-policy/SKILL.md).
+limits, worker lifecycle, and gate progression. Apply coordination-policy (Use the
+`coordination-policy` skill).
 
+For a briefing-only assignment, read [the worker brief](references/worker-brief.md).
+Return the requested brief or guidance without entering the dispatch procedure below.
 For an explicit pause or required handoff, use [the checkpoint procedure](references/pause.md).
+For a guidance-only or checkpoint-only assignment, follow only the requested method and return.
+Do not dispatch workers for a request to explain briefing or phase guidance.
 Consume authorized, prepared assignments. This method does not select a larger work program or
 start unrequested preparation.
 
@@ -27,10 +30,10 @@ start unrequested preparation.
    Read current Plans, Tasks, Specs, Git state, and linked supporting evidence.
    Report missing decomposition or acceptance before dependent dispatch.
 2. Choose slices, a race, or both. For a race, declare first verified pass or rank all before
-   dispatch. First pass fits only when one worker can satisfy the whole outcome. Use
-   [arena](../arena/SKILL.md) when candidate synthesis is requested.
-3. Read [setup's routing table](../setup-workflow/SKILL.md#agent-routing-defaults).
-   Request narrow setup for missing model/tool configuration. Bind the assigned role to its exact
+   dispatch. First pass fits only when one worker can satisfy the whole outcome. Use arena (Use the
+   `arena` skill) when candidate synthesis is requested.
+3. Use the `workflow-configuration` skill for the routing table. Request narrow setup for
+   missing model/tool configuration. Bind the assigned role to its exact
    model and reasoning effort; preserve explicit overrides.
    Instantiate only needed phases; preserve valid evidence and declared worker reuse.
    Derive parent, scope, limits, and return boundary from the selected work. Resolve budgets before
@@ -40,8 +43,9 @@ start unrequested preparation.
    paths and name the integration base. Preserve dirty work. One owner controls shared runtimes and
    writes. Include checker build outputs in write scopes.
 5. Give each worker the [standalone brief](references/worker-brief.md), including upstream findings.
-   Give implementation workers the installed [lint reference](../setup-workflow/references/lint.md).
-   For a novel workflow, complete one representative slice and obtain its checker's passing verdict
+   Give implementation workers the installed lint reference (Use the `workflow-configuration`
+   skill). For a novel workflow, complete one representative slice and obtain its
+   checker's passing verdict
    before expanding dispatch. Fix pilot findings and recheck before scaling.
 
 ## 2. Fan out
@@ -50,7 +54,7 @@ Dispatch ready workers concurrently within the chosen limit. Recompute readiness
 finish. A failed prerequisite blocks its consumers. Add sub-coordinators only when needed to manage
 the work. Continue independent work when another branch is blocked.
 
-Use [execute-task](../execute-task/SKILL.md) for implementation and [review](../review/SKILL.md) for
+Use the `execute-task` skill for implementation and review (Use the `review` skill) for
 independent implementation review. State specialist coverage limits. A small slice may use an
 adequate executable check.
 
@@ -96,7 +100,7 @@ Return a compact result table, evidenced issues, checks, integrated revision, ga
 For a race, include the selection rule and why the chosen result satisfies it. Do not paste raw
 dumps.
 
-Apply [keep-intent-aligned](../keep-intent-aligned/SKILL.md) when findings change recorded intent or
+Use the `keep-intent-aligned` skill when findings change recorded intent or
 leave material work unresolved. Record material execution findings and evidence in the owning
 Task. After record edits, run `workflow format --write`, `workflow check`, and review the diff.
 On continuation, check revisions and worker status before accepting delayed results.

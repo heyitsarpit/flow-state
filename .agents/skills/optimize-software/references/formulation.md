@@ -1,11 +1,11 @@
 # Problem formulation and architecture
 
-- **Eliminate unnecessary work; early rejection.** Apply
-  [work reduction](../../work-reduction/SKILL.md) to safe rejection and filter costs.
+- **Eliminate unnecessary work; early rejection.** Apply work reduction (Use the `work-reduction`
+  skill) to safe rejection and filter costs.
   Confirm survivors through the full operation.
 - **Incremental computation.** Track affected dependencies, not just changed inputs.
-  Compare tracking overhead, recomputation, and rebuild costs using
-  [work reduction](../../work-reduction/SKILL.md).
+  Compare tracking overhead, recomputation, and rebuild costs using work reduction (Use the
+  `work-reduction` skill).
 - **Caching / memoization.** Reuse expensive results; define keys, freshness, eviction, memory
   bounds, and concurrency behavior.
 - **Precomputation / lookup tables.** Trade initialization or storage for repeated computation;

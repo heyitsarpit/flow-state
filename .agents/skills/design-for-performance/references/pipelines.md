@@ -10,7 +10,7 @@
 3. Push filters/projections early; reuse scans and compatible computations. Stream/fuse stages where
    valid and choose batch sizes for overhead, locality, and memory. Identify blocking sorts, joins,
    and aggregations. For incremental pipelines, measure invalidation fan-out and
-   tracking overhead against recomputation; see [work reduction](../../work-reduction/SKILL.md).
+   tracking overhead against recomputation; see work reduction (Use the `work-reduction` skill).
 
 4. Balance partitions, bound in-flight batches, and propagate backpressure. Account for
    serialization, copying, spill, and network shuffle costs before adding workers.

@@ -4,7 +4,6 @@ description: >-
   Reproduce a software failure or analyze a captured profile, trace, heap, or dump. Return causal
   evidence or the next discriminating observation. Use for diagnosis requests or an unresolved
   cause during repair.
-disable-model-invocation: true
 metadata:
   kind: procedure
 ---
@@ -13,8 +12,8 @@ metadata:
 
 Reproduce the exact symptom or inspect the supplied capture. Test competing explanations.
 Return the demonstrated cause or the next observation needed to distinguish causes.
-Keep production code unchanged during diagnosis.
-Apply [design-for-verification](../design-for-verification/SKILL.md) to discriminating observations.
+Keep production code unchanged during diagnosis. Use the `design-for-verification` skill
+for discriminating observations.
 
 For an artifact-only request, load [captured-artifact diagnosis](references/captured-artifacts.md).
 Skip live reproduction and follow that method; return its findings through step 4 below.
@@ -40,14 +39,14 @@ A screenshot, build, or source explanation alone does not establish reproduction
 
 ## 3. Distinguish causes
 
-Apply [fix-root-causes](../fix-root-causes/SKILL.md) to causal judgment.
-Use [runtime exploration](../how/references/explorer-prompt.md) for missing execution facts and
-[local rationale sources](../why/references/source-playbook.md) for relevant history.
+Use the `fix-root-causes` skill for causal judgment.
+Use runtime exploration (Use the `how` skill) for missing execution facts and local
+rationale sources (Use the `why` skill) for relevant history.
 Reuse supplied findings instead of repeating settled investigations.
 
-For performance failures, apply [design-for-performance](../design-for-performance/SKILL.md)
-to workload costs and waiting; verify measured comparisons through
-[benchmark-checklist](../benchmark-checklist/SKILL.md).
+For performance failures, apply design-for-performance (Use the `design-for-performance` skill) to
+workload costs and waiting; verify measured comparisons through
+benchmark-checklist (Use the `benchmark-checklist` skill).
 
 For artifact-only diagnosis, use capture queries; propose live probes without running them.
 List plausible causes and an observation that would distinguish them.
@@ -56,8 +55,9 @@ Use isolated probes, state inspection, or temporary instrumentation in a disposa
 Record the actual result, evidence location, and which hypotheses it supports or refutes.
 Trace the symptom to the responsible owner, transition, or boundary; separate mechanism from
 speculation.
-If attempts repeat a failed premise, use [attack-the-premise](../attack-the-premise/SKILL.md).
-Stop at a demonstrated cause or the investigation budget; an inconclusive probe is not confirmation.
+If attempts repeat a failed premise, use
+attack-the-premise (Use the `attack-the-premise` skill). Stop at a demonstrated cause or
+the investigation budget; an inconclusive probe is not confirmation.
 
 ## 4. Return the finding
 
@@ -69,6 +69,6 @@ run that check.
 Report material setup differences; do not treat an unrelated passing check as proof.
 Clean up only owned processes, instrumentation, and test state; preserve useful evidence.
 
-For material findings, apply [keep-intent-aligned](../keep-intent-aligned/SKILL.md).
+For material findings, apply keep-intent-aligned (Use the `keep-intent-aligned` skill).
 Report repair evidence and contract gaps with a recommended next action.
 For a standalone diagnosis, return findings only; objective conflicts remain with the human.

@@ -1,7 +1,7 @@
 # Autopilot-full
 
-Own this slice as `agent:workflow-coordinator`; Workflow owns the human conversation.
-Apply [coordination-policy](../../coordination-policy/SKILL.md) to actual worker dispatch, bounded
+Own this slice as `agent:workflow-coordinator`; Workflow owns the human conversation. Use the
+`coordination-policy` skill for actual worker dispatch, bounded
 methods, independent gates, repair routing, and stop/checkpoint handback.
 
 Use for independent queued changes with granted full delivery. Name any operator-reserved items.
@@ -9,14 +9,14 @@ Use for independent queued changes with granted full delivery. Name any operator
 1. `agent:workflow-coordinator`: Resolve the queue, completion predicate, budget, configured forge,
    merge scope, and human gates. A request to state the plan stops at the plan. A build-only grant
    does not become a merge grant.
-2. `agent:workflow-coordinator`: Dispatch through [orchestrate](../../orchestrate/SKILL.md). Assign
+2. `agent:workflow-coordinator`: Dispatch through orchestrate (Use the `orchestrate` skill). Assign
    each change `agent:implementer`, needed design/checking owners, `agent:record-writer`, and
    `agent:delivery-operator`. Bind configured models and reasoning; reuse compatible phase workers
    explicitly. Authors never supply their own independent gate. Give independent writers separate
    branches/worktrees; serialize genuinely overlapping changes. Assign the `agent:record-writer`
    initial owners, heads, gates, and stop rules before the long build.
-3. `agent:implementer`: Build the assigned slice using
-   [its method](../../execute-task/references/implementer.md). The coordinator runs the needed
+3. `agent:implementer`: Build the assigned slice using its method (Use the `implement-task` skill).
+   The coordinator runs the needed
    Feature, Bug fix, or Refactoring phases as the same owner. Require a ready owning Task before
    implementation; workers receive only their phase. After required gates pass, the coordinator
    gives `agent:delivery-operator` checked code, evidence, and applicable

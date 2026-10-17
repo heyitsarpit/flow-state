@@ -1,19 +1,19 @@
 # Autopilot-stack
 
-Own this slice as `agent:workflow-coordinator`; Workflow owns the human conversation.
-Apply [coordination-policy](../../coordination-policy/SKILL.md) to actual worker dispatch, bounded
+Own this slice as `agent:workflow-coordinator`; Workflow owns the human conversation. Use the
+`coordination-policy` skill for actual worker dispatch, bounded
 methods, independent gates, repair routing, and stop/checkpoint handback.
 
 Use for dependent changes or a requested reviewable stack. Landing can remain with the user.
 
 1. `agent:task-designer`: Fix the ordered dependency graph, root base, intended parents, budget, and
    delivery endpoint. "Build the stack, I'll land it" means no merges or armed auto-merge. Preserve
-   reserved human gates.
-   Use [to-task](../../to-task/SKILL.md) for ready owning Tasks before implementation.
-2. `agent:workflow-coordinator`: Assign bounded `agent:implementer` assignments through
-   [orchestrate](../../orchestrate/SKILL.md). Each builds and self-checks its scope, pushes only its
-   branch within the publication grant, and reports base/head/evidence. Give each implementer
-   [its method](../../execute-task/references/implementer.md). One `agent:delivery-operator`
+   reserved human gates. Use the `to-task` skill for ready owning Tasks before
+   implementation.
+2. `agent:workflow-coordinator`: Assign bounded `agent:implementer` assignments through orchestrate
+   (Use the `orchestrate` skill). Each builds and self-checks its scope, pushes only its
+   branch within the publication grant, and reports base/head/evidence. Give each implementer its
+   method (Use the `implement-task` skill). One `agent:delivery-operator`
    controls shared rebases,
    retargets, and stack assembly.
 3. `agent:workflow-coordinator`: Release independent scopes when their prerequisite interface is

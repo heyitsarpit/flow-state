@@ -6,7 +6,7 @@ For algorithmic changes, document preconditions, memory use, and worst-case comp
 For low-level changes, exercise boundary sizes, alignment, aliases, container growth,
 allocation failures, and relevant concurrency interleavings.
 
-Apply [benchmark-checklist](../../benchmark-checklist/SKILL.md) to performance comparisons.
+Use the `benchmark-checklist` skill for performance comparisons.
 
 For selective fast paths, test common, rare, absent, and correlated matches, including inputs
 that defeat the filter. Compare results with an authoritative unfiltered path under the same

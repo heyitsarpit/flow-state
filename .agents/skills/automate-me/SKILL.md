@@ -3,10 +3,11 @@ name: automate-me
 description: >-
   Create or update a personal mode skill from explicit preferences and recurring conventions.
   Use for "automate me", "capture my working style", or creating or refreshing a personal mode.
-disable-model-invocation: true
 metadata:
   kind: procedure
 ---
+
+Use the `writing` skill before drafting or revising prose.
 
 # Automate Me
 
@@ -35,7 +36,8 @@ creating another. Preserve project contracts and the user's control over scope.
 4. **Write the mode.** State concrete actions and conditions.
    Write the chosen mode's SKILL.md and supported invocation settings. Edit only the named files.
    Preserve rules the user has not changed.
-   Link procedures by path instead of copying them. Keep transcript details out of the mode;
+   Invoke required skills by registered name instead of copying their methods.
+   Keep path links for the mode's own references. Keep transcript details out of the mode;
    put evidence pointers in the review summary. Do not copy another person's preferences.
    Trigger on the mode name or a request to work in that style, not generic engineering tasks.
    Use supported frontmatter. Keep invocation explicit unless the user requests otherwise.
@@ -43,7 +45,8 @@ creating another. Preserve project contracts and the user's control over scope.
    Return file paths, changed preferences, evidence pointers, unresolved choices, and the draft.
    Revise from user feedback. Distinguish a saved file from verified loading in the target harness.
 
-For model-setting changes, use [setup-workflow](../setup-workflow/SKILL.md) only when requested.
-For an engineering lesson needing a new mental model, use
-[derive-guidance](../derive-guidance/SKILL.md).
-This procedure captures personal conventions; it does not diagnose a missing engineering principle.
+For model-setting changes, use setup-workflow (Use the `setup-workflow` skill) only when
+requested.
+For an engineering lesson needing a new mental model, use derive-guidance (Use the `derive-guidance`
+skill). This procedure captures personal conventions; it does not diagnose a
+missing engineering principle.

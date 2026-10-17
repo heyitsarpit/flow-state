@@ -3,10 +3,11 @@ name: derive-guidance
 description: >-
   Find the missing understanding behind a learning and propose a principle or procedure through
   a mental model. Use when learning evidence needs to become reusable guidance.
-disable-model-invocation: true
 metadata:
   kind: procedure
 ---
+
+Use the `writing` skill before drafting or revising prose.
 
 # Derive guidance from learning
 
@@ -31,8 +32,8 @@ Propose a principle for reusable judgment, or a procedure for a repeatable seque
 Build on existing principles. Link existing procedures where relevant.
 Propose changes to those principles or procedures when the learning exposes a gap.
 Improve an existing owner when it already covers the model. Resolve conflicting rules explicitly.
-Use [keep-intent-aligned](../keep-intent-aligned/SKILL.md) and
-[encode-lessons-in-structure](../encode-lessons-in-structure/SKILL.md) to shape its prescriptions.
+Use the `keep-intent-aligned` skill and encode-lessons-in-structure (Use the
+`encode-lessons-in-structure` skill) to shape its prescriptions.
 Preserve human intent and Plan/Spec/Task ownership.
 Prefer structural enforcement for recurring rules; keep prose for judgment.
 If existing guidance was sufficient, explain the application failure instead of adding another rule.

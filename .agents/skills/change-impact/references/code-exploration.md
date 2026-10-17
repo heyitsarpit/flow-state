@@ -21,9 +21,8 @@ authority could change the reuse decision or safety assessment.
 - Identify shared protocols, established facts, state owners, and resource lifetimes.
 - Inspect relevant checks and diagnostics; distinguish declared contracts from observed behavior.
 
-Use [runtime exploration](../../how/references/explorer-prompt.md) for unclear flow or layering.
-When history could change reuse, read
-[local rationale sources](../../why/references/source-playbook.md).
+Use runtime exploration (Use the `how` skill) for unclear flow or layering.
+When history could change reuse, read local rationale sources (Use the `why` skill).
 Investigate only the missing runtime or historical fact that blocks discovery; reuse its answer
 instead of writing a second runtime explanation.
 These are not mandatory full investigations. Reachability identifies possible impact, not proof.

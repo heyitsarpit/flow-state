@@ -2,7 +2,6 @@
 name: altitude
 description: >-
   Explore alternative approaches to the purpose behind a requested task or deliverable.
-disable-model-invocation: true
 metadata:
   kind: procedure
 ---

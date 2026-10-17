@@ -4,10 +4,11 @@ description: >-
   Read and maintain spec-lang Plans as understanding develops. Use to place outcomes,
   decisions, constraints, verification targets, and questions in their owning Plans.
   Detect conflicts before writing.
-disable-model-invocation: true
 metadata:
   kind: procedure
 ---
+
+Use the `writing` skill before drafting or revising prose.
 
 # To Plan
 
@@ -44,7 +45,8 @@ If no goal is known, surface that gap rather than inventing one.
 
 Plans live at `workflow/plans/<id>.plan`; the header is `plan <id>` with the same ID.
 `title` and an indented, nonempty `goal` are required. `status` is optional free text.
-Read a valid artifact or the [syntax reference](../workflow-cli/syntax.md) when unfamiliar.
+Read a valid artifact or the
+syntax reference (Use the `workflow-cli` skill) when unfamiliar.
 
 | Field                 | Meaning                                         |
 |-----------------------|-------------------------------------------------|

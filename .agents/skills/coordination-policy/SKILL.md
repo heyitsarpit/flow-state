@@ -3,7 +3,6 @@ name: coordination-policy
 description: >-
   Separate pipeline coordination from artifact work and disclose context by assignment.
   Apply when composing workflows, delegating methods, or writing multi-role instructions.
-disable-model-invocation: true
 metadata:
   kind: policy
 ---
@@ -28,13 +27,16 @@ metadata:
 
 - Resolve commands, project inputs, and installed methods from the assigned absolute checkout.
   Check that checkout before declaring an input missing or choosing a fallback.
-- Coordinator reads the scenario playbook and composite procedures. Specialists read their
-  assigned methods and references; never hand them a coordination entrypoint.
+- Coordinator reads the scenario playbook and invokes relevant composite procedures. Specialists
+  invoke assigned skills by registered name; each skill selects its own references. Never hand
+  specialists a coordination entrypoint or another skill's internal files. If a worker cannot
+  discover or load an assigned skill, report the capability gap.
 - Start specialists with fresh context; in Codex, set `fork_turns: none`.
   Supply a complete bounded brief instead of inheriting the coordinator's conversation.
 - Brief each role with its objective, phase, inputs, decisions, rationale, scope, checks, budget,
   and return shape. Include relevant principles, dependencies, and unresolved questions.
-- Setup supplies project tools, invocation, and model preferences. The selected playbook supplies
+- Use the `workflow-configuration` skill for project tools and model preferences. The
+  selected playbook supplies
   assignments and limits. Planning/design supplies commitments and checks. Leaves retain local
   guards.
 

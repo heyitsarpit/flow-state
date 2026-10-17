@@ -3,7 +3,6 @@ name: planning
 description: >-
   Interview the user to develop a shared plan. Use when shaping a project goal,
   exploring an idea, or resolving design decisions through questions.
-disable-model-invocation: true
 metadata:
   kind: procedure
 ---
@@ -19,11 +18,10 @@ Judge scope and tradeoffs from their experience, not implementation convenience.
 Guide the user to define verifiable targets and diagnostic tools.
 Clarify observable outcomes and pass conditions before dependent implementation.
 Cover relevant failure and boundary cases for the agreed scope.
-Leave missing executable checks explicit as planned work.
-Apply [design-for-verification](../design-for-verification/SKILL.md).
+Leave missing executable checks explicit as planned work. Use the `design-for-verification` skill.
 
-Read supplied Plans and settled decisions before interviewing. Surface conflicting commitments.
-Use [to-plan](../to-plan/SKILL.md) to record understanding as it settles, including the verification
+Read supplied Plans and settled decisions before interviewing. Surface conflicting commitments. Use
+the `to-plan` skill to record understanding as it settles, including the verification
 strategy as Plan Verification targets.
 
 Map the discussion as a **design tree**: each decision branches into decisions that depend on it.
@@ -31,10 +29,10 @@ The **frontier** contains decisions whose prerequisites are settled. Work it in 
 
 1. Investigate facts needed by the frontier. Finding facts is your job, not the user's.
    Pending investigation blocks only the questions that depend on it.
-   When a consequential technical choice needs stronger methods or evidence, use
-   [deepen](../deepen/SKILL.md) to propose a stronger investigation brief within the agreed scope.
-   For difficult technical choices inspection cannot settle, offer a
-   [prototype](../prototype/SKILL.md). Explain what it would answer, estimate the time, and
+   When a consequential technical choice needs stronger methods or evidence, use deepen (Use the
+   `deepen` skill) to propose a stronger investigation brief within the agreed scope.
+   For difficult technical choices inspection cannot settle, offer a prototype (Use the `prototype`
+   skill). Explain what it would answer, estimate the time, and
    recommend whether the evidence is worth the effort. Build it only if the user chooses it.
    Otherwise, keep the uncertainty explicit. Discuss any results before asking dependent questions.
    Keep product preferences with the human.
@@ -42,7 +40,7 @@ The **frontier** contains decisions whose prerequisites are settled. Work it in 
    Explain material tradeoffs. Keep each round readable; split a large frontier across rounds.
    Questions that depend on unanswered choices belong to a later round.
 3. Ask in chat, end the turn, and wait for answers. Do not use background Q&A tools.
-4. Use [to-plan](../to-plan/SKILL.md) to record material answers and findings before the next
+4. Use the `to-plan` skill to record material answers and findings before the next
    dependent round.
    Recompute the frontier from answers, findings, and the updated Plan.
 

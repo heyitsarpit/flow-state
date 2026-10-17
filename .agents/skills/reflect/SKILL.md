@@ -4,7 +4,6 @@ description: >-
   Review the active session through Judgment, Tooling, and Divergent lenses. Surface durable
   lessons and propose targeted existing-skill edits or structural enforcement. Use when the
   user says "reflect", or requests lessons from meaningful work or corrections.
-disable-model-invocation: true
 metadata:
   kind: procedure
 ---
@@ -29,8 +28,8 @@ supplied transcript location. Do not search unrelated projects' chats.
 If the active transcript is unavailable, pass a tight session digest with decisions, corrections,
 tool evidence, and source locations. Mark missing evidence; do not reconstruct tool use from memory.
 
-For material project-record gaps or contract findings, use
-[keep-intent-aligned](../keep-intent-aligned/SKILL.md) to identify the affected record.
+For material project-record gaps or contract findings, use keep-intent-aligned (Use the
+`keep-intent-aligned` skill) to identify the affected record.
 Only reusable working-method lessons become skill proposals.
 
 ### 2. Review through three lenses
@@ -49,7 +48,9 @@ Reviewers return findings; they do not apply them.
 ### 3. Synthesize
 
 For substantive learning proposals, pass the evidence, attempted approach, correction, and scope
-to [derive-guidance](../derive-guidance/SKILL.md). It identifies the thinking gap and proposes
+to
+derive-guidance (Use the `derive-guidance` skill). It identifies the thinking gap and
+proposes
 guidance.
 
 Give one synthesizer [synthesizer.md](references/synthesizer.md), the full reviewer outputs,
@@ -61,8 +62,8 @@ treated as accepted skill edits or automatically written to that record.
 ### 4. Check structural enforcement
 
 Assess Accepted. Move an item to Backlog when a lint, script, flag,
-or runtime check would enforce it more reliably. Use
-[encode-lessons-in-structure](../encode-lessons-in-structure/SKILL.md).
+or runtime check would enforce it more reliably. Use encode-lessons-in-structure (Use the
+`encode-lessons-in-structure` skill).
 
 ### 5. Apply approved changes
 
@@ -70,6 +71,7 @@ Before applying Accepted edits, present the full Accepted / Rejected / Backlog o
 for explicit approval unless the user already authorized those concrete changes.
 The user picks the subset and may redirect routing. Do not auto-apply retrospective proposals.
 Keep Backlog in the response; file it only when the user authorizes a destination.
+Use the `writing` skill before composing or adapting approved skill prose edits.
 Follow the item's Routing:
 
 - **Trivial existing-skill edit:** tighten the sentence or correct the

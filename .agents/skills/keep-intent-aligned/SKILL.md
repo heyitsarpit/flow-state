@@ -4,7 +4,6 @@ description: >-
   Keep Plans, Specs, and Tasks aligned with agreed user intent and material coworker findings.
   Apply when consequential decisions, contracts, acceptance, or evidence change; route updates
   to the skill that owns the affected record.
-disable-model-invocation: true
 metadata:
   kind: principle
 ---

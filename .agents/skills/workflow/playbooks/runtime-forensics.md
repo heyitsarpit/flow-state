@@ -1,7 +1,7 @@
 # Runtime forensics
 
-Own this slice as `agent:workflow-coordinator`; Workflow owns the human conversation.
-Apply [coordination-policy](../../coordination-policy/SKILL.md) to actual worker dispatch, bounded
+Own this slice as `agent:workflow-coordinator`; Workflow owns the human conversation. Use the
+`coordination-policy` skill for actual worker dispatch, bounded
 methods, independent gates, repair routing, and stop/checkpoint handback.
 
 Capture the live symptom, narrow the causes, then test the strongest mechanism with a probe.
@@ -9,7 +9,7 @@ Return a cited diagnosis or the next observation. Production repair is a separat
 
 1. `agent:diagnostician`: Name the symptom, revision, running instance, workload, and observation
    that matters. Resolve the matching UI, CLI, service, or library surface and owned test state.
-2. `agent:diagnostician`: Use [diagnose](../../diagnose/SKILL.md) in live mode. Capture a profile,
+2. `agent:diagnostician`: Use the `diagnose` skill in live mode. Capture a profile,
    heap, trace, or blocked state appropriate to the symptom. Label instrumentation overhead and
    incomplete access.
 3. `agent:evidence-synthesizer`: Reduce large artifacts through bounded inspection. Keep pivotal

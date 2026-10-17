@@ -1,7 +1,7 @@
 # Multi-phase plan
 
-Own this slice as `agent:workflow-coordinator`; Workflow owns the human conversation.
-Apply [coordination-policy](../../coordination-policy/SKILL.md) to actual worker dispatch, bounded
+Own this slice as `agent:workflow-coordinator`; Workflow owns the human conversation. Use the
+`coordination-policy` skill for actual worker dispatch, bounded
 methods, independent gates, repair routing, and stop/checkpoint handback.
 
 Resolve intent, investigate dependencies, then produce bounded phases with proof gates.
@@ -9,22 +9,25 @@ A planning-only request ends at the requested planning artifacts: Plan, Tasks, o
 Do not start execution unless authorized.
 
 1. `agent:planning-interviewer`: Resolve unsettled consumer outcomes and constraints through
-   [planning](../../planning/SKILL.md). `agent:plan-writer` records decisions through
-   [to-plan](../../to-plan/SKILL.md). Reuse settled intent. A mechanical bounded task needs no new
+   planning (Use the `planning` skill). `agent:plan-writer` records decisions through
+   to-plan (Use the `to-plan` skill). Reuse settled intent. A mechanical bounded task
+   needs no new
    program plan. Require Plan approval before dependent preparation; reuse existing approval
    of unchanged content.
    Record Plan Verification targets covering the agreed outcomes.
-2. `agent:experiment-author`: For unresolved empirical choices, offer a
-   [prototype](../../prototype/SKILL.md) with its question, estimate, and recommendation. Build it
+2. `agent:experiment-author`: For unresolved empirical choices, offer a prototype (Use the
+   `prototype` skill) with its question, estimate, and recommendation. Build it
    only if chosen or already authorized. Preserve unresolved gates.
 3. `agent:workflow-designer`: Use [bounded run design](../references/run-design.md) to select phases
    and rigor. Identify blocking first steps, independent writes, shared state, integration, and real
    dependencies.
-4. `agent:task-designer`: Decompose with [to-task](../../to-task/SKILL.md). For each slice name
+4. `agent:task-designer`: Decompose with to-task (Use the `to-task` skill). For each
+   slice name
    inputs, responsible owner, write scope, executable steps, expected results, evidence, and
    remaining prerequisite. Do not turn every layer or helper into another Task or manager. After
-   drafting Tasks, resolve consequential contract needs with [to-spec](../../to-spec/SKILL.md);
-   `agent:spec-author` receives [author guidance](../../to-spec/references/spec-author.md). Refine
+   drafting Tasks, resolve consequential contract needs with to-spec (Use the `to-spec` skill);
+   `agent:spec-author` receives author guidance (Use the `to-spec` skill).
+   Refine
    affected Tasks against the settled contracts before readiness.
    Check required verification has work and invariants/tests support the required guarantees.
 5. `agent:workflow-coordinator`: Name the execution playbook and ceiling: Autonomous run for one

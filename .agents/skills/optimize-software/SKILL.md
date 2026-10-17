@@ -4,7 +4,6 @@ description: >-
   Find performance costs, select justified candidates, and validate bounded improvements.
   Use for slow software, performance reviews, optimization plans, or hardware-aware tuning.
   Hillclimb owns sustained experiments; design-for-performance owns architectural judgment.
-disable-model-invocation: true
 metadata:
   kind: procedure
 ---
@@ -20,26 +19,27 @@ Read the supplied Task, commitments, current changes, and measurements. Stay wit
 analysis or implementation scope.
 Confirm the metric, target, workload, environment, guarantees, run budget, and stopping condition.
 Return consequential missing choices to the human. For unresolved
-architecture or resource budgets, apply
-[design-for-performance](../design-for-performance/SKILL.md); reuse settled design decisions.
-Reuse settled targets and evidence; do not change the metric.
-Apply [design-for-verification](../design-for-verification/SKILL.md) to targets and evidence.
+architecture or resource budgets, apply design-for-performance (Use the `design-for-performance`
+skill); reuse settled design decisions.
+Reuse settled targets and evidence; do not change the metric. Use the `design-for-verification`
+skill for targets and evidence.
 
 ## 2. Locate the limiting cost
 
 Trace data flow and profile representative workloads.
 Distinguish computation, memory latency/bandwidth, I/O, allocation, coordination, and excess work.
-Use [diagnose](../diagnose/SKILL.md) for missing causal evidence.
-Label unmeasured architectural costs as predictions.
-Use [benchmark-checklist](../benchmark-checklist/SKILL.md) before relying on a comparison.
+Use the `diagnose` skill for missing causal evidence.
+Label unmeasured architectural costs as predictions. Use the `benchmark-checklist` skill
+before relying on a comparison.
 
 ## 3. Derive candidates from structure
 
-When candidate selection needs stronger methods or evidence, use [deepen](../deepen/SKILL.md)
-to propose a stronger investigation brief within the agreed scope.
+When candidate selection needs stronger methods or evidence, use deepen (Use the `deepen` skill) to
+propose a stronger investigation brief within the agreed scope.
 
 Identify ordering, repetition, bounded values, selective predicates, and actual field access.
-Use [work reduction](../work-reduction/SKILL.md) to derive and compose
+Use
+work reduction (Use the `work-reduction` skill) to derive and compose
 reductions before consulting the catalogue.
 Follow measured limits; do not apply every technique.
 
@@ -61,20 +61,21 @@ Verify version-specific techniques against [relevant sources](references/sources
 ## 4. Execute the requested work
 
 For a review or plan, return ranked candidates and unresolved evidence; stop before implementation.
-For authorized implementation, make one bounded change using
-[implementation guidance](../execute-task/references/implementer.md), including configured lint.
-Use [Task acceptance checks](../execute-task/references/task-checker.md) on the final snapshot.
+For authorized implementation, make one bounded change using implementation guidance (Use the
+`implement-task` skill), including configured lint.
+Use Task acceptance checks (Use the `check-task` skill) on the final snapshot.
 Keep required checking independent; unmet acceptance gates remain open.
-Apply work-reduction's composition checks when combining candidates.
-Apply [testing-policy](../testing-policy/SKILL.md)
-and [specialized checks](references/validation.md); separate diagnostic builds from performance
+Apply work-reduction's composition checks when combining candidates. Use the `testing-policy` skill
+and [specialized checks](references/validation.md); separate diagnostic builds from
+performance
 runs.
 Reject complexity without demonstrated benefit unless an explicit architectural contract requires
 it.
 
 ## 5. Report and reconcile
 
-Report comparisons using [benchmark-checklist](../benchmark-checklist/SKILL.md).
-Add correctness results, tradeoffs, and limits; label unmeasured recommendations as hypotheses.
-Reconcile material findings through [keep-intent-aligned](../keep-intent-aligned/SKILL.md).
-Include evidence locations in the result. Update Task records only within the authorized scope.
+Report comparisons using benchmark-checklist (Use the `benchmark-checklist` skill). Add
+correctness results, tradeoffs, and limits; label unmeasured recommendations as hypotheses.
+Reconcile material findings through keep-intent-aligned (Use the `keep-intent-aligned` skill).
+Include evidence locations in the result. Update Task records only within
+the authorized scope.

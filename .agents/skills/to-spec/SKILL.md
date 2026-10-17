@@ -4,18 +4,21 @@ description: >-
   Record and check behavioral requirements, invariants, and test obligations in workflow Specs.
   Use to establish, revise, or supersede observable guarantees from agreed intent and findings.
   Implementation algorithms, composition, and target realization belong to to-design and code.
-disable-model-invocation: true
 metadata:
   kind: procedure
 ---
+
+Use the `writing` skill before drafting or revising prose.
 
 # To Spec
 
 Specify module behavior and how to check it. Keep implementation choices in code.
 Use [author guidance](references/spec-author.md) to read, create, or revise the owning Spec.
-Use [checker guidance](references/spec-checker.md) for contract completeness and coverage.
+Use the `check-spec` skill for contract completeness and coverage.
 
 A bounded direct edit can use one author. Consequential proposals require independent checking.
+For an author-only assignment, return the Spec and checking needs; leave independent checking
+to its assigned owner.
 Do not add correctness or composition design phases merely to write a Spec.
 One Task may affect multiple modules; one module Spec may support multiple Tasks.
 
@@ -24,7 +27,8 @@ One Task may affect multiple modules; one module Spec may support multiple Tasks
 Read agreed intent, existing Specs, relevant Plans and drafted Tasks, and supplied findings.
 Identify observable inputs, outcomes, failures, side effects, and conditions.
 Reuse existing guarantees. Separate intended behavior from observations of current code.
-For missing facts, use [change-impact](../change-impact/SKILL.md) within the assigned scope.
+For missing facts, use
+change-impact (Use the `change-impact` skill) within the assigned scope.
 Return unresolved product choices to the user.
 For large behavioral changes, recommend whether user approval is needed before implementation.
 Consider compatibility, cross-module guarantees, and consequential new product commitments.
@@ -33,14 +37,13 @@ Preserve any agreed approval gate; routine contract clarification needs no user 
 ## 2. Record requirements, invariants, and tests
 
 The author records sourced requirements, invariants as correctness targets, and public-boundary
-checks.
-Apply [design-for-verification](../design-for-verification/SKILL.md) to observations and
-diagnostics.
-Apply [testing-policy](../testing-policy/SKILL.md) to test boundaries and independent expectations.
+checks. Use the `design-for-verification` skill for observations and
+diagnostics. Use the `testing-policy` skill for test boundaries and independent
+expectations.
 Keep provenance, open questions, and coverage needed to interpret the contract.
 State temporal, failure, concurrency, and resource guarantees as behavior when relevant.
-Do not prescribe internal types, algorithms, module layouts, composition flows, or realization.
-Use [to-design](../to-design/SKILL.md) for optional implementation-design questions.
+Do not prescribe internal types, algorithms, module layouts, composition flows, or realization. Use
+the `to-design` skill for optional implementation-design questions.
 They block contract work only when the required behavior itself cannot yet be settled.
 
 ## 3. Check and return

@@ -4,7 +4,6 @@ description: >-
   Make consequential edits, migrations, analyses, or verification rerunnable with a small
   codemod, script, generator, check, or delegate procedure. Use when tooling makes the work
   materially easier to repeat or review; reuse an adequate existing tool first.
-disable-model-invocation: true
 metadata:
   kind: principle
 ---
@@ -37,8 +36,8 @@ Hand-done changes can only be re-verified by redoing them. A deterministic scrip
 one-off tool when it makes the work checkable. Skip new tooling for a few obvious edits or
 when its construction and maintenance cost exceed its verification value.
 
-Design targets and evidence in accordance with
-[design-for-verification](../design-for-verification/SKILL.md). Respect the supplied write scope
+Design targets and evidence in accordance with design-for-verification (Use the
+`design-for-verification` skill). Respect the supplied write scope
 and resource budget; tooling does not authorize a broader migration or automatic commit.
 
 This principle makes the current work rerunnable. Structural enforcement of a recurring mistake

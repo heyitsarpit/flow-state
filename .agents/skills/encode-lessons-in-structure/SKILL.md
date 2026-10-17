@@ -4,7 +4,6 @@ description: >-
   Turn recurring corrections into structural enforcement instead of repeated instructions.
   Apply when the same mistake or rule keeps returning; prove a representation, type, check,
   metadata setting, or canonical boundary rejects the demonstrated mistake.
-disable-model-invocation: true
 metadata:
   kind: principle
 ---
@@ -39,7 +38,8 @@ actually establishes, not by the tool's name.
 ## Close the loop
 
 When stronger enforcement changes a recorded mechanism or exposes a missing rule, apply
-[keep-intent-aligned](../keep-intent-aligned/SKILL.md): name the owning requirement, retain the
+keep-intent-aligned (Use the `keep-intent-aligned` skill): name the owning requirement,
+retain the
 correction and enforcement evidence in the Task.
 Reusable skill guidance goes through reflect rather than becoming a project rule automatically.
 

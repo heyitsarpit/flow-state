@@ -4,8 +4,8 @@ Read your role sections and the shared run/measurement contract.
 
 ## Establish the run: experiment author
 
-If an attempt requires changing an agreed guarantee, use
-[keep-intent-aligned](../../keep-intent-aligned/SKILL.md) to expose the finding and proposal before
+If an attempt requires changing an agreed guarantee, use keep-intent-aligned (Use the
+`keep-intent-aligned` skill) to expose the finding and proposal before
 continuing that attempt. Keep run evidence in the ledger below.
 Read the owning Task and its Plan references. Confirm the target, units, stopping condition,
 workload, environment, selected diagnostic tools, regression tests, invariants, and run budget.
@@ -20,7 +20,7 @@ Author: build or repair the harness and return sensitivity and baseline evidence
 Checker: independently run and assess that evidence; do not edit the harness or tests.
 Freeze only the approved harness revision. The construction steps below belong to the author.
 
-Apply [benchmark-checklist](../../benchmark-checklist/SKILL.md) before freezing the harness and when
+Use the `benchmark-checklist` skill before freezing the harness and when
 reporting a comparison. Keep the agreed target and run budget; this checklist audits the evidence.
 
 1. Build or adapt one repeatable command for the workload and metric. Verify correct outputs and
@@ -71,17 +71,19 @@ Identify an uncommitted snapshot by its base commit and saved patch.
 
 ## Propose an attempt: experiment author
 
-Read the ledger and diagnostics. Name the limiting mechanism and one bounded hypothesis.
-Use [optimize-software](../../optimize-software/SKILL.md) only for missing candidate guidance.
+Read the ledger and diagnostics. Name the limiting mechanism and one bounded hypothesis. Use the
+`optimize-software` skill only for missing candidate guidance.
 Return the hypothesis, expected work reduction, added costs, invariant, and measurement criterion.
 Revisit rejected ideas only with new evidence. Return repeated failed premises for investigation
-using [attack-the-premise](../../attack-the-premise/SKILL.md).
+using attack-the-premise
+(Use the `attack-the-premise` skill).
 
 ## Implement an attempt: executor
 
-Read the supplied Task, baseline, write scope, hypothesis, checks, and restoration boundary.
-Use [execute-task](../../execute-task/SKILL.md), including assigned tests
-and [lint](../../setup-workflow/references/lint.md). Make one change; do not stack unmeasured
+Read the supplied Task, baseline, write scope, hypothesis, checks, and restoration boundary. Use the
+`execute-task` skill, including assigned tests
+and lint (Use the `workflow-configuration` skill). Make one change; do not stack
+unmeasured
 changes.
 Return the patch, snapshot, actual checks, and unresolved gaps. Wait for the measurement verdict.
 For reject or inconclusive, save evidence and patch, then restore only your attempt.

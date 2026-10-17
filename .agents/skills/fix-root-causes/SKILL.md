@@ -4,7 +4,6 @@ description: >-
   Trace a reproduced symptom to its failure mechanism before choosing a repair.
   Apply when debugging crashes, regressions, restart failures, or recurring workarounds;
   verify the bounded repair rather than merely suppressing the symptom.
-disable-model-invocation: true
 metadata:
   kind: principle
 ---
@@ -14,7 +13,8 @@ metadata:
 When debugging, trace the problem to its demonstrated failure mechanism.
 For an authorized repair, fix that cause at its responsible owner or boundary.
 For material diagnosis findings, apply
-[keep-intent-aligned](../keep-intent-aligned/SKILL.md): compare the cause with recorded commitments
+keep-intent-aligned (Use the `keep-intent-aligned` skill): compare the cause with
+recorded commitments
 and keep reproduction and causal evidence in the Task.
 
 **Why:** Symptom fixes accumulate. Each workaround makes the system harder to reason about,
@@ -41,7 +41,7 @@ as a hypothesis. Do not delete the user's state or treat a reset alone as proof 
 
 ## Verify the repair
 
-Apply [testing-policy](../testing-policy/SKILL.md) to regression evidence.
+Use the `testing-policy` skill for regression evidence.
 Report the reproduction, demonstrated cause, affected guarantee, and proposed repair.
 For a missing guarantee, propose the property that prevents the relevant failure family and
 who would enforce it; proposing it does not establish an agreed contract.

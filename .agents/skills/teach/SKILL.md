@@ -4,17 +4,19 @@ description: >-
   Explain a body of work plainly at the reader's pace, combining how it works with evidenced
   reasons for its shape. Use for "teach me this", "help me understand X", or an explanation
   of a change or subsystem; return understanding rather than an implementation plan.
-disable-model-invocation: true
 metadata:
   kind: procedure
 ---
+
+Use the `writing` skill before drafting or revising prose.
 
 # Teach
 
 Explain what a thing is, how it works, and why it is built that way, in one plain account at the
 person's pace. The goal is understanding, not changing the software.
 
-Teach sits on top of [how](../how/SKILL.md) and [why](../why/SKILL.md). Blend their findings into
+Teach sits on top of how (Use the `how` skill) and why (Use the `why` skill).
+Blend their findings into
 one explanation, lead with what matters to the person, and go deeper when asked.
 Reword freely for teaching, except for why's confidence language: its hedges are findings,
 not style. Reuse supplied findings; missing rationale is a gap, not permission to invent intent.

@@ -1,7 +1,6 @@
 ---
 name: restate-goals
 description: Restate the user's goal and underlying problem to check understanding.
-disable-model-invocation: true
 metadata:
   kind: procedure
 ---

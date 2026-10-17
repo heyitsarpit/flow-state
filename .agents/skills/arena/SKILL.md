@@ -4,7 +4,6 @@ description: >-
   Spawn parallel candidates for the same task, pick a base, incorporate the strongest ideas,
   and verify the combined result. Use when the user requests candidate comparison or one attempt
   risks committing to the wrong design.
-disable-model-invocation: true
 metadata:
   kind: procedure
 ---
@@ -47,7 +46,7 @@ Report consequential contract gaps without silently changing the requirements.
 An independent checker runs required checks on the combined artifact against the brief and rubric.
 Return PASS, ISSUES, or BLOCKED with revision, conditions, and evidence. Route wrong requirements
 upstream, missed ideas to integration, and defects to their author. Recheck affected gates.
-Preserve material selection and proof; apply
-[keep-intent-aligned](../keep-intent-aligned/SKILL.md) for authorized record updates.
+Preserve material selection and proof; apply keep-intent-aligned (Use the `keep-intent-aligned`
+skill) for authorized record updates.
 Return combined artifact, judge scores, base rationale, graft sources, rejections, dropouts, and
 proof.

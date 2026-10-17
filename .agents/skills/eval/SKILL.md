@@ -4,7 +4,6 @@ description: >-
   Evaluate skill or prompt changes through realistic blinded agent trials and observable outcomes.
   Use before promoting a variant or comparing agent behavior. Arena produces synthesized artifacts;
   eval returns evidence and a recommendation about the guidance under test.
-disable-model-invocation: true
 metadata:
   kind: procedure
 ---
@@ -19,8 +18,8 @@ Return a recommendation; do not automatically promote guidance.
 ### Experiment design method
 
 Designer: use the agreed target and run limits to define variants, realistic tasks, counts, models,
-conditions, and 3–6 gradeable criteria with executable outcome checks. Apply
-[design-for-verification](../design-for-verification/SKILL.md). Record revisions and run identities.
+conditions, and 3–6 gradeable criteria with executable outcome checks. Apply design-for-verification
+(Use the `design-for-verification` skill). Record revisions and run identities.
 Keep binding requirements in ordinary task prompts; keep answer keys and scoring criteria private.
 Return the run design, private rubric, prompts, revisions, and remaining prerequisites.
 
@@ -57,9 +56,9 @@ Checker: remain independent of trial authors. Do not edit outputs or expectation
 temporary outputs for checks. Read every output end to end, rerun supplied checks, and inspect
 decisive activity. Resolve disagreements against artifacts with the judge. Distinguish product
 quality from
-following the intended method. Assess claimed differences through
-[explain-the-number](../explain-the-number/SKILL.md).
-Return claim verdicts, run identities, conditions, decisive evidence, and missing checks.
+following the intended method. Assess claimed differences through explain-the-number
+(Use the `explain-the-number` skill). Return claim verdicts, run identities, conditions,
+decisive evidence, and missing checks.
 
 ## 4. Report
 
@@ -71,6 +70,6 @@ One successful case proves only that case.
 
 ### Preserve the evidence
 
-Recommend the next action without promoting guidance automatically. Apply
-[keep-intent-aligned](../keep-intent-aligned/SKILL.md) for authorized record updates.
+Recommend the next action without promoting guidance automatically. Apply keep-intent-aligned (Use
+the `keep-intent-aligned` skill) for authorized record updates.
 Preserve evidence before cleaning up owned resources. Create no competing experiment ledger.

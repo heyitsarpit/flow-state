@@ -4,7 +4,6 @@ description: >-
   Independently review an implemented change against agreed intent, contracts, and documented
   project standards. Use for a branch, diff, or work in progress; return evidenced findings
   and a revision-bound verdict without applying fixes or merging.
-disable-model-invocation: true
 metadata:
   kind: procedure
 ---
@@ -15,8 +14,8 @@ Bind the review target, apply both lenses, verify findings, and report a revisio
 
 For consequential specialist questions, use [the lens guide](references/specialist-lenses.md)
 to assign focused coverage. Keep the same review packet and lead judgment.
-For findings requiring commitment or evidence reconciliation, apply
-[keep-intent-aligned](../keep-intent-aligned/SKILL.md): cite the Plan object, Spec contract,
+For findings requiring commitment or evidence reconciliation, apply keep-intent-aligned (Use the
+`keep-intent-aligned` skill): cite the Plan object, Spec contract,
 or Task acceptance and report the implication. Review remains read-only.
 
 Review the integrated result, not just worker receipts. Challenge the implementation against
@@ -55,10 +54,11 @@ Trace the execution path behind a suspected bug. Examine root causes, state and 
 shared protocols, failure behavior, and security where relevant; do not force every lens on a small
 change. A structural concern needs a concrete consequence, not "I would do it differently."
 
-Apply [testing-policy](../testing-policy/SKILL.md) to the checks. Assess whether evidence exercises
+Use the `testing-policy` skill for the checks. Assess whether evidence exercises
 the real claimed boundary at this revision and whether failures can be reproduced and explained.
 Passing checks do not settle untested guarantees. Reuse existing impact evidence; apply
-[change-impact](../change-impact/SKILL.md) only where consequential downstream questions remain.
+change-impact (Use the `change-impact` skill) only where consequential downstream
+questions remain.
 
 Each finding names its lens, code location, requirement or rule, triggering conditions,
 consequence, and evidence. Separate demonstrated defects from unverified risks; suggest a bounded

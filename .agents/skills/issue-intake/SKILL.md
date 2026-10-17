@@ -3,7 +3,6 @@ name: issue-intake
 description: >-
   Configure or run bounded external issue intake, deduplication, reproduction, and triage.
   Use only for a requested source and tracker integration.
-disable-model-invocation: true
 metadata:
   kind: procedure
 ---
@@ -21,7 +20,7 @@ For automation setup, use [setup](references/setup.md) first.
    Key reports by adapter, workspace/account, and immutable source item or root-thread ID.
    Preserve the canonical source reference; keep semantic issue matching separate.
    For a claimed existing fix, use [existing-fix verification](references/existing-fix.md).
-3. **Establish the result.** Use [diagnose](../diagnose/SKILL.md) to establish the cause.
+3. **Establish the result.** Use the `diagnose` skill to establish the cause.
    Investigation is read-only. Make tracker writes or send messages only when explicitly authorized.
    Return confirmed bug, duplicate, already fixed, insufficient evidence, or non-bug with reasons.
 4. **Write authorized outcomes.** Create a tracker issue only for a confirmed new bug within scope.

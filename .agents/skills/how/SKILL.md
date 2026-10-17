@@ -4,7 +4,6 @@ description: >-
   Explain how existing software works: architecture, runtime flow, protocols, and current
   ownership. Use for "how does X work" or a code walkthrough. Use why for motivation;
   change-impact investigates where a requested change belongs, reuse, and downstream safety.
-disable-model-invocation: true
 metadata:
   kind: procedure
 ---
@@ -19,9 +18,12 @@ Agents inspect code without modifying it.
 Reuse supplied findings and relevant Specs. Specs describe intended contracts; trace current code
 and distinguish source inspection from executed behavior. Expose disagreements and uncertainty.
 Missing Specs do not block an explanation. Use why for historical motivation.
-For a bounded investigation, return runtime findings and gaps relevant to its question.
+For an assigned investigation angle, read [explorer guidance](references/explorer-prompt.md).
+Apply it to the supplied question and angle. Return evidence and gaps without entering the
+complexity procedure below, spawning explorers, or synthesizing an explanation.
 Human-facing synthesis is needed only when an explanation is requested; do not restart a
 whole-subsystem investigation.
+Use the `writing` skill when drafting the requested explanation; skip it for evidence-only work.
 
 ## Step 1. Assess Complexity
 

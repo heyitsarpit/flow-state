@@ -3,7 +3,6 @@ name: work-reduction
 description: >-
   Reduce unnecessary, repeated, or invalidated work while preserving required results.
   Apply when choosing or combining elimination, reuse, pruning, or incremental computation.
-disable-model-invocation: true
 metadata:
   kind: principle
 ---
@@ -56,10 +55,11 @@ Keep latency, cumulative work, memory, and freshness budgets distinct.
 ## Apply the findings
 
 Return proposed reductions, invariants, shifted costs, and evidence.
-For architectural findings, see [design-for-performance](../design-for-performance/SKILL.md).
-For measured-attempt proposals, see [optimize-software](../optimize-software/SKILL.md).
-Reconcile material findings through [keep-intent-aligned](../keep-intent-aligned/SKILL.md).
-Surface changed-contract proposals before dependent implementation; use
-[to-spec](../to-spec/SKILL.md) when contract recording is in scope.
+For architectural findings, see
+design-for-performance (Use the `design-for-performance` skill). For measured-attempt
+proposals, see optimize-software (Use the `optimize-software` skill). Reconcile material
+findings through keep-intent-aligned (Use the `keep-intent-aligned` skill). Surface
+changed-contract proposals before dependent implementation; use to-spec (Use the `to-spec` skill)
+when contract recording is in scope.
 
 For an optional worked example, read [FSearch](references/fsearch.md).

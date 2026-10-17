@@ -3,7 +3,6 @@ name: prototype
 description: >-
   Build an isolated throwaway artifact to settle one design or empirical choice through observation.
   Use for uncertain layouts, interactions, behavior, or technical approaches before production work.
-disable-model-invocation: true
 metadata:
   kind: procedure
 ---
@@ -16,8 +15,8 @@ Offer the question, estimated time, and recommendation before building unless al
 
 ## 1. Bound the choice
 
-Name the decision, relevant constraints, evidence needed, and time or attempt budget.
-Use [design-for-verification](../design-for-verification/SKILL.md) to choose a discriminating
+Name the decision, relevant constraints, evidence needed, and time or attempt budget. Use the
+`design-for-verification` skill to choose a discriminating
 observation.
 Investigate discoverable facts; reserve product preferences and objective choices for the human.
 If no decision needs an experiment, report that finding instead of building a prototype.
@@ -35,10 +34,9 @@ open.
 
 Drive the relevant surface. For visual choices, inspect rendered states and exercise interactions.
 For behavioral choices, run the path and inspect its outputs. For timing choices, apply
-[benchmark-checklist](../benchmark-checklist/SKILL.md) before relying on a comparison.
+benchmark-checklist (Use the `benchmark-checklist` skill) before relying on a comparison.
 Capture inputs, conditions, results, and limitations. A screenshot does not prove interaction
-behavior.
-Use [testing-policy](../testing-policy/SKILL.md) if durable tests are warranted; scaffolding is
+behavior. Use the `testing-policy` skill if durable tests are warranted; scaffolding is
 optional.
 Stop at a settled empirical question or the budget; report unresolved preferences and uncertainty.
 
@@ -47,7 +45,7 @@ Stop at a settled empirical question or the budget; report unresolved preference
 Return the question, variants, evidence, tradeoffs, recommendation, and scratch artifact path.
 State which production assumptions remain unverified. Prototype results do not prove finished
 behavior.
-Apply [keep-intent-aligned](../keep-intent-aligned/SKILL.md) when findings affect recorded
+Use the `keep-intent-aligned` skill when findings affect recorded
 commitments.
 State unresolved objective choices and recommend the next action. Production work requires its
 own authorization.

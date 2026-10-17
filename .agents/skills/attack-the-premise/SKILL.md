@@ -4,7 +4,6 @@ description: >-
   Challenge a shared assumption when two or more fixes have failed the same gate.
   Write the premise and choose an observation that distinguishes causes before another patch;
   for imbalances, count which actors hold them and inspect how roles are assigned.
-disable-model-invocation: true
 metadata:
   kind: principle
 ---
@@ -13,8 +12,8 @@ metadata:
 
 When two or more fixes sharing one premise fail the same gate, suspect the premise, not just
 the fixes. Each failure under a shared premise is evidence about that premise.
-When the challenged premise affects recorded intent, apply
-[keep-intent-aligned](../keep-intent-aligned/SKILL.md): identify its Plan decision, Spec guarantee,
+When the challenged premise affects recorded intent, apply keep-intent-aligned (Use the
+`keep-intent-aligned` skill): identify its Plan decision, Spec guarantee,
 or Task approach; retain the failed attempts and discriminating evidence in the Task while
 considering a proposed reversal. An unrecorded hypothesis is not an agreed commitment.
 
@@ -24,11 +23,11 @@ considering a proposed reversal. An unrecorded hypothesis is not an agreed commi
   still fails. Keep the attempts and their evidence available.
 - **Take a census before the next fix.** For an imbalance, count it per actor across comparable
   runs. The census shows which actors hold the imbalance, not merely its total size. Make it
-  rerunnable in accordance with [Build the Lever](../build-the-lever/SKILL.md).
-  For another failure shape, choose an observation whose result distinguishes the competing causes.
+  rerunnable in accordance with Build the Lever (Use the `build-the-lever` skill). For
+  another failure shape, choose an observation whose result distinguishes the competing causes.
 - **Read the skew.** If the same few actors hold most of the imbalance on every run, inspect what
   assigns them that role. Confirm the assignment mechanism before calling it the cause, in
-  accordance with [Fix Root Causes](../fix-root-causes/SKILL.md).
+  accordance with Fix Root Causes (Use the `fix-root-causes` skill).
 - **Remove the asymmetry instead of compensating for it** when the role assignment is confirmed
   as the cause. Rotating, randomizing, or moving the role may address it. A shared pool, batched
   hand-off, or periodic rebalance may leave the assignment intact and add work on every run.

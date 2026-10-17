@@ -1,13 +1,13 @@
 # Session pickup
 
-Own this slice as `agent:workflow-coordinator`; Workflow owns the human conversation.
-Apply [coordination-policy](../../coordination-policy/SKILL.md) to actual worker dispatch, bounded
+Own this slice as `agent:workflow-coordinator`; Workflow owns the human conversation. Use the
+`coordination-policy` skill for actual worker dispatch, bounded
 methods, independent gates, repair routing, and stop/checkpoint handback.
 
 Recover prior intent, reconcile live state and evidence, then resume the first incomplete gate.
 Use when relevant prior state is missing from the conversation.
 
-1. `agent:source-investigator`: Use [recall](../../recall/SKILL.md) with the supplied trail,
+1. `agent:source-investigator`: Use the `recall` skill with the supplied trail,
    workspace-scoped history, or branch. Read recent state first, then decision anchors. Do not
    search unrelated private conversations.
 2. `agent:acceptance-checker`: Compare intended and actual work: Git base/head, dirty files, Tasks,

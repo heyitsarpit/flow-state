@@ -3,7 +3,6 @@ name: writing
 description: >-
   Write or revise technical prose for workflow documents, skills, and agent instructions.
   Use for writing style and clarity. Does not define artifact schemas or CLI operations.
-disable-model-invocation: true
 metadata:
   kind: policy
 ---

@@ -3,7 +3,6 @@ name: design-for-verification
 description: >-
   Make goals and material claims verifiable from early planning onward.
   Apply when establishing outcomes, designing behavior or skills, or preparing optimization.
-disable-model-invocation: true
 metadata:
   kind: principle
 ---
@@ -49,5 +48,6 @@ For skill development, define realistic user requests, observable success and fa
 diagnostic evidence before drafting.
 Valid Markdown does not prove agent behavior.
 
-[Runtime verification](../runtime-verification/SKILL.md) owns setup, driving, and cleanup when
+Runtime verification (Use the `runtime-verification` skill) owns setup, driving, and
+cleanup when
 executing runtime checks or auditing recipes. This principle defines their targets and evidence.

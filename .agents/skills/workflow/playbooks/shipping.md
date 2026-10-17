@@ -1,7 +1,7 @@
 # Shipping
 
-Own this slice as `agent:workflow-coordinator`; Workflow owns the human conversation.
-Apply [coordination-policy](../../coordination-policy/SKILL.md) to actual worker dispatch, bounded
+Own this slice as `agent:workflow-coordinator`; Workflow owns the human conversation. Use the
+`coordination-policy` skill for actual worker dispatch, bounded
 methods, independent gates, repair routing, and stop/checkpoint handback.
 
 Check the current landing frontier, merge within the grant, then verify the landed revision.
@@ -12,7 +12,8 @@ A green check or armed queue is not a completed delivery.
    declared owner before landing.
 2. `agent:acceptance-checker`: Inspect independent behavioral/review evidence for each current
    base/head where required. Return missing review or runtime coverage to the coordinator; it uses
-   [review](../../review/SKILL.md) and assigns the required methods. A worker's self-proof or CI
+   review (Use the `review` skill) and assigns the required methods. A worker's
+   self-proof or CI
    green alone does not settle consequential acceptance.
 3. `agent:acceptance-checker`: Bind verdicts to actual patches, bases, dependencies, and runtime
    conditions. Recheck affected gates after drift. An unchanged patch does not prove behavior on a

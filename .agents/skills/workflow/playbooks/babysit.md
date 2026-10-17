@@ -1,7 +1,7 @@
 # Babysit
 
-Own this slice as `agent:workflow-coordinator`; Workflow owns the human conversation.
-Apply [coordination-policy](../../coordination-policy/SKILL.md) to actual worker dispatch, bounded
+Own this slice as `agent:workflow-coordinator`; Workflow owns the human conversation. Use the
+`coordination-policy` skill for actual worker dispatch, bounded
 methods, independent gates, repair routing, and stop/checkpoint handback.
 
 A request to land continues through [Shipping](shipping.md); readiness alone does not merge.
@@ -19,11 +19,11 @@ A request to land continues through [Shipping](shipping.md); readiness alone doe
 4. `agent:diagnostician`: Classify CI as product, stale base, infrastructure, or suspected flake.
    One fresh retry can test a transient failure; repeated failure needs reclassification and logs,
    not blind retries.
-5. `agent:workflow-coordinator`: Send code repairs to [execute-task](../../execute-task/SKILL.md).
-   Require a ready owning Task; assign missing decomposition to `agent:task-designer` through
-   [to-task](../../to-task/SKILL.md). Give `agent:implementer`
-   [its method](../../execute-task/references/implementer.md).
-   Batch related fixes before a push. Send rebases/retargets to the `agent:delivery-operator` or
+5. `agent:workflow-coordinator`: Send code repairs to execute-task (Use the `execute-task` skill).
+   Require a ready owning Task; assign missing decomposition to
+   `agent:task-designer` through to-task (Use the `to-task` skill). Give
+   `agent:implementer` its method (Use the `implement-task` skill). Batch related fixes
+   before a push. Send rebases/retargets to the `agent:delivery-operator` or
    caller; babysitting does not adopt topology writes.
 6. `agent:delivery-operator`: Reread head, checks, comments, and mergeability after every
    submission. Reconcile ambiguous pushes or replies before retrying. Invalidate evidence affected

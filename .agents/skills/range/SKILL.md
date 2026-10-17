@@ -2,7 +2,6 @@
 name: range
 description: >-
   Find applicable techniques from other fields and propose concrete ways to test their value.
-disable-model-invocation: true
 metadata:
   kind: procedure
 ---

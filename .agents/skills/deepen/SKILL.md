@@ -3,10 +3,11 @@ name: deepen
 description: >-
   Deepen a task through professional methods, primary evidence, and independent verification.
   Use to rewrite a task prompt for greater rigor rather than broader scope.
-disable-model-invocation: true
 metadata:
   kind: procedure
 ---
+
+Use the `writing` skill before drafting or revising prose.
 
 # Deepen
 

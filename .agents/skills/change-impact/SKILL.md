@@ -4,7 +4,6 @@ description: >-
   Investigate an engineering request, tentative direction, or diff: locate existing code and
   reuse opportunities, assess what could break, and prove pivotal safety facts with real code.
   Use before design or implementation, or to assess a consequential change.
-disable-model-invocation: true
 metadata:
   kind: procedure
 ---
@@ -14,7 +13,8 @@ metadata:
 Find where an engineering change belongs and what it could break, before it ships.
 Start from a request, tentative direction, or diff; a finished design is not required.
 
-Companion to [how](../how/SKILL.md) and [why](../why/SKILL.md). How tells you what the code does.
+Companion to how (Use the `how` skill) and why (Use the `why` skill). How
+tells you what the code does.
 Why tells you why it's shaped that way. Change impact explores the affected code and consequences
 together. Reuse existing findings; use how or why only for missing facts affecting the assessment.
 
@@ -61,7 +61,8 @@ function you're worried about.
    Cite a real `file:line`, a search that finds nothing is still an answer, and never make up a
    caller or an API.
 5. Prove the pivotal facts where existing code can establish them. Run a real check and show what
-   happened, applying [testing-policy](../testing-policy/SKILL.md). If the implementation or needed
+   happened, applying testing-policy (Use the `testing-policy` skill). If the
+   implementation or needed
    harness does not exist, state the obligation and required check; do not claim passing evidence.
    Revisit exploration when a risk changes scope or reuse. Scale checks to consequential claims.
 
@@ -77,8 +78,8 @@ function you're worried about.
   existing script or the harness work needed.
 
 Tie proof to its revision and conditions. Recheck when the implementation or those conditions
-change. When risks change recorded scope, constraints, or guarantees, apply
-[keep-intent-aligned](../keep-intent-aligned/SKILL.md): return affected references and proof
+change. When risks change recorded scope, constraints, or guarantees, apply keep-intent-aligned
+(Use the `keep-intent-aligned` skill): return affected references and proof
 obligations, with proposed Plan or Spec implications separate from Task evidence.
 A direct request returns the assessment without creating workflow artifacts.
 Recommend the next action; do not start another phase automatically.

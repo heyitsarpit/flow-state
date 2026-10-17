@@ -4,7 +4,6 @@ description: >-
   Investigate why existing software or a decision took its current shape using Plans,
   Specs, Task records, documentation, comments, and Git history. Return cited rationale,
   inferences, and gaps. Use how for runtime behavior.
-disable-model-invocation: true
 metadata:
   kind: procedure
 ---
@@ -22,6 +21,18 @@ forces led to its shape.
 
 Investigators read assigned sources without modifying files or external state. Reuse evidence
 anchors and findings supplied by change-impact or how.
+
+## Select the assigned work
+
+- **Evidence only:** read [investigator guidance](references/investigator-prompt.md) and
+  [the local source guide](references/source-playbook.md). Apply them to the assigned question,
+  evidence anchor, and source angle. Reuse supplied findings; return cited evidence and gaps.
+  Stop before synthesis or a final explanation.
+- **Synthesis only:** use the `writing` skill when drafting the answer.
+  Read [synthesis guidance](references/synthesizer-prompt.md) and
+  [confidence guidance](references/epistemics.md). Use supplied findings and spot-check citations.
+  Return the cited answer and unresolved gaps; do not restart source investigation.
+- **Full answer:** follow the procedure below, reusing settled evidence.
 
 ## Operating Posture
 
@@ -76,6 +87,7 @@ artifacts or decide which conflicting requirement wins.
 
 ## Step 4. Synthesize
 
+Use the `writing` skill when drafting the final explanation.
 Synthesize the findings against the evidence anchor and original question using
 `references/epistemics.md` and `references/synthesizer-prompt.md`.
 Spot-check citations against sources; preserve uncertainty.

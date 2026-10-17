@@ -1,7 +1,7 @@
 # Pause safely
 
-Own this slice as `agent:workflow-coordinator`; Workflow owns the human conversation.
-Apply [coordination-policy](../../coordination-policy/SKILL.md) to actual worker dispatch, bounded
+Own this slice as `agent:workflow-coordinator`; Workflow owns the human conversation. Use the
+`coordination-policy` skill for actual worker dispatch, bounded
 methods, independent gates, repair routing, and stop/checkpoint handback.
 
 A user stepping away while asking you to continue is not a pause.
@@ -10,13 +10,11 @@ A user stepping away while asking you to continue is not a pause.
    wakeups. Have each owner finish or back out of its current atomic step safely. Isolate any writer
    that cannot be
    stopped before releasing its scope.
-2. `agent:resource-operator`: Follow [resource
-   preservation](../../orchestrate/references/pause.md#resource-preservation).
+2. `agent:resource-operator`: Follow resource preservation (Use the `orchestrate` skill).
    Preserve source, patches, captures, and receipts without disturbing unrelated work. Commit only
    when already authorized; a pause does not grant publication or merge permission.
-3. `agent:record-writer`: Follow [record
-   checkpoint](../../orchestrate/references/pause.md#record-checkpoint).
-   Record intent, grant, actual revision, dirty paths, completed checks and
+3. `agent:record-writer`: Follow record checkpoint (Use the `orchestrate` skill). Record
+   intent, grant, actual revision, dirty paths, completed checks and
    limits, running resources, pending gate, exact next action, and remaining budget in existing
    owning records or resume material.
 4. `agent:workflow-coordinator`: Reconcile late results before marking them usable. Account for

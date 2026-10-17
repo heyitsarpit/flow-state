@@ -65,7 +65,8 @@ For compound work, sequence the workflows you need and pass actual results betwe
 Reuse the active owner for an aligned continuation. Reassess scope when the request changes.
 
 An explicitly requested standalone procedure can go directly to a bounded owner. For example, assign
-[review](../review/SKILL.md) or [runtime verification](../runtime-verification/SKILL.md) without
+review (Use the `review` skill) or runtime verification (Use the `runtime-verification` skill)
+without
 inventing a larger workflow. Independent conversational skills remain available; they do not start a
 delivery pipeline.
 
@@ -98,13 +99,18 @@ delivery pipeline.
 | **Remove scoped worktrees or branches.** Cleanup of specific worktrees or branches the person has scoped.                                                                              | [Worktree cleanup](playbooks/worktree-cleanup.md)   |
 | **Publish a requested PR.** The person has asked for a pull request to be opened. A question about readiness is not this request.                                                      | [Opening a PR](playbooks/opening-a-pr.md)           |
 
+For a bounded phase-selection or role-guidance request, read
+[phase-selection guidance](references/phase-selection.md). Use the `workflow-configuration` skill
+when role defaults are needed. Return the requested guidance and stop without dispatching workers
+or launching the selected playbook.
+
 ## Dispatch the work slice
 
 Run the selected playbook directly when capable. Use the harness's delegation tools when work needs
 parallelism, distinct capability, or independent judgment. A role label or a checklist is not a
-dispatched worker. When delegating, preserve explicit model overrides; use
-[setup's routing defaults](../setup-workflow/SKILL.md#agent-routing-defaults) for the owner.
-Assign [setup](../setup-workflow/SKILL.md) only for missing configuration or capabilities.
+dispatched worker. When delegating, preserve explicit model overrides; use Use the
+`workflow-configuration` skill for the owner's routing defaults. Assign setup (Use the
+`setup-workflow` skill) only for missing configuration or capabilities.
 
 When delegating, give the worker a concise assignment with relevant context, methods, scope, and
 return boundary.

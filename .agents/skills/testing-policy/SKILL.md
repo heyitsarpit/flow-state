@@ -3,7 +3,6 @@ name: testing-policy
 description: >-
   Choose and assess tests of observable production behavior through public boundaries.
   Apply when designing, writing, changing, or reviewing integration, E2E, fuzz, or golden tests.
-disable-model-invocation: true
 metadata:
   kind: policy
 ---
@@ -12,9 +11,10 @@ metadata:
 
 Do not add unit tests. Do not relabel isolated implementation-detail checks as behavior tests.
 The ban prioritizes refactor freedom and avoids implementation coupling and maintenance overhead.
-Apply [design-for-verification](../design-for-verification/SKILL.md) to targets and evidence.
+Use the `design-for-verification` skill for targets and evidence.
 When a test exposes a consequential contract gap or conflicting expectation, apply
-[keep-intent-aligned](../keep-intent-aligned/SKILL.md): cite the expected commitment, return the
+keep-intent-aligned (Use the `keep-intent-aligned` skill): cite the expected commitment,
+return the
 failure and reproduction, and reconcile intended behavior against existing commitments before
 changing expectations. A failing test alone does not authorize a new guarantee.
 

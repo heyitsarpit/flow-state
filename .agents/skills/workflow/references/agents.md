@@ -19,9 +19,8 @@ staffing in this layer.
 Select phases from the requested outcome and valid evidence. Pass each worker only its phase
 contract and relevant methods.
 
-Setup owns the [agent names, roles, and model
-defaults](../../setup-workflow/SKILL.md#agent-routing-defaults).
-Read the installed routing table for model choices. Keep phase composition here and in playbooks;
+Use the `workflow-configuration` skill for agent names, roles, and model defaults. Keep
+phase composition here and in playbooks;
 pass workers only their assigned phase and relevant methods.
 
 ## Conditional method phases

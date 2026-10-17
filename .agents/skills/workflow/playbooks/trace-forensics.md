@@ -1,7 +1,7 @@
 # Trace forensics
 
-Own this slice as `agent:workflow-coordinator`; Workflow owns the human conversation.
-Apply [coordination-policy](../../coordination-policy/SKILL.md) to actual worker dispatch, bounded
+Own this slice as `agent:workflow-coordinator`; Workflow owns the human conversation. Use the
+`coordination-policy` skill for actual worker dispatch, bounded
 methods, independent gates, repair routing, and stop/checkpoint handback.
 
 The supplied artifact is a fixed dataset; live reproduction is a different phase.
@@ -9,8 +9,8 @@ The supplied artifact is a fixed dataset; live reproduction is a different phase
 1. `agent:diagnostician`: Identify format, capture conditions, revision, time range, and available
    symbols. Missing provenance limits attribution; record it instead of guessing a current source
    line.
-2. `agent:diagnostician`: Use [captured-artifact
-   diagnosis](../../diagnose/references/captured-artifacts.md). Convert large data into a queryable
+2. `agent:diagnostician`: Use captured-artifact diagnosis (Use the `diagnose` skill).
+   Convert large data into a queryable
    shape using existing tools. Keep originals and location maps.
 3. `agent:evidence-synthesizer`: Narrow to the costly path, retained object, wait chain, or observed
    transition. Return useful partition boundaries to the coordinator; inspect decisive evidence.

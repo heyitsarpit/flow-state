@@ -1,7 +1,7 @@
 # Reimagine
 
-Use to discover stronger approaches before committing to a direction.
-Apply [coordination-policy](../../coordination-policy/SKILL.md) to dispatch and bounded work.
+Use to discover stronger approaches before committing to a direction. Use the `coordination-policy`
+skill for dispatch and bounded work.
 
 1. Give four independent agents the same goal, current approach, constraints, available evidence,
    and a share of one total time/resource budget. Preserve existing commitments;
@@ -11,10 +11,13 @@ Apply [coordination-policy](../../coordination-policy/SKILL.md) to dispatch and 
    studies where relevant. Compare methods and conditions, check consequential claims, and cite
    sources supporting recommendations. If internet access is unavailable, report the research gap.
 2. Assign one concern to each agent:
-   - **Speed:** [speedup](../../speedup/SKILL.md); baseline, references, and stretch target.
-   - **Altitude:** [altitude](../../altitude/SKILL.md); purpose and alternative approaches.
-   - **Depth:** [deepen](../../deepen/SKILL.md); stronger methods, evidence, and rewritten brief.
-   - **Range:** [range](../../range/SKILL.md); techniques from other fields and
+   - **Speed:** speedup (Use the `speedup` skill); baseline, references, and stretch
+     target.
+   - **Altitude:** altitude (Use the `altitude` skill); purpose and alternative
+     approaches.
+   - **Depth:** deepen (Use the `deepen` skill); stronger methods, evidence, and
+     rewritten brief.
+   - **Range:** range (Use the `range` skill); techniques from other fields and
      applicability checks.
    Isolate benchmark scratch files and shared runtimes. Report unavailable capabilities explicitly.
    Each agent may report no useful opportunity; do not invent one to fill its concern.

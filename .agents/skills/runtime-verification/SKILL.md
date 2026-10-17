@@ -3,7 +3,6 @@ name: runtime-verification
 description: >-
   Verify behavior through real UI, CLI, service, or library interfaces.
   Use for runtime acceptance checks, setup gaps, or stale-recipe audits; return scoped evidence.
-disable-model-invocation: true
 metadata:
   kind: procedure
 ---
@@ -11,9 +10,9 @@ metadata:
 # Verify runtime behavior
 
 Drive the real interface and assert the required result. Report only what the run proves.
-Reuse project checks. Do not create Plans, Specs, Tasks, or skills merely to run a check.
-Apply [design-for-verification](../design-for-verification/SKILL.md) to targets and evidence.
-Apply [testing-policy](../testing-policy/SKILL.md) to the boundary exercised.
+Reuse project checks. Do not create Plans, Specs, Tasks, or skills merely to run a check. Use the
+`design-for-verification` skill for targets and evidence. Use the `testing-policy` skill for the
+boundary exercised.
 
 ## Run the loop
 
@@ -40,7 +39,8 @@ Apply [testing-policy](../testing-policy/SKILL.md) to the boundary exercised.
 4. **Classify and rerun.** Use the table below. Preserve intended expectations.
    Limit recipe and driver edits to the declared files and repair scope.
    When a defect escapes checks, strengthen those checks within the assigned repair scope.
-   Refresh changed recipe links through [to-plan](../to-plan/SKILL.md) within scope; report others.
+   Refresh changed recipe links through to-plan (Use the `to-plan` skill) within scope;
+   report others.
    After a failed drive, recheck instance identity and prerequisites.
    Rerun every changed recipe and helper at the final revision; a recipe edit alone proves nothing.
 5. **Clean up and report.** Retain useful evidence in `workflow/reference/` or the existing evidence
@@ -57,6 +57,6 @@ Apply [testing-policy](../testing-policy/SKILL.md) to the boundary exercised.
 | Product violates its contract               | Report failure and repair evidence            |
 | Prerequisite is missing                     | Report blocked with the unmet prerequisite    |
 
-Route contract ambiguity through [keep-intent-aligned](../keep-intent-aligned/SKILL.md).
-Use [build-the-lever](../build-the-lever/SKILL.md) for missing reusable tools.
+Route contract ambiguity through keep-intent-aligned (Use the `keep-intent-aligned` skill). Use the
+`build-the-lever` skill for missing reusable tools.
 Product repairs require authorization.

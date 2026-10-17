@@ -11,8 +11,8 @@
 3. Choose indexes for actual predicates and ordering; check composite key order, covering/partial
    index support, and write/storage costs. Refresh statistics and assess skew before
    forcing plans. Price indexes over construction, reads, writes, and rebuilds.
-   Define freshness and refresh/publication behavior for retained results using
-   [work reduction](../../work-reduction/SKILL.md).
+   Define freshness and refresh/publication behavior for retained results using work reduction (Use
+   the `work-reduction` skill).
 
 4. Reduce rows/columns early, round trips, N+1 access, unnecessary materialization, and oversized
    transactions. Preserve isolation and query semantics; pagination changes require stable ordering

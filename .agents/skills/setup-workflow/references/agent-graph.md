@@ -4,9 +4,8 @@ Coordinator: use after the work is known, for an explicit graph request or a com
 Ordinary setup does not load this method. Use the prepared assignments;
 do not map all installed roles.
 
-Bind selected assignments to [setup's routing defaults](../SKILL.md#agent-routing-defaults).
-Use [phase composition](../../workflow/references/agents.md) for conditional method
-phases. Read the selected methods for coverage
+Use the `workflow-configuration` skill for routing defaults. Use the `workflow` skill for
+conditional method phases only. Invoke the selected methods for coverage
 and independence requirements. Helper calls do not create workers; principles and policies stay with
 the assigned phase owner.
 
@@ -18,9 +17,9 @@ the agent, role, exact model, reasoning effort, scoped assignment, parent, and l
 For each needed phase, record its canonical owner name, scoped assignment, parent, inputs, write
 scope, output, gate, model, reasoning, and limits. Record the runtime worker ID separately after
 launch; mark unlaunched assignments explicitly. Use `#<scope>` only for distinct assignments of the
-same owner. Preserve names across continuation; a saved runtime ID does not prove a live worker. Use
-[phase selection](../../workflow/references/phase-selection.md) for needed, reused,
-omitted, or blocked phases. Keep unknown model/effort settings unresolved.
+same owner. Preserve names across continuation; a saved runtime ID does not prove a live worker.
+Use the `workflow` skill to assess needed, reused,
+omitted, or blocked phases only. Keep unknown model/effort settings unresolved.
 
 One agent can hold multiple phase assignments only when the scope and independence remain valid.
 Name that reuse explicitly. Five responsibility groups do not imply five managers or a headcount
@@ -41,8 +40,8 @@ scopes. Each parent receives results. A checker supplies the substantive verdict
 
 ## 3. Expand only needed phases
 
-Use prepared work and any triggered [method phase
-assignments](../../workflow/references/agents.md#conditional-method-phases). Give each
+Use prepared work. Use the `workflow` skill for triggered phase-selection guidance only.
+Give each
 phase bounded inputs, permitted work, output, and gate. Reuse workers only for compatible duties;
 keep required checks independent of the artifact's authors. An owner may apply several methods
 without adding another worker. Add integration only when outputs need combining.

@@ -1,7 +1,7 @@
 # Opening a PR
 
-Own this slice as `agent:workflow-coordinator`; Workflow owns the human conversation.
-Apply [coordination-policy](../../coordination-policy/SKILL.md) to actual worker dispatch, bounded
+Own this slice as `agent:workflow-coordinator`; Workflow owns the human conversation. Use the
+`coordination-policy` skill for actual worker dispatch, bounded
 methods, independent gates, repair routing, and stop/checkpoint handback.
 
 Enter for a requested PR or a delivery program whose grant includes publication.
@@ -18,7 +18,7 @@ Enter for a requested PR or a delivery program whose grant includes publication.
 3. `agent:delivery-operator`: For a stack, target the actual parent branch. Verify the child
    includes its parent's exact current tip before publishing the dependency diff. Root changes
    target the intended trunk.
-4. `agent:delivery-operator`: Apply [writing](../../writing/SKILL.md). Brief the problem, resulting
+4. `agent:delivery-operator`: Use the `writing` skill. Brief the problem, resulting
    behavior, scope, material risks/tradeoffs, and actual verification. Use the repository template
    and requested title style. Link detailed evidence instead of making the description a lab
    notebook.

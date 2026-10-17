@@ -3,7 +3,6 @@ name: explain-the-number
 description: >-
   Assess whether a measured speedup, regression, throughput, latency, or evaluation result
   means what it claims. Identify the limiter and rule out errors, skipped work, and noise.
-disable-model-invocation: true
 metadata:
   kind: principle
 ---

@@ -1,7 +1,7 @@
 # Orchestrate
 
-Own this slice as `agent:workflow-coordinator`; Workflow owns the human conversation.
-Apply [coordination-policy](../../coordination-policy/SKILL.md) to actual worker dispatch, bounded
+Own this slice as `agent:workflow-coordinator`; Workflow owns the human conversation. Use the
+`coordination-policy` skill for actual worker dispatch, bounded
 methods, independent gates, repair routing, and stop/checkpoint handback.
 
 Use when work outlives one bounded owner. One-session work can use [Autonomous
@@ -12,9 +12,10 @@ run](autonomous-run.md).
    Use [Multi-phase plan](multi-phase-plan.md) when the executable decomposition is missing.
 2. `agent:workflow-coordinator`: Derive active roles from the program; use setup's model
    preferences.
-   Keep assignments explicit. Use [graph design](../../setup-workflow/references/agent-graph.md)
-   when complexity warrants it. Add a track coordinator only when its coordination load needs one.
-3. `agent:workflow-coordinator`: Run [orchestrate](../../orchestrate/SKILL.md) for isolation,
+   Keep assignments explicit. Use graph design (Use the `setup-workflow` skill) when
+   complexity warrants it. Add a track coordinator only when its coordination
+   load needs one.
+3. `agent:workflow-coordinator`: Use the `orchestrate` skill for isolation,
    standalone briefs, dispatch, liveness, replacements, and integration. It owns those mechanics;
    this playbook owns program flow. Keep the same owner for this method. Give workers bounded
    phase methods and actual upstream findings, not this composite method or just a

@@ -40,8 +40,8 @@ Cite related contracts in supported prose; derives_from does not accept Spec dep
 Do not invent schema fields or repeat the Plan's narrative.
 
 Compare proposed changes with existing commitments before writing.
-Surface contradictions for resolution; keep proposals distinct from agreed requirements.
-Apply [keep-intent-aligned](../../keep-intent-aligned/SKILL.md) to material commitment changes.
+Surface contradictions for resolution; keep proposals distinct from agreed requirements. Use the
+`keep-intent-aligned` skill for material commitment changes.
 An implementation defect needs repair against the existing guarantee, not a new invariant.
 Existing behavior is evidence of what happens, not automatic authority for what should happen.
 
@@ -68,15 +68,15 @@ State observable lifetime guarantees in the requirement or invariant itself.
 
 ## Tests and open obligations
 
-Apply [design-for-verification](../../design-for-verification/SKILL.md) to material claims and
-[testing-policy](../../testing-policy/SKILL.md) to executable checks.
+Use the `design-for-verification` skill for material claims and testing-policy (Use the
+`testing-policy` skill) to executable checks.
 For each check, name the public boundary, inputs, conditions, and independently derived expectation.
 Show how checks establish the relevant invariants and required outcomes across those conditions.
 Include relevant boundaries, failures, side effects, and repeat/interruption scenarios.
 Record missing harnesses, unsettled guarantees, and unverified implementation under open.
 Use supported questions, brownfield mismatches, risks, and assumption/outcome prose.
 Do not add a model, algorithm, composition, rules, or realization section to explain implementation.
-Use [to-design](../../to-design/SKILL.md) for optional implementation choices when needed.
+Use the `to-design` skill for optional implementation choices when needed.
 
 Check whether agreed behavior could still be wrong while the declared checks pass.
 Expose uncovered invariants and scenarios under open; passing examples alone do not close coverage.

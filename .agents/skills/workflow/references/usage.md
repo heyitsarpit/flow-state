@@ -18,7 +18,7 @@ Status questions update the conversation; "stop" or "pause" propagates a hold to
 
 ## Configure only what the run needs
 
-Use [setup-workflow](../../setup-workflow/SKILL.md) when capabilities or assignments need setup.
+Use the `setup-workflow` skill when capabilities or assignments need setup.
 It confirms project intent, model preferences, and tool commands, then stops.
 The coordinator infers the playbook and staffing from the conversation when work begins.
 Ordinary setup needs no project graph.
@@ -38,10 +38,10 @@ Read the selected [playbook](../SKILL.md#playbooks) before describing its obliga
 
 ## Recover or adapt
 
-Use [recall](../../recall/SKILL.md) for missing prior context and
-[Session pickup](../playbooks/session-pickup.md) to reconcile it with actual state.
-Use [automate-me](../../automate-me/SKILL.md) for a personal working-style mode.
-Use [reflect](../../reflect/SKILL.md), then [derive-guidance](../../derive-guidance/SKILL.md) when
+Use the `recall` skill for missing prior context and
+[Session pickup](../playbooks/session-pickup.md) to reconcile it with actual state. Use the
+`automate-me` skill for a personal working-style mode. Use the `reflect` skill, then
+derive-guidance (Use the `derive-guidance` skill) when
 learning lacks a usable mental model. Write an agreed package through
 [Authoring a skill](../playbooks/authoring-a-skill.md).
 

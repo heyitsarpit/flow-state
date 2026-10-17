@@ -35,18 +35,21 @@ Scan for:
 ## Scope to skills and tools the session actually used
 
 Findings must point to skills or tools invoked in this transcript. Speculative routings to skills
-that were never opened do not count. To check whether a skill was used, scan the transcript for:
+that were never invoked do not count. To check whether a skill was used, scan the transcript for:
 
-- Read calls against `SKILL.md` files at the paths available in the session
-- Delegated prompts that name a skill path
-- Tool calls (file reads, searches, commands, etc.) that match a skill's documented commands
+- Native skill activation naming the registered skill, including discovered entrypoint reads
+  in Codex or Pi and skill-tool calls in harnesses that expose them
+- Completed delegated skill activation for the assigned method
+- Supporting tool results showing how the invoked method was applied
+
+A prompt naming a skill alone is not proof it was loaded; verify native activation in the transcript.
 
 Two valid finding shapes:
 
 - The session used the skill and you found a real gap in its body. Route to the skill's relevant
   section.
 - The skill was visible in the catalog but did not trigger when it would have helped. Improve its
-  description or caller routing; preserve explicit-only invocation policy. Route as `tune routing:
+  description or caller routing; preserve declared invocation policy. Route as `tune routing:
   <skill path>`.
 
 If a skill was neither invoked nor a missed-trigger candidate, drop it.

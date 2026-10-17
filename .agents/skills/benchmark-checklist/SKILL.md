@@ -4,7 +4,6 @@ description: >-
   Vet a performance measurement before reporting or acting on it: limiter, tuning, physical
   limits, errors, repeatability, relevance, and completed work. Use for benchmark comparisons
   and measured speedup or regression claims.
-disable-model-invocation: true
 metadata:
   kind: procedure
 ---
@@ -12,8 +11,8 @@ metadata:
 # Benchmark Checklist
 
 Use this when you produce a performance number: a before and after, a regression claim, a
-hillclimb harness, or a library or configuration choice.
-[Explain the Number](../explain-the-number/SKILL.md) says why. Answer each question with evidence
+hillclimb harness, or a library or configuration choice. Explain the Number (Use the
+`explain-the-number` skill) says why. Answer each question with evidence
 from a run, not a guess about the code.
 
 For a quick ballpark the user asked for, one run is enough. Still check questions 4 and 7 and say

@@ -3,10 +3,11 @@ name: to-task
 description: >-
   Turn a request or agreed Plan into Tasks with clear deliverables, acceptance, and dependencies.
   Use to break work into pieces that can be implemented and verified independently.
-disable-model-invocation: true
 metadata:
   kind: procedure
 ---
+
+Use the `writing` skill before drafting or revising prose.
 
 # To Task
 
@@ -36,8 +37,8 @@ Edit files directly for substantial prose. Use an existing valid Task as a forma
    Separate database, API, and UI Tasks leave that behavior unfinished until they come together.
    Split work that cannot be implemented and checked independently in one focused effort.
 
-2. **Define completion.** Apply [design-for-verification](../design-for-verification/SKILL.md).
-   State the observable result, important failure cases, and the check with its expected result.
+2. **Define completion.** Use the `design-for-verification` skill. State the observable
+   result, important failure cases, and the check with its expected result.
    Include relevant conditions or resource targets; use existing Plan Verification targets where
    available.
    Assign missing checks or diagnostic tools alongside implementation work.

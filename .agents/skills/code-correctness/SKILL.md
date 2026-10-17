@@ -3,7 +3,6 @@ name: code-correctness
 description: >-
   Design valid states, invariant ownership, and operation contracts that preserve correctness.
   Apply when designing or changing algorithms, shared state, failures, or resource lifetimes.
-disable-model-invocation: true
 metadata:
   kind: procedure
 ---
@@ -11,8 +10,8 @@ metadata:
 # Code Correctness
 
 Start from agreed requirements and existing contracts. Name invariant owners, choose algorithms
-that preserve invariants, and define the rules governing shared state.
-Use [to-design](../to-design/SKILL.md) for an optional implementation proposal or review.
+that preserve invariants, and define the rules governing shared state. Use the `to-design` skill for
+an optional implementation proposal or review.
 Only behavioral requirements, invariants, and test obligations belong in a Spec through to-spec.
 
 - **Invariant:** a property that must hold at the states or observation points the contract names.
@@ -108,9 +107,9 @@ eventual completion    -> fairness/progress argument; observe through the produc
 construction-only fact -> a construction-time or compile-time check
 ```
 
-Design targets and diagnostic evidence in accordance with
-[design-for-verification](../design-for-verification/SKILL.md).
-Apply [testing-policy](../testing-policy/SKILL.md) to executable checks.
+Design targets and diagnostic evidence in accordance with design-for-verification (Use the
+`design-for-verification` skill). Use the `testing-policy` skill for executable
+checks.
 Keep liveness assumptions explicit; sampled executions alone do not prove eventual completion.
 
 Report owners, invariants, representation, contracts, enforcement, and verification targets.

@@ -3,7 +3,6 @@ name: code-composition
 description: >-
   Compose code through coherent concerns, meaningful protocols, and complete dependency contracts.
   Apply when designing or changing module boundaries, interfaces, composition, or abstractions.
-disable-model-invocation: true
 metadata:
   kind: procedure
 ---
@@ -37,8 +36,8 @@ Levels do not prescribe folders or code constructs.
 
 Identify the protocol and established facts at each boundary.
 Refactor mechanisms while preserving contract guarantees. Required facts and workflow policy
-belong in the contract.
-Use [to-design](../to-design/SKILL.md) for an optional implementation proposal or review.
+belong in the contract. Use the `to-design` skill for an optional implementation proposal
+or review.
 Only behavioral requirements, invariants, and test obligations belong in a Spec through to-spec.
 
 ## 1. Trace the flow
@@ -203,8 +202,8 @@ Remove pass-through layers that add no policy, adaptation, or hidden knowledge.
 Keep mutable state in the smallest scope that owns its lifetime; derive values instead of syncing
 copies.
 
-Keep comments explaining rationale or external constraints. Remove narration and stale claims.
-Use [encode-lessons-in-structure](../encode-lessons-in-structure/SKILL.md) for enforceable
+Keep comments explaining rationale or external constraints. Remove narration and stale claims. Use
+the `encode-lessons-in-structure` skill for enforceable
 constraints.
 Remove constraint warnings only after enforcement covers them; retain necessary rationale and
 exceptions.
@@ -222,7 +221,7 @@ Revisit ownership and correctness;
 then resume against the owner's public operations.
 ```
 
-Apply [code-correctness](../code-correctness/SKILL.md) to establish the new owner's invariants,
+Use the `code-correctness` skill to establish the new owner's invariants,
 operations, and lifetime before composition resumes.
 
 Report boundaries, protocols, contracts, dependencies, and unresolved ownership.
