@@ -1,6 +1,8 @@
 # Module design example
 
-Illustrative proposed design, not implementation evidence. Pseudocode helpers are not library APIs.
+Optional implementation exploration, not required Spec content or implementation evidence.
+Representation choices below are proposals, not additional caller obligations.
+Pseudocode helpers are not library APIs.
 Tests call the production factory with real components; no internal collaborators are substituted.
 On failure, retain configuration, operation sequence, results, and observed IDs/bytes for replay.
 
@@ -52,14 +54,13 @@ model
     OperationBoundary = synchronous return; intermediate state is not observable.
 invariants
     I1 At operation boundaries, items.length <= capacity. [@R2]
-    I2 At operation boundaries, used <= limit. [@R3]
+    I2 At operation boundaries, the sum of admitted payload charges for retained items
+       never exceeds the configured byte budget. [@R3]
 owner Queue
     lifetime one queue instance
     state items, capacity, used, limit
     invariants
-        I3 At operation boundaries, every entry owns a copy of its admitted payload.
-            Copied at admission before mutation. [@R6]
-        I4 At operation boundaries, used == sum(e.charge for e in items). [@R3]
+        I3 At dequeue, returned bytes equal the admitted bytes despite caller mutation. [@R6]
 operations
     createQueue(config: Config) -> Result<QueueAPI, ConfigError>
         ensures Valid safe-integer nonnegative capacities yield items=[], used=0, configured limits.
@@ -89,8 +90,9 @@ algorithm
         used -= entry.charge
         return Some(entry)
     argument
-        Admission checks preserve I1 and I2; paired append/remove accounting preserves I4.
-        Copy-before-commit establishes I3. Operations neither await nor run caller callbacks.
+        Optional design property: used == sum(e.charge for e in items) at operation boundaries.
+        Paired append/remove accounting preserves it; admission checks preserve I1 and I2.
+        Copy-before-commit enforces I3. Operations neither await nor run caller callbacks.
 composition
     flow
         caller -> Queue admission and budget check -> paired state update -> result
@@ -113,7 +115,7 @@ coverage
         enforced_by [@I1], enqueue admission
         open_by [@Q1]
     @R3
-        enforced_by [@I2, @I4], Queue accounting
+        enforced_by [@I2], proposed Queue accounting
         open_by [@Q1]
     @R4
         enforced_by enqueue rejection before writes

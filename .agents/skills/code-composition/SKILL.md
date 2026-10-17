@@ -35,6 +35,9 @@ ValidatedRecipient carries the fact that recipient format was checked.
 Levels do not prescribe folders or code constructs.
 
 Identify the protocol and established facts at each boundary.
+Establish validity at the earliest boundary with enough information and authority; carry those facts
+in validated protocols. Keep changing-state checks with the owner at use.
+Filter invalid work only when omission is part of the contract; otherwise reject it explicitly.
 Refactor mechanisms while preserving contract guarantees. Required facts and workflow policy
 belong in the contract. Use the `to-design` skill for an optional implementation proposal
 or review.

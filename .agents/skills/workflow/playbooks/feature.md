@@ -19,8 +19,9 @@ checkpoint.
 1. **Design the affected modules.** Reuse approved Plan decisions. For unsettled intent, use the
    `planning` and `to-plan` skills to settle outcomes and Plan Verification targets.
    Return the Plan for approval before dependent work; reuse approval of unchanged content.
-   Run [Module design](module-design.md) to establish Requirements, behavioral and internal
-   Invariants, test obligations, and implementation planning in the owning Specs.
+   Run [Module design](module-design.md) to establish normative Requirements, behavioral Invariants,
+   and test obligations. Use implementation exploration to challenge feasibility and missing decisions.
+   Private design properties are optional notes unless they are agreed constraints.
    Reuse adequate contracts and design. Investigate unresolved boundaries with the
    `change-impact` skill. Return cohesive Spec snapshots, review verdicts, and open gates.
    Preserve any agreed Spec approval gate. Planning-only work ends at the requested artifacts.

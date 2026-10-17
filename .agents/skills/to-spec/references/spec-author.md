@@ -50,7 +50,10 @@ Existing behavior is evidence of what happens, not automatic authority for what 
 
 Record one independently verifiable obligation per Requirement, with source and must.
 Define each guarantee once; reference its ID in enforcement and tests using consistent code names.
-Describe accepted inputs, results, errors, side effects, ordering, and compatibility where relevant.
+Specify each operation's behavioral contract: admission, success, rejection, partial failure,
+interruption, retry, competing operations, and resource guarantees where relevant.
+State allowed outcomes and forbidden effects; keep unresolved behavior explicit.
+Do not filter correctness obligations by perceived design significance.
 Include bounds and interruption or retry outcomes when consumers rely on them.
 Name conditions and observation points. Avoid choosing internal functions, classes, or algorithms.
 Keep project-level choices in Plan decisions and Task provenance.
@@ -60,13 +63,27 @@ contract, rather than merely the chosen way to implement it. Cite its source.
 
 ## Invariants
 
-Write code-specific predicates over concrete fields and states, not high-level prose.
+Write precise predicates over domain state, ownership, identities, and lifetimes.
+Private representations belong in the contract only when they are agreed constraints.
 Define names, conditions, and observation boundaries; each predicate must hold initially and survive
 permitted transitions at that boundary. See [examples](invariant-examples.md) as needed.
-Derive independent properties from Requirements; link their sources and omit duplicates.
+Derive the set before defining Tests:
+
+1. Identify domain states, identities, relationships, owners, lifetimes, and resource quantities
+   governed by the Requirements.
+2. Examine initialization, admission, success, rejection, partial failure, interruption, retry, and
+   competing operations wherever relevant.
+3. Find impossible states, relationships that must remain consistent, and guarantees that must
+   survive transitions. Include interactions across Requirements, operations, and owners.
+4. Record each Invariant as one independently falsifiable predicate with source Requirements,
+   applicability conditions, and named validity boundaries. Omit duplicate properties.
+
+Account for each relevant relationship and transition with an explicit obligation, unresolved
+question, or reason it cannot arise. Linked IDs and a few summary Invariants do not establish coverage.
+
 Record module guarantees under `invariants` and scoped guarantees under `owner/invariants`.
 Preserve owner scopes and unique stable IDs across both placements.
-The `to-design` skill creates important internal Invariants; preserve them and their design basis.
+Preserve optional design properties from `to-design`; distinguish them from normative guarantees.
 Keep preconditions, postconditions, and liveness separate. Identify violating states and checks;
 passing examples alone do not prove preservation across all executions.
 

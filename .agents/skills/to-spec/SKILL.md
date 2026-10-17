@@ -13,8 +13,7 @@ Use the `writing` skill for drafting or revising prose.
 # To Spec
 
 Create behavioral Invariants from Requirements and specify how to check them.
-The `to-design` skill creates representation and algorithm Invariants in the same Spec.
-Preserve those Invariants and implementation design during behavioral edits.
+The `to-design` skill may add implementation notes; preserve them without treating them as guarantees.
 Use [author guidance](references/spec-author.md) to read, create, or revise the owning Spec.
 Use the `check-spec` skill for contract completeness and coverage.
 
@@ -39,11 +38,15 @@ Preserve any agreed approval gate; routine contract clarification needs no user 
 
 ## 2. Record requirements, invariants, and tests
 
-Write code-specific Invariants over concrete fields and states; define scope and observation points.
+Record Requirements first. Pursue exhaustive derivation of independent correctness properties,
+including Requirement interactions, to eliminate entire families of bugs.
+Define broad behavior tests afterward.
+Express precise Invariants over domain state, ownership, identities, and lifetimes at named points.
+Require private representations only when they are agreed constraints.
 Record one independently checkable obligation per entry; split clauses that can fail separately.
-The author records sourced Requirements, behavioral Invariants, and public-boundary checks. Use the `design-for-verification` skill for observations and
-diagnostics. Use the `testing-policy` skill for test boundaries and independent
-expectations.
+The author records sourced Requirements, behavioral Invariants, and public-boundary checks. 
+Use the `design-for-verification` skill for observations and diagnostics.
+Use the `testing-policy` skill for test boundaries and independent expectations.
 Keep provenance, open questions, and coverage needed to interpret the contract.
 State temporal, failure, concurrency, and resource guarantees as behavior when relevant.
 Do not prescribe internal types, algorithms, module layouts, composition flows, or realization. Use

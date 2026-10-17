@@ -11,13 +11,17 @@ metadata:
 # To Design
 
 Develop an implementation shape against supplied behavioral contracts and existing code.
-Record consequential implementation choices in the owning `.spec`, or return review findings.
+Explore feasibility and missing correctness decisions; return design findings or optional Spec notes.
 Implementation design is optional; it does not require a separate design file.
 
 ## 1. Ground the choice
 
 Read the request, relevant Plan, Spec, Task, current code, and supplied findings.
-Identify the implementation decision to resolve. Reuse adequate existing design. Use the
+Identify the implementation decision to resolve. Reuse adequate existing design.
+Architecturally significant decisions concern structure, dependencies, interfaces, or enforcement
+whose alternatives materially affect outcomes, failure behavior, ordering, ownership, compatibility,
+or resource guarantees.
+Use this term to prioritize design exploration, not to exclude behavioral obligations. Use the
 `change-impact` skill when boundaries or pivotal facts are unclear.
 Surface missing behavioral decisions.
 Use the `to-spec` skill when recording them is in scope.
@@ -29,7 +33,7 @@ For a chosen target, read its realization guide before writing concrete design:
 or [Rust](references/realization/rust.md). Apply it throughout the Spec, not only under `realization`.
 Verify concrete APIs against installed versions; label conceptual pseudocode explicitly.
 
-When a consequential choice needs stronger methods or evidence, use deepen (Use the `deepen` skill)
+When an architecturally significant decision needs stronger methods or evidence, use deepen (Use the `deepen` skill)
 to propose a stronger investigation brief within the agreed scope.
 
 Apply only methods needed by the decision:
@@ -43,8 +47,16 @@ Apply only methods needed by the decision:
   budgets
   affect the shape.
 
+For each candidate representation, derive its implementation invariants:
+
+- Identify state, identities, ownership, relationships, and resource accounting.
+- Derive independent predicates needed to enforce the behavioral contract, including cross-owner
+  and operation interactions; name each predicate's scope and validity points.
+- Establish them at initialization and show preservation through mutations, failure, interruption,
+  retry, and competing operations where relevant. Keep unresolved cases explicit.
+
 Reconcile the findings into one shape. Revisit affected methods when their assumptions conflict.
-For consequential unsettled choices, compare distinct viable shapes. Use arena (Use the `arena`
+For unsettled architecturally significant decisions, compare distinct viable shapes. Use arena (Use the `arena`
 skill) for independent candidates or prototype (Use the `prototype` skill) for
 empirical uncertainty when the user chooses the experiment.
 
@@ -53,7 +65,8 @@ empirical uncertainty when the user chooses the experiment.
 Use the `writing` skill before drafting or revising design prose.
 Use the `workflow-cli` skill for artifact mechanics. Read the owning Spec before editing.
 Keep multiple owners in one module Spec when they implement a coherent contract.
-Record only consequential choices in supported sections:
+When recording design notes, distinguish optional proposals from normative obligations.
+Do not require code or these sections to complete a behavioral Spec:
 
 - `model`: concrete types and states; owner sections: state authority and scoped Invariants.
 - `operations`: signatures, preconditions, postconditions, and failures.
@@ -62,20 +75,27 @@ Record only consequential choices in supported sections:
 - `composition`: boundaries, exchanged values, and dependency contracts.
 - `realization` for remaining target-specific mappings and constraints; do not duplicate other sections.
 
-Define guarantees once and reference their IDs. Keep prose for rationale and preservation arguments;
-leave routine implementation details in code.
-Write code-specific Invariants over concrete fields and states; define scope and observation points.
+Define guarantees once and reference their IDs. Record rationale when alternatives change
+enforcement, coordination, compatibility, or resource costs; leave other implementation details in code.
+A chosen mechanism becomes a normative constraint only when explicitly agreed.
+For implementation notes, write precise predicates over the chosen representation and name their scope.
 Include important internal representation, ownership, and algorithm properties, not only public ones.
-Record them under top-level or owner `invariants`, preserving unique stable IDs and unrelated content.
+Keep normative Invariants about contract state; record private design properties in design prose
+unless the representation is an agreed constraint. Preserve stable IDs and unrelated content.
 Explain how they enforce behavioral guarantees; distinguish design choices from Requirements.
 For examples, read [Spec syntax](references/example.md) or
 [Invariants](references/invariant-examples.md) as needed.
 Return missing or changed guarantees through the `to-spec` skill when recording is in scope.
 Review-only assignments return findings without editing the Spec.
 
+Use the `design-for-verification` skill to define checks and observations for material design claims.
+
 ## 4. Challenge and return
 
 Check the combined shape against the behavioral contract and the selected methods' criteria.
+During design review, independently derive required implementation properties and challenge them
+with violating states and execution sequences. Report missing properties and preservation gaps,
+even when the recorded predicates hold; a design may still fail to enforce the contract.
 Check every code fragment and algorithm against the selected realization, including models,
 operations, and composition. Reject contradictory representations or lifecycle semantics.
 Keep required checking independent of authors. Resolve findings and repeat affected checks.
