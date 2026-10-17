@@ -8,7 +8,7 @@ metadata:
   kind: procedure
 ---
 
-Use the `writing` skill before drafting or revising prose.
+Use the `writing` skill for drafting or revising prose.
 
 # To Spec
 
@@ -22,6 +22,7 @@ A bounded direct edit can use one author. Consequential proposals require indepe
 For an author-only assignment, return the Spec and checking needs; leave independent checking
 to its assigned owner.
 Do not add correctness or composition design phases merely to write a Spec.
+One module Spec may contain multiple owners; split Specs by independent contracts, not owner count.
 One Task may affect multiple modules; one module Spec may support multiple Tasks.
 
 ## 1. Establish the behavioral contract
@@ -39,6 +40,7 @@ Preserve any agreed approval gate; routine contract clarification needs no user 
 ## 2. Record requirements, invariants, and tests
 
 Write code-specific Invariants over concrete fields and states; define scope and observation points.
+Record one independently checkable obligation per entry; split clauses that can fail separately.
 The author records sourced Requirements, behavioral Invariants, and public-boundary checks. Use the `design-for-verification` skill for observations and
 diagnostics. Use the `testing-policy` skill for test boundaries and independent
 expectations.

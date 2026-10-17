@@ -8,7 +8,8 @@ Read the [behavioral example](example.md) when the format is unfamiliar.
 
 Read the request, relevant Plans, Tasks, existing Specs, and affected public interfaces.
 Inspect existing ownership and references before creating another Spec.
-Keep one Spec per coherent module contract; independent contracts can evolve separately.
+Keep one Spec per coherent module contract; it may contain multiple owners.
+Split when contracts evolve independently, not merely when another owner or lifetime appears.
 One Task may affect multiple module Specs, and each Spec may support multiple Tasks.
 Preserve IDs, unrelated content, and existing placement.
 Use code-adjacent placement when no project convention exists.
@@ -47,7 +48,8 @@ Existing behavior is evidence of what happens, not automatic authority for what 
 
 ## Requirements
 
-Record independently verifiable behavior under requirements, with source and must.
+Record one independently verifiable obligation per Requirement, with source and must.
+Define each guarantee once; reference its ID in enforcement and tests using consistent code names.
 Describe accepted inputs, results, errors, side effects, ordering, and compatibility where relevant.
 Include bounds and interruption or retry outcomes when consumers rely on them.
 Name conditions and observation points. Avoid choosing internal functions, classes, or algorithms.

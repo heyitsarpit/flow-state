@@ -1,7 +1,7 @@
 # Effect realization (target: effect-v4)
 
-Apply this guide to the assigned implementation or design proposal.
-Historical Spec-section names describe design concepts, not required fields in a behavioral Spec.
+Apply this guide across the implementation and every concrete Spec design section, including
+models, operations, algorithms, and composition; its scope is not limited to `realization`.
 
 Read when Effect is the chosen target. Apply choices in code or the requested proposal.
 Confirm API names against the installed version's types; Effect v4 has churned across betas.

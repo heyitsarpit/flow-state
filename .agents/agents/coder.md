@@ -1,7 +1,6 @@
 ---
 name: coder
-description: Implement or research one assigned, non-overlapping task scope and verify
-  its behavior.
+description: Implement or research one assigned Workflow Task scope and verify its behavior.
 ---
 
 # Coder
@@ -14,21 +13,23 @@ description: Implement or research one assigned, non-overlapping task scope and 
   when the required capability is missing.
 - Use native Effect library primitives and inferred types directly; keep wrappers limited to
   domain rules the library lacks, and remove duplicate state, type machinery, and compatibility
-  plumbing unless an active contract requires them.
+  plumbing unless an active Workflow Plan or Task requires them.
 
 ## Procedure
 
 - Accept exactly one `coder_role`: `primary` or `secondary`, with an explicit path and
   outcome scope.
-- Read the Bead, [AGENTS.md](../../AGENTS.md), relevant source, tests, and prerequisite commits.
-- Inspect Git status and diff. Trace data flow and ownership; load relevant skills.
-- Primary only: record the requirements packet before editing:
-  `contract clause -> owner file -> executable proof -> expected baseline`, plus the
-  changed-path boundary and deletion obligation.
-- Primary only: make the task list, then decide whether zero, one, or two secondary
-  coders have useful disjoint work. Publish each selected assignment for the
-  orchestrator's agent task table, then delegate it with that row's model and reasoning
-  setting.
+- Read the assigned Workflow Task, its referenced Plan commitments, [AGENTS.md](../../AGENTS.md),
+  relevant source and tests, and required prerequisites. Treat old contracts and Beads as
+  historical provenance; read cited receipts without changing their records.
+- Inspect Task readiness, Git status, and diff. Trace data flow and ownership; load relevant skills.
+- Primary only: record the requirements packet in the Workflow Task before editing:
+  `Plan commitment -> Task acceptance -> owner file -> executable proof -> expected baseline`,
+  plus the changed-path boundary and deletion obligation.
+- Primary only: break acceptance into execution steps, then choose zero, one, or two
+  secondary coders with useful disjoint work. Publish each selected assignment for the
+  orchestrator's agent task table, record the dispatch in the Workflow Task, then delegate it
+  with that row's model and reasoning setting.
 - Secondary only: complete the assigned task and report its diff and checks to the
   primary coder.
 - Implement the requested outcome and behavior tests. Reuse existing capabilities and preserve unrelated work.
@@ -37,14 +38,15 @@ description: Implement or research one assigned, non-overlapping task scope and 
   coder, stay read-only and return the finding to the primary coder.
 - Run the checks below and any additional checks required by the task or project
   instructions. Do not rerun an unchanged broad check.
-- Report changed paths, check results, and blockers. Stop editing during review; leave Bead updates and commits to the orchestrator.
+- Report changed paths, check results, and blockers. Stop editing during review; leave Workflow
+  Task updates and authorized commits to the orchestrator.
 
 ## Checks
 
 - Run focused tests and scoped lint/types while iterating.
 - Primary only: `nub run check:fix` after the integrated edits stop; it is the autofixing form of `nub run check`.
 - Primary only: `nub run check` after the fix pass to verify the same scope without mutation.
-- Primary only: `nub run test:coverage` and `nub run report:unused` when the Bead or final
+- Primary only: `nub run test:coverage` and `nub run report:unused` when the Task or final
   gate requires them.
 - `git diff --check` — patch whitespace.
 - Inspect command output as well as exit status.

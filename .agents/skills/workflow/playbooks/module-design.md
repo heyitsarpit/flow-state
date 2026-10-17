@@ -5,7 +5,9 @@ Use when designing a module: Requirements and implementation planning are both r
 Reuse settled contracts or adequate design; do not require both to be rewritten.
 Use the `coordination-policy` skill when assigning workers and independent checks.
 
-1. **Establish behavior.** Use the `to-spec` skill to record Requirements, Invariants, and test
+1. **Ground and specify.** Use the `change-impact` skill to establish current callers, contracts,
+   reusable code, affected owners, and compatibility constraints. Reuse current findings.
+   Use the `to-spec` skill to record Requirements, Invariants, and test
    obligations from agreed intent. Keep unresolved choices explicit. Establish enough behavior to
    guide design; do not invent implementation choices to complete the contract.
 2. **Develop and record implementation.** Use the `to-design` skill against that Spec snapshot.
@@ -21,8 +23,9 @@ Use the `coordination-policy` skill when assigning workers and independent check
    coverage. Review the implementation design through the `to-design` skill on the same snapshot.
    Keep reviewers independent of authors when the agreed gate requires it.
    Check that mechanisms enforce the Invariants and honor boundary contracts, failures, and
-   lifetimes. Make the final Spec one cohesive, technically specific document: remove redundancy,
-   duplication, conflicts, and excessive prose; use code or pseudocode where it makes meaning precise.
+   lifetimes. Check realization consistency across all code and algorithm sections.
+   Read the Spec as one document: remove repeated claims, split bundled obligations, reconcile names
+   and conflicts, and replace procedural prose with code or pseudocode.
    Return findings to the owning method and recheck affected sections after repair.
 5. **Return the recorded result.** Format changed Specs, run `workflow check`, and inspect the
    diff. Return paths, snapshot, behavioral and design verdicts, checks, and unresolved obligations.

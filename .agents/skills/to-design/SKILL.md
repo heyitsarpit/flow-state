@@ -24,6 +24,11 @@ Use the `to-spec` skill when recording them is in scope.
 
 ## 2. Develop the shape
 
+For a chosen target, read its realization guide before writing concrete design:
+[TypeScript](references/realization/typescript.md), [Effect](references/realization/effect.md),
+or [Rust](references/realization/rust.md). Apply it throughout the Spec, not only under `realization`.
+Verify concrete APIs against installed versions; label conceptual pseudocode explicitly.
+
 When a consequential choice needs stronger methods or evidence, use deepen (Use the `deepen` skill)
 to propose a stronger investigation brief within the agreed scope.
 
@@ -47,14 +52,18 @@ empirical uncertainty when the user chooses the experiment.
 
 Use the `writing` skill before drafting or revising design prose.
 Use the `workflow-cli` skill for artifact mechanics. Read the owning Spec before editing.
+Keep multiple owners in one module Spec when they implement a coherent contract.
 Record only consequential choices in supported sections:
 
-- `model` and owner operations for representations, state ownership, and enforcement.
-- `algorithm` and `rules` for consequential steps, ordering, and resource lifetimes.
-- `composition` for flows, dependency contracts, and boundary exchanges.
-- `realization` for language/framework specific mappings when needed.
+- `model`: concrete types and states; owner sections: state authority and scoped Invariants.
+- `operations`: signatures, preconditions, postconditions, and failures.
+- `algorithm`: pseudocode with branches, loops, updates, failure, and interruption.
+- `rules`: shared ordering and lifetime constraints, referenced rather than repeated.
+- `composition`: boundaries, exchanged values, and dependency contracts.
+- `realization` for remaining target-specific mappings and constraints; do not duplicate other sections.
 
-Use concrete types, signatures, code, or pseudocode; leave routine details in code.
+Define guarantees once and reference their IDs. Keep prose for rationale and preservation arguments;
+leave routine implementation details in code.
 Write code-specific Invariants over concrete fields and states; define scope and observation points.
 Include important internal representation, ownership, and algorithm properties, not only public ones.
 Record them under top-level or owner `invariants`, preserving unique stable IDs and unrelated content.
@@ -67,6 +76,8 @@ Review-only assignments return findings without editing the Spec.
 ## 4. Challenge and return
 
 Check the combined shape against the behavioral contract and the selected methods' criteria.
+Check every code fragment and algorithm against the selected realization, including models,
+operations, and composition. Reject contradictory representations or lifecycle semantics.
 Keep required checking independent of authors. Resolve findings and repeat affected checks.
 Design judgment does not establish passing implementation evidence.
 Report behavioral contract changes and objective conflicts; do not silently change agreed intent.

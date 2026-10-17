@@ -12,7 +12,7 @@ metadata:
 Start from agreed requirements and existing contracts. Name invariant owners, choose algorithms
 that preserve invariants, and define the rules governing shared state. Use the `to-design` skill for
 an optional implementation proposal or review.
-Only behavioral requirements, invariants, and test obligations belong in a Spec through to-spec.
+Use the `to-spec` skill for behavioral contracts and `to-design` for recorded implementation design.
 
 - **Invariant:** a property that must hold at the states or observation points the contract names.
 - **Owner:** the authority responsible for preserving an invariant or managing a resource lifetime.

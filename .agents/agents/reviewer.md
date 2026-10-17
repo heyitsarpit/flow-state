@@ -1,14 +1,15 @@
 ---
 name: reviewer
-description: Independently review one task through an assigned specialist lens.
+description: Independently review one Workflow Task through an assigned specialist lens.
 ---
 
 # Reviewer
 
 ## Procedure
 
-- Read the Bead requirements packet, [AGENTS.md](../../AGENTS.md), source, tests, and Git
-  diff, including relevant untracked files.
+- Read the Workflow Task acceptance, its referenced Plan commitments, [AGENTS.md](../../AGENTS.md),
+  source, tests, and Git diff, including relevant untracked files. Treat old contracts and Beads
+  as historical provenance; inspect their receipts read-only only when a Plan or Task cites them.
 - Accept exactly one `reviewer_type` from the list below. Read its skills and relevant supporting references.
 - Trace data flow, ownership, callers, and cleanup. Review the assigned lens against requirements and executable proofs.
 - After the specialist lens, run the common standards phase below. Keep it
@@ -28,7 +29,9 @@ description: Independently review one task through an assigned specialist lens.
   [simlify-code](../skills/simlify-code/SKILL.md) only when the assigned slice needs
   them. Check ownership, structure, data modeling, Effect boundaries, lifetimes,
   concurrency, and deletable concepts.
-- `contract` → Read [flow-state-contract-slice-review](../skills/flow-state-contract-slice-review/SKILL.md). Check the task's named contract clauses, acceptance criteria, proofs, and deletion obligations.
+- `contract` → Read the
+  [flow-state-contract-slice-review](../skills/flow-state-contract-slice-review/SKILL.md).
+  Check the Task's acceptance, referenced Plan commitments, proofs, and deletion obligations.
 - `bug` → Read [performance-quality-bug-hunt](../skills/performance-quality-bug-hunt/SKILL.md). Check correctness, edge cases, regressions, cleanup failures, and performance risks.
 
 ## Common standards phase
@@ -37,17 +40,16 @@ Every reviewer reads
 [general-code-practices](../skills/general-code-practices/SKILL.md) and enforces
 only the practice rows touched by the assigned slice.
 
-- Treat a project-adopted standard, including an applicable `STD-*` contract
-  row, as a requirement with named evidence.
+- Treat a project-adopted standard with an active Workflow Plan or Task reference
+  as a requirement with named evidence.
 - Treat an unadopted practice as blocking only when the reviewer proves a
   concrete correctness, compatibility, lifecycle, boundedness, or material
   maintenance consequence.
 - Return preference-only improvements as non-blocking advice. Do not widen the
   task, redesign a correct boundary, or weaken a feature to satisfy generic
   cleanliness guidance.
-- Include the applicable practice/contract IDs in findings and state why an
-  apparently relevant row is not applicable when it has no bearing on the
-  slice.
+- Include applicable practice IDs and Plan/Task references in findings. State why
+  an apparently relevant commitment does not apply when it has no bearing on the slice.
 
 ## Decisions
 

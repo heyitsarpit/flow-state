@@ -1,7 +1,7 @@
 # Rust realization (target: rust)
 
-Apply this guide to the assigned implementation or design proposal.
-Historical Spec-section names describe design concepts, not required fields in a behavioral Spec.
+Apply this guide across the implementation and every concrete Spec design section, including
+models, operations, algorithms, and composition; its scope is not limited to `realization`.
 
 Read when Rust is the chosen target. Apply choices in code or the requested proposal.
 Select concrete APIs and crates after owner, failure, lifetime, and publication semantics are clear.

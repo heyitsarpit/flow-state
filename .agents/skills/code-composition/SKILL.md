@@ -38,7 +38,7 @@ Identify the protocol and established facts at each boundary.
 Refactor mechanisms while preserving contract guarantees. Required facts and workflow policy
 belong in the contract. Use the `to-design` skill for an optional implementation proposal
 or review.
-Only behavioral requirements, invariants, and test obligations belong in a Spec through to-spec.
+Use the `to-spec` skill for behavioral contracts and `to-design` for recorded implementation design.
 
 ## 1. Trace the flow
 

@@ -1,7 +1,7 @@
 # TypeScript realization (target: typescript)
 
-Apply this guide to the assigned implementation or design proposal.
-Historical Spec-section names describe design concepts, not required fields in a behavioral Spec.
+Apply this guide across the implementation and every concrete Spec design section, including
+models, operations, algorithms, and composition; its scope is not limited to `realization`.
 
 Read when ordinary TypeScript is the chosen target. Apply choices in code or the requested proposal.
 Use the project's runtime, compiler settings, and established libraries.
