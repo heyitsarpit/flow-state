@@ -13,8 +13,9 @@ Read [recording criteria](references/recording.md) for coverage semantics and li
 1. Read the request, Plan/Task commitments, sourced requirements, and actual Spec snapshot.
 2. Check requirements and invariants against observable success, failure, and boundary scenarios.
    Require conditions, observation points, consistent guarantees, and clear provenance.
-   Verify requirement-derived targets, preserved owner scopes, and unique Invariant IDs across
-   placements.
+   Require code-specific predicates, defined boundaries, preserved owner scopes, and unique IDs.
+   Check establishment and preservation, including failure paths; separate liveness and postconditions.
+   Distinguish behavioral guarantees from design properties; flag missing claims and duplication.
 3. Check that tests exercise public production behavior with independent expectations.
    Trace checks to invariants and required outcomes, including relevant boundary and failure cases.
    Ask whether required behavior could still be wrong while every declared check passes.

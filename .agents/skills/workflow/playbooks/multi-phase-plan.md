@@ -21,15 +21,14 @@ Do not start execution unless authorized.
 3. `agent:workflow-designer`: Use [bounded run design](../references/run-design.md) to select phases
    and rigor. Identify blocking first steps, independent writes, shared state, integration, and real
    dependencies.
-4. `agent:task-designer`: Decompose with to-task (Use the `to-task` skill). For each
-   slice name
-   inputs, responsible owner, write scope, executable steps, expected results, evidence, and
-   remaining prerequisite. Do not turn every layer or helper into another Task or manager. After
-   drafting Tasks, resolve consequential contract needs with to-spec (Use the `to-spec` skill);
-   `agent:spec-author` receives author guidance (Use the `to-spec` skill).
-   Refine
-   affected Tasks against the settled contracts before readiness.
-   Check required verification has work and invariants/tests support the required guarantees.
+4. `agent:workflow-designer`: When module Requirements and implementation planning are requested,
+   run [Module design](module-design.md) before decomposition. Reuse settled contracts and design.
+   For behavior-only specification, use the `to-spec` skill without requiring implementation design.
+   `agent:task-designer`: Decompose with the `to-task` skill using the Plan and available Specs.
+   For each slice name inputs, owner, write scope, executable steps, expected results, evidence,
+   and prerequisites. Reuse existing Tasks; do not turn every layer into another Task or manager.
+   Refine Tasks after contract or design changes. Standalone task drafting needs no new module design.
+   Check required verification has work and Invariants/tests support the required guarantees.
 5. `agent:workflow-coordinator`: Name the execution playbook and ceiling: Autonomous run for one
    target, Orchestrate for a standing program, Autopilot-full for independent landing, or
    Autopilot-stack for an ordered chain. Derive active roles and limits from the settled phases;

@@ -16,37 +16,26 @@ combined grant covers the next phase. Carry that grant forward without asking ag
 Task refinement and readiness checks complete Spec preparation; they are not a separate human
 checkpoint.
 
-1. **Settle intent.** Reuse current Plan decisions. For unsettled choices, assign
-   `agent:planning-interviewer` planning (Use the `planning` skill) and
-   `agent:plan-writer` to-plan (Use the `to-plan` skill). Require consumer outcomes and
-   Plan Verification targets covering the agreed outcomes.
-   Loop: investigate → questions/recommendations → answers through Workflow → record → next round.
-   Return the Plan, remaining questions, and agreed acceptance. Require Plan approval before
-   dependent work; reuse approval of unchanged content. Dependent choices wait for answers.
+1. **Design the affected modules.** Reuse approved Plan decisions. For unsettled intent, use the
+   `planning` and `to-plan` skills to settle outcomes and Plan Verification targets.
+   Return the Plan for approval before dependent work; reuse approval of unchanged content.
+   Run [Module design](module-design.md) to establish Requirements, behavioral and internal
+   Invariants, test obligations, and implementation planning in the owning Specs.
+   Reuse adequate contracts and design. Investigate unresolved boundaries with the
+   `change-impact` skill. Return cohesive Spec snapshots, review verdicts, and open gates.
+   Preserve any agreed Spec approval gate. Planning-only work ends at the requested artifacts.
 
-2. **Draft Tasks.** Give `agent:task-designer` to-task (Use the `to-task` skill) and the
-   intent
-   results. Require bounded complete paths, write scopes, executable checks, and genuine
-   dependencies. Identify shared prerequisites and conflicting write scopes. Keep unresolved work
-   draft. Have the designer record review gates from the assignment and consequential contract
-   risks. Return Task paths, current readiness, blockers, and expected evidence.
+2. **Create and reconcile Tasks.** Use the `to-task` skill with the Plan and module designs.
+   Require bounded complete paths, write scopes, executable checks, and genuine dependencies.
+   Identify shared prerequisites and conflicting write scopes; reuse and refine existing Tasks.
+   Assign work for required verification and unresolved implementation or tooling prerequisites.
+   Keep blocked work draft; independent ready slices can proceed within authorization.
+   Return Task paths, readiness, blockers, and expected evidence.
 
-3. **Establish behavioral contracts.** Assign `agent:impact-investigator` change-impact (Use the
-   `change-impact` skill) for unresolved boundaries. For new or changed
-   module behavior, state, or cross-boundary guarantees, run to-spec (Use the `to-spec` skill).
-   Coordinate its selected phases with your workers. Give `agent:spec-author` author
-   guidance (Use the `to-spec` skill) and `agent:spec-checker` checker guidance (Use the
-   `check-spec` skill). Record module behavior, invariants, and
-   public-boundary test obligations; keep algorithms and realization out of the Spec. Refine
-   affected Tasks against the contracts. Readiness follows the behavior contracts, not a concrete
-   implementation shape. Missing behavioral contracts or tools block affected slices; independent
-   ready work can proceed. Return findings to authors; repeat affected checks within budget until
-   the contract passes. Reuse settled contracts and valid evidence. Return the Spec snapshot,
-   verdict, and open gates.
-   Check required verification has work and invariants/tests support the required guarantees. Use
-   the `to-design` skill only for difficult implementation choices or design
-   reviews, and keep implementation details out of the Spec.
-   Planning-only work returns requested validated artifacts and stops before implementation.
+3. **Confirm readiness.** Check Tasks against the settled Specs and Plan Verification targets.
+   Resolve missing contracts or design through Module design; refine affected Tasks after changes.
+   Require applicable contract, tooling, and approval gates before execution. Valid artifacts and a
+   plausible design are not passing product evidence. Return ready work and remaining gates.
 
 4. **Execute and check.** Within the authorized Task set and limits, continue through
    implementation, checks, required review, repair, integration, verification, and record updates.
@@ -60,7 +49,7 @@ checkpoint.
    tests are implementation work.
    Give `agent:acceptance-checker` its method (Use the `check-task` skill) and the actual
    patch/evidence.
-   Return product failures to the implementer; contract gaps to phase 3.
+   Return product failures to the implementer; contract or design gaps to phase 1.
    Repeat affected checks after repairs. Release dependent Tasks only on current passing gates.
    Return the checked patch, snapshot, verdicts, and evidence.
 
@@ -72,7 +61,7 @@ checkpoint.
    Deferred, failed, blocked, or unexercised required targets prevent a completion verdict.
    Have the checker return missing required independent review to you. Use the `review` skill for
    required review; give reviewers their assigned methods.
-   Return product findings to phase 4 and contract gaps to phase 3.
+   Return product findings to phase 4 and contract or design gaps to phase 1.
 
 6. **Record and deliver.**
    Give `agent:record-writer` final verdicts and workflow-cli (Use the `workflow-cli` skill). Mark

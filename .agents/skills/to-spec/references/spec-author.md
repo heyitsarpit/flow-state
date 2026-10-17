@@ -51,20 +51,22 @@ Record independently verifiable behavior under requirements, with source and mus
 Describe accepted inputs, results, errors, side effects, ordering, and compatibility where relevant.
 Include bounds and interruption or retry outcomes when consumers rely on them.
 Name conditions and observation points. Avoid choosing internal functions, classes, or algorithms.
-Keep chosen approaches in Plan decisions and Task provenance.
+Keep project-level choices in Plan decisions and Task provenance.
+The `to-design` skill maintains module implementation choices in the owning Spec.
 Record an implementation constraint as a Spec requirement only when it is part of the agreed module
 contract, rather than merely the chosen way to implement it. Cite its source.
 
 ## Invariants
 
-Derive module correctness targets from requirements. State their conditions and observation points.
-Link invariants to the requirements they support.
-Use top-level invariants for module guarantees and owner/invariants for scoped guarantees.
-Both placements may coexist; Invariant IDs must be unique across both placements.
-Preserve existing owner scopes. Name a behavioral authority or contract scope for new owners.
-Defining a target does not require choosing internal structure or an implementation mechanism.
-For example, a run can promise at most one active submission without prescribing locks or queues.
-State observable lifetime guarantees in the requirement or invariant itself.
+Write code-specific predicates over concrete fields and states, not high-level prose.
+Define names, conditions, and observation boundaries; each predicate must hold initially and survive
+permitted transitions at that boundary. See [examples](invariant-examples.md) as needed.
+Derive independent properties from Requirements; link their sources and omit duplicates.
+Record module guarantees under `invariants` and scoped guarantees under `owner/invariants`.
+Preserve owner scopes and unique stable IDs across both placements.
+The `to-design` skill creates important internal Invariants; preserve them and their design basis.
+Keep preconditions, postconditions, and liveness separate. Identify violating states and checks;
+passing examples alone do not prove preservation across all executions.
 
 ## Tests and open obligations
 
@@ -75,7 +77,7 @@ Show how checks establish the relevant invariants and required outcomes across t
 Include relevant boundaries, failures, side effects, and repeat/interruption scenarios.
 Record missing harnesses, unsettled guarantees, and unverified implementation under open.
 Use supported questions, brownfield mismatches, risks, and assumption/outcome prose.
-Do not add a model, algorithm, composition, rules, or realization section to explain implementation.
+Do not author implementation sections as part of behavioral specification.
 Use the `to-design` skill for optional implementation choices when needed.
 
 Check whether agreed behavior could still be wrong while the declared checks pass.
@@ -94,8 +96,8 @@ If attack scenarios clarify a guarantee, record their expected observable outcom
 
 Preserve existing implementation sections during a behavioral edit unless their migration is
 assigned.
-Their presence does not make implementation design part of this skill's output contract.
-Do not duplicate or expand them. Surface contradictions with behavioral changes for resolution.
+The `to-design` skill owns their authorship and revision. Do not duplicate or expand them here.
+Surface contradictions with behavioral changes for resolution.
 
 Keep proposed status while behavioral or required verification obligations remain unresolved.
 Set accepted only within granted authority after required review and coverage resolution.

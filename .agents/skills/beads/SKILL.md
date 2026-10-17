@@ -1,80 +1,36 @@
 ---
 name: beads
-description: Use when working in a repository that uses bd or Beads for durable project task tracking, issue dependencies, blocker management, multi-session handoff, or shared work memory. Trigger when the user asks to find ready work, claim or close tasks, create follow-up work, inspect blockers, recover project context, or choose between local planning and persistent project tracking.
+description: Inspect retained Beads records as historical migration provenance. Use only when a
+  Workflow Plan or Task cites a Bead ID or receipt; never use Beads for current work tracking.
 ---
 
-# Beads
+# Beads Historical Records
 
-Use Beads as the shared project task system. Local plans, scratch files, and personal memories are useful, but they are not the durable source of truth for project work.
+In this repository, Workflow Plans and Tasks own current requirements, readiness,
+dependencies, status, and evidence. Use the [Workflow CLI skill](../workflow-cli/SKILL.md)
+for current work.
 
-## First Step
+The Beads database and exports remain read-only historical provenance. Their statuses
+and dependency edges describe old snapshots; they do not establish current readiness or
+acceptance. Preserve historical receipts without updating or regenerating Beads records.
 
-Run:
+## Inspect a cited record
 
-```bash
-bd prime
-```
+1. Read the current Workflow Plan or Task that cites the Bead ID.
+2. Inspect only the referenced historical record or receipt:
 
-If that prints nothing, check whether the repository has an active Beads workspace:
+   ```bash
+   bd show <id> --json
+   ```
 
-```bash
-bd where
-```
+3. Report the receipt with its recorded snapshot or date. Do not treat it as evidence
+   for the current checkout unless the snapshots match.
 
-## Preferred Route
+## Boundaries
 
-Use the `bd` CLI when shell access is available. It is the most compact and direct Beads interface.
-
-## Core CLI Workflow
-
-1. Find work:
-
-```bash
-bd ready
-bd list --status=open
-bd list --status=in_progress
-```
-
-2. Inspect before editing:
-
-```bash
-bd show <id>
-```
-
-3. Claim work atomically:
-
-```bash
-bd update <id> --claim
-```
-
-4. Create durable follow-up work when implementation reveals new tasks:
-
-```bash
-bd create "Short title" --description="Why this exists and what needs to be done" --type=task --priority=2
-```
-
-5. Close completed work:
-
-```bash
-bd close <id> --reason="Completed"
-```
-
-## What Belongs In Beads
-
-Use Beads for:
-
-- shared project tasks
-- blockers and dependencies
-- discovered follow-up work
-- work that must survive thread reset, compaction, or handoff
-- status that another person or agent should be able to resume
-
-Use agent-local planning tools only for the current turn's execution checklist. Do not treat them as shared project state.
-
-## Rules
-
-- Do not create markdown TODO files as the source of truth when Beads is available.
-- Do not use `bd edit`; it opens an interactive editor. Use `bd update` flags instead.
-- Prefer `--json` when parsing `bd` output programmatically.
-- If hooks are installed, `bd prime` may already be injected. Run it manually when context is missing.
-- Do not auto-close or mutate tasks unless the work is actually complete.
+- Do not use Beads to select, claim, assign, block, close, or remember current work.
+- Do not run Beads commands that mutate records or exports, including `bd update`,
+  `bd create`, `bd dep`, `bd close`, `bd remember`, or `bd export`.
+- Do not edit `.beads/issues.jsonl` or other historical Beads files.
+- Keep Bead IDs for traceability; link findings and current status to the owning Workflow
+  Plan or Task.

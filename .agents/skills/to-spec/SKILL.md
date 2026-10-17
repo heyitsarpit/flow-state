@@ -3,7 +3,7 @@ name: to-spec
 description: >-
   Record and check behavioral requirements, invariants, and test obligations in workflow Specs.
   Use to establish, revise, or supersede observable guarantees from agreed intent and findings.
-  Implementation algorithms, composition, and target realization belong to to-design and code.
+  Implementation design sections are maintained by to-design.
 metadata:
   kind: procedure
 ---
@@ -12,7 +12,9 @@ Use the `writing` skill before drafting or revising prose.
 
 # To Spec
 
-Specify module behavior and how to check it. Keep implementation choices in code.
+Create behavioral Invariants from Requirements and specify how to check them.
+The `to-design` skill creates representation and algorithm Invariants in the same Spec.
+Preserve those Invariants and implementation design during behavioral edits.
 Use [author guidance](references/spec-author.md) to read, create, or revise the owning Spec.
 Use the `check-spec` skill for contract completeness and coverage.
 
@@ -36,8 +38,8 @@ Preserve any agreed approval gate; routine contract clarification needs no user 
 
 ## 2. Record requirements, invariants, and tests
 
-The author records sourced requirements, invariants as correctness targets, and public-boundary
-checks. Use the `design-for-verification` skill for observations and
+Write code-specific Invariants over concrete fields and states; define scope and observation points.
+The author records sourced Requirements, behavioral Invariants, and public-boundary checks. Use the `design-for-verification` skill for observations and
 diagnostics. Use the `testing-policy` skill for test boundaries and independent
 expectations.
 Keep provenance, open questions, and coverage needed to interpret the contract.

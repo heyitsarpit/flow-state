@@ -3,7 +3,7 @@ name: to-design
 description: >-
   Choose or review implementation shapes through correctness, composition, and target realization.
   Use for consequential algorithms, state ownership, module boundaries, or implementation choices.
-  Behavioral requirements, invariants, and test obligations belong to to-spec.
+  Own representation and algorithm invariants; to-spec owns behavioral guarantees and tests.
 metadata:
   kind: procedure
 ---
@@ -11,7 +11,8 @@ metadata:
 # To Design
 
 Develop an implementation shape against supplied behavioral contracts and existing code.
-Return a proposal or review findings. This is optional; no design file is required.
+Record consequential implementation choices in the owning `.spec`, or return review findings.
+Implementation design is optional; it does not require a separate design file.
 
 ## 1. Ground the choice
 
@@ -42,13 +43,35 @@ For consequential unsettled choices, compare distinct viable shapes. Use arena (
 skill) for independent candidates or prototype (Use the `prototype` skill) for
 empirical uncertainty when the user chooses the experiment.
 
-## 3. Challenge and return
+## 3. Record the design
+
+Use the `writing` skill before drafting or revising design prose.
+Use the `workflow-cli` skill for artifact mechanics. Read the owning Spec before editing.
+Record only consequential choices in supported sections:
+
+- `model` and owner operations for representations, state ownership, and enforcement.
+- `algorithm` and `rules` for consequential steps, ordering, and resource lifetimes.
+- `composition` for flows, dependency contracts, and boundary exchanges.
+- `realization` for language/framework specific mappings when needed.
+
+Use concrete types, signatures, code, or pseudocode; leave routine details in code.
+Write code-specific Invariants over concrete fields and states; define scope and observation points.
+Include important internal representation, ownership, and algorithm properties, not only public ones.
+Record them under top-level or owner `invariants`, preserving unique stable IDs and unrelated content.
+Explain how they enforce behavioral guarantees; distinguish design choices from Requirements.
+For examples, read [Spec syntax](references/example.md) or
+[Invariants](references/invariant-examples.md) as needed.
+Return missing or changed guarantees through the `to-spec` skill when recording is in scope.
+Review-only assignments return findings without editing the Spec.
+
+## 4. Challenge and return
 
 Check the combined shape against the behavioral contract and the selected methods' criteria.
 Keep required checking independent of authors. Resolve findings and repeat affected checks.
 Design judgment does not establish passing implementation evidence.
 Report behavioral contract changes and objective conflicts; do not silently change agreed intent.
 
-Return the chosen shape, rationale, tradeoffs, verification approach, and unresolved risks.
+After edits, format each changed Spec and run `workflow check`; inspect the diff.
+Return Spec paths and snapshot, chosen shape, rationale, tradeoffs, checks, and unresolved risks.
 For a review, return findings and a snapshot-bound PASS, ISSUES, or BLOCKED verdict.
 Stop at the assigned boundary. This method does not automatically start implementation.
