@@ -1,0 +1,313 @@
+phase P2
+title Runtime ownership
+
+tasks
+    T201
+        title        Establish no-persistence Runtime readiness
+        status       open
+        priority     medium
+        blocked_by   [
+                     @task.Rewrite.T103,
+                     @task.Rewrite.T104,
+                     @task.Rewrite.T105, 
+                     @task.Rewrite.T107,
+                     @task.Rewrite.T108
+                     ]
+        derives_from [
+                     @plan.ApplicationsAndActors.O3,
+                     @plan.ApplicationsAndActors.V3,
+                     @plan.Persistence.O1,
+                     @plan.ProjectDelivery.O3
+                     ]
+        description
+            Implement the base shared Runtime bootstrap for a closed App and exact Implementation 
+            with persistence disabled. Keep construct/discovery inert and make ready() the single 
+            readiness boundary. This is an incremental readiness result; durable selection, 
+            detached restore, and full persistence-aware outcome closure remain in P4.
+        acceptance
+            Controlled positive/failure vectors prove construction performs no 
+            acquisition/actor/work/evidence; one readiness attempt shares success/failure across 
+            waiters; interruption of one waiter does not cancel another; disposal racing late 
+            readiness cannot reopen admission; rollback finalizes acquired owners in reverse order 
+            and caches terminal failure truth. Run `nubx vp test 
+            packages/flow-state-rewrite/src/runtime-next/test/readiness.test.ts 
+            packages/flow-state-rewrite/src/runtime-next/test/assembly.test.ts` and `nub run 
+            --filter flow-state-rewrite check:types`; all pass. Write scope: 
+            `packages/flow-state-rewrite/src/runtime-next/**` and readiness fixtures. Evidence: 
+            readiness/assembly tests and type fixtures. This Task derives from App.O3/V3 but does 
+            not satisfy persistence-aware clauses; P4 boot/restore Tasks own those remaining 
+            clauses.
+
+    T202
+        title        Admit actors through one shared lease
+        status       open
+        priority     medium
+        blocked_by   [@T201]
+        derives_from [
+                     @plan.ApplicationsAndActors.O4,
+                     @plan.ApplicationsAndActors.V4,
+                     @plan.ProjectDelivery.O3
+                     ]
+        satisfies    [@plan.ApplicationsAndActors.O4]
+        description
+            Implement exact ActorRef admission, one shared actor/lease per Runtime identity, 
+            compatible context bindings, and clean unpublished retry. Keep refs inert and 
+            non-authoritative; handles and refs cannot dispose actors.
+        acceptance
+            Positive/failure/race vectors prove concurrent ensures join one admission and first 
+            accepted input initializes once; compatible fixed bindings share admission; conflicting 
+            bindings and missing/foreign/tombstoned refs reject unchanged before work. An 
+            unpublished failure rolls back once and permits a later clean attempt; post-visibility 
+            failure uses terminal disposal. `get` creates or leases nothing; `create` returns 
+            distinct opaque refs. Run `nubx vp test 
+            packages/flow-state-rewrite/src/runtime-next/test/actor-admission.test.ts 
+            packages/flow-state-rewrite/src/runtime-next/test/actor-lease-owner.test.ts` and `nub 
+            run --filter flow-state-rewrite check:types`; all pass. Write scope: 
+            `packages/flow-state-rewrite/src/runtime-next/actor/**` and focused admission fixtures. 
+            Evidence: admission/lease tests and compile fixtures.
+
+    T203
+        title        Enforce actor lifecycle and terminal cleanup
+        status       open
+        priority     medium
+        blocked_by   [@T201, @T202]
+        derives_from [
+                     @plan.ApplicationsAndActors.O5,
+                     @plan.ApplicationsAndActors.V5,
+                     @plan.ProjectDelivery.O3
+                     ]
+        satisfies    [@plan.ApplicationsAndActors.O5]
+        description
+            Implement prepared/active/suspended/disposed transitions, ownership boundaries, 
+            dependent-provider protection, asynchronous idempotent disposal, and reverse-dependency 
+            Runtime cleanup. Preserve queued finite work and finalizer truth across suspension and 
+            termination.
+        acceptance
+            Controlled lifecycle/race/failure vectors prove prepared actors buffer only bounded 
+            commands, active actors admit, suspended actors reject without buffering and preserve 
+            continuity, and disposed actors remain terminal. Only leases or Runtime shutdown 
+            dispose; dependent providers reject before cleanup begins and identify blocked 
+            refs/keys. Suspension drains or retires queued work exactly once, waits for finalizers, 
+            preserves identity/deadlines, and resume does not replay. Cleanup defects prevent false 
+            resume/success; repeated disposal joins the same cached result without rerunning 
+            finalizers. Run `nubx vp test 
+            packages/flow-state-rewrite/src/runtime-next/test/lifecycle.test.ts 
+            packages/flow-state-rewrite/src/runtime-next/test/actor-engine-owner.test.ts` and `nub 
+            run --filter flow-state-rewrite check:types`; all pass. Write scope: 
+            `packages/flow-state-rewrite/src/runtime-next/actor/**` and lifecycle fixtures. 
+            Evidence: lifecycle/engine tests.
+
+    T204
+        title        Bind fixed context from one admitted provider cut
+        status       open
+        priority     medium
+        blocked_by   [@task.Rewrite.T102, @T202, @T203]
+        derives_from [
+                     @plan.ApplicationsAndActors.O6,
+                     @plan.ApplicationsAndActors.V6,
+                     @plan.ProjectDelivery.O3
+                     ]
+        description
+            Implement exact typed provider selection, binding identity, and silent baseline 
+            installation for admitted actor refs. Reject incomplete, foreign, closing, disposed, or 
+            cyclic provider graphs before effects. Causal multi-provider waves are a separate Task.
+        acceptance
+            Positive and negative type/runtime vectors prove one fixed binding per consumer 
+            lifetime from an atomic exact provider snapshot, silent baseline installation, and 
+            deterministic provider/consumer topology. Missing, ambiguous, foreign, incompatible, 
+            closing, disposed, tombstoned, unresolvable, or cyclic providers reject before effects 
+            and without partial bindings. Opaque local actor identity is accepted only when 
+            admitted authority is verifiable. Run `nubx vp test 
+            packages/flow-state-rewrite/src/runtime-next/test/context-lineage-owner.test.ts 
+            packages/flow-state-rewrite/src/runtime-next/test/context.test.ts` and `nub run 
+            --filter flow-state-rewrite check:types`; all pass. Write scope: 
+            `packages/flow-state-rewrite/src/runtime-next/context/**`, actor admission integration, 
+            and focused context fixtures. Evidence: context tests and type fixtures.
+
+    T205
+        title        Implement causal context waves after selector policy is settled
+        status       draft
+        priority     medium
+        blocked_by   [@T204, @T206]
+        derives_from [
+                     @plan.ApplicationsAndActors.O6,
+                     @plan.ApplicationsAndActors.Q1,
+                     @plan.ApplicationsAndActors.V6,
+                     @plan.ProjectDelivery.O3
+                     ]
+        satisfies    [@plan.ApplicationsAndActors.O6]
+        description
+            Implement provider/consumer context waves, retained complete truth, equal settlement, 
+            debt, and retry behavior only after T206 resolves the selector-defect policy. Keep 
+            actor admission/baseline work independently usable while this question-bound slice is 
+            draft.
+        acceptance
+            Once the owning Question is explicitly resolved, controlled chain/diamond vectors prove 
+            consumers never publish mixed old/new provider truth, equal-valued settlement clears 
+            debt without a value-change event, queued wakes use latest complete truth, and blocked 
+            heads preserve FIFO. The approved selector-defect behavior is tested for 
+            provider/sibling commit, retained context, issue/event publication, and retry trigger. 
+            Suspended debt rejects capture until explicit recovery. Run focused production 
+            context-wave tests and `nub run --filter flow-state-rewrite check:types`; both pass. 
+            Write scope: `packages/flow-state-rewrite/src/runtime-next/context/**` and context-wave 
+            fixtures. Evidence: context-wave/debt tests. Do not implement a candidate answer before 
+            T206 is approved.
+
+    T206
+        title        Resolve selector-defect isolation and retry policy
+        status       draft
+        priority     medium
+        derives_from [
+                     @plan.ApplicationsAndActors.Q1,
+                     @plan.ApplicationsAndActors.V6,
+                     @plan.ProjectDelivery.O4
+                     ]
+        description
+            Obtain the explicit owner decision for ApplicationsAndActors.Q1 about provider/sibling 
+            commit, retained consumer context, issue-only publication, and retry trigger. Keep this 
+            decision local to the affected causal-wave slice; it must not block unrelated 
+            admission, actor-only turns, or operation kernels.
+        acceptance
+            Record the owner-approved answer to the exact Q1 alternatives and its effect on V6 
+            before T205 implementation begins. No runtime behavior is chosen or inferred by this 
+            Task. This decision task remains draft until the required Plan decision is approved.
+
+    T207
+        title        Bound mailbox admission and preserve reentrant FIFO
+        status       open
+        priority     medium
+        blocked_by   [@task.Rewrite.T102, @T202, @T203]
+        derives_from [
+                     @plan.ApplicationsAndActors.O7,
+                     @plan.ApplicationsAndActors.V7,
+                     @plan.Statecharts.O3,
+                     @plan.ProjectDelivery.O3
+                     ]
+        description
+            Implement synchronous typed send admission with documented finite prepared/active 
+            capacity, no-mutation overload rejection, and reentrant FIFO sequencing. The proof 
+            covers mailbox decisions only and does not depend on the selector-defect Question in 
+            T206.
+        acceptance
+            Positive/failure vectors prove exact EventOf<Machine> admission, documented finite 
+            prepared/active limits (prepared supports at least 64 commands), and FIFO for reentrant 
+            accepted sends. At capacity reject the whole new admission synchronously with 
+            AdmissionOverloaded before event occurrence, state/store mutation, evidence, or work; 
+            suspended/disposed actors reject without buffering. Run `nubx vp test 
+            packages/flow-state-rewrite/src/runtime-next/test/actor-admission.test.ts 
+            packages/flow-state-rewrite/src/runtime-next/test/turns.test.ts` and `nub run --filter 
+            flow-state-rewrite check:types`; all pass. Write scope: 
+            `packages/flow-state-rewrite/src/runtime-next/actor/actor-mailbox.ts`, actor 
+            admission/engine integration, and focused mailbox fixtures. Evidence: mailbox/admission 
+            tests and type fixtures.
+
+    T208
+        title        Commit actor macrosteps before asynchronous work
+        status       open
+        priority     medium
+        blocked_by   [@task.Rewrite.T105, @task.Rewrite.T106, @T207]
+        derives_from [
+                     @plan.Statecharts.O3,
+                     @plan.Statecharts.V3,
+                     @plan.ApplicationsAndActors.O7,
+                     @plan.ApplicationsAndActors.V7,
+                     @plan.DiagnosticsContract.O2,
+                     @plan.DiagnosticsContract.V2,
+                     @plan.ProjectDelivery.O3
+                     ]
+        description
+            Implement actor-only event decisions: ordered guard/update/action evaluation against 
+            the pre-turn snapshot, redirect stabilization, whole-batch validation, issue-only 
+            failure truth, no-op behavior, and committed publication before starting work. 
+            Store/operation/evidence integration remains with P3 T313.
+        acceptance
+            Positive, decline, no-op, and failure vectors prove updateMemory precedes actions while 
+            both see the same pre-turn snapshot; actions cannot see candidate memory; redirects see 
+            candidate state/memory only; complete batches validate before mutation; a valid prefix 
+            of an invalid batch leaves no partial commit or work. No handler/all-decline creates no 
+            revision/evidence/work. Guard/action/redirect/key defects preserve prior domain truth 
+            and publish one issue-only cut without retry. A successful actor-only turn publishes 
+            one committed cut before any user Effect/work. Run `nubx vp test 
+            packages/flow-state-rewrite/src/runtime-next/test/turn-plan-owner.test.ts 
+            packages/flow-state-rewrite/src/runtime-next/test/turns.test.ts` and `nub run --filter 
+            flow-state-rewrite check:types`; all pass. Write scope: 
+            `packages/flow-state-rewrite/src/runtime-next/actor/**`, `turn-plan.ts`, and focused 
+            turn fixtures. Evidence: turn-plan/turn tests. Operation/store/evidence atomicity is 
+            explicitly deferred to T313.
+
+    T209
+        title        Own continuing declarations and timer lifetimes
+        status       open
+        priority     medium
+        blocked_by   [@task.Rewrite.T102, @task.Rewrite.T106, @T203, @T208]
+        derives_from [
+                     @plan.Statecharts.O4,
+                     @plan.Statecharts.V4,
+                     @plan.ApplicationsAndActors.O5,
+                     @plan.ApplicationsAndActors.V5,
+                     @plan.ProjectDelivery.O3
+                     ]
+        satisfies    [@plan.Statecharts.O4]
+        description
+            Implement actor-owned state activities, independent onMemory declaration slots, 
+            selector equality, timer scheduling/fencing, deadline ordering, and 
+            cancellation/reentry cleanup. Keep operation execution and stream identity integration 
+            with P3 owners.
+        acceptance
+            Positive/failure/race vectors prove one private slot per state/onMemory declaration, 
+            equal identity retains original input/generation, changed identity releases once before 
+            replacement, false/null releases only its slot, and parent activities survive 
+            child-only changes. Verify scalar Object.is and fixed-key record equality, exactly-once 
+            cleanup, absolute deadline preservation, generation-fenced stale timer rejection, 
+            equal-deadline ordering, and no replay on resume. Invalid delay/action input leaves 
+            state unchanged. Run focused actor activity/timer tests and `nub run --filter 
+            flow-state-rewrite check:types`; both pass. Write scope: 
+            `packages/flow-state-rewrite/src/runtime-next/actor/actor-activities.ts`, 
+            `actor-timer-work.ts`, and focused fixtures. Evidence: activity/timer tests. 
+            Stream/resource adapter start, release and cancellation proofs remain with P3.
+
+    T210
+        title        Publish actor snapshots/evidence and close the settled P2 gate
+        status       open
+        priority     medium
+        blocked_by   [
+                     @task.Rewrite.T107,
+                     @T201,
+                     @T202,
+                     @T203,
+                     @T204,
+                     @T207,
+                     @T208,
+                     @T209
+                     ]
+        derives_from [
+                     @plan.ApplicationsAndActors.O7,
+                     @plan.ApplicationsAndActors.V7,
+                     @plan.InspectionAndArtifacts.O3,
+                     @plan.InspectionAndArtifacts.V3,
+                     @plan.ProjectDelivery.O3
+                     ]
+        description
+            Implement immutable current actor snapshots, prepared replay, slow-reader latest-value 
+            behavior, and actor-only evidence acceptance/acknowledgment ordering. Close settled P2 
+            Runtime-ownership work after T201–T204 and T207–T209 pass. The actor-only gate 
+            explicitly leaves selector-defect behavior under T206/T205 and canonical 
+            store/operation integration to P3/P4.
+        acceptance
+            Positive/failure vectors prove a reader always receives a complete immutable current 
+            actor snapshot, may skip obsolete snapshots, and cannot mutate past state. Prepared 
+            subscription replays the current prepared snapshot; suspended/disposed subscription 
+            replays final state then completes. Actor acknowledgment follows publication and 
+            private evidence acceptance but does not wait for user Effects or sinks. Evidence 
+            bounds/exhaustion reject before mutation or reserve terminal cleanup capacity. Run 
+            `nubx vp test packages/flow-state-rewrite/src/runtime-next/test/actor-evidence.test.ts 
+            packages/flow-state-rewrite/src/runtime-next/test/evidence-record-owner.test.ts` and 
+            `nub run --filter flow-state-rewrite check:types`; both pass. Confirm the settled P2 
+            owner checks pass. This gate does not wait on T205/T206 or claim full actor/store 
+            publication. Write scope: 
+            `packages/flow-state-rewrite/src/runtime-next/actor/actor-snapshot.ts`, 
+            `actor-evidence.ts`, `evidence-record.ts`, `evidence-journal.ts`, 
+            `evidence-acceptance.ts`, `evidence-sequencer.ts`, and actor evidence fixtures. P4 T408 
+            alone owns `evidence-sink.ts` and sink ownership tests. Evidence: actor 
+            snapshot/evidence tests. Store fanout and complete actor/store/lifecycle cuts remain 
+            with P3 T313 and P4 T415.

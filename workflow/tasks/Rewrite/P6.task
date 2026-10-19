@@ -1,0 +1,572 @@
+phase P6
+title Package cutover and absence
+
+tasks
+    T601
+        title        Package routes and settled packed declarations
+        status       open
+        priority     high
+        blocked_by   [
+                     @task.Rewrite.T108,
+                     @task.Rewrite.T105,
+                     @task.Rewrite.T501,
+                     @task.Rewrite.T502,
+                     @task.Rewrite.T503,
+                     @task.Rewrite.T505,
+                     @task.Rewrite.T506,
+                     @task.Rewrite.T507,
+                     @task.Rewrite.T512,
+                     @task.Rewrite.T513,
+                     @task.Rewrite.T522,
+                     @task.Rewrite.T406
+                     ]
+        derives_from [
+                     @plan.PackageContract.O1,
+                     @plan.PackageContract.O2,
+                     @plan.PackageContract.V1,
+                     @plan.PackageContract.D1,
+                     @plan.PackageContract.D2,
+                     @plan.PackageContract.C2,
+                     @plan.PackageContract.C3,
+                     @plan.InspectionAndArtifacts.O1,
+                     @plan.InspectionAndArtifacts.V1
+                     ]
+        description
+            Deliverable: root, react, testing, and inspect routes expose settled named exports;
+            Q2-bound Inspection names remain omitted until T609; Q2/Q4-bound model names remain
+            omitted until T610.
+            Allowed writes: packages/flow-state-rewrite/package.json, src/index.ts,
+            src/react-entry.ts, src/testing.ts, src/inspect.ts, quickstart, CLI bin metadata, and
+            route/quickstart packed tests. T601 is the sole package.json and route-entrypoint
+            writer.
+            Evidence: per-route runtime/declaration maps, quickstart compile, and packed consumer
+            receipts;
+            evidence/T601.md.
+            1. Add the four route shells and settled named exports after each semantic owner exists.
+            2. Compile quickstart, strict isolated consumers, and React 18/19 packed consumers.
+            3. Verify package bin metadata targets the settled CLI command entry.
+            4. Reject namespace objects, deep imports, undeclared names, and unresolved forms.
+            Prerequisite rationale: T108 is the initial route gate; capability and artifact owners
+            provide
+            the names/declarations consumed here. Public package checks continue with each API
+            change.
+            Local deferral: InspectionAndArtifacts Q2 and StoriesAndModels Q2/Q4 leave named forms
+            open; T609 and T610 own their later reachability proofs.
+            Shared-write boundary: capability Tasks own API declarations; only T601 edits route
+            files.
+        acceptance
+            Exactly four route shells resolve; only settled names are exported and Q2-bound names
+            remain deferred to the named reachability proof Tasks T609/T610. Root/non-root route
+            boundaries, package namespaces, and deep
+            imports match the Plan. React 18/19 and isolated declaration consumers compile against
+            settled packed output; quickstart compiles without any/assertion erasure.
+            Run rewrite check:types, build, and check:packed-consumers; expected: all pass.
+
+    T602
+        title        Portable shared-codec host vectors
+        status       open
+        priority     medium
+        blocked_by   [@task.Rewrite.T107, @task.Rewrite.T409]
+        derives_from [
+                     @plan.PackageContract.C1,
+                     @plan.PackageContract.V2,
+                     @plan.InspectionAndArtifacts.O2,
+                     @plan.InspectionAndArtifacts.V2
+                     ]
+        description
+            Deliverable: the same compiled shared codec produces equal accepted bytes across
+            supported hosts.
+            Allowed writes: packages/flow-state-rewrite/test/portable-codec/**; do not edit codec
+            owners.
+            Evidence: exact runtime/browser versions, vectors, bytes or digests, and failure
+            receipts;
+            evidence/T602.md.
+            1. Run full ASCII, multibyte, composed/decomposed, 256/257-byte, and lone-surrogate
+            vectors
+            on pinned Node.
+            2. Run compact vectors through the same codec on Bun, Deno, Chromium, Gecko, and WebKit.
+            3. Record exact versions and compare accepted bytes; route any defect to T107/T409
+            owners.
+            Prerequisites: P1 owns codec core and P4 owns its bounded envelope integration.
+            Shared-write boundary: add host harnesses only; never add a second handwritten encoder.
+        acceptance
+            Every host uses the same compiled codec and accepted input produces equal canonical
+            bytes.
+            Lone surrogates and invalid limits fail before serialization or activation.
+            The full vector set passes on pinned Node and compact set passes on each recorded host.
+            Run host vector suites; expected: byte equality and pre-mutation rejection.
+
+    T603
+        title        Surface disposition map
+        status       open
+        priority     medium
+        derives_from [
+                     @plan.PackageContract.O3,
+                     @plan.PackageContract.V3,
+                     @plan.PackageContract.D1,
+                     @plan.PackageContract.C3
+                     ]
+        description
+            Deliverable: a row-by-row map for PackageContract DEL-001 through DEL-011 and RET-001
+            through
+            RET-005, with one new semantic owner and proof Task per live obligation.
+            Allowed writes: workflow/tasks/Rewrite/evidence/surface-disposition.md only.
+            Evidence: completed row map and reviewer observations in that file.
+            1. Read the new PackageContract Plan disposition rows and current new capability
+            Plans/Tasks.
+            2. Map each row to DELETE/REPLACE/RETAIN/HISTORICAL and its new owner/proof obligations.
+            3. Flag unmapped consumers or duplicated ownership; do not edit source or historical
+            records.
+            Prerequisite rationale: no implementation proof is required; this map consumes only the
+            new PackageContract and capability Plans/Tasks. It can proceed before implementation
+            proofs and does not establish absence.
+            Shared-write boundary: this Task is read-only apart from its evidence map; it does not
+            edit source or historical records.
+            No Beads, former contract pack, old Plan status, or historical Task status is evidence.
+        acceptance
+            Every DEL/RET row has an explicit disposition, one semantic owner, and a named proof
+            Task or a
+            clear unresolved owner gap.
+            No row claims runtime/declaration absence, retained behavior, cutover, or cleanup from
+            a map alone.
+            Review the complete row map against PackageContract O3; expected: no omitted or
+            multiply owned
+            obligation.
+
+    T604
+        title        Todo Essentials proving consumer
+        status       draft
+        priority     high
+        blocked_by   [
+                     @T601,
+                     @task.Rewrite.T501,
+                     @task.Rewrite.T502,
+                     @task.Rewrite.T503,
+                     @task.Rewrite.T506,
+                     @task.Rewrite.T507,
+                     @task.Rewrite.T508,
+                     @task.Rewrite.T509,
+                     @task.Rewrite.T511,
+                     @task.Rewrite.T512
+                     ]
+        derives_from [
+                     @plan.PackageContract.O4,
+                     @plan.PackageContract.V4,
+                     @plan.StoriesAndModels.O1,
+                     @plan.StoriesAndModels.O2,
+                     @plan.StoriesAndModels.O3,
+                     @plan.StoriesAndModels.O4,
+                     @plan.StoriesAndModels.V1,
+                     @plan.StoriesAndModels.V2,
+                     @plan.StoriesAndModels.V3,
+                     @plan.StoriesAndModels.V4
+                     ]
+        description
+            Deliverable: Todo Essentials exercises recursive states, refs, operations, React,
+            fixtures,
+            Stories, checkpoints, and TestClock through packed supported routes.
+            Allowed writes: packages/flow-state-rewrite/test/packed/todo/** only.
+            Evidence: exact packed revision, commands, runtime results, and cleanup receipts;
+            evidence/T604.md.
+            1. Build and install the fresh rewrite package into an isolated Todo consumer.
+            2. Exercise the named route flow and required actor/operation/Story journeys.
+            3. Record success and one representative type/runtime rejection before side effects.
+            Prerequisite rationale: T601 owns route reachability and component Tasks own semantics.
+            Fixes return to capability owners; no private implementation import is permitted.
+            Shared-write boundary: T604 writes the packed Todo consumer only; product and route
+            changes return to their owners.
+        acceptance
+            Against a fresh packed package, run the Todo Essentials journey through supported 
+            public routes: traverse recursive states and refs/leases, mark one Todo complete 
+            through its authored accepted action, observe the accepted state transition, operation 
+            result, and React view, then exercise fixtures, Story checkpoint/restore, and 
+            TestClock. Include one invalid action/type case and assert it rejects before 
+            actor/store mutation. No private/deep import, erased type, stale package, or alternate 
+            runtime is used. Run the packed Todo consumer suite; expected: the accepted action and 
+            every named journey pass, and the rejection leaves state unchanged.
+
+    T605
+        title        Application-authored bounded feed
+        status       draft
+        priority     high
+        blocked_by   [
+                     @T601,
+                     @task.Rewrite.T311,
+                     @task.Rewrite.T312,
+                     @task.Rewrite.T313
+                     ]
+        derives_from [
+                     @plan.PackageContract.O4,
+                     @plan.PackageContract.V4,
+                     @plan.Streams.O1,
+                     @plan.Streams.Q1,
+                     @plan.Streams.O2,
+                     @plan.Streams.O3
+                     ]
+        description
+            Deliverable: a packed consumer authors a bounded dropping/coalescing feed without Flow
+            pressure
+            options or a competing stream scheduler.
+            Allowed writes: packages/flow-state-rewrite/test/packed/feed/** only.
+            Evidence: authored feed, slow-consumer observations, release receipts; evidence/T605.md.
+            1. Build the feed solely from accepted stream declarations and application-owned policy.
+            2. Drive a slower consumer and observe the accepted drop/coalesce behavior.
+            3. Dispose the owner and verify the session releases exactly once.
+            Prerequisites: P3 stream sessions and integrated actor/store publication; T312 supplies
+            the settled authored forms after Streams Q1. T601 provides the packed consumer surface.
+            Local question: Streams Q1; keep draft.
+            Shared-write boundary: T605 writes the application feed consumer only; stream/runtime
+            changes return to P3 owners.
+        acceptance
+            The consumer authors dropping/coalescing behavior without a Flow pressure option.
+            Slow-consumer observations match application policy; Flow exposes no unaccepted queue
+            controls.
+            Disposal releases the production stream session exactly once.
+            Run the packed feed integration test; expected: bounded output and clean release.
+
+    T606
+        title        Incident Console proving application
+        status       draft
+        priority     high
+        blocked_by   [
+                     @T601,
+                     @task.Rewrite.T501,
+                     @task.Rewrite.T502,
+                     @task.Rewrite.T503,
+                     @task.Rewrite.T508,
+                     @task.Rewrite.T509,
+                     @task.Rewrite.T513,
+                     @task.Rewrite.T514,
+                     @task.Rewrite.T515,
+                     @task.Rewrite.T516,
+                     @task.Rewrite.T105,
+                     @task.Rewrite.T305,
+                     @task.Rewrite.T310,
+                     @task.Rewrite.T311,
+                     @task.Rewrite.T313,
+                     @task.Rewrite.T406,
+                     @task.Rewrite.T407,
+                     @task.Rewrite.T410,
+                     @task.Rewrite.T412,
+                     @T609
+                     ]
+        derives_from [
+                     @plan.PackageContract.O4,
+                     @plan.PackageContract.V4,
+                     @plan.ReactAndHosts.O3,
+                     @plan.ReactAndHosts.O4,
+                     @plan.StoriesAndModels.O3,
+                     @plan.StoriesAndModels.O4,
+                     @plan.CommandLine.O1,
+                     @plan.CommandLine.O2,
+                     @plan.CommandLine.O3,
+                     @plan.CommandLine.O4,
+                     @plan.DiagnosticsContract.O2,
+                     @plan.DiagnosticsContract.O3,
+                     @plan.InspectionAndArtifacts.O6,
+                     @plan.Transactions.O4,
+                     @plan.Transactions.V4
+                     ]
+        description
+            Deliverable: Incident Console proves exact bindings, conflicts, streams, inspection,
+            diagnostics,
+            installed CLI/artifacts, and browser lifetime over accepted routes.
+            Allowed writes: reference/incident-console/implementation/test/capability-buildout/**
+            and
+            packages/flow-state-rewrite/test/packed/incident-console/**.
+            Evidence: browser version, packed revision, journeys, interruption/cleanup results;
+            evidence/T606.md.
+            1. Install the fresh packed package and drive representative console/browser journeys.
+            2. Exercise a transaction conflict, stream lifecycle, trace comparison, and CLI failure
+            lane.
+            3. Record owner Task IDs for each semantic observation and distinguish app failures
+            from Flow.
+            Prerequisites: route/host/Story/CLI, operation, diagnostic, and artifact owners.
+            Shared-write boundary: application-owned tests only; product source fixes return to
+            their owners.
+        acceptance
+            The packed browser journey uses accepted public routes and preserves request/component 
+            ownership. Exercise a real application-owned remote lease: while its independent 
+            durable journal acknowledgment is pending or failed, assert no remote request is 
+            dispatched; after acknowledgment, cancel an invoked/in-flight remote operation and 
+            assert the view reports unknown/reconcileRequired, late completion cannot publish, and 
+            no rollback is claimed. Reconcile with the same remote identity; compensation, if 
+            exercised, is a distinct explicit operation. Also prove transaction conflict/preview 
+            behavior, stream lifecycle, inspection/trace comparison, diagnostics, CLI artifacts, 
+            and cleanup against their owner Plans, including interruption and finalization results. 
+            No private import, old surface, or fabricated failure is used. Run packed application 
+            and browser tests; expected: all owner-linked journeys, journal/no-dispatch and 
+            remote-lease cases, failures, and cleanup pass.
+
+    T607
+        title        Hydrated Offline Notes proving application
+        status       draft
+        priority     high
+        blocked_by   [
+                     @T601,
+                     @task.Rewrite.T504,
+                     @task.Rewrite.T505,
+                     @task.Rewrite.T205,
+                     @task.Rewrite.T206,
+                     @task.Rewrite.T301,
+                     @task.Rewrite.T305,
+                     @task.Rewrite.T313,
+                     @task.Rewrite.T401,
+                     @task.Rewrite.T402,
+                     @task.Rewrite.T403,
+                     @task.Rewrite.T404,
+                     @task.Rewrite.T405,
+                     @task.Rewrite.T414,
+                     @task.Rewrite.T415
+                     ]
+        derives_from [
+                     @plan.PackageContract.O4,
+                     @plan.PackageContract.V4,
+                     @plan.ReactAndHosts.O4,
+                     @plan.ReactAndHosts.V1,
+                     @plan.ReactAndHosts.V2,
+                     @plan.ReactAndHosts.V4,
+                     @plan.Persistence.O2,
+                     @plan.Persistence.O3,
+                     @plan.Persistence.O4,
+                     @plan.Persistence.O5,
+                     @plan.Persistence.V2,
+                     @plan.Persistence.V3,
+                     @plan.Persistence.V4,
+                     @plan.Persistence.V5,
+                     @plan.StoriesAndModels.Q1
+                     ]
+        description
+            Deliverable: Offline Notes proves request isolation, context-closed persistence, first
+            render,
+            outbox/reconnect/disposal, exact hydration, and trusted host seeding.
+            Allowed writes: packages/flow-state-rewrite/test/packed/offline-notes/** and
+            reference/offline-notes/implementation/test/capability-buildout/** if that proving app
+            exists.
+            Evidence: packed revision, first-render snapshots, restore/capture races, cleanup;
+            evidence/T607.md.
+            1. Build a request-owned Runtime and seed only through accepted construction authority.
+            2. Capture and restore the exact context/provider closure without replay, then render
+            first view.
+            3. Exercise outbox/reconnect/disposal and write-failure retention through public APIs.
+            Prerequisites: T504/T505 host boundaries, P2 context waves, P3 publication, and P4
+            persistence,
+            hydration, ordered writes, and stream hydration. T415 is the settled Stage 4 gate.
+            Local blockers: P2 T205/T206 and P3 T414 retain unresolved context/stream Questions.
+            Keep draft.
+            Shared-write boundary: T607 writes proving-application consumers only; host, context,
+            persistence, and stream changes return to their owners.
+        acceptance
+            Each request is isolated and first render observes the restored committed cut.
+            Context closure restores exact refs without replay or rebinding; host seeding fails
+            before mutation
+            when authority is stale or wrong-boundary.
+            Outbox/reconnect/disposal and storage failure preserve Runtime truth and last-good
+            bytes.
+            Run packed request/browser integration and crash/reconnect cases; expected: no
+            cross-request
+            state, replay, partial install, or false success.
+
+    T608
+        title        Final absence, no-residue, and cutover gate
+        status       draft
+        priority     high
+        blocked_by   [
+                     @task.Rewrite.T108,
+                     @task.Rewrite.T210,
+                     @task.Rewrite.T313,
+                     @task.Rewrite.T415,
+                     @task.Rewrite.T517,
+                     @T601,
+                     @T602,
+                     @T603,
+                     @T604,
+                     @T605,
+                     @T606,
+                     @T607,
+                     @T609,
+                     @T610,
+                     @T611
+                     ]
+        derives_from [
+                     @plan.ProjectDelivery.O3,
+                     @plan.ProjectDelivery.O4,
+                     @plan.ProjectDelivery.V2,
+                     @plan.ProjectDelivery.V3,
+                     @plan.ProjectDelivery.C1,
+                     @plan.PackageContract.O1,
+                     @plan.PackageContract.O2,
+                     @plan.PackageContract.O3,
+                     @plan.PackageContract.O4,
+                     @plan.PackageContract.V3,
+                     @plan.PackageContract.V4,
+                     @plan.PackageContract.C2,
+                     @plan.PackageContract.C3
+                     ]
+        satisfies    [
+                     @plan.PackageContract.O1,
+                     @plan.PackageContract.O2,
+                     @plan.ProjectDelivery.O3,
+                     @plan.ProjectDelivery.O4,
+                     @plan.PackageContract.O3,
+                     @plan.PackageContract.O4
+                     ]
+        description
+            Deliverable: one final mapped absence/no-residue audit and receipt-backed package
+            promotion gate.
+            Allowed writes: final evidence under workflow/tasks/Rewrite/evidence/**; any
+            physical
+            cleanup is limited to exact mapped paths after separate explicit authorization.
+            Never edit packages/flow-state or historical Beads/contract records.
+            Evidence: complete disposition map, runtime/type negatives, retained-boundary proofs,
+            packed
+            consumers, browser/CLI receipts, and the authorized changed-path audit;
+            evidence/T608.md.
+            1. Reconcile every DEL/RET row against T603 and the owning capability proof receipts.
+            2. Run absence, no-side-effect rejection, retained-route, package, browser, and final
+            build gates.
+            3. Stop at the authorization gate unless explicit package-promotion and physical-cleanup
+            authorization is recorded; never infer it from Task or Plan approval.
+            Prerequisites: P1 T108, P2 T210, P3 T313, P4 T415, P5 T517, and all P6 mapping/consumer
+            proofs.
+            Shared-write boundary: no semantic implementation changes; return gaps to their owner
+            Tasks.
+            This Task remains draft until plans, proofs, and separate cutover authorization are
+            settled.
+        acceptance
+            Every DEL/RET row maps to exactly one new semantic owner and passing
+            runtime/type/behavior
+            proof where required; no alias, wrapper, parser branch, or deleted-only path remains.
+            All four route export lists and packed declarations match the closed PackageContract
+            names, including deferred Inspection and pure-model names after settlement. All four
+            route export lists and packed declarations match the closed PackageContract names,
+            including deferred Inspection and pure-model names after settlement.
+            Retained boundaries work through accepted owners and all required packed/browser/CLI
+            consumer
+            gates pass against a fresh replacement package.
+            No source cleanup, package promotion, or product cutover occurs without explicit
+            recorded
+            authorization; the final receipts name the exact authorized paths and revision.
+            Run the PackageContract V3/V4 gate set plus the replacement build/docs/verify commands
+            after
+            their owners are retargeted; expected: every gate passes before promotion.
+
+    T609
+        title        Inspection export reachability after call-form settlement
+        status       draft
+        priority     high
+        blocked_by   [
+                     @T601,
+                     @task.Rewrite.T407,
+                     @task.Rewrite.T410,
+                     @task.Rewrite.T412
+                     ]
+        derives_from [
+                     @plan.PackageContract.O1,
+                     @plan.PackageContract.O2,
+                     @plan.PackageContract.V1,
+                     @plan.PackageContract.C3,
+                     @plan.InspectionAndArtifacts.O1,
+                     @plan.InspectionAndArtifacts.O4,
+                     @plan.InspectionAndArtifacts.V4,
+                     @plan.InspectionAndArtifacts.Q2
+                     ]
+        description
+            Deliverable: prove all deferred Inspection names are reachable through the inspect
+            route after call forms and wire schemas settle.
+            Allowed writes: packed inspect consumer tests and workflow evidence only.
+            Shared-write boundary: T601 owns package.json and every route entrypoint; route gaps
+            return to T601.
+            Evidence: exact export/signature map, packed imports, and declaration negatives;
+            evidence/T609.md.
+            1. Compile exact Inspection names whose call forms and artifact schemas are settled by
+            T407/T410.
+            2. Compile positive consumers and reject unresolved or unsupported forms.
+            3. Verify the complete inspect-route declarations and report any missing export to T601.
+            Prerequisites: T601 creates settled route shells; P4 owns projections, call forms, and
+            schemas.
+            Local question: InspectionAndArtifacts Q2 is the explicit shape blocker. Keep this Task
+            draft;
+            do not invent overloads or signatures.
+        acceptance
+            Every deferred Inspection name is reachable and matches the exact PackageContract list
+            and owner signature.
+            No Q2-bound name is exposed before its call form is settled; no alias or namespace
+            appears.
+            Packed imports/declarations pass for the complete four-route package.
+            Run rewrite check:types, build, and check:packed-consumers; expected: all pass.
+
+    T610
+        title        Pure-model export reachability after model shape settlement
+        status       draft
+        priority     high
+        blocked_by   [@T601, @task.Rewrite.T510]
+        derives_from [
+                     @plan.PackageContract.O1,
+                     @plan.PackageContract.O2,
+                     @plan.PackageContract.V1,
+                     @plan.PackageContract.C3,
+                     @plan.StoriesAndModels.O5,
+                     @plan.StoriesAndModels.V5,
+                     @plan.StoriesAndModels.Q2,
+                     @plan.StoriesAndModels.Q4
+                     ]
+        description
+            Deliverable: prove exact named pure-model exports are reachable through the testing
+            route after the owner settles result shape.
+            Allowed writes: packed model consumer tests and workflow evidence only.
+            Shared-write boundary: T601 owns package.json and every route entrypoint; route gaps
+            return to T601.
+            Evidence: exact imports/declarations and model purity/parity receipts; evidence/T610.md.
+            1. Compile only model names and members settled by StoriesAndModels Q2/Q4.
+            2. Compile packed consumers and prove no Story execution, Runtime, fixture, actor, or
+            side effect occurs during exploration.
+            3. Verify exact testing-route declarations and report any missing export to T601.
+            Prerequisites: T510 owns model behavior and Questions Q2/Q4 own the unresolved result
+            member semantics. Keep draft; do not infer those answers.
+        acceptance
+            Pure model names appear only on flow-state/testing and match the settled owner
+            signatures.
+            Model exploration is bounded and pure; Q2/Q4-dependent members are absent until their
+            decisions are recorded.
+            Packed imports/declarations pass without private imports, aliases, namespace objects,
+            or runtime work.
+            Run rewrite check:types, build, and check:packed-consumers; expected: all pass.
+
+    T611
+        title        Retarget root verification gates to replacement owners
+        status       draft
+        priority     high
+        blocked_by   [
+                     @task.Rewrite.T517,
+                     @T601,
+                     @T602,
+                     @T603,
+                     @T604,
+                     @T605,
+                     @T606,
+                     @T607,
+                     @T609,
+                     @T610
+                     ]
+        derives_from [@plan.PackageContract.O4, @plan.PackageContract.V4]
+        description
+            Deliverable: retarget root build/docs/verify and published/browser gate configuration to
+            replacement package owners after their proof and consumer receipts exist.
+            Allowed writes: root package scripts, docs build configuration, and published/browser 
+            gate
+            configuration only; no feature behavior, frozen package, historical record, cleanup, or
+            promotion.
+            Evidence: changed-path diff, exact gate-to-owner map, and command receipts; 
+            evidence/T611.md.
+            This Task remains draft until the separate root-gate retargeting authorization is 
+            recorded.
+        acceptance
+            Root build/docs/verify and published/browser gates invoke replacement owners and no 
+            longer
+            treat a green frozen-package result as rewrite evidence. The owner map covers every 
+            required
+            root gate and retains unrelated workspace checks.
+            Run the retargeted root commands after T611 changes; expected: each command reaches its
+            replacement proof owner and reports its actual result. No package promotion, physical
+            cleanup, or product cutover occurs in this Task.

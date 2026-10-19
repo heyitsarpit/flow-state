@@ -1,0 +1,970 @@
+phase P5
+title Hosts, Stories, and CLI
+
+tasks
+    T501
+        title        Existing Runtime provider
+        status       open
+        priority     high
+        blocked_by   [@task.Rewrite.T201]
+        derives_from [
+                     @plan.ReactAndHosts.O1,
+                     @plan.ReactAndHosts.V1,
+                     @plan.ReactAndHosts.D1,
+                     @plan.ReactAndHosts.C1
+                     ]
+        satisfies    [@plan.ReactAndHosts.O1]
+        description
+            Deliverable: FlowProvider consumes one already-created Runtime and its cached readiness.
+            Allowed writes: packages/flow-state-rewrite/src/react/provider/** and co-located tests.
+            Evidence: provider tests and workflow/tasks/Rewrite/evidence/T501.md.
+            1. Implement the sole React context provider with runtime-only props.
+            2. Cache Runtime readiness without acquiring services or disposal ownership.
+            3. Test explicit nested and concurrent Runtime isolation.
+            Prerequisite: P2 T201 establishes no-persistence Runtime readiness. T502 consumes the
+            provider context; it must not create or replace provider authority.
+            Shared-write boundary: T501 owns provider files. T601 alone owns package route files.
+        acceptance
+            The exact <FlowProvider runtime={runtime}> form typechecks; App, Implementation, boot,
+            factory, actor ID, storage, codec, and restore props reject.
+            Nested unrelated Runtimes retain separate lookup, subscriptions, lifecycle, and state.
+            Readiness failure remains visible and no second Runtime or cleanup owner is created.
+            Run the focused provider tests and flow-state-rewrite check:types; expected: pass.
+
+    T502
+        title        React actor preparation and attachment
+        status       open
+        priority     high
+        blocked_by   [
+                     @task.Rewrite.T201,
+                     @task.Rewrite.T202,
+                     @task.Rewrite.T203,
+                     @task.Rewrite.T204,
+                     @task.Rewrite.T207,
+                     @task.Rewrite.T208,
+                     @task.Rewrite.T209,
+                     @task.Rewrite.T210,
+                     @T501
+                     ]
+        derives_from [
+                     @plan.ReactAndHosts.O2,
+                     @plan.ReactAndHosts.V2,
+                     @plan.ReactAndHosts.D1,
+                     @plan.ReactAndHosts.C1
+                     ]
+        satisfies    [@plan.ReactAndHosts.O2]
+        description
+            Deliverable: useActor and useActorByRef attach existing production actor ownership
+            safely.
+            Allowed writes: packages/flow-state-rewrite/src/react/actor/** and co-located tests.
+            Evidence: preparation, commit, lifecycle, and type tests; evidence/T502.md.
+            1. Prepare one fresh actor ref, snapshot, command-only handle, and bounded mailbox per
+            component incarnation without render-time registration or work.
+            2. Commit against the exact provider revision and attach the same prepared actor.
+            3. Exercise abandonment, changed construction tuples, Strict Mode, Activity, and ref
+            lookup.
+            Prerequisites: P2 admission, lease, lifecycle, context, mailbox, macrostep, timer, and
+            actor-snapshot owners establish the production seams. T501 establishes provider
+            identity.
+            Shared-write boundary: T502 owns actor hooks. T503 consumes the handle and snapshot
+            types.
+        acceptance
+            Abandoned render creates no registration, Scope, subscription, work, persistence write,
+            or
+            evidence; its mailbox closes once and later commands reject.
+            Commit attaches the same actor and silently replaces stale provisional context.
+            The mailbox accepts at least 64 commands and overflow rejects without mutation.
+            Strict Mode and Activity preserve identity; suspension rejects commands and waits for
+            finalizers before resuming without replay. useActorByRef never creates or leases actors.
+            Run focused browser lifecycle/type tests; expected: all specified cases pass.
+
+    T503
+        title        Passive React selectors
+        status       open
+        priority     high
+        blocked_by   [
+                     @T502,
+                     @task.Rewrite.T303,
+                     @task.Rewrite.T305,
+                     @task.Rewrite.T313
+                     ]
+        derives_from [
+                     @plan.ReactAndHosts.O3,
+                     @plan.ReactAndHosts.V3,
+                     @plan.ReactAndHosts.D2,
+                     @plan.ReactAndHosts.C1
+                     ]
+        satisfies    [@plan.ReactAndHosts.O3]
+        description
+            Deliverable: useView observes exact actor and StoreFanout truth without gaining
+            authority.
+            Allowed writes: packages/flow-state-rewrite/src/react/view/** and co-located tests.
+            Evidence: selector types, dependency, equality, failure, and tear-free tests;
+            evidence/T503.md.
+            1. Implement exact descriptor/key dependency tracking and replace dependencies per run.
+            2. Apply the fixed Object.is scalar and named-record rules plus useShallow.
+            3. Test store/actor publication races, conditional reads, defects, and forbidden inputs.
+            Prerequisites: T502 supplies exact actor handles; P3 T303/T305/T313 supply canonical
+            reads,
+            writes, and integrated publication. No selector may add a competing store subscription.
+            Shared-write boundary: T503 owns selector implementation and tests; T601 owns exports.
+        acceptance
+            Selectors track only reads from the latest evaluation and return one tear-free
+            committed cut.
+            Scalar and non-null plain named-record equality follows the fixed Object.is rules.
+            Selector identity change preserves actor subscription; matching store publications
+            update it.
+            Machine, ref, comparator, mutation, and broad-subscription forms reject in type/runtime
+            tests.
+            Exceptions memoize at an unchanged cut and retry only after a matching publication.
+            Run focused selector tests and check:types; expected: pass without mutation or work.
+
+    T504
+        title        SSR and isolated request hosts
+        status       open
+        priority     high
+        blocked_by   [
+                     @T502,
+                     @task.Rewrite.T402,
+                     @task.Rewrite.T403,
+                     @task.Rewrite.T404
+                     ]
+        derives_from [
+                     @plan.ReactAndHosts.O4,
+                     @plan.ReactAndHosts.V1,
+                     @plan.ReactAndHosts.V2,
+                     @plan.ReactAndHosts.C2,
+                     @plan.Persistence.O2,
+                     @plan.Persistence.O3,
+                     @plan.Persistence.O4,
+                     @plan.Persistence.V2,
+                     @plan.Persistence.V3,
+                     @plan.Persistence.V4
+                     ]
+        description
+            Deliverable: server preparation stays inert and each request uses its own production
+            Runtime.
+            Allowed writes: packages/flow-state-rewrite/src/react/hosts/** and co-located tests.
+            Evidence: server render, concurrent request, hydration, and cleanup receipts;
+            evidence/T504.md.
+            1. Integrate SSR with the same prepared actor and commit attachment laws as React
+            clients.
+            2. Use request-owned RuntimeSetup, typed events, production operation kernels, and
+            cleanup.
+            3. Test concurrent requests, abandoned renders, restored context, and cleanup failures.
+            Prerequisites: T502 owns preparation/attachment; P4 T402-T404 own detached boot,
+            capture,
+            and hydration. P4-specific semantics remain with those owner Tasks.
+            Shared-write boundary: T504 owns server/request adapters, not persistence internals or
+            routes.
+        acceptance
+            Abandoned server rendering closes its mailbox and performs no registration or work.
+            A committed host attaches the same prepared actor and drains commands once.
+            Concurrent requests and the browser share no Runtime, actor, lease, state, or
+            persistence.
+            Hydration installs provider-derived context without input, initializer, event, or
+            context-event
+            replay. Each request disposes exactly its Runtime and preserves handler/cleanup failure
+            truth.
+            Run focused server/browser tests; expected: isolation and no-replay cases pass.
+
+    T505
+        title        Effect bridges and construction-owned writes
+        status       open
+        priority     high
+        blocked_by   [
+                     @task.Rewrite.T105,
+                     @task.Rewrite.T106,
+                     @task.Rewrite.T201,
+                     @task.Rewrite.T204,
+                     @task.Rewrite.T305
+                     ]
+        derives_from [
+                     @plan.ReactAndHosts.O4,
+                     @plan.ReactAndHosts.V4,
+                     @plan.ReactAndHosts.D1,
+                     @plan.ReactAndHosts.C1
+                     ]
+        description
+            Deliverable: final Effect bridges and private construction-scoped writes preserve
+            installed
+            Runtime authority and exact failure channels.
+            Allowed writes: packages/flow-state-rewrite/src/react/bridges/** and co-located tests.
+            Evidence: bridge typing, cause, revocation, and pre-mutation tests; evidence/T505.md.
+            1. Implement runPromise/runPromiseExit over the installed application Context and exact
+            A/E/R.
+            2. Adapt foreign Promises once at named boundaries and preserve complete Cause.
+            3. Test construction-scoped write authority against wrong, stale, revoked, and valid
+            cases.
+            Prerequisites: P1 diagnostics and operation seams, P2 readiness/context, and P3
+            canonical writes
+            own the failures and store mutation boundary. No public HostWriteLease is added.
+            Shared-write boundary: T505 owns bridge adapters; T504 owns request hosts; routes stay
+            in T601.
+        acceptance
+            runPromiseExit resolves Exit with the specified typed bridge failure; readiness failure
+            stays
+            inside Exit and complete Cause reaches the terminal owner.
+            Foreign Promise rejection maps once to the owned typed failure and supported abort is
+            forwarded.
+            Invalid construction authority fails before store mutation or publication; closing
+            Scope revokes it.
+            No public constructor, callable lease, nested Effect runner, or second Scope is
+            introduced.
+            Run focused bridge and negative type tests; expected: all pass.
+
+    T506
+        title        Closed inert Story builders
+        status       open
+        priority     high
+        blocked_by   [
+                     @task.Rewrite.T101,
+                     @task.Rewrite.T102,
+                     @task.Rewrite.T103,
+                     @task.Rewrite.T104,
+                     @task.Rewrite.T105,
+                     @task.Rewrite.T106
+                     ]
+        derives_from [
+                     @plan.StoriesAndModels.O1,
+                     @plan.StoriesAndModels.V1,
+                     @plan.StoriesAndModels.C1
+                     ]
+        satisfies    [@plan.StoriesAndModels.O1]
+        description
+            Deliverable: machine and App Story builders retain exact literals and create no Runtime
+            work.
+            Allowed writes: packages/flow-state-rewrite/src/testing/story/** and co-located tests.
+            Evidence: isolated type fixtures and constructor tests; evidence/T506.md.
+            1. Implement only the accepted closed constructor and command forms from the Plan.
+            2. Prove checkpoint-name accumulation, exact inferred requirements, and persistent
+            branching.
+            3. Reject excluded constructors, fields, and command names in strict consumers.
+            Prerequisite: P1 owns definition/machine/App/Implementation/diagnostic and operation
+            seams.
+            Shared-write boundary: T506 owns DSL types; later Story Tasks own separate
+            execution/model
+            modules and must not widen this public constructor surface.
+        acceptance
+            Builders preserve exact App/machine/recipe options, void input, checkpoint names, and
+            service
+            requirement closure in isolated declaration consumers.
+            Construction acquires no services, Runtime, fixture, actor, sink, or evidence.
+            Rejected fields and legacy commands fail type checks; each prefix extension leaves its
+            source
+            unchanged and creates isolated persistent branches.
+            Run testing check:types, check:packed-consumers, and focused constructor tests;
+            expected: pass.
+
+    T507
+        title        Story fixtures and exact actor recipes
+        status       open
+        priority     high
+        blocked_by   [
+                     @T506,
+                     @task.Rewrite.T103,
+                     @task.Rewrite.T104,
+                     @task.Rewrite.T106,
+                     @task.Rewrite.T202,
+                     @task.Rewrite.T203,
+                     @task.Rewrite.T204,
+                     @task.Rewrite.T207,
+                     @task.Rewrite.T210,
+                     @task.Rewrite.T301,
+                     @task.Rewrite.T303
+                     ]
+        derives_from [
+                     @plan.StoriesAndModels.O2,
+                     @plan.StoriesAndModels.V2,
+                     @plan.StoriesAndModels.C2
+                     ]
+        satisfies    [@plan.StoriesAndModels.O2]
+        description
+            Deliverable: complete service fixtures, resource seeds, and exact dependency-ordered
+            recipes.
+            Allowed writes: packages/flow-state-rewrite/src/testing/fixture/** and co-located tests.
+            Evidence: fixture closure, recipe identity, seed, and lease receipts; evidence/T507.md.
+            1. Validate fixture service closure and duplicate providers before construction.
+            2. Materialize exact providers before consumers and retain production actor leases.
+            3. Test repeated recipe identity, transitive refs, seeds, shared actors, and reversed
+            cleanup.
+            Prerequisites: P1 App/Implementation closure, P2 admission/lease/snapshot owners, and P3
+            canonical seed identity/store. T506 supplies the closed Story types.
+            Shared-write boundary: T507 owns fixture/recipe modules; T508 consumes their production
+            inputs.
+        acceptance
+            Missing requirements, duplicate providers, foreign/mismatched refs, and dependency
+            cycles reject
+            before actor creation or external work.
+            Providers construct once per Runtime before consumers; exact recipe identity and leases
+            persist
+            through use; Story leases release in reverse dependency order.
+            Seeds neither satisfy services nor bypass production kernels; app-owned actors remain
+            Runtime-owned.
+            Run fixture/recipe tests and focused type checks; expected: all closure and cleanup
+            cases pass.
+
+    T508
+        title        Production Story execution and cleanup
+        status       draft
+        priority     high
+        blocked_by   [
+                     @T507,
+                     @task.Rewrite.T201,
+                     @task.Rewrite.T202,
+                     @task.Rewrite.T203,
+                     @task.Rewrite.T204,
+                     @task.Rewrite.T205,
+                     @task.Rewrite.T206,
+                     @task.Rewrite.T207,
+                     @task.Rewrite.T208,
+                     @task.Rewrite.T209,
+                     @task.Rewrite.T210,
+                     @task.Rewrite.T313,
+                     @task.Rewrite.T415,
+                     @T519,
+                     @T521
+                     ]
+        derives_from [
+                     @plan.StoriesAndModels.O3,
+                     @plan.StoriesAndModels.V3,
+                     @plan.StoriesAndModels.D1,
+                     @plan.StoriesAndModels.C1,
+                     @plan.StoriesAndModels.Q1,
+                     @plan.StoriesAndModels.Q3,
+                     @plan.ProjectDelivery.O3,
+                     @plan.ProjectDelivery.V2,
+                     @plan.DiagnosticsContract.O2,
+                     @plan.DiagnosticsContract.V2,
+                     @plan.DiagnosticsContract.V4
+                     ]
+        satisfies    [@plan.StoriesAndModels.O3]
+        description
+            Deliverable: one Story.run executor uses production Runtime, deterministic TestClock,
+            and
+            ordered cleanup for App and machine Stories.
+            Allowed writes: packages/flow-state-rewrite/src/testing/execution/** and co-located
+            tests.
+            Evidence: mailbox/time/exit/cleanup proofs; evidence/T508.md.
+            1. Construct one fresh production Runtime and isolated in-memory persistence per App
+            run.
+            2. Process acknowledged commands and ready production work without implicit time
+            movement.
+            3. Exercise cancellation, maxTurns, pending external work, and each cleanup failure
+            lane.
+            Prerequisites: P2 runtime owners, P3 integrated actor/store publication, and P4 settled
+            Stage 4
+            gate T415. T205/T206 remain explicit context-wave decision blockers.
+            Local questions: Stories Q1 and Q3 leave the public error members and duration input
+            open.
+            Keep this Task draft until both owner decisions land; do not invent constructor or
+            duration forms.
+            Shared-write boundary: T508 owns the executor and clock integration, not evidence
+            schema or CLI.
+        acceptance
+            One executor runs through production bootstrap, admission, mailbox, timers, operations,
+            and cleanup.
+            Clock movement alone drains no work; process drains only ready work within maxTurns.
+            Cancellation closes admission, stops later commands, preserves partial evidence, and
+            waits for
+            finalizers. Every finalizer runs once in deterministic order; failure truth remains
+            primary.
+            No successful result follows cleanup failure; all owned Cause and cleanup diagnostics
+            remain.
+            Run focused production Story/TestClock tests; expected: every Plan V3 lane passes.
+
+    T509
+        title        Atomic Story checkpoints and end evidence
+        status       draft
+        priority     high
+        blocked_by   [
+                     @T508,
+                     @task.Rewrite.T210,
+                     @task.Rewrite.T313,
+                     @task.Rewrite.T403,
+                     @task.Rewrite.T408
+                     ]
+        derives_from [
+                     @plan.StoriesAndModels.O4,
+                     @plan.StoriesAndModels.V4,
+                     @plan.StoriesAndModels.D3,
+                     @plan.Persistence.O3,
+                     @plan.Persistence.V3,
+                     @plan.InspectionAndArtifacts.O3,
+                     @plan.InspectionAndArtifacts.V3,
+                     @plan.DiagnosticsContract.O2,
+                     @plan.DiagnosticsContract.V2
+                     ]
+        satisfies    [@plan.StoriesAndModels.O4]
+        description
+            Deliverable: checkpoints and run.end capture the exact Story closure at one committed
+            cut.
+            Allowed writes: packages/flow-state-rewrite/src/testing/evidence/** and co-located
+            tests.
+            Evidence: membership, race, failure-truth, and immutable-read proofs; evidence/T509.md.
+            1. Capture the focused machine or exact App recipe/ref closure and required published
+            facts.
+            2. Reuse Runtime publication and persistence capture laws without using durability
+            membership.
+            3. Race actor/store/context publication and test prior checkpoints after later failures.
+            Prerequisites: P2 actor snapshots, P3 actor/store publication, P4 context-closed
+            capture, and
+            bounded evidence sinks. Story membership stays Story-owned.
+            Shared-write boundary: T509 owns Story evidence selection; T408 owns accepted evidence
+            ordering.
+        acceptance
+            Capture includes exactly the target closure, one StoreState revision, committed actor
+            snapshots,
+            pending work, TestClock time, issues, and accepted evidence prefix.
+            Concurrent cuts or suspended context debt fail retryably; no partial or fabricated end
+            appears.
+            Lookup uses copied evidence only, performs no live work, and retains no resume
+            authority.
+            Earlier checkpoints remain immutable after later failure; cleanup failure cannot return
+            success.
+            Run capture race and failure tests; expected: exact membership and truthful failure
+            pass.
+
+    T510
+        title       Pure Story model traversal
+        status      draft
+        priority    medium
+        blocked_by  [@T506, @task.Rewrite.T102, @task.Rewrite.T106, @T520]
+        description
+            Deliverable: pure candidate-order BFS/DFS traversal over a fresh command-empty machine
+            Story.
+            Allowed writes: packages/flow-state-rewrite/src/testing/model/traversal/** and
+            independent oracle tests.
+            Evidence: oracle, bound, purity, key-defect, and type receipts; evidence/T510.md.
+            1. Implement only the accepted shortest/simple path rules and call-local candidate
+            events.
+            2. Compare results with an independent small-graph oracle across cycles, keys, and
+            bounds.
+            3. Prove invalid keys throw synchronously without partial results or acquired authority.
+            Prerequisites: T506 defines the base Story; P1 owns machine transitions and canonical
+            keys.
+            This pure slice deliberately has no P2-P4 blocker.
+            Shared-write boundary: T510 owns pure traversal and oracle tests; T511 owns live parity
+            checks only.
+            Local questions: Stories Q2 and Q4 leave explored counting and the predicted state
+            member open.
+            Keep the Task draft and do not infer either public shape.
+        acceptance
+            Zero-step path and candidate order match the independent oracle for BFS and DFS.
+            Depth/limit bounds and truncated/explored outputs follow the settled questions once
+            resolved.
+            Noncanonical or defective keys throw synchronously with no partial paths.
+            Traversal performs no Effect, provider construction, Runtime/actor work, mutation, time
+            movement,
+            or hidden candidate retention.
+            Run pure model oracle/property cases and type checks; expected: exact parity and no
+            side effects.
+
+    T511
+        title        Live Story paths match pure model predictions
+        status       draft
+        priority     high
+        blocked_by   [@T510, @T508, @T509]
+        derives_from [
+                     @plan.StoriesAndModels.O5,
+                     @plan.StoriesAndModels.V5,
+                     @plan.StoriesAndModels.D2
+                     ]
+        satisfies    [@plan.StoriesAndModels.O5]
+        description
+            Deliverable: every returned path.story is an ordinary Story whose live prefixes match
+            the
+            same stateKey predictions.
+            Allowed writes: packages/flow-state-rewrite/src/testing/model/test/live-parity.test.ts
+            only.
+            Evidence: final/prefix parity receipts; evidence/T511.md.
+            1. Run bounded pure paths from T510 through the production executor.
+            2. Compare final and prefix stateKey values, snapshots, turns, pending work, and
+            operation facts.
+            3. Name only evidence-backed nondeterministic fields; keep React outside machine time.
+            Prerequisites: T510 pure traversal and T508/T509 production execution/evidence.
+            Shared-write boundary: T511 adds live parity tests only; implementation defects return
+            to T510/T508 owners.
+        acceptance
+            Live final and prefix keys match the pure predictions for the same machine and authored
+            events.
+            Snapshots, turn counts, pending work, operation facts/generations, context, and cleanup
+            are
+            compared under the Story Plan matrix.
+            No candidate event is inferred and no second interpreter is introduced.
+            Run live model parity cases; expected: all declared deterministic fields match.
+
+    T512
+        title        Inert branded behavior gateway
+        status       open
+        priority     high
+        blocked_by   [@T506, @T507, @task.Rewrite.T103, @task.Rewrite.T104]
+        derives_from [
+                     @plan.StoriesAndModels.O6,
+                     @plan.StoriesAndModels.V6,
+                     @plan.StoriesAndModels.C1,
+                     @plan.CommandLine.O1,
+                     @plan.CommandLine.D1
+                     ]
+        satisfies    [@plan.StoriesAndModels.O6]
+        description
+            Deliverable: one inert branded gateway registers a supplied App and exact external
+            Story IDs.
+            Allowed writes: packages/flow-state-rewrite/src/testing/gateway/** and co-located tests.
+            Evidence: brand, identity, invalid-registration, and no-acquisition receipts;
+            evidence/T512.md.
+            1. Validate nonempty unique IDs, exact App identity, and accepted App/machine Story
+            membership.
+            2. Keep gateway internals private and registration synchronous.
+            3. Prove registration acquires no Runtime, Implementation, actor, fixture, sink, or
+            executor.
+            Prerequisites: P1 closed App graph/Implementation closure and T506/T507 Story
+            constructors.
+            Shared-write boundary: T512 owns the gateway brand; T513 consumes it without a second
+            validator.
+        acceptance
+            Valid records retain exactly one supplied App and external-ID mapping.
+            Empty/duplicate IDs, missing/mixed Apps, recipes, foreign machines, and incompatible
+            Stories reject.
+            Lookalikes fail branding; valid and invalid registration acquire no Runtime, services,
+            fixture,
+            actor, sink, executor, or cleanup.
+            Run gateway tests and packed type consumers; expected: accepted identity only, with no
+            effects.
+
+    T513
+        title        CLI grammar and trusted gateway loading
+        status       open
+        priority     high
+        blocked_by   [@T512, @task.Rewrite.T108]
+        derives_from [
+                     @plan.CommandLine.O1,
+                     @plan.CommandLine.V1,
+                     @plan.CommandLine.D1,
+                     @plan.CommandLine.C1,
+                     @plan.CommandLine.C2,
+                     @plan.StoriesAndModels.O6,
+                     @plan.StoriesAndModels.V6
+                     ]
+        satisfies    [@plan.CommandLine.O1]
+        description
+            Deliverable: exactly ten CLI leaves parse and gateway-loading leaves use the branded
+            value.
+            Allowed writes: packages/flow-state-rewrite/src/cli/grammar/**, gateway-loader/**, and
+            tests.
+            Evidence: parser matrix, path/identity failures, and inert discovery tests;
+            evidence/T513.md.
+            1. Implement the exact grammar, defaults, repeated-option rejection, and selector
+            parsing.
+            2. Resolve project root and gateway under the specified trusted local-code boundary.
+            3. Test artifact-only commands with a gateway that fails if imported.
+            Prerequisites: P1 initial CLI/package route and T512 gateway. Artifact semantics remain
+            owned
+            by InspectionAndArtifacts; command grammar remains CLI-owned.
+            Shared-write boundary: T513 owns grammar and trusted loader files; artifact and process
+            behavior stay with T514/T515.
+        acceptance
+            Only the ten accepted leaves/options parse; unknown, repeated, conflicting, and deleted
+            forms
+            fail as usage errors.
+            Gateway path escape and package identity mismatch reject before registry access;
+            temporary
+            bundles are removed on success, failure, and interruption.
+            Artifact-only commands never load gateway code; list/describe/build/check do not
+            construct
+            Runtime, Fixture, actor, sink, or executor.
+            Run focused parser/loader tests; expected: exact grammar and inert discovery pass.
+
+    T514
+        title        CLI artifact commands and atomic publication
+        status       draft
+        priority     high
+        blocked_by   [
+                     @T513,
+                     @task.Rewrite.T107,
+                     @task.Rewrite.T407,
+                     @task.Rewrite.T409,
+                     @task.Rewrite.T410,
+                     @task.Rewrite.T412
+                     ]
+        derives_from [
+                     @plan.CommandLine.O2,
+                     @plan.CommandLine.V2,
+                     @plan.CommandLine.D1,
+                     @plan.CommandLine.D2,
+                     @plan.CommandLine.C1,
+                     @plan.CommandLine.C2,
+                     @plan.CommandLine.C3,
+                     @plan.InspectionAndArtifacts.O2,
+                     @plan.InspectionAndArtifacts.O4,
+                     @plan.InspectionAndArtifacts.O6,
+                     @plan.InspectionAndArtifacts.V2,
+                     @plan.InspectionAndArtifacts.V4,
+                     @plan.InspectionAndArtifacts.V6,
+                     @plan.InspectionAndArtifacts.Q2
+                     ]
+        satisfies    [@plan.CommandLine.O2]
+        description
+            Deliverable: behavior and trace artifact-only commands use canonical bounded schemas and
+            atomic destination publication.
+            Allowed writes: packages/flow-state-rewrite/src/cli/artifacts/** and co-located tests.
+            Evidence: bounds, schema, preflight, comparison, and atomic-write receipts;
+            evidence/T514.md.
+            1. Implement build/render/diff/check and summarize/proof/diff over owner projections.
+            2. Preflight destinations before Runtime acquisition and use the shared codec for all
+            input.
+            3. Gate commits so pre-commit failures preserve old or absent output.
+            Prerequisites: P1 T107 shared codec, P4 bounded envelopes/schemas/comparison, and T407
+            final
+            call forms. No CLI-owned schema or comparison semantics are added.
+            Local question: InspectionAndArtifacts Q2 leaves final call forms open. Keep this Task
+            draft.
+            Shared-write boundary: T514 owns artifact command files; T513 owns grammar/loader and
+            T515 owns Story process behavior.
+        acceptance
+            Only the shared structural codec decides bounds, malformed input, and canonical bytes.
+            Artifact-only commands execute no gateway or application code.
+            Destination preflight precedes any Runtime acquisition; failed pre-commit writes
+            preserve prior
+            bytes or absence. Comparison keeps completeness, ordering, and equality semantics from
+            P4.
+            Run CLI artifact tests for malformed/oversized/gzip input, symlinks, races,
+            flush/close, and
+            pre/post-commit failures; expected: atomicity and canonical diagnostics pass.
+
+    T515
+        title        CLI Story result, output, signals, and exits
+        status       draft
+        priority     high
+        blocked_by   [
+                     @T508,
+                     @T509,
+                     @T512,
+                     @T514,
+                     @task.Rewrite.T105,
+                     @task.Rewrite.T412,
+                     @T519
+                     ]
+        derives_from [
+                     @plan.CommandLine.O3,
+                     @plan.CommandLine.V3,
+                     @plan.CommandLine.D3,
+                     @plan.CommandLine.C3,
+                     @plan.StoriesAndModels.O3,
+                     @plan.StoriesAndModels.O4,
+                     @plan.StoriesAndModels.V3,
+                     @plan.StoriesAndModels.V4,
+                     @plan.DiagnosticsContract.O2,
+                     @plan.DiagnosticsContract.O3,
+                     @plan.DiagnosticsContract.V2,
+                     @plan.DiagnosticsContract.V4,
+                     @plan.StoriesAndModels.Q1
+                     ]
+        satisfies    [@plan.CommandLine.O3]
+        description
+            Deliverable: story run uses the shared Story executor and one result for text/JSON,
+            trace,
+            signals, and exit status.
+            Allowed writes: packages/flow-state-rewrite/src/cli/story-run/** and co-located tests.
+            Evidence: result projection, interruption, signal, sink, and exit receipts;
+            evidence/T515.md.
+            1. Invoke the package-private Story executor without creating a CLI execution model.
+            2. Project complete/partial failure, cleanup, and accepted/drained prefixes from its
+            result.
+            3. Test SIGINT/SIGTERM before and after trace commit and preserve ordered secondary
+            failures.
+            Prerequisites: T508/T509 production execution/evidence, T512 gateway, T514 artifacts,
+            and P1
+            diagnostic ownership. The CLI owns only final process projection.
+            Local question: Stories Q1 leaves FlowStoryExecutionError readonly members and types
+            open.
+            Keep this Task draft; do not invent the public error envelope.
+            Shared-write boundary: T515 owns Story-result process output/signals/exits; T514 owns
+            artifact operations and T516 owns installed-binary proof.
+        acceptance
+            Story CLI and StoryPlan use one executor, checkpoints, run.end, failure, diagnostics,
+            cleanup,
+            and private evidence model.
+            A first signal closes admission, awaits finalization, publishes truthful partial bytes
+            only when
+            commit succeeds, and exits 130/143. Pre-commit failure preserves old or absent output.
+            The result controls text/JSON, sink diagnostics, and exit; complete traces alone
+            satisfy proof.
+            Run source CLI integration tests with success, runtime failure, cleanup failure, and
+            signals;
+            expected: exact result and commit/exit truth in each lane.
+
+    T516
+        title       Fresh installed CLI binary and packed parity
+        status      draft
+        priority    high
+        blocked_by  [@T513, @T514, @T515, @T522, @task.Rewrite.T601]
+        satisfies   [@plan.CommandLine.O4]
+        description
+            Deliverable: a fresh installed package binary matches source and packed consumer
+            behavior.
+            Allowed writes: packages/flow-state-rewrite/test/packed/cli/** and gate scripts owned
+            there.
+            Evidence: package revision, install receipt, command outputs, exits, and signal results;
+            evidence/T516.md.
+            1. Build with the pinned package command and install that fresh output into an isolated
+            consumer.
+            2. Run behavior, Story, and trace commands against source and installed binary fixtures.
+            3. Compare text/JSON, bytes, diagnostics, signals, and exits under the same inputs.
+            Prerequisites: CLI leaf implementations and T601 package binary/route configuration. No
+            stale
+            dist or previously installed package counts as evidence.
+            Shared-write boundary: T516 owns isolated installed-binary consumer tests only; CLI
+            defects return to T513/T514/T515.
+        acceptance
+            Build and install a fresh package revision into an isolated consumer; stale dist or a 
+            previously installed package is not evidence. Compare source and installed results 
+            across the full CommandLine V4 matrix: every supported leaf and 
+            malformed/unknown/duplicate-flag grammar lane; trusted loader containment, exact 
+            package identity, and gateway failure; text/JSON bytes, stdout/stderr routing, and each 
+            specified exit; stdin rules and size bounds; atomic artifact publication on success and 
+            failure; Story evidence/checkpoints and trace output; cleanup failure and 
+            SIGINT/SIGTERM. For each positive lane assert matching result bytes and exit; for each 
+            rejection/failure lane assert the same diagnostic and exit, no partial artifact 
+            replacement, and no domain work where the Plan requires inert rejection. Run the pinned 
+            package build, packed-consumer checks, and isolated fresh-binary vectors; expected: 
+            every source/installed lane matches.
+
+    T517
+        title        P5 host, Story, and CLI integration gate
+        status       draft
+        priority     high
+        blocked_by   [
+                     @T501,
+                     @T502,
+                     @T503,
+                     @T504,
+                     @T505,
+                     @T506,
+                     @T507,
+                     @T508,
+                     @T509,
+                     @T510,
+                     @T511,
+                     @T512,
+                     @T513,
+                     @T514,
+                     @T515,
+                     @T516,
+                     @T518,
+                     @T519,
+                     @T520,
+                     @T521,
+                     @T522,
+                     @task.Rewrite.T601
+                     ]
+        derives_from [
+                     @plan.ProjectDelivery.O1,
+                     @plan.ProjectDelivery.O2,
+                     @plan.ProjectDelivery.O3,
+                     @plan.ProjectDelivery.O4,
+                     @plan.ProjectDelivery.V1,
+                     @plan.ProjectDelivery.V2,
+                     @plan.ProjectDelivery.V3,
+                     @plan.ReactAndHosts.V1,
+                     @plan.ReactAndHosts.V2,
+                     @plan.ReactAndHosts.V3,
+                     @plan.ReactAndHosts.V4,
+                     @plan.StoriesAndModels.V2,
+                     @plan.StoriesAndModels.V3,
+                     @plan.StoriesAndModels.V4,
+                     @plan.StoriesAndModels.V5,
+                     @plan.StoriesAndModels.V6,
+                     @plan.CommandLine.V1,
+                     @plan.CommandLine.V2,
+                     @plan.CommandLine.V3,
+                     @plan.CommandLine.V4,
+                     @plan.PackageContract.O4,
+                     @plan.PackageContract.V4
+                     ]
+        satisfies    [
+                     @plan.ProjectDelivery.O3,
+                     @plan.ProjectDelivery.O4,
+                     @plan.ProjectDelivery.O1,
+                     @plan.ProjectDelivery.O2,
+                     @plan.ReactAndHosts.O4
+                     ]
+        description
+            Deliverable: one observable Stage 5 exit record over browser, isolated consumer, live
+            Story/model,
+            installed CLI, proving-app, output, signal, and exit evidence.
+            Allowed writes: workflow/tasks/Rewrite/evidence/T517.md only; fixes return
+            to owner
+            Tasks. Do not duplicate production proof implementations.
+            Evidence: exact commands, package revision, host/browser versions, and owner Task
+            receipts.
+            1. Check Task edges against ProjectDelivery stages and confirm no ownership cycle.
+            2. Run the Stage 5 browser/isolated-consumer, Story/model parity, and installed binary
+            gates after their owner receipts exist.
+            3. Record pass/fail/inconclusive per Verification target and retain unresolved local
+            questions.
+            Prerequisite rationale: this is the sole P5 integration exit gate; component Tasks
+            remain free
+            to progress from their actual prerequisites. P6 consumer applications and final cutover
+            remain separately owned.
+            Shared-write boundary: this Task writes evidence only; no source owner or acceptance is
+            duplicated.
+        acceptance
+            Verify the complete candidate coverage and graph: every outcome in the 13 new 
+            capability Plans has a mapped owner Task; every Verification target is assigned an 
+            owner Task or explicitly deferred; semantic Plan links are not treated as execution 
+            blockers; all blockers express executable prerequisites; and the six-stage prerequisite 
+            graph is acyclic. Inspect the recorded ProjectDelivery and capability Plan/Task 
+            records; verify owner mappings, distinguish semantic owner links from executable 
+            blockers, and record the exact Plan/Task artifact checksums with the coverage and DAG 
+            receipt in evidence/T517.md. React 18/19 and browser checks pass on package routes with 
+            no cross-Runtime ownership. SSR/request proofs show abandoned render does no work, 
+            committed attachment drains once, and requests remain isolated. For ReactAndHosts 
+            O4/V4, prove runPromiseExit preserves typed failure and complete Cause; foreign Promise 
+            rejection/abort is adapted once; stale, foreign, and revoked construction-scoped writes 
+            fail before store mutation/publication; valid writes are accepted; Scope close revokes 
+            authority and waits for cleanup while retaining terminal failure truth. Live 
+            Story/model final and prefix parity passes with exact bounded evidence. Fresh installed 
+            CLI success, malformed input, cleanup failure, SIGINT/SIGTERM, output, and exit cases 
+            pass; P6 consumer Tasks retain their own application receipts. Record 
+            pass/fail/inconclusive for each mapped Verification target and name any still-open 
+            local Question; do not claim unresolved clauses passed. Run the recorded coverage/DAG 
+            and focused P5 gate commands; expected: every settled Stage 5 clause passes or is 
+            explicitly deferred to a named open Question.
+
+    T518
+        title        RequirementsOf carrier closure across Stories and models
+        status       draft
+        priority     high
+        blocked_by   [@task.Rewrite.T104, @T506, @T507, @T510]
+        derives_from [
+                     @plan.ApplicationsAndActors.O2,
+                     @plan.ApplicationsAndActors.V2,
+                     @plan.StoriesAndModels.V1,
+                     @plan.StoriesAndModels.V2,
+                     @plan.StoriesAndModels.V5,
+                     @plan.StoriesAndModels.Q4
+                     ]
+        satisfies    [@plan.ApplicationsAndActors.O2]
+        description
+            Deliverable: strict isolated consumers prove one exact covariant requirement law for
+            descriptors,
+            machines, modules, Apps, fixtures, Stories, and models.
+            Allowed writes: packages/flow-state-rewrite/test/requirements-carriers/** only.
+            Evidence: positive/negative declarations, inferred unions, and compiler results;
+            evidence/T518.md.
+            1. Extend the P1 static carrier matrix through complete fixtures, inferred Stories, and
+            model
+            values; preserve the exact consumer requirement union.
+            2. Assert covariance and removal of only Flow-owned Scope; providers never erase the
+            carrier.
+            3. Reject missing/remaining requirements, duplicate identities, and excessive recursive
+            expansion.
+            Prerequisites: T104 establishes static carriers; T506/T507/T510 provide the public
+            Story,
+            fixture, and model values used by consumers.
+            Local question: Q4 leaves one predicted snapshot member open. Tests must not read that
+            member;
+            the Questions do not alter RequirementsOf, but the model declaration stays draft until
+            settled.
+            Shared-write boundary: this Task adds consumer fixtures only; API carriers stay with
+            owner Tasks.
+        acceptance
+            RequirementsOf preserves the exact union and covariance across all seven carrier levels.
+            Complete fixture providers do not replace inferred requirements with never or provider
+            branding.
+            Only Flow-owned Scope is removed; accepted strict isolated declarations compile without
+            any,
+            assertion erasure, or excessive instantiation.
+            Missing and remaining requirements fail where expected; duplicate providers reject.
+            Run the isolated requirements-carrier type suite; expected: all positive and negative
+            cases pass.
+
+    T519
+        title        Resolve Story execution error envelope
+        status       draft
+        priority     high
+        derives_from [
+                     @plan.StoriesAndModels.Q1,
+                     @plan.StoriesAndModels.O3,
+                     @plan.DiagnosticsContract.O3
+                     ]
+        description
+            Deliverable: record the owner-approved readonly members and exact types exposed by
+            FlowStoryExecutionError. Keep the decision local to Story execution and its CLI result
+            projection. This Task chooses no runtime or public error shape itself.
+        acceptance
+            Record the owner-approved exact fields, types, immutability, and failure projection for
+            StoriesAndModels.Q1 before T508/T515 implement those clauses. Preserve any Cause only
+            where the Plan explicitly permits it. Do not infer the shape from examples or retained
+            source. No implementation belongs to this decision Task.
+
+    T520
+        title        Resolve pure model result shape
+        status       draft
+        priority     medium
+        derives_from [
+                     @plan.StoriesAndModels.Q2,
+                     @plan.StoriesAndModels.Q4,
+                     @plan.StoriesAndModels.O5,
+                     @plan.StoriesAndModels.V5
+                     ]
+        description
+            Deliverable: record the owner-approved explored-count unit/increment point and exact
+            predicted snapshot state member for the pure model result. These two fields form one
+            result-shape decision; pure traversal remains independently bounded and side-effect 
+            free.
+        acceptance
+            Record separate explicit answers to StoriesAndModels.Q2 and Q4, including exact positive
+            and negative result-shape consequences, before T510/T610 expose those members. Do not
+            infer either field from old examples. No source implementation belongs to this task.
+
+    T521
+        title        Resolve Story duration input
+        status       draft
+        priority     medium
+        derives_from [
+                     @plan.StoriesAndModels.Q3,
+                     @plan.StoriesAndModels.O3,
+                     @plan.StoriesAndModels.V3
+                     ]
+        description
+            Deliverable: record the accepted input type and units for Story advance(duration), 
+            without
+            changing the explicit-clock rule or processing semantics.
+        acceptance
+            Record the owner-approved exact duration input and unit, including positive and negative
+            call forms, before T508 implements the command. Do not infer the representation from old
+            source or examples. No runtime implementation belongs to this decision Task.
+
+    T522
+        title        Dispatch CLI commands through one private result
+        status       open
+        priority     high
+        blocked_by   [@T512, @T513, @T514, @T515]
+        derives_from [
+                     @plan.CommandLine.O1,
+                     @plan.CommandLine.O3,
+                     @plan.CommandLine.V1,
+                     @plan.CommandLine.V3
+                     ]
+        satisfies    [@plan.CommandLine.O1, @plan.CommandLine.O3]
+        description
+            Deliverable: one top-level dispatcher owns accepted CLI invocation, help/version, story
+            list/describe, and one private result that controls text/JSON, stdout/stderr, and exit.
+            Allowed writes: packages/flow-state-rewrite/src/cli/dispatch/** and co-located tests.
+            Evidence: exact leaf dispatch, result parity, stream routing, and exit tests; 
+            evidence/T522.md.
+            1. Dispatch only the closed ten-leaf grammar to the gateway or owner command modules.
+            2. Keep artifact leaves in T514 and Story run in T515; no parallel CLI execution model.
+            3. Prove story list/describe, help/version, result formatting, and process output.
+            Prerequisites: T512 gateway, T513 parser/loading, T514 artifact leaves, and T515 Story
+            result projection. T601 consumes this settled bin/dispatcher route.
+        acceptance
+            Each accepted leaf dispatches exactly once through its named owner and one private 
+            result
+            determines text/JSON and stdout/stderr. Story list/describe use the trusted gateway;
+            help/version remain conventional unversioned text.
+            Unknown flags, duplicate stdin operands, malformed commands, and gateway load failures
+            produce their specified result/exit without domain work. Run dispatcher unit and process
+            tests; expected: exact leaf/result parity and no alternate history or execution model.

@@ -1,0 +1,622 @@
+phase P4
+title Persistence and complete evidence
+
+tasks
+    T401
+        title        PersistenceProviderAndStorage
+        status       open
+        priority     high
+        blocked_by   [
+                     @task.Rewrite.T105,
+                     @task.Rewrite.T107,
+                     @task.Rewrite.T201
+                     ]
+        derives_from [
+                     @plan.Persistence.O1,
+                     @plan.Persistence.V1,
+                     @plan.Persistence.D1,
+                     @plan.InspectionAndArtifacts.O2,
+                     @plan.ProjectDelivery.O3,
+                     @plan.DiagnosticsContract.O3
+                     ]
+        satisfies    [@plan.Persistence.O1, @plan.DiagnosticsContract.O3]
+        description
+            Deliver typed optional provider declarations and storage boundary without 
+            construction-time I/O. Ordered work: (1) define exact provider/codec types and default 
+            persist=false behavior; (2) keep construction inert; (3) validate detached payloads 
+            before installation; (4) prove provider read/write error mapping and optional 
+            capability behavior. Permitted paths: persistence/provider.ts and 
+            persistence/test/provider-types.test.ts, provider.test.ts. Shared-write boundary: T107 
+            owns structural codec core and initial evidence record contract; T409 owns bounded 
+            envelope integration. Do not add storage I/O during Runtime construction. Evidence: 
+            provider-types.test.ts and provider.test.ts.
+        acceptance
+            Positive: optional provider surface preserves exact data and failure types, omitted 
+            persistence stays disabled, and construction performs no read/write. Check: 
+            persistence/test/provider-types.test.ts and provider.test.ts; expected: exact types 
+            compile and provider counters remain zero before ready.
+
+            Failure: malformed provider data, codec failure, or provider read/write error maps to a 
+            typed diagnostic before installing a candidate record. Check: 
+            persistence/test/provider.test.ts; expected: existing committed state remains unchanged.
+
+    T402
+        title        DurableSelectionAndDetachedBoot
+        status       open
+        priority     high
+        blocked_by   [
+                     @T401,
+                     @task.Rewrite.T201,
+                     @task.Rewrite.T202,
+                     @task.Rewrite.T204,
+                     @task.Rewrite.T303
+                     ]
+        derives_from [
+                     @plan.Persistence.O2,
+                     @plan.Persistence.V2,
+                     @plan.ApplicationsAndActors.O3,
+                     @plan.ApplicationsAndActors.O4,
+                     @plan.ProjectDelivery.O3
+                     ]
+        satisfies    [@plan.Persistence.O2, @plan.ApplicationsAndActors.O3]
+        description
+            Deliver durable selection and persistence-backed readiness/boot through the production 
+            Runtime, preserving detached validation before service acquisition, installation, 
+            activation, or handle escape. Ordered work: (1) consume provider and no-persistence 
+            readiness seams; (2) select the compatible durable record; (3) validate candidate 
+            record and App identity detached; (4) acquire requirements and install/activate only 
+            after validation; (5) prove base-readiness and persisted-readiness outcomes. Permitted 
+            paths: persistence/bootstrap.ts, persistence/test/bootstrap.test.ts, and the production 
+            Runtime ready assembly owner. Shared-write boundary: T201/T202 remain base increments; 
+            this task owns the persistence boot increment. Evidence: bootstrap.test.ts.
+        acceptance
+            Positive: a valid compatible persisted record is selected, validated detached, then 
+            installed before actors/handle become available. Check: 
+            persistence/test/bootstrap.test.ts; expected: ready exposes the restored runtime only 
+            after all validation and acquisition succeed.
+
+            Failure: missing/incompatible/corrupt record or acquisition failure rejects readiness 
+            before activation and handle escape. Check: persistence/test/bootstrap.test.ts; 
+            expected: prior durable and in-memory state remain intact and no actor starts.
+
+    T403
+        title        ContextClosedCapture
+        status       open
+        priority     medium
+        blocked_by   [@T401, @T402, @task.Rewrite.T313, @task.Rewrite.T204]
+        derives_from [
+                     @plan.Persistence.O3,
+                     @plan.Persistence.V3,
+                     @plan.ApplicationsAndActors.O6,
+                     @plan.ApplicationsAndActors.O7,
+                     @plan.ProjectDelivery.O3
+                     ]
+        satisfies    [@plan.Persistence.O3]
+        description
+            Deliver one consistent capture cut across actor, resource/store, operation, context, 
+            and evidence state. Ordered work: (1) use the integrated P3 publication owner; (2) 
+            capture only values belonging to the committed cut; (3) include the exact context 
+            closure required by T204’s settled provider bindings; (4) prove capture racing commit 
+            yields a coherent old or new cut. Permitted paths: persistence/capture.ts and 
+            persistence/test/capture.test.ts. Shared-write boundary: this is a capture reader, not 
+            a second actor/store publication owner. Selector-defect policy T206/T205 does not gate 
+            settled closure capture: suspended or incomplete context debt is rejected. Independent 
+            provider/boot/schema tasks proceed. Evidence: capture.test.ts.
+        acceptance
+            Positive: direct and transitive eligible providers are captured with exact consumer 
+            ref, provider ref, binding path, and observed revisions. Check: 
+            persistence/test/capture.test.ts; expected: one complete pre-publication or 
+            post-publication cut, with no mixed store revision.
+
+            Failure: opaque, persist:false, filter-excluded, missing, disposed, or otherwise 
+            invalid providers anywhere in direct/transitive closure reject the whole selection with 
+            NonDurableContextProvider. Concurrent closure/store/revision mismatch and suspended 
+            context debt return retryable ConcurrentCapture. With multiple invalid bindings, 
+            diagnostics retain each durable consumer ID, opaque provider diagnostic ID, provider 
+            machine ID, and every failing contextBindings.<key> path; remediation names 
+            actorRef(providerMachine,id) and runtime.ensureActor(ref,...). Check: 
+            persistence/test/capture.test.ts; expected: exact canonical code/details and no partial 
+            record, durable write, Runtime mutation, promotion, substitution, rebinding, or 
+            omission.
+
+            No-work: capture invokes no adapter, emits no context event, and changes no Runtime 
+            truth. Selector-defect behavior remains local to T205 and is not a prerequisite for 
+            this settled capture proof. Check: persistence/test/capture.test.ts; expected: 
+            adapter/event counters remain zero.
+
+    T404
+        title        HydrationWithoutReplay
+        status       open
+        priority     high
+        blocked_by   [
+                     @T401,
+                     @T402,
+                     @task.Rewrite.T303,
+                     @task.Rewrite.T309,
+                     @task.Rewrite.T310,
+                     @T410
+                     ]
+        derives_from [
+                     @plan.Persistence.O4,
+                     @plan.Persistence.V4,
+                     @plan.Transactions.O4,
+                     @plan.Transactions.V4,
+                     @plan.ProjectDelivery.O3
+                     ]
+        satisfies    [@plan.Persistence.O4, @plan.Transactions.O4]
+        description
+            Deliver resource/transaction hydration that normalizes ownership and lifecycle state 
+            without invoking lookup, transaction, or stream work. Ordered work: (1) restore 
+            committed resource facts and generations; (2) normalize local interrupted operations; 
+            (3) preserve remote unknown/reconcile-required truth unless persisted evidence proves 
+            the invocation had not begun; (4) install hydrated facts after detached validation and 
+            the canonical schema owner T410. Permitted paths: persistence/hydration.ts and 
+            persistence/test/hydration.test.ts plus operation remote status facts consumed through 
+            T310. Shared-write boundary: stream projection hydration is split into T414 and 
+            excluded here, allowing settled resource/transaction restore to proceed independently 
+            of capture races and Streams.Q1. Evidence: hydration.test.ts.
+        acceptance
+            Positive: resource values/generations restore and local pending work becomes 
+            interrupted; remote pending work becomes unknown/reconcile-required unless evidence 
+            establishes no invocation. Check: persistence/test/hydration.test.ts; expected: 
+            restored facts preserve exact operation truth.
+
+            Failure: hydration never replays lookup, mutation, or remote work; invalid state and 
+            counter exhaustion reject before installation. Check: 
+            persistence/test/hydration.test.ts; expected: invocation counters remain zero and prior 
+            committed state remains.
+
+    T405
+        title        OrderedWritesAndLastGoodRecord
+        status       open
+        priority     high
+        blocked_by   [@T401, @T402, @T403, @task.Rewrite.T203, @T409, @T410]
+        derives_from [
+                     @plan.Persistence.O5,
+                     @plan.Persistence.V5,
+                     @plan.Persistence.D2,
+                     @plan.ProjectDelivery.O3
+                     ]
+        satisfies    [@plan.Persistence.O5]
+        description
+            Deliver Runtime-owned persistence writes ordered by committed sequence with exact 
+            lifecycle/disposal behavior and last-good-record retention. Ordered work: (1) observe 
+            only committed cuts; (2) consume bounded envelope/canonical schema owners T409/T410 and 
+            serialize writes in cut order; (3) preserve last good record on write/encoding failure; 
+            (4) flush only the accepted prefix during disposal. Permitted paths: 
+            persistence/writes.ts and persistence/test/writes.test.ts. Shared-write boundary: use 
+            T403 capture output and T401 provider; do not add an independent publisher or retention 
+            policy. Evidence: writes.test.ts.
+        acceptance
+            Positive: multiple accepted captures persist in commit order and disposal flushes 
+            through the accepted terminal prefix. Check: persistence/test/writes.test.ts; expected: 
+            provider records are ordered and flush completion matches the accepted prefix.
+
+            Failure: failed write or encoding leaves the last good record readable and does not 
+            reorder later accepted writes. Check: persistence/test/writes.test.ts; expected: 
+            durable bytes remain the last successful record and failure is surfaced.
+
+    T406
+        title        SettledInspectionProjections
+        status       open
+        priority     medium
+        blocked_by   [
+                     @task.Rewrite.T102,
+                     @task.Rewrite.T210,
+                     @task.Rewrite.T313
+                     ]
+        derives_from [
+                     @plan.InspectionAndArtifacts.O1,
+                     @plan.InspectionAndArtifacts.V1,
+                     @plan.InspectionAndArtifacts.C1
+                     ]
+        satisfies    [@plan.InspectionAndArtifacts.O1]
+        description
+            Deliver settled pure inspection projections over declarations and committed production 
+            snapshots, excluding unresolved Q2 call forms. Ordered work: (1) consume exact settled 
+            model/snapshot inputs; (2) derive present declarations and committed facts without 
+            starting work or inventing history; (3) keep private wire types out of public routes; 
+            (4) prove projections are defensive and consistent. Permitted paths: 
+            inspect/projections.ts, inspect/test/projections.test.ts, and public declarations only 
+            for settled routes. Shared-write boundary: T407 owns final call forms; T408 owns 
+            evidence sinks and T409/T410 artifact encoding. Evidence: 
+            inspect/test/projections.test.ts plus focused type/privacy checks.
+        acceptance
+            Positive: settled projections are pure, return only declaration-derived or committed 
+            facts, and have one formatter/owner for each projection. Check: 
+            inspect/test/projections.test.ts and check:types; expected: no I/O, scheduling, or 
+            actual-completion claim occurs.
+
+            Failure: fabricated/mutable lookalikes and unsupported call forms are rejected; private 
+            trace/schema types do not appear in packed public declarations. Check: projection 
+            tests, check:types, and packed-consumer declarations; expected: inputs are defensively 
+            validated and private types remain absent.
+
+    T407
+        title        InspectionCallForms
+        status       draft
+        priority     medium
+        blocked_by   [@T406, @T409, @T410, @T412, @T416]
+        derives_from [
+                     @plan.InspectionAndArtifacts.O1,
+                     @plan.InspectionAndArtifacts.O6,
+                     @plan.InspectionAndArtifacts.V1,
+                     @plan.InspectionAndArtifacts.V6,
+                     @plan.InspectionAndArtifacts.Q2
+                     ]
+        satisfies    [@plan.InspectionAndArtifacts.O1, @plan.InspectionAndArtifacts.O6]
+        description
+            After InspectionAndArtifacts.Q2 is decided, add only the approved remaining inspection 
+            and artifact call forms: activity/behavior analysis, compression/decompression, trace 
+            analysis, behavior slicing/diff rendering. Ordered work: (1) define exact accepted 
+            public arguments/results; (2) keep the established diagnostic mapping and inert/pure 
+            behavior; (3) add positive and negative API/runtime vectors. Permitted paths: public 
+            inspection entrypoint, inspect owner, artifact API, and focused inspect/artifact tests. 
+            Shared-write boundary: settled projections, codec core, bounded sinks, and private 
+            schema implementation proceed independently. This task remains draft and cannot infer 
+            Q2 from retained declarations. The local InspectionAndArtifacts.Q2 decision Task is 
+            T416; only its approved forms are implemented here.
+        acceptance
+            Positive: each explicitly approved Q2 call form has exact types and follows its settled 
+            pure/query behavior. Check: inspect/artifact type and behavior tests; expected: only 
+            approved arguments/results compile and query results preserve incomplete-evidence 
+            meaning.
+
+            Failure: unsupported arguments, compressed shares, malformed selectors, or unavailable 
+            evidence reject through canonical diagnostics without runtime/gateway work. Check: 
+            focused inspect/artifact tests; expected: exact diagnostic path/reason and no execution 
+            side effect.
+
+    T408
+        title        BoundedEvidenceSinks
+        status       open
+        priority     high
+        blocked_by   [
+                     @task.Rewrite.T107,
+                     @task.Rewrite.T210,
+                     @task.Rewrite.T313
+                     ]
+        derives_from [
+                     @plan.InspectionAndArtifacts.O3,
+                     @plan.InspectionAndArtifacts.V3,
+                     @plan.InspectionAndArtifacts.D3,
+                     @plan.ProjectDelivery.O3
+                     ]
+        satisfies    [@plan.InspectionAndArtifacts.O3]
+        description
+            Deliver bounded evidence sink ownership, ordering, truncation, drain/dispose, and 
+            failure isolation for records accepted at the production commit boundary. Ordered work: 
+            (1) consume P1 T107 evidence record contract and P2/T313 committed sequence; (2) 
+            implement bounded retained evidence and sink lifecycle; (3) prove stalled/failing sinks 
+            do not block commit acknowledgment or healthy sinks; (4) prove exhaustion/capacity 
+            refusal occurs before commit. Permitted paths: runtime-next evidence sink owner and 
+            runtime-next/test/evidence-sink-owner.test.ts. Shared-write boundary: T313 owns 
+            producer acceptance; T408 owns sink retention/attachment, not actor mutation or durable 
+            history. Evidence: evidence-sink-owner.test.ts.
+        acceptance
+            Positive: ordered accepted evidence is bounded, markers identify greatest omitted 
+            sequence, clear preserves monotonic sequence, and drain/dispose waits only for its 
+            accepted prefix. Check: runtime-next/test/evidence-sink-owner.test.ts; expected: 
+            retained tail and markers exactly match configured capacity.
+
+            Failure: a stalled sink cannot block acknowledgment/StoreFanout; failure detaches only 
+            that sink; capacity or sequence exhaustion refuses before actor/store commit. Check: 
+            evidence-sink-owner.test.ts; expected: healthy sinks continue and no partial commit 
+            occurs.
+
+    T409
+        title        BoundedEnvelopeIntegration
+        status       open
+        priority     high
+        blocked_by   [@task.Rewrite.T107, @T401]
+        derives_from [
+                     @plan.InspectionAndArtifacts.O2,
+                     @plan.InspectionAndArtifacts.V2,
+                     @plan.Persistence.O1,
+                     @plan.Persistence.V1,
+                     @plan.ProjectDelivery.O2,
+                     @plan.ProjectDelivery.O3
+                     ]
+        satisfies    [@plan.InspectionAndArtifacts.O2, @plan.Persistence.O1]
+        description
+            Integrate the persistence/artifact envelope encoders and decoders with P1 T107's shared 
+            structural walker and UTF-8 policy, preserving exact bounds and diagnostics. This task 
+            does not create or fork the codec core. Ordered work: (1) consume the shared portable 
+            structural codec; (2) define closed persistence/artifact envelope use sites and byte 
+            boundaries; (3) validate malformed/oversized input before Runtime installation or 
+            mutation; (4) prove host-neutral byte behavior at the envelope boundary. Permitted 
+            paths: artifact/envelope.ts, persistence envelope adapters, artifact tests under 
+            src/artifact/tests, and persistence provider tests. Shared-write boundary: T107 alone 
+            owns structural traversal/UTF-8 core; T410 owns canonical schema. Evidence: artifact 
+            envelope and persistence provider tests.
+        acceptance
+            Positive: persistence and artifact envelopes use one shared codec core, enforce exact 
+            structural/byte bounds, and produce equal portable bytes for equal accepted inputs. 
+            Check: artifact envelope tests and persistence provider tests; expected: no duplicate 
+            traversal policy and deterministic bytes.
+
+            Failure: malformed JSON, duplicate keys where detectable, cycles, negative zero, 
+            non-finite values, invalid UTF-8, trailing/concatenated compressed data, and over-bound 
+            input reject before installation or mutation with owning diagnostics. Check: artifact 
+            codec tests; expected: decompression stops at the output bound and invalid candidates 
+            leave current state unchanged.
+
+    T410
+        title        CanonicalWireSchemas
+        status       open
+        priority     high
+        blocked_by   [@T409, @T413]
+        derives_from [
+                     @plan.InspectionAndArtifacts.O4,
+                     @plan.InspectionAndArtifacts.V4,
+                     @plan.InspectionAndArtifacts.C1,
+                     @plan.Persistence.O1,
+                     @plan.Persistence.O2
+                     ]
+        satisfies    [@plan.InspectionAndArtifacts.O4]
+        description
+            Implement the closed private persistence/artifact schemas specified by T413, preserving 
+            explicit normative fields, correlation and identity laws, canonical ordering, 
+            diagnostics, and shared bounds. Ordered work: (1) consume the approved private schema 
+            Spec; (2) implement one production decoder/encoder owner per envelope; (3) validate 
+            exact positive/negative vectors before acquisition; (4) keep private types unexported. 
+            Permitted paths: artifact schema/codec modules and 
+            packages/flow-state-rewrite/src/artifact/tests; persistence envelope adapters only 
+            where the schema requires them. Shared-write boundary: T413 owns representation design; 
+            T409 owns shared bound/codec integration; no new public schema or alternate decoder. 
+            Evidence: artifact schema tests, check:types, packed-consumer checks.
+        acceptance
+            Positive: valid persistence/raw behavior/trace values round-trip to exact decoded model 
+            and canonical bytes, with authored order and fingerprints preserved. Check: artifact 
+            schema tests; expected: exact byte/model parity and private schemas remain 
+            package-private.
+
+            Failure: unknown members, invalid discriminator/version/identity, field-correlation 
+            errors, malformed fingerprints, and wrong receiving App reject before Runtime/service 
+            acquisition with exact canonical diagnostics. Check: artifact schema tests and packed 
+            consumers; expected: no partial install and no private schema export.
+
+    T411
+        title        DefensiveRedactedShares
+        status       open
+        priority     medium
+        blocked_by   [@T409, @T410]
+        derives_from [
+                     @plan.InspectionAndArtifacts.O5,
+                     @plan.InspectionAndArtifacts.V5,
+                     @plan.InspectionAndArtifacts.D2
+                     ]
+        satisfies    [@plan.InspectionAndArtifacts.O5]
+        description
+            Deliver deterministic defensive share export using the canonical raw artifact model 
+            while keeping share input distinct from evidence authority. Ordered work: (1) consume 
+            canonical wire models from T410; (2) validate redaction paths/order/replacements and 
+            protected fields; (3) export deterministic uncompressed share bytes; (4) prove inputs, 
+            bytes, and Runtime/persistence truth remain isolated. Permitted paths: 
+            artifact/share.ts and artifact share tests. Shared-write boundary: no share decoder is 
+            an evidence importer; no raw records, Runtime, or persistence state may be rewritten. 
+            Evidence: share export tests.
+        acceptance
+            Positive: default export is byte-identical to raw canonical export; explicit redactions 
+            are deterministic and reduce only permitted values. Check: artifact share tests; 
+            expected: caller mutation after export does not change returned bytes or source data.
+
+            Failure: malformed, duplicate, overlapping, wildcard, structural, missing, 
+            out-of-range, or protected-field paths reject with exact diagnostic precedence; share 
+            bytes fail raw import as WrongArtifactKind before identity checks. Check: artifact 
+            share tests; expected: raw evidence, Runtime, and persistence remain byte-identical.
+
+    T412
+        title        TraceSummaryAndComparison
+        status       open
+        priority     medium
+        blocked_by   [@T408, @T410]
+        derives_from [
+                     @plan.InspectionAndArtifacts.O6,
+                     @plan.InspectionAndArtifacts.V6,
+                     @plan.InspectionAndArtifacts.C2
+                     ]
+        satisfies    [@plan.InspectionAndArtifacts.O6]
+        description
+            Deliver settled trace summary, complete-only proof/equality, ordered behavior 
+            comparison, and incomplete-evidence diagnostics using canonical records. Ordered work: 
+            (1) consume evidence from T408 and canonical models from T410; (2) preserve exact 
+            selector parsing and diagnostic meanings for settled forms; (3) compare the same 
+            ordered behavior projection; (4) prove truncated inputs cannot yield complete 
+            proof/equality. Permitted paths: artifact/trace-analysis.ts and artifact comparison 
+            tests. Shared-write boundary: unresolved final call names/argument/result forms remain 
+            T407/Q2; do not add unapproved routes. Evidence: trace and comparison tests.
+        acceptance
+            Positive: behavior diff and live behavior check compare the same ordered canonical 
+            behavior projection, optionally scoped by module; complete equal/different artifacts 
+            compare against that projection; matching facts under truncation yield incomplete and 
+            differing retained facts yield different; summary includes the truncation marker. 
+            Check: artifact comparison tests; expected: exact outcome and section order.
+
+            Failure: incomplete proof and unknown selector reject with 
+            Failure/InvalidArtifactOperand and exact marker/path/reason, incompatible identity is 
+            failure rather than difference. Check: trace analysis tests; expected: no gateway or 
+            Runtime execution and no incomplete proof succeeds.
+
+            Behavior failure: incompatible app/fingerprint or malformed selector returns the owning 
+            Failure diagnostic; incomplete trace never yields proof/equality. Check: trace analysis 
+            and behavior comparison tests; expected: exact marker/path/reason, no gateway/Runtime 
+            execution, and no incomplete proof succeeds.
+
+    T413
+        title        SpecifyPrivateArtifactWireModel
+        status       open
+        priority     high
+        blocked_by   [
+                     @task.Rewrite.T107,
+                     @task.Rewrite.T301,
+                     @task.Rewrite.T306,
+                     @task.Rewrite.T310,
+                     @task.Rewrite.T311,
+                     @task.Rewrite.T313,
+                     @T408
+                     ]
+        derives_from [
+                     @plan.InspectionAndArtifacts.O4,
+                     @plan.InspectionAndArtifacts.V4,
+                     @plan.InspectionAndArtifacts.C1,
+                     @plan.ProjectDelivery.O4
+                     ]
+        satisfies    [@plan.InspectionAndArtifacts.O4]
+        description
+            Author a concrete module Spec for the private nested persistence/artifact wire 
+            representation before schema implementation. Deliverable: 
+            specs/artifact/ArtifactWire.spec, owned by this task, defining one closed production 
+            representation for the explicitly named nested layouts while preserving the Plan's 
+            normative external fields, round-trip laws, identity/closure/order, unknown-member 
+            rejection, diagnostics, compatibility exclusions, and structural bounds. Ordered work: 
+            (1) survey the accepted P1 codec/evidence and P3 resource/transaction/stream facts; (2) 
+            specify nested layout and proof vectors; (3) reconcile the Spec with 
+            InspectionAndArtifacts.O4/V4 without inventing public types or a new grammar. Permitted 
+            paths: specs/artifact/ArtifactWire.spec and any required spec.index update produced by 
+            the Workflow CLI. Shared-write boundary: no implementation/schema code and no Q2 public 
+            call-form decision. This is a local prerequisite for T410, not a gate for settled P4/P5 
+            tasks.
+        acceptance
+            Positive: module Spec defines the private nested representation and positive/negative 
+            vectors for behavior metadata, turn/lifecycle records, checkpoints, failures/cleanup, 
+            resource/transaction/stream facts, context/store/timer/issue facts, and CLI 
+            result/error nested data where applicable. Check: workflow check and code-spec review; 
+            expected: references resolve and one decoder/encoder ownership is explicit.
+
+            Failure: Spec rejects unknown members and invalid identity/order/correlation, preserves 
+            every explicitly required field and bound, and gives diagnostics before Runtime 
+            acquisition. Check: Spec verification clauses and workflow check; expected: T410 can 
+            implement one closed schema without resolving a public Question.
+
+            Constraint: no public schema types, alternate decoder/migration envelope, or claim of 
+            passed runtime behavior is introduced. Check: review of the Spec and route 
+            declarations; expected: private design remains replaceable and product contracts remain 
+            unchanged.
+
+    T414
+        title        StreamProjectionHydration
+        status       draft
+        priority     medium
+        blocked_by   [
+                     @T401,
+                     @T402,
+                     @T410,
+                     @task.Rewrite.T311,
+                     @task.Rewrite.T312,
+                     @task.Rewrite.T317
+                     ]
+        derives_from [
+                     @plan.Streams.O3,
+                     @plan.Streams.V3,
+                     @plan.Streams.Q1,
+                     @plan.Persistence.O4,
+                     @plan.Persistence.V4
+                     ]
+        satisfies    [@plan.Streams.O3, @plan.Persistence.O4]
+        description
+            After Streams.Q1 is decided, persist only the accepted stream projection and restore it 
+            as inert data without serializing or resuming a running stream. Ordered work: (1) 
+            consume the approved stream declaration and projection model; (2) include a bounded 
+            stream projection in capture/schema; (3) hydrate a fresh session only through its 
+            approved lifecycle boundary; (4) prove no adapter invocation occurs during restore. 
+            Permitted paths: persistence/hydration.ts, stream projection codec, 
+            persistence/test/hydration.test.ts, operation/test/stream-hydration.test.ts. 
+            Shared-write boundary: T404 owns resource/transaction hydration; T414 adds only stream 
+            projection lanes. This remains draft and does not block T404.
+        acceptance
+            Positive: accepted stream projection is persisted and restored as inert state; any 
+            fresh session begins only after ordinary Runtime readiness and actor ownership. Check: 
+            operation/test/stream-hydration.test.ts; expected: projection matches and session 
+            generation is fresh.
+
+            Failure: restored bytes never resume or invoke the prior adapter; malformed or 
+            unapproved projection is rejected before installation. Check: stream-hydration and 
+            persistence hydration tests; expected: adapter invocation count remains zero.
+
+    T415
+        title        Stage4PersistenceEvidenceIntegrationGate
+        status       open
+        priority     high
+        blocked_by   [@T401, @T402, @T403, @T404, @T405, @T408, @T409, @T410, @T411, @T412]
+        derives_from [
+                     @plan.ProjectDelivery.O3,
+                     @plan.ProjectDelivery.O4,
+                     @plan.Persistence.O1,
+                     @plan.Persistence.O2,
+                     @plan.Persistence.O3,
+                     @plan.Persistence.O4,
+                     @plan.Persistence.O5,
+                     @plan.InspectionAndArtifacts.O2,
+                     @plan.InspectionAndArtifacts.O3,
+                     @plan.InspectionAndArtifacts.O4,
+                     @plan.InspectionAndArtifacts.V2,
+                     @plan.InspectionAndArtifacts.V3,
+                     @plan.InspectionAndArtifacts.V4
+                     ]
+        satisfies    [
+                     @plan.ProjectDelivery.O3,
+                     @plan.Persistence.O1,
+                     @plan.Persistence.O2,
+                     @plan.Persistence.O3,
+                     @plan.Persistence.O4,
+                     @plan.Persistence.O5,
+                     @plan.InspectionAndArtifacts.O3,
+                     @plan.InspectionAndArtifacts.O4
+                     ]
+        description
+            Prove the settled P4 exit criteria across the single production Runtime, from provider 
+            selection through consistent capture, restore/write behavior, evidence acceptance, and 
+            bounded artifacts. This is an integration result with cross-owner proof, not a generic 
+            test layer. Ordered work: (1) construct the production Runtime inertly and select a 
+            compatible durable record at ready; (2) perform a resource/transaction commit through 
+            T313 and capture one actor/store/evidence cut; (3) restore resource/transaction facts 
+            without replay and verify local interrupted versus remote unknown/reconcile-required 
+            truth; (4) issue ordered persistence writes including a failed write retaining the last 
+            good record; (5) export/import bounded canonical evidence/artifact and prove 
+            bounds/round trip. Permitted paths: persistence/test/stage4-integration.test.ts and a 
+            narrow production Runtime wiring fix required for this vertical path. Shared-write 
+            boundary: one integrator owns this test; T407/Q2 call forms, T414/Streams.Q1 projection 
+            hydration, Resources.Q1 authoring/freshness clauses, and Q1 context-wave-specific 
+            capture clauses are explicitly deferred. Do not block independent P5 tasks on these 
+            deferrals. Evidence: stage4-integration.test.ts plus the focused owner tests named by 
+            T401-T412.
+        acceptance
+            Positive: one production-owner scenario proves inert construction, detached durable 
+            selection/readiness, one committed actor/store/evidence cut, consistent capture, 
+            no-replay resource/transaction hydration, ordered writes, and bounded canonical 
+            artifact round trip. Check: persistence/test/stage4-integration.test.ts; expected: 
+            captured/restored facts match the committed sequence and accepted artifact bytes 
+            round-trip within declared bounds.
+
+            Failure: invalid durable identity rejects before acquisition/activation; a capture 
+            racing commit is wholly prior or next; restored lookup/transaction/remote work never 
+            replays; a failed write preserves last good bytes; over-bound evidence rejects before 
+            mutation. Check: stage4-integration.test.ts; expected: each failure preserves the last 
+            committed/durable state and emits its owning diagnostic.
+
+            Explicit deferrals: InspectionAndArtifacts.Q2 final call forms (T407); Streams.Q1 
+            durable projection/adapter forms (T414); Resources.Q1 authoring, metadata, and 
+            freshness lanes (T302/T314/T318); P2 T205 causal-context-specific capture. They are 
+            reported as deferred and do not block this settled integration gate or unrelated P5 
+            work.
+
+            Explicit decision-task deferrals: Resources.Q1=T315, Transactions.Q2=T316, 
+            Streams.Q1=T317, and InspectionAndArtifacts.Q2=T416. T415 does not wait on or implement 
+            those local choices; dependent slices remain draft.
+
+    T416
+        title        Resolve remaining inspection and artifact call forms
+        status       draft
+        priority     medium
+        derives_from [@plan.InspectionAndArtifacts.Q2, @plan.ProjectDelivery.O4]
+        description
+            Resolve InspectionAndArtifacts.Q2 locally for activity inspection, behavior 
+            contract/coverage, compression/decompression, trace analysis, behavior slicing, and 
+            behavior-diff rendering. Keep settled codec, schema, bounded evidence, trace 
+            comparison, and package work independent of these names/forms.
+        acceptance
+            Record an explicit owner-approved answer for each Q2 candidate, including exact 
+            arguments, result types, and failure behavior before T407 implementation. Do not add 
+            aliases or infer forms from retained declarations. No source implementation belongs to 
+            this decision Task.
