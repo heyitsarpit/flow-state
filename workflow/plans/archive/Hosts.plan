@@ -1,0 +1,523 @@
+plan Hosts
+title   Host and React integration
+status  archived
+goal
+    Give the rewrite one production host boundary for bootstrap, actors, commands, React, and reads.
+    Include SSR, request isolation, persistence integration, and cleanup.
+    This Plan owns migrated semantics under @plan.Verification.D1. The source contract
+    pack supplies provenance and trace IDs; CONTRACT.md §6 supplies unaccepted
+    examples only. Implementation and product cutover remain pending under
+    @plan.Cutover.O3 and @plan.Cutover.V7.
+    Persistence and capture belong to @plan.Artifacts.O1 and @plan.Artifacts.O2.
+    Runtime admission and identity belong to @plan.Runtime.O3.
+    Passive operation readers belong to @plan.Operations.O4.
+    Actor lifecycle and context semantics belong to @plan.Runtime.O5.
+outcomes
+    O1  Production bootstrap admits only a closed, owned actor graph
+        - App.M is the complete machine-admission catalogue. Modules name tooling records and
+        do not create roots.
+        - Live hosts and Stories use one production bootstrap barrier:
+          1. Read, decode, validate, and prepare detached persistence data. Do not
+             install StoreKernel state, initialize or register actors, or restore
+             operations during this step.
+          2. Acquire Implementation.
+          3. Install prepared store state, declared persistable actors, and operations;
+             restore provider actors before consumers.
+          4. Complete initial ensureActor calls.
+          5. Resolve exact context refs.
+          6. Seal the graph.
+          7. Activate actors, then expose handles.
+        - Reject missing, duplicate, foreign, or cyclic providers and pre-seal handle escape.
+        - Reject partial graph/evidence, automatic roots, dynamicMachines, RootActor, root lookup,
+          and testing-only registration or activation.
+        - On boot failure, close admission and reverse owners, edges, registrations, and
+          acknowledgments before failed (or disposed when shutdown wins).
+
+        - `RuntimeSetup.construct()` is synchronous and inert.
+        - A live host uses private phases: constructed, booting, ready, failed, and disposed.
+        - Only a ready host exposes ordinary work or handles.
+        - `runtime.ready()` is the sole public readiness Effect.
+        - After bootstrap, ensureActor and createActor use one linearized admission transaction:
+          1. Validate provenance, ref, input, bindings, providers, tombstones, and cycles.
+          2. Install a silent baseline and context edges.
+          3. Attach or activate the actor.
+          4. Expose the lease last.
+        - Concurrent ensures join one actor lifetime. Failed admission leaves no partial actor
+          truth. Host readiness and actor lifecycle stay separate.
+
+        - AppPlan bootstrap is shared by live hosts and Stories.
+        - RuntimeSetup and Runtime cross the bootstrap barrier before host escape.
+        - Expose no phase union or second readiness API.
+        - Expose no partial handles, snapshots, generations, stores, or evidence.
+        - Always perform reverse-order rollback.
+        - Prove private phases, no-partial-admission, graph sealing, and rollback.
+
+
+    O2  Actor refs, leases, commands, snapshots, and host effects preserve ownership truth
+        - Every handle exposes its exact machine-branded actor.ref.
+        - Stable refs identify durable shared actors; local actors get opaque Runtime-local refs.
+        - Refs carry identity only.
+        - `actorRef(machine, id, { persist?: boolean })` declares a stable ref.
+        - `ensureActor(ref, { input, contextBindings? })` restores or creates it and returns
+          `{ actor, dispose }`.
+        - `getActor(ref)` is lookup-only.
+        - `createActor(machine, ...)` always creates a fresh local actor without a stable ID.
+        - `persist` defaults to false. Fresh actor input is exact and used once.
+        - Declared bindings are exact. Concurrent ensures join one construction.
+        - Restore uses exact actor, memory, and bindings without replaying initializer or input.
+        - Each stable ref has one owner authority per Runtime.
+
+        - Reject stable refs that carry input, bindings, or ownership.
+        - Reject ID-bearing local creation and missing, foreign, mismatched, disposed, or
+          opaque-local lookup.
+        - Reject `useActorByRef` construction.
+        - Reject disposal transfer through `lease.actor` alone.
+        - A disposed shared ref is tombstoned for the rest of that Runtime.
+        - `getActor` and `ensureActor` reject tombstones; another Runtime may create a fresh
+          incarnation.
+
+        - The owner lease is the sole individual disposal authority.
+        - `lease.dispose()` is asynchronous, idempotent, and terminal.
+        - Its first call closes admission and runs production cleanup.
+        - Escaped handles then reject with the stable disposed-actor diagnostic.
+        - Concurrent and later calls join or observe the same completion.
+        - Cleanup never runs twice.
+        - Check context graph integrity before disposal.
+        - Active or suspended dependents block provider disposal.
+        - Report the exact dependent refs and binding keys.
+        - Suspension retains the logical provider edge, provider ref/incarnation, last projection,
+          and provider revision.
+        - Resume fails closed if its provider is missing, foreign, or tombstoned.
+        - Leave that consumer suspended; Flow never rebinds or recreates the provider.
+        - Dropping a lease does not dispose its actor.
+        - Whole-Runtime disposal subsumes leases.
+        - Teardown follows reverse dependency order.
+
+        - `actor.send(event): void` synchronously admits the exact typed event to the production
+          mailbox or reports synchronous admission failure.
+        - It returns no Promise, Effect, Fiber, snapshot, actor, acknowledgment, or subscription.
+        - Live hosts and Stories share the same actor engine and mailbox.
+        - Story may await a package-private acknowledgment on that mailbox.
+        - That acknowledgment follows ordinary event stabilization only.
+        - Reject direct transition logic, unrelated ready-work drains, second execution paths, and
+          public acknowledgment.
+
+        - Actor handles expose exact identity, synchronous command, and Flow-owned snapshot.
+        - Exact operation-state projections follow @plan.PublicSurface.O3 and
+          @plan.Operations.O4.
+        - React never stores actor state, mailboxes, operation bindings, or cleanup ownership.
+          Snapshot publication revisions advance for each distinct machine, issue, or lifecycle
+          publication. Private machine-turn and global evidence sequences remain separate.
+        - Publish lifecycle snapshots before ordered lifecycle evidence.
+        - `actor:restore` records persistence from prepared to prepared before `actor:start`.
+        - `actor:start` marks first activation.
+        - `actor:suspend` changes active to suspended; `actor:resume` changes suspended to active.
+        - `actor:dispose` is terminal from every non-disposed lifecycle.
+        - Fresh creation, boot restoration, attachment, owner disposal, and Runtime disposal have
+          distinct causes.
+        - Inspection observes lifecycle `to` after snapshot publication.
+        - Bounded sink overflow never blocks or rolls back actor truth.
+        - A restored provider/consumer projection cannot resume from a missing, foreign, or
+          tombstoned provider.
+
+        - Usage examples:
+
+        ```ts
+        import { Effect } from "effect";
+
+        const setup = runtimeSetup({
+          app: TodoApp,
+          implementation: TodoLive,
+          persistence: persistence({
+            storage: webStorage(window.localStorage),
+            scope: "user:42",
+          }),
+        });
+        const runtime = setup.construct();
+        await Effect.runPromise(runtime.ready());
+
+        const shared = runtime.ensureActor(PrimarySessionRef, {
+          input,
+          contextBindings,
+        });
+        shared.actor.send(Session.E.SignOutRequested());
+        await shared.dispose();
+
+        const existing = runtime.getActor(PrimarySessionRef);
+        const local = runtime.createActor(editorMachine, { input, contextBindings });
+        local.actor.send(Editor.E.SaveRequested());
+        await local.dispose();
+        ```
+
+        ```ts
+        actorRef(machine, id, { persist?: boolean });
+        runtime.ensureActor(ref, { input, contextBindings? });
+        runtime.getActor(ref);
+        runtime.createActor(machine, { input, contextBindings? });
+        useActorByRef(ref);
+        ```
+
+        - The unaccepted §6 host-first example illustrates the target API only:
+
+        ```ts
+        const setup = runtimeSetup({
+          app: TodoApp,
+          implementation: TodoLive,
+          persistence: persistence({
+            storage: webStorage(window.localStorage),
+            scope: "user:42",
+          }),
+        });
+        const runtime = setup.construct();
+        await Effect.runPromise(runtime.ready());
+
+        const shared = runtime.ensureActor(PrimarySessionRef, {
+          input,
+          contextBindings,
+        });
+        shared.actor.send(Session.E.SignOutRequested());
+        await shared.dispose();
+
+        const existing = runtime.getActor(PrimarySessionRef);
+        const local = runtime.createActor(editorMachine, { input, contextBindings });
+        local.actor.send(Editor.E.SaveRequested());
+        await local.dispose();
+        ```
+
+    O3  React attaches one actor lifetime and reads through passive selectors
+        - `FlowProvider` accepts only an already-created Runtime.
+        - It is the sole React context wrapper and observes cached `runtime.ready()`.
+        - Persistence enters through RuntimeSetup before React.
+        - Runtime owns readiness, restoration, and disposal.
+        - Construct one browser Runtime outside React bootstrap.
+        - Request and Story Runtimes belong to their scopes.
+        - A private readiness adapter may represent Runtime acquisition only.
+        - Provider props exclude App, Implementation, boot payload, factory, actor ID, and startup
+          policy.
+        - Provider props also exclude storage, codec, and restore callback.
+        - React does not assemble/acquire actors, hydrate state, own mutable state, or dispose.
+        - React never silently merges an unrelated Runtime.
+        - Nested unrelated Runtimes are explicit boundaries.
+        - They never share lookup, persistence, subscriptions, or lifecycle ownership.
+
+        - `useActor(machine, options?)` prepares one fresh local actor per component incarnation.
+        - This includes void-input machines.
+        - Options carry exact fresh input and declared bindings, never a stable ID.
+        - Render preparation creates the final opaque ref, pure initial snapshot, and stable handle.
+        - It also creates a bounded real command mailbox and optional passive provisional context
+          cut.
+        - Render creates no Runtime registration, edge, ownership, scope, subscription, work, or
+          evidence.
+        - Commit rechecks provider identity and revision.
+        - Commit replaces stale provisional context with current provider truth.
+        - It installs the baseline, activates that actor, then drains commands exactly once.
+        - A changed construction tuple requires a keyed-remount diagnostic.
+        - Prepared actors cannot be replaced or reuse memory.
+        - Abandoned preparation closes once and remains inert.
+        - `runtime.createActor` remains the immediately attached non-React path.
+        - `useActorByRef(ref)` synchronously resolves one registered shared actor from the current
+          Provider Runtime.
+        - It returns a stable command-only handle.
+        - A changed ref resolves a new registered handle.
+        - It never ensures, constructs, leases, disposes, or subscribes.
+        - It rejects missing, foreign, disposed, opaque-local, or mismatched refs.
+
+        - @O3 requires a prepared-command buffer supporting at least 64 commands.
+        - The exact internal bound is implementation-defined.
+        - Overflow beyond the documented finite bound rejects.
+        - Prepared commands replay and become live on activation.
+        - Active commands are admitted; suspended/disposed commands reject without buffering.
+        - `can(event)` reports pure transition legality, distinct from command admission.
+
+        - React Effect setup activates prepared actors or resumes suspended actors.
+        - Cleanup genuinely suspends that same actor.
+        - Lifecycle states are prepared, active, suspended, and disposed.
+        - Legal transitions are prepared to active, active/suspended in either direction, and
+          terminal disposal.
+        - Prepared actors have no live Runtime resources and permit command buffering.
+        - Active actors admit commands and own live resources.
+        - Suspended actors preserve continuity, reject commands, and own no live attachment
+          resources.
+        - Disposed actors are terminal and reject later operations.
+        - React cleanup has no grace period, suppression, setup prediction, or terminal disposal.
+
+        - Suspension closes command admission immediately.
+        - Release active registration, observer fanout, context subscriptions, continuing-activity
+          scopes, and installed timers.
+        - Escaped suspended handles fail with a stable actionable diagnostic.
+        - Never buffer commands sent through suspended handles.
+        - Preserve exact ref, handle, state, memory, and last committed inherited context.
+        - Also preserve mailbox cursors, operation-occurrence records, and absolute timer deadlines.
+        - Resume reattaches that actor and reacquires continuing activities/subscriptions through
+          production kernels.
+        - Resume reinstalls timers at existing deadlines and reconciles bindings with current
+          provider snapshots.
+        - Elapsed deadlines become due on resume; they do not restart.
+        - Changed provider values use the ordinary serialized context turn.
+        - `Object.is`-equal values stay silent.
+        - Resume does not rerun input, memory initialization, initial-state construction, committed
+          events, finite actions, or baseline `onContext`.
+        - Suspend/resume alone creates no operation attempt, machine-turn revision, or TurnRecord.
+
+        - Suspension serializes with the actor mailbox.
+        - Commands admitted before close preserve FIFO order.
+        - Later commands reject; suspended commands are never buffered.
+        - Queued finite occurrences settle without starting adapters.
+        - Unsettled finite work receives the production interruption request.
+        - Continuing streams close without a mapped domain outcome.
+        - Timers keep absolute deadlines; pending outcomes and occurrence cursors remain.
+        - If an adapter ignores interruption, retain only facts needed for truthful settlement.
+        - Never claim reversal of an irreversible effect.
+        - Resume waits for finalizers, then reconciles continuing declarations and due timers.
+        - Resume never replays finite work.
+        - A cleanup defect leaves the actor suspended and blocks resume until owner or Runtime
+          disposal.
+
+        - The lifecycle/read matrix is:
+
+        | State | Commands | Subscriptions |
+        | --- | --- | --- |
+        | prepared | Buffer at least 64 (bound implementation-defined) | Replay on activation |
+        | active | Admit | Remain live |
+        | suspended | Reject; no buffering | Replay once; complete |
+        | disposed | Reject; no buffering | Replay terminal snapshot; complete |
+
+        - `useView(actor, selector)` is the sole ordinary reactive read path.
+        - It accepts one exact actor handle.
+        - The selector sees one atomic cut of state, memory, context, lifecycle, issues, bound
+          `can(event)`, and passive O.
+        - O exposes only key, `getData`, and `getState`.
+        - Operation reads use @plan.Operations.O4.
+        - Actor lifecycle and context reads use @plan.Runtime.O5.
+        - Track exact descriptor/K reads and replace dependencies after evaluation.
+        - Rerun matching actor or StoreFanout publications against one tear-free cut.
+        - Scalar/non-record selections use complete-value `Object.is`.
+        - Named records use fixed-key, fieldwise `Object.is`.
+        - Explicit React-only `useShallow` is supported.
+        - Selector identity changes do not replace the actor subscription.
+        - Reject machine family/ref/view ID and comparator arguments.
+        - Reject actor creation/disposal and ownership/cache-policy changes.
+        - Reject registered views, broad subscriptions, and binding components.
+        - Reject view-bound `can` and operation acquisition.
+        - Reject refresh, subscribe, commit, write, invalidate, clear, and selector retry loops.
+        - Passive selectors cannot mutate Runtime.
+        - Memoize selector exceptions by exact publication/store cut.
+        - Retry only after a later matching publication.
+        - Initial attachment/hydration selector defects abort admission without partial actor.
+
+        - React examples:
+
+        ```tsx
+        <FlowProvider runtime={runtime}>
+          <TodoAppView />
+        </FlowProvider>
+        ```
+
+        ```tsx
+        const actor = useActor(newIntentMachine, { input: { draftId: "draft-1" } });
+        const model = useView(actor, ({ state, memory, context, O, can }) => ({
+          state,
+          amount: memory.amount,
+          themeMode: context.themeMode,
+          balance:
+            memory.account === null || memory.assetId === null
+              ? undefined
+              : O.assetBalance.getData([memory.account, memory.assetId]),
+          canSubmit: can(NewIntent.E.SubmitRequested()),
+        }));
+        ```
+
+        ```ts
+        prepared | active | suspended | disposed;
+        ```
+
+
+    O4  SSR, request, persistence, and host disposal use production owners
+        - SSR and concurrent render preparation follow the inert `useActor` rule.
+        - Prepare a pure snapshot, final opaque ref, stable handle, bounded command buffer, and
+          optional passive context cut.
+        - The committed host attaches that actor, rechecks provider identity/revision, installs the
+          current context baseline, activates, and drains.
+        - An abandoned server render closes its mailbox and remains inert.
+        - Render creates no ownership, registry, edge, subscription, work, or evidence.
+        - Render cannot replace the actor/Runtime or expose a partial actor after selector failure.
+        - Render cannot persist or emit provisional context.
+
+        - Every request host uses production RuntimeSetup, Runtime, AppPlan bootstrap, typed machine
+          events, and production operation kernels.
+        - Each request Runtime is isolated and disposed by its owner.
+        - A retained request helper keeps its handler and cleanup-failure guarantees unless revised.
+        - Request hosts do not share the browser Runtime or create automatic roots.
+        - They do not use a testing actor engine or fabricate child/final snapshots.
+        - They do not create a second Runtime for prepared SSR or bypass operations.
+        - Request and live hosts share ownership and cleanup semantics.
+
+        - Runtime owns persistence supplied before React.
+        - This Plan owns host integration only.
+        - @plan.Artifacts.O1 and @plan.Artifacts.O2 own provider, storage, durable-actor, capture,
+          and hydration semantics.
+        - Restore declared persistable memory/refs without replaying input or initializers.
+        - Capture declared stable actors and their transitive stable provider closure.
+        - Capture a context-closed cut between completed context waves.
+        - Preserve exact bindings and provider revisions.
+        - Reject opaque providers with terminal `NonDurableContextProvider`.
+        - Never serialize selected context as provider truth.
+        - Never promote, recreate, substitute, or rebind local providers.
+        - Never emit `onContext` during hydration.
+        - `ConcurrentDehydrate` is retryable; the non-durable-provider failure is terminal.
+        - A final host may wrap canonical Diagnostic in the compatibility-only
+          `FlowPersistenceError` envelope.
+        - Restored stable actors remain Runtime-owned even if the current Runtime did not repeat
+          `ensureActor`.
+        - The failure Diagnostic includes its stable code and durable consumer ID.
+        - It also includes opaque provider Diagnostic ID, provider machine ID, and every failing
+          `contextBindings.<key>` path.
+        - Remediation names `actorRef(providerMachine, id)` and `runtime.ensureActor(ref, ...)`.
+        - Never suggest ID-bearing `runtime.createActor`.
+        - This failure is terminal; `ConcurrentDehydrate` remains retryable.
+
+
+    O5  Host disposal drains owned cleanup and accepted evidence before completion
+        - Owner-lease disposal, whole-Runtime shutdown, React suspension, request cleanup, and
+          persistence cleanup remain distinct.
+        - Runtime shutdown closes admission before cleaning actors, activities, operation ownership,
+          context, and Runtime resources.
+        - Preserve Effect Cause classification and reverse dependency order.
+        - Process linearized lifecycle/TurnRecord evidence before closing sinks and queues.
+        - Never manufacture a terminal actor-disposal turn.
+        - Cleanup failures retain captured end evidence but cannot produce successful Story
+          evidence.
+        - Completion waits for owned finalizers and accepted evidence.
+        - Sink-local truncation or detach never rolls back Runtime truth.
+        - The package-private FlowStoryExecutionError retains partial failure evidence and cleanup
+          truth as owned by the evidence boundary.
+
+    O6  Effect bridges and trusted host writes preserve Runtime authority
+        - Effect bridges use the installed Runtime Context and reuse the production Runtime.
+        - runPromiseExit resolves an Exit retaining Effect and Implementation/runtime failure truth.
+          It does not create a second execution Scope.
+        - Bridges and final host adapters are the only runner edges.
+        - Reusable services and workflows return Effects with exact A, canonical Diagnostic E, and
+          R.
+        - Adapt each foreign Promise API once in a named adapter with Effect.tryPromise({ try,
+          catch }).
+        - Map rejection to an owned Diagnostic and forward AbortSignal when supported.
+        - Reusable Flow code cannot use Effect.promise.
+        - Do not hide acquisition failures in a second Scope or use an unowned execution Scope.
+        - A package-private HostWriteLease supports boot, SSR, and Fixture seeding.
+        - Only the owning RuntimeSetup/Runtime Scope mints a capability-scoped lease for its exact
+          AppPlan, Runtime identity, and allowed boundary.
+        - Validate the admitted descriptor/K before the StoreKernel authoritative write path.
+          Carry Runtime/capability epoch and accepted setData generation fencing, revision, fanout,
+          and authoritative-write rules.
+        - The lease is construction-scoped and cannot be publicly constructed or called.
+        - It grants no foreign, revoked, stale, generic-registry, actor-occurrence, domain-event,
+          machine-turn, or public-writer authority.
+        - Scope close or Runtime disposal revokes the lease.
+        - Invalid leases fail before StoreState mutation or publication.
+decisions
+    D1  Runtime and leases own actor lifetime; hosts control attachment only
+        - Stable shared identity, local opaque identity, admission, disposal, and tombstones remain
+          Runtime-owned. A lease is the only individual terminal authority. React setup/cleanup 
+          changes
+          attachment state and never transfers ownership. This keeps live, request, Story, and React
+          hosts on the production actor/mailbox/cleanup path.
+    D2  React uses preparation, commit attachment, and passive observation
+        - Render prepares a final inert actor; commit attaches that actor; cleanup suspends it.
+          useView performs passive reads over the shared actor/StoreFanout cut. FlowProvider only
+          supplies an existing Runtime. No React-owned state, actor engine, history, selector cache
+          authority, or disposal authority is added.
+constraints
+    C1  Treat deleted host surfaces as absent
+        - The replacement has no automatic/dynamic roots or child surfaces.
+        - It has no former actor ownership/lifecycle or registered views.
+        - It has no old React ownership/comparator surfaces.
+        - It has no conflicting server, persistence, inspection, or CLI surfaces.
+        - Removed surfaces remain absent; this Plan defines only surviving host replacements.
+    C2  Resolve Flow host services and errors through installed Runtime truth
+        - No second Effect scope, runner edge, application-owned selector mutation, or host-created
+          persistence authority may bypass the production Runtime. Public and reusable code
+          preserves
+          exact Effect A/E/R and the canonical Diagnostic boundary.
+verification
+    V1  Bootstrap, actor identity, and lease proof
+        - Outcome: @O1 and @O2.
+        - Scenario:
+          - Exercise live, request, Story, and test bootstrap with valid and invalid App.M
+            catalogues.
+          - Race concurrent ensure and restore calls.
+          - Exercise local creation, bindings, tombstones, dependent disposal, and rollback.
+        - Pass:
+          - Valid graphs seal before activation or handle escape.
+          - Invalid graphs fail closed without partial actor truth.
+          - Stable and local identity remain exact, with one owner authority.
+          - Disposal and rollback run once in reverse dependency order.
+        - Check: `nub run --filter flow-state-rewrite check:types` and `nub run test`.
+        - Existing proof: `readiness.test.ts`, `actor-admission.test.ts`, and
+          `actor-lease-owner.test.ts` under `packages/flow-state-rewrite/src/runtime-next/test`.
+        - Target: add host admission tests under `packages/flow-state-rewrite/src/hosts/tests`.
+        - Pending: production host admission tests do not exist yet.
+
+    V2  React attachment, selectors, and host parity
+        - Outcome: @O3.
+        - Scenario:
+          - Exercise abandoned and prepared renders, commit attachment, and keyed-remount errors.
+          - Test the command-buffer boundary and Strict Mode reconnection.
+          - Test Activity hide/reveal, provider changes, due timers, and queued or in-flight work.
+          - Test selector defects, nested Runtimes, and changed lookup refs.
+        - Pass:
+          - One actor identity survives attachment, suspension, and resume.
+          - Render creates no Runtime resources or evidence.
+          - Suspended commands reject, and subscriptions and work follow the lifecycle matrix.
+          - Passive selector reads remain exact and tear-free.
+          - Cleanup defects block resume; live and Story use production kernels.
+        - Check: `nub run --filter flow-state-rewrite check:types` and `nub run test`.
+        - Target: add React lifecycle and selector tests under
+          `packages/flow-state-rewrite/src/hosts/tests`.
+        - Pending: React lifecycle and selector tests do not exist yet.
+
+    V3  SSR, request, persistence-host, and disposal proof
+        - Outcome: @O4 and @O5.
+        - Scenario:
+          - Abandon and commit SSR preparations; run isolated request lifecycles.
+          - Capture and restore durable provider/consumer graphs.
+          - Inject opaque providers and concurrent captures.
+          - Interrupt disposal while finalizers and accepted evidence remain pending.
+        - Pass:
+          - SSR stays inert until same-actor attachment; each request Runtime stays isolated.
+          - Restored context is a provider-derived silent baseline.
+          - Invalid durable closure fails with canonical diagnostics.
+          - Completion waits for owned cleanup and accepted evidence to drain.
+        - Check: `nub run --filter flow-state-rewrite check:types` and `nub run test`.
+        - Existing proof: `readiness.test.ts` and `evidence-sink-owner.test.ts` under
+          `packages/flow-state-rewrite/src/runtime-next/test`.
+        - Persistence and capture also use @plan.Artifacts.V2 and @plan.Artifacts.V5.
+        - Target: add request, persistence, and disposal tests under
+          `packages/flow-state-rewrite/src/hosts/tests`.
+        - Pending: host integration tests do not exist yet.
+
+    V4  Effect bridge and host-write authority proof
+        - Outcome: @O6.
+        - Scenario:
+          - Run Effects with installed Runtime services.
+          - Adapt rejected Promises with and without AbortSignal support.
+          - Exercise valid, foreign, stale, revoked, and wrong-boundary HostWriteLease values.
+          - Repeat lease checks before and after Scope close.
+        - Pass:
+          - Bridges retain production Runtime Context and failure truth.
+          - Rejected Promises map to owned Diagnostics.
+          - Only the owner can mint a lease.
+          - Invalid leases cause no StoreState mutation or publication.
+          - Scope close revokes the lease.
+        - Check: `nub run --filter flow-state-rewrite check:types` and `nub run test`.
+        - Target: add bridge and write-lease tests under
+          `packages/flow-state-rewrite/src/hosts/tests`.
+        - Pending: host bridge and write-lease tests do not exist yet.
+
+questions
+    Q1  What finite prepared-command bound should @O3 document?
+        The active requirement in @O3 supports at least 64 commands. It rejects overflow beyond the
+        documented finite bound. The exact bound remains implementation-defined.
+        Unaccepted CONTRACT.md §6 calls it a “bounded 64-command mailbox,” which could mean exactly
+        64 or a minimum of 64. Do not silently resolve this wording: preserve the active minimum
+        and document the chosen finite bound before claiming conformance.

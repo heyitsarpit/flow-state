@@ -1,0 +1,853 @@
+plan Types
+title   Type inference and requirements
+status  archived
+goal
+    Define Flow State's migrated inference, variance, Effect-channel
+    propagation, Implementation closure, actor/ref/lease, host, Story, and
+    compile-proof requirements. The rewrite is incomplete; these are target
+    requirements, not implementation claims. This Plan owns migrated semantics under
+    @plan.Verification.D1; source contracts provide provenance and trace IDs. Public
+    authoring shapes belong
+    to @plan.PublicSurface.O2 and @plan.PublicSurface.O3. Identity and lifecycle
+    terms belong to @plan.Runtime.O1, @plan.Runtime.O3, and @plan.Runtime.O4.
+
+outcomes
+    O1  Definition, machine, event, input, and memory inference
+        - definition preserves literal IDs and recursive exact state tokens.
+          It preserves event names, parameter tuples, result payloads, context values, and named
+          operation families. It infers input and memory.
+          It requires no as const, satisfies, explicit generics, or wrappers.
+          It returns the direct Effect Result.Result<DefinitionFromConfig<Config>,
+          ReturnType<typeof Diagnostic.Failure>> value.
+          Each event token call returns Result.Result<EventEnvelope<...>, ReturnType<typeof
+          Diagnostic.Failure>>; EventOf<Definition> is the successful event-envelope union, not a
+          union of Result wrappers. StateOf/EventOf accept Definition or Machine and return the same
+          exact unions. Event tokens are nominal; structurally similar functions/objects are not
+          assignable. Definition literal types preserve accepted exact spelling. Ten-level
+          validation is synchronous at construction; type inference does not encode recursive depth
+          arithmetic.
+
+        - machine(definitionResult, callback) matches the Definition Result before callback
+          execution. It anchors inference to its successful value and supplies exact S, E, O,
+          onContext, onMemory, invalidate, and clear. Use NoInfer or equivalent one-way inference.
+          Local states and on keys check against the recursive definition.
+          Defaults, targets, outcomes, and capabilities use its exact tokens.
+          Compound handlers form one event protocol.
+          Ancestor plus descendant handlers for the same active-path event are ambiguous.
+          No leaf fallback or override inference applies. State is the exact active leaf.
+          matches accepts a leaf or ancestor. The callback cannot enlarge or replace the definition
+          universe.
+
+        - Input and Memory come only from memory: ({ input }: { input: Input }) => Memory. Omission
+          means Input=void and empty memory. Input is supplied once to a fresh actor and only the
+          initializer consumes it; behavior receives memory/context/state/events, not original
+          input. Restore installs memory without initializer or input replay. App.M admission is
+          independent of input; app compilation makes no actor. InputOf/MemoryOf are exact for
+          Definition or Machine. Reject type-only memory markers, separate initialMemory,
+          behavior-returned memory, implicit input classification, authored input for void machines,
+          and input mutation/classification.
+
+        - Event transition callbacks receive the exact causal event, state, memory, snapshot, and
+          primitive registries.
+        - updateMemory returns only Partial<Memory>.
+        - Guard, updateMemory, and actions see the same pre-turn snapshot and event.
+        - They never see candidate memory.
+        - reenter accepts only an exact active-state token.
+        - Reject unknown fields/values and Boolean, foreign, inactive, or outside-boundary reentry.
+        - Reject candidate-memory visibility.
+
+        - Public and type-focused examples appear above and under @plan.PublicSurface.O2.
+          CONTRACT.md §2 examples remain proposed and unaccepted; they add no authority. Some
+          proposal examples repeat Plan target code, but keep proposal status explicit. Definition
+          and runtime vocabulary belong to @plan.Runtime.O1.
+
+        Example:
+        ```ts
+        import { Result } from "effect";
+        import { definition, Diagnostic } from "flow-state";
+        
+        type EventResultValue<Value> = Value extends Result.Result<infer Success, ReturnType<typeof Diagnostic.Failure>> ? Success : never;
+        
+        const TodoResult = definition({
+          id: "Todos/Editor",
+          states: ["READY", { SAVING: ["REQUESTED", "COMMITTING"] }],
+          events: {
+            SaveRequested: (title: string) => ({ title }),
+            SaveCompleted: "bare",
+          },
+          operations: {
+            todo: todoResource,
+          },
+        });
+        if (Result.isFailure(TodoResult)) {
+          // handle TodoResult.failure
+        } else {
+          const Todo = TodoResult.success;
+          type _State = Expect<
+            Equal<
+              StateOf<typeof Todo>,
+              typeof Todo.S.READY | typeof Todo.S.SAVING.S.REQUESTED | typeof Todo.S.SAVING.S.COMMITTING
+            >
+          >;
+          type _Event = Expect<
+            Equal<
+              EventOf<typeof Todo>,
+              | EventResultValue<ReturnType<typeof Todo.E.SaveRequested>>
+              | EventResultValue<ReturnType<typeof Todo.E.SaveCompleted>>
+            >
+          >;
+        }
+        ```
+        Example:
+        ```ts
+        machine(TodoResult, ({ S, E, O, onContext, onMemory }) => ({
+          default: S.READY,
+          states: { READY: { on: { SaveRequested: { target: S.SAVING.S.REQUESTED } } } },
+        }));
+        ```
+        Example:
+        ```ts
+        const EditorResult = definition({
+          id: "Todos/Editor",
+          states: ["READY", "SAVING"],
+          events: { SaveRequested: "bare" },
+          memory: ({ input }: { input: { todoId: string } }) => ({
+            todoId: input.todoId,
+            draft: "",
+          }),
+        });
+        if (Result.isSuccess(EditorResult)) {
+          const Editor = EditorResult.success;
+          type _Input = Expect<Equal<InputOf<typeof Editor>, { todoId: string }>>;
+          type _Memory = Expect<Equal<MemoryOf<typeof Editor>, { todoId: string; draft: string }>>;
+        }
+        ```
+        Example:
+        ```ts
+        SaveRequested: {
+          target: S.SAVING,
+          updateMemory: ({ event }) => ({ draft: event.title }),
+          actions: ({ event, memory }) => [O.save.commit({ title: event.title, id: memory.id })],
+          reenter: S.SAVING,
+        }
+        ```
+
+    O2  Resource, transaction, stream, and failure inference
+        - Each Resource carries exact executable P, canonical K, success A, typed failure E, and
+          requirements R. Lookup/config/plans preserve P; key/getData/getState use K. No resource
+          ref, second key, custom hash, or custom equality exists. persist defaults false; true opts
+          committed canonical entries into Persistence. K follows the exact copied
+          canonical-container grammar, discriminator, bounds, and diagnostics of
+          @plan.PublicSurface.O3, with no second type-level interpretation. Exact P/K/A/E/R
+          propagate through descriptor, named O, machine, app, runtime, fixture, and Story.
+
+        - Transaction carries exact P/A/E/R and key-derived P/K. Binding it in actor O preserves
+          those types and captures no parent machine, memory, event, selector, route, preview, or
+          invalidation type. Its methods are exact key/passive getState/commit/cancel. K defaults to
+          []; commit is action-only. Concurrency is reject | cancel | allow | serialize. Failure
+          mapping is absent when E=never; defect/interruption remain distinct. Only explicit setData
+          writes update canonical data. Persistence is false by default; true opts actor-owned
+          durable facts only when the owning stable actor is persistable. Reject missing/widened
+          params, failure mapping with E=never, implicit result promotion, and local-actor
+          durability inferred from the descriptor alone.
+
+        - Stream carries exact P/K/V/E/R with no parent selector, routed event, or child actor.
+        - Its family is passive key/getState plus continuing subscribe, with no actor cancel.
+        - State projection retains status, hasValue, latest V when present, emissionCount,
+          generation, and terminal status.
+        - The exact closed union and field optionality belong to @plan.PublicSurface.O3.
+        - Emissions become durable only through mapped events or explicit writes.
+        - persist defaults false.
+        - When true, persist may retain only latest, terminal, generation, and declaration facts
+          for a persistable stable owner.
+        - Fibers, scopes, cursors, transports, and history are non-persistable.
+        - Hydration uses live P after pending outcomes drain and does not replay.
+        - Terminal streams do not restart.
+        - Missing P fails closed with a precise diagnostic.
+        - Reject parent-type graphs, stream cancellation, terminal restart, K reconstruction, and
+          widened completion values.
+
+        - Operation outcomes classify the complete Effect Cause into typed failure E, defect, or
+          interruption. Defect has precedence if any defect exists.
+          Otherwise typed failure wins if any failure exists; interruption wins only by itself.
+          Production uses Effect.exit rather than
+          Effect.result. Never flatten defect/interruption into E. Canonical Diagnostic
+          classification and Cause-to-diagnostic projection are owned by @plan.Diagnostics.O2.
+
+        - Public generic and state shapes belong to @plan.PublicSurface.O3. Examples appear above
+          and under that owner. CONTRACT.md §3 examples remain proposed and unaccepted. Some repeat
+          Plan target code; the distinct transaction and passive-read forms appear under
+          @plan.PublicSurface.O3.
+
+        Example:
+        ```ts
+        const project = resource({
+          id: "projects.by-id",
+          key: ({ id }: { id: string }) => [id],
+          lookup: ({ id }, { signal }): Effect.Effect<Project, "missing", ProjectRepo> =>
+            Effect.gen(function* () {
+              const repo = yield* ProjectRepo;
+              return yield* repo.get(id, { signal });
+            }),
+        });
+        project.getData(project.key({ id: "project-1" }));
+        ```
+        Example:
+        ```ts
+        type SaveParams = { id: string; title: string };
+        
+        const save = transaction({
+          id: "projects.save",
+          key: ({ id }: SaveParams) => [id],
+          commit: ({ id, title }: SaveParams, { signal }): Effect.Effect<Project, SaveError, ProjectRepo> =>
+            ProjectRepo.save(id, title, { signal }),
+        });
+        
+        O.save.commit(
+          { id: "project-1", title: "Updated" },
+          {
+            outcomes: {
+              success: (value) => ProjectEvents.E.Saved(value),
+              failure: (error) => ProjectEvents.E.SaveFailed(error),
+            },
+          },
+        );
+        ```
+        Example:
+        ```ts
+        type ProgressInput = { submissionId: string };
+        
+        const progress = stream({
+          id: "projects.progress",
+          key: ({ submissionId }: ProgressInput) => [submissionId],
+          subscribe: ({ submissionId }: ProgressInput, { signal }) =>
+            Effect.gen(function* () {
+              const progressClient = yield* ProgressClient;
+              return yield* progressClient.progress(submissionId, { signal });
+            }),
+        });
+        ```
+
+    O3  Requirement closure and typed Implementation providers
+        - Resource, transaction, stream, machine, module, app, fixture, Story, and model carry
+          hidden covariant requirements. RequirementsOf<T> exposes the application requirement union
+          without provider implementation branding. Descriptor carriers retain raw R; Flow owns
+          Scope.Scope via Effect.scoped, so RequirementsOf removes Scope. Machine unions every
+          reachable named descriptor/machine graph; module unions its exact record; app unions exact
+          App.M. Context selectors add typed provider edges, not parentage. Passive reads/callbacks
+          add no requirements. App compilation makes no actor and rejects dynamicMachines/automatic
+          roots.
+
+        - Carriers are precomputed, private and covariant. RequirementsOf reads a carrier directly
+          rather than rewalking authored config/selectors/outcomes/plans. Direction is descriptors
+          -> machine bindings -> named module -> app. Public Machine does not retain complete
+          authored config as a generic; there is no child-machine carrier edge. The graph is
+          acyclic/bounded and runtime never expands AppPlan.
+
+        - Public Implementation is a typed provider graph under namespace Implementation.
+        - succeed(service,value) is a complete synchronous, non-failing provider.
+        - effect(service,acquire) acquires at most once per Runtime.
+        - Its typed error is ImplementationError; Runtime owns its scope and finalizer.
+        - merge composes providers without changing service identity.
+        - Provider construction is inert: it acquires no services and starts no work.
+        - Duplicate service identity rejects; the merge never chooses by order.
+        - RuntimeSetup must close RequirementsOf<App>.
+        - A partial or remaining graph is a type or readiness failure.
+        - Fixtures follow the same rules and override by service identity.
+        - Accept complete providers and strict supersets with no remaining input requirements.
+        - Reject unresolved inputs, Layer-like opaque semantics, kernel replacement, matchers, and
+          control registries.
+
+        - Implementation construction has no runtime effect until Runtime acquisition owns it.
+          Fixture Implementations cannot take kernel ownership; their functions preserve authored
+          input/success/failure/cancellation/lifetime, while kernels own
+          admission/completion/writes/projections/evidence.
+
+        - The public admission/provider surface belongs to @plan.PublicSurface.O4 and
+          @plan.PublicSurface.O5. Examples above use private carrier notation; none implies that
+          helper aliases are exported. AppPlan and module identity belong to @plan.Runtime.O2.
+
+        Example:
+        ```ts
+        type _MachineR = Expect<Equal<RequirementsOf<typeof projectMachine>, ProjectRepo | AuditLog>>;
+        type _AppR = Expect<Equal<RequirementsOf<typeof ProjectApp>, ProjectRepo | AuditLog>>;
+        ```
+        Example:
+        ```ts
+        type NormalizedCarrier<R> = { _requirements?: (r: R) => R };
+        ```
+        Example:
+        ```ts
+        const TodoLive = Implementation.succeed(
+          TodoGateway,
+          TodoGateway.of({
+            list: ({ listId }, { signal }) => fetchTodos(listId, { signal }),
+            add: ({ listId, title }, { signal }) => createTodo(listId, title, { signal }),
+          }),
+        );
+        const TodoStory = Implementation.succeed(
+          TodoGateway,
+          TodoGateway.of({
+            list: () => Effect.succeed(initialTodos),
+            add: ({ title }) => Effect.succeed({ id: "todo-1", title, completed: false }),
+          }),
+        );
+        const TodoWithClock = Implementation.merge(TodoLive, ClockLive);
+        ```
+
+    O4  RuntimeSetup and Effect bridge types
+        - Current RuntimeSetup/Runtime is an inert carrier with only app, construct(), and ready().
+          construct() is synchronous and inert. ready() has type Effect<void, ImplementationError>.
+
+        - ready() lazily acquires complete Implementation providers sequentially, once per shell.
+          It then caches that shell's first terminal Exit exactly once.
+          The Exit is success, typed ImplementationError failure, defect, or interruption.
+          Later runs reuse the same Exit without retry. Cause preserves these classes.
+          Exact typed ImplementationError is not mapped to Diagnostic.
+
+        - The current shell has no persistence, actors, Effect bridge, lifecycle, or disposal.
+          Bootstrap, restoration, persistence, actors, bridges, lifecycle, and disposal remain
+          future targets.
+
+        - runtimeSetup has two overloads:
+          - For requirements never, { app: A } returns RuntimeSetup<A, never>.
+          - Otherwise, { app: A, implementation: Implementation<RequirementsOf<A>, IE> }
+            returns RuntimeSetup<A, IE>.
+          The first overload is valid only when requirements are never. The second requires
+          complete closure. Strict provider supersets are valid only with no remaining inputs.
+
+        - Persistence options are commented restoration notation and do not enter the current
+          shell. Future create/ensure accept exact App.M machines.
+          Lookup uses refs only; it does not create or adopt. persistence(options) returns inert
+          Persistence without changing Implementation closure.
+
+        - Future Runtime<App, ImplementationError> bridges runPromise/runPromiseExit only for
+          Effects satisfied by installed application Context. Reusable services, workflows, and
+          foreign adapters return Effects with A/E/R intact.
+
+        - runPromise*, runSync*, and related runners are permitted only at these boundaries:
+          - Runtime bridge
+          - Final process, framework, or CLI adapters
+          - Tests
+          - Explicitly owned shutdown
+
+        - runPromiseExit resolves Promise<Exit.Exit<A, E | ImplementationError>>.
+          Acquisition failure remains inside Exit rather than becoming Promise rejection.
+          The bridge cannot claim arbitrary services are installed.
+          Do not use Promise rejection for Implementation acquisition errors.
+          Do not call Effect runners in reusable code.
+
+        - Runtime setup and bridge examples appear above. The temporary shell remains the
+          current public boundary; future bridge targets do not claim implementation.
+          Runtime ownership belongs to
+          @plan.Runtime.O2 and @plan.Runtime.O3.
+
+        Example:
+        ```ts
+        function runtimeSetup<A extends App>(options: {
+          app: A;
+          // Deferred until the Persistence owner lands; retained for restoration.
+          // persistence?: Persistence;
+        }): RuntimeSetup<A, never>;
+        function runtimeSetup<A extends App, ImplementationError>(options: {
+          app: A;
+          implementation: Implementation<RequirementsOf<A>, ImplementationError>;
+          // Deferred until the Persistence owner lands; retained for restoration.
+          // persistence?: Persistence;
+        }): RuntimeSetup<A, ImplementationError>;
+        ```
+        Example:
+        ```ts
+        runtimeSetup({ app: PublicApp });
+        runtimeSetup({ app: ProjectApp, implementation: ProjectLive });
+        ```
+        Example:
+        ```ts
+        // @ts-expect-error ProjectRepo remains unsatisfied
+        runtimeSetup({ app: ProjectApp });
+        // @ts-expect-error remaining DatabaseConfig requirement
+        runtimeSetup({ app: ProjectApp, implementation: ProjectImplementationRequiringConfig });
+        ```
+        Example:
+        ```ts
+        type Result<A, E, IE> = Promise<Exit.Exit<A, E | IE>>;
+        ```
+
+    O5  Actor family and passive React selectors
+        - ActorRef identity is current. Actor handles, snapshots, leases, and lifecycle are future
+          targets. The temporary Runtime shell has no actor methods.
+          ActorSnapshot remains deferred from active public types.
+
+        - Future Actor preserves StateOf, EventOf, MemoryOf, context, and exact named operation
+          families. ref is ActorRef<Machine>; send accepts EventOf.
+          snapshot/snapshots expose exact ActorSnapshot. Registry-free reads preserve descriptor/K
+          types, and status unions narrow without casts.
+
+        - actorRef(machine,id,{persist?:boolean}) preserves exact machine and stable-ID types.
+          persist defaults false; it is not identity and only marks stable eligibility.
+          Local opaque refs cannot satisfy a persistable ref.
+
+        - Lifecycle is exactly prepared | active | suspended | disposed.
+          Prepared buffers commands. Suspended rejects commands and has no live attachments.
+          Disposed is terminal. Actors and refs have no dispose method.
+
+        - Snapshots expose only active FlowIssue summaries. They omit receipts, pending facts,
+          binding cursors, raw Cause, and full diagnostics.
+
+        - Future React exports are useActor(machine,options?), useActorByRef(ref), and
+          useView(actor,selector).
+        - useActor creates a fresh local actor with no stable ID.
+        - useActorByRef is lookup-only and grants no lease.
+
+        - useView requires an exact actor handle. It selects atomic passive state, memory, context,
+          lifecycle, issues, and bound can/O. Its result preserves exact Value with no implicit
+          null or undefined.
+          O allows only key/getData/getState and has no comparator.
+
+        - Scalar/non-record equality is complete-value Object.is. Named records use fixed-key,
+          field-by-field Object.is. Selectors cannot acquire or mutate.
+          They rerun only for matching tracked actor/StoreFanout publication.
+
+        - Actor-family and selector examples appear above. Public ref/lease ownership belongs to
+          @plan.Runtime.O3; snapshots and selectors belong to @plan.Runtime.O5.
+
+        Example:
+        ```ts
+        // Future target only; unavailable on the temporary shell:
+        // const actor: Actor<Machine> = runtime.getActor(ref);
+        // actor.ref satisfies ActorRef<Machine>;
+        // actor.send(/* EventOf<Machine> */);
+        // actor.getSnapshot();
+        ```
+        Example:
+        ```ts
+        const selected = useView(projectActor, ({ state, O }) => ({
+          state,
+          project: O.project.getData(O.project.key({ id: "project-1" })),
+        }));
+        // @ts-expect-error machine is not actor handle
+        useView(projectMachine, ({ state }) => state);
+        ```
+
+    O6  Story, fixture, recipe, and model types
+        - Story uses three closed option shapes. InputOptions<M> requires input:InputOf<M> for
+          non-void input and input?:never for void input. SelectedContextOptions<M> requires exact
+          SelectedContextOf<M> when any key exists, otherwise context?:never.
+          ContextBindingOptions<M> requires exact StoryContextBindingsOf<M> when selected keys
+          exist, otherwise contextBindings?:never. Each context key maps to an exact compatible
+          ActorRef<ProviderMachineAt<M,K>> or StoryActorRecipe. FixtureOptions makes fixtures
+          optional when RequirementsOf<Owner> is never and otherwise requires
+          FixtureTupleClosing<RequirementsOf<Owner>>. AppStoryOptions is FixtureOptions<App> plus
+          maxTurns?, title?, description?, tags:string[]. MachineStoryOptions combines exact input,
+          selected context, fixtures, and that metadata. ActorRecipeOptions is exact input plus
+          context bindings. These helper aliases, ProviderMachineAt, StoryActorRecipe,
+          FixtureTupleClosing, CheckpointEvidence, EndEvidence, and implementation-layer notation
+          are specification-only and need not be exported.
+
+        - FixtureDefinition is returned by fixture({id,implementation,seeds?}). Implementation
+          provides complete service identities; seeds are preloaded Runtime-owned resource state and
+          do not satisfy missing service needs. Fixture providers override App providers by service
+          identity; duplicate providers reject instead of choosing by order. A provider constructs
+          once per Runtime; Story runs receive fresh scoped provider state. An
+          Implementation<Output,ImplementationError> is a complete service provider graph whose
+          combined outputs satisfy Output and whose acquisition may fail with ImplementationError.
+          It is not a second testing runtime or required helper constructor. It never replaces
+          resource/transaction/stream kernels or installs matchers/control registries.
+
+        - StoryPlan<Names> accumulates literal/known string-union checkpoint names.
+          NewCheckpointName rejects widened string and duplicate names.
+          checkpoint returns a new StoryPlan<Names | Name>.
+          Every other builder preserves Names and returns a new plan.
+          run(options?:{signal?:AbortSignal}) returns Promise<StoryRun<Names>>.
+          StoryRun.checkpoints maps exactly by Names, with existing evidence types and end evidence.
+          A widened string cannot erase known names.
+          Unknown literal property access rejects; private
+          untrusted string lookup checks own-key membership and uses existing FlowUsageError
+          semantics, without adding a public dynamic getter/error.
+
+        - StoryActorRecipe is inert exact machine/input/bindings only, with no runtime, mailbox,
+          snapshot, operation, disposal, or live handle. Binding keys are declared slots and values
+          exact compatible app-owned ActorRef or Story recipe. The same recipe object resolves one
+          actor per run; distinct recipe objects are independent. App targets accept an exact recipe
+          or stable ref. Materialize via production createActor, retain leases, observe only
+          lease.actor, dispose in reverse dependency order. App-owned shared actors remain
+          Runtime-owned. Reject missing/extra/foreign/cyclic bindings, machine families as targets,
+          foreign refs, and embedded runtime ownership.
+
+        - Fixture Implementation closes all services for App/focused Machine. A Fixture provider
+          overrides App provider by identity; duplicates reject. Seeds do not remove requirements
+          even if lookup is skipped. Providers replace complete service functions while preserving
+          authored input, success, failure, cancellation, and lifetime; never kernels, matchers, or
+          registries. Seeds are Runtime-owned preload state. Providers construct once per Runtime;
+          Story runs get fresh scoped state unless application ownership shares it. Kernels own
+          admission/completion/writes/projections/evidence.
+
+        - model(baseStory,{stateKey}) preserves machine, exact fresh input, selected context,
+          fixtures, progress policy, and an empty command tuple.
+        - stateKey is pure and receives the exact predicted snapshot.
+        - stateKey returns CanonicalKeyInput.
+          Candidate events belong to each traversal call.
+          path.story extends the base with exact candidate events and empty checkpoints.
+          Only getShortestPaths/getSimplePaths are exposed.
+          Model rejects app Story, boot, extra commands, non-fresh restoration, impure stateKey,
+          and cross-call candidates.
+          It runs no Effects and synthesizes no async routes.
+          It exposes no replay/provide/clock helpers or named path/result classes.
+          FlowStoryExecutionError is the sole named testing runtime class.
+          Its package-owned envelope retains complete public Cause under @plan.PublicSurface.O5
+          and @plan.Verification.V4. Snapshots and inferred values still hide raw Cause.
+
+        - Story, fixture, recipe, and model examples appear above and under @plan.PublicSurface.O5.
+          Runtime identity and recipe ownership belong to @plan.Runtime.O3 and @plan.Runtime.O5.
+
+        Example:
+        ```ts
+        type InputOptions<M> =
+          InputOf<M> extends void ? { input?: never } : { input: InputOf<M> };
+        
+        type SelectedContextOptions<M> = keyof SelectedContextOf<M> extends never
+          ? { context?: never }
+          : { context: SelectedContextOf<M> };
+        
+        type ContextBindingOptions<M> = keyof SelectedContextOf<M> extends never
+          ? { contextBindings?: never }
+          : { contextBindings: StoryContextBindingsOf<M> };
+        
+        type StoryContextBindingsOf<M> = {
+          [K in keyof SelectedContextOf<M>]:
+            ActorRef<ProviderMachineAt<M, K>> | StoryActorRecipe<ProviderMachineAt<M, K>>;
+        };
+        
+        type FixtureOptions<Owner> =
+          RequirementsOf<Owner> extends never
+            ? { fixtures?: FixtureDefinition[] }
+            : {
+                fixtures: FixtureTupleClosing<RequirementsOf<Owner>>;
+              };
+        ```
+        Example:
+        ```ts
+        type AppStoryOptions<App> = FixtureOptions<App> & {
+          maxTurns?: number;
+          title?: string;
+          description?: string;
+          tags?: string[];
+        };
+        type MachineStoryOptions<M> = InputOptions<M> &
+          SelectedContextOptions<M> &
+          FixtureOptions<M> & {
+            maxTurns?: number;
+            title?: string;
+            description?: string;
+            tags?: string[];
+          };
+        type ActorRecipeOptions<M> = InputOptions<M> & ContextBindingOptions<M>;
+        ```
+        Example:
+        ```ts
+        type NewCheckpointName<Names extends string, Name extends string> = string extends Name
+          ? never
+          : Extract<Name, Names> extends never
+            ? Name
+            : never;
+        
+        interface StoryPlan<Names extends string = never> {
+          checkpoint<const Name extends string>(
+            name: NewCheckpointName<Names, Name>,
+          ): StoryPlan<Names | Name>;
+          run(options?: { signal?: AbortSignal }): Promise<StoryRun<Names>>;
+        }
+        
+        type StoryRun<Names extends string> = {
+          checkpoints: {
+            [Name in Names]: CheckpointEvidence;
+          };
+          end: EndEvidence;
+        };
+        ```
+        Example:
+        ```ts
+        const common = story
+          .machine(editorMachine, options)
+          .send(Editor.E.Opened())
+          .process()
+          .checkpoint("opened");
+        
+        const saved = common.send(Editor.E.SaveRequested()).process().checkpoint("saved");
+        const discarded = common.send(Editor.E.Discarded()).checkpoint("discarded");
+        const cancelled = common.send(Editor.E.Cancelled()).checkpoint("cancelled");
+        
+        const savedRun = await saved.run();
+        const discardedRun = await discarded.run();
+        savedRun.checkpoints.opened; // valid
+        savedRun.checkpoints.saved; // valid
+        savedRun.checkpoints.typo; // TypeScript error
+        
+        // @ts-expect-error duplicate literal checkpoint name
+        common.checkpoint("opened");
+        
+        declare const runtimeName: string;
+        // @ts-expect-error widened string cannot erase the known-name map
+        common.checkpoint(runtimeName);
+        
+        // Specification notation for the package-private defensive path only.
+        declare function lookupCheckpointInternal<Names extends string>(
+          run: StoryRun<Names>,
+          name: string,
+        ): CheckpointEvidence;
+        declare const untrustedCheckpointName: string;
+        lookupCheckpointInternal(savedRun, untrustedCheckpointName); // unknown own key throws existing FlowUsageError
+        ```
+        Example:
+        ```ts
+        const recipe = story.actor(machine, { input, contextBindings });
+        ```
+        Example:
+        ```ts
+        const fixtureDef = fixture({ id: "test-api", implementation: TestApi, seeds });
+        ```
+        Example:
+        ```ts
+        const modelDef = model(machineStory, { stateKey: ({ value, memory }) => [value.id, memory] });
+        ```
+
+decisions
+    D1  One-way literal inference
+        Infer definition literals once. Check machine-local structure against that universe.
+        Use NoInfer or an equivalent boundary so behavior cannot widen or replace authored states
+        or events. Do not require consumer casts or generic wrappers.
+
+    D2  Requirement closure through normalized carriers
+        Compute covariant requirements through private acyclic carriers in the
+        direction descriptor -> machine binding -> named module -> App. Expose
+        RequirementsOf without exposing provider branding or retaining authored
+        config as a recursive public carrier.
+
+    D3  Provider implementations remain inert
+        Construction composes complete service providers without acquiring them;
+        Runtime owns acquisition/finalization. Fixture providers override by
+        identity and preserve complete service behavior.
+
+constraints
+    C1  Plan ownership and target status
+        - @plan.PublicSurface.O2 and @plan.PublicSurface.O3 own public authoring shapes; this Plan
+          owns inference and variance. Runtime terminology and identity belong to @plan.Runtime.O1
+          and @plan.Runtime.O2. Runtime bridge, complete actor/React family, persistence, lifecycle,
+          and disposal clauses identified as future targets remain future targets. The temporary
+          Runtime shell remains app/construct/ready only.
+
+    C2  Type/runtime boundary
+        - Do not encode UTF-8 byte arithmetic, lone-surrogate validation, or depth eleven as
+          recursive type computation. Those are runtime boundary validations. Do not use
+          any/assertion erasure, widened unions, or compile-time declarations as substitutes for
+          production behavior proof.
+
+verification
+    V1  Literal and machine inference
+        - Outcomes: @O1.
+
+        - Scenario: compile positive and @ts-expect-error fixtures for exact definition
+          IDs/states/events/context/operations/input/memory and machine grammar.
+
+        - Pass when consumers need no casts, generics, or wrappers.
+          StateOf/EventOf, event envelopes, Result failure narrowing, causal inputs, Partial memory
+          updates, and exact-token reentry are preserved. Invalid grammar rejects.
+
+        - Check path: nub run --filter flow-state-rewrite check:types; nub run test --
+          packages/flow-state-rewrite/src/definition/test/definition.test.ts
+          packages/flow-state-rewrite/src/machine/test/machine.test.ts.
+
+        - Pending gap: create/retain the complete depth, literal, nominal-event, and
+          callback-visibility compile fixture set.
+
+    V2  Operation family inference and Cause lanes
+        - Outcomes: @O2.
+
+        - Scenario: compile family callbacks and negative parent-capture/cancellation/failure-mapper
+          cases; exercise complete Cause classification.
+
+        - Pass when P/K/A/E/V/R stay exact.
+        - Transaction concurrency/options and stream terminal/latest fields match public unions.
+        - Effect Cause maps defect, then typed failure, then interruption-only without widening E.
+
+        - Check path: nub run --filter flow-state-rewrite check:types; nub run test --
+          packages/flow-state-rewrite/src/operation/test/operations.compile.ts
+          packages/flow-state-rewrite/src/operation/test/operation.test.ts.
+
+        - Pending gap: match the full public generic/state union and production Cause-precedence
+          fixture matrix.
+
+    V3  Requirement carriers and Implementation closure
+        - Outcomes: @O3.
+
+        - Scenario: compile small/medium isolated consumers with cross-module descriptors,
+          requirement closure, provider variance, duplicates, and fixture overrides.
+
+        - Pass when RequirementsOf<App> is exact and Scope is removed.
+        - Closure follows the named acyclic graph.
+        - Declaration emit succeeds, and duplicate identity rejects.
+        - Provider construction performs no work before Runtime acquisition.
+
+        - Check path: nub run --filter flow-state-rewrite check:types; nub run --filter
+          flow-state-rewrite check:packed-consumers; nub run test --
+          packages/flow-state-rewrite/src/implementation/test/implementation.test.ts
+          packages/flow-state-rewrite/src/app/test/app.test.ts.
+
+        - Pending gap: the isolated medium-consumer and recursive-carrier rejection proof remain
+          required; generic checks alone do not establish them.
+
+    V4  RuntimeSetup and Effect bridge
+        - Outcomes: @O4.
+
+        - Scenario: compile overload positives/negatives, installed service boundaries, and terminal
+          Exit handling.
+
+        - Pass when never requirements permit app-only setup.
+          All other App requirements require complete Implementation closure.
+          The temporary shell has only app/construct/ready and caches its first terminal Exit.
+          Future runPromiseExit exposes only E | ImplementationError and installed R.
+          It preserves failure inside Exit.
+
+        - Check path: nub run --filter flow-state-rewrite check:types; nub run --filter
+          flow-state-rewrite check:packed-consumers.
+
+        - Pending gap: bridge is future target; replace historical reference-package proof with a
+          rewrite-package fixture when bridge is adopted.
+
+    V5  Actor, selector, and Story type closure
+        - Outcomes: @O5, @O6.
+
+        - Scenario: positive and negative compile fixtures cover refs/leases, lifecycle, passive
+          selector, Story options/targets/commands/checkpoints, fixtures/recipes, and model
+          restrictions.
+
+        - Pass when machine identity and lifecycle members remain exact and closed.
+          Selectors expose no acquisition or mutation.
+          Story names, options, and keys are exact; recipes and fixtures close service identities.
+          Model traversal accepts only pure command-empty machine bases.
+
+        - Check path: nub run --filter flow-state-rewrite check:types; nub run --filter
+          flow-state-rewrite check:packed-consumers.
+
+        - Pending gap: React 18/19 packed fixtures and complete Story/recipe/model positive/negative
+          fixtures remain required.
+
+    V6  Positive compile proof catalogue
+        - Outcomes: @O1, @O2, @O3, @O4, @O5, @O6.
+
+        - Scenario: compile positive fixtures in these groups:
+          - Definitions, compound defaults/targets/leaf matching, event narrowing, memory,
+            actions, onContext, and onMemory.
+          - Resource, transaction, stream, and operation P/K/value/failure/requirements.
+          - Requirement closure, Implementation, refs/leases, context/lifecycle, and passive
+            selectors.
+          - Story options/targets/outcomes/checkpoints/run.end and command-empty model bases.
+
+        - Pass when every fixture compiles under strict, isolated-modules, and
+          isolated-declarations settings.
+          Packed-package, React 18, and React 19 consumers also compile.
+          State unions and field optionality remain exact. No type relies on assertion erasure.
+
+        - Check path: nub run --filter flow-state-rewrite check:types; nub run --filter
+          flow-state-rewrite check:packed-consumers; nub run test.
+
+        - Pending gap: the complete matrix and package/configuration modes must be implemented and
+          run.
+
+        Example:
+        ```ts
+        type TypeProof = "TYPE-P01" | "TYPE-P02" | "TYPE-P03" | "TYPE-P04";
+        ```
+
+    V7  Negative compile proof catalogue
+        - Outcomes: @O1, @O2, @O3, @O4, @O5, @O6.
+
+        - Scenario: run negative `@ts-expect-error` fixtures in these groups:
+          - **Definition members:** Reject unknown states, compound nodes, events, targets,
+            payloads, and memory.
+          - **Defaults and actions:** Reject timer targets, non-direct defaults, ambiguous handlers,
+            Boolean reentry, and timer actions.
+          - **Memory and roots:** Reject type-only memory, initialMemory, behavior-returned memory,
+            implicit input, authored void input, and automatic roots.
+          - **Resource types:** Reject inconsistent/noncanonical P/K, resource refs, custom
+            equality/hash, generic registries, byKey/byLane, bound refs, parent selectors,
+            and enumeration.
+          - **Operation families:** Reject transaction/stream parent routes, stream cancellation,
+            failure mappers for E=never, and widened stream completion.
+          - **Actor authority:** Reject dynamic admission, family lookup, local stable IDs, foreign
+            or mismatched refs, input/bindings in refs, and handle disposal.
+          - **Context and React:** Reject invalid/changing context bindings, registered views,
+            comparators, and mutating O.
+          - **Story API:** Reject callable Story, .with, live-runtime input, bare app input,
+            focused overrides, and extra actors.
+          - **Story commands:** Reject machine targets, legacy commands, replay/run.final, duplicate
+            checkpoints, result injection, and missing fixtures/context/targets.
+          - **Model:** Reject invalid inputs, cross-call candidates, and named parallel hierarchies.
+          - **Diagnostics and identity:** Reject raw Cause, receipts, child machines, root actors,
+            missing providers, remaining Implementation requirements, wrong-app payloads, and
+            any/assertion erasure.
+
+        - Pass when compile failures occur at the intended public boundary without making
+          UTF-8/depth arithmetic a type-level task.
+
+        - Check path: nub run --filter flow-state-rewrite check:types; nub run --filter
+          flow-state-rewrite check:packed-consumers.
+
+        - Pending gap: negative fixtures must be checked in; no source-text check can substitute for
+          compile results.
+
+    V8  Carrier correctness and production declaration proof
+        - Outcomes: @O1, @O2, @O3, @O4, @O5, @O6.
+
+        - Scenario: compile representative small/medium isolated consumers, cross-module
+          descriptors, exact actor-bound views, strict mode, isolated declaration emit, and a
+          recursive carrier negative case.
+
+        - Pass when RequirementsOf<App> is exact and declaration emit uses the pinned TypeScript
+          version.
+          The medium fixture compiles once without compiler, excessive-instantiation, or
+          declaration errors.
+          Recursive expansion rejects without excessive-instantiation.
+          No type-level UTF-8 encoders, exhaustive Unicode unions, or byte tuple counters appear.
+          Named public declarations contain no any/assertion erasure.
+          Pair declarations with runtime, React, Story, persistence, and deletion proofs.
+
+        - Check path: nub run --filter flow-state-rewrite check:types; nub run --filter
+          flow-state-rewrite check:packed-consumers; nub run test.
+
+        - Pending gap: the isolated consumer fixtures and paired production-owner behavior proofs
+          remain required.
+
+    V9  Contract/example inventory
+        - Outcomes: @O1, @O2, @O3, @O4, @O5, @O6.
+
+        - Scenario: compare each normative type clause, example, and proof index with its owning
+          outcome and verification entry.
+
+        - Pass when all normative inference clauses map to an outcome or proof.
+          All 24 source examples and the proof index appear under @O1 through @O6 or @V6.
+          Cause classification also appears under @plan.Diagnostics.O2.
+          Proposed CONTRACT.md examples remain proposed and unaccepted.
+          Repeated normative code stays with its public-authoring owner.
+
+        - Check path: manually compare contract headings and examples with @O1 through @O6 and @V6,
+          then run
+          workflow check.
+
+        - Pending gap: implementation and execution of the associated proof suite remain open.
+
+    V10  Build and packed declaration gate
+        - Outcomes: @O1, @O3, @O4, @O5, @O6.
+
+        - Scenario: build and inspect the package/packed consumer declarations after source changes.
+
+        - Pass when generated public declarations preserve exact types and package boundaries; no
+          build output is hand-edited.
+
+        - Check path: nub run --filter flow-state-rewrite build; nub run --filter flow-state-rewrite
+          check:build-output; nub run --filter flow-state-rewrite check:packed-consumers.
+
+        - Pending gap: these commands validate implementation only after it lands; Plan authoring
+          has not run them.
+
+

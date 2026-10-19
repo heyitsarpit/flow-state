@@ -1,0 +1,424 @@
+phase P0
+title Cross-cutting rewrite work
+
+tasks
+    T700
+        title      Add reviewer skills and adapted Ponytail skills
+        status     done
+        priority   medium
+        description
+            Historical deliverable: add a contract-slice reviewer and a generic quality and
+            bug-hunt reviewer, then adapt six attributed Ponytail skills for this repository.
+            Historical reviewer-skill guidance followed the contracts and Bead scopes active
+            at that time; required proof was retained and benchmark claims stayed upstream-only.
+            No global config or lifecycle hooks were added.
+
+            Source Bead: flow-state-e7p.7 (closed). Historical write scope:
+            .agents/skills/flow-state-contract-slice-review,
+            .agents/skills/performance-quality-bug-hunt, and six adapted skills under
+            .agents/skills/ponytail/. Evidence: validator, forward-test, and whitespace
+            receipts in the Bead closure record.
+        acceptance
+            All eight skills passed the official validator and focused whitespace checks.
+            The reviewer skills and adapted Ponytail review passed realistic forward tests.
+            Ponytail attribution and current benchmark framing were retained; no lifecycle
+            hooks or global configuration were installed. AGENTS.md was unchanged.
+
+            These are historical receipts only; they do not assert current skill behavior.
+        derives_from [@plan.Verification.D6, @plan.Verification.V8]
+
+    T701
+        title      Reconcile contract complexity and record deferrals
+        status     done
+        priority   medium
+        description
+            Historical contract and Bead reconciliation: preserve the full public feature
+            inventory while relaxing only the authorized hostile-input, duplicate-proof,
+            internal choreography, micro-order, compiler-arithmetic, and human-prose
+            guarantees. Record every changed guarantee, prior owner, retained feature,
+            replacement boundary, and revisit trigger in DEFERRED.md.
+
+            Source Bead: flow-state-e7p.8 (closed). Historical write scope: active contract
+            files, DEFERRED.md, and affected Beads. No source implementation, commit, or push.
+            Evidence: contract hygiene, Bead lint, and diff receipts.
+        acceptance
+            Historical closure receipt: the public feature inventory was unchanged, active
+            clauses and CONTRACT.md agreed on accepted relaxations, and DEFERRED.md recorded
+            each removed or relaxed guarantee and its revisit trigger. Affected Beads preserved
+            every feature, and no stale requirement claims remained. Historical Bead lint,
+            contract hygiene, and diff checks passed; this is not a current-checkout result or
+            present-day authority statement.
+        derives_from [
+                     @plan.Verification.D1,
+                     @plan.Verification.C1,
+                     @plan.PublicSurface.D2,
+                     @plan.Types.C1
+                     ]
+
+    T702
+        title      Adopt feature-owned module folders
+        status     done
+        priority   medium
+        description
+            Historical structural contract and Bead reconciliation: use one cohesive
+            feature-owned module folder with public types, implementation, private helpers,
+            codecs, and local tests. Keep entrypoints and public facades as re-exports.
+            Preserve public features and semantic proof obligations.
+
+            Source Bead: flow-state-e7p.9 (closed). Historical writes covered
+            IMPLEMENTATION_WORKFLOW.md and open implementation/validation Beads. Production
+            source was not edited. Evidence: Bead lint, stale-language scan, and diff check.
+        acceptance
+            The implementation workflow has one module convention and no active proof-role
+            folder requirement. Open Beads name an owning feature module or let the coder
+            establish one; local tests use test/. Public routes remain facade-only. All
+            public routes, proofs, failure lanes, and dependencies remain intact.
+
+            Historical Bead lint, stale-language, and diff checks passed. No current result
+            is implied.
+        derives_from [@plan.Verification.D1, @plan.Verification.D3]
+
+    T703
+        title      Author the single Effect-aware diagnostic contract
+        status     draft
+        priority   high
+        description
+            Source Bead: flow-state-e7p.10 (source status in_progress at migration); this
+            Workflow Task remains draft. The source proposed one ERRORS.ts diagnostic model and
+            updates to CONTRACT.md, PUBLIC_API.md, PROOF_MATRIX.md,
+            PERSISTENCE_AND_ARTIFACTS.md, the contract index, and reader guidance. This proposal
+            and the cited contract files are provenance only; no contract edit or diagnostic
+            behavior change is authorized by this migration. Keep the Task draft until the user
+            accepts a diagnostic specification and contract-authoring scope.
+
+            The source Bead cited affected diagnostic owners and later runtime/Story/CLI work.
+            Preserve those links as provenance; do not use Bead state as Workflow status.
+            Any later accepted decision and check/review receipts belong in the Workflow Task
+            handback.
+        acceptance
+            No active acceptance criteria are set until the user accepts a diagnostic
+            specification and contract-authoring scope. The former Bead proposal for stable
+            codes, paths, details, summaries, help, Schema/Result/Effect/Cause mapping, and
+            machine-configuration reasons remains nonbinding provenance. Do not change contract
+            or runtime behavior. Validate this Workflow task with `workflow check`; if contract
+            work is later authorized, record its accepted criteria and checks here first.
+        derives_from [
+                     @plan.Diagnostics.V1,
+                     @plan.Diagnostics.V2,
+                     @plan.Diagnostics.V3,
+                     @plan.Verification.C2
+                     ]
+
+    T704
+        title      Remove prefer-inferred-return-types warnings
+        status     draft
+        priority   medium
+        blocked_by [@T717]
+        description
+            Source Bead: flow-state-e7p.14 (open). Historical prioritization count: 174
+            warnings in the 2026-09-15 snapshot; refresh after T717 is complete.
+            Workflow prerequisite: T717 is migrated from flow-state-6gm.
+
+            Write only implicated packages/flow-state-rewrite files. Inspect each annotation
+            against its public type contract; preserve necessary annotations with the
+            documented RETURN_TYPE rationale. There is no blanket removal or codemod.
+            The source Bead requested five reviewers; this Workflow Task requires architecture,
+            contract, and bug reviews. Keep the Task draft until all three pass.
+            Evidence: same-snapshot lint and focused type/behavior checks in the task receipt.
+        acceptance
+            The assigned rule reports zero warnings in the rewrite package on the reviewed
+            snapshot, and the focused type/behavior proof and applicable package checks pass.
+            Do not disable or weaken the rule, alter public type relationships, or edit the
+            frozen package, contracts, or generated output. Counts above are historical, not
+            current.
+        derives_from [@plan.Verification.D6, @plan.Verification.V8]
+
+    T705
+        title      Remove unsafe type assertion warnings
+        status     draft
+        priority   medium
+        blocked_by [@task.Rewrite.T704]
+        description
+            Source Bead: flow-state-e7p.15 (open). Historical prioritization count: 50
+            warnings in the 2026-09-15 snapshot; refresh after T717 is complete.
+            It inherits that Workflow prerequisite through T704.
+
+            Write only implicated packages/flow-state-rewrite files. Replace unsafe
+            assertions with sound narrowing, ownership, or proof-boundary typing. Evidence:
+            same-snapshot lint and focused type/behavior checks in the task receipt.
+            The source Bead requested five reviewers; this Workflow Task requires architecture,
+            contract, and bug reviews. Keep the Task draft until all three pass.
+        acceptance
+            The assigned rule reports zero warnings in the rewrite package on the reviewed
+            snapshot, with focused type/behavior and applicable package checks passing.
+            Do not hide uncertainty with broader casts or weaken the rule. Preserve runtime
+            behavior and public type relationships; do not edit frozen code, contracts, or
+            generated output. The warning count is historical, not current.
+        derives_from [@plan.Verification.D6, @plan.Verification.V8]
+
+    T706
+        title      Remove unnecessary condition warnings
+        status     draft
+        priority   medium
+        blocked_by [@task.Rewrite.T705]
+        description
+            Source Bead: flow-state-e7p.16 (open). Historical prioritization count: 38
+            warnings in the 2026-09-15 snapshot; refresh after T717 is complete.
+            It inherits the T717 Workflow prerequisite through T705 and T704.
+
+            Remove only conditions proven redundant by narrowed types; retain validation at
+            untrusted boundaries. Write only implicated packages/flow-state-rewrite files.
+            The source Bead requested five reviewers; this Workflow Task requires architecture,
+            contract, and bug reviews. Keep the Task draft until all three pass.
+        acceptance
+            The assigned rule reports zero warnings in the rewrite package on the reviewed
+            snapshot, with a focused type/behavior proof and applicable package checks
+            passing. Do not disable or weaken the rule, remove boundary validation, alter
+            public types, or edit frozen code, contracts, or generated output. The warning
+            count is historical, not current.
+        derives_from [@plan.Verification.D6, @plan.Verification.V8]
+
+    T707
+        title      Remove excessive cognitive complexity warnings
+        status     draft
+        priority   medium
+        blocked_by [@task.Rewrite.T706]
+        description
+            Source Bead: flow-state-e7p.17 (open). Historical prioritization count: 27
+            warnings in the 2026-09-15 snapshot; refresh after T717 is complete.
+            It inherits the T717 Workflow prerequisite through the preceding lint Tasks.
+
+            Simplify or extract cohesive owner-level helpers without moving behavior across
+            ownership boundaries. Write only implicated packages/flow-state-rewrite files.
+            The source Bead requested five reviewers; this Workflow Task requires architecture,
+            contract, and bug reviews. Keep the Task draft until all three pass.
+        acceptance
+            The assigned rule reports zero warnings in the rewrite package on the reviewed
+            snapshot, with focused type/behavior and applicable package checks passing.
+            Preserve contracts, runtime semantics, and public types; do not weaken the rule
+            or edit frozen code, contracts, or generated output. The count is historical.
+        derives_from [@plan.Verification.D6, @plan.Verification.V8]
+
+    T708
+        title      Remove expected-failure-as-defect warnings
+        status     draft
+        priority   medium
+        blocked_by [@task.Rewrite.T707]
+        description
+            Source Bead: flow-state-e7p.18 (open). Historical prioritization count: 22
+            warnings in the 2026-09-15 snapshot; refresh after T717 is complete.
+            It inherits the T717 Workflow prerequisite through the preceding lint Tasks.
+
+            Use typed Failure and Cause lanes for expected failures; retain defects only for
+            true invariant violations. Write only implicated packages/flow-state-rewrite
+            files.
+            The source Bead requested five reviewers; this Workflow Task requires architecture,
+            contract, and bug reviews. Keep the Task draft until all three pass.
+        acceptance
+            The assigned rule reports zero warnings in the rewrite package on the reviewed
+            snapshot, with focused type/behavior and applicable package checks passing.
+            Preserve failure semantics and public types; do not weaken the rule or edit
+            frozen code, contracts, or generated output. The count is historical.
+        derives_from [@plan.Verification.D6, @plan.Verification.V8]
+
+    T709
+        title      Remove large production file warnings
+        status     draft
+        priority   medium
+        blocked_by [@task.Rewrite.T708]
+        description
+            Source Bead: flow-state-e7p.19 (open). Historical prioritization count: 17
+            warnings in the 2026-09-15 snapshot; refresh after T717 is complete.
+            It inherits the T717 Workflow prerequisite through the preceding lint Tasks.
+
+            Resolve each warning through cohesive ownership decomposition or the rule's
+            documented one-owner rationale. Do not split mechanically. Write only implicated
+            packages/flow-state-rewrite files.
+            The source Bead requested five reviewers; this Workflow Task requires architecture,
+            contract, and bug reviews. Keep the Task draft until all three pass.
+        acceptance
+            The assigned rule reports zero warnings in the rewrite package on the reviewed
+            snapshot, with focused type/behavior and applicable package checks passing.
+            Preserve ownership and public types; do not weaken the rule or edit frozen code,
+            contracts, or generated output. The count is historical.
+        derives_from [@plan.Verification.D6, @plan.Verification.V8]
+
+    T710
+        title      Remove empty object type warnings
+        status     draft
+        priority   medium
+        blocked_by [@task.Rewrite.T709]
+        description
+            Source Bead: flow-state-e7p.20 (open). Historical prioritization count: 6
+            warnings in the 2026-09-15 snapshot; refresh after T717 is complete.
+            It inherits the T717 Workflow prerequisite through the preceding lint Tasks.
+
+            Replace empty object types with the correct domain constraint without widening
+            consumer acceptance. Write only implicated packages/flow-state-rewrite files.
+            The source Bead requested five reviewers; this Workflow Task requires architecture,
+            contract, and bug reviews. Keep the Task draft until all three pass.
+        acceptance
+            The assigned rule reports zero warnings in the rewrite package on the reviewed
+            snapshot, with focused type/behavior and applicable package checks passing.
+            Preserve public type relationships; do not weaken the rule or edit frozen code,
+            contracts, or generated output. The count is historical.
+        derives_from [@plan.Verification.D6, @plan.Verification.V8]
+
+    T711
+        title      Remove eager stateful Effect warnings
+        status     draft
+        priority   medium
+        blocked_by [@task.Rewrite.T710]
+        description
+            Source Bead: flow-state-e7p.21 (open). Historical prioritization count: 5
+            warnings in the 2026-09-15 snapshot; refresh after T717 is complete.
+            It inherits the T717 Workflow prerequisite through the preceding lint Tasks.
+
+            Keep stateful work lazy through its owning Effect operation. Preserve construction
+            and execution timing. Write only implicated packages/flow-state-rewrite files.
+            The source Bead requested five reviewers; this Workflow Task requires architecture,
+            contract, and bug reviews. Keep the Task draft until all three pass.
+        acceptance
+            The assigned rule reports zero warnings in the rewrite package on the reviewed
+            snapshot, with focused type/behavior and applicable package checks passing.
+            Preserve runtime semantics; do not weaken the rule or edit frozen code, contracts,
+            or generated output. The count is historical.
+        derives_from [@plan.Verification.D6, @plan.Verification.V8]
+
+    T712
+        title      Remove constant Effect flatMap warnings
+        status     draft
+        priority   medium
+        blocked_by [@task.Rewrite.T711]
+        description
+            Source Bead: flow-state-e7p.22 (open). Historical prioritization count: 5
+            warnings in the 2026-09-15 snapshot; refresh after T717 is complete.
+            It inherits the T717 Workflow prerequisite through the preceding lint Tasks.
+
+            Simplify constant Effect mapping without changing error, environment, or
+            interruption semantics. Write only implicated packages/flow-state-rewrite files.
+            The source Bead requested five reviewers; this Workflow Task requires architecture,
+            contract, and bug reviews. Keep the Task draft until all three pass.
+        acceptance
+            The assigned rule reports zero warnings in the rewrite package on the reviewed
+            snapshot, with focused type/behavior and applicable package checks passing.
+            Preserve failure and interruption behavior; do not weaken the rule or edit frozen
+            code, contracts, or generated output. The count is historical.
+        derives_from [@plan.Verification.D6, @plan.Verification.V8]
+
+    T713
+        title      Remove forEach warnings
+        status     draft
+        priority   medium
+        blocked_by [@task.Rewrite.T712]
+        description
+            Source Bead: flow-state-e7p.23 (open). Historical prioritization count: 3
+            warnings in the 2026-09-15 snapshot; refresh after T717 is complete.
+            It inherits the T717 Workflow prerequisite through the preceding lint Tasks.
+
+            Use the repository-preferred iteration form while preserving order, short-circuit
+            behavior, and cleanup. Write only implicated packages/flow-state-rewrite files.
+            The source Bead requested five reviewers; this Workflow Task requires architecture,
+            contract, and bug reviews. Keep the Task draft until all three pass.
+        acceptance
+            The assigned rule reports zero warnings in the rewrite package on the reviewed
+            snapshot, with focused type/behavior and applicable package checks passing.
+            Preserve order and cleanup; do not weaken the rule or edit frozen code, contracts,
+            or generated output. The count is historical.
+        derives_from [@plan.Verification.D6, @plan.Verification.V8]
+
+    T714
+        title      Remove unused variable warnings
+        status     draft
+        priority   medium
+        blocked_by [@task.Rewrite.T713]
+        description
+            Source Bead: flow-state-e7p.24 (open). Historical prioritization count: 1
+            warning in the 2026-09-15 snapshot; refresh after T717 is complete.
+            It inherits the T717 Workflow prerequisite through the preceding lint Tasks.
+
+            Remove or correctly use the unused binding without changing type-proof intent.
+            Write only implicated packages/flow-state-rewrite files.
+            The source Bead requested five reviewers; this Workflow Task requires architecture,
+            contract, and bug reviews. Keep the Task draft until all three pass.
+        acceptance
+            The assigned rule reports zero warnings in the rewrite package on the reviewed
+            snapshot, with focused type/behavior and applicable package checks passing.
+            Preserve proof intent; do not weaken the rule or edit frozen code, contracts, or
+            generated output. The count is historical.
+        derives_from [@plan.Verification.D6, @plan.Verification.V8]
+
+    T715
+        title      Remove type-only import warnings
+        status     draft
+        priority   medium
+        blocked_by [@task.Rewrite.T714]
+        description
+            Source Bead: flow-state-e7p.25 (open). Historical prioritization count: 1
+            warning in the 2026-09-15 snapshot; refresh after T717 is complete.
+            It inherits the T717 Workflow prerequisite through the preceding lint Tasks.
+
+            Make the type-only dependency explicit without changing module initialization.
+            Write only implicated packages/flow-state-rewrite files.
+            The source Bead requested five reviewers; this Workflow Task requires architecture,
+            contract, and bug reviews. Keep the Task draft until all three pass.
+        acceptance
+            The assigned rule reports zero warnings in the rewrite package on the reviewed
+            snapshot, with focused type/behavior and applicable package checks passing.
+            Preserve initialization and public type behavior; do not weaken the rule or edit
+            frozen code, contracts, or generated output. The count is historical.
+        derives_from [@plan.Verification.D6, @plan.Verification.V8]
+
+    T716
+        title      Simplify policy lint rules to broad source bans
+        status     draft
+        priority   high
+        description
+            Source Bead: flow-state-e7p.26 (source status in_progress at migration); this Workflow Task remains draft.
+            Replace the six named Phase 2.1 alias/data-flow analyzers with broad syntactic
+            bans over packages/flow-state-rewrite/src. Each rule owns its implementation and
+            focused tests; the orchestrator owns shared config and aggregate checks.
+
+            Allowed writes: the six rule implementations and tests, plus shared lint
+            configuration required to cover the whole source root. Do not edit runtime
+            production code, contracts, frozen packages/flow-state, generated output, or
+            refactor.md.
+
+            Supersession: the source note cites an earlier P13 packet. Retain that citation as
+            provenance; T716 is the replacement Workflow scope. Do not create duplicate Workflow
+            work. This Task owns its current status.
+        acceptance
+            All six named rules enforce broad documented syntactic bans across the full
+            rewrite source root without alias or data-flow analysis. Each has focused tests
+            for broad rejection and a minimal intentional exception set; whole-source config
+            is consistent.
+
+            Aggregate anti-slop and focused rule suites, rewrite type/static checks,
+            formatting, and diff checks pass. Independent architecture, contract, and bug
+            reviews pass on the same final snapshot. Report remaining diagnostics accurately.
+            Runtime production code remains unchanged.
+        derives_from [@plan.Verification.D3, @plan.Verification.D6, @plan.Verification.V8]
+
+    T717
+        title      Remove incidental readonly from rewrite data definitions
+        status     draft
+        priority   medium
+        description
+            Source Bead: flow-state-6gm (source status open at migration); prerequisite
+            flow-state-591 (closed at migration).
+            The closed prerequisite delivered the global rule and recorded the rewrite baseline.
+            The earlier migration diff was discarded; revalidate prior findings on the current
+            snapshot before claiming completion.
+
+            Remove incidental readonly syntax and Readonly-prefixed names from ordinary
+            packages/flow-state-rewrite data definitions. Preserve contract-required public,
+            callback, tuple, generic, and compile-proof shapes. Keep the appropriate
+            Schema.Literals([... ] as const) tuple. Treat generated declarations as build
+            output and inspect changes through their owning source.
+        acceptance
+            Incidental readonly in ordinary rewrite data definitions is removed. Every retained
+            readonly/Readonly-prefixed authored type has a concrete contract or type-proof reason
+            recorded adjacent to it; the lint review signal may be locally waived with that
+            reason. Required public and generic relationships remain intact and have compile-time
+            proofs where applicable. Rewrite typecheck, lint, tests, build, and independent
+            review pass.

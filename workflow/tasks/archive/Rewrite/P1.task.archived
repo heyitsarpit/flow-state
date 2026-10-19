@@ -1,0 +1,341 @@
+phase P1
+title Static foundation
+
+tasks
+    T001
+        title      Reconcile the public Implementation route contract
+        status     done
+        priority   medium
+        description
+            Historical contract deliverable: reconcile the root Implementation runtime value
+            with its same-name public type, and assign route and provider ownership. The
+            runtime namespace has exactly succeed, effect, and merge. Provider construction
+            remains owned by T006; route assembly remains owned by T007.
+
+            Source phase Epic: flow-state-e7p.1 (closed in the retained Beads record), with
+            direct children flow-state-e7p.1.1 through flow-state-e7p.1.12 (all closed).
+            Child IDs and receipts are recorded in their owning Workflow Tasks below; Beads
+            statuses are historical provenance, not current Workflow readiness.
+
+            Source Bead: flow-state-e7p.1.9 (closed). Its route-choice decision, Bead
+            flow-state-e7p.1.2, records the user's selection and is absorbed here rather
+            than tracked as implementation work.
+
+            Historical write scope: reference/incident-console/implementation/contracts/
+            PUBLIC_API.md and IMPLEMENTATION_WORKFLOW.md. Evidence: Bead closure receipt.
+        acceptance
+            Historical closure receipt: the then-active contract pack named the root runtime
+            Implementation value and its same-name public type, with exactly succeed, effect,
+            and merge. It assigned one production owner to the route and another to provider
+            construction; it added no alias, alternate route, or Object.freeze requirement.
+            This records the historical contract decision, not current semantic authority.
+
+            Historical contract review found no blocking conflict. Focused typecheck and
+            diff check passed at closure. The broad lint failure was recorded as an existing
+            baseline. These are historical receipts, not current-checkout results.
+        derives_from [@plan.PublicSurface.D1, @plan.Verification.D3, @plan.Verification.V1]
+
+    T002
+        title      Implement definition and event inference
+        status     done
+        priority   medium
+        description
+            Historical production deliverable: implement callback-or-null definitions,
+            nominal events, exact literal inference, and input, memory, and context types.
+            Validate authored structure synchronously with one private Schema; retain the
+            memory initializer without running it during construction.
+
+            Source Bead: flow-state-e7p.1.3 (closed). Allowed write scope:
+            packages/flow-state-rewrite/src/definition/**, including its local test/.
+            Evidence: definition tests, package typecheck, lint, and Bead closure receipt.
+        acceptance
+            Compile proofs retain exact definition ID, state, event, payload, context,
+            operation, input, and memory types without casts, wrappers, or explicit generics.
+            Runtime proofs accept depth ten and reject depth eleven, invalid names, duplicate
+            or malformed states, invalid declaration kinds, excess fields, and malformed
+            event payloads. Construction runs no memory initializer, event factory, selector,
+            actor, or operation.
+
+            Hostile reflection, sparse arrays, custom container prototypes, and mutation
+            during construction are outside the rejection contract. The focused definition
+            test, package typecheck, lint, workspace check, and diff check passed historically.
+            Do not read that receipt as a current-checkout result.
+        derives_from [@plan.Types.D1, @plan.Types.C2, @plan.Types.V1, @plan.Verification.D6]
+
+    T003
+        title      Prove the definition-to-machine composition seam
+        status     done
+        priority   medium
+        parent     [@task.Rewrite.T004]
+        description
+            Historical child deliverable: prove that machine construction consumes the
+            already-built nominal Definition value, preserves its identity, and infers exact
+            state and event tokens through the callback. Keep this seam synchronous and inert;
+            the full grammar belongs to T004.
+
+            Source Bead: flow-state-e7p.1.4.1 (closed), child of flow-state-e7p.1.4.
+            Allowed write scope: packages/flow-state-rewrite/src/machine/ and its local test/.
+            Evidence: focused machine proof and Bead closure receipt.
+        acceptance
+            The production-owner proof retains Definition identity and exact state, event,
+            and event-argument types; rejects structural impostors and foreign tokens; and
+            executes no initializer, factory, Schema decode, Effect, actor, or work.
+            Machine production code does not revalidate the authored Definition.
+
+            Historical format, lint, package typecheck, focused machine test, and diff check
+            passed. The parent machine task remained open at this child receipt. No current
+            checkout check is implied.
+        derives_from [@plan.Types.D1, @plan.Types.V1, @plan.Runtime.V1, @plan.Verification.D3]
+
+    T004
+        title      Implement recursive machine grammar and pure compiled tables
+        status     done
+        priority   medium
+        blocked_by [@task.Rewrite.T002]
+        description
+            Historical production deliverable: compile the exact recursive machine grammar
+            and inert lookup tables in packages/flow-state-rewrite/src/machine/, with local
+            tests. Consume the constructed Definition without decoding or validating it again.
+            Runtime activities, timers, and onMemory ordering belong to later owners.
+
+            Source Bead: flow-state-e7p.1.4 (closed). Expected definition/machine failures
+            were migrated separately by T009; preserve that ownership boundary.
+        acceptance
+            Compilation rejects malformed or ambiguous grammar before runtime work and
+            proves exact recursive states, events, defaults, targets, reentry, handlers, and
+            tokens. Ordinary terminal-looking leaves remain legal. Unsupported child,
+            final, history, parallel, entry/exit, invoke, always, Boolean-reentry, and
+            timer-owned finite-action forms remain rejected.
+
+            Machine compilation performs no Schema decode, duplicate Definition validation,
+            callback execution, or actor/runtime work. Focused typecheck, machine tests,
+            lint, format, and diff check passed historically; this does not assert they pass
+            on the current checkout.
+        derives_from [@plan.Types.D1, @plan.Types.V1, @plan.PublicSurface.V2, @plan.Verification.D3]
+
+    T005
+        title      Implement canonical operation and family types
+        status     done
+        priority   medium
+        blocked_by [@task.Rewrite.T002]
+        description
+            Historical production deliverable: define resource, transaction, and stream
+            descriptors; exact P/K/A/E/R propagation; closed family states; and inert finite
+            actions in one cohesive operation feature with local tests. Runtime Cause
+            classification belongs to a later owner.
+
+            Source Bead: flow-state-e7p.1.5 (closed). Allowed write scope:
+            packages/flow-state-rewrite/src/operation/**. Evidence: type proofs, operation
+            tests, lint, and Bead closure receipt.
+        acceptance
+            Compile proofs retain exact P/K/A/E/R and family unions, including transaction
+            options, stream latest-value and terminal fields, and typed outcome unions.
+            They reject widened parameters, invalid family shapes, parent-captured types,
+            generic registries, and stream actor cancellation. They do not claim runtime
+            Cause classification or operation behavior.
+
+            Package typecheck, lint, focused operation tests, format, and diff check passed
+            historically. No current-checkout result is implied.
+        derives_from [@plan.Types.V2, @plan.Types.C2, @plan.PublicSurface.V3, @plan.Verification.V1]
+
+    T006
+        title      Implement closed App.M, requirements, and inert Implementations
+        status     done
+        priority   medium
+        blocked_by [@task.Rewrite.T001, @task.Rewrite.T002, @task.Rewrite.T004, @task.Rewrite.T005]
+        description
+            Historical production deliverable: compile exact module and App.M records,
+            AppPlan identity, normalized acyclic requirement carriers, descriptor and machine
+            admission, and immutable typed Implementation providers. Construction remains
+            inert; Runtime acquisition, Scope, finalization, and ready() belong to Phase 2.
+
+            Source Bead: flow-state-e7p.1.6 (closed). Provider constructors live in one
+            feature-owned module with local tests; route re-exports belong to T007. The
+            historical static harness belongs to T008, not this Task.
+        acceptance
+            Pure construction acquires nothing and rejects duplicate or unclosed identity,
+            cycles, foreign or unadmitted machines/descriptors, and post-construction
+            extension. Requirements remain exact without recursive carrier blowup, dynamic
+            roots, or registries. succeed, effect, and merge preserve exact provider types,
+            remain inert, and reject duplicate service identity. No namespace Object.freeze
+            behavior is required.
+
+            Historical typecheck, lint, 23 focused tests, and independent contract/Effect
+            reviews passed. Runtime acquisition and lifecycle remain deferred. These receipts
+            describe the accepted snapshot only.
+        derives_from [
+                     @plan.Types.D2,
+                     @plan.Types.D3,
+                     @plan.Types.V3,
+                     @plan.PublicSurface.V4,
+                     @plan.Verification.D3,
+                     @plan.Verification.V1
+                     ]
+
+    T007
+        title      Implement package routes, public errors, and remediation
+        status     done
+        priority   medium
+        blocked_by [@task.Rewrite.T001, @task.Rewrite.T006]
+        description
+            Historical production deliverable: assemble exact isolated package routes,
+            facade-only public exports, immutable structured usage errors, and the stable
+            code, documentation, and remediation mapping. Keep raw Cause only on the two
+            permitted public errors; human wording remains actionable but is not a
+            compatibility surface.
+
+            Source Bead: flow-state-e7p.1.1 (closed). Route files are package.json,
+            src/index.ts, src/public/root.ts, and src/public/types.ts; error implementation
+            and local tests stay in a cohesive feature module. The route-choice decision in
+            flow-state-e7p.1.2 is represented by T001. The lint disposition from decision
+            flow-state-e7p.1.10 is historical context, not a separate implementation Task.
+        acceptance
+            Packed consumers prove exact isolated names, route identity, and deep-import
+            rejection; immutable structured error fields; and all 18 stable code,
+            documentation, and remediation rows. Representative tests prove messages are
+            non-empty and actionable. The root Implementation runtime value has exactly
+            succeed, effect, and merge alongside its same-name type, with no alias, alternate
+            or private route, or duplicate provider authority.
+
+            The maintained quickstart compiles from source and packed declarations; its actor
+            turn receipt remains later-phase work. Route tests and the historical packed,
+            type, lint, and final Phase 1 receipts passed on their recorded snapshots only.
+        derives_from [
+                     @plan.PublicSurface.D1,
+                     @plan.PublicSurface.V1,
+                     @plan.Diagnostics.V3,
+                     @plan.Verification.D3
+                     ]
+
+    T008
+        title      Build the correctness-only static proof harness
+        status     done
+        priority   medium
+        blocked_by [@task.Rewrite.T004, @task.Rewrite.T005, @task.Rewrite.T006, @task.Rewrite.T007]
+        description
+            Historical proof deliverable: add positive and negative compile fixtures for
+            accepted names and inference, invalid static shapes, declarations, and inert
+            pure compilation. Cover strict and isolated declarations, packed consumers,
+            React 18/19, and representative small and medium consumers.
+
+            Source Bead: flow-state-e7p.1.7 (closed). The user-authorized correctness-only
+            disposition controls: compiler-performance budgets, benchmark arithmetic,
+            performance baselines, and reports are not acceptance gates. Do not restore
+            superseded measurement work. Allowed write scope: one cohesive declaration-proof
+            feature under packages/flow-state-rewrite/src/<feature>/ with local test/;
+            packed-consumer fixtures and package scripts remain integration boundaries.
+        acceptance
+            Valid consumers preserve exact inference and requirements; invalid shapes fail;
+            declarations contain no any or assertion erasure; and pure compilation proves
+            inertness and closed-world identity. Pinned-compiler fixtures cover the accepted
+            public type families and packed surface. Compiler errors, including excessive
+            instantiation, remain failures; no performance threshold is required.
+
+            Historical focused type, packed, lint, and static-harness checks passed. The
+            final Phase 1 review reused recorded evidence and added packed checks. This is
+            a historical receipt, not a claim about the current checkout.
+        derives_from [
+                     @plan.Types.V1,
+                     @plan.Types.V2,
+                     @plan.Types.V3,
+                     @plan.Types.V8,
+                     @plan.Types.V9,
+                     @plan.Types.V10,
+                     @plan.Verification.V1
+                     ]
+
+    T009
+        title      Migrate definition and machine failures to Diagnostic
+        status     done
+        priority   medium
+        blocked_by [@task.Rewrite.T002, @task.Rewrite.T004]
+        description
+            Historical failure-boundary deliverable: use Result and the shared Diagnostic
+            for expected definition and machine validation failures. Keep structural Schema
+            failures, semantic failures, and impossible invariant defects distinct; preserve
+            exact paths and details without re-decoding or executing Effects.
+
+            Source Bead: flow-state-e7p.1.11 (closed). Allowed write scope is the definition
+            and machine production owners and their local tests. Runtime, Story, CLI,
+            public route implementation, frozen package, and contract-authoring work are
+            outside this Task.
+        acceptance
+            No expected invalid-authoring path escapes as a generic Error. Machine reasons
+            are exhaustive; paths and details are stable; impossible validated-state
+            violations remain defects. Production proofs distinguish Schema, Result, and
+            defect lanes, and prove malformed definitions/configurations and no acquisition.
+
+            Historical package typecheck, definition and machine tests (15 focused tests),
+            lint, format, diff check, and independent reviews passed. These receipts are not
+            current-checkout results.
+        derives_from [
+                     @plan.Diagnostics.D2,
+                     @plan.Diagnostics.V2,
+                     @plan.Verification.C2,
+                     @plan.Verification.V1
+                     ]
+
+    T010
+        title      Prepare partial static evidence for closed owners
+        status     done
+        priority   medium
+        blocked_by [@task.Rewrite.T004, @task.Rewrite.T005, @task.Rewrite.T006]
+        description
+            Historical partial evidence deliverable for the already-closed definition,
+            machine, operation, App, and Implementation surfaces. Cover medium and recursive
+            carrier controls, invalid-shape fixtures, declaration emit, and the currently
+            available negative compile cases.
+
+            Source Bead: flow-state-e7p.1.12 (closed). This is preparation only: it does not
+            close T008 or the final packed, root-route, or quickstart lanes. Its user-
+            authorized correctness-only instruction supersedes references to a performance
+            baseline or regression ceiling; do not reinstate either gate.
+        acceptance
+            The TypeScript 7.0.2 fixtures preserve exact RequirementsOf and reject recursive
+            carrier and invalid static shapes. Emitted declarations contain no any or
+            assertion erasure. Checks for the available owners passed historically, with
+            the remaining packed, root, and quickstart lanes named as blocked; the full
+            harness remained owned by T008.
+
+            Historical receipts do not establish current results or complete T008.
+        derives_from [@plan.Types.V3, @plan.Types.V8, @plan.Types.V9, @plan.Verification.V1]
+
+    T011
+        title      Validate Phase 1 slices and hand back remaining proof gaps
+        status     done
+        priority   medium
+        blocked_by   [
+                     @task.Rewrite.T001,
+                     @task.Rewrite.T002,
+                     @task.Rewrite.T004,
+                     @task.Rewrite.T005,
+                     @task.Rewrite.T006,
+                     @task.Rewrite.T007,
+                     @task.Rewrite.T008
+                     ]
+        description
+            Historical read-only gate: review only changed Phase 1 slices, their named proof
+            evidence, direct provenance, and relevant deletion/retention boundaries. Reuse
+            production-owner proofs; do not repeat unchanged phase matrices. Allow only
+            unambiguous mechanical fixes within the reviewed slice.
+
+            Source Bead: flow-state-e7p.1.8 (closed). Decisions from flow-state-e7p.1.2
+            and flow-state-e7p.1.10 are represented by their owning Tasks, not separate
+            work. Broader Plan outcomes remain open where their runtime or host owners are
+            still future work; no partial slice claims to satisfy those outcomes.
+        acceptance
+            The handback records contract references, changed files, focused checks, lint
+            result, behavior reviewed, fixes, blocking findings, and remaining advisory
+            findings. Every decisive test names its proof and production owner. No blocker
+            or unclassified proof gap remains in the accepted Phase 1 scope; no hidden
+            compatibility, duplicate authority, erased types, uncontrolled work, partial
+            update, bespoke Effect clone, or implementation-only proof remains.
+
+            Historical final checks and parent review passed for their recorded snapshot.
+            This is not a current-checkout verification claim.
+        derives_from [
+                     @plan.Verification.C3,
+                     @plan.Verification.D6,
+                     @plan.Verification.V1,
+                     @plan.Verification.V8
+                     ]

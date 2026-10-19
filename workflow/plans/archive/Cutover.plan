@@ -1,0 +1,791 @@
+plan Cutover
+title   Cutover
+status  archived
+goal
+    Reach the accepted replacement boundary only after mapped proofs and cutover
+    gates establish the replacement and remove deleted behavior. Workflow Plans own
+    migrated semantics; source contracts provide provenance and trace IDs. This Plan
+    owns disposition, source cleanup, and product cutover evidence. No Plan claim means
+    implementation, physical source cleanup, or product cutover is complete.
+
+outcomes
+    O1  One accepted package boundary
+        Cutover exposes one accepted surface across installed packages, product
+        documentation, runtimes and generated or handwritten declarations. Retained
+        environmental boundaries remain available; deleted surfaces are absent.
+    O2  Complete disposition
+        Classify every affected old clause, symbol, overload, registry, consumer,
+        proof and task as DELETE, REPLACE, RETAIN or HISTORICAL. Record its accepted
+        replacement or retained boundary.
+    O3  Evidence-backed implementation and product cutover
+        Semantic mapping is complete; Workflow semantic authority and source status
+        transfer now. Remaining traceability and completeness checks, physical removal,
+        and product cutover wait for proof and no-residue gates.
+        Package promotion and product cutover remain pending; no Plan asserts
+        implementation is complete.
+
+decisions
+    D1  Workflow semantic authority and product status
+        Workflow Plans own migrated semantics and proof routing. Source contracts
+        provide trace IDs and migration evidence; they do not override Plan semantics.
+        This transfers rewrite requirements only. Product documentation keeps its
+        owner; Workflow Tasks own current task status. Beads records are historical
+        snapshots, not current readiness or authority. Implementation, physical source
+        cleanup, promotion, and product cutover remain pending
+        @plan.Verification.V7. A failed proof may
+        reopen only its disproved guarantee, never authorize an unaccepted API,
+        default, exception, alias, or proof requirement.
+
+        Accepted public decisions stay closed while gaps are resolved. Plans, public
+        types, artifacts and proofs move as one replacement. Production-owner proofs
+        are required under @plan.Verification.V7. This Plan owns the exhaustive
+        old-surface disposition. Its source copy is provenance only. The historical
+        behavior register is
+        closed by accepted revisions, but migration is not mechanically complete
+        until implementation proofs pass.
+
+        Verification owns cross-cutting gates and central proof coverage:
+        @plan.Verification.V7. This Plan owns deletion/retention mapping and
+        cutover-specific evidence. Story semantics stay at
+        @plan.Verification.V4; this reference does not duplicate them.
+    D2  Hard deletion and retained boundaries
+        Dispositions mean:
+        - **DELETE:** no replacement; remove the old surface completely.
+        - **REPLACE:** remove the old surface; continue its capability under the
+          accepted replacement.
+        - **RETAIN:** preserve the mapped boundary under its owning Workflow Plan.
+        - **HISTORICAL:** allow the material only in Git history or an explicitly
+          historical location, never as active authority.
+
+        REPLACE is hard deletion. It permits no alias, overload, adapter,
+        compatibility namespace, parser branch or deprecated wrapper. Environmental
+        compatibility exists only in explicit RETAIN rows. An unmapped source clause
+        is a migration gap, not an active semantic owner. Cutover waits until every affected
+        clause, symbol, overload, registry, consumer, proof and task is classified or
+        recorded unchanged.
+
+        Deleted names may appear only in this ledger, the non-normative deferred
+        record, historical provenance or a negative absence proof. Never make them
+        supported API, replacement guidance, active glossary definitions or
+        positive consumer usages. Keep RETAIN rows unchanged unless an accepted
+        revision changes their disposition. Reference consumers rewrite deleted
+        calls. Selector files may be redistributed; unused host fixtures may be
+        removed or promoted into tested hosts. Folder layout is not a public deletion
+        rule.
+    D3  DEFERRED is non-normative context only
+        DEFERRED.md records complexity deliberately removed or relaxed by an
+        authorized feature-preserving simplification. Its entries
+        are not implementation tasks, Plan outcomes or proof obligations. They may
+        return only after the listed trigger exists and a separate contract change is
+        accepted. The file promises no future work. The record says routes and
+        families in proposed CONTRACT remain in scope; that does not accept its
+        proposal clauses or signatures. DEFERRED does not override mapped Workflow
+        Plan semantics.
+
+        These twelve entries provide nonbinding context, not implementation duties:
+        **Security and carrier boundaries**
+        - **Trusted gateway import policing:** Removed computed dynamic-import and
+          nonliteral-require scans, dependency graph traversal and ancestor
+          node_modules policing. Previous owner: @plan.CLI.V1. The target retains root
+          containment, regular .ts/.mts files, trusted unsandboxed execution,
+          Flow/Effect identity, branded gateway/app/story validation, inert artifacts
+          and temporary-output cleanup. Revisit only for an explicit sandbox,
+          hermetic build or untrusted-code security claim.
+
+        - **Hostile JavaScript carrier reflection:** Removed promises for proxies,
+          throwing getters, descriptors/accessors, symbols and sparse arrays. Also
+          removed promises for custom prototypes, reserved-prototype behavior and
+          concurrent mutation passed directly to private decoders. Previous owner:
+          @plan.Artifacts.O4. The target
+          retains strict UTF-8/file input, one compression member, decompressed bounds
+          and JSON. It uses one private Effect Schema decoder to fresh canonical data
+          and retains pre-mutation stable failure. Revisit only if a public API accepts
+          arbitrary live JS graphs as untrusted carriers.
+
+        **Host portability and runtime ownership**
+        - **Full codec vectors on every host:** Removed repeating every Unicode,
+          surrogate and limit vector under every host. Previous owners:
+          @plan.Verification.D5 and @plan.Verification.V6. The target retains full
+          pinned-Node vectors. It also retains a compact same-codec fixture and exact
+          version receipts on Bun, Deno, Chromium, Gecko and WebKit. Revisit for a
+          host-specific codec/text implementation or an undetected portability failure.
+
+        - **Prescribed Runtime internals:** Removed exact private phases, one
+          ManagedRuntime, shell cells, fixed Queue/SubscriptionRef/Deferred topology,
+          exact runSync count and source-shape proofs. Previous owner:
+          @plan.Runtime.O3. The target retains inert sync construction and at-most-once
+          readiness with cached terminal Exit. It releases no handle before readiness.
+          It has one lifetime owner, reverse rollback and cleanup on failure,
+          interruption or disposal. Revisit only
+          if valid implementations differ observably in ownership/readiness/cleanup.
+
+        **Observable ordering and proof ownership**
+        - **Unobservable commit micro-order:** Removed ordering of private permit,
+          store, issue, snapshot, evidence acceptance, reconciliation enqueue,
+          acknowledgement, release gate and StoreFanout steps. Previous owners:
+          @plan.Runtime.O3, @plan.Operations.O1 and @plan.Artifacts.O3. The target
+          retains one atomic actor/store cut, FIFO/causal ordering and committed
+          evidence. Acknowledgement follows publication and evidence acceptance, but
+          precedes user Effect settlement. Sinks remain isolated and nonblocking.
+          StoreFanout remains causal, and disposal drains. Revisit only if a
+          new public receipt/transaction/observation exposes an intermediate phase.
+
+        - **Duplicate semantic proof ownership:** Removed repeating full
+          positive/negative/race/boundary matrices across focused tests, validators,
+          packed/browser/CLI runs and final verification. Previous owners:
+          @plan.Verification.D2, @plan.Verification.D6 and implementation tasks.
+          The target retains one named
+          production-owner proof per invariant; integrations add reachability and
+          distinct failure cases. Revisit only when the owner proof cannot exercise a
+          materially different public or host boundary.
+
+        **Performance and capacity limits**
+        - **Exact TypeScript benchmark arithmetic:** Removed mandatory
+          25-machine/100-descriptor fixture, ten-percent instantiation window,
+          doubled-root ratio and numeric growth gates. Previous owner:
+          @plan.Verification.V1. The target retains representative small/medium fixtures, exact
+          inference, negative
+          assertions and declaration correctness on pinned compiler. Compiler
+          measurements, repeated samples, baseline freshness and numeric budgets are
+          deferred and do not block Phase 1.5. Revisit after the library is built and
+          performance work is authorized.
+
+        - **Exact internal capacity cutoffs:** Removed compatibility promise for
+          precise failure points of private prepared-command, retention and batch
+          capacities. Previous owners: React prepared mailbox and internal vectors.
+          The target retains bounds, documented ordinary capacity and failure without
+          partial mutation. Caller bounds/defaults and external byte, decompression,
+          node and depth limits remain exact. Revisit if clients must size or negotiate an
+          internal buffer or a wire/public API exposes its exact capacity.
+
+        **Output and evidence compatibility**
+        - **Human-prose compatibility:** Removed byte-stable human errors, CLI
+          prose/whitespace/field ordering and snapshots asserting only exact wording.
+          Previous owners: @plan.Diagnostics.O1 and @plan.CLI.V3. The target retains
+          stable tag/code/path/details, canonical CLI JSON, exit/stdout/stderr behavior
+          and one-document writes. It retains actionable nonempty text, a newline and
+          no ANSI for noninteractive
+          output. Revisit only if Flow publishes human text as a shell-parsing format;
+          canonical JSON remains the machine interface.
+
+        - **Dual truncation markers:** Removed separate greatest-dropped and
+          first-omitted semantics, conversion arithmetic and exact drain/CAS algorithm.
+          Previous owner: @plan.Verification.V6 and v2 trace artifacts. The target retains one
+          truncatedBeforeSequence marker: null iff nothing omitted, otherwise greatest
+          omitted runtime-global sequence; trace proof rejects non-null. Snapshot,
+          clear, attach, detach, drain and sink failure remain atomic/isolated. Revisit
+          only for a shipped artifact requiring old interpretation, with explicit
+          version boundary.
+
+        - **Serialized Effect Cause traversal:** Removed stable wire coupling to
+          Cause tree shape/order/fiber ordinals/multiplicity. Previous owners:
+          @plan.Artifacts.O6, @plan.Runtime.O3 and @plan.Verification.V6. The target
+          retains full in-process Cause through classification and cleanup. Documented
+          public errors keep it. Serialized evidence carries ordered stable Flow
+          diagnostics and independently actionable cleanup diagnostic order and
+          multiplicity. Revisit only for a
+          supported consumer needing lossless Effect-internal reconstruction and
+          accepting explicit Effect-version coupling.
+
+        **Historical inventory scope**
+        - **Repeated historical absence inventories:** Removed full deletion
+          inventory/name matrix from every implementation/validation Bead. Previous
+          owners: @O2, @plan.Verification.V7 and cutover tasks. The target retains the
+          authoritative ledger, export/declaration negatives, one mapped
+          final no-consumer audit and feature-owner proof only for intersecting
+          behavior. Revisit only if a removed surface reappears or compatibility is
+          proposed.
+    D4  Historical behavior is provenance, not a compatibility source
+        The historical behavior register is provenance, not compatibility input.
+        Accepted operation and host changes close the recorded runtime cases.
+        Artifact and diagnostic changes close the remaining recorded migration cases.
+        Workflow Tasks carry named implementation obligations; Beads records and old
+        proof receipts are historical evidence. No inherited behavior entry blocks
+        compatibility. History does not select behavior.
+
+constraints
+    C1  Target-only status
+        Workflow Plans define target semantics, not shipped code/API/behavior.
+        Neither the Plans nor their source trace IDs prove implementation or promotion.
+        Product cutover stays pending until all mapped implementation and proof gates pass.
+    C2  No coexistence or compatibility translation
+        No installed package, current product documentation, runtime or generated /
+        handwritten type may expose or compose deleted and replacement surfaces together.
+        Replacement is hard deletion. Removed values, types, overloads, properties,
+        deep imports, registries, consumers, proofs and task references fail closed.
+        Rejection occurs before actor creation, memory mutation, operation
+        acquisition, event publication, external work or evidence.
+    C3  Semantic transfer before source cleanup
+        Workflow Plans own migrated semantics; source status banners identify their
+        files as provenance. Keep them for traceability until mapped proofs and the
+        no-residue audit authorize physical removal. Product documentation keeps its
+        owner; Workflow Tasks own current status and Beads records remain historical
+        snapshots. This does not claim product cutover.
+    C4  Shared proof owner
+        Cross-cutting final gates are owned by @plan.Verification.V7. This Plan owns
+        cutover scenarios, disposition detail and repository no-residue
+        interpretation; do not copy
+        the complete proof matrix here.
+    C5  Source traceability
+        - Migration sources and trace IDs are
+          reference/incident-console/implementation/contracts/COMPATIBILITY_AND_DELETIONS.md
+          and reference/incident-console/implementation/contracts/PROOF_MATRIX.md.
+        - Context only: reference/incident-console/implementation/contracts/DEFERRED.md.
+          It is nonnormative and nonbinding; it creates no implementation or proof
+          obligation.
+        - Proposal only: reference/incident-console/implementation/contracts/CONTRACT.md
+          §§8, 11 and 12. They remain unaccepted examples, checklist and provenance.
+        - Workflow Plans own migrated semantic requirements. Source clauses provide
+          traceability only; status banners now record provenance. Physical source
+          cleanup remains gated by mapped proofs and the no-residue audit.
+
+    C6  Source-to-Plan proof crosswalk
+        Source IDs below preserve traceability; Workflow Plan outcomes own the
+        migrated semantics. Central and local proof mappings follow PROOF_MATRIX.md.
+
+        **Source clauses -> migrated owner outcomes**
+        `MIGRATED` names the current Plan owner; additive guidance is labeled separately.
+        @V3 applies DEL/RET dispositions to affected surfaces. Mapping does not close proofs.
+        Authority transfer and source-ID/semantic-owner crosswalk review passed under @D1/@O3.
+        O2/@V3 proof/disposition checks, physical cleanup, and product cutover remain pending.
+
+        - MIGRATED PUBLIC_API: API-001 -> @plan.PublicSurface.O1; @plan.Verification.V1.
+        - ADOPTED ADDITIVE GUIDANCE: AMEND-API-001 -> @plan.PublicSurface.O2;
+          P6 T601, @plan.Verification.V7. AMEND-P05 quickstart proof remains pending.
+        - MIGRATED PUBLIC_API: AMEND-API-004 -> @plan.PublicSurface.O1;
+          @plan.Verification.V1.
+        - MIGRATED PUBLIC_API: AMEND-API-005 -> @plan.PublicSurface.O1,
+          @plan.Diagnostics.O1/O3; P5 T508, @plan.Diagnostics.V4.
+        - MIGRATED PUBLIC_API: API-002 -> @plan.PublicSurface.O1, @plan.Types.O1–O6,
+          @plan.Diagnostics.O1; @plan.Verification.V1.
+        - MIGRATED PUBLIC_API: API-002A, AMEND-API-002 -> @plan.Diagnostics.O1–O3,
+          @plan.PublicSurface.O1; @plan.Verification.V1/V3. AMEND-P03 is below.
+        - HISTORICAL source without clause IDs: ERRORS.ts -> @plan.Diagnostics.O1–O3,
+          @plan.PublicSurface.O1; @plan.Verification.V1–V3.
+        - MIGRATED PUBLIC_API: API-003/004 -> @plan.PublicSurface.O2, @plan.Types.O1,
+          @plan.Runtime.O1; @plan.Verification.V1.
+        - MIGRATED PUBLIC_API: API-005–009 -> @plan.PublicSurface.O3, @plan.Types.O2,
+          @plan.Operations.O1–O4; @plan.Verification.V3.
+        - MIGRATED PUBLIC_API: API-010–012 -> @plan.PublicSurface.O4,
+          @plan.Types.O3–O5, @plan.Runtime.O2–O5, @plan.Hosts.O1–O6,
+          @plan.Artifacts.O1–O3; @plan.Verification.V2/V5/V6.
+        - MIGRATED PUBLIC_API: API-013/013A/014/015 -> @plan.PublicSurface.O5,
+          @plan.Types.O6, @plan.Runtime.O6, @plan.Artifacts.O7;
+          @plan.Verification.V4.
+        - MIGRATED PUBLIC_API: API-016 -> @plan.PublicSurface.O6,
+          @plan.Artifacts.O5/O6; @plan.Verification.V5/V6.
+        - MIGRATED AMEND-API-003 -> @plan.PublicSurface.O6, @plan.Artifacts.O6;
+          @plan.Verification.V6, PROOF-014/API-P04.
+        - MIGRATED PUBLIC_API: API-017 -> @plan.PublicSurface.O6, @plan.CLI.O1–O4;
+          @plan.Verification.V6.
+
+        - MIGRATED ARCH: ARCH-001–006, ARCH-027 -> @plan.Runtime.O1/O2,
+          @plan.Types.O1/O2, @plan.PublicSurface.O2/O4; @plan.Verification.V1/V2.
+        - MIGRATED ARCH: ARCH-007/007A/009/010/024/029 -> @plan.Runtime.O2–O4,
+          @plan.Hosts.O1/O4, @plan.Artifacts.O2; @plan.Verification.V2/V6.
+        - MIGRATED ARCH: ARCH-008 -> @plan.Runtime.O3/D3, @plan.Hosts.O1,
+          @plan.Artifacts.O2; @plan.Verification.V2/V6. D3 supersedes its old order.
+        - MIGRATED ARCH: ARCH-011/012/018/019/032 -> @plan.Runtime.O4–O6,
+          @plan.Hosts.O3–O6, @plan.PublicSurface.O4; @plan.Verification.V4–V6.
+        - MIGRATED ARCH: ARCH-013/013A/013B/014 -> @plan.Operations.O1/O3,
+          @plan.Runtime.O4/O5, @plan.Artifacts.O3; @plan.Verification.V3.
+        - MIGRATED ARCH: ARCH-015/015A -> @plan.Operations.O2/O3,
+          @plan.Runtime.O4; @plan.Verification.V3.
+        - MIGRATED ARCH: ARCH-017/020/021 -> @plan.Runtime.O4/O6, @plan.Hosts.O2/O4,
+          @plan.PublicSurface.O4/O5; @plan.Verification.V2/V4.
+        - MIGRATED ARCH: ARCH-022/023/025/026 -> @plan.Runtime.O4–O6,
+          @plan.Operations.O3, @plan.Artifacts.O5, @plan.Hosts.O6;
+          @plan.Verification.V4–V6.
+        - MIGRATED ARCH: ARCH-024A -> @plan.PublicSurface.O1, @plan.Types.O3;
+          @plan.Cutover.O1/V1.
+        - MIGRATED ARCH: ARCH-030/031 -> @plan.Runtime.O5, @plan.Operations.O3;
+          @plan.Verification.V2/V3.
+        - MIGRATED ARCH: ARCH-016 -> @plan.Operations.Q1/V3, P3 T301;
+          pinned rc.112 API verification remains open.
+        - NON-NORMATIVE ARCH: ARCH-028 is historical context only; no owner obligation.
+
+        - MIGRATED SEM: SEM-001, SEM-001A, SEM-002, SEM-002A, SEM-003–SEM-007 ->
+          @plan.Runtime.O3/O4,
+          @plan.Hosts.O1/O3, @plan.Operations.O1/O3; @plan.Verification.V2/V3.
+        - MIGRATED SEM: SEM-008–017, SEM-011A–SEM-011D, SEM-015A ->
+          @plan.Operations.O1–O4, @plan.Runtime.O4/O5, @plan.Artifacts.O3,
+          @plan.Types.O2, @plan.PublicSurface.O3; @plan.Verification.V3.
+        - MIGRATED SEM: SEM-006A -> @plan.Operations.O2/O3, @plan.Runtime.O4,
+          @plan.Hosts.O2; @plan.Verification.V3.
+        - MIGRATED SEM: SEM-017A -> @plan.Cutover.D2/V1, @plan.Runtime.O1,
+          @plan.PublicSurface.O2; @plan.Verification.V1.
+        - MIGRATED SEM: SEM-018–022 -> @plan.Operations.O2/O3, @plan.Runtime.O4/O5,
+          @plan.Hosts.O2/O3/O6; @plan.Verification.V3/V4.
+        - MIGRATED SEM: SEM-023/024/024A/024B -> @plan.Diagnostics.O2/O3,
+          @plan.Runtime.O4/O5, @plan.Hosts.O5; @plan.Verification.V2/V5/V6.
+        - MIGRATED SEM: SEM-025/026 -> @plan.Runtime.O4, @plan.Hosts.O3,
+          @plan.PublicSurface.O4; @plan.Verification.V5.
+        - MIGRATED SEM: SEM-027/027A -> @plan.Runtime.O3, @plan.Artifacts.O1/O2,
+          @plan.Hosts.O1/O4; @plan.Verification.V2/V6.
+        - MIGRATED SEM: SEM-028–030 -> @plan.Runtime.O3/O4/O6,
+          @plan.Operations.O3, @plan.Hosts.O1; @plan.Verification.V3/V4.
+
+        - MIGRATED TYPE: TYPE-000 -> @plan.Types.O1/O2/O4, @plan.Diagnostics.O1/O2;
+          @plan.Verification.V1/V2/V6.
+        - MIGRATED TYPE: TYPE-001–004 -> @plan.Types.O1, @plan.PublicSurface.O2,
+          @plan.Runtime.O1; @plan.Verification.V1.
+        - MIGRATED TYPE: TYPE-005–008 -> @plan.Types.O2, @plan.PublicSurface.O3,
+          @plan.Operations.O1–O3, @plan.Diagnostics.O2; @plan.Verification.V3.
+        - MIGRATED TYPE: TYPE-009/009A/009B -> @plan.Types.O3, @plan.PublicSurface.O4,
+          @plan.Runtime.O2/O3; @plan.Verification.V1.
+        - MIGRATED TYPE: TYPE-010/011 -> @plan.Types.O4, @plan.PublicSurface.O4,
+          @plan.Runtime.O3, @plan.Hosts.O6; @plan.Verification.V1/V5.
+        - MIGRATED TYPE: TYPE-012/013 -> @plan.Types.O5, @plan.PublicSurface.O4,
+          @plan.Runtime.O3/O5, @plan.Hosts.O2/O3; @plan.Verification.V1/V5.
+        - MIGRATED TYPE: TYPE-014–017 -> @plan.Types.O6, @plan.PublicSurface.O5,
+          @plan.Runtime.O6, @plan.Artifacts.O7; @plan.Verification.V4.
+
+        - MIGRATED HOST: HOST-001/006 -> @plan.Hosts.O1, @plan.Runtime.O3,
+          @plan.Artifacts.O2; @plan.Verification.V1/V2/V6.
+        - MIGRATED HOST: HOST-002/003 -> @plan.Hosts.O2, @plan.Types.O5,
+          @plan.Runtime.O2/O3/O5; @plan.Verification.V2/V5.
+        - MIGRATED HOST: HOST-004/005 -> @plan.Hosts.O2/O5, @plan.Runtime.O4/O5,
+          @plan.Artifacts.O5; @plan.Verification.V2/V5.
+        - MIGRATED HOST: HOST-007–011 -> @plan.Hosts.O3, @plan.Types.O5,
+          @plan.Runtime.O5, @plan.Operations.O4; @plan.Verification.V5.
+        - MIGRATED HOST: HOST-012–014 -> @plan.Hosts.O4, @plan.Artifacts.O1–O3;
+          @plan.Verification.V6.
+        - MIGRATED HOST: HOST-015 -> @plan.Hosts.O6, @plan.Types.O4,
+          @plan.Diagnostics.O2; @plan.Verification.V2/V3/V5.
+        - MIGRATED HOST: HOST-017 -> @plan.Hosts.O6, @plan.Operations.O1;
+          @plan.Verification.V3/V5, SNAP-P01.
+        - MIGRATED HOST: HOST-016 -> @plan.Hosts.O5, @plan.Runtime.O5;
+          @plan.Verification.V4/V5.
+
+        - MIGRATED SNAP: SNAP-001/002 -> @plan.Runtime.O4/O6, @plan.Operations.O4,
+          @plan.Hosts.O2/O3/O5, @plan.PublicSurface.O3/O4;
+          @plan.Verification.V2/V4/V5.
+        - MIGRATED SNAP: SNAP-003–005 -> @plan.Operations.O1/O4,
+          @plan.PublicSurface.O3, @plan.Types.O2; @plan.Verification.V3.
+        - MIGRATED SNAP: SNAP-006–008 -> @plan.Operations.O2–O4,
+          @plan.PublicSurface.O3, @plan.Types.O2; @plan.Verification.V3.
+        - MIGRATED SNAP: SNAP-009 -> @plan.Operations.O3, @plan.Runtime.O5,
+          @plan.PublicSurface.O3; @plan.Verification.V3.
+        - MIGRATED SNAP: SNAP-010 -> @plan.Runtime.O6, @plan.Artifacts.O7;
+          @plan.Verification.V4/V6.
+
+        - MIGRATED GLO: GLO-01–06 -> @plan.Runtime.O1/O2, @plan.Types.O1/O2,
+          @plan.PublicSurface.O2/O3, @plan.Operations.O1–O4, @plan.Artifacts.O2;
+          @plan.Verification.V1–V3.
+        - MIGRATED GLO: GLO-07–09, GLO-08A -> @plan.Runtime.O2–O5,
+          @plan.Hosts.O1/O2, @plan.Types.O2/O3, @plan.PublicSurface.O3/O4,
+          @plan.Operations.O1–O3, @plan.Artifacts.O1/O2;
+          @plan.Verification.V2/V3/V5/V6.
+        - MIGRATED GLO: GLO-10–12 -> @plan.Runtime.O4/O5,
+          @plan.Operations.O1/O2/O4, @plan.Hosts.O2/O3, @plan.Artifacts.O5;
+          @plan.Verification.V2.
+        - MIGRATED GLO: GLO-13/14 -> @plan.Runtime.O4–O6,
+          @plan.Diagnostics.O2, @plan.Artifacts.O5/O7, @plan.Hosts.O3,
+          @plan.PublicSurface.O4, @plan.Operations.O4; @plan.Verification.V5.
+        - MIGRATED GLO: GLO-15 -> @plan.Runtime.O6, @plan.PublicSurface.O5;
+          @plan.Verification.V4.
+        - MIGRATED GLO: GLO-16 -> @plan.Runtime.O3/O6, @plan.Artifacts.O2/O6,
+          @plan.CLI.O2; @plan.Verification.V6.
+        - MIGRATED GLO: GLO-17 -> @plan.Runtime.O3, @plan.Hosts.O1;
+          @plan.Verification.V2.
+        - MIGRATED GLO-L1 -> @plan.Runtime.O2, @plan.Operations.O1/O2,
+          @plan.Artifacts.O2; @plan.Verification.V2/V3/V6.
+        - MIGRATED GLO-L2 -> @plan.Operations.O1/O2; @plan.Verification.V3.
+        - MIGRATED GLO-L3 -> @plan.Runtime.O1/O2, @plan.Types.O1/O2,
+          @plan.PublicSurface.O2/O3; @plan.Verification.V1/V2.
+        - MIGRATED GLO-L4 -> @plan.Runtime.O4/O5, @plan.Operations.O1/O3;
+          @plan.Verification.V2/V3/V5.
+        - MIGRATED GLO-L5 -> @plan.Operations.O4, @plan.Hosts.O3,
+          @plan.Runtime.O5, @plan.Artifacts.O5; @plan.Verification.V3/V5/V6.
+        - MIGRATED GLO-L6 -> @plan.Runtime.O3, @plan.Hosts.O1,
+          @plan.Artifacts.O2; @plan.Verification.V2/V6.
+        - MIGRATED GLO-L7 -> @plan.Runtime.O3/O5, @plan.Hosts.O2/O5,
+          @plan.Artifacts.O2; @plan.Verification.V2/V5/V6.
+
+        - MIGRATED WIRE: WIRE-000, WIRE-000A–WIRE-000E -> @plan.Artifacts.O1/V1;
+          @plan.Verification.V6.
+        - MIGRATED WIRE: WIRE-001/001A/002/003/007/008 -> @plan.Artifacts.O2/V2,
+          @plan.Runtime.O2; @plan.Verification.V6.
+        - MIGRATED WIRE: WIRE-004–006 -> @plan.Artifacts.O2/V2,
+          @plan.Runtime.O3/D3, @plan.Hosts.O1; @plan.Verification.V2/V6.
+        - MIGRATED WIRE: WIRE-009/010 -> @plan.Artifacts.O3/V2,
+          @plan.Runtime.O4; @plan.Verification.V6.
+        - MIGRATED WIRE: WIRE-011/011A/012/013 -> @plan.Artifacts.O3/V2,
+          @plan.Runtime.O6; @plan.Verification.V6.
+        - MIGRATED WIRE: WIRE-014–016 -> @plan.Artifacts.O4/V3,
+          @plan.CLI.O2; @plan.Verification.V6.
+        - MIGRATED WIRE: WIRE-017–020 -> @plan.Artifacts.O5/V4;
+          @plan.Verification.V6.
+        - MIGRATED WIRE: WIRE-020A/020B -> @plan.Artifacts.O6/V5,
+          @plan.PublicSurface.O6, @plan.CLI.O2/O3; @plan.Verification.V6.
+        - MIGRATED WIRE: WIRE-020C -> @plan.Artifacts.O6,
+          @plan.PublicSurface.O6; @plan.Verification.V6.
+        - MIGRATED WIRE: WIRE-021–024 -> @plan.Artifacts.O7/V5,
+          @plan.PublicSurface.O5; @plan.Verification.V4/V6.
+
+        - MIGRATED CLI: CLI-001/002 -> @plan.CLI.O1/V1;
+          @plan.Verification.V6.
+        - MIGRATED CLI: CLI-003/004 -> @plan.CLI.O1/V1, @plan.PublicSurface.O6;
+          @plan.Verification.V6.
+        - MIGRATED CLI: CLI-005/006 -> @plan.CLI.O2/V2, @plan.Artifacts.O4/O6;
+          @plan.Verification.V6.
+        - MIGRATED CLI: CLI-007–011 -> @plan.CLI.O3/V3;
+          @plan.Verification.V6.
+        - MIGRATED CLI: CLI-012, CLI-P01/P02 -> @plan.CLI.O4/V4,
+          @plan.Verification.V6/V7, @plan.Cutover.V5/V7.
+
+        - MIGRATED TEST: REV-TEST-001/002 -> @plan.PublicSurface.O5,
+          @plan.Types.O6; @plan.Verification.V4.
+        - MIGRATED TEST: REV-TEST-003–005 -> @plan.PublicSurface.O5,
+          @plan.Types.O6, @plan.Runtime.O6; @plan.Verification.V4.
+        - MIGRATED TEST: REV-TEST-006–008 -> @plan.Runtime.O4/O6,
+          @plan.Operations.O1–O4, @plan.Artifacts.O7; @plan.Verification.V4.
+        - MIGRATED TEST: REV-TEST-009/010, TEST-014/015 -> @plan.PublicSurface.O5,
+          @plan.Types.O6, @plan.Artifacts.O7; @plan.Verification.V4.
+
+        **Historical behavior closure IDs -> migrated owners**
+        BEH records are provenance; accepted REV clauses remain normative at mapped owners.
+        These closures are not current behavior decisions or proof-completion receipts.
+        - BEH-001 -> REV-COMP-015 -> @plan.Runtime.O3, @plan.Hosts.O1;
+          @plan.Verification.V2/V6.
+        - BEH-002 -> SEM-029/REV-COMP-015 -> @plan.Runtime.O3, @plan.Hosts.O1;
+          @plan.Verification.V2.
+        - BEH-003 -> REV-COMP-012/013 -> @plan.Runtime.O2/O3, @plan.Hosts.O2;
+          @plan.Verification.V2/V5.
+        - BEH-004 -> REV-COMP-005 -> @plan.Artifacts.O2, @plan.Runtime.O2;
+          @plan.Verification.V6.
+        - BEH-005 -> REV-COMP-011/WIRE-008 -> @plan.Runtime.O2, @plan.Artifacts.O2;
+          @plan.Verification.V1/V6.
+        - BEH-006 -> REV-COMP-006/008 -> @plan.Runtime.O2, @plan.Types.O3,
+          @plan.PublicSurface.O4; @plan.Verification.V1.
+        - BEH-007/008 -> REV-HOST-003/004 -> @plan.Hosts.O5, @plan.Runtime.O4/O5,
+          @plan.Artifacts.O5; @plan.Verification.V2/V5.
+        - BEH-009/010 -> REV-COMP-004/REV-HOST-005/ARCH-030 ->
+          @plan.Runtime.O5, @plan.Hosts.O3/O5, @plan.Operations.O3;
+          @plan.Verification.V2/V3/V5.
+        - BEH-011/012/013 -> REV-HOST-002/ARCH-018/SEM-001 ->
+          @plan.Runtime.O3, @plan.Hosts.O3/O4; @plan.Verification.V2/V5.
+        - BEH-014 -> REV-COMP-003/REV-HOST-006 -> @plan.Runtime.O5,
+          @plan.Hosts.O3; @plan.Verification.V5.
+        - BEH-015 -> REV-HOST-007 -> @plan.Hosts.O3, @plan.Operations.O4;
+          @plan.Verification.V5.
+        - BEH-016 -> REV-HOST-003 -> @plan.Hosts.O2/O5, @plan.Runtime.O5;
+          @plan.Verification.V2/V5.
+        - BEH-017 -> REV-TEST-003 -> @plan.PublicSurface.O5,
+          @plan.Types.O6, @plan.Runtime.O6; @plan.Verification.V4.
+        - BEH-018 -> REV-TEST-005 -> @plan.PublicSurface.O5,
+          @plan.Types.O6, @plan.Runtime.O6; @plan.Verification.V4.
+        - BEH-019 -> REV-TEST-007 -> @plan.PublicSurface.O5,
+          @plan.Runtime.O6; @plan.Verification.V4.
+        - BEH-020 -> REV-TEST-007/SEM-030 -> @plan.Runtime.O5/O6,
+          @plan.PublicSurface.O5; @plan.Verification.V3/V4.
+        - BEH-021 -> REV-TEST-008 -> @plan.Runtime.O6, @plan.Artifacts.O7;
+          @plan.Verification.V4/V6.
+        - BEH-022 -> REV-TEST-006/008 -> @plan.Runtime.O6,
+          @plan.Artifacts.O7; @plan.Verification.V4.
+        - BEH-023 -> REV-OPS-017 -> @plan.Operations.O1/O4, @plan.Types.O2,
+          @plan.PublicSurface.O3; PROOF-001/005/014.
+        - BEH-024–026, BEH-028–029, BEH-031 -> REV-OPS-015 ->
+          @plan.Operations.O1–O3;
+          PROOF-003/005–007/009/014.
+        - BEH-027 -> REV-OPS-016 -> @plan.Operations.O1, @plan.Types.O2,
+          @plan.PublicSurface.O3; PROOF-005.
+        - BEH-030 -> REV-OPS-018 -> @plan.Operations.O1/O3; PROOF-006/007.
+        - BEH-032 -> REV-HOST-008 -> @plan.Hosts.O6; PROOF-005/006/014.
+        - BEH-033 -> REV-MIG-005/WIRE-020B -> @plan.Artifacts.O6/O7,
+          @plan.CLI.O2/O4, @plan.PublicSurface.O5/O6; PROOF-001/008/010/014/017,
+          CLI-P01/P02.
+        - BEH-033 also maps to @plan.Runtime.O6 and @plan.Diagnostics.O2 for Story
+          checkpoint, end, and failure evidence.
+        - BEH-034 -> REV-MIG-006/DEL-002 -> @plan.Runtime.O1,
+          @plan.PublicSurface.O2, @plan.Cutover.D2/V1;
+          PROOF-001–003/011/014/015/017.
+
+        Task anchors: PublicSurface/Types -> P1.task T001–T011; Runtime -> P2B.task
+        T151–T174 and P22.task T253–T271; Operations -> P3.task T300–T306;
+        Artifacts -> P4.task T400–T405; Hosts/Stories/CLI/Diagnostics -> P5.task
+        T500–T508; package and cutover -> P6.task T600–T607. P6 T603 records authority
+        transfer and owns remaining source dispositions; @plan.Verification.V7 owns the
+        final crosswalk and gate check.
+
+        **Disposition labels and proofs**
+        - HISTORICAL inventory alias API-012A -> DEL-004 -> REV-COMP-013/REV-HOST-003;
+          @plan.Runtime.O5, @plan.Hosts.O2, @plan.PublicSurface.O4; PROOF-004/017.
+        - HISTORICAL inventory alias TEST-001–TEST-018 -> DEL-009 ->
+          REV-TEST-001–REV-TEST-010; @plan.PublicSurface.O5, @plan.Runtime.O4/O6,
+          @plan.Verification.V4/V6; PROOF-008–PROOF-011/017.
+        - CUT-001–CUT-007, CUT-007A, CUT-008 map to this Plan's V1–V7 and PROOF-016/017.
+        - DEL-001–DEL-011 map to @O2, @V3–@V6, and PROOF-017.
+        - RET-001–RET-005 map to @O2, @V3, @V6, and PROOF-017.
+        - CUT-001 -> CUT-P04 -> PROOF-001, PROOF-012, PROOF-014, PROOF-017.
+        - CUT-002 -> CUT-P01–CUT-P03 -> PROOF-001, PROOF-017.
+        - CUT-003 -> CUT-P01–CUT-P03 -> PROOF-001, PROOF-017.
+        - CUT-004 -> CUT-P03, CUT-P05, CUT-P06 -> PROOF-001, PROOF-017.
+        - CUT-005 -> PROOF-005–PROOF-007.
+        - CUT-006 -> PROOF-003, PROOF-011, PROOF-017.
+        - CUT-007 -> PROOF-001, PROOF-008–PROOF-011, PROOF-017.
+        - CUT-007A -> PROOF-014, CLI-P01, CLI-P02, PROOF-017.
+        - CUT-008 -> PROOF-010, PROOF-014, PROOF-017, CLI-P01, CLI-P02.
+
+        **Revision-family trace labels**
+        Per-clause mappings above refine these aggregate revision-family owner anchors.
+        - REV-COMP-001–REV-COMP-015 -> @plan.Runtime.O1–O3/O5/O6,
+          @plan.Types.O1–O3/O5, @plan.PublicSurface.O2/O4, @plan.Operations.O1,
+          @plan.Artifacts.O2/O3; @plan.Verification.V1/V2/V6;
+          PROOF-001/002/004/005/012/014/015.
+        - REV-MACH-001–REV-MACH-011 -> @plan.Runtime.O1/O2/O4,
+          @plan.Types.O1, @plan.PublicSurface.O2/O4; @plan.Verification.V1/V2;
+          PROOF-001/002/003/017.
+        - REV-OPS-001–REV-OPS-018 -> @plan.Operations.O1–O4,
+          @plan.Runtime.O3–O6, @plan.Types.O2, @plan.PublicSurface.O3/O4,
+          @plan.Hosts.O2/O3, @plan.Artifacts.O2/O3;
+          @plan.Verification.V2/V3/V5/V6; PROOF-001/003/005–007/009/014.
+        - REV-HOST-001–REV-HOST-008 -> @plan.Hosts.O1–O6,
+          @plan.Runtime.O3/O5/O6, @plan.Types.O4/O5, @plan.PublicSurface.O4/O5,
+          @plan.Operations.O1/O3/O4, @plan.Diagnostics.O2;
+          @plan.Verification.V2/V4/V5/V6; PROOF-001/003–005/012/013.
+        - REV-TEST-001–REV-TEST-010 -> @plan.PublicSurface.O5, @plan.Types.O6,
+          @plan.Runtime.O4/O6, @plan.Operations.O1–O4, @plan.Artifacts.O7;
+          @plan.Verification.V4/V6;
+          PROOF-001/003/004/008–011.
+        - REV-MIG-001 -> @O1, @O2; REV-MIG-002 -> semantic clause rows above;
+          REV-MIG-003 -> @plan.Verification.O2/O4 and @V7; PROOF-017 closes migration.
+        - REV-MIG-004 -> DEL-001–DEL-011, RET-001–RET-005;
+          REV-MIG-005 -> API-016/AMEND-API-003,
+          WIRE-020A–020C, CLI-005–012; REV-MIG-006 -> DEL-002 and SEM-017A.
+        - REV-MIG-004, DEL-001–DEL-011, RET-001–RET-005 -> PROOF-017.
+
+        **Revision-specific proof refinements**
+        - REV-OPS-015 -> PROOF-003, PROOF-005–PROOF-007, PROOF-009, PROOF-014.
+        - REV-HOST-007 -> PROOF-012; REV-OPS-017 -> PROOF-001, PROOF-005, PROOF-014.
+        - REV-OPS-018 -> PROOF-006, PROOF-007.
+        - REV-HOST-008 -> PROOF-005, PROOF-006, PROOF-014.
+        - REV-MIG-005 -> PROOF-001, PROOF-008, PROOF-010, PROOF-014, PROOF-017,
+          CLI-P01, CLI-P02.
+        - REV-MIG-006 -> PROOF-001–PROOF-003, PROOF-011, PROOF-014, PROOF-015,
+          PROOF-017.
+
+        **Local proof labels -> central rows**
+        - API-P01 -> PROOF-001, PROOF-017; API-P02 -> PROOF-001, PROOF-002.
+        - API-P03 -> PROOF-003, PROOF-005–PROOF-008, PROOF-011, PROOF-014.
+        - API-P04 -> PROOF-014; CLI-P01 -> PROOF-014; CLI-P02 -> PROOF-014, PROOF-017.
+        - TYPE-P01, TYPE-P03, TYPE-P04 -> PROOF-001; TYPE-P02 -> PROOF-001, PROOF-017.
+        - SNAP-P01 -> PROOF-001, PROOF-005, PROOF-006.
+        - HOST-P01 -> PROOF-003, PROOF-004, PROOF-012.
+        - HOST-P02 -> PROOF-003, PROOF-010; HOST-P03 -> PROOF-003, PROOF-005.
+        - HOST-P04 -> PROOF-012, PROOF-014; HOST-P05 -> PROOF-004, PROOF-012.
+        - CUT-P01–CUT-P03 -> PROOF-001, PROOF-017.
+        - CUT-P04 -> PROOF-001, PROOF-012, PROOF-014, PROOF-017.
+        - CUT-P05, CUT-P06 -> PROOF-017.
+
+        **Diagnostic remediation trace**
+        - AMEND-API-002 -> @plan.Diagnostics.O3; AMEND-P03 -> @plan.Diagnostics.V3 and
+          @task.Rewrite.T508.
+
+verification
+    V1  One boundary, hard deletion and fail-closed inputs
+        Establishes @O1 and @O2. Keep one package boundary.
+        Retain package/import/ESM and Effect/React peer boundaries with the accepted
+        replacement. No package, contract, runtime or declaration combines old and
+        replacement vocabularies.
+
+        For every DELETE/REPLACE value or shape, prove runtime export absence.
+        Prove absence from active declarations and imports. Reject unsupported forms
+        before actor creation, memory mutation, operation acquisition, events,
+        external work or evidence. A deleted name may appear only in this ledger,
+        the non-normative deferred record, historical provenance or a negative proof.
+        Add no alias, overload, adapter, parser branch or wrapper that translates it.
+
+        Retain environmental boundaries while removing old capability shapes.
+        Deleted inputs fail before side effects, and deleted-only implementation
+        paths leave the active package. @V5 owns runtime absence, declaration
+        negatives and fail-closed behavior. @V6 owns retained boundaries and
+        cleanup. Receipts remain pending under @plan.Verification.V7.
+    V2  Explicit writes, synchronous commands, Stories and artifacts
+        Establishes @O1. Operation results never write canonical resource data
+        implicitly. Only explicit setData mappings on accepted transaction/stream
+        surfaces are authoritative and generation-safe (@plan.Verification.V3).
+        Public actor.send(event) remains synchronous void over the production
+        mailbox. Story acknowledgement stays package-private over that mailbox.
+        Add no public Promise overload or second actor engine
+        (@plan.Verification.V2, @plan.Verification.V4, @plan.Verification.V7, @O2).
+
+        Stories use exactly these builders:
+        - `story.app(runtimeSetup, options?)`
+        - `story.machine(machine, options?)`
+        - `story.actor(machine, options?)`
+        Accept only defined command and evidence forms. Reject old Story names,
+        aliases, parallel harnesses and injection commands.
+
+        Server, Persistence, artifact, inspect and CLI models use accepted app,
+        actor, compound-state, context, lifecycle and operation identities. Retain
+        codecs, bounds, sinks and formatting only when they preserve no deleted
+        surface. Follow @plan.Verification.V6 for artifact migration. Reject legacy
+        root, child, final, replay and mutable-harness/Story forms at the wire
+        boundary. Invent no commands, schemas, migration algorithms or old identities.
+
+        Stories and evidence are owned by
+        @plan.Verification.V4; artifact/CLI and final gate references are
+        in @plan.Verification.V6 and @plan.Verification.V7.
+        CONTRACT.md §8 examples and proposed surfaces do not change this active
+        contract.
+    V3  Disposition and retained-boundary ledger
+        Establishes @O2 and @O3. Before cutover, check each row against owning Plan
+        requirements, source traces, code, declarations, docs, consumers, Stories, fixtures, tests,
+        tasks, registries and proofs. The complete current disposition ledger is:
+
+        **Views and actor identities**
+        - **DELETE (DEL-001):** Registered Flow views, exported View/IDs, module.views,
+          registered lookup, useView(view), view-bound can. @plan.Verification.V5
+          retains only passive useView(actor, selector).
+        - **DELETE (DEL-002):** Child constructor/descriptors/inputs/IDs/lifecycle/
+          completion/snapshots/addressing/persistence/Story/model; recursive
+          substates in one actor and explicit actors for independent workflows remain.
+        - **DELETE (DEL-003):** dynamicMachines, RootActor/DynamicActor, automatic roots,
+          runtime.actor(machine), ID-bearing local creation and dynamic-root
+          persistence. Retain named module records, closed App.M and explicit identities.
+
+        **Ownership, grammar and operations**
+        - **REPLACE (DEL-004):** active|disposed, handle disposal, DynamicActor.dispose,
+          auto-root ownership/category identity; explicit owner leases and prepared|
+          active|suspended|disposed remain.
+        - **REPLACE (DEL-005):** root initial, flat-only grammar, final kind/onDone/output,
+          completion mailbox shutdown, Boolean reentry and conflicting recursive
+          handlers. Retain recursive states/default/exact reentry/ordinary
+          terminal-looking leaves/transition actions. Remove the old ban on actions.
+        - **DELETE (DEL-006):** Generic activity kit/methods, public refs/byKey/byLane,
+          bound entries, generic resource/transaction get and enumeration. Retain
+          named O families and P/K/key/getState/getData.
+
+        **React, Stories and artifacts**
+        - **REPLACE (DEL-007):** Recursive structural sharing, custom equality/comparator
+          hooks; one scalar/non-record and named-record Object.is contract remains.
+        - **REPLACE (DEL-008):** React-created shells/swapping, root-only useActor,
+          useResource, broad subscriptions, per-actor Context, binding components,
+          view-object hooks; FlowProvider and production-owned useActor/useActorByRef
+          remain.
+        - **REPLACE (DEL-009):** Callable story, with, bare apps/live Runtime inputs,
+          perform/deliver/receive/simulate/flush/settle/setTime/final/replay,
+          mutable harnesses and old runners. The accepted replacements are the builders,
+          complete Implementations, process/advanceTo/checkpoint.actor and run.end at
+          @plan.Verification.V4.
+        - **REPLACE (DEL-010):** Mutable v1 boot/hydration, fabricated root/child/final
+          fields, replay inspection, duplicate formatters, arbitrary scenario commands,
+          old Story artifact schemas. Retain codecs/bounds/sinks/CLI formatters and
+          update proof discipline to accepted identities.
+
+        **Historical sources**
+        - **HISTORICAL (DEL-011, physical cleanup pending):** Old implementation/contracts
+          pack, obsolete compatibility matrix and phase/task docs prescribing deleted
+          surfaces. Source status now records provenance; Workflow Plans own mapped
+          semantics. Remove these files only after mapped proofs and the final no-residue
+          audit. Git history is the archive.
+
+        **Retained environmental and runtime boundaries**
+        - **RETAIN (RET-001):** Package routes, ESM/import conditions, Effect peer identity
+          and supported React peer compatibility.
+        - **RETAIN (RET-002):** Synchronous actor.send(event):void, production mailbox,
+          Runtime-scoped stores, generation fencing, Cause classification and cleanup
+          ordering. Remove fields encoding deleted roots/children/final/Story forms.
+        - **RETAIN (RET-003):** Resource and transaction status discriminants.
+        - **RETAIN (RET-004):** Canonical key/getState/getData, transition actions and
+          accepted O/P/K identity.
+        - **RETAIN (RET-005):** FlowProvider, revised useActor/useActorByRef and passive
+          selector observation.
+
+        These dispositions are normative targets, not evidence they are implemented.
+        This ledger belongs to @O2 and @V3. Runtime export, declaration, retained-
+        boundary and cleanup checks belong to @V5 and @V6. Final no-residue
+        receipts belong to @plan.Verification.V7.
+    V4  No-residue audit
+        Establishes @O2 and @O3. For every DELETE/REPLACE row, verify all six:
+        1. Owning Plan requirements, source traces, consumers, Stories, fixtures,
+           tests and task files use accepted or explicitly retained surfaces only.
+        2. Runtime export tests show deleted values and namespaces are absent.
+        3. Declaration tests reject deleted types, overloads, properties, deep imports
+           and authoring shapes.
+        4. Deleted inputs fail before actor, memory, operation, event, external-work
+           or evidence side effects.
+        5. No alias, adapter, registry, translator, parser branch or deletion-only
+           implementation remains.
+        6. Live consumers exercise accepted replacements through production owners.
+        Source scans support audits but never replace runtime or declaration proofs.
+
+        The old contract name may appear only in a negative absence test, not
+        positive usage, supported overload, active glossary, compatibility
+        recommendation or replacement recipe. The ledger does not remove RET rows.
+        Reference consumers rewrite deleted calls. Selector files may move and
+        unused fixtures may be removed/promoted; layout itself is not a deletion
+        rule. One complete mapped audit runs before @O2 removal/classification;
+        do not duplicate the full historical absence matrix in ordinary tasks.
+
+        Check: one final no-consumer/deletion audit plus owner proofs; filenames and
+        token scans are supporting evidence only. Exact audit/task path is pending.
+        Cutover-specific detail is this Plan; central proof receipt is
+        @plan.Verification.V7.
+    V5  Runtime exports, declarations and behavior
+        Establishes @O1 and @O2. Verify every DELETE/REPLACE row in @V3 through
+        package entrypoints and retained owners.
+
+        - Prove deleted runtime exports and namespaces are absent, including deep
+          imports and file registries. Retained surfaces remain available.
+        - Reject deleted values, types, overloads, properties, imports, authoring
+          forms and Story forms in packed declarations and public consumers.
+        - Submit deleted inputs and prove failure before side effects.
+        - Prove accepted replacements through production owners.
+        - Reject compatibility aliases, adapters, parser branches and parallel
+          runtime, actor, Story, operation or selector implementations.
+
+        Pass requires runtime absence, declaration negatives and behavioral
+        side-effect rejection. Source scans alone do not pass. Named test paths
+        and receipts remain pending. Production proof owners are @plan.Verification.V1,
+        @plan.Verification.V2 and @plan.Verification.V7.
+    V6  Retained compatibility, cleanup and surviving authority
+        Establishes @O1 and @O3. Verify every RETAIN row in @V3 remains without
+        deleted names.
+
+        - Check package imports and Effect/React peer boundaries.
+        - Check the synchronous mailbox, production ownership and status
+          discriminants for resources and transactions.
+        - Check canonical identity, operations, actions, FlowProvider, revised
+          actor hooks and passive views through accepted production owners.
+        - Remove or mark historical tests devoted only to deleted behavior after
+          replacement proofs pass. Replace token-only tests with behavior proofs.
+        - Map each live old obligation to an owning Plan or proof before source cleanup.
+          Keep Git history as the archive.
+
+        Require one current Plan owner for every live obligation. Do not lose transferred
+        requirements. This Plan does not claim implementation. Check the mapping,
+        @plan.Verification.V7, packed consumers, package/browser gates and broad
+        workspace gates. Physical source cleanup and product cutover remain pending under Q1.
+    V7  Final coordinated cutover
+        Establishes @O1 and @O3. Apply all target outcomes only after each mapped
+        implementation proof, retained-boundary check, no-residue audit, final
+        proving application and package gate is recorded. Required integration
+        gates are the shared sequence in @plan.Verification.V7. This Plan adds
+        @V5, @V6 and the @O2 disposition rather than a duplicate proof matrix.
+
+        Historical behavior entries are provenance, not an input to compatibility
+        choices. No historical entry is an open compatibility blocker. Workflow Tasks
+        own current implementation obligations; Beads records and old proof receipts
+        are historical evidence. CONTRACT.md §11
+        is an unaccepted proposal checklist, not a proof receipt. Keep every checkbox
+        unchecked until its executable proof and focused or broad gates run.
+        Source review, typechecking, generated output or diff check alone does not
+        close it. Proposal areas map to @plan.Verification.V1 through
+        @plan.Verification.V7. No checkbox, proof or gate is marked complete here.
+
+        Check @plan.Verification.V1 through @plan.Verification.V8 and this Plan's
+        @V1 through @V6. Also run package, packed-consumer, browser and final
+        workspace gates. Keep every receipt pending until the check runs. Make no
+        package-promotion claim before then.
+
+questions
+    Q1  Product cutover after authority transfer
+        Workflow Plans now own migrated semantics. The source pack records this
+        transfer and remains provenance until the no-residue audit passes; source
+        cleanup is a separate gate. Product documentation keeps its owner; Workflow
+        Tasks own current status, while Beads records remain historical snapshots.
+        Package promotion and product cutover remain pending under
+        @O3 and @V7; this Plan records no implementation or gate completion.
+

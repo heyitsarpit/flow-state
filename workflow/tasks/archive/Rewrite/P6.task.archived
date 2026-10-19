@@ -1,0 +1,489 @@
+phase P6
+title Cutover and absence
+
+tasks
+    T600
+        title        Package entrypoints and retained boundaries
+        status       draft
+        priority     high
+        blocked_by   [@task.Rewrite.T506]
+        derives_from [
+                     @plan.Cutover.D1,
+                     @plan.Cutover.D2,
+                     @plan.Cutover.C1,
+                     @plan.Cutover.C2,
+                     @plan.Cutover.C5,
+                     @plan.Cutover.V1,
+                     @plan.Cutover.V5,
+                     @plan.Cutover.V6,
+                     @plan.PublicSurface.D1,
+                     @plan.PublicSurface.C1,
+                     @plan.PublicSurface.V1,
+                     @plan.Verification.V1,
+                     @plan.Verification.V8
+                     ]
+        satisfies    [@plan.PublicSurface.O1, @plan.Cutover.O1]
+
+        description
+            Source Bead: flow-state-e7p.6.1 (open).
+            Proof IDs: CUT-P01, CUT-P02, CUT-P04, PROOF-001, PROOF-017.
+            Deliverable: Exact package routes, declarations, peers, and retained runtime
+            boundaries for the replacement package.
+            Allowed writes: packages/flow-state-rewrite/package.json, owning package entrypoints,
+            facade files, and packed consumer tests.
+            Evidence: Source and packed import tests, declaration negatives, retained boundary
+            proofs, build, typecheck, and lint receipts.
+            Phase 5 validation T506 must pass before this work starts.
+        acceptance
+            Packed source, React 18/19, and multi-entry consumers pass.
+            Retained routes and environmental boundaries remain available on their owning paths.
+            Deleted runtime, declaration, and deep imports fail through packed consumers.
+            Run `nub run --filter flow-state-rewrite check:types`,
+            `nub run --filter flow-state-rewrite build`,
+            `nub run --filter flow-state-rewrite check:packed-consumers`, and
+            `nub run lint`. Expected: all checks pass.
+    T601
+        title        Production proving applications and consumer evidence
+        status       draft
+        priority     high
+        blocked_by   [@T600, @task.Rewrite.T506]
+
+        derives_from [
+                     @plan.Cutover.D1,
+                     @plan.Cutover.C1,
+                     @plan.Cutover.C2,
+                     @plan.Cutover.C5,
+                     @plan.Cutover.V2,
+                     @plan.Cutover.V5,
+                     @plan.Cutover.V6,
+                     @plan.Cutover.V7,
+                     @plan.Verification.V1,
+                     @plan.Verification.V2,
+                     @plan.Verification.V3,
+                     @plan.Verification.V4,
+                     @plan.Verification.V5,
+                     @plan.Verification.V6,
+                     @plan.Verification.V7,
+                     @plan.PublicSurface.V7,
+                     @plan.CLI.V4,
+                     @plan.Artifacts.V5
+                     ]
+        description
+            Source Bead: flow-state-e7p.6.2 (open).
+            Proof IDs: PROOF-016, AMEND-P05, API-P03, and PROOF-001 through PROOF-015.
+            Historical source clause: AMEND-API-001 is migrated as quickstart readiness
+            evidence only.
+            Deliverable: Packed consumer proving applications that exercise accepted APIs through
+            production owners, including one Incident Console browser journey.
+            Keep consumer proofs on public package routes; do not import private implementation.
+            Allowed writes: packages/flow-state-rewrite/test/packed/** and
+            reference/incident-console/implementation/test/everclear-new-intent/**.
+            Keep the Todo, offline-notes, bounded-feed, React, and isolated-package fixtures
+            under the packed-consumer test owner.
+            Evidence: AMEND-API-001 quickstart compilation and execution reach successful
+            temporary readiness through a fresh packed package, proved by AMEND-P05. The
+            production actor-turn proof is separate API-P03 evidence; application and browser
+            receipts name affected Plans.
+            Phase 5 validation T506 must pass before this work starts.
+        acceptance
+            Todo Essentials, Incident Console, and Hydrated Offline Notes compile and run
+            against only accepted package routes.
+            Todo covers compound states, refs, operations, React, fixtures, Stories,
+            checkpoints, and TestClock. Incident Console covers conflicts, streams,
+            inspection, diagnostics, CLI/artifacts, and browser lifetime.
+            Offline Notes proves request isolation, context-closed persistence, first
+            render, outbox/reconnect/disposal, exact hydration, and host seeding.
+            Bounded-feed authored dropping/coalescing streams, React 18 and 19, and
+            isolated TypeScript consumers pass. Reject Flow pressure options and
+            inferred app requirements. React and type proofs cannot be showcase-only.
+            The quickstart's executed path reaches successful temporary readiness through the
+            packed package. Keep its actor command/snapshot continuation commented; the old
+            AMEND-API-004 citation is provenance only. It does not count as the separate API-P03
+            production actor-turn proof.
+            API-P03 separately proves one production actor turn through the packed package.
+            Incident Console browser behavior passes on accepted public routes.
+            No proof uses private imports, deleted APIs, or fabricated testing paths.
+            Run `nub run --filter flow-state-rewrite build` and
+            `nub run --filter flow-state-rewrite check:packed-consumers`.
+            Application-owned browser checks also pass; record their exact commands.
+    T602
+        title        Deletion absence and retained-boundary proofs
+        status       draft
+        priority     high
+        blocked_by   [@T600, @T601, @task.Rewrite.T506]
+
+        derives_from [
+                     @plan.Cutover.D2,
+                     @plan.Cutover.C2,
+                     @plan.Cutover.C4,
+                     @plan.Cutover.C5,
+                     @plan.Cutover.V3,
+                     @plan.Cutover.V4,
+                     @plan.Cutover.V5,
+                     @plan.Cutover.V6,
+                     @plan.Verification.V7,
+                     @plan.PublicSurface.V7
+                     ]
+        satisfies    [@plan.Cutover.O2]
+        description
+            Source Bead: flow-state-e7p.6.3 (open).
+            Proof IDs: CUT-P01 through CUT-P04, PROOF-017.
+            Deliverable: Row-by-row runtime, declaration, deep-import, authoring, and
+            side-effect-free rejection evidence for every deleted or replaced surface.
+            Prove retained boundaries separately through their production owners.
+            Allowed writes: feature-local tests, packages/flow-state-rewrite/test/packed/**,
+            and source owners only to correct a demonstrated boundary gap.
+            Evidence: Runtime export and type negatives, behavior rejection results, and retained
+            owner proofs, mapped to the Cutover disposition ledger.
+            Phase 5 validation T506 must pass before this work starts.
+        acceptance
+            Every disposition row has runtime absence, declaration negatives, and behavior
+            rejection before side effects where that row requires them.
+            No alias, adapter, overload, translator, registry, parser branch, or wrapper preserves
+            deleted behavior.
+            Retained routes remain live through their production owners.
+            Run `nub run --filter flow-state-rewrite check:types`,
+            `nub run --filter flow-state-rewrite build`,
+            `nub run --filter flow-state-rewrite check:packed-consumers`,
+            `nubx vp test packages/flow-state-rewrite`, and `nub run lint`. Expected: all checks pass.
+    T603
+        title        Transfer obligations and remove stale authority
+        status       draft
+        priority     high
+        blocked_by   [@T602, @task.Rewrite.T506]
+
+        derives_from [
+                     @plan.Cutover.D1,
+                     @plan.Cutover.D2,
+                     @plan.Cutover.D3,
+                     @plan.Cutover.D4,
+                     @plan.Cutover.C1,
+                     @plan.Cutover.C2,
+                     @plan.Cutover.C3,
+                     @plan.Cutover.C4,
+                     @plan.Cutover.C5,
+                     @plan.Cutover.Q1,
+                     @plan.Cutover.V3,
+                     @plan.Cutover.V4,
+                     @plan.Cutover.V6,
+                     @plan.Cutover.V7
+                     ]
+        satisfies    [@plan.Cutover.O3]
+        description
+            Source Bead: flow-state-e7p.6.4 (open).
+            Proof IDs: CUT-P05, CUT-P06, PROOF-017.
+            Deliverable: One active owner for each live obligation, followed by removal or
+            historical marking of obsolete authority and files kept only for deleted behavior.
+            Allowed writes: exact stale paths enumerated by the accepted disposition ledger,
+            after Workflow authority transfer. Legacy contract files and Bead records are
+            provenance only; mark or remove them only where the accepted disposition lists them.
+            Evidence: Accepted Workflow owner mapping and a changed-path record linking every
+            removal to transferred evidence.
+            Workflow owns active task and semantic authority. Package promotion in Cutover.Q1
+            remains unresolved; keep this Task draft and make no package-promotion claim.
+            Phase 5 validation T506 must pass before this work starts.
+        acceptance
+            Every live obligation maps to an accepted Workflow Plan, Task, or proof before removal.
+            Legacy contract files and Bead records remain provenance only.
+            Only files explicitly classified as historical or deletion-only are removed or marked.
+            While Cutover.Q1 is unresolved, do not claim package promotion. Once resolved, run
+            `nub run --filter flow-state-rewrite check:types`,
+            `nub run --filter flow-state-rewrite build`,
+            `nubx vp test packages/flow-state-rewrite`, `nub run docs:build`, and
+            `nub run lint`. Expected: all checks pass.
+    T604
+        title        Run fresh package, CLI, browser, and cutover gates
+        status       draft
+        priority     high
+        blocked_by   [@T601, @T602, @T603, @task.Rewrite.T506]
+
+        derives_from [
+                     @plan.Cutover.D1,
+                     @plan.Cutover.D2,
+                     @plan.Cutover.D4,
+                     @plan.Cutover.C1,
+                     @plan.Cutover.C2,
+                     @plan.Cutover.C3,
+                     @plan.Cutover.C4,
+                     @plan.Cutover.C5,
+                     @plan.Cutover.V1,
+                     @plan.Cutover.V2,
+                     @plan.Cutover.V4,
+                     @plan.Cutover.V5,
+                     @plan.Cutover.V6,
+                     @plan.Cutover.V7,
+                     @plan.CLI.V4,
+                     @plan.Verification.V7,
+                     @plan.Verification.V8
+                     ]
+        satisfies    [@plan.CLI.O4]
+        description
+            Source Bead: flow-state-e7p.6.5 (open).
+            Proof IDs: CLI-P02, CUT-P01 through CUT-P06, PROOF-016, PROOF-017.
+            Deliverable: Fresh packed CLI execution, rewrite source and packed parity, browser
+            behavior, consumer proofs, deletion audit, and rewrite-package gate receipts.
+            Frozen `packages/flow-state` gate results are historical migration evidence only;
+            they are not current acceptance gates. Retain any existing source receipts as
+            provenance and run current gates against `flow-state-rewrite`.
+            Use a newly built and installed package; never rely on checked-in or stale dist.
+            Allowed writes: gate scripts and consumer test fixtures only; product fixes return to
+            their owning implementation Tasks.
+            Evidence: Exact command, package identity, browser, consumer, and gate results in the
+            Task handback; no separate evidence ledger.
+            Phase 5 validation T506 must pass before this work starts.
+        acceptance
+            Fresh installed CLI proves rewrite-source and packed behavior parity and cleans
+            temporary files. Run `nubx vp test packages/flow-state-rewrite/src/cli/tests`,
+            `nub run --filter flow-state-rewrite check:types`,
+            `nub run --filter flow-state-rewrite build`, and
+            `nub run --filter flow-state-rewrite check:packed-consumers`,
+            `nubx vp test packages/flow-state-rewrite`, and `nub run lint`.
+            Application-owned browser checks pass and deleted surfaces fail in consumers.
+            No rewrite proof depends on frozen-package gates or stale package output. Resolve
+            Cutover.Q1 before claiming product/package promotion.
+    T606
+        title        Complete public type integration
+        status       draft
+        priority     high
+        blocked_by   [
+                     @task.Rewrite.T271,
+                     @task.Rewrite.T306,
+                     @task.Rewrite.T405,
+                     @task.Rewrite.T506,
+                     @T600,
+                     @T601
+                     ]
+        derives_from [
+                     @plan.Types.O1,
+                     @plan.Types.O2,
+                     @plan.Types.O3,
+                     @plan.Types.O4,
+                     @plan.Types.O5,
+                     @plan.Types.O6,
+                     @plan.Types.V1,
+                     @plan.Types.V8,
+                     @plan.Verification.O2
+                     ]
+        satisfies    [
+                     @plan.Types.O1,
+                     @plan.Types.O2,
+                     @plan.Types.O3,
+                     @plan.Types.O4,
+                     @plan.Types.O5,
+                     @plan.Types.O6
+                     ]
+        description
+            Deliverable: Integrate exact public declarations and compile proofs for every accepted
+            type family through its package route.
+            Keep targets deferred by the active PublicSurface amendment absent until their owners
+            and route authority are ready.
+            Allowed writes: packages/flow-state-rewrite/src/public/** and
+            packages/flow-state-rewrite/test/packed/**. Package metadata and route maps stay with
+            T600.
+            Evidence: Positive and negative compile fixtures for Types O1-O6, emitted declarations,
+            source and packed consumer results.
+        acceptance
+            Positive fixtures preserve exact inference across all active public type families.
+            Negative fixtures reject forbidden shapes, imports, exports, and type erasure.
+            Temporary route and type deferrals remain absent until their owners and authority are
+            accepted; keep this Task draft while any deferred family lacks an owner or route.
+            Run `nub run --filter flow-state-rewrite check:types`,
+            `nub run --filter flow-state-rewrite build`, and
+            `nub run --filter flow-state-rewrite check:packed-consumers`. Expected: all checks pass.
+    T607
+        title        Integrate public host, runtime, operations, and artifact outcomes
+        status       draft
+        priority     high
+        blocked_by   [
+                     @task.Rewrite.T271,
+                     @task.Rewrite.T306,
+                     @task.Rewrite.T405,
+                     @task.Rewrite.T506,
+                     @T600,
+                     @T601,
+                     @T602,
+                     @T603,
+                     @T604,
+                     @T606
+                     ]
+        derives_from [
+                     @plan.PublicSurface.O2,
+                     @plan.PublicSurface.O3,
+                     @plan.PublicSurface.O4,
+                     @plan.PublicSurface.O5,
+                     @plan.PublicSurface.O6,
+                     @plan.Hosts.O1,
+                     @plan.Hosts.O2,
+                     @plan.Hosts.O4,
+                     @plan.Hosts.O5,
+                     @plan.Runtime.O1,
+                     @plan.Runtime.O2,
+                     @plan.Runtime.O3,
+                     @plan.Runtime.O4,
+                     @plan.Runtime.O5,
+                     @plan.Runtime.O6,
+                     @plan.Operations.O1,
+                     @plan.Operations.O3,
+                     @plan.Operations.O4,
+                     @plan.Artifacts.O1,
+                     @plan.Artifacts.O2,
+                     @plan.Artifacts.O5,
+                     @plan.Artifacts.O6,
+                     @plan.Verification.O2,
+                     @plan.Verification.O3,
+                     @plan.Verification.V3,
+                     @plan.Verification.V6
+                     ]
+        satisfies    [
+                     @plan.PublicSurface.O2,
+                     @plan.PublicSurface.O3,
+                     @plan.PublicSurface.O4,
+                     @plan.PublicSurface.O5,
+                     @plan.PublicSurface.O6,
+                     @plan.Hosts.O1,
+                     @plan.Hosts.O2,
+                     @plan.Hosts.O4,
+                     @plan.Hosts.O5,
+                     @plan.Runtime.O1,
+                     @plan.Runtime.O2,
+                     @plan.Runtime.O3,
+                     @plan.Runtime.O4,
+                     @plan.Runtime.O5,
+                     @plan.Runtime.O6,
+                     @plan.Operations.O1,
+                     @plan.Operations.O3,
+                     @plan.Operations.O4,
+                     @plan.Artifacts.O1,
+                     @plan.Artifacts.O2,
+                     @plan.Artifacts.O5,
+                     @plan.Artifacts.O6,
+                     @plan.Verification.O3
+                     ]
+        description
+            Deliverable: Add one packed-consumer integration matrix across accepted public routes,
+            production hosts and Runtime, operation families, and artifact owners.
+            Use existing owner proofs for semantics; add only reachability and distinct failure
+            scenarios. Return product gaps to their owning phase Tasks.
+            Allowed writes: packages/flow-state-rewrite/test/packed/** and
+            reference/incident-console/implementation/test/everclear-new-intent/**.
+            Evidence: Fresh packed bootstrap and quickstart readiness, separate API-P03 production
+            actor-turn proof, owner-lease disposal, persistence restoration, isolated request
+            Runtime, Story/model parity, operation and lifecycle reachability, ordered disposal
+            evidence, and T604's installed CLI parity.
+        acceptance
+            Record one crosswalk row per satisfied outcome below. Each row names its production
+            owner Tasks, exact source proof ID/path and command/result, and distinct packed
+            scenario.
+            PublicSurface.O2 — P1 T002/T004/T008; packed definition and machine consumer through
+            AMEND-API-001 readiness, proved by AMEND-P05. The quickstart is not the production
+            actor-turn proof.
+            PublicSurface.O3 — P1 T005; P3 T300-T305; packed canonical resource and transaction
+            turn.
+            PublicSurface.O4 — P1 T006/T007; P2 T255/T270; P5 T500; lease-backed React host.
+            PublicSurface.O5 — P5 T501-T503; packed Story commands, TestClock, and live model
+            parity.
+            PublicSurface.O6 — P4 T403/T404; P5 T504/T505; T604; inspect artifact and CLI parity.
+            Hosts.O1 — P2 T270; P4 T401/T402; P5 T501; pure detached preparation, then
+            Implementation acquisition, then actor/Store installation. Check closed App.M,
+            context refs, sealing, activation, no early handles, and failed boot rollback.
+            Hosts.O2 — P2 T255/T269/T270; P5 T500; stable/local refs, exact owner lease,
+            tombstone, foreign lookup, and dependent blocking.
+            Hosts.O4 — P2 T270; P4 T400-T402; P5 T500; inert SSR, isolated persisted request
+            Runtimes, and request-owner cleanup.
+            Hosts.O5 — P2 T254/T269/T270; P4 T404; P5 T500-T502; reverse cleanup drains
+            finalizers and accepted evidence before sink close.
+            Runtime.O1 — P1 T002/T004/T009; API-P03 separately proves a packed authored event
+            reaches one production turn.
+            Runtime.O2 — P1 T006; P2 T202/T270; closed App.M admission rejects foreign identity.
+            Runtime.O3 — P2 T254/T270; P4 T401; ready barrier blocks handles and rolls back
+            failed boot.
+            Runtime.O4 — P2 T269; P3 T301-T305; packed turn publishes one actor/store cut.
+            Runtime.O5 — P2 T255/T257/T265-T270; P5 T500; provider suspension and lease cleanup.
+            Runtime.O6 — P4 T402/T404; P5 T501-T503; Story capture and live model parity.
+            Operations.O1 — P3 T300/T301/T302/T303/T305; descriptor/K sharing, owned P,
+            read/write, commit/rollback, affected-actor fanout, Runtime isolation.
+            Operations.O3 — P3 T301/T303/T304; changed binding releases once, stream/activity
+            cancellation finalizes before resume, timer replacement fences stale completion.
+            Operations.O4 — P3 T301-T304; passive packed reader starts no operation work.
+            Artifacts.O1 — P4 T400/T402; absent provider does no I/O; scoped setup is inert,
+            restore precedes work, writes serialize, and failure keeps the last good record.
+            Artifacts.O2 — P4 T401/T402; receiving AppPlan identity/version mismatch rejects;
+            provider-first stable restore keeps exact refs/bindings, skips initialization and
+            replay.
+            Artifacts.O5 — P3 T305; P4 T404; global sequence, bounded sink truncation/clear,
+            accepted prefix drain, failure isolation, and no acknowledgment delay.
+            Artifacts.O6 — P4 T403/T404; canonical raw round-trip and deterministic exact-path
+            redaction preserve raw bytes; share import rejects and does not mutate Runtime truth.
+            Verification.O3 — P4 T404; P5 T501-T503; TestClock, checkpoints, failure evidence,
+            and production model/live parity.
+            Also prove Verification.V3 with P2 T255/T257/T265-T270 and P3 T300-T305:
+            one packed descriptor/K retains P through read/write, commit/rollback and fanout,
+            fences cancellation, and stays isolated from a second Runtime.
+            Each row records the owner proof path/ID and exact check result; source checks alone do
+            not count as the packed scenario.
+            Use accepted public routes only; deferred routes stay absent until T606 records their
+            Workflow owner and route decision. No integration test duplicates an owner's semantic
+            matrix. Package promotion remains gated by Cutover.Q1 and T605.
+            Run `nub run --filter flow-state-rewrite check:types`,
+            `nub run --filter flow-state-rewrite build`,
+            `nub run --filter flow-state-rewrite check:packed-consumers`,
+            `nubx vp test packages/flow-state-rewrite`, `nub run lint`, and application-owned
+            browser checks. Expected: all checks pass.
+    T605
+        title        Validate Phase 6 against the complete Plans
+        status       draft
+        priority     high
+        blocked_by   [@T600, @T601, @T602, @T603, @T604, @T606, @T607, @task.Rewrite.T506]
+        derives_from [
+                     @plan.Cutover.D1,
+                     @plan.Cutover.D2,
+                     @plan.Cutover.D3,
+                     @plan.Cutover.D4,
+                     @plan.Cutover.C1,
+                     @plan.Cutover.C2,
+                     @plan.Cutover.C3,
+                     @plan.Cutover.C4,
+                     @plan.Cutover.C5,
+                     @plan.Cutover.Q1,
+                     @plan.Cutover.V1,
+                     @plan.Cutover.V2,
+                     @plan.Cutover.V3,
+                     @plan.Cutover.V4,
+                     @plan.Cutover.V5,
+                     @plan.Cutover.V6,
+                     @plan.Cutover.V7,
+                     @plan.PublicSurface.V7,
+                     @plan.Verification.V7,
+                     @plan.Verification.V6,
+                     @plan.Verification.V8
+                     ]
+        satisfies    [
+                     @plan.Verification.O1,
+                     @plan.Verification.O2,
+                     @plan.Verification.O4
+                     ]
+        description
+            Source Bead: flow-state-e7p.6.6 (open); source epic: flow-state-e7p.6 (open).
+            Deliverable: Independent, read-only review of Phase 6 implementation and cutover
+            evidence against all applicable Workflow Plans and Tasks. Legacy contracts and Bead
+            records are provenance only.
+            Review every changed diff, owner receipt, deletion and retention implication, and
+            unresolved transfer gate. Review the complete Plan crosswalk without repeating
+            already accepted behavior matrices.
+            Allowed writes: none for reviewers. Return the required handback in the Task result.
+            Evidence: Changed paths, focused commands and results, owner coverage, gate status,
+            findings, and lint result in the handback.
+            Phase 5 validation T506 must pass before this gate runs.
+        acceptance
+            Return these fields: Workflow Plan references, changed files, focused checks, lint result,
+            behavior reviewed, fixed findings, blocking findings, advisory findings.
+            Validate Workflow Plan coverage, complete disposition, and production-owner proofs.
+            Check PublicSurface.V7 route/deletion, grammar, production behavior, raw/share
+            determinism, path validation, non-mutation, and wrong-kind proofs.
+            Check Verification.V6 against P4 T400-T404 and P5 T500-T505/T507/T508 receipts for
+            persistence, artifacts, server/host behavior, diagnostics, Cause, and CLI gates.
+            No blocking finding, unclassified proof gap, hidden compatibility path, or duplicate
+            active task owner remains. Legacy contracts and Bead records remain provenance only.
+            Do not claim package promotion while Cutover.Q1 is unresolved.
+            Repeat the rewrite-targeted gates in T600-T604 and run `nub run lint`.
+            Expected: all checks pass and no blocking findings remain.

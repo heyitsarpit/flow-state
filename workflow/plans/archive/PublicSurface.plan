@@ -1,0 +1,1423 @@
+plan PublicSurface
+title   Public consumer surface
+status  archived
+goal
+    Define the supported Flow State package routes and consumer-facing API grammar from
+    migrated semantics. This Plan owns them under @plan.Verification.D1. Preserve
+    temporary export disposition and future-target status; source contracts provide
+    provenance and trace IDs. This Plan does not claim implementation or product
+    cutover; see @plan.Cutover.O3 and @plan.Cutover.V7.
+
+outcomes
+    O1  Supported package routes and root boundary
+        - Consumers use named exports with local aliases from four routes:
+
+        - `flow-state` exposes the root authoring and runtime surface.
+        - `flow-state/react` exposes React integration.
+        - `flow-state/testing` exposes Story construction and execution.
+        - `flow-state/inspect` exposes trace and behavior inspection.
+
+        - Root runtime values are actorRef, app, definition, Diagnostic, Implementation, machine,
+          module, resource, runtimeSetup, stream, and transaction.
+        - Public root types are:
+          - Definition, StateToken, EventToken, StateOf, EventOf, Machine, MemoryOf, InputOf,
+            RequirementsOf.
+          - Resource, Transaction, ActorRef, Module, App, RuntimeSetup, Runtime, Implementation,
+            CanonicalKeyInput.
+        - Diagnostic is the active root diagnostic class/value. Root
+          Implementation is both a value and type: its value namespace has exactly succeed, effect,
+          and merge. It is not a package namespace, umbrella route, or alternate import surface.
+
+        - Future React route restoration names are FlowProvider, useActor, useActorByRef, and
+          useView. Future testing route names are behavior, fixture, model, story, and
+          FlowStoryExecutionError.
+        - Future inspect route restoration names are:
+          - analyzeTrace, attachInspectionSink, buildBehaviorContract, compressTraceArtifact,
+            createInspectionBufferSink, decompressTraceArtifact, diffBehaviorContracts, diffTrace.
+          - exportTraceArtifact, formatInspectionEvent, formatInspectionTimeline,
+            formatNoTransitionSummary, formatRehydrationSummary, formatResourceFreshnessReport,
+            formatTrace, formatTransactionOverlapSummary.
+          - graphOf, importTraceArtifact, inspectActivities, inspectMicrosteps, inspectTransition,
+            renderBehaviorContract, renderBehaviorCoverage, renderBehaviorDiff,
+            sliceBehaviorContract, summarizeTrace, and whyNoTransition.
+        - These three package paths are currently published with empty active
+          exports under the temporary amendment; the names above remain restoration targets.
+
+        - Active root omission is temporary for can, indexedDbStorage, persistence, webStorage,
+          ActorSnapshot, Persistence, PersistenceStorage, PersistenceStorageError, PersistenceCodec,
+          PersistenceSlot, PersistenceValue, PersistenceEntry, FlowDisposeError,
+          FlowPersistenceError, FlowUsageError, FlowPath, and FlowUsageCode. FlowStoryExecutionError
+          remains deferred with the testing route. Preserve these names for restoration; this is not
+          permanent deletion. The approved temporary ownerless-name amendment settles that
+          FlowDisposeError, FlowPersistenceError, FlowUsageError, FlowPath, and FlowUsageCode are
+          absent from the active root until their owners and proofs exist. Their typed declarations
+          remain future targets and do not restore current exports. @plan.Diagnostics.Q1 asks
+          whether existing-boundary wording has future compatibility implications.
+
+        - Routes remain isolated named-export surfaces. Reject package-owned flow, test, inspect, or
+          hooks namespace objects, root builders re-exported from non-root routes, and private deep
+          imports. Public boundaries expose only consumer-facing route values/types. Ordinary actor
+          handles expose exact ActorRef but no disposal; a separate owner lease carries that
+          authority. Raw Cause is absent from snapshots, passive selectors, serialized artifacts,
+          and CLI; only FlowDisposeError and FlowStoryExecutionError may carry raw Cause at their
+          specified host boundaries.
+
+        - The maintained consumer quickstart is one checked-in path from definition and machine
+          authoring through app, runtimeSetup, and readiness. It uses only named exports, remains
+          valid against the packed package, and is updated with accepted public-surface changes.
+          React or Story continuation is route-appropriate; the commented actor
+          command/snapshot/disposal continuation is still a future target.
+
+        - Reject FlowReceipt, standalone status aliases, full diagnostic facts, and TurnRecord.
+        - Reject registered views, child machines, root/dynamic actor categories, and generic
+          operation refs.
+        - Reject testing and inspection artifacts as public types.
+        - Reject internal service tags, stores, orchestrators, ManagedRuntime, boot, and harness
+          types.
+
+        - Source trace IDs AMEND-API-004 and AMEND-API-005 record temporary export and
+          ownerless-name disposition. This Plan owns the mapped current boundary; both IDs
+          preserve future targets and proof obligations. CONTRACT.md §§1-2 examples remain
+          proposed and unaccepted. Neither source ID claims implementation or product cutover.
+
+
+        Example:
+        ```ts
+        import * as flow from "flow-state";
+        import * as flowTest from "flow-state/testing";
+        import * as inspect from "flow-state/inspect";
+        ```
+        Example:
+        ```ts
+        import { Effect, Result } from "effect";
+        import { app, definition, machine, module, runtimeSetup } from "flow-state";
+
+        const CounterResult = definition({
+          id: "Quickstart/Counter",
+          states: ["IDLE"],
+          events: { Increment: "bare" },
+          memory: () => ({ count: 0 }),
+        });
+
+        if (Result.isFailure(CounterResult)) {
+          console.error(CounterResult.failure);
+        } else {
+          const CounterMachineResult = machine(CounterResult, ({ S }) => ({
+            default: S.IDLE,
+            states: {
+              IDLE: {
+                on: {
+                  Increment: {
+                    target: S.IDLE,
+                    updateMemory: ({ memory }) => ({ count: memory.count + 1 }),
+                  },
+                },
+              },
+            },
+          }));
+
+          if (Result.isFailure(CounterMachineResult)) {
+            console.error(CounterMachineResult.failure);
+          } else {
+            const CounterApp = app({
+              id: "quickstart",
+              persistenceVersion: "1",
+              modules: [
+                module({ id: "counter", machines: { counter: CounterMachineResult.success } }),
+              ],
+            });
+
+            const runtime = runtimeSetup({ app: CounterApp }).construct();
+            await Effect.runPromise(runtime.ready());
+            // Future Runtime target, not part of the temporary shell:
+            // const lease = runtime.createActor(CounterMachineResult.success);
+            // const increment = CounterResult.success.E.Increment();
+            // if (Result.isSuccess(increment)) lease.actor.send(increment.success);
+            // const snapshot = lease.actor.getSnapshot();
+            // await lease.dispose();
+          }
+        }
+        ```
+        Example:
+        ```ts
+        type PublicRootNames =
+          | "Definition"
+          | "StateToken"
+          | "EventToken"
+          | "StateOf"
+          | "EventOf"
+          | "Machine"
+          | "MemoryOf"
+          | "InputOf"
+          | "RequirementsOf"
+          | "Resource"
+          | "Transaction"
+          | "ActorRef"
+          | "Module"
+          | "App"
+          | "RuntimeSetup"
+          | "Runtime"
+          | "Implementation"
+          // Deferred until their owners land; retained for restoration, not active exports.
+          // | "ActorSnapshot"
+          // | "Persistence"
+          // | "PersistenceStorage"
+          // | "PersistenceStorageError"
+          // | "PersistenceCodec"
+          // | "PersistenceSlot"
+          // | "PersistenceValue"
+          // | "PersistenceEntry"
+          | "CanonicalKeyInput"
+          // Deferred until diagnostic owners land; retained for restoration, not active exports.
+          // | "FlowPath"
+          // | "FlowUsageCode"
+          // | "FlowUsageError";
+        ```
+        Example (proposed, unaccepted):
+        ```ts
+        import * as flow from "flow-state";
+        import * as flowTest from "flow-state/testing";
+        import * as inspect from "flow-state/inspect";
+        ```
+        Example (proposed, unaccepted):
+        ```ts
+        import { Effect, Result } from "effect";
+        import { app, definition, machine, module, runtimeSetup } from "flow-state";
+
+        const CounterResult = definition({
+          id: "Quickstart/Counter",
+          states: ["IDLE"],
+          events: { Increment: "bare" },
+          memory: () => ({ count: 0 }),
+        });
+
+        if (Result.isFailure(CounterResult)) {
+          console.error(CounterResult.failure);
+        } else {
+          const CounterMachineResult = machine(CounterResult, ({ S }) => ({
+            default: S.IDLE,
+            states: {
+              IDLE: {
+                on: {
+                  Increment: {
+                    target: S.IDLE,
+                    updateMemory: ({ memory }) => ({ count: memory.count + 1 }),
+                  },
+                },
+              },
+            },
+          }));
+
+          if (Result.isFailure(CounterMachineResult)) {
+            console.error(CounterMachineResult.failure);
+          } else {
+            const CounterApp = app({
+              id: "quickstart",
+              persistenceVersion: "1",
+              modules: [
+                module({ id: "counter", machines: { counter: CounterMachineResult.success } }),
+              ],
+            });
+
+            const runtime = runtimeSetup({ app: CounterApp }).construct();
+            await Effect.runPromise(runtime.ready());
+            // Future Runtime target, not part of the temporary shell:
+            // const lease = runtime.createActor(CounterMachineResult.success);
+            // const increment = CounterResult.success.E.Increment();
+            // if (Result.isSuccess(increment)) lease.actor.send(increment.success);
+            // const snapshot = lease.actor.getSnapshot();
+            // await lease.dispose();
+          }
+        }
+        ```
+        Example (proposed, unaccepted):
+        ```ts
+        type PublicRootNames =
+          | "Definition"
+          | "StateToken"
+          | "EventToken"
+          | "StateOf"
+          | "EventOf"
+          | "Machine"
+          | "MemoryOf"
+          | "InputOf"
+          | "RequirementsOf"
+          | "Resource"
+          | "Transaction"
+          | "ActorRef"
+          | "Module"
+          | "App"
+          | "RuntimeSetup"
+          | "Runtime"
+          | "Implementation"
+          // Deferred until their owners land; retained for restoration, not active exports.
+          // | "ActorSnapshot"
+          // | "Persistence"
+          // | "PersistenceStorage"
+          // | "PersistenceStorageError"
+          // | "PersistenceCodec"
+          // | "PersistenceSlot"
+          // | "PersistenceValue"
+          // | "PersistenceEntry"
+          | "CanonicalKeyInput"
+          // Deferred until diagnostic owners land; retained for restoration, not active exports.
+          // | "FlowPath"
+          // | "FlowUsageCode"
+          // | "FlowUsageError";
+        ```
+    O2  Definition and machine authoring
+        - definition owns durable ID, recursive state/event declarations, optional context
+          selectors, the sole input-to-memory initializer, and one flat named operation record.
+          State declarations are string leaves or recursive single-key compounds through depth ten.
+          Exact state tokens include paths such as S.ACTIVE.S.EDITING. Event names are nominal
+          tokens; callable event constructors return Result<EventEnvelope<...>, Diagnostic> with
+          full type on success, while bare events are zero-argument constructors. Definition
+          construction decodes ordinary authored input through one private Effect Schema.
+          Schema.Struct, Schema.brand, schema-authored events, and validatedEvent are not public
+          syntax. Runtime nominal values appear only after decode; event payloads decode when their
+          constructor is called.
+
+        - definition returns Result<DefinitionFromConfig<Config>, Diagnostic> synchronously.
+        - machine accepts that Definition Result directly and matches it before its callback.
+        - On failure, machine propagates the identical value without invoking its callback.
+        - Event-token calls use the same Result boundary.
+        - Expected validation failures remain data; defects become Diagnostic Defect failures.
+        - Neither authoring function returns partial values, runs an Effect, or uses an
+          intermediate Error carrier.
+        - Context selectors are typed definition-level provider edges, not registrations.
+        - memory is the only source of Input and Memory.
+        - Without memory, Input is void and memory is empty.
+        - Restore installs memory without replaying input.
+        - Definitions create no actor or work.
+
+        - machine anchors behavior to the definition's successful value. Its callback receives exact
+          S, E, O, onContext, onMemory, invalidate, and clear and returns the direct machine Result.
+          The root requires default plus an exact states record; every compound requires a
+          direct-child default and exact nested states. Leaves are explicit, and {} is an empty
+          leaf. Compound-node behavior fields sit beside nested states.
+          The compiler joins definition and config trees.
+          It rejects missing, extra, misplaced, duplicate, and non-direct nodes.
+          It compiles static handler/lifecycle tables instead of walking trees at runtime.
+
+        - Allowed node fields are on, redirect, activities, and timers, with recursive
+          default/states for compound nodes. Event handlers are a state token shorthand, one
+          transition, or an ordered list. A transition contains only target, guard, updateMemory,
+          actions, and exact-token reenter. Redirects are one redirect or ordered when/target
+          entries. Timers retain delay, guard, required event target, and updateMemory; timer-owned
+          finite actions are not inferred. The grammar excludes final-state kind, onDone, final
+          output, child actor, context mutation, entry, exit, invoke, always, Boolean reentry,
+          transition submit, and anonymous Effect callbacks. Terminal-looking leaves do not complete
+          actors, close mailboxes, or stop subscriptions. Authored callback exceptions remain
+          synchronous-boundary defects; only canonical Diagnostic enters runtime Effect E.
+
+        - onContext.select registers at machine level.
+        - Initial selection is silently recorded from bootstrapped context.
+        - Changed selections receive current and previous values.
+        - They return one typed self-event, false, or null.
+        - The event uses the ordinary mailbox.
+        - Its handler owns legality, guards, memory updates, and finite actions.
+        - onMemory and onMemory.select own continuing resource/stream plans by declaration slot.
+        - Each gets current memory and returns one continuing plan, false, or null.
+          That slot releases on state exit, normalized
+          identity change, or sentinel. One entry cannot return a runtime-sized array. Selector
+          comparison is synchronous, pure, and side-effect-free: scalar/non-record values use
+          whole-value Object.is; named non-null plain records use fixed-key, field-by-field
+          Object.is. No comparator is accepted. Equal normalized operation identity retains its
+          generation and materialized executable input.
+
+        - Each event macrostep follows these ordered phases:
+          1. Choose the winning transition.
+          2. Evaluate guard, updateMemory, and actions against the same pre-turn snapshot/event.
+          3. Apply target and memory to a candidate, then stabilize redirects.
+          4. Validate the finite-action batch.
+          5. Stage actor and synchronous-store changes.
+          6. Publish atomically, then start or join async work.
+          Callback, redirect, key, target, or batch-validation defects abort the unpublished turn.
+          Timer redirect/duration remains explicit and bounded by the timer contract.
+
+        - Reject duplicate states, depth eleven, invalid declaration kinds, and extra top-level
+          fields. Reject event payload arrays, custom-prototype objects, and authored type fields.
+          Reject relative string targets, runtime path lookup, operation work during declaration,
+          and actor-as-input classification.
+
+        - The authoring object is caller-controlled library input, not an untrusted security
+          boundary. Add no defensive-reflection guarantees for proxies, throwing getters,
+          descriptors, sparse arrays, symbols, custom container prototypes, or mutation during
+          construction.
+
+        - Public authoring examples appear here. Type-focused examples and exact inference
+          obligations appear under @plan.Types.O1. CONTRACT.md §2 examples remain proposed and
+          unaccepted; they add no authority. Runtime terminology and identity belong to
+          @plan.Runtime.O1 and @plan.Runtime.O2.
+
+
+        Example:
+        ```ts
+        import { Result } from "effect";
+
+        const NewIntentResult = definition({
+          id: "Incidents/Console",
+          states: ["INACTIVE", { ACTIVE: ["EDITING", "SUBMITTING"] }],
+          events: { SessionEnded: "bare", IntentOpened: (intentId: string) => ({ intentId }) },
+          context: {
+            sessionState: Session.select(({ state }) => state),
+            themeMode: Theme.select(({ memory }) => memory.mode),
+          },
+          operations: { routeConfig, orderById, submitIntent, submissionProgress },
+          memory: ({ input }: { input: { draftId: string } }) => ({
+            draftId: input.draftId,
+            mode: "dark",
+          }),
+        });
+        if (Result.isFailure(NewIntentResult)) {
+          // handle NewIntentResult.failure
+        } else {
+          // Pass NewIntentResult to machine(...); it matches the Definition Result internally.
+        }
+        ```
+        Example:
+        ```ts
+        import { Result } from "effect";
+
+        const newIntentMachine = machine(
+          NewIntentResult,
+          ({ S, E, O, onContext, onMemory, invalidate, clear }) => {
+            onContext.select(
+              ({ context }) => context.sessionState,
+              (current) => {
+                const event = E.SessionEnded();
+                return current === Session.S.SIGNED_OUT && Result.isSuccess(event) ? event.success : null;
+              },
+            );
+
+            return {
+              default: S.INACTIVE,
+              states: {
+                INACTIVE: {},
+                ACTIVE: {
+                  default: S.ACTIVE.S.EDITING,
+                  states: {
+                    EDITING: {},
+                    SUBMITTING: {},
+                  },
+                },
+              },
+            };
+          },
+        );
+        ```
+        Example (proposed, unaccepted):
+        ```ts
+        const NewIntent = definition({
+          id: "Incidents/Console",
+          states: ["INACTIVE", { ACTIVE: ["EDITING", "SUBMITTING"] }],
+          events: { SessionEnded: "bare", IntentOpened: (intentId: string) => ({ intentId }) },
+          context: {
+            sessionState: Session.select(({ state }) => state),
+            themeMode: Theme.select(({ memory }) => memory.mode),
+          },
+          operations: { routeConfig, orderById, submitIntent, submissionProgress },
+          memory: ({ input }: { input: { draftId: string } }) => ({
+            draftId: input.draftId,
+            mode: "dark",
+          }),
+        });
+        ```
+        Example (proposed, unaccepted):
+        ```ts
+        import { Result } from "effect";
+        import { definition, Diagnostic } from "flow-state";
+
+        type EventResultValue<Value> = Value extends Result.Result<infer Success, ReturnType<typeof Diagnostic.Failure>> ? Success : never;
+
+        const TodoResult = definition({
+          id: "Todos/Editor",
+          states: ["READY", { SAVING: ["REQUESTED", "COMMITTING"] }],
+          events: {
+            SaveRequested: (title: string) => ({ title }),
+            SaveCompleted: "bare",
+          },
+          operations: {
+            todo: todoResource,
+          },
+        });
+        if (Result.isFailure(TodoResult)) {
+          // handle TodoResult.failure
+        } else {
+          const Todo = TodoResult.success;
+          type _State = Expect<
+            Equal<
+              StateOf<typeof Todo>,
+              typeof Todo.S.READY | typeof Todo.S.SAVING.S.REQUESTED | typeof Todo.S.SAVING.S.COMMITTING
+            >
+          >;
+          type _Event = Expect<
+            Equal<
+              EventOf<typeof Todo>,
+              | EventResultValue<ReturnType<typeof Todo.E.SaveRequested>>
+              | EventResultValue<ReturnType<typeof Todo.E.SaveCompleted>>
+            >
+          >;
+        }
+        ```
+        Example (proposed, unaccepted):
+        ```ts
+        const EditorResult = definition({
+          id: "Todos/Editor",
+          states: ["READY", "SAVING"],
+          events: { SaveRequested: "bare" },
+          memory: ({ input }: { input: { todoId: string } }) => ({
+            todoId: input.todoId,
+            draft: "",
+          }),
+        });
+        if (Result.isSuccess(EditorResult)) {
+          const Editor = EditorResult.success;
+          type _Input = Expect<Equal<InputOf<typeof Editor>, { todoId: string }>>;
+          type _Memory = Expect<Equal<MemoryOf<typeof Editor>, { todoId: string; draft: string }>>;
+        }
+        ```
+        Example (proposed, unaccepted):
+        ```ts
+        import { Result } from "effect";
+
+        const newIntentMachine = machine(
+          NewIntentResult,
+          ({ S, E, O, onContext, onMemory, invalidate, clear }) => {
+            onContext.select(
+              ({ context }) => context.sessionState,
+              (current) => {
+                const event = E.SessionEnded();
+                return current === Session.S.SIGNED_OUT && Result.isSuccess(event) ? event.success : null;
+              },
+            );
+
+            return {
+              default: S.INACTIVE,
+              states: {
+                INACTIVE: {},
+                ACTIVE: {
+                  default: S.ACTIVE.S.EDITING,
+                  states: {
+                    EDITING: {},
+                    SUBMITTING: {},
+                  },
+                },
+              },
+            };
+          },
+        );
+        ```
+    O3  Resources, named operation families, and state
+        - resource descriptors own descriptor ID, synchronous key projector, lookup adapter, and
+          descriptor-owned freshness/collection policy. P is complete executable input retained by a
+          lookup, transaction attempt, or stream subscription; P may contain clients/functions and
+          is never identity. Runtime capabilities remain outside P; service dependencies are
+          inferred as Effect/Stream R. K is the ordered canonical tuple key(P); resource identity is
+          descriptor ID plus K. Project, validate, and canonicalize before ownership, mutation,
+          admission, or external work. Methods use complete P for execution and exact K for passive
+          reads.
+
+        - Canonical source containers are ordinary dense arrays/plain records, recursively
+          defensively copied together with the top tuple. Reject undefined, non-finite numbers,
+          bigint, symbols, functions, accessors, classes, unsupported objects, cycles, branded
+          secrets, sparse/extra property arrays, hostile or inconsistent reflection. Bounds are
+          depth 16, 256 value nodes, and 8192 UTF-8 bytes. Failures identify exact K[index] or
+          nested-record paths. KBytes is whitespace-free canonical JSON-like grammar:
+          null/booleans/finite numbers/JSON-escaped strings, dense arrays, and records serialized by
+          raw UTF-16-sorted keys. Numbers use finite JSON.stringify and normalize -0 to 0; strings
+          are not normalized. Records require Object.prototype or null prototype and enumerable own
+          data properties without symbols. Arrays are ordinary, dense, and have no extra properties.
+          Read data descriptors only; never run getters, coercion, toJSON, or user iteration. Every
+          result-changing discriminator belongs in K. There is no second key, custom hash/equality,
+          or new freshness default. Tags derive from K; placeholders are passive metadata. Invalid
+          inputs publish/mutate nothing and start no work; equal bytes share identity, different
+          bytes separate identity. persist defaults false.
+
+        - The public generic family shapes are:
+          - ResourceFamily<P, K extends unknown[], A, E> has key(P): K.
+            It has getData(K): A | undefined and getState(K): ResourceState<A,E,K>.
+          - It has lookup(P, options?: FiniteResourceOptions<A,E>): FiniteOperationPlan.
+          - It has subscribe(P, options?: ResourceSubscriptionOptions<A,E>):
+            ContinuingOperationPlan.
+          - It has refetch(P, options?: FiniteResourceOptions<A,E>): FiniteOperationPlan.
+          - It has setData(K, A | ((A | undefined) => A | undefined)): CacheWritePlan.
+          - It has cancel(K): CancellationPlan.
+          - TransactionFamily<P,K extends unknown[],A,E> has key, getState,
+            commit(P, options?: CommitOptions<P,A,E>): TransactionCommitPlan, and cancel(K).
+          - StreamFamily<P,K extends unknown[],V,E> has key, getState, and
+            subscribe(P, options?: StreamSubscriptionOptions<P,K,V,E>): ContinuingOperationPlan.
+          These schematic aliases describe exact family shapes. Standalone support aliases are not
+          public exports.
+
+        - ResourceState is a closed union:
+          - missing(key), pending(key,generation), ready(key,generation,data), and
+            refreshing(key,generation,data).
+          - failure(key,generation,error) intersects optional retained data.
+          - defect(key,generation,defect) intersects optional retained data.
+          - interrupted(key,generation) intersects optional retained data.
+
+        - TransactionState is a closed union:
+          - idle(key) and pending(key,generation).
+          - success(key,generation,value) and failure(key,generation,error).
+          - defect(key,generation,defect) and interrupted(key,generation).
+          - unknown(key,generation,reconcileRequired:true).
+
+        - StreamValue is either hasValue:false, latest?:never, emissionCount:0 or
+          hasValue:true, latest:V, emissionCount:number.
+          StreamState adds idle(key,generation:null) and running/complete/failure/defect/interrupted
+          states with that StreamValue.
+          Undefined is not A; it means missing getData or updater decline. Counts and generations
+          are non-negative safe integers. Resource failures/defects/interruption may retain data;
+          refreshing always does. Unknown is distinct from interruption.
+
+        - Passive reads never acquire, start, refresh, mutate, collect, or materialize missing
+          entries. Omitted transaction key is []. Accepted verbs are lookup, commit, subscribe;
+          accepted action/continuing declarations alone execute operations and retain full P.
+          Invalidate and clear resolve exact resource/K, tag, and family targets against one
+          pre-mutation snapshot.
+          Resolution uses stable descriptor/key order and keeps first-seen identities.
+          The batch caps at 256 identities; zero matches are a no-op.
+          Invalidate retains data and overlays.
+          Invalidate does not replace or cancel generations.
+          Clear fences work, cancels the final owner, and removes data and overlays.
+          Clear leaves surviving entries missing.
+          Conflicting target changes reject.
+
+        - Finite actions admit one inert plan, list, null, or empty list; accepted work is
+          lookup/refetch, commit/cancel, cache write, invalidate, clear. Omission/null/empty means
+          none. Actions are not inferred from timers, activation, passive reads, memory/store
+          revisions, completion, or reconciliation. Finite outcomes map success(A), failure(E),
+          defect(), interrupt(); continuing resources map value(A), failure(E), defect(),
+          interrupt(). Mappers return one typed event and receive no Exit/Cause/state/lifecycle.
+          Occurrences admit once; reconciliation does not restart them. Continuing resources are
+          activities; memory-derived plans are onMemory. Declarations own subscriptions; machine
+          code does not manually unsubscribe for correctness. after targets an explicit refresh
+          event; it is not polling.
+
+        - Transaction family exposes passive key/getState, finite commit, and actor-owned cancel.
+          Missing key is []. commit(P,options?) is inert until an accepted event action. Actor-local
+          descriptor+K concurrency is exactly reject | cancel | allow | serialize; retry is a new
+          commit from a new event. Outcomes distinguish success/failure/defect/interruption. Writes
+          are explicit setData plans; result values never become canonical data implicitly. No
+          completion-side invalidates/clears options, parent
+          machine/memory/event/selector/route/preview capture, or retry helper.
+
+        - Stream family exposes passive key/getState and continuing subscribe; it has no actor
+          cancel and no resource entry. One live declaration with the same actor+descriptor+K
+          rejects before replacement/release; other actors are independent. Equal key retains
+          generation and original P; changed key releases once and starts another.
+          Exit/replacement/disposal/false/null finalizes once; late emissions are fenced by
+          slot/key/generation; values coalesce to latest projection. Outcomes are value(V),
+          complete(), failure(E), defect(), interrupt(); release maps no outcome. Hydration
+          rematerializes active declarations from live P without replaying emissions. Terminal
+          streams do not restart; missing P fails closed rather than reconstructing from K.
+          Invalidate/clear operate on exact [O.resource,K], reachable tags, and admitted resource
+          families after validation/deduplication. Invalidate retains data and marks stale without
+          starting work. Clear removes data and metadata, fences generations, interrupts work, and
+          publishes atomically. No zero-argument, wildcard, whole-runtime, or ordinary cache clear
+          exists; complete removal belongs to runtime.dispose(). Only mapped events or explicit
+          authoritative writes make emissions durable.
+
+        - Resource, canonical-key, family-signature, state-union, transaction, finite-action, and
+          stream examples appear below. Type examples appear under @plan.Types.O2; Cause handling
+          also belongs to @plan.Diagnostics.O2. CONTRACT.md §3 examples remain proposed and
+          unaccepted. They do not supersede normative requirements. Identity and canonical-key
+          ownership belong to @plan.Runtime.O1 and @plan.Runtime.O2.
+
+
+        Example:
+        ```ts
+        type OrderInput = {
+          orderId: string;
+        };
+
+        const orderById = resource({
+          id: "everclear.order-by-id",
+          key: ({ orderId }: OrderInput) => [orderId],
+          lookup: ({ orderId }: OrderInput, { signal }) =>
+            Effect.gen(function* () {
+              const client = yield* OrderClient;
+              return yield* client.getOrder(orderId, { signal });
+            }),
+          persist: true,
+          staleTime: "30 seconds",
+          gcTime: "5 minutes",
+        });
+        ```
+        Example:
+        ```text
+        KBytes ::= "[" [ Value *( "," Value ) ] "]"
+        Value ::= "null" | "true" | "false" | Number | String
+                | "[" [ Value *( "," Value ) ] "]"
+                | "{" [ Member *( "," Member ) ] "}"
+        Member ::= String ":" Value
+        ```
+        Example:
+        ```ts
+        interface ResourceFamily<P, K extends unknown[], A, E> {
+          key(params: P): K;
+          getData(key: K): A | undefined;
+          getState(key: K): ResourceState<A, E, K>;
+          lookup(params: P, options?: FiniteResourceOptions<A, E>): FiniteOperationPlan;
+          subscribe(params: P, options?: ResourceSubscriptionOptions<A, E>): ContinuingOperationPlan;
+          refetch(params: P, options?: FiniteResourceOptions<A, E>): FiniteOperationPlan;
+          setData(key: K, value: A | ((current: A | undefined) => A | undefined)): CacheWritePlan;
+          cancel(key: K): CancellationPlan;
+        }
+        interface TransactionFamily<P, K extends unknown[], A, E> {
+          key(params: P): K;
+          getState(key: K): TransactionState<A, E, K>;
+          commit(params: P, options?: CommitOptions<P, A, E>): TransactionCommitPlan;
+          cancel(key: K): CancellationPlan;
+        }
+        interface StreamFamily<P, K extends unknown[], V, E> {
+          key(params: P): K;
+          getState(key: K): StreamState<V, E, K>;
+          subscribe(params: P, options?: StreamSubscriptionOptions<P, K, V, E>): ContinuingOperationPlan;
+        }
+        ```
+        Example:
+        ```ts
+        type ResourceRetention<A> = { data?: never } | { data: A };
+        type ResourceState<A, E, K extends unknown[]> =
+          | { status: "missing"; key: K }
+          | { status: "pending"; key: K; generation: number }
+          | { status: "ready"; key: K; generation: number; data: A }
+          | { status: "refreshing"; key: K; generation: number; data: A }
+          | ({ status: "failure"; key: K; generation: number; error: E } & ResourceRetention<A>)
+          | ({ status: "defect"; key: K; generation: number; defect: unknown } & ResourceRetention<A>)
+          | ({ status: "interrupted"; key: K; generation: number } & ResourceRetention<A>);
+        type TransactionState<A, E, K extends unknown[]> =
+          | { status: "idle"; key: K }
+          | { status: "pending"; key: K; generation: number }
+          | { status: "success"; key: K; generation: number; value: A }
+          | { status: "failure"; key: K; generation: number; error: E }
+          | { status: "defect"; key: K; generation: number; defect: unknown }
+          | { status: "interrupted"; key: K; generation: number }
+          | { status: "unknown"; key: K; generation: number; reconcileRequired: true };
+        type StreamValue<V> =
+          | { hasValue: false; latest?: never; emissionCount: 0 }
+          | { hasValue: true; latest: V; emissionCount: number };
+        type StreamState<V, E, K extends unknown[]> =
+          | ({ status: "idle"; key: K; generation: null } & StreamValue<V>)
+          | ({ status: "running"; key: K; generation: number } & StreamValue<V>)
+          | ({ status: "complete"; key: K; generation: number } & StreamValue<V>)
+          | ({ status: "failure"; key: K; generation: number; error: E } & StreamValue<V>)
+          | ({ status: "defect"; key: K; generation: number; defect: unknown } & StreamValue<V>)
+          | ({ status: "interrupted"; key: K; generation: number } & StreamValue<V>);
+        ```
+        Example:
+        ```ts
+        O.submitIntent.commit(params, {
+          writes: ({ value }) => [O.orderById.setData([value.order.id], value.order)],
+          outcomes: {
+            success: (receipt) => E.SubmitSucceeded(receipt),
+            failure: (error) => E.SubmitFailed(error),
+          },
+        });
+        ```
+        Example:
+        ```ts
+        actions: ({ event, memory }) => [
+          O.submitIntent.commit(buildSubmissionInput(event, memory), { outcomes: submitOutcomes }),
+        ];
+        ```
+        Example:
+        ```ts
+        const submitIntent = transaction({
+          id: "everclear.submit-intent",
+          key: ({ submissionId }: SubmitIntentInput) => [submissionId],
+          commit: (params, { signal }) => IntentSubmitter.submit(params, { signal }),
+          persist: true,
+          concurrency: "reject",
+        });
+        ```
+        Example:
+        ```ts
+        const submissionProgress = stream({
+          id: "everclear.submission-progress",
+          key: ({ submissionId }: ProgressInput) => [submissionId],
+          subscribe: ({ submissionId }: ProgressInput, { signal }) =>
+            Effect.gen(function* () {
+              const progressClient = yield* ProgressClient;
+              return yield* progressClient.progress(submissionId, { signal });
+            }),
+          persist: true,
+        });
+        ```
+        Example (proposed, unaccepted):
+        ```ts
+        type OrderInput = {
+          orderId: string;
+        };
+
+        const orderById = resource({
+          id: "everclear.order-by-id",
+          key: ({ orderId }: OrderInput) => [orderId],
+          lookup: ({ orderId }: OrderInput, { signal }) =>
+            Effect.gen(function* () {
+              const client = yield* OrderClient;
+              return yield* client.getOrder(orderId, { signal });
+            }),
+          persist: true,
+          staleTime: "30 seconds",
+          gcTime: "5 minutes",
+        });
+        ```
+        Example (proposed, unaccepted):
+        ```text
+        KBytes ::= "[" [ Value *( "," Value ) ] "]"
+        Value ::= "null" | "true" | "false" | Number | String
+                | "[" [ Value *( "," Value ) ] "]"
+                | "{" [ Member *( "," Member ) ] "}"
+        Member ::= String ":" Value
+        ```
+        Example (proposed, unaccepted):
+        ```ts
+        interface ResourceFamily<P, K extends unknown[], A, E> {
+          key(params: P): K;
+          getData(key: K): A | undefined;
+          getState(key: K): ResourceState<A, E, K>;
+          lookup(params: P, options?: FiniteResourceOptions<A, E>): FiniteOperationPlan;
+          subscribe(params: P, options?: ResourceSubscriptionOptions<A, E>): ContinuingOperationPlan;
+          refetch(params: P, options?: FiniteResourceOptions<A, E>): FiniteOperationPlan;
+          setData(key: K, value: A | ((current: A | undefined) => A | undefined)): CacheWritePlan;
+          cancel(key: K): CancellationPlan;
+        }
+        interface TransactionFamily<P, K extends unknown[], A, E> {
+          key(params: P): K;
+          getState(key: K): TransactionState<A, E, K>;
+          commit(params: P, options?: CommitOptions<P, A, E>): TransactionCommitPlan;
+          cancel(key: K): CancellationPlan;
+        }
+        interface StreamFamily<P, K extends unknown[], V, E> {
+          key(params: P): K;
+          getState(key: K): StreamState<V, E, K>;
+          subscribe(params: P, options?: StreamSubscriptionOptions<P, K, V, E>): ContinuingOperationPlan;
+        }
+        ```
+        Example (proposed, unaccepted):
+        ```ts
+        type ResourceRetention<A> = { data?: never } | { data: A };
+        type ResourceState<A, E, K extends unknown[]> =
+          | { status: "missing"; key: K }
+          | { status: "pending"; key: K; generation: number }
+          | { status: "ready"; key: K; generation: number; data: A }
+          | { status: "refreshing"; key: K; generation: number; data: A }
+          | ({ status: "failure"; key: K; generation: number; error: E } & ResourceRetention<A>)
+          | ({ status: "defect"; key: K; generation: number; defect: unknown } & ResourceRetention<A>)
+          | ({ status: "interrupted"; key: K; generation: number } & ResourceRetention<A>);
+        type TransactionState<A, E, K extends unknown[]> =
+          | { status: "idle"; key: K }
+          | { status: "pending"; key: K; generation: number }
+          | { status: "success"; key: K; generation: number; value: A }
+          | { status: "failure"; key: K; generation: number; error: E }
+          | { status: "defect"; key: K; generation: number; defect: unknown }
+          | { status: "interrupted"; key: K; generation: number }
+          | { status: "unknown"; key: K; generation: number; reconcileRequired: true };
+        type StreamValue<V> =
+          | { hasValue: false; latest?: never; emissionCount: 0 }
+          | { hasValue: true; latest: V; emissionCount: number };
+        type StreamState<V, E, K extends unknown[]> =
+          | ({ status: "idle"; key: K; generation: null } & StreamValue<V>)
+          | ({ status: "running"; key: K; generation: number } & StreamValue<V>)
+          | ({ status: "complete"; key: K; generation: number } & StreamValue<V>)
+          | ({ status: "failure"; key: K; generation: number; error: E } & StreamValue<V>)
+          | ({ status: "defect"; key: K; generation: number; defect: unknown } & StreamValue<V>)
+          | ({ status: "interrupted"; key: K; generation: number } & StreamValue<V>);
+        ```
+        Example (proposed, unaccepted):
+        ```ts
+        const submitIntent = transaction({
+          id: "everclear.submit-intent",
+          key: ({ submissionId }: SubmitIntentInput) => [submissionId],
+          commit: (params, { signal }) => IntentSubmitter.submit(params, { signal }),
+          persist: true,
+          concurrency: "reject",
+        });
+
+        O.submitIntent.commit(params, {
+          writes: ({ value }) => [O.orderById.setData([value.order.id], value.order)],
+          outcomes: {
+            success: (receipt) => E.SubmitSucceeded(receipt),
+            failure: (error) => E.SubmitFailed(error),
+          },
+        });
+        ```
+        Example (proposed, unaccepted):
+        ```ts
+        const submissionProgress = stream({
+          id: "everclear.submission-progress",
+          key: ({ submissionId }: ProgressInput) => [submissionId],
+          subscribe: ({ submissionId }: ProgressInput, { signal }) =>
+            Effect.gen(function* () {
+              const progressClient = yield* ProgressClient;
+              return yield* progressClient.progress(submissionId, { signal });
+            }),
+          persist: true,
+        });
+        ```
+        Example (proposed, unaccepted):
+        ```ts
+        actions: ({ event, memory }) => [
+          O.submitIntent.commit(buildSubmissionInput(event, memory), { outcomes: submitOutcomes }),
+        ];
+        ```
+        Example (proposed, unaccepted):
+        ```ts
+        const snapshot = actor.getSnapshot();
+        const orderKey = snapshot.O.orderById.key({ orderId });
+        const order = snapshot.O.orderById.getData(orderKey);
+        const orderState = snapshot.O.orderById.getState(orderKey);
+        const submitState = snapshot.O.submitIntent.getState([submissionId]);
+        ```
+    O4  Module/App universe, actors, Runtime, and React
+        - module({ id, machines }) retains an exact keyed machine record. app({ id,
+          persistenceVersion, modules }) flattens ordered, unaliased modules into exact App.M.
+          Duplicate property names, machine values, or tooling ownership reject.
+          Module IDs are unique tooling identity for CLI, trace, inspection, artifacts, and diffs.
+          Renaming a Module ID breaks artifacts without an alias.
+          Runtime and persistence identity stays compatible; history requires explicit migration.
+          Every local/shared/Story-local actor uses a listed
+          machine, every listed machine contributes graph and requirements to AppPlan, and
+          compilation creates no actor. There are no dynamicMachines, automatic roots, runtime
+          family lookup, XState setup, or machine.provide layer. Definitions shape, machines provide
+          behavior, apps determine reachability, Implementations supply services, fixtures support
+          tests. A running runtime cannot expand AppPlan.
+
+        - The actor API and complete lifecycle are future targets. The temporary
+          RuntimeSetup/Runtime exposes only app, construct(), and ready(). Inert
+          actorRef(machine,id,{persist?:boolean}) has exactly machine, id, persist; persist defaults
+          false and is metadata, not identity. It contains no input, bindings, ownership, callbacks,
+          subscriptions, or disposal. Future methods are:
+          - ensureActor returns { actor, dispose } and restores or creates.
+          - getActor is lookup-only and grants no lease.
+          - createActor makes a fresh local opaque ref with no stable ID and returns a lease.
+          Concurrent ensures join construction.
+          Dropping a lease does not dispose.
+          Stable disposal tombstones the current runtime ref.
+          Reuse is possible in a later runtime.
+          Wire identity is `actor:` followed by length-prefixed UTF-8 machine-ID and
+          stable-ID segments, as defined by @plan.Runtime.O1 and @plan.Runtime.O2. Context slots
+          bind one-for-one to exact provider refs; missing, ambiguous, foreign, or cyclic
+          bindings reject, and edges add no parentage, ownership, or command channel.
+          Rebinding does not retain memory/context history.
+          Readiness validates providers, codec, and AppPlan.
+          It restores declarations and persistable actor-owned state.
+          It caches success or terminal failure.
+          Transaction and stream state restores only when its declaration and stable owner are
+          both persistable.
+          getActor never creates/adopts or grants ownership.
+          A stable tombstone rejects lookup/ensure in-runtime.
+
+        - Current ready() is a temporary-shell boundary.
+        - Providers are acquired sequentially and lazily once per shell.
+        - Cache and reuse the shell's first terminal Exit exactly once.
+        - The Exit is success, typed ImplementationError failure, defect, or interruption.
+        - Do not retry; preserve Cause classes.
+        - Its E remains ImplementationError; do not invent Diagnostic mapping.
+        - Current shell has no persistence, actors, Effect bridge, lifecycle, or disposal.
+          Full Runtime and React lifecycle rules below remain future targets, not implementation
+          claims.
+
+        - Future Runtime bridges and final process/framework/CLI adapters are the only Effect
+          execution edges. Reusable services/orchestration return Effects with exact A, Diagnostic
+          E, and R; they never call runPromise*, runSync*, or another runner.
+          Adapt each foreign rejecting Promise once at a named boundary using
+          Effect.tryPromise({ try, catch }). Map unknown once to an owned Diagnostic.
+          Forward AbortSignal when supported. Effect.promise is not the
+          public pattern. Lifecycle is prepared | active | suspended | disposed. React names are
+          FlowProvider, useActor(machine, options?), useActorByRef(ref), and useView(actor,
+          selector). Readiness validates providers, codec, and AppPlan, then caches success or
+          terminal failure. Transaction and stream state restores only when both declaration and
+          stable owner are persistable.
+          Boot, decoders, hydration, and DehydrateBarrier stay private.
+          Runtime excludes boot/decode/mutable hydration/dehydrate, runtime.actor, roots, and
+          public ManagedRuntime.
+          It also excludes mutable resource/orchestrator services, test registries, and acknowledged
+          dispatch.
+
+        - Prepared buffers; active admits/owns resources; suspended preserves continuity, rejects
+          commands, and has no live attachments; disposed is terminal. React local actors are fresh;
+          by-ref is existing lookup without owner; both are command-only. useView is the only
+          ordinary reactive path. Render prepares final actor/ref/handle/snapshot/mailbox without
+          registration/work. Commit attaches, baseline-installs, activates, and drains once. Cleanup
+          suspends that same actor without shell swap, grace period, or terminal disposal.
+          Imperative create is immediately attached and running.
+          useView tracks exact O descriptor/key reads at a tear-free boundary.
+          It reruns on matching actor/StoreFanout publication using O4 equality.
+          It has no comparator, registered views, or per-actor React context. Lifecycle
+          publishes snapshot before evidence; retains start/restore/dispose and adds suspend/resume,
+          not prepare. Future FlowDisposeError has _tag FlowDisposeError, cause
+          Cause.Cause<unknown>, scope actor | runtime; asynchronous lease/runtime disposal is
+          idempotent, cached, and terminal; blocked disposal identifies dependencies.
+
+        - The temporary shell remains current. Actor, React, persistence, bridge, lifecycle, and
+          disposal details remain future targets. Module/App, actor-ref, and Runtime setup examples
+          appear below. Type overloads and selector examples appear under @plan.Types.O4 and
+          @plan.Types.O5. CONTRACT.md §§1-3 examples remain proposed and unaccepted.
+          They do not alter the Runtime authority at @plan.Runtime.O2, @plan.Runtime.O3,
+          @plan.Runtime.O4, @plan.Runtime.O5, and @plan.Runtime.D1.
+
+
+        Example:
+        ```ts
+        const CoreModule = module({ id: "core", machines: { router: routerMachine, auth: authMachine } });
+        const TodoApp = app({
+          id: "todo-app",
+          persistenceVersion: "1",
+          modules: [CoreModule, TodosModule],
+        });
+        TodoApp.M.router;
+        ```
+        Example:
+        ```ts
+        const ref = actorRef(editorMachine, "primary-editor", { persist: true });
+        const sharedLease = runtime.ensureActor(ref, { input, contextBindings });
+        const sharedActor = runtime.getActor(ref);
+        const localLease = runtime.createActor(editorMachine, { input, contextBindings });
+        await sharedLease.dispose();
+        ```
+        Example:
+        ```ts
+        const setup = runtimeSetup({
+          app: IncidentApp,
+          implementation: IncidentLive,
+          persistence: persistence({ storage: webStorage(window.localStorage), scope: "user:42" }),
+        });
+        const runtime = setup.construct();
+        ```
+    O5  Stories, behavior gateway, fixtures, and models
+        - Story constructors are non-callable namespace methods: story.app(runtimeSetup, options?),
+          story.machine(machine, options?), story.actor(machine, options?). App Story options are
+          fixtures, maxTurns, title, description, tags. Machine Story adds exact required input,
+          selected initial context, fixtures and the same metadata. Actor recipe options are exact
+          input/contextBindings. Void-input machines reject authored input; focused Stories reject
+          boot, refs, extra actors, raw memory, initial state, and snapshots. App Story requires
+          typed RuntimeSetup, not bare app/runtime. maxTurns defaults to 100. Plans are inert until
+          run and contain no handles, loops, predicates, callbacks, assertions, or branches. Every
+          run uses production bootstrap, fixtures, TestClock, restoration, ensure, AppPlan
+          validation, graph sealing, activation, and cleanup. Machine Story uses a private
+          one-machine AppPlan and the same production engine.
+
+        - behavior requires an explicit app and non-empty Story record whose keys are external IDs.
+          It synchronously validates/registers only, acquiring no Implementation, Runtime, actor,
+          Story, sink, or cleanup. Reject empty or duplicate keys, mixed/missing app, ActorRecipe
+          values, and incompatible app/machine. App Stories use supplied RuntimeSetup; machine
+          Stories require the machine in supplied App.M. Brand/AppPlan/gateway internals stay
+          private; CLI is its only public consumer. Direct run and CLI share production
+          runtime/kernel/evidence/cleanup; gateway is not a runner. Discovery uses one supplied App
+          identity and has no runtime side effects.
+
+        - Both Story kinds support process, advance, advanceTo, advanceToNextTimer, checkpoint, and
+          run.
+        - App Story adds target+event send; Machine Story adds target-free send and setContext.
+        - App targets an exact app-owned ActorRef or Story recipe, never a machine family.
+        - App Stories do not inject context.
+        - process drains ready production work until another command or future time is needed.
+        - It does not advance time or invent results.
+          Clock movement does not process. checkpoint reads evidence immediately; run is the sole
+          execution boundary.
+          Builder commands are persistent: each returns a new plan and leaves its prefix unchanged.
+          Derived plans replay the prefix independently in fresh isolated production Runtimes.
+          This is static plan branching, never a live runtime fork.
+          Plans share no live state, handles, or runtime.
+          Checkpoint names accumulate in the inferred literal-name union.
+          Duplicates and widened string reject.
+          Known keys index; unknown literals fail.
+          run.checkpoints maps exactly those names.
+          It preserves evidence shape, run.end, and failure behavior.
+          A private JavaScript/CLI lookup checks own-key membership
+          and rejects unknown names with existing FlowUsageError semantics; there is no public
+          dynamic-string getter or checkpoint-specific error.
+
+        - Runs never inject pending results; complete Implementations supply behavior. Capture uses
+          exact closure, one StoreState revision, snapshots, pending work, TestClock, and accepted
+          runtime evidence prefix. Closure includes the single machine actor or all app recipes plus
+          exact binding, target, and transitive-provider refs; unrelated actors are excluded.
+          Capture performs no lookup/progress/work/time/create/dispose/restore. run.end follows
+          commands before cleanup and does not mean completion. Failure preserves checkpoints and
+          FlowStoryExecutionError with Cause, boundary, cleanup/cancellation/evidence diagnostics.
+          Close admission before non-abortable finalization; clean in reverse
+          dependency/deterministic phase order. Cleanup failure retains end evidence but never
+          success; pre-capture failure never fabricates run.end.
+
+        - fixture({ id, implementation, seeds? }) supplies complete services; seeds preload
+          Runtime-owned resource state. Fixture provider overrides App provider by service identity;
+          duplicate providers reject. Fixture Implementations replace complete service functions,
+          preserving input, success, failure, cancellation, lifetime; kernels remain live. Seeds do
+          not satisfy requirements, mock services, create global state, or authorize cache mutation.
+          Providers construct once per Runtime; Story runs get fresh Runtime-scoped provider state
+          unless app ownership explicitly shares it.
+
+        - model(baseStory,{stateKey}) accepts only a command-empty, fresh machine Story. stateKey
+          receives exact predicted snapshot and returns CanonicalKeyInput. Candidate events belong
+          to each traversal call, not model/base state. Expose getShortestPaths and getSimplePaths
+          only. Returned paths use ordinary Story result shape. Model does not run Effects,
+          synthesize async routes, or expose replay/provide/clock helpers or named path/result
+          classes. FlowStoryExecutionError is the sole named testing runtime class; its
+          package-owned envelope retains the complete Cause accepted by @plan.Verification.V4.
+
+        - Reject callable Story, .with, live runtime/bare app input, and focused overrides.
+        - Reject extra actors, result injection, and implicit time processing.
+        - Reject old flush/settle/perform/deliver/receive/setTime/replay/final helpers.
+          Reject machine-family targets, live runtime forks, resumable checkpoints, and shared live
+          state/handles/runtimes.
+          Model rejects app/non-empty plans, cross-call candidate retention, function-mocking
+          registries, parallel testing/path/result hierarchies, and Effects.
+
+        - Constructor, gateway, command, checkpoint-evidence, fixture, and model examples appear
+          below. Type-level options, checkpoint accumulation, recipe, fixture, and model examples
+          appear under @plan.Types.O6. Runtime identity and ownership belong to @plan.Runtime.O3 and
+          @plan.Runtime.O5. Diagnostic ownership belongs to @plan.Diagnostics.O3; current root
+          deferral is settled here. Future compatibility interpretation belongs to
+          @plan.Diagnostics.Q1.
+
+
+        Example:
+        ```ts
+        story.app(runtimeSetup, options?);
+        story.machine(machine, options?);
+        story.actor(machine, options?);
+        ```
+        Example:
+        ```ts
+        const gateway = behavior({
+          app: IncidentApp,
+          stories: { smoke: incidentStory, "machine-model": incidentMachineStory },
+        });
+        ```
+        Example:
+        ```ts
+        // Both Story kinds
+        process();
+        advance(duration);
+        advanceTo(epochMilliseconds);
+        advanceToNextTimer();
+        checkpoint(name);
+        run({ signal? });
+
+        // App Story
+        send(target, event);
+
+        // Machine Story
+        send(event);
+        setContext(context);
+        ```
+        Example:
+        ```ts
+        const common = story
+          .machine(editorMachine, options)
+          .send(Editor.E.Opened())
+          .process()
+          .checkpoint("opened");
+
+        const saved = common.send(Editor.E.SaveRequested()).process().checkpoint("saved");
+        const discarded = common.send(Editor.E.Discarded()).checkpoint("discarded");
+        const cancelled = common.send(Editor.E.Cancelled()).checkpoint("cancelled");
+
+        const savedRun = await saved.run();
+        const discardedRun = await discarded.run();
+        savedRun.checkpoints.opened; // valid
+        savedRun.checkpoints.saved; // valid
+        savedRun.checkpoints.typo; // TypeScript error
+        ```
+        Example:
+        ```ts
+        appRun.checkpoints["signed-out"].actor(editor).snapshot;
+        appRun.checkpoints["signed-out"].actor(PrimarySessionRef).snapshot;
+        appRun.checkpoints["signed-out"].runtime.now;
+        appRun.checkpoints["signed-out"].runtime.pendingWork;
+        appRun.end.actor(editor).snapshot;
+        machineRun.checkpoints["signed-out"].snapshot;
+        machineRun.end.snapshot;
+        ```
+        Example:
+        ```ts
+        const baseStory = story.machine(incidentMachine, { fixtures: [incidentApiFixture] });
+        const incidentModel = model(baseStory, {
+          stateKey: ({ value, memory }) => [value.id, memory],
+        });
+
+        const result = incidentModel.getShortestPaths({
+          events: [NewIntent.E.IntentOpened("incident-1"), NewIntent.E.SessionEnded()],
+          maxDepth: 20,
+          limit: 100,
+        });
+
+        await result.paths[0]!.story.run();
+        ```
+    O6  Inspection, artifacts, and CLI public boundary
+        - Pure graph/transition functions consume inert definitions/snapshots. Live inspection
+          consumes committed private TurnRecord/LifecycleRecord data; inspect owns private v2
+          codecs/artifacts. Sink attachment returns { drain, dispose }; buffer sinks have explicit
+          capacity; artifact bytes use one file-neutral defensive-copy carrier. There is no second
+          mutable history or fabricated trace from arbitrary snapshots. Planner output may show
+          selection, microsteps, memory patches, desired plans, but not actual
+          starts/releases/generations/pending outcomes/finalizers. TurnRecord is private and
+          projections are inferred. Slow sinks cannot delay ack/StoreFanout; a failed sink detaches
+          while others continue. Import/export never exposes private v2 model, TurnRecords, runtime
+          ownership, or raw Cause. One formatter exists per projection; attachment observes records
+          admitted after attach. Only route-created sinks and validated inferred projections are
+          accepted; retention is bounded; caller mutation of bytes cannot mutate artifacts.
+
+        - The existing exportTraceArtifact route accepts an optional redaction policy.
+          ArtifactExportOptions has optional redactions: a list of { path: ArtifactValuePath,
+          replacement: "[REDACTED]" }. ArtifactCanonicalPath is (string | number)[].
+        - ArtifactValuePath alternatives:
+          - `["records", number, "snapshot", "memory" | "context", ...ArtifactCanonicalPath]`
+          - `["records", number, "facts", number, "data" | "value" | "error" | "defect" | "latest",
+            ...ArtifactCanonicalPath]`
+          - `["checkpoints", number, "actors", number, "snapshot", "memory" | "context",
+            ...ArtifactCanonicalPath]`
+          - `["checkpoints", number, "snapshot", "memory" | "context", ...ArtifactCanonicalPath]`
+
+        - exportTraceArtifact accepts ReturnType<typeof importTraceArtifact> and optional
+          ArtifactExportOptions. It returns Uint8Array.
+
+        - Redaction is explicit, pure, and applied to a defensive export projection. Omitted/empty
+          policy returns a byte-identical importable raw artifact. Non-empty policy emits only the
+          export-only share projection defined by @plan.Artifacts.O6. Replace only application-owned
+          carriers at named paths with the fixed string. Never target identity, AppPlan fingerprint,
+          version, discriminants, ordering, sequence, truncation, diagnostic codes, cleanup/status
+          structure. Paths follow the share-projection rules in @plan.Artifacts.O6.
+          Array indexes must be exact and non-negative; wildcards are forbidden.
+          Paths must exist; duplicate or ancestor/descendant overlap rejects as
+          InvalidArtifactOperand.
+          Never mutate runtime,
+          persistence, or decoded models; share output is not boot/persistence input and
+          importTraceArtifact rejects it as WrongArtifactKind. Runtime, persisted record, raw
+          artifact, and canonical evidence remain unchanged.
+
+        - The installed flow-state binary follows CLI.md for exact grammar and typed gateway.
+        - It preserves bounded v2 artifacts and Story-executor parity.
+        - It preserves envelopes, stdout/stderr, exit/signal, atomic files, and truncation.
+        - behavior check is the only new leaf beyond retained behavior/Story/trace families.
+          Model paths are programmatic. Schemas represent app Stories, exact actor
+          evidence, run.end, module ownership, compound states, context requirements, lifecycle
+          records, and operation identities before promotion. Accept only registered behavior and
+          typed artifacts; reject arbitrary payload-bearing event JSON, old Scenario/local-proof
+          compatibility input, batch Story execution, or another history/runner owner.
+
+        - Redaction is a vNext additive amendment. Raw runtime truth and the default export remain
+          unchanged. @plan.Artifacts.O6 owns raw importable artifacts and the export-only share
+          projection. @plan.CLI.O1 and @plan.CLI.O2 own exact CLI grammar. Inspection, redaction,
+          and CLI examples appear below. CONTRACT.md §§1-3 add no CLI/artifact authority. Runtime
+          artifact and read boundaries belong to @plan.Runtime.O5.
+        - @O6 owns the redaction signature; AMEND-API-003 is its source trace.
+          @plan.Artifacts.O6 owns its wire schema and behavior.
+
+
+        Example:
+        ```ts
+        const attachment = attachInspectionSink(runtime, sink);
+        await attachment.drain();
+        const bytes = new Uint8Array(); // illustrative artifact input
+        const trace = importTraceArtifact(bytes);
+        const artifact = exportTraceArtifact(trace);
+        ```
+        Example:
+        ```ts
+        type ArtifactExportOptions = {
+          redactions?: {
+            path: ArtifactValuePath;
+            replacement: "[REDACTED]";
+          }[];
+        };
+
+        type ArtifactCanonicalPath = (string | number)[];
+        type ArtifactValuePath =
+          | ["records", number, "snapshot", "memory" | "context", ...ArtifactCanonicalPath]
+          | [
+              "records",
+              number,
+              "facts",
+              number,
+              "data" | "value" | "error" | "defect" | "latest",
+              ...ArtifactCanonicalPath,
+            ]
+          | [
+              "checkpoints",
+              number,
+              "actors",
+              number,
+              "snapshot",
+              "memory" | "context",
+              ...ArtifactCanonicalPath,
+            ]
+          | ["checkpoints", number, "snapshot", "memory" | "context", ...ArtifactCanonicalPath];
+
+        declare function exportTraceArtifact(
+          trace: ReturnType<typeof importTraceArtifact>,
+          options?: ArtifactExportOptions,
+        ): Uint8Array;
+        ```
+        Example:
+        ```ts
+        const command: "flow-state behavior check" = "flow-state behavior check";
+        ```
+decisions
+    D1  Isolated named route ownership
+        Each package route is a named-export surface with local consumer aliases.
+        Root Implementation has only the succeed/effect/merge value members and
+        is not a package namespace. Non-root routes do not re-export root
+        builders.
+
+    D2  Preserve current target disposition
+        Apply the temporary export and ownerless-name dispositions in @O1.
+        Retain future shapes and proof obligations without claiming implementation.
+        The additive quickstart reaches temporary
+        readiness; its actor continuation remains a commented future target.
+
+constraints
+    C1  Plan ownership boundaries
+        - This Plan owns the public consumer shape. Inference and variance belong to @plan.Types.O1
+          and @plan.Types.O2; diagnostics belong to @plan.Diagnostics.O1, @plan.Diagnostics.O2, and
+          @plan.Diagnostics.O3. Runtime terminology, identity, and lifecycle belong to
+          @plan.Runtime.O1, @plan.Runtime.O3, and @plan.Runtime.O4. Do not duplicate or widen those
+          Plan requirements.
+
+    C2  No new public alternatives
+        - Do not add namespace objects, private deep-import routes, aliases, or generic operation
+          refs/registries.
+          Do not add child-machine/dynamic actor categories or registered views.
+          Do not add testing/inspection artifact hierarchies, arbitrary event-payload CLI input,
+          or uncontracted runner/host surfaces.
+
+verification
+    V1  Route and declaration surface
+        - Outcome: @O1.
+
+        - Scenario: inspect public declarations and packed package exports.
+
+        - Pass when active root names and value/type duals match @O1.
+          Deferred names remain absent until owners/proofs land.
+          The three non-root route modules have the authorized current disposition.
+          Prohibited namespace/deep imports are absent.
+
+        - Check path: nub run --filter flow-state-rewrite check:types; nub run --filter
+          flow-state-rewrite check:packed-consumers;
+          packages/flow-state-rewrite/src/public/test/public-routes.test.ts.
+
+        - Pending gap: these checks must assert the complete active/future route lists and negative
+          names; Plan creation does not prove that assertion.
+
+    V2  Authoring and behavior grammar
+        - Outcome: @O2.
+
+        - Scenario: compile valid recursive definitions/machines and reject invalid
+          state/event/configuration shapes; exercise callback failure boundaries and an aborting
+          macrostep.
+
+        - Pass when depth ten is accepted and depth eleven rejects synchronously.
+          Exact tokens and narrowing hold. The exact grammar and selector rules apply.
+          Malformed callbacks/config defects publish no state and start no work.
+          All failures have canonical Diagnostic behavior.
+
+        - Check path: nub run --filter flow-state-rewrite check:types; nub run test --
+          packages/flow-state-rewrite/src/definition/test/definition.test.ts
+          packages/flow-state-rewrite/src/machine/test/machine.test.ts.
+
+        - Pending gap: target-contract runtime macrostep/selector proof coverage is not established
+          by those paths alone.
+
+    V3  Resource keys and family behavior
+        - Outcome: @O3.
+
+        - Scenario: check exact generic methods/state unions, canonical byte/path behavior,
+          invalidation/clear bounds, and resource/transaction/stream lifetime outcomes.
+
+        - Pass when every state discriminant/field and P/K/A/E/V/R relation is exact.
+          Canonical K enforces the 16/256/8192 limits and grammar.
+          Invalid input has no side effects. Occurrence/generation/family rules and exact
+          cancellation boundaries hold.
+
+        - Check path: nub run --filter flow-state-rewrite check:types; nub run test --
+          packages/flow-state-rewrite/src/operation/test/key.test.ts
+          packages/flow-state-rewrite/src/operation/test/operation.test.ts.
+
+        - Pending gap: full production resource/transaction/stream parity and declaration-slot proof
+          remain required.
+
+    V4  App, actor, Runtime, and host boundary
+        - Outcome: @O4.
+
+        - Scenario: assert exact App.M closure, current shell limitations, actor/ref/lease types,
+          runtime lifecycle, passive React reads, and readiness/host behavior.
+
+        - Pass when current RuntimeSetup exposes only app/construct/ready.
+          Its providers acquire sequentially, and it caches one terminal Exit.
+          Target-only actor/React behaviors are not represented as shipped.
+          Target checks match @plan.Runtime.O2, @plan.Runtime.O3, @plan.Runtime.O4, and
+          @plan.Runtime.O5.
+
+        - Check path: nub run --filter flow-state-rewrite check:types; nub run --filter
+          flow-state-rewrite check:packed-consumers; nub run test --
+          packages/flow-state-rewrite/src/app/test/app.test.ts.
+
+        - Pending gap: complete actor, persistence, React 18/19, lifecycle and disposal target
+          proofs remain open.
+
+    V5  Story/testing proof surface
+        - Outcome: @O5.
+
+        - Scenario: compile positive and negative Story constructors, options, and
+          command/checkpoint/run types.
+          Run app and machine stories through production bootstrap, cancellation, cleanup, and
+          evidence capture.
+
+        - Pass when targets, options, and checkpoint maps remain exact.
+          Plan prefixes are immutable, and derived runs are isolated.
+          No result injection occurs. Cleanup failure cannot become success.
+          Model traversal remains pure.
+
+        - Check path: nub run --filter flow-state-rewrite check:types; nub run test --
+          packages/flow-state-rewrite/src/public/test/public-routes.test.ts.
+
+        - Pending gap: Story, gateway, fixture, model, production parity and evidence-sequence
+          focused proof files must cover the target contract.
+
+    V6  Inspection, redaction, and CLI
+        - Outcome: @O6.
+
+        - Scenario: observe publication through bounded sinks; export/import raw artifacts; export
+          with valid and invalid redaction policies; run CLI check through the typed gateway.
+
+        - Pass when omitted/empty policy is byte-identical to the raw artifact.
+          Non-empty policy emits only the share projection.
+          Policy validation and deterministic manifests hold.
+          Source runtime, persistence, and evidence remain unchanged.
+          Share output rejects as WrongArtifactKind.
+          CLI shares production Story/evidence ownership and rejects arbitrary event fabrication.
+
+        - Check path: nub run --filter flow-state-rewrite check:types; nub run --filter
+          flow-state-rewrite check:packed-consumers; nub run test.
+
+        - Pending gap: inspection sink, share redaction, and CLI parity production proofs are not
+          established by the generic commands alone.
+
+    V7  Public proof obligations
+        - Outcomes: @O1, @O2, @O3, @O4, @O5, @O6.
+
+        - Scenario: run all named proof owners after implementation is complete.
+
+        - Pass when each proof establishes its boundary:
+          - Export/deletion proves packed routes and lease boundaries.
+          - Grammar proves exact authoring and inference.
+          - Production proves runtime behavior without uncontracted API.
+          - Artifact proofs cover default-equivalent raw export, redacted share output, path
+            validation, determinism, non-mutation, and wrong-kind rejection.
+
+        - Check path: nub run --filter flow-state-rewrite check:types; nub run --filter
+          flow-state-rewrite check:packed-consumers; nub run test; nub run --filter
+          flow-state-rewrite build.
+
+        - Pending gap: a source-text/type check cannot satisfy runtime proofs; add and run the named
+          production behavior proofs before treating any outcome as verified.
+
+        Example: proof-owner index.
+        ```ts
+        type PublicProof = "API-P01" | "API-P02" | "API-P03" | "API-P04";
+        ```
+

@@ -1,0 +1,313 @@
+phase P3
+title Operation kernels
+tasks
+    T300
+        title        Implement the canonical store owner
+        status       draft
+        priority     high
+        blocked_by   [@task.Rewrite.T271]
+        derives_from [
+                     @plan.Operations.D1,
+                     @plan.Operations.C1,
+                     @plan.Operations.C2,
+                     @plan.Operations.V1,
+                     @plan.Operations.V2,
+                     @plan.Operations.V4,
+                     @plan.Verification.V3
+                     ]
+        description
+            Source Bead: flow-state-e7p.3.1 (open); phase Bead:
+            flow-state-e7p.3 (open).
+            Proof IDs: PROOF-005, PROOF-006, SNAP-P01.
+
+            Deliver one Runtime-scoped StoreKernel with immutable canonical entries,
+            monotonic revisions, metadata, retained bases, actor-effective views, and
+            final-owner collection. Keep RcMap limited to leases and garbage collection.
+            Passive reads must not create ownership or start work.
+
+            Absorb the store, revision, and passive-read proof obligations from retired
+            flow-state-e7p.3.7 (closed). Source lineage: flow-state-e7p.12.11 and
+            flow-state-e7p.13.12 were closed at migration. Bead flow-state-e7p.27.8 is
+            provenance for Workflow blocker @task.Rewrite.T271, which gates implementation.
+            Source phase flow-state-e7p.3 depended on flow-state-e7p.12 and
+            flow-state-e7p.27 (open) and flow-state-e7p.13 (closed) at migration. The .13
+            administrative prerequisite was satisfied historically; these Beads edges are
+            provenance, not Workflow blockers or proof. Workflow @task.Rewrite.T271 is the
+            current Phase 3 validation blocker.
+            Coordinate with the phase integrator.
+
+            Keep the private store owner under
+            packages/flow-state-rewrite/src/store/ and its local test/ subtree.
+            Treat this as an implementation boundary; keep facade exports in their
+            existing routes. Do not edit the frozen package.
+        acceptance
+            - Same-Runtime actors share canonical bases while keeping overlays and
+            lifetimes independent; separate Runtimes remain isolated.
+            - Missing reads create no entry, lease, freshness, revision, or work.
+            Older snapshots stay immutable and capture sees no half-commit.
+            - Invalid identity fails before mutation; defects and interruption retain
+            the prior StoreState.
+            - Focused store-owner tests pass in the local test/ subtree, and nub run
+            lint passes for the changed slice.
+
+    T301
+        title        Implement resource generations and finite occurrences
+        status       draft
+        priority     high
+        blocked_by   [@T300, @task.Rewrite.T271]
+        derives_from [
+                     @plan.Operations.D1,
+                     @plan.Operations.D2,
+                     @plan.Operations.C1,
+                     @plan.Operations.C2,
+                     @plan.Operations.Q1,
+                     @plan.Operations.V1,
+                     @plan.Operations.V2,
+                     @plan.Operations.V3,
+                     @plan.Operations.V4,
+                     @plan.Verification.V3
+                     ]
+        description
+            Source Bead: flow-state-e7p.3.2 (open); phase Bead:
+            flow-state-e7p.3 (open).
+            Proof IDs: PROOF-005, PROOF-006, PROOF-007, SNAP-P01.
+
+            Deliver bounded canonical-key validation, descriptor/key generation
+            identity, first-live executable-input pinning, resource ensure/refetch and
+            action admission, non-reused actor-incarnation ordinals, and generation
+            fencing through the production completion path.
+
+            Absorb resource identity, canonical-bound, generation, and fencing proofs
+            from retired flow-state-e7p.3.7 (closed). Source lineage:
+            flow-state-e7p.12.11 and flow-state-e7p.13.12 were closed at migration.
+            Bead flow-state-e7p.27.8 is provenance for Workflow blocker
+            @task.Rewrite.T271, which gates implementation. Verify pinned scheduling
+            and cancellation APIs before implementation claims.
+
+            Keep the private resource-generation owner under
+            packages/flow-state-rewrite/src/operation/ and its local test/ subtree.
+            Within this owner directory, this task owns resource generations and
+            finite occurrences. This placement adds no public API route. Do not add
+            generic registries or edit the frozen package.
+        acceptance
+            - Equal canonical keys join one generation and retain its live input;
+            explicit refetch starts a new generation.
+            - Rejected admission consumes no ordinal. Completion settles once, and
+            stale generations or actor incarnations cannot publish.
+            - Declarations and passive reads start no work. Decisive owner tests cover
+            canonical bounds, typed failures, defects, cancellation, and cleanup.
+            - Focused resource-owner tests and nub run lint pass for the changed slice.
+
+    T302
+        title        Implement transactions and explicit writes
+        status       draft
+        priority     high
+        blocked_by   [@T300, @T301, @task.Rewrite.T271]
+        derives_from [
+                     @plan.Operations.D1,
+                     @plan.Operations.D2,
+                     @plan.Operations.C1,
+                     @plan.Operations.V3,
+                     @plan.Verification.V3
+                     ]
+        satisfies    [@plan.Operations.O2]
+        description
+            Source Bead: flow-state-e7p.3.3 (open); phase Bead:
+            flow-state-e7p.3 (open).
+            Proof IDs: PROOF-005, PROOF-006, PROOF-007, SNAP-P01.
+
+            Deliver actor-local transaction identity and concurrency policies,
+            admitted occurrences, truthful cancellation boundaries, ordered preview
+            layers, canonical-base compare-and-swap, rollback with later-layer replay,
+            unknown and reconcile-required truth, and explicit setData only.
+
+            Absorb transaction race, cancellation, and failure-truth proofs from
+            retired flow-state-e7p.3.7 (closed). Source lineage:
+            flow-state-e7p.12.11 and flow-state-e7p.13.12 were closed at migration.
+            Bead flow-state-e7p.27.8 is provenance for Workflow blocker
+            @task.Rewrite.T271, which gates implementation. Keep the
+            private transaction owner under packages/flow-state-rewrite/src/operation/
+            and its local test/ subtree. Within this owner directory, this task owns
+            transaction admission, previews, and explicit writes. Keep public exports
+            on their existing routes.
+        acceptance
+            - Equal transaction keys remain actor-local; cancel and replacement use
+            distinct occurrences.
+            - Failed preview rollback preserves later layers. Post-boundary results
+            report uncertainty instead of claiming the write was undone.
+            - No result is promoted and no invalidation or clear is implicit.
+            Production-owner tests cover policy order and failure cleanup.
+            - Focused transaction tests and nub run lint pass for the changed slice.
+
+    T303
+        title        Implement streams and continuing activities
+        status       draft
+        priority     high
+        blocked_by   [@T300, @T301, @task.Rewrite.T271]
+        derives_from [
+                     @plan.Operations.D2,
+                     @plan.Operations.C1,
+                     @plan.Operations.C2,
+                     @plan.Operations.Q1,
+                     @plan.Operations.V3,
+                     @plan.Operations.V4,
+                     @plan.Verification.V3
+                     ]
+        description
+            Source Bead: flow-state-e7p.3.4 (open); phase Bead:
+            flow-state-e7p.3 (open).
+            Proof IDs: PROOF-006, PROOF-007, PROOF-014 prerequisite, SNAP-P01.
+
+            Deliver declaration-slot identity, state-scoped reconciliation, exact
+            retain/release/replace behavior, shared generation leases, and latest-value
+            projections. Explicit mappings and writes are the only transition inputs.
+            Finalize once and rematerialize from live input without replay.
+
+            Absorb stream projection, finalization, rematerialization, and activity
+            ownership proofs from retired flow-state-e7p.3.7 (closed). Source lineage:
+            flow-state-e7p.12.11 and flow-state-e7p.13.12 were closed at migration.
+            Bead flow-state-e7p.27.8 is provenance for Workflow blocker
+            @task.Rewrite.T271, which gates implementation. Keep the
+            private stream/activity owner under
+            packages/flow-state-rewrite/src/operation/ and its local test/ subtree.
+            Within this owner directory, this task owns continuing activity and stream
+            lifecycle. Keep public exports on their existing routes.
+        acceptance
+            - Equal normalized plans retain their owner; changed identity releases
+            once and replaces once. Duplicate live streams reject.
+            - Projection-only emissions do not transition. Terminal streams stay
+            terminal; rematerialization does not replay prior emissions.
+            - Actor cancellation finalizes once, and no public actor-cancel or child
+            actor owner is added.
+            - Focused stream/activity tests and nub run lint pass for the changed slice.
+
+    T304
+        title        Implement timers and deterministic polling
+        status       draft
+        priority     high
+        blocked_by   [@T303, @task.Rewrite.T271]
+        derives_from [
+                     @plan.Operations.D2,
+                     @plan.Operations.Q1,
+                     @plan.Operations.V3,
+                     @plan.Operations.V4,
+                     @plan.Verification.V3
+                     ]
+        description
+            Source Bead: flow-state-e7p.3.5 (open); phase Bead:
+            flow-state-e7p.3 (open).
+            Proof IDs: PROOF-006, PROOF-007, PROOF-009 prerequisite, SNAP-P01.
+
+            Deliver machine-wide typed timer identity, Runtime Clock deadlines,
+            compound lifetime and reentry behavior, deterministic equal-deadline
+            ordering, generation fencing, and suspension/disposal release. Refresh a
+            settled resource explicitly, with at most one exact-key refresh in flight.
+
+            Absorb timer ordering and fencing proofs from retired flow-state-e7p.3.7
+            (closed). Source lineage: flow-state-e7p.12.11 and flow-state-e7p.13.12
+            were closed at migration. Bead flow-state-e7p.27.8 is provenance for Workflow
+            blocker @task.Rewrite.T271, which gates implementation. Do not rely on scheduler
+            start timing for correctness.
+            Keep the private timer owner and local tests under
+            packages/flow-state-rewrite/src/operation/ and its local test/ subtree.
+            Within this owner directory, this task owns timer and polling behavior.
+            Keep public exports on their existing routes.
+        acceptance
+            - Timers cannot admit finite work. Clock movement alone does not execute
+            Story work.
+            - Each due generation is consumed once in deterministic order; suspension
+            and disposal fence stale deadlines and release timer ownership.
+            - Polling has no public poll API, implicit retry, or stale completion.
+            Focused timer tests and nub run lint pass for the changed slice.
+
+    T305
+        title        Implement StoreFanout and trusted writes
+        status       draft
+        priority     high
+        blocked_by   [@T300, @T301, @T302, @T303, @task.Rewrite.T271]
+        derives_from [
+                     @plan.Operations.D1,
+                     @plan.Operations.D2,
+                     @plan.Operations.C1,
+                     @plan.Operations.C2,
+                     @plan.Operations.V1,
+                     @plan.Operations.V2,
+                     @plan.Verification.V3
+                     ]
+        description
+            Source Bead: flow-state-e7p.3.6 (open); phase Bead:
+            flow-state-e7p.3 (open).
+            Proof IDs: PROOF-003, PROOF-005, PROOF-006, PROOF-007, PROOF-012 prerequisite.
+
+            Deliver causal StoreFanout after committed actor publication, adjacent
+            projection coalescing, exact dependency replacement, atomic invalidate and
+            clear batches bounded to 256 identities, active-work fencing, missing
+            target no-ops, and scoped
+            HostWriteLease provenance and revocation.
+
+            Absorb StoreFanout and invalidation handoff proofs from retired
+            flow-state-e7p.3.7 (closed). Source lineage: flow-state-e7p.12.11 and
+            flow-state-e7p.13.12 were closed at migration. Bead flow-state-e7p.27.8 is
+            provenance for Workflow blocker @task.Rewrite.T271, which gates implementation.
+            Keep the private fanout owner and local tests under
+            packages/flow-state-rewrite/src/store/ and its local test/ subtree. Within
+            that owner directory, this task owns fanout and trusted writes. Keep public
+            exports on their existing routes.
+        acceptance
+            - Fanout never calls actors directly or exposes stale or half-published
+            truth. Actors reread current Store state after revision facts.
+            - A valid batch within the 256-identity limit makes one mutation and
+            revision; invalid or over-bound batches make none. Writes fence active
+            work without creating occurrences.
+            - Stale revisions do not publish; there is no public writer or cache-wide
+            clear path. Tests assert observable atomicity and causal ordering.
+            - Focused fanout/store tests and nub run lint pass for the changed slice.
+
+    T306
+        title        Validate Phase 3 owners and proof coverage
+        status       draft
+        priority     high
+        blocked_by   [@T300, @T301, @T302, @T303, @T304, @T305, @task.Rewrite.T271]
+        derives_from [
+                     @plan.Operations.D1,
+                     @plan.Operations.D2,
+                     @plan.Operations.C1,
+                     @plan.Operations.C2,
+                     @plan.Operations.Q1,
+                     @plan.Operations.V1,
+                     @plan.Operations.V2,
+                     @plan.Operations.V3,
+                     @plan.Operations.V4,
+                     @plan.Verification.V3
+                     ]
+        description
+            Source Bead: flow-state-e7p.3.8 (open); phase Bead:
+            flow-state-e7p.3 (open).
+
+            Run the read-only Phase 3 correctness gate over changed slices and their
+            named production-owner proofs. Check module layout, task boundaries,
+            failure and cleanup lanes, and required retention/deletion evidence.
+            Review this phase only; do not re-audit unchanged phases or the full pack.
+
+            The retired proof tracker flow-state-e7p.3.7 (closed) is absorbed by
+            T300–T305; its closure did not claim completed proofs. Source lineage:
+            flow-state-e7p.13.12 was closed at migration. Bead flow-state-e7p.27.8 is
+            provenance for Workflow blocker @task.Rewrite.T271, which gates validation.
+            Coordinate with the Rewrite integrator before validation.
+
+            Outcome disposition: T302 owns Operations O2. Operations O1 spans T300,
+            T301, T302, T303, and T305; O3 spans T301, T303, and T304; O4 spans
+            T301–T304. Those outcomes remain deferred until the integrated owners
+            deliver their full behavior and proof coverage.
+        acceptance
+            - Each operation owner has a decisive production-path behavior proof and
+            focused checks pass. nub run lint passes for the changed slices.
+            - Check the full Verification V3 operation set: descriptor/K identity and
+            retained P; Runtime store isolation and passive readers; generation and
+            completion fencing; transaction policy, preview and failure truth; stream
+            and timer lifecycle; bounded invalidation, fanout, and trusted writes.
+            - Return Contract IDs; Changed files; Focused checks; Lint pass/fail;
+            Behavior reviewed; Fixed findings; Blocking findings; Remaining advisory
+            findings.
+            - No blocking finding or unclassified proof gap remains. Tests do not
+            recreate deferred inputs or assert private implementation choreography.

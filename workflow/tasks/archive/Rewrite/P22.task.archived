@@ -1,0 +1,693 @@
+phase P22
+title Runtime-next owner rewrite
+
+tasks
+    T250
+        title        P00 — Record the runtime-next baseline
+        status       done
+        priority     max
+        derives_from [
+                     @plan.Verification.D1,
+                     @plan.Verification.C1,
+                     @plan.Verification.D6,
+                     @plan.Verification.V8
+                     ]
+        description
+            Source Bead flow-state-e7p.27.9 (closed).
+            Deliverable: record the exact Phase 2.2 starting snapshot before
+            runtime-next implementation.
+            Allowed paths: no runtime implementation changes; record commit, status,
+            required checks, frozen-runtime oracle, and root-export state in the
+            source handoff.
+            Integrator note: source Epic flow-state-e7p.27 depended on
+            flow-state-e7p.13; that cross-file blocker is closed.
+        acceptance
+            - Exact commands, results, commit, and dirty paths are recorded; the
+            frozen runtime remains read-only.
+            - No runtime implementation changes are included in the baseline.
+            - Evidence: accepted baseline handoff and independent review receipts.
+
+    T251
+        title        P00A — Extract behavior scenarios from frozen runtime tests
+        status       done
+        priority     max
+        blocked_by   [@T250, @T252]
+        derives_from [@plan.Verification.D2, @plan.Verification.C3, @plan.Verification.V2]
+        description
+            Source Bead flow-state-e7p.27.10 (closed).
+            Deliverable: map every frozen runtime test declaration to a high-level
+            behavior scenario or an explicit private-check exclusion.
+            Allowed paths: read packages/flow-state-rewrite/src/runtime/test; write
+            runtime-next/test/scenario-inventory.json and behavior-grouped
+            runtime-next tests.
+        acceptance
+            - All 432 declarations have one disposition; selected behaviors have 105
+            owner-assigned scenario placeholders.
+            - Scenarios state source, setup, action, result, and failure/cleanup
+            behavior without copying private frozen mechanisms.
+            - Evidence: inventory, scenario syntax/audit, scoped checks, and two
+            completed review rounds.
+
+    T252
+        title        P00A follow-up — Complete remaining owner-proof scenarios
+        status       done
+        priority     high
+        derives_from [@plan.Verification.D2, @plan.Verification.C3, @plan.Verification.V2]
+        description
+            Source Bead flow-state-e7p.27.11 (closed).
+            Deliverable: add the six owner-proof requirements found in the final
+            scenario review rounds.
+            Allowed paths: runtime-next scenario inventory and test placeholders only;
+            keep frozen runtime and production implementation read-only.
+        acceptance
+            - Prepared actor abandonment, cached lease exit, invisible directory
+            reservation, shutdown Scope/fibers, lifecycle transitions, and journal
+            interruption have explicit owner scenarios.
+            - Every carried scenario retains its source, setup, action, result, and
+            failure/cleanup notes.
+            - Evidence: exact inventory audit, scoped checks, and final reviewer
+            confirmations.
+
+    T253
+        title        P01 — Lock the internal facade and start rewrite scenario proofs
+        status       done
+        priority     high
+        blocked_by   [@T251]
+        derives_from [
+                     @plan.Runtime.D1,
+                     @plan.Runtime.D2,
+                     @plan.Runtime.C1,
+                     @plan.Runtime.V1,
+                     @plan.Runtime.V2,
+                     @plan.Runtime.V3,
+                     @plan.Verification.D2,
+                     @plan.Verification.V2
+                     ]
+        description
+            Source Bead flow-state-e7p.27.1 (closed).
+            Deliverable: define the final-shaped private Runtime and ActorHandle
+            facade and execute its assigned scenario/type proofs.
+            Allowed paths: packages/flow-state-rewrite/src/runtime-next/runtime.ts and
+            focused runtime-next tests; leave package-root exports unchanged.
+        acceptance
+            - The facade exposes only its agreed internal authority; two-machine
+            positive and negative type proofs pass.
+            - Assigned scenarios run through runtime-next and no P01 placeholder
+            remains.
+            - Evidence: focused checks, unchanged root declarations, and three
+            independent reviews.
+
+    T254
+        title        P02 — Implement FlowRuntimeShell and runtime services
+        status       done
+        priority     high
+        blocked_by   [@T253]
+        derives_from [
+                     @plan.Runtime.D2,
+                     @plan.Runtime.C2,
+                     @plan.Runtime.V3,
+                     @plan.Runtime.V5,
+                     @plan.Verification.D2,
+                     @plan.Verification.V2
+                     ]
+        description
+            Source Bead flow-state-e7p.27.2 (closed).
+            Deliverable: own runtime lifecycle, readiness, services, and cleanup in
+            one FlowRuntimeShell.
+            Allowed paths: runtime-next/runtime-shell.ts, runtime-services.ts, minimal
+            assembly skeleton, and assigned owner tests.
+        acceptance
+            - Cold/racing readiness and close, interruption, late registration,
+            reverse cleanup, and cached failure pass.
+            - Two runtimes stay isolated; bootstrap, callbacks, waits, and cleanup do
+            not run under a lock.
+            - No mutable phase arrays, recursive close loop, global owner map, or
+            runtimeOwner escape exists.
+            - Evidence: 12 assigned readiness scenarios, focused checks, and three
+            review rechecks.
+
+    T255
+        title        P03 — Implement ActorDirectory and ActorLease
+        status       done
+        priority     high
+        blocked_by   [@T253, @T254]
+        derives_from [
+                     @plan.Runtime.D1,
+                     @plan.Runtime.D2,
+                     @plan.Runtime.C1,
+                     @plan.Runtime.V2,
+                     @plan.Runtime.V3,
+                     @plan.Runtime.V5,
+                     @plan.Verification.D2,
+                     @plan.Verification.V2
+                     ]
+        description
+            Source Bead flow-state-e7p.27.3 (closed).
+            Deliverable: own stable/local identity, reservations, activation,
+            retirement, and individual actor disposal.
+            Allowed paths: runtime-next ActorDirectory/ActorLease owners and their
+            assigned owner tests.
+        acceptance
+            - Admission joins, rollback, fencing, recycling, overflow, tombstones, and
+            runtime isolation pass.
+            - Each exposed actor has one lazy terminal lease cleanup and cached Exit.
+            - No wide identity registry, global provenance set, or duplicate disposal
+            cache remains.
+            - Evidence: ten assigned scenarios, build/type/lint gates, and
+            architecture, contract, and bug reviews.
+
+    T256
+        title        P04 — Implement structural copy and evidence owners
+        status       done
+        priority     high
+        blocked_by   [@T255, @T258, @T259]
+        derives_from [
+                     @plan.Runtime.C1,
+                     @plan.Runtime.V2,
+                     @plan.Runtime.V6,
+                     @plan.Artifacts.D1,
+                     @plan.Artifacts.C3,
+                     @plan.Artifacts.V4,
+                     @plan.Verification.D2,
+                     @plan.Verification.V2
+                     ]
+        description
+            Source Bead flow-state-e7p.27.4 (closed).
+            Deliverable: implement bounded structural ownership and the evidence
+            record, journal, and sink owners.
+            Allowed paths: runtime-next/structural-copy.ts, evidence owner modules,
+            and their focused tests.
+        acceptance
+            - Actor cycles reject; permitted context/evidence topology and opaque
+            identity are preserved.
+            - Credits and permits are one-shot; fallible evidence work precedes
+            commit; sink retention is bounded.
+            - Deep/hostile input, mutation, replay, overflow, cancellation,
+            interruption, truncation, and close proofs pass.
+            - Evidence: all 15 assigned scenarios, focused checks, and final reviewer
+            confirmations.
+
+    T257
+        title        P05 — Implement ContextCoordinator
+        status       done
+        priority     high
+        blocked_by   [@T255, @T256, @T259]
+        derives_from [
+                     @plan.Runtime.D2,
+                     @plan.Runtime.C1,
+                     @plan.Runtime.V5,
+                     @plan.Verification.D2,
+                     @plan.Verification.V2
+                     ]
+        description
+            Source Bead flow-state-e7p.27.5 (closed).
+            Deliverable: implement pure context selection and graph waves through the
+            narrow participant port.
+            Allowed paths: runtime-next context model/coordinator owners and their
+            focused tests.
+        acceptance
+            - Diamond/fanout, deep graphs, order independence, fairness, overflow, and
+            ticket failure cases pass.
+            - Work stays iterative O(V+E); context does not import ActorEngine or
+            expose wave/ticket internals.
+            - Every assigned scenario has an executable proof; context-debt recovery
+            and reviews pass.
+            - Evidence: scenario results, context-debt proofs, scoped checks, and
+            review receipts are recorded in the source Bead.
+
+    T258
+        title        P04F — Freeze cached evidence drain and close results
+        status       done
+        priority     high
+        derives_from [
+                     @plan.Runtime.V6,
+                     @plan.Artifacts.D1,
+                     @plan.Artifacts.V4,
+                     @plan.Verification.D2,
+                     @plan.Verification.V2
+                     ]
+        description
+            Source Bead flow-state-e7p.27.12 (closed).
+            Deliverable: detach cached evidence drain and close results from
+            caller-mutable owner state.
+            Allowed paths: runtime-next EvidenceJournal/EvidenceSink result
+            publication and executable owner proofs.
+        acceptance
+            - Mutating retained drains, attachment collections, accounting, or nested
+            failure details cannot change later close results.
+            - The owner snapshots sink-returned results before caching the terminal
+            close outcome.
+            - Evidence: focused mutation proofs, required checks, and architecture,
+            contract, and bug reviews.
+
+    T259
+        title        P05 follow-up — Share context debt across blocked suffixes
+        status       done
+        priority     high
+        derives_from [
+                     @plan.Runtime.D2,
+                     @plan.Runtime.V5,
+                     @plan.Verification.D2,
+                     @plan.Verification.V2
+                     ]
+        description
+            Source Bead flow-state-e7p.27.14 (closed).
+            Deliverable: share exact context debt across a changed published prefix
+            and blocked suffix.
+            Allowed paths: runtime-next context debt owner and focused
+            production-coordinator tests.
+        acceptance
+            - Mixed-wave graph work stays O(V+E) while retaining per-edge
+            identity/revision debt.
+            - Rejected offers forward direct-provider revisions; later coverage clears
+            debt without publishing invalid descendants.
+            - Evidence: increasing-size proofs, mutation isolation, checks, and all
+            three reviewer receipts.
+
+    T260
+        title        P05.5 follow-up — Close global Object alias-flow gaps
+        status       done
+        priority     high
+        blocked_by   [@T261]
+        derives_from [@plan.Verification.D2, @plan.Verification.D6, @plan.Verification.V2]
+        description
+            Source Bead flow-state-e7p.27.15 (closed).
+            Deliverable: make the no-object-freeze rule resolve conditional/logical
+            aliases and globalThis aliases.
+            Allowed paths:
+            tools/oxlint/anti-slop/rules/general-typescript/no-object-freeze.ts and
+            focused fixtures/tests.
+        acceptance
+            - Conditional, logical, and globalThis alias cases are diagnosed;
+            reassigned and locally shadowed controls pass.
+            - No unstable TypeScript APIs, path/name exception, or lint suppression is
+            added.
+            - Evidence: focused rule tests, zero-warning gates, diff check, and three
+            independent reviews.
+
+    T261
+        title        P05.5 alias follow-up — Honor direct closure writes
+        status       done
+        priority     high
+        derives_from [@plan.Verification.D2, @plan.Verification.D6, @plan.Verification.V2]
+        description
+            Source Bead flow-state-e7p.27.16 (closed).
+            Deliverable: distinguish a definitely reassigned local Object alias from a
+            closure that writes global Object.
+            Allowed paths:
+            tools/oxlint/anti-slop/rules/general-typescript/no-object-freeze.ts and
+            its test file.
+        acceptance
+            - The valid direct-closure local-write case has no diagnostic; the paired
+            global write is diagnosed.
+            - Existing alias-flow cases, type check, fix/check cycle, and diff check
+            pass without runtime changes.
+            - Evidence: focused RuleTester results and architecture, contract, and bug
+            review receipts.
+
+    T262
+        title        P05.5 — Audit immutability freezes and make lint gates pass
+        status       done
+        priority     high
+        blocked_by   [@T257, @T260]
+        derives_from [
+                     @plan.Verification.D2,
+                     @plan.Verification.D3,
+                     @plan.Verification.D6,
+                     @plan.Verification.V2
+                     ]
+        description
+            Source Bead flow-state-e7p.27.13 (closed).
+            Deliverable: audit runtime-next freezes and lint exceptions while keeping
+            valid publication immutability proofs.
+            Allowed paths: runtime-next owner/test files, the existing
+            no-object-freeze rule/fixtures, and related preference/config edits.
+        acceptance
+            - Every freeze and suppression has a recorded disposition; incidental
+            freezes are removed and justified seams remain.
+            - Pinned lint fix/check and focused proofs pass without hiding diagnostics
+            or weakening mutation behavior.
+            - Evidence: diagnostic inventory, publication proofs, zero-warning checks,
+            and required reviewer receipts.
+
+    T263
+        title        P06 prerequisite — Resolve package-wide readonly lint warnings
+        status       done
+        priority     high
+        derives_from [@plan.Verification.D2, @plan.Verification.D6, @plan.Verification.V2]
+        description
+            Source Bead flow-state-e7p.27.17 (closed).
+            Deliverable: disposition every package warning at its owning type boundary
+            before ActorEngine work.
+            Allowed paths: the machine, runtime-next actor/context/evidence, and
+            focused test files listed in the source Bead; do not edit the frozen
+            runtime.
+        acceptance
+            - All 142 baseline warnings have a type-safe disposition; useful readonly
+            remains with local reasons.
+            - Package lint and check report zero errors and warnings; focused proofs,
+            diff check, and reviews pass.
+            - Evidence: complete diagnostic-to-resolution inventory and independent
+            review receipts.
+
+    T264
+        title        P06 follow-up — Avoid repeated static snapshot policy scans
+        status       done
+        priority     high
+        derives_from [
+                     @plan.Runtime.D2,
+                     @plan.Runtime.V4,
+                     @plan.Runtime.V5,
+                     @plan.Verification.D2,
+                     @plan.Verification.V2
+                     ]
+        description
+            Source Bead flow-state-e7p.27.6.4 (closed).
+            Deliverable: capture immutable machine identity/copy policy once per actor
+            instead of rescanning it per publication.
+            Allowed paths: runtime-next/actor/actor-state.ts, actor-engine.ts, and
+            focused actor/copy tests.
+        acceptance
+            - Static policy is separated from per-cut dynamic opaque values without
+            changing snapshot behavior.
+            - Construction occurs once per actor and identity behavior holds across
+            event, context, lifecycle, and operation cuts.
+            - No module-global registry or mutable owner is added.
+            - Evidence: focused proofs, package checks/build, runtime-next suite, and
+            seven reviewer re-reviews.
+
+    T265
+        title        P06 follow-up — Preserve cleanup failure causes
+        status       done
+        priority     high
+        derives_from [
+                     @plan.Runtime.D2,
+                     @plan.Runtime.C2,
+                     @plan.Runtime.V5,
+                     @plan.Diagnostics.D2,
+                     @plan.Diagnostics.V2
+                     ]
+        description
+            Source Bead flow-state-e7p.27.6.5 (closed).
+            Deliverable: retain cancellation and fallback cleanup failures while
+            preserving the primary failure.
+            Allowed paths: runtime-next actor state/engine, operation fixture/facts
+            tests, and focused cleanup proofs.
+        acceptance
+            - Every cancellation is attempted in reverse order and cleanup failures
+            remain observable with typed rejection or preparation defect.
+            - Lifecycle and fixture teardown retain the original failure and all
+            cleanup causes while releasing owned resources.
+            - Evidence: focused cause/finalizer proofs, package gates, build, diff
+            check, and five reviewer receipts.
+
+    T266
+        title        P06 follow-up — Reconcile activity identity and mapped-turn ownership
+        status       in_progress
+        priority     high
+        blocked_by   [@T265]
+        derives_from [
+                     @plan.Runtime.D2,
+                     @plan.Runtime.C2,
+                     @plan.Runtime.V4,
+                     @plan.Runtime.V5,
+                     @plan.Verification.D2,
+                     @plan.Verification.V2
+                     ]
+        description
+            Source Bead: flow-state-e7p.27.6.1 (in progress, assigned to Arpit Bharti at
+            migration); this Workflow Task is in progress.
+            Deliverable: align state-local activities, actor occurrences, FiberMap
+            identity, and delayed mapped-turn work.
+            Existing uncommitted implementation changes remain in the listed owner/test scope.
+            The last source review recorded unresolved findings; this Task is not complete.
+            Allowed paths: runtime-next/actor/{actor-operation-cut.ts,actor-activities.ts,
+            actor-state.ts,actor-operation-work.ts,actor-engine.ts,actor-turn-work.ts},
+            runtime-next/turn-plan-actions.ts, and
+            runtime-next/test/{actor-activities-owner.test.ts,actor-operation-fixture.ts,
+            actor-operation-facts.test.ts,
+            actor-operation-results.test.ts,actor-operation.test.ts,turn-plan-owner.test.ts,
+            turns.test.ts}. If another path is required, record its reason and exact path
+            in this Workflow Task before editing.
+            Keep frozen runtime, contracts, root exports, and runtime assembly out of
+            scope.
+        acceptance
+            - Parent activities retain lifetime across child transitions; same-key
+            named declarations keep distinct slots.
+            - Mapped enter/exit chains leave no stale worker, and finite event-bound
+            launches remain valid.
+            - A retained action plan cannot mutate runner input or diverge from its
+            captured key across a gated chain longer than 64 events.
+            - Focused proofs, typecheck/build, zero-warning package checks, and
+            required reviews pass on one snapshot.
+            - Evidence: gated chain and identity proofs, package checks, and review
+            receipts are recorded in this Workflow Task handback.
+
+    T267
+        title        P06 follow-up — Complete lifecycle, mailbox, and overflow proofs
+        status       draft
+        priority     high
+        derives_from [
+                     @plan.Runtime.D2,
+                     @plan.Runtime.V4,
+                     @plan.Runtime.V5,
+                     @plan.Verification.D2,
+                     @plan.Verification.V2
+                     ]
+        description
+            Source Bead: flow-state-e7p.27.6.2 (source status open at migration); this
+            Workflow Task remains draft.
+            Deliverable: complete owner-boundary proofs for lifecycle transitions,
+            pending flush closure, and reachable overflow.
+            Allowed paths: runtime-next/actor/{actor-mailbox.ts,actor-activities.ts} and
+            runtime-next/test/{actors.test.ts,actor-activities-owner.test.ts,lifecycle.test.ts}.
+            If another path is required, record its reason and exact path in this Workflow Task
+            before editing. Do not change frozen runtime or contract files.
+        acceptance
+            - All 80 representable lifecycle tuples are checked against the exact 11
+            legal transitions.
+            - Mailbox close settles a pending flush; generation overflow rejects
+            before queue or generation mutation.
+            - Activity overflow exercises the real checked-successor boundary without
+            a production test hook.
+            - Focused proofs, rewrite typecheck/build, zero-warning package gates,
+            diff checks, and required reviews pass.
+            - Evidence: transition matrix, mailbox and overflow proofs, package gate
+            results, diff check, and review receipts are recorded in this Workflow Task
+            handback.
+
+    T268
+        title        P06 follow-up — Guarantee cleanup and remove unused copy paths
+        status       draft
+        priority     high
+        derives_from [
+                     @plan.Runtime.D2,
+                     @plan.Runtime.C2,
+                     @plan.Runtime.V5,
+                     @plan.Verification.D2,
+                     @plan.Verification.V2
+                     ]
+        description
+            Source Bead: flow-state-e7p.27.6.3 (source status open at migration); this
+            Workflow Task remains draft.
+            Deliverable: release journal and Scope even when shutdown/assertions fail,
+            and remove unused structural-copy capability.
+            Allowed paths: runtime-next/actor/{actor-fixture.ts,actor-turn-work.ts},
+            runtime-next/structural-copy.ts, and runtime-next/test/{actor-operation.test.ts,
+            actor-engine-owner.test.ts,structural-copy-owner.test.ts}. If another path is
+            required, record its reason and exact path in this Workflow Task before editing.
+        acceptance
+            - Shutdown failure remains primary while journal and Scope release exactly
+            once and retain cleanup causes.
+            - Assertion failure after activation still interrupts/joins owner work and
+            closes journal/Scope.
+            - The annotation is removed with typecheck evidence or retained only with
+            compiler evidence; the copier exposes only used capability.
+            - Focused proofs, typecheck/build, zero-warning package gates, diff
+            checks, and reviews pass.
+            - Evidence: shutdown failure and assertion cleanup proofs, copy-owner
+            typecheck result, package gates, diff check, and review receipts are
+            recorded in this Workflow Task handback.
+
+    T269
+        title        P06 — Implement ActorEngine and lifecycle
+        status       in_progress
+        priority     high
+        blocked_by   [@T255, @T256, @T257, @T262, @T263, @T264, @T265, @T266, @T267, @T268]
+        derives_from [
+                     @plan.Runtime.D2,
+                     @plan.Runtime.C2,
+                     @plan.Runtime.V1,
+                     @plan.Runtime.V4,
+                     @plan.Runtime.V5,
+                     @plan.Verification.D2,
+                     @plan.Verification.V2
+                     ]
+        description
+            Source Bead: flow-state-e7p.27.6 (in progress, assigned to Arpit Bharti at
+            migration); this Workflow Task is in progress.
+            Deliverable: implement the single per-actor owner for state, turns,
+            lifecycle, restoration, activities, and shutdown.
+            Allowed paths: runtime-next actor engine/actor modules and assigned owner
+            tests; keep package-root exports and frozen runtime unchanged. Existing
+            uncommitted implementation changes match this scope; T266–T268 remain blockers
+            to acceptance, and the source review findings remain unresolved.
+        acceptance
+            - One preflight and total cut covers store, evidence, actor state, context,
+            and receipt; failed planning leaves no partial state or work.
+            - Admission, reentrancy, observer isolation, flush races, mapped chains,
+            bounded snapshots, and cleanup pass.
+            - Fresh actors initialize once; restore and resume never replay input or
+            initialization, and publish the exact active leaf.
+            - Restoration, timers, activities, acknowledgements, suspension, streams,
+            and shutdown preserve owner truth.
+            - Public sends return synchronously; internal and Story acknowledgments
+            settle after publication and evidence, before sinks or user work.
+            - Typed failures, defects, and interruption settle each acknowledgment;
+            pre-commit defects retain prior state and publish one issue-only snapshot.
+            - No duplicate actor/lifecycle authority, post-commit expected failure,
+            drain polling, unbounded queue, or production test hook remains.
+            - This Task carries the Runtime O4 actor-turn/publication implementation;
+            O4 remains pending until Operations O1 store/capture and Story O6
+            acknowledgment proofs pass with their owner Tasks.
+            - Every assigned scenario passes; no P06-owned placeholder remains;
+            package checks/build and review gates pass.
+            - Evidence: owner scenario results, lifecycle and cleanup proofs, scoped
+            package checks/build, and review receipts are recorded in this Workflow Task
+            handback.
+
+    T270
+        title        P07 — Assemble admission and the internal runtime facade
+        status       draft
+        priority     high
+        blocked_by   [@T254, @T269]
+        derives_from [
+                     @plan.Runtime.D1,
+                     @plan.Runtime.D2,
+                     @plan.Runtime.C1,
+                     @plan.Runtime.V2,
+                     @plan.Runtime.V3,
+                     @plan.Runtime.V5,
+                     @plan.Verification.D2,
+                     @plan.Verification.V2
+                     ]
+        description
+            Source Bead: flow-state-e7p.27.7 (source status open at migration); this Workflow
+            Task remains draft.
+            Deliverable: assemble owners behind the private runtime facade and expose
+            actor creation, lookup, handles, leases, and disposal.
+            Allowed paths: runtime-next/runtime-assembly.ts, runtime.ts, and assigned
+            runtime-next tests.
+        acceptance
+            - Every admission-stage failure rolls back all installed identity,
+            credits, context, Scope, timers, resources, work, and streams.
+            - Fresh/restored creation, ensure joining, passive lookup, disposal,
+            readiness failure, mutation isolation, and two-runtime isolation pass.
+            - Suspension and resume retain logical context edges; provider changes
+            settle through one ContextCoordinator wave.
+            - Disposal rejects active or suspended dependents with their refs and
+            binding keys.
+            - This Task carries the Runtime O5 admission/lifecycle assembly;
+            O5 remains pending until Hosts O3 attachment evidence passes with its
+            owner Task.
+            - Package-root exports remain unchanged; every assigned scenario passes
+            and no P07 placeholder remains.
+            - Evidence: integrated admission proofs, checks/build, and required
+            reviewer receipts.
+
+    T271
+        title        P08 — Validate and close Phase 2.2
+        status       draft
+        priority     high
+        blocked_by   [@T270]
+        derives_from [
+                     @plan.Runtime.V1,
+                     @plan.Runtime.V2,
+                     @plan.Runtime.V3,
+                     @plan.Runtime.V4,
+                     @plan.Runtime.V5,
+                     @plan.Runtime.V6,
+                     @plan.Verification.D6,
+                     @plan.Verification.C5,
+                     @plan.Verification.V8
+                     ]
+        description
+            Source Bead: flow-state-e7p.27.8 (source status open at migration); this Workflow
+            Task remains draft.
+            Deliverable: independently validate the completed rewrite and return
+            feature findings to their owning Tasks.
+            Allowed paths: read-only runtime-next/frozen comparison and scoped check
+            evidence; do not implement missing features in this gate.
+            Source lineage: flow-state-e7p.27 was the source Epic, and its dependency on
+            flow-state-e7p.13 was closed at migration. These IDs and statuses are provenance
+            only; Workflow dependencies control readiness.
+        acceptance
+            - Every frozen test has an inventory disposition and every selected
+            behavior has an executable proof; no in-scope placeholder remains.
+            - Owner boundaries, deletions, immutable ports, bounds, fairness,
+            overflow, cleanup, package routes, and required checks pass on one
+            snapshot.
+            - All child reviews pass; unresolved findings return to the owning Task
+            and block this gate.
+            - No P22 Task fully covers Runtime O1 or O2. Definition/schema/state
+            validation and the closed module/app/operation identity catalogue remain
+            deferred; the missing UTF-8/schema/depth and collision/canonical-key proofs
+            remain visible.
+            - T269 carries Runtime O4 actor-turn/publication implementation and T270
+            carries Runtime O5 admission/lifecycle assembly. Neither Outcome is
+            delivered until its required cross-plan proofs pass: Operations O1
+            store/capture and Story O6 acknowledgment for O4; Hosts O3 attachment
+            evidence for O5.
+            - Runtime O3 and O6 remain unsatisfied until persistence/codec/restore,
+            host/bridge, Story, artifact, and capture proofs pass in their owner Tasks.
+            - Evidence: inventory-to-scenario coverage, integrated check results,
+            review receipts, and returned findings are recorded in this Workflow Task
+            handback.
+
+    T272
+        title       Fix Implementation provider boundary
+        status      done
+        priority    high
+        derives_from [@plan.Runtime.O3]
+        description
+            Deliverable: keep provider identity and native Layer acquisition private to the
+            Implementation owner so callers cannot mutate duplicate detection or acquire
+            services outside Runtime readiness.
+
+            Plan commitment -> Runtime O3 requires service installation only at the Runtime
+            boundary and Implementation acquisition during readiness. Task acceptance -> preserve
+            factory composition and inferred service/error/requirement types while making service
+            identity immutable and keeping the native Layer unavailable to callers. Owner ->
+            packages/flow-state-rewrite/src/implementation/implementation.ts. Proof -> focused
+            Implementation behavior and compile-time tests; expected baseline: mutating public
+            serviceKeys bypasses duplicate detection, returned implementations expose `.layer`,
+            and constructor access can create provider-like objects with unchecked identity metadata.
+
+            Changed-path boundary: implementation.ts, its focused tests, and internal callers only
+            if the private accessor change requires it. Do not edit P06 files, root exports, frozen
+            runtime, historical contracts, or Beads. Deletion obligation: remove public mutable
+            serviceKeys and public `.layer` while preserving Implementation factory behavior and
+            type inference.
+        acceptance
+            - Mutating or adding caller-owned fields, including a shadow `serviceKeys` array,
+              cannot change provider identity or bypass duplicate detection; constructed or
+              forged provider-like values are rejected by `merge` and the internal accessor.
+            - Returned Implementation values expose no native `.layer` or mutable `serviceKeys`;
+            native Layer acquisition remains behind the internal Runtime adapter.
+            - `succeed`, `effect`, and `merge` retain current service, error, requirement, and
+            acquisition behavior; focused tests and package build pass.
+            - Handback changed paths:
+              `packages/flow-state-rewrite/src/implementation/implementation.ts`,
+              `packages/flow-state-rewrite/src/implementation/test/implementation.test.ts`,
+              and `workflow/tasks/Rewrite/P22.task`. Simplification reduced
+              `implementation.ts` from 112 to 98 lines by removing the provider class and
+              constructor token. The hidden Layer witness remains for channel inference;
+              private WeakMap membership rejects constructed or forged provider-like values
+              during merge and internal Layer access.
+            - Final checks after simplification: 9/9 focused tests; `nub run check`;
+              package type check, build, and packed consumer checks; `workflow check`; and
+              `git diff --check` pass. The public exports are unchanged, so docs build was not
+              rerun. `workflow format --check` reported unrelated invalid untracked
+              `code-spec/` artifacts; package formatting passed in `nub run check`.
+            - Review receipts: architecture, contract, and bug re-reviews all pass on the
+              simplified design with no findings open.

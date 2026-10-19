@@ -1,0 +1,858 @@
+plan Verification
+title   Verification
+status  archived
+goal
+    Deliver evidence-backed verification and dependency-ordered implementation for the
+    greenfield Flow State rewrite in packages/flow-state-rewrite. Workflow Plans own
+    migrated semantics; source contracts supply provenance and trace IDs only. This Plan
+    owns proof routing, test coverage, review gates, and promotion evidence. The rewrite
+    is incomplete; no Plan claim means implementation or product cutover is complete.
+
+outcomes
+    O1  Contract-ordered implementation
+        Each implementation slice names its owning Plan clauses, one cohesive module and
+        its production owner. It records acceptance behavior, proof IDs, dependencies,
+        non-goals, deleted-surface absence and a focused check before coding. The six
+        dependency phases remain in order.
+    O2  Production-owner proof coverage
+        Each active invariant has one decisive executable proof through its
+        production owner. Integration gates add reachability or a distinct failure
+        mode without copying the owner's complete semantic matrix.
+    O3  Story and model behavior
+        The shared production Runtime demonstrates accepted Story construction,
+        commands, clocks, checkpoints, failure evidence, pure model discovery and
+        live parity.
+    O4  Evidence-backed closure
+        Required proof and integration gates are run and recorded before any
+        replacement-promotion claim. No Plan entry itself reports a passed gate.
+
+decisions
+    D1  Workflow authority and implementation order
+        Workflow Plans own migrated semantics for the greenfield rewrite. Source
+        contracts and proof matrices retain trace IDs and migration evidence only;
+        they do not override Plan semantics. Archived revisions, proposals, audits,
+        research, the reference package, and historical fixtures are provenance only.
+        This authority covers rewrite requirements, not product documentation or
+        task status. Workflow Tasks own current status; Beads records are historical
+        snapshots, not readiness or semantic authority. It claims no implementation,
+        proof completion, package promotion, or product cutover;
+        @plan.Cutover.O3 and @plan.Cutover.V7 remain
+        pending. Build in packages/flow-state-rewrite; packages/flow-state remains
+        migration evidence until late cutover. Check copied legacy paths against their
+        current owner, types, failure lanes, cleanup, and tests. Do not infer semantics
+        or add compatibility from historical material.
+
+        Implement in this dependency order:
+        1. Static foundation: identity, routes, types, definitions, operation
+        types, and pure app/module compilation. See @V1.
+        2. Runtime ownership: readiness, closed admission, leases, mailboxes,
+        context, scheduling, lifecycle, and cleanup. See @V2.
+        3. Operation kernels: canonical keys, resource stores, generations,
+        transactions, streams, overlays, cancellation, invalidation and fanout.
+        See @V3.
+        4. Persistence and evidence: declarations, capture/hydration, bounded
+        codecs, inspection, artifacts and diagnostics. See @V4, @V5, and @V6.
+        5. Hosts, Stories and CLI: React attachment, fixtures, seeds, Story
+        execution, gateways and the shared CLI executor. See @V4, @V5, and @V6.
+        6. Cutover and absence: entrypoints, packed consumers, browser behavior,
+        deletion proofs and final package cutover. See @plan.Cutover.V1 through
+        @plan.Cutover.V7 and @V7 here.
+
+        The workflow dependency table is a decomposition boundary, not a second
+        semantic specification. Splitting a phase is valid only when each slice
+        preserves the exact Plan references, source trace IDs, proof owner, acceptance behavior,
+        dependencies and non-goals. @plan.Runtime.O2 records the canonical
+        identity separation; @plan.Runtime.O3 and @plan.Runtime.O5
+        own the related actor and snapshot semantics.
+    D2  One proof owner and proportional integration
+        A test names its unique invariant or failure. Use one to three decisive tests
+        per slice by default; add more only for distinct lanes, races, public type
+        cases or required boundary vectors. One test may satisfy several proof IDs
+        when it exercises the same invariant through the same production owner.
+        Focused production-owner tests prove semantics. Packed consumers, browser
+        tests, Stories and installed-CLI tests prove public reachability and
+        integration. Repeat semantic vectors only for distinct integration failures,
+        races, cleanup or wire boundaries. Source scans, typechecks, generated output
+        and diff checks do not prove runtime behavior.
+    D3  Cohesive module and static route ownership
+        Each cohesive feature owns one top-level module folder. Keep small features
+        flat; use a recursive feature folder only for a major self-contained module.
+        Co-locate public types, implementation, private helpers/codecs and local
+        tests. Folder names describe features, not model/type/API proof roles.
+        Re-export files exist only for a real public route; src/public and package
+        entrypoints are facades.
+
+        Static Implementation route files are package.json, src/index.ts,
+        src/public/root.ts and src/public/types.ts, with the route proof in @V1.
+        Provider graph
+        construction belongs in a cohesive src/implementation feature module with
+        local types, helpers and tests. The route only re-exports that owner; static
+        construction is inert and does not acquire Runtime, Scope or readiness.
+        The root runtime value has exactly succeed, effect and merge plus its
+        same-name public type. Provider construction is separate from Runtime
+        acquisition and belongs to the static owner in @V1.
+        Focused route checks are nub run --filter flow-state-rewrite check:types and
+        nubx vp test packages/flow-state-rewrite/src/implementation/test/public-routes.test.ts.
+    D4  Single production ownership
+        Live hosts, Stories, tests, SSR and CLI share one production Runtime and
+        assembly boundary. AppPlan is the closed-world admission boundary. Production
+        owners hold Runtime, actor, operation, persistence, artifact and evidence
+        state; adapters supply inputs only. Models remain pure, and snapshot reads
+        remain synchronous. Stories receive complete typed Implementations and
+        Fixtures. Fix configuration, identity, providers, clocks, seeds, fixtures and
+        persistence before Runtime construction.
+
+        Reject dynamic registration, process-global registries and secondary
+        runtimes, actors, mailboxes and schedulers. Reject duplicate stores, kernels,
+        caches, snapshots, cleanup or evidence systems. Also reject runtime-backed
+        models, Effect interpretation in reads, Story interception/result injection,
+        parallel codecs/diagnostics and post-materialization mutation. Keep runtime
+        semantics at their owning Plan.
+    D5  Portable text and bytes
+        Shared definition, persistence, artifact, stable-ref and CLI codecs use
+        host-neutral ECMAScript/Web APIs on Node, Bun, Deno and browser targets.
+        Use WHATWG TextEncoder bytes and byte counts. Reject lone
+        surrogates before encoding with String.prototype.isWellFormed or an
+        equivalent fallback. Shared package code does not use Node Buffer,
+        runtime-specific encoders, UTF-16 length for byte limits, silent surrogate
+        replacement, or a second handwritten encoder.
+
+        - Share one UTF-8 helper across definition, persistence, artifact, stable-ref
+          and CLI owners.
+        - Run full vectors on pinned Node: ASCII, 2/3/4-byte UTF-8, 256/257-byte
+          names, lone surrogates and composed/decomposed spelling.
+        - Run the compiled codec on Bun, Deno, Chromium, Gecko and WebKit. Check
+          ASCII, multibyte UTF-8, lone-surrogate rejection and canonical artifact
+          bytes or digest. Record exact host versions.
+        - Keep focused tests for host adapters. Equal accepted inputs produce equal
+          bytes and length-prefixed identities. Invalid durable input fails before
+          serialization or activation.
+    D6  Review and decisive test gates
+        - Review every diff, owning Plan clause, trace-only provenance and proof
+          obligation. Run focused checks and `nub run lint`; fix changed-slice
+          formatting and lint defects.
+        - Review success, typed failure, defects, interruption, ownership, cleanup,
+          ordering and boundaries through production owners. Check duplicate
+          authority, hidden compatibility, casts, uncontrolled async work, partial
+          updates, bespoke Effect clones and implementation-only tests.
+        - Each ready slice names exact clauses, a bounded module, allowed files,
+          owner and public/internal output. It records Effect A/E/R, acceptance,
+          proof IDs, command, dependencies, non-goals, deleted-surface absence and
+          handback.
+          Return unknown public names, carriers, constructors, inspection routes or
+          errors to the owning Plan. Infer a shape only when a helper alias would
+          create another authority.
+        - Record contract IDs, changed files, focused checks and `nub run lint`
+          pass/fail. Also record reviewed behavior, fixed findings, blocking findings
+          and remaining advisory findings. No slice advances with a blocking finding.
+        - Prove each invariant through its production owner. Prioritize ownership,
+          ordering, atomicity, cleanup, failure, interruption, hostile wire/artifact
+          input, malformed authoring input, exact typing and deletions. Use the
+          production Runtime, TestClock or Flow testing time, bounded
+          Deferred/Queue/PubSub controls and minimal fixtures. Source-only tests do
+          not prove races, cleanup, runtime behavior or artifacts.
+    D7  Proof-plan ownership
+        This Plan owns the cross-cutting proof catalogue, sequencing and shared
+        gates. Cutover owns the deletion/retention ledger and no-residue
+        scenarios; refer to @plan.Cutover.O2 and @plan.Cutover.O3
+        rather than restating its cutover semantics.
+
+constraints
+    C1  Authority, package and evidence status
+        Workflow Plans own migrated semantics; source clauses are provenance and
+        trace labels. The greenfield package is packages/flow-state-rewrite; a green
+        check in frozen packages/flow-state is migration evidence, not replacement
+        proof. The rewrite is incomplete, so proof, promotion, documentation, and
+        product cutover outcomes remain pending until their own owners record them.
+    C2  Diagnostic ownership
+        @plan.Diagnostics.O1 owns the sole typed Diagnostic model. It owns stable
+        code/path/details, evolving summary/help and
+        machine-configuration reasons. It translates through Schema, Result and
+        Effect, renders safely, supports synchronous FlowUsageError and preserves
+        complete Cause/Exit. Create no second schema; let no expected generic Error
+        escape a Flow boundary.
+
+        Canonical diagnostic proofs check:
+        - Stable Schema identifier and Diagnostic tag, `instanceof Error`, and a
+          Schema round-trip to a Diagnostic instance.
+        - Direct Result failure and Effect yielding; compact/pretty rendering with
+          escaped paths and sorted details.
+        - Absence of an `InvalidMachineConfiguration` Error carrier.
+
+        Pure definition/machine Results use Result<A, Diagnostic>; authored callback
+        exceptions remain defects.
+    C3  Scope of proof matrices
+        PROOF rows and local proof IDs are requirements, not task-closure units.
+        Retired Phase 0 IDs/receipts are historical evidence only. Current
+        executable proofs are owned by production code/tests named by the
+        implementation task and active matrix. No full semantic matrix is copied
+        into each consumer gate.
+    C4  Host and boundary proofs
+        Host-version receipts are part of the portable-codec evidence. Keep the full
+        vector set with the Node owner and compact portability vectors on other
+        hosts. Do not turn implementation internals or unobservable micro-order
+        into acceptance criteria.
+    C5  Promotion
+        A slice is ready for dependents only when blocking review findings are
+        cleared, required focused checks pass, and decisive owner proof is recorded.
+        Complete the replacement only after every final gate passes. Gates cover
+        public behavior/types, failure lanes, cleanup, persistence, artifacts, CLI,
+        React hosts, Stories, packed consumers, browser behavior and deletion proofs.
+        Cutover requires the full proof set; one focused test, typecheck, lint run or
+        source scan is insufficient. Promotion cannot add compatibility behavior or
+        semantics without an owning Plan change.
+    C6  Source traceability
+        Migration sources and trace IDs:
+        - reference/incident-console/implementation/contracts/TESTING.md
+        - reference/incident-console/implementation/contracts/PROOF_MATRIX.md
+        - reference/incident-console/implementation/contracts/IMPLEMENTATION_WORKFLOW.md
+        CONTRACT.md §§8, 11 and 12 remain unaccepted examples, checklist and
+        provenance. These source files do not override mapped Plan semantics.
+
+verification
+    V1  Static types and composition
+        Establishes @O1 and @O2.
+
+        - Compile small, medium and large fixtures with the pinned compiler. Cover
+          exact definitions, inherited context/bindings, recursive state/configuration
+          literals, modules, closed App.M, O/P/K, refs, leases and hooks. Also cover
+          closed Story options/targets, observations, checkpoint-name accumulation,
+          run-key inference and machine/event/selected/resource/transaction/stream/
+          input/context/memory/lifecycle domains.
+        - Preserve accepted literals. Reject unknown tokens, missing/extra compound
+          nodes, wrong-machine events, missing input/context, extra fields and invalid
+          bindings/targets. Also reject duplicate or widened checkpoint names,
+          unknown keys, P/K misuse, custom comparators and deleted imports.
+        - Preserve exact selected-value, previous-value and nullable-domain types.
+          Initial results expose no previous value.
+        - Runtime previous/current values, selector equality and named-record
+          suppression belong to @V2, @V3 and @V5.
+
+        V1 proves compile-time shapes only. Actor/runtime behavior belongs to @V2;
+        operation behavior to @V3; Stories to @V4; React/inspection to @V5;
+        persistence/CLI to @V6; deletion proofs to @plan.Cutover.V3 and @V5.
+        Static source traces are PROOF-001 and TYPE-P01–P04 in PROOF_MATRIX.md.
+        Their target semantics belong to @plan.Types.O1/O2, @plan.PublicSurface.O2/O3,
+        @plan.Runtime.O1/O2, and @plan.Diagnostics.O1.
+
+        The @V1 compact typing illustration remains:
+        ```ts
+        App.M;
+        P; // complete executable input
+        K; // canonical operation identity
+        actorRef; // stable identity
+        ```
+
+        Check: nubx tsc -p packages/flow-state-rewrite/tsconfig.json --noEmit.
+        Focused executable type-proof path is assigned by implementation work and is
+        pending until named; compiler errors block.
+    V2  Runtime ownership, turns and lifetime
+        Establishes @O1 and @O2.
+
+        - Exercise production mailbox acknowledgement, reentrancy and macrostep
+          planning. Validate the full batch before publication. Acknowledge after
+          the ordinary turn stabilizes and its evidence is accepted. Prove atomic
+          actor/store publication, context bootstrap and current/previous values.
+        - Prove runtime defaults/reentry, malformed-name and depth rejection,
+          AppPlan admission, and bootstrap rollback through @plan.Runtime.V1–V3.
+        - Keep `actor.send` synchronous. Reject transition-direct calls and unrelated
+          drains. Projection-only publication skips transition, guard, action,
+          redirect, memory, finite-work and hidden-event evaluation. Work starts or
+          joins only after publication.
+        - Enter mailboxes after initiating publication. Suppress stale/unrelated
+          revisions. Coalesce only adjacent projection-only facts.
+        - Use one Runtime for live hosts and Stories. Prove explicit owner leases,
+          restored/stable ownership, concurrent idempotent disposal, shutdown,
+          dependent rejection, tombstones, provider closure and cleanup rollback.
+        - Check persistence membership, restore-before-subscribe, ordered/coalesced
+          writes, stale-write fencing, fresh Story providers and final flush. Cover
+          defaults, descriptor opt-in, exclusion-only filters, JSON rejection,
+          custom codecs and exclusion of local/disposed/tombstoned actors.
+
+        The @V2 ownership illustration is:
+        ```ts
+        actor.send(event): void
+        runtime.ensureActor
+        runtime.createActor
+        ```
+
+        Check: focused production-owner tests for mailbox, lifecycle, cleanup and
+        parity. Exact paths remain pending in the implementation proof record;
+        do not substitute source scans. See @plan.Runtime.O3 for actor
+        identity/lease/admission semantics.
+    V3  Operation identity, stores and effects
+        Establishes @O1 and @O2.
+
+        - Prove descriptor-plus-canonical-K identity, complete executable P
+          retention, bounded portable UTF-8, record-order equivalence, key(-0) as
+          canonical 0, and defensive copy/freeze. Equal owners keep pinned P;
+          explicit refetch replaces it. Hydration retains key-only data until live P.
+        - Prove deterministic binding choice, one Runtime-scoped store, same-runtime
+          sharing and cross-runtime/SSR/test/browser isolation. Check exact family
+          methods and P/K, passive reads, ownership, cancellation, adapter
+          point-of-no-return, selector previous/current values, Object.is equality,
+          and independent named-record suppression. @plan.Operations.O3 owns onMemory
+          activation/reentry with previous undefined, then the immediately preceding
+          value on later changes.
+        - Prove generation fencing, setData, explicit updater decline and owner-only
+          preview visibility. Prove promotion/rollback, post-boundary unknown,
+          canonical-base CAS and actor conflict evidence.
+        - Reject invalid identity before ownership, mutation, admission or work.
+          Prevent late result/finalizer mutation and cross-actor preview visibility.
+        - Prove equal normalized retention and replacement on field, kind, descriptor
+          or key change. Release on false/null/exit/stop and test first/middle/final-
+          owner cancellation. Cover exact/tag/family/mixed invalidation, stable
+          deduplication, whole-batch validation, one revision, interruption, surviving
+          subscriptions and zero-match no-op. Reject wildcard, zero-argument clear and
+          ordinary cache-clear paths. Validate targets, stable expansion and
+          deduplication, plus the 256-identity bound. Check missing/zero-match no-op,
+          one revision, active-work fencing and no direct lookup.
+        - Prove transition-owned finite work, atomic action batches, transaction
+          reject/cancel/allow/serialize policies, explicit writes, cancellation
+          boundaries, durable identity, reconciliation and compensation.
+          Check stream emission, replacement, release and finalization. Hydration
+          retains latest hasValue/value/count/generation/terminal state without replay;
+          live input rematerializes streams.
+          Use explicit `after` refresh events, one exact-key refresh and scheduling
+          after settlement. Check suspend/dispose fencing; reject retry and poll APIs.
+          Check Cause classification, stable diagnostics, typed unions, retained and
+          post-boundary values, cross-actor reads, duplicate-stream rejection and
+          bounded target expansion. @V5 owns seed validation, capability provenance
+          and revocation, StoreKernel fencing/fanout, and absence of occurrence/public
+          writers.
+
+        The @V3 operation illustration is:
+        ```ts
+        key(P);
+        getState(K);
+        getData(K);
+        setData;
+        ```
+
+        Check: owner-focused tests remain to be named for each mechanism. The pinned
+        Node codec suite uses full boundary vectors; other hosts use C4's compact
+        fixture. See @plan.Runtime.O2 for identity ownership.
+    V4  Stories, commands, evidence and models
+        Establishes @O2 and @O3. This Plan owns Story and evidence requirements;
+        TESTING.md supplies source trace IDs and migration evidence.
+
+        **Construction and ownership**
+        - Expose only `story.app(runtimeSetup, options?)`,
+          `story.machine(machine, options?)` and `story.actor(machine, options?)`.
+          Keep option objects closed. App/machine options include fixtures,
+          maxTurns, title, description and tags. Machine options add exact input and
+          selected context; actor recipes use input and contextBindings. Default
+          maxTurns to 100. Metadata does not affect identity.
+        - Build fixture tuples with complete typed Implementations and optional
+          Runtime-owned resource seeds. Require tuples to close external requirements;
+          acquisition may fail through its typed error. Construct each fixture once per Runtime.
+          A fixture overrides App Implementation for the same service; reject
+          duplicate fixture providers. Give each run fresh state, supplied
+          RuntimeSetup, deterministic TestClock host with fixture capabilities and
+          isolated in-memory Persistence. Each App run calls `construct()` once.
+        - Keep builders inert and persistent. `run()` alone executes and captures
+          AppPlan, RuntimeSetup, Implementation, Persistence, Clock, fixtures, seeds
+          and runner options. Exclude assertions, branches, loops, predicates,
+          arbitrary callbacks, live handles and Runtime from plans. Each command
+          returns a new plan and preserves its prior prefix. Reject bare Apps, live
+          Runtime inputs and void-machine input. Reject context on context-free
+          machines, missing fixtures, extra fields, boot unions, inherited Persistence,
+          seed-based service satisfaction, matchers, control registries and public
+          testing runtimes.
+        - Keep recipes to exact machine, input and contextBindings. Recipe identity
+          controls actor reuse; distinct recipes create separate actors. App sends
+          target an exact recipe or app-owned ActorRef resolved through runtime lookup.
+          Require exact binding keys, compatible/admitted refs and machines, repeated
+          keys for one provider and transitive providers. Validate before construction;
+          materialize providers first; retain leases; dispose Story leases in reverse
+          dependency order. Reject runtime/mailbox/snapshot/state/operation/disposal
+          fields, cycles, missing providers, foreign/mismatched/disposed refs, machine
+          family targets and recipe use in React/runtime APIs. App-owned actors remain
+          Runtime-owned after Story cleanup.
+        - Compile focused machine Stories through a package-private AppPlan. Give
+          each one fresh actor, target-free send, exact selected context and silent
+          baseline. Route changed/equal setContext through production turns. Reject
+          boot payloads, refs, extra actors, raw memory, initial state, snapshot
+          overrides, direct mutation, synthetic events and App Story context injection.
+
+        **Commands and cleanup**
+        - Support `process`, `advance`, `advanceTo`, `advanceToNextTimer`,
+          `checkpoint`, `run`, app `send(target, event)`, machine `send(event)` and
+          machine `setContext(context)`. Use the exact production mailbox and its
+          same-command private acknowledgement; do not drain unrelated work.
+        - Let `process` drain ready mailbox, context, reconciliation, same-time
+          deadlines, scheduler and finite fibers until a command or future time is
+          needed. Leave pending external calls, streams and future deadlines visible.
+          Do not advance time or invent results. Fail when unknown finite work reaches
+          `maxTurns`. Clock movement never processes implicitly. Checkpoints capture
+          immediately.
+        - Give every run a fresh production Runtime and owned cancellation/finalization.
+          Reject perform/deliver/receive/simulate/flush/settle/setTime/final/replay,
+          result injection, pending-occurrence interception, operation registries,
+          public persistence facts and replay of restored work. Hydrated streams start
+          a new generation without replay.
+        - Close admission and finalize non-abortably. Retain terminal lifecycle
+          evidence and drain accepted evidence. Close sinks/queues; dispose Story
+          leases in reverse order, then Runtime owners. Finalize fixture/host scopes
+          last. Run every phase and order failures deterministically. Preserve
+          execution/cancellation failure as primary; otherwise preserve the first
+          cleanup failure.
+          Either failure rejects the run.
+        - Require one `FlowStoryExecutionError` envelope with checkpoints, optional
+          end, failure boundary, primary and ordered cleanup diagnostics, cancellation,
+          accepted/drained evidence sequence and complete Effect Cause.
+
+        **Evidence capture**
+        - Capture exact static Story closure in one atomic read cut. Include the
+          machine actor, every recipe and exact ActorRefs in bindings, targets and
+          transitive providers. Capture runtime time and pending work, actor issues,
+          StoreState revision, published snapshots and accepted evidence prefix.
+        - Capture `run.end` after commands and before cleanup. It does not imply actor
+          completion. Failures retain completed checkpoints and truthful facts; never
+          manufacture end. Capture does no live lookup, unrelated work, time movement,
+          actor creation/disposal/restoration or external work.
+        - Keep evidence non-resumable. Expose no fork, restore, fromCheckpoint or
+          public dynamic getter. Resolve exact app recipes or app-owned refs. Reject
+          unknown/inherited internal names by own-key check and existing
+          FlowUsageError. Keep machine snapshots direct; add no issue/resource registry.
+
+        **Models and host checks**
+        - Accept pure models only from fresh command-empty machine Stories. App
+          Stories prove cross-actor orchestration. Key every guard/redirect-relevant
+          state, memory and seed fact; @V1 validates the canonical key. Use exact
+          `{ events, maxDepth?, limit? }` options and call-owned events. Default
+          maxDepth to 20 and require a non-negative safe integer. Default limit to
+          100 and require a positive safe integer. Event cost is one. Expose only
+          shortest/simple path discovery.
+        - Keep traversal pure. Shortest paths use stable-order BFS; simple paths use
+          stable-order DFS. Retain the zero-step path and first path per unseen key;
+          repeat no key in one simple path. Return paths/truncated/explored. Set
+          truncated when either bound hides a candidate. Fail synchronously on defects
+          without partial results. Use no object/state-token
+          fallback, Effects, services, kernels, fixtures, Runtime, mutation, inferred
+          events, filters, selectors, weights, registries or synthetic routes.
+        - Retain each path's predicted projection, per-step data/issues, weight,
+          description and traversal metadata. `path.story` extends the base Story;
+          `run()` proves live behavior and `process().run()` marks a ready boundary.
+          Compare predicted final/prefix keys with live results. Model async outcomes
+          only when events were authored as candidates. Predict no primitive snapshots
+          and build no second interpreter/evidence shape. React remains outside the
+          machine timeline.
+        - Let host runners own assertions, pass/fail, retries and naming. Matchers
+          run after `run()` or inspect FlowStoryExecutionError after rejection. Emit
+          one TurnRecord per atomic machine-turn snapshot. Share LifecycleRecords
+          through the sequenced hub/barrier without a machine turn or second history.
+          Explicit buffers default to 256, accept non-negative capacity and return
+          records plus `truncatedBeforeSequence`. Persistence stores no buffers;
+          actors own no `setRetention` or mutable TraceLog.
+
+        - TESTING's historical closure note points to UNRESOLVED_BEHAVIOR as history.
+          Active requirements close focused-context, operation, occurrence,
+          checkpoint and cleanup gaps. Post-bootstrap recipes use the shared atomic
+          path and add no Story surface.
+        - Deleted Story/scenario and child Story/model shapes belong to
+          @plan.Cutover.V3 and @plan.Cutover.O2.
+
+        The normative TESTING construction example is:
+        ```ts
+        const storyRun = story
+          .app(runtimeSetup, {
+            fixtures: [documentsFixture],
+            maxTurns: 100,
+            tags: ["smoke"],
+          })
+          .send(editor, Editor.E.EditRequested("Updated"))
+          .process()
+          .checkpoint("saved")
+          .run();
+
+        const focused = story.machine(editorMachine, {
+          input: { documentId: "document-1" },
+          context: { sessionState: Session.S.ACTIVE, themeMode: "dark" },
+          fixtures: [editorFixture],
+        });
+
+        const local = story.actor(editorMachine, {
+          input: { documentId: "document-1" },
+          contextBindings: { sessionState: sessionRecipe },
+        });
+        ```
+        The normative command example is:
+        ```ts
+        process(); advance(duration); advanceTo(epochMilliseconds);
+        advanceToNextTimer(); checkpoint(name); run({ signal? });
+        send(target, event); // App Story
+        send(event); setContext(context); // Machine Story
+        ```
+        TESTING's focused-context example is:
+        ```ts
+        const signedOutStory = story
+          .machine(editorMachine, {
+            input: { documentId: "document-1" },
+            context: {
+              sessionState: Session.S.ACTIVE,
+              themeMode: "dark",
+            },
+            fixtures: [editorFixture],
+            maxTurns: 100,
+          })
+          .send(Editor.E.EditRequested())
+          .setContext({
+            sessionState: Session.S.SIGNED_OUT,
+            themeMode: "dark",
+          })
+          .process()
+          .checkpoint("signed-out");
+        ```
+        The normative evidence shape is:
+        ```ts
+        appRun.checkpoints["signed-out"].actor(editor).snapshot;
+        appRun.checkpoints["signed-out"].actor(PrimarySessionRef).snapshot;
+        appRun.checkpoints["signed-out"].runtime.now;
+        appRun.checkpoints["signed-out"].runtime.pendingWork;
+
+        appRun.end.actor(editor).snapshot;
+        appRun.end.actor(PrimarySessionRef).snapshot;
+
+        machineRun.checkpoints["saved"].snapshot;
+        machineRun.checkpoints["saved"].runtime.now;
+        machineRun.end.snapshot;
+        machineRun.end.runtime.pendingWork;
+        ```
+        The compact production-Story proof illustration binds this surface to its
+        result shapes:
+        ```ts
+        story.app(runtimeSetup, options?)
+        process
+        advanceTo
+        checkpoint.actor(...)
+        run.end
+        ```
+        **Unaccepted CONTRACT proposal value inventory**
+        - `story` lists the three builders. Builder calls are inert; `run()` alone
+          executes a plan.
+        - `fixture` supplies complete services and optional Runtime-owned resource
+          seeds. Fixtures are fresh per run; seeds satisfy no service requirement;
+          duplicate providers reject.
+        - `behavior` describes an inert gateway over one App and a non-empty Story-ID
+          record. Validation is synchronous; the CLI is its only public consumer; it
+          creates no Implementation, Runtime, actor, sink, execution or cleanup.
+        - `model` describes pure structural traversal from a fresh, command-empty
+          machine Story. `stateKey` returns canonical-key input; only shortest and
+          simple path discovery are exposed. Search runs no Effects, services,
+          fixtures or operations and does not mutate Runtime or synthesize outcomes.
+        - `FlowStoryExecutionError` is the run/cancellation/cleanup rejection
+          envelope. The proposal leaves its complete class signature and constructor
+          unspecified. The envelope carries complete Cause, checkpoints, optional end,
+          failure boundary, cleanup diagnostics, cancellation and accepted/drained
+          evidence.
+
+        Other §8 examples cover commands, checkpoint-name aliases, common-prefix
+        branch plans and exact checkpoint keys/errors. They also show focused
+        context, evidence reads, defensive lookup, gateway validation and live model
+        paths. All §8 examples and value descriptions are unaccepted illustrations.
+        Helper aliases are not exports; infer no unspecified signature.
+        The proposal-only checkpoint notation includes:
+        ```ts
+        type NewCheckpointName<Names extends string, Name extends string> = string extends Name
+          ? never
+          : Extract<Name, Names> extends never
+            ? Name
+            : never;
+
+        interface StoryPlan<Names extends string = never> {
+          checkpoint<const Name extends string>(
+            name: NewCheckpointName<Names, Name>,
+          ): StoryPlan<Names | Name>;
+          run(options?: { signal?: AbortSignal }): Promise<StoryRun<Names>>;
+        }
+
+        type StoryRun<Names extends string> = {
+          checkpoints: {
+            [Name in Names]: CheckpointEvidence;
+          };
+          end: EndEvidence;
+        };
+        ```
+        These helper names illustrate checkpoint typing; they are not proposed exports.
+        The separate persistent-branch illustration is:
+        ```ts
+        const common = story
+          .machine(editorMachine, options)
+          .send(Editor.E.Opened())
+          .process()
+          .checkpoint("opened");
+ 
+        const saved = common.send(Editor.E.SaveRequested()).process().checkpoint("saved");
+        const discarded = common.send(Editor.E.Discarded()).checkpoint("discarded");
+        const cancelled = common.send(Editor.E.Cancelled()).checkpoint("cancelled");
+        const savedRun = await saved.run();
+        const discardedRun = await discarded.run();
+        savedRun.checkpoints.opened; // valid
+        savedRun.checkpoints.saved; // valid
+        savedRun.checkpoints.typo; // TypeScript error
+        // @ts-expect-error duplicate literal checkpoint name
+        common.checkpoint("opened"); // duplicate literal: TypeScript error
+        declare const runtimeName: string;
+        // @ts-expect-error widened string cannot erase the known-name map
+        common.checkpoint(runtimeName); // widened string: TypeScript error
+        ```
+        This shows one unchanged prefix and separate runs with exact names.
+        The proposal's package-private defensive lookup illustration is:
+        ```ts
+        declare function lookupCheckpointInternal<Names extends string>(
+          run: StoryRun<Names>,
+          name: string,
+        ): CheckpointEvidence;
+        declare const untrustedCheckpointName: string;
+        lookupCheckpointInternal(savedRun, untrustedCheckpointName); // unknown own key throws existing FlowUsageError
+        ```
+        The helper remains nonpublic. It rejects unknown own keys with existing
+        FlowUsageError semantics.
+
+        The proposal-only gateway and model examples are:
+        ```ts
+        const gateway = behavior({
+          app: IncidentApp,
+          stories: { smoke: incidentStory, "machine-model": incidentMachineStory },
+        });
+
+        const baseStory = story.machine(incidentMachine, { fixtures: [incidentApiFixture] });
+        const incidentModel = model(baseStory, {
+          stateKey: ({ value, memory }) => [value.id, memory],
+        });
+        const result = incidentModel.getShortestPaths({
+          events: [NewIntent.E.IntentOpened("incident-1"), NewIntent.E.SessionEnded()],
+          maxDepth: 20,
+          limit: 100,
+        });
+        await result.paths[0]!.story.run();
+        ```
+        The gateway uses external IDs smoke and machine-model. It rejects empty or
+        duplicate IDs, missing or mixed app identity, recipes, incompatible machine
+        Stories, and foreign machines; it never executes. The model starts from a
+        fresh machine Story and keys state with value.id plus memory. It traverses
+        candidate domain events with bounds, then runs a returned path as live proof.
+        These proposal examples add no accepted signatures or proof receipt.
+
+        Check: focused TESTING owner proofs plus production Story/model tests.
+        Named executable proof paths remain pending where implementation work has
+        not supplied them; use focused checks in V7, not a second Story runtime.
+    V5  React hosts and inspection evidence
+        Establishes @O2.
+
+        **React attachment and passive views**
+        - Prove stable inert refs, exact wire identity and hook ownership. Hooks do
+          not create, dispose or recover ownership. `useActor` owns one local actor;
+          `useActorByRef` only looks up; `useView(actor, selector)` is the sole
+          ordinary reactive subscription.
+        - Prove render prepares one final actor/ref/snapshot/handle/mailbox, commit
+          attaches it and imperative `createActor` attaches immediately. Cover
+          provisional context recheck, a 64-command buffer with private bound and
+          suspension retention/release/resume without replay. Cover one context
+          reconciliation, Object.is/named-record suppression and optional `useShallow`.
+        - Check one tear-free actor/store boundary, lifecycle ordering, FIFO
+          settlement, truthful failures and late-completion fencing. Reject tuple
+          changes without keyed remount, changed refs and abandoned/overflow mutation.
+          Also reject suspended commands, partial actors on selector defects,
+          comparator arguments, selector work, prepare evidence, overlapping
+          generations and foreign/tombstoned providers.
+        - Record exact descriptor/K reads per evaluation. Replace dependencies after
+          evaluation. Matching StoreFanout reruns at one tear-free boundary; selection
+          performs no work or mutation.
+
+        **Lifecycle evidence**
+        - Publish lifecycle snapshots before inspection events through the existing
+          handle. Lifecycle is not a machine turn. Cover start/restore/suspend/
+          resume/dispose, private publication/turn counters, hydration restoration,
+          cause tags and one publication barrier/global sequence.
+        - Check causal asynchronous evidence release, per-sink truncation/failure
+          isolation, accepted-prefix drain, sequence exhaustion and disposal drain.
+          Add no prepare event, synthetic TurnRecord or second mutable history.
+          Live and Story runs agree on TurnRecord/LifecycleRecord facts.
+
+        The compact React ownership illustration is:
+        ```ts
+        useActor;
+        useActorByRef;
+        useView(actor, selector);
+        ```
+
+        Check: packed React 18/19 consumers and application browser/lifecycle tests
+        for reachability and host-specific behavior. Test paths and receipts are
+        pending until assigned. The useView semantic owner is @plan.Runtime.O5.
+    V6  Persistence, artifacts, server and CLI
+        Establishes @O2.
+
+        - Restore and validate before activation or handle escape. Install the
+          baseline silently; order projections by dependency without replaying
+          onContext. False/null produces no event. Close context cuts with exact
+          refs/revisions. Opaque providers report NonDurableContextProvider.
+          Hydrated streams expose latest/terminal state without replay and require
+          live input to rematerialize. Cover trusted seeding, WebStorage, IndexedDB
+          and persistence codecs.
+        - Test storage errors, malformed data, identity mismatch, default/custom
+          codecs and ConcurrentDehydrate. Retain the last good record. Custom-codec
+          failure commits no Runtime mutation.
+        - Check app Story/actor lookup/run.end, module ownership, compound state,
+          context, lifecycle, operation identity, bounds, sinks and formatting.
+          Reject old root/child/final/replay/Story shapes. Reject invalid or duplicate
+          IDs/machines/module ownership, missing refs, bad defaults and unresolved
+          requirements. Reject invalid Story metadata, malformed traces, impossible
+          lifecycle tuples and inconsistent evidence.
+        - Reject missing, duplicate, overlapping or structural redaction paths.
+          Do not mutate raw, Runtime or persisted truth. Share artifacts cannot be
+          CLI/import/replay/Persistence/boot/evidence authority inputs. Invalid
+          vectors report code/category/path/bound; EvidenceUnavailable has a
+          non-null truncation marker. Keep raw diagnostics ordered and byte-stable;
+          keep share exports deterministic and privacy-reduced.
+        - Check CLI grammar, gateway containment, execution, formatting, files,
+          signals/exits and Story/CLI parity. Keep one Diagnostic/result owner,
+          bounded round-trip, ordered diagnostics, in-process Cause preservation,
+          atomic publication and legacy-shape rejection.
+
+        Native mapping for the artifact/CLI proof illustration:
+        | Evidence surface | Native owner |
+        | --- | --- |
+        | Raw artifact representation | @V6 |
+        | Redacted export | @V6 |
+        | CLI integration | @V6 |
+        | CLI cutover absence | @plan.Cutover.V5 |
+        The unaccepted proposal's §12 provenance points persistence/artifacts to
+        the v2 wire contracts, public export and migration amendment. It transfers
+        no authority. Check production codec/storage/artifact/inspect/CLI tests and
+        redacted-export tests. Exact paths remain pending when not named.
+        Full codec vectors run on pinned Node; compact host receipts use @V3.
+        CONTRACT §11 remains an unchecked proposal checklist until proofs and gates
+        run. No checkbox is a receipt.
+    V7  Crosswalk, proving applications and gate sequence
+        Establishes @O1, @O2 and @O4.
+
+        **Proof ownership and examples**
+        - Route, declaration and composition proofs belong to @V1. Runtime/mailbox
+          proofs belong to @V2; operations to @V3; Stories to @V4; React/inspection
+          to @V5; artifacts/CLI to @V6. Cutover checks belong to
+          @plan.Cutover.V1 through @plan.Cutover.V7.
+        - Keep proof-matrix examples with their owners: type/application identity
+          @V1; actor ownership @V2; operation calls @V3; Story execution @V4.
+          Hooks belong to @V5; artifact and CLI evidence to @V6; focused commands
+          to @V7. Examples add no owner or receipt.
+
+        **Proving applications**
+        - Todo Essentials covers definitions, compound states, refs/leases,
+          operations, actions, views, React, fixtures, Stories, checkpoints and
+          TestClock.
+        - Incident Console covers refs/bindings, transaction conflicts, streams,
+          leases, inspection, diagnostics, CLI/artifacts and browser lifetime.
+          Hydrated Offline Notes covers request isolation, context-closed
+          persistence, first-render consistency, outbox/reconnect/disposal, exact
+          hydration and host-seeding behavior.
+        - Include bounded-feed application-authored dropping/coalescing streams,
+          React 18/19 and isolated TypeScript packages. Reject Flow pressure options,
+          inferred app requirements and showcase-only React/type packages.
+        - @plan.Cutover.V3 owns deletion/retention rows, exports/declarations,
+          packed consumers, docs, dependency hygiene, generated output and
+          compatibility absence. Detailed ownership belongs to @plan.Cutover.O3.
+
+        **Focused greenfield boundary**
+        ```sh
+        nubx tsc -p packages/flow-state-rewrite/tsconfig.json --noEmit
+        vp test packages/flow-state-rewrite/src/<focused-proof>.test.ts
+        vp lint packages/flow-state-rewrite/src
+        ```
+        Frozen `packages/flow-state` gates do not prove replacement. After rewrite
+        entrypoints exist, run package-local type, test, lint, build and packed
+        consumer checks. Published-package, browser and workspace checks remain late.
+
+        **Current frozen-package gates and rewrite gates**
+        Gates 2–5 below are source migration checks for frozen packages/flow-state.
+        Their results do not prove replacement conformance. Run rewrite gates against
+        packages/flow-state-rewrite:
+        - Types: `nub run --filter flow-state-rewrite check:types`.
+        - Focused tests: `vp test packages/flow-state-rewrite/src`.
+        - Lint: `vp lint packages/flow-state-rewrite/src`.
+        - Build and packed consumers: `nub run --filter flow-state-rewrite build` and
+          `nub run --filter flow-state-rewrite check:packed-consumers`.
+        - Static harness: `nub run --filter flow-state-rewrite check:static-harness`.
+        The root `nub run verify` still builds the frozen package through `build`; it is
+        not replacement closure until root build/docs and late gates target the rewrite.
+
+        Gates 1–4:
+        1. Focused proof files for affected owner invariants.
+        2. CLI-source types: `nub run --filter flow-state check:cli-source-types`.
+        3. Package tests: `nub run --filter flow-state test`.
+        4. Package build: `nub run --filter flow-state build`.
+        Gates 5–8:
+        5. Packed consumers for public/declaration changes:
+           `nub run --filter flow-state check:packed-consumers`.
+        6. Affected consumer tests and builds.
+        7. App browser tests for browser/lifecycle changes.
+        8. `nub run verify` for workspace closure after replacement-specific gates.
+
+        The source commands use `flow-state` and script owners
+        `packages/flow-state/package.json` and `root package.json`. The package-local
+        rewrite gates above use `flow-state-rewrite`. Browser, published-package, docs,
+        and final workspace gates remain late cutover obligations; preserve their
+        current targets until product cutover updates their script owners.
+
+        CONTRACT.md §11 remains an unaccepted checklist. Keep every item unchecked
+        until its executable proof and gates run. This native owner map is not a
+        receipt:
+        | Checklist area | Native owner |
+        | --- | --- |
+        | Exact public types and inference | @V1 |
+        | Inert AppPlan and closed admission | @V1 |
+        | Mailbox, turns, publication and context | @V2 |
+        | Runtime, leases, lifecycle and cleanup | @V2 |
+        | Disposal leases, dependent blocking and tombstones | @V2; @plan.Cutover.V3 |
+        | Descriptor identity, bytes, generations, CAS and seeds | @V3 |
+        | Store ownership, passive reads and invalidation | @V3 |
+        | Actions, transactions, streams and Cause projection | @V3 |
+        | Story builders, fixtures, recipes and cleanup | @V4 |
+        | Commands, TestClock, prefix branching and isolation | @V4 |
+        | Atomic checkpoint/end evidence and lookup absence | @V4; @V6 |
+        | Pure model traversal and live parity | @V4 |
+        | React refs, hooks, hosts and passive views | @V5 |
+        | Lifecycle inspection, sequencing and sinks | @V5 |
+        | Persistence, artifacts, server, inspection and CLI | @V6 |
+        | Proving applications and bounded-feed evidence | @V7 |
+        | Cutover disposition and gates | @plan.Cutover.V3–V7 |
+        Its §12 provenance is also unaccepted:
+        - Routes map to PUBLIC_API and @V1/@V6; types map to PUBLIC_API, TYPE_SYSTEM
+          and @V1; operations map to PUBLIC_API, TYPE_SYSTEM, SEMANTICS and @V3.
+        - Modules/refs map to PUBLIC_API, ARCHITECTURE, REACT_AND_HOSTS and
+          @V1/@V2/@V5; Runtime maps to TYPE_SYSTEM, ARCHITECTURE and @V2; React maps
+          to REACT_AND_HOSTS and @V5.
+        - Persistence/artifacts map to their wire contract and @V6. Testing/Stories
+          map to PUBLIC_API, TYPE_SYSTEM, TESTING and @V4. Inspection maps to
+          PUBLIC_API, TESTING and @V5/@V6; CLI maps to PUBLIC_API, CLI and @V6.
+        - Acceptance maps to @V1 through @V7 and @plan.Cutover.V3 through
+          @plan.Cutover.V7. Source paths are provenance; Workflow Plans own semantics.
+
+        Check: focused commands above and exact package/consumer/browser gates as
+        their owners become available. Final `nub run verify` runs only at
+        closure. Actual run results belong in supported Task records, not Plan
+        status. No passed receipt is recorded here.
+    V8  Implementation review and promotion
+        Establishes @O1 and @O4. For each slice, the reviewer handback names exact
+        contract IDs, changed files, focused checks, lint pass/fail, behavior
+        reviewed, fixed/blocking/advisory findings. No unresolved lint, proof gap
+        or blocking finding advances. Review both allowed behavior and negative
+        boundaries; check one semantic owner, no hidden compatibility, uncontrolled
+        work, partial updates, or implementation-detail-only tests.
+
+        A slice becomes ready for dependents only after focused checks pass and
+        named owner proof is recorded. Complete replacement requires public
+        behavior/types, failure lanes, cleanup, persistence, artifacts, CLI, React,
+        Stories, packed consumers, browsers and deletion proofs. Use @V1 through
+        @V7, @plan.Cutover.V3 and final workspace gates. Check links are V1-V7
+        and their named commands; unnamed owner tests are explicitly pending.
+        No individual green test, typecheck, lint or source scan closes cutover.
+
+questions
+    Q1  Root gates after package promotion
+        The package-local rewrite gates are mapped in @V7. Root build and docs gates,
+        published-package checks, and browser gates still need product cutover owners
+        and target updates. Keep frozen-package results as migration evidence; do not
+        treat them as rewrite proof or record cutover until those gates pass.
+

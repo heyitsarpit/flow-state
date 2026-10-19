@@ -1,0 +1,723 @@
+phase P2B
+title Integrated runtime ownership history
+
+tasks
+    T151
+        title        Own actor identity, allocation, and passive lookup
+        status       done
+        priority     medium
+        blocked_by   [@T162]
+        derives_from [@plan.Runtime.D1, @plan.Runtime.V2, @plan.Runtime.V3, @plan.Types.V5]
+        description
+            Source phase Epic: flow-state-e7p.12 (open in the retained Beads record), with
+            direct children flow-state-e7p.12.1 through flow-state-e7p.12.24 (all closed).
+            Child IDs and receipts are recorded in their owning Workflow Tasks below.
+            Source phase flow-state-e7p.12 depended on flow-state-e7p.13 (closed) and
+            flow-state-e7p.27 (open) at migration. The .13 administrative prerequisite was
+            satisfied historically; these Beads edges are provenance, not Workflow blockers
+            or proof. Workflow @task.Rewrite.T271 is the current Phase 3 validation blocker.
+
+            Source Bead: flow-state-e7p.12.1 (closed; task).
+            Original title: B01 — Own actor identity, allocation, and passive lookup.
+            Deliverable: Consolidate A01-A03 into one actor identity boundary: stable and local
+            ActorRef identity, incarnation allocation, and passive exact lookup.
+            Recorded owner paths (historical):
+            `packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts`.
+            External source blockers: none recorded.
+            Source Bead close receipt: B01 identity/registry boundary accepted after final
+            repair; coder 01a08174-e11d-7c50-8a8b-db52bb742e39 and reviewer
+            01a0818c-ba2b-79f2-b66d-c4fca1d027c2 independently PASS; required
+            focused/type/static/lint/coverage/unused/diff receipts passed.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Expected: Stable keys are runtime-local and preserve exact ActorRef<M> branding.
+            Incarnations increase monotonically, are never reused, and fail before
+            exhaustion/wrap without partial allocation. Lookup is passive and returns the exact
+            existing actor or canonical MissingActorRef without mutation. Every local creation
+            request receives a fresh opaque identity and cannot accept a durable address,
+            restoration, or child capability; the result feeds B03's one shared admission path.
+
+    T152
+        title        Validate admission data and fixed provider topology
+        status       done
+        priority     medium
+        blocked_by   [@T151]
+        derives_from [@plan.Runtime.D1, @plan.Runtime.V2, @plan.Runtime.V3, @plan.Types.V5]
+        description
+            Source Bead: flow-state-e7p.12.2 (closed; task).
+            Original title: B02 — Validate admission data and fixed provider topology.
+            Deliverable: Consolidate A06-A07 into the single pre-mutation admission and
+            topology-validation boundary.
+            Historical owner paths:
+            `packages/flow-state-rewrite/src/runtime/actor-admission.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts`.
+            External source blockers: none recorded.
+            Source Bead close receipt: B02 pre-mutation admission/topology accepted after two
+            semantic repairs and reviewer PASS; coder 01a081a4-dc02-7e01-892d-7725a6e044e4 and
+            reviewer 01a081c8-9f7a-79a3-90f5-f07e225bf89b; task-owned receipts pass.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Expected: Before any registry, edge, snapshot, mailbox, work, evidence, or tombstone
+            mutation, validate the real contract-defined unknown envelope once and validate
+            exact app/machine/ref provenance, provider availability, fixed bindings, and
+            tombstones. Build forward and reverse indexes by native identity and
+            deterministically reject missing, foreign, ambiguous, duplicate, and cyclic
+            bindings. Validation failure preserves all prior runtime truth.
+
+    T153
+        title        Execute one joined actor admission transaction
+        status       done
+        priority     medium
+        blocked_by   [@T152]
+        derives_from [@plan.Runtime.V3, @plan.Types.V4, @plan.Verification.V2]
+        description
+            Source Bead: flow-state-e7p.12.3 (closed; task).
+            Original title: B03 — Execute one joined actor admission transaction.
+            Deliverable: Consolidate A04-A05 and A08 into one stable/local admission transaction
+            with activation, concurrent joining, exposure-last, and reverse rollback.
+            Historical owner paths:
+            `packages/flow-state-rewrite/src/runtime/actor-admission.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts`.
+            External source blockers: none recorded.
+            Source Bead close receipt: B03 joined admission accepted; coder
+            01a08201-2317-7b90-a67d-d43130ef97ad and reviewer
+            01a08218-0368-7f43-8d81-dea1f0506546 PASS.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Expected: Fresh-local, fresh-stable, and restored-stable admissions share one
+            transaction. Concurrent stable ensures for one identity join one leader terminal,
+            incarnation, actor, and owner lease; they do not replay initialization. Fresh
+            initialization runs once only after B02 validation; restoration does not replay
+            input. Actor and sole disposal lease escape only after prepared state, fixed edges,
+            activation, registration, and sealed truth. Typed failure, defect, or interruption
+            rolls back acquired steps once in reverse order and retains the exact primary Exit
+            plus cleanup Exits with no escaped actor.
+
+    T154
+        title        Own prepared and active mailbox admission
+        status       done
+        priority     medium
+        blocked_by   [@T153]
+        derives_from [@plan.Runtime.D2, @plan.Runtime.V4, @plan.Verification.V2]
+        description
+            Source Bead: flow-state-e7p.12.4 (closed; task).
+            Original title: B04 — Own prepared and active mailbox admission.
+            Deliverable: Consolidate M01-M04 into one prepared-to-active mailbox owner with
+            bounded FIFO admission, one scoped consumer, an activation barrier, and synchronous
+            public send.
+            Recorded owner paths (historical):
+            `packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts`.
+            External source blockers: none recorded.
+            Source Bead close receipt: B04 accepted after local recovery from coder
+            01a08258-f190-7392-8c10-b3cd4fbacaf9 no-edit interruptions; reviewer
+            01a08267-3829-7351-89c9-08259f791870 PASS.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Expected: Prepared admission accepts at least 64 commands, records one FIFO accepted
+            prefix, and abandons or rejects without side effects. Activation installs one
+            bounded mailbox and one scoped consumer before handle escape; the activation barrier
+            precedes every early command, and prepared commands drain into that same ordering
+            domain. actor.send(event): void remains synchronous and exact-typed; closed or full
+            admission fails without mutation and exposes no Promise, Effect, Fiber, receipt, or
+            subscription.
+
+    T155
+        title        Fence commands and build pure complete turn plans
+        status       done
+        priority     medium
+        blocked_by   [@T154]
+        derives_from [@plan.Runtime.D2, @plan.Runtime.V4, @plan.Verification.V2]
+        description
+            Source Bead: flow-state-e7p.12.5 (closed; task).
+            Original title: B05 — Fence commands and build pure complete turn plans.
+            Deliverable: Consolidate M05-M07 into one command-fencing and pure-planning
+            boundary.
+            Recorded owner paths (historical):
+            `packages/flow-state-rewrite/src/runtime/actor-engine.ts`,
+            `packages/flow-state-rewrite/src/runtime/turn-plan.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/turn-plan.test.ts`.
+            External source blockers: none recorded.
+            Source Bead close receipt: B05 accepted; coder 01a08282-fc1e-72b3-a41d-03b035a08836
+            frozen four-owner delta and reviewer 01a0829c-0b2e-7901-97ff-3ef83d3386fe PASS.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Expected: Normal and reentrant accepted facts share one FIFO order; stale actor
+            incarnation/generation/lease epochs are discarded before planning. Each event turn
+            captures one immutable pre-turn snapshot and evaluates transition, guard, memory,
+            and actions exactly once at their contract stages; redirects use the updated
+            candidate with the existing binding. The whole finite action, redirect, and
+            mapped-event batch validates before allocation, work, or commit; one invalid item
+            rejects the complete candidate plan.
+
+    T156
+        title        Publish atomic actor cuts and settle acknowledgements
+        status       done
+        priority     medium
+        blocked_by   [@T155]
+        derives_from [@plan.Runtime.D2, @plan.Runtime.V4, @plan.Verification.V2]
+        description
+            Source Bead: flow-state-e7p.12.6 (closed; task).
+            Original title: B06 — Publish atomic actor cuts and settle acknowledgements.
+            Deliverable: Consolidate M08-M10 into one atomic commit, passive projection,
+            publication, and private acknowledgement boundary.
+            Recorded owner paths (historical):
+            `packages/flow-state-rewrite/src/runtime/turn-plan.ts`,
+            `packages/flow-state-rewrite/src/runtime/actor-engine.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/turn-plan.test.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts`.
+            External source blockers: none recorded.
+            Source Bead close receipt: Completed after B06 coder
+            01a082a7-fa95-75d1-8e44-dedfe7e36b2e issue-only planner/engine seam and independent
+            reviewer 01a082cf-99e6-7413-adc1-16f90bf23656 PASS.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Expected: A fully validated plan and typed P02 store result publish one immutable
+            actor/store cut; observers never see a half cut. Machine, publication, and
+            observed-store revisions advance only by their distinct laws, with fail-before-wrap
+            and no partial publication. Validation and stale no-ops change no revision. A
+            contained typed failure or defect before commit publishes exactly one issue-only cut
+            with publicationRevision +1 and unchanged machine/store revisions; mixed Cause
+            classification is defect > typed failure > interruption-only. A post-commit
+            invariant failure preserves committed truth. Timer, completion, stream, context, and
+            store projection facts publish without fabricated events, transition/action work, or
+            machine-revision advance; lifecycle, terminal, cancellation, stream-terminal, and
+            mapped-event facts never coalesce in this projection owner. Every accepted command
+            settles exactly once: no-op without publication, contained issue after its
+            issue-only publication, normal acknowledgement only after publication and evidence
+            acceptance but before user-work settlement, and shutdown settles the current plus
+            buffered accepted prefix.
+
+    T157
+        title        Own context baselines, waves, selection, and passive observation
+        status       done
+        priority     medium
+        blocked_by   [@T153, @T156]
+        derives_from [@plan.Runtime.V5, @plan.Verification.V2]
+        description
+            Source Bead: flow-state-e7p.12.7 (closed; task).
+            Original title: B07 — Own context baselines, waves, selection, and passive
+            observation.
+            Deliverable: Consolidate C01-C05 into one context engine that installs the admission
+            baseline, derives bounded provider-first waves, coalesces consumer turns, applies
+            exact equality/defect laws, and keeps observation passive.
+            Recorded owner paths (historical):
+            `packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts`.
+            External source blockers: none recorded.
+            Source Bead close receipt: B07 accepted after repair pass 1; independent contract
+            reviewer PASS.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Expected: Admission installs one immutable provider-first baseline and fixed binding
+            set before the first active snapshot. Trusted forward/reverse topology yields a
+            deterministic bounded provider-first wave. One provider publication causes at most
+            one combined turn per dirty consumer after upstream providers settle, with no
+            intermediate cut. Selection preserves authored null, undefined, function identity,
+            scalar Object.is, and fixed named-record field semantics; unchanged selection
+            suppresses work. A selector defect retains last-valid truth and emits exactly one
+            issue-only consumer publication with publicationRevision +1 and no machine-turn
+            revision, then retries only on a newer provider revision vector. Passive observer
+            defects publish nothing. Observers atomically replace tracked dependencies without
+            acquiring, refreshing, cancelling, invalidating, clearing, or mutating runtime
+            state.
+
+    T158
+        title        Own actor lifetime and suspension truth
+        status       done
+        priority     medium
+        blocked_by   [@T154]
+        derives_from [@plan.Runtime.D2, @plan.Runtime.V5, @plan.Runtime.V6, @plan.Verification.V2]
+        description
+            Source Bead: flow-state-e7p.12.8 (closed; task).
+            Original title: B08 — Own actor lifetime and suspension truth.
+            Deliverable: Consolidate L01-L03 into one lifecycle and lifetime boundary covering
+            valid transitions, resource ownership, and atomic suspension.
+            Recorded owner paths (historical):
+            `packages/flow-state-rewrite/src/runtime/runtime-services.ts`,
+            `packages/flow-state-rewrite/src/runtime/lifecycle.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts`.
+            External source blockers: none recorded.
+            Source Bead close receipt: B08 accepted: independent contract-slice reviewer PASS
+            with no findings.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Expected: Only prepared→active↔suspended→disposed transitions are accepted; invalid
+            moves fail, lifecycle publications never masquerade as machine turns, and
+            actor:restore is evidence-only prepared→prepared. Every fiber, timer, listener,
+            resource, and work item has one reachable actor Scope owner with
+            cancellation/fencing registered before synchronous completion can escape. Suspension
+            closes admission at one point, drains the pre-close FIFO prefix, cancels finite
+            work, detaches live resources, and retains exact graph, cursor, generation, timer,
+            and resumable truth without replay. Suspended publication occurs only after
+            successful cleanup leaves zero live resources; cleanup failure keeps the actor
+            suspended and blocks resume.
+
+    T159
+        title        Complete cleanup, resume, lease disposal, and runtime disposal
+        status       done
+        priority     medium
+        blocked_by   [@T158, @T157]
+        derives_from [@plan.Runtime.D2, @plan.Runtime.V5, @plan.Runtime.V6, @plan.Verification.V2]
+        description
+            Source Bead: flow-state-e7p.12.9 (closed; task).
+            Original title: B09 — Complete cleanup, resume, lease disposal, and runtime
+            disposal.
+            Deliverable: Consolidate A09-A10 and L04-L06 into one terminal lifecycle boundary
+            for cleanup, resume, individual owner-lease disposal, and whole-runtime disposal.
+            Recorded owner paths (historical):
+            `packages/flow-state-rewrite/src/runtime/actor-admission.ts`,
+            `packages/flow-state-rewrite/src/runtime/lifecycle.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts`.
+            External source blockers: none recorded.
+            Source Bead close receipt: Completed after bounded repair and same-reviewer PASS.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Expected: Finalizers execute once in reverse acquisition/dependency order with
+            consumers before providers; all primary and cleanup Exit/Cause lanes remain
+            available, and cleanup failure blocks resume without rewriting committed state.
+            Resume waits successful cleanup, revalidates retained providers, reacquires
+            continuing work, preserves absolute startedAt/dueAt under Clock/TestClock, fences
+            stale timer generations, and emits at most one overdue refresh without replaying
+            finite work or input. Changed provider truth produces at most one serialized
+            reconciliation wave; equal provider values stay silent. Only the owner lease may
+            dispose one actor; dependent-disposal preflight rejects with deterministic exact
+            refs and binding keys while preserving all state. Repeated disposal joins one
+            terminal; successful cleanup tombstones once, while post-start cleanup failure
+            remains untombstoned. Whole-runtime disposal subsumes leases, fences stale
+            completions, drains the accepted prefix, and cleans provider-last exactly once.
+
+    T160
+        title        Assemble production runtime and own ordered evidence
+        status       done
+        priority     medium
+        blocked_by   [@T156, @T159, @T157]
+        derives_from [@plan.Runtime.V6, @plan.Verification.D4, @plan.Verification.V2]
+        description
+            Source Bead: flow-state-e7p.12.10 (closed; task).
+            Original title: B10 — Assemble production runtime and own ordered evidence.
+            Deliverable: Historical B10 receipt for consolidating L07 and I01 into one
+            final production assembly and ordered evidence owner. Superseded by
+            flow-state-e7p.11.46 (P2R T146), which owns the final assembly proof; no
+            duplicate implementation work remains in this record.
+            Recorded owner paths (historical):
+            `packages/flow-state-rewrite/src/runtime/evidence.ts`,
+            `packages/flow-state-rewrite/src/runtime/runtime.ts`,
+            `packages/flow-state-rewrite/src/runtime/runtime-owner.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/evidence.test.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/runtime.test.ts`.
+            External source blockers: none recorded.
+            Source Bead close receipt: Completed after visible lifecycle projection repair;
+            fresh independent slice review Linnaeus PASS, focused and full verification receipts
+            pass, no findings.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Expected: One fail-before-wrap runtime sequence orders immutable provenance-rich
+            evidence from 1 without reuse. Snapshot/turn evidence is accepted before lifecycle
+            evidence and private acknowledgement; terminal shutdown fabricates no TurnRecord.
+            Bounded sinks isolate failure, retain accepted-prefix and truncation truth, and
+            drain accepted evidence before shutdown completes. Real definition(), machine(),
+            module()/app(), actorRef(), and Implementation values reach B01-B09 owners through
+            one Runtime instance and one supplied service Context/lifetime; no Phase 2 injected
+            result, fake queue, copied grammar/index, shadow registry, or test-double port
+            remains. A real provider/consumer path performs typed synchronous send, one complete
+            context/publication wave, evidence acceptance, and private acknowledgement using the
+            explicit P02 StoreKernel contract fixture. A second real path proves
+            suspension/resume/disposal through those same owners while preserving the accepted
+            Runtime app/construct/ready public shell.
+
+    T161
+        title        Independently validate and promote Phase 2B
+        status       done
+        priority     medium
+        blocked_by   [
+                     @T159,
+                     @T152,
+                     @T174,
+                     @T154,
+                     @T162,
+                     @T155,
+                     @T153,
+                     @T157,
+                     @T163,
+                     @T158,
+                     @T151,
+                     @T160,
+                     @T156
+                     ]
+        derives_from [@plan.Runtime.D2, @plan.Verification.D1, @plan.Verification.V2]
+        description
+            Source Bead: flow-state-e7p.12.11 (closed; task).
+            Original title: B11 — Independently validate and promote Phase 2B.
+            Deliverable: Historical B11 promotion receipt for independent validation of
+            the complete Phase 2B delta. Superseded by flow-state-e7p.11.41 (P2R T141)
+            as the final cross-phase validation gate; retain this closed receipt without
+            reopening duplicate validation work.
+            No editable owner paths were recorded in the source Bead.
+            External source blockers: none recorded.
+            Source Bead close receipt: Phase 2B promotion accepted after independent reviewer
+            Hegel PASS.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Expected: Validate exact A/E/R and type inference, one admission owner, owner
+            identity/reuse,
+            runtime→admission→mailbox/planning/publication→context→lifecycle/evidence order,
+            full rollback/Cause precedence, synchronous send, atomic cuts and revisions, passive
+            context semantics, lease/tombstone identity, cleanup/resume/disposal truth, evidence
+            drain, and B10 actual-constructor reachability. Every normative observable law has
+            executable production-owner evidence; inference has compile/static evidence;
+            deletion/retention has direct provenance. Record passing final workspace
+            verification and rewrite-package type/static/build/packed/coverage/unused outcomes,
+            or identify the exact owning Bead and blocker. Phase 3 may unblock only after an
+            independent PASS and this Bead closes.
+
+    T162
+        title        Connect public readiness to the single runtime owner
+        status       done
+        priority     high
+        derives_from [@plan.Verification.D1, @plan.Verification.D6, @plan.Verification.V8]
+        description
+            Source Bead: flow-state-e7p.12.12 (closed; task).
+            Original title: B00 — Connect public readiness to the single runtime owner.
+            Deliverable: Adopt the existing R08 candidate and finish the
+            runtimeSetup(...).construct().ready() bridge to the accepted runtime-owner
+            acquisition, Context, Scope, and terminal path while removing the competing
+            acquisition/readiness cache. The public shell remains exactly app/construct/ready.
+            Recorded owner paths (historical):
+            `packages/flow-state-rewrite/src/runtime/runtime.ts`,
+            `packages/flow-state-rewrite/src/runtime/runtime-owner.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/runtime.test.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/runtime-owner.test.ts`.
+            External source blockers: none recorded.
+            Source Bead close receipt: Implemented B00 runtime-owner bridge; coder frozen
+            receipts passed and independent reviewer PASS (Luna xhigh).
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Expected: Actual definition/machine/module/app and
+            Implementation.succeed/effect/merge values feed already-admitted provider entries
+            into the one runtime owner. construct stays synchronous and inert. ready preserves
+            exact ImplementationError and requirement closure, concurrent callers join one
+            acquisition, later providers consume exact earlier services, terminal
+            failure/interruption is reused, and cleanup reaches that same owner. The public
+            Runtime instance carries the one private lifetime used by later Phase 2B owners; the
+            competing runtime.ts acquisition/cache is absent.
+
+    T163
+        title        Complete all open runtime TODO tests
+        status       done
+        priority     medium
+        blocked_by   [@T170, @T166, @T171, @T164, @T167, @T168, @T165, @T173, @T172, @T169]
+        derives_from [@plan.Verification.D2, @plan.Verification.V2]
+        description
+            Source Bead: flow-state-e7p.12.13 (closed; task).
+            Original title: Complete all open runtime TODO tests.
+            Deliverable: Port every test case from every *.stub.test.ts file under
+            packages/flow-state-rewrite/src/runtime/test into its matching actual.test.ts file,
+            then implement every ported case as executable production-owner proof. The complete
+            suites are actor-admission, actor-engine, context-wave, evidence, lifecycle,
+            runtime-architecture, runtime-owner, and turn-plan. Preserve the stub comments as
+            contract guidance, use the real production owners, and do not weaken contracts or
+            replace runtime behavior with test doubles.
+            No editable owner paths were recorded in the source Bead.
+            External source blockers: none recorded.
+            Source Bead close receipt: Completed: all 172 runtime guidance TODO cases are
+            represented by executable actual suites and implemented through production owners.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Expected: Every test case in every runtime *.stub.test.ts file is represented in the
+            matching actual.test.ts file and implemented; no stub case is omitted, silently
+            renamed, or left as it.todo. All resulting executable tests pass with named contract
+            or proof IDs. Add a parity inventory or equivalent review evidence covering every
+            stub file and every test case. No empty or placeholder assertions remain. Focused
+            runtime tests, rewrite types/static checks, and one independent review pass are
+            required before closure.
+
+    T164
+        title        Repair runtime evidence reservation prefix liveness
+        status       done
+        priority     high
+        derives_from [@plan.Runtime.V6, @plan.Verification.D4, @plan.Verification.V2]
+        description
+            Source Bead: flow-state-e7p.12.14 (closed; bug).
+            Original title: Repair runtime evidence reservation prefix liveness.
+            Deliverable: Make actor and lifecycle evidence use one runtime-owned reservation and
+            acceptance protocol. A reservation currently can survive timestamp, record
+            construction, publication, or acceptance failure, and synchronous actor acceptance
+            can race asynchronous lifecycle acceptance.
+            No editable owner paths were recorded in the source Bead.
+            External source blockers: none recorded.
+            Source Bead close receipt: Accepted after bounded repair and independent
+            same-reviewer PASS.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Expected: A failed preparation cancels or tombstones its sequence and unblocks later
+            accepted evidence. Actor and lifecycle publications interleaved at adjacent
+            sequences are accepted in global order. No direct acceptance path can bypass the
+            accepted-prefix protocol. Evidence drain completes after every injected failure.
+
+    T165
+        title        Make actor store and publication cuts atomic after evidence preparation
+        status       done
+        priority     high
+        derives_from [@plan.Runtime.V4, @plan.Operations.V1, @plan.Verification.V2]
+        description
+            Source Bead: flow-state-e7p.12.15 (closed; bug).
+            Original title: Make actor store and publication cuts atomic after evidence
+            preparation.
+            Deliverable: Prevent store truth from advancing while the actor snapshot and
+            evidence remain at the previous cut. The actor engine currently calls store.commit
+            before a fallible evidence/publication boundary.
+            No editable owner paths were recorded in the source Bead.
+            External source blockers: none recorded.
+            Source Bead close receipt: Completed actor store/publication atomic-cut work.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Expected: All fallible revision, timestamp, provenance, and evidence preparation
+            completes before store.commit. Once store.commit succeeds, actor state, publication,
+            and evidence finalization use non-failing primitives. No observer can observe a
+            store revision without its matching actor snapshot.
+
+    T166
+        title        Make projection mailbox overflow explicit
+        status       done
+        priority     high
+        derives_from [@plan.Runtime.D2, @plan.Runtime.V4, @plan.Verification.V2]
+        description
+            Source Bead: flow-state-e7p.12.16 (closed; bug).
+            Original title: Make projection mailbox overflow explicit.
+            Deliverable: Handle the false result from bounded Queue.offerUnsafe when dispatching
+            projection facts. Context, store, completion, timer, and stream facts must not
+            disappear silently.
+            No editable owner paths were recorded in the source Bead.
+            External source blockers: none recorded.
+            Source Bead close receipt: Completed: bounded projection offers now return
+            deterministic mailbox-overflow diagnostics, and provider context propagation stages
+            ledger/revision state until consumer delivery succeeds; runtime integration proof
+            passes.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Expected: Every projection offer either succeeds, performs contract-approved
+            adjacent projection coalescing, or returns a deterministic mailbox-overflow
+            diagnostic. Tests prove no silent fact loss and preserve provider truth when
+            consumer delivery is full.
+
+    T167
+        title        Close provider baseline registration and reconciliation handshake
+        status       done
+        priority     high
+        derives_from [@plan.Runtime.V5, @plan.Verification.V2]
+        description
+            Source Bead: flow-state-e7p.12.17 (closed; bug).
+            Original title: Close provider baseline registration and reconciliation handshake.
+            Deliverable: Close the admission gap between capturing provider baselines and
+            registering the consumer dependent. A provider publication during actor start can
+            currently be missed before the dependent callback exists.
+            No editable owner paths were recorded in the source Bead.
+            External source blockers: none recorded.
+            Source Bead close receipt: Completed after bounded test repair: coder
+            01a086c2-6f7f-73f3-8283-8d50b971b8c1 implemented runtime handshake and reviewer
+            01a086d1-d4a1-7370-9d7b-9f829c74bece found one nondeterministic proof blocker;
+            successor coder 01a086e5-ed3e-7df0-a437-5ed1eddec30d added deterministic real
+            mailbox hold/release and exactly-once registration/removal evidence; same…
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Expected: Dependent registration, provider dependency metadata, activation, and
+            current-snapshot reconciliation are ordered so no provider update can be lost. The
+            actor is exposed only after the consumer has the latest complete context cut.
+            Registration is exactly once.
+
+    T168
+        title        Harden actor admission against hostile reflection
+        status       done
+        priority     high
+        derives_from [@plan.Runtime.V2, @plan.Types.V4, @plan.Verification.V2]
+        description
+            Source Bead: flow-state-e7p.12.18 (closed; bug).
+            Original title: Harden actor admission against hostile reflection.
+            Deliverable: Ensure proxy traps and unstable property reflection at the actor
+            admission boundary become typed PublicDiagnostic failures instead of escaping as
+            uncaught throws or Effect defects.
+            No editable owner paths were recorded in the source Bead.
+            External source blockers: none recorded.
+            Source Bead close receipt: Completed after bounded repair: initial coder
+            01a08682-4266-7cf1-aded-27eacf1b6477 froze candidate; reviewer
+            01a08690-cdaa-71f1-8a0c-f9ab35b5b0aa found two blockers; successor coder
+            01a086a8-e1bf-75c3-8b92-903c42c589ff repaired canonical captured admission snapshots
+            and hostile thrown-cause mapping; same reviewer PASS on repair delta.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Expected: ownKeys, descriptor, prototype, and property reads are captured once and
+            wrapped. A proxy trap leaves registry, graph, mailbox, snapshot, and tombstone state
+            unchanged. Admitted ordinary records retain exact nominal identity checks.
+
+    T169
+        title        Use structural equality for canonical operation keys
+        status       done
+        priority     high
+        derives_from [@plan.Operations.C1, @plan.Operations.V1]
+        description
+            Source Bead: flow-state-e7p.12.19 (closed; bug).
+            Original title: Use structural equality for canonical operation keys.
+            Deliverable: Replace shallow Object.is key matching in actor-engine and turn-plan
+            with the existing canonical operation-key equality semantics. Independently
+            canonicalized nested arrays and records must match.
+            No editable owner paths were recorded in the source Bead.
+            External source blockers: none recorded.
+            Source Bead close receipt: Completed structural canonical operation-key equality
+            review.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Expected: Equal nested canonical keys match operation occurrences and completions
+            even when their container identities differ. Unequal nested values do not match.
+            Primitive Object.is behavior, including null, undefined, and -0 policy, remains
+            unchanged.
+
+    T170
+        title        Enforce runtime immutability for dependency graphs and revisions
+        status       done
+        priority     medium
+        derives_from [@plan.Runtime.V5, @plan.Verification.V2]
+        description
+            Source Bead: flow-state-e7p.12.20 (closed; task).
+            Original title: Enforce runtime immutability for dependency graphs and revisions.
+            Deliverable: Harden graph copies and context revision arithmetic. ReadonlyMap and
+            readonly edge types currently hide mutable Map and array instances, and context
+            publication revisions increment without the actor safe-integer guard.
+            No editable owner paths were recorded in the source Bead.
+            External source blockers: none recorded.
+            Source Bead close receipt: Completed: coder 01a08664-ce0a-76b1-b4ab-7d112ae4c1df
+            froze six-owner snapshot; independent slice reviewer
+            01a08679-357d-7f41-84a3-01cda66e5674 PASS.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Expected: Returned graph maps expose no mutating methods, edge arrays and order
+            arrays cannot be changed, and rebase copies preserve those guarantees. Publication
+            revision overflow fails before mutation at Number.MAX_SAFE_INTEGER.
+
+    T171
+        title        Define and prove fresh actor initial snapshot admission
+        status       done
+        priority     medium
+        derives_from [@plan.Runtime.V3, @plan.Verification.V2]
+        description
+            Source Bead: flow-state-e7p.12.21 (closed; task).
+            Original title: Define and prove fresh actor initial snapshot admission.
+            Deliverable: Resolve the boundary between a fresh actor and a pre-materialized
+            internal snapshot. RuntimeActorOptions accepts optional input through an unsafe cast
+            and currently trusts the supplied initial snapshot.
+            No editable owner paths were recorded in the source Bead.
+            External source blockers: none recorded.
+            Source Bead close receipt: Prepared snapshot admission accepted after two bounded
+            repairs; coder 01a08754-4ef1-7472-8347-dcf8312c103e and independent reviewer
+            01a0876e-c8f8-7ff2-95f4-e8d49a841c55.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Expected: Either runtime admission materializes fresh state, memory, and default
+            leaf exactly once per, or the private API is explicitly constrained and proved as a
+            prepared-snapshot seam. Invalid state, lifecycle, context, and revision values
+            cannot become active actor truth.
+
+    T172
+        title        Evaluate Effect collections before sharing readonly helpers
+        status       done
+        priority     low
+        derives_from [@plan.Runtime.C2, @plan.Verification.D6]
+        description
+            Source Bead: flow-state-e7p.12.22 (closed; task).
+            Original title: Evaluate Effect collection adoption and remove exact readonly helper
+            duplication.
+            Deliverable: Perform a source-backed compatibility review of Effect Array, Record,
+            and HashMap before changing the runtime collection helpers. Then centralize only
+            semantically identical helpers without weakening runtime immutability or changing
+            native Map behavior.
+            No editable owner paths were recorded in the source Bead.
+            External source blockers: none recorded.
+            Source Bead close receipt: Completed source-backed collection compatibility review
+            and exact helper centralization.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Expected: A compatibility matrix and tests distinguish non-mutating Array/Record
+            transformations from runtime freezing, and HashMap persistent-map semantics from
+            native ReadonlyMap semantics. No wholesale replacement occurs. Shared helpers
+            preserve copy, freeze, nested ownership, Option behavior, native key equality, and
+            evidence identity requirements.
+
+    T173
+        title        Add production restore-admission validation seam
+        status       done
+        priority     high
+        derives_from [@plan.Runtime.V3, @plan.Verification.V2]
+        description
+            Source Bead: flow-state-e7p.12.23 (closed; task).
+            Original title: Add production restore-admission validation seam.
+            Deliverable: Provide the production owner seam required to validate restore payloads
+            during actor admission. The runtime currently treats input as opaque and hardcodes
+            every stable reservation as fresh-stable, so the proof case for rejecting restore
+            data on a non-persisted actor cannot exercise a real contract boundary.
+            No editable owner paths were recorded in the source Bead.
+            External source blockers: none recorded.
+            Source Bead close receipt: Completed: production restore-admission seam
+            distinguishes fresh versus restored construction, rejects restore for non-persisted
+            refs before reservation with typed SchemaValidation, preserves exact prepared
+            snapshot/identity semantics, and passes actor-admission/runtime integration proofs.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Expected: A production-owned restore-admission path distinguishes fresh-stable from
+            restored-stable; a concrete restore payload for a non-persisted actor is rejected
+            with a deterministic typed diagnostic and no registry, lease, lifecycle, mailbox, or
+            snapshot mutation; persisted restore uses the exact machine identity and prepared
+            snapshot; actor-admission and runtime integration proofs exercise both lanes through
+            runtimeSetup/assembly; focused rewrite types, static harness, runtime tests,
+            coverage, unused report, formatting, and diff checks pass; independent same-snapshot
+            review passes.
+
+    T174
+        title        Clear Phase 2B actor-engine check blockers
+        status       done
+        priority     high
+        blocked_by   [@T156, @T154]
+        derives_from [@plan.Verification.D6, @plan.Verification.V8]
+        description
+            Source Bead: flow-state-e7p.12.24 (closed; task).
+            Original title: Clear Phase 2B actor-engine check blockers.
+            Deliverable: Repair the actor-engine lint/check findings while preserving accepted
+            actor semantics and owner boundaries. The source Bead names
+            `packages/flow-state-rewrite/src/runtime/actor-engine.ts` as the production owner.
+            Add executable regression proof only for behavior changed by the repair; preserve
+            existing proofs otherwise. No contract or generated-output edits were allowed.
+            External source blockers: none recorded.
+            Source Bead close receipt: Actor-engine findings repaired; focused integration,
+            rewrite types/static, coverage, unused, formatting/diff, owner lint, and root checks
+            passed; independent same-snapshot review passed. These are historical source-Bead
+            receipts, not results verified against the current checkout.
+        acceptance
+            Expected: Named actor-engine findings are cleared without semantic weakening; the
+            actor-engine/runtime proof remains green, required focused/static/coverage/unused and
+            root checks pass, and independent same-snapshot review finds no blocker.
+            Check: source-Bead close receipt and reviewer outcome only; no current checkout result
+            is claimed.

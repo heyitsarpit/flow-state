@@ -1,0 +1,621 @@
+phase P21
+title Runtime ownership repair
+
+tasks
+    T200
+        title        P00 — Adopt the reviewed Phase 2.1 preparation baseline
+        status       done
+        priority     high
+        derives_from [@plan.Verification.D1, @plan.Verification.C1, @plan.Verification.V8]
+        description
+            Source Bead flow-state-e7p.13.0 (closed).
+            Deliverable: adopt the reviewed preparation snapshot as a reproducible
+            starting point; it is evidence, not runtime implementation.
+            Allowed paths: only the preparation files listed in the source Bead
+            handoff. Keep contracts, frozen code, generated output, and unrelated work
+            outside scope.
+        acceptance
+            - The preparation boundary and exact diff are recorded with the source
+              checks.
+            - Independent review receipts passed at adoption; this does not claim
+              runtime behavior.
+            - Evidence: source Bead handoff, preparation diff, and check receipts.
+
+    T201
+        title        P01 — Adopt preparation and prove stable-admission waiter interruption
+        status       done
+        priority     high
+        derives_from [@plan.Runtime.D1, @plan.Runtime.C1, @plan.Runtime.V3]
+        description
+            Source Bead flow-state-e7p.13.14 (closed).
+            Deliverable: prove that interrupting one stable-admission follower leaves
+            the leader running and able to admit exactly once.
+            Allowed paths: packages/flow-state-rewrite/src/runtime/runtime.ts and its
+            runtime integration tests.
+        acceptance
+            - The follower observes interruption while the same-ref leader succeeds
+              once.
+            - Lookup returns the leader's actor and runtime close succeeds.
+            - Evidence: assembled admission-path proof and same-snapshot architecture,
+              contract, and bug reviews.
+
+    T202
+        title        P01 — Capture app facts and complete typed admission
+        status       done
+        priority     high
+        blocked_by   [@task.Rewrite.T200, @task.Rewrite.T201]
+        derives_from [@plan.Runtime.D1, @plan.Runtime.C1, @plan.Runtime.V2, @plan.Runtime.V3]
+        description
+            Source Bead flow-state-e7p.13.1 (closed).
+            Deliverable: capture admitted machine facts at app construction and make
+            actor admission typed, ordered, and rollback-safe.
+            Allowed paths: packages/flow-state-rewrite/src/runtime app-plan,
+            admission, directory, and focused test owners.
+        acceptance
+            - Admission follows capture, validate, reserve, prepare, attach, activate,
+              register, then expose.
+            - Stable and local identity slots, rollback, passive lookup, and exact
+              machine witnesses pass owner proofs.
+            - Evidence: accepted P01 owner proofs and final source handoff.
+
+    T203
+        title        P02 repair — Keep lifecycle snapshots as values
+        status       done
+        priority     high
+        derives_from [
+                     @plan.Runtime.D2,
+                     @plan.Runtime.V5,
+                     @plan.Verification.D2,
+                     @plan.Verification.V2
+                     ]
+        description
+            Source Bead flow-state-e7p.13.2.1 (closed).
+            Deliverable: remove snapshot back-pointers and substitute-cell recovery so
+            lifecycle snapshots contain values only.
+            Allowed paths: packages/flow-state-rewrite/src/runtime/lifecycle.ts and
+            focused lifecycle owner tests.
+        acceptance
+            - Snapshots no longer recover or fabricate ActorCell handles.
+            - Lifecycle command behavior and supplied-clock behavior remain intact.
+            - Evidence: focused checks and architecture, contract, and bug review
+              receipts in the source Bead.
+
+    T204
+        title        P02 — Own runtime services, Clock, and actor lifetime
+        status       done
+        priority     high
+        blocked_by   [@task.Rewrite.T202, @task.Rewrite.T203]
+        derives_from [@plan.Runtime.D2, @plan.Runtime.C2, @plan.Runtime.V3, @plan.Runtime.V5]
+        description
+            Source Bead flow-state-e7p.13.2 (closed).
+            Deliverable: make RuntimeOwner own provided services, readiness, runtime
+            Scope, and actor lifetimes.
+            Allowed paths: packages/flow-state-rewrite/src/runtime runtime owner,
+            actor lifetime, and focused tests.
+        acceptance
+            - Readiness has one shared cold attempt and one cached terminal Exit;
+              followers interrupt independently.
+            - Actor work and deadlines use the captured runtime Scope and Clock;
+              release joins the full child Exit.
+            - Evidence: focused runtime and owner checks plus required reviewer
+              receipts.
+
+    T205
+        title        P03 — Preserve cleanup ownership and full failure causes
+        status       done
+        priority     high
+        blocked_by   [@task.Rewrite.T204]
+        derives_from [
+                     @plan.Runtime.D2,
+                     @plan.Runtime.C2,
+                     @plan.Runtime.V5,
+                     @plan.Diagnostics.D2,
+                     @plan.Diagnostics.V2
+                     ]
+        description
+            Source Bead flow-state-e7p.13.3 (closed).
+            Deliverable: preflight lifecycle release and preserve every cleanup
+            Exit/Cause through ordered retries.
+            Allowed paths: packages/flow-state-rewrite/src/runtime lifecycle, cleanup,
+            and owner tests.
+        acceptance
+            - Fallible preflight completes before admission closes or resources
+              release.
+            - Cleanup visits every participant in reverse acquisition order and
+              retries only failed explicit stages.
+            - Typed failures, defects, interruptions, and cleanup failures remain
+              observable; evidence records the source checks and reviews.
+            - Evidence: lifecycle ordering proofs, scoped checks, and review receipts
+              are recorded in the source Bead.
+
+    T206
+        title        P04 — Build Journal acceptance, ordering, and credits
+        status       done
+        priority     high
+        blocked_by   [@task.Rewrite.T204, @task.Rewrite.T205]
+        derives_from [
+                     @plan.Runtime.D2,
+                     @plan.Runtime.V4,
+                     @plan.Runtime.V6,
+                     @plan.Artifacts.D1,
+                     @plan.Artifacts.V4
+                     ]
+        description
+            Source Bead flow-state-e7p.13.4 (closed).
+            Deliverable: give EvidenceJournal sole ownership of accepted sequence,
+            permits, attachments, credits, and close.
+            Allowed paths: packages/flow-state-rewrite/src/runtime evidence journal
+            and sink owners with focused tests.
+        acceptance
+            - Accepted sequences are gap-free; precommit cancellation leaves no
+              numbered hole.
+            - Attempt-owned credits cannot be stolen or stranded, and lifecycle
+              outcomes retain terminal capacity.
+            - Evidence ordering, cancellation, credit ownership, P10 handoff, checks,
+              and reviews are recorded in the source Bead.
+            - Evidence: journal behavior proofs, the P10 handoff, scoped checks, and
+              review receipts are recorded in the source Bead.
+
+    T207
+        title        P05 — Publish one atomic ActorPublication cut
+        status       done
+        priority     high
+        blocked_by   [@task.Rewrite.T205, @task.Rewrite.T206]
+        derives_from [@plan.Runtime.D2, @plan.Runtime.C1, @plan.Runtime.V4, @plan.Runtime.V5]
+        description
+            Source Bead flow-state-e7p.13.5 (closed).
+            Deliverable: make ActorPublication the sole reader-visible actor truth and
+            commit each complete publication cut atomically.
+            Allowed paths: packages/flow-state-rewrite/src/runtime publication, actor,
+            and focused test owners.
+        acceptance
+            - Snapshot, revision, fence, and context lineage publish as one committed
+              cut.
+            - Store commit, publication, evidence acceptance, and acknowledgement
+              retain their required order.
+            - Restore, lifecycle, passive projection, behavior, checks, and reviews
+              are recorded in the source Bead.
+            - Evidence: publication, restore, lifecycle, and projection proofs plus
+              scoped check and review receipts are recorded in the source Bead.
+
+    T208
+        title        P06 — Own bounded mailbox admission and streams
+        status       done
+        priority     high
+        blocked_by   [@task.Rewrite.T207]
+        derives_from [@plan.Runtime.D2, @plan.Runtime.V4, @plan.Runtime.V5]
+        description
+            Source Bead flow-state-e7p.13.6 (closed).
+            Deliverable: make one bounded FIFO mailbox own command and
+            projection-ticket admission; make subscriptions own replay and terminal
+            delivery.
+            Allowed paths: packages/flow-state-rewrite/src/runtime mailbox, actor,
+            stream, and focused test owners.
+        acceptance
+            - Reserved control admission, mapped continuations, acknowledgement, and
+              FIFO order pass owner proofs.
+            - Streams replay committed truth, preserve ordered cuts, and complete
+              after disposal without waiting for paused readers.
+            - Evidence: source owner proofs, focused checks, and final reviewer
+              receipts.
+
+    T209
+        title        P07 — Commit exact context selection, lineage, and debt
+        status       done
+        priority     high
+        blocked_by   [@task.Rewrite.T202, @task.Rewrite.T207]
+        derives_from [@plan.Runtime.D1, @plan.Runtime.D2, @plan.Runtime.C1, @plan.Runtime.V5]
+        description
+            Source Bead flow-state-e7p.13.7 (closed).
+            Deliverable: select context purely and commit exact provider lineage and
+            per-edge revision debt only after publication acknowledgement.
+            Allowed paths: packages/flow-state-rewrite/src/runtime context model,
+            lineage, coordinator, and focused tests.
+        acceptance
+            - Successful values and attempted revisions remain separate; unresolved
+              ancestor debt merges without loss.
+            - Equality uses exact authored values while owned snapshots isolate caller
+              mutation.
+            - Evidence: context selection, lineage, equality, debt, follow-up, and
+              reviewer receipts in the source Bead.
+
+    T210
+        title        P07 follow-up — Align nested context equality
+        status       done
+        priority     high
+        parent       [@task.Rewrite.T209]
+        derives_from [@plan.Runtime.C1, @plan.Runtime.V5]
+        description
+            Source Bead flow-state-e7p.13.7.1 (closed).
+            Deliverable: use captured authored field identity for nested context
+            equality while retaining owned last-valid values.
+            Allowed paths: packages/flow-state-rewrite/src/runtime context selection
+            and its pure owner proofs.
+        acceptance
+            - Nested-only mutation through the same field reference does not publish a
+              change.
+            - Retained prior values remain isolated from external mutation.
+            - Evidence: focused pure proofs and all source reviewer confirmations.
+
+    T211
+        title        P07 surgical follow-up — Preserve selector registry identity
+        status       done
+        priority     high
+        parent       [@task.Rewrite.T210]
+        derives_from [@plan.Runtime.C1, @plan.Runtime.V5]
+        description
+            Source Bead flow-state-e7p.13.7.1.1 (closed).
+            Deliverable: recognize registered ContextSelector values by registry
+            identity without reading mutable fields.
+            Allowed paths: packages/flow-state-rewrite/src/runtime context ownership
+            and focused direct/nested proofs.
+        acceptance
+            - Mutating selector fields does not erase registered nominal identity
+              during ownership copying.
+            - Ordinary records and arrays remain structurally owned.
+            - Evidence: direct and nested identity proofs with final reviewer
+              receipts.
+
+    T212
+        title        P08 — Coordinate complete context waves and tickets
+        status       done
+        priority     high
+        blocked_by   [@task.Rewrite.T208, @task.Rewrite.T209]
+        derives_from [@plan.Runtime.D2, @plan.Runtime.V5]
+        description
+            Source Bead flow-state-e7p.13.8 (closed).
+            Deliverable: make ContextCoordinator own graph generations, captured
+            provider cuts, attempts, tickets, and edge barriers.
+            Allowed paths: packages/flow-state-rewrite/src/runtime context coordinator
+            and focused wave tests.
+        acceptance
+            - Each wave uses one captured graph generation and exact provider vector,
+              including diamonds and fanout.
+            - Tickets settle finitely across graph changes and shutdown; notification
+              does not run nested selection work.
+            - Evidence: focused proofs, checks, and final architecture, contract, and
+              bug reviews.
+
+    T213
+        title        P09 — Integrate admission, resume, credits, and shutdown
+        status       done
+        priority     high
+        blocked_by   [
+                     @task.Rewrite.T205,
+                     @task.Rewrite.T206,
+                     @task.Rewrite.T212,
+                     @task.Rewrite.T217
+                     ]
+        derives_from [@plan.Runtime.D2, @plan.Runtime.C2, @plan.Runtime.V3, @plan.Runtime.V5]
+        description
+            Source Bead flow-state-e7p.13.9 (closed).
+            Deliverable: share one typed admission/resume transaction and close
+            runtime owners in a reconciled order.
+            Allowed paths: packages/flow-state-rewrite/src/runtime runtime assembly,
+            actor, context, journal, and focused tests.
+        acceptance
+            - Resume validates providers, reacquires attachments, reconciles context,
+              then publishes active truth.
+            - Shutdown rejects queued work, settles tickets, releases actors and
+              credits, then closes Journal.
+            - Admission, resume, credit rollback, shutdown proofs, and reviewer
+              receipts are recorded in the source Bead.
+            - Evidence: integration proofs, scoped checks, and review receipts are
+              recorded in the source Bead.
+
+    T214
+        title        P10 — Enforce bounded sink retention and prefix drain
+        status       done
+        priority     high
+        blocked_by   [@task.Rewrite.T206, @task.Rewrite.T207]
+        derives_from [@plan.Runtime.D2, @plan.Runtime.V6, @plan.Artifacts.D1, @plan.Artifacts.V4]
+        description
+            Source Bead flow-state-e7p.13.10 (closed).
+            Deliverable: give each sink bounded queue, truncation boundary, delivery
+            failure, identity, and close ownership.
+            Allowed paths: packages/flow-state-rewrite/src/runtime evidence sink and
+            focused sink tests.
+        acceptance
+            - Capacity zero retains none, positive limits are exact, and overflow
+              drops newest records.
+            - Drain captures only the accepted prefix; delivery follows actor
+              acknowledgement and isolates sinks.
+            - Evidence: retention, prefix-drain, omission, identity, checks, and
+              review receipts.
+
+    T215
+        title        P11 — Own stream subscription, replay, and slow-reader delivery
+        status       done
+        priority     high
+        blocked_by   [
+                     @task.Rewrite.T208,
+                     @task.Rewrite.T212,
+                     @task.Rewrite.T213,
+                     @task.Rewrite.T214
+                     ]
+        derives_from [@plan.Runtime.D2, @plan.Runtime.V5, @plan.Runtime.V6]
+        description
+            Source Bead flow-state-e7p.13.11 (closed).
+            Deliverable: complete consuming-scope stream ownership, ordered replay,
+            terminal completion, and unread-publication retention.
+            Allowed paths: packages/flow-state-rewrite/src/runtime stream, actor, and
+            focused subscription tests.
+        acceptance
+            - Late and paused readers observe committed replay and terminal truth
+              without delaying disposal.
+            - Slow-reader retention and callback-defect completion are
+              production-owner behavior.
+            - Evidence: stream proofs, checks, and independent reviewer receipts in
+              the source Bead.
+
+    T216
+        title        P13 — Implement behavior-only policy rules and proof fixtures
+        status       done
+        priority     high
+        blocked_by   [
+                     @task.Rewrite.T200,
+                     @task.Rewrite.T202,
+                     @task.Rewrite.T204,
+                     @task.Rewrite.T205,
+                     @task.Rewrite.T206,
+                     @task.Rewrite.T207,
+                     @task.Rewrite.T208,
+                     @task.Rewrite.T209,
+                     @task.Rewrite.T212,
+                     @task.Rewrite.T213,
+                     @task.Rewrite.T214,
+                     @task.Rewrite.T215
+                     ]
+        derives_from [
+                     @plan.Verification.D2,
+                     @plan.Verification.D4,
+                     @plan.Verification.D6,
+                     @plan.Verification.V2
+                     ]
+        description
+            Source Bead flow-state-e7p.13.13 (closed).
+            Deliverable: add missing syntax checks and proof fixtures while keeping
+            runtime cleanup at its real owner boundary.
+            Allowed paths: the Phase 2.1 anti-slop rules and fixture tests named in
+            the source Bead handoff; no contracts or runtime-source cleanup.
+        acceptance
+            - Rules distinguish prohibited behavior, preferred patterns, and
+              legitimate exceptions with executable fixtures.
+            - Self-referential policy receipts are removed; no policy rule reads
+              task-tracker or contract state.
+            - Source Bead closed administratively when Phase 2.2 superseded final
+              validation; no fresh final-gate result is claimed.
+            - Evidence: accepted policy artifacts and earlier review receipts remain
+              in the source Bead; no new final-validation receipt is claimed.
+
+    T217
+        title        P08.5 — Eliminate open lint errors from the workspace check
+        status       done
+        priority     high
+        blocked_by   [@task.Rewrite.T212]
+        derives_from [@plan.Verification.D2, @plan.Verification.D6, @plan.Verification.V2]
+        description
+            Source Bead flow-state-e7p.13.15 (closed).
+            Deliverable: resolve the recorded check-fix error backlog at its owning
+            type boundaries.
+            Allowed paths: the owner files identified by the source diagnostic
+            inventory; preserve contracts, frozen packages, generated output, and
+            unrelated work.
+        acceptance
+            - The recorded check-fix errors reach zero without broad suppression or
+              erased type information.
+            - Focused behavior/type checks, formatting, relevant package checks, and
+              required reviews pass.
+            - Evidence: source diagnostic inventory, scoped results, diff receipt, and
+              reviewer approvals.
+
+    T218
+        title        P16 — Clear Phase 2.1 owner-file lint diagnostics
+        status       done
+        priority     high
+        blocked_by   [
+                     @task.Rewrite.T219,
+                     @task.Rewrite.T220,
+                     @task.Rewrite.T221,
+                     @task.Rewrite.T222
+                     ]
+        derives_from [@plan.Verification.D2, @plan.Verification.D6, @plan.Verification.V2]
+        description
+            Source Bead flow-state-e7p.13.16 (closed).
+            Deliverable: resolve all Phase 2.1 owner-file lint diagnostics through
+            four disjoint reviewed slices.
+            Allowed paths: the four owner groups in child Tasks T219–T222; keep root
+            metadata, frozen package, and unrelated files out of scope.
+        acceptance
+            - All four owner-file slices close with zero scoped diagnostics and
+              reviewed handoffs.
+            - Out-of-scope metadata, missing scripts, phantom dependencies, and
+              baseline failures stay classified separately.
+            - Evidence: each child Task's diagnostic inventory, checks, and review
+              receipts.
+
+    T219
+        title        Lint cleanup — ActorEngine owner
+        status       done
+        priority     high
+        derives_from [@plan.Verification.D2, @plan.Verification.D6, @plan.Verification.V2]
+        description
+            Source Bead flow-state-e7p.13.16.1 (closed).
+            Deliverable: clear warnings in actor-engine.ts at the owner boundary.
+            Allowed paths: packages/flow-state-rewrite/src/runtime/actor-engine.ts and
+            necessary focused proofs.
+        acceptance
+            - Actor-cell ownership, cleanup order, public behavior, and type
+              relationships remain intact.
+            - Owner tests, type/static checks, formatting, workspace check, and diff
+              check pass with zero scoped warnings.
+            - Evidence: before/after diagnostics and independent review recorded in
+              the source Bead.
+
+    T220
+        title        Lint cleanup — Evidence owner family
+        status       done
+        priority     high
+        derives_from [@plan.Verification.D2, @plan.Verification.D6, @plan.Verification.V2]
+        description
+            Source Bead flow-state-e7p.13.16.2 (closed).
+            Deliverable: clear diagnostics in EvidenceJournal, sink, and their
+            behavior proofs.
+            Allowed paths: packages/flow-state-rewrite/src/runtime/evidence.ts,
+            evidence-sink.ts, evidence.test.ts.
+        acceptance
+            - Evidence sequence, retention, proof meaning, and identity ownership
+              remain intact.
+            - The three owned files have zero scoped lint diagnostics; the evidence
+              suite and focused checks pass.
+            - Evidence: source diagnostic inventory, checks, and reviewer receipt.
+
+    T221
+        title        Lint cleanup — Runtime owner and lifecycle
+        status       done
+        priority     high
+        derives_from [@plan.Verification.D2, @plan.Verification.D6, @plan.Verification.V2]
+        description
+            Source Bead flow-state-e7p.13.16.3 (closed).
+            Deliverable: clear diagnostics in RuntimeOwner and lifecycle owners
+            without changing cleanup semantics.
+            Allowed paths: packages/flow-state-rewrite/src/runtime/runtime-owner.ts
+            and lifecycle.ts.
+        acceptance
+            - RuntimeOwner/ActorCell ownership, cleanup ordering, Cause truth, and
+              lifecycle behavior remain intact.
+            - Owned diagnostics reach zero; owner tests, rewrite type/static checks,
+              formatting, and diff check pass.
+            - Evidence: before/after diagnostics and review receipts in the source
+              Bead.
+
+    T222
+        title        Lint cleanup — Context and runtime owners
+        status       done
+        priority     high
+        derives_from [@plan.Verification.D2, @plan.Verification.D6, @plan.Verification.V2]
+        description
+            Source Bead flow-state-e7p.13.16.4 (closed).
+            Deliverable: clear diagnostics in ContextCoordinator and Runtime owners.
+            Allowed paths:
+            packages/flow-state-rewrite/src/runtime/context-coordinator.ts and
+            runtime.ts.
+        acceptance
+            - Context and runtime ownership, lifecycle, and concurrency behavior
+              remain intact.
+            - Owned diagnostics reach zero; context-wave, runtime, type, static,
+              format, and diff checks pass.
+            - Evidence: before/after diagnostics and combined architecture, contract,
+              and bug review.
+
+    T223
+        title        P17 — Repair the pinned platform dependency mismatch
+        status       done
+        priority     high
+        derives_from [@plan.Verification.C1, @plan.Verification.C5, @plan.Verification.V8]
+        description
+            Source Bead flow-state-e7p.13.17 (closed).
+            Deliverable: restore a coherent pinned Effect platform dependency family
+            without runtime edits.
+            Allowed paths: nub.lock and package-manager metadata needed to preserve
+            the declared pinned versions.
+        acceptance
+            - The incompatible platform resolution is removed and frozen-package CLI
+              tests pass after a pinned install.
+            - Runtime source, contracts, generated output, and frozen package source
+              remain untouched.
+            - Evidence: exact before/after dependency and command receipts plus
+              independent review.
+
+    T224
+        title        P12 follow-up — Resolve two runtime baseline failures
+        status       done
+        priority     high
+        derives_from [
+                     @plan.Runtime.V4,
+                     @plan.Runtime.V5,
+                     @plan.Verification.D6,
+                     @plan.Verification.V8
+                     ]
+        description
+            Source Bead flow-state-e7p.13.18 (closed).
+            Deliverable: classify the two recorded runtime expectations against
+            committed publication and disposal behavior.
+            Allowed paths: the named runtime test assertions and production-owner
+            proofs only if contract behavior requires repair; preserve unrelated
+            paths.
+        acceptance
+            - Both failures have a decisive owner disposition or a production-owner
+              repair; no broad refactor or assertion weakening is used.
+            - The accepted receipt classifies both as stale expectations for committed
+              terminal publication and lifecycle revision.
+            - Evidence: focused checks, owner proofs, and independent architecture,
+              contract, and bug reviews.
+
+    T225
+        title        P12 follow-up — Restore the reviewed lockfile after install drift
+        status       done
+        priority     high
+        derives_from [@plan.Verification.C1, @plan.Verification.C5, @plan.Verification.V8]
+        description
+            Source Bead flow-state-e7p.13.19 (closed).
+            Deliverable: retain only the reviewed P17 lockfile repair after an
+            accidental forced reinstall.
+            Allowed paths: nub.lock; relink dependencies with the frozen-lockfile
+            command from the source Bead.
+        acceptance
+            - nub.lock contains only the intended platform-node-shared pin change and
+              no unrelated resolution drift.
+            - A frozen relink leaves the lockfile unchanged; pinned modules and
+              workspace tools resolve coherently.
+            - Evidence: lock diff, frozen relink, direct resolution checks, and three
+              reviewer receipts.
+
+    T226
+        title        P12 — Validate and promote Phase 2.1
+        status       done
+        priority     high
+        blocked_by   [
+                     @task.Rewrite.T200,
+                     @task.Rewrite.T202,
+                     @task.Rewrite.T204,
+                     @task.Rewrite.T205,
+                     @task.Rewrite.T206,
+                     @task.Rewrite.T207,
+                     @task.Rewrite.T208,
+                     @task.Rewrite.T209,
+                     @task.Rewrite.T212,
+                     @task.Rewrite.T213,
+                     @task.Rewrite.T214,
+                     @task.Rewrite.T215,
+                     @task.Rewrite.T216,
+                     @task.Rewrite.T217,
+                     @task.Rewrite.T218,
+                     @task.Rewrite.T223,
+                     @task.Rewrite.T224,
+                     @task.Rewrite.T225
+                     ]
+        derives_from [
+                     @plan.Runtime.V3,
+                     @plan.Runtime.V4,
+                     @plan.Runtime.V5,
+                     @plan.Runtime.V6,
+                     @plan.Verification.D6,
+                     @plan.Verification.C5,
+                     @plan.Verification.V8
+                     ]
+        description
+            Source Bead flow-state-e7p.13.12 (closed).
+            Deliverable: independently validate integrated Phase 2.1 owners and policy
+            receipts; this is a gate, not an implementation owner.
+            Allowed paths: no product edits; record integrated owner proofs, required
+            checks, review findings, and promotion disposition in the source handoff.
+        acceptance
+            - Source status is closed by user-directed administrative action; final
+              phase validation was waived.
+            - No fresh integrated verification, replacement promotion, or satisfied
+              Plan outcome is claimed.
+            - Defer broad Runtime O3–O6 until their remaining runtime, host, Story,
+              artifact, and persistence proofs pass.
+            - Evidence: administrative close reason and prior owner receipts are in
+              the source Bead; no fresh integrated gate receipt exists.

@@ -1,0 +1,18 @@
+epic         Rewrite
+title        Replace the library under Workflow authority
+status       archived
+description
+    Workflow authority transfer is complete. Plans and Tasks own current requirements,
+    decisions, project status, blockers, and proof obligations for the rewrite.
+    The former contract pack and Bead source Epic flow-state-e7p with its 191 child
+    records (192 records total) are historical provenance. Their wording, statuses,
+    dependency edges, and receipts are frozen source snapshots, not current readiness.
+    They cannot override Workflow or establish current implementation proof.
+    Independent source-content and ID crosswalk review passed: 192/192 Bead records,
+    9/9 phase edges, and clause, proof, BEH, and old alias mappings are covered.
+    This closes mapping review only. Cutover O2 disposition work and V3 implementation
+    proofs remain pending; product cutover also remains pending.
+    The user selected bootstrap order: prepare detached data, acquire Implementation,
+    then install actors and store. Workflow records own this decision.
+    Runtime implementation remains incomplete. Package and API cutover are later work
+    gated by the Workflow cutover and verification outcomes.

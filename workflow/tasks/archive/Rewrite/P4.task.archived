@@ -1,0 +1,277 @@
+phase P4
+title Persistence and evidence
+tasks
+    T400
+        title        Implement persistence providers and storage adapters
+        status       draft
+        priority     high
+        blocked_by   [@task.Rewrite.T306]
+        derives_from [
+                     @plan.Artifacts.D1,
+                     @plan.Artifacts.C1,
+                     @plan.Artifacts.C3,
+                     @plan.Artifacts.V1,
+                     @plan.Verification.V6
+                     ]
+        description
+            Source Bead: flow-state-e7p.4.1 (open); phase Bead:
+            flow-state-e7p.4 (open).
+            Proof IDs: PROOF-004, PROOF-009, PROOF-014, HOST-P04.
+
+            Deliver an inert Runtime-owned persistence provider, storage read/write/
+            remove, Web Storage and IndexedDB adapters, pure synchronous codecs,
+            identity-only filters, per-family persistence declarations, and ordered,
+            coalesced writes with truthful final flush.
+
+            Absorb the provider, storage, codec, and persistence-lifetime proof
+            obligations from retired flow-state-e7p.4.6 (closed). Cross-file blocker:
+            P3 task T306, in workflow/tasks/Rewrite/P3.task, must complete before
+            implementation. Coordinate with the Rewrite integrator. Keep the private
+            persistence owner and local tests under
+            packages/flow-state-rewrite/src/persistence/ and its local test/ subtree.
+            Within this owner directory, this task owns providers, storage adapters,
+            and provider lifecycle. Keep public exports on their existing routes.
+        acceptance
+            - Construction and an absent provider perform no storage I/O.
+            - Writes remain ordered; failures preserve Runtime truth and the last good
+            record. Filters cannot mutate data or select undeclared records.
+            - Web Storage and IndexedDB failures retain typed categories. Default and
+            custom codecs reject malformed data; custom-codec failure changes no
+            Runtime state and retains the last good record.
+            - Focused provider tests and nub run lint pass for the changed slice.
+
+    T401
+        title        Implement durable identity and boot restoration
+        status       draft
+        priority     high
+        blocked_by   [@T400, @task.Rewrite.T306]
+        derives_from [
+                     @plan.Artifacts.D1,
+                     @plan.Artifacts.C1,
+                     @plan.Artifacts.C3,
+                     @plan.Artifacts.V2,
+                     @plan.Verification.V6
+                     ]
+        description
+            Source Bead: flow-state-e7p.4.2 (open); phase Bead:
+            flow-state-e7p.4 (open).
+            Proof IDs: PROOF-002, PROOF-004, PROOF-009, PROOF-014, HOST-P01, HOST-P04.
+
+            Deliver the private immutable boot carrier, exact app and persistence
+            identity, module/machine resolution, stable-ref encoding and bindings.
+            Order the boot stages as pure detached preparation, then Implementation
+            acquisition, then actor/Store installation, graph sealing, and activation.
+
+            Absorb the durable-reference and boot-identity proof obligations from
+            retired flow-state-e7p.4.6 (closed). Cross-file blocker: P3 task T306, in
+            workflow/tasks/Rewrite/P3.task, must complete before implementation.
+            Keep the private boot-restoration owner and local tests under
+            packages/flow-state-rewrite/src/persistence/ and its local test/ subtree.
+            Within this owner directory, this task owns identity validation and
+            provider-first restoration during actor/Store installation. Keep public
+            exports on their existing routes.
+        acceptance
+            - Foreign, malformed, duplicate, or ambiguous identity fails before
+            activation; opaque references cannot restore.
+            - Prepare and validate the boot carrier while detached, without actor or
+            Store installation. Acquire Implementation only after preparation; then
+            install the baseline silently, restoring providers before consumers, seal
+            the graph, and activate. Do not replay input, initializers, or streamed
+            outcomes. Opaque providers fail closed.
+            Mismatched app data cannot cross Runtimes.
+            - Stable-reference vectors cover UTF-8 boundaries, composed spelling,
+            decomposed spelling, and lone-surrogate rejection on pinned Node.
+            - Bun, Deno, Chromium, Gecko, and WebKit pass the compact same-codec
+            portability fixture. Focused tests and nub run lint pass.
+
+    T402
+        title        Implement context-closed capture and hydration
+        status       draft
+        priority     high
+        blocked_by   [@T400, @T401, @task.Rewrite.T306]
+        derives_from [
+                     @plan.Artifacts.D1,
+                     @plan.Artifacts.C1,
+                     @plan.Artifacts.C2,
+                     @plan.Artifacts.V2,
+                     @plan.Verification.V6
+                     ]
+        satisfies    [@plan.Artifacts.O3]
+        description
+            Source Bead: flow-state-e7p.4.3 (open); phase Bead:
+            flow-state-e7p.4 (open).
+            Proof IDs: PROOF-004, PROOF-009, PROOF-013, PROOF-014, HOST-P04, SNAP-P01.
+
+            Deliver one capture barrier shared with Store commits, stable actor and
+            provider closure, one consistent Store revision, declaration filtering,
+            and normalization of restored resources, interrupted or unknown
+            transactions, and new-generation streams. Fence stale writes and flush on
+            disposal.
+
+            Absorb capture, hydration, and persistence/evidence-boundary proof
+            obligations from retired flow-state-e7p.4.6 (closed). Cross-file blocker:
+            P3 task T306, in workflow/tasks/Rewrite/P3.task, must complete first.
+            Keep the private capture and hydration owner and local tests under
+            packages/flow-state-rewrite/src/persistence/ and its local test/ subtree.
+            Within this owner directory, this task owns consistent capture and
+            restoration normalization. Keep public exports on their existing routes.
+        acceptance
+            - Concurrent capture returns the specified retryable failure; no capture
+            observes a half-published Store state.
+            - Local, opaque, disposed, or tombstoned actors are excluded. Live cells,
+            fibers, scopes, cursors, commands, and emissions are never persisted.
+            - Missing stream input and non-durable context fail closed. Hydration does
+            not replay input or events, restores context in dependency order, and
+            stale writes cannot replace newer truth. Concurrent capture remains
+            retryable and custom-codec failure commits no Runtime mutation.
+            - Focused capture and hydration tests and nub run lint pass.
+
+    T403
+        title        Implement the canonical bounded wire model
+        status       draft
+        priority     high
+        blocked_by   [@T401, @T402, @task.Rewrite.T306]
+        derives_from [
+                     @plan.Artifacts.D1,
+                     @plan.Artifacts.C3,
+                     @plan.Artifacts.V3,
+                     @plan.Artifacts.V5,
+                     @plan.Verification.V6
+                     ]
+        satisfies    [@plan.Artifacts.O4]
+        description
+            Source Bead: flow-state-e7p.4.4 (open); phase Bead:
+            flow-state-e7p.4 (open).
+            Proof IDs: PROOF-010, PROOF-014, REV-MIG-005.
+
+            Deliver one package-private decoded model, canonical strict UTF-8 parser
+            and encoder, exact behavior/trace/diagnostic/Story failure/checkpoint/
+            record/operation/CLI unions, AppPlan fingerprint, canonical ordering,
+            bounded identity and envelope, and at most one gzip member.
+
+            Absorb canonical wire, fingerprint, bounds, and parser proof obligations
+            from retired flow-state-e7p.4.6 (closed). Cross-file blocker: Phase 3
+            P3 task T306, in workflow/tasks/Rewrite/P3.task, must complete first. Keep
+            wire ownership in the private codec module under
+            packages/flow-state-rewrite/src/wire/ and its existing tests/ subtree.
+            Keep public exports on their existing routes.
+        acceptance
+            - Public-byte round trips and negative vectors enforce strict UTF-8,
+            canonical ordering, exact bounds, fingerprints, and legacy rejection.
+            - Detectable duplicate keys, malformed unions, required nulls, trailing
+            bytes, and multiple gzip members fail with stable diagnostics.
+            - Invalid identities, ownership, defaults, Story metadata, lifecycle
+            tuples, and inconsistent trace evidence reject before activation with
+            typed diagnostics.
+            - Full vectors pass on pinned Node; Bun, Deno, Chromium, Gecko, and WebKit
+            pass the compact shared-codec fixture.
+            - Tests exercise public byte paths, not private hostile reflection input.
+            Focused codec tests and nub run lint pass.
+
+    T404
+        title        Implement inspection evidence and share artifacts
+        status       draft
+        priority     high
+        blocked_by   [@T403, @task.Rewrite.T306]
+        derives_from [
+                     @plan.Artifacts.D1,
+                     @plan.Artifacts.D2,
+                     @plan.Artifacts.C3,
+                     @plan.Artifacts.C4,
+                     @plan.Artifacts.V4,
+                     @plan.Artifacts.V5,
+                     @plan.Verification.V6,
+                     @plan.PublicSurface.V6
+                     ]
+        description
+            Source Bead: flow-state-e7p.4.5 (open); phase Bead:
+            flow-state-e7p.4 (open).
+            Proof IDs: PROOF-010, PROOF-013, PROOF-014, API-P04.
+
+            Deliver one-attachment asynchronous inspection sinks, exact snapshot and
+            clear surface, caller capacity and default, globally ordered accepted
+            evidence, accepted-prefix drain, pure inspection, defensive raw artifact
+            bytes, fixed-path share redaction, canonical tuple manifests, and immutable
+            Story evidence/failure projections.
+
+            Absorb artifact, sink, Story-evidence, and inspection proof obligations
+            from retired flow-state-e7p.4.6 (closed). Provenance: flow-state-e7p.4.8
+            (closed decision) and flow-state-e7p.4.9 (closed contract reconciliation)
+            define the share export input; neither adds a separate implementation.
+            The share encoder belongs in the single private artifact module under
+            packages/flow-state-rewrite/src/wire/; inspection sink ownership stays
+            under packages/flow-state-rewrite/src/runtime-next/evidence/. Keep tests in
+            those modules' test/ or existing tests/ subtrees. Cross-file blocker: P3
+            task T306, in workflow/tasks/Rewrite/P3.task, must complete. Coordinate
+            CLI-facing coverage with the Phase 5 integrator.
+        acceptance
+            - Sinks cannot block or mutate Runtime truth and detach on failure.
+            Capacity zero, default capacity, late attachment, clear, drain, and
+            disposal have observable production-owner proofs.
+            - Evidence ordering and truncation are exact; Story evidence is immutable,
+            and raw Cause is not serialized.
+            - Share output mirrors the complete raw trace under its distinct identity,
+            preserves identity and order, and redacts only listed paths. Each listed
+            path resolves to the fixed replacement in canonical tuple order; raw
+            Runtime truth, persistence, and evidence remain unchanged. Raw import
+            rejects share data as WrongArtifactKind.
+            - Missing, duplicate, overlapping, or structural redaction paths reject;
+            no new public export route is implied by these private owner locations.
+            - Empty share policy returns byte-identical raw output. No CLI, replay,
+            persistence, boot, or evidence-authority share input is added.
+            - Focused evidence and artifact tests and nub run lint pass.
+
+    T405
+        title        Validate Phase 4 owners and proof coverage
+        status       draft
+        priority     high
+        blocked_by   [@T400, @T401, @T402, @T403, @T404, @task.Rewrite.T306]
+        derives_from [
+                     @plan.Artifacts.D1,
+                     @plan.Artifacts.D2,
+                     @plan.Artifacts.C1,
+                     @plan.Artifacts.C2,
+                     @plan.Artifacts.C3,
+                     @plan.Artifacts.C4,
+                     @plan.Artifacts.V1,
+                     @plan.Artifacts.V2,
+                     @plan.Artifacts.V3,
+                     @plan.Artifacts.V4,
+                     @plan.Artifacts.V5,
+                     @plan.Verification.V6
+                     ]
+        description
+            Source Bead: flow-state-e7p.4.7 (open); phase Bead:
+            flow-state-e7p.4 (open).
+
+            Run the read-only Phase 4 correctness gate over changed slices and named
+            production-owner proofs. Review only Phase 4 changes, direct trace
+            provenance, feature layout, failure and cleanup lanes, and required
+            retention/deletion evidence. Do not re-audit unchanged phases or the full
+            contract pack.
+
+            The retired proof tracker flow-state-e7p.4.6 (closed) is absorbed by
+            T400–T404; its closure did not claim completed proofs. Cross-file blocker:
+            P3 task T306, in workflow/tasks/Rewrite/P3.task, must complete first.
+            Coordinate the remaining CLI-facing proof with the Phase 5 integrator.
+
+            Outcome disposition: T402 owns Artifacts O3 and T403 owns O4. O1 spans
+            T400 and T402; O2 spans T401 and T402; O5 spans P3 T305 and T404; O6
+            spans T403 and T404. These outcomes remain deferred until those owners
+            deliver the integrated behavior and proof coverage. O7 remains with the
+            Story/model task in Phase 5.
+        acceptance
+            - Every named Phase 4 invariant has a decisive production-path proof;
+            focused checks and nub run lint pass for changed slices.
+            - Check Verification V6 across restore-before-activation, context closure,
+            persistence failures, bounded artifact validation, sink ordering, and
+            redaction. Confirm no replay, partial restore, or share import path remains.
+            - Return Contract IDs; Changed files; Focused checks; Lint pass/fail;
+            Behavior reviewed; Fixed findings; Blocking findings; Remaining advisory
+            findings.
+            - No blocking finding, unclassified proof gap, hidden compatibility,
+            duplicate authority, cast/any erasure, uncontrolled async work, partial
+            update, or implementation-detail-only proof remains.
+            - Equivalent durable UTF-8 and stable-reference vectors pass on pinned
+            Node, Bun, Deno, Chromium, Gecko, and WebKit. No compile-time UTF-8
+            tables are required.

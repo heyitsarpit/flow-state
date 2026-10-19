@@ -1,0 +1,449 @@
+plan Operations
+title   Operations and store semantics
+status  archived
+goal
+    Realize the migrated operation semantics with one canonical resource store,
+    actor-owned occurrences, generation fencing, and passive exact-key projections.
+    This Plan owns migrated semantics under @plan.Verification.D1; source contracts
+    supply provenance and trace IDs. Runtime identity belongs to @plan.Runtime.O2 and
+    @plan.Runtime.O1. Actor lifecycle belongs to @plan.Runtime.O5. Implementation and
+    product cutover remain pending under @plan.Cutover.O3 and @plan.Cutover.V7.
+outcomes
+    O1  Canonical store and named resource operations
+        One runtime-scoped StoreKernel owns one atomic StoreState. That state contains
+        descriptor IDs, canonical keys, committed bases/metadata, lookup generations,
+        ordered optimistic overlays, monotonic revision, and canonical-deduplicated
+        changed refs. Every mutation/publication passes through this owner. Its concrete
+        Effect primitive is private. Equal descriptor/K shares canonical data and
+        generations only within one Runtime. Actors retain independent bindings,
+        occurrences, projections, previews, and lifetimes.
+        StoreKernel returns projections/revisions and never invokes actors.
+        No competing canonical store, actor-private canonical cache, or overlay as shared
+        truth. Releasing one actor cannot change another actor's lifetime/effective
+        overlay. Cross-runtime browser roots, SSR requests, tests, and runtimes are
+        isolated. Canonical identity is defined once by
+        @plan.Runtime.O2; descriptor/P/K/declaration vocabulary is owned by
+        @plan.Runtime.O1 and @plan.Operations.O1.
+
+        A canonical revision advances for base, generation, freshness, invalidation,
+        hydration, and eviction changes. Applying/removing/replaying an actor overlay
+        advances only that actor's publication/overlay cursor. StoreFanout is the only
+        actor-facing StoreState path and owns the live mailbox registry plus exact
+        dependency reverse index. It offers compact monotonic revision facts only to
+        affected actors, after initiating snapshot publication, TurnRecord acceptance,
+        and acknowledgment. Recipients ignore stale revisions/undeclared refs and reread
+        current StoreState; adjacent projection-only facts may coalesce to newest revision
+        and union of refs. Never coalesce lifecycle, terminal-operation, cancellation,
+        stream-terminal, or mapped-event facts. Never subscribe actors directly to
+        StoreState, run transitions/mutate snapshots in fanout, or expose stale historical
+        payload as current. Owner-overlay facts go only to the initiating actor. Autonomous
+        commits may lack an initiating actor barrier. Cross-actor reads remain tear-free
+        and causally ordered; canonical changes reach affected actors after the initiating
+        publication.
+
+        DehydrateBarrier is package-private and shared by StoreKernel commit windows and
+        capture. Capture observes one StoreState revision and stable actor leases under
+        @plan.Artifacts.O3; unrelated state-only turns are ignored. Capture is allowed only
+        after a completed commit/publication boundary, never between actor store commit
+        and actor publication. The barrier is not a public consistency/transaction API.
+        This Plan owns StoreState commit and barrier exclusion; actor publication/acknowledgment
+        belongs to @plan.Runtime.O4, and Story/checkpoint capture to
+        @plan.Runtime.O6.
+
+        Generations fence stale completions even when interruption is requested. Canonical
+        store revision increments for canonical facts; actor preview apply/remove/replay
+        affects only initiating publication/overlay. Prepared actor/store revisions start
+        at 0. First generation/value revision/global evidence sequence is 1. Controlled
+        endpoint/subscription ordinals alone start at 0. Counters are non-negative safe
+        integers, increment before mutation, and fail before wrap/reuse/partial publication.
+        A collected store lifetime may restart generation/value revision at 1; actor and
+        global counters never reset. Late authoritative facts cannot overwrite or
+        republish current facts; async completion is a later actor turn. Public snapshot
+        revision and other shared identity laws are owned by
+        @plan.Runtime.O2 and @plan.Runtime.O5.
+
+
+        Flat named resource, transaction, and stream descriptors expose actor-bound O.
+        Keep descriptor access, reads, and work ownership separate:
+
+        - Listing descriptors, calling `O.name.key(P)`, reading `getData(K)` or
+        `getState(K)`, and constructing an unreturned plan are passive.
+        - Resource lookup and refetch are finite. Subscribe is continuing ownership.
+        `setData` is authoritative; `cancel(K)` is actor-owned finite cancellation.
+        - Streams are actor-owned continuing operations, not StoreKernel entries.
+        - An omitted transaction key projector means `K = []`.
+        - Offline state never blocks explicit lookup/subscribe/refetch or cancels work.
+        Reconnect/focus may refresh only active stale/missing subscriptions without an
+        in-flight generation.
+
+        Do not add a generic registry, implicit work, stream `cancel(K)`, browser-offline
+        admission gate, or generic paused-resource policy. Applications may gate their
+        own activities.
+
+        Only accepted event actions admit finite lookup/refetch occurrences. `cancel(K)`
+        cancels each current finite occurrence that the actor owns and whose key matches
+        K. Record accepted interruption and suppress later results. Interrupt shared work
+        only at its final owner. Cancellation never changes canonical data.
+
+        Fresh canonical lookup settlement may avoid adapter work. Stale, missing, or
+        invalidated lookup follows generation policy. Planned cancel, release, or
+        supersession is evidence-only cleanup; it invokes no authored mapper. Each
+        occurrence settles once. A canonical lookup success installs canonical data.
+
+        Transaction or stream output is not canonical unless an accepted mapping calls
+        `setData(K, value)`. Such a write fences older lookup generations and clears
+        invalidation/failure metadata. It advances revision/generation, publishes once,
+        and leaves continuing subscribers attached. An undefined updater declines.
+
+        Arbitrary cache mutation, implicit response mapping, generic writer registries, and
+        ordinary cache-clear escape hatches are forbidden. Boot, SSR, and fixture writes
+        use package-private HostWriteLease only. Do not add a generic runtime registry or
+        cache-clear escape hatch.
+
+        Continuing resource subscription maps exactly value(A), failure(E), defect(),
+        interrupt(). Activation publishes an existing canonical value once; later
+        canonical replacements map through value. Identity is compiled declaration slot
+        plus operation kind, exact descriptor, and K; neither plan object nor P is
+        identity. Equal normalized plans retain work; changed slot/kind/descriptor/K
+        releases the old binding once and admits the replacement. One shared generation
+        pins one P. Equal-value/overlay-only changes do not emit value; planned release
+        does not route interruption. Callers do not manage subscriptions; runtime-sized
+        subscribe-many is excluded. StoreKernel owns exact-key shared lookup generation
+        and temporary in-flight lease; actor scopes own registrations/activity leases.
+
+        Invalidation and clearing are scoped actor actions returned by accepted event
+        actions. Accept only exact [O.resource, K], declared reachable tags, and admitted
+        families. Validate all targets; expand against one pre-mutation index in
+        descriptor/K insertion order; first-seen deduplicate; reject invalid,
+        unauthorized, or beyond-256 expansion before allocation/mutation. Missing exact
+        targets and zero-match tags/families are successful no-ops. Nonempty invalidate
+        retains data/overlays while marking stale. Nonempty clear fences/removes data,
+        metadata, overlays, and interrupts under final-owner policy. Reject whole-runtime,
+        wildcard, zero-argument clear, partial mixed batches, direct lookup start from
+        invalidate, or conflicts that see a partially changed target set. Each nonempty
+        action publishes one atomic store revision. Surviving subscriptions observe
+        missing after clear and may reacquire normally.
+
+        Placeholder is descriptor-owned projection metadata, never an implicit write or
+        outcome. Unbound reads use committed base; actor-bound reads use base plus only
+        that actor's ordered preview layers. Updaters read committed base; equal
+        authoritative writes may refresh freshness but only effective-value changes emit
+        value changes. Tags derive only from canonical K. Placeholder defaults/status
+        cannot create a family; another actor's overlay and implicit canonical writes are
+        excluded. Passive reads do not alter ownership, freshness, revision, or work.
+
+        Resource snapshot identity is descriptor/K. P is complete executable input;
+        K is the ordered tuple from key(P); passive reads take K and execution takes P.
+        Equal keys do not switch a running generation's pinned P. Hydrated key-only
+        entries remain passive until a live binding supplies P. Resource projections
+        expose the retained family-specific status/generation/failure/retained-value/
+        collection shape delegated to @plan.PublicSurface.O3; limits are not state/cache
+        entry counts. Actor projection derives from current actor-owned bindings plus
+        shared exact descriptor/K StoreState. Releasing a binding removes that actor's
+        local projection but does not define canonical deletion; normal collection owns
+        eviction. Any actor may passively read an admitted same-runtime canonical entry
+        it never materialized. A missing exact read returns synthetic absent/idle without
+        inserting a record, acquiring a lease, changing freshness, advancing revision,
+        or starting work. No parallel state aliases/cross-product conditional types,
+        recursive type inspection, generic refs, unconditional idle retention rule, or
+        cross-runtime sharing.
+
+        Reader example from SNAPSHOTS.md snapshot-first forms:
+        ```ts
+        const snapshot = actor.getSnapshot();
+        const orderKey = snapshot.O.orderById.key({ orderId });
+        const order = snapshot.O.orderById.getData(orderKey);
+        const orderState = snapshot.O.orderById.getState(orderKey);
+        const submitState = snapshot.O.submitIntent.getState([submissionId]);
+        ```
+        Named family readers take canonical K; execution plans retain complete P. No
+        generic registry, bound entry, subscription, retry, reset, seed, retention, or
+        mutation method is implied. Exact-reader example from the snapshot-reader contract:
+        ```ts
+        const key = O.orderById.key({ orderId });
+        const data = O.orderById.getData(key);
+        const state = O.orderById.getState(key);
+        ```
+        No resources.get, transactions.get, enumeration, ref/byKey/byLane/require,
+        subscription/retry/reset/seed/retention/mutation, generic registry, or execution
+        method in a selector. Synchronous reads cannot run Effect/runSync, acquire Scope,
+        schedule work, or mutate runtime/store state. Unbound reads are committed base;
+        transaction updaters read canonical base; actor snapshots add only their own
+        ordered overlays. Tags derive only from canonical K.
+
+
+        Preserve the operation descriptor example from SEMANTICS.md:
+        ```ts
+        // Named declaration shape; each descriptor is admitted by the compiled machine plan.
+        type OperationExamples = {
+          orderById: "resource"; // key(P), lookup(P), subscribe(P)
+          submitIntent: "transaction"; // key(P), commit(P)
+          updates: "stream"; // key(P), subscribe(P)
+        };
+        ```
+    O2  Transaction admission, previews, and fencing
+        Transaction identity is exact descriptor plus canonical K; attempts are
+        actor-local generations. Completion requires actor ownership, descriptor/K, and
+        generation match. Old attempts are bounded inspection evidence, not an actor-
+        lifetime registry. No generic transaction registry, cross-actor lane, or
+        descriptor-only identity for keyed transactions. An omitted key projector means
+        K = []. Each admitted occurrence settles once. Retry is a new explicit event.
+        Shared identity is owned by @plan.Runtime.O2 and @plan.Runtime.O1.
+        Actor incarnation is owned by @plan.Runtime.O5.
+
+        Concurrency policies are actor-local per exact descriptor/K:
+
+        | Policy | Admission | Completion authority |
+        | --- | --- | --- |
+        | reject | decline second active attempt; no occurrence | current attempt |
+        | cancel | cancel prior, then admit replacement | replacement |
+        | allow | admit independent generations | current generation only for projection/route |
+        | serialize | queue exact-key materialized P FIFO | dequeued occurrence |
+
+        Policy rules:
+
+        - `reject` consumes no ordinal.
+        - `cancel` settles the prior attempt and removes its local preview. The replacement
+          receives a new ordinal.
+        - `allow` retains ordered preview layers.
+        - `serialize` previews only at dequeue; canceled queued work starts no adapter.
+        - Every admitted policy settles once; stale results are fenced.
+
+        No public transaction scope/lane/cross-actor scheduler,
+        automatic retry, partially expanded mixed-target mutation, or terminal-history
+        registry.
+
+        External transaction cancellation is truthful across the irreversible boundary.
+        Before dispatch, durably record remote identity/boundary state. Before the
+        irreversible boundary, abort may classify interruption without a mapped outcome.
+        After it, stop local observation and fence late publication; expose unknown or
+        reconciliation-required truth without claiming rollback. Reconciliation reuses
+        remote idempotency identity; compensation is a separate explicit operation.
+        Local preview may be discarded before the boundary. Do not create automatic retry
+        as a new request, implicit outbox/saga/rollback API, or remote-effect reversal
+        claim.
+
+        Each optimistic overlay carries initiating actor incarnation, transaction
+        occurrence, descriptor, and K; only that actor reads it. Success promotes
+        atomically to canonical StoreState then fanouts. Failure, defect, or pre-boundary
+        interruption removes only that layer and replays remaining layers. Promotion uses
+        base-revision CAS; changed base preserves remote canonical truth and creates an
+        initiating conflict issue. After boundary, local provisional removal retains
+        unknown/reconciliation-required projection; non-initiators receive only canonical
+        facts. Overlay is never shared canonical truth. Canonical promotion/rollback is
+        fenced and atomic.
+    O3  Activities, streams, timers, and cancellation
+        Activity identity uses stable compiled declaration slots. A continuing binding
+        identity is slot + operation kind + exact descriptor + K; P is retained input,
+        and activation generation is monotonic instance metadata. Equal fresh plans retain
+        work. Changed selector/kind/descriptor/K releases old once and acquires new.
+        false/null release only their own declaration. Finite resource/transaction work
+        comes only from accepted event-transition actions. Continuing work comes from
+        state activities or one independent onMemory declaration. Each onMemory entry
+        returns one plan, false, or null and owns/releases only itself. Resources/streams
+        are owned by activities or onMemory; streams are not resource-store entries and
+        have no actor cancel. A timer consumes its due generation once. Schedule its next refresh
+        only after
+        settlement. Failure waits one interval; no implicit retry occurs. onMemory.select
+        uses shared selector equality. Activation/reentry gets (current, previous: undefined).
+        Later changes get the immediately preceding value.
+        Compound activity starts parent-to-child and stops child-to-parent. One-shot timer
+        generations, explicit refresh polling, one binding per declaration, and one
+        app-owned aggregate resource/stream are allowed. No unsubscribe handles,
+        runtime-sized arrays, subscribeMany/subscribeEach, timer-inferred finite actions,
+        implicit retry, or unchanged compound-timer reset on descendant transition.
+
+        Activity bindings run under Effect.scoped. FiberMap owns keyed cancel replacement;
+        FiberSet owns independent allow work; one keyed Queue worker owns serialize.
+        Register cancellation and its fence before any scheduler can execute work. Use no
+        manual child Scope. Finalizers run once in reverse acquisition order. StoreKernel
+        owns exact-key lookup generations/in-flight leases; actor Scopes
+        own registrations/activity leases. Suspension is one serialized lane; resume
+        waits for finalizers before reconciling continuing declarations/due timers. Queued
+        finite interruption need not start an adapter. Continuing stream close has no
+        mapped outcome. Retain absolute timers and a minimal ignored-interruption fact.
+        A cleanup defect leaves actor suspended and blocks resume until owner/runtime
+        disposal; never replay finite work/emissions/input/initialization or claim
+        irreversible remote reversal.
+
+        Planned release is cleanup, not a routed outcome. Release activities and publish
+        cleanup facts if needed. Never synthesize a domain outcome or invoke an authored
+        interruption mapper. Cleanup defects become issues/receipts without rolling back
+        the already published transition. Normal remote completion, interruption, and
+        release failure remain distinct and release exactly once. Behaviorally visible
+        phased remote work requires an explicitly owned AppPlan actor; a purely
+        operational lease may be Effect.acquireRelease in a scoped stream activity. No
+        child actor/activity equivalent, new lifetime registry, or hidden cancellation
+        channel.
+
+        Every admitted finite occurrence is fenced by actor incarnation, operation kind,
+        descriptor ID, canonical K, and a one-based monotonic non-reused ordinal. Shared
+        work also uses the exact Store generation/lease epoch. Match every applicable
+        fence immediately before completion publication. A later actor incarnation gets
+        a new ordinal/generation and cannot inherit the former. Occurrences settle once. Stale facts
+        may finalize only bounded evidence of their own
+        occurrence. They cannot mutate later incarnations, reused refs, collected entries,
+        or current mapped events. Hydration retains bounded cursors and never replays external work;
+        restored
+        streams create a new generation from executable P. Stream emissions create no
+        occurrences. Continuing stream identity is actor-local declaration identity;
+        this remains private and creates no public occurrence handle.
+    O4  Passive operation snapshots and readers
+        Transaction snapshot exposes exact descriptor and K, plus generation only where
+        @plan.PublicSurface.O3 requires. Preserve success/failure/defect/interruption and
+        post-boundary
+        unknown/reconcileRequired lanes; complete Cause remains private issue/TurnRecord
+        fact. Exact closed TransactionSnapshot<A,E,K> field presence, generation exposure,
+        terminal retention, and collection are delegated to @plan.PublicSurface.O3; absent
+        fields remain absent. No raw Cause, generic transaction registry, accumulated old
+        attempts in ordinary snapshots, new public union, or public occurrence handle.
+        Projection follows current actor binding. Activation, passive reads, completion,
+        and reconciliation never admit/readmit finite commit; commits enter only through
+        accepted actions. Attempt history belongs in TurnRecords/inspection. Removing,
+        replacing, suspending, disposing, or reentering a binding changes only the
+        delegated @plan.PublicSurface.O3 projection; do not invent an attempt or second snapshot
+        source.
+
+        Continuing resource/stream projection follows named family and K, never a generic
+        stream registry. Equal compiled declaration identity retains generation and
+        original P; changed slot/kind/descriptor/K releases old once and admits
+        replacement. Stream projection retains status, hasValue, latest value when
+        present, emission count, declaration generation, and terminal status. Emissions
+        are projection-only; durable machine state changes only through mapped events or
+        explicit setData. Resource subscriptions observe canonical values. Independent
+        streams across actors are allowed; a duplicate live stream declaration by one
+        actor for same descriptor/K rejects before replacing/releasing the existing
+        declaration. Different actors remain independent. Accepted stream status values
+        are idle/running/complete/typed failure/defect/interruption. No generic
+        snapshot.streams.get, cross-actor stream dedup, emission replay, key-to-input
+        inversion, child surface, or terminal restart. Hydration rematerializes live
+        declarations from executable P after pending outcomes drain; missing P fails
+        closed and invents no history. Terminal streams do not restart. Missing input
+        has a precise diagnostic. Any actor may passively read admitted same-runtime
+        resource identity without acquiring, starting, refreshing, mutating, or changing
+        collection; a missing read does not materialize StoreState.
+
+        Timer names are machine-wide and unique; snapshot.timers.get(name) accepts only
+        the inferred timer-name union. Timer state is exact active leaf. Compound timers
+        start on compound activation, retain deadline through descendant changes, cancel
+        on compound exit, and restart only on exact reenter. One-shot configuration
+        generation and explicit event targeting are allowed; after refresh polling uses
+        an existing after timer plus explicit refresh event, never finite action work.
+        Due consumes its generation once and publishes fired whether guard accepts or
+        rejects; timer history is evidence, not ordinary snapshot history. No timer-owned
+        finite actions, fake domain events, deadline reset on unrelated descendant turn,
+        or timer identity outside machine.
+
+        Preserve the timer-reader contract's typed reader union:
+        ```ts
+        type TimerSnapshot<State, Name> =
+          | { status: "idle"; name: Name }
+          | { status: "scheduled"; name: Name; state: State;
+              generation: number; startedAt: number; dueAt: number }
+          | { status: "fired"; name: Name; state: State;
+              generation: number; startedAt: number; dueAt: number;
+              firedAt: number }
+          | { status: "interrupt"; name: Name; state: State;
+              generation: number; startedAt: number; dueAt: number };
+        ```
+
+        The cross-cut proof index covers exact state, ref, event, input, context, memory,
+        descriptor, K, selected-value, and timer-name types. Family reads use K; plans
+        require P. Removed generic, child, final-node, registered-view, and disposal
+        surfaces remain absent.
+
+        Runtime proof is required for these behaviors:
+
+        - Passive missing reads and canonical sharing with independent ownership.
+        - Explicit write fencing, production completion, capture, and actor-effective reads.
+        - Overlay promotion/rollback, occurrence fencing, and latest-stream projection.
+        - Hydration without emission replay and passive operation-read reactivity.
+
+        Type-only or source-text proofs cannot establish runtime behavior.
+        Keep operation unions/collection in @plan.PublicSurface.O3 and host writes in
+        @plan.Hosts.O2. Do not establish a second source of truth or expose internal owners.
+decisions
+    D1  One canonical store owner
+        StoreKernel owns committed operation state and generations. StoreFanout sends revision 
+        facts; actors reread current state and keep local ownership.
+    D2  Actor ownership controls work
+        Accepted event actions admit finite operations. Actor scopes own continuing bindings; actor 
+        incarnation and generation fences reject stale completion.
+constraints
+    C1  Canonical identity is exact and bounded
+        Use descriptor ID plus canonical K within one runtime. Keep executable P separate, and 
+        reject unsupported values before mutation or work.
+    C2  Passive reads stay passive
+        Named readers accept K and never acquire ownership, refresh, mutate, schedule, or start 
+        work. Do not add generic registries or implicit operation methods.
+questions
+    Q1  Pinned Effect scheduling APIs remain to verify
+        Which rc.112 APIs implement cancellation registration before work starts and preserve
+        the selected keyed concurrency policies? The architecture note names beta.86;
+        this repository pins rc.112. Verify the pinned APIs and do not rely on
+        `startImmediately` for correctness or ordering. Recommended general Effect
+        composition remains nonnormative.
+verification
+    V1  Store and resource behavior
+        Establish @O1 when these scenarios pass:
+
+        - Share one exact descriptor/K across actors without sharing their lifetimes.
+        - Isolate canonical state across runtimes and reread after stale revision facts.
+        - Order fanout after the initiating actor publication and acknowledgment.
+        - Capture only before or after a completed commit/publication boundary.
+        - Fail counter overflow before mutation or partial publication.
+
+        Expected: one canonical owner and no stale fanout truth or half-published capture.
+        Candidate paths: `actor-operation.test.ts`, `actor-operation-facts.test.ts`,
+        `actor-operation-results.test.ts`, `actors.test.ts`, and `copies.test.ts` under
+        `packages/flow-state-rewrite/src/runtime-next/test/`.
+        Explicit StoreKernel, StoreFanout, and DehydrateBarrier proofs remain pending.
+    V2  Resource keys, readers, and retention
+        Establish @O1 when these scenarios pass:
+
+        - Keep complete executable P separate from canonical K.
+        - Reject invalid keys before mutation or work.
+        - Share canonical data while preserving independent actor ownership.
+        - Keep missing reads passive and exact subscriptions stable across equivalent plans.
+        - Fence explicit writes and validate invalidation/clear expansion atomically.
+        - Release actor bindings without implying canonical deletion.
+
+        Expected: readers and projections cause no passive side effects. Candidate paths:
+        `actor-operation.test.ts`, `actor-operation-facts.test.ts`,
+        `actor-operation-results.test.ts`, `structural-copy-owner.test.ts`, and
+        `copies.test.ts` under `packages/flow-state-rewrite/src/runtime-next/test/`.
+        Store, invalidation-batch, subscription, and collection coverage remains pending.
+    V3  Activity and lifecycle ownership
+        Establish @O2 and @O3 when these scenarios pass:
+
+        - Exercise reject, cancel, allow, and serialize for exact descriptor/K.
+        - Prove reject consumes no ordinal and canceled queued work starts no adapter.
+        - Preserve ordered previews and fence replacement, incarnation, and store generation.
+        - Distinguish cancellation before and after an irreversible remote boundary.
+        - Keep cleanup release unmapped and run finalizers once in reverse order.
+        - Retain equal declarations; release changed declarations exactly once.
+        - Restore continuing work without replaying finite work or stream emissions.
+
+        Expected: one current settlement, honest remote uncertainty, and no stale write.
+        Candidate tests live under `packages/flow-state-rewrite/src/runtime-next/test/`:
+
+        - `actor-activities-owner.test.ts`, `actor-operation.test.ts`, and
+          `actor-operation-facts.test.ts`.
+        - `actor-operation-results.test.ts`, `actor-operation-fixture.ts`, and
+          `actors.test.ts`.
+        Store, transaction, and stream policy cases remain pending unless explicit in tests.
+    V4  Snapshot and reader behavior
+        Establish @O4 when these scenarios pass:
+
+        - Read absent keys without creating StoreState or starting work.
+        - Separate canonical resource values from actor-effective overlays.
+        - Keep transaction projections actor-local and streams latest-value only.
+        - Reject duplicate live stream declarations for one actor and descriptor/K.
+        - Type timer names and expose only the exact timer status union.
+        - Preserve compound deadlines and consume each due generation once.
+
+        Expected: projections cannot create, retry, restart, or invent operation history.
+        Candidate paths: `actor-operation.test.ts`, `actors.test.ts`,
+        `actor-operation-results.test.ts`, and `actor-activities-owner.test.ts` under
+        `packages/flow-state-rewrite/src/runtime-next/test/`.
+        A typed snapshot fixture and full runtime proof matrix remain pending.

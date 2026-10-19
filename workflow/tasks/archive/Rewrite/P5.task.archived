@@ -1,0 +1,451 @@
+phase P5
+title Hosts Stories and CLI
+
+tasks
+    T500
+        title        React host and passive observation
+        status       draft
+        priority     high
+        blocked_by   [@task.Rewrite.T405]
+        derives_from [
+                     @plan.Hosts.D1,
+                     @plan.Hosts.D2,
+                     @plan.Hosts.C1,
+                     @plan.Hosts.C2,
+                     @plan.Hosts.V1,
+                     @plan.Hosts.V2,
+                     @plan.Hosts.V3,
+                     @plan.PublicSurface.D1,
+                     @plan.PublicSurface.C1,
+                     @plan.PublicSurface.V4,
+                     @plan.PublicSurface.V5,
+                     @plan.Types.V5,
+                     @plan.Types.V6,
+                     @plan.Types.V7,
+                     @plan.Verification.V5
+                     ]
+        satisfies    [@plan.Hosts.O3]
+
+        description
+            Source Bead: flow-state-e7p.5.1 (open).
+            Proof IDs: PROOF-008, PROOF-012, PROOF-013, HOST-P02, HOST-P03, HOST-P04, HOST-P05.
+            Deliverable: React attaches to an existing Runtime and reads through passive selectors.
+            Include FlowProvider, actor hooks, SSR, and request host isolation.
+            Allowed writes: packages/flow-state-rewrite/src/hosts/**.
+            Public routes and package facades belong to Phase 6 entrypoint ownership.
+            Evidence: Co-located owner tests, package typecheck, and lint; return paths and results.
+            Absorbs host attachment and SSR proof lanes from closed Bead flow-state-e7p.5.7.
+            Keep each decisive proof at its production owner.
+            Phase 4 validation T405 must pass before this work starts.
+        acceptance
+            Render and abandoned preparation acquire no host or actor ownership.
+            Commit rechecks the provider and attaches the same prepared actor.
+            At least 64 prepared commands work; overflow rejects without partial mutation.
+            Strict Mode and Activity preserve identity; suspension releases work without replay.
+            Selectors are passive, track exact dependencies, and memoize defects correctly.
+            SSR and request hosts isolate Runtime state.
+            Actor and selector types preserve exact machine families, lifecycle, and selected data.
+            Positive and negative React type fixtures reject acquisition and mutation through reads.
+            Run `nubx vp test packages/flow-state-rewrite/src/hosts/tests`,
+            `nub run --filter flow-state-rewrite check:types`, `nub run test`, and
+            `nub run lint`. Expected: all checks pass.
+    T501
+        title        Story recipes and production materialization
+        status       draft
+        priority     high
+        blocked_by   [@task.Rewrite.T405]
+        derives_from [
+                     @plan.Runtime.D1,
+                     @plan.Runtime.D2,
+                     @plan.Runtime.V6,
+                     @plan.Artifacts.D1,
+                     @plan.Artifacts.C1,
+                     @plan.Artifacts.V5,
+                     @plan.Types.V5,
+                     @plan.Types.V6,
+                     @plan.Types.V7,
+                     @plan.PublicSurface.V5,
+                     @plan.Verification.V4,
+                     @plan.Verification.V6
+                     ]
+
+        description
+            Source Bead: flow-state-e7p.5.2 (open).
+            Proof IDs: PROOF-001, PROOF-008, PROOF-011 prerequisite, PROOF-012, TYPE-P01,
+            TYPE-P02, REV-TEST-002.
+            Deliverable: Inert Story builders, immutable recipes, exact fixtures, and per-run
+            production Runtime materialization with provider-first setup and reverse cleanup.
+            Each run uses a fresh Runtime; shared prefixes create independent derived plans.
+            Allowed writes: packages/flow-state-rewrite/src/stories/**.
+            Public routes and package facades belong to Phase 6 entrypoint ownership.
+            Evidence: Story owner behavior tests, type proofs, package typecheck, and lint receipts.
+            Absorbs Story construction and materialization proof lanes from closed
+            Bead flow-state-e7p.5.7.
+            Phase 4 validation T405 must pass before this work starts.
+        acceptance
+            Construction acquires no service, Runtime, or actor.
+            REV-TEST-002: Builder calls are inert and only run() executes. Through the production
+            runner, prove receiver mutation and late configuration mutation cannot change the
+            captured AppPlan, RuntimeSetup, Implementation, Persistence, Clock, fixtures, seeds,
+            or runner options.
+            Each run uses production owners and a fresh Runtime; providers materialize first.
+            Reused recipes materialize once per run; separate runs share no live state or handles.
+            App Stories use exact refs and recipes without context injection.
+            Positive and negative type fixtures preserve exact input, context, and fixture closure.
+            Options are closed, invalid targets reject, and maxTurns defaults to 100.
+            Run `nubx vp test packages/flow-state-rewrite/src/stories/tests`,
+            `nub run --filter flow-state-rewrite check:types`, `nub run test`, and
+            `nub run lint`. Expected: all checks pass.
+    T502
+        title        Story commands and truthful run evidence
+        status       draft
+        priority     high
+        blocked_by   [@T501, @task.Rewrite.T405]
+
+        derives_from [
+                     @plan.Runtime.D1,
+                     @plan.Runtime.D2,
+                     @plan.Runtime.V6,
+                     @plan.Artifacts.V5,
+                     @plan.Types.V5,
+                     @plan.Types.V6,
+                     @plan.Types.V7,
+                     @plan.PublicSurface.V5,
+                     @plan.Verification.V4,
+                     @plan.Verification.V6
+                     ]
+        description
+            Source Bead: flow-state-e7p.5.3 (open).
+            Proof IDs: PROOF-001, PROOF-008, PROOF-009, PROOF-010, PROOF-011, PROOF-012, PROOF-013.
+            Deliverable: Story commands, virtual time, occurrences, immutable checkpoints,
+            failure evidence, and run.end through the production mailbox and kernels.
+            Derived plans replay shared prefixes in fresh production Runtimes.
+            Allowed writes: packages/flow-state-rewrite/src/stories/**.
+            Public routes and package facades belong to Phase 6 entrypoint ownership.
+            Evidence: Owner behavior tests and checkpoint type proofs, with command results.
+            Absorbs Story command, checkpoint, failure, and cleanup proof lanes from closed
+            Bead flow-state-e7p.5.7.
+            Phase 4 validation T405 must pass before this work starts.
+        acceptance
+            send waits only for its own acknowledgment; process and time movement stay separate.
+            Checkpoint creation advances no work. Failed runs retain completed checkpoints and
+            never fabricate success or run.end.
+            Cancellation records truthful evidence and ordered cleanup.
+            Checkpoint names accumulate in exact run keys; invalid names and unknown lookup reject.
+            No simulation, replay, result injection, or live Runtime fork is exposed.
+            Positive and negative type fixtures preserve checkpoint-name and run-result types.
+            Run `nubx vp test packages/flow-state-rewrite/src/stories/tests`,
+            `nub run --filter flow-state-rewrite check:types`, `nub run test`, and
+            `nub run lint`. Expected: all checks pass.
+    T503
+        title        Behavior gateway, fixtures, and model parity
+        status       draft
+        priority     high
+        blocked_by   [@T501, @T502, @task.Rewrite.T404, @task.Rewrite.T405]
+
+        derives_from [
+                     @plan.CLI.D1,
+                     @plan.CLI.C1,
+                     @plan.CLI.C2,
+                     @plan.CLI.V1,
+                     @plan.Artifacts.V5,
+                     @plan.Artifacts.D1,
+                     @plan.Artifacts.D2,
+                     @plan.Artifacts.C1,
+                     @plan.Artifacts.C2,
+                     @plan.Types.V6,
+                     @plan.Types.V7,
+                     @plan.PublicSurface.V5,
+                     @plan.Verification.V4,
+                     @plan.Verification.V6
+                     ]
+        satisfies    [@plan.Artifacts.O7]
+        description
+            Source Bead: flow-state-e7p.5.4 (open).
+            Proof IDs: PROOF-008, PROOF-011, API-P03.
+            Deliverable: An inert single-App gateway, validated fixture services and seeds,
+            pure bounded model traversal, and live parity through ordinary Stories. Model paths
+            use the Story-owned production capture only when their ordinary Story runs.
+            Keep gateway, fixture, model, and Story owners cohesive with local tests.
+            Allowed writes: packages/flow-state-rewrite/src/stories/** and
+            packages/flow-state-rewrite/src/model/**.
+            Public routes and package facades belong to Phase 6 entrypoint ownership.
+            Evidence: Gateway rejection tests, deterministic BFS/DFS model tests, and live parity
+            receipts from production owners.
+            Absorbs the gateway and live parity proof lanes from closed Bead
+            flow-state-e7p.5.7.
+            Phase 4 validation T405 must pass before this work starts.
+        acceptance
+            Gateway validation acquires or runs nothing and rejects mixed or foreign content.
+            The model imports or executes no Effect, Runtime, fixture, or operation.
+            BFS returns bounded shortest paths; DFS returns bounded simple paths with accurate
+            explored counts and truncation.
+            Repeated model calls retain no candidates; live hosts and Stories share production
+            owners.
+            A checkpoint and `run.end` capture one DehydrateBarrier cut with exact actor targets,
+            pending work, TestClock time, Store revision, published snapshots, and accepted prefix.
+            App evidence resolves storyActor or ActorRef; machine evidence exposes one snapshot.
+            `run.end` is evidence completion, never actor finality.
+            Capture advances no work or time and never creates, disposes, restores, or reads
+            a live actor.
+            Failed runs retain completed checkpoints and truthful cleanup.
+            Cancellation closes admission, preserves partial evidence, awaits non-abortable cleanup,
+            then fails.
+            Success implies complete disposal; capture or cleanup failure never fabricates
+            `run.end` or success. FlowStoryExecutionError retains complete public Cause only in
+            process.
+            A model accepts only a fresh, command-empty machine Story and stays Effect-free.
+            Discovery processes no work or time; it creates, restores, or looks up no actor and
+            does no external work. Candidates stay traversal-local; no replay is added.
+            Path Stories use ordinary production owners and capture only when run.
+            Positive and negative type fixtures keep model inputs, paths, and candidates exact.
+            Run `nubx vp test packages/flow-state-rewrite/src/model/tests` and
+            `nubx vp test packages/flow-state-rewrite/src/stories/tests`, then
+            `nub run --filter flow-state-rewrite check:types`, `nub run test`, and
+            `nub run lint`. Expected: all checks pass.
+    T504
+        title        CLI grammar, gateway loader, and shared executor
+        status       draft
+        priority     high
+        blocked_by   [@T501, @T503, @T508, @task.Rewrite.T405]
+
+        derives_from [
+                     @plan.CLI.D1,
+                     @plan.CLI.D2,
+                     @plan.CLI.D3,
+                     @plan.CLI.C1,
+                     @plan.CLI.C2,
+                     @plan.CLI.V1,
+                     @plan.CLI.V4,
+                     @plan.PublicSurface.V6,
+                     @plan.Verification.V6
+                     ]
+        satisfies    [@plan.CLI.O1]
+        description
+            Source Bead: flow-state-e7p.5.5 (open).
+            Proof IDs: CLI-P01, CLI-012, PROOF-014, API-P03.
+            Deliverable: The exact CLI grammar, trusted contained gateway loader, and one shared
+            direct and CLI Story executor.
+            Artifact-only commands remain inert; gateway validation uses shared diagnostics.
+            Allowed writes: packages/flow-state-rewrite/src/cli/**.
+            Update only the CLI call site for the Story-owned executor.
+            Evidence: CLI grammar and gateway tests, direct/CLI parity tests, and lint receipts.
+            Absorbs gateway and executor proof lanes from closed Bead flow-state-e7p.5.7.
+            Phase 4 validation T405 must pass before this work starts.
+        acceptance
+            Only the ten leaves in CLI.plan are accepted; options and operands are exact.
+            Selector parsing loads no gateway; artifact-only commands execute no application.
+            Gateway paths stay under the canonical project root and resolve to a regular TS file.
+            Package identity and branded gateway checks reject before acquisition.
+            All Story execution uses the production executor and shared diagnostics.
+            Run `nubx vp test packages/flow-state-rewrite/src/cli/tests`,
+            `nub run --filter flow-state-rewrite check:types`, `nub run test`, and
+            `nub run lint`. Expected: all checks pass.
+    T505
+        title        CLI artifacts, publication, streams, and exits
+        status       draft
+        priority     high
+        blocked_by   [@T504, @T508, @task.Rewrite.T405]
+
+        derives_from [
+                     @plan.CLI.D1,
+                     @plan.CLI.D2,
+                     @plan.CLI.D3,
+                     @plan.CLI.C1,
+                     @plan.CLI.C2,
+                     @plan.CLI.C3,
+                     @plan.CLI.V2,
+                     @plan.CLI.V3,
+                     @plan.CLI.V4,
+                     @plan.Artifacts.D1,
+                     @plan.Artifacts.C3,
+                     @plan.Artifacts.V3,
+                     @plan.Artifacts.V5,
+                     @plan.PublicSurface.V6,
+                     @plan.Verification.V6
+                     ]
+        satisfies    [@plan.CLI.O2, @plan.CLI.O3]
+        description
+            Source Bead: flow-state-e7p.5.6 (open).
+            Proof IDs: CLI-P01, PROOF-010, PROOF-014.
+            Deliverable: Bounded artifact input, canonical results, atomic publication, document
+            output, stream failures, signal cleanup, and exact process exits.
+            Reuse the shared artifact codecs and CLI executor.
+            Allowed writes: packages/flow-state-rewrite/src/cli/**.
+            Shared artifact codecs and package facades remain owned by their existing Tasks.
+            Evidence: Input boundary, publication, process, and interruption tests plus lint.
+            Absorbs artifact and CLI parity proof lanes from closed Bead flow-state-e7p.5.7.
+            Phase 4 validation T405 must pass before this work starts.
+        acceptance
+            Use the shared codec; accept one stdin operand or named regular files only. Destination
+            preflight finishes before Runtime or Fixture acquisition.
+            Reject malformed, oversized, multi-member, and legacy artifact inputs before acquire.
+            Publish through a mode-0600 sibling temporary file; flush and close before commit.
+            No-overwrite uses atomic link; overwrite uses atomic rename without truncation.
+            Replacing a symlink changes its entry, never its referent; pre-commit failure preserves
+            the prior or absent destination.
+            Share artifacts reject as WrongArtifactKind and never enter CLI, import, replay,
+            or boot.
+            One private result drives text and JSON; each stream is one complete write with no
+            stdout/stderr mixing. EPIPE performs no recursive write.
+            Success emits one stdout document; failure emits one stderr document.
+            Exit codes are 0, 1, 2, 130, or 143 as specified by CLI.plan.
+            Signal cleanup retains evidence and attempts requested partial-trace output. Trace
+            summaries and comparisons preserve incomplete-window truth.
+            Direct and CLI runs share Story/evidence owners; parity covers `run.end`, failure, and
+            cancellation. Arbitrary event fabrication rejects.
+            Human text stays actionable, newline-terminated, and ANSI-free when non-interactive.
+            Run `nubx vp test packages/flow-state-rewrite/src/cli/tests`,
+            `nub run --filter flow-state-rewrite check:types`, `nub run test`, and
+            `nub run lint`. Expected: all checks pass.
+    T506
+        title        Validate Phase 5 owner proofs and changed slices
+        status       draft
+        priority     high
+        blocked_by   [
+                     @T500,
+                     @T501,
+                     @T502,
+                     @T503,
+                     @T504,
+                     @T505,
+                     @T507,
+                     @T508,
+                     @task.Rewrite.T405
+                     ]
+
+        derives_from [
+                     @plan.Hosts.V1,
+                     @plan.Hosts.V2,
+                     @plan.Hosts.V3,
+                     @plan.Hosts.V4,
+                     @plan.Runtime.V6,
+                     @plan.Artifacts.V5,
+                     @plan.Diagnostics.V1,
+                     @plan.Diagnostics.V2,
+                     @plan.Diagnostics.V3,
+                     @plan.Diagnostics.V4,
+                     @plan.Types.V5,
+                     @plan.Types.V6,
+                     @plan.Types.V7,
+                     @plan.PublicSurface.V5,
+                     @plan.CLI.V1,
+                     @plan.CLI.V2,
+                     @plan.CLI.V3,
+                     @plan.CLI.V4,
+                     @plan.Verification.V4,
+                     @plan.Verification.V5,
+                     @plan.Verification.V6,
+                     @plan.Verification.V7,
+                     @plan.Verification.V8
+                     ]
+        description
+            Source Bead: flow-state-e7p.5.8 (open); source epic: flow-state-e7p.5 (open).
+            Deliverable: Independent, read-only review of changed Phase 5 slices and named Plan
+            checks after implementation owners pass.
+            Review only changed diffs and their production-owner evidence; do not re-audit other
+            phases or duplicate proof matrices.
+            Allowed writes: none for reviewers. Return the required handback in the Task result.
+            Evidence: Exact changed paths, focused check commands and results, proof coverage,
+            findings, and lint result in the handback.
+            Retired tracker flow-state-e7p.5.7 (closed) is absorbed by T500-T505; closure was
+            administrative and did not pass its proof obligations.
+            Phase 4 validation T405 gates the implementation Tasks in this phase.
+        acceptance
+            Return these fields: contract references, changed files, focused checks, lint result,
+            behavior reviewed, fixed findings, blocking findings, advisory findings.
+            Review proof coverage and reachability through production owners.
+            Confirm no blocking findings, duplicate authority, hidden compatibility path, partial
+            mutation, or type erasure remains in the changed Phase 5 slices.
+            Review T500-T505 and T507-T508, repeat their focused checks, then run `nub run lint`.
+            Expected: all checks pass and no blocking findings remain.
+
+    T507
+        title        Integrate Effect bridges and trusted host writes
+        status       draft
+        priority     high
+        blocked_by   [@T500, @T508, @task.Rewrite.T305, @task.Rewrite.T405]
+        derives_from @plan.Hosts.{D1,D2,C2,V4}
+        satisfies    [@plan.Hosts.O6]
+        description
+            Workflow addition: no live source Bead maps to this production Effect bridge and
+            host integration; retain it as new Workflow work.
+            Reuse StoreKernel's private HostWriteLease from P3; do not create a second lease
+            owner or runner. Keep the bridge and its tests under
+            packages/flow-state-rewrite/src/hosts/.
+            Allowed writes: packages/flow-state-rewrite/src/hosts/**.
+
+            Run Effects with the installed Runtime Context and retain the complete Exit through
+            cleanup. Keep reusable services in exact Effect A, Diagnostic E, and R. Adapt each
+            foreign Promise once with a named `Effect.tryPromise` adapter and forward AbortSignal
+            where supported. Integrate the scoped lease for boot, SSR, and Fixture seeding.
+            Public routes remain owned by Phase 6.
+        acceptance
+            Bridges use the installed Runtime Context; `runPromiseExit` retains the complete Exit
+            and Implementation/runtime failure truth without a second Scope.
+            Rejected Promises map to owned Diagnostics with and without AbortSignal support.
+            Only the owner mints a lease for its AppPlan, Runtime, and allowed boundary.
+            Foreign, stale, revoked, and wrong-boundary leases fail before StoreState mutation.
+            Valid writes use admitted descriptors and `K` through StoreKernel fencing, revision,
+            fanout, and authoritative-write rules.
+            Scope close and Runtime disposal revoke the lease.
+            Run `nubx vp test packages/flow-state-rewrite/src/hosts/tests`,
+            `nub run --filter flow-state-rewrite check:types`, and `nub run lint`. All pass.
+
+    T508
+        title        Implement canonical diagnostics and failure mapping
+        status       draft
+        priority     high
+        blocked_by   [@task.Rewrite.T306, @task.Rewrite.T405]
+        derives_from [
+                     @plan.Diagnostics.D1,
+                     @plan.Diagnostics.D2,
+                     @plan.Diagnostics.C1,
+                     @plan.Diagnostics.C2,
+                     @plan.Diagnostics.C3,
+                     @plan.Diagnostics.V1,
+                     @plan.Diagnostics.V2,
+                     @plan.Diagnostics.V3,
+                     @plan.Diagnostics.V4,
+                     @plan.PublicSurface.V6,
+                     @plan.Verification.V6,
+                     @plan.Types.V6,
+                     @plan.Types.V7
+                     ]
+        satisfies    [@plan.Diagnostics.O1, @plan.Diagnostics.O2, @plan.Diagnostics.O3]
+        description
+            Workflow addition: no live source Bead maps to this diagnostic owner; retain it as
+            new Workflow work. Implement the Schema-backed Diagnostic owner from the migrated
+            Task requirements. `reference/incident-console/implementation/contracts/ERRORS.ts`
+            is a historical source citation, not active authority for diagnostic behavior.
+            Historical source amendment: AMEND-API-002. Proof ID: AMEND-P03.
+            Keep code and owner tests under packages/flow-state-rewrite/src/diagnostic/.
+            Create the usage-code remediation table at
+            apps/docs/src/pages/reference/diagnostics.mdx.
+            Allowed writes: packages/flow-state-rewrite/src/diagnostic/** and
+            apps/docs/src/pages/reference/diagnostics.mdx.
+
+            Implement structural decode, semantic Result mapping, typed Effect mapping, and
+            private Exit/Cause classification with exact A/R preservation. Add the synchronous
+            usage boundary and renderer. Keep deferred names absent from active package routes;
+            Public facade changes remain owned by Phase 6. Do not edit the cited historical
+            contract file or change diagnostic behavior through this Task.
+        acceptance
+            Diagnostic has exact fields, closed code/reason sets, path/details domains, and encoded
+            type. It is a TaggedError, Error, Schema codec, and directly yieldable Effect failure.
+            Structural decoding returns plain data and maps only SchemaError. Result mapping
+            preserves A; Effect mapping preserves A and R.
+            Cause classification preserves Exit and Cause through cleanup; precedence is defect,
+            typed failure, then interruption-only.
+            Cause.squash occurs only at a lossy synchronous JavaScript host boundary.
+            Only FlowDisposeError and FlowStoryExecutionError carry complete Cause, in process.
+            DiagnosticPrinter exposes compact/pretty; renderDiagnosticCompact and
+            renderDiagnosticPretty are shared policy exports.
+            Serialized diagnostics contain no Cause; projections remain ordered and stable.
+            Rendering receives only Diagnostic fields and exposes no raw input or Cause.
+            FlowUsageError has exact tag/code/path/details and accepts only UsageDiagnostic.
+            FlowPersistenceError has no extra fields; the exact 18 usage codes each have a
+            path/details and remediation row. Messages stay non-API.
+            Deferred names retain their declarations and remain absent from active root exports.
+            Run diagnostic and public-route tests, package type and packed-consumer checks,
+            `nub run docs:build`, and `nub run lint`. All pass.

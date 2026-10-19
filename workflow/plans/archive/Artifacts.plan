@@ -1,0 +1,742 @@
+plan Artifacts
+title   Persistence and artifact evidence
+status  archived
+goal
+    Define one Flow-owned boundary for persistence, capture, codecs, inspection, and Story evidence.
+    Include canonical private artifacts and export-only redaction.
+    This Plan owns migrated semantics under @plan.Verification.D1. The source contract
+    pack supplies provenance and trace IDs; ARTIFACT_WIRE.md is a pointer only.
+    CONTRACT.md §§7 and 9 provide unaccepted examples. Implementation and product
+    cutover remain pending under @plan.Cutover.O3 and @plan.Cutover.V7.
+    Operation identity belongs to @plan.Operations.O2 and @plan.Operations.O3.
+    Runtime and host integration belong to @plan.Runtime.O3, @plan.Runtime.O5, and @plan.Hosts.O4.
+    CLI projection belongs to @plan.CLI.O2 and @plan.CLI.O3.
+outcomes
+    O1  Persistence is optional, explicit, inert at construction, and Runtime-owned
+        - Persistence is an optional, inert RuntimeSetup provider.
+        - It requires storage and scope; codec and identity-only filter are optional and pure.
+        - No provider means no persistence I/O.
+        - `RuntimeSetup.construct()` stays synchronous and inert.
+        - It may retain app identity, Clock, external capabilities, and the provider.
+        - It does not acquire Implementation, create/register actors, start work, or expose handles.
+        - The provider is not an Implementation, AppPlan input, second Runtime, or cross-tab
+          synchronizer.
+        - It is not a conflict resolver or same-scope writer protocol.
+        - It represents one logical record attached to one Runtime and scope.
+        - Cross-tab and concurrent same-scope coordination are undefined.
+        - Fixtures and `story.machine` do not inherit browser/session storage by default.
+
+        - The illustrative setup is:
+
+        ```ts
+        const setup = runtimeSetup({
+          app: TodoApp,
+          implementation: TodoLive,
+          persistence: persistence({
+            storage: webStorage(window.localStorage),
+            scope: "user:42",
+            codec: todoPersistenceCodec,
+            filter: ({ kind, id }) => kind !== "stream" || id === "todo.updates",
+          }),
+        });
+        ```
+
+        - The public notation is bounded by these shapes:
+
+        ```ts
+        type PersistenceStorage = {
+          read(): Effect.Effect<Uint8Array | undefined, PersistenceStorageError>;
+          write(value: Uint8Array): Effect.Effect<void, PersistenceStorageError>;
+          remove(): Effect.Effect<void, PersistenceStorageError>;
+        };
+
+        type Persistence = {
+          storage: PersistenceStorage;
+          scope: string;
+          codec: PersistenceCodec;
+          filter?: (entry: PersistenceEntry) => boolean;
+        };
+
+        declare function webStorage(storage: Storage): PersistenceStorage;
+        declare function indexedDbStorage(storage: IndexedDBStorage): PersistenceStorage;
+
+        type PersistenceCodec = {
+          encode(value: unknown, slot: PersistenceSlot): PersistenceValue;
+          decode(value: PersistenceValue, slot: PersistenceSlot): unknown;
+        };
+
+        declare function persistence(options: {
+          storage: PersistenceStorage;
+          scope: string;
+          codec?: PersistenceCodec;
+          filter?: (entry: PersistenceEntry) => boolean;
+        }): Persistence;
+        ```
+
+        - PersistenceStorage has typed read, write, and remove Effects.
+        - Web Storage and IndexedDB adapters share typed failure, cancellation, and lifetime
+          boundaries.
+        - PersistenceCodec is synchronous and pure at the value boundary.
+        - It never accesses storage, creates actors, runs Effects, resumes work, or decodes a full
+          boot payload.
+        - PersistenceValue is bounded canonical JSON.
+        - PersistenceSlot identifies actor, resource, transaction, or stream slots.
+        - PersistenceEntry exposes only stable identity metadata and canonical K.
+        - The default codec rejects unsupported values instead of stringifying or losing data.
+        - Flow owns the envelope, app identity, persistenceVersion, plan compatibility, bounds, and
+          executable-work rejection.
+
+        - Stable actor refs and resource, transaction, and stream declarations each require
+          `persist: true`.
+        - The default is false; durable operations never make their actor durable implicitly.
+        - A filter sees kind, stable identity, owning stable actor, and canonical K only.
+        - It can exclude declared entries but cannot select undeclared data.
+        - It cannot inspect executable P, mutable actor state, services, operation results, or
+          storage
+          ownership.
+
+        - Runtime owns restore, observation, ordered writes, coalescing, and cleanup.
+        - Readiness validates and restores once, then installs the canonical store.
+        - It restores providers before consumers and completes bootstrap before handles or external
+          work escape.
+        - Runtime then observes committed publications through the shared DehydrateBarrier.
+        - Writes serialize per scope; older writes cannot replace newer ones.
+        - Disposal stops observation, finalizes the latest accepted write, then releases the
+          provider.
+        - A write failure preserves Runtime state and the last successful record.
+        - It remains the provider's write failure; it does not fail an actor turn after publication.
+        - Storage, codec, identity/version, malformed-data, concurrent-capture, and
+          non-durable-context-provider failures are internal `Diagnostic` categories.
+        - They map to `StorageFailure`, `CodecFailure`, `IdentityVersionMismatch`,
+          `MalformedData`, `ConcurrentCapture`, and `NonDurableContextProvider` codes.
+        - `FlowPersistenceError` is only a terminal host compatibility envelope when an existing
+          JavaScript boundary requires that name; no stable fields or message are specified.
+        - Raw Effect Cause may be retained only at readiness/disposal boundaries.
+
+
+    O2  Durable identity, app-compatible boot, and provider-owned actor state are exact
+        - P is the complete executable input retained by a live binding or generation.
+        - K is the ordered, synchronous result of `key(P)`.
+        - Descriptor ID plus K defines identity.
+        - P is never reconstructed from K; K never substitutes for capabilities or authorizes
+          execution/lookup.
+        - Flow validates structure; the application codec validates opaque domain values.
+        - Compatibility is checked against the receiving compiled AppPlan.
+        - No generic identity migration exists.
+        - Application codecs are synchronous and pure.
+        - They produce data accepted by the receiving app and never encode executable work.
+
+        - Keys accept dense arrays and plain records copied into Flow-owned containers.
+        - Record keys sort; `-0` normalizes to numeric zero before the general artifact walker.
+        - KBytes use exact UTF-8 from the portable boundary.
+        - Include capability, tenant, account, network, and session identity discriminators when
+          relevant.
+        - Key validation is limited to 16 nested levels, 256 value nodes, and 8 KiB KBytes.
+        - Canonical encoding is synchronous and stable.
+        - Own the encoded key before admission or external work.
+        - Keep structural and application-domain failures distinct.
+        - Secrets remain observable unless the application hashes/replaces them before key
+          projection.
+        - Reject hostile reflection, unsupported values, and assertion-cast persisted input.
+        - Reject aliased durable machine, descriptor, state, event, and actor identities.
+        - Reject actor-private canonical resource caches and serialized executable work.
+
+        - Example declarations:
+
+        ```ts
+        const todos = resource({
+          id: "todo.todos",
+          key: ({ listId }: { listId: string }) => [listId],
+          lookup: loadTodos,
+          persist: true,
+        });
+        const Primary = actorRef(TodoMachine, "primary", { persist: true });
+        ```
+
+        - Provider bytes are runtime input. Readiness follows one ordered boot:
+          1. Validate the record, select the default/provider codec, and prepare detached data.
+             This step installs no actors or store state.
+          2. Acquire Implementation services.
+          3. Install prepared actor state, operation facts, and the canonical resource store.
+          4. Complete initial ensureActor calls and resolve exact context refs.
+          5. Seal the graph, then activate actors and expose handles.
+        - Boot retains app ID, application-owned persistenceVersion, and durable identity facts
+          resolved through the receiving AppPlan.
+        - Boot accepts prepared materialized memory, restored committed bases, generation fencing,
+          overlay provenance, stale-completion facts, and actor observed-store revisions.
+        - Preserve exact contextBindings refs and provider revisions.
+        - Install hydrated state without fresh-memory initialization.
+        - Install a silent provider-closed context baseline before continuing-activity
+          reconciliation or handle escape.
+        - Failed or incomplete bootstrap exposes no actor, external work, or handle.
+
+        - Stable actors use authored machine-branded `actorRef(machine, id, { persist: true })`.
+        - `runtime.ensureActor(ref, ...)` owns restore-or-create.
+        - `runtime.createActor(machine, ...)` is ID-free and always creates a fresh opaque local
+          actor.
+        - A stable actor retains its exact ref and machine identity.
+        - It also retains state, memory, durable bindings, operation facts, issues, and observed
+          revisions.
+        - It may retain exact referenced refs and its last observed store revision.
+        - Private state may retain observe revisions, finite-binding cursors, timer due facts,
+          consumed activation facts, and pending mapped outcomes.
+        - It never serializes queue cells or commands.
+        - Stable wire identity uses the actor namespace and length-prefixed machine and authored-ID
+          segments defined by @plan.Runtime.O1; durable identity belongs to @plan.Runtime.O2.
+        - Prefix and bytes use the shared portable UTF-8 boundary.
+        - Never use Node Buffer or UTF-16 string length.
+
+        - Capture only registered, non-disposed stable actors explicitly marked durable.
+        - Include suspended actors and the transitive exact context-provider closure.
+        - Exclude opaque refs, runtime-local actors, tombstones, and disposed actors.
+        - Exclude automatic/dynamic/child actors and subordinate-machine actors.
+        - Operation declarations never imply actor durability.
+        - Never serialize mailboxes, queues, fibers, Scopes, callbacks, services, cursors,
+          transports,
+          buffered emissions, pending commands, or executable work.
+        - Running stream persistence retains declaration, key, generation, ownership, and latest
+          projection only.
+        - A captured stream waits for pending outcomes to drain.
+        - It then hydrates from live P in a new generation.
+        - Terminal streams do not restart; missing P fails closed.
+        - A durable consumer of an opaque provider fails `NonDurableContextProvider`.
+        - Flow never promotes or substitutes that provider.
+        - A restored stable actor remains Runtime-owned and captureable without repeated
+          `ensureActor`.
+        - Deleted automatic/dynamic roots, parent-child, and subordinate-machine persistence have no
+          aliases.
+
+        - Operation identity and settlement are shared with @plan.Operations.O2 and
+          @plan.Operations.O3. This outcome owns their durable facts and restore normalization.
+
+    O3  Capture and hydration form a consistent, context-closed cut without replay
+        - Capture shares the StoreKernel commit window:
+          1. Lease actor selection.
+          2. Capture StoreState once.
+          3. Read each actor atomically.
+          4. Require each observedStoreRevision to be no newer than capturedStoreRevision.
+        - Start only between completed context-propagation waves.
+        - Use the exact static durable actor/context closure. Unrelated actors may be at different
+          state-only instants.
+        - Published snapshots and suspended stable actors are valid. Each binding preserves its
+          exact observed provider revision.
+        - Reject mixed store cuts and newer actor revisions.
+        - Reject concurrent closure changes, orphan payloads, and partial payloads.
+        - Reject current-projection membership and runtime-local actors.
+        - Reject serialized selected-context overrides, subordinate replay, and duplicated
+          actor-owned values.
+        - A concurrent mismatch is retryable ConcurrentDehydrate.
+
+        - Capture membership uses declaration metadata, Runtime registration, and fixed bindings.
+        - It does not use projection or a repeated `ensureActor` call.
+        - An included durable consumer with a direct/transitive opaque provider fails terminally
+          with
+          `NonDurableContextProvider`.
+        - Do not serialize, promote, recreate, substitute, or rebind that provider.
+        - A selected durable consumer whose required stable provider has persist false, or is
+          excluded by persistence filtering, rejects the whole selected capture closure with
+          NonDurableContextProvider. Never promote the provider or silently omit consumers.
+        - Capture never performs external work.
+
+        - Hydration follows this order:
+          1. Install the canonical store.
+          2. Rebuild resource and transaction projections from exact refs and StoreState.
+          3. Restore providers before consumers in dependency order.
+          4. Evaluate selectors from restored providers.
+          5. Install derived context as the silent baseline.
+          6. Reconcile continuing activity before handle escape.
+        - Do not manufacture onContext events, execute external work, replay finite work, or use a
+          second source of selected-context truth.
+
+        - Resource in-flight execution does not resume.
+        - Key-only entries stay passive until a live binding supplies P.
+        - Running equal-key generations retain pinned P.
+        - Automatic generations use the oldest eligible live binding; explicit refetch uses caller
+          P.
+        - Running streams receive a new owned generation from live P without emission replay.
+        - Pending transaction occurrences never replay; they become interrupted.
+        - Durable remote identities become unknown/reconciliation-required.
+        - Reconcile them with the same identity.
+        - Terminal transactions restore only through the accepted production operation
+          representation.
+        - Restored resources follow @plan.PublicSurface.O6 collection and ownership rules.
+        - Actor-effective resource reads apply only the owner's preview layers.
+        - Add no replacement lookup policy, generic transaction retry, terminal-stream restart, or
+          restored gcTime/default.
+        - Hydration drains pending outcomes before rematerializing continuing declarations.
+        - Missing executable input fails closed.
+
+
+    O4  One bounded structural codec validates boot and artifacts with typed failures
+        - Persistence restore, artifact import, and export share one Flow-owned validation path.
+        - They produce the same package-private v2 decoded model.
+        - Public bytes pass strict UTF-8, at most one supported compression member, and decompressed
+          byte limits.
+        - They then pass JSON parsing and one package-private Effect Schema decoder.
+        - The decoder produces fresh package-owned canonical data.
+        - Runtime readiness applies the same persisted-structure rules before actor creation or
+          external work.
+        - Flow validates versions, identities, descriptors, tokens, revisions, and bounds.
+        - The application codec validates opaque values before Runtime construction.
+        - Raw parser/library errors never escape public Flow APIs.
+        - Public bytes are stable-key UTF-8 JSON or exactly one gzip member.
+        - Compressed import stops when it crosses the decompressed-byte limit.
+
+        - DiagnosticProjection is the only serialized projection of the typed Diagnostic model in
+          @plan.Diagnostics.O1.
+        - Diagnostic owns stable classification, code, path, and details.
+        - It also owns evolving summary/help and safe projection/rendering.
+        - Encoders may order and bound fields under the wire rules.
+        - They must not invent another diagnostic type or mirror an Effect Cause tree.
+        - DiagnosticCode is closed.
+        - Failures retain structural, bound, identity, decompression, external-input, application,
+          cleanup, interruption, I/O, or invariant ownership.
+        - Bound diagnostics identify limit and path separately from other failure kinds.
+        - No failure becomes undefined or generic corrupt-artifact.
+
+        - Its illustrative alias is:
+
+        ```ts
+        type NonNegative = number; // accepted only when Number.isSafeInteger(value) && value >= 0
+        ```
+
+        - Persisted/artifact counters, revisions, generations, sequences, and timestamps are
+          non-negative safe integers.
+        - A boot counter at `MAX_SAFE_INTEGER` is invalid.
+        - Terminal-publication and Runtime-cleanup credits must remain.
+        - Portable canonical encoding/order uses host-neutral TextEncoder.
+        - Runtime encoding rejects lone surrogates.
+        - Shared package code never uses Buffer.
+        - Compile-time UTF-8 lengths are never approximated.
+
+        - Bounds apply uniformly to boot, trace, behavior, and opaque carriers.
+        - No envelope overrides these bounds.
+        - Depth is 32, with root at zero; visit at most 10,000 scalar/container nodes.
+        - Arrays contain at most 4,096 items.
+        - Each string/property key is at most 262,144 UTF-8 bytes.
+        - Decompressed/canonical UTF-8 is at most 2,097,152 bytes.
+        - Reject parser errors, malformed/cyclic data, serialized negative zero, and non-finite
+          values.
+        - Reject detectable duplicate keys, concatenated gzip members, trailing bytes, unsupported
+          compression, and over-limit input.
+        - Require duplicate-key detection where the parser can provide it.
+        - Direct private-decoder behavior is unspecified for proxies, getters, custom prototypes,
+          descriptors, symbol properties, sparse arrays, or concurrent mutation.
+        - Raw Effect Cause never enters a carrier.
+
+
+    O5  Inspection evidence is globally ordered, bounded, and separate from persistence
+        - Each successful turn exposes one atomic committed actor/store cut.
+        - Accepted evidence uses one Runtime-global sequence and represents committed cuts only.
+        - Evidence remains globally ordered.
+        - Story acknowledgment follows actor/store publication and evidence acceptance.
+        - It never waits for user Effects.
+        - StoreFanout preserves causal order with the initiating publication.
+        - Lifecycle records are inspection evidence, never machine turns.
+        - Runtime observation is not persistence.
+        - Records become durable only through explicit export from a configured sink.
+        - Export preserves order, truncation marker, app identity, and format version.
+
+        - A sink attaches once to one Runtime.
+        - It receives records admitted after attachment.
+        - Its buffer exposes `snapshot(): { records: InspectionRecord[]; truncatedBeforeSequence:
+          number | null }` and `clear(): void`.
+        - Capacity is explicit and bounded, defaults to 256, and must be a non-negative integer.
+        - Capacity zero retains no records while preserving truncation.
+        - A fresh snapshot starts at publication revision zero.
+        - Hydration restores persisted publication and machine-turn revisions.
+        - A pre-attachment snapshot is empty with a null marker.
+        - Late attachment marks the greatest unseen global sequence, unless current sequence is
+          zero.
+        - One sink cannot attach to multiple Runtimes.
+
+        - The truncation marker is null exactly when no accepted evidence was omitted.
+        - Otherwise it is the greatest omitted or explicitly cleared global sequence.
+        - Clear does not reset sequence; it advances only through the retained tail.
+        - Already-accepted queued records may arrive after clear.
+        - Attachment drain/dispose waits only through accepted prefixes before detaching.
+        - A sink callback failure is isolated to that attachment.
+        - Sinks never silently drop records, share mixed Runtime state, or retain actor-owned
+          history.
+        - They never delay acknowledgments/StoreFanout, roll back truth, mutate commits, or persist
+          inspection buffers.
+        - Permit/reservation/queue/gate/attachment/drain algorithms remain implementation details.
+        - After commit acceptance, receipt, inspection, trace, CLI, and optional artifact sinks may
+          process the record.
+        - Actor admission and ordinary commits preflight changing actor/store/sequence reserves for
+          cleanup.
+
+        - A StoreState TurnRecord may include exact changed refs for that revision.
+        - Changed refs are revision-local hints.
+        - If a consumer skips revisions, it rereads state instead of combining incomplete hints into
+          a historical diff.
+        - Actor start/restore/suspend/resume/dispose are lifecycle facts only.
+        - They are never machine revisions or TurnRecords.
+        - Runtime disposal keeps reverse-dependency order and never creates a terminal actor turn.
+        - Trace proof requires complete evidence and rejects every non-null truncation marker.
+        - An @O6 decoder rejects a marker inconsistent with retained records.
+
+
+        - API-016's raw export call form remains illustrative. @plan.PublicSurface.O6
+          owns the accepted redaction option signature; AMEND-API-003 is its source trace.
+
+        ```ts
+        const attachment = attachInspectionSink(runtime, sink);
+        await attachment.drain();
+        const bytes = new Uint8Array(); // illustrative artifact input
+        const trace = importTraceArtifact(bytes);
+        const artifact = exportTraceArtifact(trace);
+        ```
+
+    O6  Exact package-private v2 artifacts and redacted share exports are canonical
+        - Behavior and trace data use one exact package-private schema.
+        - Story and CLI receive only that decoded model.
+        - Do not serialize a public v2 model, second decoder, or duplicate nested authority.
+        - Do not serialize raw Effect Cause, fixtures, callbacks, Effects, Runtime actors, live
+          refs,
+          or Runtime state.
+        - Text/JSON output and file publication are projections, not schemas.
+        - `ARTIFACT_WIRE.md` contributes no schema or notation.
+        - @plan.Artifacts.O6 owns the persistence/artifact semantics.
+        - Migration history records provenance only.
+        - @plan.PublicSurface.O6 owns the public redaction signature; AMEND-API-003 and
+          WIRE-020C are source trace IDs. @plan.Artifacts.O6 owns schema and behavior;
+          @plan.Verification.V6 routes PROOF-014/API-P04.
+
+        - A behavior artifact has kind `behavior-contract` and version
+          `flow-state/behavior-contract.v2`.
+        - It contains appId, persistenceVersion, appPlanFingerprint, requirements, modules,
+          machines,
+          and app/machine Story metadata.
+        - It carries declaration and coverage identity only.
+        - A trace has kind `trace-artifact` and version `flow-state/trace-artifact.v2`.
+        - It contains storyId, appId, persistenceVersion, appPlanFingerprint, capturedAt,
+          truncation, ordered TurnRecord/LifecycleRecord projections, checkpoints, outcome, end,
+          failure, and cleanup.
+        - App Story checkpoints may target `checkpoint.actor(storyActor | actorRef)`.
+        - They include reserved Runtime metadata.
+        - Operation facts are closed resource/transaction/stream unions.
+        - Context, store, timer, and issue facts retain exact identities and order.
+
+        - Resource facts are missing, pending, ready, refreshing, failure, defect, or interrupted.
+        - Transaction facts are idle, pending, success, failure, defect, interrupted, or unknown.
+        - Unknown transactions set `reconcileRequired: true`.
+        - Stream facts are idle, running, complete, interrupted, failure, or defect.
+        - Stream facts preserve the exact `hasValue`/latest/emissionCount union.
+        - Context, store, timer, and issue facts retain their closed fields.
+        - Missing/idle operation lanes use null generation and occurrence where specified.
+        - Inconsistent generation, occurrence, retention, latest, or reconciliation fields reject as
+          `InvalidTraceRecord` before application or Runtime acquisition.
+
+        - Reject callbacks, Effects, fixtures, live Runtime objects, and legacy final/children
+          fields.
+        - Reject Scenario/v1 shapes, unknown members, and omitted nullable fields.
+        - Reject malformed operation discriminants, invalid lifecycle tuples, and duplicate
+          checkpoint names.
+        - Reject unresolved requirements, duplicate IDs, invalid state defaults/Story metadata, and
+          mismatched appPlanFingerprint.
+        - The normalized requirements table has one record per static requirement identity.
+        - Each operation requirement ID resolves to exactly one record.
+        - Every nullable field serializes as null.
+        - Completed traces have non-null end, null failure, and complete cleanup.
+        - Failed traces have failure and root cleanup status consistent with cleanup diagnostics.
+        - `end` is named end, never final, and never means actor completion.
+        - Invalid IDs map to InvalidDescriptorId; duplicate IDs and operation/slot IDs map to
+          DuplicateDescriptorId.
+        - Duplicate machine values map to DuplicateMachineValue; duplicate module ownership maps to
+          DuplicateModuleOwnership.
+        - Missing module refs map to MissingModuleReference; invalid defaults map to
+          InvalidStateDefault.
+        - Unresolved operation requirements map to UnresolvedRequirementId.
+        - Invalid Story metadata maps to InvalidStoryMetadata.
+        - Malformed trace records map to InvalidTraceRecord.
+        - Impossible lifecycle combinations map to InvalidLifecycleTransition.
+        - Inconsistent end/failure/cleanup maps to InvalidStoryEvidence.
+        - Errors retain exact category, path, and bound details.
+        - Never collapse errors to undefined or generic corruption.
+
+        - Canonical JSON orders object keys and ID-indexed declarations by UTF-8 bytes.
+        - It orders requirement lists the same way.
+        - It preserves authored child/event/checkpoint/record/diagnostic/fact order.
+        - It uses JSON.stringify for finite numbers and performs no Unicode normalization.
+        - Add exactly one trailing newline at the file boundary.
+        - Artifacts are uncompressed stable-key UTF-8 JSON.
+        - The private lowercase-hex SHA-256 preimage is canonical
+          `{ appId, persistenceVersion, requirements, modules, machines }`.
+        - It excludes Stories and the trailing newline.
+        - The package-private behavior builder owns the preimage.
+        - The encoder recomputes and verifies the emitted fingerprint.
+        - Import compares it to the receiving compiled AppPlan.
+        - Reject mismatches as `ArtifactIdentityMismatch`.
+        - No public fingerprint or collision-resolution API exists.
+
+        - The @O6 export-only share projection has this exact declared shape:
+
+        ```ts
+        type ArtifactCanonicalPath = (string | number)[];
+        type ArtifactValuePath =
+          | ["records", number, "snapshot", "memory" | "context", ...ArtifactCanonicalPath]
+          | ["records", number, "facts", number, "data" | "value" | "error" | "defect" | "latest", ...ArtifactCanonicalPath]
+          | ["checkpoints", number, "actors", number, "snapshot", "memory" | "context", ...ArtifactCanonicalPath]
+          | ["checkpoints", number, "snapshot", "memory" | "context", ...ArtifactCanonicalPath];
+
+        type TraceShareArtifactBase = {
+          kind: "trace-share-artifact";
+          version: "flow-state/trace-share-artifact.v2";
+          storyId: StableId;
+          appId: StableId;
+          persistenceVersion: string;
+          appPlanFingerprint: string;
+          capturedAt: NonNegative;
+          truncatedBeforeSequence: Nullable<NonNegative>;
+          records: TraceRecord[];
+          checkpoints: Checkpoint[];
+          redactions: ArtifactValuePath[];
+        };
+        type TraceShareArtifact =
+          | (TraceShareArtifactBase & { outcome: "completed"; end: Checkpoint; failure: null; cleanup: { status: "complete" } })
+          | (TraceShareArtifactBase & { outcome: "failed"; end: Nullable<Checkpoint>; failure: StoryFailure; cleanup: { status: "complete" } | { status: "failed"; diagnostics: Diagnostic[] } });
+        ```
+
+        - A non-empty finite redaction policy starts from a validated @O6 trace.
+        - Copy every base/outcome field without changing identity, fingerprint, or capture time.
+        - Preserve truncation, record/checkpoint order, sequence, diagnostics, outcome, end,
+          failure,
+          and cleanup.
+        - Change only kind, version, selected application values, and the required non-empty
+          manifest.
+        - Each exact caller tuple names an existing application-owned carrier.
+        - Replace that carrier with the fixed `"[REDACTED]"` value.
+        - An unmanifested naturally occurring replacement string stays legal.
+        - Duplicate paths and ancestor/descendant overlaps reject as `InvalidArtifactOperand` before
+          projection.
+        - Manifest paths sort segment-wise, with numbers before strings.
+        - Numbers sort numerically; strings sort by UTF-8 bytes without normalization.
+        - A shorter equal-prefix path sorts first.
+        - Numeric segments are non-negative safe indexes inside arrays; strings address object
+          members.
+        - Wildcards and string-form paths are forbidden.
+        - Diagnostics may display `records[3].snapshot.context.tokens.secret[4].first`.
+        - Non-identifier names use JSON-quoted brackets; display strings are never input.
+
+        - Share output uses @O6 stable-key canonical JSON and all @O4 bounds, including manifest
+          bounds.
+        - `exportTraceArtifact` always emits it uncompressed.
+        - Omitted or empty redactions bypass @O6 and return byte-identical @O6 bytes.
+        - Share data has no importer/decoder, CLI input, replay, persistence, boot, evidence
+          authority, or mutation path.
+        - Missing paths, structural/identity targets, or protected-field/order changes reject.
+        - `importTraceArtifact` checks top-level kind first.
+        - It rejects share data as `WrongArtifactKind` before @O6 unknown-member, identity, or
+          fingerprint validation.
+        - This enables privacy-reduced sharing without making share data raw evidence or executable
+          input.
+
+        - `CliCommand` is exactly behavior.build, behavior.render, behavior.diff, behavior.check,
+          story.list, story.describe, story.run, trace.summarize, trace.proof, or trace.diff.
+        - Build/render/list/describe/story.run use completed.
+        - Behavior/trace comparisons use equal/different.
+        - Trace diff is incomplete when retained facts match but either trace is truncated.
+        - Trace summarize is completed or incomplete; trace proof requires complete evidence.
+        - Story-run execution/cancellation/cleanup/trace-write failures use `CliError`.
+        - Partial Story failure stays primary; ordered diagnostics follow as secondary failures.
+        - Serialized evidence uses ordered DiagnosticProjection only.
+        - In-process FlowDisposeError/FlowStoryExecutionError retain full Effect Cause only after
+          classification and cleanup aggregation.
+        - Serialized data does not mirror Cause tree, traversal order, or fiber ordinals.
+        - Preserve independent cleanup diagnostic order and multiplicity.
+        - FlowStoryExecutionError carries completed checkpoints, optional end, failure boundary,
+          primary diagnostic, ordered cleanup diagnostics, cancellation evidence, accepted/drained
+          evidence-sequence facts, and full public Cause.
+        - Cleanup failure retains a captured end but cannot produce successful Story evidence.
+        - Failure before end capture never invents `run.end`.
+        - The complete CliResult data union stays private and shared with CLI.
+
+
+    O7  Story evidence is a truthful capture. Pure machine models stay non-executable
+        - A named checkpoint captures one atomic published evidence cut.
+        - It covers exact actor targets, Runtime pending work, and TestClock time.
+        - App evidence resolves storyActor or ActorRef; machine evidence exposes its single
+          snapshot.
+        - Captures use the DehydrateBarrier, one store revision, published actor snapshots,
+          TestClock,
+          and accepted evidence prefix.
+        - End evidence is named `run.end`; it is not actor finality.
+        - A failed run retains completed checkpoints and truthful cleanup.
+        - Cancellation closes admission, preserves partial evidence, and awaits non-abortable
+          cleanup.
+        - Cancellation then fails; success implies complete disposal.
+        - Never fabricate end after end-capture failure or report success after cleanup failure.
+        - FlowStoryExecutionError retains complete public Cause only in process.
+
+        - Pure model artifacts accept only a command-empty, fresh story.machine plan and contain no
+          Effect. Model discovery does no work processing/time movement/actor 
+          creation/restoration/live
+          lookup/external work. Candidates belong to the traversal call. Base Story remains command-
+          empty. They do not replace app Story cross-actor orchestration or persist fixture-declared
+          outcomes. Model traversal is not Runtime-backed and does not instantiate fixture
+          Implementation, maintain hidden candidate registries/event sets, persist fixture outcomes,
+          or own replay. Model artifacts never serialize/execute transaction Effects, stream
+          programs,
+          patch functions, fibers, Queues, Deferreds, or Scopes. A model path becomes an ordinary
+          live
+          Story on the production Runtime.
+
+
+        - The public redaction signature (source trace AMEND-API-003) is:
+
+        ```ts
+        type ArtifactExportOptions = {
+          redactions?: {
+            path: ArtifactValuePath;
+            replacement: "[REDACTED]";
+          }[];
+        };
+
+        declare function exportTraceArtifact(
+          trace: ReturnType<typeof importTraceArtifact>,
+          options?: ArtifactExportOptions,
+        ): Uint8Array;
+        ```
+decisions
+    D1  Flow owns one schema and decoder
+        - Persistence, behavior, trace, and share encodings use one canonical structural walker.
+          They share bounded validation and one package-private decoded model.
+          Application codecs handle opaque values. Adapters own I/O. CLI owns transport/projection.
+          Diagnostic remains the typed failure authority. ARTIFACT_WIRE.md is a pointer only.
+    D2  Share artifacts are export-only projections
+        - A non-empty valid redaction policy produces the share projection from a validated trace.
+          An omitted or empty policy returns byte-identical raw output.
+          Share output never replaces raw evidence or becomes importable, replayable, or boot input.
+          @plan.PublicSurface.O6 owns the signature; AMEND-API-003 is its source trace.
+          @O6 owns schema and behavior. PROOF-014/API-P04 route through
+          @plan.Verification.V6. CONTRACT.md §7 is provenance only.
+constraints
+    C1  Persistence is opt-in and cannot serialize executable runtime authority
+        - Stable refs and operation declarations opt in separately. A filter cannot select
+          undeclared data or access P. A codec cannot execute work or restore the whole boot
+          payload.
+          No provider I/O occurs at construction. No automatic durability, cross-tab behavior,
+          conflict resolver, or same-scope writer protocol is implied.
+    C2  Keep resource identity, finite work, and stream restoration distinct
+        - Descriptor plus K is identity. It never replaces live P.
+          Finite work is never replayed. Remote transaction identity is reconciled.
+          Streams restart only from live P in a fresh generation. Terminal streams do not restart.
+          Do not invent lookup, collection, or gcTime policy. See @plan.PublicSurface.O6.
+    C3  Keep schema and canonical bounds closed
+        - Add no members, aliases, migration envelopes, alternate decoders, or Cause trees.
+          Add no per-envelope limit overrides. Preserve nullable fields, order, and code mappings.
+          @O4 and @O6 own structural limits and exact schema behavior.
+    C4  Keep proposal status and unspecified API forms visible
+        - Workflow Plans define target behavior, not shipped implementation. CONTRACT.md is
+          unaccepted provenance and cannot add routes, signatures, defaults, errors, or proof
+          requirements. Where Plans define no form, do not infer a signature from an export
+          name or proposal inventory.
+          CONTRACT.md §§7 and 9 remain provenance only. ARTIFACT_WIRE.md adds no schema.
+
+        - Unaccepted §9 purposes and source amendments alone establish no signatures;
+          owning Workflow Plans define the supported forms.
+          - `graphOf`, `inspectTransition`, and `inspectMicrosteps`.
+          - `inspectActivities`, `whyNoTransition`, and `formatNoTransitionSummary`.
+          - `analyzeTrace`, `summarizeTrace`, `diffTrace`, and `formatTrace`.
+          - `formatInspectionEvent`, `formatInspectionTimeline`, and
+            `formatRehydrationSummary`.
+          - `formatResourceFreshnessReport` and `formatTransactionOverlapSummary`.
+          - `buildBehaviorContract`, `sliceBehaviorContract`, and `diffBehaviorContracts`.
+          - `renderBehaviorContract`, `renderBehaviorCoverage`, and `renderBehaviorDiff`.
+
+        | Proposal purpose | Status in unaccepted CONTRACT.md §9 |
+        | --- | --- |
+        | `attachInspectionSink` | One Runtime; returns `drain` and `dispose`; form unspecified. |
+        | `createInspectionBufferSink` | Default 256; exposes `snapshot()` and `clear()`. |
+        | `importTraceArtifact` | Accepts `Uint8Array`; private return type is unspecified. |
+        | `exportTraceArtifact` | §9/AMEND-API-003 trace the signature at @plan.PublicSurface.O6. |
+        | Compression helpers | Standalone purpose and full form remain unspecified. |
+
+        - The compression names are `compressTraceArtifact` and `decompressTraceArtifact`.
+verification
+    V1  Persistence providers and declarations
+        - Outcome: @O1.
+        - Scenario:
+          - Construct with and without a provider; exercise typed storage failures.
+          - Test unsupported codec values, filters, browser adapters, and default-off declarations.
+          - Test ordered/coalesced writes and disposal with an accepted write pending.
+        - Pass:
+          - Construction performs no I/O; provider, codec, and filter boundaries stay pure.
+          - Runtime restores once before exposing handles.
+          - Writes remain ordered, with the newest accepted value last.
+          - Write failure preserves Runtime and the last record; it does not fail a committed turn.
+          - Disposal stops observation and releases ownership.
+        - Check: `nub run --filter flow-state-rewrite check:types` and `nub run test`.
+        - Target: add provider tests under `packages/flow-state-rewrite/src/runtime-next/test`.
+        - Pending: persistence provider behavior tests do not exist yet.
+
+    V2  Durable boot, capture, hydration, and operation normalization
+        - Outcome: @O2 and @O3.
+        - Scenario:
+          - Restore compatible and incompatible apps with stable and local refs.
+          - Exercise provider/consumer graphs and concurrent store commits/captures.
+          - Test opaque providers, resource bindings, streams, transactions, and missing executable
+            P.
+        - Pass:
+          - Boot installs one canonical store and exact stable actors before activation.
+          - Context baselines derive from restored providers.
+          - Capture is atomic and context-closed or returns the specified typed failure.
+          - Finite work and context events never replay.
+          - Resource, stream, and transaction facts follow live-input rules.
+        - Check: `nub run --filter flow-state-rewrite check:types` and `nub run test`.
+        - Existing proof: `packages/flow-state-rewrite/src/runtime-next/test/readiness.test.ts`.
+        - Target: add capture/hydration tests beside the readiness tests.
+        - Pending: durable capture and hydration cases do not exist yet.
+
+    V3  Codec bounds and failure ownership
+        - Outcome: @O4.
+        - Scenario:
+          - Drive public byte paths with strict UTF-8, lone surrogates, JSON, and one gzip member.
+          - Test duplicate keys where detectable, malformed values, and every envelope/key bound.
+          - Test application-codec failures, bad identity/version, and raw parser errors.
+        - Pass:
+          - All surfaces share one decoder and the exact limits.
+          - Input fails before mutation or work.
+          - Failures preserve typed owner, category, path, and bound facts.
+          - Parser exceptions, undefined, generic corruption, Cause trees, and Node Buffer do not
+            leak.
+        - Check: `nub run --filter flow-state-rewrite check:types` and `nub run test`.
+        - Target: add codec tests under `packages/flow-state-rewrite/src/artifact/tests`.
+        - Pending: shared codec and bound tests do not exist yet.
+
+    V4  Atomic evidence, sink, and truncation proof
+        - Outcome: @O5.
+        - Scenario:
+          - Interleave publication, acknowledgments, StoreFanout, and late sink attachment.
+          - Test clear, zero/default/custom capacity, accepted-prefix drains, and disposal.
+          - Test slow/failing sinks and explicit export.
+        - Pass:
+          - Evidence stays globally ordered over committed cuts.
+          - Sink work cannot delay or roll back truth.
+          - Marker, clear, and late-attach semantics stay exact.
+          - One sink attaches to one Runtime; skipped revision hints trigger rereads.
+          - Only explicit export makes records durable.
+        - Check: `nub run --filter flow-state-rewrite check:types` and `nub run test`.
+        - Existing proof:
+          `packages/flow-state-rewrite/src/runtime-next/test/evidence-sink-owner.test.ts`.
+        - Pending: the target evidence path is incomplete.
+
+    V5  Canonical v2 schemas, redaction, and Story evidence
+        - Outcome: @O6 and @O7.
+        - Scenario:
+          - Encode/decode behavior and trace artifacts; compare fingerprints across AppPlans.
+          - Reject malformed unions, nullable/member/order/identity errors.
+          - Apply valid and invalid redactions.
+          - Run direct and CLI Stories through checkpoints, end, cancellation, and cleanup.
+          - Test pure-model discovery.
+        - Pass:
+          - Canonical bytes, models, and diagnostics match the contract.
+          - Import rejects share kind before other validation.
+          - Redaction changes only permitted values and the manifest.
+          - Raw/share distinction and Story completion/failure/Cause remain exact.
+          - Model discovery stays pure and shares one private model.
+        - Check: `nub run --filter flow-state-rewrite check:types` and `nub run test`.
+        - Target: add artifact and Story tests under
+          `packages/flow-state-rewrite/src/artifact/tests`.
+        - Pending: exact artifact schema and Story evidence tests do not exist yet.

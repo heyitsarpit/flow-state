@@ -1,0 +1,1552 @@
+phase P2R
+title Granular runtime ownership history
+
+tasks
+    T101
+        title        Define runtime and actor API boundaries
+        status       done
+        priority     high
+        derives_from [@plan.Runtime.D2, @plan.Verification.D6, @plan.Types.V4]
+        description
+            Source Bead: flow-state-e7p.11.1 (closed; task).
+            Original title: P01 — Lock Runtime and actor API seams, failure channels, and
+            synchronous versus Effect boundaries.
+            Deliverable: Produce the binding slice-readiness decision that resolves the current
+            temporary RuntimeSetup shell against future-target Context, Scope, actor, lease, and
+            bridge clauses without changing a contract or source file.
+            No editable owner paths were recorded in the source Bead.
+            External source blockers: flow-state-e7p.1.8.
+            Source Bead close receipt: Final evidence-path finding repaired and independently
+            verified PASS; P01 planning receipt accepted.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Expected: The public API, failure channels, and current versus future ownership
+            are line-addressed and unambiguous; each surface has one phase owner and no
+            conflicting implementation instruction.
+            Check: contract and Plan evidence plus independent read-only review; no runtime
+            check applies.
+
+    T102
+        title        Define the actor publication and store boundary
+        status       done
+        priority     high
+        blocked_by   [@T101]
+        derives_from [
+                     @plan.Runtime.D2,
+                     @plan.Verification.D6,
+                     @plan.Operations.D1,
+                     @plan.Operations.V1
+                     ]
+        description
+            Source Bead: flow-state-e7p.11.2 (closed; task).
+            Original title: P02 — Lock the Phase 2 publication seam versus Phase 3
+            StoreKernel/StoreFanout ownership.
+            Deliverable: Fix the exact Phase 2 actor publication versus Phase 3
+            StoreKernel/StoreFanout boundary without delegating actor identity, actor leases,
+            fences, acknowledgement, or publication revisions.
+            No editable owner paths were recorded in the source Bead.
+            External source blockers: none recorded.
+            Source Bead close receipt: Owner/port/failure matrix independently reviewed PASS
+            with current evidence and no blocking finding; user stop after P02.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Expected: The owner matrix assigns actor identity, actor leases, fences,
+            acknowledgements, and actor publication revisions to Phase 2; canonical store
+            state, store revisions, lookup generations, and fanout remain Phase 3. StoreFanout
+            observes only a completed actor publication and evidence/acknowledgement boundary.
+            Check: line-addressed Plan/source matrix and independent review; no runtime check
+            applies.
+
+    T103
+        title        Verify selected Effect APIs against the installed release
+        status       done
+        priority     high
+        blocked_by   [@T102]
+        derives_from [
+                     @plan.Runtime.D2,
+                     @plan.Verification.D6,
+                     @plan.Runtime.Q1,
+                     @plan.Types.C2,
+                     @plan.Types.V4
+                     ]
+        description
+            Source Bead: flow-state-e7p.11.3 (closed; task).
+            Original title: P03 — Reconcile every selected Effect API and scheduling assumption
+            against installed effect@4.0.0-rc.112.
+            Deliverable: Prove the exact rc.112 Effect surface needed by later children before
+            any runtime owner is written.
+            Recorded owner paths (historical):
+            `packages/flow-state-rewrite/src/runtime/test/effect-api.compile.ts`.
+            External source blockers: none recorded.
+            Source Bead close receipt: Completed: declaration/source receipt frozen and
+            independently reviewed PASS at note SHA
+            c7e539cbdf52bb68ba1a7dcbabfcbfe5bf05c7afffce14c792ab8fa77a3fff8e; no blocking
+            findings.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Check: P03 rc.112 API proof compiles every selected Phase 2 primitive at its
+            intended A/E/R.
+            Setup: minimal compile-only recipes using installed effect@4.0.0-rc.112, with no
+            production runner.
+            Expected: each selected symbol exists from the exact recorded rc.112 route with the
+            recorded signature and environment/error channel; TestClock is not imported from
+            top-level effect.
+            Run: `nub run --filter flow-state-rewrite check:types`.
+
+    T104
+        title        Keep RuntimeSetup construction inert
+        status       done
+        priority     high
+        blocked_by   [@T103]
+        derives_from [@plan.Runtime.D2, @plan.Runtime.V3]
+        description
+            Source Bead: flow-state-e7p.11.4 (closed; task).
+            Original title: R01 — RuntimeSetup and construct remain inert and perform no
+            acquisition, work, actor creation, or evidence.
+            Deliverable: Make runtimeSetup and construct synchronously return an inert shell
+            whose creation has zero observable acquisition or external work.
+            Recorded owner paths (historical):
+            `packages/flow-state-rewrite/src/runtime/runtime.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/runtime.test.ts`.
+            External source blockers: none recorded.
+            Source Bead close receipt: Completed: R01 implementation and inertness regression
+            accepted after independent same-snapshot PASS; narrow Bead acceptance amendment
+            records unobservable runner cleanup without a false RED claim; all required bounded
+            receipts pass.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Check: R01 constructing runtime performs no acquisition or external work.
+            Setup: instrumented Implementation/provider counters, actor/evidence probes, and an
+            Effect runner used only by the test after construction.
+            Expected: all counters and externally visible collections stay zero before ready is
+            executed.
+            Run: `nubx vp test packages/flow-state-rewrite/src/runtime/test/runtime.test.ts`.
+
+    T105
+        title        Enforce exact App implementation requirements
+        status       done
+        priority     high
+        blocked_by   [@T103]
+        derives_from [@plan.Runtime.D2, @plan.Runtime.V3, @plan.Types.V4]
+        description
+            Source Bead: flow-state-e7p.11.5 (closed; task).
+            Original title: R02 — exact App requirement closure accepts only a complete
+            Implementation and preserves A/E/R inference.
+            Deliverable: Enforce the two RuntimeSetup overloads exactly: no Implementation for
+            RequirementsOf<A>=never, otherwise a complete Implementation with exact error
+            inference.
+            Recorded owner paths (historical):
+            `packages/flow-state-rewrite/src/runtime/runtime.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/runtime.test.ts`.
+            External source blockers: none recorded.
+            Source Bead close receipt: Completed: exact RuntimeSetup requirement closure and
+            A/E/R proofs pass with valid RED→GREEN type receipt and independent same-snapshot
+            reviewer PASS.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Check: R02 requirement closure preserves exact app and implementation failure types.
+            Setup: positive no-requirements app, exact complete implementation, complete
+            strict-superset providers with no residual requirements, and compile-negative
+            missing/mismatched/residual-requirement implementations.
+            Expected: exact and strict-superset complete implementations preserve exact A/E/R;
+            only missing, mismatched, or residual requirements fail with exact diagnostics.
+            Run: `nub run --filter flow-state-rewrite check:types`.
+
+    T106
+        title        Initialize one runtime scope on first readiness
+        status       done
+        priority     high
+        blocked_by   [@T105, @T104]
+        derives_from [@plan.Runtime.D2, @plan.Runtime.V3]
+        description
+            Source Bead: flow-state-e7p.11.6 (closed; task).
+            Original title: R03 — first readiness creates one runtime Scope and installed
+            Context without exposing partial state.
+            Deliverable: Make the first ready execution allocate the single runtime lifetime
+            owner and installed service Context, with no partial externally usable state.
+            Recorded owner paths (historical):
+            `packages/flow-state-rewrite/src/runtime/runtime-owner.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/runtime-owner.test.ts`.
+            External source blockers: none recorded.
+            Source Bead close receipt: Completed: user-authorized repair resolved owner Scope
+            provisioning and exact Cause proofs; fresh bounded checks passed and independent
+            same-snapshot reviewer PASS.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Check: R03 first readiness exposes one fully installed runtime or nothing.
+            Setup: controllable provider acquisition gates and probes for Context, handle
+            visibility, and cleanup registration.
+            Expected: before final gate no usable runtime service/handle is observable; after
+            success every required service is installed under one lifetime.
+            Run: `nubx vp test
+            packages/flow-state-rewrite/src/runtime/test/runtime-owner.test.ts`.
+
+    T107
+        title        Acquire providers sequentially in declaration order
+        status       done
+        priority     high
+        blocked_by   [@T106]
+        derives_from [@plan.Runtime.D2, @plan.Runtime.V3]
+        description
+            Source Bead: flow-state-e7p.11.7 (closed; task).
+            Original title: R04 — providers acquire sequentially in declaration order and later
+            providers can consume earlier services.
+            Deliverable: Acquire the closed Implementation graph sequentially in authored
+            declaration order with earlier services visible to later providers.
+            Recorded owner paths (historical):
+            `packages/flow-state-rewrite/src/runtime/runtime-owner.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/runtime-owner.test.ts`.
+            External source blockers: none recorded.
+            Source Bead close receipt: Completed: ordered provider acquisition and
+            predecessor-service visibility proven with typed, defect, interruption, cleanup, and
+            caching lanes; bounded checks passed and independent reviewer PASS.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Check: R04 providers acquire sequentially and consume prior services.
+            Setup: an R02 complete-closure receipt plus three gated providers recording
+            start/end and requiring the predecessor service; provider 2 separately returns typed
+            failure, defects, and is interrupted.
+            Expected: success trace is start1/end1/start2/end2/start3/end3 and later services
+            read exact earlier identity; every provider-2 terminal prevents provider 3 and
+            releases only provider 1 once.
+            Run: `nubx vp test
+            packages/flow-state-rewrite/src/runtime/test/runtime-owner.test.ts`.
+
+    T108
+        title        Join concurrent readiness and reuse its terminal result
+        status       done
+        priority     high
+        blocked_by   [@T107]
+        derives_from [@plan.Runtime.D2, @plan.Runtime.V3, @plan.Types.V4]
+        description
+            Source Bead: flow-state-e7p.11.8 (closed; task).
+            Original title: R05 — concurrent ready callers join one acquisition and later
+            callers reuse its terminal result.
+            Deliverable: Linearize concurrent ready calls so exactly one leader acquires and all
+            waiters plus later callers observe the same terminal outcome.
+            Recorded owner paths (historical):
+            `packages/flow-state-rewrite/src/runtime/runtime-owner.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/runtime-owner.test.ts`.
+            External source blockers: none recorded.
+            Source Bead close receipt: R05 test deadlock/concurrency repair verified;
+            independent Luna xhigh slice review PASS, all required current gates passed.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Check: R05 concurrent ready callers share one terminal acquisition.
+            Setup: gated provider, N concurrent test fibers, acquisition counter, and
+            post-terminal caller.
+            Expected: counter is one and every caller receives observationally equal success or
+            the identical failure classification without retry.
+            Run: `nubx vp test
+            packages/flow-state-rewrite/src/runtime/test/runtime-owner.test.ts`.
+
+    T109
+        title        Preserve readiness failures and interruption exactly
+        status       done
+        priority     high
+        blocked_by   [@T108]
+        derives_from [@plan.Runtime.D2, @plan.Runtime.V3]
+        description
+            Source Bead: flow-state-e7p.11.9 (closed; task).
+            Original title: R06 — typed failure, defect, and interruption retain the exact
+            terminal Exit/Cause and never retry.
+            Deliverable: Preserve all readiness terminal lanes exactly and make each terminal
+            non-retrying.
+            Recorded owner paths (historical):
+            `packages/flow-state-rewrite/src/runtime/runtime-owner.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/runtime-owner.test.ts`.
+            External source blockers: none recorded.
+            Source Bead close receipt: R06 implemented/verified: terminal Cause regression and
+            real provider finalizer typed/defect cases; focused test, lint, check, coverage,
+            unused report, scoped diff check pass; independent slice reviewer PASS.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Check: R06 readiness terminal preserves typed failure defect and interruption
+            without retry.
+            Setup: table of typed fail, die/throw, interrupt-only, mixed composite Cause values,
+            empty/unclassifiable Cause, and cleanup typed-failure/defect controls with
+            acquisition counters.
+            Expected: mixed Cause classification precedence, exact typed payload/full Cause, and
+            primary-plus-cleanup attachment are stable on first and repeated ready calls;
+            counters stay one.
+            Run: `nubx vp test
+            packages/flow-state-rewrite/src/runtime/test/runtime-owner.test.ts`.
+
+    T110
+        title        Dispose runtime safely during readiness
+        status       done
+        priority     high
+        blocked_by   [@T109]
+        derives_from [@plan.Runtime.D2, @plan.Runtime.V3]
+        description
+            Source Bead: flow-state-e7p.11.10 (closed; task).
+            Original title: R07 — disposal races readiness, performs reverse cleanup exactly
+            once, and closes private runtime execution terminally.
+            Deliverable: Make runtime disposal win a readiness race, stop exposure,
+            reverse-clean acquired owners once, and leave ready/dispose terminal and joinable.
+            Recorded owner paths (historical):
+            `packages/flow-state-rewrite/src/runtime/runtime-owner.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/runtime-owner.test.ts`.
+            External source blockers: none recorded.
+            Source Bead close receipt: R07 disposal/readiness race, reverse-once cleanup and
+            exact terminal Cause verified; all required gates pass; independent slice reviewer
+            PASS.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Check: R07 disposal during bootstrap wins and cleanup runs once in reverse order.
+            Setup: three providers with acquisition/finalizer gates, concurrent ready/dispose
+            fibers, trace and repeated dispose/ready calls.
+            Expected: no exposure occurs, trace releases reverse acquired prefix once, all
+            callers settle to one cached terminal, later ready cannot restart, and the private
+            disposal outcome retains the primary terminal plus cleanup Cause for the later
+            documented FlowDisposeError projection without exposing Cause elsewhere.
+            Run: `nubx vp test
+            packages/flow-state-rewrite/src/runtime/test/runtime-owner.test.ts`.
+
+    T111
+        title        Allocate stable actor identity and incarnation
+        status       done
+        priority     high
+        blocked_by   [@T145, @T103, @T110]
+        derives_from [@plan.Runtime.D2, @plan.Verification.D1, @plan.Verification.V2]
+        description
+            Source Bead: flow-state-e7p.11.11 (closed; task).
+            Original title: A01 — stable actor key identity and monotonically increasing
+            non-reused incarnation are allocated correctly.
+            Deliverable: Allocate one runtime-local stable key and a strictly increasing,
+            never-reused incarnation for every admitted actor lifetime while preserving exact
+            ActorRef<M> branding.
+            Recorded owner paths (historical):
+            `packages/flow-state-rewrite/src/runtime/actor-admission.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts`.
+            External source blockers: none recorded.
+            Source Bead is closed; no close reason was stored.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Check: A01 actor incarnations increase and are never reused.
+            Setup: two separately constructed runtimes using the same stable ref, multiple
+            stable refs per runtime, dispose/re-admit attempts, and deterministic identity
+            observation.
+            Expected: the same stable ref in two runtimes cannot alias actor identity, keys are
+            stable only within the owning runtime, every created lifetime gets a greater unique
+            incarnation, and tombstoned identity cannot reuse the old value.
+            Run: `nubx vp test
+            packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts`.
+
+    T112
+        title        Make actor lookup passive and exact
+        status       done
+        priority     high
+        blocked_by   [@T111]
+        derives_from [@plan.Verification.D1, @plan.Verification.D6, @plan.Verification.V8]
+        description
+            Source Bead: flow-state-e7p.11.12 (closed; task).
+            Original title: A02 — registry lookup/getActor creates nothing and returns the
+            existing exact actor or canonical lookup failure.
+            Deliverable: Make getActor a passive exact-identity lookup that never admits,
+            restores, acquires, or mutates.
+            Recorded owner paths (historical):
+            `packages/flow-state-rewrite/src/runtime/actor-admission.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts`,
+            `packages/flow-state-rewrite/src/runtime/runtime.ts`.
+            External source blockers: none recorded.
+            Source Bead is closed; no close reason was stored.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Check: A02 getActor is passive lookup-only.
+            Setup: empty registry, one exact active actor, foreign-runtime ref, exact-machine
+            mismatch, disposed ref, tombstoned stable ref, and opaque-local ref with
+            mutation/acquisition/evidence counters.
+            Expected: missing rejects with MissingActorRef; exact active returns the same
+            handle; foreign, mismatched, disposed, tombstoned, and invalid opaque refs produce
+            their exact diagnostics; every counter/revision/evidence value remains unchanged.
+            Run: `nubx vp test
+            packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts`.
+
+    T113
+        title        Create fresh opaque local actor identities
+        status       done
+        priority     high
+        blocked_by   [@T111]
+        derives_from [@plan.Runtime.D1, @plan.Runtime.V2, @plan.Runtime.V3]
+        description
+            Source Bead: flow-state-e7p.11.13 (closed; task).
+            Original title: A03 — fresh opaque local identities feed the shared actor admission
+            path without a durable address.
+            Deliverable: Own fresh runtime-local opaque identity creation for the createActor
+            path. Each request gets a distinct local identity and cannot accept a durable ID,
+            restoration, stable lookup alias, or child capability. A04 owns execution of the
+            shared admission transaction for both fresh-local and stable requests; this child
+            does not duplicate it before validation lands.
+            Recorded owner paths (historical):
+            `packages/flow-state-rewrite/src/runtime/actor-admission.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts`.
+            External source blockers: none recorded.
+            Source Bead is closed; no close reason was stored.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Expected: Every create request receives a fresh opaque runtime-local identity and
+            enters shared admission without a durable address or restore path.
+            Run: `nubx vp test
+            packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts`.
+
+    T114
+        title        Expose stable actors only after activation
+        status       done
+        priority     high
+        blocked_by   [@T116, @T112, @T117, @T113]
+        derives_from [@plan.Runtime.D1, @plan.Runtime.V2, @plan.Runtime.V3]
+        description
+            Source Bead: flow-state-e7p.11.14 (closed; task).
+            Original title: A04 — ensureActor restores or creates one stable actor and exposes
+            the owner lease only after activation.
+            Deliverable: Implement stable ensure semantics: restore-or-create exactly one actor
+            and expose actor plus sole disposal lease only after validation, attachment, mailbox
+            activation, and sealed registration.
+            Recorded owner paths (historical):
+            `packages/flow-state-rewrite/src/runtime/actor-admission.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts`.
+            External source blockers: none recorded.
+            Source Bead is closed; no close reason was stored.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Check: A04 ensureActor exposes lease only after activation.
+            Setup: closed A06/A07 validation receipts; gated validation/attachment/activation
+            probes; fresh and restored stable actors with initializer/input counters.
+            Expected: no handle/lease/state is visible at any earlier gate; success returns the
+            exact stable ref and one disposal authority; restored admission reruns neither input
+            nor initializer and fresh admission runs initialization exactly once.
+            Run: `nubx vp test
+            packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts`.
+
+    T115
+        title        Join concurrent admission for stable actors
+        status       done
+        priority     high
+        blocked_by   [@T114]
+        derives_from [@plan.Runtime.D1, @plan.Runtime.V2, @plan.Runtime.V3]
+        description
+            Source Bead: flow-state-e7p.11.15 (closed; task).
+            Original title: A05 — concurrent ensures for one stable identity join one admission
+            and one shared owner lease.
+            Deliverable: Linearize concurrent ensures of one stable ActorRef so they join one
+            transaction and cannot create competing incarnations or leases.
+            Recorded owner paths (historical):
+            `packages/flow-state-rewrite/src/runtime/actor-admission.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts`.
+            External source blockers: none recorded.
+            Source Bead is closed; no close reason was stored.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Check: A05 duplicate ensure joins one admission.
+            Setup: deterministic concurrent ensure matrices for success, typed failure, defect,
+            interruption, and conflicting identity/fixed-binding claims, gated before activation
+            with counters for decode, incarnation, mailbox, registration, terminal Exit, and
+            cleanup.
+            Expected: matching callers share one terminal Exit, actor identity, lease, and
+            cleanup owner in every lane; conflicting identity/fixed-binding claims reject
+            deterministically without joining or creating a second incarnation; creation/cleanup
+            counts remain one.
+            Run: `nubx vp test
+            packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts`.
+
+    T116
+        title        Validate actor admission before mutation
+        status       done
+        priority     high
+        blocked_by   [@T110, @T111]
+        derives_from [@plan.Runtime.D1, @plan.Runtime.V2, @plan.Runtime.V3]
+        description
+            Source Bead: flow-state-e7p.11.16 (closed; task).
+            Original title: A06 — input, app/machine/ref provenance, provider availability,
+            fixed context bindings, and tombstones validate before mutation.
+            Deliverable: Validate the complete admission boundary before any registry, edge,
+            snapshot, mailbox, work, evidence, or tombstone mutation.
+            Recorded owner paths (historical):
+            `packages/flow-state-rewrite/src/runtime/actor-admission.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts`.
+            External source blockers: none recorded.
+            Source Bead is closed; no close reason was stored.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Check: A06 invalid admission fails before external visibility.
+            Setup: table of invalid input, foreign app/machine/ref, missing provider, binding
+            mismatch, and tombstoned ref with mutation probes.
+            Expected: each returns its exact diagnostic lane and every state/work/evidence
+            counter remains unchanged.
+            Run: `nubx vp test
+            packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts`.
+
+    T117
+        title        Validate provider graphs by native identity
+        status       done
+        priority     high
+        blocked_by   [@T116]
+        derives_from [@plan.Runtime.D1, @plan.Runtime.V2, @plan.Runtime.V3, @plan.Types.V5]
+        description
+            Source Bead: flow-state-e7p.11.17 (closed; task).
+            Original title: A07 — native identity graph validation rejects missing, foreign,
+            ambiguous, duplicate, and cyclic bindings while building reverse indexes.
+            Deliverable: Build and validate fixed provider dependency edges by native exact
+            identity, reject every invalid graph, and derive reverse dependency ownership
+            without string-key ambiguity.
+            Recorded owner paths (historical):
+            `packages/flow-state-rewrite/src/runtime/actor-admission.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts`.
+            External source blockers: none recorded.
+            Source Bead is closed; no close reason was stored.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Check: A07 dependency graph rejects invalid identity and records reverse owners.
+            Setup: valid diamond plus missing, foreign-runtime, same-name ambiguous,
+            duplicate-slot, self-cycle, and multi-node cycle graphs.
+            Expected: valid graph yields exact forward/reverse edges; every invalid graph
+            returns deterministic diagnostics with zero installed edges.
+            Run: `nubx vp test
+            packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts`.
+
+    T118
+        title        Roll back failed actor admission in reverse order
+        status       done
+        priority     high
+        blocked_by   [@T117, @T115, @T114]
+        derives_from [@plan.Runtime.D1, @plan.Runtime.V2, @plan.Runtime.V3]
+        description
+            Source Bead: flow-state-e7p.11.18 (closed; task).
+            Original title: A08 — admission failure and interruption roll back in reverse order
+            without escaped truth.
+            Deliverable: Original baseline A08 is split across A08–A10. This child owns only
+            admission rollback; A09 owns lease/dependent rejection and A10 owns idempotent
+            disposal/tombstone truth.
+            Recorded owner paths (historical):
+            `packages/flow-state-rewrite/src/runtime/actor-admission.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts`.
+            External source blockers: none recorded.
+            Source Bead is closed; no close reason was stored.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Check: A08 admission failure and interruption reverse-clean every staged owner.
+            Setup: inject typed failure, defect, and interruption after every admission stage
+            with exact trace/state/evidence probes.
+            Expected: only the acquired prefix cleans exactly once in reverse acquisition order;
+            no actor/handle/lease/edge/mailbox/public snapshot/ack/evidence escapes; consumed
+            incarnation is not reused.
+            Run: `nubx vp test
+            packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts`.
+
+    T119
+        title        Buffer prepared commands in bounded FIFO order
+        status       done
+        priority     high
+        blocked_by   [@T143, @T103]
+        derives_from [@plan.Runtime.D2, @plan.Runtime.V4, @plan.Verification.V2]
+        description
+            Source Bead: flow-state-e7p.11.19 (closed; task).
+            Original title: M01 — prepared actor buffering accepts at least the documented
+            bound, preserves FIFO, and abandonment drops/rejects without side effects.
+            Deliverable: Own pre-activation command admission as a bounded observable buffer
+            that preserves accepted FIFO and has explicit abandonment truth.
+            Recorded owner paths (historical):
+            `packages/flow-state-rewrite/src/runtime/actor-engine.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts`.
+            External source blockers: none recorded.
+            Source Bead is closed; no close reason was stored.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Check: M01 prepared buffering preserves accepted FIFO and abandons without side
+            effects.
+            Setup: actor held before activation, at least 64 accepted prepared commands plus
+            implementation-documented overflow, abandon-close-once, and later-rejection
+            controls, transition/evidence/work counters.
+            Expected: the first 64 commands are accepted in exact FIFO; abandonment closes once,
+            drops the buffer, later commands reject; rejected/abandoned items cause no
+            transition, store port, work, occurrence, evidence, or acknowledgement leak.
+            Run: `nubx vp test
+            packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts`.
+
+    T120
+        title        Install mailbox and consumer before actor exposure
+        status       done
+        priority     high
+        blocked_by   [@T119]
+        derives_from [@plan.Runtime.D2, @plan.Runtime.V4, @plan.Verification.V2]
+        description
+            Source Bead: flow-state-e7p.11.20 (closed; task).
+            Original title: M02 — activation installs one bounded actor mailbox and one scoped
+            consumer before handle escape.
+            Deliverable: Create the production actor mailbox/consumer under the actor lifetime
+            and prove they are ready before any handle escapes.
+            Recorded owner paths (historical):
+            `packages/flow-state-rewrite/src/runtime/actor-engine.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts`.
+            External source blockers: none recorded.
+            Source Bead is closed; no close reason was stored.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Check: M02 activation installs one consumer before exposure.
+            Setup: activation gates, consumer-start probe, escaped-handle probe, and bounded
+            admission pressure.
+            Expected: handle is absent until admission and consumer are live; after exposure
+            exactly one logical consumer processes facts; shutdown settles it.
+            Run: `nubx vp test
+            packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts`.
+
+    T121
+        title        Drain prepared commands after the activation barrier
+        status       done
+        priority     high
+        blocked_by   [@T120]
+        derives_from [@plan.Runtime.D2, @plan.Runtime.V4, @plan.Verification.V2]
+        description
+            Source Bead: flow-state-e7p.11.21 (closed; task).
+            Original title: M03 — the activation barrier precedes every early buffered command
+            and drains prepared commands into the same mailbox.
+            Deliverable: Bridge prepared acceptance into the active mailbox without a second
+            ordering domain or early-command overtaking.
+            Recorded owner paths (historical):
+            `packages/flow-state-rewrite/src/runtime/actor-engine.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts`.
+            External source blockers: none recorded.
+            Source Bead is closed; no close reason was stored.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Check: M03 activation barrier drains early commands before later commands.
+            Setup: commands accepted before, during, and immediately after activation using
+            deterministic gates.
+            Expected: one observed order equals acceptance order across the barrier and each
+            command appears once.
+            Run: `nubx vp test
+            packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts`.
+
+    T122
+        title        Keep actor send synchronous and mutation-safe
+        status       done
+        priority     high
+        blocked_by   [@T121]
+        derives_from [@plan.Runtime.D2, @plan.Runtime.V4, @plan.Verification.V2]
+        description
+            Source Bead: flow-state-e7p.11.22 (closed; task).
+            Original title: M04 — public send is synchronous, uses the real mailbox admission
+            seam, and rejects closed/full admission without mutation.
+            Deliverable: Implement public actor.send(event): void as immediate production
+            mailbox admission with no Promise, Effect, Fiber, receipt, or subscription escape.
+            Recorded owner paths (historical):
+            `packages/flow-state-rewrite/src/runtime/actor-engine.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts`.
+            External source blockers: none recorded.
+            Source Bead is closed; no close reason was stored.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Check: M04 public send is synchronous and closed/full rejection mutates nothing.
+            Setup: typed actor, controlled full and closed admission, mutation/evidence/work
+            probes, return-value/type assertions.
+            Expected: return is void on acceptance, no async handle escapes, and full/closed
+            failure is synchronous with all truth unchanged.
+            Run: `nubx vp test
+            packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts`.
+
+    T123
+        title        Fence accepted commands and preserve FIFO order
+        status       done
+        priority     high
+        blocked_by   [@T122]
+        derives_from [@plan.Runtime.D2, @plan.Runtime.V4, @plan.Verification.V2]
+        description
+            Source Bead: flow-state-e7p.11.23 (closed; task).
+            Original title: M05 — accepted normal and reentrant facts process in one FIFO order
+            with incarnation/generation fencing.
+            Deliverable: Serialize normal and reentrant command/fact acceptance in one
+            observable order and discard stale actor incarnations/generations before planning.
+            Recorded owner paths (historical):
+            `packages/flow-state-rewrite/src/runtime/actor-engine.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts`.
+            External source blockers: none recorded.
+            Source Bead is closed; no close reason was stored.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Check: M05 normal reentrant and stale facts preserve one FIFO.
+            Setup: command whose callback reentrantly sends another command, concurrent external
+            command, and stale incarnation/generation facts with deterministic gates.
+            Expected: observed accepted sequence is exact, reentrant item cannot overtake, and
+            stale facts cause no state/work/evidence mutation.
+            Run: `nubx vp test
+            packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts`.
+
+    T124
+        title        Plan event turns from one pre-turn snapshot
+        status       done
+        priority     high
+        blocked_by   [@T123]
+        derives_from [@plan.Runtime.D2, @plan.Runtime.V4, @plan.Verification.V2]
+        description
+            Source Bead: flow-state-e7p.11.24 (closed; task).
+            Original title: M06 — event turns read one pre-turn snapshot and evaluate
+            transition, guard, and memory exactly once in a pure planner.
+            Deliverable: Capture one immutable pre-turn snapshot; evaluate transition, guard,
+            updateMemory and actions at their stages; apply target/memory, then stabilize
+            redirects against the updated candidate snapshot.
+            Recorded owner paths (historical):
+            `packages/flow-state-rewrite/src/runtime/turn-plan.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/turn-plan.test.ts`.
+            External source blockers: none recorded.
+            Source Bead is closed; no close reason was stored.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Check: M06 pure planner reads one snapshot and evaluates callbacks once.
+            Setup: machine with instrumented transition/guard/updateMemory/redirect callbacks
+            and a snapshot source changed after planner entry.
+            Expected: trace order/count is exact, guard/updateMemory/actions read the captured
+            before snapshot while redirects read the updated candidate, and no
+            store/work/evidence side effect occurs.
+            Run: `nubx vp test packages/flow-state-rewrite/src/runtime/test/turn-plan.test.ts`.
+
+    T125
+        title        Validate complete action and redirect batches
+        status       done
+        priority     high
+        blocked_by   [@T124]
+        derives_from [@plan.Runtime.D2, @plan.Runtime.V4, @plan.Verification.V2]
+        description
+            Source Bead: flow-state-e7p.11.25 (closed; task).
+            Original title: M07 — finite actions, redirects, and mapped-event batches validate
+            completely; one invalid item rejects the whole candidate plan.
+            Deliverable: Validate the entire finite-action/redirect/mapped-event batch before
+            any occurrence allocation, external work, or commit.
+            Recorded owner paths (historical):
+            `packages/flow-state-rewrite/src/runtime/turn-plan.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/turn-plan.test.ts`.
+            External source blockers: none recorded.
+            Source Bead is closed; no close reason was stored.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Check: M07 planning defect rejects the whole action and mapped-event batch.
+            Setup: multi-item plan with invalid action at first/middle/last, redirect
+            cycle/defect, and counters for occurrence/store/work publication.
+            Expected: every invalid case returns one complete failure with zero
+            allocated/published prefix; valid order remains authored.
+            Run: `nubx vp test packages/flow-state-rewrite/src/runtime/test/turn-plan.test.ts`.
+
+    T126
+        title        Publish complete actor commits atomically
+        status       done
+        priority     high
+        blocked_by   [@T125]
+        derives_from [@plan.Runtime.D2, @plan.Runtime.V4, @plan.Verification.V2]
+        description
+            Source Bead: flow-state-e7p.11.26 (closed; task).
+            Original title: M08 — a complete immutable CommitPlan serializes atomic actor
+            publication and advances machine/publication revisions only by their laws.
+            Deliverable: Turn a fully validated plan plus the P02 store port into one atomic
+            actor/store cut with correct separate revision laws.
+            Recorded owner paths (historical):
+            `packages/flow-state-rewrite/src/runtime/turn-plan.ts`,
+            `packages/flow-state-rewrite/src/runtime/actor-engine.ts`.
+            External source blockers: none recorded.
+            Source Bead is closed; no close reason was stored.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Check: M08 atomic cut advances machine and publication revisions by cause.
+            Setup: in-memory contract fixture for the Phase 3 store port, event plan,
+            validation/stale no-op, contained typed/defect precommit failures, explicit
+            precommit interruption, postcommit invariant failure, publication-revision
+            exhaustion/no-wrap, and passive observers sampling every cut.
+            Expected: observer sees only complete matching actor/store cuts; event increments
+            machine+publication, passive publication only publication, validation/stale no-op
+            changes no revision; contained typed/defect precommit failure publishes one
+            issue-only snapshot with publicationRevision +1 while machine/store revisions remain
+            unchanged; postcommit invariant failure preserves committed truth.
+            Run: `nubx vp test packages/flow-state-rewrite/src/runtime/test/turn-plan.test.ts`.
+
+    T127
+        title        Publish projection facts without machine turns
+        status       done
+        priority     high
+        blocked_by   [@T126]
+        derives_from [@plan.Runtime.D2, @plan.Runtime.V4, @plan.Verification.V2]
+        description
+            Source Bead: flow-state-e7p.11.27 (closed; task).
+            Original title: M09 — projection-only facts publish one complete immutable snapshot
+            without fabricating an event or running transition/action logic.
+            Deliverable: Publish timer, completion, stream, context, and store projection facts
+            as passive immutable cuts without machine transition or user work.
+            Recorded owner paths (historical):
+            `packages/flow-state-rewrite/src/runtime/turn-plan.ts`,
+            `packages/flow-state-rewrite/src/runtime/actor-engine.ts`.
+            External source blockers: none recorded.
+            Source Bead is closed; no close reason was stored.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Check: M09 projection facts publish without fabricated event or user work.
+            Setup: timer/completion/stream/context/store facts plus adjacent coalescible and
+            forbidden-coalescing controls, instrumented transition/action callbacks,
+            revision/work/occurrence counters.
+            Expected: one complete immutable snapshot per published or permitted
+            adjacent-coalesced projection cut; callback/work/occurrence counts stay zero and
+            machine revision does not advance; lifecycle, terminal, cancellation,
+            stream-terminal, and mapped-event facts never coalesce here.
+            Run: `nubx vp test packages/flow-state-rewrite/src/runtime/test/turn-plan.test.ts`.
+
+    T128
+        title        Acknowledge commands after publication and evidence
+        status       done
+        priority     high
+        blocked_by   [@T127, @T126]
+        derives_from [@plan.Runtime.D2, @plan.Runtime.V4, @plan.Verification.V2]
+        description
+            Source Bead: flow-state-e7p.11.28 (closed; task).
+            Original title: M10 — private acknowledgement settles only after publication and
+            evidence acceptance; pre/post-commit failures and shutdown settle every accepted
+            command exactly once.
+            Deliverable: Finish command truth with a package-private acknowledgement ordered
+            after publication and evidence acceptance, before user work settlement, and
+            guarantee terminal settlement for every accepted command.
+            Recorded owner paths (historical):
+            `packages/flow-state-rewrite/src/runtime/actor-engine.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts`.
+            External source blockers: none recorded.
+            Source Bead is closed; no close reason was stored.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Check: M10 acknowledgement order and shutdown settlement are exact.
+            Setup: gated publisher, L07 evidence-acceptance port, user work, validation/stale
+            no-op, contained typed/defect precommit issue-only publication, mixed Cause vector,
+            explicit interruption, invariant postcommit fail, and shutdown with current plus
+            buffered commands.
+            Expected: validation/stale no-op settles with no publication; contained failure
+            publishes issue-only with publication +1 and unchanged machine/store; mixed Cause
+            obeys defect > typed failure > interruption-only; ack is pending before
+            publish/evidence and settles immediately after both without waiting user work, every
+            accepted command settles once on all failure/shutdown paths, no synthetic terminal
+            TurnRecord.
+            Run: `nubx vp test
+            packages/flow-state-rewrite/src/runtime/test/actor-engine.test.ts`.
+
+    T129
+        title        Capture immutable provider-first context baselines
+        status       done
+        priority     high
+        blocked_by   [@T128, @T118, @T103]
+        derives_from [@plan.Runtime.V5, @plan.Verification.D2, @plan.Verification.V2]
+        description
+            Source Bead: flow-state-e7p.11.29 (closed; task).
+            Original title: C01 — admission captures an immutable provider-first context
+            baseline and fixed binding descriptions.
+            Deliverable: Capture exact fixed context bindings and install their provider-first
+            baseline silently before the first active actor snapshot.
+            Recorded owner paths (historical):
+            `packages/flow-state-rewrite/src/runtime/context-wave.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts`.
+            External source blockers: none recorded.
+            Source Bead is closed; no close reason was stored.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Check: C01 baseline preserves authored values and installs before first active
+            snapshot.
+            Setup: providers selecting null, undefined, named record, and function identity plus
+            a gate before actor activation.
+            Expected: exact values/identity and fixed bindings appear in the first active
+            snapshot; no intermediate baseline publication or selector-owned work occurs.
+            Run: `nubx vp test
+            packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts`.
+
+    T130
+        title        Derive bounded provider-first dependency waves
+        status       done
+        priority     high
+        blocked_by   [@T129]
+        derives_from [@plan.Runtime.V5, @plan.Verification.D2, @plan.Verification.V2]
+        description
+            Source Bead: flow-state-e7p.11.30 (closed; task).
+            Original title: C02 — validated admission topology yields one bounded provider-first
+            dependency wave order.
+            Deliverable: Consume A07 validated exact-identity forward/reverse topology and
+            derive a deterministic provider-first reachable wave order without duplicating graph
+            admission.
+            Recorded owner paths (historical):
+            `packages/flow-state-rewrite/src/runtime/context-wave.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts`.
+            External source blockers: none recorded.
+            Source Bead is closed; no close reason was stored.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Expected: A valid fixed provider topology yields one deterministic, bounded
+            provider-first wave order.
+            Run: `nubx vp test
+            packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts`.
+
+    T131
+        title        Coalesce provider changes into one consumer turn
+        status       done
+        priority     high
+        blocked_by   [@T128, @T130]
+        derives_from [@plan.Runtime.V5, @plan.Verification.D2, @plan.Verification.V2]
+        description
+            Source Bead: flow-state-e7p.11.31 (closed; task).
+            Original title: C03 — one provider publication coalesces into at most one combined
+            dependency-ordered turn per dirty consumer with no intermediate cut.
+            Deliverable: Plan and apply one bounded provider-change wave so every dirty consumer
+            observes at most one combined context turn after all upstream providers settle.
+            Recorded owner paths (historical):
+            `packages/flow-state-rewrite/src/runtime/context-wave.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts`.
+            External source blockers: none recorded.
+            Source Bead is closed; no close reason was stored.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Check: C03 provider publication coalesces one dependency-ordered context wave.
+            Setup: diamond graph where two upstream selections change in one provider
+            publication, publication trace, and intermediate-snapshot trap.
+            Expected: each dirty consumer publishes no more than once, sees the complete
+            upstream vector, and no intermediate projection is externally visible.
+            Run: `nubx vp test
+            packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts`.
+
+    T132
+        title        Suppress equal projections and retain selector failures
+        status       done
+        priority     high
+        blocked_by   [@T131]
+        derives_from [@plan.Runtime.V5, @plan.Verification.D2, @plan.Verification.V2]
+        description
+            Source Bead: flow-state-e7p.11.32 (closed; task).
+            Original title: C04 — Object.is/fixed-record equality suppresses unchanged
+            projections; selector defects retain last-valid truth and retry only on newer
+            revision vectors.
+            Deliverable: Implement the exact selection equality and defect ledger so unchanged
+            values suppress work and defects never roll back provider truth or thrash.
+            Recorded owner paths (historical):
+            `packages/flow-state-rewrite/src/runtime/context-wave.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts`.
+            External source blockers: none recorded.
+            Source Bead is closed; no close reason was stored.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Check: C04 equality suppresses work and selector defects retry only on newer
+            revisions.
+            Setup: NaN, signed zero, null, undefined, same/different function identity,
+            same-reference and distinct arrays, fixed plain records with equal/different fields,
+            throwing selector, repeated and newer revision vectors.
+            Expected: exact equal cases publish nothing; arrays are equal only by Object.is
+            identity and are never field/deep compared; context selector defect leaves provider
+            and last-valid context unchanged, publishes one consumer issue-only snapshot with
+            publicationRevision +1 and unchanged machine-turn revision, records once per vector,
+            and retries only when matching provider revisions advance.
+            Run: `nubx vp test
+            packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts`.
+
+    T133
+        title        Keep observers passive and replace dependencies atomically
+        status       done
+        priority     high
+        blocked_by   [@T132]
+        derives_from [@plan.Runtime.V5, @plan.Verification.D2, @plan.Verification.V2]
+        description
+            Source Bead: flow-state-e7p.11.33 (closed; task).
+            Original title: C05 — passive observers/selectors replace tracked dependencies
+            without acquiring, refreshing, cancelling, invalidating, clearing, or mutating
+            runtime state.
+            Deliverable: Make MachineObserver/context selection purely passive and replace its
+            tracked dependency set atomically without owning runtime work.
+            Recorded owner paths (historical):
+            `packages/flow-state-rewrite/src/runtime/context-wave.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts`.
+            External source blockers: none recorded.
+            Source Bead is closed; no close reason was stored.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Check: C05 passive observer replaces dependencies and performs no work.
+            Setup: conditional O selector moving between two provider facts while a matching
+            StoreFanout rerun changes the selected branch, with a boundary gate, actor/store
+            observation trace, probes for acquire/refresh/cancel/invalidate/clear/mutation, and
+            repeated equal reads.
+            Expected: the matching StoreFanout rerun and O dependency replacement become visible
+            at one tear-free actor/store boundary; no observer sees the new store revision with
+            the old O dependency set or the replacement set with the old selected value. The
+            selected value is exact, the old dependency is removed as the new one is installed
+            atomically, all ownership/action probes remain zero, and passive reads publish
+            nothing.
+            Run: `nubx vp test
+            packages/flow-state-rewrite/src/runtime/test/context-wave.test.ts`.
+
+    T134
+        title        Enforce explicit actor lifecycle transitions
+        status       done
+        priority     high
+        blocked_by   [@T103, @T133, @T110]
+        derives_from [@plan.Runtime.D2, @plan.Runtime.V5, @plan.Runtime.V6, @plan.Verification.V2]
+        description
+            Source Bead: flow-state-e7p.11.34 (closed; task).
+            Original title: L01 — explicit prepared→active↔suspended→disposed lifecycle
+            transitions reject invalid moves and never masquerade as machine turns.
+            Deliverable: Implement the exact actor lifecycle state machine and separate
+            lifecycle publications from authored machine transitions.
+            Recorded owner paths (historical):
+            `packages/flow-state-rewrite/src/runtime/lifecycle.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts`.
+            External source blockers: none recorded.
+            Source Bead is closed; no close reason was stored.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Check: L01 lifecycle transitions are exact and never machine turns.
+            Setup: table of every allowed/invalid transition plus actor:restore
+            prepared→prepared and actor:start controls, with machine transition/action,
+            publication, machine-turn, and evidence observations.
+            Expected: prepared→active, active→suspended, suspended→active, and
+            non-disposed→disposed lifecycle moves succeed; actor:restore emits one coherent
+            prepared→prepared lifecycle snapshot/evidence-only publication before actor:start;
+            it advances publicationRevision as a lifecycle publication, leaves
+            machineTurnRevision unchanged, and invokes no machine callbacks. invalid moves are
+            typed and machine callbacks stay unchanged.
+            Run: `nubx vp test packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts`.
+
+    T135
+        title        Own actor resources under one reachable scope
+        status       done
+        priority     high
+        blocked_by   [@T134]
+        derives_from [@plan.Runtime.D2, @plan.Runtime.V5, @plan.Runtime.V6, @plan.Verification.V2]
+        description
+            Source Bead: flow-state-e7p.11.35 (closed; task).
+            Original title: L02 — actor work, fibers, timers, listeners, and resources have one
+            reachable Scope owner with cancellation registered before execution.
+            Deliverable: Place every actor-owned live resource under one reachable lifetime and
+            register its cancellation/fence before work can synchronously complete.
+            Recorded owner paths (historical):
+            `packages/flow-state-rewrite/src/runtime/runtime-services.ts`,
+            `packages/flow-state-rewrite/src/runtime/lifecycle.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts`.
+            External source blockers: none recorded.
+            Source Bead is closed; no close reason was stored.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Check: L02 cancellation ownership registers before synchronous completion.
+            Setup: synchronously completing work, gated work, timer/listener/resource
+            finalizers, and ownership/reachability/cancel traces.
+            Expected: every started item has registered owner/fence/cancel authority first,
+            completes once, and actor/runtime cleanup can reach it.
+            Run: `nubx vp test packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts`.
+
+    T136
+        title        Suspend actors after draining accepted work
+        status       done
+        priority     high
+        blocked_by   [@T128, @T135]
+        derives_from [@plan.Runtime.D2, @plan.Runtime.V5, @plan.Runtime.V6, @plan.Verification.V2]
+        description
+            Source Bead: flow-state-e7p.11.36 (closed; task).
+            Original title: L03 — suspension closes admission at one point, drains pre-close
+            FIFO work, cancels finite work, and retains logical graph/cursor/generation truth.
+            Deliverable: Make suspension an atomic lifecycle command that rejects later sends,
+            finishes the accepted prefix, detaches/cancels live work, and retains exact
+            resumable truth.
+            Recorded owner paths (historical):
+            `packages/flow-state-rewrite/src/runtime/lifecycle.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts`.
+            External source blockers: none recorded.
+            Source Bead is closed; no close reason was stored.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Check: L03 suspension drains accepted prefix and retains resumable truth.
+            Setup: commands before/after a deterministic close gate, active finite work,
+            continuing stream, listener, and timer handles, resource/finalizer counters, context
+            graph, and opaque cursors/fences.
+            Expected: pre-close commands settle FIFO, post-close sends reject, finite work
+            cancels, every continuing stream/listener/timer detaches, and on successful cleanup
+            the live-resource counter is zero before suspended publishes; failed cleanup
+            preserves exact failure truth, stays suspended/closed and blocks resume without
+            claiming successful release. Retained logical/cursor/generation/fence facts remain
+            exact while Phase 3 operation behavior stays excluded.
+            Run: `nubx vp test packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts`.
+
+    T137
+        title        Finalize consumers before providers and preserve cleanup truth
+        status       done
+        priority     high
+        blocked_by   [@T136]
+        derives_from [@plan.Runtime.D2, @plan.Runtime.V5, @plan.Runtime.V6, @plan.Verification.V2]
+        description
+            Source Bead: flow-state-e7p.11.37 (closed; task).
+            Original title: L04 — finalizers run exactly once in reverse acquisition order with
+            consumers before providers; cleanup truth blocks resume.
+            Deliverable: Execute actor finalizers once in reverse acquisition/dependency order
+            and preserve every cleanup lane without rewriting committed state.
+            Recorded owner paths (historical):
+            `packages/flow-state-rewrite/src/runtime/lifecycle.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts`.
+            External source blockers: none recorded.
+            Source Bead is closed; no close reason was stored.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Check: L04 cleanup is reverse-once truthful and blocks resume on failure.
+            Setup: provider-before-consumer acquisition with dependency-ordered finalizers with
+            success, typed fail, die, interrupt controls and repeated suspend/dispose/resume
+            calls.
+            Expected: reverse acquisition trace occurs once per acquired item and all consumers
+            finalize before their providers; all Cause lanes remain distinguishable; planned
+            release is never routed domain outcome; any cleanup failure blocks resume.
+            Run: `nubx vp test packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts`.
+
+    T138
+        title        Resume actors after cleanup using retained timer deadlines
+        status       done
+        priority     high
+        blocked_by   [@T137]
+        derives_from [@plan.Runtime.D2, @plan.Runtime.V5, @plan.Runtime.V6, @plan.Verification.V2]
+        description
+            Source Bead: flow-state-e7p.11.38 (closed; task).
+            Original title: L05 — resume waits cleanup, reattaches continuing work, uses
+            retained absolute dueAt with Clock/TestClock, and emits at most one overdue refresh.
+            Deliverable: Resume only a clean suspended actor, revalidate retained providers,
+            reacquire continuing work, and restore absolute timers without replaying inputs or
+            finite work.
+            Recorded owner paths (historical):
+            `packages/flow-state-rewrite/src/runtime/lifecycle.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts`.
+            External source blockers: none recorded.
+            Source Bead is closed; no close reason was stored.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Check: L05 resume uses retained dueAt and emits at most one overdue refresh.
+            Setup: TestClock with future and overdue absolute timers, gated cleanup, continuing
+            work counters, provider unchanged/changed/equal/defect cases,
+            missing/foreign/tombstoned providers, current and stale timer generations, and
+            repeated overdue-resume attempts.
+            Expected: resume waits cleanup, reuses exact providers, starts only continuing work,
+            schedules remaining duration, runs at most one ordinary serialized
+            context-reconciliation wave for changed provider truth; equal values stay silent;
+            emits at most one current-generation overdue refresh with no duplicate retry across
+            repeated resume; stale timer generations are fenced; never replays input/init/finite
+            work.
+            Run: `nubx vp test packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts`.
+
+    T139
+        title        Coordinate lease and runtime disposal
+        status       done
+        priority     high
+        blocked_by   [@T137, @T118]
+        derives_from [@plan.Runtime.D2, @plan.Runtime.V5, @plan.Runtime.V6, @plan.Verification.V2]
+        description
+            Source Bead: flow-state-e7p.11.39 (closed; task).
+            Original title: L06 — lease disposal and runtime disposal enforce exact dependent
+            refs/binding keys, subsume leases, fence stale completions, and tombstone only after
+            success.
+            Deliverable: Unify individual lease and whole-runtime terminal disposal laws without
+            giving ordinary handles authority or letting stale work mutate later truth.
+            Recorded owner paths (historical):
+            `packages/flow-state-rewrite/src/runtime/lifecycle.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts`.
+            External source blockers: none recorded.
+            Source Bead is closed; no close reason was stored.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Check: L06 lease and runtime disposal preserve dependents fences and tombstone
+            truth.
+            Setup: provider with active+suspended dependents, ordinary handle attempt, repeated
+            lease calls, runtime disposal racing completions, cleanup success/failure.
+            Expected: individual disposal blocks with exact refs/keys, ordinary handle cannot
+            dispose, runtime subsumes leases and tears consumers before providers, stale
+            completions mutate nothing, tombstone only follows successful stable cleanup.
+            Run: `nubx vp test packages/flow-state-rewrite/src/runtime/test/lifecycle.test.ts`.
+
+    T140
+        title        Order immutable evidence and drain bounded sinks
+        status       done
+        priority     high
+        blocked_by   [@T139, @T128, @T138]
+        derives_from [@plan.Runtime.D2, @plan.Runtime.V5, @plan.Runtime.V6, @plan.Verification.V2]
+        description
+            Source Bead: flow-state-e7p.11.40 (closed; task).
+            Original title: L07 — one runtime sequence orders immutable turn/lifecycle evidence;
+            bounded sinks isolate failure, preserve truncation/accepted prefixes, and drain
+            before shutdown.
+            Deliverable: Complete Phase 2 evidence ownership with one monotonic non-reused
+            runtime sequence, immutable provenance-rich turn/lifecycle records, isolated bounded
+            delivery, and accepted-prefix drain.
+            Recorded owner paths (historical):
+            `packages/flow-state-rewrite/src/runtime/evidence.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/evidence.test.ts`.
+            External source blockers: none recorded.
+            Source Bead is closed; no close reason was stored.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Check: L07 evidence sequence sink isolation and shutdown drain are exact.
+            Setup: first-record and interleaved turn/lifecycle cuts, near-exhausted/max sequence
+            with wrap trap, fast/overflowing/failing sinks, gated delivery, runtime shutdown and
+            record mutation attempts.
+            Expected: first sequence is 1; sequence is strictly monotonic and never reused;
+            exhaustion fails before wrap with no partial publication/acceptance or rewrite; one
+            bad sink cannot block truth/other sink; each sink truncates only its own delivery
+            while accepted runtime truth/prefix remains immutable; truncation preserves exact
+            accepted prefix; snapshot precedes lifecycle evidence and ack; shutdown drains
+            accepted records; no synthetic terminal TurnRecord.
+            Run: `nubx vp test packages/flow-state-rewrite/src/runtime/test/evidence.test.ts`.
+
+    T141
+        title        Independently validate all Phase 2 changed slices and named proofs/deletions
+        status       done
+        priority     max
+        blocked_by   [
+                     @T121,
+                     @T135,
+                     @T102,
+                     @T110,
+                     @T106,
+                     @T123,
+                     @T131,
+                     @T137,
+                     @T114,
+                     @T127,
+                     @T148,
+                     @T119,
+                     @T112,
+                     @T145,
+                     @T115,
+                     @T133,
+                     @T117,
+                     @T122,
+                     @T132,
+                     @T129,
+                     @T146,
+                     @T126,
+                     @T128,
+                     @T139,
+                     @T142,
+                     @T147,
+                     @T134,
+                     @T136,
+                     @T124,
+                     @T111,
+                     @T138,
+                     @T101,
+                     @T144,
+                     @T140,
+                     @T103,
+                     @T125,
+                     @T130,
+                     @T108,
+                     @T109,
+                     @T116,
+                     @T105,
+                     @T120,
+                     @T118,
+                     @T113,
+                     @T107,
+                     @T143,
+                     @T104
+                     ]
+        derives_from [@plan.Verification.D6, @plan.Verification.V8]
+        description
+            Source Bead: flow-state-e7p.11.41 (closed; task).
+            Original title: V01 — Independently validate all Phase 2 changed slices and named
+            proofs/deletions.
+            Deliverable: Independently validate changed Phase 2 slices after all other phase
+            children close. Review changed diffs and direct trace-only provenance, owner reuse,
+            production integration, proof coverage, and deletion/retention evidence. This is a
+            read-only gate; it does not edit implementation, contracts, guidance files,
+            generated files, Bead state, or proof outcomes.
+            Source Bead is closed; no close reason was stored.
+            Supersedes across files: flow-state-e7p.12.11 (B11); this is the final cross-phase
+            validation receipt.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Expected: Every blocking finding is returned to its owning task; the final gate has
+            no blocking finding and records focused checks, rewrite-package checks, deletion and
+            retention evidence, and the exact result of full verification. A later-phase-only
+            blocker is reported at its boundary without claiming full verification.
+            Check: historical source-Bead review receipt and read-only evidence; no current
+            checkout result is claimed.
+
+    T142
+        title        Owner lease alone disposes; rejection lists exact dependent refs
+        status       done
+        priority     high
+        blocked_by   [@T118]
+        derives_from [@plan.Runtime.D1, @plan.Runtime.V2, @plan.Runtime.V3]
+        description
+            Source Bead: flow-state-e7p.11.42 (closed; task).
+            Original title: A09 — only the owner lease disposes and dependent rejection reports
+            exact refs and binding keys.
+            Deliverable: Make the exposed owner lease the sole individual disposal authority and
+            reject provider disposal while active or suspended dependents remain, with
+            deterministic exact details.
+            Recorded owner paths (historical):
+            `packages/flow-state-rewrite/src/runtime/actor-admission.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts`.
+            External source blockers: none recorded.
+            Source Bead is closed; no close reason was stored.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Check: A09 lease authority and dependent rejection are exact.
+            Setup: ordinary handle/ref attempts, valid/foreign lease, active and suspended
+            dependents inserted in adversarial order, repeated rejection.
+            Expected: only exact lease enters disposal; blocked result lists every exact
+            dependent ref/key in canonical order; no cleanup/tombstone/state mutation occurs.
+            Run: `nubx vp test
+            packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts`.
+
+    T143
+        title        Stable disposal tombstones only after success; repeated calls join
+        status       done
+        priority     high
+        blocked_by   [@T142]
+        derives_from [@plan.Runtime.D1, @plan.Runtime.V2, @plan.Runtime.V3]
+        description
+            Source Bead: flow-state-e7p.11.43 (closed; task).
+            Original title: A10 — successful stable disposal tombstones once; cleanup failure
+            does not; repeated disposal joins one terminal.
+            Deliverable: Complete stable actor disposal as an idempotent joined terminal:
+            cleanup once, tombstone only after success, and exact primary-plus-cleanup error
+            truth on failure.
+            Recorded owner paths (historical):
+            `packages/flow-state-rewrite/src/runtime/actor-admission.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts`.
+            External source blockers: none recorded.
+            Source Bead is closed; no close reason was stored.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Check: A10 tombstone and repeated-dispose terminal truth are exact.
+            Setup: concurrent/repeated dispose callers, cleanup success/typed
+            fail/defect/interruption, lookup/ensure after each case, new-runtime control.
+            Expected: all callers share one terminal identity; cleanup count one; success
+            tombstones and blocks same-runtime reuse; every failed cleanup has no tombstone and
+            blocks resume; new runtime may reuse durable ref.
+            Run: `nubx vp test
+            packages/flow-state-rewrite/src/runtime/test/actor-admission.test.ts`.
+
+    T144
+        title        Keep AppPlan private with exact App and runtime inference
+        status       done
+        priority     medium
+        blocked_by   [@T147, @T101, @T105]
+        derives_from [@plan.Runtime.D1, @plan.Verification.D3]
+        description
+            Source Bead: flow-state-e7p.11.44 (closed; task).
+            Original title: B01 — Keep the existing AppPlan private while preserving exact App
+            and runtime inference.
+            Deliverable: Remove the leaked App.plan public carrier while runtime continues
+            consuming the existing closed AppPlan and its existing identity indexes. This
+            assigns the unowned P01/P02 advisory; it does not recompile the app or replace any
+            accepted Definition/Machine/Operation owner.
+            Historical owner paths:
+            `packages/flow-state-rewrite/src/app/app.ts`,
+            `packages/flow-state-rewrite/src/app/test/app.test.ts`,
+            `packages/flow-state-rewrite/src/runtime/runtime.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/runtime.test.ts`,
+            `packages/flow-state-rewrite/test/static/medium.ts`,
+            `packages/flow-state-rewrite/test/static/negative.ts`,
+            `packages/flow-state-rewrite/src/public/test/public-routes.test.ts`,
+            `packages/flow-state-rewrite/scripts/check-packed-consumers.mjs` (public-boundary
+            fixture only).
+            External source blockers: none recorded.
+            Source Bead close receipt: B01 private AppPlan boundary and exact App/runtime
+            inference verified; all required gates pass; independent slice reviewer PASS.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Expected: AppPlan remains private; existing App inference and runtime construction
+            remain exact.
+            Check: the named source Bead evidence and independent review; no current checkout
+            result is claimed.
+
+    T145
+        title        Connect runtime readiness to the single implementation owner
+        status       done
+        priority     medium
+        blocked_by   [@T110, @T144]
+        derives_from [@plan.Runtime.D2, @plan.Runtime.V3, @plan.Types.V4]
+        description
+            Source Bead: flow-state-e7p.11.45 (closed; task).
+            Original title: R08 — Connect runtimeSetup readiness to the existing Implementation
+            and single runtime owner.
+            Deliverable: Make the existing runtimeSetup(...).construct().ready() execute the
+            accepted runtime-owner acquisition/Context/Scope/terminal path, and remove the
+            competing acquireImplementation/readiness cache in runtime.ts. The public shell
+            stays exactly app/construct/ready.
+            Historical owner paths:
+            `packages/flow-state-rewrite/src/runtime/runtime.ts`,
+            `packages/flow-state-rewrite/src/runtime/runtime-owner.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/runtime.test.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/runtime-owner.test.ts`,
+            `packages/flow-state-rewrite/src/implementation/implementation.ts`,
+            `packages/flow-state-rewrite/src/implementation/test/implementation.test.ts`,
+            `packages/flow-state-rewrite/test/static/medium.ts`,
+            `packages/flow-state-rewrite/test/static/negative.ts`.
+
+            External source blockers: none recorded.
+            Source Bead is closed; no close reason was stored.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Expected: The existing Implementation feeds one runtime owner; readiness shares its
+            cached terminal result and preserves exact failure lanes.
+            Check: the named source Bead evidence and independent review; no current checkout
+            result is claimed.
+
+    T146
+        title        Prove one assembled production runtime reuses all accepted Phase 2 owners
+        status       done
+        priority     medium
+        blocked_by   [@T140, @T145]
+        derives_from [
+                     @plan.Runtime.V3,
+                     @plan.Runtime.V6,
+                     @plan.Verification.D2,
+                     @plan.Verification.D4,
+                     @plan.Verification.V2
+                     ]
+        description
+            Source Bead: flow-state-e7p.11.46 (closed; task).
+            Original title: I01 — Prove one assembled production runtime reuses all accepted
+            Phase 2 owners.
+            Deliverable: Complete only remaining assembly glue and add focused production
+            reachability proofs from real authored Definition/Machine/App/Implementation values
+            through admission, mailbox/publication, context, lifecycle and evidence. This is not
+            another semantic implementation or a second full proof matrix.
+            Historical owner paths:
+            `packages/flow-state-rewrite/src/runtime/runtime.ts`,
+            `packages/flow-state-rewrite/src/runtime/runtime-owner.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/runtime-integration.test.ts`,
+            `packages/flow-state-rewrite/src/runtime/test/runtime.test.ts` (shell reachability
+            only).
+            External source blockers: none recorded.
+            Supersedes across files: flow-state-e7p.12.10 (B10); this I01 record owns
+            the final actual-constructor assembly proof.
+            Source Bead is closed; no close reason was stored.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Expected: Real constructors and Implementation values reach the accepted owners
+            through one assembled runtime with no duplicate owner or test-double port.
+            Check: the named source Bead evidence and independent review; no current checkout
+            result is claimed.
+
+    T147
+        title        Refresh runtime implementation guidance and detailed scenario prompts
+        status       done
+        priority     medium
+        blocked_by   [@T103, @T101, @T102]
+        derives_from [@plan.Verification.D3, @plan.Verification.D7]
+        description
+            Source Bead: flow-state-e7p.11.47 (closed; task).
+            Original title: S01 — Refresh runtime implementation guidance and detailed scenario
+            prompts.
+            Deliverable: User-authorized scope, 2026-09-08: repair replaceable runtime guidance
+            and substantially expand documented future test scenarios. This is preparation, not
+            implementation of remaining runtime features. Read the data-oriented-design skill
+            and current accepted source before editing. Data, admission/invariants, pure
+            operations, Effect execution and their ownership must be clearly distinguishable.
+            No editable owner paths were recorded in the source Bead.
+            External source blockers: none recorded.
+            Source Bead close receipt: Guidance refresh and file-only Beads reference
+            reconciliation independently reviewed PASS with every required current check;
+            runtime implementation remains in its owning tasks.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            Expected: Guidance names current owners, bounded scenarios and evidence without
+            changing contracts or runtime semantics.
+            Check: line-addressed source/Plan evidence and independent review; no runtime check
+            applies.
+
+    T148
+        title        Make Phase 2R Beads feature-scoped with meaningful proofs
+        status       done
+        priority     high
+        derives_from [@plan.Verification.D6, @plan.Verification.D7, @plan.Verification.V8]
+        description
+            Source Bead: flow-state-e7p.11.48 (closed; task).
+            Original title: S02 — Make Phase 2R Beads feature-scoped with meaningful proofs.
+            Historical source deliverable: at that time, the user scope was ONLY Phase 2R Beads,
+            comprising epic flow-state-e7p.11 and its children. The source required only
+            gpt-5.6-luna xhigh subagents for proposal and independent review; its parent owned
+            Beads mutations. At that time, preserve each exact
+            feature, contracts, dependencies, phase and task-mode boundaries while replacing
+            arbitrary implementation/test file allowlists with suggested owner starting points.
+            Permit the smallest additional owner, helper, test or integration files necessary
+            for the same authorized feature, with a recorded before-edit ownership footprint and
+            no repeated permission for routine same-feature edits. Historical excluded scope:
+            capabilities, the frozen package, normative contract files, public API gates,
+            single-writer ownership and unrelated work. This Beads-only scope is provenance, not
+            current Workflow authority. Latest user clarification at that time: tests belong in
+            Beads where they provide meaningful evidence, not one new test or mandatory RED per
+            Bead. Add or
+            change tests for new/changed behavior, regressions or real coverage gaps; reuse
+            accepted proofs and current receipts when sufficient. Use test-first RED/GREEN where
+            a meaningful executable proof can demonstrate missing behavior; never manufacture a
+            failure or redundant proof to close a task. Static/inference tasks may use
+            meaningful compile proofs; planning, documentation and verification use appropriate
+            evidence. Require orchestrator handoffs to carry referenced stub file paths as
+            replaceable guidance separately from production/test edit destinations. Preserve
+            historical receipts, closure truth, notes, owners and task states; apply revised
+            guidance prospectively to closed tasks. No source, tests, agent-role documents,
+            contracts, commits or pushes.
+            No editable owner paths were recorded in the source Bead.
+            External source blockers: none recorded.
+            Source Bead close receipt: All Phase 2R packets updated with feature-based file
+            scope and meaningful proof requirements; three Luna/xhigh partition reviews PASS;
+            exact live application and graph validated.
+            This is a historical receipt; it does not assert that the current checkout passes
+            its recorded checks.
+        acceptance
+            This completed Beads-only task's historical acceptance was:
+            Expected: Every Phase 2R packet uses feature-based scope with suggested starting
+            paths and same-feature file flexibility; no outside Bead is modified. Each task has
+            meaningful task-appropriate proof obligations rather than a mechanical RED/new-test
+            quota. Preserve exact behavioral, inference and integration criteria,
+            consolidate/reuse accepted proof where sufficient, and remove contradictory blanket
+            RED-receipt requirements and test-count quotas. Test-first behavior proofs remain
+            appropriate for actual missing behavior; setup/import failures, redundant tests and
+            fake RED are not evidence. Planning, documentation, read-only review, verification
+            and receipt tasks retain distinct permissions/checks. The acceptance also required
+            preserving historical statuses, owners, notes, closure receipts, exact
+            semantic/public/contract/frozen/phase exclusions, file-only stub pointers and
+            dependencies. It required validating applied before/after fields, exact Phase 2R
+            scope and graph; independent Luna/xhigh review PASS; and export.beads/issues.jsonl.
+            Runtime check/build/test commands were inapplicable to this Beads-only task. The S02
+            proposal criterion was a compare-before-mutate
+            patch and manifest for exactly the source 49-record snapshot, with no outside
+            Bead. The source acceptance also called for preserving dynamic subtree scope for
+            later reconciliation and reserving approved Beads mutations and exports to its parent.
