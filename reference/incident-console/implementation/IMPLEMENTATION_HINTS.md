@@ -1,9 +1,10 @@
 # Incident Console implementation guide
 
-This is a non-normative implementation aid for the active Incident Console contract pack. It adds no
-public API, behavior, default, compatibility rule, or proof obligation. Contracts remain normative;
-accepted revisions override conflicts, and unresolved behavior is not an answer source. When this guide
-disagrees with a contract, follow the contract.
+This is a historical, non-normative implementation aid. Current requirements, accepted decisions,
+task status, and proof obligations live in `workflow/plans/` and `workflow/tasks/`; current Specs
+are indexed by `workflow/spec.index`. This guide and its referenced contract pack preserve
+provenance and technical context only. A Workflow question blocks only the affected work; resolve
+gaps through the current Workflow record or an explicit user decision.
 
 Use the `effect-systems-design` skill for the plain-TypeScript-versus-Effect decision and ownership
 composition. Use `effect-api-documentation` for exact exports, signatures, overloads, and examples. The
@@ -11,20 +12,22 @@ consuming package's installed `effect@4.0.0-rc.112` declarations, source, tests,
 the skills, `codebases/effect-v4`, or this guide. Each recipe block is labeled `Contract pseudocode`;
 Flow-owned names remain illustrative.
 
-## 1. Scope and authority
+## 1. Scope and routing
 
-- The active authority is `reference/incident-console/implementation/contracts/` and its accepted revisions.
-- This file is a compact routing aid. It is not a second contract, API catalog, task plan, or proof.
+- Current authority is in Workflow Plans and Tasks, with Specs indexed by `workflow/spec.index`.
+- The contract files and accepted revisions are historical references, not current requirements.
+- This file is a compact technical aid. It is not a contract, API catalog, task plan, or proof.
 - Preserve `Effect<A, E, R>` requirements and failures until the owning runtime or host boundary handles them.
 - Keep `AppPlan`, definitions, canonical identity, selectors, codecs, and model traversal inert and plain.
 - A sketch is pseudocode unless its type and import are contract-defined and verified against rc.112.
 - Do not promote a recipe into a public facade, compatibility alias, or new contract surface.
 
-## 2. Compact contract map
+## 2. Compact historical contract map
 
-Each row names only the boundary, the useful Effect concept, the owner/proof, and the plain alternative.
+Each row preserves the former contract map for context: boundary, Effect concept, owner/proof, and
+plain alternative. Use current Workflow records to determine requirements and readiness.
 
-| Domain | Contract | Public boundary | Internal Effect concept | Owner / proof | Plain TypeScript alternative |
+| Domain | Historical reference | Public boundary | Internal Effect concept | Historical owner / proof | Plain TypeScript alternative |
 | --- | --- | --- | --- | --- | --- |
 | Static foundation | [`GLOSSARY_AND_IDENTITY.md`](contracts/GLOSSARY_AND_IDENTITY.md) | Definitions, machines, actors, refs, `P`/`K`, generations, revisions, snapshots, Stories, artifacts | Effect only for live failure, time, concurrency, or lifetime; identity stays value-level | `AppPlan`, runtime incarnation, owner lease; `PROOF-001/002/005/012/014` | Branded strings/tuples, frozen records, unions, `Map`/`Set`, `Object.is` |
 | Static foundation | [`PUBLIC_API.md`](contracts/PUBLIC_API.md) | Package routes; definitions, named `O` families, refs/leases, Runtime/React, Stories, inspection, CLI | Preserve operation `A/E/R`; close `R` at Runtime and translate at host edges | Package entrypoints and production owners; `API-P01–P04`, `PROOF-001–017` | Const generics, pure descriptors, explicit native adapters |
@@ -38,7 +41,7 @@ Each row names only the boundary, the useful Effect concept, the owner/proof, an
 | Durability and evidence | [`PERSISTENCE_AND_ARTIFACTS.md`](contracts/PERSISTENCE_AND_ARTIFACTS.md) | `persistence({ storage, scope, codec?, filter? })`, WIRE-020B/C, capture and restore | Storage Effects, `Scope`, restore-before-activation, publication barrier, ordered writes | Runtime persistence coordinator and encoder; `PROOF-010/014`, `HOST-P04` | Pure codec, carrier walker, redaction projection; native storage adapter |
 | Durability and evidence | [`ARTIFACT_WIRE.md`](contracts/ARTIFACT_WIRE.md) | Package-private v2 behavior/trace envelopes and export-only share envelope | Preserve `Cause`/`Exit` until wire projection; I/O stays at the encoder edge | Runtime truth, evidence sink, encoder; `WIRE-020B/C`, `PROOF-010/014` | Canonical sorting, bounds, freeze, and redaction as pure code |
 | Cutover and workflow | [`COMPATIBILITY_AND_DELETIONS.md`](contracts/COMPATIBILITY_AND_DELETIONS.md) | Accepted replacements and fail-closed absence of deleted routes/shapes | No compatibility runtime, alias, adapter, parser branch, or second codec | Replacement package and packed consumers; `CUT-P01–P06`, `PROOF-017` | Negative compile/runtime checks and source audits only |
-| Cutover and workflow | [`IMPLEMENTATION_WORKFLOW.md`](contracts/IMPLEMENTATION_WORKFLOW.md) | Slice records name clauses, owner, A/E/R, failure/lifetime lanes, proof, gates, and non-goals | Dependency order: static → runtime → operations → persistence/evidence → hosts/CLI → cutover | One production owner per fact; focused proof then applicable gates | Plain issue/check data; Beads remains outside this guide |
+| Cutover and workflow | [`IMPLEMENTATION_WORKFLOW.md`](contracts/IMPLEMENTATION_WORKFLOW.md) | Former slice-record guidance: clauses, owner, A/E/R, failure/lifetime lanes, proof, gates, and non-goals | Former dependency order: static → runtime → operations → persistence/evidence → hosts/CLI → cutover | Historical owner/proof mapping only | Workflow records own current task state |
 | Cutover and workflow | [`PROOF_MATRIX.md`](contracts/PROOF_MATRIX.md) | Proof crosswalk, local proof IDs, gate layers, and final package boundary | Test Layers, virtual time, explicit scopes, host bridges, and full `Cause`/cleanup evidence | `PROOF-001–017` and local `*-P` rows; proof owner is the production implementation | Test data and gate orchestration; scans never replace behavior proof |
 
 ## 3. Focused decision rules
@@ -130,9 +133,9 @@ Each row names only the boundary, the useful Effect concept, the owner/proof, an
 
 ### Persistence and observability
 
-- Persistence is an explicit RuntimeSetup provider. It owns restore, capture, ordering, fencing, codec
-  errors, and release; an in-memory Cache is never a durability guarantee. Restore and validate before
-  activation or handle escape, and keep WIRE-020B as the sole raw wire authority.
+- The former contract model made persistence an explicit RuntimeSetup provider and assigned
+  WIRE-020B as the sole raw wire authority. It required restore and validation before activation
+  or handle escape; these details are historical context, not current requirements.
 - Put `Logger`, `Console`, `Metric`, and `Tracer` at service/host boundaries. Redact by allowlist before
   logging or tracing; keep domain values and errors telemetry-free.
 - `Logger.formatJson` formats only. JSON console emission requires `Logger.withConsoleLog(Logger.formatJson)`.
@@ -548,7 +551,8 @@ const storyRun = Effect.gen(function*() {
 
 Before coding a slice, verify:
 
-- [ ] Exact active contract clauses, accepted revisions, production owner, non-goals, and proof IDs are named.
+- [ ] Name the Workflow Plan/Task requirements, linked Specs, production owner, non-goals, and
+      proof IDs; cite historical clauses only for traceability.
 - [ ] Every selected rc.112 export, signature, import path, Layer output/error/requirements, and scope behavior is checked in the two Effect skills plus the consuming package.
 - [ ] A/E/R, input versus `P`, canonical `K`, ownership, bounds, cancellation, settlement, and host translation are explicit.
 - [ ] No handle escapes a closed scope; no Effect is ignored; no unbounded queue, `Schema.Unknown`, or unknown-based A/E/R erasure is hiding a design choice.

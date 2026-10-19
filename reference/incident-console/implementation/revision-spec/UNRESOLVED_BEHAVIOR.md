@@ -9,8 +9,10 @@ listed below. No `BEH-*` entry is an open contract blocker. Most entries are beh
 accepted public surface, not public API redesign proposals. The previously explicit `BEH-027`
 source-authority exception is closed by `REV-OPS-016`.
 
-Every entry below retains its original problem statement for auditability. Its closure row is normative;
-the owning `REV-*` clause supplies the behavior and supersedes the corresponding problem statement.
+Every entry below retains its original problem statement for auditability. Its closure row points to
+the accepted `REV-*` clause as the historical source for the closure and its behavior. This register
+is historical provenance, not current authority; Workflow Plans and Tasks own current semantics and
+obligations.
 Separate historical solution and disposition drafts remain non-normative proposals: neither supplies,
 accepts, or closes an answer in this register. A future proof failure may reopen only the exact guarantee
 it disproves.

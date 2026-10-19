@@ -1,24 +1,27 @@
 # Stories and testing contract
 
-Status: normative vNext contract
+Status: historical reference only; not active authority.
 
-This contract defines Story construction, recipes, plans, commands, Implementations, seeds,
+Current requirements live in [Workflow plans](../../../../workflow/plans/);
+current task status lives in [Rewrite tasks](../../../../workflow/tasks/Rewrite/).
+
+This contract defined Story construction, recipes, plans, commands, Implementations, seeds,
 TestClock processing, checkpoints, failure/cleanup evidence, pure model discovery, and the shared
-production-runtime boundary. It is semantic authority; archived revisions and provenance citations add
-no behavior. Deleted Story/scenario surfaces remain governed by DEL-009/DEL-010; child-machine surfaces
-remain deleted by DEL-002.
+production-runtime boundary. It served as semantic authority within the historical contract pack; archived
+revisions and provenance citations added no behavior. Deleted Story/scenario surfaces were governed by
+DEL-009/DEL-010; child-machine surfaces were deleted by DEL-002.
 
 ## Deletion disposition
 
 The old Story constructors, commands, result fields, replay helpers, and mutable harness surfaces
 are replaced by `DEL-009` in `COMPATIBILITY_AND_DELETIONS.md`. Conflicting server, persistence, artifact,
 inspect, and CLI surfaces are governed by `DEL-010`; child-machine Story and model surfaces are deleted by
-`DEL-002`. That contract owns the complete old-clause inventory and no-residue requirements. This file
-records the accepted replacement and the retained host-runner and inspection boundaries.
+`DEL-002`. That contract carried the complete old-clause inventory and no-residue requirements. This file
+recorded the accepted replacement and the retained host-runner and inspection boundaries.
 
 ## Construction and fixtures
 
-~~~ts
+```ts
 const storyRun = story
   .app(runtimeSetup, {
     fixtures: [documentsFixture],
@@ -40,7 +43,7 @@ const local = story.actor(editorMachine, {
   input: { documentId: "document-1" },
   contextBindings: { sessionState: sessionRecipe },
 });
-~~~
+```
 
 ### Rule card — REV-TEST-001
 
@@ -127,7 +130,7 @@ const local = story.actor(editorMachine, {
   focused-vs-app boundary tests.
 - Trace: REV-TEST-005; DEL-002.
 
-~~~ts
+```ts
 const signedOutStory = story
   .machine(editorMachine, {
     input: { documentId: "document-1" },
@@ -145,7 +148,7 @@ const signedOutStory = story
   })
   .process()
   .checkpoint("signed-out");
-~~~
+```
 
 ## Commands, execution, and evidence
 
@@ -240,7 +243,7 @@ through production disposal.
 
 The result vocabulary is run.end, never final. A machine form is:
 
-~~~ts
+```ts
 appRun.checkpoints["signed-out"].actor(editor).snapshot;
 appRun.checkpoints["signed-out"].actor(PrimarySessionRef).snapshot;
 appRun.checkpoints["signed-out"].runtime.now;
@@ -253,7 +256,7 @@ machineRun.checkpoints["saved"].snapshot;
 machineRun.checkpoints["saved"].runtime.now;
 machineRun.end.snapshot;
 machineRun.end.runtime.pendingWork;
-~~~
+```
 
 ## Runtime boundary, models, and host runners
 

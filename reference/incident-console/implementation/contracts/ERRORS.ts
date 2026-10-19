@@ -1,5 +1,7 @@
 /**
- * Normative diagnostic contract for Flow State.
+ * Historical diagnostic contract reference for Flow State; not active authority.
+ * Current requirements: workflow/plans/Diagnostics.plan.
+ * Current task status: workflow/tasks/Rewrite/P5.task.
  *
  * `Diagnostic` is the one package-owned diagnostic value. Its structured fields
  * are the compatibility surface; human text is deliberately replaceable. This
@@ -267,8 +269,8 @@ export declare const toFlowUsageError: (diagnostic: UsageDiagnostic) => FlowUsag
 /*
  * Cause/Exit classification is package-private. It retains the complete Exit
  * and Cause until cleanup and evidence aggregation finish. The only public
- * classes permitted to carry that raw Cause are FlowDisposeError and
- * FlowStoryExecutionError, as specified by the other active contracts.
+ * classes permitted to carry that raw Cause were FlowDisposeError and
+ * FlowStoryExecutionError, as specified by the historical sibling contracts.
  */
 type ClassifiedFailure<A, E> = {
   classification: DiagnosticClassification;

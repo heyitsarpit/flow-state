@@ -1,8 +1,12 @@
 # Artifact wire contract
 
-Status: package-private pointer; not an exported package API.
+Status: historical package-private pointer; not active authority or an exported package API.
 
-`PERSISTENCE_AND_ARTIFACTS.md` is the sole semantic and schema authority for WIRE-020A/B/C, including the
+Current artifact requirements: [Artifacts.plan](../../../../workflow/plans/Artifacts.plan).
+Current work status: [P4.task](../../../../workflow/tasks/Rewrite/P4.task).
+
+Historically, `PERSISTENCE_AND_ARTIFACTS.md` was the semantic and schema authority for
+WIRE-020A/B/C, including the
 decoded artifact model, canonical bytes, SHA-256 fingerprint, bounds, gzip/trailing-byte rules, and the
 export-only trace-share artifact. This file contains no independent schema, notation, or behavior. Story,
 CLI, and share-export implementations consume the model and rules defined there; `CLI.md` owns CLI

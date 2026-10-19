@@ -2,25 +2,29 @@
 
 Status: proposed replacement; not formally accepted.
 
-This is one implementer-facing proposed replacement contract for packages/flow-state-rewrite. It is intentionally
-API-documentation-like: every public route is named, public functions and values are explained, specified signatures
-are retained, ownership/lifecycle/failure rules are stated, and accepted usages are preserved where the active
-contracts provide them.
+This is an implementer-facing proposed replacement contract for `packages/flow-state-rewrite`.
+It is intentionally API-documentation-like: every public route is named, public functions and values
+are explained, specified signatures are retained, and ownership/lifecycle/failure rules and accepted
+usages are recorded from historical sources.
 
-The active files under reference/incident-console/implementation/contracts/ remain normative until this proposal is
-formally promoted. `ERRORS.ts` is the sole normative typed diagnostic contract; this proposal defers to it for
-diagnostic data, rendering, and boundary mappings. revision-spec/README.md states that those active contract files are the current normative
-authority; archived revisions, provenance records, UNRESOLVED_BEHAVIOR.md, implementation, and proofs do not
-promote this document. This proposal MUST NOT add an API, behavior, default, exception, compatibility path, or proof
-obligation. Where an active contract supplies only a name or behavior, this proposal records that limitation instead
-of fabricating a signature or usage.
+This proposal remains unaccepted and is not current authority. Workflow plans and tasks own current
+requirements, decisions, status, and proof obligations; current Specs are indexed by
+`workflow/spec.index`. The former contract pack, revision index, and this proposal are historical
+provenance. This proposal does not change current requirements or resolve gaps.
 
-`DEFERRED.md` is the non-normative record of guarantees deliberately removed or relaxed during simplification.
-It does not remove any public route or feature family listed here, create future work, or override the retained
-normative behavior in the active contract files.
+The former contract pack treated `ERRORS.ts` as its typed diagnostic authority. This proposal
+preserves that reference for diagnostic data, rendering, and boundary mappings. It was written to
+avoid adding APIs, behavior, defaults, exceptions, compatibility paths, or proof obligations. Where
+the historical source supplied only a name or behavior, the proposal records that limit rather than
+fabricating a signature or usage.
 
-Illustrations are source-faithful. Undeclared names represent definitions, services, refs, implementations, or fixtures
-specified by their owning active contract; their appearance adds no overload or public route.
+`DEFERRED.md` recorded guarantees deliberately removed or relaxed during the former simplification.
+It does not remove any route or feature family listed here, create future work, or establish current
+requirements.
+
+Illustrations preserve their source context. Undeclared names represent definitions, services, refs,
+implementations, or fixtures described by the historical source material; their appearance adds no
+route to this unaccepted proposal.
 
 ## 1. Routes and root API
 
@@ -78,8 +82,8 @@ namespace objects, private deep imports, root builders on non-root routes, or co
 <!-- Deferred root values retained for restoration; not active exports.
 | persistence          | persistence({ storage, scope, codec?, filter? }); see section 7.                                                                            | Inert optional provider; Runtime owns restore, observation, writes, and cleanup.                                                             |
 | webStorage           | webStorage(storage: Storage): PersistenceStorage.                                                                                           | Host adapter to typed storage boundary; adapter failures remain persistence failures.                                                        |
-| indexedDbStorage     | indexedDbStorage(storage: IndexedDBStorage): PersistenceStorage.                                                                            | Same boundary; active contracts do not specify the IndexedDBStorage input shape.                                                             |
-| can                  | Root name is accepted by API-001. Active contracts only specify bound pure use as can(event); no standalone signature/usage is specified.   | No standalone behavior may be inferred. Bound legality reads remain pure and passive.                                                        |
+| indexedDbStorage     | indexedDbStorage(storage: IndexedDBStorage): PersistenceStorage.                                                                            | Same boundary; historical source contracts do not specify the IndexedDBStorage input shape.                                                  |
+| can                  | Root name is accepted by API-001. Historical source contracts specify only bound pure use as can(event); no standalone signature/usage is specified. | No standalone behavior may be inferred. Bound legality reads remain pure and passive.                                                        |
 -->
 <!-- Deferred diagnostic values retained for restoration; not active exports.
 | FlowUsageError       | Existing synchronous boundary owned by [`ERRORS.ts`](./ERRORS.ts) and API-002A.                                                             | Stable usage/admission diagnostic; consumers use _tag and code, not message parsing.                                                         |
@@ -179,8 +183,9 @@ type PublicRootNames =
   // | "FlowUsageError";
 ```
 
-The public types have these purposes. Where the active contracts do not publish a complete declaration, this table
-intentionally records the accepted role without inventing generic parameters, members, or aliases.
+The public types have these purposes. Where historical source contracts do not publish a complete
+declaration, this table records the accepted role without inventing generic parameters, members, or
+aliases.
 
 | Public type               | Purpose, shape, and constraints                                                                                                                                                                                                           |
 | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -204,7 +209,7 @@ intentionally records the accepted role without inventing generic parameters, me
 | `Implementation`          | Inert typed provider graph whose outputs close `RequirementsOf<App>` and whose acquisition may fail with its typed ImplementationError. The same root name is also the value namespace with exactly `succeed`, `effect`, and `merge`.     |
 | `Persistence`             | Inert provider `{ storage, scope, codec, filter? }`; exact notation is in section 7. It is not a Runtime, AppPlan input, or synchronization/conflict protocol.                                                            |
 | `PersistenceStorage`      | Typed Effect boundary with exactly `read`, `write`, and `remove`; exact notation is in section 7.                                                                                                                                         |
-| `PersistenceStorageError` | Typed failure channel for storage adapter operations. The active contracts do not publish its complete declaration or constructor, so both remain unspecified.                                                                            |
+| `PersistenceStorageError` | Typed failure channel for storage adapter operations. The historical source contracts do not publish its complete declaration or constructor, so both remain unspecified.                                                                     |
 | `PersistenceCodec`        | Synchronous pure slot codec with `encode(value, slot)` and `decode(value, slot)`; it performs no storage, Effect, actor creation, work resumption, or complete boot decoding.                                                             |
 | `PersistenceSlot`         | Public bounded identity describing the actor/resource/transaction/stream slot being encoded or decoded. Complete nested union is not published and remains unspecified.                                                                   |
 | `PersistenceValue`        | Public bounded canonical JSON value accepted/emitted by PersistenceCodec. Complete recursive declaration is not published and remains unspecified.                                                                                        |
@@ -221,9 +226,11 @@ the private v2 artifact model MUST NOT become public types.
 
 ### Usage errors
 
-[`ERRORS.ts`](./ERRORS.ts) remains the future typed diagnostic authority. It owns the exact `FlowPath`, eighteen-member
-`FlowUsageCode`, `Diagnostic`, machine-configuration reasons, safe renderer, Schema/Result/Effect mappings, and
-`FlowUsageError` boundary. Persistence failures are canonical `Diagnostic` values internally;
+The proposal designated [`ERRORS.ts`](./ERRORS.ts) as the future typed diagnostic owner. This
+proposed ownership is not current authority. It assigned that file the exact `FlowPath`,
+eighteen-member `FlowUsageCode`, `Diagnostic`, machine-configuration reasons, safe renderer,
+Schema/Result/Effect mappings, and `FlowUsageError` boundary.
+Persistence failures are canonical `Diagnostic` values internally;
 `FlowPersistenceError` is only a terminal host compatibility envelope. Raw Effect Cause MUST NOT
 appear in snapshots, selectors, serialized artifacts, or CLI results. Only FlowDisposeError and
 FlowStoryExecutionError retain complete Cause.Cause<unknown> in process.
@@ -685,12 +692,14 @@ const TodoWithClock = Implementation.merge(TodoLive, ClockLive);
 Implementation.succeed(service, value) is a complete synchronous non-failing provider. Implementation.effect
 accepts provider acquisition and is acquired at most once per Runtime; its typed error is an implementation
 readiness failure and its scope/finalizer are Runtime-owned. Implementation.merge composes providers without
-changing service identity. The active contract does not publish complete generic signatures for effect or merge;
+changing service identity. The historical source contract does not publish complete generic
+signatures for effect or merge;
 no additional method is permitted. Duplicate service identity rejects and order never selects a winner.
 
 ### runtimeSetup, RuntimeSetup, and Runtime
 
-**Current temporary implementation boundary (AMEND-API-004):** `runtimeSetup` retains only `app` plus an optional
+**Temporary implementation boundary in the proposal (AMEND-API-004):** `runtimeSetup` retains
+only `app` plus an optional
 complete `Implementation`; it returns inert `{ app, construct }`. `construct()` synchronously returns an inert
 `Runtime` carrying `{ app, ready }` and performs no I/O. `ready()` lazily acquires complete Implementation providers
 sequentially once per shell. Each shell caches the first terminal `Exit` exactly once—success, typed
@@ -699,7 +708,7 @@ preserves typed failure, defect, and interruption as separate meanings. The temp
 Effect bridges, lifecycle, or disposal behavior, and no Diagnostic mapping is invented for its error channel. The
 complete Runtime clauses below remain future targets, not implementation claims.
 
-The active type contract specifies:
+The historical source type contract specifies:
 
 ```ts
 function runtimeSetup<A extends App>(options: {
@@ -884,7 +893,8 @@ The future target public notation is retained in comments for restoration:
 The remainder of this persistence section is future target only and is not an implementation claim for the temporary
 shell. PersistenceStorage owns only typed read, write, and remove Effects. PersistenceCodec is synchronous and pure; it
 does not access storage, create actors, run Effects, resume work, or decode a complete runtime/boot payload.
-PersistenceValue, PersistenceSlot, and PersistenceEntry are public named types, but the active contract does not
+PersistenceValue, PersistenceSlot, and PersistenceEntry are public named types, but the historical
+source contract does not
 provide complete nested declarations; their behavior remains bounded canonical JSON, actor/resource/transaction/
 stream slot identity, and stable identity plus canonical K metadata.
 
@@ -929,7 +939,8 @@ record was omitted and otherwise is the greatest omitted runtime-global sequence
 marker. Internal attachment, retention, and drain algorithms are not compatibility surfaces.
 
 importTraceArtifact(bytes) accepts one defensive Uint8Array WIRE-020B trace and returns the private validated model.
-exportTraceArtifact(trace, options?) returns Uint8Array. The active contract specifies no complete signatures for
+exportTraceArtifact(trace, options?) returns Uint8Array. The historical source contract specifies
+no complete signatures for
 compressTraceArtifact or decompressTraceArtifact. Artifact import/export MUST validate the bounded v2 model and
 MUST NOT expose private TurnRecords, ownership, raw Cause, persistence, boot, replay, or a CLI-only decoder.
 
@@ -941,7 +952,8 @@ properties, sparse arrays, or concurrent mutation supplied directly to private d
 Serialized evidence contains ordered stable Flow diagnostics rather than an Effect Cause tree projection; full
 Cause remains available only at the two documented in-process error boundaries.
 
-PERSISTENCE_AND_ARTIFACTS.md WIRE-020A/B/C is the sole artifact schema authority. Raw WIRE-020B is canonical
+Under the former authority model, PERSISTENCE_AND_ARTIFACTS.md WIRE-020A/B/C was the sole artifact
+schema source. Raw WIRE-020B is canonical
 stable-key UTF-8 JSON, bounded, byte-stable v2 evidence with exactly one trailing newline. WIRE-020C is export-only
 and importTraceArtifact rejects it as WrongArtifactKind.
 
@@ -1007,7 +1019,7 @@ scheduler, store, operation kernel, persistence model, assertion framework, repl
 | `fixture`                 | `fixture({ id, implementation, seeds? })` returns a fixture definition supplying complete services and optional preloaded Runtime-owned resource state. A complete generic signature is not published.                                                        | Fixtures are fresh per Runtime/run. Seeds do not satisfy service requirements or bypass production kernels. Duplicate providers reject rather than use order. |
 | `behavior`                | `behavior({ app, stories })` returns an inert gateway over one explicit App and one non-empty record of Story IDs to compatible Story plans.                                                                                                                    | Validation/registration is synchronous. It creates no Implementation, Runtime, actor, sink, Story execution, or cleanup. The CLI is its only public consumer. |
 | `model`                   | `model(baseStory, { stateKey })` returns a pure structural model with only `getShortestPaths(options)` and `getSimplePaths(options)`. `baseStory` MUST be a fresh command-empty machine Story; `stateKey` returns `CanonicalKeyInput`.                                   | Traversal executes no Effects, services, fixtures, operations, runtime mutation, or synthesized async outcomes.                                               |
-| `FlowStoryExecutionError` | Rejection boundary for Story execution/cancellation/cleanup failure. It carries the complete public Effect Cause plus checkpoints, optional end evidence, failure boundary, cleanup diagnostics, cancellation facts, and accepted/drained evidence facts.  | The active contracts do not publish a complete class signature or constructor form. This proposal intentionally leaves both unspecified.                     |
+| `FlowStoryExecutionError` | Rejection boundary for Story execution/cancellation/cleanup failure. It carries the complete public Effect Cause plus checkpoints, optional end evidence, failure boundary, cleanup diagnostics, cancellation facts, and accepted/drained evidence facts.  | The historical source contracts do not publish a complete class signature or constructor form. This proposal intentionally leaves both unspecified.                     |
 
 ### Constructing app, machine, and actor Stories
 
@@ -1254,9 +1266,9 @@ runtime, actor, scheduler, store, planner, persistence system, or CLI-only decod
 
 ### Public inspect function reference
 
-The active contracts list every name below but publish complete standalone signatures only where shown in this
-section. For every row marked unspecified, this proposal intentionally leaves the exact parameter types, return type,
-overloads, failure type, and code form unspecified rather than inferring them from the name.
+The historical source contracts list every name below but publish standalone signatures only in this
+section. For unspecified rows, the proposal does not infer parameter or return types, overloads,
+failures, or code form from the name.
 
 | Function                          | Contracted purpose                                                                                                                                    | Signature/form status                                                                                                                     |
 | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
@@ -1285,8 +1297,8 @@ overloads, failure type, and code form unspecified rather than inferring them fr
 | `createInspectionBufferSink`      | Creates an explicit bounded sink. `capacity` defaults to 256 and MUST be a non-negative integer; zero retains no records while preserving truncation. | `createInspectionBufferSink({ capacity? })`; returns a sink exposing `snapshot()` and `clear()` as described below.                       |
 | `importTraceArtifact`             | Defensively copies, decodes, bounds-checks, and validates one raw WIRE-020B trace artifact.                                                           | `importTraceArtifact(bytes)` accepts `Uint8Array`; exact private decoded return type and complete signature unspecified.                  |
 | `exportTraceArtifact`             | Encodes a validated imported trace as raw WIRE-020B bytes or, with a non-empty valid redaction policy, export-only WIRE-020C bytes.                   | Exact redaction overload is specified in section 7; returns `Uint8Array`.                                                                 |
-| `compressTraceArtifact`           | Public artifact compression boundary.                                                                                                                 | Active contracts publish no standalone purpose beyond artifact handling and no signature/input/output/form; intentionally unspecified.    |
-| `decompressTraceArtifact`         | Public artifact decompression boundary.                                                                                                               | Active contracts publish no standalone purpose beyond artifact handling and no signature/input/output/form; intentionally unspecified.    |
+| `compressTraceArtifact`           | Public artifact compression boundary.                                                                                                                 | Historical source contracts publish no standalone purpose beyond artifact handling and no signature/input/output/form; intentionally unspecified.    |
+| `decompressTraceArtifact`         | Public artifact decompression boundary.                                                                                                               | Historical source contracts publish no standalone purpose beyond artifact handling and no signature/input/output/form; intentionally unspecified.    |
 
 API-016 separately documents route-wide constraints: pure graph/transition functions consume inert definitions or
 snapshots; live inspection consumes committed private `TurnRecord` and `LifecycleRecord`; projections
@@ -1496,15 +1508,15 @@ Local proof IDs map to the central proof families as follows:
 | `SNAP-P01`            | `PROOF-001`, `PROOF-005`, `PROOF-006`                                                                         |
 | `CUT-P01`–`CUT-P06`   | `PROOF-001`, `PROOF-012`, `PROOF-014`, `PROOF-017` as assigned by `PROOF_MATRIX.md`                           |
 
-No checklist item in this proposal asserts that its proof currently exists, passes, is fresh, or closes a Bead.
+This proposal's checklist does not assert proof completion or current task completion.
 
-## 12. Provenance and authority map
+## 12. Historical provenance map
 
-This map records where the proposal's language and illustrations came from. It does not transfer formal acceptance to
-this file. If this proposal conflicts with any active contract clause, the active contract wins until a formal
-acceptance process explicitly replaces it.
+This map records where the proposal's language and illustrations came from. It does not transfer
+acceptance to this file. The listed contract clauses and revisions are historical sources; resolve
+current conflicts and gaps through Workflow records or an explicit user decision.
 
-| Proposal section                | Active source authority                                                                                                                                                                           | Preserved illustrations or constraints                                                                                                                                                                                                         |
+| Proposal section                | Historical source references                                                                                                                                                                      | Preserved illustrations or constraints                                                                                                                                                                                                         |
 | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1. Routes and root API          | `PUBLIC_API.md` API-001, API-002, API-002A, AMEND-API-001                                                                                                                                         | Exact route/name sets, quickstart, public type boundary, usage-error shape.                                                                                                                                                                    |
 | 2. Types, definitions, machines | `PUBLIC_API.md` API-003/API-004; `TYPE_SYSTEM.md` TYPE-001–TYPE-004                                                                                                                               | NewIntent definition/machine, exact Todo token inference, Editor input/memory inference, causal one-way inference.                                                                                                                             |
@@ -1518,8 +1530,8 @@ acceptance process explicitly replaces it.
 | 10. CLI                         | `PUBLIC_API.md` API-017; `CLI.md` CLI-001–CLI-012, CLI-P01, CLI-P02; `PERSISTENCE_AND_ARTIFACTS.md` WIRE-020A/B/C                                                                                 | Exact ten-leaf grammar, behavior gateway form, selectors/defaults, gateway containment, atomic files, output, signal, exit, truncation.                                                                                                        |
 | 11. Acceptance                  | `PROOF_MATRIX.md` PROOF-001–PROOF-017 and local proof crosswalk, especially PROOF-001, PROOF-009, and PROOF-010                                                                                   | Unchecked typing, prefix isolation, and evidence-only checkpoint proof ownership; no completion claim.                                                                                                                               |
 
-The active contract pack remains the sole normative source for exact nested artifact schemas, definitions not copied
-here, conflict resolution, deletion inventory, and proof procedures. `revision-spec/README.md` remains the authority
-index; accepted revisions override only direct conflicts, provenance files preserve lineage rather than semantics,
-and `UNRESOLVED_BEHAVIOR.md` remains a closure register rather than an answer source. Any public name whose complete
-signature or usage is absent above is intentionally unspecified by this proposal.
+The former contract pack supplied details not copied here, including nested artifact schemas,
+definitions, deletion inventory, and proof procedures. The revision index records that historical
+authority model; provenance files preserve lineage. `UNRESOLVED_BEHAVIOR.md` was a closure register,
+not an answer source. None of these records establishes current requirements. Any public name whose
+complete signature or usage is absent above remains intentionally unspecified by this proposal.

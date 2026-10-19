@@ -1,10 +1,13 @@
 # Type-system contract
 
-Status: normative vNext contract
+Status: historical reference only; not active authority.
 
-This file owns inference, variance, `Effect<A, E, R>` propagation, canonical operation typing,
+Current requirements live in [Workflow plans](../../../../workflow/plans/);
+current task status lives in [Rewrite tasks](../../../../workflow/tasks/Rewrite/).
+
+This file recorded inference, variance, `Effect<A, E, R>` propagation, canonical operation typing,
 Implementation closure, actor/ref/lease typing, host selector typing, Story typing, and compile proofs.
-Public authoring shapes are owned by [PUBLIC_API.md](./PUBLIC_API.md); terminology and identity by
+Public authoring shapes were recorded in [PUBLIC_API.md](./PUBLIC_API.md); terminology and identity in
 [GLOSSARY_AND_IDENTITY.md](./GLOSSARY_AND_IDENTITY.md).
 
 ## TYPE-000 — Canonical failure channels

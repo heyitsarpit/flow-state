@@ -1,9 +1,15 @@
 # vNext runtime architecture
 
-Status: normative vNext contract
+Status: historical reference only; not active authority.
 
-This file assigns one owner to compilation, runtime construction, actor lifetimes, mailboxes,
-store state, scheduling, evidence, and host bridges. The other active contract files own the
+Current requirements live in [Workflow plans](../../../../workflow/plans/);
+current task status lives in [Rewrite tasks](../../../../workflow/tasks/Rewrite/).
+
+The selected Workflow order—prepare detached data, acquire Implementation, then
+install actors/store—supersedes the historical sequence in ARCH-008.
+
+This file recorded one owner for compilation, runtime construction, actor lifetimes, mailboxes,
+store state, scheduling, evidence, and host bridges. The sibling source contracts recorded the
 observable turn, snapshot, and host details linked below.
 
 ## Ownership map

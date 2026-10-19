@@ -1,11 +1,14 @@
 # Actor and primitive snapshot contract
 
-Status: normative vNext contract
+Status: historical reference only; not active authority.
 
-This contract fixes the public read surface consumed by passive views, hosts, Stories, and
+Current requirements live in [Workflow plans](../../../../workflow/plans/);
+current task status lives in [Rewrite tasks](../../../../workflow/tasks/Rewrite/).
+
+This contract fixed the public read surface consumed by passive views, hosts, Stories, and
 inspection. Snapshots report machine and primitive truth. They are passive reads: they do not
-create ownership, start work, retain execution history, or expose runtime internals. `SEMANTICS.md` owns
-publication ordering; `REACT_AND_HOSTS.md` owns host attachment and selector integration.
+create ownership, start work, retain execution history, or expose runtime internals. `SEMANTICS.md` recorded
+publication ordering; `REACT_AND_HOSTS.md` recorded host attachment and selector integration.
 
 ## Snapshot-first forms
 

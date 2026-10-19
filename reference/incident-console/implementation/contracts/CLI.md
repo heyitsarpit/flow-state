@@ -1,18 +1,21 @@
 # Command-line interface contract
 
-Status: normative target vNext contract; not shipped
+Status: historical reference only; not active authority.
+
+Current requirements live in [Workflow plans](../../../../workflow/plans/);
+current task status lives in [Rewrite tasks](../../../../workflow/tasks/Rewrite/).
 
 The CLI is a process host over the compiled behavior, shared Story executor, bounded artifact codecs,
 inspection/trace projections, and file/stream I/O. It owns grammar, gateway selection, formatting,
 files, signals, and exit status. It does not own machine semantics, actors, schedulers, stores,
 transition evaluation, runtime history, artifact schemas, or a competing Story/runtime model.
-`PERSISTENCE_AND_ARTIFACTS.md` is the sole semantic and schema authority for the WIRE-020A/B/C artifact
-boundary. `ARTIFACT_WIRE.md` is a package-private pointer with no independent schema; `REV-MIG-005` is
-provenance only. Executable gates still prove the implementation.
+`PERSISTENCE_AND_ARTIFACTS.md` was the source pack's sole semantic and schema authority for the
+WIRE-020A/B/C artifact boundary. `ARTIFACT_WIRE.md` was a package-private pointer with no independent
+schema; `REV-MIG-005` was provenance only. Executable gates were still required to prove the implementation.
 
 ## Grammar and gateway
 
-~~~text
+```text
 flow-state behavior build --output <path> [--overwrite] [--project-root <dir>] --gateway <path> [--format text|json]
 flow-state behavior render <artifact|-> [--section contract|coverage] [--module <id>] [--format text|json]
 flow-state behavior diff <left> <right> [--module <id>] [--format text|json]
@@ -25,9 +28,9 @@ flow-state story run <story-id> [--project-root <dir>] --gateway <path> [--trace
 flow-state trace summarize <artifact|-> [--format text|json]
 flow-state trace proof <artifact|-> --selector <selector> [--format text|json]
 flow-state trace diff <left> <right> [--section <section>] [--format text|json]
-~~~
+```
 
-~~~ts
+```ts
 const BehaviorGateway = behavior({
   app: IncidentApp,
   stories: {
@@ -35,7 +38,7 @@ const BehaviorGateway = behavior({
     "machine-model": incidentMachineStory,
   },
 });
-~~~
+```
 
 `behavior check` is the only new vNext leaf. It builds the live behavior in memory and compares
 its canonical artifact with the supplied expected artifact through the same diff projection as
@@ -203,7 +206,7 @@ projection; CLI does not sanitize, summarize, diff, prove, compress, or otherwis
 
 The private JSON result retains the exact leaf-command discriminant:
 
-~~~ts
+```ts
 type CliCommand =
   | "behavior.build"
   | "behavior.render"
@@ -215,7 +218,7 @@ type CliCommand =
   | "trace.summarize"
   | "trace.proof"
   | "trace.diff";
-~~~
+```
 
 The private result data remains closed by command and follows the WIRE-020B model. The CLI MUST NOT export
 another public `FlowCli*` result or diagnostic hierarchy, reconstruct Scenario or matcher vocabulary, or

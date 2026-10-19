@@ -1,16 +1,20 @@
 # Persistence and artifacts contract
 
-Status: normative target vNext contract; not shipped
+Status: historical reference only; not active authority.
 
-This file is the single Flow-owned semantic and schema authority for persistence, boot, capture/hydration,
-publication, artifact boundaries, Story evidence timing, the package-private model handoff, and the exact
-nested WIRE-020A/B/C rules. `ARTIFACT_WIRE.md` is a package-private pointer used by Story, CLI, and the
-share-export encoder; it contains no independent schema or notation, and any mismatch resolves to this file. This file does not
-define CLI transport or duplicate runtime, operation, or public API contracts.
-The corresponding file under `contracts/provenance/` is the current semantic source and provenance record
-for this restoration; it is retained for traceability, not as a competing active authority. Its transferred
-wording and WIRE-* clause IDs remain represented by this file; `ARTIFACT_WIRE.md` only points to this authority. Historical records,
-retired fixtures, and unrelated provenance notes add no semantics. BEH-033 is closed by REV-MIG-005: the
+Current requirements live in [Workflow plans](../../../../workflow/plans/);
+current task status lives in [Rewrite tasks](../../../../workflow/tasks/Rewrite/).
+
+This file was the single Flow-owned semantic and schema authority in the historical contract pack for
+persistence, boot, capture/hydration, publication, artifact boundaries, Story evidence timing, the
+package-private model handoff, and the exact nested WIRE-020A/B/C rules. `ARTIFACT_WIRE.md` was a
+package-private pointer used by Story, CLI, and the share-export encoder; it contained no independent schema
+or notation, and mismatches resolved to this file under that pack. This file did not define CLI transport or
+duplicate runtime, operation, or public API contracts.
+The corresponding file under `contracts/provenance/` was the historical semantic source and provenance record
+for this restoration; it was retained for traceability, not as a competing authority. Its transferred wording
+and WIRE-* clause IDs remain here as historical references; `ARTIFACT_WIRE.md` pointed to this source. Historical
+records, retired fixtures, and unrelated provenance notes added no semantics. BEH-033 was closed by REV-MIG-005: the
 v2 model is package-private, not a public type.
 
 ## Persistence provider and declarations
@@ -265,7 +269,7 @@ idle countdown or new `gcTime` default.
 
     type NonNegative = number; // accepted only when Number.isSafeInteger(value) && value >= 0
 
-`DiagnosticProjection` is the serialization alias of the sole typed diagnostic contract in
+`DiagnosticProjection` was the serialization alias of the sole typed diagnostic contract in
 [`ERRORS.ts`](./ERRORS.ts). It is not a second schema: `Diagnostic` owns the stable
 `classification`/`code`/`path`/`details` fields, evolving `summary`/`help`, and the safe projection/rendering
 rules. Artifact and trace encoders may order and bound those fields according to this contract's wire rules,
@@ -472,10 +476,10 @@ category, path, and bound details for the selected diagnostic rather than collap
 `undefined` or a generic corrupt-artifact result.
 
 The complete local wire model, including nested behavior declarations, lifecycle records, StoryFailure,
-operation-fact unions, diagnostics, CLI result/error unions, and the export-only TraceShareArtifact, is defined
-in this contract for Story, CLI, and the share encoder. `ARTIFACT_WIRE.md` is a pointer only and does not extend
-or override this contract, which remains the semantic and schema authority for WIRE-020A/B/C, capture, and
-publication.
+operation-fact unions, diagnostics, CLI result/error unions, and the export-only TraceShareArtifact, was defined
+in this contract for Story, CLI, and the share encoder. `ARTIFACT_WIRE.md` was a pointer only and did not extend
+or override this contract, which served as the semantic and schema authority for WIRE-020A/B/C, capture, and
+publication within the historical source pack.
 
 Resource facts are missing, pending, ready, refreshing, failure, defect, or interrupted; transaction
 facts are idle, pending, success, failure, defect, interrupted, or unknown with reconcileRequired true;

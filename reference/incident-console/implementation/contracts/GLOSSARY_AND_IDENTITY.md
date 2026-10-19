@@ -1,17 +1,20 @@
 
 # Glossary and identity contract
 
-Status: locked
+Status: historical reference only; not active authority.
 
-This file owns Flow terminology and durable/concurrent identity. Other active contracts reference
-these rules; they do not redefine them. The active clauses in this contract pack are authoritative.
-The revision specification, accepted decisions, proposals, and archived records preserve provenance
-only and do not override a contract clause. The corresponding file under `contracts/provenance/` is
-the current semantic source and provenance record for this restoration; it is not a competing active
-authority, and its transferred wording and IDs MUST NOT be erased by the enhanced shape below.
+Current requirements live in [Workflow plans](../../../../workflow/plans/);
+current task status lives in [Rewrite tasks](../../../../workflow/tasks/Rewrite/).
+
+This file recorded Flow terminology and durable/concurrent identity. Sibling source contracts referenced
+these rules rather than redefining them; the clauses were authoritative within the historical contract pack.
+The revision specification, accepted decisions, proposals, and archived records preserved provenance only
+and did not override a contract clause. The corresponding file under `contracts/provenance/` was the
+historical semantic source and provenance record for this restoration; it was not a competing authority,
+and its transferred wording and IDs MUST NOT be erased by the enhanced shape below.
 Affected removed or replaced surfaces defer to `DEL-001` through `DEL-011`; a `REPLACE` entry removes
 the old surface and does not permit an alias, overload, adapter, or compatibility wrapper.
-Explicitly retained boundaries remain authoritative under `RET-001` through `RET-005`.
+Explicitly retained boundaries were recorded under `RET-001` through `RET-005`.
 
 ## GLO-01 — Definition
 

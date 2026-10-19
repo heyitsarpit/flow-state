@@ -161,7 +161,7 @@ file records removed complexity; it does not promise future work.
   matrix into every ordinary implementation and validation Bead.
 - Previous owner: `COMPATIBILITY_AND_DELETIONS.md`, `PROOF_MATRIX.md` `PROOF-017`, and
   phase/cutover Beads.
-- Retained: the deletion ledger remains authoritative, public export/declaration
+- Retained: the deletion ledger records historical disposition, public export/declaration
   negatives prove removed surfaces, and final cutover performs one mapped
   no-consumer/absence audit. Feature owners prove only deleted behavior intersecting
   their changed boundary.

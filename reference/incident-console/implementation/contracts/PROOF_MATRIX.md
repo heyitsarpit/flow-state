@@ -1,11 +1,14 @@
-# Normative proof matrix
+# Historical proof matrix
 
-Status: normative contract proof matrix.
+Status: historical reference only; not active authority.
+
+Current requirements live in [Workflow plans](../../../../workflow/plans/);
+current task status lives in [Rewrite tasks](../../../../workflow/tasks/Rewrite/).
 
 ## Surface and rule
 
-This matrix defines evidence required to claim the accepted revision surface correct. A green test count does
-not close a proof unless it exercises the named mechanism through its production owner. Filename scans,
+This matrix recorded evidence required to claim the accepted revision surface correct. A green test count did
+not close a proof unless it exercised the named mechanism through its production owner. Filename scans,
 exported-token scans, and helper-placement assertions cannot substitute for type, behavior, race,
 interruption, lifetime, or artifact evidence.
 
@@ -21,10 +24,11 @@ Canonical `KBytes` and artifact-carrier encoding remain owned by `PROOF-005` and
 does not change their bounds, ordering, or wire semantics.
 
 `PROOF-*` rows are requirements, not task-closure units. Retired Phase 0 subcase IDs and receipts are historical
-evidence only: they add no semantic authority and do not choose current ownership. Current executable proofs
-are owned by production code and tests named by the implementation task and this matrix.
+evidence only: they added no semantic authority and did not choose ownership. Executable proofs were assigned
+to production code and tests named by implementation tasks and this matrix.
 
-[`ERRORS.ts`](./ERRORS.ts) is the sole typed diagnostic authority. Diagnostic proofs MUST use its one
+[`ERRORS.ts`](./ERRORS.ts) recorded the sole typed diagnostic model in the historical source pack. Diagnostic
+proofs were required to use its one
 package-owned `Diagnostic` model for stable code/path/details, evolving summary/help, machine-configuration
 reasons, Schema/Result/Effect translation, safe rendering, synchronous `FlowUsageError`, and complete
 Cause/Exit preservation. No proof may introduce a parallel diagnostic schema or allow an expected generic
@@ -522,7 +526,7 @@ CLI-P02
 
 ## Local proof crosswalk
 
-Local `*-P*` sections refine central rows and are normative even without a `PROOF-*` prefix. They are named by
+Local `*-P*` sections refined central rows and were normative within the historical matrix even without a `PROOF-*` prefix. They are named by
 the same implementation task or proof record; retired phase, receipt, and task files are historical only.
 
 | Local obligation | Central proof owner                                            |
@@ -556,12 +560,12 @@ Each family MUST be represented by dependency-ordered implementation issues. The
 listed clauses, proof rows, source owner, focused proof path, and non-goals. Proposal files and retired receipts
 are evidence only. This is a decomposition boundary, not a second semantic specification.
 
-| Contract family          | Normative sources                                                                                                                                                                        | Central/local proof rows                                                 | Dependency                                         |
+| Contract family          | Historical sources                                                                                                                                                                       | Central/local proof rows                                                 | Dependency                                         |
 | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | -------------------------------------------------- |
 | Static foundation        | `GLOSSARY_AND_IDENTITY.md`; `PUBLIC_API.md` `API-001`–`API-010`; `TYPE_SYSTEM.md` `TYPE-001`–`TYPE-009`; accepted composition/machine revisions                                          | `PROOF-001`, `PROOF-002`, `TYPE-P01`–`TYPE-P04`                          | first                                              |
 | Runtime ownership        | `ARCHITECTURE.md` `ARCH-007`–`ARCH-020`; `SEMANTICS.md` admission/mailbox/lifecycle; `REACT_AND_HOSTS.md` `HOST-001`–`HOST-006`; `TYPE_SYSTEM.md` `TYPE-010`–`TYPE-015`                  | `PROOF-003`, `PROOF-004`, `PROOF-015`, `HOST-P01`–`HOST-P05`             | after static foundation                            |
 | Operation kernels        | `TYPE_SYSTEM.md` operation inference; `SEMANTICS.md` `SEM-011`–`SEM-021`, `SEM-029`–`SEM-030`; `SNAPSHOTS.md`; accepted operations revision                                              | `PROOF-005`–`PROOF-007`, `SNAP-P01`                                      | after runtime ownership                            |
-| Persistence and evidence | `PERSISTENCE_AND_ARTIFACTS.md` `WIRE-000`–`WIRE-023`, including `WIRE-020C`, as sole schema authority; `ARTIFACT_WIRE.md` is a pointer only; capture/hydration clauses in `SNAPSHOTS.md` | `PROOF-009`, `PROOF-010`, `PROOF-011`, `PROOF-014`, `API-P04`, `CLI-P01` | after runtime and operation kernels                |
+| Persistence and evidence | `PERSISTENCE_AND_ARTIFACTS.md` `WIRE-000`–`WIRE-023`, including `WIRE-020C`, as the source pack's schema authority; `ARTIFACT_WIRE.md` was a pointer only; capture/hydration clauses in `SNAPSHOTS.md` | `PROOF-009`, `PROOF-010`, `PROOF-011`, `PROOF-014`, `API-P04`, `CLI-P01` | after runtime and operation kernels                |
 | Hosts, Stories, and CLI  | `TESTING.md` `REV-TEST-001`–`REV-TEST-010`; `REACT_AND_HOSTS.md`; `CLI.md`; `PUBLIC_API.md` `API-011`–`API-017`                                                                          | `PROOF-008`, `PROOF-010`, `PROOF-012`, `PROOF-014`, `CLI-P01`            | after runtime; operation/evidence edges where used |
 | Cutover and absence      | `COMPATIBILITY_AND_DELETIONS.md`; `PROOF-016`–`PROOF-017`; accepted migration/deletion revisions                                                                                         | `PROOF-016`, `PROOF-017`, `CLI-P02`, `CUT-P01`–`CUT-P06`                 | after every prior family                           |
 
@@ -598,7 +602,7 @@ repeat that owner's complete negative, race, codec, or historical-absence matrix
 7. Application-owned browser tests for browser ownership or lifecycle changes.
 8. `nub run verify` for final phase closure.
 
-Live script owners are `packages/flow-state/package.json:59-69` and root `package.json:6-30`; these commands
-are unchanged by the revision overlay. `REV-MIG-003` remains the accepted architecture/parity proof boundary.
-Any reopened behavior or contract ID remains an explicit blocking implementation task until authority is
-updated or proof is complete.
+The historical script owners were `packages/flow-state/package.json:59-69` and root `package.json:6-30`; those
+commands were unchanged by the revision overlay. `REV-MIG-003` was the accepted architecture/parity proof
+boundary. Under that process, reopened behavior or contract IDs were blocking implementation tasks until
+authority was updated or proof was complete.

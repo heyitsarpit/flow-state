@@ -1,9 +1,12 @@
 # vNext runtime semantics
 
-Status: normative vNext contract
+Status: historical reference only; not active authority.
 
-These rules define observable behavior. Ownership is assigned in `ARCHITECTURE.md`; public read
-shapes are fixed in `SNAPSHOTS.md`; React, SSR, persistence-host, and host-write boundaries are
+Current requirements live in [Workflow plans](../../../../workflow/plans/);
+current task status lives in [Rewrite tasks](../../../../workflow/tasks/Rewrite/).
+
+These rules recorded observable behavior. Ownership was assigned in `ARCHITECTURE.md`; public read
+shapes were fixed in `SNAPSHOTS.md`; React, SSR, persistence-host, and host-write boundaries were
 fixed in `REACT_AND_HOSTS.md`.
 
 ## Actor turns and publication

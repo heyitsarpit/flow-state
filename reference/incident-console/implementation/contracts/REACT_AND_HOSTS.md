@@ -1,14 +1,17 @@
 # React and host contract
 
-Status: normative vNext contract
+Status: historical reference only; not active authority.
 
-This file owns runtime/host boundaries: exact actor ownership, synchronous commands, React
+Current requirements live in [Workflow plans](../../../../workflow/plans/);
+current task status lives in [Rewrite tasks](../../../../workflow/tasks/Rewrite/).
+
+This file recorded runtime/host boundaries: exact actor ownership, synchronous commands, React
 attachment and selectors, SSR/request behavior, persistence hosts, trusted host writes, and disposal.
-`ARCHITECTURE.md` owns the runtime owners; `SEMANTICS.md` owns turn/lifecycle behavior;
-`SNAPSHOTS.md` owns read shapes.
-The active clauses in this contract pack are authoritative. The revision specification, accepted
-decisions, archived records, and the `provenance/` copies preserve provenance only; unresolved
-`BEH-*` entries do not authorize an implementation choice.
+`ARCHITECTURE.md` recorded runtime owners; `SEMANTICS.md` recorded turn/lifecycle behavior;
+`SNAPSHOTS.md` recorded read shapes.
+The clauses were authoritative within the historical contract pack. The revision specification, accepted
+decisions, archived records, and the `provenance/` copies preserved provenance only; unresolved
+`BEH-*` entries did not authorize an implementation choice.
 
 ## Host-first forms
 

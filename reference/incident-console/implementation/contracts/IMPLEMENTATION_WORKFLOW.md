@@ -1,23 +1,27 @@
 # Implementation workflow contract
 
-Status: normative implementation contract for the greenfield replacement
+Status: historical reference only; not active authority.
 
-Sibling contracts own runtime, API, persistence, CLI, host, Story, deletion, and proof semantics.
-This file defines implementation order, ownership, review, tests, and promotion. It is not a second
+Current requirements live in [Workflow plans](../../../../workflow/plans/);
+current task status lives in [Rewrite tasks](../../../../workflow/tasks/Rewrite/).
+
+Sibling contracts recorded runtime, API, persistence, CLI, host, Story, deletion, and proof semantics.
+This file recorded implementation order, ownership, review, tests, and promotion. It was not a second
 runtime or API specification.
 
-The active sibling contract pack is the sole semantic authority for this restoration. Archived revision
-material and traceability records are provenance only and cannot define or override implementation semantics.
-This workflow preserves the wording, semantics, and IDs already transferred into the active contracts.
+During this restoration, the active sibling contract pack served as the sole semantic authority. Archived
+revision material and traceability records served as provenance and did not define or override implementation
+semantics. This workflow recorded the wording, semantics, and IDs transferred into that historical contract set.
 
 ## Authority and greenfield boundary
 
 ### Rule card — authority and source ownership
 
 - Surface: Contract interpretation and implementation location.
-- Rule: The active sibling contract pack is the sole semantic authority for implementation. Archived
-  revisions, proposals, audits, research, traceability records, the reference package, and historical fixtures are
-  provenance only. The replacement is built in packages/flow-state-rewrite/. Existing
+- Rule: During this restoration, the active sibling contract pack served as the sole semantic authority for
+  implementation. Archived revisions, proposals, audits, research, traceability records, the reference package,
+  and historical fixtures were provenance only. The rule prescribed building the replacement in
+  packages/flow-state-rewrite/. Existing
   packages/flow-state/ code, tests, entrypoints, and records remain reference
   material until late cutover.
 - Accepts: Copied legacy code only after its current owner, types, failure lanes, cleanup, and tests are
@@ -141,8 +145,8 @@ This workflow preserves the wording, semantics, and IDs already transferred into
   mailbox/scheduler/store/kernel/snapshot/cleanup/evidence systems, runtime-backed pure models,
   Effect interpretation in synchronous reads, Story operation interception, injected results, simulate,
   parallel codecs, parallel result/diagnostic families, and post-materialization mutation.
-- Observable guarantee: One owner is named for identity, lifetime, operation facts, persistence, evidence,
-  and cleanup; the semantic details remain authoritative in ARCHITECTURE, SEMANTICS, SNAPSHOTS,
+- Observable guarantee: One owner was named for identity, lifetime, operation facts, persistence, evidence,
+  and cleanup; semantic details were recorded in ARCHITECTURE, SEMANTICS, SNAPSHOTS,
   REACT_AND_HOSTS, TESTING, and PERSISTENCE_AND_ARTIFACTS. Artifact and CLI projections consume the one
   v2 model and preserve deleted-surface absence.
 - Proof: Architecture scans plus production-path behavior, parity, and absence tests.
@@ -212,7 +216,7 @@ This workflow preserves the wording, semantics, and IDs already transferred into
   final workspace gates.
 - Accepts: A cutover decision backed by the complete set of production proofs.
 - Rejects: package cutover claimed from one green focused test, typecheck, lint run, or source scan.
-- Observable guarantee: Promotion preserves the contract pack as authority and makes no compatibility
+- Observable guarantee: Promotion was gated on preserving the contract pack as authority and making no compatibility
   behavior or semantic choice without an owning contract.
 - Proof: Named phase proofs, CLI-P02, PROOF-016/017, and final workspace gates.
 - Trace: Completion and cutover clauses; PROOF_MATRIX.

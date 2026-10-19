@@ -1,41 +1,42 @@
 # Flow State vNext revision specification
 
-Status: historical revision index; contract semantics are fully integrated
+Status: historical revision index; superseded for current requirements by Workflow records
 
-Migration readiness: the inherited `BEH-*` register is closed by the accepted revisions; implementation
-readiness depends on the named proof obligations and does not reopen design work.
+Historical migration note: this index recorded the inherited `BEH-*` register as closed by its
+accepted revisions. That does not establish current implementation or task readiness; Workflow does.
 
-The contract files are the current normative authority. The accepted revision chapters are retained under
-[`../archive/`](../archive/README.md) for provenance only. No normative rule, type shape, lifecycle,
-failure, example, or proof obligation is defined by following a link into this historical index or archive.
-When the accepted material did not finish an implementable shape, the contracts record that omission
-explicitly instead of inventing it.
+Current requirements, decisions, task status, and proof obligations live in `workflow/plans/` and
+`workflow/tasks/`; current Specs are indexed by `workflow/spec.index`. This index, former contracts,
+and original revision chapter references are historical provenance. Those chapter files are absent
+from this checkout. They do not establish current rules, types, lifecycle, failures, examples, or
+proof obligations. Resolve current gaps through the affected Workflow record or an explicit user
+decision.
 
-The archived accepted rules have been merged into the contracts. Contract clauses are now the sole
-normative authority for this implementation baseline.
+Under the former model, archived accepted rules had been merged into the contract files. Those
+clauses described that historical baseline and are not current authority.
 
-The transferred deletion ledger in [`../contracts/COMPATIBILITY_AND_DELETIONS.md`](../contracts/COMPATIBILITY_AND_DELETIONS.md)
-is now the normative owner for every old surface that the accepted revisions remove or replace.
-`NON_GOALS.md` records rejected and deferred directions but does not classify old clauses. An accepted
-clause MUST NOT leave an affected old surface without a disposition; it MUST defer to the applicable
-`DEL-*` entry in that contract.
+Under that former model, the transferred deletion ledger in
+[`../contracts/COMPATIBILITY_AND_DELETIONS.md`](../contracts/COMPATIBILITY_AND_DELETIONS.md) owned
+dispositions for surfaces removed or replaced by accepted
+revisions. `NON_GOALS.md` recorded rejected
+and deferred directions. They preserve history. Current deletion and compatibility decisions belong
+in Workflow records.
 
-The typed diagnostic authority is [`../contracts/ERRORS.ts`](../contracts/ERRORS.ts). Readers MUST use its one
-package-owned `Diagnostic` model and its Schema/Result/Effect/Cause boundary rules when another contract mentions
-diagnostics; `DiagnosticProjection` is only a serialization alias and does not define a second schema.
+Formerly, [`../contracts/ERRORS.ts`](../contracts/ERRORS.ts) owned the typed diagnostic contract and
+its package-owned `Diagnostic` model. This preserves history; it does not establish current
+diagnostic requirements.
 
-[`../contracts/DEFERRED.md`](../contracts/DEFERRED.md) is the non-normative register for implementation and
-proof guarantees deliberately removed or relaxed after integration. It preserves the public feature inventory,
-does not promise later work, and has no authority over the retained normative clauses.
+[`../contracts/DEFERRED.md`](../contracts/DEFERRED.md) recorded implementation and proof guarantees
+removed or relaxed under the former model. It preserves the historical public feature inventory and
+does not establish future work or current requirements.
 
-This specification does not reopen design work. It may restate, organize, and connect already accepted
-decisions, but it must not add a public API, behavior, default, exception, or proof obligation that the
-source material did not decide. Rejected, superseded, and deliberately deferred directions are recorded
-separately in [`NON_GOALS.md`](./NON_GOALS.md) and have no normative force.
+Historically, this specification did not reopen design work or add APIs, behavior, defaults,
+exceptions, or proof obligations. Rejected, superseded, and deferred directions were recorded in
+[`NON_GOALS.md`](./NON_GOALS.md). Current design decisions are owned by Workflow records.
 
-The non-normative folder organization recommendation is maintained separately in
-[`recommendations/FOLDER_STRUCTURE.md`](./recommendations/FOLDER_STRUCTURE.md). It is guidance for
-reference applications and MUST NOT be read as a new accepted runtime or package contract.
+The historical folder recommendation is in
+[`recommendations/FOLDER_STRUCTURE.md`](./recommendations/FOLDER_STRUCTURE.md). It records
+reference-application guidance, not a current runtime or package requirement.
 
 ## How to read this specification
 
@@ -56,9 +57,9 @@ decision provides them:
 - **Proof obligations:** only the tests, artifacts, or migration work already required by the accepted
   source.
 
-Internal `REV-*` cross-references are allowed because their target is part of this specification. A
-reference to anything outside this folder is evidence only and MUST NOT complete, qualify, or change a
-normative statement.
+Internal `REV-*` cross-references were used because their targets belong to this historical
+specification.
+Outside references preserve evidence and do not change current Workflow requirements.
 
 [`TRACEABILITY.md`](./TRACEABILITY.md) is the optional historical audit ledger. It maps accepted source
 spans to their complete local owners and records the independent completeness and no-invention audits.
@@ -89,24 +90,24 @@ This vocabulary summarizes the accepted model so later chapters can use exact te
 
 ## Revision catalogue
 
-| Area                                                                    | Revisions                                       | Contract effect                                                                                                          |
-| ----------------------------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| [Composition and app plans](../archive/revision-spec/accepted/01-composition-and-app-plans.md) | `REV-COMP-001`–`015` | Fully integrated into the contracts; archived as provenance. |
-| [Machine authoring](../archive/revision-spec/accepted/02-machine-authoring.md)                 | `REV-MACH-001`–`011` | Fully integrated into the contracts; archived as provenance. |
-| [Operations](../archive/revision-spec/accepted/03-operations.md)        | `REV-OPS-001`–`018`                             | Fully integrated into the contracts; archived as provenance. |
-| [React and hosts](../archive/revision-spec/accepted/04-react-and-hosts.md) | `REV-HOST-001`–`008` | Fully integrated into the contracts; archived as provenance. |
-| [Stories and testing](../archive/revision-spec/accepted/05-stories-and-testing.md) | `REV-TEST-001`–`010` | Fully integrated into the contracts; archived as provenance. |
-| [Migration and proofs](../archive/revision-spec/accepted/06-migration-and-proofs.md) | `REV-MIG-001`–`006` | Fully integrated into the contracts; archived as provenance. |
-| [Deletions and cutover](../archive/revision-spec/accepted/07-deletions-and-cutover.md) | `REV-MIG-004`, `DEL-001`–`011`, `RET-001`–`005` | Fully integrated into `COMPATIBILITY_AND_DELETIONS.md`; archived as provenance. |
+| Area                         | Revisions                                  | Former recorded disposition                                      |
+| ---------------------------- | ------------------------------------------ | ---------------------------------------------------------------- |
+| Composition and app plans    | `REV-COMP-001`–`015`                       | Recorded as integrated into the former contract pack.            |
+| Machine authoring            | `REV-MACH-001`–`011`                       | Recorded as integrated into the former contract pack.            |
+| Operations                   | `REV-OPS-001`–`018`                        | Recorded as integrated into the former contract pack.            |
+| React and hosts              | `REV-HOST-001`–`008`                       | Recorded as integrated into the former contract pack.            |
+| Stories and testing          | `REV-TEST-001`–`010`                       | Recorded as integrated into the former contract pack.            |
+| Migration and proofs         | `REV-MIG-001`–`006`                        | Recorded as integrated into the former contract pack.            |
+| Deletions and cutover        | `REV-MIG-004`, `DEL-001`–`011`, `RET-001`–`005` | Recorded in `COMPATIBILITY_AND_DELETIONS.md`.                  |
 
-Unresolved behavior is indexed separately in
-[`UNRESOLVED_BEHAVIOR.md`](./UNRESOLVED_BEHAVIOR.md). Most entries close internal semantics beneath the
-accepted public surface. The compound-node configuration shape, complete Story constructor options, and Story-local
-context graph were accepted during formalization and are now owned by `REV-MACH-003`, `REV-TEST-001`, and
-`REV-TEST-003`; they are no longer blockers. No remaining open entry acquires a normative answer from the
-proposal files.
+The former unresolved-behavior register is [`UNRESOLVED_BEHAVIOR.md`](./UNRESOLVED_BEHAVIOR.md). It
+recorded internal semantics beneath the accepted public surface. The compound-node configuration
+shape, complete Story constructor options, and Story-local context graph were recorded as accepted
+under `REV-MACH-003`, `REV-TEST-001`, and `REV-TEST-003`, and considered no longer blockers then.
+The register does not establish current blockers or answers; current questions belong in the
+affected Workflow record.
 
-## Complete revision index
+## Complete historical revision index
 
 ### Composition and app plans
 
@@ -306,20 +307,25 @@ run.checkpoints["signed-out"].snapshot;
 run.end.runtime.pendingWork;
 ```
 
-## Authority and conflict rules
+## Former authority and conflict rules (historical)
 
-1. A rule in this specification overrides an old contract only when its `Supersedes` field names that
-   clause or the conflict is direct and unavoidable.
-2. Untouched old contract clauses remain normative; silence here is not deletion.
-3. `NON_GOALS.md`, rationale, source notes, and examples do not override normative rules.
-4. If two `REV-*` rules conflict, implementation stops until this specification is reconciled.
-5. If this specification cannot trace a semantic statement to accepted source material, that statement
-   must be removed or explicitly returned to design review.
+The following rules describe the former conflict model. Handle current conflicts and unresolved
+requirements through the affected Workflow record or an explicit user decision.
+
+1. A rule in this specification overrode an old contract only when its `Supersedes` field named that
+   clause or the conflict was direct and unavoidable.
+2. Untouched old contract clauses remained normative under that former model; silence here was not
+   deletion.
+3. `NON_GOALS.md`, rationale, source notes, and examples did not override the then-normative rules.
+4. If two `REV-*` rules conflicted, implementation stopped until the historical specification was
+   reconciled.
+5. If this specification could not trace a semantic statement to accepted source material, the
+   statement was to be removed or returned to design review.
 
 ## Historical provenance boundary
 
-The optional traceability ledger records which passages in the former revision ledger, operations drafts,
-behavior-gap inventory, and old contracts were used to construct this specification. Those files are not
-part of the reading path and cannot add semantics. If a statement required for implementation exists only
-in a historical source, this specification is incomplete and must be repaired here before implementation
-continues.
+The optional traceability ledger records passages from the former revision ledger and operations
+drafts,
+behavior-gap inventory, and old contracts that informed this specification. Those files preserve
+provenance only. Under the former model, implementation text found only in a historical source meant
+this specification was incomplete and had to be repaired before work continued.

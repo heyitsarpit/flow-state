@@ -1,8 +1,11 @@
 # Public API contract
 
-Status: normative vNext contract
+Status: historical reference only; not active authority.
 
-This file owns supported package routes, public values, authoring grammar, operation families, actor
+Current requirements live in [Workflow plans](../../../../workflow/plans/);
+current task status lives in [Rewrite tasks](../../../../workflow/tasks/Rewrite/).
+
+This file recorded supported package routes, public values, authoring grammar, operation families, actor
 and host surface, Stories, inspection, CLI boundary, and public proof obligations. Inference and
 variance live in [TYPE_SYSTEM.md](./TYPE_SYSTEM.md); terminology and identity live in
 [GLOSSARY_AND_IDENTITY.md](./GLOSSARY_AND_IDENTITY.md). Host detail, deletion detail, and exact
@@ -204,16 +207,16 @@ type PublicRootNames =
 
 ### Trace
 
-- Provenance: `provenance/PUBLIC_API.md#API-002`; diagnostics: `API-002A`, with the typed authority in
+- Provenance: `provenance/PUBLIC_API.md#API-002`; diagnostics: `API-002A`, with the historical typed model in
   [`ERRORS.ts`](./ERRORS.ts).
 
 ## API-002A — Usage diagnostics
 
-The future-target `FlowPath`, eighteen-member `FlowUsageCode`, and `FlowUsageError` declaration are owned by
-[`ERRORS.ts`](./ERRORS.ts). That file is also the sole typed `Diagnostic` model and owns the structural,
-semantic, Effect, Cause, and rendering boundary rules; this clause retains the public API-002A role and
-compatibility surface. The three Flow names are deferred from the active root under AMEND-API-005 until that owner
-and its proofs land.
+The future-target `FlowPath`, eighteen-member `FlowUsageCode`, and `FlowUsageError` declaration were assigned to
+[`ERRORS.ts`](./ERRORS.ts). That file also recorded the sole typed `Diagnostic` model and the structural,
+semantic, Effect, Cause, and rendering boundary rules; this clause recorded the public API-002A role and
+compatibility surface. The three Flow names were deferred from the root under AMEND-API-005 until that owner
+and its proofs landed.
 
 ### Surface
 
@@ -244,12 +247,12 @@ and its proofs land.
 
 ### Trace
 
-- Provenance: `provenance/PUBLIC_API.md#API-002A`; typed authority: [`ERRORS.ts`](./ERRORS.ts).
+- Provenance: `provenance/PUBLIC_API.md#API-002A`; historical typed model: [`ERRORS.ts`](./ERRORS.ts).
 
 ## AMEND-API-002 — Usage-diagnostic remediation
 
-Status: vNext additive amendment; API-002A remains the exact machine-readable error shape and [`ERRORS.ts`](./ERRORS.ts)
-is the sole typed diagnostic authority.
+Status: historical vNext additive amendment; API-002A recorded the exact machine-readable error shape and
+[`ERRORS.ts`](./ERRORS.ts) recorded the sole typed diagnostic model in the source pack.
 
 - Surface: `FlowUsageError.message` and the per-code remediation documentation for API-002A.
 - Rule: Every one of the exact 18 `FlowUsageCode` values MUST have a maintained documentation row naming
@@ -264,8 +267,8 @@ is the sole typed diagnostic authority.
   a practical human remediation path.
 - Proof: `AMEND-P03` exhaustive code/documentation-row proof plus representative actionable-message tests.
   Exact prose and whitespace are not compatibility assertions.
-- Trace: vNext additive amendment; API-002A remains the transferred public shape authority and `ERRORS.ts`
-  owns its typed implementation contract.
+- Trace: historical vNext additive amendment; API-002A recorded the transferred public shape and `ERRORS.ts`
+  recorded its typed model in the source pack.
 
 The human-message cells below are maintained illustrations, not required string literals. `_tag`, `code`, `path`,
 and structured `details` remain the machine-readable compatibility surface.
@@ -293,8 +296,8 @@ and structured `details` remain the machine-readable compatibility surface.
 
 ## AMEND-API-004 — Temporary inert owners and deferred public names
 
-Status: temporary vNext authority amendment; this records the current implementation boundary without deleting
-future target specifications.
+Status: historical temporary vNext authority amendment; at the time, it recorded the implementation boundary
+without deleting future target specifications.
 
 - `actorRef(machine, id, { persist?: boolean })` is a real inert owner. Its runtime value carries exactly `machine`,
   `id`, and `persist` metadata; `persist` defaults to `false`. It carries no input, bindings, ownership, callbacks,
@@ -320,8 +323,8 @@ proof obligations, or top-level phase/ledger status.
 
 ## AMEND-API-005 — Approved ownerless public-name deferral
 
-Status: explicit user-approved temporary vNext authority amendment; this records the current implementation boundary
-without deleting future target specifications.
+Status: historical explicit user-approved temporary vNext authority amendment; at the time, it recorded the
+implementation boundary without deleting future target specifications.
 
 - The active root retains the real `Diagnostic` namespace and implemented root values. `FlowDisposeError`,
   `FlowPersistenceError`, and `FlowUsageError` are deferred until their owners and proofs exist; their exact names
@@ -1421,7 +1424,7 @@ declare function exportTraceArtifact(
   record, raw artifact, and canonical evidence remain unchanged.
 - Proof: `API-P04` default-equivalence, path-bound, non-mutation, deterministic-output, manifest-consistency,
   and wrong-kind import-rejection proofs.
-- Trace: vNext additive amendment; `PERSISTENCE_AND_ARTIFACTS.md` remains the sole semantic and schema authority:
+- Trace: historical vNext additive amendment; `PERSISTENCE_AND_ARTIFACTS.md` served as the source pack's semantic and schema authority:
   WIRE-020A/B own raw importable artifacts and WIRE-020C owns only the share projection.
 
 ## API-017 — CLI boundary
