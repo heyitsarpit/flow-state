@@ -1,0 +1,311 @@
+plan Statecharts
+title   Statechart authoring and ordered turns
+status  proposed pending approval
+goal
+    Let an author describe one complete static actor family and reusable behavior with exact
+    inference, deterministic state paths, and indivisible accepted turns. This proposed Plan owns
+    definition and machine APIs, their types, state semantics, timers, and continuing declarations.
+    Actor admission, context propagation and publication consumers use
+    @plan.ApplicationsAndActors.O4, @plan.ApplicationsAndActors.O6 and
+    @plan.ApplicationsAndActors.O7. No statement here claims implementation or approval.
+outcomes
+    O1  Definitions produce exact inert nominal values
+        definition(config) synchronously returns the direct Effect Result of a Definition or
+        canonical Diagnostic. It owns explicit id, recursive states, events, optional provider
+        context selectors, the sole memory initializer and a flat named operation catalogue.
+        The configuration uses these exact fields:
+
+        | Field | Accepted value |
+        | --- | --- |
+        | id | Exact authored durable name |
+        | states | Ordered recursive leaf/compound declarations |
+        | events | Named record of "bare" or callable event declarations |
+        | context? | Named record of provider Definition.select(selector) values |
+        | operations? | Flat named resource, transaction and stream descriptor record |
+        | memory? | Pure input-to-memory factory |
+
+        Provider.select(selector) is an inert Definition-level authoring call. Its selector reads
+        the provider's exact snapshot and preserves the selected result type. For example,
+        context: { sessionState: Session.select(({ state }) => state) } declares one provider edge.
+        A memory projection may use Theme.select(({ memory }) => memory.mode). The binding supplies
+        one exact compatible provider ref under @plan.ApplicationsAndActors.O6; the selected value
+        is not that ref. Declaring the edge creates no actor, subscription or work.
+
+        operations: { routeConfig, submitIntent, submissionProgress } binds those exact descriptors
+        to the same named O keys. The record is flat and closed. It adds no generic registry or
+        alternative operation container. The three names illustrate resource/transaction/stream
+        descriptors; their family contracts remain with their owning Plans.
+
+        Supporting [API examples](references/core-api.examples.ts) remain uncompiled and unrun.
+
+        Authored IDs and local state/event names retain exact spelling. Each is nonempty and at most
+        256 UTF-8 bytes. Reject C0 controls, DEL, NUL and lone surrogates before constructing
+        nominal tokens or durable identity.
+
+        Exact composed and decomposed spellings remain distinct. Use no Unicode normalization or
+        locale comparison. Composite identity uses a fixed namespace tag and length-prefixed UTF-8
+        segments, never delimiter concatenation. Stable actor refs use the exact wire form owned by
+        @plan.ApplicationsAndActors.O4. Opaque refs are runtime-local with no durable form.
+
+        Shared portability rules belong to @plan.PackageContract.C1.
+
+        Decode the ordinary authored shape once through one package-private Effect Schema before
+        constructing nominal definition, state, event, envelope and context-selector values. Authors
+        supply callable event declarations or the exact string "bare". They import no Schema and use
+        no validatedEvent helper.
+
+        Event constructors decode payloads on each call, returning direct Result<EventEnvelope,
+        Diagnostic>. Bare constructors have zero arguments. Event payloads cannot be arrays,
+        custom-prototype records, or contain an authored type field.
+
+        Reject duplicate or partial declarations, invalid kinds and extra top-level fields.
+
+        Literal IDs, state paths, event names, parameter tuples, payloads, selected context and 
+        named
+        families remain exact without as const, satisfies, explicit generics or wrappers. Event
+        tokens are nominal; structural lookalikes are not assignable. EventOf extracts successful
+        envelopes rather than Result wrappers. StateOf and EventOf accept Definition or Machine.
+
+        memory: ({ input }) => Memory is the sole InputOf/MemoryOf source. Omitting its argument
+        fixes Input to void; omitting memory yields void input and canonical empty memory. A fresh
+        actor calls the pure initializer exactly once.
+
+        Restore/resume never replay it or input. Later behavior sees memory, context, state and
+        events, never original input. Only accepted transitions change actor-local memory.
+
+        Memory is not cache, projection or operation status. Context identifying another domain
+        instance requires host replacement/re-keying, not memory reuse under a changed domain
+        identity.
+    O2  Machines check one closed state and event universe
+        machine(definitionResult, callback) matches the Result first. On failure it propagates the
+        identical failure without invoking the callback. On success it supplies exact S, E, O,
+        onContext, onMemory, invalidate and clear, and returns the direct machine Result.
+
+        Behavior cannot enlarge the Definition universe. Type inference proceeds from definition to
+        behavior in one direction, using NoInfer or equivalent constraints.
+
+        State declarations are ordered recursive string leaves or single-key compounds, at most ten
+        levels deep. Root and every compound require an exact states record and direct-child
+        default. Leaves are explicit; {} is an empty leaf.
+
+        Missing, extra, misplaced, duplicate and non-direct nodes reject. Complete paths such as
+        S.ACTIVE.S.EDITING are nominal tokens. Publish exactly one active leaf; matches accepts that
+        leaf or its active ancestor.
+
+        Only on, redirect, activities and timers are node behavior fields. Compounds also contain
+        default/states. The exact forms are:
+
+        | Boundary | Accepted form |
+        | --- | --- |
+        | Event handler | Exact state-token shorthand, one transition, or ordered transitions |
+        | Transition | target; optional guard, updateMemory, actions and exact-token reenter |
+        | Redirect | One redirect or ordered entries with when and required target |
+        | Timer | delay, guard, required explicit-event target, updateMemory |
+
+        Defaults and redirects
+        stabilize outermost-to-leaf, preserving authored order per node, without intermediate work
+        or publication. Active compound redirects remain applicable after descendant transitions
+        and memory changes. reenter names an exact active containing boundary; it releases that
+        boundary's path and re-enters its target inside that boundary. Reject Boolean, foreign,
+        inactive and non-containing reentry, relative string targets and runtime path lookup.
+
+        Recursive substates share memory, context, event protocol, mailbox, operations and lifetime.
+        They have no actor identity, input, address, output, completion or snapshot.
+        Terminal-looking leaves remain ordinary leaves.
+
+        They do not dispose actors, complete streams or close mailboxes. Independent actors may
+        share a Machine; overlapping operation states do not become a Cartesian product of mutually
+        exclusive machine modes.
+    O3  Event macrosteps validate before indivisible publication
+        An accepted event follows this order:
+
+        1. Select the first authored eligible transition and evaluate its guard.
+        2. Evaluate updateMemory, then actions against the same pre-turn snapshot and causal event.
+        3. Apply target and memory to the candidate; stabilize redirects.
+        4. Materialize and validate the complete finite-action batch; stage actor/store changes.
+        5. Publish the committed cut, then start or join asynchronous work.
+
+        A declined guard prevents that transition's later callbacks; later alternatives may still
+        be considered. updateMemory returns Partial<Memory> and shallow-merges once. Actions cannot
+        read candidate memory. Redirects read candidate state, memory and snapshot, never the event.
+
+        No handler or all guards declining is a silent no-op: no issue, publication, TurnRecord,
+        occurrence, work or consumed revision. Private Story acknowledgment still settles once.
+        Root can(snapshot, event): boolean queries the captured snapshot's exact Machine. Its event
+        is that Machine's decoded EventOf envelope. The snapshot and event cannot infer a widened
+        or cross-machine universe. This retains the standalone two-argument form; it accepts neither
+        a Machine in place of the snapshot nor an event-constructor Result.
+
+        Bound can(event) in passive selection applies the same query to that selected snapshot cut.
+        Both forms return true exactly when an authored transition is eligible; no handler or all
+        guards declining returns false. They follow the same ordered eligibility/guard rules.
+        They do not mutate, admit commands, publish issues or stabilize redirects.
+        They materialize no actions, acquire no operations and perform no work.
+        Command admission and lifecycle are separate questions.
+        These typed calls require genuine compatible snapshots and decoded events. No raw/untrusted
+        JavaScript decoder or new misuse-error promise is added.
+
+        Finite actions originate only from accepted event transitions. A batch is one inert plan, a
+        finite list, null, an empty list, or omission. Invalid member/boundary/target/key rejects
+        the entire batch; no valid prefix escapes.
+
+        Reject microstep 101 and ambiguous same-event ancestor/descendant handlers. User Effects
+        never run during planning or before publication. Projection-only facts publish complete
+        current projections without transition, guard, action, redirect, memory-update, finite-work
+        or hidden-event evaluation.
+
+        Explicit mapped events become later ordinary mailbox turns.
+
+        A pre-commit authored callback defect preserves prior state, memory, bindings and store
+        truth, publishes one issue-only snapshot, records ordered stable diagnostics, starts no
+        occurrence/work and does not retry. The rule includes guard, memory, action, redirect, key,
+        target, timer, binding and selector callbacks. After commit the cut cannot be abandoned or
+        described as rollback. Atomic publication, acknowledgment, fatal invariant closure and
+        failure projection follow @plan.ApplicationsAndActors.O7 and
+        @plan.DiagnosticsContract.O2.
+    O4  Continuing declarations and timers have exact lifetimes
+        State activities and independent onMemory/onMemory.select declarations own continuing
+        resource/stream plans. Each declaration returns one plan, false or null, never a
+        runtime-sized list. A sentinel releases only that slot.
+
+        Identity is compiled declaration slot, operation kind, descriptor and canonical K; equal
+        normalized identity retains its generation and original executable P. Changed identity
+        releases old ownership exactly once. Compound activities start parent-to-child and stop
+        child-to-parent.
+
+        Descendant changes do not restart unchanged parent work.
+
+        onMemory.select uses whole-value Object.is for scalar/non-record results and fixed-key
+        fieldwise Object.is for non-null plain records. It accepts no comparator. Activation/reentry
+        receives current and previous undefined; later selected changes receive the preceding value.
+
+        Definition-level context selectors are graph edges; onContext.select is a machine-level
+        registration. The initial selection is silent. Later selected changes receive current and
+        previous and return one exact self-event, false or null.
+
+        Only that ordinary event handler evaluates transition legality and finite actions.
+        @plan.ApplicationsAndActors.O6 owns causal context completeness and failure recovery.
+
+        Timer names are unique machine-wide and get(name) accepts only the inferred name union.
+        TimerSnapshot is the following closed inferred union; it adds no public root alias:
+
+        | status | Fields present |
+        | --- | --- |
+        | idle | name |
+        | scheduled | name, state, generation, startedAt, dueAt |
+        | fired | name, state, generation, startedAt, dueAt, firedAt |
+        | interrupt | name, state, generation, startedAt, dueAt |
+
+        state is the exact active-leaf union; name is the machine-wide timer-name union. Missing
+        fields remain absent. Timestamps use Runtime Clock integer epoch milliseconds.
+
+        Delay normalization rejects invalid duration before mutation. Due timers consume one
+        generation once and publish fired even when the timer guard declines. Timer callbacks
+        receive state, memory, snapshot and timer { name, startedAt, dueAt }.
+
+        Timers target explicit events, never finite actions. The timer turn and target event are
+        separate FIFO macrosteps with their own pre-turn memory and optional update. Append the
+        target after timer publication; queued work may intervene.
+
+        Compound timers start on compound activation, retain absolute deadlines through descendant
+        changes, cancel on compound exit, and restart only on exact owning-boundary reentry.
+        Equal-deadline ordering is deterministic and Flow-owned, not host sleep race order.
+        Existing after timers plus explicit refresh events provide polling: one due generation,
+        next refresh only after settlement, failure waits one interval without implicit retry.
+        Suspension/resume retains deadlines and performs at most one overdue refresh under
+        @plan.ApplicationsAndActors.O5.
+decisions
+    D1  One Definition supplies shape and one Machine supplies behavior
+        Keep the static family separate from reusable behavior. Definition construction is inert;
+        machine consumes the validated result without importing the private Schema or re-decoding.
+        The compiled configuration must preserve exact grammar and deterministic traversal rules.
+        No runtime tree representation or specific table layout is a consumer contract.
+    D2  One turn exposes one accepted cut
+        Full-batch validation and post-publication work prevent partial candidate escape. Private
+        plan shapes, scheduling primitives and reservation steps are private design choices.
+        Observable purity, atomicity, ordering and single ownership remain binding.
+constraints
+    C1  Keep the authoring and statechart surface closed
+        Exclude child-machine constructors/descriptors/inputs/completion/addresses, final kind,
+        onDone/final output, context mutation, entry/exit/invoke/always, transition submit,
+        anonymous Effect callbacks, registered views, dynamic state/operation registration and
+        generic activity kits. Reject timer-owned finite actions and automatic operation retries.
+    C2  Keep trust and type guarantees exact
+        Caller-controlled authoring input is not an untrusted JavaScript reflection boundary. No
+        stable rejection/translation promise covers proxies, throwing getters, descriptor tricks,
+        symbols, sparse arrays, custom containers or concurrent mutation during construction.
+        Validate ordinary malformed objects.
+
+        Byte counts, surrogate checks and depth limits are synchronous runtime validation; do not
+        encode UTF-8 arithmetic or recursive depth counters in public types. No any/assertion
+        erasure may hide a type or behavior failure.
+verification
+    V1  Definition grammar, identity and literal inference
+        Establish @O1 with positive and negative compile fixtures plus construction tests. Accept
+        depth ten, exact literal/event/InputOf/MemoryOf unions and zero-argument bare events. Reject
+        depth eleven, invalid names, 257-byte names, controls, lone surrogates, malformed payloads,
+        structural event lookalikes, unknown fields, authored void input and alternate memory
+        sources.
+
+        ASCII and 2/3/4-byte vectors prove bytes, exact spellings and portable identity
+        independently of TypeScript. Assert construction starts no actors, storage, services or
+        Effects. Planned checks: rewrite check:types plus focused definition tests.
+
+        Executable proof not yet established for this proposed contract. @V2 through @V4 define the
+        remaining cases.
+
+        Compile the exact context and operations fields above with state and memory provider
+        projections. Preserve each provider result and named family. Reject alternate containers,
+        wrong provider bindings and unknown declaration fields without widening the Definition.
+
+        Candidate check: [definition 
+        tests](../../../packages/flow-state-rewrite/src/definition/test/definition.test.ts).
+        The complete cases above remain planned; this link is not a coverage or execution claim.
+    V2  Exact configuration, paths and reentry
+        Establish @O2 by compiling recursive positive/negative grammar cases and running defaults,
+        compound redirects, leaf/ancestor matching and exact reentry. Missing/extra/non-direct 
+        nodes,
+        foreign/inactive/non-containing boundaries and ambiguous handlers reject before work.
+        Verify one actor identity through nested state changes and ordinary terminal-looking leaves.
+        Planned checks: rewrite machine owner tests and packed declarations; not executed here.
+
+        Candidate check: [machine 
+        tests](../../../packages/flow-state-rewrite/src/machine/test/machine.test.ts).
+        The complete cases above remain planned; this link is not a coverage or execution claim.
+    V3  Macrostep success, no-op and failure lanes
+        Establish @O3 by asserting updateMemory runs before actions and both observe the same
+        pre-turn snapshot and causal event. Actions cannot observe updated memory. Test declined
+        alternatives, candidate redirect reads, one shallow merge and complete-batch failure with a
+        valid prefix.
+        Valid turns publish one cut before work. No-handler/all-decline settle
+        privately with zero revision/evidence/work.
+
+        Guard/action/redirect/key defects retain prior domain/store truth, publish exactly one
+        issue-only cut and do not retry. Microstep 101 rejects without residue. Projection facts
+        invoke none of the transition callbacks; mapped events run later.
+
+        Compile root can(snapshot, decodedEvent) and bound can(decodedEvent) for one exact Machine.
+        Reject wrong-machine events, Machine-as-snapshot and constructor Results at compile time.
+        For valid snapshots, both query forms agree on true/false eligibility and leave revisions,
+        issues, evidence, ownership and work unchanged. Querying an older snapshot uses its captured
+        state, memory, context and passive reader cut rather than current live truth.
+
+        Planned checks: production turn/action tests plus @plan.ApplicationsAndActors.V7; unbuilt.
+
+        Candidate check: [turn 
+        tests](../../../packages/flow-state-rewrite/src/runtime-next/test/turns.test.ts).
+        The complete cases above remain planned; this link is not a coverage or execution claim.
+    V4  Continuing identity, timer ordering and cancellation
+        Establish @O4 by keeping an equal fresh plan's original P/generation, replacing unequal
+        identity once, and releasing only one slot with false/null. Exercise parent/child lifetime,
+        selector equality, current/previous types and cancellation/finalizer failure. Test timer
+        name narrowing, equal deadlines, guard decline, descendant continuity and exact reentry.
+
+        Queue an event between timer and target: each update reads its own FIFO pre-turn memory.
+        Resume overdue timers once without replay; invalid delay or timer actions change nothing.
+        Planned checks: production activity/timer tests and typed fixtures; not executed here.
+
+
+        Candidate check: 
+        [tests](../../../packages/flow-state-rewrite/src/runtime-next/test/actors.test.ts).
+        The complete cases above remain planned; this link is not a coverage or execution claim.

@@ -1,0 +1,289 @@
+plan Transactions
+title   Transactions
+status  proposed
+goal
+    Commit actor-owned mutations with exact concurrency, isolated previews, and truthful remote
+    uncertainty. Preserve canonical data and current projection when older attempts finish late.
+    This proposed Plan is pending approval. It establishes no shipped implementation claim.
+outcomes
+    O1  Exact transaction families preserve input, key, and failure types
+        The exact transaction API below fixes descriptor authoring, exact family methods, closed
+        state union, field presence, and explicit writes/outcomes. Preserve P/K/A/E/R through
+        descriptor, named actor O, machine, app, Runtime, fixture, and Story. Omitted key projector
+        means K = []. Descriptor/K identity uses @plan.Resources.O1 and its inline canonical-key
+        rules. Runtime requirements remain inferred R.
+
+        transaction(config) constructs an inert descriptor with these accepted authoring fields:
+
+        | Field | Required | Accepted relationship |
+        | --- | --- | --- |
+        | id | Yes | Exact authored descriptor ID |
+        | key | No | (params:P) => K; omission gives K=[] |
+        | commit | Yes | (params:P, { signal }) => Effect.Effect<A,E,R> |
+        | persist | No | boolean; omitted means false |
+        | concurrency | No | reject / cancel / allow / serialize; omission remains @Q2 |
+
+        commit receives the supported AbortSignal and preserves exact A/E/R. Its result is not a
+        Promise or an implicit canonical resource write. @Q2 leaves only the omitted concurrency
+        policy unsettled; no adapter reporting callback or identity getter is added.
+
+        Key and getState are passive; a missing exact read synthesizes idle without allocating,
+        acquiring, refreshing, mutating, or starting work. commit(P,options?) constructs an inert
+        finite plan. Only returned accepted event actions under @plan.Statecharts.O3 admit it.
+        Activation, reads, completion, reconciliation, memory/store revision, and reentry never
+        admit/readmit a finite commit. Retry requires a new explicit event and commit.
+
+        Public state distinguishes idle, pending, success, failure, defect, interrupted, and unknown
+        with reconcileRequired true. It contains no raw Cause or historical-attempt collection.
+        Binding introduces no parent machine/memory/event/selector/route/preview/invalidation type
+        graph. The family has no getData, retry, scope, lane, registry, or historical-attempt 
+        method.
+
+        TransactionFamily<P, K extends unknown[], A, E> has exactly these methods:
+
+        | Method | Exact signature |
+        | --- | --- |
+        | key | (params: P): K |
+        | getState | (key: K): TransactionState<A,E,K> |
+        | commit | (params: P, options?: CommitOptions<P,A,E>): TransactionCommitPlan |
+        | cancel | (key: K): CancellationPlan |
+
+        TransactionState<A,E,K> is the exact closed union below. Every lane has key:K. Fields absent
+        from a lane remain absent.
+
+        | status | Other exact fields |
+        | --- | --- |
+        | idle | No generation. |
+        | pending | generation:number. |
+        | success | generation:number; value:A. |
+        | failure | generation:number; error:E. |
+        | defect | generation:number; defect:unknown. |
+        | interrupted | generation:number. |
+        | unknown | generation:number; reconcileRequired:true. |
+
+        Generation is absent in idle and present in all admitted attempt lanes. Unknown is distinct
+        from interruption. Absent fields remain absent. Counts and generations are safe non-negative
+        integers; admitted occurrence ordinals and generations begin at one.
+
+        Each authored outcome mapper returns one exact event envelope, never its constructor
+        Result. The failure mapper is unavailable when E=never. Mappers receive no Exit, Cause,
+        state, or lifecycle. Complete classification belongs to @plan.DiagnosticsContract.O2.
+
+        CommitOptions uses the caller-visible object fields writes and outcomes. The optional
+        writes callback has the form writes: ({ value }) => [O.resource.setData(K,data), ...].
+        Its argument is { value:A }; its result is an array of explicit resource setData plans.
+        The optional outcomes object contains authored mappings with these exact names:
+
+        | outcomes member | Mapper argument |
+        | --- | --- |
+        | success | value:A |
+        | failure | error:E |
+        | defect | No argument. |
+        | interrupt | No argument. |
+
+        Callers use commit(P,{ writes, outcomes }); either option may be omitted. No completion-side
+        invalidates or clears option exists. The [examples](references/data-api.examples.ts)
+        illustrate these normative option containers without adding support-alias representations.
+
+        `persist` defaults false. True opts in actor-owned durable facts only when the owning stable
+        actor is independently persistable. Adapter values never become canonical resource data
+        implicitly. The named option and plan aliases describe semantic roles and add no public
+        exports or methods.
+
+    O2  Actor-local exact-key concurrency settles and fences each occurrence
+        Attempts are actor-local per exact descriptor/K. Completion authority requires the current
+        actor incarnation, descriptor/K, operation kind, occurrence ordinal, and applicable
+        generation. Shared canonical writes additionally require current store-generation authority.
+        Match fences immediately before publication; requested fiber interruption alone is
+        insufficient. Every admitted occurrence settles once. Late success/failure/finalizer facts
+        can settle bounded evidence of their own occurrence but cannot affect replacement actors,
+        reused refs, collected entries, current projection, or routed events.
+
+        The concurrency policies are exact:
+
+        | Policy | Admission | Completion authority |
+        | --- | --- | --- |
+        | reject | Decline second active attempt; no occurrence. | Current attempt. |
+        | cancel | Cancel prior, then admit replacement. | Replacement. |
+        | allow | Admit independent generations. | Current generation for projection/route. |
+        | serialize | Queue exact-key materialized P FIFO. | Dequeued occurrence. |
+
+        Reject consumes no ordinal. Cancel settles the prior attempt, removes its preview, and gives
+        replacement a fresh ordinal. Allow keeps ordered preview layers. Serialize applies preview
+        only at dequeue; canceled queued work settles without starting its adapter. Registration of
+        cancellation and fencing precedes any possible adapter execution. Concurrency for another
+        actor or another exact key remains independent.
+
+        Accepted cancel(K) affects current finite occurrences owned by that actor for K. Planned
+        cancellation/release/disposal records cleanup without an authored interruption mapper.
+        Ordinary operation interruption retains its distinct classified outcome. Finalizers release
+        once in reverse acquisition order. Shared lifecycle/suspension/disposal rules belong to
+        @plan.ApplicationsAndActors.O5; cleanup cannot roll back an already published transition.
+
+        Attempts have one-based monotonic non-reused ordinals. Actor incarnation and admission
+        counters follow @plan.ApplicationsAndActors.O4 and @plan.ApplicationsAndActors.O5. Reserve
+        safe-integer headroom for terminal publication/cleanup before admission or restore;
+        exhaustion fails without adapter start, wrap, reuse, or partial mutation.
+
+        The current stabilized binding determines ordinary transaction projection. Removing,
+        replacing, suspending, disposing, or reentering a binding never creates another attempt.
+        Retain bounded terminal facts and cursors; old attempts belong to bounded inspection
+        evidence under @plan.InspectionAndArtifacts.O3. No actor-lifetime terminal registry exists.
+    O3  Previews stay actor-local and canonical settlement remains atomic
+        An optimistic layer retains its initiating actor incarnation, transaction occurrence,
+        descriptor, and K. Only that actor's effective resource reads apply its ordered layers.
+        Other actors and unbound/updater reads use canonical base under @plan.Resources.O2.
+        Applying, removing, or replaying a layer changes only its actor's projection cursor. It is
+        never shared canonical truth.
+
+        Success promotes the accepted explicit canonical write atomically before mapped outcomes.
+        Use the captured base revision as compare-and-set authority. If base changed, preserve
+        current remote canonical truth and record an initiating-actor conflict issue. Never let
+        stale local promotion overwrite the current base. Failure or defect removes only its
+        layer and replays remaining layers in order. Interruption of never-invoked work does the 
+        same.
+        Cancellation after adapter invocation retains unknown/reconciliation truth when removing
+        local provisional state, as @O4 specifies. Other actors receive
+        only canonical facts and never another actor's preview/rollback.
+
+        Commit may declare authoritative setData writes as specified under @O1. Transaction values
+        never become canonical implicitly. Updaters read committed base and undefined declines;
+        accepted writes fence old lookups and publish under @plan.Resources.O4. Whole
+        action/completion batches validate before any publication under @plan.Statecharts.O3.
+        Invalid prefixes publish nothing. An equal canonical value still settles its admitted
+        occurrence once; continuing resource value notification follows @plan.Resources.O3.
+    O4  Cancellation reports irreversible remote uncertainty honestly
+        The application adapter owns the actual remote identity and its independent durable
+        journal. Before potentially
+        irreversible remote dispatch, it records remote identity/boundary state and awaits durable
+        acknowledgment. A failed or unacknowledged journal record prevents dispatch. Adapter
+        invocation may begin this preparation; invocation is distinct from remote dispatch.
+
+        Flow conservatively treats an invoked adapter as possibly dispatched. Cancellation after
+        invocation stops local observation, fences late publication, and projects unknown with
+        reconcileRequired true. Queued work whose adapter never invoked may settle interrupted.
+        Flow does not verify the exact physical boundary mid-flight or claim remote rollback.
+        Local preview removal cannot reverse a remote effect.
+
+        The adapter journal is independent of optional Runtime Persistence. No-provider,
+        persist-false, and local-owner transactions remain valid; they do not acquire implicit
+        Runtime durability. A committed projection or pending/coalesced provider write is not
+        journal acknowledgment. The accepted commit(params,{signal}) adapter form gains no method,
+        reporting protocol, or public identity getter.
+
+        Reconciliation reuses the same remote idempotency identity; it is not a new request or
+        automatic retry. Compensation is a separate explicit operation with separate identity. No
+        implicit outbox, saga, rollback API, or remote-effect reversal is introduced. Accepted
+        remote canonical success remains truthful when local preview promotion conflicts.
+
+        Remote-certainty projection is separate from complete Cause classification under
+        @plan.DiagnosticsContract.O2. Defect/typed-failure/interruption precedence and cleanup
+        evidence remain intact. Flow preserves its own actor/descriptor/K/occurrence/generation and
+        settlement evidence. It does not capture the adapter's private remote identity or journal,
+        and it does not manage their recovery. The application adapter owns reconciliation of that
+        same independently recorded remote identity.
+
+        Persist defaults false. A durable transaction declaration retains only accepted actor-owned
+        facts for an independently durable stable owner under @plan.Persistence.O2. Hydration never
+        replays pending commit work. Restored pending remote work remains unknown/reconcileRequired
+        unless accepted evidence rules out adapter invocation, including invocation after capture.
+        A saved not-yet-invoked fact alone cannot establish non-invocation after that cut.
+        Reconciliation uses the adapter-recorded remote identity without a new request.
+        Terminal state restores only in the accepted production representation under
+        @plan.Persistence.O4. K never reconstructs executable P.
+decisions
+    D1  Concurrency belongs to the actor and exact key
+        Four policies define admission and current completion authority without a cross-actor lane.
+        Queue/fiber topology is private. Observable ordering, one settlement, and fencing are
+        binding.
+    D2  Local preview and remote truth have different authority
+        Preview layers support the initiating actor. Explicit fenced writes establish canonical
+        data. Crossing the irreversible boundary preserves uncertainty until explicit
+        reconciliation.
+    D3  Remote journal identity remains application-owned
+        The user selected adapter-owned actual remote identity, acknowledged journaling and
+        reconciliation. @O4 keeps the fixed commit(params,{signal}) API. Flow reports conservative
+        uncertainty and its own attempt evidence without a private identity capture or recovery
+        promise. No new reporting callback or mandatory Runtime Persistence is introduced.
+
+constraints
+    C1  Keep the accepted finite mutation surface closed
+        Add no transaction scope/lane, generic registry, descriptor-only keyed identity, retry
+        helper, cross-actor scheduler, terminal-history registry, public occurrence handle, or raw
+        Cause. Add no parent capture, implicit result promotion, completion invalidates/clears
+        options, or partially expanded target mutation.
+    C2  Durable operations do not imply durable actors or replay
+        persist true never makes a local/opaque actor durable. Never serialize executable commit
+        work, queue cells, callbacks, fibers, or Scopes. No cancellation path claims remote
+        reversal.
+verification
+    V1  Exact API, state, and inference
+        Establish @O1. Planned, unbuilt checks:
+        `packages/flow-state-rewrite/src/operation/test/transaction-types.test.ts` and
+        `packages/flow-state-rewrite/src/operation/test/transaction.test.ts`. Compile exact
+        P/K/A/E/R through all consumers, K=[] omission, state narrowing, and typed success/failure
+        events. Reject wrong/missing/widened P or K, E=never failure mapper, forbidden
+        methods/options, parent-type capture, and raw Cause access. Read absent identities and
+        construct unreturned plans; pass with no allocation, revision, ordinal, or adapter start.
+
+        Compile the exact commit(P,{ writes:({value})=>[O.resource.setData(K,data)], outcomes:{...} 
+        })
+        form. Infer A in writes.value and success, E in failure, and exact resource K/data in each
+        write. Reject renamed option containers, wrong callback arguments, completion invalidates/
+        clears, and a mapper returning Result<EventEnvelope,Diagnostic> instead of its success
+        envelope. A validated event-constructor success must compile without an overload.
+        Compile required id/commit, optional key/persist/concurrency, and exact adapter P/A/E/R.
+        Reject unknown constructor fields and each invalid concurrency spelling. Omitted-policy
+        behavior remains blocked by @Q2.
+    V2  Concurrency, settlement, and lifetime races
+        Establish @O2. Planned, unbuilt check:
+        `packages/flow-state-rewrite/src/operation/test/transaction-concurrency.test.ts`. Run
+        reject/cancel/allow/serialize for equal/different keys and two actors. Pass when reject
+        consumes no ordinal, cancel replaces once, allow preserves layers while fencing current
+        projection/route, and serialize starts FIFO with preview only on dequeue. Canceled queued
+        work must never call the adapter. Every admitted occurrence settles once.
+
+        Race completion/finalizer against cancel, replacement, suspension, disposal, new
+        incarnation, collected entry, and exhausted counters. Pass with no stale canonical write,
+        current projection, or mapped event; no planned interruption mapper; exactly-once release
+        and terminal evidence; no partial admission at the safe-integer boundary.
+    V3  Preview, explicit write, and compare-and-set proofs
+        Establish @O3. Planned, unbuilt check:
+        `packages/flow-state-rewrite/src/operation/test/transaction-preview.test.ts`. Stack multiple
+        owner layers, compare another actor/unbound/updater view, then complete layers in different
+        orders. Pass when rollback removes only its layer and replays the rest, other actors see
+        canonical facts only, and success writes publish before mapped outcomes. Change canonical
+        base during preview; pass when compare-and-set preserves remote truth and creates only
+        initiating conflict evidence. Test updater decline, equal success, invalid mixed batch, and
+        stale lookup completion; no implicit write or valid-prefix publication.
+    V4  Remote boundary and durable reconciliation proofs
+        Establish @O4. Planned, unbuilt check:
+        `packages/flow-state-rewrite/src/operation/test/transaction-remote.test.ts`. Cancel queued
+        work before adapter invocation; pass with no adapter start and interrupted settlement.
+        Cancel invoked work before, during, and after physical remote dispatch; every case must
+        retain unknown/reconcileRequired and fence late publication without claiming rollback.
+        Reconciliation must reuse identity and compensation must use a distinct explicit operation.
+
+        Hold and fail the adapter journal's durability acknowledgment independently of Flow
+        publication. Observe adapter invocation separately from actual remote-request dispatch.
+        Pass when no remote request starts while acknowledgment is pending or failed. A published
+        snapshot or queued/coalesced provider write cannot substitute for journal acknowledgment.
+
+        Cover no Persistence provider, persist-false transaction, and local/nonpersistent owner
+        separately from an opted-in stable actor with a provider. Each remains admitted, and each
+        remote adapter must satisfy its independent journal guard without enabling Runtime
+        persistence implicitly. Re-read the adapter's acknowledged record across crash/cancel
+        boundaries; explicit reconciliation must reuse its identity, never issue a new request.
+        No Flow-managed journal recovery or exact mid-flight boundary-reporting API may be assumed.
+
+        Restore pending local, remote-unknown, and terminal facts under @plan.Persistence.V4.
+        Include its saved-before-invocation cut followed by dispatch, delayed persistence and crash.
+        Pass with conservative unknown unless evidence excludes later invocation, no commit replay
+        or new remote request, no K-to-P inversion, and no implicit actor durability.
+        Full Cause classification runs through @plan.DiagnosticsContract.V2;
+        uncertainty must not erase defect precedence or cleanup/evidence diagnostics.
+questions
+    Q2  Which concurrency policy applies when the optional field is omitted?
+        The four explicit policies and concurrency field optionality are accepted. Their sources
+        do not specify the omitted-field policy. Do not infer a default from a named example or a
+        legacy implementation.

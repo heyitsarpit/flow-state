@@ -1,0 +1,238 @@
+plan ProjectDelivery
+title   Capability delivery order
+status  proposed pending approval
+goal
+    Give the twelve proposed capability Plans one entry point for ownership, integration edges,
+    and staged execution. Preserve their semantic ownership, current Task status, and the separate
+    approval gates for implementation and package cutover.
+outcomes
+    O1  Capability ownership and integration map
+        Each capability Plan owns its requirements, API, behavior, exclusions, and proof targets.
+        This entry Plan records their handoffs without restating their contracts.
+
+        - @plan.Statecharts.O1 through @plan.Statecharts.O4 own definitions, machine grammar,
+        ordered turns, timers, and declarations. Applications and operations consume them.
+        - @plan.ApplicationsAndActors.O1 through @plan.ApplicationsAndActors.O7 own the App graph,
+        Runtime, actors, leases, context, and current cuts. This is the production execution and
+        publication boundary for hosts, operations, and evidence.
+        - @plan.DiagnosticsContract.O1 through @plan.DiagnosticsContract.O6 own diagnostic data,
+        codes, mapping, classification, host projections, and rendering. All other owners use
+        this shared failure language.
+        - @plan.Resources.O1 through @plan.Resources.O4 own resource descriptors, canonical keys
+        and data, acquisition, generations, and writes. They share store and preview behavior
+        with @plan.Transactions.O3.
+        - @plan.Transactions.O1 through @plan.Transactions.O4 own finite mutations, concurrency,
+        previews, cancellation, and remote uncertainty. Durable reconciliation crosses
+        @plan.Persistence.O4.
+        - @plan.Streams.O1 through @plan.Streams.O3 own continuing values, session ownership,
+        projections, release, and durable projections. They use Statechart declarations and
+        Runtime lifetimes; explicit writes use @plan.Resources.O4.
+        - @plan.InspectionAndArtifacts.O1 through @plan.InspectionAndArtifacts.O6 own inspection,
+        shared codecs, bounded evidence, trace schemas, exports, and comparison. They consume
+        current cuts from @plan.ApplicationsAndActors.O7; their codec supports
+        @plan.Persistence.O1.
+        - @plan.Persistence.O1 through @plan.Persistence.O5 own providers, durable selection,
+        capture, hydration, and ordered writes. Hosts and Stories consume these boundaries.
+        - @plan.ReactAndHosts.O1 through @plan.ReactAndHosts.O4 own Runtime attachment, selectors,
+        SSR, and host bridges. They adapt the existing Runtime.
+        - @plan.StoriesAndModels.O1 through @plan.StoriesAndModels.O6 own Story builders, fixtures,
+        execution, checkpoints, pure models, and the gateway. The CLI consumes that gateway.
+        - @plan.CommandLine.O1 through @plan.CommandLine.O4 own process grammar, gateway loading,
+        artifact I/O, signals, and exits. They use @plan.StoriesAndModels.O6 and
+        @plan.InspectionAndArtifacts.O2, @plan.InspectionAndArtifacts.O4, and
+        @plan.InspectionAndArtifacts.O6.
+        - @plan.PackageContract.O1 through @plan.PackageContract.O4 own package routes, packed
+        consumers, compatibility disposition, and promotion gates. Final promotion waits for
+        @plan.PackageContract.V3 and @plan.PackageContract.V4.
+
+        The ten former flat Plans and Rewrite Task graph are archived as historical provenance.
+        Their IDs and records remain in the archive; archived Plan IDs remain discoverable for
+        existing Spec references. This capability set and this entry remain proposed and establish
+        no active execution authority.
+    O2  Contract dependencies are distinct from executable prerequisites
+        Align shared type and evidence interfaces before implementation. An ownership citation
+        identifies the semantic owner; it does not create an enforced Plan dependency or say the
+        cited outcome has passed.
+
+        Coordinate these contract edges as paired design and compile slices:
+
+        - @plan.Statecharts.O1 supplies machine declarations and provider selectors;
+        @plan.ApplicationsAndActors.O1 and @plan.ApplicationsAndActors.O6 define their closed
+        application graph and fixed context bindings.
+        - @plan.Statecharts.O3 defines accepted event actions; @plan.ApplicationsAndActors.O7
+        defines the complete publication cut. Agree the interface together before either owner
+        claims a complete turn implementation.
+        - @plan.Resources.O1, @plan.Transactions.O1, and @plan.Streams.O1 define operation types
+        against the machine event and App.M types before their executable kernels are integrated.
+        - @plan.DiagnosticsContract.O1 and @plan.DiagnosticsContract.O5 define shared diagnostic
+        data and vocabularies early. @plan.InspectionAndArtifacts.O2 supplies the shared codec;
+        define evidence records before Runtime turns depend on evidence acceptance.
+        - @plan.PackageContract.O1 establishes route ownership early. Route, declaration, and
+        packed-consumer checks continue with every public change.
+        - @plan.StoriesAndModels.O6 defines the inert gateway consumed by
+        @plan.CommandLine.O1. Agree their selection and execution boundary together; implement
+        the gateway before CLI execution.
+        - @plan.Resources.O4 and @plan.ReactAndHosts.O4 share the construction-owned setData
+        authority. Agree that contract seam before operation execution in Stage 3; implement host
+        adapters in Stage 5.
+
+        Implement runtime behavior through one production Runtime. Stage actor turns before
+        operation kernels, then integrate their store changes and evidence into the same publication
+        owner. Do not create parallel actor, store, evidence, Story, or CLI semantics to avoid a
+        cross-owner dependency.
+    O3  Staged execution follows the prerequisite DAG
+        This proposed order preserves the dependency shape of archived @plan.Verification.D1.
+        Until this entry is approved and its order is adopted through Task reconciliation, these
+        stages remain proposed and do not change current Task readiness. Use them to prepare the
+        Task decomposition. A stage may contain parallel owner work after its stated prerequisites.
+        Each gate is an exit condition for its Task increment, not a claim that a whole Plan 
+        outcome,
+        Verification proof source, or stage has passed. Capability Plans own acceptance through
+        their Verification entries; each exit gate applies only to the clauses assigned to that
+        stage, with later clauses deferred to their owning stages.
+
+        1. **Static foundation.** Build @plan.DiagnosticsContract.O1 and
+        @plan.DiagnosticsContract.O5, @plan.Statecharts.O1 and @plan.Statecharts.O2,
+        @plan.ApplicationsAndActors.O1 and @plan.ApplicationsAndActors.O2, operation type and
+        key slices, shared codec and evidence interfaces, and initial
+        @plan.PackageContract.O1 routes.
+        - **Gate:** Pinned compiler fixtures preserve accepted literals and reject invalid
+        shapes. Foundational diagnostic, identity, key, and structural-codec proofs pass.
+        Route and declaration checks pass. Owner targets are
+        @plan.DiagnosticsContract.V1, @plan.Statecharts.V1, @plan.ApplicationsAndActors.V1,
+        @plan.Resources.V1, @plan.Transactions.V1, @plan.Streams.V1,
+        @plan.InspectionAndArtifacts.V2, and @plan.PackageContract.V1.
+        2. **Runtime ownership.** Build no-persistence base readiness, closed admission, actor
+        leases, mailbox turns, context, lifecycle, and actor-only publication on the static
+        foundation. Integrate @plan.Statecharts.O3 with @plan.ApplicationsAndActors.O7 and
+        initial evidence acceptance. Persistence-backed bootstrap and restore follow in Stage 4.
+        - **Gate:** Production-owner checks prove base readiness, turn ordering, actor snapshots,
+        failure lanes, and cleanup. This stage covers
+        @plan.ApplicationsAndActors.V3 through @plan.ApplicationsAndActors.V7,
+        @plan.Statecharts.V3 and @plan.Statecharts.V4, and @plan.DiagnosticsContract.V2.
+        Persistence membership, restore, ordered-write, and final-flush clauses are Stage 4 work.
+        The actor-only cut is intermediate; Stages 3–4 integrate operation and persistence evidence.
+        3. **Operation kernels.** Agree the construction-owned setData authority with
+        @plan.ReactAndHosts.O4 as an interface seam; add the Runtime-owned canonical resource
+        store, generations, transaction policies, previews, and stream sessions through accepted
+        event actions. Host adapters remain Stage 5 work. Integrate resource writes and operation
+        evidence into the same actor publication cut.
+        - **Gate:** Owner tests prove key identity, passive reads, fencing, cancellation,
+        preview isolation, explicit writes, stream release, and one complete actor/store/
+        evidence cut. This completes the actor/store publication clauses of
+        @plan.ApplicationsAndActors.V7. Owner targets are @plan.Resources.V2 through
+        @plan.Resources.V4, @plan.Transactions.V2 and @plan.Transactions.V3,
+        @plan.Streams.V2, and @plan.InspectionAndArtifacts.V3. Hydration and no-replay clauses
+        remain Stage 4 work.
+        4. **Persistence and complete evidence.** Add persistence-backed bootstrap and restore,
+        durable selection, consistent capture, no-replay hydration, ordered writes, bounded
+        evidence, and artifact schemas and codecs. This needs the Runtime and operation cuts plus
+        the shared codec.
+        - **Gate:** Capture observes one committed cut; restore does not replay work; failed
+        writes retain the last good record; capture never sees a half actor/store commit; and
+        artifact and trace bounds and round trips pass. Owner targets are
+        @plan.Persistence.V2 through @plan.Persistence.V5,
+        @plan.ApplicationsAndActors.V3, @plan.ApplicationsAndActors.V6 and
+        @plan.ApplicationsAndActors.V7, @plan.InspectionAndArtifacts.V2 through
+        @plan.InspectionAndArtifacts.V5, and @plan.StoriesAndModels.V4. React and CLI integration
+        remain Stage 5 work.
+        5. **Hosts, Stories, and CLI.** Integrate React, Stories/models, and the installed CLI over
+        the production Runtime and evidence. React attachment and selectors may start after
+        Stage 2; SSR waits for persistence. Story execution waits for Stages 2 through 4. CLI
+        waits for the Story gateway and artifact comparison.
+        - **Gate:** Browser and isolated-consumer checks, live Story/model parity, installed
+        binary behavior, output, signal, and exit proofs pass. Run proving applications under
+        @plan.PackageContract.O4. Owner targets are @plan.ReactAndHosts.V1 through
+        @plan.ReactAndHosts.V4, @plan.StoriesAndModels.V1 through @plan.StoriesAndModels.V6,
+        @plan.CommandLine.V1 through @plan.CommandLine.V4, @plan.InspectionAndArtifacts.V1 and
+        @plan.InspectionAndArtifacts.V6, and @plan.PackageContract.V2 and @plan.PackageContract.V4.
+        6. **Package cutover and absence.** Complete package promotion, compatibility disposition,
+        physical cleanup, and product cutover only after all owner proofs and consumer gates.
+        This requires every prior stage.
+        - **Gate:** Packed consumers, browser and package gates pass; runtime exports and
+        declarations prove deleted surfaces absent; rejected inputs fail before side effects;
+        the no-residue audit and final receipts pass. Owner targets are
+        @plan.PackageContract.V1, @plan.PackageContract.V3 and @plan.PackageContract.V4.
+
+        Critical path: foundation, Runtime, operations, persistence/evidence, hosts, then cutover.
+        React attachment/selectors can start after Runtime ownership. Operation owners may work in
+        parallel after action, key, store, and publication seams are agreed; integrated proofs use
+        one production owner. Run package type and packed-consumer checks at every public-surface
+        change.
+
+        The dependency cycles are resolved inside coherent increments. @plan.Statecharts.O3 and
+        @plan.ApplicationsAndActors.O7 share one turn/publication increment. @plan.Resources.O2 and
+        @plan.Transactions.O3 share one canonical-store/preview increment. The evidence interface is
+        agreed in Stage 1, then @plan.ApplicationsAndActors.O7,
+        @plan.InspectionAndArtifacts.O3, and @plan.Transactions.O2 integrate their producers and
+        acceptance in Stages 2 and 3. @plan.Streams.O2 and @plan.Resources.O4 integrate explicit
+        stream writes through the same setData path in Stage 3. These cycles do not create alternate
+        owners or require unrelated capability work to wait. Agree the construction-owned setData
+        seam with @plan.ReactAndHosts.O4 in Stage 3; its host adapters remain in Stage 5. Stage 2
+        provides base readiness without persistence; Stage 4 adds the @plan.Persistence.O2 boot and
+        restore sequence. Pair the
+        @plan.StoriesAndModels.O6 and @plan.CommandLine.O1 gateway contract, then implement the
+        gateway before its CLI consumer in Stage 5.
+    O4  Tasks and local gates realize the order
+        Workflow Tasks remain the executable status and readiness graph. Decompose capability
+        outcomes into Tasks with concrete acceptance and focused checks. Link each Task to its
+        semantic owner outcome and add Task-to-Task blockers for the prerequisites in @O3. Do not
+        treat Plan citations or this staged order as enforced Task links. Do not change existing
+        Task status or claim a Task complete from this entry Plan.
+
+        Keep unresolved choices at their owning Plan and gate only affected Tasks:
+
+        - @plan.Resources.Q1 leaves resource authoring forms and omitted freshness policy open;
+        unrelated key, store, and settled reader work can continue.
+        - @plan.Transactions.Q2 leaves the omitted concurrency policy open; tasks needing that
+        default wait for its owner decision.
+        - @plan.Streams.Q1 leaves adapter return and mapper-container forms open; independent
+        lifetime and release work can continue.
+        - @plan.InspectionAndArtifacts.Q2 leaves selected final call forms open; shared codec and
+        already specified evidence behavior can proceed.
+        The archived @plan.Runtime.Q1, @plan.Operations.Q1, @plan.Hosts.Q1, and
+        @plan.Diagnostics.Q1 remain unresolved in their records. This entry does not carry or
+        resolve them as current capability decisions.
+
+        The archived @plan.Verification.Q1 and @plan.Cutover.Q1 retain unresolved root-gate and
+        product-cutover questions as historical references. This entry does not answer or adopt
+        them as current gates. All capability Plans and this entry remain proposed pending approval.
+decisions
+    D1  One entry Plan owns cross-capability ordering
+        This Plan proposes the relative order and integration map for the twelve capability Plans.
+        It preserves the dependency shape of archived @plan.Verification.D1 as historical
+        provenance. The capability Plans remain the semantic and proof owners through their
+        Verification entries. Workflow Tasks own executable status, concrete blockers, and receipts.
+    D2  Public package validation stays continuous
+        Validate route and declaration reachability whenever a public surface changes. Use focused
+        rewrite type and packed-consumer checks throughout delivery; reserve full browser, installed
+        package, and workspace closeout for their owning integration and cutover gates.
+constraints
+    C1  Proposed order grants no implementation or cutover approval
+        This Plan is an entry and ordering proposal. It does not approve capability Plans, authorize
+        implementation, change Task state, promote the package, or complete product cutover.
+        Package promotion and product cutover require the approved owner gates and their executable
+        receipts.
+    C2  Preserve semantic owners and existing records
+        Do not duplicate capability API semantics here. Keep the former package frozen and
+        historical source records unchanged. The ten former flat Plans and Rewrite Task graph are
+        archived as historical provenance; existing Specs remain unchanged and their archived Plan
+        references still resolve.
+verification
+    V1  Owner links and cited prerequisites resolve
+        Establish @O1 and @O2 by checking that all twelve capability Plans are listed, every cited
+        Plan object exists, and each integration edge points to its owning Plan. Check:
+        `workflow check` and a review of the cited Plan IDs. This verifies artifact and reference
+        integrity only; it does not establish implementation behavior.
+    V2  Stage graph is topological and gates are observable
+        Establish @O3 and @O4 by checking the explicit stage prerequisites in order and reviewing
+        that each cycle is integrated within one owner increment rather than represented as a
+        circular stage dependency. Confirm every exit gate names observable behavior and its
+        capability Verification owners. Check: `workflow check` plus manual DAG review against
+        the stage dependencies and cited owner Verification entries. This is a planning check, not
+        evidence that a stage has run.
+    V3  Package and cutover status remain pending
+        Establish @O4 and @C1 by confirming no package promotion or product cutover occurs before
+        the approved owner gates have executable receipts. Check: `workflow check` and review of
+        the owner records. A green Workflow check does not prove consumer behavior, no-residue, or
+        cutover.

@@ -1,0 +1,261 @@
+plan PackageContract
+title   Package routes and supported consumers
+status  proposed pending approval
+goal
+    Give installed consumers one exact named-export package with preserved environmental boundaries
+    and evidence for eventual replacement. This proposed Plan owns routes, public declarations,
+    supported hosts, compatibility disposition and promotion conditions. Each capability owns its
+    API/type/behavior/proofs; this Plan adds package reachability and cutover obligations. The ten
+    former flat Plans and Rewrite Task graph are archived as historical provenance; existing Specs
+    remain unchanged. No approval, implementation, physical cleanup, package promotion or product
+    cutover is claimed here.
+outcomes
+    O1  Four isolated routes expose only supported names
+        Consumers use named exports with local aliases. The only supported routes are:
+
+        | Route | Consumer purpose |
+        | --- | --- |
+        | flow-state | Root authoring, application and Runtime APIs |
+        | flow-state/react | React provider, actor hooks and passive selection |
+        | flow-state/testing | Stories, fixtures, behavior gateway and pure models |
+        | flow-state/inspect | Inspection, trace/artifact tooling and behavior comparison |
+
+        Root runtime values are actorRef, app, definition, Diagnostic, Implementation, machine,
+        module, resource, runtimeSetup, stream and transaction. Implementation is both value and
+        type; its value has exactly succeed, effect and merge. It is not an umbrella package.
+
+        The retained standalone can query is owned by @plan.Statecharts.O3. Its current route
+        availability remains governed by the restoration gate below.
+
+        Root public types are Definition, StateToken, EventToken, StateOf, EventOf, Machine,
+        MemoryOf, InputOf, RequirementsOf, Resource, Transaction, ActorRef, Module, App,
+        RuntimeSetup, Runtime, Implementation and CanonicalKeyInput. Exact operation unions are
+        inferred through their named families, not new parallel status aliases.
+
+        Restoration targets remain in scope. They are temporarily omitted until their owners and
+        proofs land; this proposal does not activate exports:
+
+        | Route | Deferred restoration names |
+        | --- | --- |
+        | root values | can, indexedDbStorage, persistence, webStorage |
+        | root types | ActorSnapshot, Persistence, PersistenceStorage, PersistenceStorageError |
+        | root codec types | PersistenceCodec, PersistenceSlot |
+        | root value types | PersistenceValue, PersistenceEntry |
+        | root error/path names | FlowDisposeError, FlowPersistenceError, FlowUsageError |
+        | root type names continued | FlowPath, FlowUsageCode |
+        | React | FlowProvider, useActor, useActorByRef, useView; helper under ReactAndHosts.O3 |
+        | testing | behavior, fixture, model, story, FlowStoryExecutionError |
+
+        The inspect route restoration list is closed:
+
+        - analyzeTrace, attachInspectionSink, buildBehaviorContract, compressTraceArtifact,
+        createInspectionBufferSink, decompressTraceArtifact, diffBehaviorContracts, diffTrace.
+        - exportTraceArtifact, formatInspectionEvent, formatInspectionTimeline,
+        formatNoTransitionSummary, formatRehydrationSummary, formatResourceFreshnessReport,
+        formatTrace, formatTransactionOverlapSummary.
+        - graphOf, importTraceArtifact, inspectActivities, inspectMicrosteps, inspectTransition,
+        renderBehaviorContract, renderBehaviorCoverage, renderBehaviorDiff,
+        sliceBehaviorContract, summarizeTrace, whyNoTransition.
+
+        React/testing/inspect paths remain published with empty active exports under the temporary
+        disposition. Their restoration lists remain obligations. The temporary Runtime shell has
+        only app, construct() and ready(); it has no actor, bridge, persistence, lifecycle or
+        disposal behavior.
+
+        Temporary ready is Effect<void, ImplementationError>, caches one terminal Exit, and acquires
+        providers sequentially once. Full Runtime contracts are future targets under
+        @plan.ApplicationsAndActors.O3 through @plan.ApplicationsAndActors.O7 and
+        @plan.ReactAndHosts.O4. A temporary scaffold cannot prove the complete target.
+
+        Root and non-root routes expose no package-owned flow/test/inspect/hooks namespace objects,
+        root builders re-exported from non-root routes, private deep imports, internal service tags,
+        stores, orchestrators, ManagedRuntime, boot, harness or public testing/inspection artifact
+        types. Consumer-local namespace import aliases do not create a package namespace object.
+        Diagnostic rendering guarantees belong to @plan.DiagnosticsContract.O4.
+        They add no public route values. React's explicit useShallow
+        helper follows its capability owner @plan.ReactAndHosts.O3; it is not a root export.
+    O2  Exact declarations and a maintained quickstart reach packed consumers
+        Public values/types preserve the owning capability's literal inference, nominal identity,
+        unions, field presence, variance, requirement closure and failure channels. Accepted use
+        needs no any/assertion erasure, explicit generics or wrappers. StateOf/EventOf/InputOf/
+        MemoryOf accept the specified Definition/Machine values. Public declarations contain no
+        implementation-only route, recursive config carrier or erased environment requirement.
+
+        Maintain one checked-in quickstart from definition/machine through module/app, runtimeSetup
+        and readiness using named exports. It compiles against the packed package and reflects
+        accepted API changes. Temporary actor continuation stays explicitly future until its owner
+        and proofs land.
+
+        React or Story continuation uses its own route. The supporting [consumer
+        example](references/core-api.examples.ts) illustrates the authoring boundary; it is not a
+        completed quickstart proof.
+
+        Compile representative small/medium isolated TypeScript consumers, strict and
+        isolated-modules settings, isolated declaration emit, packed ESM imports, and React 18/19
+        consumers. Exact positive and negative semantic fixtures stay with capability owners.
+        Package integration adds import/declaration/runtime reachability and distinct host failure
+        cases.
+
+        Do not duplicate every owner's full matrix or make compiler benchmark arithmetic a
+        requirement. Recursive carrier rejection must avoid excessive instantiation.
+    O3  Replacements remove deleted surfaces and retain environmental compatibility
+        DELETE removes without replacement. REPLACE removes the old surface and retains only its
+        accepted capability. Neither allows alias, overload, adapter, compatibility namespace,
+        parser branch or deprecated wrapper.
+
+        RETAIN preserves only its explicit boundary. HISTORICAL permits provenance, never active
+        semantic authority.
+
+        The complete surface disposition is:
+
+        Views and actor identity:
+
+        - DEL-001 DELETE: registered views, View IDs/module.views/lookup, useView(view), view can.
+        - DEL-002 DELETE: child actor constructors, inputs, addresses, output, completion and state.
+        - DEL-003 DELETE: dynamicMachines, root/dynamic categories, auto roots and runtime.actor.
+
+        Ownership, grammar and operations:
+
+        - DEL-004 REPLACE: handle disposal/active-or-disposed ownership with leases/four lifecycles.
+        - DEL-005 REPLACE: initial/flat-only/final/onDone/output/Boolean reentry/conflicting 
+        handlers.
+        - DEL-006 DELETE: generic activity kits/operation refs/byKey/byLane/entries/enumeration.
+
+        React, Stories and artifacts:
+
+        - DEL-007 REPLACE: recursive sharing/custom equality/comparators with fixed Object.is laws.
+        - DEL-008 REPLACE: React shells/root-only hooks/useResource/broad subscriptions/view 
+        objects.
+        - DEL-009 REPLACE: callable story/with/injection/replay/old commands/mutable 
+        harness/runners.
+        - DEL-010 REPLACE: mutable v1 boot, root/child/final wire, replay inspect and old Story 
+        schemas.
+        - DEL-011 HISTORICAL: former contracts, compatibility/phase/task documents as provenance.
+
+        Retained environmental and runtime boundaries:
+
+        - RET-001 RETAIN: four routes, ESM/import conditions, Effect identity and React 
+        compatibility.
+        - RET-002 RETAIN: synchronous send, production mailbox, scoped stores, fencing, 
+        Cause/cleanup.
+        - RET-003 RETAIN: exact resource and transaction status discriminants.
+        - RET-004 RETAIN: canonical key/getState/getData, transition actions and accepted O/P/K.
+        - RET-005 RETAIN: FlowProvider, revised actor hooks and passive useView.
+
+        DEL-002 includes child lifecycle, persistence, snapshots, Story/model forms and addressing.
+        DEL-003 includes ID-bearing local creation and dynamic-root persistence. DEL-005 retains
+        recursive defaults/exact reentry/ordinary terminal-looking leaves and event actions.
+
+        DEL-006 retains exact named families. DEL-009 removes perform/deliver/receive/simulate/
+        flush/settle/setTime/final/replay, bare-App/live-Runtime input and focused overrides;
+        @plan.StoriesAndModels.O1 and @plan.StoriesAndModels.O3 own accepted replacements. DEL-010
+        also removes fabricated fields, duplicate formatters and arbitrary scenario commands.
+
+        Deleted inputs fail before actor creation, memory/store mutation, acquisition, event
+        publication, external work or evidence. Accepted replacement and deleted surfaces cannot
+        coexist in installed code, declarations or current product guidance. Deleted names may
+        appear in this ledger, historical provenance or negative absence proofs only. Reference
+        consumers rewrite old calls; folder layout alone is not a public deletion rule.
+    O4  Promotion waits for owner proofs and actual consumer gates
+        Complete the replacement only after capability owner proofs and required package/consumer/
+        browser/installed-CLI gates pass with explicit receipts. A focused typecheck, source scan,
+        generated output or green frozen-package check cannot establish rewrite behavior.
+
+        Proving applications exercise real supported paths:
+
+        - Todo Essentials: recursive states, refs/leases, actions/operations, React views, fixtures,
+        Stories, checkpoints and TestClock.
+        - Incident Console: exact bindings, transaction conflicts, streams, remote leases,
+        inspection, diagnostics, installed CLI/artifacts and browser lifetime.
+        - Hydrated Offline Notes: request isolation, context-closed persistence, first-render
+        consistency, outbox/reconnect/disposal, exact restore and trusted seeding.
+        - An application-authored bounded feed: dropping/coalescing without Flow pressure options.
+        React 18/19 and isolated TypeScript consumers supply independent integration coverage.
+
+        Before cutover, map every affected old clause, symbol, overload, registry, consumer, proof
+        and Task as DELETE/REPLACE/RETAIN/HISTORICAL or unchanged. Keep every live obligation under
+        one capability owner. Source cleanup waits for mapped proofs and one complete no-consumer/
+        no-residue audit.
+
+        Historical files and frozen packages stay unchanged in this proposal. Product documentation
+        and Task status retain their owners. Physical cleanup, root gate retargeting and product
+        cutover remain later authorization gates, not work authorized by creation or approval of
+        this Plan set.
+decisions
+    D1  Each capability owns its whole consumer contract
+        API, types, observable behavior and Verification stay together. Shared laws are referenced
+        once at their owner. There is no separate PublicSurface, Types or Verification contract
+        required to interpret the new capability set. Dependency phase ordering belongs to Tasks.
+    D2  Integration proves package reachability
+        One decisive production-owner proof covers each semantic invariant. Packed, browser, Story
+        and installed-process checks add reachability or distinct races/failures/wire boundaries.
+        They do not repeat the full semantic matrix without a distinct observable failure.
+constraints
+    C1  Preserve the accepted platform and portable bytes
+        The development baseline is Node 22.18+, nub 0.7.5, TypeScript 7.0.2, Vite Plus and Effect
+        4.0.0-rc.112. Preserve one Effect peer identity and supported React 18/19 boundaries. Shared
+        definition, ref, key, persistence, artifact and CLI byte codecs use host-neutral
+        ECMAScript/Web APIs and WHATWG TextEncoder.
+
+        Reject lone surrogates with isWellFormed or an equivalent fallback. Do not use Node Buffer,
+        silent replacement, UTF-16 byte counts, runtime-specific or second handwritten encoders in
+        the shared package contract.
+
+        Equal accepted input produces equal bytes/identities on Node, Bun, Deno, Chromium, Gecko
+        and WebKit. Full Unicode/limit vectors run on pinned Node; compact same-codec portability
+        vectors run on the other exact recorded host versions. No exact private Runtime topology,
+        numeric compiler-growth budget or full vector repetition on every host is imposed.
+    C2  Preserve final gates without claiming them passed
+        Build package/CLI output through pinned commands and regenerate docs from real entrypoints.
+        Never hand-edit dist or generated docs. Rewrite focused gates target flow-state-rewrite:
+        check:types, focused tests/lint, build, check:build-output, check:packed-consumers and
+        check:static-harness as applicable.
+
+        Product consumer/browser/published-package gates remain required before promotion. Root nub
+        run build/docs:build/verify must target the replacement before they can establish
+        replacement workspace closure. Current frozen-package gates are migration evidence only.
+
+        Actual runs belong in implementation Task records, not Plan status.
+    C3  Preserve proposal, source and package boundaries
+        This set is proposed pending approval. The former flat Plans and Rewrite Task graph are
+        archived as historical provenance; existing Specs remain unchanged and their archived Plan
+        references still resolve. No source contract, reference implementation, historical behavior
+        or proof receipt supplies missing new semantics or proves completion.
+
+        Build the greenfield rewrite; packages/flow-state is frozen. User approval of a Plan does
+        not authorize commits, pushes, source deletion or product cutover. Missing exact shapes
+        remain concrete Questions.
+verification
+    V1  Routes, exports and packed declaration reachability
+        Establish @O1 and @O2 by testing runtime imports and emitted packed declarations for all
+        four routes. Active names/value-type duals match the closed lists; deferred names stay
+        absent until their owners/proofs restore them. Reject package namespaces, root re-exports
+        from non-root routes, private deep imports and deleted public artifacts/authority types.
+
+        Compile the maintained quickstart, strict isolated consumers and React 18/19 against the
+        packed build without any/assertion erasure. Planned package gates under @C2; not run here.
+    V2  Portable codec and supported-host integration
+        Establish @O2 and @C1 with full Node ASCII/2/3/4-byte, 256/257-byte, lone-surrogate and
+        composed/decomposed vectors. Run the compiled shared codec on Bun, Deno, Chromium, Gecko
+        and WebKit using compact ASCII/multibyte/surrogate/canonical-byte-or-digest vectors. Record
+        exact versions and equal accepted bytes; invalid durable input fails before serialization
+        or activation. Planned codec/host checks; no portability receipt is claimed.
+    V3  Hard deletion, retained boundaries and no residue
+        Establish @O3 through runtime export absence, negative packed declarations and behavioral
+        submission of removed forms. Every DEL row rejects before side effects; RET rows remain
+        reachable through accepted owners. Audit code/docs/consumers/Stories/fixtures/tests/Tasks/
+        registries for aliases, adapters, parser branches and deleted-only paths.
+
+        Source scans support but cannot replace runtime/type proofs. Keep one complete mapped final
+        audit; ordinary Tasks cover only intersecting removals. Planned audit and owner tests;
+        unbuilt.
+    V4  Package promotion and proving applications
+        Establish @O4 after every owning capability's acceptance and blocking reviews pass. Run the
+        proving applications through installed/packed APIs and browser/request/CLI boundaries.
+        Record failure/interruption/cleanup cases and distinct integration risks.
+
+        Complete package, declarations, build, docs, consumers, supported browsers and final
+        workspace verification against replacement owners; frozen results do not count. Preserve
+        live obligations before source cleanup. Later Tasks must identify product owners, retarget
+        root build/docs and published/browser gates, and obtain cutover authorization. Record actual
+        passing receipts before promotion, source cleanup or cutover. No gate run is claimed.

@@ -1,0 +1,323 @@
+plan Resources
+title   Resources
+status  proposed
+goal
+    Read, acquire, refresh, and update canonical resource data through exact named families.
+    Share data within one Runtime while keeping actor work and previews independently owned.
+    This proposed Plan is pending approval. It establishes no shipped implementation claim.
+outcomes
+    O1  Exact descriptors, executable inputs, and canonical keys
+        A resource owns its ID, synchronous key projector, lookup adapter, placeholder metadata,
+        K-derived tags, and freshness/collection policies. The exact family and type guarantees
+        appear below. Preserve P/K/A/E/R through descriptor, named O, machine, app, Runtime,
+        fixture, and Story. No public support aliases are implied. Runtime requirements remain
+        inferred R. persist defaults false; true opts committed canonical data into Persistence.
+
+        resource(config) constructs an inert descriptor with these accepted authoring fields:
+
+        | Field | Required | Accepted relationship |
+        | --- | --- | --- |
+        | id | Yes | Exact authored descriptor ID |
+        | key | Yes | (params:P) => K, synchronously |
+        | lookup | Yes | (params:P, { signal }) => Effect.Effect<A,E,R> |
+        | persist | No | boolean; omitted means false |
+        | staleTime | No | Descriptor freshness duration; exact input domain remains @Q1 |
+        | gcTime | No | Descriptor collection duration; exact input domain remains @Q1 |
+
+        lookup receives the supported AbortSignal and preserves its exact success A, failure E,
+        and service requirements R. Omitting optional fields does not authorize new freshness or
+        retention defaults. @Q1 blocks the missing public type and mapper-container forms.
+
+        The canonical key rules below define the complete key grammar, defensive copying/freezing,
+        UTF-8 bytes, raw UTF-16 record ordering, diagnostics, and exact 16-level/256-node/8,192-byte
+        bounds. Project and validate before ownership, admission, mutation, or work. Equal bytes
+        share identity only for the exact descriptor in one Runtime. Invalid input changes nothing.
+        K never reconstructs executable P or authorizes execution. Descriptor admission and shared
+        identities obey @plan.ApplicationsAndActors.O1 and @plan.ApplicationsAndActors.O4. Durable
+        opt-in follows @plan.Persistence.O1.
+
+        ResourceFamily<P, K extends unknown[], A, E> has exactly these methods:
+
+        | Method | Exact signature |
+        | --- | --- |
+        | key | (params: P): K |
+        | getData | (key: K): A \| undefined |
+        | getState | (key: K): ResourceState<A,E,K> |
+        | lookup | (params: P, options?: FiniteResourceOptions<A,E>): FiniteOperationPlan |
+        | subscribe | (params:P,options?:ResourceSubscriptionOptions<A,E>):ContinuingOperationPlan |
+        | refetch | (params: P, options?: FiniteResourceOptions<A,E>): FiniteOperationPlan |
+        | setData | (key:K,value:A\|((current:A\|undefined)=>A\|undefined)):CacheWritePlan |
+        | cancel | (key: K): CancellationPlan |
+
+        ResourceState<A,E,K> is the exact closed union below. Every lane has key:K.
+        ResourceRetention<A> is exactly { data?: never } or { data: A }. Fields absent from a lane
+        remain absent; retention applies only where stated.
+
+        | status | Other exact fields |
+        | --- | --- |
+        | missing | No generation or data. |
+        | pending | generation:number; no data. |
+        | ready | generation:number; data:A. |
+        | refreshing | generation:number; data:A. |
+        | failure | generation:number; error:E; intersect ResourceRetention<A>. |
+        | defect | generation:number; defect:unknown; intersect ResourceRetention<A>. |
+        | interrupted | generation:number; intersect ResourceRetention<A>. |
+
+        `undefined` is not A. It means absent `getData` or updater decline. Refreshing always
+        retains data; failure, defect, and interruption may retain it. Absent fields stay absent.
+        Generations are safe non-negative integers; admitted generations begin at one.
+
+        Finite options map `success(A)`, `failure(E)`, `defect()`, and `interrupt()`. Continuing
+        resource options map `value(A)`, `failure(E)`, `defect()`, and `interrupt()`. Each mapper
+        returns one event from the machine's exact event protocol. Mappers receive no Exit, Cause,
+        state, or lifecycle. The typed failure mapper is unavailable when E is never. Planned
+        cancellation/release/supersession does not invoke an authored interruption mapper.
+        These mapper names and arguments are fixed; their caller-written option container remains
+        unresolved at @Q1. Illustrative examples cannot choose that container.
+
+        The [resource examples](references/data-api.examples.ts) illustrate declarations and reads.
+        Concrete application names and durations establish no defaults.
+
+        The exact `FiniteResourceOptions`, `ResourceSubscriptionOptions`, and plan aliases above
+        name semantic roles. They do not introduce additional methods, overloads, or public support
+        aliases.
+
+        Canonical operation keys:
+
+        P is complete executable input. It may contain clients or functions and is never identity. K
+        is the ordered tuple returned synchronously by `key(P)`. Descriptor ID plus canonical K
+        identifies an operation within one Runtime. K does not reconstruct P, replace capabilities,
+        or authorize work. Every result-changing discriminator belongs in K, including capability,
+        tenant, account, network, permission, session, and any other input that can change results.
+        Runtime partitioning never replaces a discriminator in K. Secrets remain observable unless
+        the application hashes or replaces them before key projection.
+
+        Project, validate, recursively copy, and freeze K into Flow-owned containers before
+        acquiring ownership, admitting work, mutating state, or calling an adapter. Own the top
+        tuple and every nested container. Mutation of source inputs cannot change canonical
+        identity.
+
+        Allowed values are null, booleans, finite numbers, strings, ordinary dense arrays, and plain
+        records. Records have Object.prototype or null prototype and enumerable own data properties.
+        Arrays have no holes or extra properties. Record keys sort by raw UTF-16 order. Numbers use
+        finite JSON.stringify; negative zero becomes numeric zero. Strings receive no Unicode
+        normalization.
+
+        ```text
+        KBytes ::= "[" [ Value *( "," Value ) ] "]"
+        Value  ::= "null" | "true" | "false" | Number | String
+        | "[" [ Value *( "," Value ) ] "]"
+        | "{" [ Member *( "," Member ) ] "}"
+        Member ::= String ":" Value
+        ```
+
+        KBytes is whitespace-free canonical JSON-like text encoded with the shared portable UTF-8
+        boundary. This key ordering differs from the artifact codec's UTF-8 ordering. UTF-16 string
+        length is not a byte length. Node Buffer is not an allowed shared encoder. Reject lone
+        surrogates.
+
+        Read own data descriptors only. Never run getters, coercion, `toJSON`, or user iteration.
+        Reject undefined, non-finite numbers, bigint, symbols, functions, accessors, classes,
+        unsupported objects, cycles, branded secrets, sparse/extra-property arrays, and hostile or
+        inconsistent reflection. Reject before any ownership, admission, mutation, publication, or
+        external work.
+
+        The exact bounds are 16 nested levels, 256 scalar/container value nodes, and 8,192 UTF-8
+        KBytes. Failures identify the exact `K[index]` or nested-record path and distinguish
+        structural failures from application-domain failures. There is no custom key hash, custom
+        equality, second key, or recursive type-level interpretation of runtime keys.
+
+        Equal bytes share identity; different bytes separate it. Equal-key owners do not switch a
+        running generation's pinned P. Automatic generations choose the oldest eligible live
+        binding; explicit refetch uses caller P. Releasing the binding that supplied P does not
+        change the running P.
+
+        Planned identity proofs include record-order equivalence, negative-zero normalization,
+        source mutation, cycles/reflection, each bound, and exact ASCII/two/three/four-byte UTF-8
+        vectors. Composed/decomposed spellings stay distinct; lone-surrogate vectors reject. These
+        proofs are unbuilt for the proposed capability contract.
+    O2  One canonical data view with passive actor-bound readers
+        One Runtime owns one canonical resource truth: committed bases, metadata, generations,
+        freshness, and revisions. Same-runtime equal descriptor/K shares canonical data and lookup
+        generations. Separate Runtimes, SSR requests, tests, and browser roots remain isolated.
+        Actors independently own bindings, occurrences, projections, previews, and lifetimes. An
+        actor's release cannot change another actor's lifetime or effective preview.
+
+        Named key/getData/getState readers and reading a descriptor are passive. Constructing an
+        unreturned operation plan is passive. Any actor may read an admitted same-runtime resource
+        it never materialized. Missing reads synthesize missing state without inserting an entry,
+        acquiring a lease, changing freshness, collecting, advancing revision, or starting work.
+        Synchronous readers run no Effect, Scope acquisition, scheduler, or runtime mutation.
+
+        The exact ResourceState union under @O1 owns field presence. Refreshing retains usable data;
+        failure/defect/interruption may retain it. Placeholder is descriptor-owned projection
+        metadata and creates no canonical write, family, or mapped outcome. Unbound reads and
+        transaction updaters use committed base. Actor-bound snapshots add only that actor's ordered
+        preview layers under @plan.Transactions.O3. Reads cannot create a second cache or snapshot
+        authority.
+
+        Base, generation, freshness, invalidation, hydration, and eviction changes advance canonical
+        revision. Preview apply/remove/replay affects only the initiating actor's publication.
+        For actor-initiated canonical writes, affected actors observe the change through complete
+        current projections only after the initiating snapshot publishes, its immutable TurnRecord
+        is accepted as evidence, and its private acknowledgment settles, in that order.
+        Stale/unrelated revision facts publish nothing; skipped revisions
+        require rereading current state. Only adjacent projection-only facts may coalesce.
+        Lifecycle, cancellation, finite terminal, stream terminal, and mapped-event facts retain
+        their boundaries. Publication and causal completeness obey @plan.ApplicationsAndActors.O7
+        and @plan.ApplicationsAndActors.O6. No simultaneous graph-wide publication is promised.
+        Autonomous freshness/collection commits may have no initiating actor. Capture cannot observe
+        a half-published actor/store commit under @plan.Persistence.O3.
+    O3  Finite acquisition and continuing ownership preserve freshness and settlement
+        Lookup/refetch is finite and admitted only by accepted event actions under
+        @plan.Statecharts.O3. Subscribe is continuing ownership from activities or onMemory under
+        @plan.Statecharts.O4. Activation, reads, timers, memory/store revisions, and completion
+        cannot admit finite work implicitly. Resource cancellation is an accepted actor action.
+
+        Fresh canonical lookup may settle without an adapter. Stale, missing, or invalidated lookup
+        follows generation policy. Refetch forces replacement using caller P. A running generation
+        retains its original complete P, including when its supplying binding releases. Automatic
+        generations choose the oldest eligible live binding. Key-only hydrated entries remain
+        passive until live P exists. Normal collection follows descriptor policy; releasing an actor
+        binding removes its local projection and never itself deletes canonical data. Do not invent
+        staleTime/gcTime defaults or unconditional idle retention.
+
+        Continuing identity is compiled declaration slot, operation kind, exact descriptor, and K.
+        Equal normalized declarations retain work and P. A changed slot/kind/descriptor/K releases
+        the old binding once before replacement. False/null/exit releases only its declaration.
+        Actor ownership and lifecycle follow @plan.ApplicationsAndActors.O4 and
+        @plan.ApplicationsAndActors.O5. Shared lookup work is interrupted only at its final owner.
+        First/middle owner cancellation leaves remaining owners and canonical data intact.
+
+        Activation maps an existing canonical value once. Later canonical replacements map value;
+        equal effective values and preview-only changes emit no continuing value. Every finite
+        occurrence still settles once, including equal-value or fresh-cache success. Outcome
+        classification follows @plan.DiagnosticsContract.O2 and the exact mappers under @O1. Planned
+        cancel/release/supersession records cleanup without invoking an authored interruption
+        mapper. Adapter interruption, typed failure, defect, and release failure remain distinct.
+        Accepted cancel(K) interrupts each current finite occurrence this actor owns for K and
+        suppresses its late result. It changes no canonical data.
+
+        Immediately before completion publication, match actor incarnation, kind, descriptor,
+        canonical K, occurrence ordinal, and shared generation/lease authority. Requested
+        interruption alone is no fence. Late results/finalizers may settle their bounded evidence
+        but cannot mutate current data, collected entries, replacement bindings, or another actor.
+        Prepared revisions start at zero; first generation/value revision is one. A new collected
+        entry lifetime may restart these local cursors. Actor/global counters never reset.
+        Safe-integer headroom includes terminal publication and cleanup before admission/restore;
+        exhaustion fails before mutation, wrap, reuse, or partial publication.
+
+        Offline state never blocks explicit lookup/subscribe/refetch or cancels work. Reconnect or
+        focus may refresh only active subscriptions that are stale/missing and lack an in-flight
+        generation. Explicit after-refresh events schedule after settlement; failure waits one
+        interval. There is no automatic retry, poll helper, or generic paused-resource policy.
+    O4  Authoritative writes and bounded invalidation publish atomically
+        Lookup success installs canonical data. Transaction/stream output is canonical only through
+        an explicit accepted setData plan. setData takes exact K and A or an updater of committed
+        A|undefined. Undefined updater output declines. Validate all plans before publication. An
+        accepted write fences older lookup generations, clears invalidation/failure metadata,
+        advances canonical revision/generation, and publishes once with subscribers still attached.
+        Equal writes may refresh freshness and publish revision; only effective-value changes map
+        continuing value. Explicit completion writes publish before their mapped outcome.
+
+        Invalidate and clear are scoped actor actions. Targets are exact [O.resource,K], declared
+        reachable tags, or admitted resource families. Validate every target, expand against one
+        pre-mutation index in descriptor/K insertion order, and first-seen deduplicate. Reject the
+        whole action for invalid/unauthorized/conflicting targets or expansion above 256 identities,
+        before mutation or work allocation. Missing exact targets and zero matches succeed as
+        no-ops.
+
+        A nonempty invalidate retains data and previews, marks stale, and changes no running
+        generation. It starts no lookup directly. A nonempty clear fences work, removes data,
+        metadata, and previews, and interrupts according to final-owner policy. Surviving
+        subscriptions observe missing and may reacquire normally. Each nonempty action publishes one
+        atomic canonical revision. There is no partial valid prefix or changing target set.
+
+        Boot/SSR/fixture writes use the construction-owned boundary in @plan.ReactAndHosts.O4; they
+        introduce no public writer or finite occurrence. Runtime disposal, rather than an ordinary
+        cache-clear escape hatch, owns complete lifetime removal.
+decisions
+    D1  Canonical data and actor work have separate ownership
+        Equal descriptor/K shares committed truth within one Runtime. Actor-local previews and work
+        retain independent lifetimes, so cancellation cannot erase another actor's truth. Internal
+        store, fanout, barrier, and Effect primitive choices remain replaceable.
+    D2  Exact named families are the operation boundary
+        Execution consumes P; readers consume K. Only returned accepted action/continuing plans
+        execute. The inline family/state forms fix consumer shape without exposing registries.
+constraints
+    C1  Keep passive reads and ownership separate
+        Add no generic registry, resources.get, transactions.get, operation enumeration, bound ref,
+        byKey/byLane/require, public occurrence handle, second cache, or selector execution method.
+        Add no read-triggered subscription, retry/reset/seed/retention/mutation helper.
+    C2  Preserve explicit targeting and accepted policy
+        Add no wildcard, whole-runtime, zero-argument, resource-family invalidate method, partial
+        mixed batch, custom hash/equality, cross-runtime sharing, or invented freshness default. No
+        browser-offline admission gate or implicit canonical result promotion is supported.
+verification
+    V1  Exact API and key proofs
+        Establish @O1 and the state/type portion of @O2. Planned, unbuilt checks belong at
+        `packages/flow-state-rewrite/src/operation/test/key.test.ts` and
+        `packages/flow-state-rewrite/src/operation/test/resource-types.test.ts`. Compile positive
+        P/K/A/E/R inference through all consuming boundaries and negative calls for widened/missing
+        P, wrong K, E=never failure mapper, generic readers, and extra methods. Narrow every
+        ResourceState lane and reject absent-field access. Compile required constructor fields,
+        each accepted optional field, and exact adapter P/A/E/R. Reject renamed fields and wrong
+        callback relationships. Exact duration/metadata typing and wrong mapper-container cases
+        remain blocked by @Q1; no passing type proof is claimed for those forms.
+
+        Run key grammar, reflection, source-mutation, byte-order, surrogate, and each exact bound
+        vector under @O1. Pass when invalid keys leave store, ownership, ordinals, publication, and
+        adapter calls unchanged. Equal keys must share identity despite source record insertion
+        order; permission and every other result-changing discriminator must separate unequal
+        result identity. Distinct Unicode bytes must remain distinct. These are planned
+        executable proofs, not compilation receipts for the examples.
+    V2  Canonical sharing and passive projections
+        Establish @O2. Planned, unbuilt check:
+        `packages/flow-state-rewrite/src/operation/test/resource-store.test.ts`. Share exact keys
+        across two actors and isolate two Runtimes/SSR requests/browser roots. Read missing and
+        never-owned entries repeatedly; pass with no allocation, lease, work, revision, freshness,
+        or collection change. Compare base/owner-preview/other-actor reads. Release one binding
+        without deleting canonical truth or the other binding.
+
+        Interleave writes, delayed revision notifications, and capture. Pass when no affected actor
+        observes an actor-initiated write before the initiating snapshot publishes, its immutable
+        TurnRecord is accepted as evidence, and its private acknowledgment settles, in that order.
+        Recipients reread current truth; stale/unrelated notifications publish nothing, skipped
+        revisions never reconstruct a false history, and capture sees no half cut.
+        Check canonical revisions separately from owner-only preview publications.
+    V3  Acquisition, cancellation, and freshness races
+        Establish @O3. Planned, unbuilt check:
+        `packages/flow-state-rewrite/src/operation/test/resource-lifecycle.test.ts`. Cover
+        fresh/stale/missing/invalidated lookup, forced refetch, pinned P and oldest binding, equal
+        declaration retention, changed identity, false/null/exit, and first/middle/final owner. Pass
+        when finite equal-value success settles once while continuing equal values stay silent.
+        Adapter starts must match accepted actions/declarations exactly. Passive reads and merely
+        constructed plans must start none. Test offline admission and eligible reconnect/focus.
+
+        Race cancel/replacement/disposal/collection with success, failure, defect, and finalizers.
+        Pass with no stale data/event/publication and exactly one release/settlement. Planned
+        cleanup must never call an interruption mapper. Force safe-integer exhaustion before
+        admission and restore; pass with terminal/cleanup credits preserved and no partial state.
+    V4  Writes and invalidation batch proofs
+        Establish @O4. Planned, unbuilt check:
+        `packages/flow-state-rewrite/src/operation/test/resource-writes.test.ts`. Test explicit
+        writes against old generation completions, updater decline, equal writes, retained
+        subscribers, placeholder/tag purity, and completion-write-before-outcome ordering. Pass with
+        one accepted revision, current truth protected, and no implicit result promotion.
+
+        Exercise exact/tag/family/mixed targets, stable order/deduplication, conflicting changes,
+        invalid targets, zero matches, exactly 256 targets, and one over the bound. Pass when each
+        invalid batch changes nothing; each nonempty valid batch publishes once. Invalidate retains
+        data/previews and starts no lookup. Clear removes/fences atomically; surviving subscriptions
+        see missing. Verify construction writes separately through @plan.ReactAndHosts.O4.
+questions
+    Q1  Which missing resource authoring types and mapper containers are accepted?
+        Required id/key/lookup and optional persist/staleTime/gcTime are fixed above. K-derived
+        tags and passive placeholder projections remain accepted metadata capabilities.
+        Their exact authoring forms remain unresolved. The sources do not settle:
+
+        - The caller-written finite and continuing mapper containers: direct members or outcomes.
+        - Exact tag/placeholder authoring fields, containers, and callback input/result types.
+        - Complete staleTime/gcTime input types, Infinity acceptance, and omitted policy behavior.
+
+        Keep these forms unresolved. Add no defaults or legacy callback/route options by inference.

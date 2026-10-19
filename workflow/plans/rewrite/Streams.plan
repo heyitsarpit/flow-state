@@ -1,0 +1,189 @@
+plan Streams
+title   Streams
+status  proposed
+goal
+    Own continuing external values through named stream declarations with latest-value projection,
+    exact completion, and one release. Preserve terminal truth without replaying emissions.
+    This proposed Plan is pending approval. It establishes no shipped implementation claim.
+outcomes
+    O1  Exact stream families expose continuing value and terminal truth
+        The exact stream API below fixes descriptor authoring, exact methods, closed state/value
+        unions, field optionality, and typed outcomes. Preserve P/K/V/E/R through descriptor, named
+        O, machine, app, Runtime, fixture, and Story. Identity/key validation uses
+        @plan.Resources.O1 and its inline canonical-key rules. Runtime capabilities remain outside
+        P; service requirements remain inferred R. Stream types capture no parent selector,
+        routed event, or child actor.
+
+        stream(config) constructs an inert descriptor with these accepted authoring fields:
+
+        | Field | Required | Accepted relationship |
+        | --- | --- | --- |
+        | id | Yes | Exact authored descriptor ID |
+        | key | Yes | (params:P) => K, synchronously |
+        | subscribe | Yes | subscribe(params:P, { signal }); exact return remains @Q1 |
+        | persist | No | boolean; omitted means false |
+
+        subscribe receives the supported AbortSignal. Preserve exact P/K/V/E/R without deciding
+        whether the final adapter directly returns Stream or an Effect producing Stream. @Q1 owns
+        that missing return relationship and the caller-written mapper container.
+
+        Key/getState and construction of an unreturned plan are passive. A stream is an actor-owned
+        continuing operation, not a canonical resource-store entry. It has no actor cancel, getData,
+        public occurrence handle, generic stream registry, or cross-actor deduplication. Missing
+        reads return idle without ownership, work, mutation, or history invention.
+
+        States distinguish idle, running, complete, typed failure, defect, and interrupted. The
+        hasValue discriminator determines exact latest/count presence. Complete and interruption
+        remain distinct; a no-value terminal state is valid.
+
+        StreamFamily<P, K extends unknown[], V, E> has exactly these methods:
+
+        | Method | Exact signature |
+        | --- | --- |
+        | key | (params: P): K |
+        | getState | (key: K): StreamState<V,E,K> |
+        | subscribe | (p:P,options?:StreamSubscriptionOptions<P,K,V,E>):ContinuingOperationPlan |
+
+        StreamValue<V> is the exact closed union below. No other latest/count presence is accepted.
+
+        | hasValue | Exact fields |
+        | --- | --- |
+        | false | latest?:never; emissionCount:0. |
+        | true | latest:V; emissionCount:number. |
+
+        StreamState<V,E,K> is the exact closed union below. Every lane has key:K and intersects
+        StreamValue<V>. Fields absent from a lane remain absent.
+
+        | status | Other exact fields |
+        | --- | --- |
+        | idle | generation:null. |
+        | running | generation:number. |
+        | complete | generation:number. |
+        | failure | generation:number; error:E. |
+        | defect | generation:number; defect:unknown. |
+        | interrupted | generation:number. |
+
+        No-value state has no latest field and has count zero. Value state has exact V and a safe
+        non-negative emission count. Generation is null only in idle; admitted generations begin at
+        one. Absent fields remain absent. Complete, typed failure, defect, and interruption are
+        distinct.
+
+        Subscription options map value(V), complete(), failure(E), defect(), and interrupt() to one
+        exact machine event. The failure mapper is unavailable
+        when E is never. Mappers receive no Exit, Cause, state, or lifecycle. Widened completion
+        values reject. Complete Cause classification belongs to @plan.DiagnosticsContract.O2.
+        The mapper names and arguments are fixed. Their direct-member versus outcomes container
+        remains unresolved at @Q1; an illustrative example cannot select it.
+
+        The [stream example](references/data-api.examples.ts) illustrates the descriptor form.
+
+        `persist` defaults false. True retains only accepted latest, terminal, generation,
+        declaration, key, and ownership facts for an independently persistable stable actor. It
+        never persists an executable stream. The family has no actor cancel or getData method. The
+        named options and plan aliases describe semantic roles and add no public exports.
+
+    O2  Continuing declaration identity controls acquisition, projection, and release
+        Only state activities and independent onMemory declarations under @plan.Statecharts.O4 own
+        continuing streams. Binding identity is compiled declaration slot, operation kind, exact
+        descriptor, and K. Activation generation is monotonic metadata; P is retained input, never
+        identity. Equal normalized identity retains generation and original P. Changed identity
+        releases old once before replacement. False/null/exit/replacement/disposal finalizes the
+        declaration exactly once. Declaration slots remain private.
+
+        A second distinct live declaration by the same actor for the same descriptor/K rejects
+        before replacing or releasing existing work. The retained same declaration is not a
+        duplicate. Different actors remain independent even for equal descriptor/K. Register
+        cancellation/fencing before any scheduler can execute work. Finalizers release once in
+        reverse acquisition order. Planned close/release has no mapped outcome and never calls an
+        authored interruption mapper. Normal remote completion, typed failure, defect, interruption,
+        and release failure retain distinct evidence. Cleanup defects record issues without rolling
+        back an already published transition. Actor suspension, resume barriers, cleanup quarantine,
+        and disposal obey @plan.ApplicationsAndActors.O5.
+
+        Each emission updates latest value, hasValue, emissionCount, and declaration generation in
+        the current projection. Emissions create no finite occurrences. Slow projection readers may
+        skip intermediate values and observe the current latest snapshot. Adjacent projection-only
+        updates may coalesce; terminal and mapped-event facts retain their boundaries. There is no
+        emission history or replay promise. App-authored dropping/coalescing belongs in the stream
+        program; Flow supplies no pressure options.
+
+        Projection-only publication evaluates no transition, guard, action, redirect, memory patch,
+        finite work, or hidden event. Authored mapped events enter later ordinary turns under
+        @plan.Statecharts.O3. Emissions change durable machine state only through those events or
+        explicit authoritative resource writes under @plan.Resources.O4. Values never become
+        canonical resource data implicitly.
+
+        Match actor incarnation, declaration slot, descriptor/K, and generation immediately before
+        emission or terminal publication. Released/stale generation emissions and finalizers cannot
+        affect replacement work, current projection, later actor incarnations, or mapped events.
+        Complete/failure/defect/interruption settles terminal truth once. Retained terminal streams
+        never restart implicitly. Safe-integer admission/restore reserves terminal publication and
+        cleanup headroom; count/generation exhaustion fails before partial publication or reuse.
+    O3  Persistence retains a projection without serializing a running stream
+        Persist defaults false. True opts in only accepted declaration/key/generation/ownership,
+        latest-value/count, and terminal facts for an independently durable stable actor under
+        @plan.Persistence.O2. Fibers, scopes, cursors, transports, buffered emissions, programs, and
+        history are never persistable. A stream never makes its actor durable implicitly.
+
+        Hydration retains exact latest/hasValue/count/terminal truth without emission replay. After
+        pending mapped outcomes drain, an active live declaration rematerializes from complete
+        executable P in a new generation under @plan.Persistence.O4. K cannot reconstruct input or a
+        transport session. Missing P fails closed with a precise diagnostic and invents no history.
+        Terminal streams do not restart. Restored generation fences suppress facts from former
+        sessions. Reconciliation never admits a finite lookup or commit.
+decisions
+    D1  Streams own sessions rather than shared resource entries
+        Descriptor/K identifies an actor declaration's stream projection. Equal-key actors retain
+        independent sessions. Named families expose latest and terminal truth without a registry.
+    D2  Latest projection does not imply history or durable machine state
+        Readers observe current snapshots and may skip values. Mapped events and explicit writes
+        separately own durable changes. Restoring projection does not replay or resume a session.
+constraints
+    C1  Keep continuing work bounded by declarations
+        Add no runtime-sized subscribeMany/subscribeEach, manual unsubscribe handle, stream cancel,
+        public declaration/occurrence handle, child actor/activity equivalent, hidden lifetime
+        registry, cross-actor deduplication, terminal restart, or key-to-input inversion.
+    C2  Keep release and execution boundaries explicit
+        Planned release is cleanup and has no mapped domain outcome. Behaviorally visible phased
+        remote work requires an explicitly owned AppPlan actor. An operational lease may remain
+        scoped inside a stream; it creates no public lifetime or cancellation channel.
+verification
+    V1  Exact API and state inference
+        Establish @O1. Planned, unbuilt checks:
+        `packages/flow-state-rewrite/src/operation/test/stream-types.test.ts` and
+        `packages/flow-state-rewrite/src/operation/test/stream.test.ts`. Compile exact P/K/V/E/R,
+        value/completion/error mapping, all status lanes, generation null only in idle, and latest
+        absence when hasValue false. Reject widened completion values, E=never failure mapping,
+        parent-type capture, cancel/getData/registry methods, wrong K/P, and Cause access. Passive
+        missing reads and unreturned plans must start no work. Compile required id/key/subscribe
+        and optional persist; reject unknown fields and mismatched P/K/V/E/R. Exact adapter return
+        and wrong mapper-container proofs remain blocked by @Q1.
+    V2  Session identity, latest projection, and release races
+        Establish @O2. Planned, unbuilt check:
+        `packages/flow-state-rewrite/src/operation/test/stream-lifecycle.test.ts`. Test equal
+        declaration retention and changed slot/kind/descriptor/K replacement. Add a duplicate
+        same-actor declaration while existing work runs; pass when it rejects without disturbing
+        existing work. Equal keys in another actor must remain independent.
+
+        Emit zero/one/many values, delay a reader, complete/fail/defect/interrupt, and release via
+        false/null/exit/suspend/dispose. Pass when latest/count/generation/terminal fields are
+        exact, slow readers may skip values, terminal facts settle once, and finalizers run once.
+        Planned release calls no outcome mapper. Mapped events remain later ordinary turns, and
+        emissions alone change no machine memory or canonical data. Race late
+        emission/terminal/finalizer against replacement, incarnation, and exhausted counters; no
+        stale publication is allowed.
+    V3  Durable projection and fresh-session hydration
+        Establish @O3. Planned, unbuilt check:
+        `packages/flow-state-rewrite/src/operation/test/stream-hydration.test.ts`. Capture
+        no-value/value/running/terminal streams on durable and non-durable owners. Pass when only
+        declared durable facts survive, pending outcomes drain first, and active streams start from
+        live P in a new fenced generation. Preserve latest/count without replaying values,
+        transports, or finite work. Terminal streams must start no adapter; missing P must fail
+        closed with owned path/code diagnostics. Cover former-session late emissions and explicit
+        resource writes separately through @plan.Resources.V4.
+questions
+    Q1  Which stream adapter return and mapper container are accepted?
+        The sources fix subscribe(P,{signal}), exact P/K/V/E/R, and the named outcome mappers.
+        They do not settle a direct Stream versus Effect-producing-Stream adapter return, or direct
+        mapper members versus an outcomes object. Keep both exact forms unresolved; import no
+        legacy routes, done mapper, pressure options, or parent callback arguments.

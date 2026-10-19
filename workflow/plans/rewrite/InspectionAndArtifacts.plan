@@ -1,0 +1,810 @@
+plan InspectionAndArtifacts
+title   Inspection, portable artifacts, and evidence comparison
+status  Proposed; pending approval
+goal
+    Let consumers inspect committed behavior, retain bounded evidence, exchange canonical
+    artifacts, and share explicit redacted projections without acquiring execution authority. This
+    proposed Plan owns structural codecs, portable artifact schemas, inspection, redaction, and
+    comparison.
+
+outcomes
+    O1  Pure inspection and committed live projections
+        - Pure graph/transition functions consume inert definitions and snapshots. They may expose
+        selection, microsteps, memory patches, and desired plans, never actual starts/releases,
+        generations, pending outcomes, or finalizers.
+
+        - Live inspection consumes committed private TurnRecord/LifecycleRecord facts. No
+        arbitrary-snapshot trace or second mutable history exists. TurnRecord and v2 models stay
+        private; projections are inferred and accepted only when validated or created by the
+        inspection route.
+
+        - One formatter belongs to each projection. Supported route names and known forms follow
+        below. Unspecified signatures remain @Q2.
+
+        - @plan.ApplicationsAndActors.O7 owns snapshot/current-state publication, including latest
+        current snapshots for slow readers; evidence retention here does not imply replay
+        streams. @V1 proves prediction/live separation, passive inspection, and private type
+        boundaries.
+
+        - The inspect route targets these exact names, subject to PackageContract route gates:
+
+        | Family | Names |
+        | --- | --- |
+        | Graph and transitions | graphOf, inspectTransition |
+        | Microsteps and activities | inspectMicrosteps, inspectActivities |
+        | No-transition explanation | whyNoTransition, formatNoTransitionSummary |
+        | Live trace projections | analyzeTrace, summarizeTrace, diffTrace, formatTrace |
+        | Inspection formatting | formatInspectionEvent, formatInspectionTimeline |
+        | Domain reports | formatRehydrationSummary, formatResourceFreshnessReport |
+        | Transaction report | formatTransactionOverlapSummary |
+        | Behavior artifacts | buildBehaviorContract, sliceBehaviorContract, diffBehaviorContracts |
+        | Behavior rendering | renderBehaviorContract, renderBehaviorCoverage, renderBehaviorDiff |
+        | Sinks | attachInspectionSink, createInspectionBufferSink |
+        | Byte artifacts | importTraceArtifact, exportTraceArtifact |
+        | Compression | compressTraceArtifact, decompressTraceArtifact |
+
+        - Specified call forms preserve exact machine relationships. M denotes the supplied
+        Machine; snapshot/event use that exact M. Projection returns remain inferred and
+        package-owned, with no public Flow* or v2 model hierarchy. Forms left open at @Q2 are
+        unapproved.
+
+        | Function | Parameters | Return |
+        | --- | --- | --- |
+        | graphOf | machine:M | Inferred graph for M |
+        | inspectTransition | machine:M, snapshot of M, EventOf<M> | Transition for M |
+        | inspectMicrosteps | machine:M, snapshot of M, EventOf<M> | Inferred microstep projection |
+        | whyNoTransition | machine:M, snapshot of M, EventOf<M> | Explanation or undefined |
+        | analyzeTrace | @Q2 | Unapproved; exact form unresolved |
+        | summarizeTrace | trace | Inferred retained-window summary |
+        | diffTrace | left, right | Inferred diff preserving both operands |
+        | formatTrace | trace | string |
+        | formatInspectionEvent | event | string |
+        | formatInspectionTimeline | readonly event array | string |
+        | formatNoTransitionSummary | explanation | string |
+        | formatRehydrationSummary | trace | string |
+        | formatResourceFreshnessReport | trace | string |
+        | formatTransactionOverlapSummary | trace | string |
+        | buildBehaviorContract | target | Inferred behavior contract; target gap at @Q2 |
+        | sliceBehaviorContract | @Q2 | Unapproved; exact form unresolved |
+        | diffBehaviorContracts | left, right, options? | Inferred behavior diff |
+        | renderBehaviorContract | contract, options? | string |
+        | renderBehaviorCoverage | target, options? | string; target gap at @Q2 |
+        | renderBehaviorDiff | @Q2 | Unapproved; exact form unresolved |
+
+        - `diffBehaviorContracts` and `renderBehaviorContract` options are exactly
+        { moduleId?:string }. A missing option adds no alternate projection. `renderBehaviorDiff`
+        has no approved form at @Q2. Pure graph/transition inspection starts no work and never
+        claims actual starts/releases/generations/pending outcomes/finalizers. Live projections
+        consume only the accepted committed evidence model. whyNoTransition returning undefined
+        for no explanation is not a codec failure channel.
+
+        - createInspectionBufferSink({ capacity? }) defaults to 256. Its exact buffer members are:
+
+        ```ts
+        snapshot(): { records: InspectionRecord[]; truncatedBeforeSequence: number | null };
+        clear(): void;
+        ```
+
+        - InspectionRecord is private notation. attachInspectionSink(runtime,sink) returns
+        { drain, dispose }; drain is awaitable. Each sink is route-created and attaches once.
+        @O3 owns retention, failure, and accepted-prefix semantics.
+
+        - importTraceArtifact(bytes:Uint8Array) returns an inferred private raw trace.
+        exportTraceArtifact(trace,options?) returns Uint8Array under @O5. The byte carrier is
+        defensive and contains no filesystem authority. No v1 object importer is retained.
+
+        - compressTraceArtifact takes the inferred trace operand; decompressTraceArtifact takes
+        Uint8Array. Their asynchronous failure/return form is unresolved at @Q2 because old
+        undefined/v1 carriers conflict with the accepted v2 typed-failure boundary. No share
+        input is accepted. Compression helpers imply no executable model or extra decoder.
+
+    O2  Shared portable structural codec
+        - Persistence restore and raw artifact import/export share one Flow-owned structural
+        walker, private Effect Schema decoder, and package-owned canonical decoded data. Share
+        output uses that structural encoding policy; it has no decoder.
+
+        - Persistence owns its distinct envelope and opaque application codec under
+        @plan.Persistence.O1 and @plan.Persistence.O2. Public bytes are strict UTF-8 stable-key
+        JSON or exactly one gzip member. Stop decompression on crossing the decompressed bound.
+
+        - Validate structure, versions, identity, descriptors, tokens, revisions, and bounds
+        before actor creation, external work, or committed mutation. Exact limits, ordering,
+        finite-number rules, compression rejection, failure ownership, and portable host laws
+        follow below.
+
+        - No raw parser/library exception, undefined failure, generic corruption result, Node
+        Buffer, Cause tree, or envelope-specific limit override escapes. DiagnosticProjection
+        remains the one diagnostic model under @plan.DiagnosticsContract.O1 and
+        @plan.DiagnosticsContract.O2.
+
+        - @V2 proves byte/structure bounds, hostile carriers, portable bytes, and pre-mutation
+        failure.
+
+        ### Exact structural bounds
+
+        | Limit | Required value |
+        | --- | --- |
+        | Depth | 32, root at zero |
+        | Visited nodes | 10,000 scalar-or-container nodes |
+        | Array length | 4,096 items |
+        | One string or property key | 262,144 UTF-8 bytes |
+        | Decompressed or canonical encoded UTF-8 | 2,097,152 bytes |
+
+        - Bounds apply uniformly to boot, behavior, trace, shares, and opaque carriers. No
+        envelope overrides exist. Compressed input stops when the decompressed-byte limit is
+        crossed. Counters, revisions, generations, sequences, and timestamps are non-negative
+        safe integers.
+
+        - A boot counter already at MAX_SAFE_INTEGER is invalid; reserve terminal-publication and
+        Runtime-cleanup credits.
+
+        - The wire name NonNegative means Number.isSafeInteger(value) && value >= 0. Public
+        timestamps are integer epoch milliseconds from Runtime Effect Clock; Stories/evidence
+        use TestClock.
+
+        ### Portable bytes and canonical order
+
+        - Use shared host-neutral ECMAScript/Web text APIs and WHATWG TextEncoder byte counts.
+        Reject lone surrogates before encoding, using String.prototype.isWellFormed or an
+        equivalent fallback.
+
+        - Never silently replace surrogates, approximate UTF-8 with UTF-16 length, use Node Buffer
+        in shared code, use host-specific encoders, or add a second handwritten encoder.
+
+        - Node, Bun, Deno, and browser consumers receive equal canonical bytes and stable-ref
+        identities from equal accepted input.
+
+        - Canonical JSON sorts object keys, ID-indexed declarations, and requirement lists by
+        UTF-8 byte order. Preserve authored child, event, checkpoint, record, diagnostic, and
+        fact order. Finite numbers use JSON.stringify. Perform no Unicode normalization.
+
+        - Add exactly one trailing newline at the file boundary. Artifacts are stable-key UTF-8
+        JSON and are emitted uncompressed.
+
+        - These artifact-order rules do not replace Resources canonical K record ordering or its
+        -0 normalization. Stable descriptor/ref identity bounds belong to ApplicationsAndActors;
+        the shared UTF-8 helper provides the bytes, without type-level byte arithmetic.
+
+        ### Defensive validation and failure ownership
+
+        - Public byte processing is strict UTF-8, at most one supported compression member,
+        decompressed bounds, JSON parsing, and the one package-private Effect Schema decoder to
+        fresh canonical data.
+
+        - Validate versions, identities, descriptors, tokens, revisions, and limits before mutation
+        or work. Synchronous Runtime construction remains inert and performs no storage read.
+
+        - When ready executes, Persistence reads and validates detached boot data. Its application
+        codec validates opaque values before service acquisition, store installation, activation,
+        or handle escape. @plan.ApplicationsAndActors.O3 and @plan.Persistence.O2 own that boundary.
+
+        - Do not decode compiled machine input again or run boot-domain application decoding for
+        artifact-only operations.
+
+        - Reject malformed/cyclic data, serialized negative zero, non-finite numbers, parser
+        failures, detectable duplicate object keys, concatenated gzip members, trailing bytes,
+        unsupported compression, and over-limit input.
+
+        - Require duplicate-key detection when the parser provides it. Compression and
+        decompression failure map to DecompressionFailed or the applicable bounded-input
+        diagnostic.
+
+        - Private direct-decoder behavior is unspecified for proxies, getters, custom prototypes,
+        descriptors, symbol properties, sparse arrays, and concurrent mutation; this does not
+        weaken public byte rules.
+
+        - Failures retain structural, bound, identity, decompression, external-input, application,
+        cleanup, interruption, I/O, or invariant ownership. Bounds identify limit and path
+        separately from other categories.
+
+        - Diagnostic owns classification/code/path/details plus evolving summary/help. Ordered
+        wire projections do not invent another type or mirror Cause.
+
+        - Raw parser errors, generic corruption, undefined failures, executable authority, and raw
+        Effect Cause never escape in carriers.
+
+    O3  Ordered bounded inspection evidence
+        - Every successful turn exposes one atomic committed actor/store cut. Accepted evidence
+        uses one Runtime-global sequence shared by turn and lifecycle facts. Acknowledgment
+        follows publication/evidence acceptance and never waits for user Effects. StoreFanout is
+        causal.
+
+        - A lifecycle snapshot precedes its event through the existing handle; lifecycle facts do
+        not advance machine-turn revision or manufacture TurnRecords.
+
+        - Lifecycle data includes exact actor/app/plan/incarnation provenance, full snapshot,
+        from/to/cause, both private revisions, timestamp, and sequence. Fresh snapshot
+        publication revision is zero; hydration restores persisted publication and turn
+        revisions.
+
+        - @plan.ApplicationsAndActors.O5 and @plan.ApplicationsAndActors.O7 owns lifecycle
+        validity and publication. No prepare record or terminal-disposal machine turn exists.
+        createInspectionBufferSink({ capacity? }) defaults to 256 and requires a non-negative
+        integer.
+
+        - Caller capacity is exact, including zero. snapshot() returns records and
+        truncatedBeforeSequence:number|null; clear():void preserves sequence. The marker is null
+        iff no accepted evidence was omitted, otherwise the greatest omitted or cleared
+        sequence.
+
+        - Clear advances only through the retained tail; accepted queued records may arrive later.
+        One sink attaches once to one Runtime and observes post-attachment accepted records
+        only. Before attachment snapshot is empty/null.
+
+        - Late attachment marks greatest unseen sequence, except sequence zero. drain/dispose wait
+        only through accepted prefixes before detaching. Slow sinks never delay
+        acknowledgment/StoreFanout, mutate/roll back commits, or retain actor-owned history.
+
+        - Failure detaches that attachment while other sinks continue. No silent omission,
+        mixed-Runtime state, persisted buffers, or second mutable history is permitted. Ordinary
+        admission/commits reserve actor/store/sequence cleanup capacity before mutation.
+
+        - Sequence exhaustion refuses work before commit. Disposal drains terminal lifecycle
+        evidence in reverse dependency order. Changed-ref hints apply only to their revision;
+        skipped readers reread relevant current state rather than reconstructing incomplete
+        historical diffs.
+
+        - Records become durable only by explicit configured-sink export, preserving order,
+        marker, app identity, and format version. @V3 proves ordering, isolation, capacity, and
+        drain races.
+
+    O4  Canonical raw behavior and trace schemas
+        - Available fields, discriminants, invariants, canonical fingerprint rules, and fixed
+        condition-to-code mappings follow below. A behavior artifact has kind behavior-contract
+        and version flow-state/behavior-contract.v2.
+
+        - It carries appId, persistenceVersion, appPlanFingerprint, requirements, modules,
+        machines, and app/machine Story metadata. It contains declarations/coverage identity
+        only.
+
+        - A raw trace has kind trace-artifact and version flow-state/trace-artifact.v2 with
+        storyId, appId, persistenceVersion, appPlanFingerprint, capturedAt,
+        truncatedBeforeSequence, ordered records, checkpoints, outcome, end, failure, and
+        cleanup.
+
+        - Nullable fields are present as null. Completed traces have end, null failure, and
+        complete cleanup. Failed traces have failure and cleanup consistent with ordered
+        diagnostics. End is never finality.
+
+        - Resource/transaction/stream facts remain closed, with exact
+        generation/occurrence/retention/ latest/reconciliation unions; no unknown fields,
+        omitted nulls, legacy root/child/final/v1/ Scenario shapes, duplicate checkpoint names,
+        invalid lifecycle tuple, unresolved requirement, duplicate identity, invalid Story
+        metadata/default, or fingerprint mismatch is accepted.
+
+        - No callbacks, fixtures, Effects, live actors/refs/Runtime state, raw Cause, or public v2
+        model is serialized. Story and CLI share one private decoded handoff. @V4 precisely
+        records source layouts that remain undeclared; it blocks claiming exact schema
+        completeness.
+
+        - @V4 proves explicit schema/canonical bytes/fingerprint requirements and closes only
+        after the @V4 layouts and decisive executable schema vectors exist.
+
+        ### Behavior artifact
+
+        | Field | Required value or meaning |
+        | --- | --- |
+        | kind | "behavior-contract" |
+        | version | "flow-state/behavior-contract.v2" |
+        | appId | Exact stable app identity |
+        | persistenceVersion | Exact application persistence version |
+        | appPlanFingerprint | Canonical lowercase-hex SHA-256 identity |
+        | requirements | Normalized one-record-per-static-identity requirement table |
+        | modules | Exact module ownership/references |
+        | machines | Exact declarations, compound defaults, operation/context identity |
+        | Story metadata | App/machine metadata; private representation pending at @V4 |
+
+        - A behavior artifact contains declaration and coverage identity only. Each operation
+        requirement ID resolves to exactly one requirements record. No fixtures, Effects, live
+        actor objects, Runtime state, or executable callbacks are stored.
+
+        - Fingerprint preimage is canonical { appId, persistenceVersion, requirements, modules,
+        machines }. Exclude Stories and trailing newline. The package-private behavior builder
+        owns the preimage; encoding recomputes/verifies the emitted fingerprint.
+
+        - Standalone behavior import recomputes the fingerprint from its included preimage and
+        rejects inconsistent bytes as ArtifactIdentityMismatch. Standalone trace import validates
+        its identity fields and fingerprint form; it has no receiving App or declaration preimage.
+
+        - At an existing boundary supplied with a compiled receiving AppPlan, compare that App's
+        fingerprint with the artifact. Mismatch is ArtifactIdentityMismatch. Artifact comparisons
+        also reject incompatible operand identities. Standalone import requires no App or gateway.
+
+        - Byte import gains no App argument, hidden global registry, or implicit gateway loading.
+        No public fingerprint or collision-resolution API exists.
+
+        ### Raw trace artifact
+
+        ```ts
+        type NonNegative = number; // runtime: safe integer >= 0
+        type Nullable<A> = A | null;
+        ```
+
+        | Field | Required value or meaning |
+        | --- | --- |
+        | kind | "trace-artifact" |
+        | version | "flow-state/trace-artifact.v2" |
+        | storyId | Exact registered Story identity |
+        | appId | Exact stable App identity |
+        | persistenceVersion | Exact application persistence version |
+        | appPlanFingerprint | Verified behavior identity |
+        | capturedAt | NonNegative Clock timestamp |
+        | truncatedBeforeSequence | Nullable<NonNegative>; greatest omitted sequence |
+        | records | Ordered committed TurnRecord/LifecycleRecord projections |
+        | checkpoints | Ordered uniquely named checkpoints |
+        | outcome | "completed" or "failed" |
+        | end | Checkpoint or null; never finality |
+        | failure | StoryFailure or null |
+        | cleanup | Complete, or failed with ordered diagnostics |
+
+        - Completed outcome requires non-null end, null failure, and { status: "complete" }
+        cleanup. Failed outcome requires failure, nullable end, and cleanup status agreeing with
+        its diagnostics. Failure before end capture leaves end null. Failure after end capture
+        retains end.
+
+        - Cleanup failure cannot produce successful evidence. Checkpoint captures include exact
+        actor targets plus reserved Runtime now/pendingWork metadata; machine evidence exposes
+        its single snapshot directly.
+
+        - All nullable fields are present and null when absent. Unknown members and omitted
+        nullable members reject.
+
+        - Preserve exact record/checkpoint/fact/diagnostic order, sequence, lifecycle snapshot,
+        context and observed provider revisions, StoreState revision, timer identity, operation
+        occurrence/generation, and issue ownership.
+
+        - The decoder rejects a truncation marker inconsistent with retained records. A non-null
+        marker prevents proof and complete equality.
+
+        ### Record, operation, and failure constraints
+
+        - Lifecycle evidence contains full lifecycle snapshot; exact actor/app/plan/incarnation
+        provenance; from/to/cause; publication and machine-turn revisions; timestamp; and
+        Runtime-global sequence. actor:restore is prepared -> prepared and precedes actor:start.
+        actor:start is first activation; actor:suspend is active -> suspended; actor:resume is
+        suspended -> active; actor:dispose is terminal from any non-disposed lifecycle.
+
+        - Fresh creation, restore, attachment, owner disposal, and Runtime disposal are distinct
+        causes. No prepare event, machine turn for lifecycle, or synthetic terminal TurnRecord
+        is allowed. ApplicationsAndActors owns transition validity.
+
+        | Fact | Closed status lanes and required constraints |
+        | --- | --- |
+        | Resource | missing, pending, ready, refreshing, failure, defect, interrupted |
+        | Transaction | idle, pending, success, failure, defect, interrupted, unknown |
+        | Stream | idle, running, complete, interrupted, failure, defect |
+
+        - Transaction wire facts preserve Flow's attempt evidence under @plan.Transactions.O4.
+        They do not capture the adapter's private remote identity or journal or grant recovery
+        authority. Unknown transaction has reconcileRequired:true. Stream facts preserve exact
+        hasValue/latest/ emissionCount correlation: latest is present exactly in the hasValue
+        lane that permits it.
+
+        - Missing/idle operation lanes have null generation/occurrence where specified;
+        inconsistent generation, occurrence, retention, latest, or reconciliation rejects as
+        InvalidTraceRecord before acquisition.
+
+        - Canonical operation projection discriminants/absence/retention remain owned by
+        Resources, Transactions, and Streams; copying them into wire facts never creates new
+        operation behavior. Context, store, timer, and issue facts retain exact identities and
+        authored order.
+
+        - The precise JSON field sets/correlation for these facts, and the operation wire fields
+        beyond explicit laws, remain pending Spec design at @V4 rather than inferred layouts.
+
+        - Only ordered DiagnosticProjection values are serialized. Preserve independently
+        actionable cleanup diagnostic order and multiplicity, with no Effect Cause shape,
+        traversal order, or fiber ordinals.
+
+        - Only the in-process FlowDisposeError and FlowStoryExecutionError retain complete Cause
+        after classification/cleanup aggregation.
+
+        - The Story envelope retains completed checkpoints, optional end, failure boundary,
+        primary diagnostic, ordered cleanup diagnostics, cancellation, accepted/drained sequence
+        facts, and full Cause. Its constructor/member spelling beyond settled forms is not
+        invented.
+
+        ### Exact condition-to-code mapping
+
+        | Invalid condition | Diagnostic code |
+        | --- | --- |
+        | Invalid descriptor ID | InvalidDescriptorId |
+        | Duplicate ID, operation ID, or slot ID | DuplicateDescriptorId |
+        | Duplicate machine value | DuplicateMachineValue |
+        | Duplicate module ownership | DuplicateModuleOwnership |
+        | Missing module reference | MissingModuleReference |
+        | Invalid state default | InvalidStateDefault |
+        | Unresolved operation requirement | UnresolvedRequirementId |
+        | Invalid Story metadata | InvalidStoryMetadata |
+        | Malformed trace/operation facts | InvalidTraceRecord |
+        | Impossible lifecycle tuple | InvalidLifecycleTransition |
+        | Inconsistent end/failure/cleanup | InvalidStoryEvidence |
+        | AppPlan fingerprint mismatch | ArtifactIdentityMismatch |
+        | Share kind supplied to raw import | WrongArtifactKind, before member/identity checks |
+        | Invalid redaction operand/path | InvalidArtifactOperand |
+
+        - Keep exact category, path, and bound details. Never return undefined or generic
+        corrupt-artifact.
+
+        - Reject deleted Scenario/v1/root/child/final/replay shapes, callbacks, Effects, fixtures,
+        live refs, Runtime ownership, invalid discriminants, duplicates, bad defaults, and
+        unresolved requirements.
+
+    O5  Defensive byte export and redacted shares
+        - importTraceArtifact accepts Uint8Array and returns an inferred private validated
+        artifact. Caller mutation of input/output bytes cannot mutate the artifact or Runtime.
+
+        - The exact accepted exportTraceArtifact(trace, options?) signature,
+        ArtifactExportOptions, ArtifactCanonicalPath, ArtifactValuePath, and share union follow
+        below. Omitted/empty redactions return byte-identical raw output.
+
+        - A non-empty finite valid policy copies a validated raw trace to kind
+        trace-share-artifact, version flow-state/trace-share-artifact.v2, changing only selected
+        application-owned values and the required non-empty canonical redactions manifest.
+
+        - Replace each exact existing caller tuple with the fixed [REDACTED] string. Natural
+        unmanifested occurrences of that string are legal.
+
+        - Never target identities, fingerprints, versions, discriminants, ordering, sequence,
+        truncation, diagnostic codes, cleanup, or status structure. Reject missing, duplicate,
+        overlapping, wildcard, structural, or string-form paths as InvalidArtifactOperand before
+        projection.
+
+        - Array indices are exact non-negative safe in-range integers. Canonical path order is
+        segment-wise: numbers before strings, numeric order, UTF-8 string byte order without
+        normalization, and shorter equal-prefix paths first.
+
+        - Display paths use dotted identifiers and JSON-quoted brackets otherwise; displays are
+        never parsed as input. All shared structural bounds include the manifest. Share output
+        is always uncompressed.
+
+        - No share importer/decoder, CLI consumption, sanitization, summary, diff, proof,
+        compression, replay, persistence, boot, evidence authority, or mutation path exists.
+
+        - Raw import checks kind first and rejects share as WrongArtifactKind before
+        member/identity/fingerprint checks. Runtime, persistence, raw bytes, decoded data, and
+        canonical evidence remain unchanged.
+
+        - @V5 proves exact redaction bytes, privacy boundaries, rejection order, and defensive
+        copies.
+
+        - These fragments are normative type notation. StableId, TraceRecord, Checkpoint,
+        StoryFailure, and Diagnostic name package-private schema components. They do not create
+        public model exports. Their private nested representation remains pending Spec design at 
+        @V4.
+
+        - The target type fragments remain uncompiled and unexecuted.
+
+        ```ts
+        type ArtifactCanonicalPath = (string | number)[];
+        type ArtifactValuePath =
+          | ["records", number, "snapshot", "memory" | "context", ...ArtifactCanonicalPath]
+          | [
+              "records", number, "facts", number,
+              "data" | "value" | "error" | "defect" | "latest", ...ArtifactCanonicalPath,
+            ]
+          | [
+              "checkpoints", number, "actors", number, "snapshot",
+              "memory" | "context", ...ArtifactCanonicalPath,
+            ]
+          | ["checkpoints", number, "snapshot", "memory" | "context", ...ArtifactCanonicalPath];
+        ```
+
+        ```ts
+        type ArtifactExportOptions = {
+          redactions?: { path: ArtifactValuePath; replacement: "[REDACTED]" }[];
+        };
+        ```
+
+        ```ts
+        declare function exportTraceArtifact(
+          trace: ReturnType<typeof importTraceArtifact>,
+          options?: ArtifactExportOptions,
+        ): Uint8Array;
+        ```
+
+        ```ts
+        type TraceShareArtifactBase = {
+          kind: "trace-share-artifact";
+          version: "flow-state/trace-share-artifact.v2";
+          storyId: StableId;
+          appId: StableId;
+          persistenceVersion: string;
+          appPlanFingerprint: string;
+          capturedAt: NonNegative;
+          truncatedBeforeSequence: Nullable<NonNegative>;
+          records: TraceRecord[];
+          checkpoints: Checkpoint[];
+          redactions: ArtifactValuePath[];
+        };
+        ```
+
+        ```ts
+        type TraceShareArtifact =
+          | (TraceShareArtifactBase & {
+              outcome: "completed";
+              end: Checkpoint;
+              failure: null;
+              cleanup: { status: "complete" };
+            })
+          | (TraceShareArtifactBase & {
+              outcome: "failed";
+              end: Nullable<Checkpoint>;
+              failure: StoryFailure;
+              cleanup: { status: "complete" } | { status: "failed"; diagnostics: Diagnostic[] };
+            });
+        ```
+
+    O6  Trace queries and artifact comparison
+        - Behavior diff and live behavior check compare the same canonical behavior projection,
+        optionally scoped by module. They yield equal/different, never trace-only incomplete.
+
+        - Trace summary reports counts/timeline for retained-window evidence and includes the
+        marker; its outcome is completed or incomplete. Trace proof requires complete evidence
+        and rejects every non-null marker with the EvidenceUnavailable meaning and marker.
+
+        - No incomplete proof succeeds. Exact selector forms are issues, timeline, actor:<id>, and
+        correlation:<id>. Split at the first colon and preserve the remaining ID. Selectors are
+        data, never executable code. Complete-artifact absence has the UnknownSelector meaning.
+        Both project through the canonical Diagnostic mapping below.
+
+        - Query refusals use classification Failure and code InvalidArtifactOperand.
+        EvidenceUnavailable and UnknownSelector are exact strings in Diagnostic.details.reason,
+        not DiagnosticCode members or another expected-error family. The mapping is:
+
+        | Query failure meaning | Exact diagnostic path |
+        | --- | --- |
+        | EvidenceUnavailable | ["artifact", "truncatedBeforeSequence"] |
+        | UnknownSelector | ["selector"] |
+
+        - For incomplete proof, details are { reason:"EvidenceUnavailable",
+        truncatedBeforeSequence:N, selector:exactSelector }. N is the non-null truncation marker.
+        For missing selector in complete evidence, details are { reason:"UnknownSelector",
+        selector:exactSelector, truncatedBeforeSequence:null }. Preserve the exact selector string.
+        All fields stay within Diagnostic's existing scalar/null domain.
+
+        - Under truncation, absence is not ordinary unknown. Trace diff is equal only when both
+        artifacts are complete and every selected ordered section matches. Differing retained
+        facts are different even under truncation.
+
+        - Matching retained facts with either input truncated are incomplete. Incompatible
+        App/AppPlan identity is failure, not difference.
+
+        - Sections are event-sequence, transitions, state-changes, issues, resource-patches,
+        resource-freshness, transaction-outcomes, stream-outcomes, and timer-behavior. Default
+        diff scope includes the complete ordered section set.
+
+        - @plan.CommandLine.O3 owns process projection and exit status, without redefining these
+        meanings. @V6 proves selector, comparison, identity, and incomplete-evidence behavior.
+
+decisions
+    D1  Canonical structure is shared and private
+        - Adapters own I/O, applications own opaque codecs, and CLI owns transport and process
+        output. One package-private model feeds Story/CLI projections. No extra decoder/public
+        schema exists.
+    D2  Share output has no evidence authority
+        - Explicit redaction reduces application values without changing raw truth. A distinct
+        kind and version prevent share bytes from being interpreted as raw evidence or
+        executable input.
+    D3  Observable guarantees replace internal choreography
+        - Atomic cuts, global ordering, accepted-prefix drains, nonblocking sinks, complete causal
+        consumer reads, and pre-commit capacity refusal are required. Permit/reservation/queue/
+        gate/attachment/drain algorithms and graph-wide simultaneous publication are not
+        prescribed.
+
+constraints
+    C1  Keep schemas, routes, and carriers closed
+        - Preserve every known required wire field, discriminator, correlation, and bound. Add no
+        alternate decoder, migration envelope, public TurnRecord/v2 artifact hierarchy, raw Cause
+        carrier, or artifact-specific bound. @V4 leaves private representation design replaceable.
+        Unsettled public call forms remain at @Q2. Private nested wire representation and its
+        verification remain at @V4; they do not create a product field decision or public type.
+
+        - @plan.PackageContract.O1 owns inspect-route temporary deferral and restoration gates.
+    C2  Keep observation separate from execution and durability
+        - No actor retention setter, mutable TraceLog, implicit persistent history, fabricated
+        trace, sink-owned actor work, share input, or snapshot-based replay is added.
+    C3  Checks are planned evidence obligations
+        - Every check below is PLANNED and has not established this proposal's runtime behavior.
+        Existing owner tests may supply a baseline only after their vectors and behavior are
+        checked.
+
+verification
+    V1  Pure projections, public type privacy, and live inspection
+        - Establishes @O1. PLANNED: inspect inert definitions/snapshots and live committed facts.
+
+        - Pass when pure planning starts no work and makes no actual completion claims, live
+        records match production truth, one formatter owns each projection, and private
+        v2/TurnRecord types remain absent from fresh packed public declarations.
+
+        - Reject fabricated/mutable lookalikes. Planned checks: check:types,
+        check:packed-consumers, and inspect projection tests under
+        packages/flow-state-rewrite/src/inspect/test. Missing forms are blocked only by @Q2.
+    V2  Shared codec boundary, all bounds, and host portability
+        - Establishes @O2. Every check is PLANNED and unrun.
+
+        ### Byte validity
+
+        - Scenarios: ASCII, 2/3/4-byte UTF-8, malformed UTF-8, 256/257-byte identity names,
+        lone surrogates, and composed/decomposed spellings.
+        - Pass: accepted inputs produce canonical portable bytes. Lone surrogates reject before
+        encoding. UTF-8 byte counts never use UTF-16 length or silently normalize spelling.
+
+        ### Structure and exact bounds
+
+        - Scenarios: malformed JSON, detectable duplicate keys, cyclic data, serialized negative
+        zero, non-finite values, and exact depth/node/array/string/property-key/byte boundaries.
+        - Pass: each invalid input rejects before committed mutation or work. Bound failures name
+        the exact limit and path; other categories remain distinguishable. No raw parser exception,
+        undefined result, Buffer, raw Cause, or generic corruption escapes.
+
+        ### Compression
+
+        - Scenarios: one gzip member, concatenated members, trailing bytes, unsupported compression,
+        and a decompressor crossing its output-byte bound.
+        - Pass: exactly one supported member is accepted. Crossing the bound stops decompression;
+        other malformed inputs retain their decompression or bounded-input diagnostic ownership.
+
+        ### Identity and readiness validation
+
+        - Scenarios: invalid versions/identities and opaque application-codec failure. Record inert
+        construct, ready execution, storage read/decode, service acquisition, and store 
+        installation.
+        - Pass: construction reads nothing. ready validates detached boot and opaque values before
+        acquisition, installation, activation, or handle escape. Failure leaves committed state
+        unchanged. Artifact-only paths invoke no boot-domain decoder or gateway.
+
+        ### Portability and checks
+
+        - Run full vectors on pinned Node. Run the same compiled codec's compact fixture on Bun,
+        Deno, Chromium, Gecko, and WebKit; record exact host versions.
+        - Pass: equal accepted input yields equal bytes/digests on every tested host.
+        - Planned checks: codec tests under packages/flow-state-rewrite/src/artifact/tests and
+        check:types. Structural limits, ordering, and host portability remain unproved.
+
+    V3  Atomic evidence, sinks, truncation, and disposal races
+        - Establishes @O3. Every check is PLANNED and unrun.
+
+        ### Committed ordering and lifecycle
+
+        - Scenarios: interleave actor/store publication, acknowledgment, StoreFanout, and lifecycle
+        events. Read the existing actor handle from each lifecycle listener.
+        - Pass: one global sequence contains committed cuts only. Acknowledgment follows evidence
+        acceptance. StoreFanout stays causal. Listeners see the new lifecycle snapshot before its
+        event; lifecycle emits no machine turn or terminal synthetic TurnRecord.
+
+        ### Stalled and failing sinks
+
+        - Scenarios: hold one sink callback indefinitely, then fail another while a healthy sink
+        continues. Publish a later actor/store change and wait for its acknowledgment and fanout.
+        - Pass: acknowledgment and StoreFanout complete without releasing the held callback.
+        A failed attachment detaches alone; healthy sinks continue. No sink mutates or rolls back
+        committed state, mixes Runtime state, or silently omits accepted evidence.
+
+        ### Capacity, attachment, and truncation
+
+        - Scenarios: zero/default/custom capacity, pre-attachment snapshots, late attachment,
+        retained-tail clear, and accepted queued records arriving after clear.
+        - Pass: pre-attachment is empty/null. Late attach marks greatest unseen sequence unless
+        zero. Capacity and greatest-omitted markers are exact. Clear preserves sequence and marks
+        only through the retained tail; queued accepted records may still arrive afterward.
+
+        ### Drain, exhaustion, and disposal
+
+        - Scenarios: accepted-prefix drain/dispose, sequence exhaustion before commit, skipped
+        changed-ref revisions, and reverse-dependency Runtime disposal with terminal evidence.
+        - Pass: drain/dispose waits through only its accepted prefix. Exhaustion refuses before
+        mutation and retains cleanup credits. Skipped readers reread state. Disposal drains accepted
+        terminal lifecycle evidence. Only explicit export persists records; buffers are not durable.
+
+        - Existing candidate baseline:
+        packages/flow-state-rewrite/src/runtime-next/test/evidence-sink-owner.test.ts.
+        Its existence is not proof of this contract. Required vectors remain planned.
+
+    V4  Canonical v2 schema and diagnostic ownership
+        - Establishes @O4.
+
+        - PLANNED: behavior/raw trace round-trip, UTF-8 canonical ordering, authored order, null
+        fields, SHA-256 recomputation, receiving AppPlan mismatch, every operation union,
+        requirement resolution, lifecycle tuple, end/failure/cleanup combination, and negative
+        mapping listed at @O4.
+
+        - Pass only with exact decoded-model/byte parity, no private schema export, and specific
+        diagnostics before Runtime/application acquisition. Planned checks: artifact schema
+        tests under packages/flow-state-rewrite/src/artifact/tests, check:types, and packed
+        consumers.
+
+        - Standalone scenarios: import/render valid behavior and trace bytes with no App or
+        gateway. Alter behavior preimage/fingerprint coherence; separately compare incompatible
+        artifact operands and supply a mismatched App at an existing context-bearing boundary.
+        - Pass: behavior recomputation rejects altered bytes. Standalone trace validation needs
+        no unavailable App. Actual receiving-App or operand mismatches reject as
+        ArtifactIdentityMismatch. Byte import gains no argument or hidden authority.
+
+        - Private nested representation and executable schema/fingerprint vectors remain pending.
+        No complete undeclared v2 grammar or passed proof is claimed.
+
+        - Pending Spec design: define one closed private representation for each nested layout
+        below. Preserve all explicit public fields, round-trip laws, identity/closure/order,
+        unknown-member rejection, diagnostics, compatibility exclusions, and structural bounds.
+        These are representation choices within the fixed capability, not new public types.
+
+        - Behavior requirements/modules/machines/Story metadata: identity, ownership,
+        requirements and defaults.
+        - TurnRecord and LifecycleRecord: committed cut, provenance, sequence and 
+        lifecycle/revisions.
+        - Checkpoint actor/runtime entries: exact membership, snapshot, now and pendingWork.
+        - StoryFailure, cleanup/cancellation/sequence facts: primary failure and ordered cleanup.
+        - Resource/transaction/stream wire facts: closed status and field-correlation laws.
+        - Context/store/timer/issue wire facts: exact identities, revisions and order.
+        - CliResult/CliError nested data/envelope: command/outcome vocabulary and process truth.
+
+
+        - The named fields above do not establish an otherwise absent complete v2 grammar.
+        Validate the designed representation through one production decoder and exact positive/
+        negative schema vectors. Do not infer behavioral requirements from implementation.
+
+    V5  Raw bytes, deterministic share export, and protected-field rejection
+        - Establishes @O5.
+
+        - PLANNED: omitted/empty policies, every tuple lane, natural replacement strings,
+        numeric/string/prefix ordering, multibyte names, overlapping/duplicate/missing/
+        wildcard/structural/out-of-range paths, manifest bounds, malformed share input, and
+        caller mutations.
+
+        - Pass with byte-identical default raw output, deterministic uncompressed share, unchanged
+        protected fields/raw/Runtime/persistence, and WrongArtifactKind before raw schema or
+        identity checks. All share consumers reject.
+
+        - Planned production decoder/encoder tests route the redaction proof obligation; they
+        remain unimplemented and unrun.
+    V6  Trace queries, ordered comparisons, and incomplete evidence
+        - Establishes @O6. PLANNED: complete equal/different, differing retained truncated,
+        matching truncated, absent actor/correlation, malformed selector, first-colon IDs,
+        module slicing, all ordered section selections, and incompatible app/fingerprint.
+
+        - Pass with exact outcomes, marker-bearing EvidenceUnavailable meaning, complete-only
+        proof/equality, and no gateway/Runtime execution. Pair these tests with
+        @plan.CommandLine.V3 process vectors. Required tests remain planned and unimplemented.
+
+        - Drive incomplete-proof and complete-missing-selector failures through
+        programmatic and installed CLI paths. Decode each emitted diagnostic through Diagnostic.
+        Assert Failure/InvalidArtifactOperand, the exact reason/path/marker/selector at @O6,
+        stderr-only output, empty stdout, and exit 2. Separate query and code-set tests cannot 
+        substitute for this check.
+
+questions
+    Q2  Which final call forms cover the remaining activities and artifact scenarios?
+        These candidates require approval. They add no settled API or public support alias.
+
+        - Activities: inspectActivities(machine, snapshot) returns an inferred projection for the
+        exact Machine. It describes current declarations and inputs derivable from that snapshot.
+        It starts no work. It invents no previous selection, retained P, generation or actual start.
+        History-dependent onMemory factories cannot be reconstructed from this cut alone.
+        No retained public declaration fixes this function's exact arguments or result.
+
+        - Behavior: buildBehaviorContract({ app, stories: storiesRecord }) returns an inferred
+        private behavior contract. buildBehaviorContract({ app }) permits declaration-only analysis.
+        renderBehaviorCoverage({ app, stories: storiesRecord }, { moduleId: "orders" }) returns
+        string.
+        Its stories field and second options argument are optional; options has moduleId?:string.
+        The one target requires app and uses the accepted external-ID Story record when supplied.
+        Both functions remain inert. The branded non-empty gateway stays CLI-only under
+        @plan.StoriesAndModels.O6. Retained declarations fix one target object and optional legacy
+        Story array, but do not fix the replacement record's final typing or validation.
+
+        - Compression: compressTraceArtifact(importedTrace): Promise<Uint8Array> and
+        decompressTraceArtifact(bytes: Uint8Array): Promise<inferred imported trace>. Both use the
+        shared bounded raw-trace codec and one supported gzip member. Reject shares; ordinary raw
+        export remains uncompressed. Proposed terminal JavaScript rejection carries canonical
+        Diagnostic. Earlier declarations returned undefined on failure and a v1 decoded carrier.
+        Exact final success types and asynchronous terminal failure channels remain unapproved.
+
+        - Trace analysis: `analyzeTrace` remains a required route name. Its exact parameters and
+        return shape are unapproved; @plan.Artifacts.C4 leaves its form unspecified.
+
+        - Behavior slicing: `sliceBehaviorContract` remains a required route name. Its exact
+        parameters and return shape are unapproved; @plan.Artifacts.C4 leaves its form unspecified.
+
+        - Behavior diff rendering: `renderBehaviorDiff` remains a required route name. Its exact
+        parameters and return shape are unapproved; @plan.Artifacts.C4 leaves its form unspecified.

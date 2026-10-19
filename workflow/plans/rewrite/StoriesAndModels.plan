@@ -1,0 +1,451 @@
+plan StoriesAndModels
+title   Deterministic Stories, fixtures, recipes, and pure models
+status  Proposed; pending approval
+goal
+    Let consumers describe deterministic application scenarios, retain truthful evidence, and
+    explore pure machine paths before proving them on the production Runtime. This proposed
+    capability owns its API, types, behavior, exclusions, and checks within this Plan.
+
+outcomes
+    O1  Closed inert Story builders
+        - Expose non-callable namespace methods story.app(runtimeSetup, options?),
+        story.machine(machine, options?), and story.actor(machine, options?). Exact
+        input/context/fixture options, persistent branching, and literal checkpoint typing
+        follow below.
+
+        - Helper aliases are specification notation and need not be exported. App Stories require
+        typed RuntimeSetup, never bare App or live Runtime. Machine Stories use a private
+        one-machine AppPlan and one fresh implicit actor on the production engine. Options are
+        closed.
+
+        - Metadata is title?, description?, tags?; maxTurns defaults to 100. Metadata does not
+        affect identity. Exact non-void input is required; void input is forbidden. Focused
+        Stories require exact selected context when present and forbid it when absent.
+
+        - Builders contain no live handles, Runtime, loops, assertions, predicates, branches,
+        arbitrary callbacks, raw memory/state/snapshot overrides, boot unions, refs, or extra
+        actors. Every command returns a new plan and leaves its prefix unchanged.
+
+        - Derived runs replay the prefix independently in fresh isolated Runtimes. This is static
+        branching with no live fork. Checkpoint names accumulate as exact literal/known-union
+        keys.
+
+        - Duplicate names, widened strings, and unknown literal property access reject; other
+        builders preserve known names. @V1 proves construction, type negatives, prefix
+        preservation, and run isolation.
+
+        ```ts
+        type InputOptions<M> = InputOf<M> extends void
+          ? { input?: never }
+          : { input: InputOf<M> };
+        ```
+
+        ```ts
+        type SelectedContextOptions<M> = keyof SelectedContextOf<M> extends never
+          ? { context?: never }
+          : { context: SelectedContextOf<M> };
+        ```
+
+        ```ts
+        type ContextBindingOptions<M> = keyof SelectedContextOf<M> extends never
+          ? { contextBindings?: never }
+          : { contextBindings: StoryContextBindingsOf<M> };
+        ```
+
+        ```ts
+        type StoryContextBindingsOf<M> = {
+          [K in keyof SelectedContextOf<M>]:
+            | ActorRef<ProviderMachineAt<M, K>>
+            | StoryActorRecipe<ProviderMachineAt<M, K>>;
+        };
+        ```
+
+        ```ts
+        type FixtureOptions<Owner> = RequirementsOf<Owner> extends never
+          ? { fixtures?: FixtureDefinition[] }
+          : { fixtures: FixtureTupleClosing<RequirementsOf<Owner>> };
+        ```
+
+        ```ts
+        type AppStoryOptions<App> = FixtureOptions<App> & {
+          maxTurns?: number;
+          title?: string;
+          description?: string;
+          tags?: string[];
+        };
+        ```
+
+        ```ts
+        type MachineStoryOptions<M> = InputOptions<M> &
+          SelectedContextOptions<M> &
+          FixtureOptions<M> & {
+            maxTurns?: number;
+            title?: string;
+            description?: string;
+            tags?: string[];
+          };
+        ```
+
+        ```ts
+        type ActorRecipeOptions<M> = InputOptions<M> & ContextBindingOptions<M>;
+        ```
+
+        - ProviderMachineAt, StoryActorRecipe, FixtureTupleClosing, CheckpointEvidence,
+        EndEvidence, and implementation-layer notation need not be exported.
+
+        - Implementation<Output, ImplementationError> is a complete service graph; combined
+        outputs satisfy Output and acquisition may fail with its exact ImplementationError.
+        Seeds never close a missing service requirement. Fixture, Story and model requirements
+        follow @plan.ApplicationsAndActors.O2. Their inferred RequirementsOf unions survive complete
+        provider installation. @V1, @V2 and @V5 include those exact compile cases.
+
+        ```ts
+        type NewCheckpointName<Names extends string, Name extends string> = string extends Name
+          ? never
+          : Extract<Name, Names> extends never
+            ? Name
+            : never;
+
+        interface StoryPlan<Names extends string = never> {
+          checkpoint<const Name extends string>(
+            name: NewCheckpointName<Names, Name>,
+          ): StoryPlan<Names | Name>;
+          run(options?: { signal?: AbortSignal }): Promise<StoryRun<Names>>;
+        }
+
+        type StoryRun<Names extends string> = {
+          checkpoints: { [Name in Names]: CheckpointEvidence };
+          end: EndEvidence;
+        };
+        ```
+
+        - Every other command returns a new plan while preserving Names. No widened string erases
+        the known-name map. The fragment uses specification-only evidence aliases; exact
+        app/machine evidence is inferred.
+
+        - Supporting syntax: [persistent 
+        branches](references/tools-api.examples.ts#persistent-branches).
+        Exact option and checkpoint type laws remain above; @V1 owns their proofs.
+
+        - Commands accept validated EventOf envelopes, not constructor Result values.
+        Persistent prefixes and inferred keys are required independently of the illustration. 
+        Private
+        JavaScript/CLI lookup checks own keys and rejects unknown or inherited names with
+        existing FlowUsageError semantics. It adds no public function or error type.
+
+    O2  Complete fixtures and exact actor recipes
+        - fixture({ id, implementation, seeds? }) supplies complete service Implementations and
+        optional Runtime-owned resource seeds. The exact closure/recipe laws follow here.
+        Missing external requirements reject even when seeds make a lookup unnecessary.
+
+        - Fixture providers override App providers by service identity. Duplicate fixture
+        providers reject rather than choosing by order. Providers construct once per Runtime.
+        Every run has fresh scoped state unless application ownership explicitly shares it.
+
+        - Recipes contain exact machine, fresh required input, and exact contextBindings only.
+        Provider recipe bindings translate to their exact run-local opaque refs. Such refs are
+        valid live Story providers; persistence never promotes them into durable providers. The
+        same recipe object resolves one actor per run; distinct recipes remain independent.
+        Repeated keys may bind one provider.
+
+        - Bindings accept exact compatible admitted ActorRefs or recipes, including stable refs
+        and transitive providers. Validate missing/extra/foreign/mismatched/disposed/cyclic
+        dependencies before construction.
+
+        - Materialize providers first, retain production createActor leases, and observe only
+        lease.actor. Dispose Story leases in reverse dependency order; app-owned shared actors
+        remain Runtime-owned.
+
+        - Fixtures preserve authored input, success, typed failure, cancellation, and lifetime by
+        replacing complete service functions. They never replace operation kernels, mock pending
+        occurrences, install matchers/control registries, or authorize arbitrary cache mutation.
+
+        - @plan.ApplicationsAndActors.O2 owns Implementation closure.
+        @plan.ApplicationsAndActors.O4 and @plan.ApplicationsAndActors.O5 own leases and
+        lifecycle. @plan.Resources.O1 owns canonical seed identity. @V2 proves fixture and
+        recipe boundaries.
+
+    O3  Production execution, explicit time, and cleanup
+        - Both Story kinds support process(), advance(duration), advanceTo(epochMilliseconds),
+        advanceToNextTimer(), checkpoint(name), and run({ signal? }). App adds
+        send(target,event); machine adds send(event) and setContext(context).
+
+        - App targets an exact recipe or app-owned ActorRef, never a machine family. App Stories
+        never inject selected context directly.
+
+        - Changed/equal machine setContext uses production turns and a silent initial baseline.
+        run(options?: { signal?: AbortSignal }): Promise<StoryRun<Names>> is the sole execution
+        boundary.
+
+        - Each App run calls RuntimeSetup.construct() once and owns a fresh production Runtime,
+        fixture capabilities, deterministic TestClock, and isolated in-memory Persistence. Do
+        not inherit an external Persistence instance.
+
+        - Use production bootstrap, restoration, AppPlan validation, sealing, activation, ensure,
+        acknowledged mailbox dispatch, and cleanup. process drains ready
+        mailbox/context/reconciliation/same-time deadline/scheduler/finite work until another
+        command or future time is required.
+
+        - It does not drain unrelated work, move time, invent results, intercept pending work, or
+        hide pending external calls/streams. Unknown finite work reaching maxTurns fails. Clock
+        movement never processes implicitly.
+
+        - Cancellation closes admission, stops later commands, preserves partial evidence, and
+        waits for non-abortable finalization. Cleanup retains terminal lifecycle evidence and
+        drains the accepted prefix.
+
+        - Close sinks/queues; release Story leases in reverse dependency order; dispose Runtime
+        owners; finalize fixture/host scopes last. Run every phase deterministically.
+        Execution/cancellation failure remains primary; otherwise the first cleanup failure is
+        primary.
+
+        - Either rejects one FlowStoryExecutionError envelope with complete Cause, checkpoints,
+        optional end, failure boundary, primary/ordered cleanup diagnostics, cancellation, and
+        accepted/drained sequence facts. No constructor signature is invented.
+
+        - Cleanup failure may retain captured end but cannot return successful evidence.
+        Story transaction evidence follows @plan.Transactions.O4. It records Flow attempts without
+        capturing the adapter's private remote identity or journal or acquiring recovery authority.
+        @plan.Statecharts.O3 owns turns; @plan.Statecharts.O4 owns timers and refresh fencing.
+        @plan.DiagnosticsContract.O2 owns Cause classification. @V3 proves
+        command/time/finalization.
+
+    O4  Atomic checkpoint and end evidence
+        - A checkpoint captures immediately. run.end follows commands and precedes cleanup; it is
+        not actor finality. Capture the exact static Story closure: the focused machine actor,
+        or every app recipe plus exact binding/target refs and transitive providers.
+
+        - Exclude unrelated actors. Story selection does not require durability and does not use
+        persistence filtering. Use one atomic cut over committed published snapshots, one
+        StoreState revision, runtime pendingWork, TestClock now, actor issues, and accepted
+        evidence prefix.
+
+        - Apply @plan.ApplicationsAndActors.O7 publication/capture and @plan.Persistence.O3
+        consistency laws; Story membership remains owned here. Suspended context debt yields
+        retryable ConcurrentCapture rather than an incomplete cut.
+
+        - This does not impose graph-wide simultaneous publication; @plan.ApplicationsAndActors.O6
+        owns causally complete consumer settlement. App evidence reads
+        checkpoint.actor(recipe | exact ActorRef).snapshot.
+        Machine evidence exposes snapshot directly.
+        The app actor key is an exact recipe object or admitted ActorRef in the captured closure.
+
+        - Both expose runtime.now and runtime.pendingWork; run.end has the same evidence forms.
+        Lookup uses captured data, performs no live lookup/work/progress/time
+        movement/create/restore/dispose, and retains no authority to resume a Runtime.
+
+        - Flow copies envelopes, records, arrays, readers, keys, issues, and snapshot containers;
+        application opaque values retain identity. Release read/selection leases after run.end
+        is captured. Failed capture never fabricates end. Completed checkpoints survive later
+        failure.
+
+        - Private untrusted-name lookup uses own-key membership and existing FlowUsageError
+        semantics; inherited/unknown keys reject. No public dynamic getter or
+        checkpoint-specific error exists.
+
+        - @plan.InspectionAndArtifacts.O3 owns accepted evidence order.
+        @plan.InspectionAndArtifacts.O4 owns wire projections.
+        @V4 proves capture, failure truth, immutable evidence, and exact lookup.
+
+        - Supporting syntax: [evidence reads](references/tools-api.examples.ts#evidence-reads).
+        Checkpoints are evidence, never resumable snapshots.
+
+    O5  Pure model traversal and live paths
+        - model(baseStory, { stateKey }) accepts only a fresh command-empty machine Story.
+
+        - Preserve exact machine/input/selected context/fixtures/progress policy and the empty
+        command tuple. stateKey receives the exact predicted snapshot and returns
+        CanonicalKeyInput covering every guard/redirect-relevant state, memory, and inert
+        exact-ref seed fact. Exact snapshot member names remain open at @Q4.
+
+        - No fallback to object identity or state token exists. @plan.Resources.O1 owns
+        canonical-key validation. Only getShortestPaths/getSimplePaths are exposed.
+
+        - Their exact options are { events, maxDepth?, limit? }; events belong to each traversal
+        call. maxDepth defaults to 20 and is a non-negative safe integer. limit defaults to 100
+        and is a positive safe integer. Event cost is one.
+
+        - Shortest paths use stable candidate-order BFS and first path per unseen key. Simple
+        paths use candidate-order DFS with no repeated key in a path. Include the zero-step
+        path.
+
+        - Stop at either bound; return { paths, truncated, explored }. truncated is true when a
+        bound hides an otherwise reachable candidate. Defects/noncanonical keys throw
+        synchronously without partial results.
+
+        - Traversal uses pure transition/guard/redirect/memory logic and inert seeds only. It
+        performs no Effects, service acquisition, fixture construction, Runtime/actor work,
+        operation execution, mutation, restoration, time movement, or hidden candidate
+        retention/registries.
+
+        - Each path retains predicted final projection, per-step data/issues, weight, description,
+        and traversal metadata. path.story extends the base with exact authored candidate events
+        and empty checkpoints.
+
+        - It is an ordinary Story; path.story.run() supplies live proof and
+        path.story.process().run() explicitly drains ready work. Compare final and prefix keys
+        using the same stateKey. Async outcomes are traversable only as already-authored
+        candidate events.
+
+        - Predict no primitive snapshots, synthesize no routes/checkpoints, and create no second
+        interpreter. React attachment remains outside the machine timeline. @V5 proves
+        deterministic traversal, bounds, purity, and live final/prefix parity.
+
+        - Supporting syntax: [pure model paths](references/tools-api.examples.ts#model-paths).
+        @V5 owns the live final/prefix parity checks; examples report no execution.
+
+        - Candidate events are validated envelopes.
+
+        - Traversal returns paths/truncated/explored under @O5. Returned Stories use ordinary
+        evidence, errors, checkpoints, and cleanup when run.
+
+    O6  Inert behavior gateway
+        - behavior({ app, stories }) requires one supplied App and a non-empty Story record.
+        Record keys are external IDs. Reject empty/duplicate IDs, missing/mixed App identity,
+        recipes, incompatible App Stories, and machine Stories outside supplied App.M.
+
+        - App Stories use their supplied RuntimeSetup. Machine Stories may use a package-private
+        focused AppPlan without creating a second public app identity. Brand and AppPlan/gateway
+        internals remain private.
+
+        - Validation/registration is synchronous and acquires no Implementation, Runtime, actor,
+        Story execution, fixture, sink, executor, or cleanup. The CLI is the only public
+        consumer.
+
+        - @plan.CommandLine.O1 owns trusted loading, containment, exact package identity, and
+        process discovery. @V6 proves inert typed gateway behavior.
+
+decisions
+    D1  Stories execute on the production Runtime
+        - Test hosts provide configuration, clock, complete services, and seeds before
+        construction. They own assertions, pass/fail, retries, and naming after run(), including
+        rejected evidence. They do not own a second engine, scheduler, store, evidence model, or
+        cleanup system.
+    D2  Model predictions require live parity
+        - Pure exploration does not prove effects, cross-actor orchestration, or host lifecycle.
+        Run returned ordinary Stories to establish relevant production behavior.
+    D3  Evidence capture has a distinct membership policy
+        - Story target closure and durable persistence closure use shared consistency laws but
+        retain separate selection. Nonpersistent Story actors remain valid evidence targets.
+
+constraints
+    C1  Keep the public surface closed
+        - Reject callable story, .with, bare App/live Runtime inputs,
+        perform/deliver/receive/simulate/flush/settle/setTime/final/replay, pending-result
+        injection, and synthetic suspend/resume.
+
+        - Reject fork/restore/fromCheckpoint, shared live states/handles/Runtimes, public testing
+        runtimes, result/path class hierarchies, replay/provide/clock helpers, and recipe use in
+        React or ordinary Runtime APIs.
+
+        - FlowStoryExecutionError is the sole named testing runtime class. Specification helper
+        aliases in this Plan are not required exports.
+    C2  Models do not acquire executable authority
+        - No app Story reduction, boot/nonfresh restore, inferred events, filters, source/target
+        selectors, custom weights/duplicate policies/serializers, fixture-outcome persistence,
+        function-mocking registry, transaction Effects, stream programs, patches, fibers,
+        queues, Deferreds, or Scopes appear in model artifacts or traversal.
+    C3  Preserve platform, routes, and evidence status
+        - @plan.PackageContract.O1 owns temporary testing-route deferral and restoration gates.
+        Checks below are PLANNED; no proposed contract runtime, type, or integration receipt is
+        claimed.
+
+verification
+    V1  Closed constructors, checkpoint types, and isolated persistent branching
+        - Establishes @O1. PLANNED: compile strict isolated-module and isolated-declaration
+        consumers for exact app/machine/recipe options and checkpoint-name accumulation; reject
+        missing/extra fields, void input, context-free context, missing fixture closure,
+        duplicate/widened names, and unknown literal keys.
+
+        - Extend one common prefix three ways and run twice; pass when the prefix is unchanged and
+        each run has fresh Runtime, fixture/provider state, Persistence, handles, and command
+        replay. Construction runs nothing.
+
+        - Planned checks: check:types, check:packed-consumers, and tests under
+        packages/flow-state-rewrite/src/testing/test. These proposed contract checks remain
+        pending.
+        - For the inferred Story result, assert the exact two-service requirement union and
+        covariance. Remove only Flow-owned Scope; complete fixtures do not turn it into never.
+
+    V2  Fixture closure, recipe identity, dependency ownership, and failure cleanup
+        - Establishes @O2. PLANNED: repeated recipe identity, distinct equal recipes, repeated
+        provider slots, stable/transitive refs, provider override, duplicate fixtures, service
+        acquisition failure, cancellation, and seeds.
+
+        - Pass with exact requirement closure, one provider build per Runtime, providers before
+        consumers, leases retained/reversed, and shared actors still Runtime-owned. Reject
+        foreign/cyclic/incomplete recipes before actor or external work.
+
+        - Prove seeds never satisfy services or authorize writes and kernels remain
+        production-owned. Planned checks: production Story fixture/recipe tests plus
+        check:types; tests remain pending.
+        - For an inferred fixture result, assert the exact service requirement union and
+        Scope removal under @plan.ApplicationsAndActors.O2. Seeds cannot erase its carrier.
+
+    V3  Production processing, explicit TestClock, maxTurns, and every exit lane
+        - Establishes @O3. PLANNED: acknowledged FIFO sends, pending external calls/streams, ready
+        reconciliation/context/timers, changed/equal setContext, maxTurns exhaustion, and
+        clock-only movement. Advance time without process; pass only when no implicit work
+        drains.
+
+        - Verify @plan.Statecharts.V4 timer refresh fencing through this host without duplicating
+        its owner matrix. Cancel before/during commands and each cleanup phase; inject
+        independent cleanup failures.
+
+        - Leave a provider permanently suspended while Story send waits behind a blocked context
+        head. Cancel the run. Runtime terminal disposal retires that lane under
+        @plan.ApplicationsAndActors.O5, settles the waiting acknowledgment once and finishes
+        cleanup without upstream recovery. It fabricates no committed turn or successful end.
+
+        - Pass with closed admission, no later command, all finalizers attempted once,
+        deterministic ordering, preserved primary failure, full aggregated Cause, and no success
+        after cleanup failure. Planned production Story/TestClock tests remain unimplemented.
+    V4  Atomic exact evidence, capture races, and truthful failures
+        - Establishes @O4. PLANNED: checkpoints for app recipe/ref and focused snapshot, unknown
+        and inherited lookup, unrelated active actors, concurrent store/context publication,
+        suspended debt, failure before end capture, and failure after end capture.
+
+        - Pass with exact membership, one committed store cut, causally complete context or
+        ConcurrentCapture, no live capture work, immutable earlier evidence, and no fabricated
+        end. Cleanup failure retains captured end but rejects.
+
+        - Compare direct/CLI evidence, diagnostics, Cause projection, and accepted/ drained
+        prefix. Planned Story/barrier/artifact integration tests remain unimplemented.
+    V5  Pure model oracle and ordinary live-path parity
+        - Establishes @O5. PLANNED: independent small graph oracle for BFS/DFS order, zero-step
+        paths, cycles, equal canonical keys, both limits, hidden candidates,
+        noncanonical/defective keys, separate traversal event sets, and guard-relevant
+        memory/seed changes.
+
+        - Pass with exact order/results/truncation, no partial failures, no acquisition/mutation,
+        and call-local events. Run final/prefix Stories through production and compare stateKey,
+        snapshots, turns, pending work, operation facts/generations, context, and cleanup.
+
+        - Declare only genuinely nondeterministic field exceptions. Async candidate events must be
+        authored. React remains outside machine time. Planned model purity/oracle and
+        live-parity tests remain pending.
+        - Assert RequirementsOf on the inferred model equals its base machine Story's exact
+        requirement union, with covariance and only Flow-owned Scope removed.
+
+    V6  Branded gateway identity and inert discovery
+        - Establishes @O6. PLANNED: valid App/machine Story records and all invalid app/ID/recipe
+        combinations.
+
+        - Pass when registration is synchronous, one supplied App identity is retained, type/brand
+        requirements reject lookalikes, and no provider/Runtime/fixture/sink/executor is
+        acquired. Pair with @plan.CommandLine.V1 installed-loader integration.
+
+        - Planned gateway production tests and packed type consumers remain unimplemented.
+questions
+    Q1  Which readonly members and types does FlowStoryExecutionError expose?
+        @plan.Verification.V4 and @O3 describe its evidence but leave its public member shape open.
+
+    Q2  What does model result explored count, and when does each item count?
+        @O5 and @V5 do not define the counted unit or its increment point.
+
+    Q3  Which input type and units does advance(duration) accept?
+        @O3 names the command without fixing its duration representation.
+
+    Q4  What is the machine-state member name in stateKey's predicted snapshot?
+        The older @plan.PublicSurface.O5 example uses value; a prior proposed example used state.
+        Neither defines that exact snapshot member.

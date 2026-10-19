@@ -1,0 +1,454 @@
+plan DiagnosticsContract
+title   Canonical diagnostics and failure boundaries
+status  Proposed; pending approval
+goal
+    Give consumers one typed diagnostic vocabulary with stable machine data, complete failure
+    classification, safe human remediation, and exact terminal JavaScript projections. These are
+    proposed target requirements, not shipped behavior.
+
+outcomes
+    O1  Canonical Diagnostic schema
+        - Diagnostic is the sole package-owned expected failure value. It is a real Error,
+        directly yieldable Effect failure, and executable Schema.TaggedError codec with identity
+        flow-state/Diagnostic. Classification is exactly Failure, Defect, or Interruption.
+
+        - The exact code/reason sets appear at @O5. The schema fields are:
+
+        | Field | Exact domain |
+        | --- | --- |
+        | classification | Failure, Defect, or Interruption |
+        | code | Closed DiagnosticCode at @O5 |
+        | path | Array of strings or finite numbers |
+        | details | Record of strings, finite numbers, booleans, or null |
+        | summary | string |
+        | help | string |
+
+        - These aliases describe exact domains. Except for retained host shapes, they do not
+        prescribe additional public exports or a private helper architecture.
+
+        ```ts
+        type DiagnosticPath = (string | number)[];
+        type FlowPath = DiagnosticPath;
+        type DiagnosticScalar = string | number | boolean | null;
+        type DiagnosticDetails = Record<string, DiagnosticScalar>;
+        type DiagnosticClassification = "Failure" | "Defect" | "Interruption";
+        type DiagnosticDocument = Schema.Codec.Encoded<typeof Diagnostic>;
+        type DiagnosticProjection = Diagnostic;
+        ```
+
+        - DiagnosticPath is (string | number)[]; FlowPath aliases it. Runtime paths accept finite
+        numbers. DiagnosticDetails is Record<string, string | number | boolean | null>; numbers
+        must be finite. Fields are classification, code, path, details, summary, and help.
+
+        - DiagnosticDocument derives from Schema.Codec.Encoded<typeof Diagnostic>.
+        DiagnosticProjection aliases Diagnostic and creates no second model. FlowUsageCode has
+        exactly 19 members, including AdmissionOverloaded. Unknown codes reject.
+
+        - InvalidMachineConfigurationReason is closed; path/details name real fields and tokens.
+        @V1 proves the schema and exact declarations.
+
+    O2  Typed mappings and complete Cause classification
+        - Structural decoding returns Result<A,Diagnostic> without running an Effect or requiring
+        services. Translate only SchemaError at that boundary, with issue paths and safe details.
+        Decode once; machine compilation consumes the already-decoded value.
+
+        - Semantic validation returns Result<A,Diagnostic>. Expected invalid configuration remains
+        data rather than a thrown generic Error. Mapping a semantic failure preserves success A.
+
+        - An owner maps only understood typed failures E to Diagnostic. The resulting Effect
+        preserves A and R exactly: Effect<A,E,R> becomes Effect<A,Diagnostic,R>.
+        Defects and interruption remain outside E.
+
+        - Preserve complete Exit and Cause until cleanup and evidence aggregation finish.
+        Keep Fail, Die, and Interrupt distinguishable. Classification precedence is defect,
+        then typed failure, then interruption-only.
+
+        - Do not squash Cause before an intentionally lossy synchronous JavaScript host boundary.
+        No convenience throw or Promise rejection becomes a reusable service failure channel.
+
+        - @plan.ReactAndHosts.O4 owns foreign Promise adaptation and final execution boundaries.
+        Its rejection mapping produces this same Diagnostic. Supported AbortSignal forwarding
+        and cancellation preserve complete Cause through final classification.
+
+        - Later Specs may choose private mapping helpers, aliases, classifier records, and
+        completion primitives. Their names, exact helper signatures, and private field layout
+        are not consumer contracts. @V2 proves the observable Result/Effect/Cause laws.
+
+    O3  Usage and terminal host projections
+        - Only a Failure Diagnostic with a FlowUsageCode may become FlowUsageError at the
+        synchronous JavaScript boundary. UsageDiagnostic is notation for that narrowing;
+        the private conversion helper name is a later Spec choice.
+
+        - Future FlowUsageError extends Error with _tag FlowUsageError, code, path, details, and
+        constructor (code, path?, details?). Exact declarations:
+
+        ```ts
+        declare class FlowUsageError extends Error {
+          _tag: "FlowUsageError";
+          code: FlowUsageCode;
+          path: FlowPath;
+          details: DiagnosticDetails;
+          constructor(code: FlowUsageCode, path?: FlowPath, details?: DiagnosticDetails);
+        }
+        ```
+
+        ```ts
+        type UsageDiagnostic = Diagnostic & { classification: "Failure"; code: FlowUsageCode };
+        declare class FlowPersistenceError extends Error {}
+        ```
+
+        - FlowPersistenceError is a compatibility-only terminal Error with no additional fields;
+        storage, codec, identity, and restoration use canonical Diagnostic internally.
+
+        - @O6 gives 19 maintained remediation rows: failure meaning, illustrative
+        path/details/message, and corrective action for every usage code. Consumers branch on
+        _tag/code/path/details. Human text may evolve and is never parsed.
+
+        - No public cause member or alternate usage error shape is added. Raw Cause is serialized
+        nowhere. Only FlowDisposeError and FlowStoryExecutionError retain complete Cause in
+        process, under @plan.ApplicationsAndActors.O5 and @plan.StoriesAndModels.O3.
+
+        - Package route availability follows @plan.PackageContract.O1; future declarations do not
+        restore deferred root names. @V3 proves every usage lane; @V4 proves route boundaries.
+
+    O4  Safe shared rendering
+        - Shared diagnostic rendering receives Diagnostic only. Formatting policy remains separate
+        from schema fields. Private printer/helper names and signatures are later Spec choices.
+        They create no public route, diagnostic service, or second failure model.
+
+        - Emit safe text shaped as error[Code] at path: summary, followed by actionable help:
+        text. Escape path/details. Never invent a file, line, or column.
+
+        - ANSI, stacks, raw input, and raw Cause are excluded from renderer input. Machine fields
+        remain stable; human prose and whitespace may evolve. @V5 proves safe actionable text.
+
+    O5  Closed diagnostic vocabularies
+        - FlowUsageCode is exactly:
+
+        | Usage code |
+        | --- |
+        | InvalidCanonicalValue |
+        | ForeignActorRef |
+        | MismatchedActorRef |
+        | MissingActorRef |
+        | DisposedActorRef |
+        | RuntimeNotReady |
+        | RuntimeDisposed |
+        | MissingContextProvider |
+        | ContextDependencyCycle |
+        | DuplicateActorClaim |
+        | UnadmittedMachine |
+        | ActorNotActive |
+        | InvalidOperationPlan |
+        | WrongOperationKind |
+        | OperationNotPending |
+        | OperationAlreadySettled |
+        | DuplicateStreamDeclaration |
+        | BlockedByDependents |
+        | AdmissionOverloaded |
+
+        - DiagnosticCode is FlowUsageCode plus exactly:
+
+        | Additional diagnostic code |
+        | --- |
+        | InvalidMachineConfiguration |
+        | SchemaValidation |
+        | SemanticValidation |
+        | InvalidDescriptorId |
+        | DuplicateDescriptorId |
+        | DuplicateMachineValue |
+        | DuplicateModuleOwnership |
+        | MissingModuleReference |
+        | InvalidStateDefault |
+        | UnresolvedRequirementId |
+        | InvalidStoryMetadata |
+        | InvalidTraceRecord |
+        | InvalidLifecycleTransition |
+        | InvalidStoryEvidence |
+        | InvalidArtifactOperand |
+        | WrongArtifactKind |
+        | ArtifactIdentityMismatch |
+        | DecompressionFailed |
+        | BoundExceeded |
+        | StorageFailure |
+        | CodecFailure |
+        | IdentityVersionMismatch |
+        | MalformedData |
+        | ConcurrentCapture |
+        | NonDurableContextProvider |
+        | CleanupFailed |
+        | IoFailure |
+        | InvariantViolation |
+        | Defect |
+        | Interruption |
+
+        - InvalidMachineConfigurationReason is exactly:
+
+        | Configuration reason |
+        | --- |
+        | ConfigurationNotRecord |
+        | NonStringConfigurationKey |
+        | UnexpectedConfigurationField |
+        | StateConfigurationMismatch |
+        | ExpectedFunction |
+        | UnknownStateToken |
+        | UnknownEventToken |
+        | InvalidStateToken |
+        | TransitionObjectRequired |
+        | ExpectedTransition |
+        | ExpectedEventHandlers |
+        | UnknownEventHandler |
+        | EmptyEventHandlerList |
+        | EmptyRedirectList |
+        | ExpectedRedirect |
+        | ExpectedTimer |
+        | InvalidTimerDelay |
+        | ExpectedActivities |
+        | ExpectedStateConfiguration |
+        | MissingCompoundStateFields |
+        | InvalidDefaultTarget |
+        | ExpectedLeafConfiguration |
+        | InvalidCompoundState |
+        | InvalidTokenTables |
+        | AmbiguousHandler |
+
+        - Human summaries/help never add a code or reason. @V1 proves closure and declarations.
+        EvidenceUnavailable and UnknownSelector are not DiagnosticCode members. Their exact
+        Failure/InvalidArtifactOperand projection is owned by @plan.InspectionAndArtifacts.O6.
+        Their details.reason strings do not widen the closed code set.
+
+    O6  Actionable remediation for every usage code
+        - These entries preserve meaning and corrective action. Path/details and messages are
+        illustrative. Human wording may evolve; @V3 proves exact 19-code row coverage.
+
+        ### InvalidCanonicalValue
+
+        - Meaning: A canonical key/value contains an unsupported or non-canonical value.
+        - Example path/details: path: ["key"]; details: { "reason": "unsupported" }
+        - Message illustration: The operation key contains a value that cannot be canonicalized.
+        - Corrective action: Replace it with a bounded JSON-safe canonical value.
+
+        ### ForeignActorRef
+
+        - Meaning: The ref belongs to another app or runtime.
+        - Example path/details: path: ["actorRef"]; details: { "reason": "foreign" }
+        - Message illustration: This actor ref belongs to a different runtime.
+        - Corrective action: Use a ref created by the receiving app/runtime.
+
+        ### MismatchedActorRef
+
+        - Meaning: The ref is branded for a different machine.
+        - Example path/details: path: ["actorRef"]; details: { "machine": "Editor" }
+        - Message illustration: This actor ref is for a different machine.
+        - Corrective action: Pass the exact machine-branded ref required by the operation.
+
+        ### MissingActorRef
+
+        - Meaning: An operation requires an actor ref that was not supplied.
+        - Example path/details: path: ["actorRef"]; details: { "required": true }
+        - Message illustration: An actor ref is required for this operation.
+        - Corrective action: Provide the admitted stable ref or use the explicit local-actor path.
+
+        ### DisposedActorRef
+
+        - Meaning: A command addressed an actor after terminal disposal.
+        - Example path/details: path: ["actorRef"]; details: { "disposed": true }
+        - Message illustration: This actor has been disposed and cannot accept commands.
+        - Corrective action: Acquire a valid owner/runtime and do not reuse the disposed ref.
+
+        ### RuntimeNotReady
+
+        - Meaning: A handle or command escaped before readiness completed.
+        - Example path/details: path: ["runtime"]; details: { "phase": "booting" }
+        - Message illustration: The runtime is still booting.
+        - Corrective action: Await the sole public `runtime.ready()` Effect before use.
+
+        ### RuntimeDisposed
+
+        - Meaning: A command or lookup targeted a disposed runtime.
+        - Example path/details: path: ["runtime"]; details: { "phase": "disposed" }
+        - Message illustration: The runtime is disposed and cannot accept work.
+        - Corrective action: Construct and own a new runtime execution scope.
+
+        ### MissingContextProvider
+
+        - Meaning: A declared context binding has no admitted provider.
+        - Example path/details: path: ["contextBindings", "session"]; details: { "provider":
+        "missing" }
+        - Message illustration: The required context provider is not admitted.
+        - Corrective action: Admit the exact provider ref before constructing the consumer.
+
+        ### ContextDependencyCycle
+
+        - Meaning: Context bindings contain a dependency cycle.
+        - Example path/details: path: ["contextBindings"]; details: { "cycle":
+        "Session>Theme>Session" }
+        - Message illustration: Context bindings contain a dependency cycle.
+        - Corrective action: Remove the cycle and keep provider dependencies acyclic.
+
+        ### DuplicateActorClaim
+
+        - Meaning: Two admissions claim one stable actor identity incompatibly.
+        - Example path/details: path: ["actorRef"]; details: { "claim": "duplicate" }
+        - Message illustration: This stable actor is already claimed incompatibly.
+        - Corrective action: Join the existing ensure or use a distinct stable identity.
+
+        ### UnadmittedMachine
+
+        - Meaning: A machine is not part of the closed `AppPlan`.
+        - Example path/details: path: ["machine"]; details: { "machine": "Editor" }
+        - Message illustration: This machine is not admitted by the application plan.
+        - Corrective action: Include the machine in the app before runtime construction.
+
+        ### ActorNotActive
+
+        - Meaning: Work was sent while the actor was not active.
+        - Example path/details: path: ["actor"]; details: { "lifecycle": "suspended" }
+        - Message illustration: The actor is not active and cannot accept this work.
+        - Corrective action: Resume through its owning host or wait for runtime activation.
+
+        ### InvalidOperationPlan
+
+        - Meaning: An authored operation plan is structurally invalid.
+        - Example path/details: path: ["operation"]; details: { "reason": "invalid-plan" }
+        - Message illustration: The operation plan is invalid.
+        - Corrective action: Fix the descriptor-owned operation fields before admission.
+
+        ### WrongOperationKind
+
+        - Meaning: A resource, transaction, or stream API received another family.
+        - Example path/details: path: ["operation", "kind"]; details: { "expected": "resource" }
+        - Message illustration: The operation belongs to a different operation family.
+        - Corrective action: Use the API matching the declaration's exact operation kind.
+
+        ### OperationNotPending
+
+        - Meaning: An action requires a pending operation but none is pending.
+        - Example path/details: path: ["operation"]; details: { "status": "idle" }
+        - Message illustration: This operation is not pending.
+        - Corrective action: Start or observe the correct occurrence before acting on it.
+
+        ### OperationAlreadySettled
+
+        - Meaning: A completion/cancellation attempted to settle an occurrence twice.
+        - Example path/details: path: ["operation", "occurrence"]; details: { "settled": true }
+        - Message illustration: This operation occurrence is already settled.
+        - Corrective action: Do not reuse the settled occurrence; issue a new authored attempt.
+
+        ### DuplicateStreamDeclaration
+
+        - Meaning: Two declarations in one actor resolve the same stream descriptor and canonical
+        K. This collision includes declarations using distinct slots.
+        - Example path/details: path: ["streams", "progress"]; details: { "duplicate": true }
+        - Message illustration: This actor already owns a stream for this descriptor and key.
+        - Corrective action: Keep one declaration for that actor/descriptor/K. Distinct slots
+        alone do not resolve the collision. @plan.Streams.O2 owns this identity rule.
+
+        ### BlockedByDependents
+
+        - Meaning: Disposal would violate active or suspended context dependents.
+        - Example path/details: path: ["actorRef"]; details: { "dependents": 1 }
+        - Message illustration: This actor cannot be disposed while dependents remain bound.
+        - Corrective action: Dispose every named dependent through its accepted owner or host
+        path before disposing the provider. Existing consumer bindings cannot be rebound.
+        @plan.ApplicationsAndActors.O5 and @plan.ApplicationsAndActors.O6 own these lifetimes.
+
+        ### AdmissionOverloaded
+
+        - Meaning: New work exceeds a finite active command or serialized-work bound.
+        - Example path/details: Path/details identify the admission boundary and private capacity
+        without payloads.
+        - Message illustration: The runtime cannot admit more work at this boundary yet.
+        - Corrective action: Wait for accepted work to settle before sending new work.
+
+        - AdmissionOverloaded preserves accepted work and FIFO settlement. Reject the entire new
+        finite batch before any occurrence, preview, or adapter work.
+
+decisions
+    D1  One diagnostic model owns codes and structured fields
+        - Aliases and serialized projections do not create a second expected-error family.
+        Capability owners decide when a diagnostic occurs; this Plan owns its vocabulary and
+        shape.
+    D2  Classification follows complete aggregation
+        - Keep complete Cause until classification and cleanup aggregation finish. Serialized
+        output carries ordered DiagnosticProjection values, not Cause trees, traversal order, or
+        fiber IDs. Independently actionable cleanup diagnostics preserve order and multiplicity.
+    D3  Capture conflicts use ConcurrentCapture
+        - ConcurrentCapture is the canonical code for retryable capture conflicts.
+        ConcurrentDehydrate is a stale historical label, not a runtime alias, exported code, or
+        second diagnostic.
+
+constraints
+    C1  Do not build another error or execution framework
+        - No feature-owned expected Error/Data.TaggedError carrier, diagnostic service,
+        Context.Service, Layer, Logger, generic runner, custom Effect wrapper, or second
+        Diagnostic codec is added.
+    C2  Preserve root deferral
+        - FlowPath, FlowUsageCode, FlowUsageError, and FlowPersistenceError remain absent from the
+        active root until their owners and proofs permit restoration under
+        @plan.PackageContract.O1. @V4 retains the pending history/documentation check before 
+        restoration.
+    C3  Keep evidence status honest
+        - Every executable check below is PLANNED. This proposal reports no compiled declaration,
+        runtime proof, packed-consumer result, or product cutover receipt.
+
+verification
+    V1  Canonical schema and closed declarations
+        - Establishes @O1 and @O5. PLANNED: compile and decode every code/reason/classification
+        and malformed fields through the production Diagnostic schema. Reject unknown codes,
+        non-finite path or detail numbers, wrong tags, missing fields, and unsafe value domains.
+
+        - Prove Error and directly yieldable Effect behavior, exact document derivation, and no
+        alternate projection. Planned checks: nub run --filter flow-state-rewrite check:types
+        and nub run test -- packages/flow-state-rewrite/src/diagnostic/test/diagnostic.test.ts.
+
+        - Exact exhaustive tests remain to be implemented; the target declarations remain
+        uncompiled.
+    V2  Owner mapping, complete Cause, and A/E/R laws
+        - Establishes @O2. PLANNED: malformed structure, semantic failures, typed Effect failures,
+        mixed Fail/Die/Interrupt, interruption plus cleanup defect, and independent cleanup
+        failures.
+
+        - Pass when structure maps SchemaError once, A/R are unchanged, defects remain outside E,
+        and precedence uses the complete aggregated Cause. No raw parser exception escapes.
+        Planned checks: focused production diagnostic tests and check:types.
+
+        - Typechecks alone cannot prove Cause precedence, cancellation, or cleanup behavior.
+    V3  Exhaustive usage failures and corrective actions
+        - Establishes @O3 and @O6. PLANNED: trigger all 19 codes through their production
+        admission/usage owners, compare each documentation row, and compile stable
+        discriminator/path/detail access.
+
+        - Include wrong runtime/machine, missing/disposed refs, context cycles, blocked disposal,
+        wrong operation kind, duplicate settlement, duplicate streams, and overloaded admission.
+
+        - Exercise active and suspended dependents during blocked provider disposal. Also declare
+        two distinct stream slots with the same actor/descriptor/K. Remedies must use accepted
+        owner paths and remove the actual collision; rebind advice or slot renaming fails this 
+        proof.
+
+        - Overload preserves accepted FIFO work and rejects a whole new finite batch before work,
+        previews, or occurrences. Pass with one row per exact code, actionable text, and no
+        cause field, message parsing, new code, or alternate expected-error family.
+
+        - Planned checks: check:types plus production diagnostic/admission tests. Exhaustive
+        runtime and documentation-row proof remains unimplemented.
+    V4  Deferred declarations and terminal host envelopes
+        - Establishes @O3. PLANNED: inspect fresh packed declarations and runtime exports. Pass
+        when deferred names remain absent, future declaration shapes remain exact, and only the
+        two named terminal host errors can retain raw Cause.
+
+        - Snapshots, selectors, artifacts, and CLI expose none. Planned checks:
+        check:packed-consumers and public route tests under
+        packages/flow-state-rewrite/src/public/test. These proofs remain pending.
+        - Pending restoration gate: verify package history and product documentation for any
+        compatibility meaning of existing-boundary wording. No compatibility history has been
+        proven. The exact target declarations and current export deferral remain unchanged.
+
+    V5  Safe shared renderers
+        - Establishes @O4. PLANNED: render escaped paths/details, hostile control text, each
+        classification, and representative corrective actions. Pass with stable code/data,
+        actionable help, no fabricated source location, and no raw input, stack, or Cause.
+
+        - Planned checks: focused diagnostic renderer tests; required tests remain unimplemented.
+

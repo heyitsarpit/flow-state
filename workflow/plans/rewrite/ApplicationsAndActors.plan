@@ -1,0 +1,489 @@
+plan ApplicationsAndActors
+title   Closed applications and owned actor lifetimes
+status  proposed pending approval
+goal
+    Let consumers compose exact machines, install complete services, and operate independent actors
+    through one Runtime with truthful ownership, context and snapshots. This proposed Plan owns
+    composition, requirements, Implementation, readiness, refs, admission, leases, lifecycle and
+    context. Statechart behavior belongs to @plan.Statecharts.O1 through @plan.Statecharts.O4;
+    operation families keep their own data and work contracts. No approval or completion is claimed.
+outcomes
+    O1  Applications describe one immutable admitted universe
+        module({ id, machines }) is inert tooling metadata with a unique app-local ID and exact
+        keyed machine record. app({ id, persistenceVersion, modules }) has explicit identity,
+        ordered unaliased modules and exact flattened App.M. Preserve machine property names.
+        Reject duplicate property names, durable machine IDs, machine values and tooling owners,
+        even under different ergonomic keys. Compilation creates no actor and starts no work.
+
+        App, module, machine, descriptor and stable-ref IDs follow exact name/UTF-8 rules under
+        @plan.Statecharts.O1. Every local, shared and Story-local actor uses an exact App.M machine.
+        Every listed machine contributes graph edges, named descriptors and inferred requirements.
+
+        The compiled graph is closed for the Runtime lifetime. Module IDs group CLI slices, traces,
+        inspection, artifacts and diffs; they are not machine, actor, context, Runtime, persistence
+        or operation identity. Moving/renaming tooling ownership breaks artifacts without silent
+        alias/compare.
+
+        Runtime/persistence identity remains compatible; historical artifacts require migration.
+
+        A Machine ID is durable machine/artifact identity; an App.M property is a TypeScript key.
+        Keep actor ref, actor incarnation, descriptor/K, Story recipe object identity and RunLocalId
+        separate. Actor incarnation identifies one Runtime lifetime and never reuses an earlier
+        lifetime's occurrence or issue authority.
+
+        A recipe may produce several incarnations. Resource key canonicalization and P/K separation
+        belong to @plan.Resources.O1.
+    O2  Complete typed Implementations supply services inertly
+        RequirementsOf exposes the exact covariant application requirement union without provider
+        branding. Descriptors retain raw R. Remove only Flow-owned Scope.Scope from consumer
+        requirements. The same law applies to resource, transaction, stream, Machine, Module, App,
+        fixture, Story and model values. Their private requirement carriers are covariant.
+        RequirementsOf on an inferred fixture, Story or model preserves its exact requirement union;
+        supplying complete providers does not replace that union with never or provider branding.
+
+        Machines combine reachable named descriptors/provider graph requirements; modules combine
+        their exact machine records; apps combine App.M. Passive reads and callbacks add no
+        requirements. Context selectors add typed provider edges, not parentage.
+
+        Preserve exact covariant requirement propagation from descriptor to machine binding to
+        module to app. Public Machine does not expose full authored config as a recursive generic.
+        RequirementsOf must preserve the union without user wrappers, implementation branding or
+        excessive-instantiation failures in accepted isolated consumers. Private carrier
+        representation remains a later Spec choice. Reject cyclic/unbounded requirement expansion
+        and child-machine edges.
+
+        Implementation is both value and type. Its only value members are succeed, effect and merge.
+        succeed(service, value) supplies a complete synchronous non-failing provider.
+        effect(service, acquire) acquires at most once per Runtime; Runtime owns its scope and
+        finalizer. Its typed acquisition error is ImplementationError. merge composes providers
+        without changing service identity.
+
+        Duplicate service identity rejects, never last-wins. Construction acquires nothing.
+        RuntimeSetup must close RequirementsOf<App>; complete provider supersets are valid only with
+        no unresolved input requirements.
+
+        Fixture Implementations override by exact service identity and preserve authored
+        input/success/failure/cancellation/lifetime. They supply environment behavior, not kernels,
+        admission, completion, canonical writes, projections or evidence. Reject partial providers,
+        remaining requirements, opaque Layer-like replacement semantics, matchers, control
+        registries and kernel replacement. No additional public Implementation method is implied.
+    O3  Construction is inert and readiness owns one shared bootstrap
+        runtimeSetup names an exact App and complete Implementation unless requirements are never.
+        Optional persistence is one inert provider under @plan.Persistence.O1 and does not affect
+        RequirementsOf<App>. Discovery and construct() are synchronous, service-free and inert: no
+        storage, service acquisition, actors, registration, work or evidence.
+
+        The exact consumer call forms are runtimeSetup({ app }) when requirements are never, or
+        runtimeSetup({ app, implementation }) with full closure. They preserve RuntimeSetup<A, IE>;
+        app-only IE is never. Optional persistence adds a Persistence provider, not a requirement.
+        [The API examples](references/core-api.examples.ts) illustrate the final target syntax.
+
+        ready() is the sole public readiness Effect. First execution starts one Runtime-owned
+        bootstrap; concurrent/later calls join its same cached terminal Exit without retry.
+        Interrupting one caller interrupts only its wait.
+
+        Runtime disposal cancels shared bootstrap, closes admission and prevents late acquisition
+        from exposing a handle. Full Runtime readiness exposes Effect<void, Diagnostic>, preserving
+        defect/interruption Cause classes. Provider acquisition failure is readiness failure, never
+        an operation outcome.
+
+        Bootstrap follows this selected sequence:
+
+        1. Read, decode, validate and prepare detached persistence data.
+        2. Acquire Implementation.
+        3. Install prepared store, actors and permitted operation facts; providers precede 
+        consumers.
+        4. Initialize fresh admissions and exact silent provider-derived context baselines.
+        5. Seal the graph, activate actors, then expose handles.
+
+        Detached preparation installs no store, initializes no actor and registers none.
+
+        Initial ensures and fixed bindings are complete before activation. No ordinary handle,
+        lease, command or partial evidence escapes readiness; an inert prepared React handle is the
+        sole exception under @plan.ReactAndHosts.O2.
+
+        Validate provider closure, codec, App provenance, refs, input, bindings, tombstones, cycles,
+        persisted identity/version/bounds/context closure and terminal counter headroom before
+        installation/activation. Failure closes admission and rolls acquired owners back in reverse
+        order. Disposal winning the race leaves terminal disposed truth. Internal phases are
+        private; expose no phase union, second readiness API, boot, decoder or mutable hydration.
+    O4  Exact refs and admission grant one owner lease
+        actorRef(machine, id, { persist?: boolean }) is inert stable identity with exactly machine,
+        id and persist. persist defaults false and is metadata, not identity. Its durable wire form
+        is `actor:<utf8ByteLength>:<machine-ID><utf8ByteLength>:<authored-stable-ID>`. Each length
+        counts that exact segment's UTF-8 bytes.
+        Refs are branded to an exact Machine, not an App; persisted App identity qualifies them.
+        A ref carries no input, bindings, callbacks, subscription or disposal authority.
+
+        ensureActor(ref, { input, contextBindings? }) restores or creates one stable shared actor
+        and returns { actor, dispose }. Each stable identity per Runtime has one shared lease and
+        actor lifetime, without caller refcounts. Concurrent ensures join the same admission and
+        outcome.
+
+        The first accepted input wins; later input is ignored. Conflicting fixed bindings reject
+        without changing the winning actor/input/bindings. Dropping a lease does not dispose.
+        getActor(ref) is lookup-only: it creates/adopts nothing, acquires no lease and grants no
+        disposal. createActor(machine, options?) creates a fresh opaque Runtime-local actor and
+        lease, attached/active before exposure.
+
+        It accepts no stable ID.
+
+        Before registration/store mutation, validate exact App/Machine/ref provenance, fresh input,
+        complete bindings, compatible available providers, tombstones, duplicate instance identity,
+        cycles and capacity. Install a silent context baseline and logical edges, attach/activate,
+        then expose the lease last. Before visibility, any failure reverses staged work, edges,
+        mailbox, registry and prepared actor in reverse order.
+
+        No partial snapshot, handle, generation or accepted evidence escapes. Concurrent callers
+        share that original failure. If rollback succeeds cleanly, a later ensure may begin a fresh
+        attempt with new input.
+
+        A failure after visibility uses ordinary production disposal and retains cleanup truth.
+
+        Lookup/ensure reject missing, foreign, mismatched, closing, disposed or quarantined identity
+        with canonical boundary diagnostics as applicable. Local opaque refs cannot become durable
+        stable refs or satisfy stable lookup obligations. Boot-restored stable actors
+        receive Runtime ownership before escape and remain owned even without a repeated ensure.
+    O5  Lifecycle preserves continuity and terminal cleanup truth
+        Actor lifecycle is exactly prepared, active, suspended or disposed. Prepared actors are
+        inert and buffer bounded commands. Active actors admit commands and own attachments.
+
+        Suspended actors preserve continuity, reject commands and own no live attachments. Disposed
+        actors are terminal. Only owner leases or whole-Runtime shutdown dispose; handles/refs grant
+        none.
+
+        Disposal is asynchronous, idempotent and joins one cached result. Runtime disposal subsumes
+        leases and closes all admission before reverse-dependency cleanup.
+
+        Individual provider disposal rejects before beginning while active or suspended consumers
+        remain bound. Name every dependent ref and binding key; leave the provider lifetime and
+        admission unchanged. No new edge may attach after provider close begins.
+
+        Stable terminal refs are tombstoned for that Runtime incarnation; another Runtime may reuse
+        the identity. Failed cleanup quarantines the identity. get, ensure and repeated dispose
+        retain/report the same failure without rerunning cleanup. FlowDisposeError has _tag
+        FlowDisposeError, scope actor | runtime and complete Cause.Cause<unknown> at that final host
+        boundary.
+
+        Ordinary suspension closes admission at one linearization point.
+        It drains pre-close commands FIFO. A blocked head context wakeup can delay that drain until
+        its upstream settles.
+        Suspension does not let later ordinary events overtake the head. Pending suspension cannot
+        prevent owner or whole-Runtime terminal disposal from applying the retirement rule below.
+
+        After its drain, suspension detaches registration, fanout, context subscriptions, activities
+        and timers. It interrupts unsettled finite work, closes streams and publishes suspended only
+        after cleanup. Preserve
+        exact ref, handle, state, memory, last valid context, logical provider edges and
+        incarnations, operation records/cursors/pending truth and absolute deadlines. Queued finite
+        work settles without adapter start.
+
+        Planned release invokes no domain interruption mapper. An adapter ignoring interruption
+        retains only facts needed for truthful fenced settlement; no irreversible remote effect is
+        described as reversed.
+
+        Resume waits for finalizers, rechecks exact provider identity, reconciles current context
+        through the ordinary context path, reacquires continuing work and reinstalls absolute
+        deadlines. At most one overdue refresh occurs. Never replay input, initialization, committed
+        events, finite work or stream emissions.
+
+        Equal provider selections stay silent. Missing/foreign/tombstoned providers leave the actor
+        suspended without substitution/rebind. Cleanup defect blocks resume until owner/Runtime
+        disposal.
+
+        Suspension/resume alone creates no attempt, machine-turn revision or TurnRecord.
+        @plan.ReactAndHosts.O2 owns attachment.
+
+        Lifecycle publishes a full snapshot before ordered lifecycle evidence. Restore is prepared
+        to prepared before start; start is first activation; suspend/resume connect active and
+        suspended; dispose is terminal from any non-disposed state. Fresh, restore, attach, lease
+        disposal and Runtime disposal have distinct causes.
+
+        No prepare event or synthetic terminal machine turn exists. Shutdown waits for finalizers,
+        accepted terminal evidence and provider release; persistence closeout follows
+        @plan.Persistence.O5.
+
+        Terminal disposal may retire a blocked context wakeup and remaining queued work without
+        waiting for upstream recovery. It closes admission first and uses the existing terminal
+        cleanup boundary. Retired ordinary events do not execute, change domain truth, create work
+        or produce committed TurnRecords. Settle every waiting private acknowledgment exactly once
+        with terminal failure; never acknowledge retired work as a successful decision.
+
+        Preserve the last committed state, memory and valid context in the terminal snapshot.
+        Complete owned cleanup, publish ordered terminal lifecycle evidence and drain its accepted
+        prefix. Pending suspension or Story cancellation observes the terminal result rather than
+        waiting for an upstream that may never resume. Existing dependent-disposal checks still
+        apply before individual provider disposal; Runtime disposal still orders consumers first.
+    O6  Fixed context propagates causally complete current truth
+        Each Definition context slot selects synchronously/purely from one atomic exact provider
+        snapshot and binds once to one compatible ActorRef/incarnation for the consumer lifetime.
+        Missing, ambiguous, foreign, mismatched, closing, disposed, tombstoned, unresolvable or
+        cyclic providers reject atomically before effects. Each provider must be an actual admitted
+        actor in the same Runtime with the required compatible typed selector/capability.
+
+        An opaque local actor identity is not by itself an invalid provider. Story recipe
+        translation may supply validated local refs through this same production admission path. A
+        forged or opaque carrier without verifiable admitted provider authority fails closed; no
+        testing bypass is permitted.
+
+        Edges grant no parentage, ownership or command channel. Initial admission/restore installs a
+        complete silent provider-derived baseline; initial onContext selections emit no event.
+        Suspension retains logical edges and observed provider revisions even after detaching live
+        subscriptions.
+
+        Provider changes invalidate dependent consumers in bounded dependency order. Each context
+        wakeup applies the latest complete context when it executes, never a stale selected payload.
+        Record exact provider refs and observed revisions.
+
+        A dirty consumer receives at most one combined context turn for the settled wave. Context
+        completeness is per-consumer causal closure, including shared upstream ancestors; graph-wide
+        simultaneous publication is not required. A diamond consumer never combines a new branch
+        with unresolved old lineage from their shared cause.
+
+        A branch settling to an Object.is-equal value still resolves causal debt and unblocks
+        consumers without fabricating a value-change event.
+
+        A blocked head context wakeup retains FIFO position. Later ordinary events cannot overtake
+        it; suspended/failing upstream can hold them.
+        This rule governs ordinary decisions and suspension drains. Terminal disposal may retire
+        the blocked lane under @O5; it does not execute a later event ahead of that wakeup.
+        Equal scalar/non-record selections are silent
+        under Object.is.
+
+        Named non-null plain records compare fixed keys fieldwise. Changed selections publish one
+        atomic context revision and reconcile continuing plans once. onContext.select receives
+        current/previous and emits one typed self-event, false or null. Emitted events enter the
+        ordinary mailbox; propagation directly invokes no domain transition, memory update or finite
+        action.
+
+        Pending @Q1, the candidate behavior is that provider publication commits even if a consumer
+        selector throws. The consumer retains its last valid context, publishes one issue-only
+        snapshot, emits no context event and retries only on a newer provider revision. Never retry
+        the same bad revision.
+
+        Capture uses completed context waves. Selected suspended debt rejects with retryable
+        ConcurrentCapture until explicit resume/recovery; capture neither progresses, clears nor
+        silently waits out debt. @plan.Persistence.O3 and @plan.StoriesAndModels.O4 own their
+        distinct capture membership.
+    O7  Handles and publications expose complete current cuts
+        The ordinary handle exposes only exact ref, send(event): void, getSnapshot() and snapshots.
+        send synchronously admits the exact typed EventOf<Machine> or reports synchronous admission
+        failure. It returns no Promise, Effect, Fiber, snapshot, handle, receipt, acknowledgment or
+        subscription. Prepared and active queues have documented finite capacities; prepared
+        supports at least 64 commands.
+
+        Full admission rejects AdmissionOverloaded before occurrence, work or state mutation.
+        Suspended/disposed actors reject without buffering. Reentrant accepted sends remain FIFO.
+
+        All events, timers, completions, streams, store/context and lifecycle facts use one ordered
+        production decision path. No alternate transition engine or lifecycle queue bypasses actor
+        ordering.
+
+        Every successful turn exposes one indivisible actor/store cut. An observer cannot see the
+        initiating store revision without its committed actor snapshot. Evidence contains only
+        committed facts in one Runtime-global order.
+
+        Private acknowledgment settles after the ordered decision; publishing decisions wait for
+        immutable evidence acceptance but not sink processing or user Effect settlement. Silent
+        no-ops still settle once. Commit through publication/evidence acceptance is
+        interruption-safe; after mutation, overflow or disposal cannot leave half a publication.
+
+        Sink behavior belongs to @plan.InspectionAndArtifacts.O3.
+
+        getSnapshot/snapshots expose complete published current truth: exact active leaf, memory,
+        inherited context, lifecycle, active issues, one safe-integer public revision, observed
+        store revision, passive named-operation readers and timers. Readers retain their captured
+        cut; slow subscribers may skip intermediate snapshots. New subscriptions replay current
+        truth without a read/subscribe gap.
+
+        Prepared subscriptions replay the prepared snapshot immediately and continue through
+        activation. Suspended subscriptions replay suspended once and complete; they never reopen on
+        resume. Disposed subscriptions emit/replay terminal truth then complete.
+
+        A terminal-looking machine leaf does not complete an actor stream.
+
+        Machine, projection-only, lifecycle-only and issue-only publications are all complete.
+        Machine turns advance publication and private turn revisions; issue/lifecycle publications
+        advance only the defined publication revision. No second public revision, raw Cause,
+        receipt, full diagnostic, pending outcome/inventory, handled/error field, child projection,
+        nested XState state, final kind or actor output escapes.
+
+        Resource/transaction/stream exact readers remain owned by their capability Plans. Copies
+        isolate Flow-owned envelopes, records, arrays, key containers, readers, issues and
+        snapshots; opaque application values retain identity. Time is integer epoch milliseconds
+        from the Runtime Effect Clock.
+
+        Pre-commit callback defects follow @plan.Statecharts.O3. Invariant defects close admission,
+        settle current/buffered acknowledgments, finalize owned work and publish disposed
+        fatal/cleanup truth without a fabricated terminal turn. Operational issue clearing
+        identifies actor incarnation, source and binding, omitting attempt generation.
+
+        Later success/release by that owner clears earlier operational summaries; another lifetime
+        cannot inherit, clear or republish them. Ordered stable diagnostics survive summary
+        clearing.
+
+        Revisions, generations, occurrence ordinals and evidence sequences remain nonnegative safe
+        integers, never reused. Reserve mandatory terminal headroom before admission/restore; reject
+        insufficient capacity before mutation. Ordinary work cannot spend terminal reserves.
+
+        Restore validates high cursors before installation. No post-publication overflow is allowed.
+        Capture observes completed committed cuts, not mutable live state, and performs no time
+        movement, actor creation/disposal/restore, external work or context progress.
+decisions
+    D1  One compiled graph and Runtime own production semantics
+        Live hosts, requests, React, Stories, tests and CLI use the same compiled admission graph,
+        actor execution, canonical operation owners and cleanup rules. Host adapters supply inputs;
+        inspection observes; models remain pure. Runtime semantics cannot depend on those adapters.
+    D2  Readiness and terminal ownership outlive individual callers
+        Shared bootstrap, one stable lease, exact tombstones and cached cleanup prevent caller
+        cancellation or repeated ensure/dispose from creating a second lifetime. A clean invisible
+        rollback allows a new later attempt; cleanup failure retains quarantine.
+    D3  Prepared snapshots replay immediately
+        Direct prepared actor subscriptions replay the current prepared snapshot immediately and
+        continue through activation. The user explicitly selected this timing. React render still
+        creates no live subscription or Runtime resources; @plan.ReactAndHosts.O2 applies.
+    D4  Terminal teardown can retire a causally blocked lane
+        The user selected bounded terminal cleanup over waiting for upstream recovery. @O5 may
+        retire the blocked refresh and queued work, settle private acknowledgments once, and finish
+        disposal. Ordinary suspension still drains FIFO; ordinary events never overtake the head.
+        @V5 and @plan.StoriesAndModels.V3 exercise this combined boundary.
+
+constraints
+    C1  No substitute authority or dynamic universe
+        Exclude automatic/dynamic roots, runtime.actor, runtime machine/service/route registration,
+        family lookup, child actor equivalents, generic registries, machine.provide, XState setup,
+        public boot/decode/hydrate/dehydrate, public ManagedRuntime and acknowledged dispatch.
+        Also exclude duplicate stores, actor registries, mailboxes, schedulers, evidence histories
+        and hidden cancellation channels. Async module import before construction or a separately
+        scoped lazy application island does not expand a live graph.
+    C2  Private composition stays replaceable
+        Exact shell phases, service/Layer topology, cell/queue/helper choices and unobservable
+        reservation micro-order are not public compatibility. Inert construction, complete typed
+        closure, singular lifetime ownership, causal order, atomic cuts and reverse cleanup bind
+        every implementation. Effect execution edges belong to @plan.ReactAndHosts.O4.
+verification
+    V1  Closed graph, identity and inert compilation
+        Establish @O1 with exact App.M inference and collisions across property names, IDs, values
+        and owners. Check exact stable actor-ref bytes for ASCII and multibyte IDs; each prefix
+        equals that segment's UTF-8 byte length. Construction creates no actor/work. Rename tooling
+        ownership: artifact comparison fails closed while durable machine/actor identity stays
+        unchanged.
+
+        Reject live graph growth. Planned checks: rewrite app/module owner tests and packed type
+        fixtures; not executed here.
+
+        Candidate check: [app tests](../../../packages/flow-state-rewrite/src/app/test/app.test.ts).
+        The complete cases above remain planned; this link is not a coverage or execution claim.
+    V2  Requirements and provider type closure
+        Establish @O2 with small/medium isolated consumers, raw descriptor R, Scope removal,
+        cross-module union, complete/superset providers and fixture identity overrides. For inferred
+        fixture, Story and model values, assert exact requirement unions, covariance and removal of
+        only Flow-owned Scope. Complete constructor fixture closure must not erase those carriers.
+        Reject missing/remaining requirements, duplicates and recursive expansion without excessive
+        instantiation. Under strict/isolated declarations, provider construction runs no acquisition
+        and preserves all exact channels without any/assertion erasure. Planned checks: rewrite
+        check:types, Implementation tests and packed consumers; not executed for this proposal.
+
+        Candidate check: [Implementation 
+        tests](../../../packages/flow-state-rewrite/src/implementation/test/implementation.test.ts).
+        The complete cases above remain planned; this link is not a coverage or execution claim.
+    V3  Shared readiness and bootstrap cancellation
+        Establish @O3 by controlling detached decode, acquisition, installation and activation.
+        Assert the selected order and zero handle/evidence escape on invalid graphs, codecs, closure
+        or headroom. Race two ready waiters, interrupt one, then complete acquisition: other
+        succeeds from one bootstrap.
+
+        Race disposal: late success cannot reopen admission. Typed failure, defect and interruption
+        cache once; rollback finalizes acquired owners in reverse order. Planned checks: production
+        readiness/persistence integration; no completed proof is claimed.
+
+        Candidate check: [readiness 
+        tests](../../../packages/flow-state-rewrite/src/runtime-next/test/readiness.test.ts).
+        The complete cases above remain planned; this link is not a coverage or execution claim.
+    V4  Shared ensure, clean retry and authority negatives
+        Establish @O4 with concurrent differing inputs and compatible bindings: all join one lease,
+        first accepted input initializes once. Conflicting fixed bindings reject unchanged. Inject
+        an unpublished failure with clean rollback: concurrent callers share its failure; a later
+        ensure with new input succeeds as a new attempt.
+
+        Post-visibility failure uses disposal. get never creates/leases; create always yields
+        distinct opaque refs. Missing/foreign/local/ tombstoned refs and partial admission fail
+        before mutation/work. Planned production admission/lease tests plus type fixtures; unbuilt
+        for this proposed full matrix.
+
+        Candidate check: [admission 
+        tests](../../../packages/flow-state-rewrite/src/runtime-next/test/actor-admission.test.ts).
+        The complete cases above remain planned; this link is not a coverage or execution claim.
+    V5  Lifecycle, dependency races and failed cleanup
+        Establish @O5 by blocking a provider's disposal with active and suspended dependents and
+        exact slot diagnostics. Race new consumer admission with provider close; neither a dangling
+        edge nor post-close lease escapes. Suspend after queued commands: drain FIFO, settle queued
+        finite work without adapter start, finalize once, preserve identity/deadlines.
+
+        Resume after finalizers without replay. Cleanup defect blocks resume. Failed stable cleanup
+        quarantines lookup/ensure/repeated disposal with the same failure and no rerun.
+
+        Leave an upstream permanently suspended with a consumer's context wakeup blocked at the
+        head and an accepted ordinary event behind it. Ordinary suspension stays pending without
+        overtaking. Then request consumer terminal disposal, and separately Runtime/Story shutdown.
+        The blocked refresh and queued event retire without executing the event or starting work.
+        Each private acknowledgment settles once as terminal failure. Cleanup and terminal evidence
+        drain complete without upstream recovery; prior domain truth remains intact. Include an
+        actual non-abortable adapter separately; its required finalizer may still delay cleanup.
+
+        Runtime teardown is reverse-dependency ordered and drains evidence. Planned production
+        lifecycle tests; unbuilt.
+
+        Candidate check: [lifecycle 
+        tests](../../../packages/flow-state-rewrite/src/runtime-next/test/lifecycle.test.ts).
+        The complete cases above remain planned; this link is not a coverage or execution claim.
+    V6  Causal context, equal settlement and capture debt
+        Establish @O6 with provider/consumer chains and a diamond. Delay one branch: the consumer
+        cannot publish a mixed new/old causal cut; independently settled consumers may publish at
+        different times. Settle one branch equal-valued: debt clears without a value-change event.
+
+        Queue a context wakeup, publish newer providers, then execute: apply latest complete truth.
+        A blocked head holds later ordinary events. Throw a consumer selector during provider
+        publication. Keep provider/sibling settlement, retained context, issue/event behavior, and
+        retry trigger pending under @Q1; the current candidate is not an approved pass condition.
+
+        Baseline stays silent. Suspended debt rejects capture until explicit recovery. Planned
+        controlled production context/capture tests and exact selector/binding type fixtures;
+        unbuilt.
+
+        Candidate check: 
+        [tests](../../../packages/flow-state-rewrite/src/runtime-next/test/context.test.ts).
+        The complete cases above remain planned; this link is not a coverage or execution claim.
+    V7  Atomic publication, current snapshots and safe termination
+        Establish @O7 by observing actor/store together through live, Story and passive readers. No
+        store-before-actor cut, user Effect-before-publication, inline sink, torn read or mutable
+        past reader is visible. Ack follows evidence acceptance without waiting for effects/sinks.
+
+        During turn processing, issue two accepted public sends reentrantly. Pass when they execute
+        FIFO after the current decision and each private acknowledgment settles exactly once after
+        its decision; publishing acknowledgments follow evidence acceptance.
+
+        Slow readers may skip but always receive a complete current cut. Subscribe while prepared:
+        replay prepared immediately and continue activation; suspended/disposed replay and complete.
+        Saturate queues: AdmissionOverloaded changes no occurrence/state/work.
+
+        Inject near-limit counters at admission/restore: reserve terminal capacity or reject before
+        mutation; terminal cleanup remains publishable. Fatal closure settles every private
+        acknowledgment once. Planned publication, snapshot, queue and evidence tests; no executable
+        receipt claimed.
+
+
+        Candidate check: [publication evidence 
+        tests](../../../packages/flow-state-rewrite/src/runtime-next/test/actor-evidence.test.ts).
+        The complete cases above remain planned; this link is not a coverage or execution claim.
+
+questions
+    Q1  What isolation and retry policy applies to consumer selector defects?
+        @plan.Runtime.O4 places pre-commit selector defects under prior-truth and issue-only
+        handling, without retrying issue-only work. @plan.Runtime.V5 expects reruns on matching
+        publications, but neither defines provider/sibling commits or retained consumer context
+        when a provider-wave selector throws.
+
+        Does one consumer defect leave provider and sibling updates committed, retain its
+        last valid context, publish issue-only truth without a context event, and retry only after
+        a newer provider revision? O6 currently presents this behavior as a candidate.
