@@ -31,6 +31,12 @@ metadata:
   invoke assigned skills by registered name; each skill selects its own references. Never hand
   specialists a coordination entrypoint or another skill's internal files. If a worker cannot
   discover or load an assigned skill, report the capability gap.
+- Follow named skills and their applicable dependent methods within the assigned phase.
+  Conditional invocation is required when its trigger applies. Reuse already loaded instructions.
+  Each method owns dependency selection; playbooks need not enumerate its dependent skills.
+  Load dependencies as their triggers arise, not the whole graph in advance.
+  For review, apply relevant criteria without executing authoring, implementation, or experiment
+  phases outside the assignment.
 - Start specialists with fresh context; in Codex, set `fork_turns: none`.
   Supply a complete bounded brief instead of inheriting the coordinator's conversation.
 - Brief each role with its objective, phase, inputs, decisions, rationale, scope, checks, budget,
@@ -44,6 +50,7 @@ metadata:
 
 - Checker inspects artifacts and evidence; returns scope, revision, conditions, verdict, gaps,
   and evidence locations.
+  Challenge omitted applicable methods as well as application of the chosen methods.
 - Coordinator checks receipt identity and currency; advances only on required passing verdicts.
 - Check combined artifacts after integration. Self-checks do not satisfy required independent gates.
 - Relay product questions through the conversation owner. Return answers to the assigned writer.

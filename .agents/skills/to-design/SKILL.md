@@ -36,16 +36,15 @@ Verify concrete APIs against installed versions; label conceptual pseudocode exp
 When an architecturally significant decision needs stronger methods or evidence, use deepen (Use the `deepen` skill)
 to propose a stronger investigation brief within the agreed scope.
 
-Apply only methods needed by the decision:
+Apply each method whose trigger fits the decision, including its applicable dependent methods:
 
 - Correctness (Use the `code-correctness` skill) for representations, algorithms, state
   ownership,
   and resource lifetimes.
 - Composition (Use the `code-composition` skill) for boundaries, protocols, and
   dependency contracts.
-- Performance design (Use the `design-for-performance` skill) when workload or resource
-  budgets
-  affect the shape.
+- Performance design (Use the `design-for-performance` skill) when workload, resource budgets,
+  or resource guarantees affect the shape.
 
 For each candidate representation, derive its implementation invariants:
 
@@ -92,7 +91,9 @@ Use the `design-for-verification` skill to define checks and observations for ma
 
 ## 4. Challenge and return
 
-Check the combined shape against the behavioral contract and the selected methods' criteria.
+Check method applicability independently; report omitted applicable methods and dependent methods.
+Check the combined shape against the behavioral contract and all applicable methods' criteria.
+For review, apply those criteria within the assigned scope; do not start other phases.
 During design review, independently derive required implementation properties and challenge them
 with violating states and execution sequences. Report missing properties and preservation gaps,
 even when the recorded predicates hold; a design may still fail to enforce the contract.

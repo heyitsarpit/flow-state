@@ -45,7 +45,9 @@ Read [recording criteria](references/recording.md) for coverage semantics and li
      duties; check outcomes, failures, dependencies, caller control, and information hiding.
 
    Use the `to-design` skill to check realization consistency across all included code and algorithms.
-   It loads the selected realization guidance through its own references.
+   Assess its method triggers independently, including applicable dependencies; challenge omissions
+   as well as application. Apply review criteria without starting authoring or experiment phases.
+   It owns realization guidance and method selection.
 
 3. Use the `design-for-verification` and `testing-policy` skills to assess observations, diagnostics,
    public production boundaries, and independently derived expectations.
