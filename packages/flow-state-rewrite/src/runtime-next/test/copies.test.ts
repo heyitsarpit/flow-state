@@ -9,6 +9,11 @@ import { makeActorDirectory } from "../actor/actor-directory.js";
 import { makeContextCoordinator, type ContextNode } from "../context/context-coordinator.js";
 import { makeEvidenceJournal } from "../evidence/evidence-journal.js";
 import type { ActorSnapshot } from "../runtime.js";
+import {
+  copyStructural,
+  copyStructuralFrozen,
+  makeStructuralCopyIdentityLookup,
+} from "../structural-copy.js";
 
 const Definition = definition({
   id: "runtime-next/evidence-copy-boundary",
@@ -29,11 +34,128 @@ const missingCopyFixture = () =>
     help: "Use fresh provider and consumer fixture identities.",
   });
 
+type CopyIdentity = { kind: "identity"; count: number };
+
+type CopyCandidate = {
+  identity: CopyIdentity;
+  memory: { count: number; label: string };
+};
+
+type CopyReference = Exclude<WeakKey, symbol>;
+
 describe("runtime-next copies", () => {
+  it("uses a reusable opaque identity lookup without iterating static identities", () => {
+    const state = new Date(0);
+    const issue = new Error("current cut");
+    let lookups = 0;
+
+    // RETURN_TYPE: The lookup must preserve the exact static Date/Error identity union.
+    const isOpaque = (value: CopyReference): value is typeof state | typeof issue => {
+      lookups += 1;
+
+      return value === state || value === issue;
+    };
+
+    const policy = makeStructuralCopyIdentityLookup<typeof state | typeof issue>(isOpaque);
+
+    const candidate = { state, issues: [issue], memory: { count: 1 } };
+    const owned = copyStructural(candidate, "actor", [], undefined, policy);
+
+    assert.ok(Result.isSuccess(owned));
+
+    if (Result.isSuccess(owned)) {
+      assert.notStrictEqual(owned.success, candidate);
+      assert.strictEqual(owned.success.state, state);
+      assert.strictEqual(owned.success.issues[0], issue);
+      assert.notStrictEqual(owned.success.memory, candidate.memory);
+      assert.ok(Object.isFrozen(owned.success.memory));
+    }
+
+    assert.ok(lookups > 0);
+  });
+
+  it("retains statically matched records with their mutable identity type", () => {
+    const identity: CopyIdentity = { kind: "identity", count: 1 };
+
+    // RETURN_TYPE: This guard gives the frozen projection the exact retained identity type.
+    const isIdentity = (value: CopyReference): value is CopyIdentity => value === identity;
+    const copyPolicy = makeStructuralCopyIdentityLookup<CopyIdentity>(isIdentity);
+
+    const candidate: CopyCandidate = { identity, memory: { count: 2, label: "ordinary" } };
+
+    const copied = copyStructuralFrozen<typeof candidate, never, never, never, CopyIdentity>(
+      candidate,
+      [],
+      copyPolicy,
+    );
+
+    assert.ok(Result.isSuccess(copied));
+
+    if (Result.isSuccess(copied)) {
+      const retained = copied.success.identity;
+
+      const verifyMutableType = (value: typeof retained) => {
+        value.count = 2;
+      };
+
+      const verifyReadonlyMemoryType = (value: typeof copied.success.memory) => {
+        // @ts-expect-error Ordinary copied memory remains readonly.
+        value.count = 3;
+      };
+
+      void verifyMutableType;
+      void verifyReadonlyMemoryType;
+      assert.strictEqual(retained, identity);
+      assert.notStrictEqual(copied.success.memory, candidate.memory);
+      assert.strictEqual(copied.success.memory.count, candidate.memory.count);
+      assert.ok(Object.isFrozen(copied.success.memory));
+    }
+  });
+
+  it("keeps iterable identity lists iterable when they have an isOpaque property", () => {
+    const state = { token: true };
+    let hasTrapReads = 0;
+    let iteratorReads = 0;
+
+    const iterable = {
+      isOpaque: (_value: Date) => {
+        throw new Error("ordinary iterable was treated as a lookup");
+      },
+      get [Symbol.iterator]() {
+        iteratorReads += 1;
+
+        return function* () {
+          yield state;
+        };
+      },
+    };
+
+    const identities = new Proxy(iterable, {
+      has(target, key) {
+        hasTrapReads += 1;
+
+        return Reflect.has(target, key);
+      },
+    });
+
+    const candidate = { state, memory: { count: 1 } };
+    const owned = copyStructural(candidate, "actor", identities);
+
+    assert.ok(Result.isSuccess(owned));
+
+    if (Result.isSuccess(owned)) {
+      assert.strictEqual(owned.success.state, state);
+      assert.notStrictEqual(owned.success.memory, candidate.memory);
+    }
+
+    assert.strictEqual(hasTrapReads, 0);
+    assert.strictEqual(iteratorReads, 1);
+  });
+
   // Owner: P04.
   // Source: evidence.test.ts:2181 "preserves record aliases, cycles, and opaque identity across acceptance".
   // Contract/correction: STD-11/12; refactor.md structural-copy owner proof matrix and EvidenceJournal.
-  // Setup: The same 20k-deep, cyclic, aliased, sparse, accessor, and opaque input shapes used by RN-COPY-002 and RN-ACTOR-023.
+  // Setup: RN-ACTOR-023 covers only deep actor ingress and cycle rejection; this evidence proof also owns alias, opaque, sparse, and accessor cases.
   // Action: Prepare and accept evidence records through the Journal boundary, mutate caller inputs, then drain.
   // Observable result: Permitted cycles and aliases survive in owned records, opaque identities remain exact, and deep traversal completes iteratively.
   // Failure/cleanup: Evidence-policy invalid sparse or accessor values reject before acceptance; caller originals remain unfrozen and unchanged, and close settles accepted records.
@@ -123,7 +245,7 @@ describe("runtime-next copies", () => {
   // Source: context-wave.test.ts:1573 "owns selected records and arrays across source and publication mutation".
   // Source: context-wave.test.ts:1807 "retains owned context for nested mutation and publishes a replaced field reference".
   // Contract/correction: STD-11/12; refactor.md structural-copy owner proof matrix and ContextCoordinator.
-  // Setup: The same 20k-deep, cyclic, aliased, sparse, accessor, and opaque input shapes used by RN-COPY-001 and RN-ACTOR-023.
+  // Setup: RN-ACTOR-023 covers only deep actor ingress and cycle rejection; this context proof also owns alias, opaque, sparse, and accessor cases.
   // Action: Offer selected values through ContextCoordinator, prepare and consume an authentic ticket, then mutate caller inputs and returned values.
   // Observable result: The committed context cut owns the permitted cycle and aliases, retains opaque identity, and survives deep traversal and later mutation.
   // Failure/cleanup: Context-policy invalid sparse or accessor values fail before publication; cancellation or close settles the ticket without mutating caller originals.
@@ -198,7 +320,7 @@ describe("runtime-next copies", () => {
         memory: {},
         context: {},
         lifecycle: "active",
-        operations: [],
+        O: {},
         timers: [],
         issues: [],
         revision: providerRevision,
@@ -211,7 +333,7 @@ describe("runtime-next copies", () => {
         memory: {},
         context: { value: committed },
         lifecycle: "active",
-        operations: [],
+        O: {},
         timers: [],
         issues: [],
         revision: consumerRevision,

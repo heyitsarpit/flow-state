@@ -85,15 +85,6 @@ const fixture = (capacity = 8) =>
 const store = (revision: number) => ({ revision, changed: [] });
 
 describe("runtime-next evidence", () => {
-  // Owner: P06.
-  // Source: runtime-integration.test.ts:983 "keeps failed store evidence anchored to the last committed snapshot".
-  // Contract/correction: SNAP-001; refactor.md EvidenceJournal and ActorEngine one-cut protocol.
-  // Setup: An actor with a failing store write followed by a successful retry.
-  // Action: Inspect turn records across both attempts.
-  // Observable result: Failure evidence uses the prior committed state and issue; retry evidence and receipt use the new revision and store cursor.
-  // Failure/cleanup: No journal record claims a cut that did not commit.
-  it.todo("RN-EVIDENCE-001 failed turn evidence names the last committed state");
-
   // Owner: P04.
   // Source: evidence.test.ts:416 "uses the supplied runtime clock for publication timestamps".
   // Source: evidence.test.ts:930 "timestamps accepted publications from the supplied runtime clock".
@@ -144,17 +135,6 @@ describe("runtime-next evidence", () => {
         yield* Scope.close(f.ownerScope, Exit.void);
       }).pipe(Effect.provide(TestClock.layer())),
   );
-
-  // Owner: P06.
-  // Source: runtime-integration.test.ts:3690 "keeps sink delivery after the committed-turn acknowledgement".
-  // Contract/correction: Approved correction 2; refactor.md EvidenceJournal and EvidenceSink.
-  // Frozen outcome: Frozen acknowledgement preceded sink delivery but observer failure could still affect committed truth.
-  // Required new outcome: Receipt is final at the cut and later sink or observer failure cannot roll it back.
-  // Setup: A committed actor turn and a gated sink.
-  // Action: Await the dispatch receipt while sink delivery remains held, then release delivery and close.
-  // Observable result: The receipt proves the actor cut and evidence sequence before external delivery runs.
-  // Failure/cleanup: Sink failure cannot retroactively reject the committed turn; close accounts for accepted records.
-  it.todo("RN-EVIDENCE-003 committed acknowledgement precedes sink delivery");
 
   // Owner: P04.
   // Source: evidence.test.ts:2025 "drains a captured evidence prefix while a newer record is accepted".

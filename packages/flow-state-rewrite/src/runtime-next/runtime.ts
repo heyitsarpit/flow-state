@@ -4,27 +4,22 @@ import { isConstructedApp, type App } from "../app/app.js";
 import type { EventOf, InputOf } from "../definition/domain.js";
 import type { PublicDiagnostic } from "../diagnostic/diagnostic.js";
 import type { Machine, MachineRecordValue } from "../machine/machine.js";
-import type { MachineDefinition, MachineSnapshot } from "../machine/grammar.js";
-import type { OperationKey } from "../operation/key.js";
-import type { OperationDeclaration } from "../operation/operation.js";
+import type { MachineDefinition } from "../machine/grammar.js";
 import type { ActorRef } from "../public/types.js";
 import type { Implementation } from "../implementation/implementation.js";
 import { implementationLayer } from "../implementation/implementation.js";
 import { makeRuntimeAssembly } from "./runtime-assembly.js";
+import type { ActorOperationReaders } from "./actor/actor-activities.js";
+import type { OwnedMachineSnapshot } from "./turn-plan.js";
 
 /** Safe diagnostic fields at the internal facade boundary. */
 export type Diagnostic = PublicDiagnostic;
 
 // oxlint-disable-next-line anti-slop/no-readonly -- Actor snapshots publish fixed fields so consumers cannot replace observed actor state or revisions.
 export type ActorSnapshot<DefinitionValue extends MachineDefinition> = Readonly<
-  MachineSnapshot<DefinitionValue> & {
+  OwnedMachineSnapshot<DefinitionValue> & {
     lifecycle: "prepared" | "active" | "suspended" | "disposed";
-    // oxlint-disable-next-line anti-slop/no-readonly -- Snapshot collections are read-only so callers cannot edit the actor-owned observation.
-    operations: readonly Readonly<{
-      descriptor: OperationDeclaration;
-      key: OperationKey;
-      status: "pending" | "running" | "succeeded" | "failed" | "cancelled";
-    }>[];
+    O: ActorOperationReaders<DefinitionValue>;
     // oxlint-disable-next-line anti-slop/no-readonly -- Snapshot collections are read-only so callers cannot edit the actor-owned observation.
     timers: readonly Readonly<{ name: string; startedAt: number; dueAt: number }>[];
     // oxlint-disable-next-line anti-slop/no-readonly -- Snapshot collections are read-only so callers cannot edit the actor-owned observation.
@@ -116,16 +111,11 @@ export interface RuntimeSetup<A extends App, ImplementationError = never> {
   construct(): Runtime<A, ImplementationError>;
 }
 
-type CapturedRuntimeSetup<A extends App, ImplementationError> = RuntimeSetup<
-  A,
-  ImplementationError
->;
-
 /** Captures App identity without acquiring a Runtime or reading App fields. */
 // RETURN_TYPE: Keeps the admitted App readonly on the actual setup result before assembly adds construct().
 export const runtimeSetup = <A extends App, Output = never, ImplementationError = never>(
   options: { app: A } | { app: A; implementation: Implementation<Output, ImplementationError> },
-): CapturedRuntimeSetup<A, ImplementationError> => {
+): RuntimeSetup<A, ImplementationError> => {
   const app = options.app;
 
   if (!isConstructedApp(app)) {

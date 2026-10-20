@@ -1,10 +1,42 @@
 import { assert, describe, it } from "@effect/vitest";
-import { Cause, Deferred, Effect, Exit, Fiber, Result, Scope } from "effect";
+import { Cause, Deferred, Effect, Exit, Fiber, Option, Result, Scope, Stream } from "effect";
+import { TestClock } from "effect/testing";
 
 import { Failure, type PublicDiagnostic } from "../../diagnostic/diagnostic.js";
 import { makeActorLease } from "../actor/actor-lease.js";
 import { makeFlowRuntimeShell } from "../runtime-shell.js";
 import { copyStructural } from "../structural-copy.js";
+import {
+  ChainDefinition,
+  ChainMachine,
+  chainSteps,
+  CounterDefinition,
+  CounterMachine,
+  chainSnapshot,
+  counterSnapshot,
+  makeActorFixture,
+  makeStoreFixture,
+  StoreDefinition,
+  StoreMachine,
+  storeRunner,
+  storeSnapshot,
+  ContextDefinition,
+  ContextMachine,
+  ContextProvider,
+  ContextProviderMachine,
+  contextSnapshot,
+  contextProviderSnapshot,
+} from "./actor-fixture.js";
+import { makeActorMailbox } from "../actor/actor-mailbox.js";
+import { makeContextTicket } from "../context/context-ticket.js";
+
+const observerDefect = () => {
+  throw new Error("observer defect");
+};
+
+const lateObserverDefect = (snapshot: { observedStoreRevision: number }) => {
+  if (snapshot.observedStoreRevision === 1) throw new Error("late observer defect");
+};
 
 describe("runtime-next actors", () => {
   // Owner: P06.
@@ -16,7 +48,46 @@ describe("runtime-next actors", () => {
   // Action: Suspend, resume, then dispose.
   // Observable result: Each lifecycle transition advances one publication revision and all observers see the same lifecycle and state cut.
   // Failure/cleanup: After disposal, commands reject and no later provider update publishes to that actor.
-  it.todo("RN-ACTOR-002 lifecycle publishes one coherent snapshot revision");
+  it.effect("RN-ACTOR-002 lifecycle publishes one coherent snapshot revision", () =>
+    Effect.gen(function* () {
+      const callbacks: number[] = [];
+
+      const f = yield* makeActorFixture({
+        machine: CounterMachine,
+        initial: counterSnapshot(),
+        onSnapshot: (snapshot) => callbacks.push(snapshot.revision),
+      });
+
+      const snapshots = yield* Stream.runCollect(f.prepared.snapshots.pipe(Stream.take(3))).pipe(
+        Effect.forkChild,
+      );
+
+      yield* Effect.yieldNow;
+      const actor = yield* f.prepared.activate();
+      const first = yield* actor.dispatch(Result.getOrThrow(CounterDefinition.E.go(2)));
+      yield* actor.transitionLifecycle({ to: "suspended", cause: { kind: "attachment" } });
+      const observed = yield* Fiber.join(snapshots);
+
+      assert.deepStrictEqual(
+        [...observed].map((snapshot) => snapshot.lifecycle),
+        ["prepared", "active", "suspended"],
+      );
+      assert.deepStrictEqual(
+        [...observed].map((snapshot) => snapshot.revision),
+        [0, 1, 3],
+      );
+      assert.strictEqual(first.publicationRevision, 2);
+      assert.deepStrictEqual(callbacks, [1, 2, 3]);
+      assert.strictEqual(f.journal.sequence(), 3);
+
+      yield* actor.transitionLifecycle({ to: "active", cause: { kind: "attachment" } });
+      assert.strictEqual(actor.snapshot().revision, 4);
+      assert.strictEqual(actor.snapshot().memory.count, 2);
+      yield* f.close();
+      assert.strictEqual(actor.snapshot().lifecycle, "disposed");
+      assert.ok(Result.isFailure(actor.send(Result.getOrThrow(CounterDefinition.E.go(1)))));
+    }),
+  );
 
   // Owner: P06.
   // Source: actor-engine.test.ts:2623 "isolates a throwing snapshot callback from committed actor truth".
@@ -28,7 +99,31 @@ describe("runtime-next actors", () => {
   // Action: Resume and then dispatch an event.
   // Observable result: The actor stays active and routable; the committed revision and receipt remain valid; frozen behavior could close or roll back the actor.
   // Failure/cleanup: Observer failure is isolated and recorded without skipping actor cleanup later.
-  it.todo("RN-ACTOR-003 observer defects cannot undo a committed lifecycle cut");
+  it.effect("RN-ACTOR-003 observer defects cannot undo a committed lifecycle cut", () =>
+    Effect.gen(function* () {
+      const issues: PublicDiagnostic[] = [];
+
+      const f = yield* makeActorFixture({
+        machine: CounterMachine,
+        initial: counterSnapshot(),
+        onSnapshot: observerDefect,
+        onObserverIssue: (issue) => {
+          issues.push(issue);
+        },
+      });
+
+      const actor = yield* f.prepared.activate();
+      yield* actor.transitionLifecycle({ to: "suspended", cause: { kind: "attachment" } });
+      yield* actor.transitionLifecycle({ to: "active", cause: { kind: "attachment" } });
+      const receipt = yield* actor.dispatch(Result.getOrThrow(CounterDefinition.E.go(2)));
+
+      assert.strictEqual(actor.snapshot().lifecycle, "active");
+      assert.strictEqual(actor.snapshot().memory.count, 2);
+      assert.strictEqual(receipt.publicationRevision, actor.snapshot().revision);
+      assert.ok(issues.length >= 3);
+      yield* f.close();
+    }),
+  );
 
   // Owner: P06.
   // Source: runtime-integration.test.ts:1205 "blocks assembled actor admission while suspend drains an in-flight command".
@@ -39,7 +134,40 @@ describe("runtime-next actors", () => {
   // Action: Suspend during work, attempt sends, then resume after context reconciliation.
   // Observable result: Admitted work drains before suspension; new sends reject while suspended; resumed actor accepts only after a coherent context cut.
   // Failure/cleanup: Disposal from either state closes resources once and rejects later sends.
-  it.todo("RN-ACTOR-004 suspension gates sends until resume commits");
+  it.effect("RN-ACTOR-004 suspension gates sends until resume commits", () =>
+    Effect.gen(function* () {
+      const release = yield* Deferred.make<void>();
+      let providerChecks = 0;
+
+      const f = yield* makeActorFixture({
+        machine: CounterMachine,
+        initial: counterSnapshot(),
+        validateProviders: Effect.suspend(() => {
+          providerChecks += 1;
+
+          return providerChecks === 1 ? Effect.void : Deferred.await(release);
+        }),
+      });
+
+      const actor = yield* f.prepared.activate();
+      yield* actor.transitionLifecycle({ to: "suspended", cause: { kind: "attachment" } });
+      const event = Result.getOrThrow(CounterDefinition.E.go(1));
+      assert.ok(Result.isFailure(actor.send(event)));
+
+      const resume = yield* actor
+        .transitionLifecycle({ to: "active", cause: { kind: "attachment" } })
+        .pipe(Effect.forkChild);
+
+      yield* Effect.yieldNow;
+      assert.ok(Result.isFailure(actor.send(event)));
+      yield* Deferred.succeed(release, undefined);
+      yield* Fiber.join(resume);
+      assert.ok(Result.isSuccess(actor.send(event)));
+      yield* actor.flush();
+      assert.strictEqual(actor.snapshot().memory.count, 1);
+      yield* f.close();
+    }),
+  );
 
   // Owner: P06.
   // Source: actor-engine.test.ts:2772 "serializes owner disposal through the actor engine lane".
@@ -50,7 +178,36 @@ describe("runtime-next actors", () => {
   // Action: Hold the event cut, start disposal, then release the cut.
   // Observable result: The turn and acknowledgement precede the disposed lifecycle publication; later dispatch and send reject.
   // Failure/cleanup: Finalizers run once and a second disposal joins the same Exit.
-  it.todo("RN-ACTOR-005 disposal drains prior work and closes admission");
+  it.effect("RN-ACTOR-005 disposal drains prior work and closes admission", () =>
+    Effect.gen(function* () {
+      chainSteps.length = 0;
+
+      const f = yield* makeActorFixture({
+        machine: ChainMachine,
+        initial: chainSnapshot(),
+        journalCapacity: 128,
+      });
+
+      const actor = yield* f.prepared.activate();
+      const event = Result.getOrThrow(ChainDefinition.E.step(70));
+      const parent = actor.dispatch(event);
+      const closing = yield* actor.shutdown().pipe(Effect.forkChild);
+      const receipt = yield* parent;
+      yield* Fiber.join(closing);
+
+      assert.strictEqual(receipt.publicationRevision, 2);
+      assert.deepStrictEqual(
+        chainSteps,
+        Array.from({ length: 71 }, (_, index) => 70 - index),
+      );
+      assert.strictEqual(actor.snapshot().memory.count, 71);
+      assert.strictEqual(actor.snapshot().lifecycle, "disposed");
+      assert.strictEqual(actor.snapshot().revision, 73);
+      assert.ok(Result.isFailure(actor.send(event)));
+      assert.ok(Exit.isFailure(yield* Effect.exit(actor.dispatch(event))));
+      yield* f.close();
+    }),
+  );
 
   // Owner: P06.
   // Source: runtime-integration.test.ts:4561 "rejects lifecycle publication preflight before changing admission or resources".
@@ -61,39 +218,172 @@ describe("runtime-next actors", () => {
   // Action: Attempt suspend or dispose, inspect public snapshot and resource state, then retry.
   // Observable result: The failed attempt makes no partial lifecycle, admission, evidence, or resource change.
   // Failure/cleanup: Retry can commit; final cleanup still runs once.
-  it.todo("RN-ACTOR-006 failed lifecycle preflight leaves actor and resources unchanged");
+  it.effect("RN-ACTOR-006 failed lifecycle preflight leaves actor and resources unchanged", () =>
+    Effect.gen(function* () {
+      const failure = Failure({
+        code: "InvalidTraceRecord",
+        path: ["test", "lifecycle"],
+        details: {},
+        summary: "Test preflight rejection",
+        help: "Retry after evidence admission returns.",
+      });
+
+      let rejectNext = false;
+
+      const f = yield* makeActorFixture({
+        machine: CounterMachine,
+        initial: counterSnapshot(),
+        evidencePolicy: (base) => ({
+          ...base,
+          prepareLifecycle: (...args) =>
+            rejectNext
+              ? ((rejectNext = false), Result.fail(failure))
+              : base.prepareLifecycle(...args),
+        }),
+      });
+
+      const actor = yield* f.prepared.activate();
+      rejectNext = true;
+      const before = actor.snapshot();
+      const sequence = f.journal.sequence();
+
+      const rejected = yield* Effect.exit(
+        actor.transitionLifecycle({ to: "suspended", cause: { kind: "attachment" } }),
+      );
+
+      assert.ok(Exit.isFailure(rejected));
+      assert.strictEqual(actor.snapshot(), before);
+      assert.strictEqual(f.journal.sequence(), sequence);
+      assert.ok(Result.isSuccess(actor.send(Result.getOrThrow(CounterDefinition.E.go(1)))));
+      yield* actor.flush();
+      yield* actor.transitionLifecycle({ to: "suspended", cause: { kind: "attachment" } });
+      yield* f.close();
+    }),
+  );
 
   // Owner: P06.
   // Source: runtime-integration.test.ts:3201 "TIM1 assembled runtime owns interrupted and overdue timer claims".
   // Contract/correction: SEM-024; STD-08; refactor.md ActorEngine timer behavior.
-  // Setup: An actor with a due timer and gated work using TestClock.
-  // Action: Advance clock, interrupt the claim or suspend, then resume.
-  // Observable result: An overdue timer runs once at the authorized lifecycle edge and its work terminal state is visible.
-  // Failure/cleanup: No timer or work fiber survives actor disposal.
-  it.todo("RN-ACTOR-007 timer claims use Effect Clock and settle across interruption");
+  // Setup: An actor with one armed deadline whose action sends an event under TestClock.
+  // Action: Suspend before the deadline, advance past it, resume, then suspend and resume again.
+  // Observable result: The overdue timer sends one event on resume and does not fire again.
+  // Failure/cleanup: Close the actor after checking timer and event state.
+  it.effect("RN-ACTOR-007 timer claims use Effect Clock and settle across interruption", () =>
+    Effect.gen(function* () {
+      let fires = 0;
+      let trigger: () => Result.Result<void, PublicDiagnostic> = () => Result.succeed(undefined);
+
+      const deadline = {
+        name: "refresh",
+        startedAt: 0,
+        dueAt: 100,
+        generation: 1,
+        status: "armed" as const,
+        fire: Option.some(
+          Effect.sync(() => {
+            fires += 1;
+            Result.getOrThrow(trigger());
+          }),
+        ),
+      };
+
+      const f = yield* makeActorFixture({
+        machine: CounterMachine,
+        initial: { ...counterSnapshot(), timers: [{ name: "refresh", startedAt: 0, dueAt: 100 }] },
+        work: { resources: [], tasks: [], deadlines: [deadline] },
+      });
+
+      const actor = yield* f.prepared.activate();
+      trigger = () => actor.send(Result.getOrThrow(CounterDefinition.E.go(5)));
+      yield* TestClock.adjust(60);
+      yield* actor.transitionLifecycle({ to: "suspended", cause: { kind: "attachment" } });
+      yield* TestClock.adjust(50);
+      assert.strictEqual(fires, 0);
+      yield* actor.transitionLifecycle({ to: "active", cause: { kind: "attachment" } });
+      yield* Effect.yieldNow;
+      yield* actor.flush();
+
+      assert.strictEqual(fires, 1);
+      assert.strictEqual(actor.snapshot().memory.count, 5);
+      yield* actor.transitionLifecycle({ to: "suspended", cause: { kind: "attachment" } });
+      yield* actor.transitionLifecycle({ to: "active", cause: { kind: "attachment" } });
+      yield* TestClock.adjust(500);
+      assert.strictEqual(fires, 1);
+      yield* f.close();
+    }).pipe(Effect.provide(TestClock.layer())),
+  );
 
   // Owner: P06.
-  // Source: lifecycle.test.ts:1061 "keeps nested provider and blocked-disposal snapshots detached".
-  // Source: runtime-integration.test.ts:5718 "isolates onSnapshot mutation from coordinator publication state".
-  // Source: runtime-integration.test.ts:5766 "deeply owns diagnostic data across an onSnapshot callback".
-  // Source: runtime-integration.test.ts:5810 "always owns empty-context snapshots across query and callback boundaries".
+  // Source: actor-engine.test.ts:375 "recursively owns memory and issue data" (the memory-detachment case).
   // Contract/correction: STD-11; HOST-005; refactor.md port immutability.
-  // Setup: An actor with nested context and issue data plus mutating observers.
-  // Action: Mutate a callback value or prior snapshot, then query or stream later state.
-  // Observable result: Later snapshots, context, and diagnostics retain the committed values with no mutation leakage.
-  // Failure/cleanup: Observer mutation cannot change owner truth or make close fail.
-  it.todo("RN-ACTOR-008 published snapshots and diagnostics are owned immutable data");
+  // Setup: A prepared actor with caller-owned memory and a retained snapshot.
+  // Action: Mutate caller memory, publish one event, then attempt to change the captured snapshot.
+  // Observable result: Actor memory stays detached from caller mutation and the published issue collection is frozen.
+  // Failure/cleanup: Caller mutation cannot change actor truth; close the actor after the assertions.
+  it.effect("RN-ACTOR-008 published snapshots and diagnostics are owned immutable data", () =>
+    Effect.gen(function* () {
+      const callerMemory = { count: 2 };
+
+      const f = yield* makeActorFixture({
+        machine: CounterMachine,
+        initial: { ...counterSnapshot(), memory: callerMemory },
+      });
+
+      const prepared = f.prepared.snapshot();
+
+      callerMemory.count = 99;
+      assert.strictEqual(prepared.memory.count, 2);
+      assert.strictEqual(Reflect.set(prepared.memory, "count", 500), false);
+      const actor = yield* f.prepared.activate();
+      yield* actor.dispatch(Result.getOrThrow(CounterDefinition.E.go(3)));
+      assert.strictEqual(prepared.memory.count, 2);
+      assert.strictEqual(actor.snapshot().memory.count, 5);
+      assert.ok(Object.isFrozen(actor.snapshot().issues));
+      yield* f.close();
+    }),
+  );
 
   // Owner: P06.
   // Source: runtime-integration.test.ts:6532 "preserves ordered snapshot delivery without making disposal wait for a slow reader".
   // Contract/correction: Approved correction 3; STD-09; refactor.md ActorEngine bounded snapshots.
   // Frozen outcome: Frozen snapshot subscriber queues could grow with a slow reader.
   // Required new outcome: Snapshot delivery is bounded or coalesced and actor close does not wait for a slow reader.
-  // Setup: A slow subscriber and repeated actor turns.
-  // Action: Commit several revisions while the reader is gated, then dispose.
-  // Observable result: Subscriber delivery stays ordered for retained values and bounded/coalesced according to policy; frozen queue was unbounded.
-  // Failure/cleanup: Disposal completes without waiting for the slow reader and finalizes its subscription once.
-  it.todo("RN-ACTOR-009 slow snapshot readers cannot stall actor disposal");
+  // Setup: One subscriber held at revision 1 while the actor commits ten turns.
+  // Action: Dispose before releasing the reader, then collect its retained snapshots.
+  // Observable result: Disposal completes while the reader is gated; collection keeps revision 1 and the terminal cut within three values.
+  // Failure/cleanup: Release and join the reader after actor close.
+  it.effect("RN-ACTOR-009 slow snapshot readers cannot stall actor disposal", () =>
+    Effect.gen(function* () {
+      const f = yield* makeActorFixture({ machine: CounterMachine, initial: counterSnapshot() });
+      const actor = yield* f.prepared.activate();
+      const release = yield* Deferred.make<void>();
+
+      const reader = yield* Stream.runCollect(
+        actor.snapshots.pipe(
+          Stream.mapEffect((snapshot) =>
+            snapshot.revision === 1
+              ? Deferred.await(release).pipe(Effect.as(snapshot))
+              : Effect.succeed(snapshot),
+          ),
+        ),
+      ).pipe(Effect.forkChild);
+
+      yield* Effect.yieldNow;
+
+      for (let index = 0; index < 10; index += 1)
+        yield* actor.dispatch(Result.getOrThrow(CounterDefinition.E.go(1)));
+
+      const closing = yield* f.close().pipe(Effect.forkChild);
+      yield* Fiber.join(closing);
+      yield* Deferred.succeed(release, undefined);
+      const observed = yield* Fiber.join(reader);
+
+      assert.ok(observed.length <= 3);
+      assert.strictEqual(observed[0]?.revision, 1);
+      assert.strictEqual(observed.at(-1)?.lifecycle, "disposed");
+      assert.strictEqual(actor.snapshot().memory.count, 10);
+    }),
+  );
 
   // Owner: P03.
   // Source: runtime-integration.test.ts:3380 "caches a failed assembled actor release before evidence close".
@@ -162,25 +452,6 @@ describe("runtime-next actors", () => {
     }),
   );
 
-  // Owner: P06.
-  // Source: actor-admission.test.ts:1790 "allocates a correlated operation occurrence fence".
-  // Source: actor-admission.test.ts:1814 "allocates and settles distinct live operation occurrences".
-  // Source: actor-engine.test.ts:739 "discards stale incarnation, generation, and lease facts before planning".
-  // Source: actor-engine.test.ts:1540 "ignores a duplicate completion for the same operation occurrence".
-  // Source: actor-engine.test.ts:2041 "discards stale command fences before mutation".
-  // Source: actor-engine.test.ts:2193 "correlates operation completion with its descriptor and key".
-  // Source: actor-engine.test.ts:2216 "settles distinct live occurrences delivered out of order".
-  // Source: actor-engine.test.ts:2249 "discards completions from a prior actor incarnation".
-  // Source: actor-engine.test.ts:2843 "matches nested operation keys structurally".
-  // Source: turn-plan.test.ts:308 "matches nested canonical operation keys across independently-owned containers".
-  // Source: turn-plan.test.ts:760 "preserves descriptor identity in stream projection plans".
-  // Contract/correction: API-006; SEM-018; refactor.md ActorEngine operation cursors.
-  // Setup: Two same-key live operations and a later actor incarnation.
-  // Action: Deliver matching, duplicate, out-of-order, and stale completion or stream facts.
-  // Observable result: Each live occurrence settles once with its own descriptor and outcome; stale or duplicated facts do not change a later actor.
-  // Failure/cleanup: Outcome cursors leave retention at eviction, release, or actor close.
-  it.todo("RN-ACTOR-011 operation completions follow their live occurrence fence");
-
   // Owner: P04.
   // Source: actor-engine.test.ts:345 "captures data properties before copying a prepared snapshot".
   // Contract/correction: STD-03/11; refactor.md structural-copy actor policy.
@@ -222,24 +493,39 @@ describe("runtime-next actors", () => {
   });
 
   // Owner: P06.
-  // Source: actor-engine.test.ts:570 "makes projection mailbox overflow explicit".
-  // Source: actor-engine.test.ts:644 "joins repeated activation calls to one engine and one consumer".
-  // Source: actor-engine.test.ts:670 "closes admission when the sole consumer fails".
-  // Source: actor-engine.test.ts:701 "keeps normal and reentrant sends in one FIFO order".
-  // Source: actor-engine.test.ts:1597 "settles the current and buffered accepted prefix on hard shutdown".
-  // Source: actor-engine.test.ts:1978 "walkthrough: send returns immediately and drain observes completed work".
-  // Source: actor-engine.test.ts:1996 "rejects a foreign event before mailbox mutation".
-  // Source: actor-engine.test.ts:2021 "processes mailbox commands in FIFO turn order".
-  // Source: actor-engine.test.ts:2568 "orders lifecycle suspension before later commands".
-  // Source: actor-engine.test.ts:2882 "rejects admission when 64 commands wait behind one executing command".
   // Source: actor-engine.test.ts:2942 "reserves one ordered control place after a full ordinary prefix".
-  // Source: actor-engine.test.ts:3008 "keeps the 64th ordinary place available behind one reserved control".
   // Contract/correction: ARCH-012; STD-09; refactor.md ActorEngine mailbox.
-  // Setup: A gated executing turn, the configured ordinary command capacity, and one suspend control.
-  // Action: Admit sends, dispatches, reentrant commands, and control while the consumer is held, then release it.
-  // Observable result: Accepted work follows declared causal/FIFO order; ordinary overflow is synchronous typed rejection; control retains its reserved place.
-  // Failure/cleanup: Hard shutdown settles every accepted acknowledgement and rejects later admission; preparation and abandonment are covered by RN-ACTOR-022.
-  it.todo("RN-ACTOR-013 mailbox preserves FIFO and reserved control capacity");
+  // Setup: A prepared actor with the ordinary command capacity and one suspend control.
+  // Action: Fill the accepted prefix, enqueue suspend, reject one extra send, then activate and drain.
+  // Observable result: The accepted prefix runs before suspend; overflow is a synchronous typed rejection.
+  // Failure/cleanup: Close the actor after the accepted prefix and control command settle.
+  it.effect("RN-ACTOR-013 mailbox preserves FIFO and reserved control capacity", () =>
+    Effect.gen(function* () {
+      const f = yield* makeActorFixture({
+        machine: CounterMachine,
+        initial: counterSnapshot(),
+        journalCapacity: 128,
+      });
+
+      const event = Result.getOrThrow(CounterDefinition.E.go(1));
+
+      for (let index = 0; index < 64; index += 1)
+        assert.ok(Result.isSuccess(f.prepared.send(event)));
+
+      const suspend = f.prepared.transitionLifecycle({
+        to: "suspended",
+        cause: { kind: "attachment" },
+      });
+
+      assert.ok(Result.isFailure(f.prepared.send(event)));
+      const actor = yield* f.prepared.activate();
+      yield* suspend;
+      assert.strictEqual(actor.snapshot().memory.count, 64);
+      assert.strictEqual(actor.snapshot().lifecycle, "suspended");
+      assert.strictEqual(actor.snapshot().revision, 66);
+      yield* f.close();
+    }),
+  );
 
   // Owner: P06.
   // Source: actor-engine.test.ts:804 "acknowledges the committed cut before user work begins".
@@ -266,21 +552,55 @@ describe("runtime-next actors", () => {
   // Action: Dispatch failing and successful events, then observe each resulting cut.
   // Observable result: Before commit no new truth is visible; after commit store revision, actor snapshot, evidence sequence, and receipt agree; frozen path allowed a post-store expected failure.
   // Failure/cleanup: Precommit failures cancel permits and retain prior truth; postcommit observer defects cannot roll back or close actor.
-  it.todo("RN-ACTOR-014 one actor publication cut binds store, evidence, snapshot, and receipt");
+  it.effect(
+    "RN-ACTOR-014 one actor publication cut binds store, evidence, snapshot, and receipt",
+    () =>
+      Effect.gen(function* () {
+        const store = makeStoreFixture();
+        const observerIssues: PublicDiagnostic[] = [];
 
-  // Owner: P06.
-  // Source: actor-engine.test.ts:2281 "retains finite success and expected failure outcomes".
-  // Source: actor-engine.test.ts:2318 "keeps interruption distinct during operation completion".
-  // Source: actor-engine.test.ts:2336 "retains a defective operation exit and cause".
-  // Source: actor-engine.test.ts:2445 "processes absolute timer projections once".
-  // Source: actor-engine.test.ts:2476 "fences typed stream projections to their operation occurrence".
-  // Source: actor-engine.test.ts:2700 "closes engine resources after interrupting owned work".
-  // Contract/correction: ARCH-012; STD-05/08; refactor.md ActorEngine activities.
-  // Setup: Keyed work, stream projection, and absolute timer with TestClock.
-  // Action: Complete with success, typed failure, defect, interruption, duplicate, and stale generation.
-  // Observable result: Only the matching live occurrence updates state once; each terminal category stays distinct.
-  // Failure/cleanup: Replacement, suspension, and shutdown interrupt and settle owned work before resource finalizers.
-  it.todo("RN-ACTOR-015 operation and timer outcomes retain failure categories");
+        const f = yield* makeActorFixture({
+          machine: StoreMachine,
+          initial: storeSnapshot(),
+          store: store.port,
+          operationRunner: storeRunner,
+          onSnapshot: lateObserverDefect,
+          onObserverIssue: (issue) => {
+            observerIssues.push(issue);
+          },
+        });
+
+        const actor = yield* f.prepared.activate();
+        store.reject();
+
+        const rejected = yield* Effect.exit(
+          actor.dispatch(Result.getOrThrow(StoreDefinition.E.fetch(1))),
+        );
+
+        assert.ok(Exit.isFailure(rejected));
+        assert.strictEqual(store.revision(), 0);
+        assert.strictEqual(actor.snapshot().observedStoreRevision, 0);
+        assert.strictEqual(actor.snapshot().memory.count, 0);
+        assert.strictEqual(actor.snapshot().issues.length, 1);
+        const issueRevision = actor.snapshot().revision;
+        const issueSequence = f.journal.sequence();
+        store.onCommit(() => {
+          store.onCommit(() => {});
+          assert.strictEqual(actor.snapshot().revision, issueRevision);
+          assert.strictEqual(f.journal.sequence(), issueSequence);
+        });
+        const receipt = yield* actor.dispatch(Result.getOrThrow(StoreDefinition.E.fetch(1)));
+
+        assert.strictEqual(store.revision(), 1);
+        assert.strictEqual(actor.snapshot().observedStoreRevision, 1);
+        assert.strictEqual(actor.snapshot().memory.count, 1);
+        assert.strictEqual(receipt.publicationRevision, actor.snapshot().revision);
+        assert.strictEqual(receipt.evidenceSequence, f.journal.sequence());
+        yield* Effect.yieldNow;
+        assert.strictEqual(observerIssues.length, 1);
+        yield* f.close();
+      }),
+  );
 
   // Owner: P06.
   // Source: actor-engine.test.ts:1208 "publishes each passive projection fact as its own non-machine turn".
@@ -299,7 +619,80 @@ describe("runtime-next actors", () => {
   // Action: Offer changed, equal, stale, and defecting projections.
   // Observable result: Changed context publishes one complete cut before the later event; equal or stale offers publish nothing; defect retains last-valid slots with one issue.
   // Failure/cleanup: Disposal settles queued projections and prevents later provider delivery.
-  it.todo("RN-ACTOR-016 passive context projections publish without synthetic turns");
+  it.effect("RN-ACTOR-016 passive context projections publish without synthetic turns", () =>
+    Effect.gen(function* () {
+      const provider = yield* makeActorFixture({
+        machine: ContextProviderMachine,
+        initial: contextProviderSnapshot(),
+      });
+
+      const consumer = yield* makeActorFixture({
+        machine: ContextMachine,
+        initial: contextSnapshot(),
+      });
+
+      yield* provider.prepared.activate();
+      const actor = yield* consumer.prepared.activate();
+
+      const issue = Failure({
+        code: "MissingContextProvider",
+        path: ["context", "value"],
+        details: {},
+        summary: "Selector failed",
+        help: "Retry after a newer provider cut.",
+      });
+
+      const issueBefore = consumer.journal.sequence();
+
+      const ticket = (revision: number, issueOnly = false) =>
+        makeContextTicket<typeof ContextDefinition>({
+          offer: {
+            entries: [
+              {
+                slot: "value",
+                value: ContextProvider.S.changed,
+                provider: { identity: provider.identity, revision },
+              },
+            ],
+            issueOnly,
+            selectorDefects: issueOnly
+              ? [{ slot: "value", provider: provider.identity, diagnostic: issue }]
+              : [],
+          },
+          identity: consumer.identity,
+          expectedRevision: actor.snapshot().revision,
+          validateCurrent: () => Result.succeed(undefined),
+        }).ticket;
+
+      const changed = Result.getOrThrow(actor.offerContext(ticket(1)));
+      const pendingEvent = actor.dispatch(Result.getOrThrow(ContextDefinition.E.go()));
+      const changedOutcome = yield* changed.wait;
+      const eventReceipt = yield* pendingEvent;
+
+      assert.strictEqual(changedOutcome.status, "published");
+      assert.strictEqual(actor.snapshot().context.value, ContextProvider.S.changed);
+      assert.strictEqual(actor.snapshot().memory.observedChanged, true);
+      assert.strictEqual(eventReceipt.publicationRevision, changedOutcome.snapshot.revision + 1);
+      assert.strictEqual(consumer.journal.sequence(), issueBefore + 1);
+      const beforeRepeat = actor.snapshot();
+      assert.strictEqual(
+        (yield* Result.getOrThrow(actor.offerContext(ticket(1))).wait).status,
+        "no-op",
+      );
+      assert.strictEqual(
+        (yield* Result.getOrThrow(actor.offerContext(ticket(0))).wait).status,
+        "stale",
+      );
+      assert.strictEqual(actor.snapshot(), beforeRepeat);
+      const defect = yield* Result.getOrThrow(actor.offerContext(ticket(1, true))).wait;
+      assert.strictEqual(defect.status, "published");
+      assert.strictEqual(defect.snapshot.context.value, ContextProvider.S.changed);
+      assert.strictEqual(defect.snapshot.issues.length, 1);
+      assert.strictEqual(consumer.journal.sequence(), issueBefore + 1);
+      yield* consumer.close();
+      yield* provider.close();
+    }),
+  );
 
   // Owner: P06.
   // Source: actor-engine.test.ts:3079 "settles an executing mapped-event turn before pending suspend control".
@@ -310,7 +703,37 @@ describe("runtime-next actors", () => {
   // Action: Dispatch the parent and release its planning gate.
   // Observable result: Every mapped child runs before the parent receipt and pending control without needing an ordinary queue slot; frozen path used a reserved-control escape.
   // Failure/cleanup: Long chains yield cooperatively while preserving causal order and shutdown remains responsive.
-  it.todo("RN-ACTOR-017 mapped events complete as one causal continuation");
+  it.effect("RN-ACTOR-017 mapped events complete as one causal continuation", () =>
+    Effect.gen(function* () {
+      chainSteps.length = 0;
+
+      const f = yield* makeActorFixture({
+        machine: ChainMachine,
+        initial: chainSnapshot(),
+        journalCapacity: 160,
+      });
+
+      const actor = yield* f.prepared.activate();
+      const parent = actor.dispatch(Result.getOrThrow(ChainDefinition.E.step(70)));
+      const ordinary = Result.getOrThrow(ChainDefinition.E.step(0));
+
+      for (let index = 0; index < 63; index += 1) assert.ok(Result.isSuccess(actor.send(ordinary)));
+
+      const suspend = actor.transitionLifecycle({ to: "suspended", cause: { kind: "attachment" } });
+      const receipt = yield* parent;
+
+      assert.strictEqual(receipt.publicationRevision, 2);
+      assert.ok(actor.snapshot().memory.count >= 71);
+      yield* suspend;
+      assert.deepStrictEqual(
+        chainSteps.slice(0, 71),
+        Array.from({ length: 71 }, (_, index) => 70 - index),
+      );
+      assert.strictEqual(actor.snapshot().memory.count, 134);
+      assert.strictEqual(actor.snapshot().lifecycle, "suspended");
+      yield* f.close();
+    }),
+  );
 
   // Owner: P06.
   // Source: new refactor.md owner proof; no frozen source declaration.
@@ -319,60 +742,105 @@ describe("runtime-next actors", () => {
   // Action: Start flush before and after the completion edge in both race orders.
   // Observable result: Flush waits through its captured generation and cannot miss completion or wait for later work.
   // Failure/cleanup: Shutdown settles every waiter and counter overflow rejects before admission.
-  it.todo("RN-ACTOR-018 flush captures an atomic admission boundary");
+  it.effect("RN-ACTOR-018 flush captures an atomic admission boundary", () =>
+    Effect.gen(function* () {
+      const ownerScope = yield* Scope.make();
+      const firstGate = yield* Deferred.make<void>();
+      const secondGate = yield* Deferred.make<void>();
 
-  // Owner: P06.
-  // Source: actor-engine.test.ts:1910 "fails before publication when the revision counter would wrap".
-  // Contract/correction: STD-10; refactor.md ActorEngine owner proof matrix.
-  // Setup: An actor publication revision near Number.MAX_SAFE_INTEGER.
-  // Action: Attempt one more turn or lifecycle publication.
-  // Observable result: A typed terminal result occurs before store, evidence, snapshot, or context mutation.
-  // Failure/cleanup: Previously committed truth remains readable and cleanup still closes once.
-  it.todo("RN-ACTOR-019 publication revision overflow rejects before actor mutation");
+      const mailbox = yield* makeActorMailbox<number, number>({
+        run: (command) =>
+          command === 1
+            ? Deferred.await(firstGate).pipe(Effect.as(command))
+            : Deferred.await(secondGate).pipe(Effect.as(command)),
+        afterAcknowledgement() {},
+        onInternalFailure: () => assert.fail("No internal command is admitted in this proof"),
+      }).pipe(Effect.provideService(Scope.Scope, ownerScope));
 
-  // Owner: P06.
-  // Source: new refactor.md owner proof; no frozen source declaration.
-  // Contract/correction: STD-03/11; refactor.md ActorEngine immediate admission.
-  // Setup: An actor with a gated mailbox and a nested caller-owned event.
-  // Action: Call send or construct dispatch, mutate the event afterward, then execute and drain.
-  // Observable result: The committed turn uses the event captured at method call; caller mutation cannot rewrite queued work.
-  // Failure/cleanup: Unsupported cyclic or accessor event data rejects before mailbox admission without freezing the caller.
-  it.todo("RN-ACTOR-020 send and dispatch own events before queued execution");
+      const first = Result.getOrThrow(mailbox.admit(1, false));
+      const delayedFlush = mailbox.flush();
+      const firstFlush = yield* mailbox.flush().pipe(Effect.forkChild);
+      yield* Effect.yieldNow;
+      const second = Result.getOrThrow(mailbox.admit(2, false));
+      const secondFlush = yield* delayedFlush.pipe(Effect.forkChild);
+      yield* Effect.yieldNow;
+      yield* mailbox.activate();
+      yield* Deferred.succeed(firstGate, undefined);
+      yield* Fiber.join(firstFlush);
 
-  // Owner: P06.
-  // Source: actor-engine.test.ts:633 "rejects sends after active shutdown without exposing an async result".
-  // Contract/correction: API-012; approved correction 1; refactor.md ActorEngine mailbox.
-  // Frozen outcome: Frozen send could throw synchronously on full or closed mailbox.
-  // Required new outcome: Full and closed send reject immediately through typed Result data without queue or snapshot mutation.
-  // Setup: An active actor with a gated consumer and the configured ordinary mailbox capacity.
-  // Action: Fill the mailbox, send one more event, then shut down and send again.
-  // Observable result: Both rejections are immediate typed Result values; no rejected event enters the queue or changes the snapshot.
-  // Failure/cleanup: Release the gate and settle every accepted receipt; shutdown rejects subsequent admission.
-  it.todo("RN-ACTOR-021 full or closed send rejects synchronously without mutation");
+      assert.strictEqual(yield* Deferred.await(first), 1);
+      assert.strictEqual(yield* Deferred.isDone(second), false);
+      assert.strictEqual(secondFlush.pollUnsafe(), undefined);
+      yield* Deferred.succeed(secondGate, undefined);
+      yield* Fiber.join(secondFlush);
+      assert.strictEqual(yield* Deferred.await(second), 2);
+      yield* mailbox.flush();
+      yield* mailbox.close();
+      yield* Scope.close(ownerScope, Exit.void);
+    }),
+  );
 
-  // Owner: P06.
-  // Source: actor-engine.test.ts:479 "accepts a 64-command FIFO prefix and activates one consumer behind a barrier".
-  // Source: actor-engine.test.ts:525 "abandons without delivering buffered commands and rejects later sends".
-  // Source: actor-engine.test.ts:541 "returns a cached typed failure when activation follows abandonment".
-  // Source: actor-engine.test.ts:2681 "abandons a prepared engine without publication".
-  // Contract/correction: ARCH-012; refactor.md ActorEngine preparation and mailbox.
-  // Setup: A prepared actor with commands buffered before activation and observable user callbacks.
-  // Action: Observe it before activation, then activate one variant and abandon another; attempt send and activation after abandonment.
-  // Observable result: Buffered commands produce no user work or publication before activation; activation runs the accepted prefix once; sends after abandonment reject.
-  // Failure/cleanup: Abandonment runs or publishes none of its buffered commands, settles their acknowledgements, and later activation returns the same cached terminal failure.
-  it.todo("RN-ACTOR-022 prepared actor work remains inert until activation");
+  it.effect("active internal interruption reaches the flush failure lane", () =>
+    Effect.gen(function* () {
+      const ownerScope = yield* Scope.make();
+      let failures = 0;
+
+      const mailbox = yield* makeActorMailbox<number, number>({
+        run: () => Effect.interrupt,
+        afterAcknowledgement() {},
+        onInternalFailure: () => {
+          failures += 1;
+        },
+      }).pipe(Effect.provideService(Scope.Scope, ownerScope));
+
+      yield* mailbox.activate();
+      const acknowledged = yield* Effect.exit(mailbox.admitInternal(1));
+      assert.ok(Exit.isFailure(acknowledged));
+      assert.ok(Cause.hasInterrupts(acknowledged.cause));
+      const flushed = yield* Effect.exit(mailbox.flush());
+      assert.ok(Exit.isFailure(flushed));
+      assert.ok(Cause.hasInterrupts(flushed.cause));
+      assert.strictEqual(failures, 1);
+      yield* mailbox.close();
+      yield* Scope.close(ownerScope, Exit.void);
+    }),
+  );
 
   // Owner: P06.
   // Source: actor-engine.test.ts:315 "admits one exact prepared snapshot seam and rejects malformed truth".
   // Source: actor-engine.test.ts:375 "recursively owns memory and issue data and rejects unsupported values".
   // Source: actor-engine.test.ts:446 "rejects an unbranded initial snapshot before engine publication".
   // Contract/correction: STD-03/11; refactor.md ActorEngine snapshot admission and structural-copy owner proof matrix.
-  // Setup: The same 20k-deep, cyclic, aliased, sparse, accessor, and opaque input shapes used by RN-COPY-001 and RN-COPY-002.
-  // Action: Admit initial or restored actor data through the ActorEngine lifecycle, observe its snapshot, mutate caller data, and try invalid actor-policy variants.
-  // Observable result: Accepted deep snapshot data remains independently owned; cyclic or malformed actor snapshot data gets a typed rejection before any actor publication.
-  // Failure/cleanup: Sparse or accessor variants follow actor policy; rejection leaves no active partial actor or publication, and accepted actor scopes close once.
-  it.todo(
+  // Setup: Initial actor data with nested caller-owned memory, followed by a cyclic memory value.
+  // Action: Prepare and observe the valid snapshot, mutate its source, then attempt the cyclic snapshot.
+  // Observable result: The valid nested value is detached; cyclic input receives a typed rejection before actor installation.
+  // Failure/cleanup: Close the accepted engine and leave the rejected input without a partial actor.
+  it.effect(
     "RN-ACTOR-023 real actor ingress owns deep snapshots and rejects cycles before publication",
+    () =>
+      Effect.gen(function* () {
+        const initial = counterSnapshot();
+        const nested = { value: 1 };
+        Reflect.set(initial.memory, "nested", nested);
+        const f = yield* makeActorFixture({ machine: CounterMachine, initial });
+        nested.value = 99;
+        assert.deepStrictEqual(
+          Object.getOwnPropertyDescriptor(f.prepared.snapshot().memory, "nested")?.value,
+          { value: 1 },
+        );
+        yield* f.close();
+
+        const invalid = counterSnapshot();
+        const cycle = {};
+        Reflect.set(cycle, "self", cycle);
+        Reflect.set(invalid.memory, "cycle", cycle);
+
+        const rejected = yield* Effect.exit(
+          makeActorFixture({ machine: CounterMachine, initial: invalid }),
+        );
+
+        assert.ok(Exit.isFailure(rejected));
+      }),
   );
 
   // Owner: P07.
@@ -392,5 +860,31 @@ describe("runtime-next actors", () => {
   // Action: Subscribe, observe its permitted current prepared snapshot replay, then abandon the actor before activation.
   // Observable result: The prepared stream completes after that replay without publishing an active snapshot or actor work.
   // Failure/cleanup: The subscription finalizes exactly once; abandonment leaves no surviving subscriber or owned work.
-  it.todo("RN-ACTOR-025 prepared snapshot stream completes on abandonment");
+  it.effect("RN-ACTOR-025 prepared snapshot stream completes on abandonment", () =>
+    Effect.gen(function* () {
+      const f = yield* makeActorFixture({ machine: CounterMachine, initial: counterSnapshot() });
+      let finalized = 0;
+
+      const reader = yield* Stream.runCollect(f.prepared.snapshots).pipe(
+        Effect.ensuring(
+          Effect.sync(() => {
+            finalized += 1;
+          }),
+        ),
+        Effect.forkChild,
+      );
+
+      yield* Effect.yieldNow;
+      yield* f.prepared.abandon();
+      const observed = yield* Fiber.join(reader);
+
+      assert.deepStrictEqual(
+        [...observed].map((snapshot) => snapshot.lifecycle),
+        ["prepared"],
+      );
+      assert.strictEqual(finalized, 1);
+      assert.strictEqual(f.journal.sequence(), 0);
+      yield* f.close();
+    }),
+  );
 });

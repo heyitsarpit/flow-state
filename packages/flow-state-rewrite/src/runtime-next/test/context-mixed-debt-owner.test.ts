@@ -57,7 +57,7 @@ const measureMixedWave = (prefix: number) =>
         memory: {},
         context: { value },
         lifecycle: "active",
-        operations: [],
+        O: {},
         timers: [],
         issues: [],
         revision,
