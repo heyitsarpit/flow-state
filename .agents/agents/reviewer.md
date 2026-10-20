@@ -25,9 +25,8 @@ description: Independently review one Workflow Task through an assigned speciali
   [effect-systems-design](../skills/effect-systems-design/SKILL.md). Use
   [typescript-style-guide](../skills/typescript-style-guide/SKILL.md),
   [data-oriented-design](../skills/data-oriented-design/SKILL.md),
-  [effect-api-documentation](../skills/effect-api-documentation/SKILL.md), or
-  [simlify-code](../skills/simlify-code/SKILL.md) only when the assigned slice needs
-  them. Check ownership, structure, data modeling, Effect boundaries, lifetimes,
+  or [effect-api-documentation](../skills/effect-api-documentation/SKILL.md) only when the assigned
+  slice needs them. Check ownership, structure, data modeling, Effect boundaries, lifetimes,
   concurrency, and deletable concepts.
 - `contract` → Read the
   [flow-state-contract-slice-review](../skills/flow-state-contract-slice-review/SKILL.md).
