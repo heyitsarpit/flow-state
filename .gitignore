@@ -31,3 +31,4 @@ apps/docs/src/pages.gen.ts
 *.db
 .beads-credential-key
 .beads/proxieddb/
+.beads/

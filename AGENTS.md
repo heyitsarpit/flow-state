@@ -1,7 +1,22 @@
 # Flow State agent guide
 
-Use this file as a router. Read the live source, tests, contracts, or proofs needed
+Use this file as a router. Read the live source, tests, Workflow records, or proofs needed
 for the current task and claim. Do not read the whole repository by default.
+
+## Project authority
+
+- `workflow/plans/` and `workflow/tasks/` own current semantic requirements, accepted
+  decisions, project status, and proof obligations. Workflow Specs, when present, are
+  indexed by `workflow/spec.index`.
+- An unresolved Workflow question blocks only the affected work. Do not fill a gap
+  from old source text or implementation behavior without an explicit user decision.
+- The former contract pack under `reference/incident-console/implementation/contracts/`
+  and the Beads database and exports are historical provenance only. Preserve their
+  IDs and receipts for traceability. Their statuses and dependency edges are frozen
+  source snapshots, not current readiness; they cannot override Workflow records or
+  supply current task status.
+- This authority transfer does not mean the rewrite implementation or package cutover
+  is complete. Product cutover remains a later, separately gated phase.
 
 ## Task modes
 
@@ -22,6 +37,8 @@ for the current task and claim. Do not read the whole repository by default.
 
 - User instructions take precedence over conflicting skill guidance, subject to higher
   priority instructions and permission boundaries.
+- For this repository, this authority declaration overrides older role or skill text
+  that routes current work to Beads or treats archived contracts as normative.
 - If a skill causes a pause, unfinished work, or a change of direction, name the exact
   `SKILL.md` and rule. Distinguish an explicit requirement from your interpretation.
   Continue unaffected authorized work.
@@ -44,7 +61,8 @@ for the current task and claim. Do not read the whole repository by default.
   `src/testing/`, and `src/cli/` — integration surfaces.
 - `packages/flow-state-rewrite/src/` — greenfield rewrite package
 - `apps/docs/` — Vocs documentation and generated reference artifacts.
-- `reference/incident-console/implementation/contracts` — readonly contracts.
+- `reference/incident-console/implementation/contracts/` — historical source records;
+  preserve them as read-only provenance.
 - `codebases/` — research input only. `codebases/effect-v4/` is the primary
   reference for Effect usage. Installed packages and the lockfile remain authoritative
   for exact dependency APIs.
@@ -81,8 +99,8 @@ nub run verify                                   # full closeout gate
 
 ## Change boundaries
 
-- Before editing, inspect `git status`, relevant source and tests, README guidance, and
-  the active contract/task. Preserve unrelated worktree changes.
+- Before editing, inspect `git status`, the assigned Workflow Plan and Task, relevant
+  source and tests, and README guidance. Preserve unrelated worktree changes.
 - Make the smallest change at the owning boundary. Check public API changes against
   affected entrypoints, tests, packed consumers, and docs.
 - Add or update executable behavior proofs with semantic changes; source-text checks
@@ -96,50 +114,56 @@ nub run verify                                   # full closeout gate
 - Add re-export files only for a real public route.
 - Regenerate generated docs and package output through their commands. Do not hand-edit
   `dist/`, `apps/docs/src/generated/`, or `apps/docs/src/pages.gen.ts`.
-- For contract work, read only the active task and its named contracts. Reconcile
-  conflicting authority before changing implementation semantics.
+- For implementation work, read the relevant Workflow Plan and Task, then inspect
+  their named source, tests, and proofs. Treat old contract text as provenance only.
 
 ## Skills
 
 Load only skills relevant to the task; more than one may apply. The `orchestrator`,
 `coder`, and `reviewer` entrypoints define delegation, implementation, and independent
-review. Use one primary coder. It records `contract clause -> owner file -> executable
-proof -> expected baseline`, makes the task list, then decides whether to delegate
+review. Use one primary coder. It records `Workflow requirement -> owner file ->
+executable proof -> expected baseline`, makes the task list, then decides whether to delegate
 disjoint work to zero, one, or two secondary coders. The primary owns integration and
 final coder checks. Record each agent's task, scope, model, and reasoning setting before
 dispatch. Follow with three independent reviewers in parallel: `architecture`,
 `contract`, and `bug`. Each reviewer reads its assigned skills through the reviewer
 entrypoint and then runs the common general-code-practices phase. All three
 reviews must pass.
-Keep small and non-Bead work conditionally delegated; keep review evidence explicit
-and proportional.
+Keep delegation proportional; keep review evidence explicit and proportional.
 
 | Skill                                                      | Agent                            | Reach for it when                                                                    | Do not reach for it when                                                 |
 | ---------------------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
 | `.agents/skills/typescript-style-guide/SKILL.md`           | coder, reviewer (`architecture`) | Writing Flow State TypeScript or reviewing its style and ownership.                  | Unrelated to Flow State TypeScript.                                      |
 | `.agents/skills/code-patterns/SKILL.md`                    | reviewer (`architecture`)        | Architecture-first Flow State TypeScript reviews against CP01–CP21.                  | Generic maintainability review without a Flow State TypeScript boundary. |
 | `.agents/skills/api-design/SKILL.md`                       | coder, reviewer                  | Designing or reviewing APIs, usability, or compatibility.                            | No API design decision is involved.                                      |
+| `.agents/skills/code-spec/SKILL.md`                        | orchestrator, coder              | Growing one Spec per non-trivial slice after requirement extraction.                 | Trivial changes, raw extraction, implementation review, or a settled slice. |
 | `.agents/skills/flow-state-module-refactor/SKILL.md`       | orchestrator, coder              | Simplifying one rewrite module before considering shared abstractions.               | Frozen package, contract authoring, or project-wide cleanup.             |
 | `.agents/skills/effect-systems-design/SKILL.md`            | coder, reviewer (`architecture`) | Choosing TypeScript versus Effect or reviewing services, lifetimes, and concurrency. | Ordinary deterministic TypeScript needs no Effect decision.              |
 | `.agents/skills/effect-api-documentation/SKILL.md`         | coder, reviewer (`architecture`) | Verifying or documenting exact Effect v4 APIs.                                       | Architectural selection; use `effect-systems-design`.                    |
 | `~/.agents/skills/tdd/SKILL.md`                            | coder                            | Requested test-first work or integration tests.                                      | Read-only review or ordinary behavior-proof additions.                   |
-| `.agents/skills/beads/SKILL.md`                            | orchestrator, coder, reviewer    | Durable tasks, dependencies, ownership, or handoff.                                  | A current-turn checklist with no shared task state.                      |
-| `.agents/skills/flow-state-contract-slice-review/SKILL.md` | reviewer (`contract`)            | Checking one rewrite Bead against its named contracts and proofs.                    | General maintainability review or contract authoring.                    |
+| `.agents/skills/workflow-cli/SKILL.md`                    | orchestrator, coder, reviewer    | Reading and maintaining current Plans, Tasks, Specs, and their links.                 | No Workflow artifact operation is needed.                                |
+| `.agents/skills/beads/SKILL.md`                            | migration/review                 | Reading historical Bead status and receipts as migration provenance.                 | Current task tracking or status updates.                                  |
+| `.agents/skills/flow-state-contract-slice-review/SKILL.md` | reviewer (`contract`)            | Checking one rewrite Workflow Task against its named requirements and proofs.        | General maintainability review or authoring historical source files.      |
 | `.agents/skills/performance-quality-bug-hunt/SKILL.md`     | reviewer (`bug`)                 | Hunting concrete bugs, regressions, lifecycle failures, or performance risks.        | Only contract conformance, Effect design, or style is in scope.          |
 | `.agents/skills/general-code-practices/SKILL.md`           | reviewer (all)                   | General coding principles enforced after the specialist lens.                        | It does not define review procedure or replace a specialist lens.        |
 
 Agent entrypoints:
 
-- `.agents/agents/coder.md` — primary requirements, delegation, and integration or secondary disjoint implementation/research.
+- `.agents/agents/coder.md` — primary requirements, delegation, and integration or
+  secondary disjoint implementation/research for a Workflow Task.
 - `.agents/agents/reviewer.md` — independent read-only verification; assign exactly one `reviewer_type`: `architecture`, `contract`, or `bug`.
-- `.agents/agents/orchestrator.md` — one primary coder, up to two secondary coders, and three specialist reviewers per Bead, with per-agent model and reasoning settings.
+- `.agents/agents/orchestrator.md` — one primary coder, up to two secondary coders,
+  and three specialist reviewers per Workflow Task, with per-agent model and reasoning
+  settings.
 
 ## Boundaries
 
 - Always use the pinned nub toolchain, preserve existing worktree changes, run the
   smallest relevant check, and report exactly what was verified.
-- Stop before changing a normative contract, widening the task, or treating a
-  proposal, old roadmap, or reference codebase as shipped behavior.
+- Stop before widening the Workflow Task or claiming a proposal, historical source,
+  or reference codebase is shipped behavior.
+- Keep historical contract files and Beads records unchanged; use Workflow records
+  for current requirements, decisions, and task state.
 - Never use unpinned latest dependencies, edit generated outputs by hand, erase public
   type information to satisfy a proof, or claim full verification from a focused check.
 
@@ -147,63 +171,24 @@ Agent entrypoints:
 
 - use `exa` cli for ls extensions like `exa -tree` to validate folder structures
 
-## Beads
+## Workflow
 
-Read [the Beads skill](.agents/skills/beads/SKILL.md) using the available skill loader
-or filesystem, then use the `bd` CLI.
+Read [the Workflow CLI skill](.agents/skills/workflow-cli/SKILL.md) before creating,
+changing, or linking Workflow records. Keep durable task state in Workflow. The Beads
+database and exports are historical provenance; do not mutate them.
 
-### Rules
-
-- Use Beads for durable task tracking and project knowledge; do not create markdown
-  TODO files or parallel project ledgers. Run `bd prime` when context is missing or stale.
-- Inspect the full task, ownership, and dependencies before claiming. Verify readiness
-  with `bd show <id> --json` and `bd ready`; never claim from graph recommendations alone.
-  In delegated work, follow the role files for task-state ownership.
-- Close work only after its acceptance criteria, required checks, and assigned review
-  pass. Record remaining work and blockers at handoff.
-- Issues live in the local Dolt database. `.beads/issues.jsonl` is a passive export;
-  regenerate it with `bd export -o .beads/issues.jsonl` after mutations. Do not edit it
-  by hand or treat it as live task state.
-- Beads does not authorize staging, committing, pushing, or Dolt remote sync. Follow
-  explicit user authorization. Report changed files, validation, and remaining task
-  state at handoff; report the exact command and error if an authorized action fails.
-
-### Common commands
+Inspect an assigned task and its blockers before work. Update its Workflow status and
+record remaining work at handoff. Mark it done only after acceptance criteria, checks,
+and required reviews pass. Workflow state does not authorize commits or pushes.
 
 ```sh
-bd prime                             # Refresh missing or stale context
-bd ready                             # Find unblocked work
-bd list --status=open --json          # List open issues
-bd show <id> --json                   # Inspect full task and dependencies
-bd update <id> --claim                # Claim work atomically
-bd create --title="..." --type=task --priority=2 --json
-bd dep add <issue> <depends-on>       # Record a dependency
-bd close <id> --reason="Completed"   # Close verified work
-bd remember "..."                    # Record durable project knowledge
-bd export -o .beads/issues.jsonl      # Refresh the passive export
+workflow list task --ready
+workflow show @epic.Rewrite --tree
+workflow show @task.Rewrite.T1 --why
+workflow edit @task.Rewrite.T1 --set status=in_progress
+workflow edit @task.Rewrite.T1 --set status=done
+workflow check
 ```
 
-### Graph analysis
-
-When selecting work, start with `bv --robot-triage`. For an assigned task, inspect
-it directly with `bd show`. Use only `bv --robot-*` modes; bare `bv` opens an
-interactive UI. Graph rankings advise selection; live `bd` state determines
-readiness. User scope, active contracts, and phase gates take precedence over rankings.
-
-```sh
-bv --robot-triage                         # Ranked recommendations and project health
-bv --robot-next                           # Single top recommendation
-bv --robot-triage --format toon           # Compact output
-bv --robot-plan --label backend           # Plan within a label
-bv --recipe actionable --robot-plan       # Plan filtered actionable work
-bv --robot-diff --diff-since <ref>         # Issue changes since a revision
-```
-
-| Command | Returns |
-| --- | --- |
-| `--robot-plan` | Execution tracks and unblocked work |
-| `--robot-priority` | Priority mismatches |
-| `--robot-insights` | Dependency graph metrics |
-| `--robot-alerts` | Stale issues and blocking cascades |
-| `--robot-suggest` | Possible duplicates, missing dependencies, and cycles |
-| `--robot-graph --graph-format=mermaid` | Dependency graph export |
+The Workflow CLI validates artifact and graph integrity, not implementation completion.
+Keep each task's evidence and unresolved decisions in its owning Workflow record.
