@@ -1,66 +1,80 @@
 // Consumer assertions after Story.run(). Target examples, not executed rewrite proof.
-// This documentation tree is intentionally excluded from the workspace runtime test suite.
+// This documentation tree is excluded from the workspace runtime test suite.
 import { expect, test } from "vite-plus/test";
-import { editorDefinition } from "./editor.definition.js";
+import { can } from "flow-state";
+import { Editor } from "./editor.definition.js";
+import { editorView } from "./editor.selectors.js";
 import {
-  closed,
+  autosaved,
   editor,
-  saved,
-  revoked,
   emptyTitle,
-  locked,
-  reminder,
+  lockedOut,
   readonlyEditor,
+  reminded,
+  revokedWhileSaving,
+  saved,
 } from "./editor.story.js";
 
-test("save publishes the canonical ticket and preserves earlier checkpoint truth", async () => {
+const ref = { workspaceId: "north", ticketId: "T-42" };
+
+test("save publishes the canonical ticket and keeps the earlier checkpoint unchanged", async () => {
   const run = await saved.run();
-  const initial = run.checkpoints.opened.actor(editor).snapshot;
-  const final = run.checkpoints.saved.actor(editor).snapshot;
-  const key = final.O.ticketById.key({ workspaceId: "north", ticketId: "T-42" });
+  const before = run.checkpoints.opened.actor(editor).snapshot;
+  const after = run.checkpoints.saved.actor(editor).snapshot;
 
-  expect(initial.memory.draft).toBe("Replace lobby light");
-  expect(final.state).toBe(editorDefinition.S.OPEN.S.SAVED);
-  expect(final.memory.draft).toBe("Replace foyer light");
-  expect(final.O.ticketById.getData(key)?.title).toBe("Replace foyer light");
+  expect(before.memory.draft).toBe("Replace lobby light");
+  expect(Editor.S.OPEN.SAVED.is(after)).toBe(true);
+  expect(after.O.ticketById.getData(ref)?.title).toBe("Replace foyer light");
 });
 
-test("another branch gets fresh services and does not inherit a previous save", async () => {
-  await saved.run();
-  const run = await closed.run();
-  const final = run.checkpoints.closed.actor(editor).snapshot;
-  expect(final.state).toBe(editorDefinition.S.CLOSED);
-  expect(final.memory.draft).toBe("Replace lobby light");
+test("autosave waits for a pause in typing", async () => {
+  const run = await autosaved.run();
+
+  expect(
+    run.checkpoints["still-editing"].actor(editor).snapshot.O.saveTitle.getState(ref)._tag,
+  ).toBe("Idle");
+  expect(Editor.S.OPEN.SAVED.is(run.checkpoints.autosaved.actor(editor).snapshot)).toBe(true);
 });
 
-test("changed provider context closes the editor through its authored event", async () => {
-  const run = await revoked.run();
-  expect(run.checkpoints.revoked.actor(editor).snapshot.state).toBe(editorDefinition.S.CLOSED);
-});
-
-test("a declined save starts no transaction", async () => {
+test("an empty title is denied with a reason and starts no save", async () => {
   const run = await emptyTitle.run();
   const snapshot = run.checkpoints.declined.actor(editor).snapshot;
-  expect(snapshot.state).toBe(editorDefinition.S.OPEN.S.EDITING);
-  expect(snapshot.O.saveTitle.getState(["north", "T-42"]).status).toBe("idle");
+  const verdict = can(snapshot, Editor.E.SaveRequested(), { explain: true });
+
+  expect(verdict.allowed).toBe(false);
+  expect(verdict.denied[0]?.code).toBe("EmptyTitle");
+  expect(editorView(snapshot).blockedBy).toBe("EmptyTitle"); // What the Save button shows.
+  expect(snapshot.O.saveTitle.getState(ref)._tag).toBe("Idle");
 });
 
-test("typed adapter failure is valid evidence, with no canonical result promotion", async () => {
-  const run = await locked.run();
-  const snapshot = run.checkpoints.failed.actor(editor).snapshot;
-  expect(snapshot.state).toBe(editorDefinition.S.OPEN.S.FAILED);
-  expect(snapshot.memory.error).toBe("Ticket is locked");
-  expect(snapshot.O.ticketById.getData(["north", "T-42"])?.title).toBe("Replace lobby light");
+test("revoking permission mid-save closes the editor and cancels the save", async () => {
+  const run = await revokedWhileSaving.run();
+  const snapshot = run.checkpoints.revoked.actor(editor).snapshot;
+
+  expect(Editor.S.CLOSED.is(snapshot)).toBe(true);
+  // Cancelled after dispatch may have reached the server, so the outcome is honestly unknown.
+  expect(["Interrupted", "Unknown", "Success"]).toContain(snapshot.O.saveTitle.getState(ref)._tag);
 });
 
-test("explicit timer advancement delivers the reminder", async () => {
-  const run = await reminder.run();
+test("a held lock backs off, retries as ordinary events, then gives up", async () => {
+  const run = await lockedOut.run();
+
+  expect(Editor.S.OPEN.LOCKED.is(run.checkpoints.locked.actor(editor).snapshot)).toBe(true);
+  expect(run.checkpoints["first-retry"].actor(editor).snapshot.memory.lockRetries).toBe(1);
+
+  const last = run.checkpoints["gave-up"].actor(editor).snapshot;
+  const retry = can(last, Editor.E.RetrySave(), { explain: true });
+  expect(retry.denied[0]?.code).toBe("RetryLimitReached");
+  expect(last.memory.error).toBe("Locked by dispatcher-2");
+});
+
+test("the reminder schedule delivers an ordinary guarded event", async () => {
+  const run = await reminded.run();
   expect(run.checkpoints.reminded.actor(editor).snapshot.memory.reminders).toBe(1);
 });
 
-test("focused machine context uses the same ordinary change path", async () => {
+test("focused context changes use the same reaction path", async () => {
   const run = await readonlyEditor.run();
   expect(run.checkpoints.readonly.snapshot.context.canEdit).toBe(false);
-  expect(run.end.snapshot.state).toBe(editorDefinition.S.CLOSED);
-  console.log(run.end.runtime.now, run.end.runtime.pendingWork);
+  expect(Editor.S.CLOSED.is(run.end.snapshot)).toBe(true);
 });

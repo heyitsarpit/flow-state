@@ -1,77 +1,155 @@
-// Feature UI depends on exact machines/refs supplied by its host, never on app setup.
-import { Result } from "effect";
-import type { ActorRef } from "flow-state";
-import { useActor, useActorByRef, useShallow, useView } from "flow-state/react";
+// Feature UI depends on exact machines and refs supplied by its host, never on app setup.
+import type { Actor, ActorRef } from "flow-state";
+import { useActor, useActorByRef, useView } from "flow-state/react";
 import type { SessionMachine } from "../../Session/session.machine.js";
+import type { Ticket } from "../types.js";
+import { Editor } from "./editor.definition.js";
 import { EditorMachine } from "./editor.machine.js";
-import { editorDefinition } from "./editor.definition.js";
+import { editorView } from "./editor.selectors.js";
 
-export function TicketPanel({ editorRef }: { editorRef: ActorRef<typeof EditorMachine> }) {
-  const actor = useActorByRef(editorRef); // Lookup only. Never ensures, leases, or subscribes.
+const { E } = Editor;
 
-  const view = useView(
-    actor,
-    useShallow(({ memory, O, can }) => {
-      const key = O.ticketById.key({
-        workspaceId: memory.workspaceId,
-        ticketId: memory.ticketId,
-      });
+// Containers obtain the actor; the panel only renders it, so both share one UI.
 
-      return {
-        draft: memory.draft,
-        ticket: O.ticketById.getData(key),
-        resource: O.ticketById.getState(key),
-        saveAllowed: can(Result.getOrThrow(editorDefinition.E.SaveRequested("eligibility-only"))),
-      };
-    }),
-  );
+// A host-owned, durable editor (EditorRef in app/actors.ts).
+export function PinnedTicket({ editorRef }: { editorRef: ActorRef<typeof EditorMachine> }) {
+  const editor = useActorByRef(editorRef); // Lookup only: never ensures, leases or subscribes.
+
+  return <TicketPanel editor={editor} />;
+}
+
+// A ticket opened from the queue: a component-owned local actor, keyed by the caller per ticket.
+// It has no stable ref, so it passes its provider bindings itself (D11) and is not persisted.
+export function OpenTicket({
+  ticket,
+  sessionRef,
+}: {
+  ticket: Ticket;
+  sessionRef: ActorRef<typeof SessionMachine>;
+}) {
+  const editor = useActor(EditorMachine, {
+    input: { workspaceId: ticket.workspaceId, ticketId: ticket.ticketId, title: ticket.title },
+    contextBindings: { canEdit: sessionRef },
+  });
+
+  return <TicketPanel editor={editor} />;
+}
+
+type EditorViewModel = ReturnType<typeof editorView>;
+
+type EditorActor = Actor<typeof EditorMachine>;
+
+export function TicketPanel({ editor }: { editor: EditorActor }) {
+  const view = useView(editor, editorView);
+
+  if (view.loading) return <TicketSkeleton />;
+
+  if (!view.ticket && view.loadFailed) {
+    return (
+      <Notice tone="error">
+        This ticket could not be loaded.{" "}
+        <button onClick={() => editor.send(E.RefreshRequested())}>Try again</button>
+      </Notice>
+    );
+  }
+
+  if (view.closed) {
+    return (
+      <section>
+        <h2>{view.ticket?.title}</h2>
+        <button onClick={() => editor.send(E.Reopen())}>Edit</button>
+      </section>
+    );
+  }
 
   return (
     <section>
-      <h2>{view.ticket?.title ?? "Repair ticket"}</h2>
-      <input
-        aria-label="Ticket title"
-        value={view.draft}
-        onChange={(event) =>
-          actor.send(Result.getOrThrow(editorDefinition.E.TitleChanged(event.target.value)))
-        }
-      />
-      <button
-        disabled={!view.saveAllowed}
-        onClick={() =>
-          actor.send(Result.getOrThrow(editorDefinition.E.SaveRequested(crypto.randomUUID())))
-        }
-      >
-        Save title
-      </button>
-      {view.resource.status === "failure" && <p role="alert">{view.resource.error.message}</p>}
+      <TicketHeader view={view} />
+      <TitleField view={view} editor={editor} />
+      <SaveControls view={view} editor={editor} />
+      <SaveNotices view={view} editor={editor} />
     </section>
   );
 }
 
-export function LocalTicketPanel({ sessionRef }: { sessionRef: ActorRef<typeof SessionMachine> }) {
-  const actor = useActor(EditorMachine, {
-    input: { workspaceId: "north", ticketId: "T-42", title: "Replace lobby light" },
-    contextBindings: { canEdit: sessionRef },
-  });
-
-  const draft = useView(actor, ({ memory }) => memory.draft);
-
-  return <p>{draft}</p>;
+function TicketHeader({ view }: { view: EditorViewModel }) {
+  return (
+    <header>
+      <h2>{view.ticket?.title ?? view.draft}</h2>
+      {view.stage && <span className="badge">Technician {view.stage}</span>}
+      {view.ticket && view.loadFailed && <span className="muted">Showing last loaded copy</span>}
+    </header>
+  );
 }
 
-/**
- * useActor prepares a fresh local actor in render; commit attaches the same ref/handle/memory.
- * Render registers nothing, subscribes to nothing, and starts no operation.
- * A changed construction identity requires a keyed remount, not mutation of this actor.
- * Cleanup suspends; reconnect resumes after finalizers without replaying finite saves.
- * Strict Mode and Activity reconnection preserve actor continuity.
- *
- * useView is the reactive read path. Its O exposes only key/getData/getState.
- * Named plain records compare fixed fields with Object.is; scalars use whole-value Object.is.
- * useShallow makes record memoization explicit. No custom comparator is accepted.
- * can(event) tests authored eligibility, not lifecycle admission or queue capacity.
- * Provider receives runtime only, never App/services/storage/startup props.
- *
- * Authority: ../../../../ReactAndHosts.plan.
- */
+function TitleField({ view, editor }: { view: EditorViewModel; editor: EditorActor }) {
+  return (
+    <>
+      <label>
+        Title
+        <input
+          value={view.draft}
+          maxLength={240}
+          onChange={(event) => editor.send(E.TitleChanged({ title: event.target.value }))}
+        />
+      </label>
+      {view.blockedBy === "TitleTooLong" && <Hint>Titles are limited to 200 characters.</Hint>}
+    </>
+  );
+}
+
+function SaveControls({ view, editor }: { view: EditorViewModel; editor: EditorActor }) {
+  return (
+    <footer>
+      <button
+        disabled={view.blockedBy !== null || view.saving}
+        onClick={() => editor.send(E.SaveRequested())}
+      >
+        {view.saving ? "Saving…" : "Save"}
+      </button>
+      {view.saving && <button onClick={() => editor.send(E.CancelSave())}>Cancel</button>}
+      {view.saved && <span role="status">Saved</span>}
+      <button onClick={() => editor.send(E.Close())}>Done</button>
+    </footer>
+  );
+}
+
+function SaveNotices({ view, editor }: { view: EditorViewModel; editor: EditorActor }) {
+  return (
+    <>
+      {view.locked && <Notice tone="warning">{view.error}. Retrying automatically…</Notice>}
+      {view.error && !view.locked && <Notice tone="error">{view.error}</Notice>}
+      {view.blockedBy === "NoPermission" && (
+        <Notice tone="info">You can view but not edit this ticket.</Notice>
+      )}
+      {view.maybeSaved && (
+        <Notice tone="warning">
+          We couldn't confirm your last save.{" "}
+          <button onClick={() => editor.send(E.RefreshRequested())}>Check again</button>
+        </Notice>
+      )}
+    </>
+  );
+}
+
+function TicketSkeleton() {
+  return <section aria-busy="true" className="skeleton" />;
+}
+
+function Hint({ children }: { children: React.ReactNode }) {
+  return <p className="hint">{children}</p>;
+}
+
+function Notice({
+  tone,
+  children,
+}: {
+  tone: "info" | "warning" | "error";
+  children: React.ReactNode;
+}) {
+  return (
+    <p role={tone === "error" ? "alert" : "status"} className={`notice ${tone}`}>
+      {children}
+    </p>
+  );
+}
