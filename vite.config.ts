@@ -339,6 +339,8 @@ export default defineConfig({
       "reference/**",
       "tools/oxlint/anti-slop/**",
       "packages/flow-state-rewrite/src/runtime/**",
+      // These fixtures resolve the installed tarball in check:packed-consumers.
+      "packages/flow-state-rewrite/test/packed/**",
     ],
   },
   fmt: {

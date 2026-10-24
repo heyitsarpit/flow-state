@@ -94,7 +94,7 @@ const createConsumer = (name, tarball, dependencies = {}, devDependencies = {}, 
     private: true,
     type: "module",
     dependencies: {
-      effect: "4.0.0-rc.112",
+      effect: "4.0.5",
       "flow-state-rewrite": `file:${tarball}`,
       ...dependencies,
     },

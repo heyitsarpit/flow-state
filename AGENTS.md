@@ -68,7 +68,8 @@ for the current task and claim. Do not read the whole repository by default.
   for exact dependency APIs.
 
 Development uses Node 22.18+, `nub@0.7.5`, TypeScript 7.0.2, Vite Plus, and
-Effect 4.0.0-rc.112.
+Effect 4.0.5 for the workspace and rewrite. The frozen `packages/flow-state` package
+retains Effect 4.0.0-rc.112.
 
 ## Verification
 

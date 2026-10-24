@@ -39,10 +39,11 @@
     "check:static-harness": "node ./test/static/harness.mjs"
   },
   "dependencies": {
-    "effect": "4.0.0-rc.112"
+    "effect": "4.0.5"
   },
   "devDependencies": {
-    "@effect/vitest": "4.0.0-rc.112"
+    "@effect/vitest": "4.0.5",
+    "vitest": "5.0.5"
   },
   "engines": {
     "node": ">=22.18.0"
