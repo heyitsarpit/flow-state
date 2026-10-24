@@ -286,7 +286,7 @@ tasks
 
     T3
         title      Route reference links and commit consumer guide
-        status     in_progress
+        status     done
         priority   medium
         assignee   primary
         acceptance
@@ -366,3 +366,14 @@ tasks
              automation; preserve frozen Beads records when committing from an authorized writable 
              environment. No hook executed. Remaining action: stage only this scope and create 
              local commit when Git metadata writes are allowed; no push requested.
+        comment    2026-10-24T10:00:02Z
+            Commit blocker resolved in the writable environment. Consumer reference, Plan 
+            documentation links, and ReferenceDocs records committed as 423d7f7e. Existing 
+            independent review receipts are preserved; no reference source edits were made during 
+            this commit-only task. Workflow validation, canonical Task format, and docs build 
+            passed again. Git whitespace check passed with canonical Workflow continuation spaces 
+            allowed. No target API execution or full workspace verification claimed. Separate 
+            toolchain changes committed as f9de3a88; 1779 tests and toolchain check passed, while 
+            root build failed in the frozen packed CLI consumer because effect/dist/unstable/cli.js 
+            was missing. Legacy Beads hooks were disabled per commit to preserve frozen records. No 
+            push. The machine-local diagnostic self-symlink remains untracked.
