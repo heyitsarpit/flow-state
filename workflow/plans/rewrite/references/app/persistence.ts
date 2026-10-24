@@ -1,28 +1,28 @@
+// Optional durable browser setup. Target API: persistence exports are deferred until owner proofs.
 import { Effect } from "effect";
-import {
-  indexedDbStorage,
-  persistence,
-  runtimeSetup,
-  webStorage,
-  type PersistenceStorage,
-} from "flow-state";
+import { indexedDbStorage, runtimeSetup, webStorage, type PersistenceStorage } from "flow-state";
 import { DeskApp } from "./app.js";
-import { DemoImplementation } from "./implementation.js";
+import { DemoTicketApi } from "./demo-api.js";
 
-/**
- * Optional durable browser setup for Dispatch Desk.
- * Target API: persistence routes/types are deferred until owner proofs permit restoration.
- */
-
+// A plain options object (D21). What persists is decided only by persist flags on refs and
+// resources; there is no filter.
 export function browserSetup(storage: Storage) {
   return runtimeSetup({
     app: DeskApp,
-    implementation: DemoImplementation,
-    persistence: persistence({
-      storage: webStorage(storage),
+    services: DemoTicketApi,
+    persistence: { storage: webStorage(storage), scope: "dispatch-desk:user-42", version: "1" },
+  });
+}
+
+export function indexedDbSetup(storage: Parameters<typeof indexedDbStorage>[0]) {
+  return runtimeSetup({
+    app: DeskApp,
+    services: DemoTicketApi,
+    persistence: {
+      storage: indexedDbStorage(storage),
       scope: "dispatch-desk:user-42",
-      filter: ({ kind }) => kind !== "stream",
-    }),
+      version: "1",
+    },
   });
 }
 
@@ -31,59 +31,22 @@ export function memoryStorage(): PersistenceStorage {
 
   return {
     read: () => Effect.sync(() => stored?.slice()),
-    write: (value) =>
-      Effect.sync(() => {
-        stored = value.slice();
-      }),
-    remove: () =>
-      Effect.sync(() => {
-        stored = undefined;
-      }),
+    write: (value) => Effect.sync(() => void (stored = value.slice())),
+    remove: () => Effect.sync(() => void (stored = undefined)),
   };
 }
 
-// The adapter input is intentionally inferred instead of inventing IndexedDBStorage members.
-export function indexedDbSetup(storage: Parameters<typeof indexedDbStorage>[0]) {
-  return runtimeSetup({
-    app: DeskApp,
-    implementation: DemoImplementation,
-    persistence: persistence({
-      storage: indexedDbStorage(storage),
-      scope: "dispatch-desk:user-42",
-    }),
-  });
-}
-
 /**
- * Browser caller: browserSetup(window.localStorage).construct(), then runtime.ready().
- * Synchronous construction performs no I/O. Read/decode validation precedes service acquisition.
- * Runtime owns restore, ordered writes, and final flush; React receives that Runtime afterward.
+ * What a reload restores here:
+ * - SessionRef and EditorRef (persist: true), including the editor's save facts, which follow
+ *   the actor (D34). The editor's technician stream opted out with persist: false.
+ * - ticketById cache data (persist: true, encoded with its Ticket Schema). ticketList is not
+ *   persisted, and QueueRef is not durable.
+ * - Memory decodes through Editor.Memory, the Schema the definition already declares (D45/D55),
+ *   so no hand-written codec is needed for these values.
  *
- * SessionRef and EditorRef both opt in with persist:true in app/actors.ts.
- * ticketById and saveTitle separately opt in in features/Tickets/ticket.operations.ts. All defaults are false.
- * A durable operation never makes a local actor durable. Filters only exclude declared data.
- * A durable editor requires its exact transitive session provider to be durable too.
- * NonDurableContextProvider cannot be fixed by silently substituting or rebinding providers.
- * ConcurrentCapture instead means retryable context/cut conflict.
- *
- * Default codec: bounded canonical JSON; the sample Ticket and memory need no custom codec.
- * Custom codec option: { encode(value, slot), decode(value, slot) }, synchronous and pure.
- * Validate only application-owned opaque values (for example Date <-> ISO text), not Flow's
- * complete envelope. Slot member spelling is unspecified, so no fabricated discriminator appears.
- * No Effect, storage I/O, actor creation, or work execution belongs inside a codec.
- * PersistenceCodec/PersistenceSlot/PersistenceValue/PersistenceEntry describe these boundaries;
- * their remaining member layouts are listed in api-reference.ts.
- *
- * Restore retains memory without fresh input/initializer replay. Canonical entries remain passive
- * until live executable parameters exist. Never reconstruct parameters from K.
- * Pending remote saves restore unknown/reconcileRequired unless non-invocation is established.
- * Never replay finite lookup/commit, old stream emissions, or context-change events.
- * Running streams may rematerialize from live parameters in a fresh generation; terminal ones do not.
- *
- * A failed write preserves committed live truth and the last good stored record. It cannot fail an
- * already-published turn retroactively. Disposal finalizes the latest accepted write.
- * Runtime persistence never replaces the remote adapter's durable idempotency journal.
- * Concurrent writers/cross-tab synchronization and automatic migrations are not specified.
- *
- * Authority: ../../Persistence.plan, ../../Transactions.plan, ../../../archive/Artifacts.plan.
+ * A durable editor needs its session provider to be durable too; a non-durable provider fails
+ * capture with NonDurableContextProvider. Restore never replays input, initial, saves or old
+ * stream values. A pending save restores as Unknown (reconciliation required) unless evidence
+ * shows the request was never sent. Bump `version` when stored shapes change incompatibly.
  */

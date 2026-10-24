@@ -1,27 +1,37 @@
-// Complete service substitutions shared by Stories; no mock operation engine or pending-result injection.
-import { Effect } from "effect";
-import { Implementation } from "flow-state";
-import { fixture } from "flow-state/testing";
-import { DemoImplementation } from "../app/implementation.js";
-import { acquireDemoApi } from "../app/demo-api.js";
+// Service substitutions shared by Stories. Fixtures are Layers (D47): they replace whole service
+// implementations and never mock operation kernels or inject pending results. The happy-path
+// service is the app's own DemoTicketApi (app/demo-api.ts).
+import { Effect, Layer, Stream } from "effect";
 import { TicketApi } from "../features/Tickets/ticket-api.js";
+import { QueueUnavailable, TicketLocked, TicketNotFound } from "../features/Tickets/types.js";
 
-export const demoFixture = fixture({
-  id: "dispatch-desk-demo",
-  implementation: DemoImplementation,
-});
-
-export const lockedFixture = fixture({
-  id: "locked-ticket",
-  implementation: Implementation.effect(
-    TicketApi,
-    Effect.gen(function* () {
-      const api = yield* acquireDemoApi;
-
-      return TicketApi.of({
-        load: api.load,
-        saveTitle: () => Effect.fail({ message: "Ticket is locked" }),
-      });
+export const LockedTicketApi = Layer.effect(
+  TicketApi,
+  Effect.sync(() =>
+    TicketApi.of({
+      load: () =>
+        Effect.succeed({
+          workspaceId: "north",
+          ticketId: "T-42",
+          title: "Replace lobby light",
+          status: "assigned",
+          assignee: "dispatcher-2",
+        }),
+      list: () => Effect.succeed({ tickets: [], total: 0 }),
+      saveTitle: () => Effect.fail(new TicketLocked({ lockedBy: "dispatcher-2" })),
+      technicianUpdates: () => Stream.empty,
     }),
   ),
-});
+);
+
+export const UnavailableQueueApi = Layer.effect(
+  TicketApi,
+  Effect.sync(() =>
+    TicketApi.of({
+      load: ({ ticketId }) => Effect.fail(new TicketNotFound({ ticketId })),
+      list: () => Effect.fail(new QueueUnavailable({ retryAfter: 5 })),
+      saveTitle: ({ ticketId }) => Effect.fail(new TicketNotFound({ ticketId })),
+      technicianUpdates: () => Stream.empty,
+    }),
+  ),
+);
