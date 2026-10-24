@@ -82,7 +82,7 @@ outcomes
         | interrupt | No argument. |
 
         Callers use commit(P,{ writes, outcomes }); either option may be omitted. No completion-side
-        invalidates or clears option exists. The [examples](references/data-api.examples.ts)
+        invalidates or clears option exists. The [examples](references/README.md)
         illustrate these normative option containers without adding support-alias representations.
 
         `persist` defaults false. True opts in actor-owned durable facts only when the owning stable

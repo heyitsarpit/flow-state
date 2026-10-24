@@ -75,7 +75,7 @@ outcomes
         The mapper names and arguments are fixed. Their direct-member versus outcomes container
         remains unresolved at @Q1; an illustrative example cannot select it.
 
-        The [stream example](references/data-api.examples.ts) illustrates the descriptor form.
+        The [stream example](references/README.md) illustrates the descriptor form.
 
         `persist` defaults false. True retains only accepted latest, terminal, generation,
         declaration, key, and ownership facts for an independently persistable stable actor. It

@@ -76,7 +76,7 @@ outcomes
         The exact consumer call forms are runtimeSetup({ app }) when requirements are never, or
         runtimeSetup({ app, implementation }) with full closure. They preserve RuntimeSetup<A, IE>;
         app-only IE is never. Optional persistence adds a Persistence provider, not a requirement.
-        [The API examples](references/core-api.examples.ts) illustrate the final target syntax.
+        [The API examples](references/README.md) illustrate the final target syntax.
 
         ready() is the sole public readiness Effect. First execution starts one Runtime-owned
         bootstrap; concurrent/later calls join its same cached terminal Exit without retry.

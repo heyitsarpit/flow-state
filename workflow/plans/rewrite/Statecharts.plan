@@ -36,7 +36,7 @@ outcomes
         alternative operation container. The three names illustrate resource/transaction/stream
         descriptors; their family contracts remain with their owning Plans.
 
-        Supporting [API examples](references/core-api.examples.ts) remain uncompiled and unrun.
+        Supporting [API examples](references/README.md) remain uncompiled and unrun.
 
         Authored IDs and local state/event names retain exact spelling. Each is nonempty and at most
         256 UTF-8 bytes. Reject C0 controls, DEL, NUL and lone surrogates before constructing

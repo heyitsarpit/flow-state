@@ -75,7 +75,7 @@ outcomes
         services, operation results, or storage ownership. These semantic boundaries establish no
         additional public member spelling for Slot, Entry, StorageError, or IndexedDBStorage.
 
-        The [persistence examples](references/data-api.examples.ts) illustrate setup and opt-in.
+        The [persistence examples](references/README.md) illustrate setup and opt-in.
 
         Internal storage, codec, identity/version, malformed-data, concurrent-capture, and
         non-durable provider failures retain canonical Diagnostic ownership. FlowPersistenceError is

@@ -124,7 +124,7 @@ outcomes
         app/machine evidence is inferred.
 
         - Supporting syntax: [persistent 
-        branches](references/tools-api.examples.ts#persistent-branches).
+        branches](references/README.md).
         Exact option and checkpoint type laws remain above; @V1 owns their proofs.
 
         - Commands accept validated EventOf envelopes, not constructor Result values.
@@ -247,7 +247,7 @@ outcomes
         @plan.InspectionAndArtifacts.O4 owns wire projections.
         @V4 proves capture, failure truth, immutable evidence, and exact lookup.
 
-        - Supporting syntax: [evidence reads](references/tools-api.examples.ts#evidence-reads).
+        - Supporting syntax: [evidence reads](references/README.md).
         Checkpoints are evidence, never resumable snapshots.
 
     O5  Pure model traversal and live paths
@@ -291,7 +291,7 @@ outcomes
         interpreter. React attachment remains outside the machine timeline. @V5 proves
         deterministic traversal, bounds, purity, and live final/prefix parity.
 
-        - Supporting syntax: [pure model paths](references/tools-api.examples.ts#model-paths).
+        - Supporting syntax: [pure model paths](references/README.md).
         @V5 owns the live final/prefix parity checks; examples report no execution.
 
         - Candidate events are validated envelopes.

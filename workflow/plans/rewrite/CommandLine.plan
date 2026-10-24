@@ -83,7 +83,7 @@ outcomes
         - @plan.StoriesAndModels.O6 owns the inert branded behavior gateway. The CLI loads this
         form:
 
-        - Supporting syntax: [behavior gateway](references/tools-api.examples.ts#behavior-gateway).
+        - Supporting syntax: [behavior gateway](references/README.md).
         The normative shape is behavior({ app, stories: { externalId: StoryPlan } }).
         @plan.StoriesAndModels.O6 owns non-empty exact app-compatible registration.
 

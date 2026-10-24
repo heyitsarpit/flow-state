@@ -87,7 +87,7 @@ outcomes
         and proofs land.
 
         React or Story continuation uses its own route. The supporting [consumer
-        example](references/core-api.examples.ts) illustrates the authoring boundary; it is not a
+        example](references/README.md) illustrates the authoring boundary; it is not a
         completed quickstart proof.
 
         Compile representative small/medium isolated TypeScript consumers, strict and

@@ -1,0 +1,368 @@
+phase P1
+title Consumer reference
+
+tasks
+    T1
+        title      Expand rewrite API reference
+        status     done
+        priority   medium
+        assignee   primary
+        acceptance
+            Expand workflow/plans/rewrite/references into a self-contained consumer reference using 
+            TypeScript examples with comments, one short README, and one coherent repair-ticket 
+            application. Cover public authoring, operations, machines, services/Runtime/hosts, 
+            React, persistence, Stories, tests, CLI commands and expected results, inspection, 
+            diagnostics, and public types. Consult compatible archived Plan details; preserve 
+            current explicit unresolved choices and clearly mark candidates. The application need 
+            not execute, but keep its code realistic. Keep only necessary reference files, preserve 
+            original Plan-linked filenames/markers, and remove redundant Markdown chapter drafts. 
+            Validate links/imports, syntax/format, public-name and ten-leaf CLI coverage, scoped 
+            diff, Workflow integrity, docs build, and three independent reviews. No runtime 
+            implementation, package export changes, commits, pushes, or cutover.
+        comment    2026-10-23T17:43:15Z
+            Primary: root (inherited model/reasoning), documentation only; zero secondary coders. 
+            Steps: read all thirteen Plans; author coherent Dispatch Desk reference; validate 
+            coverage/links/fences/syntax and docs; freeze edits for three independent reviews.
+
+            Requirements packet: twelve capability O1+ commitments -> T1 acceptance -> references 
+            README, core/data/tools examples, domain service example and focused Markdown chapters 
+            -> executable documentation checks plus docs:build -> baseline three uncompiled 
+            fragments, no runnable target API proof. This is documentation evidence only; no 
+            runtime proof claimed. Deletion obligation: replace disconnected fragments, preserve 
+            their existing filenames/Plan anchors, no changes to frozen source or Plan semantics.
+
+            Review dispatch assignments (all read-only, reviewer entrypoint): architecture, 
+            contract, bug; model gpt-6-luna, reasoning xhigh. Scope: references/** and this Task. 
+            Review after edits freeze; record each dispatch and result.
+        comment    2026-10-23T18:10:00Z
+            Frozen reference snapshot: SHA256 
+            9eca99e4467132fd7fc4f96b397bf57d247e427260aa0d45dd9ef9588982f3d0 (sorted path bytes + 
+            file bytes).
+
+            Changed-file inventory: workflow/plans/rewrite/references/README.md, 
+            workflow/plans/rewrite/references/api-index.examples.ts, 
+            workflow/plans/rewrite/references/cli.examples.ts, 
+            workflow/plans/rewrite/references/core-api.examples.ts, 
+            workflow/plans/rewrite/references/data-api.examples.ts, 
+            workflow/plans/rewrite/references/data-reads.examples.ts, 
+            workflow/plans/rewrite/references/definitions-and-machines.examples.ts, 
+            workflow/plans/rewrite/references/diagnostics.examples.ts, 
+            workflow/plans/rewrite/references/domain.examples.ts, 
+            workflow/plans/rewrite/references/inspection.examples.ts, 
+            workflow/plans/rewrite/references/persistence.examples.ts, 
+            workflow/plans/rewrite/references/react.examples.tsx, 
+            workflow/plans/rewrite/references/runtime-and-hosts.examples.ts, 
+            workflow/plans/rewrite/references/stories-and-tests.examples.ts, 
+            workflow/plans/rewrite/references/streams.examples.ts, 
+            workflow/plans/rewrite/references/tools-api.examples.ts. Task records: 
+            workflow/tasks/ReferenceDocs/{epic,P1}.task. No other dirty paths belong to this work.
+
+            User refinements: prefer .ts with comments over Markdown chapters; app need not work 
+            but must be realistic; use compatible archived Plan details; keep only required 
+            reference files. Final scope: 15 TS/TSX files plus one README, no Markdown chapters or 
+            temporary artifacts.
+
+            Checks: nub run docs:build PASS (before final documentation-only conversion; generated 
+            site files unchanged); nubx vp fmt references PASS and subsequent --check PASS (all 16 
+            files parse/format); local import/link/coverage script PASS (24 relative imports, 17 
+            links, 27 inspect target names, ten CLI leaves); git diff --check PASS; workflow check 
+            PASS. Complete target compilation/runtime execution intentionally not claimed. Existing 
+            nub phantom-react warning is outside this scope.
+
+            Dispatch now: architecture reviewer, contract reviewer, bug reviewer; each 
+            gpt-6-luna/xhigh; read-only references/** + this Task, independent specialist and 
+            common general practices. Primary root retains integration; no secondary coder. 
+            User-authorized scope is consumer documentation, not implementation/cutover.
+        comment    2026-10-23T18:09:29Z
+            Repair batch 1 complete; reference edits frozen again. New reference snapshot SHA256 
+            0f7d6ff972ba506e4b0fc3c04f09112c2c4b5453535c424db64e7704b0a40bd4.
+
+            Findings resolved: CLI diff now compares registered Story metadata/coverage with 
+            unchanged app declarations/fingerprint; ProgressMachine unwraps its machine Result; 
+            imperative and inspection hosts retain primary body failure plus ordered cleanup 
+            failures. Both inspection cleanup phases run even after failure. A sole failure 
+            preserves original identity; multiple failures use application-owned AggregateError at 
+            the final host.
+
+            Checks: formatter parse/write PASS; local import/link/27-inspect/ten-CLI coverage PASS; 
+            git diff --check PASS. Additional executable documentation check: 16 cases extracted 
+            from the actual two host functions using Node stripTypeScriptTypes and stubbed final 
+            public boundaries; success/body failure/Runtime cleanup failure/sink cleanup failure 
+            combinations retain exact ordered failures and attempt cleanup. PASS. This proves 
+            example-host control flow only, not Flow Runtime behavior.
+
+            All three original reviewers recheck this repaired snapshot; no further source edits 
+            during review. No broad runtime tests, full workspace check, or target typecheck 
+            claimed.
+        comment    2026-10-23T18:11:55Z
+            Repair batch 2: preserve inspectLiveDesk success return after cleanup. Named local 
+            inspect function retains inferred projection types; Promise settlement uses the 
+            existing Effect Result value without inventing a host protocol. Return Result success 
+            only after cleanup succeeds. Snapshot SHA256 
+            16d7f0a83a28962d31e273dd041f8ebd120800e45f512e30f185f9d7585f25fd.
+
+            Architecture and contract passed batch 1. Bug reviewer found the inspection 
+            return-value regression, now repaired. Expanded extracted-host check asserts exact 
+            success projection as well as all failure identities/ordering/cleanup attempts. All16 
+            cases PASS; formatter parsing PASS, local imports/links/API/CLI coverage PASS, diff 
+            whitespace PASS. Sources frozen for final focused recheck.
+        comment    2026-10-23T18:12:55Z
+            Completed consumer reference: 15 TypeScript/TSX files plus a short README, one coherent 
+            Dispatch Desk application; redundant Markdown chapter drafts removed. Original three 
+            Plan-linked example filenames/markers retained. Current and compatible archived Plans 
+            consulted. Public APIs covered by concrete examples or explicit unresolved-form notes; 
+            all ten CLI leaves include semantic expected results and exits.
+
+            Final reviews at snapshot 
+            16d7f0a83a28962d31e273dd041f8ebd120800e45f512e30f185f9d7585f25fd: architecture PASS; 
+            contract PASS; bug PASS. All were independent gpt-6-luna/xhigh reviewers through 
+            reviewer entrypoint and general practices. Two repair batches closed CLI fingerprint 
+            expectation, machine Result unwrapping, host error aggregation, and inspection return 
+            preservation.
+
+            Verification: nub run docs:build PASS (generated site files unchanged; this does not 
+            compile target examples); scoped vp formatter parse and check PASS; local links/imports 
+            coverage PASS (17 links,24 relative imports,27 inspect target names,10 CLI leaves); git 
+            diff --check PASS; workflow check PASS;16 extracted example-host 
+            success/failure/cleanup combinations PASS, rerun independently by reviewers. No target 
+            typecheck/runtime/packed-consumer/full workspace verification claimed.
+
+            Remaining limitations: explicitly marked unresolved consumer call forms and deferred 
+            package routes; examples are not a runnable app. No changes to implementation, Plan 
+            requirements, historical records, existing unrelated worktree changes, package exports, 
+            or generated source. No commit/push.
+
+    T2
+        title      Organize reference by feature and responsibility
+        status     done
+        priority   medium
+        assignee   primary
+        acceptance
+            Reorganize the Dispatch Desk reference into a clean flexible feature-based application 
+            structure with ordinary TypeScript filenames and meaningful code splits. Give Stories 
+            dedicated editor.story.ts and app gateway dedicated behaviour.ts. Separate 
+            definitions/machines, services/types/operations, app composition/setup/actors/hosts, 
+            UI, tests and shared fixtures without empty category directories, forwarding barrels, 
+            or obsolete flat examples. Preserve all previous public API demonstrations, open-form 
+            qualifications, scenario behavior and cleanup guarantees. Production feature code must 
+            not import app hosts or test code; Story/test modules may import app setup and 
+            fixtures. App bootstrap must not import testing routes. Update README, imports, 
+            consumer commands and explanatory links in current rewrite Plans to moved examples; 
+            preserve Plan IDs/semantics and archive files. Scope references/**, current rewrite 
+            Plan documentation links, and ReferenceDocs Workflow records only. Format and 
+            source-lint these files with the configured rules; disclose the proposed-package 
+            blocker for full typed lint without fake declarations or casts. Have independent agents 
+            review against the Plans. Verify recursive imports/exports and acyclic layering, 
+            links/markers, formatter syntax, ten CLI leaves/public API coverage, scoped diff, docs 
+            build, workflow integrity and three independent reviews. No target runtime/typecheck 
+            proof, implementation/export changes, commit or push required.
+        comment    2026-10-23T18:15:24Z
+            Primary root (inherited model/reasoning), no secondary coder. Requirements packet: user 
+            feature-layout request plus PackageContract.O1/O2, ApplicationsAndActors.O1/O2, 
+            StoriesAndModels.O1/O2/O6 -> T2 acceptance -> references/features, app, testing, tools 
+            and API index -> recursive import/export/layering/link/marker/coverage checks, 
+            formatter and docs build -> baseline flat16-file reference with previously reviewed 
+            behavior. Scope includes current Plan documentation links only; no semantic Plan edits. 
+            Deletion obligation: remove flat .examples files rather than retain wrappers; preserve 
+            coverage and named markers at their new owners.
+
+            Steps: split declarations at owning feature, separate app composition from Stories, 
+            relocate fixtures/tests/tools, update all imports/docs/Plan links, verify and freeze. 
+            Review agents for this new task will be fresh architecture/contract/bug reviewers, 
+            gpt-6-luna/xhigh, read-only final scoped snapshot, specialist plus general practices. 
+            No commit/push authorization.
+        comment    2026-10-23T18:26:26Z
+            Frozen T2 source snapshot SHA256 
+            c578d4b9953357046c93110515321d3a22de7111b2869ec83e1bdf7a22de601a (sorted reference 
+            paths then listed Plan paths, path+file bytes).
+
+            Inventory: workflow/plans/rewrite/references/README.md, 
+            workflow/plans/rewrite/references/api-reference.ts, 
+            workflow/plans/rewrite/references/app/actors.ts, 
+            workflow/plans/rewrite/references/app/app.ts, 
+            workflow/plans/rewrite/references/app/behaviour.ts, 
+            workflow/plans/rewrite/references/app/demo-api.ts, 
+            workflow/plans/rewrite/references/app/host.ts, 
+            workflow/plans/rewrite/references/app/implementation.ts, 
+            workflow/plans/rewrite/references/app/persistence.ts, 
+            workflow/plans/rewrite/references/app/setup.ts, 
+            workflow/plans/rewrite/references/app/view.tsx, 
+            workflow/plans/rewrite/references/features/Session/session.definition.ts, 
+            workflow/plans/rewrite/references/features/Session/session.machine.ts, 
+            workflow/plans/rewrite/references/features/Tickets/editor/TicketPanel.tsx, 
+            workflow/plans/rewrite/references/features/Tickets/editor/editor.definition.ts, 
+            workflow/plans/rewrite/references/features/Tickets/editor/editor.machine.ts, 
+            workflow/plans/rewrite/references/features/Tickets/editor/editor.selectors.ts, 
+            workflow/plans/rewrite/references/features/Tickets/editor/editor.story.ts, 
+            workflow/plans/rewrite/references/features/Tickets/editor/editor.test.ts, 
+            workflow/plans/rewrite/references/features/Tickets/progress/progress.ts, 
+            workflow/plans/rewrite/references/features/Tickets/ticket-api.ts, 
+            workflow/plans/rewrite/references/features/Tickets/ticket.operations.ts, 
+            workflow/plans/rewrite/references/features/Tickets/types.ts, 
+            workflow/plans/rewrite/references/features/Tickets/watcher/watcher.ts, 
+            workflow/plans/rewrite/references/testing/fixtures.ts, 
+            workflow/plans/rewrite/references/tools/cli.ts, 
+            workflow/plans/rewrite/references/tools/diagnostics.ts, 
+            workflow/plans/rewrite/references/tools/inspection.ts. Also documentation-link-only 
+            edits in workflow/plans/rewrite/ApplicationsAndActors.plan, 
+            workflow/plans/rewrite/CommandLine.plan, workflow/plans/rewrite/PackageContract.plan, 
+            workflow/plans/rewrite/Persistence.plan, workflow/plans/rewrite/Resources.plan, 
+            workflow/plans/rewrite/Statecharts.plan, workflow/plans/rewrite/StoriesAndModels.plan, 
+            workflow/plans/rewrite/Streams.plan, workflow/plans/rewrite/Transactions.plan. Workflow 
+            records ReferenceDocs/{epic,P1}.task. Old flat .examples.ts files are deleted with no 
+            wrappers. Pre-T2 flat source baseline is /tmp/flow-reference-layout-baseline for 
+            read-only comparisons. Unrelated worktree changes are excluded.
+
+            Structure: production feature definitions/machines/services/operations/UI/selectors are 
+            independent of app hosts and tests. editor.story.ts owns recipes and scenarios, 
+            editor.test.ts assertions, app/behaviour.ts CLI-only gateway, app/setup.ts has no 
+            testing-route import in its transitive closure. app/implementation.ts now accepts an 
+            existing service in its synchronous alternative instead of running an Effect there. 
+            LocalTicketPanel receives a session ref prop. ticketView takes a captured exact 
+            snapshot and returns display projections without logging or Runtime lookup. No package 
+            semantics changed.
+
+            Checks: docs:build PASS; generated docs source unchanged. Scoped vp fmt + --check PASS 
+            all28 files. Recursive layout checker PASS:27 sources,54 relative imports including 
+            named-export existence,24 README links,4 original Plan markers,27 inspection target 
+            names,10 CLI leaves,7 scenario tests; acyclic imports, no production 
+            feature->app/testing dependency, setup closure excludes testing, gateway excludes test 
+            registration. Existing16 extracted host cleanup/success cases PASS after path 
+            relocation. git diff --check PASS; workflow check PASS.
+
+            User requested format+lint then independent Plan review. Full configured vp lint was 
+            attempted and failed on missing proposed flow-state package routes and downstream 
+            compiler errors. Do not claim full typed lint passes. Source lint PASS with warnings 
+            denied, using the SAME workspace lint rules/plugins in a temporary derived config: 
+            typeAware=false and typeCheck=false; add the two actual final-host paths app/host.ts 
+            and tools/inspection.ts to no-effect-runner-in-domain.allowedFiles. No rule is 
+            disabled; no repo lint config, fake declarations or casts added. Command: nubx oxlint 
+            -c /tmp/flow-reference-source-lint.json workflow/plans/rewrite/references 
+            --deny-warnings. The config is derived from vite.config.ts lint; jsPlugin specifiers 
+            resolved to installed/absolute paths. Automatic fixes were readable-spacing, with 
+            nested conditional and unused-parameter issues repaired. The two host allowances align 
+            with ReactAndHosts.O4, rather than pretend these files are domain code.
+
+            Plan formatter was tried; it alters existing fenced TS/CLI indentation and inserts 
+            continuation trailing spaces. Retained original Plan fences and minimized all9 Plan 
+            diffs to link destinations plus a resource-reader link; Workflow semantic validation 
+            passes. No semantics/status/IDs changed in Plans.
+
+            Review dispatch table: primary root inherited model/reasoning integration, zero 
+            secondary coder. Fresh layout_architecture, layout_contract, layout_bug: each 
+            gpt-6-luna/xhigh, read-only frozen scope above, reviewer entrypoint plus specialist and 
+            general-code-practices. Contract review explicitly checks current Plans and compatible 
+            archived detail per user. No runtime/typecheck/packed-consumer proof or cutover implied.
+        comment    2026-10-23T18:30:51Z
+            T2 complete. Reorganized references into app/, features/Session/, 
+            features/Tickets/{editor,watcher,progress}/, testing/, tools/, api-reference.ts and 
+            README. Dedicated editor.story.ts owns inert recipes/scenarios and editor.test.ts 
+            assertions; app/behaviour.ts owns CLI gateway. Production feature code has no 
+            app/testing dependencies, app/setup transitive closure excludes Stories/tests, UI 
+            receives refs, selectors consume exact captured snapshots. No empty category folders, 
+            utils grab-bag, forwarding barrels, or old .examples files. Nine current Plan edits 
+            retarget documentation links only; historical files and Plan semantics/IDs/status 
+            remain unchanged.
+
+            Independent fresh gpt-6-luna/xhigh reviews: layout_contract PASS against owning Plans 
+            and user acceptance; layout_architecture PASS on structure/layering/authority; 
+            layout_bug PASS on preserved examples/cleanup/scenarios. No repairs required after 
+            frozen T2 snapshot.
+
+            Final verification: vp fmt and --check PASS28files; configured source rules/plugins 
+            lint PASS with --deny-warnings under documented temporary source-only config; 
+            structural checker PASS27sources54relative imports/named exports,24README links,4Plan 
+            markers,acyclic layering,27inspection targets,10CLI leaves,7scenario tests;16extracted 
+            host success/failure/cleanup cases PASS; docs:build PASS, generated docs source 
+            unchanged; git diff --check PASS; workflow check PASS.
+
+            Full configured typed lint was run and is NOT passing: proposed flow-state routes are 
+            unavailable, producing unresolved imports and consequent compiler diagnostics. 
+            Source-only config preserves configured rules/plugins while disabling 
+            compiler-dependent flags and allowing exactly the two real final-host paths through the 
+            existing runner rule. No rule suppression, fake declaration, cast, dependency change, 
+            or repository lint-config edit was used. This is a documentation/structure completion, 
+            not target-runtime/typecheck/packed/full-workspace verification. No commit or push.
+
+    T3
+        title      Route reference links and commit consumer guide
+        status     in_progress
+        priority   medium
+        assignee   primary
+        acceptance
+            Finish and commit the already reviewed Dispatch Desk reference work. Audit active 
+            references to removed flat examples, keep historical task receipts/archive/provenance 
+            unchanged, and route current Plan guidance through the high-level reference README 
+            instead of brittle internal example paths. Improve the capability overview link 
+            wording, without changing semantic Plan commitments or claiming target implementation. 
+            Preserve unrelated staged/unstaged changes. Validate actual relative links, 
+            obsolete-name audit, scoped format/source-lint receipts, Workflow and diff; independent 
+            architecture/contract/bug reviews for final link-only increment. Commit only 
+            references/**, directly affected rewrite Plan/overview documentation, and ReferenceDocs 
+            records; no unrelated code/toolchain files or push.
+        comment    2026-10-23T18:35:39Z
+            Primary root inherited model/reasoning; zero secondary coders. Requirements packet: 
+            user request to replace obsolete references at high level + existing capability example 
+            links -> T3 acceptance -> nine current capability Plan links and rewrite/README.md -> 
+            obsolete-name scan, local Markdown link check, scoped diff and workflow check -> 
+            baseline T2 already removed obsolete active filenames but current links point into the 
+            new implementation-shaped example tree. Deletion obligation: no old flat example names 
+            in active guidance, retain historical receipts and archived provenance. No reference 
+            source behavior changes. Existing T1/T2 independent PASS reviews and scoped 
+            lint/format/docs-build receipts remain applicable to unchanged reference sources.
+
+            Final link-only review dispatch planned: link_architecture, link_contract, link_bug; 
+            all fresh gpt-6-luna/xhigh, reviewer entrypoint plus general practices, read-only final 
+            diff in nine Plans and overview, using T1/T2 evidence for unchanged examples. User 
+            authorized one scoped local commit, no push. Stage only references/**, the nine 
+            affected Plans, rewrite README, ReferenceDocs records; preserve all unrelated dirty 
+            files.
+        comment    2026-10-23T18:36:19Z
+            Frozen T3 link-only snapshot SHA256 
+            4ba5c4dfd83e8afb7cbfec9e68f992bea1ca9c763090351bb884912936321134. Paths: 
+            workflow/plans/rewrite/ApplicationsAndActors.plan, 
+            workflow/plans/rewrite/CommandLine.plan, workflow/plans/rewrite/PackageContract.plan, 
+            workflow/plans/rewrite/Persistence.plan, workflow/plans/rewrite/Resources.plan, 
+            workflow/plans/rewrite/Statecharts.plan, workflow/plans/rewrite/StoriesAndModels.plan, 
+            workflow/plans/rewrite/Streams.plan, workflow/plans/rewrite/Transactions.plan, 
+            workflow/plans/rewrite/README.md. Current capability links now route to 
+            references/README.md, with no app/features path coupling outside the reference. The 
+            overview introduces the same consumer reference at high level. Plan 
+            semantics/status/IDs remain unchanged. Reference source tree unchanged from T2 reviewed 
+            snapshot.
+
+            Audit: no removed .examples.ts filenames remain in active guidance. Remaining mentions 
+            are historical T1/T2 Task receipts and are intentionally preserved. All high-level 
+            reference targets resolve. Layout check remains 
+            PASS28files27sources54imports24READMElinks27inspect10CLI7tests; Plan-specific comment 
+            markers no longer used as external anchors because links are now high-level. git diff 
+            --check and workflow check PASS. Parent README formatted; unchanged examples retain 
+            prior formatting/source-lint/docs-build and all3specialist PASS receipts. Full typed 
+            lint limitation retained.
+
+            Dispatch now: fresh link_architecture, link_contract, link_bug, each gpt-6-luna/xhigh, 
+            read-only final10document snapshot and T3; rely on prior T1/T2 passes for unchanged 
+            source. Source edits frozen until all verdicts.
+        comment    2026-10-23T18:39:12Z
+            Reference updates complete and all three T3 reviews PASS: link_architecture, 
+            link_contract, link_bug (gpt-6-luna/xhigh). High-level links resolve; no removed 
+            example filenames in active guidance; Plan semantics/IDs and historical receipts 
+            unchanged. workflow check and git diff --check PASS. Prior T1/T2 
+            source/format/lint/docs receipts remain valid for unchanged examples.
+
+            COMMIT BLOCKER: user authorized the scoped local commit, but git add failed with 
+            exit128: fatal: Unable to create /Users/arpit/Developer/flow-state/.git/index.lock: 
+            Operation not permitted. This environment grants read-only access to Git metadata. No 
+            changes were staged and no commit was created; do not mark T3 done. T1/T2 remain 
+            completed; T3 remains in_progress solely for this blocked commit. No available Codex 
+            app tool provides local commit/staging. No permission workaround or alternate-path 
+            index mutation attempted.
+
+            Prepared scope for commit: workflow/plans/rewrite/references/**; 
+            rewrite/{ApplicationsAndActors,CommandLine,PackageContract,Persistence,Resources,Statech
+             arts,StoriesAndModels,Streams,Transactions}.plan; rewrite/README.md; 
+             workflow/tasks/ReferenceDocs/**. Exclude every other dirty path. Message prepared at 
+             /tmp/flow-reference-commit-message.txt. Configured hooks invoke legacy Beads 
+             automation; preserve frozen Beads records when committing from an authorized writable 
+             environment. No hook executed. Remaining action: stage only this scope and create 
+             local commit when Git metadata writes are allowed; no push requested.

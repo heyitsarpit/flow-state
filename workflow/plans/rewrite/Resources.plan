@@ -75,7 +75,7 @@ outcomes
         These mapper names and arguments are fixed; their caller-written option container remains
         unresolved at @Q1. Illustrative examples cannot choose that container.
 
-        The [resource examples](references/data-api.examples.ts) illustrate declarations and reads.
+        The [consumer reference](references/README.md) demonstrates resource declarations and passive reads.
         Concrete application names and durations establish no defaults.
 
         The exact `FiniteResourceOptions`, `ResourceSubscriptionOptions`, and plan aliases above
