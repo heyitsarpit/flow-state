@@ -404,3 +404,10 @@ questions
         Paused by the user. Invariants stay a separate function (@D52); syntax and runtime design
         will be revisited. Earlier findings: they would run at the pre-publication validation
         step in enforce, report or off mode.
+    Q41  Which API changes from the reference review are adopted?
+        Next round. An independent review of the reference and a follow-up critique produced ten
+        pending proposals (public and internal events, a stay target, keyed refs with retention,
+        Flow-minted attempt identity, operation-scoped cache effects with an unknown outcome,
+        payload mapping with E.X.from, schedule restartOn, a tagged can verdict, activity reads in
+        views, persistence on Effect's KeyValueStore), smaller items, and reference bugs to fix
+        directly. All are recorded in explorations/reference-review.md.
