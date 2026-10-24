@@ -1,0 +1,406 @@
+plan SurfaceSimplification
+title   Public surface simplification and compiled truth
+status  proposed, under discussion
+goal
+    Shrink the public API to what an application author must write, and make every structural
+    fact about an application statically extractable. Flow State combines statechart actors
+    (XState style) with keyed network data (TanStack Query style) in one Runtime. Its organising
+    principle is "truth is a compilation target": machines, their read graph, their network
+    operations and Stories compile into one internal representation for tools and agents.
+
+    The primary author is an AI coding agent. A human typically vibe-codes, cares about the UI in
+    the browser and rarely reads code. The library's job is to make agent mistakes hard to write
+    and easy to detect. Everything beyond the authored machine files exists for correctness at
+    scale and for agents.
+
+    This Plan is the working record of the simplification discussion. Settled answers appear under
+    decisions and outcomes. Candidate changes not yet discussed appear under @O5 and the open
+    questions. After the discussion settles, the outcomes are applied to the twelve capability
+    Plans, ProjectDelivery and the Dispatch Desk reference. Deliberate core designs in those
+    Plans stay unless a change is a clear simplification (@D10). Their binding runtime guarantees
+    (atomic cuts, fencing, ordered turns, no replay, honest remote uncertainty) are kept.
+outcomes
+    O1  Structure is data; callbacks only compute values
+        Settled by @D2 and @D7. Inert construction of an App yields its complete structure, without
+        running user callbacks or parsing TypeScript source.
+
+        Data declares structure: states, transition targets, guard identities, the operations a
+        transition starts, outcome-to-event mappings, activities per state, timers, context reads,
+        persistence opt-ins and concurrency policies. Callbacks only compute values: event
+        payloads, memory patches, operation parameters, guard predicates, selectors and write data.
+        A callback never chooses a target, an operation, a descriptor or an event type.
+
+        This needs one adjustment to @plan.Statecharts.O3. Transition actions keep today's
+        operation-family call form, but the actions field becomes a static list of declarations
+        rather than a callback that returns a list. Only the parameters inside each declaration are
+        computed. For example, actions: [O.saveTitle.commit(({ memory, event }) => params, {
+        writes, outcomes: { success: E.SaveSucceeded, failure: E.SaveFailed } })]. An outcome
+        references an event constructor, never a raw string, so it reads unambiguously as an event
+        (@D18). The Runtime passes the result to that constructor, and a constructor argument
+        mismatch is a type error. Writes follow the same rule, so the target family is
+        static and only data and parameters are computed.
+    O2  The machine file is the spec; renderers serve tools
+        Settled by @D3 and @D6. The authored .ts machine file is the declarative description of an
+        application's states and transitions. No separate spec file exists or is committed.
+
+        Construction produces one internal representation of the application's structure. Renderers
+        project it on demand, for example as JSON for agents and as Mermaid for diagrams. CLI checks
+        and diffs read the same representation. It contains no user values, closures or secrets.
+    O3  Composition is an acyclic upward read graph plus nested states
+        Settled by @D4. A machine declares which machines it reads from, using its Definition's
+        context selectors. Providers never declare their consumers. The reads form a directed
+        acyclic graph: a consumer reads from machines above it, and a cycle is rejected before any
+        actor is admitted, as @plan.ApplicationsAndActors.O6 already requires. Substates are nested
+        states inside one machine; there are no spawned or parent-owned child actors, matching
+        PackageContract DEL-002.
+
+        Current specification, unchanged so far. App.M lists the closed set of machines; any actor
+        of an unlisted machine is rejected as foreign. actorRef(machine, id) declares a stable actor
+        identity outside React, so one shared actor exists per ref per Runtime, and several refs
+        may name the same machine.
+
+        Settled by @D11: each dependency is declared once. A stable ref declares its provider
+        bindings as module data, for example actorRef(EditorMachine, "north/T-42", { context: {
+        canEdit: SessionRef } }). ensureActor(ref, { input }) and useActorByRef(ref) take no
+        wiring, and the conflicting-bindings failure case disappears. Local actors from
+        createActor and useActor still pass bindings, because they have no ref. Settled by @D13:
+        module is removed; app({ id, persistenceVersion, machines }) lists machines directly, and
+        tooling groups by machine ID prefix.
+    O4  Future playback stays possible
+        Settled by @D5. Browser playback of Stories, where the UI operates itself and records
+        transitions, is out of scope for this revision. Changes here must not preclude it. Stories
+        stay executor-agnostic data, events stay serialisable plain values, and the internal
+        representation stays extensible with new edge kinds such as UI triggers.
+    O5  Authoring returns values and throws on invalid input
+        Settled by @D8. definition and machine are self-contained functions that return their value
+        directly, and throw a FlowError carrying canonical diagnostics when construction fails.
+        Event constructors return the event envelope directly. Result wrappers leave the authoring
+        surface, including the double Result/unwrapped exports per definition. This applies to
+        @plan.Statecharts.O1 and @plan.Statecharts.O2. Payload validation on admission stays.
+    O6  Settled surface removals
+        - State paths flatten to S.OPEN.EDITING (@D12). Compound states are real tokens; token
+        metadata sits under a symbol key, so child names cannot collide with token fields. The
+        existing reserved-name checks stay. Applies to @plan.Statecharts.O2.
+        - One FlowError replaces FlowUsageError, FlowPersistenceError, FlowDisposeError and
+        FlowStoryExecutionError (@D14). It carries a closed code, canonical diagnostics, an
+        optional cause, and Story evidence for Story execution failures. This resolves
+        @plan.StoriesAndModels.Q1 and applies to @plan.DiagnosticsContract.O3.
+        - useShallow is removed (@D15). useView already re-renders only when the selected value
+        changes, using whole-value Object.is for scalars and fieldwise Object.is for plain records
+        (@plan.ReactAndHosts.O3).
+        - onMemory and onMemory.select are removed (@D16). Every continuing declaration lives in
+        a state's activities, including the root state for whole-lifetime work. An activity is
+        a static declaration with computed parameters and an optional when predicate, for
+        example ticket: O.ticketById.subscribe(({ memory }) => params, { when: ({ memory }) =>
+        memory.watching }). Identity, retention, replacement and release rules from
+        @plan.Statecharts.O4 are unchanged; when false releases the slot. This also lets state
+        activities read memory, which the reference already assumes and the rewrite source does
+        not yet accept. The previous-value argument of onMemory.select is dropped.
+        - One root can(snapshot, event) is the only eligibility form (@D17). Selector input is a
+        snapshot, so the same import works inside useView; the bound can(event) in selectors is
+        removed. invalidate and clear stay, adopting the @D7 static form.
+        - Story process() stays the single explicit drain step (@D19).
+        - Outcome members success, failure, defect and interrupt are each optional, and all four
+        remain available to authors who want them (@D20). An omitted member sends no event. The
+        operation's state still records the outcome, writes still apply on success, and an
+        omitted failure or defect also publishes an actor issue. flow check reports a state that
+        an unmapped outcome would leave with no exit.
+        - Context reactions become a static list in the machine configuration (@D23):
+        onContext: [{ select, when?, event }]. select is a pure value over context and memory;
+        only context waves re-trigger it (@D24). when filters on (current, previous). event is a
+        static constructor reference, called with (current, previous). The first selection stays
+        silent, emitted events are ordinary mailbox turns, and a handler that chose between
+        events becomes several reactions sharing a selection. The selection cannot read the
+        consumer's own state; state conditions belong in the statechart. Worked examples are in
+        explorations/context-reactions.ts.
+        - Operation keys (@D25, @D26, @D27). The authored key projector stays; its parameter type
+        is the key input that readers, writes and cancel accept, and execution parameters must be
+        assignable to it. The projector returns a named record that may hold derived or
+        normalised values. invalidate and clear take a family plus an optional partial key record
+        and match every entry whose key contains those properties, replacing tags. Undefined
+        properties are treated as absent, as in TanStack Query. An omitted projector gives the
+        empty record. Keys are records only. A lint flags resource and stream parameter fields
+        missing from the key input. Applies to @plan.Resources.O1, @plan.Resources.O4,
+        @plan.Transactions.O1 and @plan.Streams.O1.
+        - Transition guards return true or deny(code, context?) (@D28). deny takes a literal code
+        as a const type parameter and an optional plain context object, for example
+        deny("CreditLimitExceeded", { total, limit }). A guard never returns false, so every
+        denial is explained. Possible codes per transition are read exactly from types;
+        actual denials are recorded in evidence. can(snapshot, event) stays boolean, and
+        can(snapshot, event, { explain: true }) reports the denied candidates with their codes
+        and context, or that no handler exists. This adopts FUTURE_EXPANSIONS.md section 2.
+        - Operation option details (@D30 to @D34):
+        - Resources, transactions and streams all write mappers inside one outcomes container.
+        Finite members are success, failure, defect and interrupt; continuing members are
+        value, plus complete for streams, failure, defect and interrupt. This resolves the
+        container half of @plan.Resources.Q1 and @plan.Streams.Q1.
+        - Transaction concurrency is required; there is no omitted policy. This resolves
+        @plan.Transactions.Q2.
+        - Resource staleTime and gcTime are both required, with no library defaults. Their
+        input type is Effect Duration.Input. This resolves the rest of @plan.Resources.Q1
+        except tags and placeholders, and tags are superseded by partial-record invalidation.
+        - A stream adapter returns an Effect Stream directly: subscribe(params, { signal }) =>
+        Stream<V, E, R>. Effectful or scoped setup uses Stream.unwrap, whose Effect 4.0.5 type is
+        unwrap(effect: Effect<Stream<A, E2, R2>, E, R>): Stream<A, E | E2, R2 | Exclude<R,
+        Scope>>, so scoped acquisition needs no separate unwrapScoped (absent in v4). Push sources
+        may use Stream.callback, Stream.fromAsyncIterable or Stream.fromEventListener. This
+        resolves the adapter half of @plan.Streams.Q1.
+        - Transaction and stream facts persist exactly when the owning actor persists. Their
+        descriptors accept only persist: false, to exclude one operation from a durable actor.
+        Resources keep their own persist: true opt-in for shared cache data.
+        - Every time input across the library is Effect Duration.Input: Story advance, timer
+        delay, staleTime and gcTime (@D35). advanceTo keeps absolute epoch milliseconds. This
+        resolves @plan.StoriesAndModels.Q3.
+        - Model traversal: stateKey receives the predicted snapshot with a state member, matching
+        snapshots everywhere; explored counts distinct state keys visited (@D36). This resolves
+        @plan.StoriesAndModels.Q2 and @plan.StoriesAndModels.Q4.
+        - flow.config.ts at the project root replaces the behaviour gateway (@D37):
+        defineConfig({ apps: [{ app: DeskApp, stories: "src/desk/**/*.story.ts" }, { app:
+        AdminApp, stories: "src/admin/**/*.story.ts" }] }). Each entry pairs one App with a
+        Story glob; the App's id namespaces its Stories. Every exported Story is discovered,
+        and each Story declares its own stable id in its options. Duplicate ids within one App,
+        duplicate App ids, and a Story whose App differs from its entry fail flow check. CLI
+        commands select an App with --app when the config holds more than one. This replaces
+        behavior({ app, stories }) and the --gateway option of @plan.CommandLine.O1.
+        - Saved behaviour artifacts are removed (@D38). behavior build, render, diff and check
+        become on-demand commands: a graph command renders from the live App, and a diff
+        command builds two git revisions in memory and compares them. Nothing is written unless
+        output is redirected. This applies @D6 to @plan.CommandLine.O1 and
+        @plan.InspectionAndArtifacts.O4.
+        - The inspect route exports four names (@D39): inspect(app) returning the internal
+        representation, render(model, format), trace (import, export, summarise, diff) and
+        attachInspector(runtime, sink). The other restoration names become CLI internals.
+        - CLI leaves in this revision (@D40): story list, describe and run; trace summarize, proof
+        and diff; graph; diff; check; explain. explain has a static mode listing candidate
+        transitions and their possible deny codes for a machine, state and event, and an
+        evidence mode that evaluates can(…, { explain: true }) on a Story checkpoint snapshot.
+        coverage, paths and an MCP server come later.
+        - Callback analysis records observed reads from Stories and inspection, labelled as
+        observed (@D41). Source-inferred reads come later.
+        - flow check reports construction diagnostics, duplicate or misplaced Story and App ids,
+        context-graph cycles and persisted consumers of non-persisted providers as errors; and
+        stuck states from unmapped outcomes, non-literal deny codes, parameter fields missing
+        from a key input, unreachable states, unhandled events and send-then-checkpoint without
+        process() as warnings (@D42).
+        - Public operation and timer states drop generation; it stays in inspection and evidence
+        (@D43). Documentation states guarantees in user terms rather than mechanism names.
+        - Effect is used publicly where it owns the concept (@D44 to @D48). Event payloads are
+        Effect Schema field records; input and memory are Schema field records; operation data
+        and error schemas are required only where values cross a boundary (persisted resources
+        and streams, SSR seeding); services and fixtures are Effect Layers, replacing
+        Implementation and ImplementationError. Decisions are made on internal simplification
+        and readability; no performance or agent-accuracy spike is required.
+        - Built-in transition properties (a denied event and an unhandled event change nothing)
+        and deny-code coverage are accepted, independent of the invariant authoring form (@D49).
+        - Persistence becomes a plain options object { storage, scope, version, codec? } on
+        runtimeSetup (@D21). The persistence() constructor, the app-level persistenceVersion and
+        the filter are removed; per-declaration persist flags are the single selection source.
+        - Public snapshots keep lifecycle and drop publication and store revisions, which move to
+        inspection (@D22).
+    O7  Candidate simplifications awaiting discussion
+        These are proposals, not decisions. Items with a question ID are in the current round.
+
+        Invariants: not yet adopted (@Q30).
+
+        Dropped: named guards (deny codes label guards), parameter-only readers (superseded by
+        @D25), createRuntime (same concept count as runtimeSetup plus construct), Story steps that
+        settle by default (@D19), a machine redesign around Effect primitives (@D60), results
+        handled in the waiting state (@D54), renaming updateMemory, and moving shared handlers to
+        parent states.
+decisions
+    D1  Correct on first attempt outranks reviewability, which outranks brevity
+        User answer, round 1. The API offers one canonical form per concept, even where a shorter
+        alternative would be possible. Shorthands that create a second way to write the same thing
+        are excluded; for example, transition targets stay required.
+    D2  Structure-is-data is strict
+        User answer, round 1. It is enforced by types and checks, with no dynamic escape hatch.
+    D3  The machine file is the human-facing spec
+        User answer, round 1. There is no separate spec file. Machine source should read
+        declaratively. Further machinery serves correctness and agents, since humans mostly work on
+        UI.
+    D4  Hierarchy is upward reads plus nested states
+        User answer, round 1. A child machine may read any machine above it. Parents do not
+        declare children, and the read graph must stay acyclic. Nested states provide substates.
+    D5  Playback is deferred
+        User answer, round 1. It is not planned in this revision, but must remain buildable later.
+    D6  One internal representation with renderers; nothing stored
+        User answer, round 2. Structure is held in one internal representation and rendered on
+        demand as JSON, Mermaid and similar formats. No generated spec artifact is committed or
+        passed around.
+    D7  Actions keep the operation-family call form as a static list
+        User answer, round 2. Operations, writes and outcome-to-event mappings are declarations;
+        only parameters and data are computed.
+    D8  No Result returns from authoring
+        User answer, round 2. Construction failure throws. Results were an earlier idea that may
+        have served the Runtime internally; they are not exposed.
+    D9  State targets stay typed object tokens
+        User answer, round 2. Targets are typed nested state objects, not strings, to keep type
+        safety. Only the path spelling is under discussion (@Q6).
+    D10  Simplify, do not redesign
+        User direction, round 2. Deliberate core designs stay. A change qualifies only when it
+        removes concepts, names or ceremony for the author without weakening a settled decision.
+    D11  Context wiring is declared once, on the stable ref
+        User answer, round 3.
+    D12  State paths flatten
+        User answer, round 3. S.OPEN.EDITING replaces S.OPEN.S.EDITING; tokens stay typed objects.
+    D13  module is removed
+        User answer, round 3.
+    D14  One FlowError
+        User answer, round 3.
+    D15  useShallow is removed
+        User answer, round 3, accepted after confirming useView re-renders only on a changed
+        selection. A component whose selection is unchanged does not re-render on a transition.
+        A selector that builds a new array or nested object on each run still re-renders, with or
+        without useShallow; memoised derivation or a lint rule addresses that case.
+    D16  onMemory and onMemory.select are removed
+        User answer, round 4. Root and state activities with computed parameters and a when
+        predicate replace them.
+    D17  One root can import
+        User answer, round 4. can(snapshot, event) works everywhere, including selectors.
+    D18  Outcomes reference event constructors
+        User answer, round 4. Raw event-name strings are rejected because they read ambiguously as
+        states or events.
+    D19  process() stays
+        User answer, round 4, consistent with the archived Story design: send only admits, and
+        process() drains ready work, so Stories can queue commands and control interleavings.
+    D20  Outcome mappers are optional; omission sends no event
+        User answer, round 5.
+    D21  Persistence is a plain object with version; filter removed
+        User answer, round 5.
+    D22  Snapshots keep lifecycle; revisions move to inspection
+        User answer, round 5.
+    D23  Context reactions are a static list with select, when and event
+        User answer, round 6. Static analysability of select and when is reviewed under @Q16.
+    D24  Reaction select may read memory
+        User answer, round 6. Only context waves re-trigger selection.
+    D25  Key input projector with named record keys and partial-record invalidation
+        User answer, round 6, after comparison with TanStack Query.
+    D26  Undefined key properties are absent
+        User answer, round 6.
+    D27  Keys are records only
+        User answer, round 6.
+    D28  Guards return true or deny(code, context?)
+        User answer, round 8. The second argument is an optional context object.
+    D29  guard and when stay separate
+        User answer, round 8. guard is the event-transition condition; when is the context
+        reaction filter. Redirect and timer keywords are unchanged.
+    D30  One outcomes container across families
+        User answer, round 9.
+    D31  Transaction concurrency is required
+        User answer, round 9.
+    D32  staleTime and gcTime are required
+        User answer, round 9.
+    D33  Stream adapters return a Stream
+        User answer, round 9, after checking Effect 4.0.5 source and declarations for
+        Stream.unwrap and Stream.scoped.
+    D34  Transaction and stream persistence follows the actor, with persist: false to exclude
+        User answer, round 9.
+    D35  Duration.Input is the only time input type
+        User direction, round 10. No per-feature question is needed for time inputs.
+    D36  Model stateKey uses state; explored counts distinct keys
+        User answer, round 10.
+    D37  flow.config.ts with multiple App entries and Story-declared ids
+        User answer, round 10. A project may hold several Apps.
+    D38  On-demand graph and diff replace saved behaviour artifacts
+        User answer, round 10.
+    D39  The inspect route has four exports
+        User answer, round 10.
+    D40  CLI core set plus explain
+        User answer, round 11.
+    D41  Observed callback reads now; inferred later
+        User answer, round 11.
+    D42  flow check rule set
+        User answer, round 11.
+    D43  generation leaves public state
+        User answer, round 11.
+    D44  Event payloads are Effect Schema field records
+        User answer, round 12.
+    D45  Input and memory are Schema field records
+        User answer, round 12. Whether an initial function is needed is open.
+    D46  Operation data and error schemas only where values cross a boundary
+        User answer, round 12.
+    D47  Layer replaces Implementation
+        User answer, round 12.
+    D48  No spike; decide on simplification and readability
+        User direction, round 12.
+    D49  Built-in transition properties and deny-code coverage
+        User answer, round 12.
+    D50  State tokens expose is
+        User answer, round 15. S.OPEN.is(snapshot) is true for the state and any descendant; it
+        resolves the open spelling of matches in @plan.Statecharts.O4.
+    D51  Timer conditions use when
+        User answer, round 15; superseded by @D53, which removes the timer condition entirely.
+    D53  Timers become schedules with schedule and send
+        User answer, round 18. timers is renamed schedules. Each named entry is { schedule, send }.
+        schedule accepts Duration.Input (fires once), any Effect Schedule, or a function of the
+        entry snapshot ({ memory, now }) returning either. send accepts an event envelope or a
+        function of the schedule metadata ({ attempt, elapsed, … }) returning one event. delay,
+        target, the timer guard or when, and any exhaustion event are removed: the receiving
+        transition's guard filters, and results decide give-up. The Runtime steps schedules with
+        Schedule.toStep on its own Clock, preserving timer snapshots, advanceToNextTimer,
+        deterministic ordering, suspension and exit/re-entry rules. A plain duration restores
+        exactly; a multi-step Schedule restarts on restore. The CLI may preview any Schedule by
+        simulation, labelled simulated. Applies to @plan.Statecharts.O4.
+    D52  Invariants stay a separate function
+        User direction, round 16. Placing invariants on machine state nodes was rejected as noisy.
+        The invariant syntax and runtime design are paused and will be revisited (@Q30).
+    D54  Operation outcomes keep mapping to events
+        User answer, round 19. Handling results directly in the waiting state is dropped; the
+        runtime keeps one entry path for results, the outcome-to-event form of @D18 and @D30.
+    D55  The definition derives public Schemas
+        User answer, round 19. A definition exposes Event (a Schema.TaggedUnion), State (literals
+        of state paths), Input, Memory and Snapshot, so application boundaries decode and encode
+        with Flow's own protocol. States remain a tree of names. Applies to @plan.Statecharts.O1.
+    D56  Events use the _tag envelope
+        User answer, round 19. Events are the Schema.TaggedUnion itself, with its match and
+        isAnyOf; the type field is removed.
+    D57  Operation state lanes use _tag with PascalCase
+        User answer, round 19; the match helper is settled by @D61. Applies to ResourceState, 
+        TransactionState and StreamState in
+        @plan.Resources.O1, @plan.Transactions.O1 and @plan.Streams.O1.
+    D58  Failures map by error tag
+        User answer, round 19. When an operation's error type is a tagged union, outcomes.failure
+        is an exhaustive record from tag to event constructor; an untagged error type keeps the
+        single-event form. The type decides which applies.
+    D60  Keep the definition and machine shape
+        User direction, rounds 14 to 15. Four redesign angles and a synthesised vision
+        (explorations/machine-vision.ts) were reviewed and not adopted as a whole. The definition
+        stays the cohesive vocabulary and the machine keeps its typed callback; changes land as
+        small, case-by-case decisions (@D50 onwards). State-owned data is not adopted.
+    D61  Operation states are matched with Effect's Match.valueTags
+        User answer, round 20. Refines @D57: the _tag lanes need no Flow match helper and no new
+        root export; consumers use Match.valueTags(state, cases) from Effect.
+    D59  Memory requires an initial function
+        User answer, round 19. initial converts input to memory, is required whenever memory is
+        non-empty, runs once for a fresh actor and never on restore.
+constraints
+    C1  Keep binding runtime semantics
+        Simplification removes names and ceremony, not guarantees. Ordering, atomic publication,
+        fencing, no-replay restore, honest uncertainty and exact type inference from the capability
+        Plans remain required, and their proofs remain owner obligations.
+    C2  Proposal authority only
+        This Plan changes no owner Plan, Task status, package export or reference file by itself.
+        packages/flow-state stays frozen and unread for this work.
+    C3  Code composition is the north star
+        Public APIs and internal code must make the user's code-composition, to-spec,
+        testing-policy and lint-bomb style principles easy to follow: concerns implemented by
+        boundaries, protocols that carry established facts, complete contracts (input, returns,
+        fails, needs), policy at the composition site, one fact in one place, requirements before
+        invariants, and public-boundary tests. Effect usage follows the lint-bomb glossary.
+        Installed Effect 4.0.5 is the API authority; codebases/effect-v4 is 4.0.0-beta.98 and can
+        differ (for example Arbitrary.schema versus Schema.toArbitrary).
+verification
+    V1  Extractability review
+        Establish @O1 by rewriting the Dispatch Desk reference in the agreed surface and deriving
+        its internal representation by hand. Every transition target, operation, outcome edge and
+        context read must be present without executing a callback; any fact that needs a callback
+        is a failing case. Planned review; no representation builder exists yet.
+    V2  Type feasibility spike
+        Establish the type side of @O1, @O5 and any flattened path form by compiling them in an
+        isolated consumer without explicit generics, assertions or excessive instantiation. Record
+        compiler time per machine size. Planned; not run.
+questions
+    Q30  What does invariant-driven development mean here?
+        Paused by the user. Invariants stay a separate function (@D52); syntax and runtime design
+        will be revisited. Earlier findings: they would run at the pre-publication validation
+        step in enforce, report or off mode.
