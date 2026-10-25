@@ -1,18 +1,21 @@
-# Entity proposal (draft 5): operation-first
+# Entity proposal (draft 7): operation-first, organised by entity
 
 Status: a proposal, not decided. It answers the questions in `entities.md` (the problem statement).
-It is written to the same scope as `entity-centric-proposal.md`, with the same features, use cases
-and worked examples in the same section order, so the two can be compared one to one. Draft 5
-revises draft 4 after seven reviews; section 18 records what each changed and what was rejected.
-Draft 3 is in git history (commit `df45fec2`).
+It is the chosen direction of two designs written to the same scope; `entity-centric-proposal.md`
+is kept for reference and superseded (section 17). Draft 5 revised draft 4 after seven reviews.
+Draft 6 made entities an **optional extension** (section 1.2) and drew one line between machines
+and the store (section 1.3). Draft 7 folds in the entity-centric design as **code organisation**
+(section 2.4): the library has one vocabulary, and apps are laid out entity by entity. Section 18
+records each change. Draft 3 is in git history (commit `df45fec2`).
 
 It builds on `minimal-library.md` decisions 1–8a, which are agreed. Section 13 lists every change
-to agreed decisions. **Section 6 is the runtime both proposals share and is normative for both.**
+to agreed decisions. Section 6 is the normative runtime.
 
-**The one-line difference from the entity-centric proposal.** That proposal puts every operation
-that involves an entity on the entity's members (`Notes.inFolder`, `Notes.rename`). This one keeps
-one vocabulary, `resource`, `transaction` and `stream`, exactly as today. An entity is a Schema
-with an identity, and an operation becomes entity-aware through its declarations.
+**In one line.** The library keeps one vocabulary, `resource`, `transaction` and `stream`; an
+entity is a Schema with an identity, and an operation becomes entity-aware through its
+declarations. The entity-first mental model comes from how apps are organised: one module per
+entity, its operations grouped as `Notes`, and machines that read `O.Notes.byId` and
+`O.Notes.rename`.
 
 ---
 
@@ -25,8 +28,7 @@ with an identity, and an operation becomes entity-aware through its declarations
 
 There are no layers. A heartbeat and a list of notes are both operations. What makes the list
 entity-aware is that it declares `depends`; what makes the heartbeat entity-free is that it
-declares `affects: "none"`. Once an app has entities, **every operation states its relation to
-them**, so a forgotten relation is a `flow check` error rather than a stale screen.
+declares `affects: "none"`.
 
 **When to declare an entity.** A record has a stable key, and it either appears in more than one
 answer or is changed by a command and shown elsewhere. The current user is always an entity
@@ -55,7 +57,56 @@ Local observation and remote confirmation stay distinct. There is no local query
 | What a command changes                            | the transaction (`result`, `optimistic`, `affects`)  |
 | Drafts, transitions, timing, what a failure means | machines                                             |
 
-### 1.2 Not a version 1 target
+### 1.2 Optional, one entity at a time
+
+Entities are an extension of the core library, imported from `flow-state/entities`.
+
+- **An app with no entity is `minimal-library.md` exactly:** resources, transactions, streams and
+  decision 6's call-site `optimistic` and `writes`. No entity store exists and none of this
+  document's names appear.
+- **Adoption is per entity.** Declaring `Note` changes only the operations whose Schemas carry
+  notes; `Settings` can stay a plain resource with call-site `writes`. The operations keep their
+  names and their machine call sites: adopting adds fields, it renames nothing.
+- **One form per piece of data.** Once `Note` is an entity, every operation whose Schemas carry
+  notes uses the entity forms. A call-site `setData`, `invalidate` or `clear` on a resource that
+  holds notes is a `flow check` error whose message says which `depends` or `affects` to write
+  instead. Hand-written cache effects stay legal only for data that is not an entity.
+- **Once an app declares any entity, every operation states its relation to entities**:
+  `depends` on resources, `result`/`optimistic`/`affects` on transactions, `feeds` on streams, or
+  `"none"`. A forgotten relation is then a `flow check` error rather than a stale screen. Apps
+  without entities write none of this.
+- **When to adopt.** `flow check` hints when two resources return records with the same key
+  fields ("`ticketList` and `ticketById` both return tickets; consider an entity"). It is a
+  warning, because the choice is the author's.
+
+### 1.3 Machines coordinate; the store keeps copies true
+
+There is one coordinator. **Machines decide what happens next**: which command to send, what a
+failure means, whether a draft or the server wins, when to refresh for a business reason, what to
+show while waiting. **The store answers one question: is my copy still what the server would
+say?** Its answer follows from what the server did and from declarations, with no choice in it.
+
+| Mechanism                                 | Kind                                    | Owner           |
+| ----------------------------------------- | --------------------------------------- | --------------- |
+| every copy of a record agrees             | bookkeeping                             | store           |
+| `depends`, `when`, `ignoreChanges`        | which answers the server's rules affect | store           |
+| `affects`                                 | what a command changed on the server    | store           |
+| hiding a record that left a list; `place` | display of server membership            | store           |
+| `value` and `deleted` outcomes            | the store reports; the machine decides  | store → machine |
+| `invalidate(Note.all)`                    | the machine decides; the store executes | machine → store |
+| what a change means for the user          | workflow                                | machine         |
+
+**The store never** starts a command, sends an event other than its lane outcomes, chooses a state,
+or reads one entity to change another. **Machines never** maintain copies: no records in memory,
+no hand refetch of an answer that `depends` already repairs (`flow check` warns on such a
+handler).
+
+This is why an optimistic operation changes only the records its command acts on (section 5.1).
+"When a note moves, both folders' counts change" is a server rule between two entities; guessing
+it on the client was coordination in the store. The counts are answers that depend on `Note`, and
+they refetch when the move settles.
+
+### 1.4 Not a version 1 target
 
 Offline-first operation. It needs a persisted operation queue, record-level persistence and
 server-key creates with re-keying (section 14). Version 1 keeps the door open but does not claim
@@ -139,8 +190,73 @@ A field holding only a key (`assigneeId: Schema.String`) is a plain field (secti
 ### 2.3 Where entities are found
 
 In the declarations of the app's operations: `loads`, `result`, `depends`, `optimistic`,
-`affects` and `feeds`, and through nested picks. There is no registry, and definitions do not list
+`affects` and `feeds`, and through nested picks. All entity names are exported from
+`flow-state/entities`. There is no registry, and definitions do not list
 entities. The closed universe stays "the app lists machines".
+
+### 2.4 Organising by entity
+
+The entity-first mental model is a layout, not a second vocabulary. Each entity gets two modules:
+its identity, and its operations grouped under one name.
+
+```ts
+// notes/note.entity.ts: the identity, importing only other entities
+export const Note = entity({
+  id: "notes/Note", fields: { … }, primaryKey: ["noteId"], version: "revision",
+});
+export const NoteRow = Note.pick("folderId", "title", "pinned", "createdAt");
+
+// notes/notes.ts: everything you can do with notes, in this order
+export const Notes = {
+  byId: noteById,              // the loader (section 3)
+  inFolder: notesInFolder,     // questions (section 4)
+  pinnedCount: pinnedNoteCount,
+  rename: renameNote,          // commands (section 5)
+  move: moveNote,
+  togglePin: toggleNotePin,
+  remove: removeNote,
+  create: createNote,
+  changes: noteChanges,        // feeds (section 8)
+};
+
+// a definition lists the group like any operation
+definition({ id: "notes/Editor", operations: { Notes, heartbeat }, … });
+
+// the machine reads entity first
+activities: { note: O.Notes.byId.subscribe(({ memory }) => memory.noteKey) }
+actions: [O.Notes.rename.commit(({ memory }) => ({ key: memory.noteKey, title: memory.draft }))]
+```
+
+- **One core addition: operation groups.** A value in a definition's `operations` may be a plain
+  object of operations; its members are reached as `O.Notes.<name>`. Groups do not nest further.
+  An operation keeps its own `id`; the group only names it for machines and tools.
+- **The order teaches the model.** An entity's operations module lists its loader, its questions,
+  its commands and its feed, so an agent learns "start from the record, then what you ask about it,
+  then how it changes".
+- **It costs nothing to adopt.** Grouping is a convention over operations that already exist, so an
+  app can introduce `Notes` whenever a second screen needs notes, without changing a declaration.
+- **Where an operation goes** follows from its declarations: a transaction whose optimistic
+  operations or result name `Note` goes in `Notes`; an answer goes in the group of the entity it
+  lists or counts; a mixed answer (a global search) goes in a feature's own group. `flow check`
+  warns, as a style rule, when an operation that involves only `Note` is grouped elsewhere.
+- **The library ships the layout.** The docs, the examples, the reference app and the scaffolding
+  all use it, so agents copy one canonical shape.
+- **Users do not write their own builders.** A wrapper such as `noteQuery({ when, … })` that
+  fills in `depends` would recover the entity-centric draft's inline `when`, but every codebase
+  would invent its own, the generic typing is hard, and errors would point into the wrapper. Groups
+  of plain operations keep every declaration visible to types, `flow graph` and agents.
+
+**What the entity-centric design gave, and where it lives now:**
+
+| Entity-centric gave                            | Here                                                    |
+| ---------------------------------------------- | ------------------------------------------------------- |
+| one module per entity, in a fixed order        | the documented layout                                   |
+| `O.Notes.` lists everything about notes        | operation groups                                        |
+| identity separate from operations, no cycles   | entity modules import only entities                     |
+| a query cannot forget its own entity           | `depends` is required (section 4.1)                     |
+| `watch` only when `load` exists                | `shape` type-checks only on `loads` resources           |
+| the layer rule                                 | not needed: every operation states its relation         |
+| `when` written inline, typed directly          | not kept: `depends: (on) => [on(Note, { when })]`       |
 
 ---
 
@@ -181,10 +297,10 @@ export const noteById = resource({
 
 ```ts
 activities: {
-  note: O.noteById.subscribe(({ memory }) => memory.noteKey, {
+  note: O.Notes.byId.subscribe(({ memory }) => memory.noteKey, {
     outcomes: { value: E.NoteLoaded.from((n) => ({ title: n.title })) },
   }),
-  row: O.noteById.subscribe(({ memory }) => memory.noteKey, { shape: NoteRow }),
+  row: O.Notes.byId.subscribe(({ memory }) => memory.noteKey, { shape: NoteRow }),
 },
 ```
 
@@ -211,7 +327,7 @@ The rest is ordinary resource behaviour, with these entity rules:
 - **`deleted`** (an outcome member added to the D30 container for loader subscriptions) fires once
   a delete is confirmed. Until then, and during an undo window, the lane is `Failure` with the
   built-in `Deleted { key, confirmed }`.
-- **`O.noteById.refetch(keyFn)`** reloads one record: "I am unsure, ask the server".
+- **`O.Notes.byId.refetch(keyFn)`** reloads one record: "I am unsure, ask the server".
 
 ---
 
@@ -377,7 +493,7 @@ Page-numbered lists are ordinary answers with `page` in their input; a repair re
 page and marks other pages stale.
 
 Infinite lists need one entry that grows, because memory holds keys and never copies. This is a
-**resource change** shared by both proposals and decided separately (section 13.2):
+**resource change** decided separately (section 13.2):
 
 ```ts
 pages: { next: (result) => (result.hasMore ? result.cursor : undefined), repair: "first" },
@@ -386,7 +502,7 @@ lookup: (input, { signal, cursor }) => ChatApi.use((api) => api.messages(input, 
 
 - Pages extend at the end, in fetch order. The lane's `data` is `{ pages: Result[] }`, and a record
   appears once at assembly even if two pages return it.
-- `O.channelMessages.fetchMore(inputFn)` loads the next page; it is a no-op without a `next`.
+- `O.Messages.inChannel.fetchMore(inputFn)` loads the next page; it is a no-op without a `next`.
 - **`repair`**: `"loaded"` (default) refetches the loaded pages in order, as TanStack Query does;
   `"first"` refetches the first page and drops the rest, which suits feeds and inboxes where 20
   loaded pages would mean 20 requests per change.
@@ -421,11 +537,8 @@ export const moveNote = transaction({
   key: (input) => input.key,
   commit: …,
   result: Note,
-  optimistic: (input) => [
-    Note.patch(input.key, () => ({ folderId: input.to.folderId })),
-    Folder.patch(input.from, (folder) => ({ noteCount: folder.noteCount - 1 })),
-    Folder.patch(input.to, (folder) => ({ noteCount: folder.noteCount + 1 })),
-  ],
+  optimistic: (input) => [Note.patch(input.key, () => ({ folderId: input.to.folderId }))],
+  // the folders' noteCount is not guessed: folder answers depend on Note and refetch on settle
   concurrency: "serialize",
 });
 
@@ -441,13 +554,10 @@ export const toggleNotePin = transaction({
 
 export const removeNote = transaction({
   id: "notes/remove",
-  input: { key: Note.Key, folder: Folder.Key },
+  input: { key: Note.Key },
   key: (input) => input.key,
   commit: …,
-  optimistic: (input) => [
-    Note.remove(input.key),
-    Folder.patch(input.folder, (f) => ({ noteCount: f.noteCount - 1 })),
-  ],
+  optimistic: (input) => [Note.remove(input.key)],
   concurrency: "serialize",
 });
 
@@ -483,8 +593,8 @@ export const heartbeat = transaction({
 
 ### 5.1 Optimistic operations
 
-`optimistic` is a function of the input and a read-only store accessor. It returns a **fixed
-list** of operations:
+`optimistic` is a function of the input. It returns a **fixed list** of operations on **one entity
+type, at keys taken from the input**: the records the command acts on.
 
 | Operation                           | Meaning                                                            |
 | ----------------------------------- | ------------------------------------------------------------------ |
@@ -494,20 +604,23 @@ list** of operations:
 | `E.insert(record)`                  | add a record with a client-generated key                           |
 
 - **`keys`** is one key or an array of keys; an empty array is allowed.
+- **Only the command's own records.** Operations on a second entity type, or at keys read from the
+  store, are a `flow check` error (section 1.3). Several records of the same type are fine: a
+  transfer patches both accounts, a bulk archive patches every selected user. Records the command
+  changes as a consequence (counts, other entities) are repaired through `depends` and `affects`
+  when it settles. A screen that needs an instant count derives it in a selector from records it
+  already holds.
 - **Why a function.** The type spike showed that `[E.patch((input) => …, …)]` cannot be typed:
   TypeScript does not carry the transaction's inferred input into the nested call.
-  `(input, store) => [...]` types fully, and rejects key fields, unknown fields and another
-  entity's key.
+  `(input) => [...]` types fully, and rejects key fields, unknown fields and another entity's key.
 - **Structure stays visible, through one declared exception to O1.** At construction the Runtime
   calls `optimistic` once with a recording probe and records the sequence of entity and operation
   kinds. An admission that returns a different sequence is a defect, so the list stays as static as
   decision 6's. `flow graph` reads the recorded sequence; the keys and fields each admission writes
   are in the trace. O1 says construction runs no user callbacks; this is the one place it does
   (section 13.1).
-- **`Note.get(store, key)`** reads the visible record at admission, so a patch can address records
-  the input does not name (a thread's labels). It starts nothing. A patch that targets a record
-  the store does not hold is skipped, and its key is still repaired if the transaction names it in
-  `affects`.
+- **A patch reads only its own record** (the `record` argument). A patch whose record the store
+  does not hold is skipped, and its key is still repaired when the command settles.
 - **Pure.** `flow check` flags `Date.now`, `new Date`, `Math.random`, `crypto` and
   `URL.createObjectURL` in optimistic functions and commit input functions. **Ids and timestamps
   come from the event payload**: the UI mints them when it builds the event, and Stories pass them
@@ -557,13 +670,11 @@ affects: (input) => [Folder.keys(input.folder), AuditEntry.all],
 | failure or defect                                    | operations removed (decision 6)                                   | affected keys, all fields |
 | rejected, or cancelled before sending                | operations removed                                                | none                      |
 | cancelled after sending, abandoned, restored mid-flight | `unknown`: operations stay; records read `pending`             | affected keys, forced     |
-| `unknown` resolved                                   | by `EntityChange.Confirm(attempt.id)` or `O.renameNote.settle(…)` | all fields                |
+| `unknown` resolved                                   | by `EntityChange.Confirm(attempt.id)` or `O.Notes.rename.settle(…)` | all fields                |
 
-- **Only the server's fields become base.** `moveNote` guesses `noteCount ± 1` for two folders the
-  response does not return. The guesses stay visible as held overlays (no flicker back) and force
-  repair of both folders, so the real counts replace them.
-- **The same rule covers bulk commands.** A bulk resolve whose response omits a key that failed
-  holds that key's patch and forces its repair, so the refetch shows the truth.
+- **Only the server's fields become base.** A bulk resolve whose response omits a key that failed,
+  or a command whose response omits a field it patched, holds that patch (no flicker back) and
+  forces repair of the record, so the refetch shows the truth.
 - **Every failure repairs.** The server may have rejected the command because the client's data was
   stale (`VersionConflict`, `OutOfStock`), so the affected records refetch. A validation failure
   costs one extra refetch.
@@ -585,7 +696,7 @@ every screen.
 
 ---
 
-## 6. The store (shared by both proposals)
+## 6. The store
 
 ### 6.1 Records
 
@@ -727,7 +838,7 @@ decision 10).
 ```ts
 export const Editor = definition({
   id: "notes/Editor",
-  operations: { noteById, notesInFolder, renameNote, moveNote, heartbeat },
+  operations: { Notes, heartbeat },
   memory: {
     noteKey: Note.Key,
     draft: Schema.String,
@@ -739,8 +850,8 @@ export const Editor = definition({
 });
 ```
 
-Machines use `O.noteById.subscribe`, `O.notesInFolder.subscribe`, `.refetch` and `.fetchMore`,
-`O.noteChanges.subscribe`, and `O.renameNote.commit`, `.cancel` and `.settle`, unchanged from
+Machines use `O.Notes.byId.subscribe`, `O.Notes.inFolder.subscribe`, `.refetch` and `.fetchMore`,
+`O.Notes.changes.subscribe`, and `O.Notes.rename.commit`, `.cancel` and `.settle`, unchanged from
 decisions 1–8a.
 
 One action is added, beside `send` and `deny`: **`invalidate(Note.all)`** raises `Note`'s stale
@@ -772,9 +883,9 @@ Decision 8 stands: components read lanes through `useView`. One passive reader r
 Note.get(source, key, NoteRow) // { data, pending } | undefined: 8a's entry type; starts nothing
 ```
 
-- **`source`** is a snapshot (in views, guards and Story assertions) or the store accessor passed
-  to `optimistic`. It is the only way to read a record by key; `O.noteById.get` is a type error that
-  points to it. `O.x.get(s, input)` stays for answers (8a).
+- **`source`** is a snapshot, in views, guards and Story assertions. It is the only way to read a
+  record by key; `O.Notes.byId.get` is a type error that points to it. `O.x.get(s, input)` stays for
+  answers (8a).
 - **`pending`** is true while an optimistic or held overlay on the record awaits settlement, or an
   `unknown` overlay waits for its repair. It is 8a's name, kept. Per-row saving in a list reads
   `Note.get(s, row, NoteRow)?.pending`.
@@ -912,15 +1023,20 @@ Entities are derived nodes. Edges:
 | memory holds an entity shape                                            | error   |
 | impurity in optimistic or commit input functions                        | error   |
 | two loaders for one entity                                              | error   |
-| a resource that is not a loader without `depends`                       | error   |
+| in an app with entities, a resource that is not a loader without `depends` | error |
+| a call-site `setData`, `invalidate` or `clear` on a resource holding an entity | error |
+| optimistic operations on a second entity type                           | error   |
 | an entity held outside a nested pick without an `on` entry              | error   |
 | two `on` entries for one entity type                                    | error   |
-| a transaction with no `result`, `optimistic` or `affects`               | error   |
+| in an app with entities, a transaction with no `result`, `optimistic` or `affects` | error |
 | a stream carrying entity picks without `feeds`                          | error   |
 | `place` on a result without exactly one bare array of that entity       | error   |
 | `notFound` tags absent from the lookup's failure Schema                 | error   |
 | an entity cycle through nested picks; duplicate entity ids              | error   |
 | a transaction `key` indexing into an input array                        | warning |
+| a handler refetching an answer that `depends` already repairs           | warning |
+| two resources returning the same key fields with no entity declared     | warning |
+| an operation involving only one entity grouped outside that entity's group | warning |
 | a loader subscription without a handler for `Deleted` or `notFound`     | warning |
 | `get` on an entity no activity of the machine holds                     | warning |
 | an entity-aware operation no audited Story runs (`RepairUnaudited`)     | warning |
@@ -952,24 +1068,24 @@ A notes app: a folder list, an editor and a pinned-count badge, all over `Note`.
 // The folder list
 OPEN: {
   activities: {
-    notes: O.notesInFolder.subscribe(({ memory }) => ({ folderId: memory.folderId })),
+    notes: O.Notes.inFolder.subscribe(({ memory }) => ({ folderId: memory.folderId })),
   },
   on: {
     PinClicked: {
       target: "self",
-      actions: [O.toggleNotePin.commit(({ event }) => ({ key: event.key }),
+      actions: [O.Notes.togglePin.commit(({ event }) => ({ key: event.key }),
         { outcomes: { failure: { PinRejected: E.PinFailed } } })],
     },
   },
 }
 
 // The badge
-activities: { pinned: O.pinnedNoteCount.subscribe(() => ({})) }
+activities: { pinned: O.Notes.pinnedCount.subscribe(() => ({})) }
 
 // The editor. NoteLoaded is an internal event; PinFailed, Saved and SaveUncertain carry no payload.
 OPEN: {
   activities: {
-    note: O.noteById.subscribe(({ memory }) => memory.noteKey, {
+    note: O.Notes.byId.subscribe(({ memory }) => memory.noteKey, {
       outcomes: { value: E.NoteLoaded.from((n) => ({ title: n.title })) },
     }),
   },
@@ -991,7 +1107,7 @@ OPEN: {
       target: S.OPEN.SAVING,
       updateMemory: ({ memory }) => ({ submitted: memory.draft }),
       actions: [
-        O.renameNote.commit(({ memory }) => ({ key: memory.noteKey, title: memory.draft }), {
+        O.Notes.rename.commit(({ memory }) => ({ key: memory.noteKey, title: memory.draft }), {
           outcomes: { success: E.Saved, unknown: E.SaveUncertain },
         }),
       ],
@@ -1009,7 +1125,7 @@ OPEN: {
 | Rename admitted                          | the new title in the editor's lane and the folder's row, same publication  |
 | Rename succeeds                          | the result is written; the list does not refetch (`title`, `revision` ignored); the count refetches only if the note is pinned |
 | Pin toggled                              | the row flips at once; on success the list and the count refetch           |
-| Note moved to another folder             | it leaves the old folder at once and enters the new one at its refetch; both counts show the guess, then the server's numbers after the forced repair |
+| Note moved to another folder             | it leaves the old folder at once and enters the new one at its refetch; both folders' counts refetch when the move settles |
 | A second editor, dirty                   | `value` fires with the new base; memory sets `changedElsewhere`; the draft is kept |
 | The editor's own save, typing continued  | `value` carries the submitted title, which is not a conflict; `dirty` stays true |
 | Two editors rename at once               | the higher `revision` wins in every copy, whatever order the responses arrive in |
@@ -1062,7 +1178,7 @@ export const moveCard = transaction({
 | Social feed       | `Post`, `User`                         | `homeFeed` with `refresh: "manual"` and a "new posts" refetch; likes stay coherent everywhere |
 | Storefront        | `Product`, `Cart` (singleton), `Order` | `addCartLine` returns the whole cart; `shippingQuote` depends on `Cart`; an `OutOfStock` failure repairs the cart |
 | Banking           | `Account`, `Txn`, `Payee`              | `transfer` patches both balances (held until the refetch) and `affects: () => [Txn.all]` |
-| E-mail            | `Thread`, `Label`, `Contact`           | `archiveThread` patches labels via `Thread.get(store, key)`; `unreadCounts` depends on `Thread` |
+| E-mail            | `Thread`, `Label`, `Contact`           | `archiveThread` patches the thread's `labelIds`; label counts and `unreadCounts` depend on `Thread` |
 | Calendar          | `Event`, `Occurrence`                  | range answers with an overlap `when` that ignores `start` and `end`; series edits `affects: () => [Occurrence.all]` |
 | Spreadsheet       | `Sheet`, `Cell`                        | a cell edit is `Cell.upsert`, so an empty cell is optimistic too        |
 | Settings, profile | `Settings` (singleton), `User`         | `O.settings.subscribe(() => ({}))` on the singleton's loader; one transaction per section |
@@ -1080,7 +1196,8 @@ export const moveCard = transaction({
   Schemas (`input` and `result`), so `schema` would be ambiguous. Whether resources rename `data`
   to `result` is decided separately (section 13.2).
 - **`entity`:** an identity and nothing else. Operations keep their own names (`noteById`,
-  `renameNote`), chosen by the author, as today.
+  `renameNote`), chosen by the author, as today; a group (`Notes`) gives them their entity-first
+  names for machines (`O.Notes.byId`).
 - **`loads`, `feeds`:** the two explicit markers of a resource's and a stream's entity role.
 - **`depends` with `on`; `affects` with `keys` and `all`:** the answer's side and the command's
   side of repair. `"none"` is the explicit statement that an operation involves no entity.
@@ -1098,7 +1215,8 @@ export const moveCard = transaction({
 | Agreed                                                | Draft 5                                                           |
 | ----------------------------------------------------- | ----------------------------------------------------------------- |
 | decision 6: `optimistic`, `writes` at the commit call | entity-aware transactions: `optimistic` on the transaction; `result`, `affects` and `depends` replace `writes`; others unchanged |
-| decision 6: optimistic writes as a static list        | `(input, store) => [...]`, a fixed list recorded at construction (the types require it) |
+| decision 6: optimistic writes as a static list        | `(input) => [...]` on one entity type, a fixed list recorded at construction (the types require it) |
+| decision 6: call-site `writes`                        | kept for data that is not an entity; an error on resources holding one |
 | O1: construction runs no user callbacks               | one exception: the optimistic probe at construction               |
 | decision 6: `unknown` keeps the optimistic value      | until the forced repair lands; the attempt stays unresolved for the machine |
 | decision 8, D22: snapshots carry no store revision    | a snapshot carries the revision it was published with, for `Note.get` |
@@ -1107,6 +1225,7 @@ export const moveCard = transaction({
 | D30 outcomes container                                | adds `deleted` for loader subscriptions                           |
 | D46 Schemas only at boundaries                        | `input` required on every transaction                             |
 | Transactions D1 actor-local concurrency               | kept; versions and contested fields cover cross-actor races       |
+| definitions list operations                           | a value in `operations` may also be a group of operations (2.4)   |
 
 **Probably affected, unverified:** decision 6's own form, `optimistic: [O.ticketById.setData(({
 input }) => …)]`, nests a lambda the same way the spike showed cannot be typed.
@@ -1119,7 +1238,7 @@ input }) => …)]`, nests a lambda the same way the spike showed cannot be typed
 | `depends` (required), `on`               | repair                                                 |
 | `shape` on loader subscriptions          | store-first reads                                      |
 | `feeds` on streams                       | feeds, including multiplexed ones                      |
-| `pages`, `cursor`, `fetchMore`           | infinite lists without copies in memory; decided separately for both proposals |
+| `pages`, `cursor`, `fetchMore`           | infinite lists without copies in memory; decided separately |
 | `data` renamed `result`                  | optional; decided separately                           |
 
 ### 13.3 New exports, checks and diagnostics
@@ -1131,7 +1250,22 @@ input }) => …)]`, nests a lambda the same way the spike showed cannot be typed
 | `flow check`      | the rules in section 10.5                                                      |
 | CLI               | `flow trace entity`, `flow trace refetch`                                      |
 
-Whether the entity exports live at `flow-state` or a separate `flow-state/entities` path is open.
+The entity exports live at `flow-state/entities` (section 1.2).
+
+### 13.4 What the core must decide now
+
+Entities can be added after version 1 of the core only if the core does not close these doors.
+Each is a decision for `minimal-library.md`, independent of entities:
+
+| Core decision                          | Why entities need it                                             |
+| -------------------------------------- | ---------------------------------------------------------------- |
+| decision 6's `optimistic` as `(input) => [...]` | the spike found the nested-lambda array cannot be typed; both forms should share one shape |
+| `pages`, `cursor`, `fetchMore`         | infinite lists without copies in memory, needed with or without entities |
+| `data` or `result` for a resource's Schema | one name across both, chosen once                            |
+| snapshots may carry a store revision   | `Note.get` and checkpoints read records at the snapshot's moment |
+| lane statuses and `pending`            | loader lanes and `Note.get` entries reuse 8a's entry type        |
+| outcome members can be added per family | `deleted` on loader subscriptions                               |
+| operation groups in definitions        | the entity-first layout (`O.Notes.byId`); useful without entities too |
 
 ---
 
@@ -1146,25 +1280,30 @@ Whether the entity exports live at `flow-state` or a separate `flow-state/entiti
 | placement without the entering refetch        | placement plus a coalesced refetch                   | chat refetches the newest page per burst     |
 | feed throttling options                       | feeds apply each batch in one turn                   | high-rate feeds publish often                |
 | `forbidden` tags that evict like `notFound`    | one Runtime per principal                            | a revoked record stays until a refetch       |
-| derived counts from declared relations        | optimistic count patches, corrected by forced repair | one patch per count                          |
+| derived counts from declared relations        | counts refetch when the change settles               | a count lags one round trip                  |
 | persisting overlays; offline queues           | a reload shows confirmed data and repairs unknowns   | no offline-first apps                        |
 | sync engines with their own client store      | feeds and `Confirm` keep the door open (section 15.1) | no engine adapters                          |
 
 ## 15. Rules for agents
 
-1. Give every server record with a stable key an `entity`, including the current user. Build every
-   result from it or its picks.
-2. Every read is a `resource`, every write a `transaction`, every feed a `stream`. Each states its
-   relation to entities: a loader `loads`, an answer `depends`, a command `result`/`optimistic`/
-   `affects`, a feed `feeds`; or `"none"`.
+1. Start without entities. Declare one when the same server record shows in more than one place or
+   changes under a command shown elsewhere, including the current user. Build every result that
+   carries it from the entity or its picks.
+2. Every read is a `resource`, every write a `transaction`, every feed a `stream`. Once the app has
+   an entity, each states its relation to entities: a loader `loads`, an answer `depends`, a
+   command `result`/`optimistic`/`affects`, a feed `feeds`; or `"none"`.
 3. An `on` entry says which records can be in the answer (`when`). List in `ignoreChanges` only
    fields that are purely displayed or only decide membership; when unsure, leave a field out.
-4. A command says what it changes. Ids and times arrive in the event payload, never inside
-   `optimistic`.
-5. Machines hold keys and drafts, never copies. Selectors may sort, group and filter for
-   presentation; they never re-implement a server's membership rule.
+4. A command says what it changes. Its optimistic operations touch only the records it acts on;
+   everything else repairs when it settles. Ids and times arrive in the event payload.
+5. Machines decide; the store keeps copies true. Machines hold keys and drafts, never copies, and
+   never refetch what `depends` repairs. Selectors may sort, group and filter for presentation;
+   they never re-implement a server's membership rule.
 6. Every entity-aware operation runs in a Story with a stateful fixture, so the repair audit checks
    it.
+7. Lay the app out by entity: `note.entity.ts` for the identity, `notes.ts` for its operations
+   grouped as `Notes` in the order loader, questions, commands, feed. Machines use `O.Notes.…`.
+   Never wrap the builders in helpers of your own.
 
 ### 15.1 Sync engines: how the door stays open
 
@@ -1192,30 +1331,61 @@ Whether the entity exports live at `flow-state` or a separate `flow-state/entiti
   never fire against a consistent server.
 - **Hiding by `when` in production.** The self-check runs everywhere and never hides a record its
   own entry returned violating `when`. Is that enough?
-- **`depends: "none"` noise.** Every entity-free resource in an app with entities writes it. It
-  turns the most common silent failure into an error; is the token worth it?
+- **`depends: "none"` noise.** Once an app has one entity, every entity-free resource writes it. It
+  turns the most common silent failure into an error; is the token worth it, or should the
+  requirement apply only to resources subscribed by machines that commit entity transactions?
+- **Instant derived counts.** Counts now lag one round trip after a move. Is a selector over held
+  records enough, or does version 2 need declared relations (section 14)?
 
-## 17. Compared with the entity-centric proposal
+## 17. The entity-centric proposal
 
-Both proposals share section 6 and the rules of sections 3–5; they differ in where declarations
-live and what an agent must remember. Counted the same way, this draft adds about 40 author-facing
-names and the entity-centric draft about 47.
+`entity-centric-proposal.md` (draft 8) put every operation involving an entity on that entity's
+members (`Note.members({ load, read, write })`), with a base layer for everything else. It was
+written to the same scope as this proposal, and both were reviewed with the same lenses.
 
-| Question                                | Operation-first (this draft)                  | Entity-centric                                     |
-| --------------------------------------- | --------------------------------------------- | -------------------------------------------------- |
-| Vocabulary                              | `resource`, `transaction`, `stream`, with `loads`, `depends`, `affects`, `feeds` | adds `members`, `query`, `command`, `feed`, `load`, `watch` |
-| Declarations per entity                 | one (`Note`)                                  | two (`Note`, `Notes`), to avoid import cycles      |
-| Where a list of notes is declared       | anywhere, as a resource                       | on `Notes.read`                                    |
-| Choosing where an operation goes        | nowhere to choose                             | the layer rule and the home rule (with tie-breaks for multi-entity and bulk commands) |
-| Answer spanning several entity types    | one `on` entry per type, no home              | lives on one entity's members, `depends` for the rest |
-| A count that forgets its dependency     | `flow check` error: `depends` is required     | impossible if written as a query on `Note`; silent if written as a base resource |
-| A transaction that changes nothing      | must say `affects: "none"`                    | a base transaction, unchecked                      |
-| Loading one record                      | `loads: Note`, subscribed with `subscribe`    | `load` and `watch`                                 |
-| Finding everything that touches `Note`  | `flow graph`                                  | `notes.ts` for its own members; `flow graph` for other entities' operations that patch or depend on notes |
-| Definitions                             | list operations, as today                     | list entity members and plain operations           |
-| A multiplexed feed                      | one stream with `feeds: [Note, Folder]`       | homed on one entity's members                      |
+**Why this proposal was chosen.** Judged on correctness, ease of writing for agents, verification
+with the CLI, Stories, and runtime orchestration:
+
+- the runtime, Stories and CLI are the same in both, by construction;
+- this proposal closes more silent mistakes, because every operation must state its relation to
+  entities, while the entity-centric design depended on the agent choosing the right layer first
+  (a count written as a base resource was silent there);
+- the entity-centric design's advantages were its layout and its namespace, and section 2.4
+  delivers both as a convention over one vocabulary;
+- adopting an entity here adds fields; there it renamed operations in every machine.
+
+**What was given up:** `when` written inline beside `key`, typed directly, instead of through
+`depends: (on) => [on(Note, { when })]`.
+
+**Still to verify.** The judgement above comes from reading. An experiment should confirm it:
+several agents write the same features (comments with a live feed, a bulk archive with a count
+badge, the current user's avatar, a board drag) in this design, and their mistakes are counted by
+what catches them: types, `flow check`, the repair audit, or nothing.
 
 ## 18. Review record
+
+**Draft 7** (after discussion with the user, no new reviews):
+
+| Change                                                              | Section       |
+| ------------------------------------------------------------------- | ------------- |
+| the entity-centric design folded in as code organisation            | 2.4, 15       |
+| operation groups in definitions, the one core addition              | 2.4, 13       |
+| examples use `O.Notes.…`                                            | 3, 7, 11      |
+| the entity-centric proposal superseded, with the reasons            | 17            |
+
+**Draft 6** (after discussion with the user, no new reviews):
+
+| Change                                                              | Section       |
+| ------------------------------------------------------------------- | ------------- |
+| entities are an optional extension, adopted one entity at a time    | 1.2           |
+| call-site cache effects are an error on resources holding an entity | 1.2, 10.5     |
+| machines coordinate; the store only keeps copies true               | 1.3           |
+| optimistic operations touch one entity type at keys from the input  | 5.1           |
+| the store accessor in `optimistic` is removed                       | 5.1, 7.3      |
+| cross-entity count guesses removed; counts repair on settle         | 5, 11         |
+| what the core must decide now so entities can be added later        | 13.4          |
+
+**Draft 5** applied the reviews below.
 
 Seven Sonnet reviews of draft 4: correctness, simplicity, agent experience compared head to head,
 generality, consistency and tooling, a TypeScript spike, and a head-to-head judgement. Each finding

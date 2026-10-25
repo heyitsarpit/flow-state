@@ -363,8 +363,8 @@ decisions
         is an exhaustive record from tag to event constructor; an untagged error type keeps the
         single-event form. The type decides which applies.
     D60  Keep the definition and machine shape
-        User direction, rounds 14 to 15. Four redesign angles and a synthesised vision
-        (explorations/machine-vision.ts) were reviewed and not adopted as a whole. The definition
+        User direction, rounds 14 to 15. Four redesign angles and a synthesised vision were
+        reviewed and not adopted as a whole. The definition
         stays the cohesive vocabulary and the machine keeps its typed callback; changes land as
         small, case-by-case decisions (@D50 onwards). State-owned data is not adopted.
     D61  Operation states are matched with Effect's Match.valueTags

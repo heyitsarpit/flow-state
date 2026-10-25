@@ -1,11 +1,18 @@
-# Entity-centric proposal (draft 7)
+# Entity-centric proposal (draft 8) — superseded
+
+> **Superseded.** The chosen direction is `entity-proposal.md` (draft 7, operation-first). Its
+> section 2.4 keeps this design's layout and namespace as code organisation over one vocabulary,
+> and its section 17 records why. This file is kept for reference and is not maintained.
+
 
 Status: a proposal, not decided. It is the entity-centric alternative to `entity-proposal.md` (the
-operation-first proposal, draft 5), written to the same scope with the same features, use cases
+operation-first proposal, draft 6), written to the same scope with the same features, use cases
 and worked examples in the same section order. This file's earlier drafts: draft 4 grew a query
 grammar for filtered admin lists; draft 5 replaced it with general facts per query; draft 6 revised
-draft 5 after six reviews (section 17). Draft 7 applies the shared-runtime fixes from seven reviews
-of the operation-first draft, which `entity-proposal.md` section 18 records.
+draft 5 after six reviews (section 17). Draft 7 applied the shared-runtime fixes from seven reviews
+of the operation-first draft, which `entity-proposal.md` section 18 records. Draft 8 makes the
+entity layer optional (section 1.2) and applies the line between machines and the store (section
+1.3), which removes cross-entity optimistic writes.
 
 It builds on `minimal-library.md` decisions 1–8a, which are agreed. **The runtime (the store,
 ordering, repair, holding, deletes, persistence) is `entity-proposal.md` section 6, normative for
@@ -62,7 +69,35 @@ Local observation and remote confirmation stay distinct. There is no local query
 | Drafts, transitions, timing, what a failure means | machines                                        |
 | Work that involves no entity                      | base operations driven by machines              |
 
-### 1.2 Not a version 1 target
+### 1.2 Optional, one entity at a time
+
+The entity layer is an extension of the core library, imported from `flow-state/entities`, as in
+the operation-first proposal's section 1.2:
+
+- **An app with no entity is `minimal-library.md` exactly:** the base layer, with decision 6's
+  call-site `optimistic` and `writes`. No entity store exists.
+- **Adoption is per entity.** Declaring `Note` moves the operations that involve notes into
+  `Note.members`; `Settings` can stay in the base layer.
+- **Adopting renames.** `ticketList` becomes `Tickets.list` and every machine's
+  `O.ticketList.subscribe` becomes `O.Tickets.list.subscribe`, and the definitions change from
+  `operations` to `entities`. The layer rule then forbids the old base forms, so adoption is a
+  refactor of every feature that touches the record. This is the main cost of optionality in this
+  design.
+- **One form per piece of data.** A call-site `setData`, `invalidate` or `clear` on a base resource
+  that holds an entity is already an error (the layer rule).
+- **When to adopt.** `flow check` hints when two base resources return records with the same key
+  fields.
+
+### 1.3 Machines coordinate; the store keeps copies true
+
+As the operation-first proposal's section 1.3: machines decide what happens next; the store only
+answers "is my copy still what the server would say?". The store never starts a command, sends an
+event other than its lane outcomes, chooses a state, or reads one entity to change another.
+Machines never maintain copies or refetch what a query's `when` and `depends` already repair. An
+optimistic operation therefore changes only the records its command acts on (section 5.1); a
+folder's note count is a query that depends on `Note` and refetches when a move settles.
+
+### 1.4 Not a version 1 target
 
 Offline-first operation. It needs a persisted operation queue, record-level persistence and
 server-key creates with re-keying (section 14). Version 1 keeps the door open but does not claim
@@ -346,11 +381,8 @@ write: {
     key: (input) => input.key,
     commit: …,
     result: Note,
-    optimistic: (input) => [
-      Note.patch(input.key, () => ({ folderId: input.to.folderId })),
-      Folder.patch(input.from, (folder) => ({ noteCount: folder.noteCount - 1 })),
-      Folder.patch(input.to, (folder) => ({ noteCount: folder.noteCount + 1 })),
-    ],
+    optimistic: (input) => [Note.patch(input.key, () => ({ folderId: input.to.folderId }))],
+    // folder counts are not guessed: they depend on Note and refetch when the move settles
     concurrency: "serialize",
   }),
 
@@ -364,13 +396,10 @@ write: {
   }),
 
   remove: Note.command({
-    input: { key: Note.Key, folder: Folder.Key },
+    input: { key: Note.Key },
     key: (input) => input.key,
     commit: …,
-    optimistic: (input) => [
-      Note.remove(input.key),
-      Folder.patch(input.folder, (f) => ({ noteCount: f.noteCount - 1 })),
-    ],
+    optimistic: (input) => [Note.remove(input.key)],
     concurrency: "serialize",
   }),
 
@@ -390,18 +419,20 @@ write: {
 - **`result`** is any Schema; every entity record in the response is written to the store.
 - **A command must change something.** One with no `result`, no `optimistic` and no `affects`
   involves no entity, so it is a base `transaction` (`flow check` error).
-- **Multi-entity commands** live on the members of the entity whose key the command's `key`
-  returns (`move` keys on the note, so it is `Notes.move`). A scope-keyed bulk command lives on the
-  entity it patches. The rule is checked.
+- **A command lives on the entity it acts on**, the one whose records its optimistic operations
+  touch, or whose key its `key` returns (`move` keys on the note, so it is `Notes.move`). A
+  scope-keyed bulk command lives on the entity it patches. The rule is checked. Other entities it
+  changes as a consequence appear only in `result` or `affects`.
 
 ### 5.1 Optimistic operations and what a command affects
 
 The rules are the operation-first proposal's sections 5.1–5.3, unchanged:
 
-- `optimistic: (input, store) => [...]` returns a fixed list of `E.patch(keys, fn)`,
-  `E.upsert(record)`, `E.remove(keys)` and `E.insert(record)`; `keys` is one key or an array. The
-  list's kinds are recorded at construction by a probe (the one O1 exception); a different list at
-  runtime is a defect. `Note.get(store, key)` reads the visible record.
+- `optimistic: (input) => [...]` returns a fixed list of `Note.patch(keys, fn)`,
+  `Note.upsert(record)`, `Note.remove(keys)` and `Note.insert(record)` on **the home entity only**,
+  at keys taken from the input; `keys` is one key or an array. A patch reads only its own record.
+  The list's kinds are recorded at construction by a probe (the one O1 exception); a different
+  list at runtime is a defect.
 - Operations apply when the commit starts (decision 6): at once, when a `serialize`d commit leaves
   its queue, or at admission for a `delay`ed commit.
 - Ids and timestamps arrive in the event payload, minted by the UI; Stories pass them explicitly.
@@ -494,7 +525,7 @@ Base transactions keep decision 6 unchanged, including `writes` on base resource
 Note.get(source, key, NoteRow) // { data, pending } | undefined: 8a's entry type; starts nothing
 ```
 
-`source` is a snapshot or the store accessor passed to `optimistic`. `pending` is true while an
+`source` is a snapshot. `pending` is true while an
 optimistic or held overlay awaits settlement, or an `unknown` overlay waits for its repair. A
 snapshot carries the store revision it was published with (section 13.1). `flow check` warns when a
 machine's guards or the components that render its snapshot `get` an entity that none of its
@@ -611,7 +642,10 @@ the result Schema; affects); feed → entity; derived actor-level edges.
 | memory holds an entity shape                                            | error   |
 | impurity in optimistic or commit input functions                        | error   |
 | an entity command with no `result`, `optimistic` or `affects`           | error   |
-| a multi-entity command not on the members of its `key`'s entity         | error   |
+| a command not on the members of the entity it acts on                   | error   |
+| optimistic operations on an entity other than the command's home        | error   |
+| a handler refetching an answer that a query's `when` or `depends` repairs | warning |
+| two base resources returning the same key fields                        | warning |
 | an `on` entry for the query's home entity                               | error   |
 | another entity type held outside a nested pick without an `on` entry    | error   |
 | `place` on a result without exactly one bare array of the home entity   | error   |
@@ -691,8 +725,8 @@ OPEN: {
 
 The events table is the operation-first proposal's section 11.1, with the same results: renames
 patch every copy and refetch only the count when the note is pinned; pins refetch the list and the
-count; moves leave at once and enter at the refetch, with held folder counts corrected by forced
-repair; a second dirty editor sets `changedElsewhere`; its own save is not a conflict; the higher
+count; moves leave at once and enter at the refetch, and both folders' counts refetch when the move
+settles; a second dirty editor sets `changedElsewhere`; its own save is not a conflict; the higher
 `revision` wins concurrent renames; an `unknown` save shows the guess until its forced repair; a
 deleted note drops from every list and the editor sees `Deleted`.
 
@@ -731,7 +765,7 @@ deleting a column is `Columns.remove` with `affects: () => [Card.all]`.
 | Social feed       | `Post`, `User`                         | `Posts.home` with `refresh: "manual"` and a "new posts" refetch        |
 | Storefront        | `Product`, `Cart` (singleton), `Order` | `Carts.addLine` returns the cart; `Carts.shippingQuote` is a query on `Cart`; `OutOfStock` repairs the cart |
 | Banking           | `Account`, `Txn`, `Payee`              | `Accounts.transfer` patches both balances and `affects: () => [Txn.all]` |
-| E-mail            | `Thread`, `Label`, `Contact`           | `Threads.archive` patches labels via `Thread.get(store, key)`; `Threads.unreadCounts` |
+| E-mail            | `Thread`, `Label`, `Contact`           | `Threads.archive` patches the thread's `labelIds`; `Threads.unreadCounts` repairs on settle |
 | Calendar          | `Event`, `Occurrence`                  | range queries that ignore `start` and `end`; series edits `affects: () => [Occurrence.all]` |
 | Spreadsheet       | `Sheet`, `Cell`                        | a cell edit is `Cell.upsert`                                           |
 | Settings, profile | `Settings` (singleton), `User`         | `O.Settings.watch(() => ({}))`; one command per section                |
@@ -766,6 +800,7 @@ The operation-first proposal's section 13 applies, with these differences:
 | D46 Schemas only at boundaries             | `input` required on entity commands only                   |
 | definitions list operations                | definitions also list entity members (`entities`)          |
 | the public surface                         | adds `members`, `query`, `command`, `feed`, `load`, `watch`, `carries` |
+| adopting an entity in an existing app      | renames its operations and every machine call site (section 1.2) |
 | `flow check` rule set                      | adds the layer, home and members-import rules (10.5)       |
 
 ---
@@ -777,17 +812,19 @@ As the operation-first proposal's section 14, plus: `watch` over arrays of keys 
 
 ## 15. Rules for agents
 
-1. Give every server record with a stable key an `entity`, including the current user. Build every
-   result from it or its picks.
+1. Start without entities. Declare one when the same server record shows in more than one place or
+   changes under a command shown elsewhere, including the current user. Build every result that
+   carries it from the entity or its picks.
 2. If an operation involves an entity, it lives on that entity's members; a command lives on the
    members of the entity its `key` names. A question about notes, including a count, is a query on
    `Note`. Everything else is a plain `resource`, `transaction` or `stream`.
 3. A query says which records can be in it (`when`). List in `ignoreChanges` only fields that are
    purely displayed or only decide membership; when unsure, leave a field out.
-4. A command says what it changes: `result`, `optimistic` and `affects`. Ids and times arrive in the
-   event payload, never inside `optimistic`.
-5. Machines hold keys and drafts, never copies. Selectors may sort, group and filter for
-   presentation; they never re-implement a server's membership rule.
+4. A command says what it changes: `result`, `optimistic` and `affects`. Its optimistic operations
+   touch only the records it acts on. Ids and times arrive in the event payload.
+5. Machines decide; the store keeps copies true. Machines hold keys and drafts, never copies, and
+   never refetch what a query repairs. Selectors may sort, group and filter for presentation; they
+   never re-implement a server's membership rule.
 6. Every query and command runs in a Story with a stateful fixture, so the repair audit checks it.
 
 ## 16. Open questions
@@ -809,7 +846,12 @@ error; strict versions; every failure repairs; `optimistic` as a function and `e
 rejected collapsing into the operation-first design, cutting `insert` and `place`, deferring
 `ignoreChanges`, and data forms for `when`.
 
-**Draft 7** applies the shared-runtime fixes from seven reviews of the operation-first draft 4
+**Draft 8** (after discussion with the user, no new reviews): the entity layer is optional and
+adopted per entity, with its renaming cost stated (1.2); machines coordinate and the store only
+keeps copies true (1.3); optimistic operations touch only the home entity, without a store
+accessor (5.1); cross-entity count guesses are removed (5, 11).
+
+**Draft 7** applied the shared-runtime fixes from seven reviews of the operation-first draft 4
 (listed in `entity-proposal.md` section 18, marked ✱) and these points specific to this proposal:
 
 | Finding                                                              | Change                                      |
