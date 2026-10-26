@@ -1,6 +1,6 @@
 # Entity proposal (draft 7): operation-first, organised by entity
 
-Status: a proposal, not decided. It answers the questions in `entities.md` (the problem statement).
+Status: a proposal, not decided. It is measured against `entities.md` (goals and correctness).
 It is the chosen direction of two designs written to the same scope; `entity-centric-proposal.md`
 is kept for reference and superseded (section 17). Draft 5 revised draft 4 after seven reviews.
 Draft 6 made entities an **optional extension** (section 1.2) and drew one line between machines
@@ -10,6 +10,10 @@ records each change. Draft 3 is in git history (commit `df45fec2`).
 
 It builds on `minimal-library.md` decisions 1–8a, which are agreed. Section 13 lists every change
 to agreed decisions. Section 6 is the normative runtime.
+
+**Extension under discussion:** `entity-coordinator.md` moves this draft's coordination policy
+(`loads`, `depends`, `optimistic`, `affects`, `feeds`) from the operations to one owner per data
+domain, and adds one-hop repair, per-record write ordering and a generated convergence test.
 
 **In one line.** The library keeps one vocabulary, `resource`, `transaction` and `stream`; an
 entity is a Schema with an identity, and an operation becomes entity-aware through its

@@ -1,304 +1,175 @@
-# Entities: an entity-aware request cache (model 2)
+# Entities: goals, boundaries and correctness
 
-Status: open exploration, nothing decided. The user is inclined towards this model over a client
-database (model 3, set aside) but wants its questions answered first. Code below is
-illustrative.
+Status: the guide every entity proposal is measured against. It states what the entity work must
+improve, what it must not become, which parts of Flow State it must work with, and what
+"correct" means. It is not a design and names no API.
 
-## Rationale
+Proposals measured against it:
 
-**The goal of a data layer** is coordination: when data changes, through the user's own write, a
-refetch or another user's push, every screen shows the same truth without the author (usually an AI
-agent) remembering every place that data appears.
+- `entity-proposal.md`: operation-first, the chosen direction;
+- `entity-coordinator.md`: an extension that gives coordination policy one owner per domain;
+- `entity-centric-proposal.md`: superseded, kept for reference.
 
-**The failures that hurt app quality:**
+The previous version of this file (the model comparison and open questions A–H) is in git history
+at commit `df45fec2`.
 
-1. **Stale screens after a write.** The author forgot to update or invalidate one cache entry.
-2. **Optimistic updates that disagree.** The author patched the detail view but not the list.
-3. **Wrong empty or loading states.** "No results" shows when data simply has not loaded.
+---
 
-**Three models were compared:**
+## 1. What we are improving
 
-|                                                 | 1. Request cache (decision 6)  | 2. Entity-aware request cache                                                                           | 3. Client database                                                                           |
-| ----------------------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| The client holds                                | answers to questions it asked  | the same; each answer knows which entities it contains                                                  | rows, plus local queries over them                                                           |
-| Keeping an entity's fields consistent           | the author patches every entry | the runtime, across every answer containing it                                                          | automatic: one row                                                                           |
-| Results that should gain or lose an item        | the author invalidates         | refetch of every answer that could be affected (open: section "Two guarantees"); removal can be instant | recomputed locally, correct only if local data and semantics suffice to reproduce the result |
-| Empty vs not loaded                             | the request finished or not    | the same                                                                                                | needs a coverage system                                                                      |
-| Paged, searched or ranked results               | natural                        | natural                                                                                                 | only when the server's semantics can be reproduced locally                                   |
-| Joins, shared derivations, atomic local changes | none                           | none                                                                                                    | yes                                                                                          |
-| Vocabulary added                                | none                           | `entity`                                                                                                | collection, query, source, coverage, local write, row lifetime, tombstones, engine           |
+Flow State today (`minimal-library.md`, decisions 1–8a) caches **answers to questions**: "notes in
+folder 3", "note 42", "the pinned count". Each answer is its own copy. When a command changes a
+record, the author must remember every answer that shows it and patch or invalidate each one at
+the commit site.
 
-**Why model 2 is worth exploring.** It makes a narrower promise: the server decides which entities
-belong in a result; the runtime keeps each entity's fields consistent wherever it appears; machines
-own drafts and workflow. There is no local query whose membership quietly depends on which loaders
-ran, which was version 2's central confusion. It removes the query engine and the coverage system.
+The author is usually an AI agent, and it forgets one. The results are three failures that never
+crash, so no test fails and a human finds them later by accident:
 
-**What it does not remove.** "Adds one word" describes the vocabulary, not the work. Shapes,
-ordering, propagation, deletion, patch reconciliation and refetch selection still need exact
-contracts (questions A–C). Several correctness problems from version 2 remain open here.
+1. **Stale screens after a write.** The rename shows in the editor but not in the sidebar.
+2. **Optimistic updates that disagree.** The detail view flips at once and the list does not.
+3. **Wrong empty or loading states.** "No results" shows when the data has not arrived.
 
-**What it gives up, for REST sources:** a new item appearing in results before a refetch, joins and
-shared derivations across answers, atomic local changes, and offline-first operation. Local-first
-sync engines (Electric, Zero, PowerSync) are not rejected; the section on sync engines lists the
-decisions that must not close that door.
+The entity work exists to remove these failures by replacing "remember every place this data
+appears" with declarations an agent can get right while looking at one place.
 
-## Ownership
+## 2. Goals
 
-| Concern                                           | Owner                      |
-| ------------------------------------------------- | -------------------------- |
-| Which entities belong in a page, search or list   | the server                 |
-| An entity's fields agreeing across cached answers | the runtime                |
-| Drafts, transitions, timing of operations         | machines                   |
-| Fetching and committing                           | resources and transactions |
+| #  | Goal                  | In one line                                                                                                                                                         |
+|----|-----------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| G1 | Coherence             | every copy of a server record shows the same fields in the same publication                                                                                         |
+| G2 | Validity after change | a settled change repairs every answer it could affect, including answers that do not contain the record yet                                                         |
+| G3 | Honest prediction     | anything shown before the server confirms it is marked, has a cause, and ends                                                                                       |
+| G4 | Ordering safety       | a late or older response never overwrites newer truth                                                                                                               |
+| G5 | Honest status         | an answer says whether it is loading, refreshing, failed or deleted                                                                                                 |
+| G6 | Local declarations    | each fact about shared data is declared once, in one place, without global knowledge of the app                                                                     |
+| G7 | Loud mistakes         | a likely mistake is a type error, a `flow check` error, or a diagnostic; when it cannot be, it fails in the safe direction (an extra refetch, never a stale screen) |
+| G8 | Optional              | an app without shared records pays nothing; adoption is one entity at a time                                                                                        |
+| G9 | Explainable           | every refetch, hidden record and prediction has one traced cause                                                                                                    |
 
-**Local and remote still differ.** Machines read _local_ cached answers, which may include optimistic
-values the server has never returned. What disappears is a local query language, not the difference
-between a local observation and a remote confirmation.
+## 3. Boundaries
 
-## Two guarantees
+### 3.1 The client predicts; the server decides
 
-The model succeeds only if it provides both:
+No locally computed result is ever authoritative. The server owns truth and membership: which
+records belong in a list, in what order, with what totals. The client keeps copies of fields, and
+may **predict** a change to a server answer (an optimistic field, a record hidden because it left
+a list, a record placed because it entered one). Every prediction is an overlay with a cause, and
+the server confirms, retracts or corrects it.
 
-1. **Entity coherence.** Every cached copy of an entity shows the same fields: patched at once,
-   replaced by a command's result, updated by fresher reads.
-2. **Result validity.** A change eventually repairs every result it can affect, **including results
-   that do not yet contain the entity**.
+This is the line between Flow State's entity work and a client database such as TanStack DB, which
+computes membership with local queries over local collections.
 
-The first is the easier one. The second is the central open problem, because knowing where an
-entity appears is different from knowing which results a change can affect:
+### 3.2 Machines coordinate; the data layer keeps copies true
 
-1. Ticket 42 is open and appears in the open queue.
-2. A command resolves it.
-3. The resolved queue does not contain ticket 42.
-4. Refetching only answers that contain ticket 42 never updates the resolved queue.
+Machines decide what happens next: which command to send, what a failure means, whether a draft or
+the server wins, when to refresh for a business reason. The data layer answers one question: is
+this copy still what the server would say? It never starts a command, chooses a state, sends events
+other than its lane outcomes, or reads one entity to change another. Machines never hold copies of
+records.
 
-The same happens with creates, empty lists, counts and any filtered result that should gain the
-entity. So refetch selection cannot be "answers that contain it"; it must be "answers that **could**
-contain it, or depend on it". Candidates, to be decided under C5:
+### 3.3 Non-goals
 
-- **By type:** every active answer whose result Schema can contain a `Ticket`, plus answers that
-  declare a dependency on the type (a count). Always valid, sometimes chatty.
-- **By a predicate on the resource:** `about: (input, ticket) => input.workspaceId ===
-  ticket.workspaceId` limits refetches to answers the entity could belong to. The same predicate,
-  applied to the entity's new value, can also hide it at once where it no longer belongs (the role
-  `keeps` plays in the sketch below).
-- **Declared by the command:** precise, but brings back author bookkeeping.
+| Not a goal                                    | Where it belongs instead                                     |
+|-----------------------------------------------|--------------------------------------------------------------|
+| local queries, joins, local sorting as truth  | a client database or sync engine behind a plain stream       |
+| offline-first operation and write queues      | a later design (persisted operations, re-keying)             |
+| collaborative text (CRDT, OT)                 | a plain stream to a sync provider, owned by a document actor |
+| workflow: toasts, navigation, retries, drafts | machines                                                     |
+| presence, typing, a device's own location     | plain streams mapped to events                               |
+| a sync engine of our own                      | hosting existing engines (section 6)                         |
+| server-side rendering hydration               | out of scope for version 1, as in `minimal-library.md`       |
 
-**What "the same truth" means across shapes.** A summary, a detail and a search hit carry different
-fields and different context (a highlight, a rank, a total). Updating a ticket's title while keeping
-an old search highlight produces an answer the server never returned. The proposed meaning, open
-under B4–B5: coherence is per entity field; context fields belong to the answer and are only made
-valid again by its refetch, which the change triggers under guarantee 2.
+## 4. Systems it must work with
 
-## The basic idea
+| System                                               | What the entity work must respect                                                                                                                                                 |
+|------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Machines** (decisions 1–8a)                        | activities subscribe, actions commit, outcomes return as events; memory holds keys and drafts; the data layer never makes workflow decisions                                      |
+| **Operations** (`resource`, `transaction`, `stream`) | apps without entities keep them unchanged, including decision 6's call-site `optimistic` and `writes`; one canonical form per piece of data (D1)                                  |
+| **Snapshots and React** (decision 8, `useView`)      | snapshots stay plain frozen data; lanes keep their statuses and `pending`; reads are passive and tear-free across actors                                                          |
+| **The Runtime**                                      | ordered turns, one publication per turn, the Runtime clock, one Runtime per principal; nothing on wall time                                                                       |
+| **Stories** (StoriesAndModels)                       | every input playable at an exact step; fixtures on the Runtime clock, no test-only escapes; checkpoints show the truth of their moment                                            |
+| **The CLI**                                          | every relation is data `flow graph` can draw; `flow check` has a rule for each likely mistake; `explain` and `trace` answer "why"                                                 |
+| **Inspection**                                       | nothing off the record, including suppressed repairs; available in production through `attachInspector`                                                                           |
+| **Persistence**                                      | only server-confirmed data is persisted; restored data is treated as stale; predictions never survive as confirmed                                                                |
+| **TypeScript and Effect 4.0.5**                      | Schemas own record shapes; identity survives the Schema combinators authors use; declarations type without manual annotations (spikes have found nested lambdas in arrays cannot) |
+| **Sync engines, later**                              | the constraints in section 6 stay satisfiable                                                                                                                                     |
 
-> **The server owns membership and truth. The client keeps answers to questions it asked, each
-> knowing which entities it contains. A command says which entities it changed. The runtime keeps
-> every copy of a changed entity consistent at once, and refetches every answer the change could
-> affect so results become valid again. Machines own workflow and drafts; they read local answers
-> and send commands.**
+## 5. What correctness means
 
-```ts
-// what a ticket is and how it is identified
-export const TicketEntity = entity(Ticket, { key: (t) => [t.workspaceId, t.ticketId] });
+Correctness is stated as properties that a proposal must guarantee and that tests can check.
 
-// answers: resources, plus a result Schema so the runtime can find the tickets inside
-export const ticketList = resource({
-  id: "support/ticket-list",
-  key: (input: TicketListInput) => listKey(input),
-  lookup: (input, { signal }) => TicketApi.use((api) => api.list(input, signal)),
-  result: TicketPage, // contains Ticket[]
-  keeps: (input, ticket) => ticket.status === input.filters.status, // optional; see "Two guarantees"
-  staleTime: "10 seconds",
-  gcTime: "2 minutes",
-});
-export const ticketById = resource({ …, result: Ticket });
+| #  | Property          | Statement                                                                                                                                                                        |
+|----|-------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| C1 | Coherence         | at every publication, two copies of the same field of the same record show the same visible value                                                                                |
+| C2 | Convergence       | once the server is quiet and requests complete, every active answer equals what the server returns for its input, after a bounded number of refetches                            |
+| C3 | No cascades       | every refetch has exactly one cause: a write settling, a pushed change or a machine's request; a refetch's own response never causes another refetch                             |
+| C4 | Monotonic truth   | no write replaces a field with data the store knows to be older                                                                                                                  |
+| C5 | Honest prediction | every displayed value the server has not confirmed is an overlay with a live cause; it ends by confirmation, retraction or repair; it is marked `pending`; it is never persisted |
+| C6 | No silent loss    | a record leaves an answer only because the server deleted it, a server response omitted it, or a live prediction hides it                                                        |
+| C7 | Determinism       | the same Story inputs produce the same snapshots and traces                                                                                                                      |
+| C8 | Explainability    | for any refetch, hidden record or prediction, the trace names its single cause                                                                                                   |
 
-// commands: what they change
-export const saveTitle = transaction({
-  id: "support/save-title",
-  key: (input: SaveTitleInput) => [input.workspaceId, input.ticketId],
-  commit: (input, { signal, attempt }) => TicketApi.use((api) => api.saveTitle(input, { signal, attempt })),
-  result: Ticket,
-  optimistic: TicketEntity.patch((input) => [input.workspaceId, input.ticketId], (t, input) => ({ ...t, title: input.title })),
-  concurrency: "serialize",
-});
-```
+**Correct declarations are a precondition.** The properties hold only when authors declare
+correctly. A proposal must therefore list every declaration that can be wrong and say, for each,
+what catches it: the type system, `flow check`, a runtime self-check, the repair audit, a generated
+test, or the safe direction. A declaration that can be wrong silently, with a stale screen as the
+result, is a defect of the proposal.
 
-What the runtime would do on a write: patch the ticket in every answer containing it when the
-commit is admitted; on success write the result into every such answer and end the patch in the
-same publication; on failure remove the patch; then refetch every answer the change could affect
-(guarantee 2).
+**Evidence, not argument.** A proposal's claims are accepted only with:
 
-Machines stay as in decisions 1–8a: activities subscribe to resources, actions commit transactions,
-outcomes return as events.
+- a property test that drives random interleavings of reads, writes, failures, uncertain endings,
+  pushes and reconnects against a stateful fake server, and checks C1–C6;
+- a TypeScript spike of its declaration forms against the installed Effect;
+- an agent experiment: several agents write the scenarios in section 7, and their mistakes are
+  counted by what catches them.
 
-## Already constrained, not open
+## 6. Sync engines: constraints to keep satisfiable
 
-The sync-engine constraints below already settle part of group B: every source changes entities
-through one path, and fresher data from a read reaches every answer containing the entity. Answers
-therefore cannot keep private copies updated only by their own refetch. B1 and B2 remain open only
-on _how_ (one stored copy, or copies kept in step), not _whether_.
+Sync engines (Electric, Zero, PowerSync, Firestore listeners) are not designed now, but nothing may
+shut them out:
 
-## Sync engines: keep the door open
+| Constraint                                                                                | Why engines need it                                        |
+|-------------------------------------------------------------------------------------------|------------------------------------------------------------|
+| one ingestion path for record changes (upsert or delete by key, with an optional version) | an adapter only has to produce those changes               |
+| an answer may be maintained by its source, by refetching or by pushes                     | engines keep result sets live without a refetch            |
+| keys are records of primitive fields                                                      | they must match tables' primary keys                       |
+| versions are opaque, comparable and supplied by the source                                | engines order changes with their own versions              |
+| updates from reads and pushes reach every copy of a record                                | engines push record values constantly                      |
+| a write can be confirmed by its source, not only by its response                          | engines confirm writes by echoing an id                    |
+| optimistic predictions are optional per write                                             | engines with their own client store predict for themselves |
+| persistence can belong to the source                                                      | engines persist their own data for offline use             |
 
-Sync engines are not designed now, but they are kept in mind. They need no special features in this
-proposal; they constrain about eight of its decisions. Getting those wrong now would mean redesigning
-entities later; everything else about engines can wait.
+## 7. Scenarios every proposal must handle
 
-**What an engine looks like from Flow's side.** It delivers entity changes (upsert, delete, often
-with a version or transaction id) and keeps some result sets live without a refetch. Some engines
-(Zero, PowerSync, Replicache) also keep their own client store and run their own optimistic writes.
+Each scenario is written in every proposal, so they can be compared one to one.
 
-**Constraints to respect now:**
+| Scenario                                               | What it tests                                                       |
+|--------------------------------------------------------|---------------------------------------------------------------------|
+| rename a note shown in an editor, a list and a sidebar | G1: coherence without listing screens                               |
+| move a note between folders with counts on screen      | G2: answers that gain or lose a record; counts that hold no records |
+| two editors on one note, one dirty                     | G3, machines: drafts versus server changes                          |
+| a save cancelled after sending                         | G3: `unknown` and its end                                           |
+| a slow list response landing after a save              | G4: ordering                                                        |
+| a note deleted by another user, pushed live            | G5, C6: deletes from outside                                        |
+| a board drag between columns                           | fast field changes that must not refetch                            |
+| a chat send and live messages                          | predictions of new records; pushes as the main source               |
+| e-mail labels and unread counts                        | many-to-many fields; aggregates                                     |
+| a bank transfer between two accounts                   | one write changing several records of one type                      |
+| a cart singleton and checkout                          | singletons; writes that return the whole record                     |
+| a live map of moving drivers                           | high-frequency changes that rarely move membership                  |
+| a global search across notes and folders               | answers spanning several entity types                               |
+| settings, a heartbeat, an analytics event              | G8: parts of an app that need no entity                             |
 
-| Constraint                                                                                                                                                                                          | Why engines need it                                                                                                 | Questions it touches |
-| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | -------------------- |
-| **One ingestion path for entity changes.** Every source (a lookup result, a command result, a push) changes entities through the same operation: upsert or delete by key, with an optional version. | An engine adapter then only has to produce those changes.                                                           | B1, B2, C4, E1, E2   |
-| **An answer has a source that maintains it.** A REST answer is maintained by refetching; an engine answer is maintained live by pushes. Membership is the source's job either way.                  | Engine result sets update without a refetch; treating every answer as request-and-refetch would shut them out.      | B, C5, C6, C8, E     |
-| **Keys are records of primitive fields.**                                                                                                                                                           | They must match a table's primary key and the engine's key format.                                                  | A6                   |
-| **Versions are opaque and comparable, supplied by the source.**                                                                                                                                     | Engines order changes with their own versions (log positions, transaction ids, row versions), not only `updatedAt`. | A5, B3               |
-| **Updates from reads propagate to every answer mentioning the entity.**                                                                                                                             | Engines push entity values constantly; without propagation, answers would disagree.                                 | B1, B2               |
-| **A patch can be confirmed by its source, not only by the response.** Flow's `attempt.id` reaches the server and can be echoed back.                                                                | Engines confirm writes by echoing an id through the feed.                                                           | C3, C10              |
-| **Optimistic patches are optional per command.**                                                                                                                                                    | Engines with their own client store run their own optimistic layer.                                                 | C1, C2               |
-| **Persistence can belong to the source.**                                                                                                                                                           | Engines persist their own data for offline use.                                                                     | F1                   |
+## 8. How proposals are compared
 
-**Deferred until an engine adapter is designed:** the adapter interface, subset or coverage
-protocols, resuming after reconnect, offline queues of writes, and engines' own query languages.
-
-## Open questions
-
-### A. What an entity is
-
-- **A1. Declaration.** A separate descriptor (`entity(Ticket, { key })`), a Schema annotation
-  (`Ticket.pipe(Entity.key(…))`), or a field on the Schema itself? Which one lets the runtime find
-  entities inside arbitrary result Schemas most reliably?
-- **A2. Identity.** Is an entity identified by its Schema object, by an explicit `id` string, or
-  both? What happens when two Schemas describe the same entity?
-- **A3. Shapes.** A list returns `TicketSummary` (no description) and the detail returns `Ticket`.
-  Are they one entity with several shapes (`TicketEntity.shape(TicketSummary)`)? Does a patch or a
-  result apply only to the fields a shape has?
-- **A4. Nested entities.** A ticket embeds `assignee: User`. Are nested entities found recursively,
-  so renaming a user updates every ticket that embeds them?
-- **A5. Version.** Should an entity declare a server version (`updatedAt`, an ETag) so newer and
-  older copies can be told apart? Required, optional, or absent?
-- **A6. Keys.** Tuple, record, or string? How do keys follow Resources.O1's canonical key grammar?
-- **A7. Registration.** Does the app list its entities, or are they discovered from the Schemas of
-  its operations? Does the closed-universe rule (the app lists machines) extend to entities?
-
-### B. How answers and entities relate (core semantics)
-
-- **B1. Storage.** Copies must stay in step (see "Already constrained"). Does the runtime store one
-  copy that answers point at (normalized internally), or keep a copy per answer and update them
-  together? Which is simpler to fence, persist and checkpoint?
-- **B2. Propagation of reads.** Fresher copies reach every answer (constrained). Open: what counts as
-  fresher (B3), and does a read propagate fields its shape lacks (A3)?
-- **B3. Ordering.** A list refetch starts, a save completes with the new title, then the old list
-  response arrives. What stops it overwriting the saved title, in that answer and in others? Fetch
-  start order, entity versions, or "a transaction result wins over any read that started before it"?
-- **B4. Result propagation.** A transaction result is written into every answer mentioning the
-  entity. Is it projected to each answer's shape (A3)? What if an answer's shape has fields the
-  result lacks?
-- **B5. Partial matches.** A search hit contains `{ ticket, highlight }`. Does the fan-out update only
-  `ticket` and leave `highlight`? Is this automatic from the Schema?
-- **B6. Equality and identity.** Fan-out produces new answer objects. Which parts keep their identity
-  so `useView` equality holds?
-
-### C. Writes
-
-- **C1. Where optimistic patches live.** On the transaction descriptor (the change is a property of
-  the command) or at the machine's commit call (decision 6)? Can both exist?
-- **C2. Patch semantics.** Is a patch replayed as a function over the current copy, or recorded as a
-  resulting value? What happens to a later patch when an earlier one fails? (Replay was the answer
-  in the set-aside client-database design; TanStack DB records values and keeps the failed one's effect.)
-- **C3. Ending a patch.** On success (result written in the same publication), failure, defect,
-  cancel before and after sending, `unknown`. Does a defect count as `unknown`? Does a refetch end an
-  `unknown` patch, and only if it started after the command was sent?
-- **C4. What a command affects.** Inferred from its `result` Schema, declared from its input (a delete
-  returns nothing), or both? How does a bulk command declare many keys?
-- **C5. Refetch selection (guarantee 2).** Which answers refetch after a change: every active answer
-  whose result can contain the type, those narrowed by a resource predicate, or a list the command
-  declares? Results with no entity inside (counts, totals) declare a dependency how? Inactive answers
-  marked stale? Immediately, or after the result is written?
-- **C6. Creates.** A new ticket is in no answer. Does it appear optimistically anywhere? Options: not
-  until a refetch; a resource-level `places: (input, ticket) => "start" | "end" | undefined`; or an
-  explicit optimistic insert into named answers.
-- **C7. Deletes.** Removed from every answer that mentions it. What does a single-entity answer
-  (`ticketById`) show: a `Failure` with a not-found error, or something else? How does a server-side
-  delete reach the client (a not-found error on refetch, a push)?
-- **C8. Membership predicate.** Is one predicate per resource (`keeps` / `about`) both the refetch
-  filter for guarantee 2 and the tool for instant removal? Does it apply to patches, results and read
-  propagation alike? What if a resource cannot state one?
-- **C9. Concurrency.** Two commands on the same entity: per-entity ordering, the transaction's
-  `concurrency`, or both?
-- **C10. Status.** How does a view know an entity is unconfirmed (8a's `pending`)? Per entity
-  (`TicketEntity.unconfirmed(s, key)`), per answer, or both?
-
-### D. Definitions and machines
-
-- **D1. Memory.** Should machine memory hold entity keys, never entity copies (except drafts)? Can
-  `flow check` enforce it by seeing an entity Schema in memory (sharpening the mirror lint)?
-- **D2. Input and refs.** Actor input and `actorRef` ids keyed by entity key (`editorRef(ticketKey)`):
-  does the entity provide a key Schema for this (`TicketEntity.Key`)?
-- **D3. Events.** Events that carry an entity (`Saved { ticket }`) are snapshots in time. Is that
-  fine, or should events carry keys and machines read the current copy?
-- **D4. Reading by key.** Besides lanes, should a machine or view read an entity by key across all
-  answers (`TicketEntity.get(s, key)`), for example to seed a detail screen from the list row? Does
-  that read retain anything or start loading?
-- **D5. Drafts.** The draft-versus-canonical pattern (seed from a `value` outcome, guard against
-  overwriting a dirty draft) stays. Does the entity add anything, such as detecting that the
-  canonical copy changed under a dirty draft?
-- **D6. Guards and `check`.** Guards read lanes today. Do they need entity reads (D4)?
-- **D7. Definition fields.** Does a definition list entities next to `operations`, or do operations
-  imply them?
-- **D8. Context.** Can a provider expose entities through context, or only keys?
-
-### E. Streams, sync and pushes
-
-- **E1.** Is a server push "an entity changed" (fan-out plus refetch), "an entity's new value"
-  (fan-out only), or both?
-- **E2.** How does a stream declare that it carries entity changes, and how are deletes and resets
-  expressed?
-- **E3.** Hosting sync engines stays open (see "Sync engines: keep the door open"). What is the
-  smallest push mechanism for version 1 that already uses the single ingestion path, so an engine
-  adapter can later reuse it?
-
-### F. Persistence, lifetime, Stories, tools
-
-- **F1. Persistence.** Answers persist as today. Do pending patches persist with their input so
-  restore can replay them?
-- **F2. Lifetime.** Answers keep `gcTime`. Does the entity index need any lifetime of its own (B1)?
-- **F3. Stories.** Fixtures and responses stay. What new steps are needed: a server push, asserting an
-  entity across all answers, observing fan-out and refetch?
-- **F4. Checkpoints.** Do checkpoints need the entity index, or only answers?
-- **F5. `flow graph`.** Edges entity ↔ resources (mentions) and entity ↔ transactions (changes), from
-  Schemas. Is that enough to answer "which screens can this command change"?
-- **F6. `flow check`.** Candidate rules: a result Schema contains an entity but the resource or
-  transaction declares no `result`; a transaction changes an entity no answer mentions; memory holds
-  an entity copy; an entity Schema appears with no key.
-
-### G. Mental model and naming
-
-- **G1. Words.** "Answer" for a resource entry, "entity" for identity-carrying data, "command" for a
-  transaction: do we rename anything (`resource`, `transaction`), or only describe them this way?
-- **G2. The rules agents follow.** Can the model be taught in three rules? A first attempt: declare
-  entities once; give every read and write a `result`; put optimistic changes on the command.
-- **G3. Boundaries.** What stays in the request-cache world unchanged (`key`, `staleTime`, `gcTime`,
-  `refetch`, `placeholder`), and what is deleted (`setData`, `invalidate`, decision 6's `writes`)?
-
-### H. Effect on agreed decisions
-
-- **H1.** Decision 6: call-site `optimistic` and `writes` (see C1).
-- **H2.** Decision 8: transactions are not read by views; does entity status (C10) change that?
-- **H3.** 8a: the lane `pending` flag (see C10).
-- **H4.** D46: result Schemas become required for any resource or transaction that carries entities.
-  Is that acceptable, given D46 limited Schemas to boundary data?
-- **H5.** Resources.O4 and Transactions.O3 (fencing per entry and per actor) versus fan-out across
-  answers (B3).
-
-## Prior art to check
-
-- **RTK Query tags** (`providesTags`, `invalidatesTags`): coordination by refetch, no normalization.
-- **Apollo and Relay normalized caches**: automatic entity coherence; list updates after creates and
-  deletes stay manual; type policies and merge functions show where normalization gets complex.
-- **TanStack Query** `setQueriesData` patterns: optimistic fan-out written by hand.
+1. **Correctness:** C1–C8, and which declaration mistakes remain silent.
+2. **Ease of writing for agents:** decisions an agent must make before writing; how much it must
+   know beyond the file it is in.
+3. **Verification with the CLI:** what `flow graph`, `flow check` and `flow explain` can show
+   without running the app.
+4. **Stories:** how a scenario is written, replayed and asserted.
+5. **Runtime orchestration:** whether every effect is caused, bounded and traceable.
+6. **Simplicity:** names added, one canonical form per concept (D1), changes to agreed decisions
+   (D10).
+7. **Optional cost:** what an app without entities, and an app adopting its first entity, has to
+   change.
