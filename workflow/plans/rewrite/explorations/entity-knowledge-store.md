@@ -1,4 +1,11 @@
-# Entity knowledge store (draft 2): a ground-up proposal
+# Entity knowledge store (draft 2): a ground-up proposal — set aside
+
+> **Set aside.** Predicting list membership, tracking completeness and keeping lists live from
+> pushes rebuilds the client half of a sync engine, and would compete with the engines Flow State
+> should host. `entities.md` section 3.3 records the decision: Flow State builds tier 1 (records,
+> repair, optimistic fields) and plugs sync engines in for tier 2. The research in section 2 and
+> the principles in section 3 still apply. Kept for reference; not maintained.
+
 
 Status: a proposal, not decided. It restarts the entity work from a clarified mental model after a
 survey of existing systems (section 2). It follows the operation-first direction of

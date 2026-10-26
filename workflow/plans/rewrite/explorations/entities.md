@@ -6,8 +6,10 @@ improve, what it must not become, which parts of Flow State it must work with, a
 
 Proposals measured against it:
 
-- `entity-proposal.md`: operation-first, the chosen direction;
+- `entity-proposal.md`: operation-first, the chosen direction; to be cut to tier 1 (section 3.3);
 - `entity-coordinator.md`: an extension that gives coordination policy one owner per domain;
+- `sync-engine-adapter.md`: the tier-2 plug-in point, a future path; its section 0 binds version 1;
+- `entity-knowledge-store.md`: set aside: it rebuilt the client half of a sync engine (section 3.3);
 - `entity-centric-proposal.md`: superseded, kept for reference.
 
 The previous version of this file (the model comparison and open questions A–H) is in git history
@@ -52,9 +54,9 @@ appears" with declarations an agent can get right while looking at one place.
 
 No locally computed result is ever authoritative. The server owns truth and membership: which
 records belong in a list, in what order, with what totals. The client keeps copies of fields, and
-may **predict** a change to a server answer (an optimistic field, a record hidden because it left
-a list, a record placed because it entered one). Every prediction is an overlay with a cause, and
-the server confirms, retracts or corrects it.
+may **predict** a change to a record's fields (an optimistic title). Every prediction is an overlay
+with a cause, and the server confirms, retracts or corrects it. Predicting a list's membership is
+tier 2 (section 3.3): it belongs to a sync engine.
 
 This is the line between Flow State's entity work and a client database such as TanStack DB, which
 computes membership with local queries over local collections.
@@ -67,11 +69,36 @@ this copy still what the server would say? It never starts a command, chooses a 
 other than its lane outcomes, or reads one entity to change another. Machines never hold copies of
 records.
 
-### 3.3 Non-goals
+### 3.3 Two tiers (decided)
+
+Flow State's own entity layer is **tier 1**, a request cache that knows about records. Anything that
+needs the client to hold or predict list membership is **tier 2**, provided by a sync engine
+through an adapter. Flow State does not reimplement a sync engine's client half.
+
+| Tier 1: built into Flow State                         | Tier 2: a sync engine, plugged in                     |
+|-------------------------------------------------------|-------------------------------------------------------|
+| one record per key; every answer shows the same fields | live results kept current by pushes                  |
+| repair: answers that may hold or depend on changed records refetch when a write settles or a push arrives | instant list entry and exit; local queries |
+| optimistic **field** patches, rollback, honest `unknown` | optimistic writes that change membership           |
+| ordering, deletes, repair that never cascades         | completeness of results; offline operation           |
+
+**What tier 1 gives up:** a record's fields change at once, but it leaves one list and enters
+another when the refetch lands. A pending create is held in machine memory, or the app uses a sync
+engine. There is no list-completeness flag beyond the lane's loaded status.
+
+**Integration over generality.** The entity layer is part of Flow State, not a standalone library.
+It uses what the Runtime already has (request start revisions, attempt ids, turns, the clock,
+persistence, traces) and adds no host interface.
+
+**Order of work.** Design the tier-2 adapter contract against one real engine before finalising
+tier 1, so the plug-in point is proven rather than assumed.
+
+### 3.4 Non-goals
 
 | Not a goal                                    | Where it belongs instead                                     |
 |-----------------------------------------------|--------------------------------------------------------------|
-| local queries, joins, local sorting as truth  | a client database or sync engine behind a plain stream       |
+| local queries, joins, local sorting as truth  | a sync engine, through the tier-2 adapter                    |
+| predicted list membership, list completeness  | a sync engine, through the tier-2 adapter                    |
 | offline-first operation and write queues      | a later design (persisted operations, re-keying)             |
 | collaborative text (CRDT, OT)                 | a plain stream to a sync provider, owned by a document actor |
 | workflow: toasts, navigation, retries, drafts | machines                                                     |
@@ -123,7 +150,7 @@ result, is a defect of the proposal.
 - an agent experiment: several agents write the scenarios in section 7, and their mistakes are
   counted by what catches them.
 
-## 6. Sync engines: constraints to keep satisfiable
+## 6. Sync engines: the tier-2 plug-in point
 
 Sync engines (Electric, Zero, PowerSync, Firestore listeners) are not designed now, but nothing may
 shut them out:
@@ -152,7 +179,7 @@ Each scenario is written in every proposal, so they can be compared one to one.
 | a slow list response landing after a save              | G4: ordering                                                        |
 | a note deleted by another user, pushed live            | G5, C6: deletes from outside                                        |
 | a board drag between columns                           | fast field changes that must not refetch                            |
-| a chat send and live messages                          | predictions of new records; pushes as the main source               |
+| a chat send and live messages                          | tier 1: a pending send in machine memory; tier 2: a sync engine     |
 | e-mail labels and unread counts                        | many-to-many fields; aggregates                                     |
 | a bank transfer between two accounts                   | one write changing several records of one type                      |
 | a cart singleton and checkout                          | singletons; writes that return the whole record                     |
