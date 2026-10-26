@@ -6,173 +6,171 @@ goal
     replayed mutations, lost client edits or data shared between requests or principals.
 outcomes
     O1  Capture a request's data
-        flow-state/server exports dehydrate(setup, prepare, { scope, within, maxBytes? }), returning
-        Promise<Hydration<A>>. Hydration<A> is opaque, JSON-safe and usable as an RSC prop.
-        Each call owns a fresh Runtime, waits for readiness, calls prepare once, settles, captures
-        and disposes before resolving. The Runtime is never returned or shared with another call.
+        flow-state/server exports dehydrate(setup, prepare, { scope?, within, maxBytes?, inspector?
+        }), returning Promise<Hydration<A>>. Hydration<A> is opaque, JSON-safe and usable as an RSC
+        prop. Each call owns a fresh Runtime, waits for readiness, calls prepare once, settles,
+        captures and disposes before resolving. The Runtime is never returned or shared with another
+        call.
 
         setup is a RuntimeSetup<A> without persistence. Persistence is a type error; untyped use
         rejects before construction. prepare(runtime) is synchronous and returns void; it may
-        ensureActor, createActor and send on handles. Returned asynchronous work is rejected,
-        never awaited. A throwing prepare or failed readiness, capture or cleanup rejects the
-        call; cleanup still runs, and simultaneous work and cleanup failures are both preserved.
-        Disposal follows @plan.Runtime.O6. Successful capture with failed cleanup returns no 
-        payload.
+        ensureActor, createActor and send on handles. Returned asynchronous work is rejected, never
+        awaited. A throwing prepare or failed readiness, capture or cleanup rejects the call;
+        cleanup still runs, and simultaneous work and cleanup failures are both preserved. Disposal
+        follows @plan.Runtime.O6. Successful capture with failed cleanup returns no payload.
 
-        scope is required, derived from server authentication, and obeys @plan.Persistence.O1.
-        within is a required finite positive Duration.Input. maxBytes defaults to 262,144 and
-        accepts integers from 1 through 2,097,152. Invalid options reject before construction.
-        Server redirect and notFound decisions call services or operations directly; dehydrate
-        does not expose actor state to server components for these decisions.
+        scope defaults to the setup's principal (@plan.Runtime.O2) and is required when it has none;
+        it comes from server authentication. inspector attaches an inspector sink
+        (@plan.Inspection.O3) to the private Runtime before ready(). within is a required finite
+        positive Duration.Input. maxBytes defaults to 262,144 and accepts integers from 1 through
+        2,097,152. Invalid options reject before construction. Server redirect and notFound
+        decisions call services or operations directly; dehydrate does not expose actor state to
+        server components for these decisions.
     O2  Bounded settling
         After prepare, capture waits until all queued events and turns, finite lookups (including
         chained reads and repairs), commits and outcome deliveries finish, or within expires.
-        Streams and future schedules do not delay settling. Capture uses one consistent view.
-        A chain of dependent lookups settles as a whole, rather than stopping between its reads.
+        Streams and future schedules do not delay settling. Capture uses one consistent view. A
+        chain of dependent lookups settles as a whole, rather than stopping between its reads.
 
         A capture that conflicts with a concurrent publication is retried up to 3 times, then
-        rejects with ConcurrentCapture.
-        Expiry returns the current data, reports DehydrateUnsettled, and identifies missing data
-        and dropped queued events. Queued events are never transferred or replayed. A send cycle
-        cannot keep dehydrate waiting beyond within; cleanup remains subject to @plan.Runtime.O6.
+        rejects with ConcurrentCapture. Expiry returns the current data, reports DehydrateUnsettled,
+        and identifies missing data and dropped queued events. Queued events are never transferred
+        or replayed. A send cycle cannot keep dehydrate waiting beyond within; cleanup remains
+        subject to @plan.Runtime.O6.
     O3  Transfer safe, confirmed data
-        Transfer shared actors and the providers needed for their context, together with data
-        read by active activities, including activities of local actors. Local actors themselves
-        do not transfer. Persistence flags do not limit hydration selection.
-        Transfer actor state and memory, each activity binding with the entry version it last
-        mapped, confirmed resource and entity data, loaded pages and hasMore, entity staleness,
-        latest stream values and counts, remaining schedule delays with restartOn baselines and
-        pending-commit facts.
-        The payload carries the app id, the app fingerprint of @plan.Inspection.O1, the scope and
-        a request token. Its order is canonical, so equal runs give equal bytes. Recompute context 
-        from the transferred providers. Lazy feature
+        Transfer shared actors and the providers needed for their context, together with data read
+        by active activities, including activities of local actors. Local actors themselves do not
+        transfer. Persistence flags do not limit hydration selection. Transfer actor state and
+        memory, each activity binding with the entry version it last mapped, confirmed resource and
+        entity data, loaded pages and hasMore, entity staleness, latest stream values and counts,
+        remaining schedule delays with restartOn baselines and pending-commit facts. The payload
+        carries the app id, the app's shape digest, the scope and a request token. The shape digest
+        covers machine ids, state trees, event, input and memory Schemas, operation and entity
+        identities of eager entries, and lazy entry ids; it excludes deny codes and lazy code, so
+        client and server compute it from the loaded App alone. Its order is canonical, so equal
+        runs give equal bytes. Recompute context from the transferred providers. Lazy feature
         transfer follows @plan.LazyFeatures.O4.
 
         Never transfer optimistic values, predictions, queued events, errors, issues, placeholder
-        values or running work. A missing, failed or unencodable lookup renders Pending without
-        data and retries on client activation. A refetch over existing data transfers that data;
-        client freshness determines whether another fetch is needed. An in-flight commit becomes
-        unknown with its attempt under @plan.Operations.O3 and reports DehydrateCommitInFlight; 
-        hydration
+        values or running work. A missing, failed or unencodable lookup renders Pending without data
+        and retries on client activation. A refetch over existing data transfers that data; client
+        freshness determines whether another fetch is needed. An in-flight commit becomes unknown
+        with its attempt under @plan.Operations.O3 and reports DehydrateCommitInFlight; hydration
         never reissues it automatically. Its predictions do not transfer, so it marks no entity
         uncertain and forces no repair; the actor's unknown outcome owns reconciliation.
 
         Encode values using their declared Schemas. Omit values without a usable Schema or whose
         encoded form is not JSON-safe or exceeds the bounds of @plan.Inspection.O2; never coerce
-        them. List every omitted item and its reason without exposing the omitted value.
-        Sensitive entity fields are absent from the client base. Omit a whole resource or stream
-        value whose Schema contains sensitive fields. Omit an actor with sensitive memory and
-        every consumer dependent on it through context. Readers needing omitted data fetch it.
+        them. List every omitted item and its reason without exposing the omitted value. Sensitive
+        entity fields are absent from the client base. Omit a whole resource or stream value whose
+        Schema contains sensitive fields. Omit an actor with sensitive memory and every consumer
+        dependent on it through context. Readers needing omitted data fetch it. flow check warns
+        when a shared actor reads a resource that has no result Schema, since its data cannot
+        transfer.
 
         maxBytes bounds the complete payload's UTF-8 JSON size. Exceeding it rejects with
-        DehydrateTooLarge naming the ten largest items; no partial payload is returned. A failed 
-        consistent capture rejects
-        rather than returning a mixture of actor and store versions.
+        DehydrateTooLarge naming the ten largest items; no partial payload is returned. A failed
+        consistent capture rejects rather than returning a mixture of actor and store versions.
     O4  Matching first render
         flow-state/react exports <Hydrate payload={payload}>{children}</Hydrate>. It requires a
         FlowProvider, otherwise throws HydrateOutsideProvider. It renders children without
         suspending and supports nested boundaries and independently streamed segments.
 
-        During server rendering and browser hydration, Flow hook results depend only on props
-        and ancestor Hydrate payloads, nearest boundary first. Sibling segments, live client data
-        and elapsed time cannot change this first view. Selectors, context and passive data reads
-        use the same view throughout a render. useActorByRef lookup returns null on both sides
-        when no ancestor payload contains its actor. Actors absent from these payloads use the
-        pre-attach behavior of @plan.React.O2.
+        During server rendering and browser hydration, Flow hook results depend only on props and
+        ancestor Hydrate payloads, nearest boundary first. Sibling segments, live client data and
+        elapsed time cannot change this first view. Selectors, context and passive data reads use
+        the same view throughout a render. useActorByRef lookup returns null on both sides when no
+        ancestor payload contains its actor. Actors absent from these payloads use the pre-attach
+        behavior of @plan.React.O2.
 
-        Hydration has two phases. In render, Hydrate decodes its payload once and silently
-        inserts items absent from the live Runtime, notifying no subscriber. In its commit
-        effect it publishes those insertions as one store version, merges present items under
-        @O5 and activates inserted actors, at once if ready or else during bootstrap. Differing
-        live data causes a subsequent render, never a hydration mismatch. Rendering, including a
-        discarded render, starts no work, subscriptions, schedules, persistence writes or
-        evidence; a discarded render may leave inserted data, which is harmless. Hydrated actors 
-        obey admission under @plan.Runtime.O3 and @plan.Runtime.O5; rejection applies none
-        of the payload, reports HydrationRejected and falls back to ordinary client loading.
+        Hydration has two phases. In render, Hydrate decodes its payload once and exposes it to
+        descendant hooks as a read-only overlay; the live Runtime is not changed. In its commit
+        effect it applies the payload as one store version, inserting absent items, merging present
+        items under @O5 and activating inserted actors, at once if ready or else during bootstrap.
+        Differing live data causes a subsequent render, never a hydration mismatch. Rendering,
+        including a discarded render, changes no store and starts no work, subscriptions, schedules,
+        persistence writes or evidence. Hydrated actors obey admission under @plan.Runtime.O3 and
+        @plan.Runtime.O5; rejection applies none of the payload, reports HydrationRejected and falls
+        back to ordinary client loading.
 
-        A payload whose app id or fingerprint differs reports HydrationIncompatible; malformed 
-        payloads, including
-        undeclared lazy features or exceeded decode bounds, report HydrationMalformed. Both fall
-        back to client loading. Scope and cross-request violations instead throw under @O6.
+        A payload whose app id or shape digest differs reports HydrationIncompatible; malformed
+        payloads, including undeclared lazy features or exceeded decode bounds, report
+        HydrationMalformed. Both fall back to client loading. Scope and cross-request violations
+        instead throw under @O6.
     O5  Preserve client work when merging
         At commit, an existing client actor wins over its hydrated copy. On first load, ready()
-        merges after validating restored data and before installing actors: persisted actors
-        beat hydrated copies, which are discarded before they activate, preserving drafts
-        regardless of their contents. Hydrated actors then install as restored. The first
-        render still shows the server view; the restored draft appears after hydration.
-        Context then reflects the winning providers, including providers supplied by hydration.
+        merges after validating restored data and before installing actors: persisted actors beat
+        hydrated copies, which are discarded before they activate, preserving drafts regardless of
+        their contents. Hydrated actors then install as restored. The first render still shows the
+        server view; the restored draft appears after hydration. Context then reflects the winning
+        providers, including providers supplied by hydration.
 
-        For resource data, the younger value wins; equal age keeps the client value. Never replace
-        a client entry with an optimistic write pending or a lookup in flight. Hydrated data wins
-        over persisted data except where entity versions determine the winner.
-        For entity fields, greater versions win and lower versions lose. Equal versions and
-        unversioned fields keep present client values; differing values trigger contested-field
-        repair under @plan.EntityDomains.O1. Fill absent fields. Existing answers win but become
-        stale with cause hydrate when their references differ. New answers are fresh unless the
-        client has accepted an entity change, prediction, uncertain mark or queued write since
-        readiness; then they are stale with cause hydrate. Existing stream lanes win. Client
-        predictions remain applied over any merged confirmed base.
+        For resource data, the younger value wins; equal age keeps the client value. Never replace a
+        client entry with an optimistic write pending or a lookup in flight. Hydrated data wins over
+        persisted data except where entity versions determine the winner. For entity fields, greater
+        versions win and lower versions lose. Equal versions and unversioned fields keep present
+        client values; differing values trigger contested-field repair under @plan.EntityDomains.O1.
+        Fill absent fields. Existing answers win but become stale with cause hydrate when their
+        references differ. New answers are fresh unless the client has accepted an entity change,
+        prediction, uncertain mark or queued write since readiness; then they are stale with cause
+        hydrate. Existing stream lanes win. Client predictions remain applied over any merged
+        confirmed base.
 
-        Activation never replays initial/input processing, context-change events, queued events
-        or finite work. An unchanged activity does not redeliver an already-observed value;
-        genuinely newer client data can deliver a new value outcome. Changed activity inputs
-        reconcile normally. Fresh resource data avoids a duplicate lookup; freshness follows
+        Activation never replays initial/input processing, context-change events, queued events or
+        finite work. An unchanged activity does not redeliver an already-observed value; genuinely
+        newer client data can deliver a new value outcome. Changed activity inputs reconcile
+        normally. Fresh resource data avoids a duplicate lookup; freshness follows
         @plan.Operations.O2. Age increases by max(0, clientNow - capturedAt), so a client clock
         behind the server cannot make captured data younger.
 
         Streams open new sessions while displaying their transferred latest values. Schedules
         subtract the same nonnegative elapsed time from their remaining delay; an overdue schedule
         fires once at activation, never in a burst or merely because its baseline was restored.
-        Shared actor retention starts at activation. Persistable hydrated actors subsequently
-        follow @plan.Persistence.O3.
+        Shared actor retention starts at activation. Persistable hydrated actors subsequently follow
+        @plan.Persistence.O3.
 
-        Navigation payloads use these same rules on the running client. Reapplying the same
-        payload is a no-op; a prefetched payload ages while waiting to render.
+        Navigation payloads use these same rules on the running client. Reapplying the same payload
+        is a no-op; a prefetched payload ages while waiting to render.
     O6  Isolate requests and principals
         Concurrent dehydrate calls share no mutable request state. A server render gets a fresh,
-        inert render Runtime; it starts no services, storage or work. A Runtime that has never
-        been readied accepts payloads from one request token only; a second token throws
-        HydrationCrossRequest before applying anything, so a module-level server Runtime fails
-        on the second request.
-        Segments from one RSC request are accepted together; browser navigation accepts later
-        requests without discarding the existing client Runtime.
+        inert render Runtime; it starts no services, storage or work. A Runtime that has never been
+        readied accepts payloads from one request token only; a second token throws
+        HydrationCrossRequest before applying anything, so a module-level server Runtime fails on
+        the second request. Segments from one RSC request are accepted together; browser navigation
+        accepts later requests without discarding the existing client Runtime.
 
-        A Runtime configured with persistence accepts only its configured scope. Otherwise the
-        first accepted payload locks its scope. A mismatch throws HydrationScopeMismatch and
-        applies nothing. Changing principal requires a new Runtime under a keyed FlowProvider.
-        Matching scope is an isolation check; authentication remains the host's responsibility.
-        Server-only import behavior belongs to @plan.Package.O1.
+        A Runtime configured with persistence accepts only its configured scope. Otherwise the first
+        accepted payload locks its scope. A mismatch throws HydrationScopeMismatch and applies
+        nothing. Changing principal requires a new Runtime under a keyed FlowProvider. Matching
+        scope is an isolation check; authentication remains the host's responsibility. Server-only
+        import behavior belongs to @plan.Package.O1.
     O7  Streaming and navigation work in real hosts
         Next.js App Router supports an authenticated server setup without persistence, a browser
         FlowProvider, and Hydrate boundaries around server-prepared client subtrees. Layouts and
-        independently streamed segments may each capture their own payload. Plain React SSR uses
-        the same dehydrate, FlowProvider and Hydrate calls with renderToPipeableStream and
-        hydrateRoot. Hosts embedding JSON in scripts must escape it safely for HTML.
-        Streaming order, selective hydration, client navigation, router-cache replay and prefetching
-        obey @O4 and @O5. Flow hooks never suspend; host Suspense boundaries may stream segments.
+        independently streamed segments may each capture their own payload. Plain React SSR uses the
+        same dehydrate, FlowProvider and Hydrate calls with renderToPipeableStream and hydrateRoot.
+        Hosts embedding JSON in scripts must escape it safely for HTML. Streaming order, selective
+        hydration, client navigation, router-cache replay and prefetching obey @O4 and @O5. Flow
+        hooks never suspend; host Suspense boundaries may stream segments.
 verification
-    V1  SSR test: nested and sibling boundaries hydrate in any order without HTML mismatch;
-        equal Stories dehydrate to equal bytes.
+    V1  SSR test: nested and sibling boundaries hydrate in any order without HTML mismatch; equal
+        Stories dehydrate to equal bytes.
     V2  Isolation test: cross-request reuse and wrong scopes throw without applying data.
     V3  Settle Story: chained reads finish; streams and infinite sends cannot prevent timeout.
     V4  Freshness Story: fresh data avoids fetching; missing or aged data fetches despite skew.
-    V5  Replay Story: no repeated work or outcomes; overdue schedules fire once; commits stay 
-         unknown.
+    V5  Replay Story: no repeated work or outcomes; overdue schedules fire once; commits stay
+        unknown.
     V6  Merge Story: drafts and predictions survive; conflicts repair; repeated payloads do nothing.
     V7  Redaction test: unsafe values are omitted and reported; sensitive data never transfers.
     V8  Capture tests: invalid inputs reject; all failures dispose and preserve cleanup errors.
     V9  Admission test: rejects apply nothing; discarded renders start no work or writes.
     V10  Next.js test: streaming, navigation, cached replay and draft reload obey @O4 and @O5.
 questions
-    Q1  Should hydration scope, principal() and persistence.scope share one setup field?
-        They currently agree by host convention; a unified field would change configuration.
+    
     Q2  Deferred to build time
-        Payload envelope encoding.
-        Internal capture and install sharing with persistence.
-        Codec implementation.
-        Request identity generation and sequencing.
-        Decode caching and discarded-render storage.
-        Detailed trace and inspection fields.
-        Static warning activation for missing result Schemas.
-        Story payload labels and orchestration: @plan.Testing.O7.
-        Host export-condition layout: @plan.Package.O1.
+        Payload envelope encoding. Internal capture and install sharing with persistence. Codec
+        implementation. Request identity generation and sequencing. Decode caching and
+        discarded-render storage. Detailed trace and inspection fields.
+        
+        Story payload labels and orchestration: @plan.Testing.O7. Host export-condition layout:
+        @plan.Package.O1.

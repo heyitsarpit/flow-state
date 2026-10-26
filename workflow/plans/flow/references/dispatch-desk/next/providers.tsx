@@ -8,5 +8,10 @@ export function DeskProviders({ userId, children }: { userId: string; children: 
   // The keyed parent remounts on principal changes; construct is inert during server render.
   const [runtime] = useState(() => deskBrowserSetup(userId).construct());
 
-  return <FlowProvider runtime={runtime}>{children}</FlowProvider>;
+  // owned: the provider disposes this Runtime after unmount, so a principal switch releases it.
+  return (
+    <FlowProvider runtime={runtime} owned>
+      {children}
+    </FlowProvider>
+  );
 }

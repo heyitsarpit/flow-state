@@ -10,162 +10,151 @@ goal
 outcomes
     O1  inspect(app) and inspect(runtime)
         inspect(app) returns a Promise of a plain readonly Model. It loads every lazy entry
-        (@plan.LazyFeatures.O5) and compiles the App without running any machine callback,
-        guard, adapter, Layer or service; it builds no Runtime and touches no storage. A failed
-        load rejects with EntryLoadFailed naming the entry; a construction error rejects with
-        the construction FlowError. Equal App code gives equal Model bytes on every host.
-        The Model lists the app and entries (eager or lazy), each machine's schemas, states,
-        transitions, guards with their possible deny codes, actions, schedules, activities,
-        outcome edges, context reads and persistence opt-ins, every operation descriptor, each
-        entity domain as recorded, the static actor-send graph and a fingerprint. It holds no
-        live state, closures, Effects or services. A constant in a condition is a literal up
-        to 256 bytes, otherwise its hash; a sensitive constant is never exported raw.
+        (@plan.LazyFeatures.O5) and compiles the App without running any machine callback, guard,
+        adapter, Layer or service; it builds no Runtime and touches no storage. A failed load
+        rejects with EntryLoadFailed naming the entry; a construction error rejects with the
+        construction FlowError. Equal App code gives equal Model bytes on every host. The Model
+        lists the app and entries (eager or lazy), each machine's schemas, states, transitions,
+        guards with their possible deny codes, actions, schedules, activities, outcome edges,
+        context reads and persistence opt-ins, every operation descriptor, each entity domain as
+        recorded, the static actor-send graph and a fingerprint. It holds no live state, closures,
+        Effects or services. A constant in a condition is a literal up to 256 bytes, otherwise its
+        hash; a sensitive constant is never exported raw.
 
-        inspect(runtime) is synchronous and passive. It reads the last committed cut and never
-        a turn in progress, starts no work, adopts nothing, touches no storage and emits no
-        evidence. It works on a constructed, ready, disposing or disposed Runtime. It returns
-        frozen plain data with faithful in-process values: runtime lifecycle, clock and
-        evidence sequence; per actor its state, revision, mailbox depth, schedules, activity
-        bindings, pending commits, issues and retain; resource entries, transactions and stream
-        sessions in flight; per domain the answers with frontier and stale causes, predictions,
-        queues and uncertain records; persistence status, including SecondTabNoPersistence;
-        lazy entries adopted or not; hydration provenance. Revisions, timers and generations
-        appear here and in evidence, never in public snapshots.
+        inspect(runtime) is synchronous and passive. It reads the last committed cut and never a
+        turn in progress, starts no work, adopts nothing, touches no storage and emits no evidence.
+        It works on a constructed, ready, disposing or disposed Runtime. It returns frozen plain
+        data with faithful in-process values: runtime lifecycle, clock and evidence sequence; per
+        actor its state, revision, mailbox depth, schedules, activity bindings, pending commits,
+        issues and retain; resource entries, transactions and stream sessions in flight; per domain
+        the answers with frontier and stale causes, predictions, queues and uncertain records;
+        persistence status, including SecondTabNoPersistence; lazy entries adopted or not; hydration
+        provenance. Revisions, timers and generations appear here and in evidence, never in public
+        snapshots.
 
-        For flow explain on a checkpoint, one snapshot and one event give the handler levels
-        tried with guard results, the target or "self", ordered exits and entries, the memory
-        patch, and the schedules and activities the new configuration would start. It runs
-        only pure callbacks, labels every field desired, never claims a running fiber, and
-        agrees with check on Allowed, Denied and Unhandled (@plan.Machines.O4).
+        flow explain is @plan.CommandLine.O1 and @plan.CommandLine.O4.
         Reference: references/dispatch-desk/tools/inspection.ts.
     O2  The structural codec
-        One bounded codec carries every value that crosses a process or storage boundary:
-        persisted records (@plan.Persistence.O3), server-rendering payloads
-        (@plan.ServerRendering.O3), trace artifacts and the Model bytes. It accepts JSON values
-        produced by the owning Schema. A value at a bound is accepted, one past it is
-        rejected: depth 32, 10,000 nodes, 4,096 items per array, 262,144 UTF-8 bytes per
-        string or key, 2,097,152 canonical bytes.
+        One bounded codec carries every value that crosses a process or storage boundary: persisted
+        records (@plan.Persistence.O3), server-rendering payloads (@plan.ServerRendering.O3), trace
+        artifacts and the Model bytes. It accepts JSON values produced by the owning Schema. A value
+        at a bound is accepted, one past it is rejected: depth 32, 10,000 nodes, 4,096 items per
+        array, 262,144 UTF-8 bytes per string or key, 2,097,152 canonical bytes.
 
         Encoding is canonical: sorted keys, no whitespace, no -0, NaN, infinity, cycles, lone
         surrogates or sparse arrays. Decoding is strict: it rejects a byte-order mark, invalid
-        UTF-8, and any input that does not re-encode to exactly the same bytes (duplicate
-        keys, unsorted keys, odd number spellings), then decodes with the owning Schema.
-        Equal accepted data gives equal bytes on every host; mutating an input or output byte
-        array afterwards never changes any stored or decoded value.
+        UTF-8, and any input that does not re-encode to exactly the same bytes (duplicate keys,
+        unsorted keys, odd number spellings), then decodes with the owning Schema. Equal accepted
+        data gives equal bytes on every host; mutating an input or output byte array afterwards
+        never changes any stored or decoded value.
 
         A failure is one FlowError raised before any actor, store, service or committed change:
         CodecBoundExceeded (naming the bound, its value and the path), CodecMalformed (with a
         reason, one of utf8, json, nonCanonical, cycle, negativeZero, nonFinite, loneSurrogate,
-        notPlain or sparse) or CodecSchemaMismatch (path and issue summary, never data values).
-        No raw parser error or Cause escapes.
+        notPlain or sparse) or CodecSchemaMismatch (path and issue summary, never data values). No
+        raw parser error or Cause escapes.
     O3  Inspector sinks
-        attachInspector(runtime, callback) attaches a callback; attachInspector(runtime,
-        { capacity? }) creates a bounded buffer. Both return drain() and dispose(); the buffer
-        also returns snapshot() and clear(). Capacity defaults to 256 and may be zero; an
-        invalid capacity throws InvalidInspectorCapacity before attaching. snapshot() returns
-        { records, truncatedBeforeSequence }, where the marker is null only if nothing was
-        omitted, otherwise the greatest omitted or cleared sequence. Overflow drops the oldest
-        records and advances the marker. clear() empties the window without resetting the
-        sequence.
+        attachInspector(runtime, callback) attaches a callback; attachInspector(runtime, { capacity?
+        }) creates a bounded buffer. Both return drain() and dispose(); the buffer also returns
+        snapshot() and clear(). Capacity defaults to 256 and may be zero; an invalid capacity throws
+        InvalidInspectorCapacity before attaching. snapshot() returns { records,
+        truncatedBeforeSequence }, where the marker is null only if nothing was omitted, otherwise
+        the greatest omitted or cleared sequence. Overflow drops the oldest records and advances the
+        marker. clear() empties the window without resetting the sequence.
 
         A sink belongs to one Runtime and attaches once (InspectorAlreadyAttached on reuse);
-        attaching to a disposed or disposing Runtime throws RuntimeDisposed. Attaching before 
-        ready()
-        sees bootstrap evidence. A late attachment first gets a redacted current snapshot and
-        a marker for what it missed, then later records only.
+        attaching to a disposed or disposing Runtime throws RuntimeDisposed. Attaching before
+        ready() sees bootstrap evidence. A late attachment first gets a redacted current snapshot
+        and a marker for what it missed, then later records only.
 
         Sinks never delay or change anything. Records are accepted with publication, delivered
-        asynchronously in sequence order, and never run user code inside a turn. A slow sink
-        never blocks turns, sends, context waves or persistence. A callback that throws detaches
-        only itself; drain and dispose reject with InspectorSinkFailed and a diagnostic reaches
-        healthy sinks. drain() waits for the evidence accepted when it was called; dispose()
-        delivers that prefix, detaches, is idempotent, and no callback runs after it resolves.
-        Runtime disposal accepts terminal lifecycle evidence for consumers before providers.
-        No omission is silent and no buffer is persisted.
+        asynchronously in sequence order, and never run user code inside a turn. A slow sink never
+        blocks turns, sends, context waves or persistence. A callback that throws detaches only
+        itself; drain and dispose reject with InspectorSinkFailed and a diagnostic reaches healthy
+        sinks. drain() waits for the evidence accepted when it was called; dispose() delivers that
+        prefix, detaches, is idempotent, and no callback runs after it resolves. Runtime disposal
+        accepts terminal lifecycle evidence for consumers before providers. No omission is silent
+        and no buffer is persisted.
         Reference: references/dispatch-desk/tools/inspection.ts.
     O4  Traces
-        Every Runtime decision is an evidence event with one Runtime-global sequence starting
-        at 1, so events of every kind order against each other. A committed turn's events have
-        contiguous sequences and are accepted with the commit; a rolled-back turn leaves one
-        turn event with result "failed" and its code. An event is delivered only after the
-        state it describes is published. Lifecycle events are not turns and never advance an
-        actor revision. When sequence headroom runs out, admission refuses before any commit.
-        Event kinds cover machines (turn, lifecycle, admission, send, schedule, context, issue,
-        diagnostic), operations (resource, transaction, stream), entity domains (delta, field,
-        repair, skip, lookup, prediction, queue, uncertain, answer, invalidate, tombstone,
-        selfCheck, audit), persistence (capture, write, flush, restored, persistence-lock),
-        lazy entries (entry-adopted, entry-adoption-failed) and server rendering (dehydrate,
-        hydrate). A second tab emits persistence-lock with SecondTabNoPersistence and no
-        capture or restore; no multi-tab coordination events exist in v1.
+        Every Runtime decision is an evidence event with one Runtime-global sequence starting at 1,
+        so events of every kind order against each other. A committed turn's events have contiguous
+        sequences and are accepted with the commit; a rolled-back turn leaves one turn event with
+        result "failed" and its code. An event is delivered only after the state it describes is
+        published. Lifecycle events are not turns and never advance an actor revision. When sequence
+        headroom runs out, admission refuses before any commit. Event kinds cover machines (turn,
+        lifecycle, admission, send, schedule, context, issue, diagnostic), operations (resource,
+        transaction, stream), entity domains (delta, field, repair, skip, lookup, prediction, queue,
+        uncertain, answer, invalidate, tombstone, selfCheck, audit), persistence (capture, write,
+        flush, restored, persistence-lock), lazy entries (entry-adopted, entry-adoption-failed) and
+        server rendering (dehydrate, hydrate). A second tab emits persistence-lock with
+        SecondTabNoPersistence and no capture or restore; no multi-tab coordination events exist in
+        v1.
 
-        A Story run produces a Trace (@plan.Testing.O4). trace.export(trace) returns canonical
-        bytes and trace.import(bytes) validates them and returns a Trace; both are synchronous
-        and need no App. A Trace holds kind and version, storyId, appId, appFingerprint,
-        persistenceVersion, seed, a truncatedBeforeSequence marker, redacted events, uniquely
-        named redacted checkpoints, outcome ("completed" or "failed"), end, failure and cleanup
-        status. completed requires an end; a failure before end capture leaves end null.
-        It keeps at most 4,096 recent events, dropping the oldest until it fits the codec
-        bounds and advancing the marker; checkpoints are never dropped, and if they cannot fit
-        the export fails with CodecBoundExceeded.
+        A Story run produces a Trace (@plan.Testing.O4); a production Runtime exports no trace, and
+        hosts keep redacted sink events in their own logs. trace.export(trace) returns canonical
+        bytes and trace.import(bytes) validates them and returns a Trace; both are synchronous and
+        need no App. A Trace holds kind and version, storyId, appId, appFingerprint,
+        persistenceVersion, seed, a truncatedBeforeSequence marker, redacted events, uniquely named
+        redacted checkpoints, outcome ("completed" or "failed"), end, failure and cleanup status.
+        completed requires an end; a failure before end capture leaves end null. It keeps at most
+        4,096 recent events, dropping the oldest until it fits the codec bounds and advancing the
+        marker; checkpoints are never dropped, and if they cannot fit the export fails with
+        CodecBoundExceeded.
 
-        Import validates in order and rejects with one FlowError: the codec; kind, version and
-        a closed schema (unknown or omitted members reject with InvalidTraceRecord); identity
-        fields (appId, appFingerprint form, persistenceVersion); strictly
-        increasing sequences consistent with the marker; lane and field correlations (Ready
-        carries data, unknown carries reconcileRequired and an attempt id); lifecycle only
-        active, then disposing, then disposed per incarnation (InvalidLifecycleTransition);
-        and outcome consistency, so failed cleanup never yields completed
-        (InvalidStoryEvidence). A Trace never contains callbacks, Effects, Layers, live refs,
-        raw Cause, stacks or fiber ids, and is never a restore, hydrate or Story input.
+        Import validates in order and rejects with one FlowError: the codec; kind, version and a
+        closed schema (unknown or omitted members reject with InvalidTraceRecord); identity fields
+        (appId, appFingerprint form, persistenceVersion); strictly increasing sequences consistent
+        with the marker; lane and field correlations (Ready carries data, unknown carries
+        reconcileRequired and an attempt id); lifecycle only active, then disposing, then disposed
+        per incarnation (InvalidLifecycleTransition); and outcome consistency, so failed cleanup
+        never yields completed (InvalidStoryEvidence). A Trace never contains callbacks, Effects,
+        Layers, live refs, raw Cause, stacks or fiber ids, and is never a restore, hydrate or Story
+        input.
         Reference: references/dispatch-desk/tools/inspection.ts (loadTrace).
     O5  Redaction and digests
-        In-process reads, checkpoints, snapshots and inspect(runtime) carry raw values.
-        Redaction applies where data leaves the process: sink events, trace artifacts and CLI
-        output. Server-rendering payloads omit sensitive data entirely
-        (@plan.ServerRendering.O3).
+        In-process reads, checkpoints, snapshots and inspect(runtime) carry raw values. Redaction
+        applies where data leaves the process: sink events, trace artifacts and CLI output.
+        Server-rendering payloads omit sensitive data entirely (@plan.ServerRendering.O3).
 
-        A value under a Schema annotated sensitive: true, or a Schema.Redacted node, at any
-        depth of an event, input, memory, context, key, result, error, stream value or entity
-        field, leaves the process as "hmac:" plus 64 hex characters of HMAC-SHA-256 over its
-        canonical bytes. Equal values under one key give equal digests, but a dictionary cannot
-        recover them without the key. The key is 32 random bytes per Runtime, never exported
-        or persisted. In Stories it is a private per-run key, reused when the same run repeats
-        so repeated traces are identical, and not derivable from the public seed. A value that
-        cannot be encoded as JSON is carried as { unencodable: <Schema identifier> }, never
-        its contents. In artifacts, every entity and resource value, sensitive or not, appears only 
-        as field names
-        and digests, so data never leaves through a trace. Identities, versions, kinds, sequences, 
-        state paths, event tags and codes
-        are never redacted. Digests are computed outside the turn.
+        A value under a Schema annotated sensitive: true, or a Schema.Redacted node, at any depth of
+        an event, input, memory, context, key, result, error, stream value or entity field, leaves
+        the process as "hmac:" plus 64 hex characters of HMAC-SHA-256 over its canonical bytes.
+        Equal values under one key give equal digests, but a dictionary cannot recover them without
+        the key. The key is 32 random bytes per Runtime, never exported or persisted. In Stories it
+        is a private per-run key, reused when the same run repeats so repeated traces are identical,
+        and not derivable from the public seed. A value that cannot be encoded as JSON is carried as
+        { unencodable: <Schema identifier> }, never its contents. In artifacts, every entity and
+        resource value, sensitive or not, appears only as field names and digests, so data never
+        leaves through a trace. Identities, versions, kinds, sequences, state paths, event tags and
+        codes are never redacted.
     O6  Renderers
-        render(model, "text" | "json" | "mermaid") is synchronous and deterministic. Text
-        prints each machine's states, transitions, guards with deny codes, outcome edges,
-        schedules and sends, and each domain as declaration sentences, with lazy entries
-        marked. json is the canonical Model. mermaid draws a state diagram per machine and a
-        flowchart of sends and context reads.
+        render(model, "text" | "json" | "mermaid") is synchronous and deterministic. Text prints
+        each machine's states, transitions, guards with deny codes, outcome edges, schedules and
+        sends, and each domain as declaration sentences, with lazy entries marked. json is the
+        canonical Model. mermaid draws a state diagram per machine and a flowchart of sends and
+        context reads.
 
-        Trace projections (printed by @plan.CommandLine.O4) read one or two Traces and run
-        no application code. summary gives counts and a per-actor timeline always stating
-        "complete" or "truncated before N" and the outcome. The sections are a closed list of
-        normalized events by kind: transitions, sends, schedules, lifecycle, resources (with why
-        each refetched), transactions, repairs, restore, hydration, adoption and diagnostics. 
-        Filters are data:
-        actor, attempt id, read, entity key with sequence, issues only. A selector naming something 
-        absent from the app's Model fails with InvalidArtifactOperand
-        (reason UnknownSelector); one known to the Model but absent from the trace answers none
-        when the trace is complete. Under truncation, absence is reported as "insufficient
-        evidence" (EvidenceUnavailable), never "none".
+        Trace projections (printed by @plan.CommandLine.O4) read one or two Traces and run no
+        application code. summary gives counts and a per-actor timeline always stating "complete" or
+        "truncated before N" and the outcome. The sections are a closed list of normalized events by
+        kind: transitions, sends, schedules, lifecycle, resources (with why each refetched),
+        transactions, repairs, restore, hydration, adoption and diagnostics. Filters are data:
+        actor, attempt id, read, entity key with sequence, issues only. A selector naming something
+        absent from the app's Model fails with InvalidArtifactOperand (reason UnknownSelector); one
+        known to the Model but absent from the trace answers none when the trace is complete. Under
+        truncation, absence is reported as "insufficient evidence" (EvidenceUnavailable), never
+        "none".
 
-        Comparing two Traces has four results: equal (both complete, sections match),
-        different (a retained fact differs, even if truncated), incomplete (retained facts
-        match and an input is truncated), and the failure ArtifactIdentityMismatch when appId,
-        appFingerprint, persistenceVersion or format version differ. coverage lists the
-        declared transitions, deny codes, outcome edges, schedules and sends that no given
-        Trace exercised.
+        Comparing two Traces has four results: equal (both complete, sections match), different (a
+        retained fact differs, even if truncated), incomplete (retained facts match and an input is
+        truncated), and the failure ArtifactIdentityMismatch when appId, appFingerprint,
+        persistenceVersion or format version differ. coverage lists the declared transitions, deny
+        codes, outcome edges, schedules and sends that no given Trace exercised.
 decisions
     D1  The machine file is the spec
-        The Model is the only structural representation; graph, diff, explain, check, render
-        and the fingerprint all read it. No generated spec or saved structure file exists.
+        The Model is the only structural representation; graph, diff, explain, check, render and the
+        fingerprint all read it. No generated spec or saved structure file exists.
     D2  Deny codes are read from types, never by running guards
         The compiler reads each guard's literal return type. If complete facts are unavailable,
         inspect(app) rejects with TypeFactsUnavailable instead of returning an empty set as
@@ -174,45 +163,38 @@ decisions
         appFingerprint is SHA-256 of the canonical Model excluding itself and run data, so any
         change to lazy content or deny codes changes it. There is no public fingerprint API.
     D4  Revisions are per incarnation and survive restore
-        A new incarnation starts at 0; a restored or hydrated actor resumes its captured
-        revision, so evidence compares across a reload.
+        A new incarnation starts at 0; a restored or hydrated actor resumes its captured revision,
+        so evidence compares across a reload.
 constraints
     C1  Observation is never authority
-        No mutable trace log, implicit history, fabricated trace, sink-owned actor work,
-        snapshot replay or trace-driven restore exists; records become durable only through an
-        explicit trace export. Artifact schemas are closed, and a format change bumps the
-        version with no legacy importer.
+        No mutable trace log, implicit history, fabricated trace, sink-owned actor work, snapshot
+        replay or trace-driven restore exists; records become durable only through an explicit trace
+        export. Artifact schemas are closed, and a format change bumps the version with no legacy
+        importer.
     C2  Inspection stays out of application bundles
-        flow-state, flow-state/react and flow-state/persistence never import
-        flow-state/inspect, the compiler or a renderer.
+        flow-state, flow-state/react and flow-state/persistence never import flow-state/inspect, the
+        compiler or a renderer.
 verification
-    V1  Model: a golden Model of the reference app; a spy shows no callback, adapter or Layer
-        ran; a lazy variant equals the eager one except for loading; equal bytes on Node and a
-        browser.
-    V2  inspect(runtime): during a turn it returns the previous cut, never mixes revisions,
-        starts no work, touches no storage and leaves the sequence unchanged.
+    V1  Model: a golden Model of the reference app; a spy shows no callback, adapter or Layer ran; a
+        lazy variant equals the eager one except for loading; equal bytes on Node and a browser.
+    V2  inspect(runtime): during a turn it returns the previous cut, never mixes revisions, starts
+        no work, touches no storage and leaves the sequence unchanged.
     V3  Codec: each bound at its value and one past it; malformed UTF-8, BOM, lone surrogates,
-        duplicate keys, -0 and non-canonical spellings fail with the right code and path;
-        caller mutation of bytes changes nothing.
-    V4  Sinks: a stalled sink never delays turns; a failing sink detaches alone; capacity 0,
-        1 and default; attach before ready and late attach; exact markers; drain and dispose
+        duplicate keys, -0 and non-canonical spellings fail with the right code and path; caller
+        mutation of bytes changes nothing.
+    V4  Sinks: a stalled sink never delays turns; a failing sink detaches alone; capacity 0, 1 and
+        default; attach before ready and late attach; exact markers; drain and dispose
         accepted-prefix behaviour.
-    V5  Events and traces: one Story per event kind; contiguous turn sequences; a rolled-back
-        turn leaves one failed event; export then import is byte-identical; every invalid
-        import vector is rejected with its code; no Cause or stack appears in any artifact.
-    V6  Redaction: sensitive values are digests in sink events and exported artifacts,
-        checkpoints included, and raw in in-process checkpoints; no sensitive value is found in any 
-        artifact; digests are equal under one
-        key and not recoverable by a dictionary without it.
-    V7  Renderers and projections: golden text, json and mermaid; every section and filter;
-        the four comparison results; "insufficient evidence" under truncation; coverage.
+    V5  Events and traces: one Story per event kind; contiguous turn sequences; a rolled-back turn
+        leaves one failed event; export then import is byte-identical; every invalid import vector
+        is rejected with its code; no Cause or stack appears in any artifact.
+    V6  Redaction: sensitive values are digests in sink events and exported artifacts, checkpoints
+        included, and raw in in-process checkpoints; no sensitive value is found in any artifact;
+        digests are equal under one key and not recoverable by a dictionary without it.
+    V7  Renderers and projections: golden text, json and mermaid; every section and filter; the four
+        comparison results; "insufficient evidence" under truncation; coverage.
 questions
-    Q1  Should a production Runtime be able to export a trace artifact?
-        Recommended for version 1: no; hosts keep redacted sink events in their own logs.
-    Q2  How does a host observe the private Runtime inside dehydrate?
-        Recommended: dehydrate takes an optional inspector sink option attached before
-        ready(); ServerRendering owns the option.
-    Q3  Deferred to build time
-        Exact event field lists; counters per turn; the 256-record delivery window;
-        Model field layout; mermaid id derivation; domain-literal hashing; sequence headroom
-        reservation; fingerprint ordering rules; supplying type facts outside source tooling.
+    Q1  Deferred to build time
+        Exact event field lists; counters per turn; Model field layout; mermaid id derivation;
+        domain-literal hashing; sequence headroom reservation; fingerprint ordering rules; supplying
+        type facts outside source tooling.

@@ -13,11 +13,10 @@ outcomes
         - flow-state: definition, machine, app, actorRef, runtimeSetup, resource, transaction,
         stream, deny, check, send, FlowError, entity, domain, read, write, listen, eq, oneOf,
         contains, between, overlaps, and, serverMatches, principal, asc, desc; types Definition,
-        Machine, App, ActorRef, Actor, Snapshot, Runtime, RuntimeSetup, Diagnostic and Attempt. 
-        Attempt is
-        also a Schema value carrying id and encoded input (@plan.Operations.O3).
+        Machine, App, ActorRef, Actor, Snapshot, Runtime, RuntimeSetup, Diagnostic and Attempt.
+        Attempt is also a Schema value carrying id and encoded input (@plan.Operations.O3).
         - flow-state/react: FlowProvider, useActorByRef, useActor, useView, Hydrate.
-        - flow-state/testing: story, model, defineConfig, CheckpointProvider, propertyTest; type 
+        - flow-state/testing: story, model, defineConfig, CheckpointProvider, propertyTest; type
         StoryRun.
         - flow-state/inspect: inspect, render, attachInspector, trace (an object with only import
         and export); types Model and Trace.
@@ -30,27 +29,27 @@ outcomes
 
         flow-state/react keeps the "use client" directive in its emitted JavaScript; a Next.js
         Server Component may import its components, and hooks run only on the client.
-        flow-state/server resolves to the real module under react-server and node conditions and
-        to a stub under browser and default, browser winning over a conflicting node condition.
-        The stub throws FlowError ServerOnlyImport on evaluation, before any work; it never
-        supplies server execution. A non-Node server host selects react-server.
+        flow-state/server resolves to the real module under react-server and node conditions and to
+        a stub under browser and default, browser winning over a conflicting node condition. The
+        stub throws FlowError ServerOnlyImport on evaluation, before any work; it never supplies
+        server execution. A non-Node server host selects react-server.
 
-        The root imports no React, server-only or Node code, testing, inspection tooling,
-        TypeScript compiler, renderer or IndexedDB, so it runs in request runtimes and edge
-        hosts. Every route except react imports without React installed; only rendering 
-        CheckpointProvider
-        needs React, so a no-React project can load its Story config. Importing the persistence 
-        route outside a browser is
-        safe; storage access begins only when its Layer is acquired (@plan.Persistence.O1).
+        The root imports no React, server-only or Node code, testing, inspection tooling, TypeScript
+        compiler, renderer or IndexedDB, so it runs in request runtimes and edge hosts. Every route
+        except react imports without React installed; only rendering CheckpointProvider needs React,
+        so a no-React project can load its Story config. Importing the persistence route outside a
+        browser is safe; storage access begins only when its Layer is acquired
+        (@plan.Persistence.O1).
     O2  Dependencies and inert imports
         Effect is a peer dependency, never bundled, so Runtime, Schema, Context tags and Layers
-        resolve to the consumer's single Effect instance. KeyValueStore comes from
-        effect/persistence. React is an optional peer, majors 18 and 19; a host without React
-        fails only where it uses the React route or CheckpointProvider.
+        resolve to the consumer's single Effect instance. The published peer range is exactly 4.0.5
+        until packed-consumer proofs cover a wider range. KeyValueStore comes from
+        effect/persistence. React is an optional peer, majors 18 and 19; a host without React fails
+        only where it uses the React route or CheckpointProvider.
 
         package.json declares sideEffects: false. Importing any route constructs no Runtime,
-        registers no listener and performs no storage I/O, actor work or user callback. Tree
-        shaking never makes a used server-only import succeed in a client bundle.
+        registers no listener and performs no storage I/O, actor work or user callback. Tree shaking
+        never makes a used server-only import succeed in a client bundle.
     O3  Types and removed surfaces
         Packed declarations preserve literal inference, nominal machine and definition identity,
         exact unions and field presence, variance, service requirements and failure channels.
@@ -59,27 +58,26 @@ outcomes
         self-contained: no workspace path, internal route or unresolved import escapes, and
         consumers emit isolated declarations without excessive instantiation.
 
-        Removed surfaces are gone, with no alias, overload, adapter or deprecated wrapper. They
-        are those in the "Deleted or absorbed" table of references/design/minimal-library.md, plus
+        Removed surfaces are gone, with no alias, overload, adapter or deprecated wrapper. They are
+        those in the "Deleted or absorbed" table of references/design/minimal-library.md, plus
         registered views, child and dynamic actors, leases, final/onDone/output, useShallow and
         custom comparators, useResource, callable Stories and mutable harnesses, saved behaviour
         artifacts, compression, Implementation values and the separate error classes
         (FlowUsageError, FlowPersistenceError, FlowDisposeError, FlowStoryExecutionError). A
-        configuration object naming a removed or unknown field throws InvalidConfiguration with
-        its path and help naming the replacement, before any work starts.
+        configuration object naming a removed or unknown field throws InvalidConfiguration with its
+        path and help naming the replacement, before any work starts.
     O4  Installed consumers
-        Dispatch Desk is a checked-in application compiled and run against the packed tarball,
-        never workspace aliases; it and the seven entity examples become real consumers at S10.
-        Its Next.js App Router host proves request render, Hydrate first render without
-        mismatch, reload restore, reconnect, disposal, principal isolation and a second tab
-        running without persistence. Chromium, Gecko and WebKit run its React lifetimes, real
-        IndexedDB, reloads and hydration, with versions recorded.
+        Dispatch Desk is a checked-in application compiled and run against the packed tarball, never
+        workspace aliases; it and the seven entity examples become real consumers at S10. Its
+        Next.js App Router host proves request render, Hydrate first render without mismatch, reload
+        restore, reconnect, disposal, principal isolation and a second tab running without
+        persistence. Chromium, Gecko and WebKit, at the versions the pinned harness supplies, run
+        its React lifetimes, real IndexedDB, reloads and hydration.
 
         Small and medium consumers compile with strict checking, isolatedModules and isolated
-        declarations, and packed execution proves each route, including no-React and React
-        18 and 19 installs. Every build stage gate runs these packed-consumer checks. The
-        installed flow binary resolves the same package identity as the consumer
-        (@plan.CommandLine.O6).
+        declarations, and packed execution proves each route, including no-React and React 18 and 19
+        installs. Every build stage gate runs these packed-consumer checks. The installed flow
+        binary resolves the same package identity as the consumer (@plan.CommandLine.O6).
 decisions
     D1  Six closed routes
         The root keeps the authoring surface; React, server, testing, inspection and storage are
@@ -90,23 +88,17 @@ decisions
 constraints
     C1  Portable bytes
         Identity, key and structural codecs use ECMAScript and Web APIs (TextEncoder), never Node
-        Buffer or UTF-16 counts. Equal accepted data gives equal bytes on Node, Bun, Deno,
-        Chromium, Gecko and WebKit; limits belong to @plan.Inspection.O2.
+        Buffer or UTF-16 counts. Equal accepted data gives equal bytes on Node, Bun, Deno, Chromium,
+        Gecko and WebKit; limits belong to @plan.Inspection.O2.
     C2  Generated output
         dist, declarations and docs come from pinned build scripts, never hand edits.
 verification
     V1  Packed exports and declarations match the six lists exactly; deep imports, cross-route
         re-exports and every removed name fail; strict isolated consumers compile.
-    V2  A no-React consumer imports every route except react; React 18 and 19
-        hosts run; one Effect identity is shared; "use client" survives bundling; browser
-        bundles reach ServerOnlyImport; import spies see no work.
-    V3  Codec vectors give equal bytes on every listed host; removed configuration fields
-        throw InvalidConfiguration before any side effect.
-    V4  Packed Dispatch Desk passes its Next.js, isolation, reload, uncertainty and second-tab
-        gates in Chromium, Gecko and WebKit.
-questions
-    Q1  Which Effect peer range is published?
-        Recommended: exactly 4.0.5, widened only after packed-consumer proofs on each range.
-    Q2  Which browser releases form the gate baseline?
-        Recommended: the versions the pinned harness supplies at S10, one each of Chromium,
-        Gecko and WebKit.
+    V2  A no-React consumer imports every route except react; React 18 and 19 hosts run; one Effect
+        identity is shared; "use client" survives bundling; browser bundles reach ServerOnlyImport;
+        import spies see no work.
+    V3  Codec vectors give equal bytes on every listed host; removed configuration fields throw
+        InvalidConfiguration before any side effect.
+    V4  Packed Dispatch Desk passes its Next.js, isolation, reload, uncertainty and second-tab gates
+        in Chromium, Gecko and WebKit.

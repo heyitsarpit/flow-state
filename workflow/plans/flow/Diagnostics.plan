@@ -10,34 +10,31 @@ outcomes
         failures as FlowError in the typed error channel, preserving their success and service
         requirement types. Defects and interruption remain distinct Effect outcomes.
 
-        FlowError extends Error and exposes readonly _tag: "FlowError", code, diagnostics,
-        optional cause and optional evidence. diagnostics is a nonempty readonly array;
-        code equals diagnostics[0].code. The first diagnostic identifies the primary boundary
-        failure; later diagnostics retain phase order and multiplicity.
+        FlowError extends Error and exposes readonly _tag: "FlowError", code, diagnostics, optional
+        cause and optional evidence. diagnostics is a nonempty readonly array; code equals
+        diagnostics[0].code. The first diagnostic identifies the primary boundary failure; later
+        diagnostics retain phase order and multiplicity.
 
-        Diagnostic is an Error that authors can yield directly in Effect and encode/decode with
-        its exported Schema. It exposes classification (Failure, Defect or Interruption), code,
-        path (strings or finite numbers), details (string keys with string, finite number,
-        boolean or null values), summary and help. Invalid tags, missing fields, unknown codes
-        and values outside these domains reject. Authors branch on _tag, code, classification,
-        path and details; summary and help may change without changing the failure's meaning.
-        Decoding also rejects unknown values of closed details.reason fields; all serialized
-        diagnostics use the same exported Schema.
+        Diagnostic is an Error that authors can yield directly in Effect and encode/decode with its
+        exported Schema. It exposes classification (Failure, Defect or Interruption), code, path
+        (strings or finite numbers), details (string keys with string, finite number, boolean or
+        null values), summary and help. Invalid tags, missing fields, unknown codes and values
+        outside these domains reject. Authors branch on _tag, code, classification, path and
+        details; summary and help may change without changing the failure's meaning. Decoding also
+        rejects unknown values of closed details.reason fields; all serialized diagnostics use the
+        same exported Schema.
 
-        Schema rejection reports SchemaValidation with actual issue paths and safe details,
-        unless the owning boundary defines a more specific code. Parser exceptions never escape
-        as raw exceptions; arbitrary callback defects are never mislabeled SchemaValidation.
-        Story failure evidence follows @plan.Testing.O8.
+        Schema rejection reports SchemaValidation with actual issue paths and safe details, unless
+        the owning boundary defines a more specific code. Parser exceptions never escape as raw
+        exceptions; arbitrary callback defects are never mislabeled SchemaValidation. Story failure
+        evidence follows @plan.Testing.O8.
     O2  Recognizable codes and corrective action
-        Codes identify failures independently of message wording. Each diagnostic names the
-        affected field, identity or bound in path/details and gives a concrete corrective action
-        in help. Reporting an issue does not itself mean the call rejects; the owning boundary
-        decides whether work fails, continues or falls back. Application guard deny codes remain
-        application data, separate from Flow's diagnostic vocabulary.
-        Published codes and closed reasons have fixed meanings; renderers never introduce new
-        ones, and unknown codes are rejected.
-        A specific boundary code takes precedence over a generic machine-configuration code
-        when both describe the same violation.
+        Codes identify failures independently of message wording. Each diagnostic names the affected
+        field, identity or bound in path/details and gives a concrete corrective action in help.
+        Reporting an issue does not itself mean the call rejects; the owning boundary decides
+        whether work fails, continues or falls back. Application guard deny codes remain application
+        data, separate from Flow's diagnostic vocabulary. A specific boundary code takes precedence
+        over a generic machine-configuration code when both describe the same violation.
 
         Classification defaults to Failure. InvariantViolation, Defect, GuardDefect, EntryMismatch,
         ServerOnlyImport, HydrateOutsideProvider and HydrationCrossRequest classify as Defect;
@@ -45,19 +42,18 @@ outcomes
         classification it would have at App construction. Warning or informational severity never
         changes classification.
 
-        The vocabulary is closed: a code outside this list is a defect in Flow. Each line gives
-        the owner and the corrective action an author takes.
+        The vocabulary is closed: a code outside this list is a defect in Flow. Each line gives the
+        owner and the corrective action an author takes.
 
         General
         - SchemaValidation: correct the value at the reported Schema issue path.
         - InvalidConfiguration (@plan.Machines.O1, @plan.Runtime.O1, @plan.Operations.O1,
-        @plan.LazyFeatures.O2, @plan.Package.O3,
-        @plan.EntityDomains.O1): fix the declaration named by path; details.reason names the
-        rule, such as a duplicate id or an undeclared patch entity.
+        @plan.LazyFeatures.O2, @plan.Package.O3, @plan.EntityDomains.O1): fix the declaration named
+        by path; details.reason names the rule, such as a duplicate id or an undeclared patch
+        entity.
         - InvariantViolation: report a Flow bug; the Runtime stopped to protect state.
-        - Defect and GuardDefect (@plan.Machines.O3, @plan.Machines.O4): fix the failing callback 
-        or service using
-        the in-process cause.
+        - Defect and GuardDefect (@plan.Machines.O3, @plan.Machines.O4): fix the failing callback or
+        service using the in-process cause.
         - Interruption: honor cleanup; retry only while the original intent still holds.
         - CleanupFailed (@plan.Runtime.O6): repair the finalizer and replace the owning Runtime.
 
@@ -68,8 +64,8 @@ outcomes
         - IdentityExhausted (@plan.Runtime.C2): replace the Runtime.
         - ConflictingActorRef (@plan.Runtime.O3): give refs with one identity the same options.
         - ForeignActorRef (@plan.React.O2): use handles and refs from this Runtime's App.
-        - MissingContextProvider, ContextCycle (@plan.Runtime.O5): wire every slot to an
-        acyclic upward provider.
+        - MissingContextProvider, ContextCycle (@plan.Runtime.O5): wire every slot to an acyclic
+        upward provider.
         - BlockedByDependents (@plan.Runtime.O6): dispose the named consumers first.
         - InvalidEvent, AdmissionOverloaded, SendTargetAbsent (@plan.Runtime.O4): send a valid
         public event; wait or shrink the batch; ensure the target before sending.
@@ -89,10 +85,10 @@ outcomes
         - NonDurableContextProvider (@plan.Persistence.O3): persist the named providers.
         - RestoreDiscarded (@plan.Persistence.O5): expected after a version change; otherwise
         inspect the reason (incompatible, corrupt, orphan).
-        - SecondTabNoPersistence (@plan.Persistence.O7): close the other owner or continue
-        without persistence.
-        - EntryLoadFailed, EntryMismatch (@plan.LazyFeatures.O4, @plan.LazyFeatures.O2): fix
-        the import or the declared id.
+        - SecondTabNoPersistence (@plan.Persistence.O7): close the other owner or continue without
+        persistence.
+        - EntryLoadFailed, EntryMismatch (@plan.LazyFeatures.O4, @plan.LazyFeatures.O2): fix the
+        import or the declared id.
 
         Server rendering
         - ServerOnlyImport (@plan.Package.O1): import flow-state/server only in server code.
@@ -102,8 +98,8 @@ outcomes
         - DehydrateCommitInFlight, DehydrateTooLarge (@plan.ServerRendering.O3): commit from the
         client; split or narrow the payload.
         - HydrateOutsideProvider, HydrationCrossRequest, HydrationScopeMismatch
-        (@plan.ServerRendering.O4, @plan.ServerRendering.O6): wrap in FlowProvider; construct
-        the Runtime inside the provider; derive both scopes from one value.
+        (@plan.ServerRendering.O4, @plan.ServerRendering.O6): wrap in FlowProvider; construct the
+        Runtime inside the provider; derive both scopes from one value.
         - HydrationIncompatible, HydrationMalformed, HydrationRejected (@plan.ServerRendering.O4):
         diagnostics only; the client loads normally. A persistent one means mismatched code.
 
@@ -117,10 +113,10 @@ outcomes
         - InvalidInspectorCapacity, InspectorAlreadyAttached, InspectorSinkFailed
         (@plan.Inspection.O3).
         - InvalidTraceRecord, InvalidLifecycleTransition, InvalidStoryEvidence,
-        ArtifactIdentityMismatch, InvalidArtifactOperand (@plan.Inspection.O4,
-        @plan.Inspection.O6). UnknownSelector names a selector unknown to the app's Model.
-        EvidenceUnavailable is not a failure: it marks an answer whose evidence was not retained,
-        which reports insufficient evidence and exits 0.
+        ArtifactIdentityMismatch, InvalidArtifactOperand (@plan.Inspection.O4, @plan.Inspection.O6).
+        UnknownSelector names a selector unknown to the app's Model. EvidenceUnavailable is not a
+        failure: it marks an answer whose evidence was not retained, which reports insufficient
+        evidence and exits 0.
         - TypeFactsUnavailable (@plan.Inspection.D2): run where complete type facts exist.
         - InvalidUsage (@plan.CommandLine.O1): fix the command, option or operand named.
         - ConfigLoadFailed (@plan.CommandLine.O6): fix flow.config.ts, the app or the revision
@@ -129,28 +125,27 @@ outcomes
 
     O3  Complete failures survive cleanup
         An author inspecting an in-process failure can recover its complete Effect Cause when
-        available, including failures from finalizers and cancellation. Cleanup never replaces
-        the execution failure or erases another failure. Classification is Defect if any defect
-        exists, otherwise Failure if a typed failure exists, otherwise Interruption.
+        available, including failures from finalizers and cancellation. Cleanup never replaces the
+        execution failure or erases another failure. Classification is Defect if any defect exists,
+        otherwise Failure if a typed failure exists, otherwise Interruption.
 
-        Classification does not reorder diagnostics: execution or cancellation stays primary;
-        when only cleanup fails, the first cleanup failure is primary. Remaining cleanup
-        diagnostics retain phase order and multiplicity, including after end capture.
-        Operation failure, defect, interruption and an unknown remote outcome remain distinct.
-        Promise adapters and forwarded AbortSignal cancellation preserve the complete Cause
-        until the host deliberately projects the result.
-        Complete Exit and Cause survive evidence acceptance as well as cleanup. A thrown
+        Classification does not reorder diagnostics: execution or cancellation stays primary; when
+        only cleanup fails, the first cleanup failure is primary. Remaining cleanup diagnostics
+        retain phase order and multiplicity, including after end capture. Operation failure, defect,
+        interruption and an unknown remote outcome remain distinct. Promise adapters and forwarded
+        AbortSignal cancellation preserve the complete Cause until the host deliberately projects
+        the result. Complete Exit and Cause survive evidence acceptance as well as cleanup. A thrown
         exception or Promise rejection never becomes a reusable service's typed failure channel.
 
-        Only the in-process FlowError may expose raw Cause. Cause, stack traces and fiber ids
-        never enter snapshots, checkpoints, persistence, SSR payloads, traces, inspector events
-        or CLI output. Outbound application data follows @plan.Inspection.O5; SSR omission
-        follows @plan.ServerRendering.O3.
+        Only the in-process FlowError may expose raw Cause. Cause, stack traces and fiber ids never
+        enter snapshots, checkpoints, persistence, SSR payloads, traces, inspector events or CLI
+        output. Outbound application data follows @plan.Inspection.O5; SSR omission follows
+        @plan.ServerRendering.O3.
     O4  Safe rendering
-        Rendering a Diagnostic preserves its code, path, safe details and actionable help.
-        Control characters in paths, details, summary and help are escaped so hostile names
-        cannot inject terminal or log commands. Output never exposes raw input, stacks or Cause,
-        and never invents a file, line or column. Locations appear only when actually known.
+        Rendering a Diagnostic preserves its code, path, safe details and actionable help. Control
+        characters in paths, details, summary and help are escaped so hostile names cannot inject
+        terminal or log commands. Output never exposes raw input, stacks or Cause, and never invents
+        a file, line or column. Locations appear only when actually known.
 decisions
     D1  One public failure contract
         FlowError is the shared boundary carrier and Diagnostic its shared diagnostic Schema.
@@ -158,13 +153,12 @@ decisions
 verification
     V1  Codec and carrier tests prove @O1's fields, closed-reason rejection and primary code.
     V2  Type tests prove readonly diagnostics, yieldable Diagnostic and preserved Effect A/R.
-    V3  Boundary tests prove code precedence, classifications, missing-evidence meaning and safe 
-         Schema paths.
+    V3  Boundary tests prove code precedence, classifications, missing-evidence meaning and safe
+        Schema paths.
     V4  Mixed-Cause tests prove complete causes, classification and ordering through cleanup.
     V5  Rendering/export tests prove safe actionable output without leaks or invented locations.
 questions
     Q1  Deferred to build time
-        Per-code help wording and the closed details.reason values.
-        Diagnostic codec implementation.
-        Host execution helpers and printer organization.
-        Exact evidence projections and counters within the owning evidence contract.
+        Per-code help wording and the closed details.reason values. Diagnostic codec implementation.
+        Host execution helpers and printer organization. Exact evidence projections and counters
+        within the owning evidence contract.

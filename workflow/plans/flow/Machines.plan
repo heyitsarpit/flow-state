@@ -7,30 +7,31 @@ goal
 outcomes
     O1  Definitions and machines
         definition(config) and machine(definition, callback) return synchronously and start no
-        actors, work, timers or storage. Invalid construction throws one FlowError containing
-        all discovered violations in declaration then rule order, with offending field paths.
-        The callback runs exactly once with { S, E, O } and returns static machine configuration.
+        actors, work, timers or storage. Invalid construction throws one FlowError containing all
+        discovered violations in declaration then rule order, with offending field paths. The
+        callback runs exactly once with { S, E, O } and returns static machine configuration.
 
         A definition requires id, states and events. states is an ordered list of leaf names or
-        single-key compounds containing child lists. events and optional internalEvents are
-        records from event names to Schema field records; {} means no payload. Optional input
-        and memory are Schema field records. Nonempty memory requires initial({ input }); empty
-        memory forbids initial, and input requires initial, so a machine with input declares 
-        memory. initial runs once for a fresh actor,
-        never on restore, adoption or hydration. Original input is unavailable thereafter.
+        single-key compounds containing child lists. events and optional internalEvents are records
+        from event names to Schema field records; {} means no payload. Optional input and memory are
+        Schema field records. Nonempty memory requires initial({ input }); empty memory forbids
+        initial, and input requires initial, so a machine with input declares memory. initial runs
+        once for a fresh actor, never on restore, adoption or hydration. initial is pure: it reads
+        no clock or randomness, because it also runs in render (@plan.React.O2). Original input is
+        unavailable thereafter.
 
         Optional context maps slots to another definition's Provider.select(selector); context
         binding is @plan.Runtime.O5. Optional operations is a flat record of operation or
-        entity-domain handles. Machine configuration mirrors the declared state tree exactly:
-        root and compounds require a default direct-child token and states; leaves have neither.
-        Nodes may declare on, activities and schedules; only the root may declare onContext.
+        entity-domain handles. Machine configuration mirrors the declared state tree exactly: root
+        and compounds require a default direct-child token and states; leaves have neither. Nodes
+        may declare on, activities and schedules; only the root may declare onContext.
 
         Unknown fields, wrong kinds, empty compounds, duplicate siblings, overlapping public and
         internal event names, _tag payload/input/memory fields, self-selecting context and invalid
-        operation handles reject. State names is and child, and top-level root, are reserved.
-        State paths have at most ten segments. Authored names and ids are nonempty, at most 256
-        UTF-8 bytes, contain no C0 controls, DEL or lone surrogates, and retain exact spelling:
-        no Unicode normalization or locale comparison.
+        operation handles reject. State names is and child, and top-level root, are reserved. State
+        paths have at most ten segments. Authored names and ids are nonempty, at most 256 UTF-8
+        bytes, contain no C0 controls, DEL or lone surrogates, and retain exact spelling: no Unicode
+        normalization or locale comparison.
 
         The machine cannot add states, events or operations. Foreign tokens, undeclared handler
         events, foreign producer events, non-public send events and duplicate activity or schedule
@@ -46,45 +47,46 @@ outcomes
         Persisted-value eligibility is @plan.Persistence.O2.
     O2  States and transitions
         Exactly one leaf is active. Substates share the actor's memory, context and lifetime;
-        reaching a leaf with no handlers does not complete or dispose the actor.
-        S.OPEN.EDITING names that state; token.is(snapshot) includes descendants and narrows
-        activity types. token.child(snapshot) returns its active direct child's name, otherwise
-        undefined. S.root.child(snapshot) returns the active top-level state.
+        reaching a leaf with no handlers does not complete or dispose the actor. S.OPEN.EDITING
+        names that state; token.is(snapshot) includes descendants and narrows activity types.
+        token.child(snapshot) returns its active direct child's name, otherwise undefined.
+        S.root.child(snapshot) returns the active top-level state.
 
-        on maps an event name to a token, { target, guard?, updateMemory?, actions? }, or an
-        ordered array of transitions. target is required and is this machine's token or "self".
-        The active leaf's handler is tried first, then ancestors up to the root. At each level,
-        the first passing or unguarded alternative wins; all declining falls through to the next
-        ancestor. With no enabled transition, nothing changes and no work starts.
+        on maps an event name to a token, { target, guard?, updateMemory?, actions? }, or an ordered
+        array of transitions. target is required and is this machine's token or "self". The active
+        leaf's handler is tried first, then ancestors up to the root. At each level, the first
+        passing or unguarded alternative wins; all declining falls through to the next ancestor.
+        With no enabled transition, nothing changes and no work starts.
 
         "self" changes no state and restarts no work, including at the root. An explicit target
         re-enters itself if active; targeting an active ancestor re-enters it and its descendants
-        through its defaults. For a handler at H targeting T, the unchanged boundary is H when T
-        is a strict descendant of H; otherwise it is the nearest proper ancestor of T that also
+        through its defaults. For a handler at H targeting T, the unchanged boundary is H when T is
+        a strict descendant of H; otherwise it is the nearest proper ancestor of T that also
         contains H. Active states below that boundary exit deepest first; the path to T and its
         defaults enters outermost first. Work at and above that boundary survives unchanged.
-        Parents' activities start before children's and stop after them. Defaults reach a leaf
-        in one publication with no intermediate work or snapshot.
+        Parents' activities start before children's and stop after them. Defaults reach a leaf in
+        one publication with no intermediate work or snapshot.
     O3  Turns
         Input ordering and atomic actor/store publication are @plan.Runtime.O4. An accepted
-        transition computes updateMemory before action parameters; both read the pre-turn
-        snapshot and event. The Partial<Memory> patch shallow-merges once. Only accepted
-        transitions change memory. Updates, action parameters and send mappers receive now, one
-        Runtime Clock epoch millisecond value shared throughout the turn; guards receive no time.
+        transition computes updateMemory before action parameters; both read the pre-turn snapshot
+        and event. The Partial<Memory> patch shallow-merges once. Only accepted transitions change
+        memory. Updates, action parameters and send mappers receive now, one Runtime Clock epoch
+        millisecond value shared throughout the turn; guards receive no time.
 
         State changes, activity changes, schedule arming and the complete action batch validate
-        before publication. One invalid action rejects the whole batch; no valid prefix runs.
-        After publication, exited work releases, entered work starts, then finite actions start
-        or join. Unhandled or denied events publish nothing, change no revision and start no work;
+        before publication. One invalid action rejects the whole turn like a pre-commit defect:
+        prior state and memory stay, no action runs, and one issue-only snapshot names the code.
+        After publication, exited work releases, entered work starts, then finite actions start or
+        join. Unhandled or denied events publish nothing, change no revision and start no work;
         denials may be observed in evidence without a revision.
 
-        A pre-commit callback defect preserves prior state, memory, context and store truth,
-        starts no work and publishes one issue-only snapshot naming the callback and path.
-        It is not retried for that input. This includes guards, updates, action parameters, keys,
-        send payloads, schedules, restartOn, activity parameters and when predicates.
-        A post-commit mapper, placeholder, optimistic-data or write callback defect publishes
-        one issue, enqueues no event and applies no partial write batch; it neither rolls back
-        the committed state nor retries that occurrence. Write semantics are @plan.Operations.O5.
+        A pre-commit callback defect preserves prior state, memory, context and store truth, starts
+        no work and publishes one issue-only snapshot naming the callback and path. It is not
+        retried for that input. This includes guards, updates, action parameters, keys, send
+        payloads, schedules, restartOn, activity parameters and when predicates. A post-commit
+        mapper, placeholder, optimistic-data or write callback defect publishes one issue, enqueues
+        no event and applies no partial write batch; it neither rolls back the committed state nor
+        retries that occurrence. Write semantics are @plan.Operations.O5.
 
         Outside callers can send only valid public event envelopes; invalid payloads or internal
         events fail with InvalidEvent before a turn exists. The same snapshot, event, Clock and
@@ -96,79 +98,75 @@ outcomes
         Guards read only these captured inputs and start no work, so views can trust check.
 
         check(snapshot, event) uses the same handler, alternative and fallthrough rules without
-        updating memory, admitting events, publishing, recording evidence or starting work.
-        It returns { _tag: "Allowed" } if a transition would run; { _tag: "Denied", reasons }
-        if handlers exist but all decline; or { _tag: "Unhandled" } if none exists. Denied reasons
+        updating memory, admitting events, publishing, recording evidence or starting work. It
+        returns { _tag: "Allowed" } if a transition would run; { _tag: "Denied", reasons } if
+        handlers exist but all decline; or { _tag: "Unhandled" } if none exists. Denied reasons
         contain { code, context } for each declined alternative, deepest level then authored order.
         Verdicts compare by Equal.equals. An old snapshot answers from its own captured values.
-        Admission lifecycle is a separate concern: @plan.Runtime.O6.
+
         A defective guard makes check throw GuardDefect without publishing an issue. Internal or
         foreign events are type errors and fail untyped calls with InvalidEvent.
     O5  Schedules
         A node declares schedules: { name: { schedule, send, restartOn? } }. schedule is a
         Duration.Input, an Effect Schedule, or ({ memory, context, now }) => either. An invalid
-        duration or schedule prevents entry with the pre-commit defect behavior of @O3.
-        send is this definition's payload-free event or E.X.from(metadata); metadata contains
-        name, attempt (firings since arming, starting at 1), armedAt, dueAt, firedAt and output.
-        Times use Runtime Clock milliseconds; Duration output is undefined.
+        duration or schedule prevents entry with the pre-commit defect behavior of @O3. send is this
+        definition's payload-free event or E.X.from(metadata); metadata contains name, attempt
+        (firings since arming, starting at 1), armedAt, dueAt, firedAt and output. Times use Runtime
+        Clock milliseconds; Duration output is undefined.
 
-        Entry arms a schedule; exit cancels it. Descendant changes and "self" preserve deadlines.
-        A firing becomes an ordinary event; if its declaring activation ended before handling,
-        it is discarded. A Duration fires once; a Schedule fires each step until complete.
-        Equal deadlines enqueue by actor admission order, then outermost state, then declaration
-        order. An overdue step fires once, never in a burst; the next delay starts at actual firing.
+        Entry arms a schedule; exit cancels it. Descendant changes and "self" preserve deadlines. A
+        firing becomes an ordinary event; if its declaring activation ended before handling, it is
+        discarded. A Duration fires once; a Schedule fires each step until complete. Equal deadlines
+        enqueue by actor admission order, then outermost state, then declaration order. An overdue
+        step fires once, never in a burst; the next delay starts at actual firing.
 
-        restartOn({ memory, context }) establishes a silent baseline and leaves the schedule idle
-        on entry. After each committed turn, a changed selection under Equal.equals restarts only
-        that schedule from its first step at commit time; equal values do nothing. A Duration
-        returns to idle after firing, allowing debounce behavior.
-        On restore or resume, a Duration preserves its deadline and fires once if overdue; a
-        multi-step Schedule restarts at step one. Restored restartOn baselines are silent.
-        Hydration activation is @plan.ServerRendering.O5; deterministic time is @plan.Testing.O2.
+        restartOn({ memory, context }) establishes a silent baseline and leaves the schedule idle on
+        entry. After each committed turn, a changed selection under Equal.equals restarts only that
+        schedule from its first step at commit time; equal values do nothing. A Duration returns to
+        idle after firing, allowing debounce behavior. On restore or resume, a Duration preserves
+        its deadline and fires once if overdue; a multi-step Schedule restarts at step one. Restored
+        restartOn baselines are silent. Hydration activation is @plan.ServerRendering.O5;
+        deterministic time is @plan.Testing.O2.
     O6  Activities and outcomes in machines
-        activities: { name: O.x.subscribe(params, { outcomes?, placeholder?, when? }) } runs
-        while the declaring state is active and when is not false. params and when may read
-        { state, memory, context, activities }. Lane shapes and placeholders are 
-        @plan.Operations.O6.
-        After each turn, unchanged operation and canonical parameter key keep existing work and
-        its original parameters. A changed key releases old work exactly once and starts new work;
-        when false releases only that activity. Release failure reports once without blocking
-        the transition.
+        activities: { name: O.x.subscribe(params, { outcomes?, placeholder?, when? }) } runs while
+        the declaring state is active and when is not false. params and when may read { state,
+        memory, context, activities }. Lane shapes and placeholders are @plan.Operations.O6. After
+        each turn, unchanged operation and canonical parameter key keep existing work and its
+        original parameters. A changed key releases old work exactly once and starts new work; when
+        false releases only that activity. Release failure reports once without blocking the
+        transition.
 
         Finite actions declare optional success, failure, defect, interrupt and unknown outcomes;
         subscriptions declare value, complete, failure, defect and interrupt. Each maps to this
         definition's event: bare for payload-free events, E.X.from(value) for payloads. failure
-        accepts one event for untagged errors or an exhaustive error-_tag mapping. Mapped events
-        run in later ordinary turns. Omitted outcomes send nothing; facts still publish in lanes,
-        and omitted failures or defects publish an actor issue.
-        value fires only for a changed confirmed value under Equal.equals, never for predictions
-        or optimistic values. unknown carries the Attempt for explicit reconciliation through
-        @plan.Operations.O3.
+        accepts one event for untagged errors or an exhaustive error-_tag mapping. Mapped events run
+        in later ordinary turns. Omitted outcomes send nothing; facts still publish in lanes, and
+        omitted failures or defects publish an actor issue. value fires only for a changed confirmed
+        value under Equal.equals, never for predictions or optimistic values. unknown carries the
+        Attempt for explicit reconciliation through @plan.Operations.O3.
 
-        Lane-only changes publish captured lanes without running handlers, guards, updates,
-        actions, schedules, restartOn or onContext. Finite work starts only from an accepted
-        transition's actions; operation action semantics are @plan.Operations.O2 and sending is
-        @plan.Runtime.O4.
+        Lane-only changes publish captured lanes without running handlers, guards, updates, actions,
+        schedules, restartOn or onContext. Finite work starts only from an accepted transition's
+        actions; operation action semantics are @plan.Operations.O2 and sending is @plan.Runtime.O4.
     O7  Context reactions
-        Machine-level onContext: [{ select, when?, event }] observes context changes.
-        select({ context, memory }) establishes a silent baseline at admission, restore,
-        adoption and hydration. Only context waves re-run it, using current memory; memory-only
-        changes do not trigger it. Context propagation is @plan.Runtime.O5.
-        Equal selections under Equal.equals are silent. A changed selection becomes the baseline
-        even if when(current, previous) declines. With no when, or when true, event (bare or
-        E.X.from(current)) enqueues after the context turn, in reaction declaration order.
-        A select, when or mapper defect publishes one issue, keeps the previous baseline and
-        emits nothing; the next wave may try again. Reactions never change state directly.
+        Machine-level onContext: [{ select, when?, event }] observes context changes. select({
+        context, memory }) establishes a silent baseline at admission, restore, adoption and
+        hydration. Only context waves re-run it, using current memory; memory-only changes do not
+        trigger it. Context propagation is @plan.Runtime.O5. Equal selections under Equal.equals are
+        silent. A changed selection becomes the baseline even if when(current, previous) declines.
+        With no when, or when true, event (bare or E.X.from(current)) enqueues after the context
+        turn, in reaction declaration order. A select, when or mapper defect publishes one issue,
+        keeps the previous baseline and emits nothing; the next wave may try again. Reactions never
+        change state directly.
     O8  The snapshot
         A snapshot exposes state (complete leaf path), memory (decoded value), context (selected
         slots), issues (Diagnostic values), lifecycle (active, disposing or disposed), and
-        activities (named lanes, undefined when not running). It has no input, methods, timers
-        or public revision. Diagnostic values are @plan.Diagnostics.O1.
-        Snapshots are deeply frozen plain data. Reading an old snapshot never consults live lanes.
-        Unchanged parts retain identity across publications; Flow-owned containers are copied,
-        while opaque application values retain identity.
-        A later success or release clears its own source's issue, never another source's issue;
-        a new actor incarnation inherits none. Disposal is @plan.Runtime.O6.
+        activities (named lanes, undefined when not running). It has no input, methods, timers or
+        public revision. Diagnostic values are @plan.Diagnostics.O1. Snapshots are deeply frozen
+        plain data. Reading an old snapshot never consults live lanes. Unchanged parts retain
+        identity across publications; Flow-owned containers are copied, while opaque application
+        values retain identity. A later success or release clears its own source's issue, never
+        another source's issue; a new actor incarnation inherits none. Disposal is @plan.Runtime.O6.
 verification
     V1  Type tests prove inference and reject undeclared or foreign members and invalid guards.
     V2  Tests prove construction rejects invalid declarations in order without starting work.
@@ -180,14 +178,8 @@ verification
     V8  Stories prove reaction baselines, context triggers, event order and defect recovery.
     V9  Tests prove frozen captured snapshots, stable identities and source-specific issue clearing.
 questions
-    Q1  Should a compound choose its default child from input or memory?
-        Version 1 uses static defaults; a different initial child needs an event turn and an
-        intermediate publication. Guarded defaults remain open for a demonstrated app need.
-    Q2  Deferred to build time
-        Internal identity encoding and construction validation machinery.
-        Warning presentation.
-        Schedule stepping implementation and inspection status fields.
-        Issue indexing and diagnostic rendering details.
-        Type-spike sizing and compiler performance measurements.
-        Reflection behavior for proxies, getters, symbols and sparse arrays.
-        Future playback and structural-representation extensions.
+    Q1  Deferred to build time
+        Internal identity encoding and construction validation machinery. Warning presentation.
+        Schedule stepping implementation and inspection status fields. Issue indexing and diagnostic
+        rendering details. Type-spike sizing and compiler performance measurements. Reflection
+        behavior for proxies, getters, symbols and sparse arrays.

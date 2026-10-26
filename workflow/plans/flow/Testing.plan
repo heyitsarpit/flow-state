@@ -6,28 +6,26 @@ goal
     state and replay generated failures against the production Runtime.
 outcomes
     O1  Stories
-        story.app(setup, { id, fixtures? }) accepts a typed RuntimeSetup.
-        story.machine(machine, { id, input?, context?, services?, fixtures? }) tests one fresh 
-        actor.
-        Focused input and context are required exactly when declared and have their declared types;
-        services must satisfy the machine's requirements. App Stories exercise real App wiring.
-        A Story id is nonempty and unique within its App; derived exported Stories need distinct 
-        ids.
+        story.app(setup, { id, fixtures? }) accepts a typed RuntimeSetup. story.machine(machine, {
+        id, input?, context?, services?, fixtures? }) tests one fresh actor. Focused input and
+        context are required exactly when declared and have their declared types; services must
+        satisfy the machine's requirements. App Stories exercise real App wiring. A Story id is
+        nonempty and unique within its App; derived exported Stories need distinct ids.
 
         Construction, import and discovery start no services, actors, fixtures or assertions.
-        Commands return new static plans without changing earlier prefixes. Branches replay in
-        fresh Runtimes. Scenario commands accept no arbitrary callbacks, conditional branches,
-        live handles or raw state overrides. run({ signal? }) is the execution boundary and returns
-        a Promise of a StoryRun containing checkpoints, end, trace and any captured payloads.
+        Commands return new static plans without changing earlier prefixes. Branches replay in fresh
+        Runtimes. Scenario commands accept no arbitrary callbacks, conditional branches, live
+        handles or raw state overrides. run({ signal? }) is the execution boundary and returns a
+        Promise of a StoryRun containing checkpoints, end, trace and any captured payloads.
 
         Both Story kinds support send, process, advance, advanceTo, advanceToNextTimer, checkpoint
-        and run. App ensure(ref, options?) follows @plan.Runtime.O3 at the chosen step.
-        App send(ref, event) targets that exact ref; focused send(event) targets its actor.
-        send never creates an absent actor. Only public events can be sent; internal events require
-        their declared producers. Focused setContext(context) replaces the actor's context as a
-        production context update: a changed value runs onContext as an ordinary turn, an equal
-        value is silent, and the initial context is a silent baseline (@plan.Runtime.O5).
-        App Stories cannot inject context.
+        and run. App ensure(ref, options?) follows @plan.Runtime.O3 at the chosen step. App
+        send(ref, event) targets that exact ref; focused send(event) targets its actor. send never
+        creates an absent actor. Only public events can be sent; internal events require their
+        declared producers. Focused setContext(context) replaces the actor's context as a production
+        context update: a changed value runs onContext as an ordinary turn, an equal value is
+        silent, and the initial context is a silent baseline (@plan.Runtime.O5). App Stories cannot
+        inject context.
 
         Checkpoint names retain exact literal or known-union keys. Duplicate names, widened strings
         and access through unknown literal keys are type errors; other commands preserve the keys.
@@ -36,7 +34,8 @@ outcomes
         before acquiring resources. Loading and configuration discovery follow @plan.CommandLine.O6.
     O2  Explicit processing and time
         Identical plans, seeds and fixture inputs produce identical ordered traces. Each run has
-        fresh service state, seeded ids and randomness, and a controlled clock; host time and
+        fresh service state, seeded ids and randomness (each tab seeded from the run seed, tab name
+        and open count, so ids never repeat across reloads), and a controlled clock; host time and
         randomness never choose scenario order. Stories execute production behaviour.
 
         process() drains currently eligible work that can settle without moving time. It waits
@@ -44,28 +43,27 @@ outcomes
         remains visible. It never invents results, advances time or executes another run's work.
         Each call permits 10,000 production turns. The attempted 10,001st turn rejects with
         StoryTurnLimit before executing; later commands do not run and partial evidence survives.
-        There is no maxTurns option.
-        advance(duration) accepts a finite nonnegative Duration.Input. advanceTo(epochMilliseconds)
-        accepts a finite safe integer at or after now. advanceToNextTimer() moves to the earliest
-        pending deadline, stays at now when already due, and does nothing when no timer exists.
-        These commands make work eligible without draining it; process() applies the due work.
-        Invalid or backwards movement rejects with InvalidDuration before changing time.
+        There is no maxTurns option. advance(duration) accepts a finite nonnegative Duration.Input.
+        advanceTo(epochMilliseconds) accepts a finite safe integer at or after now.
+        advanceToNextTimer() moves to the earliest pending deadline, stays at now when already due,
+        and does nothing when no timer exists. These commands make work eligible without draining
+        it; process() applies the due work. Invalid or backwards movement rejects with
+        InvalidDuration before changing time.
     O3  Fixtures
         Fixtures are Effect Layers replacing whole service functions while preserving their input,
         success, failure, cancellation and lifetime contracts. Delays and responses pass through
         real services and the controlled clock; fixtures cannot inject operation outcomes directly.
-        Fixtures may depend on setup services and shadow those services. Duplicate service Tags 
-        among fixtures reject with DuplicateFixture before either conflicting provider is acquired; 
-        replacement requires
-        an explicit overriding form identifying the replaced fixture and replacement Layer.
-        Fixtures providing no service are valid. Missing service requirements are type errors;
-        untyped callers fail before actor activation.
+        Fixtures may depend on setup services and shadow those services. Duplicate service Tags
+        among fixtures reject with DuplicateFixture before either conflicting provider is acquired;
+        replacement requires an explicit overriding form identifying the replaced fixture and
+        replacement Layer. Fixtures providing no service are valid. Missing service requirements are
+        type errors; untyped callers fail before actor activation.
 
-        Every run has fresh scoped providers and server truth. Stateful fixtures remember writes
-        and idempotency results and update that truth before emitting pushes. Story persistence
-        always uses a fresh in-memory KeyValueStore; setup and fixtures never open external storage
-        or inherit a live store. Storage fixtures may seed encoded records before bootstrap, but
-        cannot bypass production validation. Acquisition failures still trigger @O8 cleanup.
+        Every run has fresh scoped providers and server truth. Stateful fixtures remember writes and
+        idempotency results and update that truth before emitting pushes. Story persistence always
+        uses a fresh in-memory KeyValueStore; setup and fixtures never open external storage or
+        inherit a live store. Storage fixtures may seed encoded records before bootstrap, but cannot
+        bypass production validation. Acquisition failures still trigger @O8 cleanup.
     O4  Faithful checkpoints
         checkpoint(name) captures immediately without processing. end captures after the last
         command, before cleanup; it does not mean actors have reached final states. A cut includes
@@ -74,22 +72,21 @@ outcomes
         due times, issues and evidence; partially published context waves never appear as complete.
 
         checkpoint.actor(ref) returns undefined for an absent actor, otherwise exposes snapshot.
-        Focused checkpoints also expose snapshot directly. end supports the same reads.
-        now is captured epoch milliseconds; pending identifies owners, operations or schedules,
-        attempts where applicable, and deadlines. descriptor.get(checkpoint, input),
+        Focused checkpoints also expose snapshot directly. end supports the same reads. now is
+        captured epoch milliseconds; pending identifies owners, operations or schedules, attempts
+        where applicable, and deadlines. descriptor.get(checkpoint, input),
         Domain.entry.get(checkpoint, input), Entity.get(checkpoint, key, shape) and
-        Entity.queue(checkpoint, key) read the captured revision without live lookups.
-        Entity.get returns undefined for absence, otherwise { data, pending, uncertain, unconfirmed 
-        };
-        shape selects fields and missing fields remain missing. Inactive domain answers return
-        undefined. Field and queue meanings follow @plan.EntityDomains.O2;
-        descriptor lanes follow @plan.Operations.O6.
+        Entity.queue(checkpoint, key) read the captured revision without live lookups. Entity.get
+        returns undefined for absence, otherwise { data, pending, uncertain, unconfirmed }; shape
+        selects fields and missing fields remain missing. Inactive domain answers return undefined.
+        Field and queue meanings follow @plan.EntityDomains.O2; descriptor lanes follow
+        @plan.Operations.O6.
 
         Cuts retain cumulative repairs, skips and diagnostics in accepted order; run.trace also
         includes cleanup events. Truncation is explicit and cannot prove an absent cause, following
-        @plan.Inspection.O4. Earlier evidence stays unchanged as execution continues.
-        In-process snapshots retain sensitive values faithfully; application opaque values retain
-        identity. Reads start no work and cannot resume a Runtime. Exported evidence follows
+        @plan.Inspection.O4. Earlier evidence stays unchanged as execution continues. In-process
+        snapshots retain sensitive values faithfully; application opaque values retain identity.
+        Reads start no work and cannot resume a Runtime. Exported evidence follows
         @plan.Inspection.O5. Failed capture fabricates no end and preserves earlier checkpoints.
 
         CheckpointProvider renders exactly the captured actors and store without attachment,
@@ -102,104 +99,96 @@ outcomes
         synchronously with their cause and no partial result; object identity is never a fallback.
 
         getShortestPaths({ events, maxDepth?, limit? }) returns first shortest paths in candidate
-        order. getSimplePaths uses candidate-order depth-first paths without repeated keys.
-        Both include the zero-step path and return { paths, truncated, explored }; explored counts
+        order. getSimplePaths uses candidate-order depth-first paths without repeated keys. Both
+        include the zero-step path and return { paths, truncated, explored }; explored counts
         distinct keys including the initial key. truncated means a bound hid a reachable candidate.
         maxDepth defaults to 20 and is a nonnegative safe integer; limit defaults to 100 and is a
         positive safe integer. Invalid bounds reject synchronously. Events are local to each call.
-        Exploration starts no Runtime, service, fixture or operation and moves no time.
-        Declared operation outcomes and schedules may be candidates. Returned Stories obtain them
-        through real fixtures or schedules, never by externally sending internal events. An
-        unavailable fixture outcome fails replay parity rather than synthesizing delivery.
-        path.state is the final projection; path.keyOf projects a live snapshot; path.story extends
-        the base with the candidate sequence. process() remains explicit. Live replay must match
-        predicted keys at every prefix and the end; pure exploration alone proves no effect 
-        behaviour.
+        Exploration starts no Runtime, service, fixture or operation and moves no time. Declared
+        operation outcomes and schedules may be candidates. Returned Stories obtain them through
+        real fixtures or schedules, never by externally sending internal events. An unavailable
+        fixture outcome fails replay parity rather than synthesizing delivery. path.state is the
+        final projection; path.keyOf projects a live snapshot; path.story extends the base with the
+        candidate sequence. process() remains explicit. Live replay must match predicted keys at
+        every prefix and the end; pure exploration alone proves no effect behaviour.
     O6  Reproducible property tests
         propertyTest(domains, options) generates ordinary Stories on fresh production Runtimes.
-        Overlapping domains are tested together, with probe subscriptions when no App is supplied.
+        Overlapping domains are tested together, with probe subscriptions on every read entry.
         Domain properties, quietness and oracle comparisons belong to @plan.EntityDomains.O4.
-        options are fixture, inputs and seed, with optional runs, steps and quietWithin. fixture is 
-        a
-        stateful fixture whose server truth is the oracle. inputs keys read and write entries;
-        each listed entry needs a typed generator, and unlisted entries are not exercised.
-        Foreign or invalid inputs reject before the generated operation starts.
+        options are fixture, inputs and seed, with optional runs, steps and quietWithin. fixture is
+        a stateful fixture whose server truth is the oracle. inputs keys read and write entries;
+        each listed entry needs a typed generator, and unlisted entries are not exercised. Foreign
+        or invalid inputs reject before the generated operation starts.
 
         Generators are nonempty readonly sample arrays or pure { sample, shrink } objects using the
         supplied seeded random source. Array samples are uniform and shrink toward earlier entries;
-        custom shrink returns a finite ordered sequence. seed is a safe integer; runs and steps are 
-        positive safe integers, defaulting to 50 and 40. quietWithin defaults to 60 seconds of 
-        virtual time and accepts a
-        finite nonnegative Duration.Input. Pending work at that horizon is inconclusive, never pass.
-        Generated faults hold, release, fail, delay, reorder, duplicate or lose responses; change
-        server truth and push; disconnect and reconnect; change subscriptions; invalidate; crash
-        and restore; or adopt a supplied domain. They run through real service and lifecycle
-        paths, so a lost response can leave a committed write unknown. The oracle reads fixture
-        server truth directly, without cache, prediction, network faults or adapter calls.
+        custom shrink returns a finite ordered sequence. seed is a safe integer; runs and steps are
+        positive safe integers, defaulting to 50 and 40. quietWithin defaults to 60 seconds of
+        virtual time and accepts a finite nonnegative Duration.Input. Pending work at that horizon
+        is inconclusive, never pass. Generated faults hold, release, fail, delay, reorder, duplicate
+        or lose responses; change server truth and push; disconnect and reconnect; change
+        subscriptions; invalidate; crash and restore; or adopt a supplied domain. They run through
+        real service and lifecycle paths, so a lost response can leave a committed write unknown.
+        The oracle reads fixture server truth directly, without cache, prediction, network faults or
+        adapter calls.
 
         Every committed publication is checked, even when process() drains many turns. After the
-        generated actions, processing and timer advances seek quietness within quietWithin.
-        Results distinguish Pass, Fail and Inconclusive and retain seed, completed runs and 
-        evidence.
-        Fail identifies the property and step/publication; turn exhaustion, pending external work,
-        a quiet horizon or insufficient evidence is Inconclusive. Acquisition, generator and cleanup
-        defects reject as execution errors rather than domain counterexamples.
-        Shrinking deterministically tries action chunks, individual actions, then smaller inputs,
-        preserving dependencies and input validity. Each candidate runs fresh and is retained only
-        if the same property fails. Stop at 1,000 candidates or no smaller failure; report the 
-        bound.
-        Re-run the final failure and emit a static Story with literal inputs, controls and seed.
-        Repeated replay produces identical traces. Export redaction identifies omissions that 
-        prevent
-        the printed projection alone from reproducing the failure.
+        generated actions, processing and timer advances seek quietness within quietWithin. Results
+        distinguish Pass, Fail and Inconclusive and retain seed, completed runs and evidence. Fail
+        identifies the property and step/publication; turn exhaustion, pending external work, a
+        quiet horizon or insufficient evidence is Inconclusive. Acquisition, generator and cleanup
+        defects reject as execution errors rather than domain counterexamples. Shrinking
+        deterministically tries action chunks, individual actions, then smaller inputs, preserving
+        dependencies and input validity. Each candidate runs fresh and is retained only if the same
+        property fails. Stop at 1,000 candidates or no smaller failure; report the bound. Re-run the
+        final failure and emit a static Story with literal inputs, controls and seed. Repeated
+        replay produces identical traces. Export redaction identifies omissions that prevent the
+        printed projection alone from reproducing the failure.
     O7  Isolation, hydration and lazy features
         Run, principal and request isolation follows @plan.Runtime.O7. Tests use no browser storage
         or live state from another run.
 
-        App Stories model reload and a second tab as tabs: independent Runtimes of the Story's
-        setup sharing that run's in-memory storage. openTab(name) constructs and readies one;
+        App Stories model reload and a second tab as tabs: independent Runtimes of the Story's setup
+        sharing that run's in-memory storage. openTab(name) constructs and readies one;
         closeTab(name) ends it abruptly, with no final flush, like a closed or crashed page, and
-        releases its scope ownership. send,
-        ensure and checkpoint reads take an optional tab (default "main"); checkpoints expose
-        tabs.<name>. A tab opened while another holds the scope runs without persistence
-        (@plan.Persistence.O7). Tabs share nothing else; there is no cross-tab coordination.
+        releases its scope ownership. send, ensure and checkpoint reads take an optional tab
+        (default "main"); checkpoints expose tabs.<name>. A tab opened while another holds the scope
+        runs without persistence (@plan.Persistence.O7). Tabs share nothing else; there is no
+        cross-tab coordination.
 
-        App dehydrate(label, { scope, within, maxBytes? }) captures through production server 
-        settle,
-        advancing controlled time through delays until quiet or within. It stores 
-        run.payloads[label]
-        and leaves the scenario Runtime available. Labels follow checkpoint key rules.
-        hydrate(source, label?) accepts a payload or an independently executed source Story.
+        App dehydrate(label, { scope, within, maxBytes? }) captures through production server
+        settle, advancing controlled time through delays until quiet or within. It stores
+        run.payloads[label] and leaves the scenario Runtime available. Labels follow checkpoint key
+        rules. hydrate(source, label?) accepts a payload or an independently executed source Story.
         Leading hydrate runs before bootstrap and storage restore; later hydrate models navigation.
         Payload contents follow @plan.ServerRendering.O3, validation and installation
         @plan.ServerRendering.O4, precedence @plan.ServerRendering.O5 and isolation
-        @plan.ServerRendering.O6. Source cycles and missing labels reject before execution;
-        failures identify the source or destination boundary. Checkpoints expose hydration evidence
-        and serverView(label) for first-render comparison. dehydrate is the explicit exception to
+        @plan.ServerRendering.O6. Source cycles and missing labels reject before execution; failures
+        identify the source or destination boundary. Checkpoints expose hydration evidence and
+        serverView(label) for first-render comparison. dehydrate is the explicit exception to
         process-only draining.
 
         Lazy ensure and focused construction adopt supplied definitions at the chosen step without
         moving time or invoking a module loader, following @plan.LazyFeatures.O2. Checkpoints expose
-        adopted entries; unrelated dormant records remain dormant. Real module loading is exercised 
+        adopted entries; unrelated dormant records remain dormant. Real module loading is exercised
         by production host tests.
     O8  Cancellation, cleanup and failure evidence
         Cancellation stops admission and later commands, retains partial evidence and waits for
-        finalization. A blocked send settles once; no committed turn or end is fabricated.
-        Success, execution failure, partial acquisition and cancellation all finalize owned 
-        resources.
+        finalization. A blocked send settles once; no committed turn or end is fabricated. Success,
+        execution failure, partial acquisition and cancellation all finalize owned resources.
         Cleanup attempts each finalizer once even when another fails; fixtures cannot suppress it.
-        It runs in a fixed order: stop admission, dispose actors consumers before providers,
-        dispose the Runtime, then release fixture and host scopes last.
-        Production disposal guarantees follow @plan.Runtime.O6.
+        It runs in a fixed order: stop admission, dispose actors consumers before providers, dispose
+        the Runtime, then release fixture and host scopes last. Production disposal guarantees
+        follow @plan.Runtime.O6.
 
         Execution or cancellation failure stays primary; otherwise the first cleanup failure is
         primary. Cleanup diagnostics retain their order, and cleanup failure never yields success.
         The full Cause remains available in process through cleanup; projection follows
-        @plan.Diagnostics.O3 and never serializes Cause or private recovery authority.
-        Rejection is a FlowError carrying readonly Story evidence: completed checkpoints, captured
-        end and payloads if any, failing command index or bootstrap/capture/cleanup boundary,
-        primary and cleanup diagnostics, cancellation flag, trace and truncation, and last accepted
-        and drained evidence positions. Direct and CLI runs agree on results and retained evidence.
+        @plan.Diagnostics.O3 and never serializes Cause or private recovery authority. Rejection is
+        a FlowError carrying readonly Story evidence: completed checkpoints, captured end and
+        payloads if any, failing command index or bootstrap/capture/cleanup boundary, primary and
+        cleanup diagnostics, cancellation flag, trace and truncation, and last accepted and drained
+        evidence positions. Direct and CLI runs agree on results and retained evidence.
 verification
     V1  Type errors prove exact inputs, context, services and checkpoint keys.
     V2  Stories prove inert construction, branch isolation, fixture overrides and fresh storage.
@@ -207,19 +196,15 @@ verification
     V4  Tests prove complete passive cuts, stable earlier evidence and faithful rendering.
     V5  Tests prove model ordering, bounds, truncation and live replay parity at every prefix.
     V6  Property tests prove seeded replay, validated controls, result distinctions and shrinking.
-    V7  Stories prove isolated hydration evidence, exact-step lazy adoption without loading,
-        reload by closeTab/openTab, and a second tab running without persistence.
+    V7  Stories prove isolated hydration evidence, exact-step lazy adoption without loading, reload
+        by closeTab/openTab, and a second tab running without persistence.
     V8  Tests prove cancellation, cleanup failures and direct/CLI partial-evidence parity.
 questions
     Q1  What measured quiet horizon and shrink budget should replace the initial defaults?
-        Retain 60 virtual seconds and 1,000 shrink candidates until measurements justify a change;
-        a budget change must never turn incomplete evidence into pass.
+        Retain 60 virtual seconds and 1,000 shrink candidates until measurements justify a change; a
+        budget change must never turn incomplete evidence into pass.
     Q2  Deferred to build time
-        Fixture composition mechanics and override syntax.
-        Model key encoding and limits.
-        Model path descriptions and traversal metadata.
-        Property control identifiers and literal encoding.
-        Checkpoint container freezing and private name lookup.
-        Cleanup phase implementation.
-        Discovery identity encoding.
-        Evidence artifact codecs and host coverage.
+        Fixture composition mechanics and override syntax. Model key encoding and limits. Model path
+        descriptions and traversal metadata. Property control identifiers and literal encoding.
+        Checkpoint container freezing and private name lookup. Cleanup phase implementation.
+        Discovery identity encoding. Evidence artifact codecs and host coverage.
