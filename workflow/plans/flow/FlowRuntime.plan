@@ -1,496 +1,174 @@
 plan FlowRuntime
-title   Closed applications, readiness, actor ownership and causal context
+title   Applications, readiness, actors and context
 status  proposed
 goal
-    Give hosts, React, requests, Stories and CLI one production Runtime: one admitted machine
-    universe, one canonical store, one ordered decision path and truthful cleanup. This Plan owns
-    FlowState O3 and O4 and decisions D8 to D10 (Runtime boundaries), D12 to D16, D27, D28 and
-    D51. Their replacement decisions below name the former IDs. No implementation completion is
-    claimed. Archived ApplicationsAndActors is provenance only; references/ledger/Runtime.md
-    records every assigned inventory row.
-
-    Machine turns and snapshots are @plan.Machines.O1 to @plan.Machines.O7; operation ownership
-    is @plan.FlowOperations.O1 to @plan.FlowOperations.O7; storage and restore are @plan.FlowPersistence.O1
-    to @plan.FlowPersistence.O6. React attachment is @plan.React.O1 to @plan.React.O3, hydration is
-    @plan.ServerRendering.O1 to @plan.ServerRendering.O7, and lazy adoption is
-    @plan.LazyFeatures.O1 to @plan.LazyFeatures.O3. Design rationale and examples are in
-    references/design/minimal-library.md sections 1, 2, 9 and 10, and
-    references/design/lazy-features.md sections 3, 5 to 9. Binding decisions.md rulings win over
-    older design text, including ruling 38's deletion of shared multi-tab persistence.
+    One Runtime runs every host, React tree, server request, Story and CLI command: a closed set
+    of machines, one store, one ordered decision path per actor, causally complete context and
+    truthful cleanup. Turns are @plan.Machines.O3, operations @plan.FlowOperations.O1, storage
+    @plan.FlowPersistence.O1, React @plan.React.O1, hydration @plan.ServerRendering.O1 and lazy
+    entries @plan.LazyFeatures.O1. Full notes: references/full/Runtime.full.plan.txt.
 outcomes
     O1  Apps
-        app({ id, machines }) returns an inert App with the exact inferred keyed machine record;
-        no public App.M alias is required. Each entry is a Machine, { machine, context? }, or
-        { id, load, context? } for a declared lazy machine (@plan.LazyFeatures.O1). An eager entry
-        uses exact machine-object provenance. A lazy entry declares its machine's literal id;
-        load returns Promise<Machine> with that same literal id. First adoption fixes its exact
-        object, and later mismatched objects reject with EntryMismatch. Construction never calls
-        a loader. Ordinary ensure/create adopt synchronously from code already in hand; tooling
-        and transferred SSR entries may load asynchronously under @plan.LazyFeatures.O2.
+        app({ id, machines }) is inert and lists every machine the Runtime may run. An entry is a
+        Machine, { machine, context? }, or a lazy { id, load, context? } (@plan.LazyFeatures.O1).
+        The list is closed for the Runtime's lifetime: no runtime registration or child actors.
+        Construction throws FlowError on unknown fields, duplicate machine ids, one machine under
+        two keys, and colliding operation, domain or entity identities; lazy entries are checked
+        the same way when adopted, before any work. Constructing an app, setup or ref runs no
+        callback, loader, service, storage access, actor, timer or evidence.
 
-        The entry set is closed for the Runtime lifetime. No arbitrary runtime registration,
-        dynamic roots or child actors exist. Adoption binds code to a declared id; it never adds
-        an undeclared machine. Each eager or adopted machine contributes its context and send
-        edges, descriptors, domains, entities and service requirements to the compiled graph.
-        Unknown lazy entries stay inactive, with dormant storage bytes under
-        @plan.LazyFeatures.O3. No per-entry Layer, loading actor lifecycle or public load command
-        is added. Inspection's complete structural load does not activate a Runtime entry.
-
-        A local actor inherits the machine entry's context default. A shared ref's context
-        supplies its declared slots, falling back slot by slot to that default. The resolved
-        record must cover every declared slot exactly; unknown slots or incompatible provider
-        machines reject. ensure/create/hook call sites cannot supply wiring.
-
-        Construction returns values and throws FlowError with canonical path-bearing diagnostics
-        on ordinary malformed configuration, unknown fields, invalid entry kinds, duplicate keys
-        where observable, duplicate durable machine ids (including lazy declared ids), or one
-        machine value under two app keys. Across eager or adopted structure, reject colliding
-        operation, resource, domain or entity identities, a second entity object for one id, one
-        operation in two domains, or more than one byKey loader for an entity. Lazy conflicts are
-        checked atomically at adoption before registration or work.
-
-        App, machine, descriptor and stable-ref authored names use @plan.Machines.O1: nonempty,
-        at most 256 UTF-8 bytes; no C0 controls, DEL, NUL or lone surrogates; no normalization or
-        locale comparison. The app property key is ergonomic TypeScript structure; renaming it
-        never renames a machine in persistence or traces. Durable identity uses app id, machine
-        id and encoded actor id, never an app property key or a tooling group.
-
-        Compilation and all app/setup/ref constructors create no actor, subscription, storage
-        access, service acquisition, operation, timer or evidence. They may check static structure;
-        they do not run value callbacks. Machine authoring's single builder invocation is
-        @plan.Machines.O1, not execution during app compilation.
+        A machine entry's context is the default wiring for every actor of that machine; a shared
+        ref may override declared slots. The resolved wiring must cover every declared slot with
+        a compatible provider. Call sites (ensure, create, hooks) never supply wiring. Durable
+        identity is app id, machine id and actor id, never an app property key.
         Reference: references/dispatch-desk/app/app.ts.
     O2  Setup and readiness
-        runtimeSetup({ app, services?, persistence? }).construct() is synchronous, service-free
-        and inert. It returns a new isolated Runtime, not an acquired service environment.
-        services is an Effect Layer. Its output must cover the inferred union of requirements
-        from every reachable operation adapter, including every declared lazy entry's loader
-        result type. Requirements propagate descriptor to machine to app, covariantly, without
-        public recursive authored-config generics. Remove only Flow-owned Scope from consumer
-        requirements. Passive reads, pure callbacks and context selectors add no service
-        requirements. Complete supersets are valid; missing services or unresolved Layer input
-        requirements are type errors. services may be omitted exactly when nothing is required;
-        configured persistence also requires KeyValueStore. No RequirementsOf or Implementation
-        compatibility surface is restored.
+        runtimeSetup({ app, services?, persistence? }).construct() is synchronous and inert.
+        services is an Effect Layer that must provide every service the app's operation adapters
+        need, lazy entries included; a missing service is a type error. Each service is acquired
+        once per Runtime.
 
-        One Runtime owns one Layer build scope and memoization context. Each service acquisition
-        runs at most once in that build, including storage dependencies shared with adapters.
-        Production composition uses Effect 4.0.5 Layer merge semantics, including its duplicate
-        tag precedence; Flow adds no production duplicate-tag rejection. flow check warns when
-        duplicates are statically visible. Fixtures' explicit overriding and duplicate checks are
-        @plan.Testing.O3, not an alternative Runtime kernel.
+        ready() is the one readiness Effect. The first call starts the bootstrap; concurrent and
+        later callers share its result, including a failure (no implicit retry). Interrupting one
+        waiter interrupts only that wait. Bootstrap order:
 
-        ready() is the sole readiness Effect. Executing it the first time starts one
-        Runtime-owned bootstrap. Concurrent and later callers join the same cached terminal Exit,
-        including Failure, Defect or Interruption; no implicit retry occurs. Interrupting one
-        waiter interrupts only its wait. Runtime disposal interrupts bootstrap, closes admission
-        and wins over a late service acquisition; nothing can reopen a disposed Runtime.
+        1. With persistence in a browser that has Web Locks, try the (app, scope) lock without
+        waiting. If another tab holds it, report SecondTabNoPersistence and run without restore
+        or capture. Without Web Locks (server, insecure origin) skip this.
+        2. Acquire storage, then read and validate persisted data before any app service starts.
+        Invalid data is discarded with a diagnostic (@plan.FlowPersistence.O5).
+        3. Acquire the remaining services, install restored data and actors (providers before
+        consumers), establish silent context baselines, then open the Runtime to callers.
 
-        Bootstrap order is binding:
-
-        1. For persistence in a browsing context with navigator.locks, request the nonwaiting
-        ifAvailable Web Lock for (app id, scope), encoded unambiguously. Hold a granted lock
-        through the final write and disposal. If unavailable, report SecondTabNoPersistence and
-        run this Runtime without storage restore or capture. With no navigator.locks, including
-        a server or insecure origin, skip this check and proceed with persistence (ruling 38).
-        2. Acquire KeyValueStore and its dependency closure before reading or validating persisted
-        data. Read and prepare detached data, checking app/scope/version, codec bounds, identities,
-        Schemas, durable context closure and safe-integer headroom. Dormant lazy records stay
-        bounded and detached. Invalid scope data follows @plan.FlowPersistence.O4 and
-        @plan.FlowPersistence.O5: discard with a diagnostic, then start fresh. No actor or canonical
-        store entry is installed by detached preparation.
-        3. Acquire the remaining application services in the same build scope, reusing storage
-        dependencies; install validated store facts and restored actors, providers before
-        consumers. Required SSR lazy entries load and adopt under @plan.LazyFeatures.O4 and
-        transferred facts obey @plan.ServerRendering.O5.
-        4. Establish complete silent context and reaction baselines, finish wiring validation,
-        seal the admitted closure, activate actors, publish complete truth, then expose ordinary
-        handles and open host admission. An unused restored actor's retain countdown starts here.
-
-        Without persistence, omit storage/lock work. A storage acquisition failure is a readiness
-        failure, not corrupt-data recovery. Any Layer acquisition failure fails ready() with
-        FlowError and the original classification and Cause, rolls acquired owners back in
-        reverse order, and never becomes an operation outcome. No partial handle, installed
-        actor/store prefix or accepted turn evidence escapes failed readiness. Cleanup failure
-        retains its truth and quarantine rather than pretending rollback succeeded.
-
-        Before successful readiness, imperative ensureActor/createActor reject with NotReady;
-        ordinary host commands cannot enter. Pure pre-attach handles used by React are the sole
-        exception (@O4). Hydrate's inert render overlay and first-render rule are
-        @plan.ServerRendering.O4; they do not require a mutable public boot API or render-time
-        ready(). FlowProvider readiness/fallback/error behavior is @plan.React.O1.
-
-        runtime.runPromise runs Effects with the installed services at a host boundary and can
-        execute ready() itself without a circular readiness requirement. It is not another
-        bootstrap API; application service use requires readiness. Use
-        runPromise(Effect.exit(effect)) for an Exit; runPromiseExit is deleted. Phases, decoder,
-        bootstrap machinery and mutable hydration remain private. All storage and Layer scopes
-        close after their dependent actors and the final persistence closeout.
+        A service acquisition failure fails ready() with FlowError and its Cause, releases what
+        was acquired in reverse order, and leaves no partial actor or evidence. Before ready
+        succeeds, ensureActor and createActor reject with NotReady; React's pre-attach handles
+        (@O4) are the only exception. runtime.runPromise runs an Effect with the installed
+        services; there is no runPromiseExit.
         Reference: references/dispatch-desk/app/setup.ts, app/host.ts, app/persistence.ts.
     O3  Actor identity
-        actorRef(machine, id, { persist?, retain?, context? }) is inert and branded to the exact
-        machine. id is a string or a readonly array of strings (ruling 35). Each authored string
-        obeys @O1's name rules; a parts array is nonempty and each part is validated separately.
-        String ids retain the wire form
-        actor:<utf8ByteLength>:<machine-id><utf8ByteLength>:<authored-id>.
-        Parts encode a distinct tagged sequence with each exact UTF-8 part length-prefixed and
-        the part count, so ["a/b", "c"] differs from ["a", "b/c"] and a string cannot impersonate
-        a parts array. No delimiter joining or normalization occurs. flow check warns on joined
-        composite ids. Exact byte vectors, including the tagged parts encoding, are a foundation
-        gate; an ambiguous encoding cannot ship.
+        actorRef(machine, id, { persist?, retain?, context? }) is inert. id is a string or a
+        readonly array of strings; arrays encode unambiguously, so ["a/b", "c"] and ["a", "b/c"]
+        are different actors. Two refs with the same machine and id but different persist, retain
+        or context reject with FlowError and change nothing.
 
-        Shared identity within a Runtime is machine plus encoded id. persist (default false),
-        retain and resolved context are metadata, not additional identities. Two ref values with
-        the same identity but different persist/retain/context reject with a conflicting-ref
-        FlowError, leaving the accepted actor, input and wiring unchanged. Compare durations by
-        decoded duration and provider refs by exact admitted identity, not wrapper-object identity.
-        Statically visible conflicts are also a flow check finding. A ref carries no input,
-        callbacks, subscription or disposal authority. A local actor has only an opaque
-        Runtime-local identity: it has no durable ref, cannot persist or become an actor-send
-        target, and cannot be converted to a shared ref.
+        runtime.ensureActor(ref, { input }) returns the one shared actor for that identity,
+        creating or restoring it. The first accepted input initializes it; later ensures never
+        reset memory, and a different later input reports a diagnostic. A failed admission leaves
+        nothing behind, so a later ensure may retry with new input. An input-free machine is
+        ensured with no options. runtime.createActor(machine, { input }) always creates a new
+        local actor that cannot persist or be a send target. Handles expose send, getSnapshot and
+        snapshots.
 
-        runtime.ensureActor(ref, { input }) restores or creates the one shared actor for that
-        identity. An input-free machine accepts runtime.ensureActor(ref) with no options. Normal
-        admission is synchronous, and concurrent/reentrant requests for the same admission join
-        one result. The first successfully accepted fresh input initializes once. Later ensures
-        never reset memory; a different later input reports a diagnostic, rather than silently
-        suggesting the actor now represents different data. Compare using private identity
-        metadata; do not retain the original input in snapshots, callbacks, traces or persisted
-        records (@plan.Machines.O1). An invisible failed admission does not pin input: after clean
-        reverse rollback, a later call can retry with new input.
+        Disposing and then ensuring the same ref creates a new incarnation. Ensure while disposing
+        waits for cleanup, then creates. No outcome, schedule, issue or send from an old
+        incarnation ever reaches a new one.
 
-        Each admission validates readiness, exact App/machine/ref provenance, input Schema,
-        encodability for a persisted ref, resolved complete wiring, available compatible provider
-        incarnations, cycles, registry capacity and terminal counter headroom before registration
-        or work. Unlisted/foreign machines and forged carriers fail closed; lazy entries first
-        satisfy @plan.LazyFeatures.O2. Stage baseline and edges, attach/activate, then expose the
-        handle last. Failure reverses staged edges, registry, mailbox and work in reverse order;
-        no partial handle, snapshot or accepted occurrence escapes. A post-visibility failure uses
-        ordinary disposal, including cleanup quarantine.
-
-        runtime.createActor(machine, { input }) always creates a fresh anonymous local actor,
-        wired from the app default and active before ordinary host exposure. It accepts no stable
-        id or call-site wiring. Hosts own its disposal; React owns component-local disposal.
-        Handles expose ref (opaque locally), stable send(event): void, getSnapshot() and snapshots;
-        no lease, receipt, public acknowledgment or host getActor exists.
-
-        Disposal followed by ensure creates a new incarnation, even for the same ref. Ensure
-        while disposing waits for the old cleanup result before admitting the replacement; it
-        never revives the old actor. A failed cleanup makes ensure re-report the cached quarantine
-        error. The execution form of that exceptional wait is @Q1. Every operation outcome,
-        schedule firing, issue clear/publication, private acknowledgment and actor send-back is
-        fenced by incarnation. Old work cannot affect a replacement or inherit its issue authority.
-
-        A use is an attached React actor consumer (ensuring or lookup hook), a live snapshots
-        subscription, or a consumer's fixed context binding to the provider. getSnapshot and
-        rendering a provisional handle are passive and acquire no use. Imperative ensure is a
-        point use: it starts or resets idle retention but does not create a permanent caller
-        lease; sends admitted to an active actor similarly refresh the idle deadline. Queued or
-        running work is not a permanent use; disposal handles it truthfully under @O6.
-
-        Without retain a shared actor lives until explicit or Runtime disposal. With retain,
-        start its decoded Duration.Input deadline on the Runtime Clock when its last use ends,
-        or at successful ensure/ready when it has no continuing use. A new use cancels the idle
-        deadline; the next last-use release starts a full interval. Zero retain expires at the
-        next scheduler opportunity after release, never in the middle of publication. Provider
-        bindings prevent expiry. Retain is not suspension and cannot resurrect a disposing actor.
+        A use is an attached React consumer, a live snapshots subscription or a bound context
+        consumer. With retain, a shared actor is disposed retain after its last use ends;
+        a new use cancels that. A provider with bound consumers never expires. Without retain a
+        shared actor lives until explicit or Runtime disposal.
         Reference: references/dispatch-desk/features/Tickets/editor/editor.ref.ts, app/host.ts.
     O4  Mailboxes and send
-        One FIFO mailbox per actor orders public events, internally authorized events, outcomes,
-        schedules, stream/store facts, context wakeups and lifecycle facts. Reentrant sends append;
-        nothing invokes another machine's handler inside the current turn. Machine macrosteps are
-        @plan.Machines.O3. Production has no cross-turn execution budget; flow check warns on
-        static send cycles, while Story process() stops at its private 10,000-turn budget
-        (@plan.Testing.O2).
+        Each actor processes events one at a time in FIFO order; a send during a turn is queued,
+        never run inside the current turn. Each actor queues at most 1,024 pending events: an
+        external send beyond that throws AdmissionOverloaded and changes nothing. send validates
+        the event's tag and payload; an internal, unknown or invalid event throws InvalidEvent and
+        starts no turn. Sends to a disposing or disposed actor are dropped with SendTargetAbsent.
+        Internal sources (outcomes, schedules, streams, context) obey the same bound and never
+        silently drop a fact.
 
-        The ordinary pending decision queue has capacity 1,024 facts per actor, excluding its
-        current decision. External send is synchronous admission, returns void and throws
-        FlowError(AdmissionOverloaded) before occurrence allocation, mutation, work or evidence
-        when capacity is unavailable. Validate exact public tag and payload Schema on admission;
-        forged/internal/invalid envelopes throw InvalidEvent and create no turn. Foreign Runtime
-        handles and ref metadata conflicts reject before mutation. Sends to disposing/disposed
-        handles are dropped with SendTargetAbsent, never buffered for a replacement incarnation.
+        Before attach, a React ensuring hook returns a handle reading a pure snapshot (default
+        states, initial(input), Pending lanes, current provider context). Render registers and
+        starts nothing. Up to 64 sends are buffered and delivered once, in order, on attach; the
+        65th throws AdmissionOverloaded. An abandoned handle stays inert.
 
-        Internal producers obey the same finite capacity. No completion, timer, context or stream
-        source gets an unbounded auxiliary queue. Runtime-owned producers wait for capacity or
-        coalesce replaceable current facts without blocking the current turn's publication;
-        accepted events retain their order. A non-backpressurable producer that cannot retain its
-        fact within the bound reports AdmissionOverloaded on its owner and closes that source;
-        it never silently claims delivery or fabricates success. Terminal cleanup has reserved
-        capacity and may retire undecided facts (@O6), so saturation cannot prevent disposal.
+        An action send(ref, event) delivers a public event to a shared actor after the sender's
+        turn commits, as a later turn of the target. If the target is absent or disposing the
+        event is dropped with SendTargetAbsent; if it is full, AdmissionOverloaded. Both are
+        reported on the sender and never roll back its turn. Several sends keep their order.
 
-        React ensure forms always return a stable handle before attach: default states,
-        initial(input), Pending/placeholder lanes and passive current provider context form a
-        pure provisional snapshot (ruling 29). Render registers nothing, starts nothing, writes
-        nothing and emits no evidence. Its pre-attach send buffer holds 64 envelopes; the 65th
-        throws AdmissionOverloaded unchanged. Attachment validates current providers and silently
-        refreshes the baseline, then drains buffered events once in FIFO order into that same
-        handle's actor, respecting ordinary capacity. An abandoned handle stays inert and loses
-        its buffer without execution. This private bridge adds no public prepared lifecycle.
-        Lookup useActorByRef(ref) returns Actor | null and never creates/adopts; an options object,
-        including {}, means ensure (@plan.React.O2). SSR overlays are @plan.ServerRendering.O4.
-
-        An action send(ref, publicEventOrFrom) declares a static edge to a shared actor. The
-        payload mapper reads the sender's pre-turn snapshot/event; it cannot select a target or
-        event type. Event/target provenance and payload validity are part of whole-batch staging:
-        an invalid declaration rejects the sender's entire batch before commit. No target read,
-        RPC, implicit ensure, lazy adoption or bidirectional context edge is granted.
-
-        Target delivery is attempted after sender commit, without a pre-commit target-capacity
-        reservation. Each valid send is then admitted to the target's FIFO as a later turn.
-        Absent, disposing or disposed targets drop with SendTargetAbsent; overload rejects that
-        delivery with AdmissionOverloaded. Both diagnostics belong to the sender and name sender
-        incarnation, target and event; absent diagnostics also say whether the entry was adopted.
-        They do not roll back the committed sender, cancel its other actions or mutate the target.
-        Accepted delivery is bound to the then-current target incarnation; disposal before its
-        decision retires it, never retargets it to a replacement. Several sends preserve their
-        authored order; no cross-actor atomic transaction is implied.
-
-        Every publication exposes one complete actor/store cut in the Runtime's single versioned
-        store, including lane-, context-, lifecycle- and issue-only changes. Observers never see
-        new store truth with the actor's prior snapshot. Committed evidence enters one global
-        Runtime order after the snapshot; commit through publication/evidence acceptance is
-        interruption-safe. Sink processing and user Effect settlement cannot hold publication.
-        Readers keep their captured cut. A new snapshots subscription replays current truth
-        without a read/subscribe gap; slow subscribers may skip intermediate snapshots. It emits
-        terminal disposed truth and completes only at disposal, never at a terminal-looking leaf.
-
-        Flow-owned records, arrays, envelopes and snapshots are copied/frozen; opaque application
-        values keep identity. Public snapshots contain no revision, generation, raw Cause, input,
-        timer inventory or acknowledgment; @plan.Machines.O1 and @plan.Inspection.O1 own their
-        distinct surfaces. Time is integer epoch milliseconds from the Runtime Clock. Private
-        revisions, generations, ordinals and evidence sequences are nonnegative safe integers,
-        never reused; reserve terminal headroom before admission/restore, reject exhaustion before
-        mutation, and never spend terminal reserves on ordinary work.
-        Reference: references/dispatch-desk/app/host.ts,
-        features/Tickets/editor/editor.machine.ts (Saved sends Toasts.Push).
+        Every publication is one complete cut: a reader never sees an actor's new snapshot with
+        old store data or the reverse. A new snapshots subscriber gets current truth first; slow
+        subscribers may skip intermediate snapshots. Snapshots carry no revisions or raw Cause.
+        Reference: references/dispatch-desk/features/Tickets/editor/editor.machine.ts.
     O5  Context propagation
-        Provider.select(selector) is inert and preserves its exact selected result type. It reads
-        one complete provider snapshot, including state, memory and lanes. A context slot binds
-        once to one compatible shared ref and admitted incarnation in the same Runtime for the
-        consumer's lifetime. Missing, ambiguous, foreign, mismatched, closing, disposed or cyclic
-        providers reject atomically before effects. No forged local carrier or testing bypass
-        satisfies production wiring. A context edge grants no parentage, ownership or send channel.
+        Provider.select(selector) reads one complete provider snapshot. A context slot binds to
+        one provider for the consumer's lifetime. Context reads form an acyclic upward graph;
+        a cycle, missing or incompatible provider rejects at admission. The first context
+        baseline is silent: onContext does not fire for it.
 
-        Reads form an acyclic upward graph; cycles reject before admission. Establish the full
-        provider-derived baseline silently at fresh admission, restore, lazy adoption and hydration;
-        the first onContext selection emits nothing. A bound consumer counts as a provider use.
-        Provider close prevents new bindings, and explicit provider disposal with bound consumers
-        rejects before closing, naming every dependent and slot (@O6).
+        When a provider changes, each affected consumer receives at most one context update per
+        wave, computed from the latest complete provider snapshots, and never a mix of new and
+        stale values from the same cause (diamonds included). Slots compare with Equal.equals; an
+        equal value causes no update. A context update keeps its place in the FIFO queue.
 
-        Provider publications invalidate consumers in bounded dependency order. A context wakeup
-        selects the latest complete provider snapshots when it executes, not an earlier queued
-        selected value. Record exact provider incarnations and observed revisions in inspection.
-        At most one combined context turn per dirty consumer occurs per settled wave. Completeness
-        is causal closure for that consumer, including shared ancestors, not simultaneous
-        publication across the entire graph. A diamond never combines a newly settled branch with
-        unresolved old lineage from the same cause. Equal.equals governs slots and reaction
-        selections; an equal branch settlement clears causal debt without a value-change event.
-
-        A blocked context wakeup keeps its FIFO head position; ordinary later events cannot
-        overtake it. Terminal disposal may retire the wakeup and queued work without upstream
-        recovery. A changed complete context publishes once and reconciles continuing plans once;
-        propagation never directly invokes a domain transition, memory patch or finite action.
-        onContext declarations select context plus memory and enqueue ordinary events in declaration
-        order under @plan.Machines.O7. Lane-only publication does not run the publishing actor's
-        reactions, but consumers see its provider publication through this ordinary context path.
-
-        A throwing consumer selector does not roll back the provider or siblings. That consumer
-        keeps its last valid complete context, publishes one issue-only snapshot naming slot and
-        provider revision, emits no context event and retries only on a newer provider revision,
-        never the same bad revision. Capture observes completed waves: unresolved selected causal
-        debt rejects with retryable ConcurrentCapture. Capture never advances time, creates work,
-        forces context progress or silently waits for a wave to heal.
-        Reference: references/dispatch-desk/features/Tickets/queue/queue.definition.ts,
-        features/Tickets/queue/queue.machine.ts, features/Tickets/editor/editor.definition.ts.
+        A consumer selector that throws keeps that consumer's last valid context, publishes one
+        issue, and retries only on a newer provider snapshot; the provider and other consumers are
+        unaffected. Persistence capture never observes a half-propagated wave
+        (ConcurrentCapture, retried by the Runtime).
+        Reference: references/dispatch-desk/features/Tickets/queue/queue.machine.ts.
     O6  Lifecycle and disposal
-        Public lifecycle is exactly active, disposing or disposed. Pre-attach and bootstrap phases
-        are private; suspension/resume is deleted. runtime.disposeActor(actor) validates Runtime
-        ownership and disposes that actor for every user. Hooks observe terminal truth; mounted
-        ensuring hooks may ensure a new incarnation after successful cleanup, while lookup-only
-        hooks do not recreate one. Explicit provider disposal while consumers remain bound rejects
-        unchanged with FlowError naming all dependents and slots; retain cannot expire a used
-        provider. Once provider closing starts no new consumer edge can attach.
+        Public lifecycle is active, disposing or disposed. runtime.disposeActor(actor) disposes
+        the actor for every user. Disposing a provider while consumers are bound rejects with
+        FlowError naming them. Actor and Runtime disposal are idempotent: repeated calls share one
+        result.
 
-        Actor and Runtime disposal are asynchronous and idempotent. Repeated calls join the same
-        cached result, never rerun cleanup. Runtime disposal closes all admission first, subsumes
-        every actor and tears down consumers before providers. An actor closes its admission at
-        one linearization point. Already committed publication finishes; undecided queued events,
-        including a blocked context head, retire unexecuted. They change no domain truth, start no
-        work and produce no TurnRecord. Private waiters settle once with terminal failure, never
-        success. Local grace expiry is React's attachment policy (@plan.React.O3).
+        On disposal, queued events that have not started are dropped without running. Schedules
+        cancel, activities stop, and invoked commits are allowed to settle. Runtime disposal is
+        bounded: after 5 seconds a commit still in flight becomes unknown with its Attempt, and
+        its late result is ignored. A cleanup failure rejects dispose, quarantines the ref
+        (later ensures report the same failure) and keeps the full Cause; it is never reported as
+        success. Runtime disposal finishes only after the final persistence write is acknowledged.
+        The terminal snapshot keeps the last committed state and memory; disposal runs no machine
+        event.
 
-        Release activities, cancel schedules, stop subscriptions and queued unstarted work, and
-        wait for invoked commits to settle without claiming an irreversible remote effect was
-        undone. Normal actor disposal permits commits to settle. Runtime shutdown gives settlement
-        and cleanup a total private 5,000 ms Clock budget, then interrupts remaining waits. An
-        invoked commit without a known settlement becomes unknown with its original Attempt;
-        fence all late callbacks. No hanging commit can keep runtime.dispose() pending forever.
-        A failed or timed-out finalizer is cleanup failure, not successful release; report
-        FlowError, quarantine the identity and keep the complete Cause. A successful dispose
-        requires completed finalizers, accepted ordered terminal evidence, provider release and
-        the final acknowledged persistence write. Failure to finish within the shutdown bound
-        rejects rather than reporting a completed flush. No new public timeout option is added.
-
-        Cleanup failure quarantines the shared ref for the Runtime: ensure and repeated dispose
-        report the same cached failure without rerunning cleanup or creating another incarnation
-        over leaked work. Post-visibility admission failures follow this rule too. Keep full Cause
-        until cleanup ends; defect outranks failure, which outranks interruption, without losing
-        the other causes (@plan.FlowDiagnostics.O3). Cause never enters serialized snapshots or traces.
-
-        Publish complete disposing/disposed snapshots before their ordered lifecycle evidence,
-        with causes distinguishing fresh admission, restore, attachment, owner disposal, retain
-        expiry, React grace expiry and Runtime disposal. Disposal fabricates no machine event or
-        terminal turn. The terminal snapshot retains the last committed state, memory and valid
-        context. Internal invariant defects close actor admission, settle pending private waiters,
-        finalize owned work and publish fatal disposed/cleanup truth with an issue, never a
-        fabricated successful decision. Issue ownership is incarnation/source/binding; another
-        lifetime cannot inherit or clear it.
-
-        runtime.dispose({ forget: true }) uses @plan.FlowPersistence.O5's scoped deletion after closing
-        admission; ordinary disposal preserves the last good durable scope. Locks release only
-        after closeout. No leader election, mirroring, cross-tab sends or BroadcastChannel exists
-        in version 1 (ruling 38); design/multi-tab.md remains deferred rationale only.
-        Reference: references/dispatch-desk/app/host.ts, app/persistence.ts.
+        runtime.dispose({ forget: true }) also deletes the scope's stored records
+        (@plan.FlowPersistence.O5); plain dispose keeps them.
+        Reference: references/dispatch-desk/app/host.ts.
     O7  Isolation
-        One Runtime owns its actors, adopted lazy set, dormant bytes, services, scopes, store,
-        scheduler, clock, queues and evidence. Never share their mutable state with another
-        Runtime, even for the same App, ref id or service tag. Pure compiled machine structure may
-        be cached by exact machine object; compilation grants no shared execution authority.
-        Runtime-owned refs/handles cannot resolve across Runtimes; nested React providers use the
-        nearest Runtime, and foreign handles reject. Refs declared as inert module data can name
-        independent actors in distinct Runtimes; this is not cross-Runtime lookup or ownership.
-
-        A principal switch requires a new Runtime and persistence scope; use a keyed FlowProvider
-        so consumers remount. Model authentication expiry as Session state, but never reinterpret
-        old principal-owned actors, services or cache as a new user's data. Token-holder services
-        updated through operations are ordinary Layers, not a global identity registry.
-
-        Each server request and Story run constructs its own Runtime and service state. Never
-        acquire a module-global request Runtime or request store. dehydrate owns a private
-        nonpersistent request Runtime and disposes it before returning (@plan.ServerRendering.O1);
-        services can be called directly for server redirect/notFound decisions. Hydration scope
-        and App mismatches reject under @plan.ServerRendering.O6. Story storage is fresh memory
-        storage, never browser or production storage (@plan.Testing.O7).
-        Reference: none yet (stage S10 adds it).
+        Runtimes share no mutable state: actors, store, services, storage, clock or evidence.
+        Handles from one Runtime are rejected by another; nested React providers use the nearest
+        Runtime. A different user is a new Runtime and persistence scope (a keyed FlowProvider).
+        Every server request and Story run constructs its own Runtime; a module-level server
+        Runtime is never used. Story storage is always fresh memory storage (@plan.Testing.O7).
+        Reference: references/dispatch-desk/next/providers.tsx.
 decisions
-    D1  Construction returns values and throws FlowError
-        Was FlowState D8 and D10, applied to app, setup, refs, admission and host boundaries.
-        Canonical diagnostics preserve paths and classification; deleted error-class names do
-        not return. @plan.FlowDiagnostics.O1 and @plan.FlowDiagnostics.O2 own shape and closed codes.
-    D2  Authored identity is exact
-        Was FlowState D9 (Runtime identity part). Keep UTF-8 limits and the string actor wire
-        form; ruling 35 adds unambiguously encoded readonly id parts. App keys are not durable ids.
-    D3  Shared by ref, local by owner
-        Was FlowState D12, from minimal-library section 1. ensure/create/dispose replace leases,
-        host getActor and story.actor. Incarnations, ref conflicts and disposing waits follow
-        rulings 8 and 9; provider uses and quarantine are binding.
-    D4  The app lists machines
-        Was FlowState D13. module and tooling ownership identities are removed. Declared lazy
-        entries preserve a closed universe under ruling 31, not arbitrary registration.
-    D5  Wiring lives on refs or app defaults
-        Was FlowState D14, from minimal-library section 2. Local actors inherit defaults; shared
-        refs override declared slots. Each live binding fixes one provider incarnation.
-    D6  Services are Layers
-        Was FlowState D15. No Implementation, ImplementationError or succeed/effect/merge
-        compatibility values. Ruling 7 preserves production Layer merge semantics; storage
-        acquisition precedes detached restore validation, then remaining services (@O2).
-    D7  Lifecycle has three public states
-        Was FlowState D16. active, disposing, disposed; no public prepared or suspended state.
-        Ruling 29 restores pure provisional handles and a 64-event buffer, not runtime preparation
-        during render. Bounded Runtime cleanup follows ruling 22, with a 5,000 ms private budget.
-    D8  Actor messaging is asynchronous and visible
-        Was FlowState D27, from minimal-library section 9. Shared targets and public events only;
-        target admission occurs after sender commit (@O4), with sender-owned failure diagnostics.
-    D9  Selector defects isolate consumers
-        Was FlowState D28, closing ApplicationsAndActors Q1. Provider and sibling truth remains
-        committed; only the defective consumer retains old context and retries on a newer revision.
-    D10  An options object means ensure
-        Was FlowState D51. useActorByRef(ref, {}) ensures an input-free actor; the no-options form
-        only looks up. runtime.ensureActor(ref) remains valid for input-free machines. Ruling 29
-        requires a handle from every ensuring hook even before attach; no hook suspends.
-    D11  Second-tab detection replaces shared multi-tab persistence
-        Ruling 38 supersedes rulings 32 and 33's multi-tab adoption: ifAvailable lock at ready,
-        held until disposal; refusal means no restore/capture and SecondTabNoPersistence. No locks
-        support means no check. There is no MultiTab plan dependency in version 1.
+    D1  The app is a closed list of machines
+        Lazy entries name machines the app already declares; nothing registers at runtime. This
+        keeps the structural representation complete for tools.
+    D2  Wiring lives on refs and app defaults, never at call sites
+        One place declares where an actor's context comes from, so tools can draw the graph.
+    D3  Actor sends are visible, asynchronous and committed first
+        A send is a declared edge and a later turn of the target; a target failure never undoes
+        the sender's committed turn.
+    D4  Three public lifecycle states
+        active, disposing, disposed. No suspension; React keeps actors alive with retain and
+        grace, not a suspended state.
 constraints
-    C1  One production execution path
-        Hosts, requests, React, Stories and CLI use the same Runtime, store, admission, ordering,
-        context and finalization. Fixtures supply services, not replacement kernels or evidence.
-    C2  No substitute public machinery
-        No leases, host lookup, acknowledged dispatch, runtime registration, child actors,
-        generic registries, machine.provide, public ManagedRuntime, boot/decoder API or second
-        scheduler/store. Hydrate/dehydrate are only the dedicated server-rendering boundaries.
-    C3  Private composition stays replaceable
-        Cell/queue representation and service topology are private; inert construction, exact type
-        closure, bounded admission, causal context, atomic cuts, incarnation fencing, no replay,
-        honest uncertainty and reverse cleanup are binding. Use the pinned toolchain; never edit
-        the frozen package or erase public type information to satisfy a proof.
+    C1  One execution path
+        Hosts, requests, React, Stories and the CLI use the same Runtime; fixtures replace
+        services, never the kernel.
 verification
-    V1  Closed graph and identity
-        Planned construction/type fixtures: exact app key inference; duplicate key/id/value;
-        unknown fields; lazy id mismatch, duplicate module object and undeclared machine; app-key
-        rename keeps durable identity. ASCII and 2/3/4-byte ref vectors prove byte lengths, exact
-        spelling and string/parts domain separation; ["a/b", "c"] never equals ["a", "b/c"].
-        All constructors run no loader, service, storage, actor, timer or evidence.
-    V2  Service closure
-        Planned isolated and packed consumers infer adapter requirements through eager and lazy
-        machines; omit services only for empty requirements, exclude only Flow-owned Scope,
-        accept supersets, reject missing/remaining inputs and recursive expansion. Record compile
-        time for small and medium apps without assertions or excessive-instantiation errors.
-        Prove once-per-Runtime storage/application acquisition, merge precedence and scoped release.
-    V3  Readiness races and bootstrap
-        Planned production gates control storage acquisition, detached validation, app acquisition,
-        provider-first install, baselines and activation. Test acquisition failure versus corrupt
-        scope recovery, reverse rollback, cached failure, two ready waiters with one interrupted,
-        dispose racing late acquisition, and no partial handles/evidence. Same-scope readiness in
-        two browsing contexts grants one lock and makes the other nonpersistent; no-lock hosts
-        proceed. SSR render remains inert and obeys Hydrate's first-render rule.
-    V4  Admission, retention and reincarnation
-        Planned production tests: shared ensure joins, first input wins with differing-input
-        diagnostic, conflicting ref metadata rejects unchanged, local create is always distinct,
-        clean invisible failure permits new input, provider race rejects before registration.
-        Ensure during disposal waits then creates once; failed cleanup quarantines. Advance TestClock
-        across retain, reacquire/reset, provider use, restored unused retain and expiry. Deliver old
-        outcome, timer, issue clear and send-back after re-ensure: none touches the new incarnation.
-    V5  Mailboxes, sends and atomic reads
-        Planned tests saturate 1,024 pending facts and 64 pre-attach sends: overflow changes
-        nothing; invalid tag/payload/internal event admits no turn; attach drains once; abandoned
-        render stays inert. Reentrant and multi-sender delivery is FIFO. Test valid send alongside
-        other sender actions with absent, overloaded, disposing and replaced targets; failures
-        belong to sender after its commit, with no rollback or implicit adoption. Exercise internal
-        producer pressure, bounded source failure and reserved terminal capacity. Several readers
-        see one actor/store version; slow subscribers skip safely; new subscriptions replay without
-        a gap; terminal stream emits once then completes. Exhaust counters before mutation while
-        preserving terminal headroom. A send cycle is warned statically and bounded only in Stories.
-    V6  Causal context
-        Planned chain and diamond tests prove per-consumer closure, equal settlement clearing debt,
-        one wakeup per wave, latest complete values, Equal.equals and FIFO blocking. One selector
-        defect preserves provider/siblings and old consumer context, emits one issue, retries only
-        on a newer revision. Bindings stay fixed; completed-wave capture succeeds, debt rejects
-        ConcurrentCapture without running work. onContext emission order agrees with Machines O7.
-    V7  Terminal ownership and isolation
-        Planned gates: provider-with-consumers rejection names every slot; new binding races close;
-        repeated dispose shares one result; blocked context/queued events retire without turns;
-        known commits settle before close, hanging commits become unknown within 5,000 ms; failed
-        or timed-out finalizer quarantines with full Cause and no rerun. Successful disposal waits
-        for evidence and acknowledged last write; timeout cannot claim flush success. Snapshots
-        keep committed truth, and lifecycle causes distinguish owner/retain/grace/Runtime disposal.
-        Two Runtimes, principals, requests and Stories share no mutable truth, services or storage;
-        foreign handles reject. Run scoped runtime tests, required type gates, packed consumers
-        and stage checks before claiming these proposed guarantees implemented.
+    V1  Construction: closed-list errors, unambiguous id parts and inert constructors.
+    V2  Services: a missing adapter service is a type error; each service is acquired once.
+    V3  Readiness: storage before validation, shared failure, interrupted waiter, second-tab
+        refusal, no partial handles after failure.
+    V4  Identity: first input wins with a diagnostic, conflicting refs reject, re-ensure after
+        dispose ignores every late result of the old incarnation, retain expiry on the TestClock.
+    V5  Mailboxes: 1,024 and 64 bounds, invalid events, FIFO, send failures owned by the sender.
+    V6  Context: diamond and chain waves give one update from latest values; a throwing selector
+        is isolated.
+    V7  Disposal and isolation: provider-with-consumers rejection, idempotent dispose, 5-second
+        bound with unknown commits, quarantine on cleanup failure, no sharing between Runtimes.
 questions
-    Q1  What execution form preserves ensure's wait while an incarnation is disposing?
-        Ruling 9 requires waiting then creating; ordinary ensureActor is synchronous and
-        create/ensure normally expose active handles. A synchronous call cannot await an Effect
-        finalizer. Recommended: a stable private pending handle using the existing pure pre-attach
-        snapshot and bounded buffer, attached after cleanup; no new public lifecycle or union return.
-        The type/runtime spike must settle this exceptional form before S3 implementation. Until
-        then the waiting and fencing guarantees in @O3 bind; callers must never resurrect the old
-        incarnation or silently fail the wait as NotReady.
-    Q2  Can an opaque services Layer support storage-first selective acquisition?
-        The required order in @O2 is explicit, but a single opaque merged Layer may not expose
-        independently buildable storage and application roots. Recommended: prove storage-output
-        projection plus shared memoization against Effect 4.0.5 in S1; if it builds unrelated
-        services early, obtain an owner ruling on whole-Layer-first acquisition or a split storage
-        dependency boundary. Do not implement validation before acquiring its KeyValueStore.
+    Q1  How does a synchronous ensure wait for a disposing incarnation?
+        Recommended: return a pending handle that reads the pre-attach snapshot and attaches
+        after cleanup; settle it in the S1 type spike.
+    Q2  Can one services Layer be acquired storage-first?
+        Recommended: prove it against Effect 4.0.5 in S1; if not, ask the owner whether to
+        acquire the whole Layer before restore validation.
+    Q3  Deferred to build time
+        Exact UTF-8 name limits and id byte vectors; counter headroom rules; internal producer
+        back-pressure policy; evidence ordering details; lifecycle evidence causes; the private
+        shutdown budget split. See references/full/Runtime.full.plan.txt.
