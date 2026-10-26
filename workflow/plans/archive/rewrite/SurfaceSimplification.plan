@@ -1,6 +1,6 @@
 plan SurfaceSimplification
 title   Public surface simplification and compiled truth
-status  proposed, under discussion
+status  archived
 goal
     Shrink the public API to what an application author must write, and make every structural
     fact about an application statically extractable. Flow State combines statechart actors

@@ -1,6 +1,6 @@
 plan StoriesAndModels
 title   Deterministic Stories, fixtures, recipes, and pure models
-status  Proposed; pending approval
+status  archived
 goal
     Let consumers describe deterministic application scenarios, retain truthful evidence, and
     explore pure machine paths before proving them on the production Runtime. This proposed

@@ -1,6 +1,6 @@
 plan CommandLine
 title   Installed command-line host
-status  Proposed; pending approval
+status  archived
 goal
     Let consumers build behavior, discover and run registered Stories, and query trace artifacts
     through the installed flow-state process. Preserve the production Story executor, canonical

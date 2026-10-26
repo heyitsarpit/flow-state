@@ -1,6 +1,6 @@
 plan Persistence
 title   Persistence
-status  proposed
+status  archived
 goal
     Capture and restore explicitly durable Runtime data through an optional provider, without
     replaying executable work. Keep captures context-closed and storage writes ordered.

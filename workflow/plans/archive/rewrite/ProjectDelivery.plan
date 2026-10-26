@@ -1,6 +1,6 @@
 plan ProjectDelivery
 title   Capability delivery order
-status  proposed pending approval
+status  archived
 goal
     Give the twelve proposed capability Plans one entry point for ownership, integration edges,
     and staged execution. Preserve their semantic ownership, current Task status, and the separate

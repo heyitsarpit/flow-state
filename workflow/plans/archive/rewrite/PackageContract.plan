@@ -1,6 +1,6 @@
 plan PackageContract
 title   Package routes and supported consumers
-status  proposed pending approval
+status  archived
 goal
     Give installed consumers one exact named-export package with preserved environmental boundaries
     and evidence for eventual replacement. This proposed Plan owns routes, public declarations,

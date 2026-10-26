@@ -1,6 +1,6 @@
 plan ApplicationsAndActors
 title   Closed applications and owned actor lifetimes
-status  proposed pending approval
+status  archived
 goal
     Let consumers compose exact machines, install complete services, and operate independent actors
     through one Runtime with truthful ownership, context and snapshots. This proposed Plan owns

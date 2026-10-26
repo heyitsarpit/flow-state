@@ -3,8 +3,9 @@
 Status: **final: the tier-1 entity design.** It is measured against
 `entities.md` (goals G1–G9, correctness C1–C8) and stays within tier 1 (`entities.md` section 3.3):
 records stay coherent, answers are repaired, fields are predicted, and list membership is never
-predicted. It builds on `minimal-library.md` decisions 1–8a and amends them where section 13 says.
-Code is illustrative.
+predicted. Outcome O6 of [FlowState.plan](FlowState.plan) adopts sections 1 to 9 as normative;
+the plan owns the rest of the library. Mentions of `minimal-library.md` and of the capability Plans
+refer to archived provenance under `workflow/plans/archive/rewrite`. Code is illustrative.
 
 It passed the three gates of section 13.1: a type spike, an agent experiment and a fuzzed runtime
 model (section 15). The runtime property suite in Flow State's own tests is an implementation

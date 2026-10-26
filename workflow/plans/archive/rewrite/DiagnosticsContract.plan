@@ -1,6 +1,6 @@
 plan DiagnosticsContract
 title   Canonical diagnostics and failure boundaries
-status  Proposed; pending approval
+status  archived
 goal
     Give consumers one typed diagnostic vocabulary with stable machine data, complete failure
     classification, safe human remediation, and exact terminal JavaScript projections. These are

@@ -1,6 +1,6 @@
 plan Transactions
 title   Transactions
-status  proposed
+status  archived
 goal
     Commit actor-owned mutations with exact concurrency, isolated previews, and truthful remote
     uncertainty. Preserve canonical data and current projection when older attempts finish late.

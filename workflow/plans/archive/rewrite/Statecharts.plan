@@ -1,6 +1,6 @@
 plan Statecharts
 title   Statechart authoring and ordered turns
-status  proposed pending approval
+status  archived
 goal
     Let an author describe one complete static actor family and reusable behavior with exact
     inference, deterministic state paths, and indivisible accepted turns. This proposed Plan owns

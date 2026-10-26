@@ -1,6 +1,6 @@
 plan Streams
 title   Streams
-status  proposed
+status  archived
 goal
     Own continuing external values through named stream declarations with latest-value projection,
     exact completion, and one release. Preserve terminal truth without replaying emissions.

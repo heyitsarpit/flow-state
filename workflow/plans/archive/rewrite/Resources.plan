@@ -1,6 +1,6 @@
 plan Resources
 title   Resources
-status  proposed
+status  archived
 goal
     Read, acquire, refresh, and update canonical resource data through exact named families.
     Share data within one Runtime while keeping actor work and previews independently owned.

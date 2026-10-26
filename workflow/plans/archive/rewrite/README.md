@@ -1,3 +1,7 @@
+> **Archived.** These Plans, ProjectDelivery and the Dispatch Desk reference are historical
+> provenance, superseded by [FlowState.plan](../../flow/FlowState.plan); its outcome O15 records
+> what each one contributed.
+
 # Capability Plans
 
 This directory contains one [delivery entry Plan](ProjectDelivery.plan) and twelve capability

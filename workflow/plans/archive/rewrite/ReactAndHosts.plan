@@ -1,6 +1,6 @@
 plan ReactAndHosts
 title   React attachment and production hosts
-status  proposed pending approval
+status  archived
 goal
     Let React, server and request consumers attach and read production actors without creating
     another runtime, owner or execution path. This proposed Plan owns host APIs, selector typing,

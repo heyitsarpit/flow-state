@@ -1,6 +1,6 @@
 plan InspectionAndArtifacts
 title   Inspection, portable artifacts, and evidence comparison
-status  Proposed; pending approval
+status  archived
 goal
     Let consumers inspect committed behavior, retain bounded evidence, exchange canonical
     artifacts, and share explicit redacted projections without acquiring execution authority. This
