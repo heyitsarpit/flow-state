@@ -110,10 +110,12 @@ test("a held lock backs off, retries as ordinary events, then gives up", async (
   expect(S.OPEN.FAILED.is(last)).toBe(true);
   expect(last.memory.error).toBe("Locked by dispatcher-2; gave up after 5 retries");
   expect(last.memory.lockRetries).toBe(0);
+
   // One save and five retries reached the adapter; the ten minutes after started none.
   const saves = run.trace.filter(
     (event) => event._tag === "CommitStarted" && event.write === "tickets.saveTitle",
   );
+
   expect(saves).toHaveLength(6);
 });
 
@@ -140,6 +142,7 @@ test("model paths replay live with the same keys", async () => {
   const { paths, truncated } = exploreEditor();
   expect(truncated).toBe(false);
   expect(paths.some((path) => path.state.state === "OPEN.SAVED")).toBe(true); // through outcomes
+
   for (const path of paths) {
     const run = await path.story.process().run();
     expect(path.keyOf(run.end.snapshot)).toEqual(path.state); // live replay reaches the same key

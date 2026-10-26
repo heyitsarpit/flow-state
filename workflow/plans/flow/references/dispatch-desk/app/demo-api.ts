@@ -16,7 +16,9 @@ const PAGE = 20;
 // Code-point order, never localeCompare: the declared asc(ticketId) is the same on every host.
 const byCodePoint = (a: string, b: string) => {
   if (a < b) return -1;
+
   if (a > b) return 1;
+
   return 0;
 };
 
@@ -88,6 +90,7 @@ const DemoServerLive = Layer.effect(
     const update = (ticket: TicketRow, change: Partial<TicketRow>) => {
       const next = { ...ticket, ...change, updatedAt: ++clock, revision: ticket.revision + 1 };
       tickets = tickets.map((current) => (current === ticket ? next : current));
+
       return { ...next };
     };
 
@@ -95,7 +98,9 @@ const DemoServerLive = Layer.effect(
     const once = <E>(idempotencyKey: string, apply: () => Effect.Effect<TicketRow, E>) =>
       Effect.suspend(() => {
         const previous = settled.get(idempotencyKey);
+
         if (previous) return Effect.succeed({ ...previous });
+
         return apply().pipe(
           Effect.tap((row) => Effect.sync(() => settled.set(idempotencyKey, row))),
         );
@@ -105,6 +110,7 @@ const DemoServerLive = Layer.effect(
       load: (key) =>
         Effect.suspend(() => {
           const ticket = find(key);
+
           return ticket
             ? Effect.succeed({ ...ticket })
             : Effect.fail(new TicketNotFound({ ticketId: key.ticketId }));
@@ -112,6 +118,7 @@ const DemoServerLive = Layer.effect(
       list: ({ workspaceId, status, assignee, search, page = 0 }) =>
         Effect.sync(() => {
           const needle = search?.trim().toLowerCase() ?? "";
+
           const matching = tickets
             .filter(
               (ticket) =>
@@ -121,8 +128,10 @@ const DemoServerLive = Layer.effect(
                 ticket.title.toLowerCase().includes(needle),
             )
             .sort(declaredOrder);
+
           const slice = matching.slice(page * PAGE, page * PAGE + PAGE);
           const nextPage = (page + 1) * PAGE < matching.length ? page + 1 : undefined;
+
           return { tickets: slice.map((ticket) => ({ ...ticket })), nextPage };
         }),
       openCount: ({ workspaceId }) =>
@@ -135,14 +144,18 @@ const DemoServerLive = Layer.effect(
       saveTitle: ({ idempotencyKey, title, ...key }) =>
         once(idempotencyKey, (): Effect.Effect<TicketRow, TicketNotFound | TitleRejected> => {
           const ticket = find(key);
+
           if (!ticket) return Effect.fail(new TicketNotFound({ ticketId: key.ticketId }));
+
           if (title.trim() === "")
             return Effect.fail(new TitleRejected({ reason: "Enter a ticket title" }));
+
           return Effect.sync(() => update(ticket, { title }));
         }),
       assign: ({ idempotencyKey, assignee, ...key }) =>
         once(idempotencyKey, () => {
           const ticket = find(key);
+
           return ticket
             ? Effect.sync(() => update(ticket, { assignee, status: "assigned" }))
             : Effect.fail(new TicketNotFound({ ticketId: key.ticketId }));
@@ -167,8 +180,10 @@ const DemoServerLive = Layer.effect(
       externalSave: (key, change) =>
         Effect.suspend(() => {
           const ticket = find(key);
+
           if (!ticket) return Effect.fail(new TicketNotFound({ ticketId: key.ticketId }));
           const next = update(ticket, change);
+
           return PubSub.publish(pushes, { _tag: "TicketSaved", ticket: next }).pipe(
             Effect.as(next),
           );
@@ -176,8 +191,10 @@ const DemoServerLive = Layer.effect(
       externalRemove: (key) =>
         Effect.suspend(() => {
           const ticket = find(key);
+
           if (!ticket) return Effect.fail(new TicketNotFound({ ticketId: key.ticketId }));
           tickets = tickets.filter((current) => current !== ticket);
+
           return PubSub.publish(pushes, {
             _tag: "TicketRemoved",
             ...key,

@@ -16,6 +16,7 @@ import {
 } from "../features/Tickets/types.js";
 
 const eventBatch = Schema.Struct({ cursor: Schema.String, events: Schema.Array(TicketEvent) });
+
 const progressBatch = Schema.Struct({
   cursor: Schema.String,
   events: Schema.Array(TechnicianUpdate),
@@ -26,8 +27,11 @@ export const HttpTicketApi = (token?: string, origin = "http://localhost:3000") 
     Effect.tryPromise({
       try: (lifetime) => {
         const headers = new Headers();
+
         if (token !== undefined) headers.set("Authorization", `Bearer ${token}`);
+
         if (body !== undefined) headers.set("Content-Type", "application/json");
+
         return fetch(new URL(path, origin), {
           method: body === undefined ? "GET" : "POST",
           headers,
@@ -60,8 +64,10 @@ export const HttpTicketApi = (token?: string, origin = "http://localhost:3000") 
       load: (key, signal) =>
         Effect.gen(function* () {
           const response = yield* request(ticketPath(key), signal).pipe(Effect.orDie);
+
           if (response.status === 404)
             return yield* Effect.fail(new TicketNotFound({ ticketId: key.ticketId }));
+
           return yield* Schema.decodeUnknownEffect(TicketRow)(yield* checked(response)).pipe(
             Effect.orDie,
           );
@@ -69,16 +75,20 @@ export const HttpTicketApi = (token?: string, origin = "http://localhost:3000") 
       list: (input, signal) =>
         Effect.gen(function* () {
           const query = new URLSearchParams();
+
           for (const [key, value] of Object.entries(input)) {
             // Optional filters may be explicitly undefined at runtime (queue listInput).
             // oxlint-disable-next-line typescript/no-unnecessary-condition -- Object.entries loses optional-value information.
             if (value !== undefined) query.set(key, String(value));
           }
+
           const response = yield* request(`/api/tickets?${query}`, signal).pipe(
             Effect.mapError(() => new QueueUnavailable({ retryAfter: 5 })),
           );
+
           if (response.status === 503)
             return yield* Effect.fail(new QueueUnavailable({ retryAfter: 5 }));
+
           return yield* Schema.decodeUnknownEffect(TicketPage)(yield* checked(response)).pipe(
             Effect.orDie,
           );
@@ -89,6 +99,7 @@ export const HttpTicketApi = (token?: string, origin = "http://localhost:3000") 
             `/api/workspaces/${encodeURIComponent(workspaceId)}/open-count`,
             signal,
           ).pipe(Effect.orDie);
+
           return yield* Schema.decodeUnknownEffect(Schema.Number)(yield* checked(response)).pipe(
             Effect.orDie,
           );
@@ -98,20 +109,26 @@ export const HttpTicketApi = (token?: string, origin = "http://localhost:3000") 
           const response = yield* request(`${ticketPath(input)}/title`, signal, input).pipe(
             Effect.orDie,
           );
+
           if (response.status === 404)
             return yield* Effect.fail(new TicketNotFound({ ticketId: input.ticketId }));
+
           if (response.status === 409) {
             const detail = yield* Schema.decodeUnknownEffect(
               Schema.Struct({ lockedBy: Schema.String }),
             )(yield* json(response)).pipe(Effect.orDie);
+
             return yield* Effect.fail(new TicketLocked(detail));
           }
+
           if (response.status === 422) {
             const detail = yield* Schema.decodeUnknownEffect(
               Schema.Struct({ reason: Schema.String }),
             )(yield* json(response)).pipe(Effect.orDie);
+
             return yield* Effect.fail(new TitleRejected(detail));
           }
+
           return yield* Schema.decodeUnknownEffect(TicketRow)(yield* checked(response)).pipe(
             Effect.orDie,
           );
@@ -121,8 +138,10 @@ export const HttpTicketApi = (token?: string, origin = "http://localhost:3000") 
           const response = yield* request(`${ticketPath(input)}/assignee`, signal, input).pipe(
             Effect.orDie,
           );
+
           if (response.status === 404)
             return yield* Effect.fail(new TicketNotFound({ ticketId: input.ticketId }));
+
           return yield* Schema.decodeUnknownEffect(TicketRow)(yield* checked(response)).pipe(
             Effect.orDie,
           );
@@ -133,15 +152,19 @@ export const HttpTicketApi = (token?: string, origin = "http://localhost:3000") 
         Stream.unwrap(
           Effect.sync(() => {
             let cursor = "0";
+
             return Stream.fromEffectRepeat(
               Effect.gen(function* () {
                 const response = yield* request(
                   `/api/workspaces/${encodeURIComponent(workspaceId)}/events?cursor=${encodeURIComponent(cursor)}`,
                 ).pipe(Effect.orDie);
+
                 const batch = yield* Schema.decodeUnknownEffect(eventBatch)(
                   yield* checked(response),
                 ).pipe(Effect.orDie);
+
                 cursor = batch.cursor;
+
                 return batch.events;
               }).pipe(Effect.delay("1 second")),
             ).pipe(Stream.flatMap(Stream.fromIterable));
@@ -151,15 +174,19 @@ export const HttpTicketApi = (token?: string, origin = "http://localhost:3000") 
         Stream.unwrap(
           Effect.sync(() => {
             let cursor = "0";
+
             return Stream.fromEffectRepeat(
               Effect.gen(function* () {
                 const response = yield* request(
                   `${ticketPath(key)}/progress?cursor=${encodeURIComponent(cursor)}`,
                 ).pipe(Effect.orDie);
+
                 const batch = yield* Schema.decodeUnknownEffect(progressBatch)(
                   yield* checked(response),
                 ).pipe(Effect.orDie);
+
                 cursor = batch.cursor;
+
                 return batch.events;
               }).pipe(Effect.delay("1 second")),
             ).pipe(Stream.flatMap(Stream.fromIterable));

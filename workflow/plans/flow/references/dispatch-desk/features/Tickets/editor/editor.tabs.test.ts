@@ -24,10 +24,12 @@ test("reload restores an invoked save as UNCERTAIN with the original Attempt", a
     input: { ...T42, title: "Replace foyer light" },
   });
   expect(restored.memory.uncertain?.id).toBeTruthy();
+
   // No second adapter invocation during restore; the durable pre-invocation attempt owns the id.
   const started = run.trace.filter(
     (event) => event._tag === "CommitStarted" && event.write === "tickets.saveTitle",
   );
+
   expect(started).toHaveLength(1);
   expect(started[0]).toMatchObject({ attempt: { id: restored.memory.uncertain?.id } });
 });

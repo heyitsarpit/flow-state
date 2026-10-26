@@ -15,6 +15,7 @@ import type {
 } from "./types.js";
 
 type SaveTitleRequest = TicketKey & { title: string; idempotencyKey: string };
+
 type AssignRequest = TicketKey & { assignee: string; idempotencyKey: string };
 
 export class TicketApi extends Context.Service<

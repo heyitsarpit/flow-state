@@ -1,4 +1,5 @@
 "use client";
+
 // A principal change supplies a new Runtime and remounts the provider.
 import { useState } from "react";
 import { FlowProvider, useActorByRef, useView } from "flow-state/react";
@@ -30,6 +31,7 @@ export function Desk({ userId, workspaceId = "north" }: { userId: string; worksp
   const open = (ticket: TicketKey) => {
     setOpened(ticket);
     setLoadFailed(false);
+
     if (!Panel) {
       void import("../features/Tickets/editor/TicketPanel.js").then(
         (module) => setPanel(() => module.TicketPanel),
@@ -41,6 +43,7 @@ export function Desk({ userId, workspaceId = "north" }: { userId: string; worksp
   if (signedOut) return <p>Signed out.</p>;
 
   let panel = null;
+
   if (opened) {
     if (Panel)
       panel = <Panel key={JSON.stringify([opened.workspaceId, opened.ticketId])} ticket={opened} />;

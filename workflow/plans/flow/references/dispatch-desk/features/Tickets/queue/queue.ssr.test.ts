@@ -26,23 +26,28 @@ test("fresh hydrated list and openCount do not refetch", async () => {
 test("renderToString and hydrateRoot agree before browser activation", async () => {
   const payload = (await queuePage.run()).payloads.page;
   const counter = countingTicketApi();
+
   // The same fixture composition as Stories: fixtures may require and shadow setup services.
   const setup = runtimeSetup({
     app: DeskApp,
     services: Layer.provideMerge(counter.layer, DemoTicketApi),
   });
+
   const serverRenderRuntime = DeskSetup.construct();
   const browserRuntime = setup.construct();
   const errors: unknown[] = [];
   const container = document.createElement("div");
   document.body.append(container);
+
   const tree = (runtime: ReturnType<typeof DeskSetup.construct>) =>
     h(
       FlowProvider,
       { runtime },
       h(Hydrate, { payload }, h(QueueList, { workspaceId: "north", onOpen: () => {} })),
     );
+
   let root: ReturnType<typeof hydrateRoot> | undefined;
+
   try {
     container.innerHTML = renderToString(tree(serverRenderRuntime));
     const serverHtml = container.innerHTML;

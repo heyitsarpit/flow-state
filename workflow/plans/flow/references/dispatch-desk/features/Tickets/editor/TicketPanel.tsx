@@ -57,9 +57,11 @@ function TicketHeader({ commands }: { commands: EditorCommands }) {
   const title = useView(commands.editor, (s) =>
     S.OPEN.is(s) ? s.activities.ticket?.data?.title : undefined,
   );
+
   const stage = useView(commands.editor, (s) =>
     S.OPEN.is(s) ? s.activities.progress?.data?.stage : undefined,
   );
+
   const loadFailed = useView(
     commands.editor,
     (s) => S.OPEN.is(s) && s.activities.ticket?._tag === "Failure",
@@ -107,6 +109,7 @@ function SaveButton({ commands }: { commands: EditorCommands }) {
   // Enablement and its explanation come only from check, which returns a Data value: the
   // selector re-renders only when the verdict changes (minimal-library 8a).
   const save = useView(commands.editor, (s) => check(s, E.SaveRequested()));
+
   const hint =
     save._tag === "Denied"
       ? save.reasons.map((reason) => saveHints.get(reason.code)).find(Boolean)
@@ -124,11 +127,13 @@ function SaveButton({ commands }: { commands: EditorCommands }) {
 
 function LockNotice({ commands }: { commands: EditorCommands }) {
   const error = useView(commands.editor, (s) => s.memory.error);
+
   return <p role="status">{error}. Retrying automatically…</p>;
 }
 
 function ErrorNotice({ commands }: { commands: EditorCommands }) {
   const error = useView(commands.editor, (s) => s.memory.error);
+
   return <p role="alert">{error}</p>;
 }
 

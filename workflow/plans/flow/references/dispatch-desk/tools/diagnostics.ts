@@ -12,6 +12,7 @@ export function demonstrateInvalidDefinition() {
         console.error(diagnostic.classification, diagnostic.code, diagnostic.path, diagnostic.help);
       }
     }
+
     throw failure;
   }
 }

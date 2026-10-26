@@ -40,6 +40,7 @@ const canAssign = ({ activities, event }: { activities: Lanes; event: { ticketId
   const row = activities.list?.data
     ?.flatMap((page) => page.tickets)
     .find((ticket) => ticket.ticketId === event.ticketId);
+
   return row === undefined
     ? deny("NotListed")
     : row.status === "open" || deny("NotOpen", { status: row.status });

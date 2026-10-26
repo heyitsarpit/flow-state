@@ -147,6 +147,7 @@ function TicketRowItem({
   // The record store's copy, coherent with the editor's: a rename in the editor shows here at
   // once. pending is true while a predicted assignment or rename is unconfirmed.
   const ticket = useView(queue, (s) => Ticket.get(s, row, ["title", "status", "assignee"]));
+
   // Not open, or already predicted as assigned: the guard declines, so the button disables.
   const assignable = useView(
     queue,

@@ -14,6 +14,7 @@ import { editorRef } from "./editor.ref.js";
 const { E } = Editor;
 
 export const T42 = { workspaceId: "north", ticketId: "T-42" };
+
 export const Editor42 = editorRef(T42);
 
 // Every App Story starts the same way: providers, then the ticket's editor, then a drain.

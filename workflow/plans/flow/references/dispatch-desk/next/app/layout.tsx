@@ -8,11 +8,13 @@ import { deskServerSetup } from "../server-setup.js";
 
 export default async function Layout({ children }: { children: ReactNode }) {
   const user = await currentUser();
+
   const payload = await dehydrate(
     deskServerSetup(user.token),
     (runtime) => runtime.ensureActor(SessionRef, { input: { userId: user.id } }),
     { scope: `dispatch-desk:${user.id}`, within: "300 millis" },
   );
+
   return (
     <html lang="en">
       <body>

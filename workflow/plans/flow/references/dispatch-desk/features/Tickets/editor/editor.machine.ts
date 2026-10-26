@@ -6,6 +6,7 @@ import { ToastsRef } from "../../Toasts/toasts.ref.js";
 import { Editor } from "./editor.definition.js";
 
 const MAX_TITLE = 200;
+
 const MAX_LOCK_RETRIES = 5;
 
 type Memory = typeof Editor.Memory.Type;
@@ -19,9 +20,12 @@ const ticketKey = ({ memory }: { memory: Memory }) => ({
 // deny codes are literal, so flow check and inspect read them from its return type.
 const canSave = ({ memory, context }: { memory: Memory; context: { canEdit: boolean } }) => {
   if (!context.canEdit) return deny("NoPermission");
+
   if (memory.draft.trim() === "") return deny("EmptyTitle");
+
   if (memory.draft.length > MAX_TITLE)
     return deny("TitleTooLong", { length: memory.draft.length, max: MAX_TITLE });
+
   return true;
 };
 

@@ -54,21 +54,26 @@ export const RenamedElsewhere = Layer.effectDiscard(
 // checkpoint-service accessor is needed; each service build resets its own invocation counts.
 export function countingTicketApi() {
   const calls = { list: 0, openCount: 0 };
+
   const layer = overriding((api) => {
     calls.list = 0;
     calls.openCount = 0;
+
     return {
       list: (input, signal) =>
         Effect.suspend(() => {
           calls.list++;
+
           return api.list(input, signal);
         }),
       openCount: (input, signal) =>
         Effect.suspend(() => {
           calls.openCount++;
+
           return api.openCount(input, signal);
         }),
     };
   });
+
   return { layer, calls: () => ({ ...calls }) };
 }

@@ -19,6 +19,7 @@ export const queueHydrated = story
 // Tests allocate fresh counters; the exported Story above remains discoverable by the CLI.
 export function countedQueueHydration() {
   const counter = countingTicketApi();
+
   return {
     counter,
     scenario: story

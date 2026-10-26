@@ -48,6 +48,7 @@ export async function runDeskHost() {
     const fromUrl = await runtime.runPromise(
       Schema.decodeUnknownEffect(Editor.Event)({ _tag: "Close" }),
     );
+
     editor.send(fromUrl);
 
     // Effects run with the installed services. runPromiseExit is gone: use Effect.exit.
@@ -58,6 +59,7 @@ export async function runDeskHost() {
         ),
       ),
     );
+
     console.log(exit._tag);
 
     // Disposal is bounded: a save that cannot settle is recorded as unknown.

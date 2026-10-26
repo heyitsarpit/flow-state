@@ -9,6 +9,7 @@ import { QueueClient } from "./queue-client.js";
 
 export default async function DeskPage({ params }: { params: Promise<{ workspace: string }> }) {
   const { workspace } = await params;
+
   return (
     <Suspense fallback={<p>Loading queue…</p>}>
       <QueueSegment workspaceId={workspace} />
@@ -18,6 +19,7 @@ export default async function DeskPage({ params }: { params: Promise<{ workspace
 
 async function QueueSegment({ workspaceId }: { workspaceId: string }) {
   const user = await currentUser();
+
   const payload = await dehydrate(
     deskServerSetup(user.token),
     (runtime) => {
@@ -26,6 +28,7 @@ async function QueueSegment({ workspaceId }: { workspaceId: string }) {
     },
     { scope: `dispatch-desk:${user.id}`, within: "1500 millis" },
   );
+
   // Suspense streams this async server segment; Flow hooks themselves never suspend.
   return (
     <Hydrate payload={payload}>
