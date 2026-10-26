@@ -1,0 +1,103 @@
+plan React
+title   React ownership, attachment and passive views
+status  proposed
+goal
+    Components read consistent data and keep stable actor handles without starting work in render.
+outcomes
+    O1  Provider and Runtime ownership
+        flow-state/react exposes <FlowProvider runtime={runtime}>{children}</FlowProvider>.
+        It accepts an existing Runtime and children, never constructs or disposes the Runtime,
+        and renders children immediately without suspending or showing a readiness fallback.
+        Effects await shared ready(); unmount cancels only that observer, not shared readiness.
+        Readiness failure reaches a React error boundary on the next render.
+        Hooks use the nearest Provider; unrelated nested Runtimes never share data or ownership.
+        useView rejects a foreign Runtime's handle with a provenance FlowError before subscribing.
+        The host constructs a new Runtime for a principal switch and disposes the old one;
+        changing the Provider key alone does not dispose it. Isolation follows @plan.Runtime.O7.
+        All useView reads in one render see one consistent version across actors and store entries.
+    O2  Hooks and the first render
+        useActor(machine, options?) returns one fresh local actor handle per component incarnation.
+        useActorByRef(ref, options) ensures a shared actor and returns a handle for a non-null ref;
+        any options object, including {}, selects ensure. Declared input must have its exact type.
+        useActorByRef(ref) only looks up and returns Actor | null; missing or disposed means null.
+        A null ref returns null and starts nothing. Invalid, foreign, opaque-local or mismatched
+        refs reject with a provenance FlowError. Lookup neither subscribes nor retains an actor.
+        Before attachment, ensure returns a stable handle with a pure snapshot: default states,
+        initial(input) memory, available passive provider context, active lifecycle, no issues,
+        active resource lanes Pending with undefined data or a pure placeholder; inactive lanes 
+        absent.
+        Pending lanes alone do not mark optimistic writes pending. Attached actors show committed 
+        data.
+        Render registers nothing, subscribes to nothing, starts no work, writes no storage and emits
+        no evidence, including lazy adoption. Pure initializers may run in discarded renders.
+        Fresh attachment keeps the prepared memory; restored/shared actor precedence is 
+        @plan.Runtime.O3.
+        Server and hydration snapshots follow @plan.ServerRendering.O4.
+        Handles, sends and typed event constructors stay stable for the same identity. Equivalent
+        refs resolve the same actor; changing the ref resolves the new identity. Local input is read
+        once; changing local machine or input requires a keyed remount and emits a development 
+        diagnostic.
+        Shared input never resets an existing actor; conflicting ref options follow 
+        @plan.Runtime.O3.
+    O3  Attach, detach, Strict Mode and grace
+        After commit and readiness, an ensuring hook attaches the same handle through the Runtime.
+        It uses current provider context without replaying initial, input or onContext work.
+        Lazy admission follows @plan.LazyFeatures.O2; failed admission leaves no partial actor.
+        Before attachment, at most 64 sends buffer in FIFO order; send 65 throws
+        FlowError(AdmissionOverloaded) without accepting the event. Attachment delivers accepted 
+        sends
+        exactly once through @plan.Runtime.O4. Closed or abandoned handles reject later sends;
+        discarded renders never deliver their buffered events to another component incarnation.
+        Local cleanup leaves the actor active for 100 milliseconds on the Runtime Clock. Reattach
+        before expiry keeps the actor and cancels disposal; expiry disposes it through the Runtime.
+        Work continues during grace. Strict Mode cleanup/setup never duplicates work or loses the 
+        actor.
+        Shared ensuring hooks count as uses until cleanup; retention follows @plan.Runtime.O3.
+        Dropping a JavaScript handle disposes nothing. Explicit disposal is visible to all users;
+        a mounted ensuring hook re-ensures a fresh incarnation under @plan.Runtime.O6.
+        Unmount while awaiting readiness never admits later. Reattach during disposal waits for
+        cleanup; failed cleanup surfaces through @O5. Activity hiding beyond grace loses local state
+        under the current policy; reveal creates a fresh actor, subject to @Q1.
+    O4  Eligibility in views
+        useView(actor, select) accepts an exact handle and preserves the selector's exact return 
+        type.
+        Nullable lookup must be branched first; Machines, refs and comparator arguments are 
+        rejected.
+        Selectors read frozen state, memory, context, issues, lifecycle and activities. A disposed
+        snapshot keeps its last state, memory and context with lifecycle disposed.
+        State tokens narrow snapshot types; check(s, event) follows @plan.Machines.O4.
+        Activity data follows @plan.Operations.O6; inspection data follows @plan.Inspection.O1.
+        descriptor.get and Entity.get are passive: reading never fetches, mutates or retains data.
+        Selectors start no work and acquire no ownership. Transactions have no view reader.
+        Changes to currently selected descriptor keys update the view even without an actor change;
+        conditional reads replace those dependencies. Selected values compare with Equal.equals,
+        and unchanged lanes keep identity. Changing selector identity does not resubscribe to the 
+        actor.
+    O5  Errors in views
+        A selector exception reaches the nearest React error boundary. Reading unchanged relevant
+        data rethrows the same exception without reevaluation; a later matching publication retries,
+        while unrelated updates do not. An attached view failure leaves committed data and siblings 
+        intact.
+        Initial attachment or hydration validation failure aborts admission without a partial actor.
+        Readiness, admission, lazy adoption, provenance and cleanup failures retain the FlowError
+        classification of @plan.Diagnostics.O1 and rethrow on the next render. Boundary reset allows
+        adoption retry on a later attachment, never by loading during render.
+        Resource failure lanes and typed machine errors remain view data; they do not automatically
+        throw. Unknown commit reconciliation follows @plan.Operations.O3. Hooks never suspend.
+verification
+    V1  Type/mount tests prove exact hook types, Provider isolation, readiness and boundary errors.
+    V2  Render tests prove pure snapshots, stable handles, ref changes and no discarded-render work.
+    V3  Attach tests prove 64 buffered sends, FIFO delivery once, current context and unmount 
+         safety.
+    V4  Lifecycle tests prove grace, Strict Mode, retention, re-ensure and cleanup failures.
+    V5  View tests prove consistent passive reads, key updates, equality and isolated error retries.
+    V6  Hydration tests prove matching first HTML and no duplicated work.
+questions
+    Q1  Should local actors survive React Activity hiding beyond grace?
+        Current behavior expires them; shared refs offer explicit retention. Local retain is not a 
+        v1 option.
+    Q2  Deferred to build time
+        Choose the private attachment and subscription implementation.
+        Choose how selector failures are cached for unchanged relevant data.
+        Choose development diagnostic wording for local machine/input changes.
+        Choose lifecycle race generation and browser test coverage.

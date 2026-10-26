@@ -1,0 +1,629 @@
+plan Machines
+title   Machines: definitions, states, turns, guards, schedules, activities and reactions
+status  proposed
+goal
+    Let an author, most often an AI coding agent, describe one actor family as static data with
+    exact inference, and let the Runtime decide every input to an actor of that family in one
+    ordered, atomic, deterministic turn. This Plan owns definition(config), machine(definition,
+    callback), the state hierarchy and its exit and entry rule, the macrostep, guards, deny and
+    check, schedules, activity and outcome declarations inside machines, onContext reactions and
+    the shape of the published snapshot.
+
+    It replaces the archived Statecharts Plan and the machine half of SurfaceSimplification, and
+    takes over FlowState O1 and O2 and decisions D8 to D10, D17 to D25 and D44 to D47 (each
+    decision below names the FlowState decision it was). The archive is provenance only (FlowState
+    C1): every rule kept from it is restated here. The ledger
+    references/ledger/Machines.md records the disposition of every archived commitment.
+
+    Neighbouring owners: actor identity, admission, mailboxes, context waves and disposal are
+    @plan.Runtime.O3 to @plan.Runtime.O6; operation semantics (keys, lanes, commits, writes,
+    retry) are @plan.Operations.O1 to @plan.Operations.O7; the FlowError type and the code
+    vocabulary are @plan.Diagnostics.O1 and @plan.Diagnostics.O2; the structural representation
+    is @plan.Inspection.O1; flow check rules are @plan.CommandLine.O5. Design rationale and longer
+    examples are in references/design/minimal-library.md (decisions 4 to 8a).
+outcomes
+    O1  Definitions and machines
+        definition(config) and machine(definition, callback) are synchronous, inert and return
+        their values directly. A failed construction throws one FlowError whose diagnostics list
+        every violation found, in a canonical order (declaration order, then rule order), with a
+        path to the offending field (@D1). Construction starts no actor, storage, service, Effect,
+        timer or evidence.
+
+        A definition's configuration has exactly these fields; any other top-level field is a
+        construction error:
+
+        - **id** (required): the exact authored durable machine id (name rules below). It is a
+        literal type, so lazy entries can be checked against it (@plan.LazyFeatures.O1).
+        - **states** (required): an ordered list whose items are a leaf name (a string) or a
+        compound (a record with exactly one key, the compound's name, whose value is the
+        ordered list of its children). The root is implicit. Example:
+        [{ OPEN: ["EDITING", "SAVING"] }, "CLOSED"].
+        - **events** (required, may be empty): public events, a record from event name to an
+        Effect Schema field record (@D12). {} declares a payload-free event.
+        - **internalEvents** (optional): events only this actor's own schedules, onContext
+        reactions and operation outcomes produce (@D5), same form as events.
+        - **input** (optional): a Schema field record, read only by initial (@D13).
+        - **memory** (optional): a Schema field record (@D13).
+        - **initial** (required exactly when memory has at least one field): a pure function
+        ({ input }) => memory, run once for a fresh actor and never on restore, adoption,
+        hydration or handover (@D14).
+        - **context** (optional): a record from slot name to Provider.select(selector), where
+        Provider is another definition; each slot is one upward read edge (@D10,
+        @plan.Runtime.O5).
+        - **operations** (optional): a flat record from name to a resource, transaction, stream
+        or entity-domain handle. No registry, nesting or other container.
+
+        Closed construction checks on a definition, each a construction error with its own code
+        (@plan.Diagnostics.O2):
+
+        - an unknown or duplicated field, a field of the wrong kind, a partial declaration (for
+        example a compound with no children);
+        - a name that breaks the name rules (below); an id, state, event, slot, operation or field
+        name;
+        - a state tree deeper than ten levels: a state path has at most ten segments (depth ten
+        is accepted, eleven rejects);
+        - two siblings with the same name; a state named is or child at any level, or root at the
+        top level (these names are members of state tokens, @D6);
+        - the same name in events and internalEvents;
+        - an event payload, input or memory field named _tag (the event envelope key, @D12);
+        - an event, input or memory value that is not a Schema field record;
+        - memory with fields and no initial; initial with empty memory; input without initial;
+        - a context value that is not a select result of a definition; a context slot that
+        selects from the definition itself (a self-read is a cycle);
+        - an operations value that is not a Flow operation or domain handle.
+
+        machine(definition, callback) calls the callback exactly once, synchronously, with
+        { S, E, O }: the state tokens, the event constructors and the operation handles of that
+        definition. The callback returns the machine configuration: at the root, default, states,
+        and optionally on, activities, schedules and onContext; at every compound node, default,
+        states and optionally on, activities, schedules; at a leaf, optionally on, activities,
+        schedules ({} is an empty leaf). Every value in it is static data whose callbacks only
+        compute values (FlowState D1): targets, operations, outcome events, send targets and
+        write targets are never chosen by a callback.
+
+        Closed construction checks on a machine:
+
+        - the states record matches the definition's tree exactly: a missing, extra, misplaced or
+        duplicated node rejects;
+        - every compound, and the root, names a default that is the token of one of its direct
+        children; a leaf declares no default or states;
+        - every target is a token of this machine or the literal "self"; a token of another
+        machine, a string path or a computed target rejects;
+        - every handler key is an event of this definition (public or internal);
+        - every event used in an outcome, a schedule's send or an onContext reaction belongs to
+        this definition; every event used in send(ref, ...) is a public event of the ref's
+        machine;
+        - activity names are unique across the whole machine and each refers to one operation;
+        schedule names are unique across the whole machine;
+        - activity parameters that read earlier activities' lanes form no cycle (declaration
+        order is the only allowed direction);
+        - an unknown field anywhere in the configuration.
+
+        Behaviour cannot enlarge the definition's universe. Types flow one way, from definition to
+        machine (NoInfer or an equivalent constraint): a machine cannot add a state, event or
+        operation, and an extra key is both a type error and a construction error.
+
+        Name rules (@D2): every authored id and name is nonempty, at most 256 UTF-8 bytes, and
+        contains no C0 control, DEL, NUL or lone surrogate. Spelling is exact: no Unicode
+        normalisation and no locale comparison, so composed and decomposed spellings are
+        different names. Composite identity (an actor ref, a cache identity, a persisted key) uses
+        a fixed namespace tag and length-prefixed UTF-8 segments, never delimiter joining; the
+        actor ref form is @plan.Runtime.O3. Byte counts, surrogate checks and the depth limit are
+        runtime validation, not types (@C4).
+
+        A definition derives public Schemas (@D15): Event (a Schema.TaggedUnion of the public
+        events, _tag envelope), State (the literals of complete state paths, such as
+        "OPEN.EDITING"), Input, Memory and Snapshot. Boundaries decode with them; decoding an
+        internal event with Event fails. Event constructors (E.TitleChanged({ title })) return a
+        plain envelope { _tag, ...payload }, validate the payload against its Schema on every call
+        and throw FlowError (InvalidEvent) when it does not conform; a payload-free constructor
+        takes no argument.
+
+        Literal ids, state paths, event names, payloads, selected context and operation names
+        are inferred exactly without as const, satisfies, explicit generics or wrapper calls.
+
+        Input is consumed by initial only. No later callback, snapshot, persisted record, payload
+        or trace carries the original input. Only accepted transitions change memory.
+
+        Encodability: memory, input and every public event payload of a machine named by a ref
+        with persist: true must have a JSON-safe encoded side; an opaque Schema such as
+        Schema.instanceOf(File) is allowed only in machines never persisted. The check runs at
+        admission of a persisted ref (@plan.Runtime.O3, code NotEncodable) and in flow check.
+        Reference: references/dispatch-desk/features/Tickets/editor/editor.definition.ts,
+        features/Tickets/editor/editor.machine.ts, features/Session/session.definition.ts.
+    O2  States and transitions
+        The state hierarchy is a tree of nested states with one root. Substates share the
+        actor's memory, context, event protocol, mailbox, operations and lifetime; they have no
+        identity, input, address, output, completion or snapshot of their own (@D10). Exactly one
+        active leaf is published at a time; its complete path is snapshot.state.
+
+        There are no final states: a leaf without handlers is an ordinary leaf. Reaching it does
+        not dispose the actor, complete its snapshots stream or close its mailbox; only
+        disposeActor, retain expiry or Runtime disposal end an actor (@plan.Runtime.O6).
+
+        State tokens (@D6). S.OPEN.EDITING names the complete path "OPEN.EDITING". Each token
+        exposes is(snapshot), true when the token's state or any descendant is active, and
+        child(snapshot), the literal name of the active direct child of that state, or undefined
+        when the state is inactive or a leaf. S.root.child(snapshot) gives the active top-level
+        state. is narrows the snapshot type, so inside S.OPEN.is(s) the lanes of OPEN's activities
+        are present (@O8).
+
+        Handlers. A node's on record maps an event name to one of:
+
+        - a state token (shorthand for { target: token });
+        - one transition { target, guard?, updateMemory?, actions? };
+        - an ordered array of transitions, tried in order (@D4).
+
+        target is required: a token of this machine or "self". There is no implicit target and
+        no relative or runtime path lookup.
+
+        Nearest handler wins (@D4). For an event, the Runtime looks for a handler on the active
+        leaf, then on each ancestor up to the root. At the first node with a handler, it tries
+        that handler's transitions in authored order; the first transition whose guard passes
+        (or that has no guard) is taken. When every transition of that handler declines, the
+        search continues at the next ancestor that has a handler for the event (fallthrough).
+        When no level has an enabled transition, the event is a silent no-op (@O3).
+
+        Exit and entry rule (@D16). Let H be the node whose handler was taken and T the target.
+
+        - **"self"**: no state exits and none enters. No schedule or activity of any state is
+        restarted, and no exit or entry occurs on a leaf, a parent or the root. Only
+        updateMemory and actions run.
+        - **The domain D**: if T is a strict descendant of H, D is H. Otherwise D is the nearest
+        proper ancestor of T that is also an ancestor of H (for T equal to H, D is H's parent;
+        for T an ancestor of H, D is T's parent).
+        - **Exit set**: every active state strictly below D, exited deepest first.
+        - **Entry set**: the states on the path from D's child down to T, then T's defaults,
+        entered outermost first, each default being the authored direct child.
+        - D and its ancestors are never exited, so a change among descendants never restarts an
+        ancestor's activities or schedules (OPEN's ticket subscription survives EDITING to
+        SAVING).
+        - **Targeting the active state itself** (T equal to H, or a handler on an ancestor
+        naming an active descendant) is a re-entry: T and its active descendants exit and enter
+        again, and the schedules and activities declared on them restart. The toasts machine
+        relies on this: Expire targets S.SHOWING from SHOWING to start the next toast's timer,
+        while Push uses "self" and restarts nothing.
+        - **Targeting an active ancestor** exits and re-enters that ancestor and everything under
+        it, entering its defaults.
+
+        Work follows the sets: on exit, a state's schedules are cancelled and its activities
+        released, children before parents; on entry, a state's schedules arm and its activities
+        start, parents before children, so an activity whose parameters read a parent's lane sees
+        that lane. Releases and starts happen after the turn's publication (@O3 step 5). flow
+        check warns on a transition targeting the token of the very state that declares it, since
+        "self" is usually meant (@plan.CommandLine.O5).
+
+        Defaults enter outermost to leaf in one turn, with no intermediate publication or work.
+        Reference: references/dispatch-desk/features/Tickets/editor/editor.machine.ts (Escape
+        fallthrough, root Saved with "self"), features/Toasts/toasts.machine.ts (re-entry of
+        SHOWING versus "self").
+    O3  Turns
+        Every input to an actor (a public event, an internal event, a schedule firing, an
+        operation outcome, a context wave, a lifecycle fact) enters the actor's one FIFO mailbox
+        (@plan.Runtime.O4) and is decided in one macrostep:
+
+        1. **Select.** Find the transition by the nearest-handler rule with ordered alternatives
+        and fallthrough (@O2). Guards are evaluated in that order; a declined guard stops that
+        transition's later callbacks.
+        2. **Compute.** Run the taken transition's updateMemory, then its action parameters,
+        both against the same pre-turn snapshot and event. Actions never see the candidate
+        memory.
+        3. **Apply.** Shallow-merge the Partial<Memory> patch once; apply the exit and entry sets
+        (@O2); arm entered schedules (evaluating schedule functions) and compute entered and
+        kept activities' identities (@O6); re-evaluate restartOn selections (@O5).
+        4. **Validate and stage.** Materialise the complete action batch and validate every
+        member (descriptor, key, payload, send target); stage actor and store changes. An
+        invalid member rejects the whole batch: no valid prefix escapes.
+        5. **Publish, then work.** Publish one committed cut of the actor and the store
+        (@plan.Runtime.O4); then release exited work, start entered work and start or join
+        the batch's finite work, in that order.
+
+        Callback inputs. A guard receives { event, state, memory, context, activities }: the
+        pre-turn snapshot's fields and the event, exactly the data check evaluates (@O4).
+        updateMemory, action parameter functions and send payload mappers receive the same plus
+        now, the turn's Runtime Clock time in integer epoch milliseconds (one value per turn). A
+        countdown therefore stores now plus a duration in memory; snapshots carry no timers.
+
+        No-op. When no handler exists or every guard declines, the turn changes nothing: no
+        issue, publication, revision, occurrence, evidence turn record or work. The decline is
+        recorded once in evidence as a denial when a guard denied (@O4), without a revision.
+
+        Pre-commit defects. A defect (a throw or a die) in any authored callback evaluated before
+        commit (guard, updateMemory, an action parameter, a key projector, a send payload mapper,
+        a schedule function, a restartOn selector, an activity parameter or when predicate)
+        keeps the prior state, memory, context and store truth, starts no occurrence or work,
+        publishes exactly one issue-only snapshot with a diagnostic naming the callback and its
+        path, and is not retried for that input.
+
+        Post-commit callbacks. Some callbacks run outside the turn that declared them: outcome
+        and stream .from mappers, schedule send .from mappers, commit writes and optimistic data
+        functions, and placeholder. A defect in one never changes state or memory, enqueues no
+        event, applies no part of that write batch (all or nothing, @plan.Operations.O5),
+        publishes one issue-only snapshot naming the callback, and is not retried for that
+        occurrence. A committed cut is never abandoned or rolled back.
+
+        Payload validation at admission. Admission (@plan.Runtime.O4) accepts only an envelope
+        whose _tag is a public event of the target machine and whose payload conforms to that
+        event's Schema; otherwise it throws FlowError (InvalidEvent) and no turn exists. An
+        internal event can never be sent, decoded or checked from outside (@D5).
+
+        Determinism. A turn's result is a function of the pre-turn snapshot, the event, now and
+        the seeded Random of a Story; nothing in a turn reads wall time, the host scheduler or
+        iteration order of unordered collections.
+
+        Atomic publication, the one versioned store, mailbox order and bounds are
+        @plan.Runtime.O4; the production turn budget is none, and Stories bound process() at
+        10,000 turns (@plan.Testing.O2).
+        Reference: references/dispatch-desk/features/Tickets/editor/editor.machine.ts, the
+        editor Story features/Tickets/editor/editor.story.ts.
+    O4  Guards, deny and check
+        A guard is a pure function of the pre-turn snapshot's state, memory, context and
+        activities (its lanes) plus the event, the same data check(snapshot, event) evaluates. It
+        returns true or deny(code, context?) (@D7). false is a type error; at runtime any other
+        return value is a pre-commit defect. Eligibility that depends on loaded data ("no more
+        pages" from a lane's hasMore, "ticket already assigned" from a lane's data) is therefore a
+        guard, and visible to check and to views. A guard never reads now, an operation cache
+        outside the actor's own lanes, a service or a mutable value, and never starts work; a
+        guard reading anything else would make check and the turn disagree.
+
+        - **code**: a string literal, inferred as a literal type; it follows the name rules. flow
+        check warns on a code that is not a literal, because possible deny codes are read from
+        the guard's return type (@plan.Inspection.O1, decisions.md ruling 28).
+        - **context**: an optional plain-data record (JSON-safe values) explaining the denial,
+        such as { length, max }.
+
+        Actual denials are recorded in evidence (code, context, transition path) for flow explain
+        and traces; recording a denial never creates a revision or publication.
+
+        check(snapshot, event) answers whether event would be taken now, by the same rules as a
+        turn (nearest handler, ordered alternatives, fallthrough) and without effects: it runs no
+        updateMemory or action, admits nothing, publishes nothing, records nothing and starts no
+        work. It returns a Data value:
+
+        - **{ _tag: "Allowed" }**: some transition would be taken;
+        - **{ _tag: "Denied", reasons }**: at least one handler exists and every transition
+        declined; reasons is a non-empty list of { code, context } in the order tried: deepest
+        level first, then authored order, one entry per declined alternative that denied (was
+        FlowState D53);
+        - **{ _tag: "Unhandled" }**: no handler for the event at any active level.
+
+        A guard returning neither true nor a denial counts as no reason; a guard that throws
+        makes check throw FlowError (GuardDefect) with the cause; check never publishes an issue.
+        check evaluates the snapshot it is given: an older snapshot answers from its own captured
+        state, memory, context and lanes, never from live truth. Lifecycle is not consulted:
+        whether the actor admits events is a separate question (@plan.Runtime.O6).
+
+        check on an internal event, or with an event of a different machine than the snapshot's,
+        is a type error; an untyped call fails with FlowError (InvalidEvent). Because Denied is a
+        Data value, a useView selector returning a verdict re-renders only when the verdict
+        changes (@plan.React.O2). Enablement in views comes only from check.
+        Reference: references/dispatch-desk/features/Tickets/editor/editor.machine.ts (canSave,
+        NothingToDiscard), features/Tickets/editor/TicketPanel.tsx.
+    O5  Schedules
+        Schedules replace timers (@D9). A node (root, compound or leaf) declares schedules:
+        { name: { schedule, send, restartOn? } }. Names are unique across the machine.
+
+        - **schedule**: a Duration.Input (fires once), an Effect Schedule (fires at each step
+        until the Schedule completes), or a function ({ memory, context, now }) => Duration.Input
+        | Schedule evaluated when the schedule arms. An invalid result (negative, NaN or
+        unparseable duration, or a non-Schedule value) is a pre-commit defect of the arming
+        turn (@O3): the state is not entered and nothing is armed.
+        - **send**: an event of this definition, bare when payload-free, or E.X.from(metadata)
+        where metadata is { name, attempt, armedAt, dueAt, firedAt, output }: attempt counts
+        firings since arming from 1, the times are Runtime Clock epoch milliseconds, and output
+        is the Schedule step's output (undefined for a Duration).
+        - **restartOn**: an optional selector ({ memory, context }) => value.
+
+        Lifetime. A schedule arms when its state enters (unless it has restartOn) and keeps its
+        absolute deadline through every change among its state's descendants and every "self"
+        transition. It is cancelled when its state exits and re-arms from its first step only when
+        that state enters again (@O2). A firing is enqueued as an ordinary event of the actor; it
+        carries the activation that armed it, and a firing whose activation ended before its turn
+        is decided is discarded without a turn (recorded in evidence as retired). Schedules never
+        start finite work themselves: the event's handler does.
+
+        Firing. Each due step delivers exactly once. For a Schedule, the next step's delay is
+        computed from the firing time with Schedule.toStep on the Runtime Clock. When several
+        firings fall due at the same instant, they are enqueued in a fixed order: actor admission
+        order, then the declaring state outermost first, then declaration order within the node.
+        A step that is overdue by more than one interval (a hidden tab, a restore) delivers one
+        firing, never a burst, and the next step is computed from the actual firing time.
+
+        restartOn. At arming, the selector's value becomes the baseline and the schedule stays
+        idle: the first value never fires. After each committed turn of the actor while the state
+        is active, the selector runs again; a value not Equal.equals to the baseline becomes the
+        new baseline and restarts that schedule alone from its first step, measured from that
+        turn's commit time. An equal value does nothing. A Duration schedule with restartOn
+        returns to idle after firing, so it is a debounce.
+
+        Restore and resume (decisions.md ruling 10). A restored Duration schedule keeps its
+        absolute deadline; if it is overdue it fires once on activation. A restored multi-step
+        Schedule restarts from its first step at activation. A restartOn baseline is recomputed
+        silently from the restored memory and context. Hydration and handover follow the same
+        rule (@plan.Persistence.O4, @plan.ServerRendering.O5, @plan.MultiTab.O4).
+
+        Time is the Runtime Clock: the TestClock in Stories, where advance, advanceTo and
+        advanceToNextTimer step schedules deterministically (@plan.Testing.O2). Schedule status
+        (idle, armed, fired, cancelled, retired, with name, state path, armedAt, dueAt, firedAt)
+        is recorded in evidence and shown by inspection (@plan.Inspection.O4), never in the
+        snapshot.
+
+        flow check warns when a schedule's event can be denied by every handler with no
+        alternative (a silent give-up), as a stuck-state case (@plan.CommandLine.O5).
+        Reference: references/dispatch-desk/features/Tickets/editor/editor.machine.ts (autosave
+        with restartOn, LOCKED backoff from memory), features/Tickets/queue/queue.machine.ts
+        (Schedule.spaced poll, jittered backoff), features/Toasts/toasts.machine.ts.
+    O6  Activities and outcomes in machines
+        Activities are continuing declarations per node: activities: { name: O.x.subscribe(params,
+        { outcomes?, placeholder?, when? }) } on a state, or on the root for whole-lifetime work.
+        params is a value or a function of { state, memory, context, activities } returning the
+        operation's parameters; when is an optional predicate of the same input. An activity is
+        running while its state is active and when is not false; its lane is
+        snapshot.activities.name (lane shape, placeholder and paging are @plan.Operations.O6).
+
+        Identity. An activity's identity is its declaration slot, the operation kind, the
+        descriptor and the canonical key of its parameters (@plan.Operations.O1). After every
+        turn the identity is recomputed: an equal identity keeps its work, generation and original
+        parameters; a changed identity releases the old work exactly once and starts the new;
+        when false releases only that slot. Parameters may read the lanes of activities declared
+        earlier in the machine (declaration order, parents before children); a cycle is a
+        construction error (@O1). A release whose finalizer fails is classified, reported once as
+        an issue and never blocks the transition.
+
+        Outcomes. One outcomes container serves every operation family (@D11):
+
+        - **finite work** (lookup, refetch, commit, retry): success, failure, defect, interrupt,
+        unknown;
+        - **continuing work** (subscribe): value, complete, failure, defect, interrupt.
+
+        Each member is optional and maps to an event of this definition, bare when payload-free
+        or E.X.from(value) when the event has fields; an event with fields always uses .from.
+        failure is either one event (for untagged errors) or an exhaustive record from error _tag
+        to event. A mapped event is a later ordinary turn of the actor, decided by the ordinary
+        handlers (internal events are allowed). An omitted member sends no event; the operation's
+        fact is still recorded and published in the lane, and an omitted failure or defect
+        publishes an issue on the actor.
+
+        value outcomes fire only when the confirmed value changes (decisions.md ruling 12): the
+        new confirmed value is not Equal.equals to the last one mapped for that activity. They
+        never fire for a prediction or an optimistic layer, and an equal value is silent. A
+        memory baseline built from value outcomes (the editor's saved title) therefore holds only
+        confirmed data. Memory holds keys and drafts, never copies of cache data; flow check flags
+        a memory field written only from a value outcome (@plan.CommandLine.O5).
+
+        unknown is an ordinary internal event. It carries the Attempt (decisions.md ruling 36:
+        the attempt id and its encoded input), so E.X.from((attempt) => ({ attempt })) can keep
+        it in memory and a later action can re-issue the same attempt with O.x.retry
+        (@plan.Operations.O3). Authors should give every commit an exit for unknown: an
+        uncertainty state (for example UNCERTAIN with Retry and Discard handlers) or a memory flag
+        that a view reads; a machine that stays in its waiting state on unknown has no actionable
+        exit, and flow check warns (@plan.CommandLine.O5).
+
+        Lane-only publications run nothing. An operation fact that changes a lane (data, tag,
+        pending, stale, hasMore) without a mapped event, or before its mapped event's turn,
+        republishes the actor's snapshot with the new lanes as one atomic cut with the store; it
+        evaluates no transition, guard, updateMemory, action, schedule, restartOn selector or
+        onContext reaction of that actor. Consumers that read the actor as a provider see an
+        ordinary provider publication (@plan.Runtime.O5).
+
+        Finite work starts only from the actions of an accepted transition. Actions are operation
+        actions (O.x.lookup, refetch, more, commit, retry, cancel, invalidate, clear, setData,
+        whose semantics are @plan.Operations.O2 to @plan.Operations.O7) and send(ref, event)
+        (@plan.Runtime.O4). A commit's writes apply when it settles in whatever state the actor
+        is in (@plan.Operations.O5).
+        Reference: references/dispatch-desk/features/Tickets/editor/editor.machine.ts
+        (commitDraft, the ticket and progress activities), features/Tickets/queue/queue.machine.ts
+        (root activities, placeholder, listInput).
+    O7  Context reactions
+        onContext: [{ select, when?, event }] is a machine-level list (@D11). select receives
+        { context, memory } and returns a value; when, optional, receives (current, previous) and
+        returns a boolean; event is a bare event or E.X.from(current).
+
+        - **Baseline**: at admission, restore, adoption, hydration and handover, each reaction's
+        selection is computed and stored silently. The first selection never emits.
+        - **Trigger**: only a context wave re-evaluates select (@plan.Runtime.O5). A change of the
+        actor's own memory never re-runs it; the memory read is the current memory at the wave.
+        - **Change test**: a selection not Equal.equals to the stored one is a change; it becomes
+        the new stored selection whether or not when passes. An equal selection is silent.
+        - **Emission**: on a change, when(current, previous) is evaluated (absent means true); a
+        passing reaction enqueues its event as an ordinary later turn. When several reactions
+        fire in one wave, their events enqueue in declaration order, after the context turn that
+        applied the new context.
+        - **Defects**: a throw in select, when or the .from mapper publishes one issue-only
+        snapshot naming the reaction, keeps the stored selection and emits nothing; the next wave
+        tries again.
+
+        A reaction never changes state directly and cannot read the actor's own state: only the
+        ordinary handler decides legality and actions. A handler that chooses between events
+        becomes several reactions sharing one selection.
+        Reference: references/dispatch-desk/features/Tickets/editor/editor.machine.ts
+        (PermissionRevoked when canEdit turns false).
+    O8  The snapshot
+        A snapshot is plain, deeply frozen data with exactly these fields:
+
+        - **state**: the complete active leaf path, a literal of the State Schema;
+        - **memory**: the current memory, decoded Type side;
+        - **context**: the current selected value of every context slot;
+        - **issues**: the actor's current issues, a list of Diagnostic values 
+        (@plan.Diagnostics.O1);
+        - **lifecycle**: "active", "disposing" or "disposed" (@plan.Runtime.O6);
+        - **activities**: a record from activity name to its lane, or undefined while that
+        activity is not running (@plan.Operations.O6).
+
+        It has no methods, no public revision, no timers and no input. Revisions and schedule
+        status live in inspection (@plan.Inspection.O1). Every other read is a function applied to
+        a snapshot: S.X.is, S.X.child, check, descriptor.get and entity reads.
+
+        Lanes are stored in the snapshot, never computed from live state when read, so a
+        checkpoint shows the truth of its own moment; a lane keeps its object identity until its
+        entry changes, and unchanged parts of a snapshot keep their identity across publications.
+        Flow-owned envelopes, records and arrays are copies; opaque application values keep their
+        identity.
+
+        Issues are keyed by actor incarnation, source (a callback path, an operation activity or
+        attempt, a reaction) and binding. A later success or release from the same source clears
+        its issue; another incarnation never inherits, clears or republishes it
+        (@plan.Runtime.O3).
+
+        The terminal snapshot of a disposed actor keeps its last committed state, memory and
+        context, with lifecycle "disposed".
+        Reference: references/dispatch-desk/features/Tickets/editor/TicketPanel.tsx,
+        features/Tickets/queue/QueueList.tsx.
+decisions
+    D1  Authoring returns values and throws one FlowError
+        Was FlowState D8 and D10. definition and machine return their values and throw one
+        FlowError carrying every diagnostic; event constructors return envelopes and throw on an
+        invalid payload. Replaces the archived Result returns of Statecharts O1 and O2. The
+        FlowError type and its classification are @plan.Diagnostics.O1; FlowUsageError,
+        FlowPersistenceError, FlowDisposeError and FlowStoryExecutionError are deleted.
+    D2  Authored identity rules stay
+        Was FlowState D9 (its name and composite-identity part; the actor ref wire form moved to
+        @plan.Runtime.O3). Byte limits, rejected code points, exact spelling and length-prefixed
+        composite identity are kept from Statecharts O1 with their ported test vectors.
+    D3  target "self" means no state change
+        Was FlowState D17, from minimal-library decision 7. It is the only spelling for staying;
+        it works the same on a leaf, a parent or the root, and restarts nothing.
+    D4  The nearest handler wins; ordered alternatives; guards fall through
+        Was FlowState D18, with decisions.md ruling 34. A handler may be an array of transitions;
+        the first whose guard passes is taken; when all decline the event falls through to the
+        next ancestor's handler, and check reports every declined alternative's reasons. Replaces
+        Statecharts O3's rejection of the same event on an ancestor and a descendant. flow graph
+        shows overrides and fallthrough.
+    D5  Public events and internalEvents
+        Was FlowState D19, from minimal-library decision 4. Sending, decoding or checking an
+        internal event from outside is rejected; Stories reach internal events only through
+        their real producers, and models traverse them through fixtures (decisions.md ruling 2,
+        @plan.Testing.O5).
+    D6  State paths flatten; tokens expose is and child and narrow types
+        Was FlowState D20, from SurfaceSimplification D12 and D50 and minimal-library 8a. Token
+        members is, child and the top-level root are reserved names.
+    D7  Guards return true or deny(code, context?)
+        Was FlowState D21, from SurfaceSimplification D28. Deny codes are literal types read
+        structurally (decisions.md ruling 28).
+    D8  check replaces can
+        Was FlowState D22 and D53. check(snapshot, event) returns Allowed, Denied with reasons,
+        or Unhandled, as a Data value. Root can, bound can and can(..., { explain }) are deleted.
+    D9  Schedules replace timers; restartOn restarts one schedule
+        Was FlowState D23, from SurfaceSimplification D53 and minimal-library decision 7. Timer
+        snapshots, timer guards, exhaustion events and reenter are deleted.
+    D10  Hierarchy is nested states plus acyclic upward reads
+        Was FlowState D24, from SurfaceSimplification D4. No child actors, parallel regions,
+        history states or final states in version 1; separate actors replace parallel regions.
+    D11  Reactions and producers build payloads with .from
+        Was FlowState D25, from minimal-library decision 5, for outcomes, stream values,
+        onContext and schedules. Replaces SurfaceSimplification D23's (current, previous)
+        constructor call; previous stays available in when.
+    D12  Event payloads are Schema field records
+        Was FlowState D44, from SurfaceSimplification D44 and D56. Events are plain _tag
+        envelopes; "bare" and callable declarations, the type field and nominal event tokens are
+        deleted.
+    D13  Input and memory are Schema field records
+        Was FlowState D45, from SurfaceSimplification D45.
+    D14  Memory requires an initial function
+        Was FlowState D46, from SurfaceSimplification D59.
+    D15  Definitions derive their public Schemas
+        Was FlowState D47, from SurfaceSimplification D55.
+    D16  The exit and entry rule is binding
+        From decisions.md ruling 11 and its binding detail. Descendant changes never restart
+        ancestor work; parents start before children and stop after them; an explicit target
+        naming the active state or an active ancestor re-enters it; "self" re-enters nothing.
+        Replaces the deleted reenter keyword's boundary rule (Statecharts O2).
+    D17  One equality for selections
+        Every selection the Runtime compares (restartOn, onContext, value outcomes, context
+        slots) uses Equal.equals, as useView does. Replaces the archived Object.is and fieldwise
+        rules of Statecharts O4 and ApplicationsAndActors O6, so a selector returning a fresh
+        equal record does not restart a debounce every turn.
+    D18  Callbacks outside a turn fail without partial effects
+        Decided in this Plan. Post-commit callback defects (@O3) publish one issue, enqueue no
+        event, apply no partial write batch and are not retried.
+    D19  redirect stays deleted
+        From decisions.md ruling 3 and minimal-library decision 7. Eventless transitions are not
+        restored. Choosing an initial child from input or memory is recorded as @Q1.
+constraints
+    C1  The authoring surface stays closed
+        Excluded: child-machine constructors, final states and onDone output, context mutation,
+        entry, exit, invoke and always actions, transition submit, anonymous Effect callbacks,
+        registered views, dynamic state or operation registration, activity kits, timer-owned
+        finite actions and automatic operation retries.
+    C2  Authoring input is not an untrusted reflection boundary
+        Flow validates ordinary malformed objects (wrong kinds, missing and extra fields) but
+        makes no promise about proxies, throwing getters, symbols, sparse arrays or mutation
+        during construction.
+    C3  Future playback stays possible
+        Events stay serialisable plain values (opaque payloads only in non-persisted machines,
+        and Stories fixture or redact them), Stories stay executor-agnostic data, and the
+        structural representation stays extensible to UI-trigger edges.
+    C4  Bounds are runtime checks, not types
+        Byte counts, surrogate checks and the depth limit are validated at construction; public
+        types do not encode UTF-8 arithmetic or depth counters, and no any or assertion may hide
+        a type or behaviour failure.
+verification
+    V1  Authoring types
+        Compile the dispatch-desk editor, queue, session and toasts machines and the examples of
+        @O1 to @O7 without annotations, explicit generics or assertions. Negative fixtures: a
+        machine adding a state, event or operation; a foreign machine's token as target; a
+        string target other than "self"; a guard returning false; an event with fields used bare
+        in outcomes; check on an internal event; check with another machine's snapshot; sending an
+        internal event; an outcome event of another definition. Record compile time per machine
+        size (5, 20 and 60 states). Part of the stage S1 type spike. Planned.
+    V2  Construction checks
+        For every rule of @O1, one rejecting fixture asserting its code and path, plus a
+        fixture with several violations asserting the canonical order. Depth ten accepts and
+        eleven rejects. Ported name vectors: ASCII and 2, 3 and 4-byte UTF-8, 256 and 257 bytes,
+        C0, DEL, NUL, lone surrogates, composed against decomposed spelling. Reserved names is,
+        child and root; _tag fields; events and internalEvents collision; state tree mismatch
+        and a non-direct default. Construction starts nothing (no Effect, timer or evidence).
+        Planned.
+    V3  Exit and entry semantics
+        Production tests for each case of @O2: "self" on a leaf, a parent and the root restarts
+        nothing; a sibling transition; a handler on a parent targeting a descendant keeps the
+        parent's activity and schedule; targeting the active state re-enters it (the toasts
+        Expire case restarts its schedule); targeting an active ancestor re-enters it; parents
+        start before children and stop after them; an activity reading a parent lane sees it on
+        entry; defaults enter outermost first with one publication. Planned.
+    V4  Macrostep order and failure lanes
+        updateMemory runs before actions and both see the pre-turn snapshot; one shallow merge;
+        ordered alternatives take the first passing guard; fallthrough to the parent when every
+        alternative declines; no-op turns leave zero revision, evidence turn records and work;
+        an invalid batch member rejects the batch with no prefix; a pre-commit defect in each
+        callback kind of @O3 keeps prior truth with one issue-only snapshot and no retry; a
+        post-commit defect in each callback kind applies no partial write and enqueues no event;
+        an invalid payload is rejected at admission; now is constant within a turn. Planned.
+    V5  Guards and check
+        check agrees with the turn result (Allowed exactly when a send would take a transition)
+        on generated snapshots of the dispatch-desk machines; Denied reasons list every declined
+        alternative across levels in order; Unhandled when no level handles; an older snapshot
+        answers from its own cut; a guard defect throws GuardDefect and publishes nothing;
+        verdicts are Data values (Equal.equals). Denials appear in evidence without a revision.
+        Planned.
+    V6  Schedules
+        Duration fires once; a Schedule fires per step until it completes; equal deadlines fire
+        in the documented order; restartOn's first value never fires, an equal value does
+        nothing and a changed value restarts only that schedule; deadlines survive substate
+        changes and "self"; exit cancels and a queued firing from an ended activation is retired;
+        an overdue step fires once without a burst; a restored Duration keeps its deadline and a
+        restored Schedule restarts; an invalid schedule result keeps the state unentered.
+        Planned.
+    V7  Activities and outcomes
+        Equal identity keeps the generation and original parameters; a changed key releases the
+        old work exactly once; when false releases one slot; a failing release reports once and
+        the transition proceeds; lane-only publications run no handler, guard, schedule or
+        reaction; value outcomes fire only for confirmed changes and never for predictions; an
+        omitted failure publishes an issue; unknown reaches the machine carrying the Attempt.
+        Planned.
+    V8  Context reactions
+        The baseline is silent at admission and restore; only context waves re-run select;
+        equal selections are silent; several reactions in one wave enqueue in declaration order
+        after the context turn; a select defect keeps the stored selection and emits nothing.
+        Planned.
+questions
+    Q1  Should a compound be able to choose its default child from input or memory?
+        redirect stays deleted (decisions.md ruling 3), so an initial state chosen from input or
+        restored memory (start in AUTHED) needs an extra event turn and an intermediate
+        publication. Recommended for version 1: no feature; revisit with guarded default
+        children ({ default: [{ when, target }, fallback] }) only when a real case appears, and
+        record the case here.
+    Q2  Should targeting the declaring state's own token be an error?
+        It is a defined re-entry (@O2) and the toasts machine uses it deliberately on SHOWING from
+        a handler declared in SHOWING. Recommended: keep it a flow check warning that names
+        "self" as the alternative, not an error.

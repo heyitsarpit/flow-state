@@ -1,12 +1,10 @@
 # A minimal Flow State (version 2)
 
-Status: my proposal, not decided. Version 2 revises version 1 after the user's review and after
-three agents tested it against about fifty common React patterns: component and list state,
-data and network, and app-level concerns. Each decision below says what changed and why.
-Nothing here is in the plan yet; we go through it one decision at a time.
-
-Decisions 1–8 and the follow-ups in 8a were worked through with the user and are agreed in this form. The rest is still
-my proposal.
+Status: **adopted.** [FlowState.plan](../../FlowState.plan) adopts this document's decisions: 1 to 8a
+were agreed with the user, and the plan adopts 9 (actor-to-actor send, its D27), 10 (persistence,
+D41) and 11 (Stories and tooling, D42). Where this document and the plan differ, the plan wins;
+[the Dispatch Desk reference](../dispatch-desk/README.md) shows every decision in a working
+application. Version 2 revised version 1 after a review against about fifty common React patterns.
 
 The test for every name: an author must write it, or a tool must call it, and nothing else
 already covers it. Guarantees (ordering, atomic publication, fencing, no replay, honest

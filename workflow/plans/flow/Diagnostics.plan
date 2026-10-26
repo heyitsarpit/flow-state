@@ -1,0 +1,94 @@
+plan Diagnostics
+title   Actionable failures and safe diagnostics
+status  proposed
+goal
+    App authors can identify a failed boundary, correct its cause and inspect all failures
+    without parsing prose or leaking private data through diagnostics.
+outcomes
+    O1  FlowError and Diagnostic
+        Expected invalid authoring throws FlowError. Owned Effects report understood expected
+        failures as FlowError in the typed error channel, preserving their success and service
+        requirement types. Defects and interruption remain distinct Effect outcomes.
+
+        FlowError extends Error and exposes readonly _tag: "FlowError", code, diagnostics,
+        optional cause and optional evidence. diagnostics is a nonempty readonly array;
+        code equals diagnostics[0].code. The first diagnostic identifies the primary boundary
+        failure; later diagnostics retain phase order and multiplicity.
+
+        Diagnostic is an Error that authors can yield directly in Effect and encode/decode with
+        its exported Schema. It exposes classification (Failure, Defect or Interruption), code,
+        path (strings or finite numbers), details (string keys with string, finite number,
+        boolean or null values), summary and help. Invalid tags, missing fields, unknown codes
+        and values outside these domains reject. Authors branch on _tag, code, classification,
+        path and details; summary and help may change without changing the failure's meaning.
+
+        Schema rejection reports SchemaValidation with actual issue paths and safe details,
+        unless the owning boundary defines a more specific code. Parser exceptions never escape
+        as raw exceptions; arbitrary callback defects are never mislabeled SchemaValidation.
+        Story failure evidence follows @plan.Testing.O8.
+    O2  Recognizable codes and corrective action
+        Codes identify failures independently of message wording. Each diagnostic names the
+        affected field, identity or bound in path/details and gives a concrete corrective action
+        in help. Reporting an issue does not itself mean the call rejects; the owning boundary
+        decides whether work fails, continues or falls back. Application guard deny codes remain
+        application data, separate from Flow's diagnostic vocabulary.
+
+        Common codes an author can encounter:
+        - SchemaValidation: correct the value at the reported Schema issue path.
+        - InvalidEvent: use the receiving machine's public event and a valid payload.
+        - RuntimeNotReady: await runtime.ready() before issuing the command.
+        - RuntimeDisposed: create a new Runtime for the current scope.
+        - AdmissionOverloaded: wait for accepted work or reduce the submitted batch.
+        - StorageFailure: restore storage availability or quota; do not assume the write is durable.
+        - SecondTabNoPersistence: close the other persistence owner or continue without persistence.
+        - HydrationScopeMismatch: use the same scope for the payload and receiving provider.
+        - CleanupFailed: repair the finalizer and replace the owning Runtime.
+        - Defect: fix the failing callback or service using the in-process cause.
+        - Interruption: honor cleanup; retry only while the original intent still holds.
+
+        These examples are not an exhaustive code catalog. Boundary-specific behavior belongs to
+        its owner: machine validation @plan.Machines.O1; event validation @plan.Machines.O3;
+        readiness @plan.Runtime.O2; identity @plan.Runtime.O3; overload @plan.Runtime.O4;
+        disposal @plan.Runtime.O6; operation inputs @plan.Operations.O1; retry @plan.Operations.O3;
+        storage failures @plan.Persistence.O5; second-tab fallback @plan.Persistence.O7;
+        hydration @plan.ServerRendering.O4 and scope isolation @plan.ServerRendering.O6;
+        lazy loading @plan.LazyFeatures.O5; Story processing @plan.Testing.O2;
+        trace validation @plan.Inspection.O4; CLI usage @plan.CommandLine.O1.
+    O3  Complete failures survive cleanup
+        An author inspecting an in-process failure can recover its complete Effect Cause when
+        available, including failures from finalizers and cancellation. Cleanup never replaces
+        the execution failure or erases another failure. Classification is Defect if any defect
+        exists, otherwise Failure if a typed failure exists, otherwise Interruption.
+
+        Classification does not reorder diagnostics: execution or cancellation stays primary;
+        when only cleanup fails, the first cleanup failure is primary. Remaining cleanup
+        diagnostics retain phase order and multiplicity, including after end capture.
+        Operation failure, defect, interruption and an unknown remote outcome remain distinct.
+        Promise adapters and forwarded AbortSignal cancellation preserve the complete Cause
+        until the host deliberately projects the result.
+
+        Only the in-process FlowError may expose raw Cause. Cause, stack traces and fiber ids
+        never enter snapshots, checkpoints, persistence, SSR payloads, traces, inspector events
+        or CLI output. Outbound application data follows @plan.Inspection.O5; SSR omission
+        follows @plan.ServerRendering.O3.
+    O4  Safe rendering
+        Rendering a Diagnostic preserves its code, path, safe details and actionable help.
+        Control characters in paths, details, summary and help are escaped so hostile names
+        cannot inject terminal or log commands. Output never exposes raw input, stacks or Cause,
+        and never invents a file, line or column. Locations appear only when actually known.
+decisions
+    D1  One public failure contract
+        FlowError is the shared boundary carrier and Diagnostic its shared diagnostic Schema.
+        Capability-specific error classes or competing diagnostic codecs are not public APIs.
+verification
+    V1  Codec and carrier tests prove @O1's fields, rejection rules and primary code.
+    V2  Type tests prove readonly diagnostics, yieldable Diagnostic and preserved Effect A/R.
+    V3  Boundary tests prove expected failures, Schema paths and distinct callback defects.
+    V4  Mixed-Cause tests prove complete causes, classification and ordering through cleanup.
+    V5  Rendering/export tests prove safe actionable output without leaks or invented locations.
+questions
+    Q1  Deferred to build time
+        Complete boundary-code catalog and per-code remediation wording.
+        Closed reason vocabulary and diagnostic codec implementation.
+        Host execution helpers and printer organization.
+        Exact evidence projections and counters within the owning evidence contract.

@@ -1,0 +1,621 @@
+plan Diagnostics
+title   Canonical failures, closed codes and safe remediation
+status  proposed
+goal
+    Give every Flow boundary one FlowError carrier and one Diagnostic schema, with a closed,
+    actionable vocabulary, complete Cause classification and safe rendering. Capability owners
+    decide when a diagnostic occurs; this Plan owns its shape and codes. No runtime behavior or
+    implementation proof is claimed. references/ledger/Diagnostics.md is provenance only.
+outcomes
+    O1  FlowError
+        FlowError extends Error, has readonly _tag: "FlowError", code, diagnostics, optional
+        cause and optional evidence. diagnostics is a non-empty readonly array of Diagnostic;
+        code equals diagnostics[0].code. The first diagnostic is the primary boundary failure;
+        secondary diagnostics preserve phase order and multiplicity. code is never inferred from
+        message text. Construction returns values and throws FlowError for expected invalid
+        authoring; no generic Error or archived feature error class substitutes for it.
+
+        Diagnostic is a real Error, directly yieldable, with an executable Schema.TaggedError
+        codec. Its required fields are classification (exactly Failure, Defect or Interruption),
+        code (@O2), path (array of strings or finite numbers), details (record of strings, finite
+        numbers, booleans or null), summary and help (strings). Non-finite numbers reject.
+        Serialized diagnostics derive from this one codec; unknown codes, unknown closed reasons,
+        wrong tags, missing fields and values outside those domains reject. No public projection
+        aliases, second codec or second expected-error hierarchy are introduced.
+
+        FlowError.cause is the complete in-process Effect Cause, when available, never a lossy
+        message substitution. evidence on a Story rejection is readonly: completed checkpoints;
+        end only if captured (otherwise absent); failing command index (zero-based), or the named
+        bootstrap/end-capture/cleanup boundary; primary diagnostic; ordered cleanup diagnostics;
+        cancelled boolean; retained trace and truncatedBeforeSequence; last accepted and drained
+        evidence sequence numbers. These fields reuse @plan.Testing.O8 and @plan.Inspection.O4,
+        not a CLI evidence model. Failed capture never invents end; later failure never deletes
+        completed checkpoints. Evidence wire projections exclude cause.
+
+        Flow's owned Effects map understood expected failures to FlowError in E while preserving
+        success A and requirements R. Die and Interrupt remain Effect defects/interruption, not
+        ordinary typed failures. A synchronous Schema decode boundary translates only SchemaError
+        into SchemaValidation with actual issue paths and safe scalar details; it does not label
+        arbitrary thrown defects as Schema errors. More specific owner codes in @O2 take precedence
+        at event, codec, restore and hydration boundaries. Raw parser exceptions never escape.
+        Consumers branch on _tag, code, classification, path and details; summary/help may evolve.
+        Reference: references/dispatch-desk/tools/diagnostics.ts and app/host.ts.
+    O2  The code vocabulary
+        This is the complete active Diagnostic code list. It is frozen before S2; adding a code
+        requires changing this outcome, its remediation and its exhaustive schema/owner tests.
+        Each entry gives meaning, corrective action and owning Plan outcome. Unless stated
+        otherwise classification is Failure. Reporting severity (error, warning or informational
+        issue) is separate from classification: an issue need not reject a call. Construction
+        defects and operational typed failures stay distinguishable under @O3.
+
+        Collection sources: every file in references/design/ and all seven
+        references/split-work/inventories/inv-*.md; references/split-work/decisions.md through
+        ruling 38; Machines.plan, Operations.plan and ServerRendering.plan. Concurrent capability
+        drafts are included where they name codes. Adopted sources are minimal-library sections
+        1, 4, 7 to 11; entity-domain sections 4 to 9; server-rendering section 5; lazy-features
+        sections 3.3 and 11. multi-tab section 13 is deferred by ruling 38, not silently adopted.
+        External research exception names (such as InvalidWhereExpressionError) are not Flow codes.
+
+        Every code carries a real owning path and safe scalar details naming the violated field,
+        identity or bound. For example path ["actorRef"], details { machine: "Editor" } for
+        MismatchedActorRef; path ["mailbox"], details { limit: 64 } for pre-attach overload;
+        path ["states", "OPEN", "default"] for InvalidStateDefault. These illustrate data,
+        not additional code/reason variants. Help must prescribe the corrective action below.
+
+        - **InvalidCanonicalValue** — An authored identity or canonical value violates its value 
+        domain.
+        Remediation: Use bounded plain canonical data and exact valid identity spelling. Owner: 
+        @plan.Machines.O1.
+
+        - **InvalidName** — An authored id/name is empty, over 256 UTF-8 bytes, contains C0/DEL or 
+        a lone surrogate.
+        Remediation: Shorten the named field and remove forbidden code points; do not normalize 
+        silently. Owner: @plan.Machines.O1.
+
+        - **InvalidDefinitionField** — A definition has an unknown, duplicate, wrong-kind or 
+        incomplete field.
+        Remediation: Use the declared definition fields and supply the required complete value. 
+        Owner: @plan.Machines.O1.
+
+        - **StateDepthExceeded** — A state path exceeds ten segments.
+        Remediation: Flatten the state tree to depth ten or less. Owner: @plan.Machines.O2.
+
+        - **DuplicateStateName** — Sibling state names collide.
+        Remediation: Give each sibling one distinct exact name. Owner: @plan.Machines.O1.
+
+        - **ReservedStateName** — A state uses is/child, or root at the top level.
+        Remediation: Rename that state to a non-reserved token name. Owner: @plan.Machines.O2.
+
+        - **DuplicateEventName** — A name occurs in both public and internal events.
+        Remediation: Declare it in exactly one event family. Owner: @plan.Machines.O1.
+
+        - **ReservedPayloadField** — An event/input/memory field is named _tag.
+        Remediation: Rename the field; Flow owns the envelope discriminator. Owner: 
+        @plan.Machines.O1.
+
+        - **InvalidSchemaFields** — An event/input/memory declaration is not a Schema field record.
+        Remediation: Declare each field with its Schema in a field record. Owner: @plan.Machines.O1.
+
+        - **InvalidInitial** — Memory/input needs initial, or initial is supplied with empty memory.
+        Remediation: Supply the required pure initial function and matching memory fields. Owner: 
+        @plan.Machines.O1.
+
+        - **InvalidContextDeclaration** — A context slot is not a definition's select result.
+        Remediation: Declare the provider selection statically; remove self-dependencies. Owner: 
+        @plan.Machines.O1.
+
+        - **InvalidOperationDeclaration** — An operations value is not an admitted operation/domain 
+        handle.
+        Remediation: Use the descriptor or domain handle in the flat operations record. Owner: 
+        @plan.Machines.O1.
+
+        - **InvalidMachineConfiguration** — Configuration violates the closed machine grammar; 
+        details.reason is listed below.
+        Remediation: Correct the named grammar field using the closed reason's remedy below. Owner: 
+        @plan.Machines.O1.
+
+        - **InvalidStateDefault** — A root/compound default is missing or not a direct child token, 
+        or a leaf has a default.
+        Remediation: Select one direct child token; remove default/states from leaves. Owner: 
+        @plan.Machines.O2.
+
+        - **InvalidTarget** — A transition target is foreign, computed or a string path.
+        Remediation: Use this machine's state token or literal self. Owner: @plan.Machines.O2.
+
+        - **InvalidEvent** — A payload fails its event Schema or an external send/check/decode 
+        names an internal/foreign event.
+        Remediation: Use a public event constructor of the exact definition and a valid payload. 
+        Owner: @plan.Machines.O3.
+
+        - **InvalidOutcomeEvent** — An outcome, schedule or context reaction names another 
+        definition's event, or an actor send names a nonpublic target event.
+        Remediation: Use a local internal/public producer event and a public target-machine send 
+        event. Owner: @plan.Machines.O1.
+
+        - **DuplicateActivityName** — Activity names collide across the machine.
+        Remediation: Give each declaration slot one globally unique activity name. Owner: 
+        @plan.Machines.O6.
+
+        - **DuplicateScheduleName** — Schedule names collide across the machine.
+        Remediation: Give every schedule one unique name. Owner: @plan.Machines.O5.
+
+        - **ActivityDependencyCycle** — Activity parameters read later lanes or form a cycle.
+        Remediation: Read only earlier activity lanes in declaration order. Owner: 
+        @plan.Machines.O6.
+
+        - **SchemaValidation** — A boundary's owning Schema rejects a value.
+        Remediation: Correct the value at the reported Schema issue path. Owner: 
+        @plan.Diagnostics.O1.
+
+        - **SemanticValidation** — Structurally valid declarations fail semantic compatibility.
+        Remediation: Correct the named app/wiring or domain rule before construction/admission. 
+        Owner: @plan.Runtime.O1.
+
+        - **InvalidDescriptorId** — An operation descriptor id violates the authored name rules.
+        Remediation: Use a nonempty valid id of at most 256 UTF-8 bytes. Owner: @plan.Operations.O1.
+
+        - **DuplicateDescriptorId** — Distinct descriptors claim the same durable id.
+        Remediation: Reuse the descriptor object or assign distinct ids. Owner: @plan.Operations.O1.
+
+        - **DuplicateMachineValue** — One machine value is listed under multiple app keys.
+        Remediation: List the machine once. Owner: @plan.Runtime.O1.
+
+        - **DuplicateMachineId** — Distinct eager machines or lazy entries claim one machine id.
+        Remediation: Keep exactly one machine/entry per durable id. Owner: @plan.Runtime.O1.
+
+        - **ForeignActorRef** — A handle/ref belongs to another app or Runtime provenance.
+        Remediation: Use the exact admitted ref/handle in the receiving Runtime. Owner: 
+        @plan.Runtime.O3.
+
+        - **MismatchedActorRef** — A ref is branded for another machine.
+        Remediation: Pass the exact machine-branded ref required at this boundary. Owner: 
+        @plan.Runtime.O3.
+
+        - **DisposedActorRef** — A stale handle is used after its incarnation has disposed.
+        Remediation: Ensure a fresh incarnation and discard the stale handle. Owner: 
+        @plan.Runtime.O6.
+
+        - **RuntimeNotReady** — An imperative command is attempted before readiness.
+        Remediation: Await the sole readiness Effect runtime.ready(). Owner: @plan.Runtime.O2.
+
+        - **RuntimeDisposed** — Work targets a disposed Runtime.
+        Remediation: Construct a new Runtime scope for the current principal/request. Owner: 
+        @plan.Runtime.O6.
+
+        - **MissingContextProvider** — A required provider is absent or a declared slot is unbound.
+        Remediation: Declare complete wiring and ensure the exact provider first. Owner: 
+        @plan.Runtime.O5.
+
+        - **ContextDependencyCycle** — Context bindings contain a cycle, including a self-read.
+        Remediation: Remove the cycle and keep upward reads acyclic. Owner: @plan.Runtime.O5.
+
+        - **DuplicateActorClaim** — The same machine/id has incompatible persist, retain or context 
+        options.
+        Remediation: Reuse the accepted options or choose a distinct stable identity. Owner: 
+        @plan.Runtime.O3.
+
+        - **ActorInputMismatch** — A later ensure supplies input unequal to the first accepted 
+        input.
+        Remediation: Reuse that input or ensure a distinct ref; the first input remains 
+        authoritative. Owner: @plan.Runtime.O3.
+
+        - **UnadmittedMachine** — A machine id has no eager or declared lazy entry in the closed 
+        app.
+        Remediation: Declare the machine or lazy id before constructing the app. Owner: 
+        @plan.Runtime.O1.
+
+        - **ActorNotActive** — A direct command targets an actor while it is disposing.
+        Remediation: Wait for disposal, then ensure its new incarnation; no resume API exists. 
+        Owner: @plan.Runtime.O6.
+
+        - **BlockedByDependents** — Provider disposal would strand bound consumers.
+        Remediation: Dispose the named consumers/slots first; never rebind a live consumer. Owner: 
+        @plan.Runtime.O6.
+
+        - **AdmissionOverloaded** — A finite mailbox, serialize queue, per-record queue or batch 
+        bound is exceeded.
+        Remediation: Wait for accepted FIFO work; reduce the batch; rejection admits no new 
+        occurrence, preview or adapter work. Owner: @plan.Runtime.O4.
+
+        - **SendTargetAbsent** — An actor-to-actor target is absent/disposing/disposed; unadopted 
+        lazy targets include adopted: false.
+        Remediation: Ensure the shared target before sending or handle its absence; inspect sender, 
+        target and event details. Owner: @plan.Runtime.O4.
+
+        - **KeyInvalid** — A key violates the canonical named-record grammar.
+        Remediation: Replace the value at the exact path with a supported canonical field value. 
+        Owner: @plan.Operations.O1.
+
+        - **KeyTooLarge** — A key exceeds depth 16, 256 nodes or 8192 UTF-8 bytes.
+        Remediation: Reduce the key below the named limit. Owner: @plan.Operations.O1.
+
+        - **InvalidDuration** — A required Duration input is invalid, negative or non-finite; a 
+        Story clock move goes backwards.
+        Remediation: Provide a finite nonnegative Duration; move the clock only forward. Owner: 
+        @plan.Operations.O1.
+
+        - **TargetBatchTooLarge** — An invalidation/clear action names more than 256 identities.
+        Remediation: Split the work into bounded batches; the rejected batch changes nothing. 
+        Owner: @plan.Operations.O5.
+
+        - **AttemptMismatch** — retry receives another descriptor/key's Attempt or an undecodable 
+        input.
+        Remediation: Reissue the exact captured Attempt against its original commit descriptor/key. 
+        Owner: @plan.Operations.O3.
+
+        - **NotEncodable** — A persisted ref's required Schema has a non-JSON encoded side.
+        Remediation: Use a synchronous JSON-safe Schema transformation or keep that actor 
+        unpersisted. Owner: @plan.Machines.O1.
+
+        - **BoundExceeded** — A non-key/non-codec finite structural or evidence counter bound is 
+        exceeded.
+        Remediation: Reduce the named collection/work and respect the reported limit/path. Owner: 
+        @plan.Inspection.O2.
+
+        - **CodecBoundExceeded** — The shared structural codec exceeds depth 32, 10000 nodes, 4096 
+        array items, 262144-byte strings or 2 MiB canonical bytes.
+        Remediation: Reduce the value at the named bound/path; no partial value is accepted. Owner: 
+        @plan.Inspection.O2.
+
+        - **CodecMalformed** — UTF-8, JSON or canonical structural input is malformed.
+        Remediation: Supply valid canonical UTF-8 JSON of plain supported values. Owner: 
+        @plan.Inspection.O2.
+
+        - **CodecSchemaMismatch** — The shared codec's owning Schema rejects structurally valid 
+        data.
+        Remediation: Use the required versioned Schema fields at the issue path. Owner: 
+        @plan.Inspection.O2.
+
+        - **InvalidTraceRecord** — Trace sequence, lifecycle, occurrence, retained window or Story 
+        evidence is inconsistent.
+        Remediation: Regenerate the artifact with the matching package; do not hand-build evidence. 
+        Owner: @plan.Inspection.O4.
+
+        - **ArtifactIdentityMismatch** — Artifact fingerprint validation fails or compared app 
+        identities are incompatible.
+        Remediation: Compare traces of the same app/version and regenerate incompatible artifacts. 
+        Owner: @plan.Inspection.O4.
+
+        - **InvalidArtifactOperand** — A query operand or known-complete selector is invalid or 
+        unknown.
+        Remediation: Use a recorded domain/read/entity/key/actor/checkpoint; details.reason 
+        identifies the operand failure. Owner: @plan.CommandLine.O4.
+
+        - **TypeFactsUnavailable** — Complete compiler-derived guard literal-code facts are 
+        unavailable.
+        Remediation: Run source tooling with the pinned compiler or supply the complete compiled 
+        type facts; never execute guards to infer codes. Owner: @plan.Inspection.O1.
+
+        - **InspectorSinkFailed** — An inspector sink fails and is detached while other sinks 
+        continue.
+        Remediation: Repair/re-attach the sink; runtime execution is not rolled back. Owner: 
+        @plan.Inspection.O3.
+
+        - **StorageFailure** — Storage acquisition/read/write/remove/final flush or its bounded 
+        wait fails.
+        Remediation: Restore storage availability/quota and retry through the owning host; do not 
+        claim an unacknowledged write durable. Owner: @plan.Persistence.O5.
+
+        - **CodecFailure** — A persisted application's Schema cannot encode/decode or exceeds 
+        capture bounds.
+        Remediation: Fix the named synchronous Schema/value and retain the last good persisted cut. 
+        Owner: @plan.Persistence.O5.
+
+        - **IdentityVersionMismatch** — Stored app/scope/version or identity is incompatible.
+        Remediation: Use matching app/version or accept scope discard and fresh startup; use Schema 
+        transforms for compatible shapes. Owner: @plan.Persistence.O4.
+
+        - **MalformedData** — Stored data is corrupt, structurally invalid or semantically 
+        undecodable.
+        Remediation: Discard the affected scope and start fresh; repair the producing code. Owner: 
+        @plan.Persistence.O4.
+
+        - **ConcurrentCapture** — A consistent cut cannot be captured because publication changed.
+        Remediation: Retry capture; SSR makes three retries before rejecting; never emit a mixed 
+        cut. Owner: @plan.Persistence.O3.
+
+        - **NonDurableContextProvider** — A persisted consumer depends on a non-durable provider.
+        Remediation: Mark the exact shared provider ref persist: true and ensure the durable 
+        closure. Owner: @plan.Persistence.O2.
+
+        - **SecondTabNoPersistence** — Another browsing Runtime holds the ifAvailable Web Lock for 
+        this app/scope.
+        Remediation: Close/dispose the other owner or accept this Runtime without restore/capture; 
+        no-lock hosts proceed normally. Owner: @plan.Persistence.O1.
+
+        - **CleanupFailed** — An owned finalizer/evidence drain fails; the affected actor identity 
+        is quarantined.
+        Remediation: Repair the finalizer and replace the owning Runtime; repeated ensure/dispose 
+        reports the retained failure. Owner: @plan.Runtime.O6.
+
+        - **IoFailure** — A host input/output/publication/temp removal or pipe operation fails.
+        Remediation: Correct the reported path/permissions/device; EPIPE exits 2 without another 
+        write. Owner: @plan.CommandLine.O2.
+
+        - **InvariantViolation** — A production internal invariant is violated.
+        Remediation: Preserve bounded evidence and report the defect; do not continue the invalid 
+        mutation. Owner: @plan.Runtime.O6.
+
+        - **Defect** — Unanticipated callback/service/adapter death is retained as a defect.
+        Remediation: Fix the failing callback/service using in-process Cause and safe evidence. 
+        Owner: @plan.Diagnostics.O3.
+
+        - **Interruption** — Execution was interrupted without a higher-precedence defect/failure.
+        Remediation: Retry only if the intent still holds; honor cleanup before the host returns. 
+        Owner: @plan.Diagnostics.O3.
+
+        - **HiddenOrder** — A response contradicts declared order, naming the first differing key 
+        and records.
+        Remediation: Declare the server's real total order or server ranking; accept safe demotion. 
+        Owner: @plan.EntityDomains.O1.
+
+        - **HiddenFilter** — Audit detects undeclared membership filtering.
+        Remediation: Describe the real membership rule/serverMatches and rerun the fixture-backed 
+        property test. Owner: @plan.EntityDomains.O4.
+
+        - **UndeclaredEffect** — Audit observes a write changing an undeclared read/entity.
+        Remediation: Add the named alsoChanges relationship and test the server behavior. Owner: 
+        @plan.EntityDomains.O4.
+
+        - **ServerOnlyImport** — flow-state/server is imported into a browser bundle (Defect).
+        Remediation: Import dehydrate only in server components/server code. Owner: 
+        @plan.ServerRendering.O7.
+
+        - **DehydratePersistentSetup** — dehydrate receives a persistent setup.
+        Remediation: Pass a setup without persistence; the request Runtime is private. Owner: 
+        @plan.ServerRendering.O1.
+
+        - **DehydrateOptionsInvalid** — scope, within or maxBytes fails its option domain.
+        Remediation: Use the exact scope, a finite nonnegative settle duration and integer maxBytes 
+        from 1 to 2097152. Owner: @plan.ServerRendering.O1.
+
+        - **DehydrateTooLarge** — The entire payload exceeds maxBytes; details name the ten largest 
+        items.
+        Remediation: Narrow prepare, split streamed segments or raise maxBytes within the shared 
+        codec bound. Owner: @plan.ServerRendering.O3.
+
+        - **DehydrateUnsettled** — The settle deadline leaves lanes/mailboxes pending; a payload is 
+        still produced (diagnostic only).
+        Remediation: Raise within or isolate the slow read in another streamed segment. Owner: 
+        @plan.ServerRendering.O2.
+
+        - **DehydrateCommitInFlight** — A commit transfers as unknown rather than replaying 
+        (warning).
+        Remediation: Commit from a server action/client and reconcile with the original Attempt. 
+        Owner: @plan.ServerRendering.O3.
+
+        - **HydrationScopeMismatch** — Payload scope differs from the receiving provider scope; 
+        render throws and applies nothing.
+        Remediation: Derive both scopes from one value and key FlowProvider by scope. Owner: 
+        @plan.ServerRendering.O6.
+
+        - **HydrationIncompatible** — App/fingerprint mismatch drops the payload and client loads 
+        normally (diagnostic only).
+        Remediation: Reload during deploy skew; align server/client app code for persistent 
+        mismatches. Owner: @plan.ServerRendering.O4.
+
+        - **HydrationMalformed** — Payload decode, undeclared entry or envelope bounds fail and 
+        payload is dropped.
+        Remediation: Use an unaltered library-generated payload from the matching build. Owner: 
+        @plan.ServerRendering.O4.
+
+        - **HydrationRejected** — Phase-two admission rejects and rolls back the whole payload.
+        Remediation: Correct the admission diagnostic retained as ordered diagnostics/in-process 
+        cause; no raw Cause is serialized. Owner: @plan.ServerRendering.O4.
+
+        - **EntryMismatch** — Entry id and loaded machine differ, or another object claims an 
+        adopted id (Defect).
+        Remediation: Align id and machine; deduplicate package/chunk copies or reload the build. 
+        Owner: @plan.LazyFeatures.O2.
+
+        - **EntryLoadFailed** — A declared lazy loader rejects during inspect/tooling/bootstrap.
+        Remediation: Restore chunk availability and explicitly retry the triggering operation; no 
+        automatic retry. Owner: @plan.LazyFeatures.O5.
+
+        - **StoryTurnLimit** — A process call would execute its 10001st turn.
+        Remediation: Fix the zero-delay/send cycle; inspect partial evidence; no public maxTurns 
+        option. Owner: @plan.Testing.O2.
+
+        - **StoryFixtureDuplicate** — Two fixtures provide one tag without explicit overriding.
+        Remediation: Remove the duplicate or use the overriding form before acquisition. Owner: 
+        @plan.Testing.O3.
+
+        - **StoryModelInvalid** — A model configuration/key or traversal declaration is invalid.
+        Remediation: Supply canonical keys and valid declared transitions/producers; no partial 
+        model result escapes. Owner: @plan.Testing.O5.
+
+        - **StoryPropertyInvalid** — Property generators/fixture controls are invalid or 
+        unsupported.
+        Remediation: Provide the required generators and supported fixture capabilities. Owner: 
+        @plan.Testing.O6.
+
+        - **StoryHydrationSourceInvalid** — A Story hydration label/source is absent, duplicate or 
+        not a prior captured payload.
+        Remediation: Capture and name the payload before using it in the receiving Story Runtime. 
+        Owner: @plan.Testing.O7.
+
+        - **StoryConfigInvalid** — Config has duplicate ids, mixed apps, an unadmitted focused 
+        machine, an empty registry or invalid exports.
+        Remediation: Register branded matching apps/Stories with unique nonempty ids and at least 
+        one Story per entry. Owner: @plan.CommandLine.O6.
+
+        - **PackageIdentityMismatch** — Loaded Flow/Effect instances differ from the executing 
+        CLI's instances.
+        Remediation: Use the project's matching installed CLI and deduplicate Flow/Effect packages. 
+        Owner: @plan.CommandLine.O6.
+
+        - **CliUsage** — A leaf, option, selector form or app selection violates closed grammar.
+        Remediation: Use flow --help and supply each accepted option/operand exactly once. Owner: 
+        @plan.CommandLine.O1.
+
+        - **ConfigLoadFailed** — Root/config/Story discovery cannot resolve or load a contained 
+        regular TypeScript file.
+        Remediation: Fix package.json, flow.config.ts or the contained Story path; no ancestor 
+        search occurs. Owner: @plan.CommandLine.O6.
+
+        - **HydrateOutsideProvider** — Hydrate renders without FlowProvider (Defect).
+        Remediation: Wrap the hydration boundary in its owning FlowProvider. Owner: 
+        @plan.ServerRendering.O4.
+
+        - **HydrationCrossRequest** — An unreadied render Runtime receives payloads from different 
+        request tokens (Defect).
+        Remediation: Construct a fresh Runtime inside the provider with useState, never at module 
+        level. Owner: @plan.ServerRendering.O6.
+
+        - **LazyEntryReachedEagerly** — Eager wiring/setup/app reaches a lazy machine object, 
+        defeating its split (warning).
+        Remediation: Move the eager dependency behind the feature boundary or make the entry eager 
+        explicitly. Owner: @plan.LazyFeatures.O5.
+
+        - **StoryTabUnknown** — An isolated multi-Runtime Story addresses a tab not opened in that 
+        Story.
+        Remediation: Add openTab(name) before using that tab. Owner: @plan.Testing.O7.
+
+        Closed details.reason for InvalidMachineConfiguration (no redirect/timer/reenter reasons):
+        ConfigurationNotRecord — use a plain configuration record;
+        NonStringConfigurationKey — use string keys;
+        UnexpectedConfigurationField — remove the named unknown/deleted field;
+        StateConfigurationMismatch — match exactly the definition's state tree;
+        ExpectedFunction — supply the required pure value callback;
+        UnknownStateToken — use a token from this definition;
+        UnknownEventToken — use an event from this definition;
+        InvalidStateToken — use the exact token, not a string or foreign token;
+        TransitionObjectRequired — supply static transition data;
+        ExpectedTransition — supply one transition or an ordered transition array;
+        ExpectedEventHandlers — supply a record keyed by declared events;
+        UnknownEventHandler — remove the undeclared event key;
+        EmptyEventHandlerList — supply at least one ordered alternative;
+        ExpectedActivities — supply the declared activity record;
+        ExpectedSchedules — supply the named schedule record;
+        InvalidSchedule — provide a valid Duration or Schedule declaration;
+        ExpectedStateConfiguration — supply the state's configuration record;
+        MissingCompoundStateFields — supply default and states;
+        InvalidDefaultTarget — name a direct child token;
+        ExpectedLeafConfiguration — remove compound-only fields from the leaf;
+        InvalidCompoundState — match the compound's declared children;
+        InvalidTokenTables — use the definition-derived token tables.
+        Where a specific code above covers the same violation (for example InvalidTarget or
+        InvalidStateDefault), use that code rather than this grammar fallback. Runtime callback
+        defects use Defect; invalid static Duration inputs use InvalidDuration.
+
+        CodecMalformed details.reason is exactly utf8, json, nonCanonical, cycle, negativeZero,
+        nonFinite, loneSurrogate, notPlain or sparse. InvalidArtifactOperand details.reason is
+        exactly UnknownSelector, EvidenceUnavailable or InvalidSelector; include selector/path and
+        truncatedBeforeSequence when applicable. EvidenceUnavailable denotes missing retained
+        evidence, never proof of absence. These reasons are not Diagnostic codes.
+
+        InvalidLifecycleTransition and InvalidStoryEvidence from the inspection inventory are
+        restored as specific rejection conditions under InvalidTraceRecord, not resurrected names:
+        details.reason is lifecycle or storyEvidence respectively. Other InvalidTraceRecord reasons
+        are sequence, occurrence, retention, schema and identity. Duplicate stream slots 
+        deliberately
+        open separate sessions under @plan.Operations.O4; there is no DuplicateStreamDeclaration
+        failure. cancel with no pending transaction is a no-op, not OperationNotPending.
+
+        Retired/non-code labels: ConcurrentDehydrate (use ConcurrentCapture); VersionMismatch (use
+        IdentityVersionMismatch); EvidenceUnavailable and UnknownSelector (operand reason data);
+        InvalidStoryMetadata (use StoryConfigInvalid for retained id/config checks);
+        MissingProvider (inventory suggestion, use MissingContextProvider);
+        DuplicateStreamDeclaration, MissingActorRef, WrongOperationKind, InvalidOperationPlan,
+        OperationNotPending, OperationAlreadySettled, DuplicateModuleOwnership,
+        MissingModuleReference, UnresolvedRequirementId, InvalidLifecycleTransition,
+        InvalidStoryEvidence, WrongArtifactKind and DecompressionFailed are not accepted codes.
+        Deleted surface inputs reject through the current closed construction/operand schema.
+        SSR omission labels NotEncodable, Sensitive, LocalActor and ContextProviderOmitted are
+        omission reasons, not codes; NotEncodable is independently a persisted-ref admission code
+        only in the situation listed above. User-authored deny literal codes are application data,
+        not additions to Diagnostic's vocabulary. Human summaries/help add no code or reason.
+
+        Deferred by ruling 38: TabCoordinationUnavailable, TabVersionMismatch,
+        TabOwnerUnresponsive, TabOwnerLost, ScopeForgotten and MirrorUnencodable are excluded from
+        v1 decoding. No leader, mirror or coordination vocabulary is restored. StoryTabUnknown
+        remains for isolated tab/lock-refusal test hosts under @plan.Testing.O7; this supplies no
+        shared-persistence or mirroring behavior.
+
+        Reference: references/dispatch-desk/tools/diagnostics.ts demonstrates eight live codes;
+        exhaustive examples have Reference: none yet (stage S10 adds it).
+    O3  Cause
+        Retain complete Exit and Cause through finalizers, cancellation, evidence acceptance and
+        cleanup aggregation. Fail, Die and Interrupt remain distinct. Classification is Defect if
+        any defect exists, otherwise Failure if a typed failure exists, otherwise Interruption.
+        InvariantViolation and Defect classify as Defect; Interruption as Interruption.
+        EntryMismatch, ServerOnlyImport, HydrateOutsideProvider and HydrationCrossRequest classify
+        as Defect as specified above; a construction
+        failure discovered during lazy adoption follows that boundary's Defect classification.
+        Classification never rewrites the primary failure order: execution/cancellation stays
+        primary; otherwise the first cleanup failure is primary. Remaining cleanup diagnostics
+        preserve phase order and multiplicity, even if end was already captured.
+
+        Do not squash Cause until the intentionally lossy synchronous/Promise host boundary.
+        runPromise(Effect.exit(effect)) is the supported Exit form. Promise adapter rejection and
+        forwarded AbortSignal cancellation preserve the same complete Cause through that boundary;
+        operation failures, defects, interruption and remote unknown remain distinct outcomes.
+        No thrown exception/Promise rejection becomes a reusable service failure channel.
+
+        Raw Cause, stacks and fiber ids never enter snapshots, checkpoints, persistence, SSR
+        payloads, traces, inspector events or CLI output. Only the in-process FlowError may hold
+        cause; diagnostics carry safe ordered projections, never a Cause tree. Sensitive application
+        values remain raw in in-process checkpoints; outbound values follow Schema redaction with
+        keyed per-Runtime/per-run HMAC digests. SSR instead omits sensitive fields and dependent
+        items under @plan.ServerRendering.O3, superseding ruling 4's original SSR exception.
+        Reference: references/dispatch-desk/tools/diagnostics.ts and app/host.ts illustrate hosts;
+        complete mixed-Cause examples have Reference: none yet (stage S10 adds it).
+    O4  Rendering
+        Shared printers accept Diagnostic only; schema and formatting stay separate. Escape all
+        control text in paths/details and summary/help so hostile ids cannot inject terminal/log
+        control sequences. Exclude raw input, ANSI, stacks and raw Cause from renderer input.
+        Never fabricate file, line or column; source locations appear only when actually known.
+        Preserve stable code/path/details and actionable help; human prose/whitespace may change.
+        A renderer adds no service, Layer, Logger, route or public renderer/error hierarchy.
+        Reference: references/dispatch-desk/tools/diagnostics.ts and app/host.ts.
+decisions
+    D1  One carrier and one diagnostic schema
+        Was FlowState D10, from SurfaceSimplification D14. FlowError replaces FlowUsageError,
+        FlowPersistenceError, FlowDisposeError and FlowStoryExecutionError. Diagnostic remains the
+        canonical data/codec, not a competing terminal envelope.
+    D2  Host execution uses Effect.exit
+        Was FlowState D26. runPromiseExit stays deleted; runPromise(Effect.exit(...)) preserves the
+        full Exit until the host intentionally projects it.
+    D3  Closed vocabulary precedes implementation
+        Binding ruling 24: @O2 is the closed list before S2; no undocumented code or reason can be
+        added by a printer. Capture conflicts use ConcurrentCapture, never ConcurrentDehydrate.
+    D4  Complete aggregation and boundary ownership
+        Binding ruling 25: preserve complete Cause until cleanup ends and use defect/failure/
+        interruption precedence. Capability owners choose occurrence/failure policy, this owner
+        chooses shape/vocabulary; no public diagnostic service or second execution framework.
+constraints
+    C1  Provenance and scope
+        Archived Plans and ledgers do not supply unstated semantics. This Plan changes no package,
+        Task status, generated output or historical record. The frozen package stays unchanged.
+    C2  No duplicate surfaces
+        No feature-owned Flow error class, second Diagnostic codec, public alias restoration,
+        custom runner, Context service or generic logging framework is introduced.
+verification
+    V1  Schema closure and exact carrier
+        Planned: round-trip every @O2 code, closed reason and classification with the production
+        Diagnostic codec; reject unknown/deferred codes, wrong tags, missing fields, non-finite
+        path/details numbers and unsafe domains. Prove Error/directly-yieldable behavior,
+        nonempty diagnostics, code == diagnostics[0].code and readonly typed evidence fields.
+    V2  Cause and A/E/R laws
+        Planned: type fixtures prove A/R unchanged and FlowError in E only for owned typed failures.
+        Execute mixed Fail/Die/Interrupt, interruption plus cleanup defect and independent cleanup
+        failures. Verify precedence, primary order, multiplicity and no raw Schema/parser escape.
+    V3  Production owner and remediation coverage
+        Planned: trigger each active code through its named owner and match its corrective action.
+        Include blocked provider disposal with named consumers, incompatible ref claims, distinct
+        stream slots opening separate sessions, cancel-idle no-op, whole-batch queue overload with
+        accepted FIFO preserved, failed readiness and failed disposal quarantine. No message 
+        parsing.
+    V4  Containment and host envelopes
+        Planned: prove Cause stays in-process on FlowError and is absent from every snapshot,
+        checkpoint, artifact, storage record, SSR payload, inspector event and CLI document.
+        Verify partial Story failure before/after end capture and direct/CLI evidence parity.
+    V5  Safe rendering and package gates
+        Planned: hostile control text, every classification, no invented location, no input/stack/
+        Cause leakage, actionable remediation for each code. Run focused diagnostic tests and
+        pinned type checks, then fresh root exports/packed-consumer checks at the owning stage;
+        these planned proofs have no executable receipt in this proposal.
+questions
+    Q1  None for the closed vocabulary
+        No open vocabulary decision blocks S2. Future additions require an explicit amendment to
+        @O2 and matching owner/schema/remediation proofs; private helper names remain free.

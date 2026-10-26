@@ -1,0 +1,503 @@
+plan Testing
+title   Deterministic Stories, evidence, models and property-test controls
+status  proposed
+goal
+    Give application authors reproducible scenarios and truthful evidence on the production
+    Runtime, plus pure machine exploration that must be proved by live replay. This Plan replaces
+    FlowState O9 and owns the flow-state/testing harness. Entity-domain properties are owned by
+    @plan.EntityDomains.O4; this Plan owns their generators, controls, oracle access and shrinking.
+    Archived StoriesAndModels text is provenance only. references/ledger/Testing.md accounts for
+    every assigned inventory row. All verification below is planned, not an execution receipt.
+outcomes
+    O1  Stories
+        story.app(setup, { id, fixtures? }) requires a typed RuntimeSetup, never a bare App or live
+        Runtime. story.machine(machine, { id, input?, context?, services?, fixtures? }) is the
+        focused kind: a private one-machine App and one fresh implicit actor, on the same production
+        Runtime as an App Story. services supplies the focused Story's complete base Layer; it is
+        required when the machine has unsatisfied service requirements and may be omitted only
+        when the composed graph is complete without it. Fixture composition follows @O3.
+
+        Options are closed. input is required with the exact declared input type when the machine
+        declares input and forbidden otherwise. Focused context is required with the exact selected
+        context shape when the machine declares context slots and forbidden otherwise. No context
+        binding graph is manufactured for a focused Story. An App Story exercises real wiring;
+        a Story module may declare actorRef(machine, id) for any machine listed by that App, inherit
+        its default wiring, and explicitly ensure it at the chosen step.
+
+        A Story id is nonempty and follows the authored identity rules of @plan.Machines.O1. Its
+        discovery identity is app id plus Story id, encoded unambiguously. Discovered Stories in
+        one App must have distinct ids. A derived exported Story needs its own id; use a factory
+        accepting id to build distinct persistent prefixes, rather than registering two extensions
+        with the same id. There is no title, description, tags or maxTurns option.
+
+        Builders and commands are inert static plans. Import, construction and description run no
+        services, actors, assertions or fixtures. No live handles, Runtime, imperative loops,
+        conditional scenario branches, predicates, arbitrary command callbacks, raw memory/state/
+        snapshot overrides or boot-state unions are accepted. Services and machine callbacks remain
+        ordinary authored code; this restriction concerns scenario commands. Every command returns
+        a new plan, preserving its prefix and exact checkpoint names. Branches replay independently
+        in fresh Runtimes; they never fork live state.
+
+        Both kinds provide send, process, advance, advanceTo, advanceToNextTimer, checkpoint and
+        run. App send(ref, event, { tab? }?) targets one exact ref, never a machine family; focused
+        send(event) targets its actor. Events are validated public event envelopes. Internal events
+        are reached only through their declared producers. App ensure(ref, options?) follows
+        @plan.Runtime.O3: required input exactly when declared, no input otherwise; tab selection
+        may accompany input or stand alone for an input-free machine. Admission validates foreign,
+        mismatched, missing and cyclic dependencies before construction, using production rollback.
+        send never ensures an absent actor; the production SendTargetAbsent diagnostic remains.
+        Focused setContext(context) enters a production context wave, uses a silent initial
+        baseline, and treats equal selected values as a no-op. App Stories cannot inject context.
+
+        run({ signal?: AbortSignal }?) is the sole execution boundary, returning a Promise of a
+        StoryRun with checkpoints, end and trace, plus payloads when dehydrate commands exist.
+        Checkpoint names accumulate exact literal or known-union keys; duplicates, widened strings
+        and unknown literal property access reject statically. Other commands preserve the map.
+
+        defineConfig({ apps: [{ app, stories }] }) discovers exported Stories through configured
+        globs. It rejects empty/duplicate Story ids, missing/mixed App identity, an App Story whose
+        setup belongs to another App, a focused machine absent from the selected App, and structural
+        lookalikes without package identity. Registration and compatibility validation are inert
+        and synchronous after module loading; no Runtime, fixture, actor or sink is acquired.
+        @plan.CommandLine.O6 owns trusted loading, containment and configuration discovery.
+        Reference: references/dispatch-desk/features/Tickets/editor/editor.story.ts and
+        references/dispatch-desk/flow.config.ts.
+    O2  process, the clock and the turn budget
+        Each App run constructs its setup once and owns a fresh production Runtime, scoped fixture
+        state, seeded ids, seeded Random and TestClock. Focused runs use the same executor with
+        their private App. Identical plans, seeds and fixture inputs produce identical ordered
+        traces; wall-clock time and host randomness never choose scenario order.
+
+        process() is the explicit drain. It drains acknowledged FIFO mailbox work, ready context
+        waves, reconciliation, deadlines due at the current time, scheduler jobs, finite work and
+        external completions that can settle without clock movement, until another command,
+        future time or genuinely pending external input is needed. It does not await an open
+        stream's end or a deliberately blocked adapter. Such pending work remains visible.
+        It does not move time, invent results, intercept pending occurrences or execute another
+        run's work. Production bootstrap, readiness, restoration, activation and cleanup remain
+        production code, not a testing interpreter.
+
+        One process() call has a fixed private budget of 10,000 production turns, shared across
+        all tabs in that call. The 10,001st turn is not executed: the run rejects with FlowError
+        StoryTurnLimit and the evidence of @O8. No maxTurns option exists. This catches zero-delay
+        schedules and cross-actor send cycles without imposing a production cross-turn budget.
+
+        advance(duration) takes a nonnegative finite Duration.Input. advanceTo(epochMilliseconds)
+        takes a finite safe-integer epoch millisecond number at or after now; backwards movement
+        rejects with InvalidDuration. advanceToNextTimer() moves to the earliest pending deadline,
+        remaining at now if already due; with no timer it is a no-op. These commands only move the
+        clock and make work eligible; they never drain actor work implicitly. A following process()
+        applies due work in production deterministic order. Negative, invalid or infinite movement
+        rejects with InvalidDuration before moving time. Schedules and refresh fencing remain
+        @plan.Machines.O5 and @plan.Operations.O2 obligations.
+        Reference: references/dispatch-desk/features/Tickets/editor/editor.story.ts (autosaved,
+        lockedOut) and references/dispatch-desk/testing/fixtures.ts (SlowSave).
+    O3  Fixtures
+        Fixtures are Effect Layers, replacing complete service functions while preserving input,
+        success, typed failure, cancellation and lifetime. There is no fixture() constructor or
+        resource seed/cache mutation API. Operation kernels, pending occurrences and outcome
+        delivery stay production-owned; fixture-controlled delays and responses go through the
+        real adapters, streams and TestClock.
+
+        Compose with Layer.provideMerge(fixtures, setup.services), or the focused services Layer.
+        Fixtures may require setup services and shadow their same-tag services. A fixture providing
+        nothing is valid (for example a scoped push task). Two fixtures providing the same Tag
+        reject with FlowError StoryFixtureDuplicate before either conflicting provider is acquired;
+        replacement must use an explicit overriding form identifying the replaced fixture and its
+        replacement Layer. It replaces that fixture in the collection, rather than granting
+        last-wins order to arbitrary duplicates. Ordinary production Layers retain Effect merge
+        semantics; this duplicate rule is specific to the Story fixture collection.
+
+        The final composed Layer must satisfy every machine/operation service requirement; missing
+        requirements are type errors, and untyped callers fail before actor activation. There is no
+        RequirementsOf compatibility surface. Providers construct once per Runtime, providers
+        before consumers; every run and every tab has fresh scoped service state. A stateful server
+        fixture stores state inside its Layer scope, remembers writes and idempotency results, and
+        mutates the same truth before emitting external pushes. Explicit property-test/two-tab
+        server ownership may share one run-scoped server, never another run's server.
+
+        Story persistence always uses a fresh in-memory KeyValueStore, replacing any external store
+        from setup or fixtures. Host localStorage, IndexedDB, filesystem and a previously live store
+        are never opened or inherited. A storage fixture may seed encoded records into this fresh
+        store before bootstrap; it cannot replace it with an external store or bypass validation.
+        Tabs share the run's in-memory backing store as a browser's tabs would; independent runs
+        never share it. Finalization follows @O8 even if acquisition fails partway through.
+        Reference: references/dispatch-desk/testing/fixtures.ts and
+        references/dispatch-desk/app/demo-api.ts.
+    O4  Checkpoints
+        checkpoint(name) captures immediately, without process(). end captures after the last
+        command and before cleanup, and means the end of the scenario, not actor finality. Each cut
+        includes every actor alive in that Story Runtime, including nonpersisted actors and local
+        actors, but no actor from another Runtime. In a multi-tab run each tab has its own cut.
+
+        A cut atomically captures published snapshots and one store revision, clock now, pending
+        operations and schedules with their due times, actor issues and the accepted evidence
+        prefix. It reads only complete published cuts; a blocked context wave does not turn a
+        partial wave into evidence. It does not require graph-wide simultaneous publication or
+        restore deleted suspension/ConcurrentCapture behavior for context debt.
+
+        App reads use checkpoint.actor(ref).snapshot; an absent ref returns undefined from actor,
+        so optional access is required when membership is not known. Focused evidence additionally
+        exposes checkpoint.snapshot. end has the same read forms. checkpoint.now is the captured
+        epoch millisecond number; checkpoint.pending enumerates pending operations and schedules,
+        identifying owner, operation or schedule, attempt when applicable, and deadline when timed.
+        These facts permit assertions about quiescence without live inspection.
+
+        descriptor.get(checkpoint, input), Domain.entry.get(checkpoint, input),
+        Entity.get(checkpoint, key, shape) and Entity.queue(checkpoint, key) read the captured store
+        revision. shape is a readonly array of selected field names. Entity.get returns undefined
+        for an absent record, otherwise { data, pending, uncertain, unconfirmed }, with missing
+        selected fields represented as missing rather than invented values. Domain.entry.get is
+        undefined for an inactive, never-subscribed or collected answer; otherwise it returns the
+        answer lane plus stale, with paged data in page order. Entity.queue returns captured
+        attempts, writes and their states. @plan.EntityDomains.O2 owns field status and queue
+        meanings; @plan.Operations.O6 owns descriptor lanes.
+
+        Every cut carries cumulative repairs, skips and diagnostics from run start to cut. Repairs
+        name sequence, read, input, causes, optional record, changed fields, matched classification
+        and action; skips retain that provenance and a reason. Their closed variants and entity
+        semantics belong to @plan.EntityDomains.O2. Order is by delta, domain entry declaration
+        position, then canonical input key. Inactive answers appear in neither list. Evidence
+        follows @plan.Inspection.O4 retention: truncated required history means insufficient
+        evidence, never a claim that no cause exists. run.trace exposes those same Inspection O4
+        events, including terminal cleanup events, in accepted order with truncation metadata.
+
+        Checkpoints are faithful raw in-process values, including sensitive fields. Flow copies
+        and freezes its envelopes, records, arrays, readers, keys, issues and snapshot containers;
+        application opaque values retain identity. Reads perform no live lookup, time movement,
+        construction, restoration, disposal or progress. They cannot resume a Runtime. Wire output
+        uses @plan.Inspection.O5 redaction and keyed digests; SSR payload omission follows
+        @plan.ServerRendering.O3 instead. Private CLI/name lookup checks own keys and rejects
+        inherited/unknown names with the Diagnostics usage classification; no public dynamic getter
+        is added. A failed capture fabricates no end; prior completed checkpoints survive.
+
+        CheckpointProvider renders components against exactly the captured actors and store, with
+        passive reads and no live attachment, operation start or restore. It records attempted
+        sends as evidence rather than executing them. Eligibility uses the faithful snapshot and
+        the production check result, including Denied { _tag: \"Denied\", reasons: [{ code,
+        context }] }; no testing-specific eligibility rules exist.
+        Reference: references/dispatch-desk/features/Tickets/editor/editor.test.tsx and
+        references/dispatch-desk/features/Tickets/queue/queue.test.ts.
+    O5  Models
+        model(baseStory, { stateKey }) accepts only a fresh command-empty focused machine Story,
+        never an App Story or restored/live state. It preserves machine, input, selected context,
+        services and fixtures. stateKey receives the predicted snapshot (state is the state-path
+        member) and returns a record covering every guard-relevant fact. It is canonicalized with
+        @plan.Operations.O1 key grammar and limits: depth 16, 256 value nodes and 8,192 UTF-8 bytes.
+        There is no object-identity or state-token fallback.
+
+        Only getShortestPaths and getSimplePaths are exposed. Each takes its own { events,
+        maxDepth?, limit? }; maxDepth defaults to 20 and is a nonnegative safe integer, limit
+        defaults to 100 and is a positive safe integer. Candidate event cost is one. Invalid bounds
+        reject synchronously with FlowError StoryModelInvalid. events never leak into later calls.
+        Shortest paths use stable candidate-order BFS, keeping the first path per unseen canonical
+        key. Simple paths use candidate-order DFS and repeat no key within a path. Both include the
+        zero-step path. Return { paths, truncated, explored }; explored counts distinct canonical
+        keys when first visited, including the initial key. truncated means a depth or result bound
+        hid an otherwise reachable candidate, not merely that a numeric limit was reached.
+
+        Traversal uses the production pure transition, guard, memory and payload logic, not a second
+        interpreter. It constructs no Runtime, actor, fixture, service, Effect, operation, checkpoint
+        or primitive-operation snapshot; it performs no restore, mutation or time movement. Defects
+        or invalid keys throw FlowError synchronously, retaining the original cause and no partial
+        result (KeyInvalid/KeyTooLarge for key failures).
+
+        Models also traverse internal events whose operation-outcome or schedule producers are
+        statically declared. Their producer identity and required outcome payload are explicit
+        candidate data in declaration order, not guessed from erased types or arbitrary event
+        names. Public candidates remain validated envelopes. Prediction may apply such internal
+        candidates, but a returned Story never sends them: it drives the declared operation through
+        its services/fixtures, or advances to the declared schedule and processes it. An unavailable
+        fixture outcome fails live parity rather than synthesizing delivery. This lets exploration
+        pass SAVING without opening external send/check access to internalEvents.
+
+        Each path retains its predicted final projection and canonical key, ordered steps with
+        event/producer identity, predicted snapshot and issues, unit-cost weight, description and
+        traversal metadata. path.state is the final stateKey projection; path.keyOf applies the
+        same projector/canonicalization to a live snapshot. path.story is an ordinary Story
+        extending the base with its candidate sequence and no synthesized checkpoints. Prefix and
+        final replay keys must equal predictions; process() remains explicit on returned Stories.
+        Pure exploration proves neither effects nor cross-actor/host behavior. model stays single
+        tab; tabs and lazy/domain interleavings belong to @O6 and production tests.
+        Reference: references/dispatch-desk/features/Tickets/editor/editor.story.ts (exploreEditor)
+        and references/dispatch-desk/features/Tickets/editor/editor.test.tsx (live key comparison).
+    O6  propertyTest
+        propertyTest(domains, options) is a test-host helper, not a new Story kind or assertion
+        language. It generates ordinary static Stories and runs them on fresh production Runtimes.
+        No application is required: generated probe actors subscribe domain reads. Domains with
+        overlapping entities are tested together. @plan.EntityDomains.O4 owns the properties,
+        quietness criterion and oracle comparisons; Testing supplies the following executable
+        protocol rather than inferring fixture capabilities from arbitrary Layers.
+
+        options contains fixture, inputs, writes, controls, oracle, seed, runs and steps, with
+        optional tabs: 2 and quietWithin. fixture is the ordinary stateful server Layer. inputs maps
+        each tested domain/read identity to an input generator; writes maps each tested domain/write
+        identity to its transaction-input generator. Identities are qualified by domain to avoid
+        collisions. Every selected read and write must be covered; reads-only domains may use an
+        empty writes map. Missing or foreign entries and invalid generated inputs reject with
+        StoryPropertyInvalid before starting the generated operation, never count as coverage.
+
+        A generator is either a nonempty readonly array of exact typed literal samples, sampled
+        uniformly by the seeded harness, or a pure object { sample, shrink }. sample(random, size)
+        returns an exact input using only the supplied seeded random source and nonnegative size;
+        shrink(value) returns a finite ordered iterable of smaller exact inputs. These are host
+        functions, not callbacks stored in generated Stories. Array shrinking tries earlier array
+        entries in index order. A missing typed input cannot be manufactured from TypeScript types.
+        seed is a safe integer; runs and steps are required positive safe integers. quietWithin is
+        a finite nonnegative Duration.Input, default 60 seconds of virtual time; reaching it with
+        work still pending is inconclusive, not pass. The host may set a concrete alternative.
+
+        controls is an explicit scoped fixture capability acquired in the same scope as fixture.
+        It exposes typed commands to hold and release adapter responses, choose success/typed
+        failure/uncertain settlement, delay, reorder, duplicate or lose network responses, update
+        server truth and emit a push, disconnect/reconnect, unsubscribe/resubscribe probes,
+        invalidate, crash/reopen or restore from the run's memory store, and adopt a supplied domain
+        at an exact step. Each command identifies a request, stream or tab by a run-local stable id
+        and uses literal encoded parameters. The fixture publishes its supported command kinds and
+        typed payload validation before generation. Unsupported requested capabilities reject with
+        StoryPropertyInvalid; they are never silently skipped. Transport controls wrap the fixture's
+        real service methods and streams, not operation kernels or pending-occurrence injection.
+        A lost response may leave a real commit unknown even when server truth has changed.
+
+        oracle is an explicit scoped read capability from the same fixture. read(domain, entry,
+        input) queries the fixture's current server state without domain repair, production cache,
+        prediction or network fault scheduling; it does not mutate that state or increment observed
+        adapter-call counts. All filter, order, paging and side-effect semantics come from that
+        server. Flow cannot derive an oracle from an opaque Layer. Its absence rejects. Captured
+        oracle answers are evidence only; they never publish into the tested Runtime. Real API
+        contract tests remain the author's responsibility.
+
+        Generated actions include starting/settling writes, reordered/duplicated/empty/failed reads,
+        pushes, reconnects, restores, subscription changes and invalidation. The supplied controls
+        execute them through real service/lifecycle paths. Each committed publication is observed
+        read-only through production evidence, even if one process() drains many turns. Audit mode
+        is off unless explicitly configured by the fixture/setup; its shadow reads never publish
+        (@plan.EntityDomains.O4). After the generated prefix, append process(), then repeated
+        advanceToNextTimer()/process() until no timer remains or quietWithin is reached, then
+        checkpoint. A further virtual-time advance checks the EntityDomains no-new-lookup criterion.
+
+        Return a result tagged Pass, Fail or Inconclusive, with seed, completed run count and
+        retained evidence. Fail names the violated EntityDomains property and publication/step;
+        Inconclusive names StoryTurnLimit, pending external work, quiet horizon or insufficient
+        retained evidence. An inconclusive run never becomes a pass. Fixture acquisition, generator
+        defects and cleanup failures reject with FlowError and @O8 evidence rather than masquerading
+        as domain-property counterexamples.
+
+        A failure is minimized deterministically: remove contiguous action chunks, remove individual
+        actions, then shrink generated inputs in generator order, preserving dependencies and
+        well-typed commands. Re-execute every candidate from a fresh Runtime, fixture and store;
+        retain it only when the same property fails. A passing or inconclusive candidate is rejected
+        as a shrink. Shrinking stops after 1,000 candidate executions or no smaller failure; report
+        whether the bound stopped it. Re-run the final candidate before returning/printing it. Emit
+        an ordinary static Story with literal data, explicit controls, seed, property and trace,
+        never an unserializable generator closure. Raw in-process results remain faithful; printed
+        sensitive inputs follow Inspection redaction and explicitly identify omissions that prevent
+        copying the printed projection alone as a runnable reproduction.
+
+        tabs: 2 uses exactly two production Runtimes, one run-scoped server and in-memory storage,
+        test TabCoordination and seeded peer-message delays measured in generated steps. Generate
+        operations in either tab and tab closes/reopens. Observe both tabs' publications; records,
+        versions and prediction isolation are checked by @plan.EntityDomains.O4. Generated adoption
+        can introduce an explicit domain mid-run without loading a real module. Failing plans and
+        a deterministic sample of passing plans replay twice with identical traces; no second
+        property-test runtime/store/interpreter is introduced.
+        Reference: references/dispatch-desk/testing/tickets.property.test.ts illustrates fixture,
+        literal-array read generators and seed/runs/steps; the full controls/write/oracle/shrinking
+        protocol has Reference: none yet (stage S10 adds it).
+    O7  Isolation, tabs and hydration in Stories
+        Each run is isolated per Runtime, principal and request (@plan.Runtime.O7). App Story tabs
+        open with main first. openTab(name, setup?) constructs and readies a new Runtime, defaulting
+        to the Story setup; reopening a closed name models reload. ensure/send accept { tab },
+        default main. Unknown or closed names reject at construction with StoryTabUnknown;
+        duplicate open names also reject with StoryTabUnknown. closeTab(name) is abrupt: release
+        locks, deliver already-posted messages, lose unissued writes and unforwarded events, and
+        abandon in-flight adapters. It does not perform a graceful final write. Final Story cleanup
+        still releases harness/fixture resources. Ordinary runtime disposal models graceful exit.
+
+        process() drains all tab mailboxes, peer channels and lock queues in deterministic order,
+        sharing @O2's budget. Clock movement applies to the run's synchronized virtual time. Tabs
+        use the internal test TabCoordination Layer, not browser globals; role election, mirrors,
+        handover, per-tab sends and degradation execute @plan.MultiTab.O1 through @plan.MultiTab.O8.
+        cp.tabs maps open tab names to their cuts and roles; the checkpoint's own fields represent
+        main when it is open. If main is closed, those fields retain its last captured terminal cut
+        and explicitly mark it closed; they never silently alias the new leader. Live tabs remain
+        accessible through tabs. Trace events identify the tab, including messages and lock grants.
+        Different-principal tests construct another Runtime; they do not mutate the authenticated
+        principal inside an existing one. Design rationale: references/design/multi-tab.md §3.3.
+
+        App-only dehydrate(label, { scope, within, maxBytes? }) runs the real server settle and
+        capture, advancing TestClock deterministically through fixture delays until quiet or within.
+        It stores the payload in run.payloads[label] without disposing the scenario Runtime; later
+        server checkpoints remain possible. Labels use the same exact-key/duplicate rejection rules
+        as checkpoint names. hydrate(source, label?) takes a payload value or a source Story with
+        that label. A Story source runs independently with fresh fixtures/Runtime; no live authority
+        is transferred. Leading hydrate commands apply before bootstrap and storage restore; later
+        commands model navigation on the ready Runtime. They execute both production hydration
+        phases and the precedence/isolation rules of @plan.ServerRendering.O4 through
+        @plan.ServerRendering.O6. Errors retain the source and destination failure boundary.
+
+        Source and destination clocks start at the same epoch; seeded ids make deterministic
+        payload bytes possible. Checkpoints carry hydration evidence and serverView(label), the
+        H1 first-render view. Hydration must preserve that view before post-attach catch-up; compare
+        real renderToString/hydrateRoot output and assert no onRecoverableError. Source Story cycles
+        or missing payload labels reject before execution with StoryHydrationSourceInvalid. Payload
+        decode, size and scope failures retain ServerRendering diagnostic codes. Story dehydrate is
+        the explicit settle exception to ordinary process-only draining, not an implicit clock drain.
+        Design rationale: references/design/server-rendering.md §4.
+
+        Lazy ensure and focused construction adopt synchronously at that exact step with TestClock
+        frozen; Story load never runs. Adoption uses supplied definitions and dormant bytes, restores
+        without replaying initial, and records EntryAdopted plus adopted entries in checkpoints.
+        Queue-only scenarios must not adopt editor entries. A fresh seeded in-memory store can prove
+        that editor records remain dormant until ensure. Model remains pure; propertyTest can
+        generate adopt-domain steps. Actual module-load failure and SSR bootstrap/load races require
+        production Runtime tests, not a simulated Story loader. CheckpointProvider only renders
+        captured existing actors. Design rationale: references/design/lazy-features.md §12.
+        Reference: none yet (stage S10 adds it).
+    O8  Cancellation, cleanup and failure evidence
+        Cancellation before or during run closes admission, stops later commands, preserves partial
+        evidence and waits for non-abortable finalization. A blocked send acknowledgment settles
+        once through production terminal disposal; cancellation fabricates no committed turn or end.
+        Cleanup runs on success, execution failure, acquisition failure and cancellation alike.
+
+        Close admission and external sinks/queues to new input while preserving the internal accepted
+        evidence drain; release Story-owned actors in reverse dependency order; dispose Runtime-owned
+        actors and stores; finalize fixture/host scopes last. Across tabs, dispose consumers before
+        their providers and finalize the run's shared server after all tabs. Each phase is attempted
+        once in deterministic order even when another fails. Runtime disposal is bounded, records a
+        never-settling invoked commit unknown, waits for finalizers/evidence/last persistence write,
+        and applies production quarantine rules (@plan.Runtime.O6). Fixtures cannot suppress cleanup.
+
+        Execution or cancellation failure stays primary; without one, the first cleanup failure is
+        primary. All cleanup diagnostics remain in phase order and cleanup failure never yields a
+        successful StoryRun, even if end was captured. Keep the full Effect Cause until cleanup
+        finishes, then project by @plan.Diagnostics.O3 (defect, failure, interruption precedence);
+        do not serialize Cause or adapter-private recovery authority. Public attempt ids and encoded
+        input remain ordinary evidence under @plan.Operations.O3.
+
+        One FlowError is the rejection envelope. Its readonly Story evidence contains completed
+        checkpoints, optional end only if captured, zero-based failing command index (or an explicit
+        bootstrap/end-capture/cleanup boundary), primary diagnostic, ordered cleanup diagnostics,
+        cancelled flag, trace with truncation metadata, and last accepted/drained evidence sequence
+        numbers. Retain payloads already captured and tab/source identity when relevant. Cause remains
+        accessible in process and absent from wire projections. No FlowStoryExecutionError class or
+        constructor is restored. Direct run and CLI use one executor and agree on retained evidence,
+        canonical diagnostics and redacted Cause projection.
+        Reference: references/dispatch-desk/tools/diagnostics.ts illustrates partial evidence;
+        complete cancellation/finalization examples have Reference: none yet (stage S10 adds it).
+decisions
+    D1  Refs and Layers replace recipes and fixtures
+        Was FlowState D42. App Stories target refs; focused Stories test local actors with supplied
+        context and services. story.actor, fixture(), resource seeds, Story metadata and maxTurns
+        stay deleted. Binding split rulings 7 and 37 require explicit overriding, provideMerge
+        composition, provide-nothing fixtures and fresh in-memory storage for every run.
+    D2  Discovery uses flow.config.ts
+        Was FlowState D43. defineConfig replaces the behavior gateway, preserving exact App identity,
+        unique ids, compatibility validation and inert discovery. CLI loading belongs to CommandLine.
+    D3  Actor creation is an explicit Story command
+        Was FlowState D52. ensure creates a ref at a chosen step; send never implicitly creates it.
+        Production input/admission/context rules bind Stories too.
+    D4  Explicit processing has a fixed private budget
+        Split ruling 1: 10,000 turns per process call, no public option and no production cross-turn
+        cap. Model bounds are separate; propertyTest reports exhaustion as inconclusive.
+    D5  Model internal candidates require real-source replay
+        Split ruling 2: statically declared outcomes and schedules are traversable; they never grant
+        external authority to send internal events. Pure predictions require final and prefix parity.
+    D6  Harness and property ownership are distinct
+        Testing owns generators, fixture protocol, oracle access, shrinking and tabs: 2. EntityDomains
+        owns what is checked. Rulings 30 to 33 adopt SSR, tabs and lazy Story amendments; where their
+        design examples conflict with a binding ruling, the ruling wins.
+constraints
+    C1  Closed testing route and production authority
+        No perform/deliver/receive/simulate/flush/settle/setTime/final/replay commands, pending-result
+        injection, synthetic suspend/resume, fork/restore/fromCheckpoint, public testing Runtime,
+        clock/provide/replay helpers or result/path class hierarchies. Property lifecycle controls
+        and hydrate are the explicit scoped exceptions described above, not general restoration
+        authority. Hosts own assertions, pass/fail, retries and test names after execution.
+    C2  Boundaries remain authoritative
+        Runtime, Machines, Operations, Persistence, MultiTab and ServerRendering own production
+        behavior. Inspection owns evidence ordering, codec and output redaction; Diagnostics owns
+        the closed code vocabulary and remediation. StoryTurnLimit, StoryFixtureDuplicate,
+        StoryModelInvalid, StoryPropertyInvalid, StoryTabUnknown and StoryHydrationSourceInvalid
+        require catalogue entries under @plan.Diagnostics.O2 before the foundation gate. These are
+        contract requirements, not claims that the catalogue or runtime already implements them.
+    C3  Plans and proofs do not imply shipped behavior
+        No frozen-package edits or generated output edits follow from this Plan. Use the pinned
+        toolchain. Pure models, source-text checks and Workflow validation cannot replace executable
+        runtime, browser and packed-consumer proofs. Historical ledger text is not normative.
+verification
+    V1  Constructor and inferred type proofs
+        Planned: compile Dispatch Desk focused/App Stories and strict packed consumers. Reject extra
+        options, missing input/context/services, input on input-free machines, context on context-free
+        machines, duplicate/widened checkpoint or payload names, unknown checkpoint keys, internal
+        external events and invalid App identity. Prove exact retained names and service closure
+        without RequirementsOf. Reject model bases with commands or App scope. Validate empty,
+        duplicate and derived duplicate ids. Run focused type checks and the packed-consumer gate.
+    V2  Inert construction, branching, fixtures and isolation
+        Planned: extend one prefix three ways, run each twice; assert unchanged prefix, independent
+        handles, Runtime, services, Random/ids, clocks and storage, identical traces per plan, and no
+        acquisition during import/list/describe. Test setup-dependent fixture shadowing, duplicate
+        rejection, explicit overriding, provide-nothing fixture, once-per-Runtime acquisition and
+        partial acquisition failure. Use a setup whose external storage throws if opened: no Story
+        may call it. Prove seeded fresh memory restore and no leak into a second run. Test real
+        provider-first ensure and reverse cleanup, foreign/mismatched/cyclic dependency rejection.
+    V3  Drain, clock and bound proofs
+        Planned: FIFO sends, ready reconciliation/context/deadlines, immediate external completion,
+        pending blocked call and open stream, changed/equal setContext and silent initial baseline.
+        Advance by each clock command without process and prove no implicit turn. Test same-time
+        ordering and production schedule fencing. Assert 10,000 turns succeed, attempted 10,001st
+        fails with StoryTurnLimit, including zero-delay and cross-tab send-cycle fixtures; later
+        commands do not run and evidence survives.
+    V4  Capture, readers and output parity
+        Planned: all alive actors, nonpersisted/local membership, excluded foreign Runtime, concurrent
+        context/store publication and blocked unpublished wave. Assert one revision, now/pending due
+        times, actor/ref and focused reads, missing actor/record/read behavior, field-shape negatives,
+        cumulative canonical repairs/skips, and passive immutable earlier evidence. Test own-key
+        lookup against __proto__/constructor, no fabricated end before failed capture and retained
+        end after cleanup failure. Render sensitive guard data through CheckpointProvider faithfully;
+        prove no operation starts, sends are recorded, and wire projections redact. Compare direct
+        run and flow story run checkpoints, diagnostics, accepted/drained prefix and Cause projection.
+    V5  Independent model oracle and live replay
+        Planned: small independent graph evaluator for BFS/DFS candidate order, zero-step paths,
+        cycles, equal keys, maxDepth 0, both bounds, true/false truncation, call-local events and
+        noncanonical/throwing stateKey. Prove no Runtime/services/fixtures/time are acquired during
+        traversal. Reach SAVED through an authored outcome and a retry through a schedule without
+        externally sending internal events; incompatible fixtures fail parity. Replay every relevant
+        prefix and final path; compare canonical key, snapshots, turns, pending work, operation facts,
+        context and cleanup. Returning paths alone is not a parity proof.
+    V6  Property harness protocol and shrinking
+        Planned: one complete generated write/response-loss/reconnect sequence using explicit write
+        generators, real service controls and independent fixture oracle, emitted and replayed as a
+        static Story. Test literal arrays and sample/shrink generators, seed reproducibility, every
+        control kind, unsupported/missing capability rejection, per-publication observation and fresh
+        scopes. Prove deterministic shrinking, dependency validity, same-property retention, final
+        rerun and the 1,000-candidate cap; Pass/Fail/Inconclusive must remain distinct. Test timer
+        horizon, pending external work and truncated evidence. Run the EntityDomains-owned property
+        suite and mutation cases using these controls; no domain-property definition is inferred
+        from the harness. Measure runtime and shrink costs before increasing defaults.
+    V7  Tabs, SSR and lazy integration
+        Planned: deterministic repeated two-tab traces, follower send, role/cut evidence, abrupt main
+        close during commit, last captured closed-main read, handover unknown, reload, fingerprint
+        degradation, posted-message survival and lost unforwarded input. In tabs: 2 property mode,
+        delay/reorder peer messages and close tabs while EntityDomains checks version and prediction
+        rules. Test leading versus navigation hydrate, independent source runs, literal payloads,
+        duplicate/missing labels and source cycles, golden payload bytes, stored actor/server-data
+        precedence and faithful H1 view. Use actual renderToString/hydrateRoot with no recoverable
+        mismatch, then Chromium/Gecko/WebKit Dispatch Desk gates. Test dormant record through
+        queue-only steps, frozen-clock ensure adoption without load or initial replay, EntryAdopted,
+        adopted-entry checkpoints and mid-run property adoption. Real module-load failures/races are
+        LazyFeatures/Runtime production gates. S10 must add the absent reference scenarios.
+    V8  Every cancellation and cleanup failure lane
+        Planned: cancel before bootstrap, during acquisition, before/during each command and each
+        cleanup phase; independently fail every cleanup phase. Block a send behind unresolved context,
+        cancel, and assert its acknowledgment settles once without upstream recovery. Test bounded
+        unknown commit disposal and final persistence acknowledgment, all finalizers attempted once,
+        reverse dependency order, fixture/host scopes last, full Cause retained through cleanup,
+        primary failure preserved, ordered diagnostics and no success after cleanup failure. Pair
+        CLI cancellation with the same executor; no duplicate cleanup implementation is permitted.
+questions
+    Q1  What measured budgets should replace the initial property-test defaults?
+        Recommended: retain the explicit 60-second virtual quiet horizon and 1,000-candidate shrink
+        ceiling until S7 measurements report execution time, inconclusive rate and shrink quality.
+        Changing these defaults requires an explicit plan amendment; it must not change domain
+        properties or convert an inconclusive run into pass.

@@ -1,0 +1,647 @@
+plan Inspection
+title   Inspection: the structural representation, live inspection, evidence, traces and redaction
+status  proposed
+goal
+    Let an agent or a host learn how an application is built and what it did without reading much
+    code and without acquiring execution authority. This Plan owns the flow-state/inspect route:
+    the structural representation of an App (inspect(app)), the passive live view of a Runtime
+    (inspect(runtime)), the inspector sinks that are the supported production observer
+    (attachInspector), the ordered evidence events every Runtime decision produces, trace
+    artifacts (trace.import, trace.export), the shared bounded structural codec that persisted
+    data, server-rendering payloads and artifacts all pass through, Schema-annotated redaction
+    with keyed digests, and the renderers and trace projections the CLI prints.
+
+    Observation never starts work, never mutates committed state, never persists implicitly,
+    never fabricates evidence and never delays a turn. The CLI leaves, their flags and exit
+    statuses belong to @plan.CommandLine.O1 to @plan.CommandLine.O5; this Plan defines the data
+    they read and the meaning of every projection they print.
+
+    Rationale and examples live in references/design/minimal-library.md (decisions 8, 9, 11),
+    entity-domain.md section 7, server-rendering.md section 3, lazy-features.md section 10 and
+    multi-tab.md section 13 (deferred by split-work ruling 38). Binding split-work rulings
+    override these designs; this Plan restates the resulting contract. The ledger
+    references/ledger/Inspection.md records the disposition of every archived commitment.
+outcomes
+    O1  inspect(app) and inspect(runtime)
+        inspect has two overloads (FlowState decision ruling 5), told apart by the argument's type.
+
+        **inspect(app): Promise<Model>** (structural). It awaits every lazy entry's load (all
+        started at once, results taken in declaration order; @plan.LazyFeatures.O5), compiles the
+        App inertly with the same compiler as construction and resolves with the internal
+        representation. No machine callback, guard, .from, memory patch, adapter, Layer or
+        service runs; no Runtime is constructed; no storage is touched. A load rejection rejects
+        the Promise with FlowError EntryLoadFailed naming the entry; a construction error rejects
+        with the construction FlowError (@plan.Machines.O1). Equal App code and the same
+        compiler-derived type facts give an equal Model and canonical bytes on every host.
+
+        The Model is plain readonly data, versioned format "flow-state/model.v1", and contains
+        every structural fact:
+
+        - **app**: id, the ordered entries with loading "eager" or "lazy" (a lazy entry also
+        carries its declared id), the wiring defaults per entry
+        - **machines**: per machine the definition id, input, memory and public/internal event
+        Schemas as Schema descriptions (field names, types, annotations, never values), the state
+        tree in authored order with each compound state's default child, every transition (source
+        state, event, guard identity, target or "self", the handler level), guards with their
+        possible deny codes (@D4), actions in authored order (sends with target ref and event,
+        operation calls, writes, invalidate and clear), schedules (name, owning state, Duration or
+        Schedule, restartOn), activities (slot, descriptor, key fields read), outcome edges (per
+        operation outcome tag the internal event it raises), context reads (provider ref and
+        selector identity), persistence opt-ins (ref persist, resource persist, stream persist)
+        - **operations**: every resource, transaction and stream descriptor with id, concurrency,
+        staleTime, gcTime, key fields, result/error Schemas present or absent
+        - **domains**: each entity domain recorded at construction as entity-domain.md section
+        7.1 lists it (entries, places, conditions and orders as expression trees, paging, ignored
+        inputs, unaffectedBy, predicted entities and fields, .alsoChanges, .as lists, indexed or
+        scanned, the operation id each entry registers)
+        - **derived facts**: result Schema availability for persistence and hydration; the
+        static actor-send graph (edges Machine --Event--> Ref.Event)
+        - **typeFacts**: complete compiler-derived literal-code unions (@D4)
+        - **fingerprint**: @D5
+
+        Containment: the Model holds no live application state, closures, Effects, Layers,
+        services or live refs. Authored condition constants are structural data: a constant
+        is recorded as a literal when its
+        canonical encoding is at most 256 bytes, otherwise as { bytes, sha256 } of its canonical
+        encoding. A sensitive annotated constant uses @O5's keyed projection on export; neither
+        a literal nor an unkeyed digest bypasses the sensitive-data boundary.
+
+        **inspect(runtime): RuntimeInspection** (live). Synchronous and passive: it reads the last
+        committed cut, one store revision plus every actor's snapshot published in that cut, and
+        never observes a turn in progress. It starts no work, creates and adopts nothing, touches
+        no storage, emits no evidence and does not advance the evidence sequence. It works on a
+        constructed, ready, disposing or disposed Runtime (a disposed one reports lifecycle
+        "disposed" and no actors). Values are faithful (in process; ruling 4). It returns plain
+        frozen data:
+
+        - **runtime**: appId, lifecycle (constructed, ready, disposing, disposed),
+        now (Runtime Clock epoch ms), the last evidence sequence, the store revision of the cut
+        - **actors**: per live actor its ref id (or anonymous local id), machine id, incarnation,
+        lifecycle, state path, revision (@D6), mailbox depth and bound, schedules (name, armed or
+        idle, armedAt, dueAt, current step of a multi-step Schedule), activity bindings (slot,
+        descriptor, canonical key, lane tag, generation), operation occurrence identity, pending 
+        commits (descriptor, attempt.id,
+        concurrency position), issues, retain (live users, expiry deadline)
+        - **operations**: resource entries (descriptor, canonical key, lane tag, generation, age,
+        staleTime, gc deadline, holder count, optimistic layers), transactions in flight
+        (attempt.id, policy state), stream sessions (descriptor, key, lane tag, emission count)
+        - **domains**: per domain id the data of entity-domain.md section 7.5, at the cut's store
+        revision: answers (each active answer's input, frontier, stale causes and effective rules
+        after any HiddenOrder demotion), predictions (live, per record), queues (per record, each
+        attempt and its state) and uncertain records
+        - **persistence**: scope, version, persistence enabled or refused with
+        SecondTabNoPersistence, whether the scope lock is held or the host has no Web Locks, the 
+        last committed manifest, pending coalesced writes, the
+        last storage failure, dormant record counts per declared id (@plan.LazyFeatures.O3)
+        - **entries**: per lazy entry adopted or not, with the adopting trigger
+        - **hydration**: accepted payloads (request token, sequence, scope, bytes) and the
+        provenance of each hydrated actor and entry (inserted, merged, skipped, superseded;
+        @plan.ServerRendering.O5)
+
+        Snapshots keep lifecycle only; revisions, timers and generations live here and in
+        evidence (@D6).
+
+        **Transition predictions.** For flow explain on a checkpoint (@plan.CommandLine.O1) the
+        package computes, for one snapshot and one event, the handler levels tried with each guard
+        result, the target or "self", the ordered exits and entries (@plan.Machines.O2), the memory
+        patch, and the schedules and activities the new configuration would start and release. It
+        runs the machine's pure callbacks (guards, .from, memory patches) against the snapshot and
+        nothing else, and every field is labelled desired, never actual: it never claims a
+        started fiber, generation, pending outcome or finalizer. It agrees with check
+        (@plan.Machines.O4) on Allowed, Denied and Unhandled. The inferred desired projection
+        is rendered by render(projection, "text" | "json"); JSON preserves every desired field.
+        No standalone transition-inspection export is added.
+
+        Reference: references/dispatch-desk/tools/inspection.ts (describeDesk; it predates the
+        Promise form and awaits nothing yet).
+    O2  The structural codec
+        One Flow-owned bounded structural codec carries every byte or JSON value that crosses a
+        process or storage boundary: persisted records and manifests (@plan.Persistence.O3),
+        server-rendering payload envelopes (@plan.ServerRendering.O3), trace artifacts (@O4) and 
+        the Model's canonical bytes
+        (@D5). No envelope overrides a bound, adds a second encoder or a second decoder.
+
+        **Domain.** JSON values only: null, booleans, finite numbers, strings, arrays and plain
+        objects, produced by encoding with the Schema that owns the value (definition Memory,
+        Event, Input; resource result; stream value; entity fields; Flow's envelope Schemas).
+
+        **Bounds** (exact, uniform, root at depth 0; a value at the bound is accepted, one past it
+        rejects):
+
+        - depth 32
+        - 10,000 visited nodes (scalars and containers)
+        - 4,096 items in one array
+        - 262,144 UTF-8 bytes in one string or one property key
+        - 2,097,152 bytes of canonical UTF-8 encoding (excluding an artifact's trailing newline)
+
+        Counters, revisions, generations, sequences and timestamps are NonNegative:
+        Number.isSafeInteger(value) and value >= 0. Timestamps are integer epoch milliseconds from
+        the Runtime's Effect Clock (TestClock in Stories).
+
+        **Encoding.** Schema encode, then a structural walk that enforces the bounds and rejects
+        cycles, -0, NaN and infinities, lone surrogates (String.prototype.isWellFormed or an
+        equivalent fallback), sparse arrays, and objects that are not plain; then canonical JSON:
+        object keys sorted by the UTF-8 bytes of the key, array order preserved, numbers as
+        JSON.stringify writes them, no Unicode normalization, no insignificant whitespace; then
+        UTF-8 bytes via TextEncoder. An artifact file ends with exactly one "\n". The result is a
+        fresh Uint8Array.
+
+        **Decoding.** Strict UTF-8 (TextDecoder with fatal: true; a byte-order mark rejects), the
+        byte bound checked before parsing, JSON parse, the structural walk with the same bounds,
+        then a canonical check (allowing exactly the artifact newline): re-encoding the parsed 
+        value must reproduce the input bytes
+        exactly. That one check rejects duplicate keys, -0, unsorted keys, whitespace and
+        non-canonical number or escape spellings, without a second parser. Then the owning
+        Schema decodes to fresh data. A JSON value handed over in process (an RSC prop) skips the
+        UTF-8 and parse steps and takes the walk, the canonical check on its encoding and the
+        Schema decode.
+
+        **Failure.** Every failure is one FlowError, classification Failure, raised before any
+        actor creation, store installation, application-service acquisition, external work or
+        committed mutation. Acquiring storage to read bytes necessarily precedes restore
+        validation (@plan.Runtime.O2); artifact-only operations acquire no services:
+
+        - CodecBoundExceeded: details name the bound (depth, nodes, arrayItems, stringBytes,
+        totalBytes), its value and the path where it was crossed
+        - CodecMalformed: details.reason is one of utf8, json, nonCanonical, cycle, negativeZero,
+        nonFinite, loneSurrogate, notPlain, sparse, with the path when one exists
+        - CodecSchemaMismatch: the owning Schema rejected the data; path and a summary of the
+        issue, no data values
+
+        No raw parser exception, undefined result, generic "corrupt" result, Node Buffer or Effect
+        Cause escapes. What a failure means for the caller (discard a scope, drop a payload,
+        reject an import) is the caller's plan.
+
+        **Portability.** Shared code uses host-neutral ECMAScript and Web APIs only: no Node
+        Buffer, no UTF-16 length as a byte count, no host-specific or second handwritten encoder.
+        Equal accepted input gives equal canonical bytes and equal digests (@O5) on Node, Bun,
+        Deno, Chromium, Gecko and WebKit.
+
+        **Defensive bytes.** Mutating an input or output Uint8Array after a call returns cannot
+        change any artifact, store, Runtime or decoded value.
+
+        The canonical key bytes of @plan.Operations.O1 (with their -0 normalization) and the
+        identity bytes of @plan.Runtime.O3 are separate grammars; this codec does not replace
+        them.
+
+        Reference: none yet (stage S10 adds it).
+    O3  Inspector sinks
+        attachInspector(runtime, sink) attaches a callback sink; attachInspector(runtime,
+        { capacity? }) creates the bounded in-memory buffer form. These are overloads of the
+        same export. A callback is (event) => void | Promise<void>. Both return drain():
+        Promise<void> and dispose(): Promise<void>; the buffer additionally returns snapshot()
+        and clear(): void. No separate buffer-constructor export is restored.
+
+        **Buffer.** Capacity defaults to 256; it is a non-negative safe integer, exact including
+        zero. Invalid capacity throws FlowError InvalidInspectorCapacity before attachment.
+        snapshot() returns { records, truncatedBeforeSequence }; it is empty/null before
+        attachment and observes only delivered records. The marker is null iff no accepted
+        evidence was omitted, otherwise the greatest omitted, unseen or cleared sequence.
+        Overflow drops oldest records and advances the marker, including every record when
+        capacity is zero. clear() empties the retained window without resetting the Runtime
+        sequence; it advances the marker only through the retained tail. Already accepted but
+        queued records can arrive after clear(). Returned data cannot mutate retained history.
+
+        **Attachment.** One sink attachment belongs to exactly one Runtime and attaches once;
+        reuse of that attachment rejects with InspectorAlreadyAttached. Independent callback
+        attachments may use the same callback function. Attaching before ready() sees bootstrap
+        evidence. Attachment to a disposed Runtime rejects with RuntimeDisposed. A late
+        attachment receives a redacted passive current snapshot and a marker naming the
+        greatest unseen sequence (null at sequence zero), then post-attachment records only.
+        The attached snapshot is a projection, not a fabricated machine turn or sequence.
+
+        **Delivery and isolation.** Records are accepted atomically with publication before a
+        send acknowledgment, delivered asynchronously in Runtime sequence order, and never
+        invoke user code inside a turn. Slow sinks never delay turns, acknowledgment, causal
+        context waves, store fan-out or persistence, and cannot mutate or roll back a commit.
+        The callback receives ordered events and exact truncation information if its pending
+        delivery window overflows the internal 256-record bound. The buffer form's caller bound
+        controls retained records; queued delivery cannot become unbounded history.
+        A callback throwing or rejecting detaches only that attachment; drain/dispose reject
+        with InspectorSinkFailed and its cause. A Runtime-level diagnostic reports the failure
+        through healthy attachments and the host diagnostic channel, never recursively through
+        the failed sink. No omission is silent, no buffer is persisted, and no actor owns a
+        second mutable history for an inspector.
+
+        **Accepted-prefix waits.** drain() captures the accepted prefix at invocation and waits
+        until it is delivered (or explicitly marked truncated); later evidence does not extend
+        that wait. dispose() fixes its accepted prefix, stops accepting new events, delivers
+        that prefix and detaches; idempotent, with no callback after it resolves. Runtime
+        disposal accepts terminal lifecycle evidence consumers before providers, preserving
+        reverse dependency order. It waits for acceptance, not arbitrary user sink Promises;
+        the host awaits the Inspector's drain/dispose to finish external delivery.
+
+        Reference: references/dispatch-desk/tools/inspection.ts (observeLiveDesk; its synchronous
+        detach is illustrative and must change to the accepted-prefix dispose form in S10).
+    O4  Traces
+        **Evidence events.** Every Runtime decision is an event with one Runtime-global sequence
+        (NonNegative, first event 1), shared by all kinds, so entity, operation, lifecycle and
+        machine events order against each other in one total order. Events produced by one
+        committed turn carry contiguous sequences, beginning with that turn's turn event, and are
+        accepted atomically with the commit; a turn that rolls back (@plan.Machines.O3) leaves
+        exactly one turn event with result "failed" and its code. An event is delivered only
+        after the state it describes is published, so a sink reading the Runtime sees state at
+        least as new as the event. Sequence headroom is part of admission headroom
+        (@plan.Runtime.O4): when it runs out, admission refuses before any commit.
+
+        Lifecycle events are evidence, not turns: they never advance an actor's revision and never
+        produce a turn event, and the actor's new snapshot is published before its lifecycle
+        event.
+
+        Every event carries sequence, at (Runtime Clock epoch ms) and kind; actor-scoped events
+        carry actor (ref id or anonymous id) and incarnation; in a Story every event also carries
+        run identity. No cross-tab ordering is claimed in v1. The closed list of kinds and their 
+        fields:
+
+        Machines and actors
+
+        - **turn**: input (public, internal, schedule, outcome, context), event tag, payload, the
+        handler levels tried with each guard result (allowed or denied with code), result
+        (transitioned, self, denied, unhandled, stale, failed), from and to state paths, ordered
+        exits and entries, observed context/provider revisions, operation occurrence and
+        generation, issue ownership, memory patch (changed field names and values), actions run in 
+        order,
+        the actor revision after the turn and the store revision
+        - **lifecycle**: from and to (active, disposing, disposed), cause (created, ensured,
+        restored, hydrated, adopted, retainExpired, disposeActor, released,
+        runtimeDisposed, forgotten); app identity, machine provenance, full snapshot, publication
+        revision, turn revision and store revision accompany each lifecycle record
+        - **admission**: a host or actor send rejected before a turn (overflow, invalid payload,
+        disposing target, before-attach buffer overflow) with its code
+        - **send**: actor-to-actor delivery: from, to ref, event tag, outcome (queued, delivered,
+        SendTargetAbsent with adopted true or false, rejected with code)
+        - **schedule**: armed (name, step, dueAt), fired, restarted (restartOn), released (state
+        exit), rearmed after restore or hydrate (overdue true or false)
+        - **context**: one wave: provider actor and revision, consumers recomputed in order,
+        whether each changed, a selector defect isolated to one consumer
+        - **issue**: raised or cleared, with its code and owner
+        - **diagnostic**: a Runtime-level diagnostic with no turn (StorageFailure,
+        DehydrateUnsettled, EntryLoadFailed, EntryMismatch and the like)
+
+        Operations
+
+        - **resource**: descriptor, canonical key, generation, lane change (Pending, Ready,
+        Refreshing, Failure, Defect, Interrupted), cause (bind, stale, invalidate, refetch,
+        repair, hydrate, restore), fenced (a result discarded for an older generation),
+        freshness (age, staleTime), placeholder use, gc
+        - **transaction**: descriptor, attempt.id, actor, policy decision (started, rejected,
+        queued with position, cancelled a previous attempt, overlapped), recorded (the durable
+        attempt record acknowledged before the adapter ran, ruling 6), settled (success, failure
+        with tag, defect, interrupted, unknown with reconcileRequired true), writes applied and
+        reverted (descriptor and key), optimistic layer added or removed, retry(attempt) re-issued
+        - **stream**: descriptor, key, session identity/generation, session opened or closed, lane 
+        change (Running, Complete,
+        Failure, Defect, Interrupted), hasValue, emission count, latest value
+
+        Entity domains (entity-domain.md section 7.4, unchanged in meaning)
+
+        - **delta**, **field**, **repair**, **skip**, **lookup**, **prediction**, **queue**,
+        **uncertain**, **answer**, **invalidate**, **reconnect**, **restore**, **tombstone**,
+        **gc**, **selfCheck**, **audit** with the following fields; repair causes include hydrate 
+        (peer is deferred):
+        delta: record, source, changed fields, digests, and for .as the event digest and change;
+        field: accepted/rejected/contested with compared versions or positions; repair: read,
+        input, causes, record, fields, matched, action; skip: read, input, causes, reason, only
+        for considered join candidates; lookup: started/settled, read, input, satisfied causes,
+        outcome, pages; prediction: started/replayed/confirmed/retired/ended, attempt, fields,
+        confirming read; queue: joined/sent/halted/released/removed, record, attempt; uncertain:
+        opened/forcedRepairLanded/ended, with later write or reconciliation cause; answer:
+        activated/deactivated/demoted with HiddenOrder; invalidate/reconnect/restore: source and
+        coverage; tombstone/gc: record and reason; selfCheck: contradictory condition or wrong
+        declared order; audit: unrepaired answer refetched, comparison and whether it differed
+        - **counters**: every turn records { deltas, candidates, repairs, skips, lookups, pages };
+        trace summarize totals them per source for a selected read
+
+        Persistence (@plan.Persistence.O3, @plan.Persistence.O4)
+
+        - **capture**: scope, the cut's store revision, records written, manifest id
+        - **write**: settled or failed (StorageFailure) for one manifest; a committed turn never
+        fails because of it
+        - **flush**: trigger (pagehide, hidden, dispose) and records flushed
+        - **restored**: per item restored, restored with an unknown commit (attempt.id), carried
+        dormant, or discarded with reason (versionMismatch, corrupt, decodeFailed, orphan); and
+        a scope discarded whole with its diagnostic
+
+        Persistence scope ownership (ruling 38)
+
+        - **persistence-lock**: app id, scope, result (acquired, refused, unavailable, released).
+        Refused carries SecondTabNoPersistence; no restore or capture occurs for that Runtime.
+        With no navigator.locks the result is unavailable and persistence proceeds normally.
+
+        Deferred event mapping from multi-tab.md section 13: TabRole, LeaderChanged,
+        MirrorApplied, ForwardDropped, PeerDelta and PeerInvalidate, and entity repair cause
+        peer, are OUT of v1 under ruling 38. They emit no events and impose no v1 mirrors,
+        forwarding, leader election, BroadcastChannel or tab grouping contract. The design
+        retains their future fields; restoring them requires a later scope decision.
+
+        Lazy entries (@plan.LazyFeatures.O2)
+
+        - **entry-adopted** { entry, trigger (ensure, create, construct, bootstrap), closure,
+        restored { actors, resources, records } }, **entry-adoption-failed** { entry, code }
+
+        Server rendering (@plan.ServerRendering.O2 to @plan.ServerRendering.O5)
+
+        - **dehydrate**: selection, omitted items with reasons (NotEncodable, Sensitive,
+        LocalActor), unsettled items, bytes, capture attempts
+        - **hydrate**: per item inserted, merged, skipped (with the precedence rule that
+        decided), superseded, contested; payload-level drops with their code
+
+        Inspector meta-events (@O3): **attached**, **truncated**, **inspector-detached**.
+
+        The design documents' PascalCase names (EntryAdopted and EntryAdoptionFailed) are
+        these kinds. Adding a kind is a change to this Plan.
+
+        **Trace artifacts.** A Story run produces a Trace (@plan.Testing.O4); trace.export(trace)
+        returns its canonical bytes (@O2) and trace.import(bytes) validates and returns a Trace.
+        Both are synchronous, take no App and consult no registry. The Trace is readonly plain
+        data with these members, all present (a nullable member is present as null):
+
+        - kind "trace-artifact", version "flow-state/trace-artifact.v3"
+        - storyId, appId, appFingerprint (64 lowercase hex), persistenceVersion (string or
+        null), seed, capturedAt (NonNegative)
+        - truncatedBeforeSequence: null when no accepted event was omitted, otherwise the greatest
+        omitted sequence
+        - events: ordered, redacted per @O5
+        - checkpoints: ordered, uniquely named; each with now, pending work (armed schedules with
+        dueAt, lookups, commits and stream sessions in flight), the actors' snapshots projected 
+        through @O5, adopted
+        entries
+        - outcome "completed" or "failed"; end (a checkpoint or null); failure (the primary
+        diagnostic or null); cleanup ({ status: "complete" } or { status: "failed",
+        diagnostics })
+
+        A Trace is within every codec bound by construction: at most 4,096 recent events,
+        dropping the oldest further until both 10,000 nodes and 2,097,152 canonical bytes fit,
+        advancing the marker each time. Individual records still satisfy depth/string/array
+        bounds. Checkpoints are never dropped; a checkpoint set or mandatory envelope that
+        cannot fit fails with CodecBoundExceeded rather than silently losing its captures.
+
+        Import validates fully before returning, in this order, and rejects with one FlowError:
+
+        1. the codec (@O2)
+        2. kind and version, then the closed schema: an unknown member or an omitted nullable
+        member rejects (InvalidTraceRecord)
+        3. events: strictly increasing sequences; every event sequence greater than a non-null
+        marker; a null marker requires the first event to have sequence 1 (InvalidTraceRecord)
+        4. operation facts: lane and field correlations (Ready carries data, Pending carries a
+        generation, unknown carries reconcileRequired true and an attempt.id, a stream's latest
+        is present only after an emission) (InvalidTraceRecord)
+        5. lifecycle: creation/restore establishes active with its distinct cause; later
+        transitions are only active to disposing to disposed per incarnation
+        (InvalidLifecycleTransition)
+        6. outcome: completed requires a non-null end, a null failure and complete cleanup;
+        failed requires a failure; a failure before end capture leaves end null; a failed cleanup
+        never yields completed (InvalidStoryEvidence)
+
+        Never serialized: callbacks, Effects, fixtures, Layers, live refs, Runtime state, raw
+        Cause, stack traces or fiber ids (@plan.Diagnostics.O3); only ordered diagnostic
+        projections. A trace is never a restore, hydrate or Story input. End is a capture, never
+        a claim of finality.
+
+        Reference: references/dispatch-desk/tools/inspection.ts (loadTrace) and
+        references/dispatch-desk/tools/cli.ts (--trace-output).
+    O5  Redaction and digests
+        Checkpoints, snapshots, inspect(runtime) and every in-process read are faithful: they
+        carry raw values (ruling 4). Redaction applies only where data leaves the process: inspector
+        sink events, trace artifacts, CLI output and rendered output. Server-rendering payloads
+        omit sensitive data entirely instead (ruling 30, @plan.ServerRendering.O3).
+
+        - **What is sensitive.** A Schema node annotated sensitive: true, or a Schema.Redacted
+        node, at any depth of an event, input, memory, context value, operation key or params,
+        result, error, stream value or entity field. A sensitive struct is redacted whole.
+        - **Digest.** A sensitive value leaving the process becomes the string "hmac:" followed by
+        the 64 lowercase hex characters of HMAC-SHA-256 over the canonical bytes (@O2) of the
+        value as its Schema encodes it. Equal values under one key give equal digests, so
+        equality questions stay answerable; low-entropy values (emails, ids) cannot be
+        recovered by a dictionary without the key.
+        - **Key.** Production: 32 bytes from crypto.getRandomValues per Runtime, created at
+        construction, never exported or persisted, so digests compare only
+        within one Runtime's events. Stories: a private per-run key held by the Story runner;
+        deterministic repeat executions of the same run reuse that key, giving equal digests
+        and identical traces (@plan.Testing.O2). The key is not derivable solely from public
+        Story id or seed and is never included in artifacts or diagnostics. Independent keys
+        intentionally prevent cross-run value equality claims.
+        - **Not encodable.** A value whose encoded side is not JSON (Schema.instanceOf(File)) is
+        carried as { unencodable: <the Schema's identifier> }, never its contents.
+        - **Store data in artifacts.** In trace artifacts, entity delta, field and prediction
+        events and resource and stream data carry field names and digests, not values; values
+        appear in checkpoint snapshots (entity-domain.md section 7.4). Inspector sink events carry
+        non-sensitive values.
+        - **Never redacted**: identities, fingerprints, versions, kinds, sequences, markers,
+        state paths, event tags, codes, cleanup status and structure; annotations apply to
+        application Schema fields only.
+        - Digests are computed outside the turn (at delivery or export) and never delay it.
+
+        Reference: none yet (stage S10 adds it).
+    O6  Renderers
+        **render(model, format)** for format "text", "json" or "mermaid" returns a string,
+        synchronously, deterministically (equal Model, equal string), running no callback:
+
+        - **text**: per machine its states in authored order with transitions, guards and their
+        deny codes, outcome edges, schedules and sends; per domain the sentences of
+        entity-domain.md section 3.3; lazy entries marked lazy
+        - **json**: the Model's canonical JSON (@O2), without the trailing newline
+        - **mermaid**: a stateDiagram-v2 per machine and a flowchart of actor sends and context
+        reads; state ids derived deterministically from paths; lazy nodes dashed
+
+        One renderer per projection; no generated spec file is stored (@D1).
+
+        **Trace projections** (printed by @plan.CommandLine.O4; computed here, from one or two
+        Traces, never running application code):
+
+        - **summary**: counts and a timeline per actor and per kind over the retained events,
+        always with the marker and "complete" or "truncated before N", and the outcome
+        - **sections**, each an ordered, normalized list (sequences and absolute times replaced
+        by order and time since the run started): events, transitions, states, sends,
+        schedules, context, lifecycle, issues, resources, freshness (why each resource entry
+        refetched or was served stale), transactions (policy outcomes per attempt.id, unknown and
+        retry), streams, repairs, restore (what was restored, carried dormant, discarded and
+        why, restored unknown), hydration, adoption, diagnostics; the
+        default selection is all
+        - **filters** as data: an actor id, an attempt.id, a read (domain.entry), an entity key
+        with an optional sequence, issues-only and timeline. Filters are data, never executable
+        selectors; a colon-form selector splits at the first colon only, preserving the remainder
+        as the identity. @plan.CommandLine.O4 owns --actor, --attempt, --issues, --read, --entity
+        and --sequence grammar. Unknown selectors fail with InvalidArtifactOperand,
+        details.reason UnknownSelector; unavailable evidence names EvidenceUnavailable, the
+        exact operand path and truncation marker. Explanations of absence under truncation
+        report insufficient evidence rather than an ordinary unknown
+        - **comparison** of two Traces over selected sections has exactly four results: equal
+        (both complete and every selected section matches), different (some retained fact
+        differs, even when either is truncated), incomplete (retained facts match and at least
+        one input is truncated), and the failure ArtifactIdentityMismatch when appId, 
+        appFingerprint, persistenceVersion or format version
+        differ. Incompatible identities are failures, never behavioral differences. Comparison
+        exits are projected by CommandLine: equal 0, different 1, incomplete 0 with explicit
+        incomplete status, refusal/failure 2. Structural flow diff compares live revisions
+        separately and does not relax trace identity validation.
+        Under truncation, absence is never reported as "none": the answer is "insufficient
+        evidence".
+        - **coverage**: given a Model and a set of Traces, the declared transitions, deny codes,
+        outcome edges, schedules and sends that no Trace exercised, per machine
+
+        Reference: references/dispatch-desk/tools/cli.ts (graph, explain, trace summarize and
+        diff examples).
+decisions
+    D1  The machine file is the spec; one representation, renderers on demand
+        Was FlowState D2 (kept from SurfaceSimplification D3 and D6). The Model of @O1 is the
+        only structural representation; flow graph, flow diff, flow explain, flow check, render,
+        the fingerprint and Story coverage all read it. No behaviour contract, generated spec
+        or saved structure file exists, so nothing goes stale.
+    D2  The inspect route has four exports
+        Was FlowState D11 (kept from SurfaceSimplification D38 to D42; trace proof deleted by
+        minimal-library decision 11; explain extended to domains by entity-domain.md section 7).
+        flow-state/inspect exports inspect, render, attachInspector and trace (import, export).
+        The archived 25-name list, behaviour contracts, share artifacts, compression and
+        programmatic summarize, diff and proof are deleted; summarize and diff are CLI leaves
+        over @O6. The CLI leaves and flow check rules moved to @plan.CommandLine.O1 and
+        @plan.CommandLine.O5.
+    D3  Snapshots keep lifecycle; revisions, timers and generations move to inspection
+        Was FlowState D38 (kept from SurfaceSimplification D22; timers removed by minimal-library
+        decision 8). Public snapshots carry no revision, timer or generation; inspect(runtime)
+        (@O1) and evidence (@O4) carry them.
+    D4  Deny codes are type facts read by the compiler
+        Ruling 28. A guard's possible deny codes come from its return type (a union of literal
+        codes), read by the TypeScript compiler API of the pinned toolchain, never by running the
+        guard. inspect(app) and flow check use that same compilation. Source tooling resolves
+        the App's source and tsconfig through flow.config.ts discovery (@plan.CommandLine.O6);
+        a host may consume the same already-compiled facts without shipping the compiler.
+        The compiler stays out of application bundles. If complete facts cannot be obtained,
+        structural inspection rejects with FlowError TypeFactsUnavailable rather than returning
+        an empty union as an exhaustive answer. Passive inspect(runtime) needs no compiler.
+    D5  Trace identity fingerprints the complete structural representation
+        The trace appFingerprint is lowercase-hex SHA-256 over canonical inspect(app) data,
+        excluding its fingerprint field, timestamps and run-specific data. ID-indexed
+        declarations sort by UTF-8 identity bytes; authored state children, alternatives,
+        events, actions, checkpoints, records, facts and diagnostics retain their order.
+        Every lazy entry is loaded for structural compilation; its contents and guard type facts
+        participate. Fingerprints are checked when encoding against that structural compilation
+        and at App-aware evidence boundaries. Standalone import validates the fingerprint's form
+        without an App, hidden registry or fabricated preimage; comparing incompatible
+        fingerprints fails ArtifactIdentityMismatch. There is no public fingerprint API.
+        This artifact identity adds no runtime lazy loading: runtime persistence/hydration
+        identity and lazy adoption checks remain with their capability owners.
+    D6  Revisions are per incarnation and survive restore
+        An actor's revision counts its committed turns, starting at 0 when an incarnation is
+        created. A restored or hydrated actor resumes the revision captured with it, so
+        evidence compares across a reload; a new incarnation starts again at 0. Its publication
+        revision also starts at 0 and resumes the captured publication revision after restore.
+        The store revision is per Runtime. Terminal-publication, cleanup and global evidence
+        sequence credits are reserved before mutation; exhausted restored counters reject
+        before installation (@plan.Persistence.O4).
+    D7  Redaction is a Schema annotation with keyed digests
+        Was FlowState D48, amended by rulings 4 and 30. A field annotated sensitive (or a
+        Schema.Redacted) is a keyed digest wherever data leaves the process (@O5); in-process
+        checkpoints and snapshots stay faithful; server payloads omit it. Replaces the share
+        artifact kind, its [REDACTED] path policy and its manifest (InspectionAndArtifacts O5),
+        a second mechanism for the same need. FlowState D48's "digest in every checkpoint" is
+        superseded by ruling 4.
+    D8  Restore sink guarantees through the existing attachInspector export
+        The callback form is production telemetry; the buffer overload supplies bounded
+        retention, snapshot(), clear(), exact zero capacity and the greatest-omitted marker.
+        Both supply accepted-prefix drain/dispose. This restores the archived capabilities
+        without reviving the deleted createInspectionBufferSink export. Stories collect
+        through this evidence path (@plan.Testing.O4).
+    D9  Evidence is observation, never authority
+        Kept from InspectionAndArtifacts C2 and D1. No actor retention setter, mutable trace log,
+        implicit persistent history, fabricated trace, sink-owned actor work, snapshot replay, or
+        trace-driven restore exists. Records become durable only through an explicit trace
+        export.
+constraints
+    C1  Schemas stay closed
+        Every artifact and event Schema is closed: every known member required (nullable ones as
+        null), discriminants exact, bounds uniform. No alternate decoder, migration envelope,
+        public event-type hierarchy, raw Cause carrier or artifact-specific bound is added. A
+        format change bumps the version string; old versions reject (no legacy importer).
+    C2  Inspection code stays out of application bundles
+        Nothing in flow-state, flow-state/react or flow-state/persistence imports
+        flow-state/inspect, the TypeScript compiler or a renderer. The evidence event builders
+        live in the core runtime; no rendered projections or inspector-owned history is
+        constructed when no attachment exists. Owner-required evidence is not disabled.
+verification
+    V1  Model golden and containment
+        Establish @O1 and @D1: a golden canonical Model of references/dispatch-desk proving every
+        state, target, guard, deny code, operation, outcome edge, schedule, activity, context read,
+        actor send, persistence opt-in and the recorded ticket domain is present; a spy proving no
+        callback, adapter or Layer ran; a lazy variant equal to the eager one except loading; a
+        byte search proving no live state or sensitive literal is exported; equal canonical
+        bytes from the same complete compiled Model on Node and a browser host. Planned.
+    V2  inspect(runtime) passivity and consistency
+        Establish @O1: inspect(runtime) during a turn returns the previous cut; between two
+        commits it never mixes revisions; it starts no work, adopts no entry, touches no storage
+        (a KeyValueStore spy) and leaves the sequence unchanged; domains data equals the
+        checkpoint reads of entity-domain.md section 6.2 at the same revision; transition
+        predictions agree with check on Allowed, Denied and Unhandled. Planned.
+    V3  Codec vectors and host portability
+        Establish @O2: ASCII, 2-, 3- and 4-byte UTF-8, malformed UTF-8, a BOM, lone surrogates,
+        composed and decomposed spellings (kept distinct); malformed JSON, duplicate keys, cycles,
+        -0, NaN, infinities, non-canonical spellings; each bound at its value and one past it,
+        each failure naming the bound and path; no raw parser error, Buffer or Cause escaping;
+        caller mutation of input and output bytes. Full vectors on pinned Node; the compiled
+        codec's compact fixture on Bun, Deno, Chromium, Gecko and WebKit with recorded versions,
+        giving equal bytes and, under the same private key, equal digests. Planned.
+    V4  Sinks under stalls, failures and races
+        Establish @O3: a sink held forever while turns, acknowledgments and store fan-out
+        complete; a failing sink detached alone with InspectorSinkFailed while a healthy one
+        continues; capacity 0, 1 and default, and invalid capacities; buffer snapshot/clear races; 
+        attach before ready
+        (null marker, bootstrap events), late attach (attached snapshot, exact marker); overflow
+        producing truncation information with the exact greatest dropped sequence; drain through
+        only its accepted prefix; dispose idempotence; Runtime disposal delivering terminal
+        lifecycle events consumers first; two Runtimes never mixing events. Planned. Port the
+        behavioural cases of 
+        packages/flow-state-rewrite/src/runtime-next/test/evidence-sink-owner.test.ts.
+    V5  Event order and completeness
+        Establish @O4's events: one Story per event kind proving its fields; contiguous
+        sequences per committed turn; a rolled-back turn leaving one failed turn event; lifecycle
+        events producing no turn and following their snapshot; sequence exhaustion refusing
+        before commit; the trace events of entity-domain.md section 7.4, server-rendering.md
+        section 3 and lazy-features.md section 10 each emitted by the owning scenario;
+        second-tab refusal emits SecondTabNoPersistence with no capture/restore, and none of
+        multi-tab.md section 13's deferred coordination events is emitted. Planned.
+    V6  Trace artifact schema
+        Establish @O4's artifacts: round trip (export of import is byte-identical); every
+        positive and negative vector of the six import steps with its code (unknown member,
+        omitted null, marker inconsistent with events, non-increasing sequence, each operation
+        correlation, each impossible lifecycle step, each end/failure/cleanup combination); a
+        Story over 4,096 events producing an exact marker; identical traces from two runs of
+        every reference Story; no Cause, stack trace or fiber id in any artifact (byte search).
+        Planned.
+    V7  Redaction and digests
+        Establish @O5 and @D7: a sensitive field in an event payload, memory, context, a
+        resource result, an entity field and a stream value is a digest in sink events, trace
+        artifacts and CLI output and raw in checkpoints and inspect(runtime); a byte search finds
+        no sensitive value in any artifact; a dictionary vector (1,000 candidate emails) does not
+        match a production or Story digest without the key; deterministic repeats with the
+        same private run key give equal digests; public Story seed alone cannot recover it;
+        unencodable values never leak contents. Planned.
+    V8  Renderers and projections
+        Establish @O6: golden text, json and mermaid for the reference app; every section and
+        filter on a fixture trace; comparisons covering complete equal, complete different,
+        truncated different, truncated matching (incomplete), appId mismatch (failure) and
+        fingerprint mismatch (failure); "insufficient evidence" under truncation;
+        coverage listing an unexercised deny code and outcome edge. Paired with the CLI process
+        vectors of @plan.CommandLine.O3. Planned.
+    V9  Type facts and fingerprint
+        Establish @D4 and @D5: deny codes read from types for every reference guard with no guard
+        run; unavailable type facts reject rather than giving an exhaustive empty set; compiler
+        absent from a production bundle; loaded lazy-content and deny-code changes alter the
+        complete structural fingerprint; equal compiled Models give equal hashes. Planned.
+questions
+    Q1  Should a production Runtime be able to export a trace artifact?
+        Today only Story runs produce Traces. A host could want to save a production incident.
+        Recommended for version 1: no; hosts keep sink events (already redacted) in their own
+        logs, and a production trace format (no storyId, a production key) waits for a real need.
+    Q2  How does a host observe the private Runtime of dehydrate?
+        dehydrate owns its request Runtime (@plan.ServerRendering.O1), so attachInspector cannot
+        reach it, yet DehydrateUnsettled and the dehydrate event must reach the host log.
+        Recommended: dehydrate takes an optional inspector sink option with @O3's semantics,
+        attached before ready(); ServerRendering owns the option.
+    Q3  Is 256 the right default capacity?
+        It is the archived default, chosen without measurement. Recommended: keep 256 and measure
+        event volume for the reference app's save flow in S9.
+    Q4  How are complete deny-code type facts supplied outside source tooling?
+        Ruling 28 requires compiler-derived literal codes. Recommended: compile the complete
+        structural representation in tooling with the pinned compiler API; keep that compiler
+        out of runtime bundles and reject when complete facts are unavailable in a host.
+        Verify the pinned API in S1; no unpinned compiler fallback is authorized.

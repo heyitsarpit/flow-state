@@ -1,0 +1,370 @@
+plan LazyFeatures
+title   Lazy-loaded features
+status  proposed
+goal
+    Let an application split feature code out of its first bundle while the app stays a closed,
+    fully inspectable list. The app is closed over machine ids, not over code: a lazy entry
+    declares a machine's id and a loader. Because a ref carries its machine, any code that can
+    name a lazy actor already holds that machine's code, so the Runtime adopts the entry
+    synchronously the first time it meets the machine, as one admission step. ensureActor,
+    createActor, send and the React hooks keep their synchronous signatures; there is no loading
+    lifecycle, no queue and no new public name. The loader runs only where no ref is in hand:
+    tools (inspect, the CLI, flow check) and client bootstrap after server rendering.
+
+    This Plan owns lazy entries, adoption, dormant persisted records, the server-rendering and
+    persistence interactions of lazy entries, and their tool rules. It reverses the lazy clause of
+    FlowState D50 (owner decisions 31 and 33). The adopted design is
+    [lazy-features.md](references/design/lazy-features.md), which holds rationale, the worked 
+    Dispatch Desk example
+    and prior art; where it and this Plan differ, this Plan wins. The design's first-render
+    proposal (the ensure form returning Actor | null) is rejected by owner decision 29; the first
+    render is @plan.React.O2. Provenance per row is references/ledger/LazyFeatures.md.
+outcomes
+    O1  Lazy entries
+        app({ id, machines }) accepts three entry forms (@plan.Runtime.O1):
+
+        - **name: Machine**: eager.
+        - **name: { machine, context? }**: eager with a wiring default (FlowState D14).
+        - **name: { id, load, context? }**: lazy.
+
+        A lazy entry's fields:
+
+        - **id**: the machine's definition id exactly as authored (FlowState D9). It maps a ref to
+        its entry and tells dormant persisted data from orphans without loading anything. The type
+        of load must resolve to a machine whose definition id is the same literal type; a mismatch
+        is a type error, an EntryMismatch at adoption and a flow check error. Definitions
+        therefore keep their id as a literal type.
+        - **load**: () => Promise<Machine>, written as
+        () => import("./editor.machine.js").then((m) => m.EditorMachine). It is called only by
+        tools (@O5) and by client bootstrap after server rendering (@O4); never in a Story and
+        never on a client that has the ref in hand. It must be a build-local import(); module
+        federation and remote entries are not version 1.
+        - **context**: the wiring default, declared eagerly as for eager entries: wiring is
+        structure, so it stays in app.ts where flow graph reads it and where types check it
+        against the lazy machine's context declaration. Its providers are imported eagerly, so it
+        should name only eager providers; a lazy provider belongs in a ref's own context.
+
+        There is no services field on an entry and no per-entry Layer (@D4). The type of
+        runtimeSetup requires services to provide the union of every entry's requirements, lazy
+        entries included, read from load's return type; a missing service is a type error.
+
+        The universe stays closed: an id the app does not declare can never run, and construction
+        rejects one machine listed twice (eager and lazy, or as two lazy entries) with the
+        construction collision code. Entries are never unloaded (JavaScript cannot unload a module),
+        so the adopted set is bounded by the declared entries. Not added, deliberately: lazy(),
+        feature(), runtime.load, a loading lifecycle or handle, useLazyActor, per-entry Layers and a
+        Story load command.
+
+        Heavy service code is deferred inside the service with plain Effect, not a Flow feature: a
+        thin Layer built at ready() whose implementation loads on first call through
+        Effect.cached(Effect.tryPromise(() => import(...))). The load runs at most once per Runtime
+        on success; on failure the recipe invalidates the cache (Effect.cachedInvalidateWithTTL, or
+        catch and rebuild) so the next call re-imports. A load failure is the adapter's own typed
+        failure before any request is sent: a lane Failure for a lookup, a typed commit failure
+        (never unknown) for a commit, because nothing was dispatched (@plan.Operations.O3).
+        Reference: references/dispatch-desk/app/app.ts (declared lazy editor entry).
+    O2  Adoption
+        Rationale and examples: [design section 
+        5](references/design/lazy-features.md#5-adoption-exact-semantics).
+
+        A Runtime adopts an inactive lazy entry when one of these meets a machine whose definition
+        id is the entry's id:
+
+        1. runtime.ensureActor(ref, ...), including through the attach effect of
+        useActorByRef(ref, options) and Story ensure;
+        2. runtime.createActor(machine, ...), including useActor's attach effect and story.machine;
+        3. construction, when an eager entry's wiring default, an eager ref or setup reaches a lazy
+        machine object; adopted at ready() (flow check warns, @O5);
+        4. client bootstrap after server rendering, for entry ids named in a payload, through load
+        (@O4).
+
+        These never adopt: render (including the pre-attach snapshot of @plan.React.O2, which uses
+        the machine the ref carries without registering it), lookup-only useActorByRef(ref), an
+        actor's send(ref, ...) action, getSnapshot and useView, inspection and capture.
+
+        Adoption runs inside the admission of the call that triggered it, before that call's own
+        registration, and is synchronous for triggers 1 to 3. Its steps, as one admission with one
+        publication:
+
+        1. **Provenance**: the value is a Flow machine, its definition id equals the entry id, and
+        no other machine object has been adopted for that id in this Runtime; otherwise
+        FlowError(EntryMismatch).
+        2. **Compile** the machine inertly with the construction compiler, cached per machine
+        object across Runtimes since compilation is pure. Record every domain, entity and operation
+        the definition reaches.
+        3. **Closure**: collect the entry's wiring (the app default and, for an ensure, the ref's
+        own context). Any provider whose machine is an inactive lazy entry is adopted in the same
+        step, transitively; its code is in hand because the wiring holds its ref. Run the context
+        cycle check over the adopted graph plus the new closure.
+        4. **Conflicts**: merge the closure's ids into the Runtime's compiled graph and run every
+        construction rule that spans machines: machine, operation, domain, entity and resource id
+        collisions; one object per entity id (a duplicated module copy is a collision); an
+        operation in at most one domain; at most one .byKey per entity (entity-domain.md section
+        9). Failures carry the construction code with details.entry. Construction-only checks are
+        written as functions of a compiled graph, so construction and adoption share them.
+        5. **Prepare dormant data**: decode and validate the closure's dormant persisted records
+        detached (@O3), before installation, as bootstrap prepares restored data.
+        6. **Install** the compiled entries, restored actors, resource entries and entity records
+        (records at position 0 with frontiers lowered); establish silent context baselines;
+        activate restored actors. A restored actor with an in-flight commit gets that commit's
+        unknown outcome at adoption, as bootstrap does (@plan.Persistence.O4).
+        7. **Publish** one cut carrying the new structure and the restored truth; the triggering
+        admission then continues as for an eager machine.
+
+        Failure: if any step fails, nothing from steps 2 to 6 remains (reverse-order rollback, as
+        admission rollback does, @plan.Runtime.O3). The entry stays inactive. A host call throws
+        the FlowError; a hook rethrows it during its next render (@D7, @plan.React.O5). A later
+        trigger retries from step 1. Steps 1 to 5 are deterministic, so a retry fails the same way
+        unless the code changed. Persisted data never fails adoption (@O3).
+
+        Guarantees:
+
+        - Adoption happens only at admission boundaries, never inside a macrostep: no turn observes
+        a half-adopted graph.
+        - Adoption is idempotent: an adopted entry is never adopted again; a later trigger checks
+        only provenance (step 1).
+        - Eager entries keep exact object provenance against the app value; lazy entries get
+        "declared id, first object wins, every later object must be identical". A second copy of a
+        feature module (the dual package hazard, a duplicated chunk, an HMR re-execution) fails
+        loudly with EntryMismatch. When load runs, its result must be the adopted object.
+        - Adoption order changes nothing a Story asserts on except through restored data: two
+        Runtimes adopting the same entries in different orders compile the same graph.
+        - A provider adopted later than its consumers cannot happen, because a consumer's
+        admission needs its providers.
+
+        Actors:
+
+        - ensureActor and createActor keep their signatures and synchronous contracts; for an
+        inactive lazy entry they adopt first, then admit. Calling either before ready() keeps the
+        readiness error of @plan.Runtime.O2. Disposing every actor of an entry does not deactivate
+        it; disposal and retain are unchanged.
+        - A handle from the host exists only after its actor is admitted, so no host send reaches
+        an actor whose code is not adopted. Before attach, a hook's handle buffers sends under
+        @plan.React.O3; the buffer drains after the attach that adopts.
+        - An actor's send(ref, ...) to an unadopted entry's ref has no target actor: it is dropped
+        and reports SendTargetAbsent with details.adopted false, so an agent can tell "never
+        ensured" from "feature never opened". A send never adopts, because adoption would create
+        structure inside a turn.
+        - Schedules, activities, writes, optimistic layers and attempt.id behave as for eager
+        machines.
+        Reference: references/dispatch-desk/features/Tickets/editor/useEditor.ts and
+        features/Tickets/editor/editor.story.ts (ensure adopts the declared lazy editor).
+    O3  Dormant records
+        Rationale: [design section 8](references/design/lazy-features.md#8-persistence-amends-o8).
+
+        Bootstrap reads all of the scope. Effect's KeyValueStore cannot list keys, so ready() reads
+        the scope manifest (@plan.Persistence.O3) and every record it names, bounded by the scope's
+        size bound. It decodes only records whose owner (machine id, operation id, entity id) is
+        adopted or eager. Every other record is dormant: its bytes are held in memory, keyed by
+        owner id, and never interpreted.
+
+        - **Adoption decodes** the closure's dormant records with the newly compiled Schemas (@O2
+        step 5) under unchanged restore rules: no replay of input, initial, events or finite work;
+        pending commits come back unknown with their attempt; schedule deadlines are absolute and
+        an overdue one fires once (owner decision 10).
+        - **Capture** writes the records of adopted owners and never rewrites or drops a dormant
+        record: with per-record keys they are untouched; a record set rewritten under a new
+        manifest carries dormant bytes forward byte-identical. A failed write keeps the last good
+        record.
+        - **Orphans**: a dormant actor record whose machine id is in no entry is an orphan, found at
+        ready() without loading because lazy ids are declared; it follows the removed-machine rule
+        of @plan.Persistence.O5. Operation and entity ids of a lazy entry are not known before
+        adoption, so their unclaimed records stay dormant until adoption or until a version change
+        discards the scope (@D9).
+        - **Decode failure at adoption** follows owner decision 17 and @plan.Persistence.O5:
+        corrupt scope data logically discards the scope records with a restore diagnostic and
+        continues fresh. Do not partially install the decoded adoption closure. Existing live
+        committed truth is not rolled back; the last good stored generation remains until a
+        successful replacement. Adoption itself never fails because of persisted data (@D8).
+        - **Durable context closure** is unchanged and checked at capture over adopted actors. A
+        dormant consumer has no live context; at adoption it gets a silent baseline from current
+        providers (restore never uses serialised selected values).
+
+        Uncertainty must not wait for a feature. A persisted uncertain write records the entity
+        keys it predicted (entity-domain.md section 5.5). Those keys are stored as their own
+        plain-data record (entity id, canonical key, attempt id), separate from the owning actor's
+        record. At ready(), or at the first adoption that makes the entity known, the record is
+        marked uncertain and the forced repair runs (the .byKey loader if adopted, plus every
+        active answer that holds the record). The owning actor's unknown outcome still waits for
+        that actor's adoption: reconciliation is workflow and belongs to the machine. Rule: an
+        uncertainty marker applies no later than the first moment its record is readable.
+
+        Under owner decision 38, a second tab refused the persistence Web Lock runs with no
+        restore or capture and has no dormant set (@plan.Persistence.O1). No leader, mirror,
+        forwarded ensure or handover exists in version 1. When navigator.locks is absent the
+        persistence check is skipped; this does not add coordination to server rendering.
+        A different principal is a new Runtime with its own dormant and adopted sets.
+        Reference: none yet (stage S10 adds it); app/persistence.ts is the setup whose scope the
+        dormant set belongs to.
+    O4  Lazy features and server rendering
+        Rationale: [design section 9](references/design/lazy-features.md#9-ssr-and-hydration),
+        amended by decision 29 and H1 for pre-adoption rendering.
+
+        - **Server**: dehydrate's request Runtime (@plan.ServerRendering.O1) is ensured from
+        prepare with refs in hand, so adoption there is synchronous (trigger 1).
+        - **Transfer**: the payload lists the ids of the lazy entries the request Runtime adopted,
+        never module specifiers (@plan.ServerRendering.O3). The client accepts only ids its app
+        declares as lazy entries; any other id makes the payload HydrationMalformed. A payload
+        therefore cannot make the client import arbitrary code.
+        - **Render before adoption**: Hydrate's phase 1 holds the items of an unadopted entry
+        encoded. A hook resolving a ref of that machine in render projects the actor's server-view
+        snapshot with the machine the ref carries, purely and without adopting
+        (@plan.ServerRendering.O4), so H1 holds for lazy actors.
+        - **Client bootstrap**: ready() starts load for every transferred, unadopted entry id in
+        parallel, waits for all of them to settle, adopts the successful ones in app declaration
+        order (deterministic), and installs the transferred actors under the bootstrap merge of
+        @plan.ServerRendering.O5, all before ready() resolves. In Next.js the route's client
+        chunks are already on the page, so each import() resolves from the module map. Each load is
+        bounded by 10 seconds on the Runtime Clock (@Q1).
+        - **A failed or timed-out load** does not fail ready(): the entry stays inactive, its
+        transferred items stay provisional and its persisted records stay dormant, and
+        EntryLoadFailed is reported with the cause. The first attach effect that holds the ref
+        adopts the entry (trigger 1), restores its dormant data and installs the provisional items
+        under the same merge rules. Truth is preserved; at most the hydration of that entry is
+        delayed.
+        - **Isolation**: compiled machines are cached per machine object across Runtimes; the
+        adopted set, dormant bytes and restored actors belong to one Runtime and are never shared
+        between requests or principals.
+        - **Stories**: load never runs in a Story. A Story .hydrate whose payload names a lazy
+        entry leaves it inactive until a later command holding its ref adopts it (@D3).
+        Reference: references/dispatch-desk/app/app.ts and
+        next/app/desk/[workspace]/page.tsx; lazy-load rejection/timeout proof: none yet (stage S10 
+        adds it).
+    O5  Tools and checks
+        - **inspect(app)** returns Promise<Model>: it starts every lazy entry's load at once, awaits
+        them all, then compiles in declaration order. One form for every app; render(model, ...)
+        stays synchronous; attachInspector is unchanged (@plan.Inspection.O1, owner decision 31). A
+        rejected load rejects inspect with FlowError(EntryLoadFailed) naming the entry.
+        - **Representation**: every entry carries loading: "eager" | "lazy"; a lazy entry also
+        carries its id and, live in inspect(runtime), adopted with the adopting trigger. The
+        static representation of a lazy app equals that of the all-eager app except for loading.
+        flow graph marks lazy nodes and Mermaid draws them dashed.
+        - **Trace events**: EntryAdopted { entry, trigger: "ensure" | "create" | "construct" |
+        "bootstrap", closure: entry ids, restored: { actors, resources, records } }
+        and EntryAdoptionFailed { entry, code }, through attachInspector, Story evidence and trace
+        artifacts, bounded like every event. Checkpoints list the adopted entries, so a test can
+        assert that a step adopted nothing.
+        - **flow check rules** over the fully loaded graph (@plan.CommandLine.O5): errors for a lazy
+        entry id that differs from its loaded machine's definition id (EntryMismatch), one machine
+        listed twice, a load that fails at tool time (EntryLoadFailed, which sets the exit status),
+        and every existing cross-machine rule (collisions, one .byKey, one domain per operation,
+        context cycles). Warnings for an entity whose .byKey lives in a lazy entry while another
+        entry holds, predicts or listens to it (until adoption, confirming reads and forced repairs
+        fall back to active answers or drop the field, which is safe but does less); a lazy
+        machine object reachable from eager wiring, setup.ts or app.ts (LazyEntryReachedEagerly:
+        the split is lost, behaviour stays correct); and a load not of the form
+        () => import("<literal>") optionally followed by .then((m) => m.X).
+        - **Diagnostic codes** for @plan.Diagnostics.O2: EntryMismatch (Defect; remediation: two
+        copies of the id are loaded or the entry's id does not match its machine; check duplicated
+        packages, chunks and stale HMR state, and reload) and EntryLoadFailed (Failure, cause the
+        import error; remediation: after a deploy old chunks may be gone; serve HTML with
+        Cache-Control: no-cache and reload on vite:preloadError or ChunkLoadError). No automatic
+        retry: the next trigger calls load again. SendTargetAbsent gains details.adopted.
+        - **Stories** need no new command: ensure and story.machine adopt synchronously inside the
+        command, at an exact step, on the frozen TestClock (@plan.Testing.O1). An in-memory
+        KeyValueStore fixture seeded with an editor record shows the record dormant through
+        queue-only steps and restored at the ensure step without replaying initial.
+        - **propertyTest** gains one generated step, "adopt domain D now", to show that adopting
+        mid-run keeps C1 to C8 (@plan.EntityDomains.O4). model and CheckpointProvider are
+        unaffected.
+        Reference: references/dispatch-desk/tools/inspection.ts (awaited inspect) and
+        app/app.ts (the checked lazy declaration).
+
+decisions
+    D1  Lazy-loaded features are in scope for version 1
+        Owner decisions 31 and 33; reverses the lazy clause of FlowState D50 and the minimal-library
+        decision 2 "Open" note, and restores the archived allowance for async module import before
+        construction (archived ApplicationsAndActors C1) in a declared-entry form. Runtime
+        registration of arbitrary machines outside a declared lazy entry stays a non-goal.
+    D2  The app is closed over ids; refs carry their code
+        lazy-features.md sections 2 and 13. Adoption binds code to an id declared at
+        construction. The alternatives (async ensureActor, a loading handle with queued sends,
+        runtime.load before ensure, a lazy() helper, runtime registration as in combineSlices, refs
+        built from loaders, a generated manifest) each add a lifecycle, a name or an open universe
+        to guard an asynchrony that does not exist when the ref is in hand.
+    D3  Loading code is the host's job, and load never runs in a Story
+        The router, bundler or an import() in an event handler loads the component that holds the
+        ref; React renders that loading state itself, without Flow and without suspending. A
+        Story's inputs are commands and fixtures; module loading is neither, so post-SSR loading
+        and load failures are covered by Runtime production tests (@V5).
+    D4  One Layer per Runtime; no per-entry services
+        FlowState D15 kept. Per-entry Layers would make adoption asynchronous, add a Layer failure
+        mode at an admission boundary and make a shared Tag's provider depend on adoption order.
+        The deferred-service recipe of @O1 gives the same bundle split for the heavy part.
+    D5  inspect(app) returns a Promise and loads every entry
+        Owner decision 31. The static representation stays complete; it changes inspect's
+        signature for every app (@plan.Inspection.O1).
+    D6  The first render is the pre-attach snapshot, not null
+        Owner decision 29 rejects lazy-features.md Q1 (the ensure form returning Actor | null and
+        useView accepting null for it). The ensure forms always return a handle reading the
+        pre-attach snapshot of @plan.React.O2, computed from the machine the ref carries, so lazy
+        entries add no first-render window and need no adoption in render. TicketPanel and
+        useEditor stay unchanged.
+    D7  A hook rethrows an adoption failure in render
+        lazy-features.md Q4, adopted. Adoption failures are deterministic build defects (mismatch,
+        collision); rendering a broken feature as empty would hide them. A Next.js error.tsx
+        boundary shows the FlowError and its reset() re-renders, which retries adoption. load never
+        runs in a hook, so a network failure cannot reach this path.
+    D8  Persisted data never fails adoption
+        lazy-features.md Q3, adopted in the form of @plan.Persistence.O5: a dormant record that
+        fails to decode triggers scope discard with a restore diagnostic under owner decision 17,
+        superseding the design's per-record discard recommendation. Failing adoption would make a
+        feature unopenable until storage is cleared.
+    D9  Unclaimed dormant records live until a version change
+        lazy-features.md Q5, adopted: they are bounded by the scope's size bound, and only tools
+        know every owned id.
+    D10  No runtime load for prefetching; the id is explicit
+        lazy-features.md Q2 and Q6, adopted. The id cannot be inferred, because mapping a ref to
+        its entry must work without loading. Prefetching code is the router's job and warming an
+        actor is ensureActor; runtime.load is added only if a real screen must adopt with no ref in
+        hand.
+    D11  Adoption order may change entity behaviour only through .byKey placement
+        lazy-features.md Q7, adopted with the flow check warning of @O5 and @V4, rather than an
+        error that would stop a self-contained feature owning its entity's loader.
+constraints
+    C1  Provenance never weakens
+        No machine runs under an id the app does not declare; no payload, message or storage
+        record can name code to import.
+    C2  Adoption stays synchronous where a ref is in hand
+        Triggers 1 to 3 never await. Only bootstrap after server rendering and tools
+        call load, and neither blocks a host call or a render.
+verification
+    V1  Types
+        In the S1 type spike (references/evidence/type-spike): a lazy entry infers its machine from
+        load without annotations; the wiring default is checked against the lazy machine's context;
+        the runtimeSetup service closure includes lazy requirements. Negative fixtures: wrong id
+        literal, missing service, wrong context provider, load resolving to a non-machine. Planned.
+    V2  Bundle split
+        Build Dispatch Desk with Vite and with Next.js: the entry chunk contains no
+        DispatchDesk/Editor or Reports definition id and no chart SDK, and the app still passes
+        every Story. Planned.
+    V3  Adoption
+        Synchronous adoption on ensure, create and construct; exactly one publication; rollback
+        after a failure at each of steps 1 to 6 leaves no trace; idempotence; EntryMismatch for a
+        second object; a transitive provider closure; a cycle found only through the new closure;
+        collisions across entries; SendTargetAbsent with adopted false; render and lookup adopt
+        nothing. Planned.
+    V4  Order independence
+        Two Runtimes adopt the same entries in different orders and produce identical compiled
+        graphs and identical traces for the same commands; propertyTest with the adopt step keeps
+        C1 to C8. Planned.
+    V5  Persistence and SSR
+        Dormant records survive many captures byte-identical; restore at adoption without replay;
+        a corrupt dormant record discards the scope and adoption succeeds; an uncertainty marker 
+        applied
+        at ready() for an eager entity while its actor stays dormant; orphan detection by declared
+        id; a client bootstrap that loads transferred ids, rejects undeclared ids as
+        HydrationMalformed, survives a load rejection and a load timeout, and adopts on a later
+        attach; a second tab refused persistence holds no dormant records. Planned.
+    V6  Tools
+        inspect of a lazy app equals that of the all-eager app except for loading; each flow check
+        rule of @O5 fires on a fixture; EntryLoadFailed sets the CLI exit status. Planned.
+    V7  Stories
+        A Story's checkpoints show adoption at the exact ensure step and none during queue-only
+        steps; two runs give identical traces. Planned.
+questions
+    Q1  Is 10 seconds the right bound for a post-SSR load?
+        A load that never settles would otherwise hold ready() open. Recommended: 10 seconds per
+        load on the Runtime Clock, after which the entry is treated as EntryLoadFailed (cause a
+        timeout) and adopted later by the first attach that holds its ref; measure in the Next.js
+        proving app.

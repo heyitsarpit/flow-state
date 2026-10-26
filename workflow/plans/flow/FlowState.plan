@@ -1,582 +1,89 @@
 plan FlowState
-title   Flow State: the design record and build plan
+title   Flow State: entry plan and build order
 status  proposed
 goal
-    Flow State combines statechart actors with keyed network data in one Runtime, for applications
-    written mostly by AI coding agents. Machines own workflow; operations are plain requests; entity
-    domains keep shared records coherent; Stories replay any behaviour deterministically; and
-    everything structural compiles into one representation that the CLI and inspection read, so an
-    agent can learn how an application works without reading much code ("truth is a compilation
-    target").
+    Flow State combines statechart actors and keyed network data in one Runtime for applications
+    written primarily by AI coding agents. A correct app preserves edits, keeps shared records
+    coherent, publishes consistent views, isolates users and requests, and reports uncertain remote
+    writes honestly. Its behaviour can be inspected structurally and replayed deterministically.
 
-    This Plan is the single owner of the design and of the build order. It replaces the thirteen
-    capability Plans and the draft Rewrite Epic, now archived under workflow/plans/archive/rewrite
-    and workflow/tasks/archive/Rewrite-capability. Each decision below says what it keeps from
-    them, what it changes and what it deletes. The section-level detail of entity domains lives in
-    flow/entity-domain.md, which @O6 adopts as normative. Every other file under workflow/plans/flow
-    and workflow/plans/archive is supporting material or provenance with no authority.
+    Capability plans own their contracts, decisions and proofs:
+    Machines — states, turns, guards and continuing work (@plan.Machines.O1).
+    Runtime — apps, readiness, actors, messaging and context (@plan.Runtime.O1).
+    Operations — reads, commits, streams, writes and lanes (@plan.Operations.O1).
+    EntityDomains — coherent records, repair and predictions (@plan.EntityDomains.O1).
+    Persistence — capture, restore and second-tab refusal (@plan.Persistence.O1).
+    ServerRendering — request isolation and SSR hydration (@plan.ServerRendering.O1).
+    LazyFeatures — deferred adoption and dormant durable data (@plan.LazyFeatures.O1).
+    React — attachment, consistent views and component lifetime (@plan.React.O1).
+    Testing — Stories, fixtures, checkpoints, models and properties (@plan.Testing.O1).
+    Diagnostics — FlowError, codes and actionable failures (@plan.Diagnostics.O1).
+    CommandLine — installed commands, checks and process behaviour (@plan.CommandLine.O1).
+    Inspection — structural and live inspection, traces and safe evidence (@plan.Inspection.O1).
+    Package — routes, dependency identity and installed consumers (@plan.Package.O1).
 
-    The existing packages/flow-state-rewrite source implements a superseded surface; @O13 says what
-    is ported, rewritten and deleted. packages/flow-state stays frozen until @O14 cutover.
+    references/dispatch-desk is the worked example built against these contracts, including a
+    Next.js App Router host for hydration, reload restore, lazy features and second-tab refusal.
 outcomes
-    O1  Authoring: definitions and machines
-        definition(config) and machine(definition, callback) return their values directly and throw
-        one FlowError with canonical diagnostics when construction fails (@D8).
-
-        A definition declares:
-
-        - **id**: exact authored durable name
-        - **states**: recursive tree of state names; compound states name a default
-        - **events**: public events: Effect Schema field records (@D44)
-        - **internalEvents**: events only the actor's own schedules, reactions and outcomes produce 
-        (@D19)
-        - **input, memory**: Schema field records (@D45)
-        - **initial**: input to memory; required when memory is non-empty; runs once for a fresh 
-        actor, never on restore (@D46)
-        - **context**: provider selectors (Provider.select(selector)), each one upward read edge 
-        (@D24)
-        - **operations**: flat named record of resource, transaction, stream and domain handles
-
-        A definition derives public Schemas: Event (a Schema.TaggedUnion with the _tag envelope),
-        State (literals of state paths), Input, Memory and Snapshot, so boundaries decode and
-        encode with Flow's own protocol (@D47). State tokens are typed objects with flattened paths
-        (S.OPEN.EDITING), expose is(snapshot) and child(snapshot), and narrow snapshot types (@D20).
-
-        Names keep the archived identity rules: nonempty, at most 256 UTF-8 bytes, no C0 controls,
-        DEL, NUL or lone surrogates, exact spelling without Unicode normalisation, composite
-        identity length-prefixed (@D9).
-
-        A machine is configured with on handlers, activities, schedules and onContext reactions, all
-        static data whose callbacks only compute values (@D1, @D2): targets, operations, outcome
-        events and write targets are never chosen by a callback.
-    O2  Turns: one ordered, atomic macrostep per accepted event
-        Every input to an actor (public event, internal event, schedule, operation outcome, context
-        wave, lifecycle fact) enters one FIFO mailbox and is decided in one macrostep:
-
-        1. Find the nearest handler for the event from the active leaf upward. Within it, try
-        transitions in authored order; a guard returns true or deny(code, context?) (@D21). When
-        every transition at one level declines, try the parent's handler (fallthrough, @D18).
-        2. Run updateMemory, then the actions, both against the same pre-turn snapshot.
-        3. Apply the target (a typed state token, or "self" for no state change: no exit, no entry,
-        @D17) and the memory patch; enter defaults outermost first.
-        4. Validate the whole action batch; stage actor and store changes.
-        5. Publish one committed cut of actor and store, then start or join asynchronous work.
-
-        No handler, or every guard declining, changes nothing and publishes nothing. A defect in
-        any authored callback before commit keeps prior truth, publishes one issue-only snapshot
-        and does not retry. check(snapshot, event) returns Allowed | Denied | Unhandled by the same
-        rules, with Denied collecting every { code, context } tried; it starts nothing (@D22).
-        check on an internal event is a type error.
-
-        Schedules replace timers (@D23): schedules: { name: { schedule, send, restartOn? } }, where
-        schedule is a Duration.Input, an Effect Schedule or a function of { memory, now } returning
-        one; send is an event or E.X.from(metadata). restartOn restarts only that schedule when its
-        selected value changes, and a schedule with restartOn stays idle until the first change.
-        Schedules run on the Runtime Clock with deterministic ordering for equal deadlines.
-
-        Activities are continuing declarations per state (the root state for whole-lifetime work)
-        with computed parameters and an optional when predicate. Identity is the declaration slot,
-        operation kind, descriptor and canonical key: an equal identity keeps its work and original
-        parameters, a changed one releases the old work exactly once. Activity parameters may read
-        earlier activities' lanes in declaration order; a cycle is a construction error.
-
-        onContext: [{ select, when?, event }] reacts to provider changes; select reads context and
-        memory, only context waves re-trigger it, the first selection is silent, and event is a
-        constructor or E.X.from(selected) (@D25).
-    O3  Applications, Runtime and actors
-        app({ id, machines }) lists every machine (@D13), optionally with a per-machine wiring
-        default: machines: { editor: { machine: EditorMachine, context: { canEdit: SessionRef } } }
-        (@D14). The graph is closed and compiled inertly; nothing runs at construction.
-
-        runtimeSetup({ app, services, persistence? }).construct() is synchronous and inert;
-        services is an Effect Layer (@D15). runtime.ready() is the only readiness Effect: the first
-        call starts one shared bootstrap (validate and prepare persisted data, build the Layer,
-        install store and actors providers first, establish silent context baselines, activate,
-        then expose handles), later calls join its cached result. Disposal cancels bootstrap and
-        closes admission. runtime.runPromise runs Effects with the installed services;
-        runPromiseExit is deleted (@D26).
-
-        Actors (@D12):
-
-        - **actorRef(machine, id, { persist?, retain?, context? })**: names a shared actor and 
-        declares its wiring once
-        - **runtime.ensureActor(ref, { input })**: finds the named actor or creates it; the first 
-        accepted input wins
-        - **runtime.createActor(machine, { input })**: creates an anonymous local actor, wired by 
-        the app default
-        - **runtime.disposeActor(actor)**: in-flight commits settle, then the actor is gone
-        - **handle ref, send, getSnapshot, snapshots**: the actor's address, commands and reads
-
-        Lifecycle is active, disposing or disposed (@D16). Shared actors live for the Runtime, or
-        for retain after their last use, or until disposeActor. send is synchronous admission into
-        a bounded mailbox; overflow rejects with AdmissionOverloaded and changes nothing.
-
-        Admission keeps the archived validation: exact app, machine and ref provenance, input,
-        complete wiring, compatible providers, cycles and safe-integer headroom are checked before
-        any registration or work, and a failure before visibility rolls back in reverse order.
-
-        Actor-to-actor messaging (@D27): an action send(ref, E.X.from(...)) delivers a public event
-        to a shared actor as a later FIFO turn of the target, never inside the sender's turn. It is
-        a graph edge. A send to a ref with no actor drops the event and reports SendTargetAbsent.
-    O4  Context propagates causally complete truth
-        Each context slot selects synchronously from one provider snapshot. Reads form an acyclic
-        upward graph; a cycle rejects before any actor is admitted. A provider change wakes each
-        dependent consumer at most once per settled wave with the latest complete context, never a
-        mixed new and old cut from one cause; an equal settlement clears causal debt without an
-        event. A blocked context wakeup keeps its FIFO position. A consumer selector defect leaves
-        the provider and siblings committed, keeps the consumer's last valid context, publishes one
-        issue-only snapshot and retries only on a newer provider revision (@D28).
-    O5  Operations: resources, transactions and streams
-        resource({ id, key?, lookup, staleTime, gcTime, persist? }), transaction({ id, key?,
-        commit, concurrency, persist? }) and stream({ id, key?, subscribe, persist? }) are inert
-        descriptors whose adapters receive (params, { signal }) and, for commits, { attempt }
-        (@D33). staleTime and gcTime are required Duration.Input values; concurrency is required
-        (reject, allow, serialize, cancel) (@D34). A stream adapter returns an Effect Stream (@D35).
-
-        Keys (@D30): the key projector returns a named record, canonicalised with the archived byte
-        grammar and bounds (16 levels, 256 nodes, 8,192 UTF-8 bytes); undefined properties are
-        absent; an omitted projector is the empty record. invalidate and clear take a family and a
-        partial key record and match every entry containing it; tags are deleted.
-
-        Machine use is through static declarations with computed parameters:
-        O.x.subscribe(params, { outcomes, placeholder?, when? }) in activities;
-        O.x.lookup / refetch / commit / invalidate / clear / setData / cancel in actions. One
-        outcomes container serves every family: success, failure (an exhaustive tag-to-event record
-        for tagged errors), defect, interrupt and unknown for finite work; value, complete, failure,
-        defect, interrupt for continuing work. Each member is optional and maps with a bare event or
-        E.X.from(value) (@D31, @D32).
-
-        Commits own their consequences (@D36): commit(params, { optimistic?, writes?, outcomes })
-        where writes (setData, invalidate, clear) apply when the commit settles whatever state the
-        actor is in, and optimistic writes apply when the commit starts, are seen by every reader of
-        that entry, revert on failure or defect, and stay pending on unknown. unknown fires for a
-        commit that may have reached the server. attempt.id is minted per attempt (random in
-        production, seeded in Stories) and reused on reconciliation.
-
-        Kept from the archived Plans: one canonical store per Runtime; generation fencing of late
-        results; pinned parameters and the oldest live binding for automatic refetch; finite work
-        only from accepted actions; offline never gates explicit work; invalidate and clear as one
-        validated atomic batch of at most 256 identities; the four concurrency policies with
-        per-occurrence fencing; honest remote uncertainty (an invoked adapter counts as possibly
-        dispatched, cancellation after invocation is unknown, no automatic retry); and stream
-        sessions owned per actor with a latest-value projection and no replay.
-    O6  Entity domains (tier 1)
-        flow/entity-domain.md (final) is normative for this outcome, sections 1 to 9, including its
-        recorded-position grammar, the repair rules of section 5 and the checks of section 9.
-        flow/entities.md holds its goals and correctness properties C1 to C8;
-        flow/entity-domain-examples.md holds seven worked applications. In summary: a
-        domain(id, entries) gives plain operations their shared-data meaning (places, conditions,
-        orders, pages, predictions, server effects, stream mappings); one record store keeps every
-        copy coherent; repair is a join of record deltas and active answers with one-hop observed
-        deltas, confirming reads, per-record queues and honest uncertain writes; list membership is
-        never predicted (tier 2 is a sync engine, flow/sync-engine-adapter.md, not built).
-
-        On an operation registered in a domain, call-site optimistic and setData are type errors and
-        writes may contain only invalidate (@D37). Domain reads are activities like any resource.
-    O7  Views and React
-        The snapshot is plain frozen data: state, memory, context, issues, lifecycle and activities.
-        It has no public revision and no timers (@D38). Every other read is a function applied to a
-        snapshot: S.X.is, S.X.child, check(s, event), descriptor.get(s, keyInput) (passive peek of
-        a cache entry), and Note.get(s, key, shape) for records.
-
-        Activity lanes (@D39): s.activities.<name> is the lane of the actor's own subscription, a
-        _tag union matched with Match.valueTags, always carrying data (undefined when absent) and
-        pending (true while an optimistic or predicted write on that entry is unsettled), plus stale
-        for domain reads. placeholder is a function ({ previous, input }) => data | undefined.
-        Transactions are not read by views; their outcomes become events.
-
-        flow-state/react: FlowProvider({ runtime }), useActorByRef(ref, { input? }) (with input it
-        ensures, without it looks up; accepts null), useActor(machine, { input }) (a local actor per
-        component, disposed after a short grace period so Strict Mode reattaches), and
-        useView(actor, select) as the only read hook, comparing with Equal.equals (@D40). Attaching
-        happens in an effect, never in render. Handles, send and event constructors are
-        referentially stable. All actors of a Runtime publish into one versioned store, so several
-        useView calls in one render see one version. Selector exceptions are memoised per cut.
-        useShallow, bound can, O readers and view-model props are deleted. SSR hydration is out of
-        scope for version 1; a per-request Runtime with in-memory storage supports server rendering.
-    O8  Persistence
-        runtimeSetup({ persistence: { scope, version } }) with an Effect KeyValueStore in services
-        (@D41). actorRef persist and resource persist select what is stored; transactions and
-        streams follow their actor; memory is encoded with the definition's Schemas; entity records
-        persist confirmed data only. A second tab on the same scope runs without persistence and
-        reports a diagnostic. A different user is a new Runtime.
-
-        Kept from the archived Plan: restore validates and prepares detached data before services;
-        restore never replays input, initial, events or finite work; capture observes one
-        consistent actor and store cut with a closed durable context graph
-        (NonDurableContextProvider is terminal, ConcurrentCapture retryable); writes per scope are
-        ordered and a failed write keeps the last good record; pending remote commits restore as
-        unknown.
-    O9  Stories, fixtures and models (flow-state/testing)
-        story.app(setup, { id, fixtures }) targets refs; story.machine(machine, { id, input,
-        context?, fixtures }) is the focused kind for a local actor (@D42). Commands: send, process,
-        advance, advanceTo, advanceToNextTimer, checkpoint, run; setContext for focused Stories.
-        Fixtures are Effect Layers that override service methods. Stories run on the production
-        Runtime with the TestClock, seeded ids and a seeded Random; process() is the one explicit
-        drain. Checkpoints are atomic cuts carrying snapshots, entity repair evidence and
-        diagnostics; reads take the checkpoint (descriptor.get, Domain.entry.get, Note.get,
-        Note.queue). CheckpointProvider renders components at a checkpoint. flow.config.ts
-        (defineConfig({ apps: [{ app, stories }] })) discovers Stories (@D43).
-
-        model(baseStory, { stateKey }) traverses pure transitions with getShortestPaths and
-        getSimplePaths ({ events, maxDepth = 20, limit = 100 }), returning { paths, truncated,
-        explored } where explored counts distinct state keys; each path's story replays live.
-        propertyTest(domains, { fixture, inputs, seed, runs, steps }) is the entity property test.
-    O10  Diagnostics
-        One FlowError (@D10) carries a closed code, canonical diagnostics, an optional cause and,
-        for Story failures, Story evidence. Diagnostic keeps the archived schema: a real Error and
-        Schema.TaggedError with classification Failure, Defect or Interruption, code, path, details
-        of scalars, summary and help, rendered safely. The usage vocabulary is regenerated from this
-        Plan's surface (adding, among others, SendTargetAbsent, HiddenOrder, HiddenFilter,
-        UndeclaredEffect, AdmissionOverloaded; removing codes of deleted surfaces), and every code
-        has actionable remediation.
-    O11  Inspection, traces and the CLI
-        flow-state/inspect exports inspect(app) (the internal representation), render(model,
-        "text" | "json" | "mermaid"), attachInspector(runtime, sink) (the supported production
-        observer) and trace (import, export) (@D11). The representation contains every structural
-        fact without running a callback: states, targets, guards and their possible deny codes,
-        operations, outcome edges, activities, schedules, context reads, actor sends, persistence
-        opt-ins and the recorded entity domains.
-
-        Trace artifacts use the shared bounded structural codec, carry ordered evidence with
-        truncation markers and the entity events of entity-domain.md section 7.4, and redact by
-        Schema: a field annotated sensitive is a digest everywhere (@D48). Saved behaviour
-        artifacts, share artifacts with path redaction, compression and the long inspect
-        restoration list are deleted.
-
-        The CLI binary flow has these leaves (@D11): story list | describe | run, trace summarize |
-        diff, graph, diff (two revisions in memory), check, explain. explain covers machines
-        (candidate transitions and deny codes, statically or on a checkpoint) and domains
-        (entity-domain.md section 7). flow check reports construction errors, id collisions, context
-        cycles, persisted consumers of non-persisted providers, the entity rules of entity-domain.md
-        section 9 (including the mandatory recorded-position check) as errors, and stuck states,
-        unhandled public events, unreachable states and send-then-checkpoint without process() as
-        warnings. The CLI keeps the archived host rules: closed grammar, bounded input, atomic
-        artifact publication, one result deciding output and exit status.
-    O12  Package routes
-        Four routes, ESM only:
-
-        - **flow-state**: definition, machine, app, actorRef, runtimeSetup, resource, transaction, 
-        stream, deny, check, send, FlowError, entity, domain, read, write, listen, eq, oneOf, 
-        contains, between, overlaps, and, serverMatches, principal, asc, desc; types Definition, 
-        Machine, App, ActorRef, Actor, Snapshot, Runtime, Diagnostic
-        - **flow-state/react**: FlowProvider, useActorByRef, useActor, useView
-        - **flow-state/testing**: story, model, defineConfig, CheckpointProvider, propertyTest
-        - **flow-state/inspect**: inspect, render, attachInspector, trace
-
-        Everything else is a field inside one of these calls or an Effect primitive (Schema, Layer,
-        Schedule, Stream, Match, Duration, KeyValueStore). No deleted name survives as an alias,
-        overload or adapter.
     O13  Code disposition
-        packages/flow-state-rewrite implements the archived surface (Result returns, "bare" events,
-        redirect, reenter, timers, onMemory, contextBindings, Implementation, module) and builds no
-        store, operation kernel, persistence, React, Stories, inspection or CLI. Its 795 tests pass.
-        It is rebuilt in place on this Plan's surface, layer by layer (@D49):
-
-        - **package shell: routes, build and packed-consumer scripts, tsconfig, lint setup**: keep
-        - **operation/key.ts canonicalisation**: port: switch to record keys and partial matching; 
-        keep its byte vectors
-        - **internal authored-name validation**: port with its vectors
-        - **diagnostic schema**: port; regenerate the code vocabulary
-        - **runtime-next structural copy, context lineage and waves, evidence journal**: port the 
-        algorithms and their behavioural tests into the new runtime
-        - **definition, machine, app, implementation, runtime/ (the wired runtime)**: rewrite; 
-        delete after replacement
-        - **runtime-next/ (unwired)**: delete after its ports land
-        - **tests of deleted surfaces**: delete with their modules
-
-        A port keeps the algorithm and its test vectors and changes the surface; no module keeps a
-        compatibility shim. Each stage of @O14 leaves the package compiling with its routes
-        exporting only finished names.
+        Rebuild packages/flow-state-rewrite in place. Port useful algorithms and behavioural test
+        vectors, not superseded authoring surfaces or compatibility shims. packages/flow-state stays
+        frozen; product cutover requires a separate gate.
     O14  Build stages
-        Each stage ends at a gate; later stages may start once their prerequisites' gates pass.
+        Each prerequisite gate must pass before its dependent work starts. Every stage gate includes
+        the packed-consumer check in @plan.Package.O4 for the routes available at that stage.
 
-        - **S1 Type spike**. builds: the agreed authoring surface without a runtime: definition, 
-        internalEvents, .from, outcomes tables, wiring defaults, s.activities, target "self", 
-        send(ref), check, schedules; needs: none; gate: @V1
-        - **S2 Foundation**. builds: FlowError and diagnostics, names, record keys, structural 
-        codec, definition and machine compile, the internal representation and render; needs: S1; 
-        gate: @V2
-        - **S3 Runtime**. builds: runtimeSetup with Layer services, readiness, refs, ensure, 
-        create, dispose, retain, mailbox and macrosteps, schedules, activities, context waves, 
-        onContext, actor send, one versioned store, evidence journal; needs: S2; gate: @V3
-        - **S4 Operations**. builds: resource store (keys, generations, freshness, gc, lanes, 
-        placeholder, invalidate, clear), transactions (concurrency, attempts, writes, optimistic, 
-        unknown), streams; needs: S3; gate: @V4
-        - **S5 Entity domains**. builds: recording and types (from the draft 8 spike), record 
-        store, join, frontiers, consolidation, confirmation, queues, uncertain writes, tombstones, 
-        paging; the runtime model ported as the property suite's oracle; needs: S4; gate: @V5
-        - **S6 Persistence**. builds: KeyValueStore provider, capture, restore, ordered writes, 
-        entity confirmed data; needs: S4; gate: @V6
-        - **S7 Testing**. builds: story.app and story.machine, fixtures, process and time, 
-        checkpoints and evidence, models, propertyTest, CheckpointProvider, flow.config.ts; needs: 
-        S3; entity reads after S5; gate: @V7
-        - **S8 React**. builds: FlowProvider, useActorByRef, useActor, useView; needs: S3; gate: @V8
-        - **S9 Inspection and CLI**. builds: attachInspector, trace codec and artifacts, the CLI 
-        leaves, flow check rules, explain; needs: S3; entity parts after S5; gate: @V9
-        - **S10 Proving apps and cutover**. builds: the Dispatch Desk reference and the seven 
-        entity examples as runnable apps, a rerun of the agent experiment against the real package, 
-        promotion over packages/flow-state, absence of deleted names; needs: all; gate: @V10
+        S1 Type spike — authoring types; needs none; gate @V1.
+        S2 Foundation — diagnostics and structural compilation; needs S1; gate @V2.
+        S3 Runtime — turns, actors, context and lifecycle; needs S2; gate @V3.
+        S4 Operations — reads, commits, streams and lanes; needs S3; gate @V4.
+        S5 Entity domains — needs S4; property suite also needs S7 infrastructure; gate @V5.
+        S6 Persistence — durable actors and entities; needs S5; gate @V6.
+        S7 Stories — infrastructure needs S3; entity coverage follows S5; gate @V7.
+        S8 React — attachment and consistent views; needs S3; gate @V8.
+        S9 Inspection and CLI — needs S5 and S7; gate @V9.
+        S10 SSR, lazy features and proving app — needs S6, S8 and S9; gate @V10.
 
-        Critical path: S1, S2, S3, S4, S5, then S10. S6, S7, S8 and S9 run in parallel once S3 or S4
-        is in place. Workflow Tasks for these stages are created after this Plan is approved.
-    O15  What each archived Plan contributes
-        - **Statecharts**. kept: identity rules, macrostep order, silent no-ops, pre-commit defect 
-        handling, continuing identity, deterministic time; changed: Result returns to throws (@D8), 
-        events and memory to Schema (@D44, @D45), flat paths (@D20), nearest handler with 
-        fallthrough (@D18), check (@D22), schedules (@D23); deleted: redirect, reenter, timers, 
-        onMemory, bound can, the microstep limit, "bare" events
-        - **ApplicationsAndActors**. kept: inert closed graph, shared readiness and bootstrap 
-        order, admission validation and rollback, causal context, FIFO mailbox, atomic cuts, 
-        capacity and headroom; changed: wiring on refs and app defaults (@D14), 
-        ensure/create/dispose (@D12), Layer services (@D15), selector-defect policy (@D28); 
-        deleted: module, leases, getActor, suspension and prepared states (@D16), public revisions, 
-        Implementation, FlowDisposeError
-        - **Resources**. kept: canonical key bytes and bounds, one store per Runtime, generations 
-        and fencing, passive reads, pinned parameters, offline rule, atomic bounded invalidation; 
-        changed: record keys and partial matching (@D30), lanes (@D39), required freshness (@D34), 
-        outcomes container (@D31), shared optimistic writes (@D36); deleted: tuple keys, tags, 
-        key/getData/getState/cancel readers, the Missing state, actor-local previews
-        - **Transactions**. kept: four concurrency policies, per-occurrence fencing, ordinals, 
-        honest remote uncertainty, invocation boundary, no automatic retry; changed: required 
-        concurrency (@D34), attempt.id (@D33), writes and optimistic (@D36), unknown outcome 
-        (@D31), entity record queues (@D37); deleted: transaction readers, the "no completion 
-        invalidate" rule, actor-local preview layers
-        - **Streams**. kept: per-actor sessions, latest projection, no replay, fencing, persistence 
-        without running work; changed: Stream-returning adapters (@D35), outcomes container, 
-        activity lanes, persistence follows the actor; deleted: stream readers
-        - **ReactAndHosts**. kept: one provider over an existing Runtime, per-request Runtimes, the 
-        Effect bridge rule, tear-free selection, memoised selector exceptions; changed: hooks per 
-        @D12 and @D40, attachment in effects with a grace period; deleted: render-time preparation, 
-        useShallow, bound can, O readers, runPromiseExit, SSR hydration
-        - **Persistence**. kept: restore order without replay, consistent capture, durable context 
-        closure, ordered last-good writes, uncertain restore; changed: KeyValueStore with scope and 
-        version (@D41), entity confirmed data; deleted: persistence(), webStorage, 
-        indexedDbStorage, codec, filter, Persistence types, FlowPersistenceError
-        - **StoriesAndModels**. kept: production execution, process(), TestClock, seeded ids, 
-        atomic checkpoints, models and their bounds; changed: refs as targets, Layer fixtures 
-        (@D42), flow.config.ts (@D43), entity evidence and reads, propertyTest; deleted: 
-        story.actor, title, description, maxTurns, fixture(), the behavior gateway, 
-        FlowStoryExecutionError
-        - **DiagnosticsContract**. kept: the Diagnostic schema, classification, safe rendering, 
-        remediation per code; changed: one FlowError (@D10), a regenerated code vocabulary; 
-        deleted: four error classes and codes of deleted surfaces
-        - **InspectionAndArtifacts**. kept: shared bounded codec, ordered evidence with truncation, 
-        trace artifacts, defensive bytes; changed: four exports (@D11), entity events, Schema 
-        redaction (@D48); deleted: saved behaviour artifacts, share artifacts, compression, the 
-        25-name restoration list, trace proof
-        - **CommandLine**. kept: closed grammar, bounded input, atomic publication, one result to 
-        exit status, installed-binary parity; changed: the leaves of @O11, flow.config.ts 
-        selection; deleted: behavior build/render/diff/check, --gateway, trace proof
-        - **PackageContract**. kept: four routes, ESM, absence proofs for deleted names; changed: 
-        route contents of @O12; deleted: the temporary restoration lists and runtime shell
-        - **ProjectDelivery and SurfaceSimplification**. kept: the staged order idea; 
-        SurfaceSimplification's settled decisions where not superseded; changed: stages of @O14; 
-        superseded decisions named in each decision above; deleted: the approval ceremony and the 
-        open rounds, now closed here
 decisions
-    D1  Structure is data; callbacks only compute values
-        Kept from SurfaceSimplification D2 and D7. Targets, operations, outcome events, write
-        targets and activity identity are static declarations; callbacks compute payloads, memory
-        patches, parameters, guard results, selections and write data. Strict, with no escape.
-    D2  The machine file is the spec; one representation, renderers on demand
-        Kept from SurfaceSimplification D3 and D6. No generated spec file is stored.
-    D3  One canonical form per concept; correctness first
-        Kept from SurfaceSimplification D1. Correct on first attempt outranks reviewability,
-        which outranks brevity.
-    D4  Simplify, do not redesign; every name earns its place
-        Kept from SurfaceSimplification D10 and minimal-library. A name exists only when an author
-        writes it or a tool calls it and nothing else covers it.
+    D1  Structure is data and compiles to one representation
+        Targets, operations, outcome edges and dependencies are declared as data; callbacks compute
+        values. Inspection and tools read the same compiled structure without running app behaviour.
+    D3  One canonical form per concept
+        A concept has one authoring form and one meaning across runtime, tools and tests.
     D5  Agents are the primary authors
-        Likely mistakes are type errors, flow check errors or diagnostics; when they cannot be,
-        they fail in the safe direction (entities.md G7).
-    D6  Effect is used where it owns the concept; 4.0.5 is the authority
-        Kept from SurfaceSimplification D44 to D48: Schema field records, Layer services, Duration
-        inputs, Schedule, Stream, Match, KeyValueStore.
-    D7  Binding runtime guarantees stay
-        Ordered turns, atomic publication, fencing, no replay on restore and honest remote
-        uncertainty bind every implementation (SurfaceSimplification C1).
-    D8  Authoring returns values and throws FlowError
-        Kept from SurfaceSimplification D8. Replaces the archived Result returns of Statecharts O1
-        and O2.
-    D9  Authored identity rules stay
-        Kept from Statecharts O1 and ApplicationsAndActors O1: byte limits, rejected code points,
-        exact spelling, length-prefixed composite identity, the actor ref wire form.
-    D10  One FlowError
-        Kept from SurfaceSimplification D14. Replaces FlowUsageError, FlowPersistenceError,
-        FlowDisposeError and FlowStoryExecutionError.
-    D11  Inspect route, CLI leaves and flow check
-        Kept from SurfaceSimplification D38 to D42, with trace proof deleted (minimal-library
-        decision 11) and explain extended to domains (entity-domain.md section 7).
-    D12  Actors: shared by ref, local by component; ensure, create, dispose
-        Agreed in minimal-library decision 1. Replaces leases, getActor, story.actor and call-site
-        contextBindings of ApplicationsAndActors O4 and ReactAndHosts O2.
-    D13  module is removed; the app lists machines
-        Kept from SurfaceSimplification D13.
-    D14  Wiring is declared once: on the ref, or as an app default per machine
-        Agreed in minimal-library decision 2. Refines SurfaceSimplification D11, which still made
-        local actors pass bindings.
-    D15  Services are Effect Layers
-        Kept from SurfaceSimplification D47. Implementation, ImplementationError and the
-        succeed/effect/merge values are deleted.
-    D16  Lifecycle is active, disposing, disposed; suspension is deleted
-        Decided in this Plan. The archived suspended state (ApplicationsAndActors O5) existed for
-        React cleanup; decision 1 replaced that with disposal after a grace period, and nothing
-        else needs suspension. The prepared state was for render-time preparation, which decision 1
-        also removed. Bootstrap phases stay private.
-    D17  target "self" means no state change
-        Agreed in minimal-library decision 7; the only spelling for staying.
-    D18  The nearest handler wins, and guards fall through
-        Agreed in minimal-library decisions 7 and 8a. Replaces the archived rejection of the same
-        event on an ancestor and a descendant (Statecharts O3). flow graph shows overrides and
-        fallthrough.
-    D19  Public events and internalEvents
-        Agreed in minimal-library decision 4. Sending, decoding or checking an internal event from
-        outside is rejected; Stories reach them only through their real sources.
-    D20  State paths flatten; tokens expose is and child and narrow types
-        Kept from SurfaceSimplification D12 and D50, extended by minimal-library 8a.
-    D21  Guards return true or deny(code, context?)
-        Kept from SurfaceSimplification D28.
-    D22  check replaces can
-        Agreed in minimal-library decision 8. Replaces root and bound can and can(..., { explain }).
-    D23  Schedules replace timers; restartOn restarts one schedule
-        Kept from SurfaceSimplification D53 with restartOn from minimal-library decision 7.
-        redirect and reenter are deleted (minimal-library decision 7).
-    D24  Hierarchy is acyclic upward reads plus nested states
-        Kept from SurfaceSimplification D4. No child actors, parallel regions or history states in
-        version 1.
-    D25  Reactions and producers build payloads with .from
-        Agreed in minimal-library decision 5 for outcomes, stream values, onContext and schedules.
-        Replaces SurfaceSimplification D23's constructor call with (current, previous).
-    D26  runPromiseExit is deleted
-        Agreed in minimal-library (deleted or absorbed): runPromise(Effect.exit(...)).
-    D27  Actors can send public events to shared actors
-        Adopted in this Plan from minimal-library decision 9: asynchronous FIFO delivery, shared
-        actors only, public events only, a visible graph edge, no reads.
-    D28  A consumer selector defect isolates to that consumer
-        Decided in this Plan, closing ApplicationsAndActors Q1 with its candidate behaviour.
-    D29  Memory holds keys and drafts, never copies of cache data
-        From minimal-library; enforced by a flow check lint for memory written only from a value
-        outcome.
-    D30  Keys are named records with partial-record invalidation
-        Kept from SurfaceSimplification D25 to D27. Replaces the tuple keys and tags of Resources
-        O1 and O4; the canonical byte grammar and bounds stay.
-    D31  One outcomes container; failures map by tag
-        Kept from SurfaceSimplification D30 and D58, with unknown added (minimal-library decision
-        6).
-    D32  Outcome members are optional
-        Kept from SurfaceSimplification D20.
-    D33  attempt.id is minted by Flow
-        Agreed in minimal-library decision 6. Reverses Transactions O1's "no public identity".
-    D34  Concurrency, staleTime and gcTime are required; time inputs are Duration.Input
-        Kept from SurfaceSimplification D31, D32 and D35.
-    D35  Stream adapters return a Stream
-        Kept from SurfaceSimplification D33.
-    D36  Commits own their consequences: writes and optimistic
-        Agreed in minimal-library decision 6. Reverses Transactions O1's "no completion-side
-        invalidates or clears" and Transactions D2's actor-local previews.
-    D37  Entity domains own shared-data policy
-        Adopted from entity-domain.md (final), which passed its type spike, agent experiment and
-        runtime-model gates. On domain operations, its predictions replace call-site optimistic and
-        setData.
-    D38  Snapshots keep lifecycle; revisions and timers move to inspection
-        Kept from SurfaceSimplification D22; timers removed by minimal-library decision 8.
-    D39  Activity lanes replace operation readers
-        Agreed in minimal-library decisions 8 and 8a, with SurfaceSimplification D57 and D61.
-        Replaces key, getData, getState, cancel on readers, the Missing tag and transaction readers
-        of Resources, Transactions and Streams O1.
-    D40  One read hook, compared with Equal.equals
-        Agreed in minimal-library decisions 3, 8 and 8a. Replaces useShallow (deleted by
-        SurfaceSimplification D15) and the Object.is laws of ReactAndHosts O3.
-    D41  Persistence uses KeyValueStore with scope and version
-        Adopted in this Plan from minimal-library decision 10. Replaces SurfaceSimplification D21's
-        storage and codec object and the archived webStorage, indexedDbStorage, codec, filter and
-        Persistence types.
-    D42  Stories target refs; fixtures are Layers
-        Adopted in this Plan from minimal-library decision 11. Deletes story.actor, Story title,
-        description and maxTurns, and fixture({ implementation, seeds }).
-    D43  flow.config.ts discovers Apps and Stories
-        Kept from SurfaceSimplification D37. Replaces the behavior gateway.
-    D44  Event payloads are Schema field records
-        Kept from SurfaceSimplification D44 and D56. Replaces "bare" and callable event
-        declarations.
-    D45  Input and memory are Schema field records
-        Kept from SurfaceSimplification D45.
-    D46  Memory requires an initial function
-        Kept from SurfaceSimplification D59.
-    D47  Definitions derive their public Schemas
-        Kept from SurfaceSimplification D55.
-    D48  Redaction is a Schema annotation
-        Decided in this Plan. A field annotated sensitive is a digest in every trace, artifact and
-        checkpoint. Replaces the share artifact kind and its path-based redaction
-        (InspectionAndArtifacts O5), which was a second mechanism for the same need.
-    D49  Rebuild the rewrite package in place; port algorithms, not surfaces
-        Decided in this Plan. The package shell and four algorithms carry over with their test
-        vectors; every surface is rewritten. Two parallel runtimes and the superseded surface go.
-    D50  Version 1 non-goals
-        SSR hydration, lazy-loaded features, multi-tab shared persistence, parallel regions,
-        machine-spawned child actors, history states, Suspense and error-boundary integration,
-        and every tier-2 feature listed in entity-domain.md section 1.2.
+        Likely authoring mistakes become type errors, check findings or actionable diagnostics;
+        failures preserve valid application state.
+    D6  Effect 4.0.5 is the authority; services are Layers
+        Use its Schema, Layer, Duration, Schedule, Stream and KeyValueStore where applicable.
+        Runtime services and Story fixtures are Effect Layers.
+    D8  Authoring returns values and throws one FlowError
+        Authoring calls return their values directly; invalid construction throws FlowError as
+        specified by @plan.Diagnostics.O1.
 constraints
     C1  Archived Plans are provenance only
         Nothing under workflow/plans/archive or workflow/tasks/archive establishes a requirement.
-        Where this Plan is silent, an archived rule is not implied; ask and record it here.
-    C2  packages/flow-state stays frozen
-        It is read for nothing and changed by nothing until S10 promotes the rewrite over it.
+        Silence in a current plan does not import an archived rule; unresolved behaviour belongs in
+        the owning capability plan.
+    C2  Version 1 scope
+        Include Next.js SSR hydration, lazy features and persistence with second-tab refusal
+        (@plan.Persistence.O7). Exclude React Suspense, multi-tab sharing, tier-2 sync engines and
+        cross-origin sync.
     C3  Toolchain
-        Use the pinned nub toolchain, Effect 4.0.5 and TypeScript 7; no unpinned dependencies; no
-        erased public type information to satisfy a proof.
-    C4  Code composition and style
-        The code-composition, typescript-style-guide, code-patterns and testing-policy skills
-        apply; tests observe behaviour through public boundaries.
+        Use Node 22.18+, pinned nub@0.7.5, TypeScript 7.0.2, Vite Plus and Effect 4.0.5.
+        No unpinned dependencies or erasure of public type information to satisfy proofs.
 verification
-    V1  Type spike of the authoring surface
-        Establish the type side of @O1, @O2, @O5 and @O7 by compiling the Dispatch Desk editor of
-        minimal-library and the examples of @O3 to @O7 without annotations, explicit generics or
-        assertions, with negative fixtures for each likely mistake. Record compile time. Planned.
-    V2  Foundation
-        Establish @O1, @O10 and the structure of @O11 with construction tests, ported name and key
-        byte vectors, and an internal-representation golden test proving every target, operation,
-        outcome edge, context read and actor send is present without running a callback. Planned.
-    V3  Runtime
-        Establish @O2 to @O4 with production tests of macrostep order, nearest-handler fallthrough,
-        target "self", deny and check agreement, schedule ordering and restartOn, activity identity,
-        causal context waves (including the diamond and the selector defect), actor send delivery,
-        admission rollback, disposal waiting for commits, and one versioned store cut. Planned.
-    V4  Operations
-        Establish @O5 with tests of key canonicalisation and partial invalidation, fencing,
-        freshness and collection, the four concurrency policies, optimistic writes and their
-        revert, writes after settlement in any state, unknown and attempt reuse, and stream
-        sessions. Planned.
-    V5  Entity domains
-        Establish @O6 with the type set of entity-domain.md section 15.1 against the real package,
-        golden flow explain output, and the property suite with the ported runtime model as its
-        oracle, including its eight caught mutations. Planned.
-    V6  Persistence
-        Establish @O8 with restore-without-replay, consistent capture, durable context closure,
-        last-good writes and the second-tab rule. Planned.
-    V7  Testing
-        Establish @O9 with Story determinism (identical traces from identical runs), checkpoint
-        atomicity and reads, model path bounds and live parity, and CheckpointProvider. Planned.
-    V8  React
-        Establish @O7 with Strict Mode reattachment, grace-period disposal, stable handles,
-        one-version reads across several useView calls, and selector exception memoisation.
-        Planned.
-    V9  Inspection and CLI
-        Establish @O11 with trace round trips and bounds, sensitive-field digests, every CLI leaf's
-        output and exit status, and each flow check rule firing on a fixture. Planned.
-    V10  Proving apps and cutover
-        Establish @O12 to @O14 with the Dispatch Desk and the seven entity examples running as
-        applications with Stories, an agent experiment rerun against the real package, packed
-        consumers of all four routes, and absence of every deleted name in exports and
-        declarations. Planned.
+    V1  S1: authoring type proofs pass (@plan.Machines.V1; @plan.EntityDomains.V1).
+    V2  S2: construction and structural proofs pass (@plan.Machines.V2; @plan.Inspection.V1).
+    V3  S3: turn and lifecycle proofs pass (@plan.Machines.V4; @plan.Runtime.V7).
+    V4  S4: read, commit, stream and lane proofs pass (@plan.Operations.O1).
+    V5  S5: entity types and repair properties pass using S7 Stories (@plan.EntityDomains.V2).
+    V6  S6: capture, restore and second-tab refusal proofs pass (@plan.Persistence.O1).
+    V7  S7: Story infrastructure passes before S5 properties; then entity tests (@plan.Testing.O6).
+    V8  S8: pure render, attachment and consistent-view proofs pass (@plan.React.O1).
+    V9  S9: inspection and installed CLI proofs pass (@plan.Inspection.O1; @plan.CommandLine.O1).
+    V10  S10: Dispatch Desk gates pass (@plan.ServerRendering.O1; @plan.LazyFeatures.O1).
 questions
-    Q1  Should local actors survive React Activity hiding?
-        Activity runs effect cleanups when hidden, so a local actor hidden longer than its grace
-        period is disposed. Recommended for version 1: accept it, and add retain to useActor only
-        when a real screen needs it.
-    Q2  What does invariant-driven development mean here?
-        Paused by the user (SurfaceSimplification Q30). Invariants stay a separate function.
-    Q3  Entity runtime measurements
-        The Runtime-wide repair bound (default 6), audit mode's cost and the property test's budget
-        are guesses to measure in S5 (entity-domain.md section 13.2).
+    Q1  Deferred to build time
+        Algorithm port selection and module layout.
+        Stage task breakdown and scheduling of the S7 infrastructure gate.
+        Performance measurements and budgets within the owning capability contracts.
