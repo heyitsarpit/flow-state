@@ -1,6 +1,6 @@
 # Entity domain examples: seven apps
 
-Status: worked examples of `entity-domain.md` (draft 8), the tier-1 proposal, across seven very
+Status: worked examples of `entity-domain.md` (final), the tier-1 proposal, across seven very
 different apps. They are not a design. Each shows the domain declaration and what happens at
 runtime: fields change at once, lists change when their refetch lands, and nothing predicts list
 membership. Operation bodies (`lookup`, `commit`) are elided, and "what happens" describes a write
@@ -288,7 +288,7 @@ export const ShopDomain = domain("shop", {
   cart: read(myCart).one(Cart), // a singleton: the key comes from the response
 
   lines: read(cartLines)
-    .list(CartLine.pick("lineId", "cartId", "productId", "quantity"), ({ result }) => result.lines)
+    .list(CartLine, ({ result }) => result.lines)
     .where(({ input, record }) => eq(record.cartId, input.cartId))
     .orderBy(({ record }) => [asc(record.lineId)]),
 
@@ -321,12 +321,11 @@ export const ShopDomain = domain("shop", {
 
 **What happens.** A quantity change shows at once and the quote refetches when it settles, because
 it is derived from `quantity`. A pushed price change refetches the quote of every cart, since the
-client cannot tell which carts hold the product. Lines name their shape with `.pick`, because a cart
-line's price is the price when it was added and must not overwrite the live `Product.price`.
-Checkout creates an order, which enters the order history's condition, and empties the cart, which
-the `.alsoChanges` targets refetch. If checkout's response is lost, the cart is `uncertain`; whether
-the order was placed is the machine's question to the API, using `attempt.id`, never a retry the
-library makes.
+client cannot tell which carts hold the product. A line's `price` is a `CartLine` field, the price
+when it was added, so it never overwrites the live `Product.price`. Checkout creates an order, which
+enters the order history's condition, and empties the cart, which the `.alsoChanges` targets
+refetch. If checkout's response is lost, the cart is `uncertain`; whether the order was placed is
+the machine's question to the API, using `attempt.id`, never a retry the library makes.
 
 ---
 

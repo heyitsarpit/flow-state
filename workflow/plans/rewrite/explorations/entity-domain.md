@@ -1,14 +1,15 @@
-# Entity domain: the tier-1 proposal (draft 8)
+# Entity domain: the tier-1 proposal (final)
 
-Status: **the tier-1 entity proposal, a candidate for finalising.** It is measured against
+Status: **final: the tier-1 entity design.** It is measured against
 `entities.md` (goals G1–G9, correctness C1–C8) and stays within tier 1 (`entities.md` section 3.3):
 records stay coherent, answers are repaired, fields are predicted, and list membership is never
 predicted. It builds on `minimal-library.md` decisions 1–8a and amends them where section 13 says.
 Code is illustrative.
 
-It is final when the gates of section 13.1 pass: a type spike over the draft 8 surface and an agent
-experiment. The designs it was chosen over are in git history at commit `ad129cc4`; the reviews that
-shaped drafts 5 to 8 are in the commit history of this file.
+It passed the three gates of section 13.1: a type spike, an agent experiment and a fuzzed runtime
+model (section 15). The runtime property suite in Flow State's own tests is an implementation
+obligation, not a design gate. The designs it was chosen over are in git history at commit
+`ad129cc4`; the reviews that shaped it are in the commit history of this file.
 
 ---
 
@@ -48,21 +49,21 @@ A domain is the shared-data meaning of one feature's operations (notes and their
 Tier 1 is opinionated: each of these is left out because it is wrong for a request cache, or because
 it needs a contract tier 1 cannot have. Tier 2 (a sync engine) is the answer to the first group.
 
-| Will not | Why |
-| --- | --- |
-| predict list membership, show instant creates, or keep queries complete offline | the server decides membership; that is a sync engine's job (tier 2) |
-| sort or filter on the client to produce an answer | `.where` and `.orderBy` are claims checked against responses, never computed results |
-| infer server semantics the domain did not declare | checks find contradictions; they cannot prove an absent filter or side effect |
-| establish a lost write's final outcome | only the backend knows; tier 1 shows the server's state now and leaves reconciliation to the machine |
-| retry an uncertain write | only the API knows whether a retry is safe |
-| merge conflicting server values field by field | versions or request order decide; merging is for sync engines and CRDTs |
-| accept backends that serve reads older than the client's own settled writes | freshness rests on read-your-writes (section 5.3) |
-| hydrate server-rendered data in version 1 | out of scope in `minimal-library.md` section 10 and `entities.md` section 3.4 |
-| refetch only part of a paged answer | a moved record changes which page later records fall on |
-| guarantee the fewest refetches | a conservative refetch is preferred to a missed one |
-| run arbitrary JavaScript predicates (`fn.where`) | tools cannot read them; `serverMatches` names what the server reads |
-| reconstruct arbitrary historical values from trace artifacts | artifacts carry digests; values live in checkpoints and live inspection |
-| generate a fake API server from a domain | a domain does not know how operations call their API; fixtures are ordinary Layers |
+| Will not                                                                        | Why                                                                                                  |
+|---------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------|
+| predict list membership, show instant creates, or keep queries complete offline | the server decides membership; that is a sync engine's job (tier 2)                                  |
+| sort or filter on the client to produce an answer                               | `.where` and `.orderBy` are claims checked against responses, never computed results                 |
+| infer server semantics the domain did not declare                               | checks find contradictions; they cannot prove an absent filter or side effect                        |
+| establish a lost write's final outcome                                          | only the backend knows; tier 1 shows the server's state now and leaves reconciliation to the machine |
+| retry an uncertain write                                                        | only the API knows whether a retry is safe                                                           |
+| merge conflicting server values field by field                                  | versions or request order decide; merging is for sync engines and CRDTs                              |
+| accept backends that serve reads older than the client's own settled writes     | freshness rests on read-your-writes (section 5.3)                                                    |
+| hydrate server-rendered data in version 1                                       | out of scope in `minimal-library.md` section 10 and `entities.md` section 3.4                        |
+| refetch only part of a paged answer                                             | a moved record changes which page later records fall on                                              |
+| guarantee the fewest refetches                                                  | a conservative refetch is preferred to a missed one                                                  |
+| run arbitrary JavaScript predicates (`fn.where`)                                | tools cannot read them; `serverMatches` names what the server reads                                  |
+| reconstruct arbitrary historical values from trace artifacts                    | artifacts carry digests; values live in checkpoints and live inspection                              |
+| generate a fake API server from a domain                                        | a domain does not know how operations call their API; fixtures are ordinary Layers                   |
 
 ---
 
@@ -74,29 +75,29 @@ written through the recorded `record`, so a typo is a type error.
 
 ### 2.1 Authoring vocabulary
 
-| Word | Reads as |
-| --- | --- |
-| `domain(id, entries)` | these entries are the shared-data meaning of these operations |
-| `read(resource)`, `write(transaction)`, `listen(stream)` | this request reads, changes or reports shared data |
-| `.one(Entity, at?)` | the result holds one record at this place (the whole result by default) |
-| `.list(Entity, at, member?)` | the result holds a list of records at this place |
-| `.derivedFrom(Entity, fields?, where?)` | the result is computed from records it does not hold (a count, a sum, a quote) |
-| `.byKey(({ input }) => key)` | this read is how one record is loaded by its key |
-| `.where(({ input, record }) => condition)` | only records meeting this condition can be in, or count toward, this result |
-| `.orderBy(({ record }) => [desc(record.pinned), asc(record.noteId)])` | the server returns the list in this total order, ending with the key |
-| `.unordered()` | the client never relies on this list's order (a calendar, a map, a board grouped in the view) |
-| `.pagedBy(({ input }) => input.cursor, ({ result }) => result.next)` | this input picks a page, and this is the next page's input |
-| `.ignoring(({ input }) => [input.locale])` | these inputs change neither which records nor their order |
-| `.unaffectedBy(...fields)` | on a server-ranked list: a change to these fields cannot make it wrong |
-| `.predicts(({ input }) => changes)` | what to show before the server answers |
-| `.alsoChanges(({ input }) => targets)` | the server also changes these, which the response does not carry |
-| `.as([Note], (event) => change)` | how one stream event becomes a change to these entities |
-| `eq`, `oneOf`, `contains`, `between`, `overlaps`, `and` | conditions |
-| `serverMatches(input.q, record.title, record.body)` | the server filters on these in a way the client cannot evaluate |
-| `asc`, `desc` | sort keys |
-| `Note.patch`, `Note.save`, `Note.delete` | changes to records |
-| `Note.all`, `Note.where(…)`, `Note.fields(key, …)` | targets: every answer on the entity, the answers a condition overlaps, or some fields of one record |
-| `principal()` | the signed-in principal, inside a condition |
+| Word                                                                  | Reads as                                                                                            |
+|-----------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------|
+| `domain(id, entries)`                                                 | these entries are the shared-data meaning of these operations                                       |
+| `read(resource)`, `write(transaction)`, `listen(stream)`              | this request reads, changes or reports shared data                                                  |
+| `.one(Entity, at?)`                                                   | the result holds one record at this place (the whole result by default)                             |
+| `.list(Entity, at, member?)`                                          | the result holds a list of records at this place                                                    |
+| `.derivedFrom(Entity, fields?, where?)`                               | the result is computed from records it does not hold (a count, a sum, a quote)                      |
+| `.byKey(({ input }) => key)`                                          | this read is how one record is loaded by its key                                                    |
+| `.where(({ input, record }) => condition)`                            | only records meeting this condition can be in, or count toward, this result                         |
+| `.orderBy(({ record }) => [desc(record.pinned), asc(record.noteId)])` | the server returns the list in this total order, ending with the key                                |
+| `.unordered()`                                                        | the client never relies on this list's order (a calendar, a map, a board grouped in the view)       |
+| `.pagedBy(({ input }) => input.cursor, ({ result }) => result.next)`  | this input picks a page, and this is the next page's input                                          |
+| `.ignoring(({ input }) => [input.locale])`                            | these inputs change neither which records nor their order                                           |
+| `.unaffectedBy(...fields)`                                            | on a server-ranked list: a change to these fields cannot make it wrong                              |
+| `.predicts(({ input }) => changes)`                                   | what to show before the server answers                                                              |
+| `.alsoChanges(({ input }) => targets)`                                | the server also changes these, which the response does not carry                                    |
+| `.as([Note], (event) => change)`                                      | how one stream event becomes a change to these entities                                             |
+| `eq`, `oneOf`, `contains`, `between`, `overlaps`, `and`               | conditions                                                                                          |
+| `serverMatches(input.q, record.title, record.body)`                   | the server filters on these in a way the client cannot evaluate                                     |
+| `asc`, `desc`                                                         | sort keys                                                                                           |
+| `Note.patch`, `Note.save`, `Note.delete`                              | changes to records                                                                                  |
+| `Note.all`, `Note.where(…)`, `Note.fields(key, …)`                    | targets: every answer on the entity, the answers a condition overlaps, or some fields of one record |
+| `principal()`                                                         | the signed-in principal, inside a condition                                                         |
 
 ### 2.2 Other public words
 
@@ -110,18 +111,22 @@ Testing: `propertyTest` (section 8). A field may be marked `sensitive` (section 
 The record store keeps every copy of a field right (C1), so a field an answer merely displays never
 makes it wrong. Only these changes repair an answer:
 
-| Answer | Repaired when |
-| --- | --- |
-| `.one` | the record is deleted; the store keeps its fields right |
-| `.list` with `.orderBy` | a record enters or leaves the condition, or an order field of a record in it changes |
-| `.list` with `.unordered()` | a record enters or leaves the condition |
-| `.list` with neither (ranked by the server) | a record enters or leaves the condition, or any field not in `.unaffectedBy` changes |
-| `.derivedFrom(E)` | a record enters or leaves the condition, or any field of a record meeting it changes |
-| `.derivedFrom(E, fields)` | a record enters or leaves the condition, or one of those fields of a record meeting it changes |
-| any answer | a write's `.alsoChanges` target reaches it, a write's `invalidate` covers it, or a reconnect or restore covers its entity |
+| Answer                                      | Repaired when                                                                                                             |
+|---------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
+| `.one`                                      | the record is deleted; the store keeps its fields right                                                                   |
+| `.list` with `.orderBy`                     | a record enters or leaves the condition, or an order field of a record in it changes                                      |
+| `.list` with `.unordered()`                 | a record enters or leaves the condition                                                                                   |
+| `.list` with neither (ranked by the server) | a record enters or leaves the condition, or any field not in `.unaffectedBy` changes                                      |
+| `.derivedFrom(E)`                           | a record enters or leaves the condition, or any field of a record meeting it changes                                      |
+| `.derivedFrom(E, fields)`                   | a record enters or leaves the condition, or one of those fields of a record meeting it changes                            |
+| any answer                                  | a write's `.alsoChanges` target reaches it, a write's `invalidate` covers it, or a reconnect or restore covers its entity |
 
 A list with no `.where` has every record of the entity in its condition, so a create or a delete
-repairs it. Condition fields always repair, because they decide entering and leaving.
+repairs it. For a derived answer, the fields name what the server's computation reads: omit them and
+any field repairs (the safe default); `() => []` means only membership matters (a plain count);
+condition fields always repair, so listing them is allowed but not needed. A derived answer may hold
+many values, such as one count per column; the fields still name what it reads. Condition fields
+always repair, because they decide entering and leaving.
 
 ### 2.4 Omission stays safe (G7)
 
@@ -322,10 +327,10 @@ export const TodosDomain = domain("todos", {
 
 A domain mixes two kinds of function, and which is which is fixed by position:
 
-| Kind | Positions | When it runs | What tools see |
-| --- | --- | --- | --- |
-| **recorded** | places (`at`), `.byKey`, `.where`, `.orderBy`, `.pagedBy`, `.ignoring`, `.derivedFrom` fields and conditions, `.alsoChanges` targets, `Entity.where` conditions, and in `.predicts` the entity, the key and the field names | once, when the domain is constructed, with recording proxies | the full expression |
-| **runtime** | `.as` mappings, and `.predicts` run again for real | `.as` on each event; `.predicts` at each write start, with the real input, and each function-valued field with the record | the declared effect (the entities `.as` lists, the predicted entities and field names), never the computation |
+| Kind         | Positions                                                                                                                                                                                                                   | When it runs                                                                                                              | What tools see                                                                                                |
+|--------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------|
+| **recorded** | places (`at`), `.byKey`, `.where`, `.orderBy`, `.pagedBy`, `.ignoring`, `.derivedFrom` fields and conditions, `.alsoChanges` targets, `Entity.where` conditions, and in `.predicts` the entity, the key and the field names | once, when the domain is constructed, with recording proxies                                                              | the full expression                                                                                           |
+| **runtime**  | `.as` mappings, and `.predicts` run again for real                                                                                                                                                                          | `.as` on each event; `.predicts` at each write start, with the real input, and each function-valued field with the record | the declared effect (the entities `.as` lists, the predicted entities and field names), never the computation |
 
 Recording works as TanStack DB's query builder does (section 14): what a recorded function touches
 becomes a plain description (`ref`, `val`, `func`) that `flow graph`, `flow check`, `flow explain`
@@ -342,8 +347,9 @@ element; `result.hits.note` over an array of hits means the `note` of each hit.
   fields, and every field whose name matches an entity field must have that field's type. The
   matching fields are what this result carries; the rest (a search `highlight`) belong to the
   result. `Note.pick("title", …)` names the shape explicitly and rejects other same-named fields;
-  use it when a place's struct comes from another API family (a cart line's price at add time is not
-  the product's price).
+  use it when a place holds a nested struct whose same-named fields mean something else (a line's
+  `product.price` that is the price at add time, held where `Product` would read it as live). A
+  field of a different entity never collides: a `CartLine.price` is not a `Product.price`.
 - **Nested entities follow the entity's declaration.** `Note.fields.author` is a `User`, so holding
   a note holds its author as a user. A condition or order may read a nested path
   (`record.author.userId`); a change to the nested record reaches the parent's answers only through
@@ -360,24 +366,25 @@ element; `result.hits.note` over an array of hits means the `note` of each hit.
 `({ input, record }) => eq(record.folderId, input.folderId)` records a condition. Conditions use
 operators, never JavaScript comparisons:
 
-| Operator | Condition |
-| --- | --- |
-| `eq(a, b)` | equal |
-| `oneOf(a, values)` | `a` is one of an array |
-| `contains(arrayField, value)` | an array field contains the value |
-| `between(a, from, to)` | `a` lies in the half-open range `[from, to)` |
-| `overlaps(start, end, from, to)` | the record's interval `[start, end)` overlaps `[from, to)` |
-| `and(c1, c2, …)` | all hold |
-| `serverMatches(input, …recordFields)` | the server decides from these; may hold for any record |
+| Operator                              | Condition                                                  |
+|---------------------------------------|------------------------------------------------------------|
+| `eq(a, b)`                            | equal                                                      |
+| `oneOf(a, values)`                    | `a` is one of an array                                     |
+| `contains(arrayField, value)`         | an array field contains the value                          |
+| `between(a, from, to)`                | `a` lies in the half-open range `[from, to)`               |
+| `overlaps(start, end, from, to)`      | the record's interval `[start, end)` overlaps `[from, to)` |
+| `and(c1, c2, …)`                      | all hold                                                   |
+| `serverMatches(input, …recordFields)` | the server decides from these; may hold for any record     |
 
 Each argument is a record field, an input field, `principal()` or a constant. Several `.where` calls
 are combined with `and`. The entity's version field may not appear in a condition or an order (a
 type error), so a change to the version alone never repairs.
 
-- **Absent inputs mean "no constraint".** An optional input that is absent turns the operator that
-  uses it into a condition that always holds: `oneOf(record.status, input.statuses)` with no
-  `statuses` means any status. A filter that means something else when absent is written with
-  `serverMatches`.
+- **Absent inputs mean "no constraint", for every operator.** An optional input that is absent
+  turns the operator that uses it into a condition that always holds: `oneOf(record.status,
+  input.statuses)` with no `statuses` means any status, and `between(record.postedAt, input.from,
+  input.to)` with no `to` has no upper bound. A filter that means something else when absent is
+  written with `serverMatches`.
 - **`serverMatches`** records which input the server matches against which record fields. Its record
   fields are condition fields. `serverMatches(input.folderId, record.parentId)` describes a subtree
   the server computes.
@@ -400,6 +407,9 @@ keys. The order is total: it ends with the entity's key fields (with a union's t
 - **`.unordered()`** says the client does not rely on the order at all: a calendar placing events by
   time, a map, a board the view groups and sorts by visible fields. Only entering and leaving
   repairs it. It is unchecked, and wrong if the view renders the list in response order.
+
+- **Directions.** Any direction works for any sort key, the tie-breaking key included; the order
+  only has to match the server's.
 
 ### 4.5 Pages (`.pagedBy`)
 
@@ -428,6 +438,11 @@ answer**. This amends `minimal-library.md`, which deferred infinite lists as one
   `Note.delete(key)` hides a record of any entity. A **patch** may change only an entity the entry
   names in a place or an `.alsoChanges` target, so `addComment` may predict its post's
   `commentCount` once it targets `Post.fields(...)`; a patch to an unnamed entity is a type error.
+- **Shapes of a write.** A write may have several places (`.one(Account, at)` twice for a transfer),
+  a `.list` place (the users a bulk archive returns), or no place at all (an edit whose response is
+  empty, declaring only `.alsoChanges`). `.predicts` and `.alsoChanges` return one change or target,
+  or an array of them. A target may name an entity no answer holds yet (audit entries): it costs
+  nothing now and keeps the effect declared for future reads and the trace.
 - **`.alsoChanges(({ input }) => targets)`** names what the server changes beyond the response, in
   the language of `.where`:
   - `Txn.where(({ record }) => eq(record.accountId, input.from))` reaches an answer when a record
@@ -446,13 +461,13 @@ answer**. This amends `minimal-library.md`, which deferred infinite lists as one
 
 A recording proxy sees property access but not JavaScript logic. In a recorded position:
 
-| Written | Result |
-| --- | --- |
-| `record.folderId === input.folderId` | **an error at construction:** "`.where` received a boolean. Write `eq(record.folderId, input.folderId)`." |
-| arithmetic, templates, `String(x)` on a recorded value | **an error:** the proxy throws from its conversion hooks and names the place; arithmetic belongs in a predicted field's function |
-| a method call (`record.title.trim()`) | **an error:** recorded values cannot be called |
-| `cond ? a : b`, `a && b`, `a \|\| b`, `if` | **not detectable by the proxy or the types**: one branch is recorded and the condition is silently too narrow. A **mandatory** `flow check` rule (an error) rejects them in recorded positions, and the same check runs when a domain is constructed in development |
-| `Date.now()`, `Math.random()`, outer mutable state | `flow check` rejects them; they would run once at construction |
+| Written                                                | Result                                                                                                                           |          |                                                                                                                                                                                                                                                                     |
+|--------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------|----------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `record.folderId === input.folderId`                   | **an error at construction:** "`.where` received a boolean. Write `eq(record.folderId, input.folderId)`."                        |          |                                                                                                                                                                                                                                                                     |
+| arithmetic, templates, `String(x)` on a recorded value | **an error:** the proxy throws from its conversion hooks and names the place; arithmetic belongs in a predicted field's function |          |                                                                                                                                                                                                                                                                     |
+| a method call (`record.title.trim()`)                  | **an error:** recorded values cannot be called                                                                                   |          |                                                                                                                                                                                                                                                                     |
+| `cond ? a : b`, `a && b`, `a \                         | \                                                                                                                                | b`, `if` | **not detectable by the proxy or the types**: one branch is recorded and the condition is silently too narrow. A **mandatory** `flow check` rule (an error) rejects them in recorded positions, and the same check runs when a domain is constructed in development |
+| `Date.now()`, `Math.random()`, outer mutable state     | `flow check` rejects them; they would run once at construction                                                                   |          |                                                                                                                                                                                                                                                                     |
 
 **The rule for authors: a recorded position is one expression of property reads and library
 operators.** Logic the client cannot express belongs in the server and is declared with
@@ -471,12 +486,12 @@ rest on, and section 5.6 the bounds.
 
 A record change carries the old and the new value.
 
-| Source | Effect |
-| --- | --- |
-| a write starting | a **predicted** delta on the visible value; nothing else (below) |
-| a write settling | its predictions resolve (section 5.5); the response changes the base |
-| a response | changes the base where it carries newer fields (an **observed** delta) |
-| a push (`listen`) | changes the base to the pushed value, or deletes |
+| Source            | Effect                                                                 |
+|-------------------|------------------------------------------------------------------------|
+| a write starting  | a **predicted** delta on the visible value; nothing else (below)       |
+| a write settling  | its predictions resolve (section 5.5); the response changes the base   |
+| a response        | changes the base where it carries newer fields (an **observed** delta) |
+| a push (`listen`) | changes the base to the pushed value, or deletes                       |
 
 - **Predictions change visible values only.** A predicted delta never lowers a frontier, fences a
   lookup or starts a repair; a write's settlement carries all of its obligations. An answer is
@@ -499,7 +514,18 @@ on the answers' conditions.
   the delta enters or leaves it, or changes a field section 2.3 lists for that kind of answer. A
   field the delta does not carry counts as meeting the condition. A record no active list holds has
   no old side for lists (every record in an active list is held), so only derived answers treat its
-  unknown old value as matching.
+  unknown old value as matching. That includes a record's first sighting: when a list's load reveals
+  records the client has not held, derived answers on the entity refetch once.
+- **A response that is behind makes its own answer stale.** A response carrying a record at a lower
+  version than the store holds is behind for that record, so its membership for that record is out
+  of date: from a machine's request the answer refetches; from a repair it is marked stale (one
+  hop). The runtime model found this case: a list loading while a push moved one of its records
+  away.
+- **Rejected sources still reach derived answers.** A response or push that the ordering rule or a
+  tombstone rejects still joins derived answers, from its values to the current base, because a
+  derived answer carries no versions and may have been computed against that intermediate server
+  state (a count taken while a record was briefly pinned). From a repair's response it only marks
+  them stale. The runtime model found this case too.
 - **Causes.** Every repair has causes from one closed list: a write settled (success, failure,
   uncertain), a push, a machine's request revealing a change, an `.alsoChanges` target, an
   `invalidate`, a reconnect, a restore, a contested field, a confirming read for an unconfirmed
@@ -531,6 +557,8 @@ change. A matching delta newer than the frontier makes the answer stale; a respo
 started at or after that delta advances it. Positions are opaque and comparable, so a sync engine
 can supply its own (a log offset).
 
+- **Ordered streams are a precondition.** A stream delivers its events in the order the server
+  sent them.
 - **Read-your-writes is a precondition.** A request started after a write settled must see that
   write. A backend that serves older replicas breaks this, and is a non-goal (section 1.2). A
   response carrying a field at a lower version than the store holds neither advances a frontier for
@@ -567,12 +595,12 @@ contest is evidence (section 7.4); tier 1 does not guess why two endpoints disag
 
 **How a write ends.**
 
-| Ending | Predictions | Repair |
-| --- | --- | --- |
-| success | fields the response carries replace them; a predicted field it omits is **unconfirmed** | affected answers from both bases (5.2); a confirming read for each unconfirmed field |
-| failure or defect | removed | affected answers, all predicted fields |
-| rejected, or cancelled before its adapter was invoked | removed | none |
-| uncertain (cancelled after invocation, response lost, restored mid-flight) | removed once the forced repair lands | **forced**: the record's loader and every answer holding it refetch; the record is `uncertain` (below) |
+| Ending                                                                     | Predictions                                                                             | Repair                                                                                                 |
+|----------------------------------------------------------------------------|-----------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------|
+| success                                                                    | fields the response carries replace them; a predicted field it omits is **unconfirmed** | affected answers from both bases (5.2); a confirming read for each unconfirmed field                   |
+| failure or defect                                                          | removed                                                                                 | affected answers, all predicted fields                                                                 |
+| rejected, or cancelled before its adapter was invoked                      | removed                                                                                 | none                                                                                                   |
+| uncertain (cancelled after invocation, response lost, restored mid-flight) | removed once the forced repair lands                                                    | **forced**: the record's loader and every answer holding it refetch; the record is `uncertain` (below) |
 
 **Confirmation.** A prediction a response did not carry ends by a confirming read, never by waiting
 for a later delta (Replicache's `lastMutationID` and Linear's sync-id wait, in request-and-response
@@ -672,16 +700,16 @@ pending, uncertain, unconfirmed }`, where `unconfirmed` lists field names. A syn
 
 ### 5.6 Bounds
 
-| Cost | Bound |
-| --- | --- |
-| matching one delta | the scanned active answers, or the index hits once indexes exist |
-| refetches per delta | the matched active answers; one in flight and one waiting per answer |
+| Cost                         | Bound                                                                                                        |
+|------------------------------|--------------------------------------------------------------------------------------------------------------|
+| matching one delta           | the scanned active answers, or the index hits once indexes exist                                             |
+| refetches per delta          | the matched active answers; one in flight and one waiting per answer                                         |
 | refetches across the Runtime | at most a fixed number of repair lookups in flight (a Runtime option, default 6), started in canonical order |
-| a paged repair | as many sequential requests as pages were loaded |
-| prediction replay | the live predictions on that record, bounded by its queue |
-| tombstones | the deletes within `gcTime` |
-| evidence | the bounded retention of InspectionAndArtifacts O3, with truncation markers |
-| recording | once per domain, at construction |
+| a paged repair               | as many sequential requests as pages were loaded                                                             |
+| prediction replay            | the live predictions on that record, bounded by its queue                                                    |
+| tombstones                   | the deletes within `gcTime`                                                                                  |
+| evidence                     | the bounded retention of InspectionAndArtifacts O3, with truncation markers                                  |
+| recording                    | once per domain, at construction                                                                             |
 
 High-frequency membership churn across many loaded pages (a live map of moving drivers) is expensive
 by these bounds, and belongs to tier 2.
@@ -708,11 +736,11 @@ clock. A domain does not generate a fixture: it does not know how its operations
 A checkpoint is one atomic cut over published snapshots and one store revision (O4). Reads take the
 checkpoint, so they read exactly that revision:
 
-| Read | Returns |
-| --- | --- |
-| `Note.get(checkpoint, key, shape)` | `{ data, pending, uncertain, unconfirmed }` for the fields in `shape`, with a field the store does not hold reported as missing; `undefined` if the store does not hold the record |
+| Read                                          | Returns                                                                                                                                                                                       |
+|-----------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `Note.get(checkpoint, key, shape)`            | `{ data, pending, uncertain, unconfirmed }` for the fields in `shape`, with a field the store does not hold reported as missing; `undefined` if the store does not hold the record            |
 | `NotesDomain.inFolder.get(checkpoint, input)` | the answer at that revision: the lane plus `stale` (section 5.5), with a paged answer's pages in order; `undefined` if no active answer has that input, whether never subscribed or collected |
-| `Note.queue(checkpoint, key)` | the record's queue: each attempt, its write and its state |
+| `Note.queue(checkpoint, key)`                 | the record's queue: each attempt, its write and its state                                                                                                                                     |
 
 Live views use `Note.get(snapshot, key, shape)` through `useView`, read through Runtime-internal
 bookkeeping (D22). `CheckpointProvider` reads from its checkpoint.
@@ -773,10 +801,10 @@ asserting they disappear is wrong, not the library.
 
 ### 6.5 Amendments to the StoriesAndModels plan
 
-| Amendment | Outcome |
-| --- | --- |
-| checkpoints and `run.end` carry `repairs`, `skips` and diagnostics, projected from captured evidence | O4, V4 |
-| `Entity.get`, `Entity.queue` and `Domain.entry.get` read the checkpoint's store revision | O4, V4 |
+| Amendment                                                                                            | Outcome |
+|------------------------------------------------------------------------------------------------------|---------|
+| checkpoints and `run.end` carry `repairs`, `skips` and diagnostics, projected from captured evidence | O4, V4  |
+| `Entity.get`, `Entity.queue` and `Domain.entry.get` read the checkpoint's store revision             | O4, V4  |
 
 ---
 
@@ -850,35 +878,35 @@ $ flow trace summarize move.trace.json --entity Note:n7 --sequence 41
 $ flow trace diff before.trace.json after.trace.json --section repairs
 ```
 
-| Question | Answered by |
-| --- | --- |
-| why did this read refetch | `trace summarize --read`: each repair with its causes, record, fields and action |
-| why did it not refetch | `explain --trace --at`: whether the read was active then, its effective rules (after any demotion), and whether the join rejected it or never matched it |
+| Question                            | Answered by                                                                                                                                                             |
+|-------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| why did this read refetch           | `trace summarize --read`: each repair with its causes, record, fields and action                                                                                        |
+| why did it not refetch              | `explain --trace --at`: whether the read was active then, its effective rules (after any demotion), and whether the join rejected it or never matched it                |
 | why does this field hold this value | `trace summarize --entity --sequence`: the source of each field, rejected contenders, predictions, confirmations and digests; values only where a checkpoint holds them |
-| why is this write waiting | `trace summarize --entity`: the record's queue, its head, and halts |
-| is this record uncertain, and why | the `uncertain` events of that record |
-| what changed between two runs | `trace diff --section repairs`, normalised and ordered |
+| why is this write waiting           | `trace summarize --entity`: the record's queue, its head, and halts                                                                                                     |
+| is this record uncertain, and why   | the `uncertain` events of that record                                                                                                                                   |
+| what changed between two runs       | `trace diff --section repairs`, normalised and ordered                                                                                                                  |
 
 ### 7.4 Trace events
 
 Every event carries the Runtime's sequence number, so it orders against machine transitions in one
 total order.
 
-| Event | Fields |
-| --- | --- |
-| `delta` | record, source, changed field names, digests; for `.as`, the event's digest and the change it produced |
-| `field` | accepted, rejected or contested, with the compared versions or positions |
-| `repair` | read, input, causes, record, changed fields, matched, action |
-| `skip` | read, input, causes, reason; only for candidates the join considered |
-| `lookup` | a repair lookup started or settled: read, input, the causes it satisfies, its outcome, pages |
-| `prediction` | started, replayed, confirmed, retired, ended, with attempt, fields and the confirming read chosen |
-| `queue` | joined, sent, halted, released, removed, with record and attempt |
-| `uncertain` | opened, forced repair landed, ended (later write or reconciliation) |
-| `answer` | activated, deactivated, demoted by `HiddenOrder` |
-| `invalidate`, `reconnect`, `restore` | the source and what it covers |
-| `tombstone`, `gc` | record, reason |
-| `selfCheck` | a response record contradicting a condition, or a response out of its declared order |
-| `audit` | in audit mode: an unrepaired answer refetched and compared, and whether it differed |
+| Event                                | Fields                                                                                                 |
+|--------------------------------------|--------------------------------------------------------------------------------------------------------|
+| `delta`                              | record, source, changed field names, digests; for `.as`, the event's digest and the change it produced |
+| `field`                              | accepted, rejected or contested, with the compared versions or positions                               |
+| `repair`                             | read, input, causes, record, changed fields, matched, action                                           |
+| `skip`                               | read, input, causes, reason; only for candidates the join considered                                   |
+| `lookup`                             | a repair lookup started or settled: read, input, the causes it satisfies, its outcome, pages           |
+| `prediction`                         | started, replayed, confirmed, retired, ended, with attempt, fields and the confirming read chosen      |
+| `queue`                              | joined, sent, halted, released, removed, with record and attempt                                       |
+| `uncertain`                          | opened, forced repair landed, ended (later write or reconciliation)                                    |
+| `answer`                             | activated, deactivated, demoted by `HiddenOrder`                                                       |
+| `invalidate`, `reconnect`, `restore` | the source and what it covers                                                                          |
+| `tombstone`, `gc`                    | record, reason                                                                                         |
+| `selfCheck`                          | a response record contradicting a condition, or a response out of its declared order                   |
+| `audit`                              | in audit mode: an unrepaired answer refetched and compared, and whether it differed                    |
 
 - **Values and redaction.** Artifacts carry field names and digests, not values. Values reach only
   `attachInspector`'s in-memory events and checkpoints; a `sensitive` field is a digest everywhere.
@@ -896,14 +924,14 @@ marker.
 
 ### 7.6 Amendments to the CommandLine and InspectionAndArtifacts plans
 
-| Amendment | Plan |
-| --- | --- |
-| `flow explain <domain>` with `--read <domain.entry>`, `--trace <artifact\|->` and `--at <checkpoint>` | CommandLine O1 |
-| `flow trace summarize <artifact\|-> --read <domain.entry>` or `--entity <Entity:key>`, optional `--sequence <n>`; the two filters exclusive; an unknown read, entity or key exits 2 | CommandLine O1 |
-| trace diff section `repairs` | CommandLine O3, InspectionAndArtifacts |
-| the recorded domain layout in the inspection schema | InspectionAndArtifacts V4 |
-| the trace events of section 7.4 and their redaction rule | InspectionAndArtifacts |
-| `inspect(runtime).domains` as a passive current-state read | InspectionAndArtifacts, D39 |
+| Amendment                                                                 | Plan                                                                                                                                               |                |
+|---------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|----------------|
+| `flow explain <domain>` with `--read <domain.entry>`, `--trace <artifact\ | ->` and `--at <checkpoint>`                                                                                                                        | CommandLine O1 |
+| `flow trace summarize <artifact\                                          | -> --read <domain.entry>` or `--entity <Entity:key>`, optional `--sequence <n>`; the two filters exclusive; an unknown read, entity or key exits 2 | CommandLine O1 |
+| trace diff section `repairs`                                              | CommandLine O3, InspectionAndArtifacts                                                                                                             |                |
+| the recorded domain layout in the inspection schema                       | InspectionAndArtifacts V4                                                                                                                          |                |
+| the trace events of section 7.4 and their redaction rule                  | InspectionAndArtifacts                                                                                                                             |                |
+| `inspect(runtime).domains` as a passive current-state read                | InspectionAndArtifacts, D39                                                                                                                        |                |
 
 `flow explain` exits 0 whenever it produces an explanation, including "stale" and "insufficient
 evidence", and 2 for an unknown domain, entry, artifact or checkpoint.
@@ -944,16 +972,16 @@ test("notes converge", () =>
 
 ### 8.2 What it checks
 
-| Property | Checked |
-| --- | --- |
-| C1 coherence | at every publication: all copies of each record field agree |
-| C2 convergence | once quiet: every active answer equals the fixture's answer for its input, element by element and in declared order, or is stale with a recorded observed cause and equals it after one machine request |
-| C3 no cascades | no lookup starts from a repair's response; every lookup has recorded causes; repairs per cause stay within a bound |
-| C4 monotonic truth | no accepted field replaces a newer one by version or position |
+| Property             | Checked                                                                                                                                                                                                                                                  |
+|----------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| C1 coherence         | at every publication: all copies of each record field agree                                                                                                                                                                                              |
+| C2 convergence       | once quiet: every active answer equals the fixture's answer for its input, element by element and in declared order, or is stale with a recorded observed cause and equals it after one machine request                                                  |
+| C3 no cascades       | no lookup starts from a repair's response; every lookup has recorded causes; repairs per cause stay within a bound                                                                                                                                       |
+| C4 monotonic truth   | no accepted field replaces a newer one by version or position                                                                                                                                                                                            |
 | C5 honest prediction | every displayed unconfirmed value is a live prediction marked `pending`; every unconfirmed field has a scheduled or failed confirming read; no publication shows a field older than a settled write's confirmed value; nothing persisted is a prediction |
-| C6 no silent loss | every record that leaves an answer has a recorded reason |
-| C7 determinism | each failing plan, and a sample of passing ones, runs twice with identical traces |
-| C8 explainability | every repair, skip, hidden record and prediction names its causes |
+| C6 no silent loss    | every record that leaves an answer has a recorded reason                                                                                                                                                                                                 |
+| C7 determinism       | each failing plan, and a sample of passing ones, runs twice with identical traces                                                                                                                                                                        |
+| C8 explainability    | every repair, skip, hidden record and prediction names its causes                                                                                                                                                                                        |
 
 **Quiet** is a fixed suffix: `process()`; then `advanceToNextTimer()` and `process()` until no timer
 remains or a horizon is reached; then a checkpoint. After it the clock advances a long way and no
@@ -975,21 +1003,21 @@ an app obligation.
 
 ## 9. Rules and checks
 
-| Rule | Checked by |
-| --- | --- |
-| a recorded position is one expression of reads and operators | the proxy and the types for booleans, conversions and calls; a mandatory `flow check` error for conditionals, short-circuits and impure calls, also run at construction in development; an unreadable declaration is an error |
-| places exist; inferred record fields have the entity's types | the type system |
-| an operation is registered in at most one domain and reached only through it | the type system for registered values; `flow check` otherwise |
-| an operation whose result carries an entity's key fields but is not registered | `flow check` warning |
-| at most one `.byKey` per entity across the App | `flow check` |
-| patches change only entities the entry names; `.as` results change only listed entities | the type system; at runtime for `.as` |
-| `.orderBy` ends with the key fields; the version field is in no condition or order; `.unaffectedBy` only on a server-ranked list; an entry-level `.where` with several `.derivedFrom`s | the type system |
-| every input of a list or derived read is accounted for | the type system, at the entry |
-| call-site `optimistic`, `setData` or `clear` on a domain operation | the type system |
-| `cancel` concurrency on a predicting domain write | `flow check` error |
-| `listen` over an entity without a version | `flow check` warning |
-| a condition or order the server contradicts | the response check, on every response |
-| a filter or side effect the domain omits | audit mode, and the app's property test, against a fixture that models it |
+| Rule                                                                                                                                                                                   | Checked by                                                                                                                                                                                                                    |
+|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| a recorded position is one expression of reads and operators                                                                                                                           | the proxy and the types for booleans, conversions and calls; a mandatory `flow check` error for conditionals, short-circuits and impure calls, also run at construction in development; an unreadable declaration is an error |
+| places exist; inferred record fields have the entity's types                                                                                                                           | the type system                                                                                                                                                                                                               |
+| an operation is registered in at most one domain and reached only through it                                                                                                           | the type system for registered values; `flow check` otherwise                                                                                                                                                                 |
+| an operation whose result carries an entity's key fields but is not registered                                                                                                         | `flow check` warning                                                                                                                                                                                                          |
+| at most one `.byKey` per entity across the App                                                                                                                                         | `flow check`                                                                                                                                                                                                                  |
+| patches change only entities the entry names; `.as` results change only listed entities                                                                                                | the type system; at runtime for `.as`                                                                                                                                                                                         |
+| `.orderBy` ends with the key fields; the version field is in no condition or order; `.unaffectedBy` only on a server-ranked list; an entry-level `.where` with several `.derivedFrom`s | the type system                                                                                                                                                                                                               |
+| every input of a list or derived read is accounted for                                                                                                                                 | the type system, at the entry                                                                                                                                                                                                 |
+| call-site `optimistic`, `setData` or `clear` on a domain operation                                                                                                                     | the type system                                                                                                                                                                                                               |
+| `cancel` concurrency on a predicting domain write                                                                                                                                      | `flow check` error                                                                                                                                                                                                            |
+| `listen` over an entity without a version                                                                                                                                              | `flow check` warning                                                                                                                                                                                                          |
+| a condition or order the server contradicts                                                                                                                                            | the response check, on every response                                                                                                                                                                                         |
+| a filter or side effect the domain omits                                                                                                                                               | audit mode, and the app's property test, against a fixture that models it                                                                                                                                                     |
 
 **Audit mode** is a Runtime option for development and tests, off by default and off in Stories
 unless enabled. After every settlement, push and observed change, it refetches **every** active
@@ -1027,6 +1055,8 @@ is why it is never on in production.
   page.
 - **Indexes cut matching, not refetches.** A broad derived read or an `Entity.all` target refetches
   every answer it reaches; `flow explain` shows which.
+- **First sightings cost a refetch.** A list's load that reveals records the client has not held
+  makes derived answers on that entity refetch once, because their old values are unknown.
 - **Observed staleness waits.** An answer a repair's response marked stale stays stale, and says so,
   until the next machine request or local cause.
 - **Inference by field name.** A struct field named `title` that means something else is read as the
@@ -1037,57 +1067,68 @@ is why it is never on in production.
 Five designs were written to the same scope and reviewed with the same lenses (git history, commit
 `ad129cc4`):
 
-| Design | Why not |
-| --- | --- |
-| entity-centric: operations live on `Note.members` | two vocabularies; adopting an entity renamed operations in every machine |
-| operation-first: `depends`, `optimistic`, `affects` on each operation | an open set, so no closed-world checks; `"none"` tokens everywhere |
-| coordinator with picks in results | `when` closures tools cannot read or index; operations imported entities |
-| knowledge store | predicted list membership and completeness: the client half of a sync engine |
-| **this domain** | conditions as data, operations kept plain, sentences an agent can read; the cost is the recording rule |
+| Design                                                                | Why not                                                                                                |
+|-----------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------|
+| entity-centric: operations live on `Note.members`                     | two vocabularies; adopting an entity renamed operations in every machine                               |
+| operation-first: `depends`, `optimistic`, `affects` on each operation | an open set, so no closed-world checks; `"none"` tokens everywhere                                     |
+| coordinator with picks in results                                     | `when` closures tools cannot read or index; operations imported entities                               |
+| knowledge store                                                       | predicted list membership and completeness: the client half of a sync engine                           |
+| **this domain**                                                       | conditions as data, operations kept plain, sentences an agent can read; the cost is the recording rule |
 
 ## 13. Gates and open questions
 
-### 13.1 Gates before finalising
+### 13.1 Gates
 
-1. **Type spike over the draft 8 surface: passed** (section 15). Every shape infers without
-   annotations; 26 of 27 likely mistakes are rejected, and the 27th is the known conditional that
-   the source check covers. Open from it: most domain-level errors state their cause on the second
-   line, after a type dump.
-2. **Agent experiment** (`entities.md` section 5): agents write the domains of
-   `entity-domain-examples.md` from this document alone, and the mistakes they make are compared
-   with the checks of section 9.
-3. **Runtime property tests** over the example domains, in Flow State's own suite.
+1. **Type spike: passed** (section 15.1). Every shape infers without annotations; 26 of 27 likely
+   mistakes are rejected, and the 27th is the conditional the source check covers. Domain-level
+   errors state their cause on the second line, after a type dump.
+2. **Agent experiment: passed** (section 15.2). Ten agents (seven Sonnet, three Haiku) wrote the
+   seven example apps' domains from this document and the operations alone. All ten compile, nine on
+   the first run; none would show a stale screen; their questions are answered in sections 2.3,
+   4.2, 4.3, 4.4 and 4.6.
+3. **Runtime model: passed** (section 15.3). An executable model of section 5 passes 40,000 fuzzed
+   runs against a fake server, after it found three rules this design now states (section 5.2,
+   section 5.3).
+
+The runtime property suite in Flow State's own tests (section 8.3) is the implementation's first
+obligation.
 
 ### 13.2 Open questions
 
 1. **The Runtime-wide repair bound.** 6 is a guess; it needs measuring.
 2. **Audit mode's cost** on a real app, and whether a sampled variant is worth having for production
    debugging.
-3. **The property test's budget.** 50 runs of 40 steps is a guess.
-4. **The plan amendments** of sections 4.5, 5.5, 6.5 and 7.6 (minimal-library's infinite lists,
+3. **The property test's budget.** 50 runs of 40 steps is a guess; the runtime model needed short
+   runs (15 to 25 steps) to find most interleavings, and long runs to find the rest.
+4. **Field-narrowed targets.** A target names records, not fields, so a Kanban move's renumbered
+   positions also refetch the board's counts. `Card.where(…).fields(…)` would avoid that; it is left
+   out until a measured app needs it.
+5. **The plan amendments** of sections 4.5, 5.5, 6.5 and 7.6 (minimal-library's infinite lists,
    Transactions' cross-actor record lane and `basedOn`, StoriesAndModels, CommandLine,
    InspectionAndArtifacts) each need that plan's approval.
 
 ## 14. Research behind the choices
 
-| Choice | Source |
-| --- | --- |
-| callbacks called once with recording proxies; a plain expression IR | TanStack DB `query/builder/ref-proxy.ts` and `query/ir.ts` |
-| operators instead of `===`, with the right form in the error | TanStack DB `InvalidWhereExpressionError` |
-| conditionals are invisible to a probe and need a lint | Vue's dependency tracking; Immer's documented pitfalls |
-| repair as a join of changes and subscriptions, with indexes as an optimisation | Electric's `Shapes.Filter` |
-| deltas, the join delta rule, frontiers, consolidation | differential dataflow and DBSP |
-| predictions replayed over each new base | Relay revert-and-reapply; Apollo `EntityStore.Layer` replay |
-| a prediction ends by a confirming read, not a value | Replicache `lastMutationID`; Electric and TanStack DB `awaitTxId`; Linear's sync-id wait |
-| no flicker between settlement and confirmation | TanStack DB issues #108, #2201, #1602 |
-| obligations never consolidated | no reviewed system consolidates them; TanStack DB #1912 |
-| a repair's response starts no lookup | apollo-client#6760 (`cache-and-network`); TanStack DB treats a response as observed state |
-| affected fields from `where` and `orderBy` | TanStack DB live queries; Data Client `nonFilterArgumentKeys` |
-| paged repair rebuilt from fresh continuations | TanStack Query infinite queries (`getNextPageParam`) |
-| a lost write's fate needs the backend | Replicache server push; Zero mutators; Convex exactly-once mutations |
-| versioned tombstones | Linear's archive and delete actions; Electric `must-refetch` |
+| Choice                                                                         | Source                                                                                    |
+|--------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------|
+| callbacks called once with recording proxies; a plain expression IR            | TanStack DB `query/builder/ref-proxy.ts` and `query/ir.ts`                                |
+| operators instead of `===`, with the right form in the error                   | TanStack DB `InvalidWhereExpressionError`                                                 |
+| conditionals are invisible to a probe and need a lint                          | Vue's dependency tracking; Immer's documented pitfalls                                    |
+| repair as a join of changes and subscriptions, with indexes as an optimisation | Electric's `Shapes.Filter`                                                                |
+| deltas, the join delta rule, frontiers, consolidation                          | differential dataflow and DBSP                                                            |
+| predictions replayed over each new base                                        | Relay revert-and-reapply; Apollo `EntityStore.Layer` replay                               |
+| a prediction ends by a confirming read, not a value                            | Replicache `lastMutationID`; Electric and TanStack DB `awaitTxId`; Linear's sync-id wait  |
+| no flicker between settlement and confirmation                                 | TanStack DB issues #108, #2201, #1602                                                     |
+| obligations never consolidated                                                 | no reviewed system consolidates them; TanStack DB #1912                                   |
+| a repair's response starts no lookup                                           | apollo-client#6760 (`cache-and-network`); TanStack DB treats a response as observed state |
+| affected fields from `where` and `orderBy`                                     | TanStack DB live queries; Data Client `nonFilterArgumentKeys`                             |
+| paged repair rebuilt from fresh continuations                                  | TanStack Query infinite queries (`getNextPageParam`)                                      |
+| a lost write's fate needs the backend                                          | Replicache server push; Zero mutators; Convex exactly-once mutations                      |
+| versioned tombstones                                                           | Linear's archive and delete actions; Electric `must-refetch`                              |
 
-## 15. Type spike results
+## 15. Evidence
+
+### 15.1 Type spike
 
 The draft 8 spike (types plus a small recording runtime) wrote eleven domains without annotations:
 notes with a paged list and a ranked search, a nested-path read, todos, banking, calendar, admin,
@@ -1096,24 +1137,24 @@ files, social, shop and a machine. The positive set compiles in about 0.2 second
 `any`), and a deliberately false one fails. Thirty-seven runtime checks of the recorded description
 pass, including a real run of a prediction.
 
-| Shape | Result |
-| --- | --- |
-| `.orderBy` ending with the key; tuple inference | works; an order not ending with the key is a type error naming both sort keys |
-| one order per list (`.orderBy`, `.unordered`, `.unaffectedBy`) | a second one is a type error with a sentence: "a list has one order…" |
-| `.unaffectedBy` | restricted to carried, non-key fields; after `.orderBy`, a type error explaining why |
-| `.pagedBy(input, next)`; the machine's `.more` | the next selector must have the paging input's type; `.more` exists only on paged reads |
-| `.derivedFrom` with fields and per-binding conditions | works; an entry-level `.where` with several is a type error with a sentence |
-| the input rule | **a type error**: recorded input values carry their field name, and `domain()` names the unused field |
-| the version field | absent from `record` and from patches (type errors), and rejected by the proxy at runtime |
-| nested paths (`record.author.userId`) | work, with the nested field's type |
-| tagged-union places, two `.list`s | each member is narrowed; `record` has exactly the shared fields, the tag as a union; a wrong member is rejected (reported at the entity, naming `kind`) |
-| singletons, `.pick` | the key comes from the response; a picked shape reports other fields as context |
-| `.as([Note], fn)` | a change to an unlisted entity is a type error |
-| per-field prediction functions | typed against the record and the real input; a wrong return type is a type error |
-| a patch to an unnamed entity | a type error with a sentence; deletes may name any entity |
-| `Entity.where` and `Entity.fields` targets | work; a wrong key shape is a type error |
-| call-site `optimistic`, `setData` | type errors; `optimistic` says to declare `.predicts` |
-| `?:` in a recorded position | **still compiles, recording one branch**: the mandatory source check stays |
+| Shape                                                          | Result                                                                                                                                                  |
+|----------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `.orderBy` ending with the key; tuple inference                | works; an order not ending with the key is a type error naming both sort keys                                                                           |
+| one order per list (`.orderBy`, `.unordered`, `.unaffectedBy`) | a second one is a type error with a sentence: "a list has one order…"                                                                                   |
+| `.unaffectedBy`                                                | restricted to carried, non-key fields; after `.orderBy`, a type error explaining why                                                                    |
+| `.pagedBy(input, next)`; the machine's `.more`                 | the next selector must have the paging input's type; `.more` exists only on paged reads                                                                 |
+| `.derivedFrom` with fields and per-binding conditions          | works; an entry-level `.where` with several is a type error with a sentence                                                                             |
+| the input rule                                                 | **a type error**: recorded input values carry their field name, and `domain()` names the unused field                                                   |
+| the version field                                              | absent from `record` and from patches (type errors), and rejected by the proxy at runtime                                                               |
+| nested paths (`record.author.userId`)                          | work, with the nested field's type                                                                                                                      |
+| tagged-union places, two `.list`s                              | each member is narrowed; `record` has exactly the shared fields, the tag as a union; a wrong member is rejected (reported at the entity, naming `kind`) |
+| singletons, `.pick`                                            | the key comes from the response; a picked shape reports other fields as context                                                                         |
+| `.as([Note], fn)`                                              | a change to an unlisted entity is a type error                                                                                                          |
+| per-field prediction functions                                 | typed against the record and the real input; a wrong return type is a type error                                                                        |
+| a patch to an unnamed entity                                   | a type error with a sentence; deletes may name any entity                                                                                               |
+| `Entity.where` and `Entity.fields` targets                     | work; a wrong key shape is a type error                                                                                                                 |
+| call-site `optimistic`, `setData`                              | type errors; `optimistic` says to declare `.predicts`                                                                                                   |
+| `?:` in a recorded position                                    | **still compiles, recording one branch**: the mandatory source check stays                                                                              |
 
 What the spike changed in the design:
 
@@ -1133,6 +1174,48 @@ What the spike changed in the design:
 
 Not exercised: the Story read helpers, the trace and the runtime repair algorithm, which are gate 3.
 The spike lives in the session scratchpad and is not part of the repository.
+
+### 15.2 Agent experiment
+
+Each agent got a sandbox with this document, the spike library, one app's entities and operations,
+and a comment describing what the app's screens need, but no domain code and no examples. It wrote
+the domain and could compile it, as an agent in a real project would.
+
+| Result | |
+| --- | --- |
+| compile | ten of ten; nine on the first run (the tenth forgot an import) |
+| would show a stale screen | none, judged against the reference domains of `entity-domain-examples.md` |
+| better than the reference | two: the chat agent counted unread messages with `readByMe` in the condition; the shop agents saw that a cart line's `price` cannot collide with a product's, so the reference's `.pick` was unnecessary |
+| legitimate alternatives | tie-break directions, a broader or narrower `.alsoChanges` target, `Cart.all` for a guessed side effect, no `.derivedFrom(Folder)` where no operation moves folders |
+| questions the document did not answer | several places on a write; arrays in `.predicts` and `.alsoChanges`; writes with no place; absent inputs for `between`; what a derived answer's fields mean and whether `() => []` is allowed; sort direction of the tie-break; a target for an entity no answer holds; grouped derived answers; when `.pick` is needed. All are answered now (sections 2.3, 4.2, 4.3, 4.4, 4.6) |
+| what they wanted and could not say | instant membership changes (tier 2, as intended); a target narrowed to fields (open question 4) |
+
+Weaker agents (Haiku) produced domains equivalent to the stronger ones on the three hardest apps.
+
+### 15.3 Runtime model
+
+An executable model of section 5 (about 400 lines) implements the store, the join, frontiers, the
+fence, one-hop observed deltas, confirming reads, per-record queues, forced repairs and tombstones,
+for one versioned entity with list, count and by-key answers. A fake server applies writes, other
+users' changes and pushes; the network reorders, fails and loses messages, and a lost write may
+still apply. At each quiet point the checker requires C2 (every answer agrees with the server, or is
+marked stale, or involves an uncertain record), C3 (no lookup starts while a repair's response is
+applied), C4 (no field version moves backwards) and C5 (no prediction outlives quiet unless its
+confirming read failed), and again after one machine request.
+
+- **Result:** 40,000 runs of 60 steps pass, at about 26 lookups a run.
+- **What it found in the design:** a response that is behind makes its own answer stale; rejected
+  sources still reach derived answers, one hop from repair responses; streams must deliver in order.
+  It also confirmed that versions must be per field (a response that omits a field must not advance
+  that field's version).
+- **Mutation check:** removing any of eight rules makes runs fail (both bases, the behind rule,
+  rejected sources, the fence, unknown old values, one hop, per-field versions, forced repair). Four
+  removals survive because of the model's simplifications, not because the rules are redundant:
+  confirming reads (every list in the model carries every field), failure repair (the fake server
+  never half-applies), retiring older predictions, and the positional tombstone (the versioned one
+  covers it for a versioned entity).
+- **Limits:** one entity, versioned only; no pages, persistence or audit mode. The implementation's
+  property suite covers those.
 
 ## 16. Review record
 
