@@ -331,8 +331,8 @@ export const TodosDbFixture = tanstackFixture(TodosDb, {
   live-query creation and cleanup, every write's lifecycle (`mutate`, `persisting`, confirmation
   strategy, ending, classification) and every direct write from `tanstack.ingest`.
 - **`flow graph`** draws stream → collections (`sources`), transaction → collection (from
-  `apply`'s recorded collection set, by the same construction probe the entity proposal uses for
-  `optimistic`), and feed → collection (`tanstack.ingest`).
+  `apply`'s recorded collection set, by the same recording the entity domain uses for `.predicts`,
+  `entity-domain.md` section 4), and feed → collection (`tanstack.ingest`).
 - **`flow check`** reports a collection with mutation handlers, a write with no `confirm`, a missing
   `timeout`, and an Electric write whose `persist` result has no txid field.
 

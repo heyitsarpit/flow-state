@@ -4,16 +4,15 @@ Status: the guide every entity proposal is measured against. It states what the 
 improve, what it must not become, which parts of Flow State it must work with, and what
 "correct" means. It is not a design and names no API.
 
-Proposals measured against it:
+Documents measured against it:
 
-- `entity-proposal.md`: operation-first, the chosen direction; to be cut to tier 1 (section 3.3);
-- `entity-coordinator.md`: an extension that gives coordination policy one owner per domain;
-- `sync-engine-adapter.md`: the tier-2 plug-in point, a future path; its section 0 binds version 1;
-- `entity-knowledge-store.md`: set aside: it rebuilt the client half of a sync engine (section 3.3);
-- `entity-centric-proposal.md`: superseded, kept for reference.
+- `entity-domain.md`: the tier-1 proposal, the chosen direction;
+- `entity-domain-examples.md`: five apps written with it;
+- `sync-engine-adapter.md`: the tier-2 plug-in point, a future path; its section 0 binds version 1.
 
-The previous version of this file (the model comparison and open questions A–H) is in git history
-at commit `df45fec2`.
+Earlier proposals (operation-first, entity-centric, the coordinator, the knowledge store) are in
+git history at commit `ad129cc4`; `entity-domain.md` section 12 says why the domain was chosen. The
+first version of this file is at commit `df45fec2`.
 
 ---
 

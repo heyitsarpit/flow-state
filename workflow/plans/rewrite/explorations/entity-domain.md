@@ -1,15 +1,13 @@
-# Entity domain (draft 4): operations know nothing of entities
+# Entity domain: the tier-1 proposal (draft 4)
 
-Status: an experimental variant of `entity-coordinator.md` (option B of tier-1 decision 1), not
-decided. It does not replace that file. It is measured against `entities.md` and stays within
-tier 1 (section 3.3): no predicted list membership. Code is illustrative.
+Status: **the tier-1 entity proposal**, the chosen direction. It is measured against `entities.md`
+(goals, boundaries, correctness C1–C8) and stays within tier 1 (`entities.md` section 3.3): records
+stay coherent, answers are repaired, fields are predicted, and list membership is never predicted.
+It builds on `minimal-library.md` decisions 1–8a. Code is illustrative.
 
-Draft 4 rebuilds what Stories, the CLI and inspection see (sections 6 to 8) after four reviews;
-section 16 records them. Draft 3 first added those sections. Draft 2 replaced draft 1's
-vocabulary, which read as runtime mechanics (`answer`, `holds`,
-`returns`, `where: { Note: { folderId: input("folderId") } }`), with declarations that read as
-sentences. It records them the way TanStack DB's query builder does, and states the runtime in the
-terms of differential dataflow. Section 14 lists the research behind each choice.
+The alternatives it was chosen over (operation-first fields, the entity-centric members, the
+coordinator with picks in results, and the knowledge store) are in git history at commit
+`ad129cc4`; section 12 says why this one won. Section 16 records the reviews of its latest draft.
 
 ---
 
@@ -24,6 +22,24 @@ terms of differential dataflow. Section 14 lists the research behind each choice
 
 An operation module never imports an entity. Adopting entities edits the domain, not the
 operations.
+
+### 1.1 What a domain is
+
+A domain owns the shared data of a few entities whose rules reference each other (notes and their
+folders). Its contract:
+
+1. **Closed set.** It lists every operation that reads, writes or reports changes to its entities.
+   Each operation belongs to at most one domain.
+2. **Sole handle.** Machines reach those operations only through the domain (`O.Notes.rename`).
+3. **Declarations only.** Every function in it is recorded once (section 4); nothing in it sends,
+   commits, reads another resource or chooses a state.
+4. **Ownership.** It names the API service it owns (`{ api: NotesApi }`); an operation that requires
+   that service must be registered in it.
+5. **Explicit boundaries.** A domain that must repair when another domain's writes settle names
+   those writes (`.dependsOn(NotesDomain.rename)`); it never reaches into the other's records.
+6. **Configured, not programmed.** Its behaviour is the runtime's fixed algorithm (section 5). It is
+   not a machine and has no user logic, because cache-maintenance code written by authors is the
+   code that fails. Machines remain the only place workflow is written.
 
 ## 2. Reading a domain
 
@@ -56,6 +72,7 @@ word, and no path or field is written as a string.
 | `.predicts(({ input }) => changes)` | what to show before the server answers |
 | `.alsoChanges(({ input }) => targets)` | the server also changes these records, which the response does not carry |
 | `.oneAtATimePerRecord()` | writes to one record queue across every screen |
+| `.dependsOn(OtherDomain.write)` | this domain's reads repair when another domain's write settles |
 | `.as((event) => change)` | how one stream event becomes a record change |
 | `eq`, `oneOf`, `contains`, `between`, `overlaps`, `and` | conditions inside `.where` |
 | `Note.patch`, `Note.save`, `Note.delete`, `Note.all` | changes to, and sets of, records |
@@ -260,9 +277,9 @@ entity (the safe default).
 
 ## 5. Repair: the runtime, in differential-dataflow terms
 
-The runtime is `entity-proposal.md` section 6 (ordering, contested and held fields, tombstones,
-holding, persistence of confirmed data, one-hop repair). Draft 2 states it with four ideas from
-differential dataflow, which turn its special cases into consequences.
+The runtime is stated with four ideas from differential dataflow (sections 5.1 to 5.5), which
+turn what used to be special cases into consequences, plus the store rules they rest on (section
+5.6).
 
 ### 5.1 Every change is a delta
 
@@ -324,6 +341,48 @@ nothing; a bulk write repairs each answer once.
 
 Behaviour is unchanged; the rules now follow from one model, and a missing case shows up as a
 missing term.
+
+### 5.6 Store rules
+
+**Records.** One record per key holds the fields received so far, each with the version, start
+revision and landed revision of the write that set it. A record's **base** is what the server has
+said; its **visible** value is the base with live predicted deltas on top.
+
+**Ordering.** A write replaces a stored field when both carry a version and its version is strictly
+greater (a lower version is rejected; an equal one falls through), or otherwise when its request
+started at or after the stored field's landed revision. A lookup's start is when it was sent; a
+push's is when it arrived; a write's confirmed fields start when the write settled.
+
+**Contested fields.** Without versions, start order is not server truth. A field is contested when
+a write carries a different value and either lands on a field another write set after this write was
+sent, or is skipped by the ordering rule. A contested record is refetched by its loader and every
+answer holding it. If one field flips between two sources twice in a row, read-triggered repair for
+it stops and `FieldDisagrees` is reported (two endpoints use one name for different values);
+repeated forced repairs of one record are capped and reported as `ContestLoop`.
+
+**How a write ends.**
+
+| Ending | Predicted deltas | Repair |
+| --- | --- | --- |
+| success | fields the response carries replace them; a predicted field it omits is **held** until a later delta for that field | affected answers |
+| failure or defect | removed | affected answers, all fields |
+| rejected, or cancelled before sending | removed | none |
+| uncertain (cancelled after sending, response lost, restored mid-flight) | kept and marked `pending` | **forced**: the record's loader and every answer holding it refetch; the deltas end when a read that started after the write covers the record |
+
+**Holding.** A record exists while an answer references it (until the answer's `gcTime` after its
+last subscriber), a loader subscription holds it, or a predicted delta is live. A pushed change to a
+record nothing holds is matched against active answers (unknown fields count as matching) and makes
+the matching ones stale; the record itself is not stored.
+
+**Deletes.** A delete hides the record in every answer and leaves a tombstone while any lookup that
+started before it is in flight, so that lookup cannot bring the record back. A `notFound` never
+deletes a record whose create is unsettled.
+
+**Persistence.** Only confirmed data is persisted: each persisted answer's references and context,
+and for each record only the fields persisted answers project. Restore writes at revision 0 and
+lowers every restored answer's frontier, so live data wins. A write restored as uncertain keeps its
+records `pending` until its forced repair lands. A different principal is a new Runtime.
+
 
 ---
 
@@ -725,17 +784,18 @@ is advanced a long way and no new lookup may start: a refetch loop shows up here
 - **Two concurrency settings**: `concurrency` on the transaction and `.oneAtATimePerRecord()` in the
   domain. Different concerns, two knobs.
 
-## 12. Compared with `entity-coordinator.md`
+## 12. Why this design
 
-| | Coordinator (draft 1) | This draft |
-| --- | --- | --- |
-| identity of rows | picks inside the operation's `result` | `.one` and `.list`, record shape inferred |
-| conditions | `when` closures and `ignoreChanges` lists | recorded `.where` with operators, `.unaffectedBy` |
-| operation modules import entities | yes | no |
-| adopting entities | edit results, then register | register only |
-| feeds | the stream emits record changes | the stream emits plain events; `.as` maps them |
-| the runtime | rules listed one by one | deltas, a join, frontiers, consolidation |
-| everything else | the same: ownership, closed set, impact table, generated test, per-record order | the same |
+Five designs were written to the same scope and reviewed with the same lenses (git history,
+commit `ad129cc4`):
+
+| Design | Why not |
+| --- | --- |
+| entity-centric: operations live on `Note.members` | two vocabularies; a layer rule agents must apply first; adopting an entity renamed operations in every machine |
+| operation-first: `depends`, `optimistic`, `affects` on each operation | an open set, so no closed-world checks or generated test; `"none"` tokens on every operation; a callback form for typing |
+| coordinator with picks in results | `when` closures tools cannot read or index; operations imported entities |
+| knowledge store | predicted list membership and completeness: the client half of a sync engine, outside tier 1 |
+| **this domain** | conditions as data, operations kept plain, one owner per domain, sentences an agent can read; the cost is the recording rule of section 4.4 |
 
 ## 13. Open questions
 
