@@ -3,6 +3,8 @@
 Status: exploration, not part of version 1. No plan has been changed for it; section 14 lists the
 plan changes it would need. Where this document and a plan differ, the plan wins.
 
+Examples by use case: [fragment-examples.md](fragment-examples.md).
+
 ## 1. The problem
 
 Machines repeat behaviour. In the reference app, the editor's lock retry with backoff and the
