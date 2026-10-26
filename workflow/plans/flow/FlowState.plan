@@ -46,6 +46,7 @@ outcomes
         S8 React — attachment and consistent views; needs S3; gate @V8.
         S9 Inspection and CLI — needs S5 and S7; lazy-entry proofs run in S10; gate @V9.
         S10 SSR, lazy features and proving app — needs S6, S8 and S9; gate @V10.
+        S11 Story playback — needs S7 and S8; follows the version 1 gates; gate @V11.
 
 decisions
     D1  Structure is data and compiles to one representation
@@ -96,6 +97,7 @@ verification
     V10  S10: SSR, lazy-feature, property and installed-consumer proofs pass
         (@plan.ServerRendering.V1 to V10, @plan.React.V6, @plan.LazyFeatures.V1 to V7,
         @plan.Testing.V7, @plan.Package.V1 to V4).
+    V11  S11: playback proofs pass (@plan.Testing.V9).
 questions
     Q1  Deferred to build time
         Algorithm port selection and module layout. Stage task breakdown and scheduling of the S7

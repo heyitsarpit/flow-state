@@ -66,17 +66,18 @@ outcomes
         inherit a live store. Storage fixtures may seed encoded records before bootstrap, but cannot
         bypass production validation. Acquisition failures still trigger @O8 cleanup.
     O4  Frames, checkpoints and StoryFrame
-        A frame is one captured cut of the run. A run records a frame after every command by
-        default, or after every committed publication with frames: "publication"; frames: "named"
-        records only checkpoints. Consecutive identical frames collapse into one. A run keeps at
-        most 10,000 frames and marks truncation explicitly. Each frame names its cause (command
-        index or publication sequence) and refers to evidence by sequence position rather than
-        copying it. A checkpoint is a named frame: checkpoint(name) captures immediately without
-        processing. end captures after the last command, before cleanup; it does not mean actors
-        have reached final states. A cut includes every live actor in that Runtime, including local
-        and nonpersisted actors, and no foreign actor. It captures complete published snapshots, one
-        store revision, now, pending work and due times, issues and evidence; partially published
-        context waves never appear as complete.
+        A frame is one captured cut of the run. A run records an initial frame before its first
+        command and a frame after every command by default, or after every committed publication
+        with frames: "publication"; frames: "named" records only checkpoints. Consecutive identical
+        frames collapse into one. A run keeps at most 10,000 frames and marks truncation explicitly.
+        Each frame names its cause (the command, with the event a send carried, or the publication
+        sequence) and refers to evidence by sequence position rather than copying it. A checkpoint
+        is a named frame: checkpoint(name) captures immediately without processing. end captures
+        after the last command, before cleanup; it does not mean actors have reached final states. A
+        cut includes every live actor in that Runtime, including local and nonpersisted actors, and
+        no foreign actor. It captures complete published snapshots, one store revision, now, pending
+        work and due times, issues and evidence; partially published context waves never appear as
+        complete.
 
         checkpoint.actor(ref) returns undefined for an absent actor, otherwise exposes snapshot.
         Focused checkpoints also expose snapshot directly. end supports the same reads. now is
@@ -96,14 +97,16 @@ outcomes
         Reads start no work and cannot resume a Runtime. Exported evidence follows
         @plan.Inspection.O5. Failed capture fabricates no end and preserves earlier checkpoints.
 
-        <StoryFrame frame={frame} tab?> renders real components from one frame without attachment,
-        restoration or operation starts. Actors the run captured read their snapshot at that frame.
-        An ensuring hook for an actor the frame lacks returns the pre-attach snapshot of
-        @plan.React.O2, starts nothing and is reported as a gap of that frame; a lookup for one
-        returns null. useActor returns its pure pre-attach snapshot. useNow returns the frame's now.
-        Clicks are inert: sends never execute, and Flow's own tools may compare them with the
-        Story's next command. Eligibility uses production checks, including denial reasons and
-        context. tab selects a tab's cut (@O7). Rendering a frame is not a restore or a replay.
+        <StoryFrame frame={frame} tab?> takes a frame and an optional tab and renders real
+        components from it without attachment, restoration or operation starts. Actors the run
+        captured read their snapshot at that frame. An ensuring hook for an actor the frame lacks
+        returns the pre-attach snapshot of @plan.React.O2, starts nothing and is reported as a gap
+        of that frame; a lookup for one returns null. useActor returns its pure pre-attach snapshot.
+        useNow returns the frame's now. Clicks are inert: sends never execute; inside a StoryPlayer
+        (@O9) the player may compare them with the Story's next command. The application is rendered
+        below its FlowProvider, since StoryFrame supplies the Flow context. Eligibility uses
+        production checks, including denial reasons and context. tab selects a tab's cut (@O7).
+        Rendering a frame is not a restore or a replay.
     O5  Models and replay
         model(baseStory, { stateKey }) accepts a command-empty focused Story, preserving its input,
         context, services and fixtures. stateKey maps a predicted snapshot to all guard-relevant
@@ -202,6 +205,22 @@ outcomes
         bootstrap/capture/cleanup boundary, primary and cleanup diagnostics, cancellation flag,
         trace and truncation, and last accepted and drained evidence positions. Direct and CLI runs
         agree on results and retained evidence.
+    O9  Story playback
+        <StoryPlayer run={run}> plays a run's frames over time under a floating overlay, built only
+        from StoryFrame; <StoryPlayer presentation={presentation}> first records the presentation's
+        own Story once on mount. Recording is the only execution: playing, stepping, scrubbing and
+        restarting render existing frames, so moving backwards is a lookup, never a re-execution.
+        Re-recording happens only on mount or on request, never from a cached run. Controls are
+        play, pause, next and previous (by frame, command or scene), scrub, speed, restart and
+        inspect, which shows the frame's cause, gaps and the run's evidence for it, or evidence
+        unavailable beyond the trace's retained window.
+
+        definePresentation(story, { scenes, pacing? }) describes how to present one Story's run. A
+        scene names a checkpoint of that Story (a type error otherwise) and may carry a caption, a
+        hold and a route string for the host's router; it applies from its frame until the next
+        scene. pacing has speed, maxWait and minDwell. A presentation holds no event callbacks; the
+        Story stays the only source of events. The player highlights the control whose click would
+        send the Story's next event. Route changes run host code; only Flow work is inert.
 verification
     V1  Type errors prove exact inputs, context, services and checkpoint keys.
     V2  Stories prove inert construction, branch isolation, fixture overrides and fresh storage.
@@ -213,6 +232,8 @@ verification
     V7  Stories prove isolated hydration evidence, exact-step lazy adoption without loading, reload
         by closeTab/openTab, and a second tab running without persistence.
     V8  Tests prove cancellation, cleanup failures and direct/CLI partial-evidence parity.
+    V9  Player tests prove playback starts no Flow work, scrubbing never re-executes, and
+        presentation scenes reject unknown checkpoints.
 questions
     Q1  What measured quiet horizon and shrink budget should replace the initial defaults?
         Retain 60 virtual seconds and 1,000 shrink candidates until measurements justify a change; a
