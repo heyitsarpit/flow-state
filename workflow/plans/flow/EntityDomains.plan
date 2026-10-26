@@ -31,7 +31,7 @@ outcomes
         excluded from condition/order record proxies and patches. One entity object per id is
         allowed in the adopted graph; duplicated module copies are collisions. At most one
         byKey loader per entity exists across the adopted App. result Schema is required for
-        domain reads, so places and carried field shapes can be checked (@plan.Operations.O1).
+        domain reads, so places and carried field shapes can be checked (@plan.FlowOperations.O1).
         flow check errors on duplicate byKey loaders and operations registered in two domains
         or reached outside their registering domain; types reject registered-value misuse where
         visible. An unregistered operation whose result carries an entity's key fields produces
@@ -219,7 +219,7 @@ outcomes
         repair lands, replaying later predictions over repaired base. No connectivity/focus gate.
 
         unknown delivers the exported Attempt Schema (id and encoded input, with operation/key
-        identity under @plan.Operations.O3); machines author an uncertainty state with an exit.
+        identity under @plan.FlowOperations.O3); machines author an uncertainty state with an exit.
         O.X.retry(select, options) reissues that exact Attempt and id; a known settled attempt
         settles immediately without invocation (decisions 6 and 36). basedOn gives the version
         each prediction was computed over for an API's If-Match; it cannot prove the old write
@@ -248,14 +248,14 @@ outcomes
 
         value outcomes see confirmed data only (decision 12): changes compare with Equal.equals;
         predictions and optimistic layers never fire value, equal values are silent. A machine
-        memory baseline therefore never captures a prediction (@plan.Operations.O2).
+        memory baseline therefore never captures a prediction (@plan.FlowOperations.O2).
         Reference: references/dispatch-desk/features/Tickets/ticket.domain.ts,
         features/Tickets/queue/queue.test.ts and features/Tickets/editor/editor.machine.ts.
     O2  Rules restated from archived citations
         The following imports are stated here so no archived citation has residual authority.
         Current capability owners supply the full contracts at @plan.Testing.O1,
         @plan.Testing.O2, @plan.Testing.O3, @plan.Testing.O4, @plan.Inspection.O1,
-        @plan.Inspection.O3, @plan.Inspection.O4 and @plan.CommandLine.O4.
+        @plan.Inspection.O3, @plan.Inspection.O4 and @plan.FlowCommandLine.O4.
 
         Archived StoriesAndModels O1-O3 (imported by design section 6): builders are inert,
         commands create persistent plans, branches replay independently, each run owns one fresh
@@ -345,7 +345,7 @@ outcomes
         reads, queue heads/halts and uncertainty; trace diff --section repairs compares normalised
         ordered decisions. Unknown domain/read/entity/key/artifact/checkpoint exits 2; producing
         an explanation, stale or insufficient evidence included, exits 0. A truncated absence
-        cannot establish an unknown selector (@plan.CommandLine.O4).
+        cannot establish an unknown selector (@plan.FlowCommandLine.O4).
 
         Archived InspectionAndArtifacts O3/O4, amended by design section 7.4: emit ordered delta
         (source, fields, digests, as event digest and mapping result), field (accept/reject/contest,
@@ -398,7 +398,7 @@ outcomes
         or two-tab entity property mode. Persistence instead requests an ifAvailable Web Lock
         for (app id, scope) at ready(), holds it to dispose, and on denial runs without restore
         or capture with SecondTabNoPersistence. With no navigator.locks, persistence proceeds
-        without a check. @plan.Persistence.O1 owns this boundary. Atomic scope writes still bind.
+        without a check. @plan.FlowPersistence.O1 owns this boundary. Atomic scope writes still bind.
 
         Lazy domain joining (decision 31; references/design/lazy-features.md section 5) joins the
         same Runtime store and repair graph synchronously at admission before ensure/create.
@@ -467,7 +467,7 @@ outcomes
         option defaulting to 6, with starts in canonical order. Paged repair costs N sequential
         requests for N loaded pages; all count as one repair slot. Prediction replay costs live
         predictions bounded by finite per-record queues. Queue capacity is 64 waiting occurrences
-        per record, aligned with @plan.Operations.O3's serialize queue: reject the whole incoming
+        per record, aligned with @plan.FlowOperations.O3's serialize queue: reject the whole incoming
         multi-record admission before predictions, queue joins or adapter work if any queue
         would overflow, with AdmissionOverloaded naming the record and limit (decision 21).
         Canonical repair order is delta, authored domain entry order, canonical input key;
@@ -476,7 +476,7 @@ outcomes
         Evidence uses @O2's exact bounded retention and truncation; recorded constants and
         persisted/SSR/artifact data use @plan.Inspection.O2's structural limits: depth 32,
         10,000 nodes, 4,096 array items, 262,144-byte strings and 2 MiB canonical size. Operation
-        keys retain their distinct 16-level, 256-node, 8,192-byte limits (@plan.Operations.O1).
+        keys retain their distinct 16-level, 256-node, 8,192-byte limits (@plan.FlowOperations.O1).
         High-frequency membership churn across many pages belongs to tier 2, not an exception
         to these bounds. Production has no cross-turn execution budget; Stories use @O2's bound.
         Reference: none yet (stage S10 adds it).

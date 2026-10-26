@@ -1,4 +1,4 @@
-plan Operations
+plan FlowOperations
 title   Operations: reads, commits, streams and activity lanes
 status  proposed
 goal
@@ -11,16 +11,16 @@ outcomes
         stream({ id, key?, subscribe, result?, persist? }) return inert descriptors; constructing
         one starts no work. Descriptor ids follow @plan.Machines.O1; distinct descriptors with
         the same id reachable from one App fail construction. Runtime activation is 
-        @plan.Runtime.O1.
+        @plan.FlowRuntime.O1.
 
         lookup(params, { signal }) and commit(params, { signal, attempt, basedOn }) return Effects;
         subscribe(params, { signal }) returns a Stream. Parameter, value, error and service types
-        remain intact through declarations and use; service provision follows @plan.Runtime.O2.
+        remain intact through declarations and use; service provision follows @plan.FlowRuntime.O2.
         result and input are Effect Schemas. Persisted resources and streams require result;
         domain reads require it under @plan.EntityDomains.O1. Boundary transfer without result
         follows @plan.ServerRendering.O3. Typed errors never cross those boundaries.
         persist defaults to false; transactions have no persist option. Storage is 
-        @plan.Persistence.O2.
+        @plan.FlowPersistence.O2.
 
         staleTime and gcTime are required nonnegative Duration inputs; invalid values fail
         construction. Zero means immediately stale or collected at the next turn boundary after
@@ -71,7 +71,7 @@ outcomes
 
         value fires for confirmed data at binding and subsequently only when it changes by
         Equal.equals; optimistic values and predictions never fire it. Restored or hydrated
-        bindings do not remap an already mapped version (@plan.Persistence.O4, 
+        bindings do not remap an already mapped version (@plan.FlowPersistence.O4, 
         @plan.ServerRendering.O4).
         A live subscription, request or optimistic layer holds an entry. After its last hold,
         gcTime on the Runtime Clock removes it; later use starts missing. Releasing one owner
@@ -88,7 +88,7 @@ outcomes
         Flow mints a unique id; adapters receive it for remote idempotency. Input uses the input
         Schema or a structural encoding; unencodable input rejects admission before work starts.
         Domain prediction versions arrive as basedOn under @plan.EntityDomains.O1; otherwise {}.
-        Attempt durability before invocation and recovery follow @plan.Persistence.O6.
+        Attempt durability before invocation and recovery follow @plan.FlowPersistence.O6.
 
         Concurrency is per actor, descriptor and key; other actors and keys are independent.
         reject declines a second unsettled commit without work or outcome; the action continues.
@@ -127,7 +127,7 @@ outcomes
         complete, failure, defect and adapter interrupt end the session once, retain its data
         and map their optional outcomes. A terminal session restarts only on identity change or
         state re-entry. Planned release maps no outcome; released sessions cannot publish later.
-        Persisted latest values and session reopening follow @plan.Persistence.O4.
+        Persisted latest values and session reopening follow @plan.FlowPersistence.O4.
     O5  Writes and optimistic values
         O.x.setData(select) returns { key, data }; data is a value or updater(current) => A | 
         undefined.
@@ -178,9 +178,9 @@ outcomes
         O.x.cancel(select) cancels this actor's queued and running commits for a key. Resources
         have no cancel action. Before invocation, cancellation is silent and removes optimistic
         updates; after invocation it reports unknown and blocks late results. Actor disposal
-        waits for invoked commits; bounded disposal follows @plan.Runtime.O6.
+        waits for invoked commits; bounded disposal follows @plan.FlowRuntime.O6.
         Cleanup failure reports an issue without undoing a published transition. Disposal
-        failure follows @plan.Runtime.O6; Cause handling follows @plan.Diagnostics.O3. After
+        failure follows @plan.FlowRuntime.O6; Cause handling follows @plan.FlowDiagnostics.O3. After
         cleanup, late results cannot change data, lanes, outcomes or replacement work.
 verification
     V1  Type proofs preserve adapter types and reject invalid options and outcome mappings.

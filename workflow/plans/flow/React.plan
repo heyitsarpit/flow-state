@@ -13,7 +13,7 @@ outcomes
         Hooks use the nearest Provider; unrelated nested Runtimes never share data or ownership.
         useView rejects a foreign Runtime's handle with a provenance FlowError before subscribing.
         The host constructs a new Runtime for a principal switch and disposes the old one;
-        changing the Provider key alone does not dispose it. Isolation follows @plan.Runtime.O7.
+        changing the Provider key alone does not dispose it. Isolation follows @plan.FlowRuntime.O7.
         All useView reads in one render see one consistent version across actors and store entries.
     O2  Hooks and the first render
         useActor(machine, options?) returns one fresh local actor handle per component incarnation.
@@ -31,14 +31,14 @@ outcomes
         Render registers nothing, subscribes to nothing, starts no work, writes no storage and emits
         no evidence, including lazy adoption. Pure initializers may run in discarded renders.
         Fresh attachment keeps the prepared memory; restored/shared actor precedence is 
-        @plan.Runtime.O3.
+        @plan.FlowRuntime.O3.
         Server and hydration snapshots follow @plan.ServerRendering.O4.
         Handles, sends and typed event constructors stay stable for the same identity. Equivalent
         refs resolve the same actor; changing the ref resolves the new identity. Local input is read
         once; changing local machine or input requires a keyed remount and emits a development 
         diagnostic.
         Shared input never resets an existing actor; conflicting ref options follow 
-        @plan.Runtime.O3.
+        @plan.FlowRuntime.O3.
     O3  Attach, detach, Strict Mode and grace
         After commit and readiness, an ensuring hook attaches the same handle through the Runtime.
         It uses current provider context without replaying initial, input or onContext work.
@@ -46,15 +46,15 @@ outcomes
         Before attachment, at most 64 sends buffer in FIFO order; send 65 throws
         FlowError(AdmissionOverloaded) without accepting the event. Attachment delivers accepted 
         sends
-        exactly once through @plan.Runtime.O4. Closed or abandoned handles reject later sends;
+        exactly once through @plan.FlowRuntime.O4. Closed or abandoned handles reject later sends;
         discarded renders never deliver their buffered events to another component incarnation.
         Local cleanup leaves the actor active for 100 milliseconds on the Runtime Clock. Reattach
         before expiry keeps the actor and cancels disposal; expiry disposes it through the Runtime.
         Work continues during grace. Strict Mode cleanup/setup never duplicates work or loses the 
         actor.
-        Shared ensuring hooks count as uses until cleanup; retention follows @plan.Runtime.O3.
+        Shared ensuring hooks count as uses until cleanup; retention follows @plan.FlowRuntime.O3.
         Dropping a JavaScript handle disposes nothing. Explicit disposal is visible to all users;
-        a mounted ensuring hook re-ensures a fresh incarnation under @plan.Runtime.O6.
+        a mounted ensuring hook re-ensures a fresh incarnation under @plan.FlowRuntime.O6.
         Unmount while awaiting readiness never admits later. Reattach during disposal waits for
         cleanup; failed cleanup surfaces through @O5. Activity hiding beyond grace loses local state
         under the current policy; reveal creates a fresh actor, subject to @Q1.
@@ -66,7 +66,7 @@ outcomes
         Selectors read frozen state, memory, context, issues, lifecycle and activities. A disposed
         snapshot keeps its last state, memory and context with lifecycle disposed.
         State tokens narrow snapshot types; check(s, event) follows @plan.Machines.O4.
-        Activity data follows @plan.Operations.O6; inspection data follows @plan.Inspection.O1.
+        Activity data follows @plan.FlowOperations.O6; inspection data follows @plan.Inspection.O1.
         descriptor.get and Entity.get are passive: reading never fetches, mutates or retains data.
         Selectors start no work and acquire no ownership. Transactions have no view reader.
         Changes to currently selected descriptor keys update the view even without an actor change;
@@ -80,10 +80,10 @@ outcomes
         intact.
         Initial attachment or hydration validation failure aborts admission without a partial actor.
         Readiness, admission, lazy adoption, provenance and cleanup failures retain the FlowError
-        classification of @plan.Diagnostics.O1 and rethrow on the next render. Boundary reset allows
+        classification of @plan.FlowDiagnostics.O1 and rethrow on the next render. Boundary reset allows
         adoption retry on a later attachment, never by loading during render.
         Resource failure lanes and typed machine errors remain view data; they do not automatically
-        throw. Unknown commit reconciliation follows @plan.Operations.O3. Hooks never suspend.
+        throw. Unknown commit reconciliation follows @plan.FlowOperations.O3. Hooks never suspend.
 verification
     V1  Type/mount tests prove exact hook types, Provider isolation, readiness and boundary errors.
     V2  Render tests prove pure snapshots, stable handles, ref changes and no discarded-render work.

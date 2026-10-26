@@ -1,4 +1,4 @@
-plan Persistence
+plan FlowPersistence
 title   Persistence: durable state without replaying work
 status  proposed
 goal
@@ -11,14 +11,14 @@ outcomes
         Without it, Flow acquires no storage and performs no restore, capture or storage I/O.
         scope and version are required nonempty strings; versions match exactly. Different apps and
         scopes never read, overwrite or delete each other's data. Principal isolation follows
-        @plan.Runtime.O7.
+        @plan.FlowRuntime.O7.
 
         Enabled persistence requires an Effect KeyValueStore service from effect/persistence;
         missing provision is a type error. Untyped missing provision fails ready with 
         StorageFailure.
         construct() performs no I/O. Storage is available before restore; saved data is validated
         before actors start. Failed bootstrap exposes no partially restored live app and releases
-        acquired resources under @plan.Runtime.O2.
+        acquired resources under @plan.FlowRuntime.O2.
 
         Flow supplies layerIndexedDb({ database? }) as a KeyValueStore Layer. It preserves saved
         values, releases its connection on disposal and reports storage failures. Authors can supply
@@ -67,13 +67,13 @@ outcomes
 
         Page hide, visibility becoming hidden and Runtime disposal request a flush. Browser exit
         flushing is best effort. Disposal waits for the last write before releasing storage and
-        ownership, subject to bounded disposal in @plan.Runtime.O6. A stalled write reports failure
+        ownership, subject to bounded disposal in @plan.FlowRuntime.O6. A stalled write reports failure
         rather than hanging or claiming a completed flush.
     O4  Restore without replay
         ready() restores a complete compatible scope before actor work starts. Restored stable
         actors are active without another ensure; ensureActor returns the restored actor and ignores
         fresh input. Their retain clock starts at ready. Ref-option conflicts follow
-        @plan.Runtime.O3. Restore never runs initial again or replays old input or turns.
+        @plan.FlowRuntime.O3. Restore never runs initial again or replays old input or turns.
 
         Saved context bindings select the same providers and establish a silent baseline, without
         an onContext event. Saved mapped outcomes are delivered once, in saved order after 
@@ -85,7 +85,7 @@ outcomes
         Restored resource data starts stale. A live binding can start a fresh policy-driven lookup;
         key-only entries remain passive until a live binding supplies parameters. Parameters are
         never reconstructed from a cache key. Restored unobserved entries start gcTime at ready;
-        resource freshness and parameter selection follow @plan.Operations.O2.
+        resource freshness and parameter selection follow @plan.FlowOperations.O2.
         Hydration precedence follows @plan.ServerRendering.O5.
 
         Restored schedules and hidden-tab resume follow @plan.Machines.O5.
@@ -105,12 +105,12 @@ outcomes
         retroactively fails a committed actor turn. A later publication retries the newest state.
         Encoding failure skips the whole write. Failures reach Runtime diagnostic observers even
         without mounted durable actors; a failing inspection sink cannot interrupt persistence.
-        Error vocabulary and remediation follow @plan.Diagnostics.O2.
+        Error vocabulary and remediation follow @plan.FlowDiagnostics.O2.
 
         runtime.dispose({ forget: true }) waits for this scope's data to be made unrestorable and
         deleted before releasing ownership. Failed deletion reports StorageFailure and never claims
         successful forgetting. Ordinary disposal retains saved data. A Runtime running without
-        persistence performs no forget I/O. Disposal failures follow @plan.Runtime.O6.
+        persistence performs no forget I/O. Disposal failures follow @plan.FlowRuntime.O6.
     O6  Durable attempts before remote writes
         A persisted actor's remote commit cannot invoke its adapter until storage acknowledges its
         Attempt, including id and encoded input. If acknowledgment fails, the adapter is not called;
@@ -121,7 +121,7 @@ outcomes
         evidence proves the adapter could not have run. A saved queued label alone is insufficient:
         dispatch may have happened after that saved capture. Flow never automatically repeats a
         remote write. Already saved mapped outcomes are delivered rather than replaced by unknown.
-        Explicit retry(attempt) and known-settled behavior follow @plan.Operations.O3.
+        Explicit retry(attempt) and known-settled behavior follow @plan.FlowOperations.O3.
         A later Runtime never reuses an Attempt identity for an unrelated write.
 
         Non-persisted actors, including a Runtime refused persistence under @O7, have no attempt

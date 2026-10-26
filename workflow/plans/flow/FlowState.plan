@@ -9,16 +9,16 @@ goal
 
     Capability plans own their contracts, decisions and proofs:
     Machines — states, turns, guards and continuing work (@plan.Machines.O1).
-    Runtime — apps, readiness, actors, messaging and context (@plan.Runtime.O1).
-    Operations — reads, commits, streams, writes and lanes (@plan.Operations.O1).
+    Runtime — apps, readiness, actors, messaging and context (@plan.FlowRuntime.O1).
+    Operations — reads, commits, streams, writes and lanes (@plan.FlowOperations.O1).
     EntityDomains — coherent records, repair and predictions (@plan.EntityDomains.O1).
-    Persistence — capture, restore and second-tab refusal (@plan.Persistence.O1).
+    Persistence — capture, restore and second-tab refusal (@plan.FlowPersistence.O1).
     ServerRendering — request isolation and SSR hydration (@plan.ServerRendering.O1).
     LazyFeatures — deferred adoption and dormant durable data (@plan.LazyFeatures.O1).
     React — attachment, consistent views and component lifetime (@plan.React.O1).
     Testing — Stories, fixtures, checkpoints, models and properties (@plan.Testing.O1).
-    Diagnostics — FlowError, codes and actionable failures (@plan.Diagnostics.O1).
-    CommandLine — installed commands, checks and process behaviour (@plan.CommandLine.O1).
+    Diagnostics — FlowError, codes and actionable failures (@plan.FlowDiagnostics.O1).
+    CommandLine — installed commands, checks and process behaviour (@plan.FlowCommandLine.O1).
     Inspection — structural and live inspection, traces and safe evidence (@plan.Inspection.O1).
     Package — routes, dependency identity and installed consumers (@plan.Package.O1).
 
@@ -58,7 +58,7 @@ decisions
         Runtime services and Story fixtures are Effect Layers.
     D8  Authoring returns values and throws one FlowError
         Authoring calls return their values directly; invalid construction throws FlowError as
-        specified by @plan.Diagnostics.O1.
+        specified by @plan.FlowDiagnostics.O1.
 constraints
     C1  Archived Plans are provenance only
         Nothing under workflow/plans/archive or workflow/tasks/archive establishes a requirement.
@@ -66,7 +66,7 @@ constraints
         the owning capability plan.
     C2  Version 1 scope
         Include Next.js SSR hydration, lazy features and persistence with second-tab refusal
-        (@plan.Persistence.O7). Exclude React Suspense, multi-tab sharing, tier-2 sync engines and
+        (@plan.FlowPersistence.O7). Exclude React Suspense, multi-tab sharing, tier-2 sync engines and
         cross-origin sync.
     C3  Toolchain
         Use Node 22.18+, pinned nub@0.7.5, TypeScript 7.0.2, Vite Plus and Effect 4.0.5.
@@ -74,13 +74,13 @@ constraints
 verification
     V1  S1: authoring type proofs pass (@plan.Machines.V1; @plan.EntityDomains.V1).
     V2  S2: construction and structural proofs pass (@plan.Machines.V2; @plan.Inspection.V1).
-    V3  S3: turn and lifecycle proofs pass (@plan.Machines.V4; @plan.Runtime.V7).
-    V4  S4: read, commit, stream and lane proofs pass (@plan.Operations.O1).
+    V3  S3: turn and lifecycle proofs pass (@plan.Machines.V4; @plan.FlowRuntime.V7).
+    V4  S4: read, commit, stream and lane proofs pass (@plan.FlowOperations.O1).
     V5  S5: entity types and repair properties pass using S7 Stories (@plan.EntityDomains.V2).
-    V6  S6: capture, restore and second-tab refusal proofs pass (@plan.Persistence.O1).
+    V6  S6: capture, restore and second-tab refusal proofs pass (@plan.FlowPersistence.O1).
     V7  S7: Story infrastructure passes before S5 properties; then entity tests (@plan.Testing.O6).
     V8  S8: pure render, attachment and consistent-view proofs pass (@plan.React.O1).
-    V9  S9: inspection and installed CLI proofs pass (@plan.Inspection.O1; @plan.CommandLine.O1).
+    V9  S9: inspection and installed CLI proofs pass (@plan.Inspection.O1; @plan.FlowCommandLine.O1).
     V10  S10: Dispatch Desk gates pass (@plan.ServerRendering.O1; @plan.LazyFeatures.O1).
 questions
     Q1  Deferred to build time

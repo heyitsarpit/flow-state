@@ -21,17 +21,17 @@ outcomes
         a Promise of a StoryRun containing checkpoints, end, trace and any captured payloads.
 
         Both Story kinds support send, process, advance, advanceTo, advanceToNextTimer, checkpoint
-        and run. App ensure(ref, options?) follows @plan.Runtime.O3 at the chosen step.
+        and run. App ensure(ref, options?) follows @plan.FlowRuntime.O3 at the chosen step.
         App send(ref, event) targets that exact ref; focused send(event) targets its actor.
         send never creates an absent actor. Only public events can be sent; internal events require
-        their declared producers. Focused setContext(context) follows @plan.Runtime.O5;
+        their declared producers. Focused setContext(context) follows @plan.FlowRuntime.O5;
         App Stories cannot inject context.
 
         Checkpoint names retain exact literal or known-union keys. Duplicate names, widened strings
         and access through unknown literal keys are type errors; other commands preserve the keys.
         defineConfig({ apps: [{ app, stories }] }) discovers configured exported Stories and rejects
         duplicate or empty ids, foreign setups, incompatible machines and lookalike package values
-        before acquiring resources. Loading and configuration discovery follow @plan.CommandLine.O6.
+        before acquiring resources. Loading and configuration discovery follow @plan.FlowCommandLine.O6.
     O2  Explicit processing and time
         Identical plans, seeds and fixture inputs produce identical ordered traces. Each run has
         fresh service state, seeded ids and randomness, and a controlled clock; host time and
@@ -80,7 +80,7 @@ outcomes
         };
         shape selects fields and missing fields remain missing. Inactive domain answers return
         undefined. Field and queue meanings follow @plan.EntityDomains.O2;
-        descriptor lanes follow @plan.Operations.O6.
+        descriptor lanes follow @plan.FlowOperations.O6.
 
         Cuts retain cumulative repairs, skips and diagnostics in accepted order; run.trace also
         includes cleanup events. Truncation is explicit and cannot prove an absent cause, following
@@ -150,7 +150,7 @@ outcomes
         prevent
         the printed projection alone from reproducing the failure.
     O7  Isolation, hydration and lazy features
-        Run, principal and request isolation follows @plan.Runtime.O7. Tests use no browser storage
+        Run, principal and request isolation follows @plan.FlowRuntime.O7. Tests use no browser storage
         or live state from another run. Shared multi-tab execution is outside v1.
 
         App dehydrate(label, { scope, within, maxBytes? }) captures through production server 
@@ -176,12 +176,12 @@ outcomes
         Success, execution failure, partial acquisition and cancellation all finalize owned 
         resources.
         Cleanup attempts each finalizer once even when another fails; fixtures cannot suppress it.
-        Production disposal guarantees follow @plan.Runtime.O6.
+        Production disposal guarantees follow @plan.FlowRuntime.O6.
 
         Execution or cancellation failure stays primary; otherwise the first cleanup failure is
         primary. Cleanup diagnostics retain their order, and cleanup failure never yields success.
         The full Cause remains available in process through cleanup; projection follows
-        @plan.Diagnostics.O3 and never serializes Cause or private recovery authority.
+        @plan.FlowDiagnostics.O3 and never serializes Cause or private recovery authority.
         Rejection is a FlowError carrying readonly Story evidence: completed checkpoints, captured
         end and payloads if any, failing command index or bootstrap/capture/cleanup boundary,
         primary and cleanup diagnostics, cancellation flag, trace and truncation, and last accepted

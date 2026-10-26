@@ -1,4 +1,4 @@
-plan CommandLine
+plan FlowCommandLine
 title   Discover, run and inspect apps through flow
 status  proposed
 goal
@@ -47,15 +47,15 @@ outcomes
         Requested trace output is attempted even after execution failure; the execution failure
         remains primary and drain, encoding, write and cleanup failures remain visible.
         Interruption stops later Story commands, waits for bounded disposal under
-        @plan.Runtime.O6, and attempts requested partial trace output before reporting interruption.
+        @plan.FlowRuntime.O6, and attempts requested partial trace output before reporting interruption.
         Partial traces retain accepted evidence and cleanup truth and never fabricate an end.
         Cleanup or trace-output failure cannot replace interruption as the primary result.
         Forced process termination provides no cleanup guarantee.
     O3  Results for people and automation
         Text and JSON describe the same result. JSON supplies version: 1, the command leaf,
         status, data and ordered diagnostics; absent data is null. Status is completed, equal,
-        different, incomplete or failed. Diagnostic values follow @plan.Diagnostics.O2;
-        execution failures use FlowError under @plan.Diagnostics.O1.
+        different, incomplete or failed. Diagnostic values follow @plan.FlowDiagnostics.O2;
+        execution failures use FlowError under @plan.FlowDiagnostics.O1.
 
         Successful invocations and comparison/check findings emit one newline-terminated document
         on stdout. Invocation failures emit one document on stderr. Results never mix with loader

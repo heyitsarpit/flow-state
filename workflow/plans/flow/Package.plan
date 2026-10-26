@@ -18,7 +18,7 @@ outcomes
         eq, oneOf, contains, between, overlaps, and, serverMatches, principal, asc, desc.
         Types: Definition, Machine, App, ActorRef, Actor, Snapshot, Runtime, Diagnostic, Attempt.
         Attempt is also a Schema value, carrying id and encoded input, as ruling 36 requires
-        (@plan.Operations.O3).
+        (@plan.FlowOperations.O3).
         - flow-state/react: FlowProvider, useActorByRef, useActor, useView, Hydrate.
         - flow-state/testing: story, model, defineConfig, CheckpointProvider, propertyTest.
         - flow-state/inspect: inspect, render, attachInspector, trace. trace has only import and
@@ -46,7 +46,7 @@ outcomes
         request runtimes and edge hosts. The server capture implementation uses host-neutral
         APIs; a non-Node server host must select react-server to reach the real route. The
         persistence route may be imported without a browser; constructing its Layer is inert
-        and browser storage access begins only on Layer acquisition (@plan.Persistence.O1).
+        and browser storage access begins only on Layer acquisition (@plan.FlowPersistence.O1).
         Testing may import React for CheckpointProvider; root/server/inspect/persistence must
         remain importable without React installed. No route re-exports unrelated root builders,
         internal services, stores, ManagedRuntime, boot, mutable harnesses or public artifact
@@ -70,7 +70,7 @@ outcomes
         layerIndexedDb({ database }) supplies that service because Effect 4.0.5 does not ship an
         IndexedDB Layer. It is not indexedDbStorage, a root re-export, a new persistence()
         configuration object or a second codec. Its storage/lifetime/error contract belongs to
-        @plan.Persistence.O1 and @plan.Persistence.O5.
+        @plan.FlowPersistence.O1 and @plan.FlowPersistence.O5.
 
         package.json declares sideEffects: false. Importing any real route performs no Runtime
         construction, listener registration, storage I/O, actor work or user callback. Acquiring
@@ -101,7 +101,7 @@ outcomes
         configuration objects reject unknown and deleted fields with a construction FlowError,
         path and remediation naming the replacement, before actor creation, mutation, service
         acquisition, publication, evidence or external work. Capability owners define exact
-        diagnostics (@plan.Diagnostics.O2) and prove runtime rejection as well as type rejection.
+        diagnostics (@plan.FlowDiagnostics.O2) and prove runtime rejection as well as type rejection.
 
         Surface disposition imported from PackageContract, in current vocabulary:
 
@@ -110,11 +110,11 @@ outcomes
         runtime.actor, and ID-bearing local creation are deleted. Declared lazy entries
         (@plan.LazyFeatures.O1) do not authorize arbitrary machine registration.
         - DEL-004/005/006: leases and handle disposal are replaced by ensure/create/dispose and
-        active/disposing/disposed lifecycle (@plan.Runtime.O3, @plan.Runtime.O6). Old initial
+        active/disposing/disposed lifecycle (@plan.FlowRuntime.O3, @plan.FlowRuntime.O6). Old initial
         state syntax, final/onDone/output, Boolean reentry and flat-only restrictions are
         replaced by defaults, ordinary leaves and target "self" (@plan.Machines.O2).
         activity kits, operation refs, byKey/byLane enumeration are deleted; named activities
-        and operation families own the replacement (@plan.Operations.O6).
+        and operation families own the replacement (@plan.FlowOperations.O6).
         - DEL-007/008: recursive sharing, custom comparators, Object.is policy and useShallow
         yield to Equal.equals; React shells, root-only hooks, useResource, broad subscriptions
         and view objects yield to provider, actor hooks and passive useView (@plan.React.O1,
@@ -160,7 +160,7 @@ outcomes
         failure, interruption and cleanup boundaries. Promotion waits for owner proofs, required
         reviews, package build/declarations, docs, installed CLI parity, browser gates and the
         complete no-residue audit with explicit receipts. Installed flow must resolve the same
-        package identity as the consumer (@plan.CommandLine.O2).
+        package identity as the consumer (@plan.FlowCommandLine.O2).
 
         Keep packages/flow-state frozen. FlowState owns code disposition and later cutover;
         Plan approval does not authorize source deletion, root-gate retargeting, commits, pushes
@@ -189,7 +189,7 @@ constraints
         APIs and TextEncoder, reject lone surrogates, never use Node Buffer, UTF-16 byte counts
         or a second encoder. Equal accepted data produces equal bytes and identities on Node,
         Bun, Deno, Chromium, Gecko and WebKit. Structural limits and canonicalization belong to
-        @plan.Inspection.O2; canonical keys retain @plan.Operations.O1's separate grammar.
+        @plan.Inspection.O2; canonical keys retain @plan.FlowOperations.O1's separate grammar.
     C2  Generated output and actual gates
         Build with pinned scripts, never hand-edit dist, generated declarations or generated docs.
         Focused package checks include check:types, build, check:build-output,

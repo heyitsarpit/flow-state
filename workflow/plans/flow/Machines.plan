@@ -19,7 +19,7 @@ outcomes
         never on restore, adoption or hydration. Original input is unavailable thereafter.
 
         Optional context maps slots to another definition's Provider.select(selector); context
-        binding is @plan.Runtime.O5. Optional operations is a flat record of operation or
+        binding is @plan.FlowRuntime.O5. Optional operations is a flat record of operation or
         entity-domain handles. Machine configuration mirrors the declared state tree exactly:
         root and compounds require a default direct-child token and states; leaves have neither.
         Nodes may declare on, activities and schedules; only the root may declare onContext.
@@ -41,7 +41,7 @@ outcomes
         Definitions expose Event, State, Input, Memory and Snapshot Schemas. Event decodes only
         public _tag envelopes; State accepts complete leaf paths. E.X(payload) validates on every
         call and throws InvalidEvent on mismatch; payload-free constructors take no argument.
-        Persisted-value eligibility is @plan.Persistence.O1.
+        Persisted-value eligibility is @plan.FlowPersistence.O1.
     O2  States and transitions
         Exactly one leaf is active. Substates share the actor's memory, context and lifetime;
         reaching a leaf with no handlers does not complete or dispose the actor.
@@ -64,7 +64,7 @@ outcomes
         Parents' activities start before children's and stop after them. Defaults reach a leaf
         in one publication with no intermediate work or snapshot.
     O3  Turns
-        Input ordering and atomic actor/store publication are @plan.Runtime.O4. An accepted
+        Input ordering and atomic actor/store publication are @plan.FlowRuntime.O4. An accepted
         transition computes updateMemory before action parameters; both read the pre-turn
         snapshot and event. The Partial<Memory> patch shallow-merges once. Only accepted
         transitions change memory. Updates, action parameters and send mappers receive now, one
@@ -82,7 +82,7 @@ outcomes
         send payloads, schedules, restartOn, activity parameters and when predicates.
         A post-commit mapper, placeholder, optimistic-data or write callback defect publishes
         one issue, enqueues no event and applies no partial write batch; it neither rolls back
-        the committed state nor retries that occurrence. Write semantics are @plan.Operations.O5.
+        the committed state nor retries that occurrence. Write semantics are @plan.FlowOperations.O5.
 
         Outside callers can send only valid public event envelopes; invalid payloads or internal
         events fail with InvalidEvent before a turn exists. The same snapshot, event, Clock and
@@ -99,7 +99,7 @@ outcomes
         if handlers exist but all decline; or { _tag: "Unhandled" } if none exists. Denied reasons
         contain { code, context } for each declined alternative, deepest level then authored order.
         Verdicts compare by Equal.equals. An old snapshot answers from its own captured values.
-        Admission lifecycle is a separate concern: @plan.Runtime.O6.
+        Admission lifecycle is a separate concern: @plan.FlowRuntime.O6.
         A defective guard makes check throw GuardDefect without publishing an issue. Internal or
         foreign events are type errors and fail untyped calls with InvalidEvent.
     O5  Schedules
@@ -127,7 +127,7 @@ outcomes
         activities: { name: O.x.subscribe(params, { outcomes?, placeholder?, when? }) } runs
         while the declaring state is active and when is not false. params and when may read
         { state, memory, context, activities }. Lane shapes and placeholders are 
-        @plan.Operations.O6.
+        @plan.FlowOperations.O6.
         After each turn, unchanged operation and canonical parameter key keep existing work and
         its original parameters. A changed key releases old work exactly once and starts new work;
         when false releases only that activity. Release failure reports once without blocking
@@ -141,17 +141,17 @@ outcomes
         and omitted failures or defects publish an actor issue.
         value fires only for a changed confirmed value under Equal.equals, never for predictions
         or optimistic values. unknown carries the Attempt for explicit reconciliation through
-        @plan.Operations.O3.
+        @plan.FlowOperations.O3.
 
         Lane-only changes publish captured lanes without running handlers, guards, updates,
         actions, schedules, restartOn or onContext. Finite work starts only from an accepted
-        transition's actions; operation action semantics are @plan.Operations.O2 and sending is
-        @plan.Runtime.O4.
+        transition's actions; operation action semantics are @plan.FlowOperations.O2 and sending is
+        @plan.FlowRuntime.O4.
     O7  Context reactions
         Machine-level onContext: [{ select, when?, event }] observes context changes.
         select({ context, memory }) establishes a silent baseline at admission, restore,
         adoption and hydration. Only context waves re-run it, using current memory; memory-only
-        changes do not trigger it. Context propagation is @plan.Runtime.O5.
+        changes do not trigger it. Context propagation is @plan.FlowRuntime.O5.
         Equal selections under Equal.equals are silent. A changed selection becomes the baseline
         even if when(current, previous) declines. With no when, or when true, event (bare or
         E.X.from(current)) enqueues after the context turn, in reaction declaration order.
@@ -161,12 +161,12 @@ outcomes
         A snapshot exposes state (complete leaf path), memory (decoded value), context (selected
         slots), issues (Diagnostic values), lifecycle (active, disposing or disposed), and
         activities (named lanes, undefined when not running). It has no input, methods, timers
-        or public revision. Diagnostic values are @plan.Diagnostics.O1.
+        or public revision. Diagnostic values are @plan.FlowDiagnostics.O1.
         Snapshots are deeply frozen plain data. Reading an old snapshot never consults live lanes.
         Unchanged parts retain identity across publications; Flow-owned containers are copied,
         while opaque application values retain identity.
         A later success or release clears its own source's issue, never another source's issue;
-        a new actor incarnation inherits none. Disposal is @plan.Runtime.O6.
+        a new actor incarnation inherits none. Disposal is @plan.FlowRuntime.O6.
 verification
     V1  Type tests prove inference and reject undeclared or foreign members and invalid guards.
     V2  Tests prove construction rejects invalid declarations in order without starting work.

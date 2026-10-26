@@ -1,4 +1,4 @@
-plan Diagnostics
+plan FlowDiagnostics
 title   Actionable failures and safe diagnostics
 status  proposed
 goal
@@ -21,6 +21,8 @@ outcomes
         boolean or null values), summary and help. Invalid tags, missing fields, unknown codes
         and values outside these domains reject. Authors branch on _tag, code, classification,
         path and details; summary and help may change without changing the failure's meaning.
+        Decoding also rejects unknown values of closed details.reason fields; all serialized
+        diagnostics use the same exported Schema.
 
         Schema rejection reports SchemaValidation with actual issue paths and safe details,
         unless the owning boundary defines a more specific code. Parser exceptions never escape
@@ -32,6 +34,16 @@ outcomes
         in help. Reporting an issue does not itself mean the call rejects; the owning boundary
         decides whether work fails, continues or falls back. Application guard deny codes remain
         application data, separate from Flow's diagnostic vocabulary.
+        Published codes and closed reasons have fixed meanings; renderers never introduce new
+        ones, and retired or deferred codes are rejected rather than accepted as aliases.
+        A specific boundary code takes precedence over a generic machine-configuration code
+        when both describe the same violation.
+
+        Classification defaults to Failure. InvariantViolation, Defect, EntryMismatch,
+        ServerOnlyImport, HydrateOutsideProvider and HydrationCrossRequest classify as Defect;
+        Interruption classifies as Interruption, and construction failure during lazy adoption
+        follows that boundary's Defect classification. Warning or informational severity never
+        changes classification.
 
         Common codes an author can encounter:
         - SchemaValidation: correct the value at the reported Schema issue path.
@@ -48,12 +60,14 @@ outcomes
 
         These examples are not an exhaustive code catalog. Boundary-specific behavior belongs to
         its owner: machine validation @plan.Machines.O1; event validation @plan.Machines.O3;
-        readiness @plan.Runtime.O2; identity @plan.Runtime.O3; overload @plan.Runtime.O4;
-        disposal @plan.Runtime.O6; operation inputs @plan.Operations.O1; retry @plan.Operations.O3;
-        storage failures @plan.Persistence.O5; second-tab fallback @plan.Persistence.O7;
+        readiness @plan.FlowRuntime.O2; identity @plan.FlowRuntime.O3; overload @plan.FlowRuntime.O4;
+        disposal @plan.FlowRuntime.O6; operation inputs @plan.FlowOperations.O1; retry @plan.FlowOperations.O3;
+        storage failures @plan.FlowPersistence.O5; second-tab fallback @plan.FlowPersistence.O7;
         hydration @plan.ServerRendering.O4 and scope isolation @plan.ServerRendering.O6;
         lazy loading @plan.LazyFeatures.O5; Story processing @plan.Testing.O2;
-        trace validation @plan.Inspection.O4; CLI usage @plan.CommandLine.O1.
+        trace validation @plan.Inspection.O4; CLI usage @plan.FlowCommandLine.O1.
+        Artifact query failures follow @plan.FlowCommandLine.O4: EvidenceUnavailable is reason data
+        indicating missing retained evidence, never proof that the queried event did not occur.
     O3  Complete failures survive cleanup
         An author inspecting an in-process failure can recover its complete Effect Cause when
         available, including failures from finalizers and cancellation. Cleanup never replaces
@@ -66,6 +80,8 @@ outcomes
         Operation failure, defect, interruption and an unknown remote outcome remain distinct.
         Promise adapters and forwarded AbortSignal cancellation preserve the complete Cause
         until the host deliberately projects the result.
+        Complete Exit and Cause survive evidence acceptance as well as cleanup. A thrown
+        exception or Promise rejection never becomes a reusable service's typed failure channel.
 
         Only the in-process FlowError may expose raw Cause. Cause, stack traces and fiber ids
         never enter snapshots, checkpoints, persistence, SSR payloads, traces, inspector events
@@ -81,9 +97,9 @@ decisions
         FlowError is the shared boundary carrier and Diagnostic its shared diagnostic Schema.
         Capability-specific error classes or competing diagnostic codecs are not public APIs.
 verification
-    V1  Codec and carrier tests prove @O1's fields, rejection rules and primary code.
+    V1  Codec and carrier tests prove @O1's fields, closed-reason rejection and primary code.
     V2  Type tests prove readonly diagnostics, yieldable Diagnostic and preserved Effect A/R.
-    V3  Boundary tests prove expected failures, Schema paths and distinct callback defects.
+    V3  Boundary tests prove code precedence, classifications, missing-evidence meaning and safe Schema paths.
     V4  Mixed-Cause tests prove complete causes, classification and ordering through cleanup.
     V5  Rendering/export tests prove safe actionable output without leaks or invented locations.
 questions

@@ -1,4 +1,4 @@
-plan Runtime
+plan FlowRuntime
 title   Closed applications, readiness, actor ownership and causal context
 status  proposed
 goal
@@ -10,8 +10,8 @@ goal
     records every assigned inventory row.
 
     Machine turns and snapshots are @plan.Machines.O1 to @plan.Machines.O7; operation ownership
-    is @plan.Operations.O1 to @plan.Operations.O7; storage and restore are @plan.Persistence.O1
-    to @plan.Persistence.O6. React attachment is @plan.React.O1 to @plan.React.O3, hydration is
+    is @plan.FlowOperations.O1 to @plan.FlowOperations.O7; storage and restore are @plan.FlowPersistence.O1
+    to @plan.FlowPersistence.O6. React attachment is @plan.React.O1 to @plan.React.O3, hydration is
     @plan.ServerRendering.O1 to @plan.ServerRendering.O7, and lazy adoption is
     @plan.LazyFeatures.O1 to @plan.LazyFeatures.O3. Design rationale and examples are in
     references/design/minimal-library.md sections 1, 2, 9 and 10, and
@@ -96,8 +96,8 @@ outcomes
         2. Acquire KeyValueStore and its dependency closure before reading or validating persisted
         data. Read and prepare detached data, checking app/scope/version, codec bounds, identities,
         Schemas, durable context closure and safe-integer headroom. Dormant lazy records stay
-        bounded and detached. Invalid scope data follows @plan.Persistence.O4 and
-        @plan.Persistence.O5: discard with a diagnostic, then start fresh. No actor or canonical
+        bounded and detached. Invalid scope data follows @plan.FlowPersistence.O4 and
+        @plan.FlowPersistence.O5: discard with a diagnostic, then start fresh. No actor or canonical
         store entry is installed by detached preparation.
         3. Acquire the remaining application services in the same build scope, reusing storage
         dependencies; install validated store facts and restored actors, providers before
@@ -336,7 +336,7 @@ outcomes
         report the same cached failure without rerunning cleanup or creating another incarnation
         over leaked work. Post-visibility admission failures follow this rule too. Keep full Cause
         until cleanup ends; defect outranks failure, which outranks interruption, without losing
-        the other causes (@plan.Diagnostics.O3). Cause never enters serialized snapshots or traces.
+        the other causes (@plan.FlowDiagnostics.O3). Cause never enters serialized snapshots or traces.
 
         Publish complete disposing/disposed snapshots before their ordered lifecycle evidence,
         with causes distinguishing fresh admission, restore, attachment, owner disposal, retain
@@ -347,7 +347,7 @@ outcomes
         fabricated successful decision. Issue ownership is incarnation/source/binding; another
         lifetime cannot inherit or clear it.
 
-        runtime.dispose({ forget: true }) uses @plan.Persistence.O5's scoped deletion after closing
+        runtime.dispose({ forget: true }) uses @plan.FlowPersistence.O5's scoped deletion after closing
         admission; ordinary disposal preserves the last good durable scope. Locks release only
         after closeout. No leader election, mirroring, cross-tab sends or BroadcastChannel exists
         in version 1 (ruling 38); design/multi-tab.md remains deferred rationale only.
@@ -377,7 +377,7 @@ decisions
     D1  Construction returns values and throws FlowError
         Was FlowState D8 and D10, applied to app, setup, refs, admission and host boundaries.
         Canonical diagnostics preserve paths and classification; deleted error-class names do
-        not return. @plan.Diagnostics.O1 and @plan.Diagnostics.O2 own shape and closed codes.
+        not return. @plan.FlowDiagnostics.O1 and @plan.FlowDiagnostics.O2 own shape and closed codes.
     D2  Authored identity is exact
         Was FlowState D9 (Runtime identity part). Keep UTF-8 limits and the string actor wire
         form; ruling 35 adds unambiguously encoded readonly id parts. App keys are not durable ids.

@@ -13,7 +13,7 @@ goal
 
     Observation never starts work, never mutates committed state, never persists implicitly,
     never fabricates evidence and never delays a turn. The CLI leaves, their flags and exit
-    statuses belong to @plan.CommandLine.O1 to @plan.CommandLine.O5; this Plan defines the data
+    statuses belong to @plan.FlowCommandLine.O1 to @plan.FlowCommandLine.O5; this Plan defines the data
     they read and the meaning of every projection they print.
 
     Rationale and examples live in references/design/minimal-library.md (decisions 8, 9, 11),
@@ -101,7 +101,7 @@ outcomes
         Snapshots keep lifecycle only; revisions, timers and generations live here and in
         evidence (@D6).
 
-        **Transition predictions.** For flow explain on a checkpoint (@plan.CommandLine.O1) the
+        **Transition predictions.** For flow explain on a checkpoint (@plan.FlowCommandLine.O1) the
         package computes, for one snapshot and one event, the handler levels tried with each guard
         result, the target or "self", the ordered exits and entries (@plan.Machines.O2), the memory
         patch, and the schedules and activities the new configuration would start and release. It
@@ -116,7 +116,7 @@ outcomes
         Promise form and awaits nothing yet).
     O2  The structural codec
         One Flow-owned bounded structural codec carries every byte or JSON value that crosses a
-        process or storage boundary: persisted records and manifests (@plan.Persistence.O3),
+        process or storage boundary: persisted records and manifests (@plan.FlowPersistence.O3),
         server-rendering payload envelopes (@plan.ServerRendering.O3), trace artifacts (@O4) and 
         the Model's canonical bytes
         (@D5). No envelope overrides a bound, adds a second encoder or a second decoder.
@@ -159,7 +159,7 @@ outcomes
         **Failure.** Every failure is one FlowError, classification Failure, raised before any
         actor creation, store installation, application-service acquisition, external work or
         committed mutation. Acquiring storage to read bytes necessarily precedes restore
-        validation (@plan.Runtime.O2); artifact-only operations acquire no services:
+        validation (@plan.FlowRuntime.O2); artifact-only operations acquire no services:
 
         - CodecBoundExceeded: details name the bound (depth, nodes, arrayItems, stringBytes,
         totalBytes), its value and the path where it was crossed
@@ -180,8 +180,8 @@ outcomes
         **Defensive bytes.** Mutating an input or output Uint8Array after a call returns cannot
         change any artifact, store, Runtime or decoded value.
 
-        The canonical key bytes of @plan.Operations.O1 (with their -0 normalization) and the
-        identity bytes of @plan.Runtime.O3 are separate grammars; this codec does not replace
+        The canonical key bytes of @plan.FlowOperations.O1 (with their -0 normalization) and the
+        identity bytes of @plan.FlowRuntime.O3 are separate grammars; this codec does not replace
         them.
 
         Reference: none yet (stage S10 adds it).
@@ -242,7 +242,7 @@ outcomes
         exactly one turn event with result "failed" and its code. An event is delivered only
         after the state it describes is published, so a sink reading the Runtime sees state at
         least as new as the event. Sequence headroom is part of admission headroom
-        (@plan.Runtime.O4): when it runs out, admission refuses before any commit.
+        (@plan.FlowRuntime.O4): when it runs out, admission refuses before any commit.
 
         Lifecycle events are evidence, not turns: they never advance an actor's revision and never
         produce a turn event, and the actor's new snapshot is published before its lifecycle
@@ -312,7 +312,7 @@ outcomes
         - **counters**: every turn records { deltas, candidates, repairs, skips, lookups, pages };
         trace summarize totals them per source for a selected read
 
-        Persistence (@plan.Persistence.O3, @plan.Persistence.O4)
+        Persistence (@plan.FlowPersistence.O3, @plan.FlowPersistence.O4)
 
         - **capture**: scope, the cut's store revision, records written, manifest id
         - **write**: settled or failed (StorageFailure) for one manifest; a committed turn never
@@ -394,7 +394,7 @@ outcomes
         never yields completed (InvalidStoryEvidence)
 
         Never serialized: callbacks, Effects, fixtures, Layers, live refs, Runtime state, raw
-        Cause, stack traces or fiber ids (@plan.Diagnostics.O3); only ordered diagnostic
+        Cause, stack traces or fiber ids (@plan.FlowDiagnostics.O3); only ordered diagnostic
         projections. A trace is never a restore, hydrate or Story input. End is a capture, never
         a claim of finality.
 
@@ -446,7 +446,7 @@ outcomes
 
         One renderer per projection; no generated spec file is stored (@D1).
 
-        **Trace projections** (printed by @plan.CommandLine.O4; computed here, from one or two
+        **Trace projections** (printed by @plan.FlowCommandLine.O4; computed here, from one or two
         Traces, never running application code):
 
         - **summary**: counts and a timeline per actor and per kind over the retained events,
@@ -461,7 +461,7 @@ outcomes
         - **filters** as data: an actor id, an attempt.id, a read (domain.entry), an entity key
         with an optional sequence, issues-only and timeline. Filters are data, never executable
         selectors; a colon-form selector splits at the first colon only, preserving the remainder
-        as the identity. @plan.CommandLine.O4 owns --actor, --attempt, --issues, --read, --entity
+        as the identity. @plan.FlowCommandLine.O4 owns --actor, --attempt, --issues, --read, --entity
         and --sequence grammar. Unknown selectors fail with InvalidArtifactOperand,
         details.reason UnknownSelector; unavailable evidence names EvidenceUnavailable, the
         exact operand path and truncation marker. Explanations of absence under truncation
@@ -494,8 +494,8 @@ decisions
         flow-state/inspect exports inspect, render, attachInspector and trace (import, export).
         The archived 25-name list, behaviour contracts, share artifacts, compression and
         programmatic summarize, diff and proof are deleted; summarize and diff are CLI leaves
-        over @O6. The CLI leaves and flow check rules moved to @plan.CommandLine.O1 and
-        @plan.CommandLine.O5.
+        over @O6. The CLI leaves and flow check rules moved to @plan.FlowCommandLine.O1 and
+        @plan.FlowCommandLine.O5.
     D3  Snapshots keep lifecycle; revisions, timers and generations move to inspection
         Was FlowState D38 (kept from SurfaceSimplification D22; timers removed by minimal-library
         decision 8). Public snapshots carry no revision, timer or generation; inspect(runtime)
@@ -504,7 +504,7 @@ decisions
         Ruling 28. A guard's possible deny codes come from its return type (a union of literal
         codes), read by the TypeScript compiler API of the pinned toolchain, never by running the
         guard. inspect(app) and flow check use that same compilation. Source tooling resolves
-        the App's source and tsconfig through flow.config.ts discovery (@plan.CommandLine.O6);
+        the App's source and tsconfig through flow.config.ts discovery (@plan.FlowCommandLine.O6);
         a host may consume the same already-compiled facts without shipping the compiler.
         The compiler stays out of application bundles. If complete facts cannot be obtained,
         structural inspection rejects with FlowError TypeFactsUnavailable rather than returning
@@ -528,7 +528,7 @@ decisions
         revision also starts at 0 and resumes the captured publication revision after restore.
         The store revision is per Runtime. Terminal-publication, cleanup and global evidence
         sequence credits are reserved before mutation; exhausted restored counters reject
-        before installation (@plan.Persistence.O4).
+        before installation (@plan.FlowPersistence.O4).
     D7  Redaction is a Schema annotation with keyed digests
         Was FlowState D48, amended by rulings 4 and 30. A field annotated sensitive (or a
         Schema.Redacted) is a keyed digest wherever data leaves the process (@O5); in-process
@@ -621,7 +621,7 @@ verification
         truncated different, truncated matching (incomplete), appId mismatch (failure) and
         fingerprint mismatch (failure); "insufficient evidence" under truncation;
         coverage listing an unexercised deny code and outcome edge. Paired with the CLI process
-        vectors of @plan.CommandLine.O3. Planned.
+        vectors of @plan.FlowCommandLine.O3. Planned.
     V9  Type facts and fingerprint
         Establish @D4 and @D5: deny codes read from types for every reference guard with no guard
         run; unavailable type facts reject rather than giving an exhaustive empty set; compiler

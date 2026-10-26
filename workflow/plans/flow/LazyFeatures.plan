@@ -10,7 +10,7 @@ outcomes
         Alongside eager entries, app({ id, machines }) accepts { id, load, context? }.
         id is the machine's definition id; load is () => Promise<Machine> from a build-local
         import(). Remote entries are outside version 1. context is the entry's wiring default.
-        Eager entry forms are @plan.Runtime.O1.
+        Eager entry forms are @plan.FlowRuntime.O1.
 
         The loader's result must have the declared literal id. A wrong id, non-machine result,
         wrong context provider or missing runtimeSetup service is a type error. Service
@@ -24,7 +24,7 @@ outcomes
         When ensureActor(ref) or createActor(machine) first encounters a declared lazy machine,
         it adopts that entry synchronously before admitting the actor. Wiring that reaches lazy
         providers adopts those providers too. Eager wiring or setup that already holds a lazy
-        machine adopts it during readiness. Readiness requirements are @plan.Runtime.O2.
+        machine adopts it during readiness. Readiness requirements are @plan.FlowRuntime.O2.
 
         Adoption accepts only the declared id and a Flow machine. The first accepted machine
         object binds that id in this Runtime; any later different object, including a loader's
@@ -51,11 +51,11 @@ outcomes
         Persisted records belonging to unopened features remain dormant: readiness does not load
         their code, and captures preserve their saved contents until adoption. Unclaimed operation
         and entity records remain dormant until their owner is adopted or a version change
-        discards the scope. Removed-machine actor records follow @plan.Persistence.O5.
+        discards the scope. Removed-machine actor records follow @plan.FlowPersistence.O5.
 
-        Adoption restores dormant data under @plan.Persistence.O4. A restored consumer takes its
+        Adoption restores dormant data under @plan.FlowPersistence.O4. A restored consumer takes its
         context from current providers without emitting a spurious context change. Invalid dormant
-        data invokes @plan.Persistence.O5: discard the scope's saved records with a diagnostic and
+        data invokes @plan.FlowPersistence.O5: discard the scope's saved records with a diagnostic and
         open the feature fresh, without partially restoring it or rolling back live committed
         truth. Persisted data never makes a feature unopenable.
 
@@ -64,7 +64,7 @@ outcomes
         those entities are known, using available loaders and active answers; the actor receives
         its unknown outcome when adopted. Entity repair behavior is @plan.EntityDomains.O1.
         A Runtime refused persistence has no dormant records; second-tab behavior is
-        @plan.Persistence.O7. Dormant data and adopted actors never cross Runtime, request or
+        @plan.FlowPersistence.O7. Dormant data and adopted actors never cross Runtime, request or
         principal boundaries.
     O4  Lazy features and server rendering
         Server preparation with refs adopts synchronously. Transferred lazy entry ids must name
@@ -91,7 +91,7 @@ outcomes
         for lazy-loading information. Live inspection and Story checkpoints expose which entries
         are adopted without adopting them.
 
-        flow check validates the fully loaded app under @plan.CommandLine.O5, so unopened code
+        flow check validates the fully loaded app under @plan.FlowCommandLine.O5, so unopened code
         cannot hide invalid wiring or identity collisions. A mismatched id reports EntryMismatch;
         a failed load reports EntryLoadFailed and makes the check fail. It warns when an entity
         depends on a lazy .byKey loader, eager wiring defeats the code split, or load is not a

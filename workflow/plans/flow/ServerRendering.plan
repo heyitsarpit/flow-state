@@ -16,10 +16,10 @@ outcomes
         ensureActor, createActor and send on handles. Returned asynchronous work is rejected,
         never awaited. A throwing prepare or failed readiness, capture or cleanup rejects the
         call; cleanup still runs, and simultaneous work and cleanup failures are both preserved.
-        Disposal follows @plan.Runtime.O6. Successful capture with failed cleanup returns no 
+        Disposal follows @plan.FlowRuntime.O6. Successful capture with failed cleanup returns no 
         payload.
 
-        scope is required, derived from server authentication, and obeys @plan.Persistence.O1.
+        scope is required, derived from server authentication, and obeys @plan.FlowPersistence.O1.
         within is a required finite positive Duration.Input. maxBytes defaults to 262,144 and
         accepts integers from 1 through 2,097,152. Invalid options reject before construction.
         Server redirect and notFound decisions call services or operations directly; dehydrate
@@ -32,7 +32,7 @@ outcomes
 
         Expiry returns the current data, reports DehydrateUnsettled, and identifies missing data
         and dropped queued events. Queued events are never transferred or replayed. A send cycle
-        cannot keep dehydrate waiting beyond within; cleanup remains subject to @plan.Runtime.O6.
+        cannot keep dehydrate waiting beyond within; cleanup remains subject to @plan.FlowRuntime.O6.
     O3  Transfer safe, confirmed data
         Transfer shared actors and the providers needed for their context, together with data
         read by active activities, including activities of local actors. Local actors themselves
@@ -46,7 +46,7 @@ outcomes
         values or running work. A missing, failed or unencodable lookup renders Pending without
         data and retries on client activation. A refetch over existing data transfers that data;
         client freshness determines whether another fetch is needed. An in-flight commit becomes
-        unknown with its attempt under @plan.Operations.O3 and reports DehydrateCommitInFlight;
+        unknown with its attempt under @plan.FlowOperations.O3 and reports DehydrateCommitInFlight;
         hydration never reissues it automatically.
 
         Encode values using their declared Schemas. Omit values without a usable Schema or whose
@@ -74,7 +74,7 @@ outcomes
         After commit, merge with live data under @O5 before descendant hooks activate their work;
         differing live data causes a subsequent render, never a hydration mismatch. Rendering,
         including a discarded render, starts no work, subscriptions, schedules, persistence writes
-        or evidence. Hydrated actors obey admission under @plan.Runtime.O3; rejection applies none
+        or evidence. Hydrated actors obey admission under @plan.FlowRuntime.O3; rejection applies none
         of the payload, reports HydrationRejected and falls back to ordinary client loading.
 
         Incompatible app payloads report HydrationIncompatible; malformed payloads, including
@@ -101,14 +101,14 @@ outcomes
         or finite work. An unchanged activity does not redeliver an already-observed value;
         genuinely newer client data can deliver a new value outcome. Changed activity inputs
         reconcile normally. Fresh resource data avoids a duplicate lookup; freshness follows
-        @plan.Operations.O2. Age increases by max(0, clientNow - capturedAt), so a client clock
+        @plan.FlowOperations.O2. Age increases by max(0, clientNow - capturedAt), so a client clock
         behind the server cannot make captured data younger.
 
         Streams open new sessions while displaying their transferred latest values. Schedules
         subtract the same nonnegative elapsed time from their remaining delay; an overdue schedule
         fires once at activation, never in a burst or merely because its baseline was restored.
         Shared actor retention starts at activation. Persistable hydrated actors subsequently
-        follow @plan.Persistence.O3.
+        follow @plan.FlowPersistence.O3.
 
         Navigation payloads use these same rules on the running client. Reapplying the same
         payload is a no-op; a prefetched payload ages while waiting to render.
