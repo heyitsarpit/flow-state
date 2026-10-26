@@ -39,7 +39,7 @@ outcomes
         Unsupported values fail encoding instead of being coerced, omitted or stringified.
 
         Only confirmed shared data survives; optimistic values and predictions never become a saved
-        baseline. Entity projection and uncertainty repair follow @plan.EntityDomains.O2.
+        baseline. Entity projection and uncertainty repair follow @plan.EntityDomains.O1.
         Ordinary queued events, commands, executable work, services and stream emission buffers do
         not survive. Admitted public events still awaiting processing are lost on reload. Pending
         mapped outcomes survive for once-only delivery. Context selections are recomputed from the
@@ -67,7 +67,8 @@ outcomes
 
         Page hide, visibility becoming hidden and Runtime disposal request a flush. Browser exit
         flushing is best effort. Disposal waits for the last write before releasing storage and
-        ownership, subject to bounded disposal in @plan.FlowRuntime.O6. A stalled write reports failure
+        ownership, subject to bounded disposal in @plan.FlowRuntime.O6. A stalled write reports 
+        failure
         rather than hanging or claiming a completed flush.
     O4  Restore without replay
         ready() restores a complete compatible scope before actor work starts. Restored stable
