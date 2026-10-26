@@ -99,7 +99,7 @@ outcomes
         client; split or narrow the payload.
         - HydrateOutsideProvider, HydrationCrossRequest, HydrationScopeMismatch
         (@plan.ServerRendering.O4, @plan.ServerRendering.O6): wrap in FlowProvider; construct the
-        Runtime inside the provider; derive both scopes from one value.
+        Runtime inside the provider; give both setups the same scope.
         - HydrationIncompatible, HydrationMalformed, HydrationRejected (@plan.ServerRendering.O4):
         diagnostics only; the client loads normally. A persistent one means mismatched code.
 

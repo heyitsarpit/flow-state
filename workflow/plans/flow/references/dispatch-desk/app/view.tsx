@@ -1,6 +1,7 @@
 "use client";
 
-// A principal change supplies a new Runtime and remounts the provider.
+// The host-owned form: host.ts constructs and disposes the Runtime, and a user change supplies a
+// new one. The Next host instead passes a setup and lets FlowProvider own the Runtime.
 import { useState } from "react";
 import { FlowProvider, useActorByRef, useView } from "flow-state/react";
 import { Session } from "../features/Session/session.definition.js";

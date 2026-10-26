@@ -1,5 +1,5 @@
 // Permission and current-user truth that editors and queues read. Starts no actor.
-// The signed-in user is input, not an event: a different principal is a new Runtime, never a
+// The signed-in user is input, not an event: a different user is a new Runtime and scope, never a
 // change inside one (Runtime plan), so nothing cached for one user can be shown to another.
 // Signing out is session truth in this Runtime before its scope's stored records are removed.
 import { Schema } from "effect";

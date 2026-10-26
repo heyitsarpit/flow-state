@@ -21,12 +21,12 @@ async function QueueSegment({ workspaceId }: { workspaceId: string }) {
   const user = await currentUser();
 
   const payload = await dehydrate(
-    deskServerSetup(user.token),
+    deskServerSetup(user),
     (runtime) => {
       runtime.ensureActor(SessionRef, { input: { userId: user.id } });
       runtime.ensureActor(queueRef(workspaceId), { input: { workspaceId } });
     },
-    { scope: `dispatch-desk:${user.id}`, within: "1500 millis" },
+    { within: "1500 millis" },
   );
 
   // Suspense streams this async server segment; Flow hooks themselves never suspend.

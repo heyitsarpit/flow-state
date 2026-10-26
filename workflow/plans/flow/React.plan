@@ -5,17 +5,18 @@ goal
     Components read consistent data and keep stable actor handles without starting work in render.
 outcomes
     O1  Provider and Runtime ownership
-        flow-state/react exposes <FlowProvider runtime={runtime} owned?>{children}</FlowProvider>.
-        It accepts an existing Runtime and never constructs it. With owned, it disposes that Runtime
-        once unmounted for longer than the 100 ms grace, so Strict Mode remounts keep it and a keyed
-        principal switch releases the old user's Runtime. Without owned it never disposes. It and
-        renders children immediately without suspending or showing a readiness fallback. Its first
-        effect calls ready(), so a browser app restores without a separate host call; unmount
-        cancels only that observer, not shared readiness. Readiness failure reaches a React error
-        boundary on the next render. Hooks use the nearest Provider; unrelated nested Runtimes never
-        share data or ownership. useView rejects a foreign Runtime's handle with ForeignActorRef
-        before subscribing. A principal switch constructs a new Runtime under a new Provider key;
-        the old one is disposed by owned or by the host, never left running. Isolation follows
+        flow-state/react exposes <FlowProvider setup={setup}> and <FlowProvider runtime={runtime}>.
+        With setup, the Provider constructs and owns one Runtime per setup scope: a new setup value
+        with the same scope keeps the existing Runtime, while a changed scope (sign-in, sign-out,
+        account switch) constructs a fresh Runtime and disposes the old one once it has been unused
+        for longer than the 100 ms grace, so Strict Mode remounts keep it. With runtime, the host
+        owns construction and disposal and the Provider never disposes. Either form renders children
+        immediately without suspending or showing a readiness fallback. Its first effect calls
+        ready(), so a browser app restores without a separate host call; unmount cancels only that
+        observer, not shared readiness. Readiness failure reaches a React error boundary on the next
+        render. Hooks use the nearest Provider; unrelated nested Runtimes never share data or
+        ownership. useView rejects a foreign Runtime's handle with ForeignActorRef before
+        subscribing. An old scope's Runtime is never left running. Isolation follows
         @plan.Runtime.O7. All useView reads in one render see one consistent version across actors
         and store entries.
     O2  Hooks and the first render

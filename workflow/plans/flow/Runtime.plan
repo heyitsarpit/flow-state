@@ -23,14 +23,15 @@ outcomes
         identity is app id, machine id and actor id, never an app property key.
         Reference: references/dispatch-desk/app/app.ts.
     O2  Setup and readiness
-        runtimeSetup({ app, services?, principal?, persistence?, repairSlots?, audit? }).construct()
-        is synchronous and inert. principal is the signed-in principal's id: principal() conditions
-        read it (@plan.EntityDomains.O1), and persistence.scope and dehydrate's scope default to it;
-        a principal() condition in an app without one throws InvalidConfiguration. repairSlots
-        (default 6) and audit (default false, for development and tests only) are
-        @plan.EntityDomains.O5 and @plan.EntityDomains.O4. services is an Effect Layer that must
-        provide every service the app's operation adapters need, lazy entries included; a missing
-        service is a type error. Each service is acquired once per Runtime.
+        runtimeSetup({ app, services?, scope?, persistence?, repairSlots?, audit? }).construct() is
+        synchronous and inert. scope is an optional nonempty string naming whose data the Runtime
+        holds, such as a user, workspace or tenant id. It partitions saved data
+        (@plan.Persistence.O1) and stamps and checks hydration payloads (@plan.ServerRendering.O6);
+        machines, operations and conditions never read it. repairSlots (default 6) and audit
+        (default false, for development and tests only) are @plan.EntityDomains.O5 and
+        @plan.EntityDomains.O4. services is an Effect Layer that must provide every service the
+        app's operation adapters need, lazy entries included; a missing service is a type error.
+        Each service is acquired once per Runtime.
 
         ready() is the one readiness Effect; FlowProvider calls it in browsers (@plan.React.O1). The
         first call starts the bootstrap; concurrent and later callers share its result, including a
@@ -109,7 +110,7 @@ outcomes
         for none established at admission, restore, lazy adoption or hydration. A context change
         enqueues the consumer's declared event; it never runs a transition, memory patch or action
         directly, and never resets memory. Memory that belongs to one user, workspace or account is
-        keyed into the actor id, or lives in a Runtime per principal (@O7).
+        keyed into the actor id, or lives in a Runtime per scope (@O7).
 
         When a provider changes, each affected consumer receives at most one context update per
         wave, computed from the latest complete provider snapshots, and never a mix of new and stale
@@ -147,9 +148,10 @@ outcomes
     O7  Isolation
         Runtimes share no mutable state: actors, store, services, storage, clock or evidence.
         Handles from one Runtime are rejected by another; nested React providers use the nearest
-        Runtime. A different user is a new Runtime and persistence scope (a keyed FlowProvider).
-        Every server request and Story run constructs its own Runtime; a module-level server Runtime
-        is never used. Story storage is always fresh memory storage (@plan.Testing.O3).
+        Runtime. A different user or account is a new Runtime with a different scope
+        (@plan.React.O1). Every server request and Story run constructs its own Runtime; a
+        module-level server Runtime is never used. Story storage is always fresh memory storage
+        (@plan.Testing.O3).
         Reference: references/dispatch-desk/next/providers.tsx.
 decisions
     D1  The app is a closed list of machines

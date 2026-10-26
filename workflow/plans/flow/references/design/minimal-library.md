@@ -570,28 +570,29 @@ Saved: {
 ## 10. Persistence, services and multi-tab
 
 ```ts
-export const DeskSetup = runtimeSetup({
-  app: DeskApp,
-  services: Layer.mergeAll(
-    DemoTicketApi,
-    KeyValueStore.layerStorage(() => localStorage),
-  ),
-  persistence: { scope: "dispatch-desk:user-42", version: "1" },
-});
+export const DeskSetup = (userId: string) =>
+  runtimeSetup({
+    app: DeskApp,
+    scope: userId, // whose data this Runtime holds; persistence partitions by it
+    services: Layer.mergeAll(DemoTicketApi, layerIndexedDb()),
+    persistence: { version: "1" },
+  });
 ```
 
 - **What persists:** ref `persist` and resource `persist` decide; transactions and streams follow
   their actor, and memory is encoded with the definition's Schemas.
 - **Deleted:** `webStorage`, `indexedDbStorage`, the codec option and the seven `Persistence*`
   types.
-- **A different user** means a new Runtime. The documented recipe: an anonymous Runtime for login,
-  a user-scoped Runtime after it, and `<FlowProvider key={scope}>` so React remounts on the switch.
+- **A different user** means a new Runtime. `<FlowProvider setup={DeskSetup(userId)}>` constructs
+  one Runtime per setup scope and disposes the old one when the scope changes (sign-in, sign-out,
+  account switch). Before sign-in, a setup without `scope` and without persistence serves the
+  login screen.
 - **A second tab** on the same scope runs without persistence and reports a diagnostic, instead of
   silently overwriting the first tab.
 - **Auth tokens** reach service Layers through a documented token-holder service that the Auth
   machine updates through an operation. No new API.
-- **SSR hydration** is explicitly out of scope for version 1. A per-request Runtime with an
-  in-memory `KeyValueStore` already supports server rendering.
+- **SSR hydration** is in version 1 after all: see [server-rendering.md](server-rendering.md) and
+  ServerRendering.plan.
 
 ## 11. Stories and tooling
 
@@ -747,8 +748,8 @@ What changed against today's reference:
 | Eventless transitions (`redirect`)           | Accepted. Revisit if a real case appears.                                       |
 | Strict ancestor/descendant handler rejection | Accepted. The nearest handler wins; overrides are visible in tools.             |
 | Infinite lists as one cache entry            | Deferred. Version 1 stitches pages in memory; a pages resource mode can follow. |
-| SSR hydration                                | Deferred. Out of scope for version 1.                                           |
-| Lazy-loaded features                         | Deferred. A lazy app entry is sketched in decision 2.                           |
+| SSR hydration                                | Now in version 1: server-rendering.md and ServerRendering.plan.                 |
+| Lazy-loaded features                         | Now in version 1: lazy-features.md and LazyFeatures.plan.                       |
 | Multi-tab shared persistence                 | Deferred. The second tab runs without persistence.                              |
 
 ## Risks

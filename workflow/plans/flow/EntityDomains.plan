@@ -27,10 +27,12 @@ outcomes
         a path, Entity.pick names an explicit shape, .byKey(...) marks the record loader, and
         .derivedFrom(Entity, fields?) declares values computed from records the response does not
         hold; omitted fields means any field, an empty list means membership only. Conditions use
-        where (eq, oneOf, contains, between, overlaps, and, principal(), constants). An absent
-        optional input drops its constraint. Every list or derived input must appear in where,
-        orderBy, pagedBy, ignoring or serverMatches, or construction fails; serverMatches names
-        inputs whose filtering only the server knows.
+        where (eq, oneOf, contains, between, overlaps, and) over record fields, input fields and
+        constants. A condition about the signed-in account uses an input field the machine supplies,
+        or serverMatches when only the server applies it. An absent optional input drops its
+        constraint. Every list or derived input must appear in where, orderBy, pagedBy, ignoring or
+        serverMatches, or construction fails; serverMatches names inputs whose filtering only the
+        server knows.
 
         Order: orderBy ends with every entity key. A list is ordered, unordered or server-ranked
         (optionally narrowed by unaffectedBy). Order is the server's claim and the client never
@@ -189,7 +191,7 @@ constraints
         results, arbitrary predicate where, field merge, automatic uncertain retry or
         minimum-refetch promise. Machines own uncertain workflow.
     C2  Isolation
-        One Runtime per principal and request; positions and frontiers never cross Runtimes; no
+        One Runtime per scope and request; positions and frontiers never cross Runtimes; no
         prediction is persisted or hydrated; no version ever regresses.
 verification
     V1  Authoring and types: unannotated inference of the reference domains; every rejected form

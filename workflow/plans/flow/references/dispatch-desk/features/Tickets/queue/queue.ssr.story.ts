@@ -8,7 +8,7 @@ export const queuePage = story
   .app(DeskSetup, { id: "queue-ssr-server", fixtures: [] })
   .ensure(SessionRef, { input: { userId: "dispatcher-7" } })
   .ensure(queueRef("north"), { input: { workspaceId: "north" } })
-  .dehydrate("page", { scope: "dispatch-desk:dispatcher-7", within: "1500 millis" });
+  .dehydrate("page", { within: "1500 millis" }); // DeskSetup has no scope; the browser side matches
 
 export const queueHydrated = story
   .app(DeskSetup, { id: "queue-ssr-browser", fixtures: [] })

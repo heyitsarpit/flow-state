@@ -1,4 +1,4 @@
-// Durable browser setup (Persistence plan): a KeyValueStore Layer plus a scope and a version.
+// Durable browser setup (Persistence plan): a scope, a KeyValueStore Layer and a version.
 // IndexedDB, not localStorage: the entity store outgrows localStorage's few megabytes.
 import { Layer } from "effect";
 import { runtimeSetup } from "flow-state";
@@ -9,8 +9,9 @@ import { DemoTicketApi } from "./demo-api.js";
 export const browserSetup = (userId: string) =>
   runtimeSetup({
     app: DeskApp,
+    scope: userId,
     services: Layer.mergeAll(DemoTicketApi, layerIndexedDb({ database: "dispatch-desk" })),
-    persistence: { scope: `dispatch-desk:${userId}`, version: "1" },
+    persistence: { version: "1" },
   });
 
 /**

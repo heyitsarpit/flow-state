@@ -32,18 +32,18 @@ Flow-dependent examples and tests remain illustrative. Stage S10 of the plan mak
 
 ## Structure
 
-| Location                                            | Responsibility                                                                                                              |
-| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| [features/Session](features/Session/)               | permission and current-user truth others read                                                                               |
-| [features/Toasts](features/Toasts/)                 | a shared actor other actors send to                                                                                         |
-| [features/Tickets](features/Tickets/)               | Schemas and errors, the service port, operations, the ticket entity and domain                                              |
-| [features/Tickets/editor](features/Tickets/editor/) | the editor: definition, machine, ref, hook, UI, Stories, tests                                                              |
-| [features/Tickets/queue](features/Tickets/queue/)   | the queue: definition, machine, ref, UI, Stories, tests                                                                     |
-| [app](app/)                                         | the closed app, lazy editor entry, setup, demo server, persistence, sign-out host and browser view                          |
-| [next](next/)                                       | request-scoped HTTP services and auth stub, mount-owned browser provider, root session hydration and streamed queue segment |
-| [testing](testing/)                                 | fixtures as Layers and the entity property test                                                                             |
-| [flow.config.ts](flow.config.ts)                    | Apps and Story globs the CLI discovers                                                                                      |
-| [tools](tools/)                                     | inspection, CLI and diagnostics examples                                                                                    |
+| Location                                            | Responsibility                                                                                                                                |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| [features/Session](features/Session/)               | permission and current-user truth others read                                                                                                 |
+| [features/Toasts](features/Toasts/)                 | a shared actor other actors send to                                                                                                           |
+| [features/Tickets](features/Tickets/)               | Schemas and errors, the service port, operations, the ticket entity and domain                                                                |
+| [features/Tickets/editor](features/Tickets/editor/) | the editor: definition, machine, ref, hook, UI, Stories, tests                                                                                |
+| [features/Tickets/queue](features/Tickets/queue/)   | the queue: definition, machine, ref, UI, Stories, tests                                                                                       |
+| [app](app/)                                         | the closed app, lazy editor entry, setup, demo server, persistence, sign-out host and browser view                                            |
+| [next](next/)                                       | request-scoped HTTP services and auth stub, a FlowProvider that owns one Runtime per scope, root session hydration and streamed queue segment |
+| [testing](testing/)                                 | fixtures as Layers and the entity property test                                                                                               |
+| [flow.config.ts](flow.config.ts)                    | Apps and Story globs the CLI discovers                                                                                                        |
+| [tools](tools/)                                     | inspection, CLI and diagnostics examples                                                                                                      |
 
 ## Where each decision shows
 
@@ -59,7 +59,7 @@ tab only runs without persistence ([Persistence.plan](../../Persistence.plan) O7
 | Machines plan O2, O4: self, re-entry, ordered alternatives, nearest-handler fallthrough, deny/check        | [editor.machine.ts](features/Tickets/editor/editor.machine.ts), [TicketPanel.tsx](features/Tickets/editor/TicketPanel.tsx)                                                          |
 | Machines plan O5–O7: schedules, outcomes and context reactions                                             | [editor.machine.ts](features/Tickets/editor/editor.machine.ts), [queue.machine.ts](features/Tickets/queue/queue.machine.ts), [toasts.machine.ts](features/Toasts/toasts.machine.ts) |
 | Runtime plan O1–O4: wiring, Layers, shared/local actors, composite identities, sends                       | [app.ts](app/app.ts), [host.ts](app/host.ts), [editor.ref.ts](features/Tickets/editor/editor.ref.ts)                                                                                |
-| Runtime plan O6–O7: bounded disposal and principal isolation                                               | [host.ts](app/host.ts), [view.tsx](app/view.tsx), [providers.tsx](next/providers.tsx)                                                                                               |
+| Runtime plan O6–O7: bounded disposal and scope isolation                                                   | [host.ts](app/host.ts), [view.tsx](app/view.tsx), [providers.tsx](next/providers.tsx)                                                                                               |
 | Operations plan O1–O4: keys, freshness, commit concurrency, attempts and streams                           | [ticket.operations.ts](features/Tickets/ticket.operations.ts)                                                                                                                       |
 | Operations plan O5–O7: predictions, lane tags, hasMore and cancellation                                    | [QueueList.tsx](features/Tickets/queue/QueueList.tsx), [TicketPanel.tsx](features/Tickets/editor/TicketPanel.tsx)                                                                   |
 | EntityDomains plan O1–O4: confirmed records, dependencies, repair and property tests                       | [ticket.domain.ts](features/Tickets/ticket.domain.ts), [queue.test.ts](features/Tickets/queue/queue.test.ts), [tickets.property.test.ts](testing/tickets.property.test.ts)          |
@@ -84,7 +84,7 @@ tab only runs without persistence ([Persistence.plan](../../Persistence.plan) O7
 | Save while locked           | tagged failure, backoff in memory and a final exhausted alternative                                       |
 | Permission revoked mid-save | closes the editor; cancelling an invoked save honestly carries an unknown Attempt                         |
 | Queue search                | normalized keys share a cache entry; placeholders retain rows during search                               |
-| Mine only                   | context supplies the signed-in user's id; a principal switch creates a new Runtime                        |
+| Mine only                   | context supplies the signed-in user's id; a user switch creates a new Runtime and scope                   |
 | List unavailable            | HEALTHY/DEGRADED reflect list availability; polling uses bounded jittered backoff                         |
 | Paging                      | 20 records a page, loaded pages in order, hasMore gates LoadMore; no unrepairable list total              |
 | Assign to me                | prediction appears immediately; filtered lists and openCount repair on confirmation                       |

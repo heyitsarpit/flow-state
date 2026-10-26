@@ -7,11 +7,12 @@ goal
     turn.
 outcomes
     O1  Configuration and storage
-        runtimeSetup({ app, services?, persistence?: { scope?, version } }) enables persistence;
-        scope defaults to the setup's principal (@plan.Runtime.O2). Without it, Flow acquires no
-        storage and performs no restore, capture or storage I/O. scope and version are required
-        nonempty strings; versions match exactly. Different apps and scopes never read, overwrite or
-        delete each other's data. Principal isolation follows @plan.Runtime.O7.
+        runtimeSetup({ app, scope, services?, persistence?: { version } }) enables persistence.
+        Without it, Flow acquires no storage and performs no restore, capture or storage I/O.
+        Persistence requires the setup's scope (@plan.Runtime.O2); its absence is a type error and
+        rejects untyped setups before construction, so saved data never lands in a shared partition.
+        version is a required nonempty string and matches exactly. Different apps and scopes never
+        read, overwrite or delete each other's data.
 
         Enabled persistence requires an Effect KeyValueStore service from effect/persistence;
         missing provision is a type error. Untyped missing provision fails ready with
@@ -158,7 +159,8 @@ verification
     V1  Type tests reject missing storage and invalid persisted Schemas under @O1 and @O2.
     V2  Tests prove default-off selection, inert construction and atomic bootstrap under @O1.
     V3  Tests prove complete context capture, automatic retry and disposed-draft removal under @O3.
-    V4  Reload tests prove restored identity, ordered outcomes and no work replay under @O4.
+    V4  Reload tests prove restored identity, ordered outcomes and no work replay under @O4,
+        including restore-capture-restore and hydrate-persist-reload-hydrate round trips.
     V5  Crash tests prove Attempt acknowledgment before dispatch and honest unknown under @O6.
     V6  Fault tests prove atomic fallback, bounds and preservation of live state under @O3 and @O5.
     V7  Browser tests prove second-tab refusal and no-lock persistence under @O7.

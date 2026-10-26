@@ -10,15 +10,15 @@ export default async function Layout({ children }: { children: ReactNode }) {
   const user = await currentUser();
 
   const payload = await dehydrate(
-    deskServerSetup(user.token),
+    deskServerSetup(user),
     (runtime) => runtime.ensureActor(SessionRef, { input: { userId: user.id } }),
-    { scope: `dispatch-desk:${user.id}`, within: "300 millis" },
+    { within: "300 millis" },
   );
 
   return (
     <html lang="en">
       <body>
-        <DeskProviders key={user.id} userId={user.id}>
+        <DeskProviders userId={user.id}>
           <Hydrate payload={payload}>{children}</Hydrate>
         </DeskProviders>
       </body>

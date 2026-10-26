@@ -82,15 +82,14 @@ response does not return; statements are date ranges.
 export const BankDomain = domain("bank", {
   accounts: read(myAccounts)
     .list(Account, ({ result }) => result)
-    .where(({ record }) => eq(record.ownerId, principal()))
+    .where(({ record, input }) => eq(record.ownerId, input.ownerId))
     .orderBy(({ record }) => [asc(record.name), asc(record.accountId)]),
 
   statement: read(statement)
     .list(Txn, ({ result }) => result.txns)
-    .where(({ input, record }) => and(
-      eq(record.accountId, input.accountId),
-      between(record.postedAt, input.from, input.to),
-    ))
+    .where(({ input, record }) =>
+      and(eq(record.accountId, input.accountId), between(record.postedAt, input.from, input.to)),
+    )
     .orderBy(({ record }) => [desc(record.postedAt), asc(record.txnId)]),
 
   transfer: write(transfer)
@@ -130,23 +129,25 @@ time range, and the view places occurrences by their times, not by list order.
 export const CalendarDomain = domain("calendar", {
   week: read(week)
     .list(Occurrence, ({ result }) => result.occurrences)
-    .where(({ input, record }) => and(
-      eq(record.calendarId, input.calendarId),
-      overlaps(record.startsAt, record.endsAt, input.from, input.to),
-    ))
+    .where(({ input, record }) =>
+      and(
+        eq(record.calendarId, input.calendarId),
+        overlaps(record.startsAt, record.endsAt, input.from, input.to),
+      ),
+    )
     .unordered(),
 
   move: write(moveOccurrence)
     .one(Occurrence)
     .predicts(({ input }) =>
-      Occurrence.patch(input.key, { startsAt: input.startsAt, endsAt: input.endsAt })),
+      Occurrence.patch(input.key, { startsAt: input.startsAt, endsAt: input.endsAt }),
+    ),
 
-  editSeries: write(editSeries)
-    .alsoChanges(({ input }) =>
-      Occurrence.where(({ record }) => and(
-        eq(record.calendarId, input.calendarId),
-        eq(record.seriesId, input.seriesId),
-      ))),
+  editSeries: write(editSeries).alsoChanges(({ input }) =>
+    Occurrence.where(({ record }) =>
+      and(eq(record.calendarId, input.calendarId), eq(record.seriesId, input.seriesId)),
+    ),
+  ),
 });
 ```
 
@@ -170,7 +171,10 @@ export const AdminDomain = domain("admin", {
     .where(({ input, record }) => oneOf(record.status, input.statuses))
     .where(({ input, record }) => eq(record.roleId, input.roleId))
     .orderBy(({ record }) => [asc(record.name), asc(record.userId)])
-    .pagedBy(({ input }) => input.page, ({ result }) => result.nextPage),
+    .pagedBy(
+      ({ input }) => input.page,
+      ({ result }) => result.nextPage,
+    ),
 
   activeCount: read(activeUserCount)
     .derivedFrom(User, ({ record }) => [record.status])
@@ -213,10 +217,16 @@ export const FilesDomain = domain("files", {
     .orderBy(({ record }) => [asc(record.name), asc(record.kind), asc(record.id)]),
 
   folderSize: read(folderSize)
-    .derivedFrom(File, ({ record }) => [record.size],
-      ({ input, record }) => serverMatches(input.folderId, record.parentId))
-    .derivedFrom(Folder, ({ record }) => [record.parentId],
-      ({ input, record }) => serverMatches(input.folderId, record.parentId)),
+    .derivedFrom(
+      File,
+      ({ record }) => [record.size],
+      ({ input, record }) => serverMatches(input.folderId, record.parentId),
+    )
+    .derivedFrom(
+      Folder,
+      ({ record }) => [record.parentId],
+      ({ input, record }) => serverMatches(input.folderId, record.parentId),
+    ),
 
   moveFile: write(moveFile)
     .one(File)
@@ -257,14 +267,17 @@ export const BoardDomain = domain("board", {
 
   moveCard: write(moveCard)
     .one(Card)
-    .predicts(({ input }) => Card.patch(input.key, {
-      columnId: input.toColumn,
-      position: input.position, // computed by the machine from its neighbours
-    }))
-    .alsoChanges(({ input }) => Card.where(({ record }) => and(
-      eq(record.boardId, input.boardId),
-      eq(record.columnId, input.toColumn),
-    ))),
+    .predicts(({ input }) =>
+      Card.patch(input.key, {
+        columnId: input.toColumn,
+        position: input.position, // computed by the machine from its neighbours
+      }),
+    )
+    .alsoChanges(({ input }) =>
+      Card.where(({ record }) =>
+        and(eq(record.boardId, input.boardId), eq(record.columnId, input.toColumn)),
+      ),
+    ),
 });
 ```
 
@@ -293,10 +306,16 @@ export const ShopDomain = domain("shop", {
     .orderBy(({ record }) => [asc(record.lineId)]),
 
   quote: read(cartQuote)
-    .derivedFrom(CartLine, ({ record }) => [record.productId, record.quantity],
-      ({ input, record }) => eq(record.cartId, input.cartId))
-    .derivedFrom(Product, ({ record }) => [record.price],
-      ({ input, record }) => serverMatches(input.cartId, record.productId)),
+    .derivedFrom(
+      CartLine,
+      ({ record }) => [record.productId, record.quantity],
+      ({ input, record }) => eq(record.cartId, input.cartId),
+    )
+    .derivedFrom(
+      Product,
+      ({ record }) => [record.price],
+      ({ input, record }) => serverMatches(input.cartId, record.productId),
+    ),
 
   setQuantity: write(setQuantity)
     .one(CartLine)
@@ -311,9 +330,12 @@ export const ShopDomain = domain("shop", {
 
   orders: read(orderHistory)
     .list(Order, ({ result }) => result.orders)
-    .where(({ record }) => eq(record.customerId, principal()))
+    .where(({ record, input }) => eq(record.customerId, input.customerId))
     .orderBy(({ record }) => [desc(record.placedAt), asc(record.orderId)])
-    .pagedBy(({ input }) => input.page, ({ result }) => result.nextPage),
+    .pagedBy(
+      ({ input }) => input.page,
+      ({ result }) => result.nextPage,
+    ),
 
   prices: listen(priceEvents).as([Product], (event) => Product.save(event.product)),
 });
@@ -335,7 +357,7 @@ the machine's question to the API, using `attempt.id`, never a retry the library
   does not matter, is enough, because displayed fields are kept right by the store. `.unaffectedBy`
   is for server-ranked results such as search (proposal section 3.3).
 - **Conditions stay data**: equality, `oneOf` with absent inputs, ranges and intervals,
-  `principal()`, and `serverMatches` where only the server can decide (a subtree, a cart's
+  the signed-in account as an input field, and `serverMatches` where only the server can decide (a subtree, a cart's
   products).
 - **Writes that change records the response does not carry** use `.alsoChanges`, narrowed with
   `Entity.where` where the input says which records.

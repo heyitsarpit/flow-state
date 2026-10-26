@@ -3,11 +3,11 @@ title   Server rendering and hydration
 status  proposed
 goal
     Render server data and hydrate it without mismatched HTML, duplicate fresh-data fetches,
-    replayed mutations, lost client edits or data shared between requests or principals.
+    replayed mutations, lost client edits or data shared between requests or accounts.
 outcomes
     O1  Capture a request's data
-        flow-state/server exports dehydrate(setup, prepare, { scope?, within, maxBytes?, inspector?
-        }), returning Promise<Hydration<A>>. Hydration<A> is opaque, JSON-safe and usable as an RSC
+        flow-state/server exports dehydrate(setup, prepare, { within, maxBytes?, inspector? }),
+        returning Promise<Hydration<A>>. Hydration<A> is opaque, JSON-safe and usable as an RSC
         prop. Each call owns a fresh Runtime, waits for readiness, calls prepare once, settles,
         captures and disposes before resolving. The Runtime is never returned or shared with another
         call.
@@ -19,13 +19,12 @@ outcomes
         cleanup still runs, and simultaneous work and cleanup failures are both preserved. Disposal
         follows @plan.Runtime.O6. Successful capture with failed cleanup returns no payload.
 
-        scope defaults to the setup's principal (@plan.Runtime.O2) and is required when it has none;
-        it comes from server authentication. inspector attaches an inspector sink
-        (@plan.Inspection.O3) to the private Runtime before ready(). within is a required finite
-        positive Duration.Input. maxBytes defaults to 262,144 and accepts integers from 1 through
-        2,097,152. Invalid options reject before construction. Server redirect and notFound
-        decisions call services or operations directly; dehydrate does not expose actor state to
-        server components for these decisions.
+        The payload carries the setup's scope (@plan.Runtime.O2), which the host derives from server
+        authentication. inspector attaches an inspector sink (@plan.Inspection.O3) to the private
+        Runtime before ready(). within is a required finite positive Duration.Input. maxBytes
+        defaults to 262,144 and accepts integers from 1 through 2,097,152. Invalid options reject
+        before construction. Server redirect and notFound decisions call services or operations
+        directly; dehydrate does not expose actor state to server components for these decisions.
     O2  Bounded settling
         After prepare, capture waits until all queued events and turns, finite lookups (including
         chained reads and repairs), commits and outcome deliveries finish, or within expires.
@@ -47,9 +46,10 @@ outcomes
         carries the app id, the app's shape digest, the scope and a request token. The shape digest
         covers machine ids, state trees, event, input and memory Schemas, operation and entity
         identities of eager entries, and lazy entry ids; it excludes deny codes and lazy code, so
-        client and server compute it from the loaded App alone. Its order is canonical, so equal
-        runs give equal bytes. Recompute context from the transferred providers. Lazy feature
-        transfer follows @plan.LazyFeatures.O4.
+        client and server compute it from the loaded App alone. A deploy that changes behaviour
+        without changing shape passes the check; payloads are short-lived, so that is accepted. Its
+        order is canonical, so equal runs give equal bytes. Recompute context from the transferred
+        providers. Lazy feature transfer follows @plan.LazyFeatures.O4.
 
         Never transfer optimistic values, predictions, queued events, errors, issues, placeholder
         values or running work. A missing, failed or unencodable lookup renders Pending without data
@@ -87,11 +87,13 @@ outcomes
         descendant hooks as a read-only overlay; the live Runtime is not changed. In its commit
         effect it applies the payload as one store version, inserting absent items, merging present
         items under @O5 and activating inserted actors, at once if ready or else during bootstrap.
-        Differing live data causes a subsequent render, never a hydration mismatch. Rendering,
-        including a discarded render, changes no store and starts no work, subscriptions, schedules,
-        persistence writes or evidence. Hydrated actors obey admission under @plan.Runtime.O3 and
-        @plan.Runtime.O5; rejection applies none of the payload, reports HydrationRejected and falls
-        back to ordinary client loading.
+        An actor attaching beneath a Hydrate boundary activates only after that boundary's payload
+        is applied, so it never looks up data the payload carries, even though React runs child
+        effects first. Differing live data causes a subsequent render, never a hydration mismatch.
+        Rendering, including a discarded render, changes no store and starts no work, subscriptions,
+        schedules, persistence writes or evidence. Hydrated actors obey admission under
+        @plan.Runtime.O3 and @plan.Runtime.O5; rejection applies none of the payload, reports
+        HydrationRejected and falls back to ordinary client loading.
 
         A payload whose app id or shape digest differs reports HydrationIncompatible; malformed
         payloads, including undeclared lazy features or exceeded decode bounds, report
@@ -131,7 +133,7 @@ outcomes
 
         Navigation payloads use these same rules on the running client. Reapplying the same payload
         is a no-op; a prefetched payload ages while waiting to render.
-    O6  Isolate requests and principals
+    O6  Isolate requests and scopes
         Concurrent dehydrate calls share no mutable request state. A server render gets a fresh,
         inert render Runtime; it starts no services, storage or work. A Runtime that has never been
         readied accepts payloads from one request token only; a second token throws
@@ -139,11 +141,13 @@ outcomes
         the second request. Segments from one RSC request are accepted together; browser navigation
         accepts later requests without discarding the existing client Runtime.
 
-        A Runtime configured with persistence accepts only its configured scope. Otherwise the first
-        accepted payload locks its scope. A mismatch throws HydrationScopeMismatch and applies
-        nothing. Changing principal requires a new Runtime under a keyed FlowProvider. Matching
-        scope is an isolation check; authentication remains the host's responsibility. Server-only
-        import behavior belongs to @plan.Package.O1.
+        A payload applies only to a Runtime with an equal scope, two absent scopes counting as
+        equal; a mismatch throws HydrationScopeMismatch and applies nothing, so a cached payload
+        from one account never reaches another's Runtime. Signing out or switching accounts is a
+        scope change: FlowProvider replaces the Runtime (@plan.React.O1), and dispose({ forget: true
+        }) also deletes the old scope's saved data (@plan.Persistence.O5). Matching scope is an
+        isolation check; authentication remains the host's responsibility. Server-only import
+        behavior belongs to @plan.Package.O1.
     O7  Streaming and navigation work in real hosts
         Next.js App Router supports an authenticated server setup without persistence, a browser
         FlowProvider, and Hydrate boundaries around server-prepared client subtrees. Layouts and
@@ -163,14 +167,15 @@ verification
     V6  Merge Story: drafts and predictions survive; conflicts repair; repeated payloads do nothing.
     V7  Redaction test: unsafe values are omitted and reported; sensitive data never transfers.
     V8  Capture tests: invalid inputs reject; all failures dispose and preserve cleanup errors.
-    V9  Admission test: rejects apply nothing; discarded renders start no work or writes.
+    V9  Admission test: rejects apply nothing; discarded renders and the payload of an aborted
+        navigation transition change nothing; children under Hydrate never fetch carried data.
     V10  Next.js test: streaming, navigation, cached replay and draft reload obey @O4 and @O5.
 questions
-    
+
     Q2  Deferred to build time
         Payload envelope encoding. Internal capture and install sharing with persistence. Codec
         implementation. Request identity generation and sequencing. Decode caching and
         discarded-render storage. Detailed trace and inspection fields.
-        
+
         Story payload labels and orchestration: @plan.Testing.O7. Host export-condition layout:
         @plan.Package.O1.

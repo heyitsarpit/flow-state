@@ -1,7 +1,9 @@
 # Lazy-loaded features: design
 
-Status: proposal for FlowState.plan. It removes "lazy-loaded features" from D50 and amends O3, O7,
-O8, O9 and O11. React Suspense stays out of scope.
+Status: adopted, with later decisions. [LazyFeatures.plan](../../LazyFeatures.plan) is the
+contract and wins where this document differs. React Suspense stays out of scope. Since this
+design: transferred lazy entries load after `ready()` resolves instead of holding it (section 9),
+and a dormant record that fails to decode is discarded alone (Q3).
 
 ## 1. The answer in one paragraph
 
@@ -21,15 +23,15 @@ renders a plain `import()` loading state, as for any other code-split component.
 
 ## 2. The tension and how it is resolved
 
-| Need                                                                 | Kept by                                                                                       |
-| -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| a complete structural representation for the CLI                     | tools await every `load`; `inspect(app)` sees every machine                                   |
-| type-level wiring and service checks                                 | `load`'s return type is `Promise<typeof EditorMachine>`, so `app()` types every lazy machine  |
-| no dynamic universe (archived ApplicationsAndActors C1)              | adoption binds code to an id declared at construction; an undeclared machine is still refused |
-| exact provenance                                                     | first machine object per id wins; another object with that id is `EntryMismatch`              |
-| atomic publication, ordered turns, fencing, bounded resources        | adoption is one admission step with one publication, rolled back in reverse order on failure |
-| Story determinism                                                    | adoption is synchronous and happens inside the command that names the actor                  |
-| a first bundle without every machine, operation, domain and service  | app.ts imports only ids and loaders; heavy services use the deferred-service recipe (§7)      |
+| Need                                                                | Kept by                                                                                       |
+| ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| a complete structural representation for the CLI                    | tools await every `load`; `inspect(app)` sees every machine                                   |
+| type-level wiring and service checks                                | `load`'s return type is `Promise<typeof EditorMachine>`, so `app()` types every lazy machine  |
+| no dynamic universe (archived ApplicationsAndActors C1)             | adoption binds code to an id declared at construction; an undeclared machine is still refused |
+| exact provenance                                                    | first machine object per id wins; another object with that id is `EntryMismatch`              |
+| atomic publication, ordered turns, fencing, bounded resources       | adoption is one admission step with one publication, rolled back in reverse order on failure  |
+| Story determinism                                                   | adoption is synchronous and happens inside the command that names the actor                   |
+| a first bundle without every machine, operation, domain and service | app.ts imports only ids and loaders; heavy services use the deferred-service recipe (§7)      |
 
 Why "the ref is the code" is safe: `actorRef(machine, id)` takes the machine value (O3). A module
 that imports `editorRef` therefore imports `EditorMachine`, its definition, operations and domain.
@@ -105,7 +107,8 @@ export const DeskApp = app({
     queue: { machine: QueueMachine, context: { userId: SessionRef } },
     editor: {
       id: "DispatchDesk/Editor",
-      load: () => import("../features/Tickets/editor/editor.machine.js").then((m) => m.EditorMachine),
+      load: () =>
+        import("../features/Tickets/editor/editor.machine.js").then((m) => m.EditorMachine),
       context: { canEdit: SessionRef },
     },
     reports: {
@@ -146,17 +149,23 @@ export const ChartsApiLive = Layer.effect(
 // open. The loading state is ordinary React state: no Suspense and no Flow API.
 function Desk() {
   const [opened, setOpened] = useState<TicketKey | null>(null);
-  const [Panel, setPanel] = useState<typeof import("../features/Tickets/editor/TicketPanel.js").TicketPanel | null>(null);
+  const [Panel, setPanel] = useState<
+    typeof import("../features/Tickets/editor/TicketPanel.js").TicketPanel | null
+  >(null);
 
   const open = (ticket: TicketKey) => {
     setOpened(ticket);
-    if (!Panel) void import("../features/Tickets/editor/TicketPanel.js").then((m) => setPanel(() => m.TicketPanel));
+    if (!Panel)
+      void import("../features/Tickets/editor/TicketPanel.js").then((m) =>
+        setPanel(() => m.TicketPanel),
+      );
   };
 
   return (
     <main className="desk">
       <QueueList workspaceId="north" onOpen={open} />
-      {opened && (Panel ? <Panel key={opened.ticketId} ticket={opened} /> : <p role="status">Opening…</p>)}
+      {opened &&
+        (Panel ? <Panel key={opened.ticketId} ticket={opened} /> : <p role="status">Opening…</p>)}
       <ToastStack />
     </main>
   );
@@ -382,10 +391,10 @@ uncertain would show as certain in the eager queue: a breach of honest uncertain
 
 Rule: **an uncertainty marker applies no later than the first moment its record is readable.**
 
-### 8.3 Second tab and principals
+### 8.3 Second tab and scopes
 
 Unchanged. A second tab on the scope runs without persistence, so it has no dormant set. A
-different principal is a new Runtime, with its own dormant set and its own adopted set.
+different scope is a new Runtime, with its own dormant set and its own adopted set.
 
 ## 9. SSR and hydration
 
@@ -398,18 +407,18 @@ Coordinate with the SSR design. The lazy-specific rules are:
 - **Transfer.** The dehydrated payload lists the **ids** of the entries the server adopted. It
   never carries module specifiers. The client accepts only ids its app declares (any other id
   fails the payload's validation), so a payload cannot make the client import arbitrary code.
-- **Client bootstrap.** `ready()` on the client starts `load` for every transferred entry id in
-  parallel, then adopts them in app declaration order (deterministic), then installs the
-  transferred actors, all before `ready()` resolves. Hydration then finds the same actors the
-  server rendered. In Next.js the route's client chunks are already on the page for hydration, so
-  each `import()` resolves from the module map.
-- **A failed client load** does not fail `ready()`. The entry stays inactive and its transferred
-  data stays dormant. `EntryLoadFailed` is reported with the cause. React then renders without the
-  actor and recovers by client rendering. The first effect that ensures with the ref in hand adopts
-  the entry and restores the dormant data. Truth is preserved, and only the hydration is lost.
+- **Client bootstrap.** `ready()` resolves without waiting for lazy code: one slow chunk must not
+  hold every ensure and send in the app. After it resolves, the client starts `load` for every
+  transferred entry id in parallel, each bounded by 10 seconds. An entry adopts when its load has
+  finished and the first attach holding its ref has happened, installing its transferred state;
+  until then the server view stays on screen. In Next.js the route's client chunks are usually
+  already on the page, so each `import()` resolves at once from the module map.
+- **A failed client load** reports `EntryLoadFailed` with the cause. The entry stays inactive, its
+  transferred state provisional and its persisted data dormant. The next attach holding the ref
+  retries the load. Truth is preserved, and only the hydration is lost.
 - **Cross-request isolation.** Compiled machines are cached per machine object across Runtimes,
   because they are pure and inert. The adopted set, dormant bytes and restored actors belong to
-  one Runtime and are never shared between requests or principals.
+  one Runtime and are never shared between requests or scopes.
 
 ## 10. Inspection, traces and `flow check` (amends O11)
 
@@ -423,15 +432,15 @@ Coordinate with the SSR design. The lazy-specific rules are:
   bounded like every other event. Checkpoints list the adopted entries.
 - **`flow check` rules**, all over the full loaded graph:
 
-| Rule                                                                                                    | Level   |
-| ------------------------------------------------------------------------------------------------------- | ------- |
-| a lazy entry's `id` differs from its loaded machine's definition id (`EntryMismatch`)                   | error   |
-| one machine listed twice (eager and lazy, or as two lazy entries)                                       | error   |
-| `load` fails to import at tool time (`EntryLoadFailed`)                                                 | error   |
-| every existing cross-machine rule (collisions, one `.byKey`, one domain per operation, context cycles)  | error   |
-| an entity's `.byKey` lives in a lazy entry, while another entry holds, predicts or listens to it        | warning |
+| Rule                                                                                                       | Level   |
+| ---------------------------------------------------------------------------------------------------------- | ------- |
+| a lazy entry's `id` differs from its loaded machine's definition id (`EntryMismatch`)                      | error   |
+| one machine listed twice (eager and lazy, or as two lazy entries)                                          | error   |
+| `load` fails to import at tool time (`EntryLoadFailed`)                                                    | error   |
+| every existing cross-machine rule (collisions, one `.byKey`, one domain per operation, context cycles)     | error   |
+| an entity's `.byKey` lives in a lazy entry, while another entry holds, predicts or listens to it           | warning |
 | a lazy machine's object is reachable from eager wiring, `setup.ts` or `app.ts` (`LazyEntryReachedEagerly`) | warning |
-| `load` is not of the form `() => import("<literal>")` or `.then((m) => m.X)`                            | warning |
+| `load` is not of the form `() => import("<literal>")` or `.then((m) => m.X)`                               | warning |
 
 The `.byKey` warning exists because, before that entry is adopted, confirming reads and forced
 repairs for the entity fall back to active answers, or drop the field (section 5.5 of
@@ -440,15 +449,15 @@ move the `.byKey` read into an eager domain, or into the same entry as every use
 
 ## 11. Failures and diagnostics
 
-| Case                                                                   | Where                                         | FlowError code                                  | Classification | Retry                                                     |
-| ---------------------------------------------------------------------- | --------------------------------------------- | ----------------------------------------------- | -------------- | --------------------------------------------------------- |
-| machine id differs from entry `id`, or a different object for that id  | adoption, `load` result, `flow check`         | `EntryMismatch`                                 | Defect         | none useful; reload or fix the build                      |
-| collision, second `.byKey`, operation in two domains, context cycle    | adoption step 3 or 4, `flow check`            | existing construction codes, `details.entry`    | Defect         | deterministic; fix the code                               |
-| dormant record fails decoding or validation                            | adoption step 5                               | O8's restore codes                              | per O8 (Q3)    | per O8                                                    |
-| `load` rejects (chunk 404 after a deploy, offline)                     | `inspect`, CLI, client bootstrap after SSR    | `EntryLoadFailed`, cause = the import error     | Failure        | next trigger calls `load` again; no automatic retry       |
-| ensure or create before `ready()`                                      | host                                          | unchanged                                       | unchanged      | unchanged                                                 |
-| send to an unadopted entry's ref                                       | actor action                                  | `SendTargetAbsent` with `adopted: false`        | report only    | n/a                                                       |
-| a deferred service's import fails                                      | adapter                                       | none from Flow: the adapter's typed failure     | Failure        | the recipe re-imports on the next call                    |
+| Case                                                                  | Where                                      | FlowError code                               | Classification | Retry                                               |
+| --------------------------------------------------------------------- | ------------------------------------------ | -------------------------------------------- | -------------- | --------------------------------------------------- |
+| machine id differs from entry `id`, or a different object for that id | adoption, `load` result, `flow check`      | `EntryMismatch`                              | Defect         | none useful; reload or fix the build                |
+| collision, second `.byKey`, operation in two domains, context cycle   | adoption step 3 or 4, `flow check`         | existing construction codes, `details.entry` | Defect         | deterministic; fix the code                         |
+| dormant record fails decoding or validation                           | adoption step 5                            | O8's restore codes                           | per O8 (Q3)    | per O8                                              |
+| `load` rejects (chunk 404 after a deploy, offline)                    | `inspect`, CLI, client bootstrap after SSR | `EntryLoadFailed`, cause = the import error  | Failure        | next trigger calls `load` again; no automatic retry |
+| ensure or create before `ready()`                                     | host                                       | unchanged                                    | unchanged      | unchanged                                           |
+| send to an unadopted entry's ref                                      | actor action                               | `SendTargetAbsent` with `adopted: false`     | report only    | n/a                                                 |
+| a deferred service's import fails                                     | adapter                                    | none from Flow: the adapter's typed failure  | Failure        | the recipe re-imports on the next call              |
 
 Remediation text: `EntryMismatch` says "two copies of `<id>` are loaded, or the entry's `id` does
 not match its machine; check for duplicated packages or chunks and stale HMR state, and reload".
@@ -475,16 +484,16 @@ serve HTML with `Cache-Control: no-cache` and reload on `vite:preloadError` or w
 
 ## 13. Alternatives considered and rejected
 
-| Alternative                                                                          | Why rejected                                                                                                                                                                                                                                                         |
-| ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| async `ensureActor`, or a handle with a `loading` lifecycle and queued sends          | changes the core sync contract (O3), re-adds a lifecycle D16 removed, needs a pre-load snapshot (the deleted "prepared actor" of archived ReactAndHosts O2) and a queue bound, and is unnecessary because refs carry the code                                       |
-| `ensureActor` throws `NotReady` until `await runtime.load(ref)`                       | adds a name, and a likely agent mistake (forgetting the load), to guard an asynchrony that does not exist when the ref is in hand                                                                                                                                       |
-| a `lazy(() => import(...))` helper (minimal-library sketch)                           | the entry object already distinguishes the forms; the sketch also could not map a ref to its entry without loading, which `id` solves                                                                                                                                 |
+| Alternative                                                                                  | Why rejected                                                                                                                                                                                                                                                |
+| -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| async `ensureActor`, or a handle with a `loading` lifecycle and queued sends                 | changes the core sync contract (O3), re-adds a lifecycle D16 removed, needs a pre-load snapshot (the deleted "prepared actor" of archived ReactAndHosts O2) and a queue bound, and is unnecessary because refs carry the code                               |
+| `ensureActor` throws `NotReady` until `await runtime.load(ref)`                              | adds a name, and a likely agent mistake (forgetting the load), to guard an asynchrony that does not exist when the ref is in hand                                                                                                                           |
+| a `lazy(() => import(...))` helper (minimal-library sketch)                                  | the entry object already distinguishes the forms; the sketch also could not map a ref to its entry without loading, which `id` solves                                                                                                                       |
 | runtime registration of features (RTK `combineSlices().inject`, RTK Query `injectEndpoints`) | an open universe: tools cannot see what may be injected, and the archive's C1 excludes it. RTK needs `withLazyLoadedSlices` declaration merging to recover the types (https://redux.js.org/toolkit/api/combineSlices), which our `load` type gives for free |
-| per-entry service Layers                                                             | §7                                                                                                                                                                                                                                                                   |
-| a generated manifest of lazy ids or digests                                          | D2: no generated spec file is stored                                                                                                                                                                                                                                 |
-| refs built from loaders so that importing a ref imports no machine code              | needs eager ids and event Schemas anyway, makes `send` asynchronous, and saves little: the sender needs the target's definition                                                                                                                                       |
-| module federation or remote entries                                                  | not version 1; `load` must be a build-local `import()` (flow check warning)                                                                                                                                                                                         |
+| per-entry service Layers                                                                     | §7                                                                                                                                                                                                                                                          |
+| a generated manifest of lazy ids or digests                                                  | D2: no generated spec file is stored                                                                                                                                                                                                                        |
+| refs built from loaders so that importing a ref imports no machine code                      | needs eager ids and event Schemas anyway, makes `send` asynchronous, and saves little: the sender needs the target's definition                                                                                                                             |
+| module federation or remote entries                                                          | not version 1; `load` must be a build-local `import()` (flow check warning)                                                                                                                                                                                 |
 
 Prior art behind the shape: TanStack Router keeps route structure (paths, search validation,
 loaders) in the eager config and splits only the component
@@ -556,7 +565,7 @@ loading to the host.
 
 - **Q1. What does the ensure form of `useActorByRef` and `useActor` return before its effect has
   created the actor?** This is not lazy-specific. O7 deleted render-time preparation, so the first
-  render has no actor even for eager machines, and the plan gives no rule. *Recommend:* the
+  render has no actor even for eager machines, and the plan gives no rule. _Recommend:_ the
   ensure form returns `Actor | null`, `null` until the actor exists in the Runtime (an existing or
   restored actor is found by passive lookup in render, so it is non-null at once), and `useView`
   accepts `null` and returns `undefined`. The type then forces the loading branch (D5), and one
@@ -564,27 +573,27 @@ loading to the host.
   actors created on mount, and TicketPanel changes. This is the riskiest question, because it
   changes O7 for every app. Lazy entries need no more than whatever is decided.
 - **Q2. Should a lazy entry's `id` be inferred instead of written?** It cannot be: mapping a ref
-  to its entry, and telling dormant data from orphans, must work without loading. *Recommend:*
+  to its entry, and telling dormant data from orphans, must work without loading. _Recommend:_
   keep it explicit and type-checked against `load`. This needs definitions to keep their id as a
   literal type (add to the V1 spike).
 - **Q3. What happens when a dormant record fails to decode at adoption?** Failing adoption would
-  make the feature unopenable until storage is cleared. *Recommend:* follow O8's bootstrap rule
+  make the feature unopenable until storage is cleared. _Recommend:_ follow O8's bootstrap rule
   for an invalid record, ideally "discard that record with a restore diagnostic and continue
   fresh; storage keeps the last good bytes until a successful capture replaces them". Adoption
   never fails because of persisted data.
-- **Q4. Should a hook rethrow an adoption failure in render?** *Recommend:* yes. Adoption failures
+- **Q4. Should a hook rethrow an adoption failure in render?** _Recommend:_ yes. Adoption failures
   are deterministic build defects (mismatch, collision). Rendering a broken feature as if empty
   would hide them, and Next's `error.tsx` with `reset()` is the standard surface. `load` never
   runs in a hook, so a network failure cannot reach this path.
 - **Q5. How long do unclaimed dormant records of undeclared operation or entity ids live?**
-  *Recommend:* until a persistence `version` change. They are bounded by the scope's size bound,
+  _Recommend:_ until a persistence `version` change. They are bounded by the scope's size bound,
   and only tools can know every owned id. A later option can let `ready()` load every entry to
   prune them, as a development aid.
-- **Q6. Should `load` ever run at runtime for prefetching?** *Recommend:* no. Prefetching code is
+- **Q6. Should `load` ever run at runtime for prefetching?** _Recommend:_ no. Prefetching code is
   the router's job (`<Link prefetch>`, `import()`), and warming an actor is `ensureActor`
   (minimal-library decision 3). Add `runtime.load` only if a real screen needs to adopt without
   any ref in hand.
 - **Q7. Does adoption order change entity behaviour?** Only through `.byKey` placement (§10
-  warning) and the answers that exist. *Recommend:* accept, with the warning and V-L4. Making it a
+  warning) and the answers that exist. _Recommend:_ accept, with the warning and V-L4. Making it a
   `flow check` error would stop a lazy feature from owning its own entity's loader, which is the
   common case of a self-contained feature.

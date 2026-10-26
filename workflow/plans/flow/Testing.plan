@@ -145,8 +145,8 @@ outcomes
         replay produces identical traces. Export redaction identifies omissions that prevent the
         printed projection alone from reproducing the failure.
     O7  Isolation, hydration and lazy features
-        Run, principal and request isolation follows @plan.Runtime.O7. Tests use no browser storage
-        or live state from another run.
+        Run, scope and request isolation follows @plan.Runtime.O7. Tests use no browser storage or
+        live state from another run.
 
         App Stories model reload and a second tab as tabs: independent Runtimes of the Story's setup
         sharing that run's in-memory storage. openTab(name) constructs and readies one;
@@ -156,8 +156,8 @@ outcomes
         runs without persistence (@plan.Persistence.O7). Tabs share nothing else; there is no
         cross-tab coordination.
 
-        App dehydrate(label, { scope, within, maxBytes? }) captures through production server
-        settle, advancing controlled time through delays until quiet or within. It stores
+        App dehydrate(label, { within, maxBytes? }) captures through production server settle,
+        advancing controlled time through delays until quiet or within. It stores
         run.payloads[label] and leaves the scenario Runtime available. Labels follow checkpoint key
         rules. hydrate(source, label?) accepts a payload or an independently executed source Story.
         Leading hydrate runs before bootstrap and storage restore; later hydrate models navigation.

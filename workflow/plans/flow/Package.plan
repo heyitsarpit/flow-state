@@ -12,9 +12,9 @@ outcomes
 
         - flow-state: definition, machine, app, actorRef, runtimeSetup, resource, transaction,
         stream, deny, check, send, FlowError, entity, domain, read, write, listen, eq, oneOf,
-        contains, between, overlaps, and, serverMatches, principal, asc, desc; types Definition,
-        Machine, App, ActorRef, Actor, Snapshot, Runtime, RuntimeSetup, Diagnostic and Attempt.
-        Attempt is also a Schema value carrying id and encoded input (@plan.Operations.O3).
+        contains, between, overlaps, and, serverMatches, asc, desc; types Definition, Machine, App,
+        ActorRef, Actor, Snapshot, Runtime, RuntimeSetup, Diagnostic and Attempt. Attempt is also a
+        Schema value carrying id and encoded input (@plan.Operations.O3).
         - flow-state/react: FlowProvider, useActorByRef, useActor, useView, Hydrate.
         - flow-state/testing: story, model, defineConfig, CheckpointProvider, propertyTest; type
         StoryRun.
@@ -70,9 +70,9 @@ outcomes
         Dispatch Desk is a checked-in application compiled and run against the packed tarball, never
         workspace aliases; it and the seven entity examples become real consumers at S10. Its
         Next.js App Router host proves request render, Hydrate first render without mismatch, reload
-        restore, reconnect, disposal, principal isolation and a second tab running without
-        persistence. Chromium, Gecko and WebKit, at the versions the pinned harness supplies, run
-        its React lifetimes, real IndexedDB, reloads and hydration.
+        restore, reconnect, disposal, scope isolation and a second tab running without persistence.
+        Chromium, Gecko and WebKit, at the versions the pinned harness supplies, run its React
+        lifetimes, real IndexedDB, reloads and hydration.
 
         Small and medium consumers compile with strict checking, isolatedModules and isolated
         declarations, and packed execution proves each route, including no-React and React 18 and 19

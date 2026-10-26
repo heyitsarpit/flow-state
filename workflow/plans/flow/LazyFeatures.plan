@@ -68,7 +68,7 @@ outcomes
         entities are known, using available loaders and active answers; the actor receives its
         unknown outcome when adopted. Entity repair behavior is @plan.EntityDomains.O1. A Runtime
         refused persistence has no dormant records; second-tab behavior is @plan.Persistence.O7.
-        Dormant data and adopted actors never cross Runtime, request or principal boundaries.
+        Dormant data and adopted actors never cross Runtime, request or scope boundaries.
     O4  Lazy features and server rendering
         Server preparation with refs adopts synchronously. Transferred lazy entry ids must name
         entries declared lazy in the client app; otherwise hydration rejects with

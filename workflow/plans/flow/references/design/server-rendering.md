@@ -1,9 +1,18 @@
 # SSR hydration: design
 
-Status: proposal. Puts SSR hydration back in scope, reversing part of FlowState.plan D50 and the
-"SSR hydration is out of scope" sentences in O7, minimal-library.md section 10 and
-entity-domain.md section 1.2. React Suspense integration stays out of scope: no Flow hook ever
-suspends.
+Status: adopted, with later decisions. [ServerRendering.plan](../../ServerRendering.plan) is the
+contract and wins where this document differs. React Suspense integration stays out of scope: no
+Flow hook ever suspends.
+
+Decisions since this design was written, reflected below:
+
+- **Scope lives on the setup.** `runtimeSetup({ scope })` names whose data a Runtime holds;
+  `dehydrate` takes no `scope` option and stamps the setup's. `principal()` is gone.
+- **Render reads, commit writes.** `Hydrate` exposes its payload to render as a read-only overlay;
+  the store changes only in the commit effect (section 2.5).
+- **Shape digest, not the Model fingerprint**, decides payload compatibility (section 2.3).
+- **`FlowProvider setup={…}`** constructs and owns one Runtime per scope (section 1.4).
+- **Lazy loads never hold `ready()`** (lazy-features.md section 9).
 
 Primary target: Next.js App Router (React Server Components with streaming). Also covered: plain
 React SSR with `renderToPipeableStream`, and client navigations that deliver new server data to a
@@ -11,7 +20,7 @@ running browser Runtime.
 
 ## 0. The design in one paragraph
 
-A server component calls `dehydrate(setup, prepare, { scope, within })` from `flow-state/server`.
+A server component calls `dehydrate(setup, prepare, { within })` from `flow-state/server`.
 It constructs a private request Runtime, runs `prepare` (which ensures actors), waits up to
 `within` for the Runtime to go quiet, and captures one consistent cut, using the persistence
 capture algorithm with a different selection. The result is a Schema-encoded, JSON-safe,
@@ -20,8 +29,8 @@ its call. The payload goes as a prop to `<Hydrate payload={…}>` from `flow-sta
 component. In both the server-side render of client components and the browser's hydration
 render, a component's output depends only on its props and the payloads of its ancestor
 `Hydrate` boundaries. That is why the server HTML and the first browser render cannot disagree,
-whatever order streamed segments arrive or hydrate in. After commit, payload items merge into the
-live client Runtime under fixed precedence rules. Actors become active as if restored, and
+whatever order streamed segments arrive or hydrate in. Render only reads the payload. In its commit
+effect `Hydrate` merges payload items into the live client Runtime under fixed precedence rules. Actors become active as if restored, and
 activities reattach to hydrated cache entries without refetching while those entries are within
 `staleTime`.
 
@@ -61,9 +70,9 @@ dehydrate(
   setup: RuntimeSetup<A, never /* no persistence */>,
   prepare: (runtime: Runtime<A>) => void,
   options: {
-    scope: string;                  // the principal this data belongs to; required
     within: Duration.Input;         // the settle bound; required (D34 style: no default)
     maxBytes?: number;              // encoded size bound; default 262_144
+    inspector?: InspectorSink;      // attached to the private Runtime before ready()
   },
 ): Promise<Hydration<A>>
 ```
@@ -101,24 +110,23 @@ import { runtimeSetup } from "flow-state";
 import { DeskApp } from "./app.js";
 import { HttpTicketApi } from "./http-api.js";
 
-export const deskServerSetup = (token: string) =>
-  runtimeSetup({ app: DeskApp, services: HttpTicketApi(token) }); // no persistence: required
+export const deskServerSetup = (user: User) =>
+  runtimeSetup({ app: DeskApp, scope: user.id, services: HttpTicketApi(user.token) }); // no persistence
 ```
 
-The browser provider, `app/providers.tsx`. The Runtime is created per mount, never at module
-level.
+The browser provider, `app/providers.tsx`. `FlowProvider` constructs and owns the Runtime, one per
+scope, never at module level.
 
 ```tsx
 "use client";
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { FlowProvider } from "flow-state/react";
 import { browserSetup } from "./persistence.js";
 
-export function DeskProviders({ scope, children }: { scope: string; children: ReactNode }) {
-  // On the server this runs once per request render; in the browser once per page load.
-  // construct() is inert: no Layer, no storage, no work until FlowProvider's effect calls ready().
-  const [runtime] = useState(() => browserSetup(scope).construct());
-  return <FlowProvider runtime={runtime}>{children}</FlowProvider>;
+export function DeskProviders({ userId, children }: { userId: string; children: ReactNode }) {
+  // A setup is inert data. FlowProvider constructs one Runtime per setup scope, calls ready() in
+  // its first effect, and disposes the old Runtime when the scope changes (sign-out, new user).
+  return <FlowProvider setup={browserSetup(userId)}>{children}</FlowProvider>;
 }
 ```
 
@@ -133,17 +141,18 @@ import { deskServerSetup } from "./server-setup.js";
 import { currentUser } from "./auth.js";
 
 export default async function Layout({ children }: { children: React.ReactNode }) {
-  const user = await currentUser(); // the host's auth; scope is derived from it, never from input
-  const session = await dehydrate(deskServerSetup(user.token), (rt) => rt.ensureActor(SessionRef), {
-    scope: user.id,
+  const user = await currentUser(); // the host's auth; the setup's scope comes from it, never from input
+  const session = await dehydrate(deskServerSetup(user), (rt) => rt.ensureActor(SessionRef), {
     within: "300 millis",
   });
   return (
-    <html><body>
-      <DeskProviders scope={user.id}>
-        <Hydrate payload={session}>{children}</Hydrate>
-      </DeskProviders>
-    </body></html>
+    <html>
+      <body>
+        <DeskProviders userId={user.id}>
+          <Hydrate payload={session}>{children}</Hydrate>
+        </DeskProviders>
+      </body>
+    </html>
   );
 }
 ```
@@ -171,12 +180,12 @@ export default async function DeskPage({ params }: { params: Promise<{ workspace
 async function QueueSegment({ workspaceId }: { workspaceId: string }) {
   const user = await currentUser();
   const payload = await dehydrate(
-    deskServerSetup(user.token),
+    deskServerSetup(user),
     (rt) => {
       rt.ensureActor(SessionRef); // the queue reads userId from the session (context closure)
       rt.ensureActor(queueRef(workspaceId), { input: { workspaceId } });
     },
-    { scope: user.id, within: "1500 millis" },
+    { within: "1500 millis" },
   );
   return (
     <Hydrate payload={payload}>
@@ -196,16 +205,16 @@ Plain React SSR uses the same three calls:
 
 ```ts
 // server.ts (Express or similar)
-const payload = await dehydrate(deskServerSetup(token), prepareDesk, { scope: user.id, within: "1 second" });
-const tree = (rt: Runtime) => (
-  <FlowProvider runtime={rt}><Hydrate payload={payload}><Desk /></Hydrate></FlowProvider>
+const payload = await dehydrate(deskServerSetup(user), prepareDesk, { within: "1 second" });
+const tree = (
+  <FlowProvider setup={browserSetup(user.id)}><Hydrate payload={payload}><Desk /></Hydrate></FlowProvider>
 );
-const { pipe } = renderToPipeableStream(tree(browserSetup(user.id).construct()), {
+const { pipe } = renderToPipeableStream(tree, {
   bootstrapScriptContent: `window.__DESK__=${JSON.stringify(payload).replace(/</g, "\\u003c")}`,
   bootstrapScripts: ["/client.js"],
 });
 // client.ts
-hydrateRoot(document, tree(browserSetup(user.id).construct())) // using window.__DESK__
+hydrateRoot(document, tree) // using window.__DESK__
 ```
 
 The `<` escaping is the one host obligation. Next does it for RSC props.
@@ -225,8 +234,8 @@ The `<` escaping is the one host obligation. Next does it for RSC props.
 - **Disposal is bounded.** Lookups and stream sessions are interrupted. Commits in flight are
   awaited, as O3 requires; see section 2.4 for why one should not exist.
 - **The render Runtime is a second Runtime.** In the App Router, client components render on the
-  server in a module graph that cannot see server-component scope. `DeskProviders` therefore makes
-  a fresh render Runtime per request render with `useState`. It is never readied on the server,
+  server in a module graph that cannot see server-component scope. `FlowProvider setup={…}`
+  therefore constructs a fresh render Runtime per request render. It is never readied on the server,
   because effects do not run there, so it builds no Layer, opens no storage and starts no work.
   It holds only decoded payloads and is garbage once the render ends; `dispose()` on a never-ready
   Runtime is a no-op.
@@ -235,17 +244,17 @@ The `<` escaping is the one host obligation. Next does it for RSC props.
   `dehydrate` gets it from React's `cache()` when it runs under `react-server`, so every segment
   of one RSC request shares it; otherwise each call gets a fresh token. A second token on an
   unreadied Runtime throws `FlowError(HydrationCrossRequest)` in render, naming the fix:
-  construct inside the provider. A server-side module singleton therefore fails on the second
+  pass the setup to the provider. A server-side module singleton therefore fails on the second
   request rather than showing one user another's data. In the browser, `FlowProvider` calls
   `ready()` in its first effect, so later client navigations, which bring new tokens, are
   accepted.
-- **Scope lock.** Each payload carries `scope`. A Runtime with `persistence` accepts only payloads
-  whose scope equals `persistence.scope`. A Runtime without persistence locks to the scope of the
-  first payload it accepts. A mismatch throws `FlowError(HydrationScopeMismatch)` in render and
-  applies nothing from that payload, so a payload for user B is never shown under user A. The
-  documented recipe is unchanged: `<FlowProvider key={scope}>`, with a new Runtime per principal.
-  `scope` comes from the host's server-side authentication. Flow cannot check that it is true,
-  only that both sides agree.
+- **Scope match.** Each payload carries its setup's `scope`, the label for whose data a Runtime
+  holds (a user, workspace or tenant id). A payload applies only to a Runtime with an equal scope,
+  two absent scopes counting as equal. A mismatch throws `FlowError(HydrationScopeMismatch)` in
+  render and applies nothing from that payload, so a payload for user B is never shown under user
+  A, even when a router cache replays it after an account switch. `FlowProvider setup={…}` gives
+  each scope its own Runtime. `scope` comes from the host's server-side authentication. Flow
+  cannot check that it is true, only that both sides agree.
 
 ### 2.2 Settle: what `within` waits for
 
@@ -269,20 +278,20 @@ client one fetch; it does not fail the page.
 ### 2.3 What is dehydrated
 
 Selection: **every shared actor in the request Runtime**, plus the transitive closure of their
-context providers, plus the store data that the active lanes of *any* actor (local actors made in
+context providers, plus the store data that the active lanes of _any_ actor (local actors made in
 `prepare` included) reference. Local actors themselves are never transferred: they have no
 address, and a client `useActor` always makes a new one. `persist` flags do not apply; hydration
 is a transfer, not durability.
 
-| Item | Transferred | Not transferred |
-| --- | --- | --- |
-| Shared actor | ref id and machine id; state path; memory encoded with the definition's `Memory` Schema; each activity binding (declaration slot, descriptor, canonical key, the entry version it last mapped to an outcome); each armed schedule's remaining time and `restartOn` baseline; the actor's own pending-commit facts, as persistence captures them | mailbox contents, issues, placeholder `previous`, fibers, sessions, input |
-| Context | nothing: it is recomputed from the hydrated providers on both sides | selected values |
-| Resource entry | canonical key, data encoded with the `result` Schema, age at capture, generation | optimistic layers, failures, errors, defects |
-| Stream lane | latest value encoded with the stream's value Schema, and the count | the session, buffered values |
-| Entity record | the confirmed fields that transferred answers project, each with its version | predictions, queues, tombstones, uncertain marks, positions |
-| Entity answer | input, references or pages, `more`, and whether it was stale at capture | frontier positions (they are meaningless in another Runtime) |
-| Envelope | format tag, app id, app fingerprint, scope, request token, sequence, `capturedAt` (server epoch milliseconds), and an `omitted` list (ids and reasons only) | values of omitted items |
+| Item           | Transferred                                                                                                                                                                                                                                                                                                                                     | Not transferred                                                           |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Shared actor   | ref id and machine id; state path; memory encoded with the definition's `Memory` Schema; each activity binding (declaration slot, descriptor, canonical key, the entry version it last mapped to an outcome); each armed schedule's remaining time and `restartOn` baseline; the actor's own pending-commit facts, as persistence captures them | mailbox contents, issues, placeholder `previous`, fibers, sessions, input |
+| Context        | nothing: it is recomputed from the hydrated providers on both sides                                                                                                                                                                                                                                                                             | selected values                                                           |
+| Resource entry | canonical key, data encoded with the `result` Schema, age at capture, generation                                                                                                                                                                                                                                                                | optimistic layers, failures, errors, defects                              |
+| Stream lane    | latest value encoded with the stream's value Schema, and the count                                                                                                                                                                                                                                                                              | the session, buffered values                                              |
+| Entity record  | the confirmed fields that transferred answers project, each with its version                                                                                                                                                                                                                                                                    | predictions, queues, tombstones, uncertain marks, positions               |
+| Entity answer  | input, references or pages, `more`, and whether it was stale at capture                                                                                                                                                                                                                                                                         | frontier positions (they are meaningless in another Runtime)              |
+| Envelope       | format tag, app id, shape digest, scope, request token, sequence, `capturedAt` (server epoch milliseconds), and an `omitted` list (ids and reasons only)                                                                                                                                                                                        | values of omitted items                                                   |
 
 - **Encoding.** Each item is encoded with the Schema that already owns it (D47, D44, D45; the
   resource `result`, the stream value and the entity fields), inside a Flow-owned envelope Schema.
@@ -291,11 +300,13 @@ is a transfer, not durability.
   is **omitted** with reason `NotEncodable`. The client then fetches it. Order inside the payload
   is canonical: actor ids by byte order, entries by descriptor id then canonical key bytes. Equal
   runs therefore give equal bytes, which Stories rely on.
-- **Identity.** The payload carries the app id and the app fingerprint: the digest of the
-  internal representation from `inspect(app)`, which entity recording already fingerprints
-  (entity-domain.md section 6.4). Persistence uses an author-chosen `version` because stored data
-  outlives a deploy. A payload does not, so the structural fingerprint is exact and needs no
-  author input.
+- **Identity.** The payload carries the app id and the app's **shape digest**: a digest of
+  machine ids, state trees, event, input and memory Schemas, operation and entity identities of
+  eager entries, and lazy entry ids. It leaves out deny codes (which need the TypeScript compiler)
+  and lazy code (which the client may not have loaded), so both sides compute it from the loaded
+  App alone. `inspect(app)`'s full fingerprint stays for traces and tools. A deploy that changes
+  behaviour without changing shape passes the check; payloads are short-lived, so that is
+  accepted. Persistence uses an author-chosen `version` because stored data outlives a deploy.
 - **Redaction: sensitive data never enters a payload.** This follows D48's annotation. HTML is
   cached by CDNs, logged and shared, so the payload is treated as an artifact. A `sensitive`
   entity field is dropped from the record. The store then does not hold that field, so a reader
@@ -311,15 +322,15 @@ is a transfer, not durability.
 
 ### 2.4 In-flight work at capture
 
-| At capture | Payload | Client |
-| --- | --- | --- |
-| Lookup in flight, no data | lane binding only; entry absent; listed as unsettled | renders the lane as `Pending`; the activity looks up on activation (the server's lookup was interrupted, so this is not a duplicate) |
-| Refetch in flight over data | entry with its data and age | renders the data; the activity refetches on activation only if `staleTime` says so |
-| Lookup failed (`Failure`, `Defect`, `Interrupted`) | entry absent; no error value is sent | `Pending` without data; the activity retries. The actor's own state, such as `DEGRADED` after `ListUnavailable`, transfers as it was |
-| Events queued in a mailbox | dropped; counted in `DehydrateUnsettled` | never delivered |
-| Commit in flight | the actor's pending-commit facts, so the client restores it as `unknown`, exactly as persistence does (O8, Transactions O4) | the `unknown` outcome is the actor's first turn after activation |
-| Domain prediction live | confirmed base only | the record shows its confirmed value |
-| Schedule armed | remaining time | re-armed (section 2.6) |
+| At capture                                         | Payload                                                                                                                     | Client                                                                                                                               |
+| -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Lookup in flight, no data                          | lane binding only; entry absent; listed as unsettled                                                                        | renders the lane as `Pending`; the activity looks up on activation (the server's lookup was interrupted, so this is not a duplicate) |
+| Refetch in flight over data                        | entry with its data and age                                                                                                 | renders the data; the activity refetches on activation only if `staleTime` says so                                                   |
+| Lookup failed (`Failure`, `Defect`, `Interrupted`) | entry absent; no error value is sent                                                                                        | `Pending` without data; the activity retries. The actor's own state, such as `DEGRADED` after `ListUnavailable`, transfers as it was |
+| Events queued in a mailbox                         | dropped; counted in `DehydrateUnsettled`                                                                                    | never delivered                                                                                                                      |
+| Commit in flight                                   | the actor's pending-commit facts, so the client restores it as `unknown`, exactly as persistence does (O8, Transactions O4) | the `unknown` outcome is the actor's first turn after activation                                                                     |
+| Domain prediction live                             | confirmed base only                                                                                                         | the record shows its confirmed value                                                                                                 |
+| Schedule armed                                     | remaining time                                                                                                              | re-armed (section 2.6)                                                                                                               |
 
 `prepare` should not cause commits: mutations belong in server actions or on the client. A commit
 in flight at capture also emits `DehydrateCommitInFlight` (warning). The honest-uncertainty rule
@@ -327,11 +338,11 @@ in flight at capture also emits `DehydrateCommitInFlight` (warning). The honest-
 
 ### 2.5 Hydration on the client: two phases
 
-**Phase 1, in render, silent.** When `Hydrate` renders:
+**Phase 1, in render, read-only.** When `Hydrate` renders:
 
 1. Look up the payload by `(request token, sequence)`. If this Runtime has already decoded it,
    reuse that; otherwise check it and decode it once:
-   - an app id or fingerprint mismatch, or a decode failure, means the payload is dropped with
+   - an app id or shape digest mismatch, or a decode failure, means the payload is dropped with
      `HydrationIncompatible` or `HydrationMalformed` (diagnostics, not throws). That is deploy
      skew, and the fallback is ordinary client loading;
    - a scope or request-token violation throws (section 2.1).
@@ -342,17 +353,21 @@ in flight at capture also emits `DehydrateCommitInFlight` (warning). The honest-
    gives a `Pending` lane without data). Lifecycle is `active` and issues are empty.
 3. Provide the server view to descendants through React context, chained to the server views of
    ancestor `Hydrate` boundaries.
-4. Insert into the live Runtime every item that is **absent** from it, without publishing. No
-   subscriber is notified during render.
+4. Leave the live Runtime untouched. The server view is an overlay that only descendant hooks
+   read.
 
-**Phase 2, in a commit effect.** Publish phase 1's insertions as one store version. Merge the items
-that were already **present** under section 2.7. Then activate the inserted actors: at once if the
-Runtime is ready, otherwise as part of the bootstrap (section 2.8).
+**Phase 2, in a commit effect.** Apply the payload as one store version: insert items **absent**
+from the live Runtime and merge items already **present** under section 2.7. Then activate the
+inserted actors: at once if the Runtime is ready, otherwise as part of the bootstrap (section 2.8).
+An actor attaching beneath a `Hydrate` boundary activates only after that boundary's payload is
+applied. React runs child effects before parent effects, so without this rule a child would look
+up data the payload already carries (TanStack Query's open issue #9968 is this race).
 
-A render that React throws away leaves phase-1 insertions in the live store. That is harmless:
-they are data, and an actor inserted that way is activated by the bootstrap and then subject to
-its `retain`, like any unused shared actor. The archived rule "attaching happens in an effect,
-never in render" stays true for subscriptions, ownership and work. Phase 1 creates none of those.
+A render that React throws away, or the payload of an aborted navigation transition, changes
+nothing: the store sees a payload only when its boundary commits. If admission rejects the
+payload, nothing was ever written. TanStack Query instead writes new queries into the cache during
+render; the overlay gives the same first view without mutating shared state in a render that may
+not commit.
 
 ### 2.6 First render equals server HTML (H1)
 
@@ -384,26 +399,27 @@ never in render" stays true for subscriptions, ownership and work. Phase 1 creat
 
 "Present" means present in the live Runtime when phase 2 runs.
 
-| Item | Rule | Why |
-| --- | --- | --- |
-| Shared actor present (active, disposing, or restored by the bootstrap) | **Client wins.** The hydrated actor is ignored (evidence: `skipped: present`). An `ensureActor` input that differs keeps the existing first-input-wins rule | an actor is workflow truth and may hold unsaved drafts; overwriting it would lose them |
-| Resource entry present, no optimistic write pending, no lookup in flight | **Younger wins.** Replace when the payload's age at hydration (section 2.9) is less than the client entry's age; otherwise skip | what TanStack Query's `hydrate` does with `dataUpdatedAt` |
-| Resource entry with a pending optimistic write or an in-flight lookup | **Skip** | fencing already orders the client's own work; a server copy cannot be placed among it |
-| Entity record field, versioned | **The store's ordering rule.** A strictly greater version replaces; lower is rejected; equal falls through to the unversioned rule | entity-domain.md section 5.5, unchanged |
-| Entity record field, unversioned and present | **Keep the client value.** If the payload value differs, the field is **contested**, and the existing contested-field rule refetches the loader and the answers holding it | request order across two Runtimes is not server truth; contests exist for exactly this case |
-| Entity record field absent on the client | filled | "a field the store does not hold is filled by any response" |
-| Entity answer present | **Client wins.** If the payload's references differ, the client answer is marked stale with cause `hydrate` | its repair machinery is authoritative; a difference is a cheap, safe refetch |
-| Entity answer absent | inserted; fresh, unless the client has, since `ready()`, accepted any base delta, live prediction, uncertain mark or queued write on that entity, in which case it is stale with cause `hydrate` | a conservative refetch is preferred to a missed one (entity-domain.md section 1.2) |
-| Stream lane present | client wins | the client session is newer |
-| Predictions on the client | untouched; replayed over any new base | entity-domain.md section 5.1 |
+| Item                                                                     | Rule                                                                                                                                                                                             | Why                                                                                         |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| Shared actor present (active, disposing, or restored by the bootstrap)   | **Client wins.** The hydrated actor is ignored (evidence: `skipped: present`). An `ensureActor` input that differs keeps the existing first-input-wins rule                                      | an actor is workflow truth and may hold unsaved drafts; overwriting it would lose them      |
+| Resource entry present, no optimistic write pending, no lookup in flight | **Younger wins.** Replace when the payload's age at hydration (section 2.9) is less than the client entry's age; otherwise skip                                                                  | what TanStack Query's `hydrate` does with `dataUpdatedAt`                                   |
+| Resource entry with a pending optimistic write or an in-flight lookup    | **Skip**                                                                                                                                                                                         | fencing already orders the client's own work; a server copy cannot be placed among it       |
+| Entity record field, versioned                                           | **The store's ordering rule.** A strictly greater version replaces; lower is rejected; equal falls through to the unversioned rule                                                               | entity-domain.md section 5.5, unchanged                                                     |
+| Entity record field, unversioned and present                             | **Keep the client value.** If the payload value differs, the field is **contested**, and the existing contested-field rule refetches the loader and the answers holding it                       | request order across two Runtimes is not server truth; contests exist for exactly this case |
+| Entity record field absent on the client                                 | filled                                                                                                                                                                                           | "a field the store does not hold is filled by any response"                                 |
+| Entity answer present                                                    | **Client wins.** If the payload's references differ, the client answer is marked stale with cause `hydrate`                                                                                      | its repair machinery is authoritative; a difference is a cheap, safe refetch                |
+| Entity answer absent                                                     | inserted; fresh, unless the client has, since `ready()`, accepted any base delta, live prediction, uncertain mark or queued write on that entity, in which case it is stale with cause `hydrate` | a conservative refetch is preferred to a missed one (entity-domain.md section 1.2)          |
+| Stream lane present                                                      | client wins                                                                                                                                                                                      | the client session is newer                                                                 |
+| Predictions on the client                                                | untouched; replayed over any new base                                                                                                                                                            | entity-domain.md section 5.1                                                                |
 
 `hydrate` joins the closed cause list of entity-domain.md section 5.2 (an amendment). It lowers
 the frontier of the answers it covers, as `restore` does.
 
 ### 2.8 Hydration, persistence and the bootstrap
 
-On a first page load the order is: phase 1 inserts during the hydration render; `FlowProvider`'s
-effect calls `ready()`; the bootstrap restores from `KeyValueStore`; the hydrated actors activate.
+On a first page load the order is: the hydration render reads the payload overlay; in the commit
+effects, `Hydrate` hands its payload to the Runtime and `FlowProvider` calls `ready()`; the
+bootstrap restores from `KeyValueStore`, merges, and activates the hydrated actors.
 
 The bootstrap (O3, O8) gains one step: **after restored data is validated and prepared, and before
 actors are installed, merge it with the provisional hydrated items:**
@@ -451,8 +467,9 @@ any other.
 
 ### 2.10 Client navigations
 
-A navigation renders a new `Hydrate` with a new payload under a ready Runtime. Phase 1 still
-inserts absent items silently, and phase 2 merges present ones under section 2.7. Payloads the
+A navigation renders a new `Hydrate` with a new payload under a ready Runtime. Render reads the
+overlay; the commit effect inserts absent items and merges present ones under section 2.7. A
+navigation transition that React abandons never commits, so its payload changes nothing. Payloads the
 Next router cache replays have the same `(token, sequence)`, so they are no-ops. A payload
 prefetched long before it renders is aged by `capturedAt` (section 2.9).
 
@@ -505,7 +522,7 @@ Handles stay stable: the handle `useActorByRef` returns during hydration is the 
 
 Two commands are added to the closed list (amends O9 and D52):
 
-- **`.dehydrate(label, { scope, within, maxBytes? })`** on a `story.app` runs the real settle
+- **`.dehydrate(label, { within, maxBytes? })`** on a `story.app` runs the real settle
   (quiet or `within`, advancing the TestClock deterministically through fixture delays) and the
   real capture, and records the payload at `run.payloads[label]`. The Story keeps running
   afterwards (its Runtime is not disposed), so a test can also checkpoint the server side.
@@ -525,7 +542,7 @@ export const queuePage = story
   .app(DeskSetup, { id: "queue-ssr-server", fixtures: [] })
   .ensure(SessionRef)
   .ensure(queueRef("north"), { input: { workspaceId: "north" } })
-  .dehydrate("page", { scope: "dispatcher-7", within: "1500 millis" });
+  .dehydrate("page", { within: "1500 millis" }); // stamps DeskSetup's scope
 
 export const queueHydrated = story
   .app(DeskSetup, { id: "queue-ssr-browser", fixtures: [CountingTicketApi] })
@@ -535,7 +552,10 @@ export const queueHydrated = story
 
 // A draft persisted from an earlier visit beats the server's editor; server data beats stored data.
 export const restoredDraftWins = story
-  .app(browserSetup("dispatcher-7"), { id: "editor-ssr-restore", fixtures: [StoredDraft, CountingTicketApi] })
+  .app(browserSetup("dispatcher-7"), {
+    id: "editor-ssr-restore",
+    fixtures: [StoredDraft, CountingTicketApi],
+  })
   .hydrate(editorPage, "page")
   .process()
   .checkpoint("restored");
@@ -555,7 +575,13 @@ Runtime, put it in a jsdom container, `hydrateRoot` with a second fresh Runtime,
 
 ```tsx
 const payload = (await queuePage.run()).payloads.page;
-const ui = (rt: Runtime) => <FlowProvider runtime={rt}><Hydrate payload={payload}><QueueList workspaceId="north" onOpen={noop} /></Hydrate></FlowProvider>;
+const ui = (rt: Runtime) => (
+  <FlowProvider runtime={rt}>
+    <Hydrate payload={payload}>
+      <QueueList workspaceId="north" onOpen={noop} />
+    </Hydrate>
+  </FlowProvider>
+);
 container.innerHTML = renderToString(ui(DeskSetup.construct()));
 hydrateRoot(container, ui(DeskSetup.construct()), { onRecoverableError: fail });
 ```
@@ -566,20 +592,20 @@ hydrateRoot(container, ui(DeskSetup.construct()), { onRecoverableError: fail });
 
 New closed codes (O10), each with remediation:
 
-| Code | Where | Class | Behaviour | Remediation |
-| --- | --- | --- | --- | --- |
-| `ServerOnlyImport` | import of `flow-state/server` in a browser bundle | Defect | throws at import | import `dehydrate` only from server components or server code |
-| `DehydratePersistentSetup` | `dehydrate` | Failure (and a type error) | rejects before construction | pass a setup without `persistence` |
-| `DehydrateTooLarge` | `dehydrate` | Failure | rejects; details list the 10 largest items | split into segments, narrow `prepare`, or raise `maxBytes` |
-| `DehydrateUnsettled` | `dehydrate` | diagnostic only | payload is produced; lists pending lanes and dropped mailbox counts | raise `within` or move the slow read into its own streamed segment |
-| `DehydrateCommitInFlight` | `dehydrate` | warning | the actor transfers with an `unknown` commit | commit from a server action or the client |
-| `ConcurrentCapture` | `dehydrate` | Failure, retryable | retried 3 times, then rejects | (existing) |
-| `HydrateOutsideProvider` | `Hydrate` render | Defect | throws | wrap in `FlowProvider` |
-| `HydrationCrossRequest` | `Hydrate` render | Defect | throws; nothing applied | construct the Runtime inside the provider (`useState`), never at module level |
-| `HydrationScopeMismatch` | `Hydrate` render | Failure | throws; nothing applied | key `FlowProvider` by scope; derive both scopes from one value |
-| `HydrationIncompatible` | `Hydrate` | diagnostic | payload dropped; client loads normally | expected during deploy skew; a persistent one means server and client run different app code |
-| `HydrationMalformed` | `Hydrate` | diagnostic | payload dropped | payload was altered in transit or hand-built |
-| `HydrationRejected` | phase 2 | diagnostic, admission diagnostic as cause | whole payload rolled back | see the cause |
+| Code                       | Where                                             | Class                                     | Behaviour                                                           | Remediation                                                                                  |
+| -------------------------- | ------------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `ServerOnlyImport`         | import of `flow-state/server` in a browser bundle | Defect                                    | throws at import                                                    | import `dehydrate` only from server components or server code                                |
+| `DehydratePersistentSetup` | `dehydrate`                                       | Failure (and a type error)                | rejects before construction                                         | pass a setup without `persistence`                                                           |
+| `DehydrateTooLarge`        | `dehydrate`                                       | Failure                                   | rejects; details list the 10 largest items                          | split into segments, narrow `prepare`, or raise `maxBytes`                                   |
+| `DehydrateUnsettled`       | `dehydrate`                                       | diagnostic only                           | payload is produced; lists pending lanes and dropped mailbox counts | raise `within` or move the slow read into its own streamed segment                           |
+| `DehydrateCommitInFlight`  | `dehydrate`                                       | warning                                   | the actor transfers with an `unknown` commit                        | commit from a server action or the client                                                    |
+| `ConcurrentCapture`        | `dehydrate`                                       | Failure, retryable                        | retried 3 times, then rejects                                       | (existing)                                                                                   |
+| `HydrateOutsideProvider`   | `Hydrate` render                                  | Defect                                    | throws                                                              | wrap in `FlowProvider`                                                                       |
+| `HydrationCrossRequest`    | `Hydrate` render                                  | Defect                                    | throws; nothing applied                                             | construct the Runtime inside the provider (`useState`), never at module level                |
+| `HydrationScopeMismatch`   | `Hydrate` render                                  | Failure                                   | throws; nothing applied                                             | give the server and browser setups the same `scope`                                          |
+| `HydrationIncompatible`    | `Hydrate`                                         | diagnostic                                | payload dropped; client loads normally                              | expected during deploy skew; a persistent one means server and client run different app code |
+| `HydrationMalformed`       | `Hydrate`                                         | diagnostic                                | payload dropped                                                     | payload was altered in transit or hand-built                                                 |
+| `HydrationRejected`        | phase 2                                           | diagnostic, admission diagnostic as cause | whole payload rolled back                                           | see the cause                                                                                |
 
 Omission reasons (`NotEncodable`, `Sensitive`, `LocalActor`) are details on the `dehydrate` trace
 event, not codes. They are expected outcomes.
@@ -595,7 +621,7 @@ event, not codes. They are expected outcomes.
 - **The shared bounded structural codec** of InspectionAndArtifacts, for the envelope and the byte
   bound.
 - **`key.ts` canonical bytes** for entry order and identity in the payload.
-- **The internal representation's fingerprint** for `HydrationIncompatible`.
+- **The app's shape digest** for `HydrationIncompatible`.
 - **Frozen `packages/flow-state` as prior art only** (C2: nothing is ported from it).
   `withRequestRuntime` in `src/runtime/request-runtime.ts` shows the lifetime shape `dehydrate`
   adopts: construct, run, dispose, and when both the request and the disposal fail, an aggregate
@@ -621,8 +647,8 @@ S8; the entity parts need S5):
    interleaved fixtures share no actor, entry or token. A module-level render Runtime receiving
    two requests' payloads throws `HydrationCrossRequest` on the second, and the first request's
    data never appears in the second's HTML.
-3. **Scope.** A payload with the wrong scope throws and applies nothing; the keyed provider recipe
-   remounts cleanly.
+3. **Scope.** A payload with the wrong scope throws and applies nothing; a `FlowProvider` whose
+   setup scope changes replaces its Runtime cleanly.
 4. **Settle.** Chained activities settle as a unit; streams and schedules do not hold it open;
    `within` expiry yields the documented unsettled payload; the same Story gives identical payload
    bytes on every run (golden).
@@ -667,24 +693,24 @@ S8; the entity parts need S5):
 
 **Q1. Should `dehydrate` take a host-owned Runtime instead of a setup plus `prepare`?** A
 host-owned Runtime would let one request Runtime serve several segments and let a page read actor
-state on the server (for `notFound()` or a redirect). *Recommended: no, for version 1.* An escaping
+state on the server (for `notFound()` or a redirect). _Recommended: no, for version 1._ An escaping
 request Runtime in RSC has no disposal hook: `cache()` scopes it per request but never disposes,
 and open streams and polls would leak fibers. The duplicate session load is a service-level cache
 concern. Pages that must decide on the server call their API directly. Revisit if Next exposes a
 request-end hook.
 
 **Q2. Faithful hydration of sensitive fields?** Some apps would accept a sensitive value in HTML
-because the same user sees it rendered anyway. *Recommended: no.* Omission is the safe direction
+because the same user sees it rendered anyway. _Recommended: no._ Omission is the safe direction
 (D5), it is consistent with D48 (sensitive is never written out), and the cost is one client fetch.
 An opt-in would add a name whose only use is weakening a guarantee.
 
 **Q3. Should the server Runtime skip streams (a server mode)?** Opening the live feed per SSR
-request costs a connection. *Recommended: no server mode in version 1.* One production execution
+request costs a connection. _Recommended: no server mode in version 1._ One production execution
 path is a binding principle. Settle already ignores streams, and `dispose` closes them within the
 call. If the cost bites, machines gate the activity with `when` on a session flag. Measure in V10.
 
 **Q4. What exactly does an unattached, unhydrated handle render?** H1 depends on it being pure. S8
-must define it. *Recommended:* `useView` on a handle with no actor yet returns the selector applied
+must define it. _Recommended:_ `useView` on a handle with no actor yet returns the selector applied
 to a **pre-attach snapshot**: default state path, memory from `initial(input)` (pure, D46),
 context and activities absent (lanes `undefined`), lifecycle `active`, no issues. It is computed
 in render without registration, on both sides. This is the riskiest dependency: it reintroduces a
@@ -693,24 +719,23 @@ though without creating anything. If S8 instead returns `undefined` for unattach
 still holds, but components must handle `undefined` from every `useView`.
 
 **Q5. Should the "no `result` Schema" `flow check` rule always warn?** It is noise for browser-only
-apps. *Recommended:* warn only when the app is listed with `ssr: true` in `flow.config.ts`, or
+apps. _Recommended:_ warn only when the app is listed with `ssr: true` in `flow.config.ts`, or
 when the resource is used by a `persist: true` ref. Persistence needs the Schema too, so this
 merges with an existing concern.
 
-**Q6. Default `maxBytes`?** *Recommended: 256 KiB* of encoded JSON per payload. A larger page
+**Q6. Default `maxBytes`?** _Recommended: 256 KiB_ of encoded JSON per payload. A larger page
 should split into segments, which also streams better. Measure in V10.
 
 **Q7. Should hydrated actors beat persisted actors in some cases?** For example, a server-confirmed
 state change while the user was away (the ticket was closed on the server, but the persisted editor
-is OPEN). *Recommended: no.* Persisted beats hydrated for actors, always. Server data still flows
+is OPEN). _Recommended: no._ Persisted beats hydrated for actors, always. Server data still flows
 in through hydrated entries and records, and the restored actor's activities react to that data
 through their normal outcomes. A second rule would make precedence depend on content.
 
 **Q8. Should `scope` be unified with the entity `principal()` source and `persistence.scope`?**
-Today three strings must agree by convention. *Recommended:* yes, in a follow-up. Add one
-`principal` field to `runtimeSetup` that persistence scoping, `principal()` and hydration all
-read. That removes two ways to get it wrong, but it touches O8's surface, so it is not decided
-here.
+_Decided:_ `runtimeSetup({ scope })` is the one field. Persistence partitions by it and payloads
+carry it; `dehydrate` has no `scope` option. `principal()` is removed: a condition about the
+signed-in account uses an input field, or `serverMatches` when only the server applies it.
 
 ---
 

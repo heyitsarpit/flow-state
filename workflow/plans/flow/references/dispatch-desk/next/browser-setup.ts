@@ -8,6 +8,7 @@ import { HttpTicketApi } from "./http-api.js";
 export const deskBrowserSetup = (userId: string) =>
   runtimeSetup({
     app: DeskApp,
+    scope: userId, // whose data this Runtime holds; persistence partitions by it
     services: Layer.mergeAll(
       HttpTicketApi(
         undefined,
@@ -16,5 +17,5 @@ export const deskBrowserSetup = (userId: string) =>
       ),
       layerIndexedDb({ database: "dispatch-desk" }),
     ),
-    persistence: { scope: `dispatch-desk:${userId}`, version: "1" },
+    persistence: { version: "1" },
   });

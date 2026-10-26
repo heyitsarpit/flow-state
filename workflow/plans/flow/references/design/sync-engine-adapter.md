@@ -10,21 +10,20 @@
 An adapter is built only from public parts of Flow State. Each guarantee below is a requirement on
 version 1; the right column says whether the agreed design already meets it.
 
-| # | Guarantee | Status |
-| - | --------- | ------ |
-| A1 | **Operation descriptors can be built outside the core.** A package can construct `stream` and `transaction` descriptors from an id, a key projector, an input Schema and an Effect (`subscribe` returning a `Stream`, `commit` returning an Effect), with no private hooks | needs stating in the Resources, Streams and Transactions plans |
-| A2 | **A commit can end as `unknown` by itself.** Decision 6's `unknown` covers cancellation after sending, restore and abandonment; an adapter must also be able to report "the server may have applied this" (a confirmation timeout) through a built-in cause such as `Uncertain` | **missing**: a small addition to decision 6 |
-| A3 | **Commits receive `attempt.id` and are interruptible**, so engines can deduplicate and Flow can cancel | met by decision 6 and Effect interruption |
-| A4 | **Engines are scoped to a Runtime** through a `Layer`, disposed with it; a new principal is a new Runtime | met by D47 and decision 10 |
-| A5 | **Stream values may carry their own status**, and emissions are published once per Runtime turn | met by the Streams plan; coalescing per turn needs stating |
-| A6 | **External work can settle before a turn publishes**, so Stories stay deterministic with an engine fixture | **open**: needs a public "settle external work" step in the Runtime, or a spike showing it is unnecessary |
-| A7 | **Descriptors can declare static edges** to things outside Flow (an engine's collections), so `flow graph` draws them | needs a declared-edges field on descriptors |
-| A8 | **A public trace service** lets adapters record their own events in the Runtime trace and `attachInspector` | needs stating in the Inspection plan |
-| A9 | **Tier 1 never claims data it was not given.** The entity store touches only operations that bind an entity; engine rows stay outside it, and one Schema cannot be both | a tier-1 rule to keep |
-| A10 | **Views read engine data through lanes**, so engine data shares the Runtime's versioned store | met by decision 8 |
+| #   | Guarantee                                                                                                                                                                                                                                                                       | Status                                                                                                    |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| A1  | **Operation descriptors can be built outside the core.** A package can construct `stream` and `transaction` descriptors from an id, a key projector, an input Schema and an Effect (`subscribe` returning a `Stream`, `commit` returning an Effect), with no private hooks      | needs stating in the Resources, Streams and Transactions plans                                            |
+| A2  | **A commit can end as `unknown` by itself.** Decision 6's `unknown` covers cancellation after sending, restore and abandonment; an adapter must also be able to report "the server may have applied this" (a confirmation timeout) through a built-in cause such as `Uncertain` | **missing**: a small addition to decision 6                                                               |
+| A3  | **Commits receive `attempt.id` and are interruptible**, so engines can deduplicate and Flow can cancel                                                                                                                                                                          | met by decision 6 and Effect interruption                                                                 |
+| A4  | **Engines are scoped to a Runtime** through a `Layer`, disposed with it; a new principal is a new Runtime                                                                                                                                                                       | met by D47 and decision 10                                                                                |
+| A5  | **Stream values may carry their own status**, and emissions are published once per Runtime turn                                                                                                                                                                                 | met by the Streams plan; coalescing per turn needs stating                                                |
+| A6  | **External work can settle before a turn publishes**, so Stories stay deterministic with an engine fixture                                                                                                                                                                      | **open**: needs a public "settle external work" step in the Runtime, or a spike showing it is unnecessary |
+| A7  | **Descriptors can declare static edges** to things outside Flow (an engine's collections), so `flow graph` draws them                                                                                                                                                           | needs a declared-edges field on descriptors                                                               |
+| A8  | **A public trace service** lets adapters record their own events in the Runtime trace and `attachInspector`                                                                                                                                                                     | needs stating in the Inspection plan                                                                      |
+| A9  | **Tier 1 never claims data it was not given.** The entity store touches only operations that bind an entity; engine rows stay outside it, and one Schema cannot be both                                                                                                         | a tier-1 rule to keep                                                                                     |
+| A10 | **Views read engine data through lanes**, so engine data shares the Runtime's versioned store                                                                                                                                                                                   | met by decision 8                                                                                         |
 
 Everything else in this document is design for a future adapter and can change when one is built.
-
 
 Status: a proposal, not decided. It designs the **tier-2 plug-in point** decided in `entities.md`
 section 3.3: when an app needs live results, instant list changes, local queries or offline use,
@@ -61,18 +60,18 @@ Three consequences:
 
 ## 2. What TanStack DB provides
 
-| Area | Verified fact | Source |
-| --- | --- | --- |
-| collections | `createCollection(options)` with `getKey`, `schema`, `sync`, `gcTime` (default 300 000 ms; `<= 0` disables collection), `startSync`, `syncMode: "eager" \| "on-demand"` | `packages/db/src/types.ts`, `collection/index.ts` |
-| status | `"idle" \| "loading" \| "ready" \| "error" \| "cleaned-up"`; `error → ready` is allowed (recoverable) | `collection/lifecycle.ts` |
-| observing | `subscribeChanges(cb, { includeInitialState })` delivers batches of `{ key, value, previousValue?, type }`; `status`, `onFirstReady`, `preload()`, `isLoadingSubset`, events `status:change`, `truncate` | `collection/index.ts`, `events.ts` |
-| custom sync | `sync({ begin, write, commit, markReady, markError, truncate })`; the closure can be driven entirely by the host | `types.ts` (`SyncConfig`) |
-| live queries | `createLiveQueryCollection((q) => q.from(…).where(…))` is an ordinary collection; ready when all sources are ready and subsets loaded; a source in `error` puts it in `error`; parameters are closure values, so a new parameter means a new live query | `query/live-query-collection.ts`, `query/live/collection-config-builder.ts` |
-| transactions | `createTransaction({ id, autoCommit, mutationFn, metadata })`; `tx.mutate(() => …)` applies optimistic changes synchronously; `tx.commit()` runs `mutationFn`, on error rolls back and rethrows; `tx.when("settled")` resolves on success and rejects with the error (or `undefined` for a rollback without one); states `pending`, `persisting`, `completed`, `failed` | `transactions.ts` (read directly) |
-| cancellation | `mutationFn` receives no abort signal; `rollback()` while persisting drops the optimistic state but does not stop the call | `transactions.ts` |
-| conflicts | rolling back a transaction also rolls back other transactions touching the same keys | `transactions.ts` |
-| Electric | a write is confirmed when its Postgres `txid` appears in the shape stream: `utils.awaitTxId(txid, timeout)`, or `utils.awaitMatch(fn, timeout)`; timeout rejects with `TimeoutWaitingForTxIdError`; cleanup rejects waiters with `StreamAbortedError` | `packages/electric-db-collection/src/electric.ts` |
-| Query | `queryFn` must return the complete scoped result; rows missing from a refetch are deleted; `utils.refetch({ throwOnError })`; direct writes (`writeUpsert`, `writeBatch`) bypass optimistic state; a refetch failure after the first snapshot keeps the last snapshot (`ready`) and sets `utils.lastError` | `packages/query-db-collection/src/query.ts` |
+| Area         | Verified fact                                                                                                                                                                                                                                                                                                                                                           | Source                                                                      |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| collections  | `createCollection(options)` with `getKey`, `schema`, `sync`, `gcTime` (default 300 000 ms; `<= 0` disables collection), `startSync`, `syncMode: "eager" \| "on-demand"`                                                                                                                                                                                                 | `packages/db/src/types.ts`, `collection/index.ts`                           |
+| status       | `"idle" \| "loading" \| "ready" \| "error" \| "cleaned-up"`; `error → ready` is allowed (recoverable)                                                                                                                                                                                                                                                                   | `collection/lifecycle.ts`                                                   |
+| observing    | `subscribeChanges(cb, { includeInitialState })` delivers batches of `{ key, value, previousValue?, type }`; `status`, `onFirstReady`, `preload()`, `isLoadingSubset`, events `status:change`, `truncate`                                                                                                                                                                | `collection/index.ts`, `events.ts`                                          |
+| custom sync  | `sync({ begin, write, commit, markReady, markError, truncate })`; the closure can be driven entirely by the host                                                                                                                                                                                                                                                        | `types.ts` (`SyncConfig`)                                                   |
+| live queries | `createLiveQueryCollection((q) => q.from(…).where(…))` is an ordinary collection; ready when all sources are ready and subsets loaded; a source in `error` puts it in `error`; parameters are closure values, so a new parameter means a new live query                                                                                                                 | `query/live-query-collection.ts`, `query/live/collection-config-builder.ts` |
+| transactions | `createTransaction({ id, autoCommit, mutationFn, metadata })`; `tx.mutate(() => …)` applies optimistic changes synchronously; `tx.commit()` runs `mutationFn`, on error rolls back and rethrows; `tx.when("settled")` resolves on success and rejects with the error (or `undefined` for a rollback without one); states `pending`, `persisting`, `completed`, `failed` | `transactions.ts` (read directly)                                           |
+| cancellation | `mutationFn` receives no abort signal; `rollback()` while persisting drops the optimistic state but does not stop the call                                                                                                                                                                                                                                              | `transactions.ts`                                                           |
+| conflicts    | rolling back a transaction also rolls back other transactions touching the same keys                                                                                                                                                                                                                                                                                    | `transactions.ts`                                                           |
+| Electric     | a write is confirmed when its Postgres `txid` appears in the shape stream: `utils.awaitTxId(txid, timeout)`, or `utils.awaitMatch(fn, timeout)`; timeout rejects with `TimeoutWaitingForTxIdError`; cleanup rejects waiters with `StreamAbortedError`                                                                                                                   | `packages/electric-db-collection/src/electric.ts`                           |
+| Query        | `queryFn` must return the complete scoped result; rows missing from a refetch are deleted; `utils.refetch({ throwOnError })`; direct writes (`writeUpsert`, `writeBatch`) bypass optimistic state; a refetch failure after the first snapshot keeps the last snapshot (`ready`) and sets `utils.lastError`                                                              | `packages/query-db-collection/src/query.ts`                                 |
 
 **What TanStack DB does not expose:** whether a result is complete. `ready` means "a usable
 snapshot exists". For eager collections that is the whole synced set; for on-demand and
@@ -85,13 +84,13 @@ public.
 
 An engine binding gives Flow State five things. Each maps onto something Flow State already has.
 
-| # | Obligation | Flow State side |
-| - | ---------- | --------------- |
-| E1 | **Lifetime.** The engine's collections are created per Runtime and disposed with it | an Effect `Layer` in `runtimeSetup` services (D47); a new principal is a new Runtime (decision 10) |
-| E2 | **Live results.** For a declared query and an input, a continuing value with status (`loading`, `ready`, `error`), rows, and whether a subset is loading | a `stream` descriptor; its lane's `latest` is the live result |
-| E3 | **Writes.** Apply the engine's own prediction synchronously, then persist through Flow's effect, then confirm the engine's way; classify the ending as success, failure, defect, interrupt or unknown | a `transaction` descriptor; decision 6 outcomes |
-| E4 | **Determinism.** A fixture form whose sync is driven by the host on the Runtime clock | a fixture `Layer` in Stories |
-| E5 | **Trace.** Status changes, change batches, write lifecycle and outcome classification | the Runtime trace and `attachInspector` |
+| #   | Obligation                                                                                                                                                                                            | Flow State side                                                                                    |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| E1  | **Lifetime.** The engine's collections are created per Runtime and disposed with it                                                                                                                   | an Effect `Layer` in `runtimeSetup` services (D47); a new principal is a new Runtime (decision 10) |
+| E2  | **Live results.** For a declared query and an input, a continuing value with status (`loading`, `ready`, `error`), rows, and whether a subset is loading                                              | a `stream` descriptor; its lane's `latest` is the live result                                      |
+| E3  | **Writes.** Apply the engine's own prediction synchronously, then persist through Flow's effect, then confirm the engine's way; classify the ending as success, failure, defect, interrupt or unknown | a `transaction` descriptor; decision 6 outcomes                                                    |
+| E4  | **Determinism.** A fixture form whose sync is driven by the host on the Runtime clock                                                                                                                 | a fixture `Layer` in Stories                                                                       |
+| E5  | **Trace.** Status changes, change batches, write lifecycle and outcome classification                                                                                                                 | the Runtime trace and `attachInspector`                                                            |
 
 The engine is never asked for completeness or for membership rules; those are its business.
 
@@ -103,30 +102,40 @@ The engine is never asked for completeness or for membership rules; those are it
 
 ```ts
 // app/todos-db.ts
-export class TodosDb extends Context.Service<TodosDb, {
-  todos: Collection<Todo, string>;
-  projects: Collection<Project, string>;
-}>()("app/TodosDb") {}
+export class TodosDb extends Context.Service<
+  TodosDb,
+  {
+    todos: Collection<Todo, string>;
+    projects: Collection<Project, string>;
+  }
+>()("app/TodosDb") {}
 
-export const TodosDbLive = Layer.scoped(TodosDb, Effect.gen(function* () {
-  const todos = createCollection(electricCollectionOptions({
-    id: "todos",
-    shapeOptions: { url: `${ELECTRIC_URL}/v1/shape`, params: { table: "todos" } },
-    getKey: (todo) => todo.id,
-    schema: TodoSchema,
-  }));
-  const projects = createCollection(queryCollectionOptions({
-    id: "projects",
-    queryKey: ["projects"],
-    queryFn: () => fetchProjects(),
-    queryClient,
-    getKey: (project) => project.id,
-  }));
-  yield* Effect.addFinalizer(() =>
-    Effect.promise(() => Promise.all([todos.cleanup(), projects.cleanup()])),
-  );
-  return { todos, projects };
-}));
+export const TodosDbLive = Layer.scoped(
+  TodosDb,
+  Effect.gen(function* () {
+    const todos = createCollection(
+      electricCollectionOptions({
+        id: "todos",
+        shapeOptions: { url: `${ELECTRIC_URL}/v1/shape`, params: { table: "todos" } },
+        getKey: (todo) => todo.id,
+        schema: TodoSchema,
+      }),
+    );
+    const projects = createCollection(
+      queryCollectionOptions({
+        id: "projects",
+        queryKey: ["projects"],
+        queryFn: () => fetchProjects(),
+        queryClient,
+        getKey: (project) => project.id,
+      }),
+    );
+    yield* Effect.addFinalizer(() =>
+      Effect.promise(() => Promise.all([todos.cleanup(), projects.cleanup()])),
+    );
+    return { todos, projects };
+  }),
+);
 ```
 
 - Collections declare **no** `onInsert`, `onUpdate` or `onDelete` handlers. Every write goes through
@@ -142,10 +151,13 @@ export const openTodos = tanstack.live({
   db: TodosDb,
   key: (input: { projectId: string }) => input,
   sources: ["todos"],
-  query: ({ todos }, input) => (q) =>
-    q.from({ t: todos })
-      .where(({ t }) => and(eq(t.projectId, input.projectId), eq(t.done, false)))
-      .orderBy(({ t }) => t.createdAt, "desc"),
+  query:
+    ({ todos }, input) =>
+    (q) =>
+      q
+        .from({ t: todos })
+        .where(({ t }) => and(eq(t.projectId, input.projectId), eq(t.done, false)))
+        .orderBy(({ t }) => t.createdAt, "desc"),
 });
 ```
 
@@ -161,9 +173,9 @@ export const openTodos = tanstack.live({
 ```ts
 type LiveResult<Row> = {
   status: "loading" | "ready" | "error";
-  rows: Array<Row>;            // rows keep their object identity while unchanged
-  loadingSubset: boolean;      // on-demand loading in progress
-  error?: unknown;             // the collection's error, or a Query collection's lastError
+  rows: Array<Row>; // rows keep their object identity while unchanged
+  loadingSubset: boolean; // on-demand loading in progress
+  error?: unknown; // the collection's error, or a Query collection's lastError
 };
 ```
 
@@ -187,7 +199,10 @@ export const toggleTodo = tanstack.write({
   db: TodosDb,
   input: { id: Schema.String, done: Schema.Boolean },
   key: (input) => ({ id: input.id }),
-  apply: ({ todos }, input) => todos.update(input.id, (draft) => { draft.done = input.done }),
+  apply: ({ todos }, input) =>
+    todos.update(input.id, (draft) => {
+      draft.done = input.done;
+    }),
   persist: (input, { attempt }) => TodoApi.use((api) => api.toggle(input, attempt.id)),
   confirm: electric.txid((result) => result.txid, { timeout: "10 seconds" }),
   concurrency: "serialize",
@@ -198,7 +213,10 @@ export const renameProject = tanstack.write({
   db: TodosDb,
   input: { id: Schema.String, name: Schema.String },
   key: (input) => ({ id: input.id }),
-  apply: ({ projects }, input) => projects.update(input.id, (draft) => { draft.name = input.name }),
+  apply: ({ projects }, input) =>
+    projects.update(input.id, (draft) => {
+      draft.name = input.name;
+    }),
   persist: (input, { attempt }) => ProjectApi.use((api) => api.rename(input, attempt.id)),
   confirm: query.refetch("projects"),
   concurrency: "serialize",
@@ -216,27 +234,27 @@ export const renameProject = tanstack.write({
 
 **Confirmation strategies:**
 
-| Strategy | What it does | Collection type |
-| --- | --- | --- |
-| `electric.txid(select, { timeout })` | awaits `utils.awaitTxId(select(result), timeout)` | Electric |
-| `electric.match(fn, { timeout })` | awaits `utils.awaitMatch(fn, timeout)` | Electric |
-| `query.refetch(collection)` | awaits `utils.refetch({ throwOnError: true })` | Query |
-| `none` | resolves when `persist` succeeds | local or custom |
+| Strategy                             | What it does                                      | Collection type |
+| ------------------------------------ | ------------------------------------------------- | --------------- |
+| `electric.txid(select, { timeout })` | awaits `utils.awaitTxId(select(result), timeout)` | Electric        |
+| `electric.match(fn, { timeout })`    | awaits `utils.awaitMatch(fn, timeout)`            | Electric        |
+| `query.refetch(collection)`          | awaits `utils.refetch({ throwOnError: true })`    | Query           |
+| `none`                               | resolves when `persist` succeeds                  | local or custom |
 
 `timeout` is required: the documented defaults disagree between versions (section 11).
 
 ### 4.4 How endings map to outcomes
 
-| What happened | TanStack DB | Flow outcome |
-| --- | --- | --- |
-| `persist` succeeded and the confirmation arrived | `completed`; the overlay is replaced by synced data | `success`, with `persist`'s value |
-| `persist` failed with a typed error | `mutationFn` rejects; rollback | `failure`, by tag |
-| `persist` died | rollback | `defect` |
-| `persist` succeeded, the confirmation timed out or the refetch failed | see below | `unknown` |
-| Flow cancelled before `persist` started | `tx.rollback()` while `pending` | none: the attempt never ran |
-| Flow cancelled after `persist` started | `tx.rollback()`; the Effect is interrupted | `unknown` |
-| another transaction's rollback rolled this one back | `when("settled")` rejects with `undefined` | `unknown` |
-| the Runtime was disposed | `StreamAbortedError` in the confirmation | `interrupt` |
+| What happened                                                         | TanStack DB                                         | Flow outcome                      |
+| --------------------------------------------------------------------- | --------------------------------------------------- | --------------------------------- |
+| `persist` succeeded and the confirmation arrived                      | `completed`; the overlay is replaced by synced data | `success`, with `persist`'s value |
+| `persist` failed with a typed error                                   | `mutationFn` rejects; rollback                      | `failure`, by tag                 |
+| `persist` died                                                        | rollback                                            | `defect`                          |
+| `persist` succeeded, the confirmation timed out or the refetch failed | see below                                           | `unknown`                         |
+| Flow cancelled before `persist` started                               | `tx.rollback()` while `pending`                     | none: the attempt never ran       |
+| Flow cancelled after `persist` started                                | `tx.rollback()`; the Effect is interrupted          | `unknown`                         |
+| another transaction's rollback rolled this one back                   | `when("settled")` rejects with `undefined`          | `unknown`                         |
+| the Runtime was disposed                                              | `StreamAbortedError` in the confirmation            | `interrupt`                       |
 
 **When confirmation fails after the server accepted the write**, the adapter resolves `mutationFn`
 rather than rejecting it. TanStack DB then drops the overlay and shows whatever its synced data
@@ -365,32 +383,32 @@ needs live results or local queries.
 
 ## 10. Constraints from `entities.md` section 6
 
-| Constraint | Met by |
-| --- | --- |
-| one ingestion path for record changes | the engine's own sync; `tanstack.ingest` for host-fed changes |
-| an answer may be maintained by its source | live results are maintained by the engine, not by refetching |
-| keys are records of primitive fields | `getKey`; the adapter passes keys through |
-| versions are opaque and supplied by the source | the engine's (Electric's log offsets, txids) |
-| reads and pushes reach every copy | the engine's collections are the single copy |
-| a write can be confirmed by its source | `electric.txid`, `electric.match`, `query.refetch` |
-| optimistic predictions are optional per write | `apply` may be empty; `optimistic: false` on a mutation |
-| persistence can belong to the source | section 8 |
+| Constraint                                     | Met by                                                        |
+| ---------------------------------------------- | ------------------------------------------------------------- |
+| one ingestion path for record changes          | the engine's own sync; `tanstack.ingest` for host-fed changes |
+| an answer may be maintained by its source      | live results are maintained by the engine, not by refetching  |
+| keys are records of primitive fields           | `getKey`; the adapter passes keys through                     |
+| versions are opaque and supplied by the source | the engine's (Electric's log offsets, txids)                  |
+| reads and pushes reach every copy              | the engine's collections are the single copy                  |
+| a write can be confirmed by its source         | `electric.txid`, `electric.match`, `query.refetch`            |
+| optimistic predictions are optional per write  | `apply` may be empty; `optimistic: false` on a mutation       |
+| persistence can belong to the source           | section 8                                                     |
 
 ---
 
 ## 11. Sharp edges, and how the adapter handles them
 
-| Edge | Handling |
-| --- | --- |
-| `isPersisted` is deprecated (removed in 1.0 RC) | the adapter uses `when("settled")` only |
-| handler return values (`{ txid }`) and Query auto-refetch after handlers are deprecated | collections have no handlers; confirmation is the adapter's `confirm` |
-| Electric timeout defaults disagree (15 s in source and docs, 5 s and 3 s in the shipped skill reference) | `timeout` is required |
-| `txid` read outside the write's database transaction never arrives | a documented server rule; the timeout turns it into `unknown`, traced with the txid |
-| awaiting a collection's readiness inside `mutationFn` can deadlock: sync data is held while a write persists | `confirm` strategies never await readiness |
-| a rollback rolls back other transactions on the same keys | classified as `unknown` for those attempts (4.4) |
-| `mutationFn` cannot be aborted by TanStack DB | `persist` runs as an Effect Flow can interrupt; the ending is `unknown` |
-| a narrower Query result deletes rows another query loaded | one Query collection per scope, or on-demand mode with subset keys |
-| completeness is not exposed | section 5's empty-state rule; nothing stronger is claimed |
+| Edge                                                                                                         | Handling                                                                            |
+| ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| `isPersisted` is deprecated (removed in 1.0 RC)                                                              | the adapter uses `when("settled")` only                                             |
+| handler return values (`{ txid }`) and Query auto-refetch after handlers are deprecated                      | collections have no handlers; confirmation is the adapter's `confirm`               |
+| Electric timeout defaults disagree (15 s in source and docs, 5 s and 3 s in the shipped skill reference)     | `timeout` is required                                                               |
+| `txid` read outside the write's database transaction never arrives                                           | a documented server rule; the timeout turns it into `unknown`, traced with the txid |
+| awaiting a collection's readiness inside `mutationFn` can deadlock: sync data is held while a write persists | `confirm` strategies never await readiness                                          |
+| a rollback rolls back other transactions on the same keys                                                    | classified as `unknown` for those attempts (4.4)                                    |
+| `mutationFn` cannot be aborted by TanStack DB                                                                | `persist` runs as an Effect Flow can interrupt; the ending is `unknown`             |
+| a narrower Query result deletes rows another query loaded                                                    | one Query collection per scope, or on-demand mode with subset keys                  |
+| completeness is not exposed                                                                                  | section 5's empty-state rule; nothing stronger is claimed                           |
 
 ---
 

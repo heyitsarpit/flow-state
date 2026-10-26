@@ -13,16 +13,16 @@ One sentence: **a persistence scope has one writer tab; a persisted ref names on
 mirrored into every other tab; everything else stays per tab, and between tabs values travel only
 with versions while everything else travels as invalidation.**
 
-| # | Decision | In short |
-|---|---|---|
-| M1 | The unit of ownership is the persistence scope | One Web Lock per (app, scope). Its holder (the *leader*) runs every persisted actor and is the only tab that writes the scope's record. |
-| M2 | A follower's persisted refs are mirrors | `ensureActor` on a persisted ref in a non-leader tab returns an ordinary handle whose snapshots are the leader's and whose `send` forwards to the leader. No new type or hook. |
-| M3 | Non-persisted refs and local actors stay per tab | As today: one Runtime, one actor. A send from a scope actor to a per-tab ref fans out to that ref in every tab. |
-| M4 | Handover is a restore | When the leader goes, the oldest waiting tab takes the lock and runs the normal O8 restore of the last good record. Nothing new is invented for recovery. |
-| M5 | Confirmed entity records travel between tabs as peer deltas | Versioned fields apply by the store's ordering rule; unversioned changes, plain-transaction writes and uncertain writes travel as invalidation. Predictions never travel. |
-| M6 | Sharing is keyed by scope | No scope, no sharing (scope is the principal, O8). Logout is `runtime.dispose({ forget: true })`, which removes the record from whichever tab writes it and ends the scope in every tab. |
-| M7 | Incompatible or unsafe tabs degrade to the existing O8 rule | Different compiled app, no Web Locks, unresponsive leader: the tab runs without persistence or sharing and reports a diagnostic. This is the safe direction (D5). |
-| M8 | Coordination is an internal Effect service chosen by environment | `TabCoordination` with a browser, a solo and a test Layer. Authors write nothing; Stories use the test Layer to run several tabs deterministically in one process. |
+| #   | Decision                                                         | In short                                                                                                                                                                                 |
+| --- | ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| M1  | The unit of ownership is the persistence scope                   | One Web Lock per (app, scope). Its holder (the _leader_) runs every persisted actor and is the only tab that writes the scope's record.                                                  |
+| M2  | A follower's persisted refs are mirrors                          | `ensureActor` on a persisted ref in a non-leader tab returns an ordinary handle whose snapshots are the leader's and whose `send` forwards to the leader. No new type or hook.           |
+| M3  | Non-persisted refs and local actors stay per tab                 | As today: one Runtime, one actor. A send from a scope actor to a per-tab ref fans out to that ref in every tab.                                                                          |
+| M4  | Handover is a restore                                            | When the leader goes, the oldest waiting tab takes the lock and runs the normal O8 restore of the last good record. Nothing new is invented for recovery.                                |
+| M5  | Confirmed entity records travel between tabs as peer deltas      | Versioned fields apply by the store's ordering rule; unversioned changes, plain-transaction writes and uncertain writes travel as invalidation. Predictions never travel.                |
+| M6  | Sharing is keyed by scope                                        | No scope, no sharing (scope is the principal, O8). Logout is `runtime.dispose({ forget: true })`, which removes the record from whichever tab writes it and ends the scope in every tab. |
+| M7  | Incompatible or unsafe tabs degrade to the existing O8 rule      | Different compiled app, no Web Locks, unresponsive leader: the tab runs without persistence or sharing and reports a diagnostic. This is the safe direction (D5).                        |
+| M8  | Coordination is an internal Effect service chosen by environment | `TabCoordination` with a browser, a solo and a test Layer. Authors write nothing; Stories use the test Layer to run several tabs deterministically in one process.                       |
 
 The author-facing surface grows by one option (`dispose({ forget })`), two Story commands
 (`openTab`, `closeTab`), one Story option (`tab`), one checkpoint field (`tabs`), an optional
@@ -69,12 +69,12 @@ the network and the shared IndexedDB lease; secondaries follow).
 
 **Mirrors, not copies, refusals or read-only replicas.**
 
-| Option for the second tab's persisted ref | Verdict |
-|---|---|
-| Independent unpersisted copy (today's O8) | Divergent truth; logout and permission changes do not reach other tabs; drafts in tab B are lost. Kept only as the degraded fallback (M7). |
-| Read-only replica | The user cannot type in tab B; every persisted editor becomes useless outside one tab. |
-| Refusal (FlowError) | Breaks the app on Ctrl+click. |
-| **Mirror: snapshots from the leader, sends forwarded** | One truth per scope, matching what a ref already means ("names a shared actor"), with no new authoring. Chosen. |
+| Option for the second tab's persisted ref              | Verdict                                                                                                                                    |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Independent unpersisted copy (today's O8)              | Divergent truth; logout and permission changes do not reach other tabs; drafts in tab B are lost. Kept only as the degraded fallback (M7). |
+| Read-only replica                                      | The user cannot type in tab B; every persisted editor becomes useless outside one tab.                                                     |
+| Refusal (FlowError)                                    | Breaks the app on Ctrl+click.                                                                                                              |
+| **Mirror: snapshots from the leader, sends forwarded** | One truth per scope, matching what a ref already means ("names a shared actor"), with no new authoring. Chosen.                            |
 
 Persisted actors are an app's durable truth (session, preferences, drafts). That is precisely the
 state users expect every tab to agree on.
@@ -89,7 +89,10 @@ import { KeyValueStore } from "effect/persistence";
 export const browserSetup = (userId: string) =>
   runtimeSetup({
     app: DeskApp,
-    services: Layer.mergeAll(DemoTicketApi, KeyValueStore.layerStorage(() => localStorage)),
+    services: Layer.mergeAll(
+      DemoTicketApi,
+      KeyValueStore.layerStorage(() => localStorage),
+    ),
     persistence: { scope: `dispatch-desk:${userId}`, version: "1" },
   });
 ```
@@ -135,8 +138,8 @@ which stays true):
 
 ```ts
 // features/Session: model sign-out as session truth, so every tab's mirror sees it first.
-session.send(Session.E.SignedOut());      // all tabs re-render from the mirrored SIGNED_OUT state
-await runtime.dispose({ forget: true });  // removes dispatch-desk:<user> data in whichever tab writes it
+session.send(Session.E.SignedOut()); // all tabs re-render from the mirrored SIGNED_OUT state
+await runtime.dispose({ forget: true }); // removes dispatch-desk:<user> data in whichever tab writes it
 // <FlowProvider key={scope}> in each tab switches to the anonymous Runtime on SIGNED_OUT.
 ```
 
@@ -154,22 +157,31 @@ next tab.
 ```ts
 export const savedInOtherTab = story
   .app(DeskSetup, { id: "ticket-two-tabs", fixtures: [SlowSave] }) // tab "main" opens first
-  .ensure(SessionRef).ensure(ToastsRef).ensure(Editor42, { input: T42 })
-  .openTab("b")                                                      // a second Runtime of DeskSetup
-  .ensure(SessionRef, { tab: "b" }).ensure(ToastsRef, { tab: "b" })
-  .ensure(Editor42, { input: T42, tab: "b" })                        // a mirror of main's editor
+  .ensure(SessionRef)
+  .ensure(ToastsRef)
+  .ensure(Editor42, { input: T42 })
+  .openTab("b") // a second Runtime of DeskSetup
+  .ensure(SessionRef, { tab: "b" })
+  .ensure(ToastsRef, { tab: "b" })
+  .ensure(Editor42, { input: T42, tab: "b" }) // a mirror of main's editor
   .process()
   .send(Editor42, E.TitleChanged({ title: "Replace foyer light" }), { tab: "b" })
   .send(Editor42, E.SaveRequested(), { tab: "b" })
   .process()
-  .checkpoint("saving")       // cp.tabs.main and cp.tabs.b hold equal editor snapshots
-  .closeTab("main")           // abrupt, like a closed tab: no final write, adapter in flight
+  .checkpoint("saving") // cp.tabs.main and cp.tabs.b hold equal editor snapshots
+  .closeTab("main") // abrupt, like a closed tab: no final write, adapter in flight
   .process()
-  .checkpoint("b-leads");     // b restored the record; the save is unknown; maybeSaved is true
+  .checkpoint("b-leads"); // b restored the record; the save is unknown; maybeSaved is true
 
-export const reloaded = desk("ticket-reload").closeTab("main").openTab("main").process().checkpoint("restored");
-export const newerDeploy = desk("ticket-mixed-versions").openTab("next", DeskSetupV2).process()
-  .checkpoint("degraded");    // tab "next" runs unpersisted with TabVersionMismatch
+export const reloaded = desk("ticket-reload")
+  .closeTab("main")
+  .openTab("main")
+  .process()
+  .checkpoint("restored");
+export const newerDeploy = desk("ticket-mixed-versions")
+  .openTab("next", DeskSetupV2)
+  .process()
+  .checkpoint("degraded"); // tab "next" runs unpersisted with TabVersionMismatch
 ```
 
 - **openTab(name, setup?)** constructs and readies another Runtime (default: the Story's setup).
@@ -197,12 +209,12 @@ export const newerDeploy = desk("ticket-mixed-versions").openTab("next", DeskSet
 Every Runtime with `persistence` resolves a role during `runtime.ready()` (construction stays
 synchronous and inert, O3):
 
-| Role | When | Runs persisted actors | Writes the record | Shares records |
-|---|---|---|---|---|
-| **leader** | holds the scope lock | yes | yes | yes |
-| **follower** | another compatible Runtime holds it | mirrors | no | yes |
-| **solo** | no tab coordination in this environment (server, React Native, jsdom) | yes | yes | no |
-| **degraded** | coordination unsafe or incompatible (section 10) | fresh, unpersisted local actors (today's O8 rule) | no | no |
+| Role         | When                                                                  | Runs persisted actors                             | Writes the record | Shares records |
+| ------------ | --------------------------------------------------------------------- | ------------------------------------------------- | ----------------- | -------------- |
+| **leader**   | holds the scope lock                                                  | yes                                               | yes               | yes            |
+| **follower** | another compatible Runtime holds it                                   | mirrors                                           | no                | yes            |
+| **solo**     | no tab coordination in this environment (server, React Native, jsdom) | yes                                               | yes               | no             |
+| **degraded** | coordination unsafe or incompatible (section 10)                      | fresh, unpersisted local actors (today's O8 rule) | no                | no             |
 
 **Names.** Lock and channel names are `flow-state/1/<appId>/<digest(scope)>`, where the digest is
 SHA-256 over the length-prefixed scope (D9 composite identity), so names are bounded and the scope
@@ -310,11 +322,11 @@ A persisted ref names one actor per scope. In a follower:
 
 The leader stops being leader in one of three ways:
 
-| How | What happens before the lock is released |
-|---|---|
-| `runtime.dispose()` | Admission closes; in-flight commits settle; the latest accepted write is finalised (archived O5); `Retiring` is posted. |
-| `dispose({ forget: true })` | As above, but the record is removed instead of written (section 3.2). No successor restores it. |
-| The page dies (closed, crashed, navigated, discarded) | Nothing. The browser releases the lock when the document is destroyed. |
+| How                                                   | What happens before the lock is released                                                                                |
+| ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `runtime.dispose()`                                   | Admission closes; in-flight commits settle; the latest accepted write is finalised (archived O5); `Retiring` is posted. |
+| `dispose({ forget: true })`                           | As above, but the record is removed instead of written (section 3.2). No successor restores it.                         |
+| The page dies (closed, crashed, navigated, discarded) | Nothing. The browser releases the lock when the document is destroyed.                                                  |
 
 The next tab in the lock queue (the oldest waiting follower, since Web Locks grant in request
 order) becomes leader by running **the O8 restore of the last good record**: detached validation,
@@ -389,15 +401,15 @@ consolidated per record (5.4) and encoded with the entity's field Schemas, each 
 versions and the origin kind (machine request, repair response, push, settlement). A receiving tab
 treats them as a new source, **peer**:
 
-| Peer change | Receiver's store | Receiver's repair |
-|---|---|---|
-| versioned field, version strictly greater | replaces the field | joins its answers (5.2) as a push would; may start repair lookups |
-| versioned field, equal version, equal value | nothing | nothing (deduplicates a push both tabs received) |
-| versioned field, equal version, different value | nothing; the field is contested (evidence) | refetch, as for a contested field |
-| versioned field, lower version | rejected | derived answers marked stale only |
-| versioned delete (tombstone with version) | as a versioned delete (5.5 Deletes) | as a push delete |
-| unversioned field or delete | **base unchanged** (positions are per Runtime, so request order across tabs means nothing) | joins its answers using the carried old and new values; matching answers are invalidated |
-| any change whose origin was a **repair response** | as above for values | marks matching answers stale; **starts no lookup** |
+| Peer change                                       | Receiver's store                                                                           | Receiver's repair                                                                        |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| versioned field, version strictly greater         | replaces the field                                                                         | joins its answers (5.2) as a push would; may start repair lookups                        |
+| versioned field, equal version, equal value       | nothing                                                                                    | nothing (deduplicates a push both tabs received)                                         |
+| versioned field, equal version, different value   | nothing; the field is contested (evidence)                                                 | refetch, as for a contested field                                                        |
+| versioned field, lower version                    | rejected                                                                                   | derived answers marked stale only                                                        |
+| versioned delete (tombstone with version)         | as a versioned delete (5.5 Deletes)                                                        | as a push delete                                                                         |
+| unversioned field or delete                       | **base unchanged** (positions are per Runtime, so request order across tabs means nothing) | joins its answers using the carried old and new values; matching answers are invalidated |
+| any change whose origin was a **repair response** | as above for values                                                                        | marks matching answers stale; **starts no lookup**                                       |
 
 The last row extends the one-hop rule (5.2) across tabs. A machine request in tab A can start at
 most one repair wave in each other tab, and those repair responses, broadcast again, only mark
@@ -468,14 +480,14 @@ invalidation only (unversioned)", so an agent can see why tab B refetched.
 
 `TabCoordination` is resolved once, in `ready()`, unless a Story provides it:
 
-| Environment | Detected by | Layer | Result |
-|---|---|---|---|
-| Browser window, secure context | `document`, `navigator.locks` and `BroadcastChannel` exist | browser | leader or follower |
-| Browser worker (dedicated or shared) | `WorkerGlobalScope`, `navigator.locks`, `BroadcastChannel` | browser | locks are origin-wide, so this is correct |
-| Browser without Web Locks (insecure http origin, old engine) | `document` but no `navigator.locks` | none | degraded with `TabCoordinationUnavailable` ("serve over HTTPS"); no election on BroadcastChannel alone, since it races |
-| Node, SSR, Bun, Deno, edge workers | no `document`, no `WorkerGlobalScope` | solo | per-request Runtimes stay isolated |
-| React Native, jsdom, happy-dom | no `navigator.locks` (RN: no `document`) | solo | one JS context; correct |
-| Electron windows | as a browser | browser | same-session windows share locks |
+| Environment                                                  | Detected by                                                | Layer   | Result                                                                                                                 |
+| ------------------------------------------------------------ | ---------------------------------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Browser window, secure context                               | `document`, `navigator.locks` and `BroadcastChannel` exist | browser | leader or follower                                                                                                     |
+| Browser worker (dedicated or shared)                         | `WorkerGlobalScope`, `navigator.locks`, `BroadcastChannel` | browser | locks are origin-wide, so this is correct                                                                              |
+| Browser without Web Locks (insecure http origin, old engine) | `document` but no `navigator.locks`                        | none    | degraded with `TabCoordinationUnavailable` ("serve over HTTPS"); no election on BroadcastChannel alone, since it races |
+| Node, SSR, Bun, Deno, edge workers                           | no `document`, no `WorkerGlobalScope`                      | solo    | per-request Runtimes stay isolated                                                                                     |
+| React Native, jsdom, happy-dom                               | no `navigator.locks` (RN: no `document`)                   | solo    | one JS context; correct                                                                                                |
+| Electron windows                                             | as a browser                                               | browser | same-session windows share locks                                                                                       |
 
 ### 10.2 The server hazard
 
@@ -561,6 +573,7 @@ facts: per persisted machine, whether every activity lane has a Schema; per enti
 "invalidation only" across tabs. Both appear in `flow explain`.
 
 **flow check.**
+
 - warning: a persisted machine's activity uses an operation without `result` (MirrorUnencodable
   possible at runtime).
 - warning (existing rule, wider reason): `listen` over an unversioned entity; now also "tabs share
@@ -574,15 +587,15 @@ entity-domain 7.4's repair evidence gaining cause `peer`. `flow trace summarize`
 
 **Diagnostics** (closed vocabulary, O10; all classification Failure):
 
-| Code | Raised when | Effect | Remediation (help) |
-|---|---|---|---|
-| `TabCoordinationUnavailable` | browser with persistence but no Web Locks | degraded tab | serve over HTTPS; Web Locks need a secure context |
-| `TabVersionMismatch` | fingerprints differ (details: own and leader's `persistence.version`) | degraded tab; issue on its persisted refs | reload the older tab; bump `persistence.version` when stored data changes shape |
-| `TabOwnerUnresponsive` | no `Welcome` or ack within 5 s | degraded at bootstrap; issue on the mirror later | usually a frozen tab; focus the other tab |
-| `TabOwnerLost` | handover dropped forwarded events (details: count, tags) | events not delivered | resend if the user intent still holds; machines should not rely on exactly-once sends across tabs |
-| `ScopeForgotten` | another tab forgot this scope | persisted actors disposed; persistence and sharing stopped | switch the host to the new principal's Runtime |
-| `MirrorUnencodable` | a persisted actor's snapshot has a non-encodable value (path) | follower keeps the last snapshot | declare `result` on the operation, or select plain data in context |
-| `StoryTabUnknown` | a Story names an unopened tab | Story construction throws FlowError | add `openTab(name)` before it |
+| Code                         | Raised when                                                           | Effect                                                     | Remediation (help)                                                                                |
+| ---------------------------- | --------------------------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `TabCoordinationUnavailable` | browser with persistence but no Web Locks                             | degraded tab                                               | serve over HTTPS; Web Locks need a secure context                                                 |
+| `TabVersionMismatch`         | fingerprints differ (details: own and leader's `persistence.version`) | degraded tab; issue on its persisted refs                  | reload the older tab; bump `persistence.version` when stored data changes shape                   |
+| `TabOwnerUnresponsive`       | no `Welcome` or ack within 5 s                                        | degraded at bootstrap; issue on the mirror later           | usually a frozen tab; focus the other tab                                                         |
+| `TabOwnerLost`               | handover dropped forwarded events (details: count, tags)              | events not delivered                                       | resend if the user intent still holds; machines should not rely on exactly-once sends across tabs |
+| `ScopeForgotten`             | another tab forgot this scope                                         | persisted actors disposed; persistence and sharing stopped | switch the host to the new principal's Runtime                                                    |
+| `MirrorUnencodable`          | a persisted actor's snapshot has a non-encodable value (path)         | follower keeps the last snapshot                           | declare `result` on the operation, or select plain data in context                                |
+| `StoryTabUnknown`            | a Story names an unopened tab                                         | Story construction throws FlowError                        | add `openTab(name)` before it                                                                     |
 
 `describeHostFailure` and the reference's diagnostics tool need no change.
 
@@ -607,16 +620,16 @@ entity-domain 7.4's repair evidence gaining cause `peer`. `flow trace summarize`
 
 ## 15. Reuse
 
-| From | Reuse |
-|---|---|
-| Archived Persistence O2 to O5 | the whole restore path, capture cut, ordered last-good writes and unknown restore; handover calls it unchanged |
-| Archived Persistence V4 | the delayed-write crash scenario, rerun with "crash" = `closeTab` of the leader and restore in tab b |
-| Persistence.plan O7 second-tab rule and V6 | kept as the degraded role, with its diagnostic split into three causes |
-| D27 actor send | async FIFO delivery and `SendTargetAbsent` honesty, reused for forwarding and fan-out |
-| D47 derived Schemas | event, input, memory encoding over the channel |
-| entity-domain 5.2, 5.3, 5.5 | ordering rule, one-hop rule, contested fields, versioned tombstones, restore-at-position-0, all applied to the peer source |
-| Effect `EventJournal.makeBrowserWithLock` | the `navigator.locks.request(name, { signal }, ...)` bracket inside `Effect.callback`, and the solo fallback |
-| runtime-next evidence journal (O13 port) | the new trace events go through it |
+| From                                       | Reuse                                                                                                                      |
+| ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| Archived Persistence O2 to O5              | the whole restore path, capture cut, ordered last-good writes and unknown restore; handover calls it unchanged             |
+| Archived Persistence V4                    | the delayed-write crash scenario, rerun with "crash" = `closeTab` of the leader and restore in tab b                       |
+| Persistence.plan O7 second-tab rule and V6 | kept as the degraded role, with its diagnostic split into three causes                                                     |
+| D27 actor send                             | async FIFO delivery and `SendTargetAbsent` honesty, reused for forwarding and fan-out                                      |
+| D47 derived Schemas                        | event, input, memory encoding over the channel                                                                             |
+| entity-domain 5.2, 5.3, 5.5                | ordering rule, one-hop rule, contested fields, versioned tombstones, restore-at-position-0, all applied to the peer source |
+| Effect `EventJournal.makeBrowserWithLock`  | the `navigator.locks.request(name, { signal }, ...)` bracket inside `Effect.callback`, and the solo fallback               |
+| runtime-next evidence journal (O13 port)   | the new trace events go through it                                                                                         |
 
 ## 16. Verification
 
@@ -665,34 +678,34 @@ Planned gate V6 (Persistence) gains these, all on the test Layer unless marked b
 
 - **Q1 Should leadership follow the visible tab?** Firestore lets a foreground tab take the primary
   lease. Here every move is a full handover (dispose, write, restore, streams restart, refetch), and
-  a user flipping tabs would cause churn and visible pending states. *Recommend: no in version 1.*
+  a user flipping tabs would cause churn and visible pending states. _Recommend: no in version 1._
   Ship the MessageChannel scheduler, measure V-MT9, and revisit only if hidden-leader schedules
   hurt (then: move after five minutes hidden, only when no commit is in flight).
 - **Q2 Where do scope-to-per-tab sends go?** Every tab (chosen), only the leader's tab, or the tab
-  whose event caused the turn (needs causal tagging through commits). *Recommend: every tab* for
+  whose event caused the turn (needs causal tagging through commits). _Recommend: every tab_ for
   version 1; it is simple, deterministic and right for toasts and notices. Causal routing can be
   added later without breaking authored code.
 - **Q3 Should predictions cross tabs?** Without them, a follower's own lists show a persisted
   editor's save only when it settles, while the mirrored editor shows it at once. Sharing needs a
-  cross-tab record queue and retraction on tab death. *Recommend: no.* The gap lasts one request.
+  cross-tab record queue and retraction on tab death. _Recommend: no._ The gap lasts one request.
   If needed, add predictions as leader-owned overlays retracted on `LeaderChanged`.
 - **Q4 Should a new scope end other scopes of the same app?** It would make single-account logout
-  automatic but break multi-account apps. *Recommend: no*; principal truth lives in a persisted
+  automatic but break multi-account apps. _Recommend: no_; principal truth lives in a persisted
   session actor, plus `forget`.
-- **Q5 What does a version-mismatched record do on restore?** O8 does not say. *Recommend: discard
-  with `IdentityVersionMismatch`*, as TanStack persistQueryClient's `buster` does. A migration hook
+- **Q5 What does a version-mismatched record do on restore?** O8 does not say. _Recommend: discard
+  with `IdentityVersionMismatch`_, as TanStack persistQueryClient's `buster` does. A migration hook
   is a later, separate feature.
 - **Q6 Non-browser shared stores** (Electron main-process store, a file store shared by processes).
-  *Recommend: out of scope*; document that solo assumes an unshared store, and let a future
+  _Recommend: out of scope_; document that solo assumes an unshared store, and let a future
   public `TabCoordination` Layer serve those hosts.
 - **Q7 Should followers forward their persisted-resource entries to the leader** so a follower's
-  cache survives reload? *Recommend: no*; entity records already reach the leader as peer deltas.
+  cache survives reload? _Recommend: no_; entity records already reach the leader as peer deltas.
 - **Q8 Should one tab hold `listen` streams for all** (leader subscribes, followers get peer
-  deltas)? It saves server connections. *Recommend: later*, as an optimisation behind the same
+  deltas)? It saves server connections. _Recommend: later_, as an optimisation behind the same
   rules: versioned peer pushes are already safe.
 - **Q9 SharedWorker as the owner** (LiveStore-style) would avoid hidden-tab throttling, but moves
-  services and adapters into a worker and is unavailable on some mobile browsers. *Recommend: not
-  in version 1*; the internal `TabCoordination` boundary keeps it possible.
+  services and adapters into a worker and is unavailable on some mobile browsers. _Recommend: not
+  in version 1_; the internal `TabCoordination` boundary keeps it possible.
 
 Riskiest: **Q1 together with 10.3.** The mirror design is only good if a hidden leader stays
 responsive. The MessageChannel scheduler addresses event processing, but timer throttling and
