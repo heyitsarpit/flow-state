@@ -10,7 +10,7 @@ export const ticketById = resource({
   key: ({ workspaceId, ticketId }: TicketKey) => ({ workspaceId, ticketId }),
   lookup: (key, { signal }) => TicketApi.use((api) => api.load(key, signal)),
   result: TicketRow,
-  staleTime: "30 seconds", // required, with no library default (FlowState D34)
+  staleTime: "30 seconds", // required, with no library default (Operations.plan O1)
   gcTime: "5 minutes",
   persist: true,
 });
@@ -43,7 +43,7 @@ export const openCount = resource({
 });
 
 // attempt.id is minted by Flow per attempt and reused when the attempt is reconciled, so it is
-// the idempotency key the API deduplicates on (FlowState D33).
+// the idempotency key the API deduplicates on (Operations.plan O3).
 export const saveTitle = transaction({
   id: "DispatchDesk/save-title",
   key: ({ workspaceId, ticketId }: TicketKey) => ({ workspaceId, ticketId }),

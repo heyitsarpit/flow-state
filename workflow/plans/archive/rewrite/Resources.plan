@@ -34,7 +34,7 @@ outcomes
         share identity only for the exact descriptor in one Runtime. Invalid input changes nothing.
         K never reconstructs executable P or authorizes execution. Descriptor admission and shared
         identities obey @plan.ApplicationsAndActors.O1 and @plan.ApplicationsAndActors.O4. Durable
-        opt-in follows @plan.Persistence.O1.
+        opt-in follows @plan.PersistenceV2.O1.
 
         ResourceFamily<P, K extends unknown[], A, E> has exactly these methods:
 
@@ -167,7 +167,7 @@ outcomes
         their boundaries. Publication and causal completeness obey @plan.ApplicationsAndActors.O7
         and @plan.ApplicationsAndActors.O6. No simultaneous graph-wide publication is promised.
         Autonomous freshness/collection commits may have no initiating actor. Capture cannot observe
-        a half-published actor/store commit under @plan.Persistence.O3.
+        a half-published actor/store commit under @plan.PersistenceV2.O3.
     O3  Finite acquisition and continuing ownership preserve freshness and settlement
         Lookup/refetch is finite and admitted only by accepted event actions under
         @plan.Statecharts.O3. Subscribe is continuing ownership from activities or onMemory under

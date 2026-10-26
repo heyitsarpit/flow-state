@@ -1,5 +1,5 @@
 /**
- * CLI cookbook (FlowState O11). Strings document commands; importing this file runs nothing.
+ * CLI cookbook (CommandLine.plan). Strings document commands; importing this file runs nothing.
  * The CLI finds flow.config.ts at the project root; nothing is written unless asked.
  */
 export const cliExamples = [

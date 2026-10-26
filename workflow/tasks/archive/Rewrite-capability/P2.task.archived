@@ -16,7 +16,7 @@ tasks
         derives_from [
                      @plan.ApplicationsAndActors.O3,
                      @plan.ApplicationsAndActors.V3,
-                     @plan.Persistence.O1,
+                     @plan.PersistenceV2.O1,
                      @plan.ProjectDelivery.O3
                      ]
         description

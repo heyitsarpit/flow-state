@@ -15,7 +15,7 @@ outcomes
         Runtime outside React bootstrap.
 
         Requests and Stories use their own scoped Runtime. Persistence enters RuntimeSetup before
-        React under @plan.Persistence.O1.
+        React under @plan.PersistenceV2.O1.
 
         Provider props contain no App, Implementation, boot payload, factory, actor ID, startup
         policy, storage, codec or restore callback. A private readiness adapter may represent 
@@ -146,8 +146,8 @@ constraints
         contexts, registered views, old ownership/comparator surfaces, mutable hydration, public
         lifecycle controls and implicit Runtime merging. Public refs and handles grant no disposal.
     C2  Keep durable context provider-derived
-        Persistence selection/capture/restore belong to @plan.Persistence.O2 through
-        @plan.Persistence.O4. Host integration restores exact memory/refs silently, never replays
+        Persistence selection/capture/restore belong to @plan.PersistenceV2.O2 through
+        @plan.PersistenceV2.O4. Host integration restores exact memory/refs silently, never replays
         input or onContext, and never promotes/recreates/substitutes/rebinds local providers.
         NonDurableContextProvider is terminal; ConcurrentCapture is retryable. A final host may
         wrap the canonical Diagnostic in compatibility-only FlowPersistenceError without inventing

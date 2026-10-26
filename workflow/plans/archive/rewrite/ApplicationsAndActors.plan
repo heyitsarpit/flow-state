@@ -69,7 +69,7 @@ outcomes
         registries and kernel replacement. No additional public Implementation method is implied.
     O3  Construction is inert and readiness owns one shared bootstrap
         runtimeSetup names an exact App and complete Implementation unless requirements are never.
-        Optional persistence is one inert provider under @plan.Persistence.O1 and does not affect
+        Optional persistence is one inert provider under @plan.PersistenceV2.O1 and does not affect
         RequirementsOf<App>. Discovery and construct() are synchronous, service-free and inert: no
         storage, service acquisition, actors, registration, work or evidence.
 
@@ -201,7 +201,7 @@ outcomes
 
         No prepare event or synthetic terminal machine turn exists. Shutdown waits for finalizers,
         accepted terminal evidence and provider release; persistence closeout follows
-        @plan.Persistence.O5.
+        @plan.PersistenceV2.O5.
 
         Terminal disposal may retire a blocked context wakeup and remaining queued work without
         waiting for upstream recovery. It closes admission first and uses the existing terminal
@@ -263,7 +263,7 @@ outcomes
 
         Capture uses completed context waves. Selected suspended debt rejects with retryable
         ConcurrentCapture until explicit resume/recovery; capture neither progresses, clears nor
-        silently waits out debt. @plan.Persistence.O3 and @plan.StoriesAndModels.O4 own their
+        silently waits out debt. @plan.PersistenceV2.O3 and @plan.StoriesAndModels.O4 own their
         distinct capture membership.
     O7  Handles and publications expose complete current cuts
         The ordinary handle exposes only exact ref, send(event): void, getSnapshot() and snapshots.
@@ -479,8 +479,8 @@ verification
 
 questions
     Q1  What isolation and retry policy applies to consumer selector defects?
-        @plan.Runtime.O4 places pre-commit selector defects under prior-truth and issue-only
-        handling, without retrying issue-only work. @plan.Runtime.V5 expects reruns on matching
+        @plan.RuntimeV2.O4 places pre-commit selector defects under prior-truth and issue-only
+        handling, without retrying issue-only work. @plan.RuntimeV2.V5 expects reruns on matching
         publications, but neither defines provider/sibling commits or retained consumer context
         when a provider-wave selector throws.
 

@@ -1,7 +1,7 @@
 import { machine } from "flow-state";
 import { Session } from "./session.definition.js";
 
-// Handlers that only update memory stay in place with target "self" (FlowState D17).
+// Handlers that only update memory stay in place with target "self" (Machines.plan O2).
 export const SessionMachine = machine(Session, ({ S }) => ({
   default: S.AVAILABLE,
   states: {

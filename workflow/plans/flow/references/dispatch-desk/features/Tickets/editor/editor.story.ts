@@ -1,4 +1,4 @@
-// Inert scenario plans; importing them runs nothing. Stories target refs (FlowState D42) and
+// Inert scenario plans; importing them runs nothing. Stories target refs (Testing.plan O1) and
 // run on the production Runtime with the TestClock, seeded ids and a seeded Random.
 import { model, story } from "flow-state/testing";
 import { DemoTicketApi } from "../../../app/demo-api.js";

@@ -10,12 +10,14 @@ outcomes
         Alongside eager entries, app({ id, machines }) accepts { id, load, context? }.
         id is the machine's definition id; load is () => Promise<Machine> from a build-local
         import(). Remote entries are outside version 1. context is the entry's wiring default.
-        Eager entry forms are @plan.FlowRuntime.O1.
+        Eager entry forms are @plan.Runtime.O1.
 
         The loader's result must have the declared literal id. A wrong id, non-machine result,
         wrong context provider or missing runtimeSetup service is a type error. Service
         requirements include lazy machines even before they are adopted. Entries have no
-        services field or per-entry Layer.
+        services field or per-entry Layer. A service that loads heavy code on first call reports
+        a load failure as its own failure: a lookup's Failure lane, or a commit's typed failure,
+        never unknown, because nothing was sent.
 
         An undeclared machine cannot run. Declaring the same machine twice rejects construction.
         A ref already carries its machine's code: normal actor calls and hooks never call load.
@@ -24,9 +26,11 @@ outcomes
         When ensureActor(ref) or createActor(machine) first encounters a declared lazy machine,
         it adopts that entry synchronously before admitting the actor. Wiring that reaches lazy
         providers adopts those providers too. Eager wiring or setup that already holds a lazy
-        machine adopts it during readiness. Readiness requirements are @plan.FlowRuntime.O2.
+        machine adopts it during readiness. Readiness requirements are @plan.Runtime.O2.
 
-        Adoption accepts only the declared id and a Flow machine. The first accepted machine
+        Adoption accepts only the declared id and a Flow machine; a loader result with another id 
+        fails
+        with EntryMismatch. The first accepted machine
         object binds that id in this Runtime; any later different object, including a loader's
         result, fails with EntryMismatch. Repeated adoption of the same object is harmless.
         Disposing all its actors does not deactivate the entry.
@@ -51,20 +55,21 @@ outcomes
         Persisted records belonging to unopened features remain dormant: readiness does not load
         their code, and captures preserve their saved contents until adoption. Unclaimed operation
         and entity records remain dormant until their owner is adopted or a version change
-        discards the scope. Removed-machine actor records follow @plan.FlowPersistence.O5.
+        discards the scope. Actor records whose machine id no entry declares are orphans,
+        found at ready without loading code; @plan.Persistence.O5 discards them.
 
-        Adoption restores dormant data under @plan.FlowPersistence.O4. A restored consumer takes its
-        context from current providers without emitting a spurious context change. Invalid dormant
-        data invokes @plan.FlowPersistence.O5: discard the scope's saved records with a diagnostic and
-        open the feature fresh, without partially restoring it or rolling back live committed
-        truth. Persisted data never makes a feature unopenable.
+        Adoption restores dormant data under @plan.Persistence.O4. A restored consumer takes its
+        context from current providers without emitting a spurious context change. A dormant
+        record that fails to decode at adoption is discarded alone with a diagnostic and its actor
+        opens fresh; other records and live committed truth are untouched (@plan.Persistence.O5).
+        Persisted data never makes a feature unopenable.
 
         A saved uncertain write marks affected entities uncertain no later than when those records
         first become readable, even while its actor remains dormant. Repair starts as soon as
         those entities are known, using available loaders and active answers; the actor receives
         its unknown outcome when adopted. Entity repair behavior is @plan.EntityDomains.O1.
         A Runtime refused persistence has no dormant records; second-tab behavior is
-        @plan.FlowPersistence.O7. Dormant data and adopted actors never cross Runtime, request or
+        @plan.Persistence.O7. Dormant data and adopted actors never cross Runtime, request or
         principal boundaries.
     O4  Lazy features and server rendering
         Server preparation with refs adopts synchronously. Transferred lazy entry ids must name
@@ -75,8 +80,10 @@ outcomes
         without registering the feature. Hydration's no-mismatch behavior is
         @plan.ServerRendering.O4; merge precedence is @plan.ServerRendering.O5.
 
-        Client ready() calls load for transferred inactive entries and adopts successful results
-        in app declaration order before resolving. Each load has a 10-second bound. A rejected or
+        Client ready() calls load for transferred inactive entries in parallel and adopts
+        successful results in app declaration order before resolving. A Hydrate boundary committed 
+        after ready loads its inactive transferred entries the same
+        way in its commit effect. Each load has a 10-second bound. A rejected or
         timed-out load reports EntryLoadFailed with its cause, but does not fail ready(). Its entry
         stays inactive, transferred state remains provisional and persisted data stays dormant.
         The first later attach holding its ref adopts it and installs that state under the same
@@ -91,7 +98,7 @@ outcomes
         for lazy-loading information. Live inspection and Story checkpoints expose which entries
         are adopted without adopting them.
 
-        flow check validates the fully loaded app under @plan.FlowCommandLine.O5, so unopened code
+        flow check validates the fully loaded app under @plan.CommandLine.O5, so unopened code
         cannot hide invalid wiring or identity collisions. A mismatched id reports EntryMismatch;
         a failed load reports EntryLoadFailed and makes the check fail. It warns when an entity
         depends on a lazy .byKey loader, eager wiring defeats the code split, or load is not a
@@ -99,7 +106,9 @@ outcomes
 verification
     V1  Type tests reject wrong ids, results, context and missing services; inference works.
     V2  A bundle test defers feature code while preserving the eager app's behavior.
-    V3  Runtime tests prove synchronous adoption, provider closure, rollback and idempotence.
+    V3  Runtime tests prove synchronous adoption, provider closure, rollback and idempotence;
+        adoption order never changes the compiled graph, and a context cycle reachable only
+        through a newly adopted closure is rejected.
     V4  Stories prove reads and sends never adopt; adoption order obeys O2's exceptions.
     V5  Restore tests prove dormant edits survive, corruption opens fresh and uncertainty repairs.
     V6  Hydration tests prove bounded loads, matching render and later attach without data loss.

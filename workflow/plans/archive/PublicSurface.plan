@@ -51,7 +51,7 @@ outcomes
           permanent deletion. The approved temporary ownerless-name amendment settles that
           FlowDisposeError, FlowPersistenceError, FlowUsageError, FlowPath, and FlowUsageCode are
           absent from the active root until their owners and proofs exist. Their typed declarations
-          remain future targets and do not restore current exports. @plan.Diagnostics.Q1 asks
+          remain future targets and do not restore current exports. @plan.DiagnosticsV2.Q1 asks
           whether existing-boundary wording has future compatibility implications.
 
         - Routes remain isolated named-export surfaces. Reject package-owned flow, test, inspect, or
@@ -348,7 +348,7 @@ outcomes
         - Public authoring examples appear here. Type-focused examples and exact inference
           obligations appear under @plan.Types.O1. CONTRACT.md §2 examples remain proposed and
           unaccepted; they add no authority. Runtime terminology and identity belong to
-          @plan.Runtime.O1 and @plan.Runtime.O2.
+          @plan.RuntimeV2.O1 and @plan.RuntimeV2.O2.
 
 
         Example:
@@ -621,9 +621,9 @@ outcomes
 
         - Resource, canonical-key, family-signature, state-union, transaction, finite-action, and
           stream examples appear below. Type examples appear under @plan.Types.O2; Cause handling
-          also belongs to @plan.Diagnostics.O2. CONTRACT.md §3 examples remain proposed and
+          also belongs to @plan.DiagnosticsV2.O2. CONTRACT.md §3 examples remain proposed and
           unaccepted. They do not supersede normative requirements. Identity and canonical-key
-          ownership belong to @plan.Runtime.O1 and @plan.Runtime.O2.
+          ownership belong to @plan.RuntimeV2.O1 and @plan.RuntimeV2.O2.
 
 
         Example:
@@ -899,7 +899,7 @@ outcomes
           Stable disposal tombstones the current runtime ref.
           Reuse is possible in a later runtime.
           Wire identity is `actor:` followed by length-prefixed UTF-8 machine-ID and
-          stable-ID segments, as defined by @plan.Runtime.O1 and @plan.Runtime.O2. Context slots
+          stable-ID segments, as defined by @plan.RuntimeV2.O1 and @plan.RuntimeV2.O2. Context slots
           bind one-for-one to exact provider refs; missing, ambiguous, foreign, or cyclic
           bindings reject, and edges add no parentage, ownership, or command channel.
           Rebinding does not retain memory/context history.
@@ -957,8 +957,8 @@ outcomes
           disposal details remain future targets. Module/App, actor-ref, and Runtime setup examples
           appear below. Type overloads and selector examples appear under @plan.Types.O4 and
           @plan.Types.O5. CONTRACT.md §§1-3 examples remain proposed and unaccepted.
-          They do not alter the Runtime authority at @plan.Runtime.O2, @plan.Runtime.O3,
-          @plan.Runtime.O4, @plan.Runtime.O5, and @plan.Runtime.D1.
+          They do not alter the Runtime authority at @plan.RuntimeV2.O2, @plan.RuntimeV2.O3,
+          @plan.RuntimeV2.O4, @plan.RuntimeV2.O5, and @plan.RuntimeV2.D1.
 
 
         Example:
@@ -1069,10 +1069,10 @@ outcomes
 
         - Constructor, gateway, command, checkpoint-evidence, fixture, and model examples appear
           below. Type-level options, checkpoint accumulation, recipe, fixture, and model examples
-          appear under @plan.Types.O6. Runtime identity and ownership belong to @plan.Runtime.O3 and
-          @plan.Runtime.O5. Diagnostic ownership belongs to @plan.Diagnostics.O3; current root
+          appear under @plan.Types.O6. Runtime identity and ownership belong to @plan.RuntimeV2.O3 and
+          @plan.RuntimeV2.O5. Diagnostic ownership belongs to @plan.DiagnosticsV2.O3; current root
           deferral is settled here. Future compatibility interpretation belongs to
-          @plan.Diagnostics.Q1.
+          @plan.DiagnosticsV2.Q1.
 
 
         Example:
@@ -1204,7 +1204,7 @@ outcomes
           unchanged. @plan.Artifacts.O6 owns raw importable artifacts and the export-only share
           projection. @plan.CLI.O1 and @plan.CLI.O2 own exact CLI grammar. Inspection, redaction,
           and CLI examples appear below. CONTRACT.md §§1-3 add no CLI/artifact authority. Runtime
-          artifact and read boundaries belong to @plan.Runtime.O5.
+          artifact and read boundaries belong to @plan.RuntimeV2.O5.
         - @O6 owns the redaction signature; AMEND-API-003 is its source trace.
           @plan.Artifacts.O6 owns its wire schema and behavior.
 
@@ -1273,9 +1273,9 @@ decisions
 constraints
     C1  Plan ownership boundaries
         - This Plan owns the public consumer shape. Inference and variance belong to @plan.Types.O1
-          and @plan.Types.O2; diagnostics belong to @plan.Diagnostics.O1, @plan.Diagnostics.O2, and
-          @plan.Diagnostics.O3. Runtime terminology, identity, and lifecycle belong to
-          @plan.Runtime.O1, @plan.Runtime.O3, and @plan.Runtime.O4. Do not duplicate or widen those
+          and @plan.Types.O2; diagnostics belong to @plan.DiagnosticsV2.O1, @plan.DiagnosticsV2.O2, and
+          @plan.DiagnosticsV2.O3. Runtime terminology, identity, and lifecycle belong to
+          @plan.RuntimeV2.O1, @plan.RuntimeV2.O3, and @plan.RuntimeV2.O4. Do not duplicate or widen those
           Plan requirements.
 
     C2  No new public alternatives
@@ -1349,8 +1349,8 @@ verification
         - Pass when current RuntimeSetup exposes only app/construct/ready.
           Its providers acquire sequentially, and it caches one terminal Exit.
           Target-only actor/React behaviors are not represented as shipped.
-          Target checks match @plan.Runtime.O2, @plan.Runtime.O3, @plan.Runtime.O4, and
-          @plan.Runtime.O5.
+          Target checks match @plan.RuntimeV2.O2, @plan.RuntimeV2.O3, @plan.RuntimeV2.O4, and
+          @plan.RuntimeV2.O5.
 
         - Check path: nub run --filter flow-state-rewrite check:types; nub run --filter
           flow-state-rewrite check:packed-consumers; nub run test --

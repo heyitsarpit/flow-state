@@ -2,238 +2,111 @@ plan Package
 title   Package routes, dependency identity, declarations and installed consumers
 status  proposed
 goal
-    Ship one ESM Flow State package whose supported imports, declarations and host boundaries
-    agree with the owning capability contracts. This Plan owns package reachability and consumer
-    gates, not a second definition of runtime behavior. FlowState owns build stages and the
-    eventual product cutover; writing this proposed Plan authorizes neither implementation nor
-    promotion. references/ledger/Package.md records every PackageContract inventory disposition.
+    One ESM package whose supported imports, declarations and host boundaries agree with the
+    capability plans. This plan owns what a consumer can import and how installed use is proven;
+    runtime behaviour stays with its owners.
 outcomes
     O1  Routes
-        Exactly six public routes exist, through explicit package exports and ESM import
-        conditions. No CommonJS require route, wildcard subpath or private deep import is
-        supported. Each route exposes only the following named values and types:
+        Exactly six routes exist, through explicit package exports and ESM import conditions; no
+        CommonJS, wildcard subpath or deep import is supported. Each exposes only these names:
 
-        - flow-state values: definition, machine, app, actorRef, runtimeSetup, resource,
-        transaction, stream, deny, check, send, FlowError, entity, domain, read, write, listen,
-        eq, oneOf, contains, between, overlaps, and, serverMatches, principal, asc, desc.
-        Types: Definition, Machine, App, ActorRef, Actor, Snapshot, Runtime, Diagnostic, Attempt.
-        Attempt is also a Schema value, carrying id and encoded input, as ruling 36 requires
-        (@plan.FlowOperations.O3).
+        - flow-state: definition, machine, app, actorRef, runtimeSetup, resource, transaction,
+        stream, deny, check, send, FlowError, entity, domain, read, write, listen, eq, oneOf,
+        contains, between, overlaps, and, serverMatches, principal, asc, desc; types Definition,
+        Machine, App, ActorRef, Actor, Snapshot, Runtime, RuntimeSetup, Diagnostic and Attempt. 
+        Attempt is
+        also a Schema value carrying id and encoded input (@plan.Operations.O3).
         - flow-state/react: FlowProvider, useActorByRef, useActor, useView, Hydrate.
-        - flow-state/testing: story, model, defineConfig, CheckpointProvider, propertyTest.
-        - flow-state/inspect: inspect, render, attachInspector, trace. trace has only import and
-        export; it is the deliberate namespace-value exception, not an umbrella API.
-        - flow-state/server: dehydrate only.
-        - flow-state/persistence: layerIndexedDb only, called layerIndexedDb({ database }).
+        - flow-state/testing: story, model, defineConfig, CheckpointProvider, propertyTest; type 
+        StoryRun.
+        - flow-state/inspect: inspect, render, attachInspector, trace (an object with only import
+        and export); types Model and Trace.
+        - flow-state/server: dehydrate; type Hydration.
+        - flow-state/persistence: layerIndexedDb({ database? }).
 
-        These replace the four-route list of FlowState O12. Hydrate and dehydrate are the
-        adopted server-rendering additions; the IndexedDB route is the assigned amendment to
-        ruling 18. Other settings and operations are members of these values, inferred data,
-        or Effect primitives, not extra exports. Named exports permit consumer-local aliases;
-        a consumer namespace import does not create a package-owned namespace object.
+        Every other setting or operation is a member of these values, inferred data or an Effect
+        primitive. No route re-exports another route's names or internal services, stores,
+        ManagedRuntime or mutable harnesses.
 
-        **Host boundaries.** flow-state/react begins with the preserved "use client" directive
-        in its emitted JavaScript. A Next.js Server Component may import the boundary components;
-        hooks execute only on the client. flow-state/server maps react-server and node import
-        conditions to the real module, browser and default to a rejection stub. Browser selection
-        takes precedence over a conflicting node condition. The stub throws FlowError
-        ServerOnlyImport on evaluation, before constructing a Runtime or doing work; a client
-        bundler may reject the import earlier. It never silently supplies server execution.
-        See references/design/server-rendering.md section 1.1 for rationale and examples.
+        flow-state/react keeps the "use client" directive in its emitted JavaScript; a Next.js
+        Server Component may import its components, and hooks run only on the client.
+        flow-state/server resolves to the real module under react-server and node conditions and
+        to a stub under browser and default, browser winning over a conflicting node condition.
+        The stub throws FlowError ServerOnlyImport on evaluation, before any work; it never
+        supplies server execution. A non-Node server host selects react-server.
 
-        The root imports neither React nor server-only/Node code, testing, inspection tooling,
-        the TypeScript compiler, renderers or IndexedDB. Server-safe root APIs remain usable in
-        request runtimes and edge hosts. The server capture implementation uses host-neutral
-        APIs; a non-Node server host must select react-server to reach the real route. The
-        persistence route may be imported without a browser; constructing its Layer is inert
-        and browser storage access begins only on Layer acquisition (@plan.FlowPersistence.O1).
-        Testing may import React for CheckpointProvider; root/server/inspect/persistence must
-        remain importable without React installed. No route re-exports unrelated root builders,
-        internal services, stores, ManagedRuntime, boot, mutable harnesses or public artifact
-        authority types. Inspection returns inferred data, not a new exported record hierarchy.
+        The root imports no React, server-only or Node code, testing, inspection tooling,
+        TypeScript compiler, renderer or IndexedDB, so it runs in request runtimes and edge
+        hosts. Every route except react imports without React installed; only rendering 
+        CheckpointProvider
+        needs React, so a no-React project can load its Story config. Importing the persistence 
+        route outside a browser is
+        safe; storage access begins only when its Layer is acquired (@plan.Persistence.O1).
+    O2  Dependencies and inert imports
+        Effect is a peer dependency, never bundled, so Runtime, Schema, Context tags and Layers
+        resolve to the consumer's single Effect instance. KeyValueStore comes from
+        effect/persistence. React is an optional peer, majors 18 and 19; a host without React
+        fails only where it uses the React route or CheckpointProvider.
 
-        Reference: references/dispatch-desk/tools/inspection.ts, flow.config.ts,
-        app/persistence.ts and app/view.tsx; server/Hydrate host: none yet (stage S10 adds it).
-    O2  Dependencies and peers
-        Effect is a peerDependency, compatible with the pinned Effect 4.0.5 baseline, and a
-        development dependency for building and proving the package. It is not bundled or
-        installed as a private runtime dependency. Runtime, Schema, Context tags and Layer
-        identities resolve to the consumer's single Effect instance. The release records its
-        tested peer range and lockfile; an untested Effect version is not claimed supported.
+        package.json declares sideEffects: false. Importing any route constructs no Runtime,
+        registers no listener and performs no storage I/O, actor work or user callback. Tree
+        shaking never makes a used server-only import succeed in a client bundle.
+    O3  Types and removed surfaces
+        Packed declarations preserve literal inference, nominal machine and definition identity,
+        exact unions and field presence, variance, service requirements and failure channels.
+        Consumers need no any, assertions, explicit generic arguments or wrappers. Lanes are
+        inferred _tag unions; RuntimeSetup is inferred from the returned setup. Declarations are
+        self-contained: no workspace path, internal route or unresolved import escapes, and
+        consumers emit isolated declarations without excessive instantiation.
 
-        React is an optional peer supporting majors 18 and 19 (>=18 <20), with each major
-        independently tested. Installing/importing root, server, inspect or persistence must
-        not require React. A consumer using the React route or CheckpointProvider supplies React;
-        the library never bundles it. A host without React fails only at that consuming boundary.
+        Removed surfaces are gone, with no alias, overload, adapter or deprecated wrapper. They
+        are those in the "Deleted or absorbed" table of references/design/minimal-library.md, plus
+        registered views, child and dynamic actors, leases, final/onDone/output, useShallow and
+        custom comparators, useResource, callable Stories and mutable harnesses, saved behaviour
+        artifacts, compression, Implementation values and the separate error classes
+        (FlowUsageError, FlowPersistenceError, FlowDisposeError, FlowStoryExecutionError). A
+        configuration object naming a removed or unknown field throws InvalidConfiguration with
+        its path and help naming the replacement, before any work starts.
+    O4  Installed consumers
+        Dispatch Desk is a checked-in application compiled and run against the packed tarball,
+        never workspace aliases; it and the seven entity examples become real consumers at S10.
+        Its Next.js App Router host proves request render, Hydrate first render without
+        mismatch, reload restore, reconnect, disposal, principal isolation and a second tab
+        running without persistence. Chromium, Gecko and WebKit run its React lifetimes, real
+        IndexedDB, reloads and hydration, with versions recorded.
 
-        KeyValueStore comes from effect/persistence, not effect/unstable/persistence. Flow's
-        layerIndexedDb({ database }) supplies that service because Effect 4.0.5 does not ship an
-        IndexedDB Layer. It is not indexedDbStorage, a root re-export, a new persistence()
-        configuration object or a second codec. Its storage/lifetime/error contract belongs to
-        @plan.FlowPersistence.O1 and @plan.FlowPersistence.O5.
-
-        package.json declares sideEffects: false. Importing any real route performs no Runtime
-        construction, listener registration, storage I/O, actor work or user callback. Acquiring
-        a Layer and invoking an API carry effects explicitly. The server rejection stub is an
-        import-safety guard, never hidden application work; client-bundle negative fixtures must
-        demonstrate that tree shaking cannot accidentally make a used server import succeed.
-        Independent route imports and tree-shaken browser builds verify these boundaries.
-
-        Reference: references/dispatch-desk/app/setup.ts, app/persistence.ts and app/view.tsx.
-    O3  Exports and types
-        Preserve literal inference, nominal machine/definition identity, exact unions and field
-        presence, variance, requirements and failure channels through the packed declarations.
-        Positive consumer use requires no any, assertion erasure, explicit generic arguments,
-        wrapper API or environment erasure. Operation lanes are inferred _tag unions from their
-        owners, never parallel hand-maintained status aliases. Definition-derived Schemas replace
-        the deleted helper-type families; RuntimeSetup is inferred from the returned setup.
-
-        Published .d.mts declarations are self-contained within supported exports: no workspace
-        source path, implementation-only route, recursive configuration carrier, unresolved
-        internal import or erased Effect environment may escape. Private declaration helpers may
-        be emitted within the package if all references resolve without granting a public import
-        route. Consumers can emit isolated declarations without excessive type instantiation.
-
-        **Compatibility disposition.** DELETE removes a surface; REPLACE removes its old form
-        while retaining only the new capability; RETAIN preserves the specified boundary;
-        HISTORICAL preserves provenance only. No alias, compatibility overload, adapter,
-        deprecated wrapper or alternate parser branch keeps a removed form alive. Closed
-        configuration objects reject unknown and deleted fields with a construction FlowError,
-        path and remediation naming the replacement, before actor creation, mutation, service
-        acquisition, publication, evidence or external work. Capability owners define exact
-        diagnostics (@plan.FlowDiagnostics.O2) and prove runtime rejection as well as type rejection.
-
-        Surface disposition imported from PackageContract, in current vocabulary:
-
-        - DEL-001/002/003: registered views, view IDs and view-can; child actors including their
-        persistence, snapshots and addressing; dynamicMachines, dynamic roots, auto roots,
-        runtime.actor, and ID-bearing local creation are deleted. Declared lazy entries
-        (@plan.LazyFeatures.O1) do not authorize arbitrary machine registration.
-        - DEL-004/005/006: leases and handle disposal are replaced by ensure/create/dispose and
-        active/disposing/disposed lifecycle (@plan.FlowRuntime.O3, @plan.FlowRuntime.O6). Old initial
-        state syntax, final/onDone/output, Boolean reentry and flat-only restrictions are
-        replaced by defaults, ordinary leaves and target "self" (@plan.Machines.O2).
-        activity kits, operation refs, byKey/byLane enumeration are deleted; named activities
-        and operation families own the replacement (@plan.FlowOperations.O6).
-        - DEL-007/008: recursive sharing, custom comparators, Object.is policy and useShallow
-        yield to Equal.equals; React shells, root-only hooks, useResource, broad subscriptions
-        and view objects yield to provider, actor hooks and passive useView (@plan.React.O1,
-        @plan.React.O2). Rendering gains no mutable preparation API.
-        - DEL-009/010: callable Stories, with/injection, perform/deliver/receive/simulate/flush/
-        settle/setTime/final/replay, mutable harnesses, old Scenario/wire shapes and mutable v1
-        boot are replaced by @plan.Testing.O1 through @plan.Testing.O4. Hydrate is the sanctioned
-        immutable payload boundary (@plan.ServerRendering.O4), never snapshot replay. Saved
-        behavior/share artifacts, compression and the old inspect list stay deleted
-        (@plan.Inspection.O4, @plan.Inspection.O5).
-        - DEL-011: former contracts, archived Plans and old task exports are HISTORICAL only.
-        RET-001 retains ESM/import conditions and dependency identity through the six routes of
-        @O1; RET-002 retains synchronous admission, production mailboxes, scoped stores, fencing,
-        full in-process Cause through cleanup; RET-003/004 retain canonical key bytes and exact
-        current lane unions, replacing getState/getData readers with snapshot/descriptor reads;
-        RET-005 retains FlowProvider, actor hooks and passive useView through their current owners.
-
-        Replacement and removed surfaces never coexist in installed code, declarations or current
-        guidance. Deleted names occur only in disposition ledgers/provenance and negative proofs.
-        A final audit maps old symbols, overloads, parsers, registries, consumers and proof paths
-        to their owner or deletion; a folder rename alone proves nothing.
-
-        Reference: references/dispatch-desk/features/Tickets/editor/editor.definition.ts,
-        features/Tickets/editor/editor.machine.ts and features/Tickets/editor/useEditor.ts.
-    O4  Consumer checks
-        Maintain Dispatch Desk as a checked-in quickstart/application compiled and run against
-        the packed tarball, never workspace-source aliases. It and the seven entity examples
-        become real consumers at S10; the current illustrative reference is not proof. Add its
-        Next.js App Router host: request render, Hydrate first render, reload restore, reconnect,
-        disposal and principal isolation. Two real tabs prove ruling 38: the second runs without
-        restore/capture and reports SecondTabNoPersistence; no mirroring or handover is promised.
-        Chromium, Gecko and WebKit exercise React lifetimes, real IndexedDB, reloads and SSR
-        hydration without mismatch. Their exact versions are recorded with results.
-
-        Small and medium independent consumers compile with strict checking, isolatedModules and
-        isolated declaration emit; packed ESM execution verifies route reachability, including
-        no-React and React 18/19 installs. The maintained quickstart exercises definition/machine,
-        app, runtimeSetup, ready and actor use; separate consumers add React, Stories, inspection,
-        server and IndexedDB imports. Type-only/source checks cannot establish runtime behavior.
-
-        Every build-stage gate includes packed-consumer checks (ruling 26). Owner proofs cover
-        semantics; installed consumer/browser/process tests add reachability and distinct races,
-        failure, interruption and cleanup boundaries. Promotion waits for owner proofs, required
-        reviews, package build/declarations, docs, installed CLI parity, browser gates and the
-        complete no-residue audit with explicit receipts. Installed flow must resolve the same
-        package identity as the consumer (@plan.FlowCommandLine.O2).
-
-        Keep packages/flow-state frozen. FlowState owns code disposition and later cutover;
-        Plan approval does not authorize source deletion, root-gate retargeting, commits, pushes
-        or publication. Root build/docs/verify must target the replacement before their results
-        count as its closure; passing frozen-package checks is not replacement verification.
-
-        Reference: references/dispatch-desk/README.md and tools/cli.ts; runnable packed/Next.js/
-        real-browser host: none yet (stage S10 adds it).
+        Small and medium consumers compile with strict checking, isolatedModules and isolated
+        declarations, and packed execution proves each route, including no-React and React
+        18 and 19 installs. Every build stage gate runs these packed-consumer checks. The
+        installed flow binary resolves the same package identity as the consumer
+        (@plan.CommandLine.O6).
 decisions
-    D1  The closed route lists move here
-        Was FlowState O12, amended by rulings 18, 19, 30 and 36. Six routes, no deep imports,
-        exact named exports, trace's deliberate object form, Attempt's Schema and type, and
-        no deleted alias. Root keeps the small authoring surface; host tooling stays isolated.
-    D2  Consumer identity and inert imports are package obligations
-        Ruling 19: one Effect peer, optional React 18/19 peer, sideEffects false, "use client"
-        on React, server-only capture. Ruling 18: layerIndexedDb({ database }) lives only at
-        flow-state/persistence; Effect's own service import is effect/persistence.
-    D3  Capability owners define semantics; this Plan proves installed reachability
-        Runtime, operation, hydration, inspection and persistence guarantees remain with their
-        owners. Package checks preserve their types and observable behavior across publishing
-        and host boundaries, without replacing owner proofs with source scans.
+    D1  Six closed routes
+        The root keeps the authoring surface; React, server, testing, inspection and storage are
+        isolated so a consumer pays only for what it imports.
+    D2  Owners define semantics; this plan proves installed reachability
+        Package checks preserve owner types and behaviour across publishing and host boundaries;
+        they never replace owner proofs.
 constraints
-    C1  Pinned toolchain and portable bytes
-        Use Node 22.18+, nub 0.7.5, TypeScript 7.0.2, Vite Plus and Effect 4.0.5. No unpinned
-        dependency or compiler fallback. Shared identity/key/structural codecs use ECMAScript/Web
-        APIs and TextEncoder, reject lone surrogates, never use Node Buffer, UTF-16 byte counts
-        or a second encoder. Equal accepted data produces equal bytes and identities on Node,
-        Bun, Deno, Chromium, Gecko and WebKit. Structural limits and canonicalization belong to
-        @plan.Inspection.O2; canonical keys retain @plan.FlowOperations.O1's separate grammar.
-    C2  Generated output and actual gates
-        Build with pinned scripts, never hand-edit dist, generated declarations or generated docs.
-        Focused package checks include check:types, build, check:build-output,
-        check:packed-consumers and check:static-harness where applicable to the replacement.
-        nub run build is required for package/CLI changes, nub run docs:build for public API
-        changes, nub run verify before full workspace verification. These are future
-        implementation gates; no application execution is claimed by authoring this Plan.
+    C1  Portable bytes
+        Identity, key and structural codecs use ECMAScript and Web APIs (TextEncoder), never Node
+        Buffer or UTF-16 counts. Equal accepted data gives equal bytes on Node, Bun, Deno,
+        Chromium, Gecko and WebKit; limits belong to @plan.Inspection.O2.
+    C2  Generated output
+        dist, declarations and docs come from pinned build scripts, never hand edits.
 verification
-    V1  Closed routes and declarations
-        Establish @O1 and @O3: compare runtime named exports and packed .d.mts against all six
-        lists, including Attempt value/type, Hydrate, dehydrate and layerIndexedDb. Reject root
-        re-exports from other routes, private deep imports, namespaces except trace, and every
-        removed name. Compile small/medium strict isolatedModules and isolated-declaration
-        consumers plus Dispatch Desk against the tarball without workspace aliases or erased
-        public types. Check declaration imports resolve only through package-owned files and
-        dependencies. Planned.
-    V2  Dependency and host boundary matrix
-        Establish @O1 and @O2 with an installed no-React consumer importing root/server/inspect/
-        persistence; independent React 18 and React 19 hosts; one resolved Effect identity shared
-        by consumer services and Flow. Verify "use client" survives bundling, react-server/node
-        reaches dehydrate and browser/default reaches ServerOnlyImport or a build refusal.
-        Probe imports with callback/storage/listener spies, verify no eager work, and inspect
-        tree-shaken root/React bundles for compiler, renderer, server and IndexedDB leakage.
-        A used forbidden import must still fail under production optimization. Planned.
-    V3  Portable bytes and hard deletion
-        Establish @C1 through full Node vectors and compact compiled-code vectors on recorded
-        Bun, Deno, Chromium, Gecko and WebKit: ASCII, multibyte UTF-8, 256/257-byte identities,
-        lone surrogates, composed/decomposed spellings, exact bounds, canonical byte/digest
-        equality under the same digest key. @plan.Inspection.O2 owns structural limits.
-        Submit removed/unknown configuration fields behaviorally, assert FlowError path and
-        replacement help before all side-effect spies, pair with negative packed type fixtures
-        and final residue audit. Planned.
-    V4  Proving application and promotion receipts
-        Establish @O4 with packed Dispatch Desk and seven entity examples, Next.js server render,
-        hydrate without mismatch, cross-request/principal isolation, offline/reconnect, exact
-        reload restore, pending-attempt uncertainty and disposal. Run real IndexedDB and two-tab
-        refusal in Chromium/Gecko/WebKit. Include failure/interruption/cleanup cases through
-        installed browser, request and CLI boundaries. Record stage packed-consumer receipts,
-        owner reviews, final package/build/docs/workspace gates and migration/no-residue audit
-        before a separately authorized promotion. Planned.
+    V1  Packed exports and declarations match the six lists exactly; deep imports, cross-route
+        re-exports and every removed name fail; strict isolated consumers compile.
+    V2  A no-React consumer imports every route except react; React 18 and 19
+        hosts run; one Effect identity is shared; "use client" survives bundling; browser
+        bundles reach ServerOnlyImport; import spies see no work.
+    V3  Codec vectors give equal bytes on every listed host; removed configuration fields
+        throw InvalidConfiguration before any side effect.
+    V4  Packed Dispatch Desk passes its Next.js, isolation, reload, uncertainty and second-tab
+        gates in Chromium, Gecko and WebKit.
 questions
-    Q1  Which exact Effect peer range is published?
-        The tested baseline is 4.0.5, not an unbounded compatibility claim. Recommended: start
-        with exact 4.0.5 and widen only after packed-consumer proofs on each added range.
-    Q2  Which exact browser releases become the maintained gate baseline?
-        Recommended: record the versions supplied by the pinned browser harness at S10 and keep
-        one Chromium, Gecko and WebKit run required; no claim of all historical browsers.
+    Q1  Which Effect peer range is published?
+        Recommended: exactly 4.0.5, widened only after packed-consumer proofs on each range.
+    Q2  Which browser releases form the gate baseline?
+        Recommended: the versions the pinned harness supplies at S10, one each of Chromium,
+        Gecko and WebKit.

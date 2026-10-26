@@ -6,8 +6,7 @@ goal
     code and without gaining execution authority. flow-state/inspect offers inspect, render,
     attachInspector and trace. Observation never starts work, never changes committed state,
     never persists implicitly, never invents evidence and never delays a turn. CLI leaves and
-    flags are @plan.FlowCommandLine.O1 to @plan.FlowCommandLine.O5. Full notes:
-    references/full/Inspection.full.plan.txt.
+    flags are @plan.CommandLine.O1 to @plan.CommandLine.O5.
 outcomes
     O1  inspect(app) and inspect(runtime)
         inspect(app) returns a Promise of a plain readonly Model. It loads every lazy entry
@@ -41,7 +40,7 @@ outcomes
         Reference: references/dispatch-desk/tools/inspection.ts.
     O2  The structural codec
         One bounded codec carries every value that crosses a process or storage boundary:
-        persisted records (@plan.FlowPersistence.O3), server-rendering payloads
+        persisted records (@plan.Persistence.O3), server-rendering payloads
         (@plan.ServerRendering.O3), trace artifacts and the Model bytes. It accepts JSON values
         produced by the owning Schema. A value at a bound is accepted, one past it is
         rejected: depth 32, 10,000 nodes, 4,096 items per array, 262,144 UTF-8 bytes per
@@ -56,9 +55,9 @@ outcomes
 
         A failure is one FlowError raised before any actor, store, service or committed change:
         CodecBoundExceeded (naming the bound, its value and the path), CodecMalformed (with a
-        reason such as utf8, json, nonCanonical, cycle, negativeZero, nonFinite, loneSurrogate,
+        reason, one of utf8, json, nonCanonical, cycle, negativeZero, nonFinite, loneSurrogate,
         notPlain or sparse) or CodecSchemaMismatch (path and issue summary, never data values).
-        No raw parser error or Cause escapes; what to do about it belongs to the caller.
+        No raw parser error or Cause escapes.
     O3  Inspector sinks
         attachInspector(runtime, callback) attaches a callback; attachInspector(runtime,
         { capacity? }) creates a bounded buffer. Both return drain() and dispose(); the buffer
@@ -70,7 +69,8 @@ outcomes
         sequence.
 
         A sink belongs to one Runtime and attaches once (InspectorAlreadyAttached on reuse);
-        attaching to a disposed Runtime rejects with RuntimeDisposed. Attaching before ready()
+        attaching to a disposed or disposing Runtime throws RuntimeDisposed. Attaching before 
+        ready()
         sees bootstrap evidence. A late attachment first gets a redacted current snapshot and
         a marker for what it missed, then later records only.
 
@@ -102,13 +102,15 @@ outcomes
         bytes and trace.import(bytes) validates them and returns a Trace; both are synchronous
         and need no App. A Trace holds kind and version, storyId, appId, appFingerprint,
         persistenceVersion, seed, a truncatedBeforeSequence marker, redacted events, uniquely
-        named checkpoints, outcome ("completed" or "failed"), end, failure and cleanup status.
+        named redacted checkpoints, outcome ("completed" or "failed"), end, failure and cleanup
+        status. completed requires an end; a failure before end capture leaves end null.
         It keeps at most 4,096 recent events, dropping the oldest until it fits the codec
         bounds and advancing the marker; checkpoints are never dropped, and if they cannot fit
         the export fails with CodecBoundExceeded.
 
         Import validates in order and rejects with one FlowError: the codec; kind, version and
-        a closed schema (unknown or omitted members reject with InvalidTraceRecord); strictly
+        a closed schema (unknown or omitted members reject with InvalidTraceRecord); identity
+        fields (appId, appFingerprint form, persistenceVersion); strictly
         increasing sequences consistent with the marker; lane and field correlations (Ready
         carries data, unknown carries reconcileRequired and an attempt id); lifecycle only
         active, then disposing, then disposed per incarnation (InvalidLifecycleTransition);
@@ -130,8 +132,10 @@ outcomes
         or persisted. In Stories it is a private per-run key, reused when the same run repeats
         so repeated traces are identical, and not derivable from the public seed. A value that
         cannot be encoded as JSON is carried as { unencodable: <Schema identifier> }, never
-        its contents. In artifacts, entity and resource data carry field names and digests,
-        not values. Identities, versions, kinds, sequences, state paths, event tags and codes
+        its contents. In artifacts, every entity and resource value, sensitive or not, appears only 
+        as field names
+        and digests, so data never leaves through a trace. Identities, versions, kinds, sequences, 
+        state paths, event tags and codes
         are never redacted. Digests are computed outside the turn.
     O6  Renderers
         render(model, "text" | "json" | "mermaid") is synchronous and deterministic. Text
@@ -140,15 +144,17 @@ outcomes
         marked. json is the canonical Model. mermaid draws a state diagram per machine and a
         flowchart of sends and context reads.
 
-        Trace projections (printed by @plan.FlowCommandLine.O4) read one or two Traces and run
+        Trace projections (printed by @plan.CommandLine.O4) read one or two Traces and run
         no application code. summary gives counts and a per-actor timeline always stating
-        "complete" or "truncated before N" and the outcome. Sections list normalized events by
-        kind (transitions, sends, schedules, lifecycle, resources and why each refetched,
-        transactions, repairs, restore, hydration, adoption, diagnostics). Filters are data:
-        actor, attempt id, read, entity key with sequence, issues only. An unknown selector
-        fails with InvalidArtifactOperand (reason UnknownSelector); missing evidence names
-        EvidenceUnavailable. Under truncation, absence is reported as "insufficient evidence",
-        never "none".
+        "complete" or "truncated before N" and the outcome. The sections are a closed list of
+        normalized events by kind: transitions, sends, schedules, lifecycle, resources (with why
+        each refetched), transactions, repairs, restore, hydration, adoption and diagnostics. 
+        Filters are data:
+        actor, attempt id, read, entity key with sequence, issues only. A selector naming something 
+        absent from the app's Model fails with InvalidArtifactOperand
+        (reason UnknownSelector); one known to the Model but absent from the trace answers none
+        when the trace is complete. Under truncation, absence is reported as "insufficient
+        evidence" (EvidenceUnavailable), never "none".
 
         Comparing two Traces has four results: equal (both complete, sections match),
         different (a retained fact differs, even if truncated), incomplete (retained facts
@@ -194,8 +200,9 @@ verification
     V5  Events and traces: one Story per event kind; contiguous turn sequences; a rolled-back
         turn leaves one failed event; export then import is byte-identical; every invalid
         import vector is rejected with its code; no Cause or stack appears in any artifact.
-    V6  Redaction: sensitive values are digests in sink events and artifacts and raw in
-        checkpoints; no sensitive value is found in any artifact; digests are equal under one
+    V6  Redaction: sensitive values are digests in sink events and exported artifacts,
+        checkpoints included, and raw in in-process checkpoints; no sensitive value is found in any 
+        artifact; digests are equal under one
         key and not recoverable by a dictionary without it.
     V7  Renderers and projections: golden text, json and mermaid; every section and filter;
         the four comparison results; "insufficient evidence" under truncation; coverage.

@@ -103,9 +103,9 @@ tasks
             or runtime behavior. Validate this Workflow task with `workflow check`; if contract
             work is later authorized, record its accepted criteria and checks here first.
         derives_from [
-                     @plan.Diagnostics.V1,
-                     @plan.Diagnostics.V2,
-                     @plan.Diagnostics.V3,
+                     @plan.DiagnosticsV2.V1,
+                     @plan.DiagnosticsV2.V2,
+                     @plan.DiagnosticsV2.V3,
                      @plan.Verification.C2
                      ]
 

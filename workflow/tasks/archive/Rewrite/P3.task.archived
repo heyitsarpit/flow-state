@@ -7,12 +7,12 @@ tasks
         priority     high
         blocked_by   [@task.Rewrite.T271]
         derives_from [
-                     @plan.Operations.D1,
-                     @plan.Operations.C1,
-                     @plan.Operations.C2,
-                     @plan.Operations.V1,
-                     @plan.Operations.V2,
-                     @plan.Operations.V4,
+                     @plan.OperationsV2.D1,
+                     @plan.OperationsV2.C1,
+                     @plan.OperationsV2.C2,
+                     @plan.OperationsV2.V1,
+                     @plan.OperationsV2.V2,
+                     @plan.OperationsV2.V4,
                      @plan.Verification.V3
                      ]
         description
@@ -56,15 +56,15 @@ tasks
         priority     high
         blocked_by   [@T300, @task.Rewrite.T271]
         derives_from [
-                     @plan.Operations.D1,
-                     @plan.Operations.D2,
-                     @plan.Operations.C1,
-                     @plan.Operations.C2,
-                     @plan.Operations.Q1,
-                     @plan.Operations.V1,
-                     @plan.Operations.V2,
-                     @plan.Operations.V3,
-                     @plan.Operations.V4,
+                     @plan.OperationsV2.D1,
+                     @plan.OperationsV2.D2,
+                     @plan.OperationsV2.C1,
+                     @plan.OperationsV2.C2,
+                     @plan.OperationsV2.Q1,
+                     @plan.OperationsV2.V1,
+                     @plan.OperationsV2.V2,
+                     @plan.OperationsV2.V3,
+                     @plan.OperationsV2.V4,
                      @plan.Verification.V3
                      ]
         description
@@ -104,13 +104,13 @@ tasks
         priority     high
         blocked_by   [@T300, @T301, @task.Rewrite.T271]
         derives_from [
-                     @plan.Operations.D1,
-                     @plan.Operations.D2,
-                     @plan.Operations.C1,
-                     @plan.Operations.V3,
+                     @plan.OperationsV2.D1,
+                     @plan.OperationsV2.D2,
+                     @plan.OperationsV2.C1,
+                     @plan.OperationsV2.V3,
                      @plan.Verification.V3
                      ]
-        satisfies    [@plan.Operations.O2]
+        satisfies    [@plan.OperationsV2.O2]
         description
             Source Bead: flow-state-e7p.3.3 (open); phase Bead:
             flow-state-e7p.3 (open).
@@ -145,12 +145,12 @@ tasks
         priority     high
         blocked_by   [@T300, @T301, @task.Rewrite.T271]
         derives_from [
-                     @plan.Operations.D2,
-                     @plan.Operations.C1,
-                     @plan.Operations.C2,
-                     @plan.Operations.Q1,
-                     @plan.Operations.V3,
-                     @plan.Operations.V4,
+                     @plan.OperationsV2.D2,
+                     @plan.OperationsV2.C1,
+                     @plan.OperationsV2.C2,
+                     @plan.OperationsV2.Q1,
+                     @plan.OperationsV2.V3,
+                     @plan.OperationsV2.V4,
                      @plan.Verification.V3
                      ]
         description
@@ -187,10 +187,10 @@ tasks
         priority     high
         blocked_by   [@T303, @task.Rewrite.T271]
         derives_from [
-                     @plan.Operations.D2,
-                     @plan.Operations.Q1,
-                     @plan.Operations.V3,
-                     @plan.Operations.V4,
+                     @plan.OperationsV2.D2,
+                     @plan.OperationsV2.Q1,
+                     @plan.OperationsV2.V3,
+                     @plan.OperationsV2.V4,
                      @plan.Verification.V3
                      ]
         description
@@ -226,12 +226,12 @@ tasks
         priority     high
         blocked_by   [@T300, @T301, @T302, @T303, @task.Rewrite.T271]
         derives_from [
-                     @plan.Operations.D1,
-                     @plan.Operations.D2,
-                     @plan.Operations.C1,
-                     @plan.Operations.C2,
-                     @plan.Operations.V1,
-                     @plan.Operations.V2,
+                     @plan.OperationsV2.D1,
+                     @plan.OperationsV2.D2,
+                     @plan.OperationsV2.C1,
+                     @plan.OperationsV2.C2,
+                     @plan.OperationsV2.V1,
+                     @plan.OperationsV2.V2,
                      @plan.Verification.V3
                      ]
         description
@@ -269,15 +269,15 @@ tasks
         priority     high
         blocked_by   [@T300, @T301, @T302, @T303, @T304, @T305, @task.Rewrite.T271]
         derives_from [
-                     @plan.Operations.D1,
-                     @plan.Operations.D2,
-                     @plan.Operations.C1,
-                     @plan.Operations.C2,
-                     @plan.Operations.Q1,
-                     @plan.Operations.V1,
-                     @plan.Operations.V2,
-                     @plan.Operations.V3,
-                     @plan.Operations.V4,
+                     @plan.OperationsV2.D1,
+                     @plan.OperationsV2.D2,
+                     @plan.OperationsV2.C1,
+                     @plan.OperationsV2.C2,
+                     @plan.OperationsV2.Q1,
+                     @plan.OperationsV2.V1,
+                     @plan.OperationsV2.V2,
+                     @plan.OperationsV2.V3,
+                     @plan.OperationsV2.V4,
                      @plan.Verification.V3
                      ]
         description

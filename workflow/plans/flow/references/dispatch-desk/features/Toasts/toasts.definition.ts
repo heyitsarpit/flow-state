@@ -1,4 +1,4 @@
-// A shared actor other actors tell things to (FlowState D27). Only public events can be sent.
+// A shared actor other actors tell things to (Runtime.plan O4). Only public events can be sent.
 import { Schema } from "effect";
 import { definition } from "flow-state";
 

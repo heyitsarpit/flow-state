@@ -25,7 +25,7 @@ tasks
         title        P01 — Adopt preparation and prove stable-admission waiter interruption
         status       done
         priority     high
-        derives_from [@plan.Runtime.D1, @plan.Runtime.C1, @plan.Runtime.V3]
+        derives_from [@plan.RuntimeV2.D1, @plan.RuntimeV2.C1, @plan.RuntimeV2.V3]
         description
             Source Bead flow-state-e7p.13.14 (closed).
             Deliverable: prove that interrupting one stable-admission follower leaves
@@ -44,7 +44,7 @@ tasks
         status       done
         priority     high
         blocked_by   [@task.Rewrite.T200, @task.Rewrite.T201]
-        derives_from [@plan.Runtime.D1, @plan.Runtime.C1, @plan.Runtime.V2, @plan.Runtime.V3]
+        derives_from [@plan.RuntimeV2.D1, @plan.RuntimeV2.C1, @plan.RuntimeV2.V2, @plan.RuntimeV2.V3]
         description
             Source Bead flow-state-e7p.13.1 (closed).
             Deliverable: capture admitted machine facts at app construction and make
@@ -63,8 +63,8 @@ tasks
         status       done
         priority     high
         derives_from [
-                     @plan.Runtime.D2,
-                     @plan.Runtime.V5,
+                     @plan.RuntimeV2.D2,
+                     @plan.RuntimeV2.V5,
                      @plan.Verification.D2,
                      @plan.Verification.V2
                      ]
@@ -85,7 +85,7 @@ tasks
         status       done
         priority     high
         blocked_by   [@task.Rewrite.T202, @task.Rewrite.T203]
-        derives_from [@plan.Runtime.D2, @plan.Runtime.C2, @plan.Runtime.V3, @plan.Runtime.V5]
+        derives_from [@plan.RuntimeV2.D2, @plan.RuntimeV2.C2, @plan.RuntimeV2.V3, @plan.RuntimeV2.V5]
         description
             Source Bead flow-state-e7p.13.2 (closed).
             Deliverable: make RuntimeOwner own provided services, readiness, runtime
@@ -106,11 +106,11 @@ tasks
         priority     high
         blocked_by   [@task.Rewrite.T204]
         derives_from [
-                     @plan.Runtime.D2,
-                     @plan.Runtime.C2,
-                     @plan.Runtime.V5,
-                     @plan.Diagnostics.D2,
-                     @plan.Diagnostics.V2
+                     @plan.RuntimeV2.D2,
+                     @plan.RuntimeV2.C2,
+                     @plan.RuntimeV2.V5,
+                     @plan.DiagnosticsV2.D2,
+                     @plan.DiagnosticsV2.V2
                      ]
         description
             Source Bead flow-state-e7p.13.3 (closed).
@@ -134,9 +134,9 @@ tasks
         priority     high
         blocked_by   [@task.Rewrite.T204, @task.Rewrite.T205]
         derives_from [
-                     @plan.Runtime.D2,
-                     @plan.Runtime.V4,
-                     @plan.Runtime.V6,
+                     @plan.RuntimeV2.D2,
+                     @plan.RuntimeV2.V4,
+                     @plan.RuntimeV2.V6,
                      @plan.Artifacts.D1,
                      @plan.Artifacts.V4
                      ]
@@ -161,7 +161,7 @@ tasks
         status       done
         priority     high
         blocked_by   [@task.Rewrite.T205, @task.Rewrite.T206]
-        derives_from [@plan.Runtime.D2, @plan.Runtime.C1, @plan.Runtime.V4, @plan.Runtime.V5]
+        derives_from [@plan.RuntimeV2.D2, @plan.RuntimeV2.C1, @plan.RuntimeV2.V4, @plan.RuntimeV2.V5]
         description
             Source Bead flow-state-e7p.13.5 (closed).
             Deliverable: make ActorPublication the sole reader-visible actor truth and
@@ -183,7 +183,7 @@ tasks
         status       done
         priority     high
         blocked_by   [@task.Rewrite.T207]
-        derives_from [@plan.Runtime.D2, @plan.Runtime.V4, @plan.Runtime.V5]
+        derives_from [@plan.RuntimeV2.D2, @plan.RuntimeV2.V4, @plan.RuntimeV2.V5]
         description
             Source Bead flow-state-e7p.13.6 (closed).
             Deliverable: make one bounded FIFO mailbox own command and
@@ -204,7 +204,7 @@ tasks
         status       done
         priority     high
         blocked_by   [@task.Rewrite.T202, @task.Rewrite.T207]
-        derives_from [@plan.Runtime.D1, @plan.Runtime.D2, @plan.Runtime.C1, @plan.Runtime.V5]
+        derives_from [@plan.RuntimeV2.D1, @plan.RuntimeV2.D2, @plan.RuntimeV2.C1, @plan.RuntimeV2.V5]
         description
             Source Bead flow-state-e7p.13.7 (closed).
             Deliverable: select context purely and commit exact provider lineage and
@@ -224,7 +224,7 @@ tasks
         status       done
         priority     high
         parent       [@task.Rewrite.T209]
-        derives_from [@plan.Runtime.C1, @plan.Runtime.V5]
+        derives_from [@plan.RuntimeV2.C1, @plan.RuntimeV2.V5]
         description
             Source Bead flow-state-e7p.13.7.1 (closed).
             Deliverable: use captured authored field identity for nested context
@@ -242,7 +242,7 @@ tasks
         status       done
         priority     high
         parent       [@task.Rewrite.T210]
-        derives_from [@plan.Runtime.C1, @plan.Runtime.V5]
+        derives_from [@plan.RuntimeV2.C1, @plan.RuntimeV2.V5]
         description
             Source Bead flow-state-e7p.13.7.1.1 (closed).
             Deliverable: recognize registered ContextSelector values by registry
@@ -261,7 +261,7 @@ tasks
         status       done
         priority     high
         blocked_by   [@task.Rewrite.T208, @task.Rewrite.T209]
-        derives_from [@plan.Runtime.D2, @plan.Runtime.V5]
+        derives_from [@plan.RuntimeV2.D2, @plan.RuntimeV2.V5]
         description
             Source Bead flow-state-e7p.13.8 (closed).
             Deliverable: make ContextCoordinator own graph generations, captured
@@ -286,7 +286,7 @@ tasks
                      @task.Rewrite.T212,
                      @task.Rewrite.T217
                      ]
-        derives_from [@plan.Runtime.D2, @plan.Runtime.C2, @plan.Runtime.V3, @plan.Runtime.V5]
+        derives_from [@plan.RuntimeV2.D2, @plan.RuntimeV2.C2, @plan.RuntimeV2.V3, @plan.RuntimeV2.V5]
         description
             Source Bead flow-state-e7p.13.9 (closed).
             Deliverable: share one typed admission/resume transaction and close
@@ -308,7 +308,7 @@ tasks
         status       done
         priority     high
         blocked_by   [@task.Rewrite.T206, @task.Rewrite.T207]
-        derives_from [@plan.Runtime.D2, @plan.Runtime.V6, @plan.Artifacts.D1, @plan.Artifacts.V4]
+        derives_from [@plan.RuntimeV2.D2, @plan.RuntimeV2.V6, @plan.Artifacts.D1, @plan.Artifacts.V4]
         description
             Source Bead flow-state-e7p.13.10 (closed).
             Deliverable: give each sink bounded queue, truncation boundary, delivery
@@ -333,7 +333,7 @@ tasks
                      @task.Rewrite.T213,
                      @task.Rewrite.T214
                      ]
-        derives_from [@plan.Runtime.D2, @plan.Runtime.V5, @plan.Runtime.V6]
+        derives_from [@plan.RuntimeV2.D2, @plan.RuntimeV2.V5, @plan.RuntimeV2.V6]
         description
             Source Bead flow-state-e7p.13.11 (closed).
             Deliverable: complete consuming-scope stream ownership, ordered replay,
@@ -532,8 +532,8 @@ tasks
         status       done
         priority     high
         derives_from [
-                     @plan.Runtime.V4,
-                     @plan.Runtime.V5,
+                     @plan.RuntimeV2.V4,
+                     @plan.RuntimeV2.V5,
                      @plan.Verification.D6,
                      @plan.Verification.V8
                      ]
@@ -596,10 +596,10 @@ tasks
                      @task.Rewrite.T225
                      ]
         derives_from [
-                     @plan.Runtime.V3,
-                     @plan.Runtime.V4,
-                     @plan.Runtime.V5,
-                     @plan.Runtime.V6,
+                     @plan.RuntimeV2.V3,
+                     @plan.RuntimeV2.V4,
+                     @plan.RuntimeV2.V5,
+                     @plan.RuntimeV2.V6,
                      @plan.Verification.D6,
                      @plan.Verification.C5,
                      @plan.Verification.V8

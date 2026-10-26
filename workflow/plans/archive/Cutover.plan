@@ -113,7 +113,7 @@ decisions
         - **Prescribed Runtime internals:** Removed exact private phases, one
           ManagedRuntime, shell cells, fixed Queue/SubscriptionRef/Deferred topology,
           exact runSync count and source-shape proofs. Previous owner:
-          @plan.Runtime.O3. The target retains inert sync construction and at-most-once
+          @plan.RuntimeV2.O3. The target retains inert sync construction and at-most-once
           readiness with cached terminal Exit. It releases no handle before readiness.
           It has one lifetime owner, reverse rollback and cleanup on failure,
           interruption or disposal. Revisit only
@@ -123,7 +123,7 @@ decisions
         - **Unobservable commit micro-order:** Removed ordering of private permit,
           store, issue, snapshot, evidence acceptance, reconciliation enqueue,
           acknowledgement, release gate and StoreFanout steps. Previous owners:
-          @plan.Runtime.O3, @plan.Operations.O1 and @plan.Artifacts.O3. The target
+          @plan.RuntimeV2.O3, @plan.OperationsV2.O1 and @plan.Artifacts.O3. The target
           retains one atomic actor/store cut, FIFO/causal ordering and committed
           evidence. Acknowledgement follows publication and evidence acceptance, but
           precedes user Effect settlement. Sinks remain isolated and nonblocking.
@@ -161,7 +161,7 @@ decisions
         **Output and evidence compatibility**
         - **Human-prose compatibility:** Removed byte-stable human errors, CLI
           prose/whitespace/field ordering and snapshots asserting only exact wording.
-          Previous owners: @plan.Diagnostics.O1 and @plan.CLI.V3. The target retains
+          Previous owners: @plan.DiagnosticsV2.O1 and @plan.CLI.V3. The target retains
           stable tag/code/path/details, canonical CLI JSON, exit/stdout/stderr behavior
           and one-document writes. It retains actionable nonempty text, a newline and
           no ANSI for noninteractive
@@ -179,7 +179,7 @@ decisions
 
         - **Serialized Effect Cause traversal:** Removed stable wire coupling to
           Cause tree shape/order/fiber ordinals/multiplicity. Previous owners:
-          @plan.Artifacts.O6, @plan.Runtime.O3 and @plan.Verification.V6. The target
+          @plan.Artifacts.O6, @plan.RuntimeV2.O3 and @plan.Verification.V6. The target
           retains full in-process Cause through classification and cleanup. Documented
           public errors keep it. Serialized evidence carries ordered stable Flow
           diagnostics and independently actionable cleanup diagnostic order and
@@ -255,22 +255,22 @@ constraints
         - MIGRATED PUBLIC_API: AMEND-API-004 -> @plan.PublicSurface.O1;
           @plan.Verification.V1.
         - MIGRATED PUBLIC_API: AMEND-API-005 -> @plan.PublicSurface.O1,
-          @plan.Diagnostics.O1/O3; P5 T508, @plan.Diagnostics.V4.
+          @plan.DiagnosticsV2.O1/O3; P5 T508, @plan.DiagnosticsV2.V4.
         - MIGRATED PUBLIC_API: API-002 -> @plan.PublicSurface.O1, @plan.Types.O1–O6,
-          @plan.Diagnostics.O1; @plan.Verification.V1.
-        - MIGRATED PUBLIC_API: API-002A, AMEND-API-002 -> @plan.Diagnostics.O1–O3,
+          @plan.DiagnosticsV2.O1; @plan.Verification.V1.
+        - MIGRATED PUBLIC_API: API-002A, AMEND-API-002 -> @plan.DiagnosticsV2.O1–O3,
           @plan.PublicSurface.O1; @plan.Verification.V1/V3. AMEND-P03 is below.
-        - HISTORICAL source without clause IDs: ERRORS.ts -> @plan.Diagnostics.O1–O3,
+        - HISTORICAL source without clause IDs: ERRORS.ts -> @plan.DiagnosticsV2.O1–O3,
           @plan.PublicSurface.O1; @plan.Verification.V1–V3.
         - MIGRATED PUBLIC_API: API-003/004 -> @plan.PublicSurface.O2, @plan.Types.O1,
-          @plan.Runtime.O1; @plan.Verification.V1.
+          @plan.RuntimeV2.O1; @plan.Verification.V1.
         - MIGRATED PUBLIC_API: API-005–009 -> @plan.PublicSurface.O3, @plan.Types.O2,
-          @plan.Operations.O1–O4; @plan.Verification.V3.
+          @plan.OperationsV2.O1–O4; @plan.Verification.V3.
         - MIGRATED PUBLIC_API: API-010–012 -> @plan.PublicSurface.O4,
-          @plan.Types.O3–O5, @plan.Runtime.O2–O5, @plan.Hosts.O1–O6,
+          @plan.Types.O3–O5, @plan.RuntimeV2.O2–O5, @plan.Hosts.O1–O6,
           @plan.Artifacts.O1–O3; @plan.Verification.V2/V5/V6.
         - MIGRATED PUBLIC_API: API-013/013A/014/015 -> @plan.PublicSurface.O5,
-          @plan.Types.O6, @plan.Runtime.O6, @plan.Artifacts.O7;
+          @plan.Types.O6, @plan.RuntimeV2.O6, @plan.Artifacts.O7;
           @plan.Verification.V4.
         - MIGRATED PUBLIC_API: API-016 -> @plan.PublicSurface.O6,
           @plan.Artifacts.O5/O6; @plan.Verification.V5/V6.
@@ -279,139 +279,139 @@ constraints
         - MIGRATED PUBLIC_API: API-017 -> @plan.PublicSurface.O6, @plan.CLI.O1–O4;
           @plan.Verification.V6.
 
-        - MIGRATED ARCH: ARCH-001–006, ARCH-027 -> @plan.Runtime.O1/O2,
+        - MIGRATED ARCH: ARCH-001–006, ARCH-027 -> @plan.RuntimeV2.O1/O2,
           @plan.Types.O1/O2, @plan.PublicSurface.O2/O4; @plan.Verification.V1/V2.
-        - MIGRATED ARCH: ARCH-007/007A/009/010/024/029 -> @plan.Runtime.O2–O4,
+        - MIGRATED ARCH: ARCH-007/007A/009/010/024/029 -> @plan.RuntimeV2.O2–O4,
           @plan.Hosts.O1/O4, @plan.Artifacts.O2; @plan.Verification.V2/V6.
-        - MIGRATED ARCH: ARCH-008 -> @plan.Runtime.O3/D3, @plan.Hosts.O1,
+        - MIGRATED ARCH: ARCH-008 -> @plan.RuntimeV2.O3/D3, @plan.Hosts.O1,
           @plan.Artifacts.O2; @plan.Verification.V2/V6. D3 supersedes its old order.
-        - MIGRATED ARCH: ARCH-011/012/018/019/032 -> @plan.Runtime.O4–O6,
+        - MIGRATED ARCH: ARCH-011/012/018/019/032 -> @plan.RuntimeV2.O4–O6,
           @plan.Hosts.O3–O6, @plan.PublicSurface.O4; @plan.Verification.V4–V6.
-        - MIGRATED ARCH: ARCH-013/013A/013B/014 -> @plan.Operations.O1/O3,
-          @plan.Runtime.O4/O5, @plan.Artifacts.O3; @plan.Verification.V3.
-        - MIGRATED ARCH: ARCH-015/015A -> @plan.Operations.O2/O3,
-          @plan.Runtime.O4; @plan.Verification.V3.
-        - MIGRATED ARCH: ARCH-017/020/021 -> @plan.Runtime.O4/O6, @plan.Hosts.O2/O4,
+        - MIGRATED ARCH: ARCH-013/013A/013B/014 -> @plan.OperationsV2.O1/O3,
+          @plan.RuntimeV2.O4/O5, @plan.Artifacts.O3; @plan.Verification.V3.
+        - MIGRATED ARCH: ARCH-015/015A -> @plan.OperationsV2.O2/O3,
+          @plan.RuntimeV2.O4; @plan.Verification.V3.
+        - MIGRATED ARCH: ARCH-017/020/021 -> @plan.RuntimeV2.O4/O6, @plan.Hosts.O2/O4,
           @plan.PublicSurface.O4/O5; @plan.Verification.V2/V4.
-        - MIGRATED ARCH: ARCH-022/023/025/026 -> @plan.Runtime.O4–O6,
-          @plan.Operations.O3, @plan.Artifacts.O5, @plan.Hosts.O6;
+        - MIGRATED ARCH: ARCH-022/023/025/026 -> @plan.RuntimeV2.O4–O6,
+          @plan.OperationsV2.O3, @plan.Artifacts.O5, @plan.Hosts.O6;
           @plan.Verification.V4–V6.
         - MIGRATED ARCH: ARCH-024A -> @plan.PublicSurface.O1, @plan.Types.O3;
           @plan.Cutover.O1/V1.
-        - MIGRATED ARCH: ARCH-030/031 -> @plan.Runtime.O5, @plan.Operations.O3;
+        - MIGRATED ARCH: ARCH-030/031 -> @plan.RuntimeV2.O5, @plan.OperationsV2.O3;
           @plan.Verification.V2/V3.
-        - MIGRATED ARCH: ARCH-016 -> @plan.Operations.Q1/V3, P3 T301;
+        - MIGRATED ARCH: ARCH-016 -> @plan.OperationsV2.Q1/V3, P3 T301;
           pinned rc.112 API verification remains open.
         - NON-NORMATIVE ARCH: ARCH-028 is historical context only; no owner obligation.
 
         - MIGRATED SEM: SEM-001, SEM-001A, SEM-002, SEM-002A, SEM-003–SEM-007 ->
-          @plan.Runtime.O3/O4,
-          @plan.Hosts.O1/O3, @plan.Operations.O1/O3; @plan.Verification.V2/V3.
+          @plan.RuntimeV2.O3/O4,
+          @plan.Hosts.O1/O3, @plan.OperationsV2.O1/O3; @plan.Verification.V2/V3.
         - MIGRATED SEM: SEM-008–017, SEM-011A–SEM-011D, SEM-015A ->
-          @plan.Operations.O1–O4, @plan.Runtime.O4/O5, @plan.Artifacts.O3,
+          @plan.OperationsV2.O1–O4, @plan.RuntimeV2.O4/O5, @plan.Artifacts.O3,
           @plan.Types.O2, @plan.PublicSurface.O3; @plan.Verification.V3.
-        - MIGRATED SEM: SEM-006A -> @plan.Operations.O2/O3, @plan.Runtime.O4,
+        - MIGRATED SEM: SEM-006A -> @plan.OperationsV2.O2/O3, @plan.RuntimeV2.O4,
           @plan.Hosts.O2; @plan.Verification.V3.
-        - MIGRATED SEM: SEM-017A -> @plan.Cutover.D2/V1, @plan.Runtime.O1,
+        - MIGRATED SEM: SEM-017A -> @plan.Cutover.D2/V1, @plan.RuntimeV2.O1,
           @plan.PublicSurface.O2; @plan.Verification.V1.
-        - MIGRATED SEM: SEM-018–022 -> @plan.Operations.O2/O3, @plan.Runtime.O4/O5,
+        - MIGRATED SEM: SEM-018–022 -> @plan.OperationsV2.O2/O3, @plan.RuntimeV2.O4/O5,
           @plan.Hosts.O2/O3/O6; @plan.Verification.V3/V4.
-        - MIGRATED SEM: SEM-023/024/024A/024B -> @plan.Diagnostics.O2/O3,
-          @plan.Runtime.O4/O5, @plan.Hosts.O5; @plan.Verification.V2/V5/V6.
-        - MIGRATED SEM: SEM-025/026 -> @plan.Runtime.O4, @plan.Hosts.O3,
+        - MIGRATED SEM: SEM-023/024/024A/024B -> @plan.DiagnosticsV2.O2/O3,
+          @plan.RuntimeV2.O4/O5, @plan.Hosts.O5; @plan.Verification.V2/V5/V6.
+        - MIGRATED SEM: SEM-025/026 -> @plan.RuntimeV2.O4, @plan.Hosts.O3,
           @plan.PublicSurface.O4; @plan.Verification.V5.
-        - MIGRATED SEM: SEM-027/027A -> @plan.Runtime.O3, @plan.Artifacts.O1/O2,
+        - MIGRATED SEM: SEM-027/027A -> @plan.RuntimeV2.O3, @plan.Artifacts.O1/O2,
           @plan.Hosts.O1/O4; @plan.Verification.V2/V6.
-        - MIGRATED SEM: SEM-028–030 -> @plan.Runtime.O3/O4/O6,
-          @plan.Operations.O3, @plan.Hosts.O1; @plan.Verification.V3/V4.
+        - MIGRATED SEM: SEM-028–030 -> @plan.RuntimeV2.O3/O4/O6,
+          @plan.OperationsV2.O3, @plan.Hosts.O1; @plan.Verification.V3/V4.
 
-        - MIGRATED TYPE: TYPE-000 -> @plan.Types.O1/O2/O4, @plan.Diagnostics.O1/O2;
+        - MIGRATED TYPE: TYPE-000 -> @plan.Types.O1/O2/O4, @plan.DiagnosticsV2.O1/O2;
           @plan.Verification.V1/V2/V6.
         - MIGRATED TYPE: TYPE-001–004 -> @plan.Types.O1, @plan.PublicSurface.O2,
-          @plan.Runtime.O1; @plan.Verification.V1.
+          @plan.RuntimeV2.O1; @plan.Verification.V1.
         - MIGRATED TYPE: TYPE-005–008 -> @plan.Types.O2, @plan.PublicSurface.O3,
-          @plan.Operations.O1–O3, @plan.Diagnostics.O2; @plan.Verification.V3.
+          @plan.OperationsV2.O1–O3, @plan.DiagnosticsV2.O2; @plan.Verification.V3.
         - MIGRATED TYPE: TYPE-009/009A/009B -> @plan.Types.O3, @plan.PublicSurface.O4,
-          @plan.Runtime.O2/O3; @plan.Verification.V1.
+          @plan.RuntimeV2.O2/O3; @plan.Verification.V1.
         - MIGRATED TYPE: TYPE-010/011 -> @plan.Types.O4, @plan.PublicSurface.O4,
-          @plan.Runtime.O3, @plan.Hosts.O6; @plan.Verification.V1/V5.
+          @plan.RuntimeV2.O3, @plan.Hosts.O6; @plan.Verification.V1/V5.
         - MIGRATED TYPE: TYPE-012/013 -> @plan.Types.O5, @plan.PublicSurface.O4,
-          @plan.Runtime.O3/O5, @plan.Hosts.O2/O3; @plan.Verification.V1/V5.
+          @plan.RuntimeV2.O3/O5, @plan.Hosts.O2/O3; @plan.Verification.V1/V5.
         - MIGRATED TYPE: TYPE-014–017 -> @plan.Types.O6, @plan.PublicSurface.O5,
-          @plan.Runtime.O6, @plan.Artifacts.O7; @plan.Verification.V4.
+          @plan.RuntimeV2.O6, @plan.Artifacts.O7; @plan.Verification.V4.
 
-        - MIGRATED HOST: HOST-001/006 -> @plan.Hosts.O1, @plan.Runtime.O3,
+        - MIGRATED HOST: HOST-001/006 -> @plan.Hosts.O1, @plan.RuntimeV2.O3,
           @plan.Artifacts.O2; @plan.Verification.V1/V2/V6.
         - MIGRATED HOST: HOST-002/003 -> @plan.Hosts.O2, @plan.Types.O5,
-          @plan.Runtime.O2/O3/O5; @plan.Verification.V2/V5.
-        - MIGRATED HOST: HOST-004/005 -> @plan.Hosts.O2/O5, @plan.Runtime.O4/O5,
+          @plan.RuntimeV2.O2/O3/O5; @plan.Verification.V2/V5.
+        - MIGRATED HOST: HOST-004/005 -> @plan.Hosts.O2/O5, @plan.RuntimeV2.O4/O5,
           @plan.Artifacts.O5; @plan.Verification.V2/V5.
         - MIGRATED HOST: HOST-007–011 -> @plan.Hosts.O3, @plan.Types.O5,
-          @plan.Runtime.O5, @plan.Operations.O4; @plan.Verification.V5.
+          @plan.RuntimeV2.O5, @plan.OperationsV2.O4; @plan.Verification.V5.
         - MIGRATED HOST: HOST-012–014 -> @plan.Hosts.O4, @plan.Artifacts.O1–O3;
           @plan.Verification.V6.
         - MIGRATED HOST: HOST-015 -> @plan.Hosts.O6, @plan.Types.O4,
-          @plan.Diagnostics.O2; @plan.Verification.V2/V3/V5.
-        - MIGRATED HOST: HOST-017 -> @plan.Hosts.O6, @plan.Operations.O1;
+          @plan.DiagnosticsV2.O2; @plan.Verification.V2/V3/V5.
+        - MIGRATED HOST: HOST-017 -> @plan.Hosts.O6, @plan.OperationsV2.O1;
           @plan.Verification.V3/V5, SNAP-P01.
-        - MIGRATED HOST: HOST-016 -> @plan.Hosts.O5, @plan.Runtime.O5;
+        - MIGRATED HOST: HOST-016 -> @plan.Hosts.O5, @plan.RuntimeV2.O5;
           @plan.Verification.V4/V5.
 
-        - MIGRATED SNAP: SNAP-001/002 -> @plan.Runtime.O4/O6, @plan.Operations.O4,
+        - MIGRATED SNAP: SNAP-001/002 -> @plan.RuntimeV2.O4/O6, @plan.OperationsV2.O4,
           @plan.Hosts.O2/O3/O5, @plan.PublicSurface.O3/O4;
           @plan.Verification.V2/V4/V5.
-        - MIGRATED SNAP: SNAP-003–005 -> @plan.Operations.O1/O4,
+        - MIGRATED SNAP: SNAP-003–005 -> @plan.OperationsV2.O1/O4,
           @plan.PublicSurface.O3, @plan.Types.O2; @plan.Verification.V3.
-        - MIGRATED SNAP: SNAP-006–008 -> @plan.Operations.O2–O4,
+        - MIGRATED SNAP: SNAP-006–008 -> @plan.OperationsV2.O2–O4,
           @plan.PublicSurface.O3, @plan.Types.O2; @plan.Verification.V3.
-        - MIGRATED SNAP: SNAP-009 -> @plan.Operations.O3, @plan.Runtime.O5,
+        - MIGRATED SNAP: SNAP-009 -> @plan.OperationsV2.O3, @plan.RuntimeV2.O5,
           @plan.PublicSurface.O3; @plan.Verification.V3.
-        - MIGRATED SNAP: SNAP-010 -> @plan.Runtime.O6, @plan.Artifacts.O7;
+        - MIGRATED SNAP: SNAP-010 -> @plan.RuntimeV2.O6, @plan.Artifacts.O7;
           @plan.Verification.V4/V6.
 
-        - MIGRATED GLO: GLO-01–06 -> @plan.Runtime.O1/O2, @plan.Types.O1/O2,
-          @plan.PublicSurface.O2/O3, @plan.Operations.O1–O4, @plan.Artifacts.O2;
+        - MIGRATED GLO: GLO-01–06 -> @plan.RuntimeV2.O1/O2, @plan.Types.O1/O2,
+          @plan.PublicSurface.O2/O3, @plan.OperationsV2.O1–O4, @plan.Artifacts.O2;
           @plan.Verification.V1–V3.
-        - MIGRATED GLO: GLO-07–09, GLO-08A -> @plan.Runtime.O2–O5,
+        - MIGRATED GLO: GLO-07–09, GLO-08A -> @plan.RuntimeV2.O2–O5,
           @plan.Hosts.O1/O2, @plan.Types.O2/O3, @plan.PublicSurface.O3/O4,
-          @plan.Operations.O1–O3, @plan.Artifacts.O1/O2;
+          @plan.OperationsV2.O1–O3, @plan.Artifacts.O1/O2;
           @plan.Verification.V2/V3/V5/V6.
-        - MIGRATED GLO: GLO-10–12 -> @plan.Runtime.O4/O5,
-          @plan.Operations.O1/O2/O4, @plan.Hosts.O2/O3, @plan.Artifacts.O5;
+        - MIGRATED GLO: GLO-10–12 -> @plan.RuntimeV2.O4/O5,
+          @plan.OperationsV2.O1/O2/O4, @plan.Hosts.O2/O3, @plan.Artifacts.O5;
           @plan.Verification.V2.
-        - MIGRATED GLO: GLO-13/14 -> @plan.Runtime.O4–O6,
-          @plan.Diagnostics.O2, @plan.Artifacts.O5/O7, @plan.Hosts.O3,
-          @plan.PublicSurface.O4, @plan.Operations.O4; @plan.Verification.V5.
-        - MIGRATED GLO: GLO-15 -> @plan.Runtime.O6, @plan.PublicSurface.O5;
+        - MIGRATED GLO: GLO-13/14 -> @plan.RuntimeV2.O4–O6,
+          @plan.DiagnosticsV2.O2, @plan.Artifacts.O5/O7, @plan.Hosts.O3,
+          @plan.PublicSurface.O4, @plan.OperationsV2.O4; @plan.Verification.V5.
+        - MIGRATED GLO: GLO-15 -> @plan.RuntimeV2.O6, @plan.PublicSurface.O5;
           @plan.Verification.V4.
-        - MIGRATED GLO: GLO-16 -> @plan.Runtime.O3/O6, @plan.Artifacts.O2/O6,
+        - MIGRATED GLO: GLO-16 -> @plan.RuntimeV2.O3/O6, @plan.Artifacts.O2/O6,
           @plan.CLI.O2; @plan.Verification.V6.
-        - MIGRATED GLO: GLO-17 -> @plan.Runtime.O3, @plan.Hosts.O1;
+        - MIGRATED GLO: GLO-17 -> @plan.RuntimeV2.O3, @plan.Hosts.O1;
           @plan.Verification.V2.
-        - MIGRATED GLO-L1 -> @plan.Runtime.O2, @plan.Operations.O1/O2,
+        - MIGRATED GLO-L1 -> @plan.RuntimeV2.O2, @plan.OperationsV2.O1/O2,
           @plan.Artifacts.O2; @plan.Verification.V2/V3/V6.
-        - MIGRATED GLO-L2 -> @plan.Operations.O1/O2; @plan.Verification.V3.
-        - MIGRATED GLO-L3 -> @plan.Runtime.O1/O2, @plan.Types.O1/O2,
+        - MIGRATED GLO-L2 -> @plan.OperationsV2.O1/O2; @plan.Verification.V3.
+        - MIGRATED GLO-L3 -> @plan.RuntimeV2.O1/O2, @plan.Types.O1/O2,
           @plan.PublicSurface.O2/O3; @plan.Verification.V1/V2.
-        - MIGRATED GLO-L4 -> @plan.Runtime.O4/O5, @plan.Operations.O1/O3;
+        - MIGRATED GLO-L4 -> @plan.RuntimeV2.O4/O5, @plan.OperationsV2.O1/O3;
           @plan.Verification.V2/V3/V5.
-        - MIGRATED GLO-L5 -> @plan.Operations.O4, @plan.Hosts.O3,
-          @plan.Runtime.O5, @plan.Artifacts.O5; @plan.Verification.V3/V5/V6.
-        - MIGRATED GLO-L6 -> @plan.Runtime.O3, @plan.Hosts.O1,
+        - MIGRATED GLO-L5 -> @plan.OperationsV2.O4, @plan.Hosts.O3,
+          @plan.RuntimeV2.O5, @plan.Artifacts.O5; @plan.Verification.V3/V5/V6.
+        - MIGRATED GLO-L6 -> @plan.RuntimeV2.O3, @plan.Hosts.O1,
           @plan.Artifacts.O2; @plan.Verification.V2/V6.
-        - MIGRATED GLO-L7 -> @plan.Runtime.O3/O5, @plan.Hosts.O2/O5,
+        - MIGRATED GLO-L7 -> @plan.RuntimeV2.O3/O5, @plan.Hosts.O2/O5,
           @plan.Artifacts.O2; @plan.Verification.V2/V5/V6.
 
         - MIGRATED WIRE: WIRE-000, WIRE-000A–WIRE-000E -> @plan.Artifacts.O1/V1;
           @plan.Verification.V6.
         - MIGRATED WIRE: WIRE-001/001A/002/003/007/008 -> @plan.Artifacts.O2/V2,
-          @plan.Runtime.O2; @plan.Verification.V6.
+          @plan.RuntimeV2.O2; @plan.Verification.V6.
         - MIGRATED WIRE: WIRE-004–006 -> @plan.Artifacts.O2/V2,
-          @plan.Runtime.O3/D3, @plan.Hosts.O1; @plan.Verification.V2/V6.
+          @plan.RuntimeV2.O3/D3, @plan.Hosts.O1; @plan.Verification.V2/V6.
         - MIGRATED WIRE: WIRE-009/010 -> @plan.Artifacts.O3/V2,
-          @plan.Runtime.O4; @plan.Verification.V6.
+          @plan.RuntimeV2.O4; @plan.Verification.V6.
         - MIGRATED WIRE: WIRE-011/011A/012/013 -> @plan.Artifacts.O3/V2,
-          @plan.Runtime.O6; @plan.Verification.V6.
+          @plan.RuntimeV2.O6; @plan.Verification.V6.
         - MIGRATED WIRE: WIRE-014–016 -> @plan.Artifacts.O4/V3,
           @plan.CLI.O2; @plan.Verification.V6.
         - MIGRATED WIRE: WIRE-017–020 -> @plan.Artifacts.O5/V4;
@@ -437,67 +437,67 @@ constraints
         - MIGRATED TEST: REV-TEST-001/002 -> @plan.PublicSurface.O5,
           @plan.Types.O6; @plan.Verification.V4.
         - MIGRATED TEST: REV-TEST-003–005 -> @plan.PublicSurface.O5,
-          @plan.Types.O6, @plan.Runtime.O6; @plan.Verification.V4.
-        - MIGRATED TEST: REV-TEST-006–008 -> @plan.Runtime.O4/O6,
-          @plan.Operations.O1–O4, @plan.Artifacts.O7; @plan.Verification.V4.
+          @plan.Types.O6, @plan.RuntimeV2.O6; @plan.Verification.V4.
+        - MIGRATED TEST: REV-TEST-006–008 -> @plan.RuntimeV2.O4/O6,
+          @plan.OperationsV2.O1–O4, @plan.Artifacts.O7; @plan.Verification.V4.
         - MIGRATED TEST: REV-TEST-009/010, TEST-014/015 -> @plan.PublicSurface.O5,
           @plan.Types.O6, @plan.Artifacts.O7; @plan.Verification.V4.
 
         **Historical behavior closure IDs -> migrated owners**
         BEH records are provenance; accepted REV clauses remain normative at mapped owners.
         These closures are not current behavior decisions or proof-completion receipts.
-        - BEH-001 -> REV-COMP-015 -> @plan.Runtime.O3, @plan.Hosts.O1;
+        - BEH-001 -> REV-COMP-015 -> @plan.RuntimeV2.O3, @plan.Hosts.O1;
           @plan.Verification.V2/V6.
-        - BEH-002 -> SEM-029/REV-COMP-015 -> @plan.Runtime.O3, @plan.Hosts.O1;
+        - BEH-002 -> SEM-029/REV-COMP-015 -> @plan.RuntimeV2.O3, @plan.Hosts.O1;
           @plan.Verification.V2.
-        - BEH-003 -> REV-COMP-012/013 -> @plan.Runtime.O2/O3, @plan.Hosts.O2;
+        - BEH-003 -> REV-COMP-012/013 -> @plan.RuntimeV2.O2/O3, @plan.Hosts.O2;
           @plan.Verification.V2/V5.
-        - BEH-004 -> REV-COMP-005 -> @plan.Artifacts.O2, @plan.Runtime.O2;
+        - BEH-004 -> REV-COMP-005 -> @plan.Artifacts.O2, @plan.RuntimeV2.O2;
           @plan.Verification.V6.
-        - BEH-005 -> REV-COMP-011/WIRE-008 -> @plan.Runtime.O2, @plan.Artifacts.O2;
+        - BEH-005 -> REV-COMP-011/WIRE-008 -> @plan.RuntimeV2.O2, @plan.Artifacts.O2;
           @plan.Verification.V1/V6.
-        - BEH-006 -> REV-COMP-006/008 -> @plan.Runtime.O2, @plan.Types.O3,
+        - BEH-006 -> REV-COMP-006/008 -> @plan.RuntimeV2.O2, @plan.Types.O3,
           @plan.PublicSurface.O4; @plan.Verification.V1.
-        - BEH-007/008 -> REV-HOST-003/004 -> @plan.Hosts.O5, @plan.Runtime.O4/O5,
+        - BEH-007/008 -> REV-HOST-003/004 -> @plan.Hosts.O5, @plan.RuntimeV2.O4/O5,
           @plan.Artifacts.O5; @plan.Verification.V2/V5.
         - BEH-009/010 -> REV-COMP-004/REV-HOST-005/ARCH-030 ->
-          @plan.Runtime.O5, @plan.Hosts.O3/O5, @plan.Operations.O3;
+          @plan.RuntimeV2.O5, @plan.Hosts.O3/O5, @plan.OperationsV2.O3;
           @plan.Verification.V2/V3/V5.
         - BEH-011/012/013 -> REV-HOST-002/ARCH-018/SEM-001 ->
-          @plan.Runtime.O3, @plan.Hosts.O3/O4; @plan.Verification.V2/V5.
-        - BEH-014 -> REV-COMP-003/REV-HOST-006 -> @plan.Runtime.O5,
+          @plan.RuntimeV2.O3, @plan.Hosts.O3/O4; @plan.Verification.V2/V5.
+        - BEH-014 -> REV-COMP-003/REV-HOST-006 -> @plan.RuntimeV2.O5,
           @plan.Hosts.O3; @plan.Verification.V5.
-        - BEH-015 -> REV-HOST-007 -> @plan.Hosts.O3, @plan.Operations.O4;
+        - BEH-015 -> REV-HOST-007 -> @plan.Hosts.O3, @plan.OperationsV2.O4;
           @plan.Verification.V5.
-        - BEH-016 -> REV-HOST-003 -> @plan.Hosts.O2/O5, @plan.Runtime.O5;
+        - BEH-016 -> REV-HOST-003 -> @plan.Hosts.O2/O5, @plan.RuntimeV2.O5;
           @plan.Verification.V2/V5.
         - BEH-017 -> REV-TEST-003 -> @plan.PublicSurface.O5,
-          @plan.Types.O6, @plan.Runtime.O6; @plan.Verification.V4.
+          @plan.Types.O6, @plan.RuntimeV2.O6; @plan.Verification.V4.
         - BEH-018 -> REV-TEST-005 -> @plan.PublicSurface.O5,
-          @plan.Types.O6, @plan.Runtime.O6; @plan.Verification.V4.
+          @plan.Types.O6, @plan.RuntimeV2.O6; @plan.Verification.V4.
         - BEH-019 -> REV-TEST-007 -> @plan.PublicSurface.O5,
-          @plan.Runtime.O6; @plan.Verification.V4.
-        - BEH-020 -> REV-TEST-007/SEM-030 -> @plan.Runtime.O5/O6,
+          @plan.RuntimeV2.O6; @plan.Verification.V4.
+        - BEH-020 -> REV-TEST-007/SEM-030 -> @plan.RuntimeV2.O5/O6,
           @plan.PublicSurface.O5; @plan.Verification.V3/V4.
-        - BEH-021 -> REV-TEST-008 -> @plan.Runtime.O6, @plan.Artifacts.O7;
+        - BEH-021 -> REV-TEST-008 -> @plan.RuntimeV2.O6, @plan.Artifacts.O7;
           @plan.Verification.V4/V6.
-        - BEH-022 -> REV-TEST-006/008 -> @plan.Runtime.O6,
+        - BEH-022 -> REV-TEST-006/008 -> @plan.RuntimeV2.O6,
           @plan.Artifacts.O7; @plan.Verification.V4.
-        - BEH-023 -> REV-OPS-017 -> @plan.Operations.O1/O4, @plan.Types.O2,
+        - BEH-023 -> REV-OPS-017 -> @plan.OperationsV2.O1/O4, @plan.Types.O2,
           @plan.PublicSurface.O3; PROOF-001/005/014.
         - BEH-024–026, BEH-028–029, BEH-031 -> REV-OPS-015 ->
-          @plan.Operations.O1–O3;
+          @plan.OperationsV2.O1–O3;
           PROOF-003/005–007/009/014.
-        - BEH-027 -> REV-OPS-016 -> @plan.Operations.O1, @plan.Types.O2,
+        - BEH-027 -> REV-OPS-016 -> @plan.OperationsV2.O1, @plan.Types.O2,
           @plan.PublicSurface.O3; PROOF-005.
-        - BEH-030 -> REV-OPS-018 -> @plan.Operations.O1/O3; PROOF-006/007.
+        - BEH-030 -> REV-OPS-018 -> @plan.OperationsV2.O1/O3; PROOF-006/007.
         - BEH-032 -> REV-HOST-008 -> @plan.Hosts.O6; PROOF-005/006/014.
         - BEH-033 -> REV-MIG-005/WIRE-020B -> @plan.Artifacts.O6/O7,
           @plan.CLI.O2/O4, @plan.PublicSurface.O5/O6; PROOF-001/008/010/014/017,
           CLI-P01/P02.
-        - BEH-033 also maps to @plan.Runtime.O6 and @plan.Diagnostics.O2 for Story
+        - BEH-033 also maps to @plan.RuntimeV2.O6 and @plan.DiagnosticsV2.O2 for Story
           checkpoint, end, and failure evidence.
-        - BEH-034 -> REV-MIG-006/DEL-002 -> @plan.Runtime.O1,
+        - BEH-034 -> REV-MIG-006/DEL-002 -> @plan.RuntimeV2.O1,
           @plan.PublicSurface.O2, @plan.Cutover.D2/V1;
           PROOF-001–003/011/014/015/017.
 
@@ -510,9 +510,9 @@ constraints
 
         **Disposition labels and proofs**
         - HISTORICAL inventory alias API-012A -> DEL-004 -> REV-COMP-013/REV-HOST-003;
-          @plan.Runtime.O5, @plan.Hosts.O2, @plan.PublicSurface.O4; PROOF-004/017.
+          @plan.RuntimeV2.O5, @plan.Hosts.O2, @plan.PublicSurface.O4; PROOF-004/017.
         - HISTORICAL inventory alias TEST-001–TEST-018 -> DEL-009 ->
-          REV-TEST-001–REV-TEST-010; @plan.PublicSurface.O5, @plan.Runtime.O4/O6,
+          REV-TEST-001–REV-TEST-010; @plan.PublicSurface.O5, @plan.RuntimeV2.O4/O6,
           @plan.Verification.V4/V6; PROOF-008–PROOF-011/017.
         - CUT-001–CUT-007, CUT-007A, CUT-008 map to this Plan's V1–V7 and PROOF-016/017.
         - DEL-001–DEL-011 map to @O2, @V3–@V6, and PROOF-017.
@@ -529,23 +529,23 @@ constraints
 
         **Revision-family trace labels**
         Per-clause mappings above refine these aggregate revision-family owner anchors.
-        - REV-COMP-001–REV-COMP-015 -> @plan.Runtime.O1–O3/O5/O6,
-          @plan.Types.O1–O3/O5, @plan.PublicSurface.O2/O4, @plan.Operations.O1,
+        - REV-COMP-001–REV-COMP-015 -> @plan.RuntimeV2.O1–O3/O5/O6,
+          @plan.Types.O1–O3/O5, @plan.PublicSurface.O2/O4, @plan.OperationsV2.O1,
           @plan.Artifacts.O2/O3; @plan.Verification.V1/V2/V6;
           PROOF-001/002/004/005/012/014/015.
-        - REV-MACH-001–REV-MACH-011 -> @plan.Runtime.O1/O2/O4,
+        - REV-MACH-001–REV-MACH-011 -> @plan.RuntimeV2.O1/O2/O4,
           @plan.Types.O1, @plan.PublicSurface.O2/O4; @plan.Verification.V1/V2;
           PROOF-001/002/003/017.
-        - REV-OPS-001–REV-OPS-018 -> @plan.Operations.O1–O4,
-          @plan.Runtime.O3–O6, @plan.Types.O2, @plan.PublicSurface.O3/O4,
+        - REV-OPS-001–REV-OPS-018 -> @plan.OperationsV2.O1–O4,
+          @plan.RuntimeV2.O3–O6, @plan.Types.O2, @plan.PublicSurface.O3/O4,
           @plan.Hosts.O2/O3, @plan.Artifacts.O2/O3;
           @plan.Verification.V2/V3/V5/V6; PROOF-001/003/005–007/009/014.
         - REV-HOST-001–REV-HOST-008 -> @plan.Hosts.O1–O6,
-          @plan.Runtime.O3/O5/O6, @plan.Types.O4/O5, @plan.PublicSurface.O4/O5,
-          @plan.Operations.O1/O3/O4, @plan.Diagnostics.O2;
+          @plan.RuntimeV2.O3/O5/O6, @plan.Types.O4/O5, @plan.PublicSurface.O4/O5,
+          @plan.OperationsV2.O1/O3/O4, @plan.DiagnosticsV2.O2;
           @plan.Verification.V2/V4/V5/V6; PROOF-001/003–005/012/013.
         - REV-TEST-001–REV-TEST-010 -> @plan.PublicSurface.O5, @plan.Types.O6,
-          @plan.Runtime.O4/O6, @plan.Operations.O1–O4, @plan.Artifacts.O7;
+          @plan.RuntimeV2.O4/O6, @plan.OperationsV2.O1–O4, @plan.Artifacts.O7;
           @plan.Verification.V4/V6;
           PROOF-001/003/004/008–011.
         - REV-MIG-001 -> @O1, @O2; REV-MIG-002 -> semantic clause rows above;
@@ -579,7 +579,7 @@ constraints
         - CUT-P05, CUT-P06 -> PROOF-017.
 
         **Diagnostic remediation trace**
-        - AMEND-API-002 -> @plan.Diagnostics.O3; AMEND-P03 -> @plan.Diagnostics.V3 and
+        - AMEND-API-002 -> @plan.DiagnosticsV2.O3; AMEND-P03 -> @plan.DiagnosticsV2.V3 and
           @task.Rewrite.T508.
 
 verification

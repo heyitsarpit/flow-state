@@ -23,21 +23,21 @@ outcomes
         with @plan.Transactions.O3.
         - @plan.Transactions.O1 through @plan.Transactions.O4 own finite mutations, concurrency,
         previews, cancellation, and remote uncertainty. Durable reconciliation crosses
-        @plan.Persistence.O4.
+        @plan.PersistenceV2.O4.
         - @plan.Streams.O1 through @plan.Streams.O3 own continuing values, session ownership,
         projections, release, and durable projections. They use Statechart declarations and
         Runtime lifetimes; explicit writes use @plan.Resources.O4.
         - @plan.InspectionAndArtifacts.O1 through @plan.InspectionAndArtifacts.O6 own inspection,
         shared codecs, bounded evidence, trace schemas, exports, and comparison. They consume
         current cuts from @plan.ApplicationsAndActors.O7; their codec supports
-        @plan.Persistence.O1.
-        - @plan.Persistence.O1 through @plan.Persistence.O5 own providers, durable selection,
+        @plan.PersistenceV2.O1.
+        - @plan.PersistenceV2.O1 through @plan.PersistenceV2.O5 own providers, durable selection,
         capture, hydration, and ordered writes. Hosts and Stories consume these boundaries.
         - @plan.ReactAndHosts.O1 through @plan.ReactAndHosts.O4 own Runtime attachment, selectors,
         SSR, and host bridges. They adapt the existing Runtime.
         - @plan.StoriesAndModels.O1 through @plan.StoriesAndModels.O6 own Story builders, fixtures,
         execution, checkpoints, pure models, and the gateway. The CLI consumes that gateway.
-        - @plan.CommandLine.O1 through @plan.CommandLine.O4 own process grammar, gateway loading,
+        - @plan.CommandLineV2.O1 through @plan.CommandLineV2.O4 own process grammar, gateway loading,
         artifact I/O, signals, and exits. They use @plan.StoriesAndModels.O6 and
         @plan.InspectionAndArtifacts.O2, @plan.InspectionAndArtifacts.O4, and
         @plan.InspectionAndArtifacts.O6.
@@ -70,7 +70,7 @@ outcomes
         - @plan.PackageContract.O1 establishes route ownership early. Route, declaration, and
         packed-consumer checks continue with every public change.
         - @plan.StoriesAndModels.O6 defines the inert gateway consumed by
-        @plan.CommandLine.O1. Agree their selection and execution boundary together; implement
+        @plan.CommandLineV2.O1. Agree their selection and execution boundary together; implement
         the gateway before CLI execution.
         - @plan.Resources.O4 and @plan.ReactAndHosts.O4 share the construction-owned setData
         authority. Agree that contract seam before operation execution in Stage 3; implement host
@@ -131,7 +131,7 @@ outcomes
         - **Gate:** Capture observes one committed cut; restore does not replay work; failed
         writes retain the last good record; capture never sees a half actor/store commit; and
         artifact and trace bounds and round trips pass. Owner targets are
-        @plan.Persistence.V2 through @plan.Persistence.V5,
+        @plan.PersistenceV2.V2 through @plan.PersistenceV2.V5,
         @plan.ApplicationsAndActors.V3, @plan.ApplicationsAndActors.V6 and
         @plan.ApplicationsAndActors.V7, @plan.InspectionAndArtifacts.V2 through
         @plan.InspectionAndArtifacts.V5, and @plan.StoriesAndModels.V4. React and CLI integration
@@ -144,7 +144,7 @@ outcomes
         binary behavior, output, signal, and exit proofs pass. Run proving applications under
         @plan.PackageContract.O4. Owner targets are @plan.ReactAndHosts.V1 through
         @plan.ReactAndHosts.V4, @plan.StoriesAndModels.V1 through @plan.StoriesAndModels.V6,
-        @plan.CommandLine.V1 through @plan.CommandLine.V4, @plan.InspectionAndArtifacts.V1 and
+        @plan.CommandLineV2.V1 through @plan.CommandLineV2.V4, @plan.InspectionAndArtifacts.V1 and
         @plan.InspectionAndArtifacts.V6, and @plan.PackageContract.V2 and @plan.PackageContract.V4.
         6. **Package cutover and absence.** Complete package promotion, compatibility disposition,
         physical cleanup, and product cutover only after all owner proofs and consumer gates.
@@ -169,9 +169,9 @@ outcomes
         stream writes through the same setData path in Stage 3. These cycles do not create alternate
         owners or require unrelated capability work to wait. Agree the construction-owned setData
         seam with @plan.ReactAndHosts.O4 in Stage 3; its host adapters remain in Stage 5. Stage 2
-        provides base readiness without persistence; Stage 4 adds the @plan.Persistence.O2 boot and
+        provides base readiness without persistence; Stage 4 adds the @plan.PersistenceV2.O2 boot and
         restore sequence. Pair the
-        @plan.StoriesAndModels.O6 and @plan.CommandLine.O1 gateway contract, then implement the
+        @plan.StoriesAndModels.O6 and @plan.CommandLineV2.O1 gateway contract, then implement the
         gateway before its CLI consumer in Stage 5.
     O4  Tasks and local gates realize the order
         Workflow Tasks remain the executable status and readiness graph. Decompose capability
@@ -190,8 +190,8 @@ outcomes
         lifetime and release work can continue.
         - @plan.InspectionAndArtifacts.Q2 leaves selected final call forms open; shared codec and
         already specified evidence behavior can proceed.
-        The archived @plan.Runtime.Q1, @plan.Operations.Q1, @plan.Hosts.Q1, and
-        @plan.Diagnostics.Q1 remain unresolved in their records. This entry does not carry or
+        The archived @plan.RuntimeV2.Q1, @plan.OperationsV2.Q1, @plan.Hosts.Q1, and
+        @plan.DiagnosticsV2.Q1 remain unresolved in their records. This entry does not carry or
         resolve them as current capability decisions.
 
         The archived @plan.Verification.Q1 and @plan.Cutover.Q1 retain unresolved root-gate and

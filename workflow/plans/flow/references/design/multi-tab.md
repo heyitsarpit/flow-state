@@ -1,6 +1,6 @@
 # Multi-tab shared persistence
 
-Status: **deferred** (not in version 1; see split-work decision 38). Kept as the future design for multi-tab shared persistence.
+Status: **deferred** (not in version 1; see [Persistence.plan](../../Persistence.plan) O7). Kept as the future design for multi-tab shared persistence.
 Inputs read: FlowState.plan O3, O5 to O9, D12 to D16, D27, D41, D50; minimal-library.md section 10;
 entity-domain.md sections 1 and 5; references/dispatch-desk (app/app.ts, app/host.ts,
 app/persistence.ts, editor, session, toasts, queue, ticket.domain.ts, fixtures); the archived
@@ -31,7 +31,7 @@ app code does not change.
 
 ## 1. Starting point
 
-- **FlowState O8 and minimal-library section 10:** "A second tab on the same scope runs without
+- **Persistence.plan O7 and minimal-library section 10:** "A second tab on the same scope runs without
   persistence and reports a diagnostic." V6 lists "the second-tab rule" as a gate. It prevents
   corruption but gives tabs divergent truth: a logout in one tab is invisible to another, and a
   draft typed in the second tab is lost on reload.
@@ -611,7 +611,7 @@ entity-domain 7.4's repair evidence gaining cause `peer`. `flow trace summarize`
 |---|---|
 | Archived Persistence O2 to O5 | the whole restore path, capture cut, ordered last-good writes and unknown restore; handover calls it unchanged |
 | Archived Persistence V4 | the delayed-write crash scenario, rerun with "crash" = `closeTab` of the leader and restore in tab b |
-| FlowState O8 second-tab rule and V6 | kept as the degraded role, with its diagnostic split into three causes |
+| Persistence.plan O7 second-tab rule and V6 | kept as the degraded role, with its diagnostic split into three causes |
 | D27 actor send | async FIFO delivery and `SendTargetAbsent` honesty, reused for forwarding and fan-out |
 | D47 derived Schemas | event, input, memory encoding over the channel |
 | entity-domain 5.2, 5.3, 5.5 | ordering rule, one-hop rule, contested fields, versioned tombstones, restore-at-position-0, all applied to the peer source |

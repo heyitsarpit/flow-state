@@ -55,9 +55,9 @@ tasks
         priority     high
         blocked_by   [@task.Rewrite.T405]
         derives_from [
-                     @plan.Runtime.D1,
-                     @plan.Runtime.D2,
-                     @plan.Runtime.V6,
+                     @plan.RuntimeV2.D1,
+                     @plan.RuntimeV2.D2,
+                     @plan.RuntimeV2.V6,
                      @plan.Artifacts.D1,
                      @plan.Artifacts.C1,
                      @plan.Artifacts.V5,
@@ -103,9 +103,9 @@ tasks
         blocked_by   [@T501, @task.Rewrite.T405]
 
         derives_from [
-                     @plan.Runtime.D1,
-                     @plan.Runtime.D2,
-                     @plan.Runtime.V6,
+                     @plan.RuntimeV2.D1,
+                     @plan.RuntimeV2.D2,
+                     @plan.RuntimeV2.V6,
                      @plan.Artifacts.V5,
                      @plan.Types.V5,
                      @plan.Types.V6,
@@ -319,12 +319,12 @@ tasks
                      @plan.Hosts.V2,
                      @plan.Hosts.V3,
                      @plan.Hosts.V4,
-                     @plan.Runtime.V6,
+                     @plan.RuntimeV2.V6,
                      @plan.Artifacts.V5,
-                     @plan.Diagnostics.V1,
-                     @plan.Diagnostics.V2,
-                     @plan.Diagnostics.V3,
-                     @plan.Diagnostics.V4,
+                     @plan.DiagnosticsV2.V1,
+                     @plan.DiagnosticsV2.V2,
+                     @plan.DiagnosticsV2.V3,
+                     @plan.DiagnosticsV2.V4,
                      @plan.Types.V5,
                      @plan.Types.V6,
                      @plan.Types.V7,
@@ -398,21 +398,21 @@ tasks
         priority     high
         blocked_by   [@task.Rewrite.T306, @task.Rewrite.T405]
         derives_from [
-                     @plan.Diagnostics.D1,
-                     @plan.Diagnostics.D2,
-                     @plan.Diagnostics.C1,
-                     @plan.Diagnostics.C2,
-                     @plan.Diagnostics.C3,
-                     @plan.Diagnostics.V1,
-                     @plan.Diagnostics.V2,
-                     @plan.Diagnostics.V3,
-                     @plan.Diagnostics.V4,
+                     @plan.DiagnosticsV2.D1,
+                     @plan.DiagnosticsV2.D2,
+                     @plan.DiagnosticsV2.C1,
+                     @plan.DiagnosticsV2.C2,
+                     @plan.DiagnosticsV2.C3,
+                     @plan.DiagnosticsV2.V1,
+                     @plan.DiagnosticsV2.V2,
+                     @plan.DiagnosticsV2.V3,
+                     @plan.DiagnosticsV2.V4,
                      @plan.PublicSurface.V6,
                      @plan.Verification.V6,
                      @plan.Types.V6,
                      @plan.Types.V7
                      ]
-        satisfies    [@plan.Diagnostics.O1, @plan.Diagnostics.O2, @plan.Diagnostics.O3]
+        satisfies    [@plan.DiagnosticsV2.O1, @plan.DiagnosticsV2.O2, @plan.DiagnosticsV2.O3]
         description
             Workflow addition: no live source Bead maps to this diagnostic owner; retain it as
             new Workflow work. Implement the Schema-backed Diagnostic owner from the migrated

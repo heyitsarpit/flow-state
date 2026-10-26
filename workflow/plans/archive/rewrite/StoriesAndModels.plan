@@ -220,7 +220,7 @@ outcomes
         StoreState revision, runtime pendingWork, TestClock now, actor issues, and accepted
         evidence prefix.
 
-        - Apply @plan.ApplicationsAndActors.O7 publication/capture and @plan.Persistence.O3
+        - Apply @plan.ApplicationsAndActors.O7 publication/capture and @plan.PersistenceV2.O3
         consistency laws; Story membership remains owned here. Suspended context debt yields
         retryable ConcurrentCapture rather than an incomplete cut.
 
@@ -312,7 +312,7 @@ outcomes
         Story execution, fixture, sink, executor, or cleanup. The CLI is the only public
         consumer.
 
-        - @plan.CommandLine.O1 owns trusted loading, containment, exact package identity, and
+        - @plan.CommandLineV2.O1 owns trusted loading, containment, exact package identity, and
         process discovery. @V6 proves inert typed gateway behavior.
 
 decisions
@@ -433,7 +433,7 @@ verification
 
         - Pass when registration is synchronous, one supplied App identity is retained, type/brand
         requirements reject lookalikes, and no provider/Runtime/fixture/sink/executor is
-        acquired. Pair with @plan.CommandLine.V1 installed-loader integration.
+        acquired. Pair with @plan.CommandLineV2.V1 installed-loader integration.
 
         - Planned gateway production tests and packed type consumers remain unimplemented.
 questions

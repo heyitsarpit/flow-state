@@ -1,2 +1,0 @@
-{ "compilerOptions": { "strict": true, "module": "nodenext", "moduleResolution": "nodenext", "target": "es2022", "outDir": "out", "skipLibCheck": true, "types": [] },
-  "include": ["lib.ts","app.ts","run.ts","types.ts"] }

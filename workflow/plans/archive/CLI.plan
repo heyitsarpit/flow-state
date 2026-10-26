@@ -9,7 +9,7 @@ goal
     grammar and gateway examples only. Implementation and product cutover remain
     pending under @plan.Cutover.O3 and @plan.Cutover.V7.
     Artifact schemas belong to @plan.Artifacts.O4, @plan.Artifacts.O5, and @plan.Artifacts.O6.
-    Actor and Story semantics belong to @plan.Runtime.O3 and @plan.Runtime.O5.
+    Actor and Story semantics belong to @plan.RuntimeV2.O3 and @plan.RuntimeV2.O5.
 outcomes
     O1  The CLI has one closed grammar and trusted, inert gateway boundary
         - The CLI owns command grammar, gateway selection, formatting, filesystem/stream I/O,

@@ -104,7 +104,7 @@ outcomes
         output uses that structural encoding policy; it has no decoder.
 
         - Persistence owns its distinct envelope and opaque application codec under
-        @plan.Persistence.O1 and @plan.Persistence.O2. Public bytes are strict UTF-8 stable-key
+        @plan.PersistenceV2.O1 and @plan.PersistenceV2.O2. Public bytes are strict UTF-8 stable-key
         JSON or exactly one gzip member. Stop decompression on crossing the decompressed bound.
 
         - Validate structure, versions, identity, descriptors, tokens, revisions, and bounds
@@ -176,7 +176,7 @@ outcomes
 
         - When ready executes, Persistence reads and validates detached boot data. Its application
         codec validates opaque values before service acquisition, store installation, activation,
-        or handle escape. @plan.ApplicationsAndActors.O3 and @plan.Persistence.O2 own that boundary.
+        or handle escape. @plan.ApplicationsAndActors.O3 and @plan.PersistenceV2.O2 own that boundary.
 
         - Do not decode compiled machine input again or run boot-domain application decoding for
         artifact-only operations.
@@ -574,7 +574,7 @@ outcomes
         resource-freshness, transaction-outcomes, stream-outcomes, and timer-behavior. Default
         diff scope includes the complete ordered section set.
 
-        - @plan.CommandLine.O3 owns process projection and exit status, without redefining these
+        - @plan.CommandLineV2.O3 owns process projection and exit status, without redefining these
         meanings. @V6 proves selector, comparison, identity, and incomplete-evidence behavior.
 
 decisions
@@ -765,7 +765,7 @@ verification
 
         - Pass with exact outcomes, marker-bearing EvidenceUnavailable meaning, complete-only
         proof/equality, and no gateway/Runtime execution. Pair these tests with
-        @plan.CommandLine.V3 process vectors. Required tests remain planned and unimplemented.
+        @plan.CommandLineV2.V3 process vectors. Required tests remain planned and unimplemented.
 
         - Drive incomplete-proof and complete-missing-selector failures through
         programmatic and installed CLI paths. Decode each emitted diagnostic through Diagnostic.

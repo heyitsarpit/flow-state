@@ -1,6 +1,6 @@
 // The complete editor vocabulary. Public events are what users and other actors may send;
 // internal events come only from this actor's own schedules, reactions and outcomes, so a
-// component or a URL can never forge a Saved (FlowState D19).
+// component or a URL can never forge a Saved (Machines.plan O1).
 import { Schema } from "effect";
 import { Attempt, definition } from "flow-state";
 import { Session } from "../../Session/session.definition.js";
@@ -32,7 +32,7 @@ export const Editor = definition({
   },
   context: { canEdit: Session.select(({ memory }) => memory.canEdit) }, // one upward read edge
   input: { workspaceId: Schema.String, ticketId: Schema.String },
-  // Memory holds keys and drafts, never copies of cached tickets (FlowState D29).
+  // Memory holds keys and drafts, never copies of cached tickets (Machines.plan).
   memory: {
     workspaceId: Schema.String,
     ticketId: Schema.String,
@@ -55,4 +55,4 @@ export const Editor = definition({
 });
 
 // Editor also exposes Editor.Event, State, Input, Memory and Snapshot Schemas for decoding at
-// application boundaries (FlowState D47). Decoding an internal event is rejected.
+// application boundaries (Machines.plan O1). Decoding an internal event is rejected.

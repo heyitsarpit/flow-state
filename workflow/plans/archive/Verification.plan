@@ -61,8 +61,8 @@ decisions
         The workflow dependency table is a decomposition boundary, not a second
         semantic specification. Splitting a phase is valid only when each slice
         preserves the exact Plan references, source trace IDs, proof owner, acceptance behavior,
-        dependencies and non-goals. @plan.Runtime.O2 records the canonical
-        identity separation; @plan.Runtime.O3 and @plan.Runtime.O5
+        dependencies and non-goals. @plan.RuntimeV2.O2 records the canonical
+        identity separation; @plan.RuntimeV2.O3 and @plan.RuntimeV2.O5
         own the related actor and snapshot semantics.
     D2  One proof owner and proportional integration
         A test names its unique invariant or failure. Use one to three decisive tests
@@ -165,7 +165,7 @@ constraints
         proof. The rewrite is incomplete, so proof, promotion, documentation, and
         product cutover outcomes remain pending until their own owners record them.
     C2  Diagnostic ownership
-        @plan.Diagnostics.O1 owns the sole typed Diagnostic model. It owns stable
+        @plan.DiagnosticsV2.O1 owns the sole typed Diagnostic model. It owns stable
         code/path/details, evolving summary/help and
         machine-configuration reasons. It translates through Schema, Result and
         Effect, renders safely, supports synchronous FlowUsageError and preserves
@@ -233,7 +233,7 @@ verification
         persistence/CLI to @V6; deletion proofs to @plan.Cutover.V3 and @V5.
         Static source traces are PROOF-001 and TYPE-P01–P04 in PROOF_MATRIX.md.
         Their target semantics belong to @plan.Types.O1/O2, @plan.PublicSurface.O2/O3,
-        @plan.Runtime.O1/O2, and @plan.Diagnostics.O1.
+        @plan.RuntimeV2.O1/O2, and @plan.DiagnosticsV2.O1.
 
         The @V1 compact typing illustration remains:
         ```ts
@@ -254,7 +254,7 @@ verification
           the ordinary turn stabilizes and its evidence is accepted. Prove atomic
           actor/store publication, context bootstrap and current/previous values.
         - Prove runtime defaults/reentry, malformed-name and depth rejection,
-          AppPlan admission, and bootstrap rollback through @plan.Runtime.V1–V3.
+          AppPlan admission, and bootstrap rollback through @plan.RuntimeV2.V1–V3.
         - Keep `actor.send` synchronous. Reject transition-direct calls and unrelated
           drains. Projection-only publication skips transition, guard, action,
           redirect, memory, finite-work and hidden-event evaluation. Work starts or
@@ -278,7 +278,7 @@ verification
 
         Check: focused production-owner tests for mailbox, lifecycle, cleanup and
         parity. Exact paths remain pending in the implementation proof record;
-        do not substitute source scans. See @plan.Runtime.O3 for actor
+        do not substitute source scans. See @plan.RuntimeV2.O3 for actor
         identity/lease/admission semantics.
     V3  Operation identity, stores and effects
         Establishes @O1 and @O2.
@@ -291,7 +291,7 @@ verification
           sharing and cross-runtime/SSR/test/browser isolation. Check exact family
           methods and P/K, passive reads, ownership, cancellation, adapter
           point-of-no-return, selector previous/current values, Object.is equality,
-          and independent named-record suppression. @plan.Operations.O3 owns onMemory
+          and independent named-record suppression. @plan.OperationsV2.O3 owns onMemory
           activation/reentry with previous undefined, then the immediately preceding
           value on later changes.
         - Prove generation fencing, setData, explicit updater decline and owner-only
@@ -331,7 +331,7 @@ verification
 
         Check: owner-focused tests remain to be named for each mechanism. The pinned
         Node codec suite uses full boundary vectors; other hosts use C4's compact
-        fixture. See @plan.Runtime.O2 for identity ownership.
+        fixture. See @plan.RuntimeV2.O2 for identity ownership.
     V4  Stories, commands, evidence and models
         Establishes @O2 and @O3. This Plan owns Story and evidence requirements;
         TESTING.md supplies source trace IDs and migration evidence.
@@ -680,7 +680,7 @@ verification
 
         Check: packed React 18/19 consumers and application browser/lifecycle tests
         for reachability and host-specific behavior. Test paths and receipts are
-        pending until assigned. The useView semantic owner is @plan.Runtime.O5.
+        pending until assigned. The useView semantic owner is @plan.RuntimeV2.O5.
     V6  Persistence, artifacts, server and CLI
         Establishes @O2.
 

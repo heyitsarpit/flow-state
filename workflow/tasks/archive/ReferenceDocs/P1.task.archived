@@ -205,8 +205,8 @@ tasks
             workflow/plans/rewrite/references/tools/diagnostics.ts, 
             workflow/plans/rewrite/references/tools/inspection.ts. Also documentation-link-only 
             edits in workflow/plans/rewrite/ApplicationsAndActors.plan, 
-            workflow/plans/rewrite/CommandLine.plan, workflow/plans/rewrite/PackageContract.plan, 
-            workflow/plans/rewrite/Persistence.plan, workflow/plans/rewrite/Resources.plan, 
+            workflow/plans/rewrite/CommandLineV2.plan, workflow/plans/rewrite/PackageContract.plan, 
+            workflow/plans/rewrite/PersistenceV2.plan, workflow/plans/rewrite/Resources.plan, 
             workflow/plans/rewrite/Statecharts.plan, workflow/plans/rewrite/StoriesAndModels.plan, 
             workflow/plans/rewrite/Streams.plan, workflow/plans/rewrite/Transactions.plan. Workflow 
             records ReferenceDocs/{epic,P1}.task. Old flat .examples.ts files are deleted with no 
@@ -321,8 +321,8 @@ tasks
             Frozen T3 link-only snapshot SHA256 
             4ba5c4dfd83e8afb7cbfec9e68f992bea1ca9c763090351bb884912936321134. Paths: 
             workflow/plans/rewrite/ApplicationsAndActors.plan, 
-            workflow/plans/rewrite/CommandLine.plan, workflow/plans/rewrite/PackageContract.plan, 
-            workflow/plans/rewrite/Persistence.plan, workflow/plans/rewrite/Resources.plan, 
+            workflow/plans/rewrite/CommandLineV2.plan, workflow/plans/rewrite/PackageContract.plan, 
+            workflow/plans/rewrite/PersistenceV2.plan, workflow/plans/rewrite/Resources.plan, 
             workflow/plans/rewrite/Statecharts.plan, workflow/plans/rewrite/StoriesAndModels.plan, 
             workflow/plans/rewrite/Streams.plan, workflow/plans/rewrite/Transactions.plan, 
             workflow/plans/rewrite/README.md. Current capability links now route to 

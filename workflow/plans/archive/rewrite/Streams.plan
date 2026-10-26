@@ -122,12 +122,12 @@ outcomes
     O3  Persistence retains a projection without serializing a running stream
         Persist defaults false. True opts in only accepted declaration/key/generation/ownership,
         latest-value/count, and terminal facts for an independently durable stable actor under
-        @plan.Persistence.O2. Fibers, scopes, cursors, transports, buffered emissions, programs, and
+        @plan.PersistenceV2.O2. Fibers, scopes, cursors, transports, buffered emissions, programs, and
         history are never persistable. A stream never makes its actor durable implicitly.
 
         Hydration retains exact latest/hasValue/count/terminal truth without emission replay. After
         pending mapped outcomes drain, an active live declaration rematerializes from complete
-        executable P in a new generation under @plan.Persistence.O4. K cannot reconstruct input or a
+        executable P in a new generation under @plan.PersistenceV2.O4. K cannot reconstruct input or a
         transport session. Missing P fails closed with a precise diagnostic and invents no history.
         Terminal streams do not restart. Restored generation fences suppress facts from former
         sessions. Reconciliation never admits a finite lookup or commit.

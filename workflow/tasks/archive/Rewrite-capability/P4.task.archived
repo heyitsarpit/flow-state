@@ -12,14 +12,14 @@ tasks
                      @task.Rewrite.T201
                      ]
         derives_from [
-                     @plan.Persistence.O1,
-                     @plan.Persistence.V1,
-                     @plan.Persistence.D1,
+                     @plan.PersistenceV2.O1,
+                     @plan.PersistenceV2.V1,
+                     @plan.PersistenceV2.D1,
                      @plan.InspectionAndArtifacts.O2,
                      @plan.ProjectDelivery.O3,
                      @plan.DiagnosticsContract.O3
                      ]
-        satisfies    [@plan.Persistence.O1, @plan.DiagnosticsContract.O3]
+        satisfies    [@plan.PersistenceV2.O1, @plan.DiagnosticsContract.O3]
         description
             Deliver typed optional provider declarations and storage boundary without 
             construction-time I/O. Ordered work: (1) define exact provider/codec types and default 
@@ -52,13 +52,13 @@ tasks
                      @task.Rewrite.T303
                      ]
         derives_from [
-                     @plan.Persistence.O2,
-                     @plan.Persistence.V2,
+                     @plan.PersistenceV2.O2,
+                     @plan.PersistenceV2.V2,
                      @plan.ApplicationsAndActors.O3,
                      @plan.ApplicationsAndActors.O4,
                      @plan.ProjectDelivery.O3
                      ]
-        satisfies    [@plan.Persistence.O2, @plan.ApplicationsAndActors.O3]
+        satisfies    [@plan.PersistenceV2.O2, @plan.ApplicationsAndActors.O3]
         description
             Deliver durable selection and persistence-backed readiness/boot through the production 
             Runtime, preserving detached validation before service acquisition, installation, 
@@ -85,13 +85,13 @@ tasks
         priority     medium
         blocked_by   [@T401, @T402, @task.Rewrite.T313, @task.Rewrite.T204]
         derives_from [
-                     @plan.Persistence.O3,
-                     @plan.Persistence.V3,
+                     @plan.PersistenceV2.O3,
+                     @plan.PersistenceV2.V3,
                      @plan.ApplicationsAndActors.O6,
                      @plan.ApplicationsAndActors.O7,
                      @plan.ProjectDelivery.O3
                      ]
-        satisfies    [@plan.Persistence.O3]
+        satisfies    [@plan.PersistenceV2.O3]
         description
             Deliver one consistent capture cut across actor, resource/store, operation, context, 
             and evidence state. Ordered work: (1) use the integrated P3 publication owner; (2) 
@@ -137,13 +137,13 @@ tasks
                      @T410
                      ]
         derives_from [
-                     @plan.Persistence.O4,
-                     @plan.Persistence.V4,
+                     @plan.PersistenceV2.O4,
+                     @plan.PersistenceV2.V4,
                      @plan.Transactions.O4,
                      @plan.Transactions.V4,
                      @plan.ProjectDelivery.O3
                      ]
-        satisfies    [@plan.Persistence.O4, @plan.Transactions.O4]
+        satisfies    [@plan.PersistenceV2.O4, @plan.Transactions.O4]
         description
             Deliver resource/transaction hydration that normalizes ownership and lifecycle state 
             without invoking lookup, transaction, or stream work. Ordered work: (1) restore 
@@ -172,12 +172,12 @@ tasks
         priority     high
         blocked_by   [@T401, @T402, @T403, @task.Rewrite.T203, @T409, @T410]
         derives_from [
-                     @plan.Persistence.O5,
-                     @plan.Persistence.V5,
-                     @plan.Persistence.D2,
+                     @plan.PersistenceV2.O5,
+                     @plan.PersistenceV2.V5,
+                     @plan.PersistenceV2.D2,
                      @plan.ProjectDelivery.O3
                      ]
-        satisfies    [@plan.Persistence.O5]
+        satisfies    [@plan.PersistenceV2.O5]
         description
             Deliver Runtime-owned persistence writes ordered by committed sequence with exact 
             lifecycle/disposal behavior and last-good-record retention. Ordered work: (1) observe 
@@ -312,12 +312,12 @@ tasks
         derives_from [
                      @plan.InspectionAndArtifacts.O2,
                      @plan.InspectionAndArtifacts.V2,
-                     @plan.Persistence.O1,
-                     @plan.Persistence.V1,
+                     @plan.PersistenceV2.O1,
+                     @plan.PersistenceV2.V1,
                      @plan.ProjectDelivery.O2,
                      @plan.ProjectDelivery.O3
                      ]
-        satisfies    [@plan.InspectionAndArtifacts.O2, @plan.Persistence.O1]
+        satisfies    [@plan.InspectionAndArtifacts.O2, @plan.PersistenceV2.O1]
         description
             Integrate the persistence/artifact envelope encoders and decoders with P1 T107's shared 
             structural walker and UTF-8 policy, preserving exact bounds and diagnostics. This task 
@@ -350,8 +350,8 @@ tasks
                      @plan.InspectionAndArtifacts.O4,
                      @plan.InspectionAndArtifacts.V4,
                      @plan.InspectionAndArtifacts.C1,
-                     @plan.Persistence.O1,
-                     @plan.Persistence.O2
+                     @plan.PersistenceV2.O1,
+                     @plan.PersistenceV2.O2
                      ]
         satisfies    [@plan.InspectionAndArtifacts.O4]
         description
@@ -510,10 +510,10 @@ tasks
                      @plan.Streams.O3,
                      @plan.Streams.V3,
                      @plan.Streams.Q1,
-                     @plan.Persistence.O4,
-                     @plan.Persistence.V4
+                     @plan.PersistenceV2.O4,
+                     @plan.PersistenceV2.V4
                      ]
-        satisfies    [@plan.Streams.O3, @plan.Persistence.O4]
+        satisfies    [@plan.Streams.O3, @plan.PersistenceV2.O4]
         description
             After Streams.Q1 is decided, persist only the accepted stream projection and restore it 
             as inert data without serializing or resuming a running stream. Ordered work: (1) 
@@ -542,11 +542,11 @@ tasks
         derives_from [
                      @plan.ProjectDelivery.O3,
                      @plan.ProjectDelivery.O4,
-                     @plan.Persistence.O1,
-                     @plan.Persistence.O2,
-                     @plan.Persistence.O3,
-                     @plan.Persistence.O4,
-                     @plan.Persistence.O5,
+                     @plan.PersistenceV2.O1,
+                     @plan.PersistenceV2.O2,
+                     @plan.PersistenceV2.O3,
+                     @plan.PersistenceV2.O4,
+                     @plan.PersistenceV2.O5,
                      @plan.InspectionAndArtifacts.O2,
                      @plan.InspectionAndArtifacts.O3,
                      @plan.InspectionAndArtifacts.O4,
@@ -556,11 +556,11 @@ tasks
                      ]
         satisfies    [
                      @plan.ProjectDelivery.O3,
-                     @plan.Persistence.O1,
-                     @plan.Persistence.O2,
-                     @plan.Persistence.O3,
-                     @plan.Persistence.O4,
-                     @plan.Persistence.O5,
+                     @plan.PersistenceV2.O1,
+                     @plan.PersistenceV2.O2,
+                     @plan.PersistenceV2.O3,
+                     @plan.PersistenceV2.O4,
+                     @plan.PersistenceV2.O5,
                      @plan.InspectionAndArtifacts.O3,
                      @plan.InspectionAndArtifacts.O4
                      ]

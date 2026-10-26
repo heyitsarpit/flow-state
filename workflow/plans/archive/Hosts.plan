@@ -9,9 +9,9 @@ goal
     examples only. Implementation and product cutover remain pending under
     @plan.Cutover.O3 and @plan.Cutover.V7.
     Persistence and capture belong to @plan.Artifacts.O1 and @plan.Artifacts.O2.
-    Runtime admission and identity belong to @plan.Runtime.O3.
-    Passive operation readers belong to @plan.Operations.O4.
-    Actor lifecycle and context semantics belong to @plan.Runtime.O5.
+    Runtime admission and identity belong to @plan.RuntimeV2.O3.
+    Passive operation readers belong to @plan.OperationsV2.O4.
+    Actor lifecycle and context semantics belong to @plan.RuntimeV2.O5.
 outcomes
     O1  Production bootstrap admits only a closed, owned actor graph
         - App.M is the complete machine-admission catalogue. Modules name tooling records and
@@ -104,7 +104,7 @@ outcomes
 
         - Actor handles expose exact identity, synchronous command, and Flow-owned snapshot.
         - Exact operation-state projections follow @plan.PublicSurface.O3 and
-          @plan.Operations.O4.
+          @plan.OperationsV2.O4.
         - React never stores actor state, mailboxes, operation bindings, or cleanup ownership.
           Snapshot publication revisions advance for each distinct machine, issue, or lifecycle
           publication. Private machine-turn and global evidence sequences remain separate.
@@ -287,8 +287,8 @@ outcomes
         - The selector sees one atomic cut of state, memory, context, lifecycle, issues, bound
           `can(event)`, and passive O.
         - O exposes only key, `getData`, and `getState`.
-        - Operation reads use @plan.Operations.O4.
-        - Actor lifecycle and context reads use @plan.Runtime.O5.
+        - Operation reads use @plan.OperationsV2.O4.
+        - Actor lifecycle and context reads use @plan.RuntimeV2.O5.
         - Track exact descriptor/K reads and replace dependencies after evaluation.
         - Rerun matching actor or StoreFanout publications against one tear-free cut.
         - Scalar/non-record selections use complete-value `Object.is`.

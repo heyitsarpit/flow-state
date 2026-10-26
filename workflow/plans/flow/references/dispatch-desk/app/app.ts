@@ -5,7 +5,7 @@ import { SessionRef } from "../features/Session/session.ref.js";
 import { QueueMachine } from "../features/Tickets/queue/queue.machine.js";
 import { ToastsMachine } from "../features/Toasts/toasts.machine.js";
 
-// Wiring is declared once (FlowState D14): every editor and queue, shared or local, reads the
+// Wiring is declared once (Runtime.plan D2): every editor and queue, shared or local, reads the
 // session through these defaults; a ref may still set its own.
 export const DeskApp = app({
   id: "dispatch-desk",

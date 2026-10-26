@@ -16,7 +16,7 @@ const ticketKey = ({ memory }: { memory: Memory }) => ({
   ticketId: memory.ticketId,
 });
 
-// A shared guard types its input from the definition's derived Schemas (FlowState D47). Its
+// A shared guard types its input from the definition's derived Schemas (Machines.plan O1). Its
 // deny codes are literal, so flow check and inspect read them from its return type.
 const canSave = ({ memory, context }: { memory: Memory; context: { canEdit: boolean } }) => {
   if (!context.canEdit) return deny("NoPermission");
@@ -40,7 +40,7 @@ const confirmSaved = ({ event }: { event: { ticket: { title: string } } }) => ({
 export const EditorMachine = machine(Editor, ({ S, E, O }) => {
   // One set of outcomes serves the button, autosave, lock retries and the retry of an uncertain
   // save. saveTitle is a domain operation, so the domain predicts the title, confirms it from the
-  // response and repairs every list that can be wrong (FlowState D37).
+  // response and repairs every list that can be wrong (EntityDomains.plan D1).
   const saveOutcomes = {
     success: E.Saved.from((ticket) => ({ ticket })),
     failure: {
@@ -124,7 +124,7 @@ export const EditorMachine = machine(Editor, ({ S, E, O }) => {
           EDITING: {
             schedules: {
               // A debounce: the schedule restarts on every change of the draft and stays idle
-              // until the first one, so opening a ticket never autosaves (FlowState D23).
+              // until the first one, so opening a ticket never autosaves (Machines.plan O5).
               autosave: {
                 schedule: "2 seconds",
                 send: E.AutosaveDue,
@@ -146,7 +146,7 @@ export const EditorMachine = machine(Editor, ({ S, E, O }) => {
                 actions: [commitDraft],
               },
               // With edits, Escape discards them. Without, this guard declines and the event
-              // falls through to OPEN's handler, which closes (FlowState D18).
+              // falls through to OPEN's handler, which closes (Machines.plan O2).
               Escape: {
                 target: "self",
                 guard: ({ memory }) => memory.draft !== memory.saved || deny("NothingToDiscard"),

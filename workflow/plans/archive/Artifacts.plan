@@ -8,8 +8,8 @@ goal
     pack supplies provenance and trace IDs; ARTIFACT_WIRE.md is a pointer only.
     CONTRACT.md §§7 and 9 provide unaccepted examples. Implementation and product
     cutover remain pending under @plan.Cutover.O3 and @plan.Cutover.V7.
-    Operation identity belongs to @plan.Operations.O2 and @plan.Operations.O3.
-    Runtime and host integration belong to @plan.Runtime.O3, @plan.Runtime.O5, and @plan.Hosts.O4.
+    Operation identity belongs to @plan.OperationsV2.O2 and @plan.OperationsV2.O3.
+    Runtime and host integration belong to @plan.RuntimeV2.O3, @plan.RuntimeV2.O5, and @plan.Hosts.O4.
     CLI projection belongs to @plan.CLI.O2 and @plan.CLI.O3.
 outcomes
     O1  Persistence is optional, explicit, inert at construction, and Runtime-owned
@@ -182,7 +182,7 @@ outcomes
           consumed activation facts, and pending mapped outcomes.
         - It never serializes queue cells or commands.
         - Stable wire identity uses the actor namespace and length-prefixed machine and authored-ID
-          segments defined by @plan.Runtime.O1; durable identity belongs to @plan.Runtime.O2.
+          segments defined by @plan.RuntimeV2.O1; durable identity belongs to @plan.RuntimeV2.O2.
         - Prefix and bytes use the shared portable UTF-8 boundary.
         - Never use Node Buffer or UTF-16 string length.
 
@@ -206,8 +206,8 @@ outcomes
         - Deleted automatic/dynamic roots, parent-child, and subordinate-machine persistence have no
           aliases.
 
-        - Operation identity and settlement are shared with @plan.Operations.O2 and
-          @plan.Operations.O3. This outcome owns their durable facts and restore normalization.
+        - Operation identity and settlement are shared with @plan.OperationsV2.O2 and
+          @plan.OperationsV2.O3. This outcome owns their durable facts and restore normalization.
 
     O3  Capture and hydration form a consistent, context-closed cut without replay
         - Capture shares the StoreKernel commit window:
@@ -283,7 +283,7 @@ outcomes
         - Compressed import stops when it crosses the decompressed-byte limit.
 
         - DiagnosticProjection is the only serialized projection of the typed Diagnostic model in
-          @plan.Diagnostics.O1.
+          @plan.DiagnosticsV2.O1.
         - Diagnostic owns stable classification, code, path, and details.
         - It also owns evolving summary/help and safe projection/rendering.
         - Encoders may order and bound fields under the wire rules.

@@ -85,7 +85,7 @@ tasks
             Historical format, lint, package typecheck, focused machine test, and diff check
             passed. The parent machine task remained open at this child receipt. No current
             checkout check is implied.
-        derives_from [@plan.Types.D1, @plan.Types.V1, @plan.Runtime.V1, @plan.Verification.D3]
+        derives_from [@plan.Types.D1, @plan.Types.V1, @plan.RuntimeV2.V1, @plan.Verification.D3]
 
     T004
         title      Implement recursive machine grammar and pure compiled tables
@@ -203,7 +203,7 @@ tasks
         derives_from [
                      @plan.PublicSurface.D1,
                      @plan.PublicSurface.V1,
-                     @plan.Diagnostics.V3,
+                     @plan.DiagnosticsV2.V3,
                      @plan.Verification.D3
                      ]
 
@@ -269,8 +269,8 @@ tasks
             lint, format, diff check, and independent reviews passed. These receipts are not
             current-checkout results.
         derives_from [
-                     @plan.Diagnostics.D2,
-                     @plan.Diagnostics.V2,
+                     @plan.DiagnosticsV2.D2,
+                     @plan.DiagnosticsV2.V2,
                      @plan.Verification.C2,
                      @plan.Verification.V1
                      ]

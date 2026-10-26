@@ -44,7 +44,7 @@ export async function runDeskHost() {
     );
 
     // Boundaries decode untrusted input with the definition's own Schema. Decoding an internal
-    // event such as Saved fails, so a URL cannot forge an outcome (FlowState D19).
+    // event such as Saved fails, so a URL cannot forge an outcome (Machines.plan O1).
     const fromUrl = await runtime.runPromise(
       Schema.decodeUnknownEffect(Editor.Event)({ _tag: "Close" }),
     );
@@ -70,7 +70,7 @@ export async function runDeskHost() {
   }
 }
 
-// Every Flow failure at a host boundary is one FlowError with a closed code (FlowState D10).
+// Every Flow failure at a host boundary is one FlowError with a closed code (Diagnostics.plan O1).
 export function describeHostFailure(failure: unknown) {
   return failure instanceof FlowError
     ? `${failure.code}: ${failure.diagnostics[0]?.summary ?? ""}`
@@ -83,5 +83,5 @@ export async function signOut(runtime: ReturnType<typeof DeskSetup.construct>, u
   session.send(Session.E.SignedOut());
   await runtime.dispose({ forget: true });
   // The host now switches to its signed-out UI. Other tabs require their own auth notification;
-  // v1 does not mirror actors or broadcast sign-out (binding ruling 38).
+  // v1 does not mirror actors or broadcast sign-out (Persistence.plan O7).
 }

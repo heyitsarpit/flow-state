@@ -74,12 +74,12 @@ tasks
         priority     high
         blocked_by   [@T251]
         derives_from [
-                     @plan.Runtime.D1,
-                     @plan.Runtime.D2,
-                     @plan.Runtime.C1,
-                     @plan.Runtime.V1,
-                     @plan.Runtime.V2,
-                     @plan.Runtime.V3,
+                     @plan.RuntimeV2.D1,
+                     @plan.RuntimeV2.D2,
+                     @plan.RuntimeV2.C1,
+                     @plan.RuntimeV2.V1,
+                     @plan.RuntimeV2.V2,
+                     @plan.RuntimeV2.V3,
                      @plan.Verification.D2,
                      @plan.Verification.V2
                      ]
@@ -103,10 +103,10 @@ tasks
         priority     high
         blocked_by   [@T253]
         derives_from [
-                     @plan.Runtime.D2,
-                     @plan.Runtime.C2,
-                     @plan.Runtime.V3,
-                     @plan.Runtime.V5,
+                     @plan.RuntimeV2.D2,
+                     @plan.RuntimeV2.C2,
+                     @plan.RuntimeV2.V3,
+                     @plan.RuntimeV2.V5,
                      @plan.Verification.D2,
                      @plan.Verification.V2
                      ]
@@ -132,12 +132,12 @@ tasks
         priority     high
         blocked_by   [@T253, @T254]
         derives_from [
-                     @plan.Runtime.D1,
-                     @plan.Runtime.D2,
-                     @plan.Runtime.C1,
-                     @plan.Runtime.V2,
-                     @plan.Runtime.V3,
-                     @plan.Runtime.V5,
+                     @plan.RuntimeV2.D1,
+                     @plan.RuntimeV2.D2,
+                     @plan.RuntimeV2.C1,
+                     @plan.RuntimeV2.V2,
+                     @plan.RuntimeV2.V3,
+                     @plan.RuntimeV2.V5,
                      @plan.Verification.D2,
                      @plan.Verification.V2
                      ]
@@ -162,9 +162,9 @@ tasks
         priority     high
         blocked_by   [@T255, @T258, @T259]
         derives_from [
-                     @plan.Runtime.C1,
-                     @plan.Runtime.V2,
-                     @plan.Runtime.V6,
+                     @plan.RuntimeV2.C1,
+                     @plan.RuntimeV2.V2,
+                     @plan.RuntimeV2.V6,
                      @plan.Artifacts.D1,
                      @plan.Artifacts.C3,
                      @plan.Artifacts.V4,
@@ -193,9 +193,9 @@ tasks
         priority     high
         blocked_by   [@T255, @T256, @T259]
         derives_from [
-                     @plan.Runtime.D2,
-                     @plan.Runtime.C1,
-                     @plan.Runtime.V5,
+                     @plan.RuntimeV2.D2,
+                     @plan.RuntimeV2.C1,
+                     @plan.RuntimeV2.V5,
                      @plan.Verification.D2,
                      @plan.Verification.V2
                      ]
@@ -220,7 +220,7 @@ tasks
         status       done
         priority     high
         derives_from [
-                     @plan.Runtime.V6,
+                     @plan.RuntimeV2.V6,
                      @plan.Artifacts.D1,
                      @plan.Artifacts.V4,
                      @plan.Verification.D2,
@@ -245,8 +245,8 @@ tasks
         status       done
         priority     high
         derives_from [
-                     @plan.Runtime.D2,
-                     @plan.Runtime.V5,
+                     @plan.RuntimeV2.D2,
+                     @plan.RuntimeV2.V5,
                      @plan.Verification.D2,
                      @plan.Verification.V2
                      ]
@@ -355,9 +355,9 @@ tasks
         status       done
         priority     high
         derives_from [
-                     @plan.Runtime.D2,
-                     @plan.Runtime.V4,
-                     @plan.Runtime.V5,
+                     @plan.RuntimeV2.D2,
+                     @plan.RuntimeV2.V4,
+                     @plan.RuntimeV2.V5,
                      @plan.Verification.D2,
                      @plan.Verification.V2
                      ]
@@ -381,11 +381,11 @@ tasks
         status       done
         priority     high
         derives_from [
-                     @plan.Runtime.D2,
-                     @plan.Runtime.C2,
-                     @plan.Runtime.V5,
-                     @plan.Diagnostics.D2,
-                     @plan.Diagnostics.V2
+                     @plan.RuntimeV2.D2,
+                     @plan.RuntimeV2.C2,
+                     @plan.RuntimeV2.V5,
+                     @plan.DiagnosticsV2.D2,
+                     @plan.DiagnosticsV2.V2
                      ]
         description
             Source Bead flow-state-e7p.27.6.5 (closed).
@@ -407,10 +407,10 @@ tasks
         priority     high
         blocked_by   [@T265]
         derives_from [
-                     @plan.Runtime.D2,
-                     @plan.Runtime.C2,
-                     @plan.Runtime.V4,
-                     @plan.Runtime.V5,
+                     @plan.RuntimeV2.D2,
+                     @plan.RuntimeV2.C2,
+                     @plan.RuntimeV2.V4,
+                     @plan.RuntimeV2.V5,
                      @plan.Verification.D2,
                      @plan.Verification.V2
                      ]
@@ -448,9 +448,9 @@ tasks
         status       draft
         priority     high
         derives_from [
-                     @plan.Runtime.D2,
-                     @plan.Runtime.V4,
-                     @plan.Runtime.V5,
+                     @plan.RuntimeV2.D2,
+                     @plan.RuntimeV2.V4,
+                     @plan.RuntimeV2.V5,
                      @plan.Verification.D2,
                      @plan.Verification.V2
                      ]
@@ -481,9 +481,9 @@ tasks
         status       draft
         priority     high
         derives_from [
-                     @plan.Runtime.D2,
-                     @plan.Runtime.C2,
-                     @plan.Runtime.V5,
+                     @plan.RuntimeV2.D2,
+                     @plan.RuntimeV2.C2,
+                     @plan.RuntimeV2.V5,
                      @plan.Verification.D2,
                      @plan.Verification.V2
                      ]
@@ -515,11 +515,11 @@ tasks
         priority     high
         blocked_by   [@T255, @T256, @T257, @T262, @T263, @T264, @T265, @T266, @T267, @T268]
         derives_from [
-                     @plan.Runtime.D2,
-                     @plan.Runtime.C2,
-                     @plan.Runtime.V1,
-                     @plan.Runtime.V4,
-                     @plan.Runtime.V5,
+                     @plan.RuntimeV2.D2,
+                     @plan.RuntimeV2.C2,
+                     @plan.RuntimeV2.V1,
+                     @plan.RuntimeV2.V4,
+                     @plan.RuntimeV2.V5,
                      @plan.Verification.D2,
                      @plan.Verification.V2
                      ]
@@ -562,12 +562,12 @@ tasks
         priority     high
         blocked_by   [@T254, @T269]
         derives_from [
-                     @plan.Runtime.D1,
-                     @plan.Runtime.D2,
-                     @plan.Runtime.C1,
-                     @plan.Runtime.V2,
-                     @plan.Runtime.V3,
-                     @plan.Runtime.V5,
+                     @plan.RuntimeV2.D1,
+                     @plan.RuntimeV2.D2,
+                     @plan.RuntimeV2.C1,
+                     @plan.RuntimeV2.V2,
+                     @plan.RuntimeV2.V3,
+                     @plan.RuntimeV2.V5,
                      @plan.Verification.D2,
                      @plan.Verification.V2
                      ]
@@ -601,12 +601,12 @@ tasks
         priority     high
         blocked_by   [@T270]
         derives_from [
-                     @plan.Runtime.V1,
-                     @plan.Runtime.V2,
-                     @plan.Runtime.V3,
-                     @plan.Runtime.V4,
-                     @plan.Runtime.V5,
-                     @plan.Runtime.V6,
+                     @plan.RuntimeV2.V1,
+                     @plan.RuntimeV2.V2,
+                     @plan.RuntimeV2.V3,
+                     @plan.RuntimeV2.V4,
+                     @plan.RuntimeV2.V5,
+                     @plan.RuntimeV2.V6,
                      @plan.Verification.D6,
                      @plan.Verification.C5,
                      @plan.Verification.V8
@@ -648,7 +648,7 @@ tasks
         title       Fix Implementation provider boundary
         status      done
         priority    high
-        derives_from [@plan.Runtime.O3]
+        derives_from [@plan.RuntimeV2.O3]
         description
             Deliverable: keep provider identity and native Layer acquisition private to the
             Implementation owner so callers cannot mutate duplicate detection or acquire

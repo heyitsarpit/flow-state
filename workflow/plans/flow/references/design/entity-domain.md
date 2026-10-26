@@ -1129,6 +1129,9 @@ obligation.
 
 ## 15. Evidence
 
+The spike and the runtime model are kept in git history, under
+`workflow/plans/flow/references/evidence/` at commit `e549b7f1`, for the S5 stage to port.
+
 ### 15.1 Type spike
 
 The draft 8 spike (types plus a small recording runtime) wrote eleven domains without annotations:

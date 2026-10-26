@@ -1,4 +1,4 @@
-// The four exports of flow-state/inspect (FlowState D11). Observation never starts work.
+// The four exports of flow-state/inspect (Inspection.plan). Observation never starts work.
 import { readFile } from "node:fs/promises";
 import { attachInspector, inspect, render, trace } from "flow-state/inspect";
 import { DeskApp } from "../app/app.js";
@@ -23,7 +23,7 @@ export async function describeDesk() {
 // The supported production observer: it receives committed evidence as it happens and never
 // delays a turn. In-process snapshots and checkpoints are faithful. Sensitive values become
 // keyed HMAC digests only on export to artifacts, traces, CLI output or external sinks. SSR
-// payloads omit sensitive fields (ruling 30); the host must not log raw live snapshots.
+// payloads omit sensitive fields (ServerRendering.plan O3); the host must not log raw live snapshots.
 export async function observeLiveDesk(sink: (event: unknown) => void) {
   const runtime = DeskSetup.construct();
   const observer = attachInspector(runtime, sink);

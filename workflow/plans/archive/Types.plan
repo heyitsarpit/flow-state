@@ -9,7 +9,7 @@ goal
     @plan.Verification.D1; source contracts provide provenance and trace IDs. Public
     authoring shapes belong
     to @plan.PublicSurface.O2 and @plan.PublicSurface.O3. Identity and lifecycle
-    terms belong to @plan.Runtime.O1, @plan.Runtime.O3, and @plan.Runtime.O4.
+    terms belong to @plan.RuntimeV2.O1, @plan.RuntimeV2.O3, and @plan.RuntimeV2.O4.
 
 outcomes
     O1  Definition, machine, event, input, and memory inference
@@ -59,7 +59,7 @@ outcomes
         - Public and type-focused examples appear above and under @plan.PublicSurface.O2.
           CONTRACT.md §2 examples remain proposed and unaccepted; they add no authority. Some
           proposal examples repeat Plan target code, but keep proposal status explicit. Definition
-          and runtime vocabulary belong to @plan.Runtime.O1.
+          and runtime vocabulary belong to @plan.RuntimeV2.O1.
 
         Example:
         ```ts
@@ -172,7 +172,7 @@ outcomes
           Otherwise typed failure wins if any failure exists; interruption wins only by itself.
           Production uses Effect.exit rather than
           Effect.result. Never flatten defect/interruption into E. Canonical Diagnostic
-          classification and Cause-to-diagnostic projection are owned by @plan.Diagnostics.O2.
+          classification and Cause-to-diagnostic projection are owned by @plan.DiagnosticsV2.O2.
 
         - Public generic and state shapes belong to @plan.PublicSurface.O3. Examples appear above
           and under that owner. CONTRACT.md §3 examples remain proposed and unaccepted. Some repeat
@@ -265,7 +265,7 @@ outcomes
 
         - The public admission/provider surface belongs to @plan.PublicSurface.O4 and
           @plan.PublicSurface.O5. Examples above use private carrier notation; none implies that
-          helper aliases are exported. AppPlan and module identity belong to @plan.Runtime.O2.
+          helper aliases are exported. AppPlan and module identity belong to @plan.RuntimeV2.O2.
 
         Example:
         ```ts
@@ -340,7 +340,7 @@ outcomes
         - Runtime setup and bridge examples appear above. The temporary shell remains the
           current public boundary; future bridge targets do not claim implementation.
           Runtime ownership belongs to
-          @plan.Runtime.O2 and @plan.Runtime.O3.
+          @plan.RuntimeV2.O2 and @plan.RuntimeV2.O3.
 
         Example:
         ```ts
@@ -409,7 +409,7 @@ outcomes
           They rerun only for matching tracked actor/StoreFanout publication.
 
         - Actor-family and selector examples appear above. Public ref/lease ownership belongs to
-          @plan.Runtime.O3; snapshots and selectors belong to @plan.Runtime.O5.
+          @plan.RuntimeV2.O3; snapshots and selectors belong to @plan.RuntimeV2.O5.
 
         Example:
         ```ts
@@ -498,7 +498,7 @@ outcomes
           and @plan.Verification.V4. Snapshots and inferred values still hide raw Cause.
 
         - Story, fixture, recipe, and model examples appear above and under @plan.PublicSurface.O5.
-          Runtime identity and recipe ownership belong to @plan.Runtime.O3 and @plan.Runtime.O5.
+          Runtime identity and recipe ownership belong to @plan.RuntimeV2.O3 and @plan.RuntimeV2.O5.
 
         Example:
         ```ts
@@ -631,8 +631,8 @@ decisions
 constraints
     C1  Plan ownership and target status
         - @plan.PublicSurface.O2 and @plan.PublicSurface.O3 own public authoring shapes; this Plan
-          owns inference and variance. Runtime terminology and identity belong to @plan.Runtime.O1
-          and @plan.Runtime.O2. Runtime bridge, complete actor/React family, persistence, lifecycle,
+          owns inference and variance. Runtime terminology and identity belong to @plan.RuntimeV2.O1
+          and @plan.RuntimeV2.O2. Runtime bridge, complete actor/React family, persistence, lifecycle,
           and disposal clauses identified as future targets remain future targets. The temporary
           Runtime shell remains app/construct/ready only.
 
@@ -826,7 +826,7 @@ verification
 
         - Pass when all normative inference clauses map to an outcome or proof.
           All 24 source examples and the proof index appear under @O1 through @O6 or @V6.
-          Cause classification also appears under @plan.Diagnostics.O2.
+          Cause classification also appears under @plan.DiagnosticsV2.O2.
           Proposed CONTRACT.md examples remain proposed and unaccepted.
           Repeated normative code stays with its public-authoring owner.
 

@@ -57,7 +57,7 @@ export const TicketEvent = Schema.Union([
 
 export type TicketEvent = typeof TicketEvent.Type;
 
-// Tagged expected failures: outcomes route them by tag (FlowState D31).
+// Tagged expected failures: outcomes route them by tag (Operations.plan O2).
 export class TicketNotFound extends Data.TaggedError("TicketNotFound")<{ ticketId: string }> {}
 
 export class TicketLocked extends Data.TaggedError("TicketLocked")<{ lockedBy: string }> {}

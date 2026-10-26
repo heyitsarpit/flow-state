@@ -1,5 +1,5 @@
 // Assertions on Story evidence. Checkpoints are atomic cuts: snapshots, the store revision and
-// the entity repair evidence of that moment (FlowState O9).
+// the entity repair evidence of that moment (Testing.plan).
 import { render, screen } from "@testing-library/react";
 import { expect, test } from "vite-plus/test";
 import { check } from "flow-state";

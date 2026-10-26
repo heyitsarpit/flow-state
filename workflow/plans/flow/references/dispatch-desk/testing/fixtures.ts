@@ -1,4 +1,4 @@
-// Fixtures are Layers built on top of the setup's services (FlowState D42): they may read the
+// Fixtures are Layers built on top of the setup's services (Testing.plan O1): they may read the
 // demo server and shadow the TicketApi it provides. They replace service behaviour, never
 // operation kernels, and never inject results into pending work.
 import { Effect, Layer } from "effect";

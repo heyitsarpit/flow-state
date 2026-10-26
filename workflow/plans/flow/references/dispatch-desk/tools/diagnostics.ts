@@ -1,4 +1,4 @@
-// One FlowError and its canonical diagnostics (FlowState D8, D10, O10).
+// One FlowError and its canonical diagnostics (Diagnostics.plan O1 and O2).
 import { definition, FlowError } from "flow-state";
 
 export function demonstrateInvalidDefinition() {

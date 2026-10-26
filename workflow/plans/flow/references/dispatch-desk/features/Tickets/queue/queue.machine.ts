@@ -66,7 +66,7 @@ export const QueueMachine = machine(Queue, ({ S, E, O }) => ({
     feed: O.Tickets.events.subscribe(workspace), // pushes from other dispatchers; no events here
   },
 
-  // Filter edits stay in the current health state: declared once, at the root (FlowState D17).
+  // Filter edits stay in the current health state: declared once, at the root (Machines.plan O2).
   on: {
     SearchChanged: { target: "self", updateMemory: ({ event }) => ({ search: event.search }) },
     StatusChanged: { target: "self", updateMemory: ({ event }) => ({ status: event.status }) },

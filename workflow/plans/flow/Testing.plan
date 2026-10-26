@@ -21,17 +21,19 @@ outcomes
         a Promise of a StoryRun containing checkpoints, end, trace and any captured payloads.
 
         Both Story kinds support send, process, advance, advanceTo, advanceToNextTimer, checkpoint
-        and run. App ensure(ref, options?) follows @plan.FlowRuntime.O3 at the chosen step.
+        and run. App ensure(ref, options?) follows @plan.Runtime.O3 at the chosen step.
         App send(ref, event) targets that exact ref; focused send(event) targets its actor.
         send never creates an absent actor. Only public events can be sent; internal events require
-        their declared producers. Focused setContext(context) follows @plan.FlowRuntime.O5;
+        their declared producers. Focused setContext(context) replaces the actor's context as a
+        production context update: a changed value runs onContext as an ordinary turn, an equal
+        value is silent, and the initial context is a silent baseline (@plan.Runtime.O5).
         App Stories cannot inject context.
 
         Checkpoint names retain exact literal or known-union keys. Duplicate names, widened strings
         and access through unknown literal keys are type errors; other commands preserve the keys.
         defineConfig({ apps: [{ app, stories }] }) discovers configured exported Stories and rejects
         duplicate or empty ids, foreign setups, incompatible machines and lookalike package values
-        before acquiring resources. Loading and configuration discovery follow @plan.FlowCommandLine.O6.
+        before acquiring resources. Loading and configuration discovery follow @plan.CommandLine.O6.
     O2  Explicit processing and time
         Identical plans, seeds and fixture inputs produce identical ordered traces. Each run has
         fresh service state, seeded ids and randomness, and a controlled clock; host time and
@@ -52,8 +54,9 @@ outcomes
         Fixtures are Effect Layers replacing whole service functions while preserving their input,
         success, failure, cancellation and lifetime contracts. Delays and responses pass through
         real services and the controlled clock; fixtures cannot inject operation outcomes directly.
-        Fixtures may depend on setup services and shadow those services. Duplicate service Tags
-        among fixtures reject before either conflicting provider is acquired; replacement requires
+        Fixtures may depend on setup services and shadow those services. Duplicate service Tags 
+        among fixtures reject with DuplicateFixture before either conflicting provider is acquired; 
+        replacement requires
         an explicit overriding form identifying the replaced fixture and replacement Layer.
         Fixtures providing no service are valid. Missing service requirements are type errors;
         untyped callers fail before actor activation.
@@ -80,7 +83,7 @@ outcomes
         };
         shape selects fields and missing fields remain missing. Inactive domain answers return
         undefined. Field and queue meanings follow @plan.EntityDomains.O2;
-        descriptor lanes follow @plan.FlowOperations.O6.
+        descriptor lanes follow @plan.Operations.O6.
 
         Cuts retain cumulative repairs, skips and diagnostics in accepted order; run.trace also
         includes cleanup events. Truncation is explicit and cannot prove an absent cause, following
@@ -116,23 +119,23 @@ outcomes
         propertyTest(domains, options) generates ordinary Stories on fresh production Runtimes.
         Overlapping domains are tested together, with probe subscriptions when no App is supplied.
         Domain properties, quietness and oracle comparisons belong to @plan.EntityDomains.O4.
-        options supplies fixture, inputs, writes, controls, oracle, seed, runs and steps, and 
-        optional
-        quietWithin. Every selected read and write has a domain-qualified typed input generator;
-        missing, foreign or invalid inputs reject before the generated operation starts.
+        options are fixture, inputs and seed, with optional runs, steps and quietWithin. fixture is 
+        a
+        stateful fixture whose server truth is the oracle. inputs keys read and write entries;
+        each listed entry needs a typed generator, and unlisted entries are not exercised.
+        Foreign or invalid inputs reject before the generated operation starts.
 
         Generators are nonempty readonly sample arrays or pure { sample, shrink } objects using the
         supplied seeded random source. Array samples are uniform and shrink toward earlier entries;
-        custom shrink returns a finite ordered sequence. seed is a safe integer; runs and steps are
-        positive safe integers. quietWithin defaults to 60 seconds of virtual time and accepts a
+        custom shrink returns a finite ordered sequence. seed is a safe integer; runs and steps are 
+        positive safe integers, defaulting to 50 and 40. quietWithin defaults to 60 seconds of 
+        virtual time and accepts a
         finite nonnegative Duration.Input. Pending work at that horizon is inconclusive, never pass.
-        Scoped controls explicitly declare supported commands and validate their inputs. They can
-        hold, release, fail, delay, reorder, duplicate or lose responses; change server truth and
-        push; disconnect/reconnect; change subscriptions; invalidate; crash/restore; or adopt a
-        supplied domain. Requested unsupported capabilities reject rather than being skipped.
-        Controls use real service and lifecycle paths; a lost response can leave a committed write
-        unknown. The scoped oracle reads independent fixture server truth without cache, prediction,
-        network faults, mutation or extra observed adapter calls. An absent oracle rejects.
+        Generated faults hold, release, fail, delay, reorder, duplicate or lose responses; change
+        server truth and push; disconnect and reconnect; change subscriptions; invalidate; crash
+        and restore; or adopt a supplied domain. They run through real service and lifecycle
+        paths, so a lost response can leave a committed write unknown. The oracle reads fixture
+        server truth directly, without cache, prediction, network faults or adapter calls.
 
         Every committed publication is checked, even when process() drains many turns. After the
         generated actions, processing and timer advances seek quietness within quietWithin.
@@ -150,8 +153,16 @@ outcomes
         prevent
         the printed projection alone from reproducing the failure.
     O7  Isolation, hydration and lazy features
-        Run, principal and request isolation follows @plan.FlowRuntime.O7. Tests use no browser storage
-        or live state from another run. Shared multi-tab execution is outside v1.
+        Run, principal and request isolation follows @plan.Runtime.O7. Tests use no browser storage
+        or live state from another run.
+
+        App Stories model reload and a second tab as tabs: independent Runtimes of the Story's
+        setup sharing that run's in-memory storage. openTab(name) constructs and readies one;
+        closeTab(name) ends it abruptly, with no final flush, like a closed or crashed page, and
+        releases its scope ownership. send,
+        ensure and checkpoint reads take an optional tab (default "main"); checkpoints expose
+        tabs.<name>. A tab opened while another holds the scope runs without persistence
+        (@plan.Persistence.O7). Tabs share nothing else; there is no cross-tab coordination.
 
         App dehydrate(label, { scope, within, maxBytes? }) captures through production server 
         settle,
@@ -160,28 +171,31 @@ outcomes
         and leaves the scenario Runtime available. Labels follow checkpoint key rules.
         hydrate(source, label?) accepts a payload or an independently executed source Story.
         Leading hydrate runs before bootstrap and storage restore; later hydrate models navigation.
-        Payload validation follows @plan.ServerRendering.O3; installation, precedence and isolation
-        follow @plan.ServerRendering.O4. Source cycles and missing labels reject before execution;
+        Payload contents follow @plan.ServerRendering.O3, validation and installation
+        @plan.ServerRendering.O4, precedence @plan.ServerRendering.O5 and isolation
+        @plan.ServerRendering.O6. Source cycles and missing labels reject before execution;
         failures identify the source or destination boundary. Checkpoints expose hydration evidence
         and serverView(label) for first-render comparison. dehydrate is the explicit exception to
         process-only draining.
 
         Lazy ensure and focused construction adopt supplied definitions at the chosen step without
         moving time or invoking a module loader, following @plan.LazyFeatures.O2. Checkpoints expose
-        adopted entries; unrelated dormant records remain dormant. CheckpointProvider renders only
-        captured actors. Real module loading is exercised by production host tests.
+        adopted entries; unrelated dormant records remain dormant. Real module loading is exercised 
+        by production host tests.
     O8  Cancellation, cleanup and failure evidence
         Cancellation stops admission and later commands, retains partial evidence and waits for
         finalization. A blocked send settles once; no committed turn or end is fabricated.
         Success, execution failure, partial acquisition and cancellation all finalize owned 
         resources.
         Cleanup attempts each finalizer once even when another fails; fixtures cannot suppress it.
-        Production disposal guarantees follow @plan.FlowRuntime.O6.
+        It runs in a fixed order: stop admission, dispose actors consumers before providers,
+        dispose the Runtime, then release fixture and host scopes last.
+        Production disposal guarantees follow @plan.Runtime.O6.
 
         Execution or cancellation failure stays primary; otherwise the first cleanup failure is
         primary. Cleanup diagnostics retain their order, and cleanup failure never yields success.
         The full Cause remains available in process through cleanup; projection follows
-        @plan.FlowDiagnostics.O3 and never serializes Cause or private recovery authority.
+        @plan.Diagnostics.O3 and never serializes Cause or private recovery authority.
         Rejection is a FlowError carrying readonly Story evidence: completed checkpoints, captured
         end and payloads if any, failing command index or bootstrap/capture/cleanup boundary,
         primary and cleanup diagnostics, cancellation flag, trace and truncation, and last accepted
@@ -193,7 +207,8 @@ verification
     V4  Tests prove complete passive cuts, stable earlier evidence and faithful rendering.
     V5  Tests prove model ordering, bounds, truncation and live replay parity at every prefix.
     V6  Property tests prove seeded replay, validated controls, result distinctions and shrinking.
-    V7  Stories prove isolated hydration evidence and exact-step lazy adoption without loading.
+    V7  Stories prove isolated hydration evidence, exact-step lazy adoption without loading,
+        reload by closeTab/openTab, and a second tab running without persistence.
     V8  Tests prove cancellation, cleanup failures and direct/CLI partial-evidence parity.
 questions
     Q1  What measured quiet horizon and shrink budget should replace the initial defaults?
@@ -205,6 +220,6 @@ questions
         Model path descriptions and traversal metadata.
         Property control identifiers and literal encoding.
         Checkpoint container freezing and private name lookup.
-        Cleanup phase implementation and resource ordering.
+        Cleanup phase implementation.
         Discovery identity encoding.
         Evidence artifact codecs and host coverage.

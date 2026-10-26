@@ -184,13 +184,13 @@ outcomes
         same independently recorded remote identity.
 
         Persist defaults false. A durable transaction declaration retains only accepted actor-owned
-        facts for an independently durable stable owner under @plan.Persistence.O2. Hydration never
+        facts for an independently durable stable owner under @plan.PersistenceV2.O2. Hydration never
         replays pending commit work. Restored pending remote work remains unknown/reconcileRequired
         unless accepted evidence rules out adapter invocation, including invocation after capture.
         A saved not-yet-invoked fact alone cannot establish non-invocation after that cut.
         Reconciliation uses the adapter-recorded remote identity without a new request.
         Terminal state restores only in the accepted production representation under
-        @plan.Persistence.O4. K never reconstructs executable P.
+        @plan.PersistenceV2.O4. K never reconstructs executable P.
 decisions
     D1  Concurrency belongs to the actor and exact key
         Four policies define admission and current completion authority without a cross-actor lane.
@@ -276,7 +276,7 @@ verification
         boundaries; explicit reconciliation must reuse its identity, never issue a new request.
         No Flow-managed journal recovery or exact mid-flight boundary-reporting API may be assumed.
 
-        Restore pending local, remote-unknown, and terminal facts under @plan.Persistence.V4.
+        Restore pending local, remote-unknown, and terminal facts under @plan.PersistenceV2.V4.
         Include its saved-before-invocation cut followed by dispatch, delayed persistence and crash.
         Pass with conservative unknown unless evidence excludes later invocation, no commit replay
         or new remote request, no K-to-P inversion, and no implicit actor durability.

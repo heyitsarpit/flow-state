@@ -28,7 +28,7 @@ export const browserSetup = (userId: string) =>
  * needs a durable session (its context provider), or capture fails with
  * NonDurableContextProvider.
  *
- * Several tabs (binding ruling 38): ready() requests the scope's Web Lock with ifAvailable.
+ * Several tabs (Persistence.plan O7): ready() requests the scope's Web Lock with ifAvailable.
  * A second tab runs independently without restore or capture and reports SecondTabNoPersistence.
  * There are no mirrors, forwarded sends, peer deltas or automatic handover in v1. Without
  * navigator.locks the check is skipped and persistence proceeds.

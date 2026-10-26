@@ -161,11 +161,11 @@ outcomes
         and each Story declares its own stable id in its options. Duplicate ids within one App,
         duplicate App ids, and a Story whose App differs from its entry fail flow check. CLI
         commands select an App with --app when the config holds more than one. This replaces
-        behavior({ app, stories }) and the --gateway option of @plan.CommandLine.O1.
+        behavior({ app, stories }) and the --gateway option of @plan.CommandLineV2.O1.
         - Saved behaviour artifacts are removed (@D38). behavior build, render, diff and check
         become on-demand commands: a graph command renders from the live App, and a diff
         command builds two git revisions in memory and compares them. Nothing is written unless
-        output is redirected. This applies @D6 to @plan.CommandLine.O1 and
+        output is redirected. This applies @D6 to @plan.CommandLineV2.O1 and
         @plan.InspectionAndArtifacts.O4.
         - The inspect route exports four names (@D39): inspect(app) returning the internal
         representation, render(model, format), trace (import, export, summarise, diff) and

@@ -6,7 +6,7 @@ tasks
         title        Define runtime and actor API boundaries
         status       done
         priority     high
-        derives_from [@plan.Runtime.D2, @plan.Verification.D6, @plan.Types.V4]
+        derives_from [@plan.RuntimeV2.D2, @plan.Verification.D6, @plan.Types.V4]
         description
             Source Bead: flow-state-e7p.11.1 (closed; task).
             Original title: P01 — Lock Runtime and actor API seams, failure channels, and
@@ -33,10 +33,10 @@ tasks
         priority     high
         blocked_by   [@T101]
         derives_from [
-                     @plan.Runtime.D2,
+                     @plan.RuntimeV2.D2,
                      @plan.Verification.D6,
-                     @plan.Operations.D1,
-                     @plan.Operations.V1
+                     @plan.OperationsV2.D1,
+                     @plan.OperationsV2.V1
                      ]
         description
             Source Bead: flow-state-e7p.11.2 (closed; task).
@@ -65,9 +65,9 @@ tasks
         priority     high
         blocked_by   [@T102]
         derives_from [
-                     @plan.Runtime.D2,
+                     @plan.RuntimeV2.D2,
                      @plan.Verification.D6,
-                     @plan.Runtime.Q1,
+                     @plan.RuntimeV2.Q1,
                      @plan.Types.C2,
                      @plan.Types.V4
                      ]
@@ -101,7 +101,7 @@ tasks
         status       done
         priority     high
         blocked_by   [@T103]
-        derives_from [@plan.Runtime.D2, @plan.Runtime.V3]
+        derives_from [@plan.RuntimeV2.D2, @plan.RuntimeV2.V3]
         description
             Source Bead: flow-state-e7p.11.4 (closed; task).
             Original title: R01 — RuntimeSetup and construct remain inert and perform no
@@ -131,7 +131,7 @@ tasks
         status       done
         priority     high
         blocked_by   [@T103]
-        derives_from [@plan.Runtime.D2, @plan.Runtime.V3, @plan.Types.V4]
+        derives_from [@plan.RuntimeV2.D2, @plan.RuntimeV2.V3, @plan.Types.V4]
         description
             Source Bead: flow-state-e7p.11.5 (closed; task).
             Original title: R02 — exact App requirement closure accepts only a complete
@@ -162,7 +162,7 @@ tasks
         status       done
         priority     high
         blocked_by   [@T105, @T104]
-        derives_from [@plan.Runtime.D2, @plan.Runtime.V3]
+        derives_from [@plan.RuntimeV2.D2, @plan.RuntimeV2.V3]
         description
             Source Bead: flow-state-e7p.11.6 (closed; task).
             Original title: R03 — first readiness creates one runtime Scope and installed
@@ -192,7 +192,7 @@ tasks
         status       done
         priority     high
         blocked_by   [@T106]
-        derives_from [@plan.Runtime.D2, @plan.Runtime.V3]
+        derives_from [@plan.RuntimeV2.D2, @plan.RuntimeV2.V3]
         description
             Source Bead: flow-state-e7p.11.7 (closed; task).
             Original title: R04 — providers acquire sequentially in declaration order and later
@@ -224,7 +224,7 @@ tasks
         status       done
         priority     high
         blocked_by   [@T107]
-        derives_from [@plan.Runtime.D2, @plan.Runtime.V3, @plan.Types.V4]
+        derives_from [@plan.RuntimeV2.D2, @plan.RuntimeV2.V3, @plan.Types.V4]
         description
             Source Bead: flow-state-e7p.11.8 (closed; task).
             Original title: R05 — concurrent ready callers join one acquisition and later
@@ -253,7 +253,7 @@ tasks
         status       done
         priority     high
         blocked_by   [@T108]
-        derives_from [@plan.Runtime.D2, @plan.Runtime.V3]
+        derives_from [@plan.RuntimeV2.D2, @plan.RuntimeV2.V3]
         description
             Source Bead: flow-state-e7p.11.9 (closed; task).
             Original title: R06 — typed failure, defect, and interruption retain the exact
@@ -286,7 +286,7 @@ tasks
         status       done
         priority     high
         blocked_by   [@T109]
-        derives_from [@plan.Runtime.D2, @plan.Runtime.V3]
+        derives_from [@plan.RuntimeV2.D2, @plan.RuntimeV2.V3]
         description
             Source Bead: flow-state-e7p.11.10 (closed; task).
             Original title: R07 — disposal races readiness, performs reverse cleanup exactly
@@ -318,7 +318,7 @@ tasks
         status       done
         priority     high
         blocked_by   [@T145, @T103, @T110]
-        derives_from [@plan.Runtime.D2, @plan.Verification.D1, @plan.Verification.V2]
+        derives_from [@plan.RuntimeV2.D2, @plan.Verification.D1, @plan.Verification.V2]
         description
             Source Bead: flow-state-e7p.11.11 (closed; task).
             Original title: A01 — stable actor key identity and monotonically increasing
@@ -380,7 +380,7 @@ tasks
         status       done
         priority     high
         blocked_by   [@T111]
-        derives_from [@plan.Runtime.D1, @plan.Runtime.V2, @plan.Runtime.V3]
+        derives_from [@plan.RuntimeV2.D1, @plan.RuntimeV2.V2, @plan.RuntimeV2.V3]
         description
             Source Bead: flow-state-e7p.11.13 (closed; task).
             Original title: A03 — fresh opaque local identities feed the shared actor admission
@@ -408,7 +408,7 @@ tasks
         status       done
         priority     high
         blocked_by   [@T116, @T112, @T117, @T113]
-        derives_from [@plan.Runtime.D1, @plan.Runtime.V2, @plan.Runtime.V3]
+        derives_from [@plan.RuntimeV2.D1, @plan.RuntimeV2.V2, @plan.RuntimeV2.V3]
         description
             Source Bead: flow-state-e7p.11.14 (closed; task).
             Original title: A04 — ensureActor restores or creates one stable actor and exposes
@@ -438,7 +438,7 @@ tasks
         status       done
         priority     high
         blocked_by   [@T114]
-        derives_from [@plan.Runtime.D1, @plan.Runtime.V2, @plan.Runtime.V3]
+        derives_from [@plan.RuntimeV2.D1, @plan.RuntimeV2.V2, @plan.RuntimeV2.V3]
         description
             Source Bead: flow-state-e7p.11.15 (closed; task).
             Original title: A05 — concurrent ensures for one stable identity join one admission
@@ -470,7 +470,7 @@ tasks
         status       done
         priority     high
         blocked_by   [@T110, @T111]
-        derives_from [@plan.Runtime.D1, @plan.Runtime.V2, @plan.Runtime.V3]
+        derives_from [@plan.RuntimeV2.D1, @plan.RuntimeV2.V2, @plan.RuntimeV2.V3]
         description
             Source Bead: flow-state-e7p.11.16 (closed; task).
             Original title: A06 — input, app/machine/ref provenance, provider availability,
@@ -498,7 +498,7 @@ tasks
         status       done
         priority     high
         blocked_by   [@T116]
-        derives_from [@plan.Runtime.D1, @plan.Runtime.V2, @plan.Runtime.V3, @plan.Types.V5]
+        derives_from [@plan.RuntimeV2.D1, @plan.RuntimeV2.V2, @plan.RuntimeV2.V3, @plan.Types.V5]
         description
             Source Bead: flow-state-e7p.11.17 (closed; task).
             Original title: A07 — native identity graph validation rejects missing, foreign,
@@ -527,7 +527,7 @@ tasks
         status       done
         priority     high
         blocked_by   [@T117, @T115, @T114]
-        derives_from [@plan.Runtime.D1, @plan.Runtime.V2, @plan.Runtime.V3]
+        derives_from [@plan.RuntimeV2.D1, @plan.RuntimeV2.V2, @plan.RuntimeV2.V3]
         description
             Source Bead: flow-state-e7p.11.18 (closed; task).
             Original title: A08 — admission failure and interruption roll back in reverse order
@@ -557,7 +557,7 @@ tasks
         status       done
         priority     high
         blocked_by   [@T143, @T103]
-        derives_from [@plan.Runtime.D2, @plan.Runtime.V4, @plan.Verification.V2]
+        derives_from [@plan.RuntimeV2.D2, @plan.RuntimeV2.V4, @plan.Verification.V2]
         description
             Source Bead: flow-state-e7p.11.19 (closed; task).
             Original title: M01 — prepared actor buffering accepts at least the documented
@@ -588,7 +588,7 @@ tasks
         status       done
         priority     high
         blocked_by   [@T119]
-        derives_from [@plan.Runtime.D2, @plan.Runtime.V4, @plan.Verification.V2]
+        derives_from [@plan.RuntimeV2.D2, @plan.RuntimeV2.V4, @plan.Verification.V2]
         description
             Source Bead: flow-state-e7p.11.20 (closed; task).
             Original title: M02 — activation installs one bounded actor mailbox and one scoped
@@ -616,7 +616,7 @@ tasks
         status       done
         priority     high
         blocked_by   [@T120]
-        derives_from [@plan.Runtime.D2, @plan.Runtime.V4, @plan.Verification.V2]
+        derives_from [@plan.RuntimeV2.D2, @plan.RuntimeV2.V4, @plan.Verification.V2]
         description
             Source Bead: flow-state-e7p.11.21 (closed; task).
             Original title: M03 — the activation barrier precedes every early buffered command
@@ -644,7 +644,7 @@ tasks
         status       done
         priority     high
         blocked_by   [@T121]
-        derives_from [@plan.Runtime.D2, @plan.Runtime.V4, @plan.Verification.V2]
+        derives_from [@plan.RuntimeV2.D2, @plan.RuntimeV2.V4, @plan.Verification.V2]
         description
             Source Bead: flow-state-e7p.11.22 (closed; task).
             Original title: M04 — public send is synchronous, uses the real mailbox admission
@@ -672,7 +672,7 @@ tasks
         status       done
         priority     high
         blocked_by   [@T122]
-        derives_from [@plan.Runtime.D2, @plan.Runtime.V4, @plan.Verification.V2]
+        derives_from [@plan.RuntimeV2.D2, @plan.RuntimeV2.V4, @plan.Verification.V2]
         description
             Source Bead: flow-state-e7p.11.23 (closed; task).
             Original title: M05 — accepted normal and reentrant facts process in one FIFO order
@@ -700,7 +700,7 @@ tasks
         status       done
         priority     high
         blocked_by   [@T123]
-        derives_from [@plan.Runtime.D2, @plan.Runtime.V4, @plan.Verification.V2]
+        derives_from [@plan.RuntimeV2.D2, @plan.RuntimeV2.V4, @plan.Verification.V2]
         description
             Source Bead: flow-state-e7p.11.24 (closed; task).
             Original title: M06 — event turns read one pre-turn snapshot and evaluate
@@ -729,7 +729,7 @@ tasks
         status       done
         priority     high
         blocked_by   [@T124]
-        derives_from [@plan.Runtime.D2, @plan.Runtime.V4, @plan.Verification.V2]
+        derives_from [@plan.RuntimeV2.D2, @plan.RuntimeV2.V4, @plan.Verification.V2]
         description
             Source Bead: flow-state-e7p.11.25 (closed; task).
             Original title: M07 — finite actions, redirects, and mapped-event batches validate
@@ -756,7 +756,7 @@ tasks
         status       done
         priority     high
         blocked_by   [@T125]
-        derives_from [@plan.Runtime.D2, @plan.Runtime.V4, @plan.Verification.V2]
+        derives_from [@plan.RuntimeV2.D2, @plan.RuntimeV2.V4, @plan.Verification.V2]
         description
             Source Bead: flow-state-e7p.11.26 (closed; task).
             Original title: M08 — a complete immutable CommitPlan serializes atomic actor
@@ -788,7 +788,7 @@ tasks
         status       done
         priority     high
         blocked_by   [@T126]
-        derives_from [@plan.Runtime.D2, @plan.Runtime.V4, @plan.Verification.V2]
+        derives_from [@plan.RuntimeV2.D2, @plan.RuntimeV2.V4, @plan.Verification.V2]
         description
             Source Bead: flow-state-e7p.11.27 (closed; task).
             Original title: M09 — projection-only facts publish one complete immutable snapshot
@@ -818,7 +818,7 @@ tasks
         status       done
         priority     high
         blocked_by   [@T127, @T126]
-        derives_from [@plan.Runtime.D2, @plan.Runtime.V4, @plan.Verification.V2]
+        derives_from [@plan.RuntimeV2.D2, @plan.RuntimeV2.V4, @plan.Verification.V2]
         description
             Source Bead: flow-state-e7p.11.28 (closed; task).
             Original title: M10 — private acknowledgement settles only after publication and
@@ -854,7 +854,7 @@ tasks
         status       done
         priority     high
         blocked_by   [@T128, @T118, @T103]
-        derives_from [@plan.Runtime.V5, @plan.Verification.D2, @plan.Verification.V2]
+        derives_from [@plan.RuntimeV2.V5, @plan.Verification.D2, @plan.Verification.V2]
         description
             Source Bead: flow-state-e7p.11.29 (closed; task).
             Original title: C01 — admission captures an immutable provider-first context
@@ -883,7 +883,7 @@ tasks
         status       done
         priority     high
         blocked_by   [@T129]
-        derives_from [@plan.Runtime.V5, @plan.Verification.D2, @plan.Verification.V2]
+        derives_from [@plan.RuntimeV2.V5, @plan.Verification.D2, @plan.Verification.V2]
         description
             Source Bead: flow-state-e7p.11.30 (closed; task).
             Original title: C02 — validated admission topology yields one bounded provider-first
@@ -909,7 +909,7 @@ tasks
         status       done
         priority     high
         blocked_by   [@T128, @T130]
-        derives_from [@plan.Runtime.V5, @plan.Verification.D2, @plan.Verification.V2]
+        derives_from [@plan.RuntimeV2.V5, @plan.Verification.D2, @plan.Verification.V2]
         description
             Source Bead: flow-state-e7p.11.31 (closed; task).
             Original title: C03 — one provider publication coalesces into at most one combined
@@ -937,7 +937,7 @@ tasks
         status       done
         priority     high
         blocked_by   [@T131]
-        derives_from [@plan.Runtime.V5, @plan.Verification.D2, @plan.Verification.V2]
+        derives_from [@plan.RuntimeV2.V5, @plan.Verification.D2, @plan.Verification.V2]
         description
             Source Bead: flow-state-e7p.11.32 (closed; task).
             Original title: C04 — Object.is/fixed-record equality suppresses unchanged
@@ -971,7 +971,7 @@ tasks
         status       done
         priority     high
         blocked_by   [@T132]
-        derives_from [@plan.Runtime.V5, @plan.Verification.D2, @plan.Verification.V2]
+        derives_from [@plan.RuntimeV2.V5, @plan.Verification.D2, @plan.Verification.V2]
         description
             Source Bead: flow-state-e7p.11.33 (closed; task).
             Original title: C05 — passive observers/selectors replace tracked dependencies
@@ -1006,7 +1006,7 @@ tasks
         status       done
         priority     high
         blocked_by   [@T103, @T133, @T110]
-        derives_from [@plan.Runtime.D2, @plan.Runtime.V5, @plan.Runtime.V6, @plan.Verification.V2]
+        derives_from [@plan.RuntimeV2.D2, @plan.RuntimeV2.V5, @plan.RuntimeV2.V6, @plan.Verification.V2]
         description
             Source Bead: flow-state-e7p.11.34 (closed; task).
             Original title: L01 — explicit prepared→active↔suspended→disposed lifecycle
@@ -1038,7 +1038,7 @@ tasks
         status       done
         priority     high
         blocked_by   [@T134]
-        derives_from [@plan.Runtime.D2, @plan.Runtime.V5, @plan.Runtime.V6, @plan.Verification.V2]
+        derives_from [@plan.RuntimeV2.D2, @plan.RuntimeV2.V5, @plan.RuntimeV2.V6, @plan.Verification.V2]
         description
             Source Bead: flow-state-e7p.11.35 (closed; task).
             Original title: L02 — actor work, fibers, timers, listeners, and resources have one
@@ -1066,7 +1066,7 @@ tasks
         status       done
         priority     high
         blocked_by   [@T128, @T135]
-        derives_from [@plan.Runtime.D2, @plan.Runtime.V5, @plan.Runtime.V6, @plan.Verification.V2]
+        derives_from [@plan.RuntimeV2.D2, @plan.RuntimeV2.V5, @plan.RuntimeV2.V6, @plan.Verification.V2]
         description
             Source Bead: flow-state-e7p.11.36 (closed; task).
             Original title: L03 — suspension closes admission at one point, drains pre-close
@@ -1099,7 +1099,7 @@ tasks
         status       done
         priority     high
         blocked_by   [@T136]
-        derives_from [@plan.Runtime.D2, @plan.Runtime.V5, @plan.Runtime.V6, @plan.Verification.V2]
+        derives_from [@plan.RuntimeV2.D2, @plan.RuntimeV2.V5, @plan.RuntimeV2.V6, @plan.Verification.V2]
         description
             Source Bead: flow-state-e7p.11.37 (closed; task).
             Original title: L04 — finalizers run exactly once in reverse acquisition order with
@@ -1128,7 +1128,7 @@ tasks
         status       done
         priority     high
         blocked_by   [@T137]
-        derives_from [@plan.Runtime.D2, @plan.Runtime.V5, @plan.Runtime.V6, @plan.Verification.V2]
+        derives_from [@plan.RuntimeV2.D2, @plan.RuntimeV2.V5, @plan.RuntimeV2.V6, @plan.Verification.V2]
         description
             Source Bead: flow-state-e7p.11.38 (closed; task).
             Original title: L05 — resume waits cleanup, reattaches continuing work, uses
@@ -1162,7 +1162,7 @@ tasks
         status       done
         priority     high
         blocked_by   [@T137, @T118]
-        derives_from [@plan.Runtime.D2, @plan.Runtime.V5, @plan.Runtime.V6, @plan.Verification.V2]
+        derives_from [@plan.RuntimeV2.D2, @plan.RuntimeV2.V5, @plan.RuntimeV2.V6, @plan.Verification.V2]
         description
             Source Bead: flow-state-e7p.11.39 (closed; task).
             Original title: L06 — lease disposal and runtime disposal enforce exact dependent
@@ -1192,7 +1192,7 @@ tasks
         status       done
         priority     high
         blocked_by   [@T139, @T128, @T138]
-        derives_from [@plan.Runtime.D2, @plan.Runtime.V5, @plan.Runtime.V6, @plan.Verification.V2]
+        derives_from [@plan.RuntimeV2.D2, @plan.RuntimeV2.V5, @plan.RuntimeV2.V6, @plan.Verification.V2]
         description
             Source Bead: flow-state-e7p.11.40 (closed; task).
             Original title: L07 — one runtime sequence orders immutable turn/lifecycle evidence;
@@ -1302,7 +1302,7 @@ tasks
         status       done
         priority     high
         blocked_by   [@T118]
-        derives_from [@plan.Runtime.D1, @plan.Runtime.V2, @plan.Runtime.V3]
+        derives_from [@plan.RuntimeV2.D1, @plan.RuntimeV2.V2, @plan.RuntimeV2.V3]
         description
             Source Bead: flow-state-e7p.11.42 (closed; task).
             Original title: A09 — only the owner lease disposes and dependent rejection reports
@@ -1331,7 +1331,7 @@ tasks
         status       done
         priority     high
         blocked_by   [@T142]
-        derives_from [@plan.Runtime.D1, @plan.Runtime.V2, @plan.Runtime.V3]
+        derives_from [@plan.RuntimeV2.D1, @plan.RuntimeV2.V2, @plan.RuntimeV2.V3]
         description
             Source Bead: flow-state-e7p.11.43 (closed; task).
             Original title: A10 — successful stable disposal tombstones once; cleanup failure
@@ -1361,7 +1361,7 @@ tasks
         status       done
         priority     medium
         blocked_by   [@T147, @T101, @T105]
-        derives_from [@plan.Runtime.D1, @plan.Verification.D3]
+        derives_from [@plan.RuntimeV2.D1, @plan.Verification.D3]
         description
             Source Bead: flow-state-e7p.11.44 (closed; task).
             Original title: B01 — Keep the existing AppPlan private while preserving exact App
@@ -1396,7 +1396,7 @@ tasks
         status       done
         priority     medium
         blocked_by   [@T110, @T144]
-        derives_from [@plan.Runtime.D2, @plan.Runtime.V3, @plan.Types.V4]
+        derives_from [@plan.RuntimeV2.D2, @plan.RuntimeV2.V3, @plan.Types.V4]
         description
             Source Bead: flow-state-e7p.11.45 (closed; task).
             Original title: R08 — Connect runtimeSetup readiness to the existing Implementation
@@ -1431,8 +1431,8 @@ tasks
         priority     medium
         blocked_by   [@T140, @T145]
         derives_from [
-                     @plan.Runtime.V3,
-                     @plan.Runtime.V6,
+                     @plan.RuntimeV2.V3,
+                     @plan.RuntimeV2.V6,
                      @plan.Verification.D2,
                      @plan.Verification.D4,
                      @plan.Verification.V2

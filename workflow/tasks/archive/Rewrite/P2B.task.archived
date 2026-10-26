@@ -7,7 +7,7 @@ tasks
         status       done
         priority     medium
         blocked_by   [@T162]
-        derives_from [@plan.Runtime.D1, @plan.Runtime.V2, @plan.Runtime.V3, @plan.Types.V5]
+        derives_from [@plan.RuntimeV2.D1, @plan.RuntimeV2.V2, @plan.RuntimeV2.V3, @plan.Types.V5]
         description
             Source phase Epic: flow-state-e7p.12 (open in the retained Beads record), with
             direct children flow-state-e7p.12.1 through flow-state-e7p.12.24 (all closed).
@@ -43,7 +43,7 @@ tasks
         status       done
         priority     medium
         blocked_by   [@T151]
-        derives_from [@plan.Runtime.D1, @plan.Runtime.V2, @plan.Runtime.V3, @plan.Types.V5]
+        derives_from [@plan.RuntimeV2.D1, @plan.RuntimeV2.V2, @plan.RuntimeV2.V3, @plan.Types.V5]
         description
             Source Bead: flow-state-e7p.12.2 (closed; task).
             Original title: B02 — Validate admission data and fixed provider topology.
@@ -71,7 +71,7 @@ tasks
         status       done
         priority     medium
         blocked_by   [@T152]
-        derives_from [@plan.Runtime.V3, @plan.Types.V4, @plan.Verification.V2]
+        derives_from [@plan.RuntimeV2.V3, @plan.Types.V4, @plan.Verification.V2]
         description
             Source Bead: flow-state-e7p.12.3 (closed; task).
             Original title: B03 — Execute one joined actor admission transaction.
@@ -101,7 +101,7 @@ tasks
         status       done
         priority     medium
         blocked_by   [@T153]
-        derives_from [@plan.Runtime.D2, @plan.Runtime.V4, @plan.Verification.V2]
+        derives_from [@plan.RuntimeV2.D2, @plan.RuntimeV2.V4, @plan.Verification.V2]
         description
             Source Bead: flow-state-e7p.12.4 (closed; task).
             Original title: B04 — Own prepared and active mailbox admission.
@@ -131,7 +131,7 @@ tasks
         status       done
         priority     medium
         blocked_by   [@T154]
-        derives_from [@plan.Runtime.D2, @plan.Runtime.V4, @plan.Verification.V2]
+        derives_from [@plan.RuntimeV2.D2, @plan.RuntimeV2.V4, @plan.Verification.V2]
         description
             Source Bead: flow-state-e7p.12.5 (closed; task).
             Original title: B05 — Fence commands and build pure complete turn plans.
@@ -161,7 +161,7 @@ tasks
         status       done
         priority     medium
         blocked_by   [@T155]
-        derives_from [@plan.Runtime.D2, @plan.Runtime.V4, @plan.Verification.V2]
+        derives_from [@plan.RuntimeV2.D2, @plan.RuntimeV2.V4, @plan.Verification.V2]
         description
             Source Bead: flow-state-e7p.12.6 (closed; task).
             Original title: B06 — Publish atomic actor cuts and settle acknowledgements.
@@ -200,7 +200,7 @@ tasks
         status       done
         priority     medium
         blocked_by   [@T153, @T156]
-        derives_from [@plan.Runtime.V5, @plan.Verification.V2]
+        derives_from [@plan.RuntimeV2.V5, @plan.Verification.V2]
         description
             Source Bead: flow-state-e7p.12.7 (closed; task).
             Original title: B07 — Own context baselines, waves, selection, and passive
@@ -234,7 +234,7 @@ tasks
         status       done
         priority     medium
         blocked_by   [@T154]
-        derives_from [@plan.Runtime.D2, @plan.Runtime.V5, @plan.Runtime.V6, @plan.Verification.V2]
+        derives_from [@plan.RuntimeV2.D2, @plan.RuntimeV2.V5, @plan.RuntimeV2.V6, @plan.Verification.V2]
         description
             Source Bead: flow-state-e7p.12.8 (closed; task).
             Original title: B08 — Own actor lifetime and suspension truth.
@@ -266,7 +266,7 @@ tasks
         status       done
         priority     medium
         blocked_by   [@T158, @T157]
-        derives_from [@plan.Runtime.D2, @plan.Runtime.V5, @plan.Runtime.V6, @plan.Verification.V2]
+        derives_from [@plan.RuntimeV2.D2, @plan.RuntimeV2.V5, @plan.RuntimeV2.V6, @plan.Verification.V2]
         description
             Source Bead: flow-state-e7p.12.9 (closed; task).
             Original title: B09 — Complete cleanup, resume, lease disposal, and runtime
@@ -302,7 +302,7 @@ tasks
         status       done
         priority     medium
         blocked_by   [@T156, @T159, @T157]
-        derives_from [@plan.Runtime.V6, @plan.Verification.D4, @plan.Verification.V2]
+        derives_from [@plan.RuntimeV2.V6, @plan.Verification.D4, @plan.Verification.V2]
         description
             Source Bead: flow-state-e7p.12.10 (closed; task).
             Original title: B10 — Assemble production runtime and own ordered evidence.
@@ -357,7 +357,7 @@ tasks
                      @T160,
                      @T156
                      ]
-        derives_from [@plan.Runtime.D2, @plan.Verification.D1, @plan.Verification.V2]
+        derives_from [@plan.RuntimeV2.D2, @plan.Verification.D1, @plan.Verification.V2]
         description
             Source Bead: flow-state-e7p.12.11 (closed; task).
             Original title: B11 — Independently validate and promote Phase 2B.
@@ -451,7 +451,7 @@ tasks
         title        Repair runtime evidence reservation prefix liveness
         status       done
         priority     high
-        derives_from [@plan.Runtime.V6, @plan.Verification.D4, @plan.Verification.V2]
+        derives_from [@plan.RuntimeV2.V6, @plan.Verification.D4, @plan.Verification.V2]
         description
             Source Bead: flow-state-e7p.12.14 (closed; bug).
             Original title: Repair runtime evidence reservation prefix liveness.
@@ -475,7 +475,7 @@ tasks
         title        Make actor store and publication cuts atomic after evidence preparation
         status       done
         priority     high
-        derives_from [@plan.Runtime.V4, @plan.Operations.V1, @plan.Verification.V2]
+        derives_from [@plan.RuntimeV2.V4, @plan.OperationsV2.V1, @plan.Verification.V2]
         description
             Source Bead: flow-state-e7p.12.15 (closed; bug).
             Original title: Make actor store and publication cuts atomic after evidence
@@ -498,7 +498,7 @@ tasks
         title        Make projection mailbox overflow explicit
         status       done
         priority     high
-        derives_from [@plan.Runtime.D2, @plan.Runtime.V4, @plan.Verification.V2]
+        derives_from [@plan.RuntimeV2.D2, @plan.RuntimeV2.V4, @plan.Verification.V2]
         description
             Source Bead: flow-state-e7p.12.16 (closed; bug).
             Original title: Make projection mailbox overflow explicit.
@@ -523,7 +523,7 @@ tasks
         title        Close provider baseline registration and reconciliation handshake
         status       done
         priority     high
-        derives_from [@plan.Runtime.V5, @plan.Verification.V2]
+        derives_from [@plan.RuntimeV2.V5, @plan.Verification.V2]
         description
             Source Bead: flow-state-e7p.12.17 (closed; bug).
             Original title: Close provider baseline registration and reconciliation handshake.
@@ -549,7 +549,7 @@ tasks
         title        Harden actor admission against hostile reflection
         status       done
         priority     high
-        derives_from [@plan.Runtime.V2, @plan.Types.V4, @plan.Verification.V2]
+        derives_from [@plan.RuntimeV2.V2, @plan.Types.V4, @plan.Verification.V2]
         description
             Source Bead: flow-state-e7p.12.18 (closed; bug).
             Original title: Harden actor admission against hostile reflection.
@@ -574,7 +574,7 @@ tasks
         title        Use structural equality for canonical operation keys
         status       done
         priority     high
-        derives_from [@plan.Operations.C1, @plan.Operations.V1]
+        derives_from [@plan.OperationsV2.C1, @plan.OperationsV2.V1]
         description
             Source Bead: flow-state-e7p.12.19 (closed; bug).
             Original title: Use structural equality for canonical operation keys.
@@ -597,7 +597,7 @@ tasks
         title        Enforce runtime immutability for dependency graphs and revisions
         status       done
         priority     medium
-        derives_from [@plan.Runtime.V5, @plan.Verification.V2]
+        derives_from [@plan.RuntimeV2.V5, @plan.Verification.V2]
         description
             Source Bead: flow-state-e7p.12.20 (closed; task).
             Original title: Enforce runtime immutability for dependency graphs and revisions.
@@ -620,7 +620,7 @@ tasks
         title        Define and prove fresh actor initial snapshot admission
         status       done
         priority     medium
-        derives_from [@plan.Runtime.V3, @plan.Verification.V2]
+        derives_from [@plan.RuntimeV2.V3, @plan.Verification.V2]
         description
             Source Bead: flow-state-e7p.12.21 (closed; task).
             Original title: Define and prove fresh actor initial snapshot admission.
@@ -644,7 +644,7 @@ tasks
         title        Evaluate Effect collections before sharing readonly helpers
         status       done
         priority     low
-        derives_from [@plan.Runtime.C2, @plan.Verification.D6]
+        derives_from [@plan.RuntimeV2.C2, @plan.Verification.D6]
         description
             Source Bead: flow-state-e7p.12.22 (closed; task).
             Original title: Evaluate Effect collection adoption and remove exact readonly helper
@@ -670,7 +670,7 @@ tasks
         title        Add production restore-admission validation seam
         status       done
         priority     high
-        derives_from [@plan.Runtime.V3, @plan.Verification.V2]
+        derives_from [@plan.RuntimeV2.V3, @plan.Verification.V2]
         description
             Source Bead: flow-state-e7p.12.23 (closed; task).
             Original title: Add production restore-admission validation seam.

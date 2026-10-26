@@ -134,12 +134,12 @@ tasks
                      @plan.ReactAndHosts.V1,
                      @plan.ReactAndHosts.V2,
                      @plan.ReactAndHosts.C2,
-                     @plan.Persistence.O2,
-                     @plan.Persistence.O3,
-                     @plan.Persistence.O4,
-                     @plan.Persistence.V2,
-                     @plan.Persistence.V3,
-                     @plan.Persistence.V4
+                     @plan.PersistenceV2.O2,
+                     @plan.PersistenceV2.O3,
+                     @plan.PersistenceV2.O4,
+                     @plan.PersistenceV2.V2,
+                     @plan.PersistenceV2.V3,
+                     @plan.PersistenceV2.V4
                      ]
         description
             Deliverable: server preparation stays inert and each request uses its own production
@@ -388,8 +388,8 @@ tasks
                      @plan.StoriesAndModels.O4,
                      @plan.StoriesAndModels.V4,
                      @plan.StoriesAndModels.D3,
-                     @plan.Persistence.O3,
-                     @plan.Persistence.V3,
+                     @plan.PersistenceV2.O3,
+                     @plan.PersistenceV2.V3,
                      @plan.InspectionAndArtifacts.O3,
                      @plan.InspectionAndArtifacts.V3,
                      @plan.DiagnosticsContract.O2,
@@ -503,8 +503,8 @@ tasks
                      @plan.StoriesAndModels.O6,
                      @plan.StoriesAndModels.V6,
                      @plan.StoriesAndModels.C1,
-                     @plan.CommandLine.O1,
-                     @plan.CommandLine.D1
+                     @plan.CommandLineV2.O1,
+                     @plan.CommandLineV2.D1
                      ]
         satisfies    [@plan.StoriesAndModels.O6]
         description
@@ -538,15 +538,15 @@ tasks
         priority     high
         blocked_by   [@T512, @task.Rewrite.T108]
         derives_from [
-                     @plan.CommandLine.O1,
-                     @plan.CommandLine.V1,
-                     @plan.CommandLine.D1,
-                     @plan.CommandLine.C1,
-                     @plan.CommandLine.C2,
+                     @plan.CommandLineV2.O1,
+                     @plan.CommandLineV2.V1,
+                     @plan.CommandLineV2.D1,
+                     @plan.CommandLineV2.C1,
+                     @plan.CommandLineV2.C2,
                      @plan.StoriesAndModels.O6,
                      @plan.StoriesAndModels.V6
                      ]
-        satisfies    [@plan.CommandLine.O1]
+        satisfies    [@plan.CommandLineV2.O1]
         description
             Deliverable: exactly ten CLI leaves parse and gateway-loading leaves use the branded
             value.
@@ -588,13 +588,13 @@ tasks
                      @task.Rewrite.T412
                      ]
         derives_from [
-                     @plan.CommandLine.O2,
-                     @plan.CommandLine.V2,
-                     @plan.CommandLine.D1,
-                     @plan.CommandLine.D2,
-                     @plan.CommandLine.C1,
-                     @plan.CommandLine.C2,
-                     @plan.CommandLine.C3,
+                     @plan.CommandLineV2.O2,
+                     @plan.CommandLineV2.V2,
+                     @plan.CommandLineV2.D1,
+                     @plan.CommandLineV2.D2,
+                     @plan.CommandLineV2.C1,
+                     @plan.CommandLineV2.C2,
+                     @plan.CommandLineV2.C3,
                      @plan.InspectionAndArtifacts.O2,
                      @plan.InspectionAndArtifacts.O4,
                      @plan.InspectionAndArtifacts.O6,
@@ -603,7 +603,7 @@ tasks
                      @plan.InspectionAndArtifacts.V6,
                      @plan.InspectionAndArtifacts.Q2
                      ]
-        satisfies    [@plan.CommandLine.O2]
+        satisfies    [@plan.CommandLineV2.O2]
         description
             Deliverable: behavior and trace artifact-only commands use canonical bounded schemas and
             atomic destination publication.
@@ -646,10 +646,10 @@ tasks
                      @T519
                      ]
         derives_from [
-                     @plan.CommandLine.O3,
-                     @plan.CommandLine.V3,
-                     @plan.CommandLine.D3,
-                     @plan.CommandLine.C3,
+                     @plan.CommandLineV2.O3,
+                     @plan.CommandLineV2.V3,
+                     @plan.CommandLineV2.D3,
+                     @plan.CommandLineV2.C3,
                      @plan.StoriesAndModels.O3,
                      @plan.StoriesAndModels.O4,
                      @plan.StoriesAndModels.V3,
@@ -660,7 +660,7 @@ tasks
                      @plan.DiagnosticsContract.V4,
                      @plan.StoriesAndModels.Q1
                      ]
-        satisfies    [@plan.CommandLine.O3]
+        satisfies    [@plan.CommandLineV2.O3]
         description
             Deliverable: story run uses the shared Story executor and one result for text/JSON,
             trace,
@@ -699,7 +699,7 @@ tasks
         status      draft
         priority    high
         blocked_by  [@T513, @T514, @T515, @T522, @task.Rewrite.T601]
-        satisfies   [@plan.CommandLine.O4]
+        satisfies   [@plan.CommandLineV2.O4]
         description
             Deliverable: a fresh installed package binary matches source and packed consumer
             behavior.
@@ -775,10 +775,10 @@ tasks
                      @plan.StoriesAndModels.V4,
                      @plan.StoriesAndModels.V5,
                      @plan.StoriesAndModels.V6,
-                     @plan.CommandLine.V1,
-                     @plan.CommandLine.V2,
-                     @plan.CommandLine.V3,
-                     @plan.CommandLine.V4,
+                     @plan.CommandLineV2.V1,
+                     @plan.CommandLineV2.V2,
+                     @plan.CommandLineV2.V3,
+                     @plan.CommandLineV2.V4,
                      @plan.PackageContract.O4,
                      @plan.PackageContract.V4
                      ]
@@ -943,12 +943,12 @@ tasks
         priority     high
         blocked_by   [@T512, @T513, @T514, @T515]
         derives_from [
-                     @plan.CommandLine.O1,
-                     @plan.CommandLine.O3,
-                     @plan.CommandLine.V1,
-                     @plan.CommandLine.V3
+                     @plan.CommandLineV2.O1,
+                     @plan.CommandLineV2.O3,
+                     @plan.CommandLineV2.V1,
+                     @plan.CommandLineV2.V3
                      ]
-        satisfies    [@plan.CommandLine.O1, @plan.CommandLine.O3]
+        satisfies    [@plan.CommandLineV2.O1, @plan.CommandLineV2.O3]
         description
             Deliverable: one top-level dispatcher owns accepted CLI invocation, help/version, story
             list/describe, and one private result that controls text/JSON, stdout/stderr, and exit.

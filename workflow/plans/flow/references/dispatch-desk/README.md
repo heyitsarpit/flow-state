@@ -47,14 +47,14 @@ Flow-dependent examples and tests remain illustrative. Stage S10 of the plan mak
 
 ## Where each decision shows
 
-Capability plans own semantics; FlowState remains the entry plan. The binding
-[split rulings](../split-work/decisions.md) override older design examples, including ruling 38
-which defers shared multi-tab behavior. The [SSR](../design/server-rendering.md) and
+Capability plans own semantics; FlowState remains the entry plan. Where a design example and
+a plan differ, the plan wins; in particular shared multi-tab behaviour is deferred, and a second
+tab only runs without persistence ([Persistence.plan](../../Persistence.plan) O7). The [SSR](../design/server-rendering.md) and
 [lazy-feature](../design/lazy-features.md) designs explain the recipes.
 
 | Contract                                                                                                   | Shown in                                                                                                                                                                            |
 | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| FlowState D1, D2: structure is data                                                                        | [editor.machine.ts](features/Tickets/editor/editor.machine.ts), [inspection.ts](tools/inspection.ts)                                                                                |
+| FlowState D1: structure is data                                                                            | [editor.machine.ts](features/Tickets/editor/editor.machine.ts), [inspection.ts](tools/inspection.ts)                                                                                |
 | Machines plan O1–O3: definitions, states, turns and internal events                                        | [editor.definition.ts](features/Tickets/editor/editor.definition.ts), [host.ts](app/host.ts)                                                                                        |
 | Machines plan O2, O4: self, re-entry, ordered alternatives, nearest-handler fallthrough, deny/check        | [editor.machine.ts](features/Tickets/editor/editor.machine.ts), [TicketPanel.tsx](features/Tickets/editor/TicketPanel.tsx)                                                          |
 | Machines plan O5–O7: schedules, outcomes and context reactions                                             | [editor.machine.ts](features/Tickets/editor/editor.machine.ts), [queue.machine.ts](features/Tickets/queue/queue.machine.ts), [toasts.machine.ts](features/Toasts/toasts.machine.ts) |
@@ -63,7 +63,7 @@ which defers shared multi-tab behavior. The [SSR](../design/server-rendering.md)
 | Operations plan O1–O4: keys, freshness, commit concurrency, attempts and streams                           | [ticket.operations.ts](features/Tickets/ticket.operations.ts)                                                                                                                       |
 | Operations plan O5–O7: predictions, lane tags, hasMore and cancellation                                    | [QueueList.tsx](features/Tickets/queue/QueueList.tsx), [TicketPanel.tsx](features/Tickets/editor/TicketPanel.tsx)                                                                   |
 | EntityDomains plan O1–O4: confirmed records, dependencies, repair and property tests                       | [ticket.domain.ts](features/Tickets/ticket.domain.ts), [queue.test.ts](features/Tickets/queue/queue.test.ts), [tickets.property.test.ts](testing/tickets.property.test.ts)          |
-| Persistence plan O1–O6: storage, restore, attempt durability; ruling 38: detect-and-refuse                 | [persistence.ts](app/persistence.ts), [editor.tabs.story.ts](features/Tickets/editor/editor.tabs.story.ts)                                                                          |
+| Persistence plan O1–O6: storage, restore, attempt durability; O7: a second tab runs without persistence    | [persistence.ts](app/persistence.ts), [editor.tabs.story.ts](features/Tickets/editor/editor.tabs.story.ts)                                                                          |
 | LazyFeatures plan O1–O3: declared lazy entry, synchronous adoption and dormant records                     | [app.ts](app/app.ts), [view.tsx](app/view.tsx), [editor.tabs.story.ts](features/Tickets/editor/editor.tabs.story.ts)                                                                |
 | ServerRendering plan O1–O7: request Runtime, settle, payload, H1 and Next.js                               | [next](next/), [queue.ssr.story.ts](features/Tickets/queue/queue.ssr.story.ts), [queue.ssr.test.ts](features/Tickets/queue/queue.ssr.test.ts)                                       |
 | React plan O1–O5: provider ownership, handles, views and eligibility                                       | [view.tsx](app/view.tsx), [useEditor.ts](features/Tickets/editor/useEditor.ts), [TicketPanel.tsx](features/Tickets/editor/TicketPanel.tsx)                                          |
@@ -96,7 +96,7 @@ which defers shared multi-tab behavior. The [SSR](../design/server-rendering.md)
 | Sign-out                    | send SignedOut before dispose({ forget: true }); remount for a new user; no cross-tab broadcast           |
 | Model exploration           | shortest paths include declared internal producers, replayed against live behavior                        |
 
-The mirror-save/leader-close scenario in the original reference brief is deferred by ruling 38.
+The mirror-save/leader-close scenario in the original reference brief is deferred: multi-tab sharing is not in version 1.
 The tab Stories retain the documented openTab/closeTab syntax for independent contexts and reload;
 its test lock Layer must implement detect-and-refuse, not the deferred coordination design.
 Browser gates in S10 must prove actual Web Lock refusal and zero storage I/O in the second tab,
@@ -131,8 +131,8 @@ localhost server origin with the deployment's trusted API origin. Browser fetche
 current origin and cookies. An auth change must replace the Runtime before another user's
 requests can enter it; v1 does not propagate sign-out to other tabs.
 
-The adopted designs specify Story tab/reload commands but not how ruling 38 changes their test
-lock service. The reference assumes the same commands remain for independent tabs and reload.
+Story tabs and reload follow Testing.plan O7: tabs are independent Runtimes sharing the run's
+memory storage, and a tab opened while another holds the scope runs without persistence.
 Inspection specifies commit attempt identity semantically; the test uses `CommitStarted.attempt.id`
 as the illustrative event encoding, pending the library's concrete trace types.
 

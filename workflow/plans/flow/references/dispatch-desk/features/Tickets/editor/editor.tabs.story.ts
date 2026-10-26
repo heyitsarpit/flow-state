@@ -1,4 +1,4 @@
-// Binding ruling 38 supersedes the mirror/handover example in multi-tab.md §3.3.
+// Multi-tab sharing is deferred (Persistence.plan O7), superseding multi-tab.md section 3.3.
 // Tabs are independent actors. Only the first persists; opening a second cannot transfer a save.
 import { story } from "flow-state/testing";
 import { browserSetup } from "../../../app/persistence.js";
