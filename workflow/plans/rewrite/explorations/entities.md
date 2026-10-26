@@ -180,7 +180,7 @@ Correctness is stated as properties that a proposal must guarantee and that test
 | #  | Property          | Statement                                                                                                                                                                        |
 |----|-------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | C1 | Coherence         | at every publication, two copies of the same field of the same record show the same visible value                                                                                |
-| C2 | Convergence       | once the server is quiet and requests complete, every active answer equals what the server returns for its input, after a bounded number of refetches                            |
+| C2 | Convergence       | once the server is quiet and requests complete, every active answer equals what the server returns for its input, after a bounded number of refetches, or is marked stale with the recorded observation that made it stale |
 | C3 | No cascades       | every refetch has exactly one cause: a write settling, a pushed change or a machine's request; a refetch's own response never causes another refetch                             |
 | C4 | Monotonic truth   | no write replaces a field with data the store knows to be older                                                                                                                  |
 | C5 | Honest prediction | every displayed value the server has not confirmed is an overlay with a live cause; it ends by confirmation, retraction or repair; it is marked `pending`; it is never persisted |
