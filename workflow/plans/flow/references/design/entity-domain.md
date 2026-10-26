@@ -751,7 +751,7 @@ checkpoint, so they read exactly that revision:
 | `Note.queue(checkpoint, key)`                 | the record's queue: each attempt, its write and its state                                                                                                                                     |
 
 Live views use `Note.get(snapshot, key, shape)` through `useView`, read through Runtime-internal
-bookkeeping (D22). `CheckpointProvider` reads from its checkpoint.
+bookkeeping (D22). `StoryFrame` reads from its checkpoint.
 
 ### 6.3 Repair evidence
 

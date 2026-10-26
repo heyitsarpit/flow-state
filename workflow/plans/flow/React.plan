@@ -60,8 +60,10 @@ outcomes
     O4  Eligibility in views
         useView(actor, select) accepts an exact handle and preserves the selector's exact return
         type. Nullable lookup must be branched first; Machines, refs and comparator arguments are
-        rejected. Selectors read frozen state, memory, context, issues, lifecycle and activities. A
-        disposed snapshot keeps its last state, memory and context with lifecycle disposed. State
+        rejected. useNow(every) returns the Runtime Clock's epoch milliseconds and re-renders at
+        that Duration; views read time through it rather than Date.now, so Stories and StoryFrame
+        control it. Selectors read frozen state, memory, context, issues, lifecycle and activities.
+        A disposed snapshot keeps its last state, memory and context with lifecycle disposed. State
         tokens narrow snapshot types; check(s, event) follows @plan.Machines.O4. Activity data
         follows @plan.Operations.O6. descriptor.get and Entity.get are passive: reading never
         fetches, mutates or retains data. Selectors start no work and acquire no ownership.

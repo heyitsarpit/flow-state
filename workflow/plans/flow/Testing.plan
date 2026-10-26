@@ -15,8 +15,9 @@ outcomes
         Construction, import and discovery start no services, actors, fixtures or assertions.
         Commands return new static plans without changing earlier prefixes. Branches replay in fresh
         Runtimes. Scenario commands accept no arbitrary callbacks, conditional branches, live
-        handles or raw state overrides. run({ signal? }) is the execution boundary and returns a
-        Promise of a StoryRun containing checkpoints, end, trace and any captured payloads.
+        handles or raw state overrides. run({ signal?, frames? }) is the execution boundary and
+        returns a Promise of a StoryRun containing frames, checkpoints, end, trace and any captured
+        payloads.
 
         Both Story kinds support send, process, advance, advanceTo, advanceToNextTimer, checkpoint
         and run. App ensure(ref, options?) follows @plan.Runtime.O3 at the chosen step. App
@@ -64,12 +65,18 @@ outcomes
         uses a fresh in-memory KeyValueStore; setup and fixtures never open external storage or
         inherit a live store. Storage fixtures may seed encoded records before bootstrap, but cannot
         bypass production validation. Acquisition failures still trigger @O8 cleanup.
-    O4  Faithful checkpoints
-        checkpoint(name) captures immediately without processing. end captures after the last
-        command, before cleanup; it does not mean actors have reached final states. A cut includes
-        every live actor in that Runtime, including local and nonpersisted actors, and no foreign
-        actor. It captures complete published snapshots, one store revision, now, pending work and
-        due times, issues and evidence; partially published context waves never appear as complete.
+    O4  Frames, checkpoints and StoryFrame
+        A frame is one captured cut of the run. A run records a frame after every command by
+        default, or after every committed publication with frames: "publication"; frames: "named"
+        records only checkpoints. Consecutive identical frames collapse into one. A run keeps at
+        most 10,000 frames and marks truncation explicitly. Each frame names its cause (command
+        index or publication sequence) and refers to evidence by sequence position rather than
+        copying it. A checkpoint is a named frame: checkpoint(name) captures immediately without
+        processing. end captures after the last command, before cleanup; it does not mean actors
+        have reached final states. A cut includes every live actor in that Runtime, including local
+        and nonpersisted actors, and no foreign actor. It captures complete published snapshots, one
+        store revision, now, pending work and due times, issues and evidence; partially published
+        context waves never appear as complete.
 
         checkpoint.actor(ref) returns undefined for an absent actor, otherwise exposes snapshot.
         Focused checkpoints also expose snapshot directly. end supports the same reads. now is
@@ -89,9 +96,14 @@ outcomes
         Reads start no work and cannot resume a Runtime. Exported evidence follows
         @plan.Inspection.O5. Failed capture fabricates no end and preserves earlier checkpoints.
 
-        CheckpointProvider renders exactly the captured actors and store without attachment,
-        restoration or operation starts. It records attempted sends rather than executing them.
-        Eligibility uses production checks, including denial reasons and context.
+        <StoryFrame frame={frame} tab?> renders real components from one frame without attachment,
+        restoration or operation starts. Actors the run captured read their snapshot at that frame.
+        An ensuring hook for an actor the frame lacks returns the pre-attach snapshot of
+        @plan.React.O2, starts nothing and is reported as a gap of that frame; a lookup for one
+        returns null. useActor returns its pure pre-attach snapshot. useNow returns the frame's now.
+        Clicks are inert: sends never execute, and Flow's own tools may compare them with the
+        Story's next command. Eligibility uses production checks, including denial reasons and
+        context. tab selects a tab's cut (@O7). Rendering a frame is not a restore or a replay.
     O5  Models and replay
         model(baseStory, { stateKey }) accepts a command-empty focused Story, preserving its input,
         context, services and fixtures. stateKey maps a predicted snapshot to all guard-relevant
@@ -185,15 +197,17 @@ outcomes
         primary. Cleanup diagnostics retain their order, and cleanup failure never yields success.
         The full Cause remains available in process through cleanup; projection follows
         @plan.Diagnostics.O3 and never serializes Cause or private recovery authority. Rejection is
-        a FlowError carrying readonly Story evidence: completed checkpoints, captured end and
-        payloads if any, failing command index or bootstrap/capture/cleanup boundary, primary and
-        cleanup diagnostics, cancellation flag, trace and truncation, and last accepted and drained
-        evidence positions. Direct and CLI runs agree on results and retained evidence.
+        a FlowError carrying readonly Story evidence: frames up to the failing boundary, completed
+        checkpoints, captured end and payloads if any, failing command index or
+        bootstrap/capture/cleanup boundary, primary and cleanup diagnostics, cancellation flag,
+        trace and truncation, and last accepted and drained evidence positions. Direct and CLI runs
+        agree on results and retained evidence.
 verification
     V1  Type errors prove exact inputs, context, services and checkpoint keys.
     V2  Stories prove inert construction, branch isolation, fixture overrides and fresh storage.
     V3  Tests prove clock rules, explicit draining and rejection before turn 10,001.
-    V4  Tests prove complete passive cuts, stable earlier evidence and faithful rendering.
+    V4  Tests prove complete passive cuts, frame recording and collapse, stable earlier evidence,
+        and StoryFrame rendering with gaps, inert clicks and the frame's time.
     V5  Tests prove model ordering, bounds, truncation and live replay parity at every prefix.
     V6  Property tests prove seeded replay, validated controls, result distinctions and shrinking.
     V7  Stories prove isolated hydration evidence, exact-step lazy adoption without loading, reload

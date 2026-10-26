@@ -3,7 +3,7 @@
 import { render, screen } from "@testing-library/react";
 import { expect, test } from "vite-plus/test";
 import { check } from "flow-state";
-import { CheckpointProvider } from "flow-state/testing";
+import { StoryFrame } from "flow-state/testing";
 import { Ticket } from "../ticket.domain.js";
 import { Editor } from "./editor.definition.js";
 import { TicketPanel } from "./TicketPanel.js";
@@ -129,9 +129,9 @@ test("the panel renders a checkpoint exactly as the user saw it", async () => {
   const run = await saved.run();
 
   render(
-    <CheckpointProvider checkpoint={run.checkpoints.saving}>
+    <StoryFrame frame={run.checkpoints.saving}>
       <TicketPanel ticket={T42} />
-    </CheckpointProvider>,
+    </StoryFrame>,
   );
 
   expect(screen.getByRole("heading").textContent).toBe("Replace foyer light"); // the prediction

@@ -478,7 +478,7 @@ serve HTML with `Cache-Control: no-cache` and reload on `vite:preloadError` or w
   the `ensure(Editor42)` step without replaying `initial`.
 - **`model` and `propertyTest`** are unaffected (pure, and given explicit domains). `propertyTest`
   gains one generated step, "adopt domain D now", to show that adopting mid-run keeps C1 to C8.
-- **`CheckpointProvider`** is unaffected: it renders frozen snapshots of actors that existed.
+- **`StoryFrame`** is unaffected: it renders frozen snapshots of actors that existed.
 - **SSR bootstrap and `load` failure** are covered by Runtime production tests (V-L5), not
   Stories. A Story's inputs are commands and fixtures, and module loading is neither.
 

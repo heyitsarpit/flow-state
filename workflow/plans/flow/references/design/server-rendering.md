@@ -47,7 +47,7 @@ Two new public names: `dehydrate` (new route `flow-state/server`) and `Hydrate` 
 flow-state           (unchanged)
 flow-state/react     FlowProvider  Hydrate  useActorByRef  useActor  useView     // built with "use client"
 flow-state/server    dehydrate                                                   // server only
-flow-state/testing   story (+ commands dehydrate, hydrate)  model  defineConfig  CheckpointProvider  propertyTest
+flow-state/testing   story (+ commands dehydrate, hydrate)  model  defineConfig  StoryFrame  propertyTest
 flow-state/inspect   (unchanged; new trace events)
 ```
 

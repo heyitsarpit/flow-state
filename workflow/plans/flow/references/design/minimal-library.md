@@ -18,7 +18,7 @@ flow-state           definition  machine  app  actorRef  runtimeSetup
                      deny  check  send  FlowError
                      types: Definition  Machine  App  ActorRef  Actor  Snapshot  Runtime  Diagnostic
 flow-state/react     FlowProvider  useActorByRef  useActor  useView
-flow-state/testing   story  model  defineConfig  CheckpointProvider
+flow-state/testing   story  model  defineConfig  StoryFrame
 flow-state/inspect   inspect  render  attachInspector  trace
 ```
 
@@ -499,16 +499,16 @@ const entry = useView(queue, (s) => ticketById.get(s, row));
 <Star on={entry?.data?.starred} busy={entry?.pending} />
 ```
 
-**`CheckpointProvider` in `flow-state/testing`** renders components at a Story checkpoint. It
-supplies frozen snapshots; `send` is recorded on the checkpoint instead of run; a local actor
-resolves only if it existed at that checkpoint.
+**`StoryFrame` in `flow-state/testing`** renders components at a Story checkpoint. It
+supplies frozen snapshots; clicks are inert, so no send runs; actors the run never created render
+their pre-attach state (Testing.plan O4).
 
 ```tsx
 const run = await saveFlow.run();
 render(
-  <CheckpointProvider checkpoint={run.checkpoints.saving}>
+  <StoryFrame frame={run.checkpoints.saving}>
     <PinnedTicket editorRef={EditorRef} />
-  </CheckpointProvider>,
+  </StoryFrame>,
 );
 expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
 ```

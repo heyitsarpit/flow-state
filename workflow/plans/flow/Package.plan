@@ -15,9 +15,8 @@ outcomes
         contains, between, overlaps, and, serverMatches, asc, desc; types Definition, Machine, App,
         ActorRef, Actor, Snapshot, Runtime, RuntimeSetup, Diagnostic and Attempt. Attempt is also a
         Schema value carrying id and encoded input (@plan.Operations.O3).
-        - flow-state/react: FlowProvider, useActorByRef, useActor, useView, Hydrate.
-        - flow-state/testing: story, model, defineConfig, CheckpointProvider, propertyTest; type
-        StoryRun.
+        - flow-state/react: FlowProvider, useActorByRef, useActor, useView, useNow, Hydrate.
+        - flow-state/testing: story, model, defineConfig, StoryFrame, propertyTest; type StoryRun.
         - flow-state/inspect: inspect, render, attachInspector, trace (an object with only import
         and export); types Model and Trace.
         - flow-state/server: dehydrate; type Hydration.
@@ -36,8 +35,8 @@ outcomes
 
         The root imports no React, server-only or Node code, testing, inspection tooling, TypeScript
         compiler, renderer or IndexedDB, so it runs in request runtimes and edge hosts. Every route
-        except react imports without React installed; only rendering CheckpointProvider needs React,
-        so a no-React project can load its Story config. Importing the persistence route outside a
+        except react imports without React installed; only rendering StoryFrame needs React, so a
+        no-React project can load its Story config. Importing the persistence route outside a
         browser is safe; storage access begins only when its Layer is acquired
         (@plan.Persistence.O1).
     O2  Dependencies and inert imports
@@ -45,7 +44,7 @@ outcomes
         resolve to the consumer's single Effect instance. The published peer range is exactly 4.0.5
         until packed-consumer proofs cover a wider range. KeyValueStore comes from
         effect/persistence. React is an optional peer, majors 18 and 19; a host without React fails
-        only where it uses the React route or CheckpointProvider.
+        only where it uses the React route or StoryFrame.
 
         package.json declares sideEffects: false. Importing any route constructs no Runtime,
         registers no listener and performs no storage I/O, actor work or user callback. Tree shaking
