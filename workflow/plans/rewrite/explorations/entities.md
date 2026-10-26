@@ -7,7 +7,7 @@ improve, what it must not become, which parts of Flow State it must work with, a
 Documents measured against it:
 
 - `entity-domain.md`: the tier-1 proposal, the chosen direction;
-- `entity-domain-examples.md`: five apps written with it;
+- `entity-domain-examples.md`: seven apps written with it;
 - `sync-engine-adapter.md`: the tier-2 plug-in point, a future path; its section 0 binds version 1.
 
 Earlier proposals (operation-first, entity-centric, the coordinator, the knowledge store) are in
@@ -180,13 +180,13 @@ Correctness is stated as properties that a proposal must guarantee and that test
 | #  | Property          | Statement                                                                                                                                                                        |
 |----|-------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | C1 | Coherence         | at every publication, two copies of the same field of the same record show the same visible value                                                                                |
-| C2 | Convergence       | once the server is quiet and requests complete, every active answer equals what the server returns for its input, after a bounded number of refetches, or is marked stale with the recorded observation that made it stale |
-| C3 | No cascades       | every refetch has exactly one cause: a write settling, a pushed change or a machine's request; a refetch's own response never causes another refetch                             |
+| C2 | Convergence       | once the server is quiet and requests complete, every active answer agrees with what the server returns for its input on every change the client observed (its own writes, pushes, responses), after a bounded number of refetches, or is marked stale with the recorded observation that made it stale |
+| C3 | No cascades       | every refetch has recorded causes: a write settling, a pushed change, a machine's request, or an explicit invalidation; a repair's own response never starts another refetch |
 | C4 | Monotonic truth   | no write replaces a field with data the store knows to be older                                                                                                                  |
 | C5 | Honest prediction | every displayed value the server has not confirmed is an overlay with a live cause; it ends by confirmation, retraction or repair; it is marked `pending`; it is never persisted |
 | C6 | No silent loss    | a record leaves an answer only because the server deleted it, a server response omitted it, or a live prediction hides it                                                        |
 | C7 | Determinism       | the same Story inputs produce the same snapshots and traces                                                                                                                      |
-| C8 | Explainability    | for any refetch, hidden record or prediction, the trace names its single cause                                                                                                   |
+| C8 | Explainability    | for any refetch, hidden record or prediction, the trace names its causes |
 
 **Correct declarations are a precondition.** The properties hold only when authors declare
 correctly. A proposal must therefore list every declaration that can be wrong and say, for each,
