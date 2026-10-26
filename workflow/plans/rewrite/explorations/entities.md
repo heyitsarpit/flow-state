@@ -75,12 +75,12 @@ Flow State's own entity layer is **tier 1**, a request cache that knows about re
 needs the client to hold or predict list membership is **tier 2**, provided by a sync engine
 through an adapter. Flow State does not reimplement a sync engine's client half.
 
-| Tier 1: built into Flow State                         | Tier 2: a sync engine, plugged in                     |
-|-------------------------------------------------------|-------------------------------------------------------|
-| one record per key; every answer shows the same fields | live results kept current by pushes                  |
+| Tier 1: built into Flow State                                                                             | Tier 2: a sync engine, plugged in          |
+|-----------------------------------------------------------------------------------------------------------|--------------------------------------------|
+| one record per key; every answer shows the same fields                                                    | live results kept current by pushes        |
 | repair: answers that may hold or depend on changed records refetch when a write settles or a push arrives | instant list entry and exit; local queries |
-| optimistic **field** patches, rollback, honest `unknown` | optimistic writes that change membership           |
-| ordering, deletes, repair that never cascades         | completeness of results; offline operation           |
+| optimistic **field** patches, rollback, honest `unknown`                                                  | optimistic writes that change membership   |
+| ordering, deletes, repair that never cascades                                                             | completeness of results; offline operation |
 
 **What tier 1 gives up:** a record's fields change at once, but it leaves one list and enters
 another when the refetch lands. A pending create is held in machine memory, or the app uses a sync
@@ -90,8 +90,61 @@ engine. There is no list-completeness flag beyond the lane's loaded status.
 It uses what the Runtime already has (request start revisions, attempt ids, turns, the clock,
 persistence, traces) and adds no host interface.
 
-**Order of work.** Design the tier-2 adapter contract against one real engine before finalising
-tier 1, so the plug-in point is proven rather than assumed.
+**Order of work.** Tier 1 is built in version 1. Tier 2 is not built by Flow State: sync engines
+supply it through adapters written later against the contract in `sync-engine-adapter.md`, whose
+section 0 lists what version 1 must guarantee so that no core change is needed.
+
+#### Tier 0, 1 and 2: what each is for
+
+Every app starts at tier 0, and each record type moves up only when it needs to. Tiers coexist in
+one app, but each record type belongs to exactly one.
+
+| Tier                    | What it is                                                                                                   | What the author does after a write                                                                          |
+|-------------------------|--------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------|
+| **0: plain operations** | resources, transactions and streams from `minimal-library.md`; no entities                                   | refreshes what the write affected by hand (decision 6's call-site `writes`, `invalidate`)                   |
+| **1: entities**         | one copy per record; answers that hold or depend on a changed record are repaired; optimistic field patches  | nothing beyond declaring what the write changes; fields update at once, lists settle when the refetch lands |
+| **2: a sync engine**    | the engine holds collections, keeps results live, predicts membership and works offline; Flow State hosts it | nothing; the engine maintains results and confirms writes its own way                                       |
+
+**Use cases.**
+
+| Tier | Typical use                                                                                                                                                                                                                                                                  |
+|------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 0    | settings pages, checkout and onboarding wizards, server-computed reports and dashboards, uploads, heartbeats, analytics, internal tools where each screen owns its data                                                                                                      |
+| 1    | a list beside a detail view, a sidebar repeating items, a user or avatar embedded across screens, boards, inboxes, admin tables with an editor; any REST or GraphQL backend                                                                                                  |
+| 2    | chat and collaboration where lists must change instantly for everyone, live dashboards of other users' changes, local filtering, sorting and joining over a complete dataset, offline-first apps, backends that already speak a sync protocol (Postgres with Electric, Zero) |
+
+**How common each is** (an estimate, not a measurement). Most product apps reach tier 1 for a few
+record types, typically the signed-in user and the main thing the app is about, while most of their
+code stays at tier 0. Small apps and single-screen tools never leave tier 0. Tier 2 is for apps
+whose lists themselves must be live or offline, and needs server support.
+
+**How to choose, per record type.**
+
+- **Stay at tier 0** while the data is shown in one place, a write only refreshes the screen that
+  made it, or the data is computed by the server and never edited.
+- **Move to tier 1** when the record appears in more than one answer at once, a write to it must
+  update another screen, or it is optimistic in one place and shown in another. The trigger an agent
+  can follow: a commit site that needs two or more `invalidate` or `setData` calls for the same kind
+  of record. `flow check` hints at it when two resources return the same key fields.
+- **Move to tier 2** when the record's lists, not just its fields, must change instantly or stay
+  live for many users, when the client must query data it has not fetched, or when the app must work
+  offline.
+
+**What tier 1 can imitate, and what it cannot.**
+
+| Tier-2 feature                                   | In tier 1                                                                             |
+|--------------------------------------------------|---------------------------------------------------------------------------------------|
+| an item moving between lists                     | its fields change at once; the lists settle when the refetch lands                    |
+| a new item appearing at once                     | a pending item held in machine memory and drawn by the view until the refetch lands   |
+| live updates from other users                    | a push stream updates fields and refetches affected answers: correct, chattier        |
+| instant membership in many lists, instant counts | possible only by hand-written placement per feature, which is error-prone; use tier 2 |
+| offline use, queued writes                       | not possible                                                                          |
+| local queries over data never fetched            | not possible: only an engine that syncs complete collections can answer them          |
+| results kept live without refetching             | not possible: tier 1's membership always comes from a server response                 |
+
+Moving up a tier changes declarations, not machines: tier 0 to tier 1 declares the entity and
+registers its operations in a domain; tier 1 to tier 2 replaces those operations with an engine
+adapter's streams and transactions.
 
 ### 3.4 Non-goals
 
