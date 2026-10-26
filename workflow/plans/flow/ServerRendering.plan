@@ -172,7 +172,7 @@ verification
     V10  Next.js test: streaming, navigation, cached replay and draft reload obey @O4 and @O5.
 questions
 
-    Q2  Deferred to build time
+    Q1  Deferred to build time
         Payload envelope encoding. Internal capture and install sharing with persistence. Codec
         implementation. Request identity generation and sequencing. Decode caching and
         discarded-render storage. Detailed trace and inspection fields.
