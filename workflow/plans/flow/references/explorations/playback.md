@@ -111,13 +111,19 @@ gap list tells the author which refs a tour Story should ensure.
 ## 6. `StoryPlayer`
 
 ```tsx
-<StoryPlayer run={run} tour={tour}>
+<StoryPlayer run={run}>
+  <DeskApp />
+</StoryPlayer>
+
+<StoryPlayer tour={tour}>
   <DeskApp />
 </StoryPlayer>
 ```
 
 It holds a frame index and a presentation clock, and renders
-`<StoryFrame frame={run.frames[i]}>` beneath a floating overlay.
+`<StoryFrame frame={run.frames[i]}>` beneath a floating overlay. Given a run it plays that run;
+given a tour it runs the tour's own Story, so a tour can never be paired with another Story's
+run.
 
 | Control         | Behaviour                                                                  |
 | --------------- | -------------------------------------------------------------------------- |
@@ -136,21 +142,47 @@ It holds a frame index and a presentation clock, and renders
 - **Re-recording.** The player always re-runs the Story rather than caching frames: the app
   fingerprint covers neither view code nor fixtures, so a cache could show stale UI.
 
-A tour is plain data:
+### Tours
+
+A tour belongs to one Story and is created from it with `defineTour`. It holds no callbacks and
+nothing executable, but it is fully typed:
+
+- **Scene names come from the Story.** Stories keep checkpoint names as literal types
+  ([Testing.plan](../../Testing.plan) O1), so `at` accepts only that Story's checkpoints.
+- **Props are typed by the rendered component.** A tour that renders one component names it with
+  `render`; each scene's `props` are checked against that component's props.
+- **Routes are typed by the host.** Flow does not know the app's router, so the route type is a
+  type parameter, defaulting to `string`. A host root cannot change route frame by frame, because
+  the URL lives outside the frame, so each scene can name the route to render.
+- **Times use existing types.** `hold`, `maxGap` and `minDwell` are `Duration.Input`.
 
 ```ts
-const tour = {
+const tour = defineTour(editorSaveStory, {
   scenes: [
     { at: "draft", caption: "Edit the title", route: "/desk/north/T-42" },
     { at: "saving", caption: "The save is pending", hold: "1500 millis" },
     { at: "saved", caption: "Saved; the queue repairs itself" },
+    { at: "saaved", caption: "…" }, // type error: not a checkpoint of editorSaveStory
   ],
   pacing: { speed: 1, maxGap: "800 millis", minDwell: "120 millis" },
-};
-```
+});
 
-A host root cannot change route frame by frame, because the URL lives outside the frame. Each
-scene can therefore name the route or props to render with.
+// one component instead of the whole app
+const panelTour = defineTour(editorSaveStory, {
+  render: TicketPanel, // scene props: ComponentProps<typeof TicketPanel>
+  props: { ticket: T42 }, // default for every scene
+  scenes: [
+    { at: "saving", props: { ticket: T43 } },
+    { at: "saved", props: { tiket: T42 } }, // type error
+  ],
+});
+
+// a host route type
+type DeskRoute = `/desk/${string}` | `/desk/${string}/${string}`;
+const deskTour = defineTour<typeof editorSaveStory, DeskRoute>(editorSaveStory, {
+  scenes: [{ at: "draft", route: "/desk/north/T-42" }],
+});
+```
 
 ## 7. Limits
 
@@ -211,4 +243,4 @@ back free, which is worth keeping as a design property.
   `flow-state/react`.
 - **Design docs and the reference app** use `<StoryFrame frame={…}>`.
 
-Not yet in the plans: `StoryPlayer`, tours, and the follow-up features of section 8.
+Not yet in the plans: `StoryPlayer`, `defineTour`, and the follow-up features of section 8.
