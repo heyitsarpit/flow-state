@@ -16,6 +16,7 @@ contracts. Everything here supports them. Where a document here and a plan diffe
 | [design/multi-tab.md](design/multi-tab.md)                           | shared multi-tab persistence; deferred, not version 1                             |
 | [design/sync-engine-adapter.md](design/sync-engine-adapter.md)       | the tier-2 sync engine plug-in point; deferred, not version 1                     |
 | [explorations/playback.md](explorations/playback.md)                 | Story rendering and playback over the real UI; an exploration                     |
+| [explorations/fragments.md](explorations/fragments.md)               | Reusable machine behaviour inlined into hosts; an exploration                     |
 
 Some design documents predate later decisions. In version 1, SSR hydration and lazy features are
 in; Suspense, multi-tab sharing and sync engines are out. The plans state the decided behaviour.
