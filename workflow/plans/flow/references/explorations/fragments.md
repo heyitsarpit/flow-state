@@ -1,6 +1,6 @@
 # Fragments: reusable machine behaviour
 
-Status: exploration, not part of version 1. No plan has been changed for it; section 14 lists the
+Status: exploration, not part of version 1. No plan has been changed for it; section 15 lists the
 plan changes it would need. Where this document and a plan differ, the plan wins.
 
 Examples by use case: [fragment-examples.md](fragment-examples.md).
@@ -267,7 +267,32 @@ saved shape, so changing a fragment's memory invalidates saved data like any sch
 `fragment: { id, instance }` so graphs can collapse a fragment into one box. `flow check` errors on
 unmapped exits and unbound slots.
 
-## 10. A small catalogue
+## 10. Static analysis
+
+XState's maintainers advise against sharing state configuration because Stately's tools read
+source code: a parser cannot follow a spread config object or a state built by a function call, and
+duplicated state IDs clash ([statelyai/xstate#3283](https://github.com/statelyai/xstate/discussions/3283)).
+
+That reason does not apply here. `inspect(app)` and `flow check` construct the app and read its
+compiled representation ([Inspection.plan](../../Inspection.plan) O1,
+[FlowState.plan](../../FlowState.plan) D1). Fragments compile into that same representation when
+their host is constructed, so graphs, `check()`, models, coverage and Stories see ordinary states,
+events and transitions, tagged with the fragment they came from. Instance names prevent ID clashes.
+
+Three things still need care:
+
+- **Deny codes are read from TypeScript types** ([Inspection.plan](../../Inspection.plan) D2). For
+  guard slots the codes come from the host's binding, so the type reader must follow the binding
+  into the fragment. In generic fragments a deny code must stay a literal type, never widen to
+  `string`; `const` type parameters keep it literal.
+- **Type-level cost.** Nested names (`E.ADDRESS.street.Changed`) and generic fragments push on
+  TypeScript inference; XState hit extracted compound states losing their types
+  ([statelyai/xstate#4697](https://github.com/statelyai/xstate/discussions/4697)). The type spike
+  (S1) should test this first.
+- **Fragment factories must be pure and deterministic.** Construction calls them, so a factory that
+  read the environment or the clock would change the compiled structure between runs.
+
+## 11. A small catalogue
 
 Each of these is a few lines of fragment code, written once and reused.
 
@@ -393,7 +418,7 @@ export const CommitWithRetry = <V extends Schema.Top>(
 `Undo<V>`, `Paginate` (an activity slot over any paged read) and wizard steps built from `Field`
 and `Confirm` follow the same pattern.
 
-## 11. A host using them
+## 12. A host using them
 
 ```ts
 // rename.definition.ts
@@ -465,7 +490,7 @@ useView(rename, (s) => s.memory.title.error);
 useView(rename, (s) => Rename.S.SAVE.WAITING.is(s));
 ```
 
-## 12. Testing a fragment on its own
+## 13. Testing a fragment on its own
 
 A fragment has no I/O, so it can be tested with fake slots, and its whole state space is small
 enough for models to explore completely:
@@ -493,7 +518,7 @@ test("gives up after the retry limit", async () => {
 A host's tests then check only its wiring: that each exit leads somewhere sensible and each slot
 is bound to the right operation.
 
-## 13. What it unlocks
+## 14. What it unlocks
 
 - **Machines become assembly.** A machine reads as a parts list of behaviours plus what is specific
   to it: which operation, which states connect where, which host rules apply.
@@ -520,7 +545,7 @@ Costs to keep in mind: indirection when reading a machine, over-fragmenting triv
 lint can flag fragments used once), inference cost for generic fragments, versioning of shared
 fragments, and the single-active-state limit, which still applies.
 
-## 14. Version 1, open questions and plan changes
+## 15. Version 1, open questions and plan changes
 
 Nothing in version 1 needs fragments. They would come after the core Runtime stage (S3), proved
 first by converting the editor's lock retry and the queue's poll backoff into one shared fragment.
