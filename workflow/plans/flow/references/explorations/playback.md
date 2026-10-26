@@ -219,8 +219,8 @@ const deskPlayback = definePlayback<typeof editorSaveStory, DeskRoute>(editorSav
 | **State galleries from models** | render every state a model path reaches, one tile each                                                                                                   | focused-actor binding (open question 2) |
 | **Live takeover**               | continue live from a frame: re-run the Story up to it in a live Runtime, then hand it to React                                                           | a live-processing Story mode            |
 
-Storybook's interactions panel steps backwards by re-running the story. Frames make stepping
-back free, which is worth keeping as a design property.
+Stepping back to any frame is a lookup, never a re-execution, so it is instant and cannot behave
+differently on the way back. That is worth keeping as a design property.
 
 ## 9. Open questions
 
