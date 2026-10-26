@@ -148,6 +148,13 @@ outcomes
         after the owner closes. A new Runtime may try again. There is no tab sharing or handover.
         Where navigator.locks is absent, persistence proceeds without an ownership check. If an
         available lock request fails, report StorageFailure and run without persistence.
+decisions
+    D1  Persisted storage is faithful
+        Saved records hold values exactly as committed, including fields and values marked
+        sensitive. Storage belongs to the user's own browser profile and scope, and restore must
+        reproduce drafts unchanged. Sensitivity governs only data that leaves the Runtime:
+        exported evidence (@plan.Inspection.O5) and server-rendering payloads
+        (@plan.ServerRendering.O3). Clearing a scope is runtime.dispose({ forget: true }).
 verification
     V1  Type tests reject missing storage and invalid persisted Schemas under @O1 and @O2.
     V2  Tests prove default-off selection, inert construction and atomic bootstrap under @O1.
