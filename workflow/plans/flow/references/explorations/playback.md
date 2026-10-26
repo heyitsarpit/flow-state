@@ -47,16 +47,17 @@ expect(screen.getByRole("heading").textContent).toBe("Replace foyer light"); // 
 Story rendering in tests and playback are the same operation: render the app from a moment of a
 Story run. Tests render one moment and assert; playback renders many and presents them.
 
-## 3. Three concepts
+## 3. Four concepts
 
 | Concept           | What it is                                                                                                                                                                                                                   |
 | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Frame**         | One moment of a Story run: every captured actor's snapshot, one store revision, the app time `now`, pending work, its cause (which command or publication produced it), and an optional name. A checkpoint is a named frame. |
 | **`StoryFrame`**  | Renders real components from one frame. It takes the frame and nothing else.                                                                                                                                                 |
-| **`StoryPlayer`** | Shows a run's frames over time under a floating overlay, built only from `StoryFrame`. An optional tour adds captions, holds, routes and props per scene.                                                                    |
+| **Playback**      | How to present one Story's run: captions, holds, pacing, routes and props per scene. Typed against its Story; never a second source of events.                                                                               |
+| **`StoryPlayer`** | Shows a run's frames over time under a floating overlay, built only from `StoryFrame`. A playback adds captions, holds, routes and props per scene.                                                                          |
 
 Nothing else is new. Captions and pacing are presentation, kept outside the Story, so one Story
-serves tests, the CLI and any number of tours.
+serves tests, the CLI and any number of playbacks.
 
 ## 4. Frames
 
@@ -106,7 +107,7 @@ run.checkpoints.saving; // the frame named "saving"
 
 Gaps matter for whole-app rendering. A real app ensures actors the Story never created, such as
 other lists, toasts and route actors. Those render as pre-attach (often loading) states, and the
-gap list tells the author which refs a tour Story should ensure.
+gap list tells the author which refs a playback's Story should ensure.
 
 ## 6. `StoryPlayer`
 
@@ -115,15 +116,15 @@ gap list tells the author which refs a tour Story should ensure.
   <DeskApp />
 </StoryPlayer>
 
-<StoryPlayer tour={tour}>
+<StoryPlayer playback={playback}>
   <DeskApp />
 </StoryPlayer>
 ```
 
 It holds a frame index and a presentation clock, and renders
 `<StoryFrame frame={run.frames[i]}>` beneath a floating overlay. Given a run it plays that run;
-given a tour it runs the tour's own Story, so a tour can never be paired with another Story's
-run.
+given a playback it runs the playback's own Story, so a playback can never be paired with another
+Story's run.
 
 | Control         | Behaviour                                                                  |
 | --------------- | -------------------------------------------------------------------------- |
@@ -142,14 +143,16 @@ run.
 - **Re-recording.** The player always re-runs the Story rather than caching frames: the app
   fingerprint covers neither view code nor fixtures, so a cache could show stale UI.
 
-### Tours
+### Playbacks
 
-A tour belongs to one Story and is created from it with `defineTour`. It holds no callbacks and
+A playback says how to present one Story's run: captions, holds, pacing, routes and props. It is
+not a second script; the Story stays the only source of events. A playback belongs to one Story
+and is created from it with `definePlayback`. It holds no callbacks and
 nothing executable, but it is fully typed:
 
 - **Scene names come from the Story.** Stories keep checkpoint names as literal types
   ([Testing.plan](../../Testing.plan) O1), so `at` accepts only that Story's checkpoints.
-- **Props are typed by the rendered component.** A tour that renders one component names it with
+- **Props are typed by the rendered component.** A playback that renders one component names it with
   `render`; each scene's `props` are checked against that component's props.
 - **Routes are typed by the host.** Flow does not know the app's router, so the route type is a
   type parameter, defaulting to `string`. A host root cannot change route frame by frame, because
@@ -157,7 +160,7 @@ nothing executable, but it is fully typed:
 - **Times use existing types.** `hold`, `maxGap` and `minDwell` are `Duration.Input`.
 
 ```ts
-const tour = defineTour(editorSaveStory, {
+const playback = definePlayback(editorSaveStory, {
   scenes: [
     { at: "draft", caption: "Edit the title", route: "/desk/north/T-42" },
     { at: "saving", caption: "The save is pending", hold: "1500 millis" },
@@ -168,7 +171,7 @@ const tour = defineTour(editorSaveStory, {
 });
 
 // one component instead of the whole app
-const panelTour = defineTour(editorSaveStory, {
+const panelPlayback = definePlayback(editorSaveStory, {
   render: TicketPanel, // scene props: ComponentProps<typeof TicketPanel>
   props: { ticket: T42 }, // default for every scene
   scenes: [
@@ -179,7 +182,7 @@ const panelTour = defineTour(editorSaveStory, {
 
 // a host route type
 type DeskRoute = `/desk/${string}` | `/desk/${string}/${string}`;
-const deskTour = defineTour<typeof editorSaveStory, DeskRoute>(editorSaveStory, {
+const deskPlayback = definePlayback<typeof editorSaveStory, DeskRoute>(editorSaveStory, {
   scenes: [{ at: "draft", route: "/desk/north/T-42" }],
 });
 ```
@@ -191,8 +194,7 @@ const deskTour = defineTour<typeof editorSaveStory, DeskRoute>(editorSaveStory, 
 - **Initial state only:** local actors and component `useState`. App Stories cannot create or
   address local actors ([Runtime.plan](../../Runtime.plan) O3). Open question 2 covers binding a
   focused Story's actor into a component.
-- **Browser presentation:** focus, scrolling, cursor and typing animation are not state. A tour
-  could add annotations anchored to DOM elements later; they never become business events.
+- **Browser presentation:** focus, scrolling, cursor and typing animation are not state. A playback could add annotations anchored to DOM elements later; they never become business events.
   Uncontrolled inputs keep typed DOM text across frames unless the player remounts them.
 - **Wall-clock code:** components that call `Date.now()` or run their own timers ignore the
   frame's time. `useNow` is the supported way to show time.
@@ -227,7 +229,7 @@ back free, which is worth keeping as a design property.
    component's `useActor(machine)`? It brings dialogs, wizards and model galleries into reach, at
    the cost of a new rule.
 3. **Gaps in practice.** Is reporting gaps enough, or should the player offer to ensure missing
-   refs in a derived tour Story?
+   refs in a derived Story?
 4. **Where the player lives.** `flow-state/testing` (no new route) or a separate development-only
    route, which would change [Package.plan](../../Package.plan) D1's six routes.
 
@@ -243,4 +245,4 @@ back free, which is worth keeping as a design property.
   `flow-state/react`.
 - **Design docs and the reference app** use `<StoryFrame frame={…}>`.
 
-Not yet in the plans: `StoryPlayer`, `defineTour`, and the follow-up features of section 8.
+Not yet in the plans: `StoryPlayer`, `definePlayback`, and the follow-up features of section 8.
