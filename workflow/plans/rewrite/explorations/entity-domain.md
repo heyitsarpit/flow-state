@@ -129,10 +129,11 @@ Section 2.3 trusts the declared conditions, so a filter left out would make an a
 These rules keep a missing filter loud or safe:
 
 1. **Every input is accounted for.** Each field of a list's or derived read's input appears in
-   `.where`, `.orderBy`, `.pagedBy`, `.ignoring` or a `serverMatches`. An unused input is a `flow
-   check` error, because it is how a hidden filter shows itself (a search's `q`). The message offers
-   `serverMatches` first and `.ignoring` only for inputs such as a locale or a format, and `flow
-   explain` prints ignored inputs on their own line.
+   `.where`, `.orderBy`, `.pagedBy`, `.ignoring` or a `serverMatches`. An unused input is a **type
+   error** at the entry, because it is how a hidden filter shows itself (a search's `q`): recorded
+   input values carry the field they came from, and `domain()` checks each read (section 15). The
+   message offers `serverMatches` first and `.ignoring` only for inputs such as a locale or a
+   format, and `flow explain` prints ignored inputs on their own line.
 2. **A filter the client cannot evaluate is declared, not dropped.** `serverMatches(input.q,
    record.title, record.body)` may hold for any record, and a change to any field it names repairs.
    With no record fields, `serverMatches(input.q)` means any field repairs.
@@ -324,7 +325,7 @@ A domain mixes two kinds of function, and which is which is fixed by position:
 | Kind | Positions | When it runs | What tools see |
 | --- | --- | --- | --- |
 | **recorded** | places (`at`), `.byKey`, `.where`, `.orderBy`, `.pagedBy`, `.ignoring`, `.derivedFrom` fields and conditions, `.alsoChanges` targets, `Entity.where` conditions, and in `.predicts` the entity, the key and the field names | once, when the domain is constructed, with recording proxies | the full expression |
-| **runtime** | `.as` mappings, and the value of a predicted field when it is a function | for real, on each event or each write start | the declared effect (the entities `.as` lists, the predicted field names), never the computation |
+| **runtime** | `.as` mappings, and `.predicts` run again for real | `.as` on each event; `.predicts` at each write start, with the real input, and each function-valued field with the record | the declared effect (the entities `.as` lists, the predicted entities and field names), never the computation |
 
 Recording works as TanStack DB's query builder does (section 14): what a recorded function touches
 becomes a plain description (`ref`, `val`, `func`) that `flow graph`, `flow check`, `flow explain`
@@ -418,12 +419,15 @@ answer**. This amends `minimal-library.md`, which deferred infinite lists as one
 
 ### 4.6 Predictions and targets (`.predicts`, `.alsoChanges`, `.as`)
 
-- **`.predicts(({ input }) => Note.patch(input.key, { title: input.title }))`** records the entity,
-  the key and the field names. A field's value is an input reference or a function of the record
-  computed at runtime: `Account.patch(input.from, { balance: (a) => a.balance - input.amount })`.
-  Keys may be arrays (`User.patch(input.keys, { status: "archived" })`). `Note.delete(key)` hides a
-  record. A prediction may change any entity the entry names in a place or an `.alsoChanges` target,
-  so `addComment` may predict its post's `commentCount`.
+- **`.predicts(({ input }) => Note.patch(input.key, { title: input.title }))`** runs twice. At
+  construction it is recorded, which fixes the entity, the key and the field names. When the write
+  starts it runs again with the real input, so `input` is typed as the real input and a field's
+  value may compute from it: `Account.patch(input.from, { balance: (a) => a.balance - input.amount
+  })`, where the function receives the record. Keys may be arrays (`User.patch(input.keys, {
+  status: "archived" })`), and the version field cannot be patched (a type error).
+  `Note.delete(key)` hides a record of any entity. A **patch** may change only an entity the entry
+  names in a place or an `.alsoChanges` target, so `addComment` may predict its post's
+  `commentCount` once it targets `Post.fields(...)`; a patch to an unnamed entity is a type error.
 - **`.alsoChanges(({ input }) => targets)`** names what the server changes beyond the response, in
   the language of `.where`:
   - `Txn.where(({ record }) => eq(record.accountId, input.from))` reaches an answer when a record
@@ -978,9 +982,9 @@ an app obligation.
 | an operation is registered in at most one domain and reached only through it | the type system for registered values; `flow check` otherwise |
 | an operation whose result carries an entity's key fields but is not registered | `flow check` warning |
 | at most one `.byKey` per entity across the App | `flow check` |
-| predictions change only entities the entry names; `.as` results change only listed entities | the type system; at runtime for `.as` |
+| patches change only entities the entry names; `.as` results change only listed entities | the type system; at runtime for `.as` |
 | `.orderBy` ends with the key fields; the version field is in no condition or order; `.unaffectedBy` only on a server-ranked list; an entry-level `.where` with several `.derivedFrom`s | the type system |
-| every input of a list or derived read is accounted for | `flow check` error |
+| every input of a list or derived read is accounted for | the type system, at the entry |
 | call-site `optimistic`, `setData` or `clear` on a domain operation | the type system |
 | `cancel` concurrency on a predicting domain write | `flow check` error |
 | `listen` over an entity without a version | `flow check` warning |
@@ -1045,11 +1049,10 @@ Five designs were written to the same scope and reviewed with the same lenses (g
 
 ### 13.1 Gates before finalising
 
-1. **Type spike over the draft 8 surface.** The spike of section 15 predates `.orderBy`,
-   `.unordered`, `.pagedBy` with a next selector, `.derivedFrom` with fields and per-binding
-   conditions, `.as` with an entity list, per-field prediction functions, `Entity.where` and
-   `Entity.fields` targets, nested paths in conditions, tagged-union places and singletons. Each
-   must infer without annotations and give short errors.
+1. **Type spike over the draft 8 surface: passed** (section 15). Every shape infers without
+   annotations; 26 of 27 likely mistakes are rejected, and the 27th is the known conditional that
+   the source check covers. Open from it: most domain-level errors state their cause on the second
+   line, after a type dump.
 2. **Agent experiment** (`entities.md` section 5): agents write the domains of
    `entity-domain-examples.md` from this document alone, and the mistakes they make are compared
    with the checks of section 9.
@@ -1084,25 +1087,52 @@ Five designs were written to the same scope and reviewed with the same lenses (g
 | a lost write's fate needs the backend | Replicache server push; Zero mutators; Convex exactly-once mutations |
 | versioned tombstones | Linear's archive and delete actions; Electric `must-refetch` |
 
-## 15. Type spike results (draft 4 surface)
+## 15. Type spike results
 
-A spike built the types and a small recording runtime for draft 4's surface, with the notes app
-written without annotations. It has not been re-run for draft 8 (gate 1).
+The draft 8 spike (types plus a small recording runtime) wrote eleven domains without annotations:
+notes with a paged list and a ranked search, a nested-path read, todos, banking, calendar, admin,
+files, social, shop and a machine. The positive set compiles in about 0.2 seconds with TypeScript
+7.0.2 and Effect 4.0.5. Sixteen type-equality assertions confirm the inferred types are exact (not
+`any`), and a deliberately false one fails. Thirty-seven runtime checks of the recorded description
+pass, including a real run of a prediction.
 
-| Question | Result |
+| Shape | Result |
 | --- | --- |
-| record shape inferred from a plain struct at `.one` and `.list` | works: `record` in `.where` is exactly the inferred pick; context fields drop out; nested entities match recursively |
-| chains infer `input`, `record`, `result` with no annotations | works, provided the resource's `key` parameter is annotated |
-| `eq` operand types; `oneOf`, `contains`, `between` on the wrong field types | errors, one to three lines each |
-| `===` in `.where` | a type error and a runtime error naming the right form |
-| arithmetic, templates, `String(x)`, method calls on recorded values | runtime errors naming the path |
-| a mistyped place path; a place lacking the key | type errors; at runtime, an error listing the real fields or the missing key |
-| `.predicts` touching another entity type | a type error |
-| `?:`, `&&`, `\|\|` in `.where` | **compiles and runs, silently recording one branch**: needs the mandatory source check |
+| `.orderBy` ending with the key; tuple inference | works; an order not ending with the key is a type error naming both sort keys |
+| one order per list (`.orderBy`, `.unordered`, `.unaffectedBy`) | a second one is a type error with a sentence: "a list has one order…" |
+| `.unaffectedBy` | restricted to carried, non-key fields; after `.orderBy`, a type error explaining why |
+| `.pagedBy(input, next)`; the machine's `.more` | the next selector must have the paging input's type; `.more` exists only on paged reads |
+| `.derivedFrom` with fields and per-binding conditions | works; an entry-level `.where` with several is a type error with a sentence |
+| the input rule | **a type error**: recorded input values carry their field name, and `domain()` names the unused field |
+| the version field | absent from `record` and from patches (type errors), and rejected by the proxy at runtime |
+| nested paths (`record.author.userId`) | work, with the nested field's type |
+| tagged-union places, two `.list`s | each member is narrowed; `record` has exactly the shared fields, the tag as a union; a wrong member is rejected (reported at the entity, naming `kind`) |
+| singletons, `.pick` | the key comes from the response; a picked shape reports other fields as context |
+| `.as([Note], fn)` | a change to an unlisted entity is a type error |
+| per-field prediction functions | typed against the record and the real input; a wrong return type is a type error |
+| a patch to an unnamed entity | a type error with a sentence; deletes may name any entity |
+| `Entity.where` and `Entity.fields` targets | work; a wrong key shape is a type error |
+| call-site `optimistic`, `setData` | type errors; `optimistic` says to declare `.predicts` |
+| `?:` in a recorded position | **still compiles, recording one branch**: the mandatory source check stays |
 
-What it changed: keep inference with an optional explicit `.pick`; errors need named "verify" types
-that state the cause in words, and entities need a short printed name; a nested mismatch needs a
-recursive check to name the inner field.
+What the spike changed in the design:
+
+- **`.predicts` runs twice.** Draft 8 wrote function-valued fields that close over `input`; at
+  construction `input` is a recording proxy, so arithmetic on it throws. The callback is recorded
+  once for its structure and run again for real at write start (section 4.6).
+- **The input rule moved from `flow check` to the types** (section 2.4).
+- **Deletes need no place**: only patches are checked against the entities an entry names.
+- **Implementation trap**: a chain whose type accumulates the inputs it used must block inference
+  from the expected return type (`NoInfer`, or overloads instead of a conditional return), or an
+  inline entry widens to "every input used" and the rule silently passes. The spike hit this on
+  `.derivedFrom`.
+- **Messages.** Methods that are not available here take a sentence-typed parameter, so the error
+  reads as a reason. `domain()`-level errors (the input rule, unnamed patches) carry the sentence on
+  their second line, after a type dump; shortening them needs the named "verify" types the draft 4
+  spike recommended, and entities with short printed names.
+
+Not exercised: the Story read helpers, the trace and the runtime repair algorithm, which are gate 3.
+The spike lives in the session scratchpad and is not part of the repository.
 
 ## 16. Review record
 
