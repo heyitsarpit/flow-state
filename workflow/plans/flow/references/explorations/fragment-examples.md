@@ -1,16 +1,23 @@
 # Fragment examples by use case
 
-Companion to [fragments.md](fragments.md). Each example is deliberately small and shows one idea.
-The API is proposed, not built. Imports (`fragment`, `commitSlot`, `deny`, `Schema`, `Duration`)
-are omitted.
+The catalogue for [fragments.md](fragments.md): the one place that holds the full code of each
+fragment. Each example is small and shows one idea. The API is proposed, not built; every example
+follows the rules in fragments.md section 7. Imports (`fragment`, `prop`, `callback`, `deny`,
+`check`, `Schema`, `Duration`, `Equal`) are omitted.
 
-Conventions used below:
+Conventions:
 
-- `fragment(contract, build)`: the contract declares events, memory, states, slots and exits; the
-  build function returns handlers, like a machine.
-- **Mounted** fragments go in a host's `states` (`{ SAVE: CommitWithRetry(…) }`); **embedded** ones
-  go in `embeds` (`{ pinned: Toggle(…) }`).
-- The host reads `memory.<name>`, sends `E.<name>.<Event>`, binds `slots` and maps `exits`.
+- `fragment(contract, build)`. The contract declares events, memory, states and props; `build`
+  returns handlers like a machine. Every handler has a target (`"self"` or one of the fragment's
+  states).
+- Value props are `prop<T>()` (or `prop.optional<T>()`); callback props are `callback<P>()`. The
+  fragment reads `({ props })` and calls `props.onX` or `props.onX.from(f)` in `actions`.
+- The host's definition places a fragment (mounted in `states`, embedded in `embeds`); the host's
+  machine binds props and guards under the same name. In a callback handler the callback's data is
+  `payload`; a handler without a target keeps the fragment's target, and a handler that targets a
+  host state ends the mount.
+- A callback that cannot end a mount may be left unbound; calling it then does nothing (open
+  question 2 in fragments.md).
 
 ## 1. Switches and small UI state
 
@@ -42,73 +49,24 @@ export const Cycle = <const L extends string>(levels: readonly [L, ...L[]]) =>
     {
       id: "Cycle",
       events: { Next: {} },
-      memory: { level: Schema.Literals(levels) },
-      initial: () => ({ level: levels[0] }),
+      memory: { index: Schema.Int },
+      initial: () => ({ index: 0 }),
     },
     () => ({
       on: {
         Next: {
           target: "self",
-          updateMemory: ({ memory }) => ({
-            level: levels[(levels.indexOf(memory.level) + 1) % levels.length],
-          }),
+          updateMemory: ({ memory }) => ({ index: (memory.index + 1) % levels.length }),
         },
       },
     }),
   );
-// embeds: { fan: Cycle(["off", "low", "high"]) }   →  memory.fan.level
+export const levelOf = <L extends string>(levels: readonly [L, ...L[]], m: { index: number }): L =>
+  levels[m.index % levels.length]!;
+// embeds: { fan: Cycle(["off", "low", "high"]) }
 ```
 
-**Disclosure.** Open, close and Escape:
-
-```ts
-export const Disclosure = fragment(
-  {
-    id: "Disclosure",
-    events: { Open: {}, Close: {}, Escape: {} },
-    memory: { open: Schema.Boolean },
-    initial: () => ({ open: false }),
-  },
-  () => ({
-    on: {
-      Open: { target: "self", updateMemory: () => ({ open: true }) },
-      Close: { target: "self", updateMemory: () => ({ open: false }) },
-      Escape: {
-        target: "self",
-        guard: ({ memory }) => memory.open || deny("AlreadyClosed"),
-        updateMemory: () => ({ open: false }),
-      },
-    },
-  }),
-);
-```
-
-**Copied flash.** Shows "Copied" for two seconds, then resets itself:
-
-```ts
-export const Flash = (p: { for: Duration.Input }) =>
-  fragment(
-    {
-      id: "Flash",
-      events: { Show: {} },
-      internalEvents: { Hide: {} },
-      memory: { visible: Schema.Boolean },
-      initial: () => ({ visible: false }),
-    },
-    ({ E }) => ({
-      schedules: {
-        hide: { schedule: p.for, send: E.Hide, restartOn: ({ memory }) => memory.visible },
-      },
-      on: {
-        Show: { target: "self", updateMemory: () => ({ visible: true }) },
-        Hide: { target: "self", updateMemory: () => ({ visible: false }) },
-      },
-    }),
-  );
-// embeds: { copied: Flash({ for: "2 seconds" }) }
-```
-
-**Stepper with bounds**
+**Stepper with bounds.** The deny codes disable the buttons through `check()`:
 
 ```ts
 export const Stepper = (p: { min: number; max: number; start: number }) =>
@@ -134,28 +92,65 @@ export const Stepper = (p: { min: number; max: number; start: number }) =>
       },
     }),
   );
-// check(s, E.qty.Up()) → Denied("AtMax") disables the + button with no extra code
+// view: check(snapshot, Order.E.qty.Up())._tag === "Denied" disables the + button
+```
+
+**Flash.** "Copied" for two seconds; showing again extends it:
+
+```ts
+export const Flash = (p: { for: Duration.Input }) =>
+  fragment(
+    {
+      id: "Flash",
+      events: { Show: {} },
+      internalEvents: { Hide: {} },
+      memory: { shows: Schema.Int, visible: Schema.Boolean },
+      initial: () => ({ shows: 0, visible: false }),
+    },
+    ({ E }) => ({
+      // restartOn selects a counter, so every Show restarts the timer and Hide never does
+      schedules: {
+        hide: { schedule: p.for, send: E.Hide, restartOn: ({ memory }) => memory.shows },
+      },
+      on: {
+        Show: {
+          target: "self",
+          updateMemory: ({ memory }) => ({ shows: memory.shows + 1, visible: true }),
+        },
+        Hide: { target: "self", updateMemory: () => ({ visible: false }) },
+      },
+    }),
+  );
 ```
 
 ## 2. Forms and editing
 
-**Field with validation**
+**Field.** Validated from the start, so an untouched required field is invalid:
 
 ```ts
-export const Field = <V extends Schema.Top>(
-  value: V,
-  p: { empty: V["Type"]; validate: (v: V["Type"]) => string | null },
+export const Field = <V>(
+  value: Schema.Codec<V>,
+  p: { empty: V; validate: (v: V) => string | null },
 ) =>
   fragment(
     {
       id: "Field",
-      events: { Changed: { value }, Blurred: {} },
+      events: { Changed: { value }, Set: { value }, Blurred: {} }, // Changed: the user; Set: the host, silently
       memory: { value, touched: Schema.Boolean, error: Schema.NullOr(Schema.String) },
-      initial: () => ({ value: p.empty, touched: false, error: null }),
+      initial: ({ props }) => {
+        const start = props.start ?? p.empty;
+        return { value: start, touched: false, error: p.validate(start) };
+      },
+      props: { start: prop.optional<V>(), onChanged: callback<{ value: V }>() },
     },
-    () => ({
+    ({ props }) => ({
       on: {
         Changed: {
+          target: "self",
+          updateMemory: ({ event }) => ({ value: event.value, error: p.validate(event.value) }),
+          actions: [props.onChanged.from(({ event }) => ({ value: event.value }))],
+        },
+        Set: {
           target: "self",
           updateMemory: ({ event }) => ({ value: event.value, error: p.validate(event.value) }),
         },
@@ -164,12 +159,40 @@ export const Field = <V extends Schema.Top>(
     }),
   );
 export const isValid = (f: { error: string | null }) => f.error === null;
+export const visibleError = (f: { touched: boolean; error: string | null }) =>
+  f.touched ? f.error : null;
+```
+
+**A form from fields.** The host adds only the submit rule:
+
+```ts
+definition({
+  id: "Signup",
+  states: [
+    "FILLING",
+    { SUBMIT: CommitWithRetry(User, { maxRetries: 2, backoff: "1 second" }) },
+    "DONE",
+  ],
+  embeds: {
+    email: Field(Schema.String, {
+      empty: "",
+      validate: (v) => (v.includes("@") ? null : "Not an email"),
+    }),
+    password: Field(Schema.String, {
+      empty: "",
+      validate: (v) => (v.length >= 12 ? null : "Too short"),
+    }),
+  },
+  events: { Submit: {} },
+  // …
+});
+// machine: FILLING: { on: { Submit: { target: S.SUBMIT, guard: ({ memory }) => (isValid(memory.email) && isValid(memory.password)) || deny("Invalid"), actions: [createUser] } } }
 ```
 
 **Draft against a confirmed value.** Server values never overwrite local edits:
 
 ```ts
-export const Draft = <V extends Schema.Top>(value: V, p: { empty: V["Type"] }) =>
+export const Draft = <V>(value: Schema.Codec<V>, p: { empty: V }) =>
   fragment(
     {
       id: "Draft",
@@ -194,28 +217,16 @@ export const Draft = <V extends Schema.Top>(value: V, p: { empty: V["Type"] }) =
       },
     }),
   );
-// host maps a confirmed server value in:  value: E.title.Confirmed.from((t) => ({ value: t.title }))
+export const isDirty = <V>(m: { draft: V; saved: V }) => !Equal.equals(m.draft, m.saved);
+// host: the confirmed server value is mapped onto the internal event
+//   activities: { ticket: O.Tickets.ticketById.subscribe(key, { outcomes: { value: E.title.Confirmed.from((t) => ({ value: t.title })) } }) }
 ```
 
-**A whole form from fields.** The host adds only the submit rule:
+**Undo over a field.** `past` holds the values each change replaced; the restored value comes
+from the pre-turn snapshot, so popping it in the same transition is safe:
 
 ```ts
-definition({
-  id: "Signup",
-  states: ["FILLING", { SUBMIT: CommitWithRetry(User, retry) }, "DONE"],
-  embeds: {
-    email: Field(Schema.String, { empty: "", validate: emailRule }),
-    password: Field(Schema.String, { empty: "", validate: passwordRule }),
-  },
-  events: { Submit: {} },
-});
-// FILLING: { on: { Submit: { target: S.SUBMIT, guard: ({ memory }) => (isValid(memory.email) && isValid(memory.password)) || deny("Invalid") } } }
-```
-
-**Undo history over a value**
-
-```ts
-export const Undo = <V extends Schema.Top>(value: V) =>
+export const Undo = <V>(value: Schema.Codec<V>) =>
   fragment(
     {
       id: "Undo",
@@ -223,32 +234,36 @@ export const Undo = <V extends Schema.Top>(value: V) =>
       internalEvents: { Record: { value } },
       memory: { past: Schema.Array(value) },
       initial: () => ({ past: [] }),
-      slots: { apply: "action" },
+      props: { onRestore: callback<{ value: V }>() },
     },
-    ({ slots }) => ({
+    ({ props }) => ({
       on: {
-        Record: {
-          target: "self",
-          updateMemory: ({ event, memory }) => ({ past: [...memory.past, event.value].slice(-50) }),
-        },
+        Record: { target: "self", updateMemory: ({ event, memory }) => ({ past: [...memory.past, event.value].slice(-50) }) },
         Undo: {
           target: "self",
           guard: ({ memory }) => memory.past.length > 0 || deny("NothingToUndo"),
           updateMemory: ({ memory }) => ({ past: memory.past.slice(0, -1) }),
-          actions: [slots.apply],
+          actions: [props.onRestore.from(({ memory }) => ({ value: memory.past.at(-1)! }))],
         },
       },
     }),
   );
+
+// host: before each user change, record the value it replaces (read from the pre-turn snapshot);
+// restore silently with Set so the restore is not recorded again
+embeds: {
+  title: { props: { onChanged: { raise: [E.history.Record.from(({ memory }) => ({ value: memory.title.value }))] } } },
+  history: { props: { onRestore: { raise: [E.title.Set.from(({ payload }) => ({ value: payload.value }))] } } },
+},
 ```
 
 ## 3. Async work
 
-**Commit with retry**, mounted, with a commit slot:
+**CommitWithRetry.** The host sends; the fragment decides when to retry and how it ends:
 
 ```ts
-export const CommitWithRetry = <V extends Schema.Top>(
-  value: V,
+export const CommitWithRetry = <V>(
+  value: Schema.Codec<V>,
   p: { maxRetries: number; backoff: Duration.Input },
 ) =>
   fragment(
@@ -256,33 +271,52 @@ export const CommitWithRetry = <V extends Schema.Top>(
       id: "CommitWithRetry",
       states: ["SENDING", "WAITING"],
       events: { Cancel: {} },
-      internalEvents: { RetryDue: {} },
+      internalEvents: {
+        Succeeded: { value },
+        Busy: {},
+        Rejected: { reason: Schema.String },
+        Uncertain: {},
+        RetryDue: {},
+      },
       memory: { retries: Schema.Int },
       initial: () => ({ retries: 0 }),
-      slots: {
-        commit: commitSlot({
-          success: value,
-          failures: { Busy: {}, Rejected: { reason: Schema.String } },
-        }),
+      props: {
+        onSend: callback(), // called for every retry; the first send is the host's transition into the mount
+        onDone: callback<{ value: V }>(),
+        onFailed: callback<{ reason: string }>(),
+        onUncertain: callback(),
+        onCancel: callback(),
       },
-      exits: { Done: { value }, Failed: { reason: Schema.String }, Cancelled: {} },
     },
-    ({ S, E, X, slots }) => ({
+    ({ S, E, props }) => ({
       default: S.SENDING,
-      on: { Cancel: X.Cancelled },
+      on: { Cancel: { target: "self", actions: [props.onCancel] } },
       states: {
         SENDING: {
-          entry: [slots.commit],
           on: {
-            "commit.Success": X.Done.from(({ event }) => ({ value: event.value })),
-            "commit.Rejected": X.Failed.from(({ event }) => ({ reason: event.reason })),
-            "commit.Busy": [
+            Succeeded: {
+              target: "self",
+              actions: [props.onDone.from(({ event }) => ({ value: event.value }))],
+            },
+            Rejected: {
+              target: "self",
+              actions: [props.onFailed.from(({ event }) => ({ reason: event.reason }))],
+            },
+            Uncertain: { target: "self", actions: [props.onUncertain] },
+            Busy: [
               {
                 target: S.WAITING,
                 guard: ({ memory }) => memory.retries < p.maxRetries || deny("RetryLimitReached"),
                 updateMemory: ({ memory }) => ({ retries: memory.retries + 1 }),
               },
-              X.Failed.from(() => ({ reason: "gave up" })),
+              {
+                target: "self",
+                actions: [
+                  props.onFailed.from(({ memory }) => ({
+                    reason: `gave up after ${memory.retries} retries`,
+                  })),
+                ],
+              },
             ],
           },
         },
@@ -293,14 +327,123 @@ export const CommitWithRetry = <V extends Schema.Top>(
               send: E.RetryDue,
             },
           },
-          on: { RetryDue: S.SENDING },
+          on: { RetryDue: { target: S.SENDING, actions: [props.onSend] } },
         },
       },
     }),
   );
 ```
 
-**Debounce**
+The host binding, with every outcome mapped (including `unknown`, required for restore):
+
+```ts
+const commitTitle = O.Tickets.saveTitle.commit(titleInput, {
+  outcomes: {
+    success: E.SAVE.Succeeded.from((ticket) => ({ value: ticket })),
+    failure: { TicketLocked: E.SAVE.Busy, TitleRejected: E.SAVE.Rejected.from(({ reason }) => ({ reason })) },
+    unknown: E.SAVE.Uncertain,
+  },
+});
+
+EDITING: { on: { SaveRequested: { target: S.SAVE, guard: canSave, actions: [commitTitle] } } },
+SAVE: {
+  props: {
+    onSend: { actions: [commitTitle] },
+    onDone: { target: S.SAVED, actions: [toastSaved] },
+    onFailed: { target: S.FAILED, updateMemory: ({ payload }) => ({ error: payload.reason }) },
+    onUncertain: { target: S.UNCERTAIN },
+    onCancel: { target: S.EDITING, actions: [O.Tickets.saveTitle.cancel(ticketKey)] },
+  },
+},
+```
+
+**AutoSave.** Seeded from the host. It saves a quiet period after the last edit, only when the
+server copy has not moved underneath, and keeps saving edits made while a save was running:
+
+```ts
+export const AutoSave = <V>(value: Schema.Codec<V>) =>
+  fragment(
+    {
+      id: "AutoSave",
+      states: ["CLEAN", "DIRTY", "SAVING", "FAILED"],
+      events: { Changed: { value }, Close: {} },
+      internalEvents: { Due: {}, Succeeded: { value }, Rejected: { reason: Schema.String }, Uncertain: {} },
+      memory: { draft: value, saved: value },
+      initial: ({ props }) => ({ draft: props.loaded, saved: props.loaded }),
+      props: {
+        loaded: prop<V>(), // the value the host opened
+        server: prop<V>(), // the server's current value
+        delay: prop<Duration.Input>(),
+        onSave: callback<{ value: V }>(),
+        onSaved: callback<{ value: V }>(),
+        onFailed: callback<{ reason: string }>(),
+        onClose: callback(),
+      },
+    },
+    ({ S, E, props }) => ({
+      default: S.CLEAN,
+      on: {
+        // an edit (re)enters DIRTY, which restarts its timer: a debounce
+        Changed: { target: S.DIRTY, updateMemory: ({ event }) => ({ draft: event.value }) },
+        Close: { target: "self", actions: [props.onClose] },
+      },
+      states: {
+        CLEAN: {},
+        DIRTY: {
+          schedules: { autosave: { schedule: ({ props }) => props.delay, send: E.Due } },
+          on: {
+            Due: {
+              target: S.SAVING,
+              guard: ({ props, memory }) => Equal.equals(props.server, memory.saved) || deny("ChangedOnServer"),
+              actions: [props.onSave.from(({ memory }) => ({ value: memory.draft }))],
+            },
+          },
+        },
+        SAVING: {
+          on: {
+            // edits during a save are kept; the outcome decides whether more saving is needed
+            Changed: { target: "self", updateMemory: ({ event }) => ({ draft: event.value }) },
+            Succeeded: [
+              {
+                target: S.CLEAN,
+                guard: ({ event, memory }) => Equal.equals(event.value, memory.draft) || deny("DraftMovedOn"),
+                updateMemory: ({ event }) => ({ saved: event.value }),
+                actions: [props.onSaved.from(({ event }) => ({ value: event.value }))],
+              },
+              { target: S.DIRTY, updateMemory: ({ event }) => ({ saved: event.value }), actions: [props.onSaved.from(({ event }) => ({ value: event.value }))] },
+            ],
+            Rejected: { target: S.FAILED, actions: [props.onFailed.from(({ event }) => ({ reason: event.reason }))] },
+            Uncertain: { target: S.FAILED, actions: [props.onFailed.from(() => ({ reason: "The save may not have completed" }))] },
+          },
+        },
+        FAILED: {}, // the next edit enters DIRTY again through the root handler
+      },
+    }),
+  );
+
+// host: the note subscription is a host activity on an ancestor of NOTE
+const saveNote = O.Notes.save.commit(({ memory, payload }) => ({ ...noteKey({ memory }), body: payload.value }), {
+  outcomes: {
+    success: E.NOTE.Succeeded.from((note) => ({ value: note.body })),
+    failure: { ValidationFailed: E.NOTE.Rejected.from((e) => ({ reason: e.message })) },
+    unknown: E.NOTE.Uncertain,
+  },
+});
+NOTE: {
+  props: {
+    loaded: ({ memory }) => memory.body,
+    server: ({ activities, memory }) => activities.note?.data?.body ?? memory.body,
+    delay: ({ memory }) => memory.prefs.autosaveDelay,
+    onSave: { actions: [saveNote] },
+    onSaved: { actions: [toastSaved] },
+    onFailed: { updateMemory: ({ payload }) => ({ error: payload.reason }) }, // stays in the mount
+    onClose: { target: S.LIST },
+  },
+  guards: { Due: ({ context }) => context.canEdit || deny("ReadOnly") },
+},
+```
+
+**Debounce.** Fires once, the given time after the last input:
 
 ```ts
 export const Debounce = (p: { wait: Duration.Input }) =>
@@ -309,17 +452,18 @@ export const Debounce = (p: { wait: Duration.Input }) =>
       id: "Debounce",
       events: { Input: {} },
       internalEvents: { Due: {} },
-      memory: { pending: Schema.Boolean },
-      initial: () => ({ pending: false }),
-      slots: { fire: "action" },
+      memory: { seq: Schema.Int },
+      initial: () => ({ seq: 0 }),
+      props: { onSettled: callback() },
     },
-    ({ E, slots }) => ({
+    ({ E, props }) => ({
+      // every Input changes seq and restarts the timer; Due changes nothing, so it fires once
       schedules: {
-        settle: { schedule: p.wait, send: E.Due, restartOn: ({ memory }) => memory.pending },
+        settle: { schedule: p.wait, send: E.Due, restartOn: ({ memory }) => memory.seq },
       },
       on: {
-        Input: { target: "self", updateMemory: () => ({ pending: true }) },
-        Due: { target: "self", updateMemory: () => ({ pending: false }), actions: [slots.fire] },
+        Input: { target: "self", updateMemory: ({ memory }) => ({ seq: memory.seq + 1 }) },
+        Due: { target: "self", actions: [props.onSettled] },
       },
     }),
   );
@@ -334,86 +478,116 @@ export const Cooldown = (p: { for: Duration.Input }) =>
       id: "Cooldown",
       events: { Use: {} },
       internalEvents: { Ready: {} },
-      memory: { cooling: Schema.Boolean },
-      initial: () => ({ cooling: false }),
-      slots: { act: "action" },
+      memory: { uses: Schema.Int, cooling: Schema.Boolean },
+      initial: () => ({ uses: 0, cooling: false }),
+      props: { onUse: callback() },
     },
-    ({ E, slots }) => ({
+    ({ E, props }) => ({
       schedules: {
-        ready: { schedule: p.for, send: E.Ready, restartOn: ({ memory }) => memory.cooling },
+        ready: { schedule: p.for, send: E.Ready, restartOn: ({ memory }) => memory.uses },
       },
       on: {
         Use: {
           target: "self",
           guard: ({ memory }) => !memory.cooling || deny("CoolingDown"),
-          updateMemory: () => ({ cooling: true }),
-          actions: [slots.act],
+          updateMemory: ({ memory }) => ({ uses: memory.uses + 1, cooling: true }),
+          actions: [props.onUse],
         },
         Ready: { target: "self", updateMemory: () => ({ cooling: false }) },
       },
     }),
   );
-// embeds: { resend: { fragment: Cooldown({ for: "30 seconds" }), slots: { act: O.Auth.sendCode.commit(codeInput) } } }
+// host: embeds: { resend: { props: { onUse: { actions: [O.Auth.sendCode.commit(codeInput)] } } } }
 ```
 
-**Timeout.** Gives up if nothing happens in time:
+**Timeout.** A one-state step: something arrives in time, or the time runs out:
 
 ```ts
-export const Timeout = (p: { after: Duration.Input }) =>
-  fragment(
-    {
-      id: "Timeout",
-      events: { Arrived: {} },
-      internalEvents: { Expired: {} },
-      exits: { InTime: {}, TimedOut: {} },
+export const Timeout = fragment(
+  {
+    id: "Timeout",
+    events: { Arrived: {} },
+    internalEvents: { Expired: {} },
+    props: { after: prop<Duration.Input>(), onArrived: callback(), onTimedOut: callback() },
+  },
+  ({ E, props }) => ({
+    schedules: { expire: { schedule: ({ props }) => props.after, send: E.Expired } },
+    on: {
+      Arrived: { target: "self", actions: [props.onArrived] },
+      Expired: { target: "self", actions: [props.onTimedOut] },
     },
-    ({ E, X }) => ({
-      schedules: { expire: { schedule: p.after, send: E.Expired } },
-      on: { Arrived: X.InTime, Expired: X.TimedOut },
-    }),
-  );
-// states: [{ WAITING_FOR_DRIVER: Timeout({ after: "2 minutes" }) }, …]
+  }),
+);
+// host: states: [{ WAITING_FOR_DRIVER: Timeout }, "ASSIGNED", "ESCALATED"]
+//   WAITING_FOR_DRIVER: { props: { after: () => "2 minutes", onArrived: { target: S.ASSIGNED }, onTimedOut: { target: S.ESCALATED } } }
 ```
 
-**Poll with backoff.** An activity slot, refreshed on a growing schedule:
+**Poll with backoff.** Waits, refreshes, and waits again for a time stretched by failures; one
+refresh at a time:
 
 ```ts
 export const Poll = (p: { every: Duration.Input; maxBackoff: Duration.Input }) =>
   fragment(
     {
       id: "Poll",
-      internalEvents: { Tick: {} },
+      states: ["WAITING", "REFRESHING"],
+      internalEvents: { Tick: {}, Ok: {}, Failed: {} },
       memory: { failures: Schema.Int },
       initial: () => ({ failures: 0 }),
-      slots: { refresh: "action", watch: "activity" },
+      props: { onRefresh: callback() },
     },
-    ({ E, slots }) => ({
-      activities: { watched: slots.watch },
-      schedules: {
-        tick: {
-          schedule: ({ memory }) =>
-            Duration.min(Duration.times(p.every, 2 ** memory.failures), p.maxBackoff),
-          send: E.Tick,
+    ({ S, E, props }) => ({
+      default: S.WAITING,
+      states: {
+        WAITING: {
+          // armed on every entry, with the failure count as it is then
+          schedules: {
+            tick: {
+              schedule: ({ memory }) =>
+                Duration.min(Duration.times(p.every, 2 ** memory.failures), p.maxBackoff),
+              send: E.Tick,
+            },
+          },
+          on: { Tick: { target: S.REFRESHING, actions: [props.onRefresh] } },
+        },
+        REFRESHING: {
+          on: {
+            Ok: { target: S.WAITING, updateMemory: () => ({ failures: 0 }) },
+            Failed: {
+              target: S.WAITING,
+              updateMemory: ({ memory }) => ({ failures: memory.failures + 1 }),
+            },
+          },
         },
       },
-      on: { Tick: { target: "self", actions: [slots.refresh] } },
     }),
   );
+// host: an untagged failure mapping receives every error; defects count as failures too
+//   LIVE: { props: { onRefresh: { actions: [O.Tickets.list.refetch(listInput, { outcomes: { success: E.LIVE.Ok, failure: E.LIVE.Failed, defect: E.LIVE.Failed } })] } } }
 ```
 
 ## 4. Confirmation and safety
 
-**Confirm**
+**Confirm.** One state, two ways out:
 
 ```ts
 export const Confirm = fragment(
-  { id: "Confirm", events: { Yes: {}, No: {} }, exits: { Confirmed: {}, Declined: {} } },
-  ({ X }) => ({ on: { Yes: X.Confirmed, No: X.Declined } }),
+  {
+    id: "Confirm",
+    events: { Yes: {}, No: {} },
+    props: { onConfirm: callback(), onDecline: callback() },
+  },
+  ({ props }) => ({
+    on: {
+      Yes: { target: "self", actions: [props.onConfirm] },
+      No: { target: "self", actions: [props.onDecline] },
+    },
+  }),
 );
-// DELETE_ASK: { exits: { Confirmed: { target: S.DELETING, actions: [deleteTicket] }, Declined: S.VIEWING } }
+// host: DELETE_ASK: { props: { onConfirm: { target: S.DELETING, actions: [deleteTicket] }, onDecline: { target: S.VIEWING } } }
 ```
 
-**Hold to confirm.** The action only fires after a press is held:
+**Hold to confirm**
 
 ```ts
 export const HoldToConfirm = (p: { hold: Duration.Input }) =>
@@ -423,22 +597,25 @@ export const HoldToConfirm = (p: { hold: Duration.Input }) =>
       states: ["IDLE", "HOLDING"],
       events: { Press: {}, Release: {} },
       internalEvents: { Held: {} },
-      exits: { Confirmed: {} },
+      props: { onConfirmed: callback() },
     },
-    ({ S, E, X }) => ({
+    ({ S, E, props }) => ({
       default: S.IDLE,
       states: {
-        IDLE: { on: { Press: S.HOLDING } },
+        IDLE: { on: { Press: { target: S.HOLDING } } },
         HOLDING: {
           schedules: { held: { schedule: p.hold, send: E.Held } },
-          on: { Release: S.IDLE, Held: X.Confirmed },
+          on: {
+            Release: { target: S.IDLE },
+            Held: { target: S.IDLE, actions: [props.onConfirmed] },
+          },
         },
       },
     }),
   );
 ```
 
-**Typed confirmation.** The user must type the resource name, built from a `Field`:
+**Type to confirm.** Built from a `Field`; nothing typed means not confirmed:
 
 ```ts
 export const TypeToConfirm = (p: { phrase: string }) =>
@@ -452,89 +629,51 @@ export const TypeToConfirm = (p: { phrase: string }) =>
         }),
       },
       events: { Confirm: {}, Cancel: {} },
-      exits: { Confirmed: {}, Cancelled: {} },
+      props: { onConfirm: callback(), onCancel: callback() },
     },
-    ({ X }) => ({
+    ({ props }) => ({
       on: {
         Confirm: {
-          target: X.Confirmed,
+          target: "self",
           guard: ({ memory }) => isValid(memory.typed) || deny("PhraseMismatch"),
+          actions: [props.onConfirm],
         },
-        Cancel: X.Cancelled,
+        Cancel: { target: "self", actions: [props.onCancel] },
       },
     }),
   );
 ```
 
-## 5. Lists and selection
+## 5. Lists
 
-**Paginate.** Over any paged read the host supplies:
+**Paginate.** The host owns the paged read; the fragment knows when more is possible:
 
 ```ts
 export const Paginate = fragment(
-  { id: "Paginate", events: { More: {} }, slots: { list: "activity", more: "action" } },
-  ({ slots }) => ({
-    activities: { page: slots.list },
+  {
+    id: "Paginate",
+    events: { More: {} },
+    props: { hasMore: prop<boolean>(), onLoadMore: callback() },
+  },
+  ({ props }) => ({
     on: {
       More: {
         target: "self",
-        guard: ({ activities }) => activities.page?.hasMore || deny("NoMorePages"),
-        actions: [slots.more],
+        guard: ({ props }) => props.hasMore || deny("NoMorePages"),
+        actions: [props.onLoadMore],
       },
     },
   }),
 );
-```
-
-**Selection.** A set of keys, with select-all:
-
-```ts
-export const Selection = <K extends Schema.Top>(key: K) =>
-  fragment(
-    {
-      id: "Selection",
-      events: { Toggle: { key }, Clear: {}, SelectAll: { keys: Schema.Array(key) } },
-      memory: { selected: Schema.Array(key) },
-      initial: () => ({ selected: [] }),
-    },
-    () => ({
-      on: {
-        Toggle: {
-          target: "self",
-          updateMemory: ({ event, memory }) => ({ selected: toggleIn(memory.selected, event.key) }),
-        },
-        Clear: { target: "self", updateMemory: () => ({ selected: [] }) },
-        SelectAll: { target: "self", updateMemory: ({ event }) => ({ selected: event.keys }) },
-      },
-    }),
-  );
-// guard for bulk delete: ({ memory }) => memory.rows.selected.length > 0 || deny("NothingSelected")
-```
-
-**Sort and filter state.** Input to a list read, never a client-side sort:
-
-```ts
-export const ListQuery = <F extends Schema.Top>(filter: F, p: { initial: F["Type"] }) =>
-  fragment(
-    {
-      id: "ListQuery",
-      events: { Filter: { filter }, SortBy: { field: Schema.String } },
-      memory: { filter, sortBy: Schema.String },
-      initial: () => ({ filter: p.initial, sortBy: "updatedAt" }),
-    },
-    () => ({
-      on: {
-        Filter: { target: "self", updateMemory: ({ event }) => ({ filter: event.filter }) },
-        SortBy: { target: "self", updateMemory: ({ event }) => ({ sortBy: event.field }) },
-      },
-    }),
-  );
-// the host's list activity reads memory.query.filter and memory.query.sortBy as its input
+// host: embeds: { tickets: { props: {
+//   hasMore: ({ activities }) => activities.list?.hasMore ?? false,
+//   onLoadMore: { actions: [O.Tickets.list.more(listInput)] },
+// } } }
 ```
 
 ## 6. Flows built from steps
 
-**A wizard step.** Two fields plus a confirm, ending in an exit:
+**A wizard step.** Seeded from what the host kept, so going back keeps what was typed:
 
 ```ts
 export const AddressStep = fragment(
@@ -542,12 +681,20 @@ export const AddressStep = fragment(
     id: "AddressStep",
     states: ["FILLING", { CHECK: Confirm }],
     embeds: { street: Field(Schema.String, streetRules), city: Field(Schema.String, cityRules) },
-    events: { Next: {}, Back: {} },
-    exits: { Done: { address: Address }, Back: {} },
+    events: { Next: {}, GoBack: {} },
+    props: {
+      address: prop.optional<Address>(),
+      onDone: callback<{ address: Address }>(),
+      onBack: callback(),
+    },
   },
-  ({ S, X }) => ({
+  ({ S, props }) => ({
     default: S.FILLING,
-    on: { Back: X.Back },
+    embeds: {
+      street: { props: { start: ({ props }) => props.address?.street } },
+      city: { props: { start: ({ props }) => props.address?.city } },
+    },
+    on: { GoBack: { target: "self", actions: [props.onBack] } },
     states: {
       FILLING: {
         on: {
@@ -559,9 +706,15 @@ export const AddressStep = fragment(
         },
       },
       CHECK: {
-        exits: {
-          Confirmed: X.Done.from(({ memory }) => ({ address: toAddress(memory) })),
-          Declined: S.FILLING,
+        props: {
+          onConfirm: {
+            actions: [
+              props.onDone.from(({ memory }) => ({
+                address: { street: memory.street.value, city: memory.city.value },
+              })),
+            ],
+          },
+          onDecline: { target: S.FILLING },
         },
       },
     },
@@ -569,61 +722,31 @@ export const AddressStep = fragment(
 );
 ```
 
-**A wizard from steps.** The host only wires exit to entry:
+**A wizard from steps.** The host keeps each step's result and hands it back:
 
 ```ts
-states: [{ ADDRESS: AddressStep }, { PAYMENT: PaymentStep }, { REVIEW: Confirm }, { PLACE: CommitWithRetry(Order, retry) }, "PLACED"],
+// definition (PaymentStep is written like AddressStep; Address, Payment and the field rules are
+// ordinary Schemas and functions)
+states: ["CART", { ADDRESS: AddressStep }, { PAYMENT: PaymentStep }, { REVIEW: Confirm }, { PLACE: CommitWithRetry(Order, retry) }, "PLACED"],
+memory: { address: Schema.NullOr(Address), payment: Schema.NullOr(Payment) },
 
-ADDRESS: { exits: { Done: S.PAYMENT, Back: S.CART } },
-PAYMENT: { exits: { Done: S.REVIEW, Back: S.ADDRESS } },
-REVIEW:  { exits: { Confirmed: S.PLACE, Declined: S.PAYMENT } },
-PLACE:   { slots: { commit: O.Orders.place.commit(orderInput) }, exits: { Done: S.PLACED, Failed: S.REVIEW, Cancelled: S.REVIEW } },
+// machine
+ADDRESS: { props: { address: ({ memory }) => memory.address ?? undefined, onDone: { target: S.PAYMENT, updateMemory: ({ payload }) => ({ address: payload.address }) }, onBack: { target: S.CART } } },
+PAYMENT: { props: { payment: ({ memory }) => memory.payment ?? undefined, onDone: { target: S.REVIEW, updateMemory: ({ payload }) => ({ payment: payload.payment }) }, onBack: { target: S.ADDRESS } } },
+REVIEW: { props: { onConfirm: { target: S.PLACE, actions: [placeOrder] }, onDecline: { target: S.PAYMENT } } },
+PLACE: { props: { onSend: { actions: [placeOrder] }, onDone: { target: S.PLACED }, onFailed: { target: S.REVIEW }, onUncertain: { target: S.REVIEW }, onCancel: { target: S.REVIEW } } },
 ```
 
-**Load with retry.** A loading screen that offers "Try again":
+## 7. Policy through injected guards
+
+The fragment stays plain; the host attaches its rule to the fragment's event. The host's guard runs
+first, and `check()` reports its deny code first:
 
 ```ts
-export const Load = <V extends Schema.Top>(value: V) =>
-  fragment(
-    {
-      id: "Load",
-      states: ["LOADING", "ERROR"],
-      events: { Retry: {} },
-      slots: {
-        load: commitSlot({ success: value, failures: { Failed: { reason: Schema.String } } }),
-      },
-      exits: { Loaded: { value } },
-    },
-    ({ S, X, slots }) => ({
-      default: S.LOADING,
-      states: {
-        LOADING: {
-          entry: [slots.load],
-          on: {
-            "load.Success": X.Loaded.from(({ event }) => ({ value: event.value })),
-            "load.Failed": S.ERROR,
-          },
-        },
-        ERROR: { on: { Retry: S.LOADING } },
-      },
-    }),
-  );
-```
-
-## 7. Policy through guard slots
-
-**Permission-gated toggle.** The fragment asks; the host decides why:
-
-```ts
-// in Toggle:  Toggle: { target: "self", guard: slots.allow, updateMemory: flip }
-embeds: { pinned: { fragment: Toggle({ initial: false }), slots: { allow: ({ context }) => context.canEdit || deny("ReadOnly") } } }
-```
-
-**Business rules without the fragment knowing them**
-
-```ts
-// Stepper with a host cap from context
-embeds: { seats: { fragment: Stepper({ min: 1, max: 100, start: 1 }), slots: { allowUp: ({ memory, context }) => memory.seats.value < context.planSeats || deny("PlanLimit") } } }
+embeds: {
+  pinned: { guards: { Toggle: ({ context }) => context.canEdit || deny("ReadOnly") } },
+  seats: { guards: { Up: ({ memory, context }) => memory.seats.value < context.planSeats || deny("PlanLimit") } },
+},
 ```
 
 ## 8. Composition patterns
@@ -634,95 +757,220 @@ embeds: { seats: { fragment: Stepper({ min: 1, max: 100, start: 1 }), slots: { a
 embeds: { pinned: Toggle({ initial: false }), muted: Toggle({ initial: true }) }
 ```
 
-**Nesting and slot forwarding.** The inner slot becomes the outer fragment's slot:
+**Nesting, connected by raising.** A search box is a field plus a debounce; the outer fragment
+wires them and exposes one callback:
 
 ```ts
 export const SearchBox = fragment(
   {
     id: "SearchBox",
-    embeds: { query: Field(Schema.String, anyText), settle: Debounce({ wait: "300 millis" }) },
-    slots: { search: "action" },
+    embeds: {
+      query: Field(Schema.String, { empty: "", validate: () => null }),
+      settle: Debounce({ wait: "300 millis" }),
+    },
+    props: { onSearch: callback<{ query: string }>() },
   },
-  ({ slots }) => ({ embeds: { settle: { slots: { fire: slots.search } } } }),
+  ({ E, props }) => ({
+    embeds: {
+      query: { props: { onChanged: { raise: [E.settle.Input] } } },
+      settle: {
+        props: {
+          onSettled: {
+            actions: [props.onSearch.from(({ memory }) => ({ query: memory.query.value }))],
+          },
+        },
+      },
+    },
+  }),
 );
-// host: embeds: { search: { fragment: SearchBox, slots: { search: O.Tickets.list.refetch(searchKey) } } }
+// host: embeds: { search: { props: { onSearch: { actions: [O.Tickets.list.refetch(({ payload }) => ({ ...base, search: payload.query }))] } } } }
 ```
 
 **Hiding a fragment's events behind the host's own**
 
 ```ts
-embeds: { pinned: { fragment: Toggle({ initial: false }), events: "internal" } }
-// outside code can no longer send E.pinned.Toggle; the host exposes PinRequested instead
+// definition
+embeds: { pinned: { fragment: Toggle({ initial: false }), events: "internal" } },
+// outside code can no longer send E.pinned.Toggle; the host exposes PinRequested and raises it
 ```
 
-**A late outcome falls through to the host**
+**A late outcome.** A save that finishes after the editor left `SAVE` is fenced away from the
+fragment and reaches the host's own handler, keyed by the fragment event's full name:
 
 ```ts
-// the save finished after the editor left SAVE
-on: { "SAVE.commit.Success": { target: "self", actions: [toastSaved] } },
+on: { "SAVE.Succeeded": { target: "self", actions: [toastSaved] } },
 ```
 
-**Choosing between fragments by state.** Different behaviour per phase, same host:
+**One fragment, many machines**
 
 ```ts
-states: [{ DRAFTING: Draft(Body, empty) }, { PUBLISHING: CommitWithRetry(Post, retry) }, { SCHEDULED: Timeout({ after: "1 hour" }) }],
-```
-
-## 9. One fragment, many machines
-
-```ts
-// editor
 {
   SAVE: CommitWithRetry(TicketRow, { maxRetries: 5, backoff: "5 seconds" });
-}
-// checkout
+} // editor
 {
   PAY: CommitWithRetry(Receipt, { maxRetries: 3, backoff: "2 seconds" });
-}
-// uploader
+} // checkout
 {
   CHUNK: CommitWithRetry(ChunkAck, { maxRetries: 10, backoff: "500 millis" });
-}
-// queue filter and editor pin share Toggle; signup and settings share Field
+} // uploader
+```
+
+## 9. A host using several
+
+```ts
+// rename.definition.ts
+export const Rename = definition({
+  id: "DispatchDesk/Rename",
+  states: [
+    "EDITING",
+    { CONFIRM: Confirm },
+    { SAVE: CommitWithRetry(TicketRow, { maxRetries: 3, backoff: "2 seconds" }) },
+    "DONE",
+  ],
+  embeds: {
+    title: Field(Schema.String, { empty: "", validate: (v) => (v.trim() ? null : "Required") }),
+    pinned: Toggle({ initial: false }),
+    check: Debounce({ wait: "300 millis" }),
+  },
+  events: { Submit: {} },
+  input: { ticketId: Schema.String, title: Schema.String },
+  memory: { ticketId: Schema.String, currentTitle: Schema.String },
+  initial: ({ input }) => ({ ticketId: input.ticketId, currentTitle: input.title }),
+  operations: { Tickets: TicketsDomain },
+});
+```
+
+```ts
+// rename.machine.ts
+export const RenameMachine = machine(Rename, ({ S, E, O }) => {
+  const save = O.Tickets.saveTitle.commit(
+    ({ memory }) => ({
+      ticketId: memory.ticketId,
+      title: memory.title.value,
+      pinned: memory.pinned.on,
+    }),
+    {
+      outcomes: {
+        success: E.SAVE.Succeeded.from((t) => ({ value: t })),
+        failure: {
+          TicketLocked: E.SAVE.Busy,
+          TitleRejected: E.SAVE.Rejected.from(({ reason }) => ({ reason })),
+        },
+        unknown: E.SAVE.Uncertain,
+      },
+    },
+  );
+  return {
+    default: S.EDITING,
+    embeds: {
+      title: {
+        props: {
+          start: ({ memory }) => memory.currentTitle,
+          onChanged: { raise: [E.check.Input] },
+        },
+      }, // starts from the current title; typing feeds the debounce
+      check: {
+        props: {
+          onSettled: {
+            actions: [
+              O.Tickets.titleTaken.refetch(({ memory }) => ({ title: memory.title.value })),
+            ],
+          },
+        },
+      },
+    },
+    states: {
+      EDITING: {
+        on: {
+          Submit: {
+            target: S.CONFIRM,
+            guard: ({ memory }) => isValid(memory.title) || deny("Invalid"),
+          },
+        },
+      },
+      CONFIRM: {
+        props: { onConfirm: { target: S.SAVE, actions: [save] }, onDecline: { target: S.EDITING } },
+      },
+      SAVE: {
+        props: {
+          onSend: { actions: [save] },
+          onDone: { target: S.DONE },
+          onFailed: { target: S.EDITING },
+          onUncertain: { target: S.EDITING },
+          onCancel: {
+            target: S.EDITING,
+            actions: [O.Tickets.saveTitle.cancel(({ memory }) => ({ ticketId: memory.ticketId }))],
+          },
+        },
+      },
+      DONE: {},
+    },
+  };
+});
+```
+
+```ts
+// views and senders use the instance names
+rename.send(Rename.E.title.Changed({ value }));
+rename.send(Rename.E.pinned.Toggle());
+rename.send(Rename.E.CONFIRM.Yes());
+useView(rename, (s) => visibleError(s.memory.title));
+useView(rename, (s) => Rename.S.SAVE.WAITING.is(s));
 ```
 
 ## 10. Testing
 
-**A fragment on its own, with fake slots**
+`fragmentStory(fragment, { props })` runs one fragment with fixed value props, records every
+callback call with its payload in `run.calls`, and lets a test raise the fragment's internal events
+in place of operation outcomes.
+
+**A guard and a callback**
 
 ```ts
 test("Cooldown blocks a second use", async () => {
-  const run = await fragmentStory(Cooldown({ for: "30 seconds" }), { slots: { act: fake.action } })
-    .send(Cooldown.E.Use())
+  const cooldown = Cooldown({ for: "30 seconds" });
+  const run = await fragmentStory(cooldown)
+    .send(cooldown.E.Use())
     .process()
     .checkpoint("cooling")
-    .send(Cooldown.E.Use())
-    .process()
     .run();
-  expect(run.checkpoints.cooling.check(Cooldown.E.Use())).toMatchObject({ _tag: "Denied" });
+  expect(check(run.checkpoints.cooling.snapshot, cooldown.E.Use())).toMatchObject({
+    _tag: "Denied",
+  });
+  expect(run.calls.onUse).toHaveLength(1);
 });
 ```
 
-**Exploring every path of a fragment**
+**Retries and giving up**
 
 ```ts
-const { paths } = model(fragmentStory(Stepper({ min: 0, max: 2, start: 0 })), {
+test("CommitWithRetry gives up after its retry limit", async () => {
+  const commit = CommitWithRetry(TicketRow, { maxRetries: 2, backoff: "1 second" });
+  const run = await fragmentStory(commit)
+    .raise(commit.E.Busy())
+    .process()
+    .advance("2 seconds")
+    .process() // retry 1
+    .raise(commit.E.Busy())
+    .process()
+    .advance("4 seconds")
+    .process() // retry 2
+    .raise(commit.E.Busy())
+    .process() // gives up
+    .run();
+  expect(run.calls.onSend).toHaveLength(2);
+  expect(run.calls.onFailed).toEqual([{ reason: "gave up after 2 retries" }]);
+});
+```
+
+**Every path of a small fragment**
+
+```ts
+const stepper = Stepper({ min: 0, max: 2, start: 0 });
+const { paths, truncated } = model(fragmentStory(stepper), {
   stateKey: (s) => s.memory.value,
-}).getSimplePaths({ events: [Stepper.E.Up(), Stepper.E.Down()] });
-// small fragments have small state spaces, so every path can be checked
+}).getSimplePaths({ events: [stepper.E.Up(), stepper.E.Down()] });
 ```
 
-**A host's wiring only**
-
-```ts
-// the retry logic is already proven; the host test checks where exits lead
-story
-  .app(DeskSetup, { id: "rename-gives-up", fixtures: [AlwaysLocked] })
-  .ensure(RenameRef, { input })
-  .send(RenameRef, Rename.E.Submit())
-  .send(RenameRef, Rename.E.CONFIRM.Yes())
-  .process()
-  .advance("1 minute")
-  .process()
-  .checkpoint("back-to-editing");
-```
+The host still needs integration Stories for what fragment tests cannot see: its permissions,
+cancellation, re-entry, persistence and outcomes that arrive late.

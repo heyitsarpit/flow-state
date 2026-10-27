@@ -1,9 +1,11 @@
 # Fragments: reusable machine behaviour
 
-Status: exploration, not part of version 1. No plan has been changed for it; section 15 lists the
+Status: exploration, not part of version 1. No plan has been changed for it; section 12 lists the
 plan changes it would need. Where this document and a plan differ, the plan wins.
 
-Examples by use case: [fragment-examples.md](fragment-examples.md).
+Companion files: [fragment-examples.md](fragment-examples.md) holds the full code of every fragment;
+[fragment-contract-syntax.md](fragment-contract-syntax.md) records how this contract syntax was
+chosen.
 
 ## 1. The problem
 
@@ -13,34 +15,30 @@ inline with counters reset by hand (`lockRetries`). Flow State has no way to wri
 and reuse it:
 
 - **Substates** structure one machine; they cannot be shared between machines.
-- **Separate actors** (`useActor`, refs, context, `send`) give component-style reuse, with their
+- **Separate actors** (`useActor`, refs, context, `send`) give component-style reuse with their
   own identity and lifetime. That is too heavy for a toggle or a retry loop, and it splits one
   workflow across two mailboxes.
 
 What is missing is hook-style reuse: a piece of behaviour, inlined into a machine, with a typed
-contract. XState's maintainers advise against sharing state configuration because it breaks
-static analysis and typing, and point to separate actors instead
-([statelyai/xstate#3283](https://github.com/statelyai/xstate/discussions/3283)). UML's
-"submachine state", a reusable composite state with typed entry and exit points, is the closest
-prior art ([UML 15.3.11](https://site.uottawa.ca/~tcl/gradtheses/mnojoumian/ThesisFiles/FinalSpec/UML/15.3.11.html)).
+contract. UML's "submachine state", a reusable composite state with typed entry and exit points, is
+the closest prior art
+([UML 15.3.11](https://site.uottawa.ca/~tcl/gradtheses/mnojoumian/ThesisFiles/FinalSpec/UML/15.3.11.html)).
 
 ## 2. The idea
 
 A **fragment** is behaviour without identity. It declares states, events, memory, guards and
-schedules, and is inlined into a host machine when the machine is constructed. The host remains
-one actor with one mailbox, one turn and one plain snapshot, and everything still compiles into
-one representation ([FlowState.plan](../../FlowState.plan) D1).
-
-A fragment is created by an ordinary function: parameters in, a fragment value (plain data) out.
+schedules, and is inlined into a host machine when the machine is constructed. The host stays one
+actor with one mailbox, one turn and one plain snapshot, and everything compiles into one
+representation ([FlowState.plan](../../FlowState.plan) D1).
 
 ```ts
-export const Toggle = (params: { initial: boolean }) =>
+export const Toggle = (p: { initial: boolean }) =>
   fragment(
     {
       id: "Toggle",
       events: { Toggle: {} },
       memory: { on: Schema.Boolean },
-      initial: () => ({ on: params.initial }),
+      initial: () => ({ on: p.initial }),
     },
     () => ({
       on: { Toggle: { target: "self", updateMemory: ({ memory }) => ({ on: !memory.on }) } },
@@ -48,534 +46,319 @@ export const Toggle = (params: { initial: boolean }) =>
   );
 ```
 
+The smallest host: the definition places it under a name, and that name is how everything reaches
+it.
+
+```ts
+const Editor = definition({
+  id: "Editor",
+  states: ["OPEN"],
+  embeds: { pinned: Toggle({ initial: false }) } /* … */,
+});
+
+editor.send(Editor.E.pinned.Toggle());
+useView(editor, (s) => s.memory.pinned.on);
+```
+
+### Which tool?
+
+| Use                  | When                                                                                                                     |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| **Plain substates**  | the behaviour appears once, or only structures one machine                                                               |
+| **A fragment**       | the same behaviour appears in more than one machine, needs no I/O of its own, and belongs in the host's mailbox and turn |
+| **A separate actor** | it needs its own identity, lifetime, context or operations, or something else must address it                            |
+
+Extract a fragment on the second use, not the first.
+
 ## 3. Machine versus fragment
 
 A machine is behaviour plus everything needed to exist as an actor. A fragment is only the
 behaviour.
 
-|                                            | Machine                                          | Fragment                                                         |
-| ------------------------------------------ | ------------------------------------------------ | ---------------------------------------------------------------- |
-| Identity                                   | id, refs, `ensureActor` / `createActor`          | none; exists only inside a host                                  |
-| Mailbox and turns                          | its own                                          | its host's                                                       |
-| Lifetime                                   | created, retained, disposed                      | mounted: while its state is active; embedded: the host's         |
-| Input and initial                          | `input` and `initial({ input })`, once per actor | parameters and `initial()`; mounted: every entry; embedded: once |
-| Memory                                     | owns its memory                                  | owns one named slice; the host reads it, never writes it         |
-| States, events, guards, updates, schedules | yes                                              | yes, under its instance name                                     |
-| Operations, context, `onContext`, `send`   | yes                                              | no; it declares slots the host fills                             |
-| Persistence opt-in                         | yes                                              | no; saved as part of its host                                    |
-| Ending                                     | never ends by itself                             | exits: named, typed ways to hand control back                    |
-| Contains fragments                         | yes                                              | yes                                                              |
+|                                            | Machine                                          | Fragment                                                                   |
+| ------------------------------------------ | ------------------------------------------------ | -------------------------------------------------------------------------- |
+| Identity                                   | id, refs, `ensureActor` / `createActor`          | none; exists only inside a host                                            |
+| Mailbox and turns                          | its own                                          | its host's                                                                 |
+| Lifetime                                   | created, retained, disposed                      | mounted: one entry of its state; embedded: its host's                      |
+| Input and initial                          | `input` and `initial({ input })`, once per actor | parameters, and `initial({ props })`; mounted: every entry; embedded: once |
+| Memory                                     | owns its memory                                  | owns one named slice; the host reads it and never writes it                |
+| States, events, guards, updates, schedules | yes                                              | yes, under its instance name                                               |
+| Operations, context, `onContext`, `send`   | yes                                              | no; the host does I/O and tells the fragment through props and events      |
+| Persistence opt-in                         | yes                                              | no; saved as part of its host                                              |
+| Ending                                     | never ends by itself                             | a callback prop whose host handler targets a state outside the mount       |
+| Contains fragments                         | yes                                              | yes                                                                        |
 
 A fragment can do everything inside one actor's head: states, memory, rules and timing. It cannot
 touch the world: I/O, other actors, wiring, storage or identity. Section 8 explains why.
 
-So a machine can be read as a collection of fragments:
-
-```text
-machine = its own states, events and memory (a root fragment)
-        + mounted and embedded fragments
-        + runtime capabilities: identity, input, operations, context, send, persistence, lifetime
-```
-
-## 4. Two ways to place a fragment
+## 4. Mounted and embedded
 
 The plans keep exactly one active leaf state per actor ([Machines.plan](../../Machines.plan) O2),
 so reusable behaviour comes in two kinds:
 
-- **Sequential**: a step in a flow (save with retry, a confirmation, a wizard step). It has states
-  or exits and is **mounted** as one of the host's states.
-- **Orthogonal**: something that runs alongside every state (a toggle, a field, a debounce). It has
-  no states and is **embedded** at the host's root.
+- **Mounted**: a step in a flow (save with retry, a confirmation, a wizard step). It is placed as
+  one of the host's states: `states: ["EDITING", { SAVE: CommitWithRetry(TicketRow, retry) }]`.
+  Its states appear in the host's state path (`SAVE.WAITING`).
+- **Embedded**: something that runs alongside every host state (a toggle, a field, a debounce). It
+  is placed at the host's root: `embeds: { title: Field(Schema.String, rules) }`.
 
-```ts
-states: ["EDITING", { CONFIRM: Confirm }, { SAVE: CommitWithRetry(TicketRow, retry) }, "DONE"], // mounted
-embeds: { title: Field(Schema.String, titleRules), pinned: Toggle({ initial: false }) },         // embedded
-```
+Rules:
 
-An orthogonal behaviour that needs its own states would need parallel regions, which the plans
-exclude. It keeps its phase in memory instead (`level: "off" | "low" | "high"`).
+- A fragment with states must be mounted. A fragment without states may be mounted (it then acts
+  as one leaf state, like `Confirm`) or embedded.
+- An embedded fragment has no mount to end. A host handler for one of its callbacks that targets a
+  host state is an ordinary host transition from the host's current state.
+- From outside a mount, only the mount itself can be targeted (`S.SAVE`), never one of its inner
+  states (`S.SAVE.WAITING`), so a fragment is always entered through its default state and its
+  `initial`.
+- An orthogonal behaviour that needs states of its own would need parallel regions, which the plans
+  exclude; it keeps its phase in memory instead (`level: "off" | "low" | "high"`).
 
 ## 5. Instance names
 
 The key an embedded fragment is given (`title`, `pinned`), or the state name a mounted fragment is
-given (`CONFIRM`, `SAVE`), is the fragment **instance's name**, like naming a component instance.
-It is not memory itself. One name does four jobs:
+given (`SAVE`), is the fragment instance's name. It is not memory itself. It gives:
 
-| The name `title` gives                 | Example                               |
-| -------------------------------------- | ------------------------------------- |
-| the fragment's memory slice            | `memory.title.value`                  |
-| its event namespace                    | `Rename.E.title.Changed(...)`         |
-| its schedules and activities, prefixed | schedule `title.settle`               |
-| where the host binds its slots         | `embeds: { title: { slots: { … } } }` |
+| The name `check` gives                    | Example                               |
+| ----------------------------------------- | ------------------------------------- |
+| the fragment's memory slice               | `memory.check.seq`                    |
+| its event namespace                       | `Rename.E.check.Input()`              |
+| its schedules and activities, prefixed    | schedule `check.settle`               |
+| where the host binds its props and guards | `embeds: { check: { props: { … } } }` |
 
-For a mounted fragment the state name also appears in the state path (`SAVE.WAITING`). The same
-fragment can be used several times under different names:
+The same fragment can be used several times under different names (`pinned`, `muted`). Names nest
+for nested fragments (`E.ADDRESS.street.Changed`). An instance name that equals one of the host's
+memory keys, event names or state names is a construction error.
 
-```ts
-embeds: { pinned: Toggle({ initial: false }), muted: Toggle({ initial: true }) }
-// memory.pinned.on, memory.muted.on; Rename.E.pinned.Toggle(), Rename.E.muted.Toggle()
-```
+## 6. The contract: props
 
-## 6. Events
+Everything a host gives a fragment is a **prop**, as in React. There are two kinds:
 
-Fragments use the same split as machines ([Machines.plan](../../Machines.plan) O1):
-
-- **`events` are public.** They join the host's public events under the instance name, and anyone
-  allowed to send to the actor can send them.
-- **`internalEvents` are internal.** They come only from the fragment's own schedules and slot
-  outcomes, and cannot be sent from outside.
-
-A host may make a fragment's public events internal, so outside code must go through a host event
-instead:
+- **Value props**, declared `prop<T>()`: data the fragment reads, computed by the host from its
+  snapshot. The fragment reads them in callbacks as `({ props })`, like `memory`. A value prop
+  declared `prop.optional<T>()` may be left unbound and then reads as `undefined`.
+- **Callback props**, declared `callback<P>()`: something the fragment calls. The host binds a
+  handler for it, which runs as part of the fragment's transition (section 7).
 
 ```ts
-embeds: { pinned: { fragment: Toggle({ initial: false }), events: "internal" } }
-```
-
-Events resolve as usual: a fragment's handlers sit at its mount (an embedded fragment's at the
-host's root), and if they decline, the event falls through to the host's ancestors (nearest
-handler wins).
-
-## 7. The contract: parameters, slots and exits
-
-A fragment's contract works like a React component's props:
-
-| React                                            | Fragment                          |
-| ------------------------------------------------ | --------------------------------- |
-| static props (`max`, `initial`)                  | **parameters**                    |
-| callback props the child calls                   | **action** and **activity** slots |
-| a prop the child asks (`isDisabled`)             | **guard** slots                   |
-| an operation the child runs, typed by its result | **commit** slots                  |
-| events reported to the parent (`onDone`)         | **exits**                         |
-| internal state                                   | the fragment's **memory slice**   |
-
-Unlike React, the host can read the fragment's state, slots accept only declared things (an action,
-an activity, a guard or a commit, not arbitrary code), and every exit must be mapped.
-
-### Slots
-
-```ts
-slots: {
-  fire: "action",     // something to do
-  list: "activity",   // something to observe while active
-  allow: "guard",     // host policy the fragment asks; it can deny
-  commit: commitSlot({ success: value, failures: { Busy: {}, Rejected: { reason: Schema.String } } }),
-}
-```
-
-The fragment uses its slots in its own handlers:
-
-```ts
-on: {
-  Due: { target: "self", actions: [slots.fire] },
-  Toggle: { target: "self", guard: slots.allow, updateMemory: flip },
+props: {
+  delay: prop<Duration.Input>(),
+  onSave: callback<{ value: string }>(),
 },
-activities: { page: slots.list },
 ```
 
-A **commit slot** declares the result and failures the fragment expects, and its outcomes arrive as
-events of the slot (`commit.Success`, `commit.Busy`, `commit.Rejected`), so the fragment owns the
-reaction to outcomes. The host binds a concrete operation and renames its errors to the slot's:
+Props are plain TypeScript types, not Schemas. Schemas belong where data crosses a boundary that
+must be validated or encoded (events from outside, persisted memory, exported traces); props are
+computed and consumed within one turn.
+
+The fragment uses its props in its own handlers. A handler always has a target, as in any machine:
 
 ```ts
-SAVE: {
-  slots: {
-    commit: O.Tickets.saveTitle.commit(draftInput).as({ TicketLocked: "Busy", TitleRejected: "Rejected" }),
+schedules: { autosave: { schedule: ({ props }) => props.delay, send: E.Due } },
+Due: { target: S.SAVING, actions: [props.onSave.from(({ memory }) => ({ value: memory.draft }))] },
+```
+
+`props.onSave.from(f)` computes the payload from the handler's input (the pre-turn snapshot and
+event), as other mappers do. A callback with no payload is used bare: `actions: [props.onClose]`.
+
+The **definition places** fragments; the **machine binds** them, under the same instance name:
+
+```ts
+// definition
+states: ["LIST", { NOTE: AutoSave(Schema.String) }, "ERROR"],
+embeds: { pinned: Toggle({ initial: false }) },
+
+// machine: a mounted fragment is bound under its state, an embedded one under embeds
+NOTE: {
+  props: {
+    delay: ({ memory }) => memory.prefs.autosaveDelay, // value prop: a selector
+    onSave: { actions: [saveNote] }, // callback prop: a handler
+    onClose: { target: S.LIST }, // a handler that leaves the mount
   },
-}
+  guards: { Due: ({ context }) => context.canEdit || deny("ReadOnly") },
+},
+embeds: { pinned: { guards: { Toggle: ({ context }) => context.canEdit || deny("ReadOnly") } } },
 ```
 
-A **guard slot** lets a fragment respect host rules without reading context; `check()` still
-reports the host's deny code:
+A fragment that contains fragments binds their props and guards in its own build, the same way:
+`embeds: { query: { props: { onChanged: { raise: [E.settle.Input] } } } }`. A handler written there
+may call the enclosing fragment's own callbacks; they merge into the same combined transition.
 
-```ts
-embeds: {
-  pinned: {
-    slots: {
-      allow: ({ context }) => context.canEdit || deny("ReadOnly");
-    }
-  }
-}
-```
+Value-prop selectors receive the binding scope's pre-turn snapshot: for a machine, its `memory`,
+`context` and `activities`; for an enclosing fragment, its `memory` and `props`. Callback handlers
+receive the same, plus `payload`.
 
-The definition places fragments; the machine binds their slots, under the same instance names:
-`embeds: { name: { slots } }` for embedded fragments, and `slots` inside the mount's state for
-mounted ones.
+In a callback handler, the callback's data is `payload`, never `event`:
+`onFailed: { target: S.ERROR, updateMemory: ({ payload }) => ({ error: payload.reason }) }`.
 
-### Exits
+Types flow one way: the fragment declares its props, the definition places the fragment, and the
+machine's bindings are typed from the definition, as event handlers are today. A binding never
+widens the fragment's types.
 
-A mounted fragment leaves only through its exits, and the host maps every one:
+## 7. Semantics
 
-```ts
-// fragment:  exits: { Done: { value }, Failed: { reason: Schema.String }, Cancelled: {} }
-SAVE: { exits: { Done: S.DONE, Failed: S.EDITING, Cancelled: S.EDITING } }
-```
+**One combined transition.** When a fragment transition calls callbacks, the fragment transition
+and the host's handlers for those callbacks compile into one transition, evaluated on the pre-turn
+snapshot in this order:
 
-An exit is an ordinary transition out of the mount, so the existing exit and entry ordering
-applies: fragment schedules stop and slot activities are released first. Mapping an exit to a
-target with a guard, a memory update or actions works as in any handler.
+1. the host's injected guard for the event (`guards`), if any;
+2. the fragment's own guard;
+3. the guard of each called callback's handler, in call order;
+4. the fragment's memory update, then each handler's memory update, in call order;
+5. the fragment's actions, then each handler's actions, in call order;
+6. the target: the fragment's, unless a handler targets a host state outside the mount, which
+   then wins. That is how a mounted fragment ends. `flow check` errors when two handlers in one
+   transition target different states.
 
-## 8. Why fragments do not own operations
+If any guard declines, the whole transition declines and the event falls through to ancestors as
+usual. It is still one turn and one publication. Callbacks called by a nested fragment's handler,
+and by the enclosing fragments' handlers in turn, all join the same combined transition.
+
+**Host guards are injected, not fallen back to.** `guards: { Due: … }` attaches to the fragment's
+own handler for `Due`, whether the event is public or internal, and runs before the fragment's
+guard. When that handler is a list of alternatives, the injected guard runs once, before any of
+them. It does not use nearest-handler fallthrough. `check()` evaluates the same order and reports
+the host's denial first. A denied schedule firing is consumed: a Duration schedule then stays idle
+until it is restarted.
+
+**Events.** A fragment's `events` are public and join the host's public events under the instance
+name. Its `internalEvents` come from its own schedules, from the host's operation outcomes mapped
+onto them, and from the host raising them. A host can make a fragment's public events internal:
+`embeds: { pinned: { fragment: Toggle({ initial: false }), events: "internal" } }` in the
+definition.
+
+**Raising.** A transition may raise events to fragments it contains, `raise: [E.check.Input]` or
+`E.title.Confirmed.from(f)`, handled in the same turn after all memory updates and before
+publication. A raised event's handler runs like any fragment handler, including its callbacks,
+but nothing it runs may raise again; `flow check` rejects such chains, so raising is at most one
+step deep. Raising is how a host feeds data into a fragment and how fragments in one host are
+connected.
+
+**Starting work.** States have no entry actions. The host's transition into a mount carries the
+first action (for example, the commit); the fragment asks again through a callback when it needs to
+(for example, a retry).
+
+**Memory.** The host reads fragment memory and never writes it (`updateMemory` cannot touch a
+slice). A fragment's patch merges within its own slice. A mounted fragment's memory is created on
+every entry to its mount, from `initial({ props })`, and removed when the mount is left; outside
+its mount, `memory.SAVE` is typed as possibly absent. Re-entering a mount resets it. To keep data
+across re-entry, the host stores results (from a callback's payload) and passes them back as a
+prop that seeds `initial`. An embedded fragment initializes once, when its host is admitted, with
+its props read from the host's initial snapshot. Fragments embedded inside a mounted fragment live
+with that mount: they initialize on each entry of the mount and are removed when it is left.
+
+**Fencing.** Each entry to a mount has a generation. Operation outcomes mapped onto a mounted
+fragment's events carry the generation that started the operation; an outcome from an earlier
+generation is not delivered to the fragment. It reaches the host's own handlers as a late event if
+the host declares one, keyed by the fragment event's full name (`on: { "SAVE.Succeeded": … }`, a
+typed key like any event name), and is otherwise dropped with evidence.
+
+**Restore.** The saved state path includes fragment states and memory includes fragment slices;
+restore resumes them with no re-initialization and no replay
+([Persistence.plan](../../Persistence.plan) O4). An operation in flight restores as `unknown`
+(Persistence O6), so a host that maps a commit's outcomes onto a fragment must map `unknown` too,
+and `flow check` errors otherwise. Lookups re-subscribe on restore, so loading is modelled with an
+activity, not a commit.
+
+**Persistence shape.** A fragment's id, version and parameters that affect its Schemas (such as the
+value Schema of `Field(Schema.String, …)`) are part of its host's saved shape and SSR shape digest.
+
+**Schedules.** A schedule that reads props evaluates them when it is armed; a later prop change
+does not retime it. `restartOn` sees `memory` and `context`, as in Machines O5, not props.
+
+## 8. Why fragments do not do I/O
 
 1. **The operation is what varies.** `CommitWithRetry` is reusable because it does not know what it
-   commits; owning `saveTitle` would make it a one-machine fragment.
-2. **Operation inputs need host data.** Keys and inputs come from host memory and context, which a
-   fragment cannot see.
-3. **Concurrency is per actor.** Commit policies (reject, cancel, serialize) apply per actor,
-   operation and key ([Operations.plan](../../Operations.plan) O3). Operations hidden in two
-   fragments of one host would share a queue without either declaring it.
-4. **One I/O list per actor.** The host's `operations` is what the setup's services, SSR settling,
-   Attempt durability, Story fixtures, `flow check` and the graph all read.
-5. **Pure behaviour is cheap to test.** A fragment with no I/O can be checked against a sequence of
-   events alone.
+   commits.
+2. **Operation inputs need host data**, which a fragment cannot see.
+3. **Concurrency is per actor.** Commit policies apply per actor, operation and key
+   ([Operations.plan](../../Operations.plan) O3); operations hidden in two fragments of one host
+   would share a queue without either declaring it.
+4. **One I/O list per actor.** The host's `operations` is what services, SSR settling, Attempt
+   durability, Story fixtures, `flow check` and the graph read.
 
-Commit slots keep these properties while letting the fragment own the reaction to outcomes.
-Something that needs its own operations, context and lifetime is a machine, used as a separate
-actor.
+So the host owns every subscription, commit and side effect. A fragment asks for them through
+callbacks and learns their results through its own internal events, which the host's outcome
+mappings target. Something that needs its own operations, context and lifetime is a machine, used
+as a separate actor.
 
-## 9. Semantics
+## 9. Static analysis
 
-**The host reads fragment memory and never writes it.**
+XState's maintainers advise against sharing state configuration because Stately's tools read source
+code: a parser cannot follow a spread config or a state built by a function call
+([statelyai/xstate#3283](https://github.com/statelyai/xstate/discussions/3283)). That does not apply
+here. `inspect(app)` and `flow check` construct the app and read its compiled representation
+([Inspection.plan](../../Inspection.plan) O1). Fragments compile into it: callbacks and injected
+guards merge into ordinary transitions, so graphs, `check()`, models, coverage and Stories see
+ordinary states and edges, tagged `fragment: { id, instance }` so graphs can collapse them.
 
-```ts
-guard: ({ memory }) => memory.pinned.on || deny("NotPinned"); // reading: fine
-updateMemory: () => ({ pinned: { on: false } }); // writing: a type error
-```
+Three things need care:
 
-To change a fragment, the host raises one of its events (open question 1).
+- **Deny codes come from TypeScript types** ([Inspection.plan](../../Inspection.plan) D2). Injected
+  guards and callback handlers are host code, read like any guard. In generic fragments a deny code
+  must stay a literal type; `const` type parameters keep it so.
+- **Type-level cost.** Nested names and generic fragments push on inference
+  ([statelyai/xstate#4697](https://github.com/statelyai/xstate/discussions/4697)). The S1 type spike
+  should test this first, and bindings must take their types from the definition (`NoInfer`).
+- **Fragment factories must be pure and deterministic**, because construction calls them.
 
-**Lifetime of memory.** A mounted fragment's memory is created on every entry to its mount and
-removed on exit, which replaces hand-reset counters. An embedded fragment's memory lives as long as
-the host.
+## 10. Testing
 
-**Late events fall through.** An event for a mounted fragment that arrives after the mount was left
-(a save outcome after the editor closed) reaches the host's handlers like any event. `flow check`
-warns when one can arrive with nothing to handle it.
+A fragment can be tested on its own with `fragmentStory(fragment, { props })`: value props are
+fixed, callback calls are recorded with their payloads, and operation outcomes are delivered by
+raising the fragment's internal events. Small fragments with small memory can be explored
+completely with models; fragments with free-form values need a `stateKey` like any machine.
 
-**Siblings are independent.** Fragments in one host do not send to or read each other; the host
-connects them through exits, slots and raised events.
+A host still needs integration Stories. Fragment tests prove the fragment's behaviour; the host
+must still prove its wiring, permissions, cancellation, re-entry, persistence and concurrent
+outcomes, as the rules in section 7 interact there.
 
-**Nesting.** Fragments may contain fragments. Names nest: `E.ADDRESS.street.Changed`,
-`memory.ADDRESS.street.value`, state path `ADDRESS.CHECK`.
+## 11. What it unlocks, and what it costs
 
-**Persistence.** The saved state path includes fragment states, and memory includes fragment
-slices. Restore resumes them with no re-initialization and no replay
-([Persistence.plan](../../Persistence.plan) O4). A fragment's id and version are part of its host's
-saved shape, so changing a fragment's memory invalidates saved data like any schema change.
+- **Machines become assembly**: a parts list of behaviours plus what is specific to the host.
+- **A design system for behaviour**: `Confirm`, `Field`, `Debounce`, `CommitWithRetry` shared like
+  UI components, so a fix lands everywhere and policy is consistent by construction.
+- **Forms and multi-step flows** become fields and steps wired together.
+- **Agents assemble instead of invent**: choosing fragments and binding typed props is easier to
+  get right and to check; `flow check` catches unbound callbacks and conflicting targets.
+- **Diagrams with zoom levels**, coverage per fragment, and extract or inline refactoring that does
+  not change compiled behaviour.
 
-**Tools.** `check()`, inspection, Stories and models see ordinary states, tagged with
-`fragment: { id, instance }` so graphs can collapse a fragment into one box. `flow check` errors on
-unmapped exits and unbound slots.
+Costs: indirection when reading a machine; over-fragmenting (a lint can flag fragments used once);
+inference cost for generic fragments; versioning of shared fragments; new machine rules (combined
+transitions, injected guards, raising, mount generations); and the single-active-state limit, which
+still applies.
 
-## 10. Static analysis
-
-XState's maintainers advise against sharing state configuration because Stately's tools read
-source code: a parser cannot follow a spread config object or a state built by a function call, and
-duplicated state IDs clash ([statelyai/xstate#3283](https://github.com/statelyai/xstate/discussions/3283)).
-
-That reason does not apply here. `inspect(app)` and `flow check` construct the app and read its
-compiled representation ([Inspection.plan](../../Inspection.plan) O1,
-[FlowState.plan](../../FlowState.plan) D1). Fragments compile into that same representation when
-their host is constructed, so graphs, `check()`, models, coverage and Stories see ordinary states,
-events and transitions, tagged with the fragment they came from. Instance names prevent ID clashes.
-
-Three things still need care:
-
-- **Deny codes are read from TypeScript types** ([Inspection.plan](../../Inspection.plan) D2). For
-  guard slots the codes come from the host's binding, so the type reader must follow the binding
-  into the fragment. In generic fragments a deny code must stay a literal type, never widen to
-  `string`; `const` type parameters keep it literal.
-- **Type-level cost.** Nested names (`E.ADDRESS.street.Changed`) and generic fragments push on
-  TypeScript inference; XState hit extracted compound states losing their types
-  ([statelyai/xstate#4697](https://github.com/statelyai/xstate/discussions/4697)). The type spike
-  (S1) should test this first.
-- **Fragment factories must be pure and deterministic.** Construction calls them, so a factory that
-  read the environment or the clock would change the compiled structure between runs.
-
-## 11. A small catalogue
-
-Each of these is a few lines of fragment code, written once and reused.
-
-**`Confirm`**, mounted, exits only:
-
-```ts
-export const Confirm = fragment(
-  { id: "Confirm", events: { Yes: {}, No: {} }, exits: { Confirmed: {}, Declined: {} } },
-  ({ X }) => ({ on: { Yes: X.Confirmed, No: X.Declined } }),
-);
-```
-
-**`Field<V>`**, embedded, with a validation parameter:
-
-```ts
-export const Field = <V extends Schema.Top>(
-  value: V,
-  p: { empty: V["Type"]; validate: (v: V["Type"]) => string | null },
-) =>
-  fragment(
-    {
-      id: "Field",
-      events: { Changed: { value }, Blurred: {} },
-      memory: { value, touched: Schema.Boolean, error: Schema.NullOr(Schema.String) },
-      initial: () => ({ value: p.empty, touched: false, error: null }),
-    },
-    () => ({
-      on: {
-        Changed: {
-          target: "self",
-          updateMemory: ({ event }) => ({ value: event.value, error: p.validate(event.value) }),
-        },
-        Blurred: { target: "self", updateMemory: () => ({ touched: true }) },
-      },
-    }),
-  );
-export const isValid = (f: { error: string | null }) => f.error === null;
-```
-
-**`Debounce`**, embedded, with a schedule and an action slot:
-
-```ts
-export const Debounce = (p: { wait: Duration.Input }) =>
-  fragment(
-    {
-      id: "Debounce",
-      events: { Input: {} },
-      internalEvents: { Due: {} },
-      memory: { pending: Schema.Boolean },
-      initial: () => ({ pending: false }),
-      slots: { fire: "action" },
-    },
-    ({ E, slots }) => ({
-      schedules: {
-        settle: { schedule: p.wait, send: E.Due, restartOn: ({ memory }) => memory.pending },
-      },
-      on: {
-        Input: { target: "self", updateMemory: () => ({ pending: true }) },
-        Due: { target: "self", updateMemory: () => ({ pending: false }), actions: [slots.fire] },
-      },
-    }),
-  );
-```
-
-**`CommitWithRetry<V>`**, mounted, with a commit slot:
-
-```ts
-export const CommitWithRetry = <V extends Schema.Top>(
-  value: V,
-  p: { maxRetries: number; backoff: Duration.Input },
-) =>
-  fragment(
-    {
-      id: "CommitWithRetry",
-      states: ["SENDING", "WAITING"],
-      events: { Cancel: {} },
-      internalEvents: { RetryDue: {} },
-      memory: { retries: Schema.Int },
-      initial: () => ({ retries: 0 }),
-      slots: {
-        commit: commitSlot({
-          success: value,
-          failures: { Busy: {}, Rejected: { reason: Schema.String } },
-        }),
-      },
-      exits: { Done: { value }, Failed: { reason: Schema.String }, Cancelled: {} },
-    },
-    ({ S, E, X, slots }) => ({
-      default: S.SENDING,
-      on: { Cancel: X.Cancelled },
-      states: {
-        SENDING: {
-          entry: [slots.commit],
-          on: {
-            "commit.Success": X.Done.from(({ event }) => ({ value: event.value })),
-            "commit.Rejected": X.Failed.from(({ event }) => ({ reason: event.reason })),
-            "commit.Busy": [
-              {
-                target: S.WAITING,
-                guard: ({ memory }) => memory.retries < p.maxRetries || deny("RetryLimitReached"),
-                updateMemory: ({ memory }) => ({ retries: memory.retries + 1 }),
-              },
-              X.Failed.from(({ memory }) => ({
-                reason: `gave up after ${memory.retries} retries`,
-              })),
-            ],
-          },
-        },
-        WAITING: {
-          schedules: {
-            backoff: {
-              schedule: ({ memory }) => Duration.times(p.backoff, 2 ** memory.retries),
-              send: E.RetryDue,
-            },
-          },
-          on: { RetryDue: S.SENDING },
-        },
-      },
-    }),
-  );
-```
-
-`Undo<V>`, `Paginate` (an activity slot over any paged read) and wizard steps built from `Field`
-and `Confirm` follow the same pattern.
-
-## 12. A host using them
-
-```ts
-// rename.definition.ts
-export const Rename = definition({
-  id: "DispatchDesk/Rename",
-  states: [
-    "EDITING",
-    { CONFIRM: Confirm },
-    { SAVE: CommitWithRetry(TicketRow, { maxRetries: 3, backoff: "2 seconds" }) },
-    "DONE",
-  ],
-  embeds: {
-    title: Field(Schema.String, { empty: "", validate: (v) => (v.trim() ? null : "Required") }),
-    pinned: Toggle({ initial: false }),
-    check: Debounce({ wait: "300 millis" }),
-  },
-  events: { Submit: {} },
-  input: { ticketId: Schema.String },
-  memory: { ticketId: Schema.String },
-  initial: ({ input }) => ({ ticketId: input.ticketId }),
-  operations: { Tickets: TicketsDomain },
-});
-```
-
-```ts
-// rename.machine.ts
-export const RenameMachine = machine(Rename, ({ S, O }) => ({
-  default: S.EDITING,
-  embeds: {
-    check: {
-      slots: {
-        fire: O.Tickets.titleTaken.refetch(({ memory }) => ({ title: memory.title.value })),
-      },
-    },
-  },
-  states: {
-    EDITING: {
-      on: {
-        Submit: {
-          target: S.CONFIRM,
-          guard: ({ memory }) => isValid(memory.title) || deny("Invalid"),
-        },
-      },
-    },
-    CONFIRM: { exits: { Confirmed: S.SAVE, Declined: S.EDITING } },
-    SAVE: {
-      slots: {
-        commit: O.Tickets.saveTitle
-          .commit(({ memory }) => ({
-            ticketId: memory.ticketId,
-            title: memory.title.value,
-            pinned: memory.pinned.on,
-          }))
-          .as({ TicketLocked: "Busy", TitleRejected: "Rejected" }),
-      },
-      exits: { Done: S.DONE, Failed: S.EDITING, Cancelled: S.EDITING },
-    },
-    DONE: {},
-  },
-}));
-```
-
-```ts
-// views and senders use the instance names
-rename.send(Rename.E.title.Changed({ value }));
-rename.send(Rename.E.pinned.Toggle());
-rename.send(Rename.E.CONFIRM.Yes());
-useView(rename, (s) => s.memory.title.error);
-useView(rename, (s) => Rename.S.SAVE.WAITING.is(s));
-```
-
-## 13. Testing a fragment on its own
-
-A fragment has no I/O, so it can be tested with fake slots, and its whole state space is small
-enough for models to explore completely:
-
-```ts
-test("gives up after the retry limit", async () => {
-  const run = await fragmentStory(
-    CommitWithRetry(TicketRow, { maxRetries: 2, backoff: "1 second" }),
-    {
-      slots: { commit: fakeCommit.alwaysBusy },
-    },
-  )
-    .enter()
-    .process()
-    .advance("2 seconds")
-    .process()
-    .advance("4 seconds")
-    .process()
-    .run();
-
-  expect(run.exit).toMatchObject({ _tag: "Failed" });
-});
-```
-
-A host's tests then check only its wiring: that each exit leads somewhere sensible and each slot
-is bound to the right operation.
-
-## 14. What it unlocks
-
-- **Machines become assembly.** A machine reads as a parts list of behaviours plus what is specific
-  to it: which operation, which states connect where, which host rules apply.
-- **A design system for behaviour.** Teams share `Confirm`, `Field`, `Debounce`, `Undo`,
-  `Paginate` and `CommitWithRetry` the way they share UI components. A bug fixed in a fragment is
-  fixed in every host, and policy ("every destructive action confirms") becomes consistent by
-  construction.
-- **Forms and multi-step flows stop being awkward.** A form is a set of `Field`s plus a submit
-  fragment; a wizard is a sequence of mounted steps wired exit to entry, and the same step can
-  appear in different flows.
-- **A testing pyramid for state machines.** Fragments are tested once in isolation; hosts test only
-  their wiring.
-- **Agents assemble instead of invent.** Choosing fragments and filling typed contracts is easier
-  to get right and to verify than designing a statechart; `flow check` catches unmapped exits and
-  unbound slots.
-- **Diagrams with zoom levels.** A graph collapses each fragment into one box, and coverage reports
-  per fragment.
-- **Refactoring like functions.** Extract repeated states into a fragment, or inline a fragment
-  used once; the compiled behaviour does not change.
-- **Sharing beyond one app.** Fragments are plain values with typed contracts, so they can live in
-  a package.
-
-Costs to keep in mind: indirection when reading a machine, over-fragmenting trivial behaviour (a
-lint can flag fragments used once), inference cost for generic fragments, versioning of shared
-fragments, and the single-active-state limit, which still applies.
-
-## 15. Version 1, open questions and plan changes
+## 12. Version 1, open questions and plan changes
 
 Nothing in version 1 needs fragments. They would come after the core Runtime stage (S3), proved
 first by converting the editor's lock retry and the queue's poll backoff into one shared fragment.
 
 Open questions:
 
-1. **Raising a fragment event from a host handler.** Today actions queue sends for a later turn.
-   Should a host transition be able to raise an event to a fragment it contains, handled in the
-   same turn?
-2. **Parameters.** Plain TypeScript values, or Schema-encodable data so inspection can record them
-   (Schemas passed as type parameters, such as `Field(Schema.String, …)`, aside)?
-3. **Fragment versions.** How a fragment's version feeds the host's persistence version and the SSR
-   shape digest.
-4. **Commit slot shape.** How much of a commit's outcome contract a slot can declare, and how the
-   host's error names are adapted.
+1. **Helper names**: `prop<T>()`, `callback<P>()`, `raise`, `payload`, and whether callback names
+   must start with `on`.
+2. **Unbound callbacks**: callbacks that can end a mount must be bound; should others warn or be
+   optional by declaration?
+3. **Parameters**: plain values, or Schema-encodable so inspection can record them?
+4. **Fragment versions**: how a fragment's version is declared and fed into its host's persistence
+   version.
 
 Plan changes, once accepted:
 
-- **[Machines.plan](../../Machines.plan) O1:** `fragment`, `embeds`, fragments in the state list,
-  instance names, event visibility, and what fragments may not declare.
-- **Machines O2:** mounting, exits as transitions out of the mount, fall-through of fragment events.
-- **Machines O5, O6:** schedules and slot activities owned by a fragment and stopped on exit.
-- **Machines O8:** nested memory slices and fragment states in snapshots.
-- **[Operations.plan](../../Operations.plan):** commit slots and adapting error names.
-- **[Testing.plan](../../Testing.plan):** `fragmentStory` for testing a fragment with fake slots.
-- **[Persistence.plan](../../Persistence.plan) and
-  [ServerRendering.plan](../../ServerRendering.plan):** fragment versions in the saved shape and the
-  shape digest.
-- **[Inspection.plan](../../Inspection.plan), [CommandLine.plan](../../CommandLine.plan):**
-  fragment tags, collapsed graphs, checks for unmapped exits and unbound slots.
-- **[Package.plan](../../Package.plan):** the `fragment` and `commitSlot` exports, and
-  `fragmentStory` in `flow-state/testing`.
-- **[FlowState.plan](../../FlowState.plan):** a new build stage after S3.
+- **[Machines.plan](../../Machines.plan) O1, O2, O3:** `fragment`, `embeds`, mounting, instance
+  names, props, combined transitions and their order, injected guards, `raise`, no direct targets
+  into a mount.
+- **Machines O5, O6, O8:** schedules and activities owned by a fragment, props read at arm time,
+  nested memory slices and fragment states in snapshots.
+- **[Runtime.plan](../../Runtime.plan):** mount generations and fencing of outcomes.
+- **[Operations.plan](../../Operations.plan):** outcome mappings onto fragment events, including
+  the required `unknown`.
+- **[Testing.plan](../../Testing.plan):** `fragmentStory`.
+- **[Persistence.plan](../../Persistence.plan), [ServerRendering.plan](../../ServerRendering.plan):**
+  fragment ids, versions and parameters in the saved shape and the shape digest.
+- **[Inspection.plan](../../Inspection.plan), [CommandLine.plan](../../CommandLine.plan):** fragment
+  tags, collapsed graphs, and checks for conflicting targets, unbound callbacks, unmapped `unknown`
+  and name collisions.
+- **[Package.plan](../../Package.plan):** `fragment`, `prop`, `callback`, and `fragmentStory`.
+- **[FlowState.plan](../../FlowState.plan):** a build stage after S3.
