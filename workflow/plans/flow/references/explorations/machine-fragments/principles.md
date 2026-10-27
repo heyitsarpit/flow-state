@@ -119,6 +119,10 @@ allows it, or does not apply.
 | L2  | **Late results.** A save result from an abandoned attempt lands in a later one.                                                                | save with retry                 |
 | L3  | **Leftover memory.** Entering a step again shows values or counters from last time.                                                            | wizard steps, retry counts      |
 | L4  | **No way out.** A long-running step (poll, autosave) cannot be left because it never decides to finish.                                         | poll, autosave                  |
+| L5  | **Abandoned effects.** The host leaves a step while a commit is in flight; its late success or unknown is dropped and the workflow disagrees with the server (double delete, double order). | delete, checkout |
+| L6  | **Silent admission.** A request that starts no work and reports nothing (concurrency `reject`, cancel before invocation) leaves a waiting state stuck. | every request |
+| L7  | **Departure gap.** After a step is left mid-commit, a new submit starts before the old commit settles. | checkout, autosave |
+| L8  | **Phantom replies.** A reply is delivered for a call that was never admitted, or to the wrong call. | retries |
 
 ### Encapsulation
 
@@ -127,6 +131,8 @@ allows it, or does not apply.
 | E1  | **Broken invariants.** A host refuses or rewrites something a fragment relies on. Refusing `Release` leaves a hold-to-confirm holding, and it confirms an abandoned delete. | hold to confirm, debounce  |
 | E2  | **Interfaces that grow with depth.** A host three levels up depends on an inner fragment, so swapping that inner fragment breaks it, and a middle layer can promise nothing. | the inverted model         |
 | E3  | **Hidden endings.** A fragment's code says it stays, but the actor leaves because of a rule elsewhere.                                                                    | version 5 callbacks        |
+| E4  | **Refusal by forwarding.** Any layer that forwards inputs can refuse or drop one the fragment relies on, such as `Release`. | hold to confirm |
+| E5  | **Preempting observers.** A late-outcome handler moves the actor out of a newer live step. | abandoned handlers |
 
 ### Host control
 
@@ -135,6 +141,8 @@ allows it, or does not apply.
 | H1  | **Bypassed policy.** The UI sends straight into a fragment and skips what the host does first (pinned changes locally without saving).             | toggle used for pinning |
 | H2  | **Unforeseen checks.** A host needs a check the fragment author did not declare.                                                                 | locked tickets          |
 | H3  | **Faked results.** A host or UI produces a fragment's result or ending without the fragment deciding it.                                          | exits as raisable events |
+| H4  | **Misrouted or mislabelled results.** An outcome is mapped onto the wrong kind of result, above all `unknown` onto a retryable one, causing a double write. | every commit |
+| H5  | **Interrupt treated as not sent.** A retry follows `interrupt`, which can happen after the request left. | commit with retry |
 
 ### Data
 
@@ -144,6 +152,9 @@ allows it, or does not apply.
 | D2  | **Reading live values too late.** A retry sends the fields as they are now, not the request that was confirmed.                                             | commit with retry               |
 | D3  | **Feedback loops.** Server normalization changes a value, which looks like an edit, which saves again.                                                       | autosave                        |
 | D4  | **Unmapped outcomes.** An operation result (failure, unknown, interrupt, defect) has nowhere to go.                                                        | every commit                    |
+| D5  | **Restore in flight.** Work in flight at a reload restores into the wrong entry, or never resolves. | persisted steps |
+| D6  | **Same-turn seeding.** A step's input reads memory from before the turn, or cannot read the triggering event, forcing a copy or a stale value. | wizard steps |
+| D7  | **Drafts lost on abnormal endings.** A failure exit or abandonment drops user data the fragment held. | address step, autosave |
 
 ### Authoring
 
@@ -155,6 +166,17 @@ allows it, or does not apply.
 | A4  | **Overloaded words.** A word that means something else in the plans (`context`, `outcomes`, `submachine`).                                       | version 3, naming               |
 | A5  | **I/O inside fragments.** A fragment subscribes or commits itself, so I/O is split between fragment and host.                                    | version 1                       |
 | A6  | **Silence discovered late.** An unbound callback or unhandled ending that nothing reports until it matters.                                      | optional callbacks              |
+| A7  | **Forgotten first send.** A step that must send on entry has no place to say so, and the send is forgotten. | commit with retry |
+
+### Turns and timers
+
+| #   | Problem | Seen in |
+| --- | ------- | ------- |
+| T1  | **Partial turns.** A raised event is refused or unhandled while its source transition commits, and `check()` reports Allowed for a half-applied turn. | raise |
+| T2  | **Schedule traps.** A `restartOn` debounce in a state entered by the triggering edit never fires (Machines O5's silent baseline), and a firing queued before a restart can fire the restarted timer early. | debounce, today's editor autosave |
+
+Problems L5–L8, E4, E5, H4, H5, D5–D7, A7, T1 and T2 were added from the research reviews
+([research/reviews/](research/reviews/)).
 
 ## 5. What the single-fragment proposal gives us
 
