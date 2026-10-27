@@ -1,7 +1,8 @@
 # Fragment contract syntax: decision record
 
-How the fragment contract in [fragments.md](fragments.md) was chosen. The chosen syntax is
-**props**: value props `prop<T>()` and callback props `callback<P>()`. Full examples live in
+How the fragment contract in [fragments.md](fragments.md) was chosen. The current baseline is
+props plus exits: value props `prop<T>()`, callback props `callback<P>()`, and declared `exits`
+(fragments.md section 14). Full examples live in
 [fragment-examples.md](fragment-examples.md); this file keeps only the history and the reasons.
 
 ## Versions tried
@@ -12,7 +13,8 @@ How the fragment contract in [fragments.md](fragments.md) was chosen. The chosen
 | 2. Inputs and outputs | `inputs` (Schemas)          | `outputs`, `Out.Saved`                                                                         | outputs whose host handler leaves                               | Removed I/O from fragments, but "output" and `Out` did not say what was happening                                 |
 | 3. Context and slots  | `context`                   | `slots`                                                                                        | slots whose host handler leaves                                 | Wrong reuse: machine context means a value selected from a provider actor, not from a containing host             |
 | 4. Props and slots    | `props`                     | `slots`                                                                                        | slots whose host handler leaves                                 | Two names for what React calls one thing                                                                          |
-| 5. Props only         | `prop<T>()`                 | `callback<P>()`                                                                                | a callback whose host handler targets a state outside the mount | **Chosen**                                                                                                        |
+| 5. Props only         | `prop<T>()`                 | `callback<P>()`                                                                                | a callback whose host handler targets a state outside the mount | Superseded                                                                                                        |
+| 6. Props and exits    | `prop<T>()`                 | `callback<P>()`, acting only                                                                   | declared `exits`, taken as `exits.Confirmed`                    | **Baseline** (fragments.md section 14)                                                                            |
 
 ## Why each step
 
@@ -105,3 +107,11 @@ NOTE: {
   injected guards, raising, and mount generations for fencing (fragments.md section 7). Version 5
   only removes the I/O-shaped ones from version 1 (`entry` actions, slot outcome events, dotted
   outcome keys).
+
+## Version 6: exits come back
+
+Under version 5 a fragment's handler said `target: "self"` while its host's callback handler moved
+the actor out of the mount, so the fragment's code did not show that it ends. Version 6 restores
+version 1's exits with a readable accessor (`exits.Confirmed` instead of `X.Confirmed`): only exits
+end a mount, and callbacks only act. Reasons and rejected alternatives are D5 and D7 in
+fragments.md section 13.

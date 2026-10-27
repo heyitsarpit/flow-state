@@ -1,11 +1,17 @@
 # Fragments: reusable machine behaviour
 
-Status: exploration, not part of version 1. No plan has been changed for it; section 12 lists the
-plan changes it would need. Where this document and a plan differ, the plan wins.
+Status: proposal, not accepted: the single-fragment proposal, where one `fragment` concept covers
+everything. It is prior art for [machine-fragments/](machine-fragments/principles.md), which splits
+fragments into traits and subroutines; its decisions D1–D13 are evidence there, not rules. No plan has been changed for it. Where this document and a plan differ, the plan wins.
 
 Companion files: [fragment-examples.md](fragment-examples.md) holds the full code of every fragment;
 [fragment-contract-syntax.md](fragment-contract-syntax.md) records how this contract syntax was
 chosen.
+
+The API is being simplified feature by feature, judged by how easily the code reads at a glance.
+Settled decisions are recorded in section 13, and section 14 holds the current baseline syntax:
+where it differs from sections 6 and 7 or from the catalogue, section 14 wins. Sections 6 and 7
+still describe the earlier, fuller contract until the review reaches each feature.
 
 ## 1. The problem
 
@@ -362,3 +368,303 @@ Plan changes, once accepted:
   and name collisions.
 - **[Package.plan](../../Package.plan):** `fragment`, `prop`, `callback`, and `fragmentStory`.
 - **[FlowState.plan](../../FlowState.plan):** a build stage after S3.
+
+## 13. Decisions
+
+Settled while simplifying the API feature by feature. Each records the choice, why, what it
+commits to, and what was rejected.
+
+**D1. Fragments may contain fragments.** A fragment can mount fragments in its states and embed
+fragments at its root, under the same placing rules as a machine. Composite behaviour (a typed
+confirmation built from a field, an address step built from fields) is then written once and reused
+as one piece, and nesting adds no runtime rule because everything is still expanded into the host
+at construction. Rejected: flat fragments only, which would make every host rebuild composite
+behaviour itself.
+
+**D2. Nested names are visible.** A nested fragment's names extend its parent's:
+`E.ASK.typed.Changed`, `memory.ASK.typed.value`, state path `ASK.typed`. Paths read plainly and need
+no forwarding. Consequence: inner structure is part of the outer fragment's interface, so renaming
+an inner part changes code that reaches it. Rejected: private nested fragments re-exported through
+the outer fragment's own events, which costs an extra event and forwarding for every exposed
+action.
+
+**D3. No limit on nesting depth** beyond the existing ten-segment state path limit, and no
+warning. Deep nesting is rare, and a warning would flag legitimate designs. Rejected: a hard limit
+of two levels, and a `flow check` warning beyond two levels.
+
+**D4. Fragments ask hosts to act through declared callbacks.** A fragment declares each moment a
+host may react to as a callback (`callback`, a new keyword) with a typed payload, calls it from its
+own handlers (`actions: [props.onSettled]`), and the host binds a handler for each. The fragment
+owns its contract: it declares what it needs to work correctly, and the host adapts to it. This
+gives an explicit, typed interface, lets a fragment change its internal events without breaking
+hosts, and lets `flow check` verify that required callbacks are bound. Rejected: hooks, where a
+host attaches to any fragment event with `on`, because every internal event would become interface;
+and fallthrough only, which cannot express a fragment that changes its own state and needs the
+host to act on the same event. The name `props` may still change.
+
+**D5. A mounted fragment ends only through declared exits.** The fragment declares its ways out
+(`exits`, a new keyword) and takes one as a transition; the host maps every exit at the mount. A
+callback's host handler in a mounted fragment may act (actions, memory updates) but never targets a
+host state, so the rule "a host target outside the mount wins" disappears. Embedded fragments have
+no exits, and their callback handlers may target host states. Reason: reading the fragment alone
+shows when it finishes; under version 5 a handler said `target: "self"` while the actor left.
+Rejected: ending through a callback whose host handler targets outside the mount. See D7 for syntax.
+
+**D6. The fragment owns its contract.** A fragment declares everything it needs and everything it
+offers (values, callbacks, exits, and any host policy it relies on), and the host adapts to that
+declaration. Every remaining feature is decided under this rule unless a case clearly argues
+otherwise. Reason: one place to look to know what a fragment needs and what it does.
+
+**D7. Exit syntax.** The fragment declares `exits: { Confirmed: {}, Failed: { reason } }`, receives
+`exits` in its build function beside `S`, `E` and `props`, and takes one as a transition:
+`Yes: exits.Confirmed`, or `exits.Failed.from(({ memory }) => ({ reason: memory.error }))` when the
+exit carries data. The host maps each exit at the mount, to a state (`Confirmed: S.DELETING`) or,
+when it also acts, to `{ target, actions?, updateMemory? }`. Rejected: version 1's `X.Confirmed`,
+because `X` has to be learned; and always writing the long form, which is noise for the common case.
+
+**D8. No `bind` keyword.** Where the machine supplies anything per placed fragment, the block stays
+named `embeds`. Rejected: `bind`. The inverted model that would remove the block is rejected in D9.
+
+**D9. Fragments hide their implementation; the host cannot reach inside.** Rejected: the inverted
+model, where placing a fragment copies its states, events and memory into the host, and the host
+may handle any fragment event in its own `on`, guard it, and write fragment memory. It would remove
+`props`, `callback`, `guard()`, `exits` and the machine-side `embeds`, but every fragment event and
+memory field would become interface. Interfaces would then grow with nesting depth: a host could
+reach past `SearchBox` into its `Debounce`. Swapping an inner fragment would break hosts, and a
+middle layer could guarantee nothing. Hiding implementation and complexity is the point of
+fragments, so D6 stands: names stay readable (D2), but behaviour is reached only through what each
+fragment declares. Also rejected: inversion limited to the fragments a host placed directly, which
+keeps one layer of hiding at the cost of a "you can touch what you placed" rule.
+
+**D10. Host policy reaches a fragment only through guard props the fragment declares.** A fragment
+declares `canEdit: guard()` among its props, puts `guard: props.canEdit` on the transitions it
+protects, and the host supplies the check (`canEdit: ({ memory }) => !memory.locked ||
+deny("Locked")`). Correctness comes before brevity: only the fragment knows where refusing an event
+is safe. `HoldToConfirm` relies on `Release` always following `Press`; a host that could refuse
+`Release` would leave it holding, and `Held` would confirm a delete the user abandoned. Declared
+guards also keep one standard contract (everything a fragment needs is a prop) and let
+`fragmentStory` test refusal in isolation by passing a denying guard. Cost: a host cannot add a
+check the author did not foresee; the fix is to change the fragment. Rejected: guards injected per
+public event, because they can break fragments like `HoldToConfirm`; a gate on the whole instance,
+for the same reason; a `guardable` list of events, which is harder to read and no more correct; and
+guarding only at the boundary, which does not enforce anything inside an embedded fragment.
+
+**D11. Only the host sends into its fragments; anyone may read them.** No view or other actor can
+send a fragment's events: `editor.send(TicketEditor.E.title.Set(…))` is a type error and is refused
+at runtime. The UI sends the host's own events, and the host forwards them with `raise`. A
+fragment's memory and states stay readable from outside (`s.memory.title.value`,
+`S.DELETE_ASK.is(s)`), and nothing outside the fragment can write them (D9). Reason: if only the
+host sends, it controls every input, so a host that saves before toggling a pinned flag cannot be
+bypassed by a direct send. Reading cannot change behaviour, and hiding memory would force hosts to
+copy fragment values into their own memory, where the copies drift (for example, a copied error
+that starts as `null` while the field starts as "Required"). Costs: one host event and one
+forwarding line for each fragment event the UI drives, `raise` becomes required (feature 6), and a
+component that reads a fragment's memory breaks if the fragment renames it. Rejected: public events
+decided by the fragment; a host option to make a placement's events internal; private by default
+with an opt-in to public; and everything private, including memory and states.
+
+**D12. Two concepts, not one.** What "fragment" covered splits into two constructors with separate
+rules. One is always there: no states of its own, never ends, kept for the host's life, placed in
+`embeds` (field, toggle, debounce). The other is entered and left: may have states, ends only
+through exits, fresh memory and stopped timers on every entry, late results from an earlier entry
+rejected, placed as a host state (confirmation, picker, wizard step, save with retry). Each
+constructor accepts only what its kind can use, and the types refuse the wrong placement. Reason:
+most conditional rules so far came from one concept covering both (D5's two cases, exits offered to
+both, "a stateless fragment may be mounted or embedded", props bound in two places, mount
+generations met by every reader). Shared by both: props, callbacks, guards, instance names, D9 and
+D11. Not fixed by the split: forwarding through nesting, `raise`, async results, testing. Rejected:
+one `fragment` with a written rule for choosing a placement. Names are still open.
+
+**D13. Names: `trait` and `subroutine`; "machine fragment" is only a word for both.** The
+always-there kind is a **trait** (`trait(...)`): behaviour an actor gains, as in Scala or PHP
+traits, which carry state. The step kind is a **subroutine** (`subroutine(...)`): entered, runs on
+its own, and returns a named result through its exits. "Machine fragment" stays as the umbrella
+term in prose for both, with no API of its own; there is no `fragment(...)` constructor. Rejected:
+`behavior` and `step` (they do not say what each is); `submachine` (in the plans a machine has its
+own actor, and these are inlined); `mixin`, `facet`, `slice`, `subflow`, `subchart` and keeping
+`fragment` for one of the two.
+
+## 14. Baseline syntax
+
+The accepted baseline after D1–D13. Every later change is made against this example. Lines marked
+`// OPEN:` are still under review; everything else is accepted.
+
+Keywords: `trait`, `subroutine`, `embeds`, `exits`, `props`, `prop`, `callback`, `guard()` and `.from` are new;
+`definition`, `machine`, `states`, `events`, `internalEvents`, `memory`, `initial`, `input`,
+`operations`, `default`, `on`, `target`, `guard`, `updateMemory`, `actions`, `schedules`,
+`restartOn`, `deny`, `S`, `E` and `O` already exist in the plans. Every other name is chosen by the author.
+
+```ts
+// fragments.ts
+import { trait, subroutine, prop, callback, guard } from "flow-state";
+import { Schema, Duration } from "effect";
+
+// ── Debounce (trait): fires once, `wait` after the last Input ───────────────
+export const Debounce = (p: { wait: Duration.Input }) =>
+  trait(
+    {
+      id: "Debounce",
+      events: { Input: {} },                       // sent from outside
+      internalEvents: { Due: {} },                 // only this trait's schedule sends it
+      memory: { seq: Schema.Int },
+      initial: () => ({ seq: 0 }),
+      props: { onSettled: callback() },            // OPEN: TS generics vs Schema for shapes
+    },
+    ({ E, props }) => ({
+      schedules: {
+        settle: { schedule: p.wait, send: E.Due, restartOn: ({ memory }) => memory.seq },
+      },
+      on: {
+        Input: { target: "self", updateMemory: ({ memory }) => ({ seq: memory.seq + 1 }) },
+        Due: { target: "self", actions: [props.onSettled] },
+      },
+    }),
+  );
+
+// ── TitleField (trait): a text value plus a debounced "settled" signal (D1) ──
+export const TitleField = trait(
+  {
+    id: "TitleField",
+    embeds: { check: Debounce({ wait: "300 millis" }) },   // a trait inside a trait
+    events: { Set: { value: Schema.String } },
+    memory: { value: Schema.String },
+    props: {
+      start: prop<string>(),
+      onSettled: callback<{ value: string }>(),            // OPEN: required vs .optional
+      canEdit: guard(),                                    // D10: host policy, where the trait allows it
+    },
+    initial: ({ props }) => ({ value: props.start }),
+  },
+  ({ E, props }) => ({
+    // TitleField supplies its own child's props: the host never sees Debounce's onSettled (D9)
+    embeds: {
+      check: {
+        props: {
+          onSettled: { actions: [props.onSettled.from(({ memory }) => ({ value: memory.value }))] },
+        },
+      },
+    },
+    on: {
+      Set: {
+        target: "self",
+        guard: props.canEdit,
+        updateMemory: ({ event }) => ({ value: event.value }),
+        raise: [E.check.Input],                            // OPEN: raise (feature 6)
+      },
+    },
+  }),
+);
+
+// ── Confirm (subroutine): entered as a host state, two ways out (D5, D7) ────
+export const Confirm = subroutine(
+  {
+    id: "Confirm",
+    events: { Yes: {}, No: {} },
+    exits: { Confirmed: {}, Declined: {} },               // OPEN: name (exits / returns)
+  },
+  ({ exits }) => ({
+    on: {
+      Yes: exits.Confirmed,
+      No: exits.Declined,
+    },
+  }),
+);
+```
+
+```ts
+// ticket-editor.definition.ts: structure; produces S, E and the types the UI uses
+import { definition } from "flow-state";
+import { Schema } from "effect";
+import { Confirm, TitleField } from "./fragments";
+
+export const TicketEditor = definition({
+  id: "Desk/TicketEditor",
+  states: ["VIEWING", { DELETE_ASK: Confirm }, "DELETED"],    // subroutine: instance name DELETE_ASK
+  embeds: { title: TitleField },                              // trait: instance name title
+  events: {
+    Delete: {},
+    SetTitle: { value: Schema.String },    // D11: the UI sends these; the host forwards them
+    ConfirmDelete: {},
+    CancelDelete: {},
+  },
+  input: { ticketId: Schema.String, title: Schema.String, locked: Schema.Boolean },
+  memory: { ticketId: Schema.String, original: Schema.String, locked: Schema.Boolean },
+  initial: ({ input }) => ({ ticketId: input.ticketId, original: input.title, locked: input.locked }),
+  operations: { Tickets: TicketsDomain },
+});
+```
+
+```ts
+// ticket-editor.machine.ts: behaviour
+import { machine, deny } from "flow-state";
+import { TicketEditor } from "./ticket-editor.definition";
+
+export const TicketEditorMachine = machine(TicketEditor, ({ S, E, O }) => {
+  const deleteTicket = O.Tickets.delete.commit(({ memory }) => ({ ticketId: memory.ticketId }));
+  const checkTitle = O.Tickets.titleTaken.refetch(({ payload }) => ({ title: payload.value }));
+
+  return {
+    default: S.VIEWING,
+    embeds: {                                                 // D8: supplies what title declared
+      title: {
+        props: {
+          start: ({ memory }) => memory.original,
+          onSettled: { actions: [checkTitle] },
+          canEdit: ({ memory }) => !memory.locked || deny("Locked"),
+        },
+      },
+    },
+    on: {
+      SetTitle: {
+        target: "self",
+        raise: [E.title.Set.from(({ event }) => ({ value: event.value }))],   // OPEN: raise (feature 6)
+      },
+    },
+    states: {
+      VIEWING: { on: { Delete: S.DELETE_ASK } },
+      DELETE_ASK: {
+        on: {
+          ConfirmDelete: { target: "self", raise: [E.DELETE_ASK.Yes] },
+          CancelDelete: { target: "self", raise: [E.DELETE_ASK.No] },
+        },
+        exits: {                                              // OPEN: this, or on: { "DELETE_ASK.Confirmed": … }
+          Confirmed: { target: S.DELETED, actions: [deleteTicket] },
+          Declined: S.VIEWING,
+        },
+      },
+      DELETED: {},
+    },
+  };
+});
+```
+
+```tsx
+// a component: sends only the host's events (D11), reads fragments directly
+editor.send(TicketEditor.E.SetTitle({ value: "New title" }));
+editor.send(TicketEditor.E.Delete());
+editor.send(TicketEditor.E.ConfirmDelete());
+// editor.send(TicketEditor.E.title.Set({ value: "x" }));   // type error: only the host sends into title
+useView(editor, (s) => s.memory.title.value);
+useView(editor, (s) => TicketEditor.S.DELETE_ASK.is(s));
+useView(editor, (s) => s.memory.title.check.seq);   // readable (D2), but nothing can write it (D9)
+```
+
+What the baseline fixes:
+
+- **Two kinds** (D12, D13): a trait is always there, has no states, never ends and goes in
+  `embeds`; a subroutine is entered as a host state, may have states and ends through `exits`.
+- **Placement** is structure, in the definition: subroutines in `states`, traits in `embeds`. The
+  placement's key is the instance name that namespaces events, memory and states.
+- **Supplying** is behaviour, in the machine's (or host trait's) `embeds` block for traits and on
+  the subroutine's state for subroutines, because props refer to `S`, `E` and `O`.
+- **Callbacks act and never move the actor out of a mount;** only exits end a mount. Nobody sends
+  an exit: the subroutine takes it.
+- **A machine fragment that hosts others supplies their props itself,** so the outer host sees only
+  the outer one's contract.
+
+- **Host policy enters only through declared `guard()` props** (D10).
+- **Only the host sends into its fragments; anyone may read their memory and states** (D11).
+
+Open, in review order: host-side exit
+handling and the exit name; required and optional props; Schema or TypeScript for prop shapes;
+`raise` (feature 6); async results (feature 7); `fragmentStory` (feature 9).
