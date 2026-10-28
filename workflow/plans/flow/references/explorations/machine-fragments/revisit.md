@@ -44,3 +44,53 @@ The user wants a word that means downward. Considered and not liked: `tell`, `se
 `forward`, `pass`, `cue`, `drive`, `dispatch`, `emit`, `signal`, `trigger`, `passDown`, `sendDown`,
 `cascade`, `delegate`, `trickle`, `handDown`. Keep `raise` until a better word is found.
 
+
+## 3. `.history` versus interrupts (flagged 2026-10-29)
+
+**The need.** An interruption should come back to where the user was: "Discard changes?" → No →
+the same wizard page; re-authenticate → the same page; a help overlay → back.
+
+**Why v4 has `.history`.** Targets are static so `flow check` can draw the graph, and "the page I
+was on" is not static. `S.WIZARD.history` is the classic statechart token (Harel 1987) that the
+runtime resolves to WIZARD's last active child.
+
+**What is wrong with it (the user: "poorly designed", "not general enough"):**
+
+1. It restores the place, not the data. Returning re-enters the page, so its traits are fresh unless
+   `.resumable()`. The signup drafts had to move to the root to survive.
+2. It is attached to the target compound (`WIZARD.history`), while the meaning belongs to the
+   interruption ("this dialog returns to where it was opened").
+3. It is shallow, and brings deep history, history defaults and clearing as further questions.
+
+**Options:**
+
+- **A. Interrupts: pause instead of leave (preferred so far).** A compound declares what may
+  interrupt it; entering an interrupt pauses the compound's active subtree instead of exiting it,
+  and `S.WIZARD.resume` continues exactly where it paused, data and schedules included.
+
+  ```ts
+  // definition
+  { WIZARD: Flow.state(["ACCOUNT", "PROFILE", "INVITE", "REVIEW"], {
+      interrupts: { CANCELLING: Confirm },
+  }) },
+
+  // machine
+  WIZARD: {
+    on: { Cancel: S.WIZARD.CANCELLING },
+    interrupts: {
+      CANCELLING: { exits: { Confirmed: S.CANCELLED, Declined: S.WIZARD.resume } },
+    },
+  },
+  ```
+
+  Static (resume targets are WIZARD's leaves), one active leaf holds (the paused page is frozen),
+  and it removes the main reason pages need `.resumable()`. Open: server results and timers owned
+  by the paused page (held until resume, or handled while paused?); nested interrupts; entering an
+  interrupt from outside its compound; how `onLeave` treats a paused page that is then left.
+- **B. History that restores data.** Returning through `.history` also resumes the traits it
+  restores. Smaller change; keeps the meaning on the target and keeps the shallow/deep questions.
+- **C. The dialog as a trait.** An `open` flag on a `Confirm` trait placed on WIZARD; page guards
+  refuse while open. Works in v4 today, but "inside the dialog" becomes a guard convention instead
+  of structure.
+- **D. Remember the page in memory.** `Declined: [{ guard: [lastWas(PROFILE)], target: … }, …]`.
+  No new concept; verbose per page, and the same data problem as history.
