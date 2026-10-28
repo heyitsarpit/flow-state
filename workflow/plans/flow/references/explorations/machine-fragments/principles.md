@@ -105,6 +105,10 @@ In priority order. When two conflict, the earlier one wins.
    subroutine calls and returns) over a new one, unless the familiar one is wrong here.
 10. **Testable alone.** Each fragment can be run and checked by itself, including how it behaves
     when the host refuses or never sends something.
+11. **Properties live on what they describe.** A fact about a thing is written on that thing, never
+    in a separate list that refers to it by name. Named lists hold categories a reader scans for
+    (`events`, `hostEvents`); modifiers hold properties of one item (`Flow.private`, `.keep()`).
+    Readability decides between the two.
 
 ## 4. Problems to avoid
 
