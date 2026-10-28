@@ -32,3 +32,15 @@ Questions to answer when revisiting:
 - Or does this argue for arming from the transition after all (`Start: { target: "self", arm: … }`),
   despite the locality and naming costs found in [spikes/timers-arm/RESULTS.md](spikes/timers-arm/RESULTS.md)?
 - Or is a timer-only trait better expressed some other way, so authors rarely write this?
+
+## 2. The name `raise` (flagged 2026-10-29)
+
+`raise` comes from SCXML, where it means "an event inside this machine, handled in this turn" and
+says nothing about direction. Next to `notify` (clearly up, child to host), it reads as if it also
+goes up, yet every `raise` in v4 goes **down**: host to its trait, fragment to its nested trait,
+`abandoned` to a root trait.
+
+The user wants a word that means downward. Considered and not liked: `tell`, `send`, `feed`,
+`forward`, `pass`, `cue`, `drive`, `dispatch`, `emit`, `signal`, `trigger`, `passDown`, `sendDown`,
+`cascade`, `delegate`, `trickle`, `handDown`. Keep `raise` until a better word is found.
+

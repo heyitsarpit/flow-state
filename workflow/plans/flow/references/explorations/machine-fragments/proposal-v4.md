@@ -290,6 +290,32 @@ Fragments may not declare `operations`, `activities`, `context`, `onContext`, `s
 Placement is structure (it produces `S`, `E` and the view types), so it lives in the definition.
 Filling refers to `S`, `E` and `O`, so it lives in the machine.
 
+**Sharing a guard.** A guard written inline takes its types from where it sits; moved into a
+variable for reuse, it would lose them. `Definition.guard(g)` keeps them: the guard is typed as if
+written at the root (or at `path`, with `Definition.guard(path, g)`), and can then sit in any guard
+slot, including a fragment's guard port:
+
+```ts
+export const SignInMachine = machine(SignIn, ({ S, O }) => {
+  const notLockedOut = SignIn.guard(({ state }) => !S.TWO_FACTOR.LOCKED_OUT.is(state) || deny("LockedOut"));
+  const notChecking = SignIn.guard((g) =>
+    !O.Auth.verifyCode.pending(g, { challengeId: g.memory.challengeId }) || deny("StillChecking"));
+
+  return {
+    states: {
+      TWO_FACTOR: {
+        traits: { code: { guards: { canEdit: notLockedOut } } },                        // a port filling
+        on: { Resend: { target: "self", guard: [notLockedOut, notChecking], actions: [resend] } },
+        states: {
+          ENTERING: { on: { Submit: { target: S.TWO_FACTOR.VERIFYING, guard: [notChecking, codeValid], actions: [verify] } } },
+          // …
+        },
+      },
+    },
+  };
+});
+```
+
 **Placing on a node.** `states` stays an ordered list: a string leaf, `{ NAME: [children] }`, or
 `{ NAME: Sub }`. Only a node that carries traits is wrapped, with `Flow.state`, whose subject is the
 node's children, nothing, or a subroutine:
