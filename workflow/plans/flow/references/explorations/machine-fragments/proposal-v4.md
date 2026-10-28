@@ -56,7 +56,7 @@ they belong in the plans. v4 reuses **pieces** (fields, timers, dialogs, selecti
 | Lives                                    | while its node is active (the root: the actor's life); fresh on every activation unless `.resumable()` | while its state is active; fresh on every entry                                          |
 | Re-activated                             | when its `resetOn` value changes                                                                       | on every entry                                                                           |
 | Ends                                     | when its node is left (resumable: frozen)                                                              | by taking an exit, or abandoned by a transition that exits its state                     |
-| On ending, except by an exit or a freeze | `onLeave` notifications run, fused into the leaving turn                                               | the same                                                                                 |
+| On ending, except by an exit or a freeze | `whenAbandoned` notifications run, fused into the leaving turn                                               | the same                                                                                 |
 | Contains                                 | traits                                                                                                 | traits and subroutines                                                                   |
 
 One question picks the kind: **does the actor have it, or go into it?** A countdown that runs beside
@@ -98,7 +98,7 @@ trait({
     Previous: { target: "self", guard: ({ memory }) => memory.page > 1 || deny("FirstPage"), … },
   },
   traits: { settle: { callbacks: { onSettled: { target: "self", notify: [callbacks.onIdle] } } } },
-  onLeave: [callbacks.onIdle],               // notified when this incarnation ends, except by an exit
+  whenAbandoned: [callbacks.onIdle],               // notified when this incarnation ends, except by an exit
 }))
 ```
 
@@ -114,7 +114,7 @@ and `flow check` reads it structurally (rule 12).
 | `internalEvents`                    | sent by its own `schedules`                                             | nothing                                                                                                                                                   |   |                     |
 | `hostEvents`                        | handled in `on`                                                         | `raise: [E.pager.Jump.from(f)]` on any host transition                                                                                                    |   |                     |
 | `guards`                            | `guard: guards.hasNext`                                                 | `guards: { hasNext: (g) => … \                                                                                                                            | \ | deny("LastPage") }` |
-| `callbacks`                         | `notify: [callbacks.onTurned.from(f)]` on a transition, or in `onLeave` | an `on`-style handler (`target?`, `updateMemory?`, `actions?`, `raise?`), possibly ordered alternatives ending in an unguarded one; its data is `payload` |   |                     |
+| `callbacks`                         | `notify: [callbacks.onTurned.from(f)]` on a transition, or in `whenAbandoned` | an `on`-style handler (`target?`, `updateMemory?`, `actions?`, `raise?`), possibly ordered alternatives ending in an unguarded one; its data is `payload` |   |                     |
 | `exits`                             | `target: exits.Done`, or `exits.Done.from(f)`                           | an `on`-style handler that must leave the subroutine's state                                                                                              |   |                     |
 
 Every category sits at the top level and is named by its direction, as `events` already is:
@@ -263,7 +263,7 @@ Each contract also carries an inferred **summary**.
 - For every event, hostEvent and internalEvent (timer chains included), it records each
   alternative's effects: the callbacks it notifies, the exits it takes, and whether it is
   **total** (handled unguarded in every state).
-- It also records the callbacks `onLeave` notifies.
+- It also records the callbacks `whenAbandoned` notifies.
 - Effects of different alternatives are exclusive, so two of them are never counted as two state
   changers.
 
@@ -282,7 +282,7 @@ Fragments may not declare `operations`, `activities`, `context`, `onContext`, `s
 | Placing a trait                            | host **definition**: the root's `traits`, or the node's `Flow.state(…, { traits })`; inside a fragment, the same in its declaration                                                   |
 | Placing a subroutine                       | host **definition**: a state, `{ NAME: Sub }`, or `{ NAME: Flow.state(Sub, { traits }) }` with host traits on its node                                                                |
 | Filling ports, `resetOn`                   | host **machine**, **at the node where it is placed**: the root's `traits.<name>`, a node's `states.<NAME>.traits.<name>`, a subroutine's `states.<NAME>`; inside a fragment, its body |
-| What survives an abnormal ending           | the fragment's body: `onLeave`                                                                                                                                                        |
+| What survives an abnormal ending           | the fragment's body: `whenAbandoned`                                                                                                                                                        |
 | Feeding a fact into a fragment             | host **machine**: `raise` on any host transition                                                                                                                                      |
 | Running I/O and mapping outcomes           | host **machine**: actions and outcomes onto the host's own events                                                                                                                     |
 | A handler or guard shared by several nodes | the definition's `handler(path, h)` / `guard(path?, g)`, e.g. `Signup.guard(g)`: typed as if written at `path` (the root when omitted)                                                |
@@ -351,7 +351,7 @@ that node.
      - A firing already queued when X is left is retracted, and fires on return.
      - A resumable trait is fresh again only when its `resetOn` value differs from the one it was frozen
        with. Re-entering X does not refresh it.
-     - Freezing is not ending, so `onLeave` does not run. It runs if the trait is reset on return.
+     - Freezing is not ending, so `whenAbandoned` does not run. It runs if the trait is reset on return.
      - Subroutines are never resumable (a type error): they are things the actor goes into.
    - **History** (`S.X.history`) restores control only. Fragments placed at or below the restored
      child resume only if resumable. `flow check` warns when a history target can re-activate a node
@@ -367,9 +367,9 @@ that node.
      - **A key written by a part** (a callback or exit filling) is not seen until commit. There,
        every `resetOn` is evaluated again on the committed memory. A changed value becomes a
        **pending reset**. It runs as its own **follow-up turn**, at the head of the mailbox, right
-       after the commit that recorded it. That turn resets, runs `onLeave`, arms entry timers and
+       after the commit that recorded it. That turn resets, runs `whenAbandoned`, arms entry timers and
        publishes. It cannot refuse. The lag is exactly one snapshot, `check()` sees the same
-       turns, and `onLeave` never shares a turn with unrelated work. Pending resets are not
+       turns, and `whenAbandoned` never shares a turn with unrelated work. Pending resets are not
        persisted: on restore, `resetOn` baselines are re-taken silently (section 6).
      - On a list, a reset removes every instance.
    - **Typing.** A trait slice placed at X is typed as present in every handler, guard and select
@@ -397,7 +397,7 @@ that node.
    - Inside a subroutine's state, host events fall through to the host's ancestors and root as
      usual. Only a transition that **exits** the subroutine's state abandons it; an ancestor's
      `"self"` does not.
-   - **`onLeave`.** It is notified when an incarnation ends other than by its own exit: its node
+   - **`whenAbandoned`.** It is notified when an incarnation ends other than by its own exit: its node
      is left, it is abandoned, removed or reset (not frozen). It is fused into the leaving turn
      (2.5, step 3). Its payload mappers read the incarnation's pre-turn memory. Its fillings
      cannot target, cannot refuse (rule 8), and write only keys the leaving transition does not
@@ -418,7 +418,7 @@ that node.
    - outcome events of fenced commits (P2);
    - `abandoned` and `orphaned` handlers;
    - exit fillings;
-   - `onLeave` fillings;
+   - `whenAbandoned` fillings;
    - timer-fired handlers.
 
    Each must be handled, ending in an unguarded alternative, in every state where it can arrive.
@@ -438,8 +438,8 @@ that node.
      reserved memory names in a trait placed with `.each`.
    - **The turn** (2.5). Raises during the walk see the source-updated list, so a source can add a
      key and raise into it. After the walk, the **final list** (every patch applied) decides
-     membership for this turn: a key gone ends its copy, with `onLeave` fused; a new key is seeded
-     from the final memory. A copy created and ended in one turn is never published. `onLeave`
+     membership for this turn: a key gone ends its copy, with `whenAbandoned` fused; a new key is seeded
+     from the final memory. A copy created and ended in one turn is never published. `whenAbandoned`
      fillings of a list's copies may not write that list's field.
    - **Repair, never refuse.** A duplicate key keeps its first entry; keys past `max` are dropped.
      Each repair is recorded as evidence, so a list can never cost a delivery (rule 8). A raise into
@@ -463,7 +463,7 @@ that node.
     only. It checks each fragment body against its own summary. Swapping a fragment for one with
     the same contract and summary cannot break its host. A changed summary is a changed contract.
 11. **Tested alone.** `story.machine(fragment, { id })` fills every port with a recording harness
-    and may send host events. `run.calls.<callback>` records notifications, including `onLeave`;
+    and may send host events. `run.calls.<callback>` records notifications, including `whenAbandoned`;
     `checkpoint.exit` records exits. `.enter(input)` enters a subroutine, with its `Input` record;
     `.leave()` abandons it, as a host transition would.
 12. **Construction errors and runtime defects.**
@@ -491,7 +491,7 @@ given event and publishes nothing.
 
 | Memory view               | What it is                                                                                     | Read by                                                                                                                                               |
 |---------------------------|------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **Pre-turn snapshot**     | the last published snapshot                                                                    | every guard; every payload mapper (`raise`, `notify`, `exits`, `onLeave` `.from`); commit selects; the source's `updateMemory`; parts' `updateMemory` |
+| **Pre-turn snapshot**     | the last published snapshot                                                                    | every guard; every payload mapper (`raise`, `notify`, `exits`, `whenAbandoned` `.from`); commit selects; the source's `updateMemory`; parts' `updateMemory` |
 | **Source-updated memory** | the pre-turn memory with the source's patch applied, plus earlier resets                       | `resetOn`; `input` fillers                                                                                                                            |
 | **Initial memory**        | a new incarnation's starting memory (input fields, then constant and computed `Flow.initial`s) | guards, mappers and updates of parts addressed to an incarnation created in this turn                                                                 |
 
@@ -500,7 +500,7 @@ given event and publishes nothing.
    - Otherwise, take the oldest event from the mailbox. The mailbox is FIFO in admission order: user sends,
      outcome events, timer firings, `onContext` events and `abandoned` settlements queue together.
    - Firings with the same deadline are separate turns.
-   - `onLeave` is never queued, because it is fused. `orphaned` runs on the descriptor, not in an
+   - `whenAbandoned` is never queued, because it is fused. `orphaned` runs on the descriptor, not in an
      actor's mailbox (P19).
 2. **Select the source.** Start at the active leaf.
    - Try that node's alternatives in order. An alternative is selected when all its guards pass,
@@ -528,11 +528,11 @@ given event and publishes nothing.
      that part and its sub-chain, with evidence, unless the same turn created a new incarnation of
      its key (rule 9).
    - **The final list.** After the walk, each `.each` field's final value decides membership
-     (rule 9). Copies whose keys are gone end, and their `onLeave` joins the leaving runs below. New
+     (rule 9). Copies whose keys are gone end, and their `whenAbandoned` joins the leaving runs below. New
      keys are seeded in step 4.
    - **Leaving.** After the walk, append, for the exit set (deepest first): `abandoned`'s pending
-     runs for commits fenced to exited states, then `onLeave` for every incarnation the turn ends.
-     A reset's `onLeave` comes after the raises into its fresh incarnation, and reads the old
+     runs for commits fenced to exited states, then `whenAbandoned` for every incarnation the turn ends.
+     A reset's `whenAbandoned` comes after the raises into its fresh incarnation, and reads the old
      incarnation's pre-turn memory.
    - **Late turns.** Late turns (rule 6) deny the moves rule 6 forbids, in steps 2 and 3 alike.
 4. **Seed and compute.**
@@ -571,7 +571,7 @@ Read the event instead.
 | Object                        | Order                                                                                                                                              |
 |-------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
 | definition, trait, subroutine | `id`, `states` / `default`, `events`, `hostEvents`, `internalEvents`, `guards`, `callbacks`, `exits`, `memory`, `traits`, `operations` / `context` |
-| machine or fragment body      | `default`, `schedules`, `traits`, `on`, `states`, `onLeave`                                                                                        |
+| machine or fragment body      | `default`, `schedules`, `traits`, `on`, `states`, `whenAbandoned`                                                                                        |
 | a host's filling              | `input`, `guards`, `callbacks`, `exits`                                                                                                            |
 | a transition                  | `target`, `guard`, `updateMemory`, `actions`, `raise`, `notify`                                                                                    |
 | commit options                | `outcomes`, `retry`, `timeout`, `optimistic`, `revertOnUnknown`, `abandoned`                                                                       |
@@ -1230,7 +1230,7 @@ export const AddressStep = subroutine(
       Changed: { target: "self", updateMemory: ({ event }) => ({ address: event.address }) },
       Confirm: exits.Done.from(({ memory }) => ({ address: memory.address })),
     },
-    onLeave: [callbacks.onDraft.from(({ memory }) => ({ address: memory.address }))], // not on Done
+    whenAbandoned: [callbacks.onDraft.from(({ memory }) => ({ address: memory.address }))], // not on Done
   }),
 );
 
@@ -1242,14 +1242,14 @@ ADDRESS: {
 },
 ```
 
-`SignOut` must not write `addressDraft` itself, because `onLeave`'s filling writes it in the same
+`SignOut` must not write `addressDraft` itself, because `whenAbandoned`'s filling writes it in the same
 turn (rule 6).
 
 ### 3.6 Keywords
 
 | Kind                        | Words                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 |-----------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **New, fragments**          | `trait`, `subroutine`, `traits` (root and node), `Flow.state`, `.resumable()`, `.each` (`max`, `by`), `key` / `item` in fillings and copy views, `.key(k)`, `hostEvents`, `guards`, `callbacks`, `exits` (declarations and fillings), `notify`, the `Flow` module (`Flow.Guard`, `Flow.Callback`, `Flow.Exit`, `Flow.optional`, `Flow.uncertain`, `Flow.annotate`, `Flow.input`, `Flow.initial`, `Flow.private`, `Flow.Denial`, `Flow.entry`), `raise`, `resetOn`, `onLeave`, the definition's `handler` / `guard`, state tokens in guard arrays, `story.machine(fragment)` with `.enter` / `.leave` / `run.calls` / `checkpoint.exit` |
+| **New, fragments**          | `trait`, `subroutine`, `traits` (root and node), `Flow.state`, `.resumable()`, `.each` (`max`, `by`), `key` / `item` in fillings and copy views, `.key(k)`, `hostEvents`, `guards`, `callbacks`, `exits` (declarations and fillings), `notify`, the `Flow` module (`Flow.Guard`, `Flow.Callback`, `Flow.Exit`, `Flow.optional`, `Flow.uncertain`, `Flow.annotate`, `Flow.input`, `Flow.initial`, `Flow.private`, `Flow.Denial`, `Flow.entry`), `raise`, `resetOn`, `whenAbandoned`, the definition's `handler` / `guard`, state tokens in guard arrays, `story.machine(fragment)` with `.enter` / `.leave` / `run.calls` / `checkpoint.exit` |
 | **New, plans**              | `abandoned` (payload `outcome`, `tag`, `definite`, `value`, `input`, `attempt`), `notSent`, `.pending`, `retry` (`on`, `schedule`), `retrying`, the mapper's `{ input, attempt }`, `revertOnUnknown`, `timeout` (`perAttempt`, `total`), `failureKinds` (`"definite"` / `"uncertain"`), `orphaned`, `.history` (and `.history.child`), `armOn`, `disarmOn`, `s.schedules`, `dueAt`, and the `model()` options `invariants`, `hot` and `explore`                                                                                                                                                                                                                 |
 | **New concepts, not words** | **incarnation** (one life of a fragment instance), **frozen** (a resumable trait while its node is inactive), **summary** (a contract's inferred per-alternative effects), **source-updated memory** (pre-turn memory plus the source's patch), **late turn** (rule 6), pending reset                                                                                                                                                                                                                                                                                                                                                    |
 | **Existing**                | `definition`, `machine`, `states`, `default`, `events`, `internalEvents`, `input` (caller side only: `ensure`, `useActor`, a host's filling), `memory`, `on`, `target`, `guard`, `updateMemory`, `actions`, `schedules`, `restartOn`, `outcomes`, `optimistic`, `setData`, `deny`, `check`, `model`, `S`, `E`, `O`, `.from`, `payload`                                                                                                                                                                                                                                                                                                   |
@@ -1281,7 +1281,7 @@ turn (rule 6).
 | **D4** unmapped outcomes                               | Allowed. An unmapped outcome publishes an issue; `uncertain` only types the right target.                                                                                                             |
 | **D5** restore in flight                               | Prevented. Fenced commits restore with their activation (P12). Attempts survive a version change through `orphaned`, at least once (P19). Saved-state compatibility Stories are left out (section 6). |
 | **D6** same-turn seeding                               | Prevented. `input` and `resetOn` read the source-updated memory (2.5). A mapper that reads a key its own turn writes is a warning.                                                                    |
-| **D7** drafts lost                                     | Prevented where the fragment declares `onLeave`, or the trait is placed high enough, or with `.resumable()`. Otherwise it is a convention.                                                            |
+| **D7** drafts lost                                     | Prevented where the fragment declares `whenAbandoned`, or the trait is placed high enough, or with `.resumable()`. Otherwise it is a convention.                                                            |
 | **A1, A2** forwarding, scattered blocks                | One filling block per instance. A view sends at the instance path, so nothing is forwarded.                                                                                                           |
 | **A3** conditional rules, **A4** overloaded words      | Avoided. Each kind has its own rules, and every new word is listed.                                                                                                                                   |
 | **A5** I/O inside fragments                            | Prevented (rule 3).                                                                                                                                                                                   |
@@ -1298,7 +1298,7 @@ sections 2 and 3.
 
 | Plan                          | Rule                                                                                                                                                                                                                                                                      | Replaces or adds                                                                                                                                                                            |                                                                                                                                                                                                                                                                                                                                                                                                                                                           |                                                        |
 |-------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------|
-| **Machines O1**               | Definitions gain `traits` (the root's `traits`, and `Flow.state(children                                                                                                                                                                                                  | {}                                                                                                                                                                                          | Sub, { traits })` on a node; `.resumable()`; `.list` open) and fragment states. Fillings sit at the node where a fragment is placed. A fragment declares what a definition declares (`id`, `events`, `internalEvents`, `memory`, child `traits` / `states`) plus `hostEvents`, `guards`, `callbacks` and `exits` at the top level, its body's `onLeave`, and an inferred summary. Machines gain one filling block per instance. Names share one namespace | Adds to "A definition requires id, states and events." |
+| **Machines O1**               | Definitions gain `traits` (the root's `traits`, and `Flow.state(children                                                                                                                                                                                                  | {}                                                                                                                                                                                          | Sub, { traits })` on a node; `.resumable()`; `.list` open) and fragment states. Fillings sit at the node where a fragment is placed. A fragment declares what a definition declares (`id`, `events`, `internalEvents`, `memory`, child `traits` / `states`) plus `hostEvents`, `guards`, `callbacks` and `exits` at the top level, its body's `whenAbandoned`, and an inferred summary. Machines gain one filling block per instance. Names share one namespace | Adds to "A definition requires id, states and events." |
 | **Machines O1**               | An internal event may be marked `Flow.uncertain(fields)`; an event payload may be a `Schema.Struct` with checks, refused at admission when a check fails                                                                                                                  | Adds to "events and optional internalEvents are records…"                                                                                                                                   |                                                                                                                                                                                                                                                                                                                                                                                                                                                           |                                                        |
 | **Package O1**                | The root route exports `Flow` (with `Flow.Guard`, `Flow.Callback`, `Flow.Exit`, `Flow.optional`, `Flow.uncertain`, `Flow.annotate`, `Flow.input`, `Flow.initial`, `Flow.private`, `Flow.Denial`, the `Flow.is*` predicates and the `Flow.Payload` / `Flow.Filling` types) | Adds to the flow-state route's name list                                                                                                                                                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                           |                                                        |
 | **Machines O1**               | Memory fields carry `Flow.input` (supplied by the creator; the `Input` type is derived from them), `Flow.initial` (a constant or a pure computed start) and `Flow.private`. Every field starts from exactly one source. The top-level `input` and `initial` are removed   | Replaces "Optional input and memory are Schema field records. Nonempty memory requires initial({ input })…"                                                                                 |                                                                                                                                                                                                                                                                                                                                                                                                                                                           |                                                        |
@@ -1444,7 +1444,7 @@ const pay = O.Payments.charge.commit(select, {
 4. **Declaration order in types.** TypeScript does not order object-literal keys reliably, so
    "earlier traits" for `resetOn` may need tuple placement or a builder (the type spike).
 5. **Names.** `trait`, `subroutine`, `hostEvents`, `resetOn`, `Flow`, `Flow.state`, `.each`, `by`, `Flow.entry`, `.key`, `.resumable()`,
-   `onLeave`, `failureKinds`.
+   `whenAbandoned`, `failureKinds`.
 
 ## Changes from v3
 
@@ -1458,7 +1458,7 @@ Notes: [synchronous](prior-art/synchronous-languages.md), [statechart](prior-art
 - The mailbox is FIFO, stated in Runtime and Machines (P21) (statechart R7).
 - History restores control, not data, with a warning over unkept fragments (synchronous R7).
 - Pruning reads only state-token elements of guard arrays; "outstanding in the pre-turn snapshot" (v3-amended-correctness n1, n2).
-- `onLeave`: a leave hook that cannot refuse or move, fused into the leaving turn (synchronous R6; statechart R2; modal R6).
+- `whenAbandoned`: a leave hook that cannot refuse or move, fused into the leaving turn (synchronous R6; statechart R2; modal R6).
 - List incarnations: a delivery into a dead incarnation is dropped with evidence (modal R1).
 - `keep` on `.at`: frozen data with kept deadlines; signup pages use it with history (modal R2).
 - Sign-in: a host-owned `Lockout` list keyed by challenge replaces `wrongAttempts` and `lockedChallenge` (modal R2).
@@ -1476,14 +1476,14 @@ Notes: [synchronous](prior-art/synchronous-languages.md), [statechart](prior-art
 
 From [reviews/v4-correctness.md](reviews/v4-correctness.md) and [reviews/v4-principles.md](reviews/v4-principles.md):
 
-- Turn (2.5): parts selected before seeding (M1); initial memory before patches, so Add-then-Strike keeps the strike (M2); all-declining falls through to ancestors (M8); a "what reads what" table; `check()` runs steps 2–6; `onLeave` and pending runs after the walk; reset incarnations arm entry timers; pending resets (m2, m3).
+- Turn (2.5): parts selected before seeding (M1); initial memory before patches, so Add-then-Strike keeps the strike (M2); all-declining falls through to ancestors (M8); a "what reads what" table; `check()` runs steps 2–6; `whenAbandoned` and pending runs after the walk; reset incarnations arm entry timers; pending resets (m2, m3).
 - Dead incarnations drop only their own parts; the host's handling commits (M3).
-- Summaries record per-alternative effects, timer chains and `onLeave` (M4).
+- Summaries record per-alternative effects, timer chains and `whenAbandoned` (M4).
 - A timeout stops waiting, not the call, and `.pending` holds until the real settlement; an explicit cancel interrupts (M5, m13).
 - `IdempotencyExpired` would be `unknown`, never `notSent`; the `idempotency` window is deferred with its gating (M6).
 - Rule 6 covers late turns sourced by compensating commits (M7).
-- Minors: `onLeave` not queued (m1); `keep` edge cases (m5); history warning for waiting states (m6); host raise into an absent key refuses (m7); saga reconciles and serializes (m8); per-invocation keys (m9); `orphaned` at least once (m10); sign-in removes unlocked instances and keeps the resend cooldown (m11); `check()` codes (m12).
-- Principles: a three-decision summary; `failureKinds`; `hot` in `model()`; `ignore` cut; `onLeave` skips freezing; concepts named; token-first position guards; five items added to "Left out".
+- Minors: `whenAbandoned` not queued (m1); `keep` edge cases (m5); history warning for waiting states (m6); host raise into an absent key refuses (m7); saga reconciles and serializes (m8); per-invocation keys (m9); `orphaned` at least once (m10); sign-in removes unlocked instances and keeps the resend cooldown (m11); `check()` codes (m12).
+- Principles: a three-decision summary; `failureKinds`; `hot` in `model()`; `ignore` cut; `whenAbandoned` skips freezing; concepts named; token-first position guards; five items added to "Left out".
 - Fix check: pending resets run as an immediate follow-up turn (f1); late turns include commits started in `abandoned`'s pending run (f2); an in-turn re-add wins (f3); sign-in notes on late success, the shared cooldown and late strikes after sign-in.
 - Port kinds use one `Flow` module following Effect Schema conventions (`Flow.Guard`, `Flow.Callback`, `Flow.Exit`, `Flow.optional`, `Flow.uncertain`, `Flow.annotate`); ports hold Schema payloads rather than being Schemas; event payloads may carry Schema checks, refused at admission (2.2.1).
 - Fragments keep a definition's shape, with `hostEvents`, `guards`, `callbacks` and `exits` as top-level lists named by direction; no grouping block. Memory fields carry `Flow.input`, `Flow.initial` (constant or computed) and `Flow.private`, for fragments and machines, replacing the top-level `input` and `initial`. `Flow` calls are written data-first (2.2.2).
@@ -1492,3 +1492,4 @@ From [reviews/v4-correctness.md](reviews/v4-correctness.md) and [reviews/v4-prin
 - `Field(schema, { validate? })` keeps the author's validator. A validator returns `true | deny(code, context?)`, the field stores the denial or null as `Flow.Denial`, and a host guard forwards it (`memory.code.error ?? true`). A Schema check fits inside a validator (`Schema.is`), so `unchecked` and `firstIssue` are gone ([research/field-validation-effect4.md](research/field-validation-effect4.md)).
 - `.each` replaces the open `.list` draft (rule 9, 2.5, sign-in, invites): membership is host memory, decided from the turn's final list, repaired instead of refused, with incarnations kept internal ([collections/proposal-each.md](collections/proposal-each.md) and its four reviews).
 - Schedules (P7): `armOn` may list `Flow.entry` to also start on entry; `disarmOn` stops a schedule; `armOn` with `restartOn` is a construction error. Event-typed triggers need no name inference ([spikes/timers-arm/RESULTS.md](spikes/timers-arm/RESULTS.md)). `schedules` keeps its name (D53).
+- `onLeave` is renamed `whenAbandoned`: it names the moment a life is ended by someone else, and the `when` prefix keeps it apart from the `on…` callbacks it fires.

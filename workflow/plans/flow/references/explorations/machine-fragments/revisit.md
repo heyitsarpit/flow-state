@@ -86,7 +86,7 @@ runtime resolves to WIZARD's last active child.
   Static (resume targets are WIZARD's leaves), one active leaf holds (the paused page is frozen),
   and it removes the main reason pages need `.resumable()`. Open: server results and timers owned
   by the paused page (held until resume, or handled while paused?); nested interrupts; entering an
-  interrupt from outside its compound; how `onLeave` treats a paused page that is then left.
+  interrupt from outside its compound; how `whenAbandoned` treats a paused page that is then left.
 - **B. History that restores data.** Returning through `.history` also resumes the traits it
   restores. Smaller change; keeps the meaning on the target and keeps the shallow/deep questions.
 - **C. The dialog as a trait.** An `open` flag on a `Confirm` trait placed on WIZARD; page guards

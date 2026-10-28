@@ -200,11 +200,11 @@ Trait.each(field, { max, by? })   // new
 2. **After the walk** (step 4), the turn's **final list** is known: the pre-turn list with the
    source's patch and every part's patch applied in expansion order. Every patch reads pre-turn
    memory, so nothing runs twice. The final list decides membership for this turn:
-   - a key gone from it ends its copy **in this turn**: schedules cancelled at commit, `onLeave`
+   - a key gone from it ends its copy **in this turn**: schedules cancelled at commit, `whenAbandoned`
      fused after the walk as v4 does for every ending (rule 6). Nothing is queued for later;
    - a key new in it, and not yet seeded by the walk, is seeded from the final memory and its
      entry schedules arm at commit;
-   - a copy created and ended in the same turn is never published and gets no `onLeave`.
+   - a copy created and ended in the same turn is never published and gets no `whenAbandoned`.
 3. **Repair, never refuse.** Before validation (step 5), the final list is repaired: a duplicate
    key keeps its first entry; keys beyond `max` are dropped, keeping the first `max`. Each repair
    is recorded as evidence and warned about in Stories. A list problem never refuses a turn, so it
@@ -212,7 +212,7 @@ Trait.each(field, { max, by? })   // new
    (`deny("TooManyPending")`).
 4. **Raise into an absent key.** In a turn sourced by a delivery (rule 8's list), the part is
    dropped with evidence and the rest commits. In any other turn it refuses, as in v4.
-5. **`onLeave` fillings of a list's copies may not write that list's field.** The writer of the
+5. **`whenAbandoned` fillings of a list's copies may not write that list's field.** The writer of the
    field already decided; a second writer is the existing overlapping-keys defect.
 
 ### 1.4 Identity
@@ -234,7 +234,7 @@ Trait.each(field, { max, by? })   // new
 ### 1.5 Frozen copies, persistence, hydration
 
 - **`.resumable()` on a node.** While the node is inactive its copies are frozen, but membership is
-  still reconciled every turn. A key removed while frozen ends its copy in that turn (`onLeave`
+  still reconciled every turn. A key removed while frozen ends its copy in that turn (`whenAbandoned`
   reads the frozen memory). A key added while frozen gets its copy on re-entry. A key removed and
   re-added while frozen is a new life.
 - **Persistence.** The key list is the truth. Each copy persists by key with its life number,
@@ -275,7 +275,7 @@ a dropped raise) as it already does for read-after-write. `model()` explores up 
 ### Q1. A copy that removes itself: no lag, no follow-up turn
 
 A toast's `onGone` callback removes its own key. The turn's final list already lacks the key, so
-the copy ends in that same turn, with its `onLeave` fused (1.3, step 2). No snapshot shows a copy
+the copy ends in that same turn, with its `whenAbandoned` fused (1.3, step 2). No snapshot shows a copy
 without a key, and nothing waits in an unpersisted follow-up turn.
 
 ### Q2. Where keys come from: host memory only
@@ -514,7 +514,7 @@ traits: {
 on: {
   Notify: {
     target: "self",
-    // The oldest falls out in the same patch (its onLeave is fused). A repeated id replaces its
+    // The oldest falls out in the same patch (its whenAbandoned is fused). A repeated id replaces its
     // notice, and its new `at` resets that toast.
     updateMemory: ({ memory, event, now }) => ({ notices: upsert(memory.notices, { ...event, at: now }).slice(-5) }),
   },
@@ -1023,7 +1023,7 @@ file, or a parallel-upload limit with a queue per file.
 | --- | --- |
 | v4 rule 9 | Replaced by section 1 of this file. |
 | v4 rule 1 | "A reset on a list resets every instance" becomes per-copy `resetOn` on `.each` fillings. |
-| v4 rule 6, 2.5 steps 3–6 | The final list (1.3): membership decided after the walk, `onLeave` fused for every ending, repair before validation. |
+| v4 rule 6, 2.5 steps 3–6 | The final list (1.3): membership decided after the walk, `whenAbandoned` fused for every ending, repair before validation. |
 | v4 rule 12 | List repairs and dropped raises join the Story-derived `flow check` warnings. |
 | Operations O2 (P1) | Outcome mappers of a commit started in a copy also receive `key`. |
 | Operations O3, Persistence (P12, P19) | A commit's descriptor and Attempt carry the copy's key and life. `orphaned` has no copy, so it never receives `key`. |
@@ -1048,7 +1048,7 @@ From [reviews/each-runtime-correctness.md](reviews/each-runtime-correctness.md),
   examples X1). Raise into an absent key keeps v4's split: dropped in delivery turns, refused
   otherwise.
 - **No follow-up turn.** Membership is decided from the turn's final list, after the walk, so a
-  copy that removes itself ends in the same turn with `onLeave` fused (runtime B2, M3, M6;
+  copy that removes itself ends in the same turn with `whenAbandoned` fused (runtime B2, M3, M6;
   constraints F3).
 - **v4's in-turn re-add rule is back** (runtime B3, constraints F4); lives are a persisted counter.
 - Frozen copies, persistence, hydration, timer ties and key escaping are specified (runtime M1, M5,
