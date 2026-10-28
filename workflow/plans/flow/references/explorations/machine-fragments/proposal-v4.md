@@ -160,7 +160,7 @@ kinds, optional versus required, and uncertainty.
 | `Flow.Exit(fields)`                              | constructor     | a way a subroutine ends; the host maps it                                                                       | `Schema.Struct(fields)`                                               |
 | `Flow.optional(port)`                            | combinator      | the host may leave the port unfilled                                                                            | shape of `Schema.optional`; a different meaning (a port, not a field) |
 | `Flow.uncertain(fields)`                         | combinator      | marks an internal event that `unknown`, `interrupt` and `defect` may target                                     | none                                                                  |
-| `Flow.annotate({ title, description })`          | combinator      | documentation for Inspection, devtools and agents                                                               | `Schema.annotate`                                                     |
+| `Flow.annotate(port, { title?, description?, denials? })` | combinator | documentation for Inspection, devtools and agents; `denials` names the refusal codes a guard is expected to give | `Schema.annotate` |
 | `Flow.input(schema)`                             | memory modifier | the creator supplies this field (2.2.2)                                                                         | none; derives the `Input` type                                        |
 | `Flow.initial(schema, value or fn)`              | memory modifier | the field's starting value (2.2.2)                                                                              | `Schema.withConstructorDefault(Effect.succeed(value))`                |
 | `Flow.private(schema)`                           | memory modifier | only the owner sees this field (2.2.2)                                                                          | none                                                                  |
@@ -169,6 +169,38 @@ kinds, optional versus required, and uncertainty.
 | `port.payload`                                   | field           | the payload `Schema.Struct`, for decode, encode or JSON Schema                                                  | none                                                                  |
 | `Flow.Payload<P>`, `Flow.Filling<C>`             | types           | a port's payload type; the type of the host's filling block for a contract                                      | `Schema.Schema.Type<S>`                                               |
 | `Flow.isGuard`, `Flow.isCallback`, `Flow.isExit` | predicates      | for tooling                                                                                                     | `Schema.isSchema`                                                     |
+
+**Annotating ports.** `Flow.annotate` documents a port for the people and tools reading the
+contract. It changes no behaviour. On a guard, `denials` lists the codes the host is expected to
+refuse with, and what each means:
+
+```ts
+guards: {
+  hasNext: Flow.annotate(Flow.Guard, {
+    title: "Has a next page",
+    description: "Whether a page exists after the current one.",
+    denials: { LastPage: "The current page is the last one." },
+  }),
+  canTurn: Flow.optional(Flow.annotate(Flow.Guard, {
+    description: "Whether turning pages is allowed right now, e.g. not while a page is loading.",
+    denials: { Loading: "A page is still loading." },
+  })),
+},
+callbacks: {
+  onTurned: Flow.annotate(Flow.Callback({ page: Schema.Int }), {
+    description: "After every turn, with the new page. Fill it to fetch that page.",
+  }),
+},
+```
+
+Where it shows up:
+
+- **Inspection and devtools** show the description beside the port, and a `check()` verdict's
+  `Denied` reasons with the matching `denials` text (`LastPage: The current page is the last one.`).
+- **Agents and generated docs** read the contract with its text, so a host can be filled correctly
+  without reading the fragment's body.
+- **`flow check`** may list, as info, a code a filled guard returns that its port's `denials` does
+  not name (from Story traces). It never fails the check.
 
 `Flow` calls are written **data-first, wrapping their argument**, always:
 `Flow.optional(Flow.Callback({}))`, `Flow.private(Flow.initial(Schema.Int, 0))`. They are Effect
