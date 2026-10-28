@@ -9,9 +9,10 @@ const cases = {
   success: Outcome.success({ id: "o1" }),
   failure: Outcome.failure(new OutOfStock()),
   plainError: Effect.fail(new Invalid()),
-  maybe: Outcome.maybe(new NoResponse()),
+  unknown: Outcome.unknown(new NoResponse()),
   thrown: Effect.sync(() => { throw new Error("bug") }),
   interrupted: Effect.interrupt,
+  failThenDie: Effect.fail(new Invalid()).pipe(Effect.ensuring(Effect.die("finalizer bug"))),
 }
 for (const [name, eff] of Object.entries(cases)) {
   const exit = Effect.runSyncExit(eff as Effect.Effect<unknown, unknown>)
