@@ -218,3 +218,64 @@ late result may move a user who is *idle*, and can never preempt live work. Mark
 3. **M3:** guard Submit with `.pending`, or use per-challenge `reject` concurrency.
 4. **M4:** at runtime, deny abandoned-sourced alternatives that would exit live work, and require a
    non-moving final alternative (open question 1).
+
+---
+
+## Final pass check
+
+This section checks the last entry in proposal-v3's closing changes list:
+
+- rule 12;
+- host-owned lists;
+- the Submit guards;
+- the rule 6 E5 clause;
+- Resend moved onto TWO_FACTOR.
+
+### The four majors
+
+| Major | Change | Status |
+| --- | --- | --- |
+| **M1** static checks versus guarded alternatives | Rule 12 splits **construction errors** from **runtime defects**. `flow check` prunes alternatives excluded by `S.X.is(state)` guards. Any other hidden overlap is a runtime pre-commit defect plus a warning. | **Closed.** The third-strike turn (CodeWrong alternative 1 against `onStart` alternative 1) is pruned structurally, and so is the raise into `code`. See n1. |
+| **M2** public list events on a host-owned list | `.list({ key, owner: "host" })` makes `Add` and `Remove` into `hostEvents`. `Remove` ignores absent keys. Submit is refused at `wrongAttempts >= 3`. | **Closed.** No sender outside the host can remove a lockout. |
+| **M3** parallel guesses through Back and return | Submit also requires `!verifyCode.pending({ challengeId })`. | **Closed.** After Back and return with X in flight, Submit is denied (`StillChecking`) until X settles, so at most one guess per challenge is ever in flight. |
+| **M4** E5 through `abandoned` | Rule 6: in a turn sourced from `abandoned`, an alternative that would exit a state holding an outstanding fenced commit or an active subroutine counts as denied. Each such handler's last alternative must not move the actor. | **Closed.** It is mechanical, and the "must not move" half is checkable. |
+
+### Sign-in, traced once more
+
+1. **Three wrong codes.** CodeWrong alternative 1 moves to LOCKED_OUT and raises `Reset`, then
+   `Add { c1 }` and `Start { c1 }` into the host-owned list. `onStart` alternative 1 is pruned
+   (VERIFYING), so alternative 2 runs. One state change. ✓
+2. **While locked.** Typing is denied. Submit is Unhandled in LOCKED_OUT. Resend falls through to
+   TWO_FACTOR; its guard passes outside VERIFYING once the cooldown has ended. ✓
+3. **The lock ends.** `onDone` alternative 1 moves to ENTERING, resets `wrongAttempts`, and raises
+   `Remove { c1 }` (a hostEvent, never refused). ✓
+4. **A late third strike after Back and return** (ENTERING, X pending, Submit denied because X is
+   pending):
+   - X settles and `abandoned` alternative 1 raises the lock.
+   - `onStart` alternative 1 moves the user from ENTERING to LOCKED_OUT.
+   - ENTERING holds no fenced commit: the resend is fenced to TWO_FACTOR, which this transition does
+     not exit. So rule 6 allows the move. ✓
+5. **A late strike while the user is away.** `onStart` alternative 2 runs, and PasswordAccepted(c1)
+   then takes alternative 1 into LOCKED_OUT. ✓
+6. **Two challenges.** Each gets its own `lockouts` instance (keyed, host-owned). ✓ m2 (attempts in
+   one host slot) is unchanged; the proposal states it.
+7. **m1 (re-lock extends the lockout)** is now unreachable. The pending guard and the LOCKED_OUT
+   routing mean no second CodeWrong can occur for a challenge whose lock is running.
+
+### New findings
+
+None at blocker or major level. Two minors:
+
+- **n1. Pruning needs a declarative form.** Rule 12 says `flow check` "reads guards on
+  `S.X.is(state)` tokens", but guards are closures, and `onStart`'s guard is
+  `S.X.is(state) && payload.key === …`. Pruning must not depend on parsing closure source. Allow a
+  state token as an element of a guard array (`guard: [S.TWO_FACTOR.ENTERING, ({ payload, memory }) => …]`).
+  The example should use that form, and rule 12 should say pruning reads only these token elements.
+- **n2. Rule 6's "outstanding fenced commit" should say "in the pre-turn snapshot".** Rule 12's
+  runtime defect for a key overlap in `abandoned`'s pending run turns the leaving transition into a
+  pre-commit defect: a buggy overlap would make Back refuse. Construction catches every visible
+  overlap, so this only bites through guards that can't be pruned. Mention it in rule 12 so authors
+  keep the pending run's keys disjoint by construction.
+
+**Verdict:** the four majors are closed, and the sign-in is correct under the final rules. v3 is
+correct enough to build against. Fix n1 when rule 12 is drafted into CommandLine O5.
