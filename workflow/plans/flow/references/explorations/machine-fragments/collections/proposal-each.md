@@ -1,67 +1,13 @@
 # Proposal: `.each`, copies that follow a key list
 
-Status: proposal, direction agreed by the user, under review. It answers [problem.md](problem.md) with candidate S1 from
-[solutions.md](solutions.md), settles its three open questions (section 2), and models nine
-real-world problems (section 3). It would replace proposal v4's rule 9 (`.list`). Syntax is v4's;
-new words are marked `// new`.
+Status: proposal, direction agreed by the user, revised after four reviews (section 6). It answers
+[problem.md](problem.md) with candidate S1 from [solutions.md](solutions.md) and would replace
+proposal v4's rule 9 (`.list`). Syntax is v4's; lines marked `// ← NEW` are new.
 
-## 1. The proposal
-
-```ts
-Trait.each(field, { key?, max? })   // new
-```
-
-- `field` names a memory field of the **same** definition or fragment that places the trait. It
-  holds the keys: `ReadonlyArray<string>`, or `ReadonlyArray<Record>` with a string field named by
-  `key`. The path is checked against the memory Schema (K6).
-- **There is exactly one copy per key, in the field's order, in every published snapshot.**
-  Membership is never commanded: the host adds and removes copies by writing its own field, in its
-  own transitions, behind its own guards.
-- `max` bounds the list. More keys than `max`, or a duplicate key, refuses the turn (`InvalidTurn`);
-  the host's own guard gives the friendly reason. `max` is also how far Stories and `model()`
-  explore.
-- `.each` sits wherever a trait sits: the root's `traits`, or `Flow.state(…, { traits })`. On a
-  node, copies live while the node is active; leaving ends them all and re-entering creates fresh
-  ones from the keys (which, being host memory, are still there). `.resumable()` freezes them
-  instead. A fragment may place `.each` over its own memory.
-
-**Reading.** `s.memory.<name>` is the copies in key order, each `{ key, item?, …readable memory }`.
-`item` is the host's element itself (same object, read-only) when the field holds records, so a view
-never joins two lists. `s.schedules.<name>` is the same order, `{ key, …schedules }`.
-
-**Addressing.**
-
-- A view sends `E.<name>.key(k).Event(payload)`. A key not in the list is `Unhandled`.
-- A host raise puts `key` in the mapper's result: `E.rows.Checked.from(({ event }) => ({ key: event.key, … }))`.
-- **Every filling receives `key`** (and `item`): `input`, guards, callback handlers, their commit
-  mappers. A commit started in a copy's filling remembers the key, and its outcome mappers receive
-  it too: `success: E.Checked.from((r, { input, key }) => …)`.
-
-**One filling for all copies**, in the machine as for any trait:
-
-```ts
-traits: {
-  rows: {
-    input: ({ key, item, memory }) => ({ … }),    // per-copy Flow.input fields
-    resetOn: ({ item }) => item.version,           // optional, per copy
-    guards: { … }, callbacks: { … },
-  },
-},
-```
-
-**Identity.** The key is public; a copy's life (its incarnation) is private. A delivery armed or
-started under one life never reaches a later life of the same key: it is dropped with evidence, and
-the rest of its turn commits (rule 8 holds). Incarnations appear only in Inspection and Stories
-(`rows["row-2"]@1`), never in types, events or views.
-
-**Removed from v4's rule 9:** built-in `Add` / `Remove`, minted keys, the `key` and `owner` options,
-`canAdd` / `canRemove`, incarnations as API.
-
-### 1.0 The whole idea in one example
+## 1.0 The whole idea in one example
 
 Delete with undo in an inbox: deleting a message hides it at once and shows "Undo" for 5 seconds;
-only then does the server delete run. Several can be pending, and any one can be undone. Lines
-marked `// ← NEW` are the only new syntax; everything else is v4.
+only then does the server delete run. Several can be pending, and any one can be undone.
 
 **The trait.** An ordinary v4 trait; it does not know it will have many copies.
 
@@ -92,7 +38,7 @@ export const Undoable = (p: { window: Duration.Input }) =>
   );
 ```
 
-**The definition.** `.each("deleting")` means one copy per id in `deleting`. Add an id and a copy
+**The definition.** `.each("deleting", …)` means one copy per id in `deleting`. Add an id and a copy
 appears; remove it and the copy, with its timer, is gone.
 
 ```ts
@@ -106,9 +52,11 @@ export const Inbox = definition({
   id: "Mail/Inbox",
   states: ["READY"],
   events: { Delete: { id: Schema.String } },
+  internalEvents: { Trashed: { id: Schema.String }, TrashFailed: { id: Schema.String } },
   memory: {
-    // Plain host data: the ids of messages waiting out their undo window.
-    deleting: Flow.initial(Schema.Array(Schema.String), []),
+    deleting: Flow.initial(Schema.Array(Schema.String), []),   // in their undo window
+    trashing: Flow.initial(Schema.Array(Schema.String), []),   // sent to the server, not confirmed
+    trashError: Flow.initial(Schema.NullOr(Schema.String), null),
   },
   traits: {
     undo: Undoable({ window: "5 seconds" }).each("deleting", { max: 50 }), // ← NEW: .each
@@ -117,7 +65,7 @@ export const Inbox = definition({
 });
 ```
 
-**The machine.** No `Add` or `Remove` events: the host edits its own array. One filling serves
+**The machine.** No `Add` or `Remove` events: the host edits its own arrays. One filling serves
 every copy, and `key` says which copy is calling.
 
 ```ts
@@ -125,139 +73,232 @@ every copy, and `key` says which copy is calling.
 import { deny, machine } from "flow-state";
 import { Inbox } from "./inbox.definition";
 
-export const InboxMachine = machine(Inbox, ({ S, O }) => ({
-  default: S.READY,
+export const InboxMachine = machine(Inbox, ({ S, E, O }) => {
+  const trash = O.Mail.trash.commit(({ key }) => ({ id: key }), {           // ← NEW: key
+    outcomes: {
+      success: E.Trashed.from((_, { input }) => ({ id: input.id })),
+      failure: E.TrashFailed.from((_, { input }) => ({ id: input.id })),
+      unknown: E.TrashFailed.from((_, { input }) => ({ id: input.id })),
+    },
+  });
 
-  traits: {
-    undo: {
-      callbacks: {
-        // The user undid: remove the id, so the copy and its timer are gone.
-        onUndo: {
-          target: "self",
-          updateMemory: ({ memory, key }) => ({ deleting: memory.deleting.filter((id) => id !== key) }), // ← NEW: key
-        },
-        // Time ran out: remove the id and run the real delete.
-        onFinal: {
-          target: "self",
-          updateMemory: ({ memory, key }) => ({ deleting: memory.deleting.filter((id) => id !== key) }), // ← NEW: key
-          actions: [O.Mail.trash.commit(({ key }) => ({ id: key }))],                                      // ← NEW: key
+  return {
+    default: S.READY,
+
+    traits: {
+      undo: {
+        callbacks: {
+          // The user undid: remove the id, so the copy and its timer are gone.
+          onUndo: {
+            target: "self",
+            updateMemory: ({ memory, key }) => ({                            // ← NEW: key
+              deleting: memory.deleting.filter((id) => id !== key),
+            }),
+          },
+          // Time ran out: move the id from "deleting" to "trashing" and run the real delete.
+          onFinal: {
+            target: "self",
+            updateMemory: ({ memory, key }) => ({                            // ← NEW: key
+              deleting: memory.deleting.filter((id) => id !== key),
+              trashing: [...memory.trashing, key],
+            }),
+            actions: [trash],
+          },
         },
       },
     },
-  },
 
-  on: {
-    // Adding a copy is adding an id. The host's own guard sets the rules.
-    Delete: {
-      target: "self",
-      guard: ({ memory, event }) => !memory.deleting.includes(event.id) || deny("AlreadyDeleting"),
-      updateMemory: ({ memory, event }) => ({ deleting: [...memory.deleting, event.id] }),
+    on: {
+      // Adding a copy is adding an id. The host's own guards set the rules.
+      Delete: {
+        target: "self",
+        guard: [
+          ({ memory, event }) => !memory.deleting.includes(event.id) || deny("AlreadyDeleting"),
+          ({ memory }) => memory.deleting.length < 50 || deny("TooManyPending"),
+        ],
+        updateMemory: ({ memory, event }) => ({ deleting: [...memory.deleting, event.id] }),
+      },
+      Trashed: {
+        target: "self",
+        updateMemory: ({ memory, event }) => ({ trashing: memory.trashing.filter((id) => id !== event.id) }),
+      },
+      // The message comes back, with a notice.
+      TrashFailed: {
+        target: "self",
+        updateMemory: ({ memory, event }) => ({
+          trashing: memory.trashing.filter((id) => id !== event.id),
+          trashError: event.id,
+        }),
+      },
     },
-  },
-}));
+  };
+});
 ```
 
 **The view.**
 
 ```tsx
-const deleting = useView(inbox, (s) => s.memory.deleting);
-const undos = useView(inbox, (s) => s.memory.undo);          // one entry per copy, in order
+const hidden = useView(inbox, (s) => [...s.memory.deleting, ...s.memory.trashing]);
+const undos = useView(inbox, (s) => s.memory.undo);           // one entry per copy, in order
 
-const visible = messages.filter((m) => !deleting.includes(m.id));
+const visible = messages.filter((m) => !hidden.includes(m.id));
 
 {undos.map((u) => (
-  <Snackbar key={u.key}                                        // ← NEW: key on each copy
-    onUndo={() => inbox.send(E.undo.key(u.key).Undo())} />    // .key(k) already exists in v4
+  <Snackbar key={u.key}                                         // ← NEW: key on each copy
+    onUndo={() => inbox.send(E.undo.key(u.key).Undo())} />     // .key(k) carried over from v4's lists
 ))}
 ```
 
-Undo after the window closed is `Unhandled` (the id is gone), so `check()` disables the button.
-Closing the tab mid-window: the ids and the armed deadline persist; on restore an overdue window
-fires once and the delete runs.
+Undo after the window closed is `Unhandled`: the id is gone, so the snackbar is gone too.
 
 **All the new syntax:**
 
 | New | What it is |
 | --- | --- |
-| `.each(field, { key?, max? })` | place a trait once per entry of a memory field; `key` only when the field holds records; `max` caps the count |
-| `key` (and `item`) in fillings | which copy is calling; `item` is the record itself when the field holds records |
-| `key` (and `item`) on each copy in the view | `s.memory.undo[i].key` |
+| `.each(field, { max, by? })` | place a trait once per entry of a memory field; `max` caps the count; `by` names the key field when entries are records |
+| `key` and `item` in fillings | which copy is calling, and its entry (the record, or the key string itself) |
+| `key` and `item` on each copy in the view | `s.memory.undo[i].key` |
 
-### 1.1 The turn (changes to v4 section 2.5)
+## 1. The rules
 
-Membership is reconciled **twice** per turn, so no snapshot ever shows a copy without a key or a key
-without a copy:
+### 1.1 Placement
 
-1. **Before the walk** (step 3, with `resetOn`): pre-turn keys against the **source-updated** keys.
-   - New key: a fresh copy, seeded lazily when first addressed. A source transition can add a key
-     and raise into it in the same turn.
-   - Removed key: the copy ends; its `onLeave` is fused into this turn, as v4 already does.
-2. **At commit** (step 6, after patches): source-updated keys against the **committed** keys. This
-   catches keys written by parts, such as a copy's own callback removing it.
-   - New key: seeded from committed memory; its entry schedules armed.
-   - Removed key: the copy is dropped and its schedules cancelled **in this commit**. Its `onLeave`,
-     if filled, runs as a follow-up turn at the head of the mailbox (with pending resets), reading
-     the copy's last memory.
+```ts
+Trait.each(field, { max, by? })   // new
+```
 
-A key removed and re-added inside **one** patch is unchanged. A key removed by the source and
-re-added by a part is a new copy: two changes, two lives. A raise reaches only keys present in the
-source-updated list; raising into a key that only a later part adds refuses the turn.
+- `field` names a memory field of the **same** definition or fragment that places the trait. It
+  holds `ReadonlyArray<string>`, or records with a string field named by `by`
+  (`.each("notices", { by: "id", max: 5 })`). The path and `by` are type-checked.
+- **One copy per key, in the field's order, in every published snapshot.** Membership is never
+  commanded: the host writes its own field, in its own transitions, behind its own guards.
+- `max` is required. It caps the list (1.3) and keeps the shape finite for tooling.
+- `.each` sits wherever a trait sits: the root's `traits`, or `Flow.state(…, { traits })`. On a
+  node, copies live while the node is active. Leaving ends them; re-entering creates fresh ones
+  from the keys still in memory. With `.resumable()` they freeze instead (1.5).
+- A trait placed with `.each` may not itself place `.each` (nested lists are out of scope, 4).
+- `key` and `item` are reserved: a trait placed with `.each` may not name memory fields so.
 
-### 1.2 What does not break
+### 1.2 Reading, addressing and fillings
+
+- **Reading.** `s.memory.<name>` is the copies in key order, each `{ key, item, …readable memory }`.
+  `item` is the host's entry itself (same object): the record, or the key string. If the key field
+  is `Flow.private`, copies show `key` only. `s.schedules.<name>` follows the same order.
+- **Addressing.** A view sends `E.<name>.key(k).Event(payload)`; a key not in the list is
+  `Unhandled`. A host raise puts `key` in the mapper's result:
+  `E.rows.Checked.from(({ event }) => ({ key: event.key, … }))`.
+- **Fillings.** One filling serves every copy, in the machine as for any trait. Every part of it
+  receives `key` and `item`: `input`, `resetOn` (per copy), guards, callback handlers and their
+  commit mappers. A commit started in a copy's filling remembers its key and life; its outcome
+  mappers receive `key` (`success: E.X.from((r, { input, key }) => …)`). A commit started anywhere
+  else has no `key`; using it there is a type error.
+
+### 1.3 The turn (changes to v4 section 2.5)
+
+1. **During the walk** (step 3), raises see the **source-updated** list, as `resetOn` does. A
+   source transition can add a key and raise into the new copy in the same turn.
+2. **After the walk** (step 4), the turn's **final list** is known: the pre-turn list with the
+   source's patch and every part's patch applied in expansion order. Every patch reads pre-turn
+   memory, so nothing runs twice. The final list decides membership for this turn:
+   - a key gone from it ends its copy **in this turn**: schedules cancelled at commit, `onLeave`
+     fused after the walk as v4 does for every ending (rule 6). Nothing is queued for later;
+   - a key new in it, and not yet seeded by the walk, is seeded from the final memory and its
+     entry schedules arm at commit;
+   - a copy created and ended in the same turn is never published and gets no `onLeave`.
+3. **Repair, never refuse.** Before validation (step 5), the final list is repaired: a duplicate
+   key keeps its first entry; keys beyond `max` are dropped, keeping the first `max`. Each repair
+   is recorded as evidence and warned about in Stories. A list problem never refuses a turn, so it
+   can never lose a delivery (rule 8). Hosts still write guards for friendly reasons
+   (`deny("TooManyPending")`).
+4. **Raise into an absent key.** In a turn sourced by a delivery (rule 8's list), the part is
+   dropped with evidence and the rest commits. In any other turn it refuses, as in v4.
+5. **`onLeave` fillings of a list's copies may not write that list's field.** The writer of the
+   field already decided; a second writer is the existing overlapping-keys defect.
+
+### 1.4 Identity
+
+- The key is public; each copy's **life** is private. A key's lives are numbered by a counter that
+  persists with the actor and never goes back, so a later life is always distinguishable.
+- A delivery (a commit outcome, a timer firing) reaches the life it was started or armed under.
+  If that life is dead **and a life of the same key was created earlier in the same turn**, it
+  reaches that new life (v4's in-turn rule; the sign-in in 3.7 relies on it). Otherwise it is
+  dropped with evidence, and the rest of its turn commits.
+- A view event addresses a key, not a life: a click rendered for an old copy reaches the current
+  one. This is normal mailbox behaviour.
+- Removing and re-adding a key **in one patch** changes nothing. To restart a copy, give it a new
+  key or a per-copy `resetOn` (3.3 and 3.6 do).
+- Copies that arm timers for the same instant fire in list order at arming.
+- Lives appear only in Inspection and Stories (`rows["row-2"]@1`, keys escaped), never in types,
+  events or views.
+
+### 1.5 Frozen copies, persistence, hydration
+
+- **`.resumable()` on a node.** While the node is inactive its copies are frozen, but membership is
+  still reconciled every turn. A key removed while frozen ends its copy in that turn (`onLeave`
+  reads the frozen memory). A key added while frozen gets its copy on re-entry. A key removed and
+  re-added while frozen is a new life.
+- **Persistence.** The key list is the truth. Each copy persists by key with its life number,
+  memory and armed deadlines. On restore, a copy whose key is gone is dropped with evidence, a key
+  without a copy is seeded fresh, and the list is repaired (1.3). Pending work is never deferred to
+  an unpersisted follow-up turn, because none exists (1.3).
+- **Hydration** restores copies from the persisted snapshot and never re-runs `input`.
+- A constant `Flow.initial` longer than `max` is a construction error.
+
+### 1.6 What static analysis sees, and what it does not
+
+`flow check` and `flow graph` see the **shape**: one node per placement ("Undoable × deleting ≤ 50"),
+the key path and type, `max`, the template's contract summary, its raise and callback edges, and
+rule 8 totality, checked once for all copies. The single graph is unchanged.
+
+They do **not** see membership: which transitions add or remove keys, or whether a raise will find
+its key, because `updateMemory` is an opaque function. That is runtime data, as in every system
+in the prior art. Stories show it, and `flow check` reports Story-derived warnings (a repair in 1.3,
+a dropped raise) as it already does for read-after-write. `model()` explores up to
+`explore: { <name>: n }` copies per list (default 2), not `max`.
+
+### 1.7 What does not break
 
 | Constraint | How |
 | --- | --- |
-| **K2 static analysis, single graph** | The trait is analysed once and drawn as one node, "EmailRow × rowIds ≤ 5". The key field is a declared, typed path, not a runtime discovery. `flow check` checks the template and the host against its contract; Stories and `model()` explore up to `max` copies. |
-| **K1 one turn** | Both reconciliations are inside the host's turn; a refusal anywhere refuses all of it. |
+| **K1 one turn** | Membership is decided inside the host's turn, from the final list; nothing is deferred. |
+| **K2 static analysis, single graph** | One node per placement; template analysed once; membership is Story-checked (1.6). |
 | **K3 no child actors** | Copies are traits. |
 | **K4 one active leaf** | Copies have no states; a copy's mode is memory. |
-| **K5 definition/machine** | `.each` and the key field are structure; `input`, fillings and membership writes are behaviour. |
-| **K7 determinism** | Keys are host data, persisted and hydrated with it. Hosts mint keys from their own counters or domain ids (a lint flags `crypto.randomUUID()` in an update). |
-| **K8 no fragment I/O** | Copies notify; the host commits, attributed to the copy's key. |
+| **K5 definition/machine** | `.each`, the field and `max` are structure; `input`, fillings and membership writes are behaviour. |
+| **K6 types** | Field path, `by`, `key` and `item` are typed; `key` outside a copy filling is a type error. |
+| **K7 determinism** | Keys are host data; lives are persisted counters; timer ties follow list order. |
+| **K8 no fragment I/O** | Copies notify; the host commits, attributed to the copy's key and life. |
 | **K9 locality** | Which copies exist is written on the placement; who may add or remove is written on the host's transitions. |
 
 ## 2. The open questions, settled
 
-### Q1. A copy that removes itself: no lag
+### Q1. A copy that removes itself: no lag, no follow-up turn
 
-The problem: a toast's `onGone` callback removes its own key, but v4 reconciled part-written state
-(`resetOn`) only in a follow-up turn, so one published snapshot showed a toast whose key was gone.
-
-**Settled: removals and additions written by parts apply at commit** (1.1, second pass). Removal can
-always be applied, because it cannot refuse; only `onLeave`, which may write host memory, needs its
-own turn, and it reads a captured copy of the memory it needs. The invariant "one copy per key in
-every snapshot" holds without exceptions, and S2's advantage (Céu-style self-removal) is gone.
-
-Follow-up worth considering separately: the same commit-time pass would remove `resetOn`'s
-one-snapshot lag for part-written values. Not part of this proposal.
+A toast's `onGone` callback removes its own key. The turn's final list already lacks the key, so
+the copy ends in that same turn, with its `onLeave` fused (1.3, step 2). No snapshot shows a copy
+without a key, and nothing waits in an unpersisted follow-up turn.
 
 ### Q2. Where keys come from: host memory only
 
-**Settled: a memory field of the placing definition or fragment.** Not a selector function (the
-graph could not show what drives the copies, and it would run on every turn), not activity data
-(it changes outside the turn, breaking K1 and K7).
+A memory field of the placing definition or fragment. Not a selector function (the graph could
+not show what drives the copies), not activity data (it changes outside the turn). Data from
+outside reaches the list through ordinary host events: an activity's `value` outcome, an
+`onContext` reaction, a commit's outcome.
 
-Data from outside reaches the key list through ordinary host events: an activity's `value` outcome,
-an `onContext` reaction, a commit's success. Examples 3.4 and 3.5 do this.
-
-Modelling showed the more important rule: **copies are for items with live behaviour, not for every
-item.** A table of 2,000 issues keeps its rows in an activity; only the three rows currently
-flashing an error have copies (3.6). Plain rows need nothing (3.9).
+Memory holds **keys and the facts a copy is created from** (an order's `placedAt`), not copies of
+server rows. And copies are for items with **live behaviour**, not every item: a table of 2,000
+issues has copies only for the few rows flashing an error (3.6).
 
 ### Q3. Keys: strings, held bare or in records
 
-**Settled: keys are strings.** A key appears in event envelopes, Story names, persistence and React
-`key` props, and strings are the only type that is the same in all four. Numeric ids are written
-`String(id)`.
-
-The list may hold bare keys (`rowIds: string[]`) or records with a key field
-(`.each("notices", { key: "id" })`). Records keep the host's data and the membership in one place,
-so there is nothing to keep in sync, and the copy's view carries the record as `item`.
+Keys are strings: they appear in event envelopes, Story names, persistence and React `key` props.
+Numeric ids are written `String(id)`. The list holds bare keys, or records with a key field named
+by `by`, so the host's data and the membership live in one place.
 
 ## 3. Real-world problems, modelled
 
-Shared helpers used below: `list.filter((id) => id !== key)`, `upsert(list, record)`, and
-`const denialOf = (ok: boolean, code: string) => (ok ? null : deny(code))`.
+Each example defines any helper it uses in its own file. Omitted outcomes (`interrupt`, `defect`)
+publish an actor issue, as Machines O6 says; outcomes the state waits on are always mapped.
 
 ### 3.1 Team invites: rows that check with the server as you type
 
@@ -266,12 +307,16 @@ Up to five email rows. Each validates on every keystroke and asks the server "al
 
 ```ts
 // fragments.ts
+const emailShape = (v: string) => (v === "" || v.includes("@") ? null : deny("NotAnEmail"));
+
 export const EmailRow = trait(
   {
     id: "EmailRow",
     events: { Changed: { value: Schema.String } },
-    hostEvents: { Checked: { value: Schema.String, taken: Schema.Boolean } },
+    // taken: null means the check itself failed; the server checks again on send.
+    hostEvents: { Checked: { value: Schema.String, taken: Schema.NullOr(Schema.Boolean) } },
     internalEvents: { Quiet: {} },
+    guards: { canEdit: Flow.optional(Flow.Guard) },
     callbacks: { onQuiet: Flow.Callback({ value: Schema.String }) },
     memory: {
       value: Flow.initial(Schema.String, ""),
@@ -279,16 +324,13 @@ export const EmailRow = trait(
       checking: Flow.initial(Schema.Boolean, false),
     },
   },
-  ({ E, callbacks }) => ({
+  ({ E, guards, callbacks }) => ({
     schedules: { quiet: { schedule: "400 millis", send: E.Quiet, armOn: [E.Changed] } }, // debounce
     on: {
       Changed: {
         target: "self",
-        updateMemory: ({ event }) => ({
-          value: event.value,
-          error: denialOf(event.value === "" || event.value.includes("@"), "NotAnEmail"),
-          checking: false,
-        }),
+        guard: guards.canEdit,
+        updateMemory: ({ event }) => ({ value: event.value, error: emailShape(event.value), checking: false }),
       },
       Quiet: [
         {
@@ -304,7 +346,10 @@ export const EmailRow = trait(
         {
           target: "self",
           guard: ({ memory, event }) => event.value === memory.value || deny("Stale"),
-          updateMemory: ({ event }) => ({ checking: false, error: denialOf(!event.taken, "AlreadyMember") }),
+          updateMemory: ({ event }) => ({
+            checking: false,
+            error: event.taken === true ? deny("AlreadyMember") : null,
+          }),
         },
         { target: "self" },
       ],
@@ -319,29 +364,50 @@ export const Invite = definition({
   id: "Team/Invite",
   states: ["EDITING", "SENDING", "SENT"],
   events: { AddRow: {}, RemoveRow: { key: Schema.String }, Send: {} },
-  internalEvents: { Checked: { key: Schema.String, value: Schema.String, taken: Schema.Boolean }, Sent: {} },
+  internalEvents: {
+    Checked: { key: Schema.String, value: Schema.String, taken: Schema.NullOr(Schema.Boolean) },
+    Sent: {},
+    SendFailed: {},
+  },
   memory: {
     rowIds: Flow.initial(Schema.Array(Schema.String), ["row-1"]),
     nextRow: Flow.private(Flow.initial(Schema.Int, 2)),
+    sendFailed: Flow.initial(Schema.Boolean, false),
   },
-  traits: { rows: EmailRow.each("rowIds", { max: 5 }) },   // new: .each
+  traits: { rows: EmailRow.each("rowIds", { max: 5 }) },          // ← NEW
   operations: { Team },
 });
 
 // invite.machine.ts
 export const InviteMachine = machine(Invite, ({ S, E, O }) => {
+  const couldNotCheck = E.Checked.from((_, { input, key }) => ({ key, value: input.email, taken: null })); // ← NEW: key
   const check = O.Team.isMember.commit(({ payload }) => ({ email: payload.value }), {
-    outcomes: { success: E.Checked.from((r, { input, key }) => ({ key, value: input.email, taken: r.member })) }, // new: key
+    outcomes: {
+      success: E.Checked.from((r, { input, key }) => ({ key, value: input.email, taken: r.member })),     // ← NEW: key
+      failure: couldNotCheck,
+      notSent: couldNotCheck,
+      unknown: couldNotCheck,
+    },
   });
-  const send = O.Team.invite.commit(({ memory }) => ({ emails: memory.rows.map((r) => r.value).filter((v) => v !== "") }), {
-    outcomes: { success: E.Sent },
-  });
+  const send = O.Team.invite.commit(
+    ({ memory }) => ({ emails: memory.rows.map((r) => r.value).filter((v) => v !== "") }),
+    { outcomes: { success: E.Sent, failure: E.SendFailed, notSent: E.SendFailed, unknown: E.SendFailed } },
+  );
+
   return {
     default: S.EDITING,
-    traits: { rows: { callbacks: { onQuiet: { target: "self", actions: [check] } } } },
+    traits: {
+      rows: {
+        guards: { canEdit: ({ state }) => S.EDITING.is(state) || deny("NotEditing") },
+        callbacks: { onQuiet: { target: "self", actions: [check] } },
+      },
+    },
     on: {
-      // Routed by key. For a row removed meanwhile, this raise is dropped with evidence; the turn commits.
-      Checked: { target: "self", raise: [E.rows.Checked.from(({ event }) => event)] },
+      // Routed by key. For a row removed meanwhile, this raise is dropped with evidence (1.3).
+      Checked: {
+        target: "self",
+        raise: [E.rows.Checked.from(({ event }) => ({ key: event.key, value: event.value, taken: event.taken }))],
+      },
     },
     states: {
       EDITING: {
@@ -349,21 +415,34 @@ export const InviteMachine = machine(Invite, ({ S, E, O }) => {
           AddRow: {
             target: "self",
             guard: ({ memory }) => memory.rowIds.length < 5 || deny("FiveAtMost"),
-            updateMemory: ({ memory }) => ({ rowIds: [...memory.rowIds, `row-${memory.nextRow}`], nextRow: memory.nextRow + 1 }),
+            updateMemory: ({ memory }) => ({
+              rowIds: [...memory.rowIds, `row-${memory.nextRow}`],
+              nextRow: memory.nextRow + 1,
+            }),
           },
-          RemoveRow: { target: "self", updateMemory: ({ memory, event }) => ({ rowIds: memory.rowIds.filter((id) => id !== event.key) }) },
+          RemoveRow: {
+            target: "self",
+            updateMemory: ({ memory, event }) => ({ rowIds: memory.rowIds.filter((k) => k !== event.key) }),
+          },
           Send: {
             target: S.SENDING,
             guard: [
               ({ memory }) => memory.rows.some((r) => r.value !== "") || deny("NoInvites"),
-              ({ memory }) => memory.rows.find((r) => r.error !== null)?.error ?? true, // forwards the row's reason
+              ({ schedules }) => schedules.rows.every((r) => r.quiet === undefined) || deny("StillTyping"),
               ({ memory }) => memory.rows.every((r) => !r.checking) || deny("StillChecking"),
+              ({ memory }) => memory.rows.find((r) => r.error !== null)?.error ?? true, // the row's own reason
             ],
+            updateMemory: () => ({ sendFailed: false }),
             actions: [send],
           },
         },
       },
-      SENDING: { on: { Sent: S.SENT } },
+      SENDING: {
+        on: {
+          Sent: S.SENT,
+          SendFailed: { target: S.EDITING, updateMemory: () => ({ sendFailed: true }) },
+        },
+      },
       SENT: {},
     },
   };
@@ -381,14 +460,14 @@ const rows = useView(invite, (s) => s.memory.rows);
 ))}
 ```
 
-### 3.2 Inbox: delete with a five-second undo, several at once
+### 3.2 Inbox: delete with a five-second undo
 
 Written out in full in section 1.0.
 
 ### 3.3 Notifications: toasts that pause while hovered
 
-Each toast leaves after 4 s, stays while hovered, restarts its 4 s when the pointer leaves, and has a
-close button. At most five; a sixth pushes out the oldest.
+Each toast leaves after 4 s, stays while hovered, restarts its 4 s when the pointer leaves, and has
+a close button. At most five; a sixth pushes out the oldest. The same id again refreshes its toast.
 
 ```ts
 export const Toast = (p: { show: Duration.Input }) =>
@@ -417,20 +496,28 @@ export const Toast = (p: { show: Duration.Input }) =>
     }),
   );
 
-// app.definition.ts (excerpt)
+// app.definition.ts (excerpt). This actor is not persisted, so `hovered` never outlives the page.
 events: { Notify: { id: Schema.String, text: Schema.String, tone: Tone } },
-memory: { notices: Flow.initial(Schema.Array(Notice), []) },             // Notice: { id, text, tone }
-traits: { toasts: Toast({ show: "4 seconds" }).each("notices", { key: "id", max: 5 }) },
+memory: { notices: Flow.initial(Schema.Array(Notice), []) },                       // Notice: { id, text, tone }
+traits: { toasts: Toast({ show: "4 seconds" }).each("notices", { by: "id", max: 5 }) }, // ← NEW
 
 // app.machine.ts (excerpt)
+const upsert = (list: ReadonlyArray<Notice>, n: Notice) =>
+  list.some((x) => x.id === n.id) ? list.map((x) => (x.id === n.id ? n : x)) : [...list, n];
+
 traits: {
-  toasts: { callbacks: { onGone: { target: "self", updateMemory: ({ memory, key }) => ({ notices: memory.notices.filter((n) => n.id !== key) }) } } },
+  toasts: {
+    callbacks: {
+      onGone: { target: "self", updateMemory: ({ memory, key }) => ({ notices: memory.notices.filter((n) => n.id !== key) }) },
+    },
+  },
 },
 on: {
   Notify: {
     target: "self",
-    // The oldest falls out in the same patch (its onLeave is fused); the new one is shown in this turn.
-    updateMemory: ({ memory, event }) => ({ notices: [...memory.notices, event].slice(-5) }),
+    // The oldest falls out in the same patch (its onLeave is fused). A repeated id replaces its
+    // notice; Shown re-arms its 4 s.
+    updateMemory: ({ memory, event }) => ({ notices: upsert(memory.notices, event).slice(-5) }),
     raise: [E.toasts.Shown.from(({ event }) => ({ key: event.id }))],
   },
 },
@@ -438,14 +525,16 @@ on: {
 
 ```tsx
 {toasts.map((t) => (
-  <Toast key={t.key} tone={t.item.tone} onMouseEnter={() => app.send(E.toasts.key(t.key).Hover())}
+  <Toast key={t.key} tone={t.item.tone}
+         onMouseEnter={() => app.send(E.toasts.key(t.key).Hover())}
          onMouseLeave={() => app.send(E.toasts.key(t.key).Unhover())}>
-    {t.item.text}<CloseButton onClick={() => app.send(E.toasts.key(t.key).Close())} />
+    {t.item.text}
+    <CloseButton onClick={() => app.send(E.toasts.key(t.key).Close())} />
   </Toast>
 ))}
 ```
 
-`Shown` exists because v4's P7 leaves an `armOn` schedule idle on creation (see 4, gap 2).
+`Shown` exists because v4's P7 leaves an `armOn` schedule idle on creation (section 4, gap 2).
 
 ### 3.4 Restaurant kitchen display: tickets that age
 
@@ -467,7 +556,8 @@ export const Ticket = (p: { warnAfter: number; lateAfter: number }) =>   // mill
       },
     },
     ({ E, callbacks }) => ({
-      // Deadlines come from the order's own time, so a re-created or restored ticket keeps them.
+      // Deadlines come from the order's own time (Machines O5 schedule function), so a re-created
+      // or restored ticket keeps them.
       schedules: {
         warn: { schedule: ({ memory, now }) => Math.max(0, memory.placedAt + p.warnAfter - now), send: E.Warn },
         late: { schedule: ({ memory, now }) => Math.max(0, memory.placedAt + p.lateAfter - now), send: E.Late },
@@ -482,14 +572,20 @@ export const Ticket = (p: { warnAfter: number; lateAfter: number }) =>   // mill
   );
 
 // kitchen.definition.ts (excerpt)
-internalEvents: { OrdersChanged: { orders: Schema.Array(Order) }, Bumped: { id: Schema.String } },  // Order: { id, placedAt, lines }
+// Memory keeps keys and the one fact a ticket is created from, not the order (Q2).
+internalEvents: { OrdersChanged: { orders: Schema.Array(Order) }, BumpFailed: { id: Schema.String } },
 memory: {
-  orders: Flow.initial(Schema.Array(Order), []),
-  bumping: Flow.private(Flow.initial(Schema.Array(Schema.String), [])),   // bumped here, not yet gone upstream
+  tickets: Flow.initial(Schema.Array(TicketKey), []),   // TicketKey: { id, placedAt }
+  bumping: Flow.initial(Schema.Array(TicketKey), []),   // bumped here, still listed upstream
 },
-traits: { tickets: Ticket({ warnAfter: 8 * 60_000, lateAfter: 12 * 60_000 }).each("orders", { key: "id", max: 200 }) },
+traits: {
+  // max is far above a real rush; past it the runtime keeps the first 300 and records evidence (1.3).
+  tickets: Ticket({ warnAfter: 8 * 60_000, lateAfter: 12 * 60_000 }).each("tickets", { by: "id", max: 300 }),
+},
 
 // kitchen.machine.ts (excerpt)
+const keyOf = (o: Order) => ({ id: o.id, placedAt: o.placedAt });
+
 activities: {
   open: O.Pos.openOrders.subscribe(({ context }) => ({ station: context.station }), {
     outcomes: { value: E.OrdersChanged.from((orders) => ({ orders })) },
@@ -497,32 +593,61 @@ activities: {
 },
 traits: {
   tickets: {
-    input: ({ item }) => ({ placedAt: item.placedAt }),
+    input: ({ item }) => ({ placedAt: item.placedAt }),                          // ← NEW: item
     callbacks: {
       onBumped: {
         target: "self",
-        updateMemory: ({ memory, key }) => ({ orders: memory.orders.filter((o) => o.id !== key), bumping: [...memory.bumping, key] }),
-        actions: [O.Pos.bump.commit(({ key }) => ({ orderId: key }), { outcomes: { success: E.Bumped.from((_, { input }) => ({ id: input.orderId })) } })],
+        updateMemory: ({ memory, key, item }) => ({
+          tickets: memory.tickets.filter((t) => t.id !== key),
+          bumping: [...memory.bumping, item],
+        }),
+        actions: [O.Pos.bump.commit(({ key }) => ({ orderId: key }), {
+          outcomes: {
+            failure: E.BumpFailed.from((_, { input }) => ({ id: input.orderId })),
+            unknown: E.BumpFailed.from((_, { input }) => ({ id: input.orderId })),
+          },
+        })],
       },
+      // flagLate is idempotent on the server: every screen at the station may send it.
       onLate: { target: "self", actions: [O.Pos.flagLate.commit(({ key }) => ({ orderId: key }))] },
     },
   },
 },
 on: {
-  // Server truth, minus what this screen has bumped and the server has not caught up with.
-  OrdersChanged: { target: "self", updateMemory: ({ memory, event }) => ({ orders: event.orders.filter((o) => !memory.bumping.includes(o.id)) }) },
-  Bumped: { target: "self", updateMemory: ({ memory, event }) => ({ bumping: memory.bumping.filter((id) => id !== event.id) }) },
+  // Server truth, minus what this screen bumped. A bumped order leaves `bumping` only when the
+  // server list stops showing it, so it can never flash back.
+  OrdersChanged: {
+    target: "self",
+    updateMemory: ({ memory, event }) => {
+      const listed = (id: string) => event.orders.some((o) => o.id === id);
+      const bumping = memory.bumping.filter((b) => listed(b.id));
+      return {
+        bumping,
+        tickets: event.orders.filter((o) => !bumping.some((b) => b.id === o.id)).map(keyOf),
+      };
+    },
+  },
+  // A failed bump puts the ticket back at once, with its original placedAt.
+  BumpFailed: {
+    target: "self",
+    updateMemory: ({ memory, event }) => ({
+      bumping: memory.bumping.filter((b) => b.id !== event.id),
+      tickets: [...memory.tickets, ...memory.bumping.filter((b) => b.id === event.id)]
+        .sort((a, b) => a.placedAt - b.placedAt),
+    }),
+  },
 },
 ```
 
-A ticket keeps its copy across server updates because its key stays in the list; only orders that
-appear or vanish create or end copies.
+A ticket keeps its copy across server updates because its key stays in the list. One that comes
+back after a failed bump is a new life with the same deadlines, because they come from `placedAt`.
+The view reads each order's lines from the `open` activity by `key`.
 
 ### 3.5 Device fleet: heartbeat watchdog with escalation
 
 Devices report a heartbeat every few seconds. A device silent for 30 s is offline and opens an
 alert; an alert nobody acknowledges in 10 minutes pages the on-call engineer. Devices are learned
-from their first heartbeat.
+from their first heartbeat and can be decommissioned.
 
 ```ts
 export const Watchdog = (p: { silence: Duration.Input; escalateAfter: Duration.Input }) =>
@@ -546,11 +671,20 @@ export const Watchdog = (p: { silence: Duration.Input; escalateAfter: Duration.I
       },
       on: {
         Beat: [
-          { target: "self", guard: ({ memory }) => memory.status !== "online" || deny("Online"), updateMemory: () => ({ status: "online" }), notify: [callbacks.onBack] },
+          {
+            target: "self",
+            guard: ({ memory }) => memory.status !== "online" || deny("Online"),
+            updateMemory: () => ({ status: "online" }),
+            notify: [callbacks.onBack],
+          },
           { target: "self" },
         ],
         Silent: { target: "self", updateMemory: () => ({ status: "offline" }), notify: [callbacks.onOffline] },
-        Acknowledge: { target: "self", guard: ({ memory }) => memory.status === "offline" || deny("NotOffline"), updateMemory: () => ({ status: "acknowledged" }) },
+        Acknowledge: {
+          target: "self",
+          guard: ({ memory }) => memory.status === "offline" || deny("NotOffline"),
+          updateMemory: () => ({ status: "acknowledged" }),
+        },
         Escalate: [
           { target: "self", guard: ({ memory }) => memory.status === "offline" || deny("Handled"), notify: [callbacks.onEscalate] },
           { target: "self" }, // back online or acknowledged meanwhile
@@ -559,38 +693,69 @@ export const Watchdog = (p: { silence: Duration.Input; escalateAfter: Duration.I
     }),
   );
 
-// fleet.definition.ts (excerpt)
+// fleet.definition.ts (excerpt). This actor is not persisted: after a restart, devices are
+// relearned from heartbeats, so a restart never marks the whole fleet offline at once.
 events: { Decommission: { deviceId: Schema.String } },
-internalEvents: { Heartbeat: { deviceId: Schema.String, at: Schema.Number } },
-memory: { deviceIds: Flow.initial(Schema.Array(Schema.String), []) },
-traits: { devices: Watchdog({ silence: "30 seconds", escalateAfter: "10 minutes" }).each("deviceIds", { max: 1000 }) },
+internalEvents: { Heartbeat: { deviceId: Schema.String, at: Schema.Number }, PageFailed: { deviceId: Schema.String } },
+memory: {
+  deviceIds: Flow.initial(Schema.Array(Schema.String), []),
+  decommissioned: Flow.initial(Schema.Array(Schema.String), []),
+  pageFailures: Flow.initial(Schema.Array(Schema.String), []),   // shown as a banner
+},
+traits: { devices: Watchdog({ silence: "30 seconds", escalateAfter: "10 minutes" }).each("deviceIds", { max: 2000 }) },
 
 // fleet.machine.ts (excerpt)
+// Alerts operations use "serialize" concurrency per deviceId, so an open and a resolve land in order.
 activities: {
-  beats: O.Fleet.heartbeats.subscribe({}, { outcomes: { value: E.Heartbeat.from((h) => ({ deviceId: h.deviceId, at: h.at })) } }),
+  beats: O.Fleet.heartbeats.subscribe({}, {
+    outcomes: { value: E.Heartbeat.from((h) => ({ deviceId: h.deviceId, at: h.at })) },
+  }),
 },
 traits: {
   devices: {
     callbacks: {
       onOffline: { target: "self", actions: [O.Alerts.open.commit(({ key }) => ({ deviceId: key }))] },
       onBack: { target: "self", actions: [O.Alerts.resolve.commit(({ key }) => ({ deviceId: key }))] },
-      onEscalate: { target: "self", actions: [O.Pager.page.commit(({ key }) => ({ deviceId: key, severity: "high" }))] },
+      onEscalate: {
+        target: "self",
+        actions: [O.Pager.page.commit(({ key }) => ({ deviceId: key, severity: "high" }), {
+          outcomes: {
+            failure: E.PageFailed.from((_, { input }) => ({ deviceId: input.deviceId })),
+            unknown: E.PageFailed.from((_, { input }) => ({ deviceId: input.deviceId })),
+          },
+        })],
+      },
     },
   },
 },
 on: {
-  // A new device is added and beaten in one turn: the raise reaches its fresh copy (1.1, first pass).
-  Heartbeat: {
+  Heartbeat: [
+    {
+      // A new device is added and beaten in one turn: the raise reaches its fresh copy (1.3).
+      target: "self",
+      guard: ({ memory, event }) => !memory.decommissioned.includes(event.deviceId) || deny("Decommissioned"),
+      updateMemory: ({ memory, event }) =>
+        memory.deviceIds.includes(event.deviceId) ? {} : { deviceIds: [...memory.deviceIds, event.deviceId] },
+      raise: [E.devices.Beat.from(({ event }) => ({ key: event.deviceId }))],
+    },
+    { target: "self" }, // a decommissioned device still beating is ignored
+  ],
+  Decommission: {
     target: "self",
-    updateMemory: ({ memory, event }) => (memory.deviceIds.includes(event.deviceId) ? {} : { deviceIds: [...memory.deviceIds, event.deviceId] }),
-    raise: [E.devices.Beat.from(({ event }) => ({ key: event.deviceId }))],
+    updateMemory: ({ memory, event }) => ({
+      deviceIds: memory.deviceIds.filter((id) => id !== event.deviceId),
+      decommissioned: [...memory.decommissioned, event.deviceId],
+    }),
+    actions: [O.Alerts.resolve.commit(({ event }) => ({ deviceId: event.deviceId }))],
   },
-  Decommission: { target: "self", updateMemory: ({ memory, event }) => ({ deviceIds: memory.deviceIds.filter((id) => id !== event.deviceId) }) },
+  PageFailed: {
+    target: "self",
+    updateMemory: ({ memory, event }) => ({ pageFailures: [...memory.pageFailures, event.deviceId] }),
+  },
 },
 ```
 
-Decommissioning a device ends its copy, which cancels both timers: a removed device can never page
-anyone. This is the L1 guarantee (timers stop with their owner) applied per copy.
+Decommissioning ends the copy and cancels both timers: a removed device can never page anyone.
 
 ### 3.6 Issue table: optimistic pins that flash on failure
 
@@ -608,70 +773,117 @@ export const Flash = (p: { for: Duration.Input }) =>
   );
 
 // issues.definition.ts (excerpt)
-internalEvents: { PinFailed: { id: Schema.String, reason: Flow.Denial, at: Schema.Number } },
-memory: { flashes: Flow.initial(Schema.Array(FlashNote), []) },     // FlashNote: { id, reason, at }
-traits: { flashes: Flash({ for: "3 seconds" }).each("flashes", { key: "id", max: 20 }) },
+internalEvents: { PinFailed: { id: Schema.String, tag: Schema.String } },
+memory: { flashes: Flow.initial(Schema.Array(FlashNote), []) },     // FlashNote: { id, tag, at }
+traits: { flashes: Flash({ for: "3 seconds" }).each("flashes", { by: "id", max: 20 }) },
 
 // issues.machine.ts (excerpt)
+const upsert = (list: ReadonlyArray<FlashNote>, f: FlashNote) => [...list.filter((x) => x.id !== f.id), f];
+
+const pin = O.Issues.setPinned.commit(({ event }) => ({ id: event.id, pinned: true }), {
+  optimistic: [pinRowInList],   // the setData write from v4's issue list example (P13)
+  revertOnUnknown: true,
+  outcomes: {
+    failure: E.PinFailed.from((e, { input }) => ({ id: input.id, tag: e._tag })),
+    notSent: E.PinFailed.from((_, { input }) => ({ id: input.id, tag: "NotSent" })),
+    unknown: E.PinFailed.from((_, { input }) => ({ id: input.id, tag: "Unknown" })),
+  },
+});
+
 traits: {
   flashes: {
-    resetOn: ({ item }) => item.at,   // a second failure on a flashing row restarts its 3 s
-    callbacks: { onOver: { target: "self", updateMemory: ({ memory, key }) => ({ flashes: memory.flashes.filter((f) => f.id !== key) }) } },
+    resetOn: ({ item }) => item.at,   // ← NEW: per copy. A second failure restarts that row's 3 s.
+    callbacks: {
+      onOver: { target: "self", updateMemory: ({ memory, key }) => ({ flashes: memory.flashes.filter((f) => f.id !== key) }) },
+    },
   },
 },
 on: {
   Pin: {
     target: "self",
     guard: (g) => !O.Issues.setPinned.pending(g, { id: g.event.id }) || deny("PinInFlight"),
-    actions: [O.Issues.setPinned.commit(({ event }) => ({ id: event.id, pinned: true }), {
-      optimistic: true,
-      outcomes: { failure: E.PinFailed.from((e, { input, now }) => ({ id: input.id, reason: deny(e._tag), at: now })) },
-    })],
+    actions: [pin],
   },
-  PinFailed: { target: "self", updateMemory: ({ memory, event }) => ({ flashes: upsert(memory.flashes, event) }) },
+  // Keeps the newest 20; `now` is the turn's clock (Machines O3).
+  PinFailed: {
+    target: "self",
+    updateMemory: ({ memory, event, now }) => ({ flashes: upsert(memory.flashes, { id: event.id, tag: event.tag, at: now }).slice(-20) }),
+  },
 },
 ```
 
 ```tsx
 const flashing = useView(app, (s) => s.memory.flashes);  // a handful of copies, not a copy per row
-<IssueRow issue={issue} flash={flashing.find((f) => f.key === issue.id)?.item.reason} />
+<IssueRow issue={issue} flash={messageFor(flashing.find((f) => f.key === issue.id)?.item.tag)} />
 ```
 
 ### 3.7 Two-factor sign-in: a lockout per challenge, surviving Back
 
-v4's sign-in (section 3.1) restated with `.each`. Strikes and a 5-minute lockout belong to a
-challenge; going Back and returning keeps them.
+v4's sign-in (section 3.1 of v4) with `.each`. Only the changes are shown; the rest of v4's machine
+stays. A challenge gets a copy at its **first strike**, so going Back and re-entering the password
+many times never fills the list.
 
 ```ts
-// definition (excerpt)
-memory: { challengeIds: Flow.private(Flow.initial(Schema.Array(Schema.String), [])) },
-traits: { challenges: Lockout({ limit: 3, length: "5 minutes" }).each("challengeIds", { max: 10 }) },
+// signin.definition.ts (excerpt)
+memory: {
+  challengeId: Flow.initial(Schema.String, ""),
+  struck: Flow.private(Flow.initial(Schema.Array(Schema.String), [])),   // challenges with a strike
+},
+traits: { challenges: Lockout({ limit: 3, length: "5 minutes" }).each("struck", { max: 20 }) },
 
-// machine (excerpt)
+// signin.machine.ts (excerpt)
+const union = (list: ReadonlyArray<string>, id: string) => (list.includes(id) ? list : [...list, id]);
+const forget = ({ memory, key }) => ({ struck: memory.struck.filter((id) => id !== key) });
+
 traits: {
   challenges: {
-    // An unlocked challenge is forgotten: its copy ends with it.
-    callbacks: { onUnlocked: { target: "self", updateMemory: ({ memory, key }) => ({ challengeIds: memory.challengeIds.filter((id) => id !== key) }) } },
+    callbacks: {
+      onLocked: [ /* v4's two alternatives, unchanged */ ],
+      // Unlocked: back to entering if this is the current challenge, and forget it either way.
+      onUnlocked: [
+        {
+          target: S.TWO_FACTOR.ENTERING,
+          guard: [S.TWO_FACTOR.LOCKED_OUT, ({ memory, key }) => key === memory.challengeId || deny("OtherChallenge")],
+          updateMemory: (g) => ({ ...forget(g), error: null }),
+        },
+        { target: "self", updateMemory: forget },
+      ],
+    },
   },
 },
-on: {
-  PasswordAccepted: {
-    target: S.TWO_FACTOR,
-    updateMemory: ({ memory, event }) => ({ challengeId: event.challengeId, challengeIds: union(memory.challengeIds, [event.challengeId]) }),
-  },
+
+// In VERIFYING, a wrong code adds the challenge (if new) and strikes it in one turn.
+CodeWrong: {
+  target: S.TWO_FACTOR.ENTERING,           // v4's LOCKED_OUT alternative before this one is unchanged
+  updateMemory: ({ memory }) => ({ struck: union(memory.struck, memory.challengeId), error: "WrongCode" }),
+  raise: [E.challenges.Strike.from(({ memory }) => ({ key: memory.challengeId }))],
 },
-// A late WrongCode re-adds its challenge and strikes it in one turn; the strike reaches the fresh copy.
-abandoned: [{
-  guard: [({ state }) => !S.SIGNED_IN.is(state) || deny("SignedIn"), ({ payload }) => payload.tag === "WrongCode" || deny("NotWrong")],
-  updateMemory: ({ memory, payload }) => ({ challengeIds: union(memory.challengeIds, [payload.input.challengeId]) }),
-  raise: [E.challenges.Strike.from(({ payload }) => ({ key: payload.input.challengeId }))],
-}, {}],
+
+// Signed in: every lockout is forgotten.
+CodeAccepted: { target: S.SIGNED_IN, updateMemory: () => ({ struck: [] }) },
+
+// A late WrongCode after Back re-adds its challenge and strikes it in one turn. The strike was
+// started under the old life; the in-turn rule (1.4) delivers it to the new one.
+abandoned: [
+  {
+    guard: [
+      ({ state }) => !S.SIGNED_IN.is(state) || deny("SignedIn"),
+      ({ payload }) => payload.tag === "WrongCode" || deny("NotWrong"),
+    ],
+    updateMemory: ({ memory, payload }) => ({ struck: union(memory.struck, payload.input.challengeId) }),
+    raise: [E.challenges.Strike.from(({ payload }) => ({ key: payload.input.challengeId }))],
+  },
+  {},
+],
 ```
+
+`strikesOf` from v4 is unchanged: a challenge without a copy has 0 strikes.
 
 ### 3.8 Spreadsheet-style editing: several inline editors with autosave
 
 Any number of rows can be open for editing at once. Each keeps a draft and autosaves 2 s after the
-last keystroke; closing a row with unsaved changes saves first.
+last keystroke. Closing a row with unsaved changes saves first, and the row closes only when the
+save succeeds; a failed save keeps it open with an error.
 
 ```ts
 export const InlineEditor = (p: { autosave: Duration.Input }) =>
@@ -679,56 +891,87 @@ export const InlineEditor = (p: { autosave: Duration.Input }) =>
     {
       id: "InlineEditor",
       events: { Changed: { draft: Schema.String }, Close: {} },
-      hostEvents: { Saved: { draft: Schema.String } },
+      hostEvents: { Saved: { draft: Schema.String }, SaveFailed: {} },
       internalEvents: { Quiet: {} },
-      callbacks: { onSave: Flow.Callback({ draft: Schema.String }), onClose: Flow.Callback({ draft: Schema.NullOr(Schema.String) }) },
+      callbacks: { onSave: Flow.Callback({ draft: Schema.String }), onClosed: Flow.Callback({}) },
       memory: {
         draft: Flow.input(Schema.String),
         saved: Flow.private(Flow.initial(Schema.String, ({ draft }) => draft)),
+        closing: Flow.initial(Schema.Boolean, false),
+        failed: Flow.initial(Schema.Boolean, false),
       },
     },
-    ({ E, callbacks }) => ({
-      schedules: { quiet: { schedule: p.autosave, send: E.Quiet, armOn: [E.Changed] } },
-      on: {
-        Changed: { target: "self", updateMemory: ({ event }) => ({ draft: event.draft }) },
-        Quiet: [
-          { target: "self", guard: ({ memory }) => memory.draft !== memory.saved || deny("Clean"), notify: [callbacks.onSave.from(({ memory }) => ({ draft: memory.draft }))] },
-          { target: "self" },
-        ],
-        Saved: { target: "self", updateMemory: ({ event }) => ({ saved: event.draft }) },
-        // Hands the host any unsaved draft; the host saves it and removes the row.
-        Close: { target: "self", notify: [callbacks.onClose.from(({ memory }) => ({ draft: memory.draft !== memory.saved ? memory.draft : null }))] },
-      },
-    }),
+    ({ E, callbacks }) => {
+      const save = callbacks.onSave.from(({ memory }) => ({ draft: memory.draft }));
+      return {
+        schedules: { quiet: { schedule: p.autosave, send: E.Quiet, armOn: [E.Changed] } },
+        on: {
+          Changed: {
+            target: "self",
+            guard: ({ memory }) => !memory.closing || deny("Closing"),
+            updateMemory: ({ event }) => ({ draft: event.draft, failed: false }),
+          },
+          Quiet: [
+            { target: "self", guard: ({ memory }) => memory.draft !== memory.saved || deny("Clean"), notify: [save] },
+            { target: "self" },
+          ],
+          Close: [
+            // Unsaved changes: save first; Saved closes the row.
+            { target: "self", guard: ({ memory }) => memory.draft !== memory.saved || deny("Clean"), updateMemory: () => ({ closing: true }), notify: [save] },
+            { target: "self", notify: [callbacks.onClosed] },
+          ],
+          Saved: [
+            {
+              target: "self",
+              guard: ({ memory, event }) => (memory.closing && event.draft === memory.draft) || deny("KeepOpen"),
+              updateMemory: ({ event }) => ({ saved: event.draft }),
+              notify: [callbacks.onClosed],
+            },
+            { target: "self", updateMemory: ({ event }) => ({ saved: event.draft }) },
+          ],
+          SaveFailed: { target: "self", updateMemory: () => ({ failed: true, closing: false }) },
+        },
+      };
+    },
   );
 
 // sheet.definition.ts (excerpt)
-events: { Open: { id: Schema.String } },
-internalEvents: { Saved: { id: Schema.String, draft: Schema.String } },
-memory: { editing: Flow.initial(Schema.Array(Schema.String), []) },
-traits: { editors: InlineEditor({ autosave: "2 seconds" }).each("editing", { max: 50 }) },
+events: { Open: { id: Schema.String, title: Schema.String } },   // the view sends the title it shows
+internalEvents: { Saved: { id: Schema.String, draft: Schema.String }, SaveFailed: { id: Schema.String } },
+memory: { editing: Flow.initial(Schema.Array(OpenRow), []) },     // OpenRow: { id, title }
+traits: { editors: InlineEditor({ autosave: "2 seconds" }).each("editing", { by: "id", max: 50 }) },
 
 // sheet.machine.ts (excerpt)
+// Rows.rename uses "serialize" concurrency per id, so saves of one row land in order.
 const save = O.Rows.rename.commit(({ key, payload }) => ({ id: key, title: payload.draft }), {
-  outcomes: { success: E.Saved.from((_, { input }) => ({ id: input.id, draft: input.title })) },
+  outcomes: {
+    success: E.Saved.from((_, { input }) => ({ id: input.id, draft: input.title })),
+    failure: E.SaveFailed.from((_, { input }) => ({ id: input.id })),
+    unknown: E.SaveFailed.from((_, { input }) => ({ id: input.id })),
+  },
 });
+
 traits: {
   editors: {
-    input: ({ key, activities }) => ({ draft: titleOf(activities.rows, key) }),
+    input: ({ item }) => ({ draft: item.title }),                                  // ← NEW: item
     callbacks: {
       onSave: { target: "self", actions: [save] },
-      onClose: [
-        { target: "self", guard: ({ payload }) => payload.draft !== null || deny("Clean"),
-          updateMemory: ({ memory, key }) => ({ editing: memory.editing.filter((id) => id !== key) }), actions: [save] },
-        { target: "self", updateMemory: ({ memory, key }) => ({ editing: memory.editing.filter((id) => id !== key) }) },
-      ],
+      onClosed: { target: "self", updateMemory: ({ memory, key }) => ({ editing: memory.editing.filter((r) => r.id !== key) }) },
     },
   },
 },
 on: {
-  Open: { target: "self", guard: ({ memory, event }) => !memory.editing.includes(event.id) || deny("Open"), updateMemory: ({ memory, event }) => ({ editing: [...memory.editing, event.id] }) },
-  // A save that lands after its row closed is dropped with evidence: nothing is left to update.
+  Open: {
+    target: "self",
+    guard: [
+      ({ memory, event }) => !memory.editing.some((r) => r.id === event.id) || deny("AlreadyOpen"),
+      ({ memory }) => memory.editing.length < 50 || deny("TooManyOpen"),
+    ],
+    updateMemory: ({ memory, event }) => ({ editing: [...memory.editing, { id: event.id, title: event.title }] }),
+  },
+  // Both are dropped with evidence if the row closed meanwhile (1.3).
   Saved: { target: "self", raise: [E.editors.Saved.from(({ event }) => ({ key: event.id, draft: event.draft }))] },
+  SaveFailed: { target: "self", raise: [E.editors.SaveFailed.from(({ event }) => ({ key: event.id }))] },
 },
 ```
 
@@ -744,37 +987,86 @@ memory: { lines: Flow.initial(Schema.Array(Line), []) },        // Line: { sku, 
 on: {
   SetQty: {
     target: "self",
-    guard: ({ event }) => (event.qty >= 1 && event.qty <= 99) || deny("QtyRange", { min: 1, max: 99 }),
+    guard: [
+      ({ memory, event }) => memory.lines.some((l) => l.sku === event.sku) || deny("NotInCart"),
+      ({ event }) => (event.qty >= 1 && event.qty <= 99) || deny("QtyRange", { min: 1, max: 99 }),
+    ],
     updateMemory: ({ memory, event }) => ({ lines: memory.lines.map((l) => (l.sku === event.sku ? { ...l, qty: event.qty } : l)) }),
   },
 },
 ```
 
-**An upload queue**: per-file retry, progress and "is it running?" are already operations
-features: keyed commits, `retry` (P13), `.pending(g, { fileId })` and the Attempt's lane. A copy
-would only mirror them. Reach for `.each` when a copy has **its own timers or rules**, not for
-server work alone.
+**A plain upload queue**: per-file retry and "is it running?" are operations features: keyed
+commits, `retry` (P4, one Attempt per P15) and `.pending(g, { fileId })`. Reach for `.each` when a
+file has **its own timer or rules**: a visible "retrying in 5 s" countdown, pause and resume per
+file, or a parallel-upload limit with a queue per file.
 
-## 4. Gaps found while modelling
+## 4. Open items and gaps
 
-1. **Per-copy subscriptions.** A stock watchlist where each row holds its own live quote cannot
-   start one subscription per key; activities are named, not keyed. A single subscription over all
-   symbols works but restarts whenever the list changes. Keyed activities would be a Machines O6
+1. **Per-copy subscriptions.** A watchlist where each row holds its own live quote cannot start one
+   subscription per key; activities are named, not keyed. Keyed activities would be a Machines O6
    change, separate from this proposal.
-2. **Arm on creation and on an event.** v4's P7 leaves an `armOn` schedule idle on entry, so the
-   toast (3.3) needs a `Shown` raise on creation. Allowing entry in `armOn` would remove that line;
-   it is a general schedule question, not a collection one.
-3. **Raising into every copy.** "Acknowledge all alerts" cannot be one raise; a raise addresses one
-   key. Clearing a list is easy (write the field); broadcasting an event is not. Possible form:
+2. **Arm on creation and on an event.** P7 leaves an `armOn` schedule idle on entry, so the toast
+   (3.3) needs a `Shown` raise. Allowing creation in `armOn` is a general schedule question.
+3. **Raising into every copy.** "Acknowledge all alerts" cannot be one raise. Possible form:
    `E.devices.all.Acknowledge`. Left open until a case needs it.
-4. **`resetOn` lag.** Commit-time reconciliation (Q1) could apply to part-written `resetOn` values
-   too, removing the last one-snapshot lag. Separate decision.
+4. **Several copies writing the key field in one turn.** Two parts that both filter the list from
+   pre-turn memory overlap, which is v4's existing overlapping-keys defect. It needs a turn that
+   reaches two copies' callbacks, which none of the examples do. If one appears, list edits
+   (`remove: [key]`) instead of patches would compose.
+5. **Commit joining across lives.** If Operations joins a second start with the same parameters
+   into an in-flight commit, the outcome must be delivered to each starter's life. To check
+   against the Operations plan.
+6. **Nested `.each`.** Out of scope (1.1). Addressing would be `E.outer.key(a).inner.key(b)`.
+7. **`resetOn` lag.** The final-list idea in 1.3 could also apply to part-written `resetOn`
+   values, removing v4's last one-snapshot lag. Separate decision.
 
-## 5. Changes to proposal v4 if accepted
+## 5. Plan changes this needs, if accepted
 
-- Rule 9 is replaced by section 1 of this file; section 2.5 gains the two reconciliation passes.
-- Removed words: `.list`, `Add`, `Remove`, `canAdd`, `canRemove`, `owner`, minted keys.
-  Added: `.each(field, { key?, max? })`, `key` and `item` in fillings and copy views, `key` in
-  outcome mappers of commits started from a copy.
-- Sign-in (3.1 of v4) uses 3.7 above; the invite list (3.3 of v4) uses 3.1 above.
-- Section 7 item 0 closes; gaps 1–4 above join section 7.
+| Where | Change |
+| --- | --- |
+| v4 rule 9 | Replaced by section 1 of this file. |
+| v4 rule 1 | "A reset on a list resets every instance" becomes per-copy `resetOn` on `.each` fillings. |
+| v4 rule 6, 2.5 steps 3–6 | The final list (1.3): membership decided after the walk, `onLeave` fused for every ending, repair before validation. |
+| v4 rule 12 | List repairs and dropped raises join the Story-derived `flow check` warnings. |
+| Operations O2 (P1) | Outcome mappers of a commit started in a copy also receive `key`. |
+| Operations O3, Persistence (P12, P19) | A commit's descriptor and Attempt carry the copy's key and life. `orphaned` has no copy, so it never receives `key`. |
+| Persistence | Copies persist by key with a life counter (1.5). |
+| Testing (`model()`) | `explore: { <name>: n }`, default 2 (1.6). |
+| CommandLine | `flow graph` draws one node per placement with its field and `max`. |
+| Inspection | Copies named `name["key"]@life`, keys escaped. |
+
+Removed words: `.list`, `Add`, `Remove`, `canAdd`, `canRemove`, `owner`, minted keys.
+Added: `.each(field, { max, by? })`, `key` and `item` in fillings and copy views, `key` in outcome
+mappers of commits started from a copy, `explore` in `model()`.
+
+## 6. Changes after review
+
+From [reviews/each-runtime-correctness.md](reviews/each-runtime-correctness.md),
+[reviews/each-constraints.md](reviews/each-constraints.md),
+[reviews/each-examples.md](reviews/each-examples.md) and
+[reviews/each-simplicity.md](reviews/each-simplicity.md):
+
+- **A list problem never refuses a turn.** Duplicates and keys past `max` are repaired with
+  evidence, so a server delivery or timer can never be lost to them (runtime B1, constraints F2,
+  examples X1). Raise into an absent key keeps v4's split: dropped in delivery turns, refused
+  otherwise.
+- **No follow-up turn.** Membership is decided from the turn's final list, after the walk, so a
+  copy that removes itself ends in the same turn with `onLeave` fused (runtime B2, M3, M6;
+  constraints F3).
+- **v4's in-turn re-add rule is back** (runtime B3, constraints F4); lives are a persisted counter.
+- Frozen copies, persistence, hydration, timer ties and key escaping are specified (runtime M1, M5,
+  m1, m4, m5; constraints F9).
+- What static analysis sees and does not see is stated; `model()` gets its own `explore` bound
+  (constraints F1, F5). Nested `.each` is out of scope (F6). Plan changes are listed (F7).
+- `max` is required; the record key option is `by`, so `key` has one meaning; `item` is always
+  present; `key` and `item` are reserved names (simplicity M1, M2, minors).
+- Examples: every outcome the state waits on is mapped (examples X2); removals wait for the server
+  where data could be lost (X3: inbox `trashing`, kitchen `bumping`, editors close on `Saved`);
+  invites check for armed debounces before Send; toasts upsert repeated ids; the watchdog ignores
+  decommissioned devices and is not persisted; sign-in adds a challenge on its first strike,
+  unlocks to `ENTERING`, and clears on success; memory holds keys, not server rows (F8); only APIs
+  in v4 and the plans are used (`now` from `updateMemory`, v4's `optimistic` form, `input` from
+  the entry).
+- Not taken: letting a commit started in a copy name the copy's event directly (simplicity M3).
+  The relay through a host event is explicit and keeps rule 8 visible; revisit if it proves noisy.
