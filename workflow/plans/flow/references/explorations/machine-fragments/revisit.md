@@ -94,3 +94,23 @@ runtime resolves to WIZARD's last active child.
   of structure.
 - **D. Remember the page in memory.** `Declined: [{ guard: [lastWas(PROFILE)], target: … }, …]`.
   No new concept; verbose per page, and the same data problem as history.
+
+## 4. Server calls, the in-machine half (flagged 2026-10-29)
+
+The network discussion is split: decisions outside the machine (operations, adapters, errors, the
+cache and domains) are discussed first; these in-machine ones wait here.
+
+- **Outcome keys at the call.** Proposed: `success`, `failure` (definite only, with a built-in
+  `NotSent` tag), and a "maybe" outcome carrying `{ attempt, reason }`. `interrupt` and `defect` stop
+  being keys. Open: rename the "maybe" outcome from `unknown` to `uncertain`, because "unknown"
+  reads as "unknown reason", which is a different thing (a definite failure can have an unknown
+  reason).
+- **`Flow.uncertain`** stays as the marker on events the "maybe" outcome may target.
+- **Where `timeout` and `retry` live.** v4 puts them on the commit call in the machine. They
+  describe the server (how slow it is, which errors are transient), so they may belong on the
+  operation, with per-call overrides. Also: `retrying` as a progress report, and a retry delay
+  taken from the error (`Retry-After`).
+- **Fencing, `abandoned` and late turns.** `abandoned` runs twice (pending, then settled); late
+  turns may not pre-empt live work. Review whether both runs are needed and how they read.
+- **The saga recipe, `O.x.retry(attempt)`, `O.x.cancel`, `.pending`, the mapper's
+  `{ input, attempt }`.**
