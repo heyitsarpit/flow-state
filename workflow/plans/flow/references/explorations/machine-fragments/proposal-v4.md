@@ -163,6 +163,7 @@ kinds, optional versus required, and uncertainty.
 | `Flow.input(schema)` | memory modifier | the creator supplies this field (2.2.2) | none; derives the `Input` type |
 | `Flow.initial(schema, value or fn)` | memory modifier | the field's starting value (2.2.2) | `Schema.withConstructorDefault(Effect.succeed(value))` |
 | `Flow.private(schema)` | memory modifier | only the owner sees this field (2.2.2) | none |
+| `Flow.Denial` | value | the Schema of what `deny(code, context?)` returns, `{ code, context? }`, for storing a refusal reason in memory | a value, like `Schema.Boolean` |
 | `port.payload` | field | the payload `Schema.Struct`, for decode, encode or JSON Schema | none |
 | `Flow.Payload<P>`, `Flow.Filling<C>` | types | a port's payload type; the type of the host's filling block for a contract | `Schema.Schema.Type<S>` |
 | `Flow.isGuard`, `Flow.isCallback`, `Flow.isExit` | predicates | for tooling | `Schema.isSchema` |
@@ -263,7 +264,7 @@ node's children, nothing, or a subroutine:
 states: [
   "PASSWORD",
   { TWO_FACTOR: Flow.state(["ENTERING", "VERIFYING", "LOCKED_OUT"], {        // children, plus traits
-      traits: { code: Field(SixDigits), resendCooldown: Countdown({ length: "30 seconds" }).resumable() },
+      traits: { code: Field(Schema.String, { validate: sixDigits }), resendCooldown: Countdown({ length: "30 seconds" }).resumable() },
   }) },
   { REVIEW: Flow.state({ traits: { diff: DiffView() } }) },                   // a leaf with traits
   { DELETE_ASK: Flow.state(Confirm, { traits: { hold: HoldToConfirm({ hold: "1.5 seconds" }) } }) },
@@ -540,26 +541,29 @@ SIGNED_IN`. In the two-factor step:
 
 ```ts
 // fragments.ts
-import { deny, Flow, trait } from "flow-state";
+import { deny, Flow, trait, type Denial } from "flow-state";
 import { Duration, Schema } from "effect";
 
-// A validated value, from a Schema that carries its own checks. Input is never refused: the checks
-// only compute `error`; `touched` says whether to show it yet.
-// `unchecked(schema)` is the schema's type without its checks, and `firstIssue(schema, v)` runs the
-// checks without throwing and returns the first message or null. Their exact Effect 4 calls are
-// open (type spike).
-export const Field = <V, I>(value: Schema.Codec<V, I>) =>
-  trait(
+// A value with an optional validator. Input is never refused: `validate` only computes `error`, the
+// validator's denial or null; `touched` says whether to show it yet. A validator answers like a
+// guard, `true | deny(code, context?)`, so a host guard can return the stored reason as it is. How it
+// checks is the author's choice: a regex, `Schema.is(SomeCheckedSchema)`, or a library call.
+export const Field = <V, I>(value: Schema.Codec<V, I>, p: { validate?: (v: V) => true | Denial } = {}) => {
+  const errorOf = (v: V) => {
+    const verdict = p.validate?.(v) ?? true;
+    return verdict === true ? null : verdict;
+  };
+  return trait(
     {
       id: "Field",
-      events: { Changed: { value: unchecked(value) } },
+      events: { Changed: { value } },
       hostEvents: { Reset: {} },
       guards: { canEdit: Flow.optional(Flow.Guard) },
-      callbacks: { onChanged: Flow.optional(Flow.Callback({ value: unchecked(value) })) },
+      callbacks: { onChanged: Flow.optional(Flow.Callback({ value })) },
       memory: {
-        value: Flow.input(unchecked(value)),                                       // the host supplies the start
-        start: Flow.private(Flow.initial(unchecked(value), ({ value }) => value)), // kept for Reset; hidden
-        error: Flow.initial(Schema.NullOr(Schema.String), ({ value: v }) => firstIssue(value, v)),
+        value: Flow.input(value),                                       // the host supplies the start
+        start: Flow.private(Flow.initial(value, ({ value }) => value)), // kept for Reset; hidden
+        error: Flow.initial(Schema.NullOr(Flow.Denial), ({ value }) => errorOf(value)),
         touched: Flow.initial(Schema.Boolean, false),
       },
     },
@@ -568,16 +572,17 @@ export const Field = <V, I>(value: Schema.Codec<V, I>) =>
         Changed: {
           target: "self",
           guard: guards.canEdit,
-          updateMemory: ({ event }) => ({ value: event.value, error: firstIssue(value, event.value), touched: true }),
+          updateMemory: ({ event }) => ({ value: event.value, error: errorOf(event.value), touched: true }),
           notify: [callbacks.onChanged.from(({ event }) => ({ value: event.value }))],
         },
         Reset: {
           target: "self",
-          updateMemory: ({ memory }) => ({ value: memory.start, error: firstIssue(value, memory.start), touched: false }),
+          updateMemory: ({ memory }) => ({ value: memory.start, error: errorOf(memory.start), touched: false }),
         },
       },
     }),
   );
+};
 
 // Runs once per Start; Start never refuses, and raising it re-arms the timer.
 // No memory: "running" is the armed schedule, s.schedules.<name>.done !== undefined.
@@ -635,16 +640,14 @@ export const Lockout = (p: { limit: number; length: Duration.Input }) =>
 
 ```ts
 // signin.definition.ts
-import { definition, Flow } from "flow-state";
+import { definition, deny, Flow } from "flow-state";
 import { Schema } from "effect";
 import { Auth } from "./auth.operations"; // verifyCode: keyed by challengeId; WrongCode, Expired are "definite"
 import { Countdown, Field, Lockout } from "./fragments";
 
 export const LIMIT = 3;
 
-export const SixDigits = Schema.String.check(
-  Schema.makeFilter((v) => /^\d{6}$/.test(v) || "Enter the 6-digit code"),
-);
+const sixDigits = (v: string) => /^\d{6}$/.test(v) || deny("CodeFormat", { length: 6 });
 
 export const SignIn = definition({
   id: "Auth/SignIn",
@@ -654,7 +657,7 @@ export const SignIn = definition({
       TWO_FACTOR: Flow.state(["ENTERING", "VERIFYING", "LOCKED_OUT"], {
         traits: {
           // Fresh on every entry to TWO_FACTOR: Back drops the typed code.
-          code: Field(SixDigits),
+          code: Field(Schema.String, { validate: sixDigits }),
           // Resumable: Back and return do not reset the 30 seconds; an overdue cooldown ends on return.
           resendCooldown: Countdown({ length: "30 seconds" }).resumable(),
         },
@@ -807,7 +810,7 @@ export const SignInMachine = machine(SignIn, ({ S, E, O }) => {
               Submit: {
                 target: S.TWO_FACTOR.VERIFYING,
                 guard: [
-                  ({ memory }) => memory.code.error === null || deny("InvalidCode"),
+                  ({ memory }) => memory.code.error ?? true, // forwards the field's own reason, e.g. CodeFormat
                   ({ memory }) => strikesOf(memory, memory.challengeId) < LIMIT || deny("NoTriesLeft"),
                   (g) => !O.Auth.verifyCode.pending(g, { challengeId: g.memory.challengeId }) || deny("StillChecking"),
                 ],
@@ -899,7 +902,7 @@ export function TwoFactorStep({ signIn }: { signIn: Actor<typeof SignInMachine> 
         disabled={!canType}
         onChange={(e) => signIn.send(E.code.Changed({ value: e.target.value }))}
       />
-      {code?.touched && code.error && <p className="hint">{code.error}</p>}
+      {code?.touched && code.error?.code === "CodeFormat" && <p className="hint">Enter the 6-digit code</p>}
       {error && <p role="alert">{error}</p>}
       {lockoutDue !== undefined && (
         <p role="status">Too many wrong codes. Try again in {secondsLeft(lockoutDue, now)} s.</p>
@@ -959,10 +962,10 @@ states: [
 internalEvents: { Created: {}, EmailTaken: {}, Busy: {}, Retrying: { n: Schema.Int }, Unsure: Flow.uncertain({}) },
 traits: {
   // The root: drafts live for the whole signup, across pages and the discard dialog.
-  email: Field(Email),          // Email = Schema.String.check(…), and so on
-  password: Field(LongEnough),
-  name: Field(Required),
-  role: Field(ChosenRole),
+  email: Field(Schema.String, { validate: isEmail }), // isEmail = (v) => v.includes("@") || deny("NotAnEmail"), and so on
+  password: Field(Schema.String, { validate: longEnough }),
+  name: Field(Schema.String, { validate: required }),
+  role: Field(Role, { validate: chosen }),
 },
 
 // signup.machine.ts (excerpt)
@@ -1017,7 +1020,7 @@ can be added and removed only on the Invite page.
 ```ts
 // signup.definition.ts (excerpt)
 traits: {
-  invites: Field(OptionalEmail).list({ max: 5 }),   // OptionalEmail: "" or contains "@" (list: open, section 7)
+  invites: Field(Schema.String, { validate: optionalEmail }).list({ max: 5 }), // "" or contains "@" (list: open, section 7)
 },
 
 // signup.machine.ts (excerpt)
@@ -1157,7 +1160,7 @@ turn (rule 6).
 
 | Kind | Words |
 | --- | --- |
-| **New, fragments (21)** | `trait`, `subroutine`, `traits` (root and node), `Flow.state`, `.resumable()`, `.list` (open: `max`, `key`, `owner`), `.key(k)`, `Add` / `Remove` / `canAdd` / `canRemove`, `hostEvents`, `guards`, `callbacks`, `exits` (declarations and fillings), `notify`, the `Flow` module (`Flow.Guard`, `Flow.Callback`, `Flow.Exit`, `Flow.optional`, `Flow.uncertain`, `Flow.annotate`, `Flow.input`, `Flow.initial`, `Flow.private`), `raise`, `resetOn`, `onLeave`, the definition's `handler` / `guard`, state tokens in guard arrays, `story.machine(fragment)` with `.enter` / `.leave` / `run.calls` / `checkpoint.exit` |
+| **New, fragments (21)** | `trait`, `subroutine`, `traits` (root and node), `Flow.state`, `.resumable()`, `.list` (open: `max`, `key`, `owner`), `.key(k)`, `Add` / `Remove` / `canAdd` / `canRemove`, `hostEvents`, `guards`, `callbacks`, `exits` (declarations and fillings), `notify`, the `Flow` module (`Flow.Guard`, `Flow.Callback`, `Flow.Exit`, `Flow.optional`, `Flow.uncertain`, `Flow.annotate`, `Flow.input`, `Flow.initial`, `Flow.private`, `Flow.Denial`), `raise`, `resetOn`, `onLeave`, the definition's `handler` / `guard`, state tokens in guard arrays, `story.machine(fragment)` with `.enter` / `.leave` / `run.calls` / `checkpoint.exit` |
 | **New, plans (18)** | `abandoned` (payload `outcome`, `tag`, `definite`, `value`, `input`, `attempt`), `notSent`, `.pending`, `retry` (`on`, `schedule`), `retrying`, the mapper's `{ input, attempt }`, `revertOnUnknown`, `timeout` (`perAttempt`, `total`), `failureKinds` (`"definite"` / `"uncertain"`), `orphaned`, `.history` (and `.history.child`), `armOn`, `s.schedules`, `dueAt`, and the `model()` options `invariants` and `hot` |
 | **New concepts, not words** | **incarnation** (one life of a fragment instance), **frozen** (a resumable trait while its node is inactive), **summary** (a contract's inferred per-alternative effects), **source-updated memory** (pre-turn memory plus the source's patch), **late turn** (rule 6), pending reset |
 | **Existing** | `definition`, `machine`, `states`, `default`, `events`, `internalEvents`, `input` (caller side only: `ensure`, `useActor`, a host's filling), `memory`, `on`, `target`, `guard`, `updateMemory`, `actions`, `schedules`, `restartOn`, `outcomes`, `optimistic`, `setData`, `deny`, `check`, `model`, `S`, `E`, `O`, `.from`, `payload` |
@@ -1208,7 +1211,7 @@ sections 2 and 3.
 | --- | --- | --- |
 | **Machines O1** | Definitions gain `traits` (the root's `traits`, and `Flow.state(children | {} | Sub, { traits })` on a node; `.resumable()`; `.list` open) and fragment states. Fillings sit at the node where a fragment is placed. A fragment declares what a definition declares (`id`, `events`, `internalEvents`, `memory`, child `traits` / `states`) plus `hostEvents`, `guards`, `callbacks` and `exits` at the top level, its body's `onLeave`, and an inferred summary. Machines gain one filling block per instance. Names share one namespace | Adds to "A definition requires id, states and events." |
 | **Machines O1** | An internal event may be marked `Flow.uncertain(fields)`; an event payload may be a `Schema.Struct` with checks, refused at admission when a check fails | Adds to "events and optional internalEvents are records…" |
-| **Package O1** | The root route exports `Flow` (with `Flow.Guard`, `Flow.Callback`, `Flow.Exit`, `Flow.optional`, `Flow.uncertain`, `Flow.annotate`, `Flow.input`, `Flow.initial`, `Flow.private`, the `Flow.is*` predicates and the `Flow.Payload` / `Flow.Filling` types) | Adds to the flow-state route's name list |
+| **Package O1** | The root route exports `Flow` (with `Flow.Guard`, `Flow.Callback`, `Flow.Exit`, `Flow.optional`, `Flow.uncertain`, `Flow.annotate`, `Flow.input`, `Flow.initial`, `Flow.private`, `Flow.Denial`, the `Flow.is*` predicates and the `Flow.Payload` / `Flow.Filling` types) | Adds to the flow-state route's name list |
 | **Machines O1** | Memory fields carry `Flow.input` (supplied by the creator; the `Input` type is derived from them), `Flow.initial` (a constant or a pure computed start) and `Flow.private`. Every field starts from exactly one source. The top-level `input` and `initial` are removed | Replaces "Optional input and memory are Schema field records. Nonempty memory requires initial({ input })…" |
 | **Machines O8**, **React O4** | Outside snapshot and view types omit `Flow.private` fields; Stories and Inspection still see them | Adds |
 | **React O2** | The pure starting snapshot uses the memory built from `Flow.input`, `Flow.initial` and computed initials | Replaces "initial(input) memory" |
@@ -1217,7 +1220,7 @@ sections 2 and 3.
 | **Machines O2** | A subroutine state is entered at its default, or is a leaf. It is left by an exit, or abandoned by a transition that exits it; host events fall through to ancestors as usual. Exits are targets only fragments take | Adds to "target is required and is this machine's token or "self"" |
 | **Machines O2** | `token.is` accepts a snapshot or a state path. A state token may be an element of a guard array, and passes when the pre-turn state is at or below it | Replaces "token.is(snapshot) includes descendants" with "token.is(snapshot or state)…" |
 | **Machines O3** | **The turn algorithm of section 2.5 is normative**, for the runtime and `check()`. All-declining still falls through to ancestors (O2); a child's refusal inside a selected alternative never does | Replaces the prose from "An accepted transition computes updateMemory before action parameters" to "One invalid action rejects the whole turn" with the algorithm, keeping its defect rules |
-| **Machines O4** | Guards also receive `schedules` and may call `.pending`. `check()` runs steps 2–6 of the turn | Replaces "A guard receives { event, state, memory, context, activities }" with the same list plus `schedules` |
+| **Machines O4** | Guards also receive `schedules` and may call `.pending`. `check()` runs steps 2–6 of the turn. `deny(code, context?)` returns plain data matching `Flow.Denial`, so it may be stored in memory, and a guard may return a stored denial | Replaces "A guard receives { event, state, memory, context, activities }" with the same list plus `schedules`; adds the last sentence |
 | **Machines O8** | The snapshot exposes fragment slices (`undefined` while inactive, present while frozen), keyed list instances, and `schedules` | Replaces "It has no input, methods, timers or public revision" with "…no input, methods or public revision; armed schedules appear under `schedules`" |
 | **Persistence O2** | Resumable slices, frozen schedules and list incarnations persist with the actor | Adds to "Actor state, memory … survive reload" |
 | **Testing O1** | `story.machine` also accepts a fragment (`.enter`, `.leave`, `run.calls`, `checkpoint.exit`, host-event sends). `send` runs its turn; `process()` drains operation work and due timers. Minted keys and incarnations are deterministic | Adds to "story.machine(machine, { … }) tests one fresh actor" |
@@ -1398,5 +1401,6 @@ From [reviews/v4-correctness.md](reviews/v4-correctness.md) and [reviews/v4-prin
 - Fix check: pending resets run as an immediate follow-up turn (f1); late turns include commits started in `abandoned`'s pending run (f2); an in-turn re-add wins (f3); sign-in notes on late success, the shared cooldown and late strikes after sign-in.
 - Port kinds use one `Flow` module following Effect Schema conventions (`Flow.Guard`, `Flow.Callback`, `Flow.Exit`, `Flow.optional`, `Flow.uncertain`, `Flow.annotate`); ports hold Schema payloads rather than being Schemas; event payloads may carry Schema checks, refused at admission (2.2.1).
 - Fragments keep a definition's shape, with `hostEvents`, `guards`, `callbacks` and `exits` as top-level lists named by direction; no grouping block. Memory fields carry `Flow.input`, `Flow.initial` (constant or computed) and `Flow.private`, for fragments and machines, replacing the top-level `input` and `initial`. `Flow` calls are written data-first (2.2.2).
-- Placement: `Flow.state(children | {} | Sub, { traits })` on a node replaces `.at("PATH")`; `.resumable()` is a method; fillings sit at the node; signup drafts live at the root; `Field` takes a checked Schema instead of `validate`; key order, the `Flow` namespace rule and the locality rule are recorded (2.3, 2.6); `.list` is marked open (section 7).
+- Placement: `Flow.state(children | {} | Sub, { traits })` on a node replaces `.at("PATH")`; `.resumable()` is a method; fillings sit at the node; signup drafts live at the root; key order, the `Flow` namespace rule and the locality rule are recorded (2.3, 2.6); `.list` is marked open (section 7).
 - `.keep()` is renamed `.resumable()`: the trait resumes on return instead of restarting (SCADE 6's resume versus restart).
+- `Field(schema, { validate? })` keeps the author's validator. A validator returns `true | deny(code, context?)`, the field stores the denial or null as `Flow.Denial`, and a host guard forwards it (`memory.code.error ?? true`). A Schema check fits inside a validator (`Schema.is`), so `unchecked` and `firstIssue` are gone ([research/field-validation-effect4.md](research/field-validation-effect4.md)).
