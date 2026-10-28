@@ -1,8 +1,8 @@
 # Proposal: `.each`, copies that follow a key list
 
-Status: proposal, direction agreed by the user, revised after four reviews (section 6). It answers
-[problem.md](problem.md) with candidate S1 from [solutions.md](solutions.md) and would replace
-proposal v4's rule 9 (`.list`). Syntax is v4's; lines marked `// ← NEW` are new.
+Status: accepted and recorded in proposal v4 (rule 9, section 2.5, sign-in, invites), after four
+reviews (section 6). It answers [problem.md](problem.md) with candidate S1 from
+[solutions.md](solutions.md) and replaces v4's former `.list` draft. Syntax is v4's; lines marked `// ← NEW` are new.
 
 ## 1.0 The whole idea in one example
 
@@ -475,16 +475,14 @@ export const Toast = (p: { show: Duration.Input }) =>
     {
       id: "Toast",
       events: { Hover: {}, Unhover: {}, Close: {} },
-      hostEvents: { Shown: {} },
       internalEvents: { Elapsed: {} },
       callbacks: { onGone: Flow.Callback({}) },
       memory: { hovered: Flow.initial(Schema.Boolean, false) },
     },
     ({ E, callbacks }) => ({
-      // Armed when shown and again on every Unhover; a re-arm drops the earlier firing (P11).
-      schedules: { dismiss: { schedule: p.show, send: E.Elapsed, armOn: [E.Shown, E.Unhover] } },
+      // Starts when the toast appears and again on every Unhover; a re-arm drops the earlier firing (P11).
+      schedules: { dismiss: { schedule: p.show, send: E.Elapsed, armOn: [Flow.entry, E.Unhover] } },
       on: {
-        Shown: { target: "self" },
         Hover: { target: "self", updateMemory: () => ({ hovered: true }) },
         Unhover: { target: "self", updateMemory: () => ({ hovered: false }) },
         Close: { target: "self", notify: [callbacks.onGone] },
@@ -498,7 +496,7 @@ export const Toast = (p: { show: Duration.Input }) =>
 
 // app.definition.ts (excerpt). This actor is not persisted, so `hovered` never outlives the page.
 events: { Notify: { id: Schema.String, text: Schema.String, tone: Tone } },
-memory: { notices: Flow.initial(Schema.Array(Notice), []) },                       // Notice: { id, text, tone }
+memory: { notices: Flow.initial(Schema.Array(Notice), []) },                       // Notice: { id, text, tone, at }
 traits: { toasts: Toast({ show: "4 seconds" }).each("notices", { by: "id", max: 5 }) }, // ← NEW
 
 // app.machine.ts (excerpt)
@@ -507,6 +505,7 @@ const upsert = (list: ReadonlyArray<Notice>, n: Notice) =>
 
 traits: {
   toasts: {
+    resetOn: ({ item }) => item.at,   // a repeated id gets a fresh toast, so its 4 s start again
     callbacks: {
       onGone: { target: "self", updateMemory: ({ memory, key }) => ({ notices: memory.notices.filter((n) => n.id !== key) }) },
     },
@@ -516,9 +515,8 @@ on: {
   Notify: {
     target: "self",
     // The oldest falls out in the same patch (its onLeave is fused). A repeated id replaces its
-    // notice; Shown re-arms its 4 s.
-    updateMemory: ({ memory, event }) => ({ notices: upsert(memory.notices, event).slice(-5) }),
-    raise: [E.toasts.Shown.from(({ event }) => ({ key: event.id }))],
+    // notice, and its new `at` resets that toast.
+    updateMemory: ({ memory, event, now }) => ({ notices: upsert(memory.notices, { ...event, at: now }).slice(-5) }),
   },
 },
 ```
@@ -533,8 +531,6 @@ on: {
   </Toast>
 ))}
 ```
-
-`Shown` exists because v4's P7 leaves an `armOn` schedule idle on creation (section 4, gap 2).
 
 ### 3.4 Restaurant kitchen display: tickets that age
 
@@ -1006,8 +1002,8 @@ file, or a parallel-upload limit with a queue per file.
 1. **Per-copy subscriptions.** A watchlist where each row holds its own live quote cannot start one
    subscription per key; activities are named, not keyed. Keyed activities would be a Machines O6
    change, separate from this proposal.
-2. **Arm on creation and on an event.** P7 leaves an `armOn` schedule idle on entry, so the toast
-   (3.3) needs a `Shown` raise. Allowing creation in `armOn` is a general schedule question.
+2. **Arm on creation and on an event.** Closed: `armOn: [Flow.entry, E.Unhover]` (v4 P7). The
+   toast (3.3) no longer needs a `Shown` event.
 3. **Raising into every copy.** "Acknowledge all alerts" cannot be one raise. Possible form:
    `E.devices.all.Acknowledge`. Left open until a case needs it.
 4. **Several copies writing the key field in one turn.** Two parts that both filter the list from
@@ -1070,3 +1066,5 @@ From [reviews/each-runtime-correctness.md](reviews/each-runtime-correctness.md),
   the entry).
 - Not taken: letting a commit started in a copy name the copy's event directly (simplicity M3).
   The relay through a host event is explicit and keeps rule 8 visible; revisit if it proves noisy.
+- Toasts start with `armOn: [Flow.entry, E.Unhover]` and restart for a repeated id through a
+  per-copy `resetOn`, replacing the `Shown` event (v4 P7, after the schedule-trigger spike).

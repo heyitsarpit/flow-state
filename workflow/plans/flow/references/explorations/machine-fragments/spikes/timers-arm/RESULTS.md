@@ -127,3 +127,13 @@ Reasons:
 Add two cheap checks on the inferred config (done in `b.ts`): every declared name is filled, and no undeclared `schedules` key. Accept that the error for these two lands on the whole callback; it is readable but noisy. Skip ancestor-scope checking at compile time unless it matters; if it does, layer the (a)-style `VNode` on top (`machineScoped`) at the cost of the cheaper compile and a `never`-style message. A runtime check at machine build is a good backstop.
 
 Keep (c) only if go-to-definition on timers matters more than completion: it cannot tell same-event timers apart without a per-timer brand.
+
+## Outcome (decided after the spike)
+
+The user chose to keep triggers on the schedule: `armOn: [events]`, plus `disarmOn: [events]` and
+the `Flow.entry` marker (v4 P7). Triggers given as event constructors (`E.Resend`) are typed by the
+definition's events, so none of strategies (a)–(c) is needed: no schedule names are inferred, nothing
+is declared in the definition, and editor completion works through `E.`. Strategy (b) was rejected
+for locality: schedule names declared at the top, far from the state that owns them, and one name
+forced to mean one timing machine-wide. `arm` / `disarm` on transitions are not adopted.
+

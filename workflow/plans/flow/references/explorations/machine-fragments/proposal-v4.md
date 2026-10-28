@@ -9,7 +9,7 @@ All syntax is a working draft.
 **Three independent decisions.** Each can be accepted without the others.
 
 | Decision                                | What it covers            | Plans it touches                                                                                           |
-| --------------------------------------- | ------------------------- | ---------------------------------------------------------------------------------------------------------- |
+|-----------------------------------------|---------------------------|------------------------------------------------------------------------------------------------------------|
 | **1. Fragments and the turn**           | sections 2–3, P1–P13, P21 | Machines O1–O8, Operations O2–O3, Runtime O4, Persistence O2/O6, Testing O1, Inspection O1, CommandLine O5 |
 | **2. Commit and persistence hardening** | P14–P17, P19, P20         | Operations O1/O3/O7, Persistence O5/O6                                                                     |
 | **3. Exploration tooling**              | T1–T3                     | Testing O5, CommandLine O5                                                                                 |
@@ -45,19 +45,19 @@ they belong in the plans. v4 reuses **pieces** (fields, timers, dialogs, selecti
 
 ### 2.1 The two kinds
 
-| | `trait(declaration, body)` | `subroutine(declaration, body)` |
-| --- | --- | --- |
-| The actor… | has it | goes into it |
-| Examples | field, countdown, lockout, debounce, selection, pager, flash | confirm, hold-to-confirm, address step, picker |
-| Placed (definition) | the root's `traits: { code: Field(…) }`, or on a node with `Flow.state(…, { traits })` | a state: `states: [{ CANCELLING: Confirm }]` |
-| Many of them | `.list(…)`: **open**, to be designed separately (rule 9, section 7) | no |
-| Instance name | the `traits` key (`code`) | the state's name (`CANCELLING`) |
-| States of its own | none | optional, under its state (`HOLDING.WAITING`). Without `states` it is a leaf (`Confirm`) |
-| Lives | while its node is active (the root: the actor's life); fresh on every activation unless `.resumable()` | while its state is active; fresh on every entry |
-| Re-activated | when its `resetOn` value changes | on every entry |
-| Ends | when its node is left (resumable: frozen) | by taking an exit, or abandoned by a transition that exits its state |
-| On ending, except by an exit or a freeze | `onLeave` notifications run, fused into the leaving turn | the same |
-| Contains | traits | traits and subroutines |
+|                                          | `trait(declaration, body)`                                                                             | `subroutine(declaration, body)`                                                          |
+|------------------------------------------|--------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------|
+| The actor…                               | has it                                                                                                 | goes into it                                                                             |
+| Examples                                 | field, countdown, lockout, debounce, selection, pager, flash                                           | confirm, hold-to-confirm, address step, picker                                           |
+| Placed (definition)                      | the root's `traits: { code: Field(…) }`, or on a node with `Flow.state(…, { traits })`                 | a state: `states: [{ CANCELLING: Confirm }]`                                             |
+| Many of them                             | `.each(field, { max, by? })`: one copy per key in a host memory field (rule 9)                         | no                                                                                       |
+| Instance name                            | the `traits` key (`code`)                                                                              | the state's name (`CANCELLING`)                                                          |
+| States of its own                        | none                                                                                                   | optional, under its state (`HOLDING.WAITING`). Without `states` it is a leaf (`Confirm`) |
+| Lives                                    | while its node is active (the root: the actor's life); fresh on every activation unless `.resumable()` | while its state is active; fresh on every entry                                          |
+| Re-activated                             | when its `resetOn` value changes                                                                       | on every entry                                                                           |
+| Ends                                     | when its node is left (resumable: frozen)                                                              | by taking an exit, or abandoned by a transition that exits its state                     |
+| On ending, except by an exit or a freeze | `onLeave` notifications run, fused into the leaving turn                                               | the same                                                                                 |
+| Contains                                 | traits                                                                                                 | traits and subroutines                                                                   |
 
 One question picks the kind: **does the actor have it, or go into it?** A countdown that runs beside
 other states is a trait. A dialog that blocks what is under it is a subroutine.
@@ -67,7 +67,8 @@ other states is a trait. A dialog that blocks what is under it is a subroutine.
 - a trait: `s.memory.code` (absent without memory) and `s.schedules.code.<name>`;
 - a subroutine: `s.memory.CANCELLING` and `s.schedules.HOLDING.<name>`;
 - the host's own schedules: `s.schedules.<name>`;
-- a nested child: `s.memory.challenges[i].timer`, `s.schedules.challenges.key(k).timer.<name>`.
+- `.each` copies: `s.memory.challenges[i]` and `s.schedules.challenges[i]`, in key order, each with `key`;
+- a nested child: `s.memory.challenges[i].timer`, `s.schedules.challenges[i].timer.<name>`.
 
 These names, state names and memory keys share one namespace, and a collision rejects. A slice is
 `undefined` while its fragment is inactive, except a resumable slice, which stays present while frozen.
@@ -106,24 +107,24 @@ guard slot may hold an array; all must pass. A **state token** may be an element
 (`guard: [S.TWO_FACTOR.ENTERING, …]`). It passes when the pre-turn state is at or below that token,
 and `flow check` reads it structurally (rule 12).
 
-| Port | The fragment uses it as | The host fills it with |
-| --- | --- | --- |
-| `memory` fields marked `Flow.input` | ordinary memory, already set when it activates | `input: ({ memory, event }) => …`, the derived `Input` record, read from the source-updated memory (2.5) |
-| `events` | handled in `on` | nothing; views and other senders send `E.pager.Next()` |
-| `internalEvents` | sent by its own `schedules` | nothing |
-| `hostEvents` | handled in `on` | `raise: [E.pager.Jump.from(f)]` on any host transition |
-| `guards` | `guard: guards.hasNext` | `guards: { hasNext: (g) => … \|\| deny("LastPage") }` |
-| `callbacks` | `notify: [callbacks.onTurned.from(f)]` on a transition, or in `onLeave` | an `on`-style handler (`target?`, `updateMemory?`, `actions?`, `raise?`), possibly ordered alternatives ending in an unguarded one; its data is `payload` |
-| `exits` | `target: exits.Done`, or `exits.Done.from(f)` | an `on`-style handler that must leave the subroutine's state |
+| Port                                | The fragment uses it as                                                 | The host fills it with                                                                                                                                    |   |                     |
+|-------------------------------------|-------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------|---|---------------------|
+| `memory` fields marked `Flow.input` | ordinary memory, already set when it activates                          | `input: ({ memory, event }) => …`, the derived `Input` record, read from the source-updated memory (2.5)                                                  |   |                     |
+| `events`                            | handled in `on`                                                         | nothing; views and other senders send `E.pager.Next()`                                                                                                    |   |                     |
+| `internalEvents`                    | sent by its own `schedules`                                             | nothing                                                                                                                                                   |   |                     |
+| `hostEvents`                        | handled in `on`                                                         | `raise: [E.pager.Jump.from(f)]` on any host transition                                                                                                    |   |                     |
+| `guards`                            | `guard: guards.hasNext`                                                 | `guards: { hasNext: (g) => … \                                                                                                                            | \ | deny("LastPage") }` |
+| `callbacks`                         | `notify: [callbacks.onTurned.from(f)]` on a transition, or in `onLeave` | an `on`-style handler (`target?`, `updateMemory?`, `actions?`, `raise?`), possibly ordered alternatives ending in an unguarded one; its data is `payload` |   |                     |
+| `exits`                             | `target: exits.Done`, or `exits.Done.from(f)`                           | an `on`-style handler that must leave the subroutine's state                                                                                              |   |                     |
 
 Every category sits at the top level and is named by its direction, as `events` already is:
 
-| Category | Direction | Who writes the code that runs |
-| --- | --- | --- |
-| `events`, `hostEvents`, `internalEvents` | in (from anyone, the host, itself) | the fragment |
-| `guards` | in: the fragment consults them | the host writes the predicate |
-| `callbacks` | out: tell the host; the fragment carries on | the host writes the handler |
-| `exits` | out: return to the host; the subroutine ends | the host writes the handler |
+| Category                                 | Direction                                    | Who writes the code that runs |
+|------------------------------------------|----------------------------------------------|-------------------------------|
+| `events`, `hostEvents`, `internalEvents` | in (from anyone, the host, itself)           | the fragment                  |
+| `guards`                                 | in: the fragment consults them               | the host writes the predicate |
+| `callbacks`                              | out: tell the host; the fragment carries on  | the host writes the handler   |
+| `exits`                                  | out: return to the host; the subroutine ends | the host writes the handler   |
 
 There is no grouping block: each list's name says what it is and which way it flows.
 
@@ -152,21 +153,22 @@ PascalCase values and constructors, camelCase combinators that are data-first an
 is not itself a Schema. `Schema` describes data; `Flow` describes only what Schema cannot say: port
 kinds, optional versus required, and uncertainty.
 
-| `Flow` | Kind | Meaning | Schema counterpart |
-| --- | --- | --- | --- |
-| `Flow.Guard` | value | a place the host may refuse; no payload | a value, like `Schema.Boolean` |
-| `Flow.Callback(fields)` | constructor | a moment the fragment reports; the host fills a handler | `Schema.Struct(fields)` |
-| `Flow.Exit(fields)` | constructor | a way a subroutine ends; the host maps it | `Schema.Struct(fields)` |
-| `Flow.optional(port)` | combinator | the host may leave the port unfilled | shape of `Schema.optional`; a different meaning (a port, not a field) |
-| `Flow.uncertain(fields)` | combinator | marks an internal event that `unknown`, `interrupt` and `defect` may target | none |
-| `Flow.annotate({ title, description })` | combinator | documentation for Inspection, devtools and agents | `Schema.annotate` |
-| `Flow.input(schema)` | memory modifier | the creator supplies this field (2.2.2) | none; derives the `Input` type |
-| `Flow.initial(schema, value or fn)` | memory modifier | the field's starting value (2.2.2) | `Schema.withConstructorDefault(Effect.succeed(value))` |
-| `Flow.private(schema)` | memory modifier | only the owner sees this field (2.2.2) | none |
-| `Flow.Denial` | value | the Schema of what `deny(code, context?)` returns, `{ code, context? }`, for storing a refusal reason in memory | a value, like `Schema.Boolean` |
-| `port.payload` | field | the payload `Schema.Struct`, for decode, encode or JSON Schema | none |
-| `Flow.Payload<P>`, `Flow.Filling<C>` | types | a port's payload type; the type of the host's filling block for a contract | `Schema.Schema.Type<S>` |
-| `Flow.isGuard`, `Flow.isCallback`, `Flow.isExit` | predicates | for tooling | `Schema.isSchema` |
+| `Flow`                                           | Kind            | Meaning                                                                                                         | Schema counterpart                                                    |
+|--------------------------------------------------|-----------------|-----------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------|
+| `Flow.Guard`                                     | value           | a place the host may refuse; no payload                                                                         | a value, like `Schema.Boolean`                                        |
+| `Flow.Callback(fields)`                          | constructor     | a moment the fragment reports; the host fills a handler                                                         | `Schema.Struct(fields)`                                               |
+| `Flow.Exit(fields)`                              | constructor     | a way a subroutine ends; the host maps it                                                                       | `Schema.Struct(fields)`                                               |
+| `Flow.optional(port)`                            | combinator      | the host may leave the port unfilled                                                                            | shape of `Schema.optional`; a different meaning (a port, not a field) |
+| `Flow.uncertain(fields)`                         | combinator      | marks an internal event that `unknown`, `interrupt` and `defect` may target                                     | none                                                                  |
+| `Flow.annotate({ title, description })`          | combinator      | documentation for Inspection, devtools and agents                                                               | `Schema.annotate`                                                     |
+| `Flow.input(schema)`                             | memory modifier | the creator supplies this field (2.2.2)                                                                         | none; derives the `Input` type                                        |
+| `Flow.initial(schema, value or fn)`              | memory modifier | the field's starting value (2.2.2)                                                                              | `Schema.withConstructorDefault(Effect.succeed(value))`                |
+| `Flow.private(schema)`                           | memory modifier | only the owner sees this field (2.2.2)                                                                          | none                                                                  |
+| `Flow.Denial`                                    | value           | the Schema of what `deny(code, context?)` returns, `{ code, context? }`, for storing a refusal reason in memory | a value, like `Schema.Boolean`                                        |
+| `Flow.entry`                                     | value           | in a schedule's `armOn`: also start when the schedule's owner begins (its state is entered, its trait created or reset) | none |
+| `port.payload`                                   | field           | the payload `Schema.Struct`, for decode, encode or JSON Schema                                                  | none                                                                  |
+| `Flow.Payload<P>`, `Flow.Filling<C>`             | types           | a port's payload type; the type of the host's filling block for a contract                                      | `Schema.Schema.Type<S>`                                               |
+| `Flow.isGuard`, `Flow.isCallback`, `Flow.isExit` | predicates      | for tooling                                                                                                     | `Schema.isSchema`                                                     |
 
 `Flow` calls are written **data-first, wrapping their argument**, always:
 `Flow.optional(Flow.Callback({}))`, `Flow.private(Flow.initial(Schema.Int, 0))`. They are Effect
@@ -189,12 +191,12 @@ Three `Flow` modifiers sit on memory fields, for fragments and machines alike. E
 about the field it wraps, so nothing about starting memory lives anywhere else: there is **no
 top-level `input` block and no top-level `initial` function**.
 
-| Modifier | Meaning |
-| --- | --- |
-| `Flow.input(schema)` | The creator supplies this field: an actor's creator (`ensure(ref, { input })`, `useActor(m, { input })`), or a fragment's host (its `input:` filling). The definition's `Input` type is exactly these fields. |
-| `Flow.initial(schema, value)` | A constant start. It is Schema's constructor default, `withConstructorDefault(Effect.succeed(value))`, restricted to a plain value so it is pure. |
-| `Flow.initial(schema, ({ …fields }) => value)` | A computed start: a pure function of fields that start from `Flow.input` or a constant `Flow.initial`, never of another computed field. |
-| `Flow.private(schema)` | Only the owner sees this field: its own handlers, guards and selects. The host, views and other actors do not; Stories and Inspection do. |
+| Modifier                                       | Meaning                                                                                                                                                                                                       |
+|------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `Flow.input(schema)`                           | The creator supplies this field: an actor's creator (`ensure(ref, { input })`, `useActor(m, { input })`), or a fragment's host (its `input:` filling). The definition's `Input` type is exactly these fields. |
+| `Flow.initial(schema, value)`                  | A constant start. It is Schema's constructor default, `withConstructorDefault(Effect.succeed(value))`, restricted to a plain value so it is pure.                                                             |
+| `Flow.initial(schema, ({ …fields }) => value)` | A computed start: a pure function of fields that start from `Flow.input` or a constant `Flow.initial`, never of another computed field.                                                                       |
+| `Flow.private(schema)`                         | Only the owner sees this field: its own handlers, guards and selects. The host, views and other actors do not; Stories and Inspection do.                                                                     |
 
 ```ts
 memory: {
@@ -243,15 +245,15 @@ Fragments may not declare `operations`, `activities`, `context`, `onContext`, `s
 
 ### 2.3 Where things go
 
-| What | Where |
-| --- | --- |
-| Placing a trait | host **definition**: the root's `traits`, or the node's `Flow.state(…, { traits })`; inside a fragment, the same in its declaration |
-| Placing a subroutine | host **definition**: a state, `{ NAME: Sub }`, or `{ NAME: Flow.state(Sub, { traits }) }` with host traits on its node |
-| Filling ports, `resetOn` | host **machine**, **at the node where it is placed**: the root's `traits.<name>`, a node's `states.<NAME>.traits.<name>`, a subroutine's `states.<NAME>`; inside a fragment, its body |
-| What survives an abnormal ending | the fragment's body: `onLeave` |
-| Feeding a fact into a fragment | host **machine**: `raise` on any host transition |
-| Running I/O and mapping outcomes | host **machine**: actions and outcomes onto the host's own events |
-| A handler or guard shared by several nodes | the definition's `handler(path, h)` / `guard(path?, g)`, e.g. `Signup.guard(g)`: typed as if written at `path` (the root when omitted) |
+| What                                       | Where                                                                                                                                                                                 |
+|--------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Placing a trait                            | host **definition**: the root's `traits`, or the node's `Flow.state(…, { traits })`; inside a fragment, the same in its declaration                                                   |
+| Placing a subroutine                       | host **definition**: a state, `{ NAME: Sub }`, or `{ NAME: Flow.state(Sub, { traits }) }` with host traits on its node                                                                |
+| Filling ports, `resetOn`                   | host **machine**, **at the node where it is placed**: the root's `traits.<name>`, a node's `states.<NAME>.traits.<name>`, a subroutine's `states.<NAME>`; inside a fragment, its body |
+| What survives an abnormal ending           | the fragment's body: `onLeave`                                                                                                                                                        |
+| Feeding a fact into a fragment             | host **machine**: `raise` on any host transition                                                                                                                                      |
+| Running I/O and mapping outcomes           | host **machine**: actions and outcomes onto the host's own events                                                                                                                     |
+| A handler or guard shared by several nodes | the definition's `handler(path, h)` / `guard(path?, g)`, e.g. `Signup.guard(g)`: typed as if written at `path` (the root when omitted)                                                |
 
 Placement is structure (it produces `S`, `E` and the view types), so it lives in the definition.
 Filling refers to `S`, `E` and `O`, so it lives in the machine.
@@ -363,31 +365,40 @@ that node.
 
    Each must be handled, ending in an unguarded alternative, in every state where it can arrive.
    Everything those handlers raise or notify must be total by the child's summary.
-9. **Lists (open).** This rule records the current draft only; dynamic collections are being
-   designed separately (section 7). `T.list({ max?, key?, owner? })` places keyed instances.
-   - **Keys.** Without `key`, the runtime mints one on each `Add`. With `key: Schema.String`, the
-     author chooses the key (`Add { key }`), and adding an existing key is a no-op.
-   - **Incarnations.** Every `Add` creates a new incarnation, and so does re-adding a key that was
-     removed. A delivery chain (rule 8) addresses the incarnation that was live when its commit
-     started or its timer was armed. If that one is dead and the same turn re-adds the key (an
-     `Add` earlier in the chain), the in-turn incarnation wins; the sign-in relies on this. Any
-     other incarnation added after the commit started is deliberately never addressed.
-   - **Dead incarnations.** If the addressed incarnation is gone, only the parts addressed to it
-     (with their sub-chains) are dropped, with evidence. The rest of the turn, including the
-     host's own outcome handling, commits, so rule 8 holds. A stale result therefore never lands
-     on a row re-added by someone else; it lands only on one its own chain re-adds.
-   - **Persistence and Stories.** The incarnations captured by commits and armings persist with
-     the actor. In Stories, minted keys and incarnations are deterministic (`invites#2`,
-     `invites#2@1`).
-   - **Owner.** With `owner: "host"`, `Add` and `Remove` are host events. Otherwise they are
-     public, and the optional `canAdd` / `canRemove` guards may refuse them.
-   - **Events.** `Add` is refused at `max`. `Remove { keys }` ignores keys that are absent, and is
-     never refused when the host raises it. An instance event carries its key: views send
-     `E.invites.key(k).Changed(…)`, and the host raises `E.challenges.Strike.from(() => ({ key }))`.
-     A view event addressed to an absent key is `Unhandled`. A host raise into an absent key, in a
-     turn not sourced by a delivery, refuses the turn like any child refusal.
-   - **Filling.** One block serves every instance. Callback payloads carry `key`.
-   - **Reading.** `s.memory.invites` is the instances in order, each `{ key, …slice }`.
+9. **Many copies: `.each`.** Full design, reasons and nine worked examples:
+   [collections/proposal-each.md](collections/proposal-each.md). `T.each(field, { max, by? })`
+   places one copy of T per key in a memory field of the placing definition or fragment, in that
+   field's order.
+   - **Membership is host data.** Keys are strings, bare or in records (`by` names the key field).
+     The host adds and removes copies by writing the field in its own transitions, behind its own
+     guards. There are no `Add` or `Remove` events. `max` is required.
+   - **Fillings and views.** One filling serves every copy, and each part of it receives `key` and
+     `item` (the entry). A commit started in a copy's filling remembers its key and incarnation, and
+     its outcome mappers receive `key`. `s.memory.<name>` and `s.schedules.<name>` are the copies in
+     key order, each `{ key, item, … }` (`key` only when the field is `Flow.private`). Views send
+     `E.<name>.key(k).Event(…)`; host raises put `key` in the mapper's result. `key` and `item` are
+     reserved memory names in a trait placed with `.each`.
+   - **The turn** (2.5). Raises during the walk see the source-updated list, so a source can add a
+     key and raise into it. After the walk, the **final list** (every patch applied) decides
+     membership for this turn: a key gone ends its copy, with `onLeave` fused; a new key is seeded
+     from the final memory. A copy created and ended in one turn is never published. `onLeave`
+     fillings of a list's copies may not write that list's field.
+   - **Repair, never refuse.** A duplicate key keeps its first entry; keys past `max` are dropped.
+     Each repair is recorded as evidence, so a list can never cost a delivery (rule 8). A raise into
+     an absent key is dropped with evidence in a turn sourced by a delivery, and refuses otherwise.
+   - **Incarnations.** Each copy of a key is a new incarnation, numbered by a counter that persists
+     with the actor. A delivery reaches the incarnation it was started or armed under. If that one
+     is dead and the same turn created a new one for the key, it reaches the new one (the sign-in
+     relies on this). Otherwise it is dropped with evidence and the rest of the turn commits.
+     Removing and re-adding a key in one patch changes nothing. View events address keys, not
+     incarnations. Copies arming for the same instant fire in list order.
+   - **Frozen, persisted, hydrated.** With `.resumable()`, frozen copies are still reconciled every
+     turn. Copies persist by key with their counters; on restore the key list wins and is repaired.
+     Hydration restores copies and never re-runs `input`.
+   - **Analysis.** `flow check` and `flow graph` see one node per placement, with its field and
+     `max`, and check the template once. Which transitions add or remove keys is runtime data,
+     checked by Stories; repairs and dropped raises are Story-derived warnings. `model()` explores
+     up to `explore: { <name>: n }` copies (default 2). Nested `.each` is out of scope.
 10. **Nesting hides the level below, for types and for checks.** A fragment places children in its
     contract and fills them in its body. It raises only into its direct children. `flow check`
     verifies a host's raise and notify graph and its rule-8 totality from its children's summaries
@@ -420,11 +431,11 @@ given event and publishes nothing.
 
 **What reads what.**
 
-| Memory view | What it is | Read by |
-| --- | --- | --- |
-| **Pre-turn snapshot** | the last published snapshot | every guard; every payload mapper (`raise`, `notify`, `exits`, `onLeave` `.from`); commit selects; the source's `updateMemory`; parts' `updateMemory` |
-| **Source-updated memory** | the pre-turn memory with the source's patch applied, plus earlier resets | `resetOn`; `input` fillers |
-| **Initial memory** | a new incarnation's starting memory (input fields, then constant and computed `Flow.initial`s) | guards, mappers and updates of parts addressed to an incarnation created in this turn |
+| Memory view               | What it is                                                                                     | Read by                                                                                                                                               |
+|---------------------------|------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Pre-turn snapshot**     | the last published snapshot                                                                    | every guard; every payload mapper (`raise`, `notify`, `exits`, `onLeave` `.from`); commit selects; the source's `updateMemory`; parts' `updateMemory` |
+| **Source-updated memory** | the pre-turn memory with the source's patch applied, plus earlier resets                       | `resetOn`; `input` fillers                                                                                                                            |
+| **Initial memory**        | a new incarnation's starting memory (input fields, then constant and computed `Flow.initial`s) | guards, mappers and updates of parts addressed to an incarnation created in this turn                                                                 |
 
 1. **Admit** (runtime only).
    - A pending reset from the last commit runs first, as its own follow-up turn (rule 1).
@@ -455,8 +466,12 @@ given event and publishes nothing.
    - **Children that cannot react.** If an addressed child has no handler, or all its alternatives
      decline, the part **refuses the whole turn**. The host never falls through to its next
      alternative because a child refused; alternatives are chosen by their own guards.
-   - **Dead incarnations.** A delivery chain addressed to a dead list incarnation drops that part
-     and its sub-chain, with evidence (rule 9).
+   - **Dead incarnations.** A delivery chain addressed to a dead incarnation of an `.each` copy drops
+     that part and its sub-chain, with evidence, unless the same turn created a new incarnation of
+     its key (rule 9).
+   - **The final list.** After the walk, each `.each` field's final value decides membership
+     (rule 9). Copies whose keys are gone end, and their `onLeave` joins the leaving runs below. New
+     keys are seeded in step 4.
    - **Leaving.** After the walk, append, for the exit set (deepest first): `abandoned`'s pending
      runs for commits fenced to exited states, then `onLeave` for every incarnation the turn ends.
      A reset's `onLeave` comes after the raises into its fresh incarnation, and reads the old
@@ -467,6 +482,7 @@ given event and publishes nothing.
    - Compute every payload and patch from the memory view in the table above.
 5. **Validate.**
    - **One state changer** among the selected parts.
+   - **List repair** (rule 9) runs first. It never refuses.
    - **Disjoint memory keys.** A new incarnation's initial memory and a later part's patch to the
      same slice do not overlap.
    - **A valid action batch** (Machines O3).
@@ -475,10 +491,12 @@ given event and publishes nothing.
    declined token element appears in `Denied.reasons` as `{ code: "NotInState", context: { state } }`.
 6. **Commit.**
    - Apply exits (deepest first) and entries (outermost first).
-   - Apply new incarnations' initial memory, then patches in expansion order, then list removals.
+   - Apply new incarnations' initial memory, then patches in expansion order. Drop the copies the
+     final list ended.
    - Cancel the schedules of ended incarnations, and freeze resumable ones.
-   - Arm entry schedules for every entered **or reset** incarnation, and `armOn` schedules for
-     every accepted event, raised ones included.
+   - Arm schedules that start on entry (no `armOn`, or `Flow.entry` in it) for every entered,
+     reset or created incarnation. Arm `armOn` schedules on every accepted listed event, raised ones
+     included, and stop `disarmOn` schedules on theirs.
    - Evaluate `resetOn` again on the committed memory, and queue any pending resets as one
      follow-up turn at the head of the mailbox.
    - Publish once, then start actions.
@@ -492,13 +510,13 @@ Read the event instead.
 
 **Key order.** Category keys appear in one order, from what the outside sees to the internals:
 
-| Object | Order |
-| --- | --- |
+| Object                        | Order                                                                                                                                              |
+|-------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
 | definition, trait, subroutine | `id`, `states` / `default`, `events`, `hostEvents`, `internalEvents`, `guards`, `callbacks`, `exits`, `memory`, `traits`, `operations` / `context` |
-| machine or fragment body | `default`, `schedules`, `traits`, `on`, `states`, `onLeave` |
-| a host's filling | `input`, `guards`, `callbacks`, `exits` |
-| a transition | `target`, `guard`, `updateMemory`, `actions`, `raise`, `notify` |
-| commit options | `outcomes`, `retry`, `timeout`, `optimistic`, `revertOnUnknown`, `abandoned` |
+| machine or fragment body      | `default`, `schedules`, `traits`, `on`, `states`, `onLeave`                                                                                        |
+| a host's filling              | `input`, `guards`, `callbacks`, `exits`                                                                                                            |
+| a transition                  | `target`, `guard`, `updateMemory`, `actions`, `raise`, `notify`                                                                                    |
+| commit options                | `outcomes`, `retry`, `timeout`, `optimistic`, `revertOnUnknown`, `abandoned`                                                                       |
 
 A lint rule enforces it with an autofix (T4). It moves category keys only: the entries of `traits`,
 alternatives and schedules keep their order, because declaration order carries meaning (rule 1,
@@ -506,8 +524,8 @@ Machines O5).
 
 **What lives in `Flow`.** `Flow` is the Schema-like vocabulary for shapes and declarations: ports
 (`Flow.Guard`, `Flow.Callback`, `Flow.Exit`), memory modifiers (`Flow.input`, `Flow.initial`,
-`Flow.private`), `Flow.uncertain`, `Flow.annotate` and `Flow.state`. How one trait instance behaves
-is an attribute of that trait, so it is a method on it: `.resumable()`, `.list(…)`. `trait(…)` and
+`Flow.private`), `Flow.uncertain`, `Flow.annotate`, `Flow.state` and the schedule marker `Flow.entry`. How one trait instance behaves
+is an attribute of that trait, so it is a method on it: `.resumable()`, `.each(…)`. `trait(…)` and
 `subroutine(…)` stay plain constructors beside `definition` and `machine`; their inference comes
 from branding their results and `const` type parameters, not from a namespace.
 
@@ -532,8 +550,8 @@ SIGNED_IN`. In the two-factor step:
 - only one guess is in flight per challenge: a verify stays pending until it really settles;
 - a verify that takes longer than 15 seconds shows "couldn't check" at once, but the next guess
   waits for that verify's real result (P16);
-- a challenge's instance is removed once it unlocks, and all are removed on sign-in; a late strike
-  after sign-in is ignored, so nothing re-adds one;
+- a challenge gets its lockout copy at its first strike; the copy is removed once it unlocks, and
+  all are removed on sign-in; a late strike after sign-in is ignored, so nothing re-adds one;
 - a late **success** after a timeout is ignored too: the user has already been told "couldn't
   check" and enters a new code, which may meet an already-consumed code (acceptable here);
 - the resend cooldown belongs to the step, not to a challenge: a new challenge inherits it, as the
@@ -680,10 +698,11 @@ export const SignIn = definition({
   memory: {
     challengeId: Flow.initial(Schema.String, ""),
     error: Flow.initial(Schema.NullOr(Schema.String), null),
+    struck: Flow.private(Flow.initial(Schema.Array(Schema.String), [])), // challenges with a strike
   },
   traits: {
-    // One per challenge, at the root, host-owned: strikes and lockouts survive Back (list: open, section 7).
-    challenges: Lockout({ limit: LIMIT, length: "5 minutes" }).list({ key: Schema.String, owner: "host" }),
+    // One per struck challenge, at the root: strikes and lockouts survive Back (rule 9).
+    challenges: Lockout({ limit: LIMIT, length: "5 minutes" }).each("struck", { max: 20 }),
   },
   operations: { Auth },
 });
@@ -699,8 +718,10 @@ const strikesOf = (memory: Memory, key: string) => memory.challenges.find((c) =>
 
 export const SignInMachine = machine(SignIn, ({ S, E, O }) => {
   const strikeCurrent = E.challenges.Strike.from(({ memory }) => ({ key: memory.challengeId }));
-  const isCurrent = ({ payload, memory }) => payload.key === memory.challengeId || deny("OtherChallenge");
-  const forgetIt = E.challenges.Remove.from(({ payload }) => ({ keys: [payload.key] }));
+  const isCurrent = ({ key, memory }) => key === memory.challengeId || deny("OtherChallenge");
+  // A challenge gets its Lockout copy at its first strike, and loses it when it unlocks.
+  const union = (ids: ReadonlyArray<string>, id: string) => (ids.includes(id) ? ids : [...ids, id]);
+  const forget = ({ memory, key }) => ({ struck: memory.struck.filter((id) => id !== key) });
 
   // Fenced to the VERIFYING activation it starts in (P2). A result after Back goes to `abandoned`,
   // which runs twice (pending, then settled); only a settled WrongCode writes anything.
@@ -720,15 +741,14 @@ export const SignInMachine = machine(SignIn, ({ S, E, O }) => {
       },
       abandoned: [
         {
-          // Strikes its own challenge, current or not. Add first: a no-op if present.
+          // Strikes its own challenge, current or not, re-adding its key first. The strike reaches
+          // the copy this turn creates (rule 9).
           guard: [
             ({ state }) => !S.SIGNED_IN.is(state) || deny("SignedIn"),
             ({ payload }) => payload.tag === "WrongCode" || deny("NotWrong"),
           ],
-          raise: [
-            E.challenges.Add.from(({ payload }) => ({ key: payload.input.challengeId })),
-            E.challenges.Strike.from(({ payload }) => ({ key: payload.input.challengeId })),
-          ],
+          updateMemory: ({ memory, payload }) => ({ struck: union(memory.struck, payload.input.challengeId) }),
+          raise: [E.challenges.Strike.from(({ payload }) => ({ key: payload.input.challengeId }))],
         },
         {},
       ],
@@ -754,10 +774,10 @@ export const SignInMachine = machine(SignIn, ({ S, E, O }) => {
             },
             { target: "self" },
           ],
-          // Unlocked with zero strikes: the instance is no longer needed.
+          // Unlocked with zero strikes: the copy is no longer needed, so forget its key.
           onUnlocked: [
-            { target: S.TWO_FACTOR.ENTERING, guard: [S.TWO_FACTOR.LOCKED_OUT, isCurrent], updateMemory: () => ({ error: null }), raise: [forgetIt] },
-            { target: "self", raise: [forgetIt] },
+            { target: S.TWO_FACTOR.ENTERING, guard: [S.TWO_FACTOR.LOCKED_OUT, isCurrent], updateMemory: (g) => ({ ...forget(g), error: null }) },
+            { target: "self", updateMemory: forget },
           ],
         },
       },
@@ -775,7 +795,6 @@ export const SignInMachine = machine(SignIn, ({ S, E, O }) => {
             {
               target: S.TWO_FACTOR,
               updateMemory: ({ event }) => ({ challengeId: event.challengeId, error: null }),
-              raise: [E.challenges.Add.from(({ event }) => ({ key: event.challengeId }))], // reads the event
             },
           ],
         },
@@ -823,19 +842,20 @@ export const SignInMachine = machine(SignIn, ({ S, E, O }) => {
             on: {
               CodeAccepted: {
                 target: S.SIGNED_IN,
-                raise: [E.challenges.Remove.from(({ memory }) => ({ keys: memory.challenges.map((c) => c.key) }))],
+                updateMemory: () => ({ struck: [] }), // every lockout is forgotten
               },
               CodeWrong: [
                 {
                   target: S.TWO_FACTOR.LOCKED_OUT,
                   guard: ({ memory }) => strikesOf(memory, memory.challengeId) + 1 >= LIMIT || deny("TriesLeft"),
-                  updateMemory: () => ({ error: null }),
+                  updateMemory: ({ memory }) => ({ error: null, struck: union(memory.struck, memory.challengeId) }),
                   raise: [E.code.Reset, strikeCurrent],
                 },
                 {
                   target: S.TWO_FACTOR.ENTERING,
                   updateMemory: ({ memory }) => ({
                     error: `Wrong code, ${LIMIT - strikesOf(memory, memory.challengeId) - 1} tries left`,
+                    struck: union(memory.struck, memory.challengeId),
                   }),
                   raise: [E.code.Reset, strikeCurrent],
                 },
@@ -866,8 +886,10 @@ sees this from the token elements alone (rule 12).
 - If they are elsewhere, the lock simply runs. The next `PasswordAccepted` for that challenge finds
   three strikes and goes straight to LOCKED_OUT.
 
-**Lists and incarnations.** Strikes for a challenge the user has left stay in its instance until it
-unlocks. A late strike for a removed challenge re-adds it (`Add` first), as a new incarnation.
+**Copies and incarnations.** A challenge gets its `Lockout` copy at its first strike, so going Back
+and entering the password again never fills the list. Strikes for a challenge the user has left stay
+in its copy until it unlocks. A late strike for an unlocked challenge re-adds its key and strikes it
+in one turn: the strike reaches the new copy (rule 9).
 
 ```tsx
 // TwoFactorStep.tsx
@@ -886,7 +908,7 @@ export function TwoFactorStep({ signIn }: { signIn: Actor<typeof SignInMachine> 
   const error = useView(signIn, (s) => s.memory.error);
   const resendDue = useView(signIn, (s) => s.schedules.resendCooldown?.done?.dueAt);
   const lockoutDue = useView(signIn, (s) =>
-    S.TWO_FACTOR.LOCKED_OUT.is(s) ? s.schedules.challenges.key(s.memory.challengeId)?.timer.done?.dueAt : undefined,
+    S.TWO_FACTOR.LOCKED_OUT.is(s) ? s.schedules.challenges.find((c) => c.key === s.memory.challengeId)?.timer.done?.dueAt : undefined,
   );
   const canType = useView(signIn, (s) => check(s, E.code.Changed({ value: "" }))._tag === "Allowed");
   const canSubmit = useView(signIn, (s) => check(s, E.Submit())._tag === "Allowed");
@@ -912,7 +934,6 @@ export function TwoFactorStep({ signIn }: { signIn: Actor<typeof SignInMachine> 
         {resendIn > 0 ? `Resend code (${resendIn} s)` : "Resend code"}
       </button>
       <button type="button" onClick={() => signIn.send(E.BackToPassword())}>Back to password</button>
-      {/* signIn.send(E.challenges.Remove({ keys: ["c1"] })) ← type error: a host-owned list */}
     </form>
   );
 }
@@ -1012,32 +1033,42 @@ Placing them at the root avoids that without `.resumable()`. Nothing outside the
 subroutine can take `Confirmed`. Every retry is the same Attempt, with the input `create` was
 admitted with (P15).
 
-### 3.3 A list of Field instances (open)
+### 3.3 A list of Field instances
 
 The invite page holds up to five email fields. An empty entry is valid and is dropped on Next. Rows
-can be added and removed only on the Invite page.
+can be added and removed only on the Invite page: the events are handled only there.
 
 ```ts
 // signup.definition.ts (excerpt)
+events: { AddInvite: {}, RemoveInvite: { key: Schema.String }, /* … */ },
+memory: {
+  inviteIds: Flow.initial(Schema.Array(Schema.String), ["invite-1"]),
+  nextInvite: Flow.private(Flow.initial(Schema.Int, 2)),             // deterministic keys
+},
 traits: {
-  invites: Field(Schema.String, { validate: optionalEmail }).list({ max: 5 }), // "" or contains "@" (list: open, section 7)
+  invites: Field(Schema.String, { validate: optionalEmail }).each("inviteIds", { max: 5 }), // "" or contains "@"
 },
 
 // signup.machine.ts (excerpt)
-const onInvitePage = Signup.guard(({ state }) => S.WIZARD.INVITE.is(state) || deny("NotOnInvitePage"));
-traits: {
-  invites: { input: () => ({ value: "" }), guards: { canAdd: onInvitePage, canRemove: onInvitePage } },
-},
+traits: { invites: { input: () => ({ value: "" }) } },
 INVITE: {
   on: {
+    AddInvite: {
+      target: "self",
+      guard: ({ memory }) => memory.inviteIds.length < 5 || deny("FiveAtMost"),
+      updateMemory: ({ memory }) => ({
+        inviteIds: [...memory.inviteIds, `invite-${memory.nextInvite}`],
+        nextInvite: memory.nextInvite + 1,
+      }),
+    },
+    RemoveInvite: {
+      target: "self",
+      updateMemory: ({ memory, event }) => ({ inviteIds: memory.inviteIds.filter((k) => k !== event.key) }),
+    },
     Next: {
       target: S.WIZARD.REVIEW,
-      guard: ({ memory }) => memory.invites.every((f) => f.error === null) || deny("InvitesInvalid"),
-      raise: [
-        E.invites.Remove.from(({ memory }) => ({
-          keys: memory.invites.filter((f) => f.value === "").map((f) => f.key),
-        })),
-      ],
+      guard: ({ memory }) => memory.invites.find((f) => f.error !== null)?.error ?? true, // the row's own reason
+      updateMemory: ({ memory }) => ({ inviteIds: memory.invites.filter((f) => f.value !== "").map((f) => f.key) }),
     },
     Back: S.WIZARD.PROFILE,
   },
@@ -1049,13 +1080,13 @@ INVITE: {
 {invites.map((f) => (
   <div key={f.key}>
     <input value={f.value} onChange={(e) => signup.send(E.invites.key(f.key).Changed({ value: e.target.value }))} />
-    <button onClick={() => signup.send(E.invites.Remove({ keys: [f.key] }))}>Remove</button>
+    <button onClick={() => signup.send(E.RemoveInvite({ key: f.key }))}>Remove</button>
   </div>
 ))}
-<button disabled={!canAdd} onClick={() => signup.send(E.invites.Add())}>Add</button>
+<button disabled={!canAdd} onClick={() => signup.send(E.AddInvite())}>Add</button>
 
-// signup.story.ts (excerpt): minted keys are deterministic in Stories
-.send(E.invites.Add()).send(E.invites.key("invites#1").Changed({ value: "grace@example.com" }))
+// signup.story.ts (excerpt): keys come from the host's own counter
+.send(E.AddInvite()).send(E.invites.key("invite-2").Changed({ value: "grace@example.com" }))
 ```
 
 A keystroke sent for a row removed a moment earlier is `Unhandled`. A late delivery for a removed
@@ -1158,47 +1189,47 @@ turn (rule 6).
 
 ### 3.6 Keywords
 
-| Kind | Words |
-| --- | --- |
-| **New, fragments (21)** | `trait`, `subroutine`, `traits` (root and node), `Flow.state`, `.resumable()`, `.list` (open: `max`, `key`, `owner`), `.key(k)`, `Add` / `Remove` / `canAdd` / `canRemove`, `hostEvents`, `guards`, `callbacks`, `exits` (declarations and fillings), `notify`, the `Flow` module (`Flow.Guard`, `Flow.Callback`, `Flow.Exit`, `Flow.optional`, `Flow.uncertain`, `Flow.annotate`, `Flow.input`, `Flow.initial`, `Flow.private`, `Flow.Denial`), `raise`, `resetOn`, `onLeave`, the definition's `handler` / `guard`, state tokens in guard arrays, `story.machine(fragment)` with `.enter` / `.leave` / `run.calls` / `checkpoint.exit` |
-| **New, plans (18)** | `abandoned` (payload `outcome`, `tag`, `definite`, `value`, `input`, `attempt`), `notSent`, `.pending`, `retry` (`on`, `schedule`), `retrying`, the mapper's `{ input, attempt }`, `revertOnUnknown`, `timeout` (`perAttempt`, `total`), `failureKinds` (`"definite"` / `"uncertain"`), `orphaned`, `.history` (and `.history.child`), `armOn`, `s.schedules`, `dueAt`, and the `model()` options `invariants` and `hot` |
-| **New concepts, not words** | **incarnation** (one life of a fragment instance), **frozen** (a resumable trait while its node is inactive), **summary** (a contract's inferred per-alternative effects), **source-updated memory** (pre-turn memory plus the source's patch), **late turn** (rule 6), pending reset |
-| **Existing** | `definition`, `machine`, `states`, `default`, `events`, `internalEvents`, `input` (caller side only: `ensure`, `useActor`, a host's filling), `memory`, `on`, `target`, `guard`, `updateMemory`, `actions`, `schedules`, `restartOn`, `outcomes`, `optimistic`, `setData`, `deny`, `check`, `model`, `S`, `E`, `O`, `.from`, `payload` |
-| **Author-chosen** | every other name (`Field`, `Lockout`, `challenges`, `LOCKED_OUT`, `canEdit`, `onLocked`, …) |
+| Kind                        | Words                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+|-----------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **New, fragments**          | `trait`, `subroutine`, `traits` (root and node), `Flow.state`, `.resumable()`, `.each` (`max`, `by`), `key` / `item` in fillings and copy views, `.key(k)`, `hostEvents`, `guards`, `callbacks`, `exits` (declarations and fillings), `notify`, the `Flow` module (`Flow.Guard`, `Flow.Callback`, `Flow.Exit`, `Flow.optional`, `Flow.uncertain`, `Flow.annotate`, `Flow.input`, `Flow.initial`, `Flow.private`, `Flow.Denial`, `Flow.entry`), `raise`, `resetOn`, `onLeave`, the definition's `handler` / `guard`, state tokens in guard arrays, `story.machine(fragment)` with `.enter` / `.leave` / `run.calls` / `checkpoint.exit` |
+| **New, plans**              | `abandoned` (payload `outcome`, `tag`, `definite`, `value`, `input`, `attempt`), `notSent`, `.pending`, `retry` (`on`, `schedule`), `retrying`, the mapper's `{ input, attempt }`, `revertOnUnknown`, `timeout` (`perAttempt`, `total`), `failureKinds` (`"definite"` / `"uncertain"`), `orphaned`, `.history` (and `.history.child`), `armOn`, `disarmOn`, `s.schedules`, `dueAt`, and the `model()` options `invariants`, `hot` and `explore`                                                                                                                                                                                                                 |
+| **New concepts, not words** | **incarnation** (one life of a fragment instance), **frozen** (a resumable trait while its node is inactive), **summary** (a contract's inferred per-alternative effects), **source-updated memory** (pre-turn memory plus the source's patch), **late turn** (rule 6), pending reset                                                                                                                                                                                                                                                                                                                                                    |
+| **Existing**                | `definition`, `machine`, `states`, `default`, `events`, `internalEvents`, `input` (caller side only: `ensure`, `useActor`, a host's filling), `memory`, `on`, `target`, `guard`, `updateMemory`, `actions`, `schedules`, `restartOn`, `outcomes`, `optimistic`, `setData`, `deny`, `check`, `model`, `S`, `E`, `O`, `.from`, `payload`                                                                                                                                                                                                                                                                                                   |
+| **Author-chosen**           | every other name (`Field`, `Lockout`, `challenges`, `LOCKED_OUT`, `canEdit`, `onLocked`, …)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 
 ## 4. Against the problems in principles.md
 
-| Problem | Answer |
-| --- | --- |
-| **L1** stale timers, **T2** schedule traps | Prevented. Schedules stop with their incarnation. Arming ids drop firings from before a re-arm (P11). `armOn` replaces counter idioms. The `restartOn` baseline is the activating turn's memory (P8). |
-| **L2** late results | Prevented. Host commits are fenced to the activation they start in (P2). List deliveries are fenced to their instance's incarnation (rule 9). |
-| **L3** leftover memory | Prevented by placement and incarnations. `.resumable()` is an explicit opt-in to carry data back. |
-| **L4** no way out | Prevented. The host may always leave a subroutine's state (rule 6). A hot state reachable with nothing pending is a `flow check` error (T1). |
-| **L5** abandoned effects | Prevented. A late result, including one after leaving or a timeout, goes to `abandoned` with its Attempt (P10, P16). `abandoned` may reconcile or compensate (P20). |
-| **L6** silent admission, **L8** phantom replies | Prevented. A call never sent answers `notSent` (P9). Outstanding calls are readable (P3). A delivery into a dead incarnation is dropped with evidence. |
-| **L7** departure gap | Allowed. Refusing a new submit while an abandoned one is pending is host code (`.pending`, as the sign-in does). |
-| **E1** broken invariants, **E4** refusal by forwarding | Prevented. Refusal happens only at declared guards, and deliveries cannot be refused (rule 8). |
-| **E2** interfaces growing with depth | Prevented, for types and for checks. Hosts are checked against contract summaries only (rule 10). |
-| **E3** hidden endings | Prevented. Only exits leave a subroutine. Callbacks never leave their node. |
-| **E5** preempting observers | Prevented. A late turn, including one sourced by a compensating commit's outcome, cannot exit live work, and each handler's last alternative cannot move (rule 6). |
-| **H1** bypassed policy | Allowed, by design. Host-owned facts are `hostEvents`, and host-owned lists are `owner: "host"`. |
-| **H2** unforeseen checks | Allowed, by choice: declare the guard in the fragment. |
-| **H3** faked results | Prevented. Exits are never sendable. `internalEvents` come only from the fragment's own schedules. |
-| **H4** mislabelled results | Prevented. `unknown`, `interrupt`, `defect` and uncertain failure tags reach only `uncertain` events (P9, P14). |
-| **H5** interrupt treated as not sent | Prevented for commit retries: only definite tags retry (P14). In host code, resending from an `uncertain` handler is a convention. |
-| **D1** drifting copies | Prevented. Fragment memory, resumable slices and schedule deadlines are readable, so nothing is copied. |
-| **D2** live values on retry | Prevented for commit retries: one Attempt, the admitted input (P15). |
-| **D3** feedback loops | Not applicable: fragments do no I/O. |
-| **D4** unmapped outcomes | Allowed. An unmapped outcome publishes an issue; `uncertain` only types the right target. |
-| **D5** restore in flight | Prevented. Fenced commits restore with their activation (P12). Attempts survive a version change through `orphaned`, at least once (P19). Saved-state compatibility Stories are left out (section 6). |
-| **D6** same-turn seeding | Prevented. `input` and `resetOn` read the source-updated memory (2.5). A mapper that reads a key its own turn writes is a warning. |
-| **D7** drafts lost | Prevented where the fragment declares `onLeave`, or the trait is placed high enough, or with `.resumable()`. Otherwise it is a convention. |
-| **A1, A2** forwarding, scattered blocks | One filling block per instance. A view sends at the instance path, so nothing is forwarded. |
-| **A3** conditional rules, **A4** overloaded words | Avoided. Each kind has its own rules, and every new word is listed. |
-| **A5** I/O inside fragments | Prevented (rule 3). |
-| **A6** silence discovered late | By the fragment author's choice. Required ports are type errors; optional guards are an info finding. Dead exits and unused host events are warnings (T2). |
-| **A7** forgotten first send | Not applicable: the host starts every operation on its own transition. |
-| **T1** partial turns | Prevented by the turn algorithm (2.5): one selection, no fallthrough on a child's refusal. |
+| Problem                                                | Answer                                                                                                                                                                                                |
+|--------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **L1** stale timers, **T2** schedule traps             | Prevented. Schedules stop with their incarnation. Arming ids drop firings from before a re-arm (P11). `armOn` replaces counter idioms. The `restartOn` baseline is the activating turn's memory (P8). |
+| **L2** late results                                    | Prevented. Host commits are fenced to the activation they start in (P2). Deliveries to `.each` copies are fenced to the copy's incarnation (rule 9).                                                         |
+| **L3** leftover memory                                 | Prevented by placement and incarnations. `.resumable()` is an explicit opt-in to carry data back.                                                                                                     |
+| **L4** no way out                                      | Prevented. The host may always leave a subroutine's state (rule 6). A hot state reachable with nothing pending is a `flow check` error (T1).                                                          |
+| **L5** abandoned effects                               | Prevented. A late result, including one after leaving or a timeout, goes to `abandoned` with its Attempt (P10, P16). `abandoned` may reconcile or compensate (P20).                                   |
+| **L6** silent admission, **L8** phantom replies        | Prevented. A call never sent answers `notSent` (P9). Outstanding calls are readable (P3). A delivery into a dead incarnation is dropped with evidence.                                                |
+| **L7** departure gap                                   | Allowed. Refusing a new submit while an abandoned one is pending is host code (`.pending`, as the sign-in does).                                                                                      |
+| **E1** broken invariants, **E4** refusal by forwarding | Prevented. Refusal happens only at declared guards, and deliveries cannot be refused (rule 8).                                                                                                        |
+| **E2** interfaces growing with depth                   | Prevented, for types and for checks. Hosts are checked against contract summaries only (rule 10).                                                                                                     |
+| **E3** hidden endings                                  | Prevented. Only exits leave a subroutine. Callbacks never leave their node.                                                                                                                           |
+| **E5** preempting observers                            | Prevented. A late turn, including one sourced by a compensating commit's outcome, cannot exit live work, and each handler's last alternative cannot move (rule 6).                                    |
+| **H1** bypassed policy                                 | Allowed, by design. Host-owned facts are `hostEvents`, and list membership is host memory (rule 9).                                                                                                      |
+| **H2** unforeseen checks                               | Allowed, by choice: declare the guard in the fragment.                                                                                                                                                |
+| **H3** faked results                                   | Prevented. Exits are never sendable. `internalEvents` come only from the fragment's own schedules.                                                                                                    |
+| **H4** mislabelled results                             | Prevented. `unknown`, `interrupt`, `defect` and uncertain failure tags reach only `uncertain` events (P9, P14).                                                                                       |
+| **H5** interrupt treated as not sent                   | Prevented for commit retries: only definite tags retry (P14). In host code, resending from an `uncertain` handler is a convention.                                                                    |
+| **D1** drifting copies                                 | Prevented. Fragment memory, resumable slices and schedule deadlines are readable, so nothing is copied.                                                                                               |
+| **D2** live values on retry                            | Prevented for commit retries: one Attempt, the admitted input (P15).                                                                                                                                  |
+| **D3** feedback loops                                  | Not applicable: fragments do no I/O.                                                                                                                                                                  |
+| **D4** unmapped outcomes                               | Allowed. An unmapped outcome publishes an issue; `uncertain` only types the right target.                                                                                                             |
+| **D5** restore in flight                               | Prevented. Fenced commits restore with their activation (P12). Attempts survive a version change through `orphaned`, at least once (P19). Saved-state compatibility Stories are left out (section 6). |
+| **D6** same-turn seeding                               | Prevented. `input` and `resetOn` read the source-updated memory (2.5). A mapper that reads a key its own turn writes is a warning.                                                                    |
+| **D7** drafts lost                                     | Prevented where the fragment declares `onLeave`, or the trait is placed high enough, or with `.resumable()`. Otherwise it is a convention.                                                            |
+| **A1, A2** forwarding, scattered blocks                | One filling block per instance. A view sends at the instance path, so nothing is forwarded.                                                                                                           |
+| **A3** conditional rules, **A4** overloaded words      | Avoided. Each kind has its own rules, and every new word is listed.                                                                                                                                   |
+| **A5** I/O inside fragments                            | Prevented (rule 3).                                                                                                                                                                                   |
+| **A6** silence discovered late                         | By the fragment author's choice. Required ports are type errors; optional guards are an info finding. Dead exits and unused host events are warnings (T2).                                            |
+| **A7** forgotten first send                            | Not applicable: the host starts every operation on its own transition.                                                                                                                                |
+| **T1** partial turns                                   | Prevented by the turn algorithm (2.5): one selection, no fallthrough on a child's refusal.                                                                                                            |
 
 ## 5. Plan amendments
 
@@ -1207,44 +1238,44 @@ sections 2 and 3.
 
 ### For fragments
 
-| Plan | Rule | Replaces or adds |
-| --- | --- | --- |
-| **Machines O1** | Definitions gain `traits` (the root's `traits`, and `Flow.state(children | {} | Sub, { traits })` on a node; `.resumable()`; `.list` open) and fragment states. Fillings sit at the node where a fragment is placed. A fragment declares what a definition declares (`id`, `events`, `internalEvents`, `memory`, child `traits` / `states`) plus `hostEvents`, `guards`, `callbacks` and `exits` at the top level, its body's `onLeave`, and an inferred summary. Machines gain one filling block per instance. Names share one namespace | Adds to "A definition requires id, states and events." |
-| **Machines O1** | An internal event may be marked `Flow.uncertain(fields)`; an event payload may be a `Schema.Struct` with checks, refused at admission when a check fails | Adds to "events and optional internalEvents are records…" |
-| **Package O1** | The root route exports `Flow` (with `Flow.Guard`, `Flow.Callback`, `Flow.Exit`, `Flow.optional`, `Flow.uncertain`, `Flow.annotate`, `Flow.input`, `Flow.initial`, `Flow.private`, `Flow.Denial`, the `Flow.is*` predicates and the `Flow.Payload` / `Flow.Filling` types) | Adds to the flow-state route's name list |
-| **Machines O1** | Memory fields carry `Flow.input` (supplied by the creator; the `Input` type is derived from them), `Flow.initial` (a constant or a pure computed start) and `Flow.private`. Every field starts from exactly one source. The top-level `input` and `initial` are removed | Replaces "Optional input and memory are Schema field records. Nonempty memory requires initial({ input })…" |
-| **Machines O8**, **React O4** | Outside snapshot and view types omit `Flow.private` fields; Stories and Inspection still see them | Adds |
-| **React O2** | The pure starting snapshot uses the memory built from `Flow.input`, `Flow.initial` and computed initials | Replaces "initial(input) memory" |
-| **Machines O1** | `operations` may group operation handles one level deep | Replaces "a flat record of operation or entity-domain handles" with "…or one-level groups of operation handles" |
-| **Machines O1** | A definition's `handler(path, h)` / `guard(path?, g)` type shared code as if written at `path`; a commit is typed at each transition that runs it | Adds |
-| **Machines O2** | A subroutine state is entered at its default, or is a leaf. It is left by an exit, or abandoned by a transition that exits it; host events fall through to ancestors as usual. Exits are targets only fragments take | Adds to "target is required and is this machine's token or "self"" |
-| **Machines O2** | `token.is` accepts a snapshot or a state path. A state token may be an element of a guard array, and passes when the pre-turn state is at or below it | Replaces "token.is(snapshot) includes descendants" with "token.is(snapshot or state)…" |
-| **Machines O3** | **The turn algorithm of section 2.5 is normative**, for the runtime and `check()`. All-declining still falls through to ancestors (O2); a child's refusal inside a selected alternative never does | Replaces the prose from "An accepted transition computes updateMemory before action parameters" to "One invalid action rejects the whole turn" with the algorithm, keeping its defect rules |
-| **Machines O4** | Guards also receive `schedules` and may call `.pending`. `check()` runs steps 2–6 of the turn. `deny(code, context?)` returns plain data matching `Flow.Denial`, so it may be stored in memory, and a guard may return a stored denial | Replaces "A guard receives { event, state, memory, context, activities }" with the same list plus `schedules`; adds the last sentence |
-| **Machines O8** | The snapshot exposes fragment slices (`undefined` while inactive, present while frozen), keyed list instances, and `schedules` | Replaces "It has no input, methods, timers or public revision" with "…no input, methods or public revision; armed schedules appear under `schedules`" |
-| **Persistence O2** | Resumable slices, frozen schedules and list incarnations persist with the actor | Adds to "Actor state, memory … survive reload" |
-| **Testing O1** | `story.machine` also accepts a fragment (`.enter`, `.leave`, `run.calls`, `checkpoint.exit`, host-event sends). `send` runs its turn; `process()` drains operation work and due timers. Minted keys and incarnations are deterministic | Adds to "story.machine(machine, { … }) tests one fresh actor" |
-| **Inspection O1** | Fragments, list instances, incarnations, fused transitions and contract summaries appear under their instance names | Adds |
-| **CommandLine O5** | Errors: rule 12's list. Warnings: overlaps only closures separate; history targets over non-resumable fragments; a mapper reading a key its own turn writes (from Story traces). Info: unfilled optional guards | Adds |
+| Plan                          | Rule                                                                                                                                                                                                                                                                      | Replaces or adds                                                                                                                                                                            |                                                                                                                                                                                                                                                                                                                                                                                                                                                           |                                                        |
+|-------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------|
+| **Machines O1**               | Definitions gain `traits` (the root's `traits`, and `Flow.state(children                                                                                                                                                                                                  | {}                                                                                                                                                                                          | Sub, { traits })` on a node; `.resumable()`; `.list` open) and fragment states. Fillings sit at the node where a fragment is placed. A fragment declares what a definition declares (`id`, `events`, `internalEvents`, `memory`, child `traits` / `states`) plus `hostEvents`, `guards`, `callbacks` and `exits` at the top level, its body's `onLeave`, and an inferred summary. Machines gain one filling block per instance. Names share one namespace | Adds to "A definition requires id, states and events." |
+| **Machines O1**               | An internal event may be marked `Flow.uncertain(fields)`; an event payload may be a `Schema.Struct` with checks, refused at admission when a check fails                                                                                                                  | Adds to "events and optional internalEvents are records…"                                                                                                                                   |                                                                                                                                                                                                                                                                                                                                                                                                                                                           |                                                        |
+| **Package O1**                | The root route exports `Flow` (with `Flow.Guard`, `Flow.Callback`, `Flow.Exit`, `Flow.optional`, `Flow.uncertain`, `Flow.annotate`, `Flow.input`, `Flow.initial`, `Flow.private`, `Flow.Denial`, the `Flow.is*` predicates and the `Flow.Payload` / `Flow.Filling` types) | Adds to the flow-state route's name list                                                                                                                                                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                           |                                                        |
+| **Machines O1**               | Memory fields carry `Flow.input` (supplied by the creator; the `Input` type is derived from them), `Flow.initial` (a constant or a pure computed start) and `Flow.private`. Every field starts from exactly one source. The top-level `input` and `initial` are removed   | Replaces "Optional input and memory are Schema field records. Nonempty memory requires initial({ input })…"                                                                                 |                                                                                                                                                                                                                                                                                                                                                                                                                                                           |                                                        |
+| **Machines O8**, **React O4** | Outside snapshot and view types omit `Flow.private` fields; Stories and Inspection still see them                                                                                                                                                                         | Adds                                                                                                                                                                                        |                                                                                                                                                                                                                                                                                                                                                                                                                                                           |                                                        |
+| **React O2**                  | The pure starting snapshot uses the memory built from `Flow.input`, `Flow.initial` and computed initials                                                                                                                                                                  | Replaces "initial(input) memory"                                                                                                                                                            |                                                                                                                                                                                                                                                                                                                                                                                                                                                           |                                                        |
+| **Machines O1**               | `operations` may group operation handles one level deep                                                                                                                                                                                                                   | Replaces "a flat record of operation or entity-domain handles" with "…or one-level groups of operation handles"                                                                             |                                                                                                                                                                                                                                                                                                                                                                                                                                                           |                                                        |
+| **Machines O1**               | A definition's `handler(path, h)` / `guard(path?, g)` type shared code as if written at `path`; a commit is typed at each transition that runs it                                                                                                                         | Adds                                                                                                                                                                                        |                                                                                                                                                                                                                                                                                                                                                                                                                                                           |                                                        |
+| **Machines O2**               | A subroutine state is entered at its default, or is a leaf. It is left by an exit, or abandoned by a transition that exits it; host events fall through to ancestors as usual. Exits are targets only fragments take                                                      | Adds to "target is required and is this machine's token or "self""                                                                                                                          |                                                                                                                                                                                                                                                                                                                                                                                                                                                           |                                                        |
+| **Machines O2**               | `token.is` accepts a snapshot or a state path. A state token may be an element of a guard array, and passes when the pre-turn state is at or below it                                                                                                                     | Replaces "token.is(snapshot) includes descendants" with "token.is(snapshot or state)…"                                                                                                      |                                                                                                                                                                                                                                                                                                                                                                                                                                                           |                                                        |
+| **Machines O3**               | **The turn algorithm of section 2.5 is normative**, for the runtime and `check()`. All-declining still falls through to ancestors (O2); a child's refusal inside a selected alternative never does                                                                        | Replaces the prose from "An accepted transition computes updateMemory before action parameters" to "One invalid action rejects the whole turn" with the algorithm, keeping its defect rules |                                                                                                                                                                                                                                                                                                                                                                                                                                                           |                                                        |
+| **Machines O4**               | Guards also receive `schedules` and may call `.pending`. `check()` runs steps 2–6 of the turn. `deny(code, context?)` returns plain data matching `Flow.Denial`, so it may be stored in memory, and a guard may return a stored denial                                    | Replaces "A guard receives { event, state, memory, context, activities }" with the same list plus `schedules`; adds the last sentence                                                       |                                                                                                                                                                                                                                                                                                                                                                                                                                                           |                                                        |
+| **Machines O8**               | The snapshot exposes fragment slices (`undefined` while inactive, present while frozen), `.each` copies in key order, and `schedules`                                                                                                                                            | Replaces "It has no input, methods, timers or public revision" with "…no input, methods or public revision; armed schedules appear under `schedules`"                                       |                                                                                                                                                                                                                                                                                                                                                                                                                                                           |                                                        |
+| **Persistence O2**            | Resumable slices, frozen schedules and `.each` copies with their incarnation counters persist with the actor                                                                                                                                                                                           | Adds to "Actor state, memory … survive reload"                                                                                                                                              |                                                                                                                                                                                                                                                                                                                                                                                                                                                           |                                                        |
+| **Testing O1**                | `story.machine` also accepts a fragment (`.enter`, `.leave`, `run.calls`, `checkpoint.exit`, host-event sends). `send` runs its turn; `process()` drains operation work and due timers. Copies' incarnations are deterministic; `model()` explores `.each` copies up to `explore` (default 2)                                    | Adds to "story.machine(machine, { … }) tests one fresh actor"                                                                                                                               |                                                                                                                                                                                                                                                                                                                                                                                                                                                           |                                                        |
+| **Inspection O1**             | Fragments, `.each` copies, incarnations, fused transitions and contract summaries appear under their instance names                                                                                                                                                       | Adds                                                                                                                                                                                        |                                                                                                                                                                                                                                                                                                                                                                                                                                                           |                                                        |
+| **CommandLine O5**            | Errors: rule 12's list. Warnings: overlaps only closures separate; history targets over non-resumable fragments; a mapper reading a key its own turn writes (from Story traces). Info: unfilled optional guards                                                           | Adds                                                                                                                                                                                        |                                                                                                                                                                                                                                                                                                                                                                                                                                                           |                                                        |
 
 ### For every machine: turns, history, timers
 
-| # | Plan | Rule | Replaces or adds |
-| --- | --- | --- | --- |
-| P1 | Operations O2 | One mapper form, `(value, { input, attempt })`. For `retrying`, the value is `{ retry, error }` | Replaces "Mappers receive values only." |
-| P2 | Operations O2, Machines O6 | A host commit is **fenced** to the activation of the state its starting transition enters. For `"self"`, that is the handler's own state, so a root `"self"` commit lives as long as the actor. Outcome handlers must sit inside that state. A late result goes to `abandoned`, or is dropped with evidence | Replaces "State exit does not cancel finite work; its event reaches the actor's later state." **Breaking:** the reference editor's after-Close save moves to the save's `abandoned` (`payload.value`) |
-| P3 | Operations O3, Machines O4 | `O.x.pending(snapshotOrGuardInput, key)` reads whether a call is outstanding, in the pre-turn snapshot. A call is pending from admission until its real settlement (a timeout does not end it, P16), an explicit cancel (P17), or the settlement of a `retry(attempt)` that resolves its Attempt | Adds |
-| P4 | Operations O3 | A commit call may declare `retry: { on: [definite tags], schedule }`. It never retries `unknown`, `interrupt`, `defect`, `notSent` or uncertain tags. Each scheduled retry reports `retrying` before the wait; when retries run out, the last failure is the ordinary `failure`. Leaving the fenced state cancels a retry not yet invoked (`notSent` to `abandoned`) | Replaces "Flow promises no remote rollback and never retries automatically" with "…never retries automatically unless the commit declares `retry`." This **reverses** that sentence |
-| P5 | Machines O2, Persistence O2 | `S.X.history` targets X's last active child, or its default. `S.X.history.child(s)` reads it. It restores control only; data comes back only through `keep` | Adds |
-| P6 | Machines O5, O8 | Armed schedules expose `dueAt` at the paths of 2.1 | See Machines O8 |
-| P7 | Machines O5 | `armOn: [events]` arms on any accepted event on it, raised ones included; a schedule with `armOn` is idle on entry. Every temporal construct is delayed: it never counts the turn that arms it | Replaces "Entry arms a schedule; exit cancels it" with "Entry arms a schedule without `armOn`; exit cancels any" |
-| P8 | Machines O5 | The `restartOn` baseline is the activating turn's committed memory | Clarifies "restartOn … establishes a silent baseline" |
-| P9 | Operations O3, Machines O6, Persistence O6 | `unknown`, `interrupt` and `defect` target only `uncertain` events. A call never invoked answers `notSent` | Replaces the `reject` and "ends it as interrupt" sentences; adds `notSent` to the outcome list |
-| P10 | Operations O3, Machines O3 | `abandoned` receives `{ outcome, tag?, value?, input, attempt }`. It is an `on`-style handler without `target`, ending unguarded. It writes host memory, may raise into root traits, and may run actions (P20). It runs twice: `"pending"` fused into the leaving turn, then on settlement. Each run must be correct alone | Adds a turn source |
-| P11 | Machines O5 | Each arming has an id; a firing from an earlier arming is never delivered | Extends "if its declaring activation ended before handling, it is discarded" |
-| P12 | Persistence O6 | A fenced commit restores with its activation, in P10's shape; if the activation was not restored, the result goes to `abandoned` | Extends "A crash after acknowledgment restores unknown carrying the same Attempt…" |
-| P13 | Operations O3, O5 | `optimistic` is a list of `setData` writes. `revertOnUnknown: true` removes them at once on `unknown`, and still invalidates and refetches | Adds an exception to "unknown retains them and invalidates the entry" |
-| P21 | Runtime O4, Machines O7 | The mailbox is FIFO in admission order. User sends, outcomes, timer firings, `onContext` events and deliveries queue together. Equal deadlines are separate turns | Adds the queue order to Runtime O4's input ordering |
+| #   | Plan                                       | Rule                                                                                                                                                                                                                                                                                                                                                                 | Replaces or adds                                                                                                                                                                                      |
+|-----|--------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| P1  | Operations O2                              | One mapper form, `(value, { input, attempt })`. For `retrying`, the value is `{ retry, error }`                                                                                                                                                                                                                                                                      | Replaces "Mappers receive values only."                                                                                                                                                               |
+| P2  | Operations O2, Machines O6                 | A host commit is **fenced** to the activation of the state its starting transition enters. For `"self"`, that is the handler's own state, so a root `"self"` commit lives as long as the actor. Outcome handlers must sit inside that state. A late result goes to `abandoned`, or is dropped with evidence                                                          | Replaces "State exit does not cancel finite work; its event reaches the actor's later state." **Breaking:** the reference editor's after-Close save moves to the save's `abandoned` (`payload.value`) |
+| P3  | Operations O3, Machines O4                 | `O.x.pending(snapshotOrGuardInput, key)` reads whether a call is outstanding, in the pre-turn snapshot. A call is pending from admission until its real settlement (a timeout does not end it, P16), an explicit cancel (P17), or the settlement of a `retry(attempt)` that resolves its Attempt                                                                     | Adds                                                                                                                                                                                                  |
+| P4  | Operations O3                              | A commit call may declare `retry: { on: [definite tags], schedule }`. It never retries `unknown`, `interrupt`, `defect`, `notSent` or uncertain tags. Each scheduled retry reports `retrying` before the wait; when retries run out, the last failure is the ordinary `failure`. Leaving the fenced state cancels a retry not yet invoked (`notSent` to `abandoned`) | Replaces "Flow promises no remote rollback and never retries automatically" with "…never retries automatically unless the commit declares `retry`." This **reverses** that sentence                   |
+| P5  | Machines O2, Persistence O2                | `S.X.history` targets X's last active child, or its default. `S.X.history.child(s)` reads it. It restores control only; data comes back only through `keep`                                                                                                                                                                                                          | Adds                                                                                                                                                                                                  |
+| P6  | Machines O5, O8                            | Armed schedules expose `dueAt` at the paths of 2.1                                                                                                                                                                                                                                                                                                                   | See Machines O8                                                                                                                                                                                       |
+| P7  | Machines O5                                | A schedule without `armOn` starts on entry. `armOn: [...]` starts it on each accepted listed event, raised ones included, restarting it if running; with `Flow.entry` in the list it also starts on entry, otherwise it is idle on entry. `disarmOn: [events]` stops it on each accepted listed event; stopping an idle schedule does nothing. Exit stops any schedule. An event in both lists, or `armOn` together with `restartOn`, is a construction error. Every temporal construct is delayed: it never counts the turn that arms it | Replaces "Entry arms a schedule; exit cancels it" with "Entry arms a schedule without `armOn` (or with `Flow.entry`); `disarmOn` and exit cancel" |
+| P8  | Machines O5                                | The `restartOn` baseline is the activating turn's committed memory                                                                                                                                                                                                                                                                                                   | Clarifies "restartOn … establishes a silent baseline"                                                                                                                                                 |
+| P9  | Operations O3, Machines O6, Persistence O6 | `unknown`, `interrupt` and `defect` target only `uncertain` events. A call never invoked answers `notSent`                                                                                                                                                                                                                                                           | Replaces the `reject` and "ends it as interrupt" sentences; adds `notSent` to the outcome list                                                                                                        |
+| P10 | Operations O3, Machines O3                 | `abandoned` receives `{ outcome, tag?, value?, input, attempt }`. It is an `on`-style handler without `target`, ending unguarded. It writes host memory, may raise into root traits, and may run actions (P20). It runs twice: `"pending"` fused into the leaving turn, then on settlement. Each run must be correct alone                                           | Adds a turn source                                                                                                                                                                                    |
+| P11 | Machines O5                                | Each arming has an id; a firing from an earlier arming is never delivered                                                                                                                                                                                                                                                                                            | Extends "if its declaring activation ended before handling, it is discarded"                                                                                                                          |
+| P12 | Persistence O6                             | A fenced commit restores with its activation, in P10's shape; if the activation was not restored, the result goes to `abandoned`                                                                                                                                                                                                                                     | Extends "A crash after acknowledgment restores unknown carrying the same Attempt…"                                                                                                                    |
+| P13 | Operations O3, O5                          | `optimistic` is a list of `setData` writes. `revertOnUnknown: true` removes them at once on `unknown`, and still invalidates and refetches                                                                                                                                                                                                                           | Adds an exception to "unknown retains them and invalidates the entry"                                                                                                                                 |
+| P21 | Runtime O4, Machines O7                    | The mailbox is FIFO in admission order. User sends, outcomes, timer firings, `onContext` events and deliveries queue together. Equal deadlines are separate turns                                                                                                                                                                                                    | Adds the queue order to Runtime O4's input ordering                                                                                                                                                   |
 
 ### For every machine: commits, hardened
 
@@ -1277,23 +1308,23 @@ const pay = O.Payments.charge.commit(select, {
 // The refund's outcomes start a late turn (rule 6): handled at the root, they may not move a busy user.
 ```
 
-| # | Plan | Rule | Replaces or adds |
-| --- | --- | --- | --- |
-| P14 | Operations O1, O3 | A transaction declares `failureKinds`, classing every tag as `"definite"` (proves no effect) or `"uncertain"`. `retry.on` accepts only definite tags (a type error otherwise). Uncertain tags target only `uncertain` events. `abandoned`'s payload carries `definite` for failures | Adds to Operations O1's `transaction({ … })` options |
-| P15 | Operations O3, Persistence O6 | All retries of a commit are **one Attempt** (same id, same input). The adapter receives the invocation ordinal `n`. Each invocation is acknowledged before it runs. A restore between retries restores as the last failure; after an acknowledged invocation, as `unknown`. A server that caches definite failures by key may get a per-invocation key derived from `(id, n)` | Adds to P4 and to "A persisted actor's remote commit cannot invoke its adapter until storage acknowledges its Attempt" |
-| P16 | Operations O3, P3 | A commit may declare `timeout`: a duration (per attempt) or `{ perAttempt, total }`. **A timeout stops waiting, not the call.** Expiry before invocation answers `notSent`. After invocation it answers `unknown` (reason `Timeout`) at once, does **not** interrupt the adapter, and the call stays `.pending` until its real settlement, which goes once to `abandoned`. A timed-out attempt is uncertain, so it is never retried | Adds |
-| P17 | Operations O3, O7 | **An explicit cancel interrupts.** After invocation it answers `unknown`, which is final: no later settlement is delivered, and `.pending` becomes false. A commit therefore delivers one in-state outcome, and at most one `abandoned` settlement (when its state was left, or it timed out) | Replaces "Every invoked commit delivers exactly one outcome" with that sentence, and keeps "after invocation it reports unknown and blocks late results" for cancel only |
-| P19 | Persistence O5 | On `RestoreDiscarded`, acknowledged Attempts that are unsettled, or settled but undelivered, survive in a version-independent record. After ready, each goes to its descriptor's `orphaned` handler (which may `retry` or invalidate), or else surfaces as an issue. Delivery is at least once, so the adapter must be idempotent. Input that no longer decodes under the new Schema is an issue, not a retry. An orphaned retry has no actor: its outcome is evidence only | Adds to O5's version-change rule |
-| P20 | Operations O3 | `abandoned` may list `actions`. A commit started there is fenced to the root, as a root `"self"` commit is. Its outcomes start late turns (rule 6). **Saga recipe:** in `abandoned`, compensate a success with a commit that retries every definite tag on an unbounded schedule, with `serialize` concurrency; reconcile `unknown` and uncertain tags with `retry(attempt)` | Adds to P10 |
+| #   | Plan                          | Rule                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Replaces or adds                                                                                                                                                         |
+|-----|-------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| P14 | Operations O1, O3             | A transaction declares `failureKinds`, classing every tag as `"definite"` (proves no effect) or `"uncertain"`. `retry.on` accepts only definite tags (a type error otherwise). Uncertain tags target only `uncertain` events. `abandoned`'s payload carries `definite` for failures                                                                                                                                                                                         | Adds to Operations O1's `transaction({ … })` options                                                                                                                     |
+| P15 | Operations O3, Persistence O6 | All retries of a commit are **one Attempt** (same id, same input). The adapter receives the invocation ordinal `n`. Each invocation is acknowledged before it runs. A restore between retries restores as the last failure; after an acknowledged invocation, as `unknown`. A server that caches definite failures by key may get a per-invocation key derived from `(id, n)`                                                                                               | Adds to P4 and to "A persisted actor's remote commit cannot invoke its adapter until storage acknowledges its Attempt"                                                   |
+| P16 | Operations O3, P3             | A commit may declare `timeout`: a duration (per attempt) or `{ perAttempt, total }`. **A timeout stops waiting, not the call.** Expiry before invocation answers `notSent`. After invocation it answers `unknown` (reason `Timeout`) at once, does **not** interrupt the adapter, and the call stays `.pending` until its real settlement, which goes once to `abandoned`. A timed-out attempt is uncertain, so it is never retried                                         | Adds                                                                                                                                                                     |
+| P17 | Operations O3, O7             | **An explicit cancel interrupts.** After invocation it answers `unknown`, which is final: no later settlement is delivered, and `.pending` becomes false. A commit therefore delivers one in-state outcome, and at most one `abandoned` settlement (when its state was left, or it timed out)                                                                                                                                                                               | Replaces "Every invoked commit delivers exactly one outcome" with that sentence, and keeps "after invocation it reports unknown and blocks late results" for cancel only |
+| P19 | Persistence O5                | On `RestoreDiscarded`, acknowledged Attempts that are unsettled, or settled but undelivered, survive in a version-independent record. After ready, each goes to its descriptor's `orphaned` handler (which may `retry` or invalidate), or else surfaces as an issue. Delivery is at least once, so the adapter must be idempotent. Input that no longer decodes under the new Schema is an issue, not a retry. An orphaned retry has no actor: its outcome is evidence only | Adds to O5's version-change rule                                                                                                                                         |
+| P20 | Operations O3                 | `abandoned` may list `actions`. A commit started there is fenced to the root, as a root `"self"` commit is. Its outcomes start late turns (rule 6). **Saga recipe:** in `abandoned`, compensate a success with a commit that retries every definite tag on an unbounded schedule, with `serialize` concurrency; reconcile `unknown` and uncertain tags with `retry(attempt)`                                                                                                | Adds to P10                                                                                                                                                              |
 
 ### For tooling
 
-| # | Plan | Rule | Replaces or adds |
-| --- | --- | --- | --- |
-| T1 | Testing O5 | **Systematic exploration in `model()`.** While a fenced commit is outstanding on a path, each declared outcome (from fixture samples) is a candidate event, and so is each armed schedule's firing. **Default oracle:** rules 6, 8 and 12, P2, and author `invariants: (snapshot) => true \| deny(…)`. `model(base, { stateKey, invariants, hot: [S.TWO_FACTOR.VERIFYING] })`: a quiet path in a **hot** state is a liveness failure, and `flow check` errors on a hot state reachable with nothing pending (it reads the same option). Schedules are explored delay-bounded (default 1–2), and counterexamples are Stories | Adds `invariants`, `hot` and a `check` mode to "model(baseStory, { stateKey })" |
-| T2 | CommandLine O5 | Warnings: an exit no reachable transition takes; a `hostEvent` no host raises; a public fragment event unhandled everywhere; a subroutine whose exits are unreachable from its default. `flow stories --coverage` lists transitions, exits, callbacks and delivery handlers no Story reaches | Adds to the warning list |
-| T3 | CommandLine O5 | Warn when `send(ref, E.X)` can reach a state of the target actor where X is Unhandled. There is no silencing keyword; warnings never fail the check | Sharpens "unhandled events" |
-| T4 | CommandLine O5 | A lint rule with an autofix orders the category keys of definitions, fragments, machine bodies, fillings, transitions and commit options (section 2.6). It never reorders entries inside a record, whose order carries meaning | Adds |
+| #  | Plan           | Rule                                                                                                                                                                                                                                                                                         | Replaces or adds                                                                                                                                                                                                                                                                                                               |                                                                                 |
+|----|----------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------|
+| T1 | Testing O5     | **Systematic exploration in `model()`.** While a fenced commit is outstanding on a path, each declared outcome (from fixture samples) is a candidate event, and so is each armed schedule's firing. **Default oracle:** rules 6, 8 and 12, P2, and author `invariants: (snapshot) => true \  | deny(…)`. `model(base, { stateKey, invariants, hot: [S.TWO_FACTOR.VERIFYING] })`: a quiet path in a **hot** state is a liveness failure, and `flow check` errors on a hot state reachable with nothing pending (it reads the same option). Schedules are explored delay-bounded (default 1–2), and counterexamples are Stories | Adds `invariants`, `hot` and a `check` mode to "model(baseStory, { stateKey })" |
+| T2 | CommandLine O5 | Warnings: an exit no reachable transition takes; a `hostEvent` no host raises; a public fragment event unhandled everywhere; a subroutine whose exits are unreachable from its default. `flow stories --coverage` lists transitions, exits, callbacks and delivery handlers no Story reaches | Adds to the warning list                                                                                                                                                                                                                                                                                                       |                                                                                 |
+| T3 | CommandLine O5 | Warn when `send(ref, E.X)` can reach a state of the target actor where X is Unhandled. There is no silencing keyword; warnings never fail the check                                                                                                                                          | Sharpens "unhandled events"                                                                                                                                                                                                                                                                                                    |                                                                                 |
+| T4 | CommandLine O5 | A lint rule with an autofix orders the category keys of definitions, fragments, machine bodies, fillings, transitions and commit options (section 2.6). It never reorders entries inside a record, whose order carries meaning                                                               | Adds                                                                                                                                                                                                                                                                                                                           |                                                                                 |
 
 ## 6. Deliberately left out
 
@@ -1324,7 +1355,7 @@ const pay = O.Payments.charge.commit(select, {
 - **Deep history, a history default, and clearing history** (`S.X.history.deep`, `.or(…)`,
   `forgetHistory`) (statechart R4).
 - **Node memory:** host memory scoped to a compound, resumed or reset like a trait. `.resumable()` covers
-  traits only. The sign-in avoids the gap with a keyed list; host keys elsewhere are still reset by
+  traits only. The sign-in avoids the gap with an `.each` list; host keys elsewhere are still reset by
   hand (modal R2).
 - **Data-conditioned leaving** (`while: { select, event }`), which enqueues an event when a lane
   selection turns false (modal R7).
@@ -1342,13 +1373,10 @@ const pay = O.Payments.charge.commit(select, {
 
 ## 7. Open
 
-0. **Dynamic collections.** A changing number of copies of the same behaviour inside one actor (rule
-   9, `.list`) is open and will be designed separately, from its requirements (a changing count,
-   each copy with its own traits and timers, one turn with the host, stable identity, static
-   analysis) and prior art (Ceu pools, SCADE iterators, React keyed children). Candidates so far:
-   `id` instead of `key`; membership changed only by the host's own events, removing `owner` and
-   `canAdd` / `canRemove`. Rejected: one actor per item, which brings back machine-spawned child
-   actors and leaves single-turn composition.
+0. **Collections, after `.each`** (rule 9; [collections/proposal-each.md](collections/proposal-each.md)
+   section 4): per-copy subscriptions (keyed activities); raising into every copy at once; several
+   copies writing their list's field in one turn; commits joined across incarnations (check against
+   Operations); nested `.each`.
 1. **Summaries in types.** Can the contract summary (rule 10) be inferred into TypeScript types
    cheaply enough, or does it live only in `flow check` metadata?
 2. **`.resumable()` and `resetOn` together.** A resumable trait resets on return when its value differs. Is
@@ -1357,7 +1385,7 @@ const pay = O.Payments.charge.commit(select, {
    default, for T1 to explore enough?
 4. **Declaration order in types.** TypeScript does not order object-literal keys reliably, so
    "earlier traits" for `resetOn` may need tuple placement or a builder (the type spike).
-5. **Names.** `trait`, `subroutine`, `hostEvents`, `resetOn`, `Flow`, `Flow.state`, `.key`, `owner`, `.resumable()`,
+5. **Names.** `trait`, `subroutine`, `hostEvents`, `resetOn`, `Flow`, `Flow.state`, `.each`, `by`, `Flow.entry`, `.key`, `.resumable()`,
    `onLeave`, `failureKinds`.
 
 ## Changes from v3
@@ -1404,3 +1432,5 @@ From [reviews/v4-correctness.md](reviews/v4-correctness.md) and [reviews/v4-prin
 - Placement: `Flow.state(children | {} | Sub, { traits })` on a node replaces `.at("PATH")`; `.resumable()` is a method; fillings sit at the node; signup drafts live at the root; key order, the `Flow` namespace rule and the locality rule are recorded (2.3, 2.6); `.list` is marked open (section 7).
 - `.keep()` is renamed `.resumable()`: the trait resumes on return instead of restarting (SCADE 6's resume versus restart).
 - `Field(schema, { validate? })` keeps the author's validator. A validator returns `true | deny(code, context?)`, the field stores the denial or null as `Flow.Denial`, and a host guard forwards it (`memory.code.error ?? true`). A Schema check fits inside a validator (`Schema.is`), so `unchecked` and `firstIssue` are gone ([research/field-validation-effect4.md](research/field-validation-effect4.md)).
+- `.each` replaces the open `.list` draft (rule 9, 2.5, sign-in, invites): membership is host memory, decided from the turn's final list, repaired instead of refused, with incarnations kept internal ([collections/proposal-each.md](collections/proposal-each.md) and its four reviews).
+- Schedules (P7): `armOn` may list `Flow.entry` to also start on entry; `disarmOn` stops a schedule; `armOn` with `restartOn` is a construction error. Event-typed triggers need no name inference ([spikes/timers-arm/RESULTS.md](spikes/timers-arm/RESULTS.md)). `schedules` keeps its name (D53).
