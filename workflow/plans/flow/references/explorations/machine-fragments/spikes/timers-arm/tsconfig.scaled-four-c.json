@@ -1,0 +1,1 @@
+{"extends":"./tsconfig.json","include":["scaled/four/c.ts","src/core.ts","src/c.ts"]}
