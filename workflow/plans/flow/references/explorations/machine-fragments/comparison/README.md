@@ -13,6 +13,11 @@ rebuilt with the small amendments the builds asked for ([amendments.md](amendmen
 Reviews of the fixed builds: [reviews/correctness.md](reviews/correctness.md) and
 [reviews/principles.md](reviews/principles.md).
 
+**Proposal v3** ([../proposal-v3.md](../proposal-v3.md)) writes up B as amended. A fresh author built
+the three apps from v3 alone: [build-v3.md](build-v3.md), reviewed in
+[reviews/v3-build-correctness.md](reviews/v3-build-correctness.md) and
+[reviews/v3-build-principles.md](reviews/v3-build-principles.md).
+
 ## Results
 
 Code is non-blank, non-comment lines (fragments plus definitions, machines and components; stories
@@ -25,6 +30,7 @@ authors.
 | **B** | 1,219 | 15 | 0 (1 by workaround) | **1,135** | **1** | 0 |
 | A | 1,417 | 19 | 1 | 1,285 | 7 | 0 |
 | C | 1,710 | 31 | 2 | 1,505 | 11 | 0 |
+| **v3** (fresh author, from the document alone) | – | – | – | 1,031 | 8 | 0 (3 stated deviations) |
 
 ## What it showed
 
@@ -46,3 +52,11 @@ authors.
 Plan amendments P1–P8 to Operations and Machines first, for every machine. Then B as amended (v2
 without fragment I/O, with `hostEvents`) as the fragment design, with lists of fragment instances as
 the next open question.
+
+## The fresh v3 build
+
+The most correct build so far, with the smallest shared fragments (144 lines). It ties the amended
+baseline on size; fragments win on structure (named lifetimes, keyed lists, `resetOn`), not lines.
+The builder logged 19 UNCLEAR items: 4 are real gaps (whether a raised event arms `armOn`; host
+fallthrough inside a subroutine; what raise mappers read; no guard on list Add/Remove), the rest
+missing syntax or plan contradictions. Both reviews end with ranked v3 changes.
