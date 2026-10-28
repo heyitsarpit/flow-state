@@ -49,11 +49,11 @@ they belong in the plans. v4 reuses **pieces** (fields, timers, dialogs, selecti
 | --- | --- | --- |
 | The actor… | has it | goes into it |
 | Examples | field, countdown, lockout, debounce, selection, pager, flash | confirm, hold-to-confirm, address step, picker |
-| Placed (definition) | `traits: { code: Field(…) }` at the root, or `Field(…).at("TWO_FACTOR", { keep? })` on a node | a state: `states: [{ CANCELLING: Confirm }]` |
-| Many of them | `Field(…).list({ max?, key?, owner? })`: keyed instances (rule 9) | no |
+| Placed (definition) | the root's `traits: { code: Field(…) }`, or on a node with `Flow.state(…, { traits })` | a state: `states: [{ CANCELLING: Confirm }]` |
+| Many of them | `.list(…)`: **open**, to be designed separately (rule 9, section 7) | no |
 | Instance name | the `traits` key (`code`) | the state's name (`CANCELLING`) |
 | States of its own | none | optional, under its state (`HOLDING.WAITING`). Without `states` it is a leaf (`Confirm`) |
-| Lives | while its node is active (the root: the actor's life); fresh on every activation unless kept | while its state is active; fresh on every entry |
+| Lives | while its node is active (the root: the actor's life); fresh on every activation unless `.keep()` | while its state is active; fresh on every entry |
 | Re-activated | when its `resetOn` value changes | on every entry |
 | Ends | when its node is left (kept: frozen) | by taking an exit, or abandoned by a transition that exits its state |
 | On ending, except by an exit or a freeze | `onLeave` notifications run, fused into the leaving turn | the same |
@@ -244,8 +244,9 @@ Fragments may not declare `operations`, `activities`, `context`, `onContext`, `s
 
 | What | Where |
 | --- | --- |
-| Placing a trait, a list of traits, a subroutine | host **definition**: `traits`, `states`; inside a fragment, its contract's `traits` / `states` |
-| Filling ports, `resetOn` | host **machine**: `traits.<name>` or `states.<NAME>`; inside a fragment, its body |
+| Placing a trait | host **definition**: the root's `traits`, or the node's `Flow.state(…, { traits })`; inside a fragment, the same in its declaration |
+| Placing a subroutine | host **definition**: a state, `{ NAME: Sub }`, or `{ NAME: Flow.state(Sub, { traits }) }` with host traits on its node |
+| Filling ports, `resetOn` | host **machine**, **at the node where it is placed**: the root's `traits.<name>`, a node's `states.<NAME>.traits.<name>`, a subroutine's `states.<NAME>`; inside a fragment, its body |
 | What survives an abnormal ending | the fragment's body: `onLeave` |
 | Feeding a fact into a fragment | host **machine**: `raise` on any host transition |
 | Running I/O and mapping outcomes | host **machine**: actions and outcomes onto the host's own events |
@@ -254,22 +255,43 @@ Fragments may not declare `operations`, `activities`, `context`, `onContext`, `s
 Placement is structure (it produces `S`, `E` and the view types), so it lives in the definition.
 Filling refers to `S`, `E` and `O`, so it lives in the machine.
 
+**Placing on a node.** `states` stays an ordered list: a string leaf, `{ NAME: [children] }`, or
+`{ NAME: Sub }`. Only a node that carries traits is wrapped, with `Flow.state`, whose subject is the
+node's children, nothing, or a subroutine:
+
+```ts
+states: [
+  "PASSWORD",
+  { TWO_FACTOR: Flow.state(["ENTERING", "VERIFYING", "LOCKED_OUT"], {        // children, plus traits
+      traits: { code: Field(SixDigits), resendCooldown: Countdown({ length: "30 seconds" }).keep() },
+  }) },
+  { REVIEW: Flow.state({ traits: { diff: DiffView() } }) },                   // a leaf with traits
+  { DELETE_ASK: Flow.state(Confirm, { traits: { hold: HoldToConfirm({ hold: "1.5 seconds" }) } }) },
+],
+traits: { challenges: Lockout({ limit: 3, length: "5 minutes" }) },         // the root node
+```
+
+A trait on a subroutine's node belongs to the host: it lives while the subroutine runs and cannot
+see inside it. The same trait may be placed on several nodes with different parameters; instance
+names stay unique per actor, because they namespace events and memory. **Place a trait on the
+highest node whose lifetime matches its data**; `.keep()` is for data that must also survive leaving
+that node.
+
 ### 2.4 The rules
 
 1. **Lifetime comes from placement.**
    - An **incarnation** is one life of a fragment instance. A trait gets a new one each time its
      node activates, and a subroutine on every entry. Leaving the node or state ends it: its
      schedules are cancelled and its memory is dropped.
-   - **`keep`.** A trait placed with `.at("X", { keep: true })` is **frozen** when X is left, not
+   - **`.keep()`.** A trait written `T.keep()` and placed on X is **frozen** when X is left, not
      dropped. Its memory stays readable, and it resumes when X is entered again.
      - A kept schedule keeps its `dueAt`. It is not delivered while frozen, and on return it fires
        once if it is overdue.
      - A firing already queued when X is left is retracted, and fires on return.
      - A kept trait is fresh again only when its `resetOn` value differs from the one it was frozen
        with. Re-entering X does not refresh it.
-     - A list may be kept: `.list(…).at("X", { keep: true })` freezes every instance.
      - Freezing is not ending, so `onLeave` does not run. It runs if the trait is reset on return.
-     - Subroutines are never kept: they are things the actor goes into.
+     - Subroutines are never kept (a type error): they are things the actor goes into.
    - **History** (`S.X.history`) restores control only. Fragments placed at or below the restored
      child resume only if kept. `flow check` warns when a history target can re-activate a node
      with unkept fragments under it, or a state that handles fenced outcome events (it would wait
@@ -340,8 +362,8 @@ Filling refers to `S`, `E` and `O`, so it lives in the machine.
 
    Each must be handled, ending in an unguarded alternative, in every state where it can arrive.
    Everything those handlers raise or notify must be total by the child's summary.
-9. **Lists are keyed, and instances have incarnations.** `T.list({ max?, key?, owner? })` places
-   keyed instances.
+9. **Lists (open).** This rule records the current draft only; dynamic collections are being
+   designed separately (section 7). `T.list({ max?, key?, owner? })` places keyed instances.
    - **Keys.** Without `key`, the runtime mints one on each `Add`. With `key: Schema.String`, the
      author chooses the key (`Add { key }`), and adding an existing key is a no-op.
    - **Incarnations.** Every `Add` creates a new incarnation, and so does re-adding a key that was
@@ -465,6 +487,34 @@ mapper that reads a key its own turn writes sees the old value (`memory.challeng
 transition that sets it). `flow check` warns when a Story trace shows this, and names both sides.
 Read the event instead.
 
+### 2.6 Conventions
+
+**Key order.** Category keys appear in one order, from what the outside sees to the internals:
+
+| Object | Order |
+| --- | --- |
+| definition, trait, subroutine | `id`, `states` / `default`, `events`, `hostEvents`, `internalEvents`, `guards`, `callbacks`, `exits`, `memory`, `traits`, `operations` / `context` |
+| machine or fragment body | `default`, `schedules`, `traits`, `on`, `states`, `onLeave` |
+| a host's filling | `input`, `guards`, `callbacks`, `exits` |
+| a transition | `target`, `guard`, `updateMemory`, `actions`, `raise`, `notify` |
+| commit options | `outcomes`, `retry`, `timeout`, `optimistic`, `revertOnUnknown`, `abandoned` |
+
+A lint rule enforces it with an autofix (T4). It moves category keys only: the entries of `traits`,
+alternatives and schedules keep their order, because declaration order carries meaning (rule 1,
+Machines O5).
+
+**What lives in `Flow`.** `Flow` is the Schema-like vocabulary for shapes and declarations: ports
+(`Flow.Guard`, `Flow.Callback`, `Flow.Exit`), memory modifiers (`Flow.input`, `Flow.initial`,
+`Flow.private`), `Flow.uncertain`, `Flow.annotate` and `Flow.state`. How one trait instance behaves
+is an attribute of that trait, so it is a method on it: `.keep()`, `.list(…)`. `trait(…)` and
+`subroutine(…)` stay plain constructors beside `definition` and `machine`; their inference comes
+from branding their results and `const` type parameters, not from a namespace.
+
+**Properties live on what they describe.** A fact about a thing is written on that thing, never in
+a separate list that refers to it by name. Named lists (`events`, `hostEvents`, `internalEvents`)
+hold categories a reader scans for; modifiers (`Flow.private`, `.keep()`) hold properties of one
+item. Readability decides between the two.
+
 ## 3. Example
 
 ### 3.1 Two-factor sign-in, in full
@@ -493,33 +543,37 @@ SIGNED_IN`. In the two-factor step:
 import { deny, Flow, trait } from "flow-state";
 import { Duration, Schema } from "effect";
 
-// A validated value. The error is always computed; `touched` says whether to show it yet.
-export const Field = <V, I>(value: Schema.Codec<V, I>, p: { validate: (v: V) => string | null }) =>
+// A validated value, from a Schema that carries its own checks. Input is never refused: the checks
+// only compute `error`; `touched` says whether to show it yet.
+// `unchecked(schema)` is the schema's type without its checks, and `firstIssue(schema, v)` runs the
+// checks without throwing and returns the first message or null. Their exact Effect 4 calls are
+// open (type spike).
+export const Field = <V, I>(value: Schema.Codec<V, I>) =>
   trait(
     {
       id: "Field",
-      events: { Changed: { value } },
-      memory: {
-        value: Flow.input(value),                                         // the host supplies the start
-        start: Flow.private(Flow.initial(value, ({ value }) => value)),   // kept for Reset; hidden
-        error: Flow.initial(Schema.NullOr(Schema.String), ({ value }) => p.validate(value)),
-        touched: Flow.initial(Schema.Boolean, false),
-      },
+      events: { Changed: { value: unchecked(value) } },
       hostEvents: { Reset: {} },
       guards: { canEdit: Flow.optional(Flow.Guard) },
-      callbacks: { onChanged: Flow.optional(Flow.Callback({ value })) },
+      callbacks: { onChanged: Flow.optional(Flow.Callback({ value: unchecked(value) })) },
+      memory: {
+        value: Flow.input(unchecked(value)),                                       // the host supplies the start
+        start: Flow.private(Flow.initial(unchecked(value), ({ value }) => value)), // kept for Reset; hidden
+        error: Flow.initial(Schema.NullOr(Schema.String), ({ value: v }) => firstIssue(value, v)),
+        touched: Flow.initial(Schema.Boolean, false),
+      },
     },
     ({ guards, callbacks }) => ({
       on: {
         Changed: {
           target: "self",
           guard: guards.canEdit,
-          updateMemory: ({ event }) => ({ value: event.value, error: p.validate(event.value), touched: true }),
+          updateMemory: ({ event }) => ({ value: event.value, error: firstIssue(value, event.value), touched: true }),
           notify: [callbacks.onChanged.from(({ event }) => ({ value: event.value }))],
         },
         Reset: {
           target: "self",
-          updateMemory: ({ memory }) => ({ value: memory.start, error: p.validate(memory.start), touched: false }),
+          updateMemory: ({ memory }) => ({ value: memory.start, error: firstIssue(value, memory.start), touched: false }),
         },
       },
     }),
@@ -550,13 +604,13 @@ export const Lockout = (p: { limit: number; length: Duration.Input }) =>
   trait(
     {
       id: "Lockout",
-      memory: { strikes: Flow.initial(Schema.Int, 0) },   // readable: the UI can say "2 tries left"
-      traits: { timer: Countdown({ length: p.length }) }, // nested (rule 10)
       hostEvents: { Strike: {} },
       callbacks: {
         onLocked: Flow.optional(Flow.Callback({})),
         onUnlocked: Flow.optional(Flow.Callback({})),
       },
+      memory: { strikes: Flow.initial(Schema.Int, 0) },   // readable: the UI can say "2 tries left"
+      traits: { timer: Countdown({ length: p.length }) }, // nested (rule 10)
     },
     ({ E, callbacks }) => ({
       traits: {
@@ -588,19 +642,26 @@ import { Countdown, Field, Lockout } from "./fragments";
 
 export const LIMIT = 3;
 
+export const SixDigits = Schema.String.check(
+  Schema.makeFilter((v) => /^\d{6}$/.test(v) || "Enter the 6-digit code"),
+);
+
 export const SignIn = definition({
   id: "Auth/SignIn",
-  states: ["PASSWORD", { TWO_FACTOR: ["ENTERING", "VERIFYING", "LOCKED_OUT"] }, "SIGNED_IN"],
-  traits: {
-    // Fresh on every entry to TWO_FACTOR: Back drops the typed code and the resend cooldown.
-    code: Field(Schema.String, {
-      validate: (v) => (/^\d{6}$/.test(v) ? null : "Enter the 6-digit code"),
-    }).at("TWO_FACTOR"),
-    // Kept: Back and return do not reset the 30 seconds; an overdue cooldown ends on return.
-    resendCooldown: Countdown({ length: "30 seconds" }).at("TWO_FACTOR", { keep: true }),
-    // One per challenge, at the root, host-owned: strikes and lockouts survive Back.
-    challenges: Lockout({ limit: LIMIT, length: "5 minutes" }).list({ key: Schema.String, owner: "host" }),
-  },
+  states: [
+    "PASSWORD",
+    {
+      TWO_FACTOR: Flow.state(["ENTERING", "VERIFYING", "LOCKED_OUT"], {
+        traits: {
+          // Fresh on every entry to TWO_FACTOR: Back drops the typed code.
+          code: Field(SixDigits),
+          // Kept: Back and return do not reset the 30 seconds; an overdue cooldown ends on return.
+          resendCooldown: Countdown({ length: "30 seconds" }).keep(),
+        },
+      }),
+    },
+    "SIGNED_IN",
+  ],
   events: {
     PasswordAccepted: { challengeId: Schema.String }, // the password step's stub
     Submit: {},
@@ -616,6 +677,10 @@ export const SignIn = definition({
   memory: {
     challengeId: Flow.initial(Schema.String, ""),
     error: Flow.initial(Schema.NullOr(Schema.String), null),
+  },
+  traits: {
+    // One per challenge, at the root, host-owned: strikes and lockouts survive Back (list: open, section 7).
+    challenges: Lockout({ limit: LIMIT, length: "5 minutes" }).list({ key: Schema.String, owner: "host" }),
   },
   operations: { Auth },
 });
@@ -673,11 +738,6 @@ export const SignInMachine = machine(SignIn, ({ S, E, O }) => {
     default: S.PASSWORD,
 
     traits: {
-      code: {
-        input: () => ({ value: "" }),
-        guards: { canEdit: ({ state }) => !S.TWO_FACTOR.LOCKED_OUT.is(state) || deny("LockedOut") },
-      },
-      resendCooldown: {},
       challenges: {
         // Root-trait callbacks may move the host anywhere (rule 6).
         callbacks: {
@@ -720,6 +780,13 @@ export const SignInMachine = machine(SignIn, ({ S, E, O }) => {
 
       TWO_FACTOR: {
         default: S.TWO_FACTOR.ENTERING,
+        traits: {                                     // filled where they are placed
+          code: {
+            input: () => ({ value: "" }),
+            guards: { canEdit: ({ state }) => !S.TWO_FACTOR.LOCKED_OUT.is(state) || deny("LockedOut") },
+          },
+          resendCooldown: {},
+        },
         on: {
           BackToPassword: S.PASSWORD,
           // On TWO_FACTOR, so the resend is fenced there: moving ENTERING → LOCKED_OUT does not
@@ -861,13 +928,14 @@ const locks = story
 // cleared: memory.strikes === 0, run.calls.onUnlocked.length === 1
 ```
 
-### 3.2 A subroutine with exits, history, kept pages and a commit retry
+### 3.2 A subroutine with exits, history, drafts and a commit retry
 
 The signup wizard's discard dialog is `Confirm`, a subroutine without states. Keep returns to
 whichever page Cancel came from, **with its fields**:
 
 - history restores the page;
-- `keep` restores the data on it.
+- the fields live at the root, the highest node whose lifetime matches the drafts (the whole
+  signup), so leaving the wizard for the dialog does not touch them. No `.keep()` is needed.
 
 Submitting retries `Busy` three times at 1 s, 2 s and 4 s, and never retries an uncertain outcome.
 
@@ -888,14 +956,14 @@ states: [
   { CANCELLING: Confirm },
   "SUBMITTING", "UNSURE", "DONE", "CANCELLED",
 ],
-traits: {
-  // Kept: frozen when the page is left, present for REVIEW to read, resumed on return.
-  email: Field(Schema.String, { validate: emailRule }).at("WIZARD.ACCOUNT", { keep: true }),
-  password: Field(Schema.String, { validate: longEnough }).at("WIZARD.ACCOUNT", { keep: true }),
-  name: Field(Schema.String, { validate: required }).at("WIZARD.PROFILE", { keep: true }),
-  role: Field(Schema.NullOr(Role), { validate: chosen }).at("WIZARD.PROFILE", { keep: true }),
-},
 internalEvents: { Created: {}, EmailTaken: {}, Busy: {}, Retrying: { n: Schema.Int }, Unsure: Flow.uncertain({}) },
+traits: {
+  // The root: drafts live for the whole signup, across pages and the discard dialog.
+  email: Field(Email),          // Email = Schema.String.check(…), and so on
+  password: Field(LongEnough),
+  name: Field(Required),
+  role: Field(ChosenRole),
+},
 
 // signup.machine.ts (excerpt)
 const create = O.Accounts.create.commit(reviewedFields, {
@@ -935,12 +1003,13 @@ const yes = story.machine(Confirm, { id: "Confirm/yes" }).enter({}).send(Confirm
 // run.checkpoints.end.exit → { exit: "Confirmed", payload: {} }; .leave() instead would abandon it
 ```
 
-Without `keep`, the fields would come back empty after Keep, and `flow check` would warn, because a
-history target re-activates nodes with unkept traits under them (rule 1). Nothing outside the
+Had the fields been placed on each page, they would come back empty after Keep, and `flow check`
+would warn, because a history target re-activates nodes with unkept traits under them (rule 1).
+Placing them at the root avoids that without `.keep()`. Nothing outside the
 subroutine can take `Confirmed`. Every retry is the same Attempt, with the input `create` was
 admitted with (P15).
 
-### 3.3 A list of Field instances
+### 3.3 A list of Field instances (open)
 
 The invite page holds up to five email fields. An empty entry is valid and is dropped on Next. Rows
 can be added and removed only on the Invite page.
@@ -948,9 +1017,7 @@ can be added and removed only on the Invite page.
 ```ts
 // signup.definition.ts (excerpt)
 traits: {
-  invites: Field(Schema.String, {
-    validate: (v) => (v === "" || v.includes("@") ? null : "Enter an email address"),
-  }).list({ max: 5 }),
+  invites: Field(OptionalEmail).list({ max: 5 }),   // OptionalEmail: "" or contains "@" (list: open, section 7)
 },
 
 // signup.machine.ts (excerpt)
@@ -1062,9 +1129,9 @@ export const AddressStep = subroutine(
   {
     id: "AddressStep",
     events: { Changed: { address: Address }, Confirm: {} },
-    memory: { address: Flow.input(Address) },
     callbacks: { onDraft: Flow.optional(Flow.Callback({ address: Address })) },
     exits: { Done: Flow.Exit({ address: Address }) },
+    memory: { address: Flow.input(Address) },
   },
   ({ exits, callbacks }) => ({
     on: {
@@ -1090,7 +1157,7 @@ turn (rule 6).
 
 | Kind | Words |
 | --- | --- |
-| **New, fragments (21)** | `trait`, `subroutine`, `traits` (host and fragment), `.at` (`keep`), `.list` (`max`, `key`, `owner`), `.key(k)`, `Add` / `Remove` / `canAdd` / `canRemove`, `hostEvents`, `guards`, `callbacks`, `exits` (declarations and fillings), `notify`, the `Flow` module (`Flow.Guard`, `Flow.Callback`, `Flow.Exit`, `Flow.optional`, `Flow.uncertain`, `Flow.annotate`, `Flow.input`, `Flow.initial`, `Flow.private`), `raise`, `resetOn`, `onLeave`, the definition's `handler` / `guard`, state tokens in guard arrays, `story.machine(fragment)` with `.enter` / `.leave` / `run.calls` / `checkpoint.exit` |
+| **New, fragments (21)** | `trait`, `subroutine`, `traits` (root and node), `Flow.state`, `.keep()`, `.list` (open: `max`, `key`, `owner`), `.key(k)`, `Add` / `Remove` / `canAdd` / `canRemove`, `hostEvents`, `guards`, `callbacks`, `exits` (declarations and fillings), `notify`, the `Flow` module (`Flow.Guard`, `Flow.Callback`, `Flow.Exit`, `Flow.optional`, `Flow.uncertain`, `Flow.annotate`, `Flow.input`, `Flow.initial`, `Flow.private`), `raise`, `resetOn`, `onLeave`, the definition's `handler` / `guard`, state tokens in guard arrays, `story.machine(fragment)` with `.enter` / `.leave` / `run.calls` / `checkpoint.exit` |
 | **New, plans (18)** | `abandoned` (payload `outcome`, `tag`, `definite`, `value`, `input`, `attempt`), `notSent`, `.pending`, `retry` (`on`, `schedule`), `retrying`, the mapper's `{ input, attempt }`, `revertOnUnknown`, `timeout` (`perAttempt`, `total`), `failureKinds` (`"definite"` / `"uncertain"`), `orphaned`, `.history` (and `.history.child`), `armOn`, `s.schedules`, `dueAt`, and the `model()` options `invariants` and `hot` |
 | **New concepts, not words** | **incarnation** (one life of a fragment instance), **frozen** (a kept trait while its node is inactive), **summary** (a contract's inferred per-alternative effects), **source-updated memory** (pre-turn memory plus the source's patch), **late turn** (rule 6), pending reset |
 | **Existing** | `definition`, `machine`, `states`, `default`, `events`, `internalEvents`, `input` (caller side only: `ensure`, `useActor`, a host's filling), `memory`, `on`, `target`, `guard`, `updateMemory`, `actions`, `schedules`, `restartOn`, `outcomes`, `optimistic`, `setData`, `deny`, `check`, `model`, `S`, `E`, `O`, `.from`, `payload` |
@@ -1102,7 +1169,7 @@ turn (rule 6).
 | --- | --- |
 | **L1** stale timers, **T2** schedule traps | Prevented. Schedules stop with their incarnation. Arming ids drop firings from before a re-arm (P11). `armOn` replaces counter idioms. The `restartOn` baseline is the activating turn's memory (P8). |
 | **L2** late results | Prevented. Host commits are fenced to the activation they start in (P2). List deliveries are fenced to their instance's incarnation (rule 9). |
-| **L3** leftover memory | Prevented by placement and incarnations. `keep` is an explicit opt-in to carry data back. |
+| **L3** leftover memory | Prevented by placement and incarnations. `.keep()` is an explicit opt-in to carry data back. |
 | **L4** no way out | Prevented. The host may always leave a subroutine's state (rule 6). A hot state reachable with nothing pending is a `flow check` error (T1). |
 | **L5** abandoned effects | Prevented. A late result, including one after leaving or a timeout, goes to `abandoned` with its Attempt (P10, P16). `abandoned` may reconcile or compensate (P20). |
 | **L6** silent admission, **L8** phantom replies | Prevented. A call never sent answers `notSent` (P9). Outstanding calls are readable (P3). A delivery into a dead incarnation is dropped with evidence. |
@@ -1122,7 +1189,7 @@ turn (rule 6).
 | **D4** unmapped outcomes | Allowed. An unmapped outcome publishes an issue; `uncertain` only types the right target. |
 | **D5** restore in flight | Prevented. Fenced commits restore with their activation (P12). Attempts survive a version change through `orphaned`, at least once (P19). Saved-state compatibility Stories are left out (section 6). |
 | **D6** same-turn seeding | Prevented. `input` and `resetOn` read the source-updated memory (2.5). A mapper that reads a key its own turn writes is a warning. |
-| **D7** drafts lost | Prevented where the fragment declares `onLeave`, or the node is placed with `keep`. Otherwise it is a convention. |
+| **D7** drafts lost | Prevented where the fragment declares `onLeave`, or the trait is placed high enough, or with `.keep()`. Otherwise it is a convention. |
 | **A1, A2** forwarding, scattered blocks | One filling block per instance. A view sends at the instance path, so nothing is forwarded. |
 | **A3** conditional rules, **A4** overloaded words | Avoided. Each kind has its own rules, and every new word is listed. |
 | **A5** I/O inside fragments | Prevented (rule 3). |
@@ -1139,7 +1206,7 @@ sections 2 and 3.
 
 | Plan | Rule | Replaces or adds |
 | --- | --- | --- |
-| **Machines O1** | Definitions gain `traits` (bare, `.at` with `keep`, `.list`) and fragment states. A fragment declares what a definition declares (`id`, `events`, `internalEvents`, `memory`, child `traits` / `states`) plus `hostEvents`, `guards`, `callbacks` and `exits` at the top level, its body's `onLeave`, and an inferred summary. Machines gain one filling block per instance. Names share one namespace | Adds to "A definition requires id, states and events." |
+| **Machines O1** | Definitions gain `traits` (the root's `traits`, and `Flow.state(children | {} | Sub, { traits })` on a node; `.keep()`; `.list` open) and fragment states. Fillings sit at the node where a fragment is placed. A fragment declares what a definition declares (`id`, `events`, `internalEvents`, `memory`, child `traits` / `states`) plus `hostEvents`, `guards`, `callbacks` and `exits` at the top level, its body's `onLeave`, and an inferred summary. Machines gain one filling block per instance. Names share one namespace | Adds to "A definition requires id, states and events." |
 | **Machines O1** | An internal event may be marked `Flow.uncertain(fields)`; an event payload may be a `Schema.Struct` with checks, refused at admission when a check fails | Adds to "events and optional internalEvents are records…" |
 | **Package O1** | The root route exports `Flow` (with `Flow.Guard`, `Flow.Callback`, `Flow.Exit`, `Flow.optional`, `Flow.uncertain`, `Flow.annotate`, `Flow.input`, `Flow.initial`, `Flow.private`, the `Flow.is*` predicates and the `Flow.Payload` / `Flow.Filling` types) | Adds to the flow-state route's name list |
 | **Machines O1** | Memory fields carry `Flow.input` (supplied by the creator; the `Input` type is derived from them), `Flow.initial` (a constant or a pure computed start) and `Flow.private`. Every field starts from exactly one source. The top-level `input` and `initial` are removed | Replaces "Optional input and memory are Schema field records. Nonempty memory requires initial({ input })…" |
@@ -1223,6 +1290,7 @@ const pay = O.Payments.charge.commit(select, {
 | T1 | Testing O5 | **Systematic exploration in `model()`.** While a fenced commit is outstanding on a path, each declared outcome (from fixture samples) is a candidate event, and so is each armed schedule's firing. **Default oracle:** rules 6, 8 and 12, P2, and author `invariants: (snapshot) => true \| deny(…)`. `model(base, { stateKey, invariants, hot: [S.TWO_FACTOR.VERIFYING] })`: a quiet path in a **hot** state is a liveness failure, and `flow check` errors on a hot state reachable with nothing pending (it reads the same option). Schedules are explored delay-bounded (default 1–2), and counterexamples are Stories | Adds `invariants`, `hot` and a `check` mode to "model(baseStory, { stateKey })" |
 | T2 | CommandLine O5 | Warnings: an exit no reachable transition takes; a `hostEvent` no host raises; a public fragment event unhandled everywhere; a subroutine whose exits are unreachable from its default. `flow stories --coverage` lists transitions, exits, callbacks and delivery handlers no Story reaches | Adds to the warning list |
 | T3 | CommandLine O5 | Warn when `send(ref, E.X)` can reach a state of the target actor where X is Unhandled. There is no silencing keyword; warnings never fail the check | Sharpens "unhandled events" |
+| T4 | CommandLine O5 | A lint rule with an autofix orders the category keys of definitions, fragments, machine bodies, fillings, transitions and commit options (section 2.6). It never reorders entries inside a record, whose order carries meaning | Adds |
 
 ## 6. Deliberately left out
 
@@ -1271,6 +1339,13 @@ const pay = O.Payments.charge.commit(select, {
 
 ## 7. Open
 
+0. **Dynamic collections.** A changing number of copies of the same behaviour inside one actor (rule
+   9, `.list`) is open and will be designed separately, from its requirements (a changing count,
+   each copy with its own traits and timers, one turn with the host, stable identity, static
+   analysis) and prior art (Ceu pools, SCADE iterators, React keyed children). Candidates so far:
+   `id` instead of `key`; membership changed only by the host's own events, removing `owner` and
+   `canAdd` / `canRemove`. Rejected: one actor per item, which brings back machine-spawned child
+   actors and leaves single-turn composition.
 1. **Summaries in types.** Can the contract summary (rule 10) be inferred into TypeScript types
    cheaply enough, or does it live only in `flow check` metadata?
 2. **`keep` and `resetOn` together.** A kept trait resets on return when its value differs. Is
@@ -1279,7 +1354,7 @@ const pay = O.Payments.charge.commit(select, {
    default, for T1 to explore enough?
 4. **Declaration order in types.** TypeScript does not order object-literal keys reliably, so
    "earlier traits" for `resetOn` may need tuple placement or a builder (the type spike).
-5. **Names.** `trait`, `subroutine`, `hostEvents`, `resetOn`, `Flow`, `.key`, `owner`, `keep`,
+5. **Names.** `trait`, `subroutine`, `hostEvents`, `resetOn`, `Flow`, `Flow.state`, `.key`, `owner`, `.keep()`,
    `onLeave`, `failureKinds`.
 
 ## Changes from v3
@@ -1323,3 +1398,4 @@ From [reviews/v4-correctness.md](reviews/v4-correctness.md) and [reviews/v4-prin
 - Fix check: pending resets run as an immediate follow-up turn (f1); late turns include commits started in `abandoned`'s pending run (f2); an in-turn re-add wins (f3); sign-in notes on late success, the shared cooldown and late strikes after sign-in.
 - Port kinds use one `Flow` module following Effect Schema conventions (`Flow.Guard`, `Flow.Callback`, `Flow.Exit`, `Flow.optional`, `Flow.uncertain`, `Flow.annotate`); ports hold Schema payloads rather than being Schemas; event payloads may carry Schema checks, refused at admission (2.2.1).
 - Fragments keep a definition's shape, with `hostEvents`, `guards`, `callbacks` and `exits` as top-level lists named by direction; no grouping block. Memory fields carry `Flow.input`, `Flow.initial` (constant or computed) and `Flow.private`, for fragments and machines, replacing the top-level `input` and `initial`. `Flow` calls are written data-first (2.2.2).
+- Placement: `Flow.state(children | {} | Sub, { traits })` on a node replaces `.at("PATH")`; `.keep()` is a method; fillings sit at the node; signup drafts live at the root; `Field` takes a checked Schema instead of `validate`; key order, the `Flow` namespace rule and the locality rule are recorded (2.3, 2.6); `.list` is marked open (section 7).
