@@ -45,7 +45,7 @@ they belong in the plans. v4 reuses **pieces** (fields, timers, dialogs, selecti
 
 ### 2.1 The two kinds
 
-| | `trait(contract, body)` | `subroutine(contract, body)` |
+| | `trait(declaration, body)` | `subroutine(declaration, body)` |
 | --- | --- | --- |
 | The actor… | has it | goes into it |
 | Examples | field, countdown, lockout, debounce, selection, pager, flash | confirm, hold-to-confirm, address step, picker |
@@ -77,19 +77,23 @@ These names, state names and memory keys share one namespace, and a collision re
 ```ts
 trait({
   id: "Pager",
-  input: { start: Schema.Int },              // filled by the host, read once at activation
   events: { Next: {}, Previous: {} },        // sent by anyone, at the instance path
-  hostEvents: { Jump: { page: Schema.Int } },// sent only by the direct host, with `raise`
   internalEvents: { Due: {} },               // produced only by this fragment's own schedules
-  memory: { page: Schema.Int },
-  initial: ({ input }) => ({ page: input.start }),
-  guards: { hasNext: Flow.Guard, canTurn: Flow.optional(Flow.Guard) },
-  callbacks: {
-    onTurned: Flow.Callback({ page: Schema.Int }),
-    onIdle: Flow.optional(Flow.Callback({})),
+  memory: {
+    page: Flow.input(Schema.Int),                       // supplied by the host at activation
+    turns: Flow.private(Flow.initial(Schema.Int, 0)),   // starts at 0; nothing outside sees it
   },
-  traits: { settle: Debounce({ wait: "300 millis" }) },          // children it places and fills
-  // subroutines also: states?, default?, exits: { Confirmed: Flow.Exit({}), Declined: Flow.Exit({}) }
+  traits: { settle: Debounce({ wait: "300 millis" }) }, // children it places and fills
+  // subroutines also: states?, default?
+  host: {                                    // only what exists for composition with a host
+    events: { Jump: { page: Schema.Int } },  // raised only by the direct host
+    guards: { hasNext: Flow.Guard, canTurn: Flow.optional(Flow.Guard) },
+    callbacks: {
+      onTurned: Flow.Callback({ page: Schema.Int }),
+      onIdle: Flow.optional(Flow.Callback({})),
+    },
+    // subroutines also: exits: { Confirmed: Flow.Exit({}), Declined: Flow.Exit({}) }
+  },
 }, ({ S, E, guards, callbacks, exits }) => ({
   on: {
     Next: { target: "self", guard: [guards.canTurn, guards.hasNext], updateMemory: … },
@@ -107,13 +111,18 @@ and `flow check` reads it structurally (rule 12).
 
 | Port | The fragment uses it as | The host fills it with |
 | --- | --- | --- |
-| `input` | `initial({ input })` | `input: ({ memory, event }) => …`, read from the source-updated memory (2.5) |
+| `memory` fields marked `Flow.input` | ordinary memory, already set when it activates | `input: ({ memory, event }) => …`, the derived `Input` record, read from the source-updated memory (2.5) |
 | `events` | handled in `on` | nothing; views and other senders send `E.pager.Next()` |
-| `hostEvents` | handled in `on` | `raise: [E.pager.Jump.from(f)]` on any host transition |
 | `internalEvents` | sent by its own `schedules` | nothing |
-| `guards` | `guard: guards.hasNext` | `guards: { hasNext: (g) => … \|\| deny("LastPage") }` |
-| `callbacks` | `notify: [callbacks.onTurned.from(f)]` on a transition, or in `onLeave` | an `on`-style handler (`target?`, `updateMemory?`, `actions?`, `raise?`), possibly ordered alternatives ending in an unguarded one; its data is `payload` |
-| `exits` | `target: exits.Done`, or `exits.Done.from(f)` | an `on`-style handler that must leave the subroutine's state |
+| `host.events` | handled in `on` | `raise: [E.pager.Jump.from(f)]` on any host transition |
+| `host.guards` | `guard: guards.hasNext` | `guards: { hasNext: (g) => … \|\| deny("LastPage") }` |
+| `host.callbacks` | `notify: [callbacks.onTurned.from(f)]` on a transition, or in `onLeave` | an `on`-style handler (`target?`, `updateMemory?`, `actions?`, `raise?`), possibly ordered alternatives ending in an unguarded one; its data is `payload` |
+| `host.exits` | `target: exits.Done`, or `exits.Done.from(f)` | an `on`-style handler that must leave the subroutine's state |
+
+A fragment reads like a definition (`id`, `events`, `internalEvents`, `memory`, `states`,
+`default`, `traits` at the top level) plus one **`host`** block. `host` holds only what exists for
+composition with a host: the events only the host raises, the places it may refuse, what it is
+told, and how a subroutine returns. Machines have no `host` block.
 
 The host fills each instance in **one block**, in the machine:
 
@@ -121,7 +130,8 @@ The host fills each instance in **one block**, in the machine:
 - subroutines on their state, `states.<NAME>`.
 
 A port is **required** unless wrapped in `Flow.optional(…)`, and leaving a required port unfilled
-is a type error. Guards, callbacks and exits are declared with the `Flow` module (2.2.1).
+is a type error. Guards, callbacks and exits are declared with the `Flow` module (2.2.1); memory
+fields with `Flow.input`, `Flow.initial` and `Flow.private` (2.2.2).
 
 An optional port may be left out:
 
@@ -147,13 +157,17 @@ kinds, optional versus required, and uncertainty.
 | `Flow.optional(port)` | combinator | the host may leave the port unfilled | shape of `Schema.optional`; a different meaning (a port, not a field) |
 | `Flow.uncertain(fields)` | combinator | marks an internal event that `unknown`, `interrupt` and `defect` may target | none |
 | `Flow.annotate({ title, description })` | combinator | documentation for Inspection, devtools and agents | `Schema.annotate` |
+| `Flow.input(schema)` | memory modifier | the creator supplies this field (2.2.2) | none; derives the `Input` type |
+| `Flow.initial(schema, value or fn)` | memory modifier | the field's starting value (2.2.2) | `Schema.withConstructorDefault(Effect.succeed(value))` |
+| `Flow.private(schema)` | memory modifier | only the owner sees this field (2.2.2) | none |
 | `port.payload` | field | the payload `Schema.Struct`, for decode, encode or JSON Schema | none |
 | `Flow.Payload<P>`, `Flow.Filling<C>` | types | a port's payload type; the type of the host's filling block for a contract | `Schema.Schema.Type<S>` |
 | `Flow.isGuard`, `Flow.isCallback`, `Flow.isExit` | predicates | for tooling | `Schema.isSchema` |
 
-With one modifier, wrap (`Flow.optional(Flow.Callback({}))`); with several, pipe
-(`Flow.Callback({ value }).pipe(Flow.optional, Flow.annotate({ title: "Edited" }))`), as Schema
-does.
+`Flow` calls are written **data-first, wrapping their argument**, always:
+`Flow.optional(Flow.Callback({}))`, `Flow.private(Flow.initial(Schema.Int, 0))`. They are Effect
+duals, so `.pipe(Flow.private)` also type-checks, but wrapping is the canonical form, and `Flow` is
+always outermost: Schema's own modifiers go inside, on the type.
 
 Ports are not branded Schemas: if they were, `Schema.optional(Flow.Callback(…))` would type-check
 and mean "an absent field" instead of "an unfilled port", generic Schema combinators would erase
@@ -164,6 +178,44 @@ Event payloads stay field records, as in Machines O1. A payload that needs a sha
 as Schema's own struct: `Changed: Schema.Struct({ value: Schema.String }).check(Schema.makeFilter(…))`.
 A payload that fails its check is refused at admission, before guards run: **a check tests the
 payload's shape and reads no memory; a guard is policy and may read memory.**
+
+#### 2.2.2 Memory fields: where a value starts, and who sees it
+
+Three `Flow` modifiers sit on memory fields, for fragments and machines alike. Each states a fact
+about the field it wraps, so nothing about starting memory lives anywhere else: there is **no
+top-level `input` block and no top-level `initial` function**.
+
+| Modifier | Meaning |
+| --- | --- |
+| `Flow.input(schema)` | The creator supplies this field: an actor's creator (`ensure(ref, { input })`, `useActor(m, { input })`), or a fragment's host (its `input:` filling). The definition's `Input` type is exactly these fields. |
+| `Flow.initial(schema, value)` | A constant start. It is Schema's constructor default, `withConstructorDefault(Effect.succeed(value))`, restricted to a plain value so it is pure. |
+| `Flow.initial(schema, ({ …fields }) => value)` | A computed start: a pure function of fields that start from `Flow.input` or a constant `Flow.initial`, never of another computed field. |
+| `Flow.private(schema)` | Only the owner sees this field: its own handlers, guards and selects. The host, views and other actors do not; Stories and Inspection do. |
+
+```ts
+memory: {
+  workspaceId: Flow.input(Schema.String),                             // supplied
+  title: Flow.input(Schema.String),                                   // supplied, then edited
+  draft: Flow.initial(Schema.String, ({ title }) => title),           // computed from a supplied field
+  error: Flow.initial(Schema.NullOr(Schema.String), null),            // constant
+  saves: Flow.private(Flow.initial(Schema.Int, 0)),                   // constant, hidden outside
+  cursor: Schema.optionalKey(Schema.String),                          // an optional key starts absent
+},
+```
+
+Rules:
+
+- **Every field starts from exactly one source:** `Flow.input`, `Flow.initial` (constant or
+  computed), or absence for an optional key. A field with none is a type error. `Flow.input` and
+  `Flow.initial` never go on the same field.
+- **Creation is pure and happens once per incarnation:** decode the input with the derived `Input`
+  schema, copy the input fields, apply constant initials, then computed initials. No clock, no
+  randomness, never on restore (Machines O1, React O2). The machine never sees an `input` value:
+  input fields are ordinary memory, writable like any other.
+- **Outside types omit private fields.** `s.memory.<field>` and a host's `memory.<instance>.<field>`
+  are type errors for a private field. Only the owner writes any of its memory.
+- **Markers survive.** `Flow` is outermost; a Schema modifier applied over a `Flow` marker is a type
+  error, so a field cannot silently stop being an input.
 
 A bare token is shorthand for `{ target: token }`, in a filling (`Confirmed: S.CANCELLED`) and in a
 fragment (`Yes: exits.Confirmed`).
@@ -242,7 +294,7 @@ Filling refers to `S`, `E` and `O`, so it lives in the machine.
      - any other helper sees the root view.
 2. **Three sender lists.**
    - `events` come from anyone: views, other actors, the host.
-   - `hostEvents` come only from the direct host, by `raise`.
+   - `host.events` come only from the direct host, by `raise`.
    - `internalEvents` come only from the fragment's own schedules.
 
    The host maps operation outcomes onto **its own** events and raises into fragments. Sending a
@@ -301,7 +353,7 @@ Filling refers to `S`, `E` and `O`, so it lives in the machine.
    - **Persistence and Stories.** The incarnations captured by commits and armings persist with
      the actor. In Stories, minted keys and incarnations are deterministic (`invites#2`,
      `invites#2@1`).
-   - **Owner.** With `owner: "host"`, `Add` and `Remove` are `hostEvents`. Otherwise they are
+   - **Owner.** With `owner: "host"`, `Add` and `Remove` are host events. Otherwise they are
      public, and the optional `canAdd` / `canRemove` guards may refuse them.
    - **Events.** `Add` is refused at `max`. `Remove { keys }` ignores keys that are absent, and is
      never refused when the host raises it. An instance event carries its key: views send
@@ -316,9 +368,9 @@ Filling refers to `S`, `E` and `O`, so it lives in the machine.
     only. It checks each fragment body against its own summary. Swapping a fragment for one with
     the same contract and summary cannot break its host. A changed summary is a changed contract.
 11. **Tested alone.** `story.machine(fragment, { id })` fills every port with a recording harness
-    and may send `hostEvents`. `run.calls.<callback>` records notifications, including `onLeave`;
-    `checkpoint.exit` records exits. `.enter(input)` enters a subroutine; `.leave()` abandons it,
-    as a host transition would.
+    and may send host events. `run.calls.<callback>` records notifications, including `onLeave`;
+    `checkpoint.exit` records exits. `.enter(input)` enters a subroutine, with its `Input` record;
+    `.leave()` abandons it, as a host transition would.
 12. **Construction errors and runtime defects.**
     - **Construction errors** (types or `flow check`):
       - unfilled required ports;
@@ -346,7 +398,7 @@ given event and publishes nothing.
 | --- | --- | --- |
 | **Pre-turn snapshot** | the last published snapshot | every guard; every payload mapper (`raise`, `notify`, `exits`, `onLeave` `.from`); commit selects; the source's `updateMemory`; parts' `updateMemory` |
 | **Source-updated memory** | the pre-turn memory with the source's patch applied, plus earlier resets | `resetOn`; `input` fillers |
-| **Initial memory** | a new incarnation's `initial({ input })` | guards, mappers and updates of parts addressed to an incarnation created in this turn |
+| **Initial memory** | a new incarnation's starting memory (input fields, then constant and computed `Flow.initial`s) | guards, mappers and updates of parts addressed to an incarnation created in this turn |
 
 1. **Admit** (runtime only).
    - A pending reset from the last commit runs first, as its own follow-up turn (rule 1).
@@ -372,8 +424,8 @@ given event and publishes nothing.
    - **Resets come first.** Before the walk, `resetOn` runs on the source-updated memory, and every
      changed trait gets a new incarnation. Raises into it reach the fresh incarnation.
    - **Addressing.** A raise addresses the incarnation live at that point: pre-turn, reset, or
-     added earlier in the walk. A new incarnation is seeded lazily on first address: `input` from
-     the source-updated memory, then `initial`.
+     added earlier in the walk. A new incarnation is seeded lazily on first address: its `Input` record from
+     the source-updated memory, then its `Flow.initial` values (2.2.2).
    - **Children that cannot react.** If an addressed child has no handler, or all its alternatives
      decline, the part **refuses the whole turn**. The host never falls through to its next
      alternative because a child refused; alternatives are chosen by their own guards.
@@ -443,18 +495,18 @@ export const Field = <V, I>(value: Schema.Codec<V, I>, p: { validate: (v: V) => 
   trait(
     {
       id: "Field",
-      input: { start: value },
       events: { Changed: { value } },
-      hostEvents: { Reset: {} },
-      memory: { value, start: value, error: Schema.NullOr(Schema.String), touched: Schema.Boolean },
-      initial: ({ input }) => ({
-        value: input.start,
-        start: input.start,
-        error: p.validate(input.start),
-        touched: false,
-      }),
-      guards: { canEdit: Flow.optional(Flow.Guard) },
-      callbacks: { onChanged: Flow.optional(Flow.Callback({ value })) },
+      memory: {
+        value: Flow.input(value),                                         // the host supplies the start
+        start: Flow.private(Flow.initial(value, ({ value }) => value)),   // kept for Reset; hidden
+        error: Flow.initial(Schema.NullOr(Schema.String), ({ value }) => p.validate(value)),
+        touched: Flow.initial(Schema.Boolean, false),
+      },
+      host: {
+        events: { Reset: {} },
+        guards: { canEdit: Flow.optional(Flow.Guard) },
+        callbacks: { onChanged: Flow.optional(Flow.Callback({ value })) },
+      },
     },
     ({ guards, callbacks }) => ({
       on: {
@@ -478,9 +530,11 @@ export const Countdown = (p: { length: Duration.Input }) =>
   trait(
     {
       id: "Countdown",
-      hostEvents: { Start: {} },
       internalEvents: { Done: {} },
-      callbacks: { onDone: Flow.optional(Flow.Callback({})) },
+      host: {
+        events: { Start: {} },
+        callbacks: { onDone: Flow.optional(Flow.Callback({})) },
+      },
     },
     ({ E, callbacks }) => ({
       schedules: { done: { schedule: p.length, send: E.Done, armOn: [E.Start] } },
@@ -497,14 +551,15 @@ export const Lockout = (p: { limit: number; length: Duration.Input }) =>
   trait(
     {
       id: "Lockout",
-      hostEvents: { Strike: {} },
-      memory: { strikes: Schema.Int },
-      initial: () => ({ strikes: 0 }),
-      callbacks: {
-        onLocked: Flow.optional(Flow.Callback({})),
-        onUnlocked: Flow.optional(Flow.Callback({})),
-      },
+      memory: { strikes: Flow.initial(Schema.Int, 0) },   // readable: the UI can say "2 tries left"
       traits: { timer: Countdown({ length: p.length }) }, // nested (rule 10)
+      host: {
+        events: { Strike: {} },
+        callbacks: {
+          onLocked: Flow.optional(Flow.Callback({})),
+          onUnlocked: Flow.optional(Flow.Callback({})),
+        },
+      },
     },
     ({ E, callbacks }) => ({
       traits: {
@@ -561,8 +616,10 @@ export const SignIn = definition({
     CodeExpired: {},
     CodeUnchecked: Flow.uncertain({}), // the only kind of event unknown / interrupt / defect may target
   },
-  memory: { challengeId: Schema.String, error: Schema.NullOr(Schema.String) },
-  initial: () => ({ challengeId: "", error: null }),
+  memory: {
+    challengeId: Flow.initial(Schema.String, ""),
+    error: Flow.initial(Schema.NullOr(Schema.String), null),
+  },
   operations: { Auth },
 });
 ```
@@ -620,7 +677,7 @@ export const SignInMachine = machine(SignIn, ({ S, E, O }) => {
 
     traits: {
       code: {
-        input: () => ({ start: "" }),
+        input: () => ({ value: "" }),
         guards: { canEdit: ({ state }) => !S.TWO_FACTOR.LOCKED_OUT.is(state) || deny("LockedOut") },
       },
       resendCooldown: {},
@@ -820,7 +877,11 @@ Submitting retries `Busy` three times at 1 s, 2 s and 4 s, and never retries an 
 ```ts
 // imports: Flow, subroutine from "flow-state"; Schedule, Schema from "effect"
 export const Confirm = subroutine(
-  { id: "Confirm", events: { Yes: {}, No: {} }, exits: { Confirmed: Flow.Exit({}), Declined: Flow.Exit({}) } },
+  {
+    id: "Confirm",
+    events: { Yes: {}, No: {} },
+    host: { exits: { Confirmed: Flow.Exit({}), Declined: Flow.Exit({}) } },
+  },
   ({ exits }) => ({ on: { Yes: exits.Confirmed, No: exits.Declined } }),
 );
 
@@ -898,7 +959,7 @@ traits: {
 // signup.machine.ts (excerpt)
 const onInvitePage = Signup.guard(({ state }) => S.WIZARD.INVITE.is(state) || deny("NotOnInvitePage"));
 traits: {
-  invites: { input: () => ({ start: "" }), guards: { canAdd: onInvitePage, canRemove: onInvitePage } },
+  invites: { input: () => ({ value: "" }), guards: { canAdd: onInvitePage, canRemove: onInvitePage } },
 },
 INVITE: {
   on: {
@@ -1003,12 +1064,12 @@ An address step can be abandoned by a root `SignOut`. The step hands its draft b
 export const AddressStep = subroutine(
   {
     id: "AddressStep",
-    input: { start: Address },
     events: { Changed: { address: Address }, Confirm: {} },
-    memory: { address: Address },
-    initial: ({ input }) => ({ address: input.start }),
-    callbacks: { onDraft: Flow.optional(Flow.Callback({ address: Address })) },
-    exits: { Done: Flow.Exit({ address: Address }) },
+    memory: { address: Flow.input(Address) },
+    host: {
+      callbacks: { onDraft: Flow.optional(Flow.Callback({ address: Address })) },
+      exits: { Done: Flow.Exit({ address: Address }) },
+    },
   },
   ({ exits, callbacks }) => ({
     on: {
@@ -1021,7 +1082,7 @@ export const AddressStep = subroutine(
 
 // host machine (excerpt): the draft seeds the next entry
 ADDRESS: {
-  input: ({ memory }) => ({ start: memory.addressDraft }),
+  input: ({ memory }) => ({ address: memory.addressDraft }),
   callbacks: { onDraft: { updateMemory: ({ payload }) => ({ addressDraft: payload.address }) } },
   exits: { Done: { target: S.PAYMENT, updateMemory: ({ payload }) => ({ address: payload.address, addressDraft: null }) } },
 },
@@ -1034,10 +1095,10 @@ turn (rule 6).
 
 | Kind | Words |
 | --- | --- |
-| **New, fragments (21)** | `trait`, `subroutine`, `traits` (host and fragment), `.at` (`keep`), `.list` (`max`, `key`, `owner`), `.key(k)`, `Add` / `Remove` / `canAdd` / `canRemove`, `hostEvents`, `guards` (declaration and filling), `callbacks`, `notify`, `exits`, the `Flow` module (`Flow.Guard`, `Flow.Callback`, `Flow.Exit`, `Flow.optional`, `Flow.uncertain`, `Flow.annotate`), `raise`, `resetOn`, `onLeave`, the definition's `handler` / `guard`, state tokens in guard arrays, `story.machine(fragment)` with `.enter` / `.leave` / `run.calls` / `checkpoint.exit` |
+| **New, fragments (21)** | `trait`, `subroutine`, `traits` (host and fragment), `.at` (`keep`), `.list` (`max`, `key`, `owner`), `.key(k)`, `Add` / `Remove` / `canAdd` / `canRemove`, `host` (`host.events`, `host.guards`, `host.callbacks`, `host.exits`), `guards` and `callbacks` (fillings), `notify`, the `Flow` module (`Flow.Guard`, `Flow.Callback`, `Flow.Exit`, `Flow.optional`, `Flow.uncertain`, `Flow.annotate`, `Flow.input`, `Flow.initial`, `Flow.private`), `raise`, `resetOn`, `onLeave`, the definition's `handler` / `guard`, state tokens in guard arrays, `story.machine(fragment)` with `.enter` / `.leave` / `run.calls` / `checkpoint.exit` |
 | **New, plans (18)** | `abandoned` (payload `outcome`, `tag`, `definite`, `value`, `input`, `attempt`), `notSent`, `.pending`, `retry` (`on`, `schedule`), `retrying`, the mapper's `{ input, attempt }`, `revertOnUnknown`, `timeout` (`perAttempt`, `total`), `failureKinds` (`"definite"` / `"uncertain"`), `orphaned`, `.history` (and `.history.child`), `armOn`, `s.schedules`, `dueAt`, and the `model()` options `invariants` and `hot` |
 | **New concepts, not words** | **incarnation** (one life of a fragment instance), **frozen** (a kept trait while its node is inactive), **summary** (a contract's inferred per-alternative effects), **source-updated memory** (pre-turn memory plus the source's patch), **late turn** (rule 6), pending reset |
-| **Existing** | `definition`, `machine`, `states`, `default`, `events`, `internalEvents`, `input`, `memory`, `initial`, `on`, `target`, `guard`, `updateMemory`, `actions`, `schedules`, `restartOn`, `outcomes`, `optimistic`, `setData`, `deny`, `check`, `model`, `S`, `E`, `O`, `.from`, `payload` |
+| **Existing** | `definition`, `machine`, `states`, `default`, `events`, `internalEvents`, `input` (caller side only: `ensure`, `useActor`, a host's filling), `memory`, `on`, `target`, `guard`, `updateMemory`, `actions`, `schedules`, `restartOn`, `outcomes`, `optimistic`, `setData`, `deny`, `check`, `model`, `S`, `E`, `O`, `.from`, `payload` |
 | **Author-chosen** | every other name (`Field`, `Lockout`, `challenges`, `LOCKED_OUT`, `canEdit`, `onLocked`, …) |
 
 ## 4. Against the problems in principles.md
@@ -1055,7 +1116,7 @@ turn (rule 6).
 | **E2** interfaces growing with depth | Prevented, for types and for checks. Hosts are checked against contract summaries only (rule 10). |
 | **E3** hidden endings | Prevented. Only exits leave a subroutine. Callbacks never leave their node. |
 | **E5** preempting observers | Prevented. A late turn, including one sourced by a compensating commit's outcome, cannot exit live work, and each handler's last alternative cannot move (rule 6). |
-| **H1** bypassed policy | Allowed, by design. Host-owned facts are `hostEvents`, and host-owned lists are `owner: "host"`. |
+| **H1** bypassed policy | Allowed, by design. Host-owned facts are `host.events`, and host-owned lists are `owner: "host"`. |
 | **H2** unforeseen checks | Allowed, by choice: declare the guard in the fragment. |
 | **H3** faked results | Prevented. Exits are never sendable. `internalEvents` come only from the fragment's own schedules. |
 | **H4** mislabelled results | Prevented. `unknown`, `interrupt`, `defect` and uncertain failure tags reach only `uncertain` events (P9, P14). |
@@ -1070,7 +1131,7 @@ turn (rule 6).
 | **A1, A2** forwarding, scattered blocks | One filling block per instance. A view sends at the instance path, so nothing is forwarded. |
 | **A3** conditional rules, **A4** overloaded words | Avoided. Each kind has its own rules, and every new word is listed. |
 | **A5** I/O inside fragments | Prevented (rule 3). |
-| **A6** silence discovered late | By the fragment author's choice. Required ports are type errors; optional guards are an info finding. Dead exits and unused hostEvents are warnings (T2). |
+| **A6** silence discovered late | By the fragment author's choice. Required ports are type errors; optional guards are an info finding. Dead exits and unused host events are warnings (T2). |
 | **A7** forgotten first send | Not applicable: the host starts every operation on its own transition. |
 | **T1** partial turns | Prevented by the turn algorithm (2.5): one selection, no fallthrough on a child's refusal. |
 
@@ -1083,9 +1144,12 @@ sections 2 and 3.
 
 | Plan | Rule | Replaces or adds |
 | --- | --- | --- |
-| **Machines O1** | Definitions gain `traits` (bare, `.at` with `keep`, `.list`) and fragment states. Contracts have `input`, `events`, `hostEvents`, `internalEvents`, `guards`, `callbacks`, `exits`, child `traits` / `states`, `onLeave`, and an inferred summary. Machines gain one filling block per instance. Names share one namespace | Adds to "A definition requires id, states and events." |
+| **Machines O1** | Definitions gain `traits` (bare, `.at` with `keep`, `.list`) and fragment states. A fragment declares what a definition declares (`id`, `events`, `internalEvents`, `memory`, child `traits` / `states`) plus a `host` block (`events`, `guards`, `callbacks`, `exits`), its body's `onLeave`, and an inferred summary. Machines gain one filling block per instance. Names share one namespace | Adds to "A definition requires id, states and events." |
 | **Machines O1** | An internal event may be marked `Flow.uncertain(fields)`; an event payload may be a `Schema.Struct` with checks, refused at admission when a check fails | Adds to "events and optional internalEvents are records…" |
-| **Package O1** | The root route exports `Flow` (with `Flow.Guard`, `Flow.Callback`, `Flow.Exit`, `Flow.optional`, `Flow.uncertain`, `Flow.annotate`, the `Flow.is*` predicates and the `Flow.Payload` / `Flow.Filling` types) | Adds to the flow-state route's name list |
+| **Package O1** | The root route exports `Flow` (with `Flow.Guard`, `Flow.Callback`, `Flow.Exit`, `Flow.optional`, `Flow.uncertain`, `Flow.annotate`, `Flow.input`, `Flow.initial`, `Flow.private`, the `Flow.is*` predicates and the `Flow.Payload` / `Flow.Filling` types) | Adds to the flow-state route's name list |
+| **Machines O1** | Memory fields carry `Flow.input` (supplied by the creator; the `Input` type is derived from them), `Flow.initial` (a constant or a pure computed start) and `Flow.private`. Every field starts from exactly one source. The top-level `input` and `initial` are removed | Replaces "Optional input and memory are Schema field records. Nonempty memory requires initial({ input })…" |
+| **Machines O8**, **React O4** | Outside snapshot and view types omit `Flow.private` fields; Stories and Inspection still see them | Adds |
+| **React O2** | The pure starting snapshot uses the memory built from `Flow.input`, `Flow.initial` and computed initials | Replaces "initial(input) memory" |
 | **Machines O1** | `operations` may group operation handles one level deep | Replaces "a flat record of operation or entity-domain handles" with "…or one-level groups of operation handles" |
 | **Machines O1** | A definition's `handler(path, h)` / `guard(path?, g)` type shared code as if written at `path`; a commit is typed at each transition that runs it | Adds |
 | **Machines O2** | A subroutine state is entered at its default, or is a leaf. It is left by an exit, or abandoned by a transition that exits it; host events fall through to ancestors as usual. Exits are targets only fragments take | Adds to "target is required and is this machine's token or "self"" |
@@ -1094,7 +1158,7 @@ sections 2 and 3.
 | **Machines O4** | Guards also receive `schedules` and may call `.pending`. `check()` runs steps 2–6 of the turn | Replaces "A guard receives { event, state, memory, context, activities }" with the same list plus `schedules` |
 | **Machines O8** | The snapshot exposes fragment slices (`undefined` while inactive, present while kept), keyed list instances, and `schedules` | Replaces "It has no input, methods, timers or public revision" with "…no input, methods or public revision; armed schedules appear under `schedules`" |
 | **Persistence O2** | Kept slices, frozen schedules and list incarnations persist with the actor | Adds to "Actor state, memory … survive reload" |
-| **Testing O1** | `story.machine` also accepts a fragment (`.enter`, `.leave`, `run.calls`, `checkpoint.exit`, `hostEvents` sends). `send` runs its turn; `process()` drains operation work and due timers. Minted keys and incarnations are deterministic | Adds to "story.machine(machine, { … }) tests one fresh actor" |
+| **Testing O1** | `story.machine` also accepts a fragment (`.enter`, `.leave`, `run.calls`, `checkpoint.exit`, host-event sends). `send` runs its turn; `process()` drains operation work and due timers. Minted keys and incarnations are deterministic | Adds to "story.machine(machine, { … }) tests one fresh actor" |
 | **Inspection O1** | Fragments, list instances, incarnations, fused transitions and contract summaries appear under their instance names | Adds |
 | **CommandLine O5** | Errors: rule 12's list. Warnings: overlaps only closures separate; history targets over unkept fragments; a mapper reading a key its own turn writes (from Story traces). Info: unfilled optional guards | Adds |
 
@@ -1220,7 +1284,7 @@ const pay = O.Payments.charge.commit(select, {
    default, for T1 to explore enough?
 4. **Declaration order in types.** TypeScript does not order object-literal keys reliably, so
    "earlier traits" for `resetOn` may need tuple placement or a builder (the type spike).
-5. **Names.** `trait`, `subroutine`, `hostEvents`, `resetOn`, `Flow`, `.key`, `owner`, `keep`,
+5. **Names.** `trait`, `subroutine`, `host`, `resetOn`, `Flow`, `.key`, `owner`, `keep`,
    `onLeave`, `failureKinds`.
 
 ## Changes from v3
@@ -1263,3 +1327,4 @@ From [reviews/v4-correctness.md](reviews/v4-correctness.md) and [reviews/v4-prin
 - Principles: a three-decision summary; `failureKinds`; `hot` in `model()`; `ignore` cut; `onLeave` skips freezing; concepts named; token-first position guards; five items added to "Left out".
 - Fix check: pending resets run as an immediate follow-up turn (f1); late turns include commits started in `abandoned`'s pending run (f2); an in-turn re-add wins (f3); sign-in notes on late success, the shared cooldown and late strikes after sign-in.
 - Port kinds use one `Flow` module following Effect Schema conventions (`Flow.Guard`, `Flow.Callback`, `Flow.Exit`, `Flow.optional`, `Flow.uncertain`, `Flow.annotate`); ports hold Schema payloads rather than being Schemas; event payloads may carry Schema checks, refused at admission (2.2.1).
+- Fragments keep a definition's shape plus one `host` block (`events`, `guards`, `callbacks`, `exits`); `hostEvents` becomes `host.events`. Memory fields carry `Flow.input`, `Flow.initial` (constant or computed) and `Flow.private`, for fragments and machines, replacing the top-level `input` and `initial`. `Flow` calls are written data-first (2.2.2).
