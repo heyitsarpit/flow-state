@@ -1,0 +1,80 @@
+$ tsc -p .   (TypeScript 7.0.2)
+tsc: 0 errors; all 17 @ts-expect-error checks in types.ts hold, and the positive type assertions there compile
+
+$ bun main.ts   (bun 1.4.2)
+(a) the operator set records and evaluates; both branches of `when` are recorded
+   Issues.setLike predicts likes = add(prior.likes, when(eq(input.liked, prior.liked), 0, when(input.liked, 1, -1)))
+   PASS the whole expression is recorded, the outer and the inner `when`, all three outcomes 0, 1, -1
+   PASS liked true over liked false: likes 5 → 6 (branch 1)
+   PASS liked false over liked true: likes 5 → 4 (branch -1)
+   PASS liked true over liked true: likes 5 → 5 (branch 0)
+   PASS liked false over liked false: likes 5 → 5 (branch 0)
+   PASS `when` is lazy: the branch not taken is never evaluated (it would fail here)
+   tickets.list where and(eq(record.workspaceId, input.workspaceId), eq(record.status, input.status), eq(record.assignee, input.assignee), serverMatches(input.search, record.title))
+   PASS absent status, assignee and search drop their constraints (and serverMatches may hold for any record)
+   PASS status open keeps the open ticket
+   PASS assignee ana: a null assignee is not equal to ana
+   PASS openCount: workspace and the constant "open"
+   extras.myQueue where and(eq(record.workspaceId, input.workspaceId), or(isNull(record.assignee), eq(record.assignee, input.me)), lt(record.updatedAt, input.before))
+   PASS or(isNull, eq) keeps unassigned and mine; lt on a number
+   PASS lt(updatedAt, 15) drops the ticket updated at 20
+   PASS two-valued: gt(null, 1) is false and not(gt(null, 1)) is true (TanStack DB's SQL logic gives UNKNOWN for both)
+   recording without the source reader (the gap this proposal closes):
+     either  eq(record.status, "open")   (source: eq(status, "open") || eq(assignee, input.assignee))
+   PASS `||` silently records its first operand
+     status  eq(record.status, input.status)   (source: input.status ? … : eq(status, "open"))
+   PASS `?:` silently records one branch
+     both    eq(record.status, "open")   (source: eq(workspaceId, …) && eq(status, "open"))
+   PASS `&&` silently records its second operand
+     recent  and(eq(record.workspaceId, input.workspaceId), or(eq(record.assignee, input.me)), eq(record.updatedAt, <construction time>))
+   PASS Date.now() is recorded as a constant
+     legacy setLike: prior.likes was converted to a primitive: arithmetic, templates and < > are not recorded; write add, sub, lt, gt
+   PASS JavaScript arithmetic on a recorded value fails at construction, naming the value
+
+(b) the same declarations read from source give the same description as recording
+   read 5 files through typescript/unstable/async in 35 ms
+   PASS tickets: 6 entries, source and recording identical
+   PASS issues: 5 entries, source and recording identical
+   PASS extras: 3 entries, source and recording identical
+   PASS no findings on the reference domains (0)
+   PASS on legacy declarations the two disagree wherever recording was silently wrong: either, status, both, recent
+   e.g. tickets.list as read: where and(eq(record.workspaceId, input.workspaceId), eq(record.status, input.status), eq(record.assignee, input.assignee), serverMatches(input.search, record.title))
+
+(c) recorded predicted values: evaluated at write start, replayed over a changed base
+   PASS at start the key evaluates to {"id":"i1"} (the lane key of merge 4 rule 34)
+   PASS base liked false, likes 5; A like starts: liked true, likes 6
+   PASS B unlike starts behind A: liked false, likes 5
+   PASS base changes to liked true, likes 9 (a push); A and B replay: liked false, likes 8
+   PASS A fails and is retracted; B replays alone: liked false, likes 8
+   PASS B fails too: the base shows: liked true, likes 9
+   PASS the operator form equals the JavaScript function it replaces in 186/186 base × sequence cases
+   PASS tickets.assign: key {w1, t1}, predicts assignee ana and status assigned
+   PASS transfer: two records, A 100 → 70, B 5 → 35
+   PASS a push sets A to 40: the replay shows 10, not 70
+   react predicts reactions = opaque(prior.reactions, input.emoji)
+   PASS opaque list edit: two reactions over none give count 2
+   PASS the base moves to 4: the opaque function replays over it, count 6
+
+(d) the source reader flags JavaScript logic and impure calls, with a fix-it
+   domains/legacy.ts:14 legacy-issues.setLike [logic] JavaScript arithmetic or comparison on a recorded value throws at construction; write add, sub, lt, gt
+      fix-it: add(i.likes, when(eq(input.liked, i.liked), 0, when(input.liked, 1, -1)))
+   domains/legacy.ts:22 legacy-tickets.either [logic] `||` records only its first operand; write or(...)
+      fix-it: or(eq(record.status, "open"), eq(record.assignee, input.assignee))
+   domains/legacy.ts:26 legacy-tickets.status [logic] `?:` records only one branch (the proxy is always truthy); write when(c, a, b)
+      fix-it: when(input.status, eq(record.status, input.status), eq(record.status, "open"))
+   domains/legacy.ts:30 legacy-tickets.both [logic] `&&` records only its second operand; write and(...)
+      fix-it: and(eq(record.workspaceId, input.workspaceId), eq(record.status, "open"))
+   domains/legacy.ts:34 legacy-tickets.recent [impure] `Date.now()` runs once, at construction, and is recorded as a constant
+      fix-it: pass the value as an input field the machine supplies (input.now)
+   domains/legacy.ts:40 legacy-chat.react [opaque-closure] the opaque function closes over `input.emoji`, a recording value at construction; declare it as a dependency
+      fix-it: opaque([m.reactions, input.emoji], (rs, emoji) => addReaction(rs, emoji))
+   PASS `?:` in a predicted value is flagged
+   PASS `?:` in a condition is flagged
+   PASS `&&` is flagged with and(...)
+   PASS `||` is flagged with or(...)
+   PASS Date.now() is flagged as impure
+   PASS an opaque function closing over input is flagged
+   PASS the fix-it for merge 4's setLike is exactly the ported line: add(i.likes, when(eq(input.liked, i.liked), 0, when(input.liked, 1, -1)))
+   PASS the opaque fix-it is extras.ts's form
+
+ALL PASS
