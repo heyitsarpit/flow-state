@@ -546,7 +546,7 @@ is one invocation of its commit function. The rules are numbered as merge 2's ru
     Attempt before invocation.
 22. **Memory reads: before for decisions, after for effects** (decision D15). A memory read in a turn sees one of two
     values. A read whose result can change this turn's memory (a guard, an `updateMemory`, a payload mapper that
-    raises, notifies or fills an exit) sees **before**, the last published snapshot. A read whose result only starts
+    raises, notifies or fills an exit, and the key select of an `idle` guard) sees **before**, the last published snapshot. A read whose result only starts
     or times work (a commit's input select, a retry's or cancel's key select, a schedule function, `keys`,
     `restartOn`, activity `params` and `when`, optimistic and write callbacks) sees **after**, the memory this turn
     publishes: initial memory of new incarnations, then every patch in expansion order, after list repair. After is
@@ -975,6 +975,9 @@ only. The select reads the after memory (rule 22), so writing `etag` and sending
 
 #### 2.7.4 Handling endings: current or late, the same event
 
+An excerpt: it shows routing, so PAYING's handlers for `Declined` and `TryLater` and the root's `ReadFailed`
+handler are left out; a complete machine needs them (rule 20).
+
 ```ts
 const paid = { target: S.DONE, guard: ({ event }) => event.status === "succeeded" || deny("NotSucceeded") }
 return {
@@ -1121,7 +1124,7 @@ const put = O.Uploads.upload.commit(({ memory }) => ({ ref: memory.ref }), {
   },
 })
 const clean = O.Uploads.discard.commit(({ event }) => ({ ref: event.ref, uploadKey: event.uploadKey }), { outcomes: { … } })
-UPLOADING: { on: { Cancel: { target: "self", actions: [put.cancel(key)] }, UploadNotSent: S.CANCELLED, UploadUnsure: { target: S.CLEANING, actions: [clean] } } },
+UPLOADING: { on: { Uploaded: S.DONE, Cancel: { target: "self", actions: [put.cancel(key)] }, UploadNotSent: S.CANCELLED, UploadUnsure: { target: S.CLEANING, actions: [clean] } } },
 ```
 
 The client cannot stop a body already sent, and no browser API says when the server is done with it. So the
@@ -1942,11 +1945,11 @@ turn (rule 6).
 | Problem | Answer |
 |---|---|
 | **L1** stale timers, **T2** schedule traps | Prevented. Schedules stop with their incarnation. Arming ids drop firings from before a re-arm (P11). `armOn` replaces counter idioms. The `restartOn` baseline is the activating turn's memory (P8). A schedule function reads the memory its own turn wrote (rule 23). |
-| **L2** late results | Prevented. A call's ending is routed when its turn is admitted, by its owner: current from the active leaf, late from the owner's nearest surviving ancestor (rule 14). Deliveries to `.each` copies follow the copy's incarnation (rule 9). |
+| **L2** late results | Prevented. A call's ending is routed when its turn is admitted, by its owner: current from the active leaf, late from the owner's nearest surviving ancestor (rule 14). Deliveries to `.each` copies follow the copy's incarnation (rule 9; for call endings see section 7, item 15). |
 | **L3** leftover memory | Prevented by placement and incarnations. `.resumable()` is an explicit opt-in to carry data back. |
 | **L4** no way out | Prevented. The host may always leave a subroutine's state (rule 6). |
 | **L5** abandoned effects | Prevented. A late ending is the same mapped event, handled at an ancestor, and every late event that can occur must be handled (rules 14, 20). A late handler may start a compensating call, which can finish (rule 15). |
-| **L6** silent admission, **L8** phantom replies | Prevented. A call never sent ends `NotSent { why }`, and a declined start or retry is an ending too (rules 16, 17). Lanes are readable (`pending`, `retryCount`, rule 21). A delivery into a dead incarnation is dropped with evidence. |
+| **L6** silent admission, **L8** phantom replies | Prevented. A call never sent ends `NotSent { why }`, and a declined start or retry is an ending too (rules 16, 17). Lanes are readable (`pending`, `retryCount`, rule 21). A delivery into a dead incarnation is dropped with evidence (for call endings, see section 7, item 15). |
 | **L7** departure gap | Allowed. Refusing a new submit while an earlier write is still unfinished is host code (`verify.idle(key)`, as the sign-in does). |
 | **E1** broken invariants, **E4** refusal by forwarding | Prevented. Refusal happens only at declared guards, and deliveries cannot be refused (rule 8). A decline refuses only the write, never the transition (rule 16). |
 | **E2** interfaces growing with depth | Prevented, for types and for checks. Hosts are checked against contract summaries only (rule 10). |
@@ -2135,11 +2138,12 @@ Found while merging:
     [merged/server-calls/reviews/entities.md](merged/server-calls/reviews/entities.md) (retry shape, settlement
     versus admission, queue release, temporary ids, `AdmissionOverloaded`).
 15. **`.each` copies and call owners.** Rule 9 says a commit started in a copy's filling remembers its copy's
-    incarnation, and a delivery to a dead incarnation is dropped with evidence. Rules 14, 17 and 20 say every ending
-    is delivered, routed by its owner state's activation, and handled. A copy is not a state, so rule 14 never makes
-    such an ending late, and "dropped with evidence" contradicts "every start ends once" for call endings. Merge 2 did
-    not consider copies; until this is decided, rules 14, 17 and 20 govern call endings, and rule 9's drop applies
-    to raises and timers.
+    incarnation, and a delivery to a dead incarnation is dropped with evidence. Rules 8 ("call endings, current and late",
+    are never lost), 14, 17 and 20 say every ending is delivered, routed by its owner state's activation, and handled.
+    A copy is not a state, so rule 14 never makes such an ending late, and "dropped with evidence" contradicts "every
+    start ends once" for call endings. Merge 2 did not consider copies. Undecided; the recommendation is that rules 8,
+    14, 17 and 20 govern call endings and rule 9's drop applies only to raises and timers. Section 4's L2 and L6 rows
+    describe the drop pending this decision.
 16. **`orphaned`'s `retry(attempt)`** (P19, 2.7.7). Merge 2 removed every Attempt-argument retry in favour of the
     commit value's `.retry(key)`, but an orphaned Attempt has no actor and no lane, so the descriptor-level
     `orphaned: ({ attempt, retry }) => retry(attempt)` remains the one place an Attempt is retried by argument. Its
@@ -2213,6 +2217,8 @@ From [reviews/design-correctness.md](reviews/design-correctness.md) and [reviews
 - `onLeave` is renamed `whenAbandoned`: it names the moment a life is ended by someone else, and the `when` prefix keeps it apart from the `on…` callbacks it fires.
 - Merges 1 and 2 merged on 2026-10-30 (section 2.7, rules 13–25, C1–C18; the memory views of 2.5 after
   [merged/server-calls/reviews/memory-reads.md](merged/server-calls/reviews/memory-reads.md)). Their decisions follow.
+  One deviation from merge 2's text: its amendment table said selects are computed in step 4; its rule (now rule
+  22) and the memory-read review say step 5, after every patch, and the design follows the rule.
 
 ## Decisions
 
