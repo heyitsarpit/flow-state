@@ -1189,7 +1189,7 @@ request and completes each entry from the per-item statuses. Not spiked.
 **Stories read the server's truth.**
 
 ```ts
-const busyThenPaid = story.machine(Checkout, { id: "Checkout/busy-then-paid", fixtures: FakeStripe({ script: [{ status: 503, retryAfterMs: 2000 }] }) })
+const busyThenPaid = story.machine(Checkout, { id: "Checkout/busy-then-paid", fixtures: FakeStripe({ script: [{ status: 429, retryAfterMs: 2000 }] }) })   // Erratum (2026-10-30): 429 is Busy (the commit above); 503 would be unknown
   .send(E.Pay()).advance("3 seconds").process()
   .checkpoint("paid", ({ truth }) => truth.FakeStripe.charges === 1)   // the fixture's truth, read, not commented
 ```

@@ -369,7 +369,7 @@ admission  ── map through outcomes, test the owner (rule 14), update the lan
 
 ```ts
 // A late success (the owner state was left) still confirms the rename for every screen:
-rename: …,                         // store at settlement: title confirmed, prediction ended
+rename: …,                         // store at settlement: fields the response carries are confirmed; omitted ones stay predicted until a confirming read (EDP:92-100). Erratum (2026-10-30)
 Settled: { target: "self" },       // at the root: handled whether current or late (rule 20)
 ```
 
@@ -385,7 +385,7 @@ The actor decides first, then the record queue (ED:643-651). Merge 2's `latest` 
 shared and decides when a send leaves.
 
 ```ts
-// setLike is `latest`. Three quick toggles on one issue while another tab's rename (R) is queued on it:
+// setLike is `latest`. Three quick toggles on one issue while another actor's rename (R) is queued on it (Erratum (2026-10-30): was "another tab's"; each tab is its own Runtime and store):
 // t0 Toggle(true)   A starts: the actor's current write; joins the record queue [R, A]; the record shows liked
 // t1 Toggle(false)  B starts: the actor's one waiting write; joins [R, A, B]; B's prediction replays over A's: not liked
 // t2 Toggle(true)   C supersedes B: B was never invoked, so it is removed from the queue and ends
