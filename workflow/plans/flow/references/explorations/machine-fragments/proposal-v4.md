@@ -1,8 +1,8 @@
 # Machine fragments: traits and subroutines (version 4)
 
-**Status:** proposal, not accepted. It **supersedes [proposal-v3.md](proposal-v3.md)**. It is
+**Status:** proposal, not accepted. It **supersedes `proposal-v3.md`** (removed, see [the folder README](README.md)). It is
 evaluated against [principles.md](principles.md). v4 keeps v3's model and adds what the prior-art
-study found missing ([prior-art/README.md](prior-art/README.md)). Where this file and a plan
+study found missing (`prior-art/`, removed, see [the folder README](README.md)). Where this file and a plan
 differ, the plan wins. Section 5 lists every plan amendment, with the sentence each one replaces.
 All syntax is a working draft.
 
@@ -1448,7 +1448,7 @@ const pay = O.Payments.charge.commit(select, {
 
 ## Changes from v3
 
-Notes: [synchronous](prior-art/synchronous-languages.md), [statechart](prior-art/statechart-languages.md), [durable](prior-art/durable-workflows.md), [modal](prior-art/modal-models-p-behavior-trees.md), [v3-amended-correctness](comparison/reviews/v3-amended-correctness.md).
+Notes (removed, see [the folder README](README.md)): `prior-art/synchronous-languages.md`, `statechart-languages.md`, `durable-workflows.md`, `modal-models-p-behavior-trees.md`, `comparison/reviews/v3-amended-correctness.md`.
 
 - One normative turn algorithm (2.5), with incarnations for fragments entered, added or reset in the same turn (synchronous R3; statechart R1).
 - `resetOn` reads the source-updated memory once, in declaration order, so cycles cannot be written; it resets before parts react (synchronous R1, R2).

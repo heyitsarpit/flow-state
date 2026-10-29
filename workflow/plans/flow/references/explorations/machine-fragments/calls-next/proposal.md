@@ -1,7 +1,7 @@
 # Proposal: server calls inside the machine, revised (calls-next)
 
-Status: proposal, not accepted. It revises [in-machine-calls-proposal.md](../in-machine-calls-proposal.md) ("the
-calls proposal", CP) and keeps its syntax: a commit value with `outcomes` mappings onto author-declared events. It
+Status: proposal, not accepted. It revises `in-machine-calls-proposal.md` ("the
+calls proposal", CP; removed, see [the folder README](../README.md)) and keeps its syntax: a commit value with `outcomes` mappings onto author-declared events. It
 replaces CP's rules where five builds and four reviews found them wrong or silent, drops `abandoned`, and makes the
 commit value the handle for re-sending, cancelling and reading the call. It keeps
 [outcome-proposal.md](../outcome-proposal.md) ("OP") with four flagged amendments (section 6.4). It answers P1–P23 and
@@ -497,7 +497,7 @@ behaviours back on, so most Stories run old and new on the same machine and fixt
 
 ## 6. Changes
 
-Against [in-machine-calls-proposal.md](../in-machine-calls-proposal.md) (CP), whose syntax this keeps, and against
+Against `in-machine-calls-proposal.md` (CP), whose syntax this keeps, and against
 v4, OP and the plans.
 
 ### 6.1 Added

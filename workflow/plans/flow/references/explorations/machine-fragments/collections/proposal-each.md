@@ -1,8 +1,8 @@
 # Proposal: `.each`, copies that follow a key list
 
 Status: accepted and recorded in proposal v4 (rule 9, section 2.5, sign-in, invites), after four
-reviews (section 6). It answers [problem.md](problem.md) with candidate S1 from
-[solutions.md](solutions.md) and replaces v4's former `.list` draft. Syntax is v4's; lines marked `// ← NEW` are new.
+reviews (section 6). It answers `problem.md` with candidate S1 from `solutions.md`
+(both removed, see [the folder README](../README.md)) and replaces v4's former `.list` draft. Syntax is v4's; lines marked `// ← NEW` are new.
 
 ## 1.0 The whole idea in one example
 
@@ -1038,10 +1038,8 @@ mappers of commits started from a copy, `explore` in `model()`.
 
 ## 6. Changes after review
 
-From [reviews/each-runtime-correctness.md](reviews/each-runtime-correctness.md),
-[reviews/each-constraints.md](reviews/each-constraints.md),
-[reviews/each-examples.md](reviews/each-examples.md) and
-[reviews/each-simplicity.md](reviews/each-simplicity.md):
+From the four reviews `reviews/each-runtime-correctness.md`, `each-constraints.md`, `each-examples.md` and
+`each-simplicity.md` (removed, see [the folder README](../README.md)):
 
 - **A list problem never refuses a turn.** Duplicates and keys past `max` are repaired with
   evidence, so a server delivery or timer can never be lost to them (runtime B1, constraints F2,

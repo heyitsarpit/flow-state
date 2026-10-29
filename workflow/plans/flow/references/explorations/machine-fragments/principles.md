@@ -10,7 +10,7 @@ rules.
 Where this folder and a plan differ, the plan wins.
 
 Every proposal in this folder is evaluated against this file. The current proposal is
-[proposal.md](proposal.md).
+[proposal-v4.md](proposal-v4.md).
 
 **What is settled, and what is not.** Conceptually, the parts of a machine that compose together
 are **fragments**, and fragments come in two kinds: **traits** and **subroutines**. That is all
@@ -180,7 +180,7 @@ allows it, or does not apply.
 | T2  | **Schedule traps.** A `restartOn` debounce in a state entered by the triggering edit never fires (Machines O5's silent baseline), and a firing queued before a restart can fire the restarted timer early. | debounce, today's editor autosave |
 
 Problems L5–L8, E4, E5, H4, H5, D5–D7, A7, T1 and T2 were added from the research reviews
-([research/reviews/](research/reviews/)).
+(`research/reviews/`, removed, see [the folder README](README.md)).
 
 ## 5. What the single-fragment proposal gives us
 

@@ -1,8 +1,8 @@
 # Comparison apps
 
-Three small apps, built in four systems: **A** ([proposal-v2.md](../proposal-v2.md)), **B**
-([spec-b-locked-split.md](spec-b-locked-split.md)), **C**
-([spec-c-single-fragment.md](spec-c-single-fragment.md)) and the **baseline** (plain machines as
+Three small apps, built in four systems: **A** (`proposal-v2.md`), **B**
+(`spec-b-locked-split.md`), **C** (`spec-c-single-fragment.md`; all three removed, see
+[the folder README](../README.md)) and the **baseline** (plain machines as
 [Machines.plan](../../../../Machines.plan) and [Operations.plan](../../../../Operations.plan) describe
 them today, no fragments). Every build implements exactly the behaviour below, so the code can be
 compared line for line. Operation names and shapes are fixed here; adapters are out of scope.
