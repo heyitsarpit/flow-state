@@ -1,0 +1,183 @@
+# Definition
+
+`definition({...})` declares an actor's id, states, events and memory. It starts nothing.
+
+## Example: sign-in
+
+```ts
+import { definition, Flow } from "flow-state"
+import { Schema } from "effect"
+
+export const SignIn = definition({
+  id: "Auth/SignIn",                               // the definition's name
+  states: [
+    "PASSWORD",
+    // a compound: three children
+    { TWO_FACTOR: ["ENTERING", "VERIFYING", "LOCKED_OUT"] },
+    "SIGNED_IN",
+  ],
+  events: {                                        // anyone may send these
+    PasswordAccepted: { challengeId: Schema.String },
+    Submit: {},                                    // {} = no payload
+    Resend: {},
+  },
+  // only the machine itself produces these
+  internalEvents: {
+    CodeAccepted: {},
+    CodeWrong: {},
+    // "we don't know if it landed"
+    CodeUnchecked: Flow.uncertain({}),
+  },
+  memory: {
+    challengeId: Flow.initial(Schema.String, ""),  // constant start
+    error: Flow.initial(Schema.NullOr(Schema.String), null),
+    // hidden from views
+    attempts: Flow.private(Flow.initial(Schema.Int, 0)),
+  },
+})
+```
+
+## Example: checkout
+
+```ts
+export const Checkout = definition({
+  id: "Shop/Checkout",
+  states: ["CARD", "PAYING", "DONE", "LEFT"],
+  events: {
+    Pay: { paymentMethodId: Schema.String },
+    EditCart: { amountCents: Schema.Int },
+    Leave: {},
+  },
+  internalEvents: {
+    Paid: {},
+    Declined: { code: Schema.String, paymentMethodId: Schema.String },
+    Slow: {},
+  },
+  memory: {
+    // the creator supplies these two
+    intentId: Flow.input(Schema.String),
+    amountCents: Flow.input(Schema.Int),
+    declines: Flow.initial(Schema.Int, 0),
+    error: Flow.initial(Schema.NullOr(Schema.String), null),
+    slow: Flow.initial(Schema.Boolean, false),
+    // a pure function of a supplied field
+    note: Flow.initial(Schema.String, ({ intentId }) => `Order ${intentId}`),
+  },
+})
+```
+
+## Keywords
+
+### `definition({...})`
+
+**What:** Declares the actor's shape: `id`, `states`, `events` and, optionally, `internalEvents` and `memory`.
+
+**Why it exists:** Shape and behaviour are separate, so a definition can be read, typed and tested before any behaviour is attached.
+
+- It returns synchronously and starts no actors, work, timers or storage. Bad input throws one `FlowError` listing every problem.
+- It exposes `S` and `E` (state tokens and event constructors) and the `Event`, `State`, `Input`, `Memory` and `Snapshot` Schemas.
+
+<small>Source: Machines O1</small>
+
+### `id`
+
+**What:** The definition's name, such as `"Auth/SignIn"`.
+
+**Why it exists:** Tools, persistence and inspection need a stable identity that is not the variable name.
+
+- Required, and compared exactly as spelled.
+
+<small>Source: Machines O1</small>
+
+### `states`
+
+**What:** An ordered list of leaf names and single-key compounds that hold child lists.
+
+**Why it exists:** One tree says what the actor can be; exactly one leaf is active, and children share the actor's memory.
+
+- `S.TWO_FACTOR.ENTERING` names a nested state; `S.TWO_FACTOR.is(snapshot)` is true for any child of it.
+- The machine must mirror this tree and cannot add states.
+
+<small>Source: Machines O1, O2</small>
+
+### `events`
+
+**What:** The public events anyone may send, as names mapped to Schema field records.
+
+**Why it exists:** Views, other actors and tests need one checked list of what can be sent.
+
+```ts
+// validates now, throws InvalidEvent if wrong
+const e = E.Pay({ paymentMethodId: "pm_1" })
+```
+
+- Outside callers can send only these; a bad payload fails before any turn exists.
+- Proposed addition: a payload may be a `Schema.Struct(...)` with checks, refused at admission before guards run.
+
+<small>Source: Machines O1 · machine-design 2.2.1</small>
+
+### `internalEvents`
+
+**What:** Events the machine sends to itself, from schedules and operation outcomes.
+
+**Why it exists:** Timers and server answers must enter the machine as ordinary events, without letting outside code fake them.
+
+- Sending one from outside is a type error.
+- A name cannot be both public and internal.
+
+<small>Source: Machines O1, O5, O6</small>
+
+### `Flow.uncertain(fields)`
+
+**What:** Marks an internal event as the uncertain kind.
+
+**Why it exists:** A call that timed out may or may not have happened, and the type system should keep that apart from a clean failure.
+
+- Only events marked this way may be the target of the `unknown`, `interrupt` and `defect` outcomes.
+
+<small>Source: machine-design 2.2.1</small>
+
+### `memory`
+
+**What:** The actor's data, as Schema fields, changed only by accepted transitions.
+
+**Why it exists:** State says where the actor is; memory holds the values that go with it.
+
+- Each field starts from exactly one source: `Flow.input`, `Flow.initial`, or absence for an optional key.
+- Disagreement: Machines O1 says nonempty memory requires a top-level `initial({ input })`. machine-design removes both for the modifiers below. The plan wins until that amendment is accepted.
+
+<small>Source: Machines O1 · machine-design 2.2.2</small>
+
+### `Flow.input(schema)`
+
+**What:** A memory field the creator supplies when it creates the actor.
+
+**Why it exists:** It replaces a separate `input` block, so a field's origin is written on the field.
+
+```ts
+useActor(CheckoutMachine, { input: { intentId: "pi_1", amountCents: 4200 } })
+```
+
+- After creation it is ordinary, writable memory. Never combine with `Flow.initial`.
+
+<small>Source: machine-design 2.2.2</small>
+
+### `Flow.initial(schema, value or fn)`
+
+**What:** A field's starting value: a constant, or a pure function of the input fields and constant initials.
+
+**Why it exists:** Starting memory must be pure, because it also runs while rendering, so it takes only plain values or a pure function.
+
+- Never runs on restore. A computed initial cannot read another computed field.
+
+<small>Source: machine-design 2.2.2</small>
+
+### `Flow.private(schema)`
+
+**What:** A memory field only its owner can see.
+
+**Why it exists:** Bookkeeping such as counters should not become part of what views depend on.
+
+- Outside types omit it; Stories and Inspection still see it. `Flow` stays outermost: `Flow.private(Flow.initial(...))`.
+
+<small>Source: machine-design 2.2.2 · Machines O8 amendment</small>

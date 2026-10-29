@@ -1,0 +1,235 @@
+# Machine
+
+`machine(def, body)` adds behaviour to a definition: handlers, transitions, guards and timers.
+
+## Example: checkout
+
+The definition is the checkout one from the Definition page.
+
+```ts
+import { deny, machine } from "flow-state"
+import { Checkout } from "./checkout.definition"
+
+const MAX_DECLINES = 5
+
+export const CheckoutMachine = machine(Checkout, ({ S, E, O }) => {
+  // An operation call. Its outcomes come back as this machine's own events.
+  const pay = O.Stripe.confirm.commit(
+    ({ memory, event }) => ({
+      intentId: memory.intentId,
+      paymentMethodId: event.paymentMethodId,
+    }),
+    {
+      outcomes: {
+        success: E.Paid,
+        failure: {
+          CardDeclined: E.Declined.from((r, { input }) => ({
+            code: r.declineCode,
+            paymentMethodId: input.paymentMethodId,
+          })),
+        },
+      },
+    },
+  )
+
+  return {
+    // required on the root and every compound
+    default: S.CARD,
+
+    // root handler: applies in every state
+    on: {
+      Leave: {
+        target: S.LEFT,
+        guard: ({ state }) => !S.DONE.is(state) || deny("NothingToLeave"),
+      },
+    },
+
+    states: {
+      CARD: {
+        on: {
+          EditCart: {
+            target: "self",
+            updateMemory: ({ event }) => ({ amountCents: event.amountCents }),
+          },
+          Pay: {
+            target: S.PAYING,
+            guard: [                               // all must pass
+              ({ memory }) =>
+                memory.declines < MAX_DECLINES || deny("TooManyDeclines"),
+              ({ memory }) =>
+                memory.error === null || deny("FixError", { e: memory.error }),
+            ],
+            updateMemory: () => ({ error: null }),
+            // starts after the turn commits
+            actions: [pay],
+          },
+        },
+      },
+
+      PAYING: {
+        // armed on entry
+        schedules: { slow: { schedule: "10 seconds", send: E.Slow } },
+        on: {
+          Slow: { target: "self", updateMemory: () => ({ slow: true }) },
+          // a bare token is { target: S.DONE }
+          Paid: S.DONE,
+          Declined: {
+            target: S.CARD,
+            updateMemory: ({ memory }) => ({
+              error: "Card declined",
+              declines: memory.declines + 1,
+            }),
+          },
+        },
+      },
+
+      DONE: {},
+      LEFT: {},
+    },
+  }
+})
+```
+
+## Example: a fragment inside a host
+
+A `Countdown` fragment (defined under Fragments, later) is placed in the sign-in definition as the `resendCooldown` trait.
+
+```ts
+// Host machine: Resend starts the cooldown.
+Resend: {
+  target: "self",
+  guard: ({ schedules }) =>
+    schedules.resendCooldown.done === undefined || deny("CoolingDown"),
+  actions: [resendCode],
+  // feeds a fact into the fragment
+  raise: [E.resendCooldown.Start],
+},
+// ...
+// host's answer to notify
+traits: { resendCooldown: { callbacks: { onDone: { target: "self" } } } },
+
+// Inside the Countdown fragment's body:
+// tells the host it finished
+Done: { target: "self", notify: [callbacks.onDone] },
+```
+
+## Keywords
+
+### `machine(def, body)`
+
+**What:** Binds behaviour to a definition; the body runs once with `{ S, E, O }` and returns static configuration.
+
+**Why it exists:** Keeping behaviour out of the definition lets one shape have several behaviours, and keeps targets and events checkable at construction.
+
+- The configuration mirrors the state tree; the machine cannot add states, events or operations.
+
+<small>Source: Machines O1</small>
+
+### `default`
+
+**What:** The child state a compound or the root enters first.
+
+**Why it exists:** Entering a compound must end on one leaf, in one publication, with no half-entered state.
+
+- Required on the root and every compound; leaves have none.
+
+<small>Source: Machines O1, O2</small>
+
+### `on`
+
+**What:** Maps an event name to a token, a transition, or an ordered list of alternatives.
+
+**Why it exists:** Handlers sit on the state they belong to, and a parent's handler covers all its children.
+
+- The active leaf is tried first, then each ancestor to the root; the first passing alternative wins, and if all decline it falls through.
+- No enabled transition means nothing changes and no work starts.
+
+<small>Source: Machines O2</small>
+
+### `target`
+
+**What:** Where a transition goes: a state token, or `"self"`.
+
+**Why it exists:** `"self"` lets a handler change data without leaving, exiting or restarting anything.
+
+- An explicit token re-enters itself if active; targeting an active ancestor re-enters it through its defaults.
+
+<small>Source: Machines O2</small>
+
+### `guard`
+
+**What:** A check on a transition that returns `true` or `deny(code)`.
+
+**Why it exists:** Policy lives beside the handler, and `check` can run the same guards so a view knows what is allowed.
+
+- It reads the pre-turn `{ event, state, memory, context, activities }` and starts no work.
+- Proposed addition: an array means all must pass, and a state token in it passes when the actor is at or below that state. The plan shows a single guard.
+
+<small>Source: Machines O4 · machine-design 2.2, 2.4</small>
+
+### `deny(code, context?)`
+
+**What:** The refusal a guard returns: a literal code and optional JSON-safe context.
+
+**Why it exists:** `false` says nothing; a code tells a view why a button is disabled. `false` is a type error.
+
+```ts
+check(snapshot, E.Pay({ paymentMethodId: "pm_1" }))
+// { _tag: "Denied", reasons: [{ code: "TooManyDeclines" }] }
+```
+
+- `check` answers `Allowed`, `Denied` or `Unhandled` without changing anything.
+- Proposed addition: `deny` returns plain data (`Flow.Denial`), so a reason can be kept in memory.
+
+<small>Source: Machines O4 · machine-design 2.2.1</small>
+
+### `updateMemory`
+
+**What:** Returns a partial memory patch for an accepted transition.
+
+**Why it exists:** Memory changes only through transitions, so the snapshot always matches an event that was accepted.
+
+- It reads the pre-turn snapshot, so it sees the old value of any key the same turn writes. Read the event instead.
+
+<small>Source: Machines O3</small>
+
+### `actions`
+
+**What:** The finite work a transition starts, such as an operation call.
+
+**Why it exists:** Work starts only from accepted transitions, after the new state is published, so a refused event never causes I/O.
+
+- One invalid action rejects the whole turn. Operation semantics belong to Server calls (later).
+
+<small>Source: Machines O3, O6</small>
+
+### `schedules`
+
+**What:** Timers a state arms on entry and cancels on exit; each sends an event when it fires.
+
+**Why it exists:** Time becomes an ordinary event, so deadlines are testable and visible in the snapshot.
+
+- `"self"` and child changes keep deadlines. Details are for Schedules (later).
+
+<small>Source: Machines O5</small>
+
+### `raise`
+
+**What:** A host transition's way of feeding an event into a fragment.
+
+**Why it exists:** Fragments do no I/O, so the host reports facts to them; only the direct host may.
+
+- If the fragment has no handler or declines, the whole turn is refused.
+- `raise` stays as the word for now (open-items, 2026-10-29).
+
+<small>Source: machine-design 2.2, 2.4 rule 2</small>
+
+### `notify`
+
+**What:** A fragment's way of telling its host something happened; the host fills the callback.
+
+**Why it exists:** The fragment cannot reach out, so the host decides what its events mean.
+
+- A callback may not move the host out of the fragment's placement node. Machines O2 has no `notify`; it is a fragment feature.
+
+<small>Source: machine-design 2.2, 2.4 rule 6</small>
