@@ -3,9 +3,9 @@
 // same machine and the same fixture, and asserts server truth.
 import { Deferred, Effect, Layer } from "effect"
 import * as TestClock from "effect/testing/TestClock"
-import { type Legacy, makeActor } from "./flow.ts"
-import { Booking, Checkout, Likes, Shell, SignIn, Upload } from "./machines.ts"
-import { AuthApi, type ChargeResponse, DocsApi, LikesApi, NoResponse, PaymentsApi, RefundsApi, UploadsApi } from "./operations.ts"
+import { checkLate, type Legacy, machine, makeActor, type Uncertain } from "./flow.ts"
+import { Booking, Checkout, Likes, makeCheckout, makeShell, SignIn, Upload } from "./machines.ts"
+import { AuthApi, type ChargeResponse, charge, DocsApi, LikesApi, NoResponse, PaymentsApi, RefundsApi, UploadsApi } from "./operations.ts"
 
 // ── fixtures: stateful fake servers ──────────────────────────────────────────────────────────────────────────
 /** Stripe-like: 100 ms each way; dedups by idempotency key; a key still running answers 429 (lock). */
@@ -130,7 +130,7 @@ const main = async () => {
         return a.trace
       }))
     console.log(`   server truth: charges=${f.truth.charges} keys=${JSON.stringify(f.truth.keys)}`)
-    if (legacy.perSendFailure) check(f.truth.charges === 2, "old rule: the card is charged twice (reproduces correctness C3)")
+    if (legacy.perSendFailure) check(f.truth.charges >= 2, `old rule: Busy after an unknown send counts as definite, so each new write charges again: charged ${f.truth.charges} times (reproduces correctness C3)`)
     else check(f.truth.charges === 1 && state === "DONE", "charged once; the machine never said 'not charged'")
   }
 
@@ -171,13 +171,16 @@ const main = async () => {
     check(f.truth.charges === 1 && state === "DONE", "charged once, reconciled by key")
   }
 
-  // ── P5: Save, leave, come back, Save again while the first is in flight. No `!pending` guard in the machine.
-  for (const legacy of [{}, { silentReject: true }] as Legacy[]) {
-    let out = { state: "", verdict: "" }
-    const f = await run(`P5 decline: ${legacy.silentReject ? "OLD (reject declines silently)" : "NEW (reject is an implicit guard: Denied InFlight)"}`,
+  // ── P5: Save, leave, come back, Save again while the first is in flight. Three forms of the same machine.
+  for (const mode of ["old", "ending", "idle"] as const) {
+    let out = { state: "", verdict: "", toast: null as string | null }
+    const title = mode === "old" ? "OLD (reject declines silently: no ending)"
+      : mode === "ending" ? "NEW (rule 4: the transition runs, the write ends NotSent Rejected)"
+      : "NEW (rule 4 + save.idle(key) in the guard: check() refuses the transition)"
+    const f = await run(`P5 decline: ${title}`,
       () => fakeDocs(),
       () => Effect.gen(function* () {
-        const a = makeActor(Shell, { legacy })
+        const a = makeActor(makeShell(mode === "idle"), { legacy: mode === "old" ? { silentReject: true } : {} })
         yield* a.boot
         yield* a.send({ _tag: "Edit", body: "v1" })
         yield* a.send({ _tag: "Save" })
@@ -189,21 +192,22 @@ const main = async () => {
         a.trace.push(`         check(Save) = ${verdict}   (what the view's button reads)`)
         yield* a.send({ _tag: "Save" })
         yield* a.advance(5_000)
-        out = { state: a.state, verdict }
+        out = { state: a.state, verdict, toast: a.memory.toast }
         return a.trace
       }))
-    console.log(`   server truth: puts=${f.truth.puts}; final state ${out.state}`)
-    if (legacy.silentReject) check(out.state === "DOC.SAVING", "old rule: SAVING waits forever (reproduces correctness C5)")
-    else check(out.verdict === `Denied ["InFlight"]` && out.state === "DOC.EDITING", "the second Save is Denied and the user stays in EDITING")
+    console.log(`   server truth: puts=${f.truth.puts}; final state ${out.state}; toast "${out.toast}"`)
+    if (mode === "old") check(out.state === "DOC.SAVING", "old rule: SAVING waits forever (reproduces correctness C5)")
+    else if (mode === "ending") check(out.verdict === "Allowed" && out.state === "DOC.EDITING" && f.truth.puts === 1, "the decline is an ending: SaveDeclined brings SAVING back to EDITING; one PUT")
+    else check(out.verdict === `Denied ["InFlight"]` && out.state === "DOC.EDITING" && f.truth.puts === 1, "save.idle refuses the transition; check() and the button agree")
   }
 
-  // ── P6 (+P21): Busy with Retry-After, then the same Attempt again. Its ending arrives through the call's own events.
-  for (const legacy of [{}, { sameWireKey: true }] as Legacy[]) {
+  // ── P6 (+P21): Busy (a definite failure) with Retry-After; the server stores that failure under the write's id.
+  for (const onBusy of ["retrySameId", "newWrite"] as const) {
     let state = ""
-    const f = await run(`P6 retry mapping: ${legacy.sameWireKey ? "OLD wire key (the Attempt id again: the server replays its cached 503)" : "NEW (pay.retry(): same Attempt, same outcomes, fresh wire key after a definite failure)"}`,
+    const f = await run(`P6 Busy, then again: ${onBusy === "retrySameId" ? "OLD (pay.retry(): the same id, so the stored 503 is replayed)" : "NEW (rule 7: a new write with a new id, budgeted in memory)"}`,
       () => fakeStripe({ processingMs: 300, script: [{ status: 503, retryAfterMs: 2_000 }], cacheFailures: true }),
       () => Effect.gen(function* () {
-        const a = makeActor(Checkout, { legacy })
+        const a = makeActor(makeCheckout(onBusy))
         yield* a.boot
         yield* a.send({ _tag: "Pay" })
         yield* a.advance(12_000)
@@ -211,8 +215,8 @@ const main = async () => {
         return a.trace
       }))
     console.log(`   server truth: charges=${f.truth.charges} keys=${JSON.stringify(f.truth.keys)}`)
-    if (legacy.sameWireKey) check(f.truth.charges === 0 && state === "CARD", "old key: the cached failure comes back every time (reproduces correctness C12)")
-    else check(f.truth.charges === 1 && state === "DONE", "Busy(a1#1) → WAITING 2 s (from Retry-After) → retry → Paid(a1#2), mapped by the same outcomes")
+    if (onBusy === "retrySameId") check(f.truth.charges === 0 && state === "CARD", "same id: the stored failure comes back every time (reproduces correctness C12)")
+    else check(f.truth.charges === 1 && state === "DONE" && f.truth.keys.length === 2 && f.truth.keys[0] !== f.truth.keys[1], "Busy(a1) → WAITING 2 s (Retry-After) → new write a2 → Paid; charged once")
   }
 
   // ── P8: cancel an upload whose body is already going; clean up.
@@ -296,6 +300,50 @@ const main = async () => {
       }))
     console.log(`   server truth: files=${f.truth.files.size}; final state ${state}`)
     check(state === "CANCELLED" && f.truth.files.size === 0, "NotSent → UploadNotSent: nothing left the device, no clean-up needed")
+  }
+
+  // ── D9 + D11: two commit values of one transaction share a lane; retry uses the starter's outcomes; a settled lane is evicted.
+  {
+    type Ev = { readonly _tag: "A" } | { readonly _tag: "B" } | { readonly _tag: "Again" } | { readonly _tag: "PaidA" } | { readonly _tag: "PaidB" } | { readonly _tag: "No" }
+      | Uncertain<{ readonly _tag: "UnsureA" }> | Uncertain<{ readonly _tag: "UnsureB" }>
+    const m = machine<Ev>()({ memory: {}, operations: { P: { charge } } })
+    const viaA = m.O.P.charge.commit(() => ({ cents: 1 }), { outcomes: { success: m.E.PaidA, failure: { Declined: m.E.No, Busy: m.E.No, NotSent: m.E.No }, unknown: m.E.UnsureA } })
+    const viaB = m.O.P.charge.commit(() => ({ cents: 1 }), { outcomes: { success: m.E.PaidB, failure: { Declined: m.E.No, Busy: m.E.No, NotSent: m.E.No }, unknown: m.E.UnsureB } })
+    const spec = m.define({ initial: "S", states: { S: { on: {
+      A: { target: "self", actions: [viaA] }, B: { target: "self", actions: [viaB] }, Again: { target: "self", actions: [viaB.retry()] },
+      PaidA: { target: "self" }, PaidB: { target: "self" }, No: { target: "self" }, UnsureA: { target: "self" }, UnsureB: { target: "self" },
+    } } } })
+    let lanes = { during: 0, after: 0, retryCount: -1 }
+    const f = await run("D9 + D11 one lane per transaction and key: B is declined while A runs; B's retry uses A's outcomes; the lane is evicted",
+      () => fakeStripe({ processingMs: 300, dropFirst: true }),
+      () => Effect.gen(function* () {
+        const a = makeActor(spec)
+        yield* a.boot
+        yield* a.send({ _tag: "A" })
+        yield* a.send({ _tag: "B" })                  // the same lane: NotSent Rejected, mapped through viaB's outcomes
+        yield* a.advance(1_200)                       // A ends unknown (dropped response)
+        lanes.during = a.laneCount
+        yield* a.send({ _tag: "Again" })              // retry on viaB: the starter (viaA) maps the ending
+        yield* a.advance(2_000)
+        lanes.after = a.laneCount
+        lanes.retryCount = viaA.retryCount(a.view)
+        return a.trace
+      }))
+    console.log(`   server truth: charges=${f.truth.charges}; lanes held after unknown=${lanes.during}, after success=${lanes.after}; retryCount read after eviction=${lanes.retryCount}`)
+    check(f.truth.charges === 1 && lanes.during === 1 && lanes.after === 0 && lanes.retryCount === 0, "one charge; the retry's Paid is PaidA (the starter's); the settled lane is gone and reads as fresh")
+  }
+
+  // ── D13: every late-routable event has a handler on a strict ancestor (the `flow check` rule, spiked as checkLate).
+  {
+    console.log("\nD13 late handlers (checkLate, a stand-in for flow check)")
+    for (const [name, spec] of [["Checkout", Checkout], ["CheckoutRetrySameId", makeCheckout("retrySameId")], ["SignIn", SignIn], ["Shell", makeShell(false)], ["ShellIdle", makeShell(true)], ["Upload", Upload], ["Likes", Likes], ["Booking", Booking]] as const) {
+      const errors = checkLate(spec)
+      check(errors.length === 0, `${name}: every late event handled${errors.length ? ` (${errors.join("; ")})` : ""}`)
+    }
+    const broken = { ...SignIn, states: { ...SignIn.states, "": { on: { ...SignIn.states[""].on, CodeWrong: undefined } } } }
+    const errors = checkLate(broken as typeof SignIn)
+    console.log(`   SignIn without its root CodeWrong handler: ${JSON.stringify(errors)}`)
+    check(errors.some((e) => e.startsWith("CodeWrong")), "a missing late handler is reported, naming the event and the state whose leaving makes it late")
   }
 
   console.log(`\n${failures === 0 ? "all stories pass" : `${failures} FAILED`}`)

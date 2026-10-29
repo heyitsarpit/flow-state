@@ -1,11 +1,11 @@
 // editing list (B1 likes, B2 create with a temporary id), rewritten with calls-next in the in-machine-calls syntax. list.operations.ts is unchanged
-// except `concurrency: "latest"` on setLike and `attempt.idempotencyKey` (rule 7).
+// except `concurrency: "latest"` on setLike; commits put `attempt.id` on the wire (rule 7).
 // ───────────────────────────────────────────────── list.definition.ts
 import { definition, deny, Flow, machine } from "flow-state"
 import { Schema } from "effect"
 import { Issues } from "./list.operations"
 
-export const MAX_LIKE_SENDS = 4
+export const MAX_LIKE_RESENDS = 3
 
 export const Item = Schema.Struct({
   id: Schema.String,                        // the temp id until the server answers, then the real one
@@ -83,14 +83,15 @@ export const ListMachine = machine(List, ({ S, E, O }) => {
       failure: {
         Invalid: E.CreateFailed.from((r, { input }) => ({ tempId: input.clientId, message: r.message })),
         Refused: E.CreateFailed.from((r, { input }) => ({ tempId: input.clientId, message: `Refused (${r.status})` })),
+        NotSent: E.CreateFailed.from((r, { input }) => ({ tempId: input.clientId, message: `Not sent (${r.why})` })),   // reject (rule 8)
       },
       unknown: E.CreateUnsure.from((_r, { input }) => ({ tempId: input.clientId })),
     },
   })
-  const renameOutcomes = { success: E.Renamed, failure: { Gone: E.ItemGone.from((_r, { input }) => ({ id: input.id })), Refused: E.RenameNotConfirmed }, unknown: E.RenameNotConfirmed }
+  const renameOutcomes = { success: E.Renamed, failure: { Gone: E.ItemGone.from((_r, { input }) => ({ id: input.id })), Refused: E.RenameNotConfirmed, NotSent: E.RenameNotConfirmed }, unknown: E.RenameNotConfirmed }
   // Edit, and Created: the row's title after this turn's patch (rule 10) is the latest edit, queued or not
   const rename = O.Issues.renameIssue.commit(({ memory, event }) => ({ id: event.id, title: byId(memory, event.id)?.title ?? event.title }), { outcomes: renameOutcomes })
-  const removeOutcomes = { success: E.Removed.from((_v, { input }) => ({ id: input.id })), failure: { Refused: E.RemoveNotConfirmed.from((_r, { input }) => ({ id: input.id })) }, unknown: E.RemoveNotConfirmed.from((_r, { input }) => ({ id: input.id })) }
+  const removeOutcomes = { success: E.Removed.from((_v, { input }) => ({ id: input.id })), failure: { Refused: E.RemoveNotConfirmed.from((_r, { input }) => ({ id: input.id })), NotSent: E.RemoveNotConfirmed.from((_r, { input }) => ({ id: input.id })) }, unknown: E.RemoveNotConfirmed.from((_r, { input }) => ({ id: input.id })) }
   const remove = O.Issues.removeIssue.commit(({ event }) => ({ id: event.id }), { outcomes: removeOutcomes })   // Delete, and Created (the real id)
 
   const rowSynced = ({ memory, event }) => { const i = byId(memory, event.id); return (i?.sync === "synced" && !i.deleted) || deny("NotCreatedYet") }
@@ -128,7 +129,7 @@ export const ListMachine = machine(List, ({ S, E, O }) => {
           LikeSkipped: { target: "self" },
           LikeUnsure: [
             { target: "self", guard: ({ event }) => event.superseded || deny("Latest") },
-            { target: "self", guard: (g) => like.at(g, { id: g.event.id }).sends < MAX_LIKE_SENDS || deny("GaveUp"), updateMemory: ({ memory, event }) => ({ likeUnsure: [...without(memory.likeUnsure, event.id), event.id] }) },
+            { target: "self", guard: (g) => like.retryCount(g, { id: g.event.id }) < MAX_LIKE_RESENDS || deny("GaveUp"), updateMemory: ({ memory, event }) => ({ likeUnsure: [...without(memory.likeUnsure, event.id), event.id] }) },
             { target: "self", updateMemory: ({ memory, event }) => ({ likeUnsure: without(memory.likeUnsure, event.id), toast: "Couldn't confirm your like" }) },
           ],
           ReconcileLike: [
@@ -157,14 +158,14 @@ export const ListMachine = machine(List, ({ S, E, O }) => {
           ],
           CreateUnsure: [
             // a hidden row (deleted while sending) has no Retry button: ask again ourselves, same Attempt, at most 4 sends
-            { guard: [tempRow((i) => i.deleted, "NotDeleted"), (g) => create.at(g, { clientId: g.event.tempId }).sends < 4 || deny("GaveUp")], target: "self", actions: [create.retry(({ event }) => ({ clientId: event.tempId }))] },
+            { guard: [tempRow((i) => i.deleted, "NotDeleted"), (g) => create.retryCount(g, { clientId: g.event.tempId }) < 3 || deny("GaveUp")], target: "self", actions: [create.retry(({ event }) => ({ clientId: event.tempId }))] },
             { target: "self", updateMemory: ({ memory, event }) => ({ items: editTemp(memory, event.tempId, (i) => ({ ...i, sync: "unsure" })) }) },
           ],
           Retry: {
-            guard: [({ memory, event }) => ["failed", "unsure"].includes(byId(memory, event.id)?.sync ?? "") || deny("NothingToRetry")],
+            guard: [({ memory, event }) => ["failed", "unsure"].includes(byId(memory, event.id)?.sync ?? "") || deny("NothingToRetry"), create.idle(({ event }) => ({ clientId: event.id }))],
             target: "self",
             updateMemory: ({ memory, event }) => ({ items: editId(memory, event.id, (i) => ({ ...i, sync: "sending", failure: null })) }),
-            actions: [create.retry(({ event }) => ({ clientId: event.id }))],          // same Attempt; NothingToResend is implicit (rule 4)
+            actions: [create.retry(({ event }) => ({ clientId: event.id }))],          // same Attempt; NothingToResend would end NotSent (rule 4)
           },
 
           Edit: [
@@ -176,7 +177,7 @@ export const ListMachine = machine(List, ({ S, E, O }) => {
             },
           ],
           Delete: [
-            { guard: [rowSynced], target: "self", updateMemory: ({ memory, event }) => ({ items: editId(memory, event.id, (i) => ({ ...i, deleted: true })) }), actions: [remove] },
+            { guard: [rowSynced, remove.idle(({ event }) => ({ id: event.id }))], target: "self", updateMemory: ({ memory, event }) => ({ items: editId(memory, event.id, (i) => ({ ...i, deleted: true })) }), actions: [remove] },
             { guard: [({ memory, event }) => byId(memory, event.id)?.sync === "failed" || deny("NotFailed")], target: "self", updateMemory: ({ memory, event }) => dropId(memory, event.id) },
             { guard: [rowExists], target: "self", updateMemory: ({ memory, event }) => ({ items: editId(memory, event.id, (i) => ({ ...i, deleted: true })) }) },   // Created deletes it
           ],

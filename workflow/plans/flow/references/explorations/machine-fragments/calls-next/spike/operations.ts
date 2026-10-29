@@ -25,7 +25,7 @@ export const charge = transaction({
   concurrency: "reject",
   commit: (input, { attempt }) => Effect.gen(function* () {
     const api = yield* PaymentsApi
-    const res = yield* api.charge(input, { idempotencyKey: attempt.idempotencyKey }).pipe(
+    const res = yield* api.charge(input, { idempotencyKey: attempt.id }).pipe(
       Effect.catchTag("NoResponse", (e) => Outcome.unknown(e)))                         // dropped: maybe charged
     if (res.status === 402) return yield* Outcome.failure(new Declined({ code: "card_declined" }))
     // 429 lock_timeout: "another request with this key is running". The builder's classification (a failure)
@@ -72,7 +72,7 @@ export const save = transaction({
   concurrency: "reject",
   commit: (doc, { attempt }) => Effect.gen(function* () {
     const api = yield* DocsApi
-    const res = yield* api.put(doc, { idempotencyKey: attempt.idempotencyKey }).pipe(Effect.catchTag("NoResponse", (e) => Outcome.unknown(e)))
+    const res = yield* api.put(doc, { idempotencyKey: attempt.id }).pipe(Effect.catchTag("NoResponse", (e) => Outcome.unknown(e)))
     if (res.status === 409) return yield* Outcome.failure(new Conflict({ serverRev: res.rev }))
     if (res.status >= 500) return yield* Outcome.unknown(new ServerError({ status: res.status }))
     return yield* Outcome.success({ rev: res.rev })
@@ -93,7 +93,7 @@ export const upload = transaction({
   concurrency: "reject",
   commit: (input, { attempt }) => Effect.gen(function* () {
     const api = yield* UploadsApi
-    return yield* api.put(input.ref, { idempotencyKey: attempt.idempotencyKey }).pipe(Effect.catchTag("NoResponse", (e) => Outcome.unknown(e)))
+    return yield* api.put(input.ref, { idempotencyKey: attempt.id }).pipe(Effect.catchTag("NoResponse", (e) => Outcome.unknown(e)))
   }),
 })
 export const discard = transaction({
@@ -120,7 +120,7 @@ export const setLike = transaction({
   concurrency: "latest",
   commit: (input, { attempt }) => Effect.gen(function* () {
     const api = yield* LikesApi
-    return yield* api.set(input.id, input.liked, { idempotencyKey: attempt.idempotencyKey }).pipe(Effect.catchTag("NoResponse", (e) => Outcome.unknown(e)))
+    return yield* api.set(input.id, input.liked, { idempotencyKey: attempt.id }).pipe(Effect.catchTag("NoResponse", (e) => Outcome.unknown(e)))
   }),
 })
 
@@ -135,6 +135,6 @@ export const refund = transaction({
   concurrency: "reject",
   commit: (input, { attempt }) => Effect.gen(function* () {
     const api = yield* RefundsApi
-    return yield* api.refund(input.chargeId, { idempotencyKey: attempt.idempotencyKey }).pipe(Effect.catchTag("NoResponse", (e) => Outcome.unknown(e)))
+    return yield* api.refund(input.chargeId, { idempotencyKey: attempt.id }).pipe(Effect.catchTag("NoResponse", (e) => Outcome.unknown(e)))
   }),
 })

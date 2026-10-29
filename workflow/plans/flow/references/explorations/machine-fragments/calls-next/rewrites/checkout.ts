@@ -1,5 +1,5 @@
 // checkout (E1-E3), rewritten with calls-next in the in-machine-calls syntax. checkout.operations.ts is unchanged
-// except that each commit sends `attempt.idempotencyKey` instead of `attempt.id` (rule 7).
+// except that each commit puts `attempt.id` on the wire (rule 7, unchanged from the builds).
 // ───────────────────────────────────────────────── checkout.definition.ts
 import { definition, deny, Flow, machine } from "flow-state"
 import { Duration, Schedule, Schema } from "effect"
@@ -33,6 +33,7 @@ export const Checkout = definition({
     declines: Flow.initial(Schema.Int, 0),
     blockedPaymentMethodId: Flow.initial(Schema.NullOr(Schema.String), null),
     retryInMs: Flow.initial(Schema.Int, 0),
+    busyTries: Flow.initial(Schema.Int, 0),     // Busy is definite: tried again as new writes, so its budget is memory (rule 7)
     chargeId: Flow.initial(Schema.NullOr(Schema.String), null),
   },
   operations: { Stripe },
@@ -58,7 +59,7 @@ export const CheckoutMachine = machine(Checkout, ({ S, E, O }) => {
         Busy: E.Busy.from((r) => ({ retryAfterMs: r.retryAfterMs })),
         TooManyAttempts: E.TooManyAttempts,
         Rejected: E.Refused,
-        NotSent: E.TryLater,                                       // required: this machine cancels (rule 8)
+        NotSent: E.TryLater,                                       // required: reject, and this machine cancels and retries (rule 8)
       },
       unknown: E.Unsure,                                           // StillUnknown arrives here too (rule 6)
     },
@@ -75,8 +76,8 @@ export const CheckoutMachine = machine(Checkout, ({ S, E, O }) => {
   const toCard = (error: string) => ({ target: S.CARD, updateMemory: () => ({ error }) })
   const toRead = { target: S.READING, actions: [read.fetch(key)] }
   const paid = { target: S.DONE, guard: ({ event }) => event.status === "succeeded" || deny("NotSucceeded"), updateMemory: ({ event }) => ({ chargeId: event.chargeId ?? null }) }
-  const checkAgain = [
-    { target: S.STUCK, guard: (g) => pay.at(g, key(g)).sends >= MAX_CHECKS || deny("ChecksLeft") },
+  const checkAgain = [   // after an unknown: the same write (pay.retry), budgeted by retryCount
+    { target: S.STUCK, guard: (g) => pay.retryCount(g, key(g)) >= MAX_CHECKS || deny("ChecksLeft") },
     { target: S.PAYING, updateMemory: () => ({ slow: false, error: null }), actions: [pay.retry(key)] },   // same Attempt
     { target: "self" },                                                                            // rule 8: a tick is total
   ]
@@ -96,6 +97,8 @@ export const CheckoutMachine = machine(Checkout, ({ S, E, O }) => {
       Intent: [{ ...paid, guard: [S.LEFT, paid.guard] }, { target: "self" }],
       Unsure: { target: "self", actions: [read.fetch(key)] },
       ChallengeUnsure: { target: "self", actions: [read.fetch(key)] },
+      Declined: { target: "self" }, Busy: { target: "self" }, TooManyAttempts: { target: "self" }, Refused: { target: "self" }, TryLater: { target: "self" },   // late failures: explicit ignores (rule 8, D13)
+      AuthFailed: { target: "self" }, Dismissed: { target: "self" }, ReadFailed: { target: "self" },
     },
 
     states: {
@@ -107,8 +110,9 @@ export const CheckoutMachine = machine(Checkout, ({ S, E, O }) => {
             guard: [
               ({ memory }) => memory.declines < MAX_DECLINES || deny("TooManyDeclines"),
               ({ memory, event }) => event.paymentMethodId !== memory.blockedPaymentMethodId || deny("SameCardDeclined"),
+              pay.idle(key),                                          // a second press is refused, not declined (rule 4)
             ],
-            updateMemory: () => ({ error: null, slow: false }),
+            updateMemory: () => ({ error: null, slow: false, busyTries: 0 }),
             actions: [pay],
           },
         },
@@ -129,7 +133,7 @@ export const CheckoutMachine = machine(Checkout, ({ S, E, O }) => {
             }),
           },
           Busy: [
-            { target: S.WAITING, guard: (g) => pay.at(g, key(g)).sends < 4 || deny("GaveUp"), updateMemory: (g) => ({ retryInMs: g.event.retryAfterMs ?? 1000 * 2 ** pay.at(g, key(g)).sends }) },
+            { target: S.WAITING, guard: ({ memory }) => memory.busyTries < 3 || deny("GaveUp"), updateMemory: ({ memory, event }) => ({ busyTries: memory.busyTries + 1, retryInMs: event.retryAfterMs ?? 1000 * 2 ** memory.busyTries }) },
             toCard("Stripe is busy. Try again shortly."),                  // true: after an unknown send, Busy arrives as Unsure (rule 6)
           ],
           TooManyAttempts: toCard("Too many attempts. Wait a moment and try again."),
@@ -141,7 +145,7 @@ export const CheckoutMachine = machine(Checkout, ({ S, E, O }) => {
 
       WAITING: {
         schedules: { retry: { schedule: ({ memory }) => Duration.millis(memory.retryInMs), send: E.RetryNow } },
-        on: { RetryNow: [{ target: S.PAYING, actions: [pay.retry(key)] }, { target: "self" }] },
+        on: { RetryNow: [{ target: S.PAYING, guard: [pay.idle(key)], actions: [pay] }, { target: "self" }] },   // Busy is definite: a new write, a new id
       },
 
       CHALLENGING: {

@@ -48,16 +48,16 @@ const unlock = (m: Memory, id: string): Partial<Memory> => {
 const fresh = { code: "", codeTouched: false }
 
 export const SignInMachine = machine(SignIn, ({ S, E, O }) => {
-  // one verify per challenge: `reject` on the challengeId key is the implicit InFlight guard (rule 4)
+  const challenge = ({ memory }) => ({ challengeId: memory.challengeId })
   const verify = O.Auth.verifyCode.commit(({ memory }) => ({ challengeId: memory.challengeId, code: memory.code }), {
     outcomes: {
       success: E.CodeAccepted,
-      failure: { WrongCode: E.CodeWrong.from((_r, { input }) => ({ challengeId: input.challengeId })), Expired: E.CodeExpired },   // the call's own challenge
+      failure: { WrongCode: E.CodeWrong.from((_r, { input }) => ({ challengeId: input.challengeId })), Expired: E.CodeExpired, NotSent: E.CodeUnchecked },   // the call's own challenge; NotSent: reject (rule 8)
       unknown: E.CodeUnchecked,
     },
   })
   const resend = O.Auth.resendCode.commit(({ memory }) => ({ challengeId: memory.challengeId }), {
-    outcomes: { success: E.ResendSent, failure: { Throttled: E.ResendRefused }, unknown: E.ResendSent },   // unknown: the SMS may be on its way
+    outcomes: { success: E.ResendSent, failure: { Throttled: E.ResendRefused, NotSent: E.ResendRefused }, unknown: E.ResendSent },   // unknown: the SMS may be on its way
   })
   const notSignedIn = ({ state }) => !S.SIGNED_IN.is(state) || deny("SignedIn")
   return {
@@ -83,6 +83,7 @@ export const SignInMachine = machine(SignIn, ({ S, E, O }) => {
       CodeAccepted: { target: "self" },      // late: the user was told "couldn't check" (v4's accepted cost)
       CodeUnchecked: { target: "self" },
       ResendSent: { target: "self" },        // late: TWO_FACTOR was left
+      CodeExpired: { target: "self" }, ResendRefused: { target: "self" },   // late failures: explicit ignores (rule 8, D13)
       Unlock: [
         { target: S.TWO_FACTOR.ENTERING, guard: [S.TWO_FACTOR.LOCKED_OUT, ({ event, memory }) => event.key === memory.challengeId || deny("OtherChallenge")], updateMemory: ({ event, memory }) => ({ ...unlock(memory, event.key), error: null }) },
         { target: "self", updateMemory: ({ event, memory }) => unlock(memory, event.key) },
@@ -119,8 +120,8 @@ export const SignInMachine = machine(SignIn, ({ S, E, O }) => {
             on: {
               Submit: {
                 target: S.TWO_FACTOR.VERIFYING,
-                // one verify per challenge: `reject` on the challengeId key is the implicit InFlight guard (rule 4)
-                guard: [({ memory }) => sixDigits(memory.code), ({ memory }) => strikesOf(memory, memory.challengeId) < LIMIT || deny("NoTriesLeft")],
+                // one verify per challenge: verify.idle refuses a second Submit while one is in flight (rule 4)
+                guard: [({ memory }) => sixDigits(memory.code), ({ memory }) => strikesOf(memory, memory.challengeId) < LIMIT || deny("NoTriesLeft"), verify.idle(challenge)],
                 updateMemory: () => ({ error: null }),
                 actions: [verify],
               },

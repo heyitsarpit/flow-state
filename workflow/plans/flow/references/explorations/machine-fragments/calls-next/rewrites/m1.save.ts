@@ -1,5 +1,5 @@
 // lifecycle M1 (save, then leave the screen), rewritten with calls-next in the in-machine-calls syntax.
-// m1.save.operations.ts is unchanged except `attempt.idempotencyKey` (rule 7).
+// m1.save.operations.ts is unchanged; the commit puts `attempt.id` on the wire (rule 7).
 // ───────────────────────────────────────────────── m1.save.definition.ts
 import { Duration, Schema } from "effect"
 import { definition, deny, Flow, machine } from "flow-state"
@@ -33,9 +33,10 @@ export const ShellMachine = machine(Shell, ({ S, E, O }) => {
   const save = O.Docs.save.commit(({ memory }) => memory.doc, {
     outcomes: {
       success: E.Saved.from((_v, { input }) => ({ docId: input.docId, body: input.body })),
-      failure: {                                                 // no NotSent: nothing cancels (rule 8)
+      failure: {
         Conflict: E.SaveRejected.from((r, { input }) => ({ docId: input.docId, reason: `someone else saved first (rev ${r.serverRev})` })),
         Invalid: E.SaveRejected.from((r, { input }) => ({ docId: input.docId, reason: r.reason })),
+        NotSent: E.SaveRejected.from((r, { input }) => ({ docId: input.docId, reason: `not sent (${r.why})` })),   // reject (rule 8)
       },
       unknown: E.SaveUnsure.from((_r, { input }) => ({ docId: input.docId })),
     },
@@ -58,7 +59,7 @@ export const ShellMachine = machine(Shell, ({ S, E, O }) => {
       },
       SaveRejected: { target: "self", updateMemory: ({ event }) => ({ dirty: true, ...toast("error", `Could not save: ${event.reason}`, event.docId) }) },
       SaveUnsure: { target: "self", updateMemory: ({ event }) => toast("warn", "Could not confirm the save. It may have gone through.", event.docId) },
-      CheckSave: { target: "self", actions: [save.retry(key)] },   // same Attempt; NothingToResend and InFlight are implicit (rule 4)
+      CheckSave: { target: "self", guard: [save.idle(key)], actions: [save.retry(key)] },   // same Attempt; with nothing to re-send it ends NotSent (rule 4)
       ToastExpired: { target: "self", updateMemory: () => ({ toast: null }) },
       DismissToast: { target: "self", updateMemory: () => ({ toast: null }) },
     },
@@ -69,7 +70,7 @@ export const ShellMachine = machine(Shell, ({ S, E, O }) => {
           EDITING: {
             on: {
               Edit: { target: "self", updateMemory: ({ memory, event }) => ({ doc: { ...memory.doc, title: event.title, body: event.body }, dirty: true }) },
-              Save: { target: "self", guard: ({ memory }) => memory.dirty || deny("Clean"), actions: [save] },   // a second Save while one is in flight: Denied InFlight
+              Save: { target: "self", guard: [({ memory }) => memory.dirty || deny("Clean"), save.idle(key)], actions: [save] },   // a second Save while one is in flight: Denied InFlight
               OpenList: { target: S.LIST, guard: clean },
               OpenSettings: { target: S.SETTINGS, guard: clean },
             },

@@ -24,7 +24,11 @@ export const typed = O.Payments.charge.commit(() => ({ cents: 5 }), {
       Busy: E.Busy.from((e, { attempt }) => {
         // @ts-expect-error: Busy has no `code` (that is Declined's)
         void e.code
-        return { ms: e.retryAfterMs ?? attempt.sends }
+        // @ts-expect-error: the Attempt counts re-sends as `retryCount`; there is no `sends`
+        void attempt.sends
+        // @ts-expect-error: the key on the wire is `attempt.id`; Flow derives no `idempotencyKey` (rule 7)
+        void attempt.idempotencyKey
+        return { ms: e.retryAfterMs ?? attempt.retryCount }
       }),
     },
     unknown: E.UnsureWhy.from((r) => {
@@ -100,9 +104,17 @@ export const keyed = m.define({
           { target: "self", guard: (g) => !saveDoc.pending(g, { docId: g.memory.docId }) || deny("Saving") },
           // @ts-expect-error: the key is { docId }, not { id }
           { target: "self", guard: (g) => !saveDoc.pending(g, { id: "d1" }) || deny("Saving") },
-          // @ts-expect-error: the record may hold no Attempt
-          { target: "self", guard: (g) => typed.at(g).attempt.sends > 0 || deny("None") },
-          { target: "self", guard: (g) => (typed.at(g).attempt?.input.cents ?? 0) >= 0 || deny("None"), actions: [saveDoc.retry(({ memory }) => ({ docId: memory.docId }))] },
+          // @ts-expect-error: the lane is read through pending and retryCount only; there is no record (D6)
+          { target: "self", guard: (g) => typed.at(g) || deny("None") },
+          { target: "self", guard: (g) => saveDoc.retryCount(g, { docId: g.memory.docId }) < 3 || deny("ChecksLeft"), actions: [saveDoc.retry(({ memory }) => ({ docId: memory.docId }))] },
+          // @ts-expect-error: a keyless transaction's lane takes no key
+          { target: "self", guard: (g) => typed.retryCount(g, {}) < 3 || deny("None") },
+          // idle: the guard form of !pending, typed by the transaction's key
+          { target: "self", guard: [saveDoc.idle(({ memory }) => ({ docId: memory.docId })), typed.idle()] },
+          // @ts-expect-error: idle on a keyed transaction needs the key
+          { target: "self", guard: [saveDoc.idle()] },
+          // @ts-expect-error: idle's key select must return { docId }
+          { target: "self", guard: [saveDoc.idle(({ memory }) => ({ id: memory.docId }))] },
         ],
         // @ts-expect-error: there is no Teapot event
         Teapot: { target: "self" },

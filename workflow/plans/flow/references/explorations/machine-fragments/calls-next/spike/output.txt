@@ -1,37 +1,37 @@
-tsc: 0 errors (15 @ts-expect-error checks hold)
+tsc: 0 errors (20 @ts-expect-error checks hold)
 
 P1 mailbox race: NEW (routed when the turn is admitted)
    t=    0 Submit TWO_FACTOR.ENTERING → TWO_FACTOR.VERIFYING
    t=15020 StopWaiting TWO_FACTOR.VERIFYING → TWO_FACTOR.ENTERING
-   t=15020 CodeWrong<WrongCode>(a1#1) [late] TWO_FACTOR.ENTERING
+   t=15020 CodeWrong<WrongCode>(a1) [late] TWO_FACTOR.ENTERING
    PASS the late WrongCode strikes its own challenge at the root
 
 P1 mailbox race: OLD (outcomes/abandoned chosen at settlement)
    t=    0 Submit TWO_FACTOR.ENTERING → TWO_FACTOR.VERIFYING
    t=15020 StopWaiting TWO_FACTOR.VERIFYING → TWO_FACTOR.ENTERING
-   t=15020 CodeWrong<WrongCode>(a1#1) Unhandled: LOST
+   t=15020 CodeWrong<WrongCode>(a1) Unhandled: LOST
    PASS old rule: the strike is lost (reproduces correctness C1)
 
 P2 unknown then failure: NEW (the Attempt's ending: failure after unknown stays unknown)
    t=    0 Pay CARD → PAYING
-   t= 1000 Unsure<unknown:NoResponse>(a1#1) PAYING → UNSURE
+   t= 1000 Unsure<unknown:NoResponse>(a1) PAYING → UNSURE
    t= 2500 CheckTick UNSURE → PAYING
-   t= 2700 Unsure<unknown:StillUnknown>(a1#2) PAYING → UNSURE
+   t= 2700 Unsure<unknown:StillUnknown>(a1+1) PAYING → UNSURE
    t= 3000 TookTooLong discarded (its state was left)
    t= 4200 CheckTick UNSURE → PAYING
-   t= 4400 Unsure<unknown:StillUnknown>(a1#3) PAYING → UNSURE
+   t= 4400 Unsure<unknown:StillUnknown>(a1+2) PAYING → UNSURE
    t= 5500 TookTooLong discarded (its state was left)
    t= 5900 CheckTick UNSURE → PAYING
-   t= 6100 Unsure<unknown:StillUnknown>(a1#4) PAYING → UNSURE
+   t= 6100 Unsure<unknown:StillUnknown>(a1+3) PAYING → UNSURE
    t= 7200 TookTooLong discarded (its state was left)
    t= 7600 CheckTick UNSURE → PAYING
-   t= 7800 Unsure<unknown:StillUnknown>(a1#5) PAYING → UNSURE
+   t= 7800 Unsure<unknown:StillUnknown>(a1+4) PAYING → UNSURE
    t= 8900 TookTooLong discarded (its state was left)
    t= 9300 CheckTick UNSURE → PAYING
-   t= 9500 Unsure<unknown:StillUnknown>(a1#6) PAYING → UNSURE
+   t= 9500 Unsure<unknown:StillUnknown>(a1+5) PAYING → UNSURE
    t=10600 TookTooLong discarded (its state was left)
    t=11000 CheckTick UNSURE → PAYING
-   t=11200 Paid<success>(a1#7) PAYING → DONE
+   t=11200 Paid<success>(a1+6) PAYING → DONE
    t=12300 TookTooLong discarded (its state was left)
    t=14000 TookTooLong discarded (its state was left)
    server truth: charges=1 keys=["a1","a1","a1","a1","a1","a1","a1"]
@@ -39,74 +39,74 @@ P2 unknown then failure: NEW (the Attempt's ending: failure after unknown stays 
 
 P2 unknown then failure: OLD (a failure on a re-send is definite)
    t=    0 Pay CARD → PAYING
-   t= 1000 Unsure<unknown:NoResponse>(a1#1) PAYING → UNSURE
+   t= 1000 Unsure<unknown:NoResponse>(a1) PAYING → UNSURE
    t= 2500 CheckTick UNSURE → PAYING
-   t= 2700 Busy<Busy>(a1#2) PAYING → WAITING
+   t= 2700 Busy<Busy>(a1+1) PAYING → WAITING
    t= 3000 TookTooLong discarded (its state was left)
    t= 3200 RetryNow WAITING → PAYING
-   t= 3400 Busy<Busy>(a1#3) PAYING → WAITING
-   t= 3900 RetryNow WAITING → PAYING
-   t= 4100 Busy<Busy>(a1#4) PAYING → CARD
-            user reads "The bank is busy. You were not charged." and presses Pay again
-   t= 4500 Pay CARD → PAYING
    t= 5500 TookTooLong discarded (its state was left)
-   t= 6200 TookTooLong discarded (its state was left)
-   t= 6900 TookTooLong discarded (its state was left)
-   t= 7500 TookTooLong PAYING
-   t= 7510 Unsure<unknown:Cancelled>(a2#1) PAYING → UNSURE
-   t= 9010 CheckTick UNSURE → PAYING
-   t= 9210 Busy<Busy>(a2#2) PAYING → WAITING
-   t= 9710 RetryNow WAITING → PAYING
-   t= 9910 Busy<Busy>(a2#3) PAYING → WAITING
-   t=10410 RetryNow WAITING → PAYING
-   t=10610 Busy<Busy>(a2#4) PAYING → CARD
-   t=12010 TookTooLong discarded (its state was left)
-   t=12710 TookTooLong discarded (its state was left)
-   t=13410 TookTooLong discarded (its state was left)
-   server truth: charges=2 keys=["a1","a1","a1","a1","a2","a2","a2","a2"]
-   PASS old rule: the card is charged twice (reproduces correctness C3)
+   t= 6200 TookTooLong PAYING
+   t= 6210 Unsure<unknown:Cancelled>(a2) PAYING → UNSURE
+   t= 7710 CheckTick UNSURE → PAYING
+   t= 7910 Busy<Busy>(a2+1) PAYING → WAITING
+   t= 8410 RetryNow WAITING → PAYING
+   t=10710 TookTooLong discarded (its state was left)
+   t=11410 TookTooLong PAYING
+   t=11420 Unsure<unknown:Cancelled>(a3) PAYING → UNSURE
+   t=12920 CheckTick UNSURE → PAYING
+   t=13120 Busy<Busy>(a3+1) PAYING → WAITING
+   t=13620 RetryNow WAITING → PAYING
+   t=15920 TookTooLong discarded (its state was left)
+   t=16620 TookTooLong PAYING
+   t=16630 Unsure<unknown:Cancelled>(a4) PAYING → UNSURE
+   t=18130 CheckTick UNSURE → PAYING
+   t=18330 Busy<Busy>(a4+1) PAYING → CARD
+            user reads "The bank is busy. You were not charged." and presses Pay again
+   t=18500 Pay CARD → PAYING
+   t=21130 TookTooLong discarded (its state was left)
+   t=21500 TookTooLong PAYING
+   t=21510 Unsure<unknown:Cancelled>(a5) PAYING → UNSURE
+   t=23010 CheckTick UNSURE → PAYING
+   t=23210 Busy<Busy>(a5+1) PAYING → WAITING
+   t=23710 RetryNow WAITING → PAYING
+   t=26010 TookTooLong discarded (its state was left)
+   t=26710 TookTooLong PAYING
+   t=26720 Unsure<unknown:Cancelled>(a6) PAYING → UNSURE
+   t=28220 CheckTick UNSURE → PAYING
+   t=28420 Busy<Busy>(a6+1) PAYING → WAITING
+   t=28920 RetryNow WAITING → PAYING
+   server truth: charges=5 keys=["a1","a1","a2","a2","a3","a3","a4","a4","a5","a5","a6","a6","a7"]
+   PASS old rule: Busy after an unknown send counts as definite, so each new write charges again: charged 5 times (reproduces correctness C3)
 
 P3 timeout racing the ending: NEW (.pending until the ending's turn; cancel never rewrites a settled ending)
    t=    0 Pay CARD → PAYING
    t= 3020 TookTooLong PAYING
    t= 3020   Payments.charge cancel: nothing unsettled (no-op, evidence)
-   t= 3020 Paid<success>(a1#1) PAYING → DONE
+   t= 3020 Paid<success>(a1) PAYING → DONE
    server truth: charges=1; screen: DONE ""
    PASS the real ending wins: DONE, charged once
 
 P3 timeout racing the ending: OLD (.pending false at settlement)
    t=    0 Pay CARD → PAYING
    t= 3020 TookTooLong PAYING → CARD
-   t= 3020 Paid<success>(a1#1) [late] CARD
+   t= 3020 Paid<success>(a1) [late] CARD
    server truth: charges=1; screen: CARD "That took too long. You were not charged."
    PASS old rule: 'You were not charged' shown, but the card was charged
 
 P3b timeout before the ending: cancel → unknown(Cancelled) → same Attempt again
    t=    0 Pay CARD → PAYING
    t= 3000 TookTooLong PAYING
-   t= 3010 Unsure<unknown:Cancelled>(a1#1) PAYING → UNSURE
+   t= 3010 Unsure<unknown:Cancelled>(a1) PAYING → UNSURE
    t= 4510 CheckTick UNSURE → PAYING
-   t= 4710 Unsure<unknown:StillUnknown>(a1#2) PAYING → UNSURE
+   t= 4710 Unsure<unknown:StillUnknown>(a1+1) PAYING → UNSURE
    t= 6210 CheckTick UNSURE → PAYING
-   t= 6410 Paid<success>(a1#3) PAYING → DONE
+   t= 6410 Paid<success>(a1+2) PAYING → DONE
    t= 7510 TookTooLong discarded (its state was left)
    t= 9210 TookTooLong discarded (its state was left)
    server truth: charges=1 keys=["a1","a1","a1"]
    PASS charged once, reconciled by key
 
-P5 decline: NEW (reject is an implicit guard: Denied InFlight)
-   t=    0 Edit DOC.EDITING
-   t=    0 Save DOC.EDITING → DOC.SAVING
-   t=  200 OpenList DOC.SAVING → LIST
-   t=  200 OpenDoc LIST → DOC.EDITING
-   t=  200 Edit DOC.EDITING
-            check(Save) = Denied ["InFlight"]   (what the view's button reads)
-   t=  200 Save Denied ["InFlight"]
-   t= 1000 Saved<success>(a1#1) [late] DOC.EDITING
-   server truth: puts=1; final state DOC.EDITING
-   PASS the second Save is Denied and the user stays in EDITING
-
-P5 decline: OLD (reject declines silently)
+P5 decline: OLD (reject declines silently: no ending)
    t=    0 Edit DOC.EDITING
    t=    0 Save DOC.EDITING → DOC.SAVING
    t=  200 OpenList DOC.SAVING → LIST
@@ -114,50 +114,76 @@ P5 decline: OLD (reject declines silently)
    t=  200 Edit DOC.EDITING
             check(Save) = Allowed   (what the view's button reads)
    t=  200 Save DOC.EDITING → DOC.SAVING
-   t=  200   Docs.save start declined silently (legacy)
-   t= 1000 Saved<success>(a1#1) [late] DOC.SAVING
-   server truth: puts=1; final state DOC.SAVING
+   t=  200   Docs.save start declined silently (legacy: no ending)
+   t= 1000 Saved<success>(a1) [late] DOC.SAVING
+   server truth: puts=1; final state DOC.SAVING; toast "Saved rev 1"
    PASS old rule: SAVING waits forever (reproduces correctness C5)
 
-P6 retry mapping: NEW (pay.retry(): same Attempt, same outcomes, fresh wire key after a definite failure)
-   t=    0 Pay CARD → PAYING
-   t=  200 Busy<Busy>(a1#1) PAYING → WAITING
-   t= 2200 RetryNow WAITING → PAYING
-   t= 2700 Paid<success>(a1#2) PAYING → DONE
-   t= 3000 TookTooLong discarded (its state was left)
-   t= 5200 TookTooLong discarded (its state was left)
-   server truth: charges=1 keys=["a1","a1~1"]
-   PASS Busy(a1#1) → WAITING 2 s (from Retry-After) → retry → Paid(a1#2), mapped by the same outcomes
+P5 decline: NEW (rule 4: the transition runs, the write ends NotSent Rejected)
+   t=    0 Edit DOC.EDITING
+   t=    0 Save DOC.EDITING → DOC.SAVING
+   t=  200 OpenList DOC.SAVING → LIST
+   t=  200 OpenDoc LIST → DOC.EDITING
+   t=  200 Edit DOC.EDITING
+            check(Save) = Allowed   (what the view's button reads)
+   t=  200 Save DOC.EDITING → DOC.SAVING
+   t=  200   Docs.save: Rejected (the transition ran; the write ends NotSent)
+   t=  200 SaveDeclined<NotSent:Rejected>(a2) DOC.SAVING → DOC.EDITING
+   t= 1000 Saved<success>(a1) [late] DOC.EDITING
+   server truth: puts=1; final state DOC.EDITING; toast "Saved rev 1"
+   PASS the decline is an ending: SaveDeclined brings SAVING back to EDITING; one PUT
 
-P6 retry mapping: OLD wire key (the Attempt id again: the server replays its cached 503)
+P5 decline: NEW (rule 4 + save.idle(key) in the guard: check() refuses the transition)
+   t=    0 Edit DOC.EDITING
+   t=    0 Save DOC.EDITING → DOC.SAVING
+   t=  200 OpenList DOC.SAVING → LIST
+   t=  200 OpenDoc LIST → DOC.EDITING
+   t=  200 Edit DOC.EDITING
+            check(Save) = Denied ["InFlight"]   (what the view's button reads)
+   t=  200 Save Denied ["InFlight"]
+   t= 1000 Saved<success>(a1) [late] DOC.EDITING
+   server truth: puts=1; final state DOC.EDITING; toast "Saved rev 1"
+   PASS save.idle refuses the transition; check() and the button agree
+
+P6 Busy, then again: OLD (pay.retry(): the same id, so the stored 503 is replayed)
    t=    0 Pay CARD → PAYING
-   t=  200 Busy<Busy>(a1#1) PAYING → WAITING
+   t=  200 Busy<Busy>(a1) PAYING → WAITING
    t= 2200 RetryNow WAITING → PAYING
-   t= 2400 Busy<Busy>(a1#2) PAYING → WAITING
+   t= 2400 Busy<Busy>(a1+1) PAYING → WAITING
    t= 3000 TookTooLong discarded (its state was left)
    t= 4400 RetryNow WAITING → PAYING
-   t= 4600 Busy<Busy>(a1#3) PAYING → WAITING
+   t= 4600 Busy<Busy>(a1+2) PAYING → WAITING
    t= 5200 TookTooLong discarded (its state was left)
    t= 6600 RetryNow WAITING → PAYING
-   t= 6800 Busy<Busy>(a1#4) PAYING → CARD
+   t= 6800 Busy<Busy>(a1+3) PAYING → CARD
    t= 7400 TookTooLong discarded (its state was left)
    t= 9600 TookTooLong discarded (its state was left)
    server truth: charges=0 keys=["a1","a1","a1","a1"]
-   PASS old key: the cached failure comes back every time (reproduces correctness C12)
+   PASS same id: the stored failure comes back every time (reproduces correctness C12)
+
+P6 Busy, then again: NEW (rule 7: a new write with a new id, budgeted in memory)
+   t=    0 Pay CARD → PAYING
+   t=  200 Busy<Busy>(a1) PAYING → WAITING
+   t= 2200 RetryNow WAITING → PAYING
+   t= 2700 Paid<success>(a2) PAYING → DONE
+   t= 3000 TookTooLong discarded (its state was left)
+   t= 5200 TookTooLong discarded (its state was left)
+   server truth: charges=1 keys=["a1","a2"]
+   PASS Busy(a1) → WAITING 2 s (Retry-After) → new write a2 → Paid; charged once
 
 P8 cancel then clean-up: OLD (discard by ref: whatever is there now)
    t=    0 Pick IDLE → UPLOADING
    t=  500 Cancel UPLOADING
-   t=  510 UploadUnsure<unknown:Cancelled>(a1#1) UPLOADING → CLEANING
-   t=  610 Discarded<success>(a2#1) CLEANING → CANCELLED
+   t=  510 UploadUnsure<unknown:Cancelled>(a1) UPLOADING → CLEANING
+   t=  610 Discarded<success>(a2) CLEANING → CANCELLED
    server truth: files=1 refused=0; final state CANCELLED
    PASS old clean-up: the file lands after the discard (reproduces correctness C8)
 
 P8 cancel then clean-up: NEW (discard by the Attempt's key; the server refuses a later arrival)
    t=    0 Pick IDLE → UPLOADING
    t=  500 Cancel UPLOADING
-   t=  510 UploadUnsure<unknown:Cancelled>(a1#1) UPLOADING → CLEANING
-   t=  610 Discarded<success>(a2#1) CLEANING → CANCELLED
+   t=  510 UploadUnsure<unknown:Cancelled>(a1) UPLOADING → CLEANING
+   t=  610 Discarded<success>(a2) CLEANING → CANCELLED
    server truth: files=0 refused=1; final state CANCELLED
    PASS no orphan: the upload that lands at 2 s is refused
 
@@ -165,25 +191,48 @@ P16 latest coalescing: Toggle at 0, 50, 100 ms; each request takes 300 ms
    t=    0 Toggle READY
    t=   50 Toggle READY
    t=  100 Toggle READY
-   t=  100 LikeSkipped<NotSent>(a2#1,superseded) READY
-   t=  300 LikeSynced<success>(a1#1,superseded) READY
-   t=  600 LikeSynced<success>(a3#1) READY
+   t=  100 LikeSkipped<NotSent:Superseded>(a2,superseded) READY
+   t=  300 LikeSynced<success>(a1,superseded) READY
+   t=  600 LikeSynced<success>(a3) READY
    server truth: requests=["a1:true","a3:true"] liked=true
    PASS two requests; the server ends at the last click
 
 P4 compensation chain: leave mid-charge, the charge lands, refund, REFUNDED
    t=    0 Pay CARD → PAYING
    t=  300 Leave PAYING → LEFT
-   t= 1000 Paid<success>(a1#1) [late] LEFT → REFUNDING
-   t= 1300 Refunded<success>(a2#1) REFUNDING → REFUNDED
+   t= 1000 Paid<success>(a1) [late] LEFT → REFUNDING
+   t= 1300 Refunded<success>(a2) REFUNDING → REFUNDED
    server truth: charges=1 refunds=1
    PASS the refund started by a late turn finishes (v4 rule 6 forbade it)
 
 P11 NotSent is producible: cancel while the Attempt's storage ack is pending (50 ms)
    t=    0 Pick IDLE → UPLOADING
    t=   20 Cancel UPLOADING
-   t=   30 UploadNotSent<NotSent>(a1#1) UPLOADING → CANCELLED
+   t=   30 UploadNotSent<NotSent:Cancelled>(a1) UPLOADING → CANCELLED
    server truth: files=0; final state CANCELLED
    PASS NotSent → UploadNotSent: nothing left the device, no clean-up needed
+
+D9 + D11 one lane per transaction and key: B is declined while A runs; B's retry uses A's outcomes; the lane is evicted
+   t=    0 A S
+   t=    0 B S
+   t=    0   Payments.charge: Rejected (the transition ran; the write ends NotSent)
+   t=    0 No<NotSent:Rejected>(a2) S
+   t= 1000 UnsureA<unknown:NoResponse>(a1) S
+   t= 1200 Again S
+   t= 1400 PaidA<success>(a1+1) S
+   server truth: charges=1; lanes held after unknown=1, after success=0; retryCount read after eviction=0
+   PASS one charge; the retry's Paid is PaidA (the starter's); the settled lane is gone and reads as fresh
+
+D13 late handlers (checkLate, a stand-in for flow check)
+   PASS Checkout: every late event handled
+   PASS CheckoutRetrySameId: every late event handled
+   PASS SignIn: every late event handled
+   PASS Shell: every late event handled
+   PASS ShellIdle: every late event handled
+   PASS Upload: every late event handled
+   PASS Likes: every late event handled
+   PASS Booking: every late event handled
+   SignIn without its root CodeWrong handler: ["CodeWrong: no late handler above TWO_FACTOR.VERIFYING (mapped by Auth.verifyCode#1)"]
+   PASS a missing late handler is reported, naming the event and the state whose leaving makes it late
 
 all stories pass

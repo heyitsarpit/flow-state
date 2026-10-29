@@ -5,11 +5,10 @@ calls proposal", CP) and keeps its syntax: a commit value with `outcomes` mappin
 replaces CP's rules where five builds and four reviews found them wrong or silent, drops `abandoned`, and makes the
 commit value the handle for re-sending, cancelling and reading the call. It keeps
 [outcome-proposal.md](../outcome-proposal.md) ("OP") with four flagged amendments (section 6.4). It answers P1–P23 and
-R1–R38 of [SYNTHESIS.md](SYNTHESIS.md). The data and type flow and ten failure sequences (seven run old and new) are
-checked by the spike in [spike/](spike/) (`tsc -p .`, `bun stories.ts`; output in section 7.1). Five built cases are
-rewritten in [rewrites/](rewrites/). Both predate the last decisions in sections 3–4 (`pay.pending` and
-`pay.retryCount`, declines as endings, `pay.idle`, the wire key) and are not re-ported; 7.1 and 7.2 say what differs. Open questions,
-left out of scope here, are in section 10; settled decisions, with their reasons, are in section 11.
+R1–R38 of [SYNTHESIS.md](SYNTHESIS.md). The data and type flow and twelve sequences (six run old and
+new) are checked by the spike in [spike/](spike/) (`tsc -p .`, `bun stories.ts`; output in section 7.1). Five built
+cases are rewritten in [rewrites/](rewrites/). Both follow sections 3–4 and decisions D1–D14. Open questions, left out
+of scope here, are in section 10; settled decisions, with their reasons, are in section 11.
 
 ## 1. The problem
 
@@ -472,12 +471,16 @@ dropped response, `NotSent` by a cancel during the Attempt's storage acknowledge
 
 ## 5. How it is implemented
 
-The spike's `flow.ts` is the reference: the transaction, `Outcomes` and `Events` types, the commit value, the lane
-(the spike still calls it the record and exposes `pay.at`; see 7.1) and a turn runtime. At settlement a watcher fiber pushes `{ record, outstanding, sendEnding }`; at admission
-`admitEnding` applies rule 6, updates the record and maps the ending through the commit value's `outcomes`; routing
-starts from the leaf or from the surviving ancestor (rule 2). `Flow.uncertain` is a type brand (`Uncertain<…>`) that
-`unknown:` requires. `Legacy` flags switch each old behaviour back on, so every Story runs old and new on the same
-machine and fixture. The machine API is a stand-in (states as dotted paths, no traits, no persistence).
+The spike's `flow.ts` is the reference: the transaction, `Outcomes` and `Events` types, the commit value, the lane and
+a turn runtime. A lane is kept per transaction and key, across commit values, and remembers the commit value that
+started its current Attempt (D9); it is evicted once settled with no current Attempt (D11). A start on a busy `reject`
+lane, or a retry on a busy lane or one with no current Attempt, queues a `NotSent` ending and lets the transition run
+(rule 4). At settlement a watcher fiber pushes `{ lane, outstanding, sendEnding }`; at admission `admitEnding` applies
+rule 6, updates the lane and maps the ending through the starter's `outcomes`; routing starts from the leaf or from
+the surviving ancestor (rule 2). `Flow.uncertain` is a type brand (`Uncertain<…>`) that `unknown:` requires.
+`checkLate` stands in for the `flow check` rule that every late event is handled (D13). `Legacy` flags switch old
+behaviours back on, so most Stories run old and new on the same machine and fixture. The machine API is a stand-in
+(states as dotted paths, no traits, no persistence).
 
 ## 6. Changes
 
@@ -583,78 +586,100 @@ Every change this proposal makes to another document, grouped by that document s
 
 ### 7.1 The spike
 
-> **Older than sections 3–4.** The spike was written before three later decisions and has not been re-ported: it
-> exposes the record as `pay.at(g)` (`{ pending, attempt, sends, last }`) instead of `pay.pending` and `pay.retryCount`;
-> it derives the wire key `${id}~n` (P6/P21 shows `a1~1`, where rule 7 now starts a new write with a new id); it
-> implements the implicit `reject` guard (its P5 Story shows `Denied ["InFlight"]`, where rule 4 now ends the
-> write `NotSent { why: "Rejected" }` and refuses the transition only under `pay.idle`); and it has no `pay.idle`.
-> Everything else it checks (routing at admission, rule 6, `.pending` timing, retry through the commit value's
-> `outcomes`, cancel, `latest`, the type checks) is unchanged by those decisions.
+[spike/](spike/) runs on Effect 4.0.5: `tsc -p .` then `bun stories.ts`, from `spike/`. `machines.ts` uses the design
+of sections 3–4: commit values with `outcomes` onto author events, `Uncertain<…>` for `Flow.uncertain`, and the
+handle's `retry`, `cancel`, `idle`, `pending` and `retryCount`; the Attempt is reached only through the mapper; no `!`,
+cast or Attempt in an event or memory; and an explicit ignore for every late event.
 
-[spike/](spike/) runs on Effect 4.0.5: `tsc -p .` then `bun stories.ts`, from `spike/`. `machines.ts` uses the syntax
-above: commit values with `outcomes` onto author events, `Uncertain<…>` for `Flow.uncertain`, `pay.retry()`,
-`pay.cancel()`, `pay.at(g)`, `pay.pending(g)`; no `!`, cast or Attempt in an event or memory.
-
-`types.ts` holds 15 `@ts-expect-error` checks, each confirmed to fail for its stated reason:
+`types.ts` holds 20 `@ts-expect-error` checks, each confirmed to fail for its stated reason:
 
 1. the success value is typed (`v.amount` does not exist);
 2. the error class is typed (`Busy` has no `code`);
-3. `StillUnknown` carries a failure, never an unknown reason;
-4. a mapping missing a failure tag is an error (a mapping without `NotSent` is not: a positive check);
-5. a failure tag the commit cannot produce is an error;
-6. `unknown:` targeting an event not marked `Flow.uncertain` is an error;
-7. a payload event used bare (without `.from`) is an error;
-8. a mapper must return the event's payload;
-9. the select must return the transaction's input type;
-10. the keyed record needs the transaction's key shape;
-11. `pay.at(g).attempt` may be undefined;
-12. a handler for an event that does not exist is an error;
-13. a keyed `retry()` without a key is an error;
-14. a commit whose select reads an event field cannot be listed in another event's handler;
-15. an author error using a reserved tag is an error.
+3. the Attempt counts re-sends as `retryCount`: `attempt.sends` does not exist;
+4. Flow derives no wire key: `attempt.idempotencyKey` does not exist (rule 7);
+5. `StillUnknown` carries a failure, never an unknown reason;
+6. a mapping missing a failure tag is an error (a mapping without `NotSent` is not: a positive check);
+7. a failure tag the commit cannot produce is an error;
+8. `unknown:` targeting an event not marked `Flow.uncertain` is an error;
+9. a payload event used bare (without `.from`) is an error;
+10. a mapper must return the event's payload;
+11. the select must return the transaction's input type;
+12. `pending` on a keyed transaction needs the transaction's key shape;
+13. there is no readable record: `pay.at` does not exist (D6);
+14. a keyless transaction's `retryCount` takes no key;
+15. `idle` on a keyed transaction needs the key;
+16. `idle`'s key select must return the transaction's key shape;
+17. a handler for an event that does not exist is an error;
+18. a keyed `retry()` without a key is an error;
+19. a commit whose select reads an event field cannot be listed in another event's handler;
+20. an author error using a reserved tag is an error.
 
-The trace prints each mapped event as `Event<ending>(attempt#sends)`. Each Story asserts server truth.
+Positive checks beside them: `pay.idle()` and `save.idle(key)` sit in a guard array; `save.retryCount(g, key)` is a
+number usable in a budget guard; a mapper reads `attempt.retryCount`.
+
+Stories, each asserting server truth:
+
+| Story | Shows | Old vs new |
+| --- | --- | --- |
+| P1 mailbox race | a late `WrongCode` still strikes its challenge (rule 2) | yes |
+| P2 unknown then failure | `Busy` after an unknown send arrives as `StillUnknown`; charged once (rule 6) | yes |
+| P3 timeout racing the ending | the real ending wins; cancel does not rewrite it (rules 9, 12) | yes |
+| P3b timeout before the ending | cancel → `unknown(Cancelled)` → `pay.retry`, charged once | — |
+| P5 decline | the silent decline hangs (old); the decline is an ending and the transition runs (rule 4); `save.idle` refuses the transition and `check()` agrees | old, ending, idle |
+| P6/P21 Busy, then again | `pay.retry` (the same id) replays the stored 503 (old); a new write with a new id is charged once (rule 7) | yes |
+| P8 cancel then clean-up | a discard keyed by the write's id leaves no orphan | yes |
+| P16 `latest` | three clicks, two requests; the middle one ends `NotSent { why: "Superseded" }` | — |
+| P4 compensation | a refund started by a late turn finishes (rule 3) | — |
+| P11 `NotSent` producible | cancel during the Attempt's storage acknowledgement | — |
+| D9 + D11 lanes | a second commit value is declined on the same lane; its retry maps through the starter's `outcomes`; the settled lane is evicted and reads as fresh | — |
+| D13 late handlers | `checkLate` finds every late event handled in each machine, and reports a removed one | — |
+
+The trace prints each mapped event as `Event<ending>(attempt id[+retryCount])`.
 
 Spike notes: where a select reads its event (upload clean-up, likes, refund), the spike names that event as a type
 argument (`commit<UploadUnsure>`), because v4 checks a commit at each transition that lists it and the spike has no
-such check. And v4's `machine(def, (h) => body)` callback is context-sensitive, so TypeScript drops its
-excess-property check on handler keys; the spike uses `machine<Ev>()(def).define(body)` (open 8).
+such check. v4's `machine(def, (h) => body)` callback is context-sensitive, so TypeScript drops its excess-property
+check on handler keys; the spike uses `machine<Ev>()(def).define(body)` (open 8). D13 is not expressible in the
+spike's types (handler placement is not a type), so it is a runtime check, `checkLate`, standing in for `flow check`;
+it treats every state some transition can leave as leavable. A `NotSent { why: "NothingToResend" }` ending has no
+Attempt to put in the mapper's context; the spike passes a placeholder with no input, and the proposal does not say
+what `input` and `attempt` hold for it.
 
 ```
-tsc: 0 errors (15 @ts-expect-error checks hold)
+tsc: 0 errors (20 @ts-expect-error checks hold)
 
 P1 mailbox race: NEW (routed when the turn is admitted)
    t=    0 Submit TWO_FACTOR.ENTERING → TWO_FACTOR.VERIFYING
    t=15020 StopWaiting TWO_FACTOR.VERIFYING → TWO_FACTOR.ENTERING
-   t=15020 CodeWrong<WrongCode>(a1#1) [late] TWO_FACTOR.ENTERING
+   t=15020 CodeWrong<WrongCode>(a1) [late] TWO_FACTOR.ENTERING
    PASS the late WrongCode strikes its own challenge at the root
 
 P1 mailbox race: OLD (outcomes/abandoned chosen at settlement)
    t=    0 Submit TWO_FACTOR.ENTERING → TWO_FACTOR.VERIFYING
    t=15020 StopWaiting TWO_FACTOR.VERIFYING → TWO_FACTOR.ENTERING
-   t=15020 CodeWrong<WrongCode>(a1#1) Unhandled: LOST
+   t=15020 CodeWrong<WrongCode>(a1) Unhandled: LOST
    PASS old rule: the strike is lost (reproduces correctness C1)
 
 P2 unknown then failure: NEW (the Attempt's ending: failure after unknown stays unknown)
    t=    0 Pay CARD → PAYING
-   t= 1000 Unsure<unknown:NoResponse>(a1#1) PAYING → UNSURE
+   t= 1000 Unsure<unknown:NoResponse>(a1) PAYING → UNSURE
    t= 2500 CheckTick UNSURE → PAYING
-   t= 2700 Unsure<unknown:StillUnknown>(a1#2) PAYING → UNSURE
+   t= 2700 Unsure<unknown:StillUnknown>(a1+1) PAYING → UNSURE
    t= 3000 TookTooLong discarded (its state was left)
    t= 4200 CheckTick UNSURE → PAYING
-   t= 4400 Unsure<unknown:StillUnknown>(a1#3) PAYING → UNSURE
+   t= 4400 Unsure<unknown:StillUnknown>(a1+2) PAYING → UNSURE
    t= 5500 TookTooLong discarded (its state was left)
    t= 5900 CheckTick UNSURE → PAYING
-   t= 6100 Unsure<unknown:StillUnknown>(a1#4) PAYING → UNSURE
+   t= 6100 Unsure<unknown:StillUnknown>(a1+3) PAYING → UNSURE
    t= 7200 TookTooLong discarded (its state was left)
    t= 7600 CheckTick UNSURE → PAYING
-   t= 7800 Unsure<unknown:StillUnknown>(a1#5) PAYING → UNSURE
+   t= 7800 Unsure<unknown:StillUnknown>(a1+4) PAYING → UNSURE
    t= 8900 TookTooLong discarded (its state was left)
    t= 9300 CheckTick UNSURE → PAYING
-   t= 9500 Unsure<unknown:StillUnknown>(a1#6) PAYING → UNSURE
+   t= 9500 Unsure<unknown:StillUnknown>(a1+5) PAYING → UNSURE
    t=10600 TookTooLong discarded (its state was left)
    t=11000 CheckTick UNSURE → PAYING
-   t=11200 Paid<success>(a1#7) PAYING → DONE
+   t=11200 Paid<success>(a1+6) PAYING → DONE
    t=12300 TookTooLong discarded (its state was left)
    t=14000 TookTooLong discarded (its state was left)
    server truth: charges=1 keys=["a1","a1","a1","a1","a1","a1","a1"]
@@ -662,74 +687,74 @@ P2 unknown then failure: NEW (the Attempt's ending: failure after unknown stays 
 
 P2 unknown then failure: OLD (a failure on a re-send is definite)
    t=    0 Pay CARD → PAYING
-   t= 1000 Unsure<unknown:NoResponse>(a1#1) PAYING → UNSURE
+   t= 1000 Unsure<unknown:NoResponse>(a1) PAYING → UNSURE
    t= 2500 CheckTick UNSURE → PAYING
-   t= 2700 Busy<Busy>(a1#2) PAYING → WAITING
+   t= 2700 Busy<Busy>(a1+1) PAYING → WAITING
    t= 3000 TookTooLong discarded (its state was left)
    t= 3200 RetryNow WAITING → PAYING
-   t= 3400 Busy<Busy>(a1#3) PAYING → WAITING
-   t= 3900 RetryNow WAITING → PAYING
-   t= 4100 Busy<Busy>(a1#4) PAYING → CARD
-            user reads "The bank is busy. You were not charged." and presses Pay again
-   t= 4500 Pay CARD → PAYING
    t= 5500 TookTooLong discarded (its state was left)
-   t= 6200 TookTooLong discarded (its state was left)
-   t= 6900 TookTooLong discarded (its state was left)
-   t= 7500 TookTooLong PAYING
-   t= 7510 Unsure<unknown:Cancelled>(a2#1) PAYING → UNSURE
-   t= 9010 CheckTick UNSURE → PAYING
-   t= 9210 Busy<Busy>(a2#2) PAYING → WAITING
-   t= 9710 RetryNow WAITING → PAYING
-   t= 9910 Busy<Busy>(a2#3) PAYING → WAITING
-   t=10410 RetryNow WAITING → PAYING
-   t=10610 Busy<Busy>(a2#4) PAYING → CARD
-   t=12010 TookTooLong discarded (its state was left)
-   t=12710 TookTooLong discarded (its state was left)
-   t=13410 TookTooLong discarded (its state was left)
-   server truth: charges=2 keys=["a1","a1","a1","a1","a2","a2","a2","a2"]
-   PASS old rule: the card is charged twice (reproduces correctness C3)
+   t= 6200 TookTooLong PAYING
+   t= 6210 Unsure<unknown:Cancelled>(a2) PAYING → UNSURE
+   t= 7710 CheckTick UNSURE → PAYING
+   t= 7910 Busy<Busy>(a2+1) PAYING → WAITING
+   t= 8410 RetryNow WAITING → PAYING
+   t=10710 TookTooLong discarded (its state was left)
+   t=11410 TookTooLong PAYING
+   t=11420 Unsure<unknown:Cancelled>(a3) PAYING → UNSURE
+   t=12920 CheckTick UNSURE → PAYING
+   t=13120 Busy<Busy>(a3+1) PAYING → WAITING
+   t=13620 RetryNow WAITING → PAYING
+   t=15920 TookTooLong discarded (its state was left)
+   t=16620 TookTooLong PAYING
+   t=16630 Unsure<unknown:Cancelled>(a4) PAYING → UNSURE
+   t=18130 CheckTick UNSURE → PAYING
+   t=18330 Busy<Busy>(a4+1) PAYING → CARD
+            user reads "The bank is busy. You were not charged." and presses Pay again
+   t=18500 Pay CARD → PAYING
+   t=21130 TookTooLong discarded (its state was left)
+   t=21500 TookTooLong PAYING
+   t=21510 Unsure<unknown:Cancelled>(a5) PAYING → UNSURE
+   t=23010 CheckTick UNSURE → PAYING
+   t=23210 Busy<Busy>(a5+1) PAYING → WAITING
+   t=23710 RetryNow WAITING → PAYING
+   t=26010 TookTooLong discarded (its state was left)
+   t=26710 TookTooLong PAYING
+   t=26720 Unsure<unknown:Cancelled>(a6) PAYING → UNSURE
+   t=28220 CheckTick UNSURE → PAYING
+   t=28420 Busy<Busy>(a6+1) PAYING → WAITING
+   t=28920 RetryNow WAITING → PAYING
+   server truth: charges=5 keys=["a1","a1","a2","a2","a3","a3","a4","a4","a5","a5","a6","a6","a7"]
+   PASS old rule: Busy after an unknown send counts as definite, so each new write charges again: charged 5 times (reproduces correctness C3)
 
 P3 timeout racing the ending: NEW (.pending until the ending's turn; cancel never rewrites a settled ending)
    t=    0 Pay CARD → PAYING
    t= 3020 TookTooLong PAYING
    t= 3020   Payments.charge cancel: nothing unsettled (no-op, evidence)
-   t= 3020 Paid<success>(a1#1) PAYING → DONE
+   t= 3020 Paid<success>(a1) PAYING → DONE
    server truth: charges=1; screen: DONE ""
    PASS the real ending wins: DONE, charged once
 
 P3 timeout racing the ending: OLD (.pending false at settlement)
    t=    0 Pay CARD → PAYING
    t= 3020 TookTooLong PAYING → CARD
-   t= 3020 Paid<success>(a1#1) [late] CARD
+   t= 3020 Paid<success>(a1) [late] CARD
    server truth: charges=1; screen: CARD "That took too long. You were not charged."
    PASS old rule: 'You were not charged' shown, but the card was charged
 
 P3b timeout before the ending: cancel → unknown(Cancelled) → same Attempt again
    t=    0 Pay CARD → PAYING
    t= 3000 TookTooLong PAYING
-   t= 3010 Unsure<unknown:Cancelled>(a1#1) PAYING → UNSURE
+   t= 3010 Unsure<unknown:Cancelled>(a1) PAYING → UNSURE
    t= 4510 CheckTick UNSURE → PAYING
-   t= 4710 Unsure<unknown:StillUnknown>(a1#2) PAYING → UNSURE
+   t= 4710 Unsure<unknown:StillUnknown>(a1+1) PAYING → UNSURE
    t= 6210 CheckTick UNSURE → PAYING
-   t= 6410 Paid<success>(a1#3) PAYING → DONE
+   t= 6410 Paid<success>(a1+2) PAYING → DONE
    t= 7510 TookTooLong discarded (its state was left)
    t= 9210 TookTooLong discarded (its state was left)
    server truth: charges=1 keys=["a1","a1","a1"]
    PASS charged once, reconciled by key
 
-P5 decline: NEW (reject is an implicit guard: Denied InFlight)
-   t=    0 Edit DOC.EDITING
-   t=    0 Save DOC.EDITING → DOC.SAVING
-   t=  200 OpenList DOC.SAVING → LIST
-   t=  200 OpenDoc LIST → DOC.EDITING
-   t=  200 Edit DOC.EDITING
-            check(Save) = Denied ["InFlight"]   (what the view's button reads)
-   t=  200 Save Denied ["InFlight"]
-   t= 1000 Saved<success>(a1#1) [late] DOC.EDITING
-   server truth: puts=1; final state DOC.EDITING
-   PASS the second Save is Denied and the user stays in EDITING
-
-P5 decline: OLD (reject declines silently)
+P5 decline: OLD (reject declines silently: no ending)
    t=    0 Edit DOC.EDITING
    t=    0 Save DOC.EDITING → DOC.SAVING
    t=  200 OpenList DOC.SAVING → LIST
@@ -737,50 +762,76 @@ P5 decline: OLD (reject declines silently)
    t=  200 Edit DOC.EDITING
             check(Save) = Allowed   (what the view's button reads)
    t=  200 Save DOC.EDITING → DOC.SAVING
-   t=  200   Docs.save start declined silently (legacy)
-   t= 1000 Saved<success>(a1#1) [late] DOC.SAVING
-   server truth: puts=1; final state DOC.SAVING
+   t=  200   Docs.save start declined silently (legacy: no ending)
+   t= 1000 Saved<success>(a1) [late] DOC.SAVING
+   server truth: puts=1; final state DOC.SAVING; toast "Saved rev 1"
    PASS old rule: SAVING waits forever (reproduces correctness C5)
 
-P6 retry mapping: NEW (pay.retry(): same Attempt, same outcomes, fresh wire key after a definite failure)
-   t=    0 Pay CARD → PAYING
-   t=  200 Busy<Busy>(a1#1) PAYING → WAITING
-   t= 2200 RetryNow WAITING → PAYING
-   t= 2700 Paid<success>(a1#2) PAYING → DONE
-   t= 3000 TookTooLong discarded (its state was left)
-   t= 5200 TookTooLong discarded (its state was left)
-   server truth: charges=1 keys=["a1","a1~1"]
-   PASS Busy(a1#1) → WAITING 2 s (from Retry-After) → retry → Paid(a1#2), mapped by the same outcomes
+P5 decline: NEW (rule 4: the transition runs, the write ends NotSent Rejected)
+   t=    0 Edit DOC.EDITING
+   t=    0 Save DOC.EDITING → DOC.SAVING
+   t=  200 OpenList DOC.SAVING → LIST
+   t=  200 OpenDoc LIST → DOC.EDITING
+   t=  200 Edit DOC.EDITING
+            check(Save) = Allowed   (what the view's button reads)
+   t=  200 Save DOC.EDITING → DOC.SAVING
+   t=  200   Docs.save: Rejected (the transition ran; the write ends NotSent)
+   t=  200 SaveDeclined<NotSent:Rejected>(a2) DOC.SAVING → DOC.EDITING
+   t= 1000 Saved<success>(a1) [late] DOC.EDITING
+   server truth: puts=1; final state DOC.EDITING; toast "Saved rev 1"
+   PASS the decline is an ending: SaveDeclined brings SAVING back to EDITING; one PUT
 
-P6 retry mapping: OLD wire key (the Attempt id again: the server replays its cached 503)
+P5 decline: NEW (rule 4 + save.idle(key) in the guard: check() refuses the transition)
+   t=    0 Edit DOC.EDITING
+   t=    0 Save DOC.EDITING → DOC.SAVING
+   t=  200 OpenList DOC.SAVING → LIST
+   t=  200 OpenDoc LIST → DOC.EDITING
+   t=  200 Edit DOC.EDITING
+            check(Save) = Denied ["InFlight"]   (what the view's button reads)
+   t=  200 Save Denied ["InFlight"]
+   t= 1000 Saved<success>(a1) [late] DOC.EDITING
+   server truth: puts=1; final state DOC.EDITING; toast "Saved rev 1"
+   PASS save.idle refuses the transition; check() and the button agree
+
+P6 Busy, then again: OLD (pay.retry(): the same id, so the stored 503 is replayed)
    t=    0 Pay CARD → PAYING
-   t=  200 Busy<Busy>(a1#1) PAYING → WAITING
+   t=  200 Busy<Busy>(a1) PAYING → WAITING
    t= 2200 RetryNow WAITING → PAYING
-   t= 2400 Busy<Busy>(a1#2) PAYING → WAITING
+   t= 2400 Busy<Busy>(a1+1) PAYING → WAITING
    t= 3000 TookTooLong discarded (its state was left)
    t= 4400 RetryNow WAITING → PAYING
-   t= 4600 Busy<Busy>(a1#3) PAYING → WAITING
+   t= 4600 Busy<Busy>(a1+2) PAYING → WAITING
    t= 5200 TookTooLong discarded (its state was left)
    t= 6600 RetryNow WAITING → PAYING
-   t= 6800 Busy<Busy>(a1#4) PAYING → CARD
+   t= 6800 Busy<Busy>(a1+3) PAYING → CARD
    t= 7400 TookTooLong discarded (its state was left)
    t= 9600 TookTooLong discarded (its state was left)
    server truth: charges=0 keys=["a1","a1","a1","a1"]
-   PASS old key: the cached failure comes back every time (reproduces correctness C12)
+   PASS same id: the stored failure comes back every time (reproduces correctness C12)
+
+P6 Busy, then again: NEW (rule 7: a new write with a new id, budgeted in memory)
+   t=    0 Pay CARD → PAYING
+   t=  200 Busy<Busy>(a1) PAYING → WAITING
+   t= 2200 RetryNow WAITING → PAYING
+   t= 2700 Paid<success>(a2) PAYING → DONE
+   t= 3000 TookTooLong discarded (its state was left)
+   t= 5200 TookTooLong discarded (its state was left)
+   server truth: charges=1 keys=["a1","a2"]
+   PASS Busy(a1) → WAITING 2 s (Retry-After) → new write a2 → Paid; charged once
 
 P8 cancel then clean-up: OLD (discard by ref: whatever is there now)
    t=    0 Pick IDLE → UPLOADING
    t=  500 Cancel UPLOADING
-   t=  510 UploadUnsure<unknown:Cancelled>(a1#1) UPLOADING → CLEANING
-   t=  610 Discarded<success>(a2#1) CLEANING → CANCELLED
+   t=  510 UploadUnsure<unknown:Cancelled>(a1) UPLOADING → CLEANING
+   t=  610 Discarded<success>(a2) CLEANING → CANCELLED
    server truth: files=1 refused=0; final state CANCELLED
    PASS old clean-up: the file lands after the discard (reproduces correctness C8)
 
 P8 cancel then clean-up: NEW (discard by the Attempt's key; the server refuses a later arrival)
    t=    0 Pick IDLE → UPLOADING
    t=  500 Cancel UPLOADING
-   t=  510 UploadUnsure<unknown:Cancelled>(a1#1) UPLOADING → CLEANING
-   t=  610 Discarded<success>(a2#1) CLEANING → CANCELLED
+   t=  510 UploadUnsure<unknown:Cancelled>(a1) UPLOADING → CLEANING
+   t=  610 Discarded<success>(a2) CLEANING → CANCELLED
    server truth: files=0 refused=1; final state CANCELLED
    PASS no orphan: the upload that lands at 2 s is refused
 
@@ -788,68 +839,94 @@ P16 latest coalescing: Toggle at 0, 50, 100 ms; each request takes 300 ms
    t=    0 Toggle READY
    t=   50 Toggle READY
    t=  100 Toggle READY
-   t=  100 LikeSkipped<NotSent>(a2#1,superseded) READY
-   t=  300 LikeSynced<success>(a1#1,superseded) READY
-   t=  600 LikeSynced<success>(a3#1) READY
+   t=  100 LikeSkipped<NotSent:Superseded>(a2,superseded) READY
+   t=  300 LikeSynced<success>(a1,superseded) READY
+   t=  600 LikeSynced<success>(a3) READY
    server truth: requests=["a1:true","a3:true"] liked=true
    PASS two requests; the server ends at the last click
 
 P4 compensation chain: leave mid-charge, the charge lands, refund, REFUNDED
    t=    0 Pay CARD → PAYING
    t=  300 Leave PAYING → LEFT
-   t= 1000 Paid<success>(a1#1) [late] LEFT → REFUNDING
-   t= 1300 Refunded<success>(a2#1) REFUNDING → REFUNDED
+   t= 1000 Paid<success>(a1) [late] LEFT → REFUNDING
+   t= 1300 Refunded<success>(a2) REFUNDING → REFUNDED
    server truth: charges=1 refunds=1
    PASS the refund started by a late turn finishes (v4 rule 6 forbade it)
 
 P11 NotSent is producible: cancel while the Attempt's storage ack is pending (50 ms)
    t=    0 Pick IDLE → UPLOADING
    t=   20 Cancel UPLOADING
-   t=   30 UploadNotSent<NotSent>(a1#1) UPLOADING → CANCELLED
+   t=   30 UploadNotSent<NotSent:Cancelled>(a1) UPLOADING → CANCELLED
    server truth: files=0; final state CANCELLED
    PASS NotSent → UploadNotSent: nothing left the device, no clean-up needed
+
+D9 + D11 one lane per transaction and key: B is declined while A runs; B's retry uses A's outcomes; the lane is evicted
+   t=    0 A S
+   t=    0 B S
+   t=    0   Payments.charge: Rejected (the transition ran; the write ends NotSent)
+   t=    0 No<NotSent:Rejected>(a2) S
+   t= 1000 UnsureA<unknown:NoResponse>(a1) S
+   t= 1200 Again S
+   t= 1400 PaidA<success>(a1+1) S
+   server truth: charges=1; lanes held after unknown=1, after success=0; retryCount read after eviction=0
+   PASS one charge; the retry's Paid is PaidA (the starter's); the settled lane is gone and reads as fresh
+
+D13 late handlers (checkLate, a stand-in for flow check)
+   PASS Checkout: every late event handled
+   PASS CheckoutRetrySameId: every late event handled
+   PASS SignIn: every late event handled
+   PASS Shell: every late event handled
+   PASS ShellIdle: every late event handled
+   PASS Upload: every late event handled
+   PASS Likes: every late event handled
+   PASS Booking: every late event handled
+   SignIn without its root CodeWrong handler: ["CodeWrong: no late handler above TWO_FACTOR.VERIFYING (mapped by Auth.verifyCode#1)"]
+   PASS a missing late handler is reported, naming the event and the state whose leaving makes it late
 
 all stories pass
 ```
 
-Reading the traces: `t=15020` is the first turn after a held mailbox (the main thread was busy from 14.990 s); "discarded"
-lines are timers of activations already left (Machines O5). In P3 the cancel finds the send settled and changes
-nothing, so the real success is delivered. In P6 the second send uses `a1~1` because the first ended in a definite
-failure, so the server's cached 503 cannot answer it.
+Reading the traces: `t=15020` is the first turn after a held mailbox (the main thread was busy from 14.990 s);
+"discarded" lines are timers of activations already left (Machines O5). In P3 the cancel finds the send settled and
+changes nothing, so the real success is delivered. In P2 old, every `Busy` after the unknown send is taken as
+definite, so each new write charges again. In P6 new, the second write has a new id, so the server's stored 503
+cannot answer it.
 
-Not spiked: `flow check` (rules 3 and 8), keyed schedules, read calls, `serialize`, persistence and restore, the
-`RequestResolver` batch, `LateMayNotLeave` (implemented in the runtime, not exercised by a Story).
+Not spiked: `flow check` beyond `checkLate` (rule 3, and rule 4's warning on a missing `idle`), keyed schedules, read
+calls, `serialize`, persistence and restore, the `RequestResolver` batch, `LateMayNotLeave` (implemented in the runtime,
+not exercised by a Story).
 
 ### 7.2 The rewrites
 
-> **Older than sections 3–4,** like the spike, and not re-ported: they read `pay.at(…)` where the design now has
-> `pay.pending` and `pay.retryCount`, use `attempt.idempotencyKey` where rule 7 now uses `attempt.id`, and rely on the implicit `reject` guard where the design now needs an explicit
-> `pay.idle(key)` on each transition that should be refused. Adding those guards adds about one line per such
-> transition to the counts below.
+[rewrites/](rewrites/) holds definition and machine for five cases, in the design of sections 3–4: `idle` guards where
+a second press must be refused, `NotSent` mapped wherever rule 8 requires it, Busy-style failures tried again as new
+writes with a memory budget, `retryCount` budgets for re-sends after an unknown, and an explicit ignore for each late
+event. The operations files are unchanged except `latest` on likes and key records in auth; every commit puts
+`attempt.id` on the wire. Counts are definition + machine without blank and comment lines; characters exclude
+whitespace and comments. "First draft" is this proposal's earlier rewrite with derived events (no author events, no
+mappings), kept for comparison. The rewrites are not type-checked: the machine API does not exist yet.
 
-[rewrites/](rewrites/) holds definition and machine for five cases, in the syntax of section 3. The operations files are
-unchanged except the wire key (rule 7), `latest` on likes and key records in auth. Counts are definition + machine
-without blank and comment lines; characters exclude whitespace and comments. "First draft" is this proposal's earlier
-rewrite with derived events (no author events, no mappings), kept for comparison.
-
-| Case | Lines: build → first draft → now | Characters: build → first draft → now | Internal events | `!` | INVENTED |
+| Case | Lines: build → first draft → now | Characters: build → first draft → now | `idle` guards | `!` | INVENTED |
 | --- | --- | --- | --- | --- | --- |
-| payments `checkout` (E1–E3) | 246 → 136 → 163 | 7,727 → 5,286 → 5,859 | 20 → 6 → 17 | 2 → 0 → 0 | 1 → 0 → 0 |
-| payments `booking` (F1) | 276 → 157 → 178 | 11,071 → 7,483 → 8,385 | 25 → 6 → 23 | 14 → 5 → 5 | 6 → 0 → 0 |
-| auth `signin` | 206 → 121 → 132 | 6,163 → 5,351 → 5,581 | 10 → 3 → 9 | 0 → 0 → 0 | 3 → 1 → 1 |
-| editing `list` (B1, B2) | 317 → 147 → 173 | 12,062 → 8,425 → 9,293 | 13 → 2 → 15 | 11 → 0 → 0 | 1 → 0 → 0 |
-| lifecycle `m1.save` | 118 → 59 → 72 | 4,016 → 2,631 → 2,854 | 5 → 1 → 4 | 1 → 0 → 0 | 3 → 0 → 0 |
-| **total** | **1,163 → 620 → 718** | **41,039 → 29,176 → 31,972** | **73 → 18 → 68** | **28 → 5 → 5** | **14 → 1 → 1** |
+| payments `checkout` (E1–E3) | 246 → 136 → 167 | 7,727 → 5,286 → 6,177 | 2 | 2 → 0 → 0 | 1 → 0 → 0 |
+| payments `booking` (F1) | 276 → 157 → 192 | 11,071 → 7,483 → 9,562 | 3 | 14 → 5 → 5 | 6 → 0 → 0 |
+| auth `signin` | 206 → 121 → 134 | 6,163 → 5,351 → 5,771 | 1 | 0 → 0 → 0 | 3 → 1 → 1 |
+| editing `list` (B1, B2) | 317 → 147 → 174 | 12,062 → 8,425 → 9,577 | 2 | 11 → 0 → 0 | 1 → 0 → 0 |
+| lifecycle `m1.save` | 118 → 59 → 73 | 4,016 → 2,631 → 2,985 | 2 | 1 → 0 → 0 | 3 → 0 → 0 |
+| **total** | **1,163 → 620 → 740** | **41,039 → 29,176 → 34,072** | **10** | **28 → 5 → 5** | **14 → 1 → 1** |
 
-Against the builds, the revision is 38% shorter in lines and 22% in characters; against the first draft, the mappings
-and event declarations add 98 lines (+16%) and 2,796 characters (+10%). The event count returns almost to the builds'
-(68 against 73): the mapping syntax keeps one declared event per distinct ending. What is gone is the plumbing around
-them: no `attempt` field in any event, no Attempt in memory, no `abandoned` table, `NotSent` only where it can occur,
-no `!pending` guard, and handlers written once for current and late.
+Against the builds, the rewrites are 36% shorter in lines and 17% in characters; against the first draft, they add 120
+lines (+19%) and 4,896 characters (+17%). The additions are the mapping lines and event declarations (D1), the `idle`
+guards (D5), the `NotSent` mappings and handlers that declines-as-endings require (rule 4), the memory budgets for
+Busy tried as new writes (D8), and the explicit late ignores (D13). What is gone from the builds is the plumbing: no
+`attempt` field in any event, no Attempt in memory, no `abandoned` table, no hand-written in-flight guards, and
+handlers written once for current and late.
 
 - The five `!` left in `booking` are on memory set on entry to HELD (`holdId`, `expiresAt`) or in the charge's
   success turn (`paymentId`): v4 has no state-scoped memory. None is on an Attempt.
 - The one INVENTED is the builder's: `Flow.state` without traits (a v4 gap).
+- `booking` keeps one wait state per write and a `sameWrite` flag in memory: the tick re-sends after an unknown and
+  starts a new write after `Busy`. A wait state per case would remove the flag and add two states.
 - Behaviour changes, all deliberate: `signin` keeps one timer per locked challenge (keyed schedule); `list` coalesces
   likes with `latest` and reconciles each unsure row on its own timer; `m1.save` drops its SAVING state ("saving" is
   `save.pending(s, key)`) and writes each handler once; the `booking` confirm and charge give-ups can no longer refund
@@ -864,12 +941,12 @@ no `!pending` guard, and handlers written once for current and late.
 | R1 start from a user action, same-turn values | `pay` in `actions`; rule 10 | spike P16, `m1.save` |
 | R2 stable identity, the idempotency key | `attempt.id`, random per write and the same for every send of it (rule 7); lanes persist (rule 9) | P6, P3b |
 | R3 new write vs the same again | `pay` vs `pay.retry(key)`; a start replaces the lane's current Attempt, so a replaced write cannot be resent | checkout E3 |
-| R4 independent writes per key | keyed transactions: one lane per key; `like.pending(s, { id })` | `list`, types 10 |
-| R5 one per key, a defined decline | rule 4: a busy `reject` lane ends the write `NotSent { why: "Rejected" }`; `pay.idle(key)` refuses the transition when the author wants that | P5 (spike older: it shows the implicit denial) |
+| R4 independent writes per key | keyed transactions: one lane per key; `like.pending(s, { id })` | `list`, types 12 |
+| R5 one per key, a defined decline | rule 4: a busy `reject` lane ends the write `NotSent { why: "Rejected" }`; `pay.idle(key)` refuses the transition when the author wants that | P5 (the decline as an ending, and under `save.idle`) |
 | R6 latest-wins coalescing | `latest`, `superseded` | P16 |
 | R7 order per key, dependent creates | `serialize` (unchanged); the dependent write starts in the create's success handler with the server's id | `list` |
 | R8 one ending reaches the machine | rules 1, 5, 8; a decline is a denial, not a write | P5, P11 |
-| R9 typed, exhaustive, only possible endings | rule 1 (types: exhaustive tags, `NotSent` optional), rule 8 (`flow check`) | types 4, 5 |
+| R9 typed, exhaustive, only possible endings | rule 1 (types: exhaustive tags, `NotSent` optional), rule 8 (`flow check`) | types 6, 7 |
 | R10 an ending is about the write | rule 6 | P2 |
 | R11 success that is not completion | guards on the mapped payload | `checkout` (`requires_action`) |
 | R12 per-item batch results | one commit per item, batched in the adapter (3.14) | not spiked |
@@ -884,7 +961,7 @@ no `!pending` guard, and handlers written once for current and late.
 | R21 invisible transport retries | `Effect.retry` inside one send (3.1) | — |
 | R22 reconcile an unknown | `pay.retry(key)`, or a read call | P2, P3b |
 | R23 interpret with history | `attempt.mayHaveApplied` | 3.1 |
-| R24 same write after a sub-flow; a modified write is new | retry (fresh wire key after a definite failure); a new start | P6 |
+| R24 same write after a sub-flow; a modified write is new | `pay.retry` re-sends the same id; after a definite failure, or with new input, a new write (rule 7) | P6 |
 | R25 leaving does not cancel; the ending updates elsewhere | rule 2; ancestor handlers | P5, `m1.save` |
 | R26 compensation after leaving can finish | rule 3 | P4 |
 | R27 a late result never takes the user out of live work | rule 3 (`LateMayNotLeave`) | implemented, not exercised |
@@ -893,11 +970,11 @@ no `!pending` guard, and handlers written once for current and late.
 | R30 reload mid-write | lanes persist; `Restored` endings routed by rule 2 | not spiked |
 | R31 poll a long job | a read call + a schedule | `checkout` READING |
 | R32 truth on another channel | an ordinary event; the call's real ending arrives later and is handled late | recipe |
-| R33 per-key reads for views and guards | `pay.pending`, `pay.retryCount`, `pay.idle` (rule 9); the last ending through its own event's handler | types 10, 11 |
+| R33 per-key reads for views and guards | `pay.pending`, `pay.retryCount`, `pay.idle` (rule 9); the last ending through its own event's handler | types 12–16 |
 | R34 Stories mock through services and produce every ending | fixtures; `NotSent` via cancel-before-ack and `latest`; truth asserted | all Stories |
 | R35 statically analysable | commit values and their `outcomes`; owners from transitions; rules 3, 8 | not spiked |
 | R36 errors carry information | no flags on errors; Flow reads no status | 3.1 |
-| R37 typed end to end, inferred | mapper inputs from the commit's Effect; payload checked against the event | types 1–9 |
+| R37 typed end to end, inferred | mapper inputs from the commit's Effect; payload checked against the event | types 1–11 |
 | R38 the same path with a fixture | the Stories | all Stories |
 
 ### 8.2 Problems
@@ -908,9 +985,9 @@ no `!pending` guard, and handlers written once for current and late.
 | P2 failure on a re-send treated as definite | rule 6 (`StillUnknown`); OP amendment 1 | resolved, spike P2 |
 | P3 `.pending` false early; cancel undefined | rules 9 and 12 | resolved, spike P3, P3b |
 | P4 late rule forbids compensation | rule 3; v4 rule 12's fence error removed | resolved, spike P4 |
-| P5 silent decline | rule 4: the decline is an ending, so no state waits forever | resolved; spike P5 shows the earlier implicit denial |
-| P6 retry has no mapping | `pay.retry(key)` uses `pay`'s `outcomes`; owned by its transition | resolved, spike P6 |
-| P7 unmapped late unknown dropped; copied tables | no `abandoned`: one mapping, two handler locations (rule 2); rule 8 makes late `success`/`unknown` handling a `flow check` error | resolved (check not spiked); open 2 |
+| P5 silent decline | rule 4: the decline is an ending, so no state waits forever | resolved, spike P5 (old, ending, `idle`) |
+| P6 retry has no mapping | `pay.retry(key)` uses the `outcomes` of the commit value that started the write (D9); owned by its transition | resolved, spike P3b, D9 |
+| P7 unmapped late unknown dropped; copied tables | no `abandoned`: one mapping, two handler locations (rule 2); rule 8 makes every late event's handling a `flow check` error (D13) | resolved; spike `checkLate` (a stand-in for `flow check`, D13) |
 | P8 cancel final while the request runs | rule 12 (pending until the fiber exits); clean-up keyed by `attempt.id` with a server tombstone | resolved in part: the server half is a contract Flow can only state; spike P8 |
 | P9 the Attempt relayed by hand | the lane keeps the current Attempt; `pay.retry(key)`; budgets read `pay.retryCount` | resolved: no `!` on Attempts in the rewrites |
 | P10 event plumbing | kept by the owner's choice of syntax; reduced: no `attempt` fields, no `abandoned` copies, `NotSent` only where it occurs, several endings to one event | reduced, not removed (7.2) |
@@ -924,8 +1001,8 @@ no `!pending` guard, and handlers written once for current and late.
 | P18 polling as a transaction | resource call values (3.12) | resolved, not spiked |
 | P19 page-exit flush | **scoped out.** `pagehide` gives no time for an async turn and Persistence O6's acknowledgement. Server-side alternative: send at once with a server-side delay (`sendAt`) and undo as `DELETE` by the Attempt's key; autosave sends small debounced writes so nothing waits for exit | scoped out |
 | P20 Stories cannot assert truth | fixture truth read by a checkpoint (3.15); every ending producible | resolved in the spike; Story API spelling open (8) |
-| P21 cached failure on a re-send | rule 7: after a definite failure, a new write with a new id | resolved; spike P6 shows the earlier derived key |
-| P22 contradictions | `Flow.uncertain` kept and enforced on `unknown:` targets (types 6); cancel-before-invocation is `NotSent`, declared against Operations O3/O7; `Timeout` removed from OP | resolved |
+| P21 cached failure on a re-send | rule 7: after a definite failure, a new write with a new id | resolved, spike P6 |
+| P22 contradictions | `Flow.uncertain` kept and enforced on `unknown:` targets (types 8); cancel-before-invocation is `NotSent`, declared against Operations O3/O7; `Timeout` removed from OP | resolved |
 | P23 no `Effect.retry`; scalar keys | 3.1 shows both; the lane reads take the key record, so its shape matters | resolved |
 
 ## 9. Alternatives considered

@@ -1,10 +1,11 @@
 // flow.ts: the library half of the spike. Outcome (unchanged), the Attempt, transactions, commit values with
-// `outcomes` mappings, the call record, and a small turn runtime that implements the proposal's rules
-// (routing at admission, `.pending` until the ending's turn, implicit in-flight guards, Attempt-level
-// classification, cancel that never rewrites a settled ending, entry-armed schedules on the controlled clock).
+// `outcomes` mappings, the lane (per transaction and key), and a small turn runtime that implements the proposal's
+// rules: routing at admission, `.pending` until the ending's turn, declines as endings, the Attempt's ending
+// (StillUnknown), cancel that never rewrites a settled ending, lane eviction, and entry-armed schedules on the
+// controlled clock. `checkLate` is a stand-in for the `flow check` rule that every late event is handled (D13).
 //
-// Casts inside this file are runtime-internal erasure (records of many calls kept in one Map). The author-facing
-// path (transaction → event payload → guard → memory) is typed by inference only; see types.ts.
+// Casts inside this file are runtime-internal erasure (lanes of many transactions kept in one Map). The author-facing
+// path (transaction → mapper → event payload → guard → memory) is typed by inference only; see types.ts.
 import { Cause, Data, Effect, Exit, Fiber, Result, Schema } from "effect"
 import * as TestClock from "effect/testing/TestClock"
 
@@ -21,7 +22,7 @@ export type FailureReasons<E> = E extends OutcomeFailure<infer R> ? R : E extend
 export type UnknownReasons<E> = E extends OutcomeUnknown<infer R> ? R : never
 
 // ── 2. Flow's own reasons (the only values Flow itself puts in a channel) ─────────────────────────────────────
-export type NotSent = { readonly _tag: "NotSent"; readonly why: "Cancelled" | "Superseded" | "Restored" }
+export type NotSent = { readonly _tag: "NotSent"; readonly why: "Cancelled" | "Superseded" | "Restored" | "Rejected" | "NothingToResend" }
 export type FlowUnknown =
   | { readonly _tag: "Cancelled" }
   | { readonly _tag: "Restored" }
@@ -34,12 +35,11 @@ type TagOf<T> = T extends { readonly _tag: infer X extends string } ? X : never
 
 // ── 3. The Attempt: minted and counted by Flow, because Flow is what invokes the commit ─────────────────────────
 export interface Attempt<I, K> {
-  readonly id: string
+  readonly id: string               // random per write; the key the commit author puts on the wire (rule 7)
   readonly operation: string
   readonly key: K
   readonly input: I
-  readonly sends: number            // invocations of the commit for this Attempt, this one included
-  readonly idempotencyKey: string   // what to put on the wire (rule 7): `id` once anything may have applied
+  readonly retryCount: number       // times this write was sent again: 0 on its first send
   readonly mayHaveApplied: boolean  // an earlier send of this Attempt ended unknown
 }
 
@@ -62,7 +62,6 @@ type In<T> = T extends Transaction<infer I, any, any, any, any> ? I : never
 type Key<T> = T extends Transaction<any, infer K, any, any, any> ? K : never
 type Val<T> = T extends Transaction<any, any, infer A, any, any> ? A : never
 type Err<T> = T extends Transaction<any, any, any, infer E, any> ? E : never
-type Failures<T> = FailureReasons<Err<T>> | NotSent
 type Unknowns<T> = UnknownReasons<Err<T>> | FlowUnknown | StillUnknown<FailureReasons<Err<T>>>
 
 // ── 5. Outcome mappings on the commit value (the in-machine-calls syntax) ─────────────────────────────────────────
@@ -91,22 +90,16 @@ export type Outcomes<T, Ev extends Tagged> = {
   ? { readonly failure?: NotSentKey<T, Ev> }
   : { readonly failure: { readonly [X in FTags<T>]: Mapping<Extract<FailureReasons<Err<T>>, { readonly _tag: X }>, Ctx<T>, Ev> } & NotSentKey<T, Ev> })
 
-// ── 6. The call record, read through the commit value (rule 9) ───────────────────────────────────────────────────
-export interface CallView<T> {
-  readonly pending: boolean                         // from start until its ending's turn is admitted
-  readonly attempt: Attempt<In<T>, Key<T>> | undefined
-  readonly sends: number
-  readonly last: { readonly channel: "success" | "failure" | "unknown"; readonly tag: string } | undefined
-}
+// ── 6. The lane, read through the commit value: `pending` and `retryCount` only (rule 9, D6) ────────────────────
+/** Opaque: the runtime's lane reader, present on every guard, schedule and view input. */
+export interface Lanes { readonly read: (operation: string, key: unknown) => { readonly pending: boolean; readonly retryCount: number } }
+type WithLanes = { readonly lanes: Lanes }
 type Keyless<K> = keyof K extends never ? true : false
-/** Opaque: the runtime's record reader, present on every guard and schedule input. Read it through `pay.at(g, key)`. */
-export interface Records { readonly read: (commit: string, key: unknown) => CallView<any> }
-type WithRecords = { readonly records: Records }
 
 // ── 7. Machine spec (a minimal stand-in for v4's machine API: states are dotted paths, "" is the root) ─────────────
-export type Denial = { readonly _tag: "Denial"; readonly code: string }
-export const deny = (code: string): Denial => ({ _tag: "Denial", code })
-export interface G<E, M> { readonly event: E; readonly memory: M; readonly state: string; readonly records: Records }
+export type Denial = { readonly _tag: "Denial"; readonly code: string; readonly context?: unknown }
+export const deny = (code: string, context?: unknown): Denial => ({ _tag: "Denial", code, context })
+export interface G<E, M> { readonly event: E; readonly memory: M; readonly state: string; readonly lanes: Lanes }
 export type Guard<E, M> = (g: G<E, M>) => true | Denial
 export interface Action<E> { readonly kind: "start" | "retry" | "cancel"; readonly commit: AnyCommit; readonly select?: (g: { memory: any; event: E }) => unknown }
 export interface Alt<E, M> {
@@ -118,16 +111,18 @@ export interface Alt<E, M> {
 export type Handler<E, M> = Alt<E, M> | ReadonlyArray<Alt<E, M>>
 export interface StateSpec<Ev extends Tagged, M> {
   readonly initial?: string
-  readonly after?: Record<string, { readonly delay: (g: { memory: M; records: Records }) => number; readonly send: Ev }>
+  readonly after?: Record<string, { readonly delay: (g: { memory: M; lanes: Lanes }) => number; readonly send: Ev }>
   readonly on?: { readonly [K in Ev["_tag"]]?: Handler<Extract<Ev, { readonly _tag: K }>, M> }
 }
 type KeySel<T, M, E> = (g: { readonly memory: M; readonly event: E }) => Key<T>
-/** The commit value is the handle: listed in `actions` it starts a new Attempt. */
+/** The commit value is the handle (D4): listed in `actions` it starts a new write. */
 export interface Commit<T, M, Ev, E> extends Action<E> {
   readonly retry: Keyless<Key<T>> extends true ? () => Action<any> : <E2 extends Ev = Ev>(key: KeySel<T, M, E2>) => Action<E2>
   readonly cancel: Keyless<Key<T>> extends true ? () => Action<any> : <E2 extends Ev = Ev>(key: KeySel<T, M, E2>) => Action<E2>
-  readonly at: Keyless<Key<T>> extends true ? (g: WithRecords) => CallView<T> : (g: WithRecords, key: Key<T>) => CallView<T>
-  readonly pending: Keyless<Key<T>> extends true ? (g: WithRecords) => boolean : (g: WithRecords, key: Key<T>) => boolean
+  /** The guard form of `!pending`: `deny("InFlight", { operation, key })`. */
+  readonly idle: Keyless<Key<T>> extends true ? () => Guard<any, M> : <E2 extends Ev = Ev>(key: KeySel<T, M, E2>) => Guard<E2, M>
+  readonly pending: Keyless<Key<T>> extends true ? (g: WithLanes) => boolean : (g: WithLanes, key: Key<T>) => boolean
+  readonly retryCount: Keyless<Key<T>> extends true ? (g: WithLanes) => number : (g: WithLanes, key: Key<T>) => number
 }
 type AnyCommit = { readonly id: string; readonly op: AnyTransaction; readonly outcomes: any }
 type Ops = Record<string, Record<string, AnyTransaction>>
@@ -149,8 +144,8 @@ export interface Machine<Ev extends Tagged, M> { readonly memory: M; readonly in
 export const machine = <Ev extends Tagged>() =>
   <M, O extends Ops>(def: { readonly memory: M; readonly operations: O }) => {
     let n = 0
-    const E: any = new Proxy({}, {   // runtime-internal: typed by Events<Ev>
-      get: (_t, k: string) => ({ _tag: k, __bare: true, from: (f: any) => ({ __mapper: (v: any, c: any) => ({ _tag: k, ...f(v, c) }) }) }),
+    const E: any = new Proxy({}, {   // runtime-internal: typed by Events<Ev>; mappers keep their tag for checkLate
+      get: (_t, k: string) => ({ _tag: k, __bare: true, from: (f: any) => ({ _tag: k, __mapper: (v: any, c: any) => ({ _tag: k, ...f(v, c) }) }) }),
     })
     const O: any = {}
     for (const [group, ops] of Object.entries(def.operations)) {
@@ -163,8 +158,12 @@ export const machine = <Ev extends Tagged>() =>
             const keyed = (sel?: any) => sel && ((g: any) => ({ __key: sel(g) }))
             c.retry = (sel?: any) => ({ kind: "retry", commit: c, select: keyed(sel) })
             c.cancel = (sel?: any) => ({ kind: "cancel", commit: c, select: keyed(sel) })
-            c.at = (g: WithRecords, key?: unknown) => g.records.read(c.id, key ?? {})
-            c.pending = (g: WithRecords, key?: unknown) => g.records.read(c.id, key ?? {}).pending
+            c.pending = (g: WithLanes, key?: unknown) => g.lanes.read(op.id, key ?? {}).pending
+            c.retryCount = (g: WithLanes, key?: unknown) => g.lanes.read(op.id, key ?? {}).retryCount
+            c.idle = (sel?: any) => (g: G<any, any>) => {
+              const key = sel ? sel(g) : {}
+              return !g.lanes.read(op.id, key).pending || deny("InFlight", { operation: op.id, key })
+            }
             return c
           },
         }
@@ -177,35 +176,62 @@ export const machine = <Ev extends Tagged>() =>
     }
   }
 
-// ── 8. The runtime ─────────────────────────────────────────────────────────────────────────────────────────────
+// ── 8. The `flow check` stand-in for D13: every late-routable event has a handler on a strict ancestor ──────────────
+const prefixes = (p: string): string[] => { const out = [""]; if (p === "") return out; const parts = p.split("."); for (let i = 1; i <= parts.length; i++) out.push(parts.slice(0, i).join(".")); return out }
+const arr = <X>(x: X | ReadonlyArray<X> | undefined): ReadonlyArray<X> => (x === undefined ? [] : Array.isArray(x) ? x : [x as X])
+const within = (p: string, o: string) => o === "" || p === o || p.startsWith(o + ".")
+/**
+ * For each commit value listed in a transition, its owner is the transition's target ("self": the handler's state).
+ * If some transition can leave the owner, every event its `outcomes` maps to must be handled on a strict ancestor of
+ * the owner. Returns one message per missing late handler.
+ */
+export const checkLate = (spec: Machine<any, any>): string[] => {
+  const states: Record<string, any> = spec.states
+  const alts: Array<{ at: string; alt: any }> = []
+  for (const [at, s] of Object.entries(states)) for (const h of Object.values<any>(s.on ?? {})) for (const alt of arr<any>(h)) alts.push({ at, alt })
+  const leavable = (o: string) => o !== "" && alts.some(({ at, alt }) => alt.target && alt.target !== "self" && (within(at, o) || within(o, at)) && !within(alt.target, o))
+  const errors: string[] = []
+  for (const { at, alt } of alts) for (const action of arr<any>(alt.actions)) {
+    const owner = alt.target && alt.target !== "self" ? alt.target : at
+    if (!leavable(owner)) continue
+    const o = action.commit.outcomes
+    const mapped = [o.success, o.unknown, ...Object.values(o.failure ?? {})].map((m: any) => m._tag as string)
+    for (const tag of new Set(mapped)) {
+      const handled = prefixes(owner).slice(0, -1).some((p) => states[p]?.on?.[tag] !== undefined)
+      if (!handled) errors.push(`${tag}: no late handler above ${owner} (mapped by ${action.commit.id})`)
+    }
+  }
+  return [...new Set(errors)]
+}
+
+// ── 9. The runtime ─────────────────────────────────────────────────────────────────────────────────────────────
 /** The old proposal's behaviours, switchable one at a time, so each Story can show the failure it fixes. */
 export interface Legacy {
   readonly routeAtSettlement?: boolean   // P1: choose outcomes/abandoned when the commit settles
   readonly perSendFailure?: boolean      // P2: a failure on a re-send is definite
   readonly pendingUntilSettlement?: boolean // P3: .pending false at settlement
-  readonly silentReject?: boolean        // P5: a declined start does nothing, the transition still happens
-  readonly sameWireKey?: boolean         // P21: a re-send always reuses the Attempt id as the idempotency key
+  readonly silentReject?: boolean        // P5: a declined start does nothing at all: no ending
 }
 type SendEnding = { channel: "success"; value: unknown } | { channel: "failure" | "unknown"; reason: Tagged }
 interface Owner { readonly path: string; readonly chain: ReadonlyArray<readonly [string, number]> }
-interface Outstanding { attempt: Attempt<any, any>; owner: Owner; fiber?: Fiber.Fiber<unknown, unknown>; invoked: boolean; cancelled: boolean; settled: boolean; legacyRoute?: "current" | "late" }
-interface Rec {
-  readonly commit: AnyCommit; readonly key: unknown
+interface Outstanding {
+  attempt: Attempt<any, any>; owner: Owner; outcomes: any
+  fiber?: Fiber.Fiber<unknown, unknown>; invoked: boolean; cancelled: boolean; settled: boolean
+  declined?: boolean; legacyRoute?: "current" | "late"
+}
+interface Lane {
+  readonly op: AnyTransaction; readonly key: unknown
   attempt?: Attempt<any, any>
-  generation: number; mayHaveApplied: boolean
-  last?: { channel: "success" | "failure" | "unknown"; tag: string }
+  starter?: AnyCommit                    // the commit value that started the current Attempt (D9)
+  mayHaveApplied: boolean
   outstanding: Map<string, Outstanding>
   queued?: Outstanding
 }
 type Item =
   | { kind: "event"; event: Tagged }
   | { kind: "timer"; event: Tagged; path: string; activation: number }
-  | { kind: "ending"; rec: Rec; out: Outstanding; send: SendEnding }
+  | { kind: "ending"; lane: Lane; out: Outstanding; send: SendEnding }
 type Admitted = { event: Tagged | undefined; label: string }
-
-const prefixes = (p: string): string[] => { const out = [""]; if (p === "") return out; const parts = p.split("."); for (let i = 1; i <= parts.length; i++) out.push(parts.slice(0, i).join(".")); return out }
-const parentOf = (p: string) => (p === "" ? undefined : p.includes(".") ? p.slice(0, p.lastIndexOf(".")) : "")
-const arr = <X>(x: X | ReadonlyArray<X> | undefined): ReadonlyArray<X> => (x === undefined ? [] : Array.isArray(x) ? x : [x as X])
 
 export const makeActor = <Ev extends Tagged, M>(spec: Machine<Ev, M>, opts: { legacy?: Legacy; ackDelayMs?: number } = {}) => {
   const legacy = opts.legacy ?? {}
@@ -215,27 +241,25 @@ export const makeActor = <Ev extends Tagged, M>(spec: Machine<Ev, M>, opts: { le
   let act = 0
   let n = 0
   const activations = new Map<string, number>()
-  const records = new Map<string, Rec>()
+  const lanes = new Map<string, Lane>()
   const mailbox: Item[] = []
   const trace: string[] = []
   let clock = 0
 
   const descend = (p: string): string => { const s = sp.states[p]; return s?.initial ? descend(s.initial) : p }
-  const recOf = (commit: AnyCommit, key: unknown): Rec => {
-    const id = `${commit.id}|${JSON.stringify(key)}`
-    let r = records.get(id)
-    if (!r) { r = { commit, key, generation: 0, mayHaveApplied: false, outstanding: new Map() }; records.set(id, r) }
-    return r
+  const laneId = (op: AnyTransaction, key: unknown) => `${op.id}|${JSON.stringify(key)}`
+  const laneOf = (op: AnyTransaction, key: unknown): Lane => {
+    let l = lanes.get(laneId(op, key))
+    if (!l) { l = { op, key, mayHaveApplied: false, outstanding: new Map() }; lanes.set(laneId(op, key), l) }
+    return l
   }
-  // the `reject` lane is per descriptor and key (Operations O3), across every commit value of that descriptor
-  const lanePending = (op: AnyTransaction, key: unknown) =>
-    [...records.values()].some((r) => r.commit.op === op && JSON.stringify(r.key) === JSON.stringify(key) && pendingOf(r))
-  const pendingOf = (r: Rec | undefined) =>
-    !!r && (legacy.pendingUntilSettlement ? [...r.outstanding.values()].some((o) => !o.settled) || !!r.queued : r.outstanding.size > 0 || !!r.queued)
-  const reader: Records = {
-    read: (commit, key) => {
-      const r = records.get(`${commit}|${JSON.stringify(key)}`)
-      return { pending: pendingOf(r), attempt: r?.attempt, sends: r?.attempt?.sends ?? 0, last: r?.last }
+  const pendingOf = (l: Lane | undefined) =>
+    !!l && (legacy.pendingUntilSettlement ? [...l.outstanding.values()].some((o) => !o.settled) || !!l.queued : l.outstanding.size > 0 || !!l.queued)
+  const evictIfSettled = (l: Lane) => { if (!pendingOf(l) && l.outstanding.size === 0 && !l.queued && !l.attempt) lanes.delete(laneId(l.op, l.key)) }   // D11
+  const reader: Lanes = {
+    read: (operation, key) => {
+      const l = [...lanes.values()].find((x) => x.op.id === operation && JSON.stringify(x.key) === JSON.stringify(key))
+      return { pending: pendingOf(l), retryCount: l?.attempt?.retryCount ?? 0 }
     },
   }
   const log = (s: string) => trace.push(`t=${String(clock).padStart(5)} ${s}`)
@@ -255,74 +279,65 @@ export const makeActor = <Ev extends Tagged, M>(spec: Machine<Ev, M>, opts: { le
     if (o.cancelled) return o.invoked ? { channel: "unknown", reason: { _tag: "Cancelled" } } : { channel: "failure", reason: { _tag: "NotSent", why: "Cancelled" } as Tagged }
     return { channel: "unknown", reason: { _tag: "Interrupted" } }
   }
+  const notSent = (why: NotSent["why"]): SendEnding => ({ channel: "failure", reason: { _tag: "NotSent", why } as Tagged })
 
   const ownerOf = (target: string): Owner => ({ path: target, chain: prefixes(target).reverse().map((p) => [p, activations.get(p)!] as const) })
   const alive = (o: Owner) => activations.get(o.path) === o.chain[0][1]
 
-  const invoke = (rec: Rec, o: Outstanding): Effect.Effect<void> => Effect.gen(function* () {
-    const op = rec.commit.op
+  const invoke = (lane: Lane, o: Outstanding): Effect.Effect<void> => Effect.gen(function* () {
     const run = Effect.sleep(`${opts.ackDelayMs ?? 0} millis`).pipe(
       Effect.andThen(Effect.sync(() => { o.invoked = true })),
-      Effect.andThen(op.commit(o.attempt.input, { attempt: o.attempt })),
+      Effect.andThen(lane.op.commit(o.attempt.input, { attempt: o.attempt })),
     ) as Effect.Effect<unknown, unknown> // runtime-internal erasure: services are provided by the Story's layer
     o.fiber = yield* Effect.forkDetach(run)
     yield* Effect.forkDetach(Fiber.await(o.fiber).pipe(Effect.flatMap((exit) => Effect.gen(function* () {
       o.settled = true
       if (legacy.routeAtSettlement) o.legacyRoute = alive(o.owner) ? "current" : "late"
-      mailbox.push({ kind: "ending", rec, out: o, send: classify(exit, o) })
-      const q = rec.queued
-      if (q && ![...rec.outstanding.values()].some((x) => x !== q && !x.settled)) { rec.queued = undefined; yield* invoke(rec, q) }  // `latest`: the waiting start goes now
+      mailbox.push({ kind: "ending", lane, out: o, send: classify(exit, o) })
+      const q = lane.queued
+      if (q && ![...lane.outstanding.values()].some((x) => x !== q && !x.settled)) { lane.queued = undefined; yield* invoke(lane, q) }  // `latest`: the waiting start goes now
     }))))
   })
 
-  // ── admission of an ending: Attempt-level classification and the record update, then an ordinary event ──
+  // ── admission of an ending: the Attempt's ending, the lane update, then the author's mapped event ──
   const admitEnding = (it: Extract<Item, { kind: "ending" }>): Admitted => {
-    const { rec, out, send } = it
+    const { lane, out, send } = it
     const a = out.attempt
     let final: SendEnding = send
     if (!legacy.perSendFailure && send.channel === "failure" && send.reason._tag !== "NotSent" && a.mayHaveApplied)
       final = { channel: "unknown", reason: { _tag: "StillUnknown", failure: send.reason } as Tagged }
-    rec.outstanding.delete(a.id)
-    const superseded = rec.attempt?.id !== a.id
     const tag = final.channel === "success" ? "success" : final.channel === "unknown" ? "unknown" : final.reason._tag
-    if (!superseded) {
-      rec.last = { channel: final.channel, tag: final.channel === "success" ? "success" : final.reason._tag }
-      if (final.channel === "unknown") rec.mayHaveApplied = true
-      if (final.channel === "failure" && !rec.mayHaveApplied && tag !== "NotSent") rec.generation++
-      if (final.channel === "success") rec.attempt = undefined
+    const superseded = !out.declined && lane.attempt?.id !== a.id
+    if (!out.declined) {
+      lane.outstanding.delete(a.id)
+      if (!superseded) {
+        if (final.channel === "unknown") lane.mayHaveApplied = true
+        if (final.channel === "success") { lane.attempt = undefined; lane.starter = undefined }
+      }
+      evictIfSettled(lane)
     }
-    // the commit value's own `outcomes` maps the ending to an author event (rule 1)
-    const o = rec.commit.outcomes
+    const o = out.outcomes
     const mapping = final.channel === "success" ? o.success : final.channel === "unknown" ? o.unknown : o.failure?.[tag]
     const value = final.channel === "success" ? final.value : final.reason
     const event = mapping === undefined ? undefined : mapping.__mapper ? mapping.__mapper(value, { input: a.input, attempt: a, superseded }) : { _tag: mapping._tag }
-    const what = final.channel === "success" ? "success" : final.channel === "unknown" ? `unknown:${final.reason._tag}` : tag
-    return { event, label: `${event?._tag ?? "(unmapped)"}<${what}>(${a.id}#${a.sends}${superseded ? ",superseded" : ""})` }
+    const what = final.channel === "success" ? "success" : final.channel === "unknown" ? `unknown:${final.reason._tag}` : tag === "NotSent" ? `NotSent:${(final.reason as NotSent).why}` : tag
+    return { event, label: `${event?._tag ?? "(unmapped)"}<${what}>(${a.id}${a.retryCount ? `+${a.retryCount}` : ""}${superseded ? ",superseded" : ""})` }
   }
 
-  // ── implicit guards of an alternative's call actions (rule 4) ──
-  const keyOf = (action: Action<any>, g: { memory: any; event: any }) => {
-    const op = action.commit.op
-    if (action.kind === "start") return op.key(action.select!(g))
-    return action.select ? (action.select(g) as any).__key : {}
-  }
-  const implicit = (alt: any, event: any, finalMemory: any): true | Denial => {
-    for (const action of arr<Action<any>>(alt.actions)) {
-      const key = keyOf(action, { memory: finalMemory, event })
-      const r = records.get(`${action.commit.id}|${JSON.stringify(key)}`)
-      const op = action.commit.op
-      if (action.kind === "start" && op.concurrency === "reject" && lanePending(op, key) && !legacy.silentReject) return deny("InFlight")
-      if (action.kind === "retry" && !r?.attempt) return deny("NothingToResend")
-      if (action.kind === "retry" && pendingOf(r)) return deny("InFlight")
-    }
-    return true
-  }
+  const keyOf = (action: Action<any>, g: { memory: any; event: any }) =>
+    action.kind === "start" ? action.commit.op.key(action.select!(g)) : action.select ? (action.select(g) as any).__key : {}
 
   const exitsFor = (target: string | undefined) => {
     if (target === undefined || target === "self") return { exits: [] as string[], entries: [] as string[], newLeaf: leaf }
     const newLeaf = descend(target)
     const oldP = prefixes(leaf), newP = prefixes(newLeaf)
     return { exits: oldP.filter((p) => !newP.includes(p)).reverse(), entries: newP.filter((p) => !oldP.includes(p)), newLeaf }
+  }
+
+  const decline = (lane: Lane, commit: AnyCommit, attempt: Attempt<any, any>, owner: Owner, why: NotSent["why"]) => {
+    const o: Outstanding = { attempt, owner, outcomes: commit.outcomes, invoked: false, cancelled: false, settled: true, declined: true }
+    log(`  ${lane.op.id}: ${why} (the transition ran; the write ends NotSent)`)
+    mailbox.push({ kind: "ending", lane, out: o, send: notSent(why) })
   }
 
   const runActions = (actions: ReadonlyArray<Action<any>>, event: any, owner: Owner) => Effect.gen(function* () {
@@ -332,27 +347,32 @@ export const makeActor = <Ev extends Tagged, M>(spec: Machine<Ev, M>, opts: { le
       if (action.kind === "start") {
         const input = action.select!(g)
         const key = op.key(input)
-        const rec = recOf(action.commit, key)
-        if (op.concurrency === "reject" && lanePending(op, key)) { log(`  ${op.id} start declined silently (legacy)`); continue }
-        const attempt: Attempt<any, any> = { id: `a${++n}`, operation: op.id, key, input, sends: 1, idempotencyKey: `a${n}`, mayHaveApplied: false }
-        rec.attempt = attempt; rec.generation = 0; rec.mayHaveApplied = false; rec.last = undefined
-        const o: Outstanding = { attempt, owner, invoked: false, cancelled: false, settled: false }
-        rec.outstanding.set(attempt.id, o)
-        if (op.concurrency === "latest" && [...rec.outstanding.values()].some((x) => x !== o && !x.settled)) {
-          if (rec.queued) { rec.queued.settled = true; mailbox.push({ kind: "ending", rec, out: rec.queued, send: { channel: "failure", reason: { _tag: "NotSent", why: "Superseded" } as Tagged } }) }
-          rec.queued = o
-        } else yield* invoke(rec, o)
+        const lane = laneOf(op, key)
+        const attempt: Attempt<any, any> = { id: `a${++n}`, operation: op.id, key, input, retryCount: 0, mayHaveApplied: false }
+        if (op.concurrency === "reject" && pendingOf(lane)) {                          // rule 4: refuse the write only
+          if (legacy.silentReject) { log(`  ${op.id} start declined silently (legacy: no ending)`); continue }
+          decline(lane, action.commit, attempt, owner, "Rejected"); continue
+        }
+        lane.attempt = attempt; lane.starter = action.commit; lane.mayHaveApplied = false
+        const o: Outstanding = { attempt, owner, outcomes: action.commit.outcomes, invoked: false, cancelled: false, settled: false }
+        lane.outstanding.set(attempt.id, o)
+        if (op.concurrency === "latest" && [...lane.outstanding.values()].some((x) => x !== o && !x.settled)) {
+          if (lane.queued) { lane.queued.settled = true; mailbox.push({ kind: "ending", lane, out: lane.queued, send: notSent("Superseded") }) }
+          lane.queued = o
+        } else yield* invoke(lane, o)
       } else if (action.kind === "retry") {
-        const rec = recOf(action.commit, keyOf(action, g))
-        const prev = rec.attempt!  // guaranteed by the implicit NothingToResend guard
-        const attempt = { ...prev, sends: prev.sends + 1, idempotencyKey: legacy.sameWireKey || rec.generation === 0 ? prev.id : `${prev.id}~${rec.generation}`, mayHaveApplied: rec.mayHaveApplied }
-        rec.attempt = attempt
-        const o: Outstanding = { attempt, owner, invoked: false, cancelled: false, settled: false }
-        rec.outstanding.set(attempt.id, o)
-        yield* invoke(rec, o)
+        const lane = laneOf(op, keyOf(action, g))
+        const prev = lane.attempt
+        if (!prev) { decline(lane, action.commit, { id: "-", operation: op.id, key: lane.key, input: undefined, retryCount: 0, mayHaveApplied: false }, owner, "NothingToResend"); evictIfSettled(lane); continue }
+        if (pendingOf(lane)) { decline(lane, lane.starter ?? action.commit, prev, owner, "Rejected"); continue }
+        const attempt = { ...prev, retryCount: prev.retryCount + 1, mayHaveApplied: lane.mayHaveApplied }   // the same id on the wire (rule 7)
+        lane.attempt = attempt
+        const o: Outstanding = { attempt, owner, outcomes: (lane.starter ?? action.commit).outcomes, invoked: false, cancelled: false, settled: false }   // the starter's outcomes (D9)
+        lane.outstanding.set(attempt.id, o)
+        yield* invoke(lane, o)
       } else {
-        const rec = records.get(`${action.commit.id}|${JSON.stringify(keyOf(action, g))}`)
-        const live = rec && [...rec.outstanding.values()].find((x) => !x.settled)
+        const lane = lanes.get(laneId(op, keyOf(action, g)))
+        const live = lane && [...lane.outstanding.values()].find((x) => !x.settled)
         if (!live) { log(`  ${op.id} cancel: nothing unsettled (no-op, evidence)`); continue }
         live.cancelled = true
         yield* Effect.forkDetach(Fiber.interrupt(live.fiber!))   // the ending is delivered when the fiber has exited
@@ -364,14 +384,13 @@ export const makeActor = <Ev extends Tagged, M>(spec: Machine<Ev, M>, opts: { le
     if (it.kind === "timer" && activations.get(it.path) !== it.activation) { log(`${it.event._tag} discarded (its state was left)`); return }
     const admitted = it.kind === "ending" ? admitEnding(it) : { event: it.event, label: it.event._tag }
     const event: any = admitted.event
-    const label = (_e: any) => admitted.label
-    if (event === undefined) { log(`${admitted.label} no mapping: dropped with evidence (flow check requires NotSent only where it can occur)`); return }
+    if (event === undefined) { log(`${admitted.label} no mapping: dropped with evidence (flow check requires NotSent where it can occur)`); return }
     // where routing starts (rule 2)
     let from: string[] = prefixes(leaf).reverse()
     let late = false
     if (it.kind === "ending") {
       const o = it.out.owner
-      const current = legacy.routeAtSettlement ? it.out.legacyRoute === "current" : alive(o)
+      const current = legacy.routeAtSettlement && !it.out.declined ? it.out.legacyRoute === "current" : alive(o)
       if (current && legacy.routeAtSettlement) from = from.filter((p) => o.path === "" || p === o.path || p.startsWith(o.path + "."))  // fenced handlers only
       else if (!current) {
         late = true
@@ -384,35 +403,31 @@ export const makeActor = <Ev extends Tagged, M>(spec: Machine<Ev, M>, opts: { le
       const h = sp.states[p]?.on?.[event._tag]
       if (!h) continue
       for (const alt of arr<any>(h)) {
-        const g = { event, memory, state: leaf, records: reader }
-        const guards = arr<any>(alt.guard)
-        const failed = guards.map((f) => f(g)).find((v) => v !== true)
+        const g = { event, memory, state: leaf, lanes: reader }
+        const failed = arr<any>(alt.guard).map((f) => f(g)).find((v) => v !== true)
         if (failed) { reasons.push(failed.code); continue }
         const finalMemory = { ...memory, ...(alt.update ? alt.update(g) : {}) }
-        const imp = implicit(alt, event, finalMemory)
-        if (imp !== true) { reasons.push(imp.code); continue }
         const target = alt.target === "self" ? undefined : alt.target
         const { exits, entries, newLeaf } = exitsFor(target)
-        if (late && exits.some((x) => [...records.values()].some((r) => r !== (it as any).rec && [...r.outstanding.values()].some((o) => o.owner.path === x && alive(o.owner))))) { reasons.push("LateMayNotLeave"); continue }
+        if (late && exits.some((x) => [...lanes.values()].some((l) => l !== (it as any).lane && [...l.outstanding.values()].some((o) => o.owner.path === x && alive(o.owner))))) { reasons.push("LateMayNotLeave"); continue }
         // commit
         const before = leaf
         memory = finalMemory
         for (const x of exits) activations.delete(x)
         for (const x of entries) activations.set(x, ++act)
         leaf = newLeaf
-        log(`${label(event)}${late ? " [late]" : ""} ${before || "root"}${before === leaf ? "" : " → " + leaf}`)
+        log(`${admitted.label}${late ? " [late]" : ""} ${before || "root"}${before === leaf ? "" : " → " + leaf}`)
         const owner = ownerOf(target ?? p)   // the owner is the state the transition names ("self": the handler's own state)
         yield* runActions(arr(alt.actions), event, owner)
-        for (const x of entries) for (const [name, s] of Object.entries<any>(sp.states[x]?.after ?? {})) {
-          const delay = s.delay({ memory, records: reader })  // committed memory of the arming turn (rule 11)
+        for (const x of entries) for (const s of Object.values<any>(sp.states[x]?.after ?? {})) {
+          const delay = s.delay({ memory, lanes: reader })  // committed memory of the arming turn (rule 11)
           const activation = activations.get(x)!
           yield* Effect.forkDetach(Effect.sleep(`${delay} millis`).pipe(Effect.andThen(Effect.sync(() => mailbox.push({ kind: "timer", event: s.send, path: x, activation })))))
-          void name
         }
         return
       }
     }
-    log(`${label(event)}${late ? " [late]" : ""} ${reasons.length ? "Denied " + JSON.stringify(reasons) : "Unhandled: LOST"}`)
+    log(`${admitted.label}${late ? " [late]" : ""} ${reasons.length ? "Denied " + JSON.stringify(reasons) : "Unhandled: LOST"}`)
   })
 
   const process = Effect.gen(function* () { while (mailbox.length) yield* turn(mailbox.shift()!) })
@@ -424,7 +439,7 @@ export const makeActor = <Ev extends Tagged, M>(spec: Machine<Ev, M>, opts: { le
   const boot = Effect.gen(function* () {
     for (const x of prefixes(leaf)) for (const s of Object.values<any>(sp.states[x]?.after ?? {})) {
       const activation = activations.get(x)!
-      yield* Effect.forkDetach(Effect.sleep(`${s.delay({ memory, records: reader })} millis`).pipe(Effect.andThen(Effect.sync(() => mailbox.push({ kind: "timer", event: s.send, path: x, activation })))))
+      yield* Effect.forkDetach(Effect.sleep(`${s.delay({ memory, lanes: reader })} millis`).pipe(Effect.andThen(Effect.sync(() => mailbox.push({ kind: "timer", event: s.send, path: x, activation })))))
     }
   })
 
@@ -433,26 +448,26 @@ export const makeActor = <Ev extends Tagged, M>(spec: Machine<Ev, M>, opts: { le
     trace,
     get state() { return leaf },
     get memory(): M { return memory },
-    /** what a view reads: `pay.at(actor.view, key)` */
-    view: { records: reader } as WithRecords,
+    /** what a view reads: `pay.pending(actor.view, key)` */
+    view: { lanes: reader } as WithLanes,
+    /** lanes still held (for D11: a settled lane is evicted) */
+    get laneCount() { return lanes.size },
     send: (e: Ev) => Effect.gen(function* () { mailbox.push({ kind: "event", event: e }); yield* process }),
     /** Advance the controlled clock in 10 ms steps, taking turns as things arrive. */
     advance: (ms: number) => Effect.gen(function* () { for (let t = 0; t < ms; t += 10) { yield* tick(10); yield* process } }),
     /** Advance without taking turns (the main thread was busy): arrivals queue in the mailbox, then run FIFO. */
     advanceHeld: (ms: number) => Effect.gen(function* () { for (let t = 0; t < ms; t += 10) yield* tick(10) }),
     process,
-    /** check(snapshot, event): the same selection, implicit guards included, without committing (Machines O4). */
+    /** check(snapshot, event): the same selection without committing (Machines O4). Flow adds no guard (rule 4). */
     check: (e: Ev): string => {
       for (const p of prefixes(leaf).reverse()) {
         const h = sp.states[p]?.on?.[e._tag]
         if (!h) continue
         const reasons: string[] = []
         for (const alt of arr<any>(h)) {
-          const g = { event: e, memory, state: leaf, records: reader }
+          const g = { event: e, memory, state: leaf, lanes: reader }
           const failed = arr<any>(alt.guard).map((f) => f(g)).find((v) => v !== true)
           if (failed) { reasons.push(failed.code); continue }
-          const imp = implicit(alt, e, { ...memory, ...(alt.update ? alt.update(g) : {}) })
-          if (imp !== true) { reasons.push(imp.code); continue }
           return "Allowed"
         }
         return `Denied ${JSON.stringify(reasons)}`
