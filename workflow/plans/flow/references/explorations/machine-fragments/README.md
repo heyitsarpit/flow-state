@@ -12,6 +12,8 @@ other documents names it). Merges 1 and 2 are merged into it (2026-10-30). What 
 | --- | --- | --- | --- |
 | 1 | [merge-4-entities/proposal.md](merge-4-entities/proposal.md) | **accepted** 2026-10-30 (E1–E16); merges together with merge 3 | the merged design: who owns a write about an entity, and the conflicts in [merged/server-calls/reviews/entities.md](merged/server-calls/reviews/entities.md) |
 | 2 | [merge-3-stories/proposal.md](merge-3-stories/proposal.md) | not accepted; D1–D3 settled, revision 1, open questions in eleven rounds | the merged design and merge 4 (whether records or memory carry entity data); checked against [playback.md](../playback.md) |
+| 3 | [merge-5-entity-analysis/proposal.md](merge-5-entity-analysis/proposal.md) | **accepted** 2026-10-30 (M5-D1–D4); under review | merge 4: operators, source reading and the machine-to-domain join for entity domains |
+| 4 | [merge-6-streams/proposal.md](merge-6-streams/proposal.md) | being written (from [merge-6-streams/gaps.md](merge-6-streams/gaps.md)) | the merged design and merge 4: streams in three layers |
 | — | [open-items.md](open-items.md) | nothing open: items 1 and 3 closed, 2 parked, 4 merged | its closing notes merge with the design |
 
 Merged proposals move to [merged/](merged/) with their evidence, as the record behind the design:
