@@ -16,7 +16,7 @@ contracts. Everything here supports them. Where a document here and a plan diffe
 | [design/multi-tab.md](design/multi-tab.md)                                           | shared multi-tab persistence; deferred, not version 1                             |
 | [design/sync-engine-adapter.md](design/sync-engine-adapter.md)                       | the tier-2 sync engine plug-in point; deferred, not version 1                     |
 | [explorations/playback.md](explorations/playback.md)                                 | Story rendering and playback over the real UI; an exploration                     |
-| [explorations/machine-fragments/](explorations/machine-fragments/principles.md)      | Traits and subroutines: reusable machine behaviour, restarted from principles     |
+| [explorations/machine-fragments/](explorations/machine-fragments/README.md)      | Traits and subroutines: reusable machine behaviour, restarted from principles     |
 | [explorations/fragments.md](explorations/fragments.md)                               | Prior art, not accepted: the single-fragment proposal and its decisions D1–D13    |
 | [explorations/fragment-examples.md](explorations/fragment-examples.md)               | Prior art: the single-fragment proposal's examples, grouped by use case           |
 | [explorations/fragment-contract-syntax.md](explorations/fragment-contract-syntax.md) | Prior art: the single-fragment proposal's contract syntax versions                |

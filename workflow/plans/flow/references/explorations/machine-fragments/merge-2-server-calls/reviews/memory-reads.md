@@ -1,6 +1,6 @@
 # Review: one behaviour for every memory read in a turn (D12, open question 1)
 
-Scope: rules 10 and 11 of `calls-next/proposal.md` (section 4), D12, open question 1; `proposal-v4.md` 2.5 ("What
+Scope: rules 10 and 11 of `merge-2-server-calls/proposal.md` (section 4), D12, open question 1; `machine-design.md` 2.5 ("What
 reads what", "Reading the same key twice"); `Machines.plan` O3, O4, O5, O6. Read-only review; nothing else edited.
 
 ## 1. Summary

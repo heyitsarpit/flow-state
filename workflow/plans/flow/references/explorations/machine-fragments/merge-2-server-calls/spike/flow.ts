@@ -9,7 +9,7 @@
 import { Cause, Data, Effect, Exit, Fiber, Result, Schema } from "effect"
 import * as TestClock from "effect/testing/TestClock"
 
-// ── 1. Outcome: exactly as outcome-proposal.md ────────────────────────────────────────────────────────────
+// ── 1. Outcome: exactly as merge-1-outcomes.md ────────────────────────────────────────────────────────────
 export class OutcomeFailure<R> extends Data.TaggedError("Flow/Failure")<{ readonly reason: R }> {}
 export class OutcomeUnknown<R> extends Data.TaggedError("Flow/Unknown")<{ readonly reason: R }> {}
 export const Outcome = {

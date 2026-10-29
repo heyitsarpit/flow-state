@@ -30,7 +30,7 @@ Questions to answer when revisiting:
 - Should `armOn` count an event that has no handler, so the no-op line disappears? What does that
   do to `Unhandled`, `check()` and rule 8?
 - Or does this argue for arming from the transition after all (`Start: { target: "self", arm: … }`),
-  despite the locality and naming costs found in [spikes/timers-arm/RESULTS.md](spikes/timers-arm/RESULTS.md)?
+  despite the locality and naming costs found in [spikes/schedule-triggers/RESULTS.md](spikes/schedule-triggers/RESULTS.md)?
 - Or is a timer-only trait better expressed some other way, so authors rarely write this?
 
 ## 2. The name `raise` (flagged 2026-10-29)
@@ -97,7 +97,7 @@ runtime resolves to WIZARD's last active child.
 
 ## 4. Server calls, the in-machine half (flagged 2026-10-29)
 
-**Now proposed in [calls-next/proposal.md](calls-next/proposal.md)** (not accepted), which supersedes
+**Now proposed in [merge-2-server-calls/proposal.md](merge-2-server-calls/proposal.md)** (not accepted), which supersedes
 `in-machine-calls-proposal.md` (removed).
 `unknown` was kept as the name. What it leaves open is in its section 8.
 

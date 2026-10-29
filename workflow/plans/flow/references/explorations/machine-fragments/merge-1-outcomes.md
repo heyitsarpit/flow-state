@@ -1,11 +1,12 @@
 # Proposal: commit outcomes as three channels
 
-Status: **final; to be merged into [proposal-v4.md](proposal-v4.md).** No plan file is changed by
+Status: **final; merge 1 of 2 into [machine-design.md](machine-design.md)**, before
+[merge-2-server-calls](merge-2-server-calls/proposal.md), which amends it. No plan file is changed by
 this; the plans change only when v4 itself is accepted. It changes how a commit's ending reaches the
 machine and the cache. Merged into v4, it supersedes v4's P9, P13, P14 and the `definite` field of
 `abandoned`, and parts of the Operations and EntityDomains plans (section 7). The in-machine half (timeout and retry
-placement, fencing, `abandoned`, late turns, the saga recipe) is still open in
-[revisit.md](revisit.md), item 4. The implementation is checked by the spike in
+placement, fencing, `abandoned`, late turns, the saga recipe) is merge 2,
+[merge-2-server-calls/proposal.md](merge-2-server-calls/proposal.md). The implementation is checked by the spike in
 [spikes/outcome-channels](spikes/outcome-channels/outcome.ts).
 
 ## 1. The problem
@@ -289,4 +290,4 @@ Unchanged: `Flow.uncertain` (the marker on events the unknown channel may target
    `outcomes.failure` is exhaustive, so an unwrapped error (say a `NoResponse` meant as unknown)
    appears there by name and must be handled as a failure, where the author sees it.
 
-Still open elsewhere: the in-machine half, in [revisit.md](revisit.md), item 4.
+Still open elsewhere: the in-machine half, merge 2 ([merge-2-server-calls/proposal.md](merge-2-server-calls/proposal.md)).

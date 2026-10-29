@@ -2,7 +2,7 @@
 import { Cause, Context, Data, Effect, Exit, Fiber, Layer, Result, Schema } from "effect"
 import * as TestClock from "effect/testing/TestClock"
 
-// ── Flow: Outcome (as in outcome-proposal.md) ─────────────────────────────────
+// ── Flow: Outcome (as in merge-1-outcomes.md) ─────────────────────────────────
 class OutcomeFailure<R> extends Data.TaggedError("Flow/Failure")<{ readonly reason: R }> {}
 class OutcomeUnknown<R> extends Data.TaggedError("Flow/Unknown")<{ readonly reason: R }> {}
 export const Outcome = {

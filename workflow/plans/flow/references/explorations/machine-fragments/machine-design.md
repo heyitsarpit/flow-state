@@ -1,6 +1,8 @@
 # Machine fragments: traits and subroutines (version 4)
 
-**Status:** proposal, not accepted. It **supersedes `proposal-v3.md`** (removed, see [the folder README](README.md)). It is
+**Status:** proposal, not accepted. This is the one design; [merge-1-outcomes.md](merge-1-outcomes.md) and then
+[merge-2-server-calls/proposal.md](merge-2-server-calls/proposal.md) merge into it, in that order (see
+[the folder README](README.md)). It **supersedes `proposal-v3.md`** (removed, see [the folder README](README.md)). It is
 evaluated against [principles.md](principles.md). v4 keeps v3's model and adds what the prior-art
 study found missing (`prior-art/`, removed, see [the folder README](README.md)). Where this file and a plan
 differ, the plan wins. Section 5 lists every plan amendment, with the sentence each one replaces.
@@ -424,7 +426,7 @@ that node.
    Each must be handled, ending in an unguarded alternative, in every state where it can arrive.
    Everything those handlers raise or notify must be total by the child's summary.
 9. **Many copies: `.each`.** Full design, reasons and nine worked examples:
-   [collections/proposal-each.md](collections/proposal-each.md). `T.each(field, { max, by? })`
+   [merged/each.md](merged/each.md). `T.each(field, { max, by? })`
    places one copy of T per key in a memory field of the placing definition or fragment, in that
    field's order.
    - **Membership is host data.** Keys are strings, bare or in records (`by` names the key field).
@@ -596,7 +598,7 @@ item. Readability decides between the two.
 
 ### 3.1 Two-factor sign-in, in full
 
-The apps are those of [comparison/apps.md](comparison/apps.md). The flow is `PASSWORD → TWO_FACTOR →
+The apps are those of [reference/example-apps.md](reference/example-apps.md). The flow is `PASSWORD → TWO_FACTOR →
 SIGNED_IN`. In the two-factor step:
 
 - a 6-digit code;
@@ -1431,7 +1433,7 @@ const pay = O.Payments.charge.commit(select, {
 
 ## 7. Open
 
-0. **Collections, after `.each`** (rule 9; [collections/proposal-each.md](collections/proposal-each.md)
+0. **Collections, after `.each`** (rule 9; [merged/each.md](merged/each.md)
    section 4): per-copy subscriptions (keyed activities); raising into every copy at once; several
    copies writing their list's field in one turn; commits joined across incarnations (check against
    Operations); nested `.each`.
@@ -1474,7 +1476,7 @@ Notes (removed, see [the folder README](README.md)): `prior-art/synchronous-lang
 
 ## Changes after review
 
-From [reviews/v4-correctness.md](reviews/v4-correctness.md) and [reviews/v4-principles.md](reviews/v4-principles.md):
+From [reviews/design-correctness.md](reviews/design-correctness.md) and [reviews/design-principles.md](reviews/design-principles.md):
 
 - Turn (2.5): parts selected before seeding (M1); initial memory before patches, so Add-then-Strike keeps the strike (M2); all-declining falls through to ancestors (M8); a "what reads what" table; `check()` runs steps 2–6; `whenAbandoned` and pending runs after the walk; reset incarnations arm entry timers; pending resets (m2, m3).
 - Dead incarnations drop only their own parts; the host's handling commits (M3).
@@ -1489,7 +1491,7 @@ From [reviews/v4-correctness.md](reviews/v4-correctness.md) and [reviews/v4-prin
 - Fragments keep a definition's shape, with `hostEvents`, `guards`, `callbacks` and `exits` as top-level lists named by direction; no grouping block. Memory fields carry `Flow.input`, `Flow.initial` (constant or computed) and `Flow.private`, for fragments and machines, replacing the top-level `input` and `initial`. `Flow` calls are written data-first (2.2.2).
 - Placement: `Flow.state(children | {} | Sub, { traits })` on a node replaces `.at("PATH")`; `.resumable()` is a method; fillings sit at the node; signup drafts live at the root; key order, the `Flow` namespace rule and the locality rule are recorded (2.3, 2.6); `.list` is marked open (section 7).
 - `.keep()` is renamed `.resumable()`: the trait resumes on return instead of restarting (SCADE 6's resume versus restart).
-- `Field(schema, { validate? })` keeps the author's validator. A validator returns `true | deny(code, context?)`, the field stores the denial or null as `Flow.Denial`, and a host guard forwards it (`memory.code.error ?? true`). A Schema check fits inside a validator (`Schema.is`), so `unchecked` and `firstIssue` are gone ([research/field-validation-effect4.md](research/field-validation-effect4.md)).
-- `.each` replaces the open `.list` draft (rule 9, 2.5, sign-in, invites): membership is host memory, decided from the turn's final list, repaired instead of refused, with incarnations kept internal ([collections/proposal-each.md](collections/proposal-each.md) and its four reviews).
-- Schedules (P7): `armOn` may list `Flow.entry` to also start on entry; `disarmOn` stops a schedule; `armOn` with `restartOn` is a construction error. Event-typed triggers need no name inference ([spikes/timers-arm/RESULTS.md](spikes/timers-arm/RESULTS.md)). `schedules` keeps its name (D53).
+- `Field(schema, { validate? })` keeps the author's validator. A validator returns `true | deny(code, context?)`, the field stores the denial or null as `Flow.Denial`, and a host guard forwards it (`memory.code.error ?? true`). A Schema check fits inside a validator (`Schema.is`), so `unchecked` and `firstIssue` are gone ([reference/effect4-field-validation.md](reference/effect4-field-validation.md)).
+- `.each` replaces the open `.list` draft (rule 9, 2.5, sign-in, invites): membership is host memory, decided from the turn's final list, repaired instead of refused, with incarnations kept internal ([merged/each.md](merged/each.md) and its four reviews).
+- Schedules (P7): `armOn` may list `Flow.entry` to also start on entry; `disarmOn` stops a schedule; `armOn` with `restartOn` is a construction error. Event-typed triggers need no name inference ([spikes/schedule-triggers/RESULTS.md](spikes/schedule-triggers/RESULTS.md)). `schedules` keeps its name (D53).
 - `onLeave` is renamed `whenAbandoned`: it names the moment a life is ended by someone else, and the `when` prefix keeps it apart from the `on…` callbacks it fires.

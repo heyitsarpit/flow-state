@@ -1,9 +1,9 @@
 # Review of proposal-v4 (principles lens, focused on the additions)
 
-This review reads [proposal-v4.md](../proposal-v4.md) against [principles.md](../principles.md) and
+This review reads [machine-design.md](../machine-design.md) against [principles.md](../principles.md) and
 the prior-art notes (`prior-art/README.md` and its four notes, removed, see [the folder README](../README.md)). It covers
 only what changed from v3, and ignores the uncommitted `.plan` edits. Line numbers (Lnn) refer to
-proposal-v4.md.
+machine-design.md.
 
 Severity: **major** = a principle violation, a word with two meanings, or drift from a note that
 changes behaviour; **minor** = wording.

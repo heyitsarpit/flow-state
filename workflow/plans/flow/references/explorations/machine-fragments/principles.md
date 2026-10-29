@@ -10,7 +10,7 @@ rules.
 Where this folder and a plan differ, the plan wins.
 
 Every proposal in this folder is evaluated against this file. The current proposal is
-[proposal-v4.md](proposal-v4.md).
+[machine-design.md](machine-design.md).
 
 **What is settled, and what is not.** Conceptually, the parts of a machine that compose together
 are **fragments**, and fragments come in two kinds: **traits** and **subroutines**. That is all
