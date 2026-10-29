@@ -1,6 +1,7 @@
 # Proposal: streams (merge 6)
 
-Status: **proposal, not accepted.** Designed from the sources in [gaps.md](gaps.md), not from any earlier stream
+Status: **accepted by the owner on 2026-10-30, with the decisions in section 10; not yet reviewed, and merges after
+merges 3, 4 and 5.** Designed from the sources in [gaps.md](gaps.md), not from any earlier stream
 draft. Builds on the merged design (machine-design.md, rules 1–25) and on the accepted entity proposal (merge 4, rules
 26–38). Nothing here edits a `.plan` file; section 6 lists the amendments for when the owner accepts them. All syntax
 is a working draft; `// ← NEW` marks what this proposal adds.
@@ -223,7 +224,8 @@ Session.resumed()       // open, and nothing since the last position is missing:
                         //   the server replayed from the cursor, or the connection starts with a full snapshot
 Session.gap(reason)     // something was lost: "history expired", a buffer overflow       ← NEW
 Session.down(reason)    // the connection dropped; the adapter is trying again            ← NEW
-// a plain element: a value. The first value of a connection with no open signal counts as Session.open().
+// a plain element: a value. The first value of a session with no signal before it counts as Session.open().
+// values may also arrive while Down (a cache serving data, 7.7.4); after a down, only open, resumed or gap re-open.
 // failing the Stream ends the session (failure); completing it ends the session (complete).
 ```
 
@@ -242,7 +244,9 @@ When the connection fails with an error `while` accepts, it emits `Session.down(
 Runtime Clock, and connects again with the last position. Any other error, or an exhausted `schedule`, ends the
 session with that error. It mirrors `Effect.retry({ schedule, while })`, and is ordinary adapter code: Flow's runtime
 never re-opens a session (rule 43). The position never leaves the adapter; across sessions, the machine's memory holds
-it (4.3.2).
+it (4.3.2). Because only a session's first value implies an open (rule 40), the combinator reports each re-open: it
+emits `Session.open()` before a reconnected connection's first element, unless that connection starts with its own
+signal. That is the "reports each re-open" of section 2, spelled out; the combinator is otherwise unchanged (7.7).
 
 A source that reconnects by itself (SSE, a sync engine) reports the same signals without the combinator: CONNECTING
 or `error` is `down`, the next message or `ready` is `open`.
@@ -260,7 +264,7 @@ At every open of a transport connection, the session's continuity is decided by 
 | --- | --- | --- |
 | `Session.resumed()` | continuous | nothing |
 | `Session.gap(reason)` | something was lost | a gap with the adapter's `reason` |
-| `Session.open()`, or a first value with no signal | unproven | a gap with Flow's reason `Unproven { why: "Opened" \| "Reconnected" }` |
+| `Session.open()`, or the session's first value with no signal | unproven | a gap with Flow's reason `Unproven { why: "Opened" \| "Reconnected" }` |
 
 The gap is delivered **before any value of that connection**, in the session's sequence. It is delivered on the
 **first** open too (`why: "Opened"`): a machine that read history before the socket opened may have missed what was
@@ -280,7 +284,8 @@ s.activities.feed
 // Failure     { data, error }       Defect { data, cause }    Interrupted { data, cause }   (as OPS:166-169)
 ```
 
-- `connection` starts `"Opening"`, becomes `"Open"` at `open`, `resumed` or the first value, and `"Down"` at `down`.
+- `connection` starts `"Opening"`, becomes `"Open"` at `open`, `resumed`, `gap` or the session's first value, and
+  `"Down"` at `down`. A value that arrives while `"Down"` updates `data` and leaves `connection` as it is (7.7.4).
   It is the adapter's report, not Flow's measurement: whether quiet means idle or dead is the adapter's heartbeat
   (GAPS, WebSocket "Unknown").
 - `data` is the latest value, as today. A `latest` stream's lane updates coalesce to at most one publication per
@@ -529,7 +534,8 @@ Provisional, numbered after merge 4's 38.
     coalesce it, and equal values are silent under `Equal.equals`.
 40. **The `Session` vocabulary.** `subscribe` returns a Stream of values and `Session` signals (`open`, `resumed`,
     `gap(reason)`, `down(reason)`). Flow reads only which signal came; reasons are the adapter's information. The first
-    value of a connection with no open signal is an `open`.
+    value of a session with no signal before it is an `open`. After a `down`, only `open`, `resumed` or `gap` re-open;
+    a value while down changes the data, not the connection.
 41. **Continuity at every open.** On an `every` stream, each open that is not `resumed` delivers a gap before any of
     that connection's values: the adapter's reason after `gap`, Flow's `Unproven { why: "Opened" | "Reconnected" }`
     after `open`. The first open counts. An adapter that drops data (a buffer overflow) must emit `gap`. `latest`
@@ -931,6 +937,285 @@ read and the socket's open stayed stale, so the first open counts (G10). (2) A d
 from a cursor in the list's response to skip that refetch; that is log replay into the store, which the scope note
 puts behind a sync engine, so it went, and its cost is stated instead (4.2).
 
+### 7.7 Third-party SDKs
+
+The walks above use Effect-native services. These four wrap real SDKs against the same contract. Each follows one
+pattern:
+
+- **The service owns the SDK.** An Effect service (`Context.Service`) wraps the SDK and exposes an Effect `Stream` of
+  the author's own parts and tagged errors. The SDK's types, status codes and close reasons stop at the service: the
+  operation, Flow and the machine never see them. The service is where the author reads the SDK's errors.
+- **Cancellation is Effect interruption.** An abort signal is the commit's `signal` (aborted when Flow interrupts
+  the commit, MD:844), or an `unsubscribe`/`removeChannel` in an `Effect.acquireRelease` finalizer that runs when
+  the session's scope closes.
+- **A Story replaces the service, not the SDK.** A fixture is a Layer for the same service (TST:54-56), so no Story
+  fakes an SDK object.
+- **Two sources are writes, two are streams.** An LLM completion is a POST that costs money and can be cut off, so
+  OpenAI and the Vercel AI SDK are transactions with `progress` (4.1.8). Supabase realtime and Firestore are streams.
+
+**Verified against Effect 4.0.5** (`node_modules/effect/src`):
+- `Stream.fromAsyncIterable(iterable, onError)` (Stream.ts:1334). Its finalizer calls the iterator's `return()` when
+  the stream is interrupted (Channel.ts:1995-2012).
+- `Stream.callback(f, { bufferSize, strategy })` (Stream.ts:725). `f` may use `Scope`, and its buffer defaults to
+  unbounded. `Queue.offerUnsafe` returns `false` when a `"dropping"` queue is full (Queue.ts:801-818).
+  `Queue.failCauseUnsafe` (Queue.ts:1262) is used with `Cause.fail` (Cause.ts:500).
+- `Stream.unwrap` removes `Scope`, so resources acquired in it live as long as the stream (Stream.ts:1704-1706).
+- `Effect.acquireRelease` (Effect.ts:13366) and `Effect.tryPromise` (Effect.ts:1441).
+- `Effect.catchTag` (Effect.ts:4639), `Stream.runForEach` (Stream.ts:20351), `Stream.flatMap` (Stream.ts:2853) and
+  `Stream.fail` (Stream.ts:844).
+- `Stream.merge` (Stream.ts:4120) and `Stream.fromQueue` (Stream.ts:1185).
+- `Layer.succeed(Service, impl)` (Layer.ts:1036-1058) and `class X extends Context.Service<X, Shape>()("id")`
+  (Context.ts:180-209).
+
+**SDK details from memory, not verified.** No SDK is installed in this repository, so these are unchecked; check them
+against the SDK versions when the reference app adopts one:
+- **OpenAI:** chunk shape `choices[0].delta.content` / `finish_reason`; the error classes `RateLimitError`,
+  `APIError.status`, `APIConnectionError`; `create(…, { signal })`; the stream's `return()` aborting the request.
+- **Vercel AI SDK:** `streamText` returning synchronously; `fullStream` part names (`text-delta` with `text` in v5,
+  `textDelta` in v4; `finish`; `error`); errors arriving as parts instead of throwing; `APICallError.statusCode`.
+- **Supabase:** the `subscribe` status strings (`SUBSCRIBED`, `CHANNEL_ERROR`, `TIMED_OUT`, `CLOSED`); realtime-js
+  rejoining channels by itself after a socket drop; `payload.eventType`, `.new` and `.old`.
+- **Firestore:** the `onSnapshot(query, options, next, error)` overload; `includeMetadataChanges`;
+  `metadata.fromCache`; `error.code`.
+
+#### 7.7.1 The OpenAI Node SDK (a write)
+
+```ts
+// llm.service.ts: the SDK stops here
+export type LlmPart = { readonly _tag: "Text"; readonly text: string } | { readonly _tag: "Finished"; readonly reason: string }
+export class LlmBusy extends Data.TaggedError("LlmBusy")<{ readonly retryAfterMs?: number }> {}
+export class LlmRefused extends Data.TaggedError("LlmRefused")<{ readonly status: number }> {}       // the server answered no
+export class LlmNoResponse extends Data.TaggedError("LlmNoResponse")<{}> {}                          // no response: it may have reached the server
+export class LlmBodyBroken extends Data.TaggedError("LlmBodyBroken")<{}> {}                          // the body broke after the headers
+export type LlmError = LlmBusy | LlmRefused | LlmNoResponse | LlmBodyBroken
+
+export class Llm extends Context.Service<Llm, {
+  readonly complete: (req: { readonly prompt: string }, signal: AbortSignal) => Stream.Stream<LlmPart, LlmError>
+}>()("app/Llm") {}
+
+const classify = (e: unknown, phase: "request" | "body"): LlmError =>      // the author reads the SDK; Flow reads none of it
+  e instanceof OpenAI.RateLimitError ? new LlmBusy({ retryAfterMs: retryAfterMs(e.headers) })
+  : e instanceof OpenAI.APIError && e.status !== undefined ? new LlmRefused({ status: e.status })
+  : phase === "request" ? new LlmNoResponse({}) : new LlmBodyBroken({})
+
+export const OpenAiLlm = (client: OpenAI) => Layer.succeed(Llm, {
+  complete: (req, signal) => Stream.unwrap(
+    Effect.tryPromise({
+      try: () => client.chat.completions.create(
+        { model: "gpt-4o-mini", messages: [{ role: "user", content: req.prompt }], stream: true },
+        { signal }),                                                        // the commit's signal: Flow's cancel aborts the request
+      catch: (e) => classify(e, "request"),
+    }).pipe(Effect.map((chunks) =>
+      Stream.fromAsyncIterable(chunks, (e) => classify(e, "body")).pipe(  // interruption calls return(): the SDK aborts
+        Stream.flatMap((chunk) => Stream.fromIterable(toParts(chunk))))))),   // content → Text; finish_reason → Finished
+})
+
+// assistant.operations.ts: the commit sees only LlmPart and LlmError
+export const ask = transaction({
+  id: "assistant/ask",
+  input: Schema.Struct({ conversationId: Schema.String, prompt: Schema.String }),
+  key: (i) => ({ conversationId: i.conversationId }),
+  progress: Schema.Struct({ text: Schema.String }),
+  concurrency: "reject",
+  commit: (input, { signal, progress }) => Effect.gen(function* () {
+    let text = ""
+    let finished: string | undefined
+    yield* Llm.use((llm) => Stream.runForEach(llm.complete({ prompt: input.prompt }, signal), (p) => {
+      if (p._tag === "Finished") { finished = p.reason; return Effect.void }
+      text += p.text
+      return progress({ text })
+    })).pipe(
+      Effect.catchTag("LlmNoResponse", (e) => Outcome.unknown(e)),
+      Effect.catchTag("LlmBodyBroken", (e) => Outcome.unknown(e)))          // LlmBusy, LlmRefused stay failures (MD:752-753)
+    if (finished === undefined) return yield* Outcome.unknown(new CutOff({}))   // a clean end with no finish_reason
+    return { text, truncated: finished === "length" }                        // "length" is an answer, cut by max_tokens: information
+  }),
+})
+```
+
+- **Session signals:** none. A write has no connection; the Attempt's lane is its status (`pending`, `progress`).
+- **Idempotency:** chat completions take no idempotency key (from memory), so `attempt.id` has nowhere to go and a
+  `retry` after `unknown` could pay twice. The machine of 7.4 shows the partial text and offers a new question. It
+  does not `retry`. The author decides this because only the author knows the API (rule 19).
+- **Fixture:**
+
+```ts
+export const FakeLlm = (o: { tokens: ReadonlyArray<string>; every: Duration.Input; finish?: string }) =>
+  Layer.succeed(Llm, {
+    complete: () => Stream.fromIterable([
+      ...o.tokens.map((text) => ({ _tag: "Text" as const, text })),
+      ...(o.finish === undefined ? [] : [{ _tag: "Finished" as const, reason: o.finish }]),   // omit finish: a cut-off
+    ]).pipe(Stream.flatMap((p) => Stream.fromEffect(Effect.as(Effect.sleep(o.every), p)))),   // controlled-clock sleeps
+  })
+// story: .send(E.Ask()).advance("100 millis") → gen.progress(…)?.text === "Hel"; finish omitted → ending unknown CutOff
+```
+
+#### 7.7.2 The Vercel AI SDK (a write, the same service)
+
+```ts
+export const VercelLlm = (model: LanguageModel) => Layer.succeed(Llm, {
+  complete: (req, signal) => Stream.unwrap(Effect.sync(() => {
+    let answered = false                                                   // whether any part arrived: the request reached a server
+    const result = streamText({ model, prompt: req.prompt, abortSignal: signal })   // the commit's signal
+    return Stream.fromAsyncIterable(result.fullStream, (e) => classifyAi(e, answered)).pipe(
+      Stream.flatMap((part) => {
+        answered = true
+        switch (part.type) {
+          case "text-delta": return Stream.succeed({ _tag: "Text" as const, text: part.text })
+          case "finish": return Stream.succeed({ _tag: "Finished" as const, reason: part.finishReason })
+          case "error": return Stream.fail(classifyAi(part.error, answered))   // errors arrive as parts, not throws
+          default: return Stream.empty
+        }
+      }))
+  })),
+})
+const classifyAi = (e: unknown, answered: boolean): LlmError =>
+  APICallError.isInstance(e) && e.statusCode === 429 ? new LlmBusy({})
+  : APICallError.isInstance(e) && e.statusCode !== undefined ? new LlmRefused({ status: e.statusCode })
+  : answered ? new LlmBodyBroken({}) : new LlmNoResponse({})
+```
+
+- **The same `Llm` service, so `ask` and its machine do not change.** Changing the SDK means changing the Layer.
+- **`fullStream`, not `textStream`.** `textStream` yields text only. A clean end then looks the same as a cut, and
+  the commit cannot tell a complete answer from a truncated one (GAPS, "fetch body", "Unknown"). `fullStream`'s
+  `finish` part is the terminator.
+- **Fixture:** `FakeLlm` (7.7.1), unchanged.
+
+#### 7.7.3 Supabase realtime (a stream feeding entity records)
+
+```ts
+export type TicketChange = { readonly _tag: "Saved"; readonly row: TicketRow } | { readonly _tag: "Deleted"; readonly key: { readonly id: string } }
+export class RealtimeDown extends Data.TaggedError("RealtimeDown")<{ readonly status: string; readonly message?: string }> {}   // a down reason
+export class Overflow extends Data.TaggedError("Overflow")<{}> {}                                                             // a gap reason
+export class RealtimeClosed extends Data.TaggedError("RealtimeClosed")<{}> {}                                                 // ends the session
+export class SignedOut extends Data.TaggedError("SignedOut")<{}> {}
+
+export class TicketFeed extends Context.Service<TicketFeed, {
+  readonly changes: (workspaceId: string) => Stream.Stream<TicketChange | Session.Signal<RealtimeDown, Overflow>, RealtimeClosed | SignedOut>
+}>()("app/TicketFeed") {}
+
+export const SupabaseTicketFeed = (supabase: SupabaseClient) => Layer.succeed(TicketFeed, {
+  changes: (workspaceId) => Stream.callback<TicketChange | Session.Signal<RealtimeDown, Overflow>, RealtimeClosed | SignedOut>((queue) => {
+    let lost = false
+    const offer = (item: TicketChange | Session.Signal<RealtimeDown, Overflow>) => {   // rule 41: a dropped push becomes a gap, in order
+      if (lost) lost = !Queue.offerUnsafe(queue, Session.gap(new Overflow()))
+      if (!lost) lost = !Queue.offerUnsafe(queue, item)
+    }
+    const fail = (e: RealtimeClosed | SignedOut) => Queue.failCauseUnsafe(queue, Cause.fail(e))
+    return Effect.all([
+      Effect.acquireRelease(                                               // the channel lives exactly as long as the session
+        Effect.sync(() => supabase
+          .channel(`tickets:${workspaceId}`)
+          .on("postgres_changes", { event: "*", schema: "public", table: "tickets", filter: `workspace_id=eq.${workspaceId}` },
+            (p) => offer(p.eventType === "DELETE" ? { _tag: "Deleted", key: { id: p.old.id } } : { _tag: "Saved", row: p.new }))
+          .subscribe((status, err) => {                                    // the SDK's own status: the Session signals
+            if (status === "SUBSCRIBED") offer(Session.open())             // no replay: every (re)join is unproven (rule 41)
+            else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") offer(Session.down(new RealtimeDown({ status, message: err?.message })))
+            else if (status === "CLOSED") fail(new RealtimeClosed({}))     // after release the queue is already done: a no-op
+          })),
+        (channel) => Effect.promise(() => supabase.removeChannel(channel))),
+      Effect.acquireRelease(                                               // "signed out" comes from another SDK API, read by the author
+        Effect.sync(() => supabase.auth.onAuthStateChange((event) => { if (event === "SIGNED_OUT") fail(new SignedOut({})) })),
+        ({ data }) => Effect.sync(() => data.subscription.unsubscribe())),
+    ])
+  }, { bufferSize: 1024, strategy: "dropping" }),                        // dropping, so offerUnsafe reports the loss (Queue.ts:801-818)
+})
+
+// tickets.operations.ts and the domain
+export const ticketChanges = stream({
+  id: "tickets/changes",
+  key: (p: { workspaceId: string }) => p,
+  delivers: "every",
+  subscribe: (p) => Stream.unwrap(TicketFeed.useSync((f) => f.changes(p.workspaceId))),   // no Session.reconnect: the SDK rejoins by itself
+})
+changes: listen(ticketChanges).as([Ticket], (c) => c._tag === "Saved" ? Ticket.save(c.row) : Ticket.delete(c.key)),
+```
+
+- **Signals come from the SDK's status callback.** realtime-js rejoins after a socket drop (from memory), so this is
+  4.1.3's "a source that reconnects by itself": `CHANNEL_ERROR`/`TIMED_OUT` is `down`, and the next `SUBSCRIBED` is
+  an `open`. `postgres_changes` replays nothing, so every rejoin is `Unproven`, and the store lowers the covered
+  answers (rule 49). Applying pushes and refetching after a rejoin is all the store does. Catching up on missed rows
+  from a log would be a sync engine's job (SE).
+- **Classification:** whether a `CHANNEL_ERROR` was caused by the network or by row-level security is not in the
+  status. The author keeps it as `down` and takes "signed out" from the auth client instead. Flow reads neither.
+- **Versions:** a row with no version column makes this `listen` over an unversioned entity, which `flow check` warns
+  about (EDP:123-124). A `version` column fixes that.
+- **Fixture:**
+
+```ts
+export const FakeTicketFeed = Fixture.stateful({                           // merge 3's constructor (7.0)
+  id: "FakeTicketFeed",
+  truth: TicketTruth,
+  controls: { change: TicketChangeSchema, drop: Schema.Struct({}), rejoin: Schema.Struct({}) },
+  layer: (truth, controls) => Layer.succeed(TicketFeed, {
+    changes: () => Stream.succeed(Session.open()).pipe(Stream.concat(Stream.merge(
+      Stream.fromQueue(controls.change).pipe(Stream.tap((c) => applyToTruth(truth, c))),   // truth first, then the push (TST:63-64)
+      Stream.merge(
+        Stream.fromQueue(controls.drop).pipe(Stream.map(() => Session.down(new RealtimeDown({ status: "CHANNEL_ERROR" })))),
+        Stream.fromQueue(controls.rejoin).pipe(Stream.map(() => Session.open())))))),
+  }),
+})
+// story: .control(feed.drop({})).control(feed.rejoin({})).process() → the list refetches (repair cause "reconnect: listen")
+```
+
+#### 7.7.4 Firebase `onSnapshot` (a `latest` stream)
+
+```ts
+export class FromCache extends Data.TaggedError("FromCache")<{}> {}        // a down reason: the SDK serves its local cache
+export class MembersDenied extends Data.TaggedError("MembersDenied")<{}> {}
+export class MembersFailed extends Data.TaggedError("MembersFailed")<{ readonly code: string }> {}
+
+export class Rooms extends Context.Service<Rooms, {
+  readonly members: (roomId: string) => Stream.Stream<ReadonlyArray<Member> | Session.Signal<FromCache, never>, MembersDenied | MembersFailed>
+}>()("app/Rooms") {}
+
+export const FirestoreRooms = (db: Firestore) => Layer.succeed(Rooms, {
+  members: (roomId) => Stream.callback<ReadonlyArray<Member> | Session.Signal<FromCache, never>, MembersDenied | MembersFailed>((queue) =>
+    Effect.acquireRelease(
+      Effect.sync(() => onSnapshot(
+        collection(db, "rooms", roomId, "members"),
+        { includeMetadataChanges: true },                                  // a snapshot also when fromCache flips
+        (snap) => {
+          Queue.offerUnsafe(queue, snap.metadata.fromCache ? Session.down(new FromCache()) : Session.open())
+          Queue.offerUnsafe(queue, snap.docs.map((d) => toMember(d.data())))
+        },
+        (error) => Queue.failCauseUnsafe(queue, Cause.fail(        // the listener stops after an error: the session ends
+          error.code === "permission-denied" ? new MembersDenied() : new MembersFailed({ code: error.code }))))),
+      (unsubscribe) => Effect.sync(unsubscribe)),                          // interruption runs the SDK's unsubscribe
+    { bufferSize: 2, strategy: "sliding" }),                               // latest: older states may go; signal and value travel in pairs
+})
+
+export const roomMembers = stream({
+  id: "rooms/members",
+  key: (p: { roomId: string }) => p,
+  delivers: "latest",                                                      // a query snapshot is the whole state
+  subscribe: (p) => Stream.unwrap(Rooms.useSync((r) => r.members(p.roomId))),
+})
+```
+
+- **Signals come from snapshot metadata.** Firestore has no connection callback, but each snapshot says whether it
+  came from the local cache. A cached snapshot is `down` plus a value, and a server-confirmed one is `open` plus a
+  value. The view shows the cached members, dimmed (7.2).
+- **This case changed the contract.** Before, a value implied an open. A cache serving data while offline then showed
+  `"Open"`. Now only a session's first value implies an open, and a value while `"Down"` changes the data but not
+  the connection (rule 40, 4.1.5).
+- **Not a `listen`.** Firestore's offline cache, pending writes and completeness are a sync engine's. Feeding them
+  into the store as records belongs behind SE, not in `listen` (4.2).
+- **Fixture:** a plain Layer: `members: () => Stream.make(Session.down(new FromCache()), cached, Session.open(), fresh)`.
+  A Story checks `connection` and `data` after `process()`.
+
+#### 7.7.5 What the SDKs confirm
+
+- **`Session.reconnect` stays as designed** (4.1.3; open question Q1). Supabase and Firestore reconnect by
+  themselves and report signals without it. OpenAI and the Vercel AI SDK are writes. The only text added to 4.1.3
+  spells out that the combinator emits the re-open it already had to report. The owner reviews the combinator
+  separately.
+- **No SDK type crosses the service.** Each service maps the SDK's classes, statuses, close events and metadata into
+  the author's tagged errors and `Session` signals (MD:716-717).
+- **Cancellation is always Effect interruption.** It reaches the SDK either as the commit's `signal` or as a
+  finalizer: the iterator's `return()`, `removeChannel` or `unsubscribe`.
+- **One contract change:** values while down (7.7.4).
+
 ## 8. Alternatives considered
 
 - **A1. Flow re-opens sessions** (a `retry` policy on the descriptor). Rejected: rule 25, configuration on a
@@ -966,7 +1251,7 @@ puts behind a sync engine, so it went, and its cost is stated instead (4.2).
 
 ## 9. Open questions
 
-Only choices between equally correct options.
+Only choices between equally correct options. All four are decided in section 10 (M6-D3, M6-D4).
 
 - **Q1. Ship `Session.reconnect` in version 1?** Flow derives continuity from the signals either way, so correctness
   does not depend on it; without it, every adapter writes the down/backoff/reconnect loop by hand. *Recommendation:
@@ -982,7 +1267,22 @@ Only choices between equally correct options.
 
 ## 10. Decisions
 
-Settled by the owner; none yet.
+Settled by the owner on 2026-10-30: the proposal is accepted with its recommendations, and these decisions.
+
+- **M6-D1 `stream()` carries server-pushed data;** a write reports on itself through `progress`. Data the server pushes
+  independently of any write (chat, presence, prices, `listen`) goes through `stream()`. A streaming write (an LLM
+  answer, an upload) stays a transaction with its Attempt and endings, and its commit reports `progress(value)` from what
+  the request already knows (XHR upload events, the text accumulated from the body); Flow counts nothing. Rejected:
+  routing all incremental data through `stream()`, because upload progress has no server stream and progress belongs to
+  one write's lifetime and ending.
+- **M6-D2 The contract stays "`subscribe` returns an Effect `Stream`".** Any third-party SDK reaches it through
+  `Stream.fromAsyncIterable`, `Stream.fromReadableStream` or `Stream.callback`, inside an Effect service the author
+  writes; 7.7 shows OpenAI, the Vercel AI SDK, Supabase realtime and Firestore. The one change those cases forced (only a
+  session's first value implies `open`; a value while `Down` updates data, not `connection`) is kept. Rejected:
+  accepting non-Effect shapes in `subscribe` directly (the owner is content with Effect wrappers).
+- **M6-D3 `Session.reconnect` ships as designed (Q1),** marked for the owner's later review.
+- **M6-D4 Q2–Q4 take their recommendations:** progress is a read and the ending mapper's `progress`, not a mapped event;
+  `every` delivers one value per turn; the names are `delivers` and `connection`.
 
 ## New keywords
 
