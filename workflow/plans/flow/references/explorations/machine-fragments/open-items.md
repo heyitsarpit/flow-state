@@ -102,6 +102,12 @@ runtime resolves to WIZARD's last active child.
 - **D. Remember the page in memory.** `Declined: [{ guard: [lastWas(PROFILE)], target: … }, …]`.
   No new concept; verbose per page, and the same data problem as history.
 
+**Closed (2026-10-30): `.history` stays as it is.** It restores control only, as designed; data survives by placing
+traits at the node whose lifetime matches it (the signup drafts at the root) or with `.resumable()`. Cases with a call
+in flight across the interruption use the documented recipe: handle the late ending at the ancestor it routes to.
+Interrupts and a computed `default` were considered and not taken; deep history stays deferred. The rename to
+`lastChild` (one token for the target and the read) was suggested and not taken.
+
 ## 4. Server calls, the in-machine half (flagged 2026-10-29)
 
 **Now proposed in [merge-2-server-calls/proposal.md](merge-2-server-calls/proposal.md)** (not accepted), which supersedes
