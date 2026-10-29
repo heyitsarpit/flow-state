@@ -1,6 +1,7 @@
 # Proposal: statically analysable entity domains (merge 5)
 
-Status: **proposal, not accepted.** It answers [brief.md](brief.md) (items 1–5 and its questions). Nothing here
+Status: **accepted by the owner on 2026-10-30, with the decisions in section 10; under review before merging (after
+merge 4).** It answers [brief.md](brief.md) (items 1–5 and its questions). Nothing here
 edits a `.plan` file, `merge-3-stories/` or `merge-4-entities/`; section 6 lists the amendments for when the owner
 accepts it. The spike in [spike/](spike/) checks sections 3.1–3.5 (`tsc -p .` with the root `node_modules/.bin/tsc`,
 then `bun main.ts`; output in [spike/output.txt](spike/output.txt)).
@@ -584,7 +585,23 @@ Each has a recommendation; none is decided.
 
 ## 10. Decisions
 
-Settled by the owner; none yet.
+Settled by the owner on 2026-10-30: the proposal is accepted as written, with these decisions.
+
+- **M5-D1 Scope.** Entity domains are client coherence (one store across screens) plus honest optimistic writes, not a
+  sync engine (sync engines plug in through `references/design/sync-engine-adapter.md`). The exact client semantics of
+  condition operators stay: a condition the client evaluates differently could skip a refetch a list needed, so
+  exactness protects coherence; it is kept because it is correct, not as a server-agreement guarantee.
+- **M5-D2 Effect's comparators.** Client-side ordering uses Effect's `Order.Date`, `Order.Number` (after a finiteness
+  check, since `Order.Number` ranks NaN below every number, `node_modules/effect/src/Order.ts:183-187`) and
+  `Order.mapInput`, not hand-written comparators ([prior-art.md](prior-art.md)).
+- **M5-D3 A conformance table** (operator, inputs, expected result, null rows included) is the client evaluator's own
+  test, CEL-style; it is not a client/server agreement suite.
+- **M5-D4 Open questions 1–7 take their recommendations:** no new value operators until an app needs one; ordering
+  operators compare Schema `Date` fields by time and date strings by equality only; no helper functions in version 1;
+  `.as` stays a runtime function; an unevaluable prediction is not shown, the write is still sent, and `skipped` is
+  recorded; a sort pair with a `null` key is skipped rather than raising `HiddenOrder` (`nullsFirst`/`nullsLast` later,
+  separately); the agreement check runs only in `flow check`.
+- **Rejected:** renaming the IR after TanStack DB's variants (cosmetic), and dropping the exact-semantics rule.
 
 ## New keywords
 
