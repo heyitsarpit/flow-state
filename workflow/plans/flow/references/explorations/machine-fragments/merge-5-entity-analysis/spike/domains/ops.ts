@@ -37,3 +37,12 @@ export type MessageRow = { messageId: string; body: string; reactions: readonly 
 export const transfer = op<{ from: { accountId: string }; to: { accountId: string }; amount: number }, {}>()("bank/transfer");
 export const react = op<{ key: { messageId: string }; emoji: string }, MessageRow>()("chat/react");
 export const myQueue = op<{ workspaceId: string; me: string; before: number }, TicketPage>()("DispatchDesk/my-queue");
+
+// Dates and bulk writes (entity-domain-examples.md's calendar and admin shapes, reduced).
+export type OccurrenceRow = { occurrenceId: string; calendarId: string; title: string; startsAt: Date; endsAt: Date | null };
+export const occurrencesIn = op<{ calendarId: string; from?: Date; to?: Date }, { items: readonly OccurrenceRow[] }>()("cal/occurrences");
+export const startingBetween = op<{ calendarId: string; from?: Date; to?: Date }, { items: readonly OccurrenceRow[] }>()("cal/starting-between");
+export const moveOccurrence = op<{ key: { occurrenceId: string }; startsAt: Date }, OccurrenceRow>()("cal/move");
+export type UserRow = { userId: string; status: "active" | "archived"; revision: number };
+export const archiveUsers = op<{ keys: readonly { userId: string }[] }, {}>()("admin/archive");
+export const bump = op<{ key: IssueKey }, {}>()("issues/bump-twice");

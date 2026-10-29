@@ -2,7 +2,7 @@
 // main.ts records them to show what recording alone would do. Each builder is a function so that a
 // construction error can be caught.
 import { and, domain, entity, eq, opaque, or, read, write } from "../flow.ts";
-import { myQueue, react, setLike, ticketList } from "./ops.ts";
+import { issuesInProject, myQueue, react, setLike, ticketList } from "./ops.ts";
 import { addReaction, Message } from "./extras.ts";
 import { Issue } from "./issues.ts";
 import { Ticket } from "./tickets.ts";
@@ -39,4 +39,14 @@ export const legacyChat = () => domain("legacy-chat", {
   react: write(react).one(Message).predicts(({ input }) => Message.patch(input.key, {
     reactions: (m) => opaque([m.reactions], (rs) => addReaction(rs, input.emoji)),
   })),
+});
+
+// `?:` in a predicted value (no arithmetic, so this is the `?:` finding alone).
+export const legacyFlags = () => domain("legacy-flags", {
+  setLike: write(setLike).one(Issue).predicts(({ input }) => Issue.patch(input.key, { liked: input.liked ? true : false })),
+});
+
+// A factory: correct at runtime, but not a literal declaration, so the reader reports it unreadable.
+export const makeIssues = (id) => domain(id, {
+  list: read(issuesInProject).list(Issue, ({ result }) => result.issues).where(({ input, record }) => eq(record.projectId, input.projectId)),
 });

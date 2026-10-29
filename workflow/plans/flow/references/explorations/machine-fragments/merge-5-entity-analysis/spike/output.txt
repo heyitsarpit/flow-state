@@ -1,5 +1,5 @@
 $ tsc -p .   (TypeScript 7.0.2)
-tsc: 0 errors; all 17 @ts-expect-error checks in types.ts hold, and the positive type assertions there compile
+tsc: 0 errors; all 23 @ts-expect-error checks in types.ts hold, and its five exact-type assertions and three allowed forms compile
 
 $ bun main.ts   (bun 1.4.2)
 (a) the operator set records and evaluates; both branches of `when` are recorded
@@ -9,72 +9,157 @@ $ bun main.ts   (bun 1.4.2)
    PASS liked false over liked true: likes 5 → 4 (branch -1)
    PASS liked true over liked true: likes 5 → 5 (branch 0)
    PASS liked false over liked false: likes 5 → 5 (branch 0)
-   PASS `when` is lazy: the branch not taken is never evaluated (it would fail here)
+
+   the conformance table (M5-D3), every row run by the evaluator:
+   | operator | written | given | result |
+   | --- | --- | --- | --- |
+   | `eq` | `eq(r.s, "a")` | s = "a" | true |
+   | `eq` | `eq(r.s, "a")` | s = "A" | false |
+   | `eq` | `eq(r.n, null)` | n = null | true |
+   | `eq` | `eq(r.n, i.x)` | n = null, x = null (present) | true |
+   | `eq` | `eq(r.n, i.x)` | n = "a", x = null (present) | false |
+   | `eq` | `eq(r.n, i.x)` | n = "a", x absent | true |
+   | `eq` | `eq(r.s, "a")` | s not carried | matches: not carried |
+   | `eq` | `eq(r.n, 1)` | n = NaN | matches: failed |
+   | `eq` | `eq(r.t, i.t)` | equal times, two Date objects | true |
+   | `eq` | `eq(r.t, i.t)` | t = invalid Date | matches: failed |
+   | `eq` | `eq(r.t, 0)` | t = a Date, against a number | false |
+   | `oneOf` | `oneOf(r.s, i.xs)` | s = "b", xs = ["a", "b"] | true |
+   | `oneOf` | `oneOf(r.s, i.xs)` | s = "b", xs = [] | false |
+   | `oneOf` | `oneOf(r.s, i.xs)` | xs absent | true |
+   | `oneOf` | `oneOf(r.t, [i.t])` | t equal by time | true |
+   | `contains` | `contains(r.tags, "x")` | tags = ["x"] | true |
+   | `contains` | `contains(r.tags, "x")` | tags = [] | false |
+   | `contains` | `contains(r.tags, i.tag)` | tag absent | true |
+   | `contains` | `contains(r.tags, "x")` | tags = null | matches: failed |
+   | `lt` | `lt(r.n, 5)` | n = 3 | true |
+   | `lt` | `lt(r.n, 5)` | n = null | false |
+   | `gte` | `gte(r.n, 5)` | n = 5 | true |
+   | `gte` | `gte(r.n, 5)` | n = null | false |
+   | `lte` | `lte(r.n, 5)` | n = 6 | false |
+   | `gt` | `gt(r.n, 5)` | n = Infinity | matches: failed |
+   | `gt` | `gt(r.n, 5)` | n = {} (bad data) | matches: failed |
+   | `lt` | `lt(r.n, i.x)` | x absent | true |
+   | `lt` | `lt(r.t, i.t)` | t earlier (Dates) | true |
+   | `lt` | `lt(r.t, i.t)` | t = invalid Date | matches: failed |
+   | `lt` | `lt(r.t, 5)` | a Date against a number | matches: failed |
+   | `between` | `between(r.n, 1, 3)` | n = 1 | true |
+   | `between` | `between(r.n, 1, 3)` | n = 3 | false |
+   | `between` | `between(r.n, i.from, i.to)` | from absent, to = 3, n = -100 | true |
+   | `between` | `between(r.n, i.from, i.to)` | from absent, to = 3, n = 5 | false |
+   | `between` | `between(r.n, i.from, i.to)` | both absent, n = null | true |
+   | `between` | `between(r.n, 1, 3)` | n = null | false |
+   | `between` | `between(r.t, i.from, i.to)` | Dates, inside | true |
+   | `overlaps` | `overlaps(r.s, r.e, 2, 5)` | [1, 3) | true |
+   | `overlaps` | `overlaps(r.s, r.e, 2, 5)` | [1, 2) | false |
+   | `overlaps` | `overlaps(r.s, r.e, i.from, i.to)` | to absent, from = 2, [10, 11) | true |
+   | `overlaps` | `overlaps(r.s, r.e, i.from, i.to)` | to absent, from = 2, [0, 1) | false |
+   | `overlaps` | `overlaps(r.s, r.e, 2, 5)` | e = null | false |
+   | `isNull` | `isNull(r.a)` | a = null | true |
+   | `isNull` | `isNull(r.a)` | a = "x" | false |
+   | `isNull` | `isNull(r.a)` | a not carried | matches: not carried |
+   | `not` | `not(isNull(r.a))` | a not carried | matches: not carried |
+   | `not` | `not(eq(r.s, "a"))` | s = "b" | true |
+   | `not` | `not(lt(coalesce(r.n, 0), 5))` | n = null (coalesce guards it) | false |
+   | `or` | `or(isNull(r.a), eq(r.a, i.me))` | a = null | true |
+   | `or` | `or(isNull(r.a), eq(r.a, i.me))` | a = "bo", me = "ana" | false |
+   | `when` | `when(isNull(r.a), true, eq(r.a, "x"))` | a = null | true |
+   | `coalesce` | `eq(r.s, coalesce(i.s, "open"))` | s = "open", input s absent | true |
+   | `coalesce` | `eq(r.s, coalesce(i.s, "open"))` | s = "open", input s = null (present) | true |
+   | `and` | `and(eq(r.w, i.w), serverMatches(i.q, r.title))` | any title | true |
+   | `add` | `add(p.n, 1)` | n = 2 | value 3 |
+   | `add` | `add(p.n, 1)` | n not held | fails (skipped, rule A7) |
+   | `add` | `add(p.n, p.n)` | n = 1e308 (overflow) | fails (skipped, rule A7) |
+   | `sub` | `sub(p.n, i.k)` | n = 10, k = 3 | value 7 |
+   | `when` | `when(i.b, 1, add(p.missing, 1))` | b = true (the other branch is not evaluated) | value 1 |
+   | `coalesce` | `coalesce(p.n, 0)` | n = null | value 0 |
+   | `opaque` | `opaque([p.n], throws)` | the function throws | fails (skipped, rule A7) |
+   PASS 61/61 conformance rows give their expected result
+
    tickets.list where and(eq(record.workspaceId, input.workspaceId), eq(record.status, input.status), eq(record.assignee, input.assignee), serverMatches(input.search, record.title))
    PASS absent status, assignee and search drop their constraints (and serverMatches may hold for any record)
    PASS status open keeps the open ticket
    PASS assignee ana: a null assignee is not equal to ana
    PASS openCount: workspace and the constant "open"
-   extras.myQueue where and(eq(record.workspaceId, input.workspaceId), or(isNull(record.assignee), eq(record.assignee, input.me)), lt(record.updatedAt, input.before))
+   extras.myQueue where and(eq(record.workspaceId, input.workspaceId), and(or(isNull(record.assignee), eq(record.assignee, input.me)), lt(record.updatedAt, input.before)))
+   PASS two `.where` calls are recorded as and(first, second), in call order
    PASS or(isNull, eq) keeps unassigned and mine; lt on a number
    PASS lt(updatedAt, 15) drops the ticket updated at 20
-   PASS two-valued: gt(null, 1) is false and not(gt(null, 1)) is true (TanStack DB's SQL logic gives UNKNOWN for both)
+   PASS overlaps over Dates: [5,6) and [20,25) meet [4,21); a null end never overlaps
+   PASS overlaps with `to` absent: only the lower bound applies
+   PASS between with `from` absent: the upper bound stays (half-open: the 10th is out)
+   PASS order check: updatedAt descending, then the key (Order.Number)
+   PASS an ascending pair under desc(updatedAt) is HiddenOrder, naming the key
+   PASS a pair with a null sort key is skipped, not HiddenOrder (M5-D4): both pairs touching the null
+   PASS a non-finite sort key is skipped too (Order.Number would rank NaN first)
    recording without the source reader (the gap this proposal closes):
-     either  eq(record.status, "open")   (source: eq(status, "open") || eq(assignee, input.assignee))
    PASS `||` silently records its first operand
-     status  eq(record.status, input.status)   (source: input.status ? … : eq(status, "open"))
    PASS `?:` silently records one branch
-     both    eq(record.status, "open")   (source: eq(workspaceId, …) && eq(status, "open"))
    PASS `&&` silently records its second operand
-     recent  and(eq(record.workspaceId, input.workspaceId), or(eq(record.assignee, input.me)), eq(record.updatedAt, <construction time>))
    PASS Date.now() is recorded as a constant
-     legacy setLike: prior.likes was converted to a primitive: arithmetic, templates and < > are not recorded; write add, sub, lt, gt
-   PASS JavaScript arithmetic on a recorded value fails at construction, naming the value
+   PASS JavaScript arithmetic fails at construction, naming the value: "prior.likes was converted to a primitive: arithmetic, templa…"
 
-(b) the same declarations read from source give the same description as recording
-   read 5 files through typescript/unstable/async in 35 ms
+(b) source reading equals recording, and a stale build is a DomainSourceMismatch
+   read 7 files through typescript/unstable/async in 52 ms
    PASS tickets: 6 entries, source and recording identical
    PASS issues: 5 entries, source and recording identical
-   PASS extras: 3 entries, source and recording identical
-   PASS no findings on the reference domains (0)
-   PASS on legacy declarations the two disagree wherever recording was silently wrong: either, status, both, recent
-   e.g. tickets.list as read: where and(eq(record.workspaceId, input.workspaceId), eq(record.status, input.status), eq(record.assignee, input.assignee), serverMatches(input.search, record.title))
+   PASS extras: 8 entries, source and recording identical
+   PASS variants: 4 entries, source and recording identical
+   variants as read: constants and(eq(record.workspaceId, input.workspaceId), or(eq(record.status, "open"), eq(record.status, "assigned")), gt(record.updatedAt, 1700000000))
+   PASS no findings on the reference domains, the extras, the variants or stale.ts (0)
+   DomainSourceMismatch stale.list at list.orderBy.0.op: recorded "asc", source "desc"
+   PASS a lint-clean declaration whose running build is older: the mismatch names the entry and the first differing node (desc in source, asc running)
+   PASS on linted legacy declarations the two disagree wherever recording was silently wrong: either, status, both, recent
+   PASS a domain factory is reported unreadable (an error), not compared, so correct code never gets a false mismatch
 
-(c) recorded predicted values: evaluated at write start, replayed over a changed base
-   PASS at start the key evaluates to {"id":"i1"} (the lane key of merge 4 rule 34)
+(c) recorded predicted values: start, replay over a changed base, skip, settle
+   PASS at start the key evaluates to {"id":"i1"}: one record, so merge 4 rule 34's lane key
    PASS base liked false, likes 5; A like starts: liked true, likes 6
    PASS B unlike starts behind A: liked false, likes 5
    PASS base changes to liked true, likes 9 (a push); A and B replay: liked false, likes 8
    PASS A fails and is retracted; B replays alone: liked false, likes 8
    PASS B fails too: the base shows: liked true, likes 9
    PASS the operator form equals the JavaScript function it replaces in 186/186 base × sequence cases
-   PASS tickets.assign: key {w1, t1}, predicts assignee ana and status assigned
-   PASS transfer: two records, A 100 → 70, B 5 → 35
-   PASS a push sets A to 40: the replay shows 10, not 70
-   react predicts reactions = opaque(prior.reactions, input.emoji)
-   PASS opaque list edit: two reactions over none give count 2
-   PASS the base moves to 4: the opaque function replays over it, count 6
+   PASS A succeeds and its response carries both fields: nothing unconfirmed, B stays live
+   PASS B's confirmed likes retires A's older likes prediction; B's omitted liked is unconfirmed (a confirming read)
+   PASS the store does not hold likes: liked is still shown, likes is skipped (prior.likes is not held) but counts as predicted
+   PASS the response omits likes: the skipped field is unconfirmed, so a confirming read is scheduled (no stale field)
+   PASS an opaque body that throws is skipped, the field keeps the value beneath, the replay goes on
+   PASS a non-finite sum is skipped, not shown as Infinity
+   PASS opaque list edit: two reactions over none give 2; the base moves to 4 and the function replays: 6
+   PASS transfer: A 100 → 70, B 5 → 35; a push sets A to 40 and the replay shows 10
+   PASS transfer joins two record queues and takes no default lane key
+   PASS a predicted delete hides the record; its retraction brings it back
+   PASS two patches to one record apply in written order (5 → 6 → 7) and join its queue once
+   PASS an array key predicts each listed record once (u1 twice is one), joins both queues and takes no rule-34 lane key
+   PASS an array key with one element still takes no default lane key (the Schema says many)
+   PASS a single-key write does
+   PASS a predicted Date field
+   PASS tickets.assign predicts assignee ana and status assigned
 
 (d) the source reader flags JavaScript logic and impure calls, with a fix-it
    domains/legacy.ts:14 legacy-issues.setLike [logic] JavaScript arithmetic or comparison on a recorded value throws at construction; write add, sub, lt, gt
-      fix-it: add(i.likes, when(eq(input.liked, i.liked), 0, when(input.liked, 1, -1)))
+      fix-it (starting point): add(i.likes, when(eq(input.liked, i.liked), 0, when(input.liked, 1, -1)))
    domains/legacy.ts:22 legacy-tickets.either [logic] `||` records only its first operand; write or(...)
-      fix-it: or(eq(record.status, "open"), eq(record.assignee, input.assignee))
+      fix-it (starting point): or(eq(record.status, "open"), eq(record.assignee, input.assignee))
    domains/legacy.ts:26 legacy-tickets.status [logic] `?:` records only one branch (the proxy is always truthy); write when(c, a, b)
-      fix-it: when(input.status, eq(record.status, input.status), eq(record.status, "open"))
+      fix-it (starting point): when(input.status, eq(record.status, input.status), eq(record.status, "open"))
    domains/legacy.ts:30 legacy-tickets.both [logic] `&&` records only its second operand; write and(...)
-      fix-it: and(eq(record.workspaceId, input.workspaceId), eq(record.status, "open"))
+      fix-it (mechanical): and(eq(record.workspaceId, input.workspaceId), eq(record.status, "open"))
    domains/legacy.ts:34 legacy-tickets.recent [impure] `Date.now()` runs once, at construction, and is recorded as a constant
       fix-it: pass the value as an input field the machine supplies (input.now)
    domains/legacy.ts:40 legacy-chat.react [opaque-closure] the opaque function closes over `input.emoji`, a recording value at construction; declare it as a dependency
-      fix-it: opaque([m.reactions, input.emoji], (rs, emoji) => addReaction(rs, emoji))
-   PASS `?:` in a predicted value is flagged
-   PASS `?:` in a condition is flagged
-   PASS `&&` is flagged with and(...)
-   PASS `||` is flagged with or(...)
-   PASS Date.now() is flagged as impure
-   PASS an opaque function closing over input is flagged
-   PASS the fix-it for merge 4's setLike is exactly the ported line: add(i.likes, when(eq(input.liked, i.liked), 0, when(input.liked, 1, -1)))
-   PASS the opaque fix-it is extras.ts's form
+      fix-it (mechanical): opaque([m.reactions, input.emoji], (rs, emoji) => addReaction(rs, emoji))
+   domains/legacy.ts:46 legacy-flags.setLike [logic] `?:` records only one branch (the proxy is always truthy); write when(c, a, b)
+      fix-it (starting point): when(input.liked, true, false)
+   domains/legacy.ts:50 <unknown> [unreadable-domain] a domain is read only as domain("literal id", { entry: read(op)…, … }); a factory or a computed id is not read in version 1 (M5-D4: no helpers)
+   PASS `?:` in a predicted value: when(input.liked, true, false), a starting point
+   PASS `?:` in a condition: when(…), which types.ts shows the types then reject
+   PASS `&&`: and(...), mechanical
+   PASS `||`: or(...), a starting point (input.assignee is optional, so rule A3 rejects it)
+   PASS Date.now() is impure
+   PASS an opaque function closing over input: the extras form
+   PASS merge 4's setLike: the fix-it is exactly the ported line
+   PASS a domain factory: unreadable-domain
 
-ALL PASS
+ALL PASS (64 checks)

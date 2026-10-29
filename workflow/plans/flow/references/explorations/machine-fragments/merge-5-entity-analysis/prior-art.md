@@ -36,8 +36,9 @@ stays custom.
 1. Name the IR after TanStack's three variants (`ref`, `val`, `func { name, args }`), so it reads familiar.
 2. Use Effect's `Order.Date`, `Order.Number` (after a finiteness check) and `Order.mapInput` for client-side
    ordering, and Schema `Date` decoding for rule A4, instead of hand-written comparators.
-3. Add a **conformance table** (operator, inputs, result), CEL-style, as the shared test the client evaluator and any
-   server adapter must pass; include `not`/`or`/`null` rows that show where Zero and TanStack differ.
+3. Add a **conformance table** (operator, inputs, result), CEL-style, as the client evaluator's own test; include
+   `not`/`or`/`null` rows that show where Zero and TanStack differ. (Revised after review 1: M5-D3 makes it the
+   evaluator's test, not a client/server agreement suite, so no server adapter is bound by it.)
 4. Keep two-valued nulls with `null = null` true and `isNull`; the only difference from Zero is that equality.
 5. Open questions: prior art agrees with every recommendation (no new value operators yet; dates by `getTime()` via
    `Order.Date`; no helpers in version 1; `.as` stays a function, since Effect's `Match` is closures; unevaluable

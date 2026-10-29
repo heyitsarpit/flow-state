@@ -1,35 +1,38 @@
-// The spike's entry: (a) operators type and record, (b) source reading agrees with recording, (c) recorded
-// predicted values start and replay, (d) the source reader flags JavaScript logic with a fix-it.
+// The spike's entry: (a) operators type, record and evaluate (the conformance table), (b) source reading
+// agrees with recording, and disagrees when the running code is not the source, (c) recorded predicted
+// values start, replay and settle, (d) the source reader flags JavaScript logic with a fix-it.
 // Types are checked separately by `tsc -p .` (types.ts). Run: tsc -p . && bun main.ts
-import { describe, holds, RecordingError, start, value, visible } from "./flow.ts";
+import { checkOrder, describe, laneKey, matches, queueKeys, RecordingError, replay, settle, start, value } from "./flow.ts";
 import type { ChangeIR, Domain, EntryDescription, IR, Live } from "./flow.ts";
+import { conformance } from "./conformance.ts";
 import { TicketsDomain } from "./domains/tickets.ts";
 import { Issues } from "./domains/issues.ts";
 import { Extras } from "./domains/extras.ts";
-import { legacyChat, legacyIssues, legacyTickets } from "./domains/legacy.ts";
-import type { AccountRow, IssueRow, MessageRow, TicketRow } from "./domains/ops.ts";
-import { readSources } from "./source.ts";
+import { Variants } from "./domains/variants.ts";
+import { Stale as StaleRunning } from "./domains/stale.previous-build.ts";
+import { legacyChat, legacyIssues, legacyTickets, makeIssues } from "./domains/legacy.ts";
+import type { AccountRow, IssueRow, MessageRow, OccurrenceRow, TicketRow, UserRow } from "./domains/ops.ts";
+import { canon, firstDifference, readSources } from "./source.ts";
 
 let failed = 0;
+let passed = 0;
 const check = (ok: boolean, what: string) => {
-  if (!ok) failed++;
+  if (ok) passed++;
+  else failed++;
   console.log(`   ${ok ? "PASS" : "FAIL"} ${what}`);
 };
 const render = (ir: IR | null | undefined): string => {
   if (!ir) return "—";
   if ("ref" in ir) return ir.ref.join(".");
-  if ("val" in ir) return JSON.stringify(ir.val);
+  if ("val" in ir) return typeof ir.val === "object" && ir.val !== null ? `Date(${ir.val.date})` : JSON.stringify(ir.val);
   if ("arr" in ir) return `[${ir.arr.map(render).join(", ")}]`;
   if ("obj" in ir) return `{ ${Object.entries(ir.obj).map(([k, v]) => `${k}: ${render(v)}`).join(", ")} }`;
   if ("opaque" in ir) return `opaque(${ir.opaque.map(render).join(", ")})`;
   return `${ir.op}(${ir.args.map(render).join(", ")})`;
 };
-const canon = (x: unknown): string =>
-  Array.isArray(x) ? `[${x.map(canon).join(",")}]`
-  : x !== null && typeof x === "object" ? `{${Object.keys(x).sort().filter((k) => (x as any)[k] !== undefined).map((k) => `${JSON.stringify(k)}:${canon((x as any)[k])}`).join(",")}}`
-  : JSON.stringify(x);
 const dir = new URL(".", import.meta.url).pathname.replace(/\/$/, "");
 const fileText = async (f: string) => (await fetch(new URL(f, import.meta.url))).text();
+const holds = (ir: IR, env: { input?: unknown; record?: unknown }) => matches(ir, env).matches;
 
 // ───────────────────────────────────────────────────────────── (a)
 console.log("(a) the operator set records and evaluates; both branches of `when` are recorded");
@@ -41,8 +44,32 @@ for (const [lk, prior, want] of [[true, false, 1], [false, true, -1], [true, tru
   const got = value(likesIR, { input: { key: { id: "i1" }, liked: lk }, prior: { liked: prior, likes: 5 } });
   check(got === 5 + want, `liked ${lk} over liked ${prior}: likes 5 → ${String(got)} (branch ${want})`);
 }
-const lazy = value({ op: "when", args: [{ val: true }, { val: 1 }, { op: "add", args: [{ ref: ["prior", "absent"] }, { val: 1 }] }] }, { prior: {} });
-check(lazy === 1, "`when` is lazy: the branch not taken is never evaluated (it would fail here)");
+
+console.log("\n   the conformance table (M5-D3), every row run by the evaluator:");
+console.log("   | operator | written | given | result |");
+console.log("   | --- | --- | --- | --- |");
+let rowsOk = 0;
+for (const row of conformance) {
+  let got: string;
+  if (row.kind === "condition") {
+    const m = matches(row.expr, row.env);
+    got = m.why === "evaluated" ? String(m.matches) : `matches: ${m.why === "notCarried" ? "not carried" : "failed"}`;
+  } else {
+    try {
+      got = `value ${JSON.stringify(value(row.expr, row.env))}`;
+    } catch {
+      got = "fails (skipped, rule A7)";
+    }
+  }
+  const want =
+    typeof row.expect === "boolean" ? String(row.expect)
+    : typeof row.expect === "string" ? row.expect
+    : "value" in row.expect ? `value ${JSON.stringify(row.expect.value)}`
+    : "fails (skipped, rule A7)";
+  if (got === want) rowsOk++;
+  console.log(`   | \`${row.op}\` | \`${row.written}\` | ${row.given} | ${got}${got === want ? "" : `  ✗ expected ${want}`} |`);
+}
+check(rowsOk === conformance.length, `${rowsOk}/${conformance.length} conformance rows give their expected result`);
 
 const tickets = describe(TicketsDomain as Domain);
 const rows: TicketRow[] = [
@@ -50,82 +77,94 @@ const rows: TicketRow[] = [
   { workspaceId: "w1", ticketId: "t2", title: "Roof", status: "assigned", assignee: "ana", updatedAt: 20, revision: 1 },
   { workspaceId: "w2", ticketId: "t3", title: "Door", status: "open", assignee: "bo", updatedAt: 30, revision: 1 },
 ];
-const members = (where: IR, input: unknown) => rows.filter((r) => holds(where, { input, record: r })).map((r) => r.ticketId).join(",");
+const members = (where: IR, input: unknown, list: readonly object[] = rows) =>
+  list.filter((r) => holds(where, { input, record: r })).map((r: any) => r.ticketId ?? r.occurrenceId).join(",");
 const listWhere = tickets.list!.where!;
-console.log(`   tickets.list where ${render(listWhere)}`);
+console.log(`\n   tickets.list where ${render(listWhere)}`);
 check(members(listWhere, { workspaceId: "w1" }) === "t1,t2", "absent status, assignee and search drop their constraints (and serverMatches may hold for any record)");
 check(members(listWhere, { workspaceId: "w1", status: "open" }) === "t1", "status open keeps the open ticket");
 check(members(listWhere, { workspaceId: "w1", assignee: "ana" }) === "t2", "assignee ana: a null assignee is not equal to ana");
-const openWhere = tickets.openCount!.where!;
-check(members(openWhere, { workspaceId: "w1" }) === "t1", "openCount: workspace and the constant \"open\"");
+check(members(tickets.openCount!.where!, { workspaceId: "w1" }) === "t1", "openCount: workspace and the constant \"open\"");
 const extras = describe(Extras as Domain);
 const queueWhere = extras.myQueue!.where!;
 console.log(`   extras.myQueue where ${render(queueWhere)}`);
+check(render(queueWhere).startsWith("and(eq(record.workspaceId, input.workspaceId), and(or("), "two `.where` calls are recorded as and(first, second), in call order");
 check(members(queueWhere, { workspaceId: "w1", me: "ana", before: 25 }) === "t1,t2", "or(isNull, eq) keeps unassigned and mine; lt on a number");
 check(members(queueWhere, { workspaceId: "w1", me: "ana", before: 15 }) === "t1", "lt(updatedAt, 15) drops the ticket updated at 20");
-check(value({ op: "gt", args: [{ val: null }, { val: 1 }] }, {}) === false && value({ op: "not", args: [{ op: "gt", args: [{ val: null }, { val: 1 }] }] }, {}) === true, "two-valued: gt(null, 1) is false and not(gt(null, 1)) is true (TanStack DB's SQL logic gives UNKNOWN for both)");
+const D = (s: string) => new Date(`2026-01-${s}T00:00Z`);
+const occs: OccurrenceRow[] = [
+  { occurrenceId: "o1", calendarId: "c", title: "a", startsAt: D("05"), endsAt: D("06") },
+  { occurrenceId: "o2", calendarId: "c", title: "b", startsAt: D("10"), endsAt: null },
+  { occurrenceId: "o3", calendarId: "c", title: "c", startsAt: D("20"), endsAt: D("25") },
+];
+const ow = extras.occurrences!.where!;
+check(members(ow, { calendarId: "c", from: D("04"), to: D("21") }, occs) === "o1,o3", "overlaps over Dates: [5,6) and [20,25) meet [4,21); a null end never overlaps");
+check(members(ow, { calendarId: "c", from: D("22") }, occs) === "o3", "overlaps with `to` absent: only the lower bound applies");
+check(members(extras.starting!.where!, { calendarId: "c", to: D("10") }, occs) === "o1", "between with `from` absent: the upper bound stays (half-open: the 10th is out)");
+
+const ord = tickets.list!.orderBy!; // desc(updatedAt), asc(workspaceId), asc(ticketId)
+const tk = (updatedAt: number | null, ticketId: string) => ({ workspaceId: "w1", ticketId, updatedAt });
+check("ok" in checkOrder([tk(30, "a"), tk(20, "b"), tk(20, "c")], ord), "order check: updatedAt descending, then the key (Order.Number)");
+const hid = checkOrder([tk(20, "a"), tk(30, "b")], ord);
+check("hiddenOrder" in hid && hid.hiddenOrder.key === "updatedAt", "an ascending pair under desc(updatedAt) is HiddenOrder, naming the key");
+const sk = checkOrder([tk(30, "a"), tk(null, "b"), tk(40, "c")], ord);
+check("ok" in sk && sk.skipped === 2, "a pair with a null sort key is skipped, not HiddenOrder (M5-D4): both pairs touching the null");
+check("ok" in checkOrder([tk(Number.NaN, "a"), tk(5, "b")], ord), "a non-finite sort key is skipped too (Order.Number would rank NaN first)");
 
 console.log("   recording without the source reader (the gap this proposal closes):");
 const lt = describe(legacyTickets() as Domain);
-console.log(`     either  ${render(lt.either!.where)}   (source: eq(status, "open") || eq(assignee, input.assignee))`);
 check(render(lt.either!.where) === 'eq(record.status, "open")', "`||` silently records its first operand");
-console.log(`     status  ${render(lt.status!.where)}   (source: input.status ? … : eq(status, "open"))`);
 check(render(lt.status!.where) === "eq(record.status, input.status)", "`?:` silently records one branch");
-console.log(`     both    ${render(lt.both!.where)}   (source: eq(workspaceId, …) && eq(status, "open"))`);
 check(render(lt.both!.where) === 'eq(record.status, "open")', "`&&` silently records its second operand");
-const recent = render(lt.recent!.where);
-console.log(`     recent  ${recent.replace(/\d{10,}/, "<construction time>")}`);
-check(/eq\(record\.updatedAt, \d{10,}\)/.test(recent), "Date.now() is recorded as a constant");
+check(/eq\(record\.updatedAt, \d{10,}\)/.test(render(lt.recent!.where)), "Date.now() is recorded as a constant");
 let thrown = "";
 try {
   legacyIssues();
 } catch (e) {
   thrown = e instanceof RecordingError ? e.message : String(e);
 }
-console.log(`     legacy setLike: ${thrown}`);
-check(thrown.includes("prior.likes was converted to a primitive"), "JavaScript arithmetic on a recorded value fails at construction, naming the value");
+check(thrown.includes("prior.likes was converted to a primitive"), `JavaScript arithmetic fails at construction, naming the value: "${thrown.slice(0, 60)}…"`);
 
 // ───────────────────────────────────────────────────────────── (b)
-console.log("\n(b) the same declarations read from source give the same description as recording");
-const files = ["domains/ops.ts", "domains/tickets.ts", "domains/issues.ts", "domains/extras.ts", "domains/legacy.ts"];
+console.log("\n(b) source reading equals recording, and a stale build is a DomainSourceMismatch");
+const files = ["domains/ops.ts", "domains/tickets.ts", "domains/issues.ts", "domains/extras.ts", "domains/variants.ts", "domains/stale.ts", "domains/legacy.ts"];
 const t0 = performance.now();
 const fromSource = await readSources(dir, files);
 console.log(`   read ${files.length} files through typescript/unstable/async in ${Math.round(performance.now() - t0)} ms`);
-const recorded: Record<string, Record<string, EntryDescription>> = { tickets, issues, extras };
+const recorded: Record<string, Record<string, EntryDescription>> = { tickets, issues, extras, variants: describe(Variants as Domain) };
 for (const [id, entries] of Object.entries(recorded)) {
-  const src = fromSource.domains[id] ?? {};
-  const names = [...new Set([...Object.keys(entries), ...Object.keys(src)])];
-  const differ = names.filter((n) => canon(entries[n]) !== canon(src[n]));
-  check(differ.length === 0 && names.length === Object.keys(entries).length, `${id}: ${names.length} entries, source and recording identical${differ.length ? ` (differ: ${differ.join(", ")})` : ""}`);
-  for (const n of differ) console.log(`     ${n}\n       recorded ${canon(entries[n])}\n       source   ${canon(src[n])}`);
+  const d = firstDifference(entries, fromSource.domains[id]);
+  check(d === undefined, `${id}: ${Object.keys(entries).length} entries, source and recording identical${d ? ` (first difference at ${d.path}: recorded ${d.recorded}, source ${d.source})` : ""}`);
 }
-const refFindings = fromSource.findings.filter((f) => !f.file.endsWith("legacy.ts"));
-check(refFindings.length === 0, `no findings on the reference domains (${refFindings.length})`);
+console.log(`   variants as read: constants ${render(fromSource.domains.variants!.constants!.where)}`);
+const clean = fromSource.findings.filter((f) => !f.file.endsWith("legacy.ts"));
+check(clean.length === 0, `no findings on the reference domains, the extras, the variants or stale.ts (${clean.length}${clean.length ? `: ${clean.map((f) => `${f.file}:${f.line} ${f.message}`).join("; ")}` : ""})`);
+const stale = firstDifference(describe(StaleRunning as Domain), fromSource.domains.stale);
+console.log(`   DomainSourceMismatch stale.list at ${stale?.path}: recorded ${stale?.recorded}, source ${stale?.source}`);
+check(stale?.path === "list.orderBy.0.op", "a lint-clean declaration whose running build is older: the mismatch names the entry and the first differing node (desc in source, asc running)");
 const legacySrc = fromSource.domains["legacy-tickets"]!;
 const disagree = Object.keys(lt).filter((n) => canon(lt[n]) !== canon(legacySrc[n]));
-check(disagree.join(",") === "either,status,both,recent", `on legacy declarations the two disagree wherever recording was silently wrong: ${disagree.join(", ")}`);
-console.log(`   e.g. tickets.list as read: where ${render(fromSource.domains.tickets!.list!.where)}`);
+check(disagree.join(",") === "either,status,both,recent", `on linted legacy declarations the two disagree wherever recording was silently wrong: ${disagree.join(", ")}`);
+const factory = fromSource.findings.find((f) => f.rule === "unreadable-domain");
+check(factory !== undefined && !(describe(makeIssues("x") as Domain).list === undefined) && fromSource.domains.x === undefined, "a domain factory is reported unreadable (an error), not compared, so correct code never gets a false mismatch");
 
 // ───────────────────────────────────────────────────────────── (c)
-console.log("\n(c) recorded predicted values: evaluated at write start, replayed over a changed base");
-const setLikeChange = issues.setLike!.predicts![0]! as ChangeIR;
-const a1 = start(setLikeChange, { key: { id: "i1" }, liked: true }, "a1");
-check(canon(a1.key) === canon({ id: "i1" }), `at start the key evaluates to ${canon(a1.key)} (the lane key of merge 4 rule 34)`);
-const a2 = start(setLikeChange, { key: { id: "i1" }, liked: false }, "a2");
+console.log("\n(c) recorded predicted values: start, replay over a changed base, skip, settle");
+const setLike = issues.setLike!.predicts! as ChangeIR[];
+const at = (base: IssueRow | undefined, lives: Live[]) => replay(base, lives, "issues/Issue", { id: "i1" });
+const a1 = start(setLike, { key: { id: "i1" }, liked: true }, "a1");
+check(canon(laneKey(a1)) === canon({ id: "i1" }), `at start the key evaluates to {"id":"i1"}: one record, so merge 4 rule 34's lane key`);
+const a2 = start(setLike, { key: { id: "i1" }, liked: false }, "a2");
 const base0: IssueRow = { id: "i1", projectId: "p", number: 1, title: "x", liked: false, likes: 5 };
-const show = (r: IssueRow) => `liked ${r.liked}, likes ${r.likes}`;
-const step = (label: string, base: IssueRow, lives: Live[], want: string) => {
-  const v = visible(base, lives);
-  check(show(v) === want, `${label}: ${show(v)}`);
-};
-step("base liked false, likes 5; A like starts", base0, [a1], "liked true, likes 6");
-step("B unlike starts behind A", base0, [a1, a2], "liked false, likes 5");
-const base1 = { ...base0, liked: true, likes: 9 }; // another device liked; the push lands
-step("base changes to liked true, likes 9 (a push); A and B replay", base1, [a1, a2], "liked false, likes 8");
-step("A fails and is retracted; B replays alone", base1, [a2], "liked false, likes 8");
+const show = (r: unknown) => (r && typeof r === "object" ? `liked ${(r as IssueRow).liked}, likes ${(r as IssueRow).likes}` : String(r));
+const step = (label: string, base: IssueRow, lives: Live[], want: string) => check(show(at(base, lives).visible) === want, `${label}: ${show(at(base, lives).visible)}`);
+step("base liked false, likes 5; A like starts", base0, a1, "liked true, likes 6");
+step("B unlike starts behind A", base0, [...a1, ...a2], "liked false, likes 5");
+const base1 = { ...base0, liked: true, likes: 9 };
+step("base changes to liked true, likes 9 (a push); A and B replay", base1, [...a1, ...a2], "liked false, likes 8");
+step("A fails and is retracted; B replays alone", base1, a2, "liked false, likes 8");
 step("B fails too: the base shows", base1, [], "liked true, likes 9");
 
-// The recorded expression against the JavaScript function it replaces, over every base and sequence.
 const oldLikes = (i: IssueRow, input: { liked: boolean }) => i.likes + (input.liked === i.liked ? 0 : input.liked ? 1 : -1);
 const replayOld = (base: IssueRow, seq: boolean[]) => seq.reduce((r, liked) => ({ ...r, liked, likes: oldLikes(r, { liked }) }), base);
 let cases = 0;
@@ -136,50 +175,82 @@ for (const liked of [true, false])
   for (const likes of [0, 1, 7])
     for (const seq of seqs) {
       const base = { ...base0, liked, likes };
-      const lives = seq.map((l, i) => start(setLikeChange, { key: { id: "i1" }, liked: l }, `x${i}`));
+      const lives = seq.flatMap((l, i) => start(setLike, { key: { id: "i1" }, liked: l }, `x${i}`));
       cases++;
-      if (canon(visible(base, lives)) === canon(replayOld(base, seq))) same++;
+      if (canon(at(base, lives).visible) === canon(replayOld(base, seq))) same++;
     }
 check(same === cases, `the operator form equals the JavaScript function it replaces in ${same}/${cases} base × sequence cases`);
 
-const assignChange = tickets.assign!.predicts![0]! as ChangeIR;
-const t1 = start(assignChange, { workspaceId: "w1", ticketId: "t1", assignee: "ana" }, "t1");
-check(canon(t1.key) === canon({ workspaceId: "w1", ticketId: "t1" }) && canon(visible(rows[0]!, [t1])) === canon({ ...rows[0]!, assignee: "ana", status: "assigned" }), "tickets.assign: key {w1, t1}, predicts assignee ana and status assigned");
+// Settlement and retirement.
+const s1 = settle([...a1, ...a2], "a1", { liked: true, likes: 6 });
+check(s1.unconfirmed.length === 0 && s1.remaining.length === 1, "A succeeds and its response carries both fields: nothing unconfirmed, B stays live");
+const s2 = settle([...a1, ...a2], "a2", { likes: 4 });
+check(canon(Object.keys(s2.remaining[0]!.fields)) === canon(["liked"]) && canon(s2.unconfirmed) === canon(["liked"]), "B's confirmed likes retires A's older likes prediction; B's omitted liked is unconfirmed (a confirming read)");
 
-const [from, to] = extras.transfer!.predicts! as ChangeIR[];
-const xin = { from: { accountId: "A" }, to: { accountId: "B" }, amount: 30 };
-const tf = start(from!, xin, "x");
-const tt = start(to!, xin, "x");
-const acct = (id: string, balance: number): AccountRow => ({ accountId: id, balance, revision: 1 });
-check(visible(acct("A", 100), [tf]).balance === 70 && visible(acct("B", 5), [tt]).balance === 35, "transfer: two records, A 100 → 70, B 5 → 35");
-check(visible(acct("A", 40), [tf]).balance === 10, "a push sets A to 40: the replay shows 10, not 70");
-const reactChange = extras.react!.predicts![0]! as ChangeIR;
-const r1 = start(reactChange, { key: { messageId: "m" }, emoji: "+1" }, "r1");
-const r2 = start(reactChange, { key: { messageId: "m" }, emoji: "+1" }, "r2");
+// Rule A7: a value that cannot be evaluated is skipped, still predicted, and confirmed by a read.
+const bad = start(setLike, { key: { id: "i1" }, liked: true }, "bad");
+const noLikes = { id: "i1", projectId: "p", number: 1, title: "x", liked: false } as unknown as IssueRow;
+const r7 = at(noLikes, bad);
+check(
+  (r7.visible as IssueRow).liked === true && (r7.visible as IssueRow).likes === undefined && canon(r7.predicted.sort()) === canon(["liked", "likes"]) && r7.skipped[0]?.field === "likes",
+  `the store does not hold likes: liked is still shown, likes is skipped (${r7.skipped[0]?.reason}) but counts as predicted`,
+);
+check(canon(settle(bad, "bad", { liked: true }).unconfirmed) === canon(["likes"]), "the response omits likes: the skipped field is unconfirmed, so a confirming read is scheduled (no stale field)");
+const react = extras.react!.predicts! as ChangeIR[];
 const msg = (count: number): MessageRow => ({ messageId: "m", body: "", reactions: count ? [{ emoji: "+1", count }] : [] });
-console.log(`   react predicts reactions = ${render(reactChange.fields!.reactions)}`);
-check(canon(visible(msg(0), [r1, r2]).reactions) === canon([{ emoji: "+1", count: 2 }]), "opaque list edit: two reactions over none give count 2");
-check(canon(visible(msg(4), [r1, r2]).reactions) === canon([{ emoji: "+1", count: 6 }]), "the base moves to 4: the opaque function replays over it, count 6");
+const broken = { ...msg(1), reactions: "not a list" } as unknown as MessageRow;
+const rb = replay(broken, start(react, { key: { messageId: "m" }, emoji: "+1" }, "rb"), "chat/Message", { messageId: "m" });
+check(rb.skipped[0]?.reason.startsWith("opaque function threw") === true && (rb.visible as MessageRow).reactions === broken.reactions, "an opaque body that throws is skipped, the field keeps the value beneath, the replay goes on");
+const huge = start(extras.transfer!.predicts! as ChangeIR[], { from: { accountId: "A" }, to: { accountId: "B" }, amount: -1.7e308 }, "h");
+const rh = replay<AccountRow>({ accountId: "A", balance: 1.7e308, revision: 1 }, huge, "bank/Account", { accountId: "A" });
+check(rh.skipped[0]?.field === "balance" && (rh.visible as AccountRow).balance === 1.7e308, "a non-finite sum is skipped, not shown as Infinity");
+
+// Opaque, transfer, delete, two patches, array keys, Dates.
+const r1 = start(react, { key: { messageId: "m" }, emoji: "+1" }, "r1");
+const r2 = start(react, { key: { messageId: "m" }, emoji: "+1" }, "r2");
+const vm = (base: MessageRow, lives: Live[]) => (replay(base, lives, "chat/Message", { messageId: "m" }).visible as MessageRow).reactions;
+check(canon(vm(msg(0), [...r1, ...r2])) === canon([{ emoji: "+1", count: 2 }]) && canon(vm(msg(4), [...r1, ...r2])) === canon([{ emoji: "+1", count: 6 }]), "opaque list edit: two reactions over none give 2; the base moves to 4 and the function replays: 6");
+const tr = start(extras.transfer!.predicts! as ChangeIR[], { from: { accountId: "A" }, to: { accountId: "B" }, amount: 30 }, "x");
+const acct = (id: string, balance: number): AccountRow => ({ accountId: id, balance, revision: 1 });
+const bal = (base: AccountRow) => (replay(base, tr, "bank/Account", { accountId: base.accountId }).visible as AccountRow).balance;
+check(bal(acct("A", 100)) === 70 && bal(acct("B", 5)) === 35 && bal(acct("A", 40)) === 10, "transfer: A 100 → 70, B 5 → 35; a push sets A to 40 and the replay shows 10");
+check(queueKeys(tr).length === 2 && laneKey(tr) === undefined, "transfer joins two record queues and takes no default lane key");
+const del = start(issues.remove!.predicts! as ChangeIR[], { key: { id: "i1" } }, "d");
+check(at(base0, del).visible === "deleted" && show(at(base0, []).visible) === "liked false, likes 5", "a predicted delete hides the record; its retraction brings it back");
+const bumps = start(extras.bumpTwice!.predicts! as ChangeIR[], { key: { id: "i1" } }, "b");
+check((at(base0, bumps).visible as IssueRow).likes === 7 && queueKeys(bumps).length === 1, "two patches to one record apply in written order (5 → 6 → 7) and join its queue once");
+const arch = start(extras.archive!.predicts! as ChangeIR[], { keys: [{ userId: "u1" }, { userId: "u2" }, { userId: "u1" }] }, "ar");
+const user = (id: string): UserRow => ({ userId: id, status: "active", revision: 1 });
+check(queueKeys(arch).length === 2 && laneKey(arch) === undefined && (replay(user("u2"), arch, "admin/User", { userId: "u2" }).visible as UserRow).status === "archived", "an array key predicts each listed record once (u1 twice is one), joins both queues and takes no rule-34 lane key");
+const one = start(extras.archive!.predicts! as ChangeIR[], { keys: [{ userId: "u1" }] }, "ar1");
+check(laneKey(one) === undefined, "an array key with one element still takes no default lane key (the Schema says many)");
+check(laneKey(start(issues.rename!.predicts! as ChangeIR[], { key: { id: "i1" }, title: "t" }, "rn")) !== undefined, "a single-key write does");
+const mv = start(extras.move!.predicts! as ChangeIR[], { key: { occurrenceId: "o1" }, startsAt: D("07") }, "mv");
+check((replay(occs[0]!, mv, "cal/Occurrence", { occurrenceId: "o1" }).visible as OccurrenceRow).startsAt.getTime() === D("07").getTime(), "a predicted Date field");
+const assign = tickets.assign!.predicts! as ChangeIR[];
+const t1 = start(assign, { workspaceId: "w1", ticketId: "t1", assignee: "ana" }, "t1");
+check(canon(replay(rows[0]!, t1, "DispatchDesk/Ticket", { workspaceId: "w1", ticketId: "t1" }).visible) === canon({ ...rows[0]!, assignee: "ana", status: "assigned" }), "tickets.assign predicts assignee ana and status assigned");
 
 // ───────────────────────────────────────────────────────────── (d)
 console.log("\n(d) the source reader flags JavaScript logic and impure calls, with a fix-it");
 for (const f of fromSource.findings) {
   console.log(`   ${f.file}:${f.line} ${f.entry} [${f.rule}] ${f.message}`);
-  if (f.fix) console.log(`      fix-it: ${f.fix}`);
+  if (f.fix) console.log(`      fix-it${f.fixKind ? ` (${f.fixKind})` : ""}: ${f.fix}`);
 }
-const has = (rule: string, entry: string, text?: string) =>
-  fromSource.findings.some((f) => f.rule === rule && f.entry === entry && (!text || `${f.message} ${f.fix ?? ""}`.includes(text)));
-check(has("logic", "legacy-issues.setLike", "when("), "`?:` in a predicted value is flagged");
-check(has("logic", "legacy-tickets.status", "when("), "`?:` in a condition is flagged");
-check(has("logic", "legacy-tickets.both", "and("), "`&&` is flagged with and(...)");
-check(has("logic", "legacy-tickets.either", "or("), "`||` is flagged with or(...)");
-check(has("impure", "legacy-tickets.recent", "Date.now()"), "Date.now() is flagged as impure");
-check(has("opaque-closure", "legacy-chat.react", "input.emoji"), "an opaque function closing over input is flagged");
-const fixLikes = fromSource.findings.find((f) => f.entry === "legacy-issues.setLike")?.fix ?? "";
+const finding = (entry: string, rule: string) => fromSource.findings.find((f) => f.entry === entry && f.rule === rule);
+const fixIs = (entry: string, rule: string, test: (fix: string, kind?: string, message?: string) => boolean) => {
+  const f = finding(entry, rule);
+  return f !== undefined && test(f.fix ?? "", f.fixKind, f.message);
+};
+check(fixIs("legacy-flags.setLike", "logic", (fx, k, m) => m!.startsWith("`?:`") && fx === "when(input.liked, true, false)" && k === "starting point"), "`?:` in a predicted value: when(input.liked, true, false), a starting point");
+check(fixIs("legacy-tickets.status", "logic", (fx, _k, m) => m!.startsWith("`?:`") && fx.startsWith("when(input.status, ")), "`?:` in a condition: when(…), which types.ts shows the types then reject");
+check(fixIs("legacy-tickets.both", "logic", (fx, k) => fx === 'and(eq(record.workspaceId, input.workspaceId), eq(record.status, "open"))' && k === "mechanical"), "`&&`: and(...), mechanical");
+check(fixIs("legacy-tickets.either", "logic", (fx, k) => fx === 'or(eq(record.status, "open"), eq(record.assignee, input.assignee))' && k === "starting point"), "`||`: or(...), a starting point (input.assignee is optional, so rule A3 rejects it)");
+check(fixIs("legacy-tickets.recent", "impure", (_f, _k, m) => m!.includes("Date.now()")), "Date.now() is impure");
+check(fixIs("legacy-chat.react", "opaque-closure", (fx) => fx === "opaque([m.reactions, input.emoji], (rs, emoji) => addReaction(rs, emoji))"), "an opaque function closing over input: the extras form");
 const ported = (await fileText("domains/issues.ts")).match(/likes: \(i\) => (.*),\n/)?.[1] ?? "<not found>";
-check(fixLikes === ported, `the fix-it for merge 4's setLike is exactly the ported line: ${fixLikes}`);
-const fixReact = fromSource.findings.find((f) => f.rule === "opaque-closure")?.fix ?? "";
-check(fixReact === "opaque([m.reactions, input.emoji], (rs, emoji) => addReaction(rs, emoji))", "the opaque fix-it is extras.ts's form");
+check(fixIs("legacy-issues.setLike", "logic", (fx) => fx === ported), `merge 4's setLike: the fix-it is exactly the ported line`);
+check(factory?.message.includes("factory") === true, "a domain factory: unreadable-domain");
 
-console.log(`\n${failed === 0 ? "ALL PASS" : `${failed} FAILED`}`);
+console.log(`\n${failed === 0 ? `ALL PASS (${passed} checks)` : `${failed} FAILED`}`);
 if (failed) throw new Error(`${failed} checks failed`);
