@@ -97,6 +97,9 @@ runtime resolves to WIZARD's last active child.
 
 ## 4. Server calls, the in-machine half (flagged 2026-10-29)
 
+**Now proposed in [in-machine-calls-proposal.md](in-machine-calls-proposal.md)** (not accepted).
+`unknown` was kept as the name. What it leaves open is in its section 8.
+
 The network discussion is split: decisions outside the machine (operations, adapters, errors, the
 cache and domains) are discussed first; these in-machine ones wait here.
 
