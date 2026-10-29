@@ -1,7 +1,7 @@
 # Proposal: Stories for fragments and server calls
 
 Status: proposal, not accepted; merge 3 into [machine-design.md](../machine-design.md), after
-[merge-1-outcomes.md](../merge-1-outcomes.md) and [merge-2-server-calls](../merge-2-server-calls/proposal.md). No
+[merged/outcomes.md](../merged/outcomes.md) and [merged/server-calls](../merged/server-calls/proposal.md). No
 `.plan` file changes until it is accepted. It makes Stories ([Testing.plan](../../../../Testing.plan)) cover what the
 design and the two merges added: traits and subroutines inside a machine and alone, `.each` copies and their lives,
 resumable traits, server-call endings, lanes, late routing, keyed schedules, fixture truth and restore mid-write.
@@ -23,11 +23,11 @@ Citations. Paths are relative to `workflow/plans/flow/`:
 | `Pk` | `Package.plan` |
 | `D` | `references/explorations/machine-fragments/machine-design.md` |
 | `EA` | `references/explorations/machine-fragments/merged/each.md` |
-| `M1` | `references/explorations/machine-fragments/merge-1-outcomes.md` |
-| `M2` | `references/explorations/machine-fragments/merge-2-server-calls/proposal.md` |
-| `RQ` | `references/explorations/machine-fragments/merge-2-server-calls/requirements.md` |
-| `SS` | `references/explorations/machine-fragments/merge-2-server-calls/spike/stories.ts` |
-| `SF` | `references/explorations/machine-fragments/merge-2-server-calls/spike/flow.ts` |
+| `M1` | `references/explorations/machine-fragments/merged/outcomes.md` |
+| `M2` | `references/explorations/machine-fragments/merged/server-calls/proposal.md` |
+| `RQ` | `references/explorations/machine-fragments/merged/server-calls/requirements.md` |
+| `SS` | `references/explorations/machine-fragments/merged/server-calls/spike/stories.ts` |
+| `SF` | `references/explorations/machine-fragments/merged/server-calls/spike/flow.ts` |
 | `PB` | `references/explorations/playback.md` (accepted) |
 
 ## 1. The problem

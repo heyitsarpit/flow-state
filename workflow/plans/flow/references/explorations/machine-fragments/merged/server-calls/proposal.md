@@ -1,11 +1,13 @@
 # Proposal: server calls inside the machine, revised (calls-next)
 
-Status: proposal, not accepted; merge 2 of 2 into [machine-design.md](../machine-design.md), after
-[merge-1-outcomes.md](../merge-1-outcomes.md). It revises `in-machine-calls-proposal.md` ("the
-calls proposal", CP; removed, see [the folder README](../README.md)) and keeps its syntax: a commit value with `outcomes` mappings onto author-declared events. It
+Status: **merged into machine-design.md on 2026-10-30; kept as the record behind it.** It was merge 2 of 2 into
+[machine-design.md](../../machine-design.md) (section 2.7, rules 13–25, section 5's C rows and the "Decisions" section
+there; its rule *n* is the design's rule *n* + 12), after [outcomes.md](../outcomes.md). Where this record and the
+design differ, the design wins. It revises `in-machine-calls-proposal.md` ("the
+calls proposal", CP; removed, see [the folder README](../../README.md)) and keeps its syntax: a commit value with `outcomes` mappings onto author-declared events. It
 replaces CP's rules where five builds and four reviews found them wrong or silent, drops `abandoned`, and makes the
 commit value the handle for re-sending, cancelling and reading the call. It keeps
-[merge-1-outcomes.md](../merge-1-outcomes.md) ("OP") with four flagged amendments (section 6.4). It answers P1–P23 and
+[outcomes.md](../outcomes.md) ("OP") with four flagged amendments (section 6.4). It answers P1–P23 and
 R1–R38 of [requirements.md](requirements.md). The data and type flow and twelve sequences (six run old and
 new) are checked by the spike in [spike/](spike/) (`tsc -p .`, `bun stories.ts`; output in section 7.1). Five built
 cases are rewritten in [rewrites/](rewrites/). Both follow sections 3–4 and decisions D1–D14. Open questions, left out

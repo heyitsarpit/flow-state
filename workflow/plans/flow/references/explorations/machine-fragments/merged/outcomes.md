@@ -1,13 +1,13 @@
 # Proposal: commit outcomes as three channels
 
-Status: **final; merge 1 of 2 into [machine-design.md](machine-design.md)**, before
-[merge-2-server-calls](merge-2-server-calls/proposal.md), which amends it. No plan file is changed by
-this; the plans change only when v4 itself is accepted. It changes how a commit's ending reaches the
-machine and the cache. Merged into v4, it supersedes v4's P9, P13, P14 and the `definite` field of
-`abandoned`, and parts of the Operations and EntityDomains plans (section 7). The in-machine half (timeout and retry
-placement, fencing, `abandoned`, late turns, the saga recipe) is merge 2,
-[merge-2-server-calls/proposal.md](merge-2-server-calls/proposal.md). The implementation is checked by the spike in
-[spikes/outcome-channels](spikes/outcome-channels/outcome.ts).
+Status: **merged into machine-design.md on 2026-10-30; kept as the record behind it.** It was merge 1 of 2 into
+[machine-design.md](../machine-design.md) (section 2.7.1, rules 13 and 18, and the "Decisions" section there), before
+[merged/server-calls](server-calls/proposal.md), which amends it (its section 6.4). Where this record and the design
+differ, the design wins. It changed how a commit's ending reaches the machine and the cache, and superseded v4's P9,
+P13, P14, the `definite` field of `abandoned`, and parts of the Operations and EntityDomains plans (section 7). The
+in-machine half (timeout and retry placement, fencing, `abandoned`, late turns, the saga recipe) is merge 2,
+[server-calls/proposal.md](server-calls/proposal.md). The implementation is checked by the spike in
+[spikes/outcome-channels](../spikes/outcome-channels/outcome.ts).
 
 ## 1. The problem
 
@@ -290,4 +290,4 @@ Unchanged: `Flow.uncertain` (the marker on events the unknown channel may target
    `outcomes.failure` is exhaustive, so an unwrapped error (say a `NoResponse` meant as unknown)
    appears there by name and must be handled as a failure, where the author sees it.
 
-Still open elsewhere: the in-machine half, merge 2 ([merge-2-server-calls/proposal.md](merge-2-server-calls/proposal.md)).
+Still open elsewhere: the in-machine half, merge 2 ([server-calls/proposal.md](server-calls/proposal.md)).

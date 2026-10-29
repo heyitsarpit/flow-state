@@ -6,17 +6,20 @@ change only when a proposal is accepted.
 ## The design and what merges into it
 
 [machine-design.md](machine-design.md) is the one design (formerly `proposal-v4.md`; "v4" in its text and in the
-other documents names it). Proposals merge into it in this order:
+other documents names it). Merges 1 and 2 are merged into it (2026-10-30). What is left merges in this order:
 
 | Order | File | Status | Depends on |
 | --- | --- | --- | --- |
-| 1 | [merge-1-outcomes.md](merge-1-outcomes.md) | final | nothing |
-| 2 | [merge-2-server-calls/proposal.md](merge-2-server-calls/proposal.md) | not accepted; decisions D1–D17 | merge 1: its section 6.4 amends it, and 6.5 lists every change to the design |
-| 3 | [merge-3-stories/proposal.md](merge-3-stories/proposal.md) | not accepted; 20 open questions | merges 1 and 2: Stories for their endings, lanes and fragments; checked against [playback.md](../playback.md) |
-| — | [open-items.md](open-items.md) | nothing open: items 1 and 3 closed, 2 parked, 4 is merge 2 | its closing notes merge with the design |
+| 1 | [merge-3-stories/proposal.md](merge-3-stories/proposal.md) | not accepted; 20 open questions | the merged design (with merges 1 and 2): Stories for its endings, lanes and fragments; checked against [playback.md](../playback.md) |
+| — | [open-items.md](open-items.md) | nothing open: items 1 and 3 closed, 2 parked, 4 merged | its closing notes merge with the design |
 
-Merged proposals move to [merged/](merged/) with their evidence, as the record behind the design.
-[merged/each.md](merged/each.md) (`.each`, design rule 9) is already there.
+Merged proposals move to [merged/](merged/) with their evidence, as the record behind the design:
+
+| File | Merged | Became |
+| --- | --- | --- |
+| [merged/each.md](merged/each.md) | before the merges | `.each`, design rule 9 |
+| [merged/outcomes.md](merged/outcomes.md) | merge 1, 2026-10-30 | the three channels, `Outcome`, the classifier and the cache table (design 2.7.1) |
+| [merged/server-calls/proposal.md](merged/server-calls/proposal.md) | merge 2, 2026-10-30 | server calls in the machine (design 2.7, rules 13–25, C rows, decisions D1–D17) |
 
 [principles.md](principles.md) is what every proposal is judged against.
 
@@ -27,14 +30,14 @@ Merged proposals move to [merged/](merged/) with their evidence, as the record b
 | [reference/example-apps.md](reference/example-apps.md) | design section 3: the example apps |
 | [reference/effect4-field-validation.md](reference/effect4-field-validation.md) | design `Field`: Effect 4 Schema facts |
 | [reviews/design-correctness.md](reviews/design-correctness.md), [reviews/design-principles.md](reviews/design-principles.md) | the design's review findings |
-| [merge-2-server-calls/requirements.md](merge-2-server-calls/requirements.md) | server calls: requirements R1–R38, problems P1–P23 |
-| [merge-2-server-calls/reviews/](merge-2-server-calls/reviews/), [merge-2-server-calls/rewrites/](merge-2-server-calls/rewrites/) | server calls: the memory-read review, five rewritten apps |
+| [merged/server-calls/requirements.md](merged/server-calls/requirements.md) | server calls: requirements R1–R38, problems P1–P23 |
+| [merged/server-calls/reviews/](merged/server-calls/reviews/), [merged/server-calls/rewrites/](merged/server-calls/rewrites/) | server calls: the memory-read and entity-domain reviews, five rewritten apps |
 
 ## Spikes
 
 | Folder | For |
 | --- | --- |
-| [merge-2-server-calls/spike/](merge-2-server-calls/spike/) | server calls: `tsc -p .`, then `bun stories.ts` |
+| [merged/server-calls/spike/](merged/server-calls/spike/) | server calls: `tsc -p .`, then `bun stories.ts` |
 | [spikes/outcome-channels/](spikes/outcome-channels/) | merge 1: the `Outcome` API |
 | [spikes/schedule-triggers/](spikes/schedule-triggers/RESULTS.md) | the design's schedule `armOn` / `disarmOn` typing |
 | [spikes/server-calls-draft/](spikes/server-calls-draft/) | the data flow of the first in-machine calls draft (superseded by merge 2) |

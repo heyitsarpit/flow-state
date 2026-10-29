@@ -110,8 +110,9 @@ Interrupts and a computed `default` were considered and not taken; deep history 
 
 ## 4. Server calls, the in-machine half (flagged 2026-10-29)
 
-**Now proposed in [merge-2-server-calls/proposal.md](merge-2-server-calls/proposal.md)** (not accepted), which supersedes
-`in-machine-calls-proposal.md` (removed).
+**Merged into [machine-design.md](machine-design.md) on 2026-10-30** (section 2.7), from
+[merged/server-calls/proposal.md](merged/server-calls/proposal.md), which superseded `in-machine-calls-proposal.md`
+(removed). The notes below are the record of what was flagged.
 `unknown` was kept as the name. What it leaves open is in its section 8.
 
 The network discussion is split: decisions outside the machine (operations, adapters, errors, the
