@@ -12,7 +12,8 @@ other documents names it). Proposals merge into it in this order:
 | --- | --- | --- | --- |
 | 1 | [merge-1-outcomes.md](merge-1-outcomes.md) | final | nothing |
 | 2 | [merge-2-server-calls/proposal.md](merge-2-server-calls/proposal.md) | not accepted; decisions D1–D17 | merge 1: its section 6.4 amends it, and 6.5 lists every change to the design |
-| 3 | [open-items.md](open-items.md), items 1–3 | open | each merges once settled; the file is deleted when empty |
+| 3 | [merge-3-stories/proposal.md](merge-3-stories/proposal.md) | not accepted; 20 open questions | merges 1 and 2: Stories for their endings, lanes and fragments; checked against [playback.md](../playback.md) |
+| 4 | [open-items.md](open-items.md), item 3 (`.history` versus interrupts) | open | merges once settled; the file is deleted when empty |
 
 Merged proposals move to [merged/](merged/) with their evidence, as the record behind the design.
 [merged/each.md](merged/each.md) (`.each`, design rule 9) is already there.
