@@ -6,8 +6,8 @@ export class OutcomeUnknown<R> extends Data.TaggedError("Flow/Unknown")<{ readon
 
 export const Outcome = {
   success: <A>(value: A): Effect.Effect<A> => Effect.succeed(value),
-  failure: <R>(reason: R): Effect.Effect<never, OutcomeFailure<R>> => Effect.fail(new OutcomeFailure({ reason })),
-  unknown: <R>(reason: R): Effect.Effect<never, OutcomeUnknown<R>> => Effect.fail(new OutcomeUnknown({ reason })),
+  failure: <R>(reason: R): OutcomeFailure<R> => new OutcomeFailure({ reason }),   // an error value: yieldable, and usable as catch:'s return
+  unknown: <R>(reason: R): OutcomeUnknown<R> => new OutcomeUnknown({ reason }),
 }
 
 // Split a commit's error channel into the two typed outcome channels.

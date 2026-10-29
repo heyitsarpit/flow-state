@@ -7,9 +7,10 @@ class Invalid { readonly _tag = "Invalid" }
 
 const cases = {
   success: Outcome.success({ id: "o1" }),
-  failure: Outcome.failure(new OutOfStock()),
+  failure: Effect.fail(Outcome.failure(new OutOfStock())),
   plainError: Effect.fail(new Invalid()),
-  unknown: Outcome.unknown(new NoResponse()),
+  unknown: Effect.fail(Outcome.unknown(new NoResponse())),
+  viaCatch: Effect.try({ try: () => { throw 1 }, catch: () => Outcome.unknown(new NoResponse()) }),
   thrown: Effect.sync(() => { throw new Error("bug") }),
   interrupted: Effect.interrupt,
   failThenDie: Effect.fail(new Invalid()).pipe(Effect.ensuring(Effect.die("finalizer bug"))),

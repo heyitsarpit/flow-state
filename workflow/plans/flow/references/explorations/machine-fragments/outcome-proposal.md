@@ -1,8 +1,9 @@
 # Proposal: commit outcomes as three channels
 
-Status: proposal, not accepted. It changes how a commit's ending reaches the machine and the cache.
-It would supersede parts of proposal v4 (P9, P13, P14, the `definite` field of `abandoned`) and of
-the Operations and EntityDomains plans (section 7). The in-machine half (timeout and retry
+Status: **final; to be merged into [proposal-v4.md](proposal-v4.md).** No plan file is changed by
+this; the plans change only when v4 itself is accepted. It changes how a commit's ending reaches the
+machine and the cache. Merged into v4, it supersedes v4's P9, P13, P14 and the `definite` field of
+`abandoned`, and parts of the Operations and EntityDomains plans (section 7). The in-machine half (timeout and retry
 placement, fencing, `abandoned`, late turns, the saga recipe) is still open in
 [revisit.md](revisit.md), item 4. The implementation is checked by the spike in
 [spikes/outcome-channels](spikes/outcome-channels/outcome.ts).
@@ -38,14 +39,20 @@ The decision about what an ending means is made where the request is made, line 
 author who has read the API. Flow interprets no status codes and no error types.
 
 ```ts
-return value                          // success. Outcome.success(value) is the same.
-yield* Outcome.failure(err)           // failure, stated explicitly (recommended)
-yield* new SomeError(…)               // failure: any plain error defaults here
-yield* Outcome.unknown(err)           // unknown: "this may have happened"
+return yield* Outcome.success(value)  // success. A plain `return value` is the same.
+return yield* Outcome.failure(err)    // failure, stated explicitly (recommended)
+return yield* new SomeError(…)        // failure: any plain error defaults here
+return yield* Outcome.unknown(err)    // unknown: "this may have happened"
 throw / die                           // unknown, reason Defect, and an actor issue
+
+catch: (e) => Outcome.unknown(err)    // the same calls work wherever Effect wants an error value
 ```
 
 - `Outcome.*` classifies any error: `Schema.TaggedError`, `Data.TaggedError` or a custom class.
+- `Outcome.failure` and `Outcome.unknown` return error values, so one spelling works in `yield*`,
+  in `catch:` (`tryPromise`, `try`) and in `mapError`. Authors never use the wrapper classes.
+- `Outcome.success` is not needed (a plain `return` is success); it exists for symmetry, so every
+  ending of a commit can be written the same way.
 - Flow's own abort needs nothing from the author. When Flow aborts the call (timeout, cancel), it
   ignores what the commit then reports and uses its own reason.
 - `Outcome` is the recommended standard. Plain errors default to failure because they are already
@@ -111,13 +118,13 @@ class OutcomeFailure<R> extends Data.TaggedError("Flow/Failure")<{ readonly reas
 class OutcomeUnknown<R> extends Data.TaggedError("Flow/Unknown")<{ readonly reason: R }> {}
 
 export const Outcome = {
-  success: <A>(value: A) => Effect.succeed(value),
-  failure: <R>(reason: R) => Effect.fail(new OutcomeFailure({ reason })),
-  unknown: <R>(reason: R) => Effect.fail(new OutcomeUnknown({ reason })),
+  success: <A>(value: A) => Effect.succeed(value),            // symmetry only
+  failure: <R>(reason: R) => new OutcomeFailure({ reason }),  // an error value: yieldable, and usable as catch:'s return
+  unknown: <R>(reason: R) => new OutcomeUnknown({ reason }),
 }
 ```
 
-Effect's own combinators keep working inside a commit, for example
+The wrappers are internal: authors write only `Outcome.*`. Effect's own combinators keep working inside a commit, for example
 `Effect.catchReason("Flow/Unknown", "NoResponse", …)`. (`catchReason` keeps the parent error in
 the type after handling a reason; that is Effect's documented behaviour.)
 
@@ -167,24 +174,37 @@ its state or to `abandoned` by fencing (v4 P2).
 
 ```ts
 // orders.operations.ts: outside the machine
-class OutOfStock extends Schema.TaggedError<OutOfStock>()("OutOfStock", { sku: Schema.String }) {}
-class NoResponse extends Schema.TaggedError<NoResponse>()("NoResponse", {}) {}
+class OutOfStock  extends Schema.TaggedError<OutOfStock>()("OutOfStock", { sku: Schema.String }) {}
+class NoResponse  extends Schema.TaggedError<NoResponse>()("NoResponse", {}) {}
+class ServerError extends Schema.TaggedError<ServerError>()("ServerError", { status: Schema.Number }) {}
 
 export const placeOrder = transaction({
   id: "Orders.place",
   input: OrderInput,
   concurrency: "reject",
   commit: (order, { signal, attempt }) =>
-    Effect.tryPromise({
-      try: () => trpc.order.place.mutate({ ...order, attemptId: attempt.id }, { signal }),
-      catch: (err) =>
-        isTRPCClientError(err) && err.data?.code === "CONFLICT"
-          ? new OutcomeFailure({ reason: new OutOfStock({ sku: err.data.sku }) })   // definitely not placed
-          : new OutcomeUnknown({ reason: new NoResponse() }),                       // no answer: maybe placed
+    Effect.gen(function* () {
+      const res = yield* Effect.tryPromise({
+        try: () => fetch("/api/orders", {
+          method: "POST",
+          body: JSON.stringify(order),
+          headers: { "Idempotency-Key": attempt.id },   // the same id when this attempt is asked about again
+          signal,
+        }),
+        catch: () => Outcome.unknown(new NoResponse()),  // connection dropped: maybe placed
+      })
+
+      // The author reads the statuses, not Flow.
+      if (res.status === 409) return yield* Outcome.failure(new OutOfStock({ sku: order.sku }))   // definitely not placed
+      if (!res.ok)            return yield* Outcome.unknown(new ServerError({ status: res.status })) // maybe placed
+
+      const receipt = yield* Effect.promise(() => res.json())  // if this rejects: Defect, which is unknown
+      return yield* Outcome.success(receipt)
     }),
 });
+// success channel: { id: string }
 // failure channel: OutOfStock | NotSent
-// unknown channel: NoResponse | Timeout | Cancelled | Restored | Interrupted | Defect
+// unknown channel: NoResponse | ServerError | Timeout | Cancelled | Restored | Interrupted | Defect
 ```
 
 ```ts
@@ -259,12 +279,14 @@ Unchanged: `Flow.uncertain` (the marker on events the unknown channel may target
 - **Raw TypeScript brands.** Replaced by `Data.TaggedError` wrappers, so the channels are real Effect
   errors: yieldable, catchable and visible to Effect's combinators.
 
-## 9. Open questions
+## 9. Decisions on the former open questions
 
-1. Should `Outcome.failure` and `Outcome.unknown` return yieldable error values, so the same call
-   works in `yield*` and as `catch:`'s return, as Effect's tagged errors do? The example uses the
-   wrapper classes in `catch:` today.
-2. Is `Outcome.success` needed, when a plain `return` already means success?
-3. A `flow check` warning on unwrapped typed errors inside a commit, since they silently default to
-   failure.
-4. The in-machine half: [revisit.md](revisit.md), item 4.
+1. **`Outcome.failure` and `Outcome.unknown` return error values** (not `Effect.fail(…)`), so one
+   spelling works in `yield*`, `catch:` and `mapError` (3.1, 4.1). Checked in a scratch spike on
+   Effect 4.0.5: it type-checks and classifies the same in all three positions.
+2. **`Outcome.success` stays**, for symmetry only. A plain `return` means the same.
+3. **No `flow check` warning on unwrapped typed errors.** TypeScript already catches it: the call's
+   `outcomes.failure` is exhaustive, so an unwrapped error (say a `NoResponse` meant as unknown)
+   appears there by name and must be handled as a failure, where the author sees it.
+
+Still open elsewhere: the in-machine half, in [revisit.md](revisit.md), item 4.
