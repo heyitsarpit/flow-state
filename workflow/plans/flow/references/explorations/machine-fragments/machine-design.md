@@ -52,7 +52,7 @@ they belong in the plans. v4 reuses **pieces** (fields, timers, dialogs, selecti
 | The actor…                               | has it                                                                                                 | goes into it                                                                             |
 | Examples                                 | field, countdown, lockout, debounce, selection, pager, flash                                           | confirm, hold-to-confirm, address step, picker                                           |
 | Placed (definition)                      | the root's `traits: { code: Field(…) }`, or on a node with `Flow.state(…, { traits })`                 | a state: `states: [{ CANCELLING: Confirm }]`                                             |
-| Many of them                             | `.each(field, { max, by? })`: one copy per key in a host memory field (rule 9)                         | no                                                                                       |
+| Many of them                             | `.each({ of, max, by? })`: one copy per key in a host memory field (rule 9)                         | no                                                                                       |
 | Instance name                            | the `traits` key (`code`)                                                                              | the state's name (`CANCELLING`)                                                          |
 | States of its own                        | none                                                                                                   | optional, under its state (`HOLDING.WAITING`). Without `states` it is a leaf (`Confirm`) |
 | Lives                                    | while its node is active (the root: the actor's life); fresh on every activation unless `.resumable()` | while its state is active; fresh on every entry                                          |
@@ -427,9 +427,9 @@ that node.
    Each must be handled, ending in an unguarded alternative, in every state where it can arrive.
    Everything those handlers raise or notify must be total by the child's summary.
 9. **Many copies: `.each`.** Full design, reasons and nine worked examples:
-   [merged/each.md](merged/each.md). `T.each(field, { max, by? })`
-   places one copy of T per key in a memory field of the placing definition or fragment, in that
-   field's order.
+   [merged/each.md](merged/each.md). `T.each({ of, max, by? })`
+   places one copy of T per key in the memory field `of` names, of the placing definition or fragment, in
+   that field's order.
    - **Membership is host data.** Keys are strings, bare or in records (`by` names the key field).
      The host adds and removes copies by writing the field in its own transitions, behind its own
      guards. There are no `Add` or `Remove` events. `max` is required.
@@ -769,7 +769,7 @@ export const SignIn = definition({
   },
   traits: {
     // One per struck challenge, at the root: strikes and lockouts survive Back (rule 9).
-    challenges: Lockout({ limit: LIMIT, length: "5 minutes" }).each("struck", { max: 20 }),
+    challenges: Lockout({ limit: LIMIT, length: "5 minutes" }).each({ of: "struck", max: 20 }),
   },
   operations: { Auth },
 });
@@ -1113,7 +1113,7 @@ memory: {
   nextInvite: Flow.private(Flow.initial(Schema.Int, 2)),             // deterministic keys
 },
 traits: {
-  invites: Field(Schema.String, { validate: optionalEmail }).each("inviteIds", { max: 5 }), // "" or contains "@"
+  invites: Field(Schema.String, { validate: optionalEmail }).each({ of: "inviteIds", max: 5 }), // "" or contains "@"
 },
 
 // signup.machine.ts (excerpt)
@@ -1258,7 +1258,7 @@ turn (rule 6).
 
 | Kind                        | Words                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 |-----------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **New, fragments**          | `trait`, `subroutine`, `traits` (root and node), `Flow.state`, `.resumable()`, `.each` (`max`, `by`), `key` / `item` in fillings and copy views, `.key(k)`, `hostEvents`, `guards`, `callbacks`, `exits` (declarations and fillings), `notify`, the `Flow` module (`Flow.Guard`, `Flow.Callback`, `Flow.Exit`, `Flow.optional`, `Flow.uncertain`, `Flow.annotate`, `Flow.input`, `Flow.initial`, `Flow.private`, `Flow.Denial`, `Flow.entry`), `raise`, `resetOn`, `whenAbandoned`, the definition's `handler` / `guard`, state tokens in guard arrays, `story.machine(fragment)` with `.enter` / `.leave` / `run.calls` / `checkpoint.exit` |
+| **New, fragments**          | `trait`, `subroutine`, `traits` (root and node), `Flow.state`, `.resumable()`, `.each` (`of`, `max`, `by`), `key` / `item` in fillings and copy views, `.key(k)`, `hostEvents`, `guards`, `callbacks`, `exits` (declarations and fillings), `notify`, the `Flow` module (`Flow.Guard`, `Flow.Callback`, `Flow.Exit`, `Flow.optional`, `Flow.uncertain`, `Flow.annotate`, `Flow.input`, `Flow.initial`, `Flow.private`, `Flow.Denial`, `Flow.entry`), `raise`, `resetOn`, `whenAbandoned`, the definition's `handler` / `guard`, state tokens in guard arrays, `story.machine(fragment)` with `.enter` / `.leave` / `run.calls` / `checkpoint.exit` |
 | **New, plans**              | `abandoned` (payload `outcome`, `tag`, `definite`, `value`, `input`, `attempt`), `notSent`, `.pending`, `retry` (`on`, `schedule`), `retrying`, the mapper's `{ input, attempt }`, `revertOnUnknown`, `timeout` (`perAttempt`, `total`), `failureKinds` (`"definite"` / `"uncertain"`), `orphaned`, `.history` (and `.history.child`), `armOn`, `disarmOn`, `s.schedules`, `dueAt`, and the `model()` options `invariants`, `hot` and `explore`                                                                                                                                                                                                                 |
 | **New concepts, not words** | **incarnation** (one life of a fragment instance), **frozen** (a resumable trait while its node is inactive), **summary** (a contract's inferred per-alternative effects), **source-updated memory** (pre-turn memory plus the source's patch), **late turn** (rule 6), pending reset                                                                                                                                                                                                                                                                                                                                                    |
 | **Existing**                | `definition`, `machine`, `states`, `default`, `events`, `internalEvents`, `input` (caller side only: `ensure`, `useActor`, a host's filling), `memory`, `on`, `target`, `guard`, `updateMemory`, `actions`, `schedules`, `restartOn`, `outcomes`, `optimistic`, `setData`, `deny`, `check`, `model`, `S`, `E`, `O`, `.from`, `payload`                                                                                                                                                                                                                                                                                                   |
@@ -1506,4 +1506,8 @@ From [reviews/design-correctness.md](reviews/design-correctness.md) and [reviews
   Rejected: restarting by reset alone (`Flow.entry` plus `resetOn`), because `Lockout`'s nested timer must start at
   the limit-th strike, not when `Lockout` is created; and arming from the transition (`arm:`), for the locality and
   naming costs in [spikes/schedule-triggers/RESULTS.md](spikes/schedule-triggers/RESULTS.md).
+- `.each` names its list with `of`: `.each({ of: "inviteIds", max: 5 })` reads "a copy for each of inviteIds", where the
+  bare first argument read as a key or an id. Rejected: `.list({ key, max })` (suggests the trait owns the list, and
+  `key` already means the copy's key), a selector (`flow check` would have to run it), and a `Flow` marker on the
+  memory field paired with the option (useful for narrowing and helpers, not worth a concept now).
 - `onLeave` is renamed `whenAbandoned`: it names the moment a life is ended by someone else, and the `when` prefix keeps it apart from the `on…` callbacks it fires.

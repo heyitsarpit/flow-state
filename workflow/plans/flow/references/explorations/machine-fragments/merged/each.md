@@ -38,7 +38,7 @@ export const Undoable = (p: { window: Duration.Input }) =>
   );
 ```
 
-**The definition.** `.each("deleting", …)` means one copy per id in `deleting`. Add an id and a copy
+**The definition.** `.each({ of: "deleting", … })` means one copy per id in `deleting`. Add an id and a copy
 appears; remove it and the copy, with its timer, is gone.
 
 ```ts
@@ -59,7 +59,7 @@ export const Inbox = definition({
     trashError: Flow.initial(Schema.NullOr(Schema.String), null),
   },
   traits: {
-    undo: Undoable({ window: "5 seconds" }).each("deleting", { max: 50 }), // ← NEW: .each
+    undo: Undoable({ window: "5 seconds" }).each({ of: "deleting", max: 50 }), // ← NEW: .each
   },
   operations: { Mail },
 });
@@ -155,7 +155,7 @@ Undo after the window closed is `Unhandled`: the id is gone, so the snackbar is 
 
 | New | What it is |
 | --- | --- |
-| `.each(field, { max, by? })` | place a trait once per entry of a memory field; `max` caps the count; `by` names the key field when entries are records |
+| `.each({ of, max, by? })` | place a trait once per entry of a memory field; `max` caps the count; `by` names the key field when entries are records |
 | `key` and `item` in fillings | which copy is calling, and its entry (the record, or the key string itself) |
 | `key` and `item` on each copy in the view | `s.memory.undo[i].key` |
 
@@ -164,12 +164,12 @@ Undo after the window closed is `Unhandled`: the id is gone, so the snackbar is 
 ### 1.1 Placement
 
 ```ts
-Trait.each(field, { max, by? })   // new
+Trait.each({ of, max, by? })   // new
 ```
 
-- `field` names a memory field of the **same** definition or fragment that places the trait. It
+- `of` names a memory field of the **same** definition or fragment that places the trait. It
   holds `ReadonlyArray<string>`, or records with a string field named by `by`
-  (`.each("notices", { by: "id", max: 5 })`). The path and `by` are type-checked.
+  (`.each({ of: "notices", by: "id", max: 5 })`). The path and `by` are type-checked.
 - **One copy per key, in the field's order, in every published snapshot.** Membership is never
   commanded: the host writes its own field, in its own transitions, behind its own guards.
 - `max` is required. It caps the list (1.3) and keeps the shape finite for tooling.
@@ -374,7 +374,7 @@ export const Invite = definition({
     nextRow: Flow.private(Flow.initial(Schema.Int, 2)),
     sendFailed: Flow.initial(Schema.Boolean, false),
   },
-  traits: { rows: EmailRow.each("rowIds", { max: 5 }) },          // ← NEW
+  traits: { rows: EmailRow.each({ of: "rowIds", max: 5 }) },          // ← NEW
   operations: { Team },
 });
 
@@ -497,7 +497,7 @@ export const Toast = (p: { show: Duration.Input }) =>
 // app.definition.ts (excerpt). This actor is not persisted, so `hovered` never outlives the page.
 events: { Notify: { id: Schema.String, text: Schema.String, tone: Tone } },
 memory: { notices: Flow.initial(Schema.Array(Notice), []) },                       // Notice: { id, text, tone, at }
-traits: { toasts: Toast({ show: "4 seconds" }).each("notices", { by: "id", max: 5 }) }, // ← NEW
+traits: { toasts: Toast({ show: "4 seconds" }).each({ of: "notices", by: "id", max: 5 }) }, // ← NEW
 
 // app.machine.ts (excerpt)
 const upsert = (list: ReadonlyArray<Notice>, n: Notice) =>
@@ -576,7 +576,7 @@ memory: {
 },
 traits: {
   // max is far above a real rush; past it the runtime keeps the first 300 and records evidence (1.3).
-  tickets: Ticket({ warnAfter: 8 * 60_000, lateAfter: 12 * 60_000 }).each("tickets", { by: "id", max: 300 }),
+  tickets: Ticket({ warnAfter: 8 * 60_000, lateAfter: 12 * 60_000 }).each({ of: "tickets", by: "id", max: 300 }),
 },
 
 // kitchen.machine.ts (excerpt)
@@ -698,7 +698,7 @@ memory: {
   decommissioned: Flow.initial(Schema.Array(Schema.String), []),
   pageFailures: Flow.initial(Schema.Array(Schema.String), []),   // shown as a banner
 },
-traits: { devices: Watchdog({ silence: "30 seconds", escalateAfter: "10 minutes" }).each("deviceIds", { max: 2000 }) },
+traits: { devices: Watchdog({ silence: "30 seconds", escalateAfter: "10 minutes" }).each({ of: "deviceIds", max: 2000 }) },
 
 // fleet.machine.ts (excerpt)
 // Alerts operations use "serialize" concurrency per deviceId, so an open and a resolve land in order.
@@ -771,7 +771,7 @@ export const Flash = (p: { for: Duration.Input }) =>
 // issues.definition.ts (excerpt)
 internalEvents: { PinFailed: { id: Schema.String, tag: Schema.String } },
 memory: { flashes: Flow.initial(Schema.Array(FlashNote), []) },     // FlashNote: { id, tag, at }
-traits: { flashes: Flash({ for: "3 seconds" }).each("flashes", { by: "id", max: 20 }) },
+traits: { flashes: Flash({ for: "3 seconds" }).each({ of: "flashes", by: "id", max: 20 }) },
 
 // issues.machine.ts (excerpt)
 const upsert = (list: ReadonlyArray<FlashNote>, f: FlashNote) => [...list.filter((x) => x.id !== f.id), f];
@@ -825,7 +825,7 @@ memory: {
   challengeId: Flow.initial(Schema.String, ""),
   struck: Flow.private(Flow.initial(Schema.Array(Schema.String), [])),   // challenges with a strike
 },
-traits: { challenges: Lockout({ limit: 3, length: "5 minutes" }).each("struck", { max: 20 }) },
+traits: { challenges: Lockout({ limit: 3, length: "5 minutes" }).each({ of: "struck", max: 20 }) },
 
 // signin.machine.ts (excerpt)
 const union = (list: ReadonlyArray<string>, id: string) => (list.includes(id) ? list : [...list, id]);
@@ -935,7 +935,7 @@ export const InlineEditor = (p: { autosave: Duration.Input }) =>
 events: { Open: { id: Schema.String, title: Schema.String } },   // the view sends the title it shows
 internalEvents: { Saved: { id: Schema.String, draft: Schema.String }, SaveFailed: { id: Schema.String } },
 memory: { editing: Flow.initial(Schema.Array(OpenRow), []) },     // OpenRow: { id, title }
-traits: { editors: InlineEditor({ autosave: "2 seconds" }).each("editing", { by: "id", max: 50 }) },
+traits: { editors: InlineEditor({ autosave: "2 seconds" }).each({ of: "editing", by: "id", max: 50 }) },
 
 // sheet.machine.ts (excerpt)
 // Rows.rename uses "serialize" concurrency per id, so saves of one row land in order.
@@ -1033,7 +1033,7 @@ file, or a parallel-upload limit with a queue per file.
 | Inspection | Copies named `name["key"]@life`, keys escaped. |
 
 Removed words: `.list`, `Add`, `Remove`, `canAdd`, `canRemove`, `owner`, minted keys.
-Added: `.each(field, { max, by? })`, `key` and `item` in fillings and copy views, `key` in outcome
+Added: `.each({ of, max, by? })`, `key` and `item` in fillings and copy views, `key` in outcome
 mappers of commits started from a copy, `explore` in `model()`.
 
 ## 6. Changes after review
