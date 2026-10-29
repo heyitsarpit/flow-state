@@ -1,4 +1,4 @@
-// sign-in (v4 3.1), rewritten with calls-next. signin.operations.ts is unchanged except the key records
+// sign-in (v4 3.1), rewritten with calls-next in the in-machine-calls syntax. signin.operations.ts is unchanged except the key records
 // (`key: (i) => ({ challengeId: i.challengeId })`, Operations O1) the builder wrote as scalars.
 // ───────────────────────────────────────────────── signin.definition.ts
 import { Duration, Schema } from "effect"
@@ -13,8 +13,11 @@ export const SignIn = definition({
   id: "Auth/SignIn",
   states: ["PASSWORD", { TWO_FACTOR: Flow.state(["ENTERING", "VERIFYING", "LOCKED_OUT"]) }, "SIGNED_IN"],  // INVENTED (v4 gap, as the builder): Flow.state without traits
   events: { PasswordAccepted: { challengeId: Schema.String }, CodeChanged: { value: Schema.String }, Submit: {}, Resend: {}, BackToPassword: {} },
-  internalEvents: { StopWaiting: {}, Unlock: { key: Schema.String }, CooldownDone: {} },
-  calls: { verify: Auth.verifyCode, resend: Auth.resendCode },        // ← NEW
+  internalEvents: {
+    CodeAccepted: {}, CodeWrong: { challengeId: Schema.String }, CodeExpired: {}, CodeUnchecked: Flow.uncertain({}),
+    ResendSent: {}, ResendRefused: {},
+    StopWaiting: {}, Unlock: { key: Schema.String }, CooldownDone: {},
+  },
   memory: {
     challengeId: Flow.initial(Schema.String, ""),
     code: Flow.initial(Schema.String, ""),
@@ -44,7 +47,18 @@ const unlock = (m: Memory, id: string): Partial<Memory> => {
 }
 const fresh = { code: "", codeTouched: false }
 
-export const SignInMachine = machine(SignIn, ({ S, E, C }) => {
+export const SignInMachine = machine(SignIn, ({ S, E, O }) => {
+  // one verify per challenge: `reject` on the challengeId key is the implicit InFlight guard (rule 4)
+  const verify = O.Auth.verifyCode.commit(({ memory }) => ({ challengeId: memory.challengeId, code: memory.code }), {
+    outcomes: {
+      success: E.CodeAccepted,
+      failure: { WrongCode: E.CodeWrong.from((_r, { input }) => ({ challengeId: input.challengeId })), Expired: E.CodeExpired },   // the call's own challenge
+      unknown: E.CodeUnchecked,
+    },
+  })
+  const resend = O.Auth.resendCode.commit(({ memory }) => ({ challengeId: memory.challengeId }), {
+    outcomes: { success: E.ResendSent, failure: { Throttled: E.ResendRefused }, unknown: E.ResendSent },   // unknown: the SMS may be on its way
+  })
   const notSignedIn = ({ state }) => !S.SIGNED_IN.is(state) || deny("SignedIn")
   return {
     default: S.PASSWORD,
@@ -57,19 +71,18 @@ export const SignInMachine = machine(SignIn, ({ S, E, C }) => {
 
     on: {
       // Late (rule 2): VERIFYING was left by Back or the soft timeout. The strike goes to the call's own challenge.
-      "verify.WrongCode": [
+      CodeWrong: [
         {
           target: S.TWO_FACTOR.LOCKED_OUT,   // ENTERING owns no call, so a late turn may move it (rule 3)
-          guard: [S.TWO_FACTOR.ENTERING, ({ event, memory }) => event.input.challengeId === memory.challengeId || deny("OtherChallenge"), ({ event, memory }) => third(memory, event.input.challengeId) || deny("TriesLeft")],
-          updateMemory: ({ event, memory, now }) => ({ ...strike(memory, event.input.challengeId, now), ...fresh, error: null }),
+          guard: [S.TWO_FACTOR.ENTERING, ({ event, memory }) => event.challengeId === memory.challengeId || deny("OtherChallenge"), ({ event, memory }) => third(memory, event.challengeId) || deny("TriesLeft")],
+          updateMemory: ({ event, memory, now }) => ({ ...strike(memory, event.challengeId, now), ...fresh, error: null }),
         },
-        { target: "self", guard: notSignedIn, updateMemory: ({ event, memory, now }) => strike(memory, event.input.challengeId, now) },
+        { target: "self", guard: notSignedIn, updateMemory: ({ event, memory, now }) => strike(memory, event.challengeId, now) },
         { target: "self" },                  // signed in: ignored
       ],
-      "verify.success": { target: "self" },  // late: the user was told "couldn't check" (v4's accepted cost)
-      "verify.unknown": { target: "self" },
-      "resend.success": { target: "self" },  // late: TWO_FACTOR was left
-      "resend.unknown": { target: "self" },
+      CodeAccepted: { target: "self" },      // late: the user was told "couldn't check" (v4's accepted cost)
+      CodeUnchecked: { target: "self" },
+      ResendSent: { target: "self" },        // late: TWO_FACTOR was left
       Unlock: [
         { target: S.TWO_FACTOR.ENTERING, guard: [S.TWO_FACTOR.LOCKED_OUT, ({ event, memory }) => event.key === memory.challengeId || deny("OtherChallenge")], updateMemory: ({ event, memory }) => ({ ...unlock(memory, event.key), error: null }) },
         { target: "self", updateMemory: ({ event, memory }) => unlock(memory, event.key) },
@@ -96,11 +109,10 @@ export const SignInMachine = machine(SignIn, ({ S, E, C }) => {
             target: "self",
             guard: [({ state }) => !S.TWO_FACTOR.VERIFYING.is(state) || deny("Checking"), ({ memory }) => !memory.cooling || deny("CoolingDown")],
             updateMemory: () => ({ cooling: true }),
-            actions: [C.resend.start(({ memory }) => ({ challengeId: memory.challengeId }))],
+            actions: [resend],
           },
-          "resend.success": { target: "self" },
-          "resend.Throttled": { target: "self", updateMemory: () => ({ error: "Too many requests, try again later" }) },
-          "resend.unknown": { target: "self" },   // the SMS may be on its way: treat as sent
+          ResendSent: { target: "self" },
+          ResendRefused: { target: "self", updateMemory: () => ({ error: "Too many requests, try again later" }) },
         },
         states: {
           ENTERING: {
@@ -110,7 +122,7 @@ export const SignInMachine = machine(SignIn, ({ S, E, C }) => {
                 // one verify per challenge: `reject` on the challengeId key is the implicit InFlight guard (rule 4)
                 guard: [({ memory }) => sixDigits(memory.code), ({ memory }) => strikesOf(memory, memory.challengeId) < LIMIT || deny("NoTriesLeft")],
                 updateMemory: () => ({ error: null }),
-                actions: [C.verify.start(({ memory }) => ({ challengeId: memory.challengeId, code: memory.code }))],
+                actions: [verify],
               },
             },
           },
@@ -118,13 +130,13 @@ export const SignInMachine = machine(SignIn, ({ S, E, C }) => {
             schedules: { gaveUp: { schedule: "15 seconds", send: E.StopWaiting } },   // soft timeout: leave, keep the call
             on: {
               StopWaiting: { target: S.TWO_FACTOR.ENTERING, updateMemory: () => ({ error: "Couldn't check the code, try again" }) },
-              "verify.success": { target: S.SIGNED_IN, updateMemory: () => ({ strikes: {}, lockedUntil: {}, error: null }) },
-              "verify.WrongCode": [
-                { target: S.TWO_FACTOR.LOCKED_OUT, guard: ({ event, memory }) => third(memory, event.input.challengeId) || deny("TriesLeft"), updateMemory: ({ event, memory, now }) => ({ ...strike(memory, event.input.challengeId, now), ...fresh, error: null }) },
-                { target: S.TWO_FACTOR.ENTERING, updateMemory: ({ event, memory, now }) => ({ ...strike(memory, event.input.challengeId, now), ...fresh, error: `Wrong code, ${LIMIT - strikesOf(memory, event.input.challengeId) - 1} tries left` }) },
+              CodeAccepted: { target: S.SIGNED_IN, updateMemory: () => ({ strikes: {}, lockedUntil: {}, error: null }) },
+              CodeWrong: [
+                { target: S.TWO_FACTOR.LOCKED_OUT, guard: ({ event, memory }) => third(memory, event.challengeId) || deny("TriesLeft"), updateMemory: ({ event, memory, now }) => ({ ...strike(memory, event.challengeId, now), ...fresh, error: null }) },
+                { target: S.TWO_FACTOR.ENTERING, updateMemory: ({ event, memory, now }) => ({ ...strike(memory, event.challengeId, now), ...fresh, error: `Wrong code, ${LIMIT - strikesOf(memory, event.challengeId) - 1} tries left` }) },
               ],
-              "verify.Expired": { target: S.TWO_FACTOR.ENTERING, updateMemory: () => ({ error: "Code expired, send a new one" }) },
-              "verify.unknown": { target: S.TWO_FACTOR.ENTERING, updateMemory: () => ({ error: "Couldn't check the code, try again" }) },
+              CodeExpired: { target: S.TWO_FACTOR.ENTERING, updateMemory: () => ({ error: "Code expired, send a new one" }) },
+              CodeUnchecked: { target: S.TWO_FACTOR.ENTERING, updateMemory: () => ({ error: "Couldn't check the code, try again" }) },
             },
           },
           LOCKED_OUT: {},

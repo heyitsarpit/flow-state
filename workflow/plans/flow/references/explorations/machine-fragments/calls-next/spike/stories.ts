@@ -200,7 +200,7 @@ const main = async () => {
   // ── P6 (+P21): Busy with Retry-After, then the same Attempt again. Its ending arrives through the call's own events.
   for (const legacy of [{}, { sameWireKey: true }] as Legacy[]) {
     let state = ""
-    const f = await run(`P6 retry mapping: ${legacy.sameWireKey ? "OLD wire key (the Attempt id again: the server replays its cached 503)" : "NEW (resend: same Attempt, same events, fresh wire key after a definite failure)"}`,
+    const f = await run(`P6 retry mapping: ${legacy.sameWireKey ? "OLD wire key (the Attempt id again: the server replays its cached 503)" : "NEW (pay.retry(): same Attempt, same outcomes, fresh wire key after a definite failure)"}`,
       () => fakeStripe({ processingMs: 300, script: [{ status: 503, retryAfterMs: 2_000 }], cacheFailures: true }),
       () => Effect.gen(function* () {
         const a = makeActor(Checkout, { legacy })
@@ -212,7 +212,7 @@ const main = async () => {
       }))
     console.log(`   server truth: charges=${f.truth.charges} keys=${JSON.stringify(f.truth.keys)}`)
     if (legacy.sameWireKey) check(f.truth.charges === 0 && state === "CARD", "old key: the cached failure comes back every time (reproduces correctness C12)")
-    else check(f.truth.charges === 1 && state === "DONE", "pay.Busy(a1#1) → WAITING 2 s (from Retry-After) → pay.success(a1#2)")
+    else check(f.truth.charges === 1 && state === "DONE", "Busy(a1#1) → WAITING 2 s (from Retry-After) → retry → Paid(a1#2), mapped by the same outcomes")
   }
 
   // ── P8: cancel an upload whose body is already going; clean up.
@@ -295,7 +295,7 @@ const main = async () => {
         return a.trace
       }))
     console.log(`   server truth: files=${f.truth.files.size}; final state ${state}`)
-    check(state === "CANCELLED" && f.truth.files.size === 0, "upload.NotSent: nothing left the device, no clean-up needed")
+    check(state === "CANCELLED" && f.truth.files.size === 0, "NotSent → UploadNotSent: nothing left the device, no clean-up needed")
   }
 
   console.log(`\n${failures === 0 ? "all stories pass" : `${failures} FAILED`}`)
