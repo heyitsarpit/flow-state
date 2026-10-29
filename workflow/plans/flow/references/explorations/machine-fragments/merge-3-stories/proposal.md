@@ -673,16 +673,11 @@ On the one production Runtime. Nothing predicts and nothing runs twice.
 
 Each is unconfirmed by the owner; the recommendation is the design above.
 
-1. **Naming.** `story.trait` / `story.subroutine`, `story.fragment`, or keep `story.machine`? *Recommend
-   `story.trait` / `story.subroutine`.*
-2. **`.enter` / `.leave` on trait Stories**, meaning "the harness root is entered or left"? *Recommend yes.*
-   Otherwise a trait's `whenAbandoned` and `.resumable()` are testable only in a host.
-3. **`checkpoint.calls` in host Stories**, holding callbacks, `whenAbandoned` notifications and exits, distinguished by
-   `by`? *Recommend yes.* It requires callback and exit names to be unique within a contract, which `D` does not
-   state yet.
-4. **`checkpoint.lives` in host Stories**, and the fragment evidence kinds? *Recommend yes.*
-5. **`Fixture.stateful` with a Schema `truth`**, captured at every cut, instead of merge 2's checkpoint predicate?
-   *Recommend yes.*
+1. *Answered: D1.*
+2. *Answered: D1.*
+3. *Answered: D2.*
+4. *Answered: D2.*
+5. *Answered: D3.*
 6. **Endings and lanes on the cut** (`checkpoint.endings`, lane entries in `pending`, lanes on snapshots replacing
    `Op:162`)? *Recommend yes.*
 7. **The clock rules** (rule 9): all sleeps as deadlines, ordered admission without turns, tiebreaks, frozen
@@ -709,7 +704,30 @@ Each is unconfirmed by the owner; the recommendation is the design above.
 
 ## 10. Decisions
 
-Settled by the owner; none yet.
+Settled by the owner. Each records the choice, why it wins, what it commits the design to, and what was rejected.
+
+- **D1 Fragment Stories are named by kind, and both kinds enter and leave.** `story.trait(T, { id, input? })` starts
+  active; `story.subroutine(S, { id })` starts outside and `.enter(input)` begins it. `.enter` and `.leave` work on
+  both: on a trait, `.leave` freezes a resumable trait or ends it with `whenAbandoned`, and `.enter` resumes or
+  starts a new life. `checkpoint.exit` stays subroutine-only. Why: `story.machine` named something that is not a
+  machine, the constructor names already exist, and without `.leave` on traits a trait's `whenAbandoned` and
+  `.resumable()` could be tested only in a host. Consequence: Testing O1 lists two more Story kinds (section 6.4).
+  Rejected: one `story.fragment` with the kind hidden in conditional types, keeping `story.machine` for fragments,
+  and `.enter` / `.leave` on subroutines only.
+- **D2 Every checkpoint carries `calls` and `lives`, alone and in a host.** `checkpoint.calls.<path>.<port>` records
+  callbacks, `whenAbandoned` notifications and exits (told apart by `by`), with key, life, payload and turn;
+  `checkpoint.lives.<path>` records each copy's key, life and whether it is frozen. They replace `run.calls`, are
+  cumulative per cut and are retained with it. Why: whether a fragment notified, exited or was re-created must be
+  checkable in the real machine, not only with a harness. Consequence: callback and exit names must be unique
+  within a contract (a rule machine-design does not state yet; add it with this merge), and lives appear in Stories
+  and Inspection only, never in snapshot or view types. Rejected: these reads only for fragments tested alone,
+  with host tests asserting on host memory.
+- **D3 Fixtures declare their truth, and every checkpoint captures it.** `Fixture.stateful({ id, truth: Schema,
+  layer })`; `run.checkpoints.<name>.truth.<fixture>` is captured at every cut, and the property-test oracle reads
+  the same truth. Why: a Story stays a plan with no callbacks (`T:17`), and server truth such as "charged once"
+  becomes a typed, exportable value instead of a comment. Consequence: merge 2's checkpoint predicate
+  (`M2:380`) is replaced (section 6.4). Rejected: keeping the predicate and loosening Testing's no-callbacks rule
+  for checkpoints.
 
 ## New keywords
 
