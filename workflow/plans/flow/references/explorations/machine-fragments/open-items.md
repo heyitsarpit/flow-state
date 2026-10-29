@@ -44,6 +44,8 @@ The user wants a word that means downward. Considered and not liked: `tell`, `se
 `forward`, `pass`, `cue`, `drive`, `dispatch`, `emit`, `signal`, `trigger`, `passDown`, `sendDown`,
 `cascade`, `delegate`, `trickle`, `handDown`. Keep `raise` until a better word is found.
 
+**Status (2026-10-29): `raise` stays for now.** Not blocking; reopen only if a better word turns up.
+
 
 ## 3. `.history` versus interrupts (flagged 2026-10-29)
 
