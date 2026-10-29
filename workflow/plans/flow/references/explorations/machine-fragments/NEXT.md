@@ -2,9 +2,11 @@
 
 All paths are under `workflow/plans/flow/references/explorations/machine-fragments/`.
 
-1. **Merge 5 fixes.** Read `merge-5-entity-analysis/reviews/review-1.md` (what was fixed) and skim the changed sections
-   of `merge-5-entity-analysis/proposal.md`. The main session verifies the spike and commits overnight. Nothing to
-   decide unless the agent raised something for you.
+1. **Merge 5: five choices.** Fixes are done and committed (spike ALL PASS, 64 checks; record in
+   `merge-5-entity-analysis/reviews/review-1.md`). Decide `merge-5-entity-analysis/proposal.md` section 9.2, each
+   already written in with a recommendation: skipped predictions read `predicted`; unevaluable conditions match; keep
+   array keys; no negated ordering of nullable values and `serverMatches` only under `and`; the
+   `PredictionNotRetained` rename.
 2. **Story lane reads (one decision).** `merge-3-stories/proposal.md`, section 3.14 and question 40: A (export commit
    values at module scope, recommended) or B (read by transaction and key).
 3. **Story before/after session.** `merge-3-stories/proposal.md` (revision 3) against `../../Testing.plan`. Then
