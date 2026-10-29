@@ -38,7 +38,7 @@ export const List = definition({
     LikeSkipped: {},                                               // NotSent: superseded before it left (latest)
     LikeUnsure: Flow.uncertain({ id: Schema.String, superseded: Schema.Boolean }),
     Created: { tempId: Schema.String, id: Schema.String, number: Schema.Int, title: Schema.String },
-    CreateFailed: { tempId: Schema.String, message: Schema.String },
+    CreateFailed: { tempId: Schema.NullOr(Schema.String), message: Schema.String },   // null: a NothingToResend names no row (D17)
     CreateUnsure: Flow.uncertain({ tempId: Schema.String }),
     Renamed: {}, ItemGone: { id: Schema.String }, RenameNotConfirmed: Flow.uncertain({}),
     Removed: { id: Schema.String }, RemoveNotConfirmed: Flow.uncertain({ id: Schema.String }),
@@ -83,7 +83,7 @@ export const ListMachine = machine(List, ({ S, E, O }) => {
       failure: {
         Invalid: E.CreateFailed.from((r, { input }) => ({ tempId: input.clientId, message: r.message })),
         Refused: E.CreateFailed.from((r, { input }) => ({ tempId: input.clientId, message: `Refused (${r.status})` })),
-        NotSent: E.CreateFailed.from((r, { input }) => ({ tempId: input.clientId, message: `Not sent (${r.why})` })),   // reject (rule 8)
+        NotSent: E.CreateFailed.from((r, { input }) => ({ tempId: input?.clientId ?? null, message: `Not sent (${r.why})` })),   // reject (rule 8); no input on NothingToResend (D17)
       },
       unknown: E.CreateUnsure.from((_r, { input }) => ({ tempId: input.clientId })),
     },
@@ -153,6 +153,7 @@ export const ListMachine = machine(List, ({ S, E, O }) => {
             { target: "self", updateMemory: ({ memory, event }) => adopt(memory, event) },
           ],
           CreateFailed: [
+            { guard: ({ event }) => event.tempId === null || deny("NamesRow"), target: "self" },   // NothingToResend: no row to mark (D17)
             { guard: tempRow((i) => i.deleted, "NotDeleted"), target: "self", updateMemory: ({ memory, event }) => dropId(memory, event.tempId) },
             { target: "self", updateMemory: ({ memory, event }) => ({ items: editTemp(memory, event.tempId, (i) => ({ ...i, sync: "failed", failure: event.message })) }) },
           ],

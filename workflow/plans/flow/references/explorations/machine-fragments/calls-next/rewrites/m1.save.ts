@@ -13,7 +13,7 @@ export const Shell = definition({
   events: { Edit: { title: Schema.String, body: Schema.String }, Save: {}, OpenList: {}, OpenSettings: {}, OpenDoc: {}, CheckSave: {}, DismissToast: {} },
   internalEvents: {
     Saved: { docId: Schema.String, body: Schema.String },
-    SaveRejected: { docId: Schema.String, reason: Schema.String },   // Conflict and Invalid: several endings, one event
+    SaveRejected: { docId: Schema.NullOr(Schema.String), reason: Schema.String },   // Conflict, Invalid and NotSent: several endings, one event
     SaveUnsure: Flow.uncertain({ docId: Schema.String }),
     ToastExpired: {},
   },
@@ -36,7 +36,7 @@ export const ShellMachine = machine(Shell, ({ S, E, O }) => {
       failure: {
         Conflict: E.SaveRejected.from((r, { input }) => ({ docId: input.docId, reason: `someone else saved first (rev ${r.serverRev})` })),
         Invalid: E.SaveRejected.from((r, { input }) => ({ docId: input.docId, reason: r.reason })),
-        NotSent: E.SaveRejected.from((r, { input }) => ({ docId: input.docId, reason: `not sent (${r.why})` })),   // reject (rule 8)
+        NotSent: E.SaveRejected.from((r, { input }) => ({ docId: input?.docId ?? null, reason: `not sent (${r.why})` })),   // reject (rule 8); CheckSave's NothingToResend has no input (D17)
       },
       unknown: E.SaveUnsure.from((_r, { input }) => ({ docId: input.docId })),
     },

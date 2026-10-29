@@ -149,3 +149,19 @@ export const bad = transaction({
   id: "X", input: Schema.Struct({}), key: () => ({}), concurrency: "reject",
   commit: () => Effect.gen(function* () { return yield* Outcome.failure(new NotSentError()) }),
 })
+
+// 22. A NotSent mapper's input and attempt are optional (D17): reading them unchecked is a type error.
+export const notSentCtx = O.Payments.charge.commit(() => ({ cents: 5 }), {
+  outcomes: {
+    success: E.Plain,
+    failure: {
+      Declined: E.Failed, Busy: E.Failed,
+      NotSent: E.Busy.from((_r, { input, attempt }) => {
+        // @ts-expect-error: a NothingToResend ending has no input
+        void input.cents
+        return { ms: attempt === undefined ? undefined : input?.cents }
+      }),
+    },
+    unknown: E.Unsure,
+  },
+})

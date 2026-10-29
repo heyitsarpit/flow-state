@@ -1,4 +1,4 @@
-tsc: 0 errors (20 @ts-expect-error checks hold)
+tsc: 0 errors (21 @ts-expect-error checks hold)
 
 P1 mailbox race: NEW (routed when the turn is admitted)
    t=    0 Submit TWO_FACTOR.ENTERING → TWO_FACTOR.VERIFYING

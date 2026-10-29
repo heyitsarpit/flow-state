@@ -43,10 +43,10 @@ The syntax stays CP's. What changes is where each fact is kept and when each dec
 | `StillUnknown { failure }` | Flow: this Attempt's send history (an earlier send ended unknown) | replaces a later definite failure (rule 6), so it reaches `unknown:` |
 | `NotSent { why }` | Flow: the adapter was never called. `why` is `Cancelled`, `Restored`, `Superseded` (`latest`), `Rejected` (a busy `reject` lane) or `NothingToResend` (a retry with no current Attempt) | the `failure.NotSent:` mapper |
 | The author's event and payload | the author's mapper: `E.Busy.from((r) => ({ retryAfterMs: r.retryAfterMs }))` | the event, declared in the definition, routed by rule 2 |
-| Attempt `id`, `retryCount` | Flow mints the id, random, when a write starts, and counts each re-send of that write | the mapper's `attempt`; the count also as `pay.retryCount(g, key)` (rule 9) |
+| Attempt `id`, `retryCount` | Flow mints the id, random, when a write starts, and counts each re-send of that write | the mapper's `attempt` (absent on a declined start and on `NothingToResend`, D17); the count also as `pay.retryCount(g, key)` (rule 9) |
 | The idempotency key on the wire | the commit author puts `attempt.id` wherever the API expects it (header or body) | the server; Flow sends nothing itself (rule 7) |
 | `attempt.mayHaveApplied` | Flow: an earlier send of this Attempt ended unknown | the commit's context, to read a response with the write's history (R23) |
-| `input` | the commit's select, over the turn's final memory and event (rule 10) | the mapper's `input` |
+| `input` | the commit's select, over the after memory and event (rule 10) | the mapper's `input`; absent on a `NothingToResend` ending (D17) |
 | `key` | the transaction's optional `key(input)` (Operations O1; omitted means one lane, `{}`) | the lane's key; `attempt.key` |
 | `superseded` | Flow: a newer Attempt was started on the same key after this one | the mapper's `superseded` |
 | `pending`, `retryCount` | Flow's lane for the transaction and key (rule 9) | `pay.pending(g, key)`, `pay.retryCount(g, key)` and the guard `pay.idle(key)` in guards, schedules and views |
@@ -111,7 +111,9 @@ const pay = O.Stripe.confirm.commit(({ memory }) => ({ intentId: memory.intentId
 })
 ```
 
-- Mappers receive `(value, { input, attempt, superseded })` (**← CHANGED**: `superseded` is new).
+- Mappers receive `(value, { input, attempt, superseded })` (**← CHANGED**: `superseded` is new). A `failure.NotSent`
+  mapper receives `input?` and `attempt?` (**← NEW**, D17): a declined start has an input but no Attempt, and
+  `NothingToResend` has neither. Every other mapper's context is complete.
 - `failure` is exhaustive over the commit's tags: a missing tag, or one the commit cannot produce, is a type error.
   `NotSent` is optional in the type and required by `flow check` only where it can occur.
 - `unknown:` may target only a `Flow.uncertain` event: a type error otherwise (spike check 6).
@@ -241,7 +243,7 @@ LikeUnsure: { target: "self", updateMemory: ({ memory, event }) => ({ unsure: { 
 ```ts
 PAYING:  { on: { Busy: [{ target: S.WAITING, guard: underBudget, updateMemory: countAndDelay }, toCard("busy")] } },
 WAITING: {
-  schedules: { retry: { schedule: ({ memory }) => Duration.millis(memory.retryInMs), send: E.RetryNow } },   // committed memory (rule 11)
+  schedules: { retry: { schedule: ({ memory }) => Duration.millis(memory.retryInMs), send: E.RetryNow } },   // after memory: the Busy turn's retryInMs (rule 10)
   on: { RetryNow: { target: S.PAYING, guard: [pay.idle(key)], actions: [pay] } },   // Busy is definite: a new write, a new id (rule 7)
 },
 ```
@@ -360,7 +362,7 @@ schedules: {
 
 A key's timer is armed when the key first appears in the committed list, cancelled when it leaves, and fires once.
 This replaces "one timer aimed at the earliest lock" (45 lines in the sign-in build) and the "first unsure row" tick.
-Keyed schedules are a Machines feature, kept in this proposal and marked for review (D12).
+Keyed schedules are a Machines feature, listed under Machines O5 in 6.5 for that plan's owner (D12).
 
 ### 3.14 Per-item results of a batch
 
@@ -403,7 +405,8 @@ dropped response, `NotSent` by a cancel during the Attempt's storage acknowledge
    it: the transition's target, memory and other actions run as written. Under `concurrency: "reject"`, a start on a
    lane that is pending invokes nothing and ends `NotSent { why: "Rejected" }`. A retry on a lane that is pending also
    ends `NotSent { why: "Rejected" }`; a retry on a lane with no current Attempt ends
-   `NotSent { why: "NothingToResend" }`. The ending is mapped through the commit value's `outcomes` and owned by the
+   `NotSent { why: "NothingToResend" }`. A declined start has no Attempt and a `NothingToResend` has no write, so
+   their `NotSent` mapper sees `attempt` (and, for `NothingToResend`, `input`) undefined (D17). The ending is mapped through the commit value's `outcomes` and owned by the
    transition that asked (rule 2). To refuse the transition itself, the author writes `pay.idle(key)` in its guard, so
    `check()` and a view's button agree. `flow check` warns when a transition that changes state lists a `reject`
    commit value without its `idle` guard.
@@ -436,17 +439,27 @@ dropped response, `NotSent` by a cancel during the Attempt's storage acknowledge
    the current Attempt; `retry` on any commit value of the transaction uses that starter's `outcomes`. The ending's own turn sees the lane with that
    ending applied, so it may retry. Lanes persist with the actor; Persistence O6 acknowledges the Attempt before
    invocation.
-10. **Selects read the turn's final memory.** A commit's input select and a retry's or cancel's key select read the
-    memory with every patch of the turn applied, the event, and `now`. They are computed in step 5 (validation), so an
-    invalid input rejects the turn.
-    **Needs review (D12).** This rule changes every machine, not only calls. Today a turn already has several memory
-    views (v4 2.5: guards and mappers read the pre-turn snapshot, `resetOn` and `input` the source-updated memory);
-    rule 10 adds the final memory for selects and rule 11 the committed memory for schedules. The aim is one behaviour
-    for every memory read in a turn; a review must check rules 10 and 11 against that aim before they are applied.
-11. **Schedules.** A function schedule reads the committed memory of the arming turn. `armOn` counts an event accepted
-    anywhere on the active path. A keyed schedule (`keys`) keeps one timer per key of the committed list: armed when
-    the key first appears, cancelled when it leaves, firing once with `key` in its metadata.
-    **Needs review (D12):** see rule 10.
+10. **Memory reads: before for decisions, after for effects** (D15). A memory read in a turn sees one of two values.
+    A read whose result can change this turn's memory (a guard, an `updateMemory`, a payload mapper that raises,
+    notifies or fills an exit) sees **before**, the last published snapshot. A read whose result only starts or times
+    work (a commit's input select, a retry's or cancel's key select, a schedule function, `keys`, `restartOn`, activity
+    `params` and `when`, optimistic and write callbacks) sees **after**, the memory this turn publishes: initial memory
+    of new incarnations, then every patch in expansion order, after list repair. After is computed in step 5, before
+    commit, so a failing select or an invalid duration rejects the turn (`InvalidTurn`).
+    - **One exception: incarnation creation.** `resetOn` and `input` read **before-walk** (before, plus the source's
+      patch and earlier resets), because they decide which incarnations the parts address before the walk. The
+      `resetOn` re-check at commit reads after, as it already does.
+    - **Why two values, not one.** Guards and patch-feeding reads cannot see after (it depends on them), and
+      effect-only reads seeing before is the stale-etag and zero-`Retry-After` bug (P13, P14).
+    - **Two values in one transition** (D16). A mapper reads the old value of a key its own turn writes while a
+      select reads the new one. `flow check` warns when one transition reads, in both views, a key it writes.
+    - **The pending reset edge.** A part writes a key a `resetOn` watches and the same turn starts a commit whose
+      select reads that slice: the select sees the old incarnation, and the reset follows one turn later.
+    - **Lane reads** (`pending`, `retryCount`, `idle`) are not memory. They see the pre-turn lanes with the turn's own
+      ending already admitted (rule 9).
+11. **Schedules.** A function schedule reads the after memory of the arming turn (rule 10). `armOn` counts an event
+    accepted anywhere on the active path. A keyed schedule (`keys`) keeps one timer per key of the after list: armed
+    when the key first appears, cancelled when it leaves, firing once with `key` in its metadata.
 12. **Cancel.** Before invocation: the ending is `NotSent { why: "Cancelled" }`. After invocation, before settlement:
     the commit's fiber is interrupted; the ending (`unknown`, `Cancelled`) is queued when the fiber has exited, and the
     lane stays pending until its turn. After settlement, or with nothing outstanding: no effect, with evidence. **A
@@ -459,7 +472,7 @@ dropped response, `NotSent` by a cancel during the Attempt's storage acknowledge
 | Moment | What happens |
 | --- | --- |
 | The starting turn, steps 2–3 | the author's guards, including `pay.idle(key)` if written, decide whether the transition runs; Flow adds none (rule 4) |
-| The starting turn, step 5 | input and key computed from the final memory (rule 10) |
+| The starting turn, step 5 | input and key computed from the after memory (rule 10) |
 | The starting turn, step 6, after publish | on a busy `reject` lane: no Attempt, and `NotSent { why: "Rejected" }` queued (rule 4). Otherwise: Attempt minted and made the lane's current one; `pending` true; owner recorded |
 | Invocation | after the Persistence O6 acknowledgement; from here a cancel means `unknown` |
 | Settlement | the send is classified (OP 4.3) and its ending queued in the FIFO mailbox; the lane is not touched; `pending` stays true; under `latest` the waiting start is invoked now |
@@ -503,6 +516,8 @@ v4, OP and the plans.
 | `NotSent { why: "Rejected" \| "NothingToResend" }` | Flow failure reasons | a declined start or retry is an ending, not a denial (rule 4) |
 | `LateMayNotLeave` | denial code | a late turn may not leave a state that owns another pending call (rule 3) |
 | A `flow check` warning | tooling | a state-changing transition with a `reject` commit value and no `idle` guard (rule 4) |
+| A `flow check` warning | tooling | one transition reads, in both memory views, a key it writes (rule 10, D16) |
+| The **after** memory view | turn semantics | what effect-only reads see: the memory the turn publishes (rule 10, D15) |
 | A resource call value: `O.x.lookup(select, { outcomes })`, `read.fetch(key)` | read action | a read whose endings are routed like a write's |
 | `keys` | schedule option | one timer per key of a memory list |
 | A checkpoint reading fixture truth | Testing | `.checkpoint(name, ({ truth }) => …)` |
@@ -523,8 +538,10 @@ v4, OP and the plans.
 | `failure` meaning | "it definitely did not happen" (OP 2) | for this send; the Attempt's ending is rule 6 (**OP amendment**) |
 | Late failures | CP: `abandoned` optional per ending; this proposal's first revision: may go unhandled | every late event must be handled; `{ target: "self" }` is the explicit ignore (rule 8) |
 | Late turns | transitive; last alternative of each must not move (v4 rule 6) | rule 3: not transitive; deny only exits of states owning another call |
-| Commit selects | the pre-turn snapshot (Machines O3, v4 2.5) | the turn's final memory (rule 10) |
-| Function schedules | memory unspecified (Machines O5) | committed memory; `armOn` on any accepted event on the active path (rule 11) |
+| Commit selects | the pre-turn snapshot (Machines O3, v4 2.5) | the after memory (rule 10, D15) |
+| Function schedules | memory unspecified (Machines O5) | the after memory; `armOn` on any accepted event on the active path (rules 10, 11) |
+| Optimistic and write callbacks | memory unspecified (Operations O3) | the after memory (rule 10, D15) |
+| `NotSent` mapper context | `{ input, attempt }` | `{ input?, attempt?, superseded }` (D17) |
 | Read outcomes | unfenced events reaching "the actor's later state" (Operations O2, Machines O6) | routed by rule 2 |
 
 ### 6.3 Removed
@@ -572,8 +589,11 @@ Every change this proposal makes to another document, grouped by that document s
 | Operations O3 | every start and retry, invoked or declined, ends once | rule 5 |
 | **Operations O7** | cancel defined before invocation, while running, after settlement and with nothing outstanding | rule 12 |
 | **Operations O2** | reads as call values (`O.x.lookup(select, { outcomes })`, `read.fetch(key)`), routed like writes | 3.12 |
-| **Machines O3, v4 2.5** | selects read the turn's final memory (**needs review**) | rule 10, D12 |
-| **Machines O5** | schedules read committed memory; `armOn` anywhere on the active path; keyed schedules (**needs review**) | rule 11, 3.13, D12 |
+| **proposal-v4 2.5** | the table gets an **After** row (selects, schedule functions, `keys`, `restartOn`, activity params, `.each` membership, the `resetOn` re-check, optimistic and write callbacks); "Source-updated memory" is renamed **Before-walk**; commit selects leave the pre-turn row; "Reading the same key twice" is restated as rule 10's principle; step 4 computes selects and schedule functions last, from the patches; step 6 arms schedules with step 5's values; lane reads are documented | rule 10, D15 |
+| proposal-v4 2.5 | `flow check` warns when one transition reads, in both views, a key it writes | rule 10, D16 |
+| **Machines O3** | "action parameters" split: patch-feeding reads see before, effect-feeding reads (commit selects, schedule inputs) see after | rule 10, D15 |
+| **Machines O5** | schedule functions read the after memory and the same `now`; `armOn` anywhere on the active path; keyed schedules | rule 11, 3.13, D15 |
+| **Operations O3** (callbacks) | optimistic and write callbacks read the after memory | rule 10, D15; open 5 |
 | **proposal-v4** | routing decided at admission, late endings from the nearest surviving ancestor; `abandoned` removed | rule 2, D2 |
 | proposal-v4 | late turns are not transitive (`LateMayNotLeave`); rule 12's fence error removed | rule 3 |
 | proposal-v4 | every late event must be handled | rule 8, D13 |
@@ -641,12 +661,12 @@ argument (`commit<UploadUnsure>`), because v4 checks a commit at each transition
 such check. v4's `machine(def, (h) => body)` callback is context-sensitive, so TypeScript drops its excess-property
 check on handler keys; the spike uses `machine<Ev>()(def).define(body)` (open 8). D13 is not expressible in the
 spike's types (handler placement is not a type), so it is a runtime check, `checkLate`, standing in for `flow check`;
-it treats every state some transition can leave as leavable. A `NotSent { why: "NothingToResend" }` ending has no
-Attempt to put in the mapper's context; the spike passes a placeholder with no input, and the proposal does not say
-what `input` and `attempt` hold for it.
+it treats every state some transition can leave as leavable. A `NotSent` mapper's context is typed
+`{ input?, attempt?, superseded }` (D17): the spike passes no Attempt for a declined start and neither field for
+`NothingToResend`, and check 22 shows that reading `input.x` there without a check is a type error.
 
 ```
-tsc: 0 errors (20 @ts-expect-error checks hold)
+tsc: 0 errors (21 @ts-expect-error checks hold)
 
 P1 mailbox race: NEW (routed when the turn is admitted)
    t=    0 Submit TWO_FACTOR.ENTERING → TWO_FACTOR.VERIFYING
@@ -993,9 +1013,9 @@ handlers written once for current and late.
 | P10 event plumbing | kept by the owner's choice of syntax; reduced: no `attempt` fields, no `abandoned` copies, `NotSent` only where it occurs, several endings to one event | reduced, not removed (7.2) |
 | P11 `NotSent` everywhere, untestable | rule 8; producible | resolved, spike P11, P16 |
 | P12 the visible retry recipe | CALL/WAIT, two states and about six lines; no `armOn` | resolved |
-| P13 selects read the pre-turn snapshot | rule 10 | resolved, spike P16; open 4 |
-| P14 schedule memory, `armOn` scope | rule 11 | resolved (spike P6 arms from the Busy turn's memory); open 4 |
-| P15 no per-key time | keyed schedules; `now` in guards stays out (Machines O4: `check` must not depend on the clock) | resolved, not spiked; open 4 |
+| P13 selects read the pre-turn snapshot | rule 10 | resolved, spike P16; D15 |
+| P14 schedule memory, `armOn` scope | rules 10, 11 | resolved (spike P6 arms from the Busy turn's memory); D15 |
+| P15 no per-key time | keyed schedules; `now` in guards stays out (Machines O4: `check` must not depend on the clock) | resolved, not spiked |
 | P16 no coalescing; dependent writes | `latest`; the dependent write from the create's success handler | resolved, spike P16 |
 | P17 per-item results in a success value | one commit per item, Effect `RequestResolver` in the adapter | resolved by design, not spiked |
 | P18 polling as a transaction | resource call values (3.12) | resolved, not spiked |
@@ -1068,10 +1088,7 @@ Left for the owner and out of scope for this proposal; nothing here is decided. 
 
 **The design**
 
-1. **One behaviour for every memory read** (D12). A turn has several memory views: the pre-turn snapshot (guards,
-   mappers), the source-updated memory (`resetOn`, `input`), the final memory (selects, rule 10) and the committed
-   memory (schedules, rule 11). Can they converge on one rule, and which? A review must answer this before rules 10
-   and 11 are applied.
+1. *Answered: one behaviour for every memory read is impossible; the two-view rule is D15, its lint D16.*
 **Scope: left out of this proposal**
 
 2. **A send that must finish while the page closes** (undo send, P19): out of scope; the server-side alternative is
@@ -1145,7 +1162,8 @@ Settled by the owner. Each records the choice, why it wins, what it commits the 
   change every machine, not only calls. They are kept here so the calls design reads as one piece, and each is marked
   "needs review". The review's aim: every memory read in a turn behaves the same way, rather than the four views a turn
   has today (open question 1). Rejected: a separate Machines proposal now, before the review shows what the one
-  behaviour should be.
+  behaviour should be. *The review ran (`reviews/memory-reads.md`); its answer is D15–D16, and the
+  markers are removed.*
 - **D13 Every late event must be handled.** An ending that arrives after its owner state was left, from any channel,
   needs a handler at a strict ancestor of the owner; `{ target: "self" }` is the explicit ignore, and a missing one is a
   `flow check` error. Flow cannot tell which late failures matter: in sign-in, a late `WrongCode` is a strike, and
@@ -1157,3 +1175,26 @@ Settled by the owner. Each records the choice, why it wins, what it commits the 
   each owner reviews their part and the later `.plan` edits are mechanical. Consequence: one document for one design.
   Rejected: moving each group into the document it amends (a calls change reviewed in four places), and a partial
   split.
+- **D15 Memory reads: before for decisions, after for effects.** A read that can change this turn's memory (guards,
+  `updateMemory`, payload mappers that raise, notify or fill exits) sees the last published snapshot; a read that only
+  starts or times work (commit selects, retry and cancel keys, schedule functions, `keys`, `restartOn`, activity
+  params, optimistic and write callbacks) sees the memory the turn publishes, computed in step 5. `resetOn` and `input`
+  keep before-walk, the one exception (rule 10). Why: one value for every read is impossible (guards and patch-feeding
+  reads would be circular), and this is the smallest split that writes and sends an etag in one transition and reads
+  `Retry-After` in the schedule armed by the same turn. Most of it names what v4 already does (`restartOn`, activity
+  params, `.each`, the `resetOn` re-check read after); only commit selects move, and schedule functions and callbacks
+  go from unspecified to after. Consequence: v4 2.5 gets an After row and Machines O3/O5 are amended (6.5); a select
+  can no longer read the value its own turn replaced (read the event, or keep it under its own key). Rejected:
+  everything before (brings P13 and P14 back, and is not true of `restartOn` or `.each` today); everything
+  downstream of the source sees its patch (reverses Machines O3, so mappers lose the old value, and changes every
+  part guard: a v4 decision, not one for this proposal).
+- **D16 A lint for two values in one transition.** `flow check` warns when one transition reads, in both views, a key
+  it writes (a `notify` mapper and a select both reading `challengeId`). Why: it extends v4's existing "reading the same
+  key twice" warning to the one trap D15 leaves. Rejected: no warning.
+- **D17 A `NotSent` mapper's `input` and `attempt` are optional.** A `failure.NotSent` mapper receives
+  `{ input?, attempt?, superseded }`: a start declined by `reject` has an input but no Attempt, and a retry with
+  nothing to re-send has neither. Every other mapper's context stays complete. Why: it is honest about the one ending
+  that can lack a write, the type makes the author check, and declines stay endings (D5). Consequence: a `NotSent`
+  mapper that needs the row's identity checks `input` first (the list and M1 rewrites map a missing one to `null`).
+  Rejected: `NothingToResend` as a guard verdict like `idle` (breaks D5), and forbidding `retry` where no current
+  write is guaranteed (not analysable in general).

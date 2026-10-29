@@ -82,7 +82,9 @@ export type Events<Ev extends Tagged> = {
 }
 export type Ctx<T> = { readonly input: In<T>; readonly attempt: Attempt<In<T>, Key<T>>; readonly superseded: boolean }
 type FTags<T> = TagOf<FailureReasons<Err<T>>>
-type NotSentKey<T, Ev extends Tagged> = { readonly NotSent?: Mapping<NotSent, Ctx<T>, Ev> }   // optional in the type; flow check requires it where it can occur
+/** A declined start has no Attempt; `NothingToResend` has no write at all (D17). */
+export type NotSentCtx<T> = { readonly input?: In<T>; readonly attempt?: Attempt<In<T>, Key<T>>; readonly superseded: boolean }
+type NotSentKey<T, Ev extends Tagged> = { readonly NotSent?: Mapping<NotSent, NotSentCtx<T>, Ev> }   // optional in the type; flow check requires it where it can occur
 export type Outcomes<T, Ev extends Tagged> = {
   readonly success: Mapping<Val<T>, Ctx<T>, Ev>
   readonly unknown: Mapping<Unknowns<T>, Ctx<T>, UncertainOf<Ev>>
@@ -218,6 +220,7 @@ interface Outstanding {
   attempt: Attempt<any, any>; owner: Owner; outcomes: any
   fiber?: Fiber.Fiber<unknown, unknown>; invoked: boolean; cancelled: boolean; settled: boolean
   declined?: boolean; legacyRoute?: "current" | "late"
+  bare?: { readonly input?: unknown }   // a decline without an Attempt: the mapper gets no `attempt` (D17)
 }
 interface Lane {
   readonly op: AnyTransaction; readonly key: unknown
@@ -319,7 +322,7 @@ export const makeActor = <Ev extends Tagged, M>(spec: Machine<Ev, M>, opts: { le
     const o = out.outcomes
     const mapping = final.channel === "success" ? o.success : final.channel === "unknown" ? o.unknown : o.failure?.[tag]
     const value = final.channel === "success" ? final.value : final.reason
-    const event = mapping === undefined ? undefined : mapping.__mapper ? mapping.__mapper(value, { input: a.input, attempt: a, superseded }) : { _tag: mapping._tag }
+    const event = mapping === undefined ? undefined : mapping.__mapper ? mapping.__mapper(value, out.bare ? { input: out.bare.input, attempt: undefined, superseded } : { input: a.input, attempt: a, superseded }) : { _tag: mapping._tag }
     const what = final.channel === "success" ? "success" : final.channel === "unknown" ? `unknown:${final.reason._tag}` : tag === "NotSent" ? `NotSent:${(final.reason as NotSent).why}` : tag
     return { event, label: `${event?._tag ?? "(unmapped)"}<${what}>(${a.id}${a.retryCount ? `+${a.retryCount}` : ""}${superseded ? ",superseded" : ""})` }
   }
@@ -334,8 +337,8 @@ export const makeActor = <Ev extends Tagged, M>(spec: Machine<Ev, M>, opts: { le
     return { exits: oldP.filter((p) => !newP.includes(p)).reverse(), entries: newP.filter((p) => !oldP.includes(p)), newLeaf }
   }
 
-  const decline = (lane: Lane, commit: AnyCommit, attempt: Attempt<any, any>, owner: Owner, why: NotSent["why"]) => {
-    const o: Outstanding = { attempt, owner, outcomes: commit.outcomes, invoked: false, cancelled: false, settled: true, declined: true }
+  const decline = (lane: Lane, commit: AnyCommit, attempt: Attempt<any, any>, owner: Owner, why: NotSent["why"], bare?: { readonly input?: unknown }) => {
+    const o: Outstanding = { attempt, owner, outcomes: commit.outcomes, invoked: false, cancelled: false, settled: true, declined: true, bare }
     log(`  ${lane.op.id}: ${why} (the transition ran; the write ends NotSent)`)
     mailbox.push({ kind: "ending", lane, out: o, send: notSent(why) })
   }
@@ -351,7 +354,7 @@ export const makeActor = <Ev extends Tagged, M>(spec: Machine<Ev, M>, opts: { le
         const attempt: Attempt<any, any> = { id: `a${++n}`, operation: op.id, key, input, retryCount: 0, mayHaveApplied: false }
         if (op.concurrency === "reject" && pendingOf(lane)) {                          // rule 4: refuse the write only
           if (legacy.silentReject) { log(`  ${op.id} start declined silently (legacy: no ending)`); continue }
-          decline(lane, action.commit, attempt, owner, "Rejected"); continue
+          decline(lane, action.commit, attempt, owner, "Rejected", { input }); continue
         }
         lane.attempt = attempt; lane.starter = action.commit; lane.mayHaveApplied = false
         const o: Outstanding = { attempt, owner, outcomes: action.commit.outcomes, invoked: false, cancelled: false, settled: false }
@@ -363,7 +366,7 @@ export const makeActor = <Ev extends Tagged, M>(spec: Machine<Ev, M>, opts: { le
       } else if (action.kind === "retry") {
         const lane = laneOf(op, keyOf(action, g))
         const prev = lane.attempt
-        if (!prev) { decline(lane, action.commit, { id: "-", operation: op.id, key: lane.key, input: undefined, retryCount: 0, mayHaveApplied: false }, owner, "NothingToResend"); evictIfSettled(lane); continue }
+        if (!prev) { decline(lane, action.commit, { id: "-", operation: op.id, key: lane.key, input: undefined, retryCount: 0, mayHaveApplied: false }, owner, "NothingToResend", {}); evictIfSettled(lane); continue }
         if (pendingOf(lane)) { decline(lane, lane.starter ?? action.commit, prev, owner, "Rejected"); continue }
         const attempt = { ...prev, retryCount: prev.retryCount + 1, mayHaveApplied: lane.mayHaveApplied }   // the same id on the wire (rule 7)
         lane.attempt = attempt
