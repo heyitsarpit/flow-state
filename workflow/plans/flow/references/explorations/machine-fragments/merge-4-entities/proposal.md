@@ -1,8 +1,8 @@
 # Proposal: server calls and entity domains (merge 4)
 
-Status: **proposal, not accepted; merges into machine-design.md. Builds on the merged design (2.7, rules 13–25).**
-Every decision here (E1–E16) was proposed by the main session and is **unconfirmed** by the owner; section 9 lists
-them in confirmation rounds, with the corrections this document found while checking them against the sources.
+Status: **accepted by the owner on 2026-10-30; merges into machine-design.md together with merge 3 (Stories), once
+that is accepted.** Builds on the merged design (2.7, rules 13–25). Decisions E1–E16 are settled as section 10 records,
+with the corrections section 9 found; section 9 is kept as the reasoning behind them.
 Nothing here edits a `.plan` file; section 6 lists the amendments for when the owner accepts them.
 
 Sources and the short names used for citations:
@@ -898,7 +898,35 @@ evidence, so a leak is visible, rather than a bound that would silently drop one
 
 ## 10. Decisions
 
-Settled by the owner; none yet.
+Settled by the owner on 2026-10-30: the whole proposal is accepted as written, including every recommendation in
+section 9. In short:
+
+- **E1** One split: the domain owns shared data, the commit value owns workflow; memory never mirrors a record (rule 26).
+- **E2, E7** One retry shape, `x.retry(key)`: the identical request, no new prediction, joins the record queue,
+  positioned at the first send (rule 31).
+- **E3** `uncertain` is per record and Attempt; a successful retry or a later successful write clears it; a read never
+  does (rule 32).
+- **E4, E13** The store applies endings at settlement (rule 18 decided there); the lane changes at admission; routing
+  never changes store effects (rule 27). A start publishes its prediction with its turn (rule 28).
+- **E5, as corrected** The actor decides whether a start runs, the record queue when it is sent; `latest` joins the
+  queue and supersedes by removal; `concurrency: "cancel"` on a predicting write stays a `flow check` error, while the
+  `.cancel(key)` action is allowed under rule 24 (rule 29).
+- **E6** `reject` is an ending; a Rejected start applies nothing (rules 16, 28).
+- **E8** The store follows the Attempt's ending after `StillUnknown` (rule 30).
+- **E9** No temporary ids; pending creates are memory drafts (rule 33).
+- **E10, as corrected** A write predicting one record uses that record's key as its lane key; `flow check` warns on a
+  different declared key (rule 34).
+- **E11** Queue overflow ends `NotSent { why: "Overloaded" }` for that write only (rule 35).
+- **E12, as corrected** `optimistic` reads the starting turn's after memory, captured; `writes` reads `{ value, input }`
+  only; domain operations keep `writes` for `invalidate` only (rule 36).
+- **E14** A lane, its Attempt and its predicted keys persist in one capture (rule 38).
+- **E15, as corrected** Read call values carry confirmed data; `Defect` and `Interrupted` arrive on `failure` and must be
+  mapped (rule 37).
+- **E16, as corrected** The record read and the resource/answer lane read rename `pending` to `predicted`.
+- **Lane lifetime** Lanes holding an unknown Attempt are kept (D11), with evidence added so they are visible.
+
+Not caused by server calls, and recorded only to correct merge 2's example: E1's "memory never mirrors a record" and E9
+were already required by EntityDomains (D1, O1).
 
 ## New keywords
 

@@ -10,7 +10,7 @@ other documents names it). Merges 1 and 2 are merged into it (2026-10-30). What 
 
 | Order | File | Status | Depends on |
 | --- | --- | --- | --- |
-| 1 | [merge-4-entities/proposal.md](merge-4-entities/proposal.md) | not accepted; decisions E1–E16 proposed, in six confirmation rounds | the merged design: who owns a write about an entity, and the conflicts in [merged/server-calls/reviews/entities.md](merged/server-calls/reviews/entities.md) |
+| 1 | [merge-4-entities/proposal.md](merge-4-entities/proposal.md) | **accepted** 2026-10-30 (E1–E16); merges together with merge 3 | the merged design: who owns a write about an entity, and the conflicts in [merged/server-calls/reviews/entities.md](merged/server-calls/reviews/entities.md) |
 | 2 | [merge-3-stories/proposal.md](merge-3-stories/proposal.md) | not accepted; D1–D3 settled, revision 1, open questions in eleven rounds | the merged design and merge 4 (whether records or memory carry entity data); checked against [playback.md](../playback.md) |
 | — | [open-items.md](open-items.md) | nothing open: items 1 and 3 closed, 2 parked, 4 merged | its closing notes merge with the design |
 
