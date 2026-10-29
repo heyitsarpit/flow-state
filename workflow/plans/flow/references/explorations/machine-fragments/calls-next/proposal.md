@@ -1088,7 +1088,11 @@ Left for the owner and out of scope for this proposal; nothing here is decided. 
 
 **The design**
 
-1. *Answered: one behaviour for every memory read is impossible; the two-view rule is D15, its lint D16.*
+1. **The lane key in a `NotSent` mapper** (found applying D17). Every `NotSent` knows its lane's key, even without an
+   Attempt, because the start's or retry's key select ran. Adding `key` to the `NotSent` context would let the list
+   rewrite name the row of a `NothingToResend` instead of mapping it to `null`. (The former question 1, one behaviour
+   for every memory read, is answered by D15 and D16.)
+
 **Scope: left out of this proposal**
 
 2. **A send that must finish while the page closes** (undo send, P19): out of scope; the server-side alternative is

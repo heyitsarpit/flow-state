@@ -1,6 +1,10 @@
 # Proposal: server calls inside the machine
 
-Status: proposal, not accepted. It is the in-machine half of the commit design; the out-of-machine
+Status: **superseded by [calls-next/proposal.md](calls-next/proposal.md)**, which keeps this document's
+syntax and replaces its rules after builds and reviews found the problems listed there (section 1, P1–P23). Kept
+as the record of the first draft; do not build on it.
+
+Original status: proposal, not accepted. It is the in-machine half of the commit design; the out-of-machine
 half is [outcome-proposal.md](outcome-proposal.md) (final, to be merged into
 [proposal-v4.md](proposal-v4.md)). It closes [revisit.md](revisit.md) item 4 except where section
 8 says otherwise. Merged, it supersedes v4's P1 (in part), P4, P10, P16, P20 (in part) and the
