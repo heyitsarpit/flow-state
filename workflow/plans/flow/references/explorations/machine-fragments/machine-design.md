@@ -264,7 +264,8 @@ Each contract also carries an inferred **summary**.
 
 - For every event, hostEvent and internalEvent (timer chains included), it records each
   alternative's effects: the callbacks it notifies, the exits it takes, and whether it is
-  **total** (handled unguarded in every state).
+  **total** (handled unguarded in every state). An event handled only by a schedule trigger (2.5 step 2)
+  is total wherever that schedule is active, with no effects.
 - It also records the callbacks `whenAbandoned` notifies.
 - Effects of different alternatives are exclusive, so two of them are never counted as two state
   changers.
@@ -507,6 +508,11 @@ given event and publishes nothing.
 2. **Select the source.** Start at the active leaf.
    - Try that node's alternatives in order. An alternative is selected when all its guards pass,
      state-token elements first.
+   - **A schedule trigger is a handler.** A node with no written handler for the event, but with an
+     active schedule that lists it in `armOn` or `disarmOn`, handles it with an implicit unguarded
+     `{ target: "self" }`: nothing moves and no memory changes, and step 6 arms or stops the schedule.
+     A node with a written handler keeps only its written alternatives, so they still decline and fall
+     through as written.
    - If every alternative declines, continue at the next ancestor. Only after the root is the event
      `Denied` (if any handler existed) or `Unhandled`, and then nothing changes.
    - Compute the source's patch.
@@ -523,7 +529,8 @@ given event and publishes nothing.
    - **Addressing.** A raise addresses the incarnation live at that point: pre-turn, reset, or
      added earlier in the walk. A new incarnation is seeded lazily on first address: its `Input` record from
      the source-updated memory, then its `Flow.initial` values (2.2.2).
-   - **Children that cannot react.** If an addressed child has no handler, or all its alternatives
+   - **Children that cannot react.** If an addressed child has no handler (a schedule trigger counts as
+     one, step 2), or all its alternatives
      decline, the part **refuses the whole turn**. The host never falls through to its next
      alternative because a child refused; alternatives are chosen by their own guards.
    - **Dead incarnations.** A delivery chain addressed to a dead incarnation of an `.each` copy drops
@@ -662,7 +669,8 @@ export const Field = <V, I>(value: Schema.Codec<V, I>, p: { validate?: (v: V) =>
   );
 };
 
-// Runs once per Start; Start never refuses, and raising it re-arms the timer.
+// Runs once per Start; Start never refuses, and raising it re-arms the timer. Start has no
+// handler of its own: the schedule's `armOn` handles it (2.5 step 2).
 // No memory: "running" is the armed schedule, s.schedules.<name>.done !== undefined.
 export const Countdown = (p: { length: Duration.Input }) =>
   trait(
@@ -675,7 +683,6 @@ export const Countdown = (p: { length: Duration.Input }) =>
     ({ E, callbacks }) => ({
       schedules: { done: { schedule: p.length, send: E.Done, armOn: [E.Start] } },
       on: {
-        Start: { target: "self" },
         Done: { target: "self", notify: [callbacks.onDone] },
       },
     }),
@@ -1328,7 +1335,7 @@ sections 2 and 3.
 | P4  | Operations O3                              | A commit call may declare `retry: { on: [definite tags], schedule }`. It never retries `unknown`, `interrupt`, `defect`, `notSent` or uncertain tags. Each scheduled retry reports `retrying` before the wait; when retries run out, the last failure is the ordinary `failure`. Leaving the fenced state cancels a retry not yet invoked (`notSent` to `abandoned`) | Replaces "Flow promises no remote rollback and never retries automatically" with "…never retries automatically unless the commit declares `retry`." This **reverses** that sentence                   |
 | P5  | Machines O2, Persistence O2                | `S.X.history` targets X's last active child, or its default. `S.X.history.child(s)` reads it. It restores control only; data comes back only through `keep`                                                                                                                                                                                                          | Adds                                                                                                                                                                                                  |
 | P6  | Machines O5, O8                            | Armed schedules expose `dueAt` at the paths of 2.1                                                                                                                                                                                                                                                                                                                   | See Machines O8                                                                                                                                                                                       |
-| P7  | Machines O5                                | A schedule without `armOn` starts on entry. `armOn: [...]` starts it on each accepted listed event, raised ones included, restarting it if running; with `Flow.entry` in the list it also starts on entry, otherwise it is idle on entry. `disarmOn: [events]` stops it on each accepted listed event; stopping an idle schedule does nothing. Exit stops any schedule. An event in both lists, or `armOn` together with `restartOn`, is a construction error. Every temporal construct is delayed: it never counts the turn that arms it | Replaces "Entry arms a schedule; exit cancels it" with "Entry arms a schedule without `armOn` (or with `Flow.entry`); `disarmOn` and exit cancel" |
+| P7  | Machines O5                                | A schedule without `armOn` starts on entry. `armOn: [...]` starts it on each accepted listed event, raised ones included, restarting it if running; with `Flow.entry` in the list it also starts on entry, otherwise it is idle on entry. `disarmOn: [events]` stops it on each accepted listed event; stopping an idle schedule does nothing. Exit stops any schedule. An event in both lists, or `armOn` together with `restartOn`, is a construction error. Every temporal construct is delayed: it never counts the turn that arms it. An event listed in an active schedule's `armOn` or `disarmOn` is handled by it where the node has no written handler: an implicit unguarded `{ target: "self" }` | Replaces "Entry arms a schedule; exit cancels it" with "Entry arms a schedule without `armOn` (or with `Flow.entry`); `disarmOn` and exit cancel" |
 | P8  | Machines O5                                | The `restartOn` baseline is the activating turn's committed memory                                                                                                                                                                                                                                                                                                   | Clarifies "restartOn … establishes a silent baseline"                                                                                                                                                 |
 | P9  | Operations O3, Machines O6, Persistence O6 | `unknown`, `interrupt` and `defect` target only `uncertain` events. A call never invoked answers `notSent`                                                                                                                                                                                                                                                           | Replaces the `reject` and "ends it as interrupt" sentences; adds `notSent` to the outcome list                                                                                                        |
 | P10 | Operations O3, Machines O3                 | `abandoned` receives `{ outcome, tag?, value?, input, attempt }`. It is an `on`-style handler without `target`, ending unguarded. It writes host memory, may raise into root traits, and may run actions (P20). It runs twice: `"pending"` fused into the leaving turn, then on settlement. Each run must be correct alone                                           | Adds a turn source                                                                                                                                                                                    |
@@ -1494,4 +1501,9 @@ From [reviews/design-correctness.md](reviews/design-correctness.md) and [reviews
 - `Field(schema, { validate? })` keeps the author's validator. A validator returns `true | deny(code, context?)`, the field stores the denial or null as `Flow.Denial`, and a host guard forwards it (`memory.code.error ?? true`). A Schema check fits inside a validator (`Schema.is`), so `unchecked` and `firstIssue` are gone ([reference/effect4-field-validation.md](reference/effect4-field-validation.md)).
 - `.each` replaces the open `.list` draft (rule 9, 2.5, sign-in, invites): membership is host memory, decided from the turn's final list, repaired instead of refused, with incarnations kept internal ([merged/each.md](merged/each.md) and its four reviews).
 - Schedules (P7): `armOn` may list `Flow.entry` to also start on entry; `disarmOn` stops a schedule; `armOn` with `restartOn` is a construction error. Event-typed triggers need no name inference ([spikes/schedule-triggers/RESULTS.md](spikes/schedule-triggers/RESULTS.md)). `schedules` keeps its name (D53).
+- Schedule triggers are handlers (2.5 step 2): an event listed in an active schedule's `armOn` or `disarmOn` is handled
+  there with no move when the node has no written handler, so `Countdown` loses its `Start: { target: "self" }` no-op.
+  Rejected: restarting by reset alone (`Flow.entry` plus `resetOn`), because `Lockout`'s nested timer must start at
+  the limit-th strike, not when `Lockout` is created; and arming from the transition (`arm:`), for the locality and
+  naming costs in [spikes/schedule-triggers/RESULTS.md](spikes/schedule-triggers/RESULTS.md).
 - `onLeave` is renamed `whenAbandoned`: it names the moment a life is ended by someone else, and the `when` prefix keeps it apart from the `on…` callbacks it fires.

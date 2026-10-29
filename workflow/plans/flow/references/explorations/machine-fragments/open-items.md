@@ -33,6 +33,11 @@ Questions to answer when revisiting:
   despite the locality and naming costs found in [spikes/schedule-triggers/RESULTS.md](spikes/schedule-triggers/RESULTS.md)?
 - Or is a timer-only trait better expressed some other way, so authors rarely write this?
 
+**Resolved (2026-10-29).** A schedule trigger is a handler: an event listed in an active schedule's `armOn` or
+`disarmOn` is handled there, with no move, when the node has no written handler (machine-design.md 2.5 step 2, P7).
+`Countdown` drops its no-op. `Flow.entry` alone did not cover it, because `Lockout`'s nested timer must not start
+on entry.
+
 ## 2. The name `raise` (flagged 2026-10-29)
 
 `raise` comes from SCXML, where it means "an event inside this machine, handled in this turn" and
