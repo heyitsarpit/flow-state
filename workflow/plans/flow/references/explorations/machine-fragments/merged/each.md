@@ -1028,7 +1028,7 @@ file, or a parallel-upload limit with a queue per file.
 | Operations O2 (P1) | Outcome mappers of a commit started in a copy also receive `key`. |
 | Operations O3, Persistence (P12, P19) | A commit's descriptor and Attempt carry the copy's key and life. `orphaned` has no copy, so it never receives `key`. |
 | Persistence | Copies persist by key with a life counter (1.5). |
-| Testing (`model()`) | `explore: { <name>: n }`, default 2 (1.6). |
+| Testing (`model()`) | `explore: { <name>: n }`, default 2 (1.6). *Removed: model-based exploration is cut (machine-design T1).* |
 | CommandLine | `flow graph` draws one node per placement with its field and `max`. |
 | Inspection | Copies named `name["key"]@life`, keys escaped. |
 
