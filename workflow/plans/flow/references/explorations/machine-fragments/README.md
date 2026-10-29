@@ -6,11 +6,12 @@ change only when a proposal is accepted.
 ## The design and what merges into it
 
 [machine-design.md](machine-design.md) is the one design (formerly `proposal-v4.md`; "v4" in its text and in the
-other documents names it). Merges 1 and 2 are merged into it (2026-10-30). What is left merges in this order:
+other documents names it). Merges 1 and 2 are merged into it (2026-10-30). What is left merges in this order (folder numbers are the order they were written, not the merge order):
 
 | Order | File | Status | Depends on |
 | --- | --- | --- | --- |
-| 1 | [merge-3-stories/proposal.md](merge-3-stories/proposal.md) | not accepted; 20 open questions | the merged design (with merges 1 and 2): Stories for its endings, lanes and fragments; checked against [playback.md](../playback.md) |
+| 1 | [merge-4-entities/proposal.md](merge-4-entities/proposal.md) | not accepted; decisions E1–E16 proposed, in six confirmation rounds | the merged design: who owns a write about an entity, and the conflicts in [merged/server-calls/reviews/entities.md](merged/server-calls/reviews/entities.md) |
+| 2 | [merge-3-stories/proposal.md](merge-3-stories/proposal.md) | not accepted; D1–D3 settled, revision 1, open questions in eleven rounds | the merged design and merge 4 (whether records or memory carry entity data); checked against [playback.md](../playback.md) |
 | — | [open-items.md](open-items.md) | nothing open: items 1 and 3 closed, 2 parked, 4 merged | its closing notes merge with the design |
 
 Merged proposals move to [merged/](merged/) with their evidence, as the record behind the design:
